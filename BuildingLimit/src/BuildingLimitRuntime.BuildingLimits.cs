@@ -20,15 +20,54 @@ namespace BuildingLimit
             if (GamePlayerManagerAPI.Instance.IsAIPlayer(args.PlayerId))
                 return;
 
-            if (!activeBuildingLimitRules.TryGetValue(args.Mappers, out BuildingLimitRule rule) ||
-                rule.Limit < 0)
+            if (!activeBuildingLimitRules.TryGetValue(args.Mappers, out BuildingLimitRule rule))
+            {
+                LogInfo(
+                    "Building placement validation has no active limit rule:",
+                    "player", args.PlayerId,
+                    "mapper", args.Mappers);
                 return;
+            }
 
-            if (CountAliveBuildings(args.PlayerId, rule.Definition) < rule.Limit)
+            if (rule.Limit < 0)
+            {
+                LogInfo(
+                    "Building placement validation limit is unlimited:",
+                    "player", args.PlayerId,
+                    "mapper", args.Mappers,
+                    "limit", rule.Limit);
                 return;
+            }
+
+            int aliveCount = CountAliveBuildings(args.PlayerId, rule.Definition);
+            LogInfo(
+                "Building placement validation count:",
+                "player", args.PlayerId,
+                "mapper", args.Mappers,
+                "definition", rule.Definition.Mapper,
+                "limit", rule.Limit,
+                "count", aliveCount,
+                "structures", string.Join(",", Array.ConvertAll(rule.Definition.Structures, structure => structure.ToString())));
+
+            if (aliveCount < rule.Limit)
+            {
+                LogInfo(
+                    "Building placement validation below limit:",
+                    "player", args.PlayerId,
+                    "mapper", args.Mappers,
+                    "limit", rule.Limit,
+                    "count", aliveCount);
+                return;
+            }
 
             args.CustomValidationRules = true;
             args.ForceBlockPlacementState = true;
+            LogInfo(
+                "Building placement validation blocked by limit:",
+                "player", args.PlayerId,
+                "mapper", args.Mappers,
+                "limit", rule.Limit,
+                "count", aliveCount);
             ShowBuildingLimitMessageForLocalPlayer(args.PlayerId, rule.Definition, rule.Limit);
         }
 
@@ -48,20 +87,30 @@ namespace BuildingLimit
                 "Max " + limit + " " + GetLocalizedBuildingName(definition));
         }
 
+        // This method is no longer used since we switched to using the active building cache for counting alive buildings, but it's kept here for reference in case we need to revert that change or want to compare results.
+        // private int CountAliveBuildings(int playerId, BuildingLimitDefinition definition)
+        // {
+        //     int count = 0;
+        //     foreach (eStructs structure in definition.Structures)
+        //     {
+        //         matchingBuildingIds.Clear();
+        //         GameBuildingManagerAPI.Instance.GetAllBuildings(
+        //             matchingBuildingIds,
+        //             AliveState.IsAlive,
+        //             structure,
+        //             PlayerRelationship.Self,
+        //             playerId);
+        //         count += matchingBuildingIds.Count;
+        //     }
+
+        //     return count;
+        // }
+
         private int CountAliveBuildings(int playerId, BuildingLimitDefinition definition)
         {
             int count = 0;
             foreach (eStructs structure in definition.Structures)
-            {
-                matchingBuildingIds.Clear();
-                GameBuildingManagerAPI.Instance.GetAllBuildings(
-                    matchingBuildingIds,
-                    AliveState.IsAlive,
-                    structure,
-                    PlayerRelationship.Self,
-                    playerId);
-                count += matchingBuildingIds.Count;
-            }
+                count += activeBuildingCache.GetActiveBuildingCount(playerId, structure);
 
             return count;
         }

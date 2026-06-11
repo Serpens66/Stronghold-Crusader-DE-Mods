@@ -17,7 +17,8 @@ namespace BuildingLimit
         private readonly HashSet<eMappers> loggedBuildingLimitCooldownSuppressions = new HashSet<eMappers>();
         private readonly Dictionary<eMappers, DateTime> buildingLimitMessageCooldowns = new Dictionary<eMappers, DateTime>();
         private readonly Dictionary<eMappers, BuildingLimitRule> activeBuildingLimitRules = new Dictionary<eMappers, BuildingLimitRule>();
-        private readonly List<int> matchingBuildingIds = new List<int>();
+        // private readonly List<int> matchingBuildingIds = new List<int>();
+        private readonly ActiveBuildingCache activeBuildingCache;
         private bool settingsPropertyChangedSubscribed;
         private bool hooksSubscribed;
         private bool libraryInitialized;
@@ -32,6 +33,7 @@ namespace BuildingLimit
         {
             this.log = log;
             this.settings = settings;
+            activeBuildingCache = new ActiveBuildingCache(log);
         }
 
         public void SubscribeHooks()
@@ -40,6 +42,7 @@ namespace BuildingLimit
                 return;
 
             LogInfo("Subscribing building limit runtime hooks");
+            activeBuildingCache.SubscribeHooks();
 
             BuildingR3EventHooks.OnPlacementValidation.Observable
                 .Where(args => args.Phase == EventHookPhase.Pre)
@@ -81,10 +84,10 @@ namespace BuildingLimit
             }
 
             HideBuildingLimitMessage();
+            activeBuildingCache.Dispose();
             loggedBuildingLimitCooldownSuppressions.Clear();
             buildingLimitMessageCooldowns.Clear();
             activeBuildingLimitRules.Clear();
-            matchingBuildingIds.Clear();
         }
 
         private void OnStartMap(MapStartEventArgs args)
@@ -112,6 +115,7 @@ namespace BuildingLimit
             HideBuildingLimitMessage();
             buildingLimitMessageCooldowns.Clear();
             loggedBuildingLimitCooldownSuppressions.Clear();
+            // matchingBuildingIds.Clear();
         }
 
         private void LogInfo(params object[] parts)

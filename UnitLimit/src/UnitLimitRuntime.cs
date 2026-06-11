@@ -21,7 +21,9 @@ namespace UnitLimit
         private readonly Dictionary<eChimps, bool> originalUnitRecruitableStates = new Dictionary<eChimps, bool>();
         private readonly Dictionary<eChimps, int> activeUnitLimits = new Dictionary<eChimps, int>();
         private readonly Dictionary<PendingRecruitmentKey, List<DateTime>> pendingRecruitments = new Dictionary<PendingRecruitmentKey, List<DateTime>>();
-        private readonly List<int> matchingUnitIds = new List<int>();
+        // private readonly List<int> matchingUnitIds = new List<int>();
+        private readonly ActiveUnitCache activeUnitCache;
+        private MakeTroopGameActionHook makeTroopGameActionHook;
         private bool settingsPropertyChangedSubscribed;
         private bool hooksSubscribed;
         private bool libraryInitialized;
@@ -68,6 +70,7 @@ namespace UnitLimit
         {
             this.log = log;
             this.settings = settings;
+            activeUnitCache = new ActiveUnitCache(log);
         }
 
         public void SubscribeHooks()
@@ -76,24 +79,9 @@ namespace UnitLimit
                 return;
 
             LogInfo("Subscribing unit limit runtime hooks");
-
-            UnitR3EventHooks.OnUnitCreate.Observable
-                .Subscribe(OnUnitCreate);
-
-            UnitR3EventHooks.OnUnitDelete.Observable
-                .Subscribe(OnUnitDelete);
-
-            UnitR3EventHooks.OnUnitTransition.Observable
-                .Subscribe(OnUnitTransition);
-
-            UnitR3EventHooks.OnGameActionMakeTroop.Observable
-                .Subscribe(OnGameActionMakeTroop);
-
-            UnitR3EventHooks.OnUnitKilledByProjectile.Observable
-                .Subscribe(_ => RefreshLocalUnitRecruitableStates("OnUnitKilledByProjectile"));
-
-            UnitR3EventHooks.OnUnitKilledByMelee.Observable
-                .Subscribe(_ => RefreshLocalUnitRecruitableStates("OnUnitKilledByMelee"));
+            activeUnitCache.SubscribeHooks();
+            activeUnitCache.OnActiveUnitChanged += OnActiveUnitChanged;
+            makeTroopGameActionHook = new MakeTroopGameActionHook(log, ShouldBlockMakeTroopGameAction);
 
             MapLoaderR3EventHooks.OnStartMap.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
@@ -134,13 +122,16 @@ namespace UnitLimit
             RestoreOriginalUnitRecruitableStates();
             HideLimitMessage();
             ClearPendingRecruitments("Dispose");
+            makeTroopGameActionHook?.Dispose();
+            makeTroopGameActionHook = null;
+            activeUnitCache.OnActiveUnitChanged -= OnActiveUnitChanged;
+            activeUnitCache.Dispose();
 
             loggedUnitLimitCooldownSuppressions.Clear();
             locallyDisabledUnitRecruitment.Clear();
             unitLimitMessageCooldowns.Clear();
             originalUnitRecruitableStates.Clear();
             activeUnitLimits.Clear();
-            matchingUnitIds.Clear();
         }
 
         private void OnStartMap(MapStartEventArgs args)
@@ -170,6 +161,7 @@ namespace UnitLimit
             loggedUnitLimitCooldownSuppressions.Clear();
             locallyDisabledUnitRecruitment.Clear();
             originalUnitRecruitableStates.Clear();
+            // matchingUnitIds.Clear();
         }
 
         private void LogInfo(params object[] parts)

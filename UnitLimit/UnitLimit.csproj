@@ -94,6 +94,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="src\ActiveUnitCache.cs" />
     <Compile Include="src\MakeTroopGameActionHook.cs" />
     <Compile Include="src\UnitLimitRuntime.cs" />
     <Compile Include="src\UnitLimitRuntime.Settings.cs" />
@@ -115,3 +116,5 @@
            Text="SHCDESE.dll wurde im ExtenderDir nicht gefunden: $(ExtenderDir)" />
   </Target>
 </Project>
+
+

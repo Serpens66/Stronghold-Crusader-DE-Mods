@@ -43,20 +43,16 @@ namespace UnitLimit
             }
         }
 
-        private void OnGameActionMakeTroop(UnitGameActionMakeTroopEventArgs args)
+        internal bool ShouldBlockMakeTroopGameAction(int amount, eChimps unitType, int rawUnitType)
         {
             try
             {
-                bool block = ShouldBlockLocalUnitRecruitmentRequest(args.Amount, args.UnitType, args.RawState);
-                if (block)
-                {
-                    args.SkipOriginalFunction = true;
-                    args.ReturnValue = 0;
-                }
+                return ShouldBlockLocalUnitRecruitmentRequest(amount, unitType, rawUnitType);
             }
             catch (Exception ex)
             {
                 LogInfo("Unit limit game action event failed:", ex.Message);
+                return false;
             }
         }
 
@@ -79,8 +75,25 @@ namespace UnitLimit
             int liveCount = CountAliveUnits(playerId, unitType);
             int pendingCount = GetPendingRecruitmentCount(playerId, unitType);
             int effectiveCount = liveCount + pendingCount;
+            LogInfo(
+                "MakeTroop count:",
+                "unit", unitType,
+                "player", playerId,
+                "live", liveCount,
+                "pending", pendingCount,
+                "effective", effectiveCount,
+                "amount", amount,
+                "limit", limit,
+                "rawUnitType", rawUnitType);
             if (effectiveCount + amount <= limit)
             {
+                LogInfo(
+                    "MakeTroop allow: below or at unit limit",
+                    "unit", unitType,
+                    "player", playerId,
+                    "effective", effectiveCount,
+                    "amount", amount,
+                    "limit", limit);
                 ReservePendingRecruitment(playerId, unitType, amount);
                 return false;
             }
@@ -100,16 +113,21 @@ namespace UnitLimit
             return true;
         }
 
+        // private int CountAliveUnits(int playerId, eChimps unitType)
+        // {
+        //     matchingUnitIds.Clear();
+        //     GameUnitManagerAPI.Instance.GetAllUnits(
+        //         matchingUnitIds,
+        //         AliveState.IsAlive,
+        //         unitType,
+        //         PlayerRelationship.Self,
+        //         playerId);
+        //     return matchingUnitIds.Count;
+        // }
+
         private int CountAliveUnits(int playerId, eChimps unitType)
         {
-            matchingUnitIds.Clear();
-            GameUnitManagerAPI.Instance.GetAllUnits(
-                matchingUnitIds,
-                AliveState.IsAlive,
-                unitType,
-                PlayerRelationship.Self,
-                playerId);
-            return matchingUnitIds.Count;
+            return activeUnitCache.GetActiveUnitCount(playerId, unitType);
         }
 
         private int GetPendingRecruitmentCount(int playerId, eChimps unitType)
@@ -166,7 +184,8 @@ namespace UnitLimit
                 entry.Value.RemoveAll(expiration => expiration <= now);
                 int expired = before - entry.Value.Count;
                 if (expired > 0)
-                    LogInfo("Pending recruit expired:", entry.Key.UnitType, "player", entry.Key.PlayerId, "expired", expired, "remaining", entry.Value.Count);
+                        if (ShouldLogHumanPlayer(entry.Key.PlayerId))
+                            LogInfo("Pending recruit expired:", entry.Key.UnitType, "player", entry.Key.PlayerId, "expired", expired, "remaining", entry.Value.Count);
 
                 if (entry.Value.Count == 0)
                 {
@@ -192,55 +211,36 @@ namespace UnitLimit
             pendingRecruitments.Clear();
         }
 
-        private void OnUnitCreate(UnitCreateEventArgs args)
+        private void OnActiveUnitChanged(ActiveUnitCache.ActiveUnitChangedEventArgs args)
         {
-            if (args.Phase != EventHookPhase.Post)
+            bool oldSnapshotRelevant = IsLocalSoldierSnapshot(args.OldSnapshot);
+            bool newSnapshotRelevant = IsLocalSoldierSnapshot(args.NewSnapshot);
+            if (!oldSnapshotRelevant && !newSnapshotRelevant)
                 return;
 
-            if (SoldierChimps.Contains(args.UnitType) &&
-                IsLocalPlayer(args.PlayerOwnerId))
+            if (newSnapshotRelevant &&
+                (args.Reason == ActiveUnitCache.ActiveUnitChangeReason.Created ||
+                    args.Reason == ActiveUnitCache.ActiveUnitChangeReason.TypeChanged))
             {
-                ConsumePendingRecruitment(args.PlayerOwnerId, args.UnitType);
+                bool consumed = ConsumePendingRecruitment(args.NewSnapshot.OwnerId, args.NewSnapshot.UnitType);
+                if (consumed && ShouldLogHumanPlayer(args.NewSnapshot.OwnerId))
+                    LogInfo("Active unit change consumed pending recruitment:", "unitId", args.UnitId, "player", args.NewSnapshot.OwnerId, "reason", args.Reason, "unitType", args.NewSnapshot.UnitType);
             }
 
-            RefreshLocalUnitRecruitableStates("OnUnitCreate");
+            RefreshLocalUnitRecruitableStates("OnActiveUnitChanged");
         }
 
-        private void OnUnitTransition(UnitTransitionEventArgs args)
+        private bool IsLocalSoldierSnapshot(ActiveUnitCache.UnitSnapshot snapshot)
         {
-            if (args.Phase != EventHookPhase.Pre ||
-                !SoldierChimps.Contains(args.NextUnitType) ||
-                !IsLocalPlayer(args.PlayerOwnerId))
-                return;
-
-            bool consumed = ConsumePendingRecruitment(args.PlayerOwnerId, args.NextUnitType);
-            if (consumed)
-                LogInfo("Unit transition consumed pending recruitment:", "unitId", args.UnitId, "player", args.PlayerOwnerId, "source", args.Source, "nextUnitType", args.NextUnitType);
-
-            RefreshLocalUnitRecruitableStates("OnUnitTransition");
+            return IsActiveUnitState(snapshot.AliveState) &&
+                SoldierChimps.Contains(snapshot.UnitType) &&
+                IsLocalPlayer(snapshot.OwnerId);
         }
 
-        private void OnUnitDelete(UnitDeleteEventArgs args)
+        private static bool IsActiveUnitState(AliveState aliveState)
         {
-            if (args.UnitId <= int.MaxValue)
-            {
-                int unitId = (int)args.UnitId;
-                if (unitId > 0 && args.Phase == EventHookPhase.Pre)
-                {
-                    try
-                    {
-                        int playerId = GameUnitManagerAPI.Instance.GetOwner(unitId);
-                        if (IsLocalPlayer(playerId))
-                            LogInfo("Unit delete event:", "phase", args.Phase, "unitId", unitId, "player", playerId);
-                    }
-                    catch (Exception ex)
-                    {
-                        LogInfo("OnUnitDelete owner lookup failed:", "unitId", unitId, ex.Message);
-                    }
-                }
-            }
-
-            RefreshLocalUnitRecruitableStates("OnUnitDelete");
+            return aliveState == AliveState.IsAlive ||
+                aliveState == AliveState.NeedsInit;
         }
 
         private void ShowUnitLimitMessageForLocalPlayer(int playerId, eChimps unitType, int limit)
@@ -320,14 +320,16 @@ namespace UnitLimit
                     {
                         if (locallyDisabledUnitRecruitment.Add(unitType))
                         {
-                            LogInfo("Unit recruitment disabled by limit:", unitType, "player", playerId, "count", count, "limit", limit, "source", source);
+                            if (ShouldLogHumanPlayer(playerId))
+                                LogInfo("Unit recruitment disabled by limit:", unitType, "player", playerId, "count", count, "limit", limit, "source", source);
                             if (showNotifications)
                                 ShowUnitLimitMessageForLocalPlayer(playerId, unitType, limit);
                         }
                     }
                     else if (locallyDisabledUnitRecruitment.Remove(unitType))
                     {
-                        LogInfo("Unit recruitment enabled again:", unitType, "player", playerId, "count", count, "limit", limit, "source", source);
+                        if (ShouldLogHumanPlayer(playerId))
+                            LogInfo("Unit recruitment enabled again:", unitType, "player", playerId, "count", count, "limit", limit, "source", source);
                     }
                 }
             }
@@ -421,6 +423,11 @@ namespace UnitLimit
             {
                 return false;
             }
+        }
+
+        private bool ShouldLogHumanPlayer(int playerId)
+        {
+            return IsUsableHumanPlayerId(playerId, false);
         }
 
         private void StartUnitLimitRecruitableRefresh()

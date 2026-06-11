@@ -90,6 +90,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="src\ActiveBuildingCache.cs" />
     <Compile Include="src\BuildingLimitRuntime.BuildingLimits.cs" />
     <Compile Include="src\BuildingLimitRuntime.cs" />
     <Compile Include="src\BuildingLimitRuntime.Settings.cs" />
