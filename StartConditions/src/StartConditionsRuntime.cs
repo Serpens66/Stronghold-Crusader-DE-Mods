@@ -26,8 +26,7 @@ namespace StartConditions
         private const int AiStartTroopModeCount = 3;
         private const int AiStartTroopFieldCount = AiStartTroopFieldCountPerMode * AiStartTroopModeCount;
         private const int DelayedStartTroopCountMilliseconds = 20000;
-        private const int IncomingGoodClearAmount = 10000;
-        private static readonly eGoods[] IncomingGoodsWithoutMoney = CreateIncomingGoodsWithoutMoney();
+        private const int IncomingGoodClearAmount = 100000;
         private string pendingStartTroopTimerHandle;
         private StartTroopPlan pendingStartTroopPlan;
 

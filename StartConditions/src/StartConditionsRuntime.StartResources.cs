@@ -28,13 +28,13 @@ namespace StartConditions
         private void ApplyStartGold(int playerId)
         {
             bool isAI = GamePlayerManagerAPI.Instance.IsAIPlayer(playerId);
-            string setGold = isAI ? settings.SetStartGoldAI : settings.SetStartGoldHuman;
+            int setGold = isAI ? settings.SetStartGoldAI : settings.SetStartGoldHuman;
             int addGold = isAI ? settings.AddStartGoldAI : settings.AddStartGoldHuman;
 
-            if (TryParseNullableInt(setGold, out int startGold))
+            if (setGold >= 0)
             {
-                GamePlayerManagerAPI.Instance.SetPlayerGold(playerId, (uint)Math.Max(0, startGold));
-                LogInfo("Set gold of player", playerId, "to", startGold);
+                GamePlayerManagerAPI.Instance.SetPlayerGold(playerId, (uint)setGold);
+                LogInfo("Set gold of player", playerId, "to", setGold);
             }
 
             if (addGold != 0)
@@ -50,39 +50,23 @@ namespace StartConditions
             Dictionary<eGoods, int> humanGoods = ParseEnumAmounts<eGoods>(settings.StartGoodsHuman);
 
             bool isAI = GamePlayerManagerAPI.Instance.IsAIPlayer(playerId);
-            bool overwrite = isAI ? settings.OverwriteStartGoodsAI : settings.OverwriteStartGoodsHuman;
-            if (!overwrite)
-                return;
-
             Dictionary<eGoods, int> goods = isAI ? aiGoods : humanGoods;
-            ClearIncomingGoodsWithoutMoney(playerId);
             foreach (KeyValuePair<eGoods, int> entry in goods)
             {
-                if (entry.Value <= 0)
+                if (entry.Value < 0)
                     continue;
 
-                GamePlayerManagerAPI.Instance.AddIncomingGood(playerId, entry.Key, entry.Value);
-                LogInfo("AddIncomingGood", entry.Value, entry.Key, "to player", playerId);
+                if (!IsConfigurableStoredGood(entry.Key))
+                {
+                    LogInfo("Ignoring non-storage start good", entry.Key, "for player", playerId);
+                    continue;
+                }
+
+                GamePlayerManagerAPI.Instance.SubtractIncomingGood(playerId, entry.Key, IncomingGoodClearAmount);
+                if (entry.Value > 0)
+                    GamePlayerManagerAPI.Instance.AddIncomingGood(playerId, entry.Key, entry.Value);
+                LogInfo("Set incoming good", entry.Key, "to", entry.Value, "for player", playerId);
             }
-        }
-
-        private void ClearIncomingGoodsWithoutMoney(int playerId)
-        {
-            foreach (eGoods good in IncomingGoodsWithoutMoney)
-                GamePlayerManagerAPI.Instance.SubtractIncomingGood(playerId, good, IncomingGoodClearAmount);
-        }
-
-        private static eGoods[] CreateIncomingGoodsWithoutMoney()
-        {
-            Array values = Enum.GetValues(typeof(eGoods));
-            List<eGoods> goods = new List<eGoods>(values.Length);
-            foreach (eGoods good in values)
-            {
-                if (good != eGoods.STORED_GOLD)
-                    goods.Add(good);
-            }
-
-            return goods.ToArray();
         }
 
         private void OnPlayerAddResource(PlayerAddResourceEventArgs args)

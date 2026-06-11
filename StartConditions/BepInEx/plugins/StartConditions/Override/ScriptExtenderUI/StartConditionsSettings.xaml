@@ -23,28 +23,83 @@
         <TextBlock Grid.Row="0" Grid.Column="2" Text="Human" Foreground="White" FontWeight="Bold"/>
 
         <TextBlock Grid.Row="1" Grid.Column="0" Text="Multiply goods gain" Foreground="White" Margin="0,4"/>
-        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding MultiplyGoodsGainAI, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
-        <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding MultiplyGoodsGainHuman, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding MultiplyGoodsGainAIText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+        <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding MultiplyGoodsGainHumanText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
 
         <TextBlock Grid.Row="2" Grid.Column="0" Text="Multiply goods as money" Foreground="White" Margin="0,4"/>
-        <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding MultiplyGoodsGainInMoneyAI, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
-        <TextBox Grid.Row="2" Grid.Column="2" Text="{Binding MultiplyGoodsGainInMoneyHuman, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+        <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding MultiplyGoodsGainInMoneyAIText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+        <TextBox Grid.Row="2" Grid.Column="2" Text="{Binding MultiplyGoodsGainInMoneyHumanText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
 
-        <TextBlock Grid.Row="3" Grid.Column="0" Text="Set start gold (empty = skip)" Foreground="White" Margin="0,4"/>
-        <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding SetStartGoldAI, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
-        <TextBox Grid.Row="3" Grid.Column="2" Text="{Binding SetStartGoldHuman, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+        <TextBlock Grid.Row="3" Grid.Column="0" Text="Set start gold (-1 = unchanged)" Foreground="White" Margin="0,4"/>
+        <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding SetStartGoldAIText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+        <TextBox Grid.Row="3" Grid.Column="2" Text="{Binding SetStartGoldHumanText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
 
         <TextBlock Grid.Row="4" Grid.Column="0" Text="Add start gold" Foreground="White" Margin="0,4"/>
-        <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding AddStartGoldAI, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
-        <TextBox Grid.Row="4" Grid.Column="2" Text="{Binding AddStartGoldHuman, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+        <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding AddStartGoldAIText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+        <TextBox Grid.Row="4" Grid.Column="2" Text="{Binding AddStartGoldHumanText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
       </Grid>
 
       <Separator Background="#444466" Margin="0,10"/>
       <TextBlock Text="START GOODS" Foreground="#77AAFF" FontWeight="Bold" Margin="0,0,0,8"/>
-      <CheckBox IsChecked="{Binding OverwriteStartGoodsAI, Mode=TwoWay}" Content="Overwrite AI start goods" Foreground="White" Margin="0,4"/>
-      <TextBox Text="{Binding StartGoodsAI, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" AcceptsReturn="True" Height="160" Margin="0,3,0,8" ui:KeyboardCaptureBinding.Enabled="True"/>
-      <CheckBox IsChecked="{Binding OverwriteStartGoodsHuman, Mode=TwoWay}" Content="Overwrite human start goods" Foreground="White" Margin="0,4"/>
-      <TextBox Text="{Binding StartGoodsHuman, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" AcceptsReturn="True" Height="160" Margin="0,3,0,8" ui:KeyboardCaptureBinding.Enabled="True"/>
+      <TextBlock Text="-1 = unchanged. Allowed range: -1 to 100000." Foreground="#CCCCCC" TextWrapping="Wrap" Margin="0,0,0,6"/>
+      <Grid Margin="0,0,0,4">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="220"/>
+          <ColumnDefinition Width="90"/>
+          <ColumnDefinition Width="90"/>
+          <ColumnDefinition Width="120"/>
+          <ColumnDefinition Width="90"/>
+        </Grid.ColumnDefinitions>
+        <TextBlock Grid.Column="1" Text="AI" Foreground="White" FontWeight="Bold"/>
+        <TextBlock Grid.Column="2" Text="Human" Foreground="White" FontWeight="Bold"/>
+        <TextBlock Grid.Column="3" Text="Normal/Crusader" Foreground="White" FontWeight="Bold"/>
+        <TextBlock Grid.Column="4" Text="Deathmatch" Foreground="White" FontWeight="Bold"/>
+      </Grid>
+      <ItemsControl ItemsSource="{Binding StartGoodEntries}" Margin="0,3,0,8">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate>
+            <Grid Margin="0,1">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="220"/>
+                <ColumnDefinition Width="90"/>
+                <ColumnDefinition Width="90"/>
+                <ColumnDefinition Width="120"/>
+                <ColumnDefinition Width="90"/>
+              </Grid.ColumnDefinitions>
+              <TextBlock Grid.Column="0"
+                         Text="{Binding DisplayName}"
+                         ToolTip="{Binding Key}"
+                         Foreground="White"
+                         VerticalAlignment="Center"
+                         Margin="0,2,8,2"/>
+              <TextBox Grid.Column="1"
+                       Text="{Binding AIAmountText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}"
+                       MaxLength="7"
+                       HorizontalContentAlignment="Right"
+                       Margin="3"
+                       ui:KeyboardCaptureBinding.Enabled="True"/>
+              <TextBox Grid.Column="2"
+                       Text="{Binding HumanAmountText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}"
+                       MaxLength="7"
+                       HorizontalContentAlignment="Right"
+                       Margin="3"
+                       ui:KeyboardCaptureBinding.Enabled="True"/>
+              <TextBlock Grid.Column="3"
+                         Text="{Binding NormalCrusaderAmountText}"
+                         Foreground="#CCCCCC"
+                         HorizontalAlignment="Right"
+                         VerticalAlignment="Center"
+                         Margin="3"/>
+              <TextBlock Grid.Column="4"
+                         Text="{Binding DeathmatchAmountText}"
+                         Foreground="#CCCCCC"
+                         HorizontalAlignment="Right"
+                         VerticalAlignment="Center"
+                         Margin="3"/>
+            </Grid>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
 
       <Separator Background="#444466" Margin="0,10"/>
       <TextBlock Text="START TROOPS" Foreground="#77AAFF" FontWeight="Bold" Margin="0,0,0,8"/>
@@ -61,14 +116,51 @@
         <TextBlock Grid.Row="0" Grid.Column="1" Text="AI" Foreground="White" FontWeight="Bold"/>
         <TextBlock Grid.Row="0" Grid.Column="2" Text="Human" Foreground="White" FontWeight="Bold"/>
         <TextBlock Grid.Row="1" Grid.Column="0" Text="Multiply start troops" Foreground="White" Margin="0,4"/>
-        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding MultiplyStartTroopsAI, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
-        <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding MultiplyStartTroopsHuman, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding MultiplyStartTroopsAIText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+        <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding MultiplyStartTroopsHumanText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
       </Grid>
 
-      <TextBlock Text="Add AI troops" Foreground="White" Margin="0,8,0,0"/>
-      <TextBox Text="{Binding AddStartTroopsAI, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" AcceptsReturn="True" Height="160" Margin="0,3,0,8" ui:KeyboardCaptureBinding.Enabled="True"/>
-      <TextBlock Text="Add human troops" Foreground="White"/>
-      <TextBox Text="{Binding AddStartTroopsHuman, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" AcceptsReturn="True" Height="160" Margin="0,3,0,8" ui:KeyboardCaptureBinding.Enabled="True"/>
+      <TextBlock Text="Extra Start Units: -1 or 0 = no extra units. Allowed range: -1 to 100000." Foreground="#CCCCCC" TextWrapping="Wrap" Margin="0,8,0,6"/>
+      <Grid Margin="0,0,0,4">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="260"/>
+          <ColumnDefinition Width="90"/>
+          <ColumnDefinition Width="90"/>
+        </Grid.ColumnDefinitions>
+        <TextBlock Grid.Column="1" Text="AI" Foreground="White" FontWeight="Bold"/>
+        <TextBlock Grid.Column="2" Text="Human" Foreground="White" FontWeight="Bold"/>
+      </Grid>
+      <ItemsControl ItemsSource="{Binding StartTroopEntries}" Margin="0,3,0,8">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate>
+            <Grid Margin="0,1">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="260"/>
+                <ColumnDefinition Width="90"/>
+                <ColumnDefinition Width="90"/>
+              </Grid.ColumnDefinitions>
+              <TextBlock Grid.Column="0"
+                         Text="{Binding DisplayName}"
+                         ToolTip="{Binding Key}"
+                         Foreground="White"
+                         VerticalAlignment="Center"
+                         Margin="0,2,8,2"/>
+              <TextBox Grid.Column="1"
+                       Text="{Binding AIAmountText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}"
+                       MaxLength="7"
+                       HorizontalContentAlignment="Right"
+                       Margin="3"
+                       ui:KeyboardCaptureBinding.Enabled="True"/>
+              <TextBox Grid.Column="2"
+                       Text="{Binding HumanAmountText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}"
+                       MaxLength="7"
+                       HorizontalContentAlignment="Right"
+                       Margin="3"
+                       ui:KeyboardCaptureBinding.Enabled="True"/>
+            </Grid>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
     </StackPanel>
   </ScrollViewer>
 </Grid>

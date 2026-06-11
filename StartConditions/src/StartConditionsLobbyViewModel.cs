@@ -1,6 +1,11 @@
 using SHCDESE.API.Components.Network;
+using SHCDESE.Interop;
 using SHCDESE.ViewModels;
 using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
+using System.Text;
 
 namespace StartConditions
 {
@@ -12,16 +17,19 @@ namespace StartConditions
         private int multiplyGoodsGainHuman = 0;
         private int multiplyGoodsGainInMoneyAI = 2;
         private int multiplyGoodsGainInMoneyHuman = 0;
-        private string setStartGoldAI = "";
-        private string setStartGoldHuman = "0";
+        private int setStartGoldAI = -1;
+        private int setStartGoldHuman = 0;
         private int addStartGoldAI = 10000;
         private int addStartGoldHuman = 0;
-        private bool overwriteStartGoodsAI = true;
-        private bool overwriteStartGoodsHuman = false;
         private int multiplyStartTroopsAI = 10;
         private int multiplyStartTroopsHuman = 0;
+        private string startGoodsAI = DefaultStartGoodsAI;
+        private string startGoodsHuman = DefaultStartGoodsHuman;
+        private string addStartTroopsAI = DefaultTroops;
+        private string addStartTroopsHuman = DefaultTroops;
+        private bool updatingEntries;
 
-        private string startGoodsAI = @"STORED_WOOD_PLANKS=192
+        public const string DefaultStartGoodsAI = @"STORED_WOOD_PLANKS=192
 STORED_RAW_HOPS=0
 STORED_STONE_BLOCKS=240
 STORED_IRON_INGOTS=48
@@ -42,7 +50,7 @@ STORED_SWORDS=0
 STORED_LEATHER_ARMOUR=0
 STORED_METAL_ARMOUR=0";
 
-        private string startGoodsHuman = @"STORED_WOOD_PLANKS=96
+        public const string DefaultStartGoodsHuman = @"STORED_WOOD_PLANKS=96
 STORED_RAW_HOPS=0
 STORED_STONE_BLOCKS=48
 STORED_IRON_INGOTS=0
@@ -63,8 +71,47 @@ STORED_SWORDS=0
 STORED_LEATHER_ARMOUR=0
 STORED_METAL_ARMOUR=0";
 
-        private string addStartTroopsAI = DefaultTroops;
-        private string addStartTroopsHuman = DefaultTroops;
+        private const string VanillaSkirmishGoods = @"STORED_WOOD_PLANKS=100
+STORED_RAW_HOPS=0
+STORED_STONE_BLOCKS=50
+STORED_IRON_INGOTS=0
+STORED_PITCH_RAW=0
+STORED_RAW_WHEAT=0
+STORED_FOOD_BREAD=50
+STORED_FOOD_CHEESE=0
+STORED_FOOD_MEAT=0
+STORED_FOOD_FRUIT=0
+STORED_FOOD_ALE=0
+STORED_FLOUR=0
+STORED_BOWS=0
+STORED_CROSSBOWS=0
+STORED_SPEARS=0
+STORED_PIKES=0
+STORED_MACES=0
+STORED_SWORDS=0
+STORED_LEATHER_ARMOUR=0
+STORED_METAL_ARMOUR=0";
+
+        private const string VanillaDeathmatchGoods = @"STORED_WOOD_PLANKS=150
+STORED_RAW_HOPS=20
+STORED_STONE_BLOCKS=150
+STORED_IRON_INGOTS=25
+STORED_PITCH_RAW=48
+STORED_RAW_WHEAT=25
+STORED_FOOD_BREAD=200
+STORED_FOOD_CHEESE=0
+STORED_FOOD_MEAT=0
+STORED_FOOD_FRUIT=0
+STORED_FOOD_ALE=10
+STORED_FLOUR=0
+STORED_BOWS=0
+STORED_CROSSBOWS=0
+STORED_SPEARS=0
+STORED_PIKES=0
+STORED_MACES=0
+STORED_SWORDS=0
+STORED_LEATHER_ARMOUR=0
+STORED_METAL_ARMOUR=0";
 
         public const string DefaultTroops = @"CHIMP_TYPE_ARCHER=0
 CHIMP_TYPE_SPEARMAN=0
@@ -93,22 +140,334 @@ CHIMP_TYPE_BEDOUIN_HEAVY_CAMEL=0
 CHIMP_TYPE_BEDOUIN_SAPPER=0
 CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
 
-        [SyncHostOnly] public int MultiplyGoodsGainAI { get => multiplyGoodsGainAI; set => Set(ref multiplyGoodsGainAI, value, nameof(MultiplyGoodsGainAI)); }
-        [SyncHostOnly] public int MultiplyGoodsGainHuman { get => multiplyGoodsGainHuman; set => Set(ref multiplyGoodsGainHuman, value, nameof(MultiplyGoodsGainHuman)); }
-        [SyncHostOnly] public int MultiplyGoodsGainInMoneyAI { get => multiplyGoodsGainInMoneyAI; set => Set(ref multiplyGoodsGainInMoneyAI, value, nameof(MultiplyGoodsGainInMoneyAI)); }
-        [SyncHostOnly] public int MultiplyGoodsGainInMoneyHuman { get => multiplyGoodsGainInMoneyHuman; set => Set(ref multiplyGoodsGainInMoneyHuman, value, nameof(MultiplyGoodsGainInMoneyHuman)); }
-        [SyncHostOnly] public string SetStartGoldAI { get => setStartGoldAI; set => Set(ref setStartGoldAI, value, nameof(SetStartGoldAI)); }
-        [SyncHostOnly] public string SetStartGoldHuman { get => setStartGoldHuman; set => Set(ref setStartGoldHuman, value, nameof(SetStartGoldHuman)); }
-        [SyncHostOnly] public int AddStartGoldAI { get => addStartGoldAI; set => Set(ref addStartGoldAI, value, nameof(AddStartGoldAI)); }
-        [SyncHostOnly] public int AddStartGoldHuman { get => addStartGoldHuman; set => Set(ref addStartGoldHuman, value, nameof(AddStartGoldHuman)); }
-        [SyncHostOnly] public bool OverwriteStartGoodsAI { get => overwriteStartGoodsAI; set => Set(ref overwriteStartGoodsAI, value, nameof(OverwriteStartGoodsAI)); }
-        [SyncHostOnly] public bool OverwriteStartGoodsHuman { get => overwriteStartGoodsHuman; set => Set(ref overwriteStartGoodsHuman, value, nameof(OverwriteStartGoodsHuman)); }
-        [SyncHostOnly] public string StartGoodsAI { get => startGoodsAI; set => Set(ref startGoodsAI, value, nameof(StartGoodsAI)); }
-        [SyncHostOnly] public string StartGoodsHuman { get => startGoodsHuman; set => Set(ref startGoodsHuman, value, nameof(StartGoodsHuman)); }
-        [SyncHostOnly] public int MultiplyStartTroopsAI { get => multiplyStartTroopsAI; set => Set(ref multiplyStartTroopsAI, value, nameof(MultiplyStartTroopsAI)); }
-        [SyncHostOnly] public int MultiplyStartTroopsHuman { get => multiplyStartTroopsHuman; set => Set(ref multiplyStartTroopsHuman, value, nameof(MultiplyStartTroopsHuman)); }
-        [SyncHostOnly] public string AddStartTroopsAI { get => addStartTroopsAI; set => Set(ref addStartTroopsAI, value, nameof(AddStartTroopsAI)); }
-        [SyncHostOnly] public string AddStartTroopsHuman { get => addStartTroopsHuman; set => Set(ref addStartTroopsHuman, value, nameof(AddStartTroopsHuman)); }
+        public StartConditionsLobbyViewModel()
+        {
+            StartGoodEntries = CreateGoodEntriesWithCallback(DefaultStartGoodsAI, DefaultStartGoodsHuman);
+            StartTroopEntries = CreateTroopEntriesWithCallback(DefaultTroops, DefaultTroops);
+        }
+
+        public IReadOnlyList<AmountEntryViewModel> StartGoodEntries { get; }
+
+        public IReadOnlyList<AmountEntryViewModel> StartTroopEntries { get; }
+
+        public void RefreshLocalizedNames()
+        {
+            foreach (AmountEntryViewModel entry in StartGoodEntries)
+            {
+                if (Enum.TryParse(entry.Key, out eGoods good))
+                {
+                    entry.DisplayName = StartConditionsRuntime.GetLocalizedGoodName(good);
+                }
+            }
+
+            foreach (AmountEntryViewModel entry in StartTroopEntries)
+            {
+                if (Enum.TryParse(entry.Key, out eChimps unitType))
+                    entry.DisplayName = StartConditionsRuntime.GetLocalizedUnitName(unitType);
+            }
+        }
+
+        [SyncHostOnly] public int MultiplyGoodsGainAI { get => multiplyGoodsGainAI; set => SetInt(ref multiplyGoodsGainAI, value, nameof(MultiplyGoodsGainAI), nameof(MultiplyGoodsGainAIText)); }
+        [SyncHostOnly] public int MultiplyGoodsGainHuman { get => multiplyGoodsGainHuman; set => SetInt(ref multiplyGoodsGainHuman, value, nameof(MultiplyGoodsGainHuman), nameof(MultiplyGoodsGainHumanText)); }
+        [SyncHostOnly] public int MultiplyGoodsGainInMoneyAI { get => multiplyGoodsGainInMoneyAI; set => SetInt(ref multiplyGoodsGainInMoneyAI, value, nameof(MultiplyGoodsGainInMoneyAI), nameof(MultiplyGoodsGainInMoneyAIText)); }
+        [SyncHostOnly] public int MultiplyGoodsGainInMoneyHuman { get => multiplyGoodsGainInMoneyHuman; set => SetInt(ref multiplyGoodsGainInMoneyHuman, value, nameof(MultiplyGoodsGainInMoneyHuman), nameof(MultiplyGoodsGainInMoneyHumanText)); }
+        [SyncHostOnly] public int SetStartGoldAI { get => setStartGoldAI; set => SetInt(ref setStartGoldAI, value, nameof(SetStartGoldAI), nameof(SetStartGoldAIText)); }
+        [SyncHostOnly] public int SetStartGoldHuman { get => setStartGoldHuman; set => SetInt(ref setStartGoldHuman, value, nameof(SetStartGoldHuman), nameof(SetStartGoldHumanText)); }
+        [SyncHostOnly] public int AddStartGoldAI { get => addStartGoldAI; set => SetInt(ref addStartGoldAI, value, nameof(AddStartGoldAI), nameof(AddStartGoldAIText)); }
+        [SyncHostOnly] public int AddStartGoldHuman { get => addStartGoldHuman; set => SetInt(ref addStartGoldHuman, value, nameof(AddStartGoldHuman), nameof(AddStartGoldHumanText)); }
+        [SyncHostOnly] public int MultiplyStartTroopsAI { get => multiplyStartTroopsAI; set => SetInt(ref multiplyStartTroopsAI, value, nameof(MultiplyStartTroopsAI), nameof(MultiplyStartTroopsAIText)); }
+        [SyncHostOnly] public int MultiplyStartTroopsHuman { get => multiplyStartTroopsHuman; set => SetInt(ref multiplyStartTroopsHuman, value, nameof(MultiplyStartTroopsHuman), nameof(MultiplyStartTroopsHumanText)); }
+
+        public string MultiplyGoodsGainAIText { get => MultiplyGoodsGainAI.ToString(); set => SetIntText(value, parsed => MultiplyGoodsGainAI = parsed, nameof(MultiplyGoodsGainAIText)); }
+        public string MultiplyGoodsGainHumanText { get => MultiplyGoodsGainHuman.ToString(); set => SetIntText(value, parsed => MultiplyGoodsGainHuman = parsed, nameof(MultiplyGoodsGainHumanText)); }
+        public string MultiplyGoodsGainInMoneyAIText { get => MultiplyGoodsGainInMoneyAI.ToString(); set => SetIntText(value, parsed => MultiplyGoodsGainInMoneyAI = parsed, nameof(MultiplyGoodsGainInMoneyAIText)); }
+        public string MultiplyGoodsGainInMoneyHumanText { get => MultiplyGoodsGainInMoneyHuman.ToString(); set => SetIntText(value, parsed => MultiplyGoodsGainInMoneyHuman = parsed, nameof(MultiplyGoodsGainInMoneyHumanText)); }
+        public string SetStartGoldAIText { get => SetStartGoldAI.ToString(); set => SetIntText(value, parsed => SetStartGoldAI = parsed, nameof(SetStartGoldAIText)); }
+        public string SetStartGoldHumanText { get => SetStartGoldHuman.ToString(); set => SetIntText(value, parsed => SetStartGoldHuman = parsed, nameof(SetStartGoldHumanText)); }
+        public string AddStartGoldAIText { get => AddStartGoldAI.ToString(); set => SetIntText(value, parsed => AddStartGoldAI = parsed, nameof(AddStartGoldAIText)); }
+        public string AddStartGoldHumanText { get => AddStartGoldHuman.ToString(); set => SetIntText(value, parsed => AddStartGoldHuman = parsed, nameof(AddStartGoldHumanText)); }
+        public string MultiplyStartTroopsAIText { get => MultiplyStartTroopsAI.ToString(); set => SetIntText(value, parsed => MultiplyStartTroopsAI = parsed, nameof(MultiplyStartTroopsAIText)); }
+        public string MultiplyStartTroopsHumanText { get => MultiplyStartTroopsHuman.ToString(); set => SetIntText(value, parsed => MultiplyStartTroopsHuman = parsed, nameof(MultiplyStartTroopsHumanText)); }
+
+        [SyncHostOnly]
+        public string StartGoodsAI
+        {
+            get => startGoodsAI;
+            set
+            {
+                if (Equals(startGoodsAI, value))
+                    return;
+
+                startGoodsAI = value;
+                ApplySerializedAmountsToEntries(StartGoodEntries, startGoodsAI, startGoodsHuman);
+                SettingChanged?.Invoke(nameof(StartGoodsAI));
+                OnPropertyChanged(nameof(StartGoodsAI));
+            }
+        }
+
+        [SyncHostOnly]
+        public string StartGoodsHuman
+        {
+            get => startGoodsHuman;
+            set
+            {
+                if (Equals(startGoodsHuman, value))
+                    return;
+
+                startGoodsHuman = value;
+                ApplySerializedAmountsToEntries(StartGoodEntries, startGoodsAI, startGoodsHuman);
+                SettingChanged?.Invoke(nameof(StartGoodsHuman));
+                OnPropertyChanged(nameof(StartGoodsHuman));
+            }
+        }
+
+        [SyncHostOnly]
+        public string AddStartTroopsAI
+        {
+            get => addStartTroopsAI;
+            set
+            {
+                if (Equals(addStartTroopsAI, value))
+                    return;
+
+                addStartTroopsAI = value;
+                ApplySerializedAmountsToEntries(StartTroopEntries, addStartTroopsAI, addStartTroopsHuman);
+                SettingChanged?.Invoke(nameof(AddStartTroopsAI));
+                OnPropertyChanged(nameof(AddStartTroopsAI));
+            }
+        }
+
+        [SyncHostOnly]
+        public string AddStartTroopsHuman
+        {
+            get => addStartTroopsHuman;
+            set
+            {
+                if (Equals(addStartTroopsHuman, value))
+                    return;
+
+                addStartTroopsHuman = value;
+                ApplySerializedAmountsToEntries(StartTroopEntries, addStartTroopsAI, addStartTroopsHuman);
+                SettingChanged?.Invoke(nameof(AddStartTroopsHuman));
+                OnPropertyChanged(nameof(AddStartTroopsHuman));
+            }
+        }
+
+        private static IReadOnlyList<AmountEntryViewModel> CreateGoodEntries(string aiSerialized, string humanSerialized)
+        {
+            Dictionary<string, int> aiValues = ParseSerializedAmounts(aiSerialized);
+            Dictionary<string, int> humanValues = ParseSerializedAmounts(humanSerialized);
+            Dictionary<string, int> normalCrusaderValues = ParseSerializedAmounts(VanillaSkirmishGoods);
+            Dictionary<string, int> deathmatchValues = ParseSerializedAmounts(VanillaDeathmatchGoods);
+            Array values = Enum.GetValues(typeof(eGoods));
+            List<AmountEntryViewModel> entries = new List<AmountEntryViewModel>(values.Length);
+            foreach (eGoods good in values)
+            {
+                if (!StartConditionsRuntime.IsConfigurableStoredGood(good))
+                    continue;
+
+                string key = good.ToString();
+                entries.Add(new AmountEntryViewModel(
+                    key,
+                    FormatDisplayName(key, "STORED_"),
+                    GetValueOrDefault(aiValues, key, -1),
+                    GetValueOrDefault(humanValues, key, -1),
+                    FormatVanillaAmount(normalCrusaderValues, key),
+                    FormatVanillaAmount(deathmatchValues, key)));
+            }
+
+            return entries;
+        }
+
+        private static IReadOnlyList<AmountEntryViewModel> CreateTroopEntries(string aiSerialized, string humanSerialized)
+        {
+            Dictionary<string, int> aiValues = ParseSerializedAmounts(aiSerialized);
+            Dictionary<string, int> humanValues = ParseSerializedAmounts(humanSerialized);
+            string[] keys =
+            {
+                "CHIMP_TYPE_ARCHER",
+                "CHIMP_TYPE_SPEARMAN",
+                "CHIMP_TYPE_MACEMAN",
+                "CHIMP_TYPE_XBOWMAN",
+                "CHIMP_TYPE_PIKEMAN",
+                "CHIMP_TYPE_SWORDSMAN",
+                "CHIMP_TYPE_KNIGHT",
+                "CHIMP_TYPE_ENGINEER",
+                "CHIMP_TYPE_MONK",
+                "CHIMP_TYPE_LADDERMAN",
+                "CHIMP_TYPE_TUNNELER",
+                "CHIMP_TYPE_ARAB_BOW",
+                "CHIMP_TYPE_ARAB_SLAVE",
+                "CHIMP_TYPE_ARAB_SLINGER",
+                "CHIMP_TYPE_ARAB_ASSASIN",
+                "CHIMP_TYPE_ARAB_HORSEMAN",
+                "CHIMP_TYPE_ARAB_SWORDSMAN",
+                "CHIMP_TYPE_ARAB_GRENADIER",
+                "CHIMP_TYPE_BEDOUIN_CAMEL_LANCER",
+                "CHIMP_TYPE_BEDOUIN_HEALER",
+                "CHIMP_TYPE_BEDOUIN_EUNUCH",
+                "CHIMP_TYPE_BEDOUIN_AMBUSHER",
+                "CHIMP_TYPE_BEDOUIN_SKIRMISHER",
+                "CHIMP_TYPE_BEDOUIN_HEAVY_CAMEL",
+                "CHIMP_TYPE_BEDOUIN_SAPPER",
+                "CHIMP_TYPE_BEDOUIN_DEMOLISHER",
+            };
+
+            List<AmountEntryViewModel> entries = new List<AmountEntryViewModel>(keys.Length);
+            foreach (string key in keys)
+            {
+                entries.Add(new AmountEntryViewModel(
+                    key,
+                    FormatDisplayName(key, "CHIMP_TYPE_"),
+                    GetValueOrDefault(aiValues, key, 0),
+                    GetValueOrDefault(humanValues, key, 0),
+                    string.Empty,
+                    string.Empty));
+            }
+
+            return entries;
+        }
+
+        private static Dictionary<string, int> ParseSerializedAmounts(string text)
+        {
+            Dictionary<string, int> result = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            if (string.IsNullOrWhiteSpace(text))
+                return result;
+
+            string[] lines = text.Split(new[] { '\r', '\n', ';', ',' }, StringSplitOptions.RemoveEmptyEntries);
+            foreach (string rawLine in lines)
+            {
+                string line = rawLine.Trim();
+                if (line.Length == 0 || line.StartsWith("#"))
+                    continue;
+
+                string[] parts = line.Split(new[] { '=' }, 2);
+                if (parts.Length != 2 || !int.TryParse(parts[1].Trim(), out int value))
+                    continue;
+
+                result[parts[0].Trim()] = ClampAmount(value);
+            }
+
+            return result;
+        }
+
+        private void ApplySerializedAmountsToEntries(IReadOnlyList<AmountEntryViewModel> entries, string aiSerialized, string humanSerialized)
+        {
+            if (updatingEntries)
+                return;
+
+            Dictionary<string, int> aiValues = ParseSerializedAmounts(aiSerialized);
+            Dictionary<string, int> humanValues = ParseSerializedAmounts(humanSerialized);
+            updatingEntries = true;
+            try
+            {
+                foreach (AmountEntryViewModel entry in entries)
+                {
+                    entry.SetAmountsFromOwner(
+                        GetValueOrDefault(aiValues, entry.Key, entry.AIAmount),
+                        GetValueOrDefault(humanValues, entry.Key, entry.HumanAmount));
+                }
+            }
+            finally
+            {
+                updatingEntries = false;
+            }
+        }
+
+        private void OnGoodsEntryChanged()
+        {
+            if (updatingEntries)
+                return;
+
+            startGoodsAI = BuildSerializedAmounts(StartGoodEntries, true);
+            startGoodsHuman = BuildSerializedAmounts(StartGoodEntries, false);
+            SettingChanged?.Invoke(nameof(StartGoodsAI));
+            SettingChanged?.Invoke(nameof(StartGoodsHuman));
+            OnPropertyChanged(nameof(StartGoodsAI));
+            OnPropertyChanged(nameof(StartGoodsHuman));
+        }
+
+        private void OnTroopsEntryChanged()
+        {
+            if (updatingEntries)
+                return;
+
+            addStartTroopsAI = BuildSerializedAmounts(StartTroopEntries, true);
+            addStartTroopsHuman = BuildSerializedAmounts(StartTroopEntries, false);
+            SettingChanged?.Invoke(nameof(AddStartTroopsAI));
+            SettingChanged?.Invoke(nameof(AddStartTroopsHuman));
+            OnPropertyChanged(nameof(AddStartTroopsAI));
+            OnPropertyChanged(nameof(AddStartTroopsHuman));
+        }
+
+        private static string BuildSerializedAmounts(IReadOnlyList<AmountEntryViewModel> entries, bool ai)
+        {
+            StringBuilder builder = new StringBuilder("# -1 = unchanged");
+            foreach (AmountEntryViewModel entry in entries)
+            {
+                builder.AppendLine();
+                builder.Append(entry.Key);
+                builder.Append('=');
+                builder.Append(ai ? entry.AIAmount : entry.HumanAmount);
+            }
+
+            return builder.ToString();
+        }
+
+        private static int GetValueOrDefault(Dictionary<string, int> values, string key, int defaultValue)
+        {
+            return values.TryGetValue(key, out int value) ? value : defaultValue;
+        }
+
+        private static string FormatVanillaAmount(Dictionary<string, int> values, string key)
+        {
+            return values.TryGetValue(key, out int value) ? value.ToString() : "0";
+        }
+
+        private static string FormatDisplayName(string key, string prefix)
+        {
+            string name = key.StartsWith(prefix, StringComparison.Ordinal) ? key.Substring(prefix.Length) : key;
+            return name.Replace('_', ' ').ToLowerInvariant();
+        }
+
+        private static int ClampAmount(int value)
+        {
+            if (value < -1)
+                return -1;
+            if (value > 100000)
+                return 100000;
+            return value;
+        }
+
+        private IReadOnlyList<AmountEntryViewModel> CreateGoodEntriesWithCallback(string aiSerialized, string humanSerialized)
+        {
+            List<AmountEntryViewModel> entries = new List<AmountEntryViewModel>();
+            foreach (AmountEntryViewModel entry in CreateGoodEntries(aiSerialized, humanSerialized))
+                entries.Add(new AmountEntryViewModel(
+                    entry.Key,
+                    entry.DisplayName,
+                    entry.AIAmount,
+                    entry.HumanAmount,
+                    entry.NormalCrusaderAmountText,
+                    entry.DeathmatchAmountText,
+                    OnGoodsEntryChanged));
+            return entries;
+        }
+
+        private IReadOnlyList<AmountEntryViewModel> CreateTroopEntriesWithCallback(string aiSerialized, string humanSerialized)
+        {
+            List<AmountEntryViewModel> entries = new List<AmountEntryViewModel>();
+            foreach (AmountEntryViewModel entry in CreateTroopEntries(aiSerialized, humanSerialized))
+                entries.Add(new AmountEntryViewModel(
+                    entry.Key,
+                    entry.DisplayName,
+                    entry.AIAmount,
+                    entry.HumanAmount,
+                    entry.NormalCrusaderAmountText,
+                    entry.DeathmatchAmountText,
+                    OnTroopsEntryChanged));
+            return entries;
+        }
 
         private void Set<T>(ref T field, T value, string propertyName)
         {
@@ -118,6 +477,148 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
             field = value;
             SettingChanged?.Invoke(propertyName);
             OnPropertyChanged(propertyName);
+        }
+
+        private void SetInt(ref int field, int value, string propertyName, string textPropertyName)
+        {
+            if (field == value)
+                return;
+
+            field = value;
+            SettingChanged?.Invoke(propertyName);
+            OnPropertyChanged(propertyName);
+            OnPropertyChanged(textPropertyName);
+        }
+
+        private void SetIntText(string text, Action<int> setValue, string textPropertyName)
+        {
+            if (!int.TryParse(text, out int parsed))
+            {
+                OnPropertyChanged(textPropertyName);
+                return;
+            }
+
+            setValue(parsed);
+        }
+
+        public sealed class AmountEntryViewModel : INotifyPropertyChanged
+        {
+            private readonly Action changed;
+            private string displayName;
+            private int aiAmount;
+            private int humanAmount;
+
+            public event PropertyChangedEventHandler PropertyChanged;
+
+            public AmountEntryViewModel(
+                string key,
+                string displayName,
+                int aiAmount,
+                int humanAmount,
+                string normalCrusaderAmountText = "",
+                string deathmatchAmountText = "",
+                Action changed = null)
+            {
+                Key = key;
+                DisplayName = displayName;
+                NormalCrusaderAmountText = normalCrusaderAmountText;
+                DeathmatchAmountText = deathmatchAmountText;
+                this.changed = changed;
+                this.aiAmount = ClampAmount(aiAmount);
+                this.humanAmount = ClampAmount(humanAmount);
+            }
+
+            public string Key { get; }
+
+            public string NormalCrusaderAmountText { get; }
+
+            public string DeathmatchAmountText { get; }
+
+            public string DisplayName
+            {
+                get => displayName;
+                set
+                {
+                    if (displayName == value)
+                        return;
+
+                    displayName = value;
+                    OnPropertyChanged();
+                }
+            }
+
+            public int AIAmount
+            {
+                get => aiAmount;
+                private set
+                {
+                    int clamped = ClampAmount(value);
+                    if (aiAmount == clamped)
+                        return;
+
+                    aiAmount = clamped;
+                    OnPropertyChanged();
+                    OnPropertyChanged(nameof(AIAmountText));
+                    changed?.Invoke();
+                }
+            }
+
+            public string AIAmountText
+            {
+                get => aiAmount.ToString();
+                set
+                {
+                    if (!int.TryParse(value, out int parsed))
+                    {
+                        OnPropertyChanged();
+                        return;
+                    }
+
+                    AIAmount = parsed;
+                }
+            }
+
+            public int HumanAmount
+            {
+                get => humanAmount;
+                private set
+                {
+                    int clamped = ClampAmount(value);
+                    if (humanAmount == clamped)
+                        return;
+
+                    humanAmount = clamped;
+                    OnPropertyChanged();
+                    OnPropertyChanged(nameof(HumanAmountText));
+                    changed?.Invoke();
+                }
+            }
+
+            public string HumanAmountText
+            {
+                get => humanAmount.ToString();
+                set
+                {
+                    if (!int.TryParse(value, out int parsed))
+                    {
+                        OnPropertyChanged();
+                        return;
+                    }
+
+                    HumanAmount = parsed;
+                }
+            }
+
+            public void SetAmountsFromOwner(int aiAmount, int humanAmount)
+            {
+                AIAmount = aiAmount;
+                HumanAmount = humanAmount;
+            }
+
+            private void OnPropertyChanged([CallerMemberName] string propertyName = null)
+            {
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+            }
         }
     }
 }

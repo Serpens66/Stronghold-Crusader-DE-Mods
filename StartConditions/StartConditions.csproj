@@ -97,6 +97,7 @@
     <Compile Include="src\StartConditionsRuntime.StartResources.cs" />
     <Compile Include="src\StartConditionsRuntime.MapLifecycle.cs" />
     <Compile Include="src\StartConditionsRuntime.Helpers.cs" />
+    <Compile Include="src\StartConditionsRuntime.Localization.cs" />
   </ItemGroup>
 
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
