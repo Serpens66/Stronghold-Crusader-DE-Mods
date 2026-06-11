@@ -24,7 +24,7 @@
                    Tag="Ignore">
           <TextBlock.RenderTransform>
             <TransformGroup>
-              <TranslateTransform X="-250"/>
+              <TranslateTransform X="8"/>
             </TransformGroup>
           </TextBlock.RenderTransform>
           <TextBlock.Effect>

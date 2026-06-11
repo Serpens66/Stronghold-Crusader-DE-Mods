@@ -52,7 +52,7 @@
         </Grid.ColumnDefinitions>
         <TextBlock Grid.Column="1" Text="AI" Foreground="White" FontWeight="Bold"/>
         <TextBlock Grid.Column="2" Text="Human" Foreground="White" FontWeight="Bold"/>
-        <TextBlock Grid.Column="3" Text="Normal/Crusader" Foreground="White" FontWeight="Bold"/>
+        <TextBlock Grid.Column="3" Text="Normal/Crusade" Foreground="White" FontWeight="Bold"/>
         <TextBlock Grid.Column="4" Text="Deathmatch" Foreground="White" FontWeight="Bold"/>
       </Grid>
       <ItemsControl ItemsSource="{Binding StartGoodEntries}" Margin="0,3,0,8">
