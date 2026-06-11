@@ -4,6 +4,8 @@
 
 # Top-level local tool/config directories such as .agents, .codex, etc.
 /.*/
+/AGENTS.md
+/info.txt
 
 # Build outputs
 **/bin/
