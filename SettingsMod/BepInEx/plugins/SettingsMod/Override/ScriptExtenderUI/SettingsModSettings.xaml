@@ -1,0 +1,86 @@
+<Grid xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:ui="clr-namespace:SHCDESE.UI;assembly=SHCDESE">
+  <ScrollViewer VerticalScrollBarVisibility="Auto">
+    <StackPanel Margin="10">
+      <TextBlock Text="GENERAL" Foreground="#77AAFF" FontWeight="Bold" Margin="0,0,0,8"/>
+
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="220"/>
+          <ColumnDefinition Width="90"/>
+          <ColumnDefinition Width="90"/>
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto"/>
+          <RowDefinition Height="Auto"/>
+          <RowDefinition Height="Auto"/>
+          <RowDefinition Height="Auto"/>
+          <RowDefinition Height="Auto"/>
+          <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" Grid.Column="1" Text="AI" Foreground="White" FontWeight="Bold"/>
+        <TextBlock Grid.Row="0" Grid.Column="2" Text="Human" Foreground="White" FontWeight="Bold"/>
+
+        <TextBlock Grid.Row="1" Grid.Column="0" Text="Multiply goods gain" Foreground="White" Margin="0,4"/>
+        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding MultiplyGoodsGainAI, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+        <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding MultiplyGoodsGainHuman, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+
+        <TextBlock Grid.Row="2" Grid.Column="0" Text="Multiply goods as money" Foreground="White" Margin="0,4"/>
+        <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding MultiplyGoodsGainInMoneyAI, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+        <TextBox Grid.Row="2" Grid.Column="2" Text="{Binding MultiplyGoodsGainInMoneyHuman, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+
+        <TextBlock Grid.Row="3" Grid.Column="0" Text="Set start gold (empty = skip)" Foreground="White" Margin="0,4"/>
+        <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding SetStartGoldAI, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+        <TextBox Grid.Row="3" Grid.Column="2" Text="{Binding SetStartGoldHuman, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+
+        <TextBlock Grid.Row="4" Grid.Column="0" Text="Add start gold" Foreground="White" Margin="0,4"/>
+        <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding AddStartGoldAI, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+        <TextBox Grid.Row="4" Grid.Column="2" Text="{Binding AddStartGoldHuman, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+
+        <TextBlock Grid.Row="5" Grid.Column="0" Text="Multiply start troops" Foreground="White" Margin="0,4"/>
+        <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding MultiplyStartTroopsAI, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+        <TextBox Grid.Row="5" Grid.Column="2" Text="{Binding MultiplyStartTroopsHuman, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+      </Grid>
+
+      <Separator Background="#444466" Margin="0,10"/>
+      <TextBlock Text="ADVANCED OPTIONS" Foreground="#77AAFF" FontWeight="Bold" Margin="0,0,0,8"/>
+      <WrapPanel>
+        <CheckBox IsChecked="{Binding AdvancedOptionsEnabled, Mode=TwoWay}" Content="Advanced Options" Foreground="White" Margin="0,4,14,4"/>
+        <CheckBox IsChecked="{Binding AdvancedSkirmishOptionsEnabled, Mode=TwoWay}" Content="Advanced Skirmish" Foreground="White" Margin="0,4,14,4"/>
+        <CheckBox IsChecked="{Binding BetterHealers, Mode=TwoWay}" Content="Better Healers" Foreground="White" Margin="0,4,14,4"/>
+        <CheckBox IsChecked="{Binding FasterPeasants, Mode=TwoWay}" Content="Faster Peasants" Foreground="White" Margin="0,4,14,4"/>
+        <CheckBox IsChecked="{Binding GlobalImprovedSiegeBehaviour, Mode=TwoWay}" Content="Improved Siege" Foreground="White" Margin="0,4,14,4"/>
+        <CheckBox IsChecked="{Binding GlobalMoreAggressiveSiegeBehaviour, Mode=TwoWay}" Content="Aggressive Siege" Foreground="White" Margin="0,4,14,4"/>
+        <CheckBox IsChecked="{Binding ImprovedArabSwordsman, Mode=TwoWay}" Content="Arab Swordsman" Foreground="White" Margin="0,4,14,4"/>
+        <CheckBox IsChecked="{Binding ImprovedFletchers, Mode=TwoWay}" Content="Fletchers" Foreground="White" Margin="0,4,14,4"/>
+        <CheckBox IsChecked="{Binding ImprovedLadderman, Mode=TwoWay}" Content="Ladderman" Foreground="White" Margin="0,4,14,4"/>
+        <CheckBox IsChecked="{Binding ImprovedSpearman, Mode=TwoWay}" Content="Spearman" Foreground="White" Margin="0,4,14,4"/>
+        <CheckBox IsChecked="{Binding NerfEunuchs, Mode=TwoWay}" Content="Nerf Eunuchs" Foreground="White" Margin="0,4,14,4"/>
+        <CheckBox IsChecked="{Binding NoKnockdownWalls, Mode=TwoWay}" Content="Strong Walls" Foreground="White" Margin="0,4,14,4"/>
+        <CheckBox IsChecked="{Binding RebalancedHorseArchers, Mode=TwoWay}" Content="Horse Archers" Foreground="White" Margin="0,4,14,4"/>
+        <CheckBox IsChecked="{Binding UncappedPeasants, Mode=TwoWay}" Content="Uncapped Peasants" Foreground="White" Margin="0,4,14,4"/>
+      </WrapPanel>
+      <StackPanel Orientation="Horizontal" Margin="0,5">
+        <TextBlock Text="Enemy Health" Foreground="White" Width="220" VerticalAlignment="Center"/>
+        <TextBox Text="{Binding EnemyHealthModifier, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" Width="120" ui:KeyboardCaptureBinding.Enabled="True"/>
+      </StackPanel>
+
+      <Separator Background="#444466" Margin="0,10"/>
+      <TextBlock Text="START GOODS" Foreground="#77AAFF" FontWeight="Bold" Margin="0,0,0,8"/>
+      <CheckBox IsChecked="{Binding OverwriteStartGoodsAI, Mode=TwoWay}" Content="Overwrite AI start goods" Foreground="White" Margin="0,4"/>
+      <TextBox Text="{Binding StartGoodsAI, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" AcceptsReturn="True" Height="160" Margin="0,3,0,8" ui:KeyboardCaptureBinding.Enabled="True"/>
+      <CheckBox IsChecked="{Binding OverwriteStartGoodsHuman, Mode=TwoWay}" Content="Overwrite human start goods" Foreground="White" Margin="0,4"/>
+      <TextBox Text="{Binding StartGoodsHuman, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" AcceptsReturn="True" Height="160" Margin="0,3,0,8" ui:KeyboardCaptureBinding.Enabled="True"/>
+
+      <Separator Background="#444466" Margin="0,10"/>
+      <TextBlock Text="ADD START TROOPS" Foreground="#77AAFF" FontWeight="Bold" Margin="0,0,0,8"/>
+      <TextBlock Text="AI" Foreground="White"/>
+      <TextBox Text="{Binding AddStartTroopsAI, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" AcceptsReturn="True" Height="160" Margin="0,3,0,8" ui:KeyboardCaptureBinding.Enabled="True"/>
+      <TextBlock Text="Human" Foreground="White"/>
+      <TextBox Text="{Binding AddStartTroopsHuman, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" AcceptsReturn="True" Height="160" Margin="0,3,0,8" ui:KeyboardCaptureBinding.Enabled="True"/>
+
+    </StackPanel>
+  </ScrollViewer>
+</Grid>

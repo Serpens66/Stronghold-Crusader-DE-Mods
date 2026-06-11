@@ -1,0 +1,18 @@
+# Local/external dependencies and binaries
+/shcde-script-extender/
+/x86_64/
+
+# Top-level local tool/config directories such as .agents, .codex, etc.
+/.*/
+
+# Build outputs
+**/bin/
+**/obj/
+
+# IDE and OS files
+.vs/
+.vscode/
+*.user
+*.suo
+Thumbs.db
+Desktop.ini

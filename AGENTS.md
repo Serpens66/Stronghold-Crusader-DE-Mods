@@ -1,0 +1,13 @@
+- Es geht um das Steam Spiel "Stronghold Crusader Definitive Edition", welches in Unity Engine umgesetzt ist, ich habe es hier installiert: E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition  .
+- Ein Modder hat einen Script Extender geschrieben: https://gitlab.com/rawra-stronghold-crusader/shcde-script-extender . Mit diesem möchte ich BepInEx Mods in C# schreiben.
+- Dokumentation des Script Extender: https://gitlab.com/rawra-stronghold-crusader/shcde-script-extender/-/tree/main/docs .
+- Bereits existierende Mods, dessen Code als Beispiel genutzt werden kann:  https://gitlab.com/rawra-stronghold-crusader/shcde-fixes , https://github.com/richardbinder/Stronghold-Crusader-DE-AI-Unit-Buff , https://gitlab.com/ensrick7/crusader-de-tweaker 
+- die Script Extender Dateien liegen auch lokal vor in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\shcde-script-extender" und können falls nötig auch genutzt und geändert werden.
+- git, dotnet und ilspycmd sind installiert. git ist unter "C:/Program Files/Git/mingw64/libexec/git-core".
+- ich builde das Projekt manuell über die "build.bat", du brauchst es nicht builden und nicht kopieren.
+- eine Kopie der "CrusaderDE.dll" liegt im Projekt: "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\x86_64\CrusaderDE.dll"
+- es gibt ein Projekt zum Basisspiel "Stronghold Crusader HD" es in opensource umzuwandeln. Möglicherweise können Informationen daraus gewonnen werden? https://github.com/sourcehold/OpenSHC 
+- auch für Stronghold Crusader HD , eventuell hilfreich: https://github.com/UnofficialCrusaderPatch/UnofficialCrusaderPatch3/tree/fd326a41d8927eaee42dfb542658843138c15867  
+- Es braucht keine Backwards Kompatibilität wenn wir den Code anpassen.
+- Always ask back if instruction is unclear.
+- Always ask back if any problems arise during execution how the user prefers to solve them.

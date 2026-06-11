@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Patch>
+  <Operation Type="Add" XPath="/n:UserControl/n:Grid">
+    <Content>
+      <Grid x:Name="BuildingLimitNotificationOverlay"
+            Width="550"
+            Margin="{Binding Path=DataContext.RollOverText_Margin, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type UserControl}}}"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Bottom"
+            Panel.ZIndex="10000"
+            IsHitTestVisible="False"
+            Visibility="{Binding IsVisible, Converter={StaticResource booleanToVisibilityConverter}}">
+        <TextBlock x:Name="BuildingLimitNotification"
+                   Text="{Binding Message}"
+                   HorizontalAlignment="Left"
+                   VerticalAlignment="Bottom"
+                   MaxWidth="520"
+                   Padding="2,0"
+                   Background="#55000000"
+                   Foreground="#FFDDDDDD"
+                   FontSize="20"
+                   TextAlignment="Left"
+                   TextWrapping="Wrap"
+                   Tag="Ignore">
+          <TextBlock.RenderTransform>
+            <TransformGroup>
+              <TranslateTransform X="-250"/>
+            </TransformGroup>
+          </TextBlock.RenderTransform>
+          <TextBlock.Effect>
+            <DropShadowEffect
+              ShadowDepth="2"
+              Direction="315"
+              Color="#CC000000"
+              BlurRadius="0"/>
+          </TextBlock.Effect>
+        </TextBlock>
+      </Grid>
+    </Content>
+  </Operation>
+</Patch>
+

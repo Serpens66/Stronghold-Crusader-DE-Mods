@@ -1,0 +1,35 @@
+<Grid xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:ui="clr-namespace:SHCDESE.UI;assembly=SHCDESE">
+  <ScrollViewer VerticalScrollBarVisibility="Auto">
+    <StackPanel Margin="10">
+      <TextBlock Text="BUILDING LIMITS" Foreground="#77AAFF" FontWeight="Bold" Margin="0,0,0,4"/>
+      <TextBlock Text="-1 = unlimited. Allowed range: -1 to 10000. Variants such as gardens, statues, shrines and ponds are counted together."
+                 Foreground="#CCCCCC" TextWrapping="Wrap" Margin="0,0,0,6"/>
+      <ItemsControl ItemsSource="{Binding LimitEntries}" Margin="0,3,0,8">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate>
+            <Grid Margin="0,1">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="260"/>
+                <ColumnDefinition Width="90"/>
+              </Grid.ColumnDefinitions>
+              <TextBlock Grid.Column="0"
+                         Text="{Binding DisplayName}"
+                         ToolTip="{Binding Key}"
+                         Foreground="White"
+                         VerticalAlignment="Center"
+                         Margin="0,2,8,2"/>
+              <TextBox Grid.Column="1"
+                       Text="{Binding LimitText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}"
+                       MaxLength="6"
+                       HorizontalContentAlignment="Right"
+                       Margin="3"
+                       ui:KeyboardCaptureBinding.Enabled="True"/>
+            </Grid>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </StackPanel>
+  </ScrollViewer>
+</Grid>
