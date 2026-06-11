@@ -11,9 +11,9 @@ using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
 
-namespace SettingsMod
+namespace StartConditions
 {
-    public sealed partial class SettingsModRuntime
+    public sealed partial class StartConditionsRuntime
     {
         private void ApplyStartResources()
         {

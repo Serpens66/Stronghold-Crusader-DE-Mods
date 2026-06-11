@@ -5,10 +5,10 @@
   <PropertyGroup>
     <Configuration Condition="'$(Configuration)' == ''">Debug</Configuration>
     <Platform Condition="'$(Platform)' == ''">AnyCPU</Platform>
-    <ProjectGuid>{90F0B419-3F01-45ED-A490-81308879D0B5}</ProjectGuid>
+    <ProjectGuid>{6A244D47-9C0C-4D93-A9E0-6212692B6BE7}</ProjectGuid>
     <OutputType>Library</OutputType>
-    <RootNamespace>SettingsMod</RootNamespace>
-    <AssemblyName>SettingsMod</AssemblyName>
+    <RootNamespace>StartConditions</RootNamespace>
+    <AssemblyName>StartConditions</AssemblyName>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <LangVersion>latest</LangVersion>
@@ -19,7 +19,7 @@
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
-    <OutputPath>BepInEx\plugins\SettingsMod\</OutputPath>
+    <OutputPath>BepInEx\plugins\StartConditions\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
@@ -28,7 +28,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|AnyCPU'">
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
-    <OutputPath>BepInEx\plugins\SettingsMod\</OutputPath>
+    <OutputPath>BepInEx\plugins\StartConditions\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
@@ -90,10 +90,13 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="src\SettingsModPlugin.cs" />
-    <Compile Include="src\SettingsModLobbyViewModel.cs" />
-    <Compile Include="src\SettingsModRuntime.cs" />
-    <Compile Include="src\SettingsModRuntime.Settings.cs" />
+    <Compile Include="src\StartConditionsPlugin.cs" />
+    <Compile Include="src\StartConditionsLobbyViewModel.cs" />
+    <Compile Include="src\StartConditionsRuntime.cs" />
+    <Compile Include="src\StartConditionsRuntime.StartTroops.cs" />
+    <Compile Include="src\StartConditionsRuntime.StartResources.cs" />
+    <Compile Include="src\StartConditionsRuntime.MapLifecycle.cs" />
+    <Compile Include="src\StartConditionsRuntime.Helpers.cs" />
   </ItemGroup>
 
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

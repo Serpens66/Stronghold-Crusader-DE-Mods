@@ -28,13 +28,6 @@ namespace SettingsMod
         {
             LogInfo("Settings changed:", propertyName);
 
-            if (propertyName == nameof(SettingsModLobbyViewModel.MultiplyStartTroopsAI) ||
-                propertyName == nameof(SettingsModLobbyViewModel.MultiplyStartTroopsHuman))
-            {
-                LogInfo("Start troop default patching is currently disabled.");
-                return;
-            }
-
             if (IsAdvancedSettingProperty(propertyName))
             {
                 ApplyAdvancedSettings();
