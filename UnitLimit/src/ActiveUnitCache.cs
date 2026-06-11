@@ -207,14 +207,14 @@ namespace UnitLimit
             UpdateSnapshot(args.UnitId, transitionedSnapshot, ActiveUnitChangeReason.TypeChanged, true);
         }
 
-        private void NotifyNativeSnapshotChanged(int unitId, ActiveUnitChangeReason fallbackReason)
+        internal void NotifyNativeSnapshotChanged(int unitId, ActiveUnitChangeReason fallbackReason, bool preferFallbackReason = false)
         {
             if (unitId <= 0)
                 return;
 
             if (TryReadSnapshot(unitId, out UnitSnapshot snapshot))
             {
-                if (ShouldLogPlayer(snapshot.OwnerId))
+                if (ShouldLogCacheChange(fallbackReason, snapshot.OwnerId))
                 {
                     LogInfo(
                         "ActiveUnitCache NotifyNativeSnapshotChanged read snapshot:",
@@ -222,12 +222,21 @@ namespace UnitLimit
                         "owner", snapshot.OwnerId,
                         "type", snapshot.UnitType,
                         "aliveState", snapshot.AliveState,
-                        "reason", fallbackReason);
+                        "reason", fallbackReason,
+                        "preferFallbackReason", preferFallbackReason);
                 }
-                UpdateSnapshot(unitId, snapshot, fallbackReason, false);
+                UpdateSnapshot(unitId, snapshot, fallbackReason, preferFallbackReason);
             }
             else
             {
+                if (ShouldLogCacheChange(fallbackReason, 0))
+                {
+                    LogInfo(
+                        "ActiveUnitCache NotifyNativeSnapshotChanged missing snapshot:",
+                        "unitId", unitId,
+                        "reason", fallbackReason,
+                        "preferFallbackReason", preferFallbackReason);
+                }
                 RemoveUnit(unitId, fallbackReason);
             }
         }
@@ -280,12 +289,15 @@ namespace UnitLimit
                 }
             }
 
-            if (ShouldLogPlayer(snapshot.OwnerId) ||
-                (eventArgs != null && ShouldLogPlayer(eventArgs.OldSnapshot.OwnerId)))
+            if (ShouldLogCacheChange(fallbackReason, snapshot.OwnerId) ||
+                (eventArgs != null && ShouldLogCacheChange(eventArgs.Reason, eventArgs.OldSnapshot.OwnerId)))
             {
                 LogInfo(
                     "ActiveUnitCache UpdateSnapshot:",
                     "unitId", unitId,
+                    "oldOwner", eventArgs == null ? 0 : eventArgs.OldSnapshot.OwnerId,
+                    "oldType", eventArgs == null ? default(eChimps) : eventArgs.OldSnapshot.UnitType,
+                    "oldAliveState", eventArgs == null ? default(AliveState) : eventArgs.OldSnapshot.AliveState,
                     "owner", snapshot.OwnerId,
                     "type", snapshot.UnitType,
                     "aliveState", snapshot.AliveState,
@@ -317,7 +329,7 @@ namespace UnitLimit
                 }
             }
 
-            if (ShouldLogPlayer(removedSnapshot.OwnerId))
+            if (ShouldLogCacheChange(reason, removedSnapshot.OwnerId))
             {
                 LogInfo(
                     "ActiveUnitCache RemoveUnit:",
@@ -370,7 +382,7 @@ namespace UnitLimit
                 int newCount = pair.Value;
                 if (oldCount != newCount)
                 {
-                    if (ShouldLogPlayer(pair.Key.PlayerId))
+                    if (ShouldLogCacheChange(eventArgs.Reason, pair.Key.PlayerId))
                     {
                         LogInfo(
                             "ActiveUnitCache count changed:",
@@ -531,6 +543,11 @@ namespace UnitLimit
             return false;
         }
 
+        private static bool ShouldLogCacheChange(ActiveUnitChangeReason reason, int playerId)
+        {
+            return reason == ActiveUnitChangeReason.Disbanded || ShouldLogPlayer(playerId);
+        }
+
         private static bool ShouldLogPlayer(int playerId)
         {
             try
@@ -577,6 +594,7 @@ namespace UnitLimit
             AliveStateChanged,
             TypeChanged,
             OwnerChanged,
+            Disbanded,
             ResyncAdded,
             ResyncRemoved
         }

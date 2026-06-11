@@ -95,6 +95,7 @@
 
   <ItemGroup>
     <Compile Include="src\ActiveUnitCache.cs" />
+    <Compile Include="src\DisbandGameActionHook.cs" />
     <Compile Include="src\MakeTroopGameActionHook.cs" />
     <Compile Include="src\UnitLimitRuntime.cs" />
     <Compile Include="src\UnitLimitRuntime.Settings.cs" />

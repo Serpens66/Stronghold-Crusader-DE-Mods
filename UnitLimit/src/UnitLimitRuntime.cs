@@ -9,6 +9,12 @@ using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
 
+// TODO
+// script extender update: GetSelectedChimps in DisbandGameActionHook , dadurch aktuell keine auflösung von mehreren units supported.
+// aber falls OnUnitTransition korrekt soldier->peasant erkennt, kann man das dann stattdessen nutzen.
+// Eventuell dann ActiveUnmitCache nochmal überarbeiten, dass es effizienter läuft und auch keinen Timer mehr braucht usw und eigentlich auch kein resync mehr, wobei man das evlt doch alle 60 sek oderso machen sollte.
+// sobald im extender ein weg eingebaut wurde die Rekrutierung zu verhinden, dann MakeTroopGameActionHooks dadurch ersetzen
+
 namespace UnitLimit
 {
     public sealed partial class UnitLimitRuntime : IDisposable
@@ -24,6 +30,7 @@ namespace UnitLimit
         // private readonly List<int> matchingUnitIds = new List<int>();
         private readonly ActiveUnitCache activeUnitCache;
         private MakeTroopGameActionHook makeTroopGameActionHook;
+        private DisbandGameActionHook disbandGameActionHook;
         private bool settingsPropertyChangedSubscribed;
         private bool hooksSubscribed;
         private bool libraryInitialized;
@@ -82,6 +89,7 @@ namespace UnitLimit
             activeUnitCache.SubscribeHooks();
             activeUnitCache.OnActiveUnitChanged += OnActiveUnitChanged;
             makeTroopGameActionHook = new MakeTroopGameActionHook(log, ShouldBlockMakeTroopGameAction);
+            disbandGameActionHook = new DisbandGameActionHook(log, activeUnitCache.NotifyNativeSnapshotChanged);
 
             MapLoaderR3EventHooks.OnStartMap.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
@@ -122,6 +130,8 @@ namespace UnitLimit
             RestoreOriginalUnitRecruitableStates();
             HideLimitMessage();
             ClearPendingRecruitments("Dispose");
+            disbandGameActionHook?.Dispose();
+            disbandGameActionHook = null;
             makeTroopGameActionHook?.Dispose();
             makeTroopGameActionHook = null;
             activeUnitCache.OnActiveUnitChanged -= OnActiveUnitChanged;
