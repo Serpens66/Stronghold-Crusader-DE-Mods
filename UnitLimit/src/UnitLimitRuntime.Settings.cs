@@ -23,7 +23,7 @@ namespace UnitLimit
 
         private void OnSettingChanged(string propertyName)
         {
-            LogInfo("Settings changed:", propertyName);
+            LogDebug("Settings changed:", propertyName);
 
             if (propertyName == nameof(UnitLimitLobbyViewModel.UnitLimits))
                 ApplyUnitLimits();

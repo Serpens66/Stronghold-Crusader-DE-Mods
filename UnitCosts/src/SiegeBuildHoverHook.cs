@@ -31,7 +31,7 @@ namespace UnitCosts
             leaveHook = new Hook(FindHoverMethod("ButtonTroopPanelMouseLeave"), (ButtonTroopPanelHoverDelegate)ButtonTroopPanelMouseLeaveHook);
             leaveTrampoline = leaveHook.GenerateTrampoline<ButtonTroopPanelHoverDelegate>();
 
-            log.LogInfo("UnitCosts siege build hover hooks installed.");
+            log.LogDebug("UnitCosts siege build hover hooks installed.");
         }
 
         public void Dispose()
@@ -44,7 +44,7 @@ namespace UnitCosts
             enterHook?.Dispose();
             leaveHook?.Undo();
             leaveHook?.Dispose();
-            log.LogInfo("UnitCosts siege build hover hooks disposed.");
+            log.LogDebug("UnitCosts siege build hover hooks disposed.");
         }
 
         private static MethodInfo FindHoverMethod(string methodName)
@@ -72,7 +72,7 @@ namespace UnitCosts
             }
             catch (Exception ex)
             {
-                log.LogInfo("UnitCosts siege build enter hook failed: " + ex.Message);
+                log.LogDebug("UnitCosts siege build enter hook failed: " + ex.Message);
             }
         }
 
@@ -86,7 +86,7 @@ namespace UnitCosts
             }
             catch (Exception ex)
             {
-                log.LogInfo("UnitCosts siege build leave hook failed: " + ex.Message);
+                log.LogDebug("UnitCosts siege build leave hook failed: " + ex.Message);
             }
         }
     }

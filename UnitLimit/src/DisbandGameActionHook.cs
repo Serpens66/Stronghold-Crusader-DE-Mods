@@ -45,7 +45,7 @@ namespace UnitLimit
             hook = new Hook(gameActionMethod, (EngineInterfaceGameActionDelegate)EngineInterfaceGameActionHook);
             trampoline = hook.GenerateTrampoline<EngineInterfaceGameActionDelegate>();
             GameTimeManagerAPI.Instance.OnTick += OnGameTick;
-            log.LogInfo("UnitLimit Disband GameAction hook installed.");
+            log.LogDebug("UnitLimit Disband GameAction hook installed.");
         }
 
         public void Dispose()
@@ -60,7 +60,7 @@ namespace UnitLimit
 
             hook?.Undo();
             hook?.Dispose();
-            log.LogInfo("UnitLimit Disband GameAction hook disposed.");
+            log.LogDebug("UnitLimit Disband GameAction hook disposed.");
         }
 
         private int EngineInterfaceGameActionHook(Enums.GameActionCommand command, int structureID, int state, int value2)
@@ -69,7 +69,7 @@ namespace UnitLimit
                 return trampoline(command, structureID, state, value2);
 
             int currentTick = GameTimeManagerAPI.Instance.GetFrameProvider().CurrentGameTick;
-            LogInfo(
+            LogDebug(
                 "UnitLimit Disband GameAction fired:",
                 "tick", currentTick,
                 "structureID", structureID,
@@ -83,11 +83,11 @@ namespace UnitLimit
             }
             catch (Exception ex)
             {
-                log.LogInfo("Unit limit disband begin hook failed: " + ex.Message);
+                log.LogDebug("Unit limit disband begin hook failed: " + ex.Message);
             }
 
             int result = trampoline(command, structureID, state, value2);
-            LogInfo(
+            LogDebug(
                 "UnitLimit Disband GameAction trampoline returned:",
                 "tick", GameTimeManagerAPI.Instance.GetFrameProvider().CurrentGameTick,
                 "result", result,
@@ -100,7 +100,7 @@ namespace UnitLimit
             }
             catch (Exception ex)
             {
-                log.LogInfo("Unit limit disband end hook failed: " + ex.Message);
+                log.LogDebug("Unit limit disband end hook failed: " + ex.Message);
             }
 
             return result;
@@ -114,13 +114,13 @@ namespace UnitLimit
             {
                 int unitId = selectedUnitIds[i];
                 beforeSnapshots[unitId] = CaptureUnit(unitId);
-                LogInfo(
+                LogDebug(
                     "UnitLimit Disband pre-action snapshot:",
                     "unitId", unitId,
                     "before", beforeSnapshots[unitId]);
             }
 
-            LogInfo(
+            LogDebug(
                 "UnitLimit Disband pre-action summary:",
                 "selected", selected,
                 "capturedSnapshots", beforeSnapshots.Count);
@@ -147,7 +147,7 @@ namespace UnitLimit
                 int unitId = pair.Key;
                 UnitSnapshot beforeSnapshot = pair.Value;
                 UnitSnapshot afterSnapshot = CaptureUnit(unitId);
-                LogInfo(
+                LogDebug(
                     "UnitLimit Disband post-action snapshot:",
                     "unitId", unitId,
                     "before", beforeSnapshot,
@@ -156,7 +156,7 @@ namespace UnitLimit
                 if (beforeSnapshot.HasSameState(afterSnapshot))
                 {
                     unchangedPending++;
-                    LogInfo(
+                    LogDebug(
                         "UnitLimit Disband pending unchanged:",
                         "unitId", unitId,
                         "tick", currentTick);
@@ -175,7 +175,7 @@ namespace UnitLimit
                 if (afterSnapshot.IsAlive)
                 {
                     immediateResolved++;
-                    LogInfo(
+                    LogDebug(
                         "UnitLimit Disband resolved immediately:",
                         "unitId", unitId,
                         "tick", currentTick,
@@ -185,7 +185,7 @@ namespace UnitLimit
                 }
 
                 intermediatePending++;
-                LogInfo(
+                LogDebug(
                     "UnitLimit Disband pending intermediate:",
                     "unitId", unitId,
                     "tick", currentTick,
@@ -210,7 +210,7 @@ namespace UnitLimit
                 }
             }
 
-            LogInfo(
+            LogDebug(
                 "UnitLimit Disband post-action summary:",
                 "selected", observation.Selected,
                 "observedUnits", observation.BeforeSnapshots.Count,
@@ -240,7 +240,7 @@ namespace UnitLimit
                     if (after.IsAlive)
                     {
                         AddCompletedUnitId(ref completedUnitIds, observation.UnitId);
-                        LogInfo(
+                        LogDebug(
                             "UnitLimit Disband deferred resolved:",
                             "unitId", observation.UnitId,
                             "elapsedTicks", tick - observation.StartTick,
@@ -253,7 +253,7 @@ namespace UnitLimit
                     }
 
                     PendingDisbandUnitObservation updated = observation.WithSnapshot(after, tick, true, false);
-                    LogInfo(
+                    LogDebug(
                         "UnitLimit Disband deferred intermediate:",
                         "unitId", observation.UnitId,
                         "elapsedTicks", tick - observation.StartTick,
@@ -268,7 +268,7 @@ namespace UnitLimit
                     continue;
 
                 AddCompletedUnitId(ref completedUnitIds, observation.UnitId);
-                LogInfo(
+                LogDebug(
                     "UnitLimit Disband deferred expired:",
                     "unitId", observation.UnitId,
                     "elapsedTicks", tick - observation.StartTick,
@@ -294,7 +294,7 @@ namespace UnitLimit
 
         private void NotifyDisbandSnapshotChanged(int unitId)
         {
-            LogInfo(
+            LogDebug(
                 "UnitLimit Disband notifying ActiveUnitCache:",
                 "unitId", unitId,
                 "reason", ActiveUnitCache.ActiveUnitChangeReason.Disbanded,
@@ -468,12 +468,12 @@ namespace UnitLimit
             }
         }
 
-        private void LogInfo(params object[] parts)
+        private void LogDebug(params object[] parts)
         {
             if (log == null)
                 return;
 
-            log.LogInfo(string.Join(" ", parts));
+            log.LogDebug(string.Join(" ", parts));
         }
     }
 }

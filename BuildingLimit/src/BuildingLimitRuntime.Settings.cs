@@ -23,7 +23,7 @@ namespace BuildingLimit
 
         private void OnSettingChanged(string propertyName)
         {
-            LogInfo("Settings changed:", propertyName);
+            LogDebug("Settings changed:", propertyName);
 
             if (propertyName == nameof(BuildingLimitLobbyViewModel.BuildingLimits))
                 ApplyBuildingLimits();

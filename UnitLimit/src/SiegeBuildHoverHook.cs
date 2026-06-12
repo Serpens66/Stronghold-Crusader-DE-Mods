@@ -31,7 +31,7 @@ namespace UnitLimit
             leaveHook = new Hook(FindHoverMethod("ButtonTroopPanelMouseLeave"), (ButtonTroopPanelHoverDelegate)ButtonTroopPanelMouseLeaveHook);
             leaveTrampoline = leaveHook.GenerateTrampoline<ButtonTroopPanelHoverDelegate>();
 
-            log.LogInfo("UnitLimit siege build hover hooks installed.");
+            log.LogDebug("UnitLimit siege build hover hooks installed.");
         }
 
         public void Dispose()
@@ -44,7 +44,7 @@ namespace UnitLimit
             enterHook?.Dispose();
             leaveHook?.Undo();
             leaveHook?.Dispose();
-            log.LogInfo("UnitLimit siege build hover hooks disposed.");
+            log.LogDebug("UnitLimit siege build hover hooks disposed.");
         }
 
         private static MethodInfo FindHoverMethod(string methodName)
@@ -72,7 +72,7 @@ namespace UnitLimit
             }
             catch (Exception ex)
             {
-                log.LogInfo("UnitLimit siege build enter hook failed: " + ex.Message);
+                log.LogDebug("UnitLimit siege build enter hook failed: " + ex.Message);
             }
         }
 
@@ -86,7 +86,7 @@ namespace UnitLimit
             }
             catch (Exception ex)
             {
-                log.LogInfo("UnitLimit siege build leave hook failed: " + ex.Message);
+                log.LogDebug("UnitLimit siege build leave hook failed: " + ex.Message);
             }
         }
     }

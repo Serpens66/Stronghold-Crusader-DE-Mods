@@ -19,7 +19,7 @@ namespace StartConditions
         {
             try
             {
-                LogInfo("OnStartMap");
+                LogDebug("OnStartMap");
                 if (handledCurrentMap)
                     return;
 
@@ -28,13 +28,13 @@ namespace StartConditions
             }
             catch (Exception ex)
             {
-                LogInfo("OnStartMap failed:", ex);
+                LogDebug("OnStartMap failed:", ex);
             }
         }
 
         private void OnLoadSave(LoadSaveGameEventArgs args)
         {
-            LogInfo("OnLoadSave");
+            LogDebug("OnLoadSave");
             CancelPendingStartTroopProcessing();
             handledCurrentMap = true;
             CodeOnLoadGame();
@@ -42,7 +42,7 @@ namespace StartConditions
 
         private void OnUnloadMap(MapUnloadEventArgs args)
         {
-            LogInfo("OnUnloadMap");
+            LogDebug("OnUnloadMap");
             CancelPendingStartTroopProcessing();
             goodsAddedByCode.Clear();
             handledCurrentMap = false;

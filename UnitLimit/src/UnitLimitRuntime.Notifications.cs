@@ -52,7 +52,7 @@ namespace UnitLimit
             }
             catch (System.Exception ex)
             {
-                LogInfo("Could not cancel limit message timer:", ex.Message);
+                LogDebug("Could not cancel limit message timer:", ex.Message);
             }
 
             limitMessageTimerHandle = null;

@@ -49,7 +49,7 @@ namespace BuildingLimit
             if (hooksSubscribed)
                 return;
 
-            LogInfo("Subscribing building limit runtime hooks");
+            LogDebug("Subscribing building limit runtime hooks");
             activeBuildingCache.SubscribeHooks();
             try
             {
@@ -57,7 +57,7 @@ namespace BuildingLimit
             }
             catch (Exception ex)
             {
-                LogInfo("Could not install building limit tooltip hook:", ex);
+                LogDebug("Could not install building limit tooltip hook:", ex);
             }
 
             BuildingR3EventHooks.OnPlacementValidation.Observable
@@ -76,7 +76,7 @@ namespace BuildingLimit
                 .Where(args => args.Phase == EventHookPhase.Post)
                 .Subscribe(OnUnloadMap);
 
-            LogInfo("Building limit runtime hooks subscribed");
+            LogDebug("Building limit runtime hooks subscribed");
             hooksSubscribed = true;
         }
 
@@ -87,7 +87,7 @@ namespace BuildingLimit
 
             ApplyBuildingLimits();
             SubscribeSettingsChanges();
-            LogInfo("Applied building limit settings");
+            LogDebug("Applied building limit settings");
             libraryInitialized = true;
         }
 
@@ -112,24 +112,24 @@ namespace BuildingLimit
         {
             try
             {
-                LogInfo("OnStartMap");
+                LogDebug("OnStartMap");
                 ApplyBuildingLimits();
             }
             catch (Exception ex)
             {
-                LogInfo("OnStartMap failed:", ex);
+                LogDebug("OnStartMap failed:", ex);
             }
         }
 
         private void OnLoadSave(LoadSaveGameEventArgs args)
         {
-            LogInfo("OnLoadSave");
+            LogDebug("OnLoadSave");
             ApplyBuildingLimits();
         }
 
         private void OnUnloadMap(MapUnloadEventArgs args)
         {
-            LogInfo("OnUnloadMap");
+            LogDebug("OnUnloadMap");
             HideBuildingLimitMessage();
             BuildingLimitTooltip.Clear();
             // matchingBuildingIds.Clear();
@@ -151,7 +151,7 @@ namespace BuildingLimit
 
             updateRolloverHook = new Hook(updateRolloverTarget, new UpdateRolloverDelegate(UpdateRolloverHookImpl));
             updateRolloverTrampoline = updateRolloverHook.GenerateTrampoline<UpdateRolloverDelegate>();
-            LogInfo("HUD_Main.UpdateRollover building limit hook installed");
+            LogDebug("HUD_Main.UpdateRollover building limit hook installed");
         }
 
         private void UpdateRolloverHookImpl(HUD_Main self)
@@ -160,9 +160,9 @@ namespace BuildingLimit
             UpdateBuildingLimitTooltip(self);
         }
 
-        private void LogInfo(params object[] parts)
+        private void LogDebug(params object[] parts)
         {
-            log.LogInfo(string.Join(" ", parts));
+            log.LogDebug(string.Join(" ", parts));
         }
     }
 }

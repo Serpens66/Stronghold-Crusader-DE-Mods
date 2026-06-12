@@ -34,7 +34,7 @@ namespace UnitCosts
 
             hook = new Hook(gameActionMethod, (EngineInterfaceGameActionDelegate)EngineInterfaceGameActionHook);
             trampoline = hook.GenerateTrampoline<EngineInterfaceGameActionDelegate>();
-            log.LogInfo("UnitCosts MakeTroop GameAction hook installed.");
+            log.LogDebug("UnitCosts MakeTroop GameAction hook installed.");
         }
 
         public void Dispose()
@@ -45,7 +45,7 @@ namespace UnitCosts
             disposed = true;
             hook?.Undo();
             hook?.Dispose();
-            log.LogInfo("UnitCosts MakeTroop GameAction hook disposed.");
+            log.LogDebug("UnitCosts MakeTroop GameAction hook disposed.");
         }
 
         private int EngineInterfaceGameActionHook(Enums.GameActionCommand command, int structureID, int state, int value2)
@@ -62,7 +62,7 @@ namespace UnitCosts
             }
             catch (Exception ex)
             {
-                log.LogInfo("UnitCosts game action hook failed: " + ex.Message);
+                log.LogDebug("UnitCosts game action hook failed: " + ex.Message);
             }
 
             return trampoline(command, structureID, state, value2);

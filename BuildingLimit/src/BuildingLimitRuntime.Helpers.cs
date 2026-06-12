@@ -34,7 +34,7 @@ namespace BuildingLimit
                 string[] parts = line.Split(new[] { '=' }, 2);
                 if (parts.Length != 2)
                 {
-                    LogInfo("Invalid setting line:", line);
+                    LogDebug("Invalid setting line:", line);
                     continue;
                 }
 
@@ -42,13 +42,13 @@ namespace BuildingLimit
                 string amountText = parts[1].Trim();
                 if (!Enum.TryParse(enumName, true, out TEnum enumValue))
                 {
-                    LogInfo("Unknown enum value:", enumName);
+                    LogDebug("Unknown enum value:", enumName);
                     continue;
                 }
 
                 if (!int.TryParse(amountText, out int amount))
                 {
-                    LogInfo("Invalid amount for", enumName, ":", amountText);
+                    LogDebug("Invalid amount for", enumName, ":", amountText);
                     continue;
                 }
 

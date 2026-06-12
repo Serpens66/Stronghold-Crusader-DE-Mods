@@ -49,7 +49,7 @@ namespace BuildingLimit
                 .Subscribe(OnBuildingDelete));
 
             subscribed = true;
-            LogInfo("ActiveBuildingCache hooks subscribed.");
+            LogDebug("ActiveBuildingCache hooks subscribed.");
         }
 
         public void Dispose()
@@ -149,7 +149,7 @@ namespace BuildingLimit
             int humanCountKeys = GetHumanCountKeyCount();
             if (humanActiveIds > 0 || humanCountKeys > 0)
             {
-                LogInfo(
+                LogDebug(
                     "ActiveBuildingCache ResyncAll:",
                     "raiseEvents", raiseEvents,
                     "scanned", scannedBuildings,
@@ -186,7 +186,7 @@ namespace BuildingLimit
             {
                 if (ShouldLogPlayer(snapshot.OwnerId))
                 {
-                    LogInfo(
+                    LogDebug(
                         "ActiveBuildingCache NotifyNativeSnapshotChanged read snapshot:",
                         "buildingId", buildingId,
                         "owner", snapshot.OwnerId,
@@ -253,7 +253,7 @@ namespace BuildingLimit
             if (ShouldLogPlayer(snapshot.OwnerId) ||
                 (eventArgs != null && ShouldLogPlayer(eventArgs.OldSnapshot.OwnerId)))
             {
-                LogInfo(
+                LogDebug(
                     "ActiveBuildingCache UpdateSnapshot:",
                     "buildingId", buildingId,
                     "owner", snapshot.OwnerId,
@@ -288,7 +288,7 @@ namespace BuildingLimit
 
             if (ShouldLogPlayer(removedSnapshot.OwnerId))
             {
-                LogInfo(
+                LogDebug(
                     "ActiveBuildingCache RemoveBuilding:",
                     "buildingId", buildingId,
                     "owner", removedSnapshot.OwnerId,
@@ -341,7 +341,7 @@ namespace BuildingLimit
                 {
                     if (ShouldLogPlayer(pair.Key.PlayerId))
                     {
-                        LogInfo(
+                        LogDebug(
                             "ActiveBuildingCache count changed:",
                             "player", pair.Key.PlayerId,
                             "type", pair.Key.BuildingType,
@@ -400,7 +400,7 @@ namespace BuildingLimit
 
             int humanCountKeys = GetHumanCountKeyCount();
             if (humanCountKeys > 0)
-                LogInfo("ActiveBuildingCache RebuildCounts:", "humanCountKeys", humanCountKeys);
+                LogDebug("ActiveBuildingCache RebuildCounts:", "humanCountKeys", humanCountKeys);
         }
 
         private int GetHumanActiveBuildingIdCount()
@@ -455,7 +455,7 @@ namespace BuildingLimit
                 if (!ShouldLogPlayer(pair.Key.PlayerId))
                     continue;
 
-                LogInfo(
+                LogDebug(
                     prefix + ":",
                     "player", pair.Key.PlayerId,
                     "type", pair.Key.BuildingType,
@@ -527,15 +527,15 @@ namespace BuildingLimit
                 countsByOwnerAndType.Clear();
             }
 
-            LogInfo("ActiveBuildingCache cleared.");
+            LogDebug("ActiveBuildingCache cleared.");
         }
 
-        private void LogInfo(params object[] parts)
+        private void LogDebug(params object[] parts)
         {
             if (log == null)
                 return;
 
-            log.LogInfo(string.Join(" ", parts));
+            log.LogDebug(string.Join(" ", parts));
         }
 
         internal enum ActiveBuildingChangeReason

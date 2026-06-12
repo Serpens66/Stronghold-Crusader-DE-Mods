@@ -22,7 +22,7 @@ namespace UnitLimit
 
         private void Awake()
         {
-            Logger.LogInfo($"{PluginName} {PluginVersion} loaded.");
+            Logger.LogDebug($"{PluginName} {PluginVersion} loaded.");
 
             Settings = new UnitLimitLobbyViewModel();
             runtime = new UnitLimitRuntime(Logger, Settings);
@@ -32,13 +32,13 @@ namespace UnitLimit
 
         private void OnDestroy()
         {
-            Logger.LogInfo("UnitLimitPlugin OnDestroy called; keeping runtime active until application quit.");
+            Logger.LogDebug("UnitLimitPlugin OnDestroy called; keeping runtime active until application quit.");
             CrusaderLibrary.Instance.LibraryLoaded -= OnCrusaderLibraryLoaded;
         }
 
         private void OnApplicationQuit()
         {
-            Logger.LogInfo("UnitLimitPlugin OnApplicationQuit called; disposing runtime.");
+            Logger.LogDebug("UnitLimitPlugin OnApplicationQuit called; disposing runtime.");
             DisposeRuntime();
         }
 
@@ -90,7 +90,7 @@ namespace UnitLimit
                     "UnitLimitSiegeLimitInlineHost",
                     runtime.UnitLimitTooltip);
 
-                Logger.LogInfo("Crusader library loaded; UnitLimit UI registered.");
+                Logger.LogDebug("Crusader library loaded; UnitLimit UI registered.");
                 runtime.InitializeAfterLibraryLoaded();
             }
             catch (Exception ex)

@@ -51,7 +51,7 @@ namespace UnitLimit
             }
             catch (Exception ex)
             {
-                LogInfo("Unit limit game action event failed:", ex.Message);
+                LogDebug("Unit limit game action event failed:", ex.Message);
                 return false;
             }
         }
@@ -75,7 +75,7 @@ namespace UnitLimit
             int liveCount = CountAliveUnits(playerId, unitType);
             int pendingCount = GetPendingRecruitmentCount(playerId, unitType);
             int effectiveCount = liveCount + pendingCount;
-            LogInfo(
+            LogDebug(
                 "MakeTroop count:",
                 "unit", unitType,
                 "player", playerId,
@@ -87,7 +87,7 @@ namespace UnitLimit
                 "rawUnitType", rawUnitType);
             if (effectiveCount + amount <= limit)
             {
-                LogInfo(
+                LogDebug(
                     "MakeTroop allow: below or at unit limit",
                     "unit", unitType,
                     "player", playerId,
@@ -99,7 +99,7 @@ namespace UnitLimit
                 return false;
             }
 
-            LogInfo(
+            LogDebug(
                 "MakeTroop block: unit limit exceeded",
                 unitType,
                 "player", playerId,
@@ -232,7 +232,7 @@ namespace UnitLimit
             }
             catch (Exception ex)
             {
-                LogInfo("Unit limit siege placement validation failed:", ex.Message);
+                LogDebug("Unit limit siege placement validation failed:", ex.Message);
             }
         }
 
@@ -253,7 +253,7 @@ namespace UnitLimit
 
             args.CustomValidationRules = true;
             args.ForceBlockPlacementState = true;
-            LogInfo(
+            LogDebug(
                 "Siege tent placement blocked by unit limit:",
                 "player", args.PlayerId,
                 "mapper", args.Mappers,
@@ -318,7 +318,7 @@ namespace UnitLimit
                 int expired = before - entry.Value.Count;
                 if (expired > 0)
                         if (ShouldLogHumanPlayer(entry.Key.PlayerId))
-                            LogInfo("Pending recruit expired:", entry.Key.UnitType, "player", entry.Key.PlayerId, "expired", expired, "remaining", entry.Value.Count);
+                            LogDebug("Pending recruit expired:", entry.Key.UnitType, "player", entry.Key.PlayerId, "expired", expired, "remaining", entry.Value.Count);
 
                 if (entry.Value.Count == 0)
                 {
@@ -339,7 +339,7 @@ namespace UnitLimit
         private void ClearPendingRecruitments(string reason)
         {
             if (pendingRecruitments.Count > 0)
-                LogInfo("Clearing pending recruitments:", reason, "keys", pendingRecruitments.Count);
+                LogDebug("Clearing pending recruitments:", reason, "keys", pendingRecruitments.Count);
 
             pendingRecruitments.Clear();
         }
@@ -358,7 +358,7 @@ namespace UnitLimit
                 eChimps pendingUnitType = GetPendingRecruitmentUnitType(args.NewSnapshot);
                 bool consumed = ConsumePendingRecruitment(args.NewSnapshot.OwnerId, pendingUnitType);
                 if (consumed && ShouldLogHumanPlayer(args.NewSnapshot.OwnerId))
-                    LogInfo("Active unit change consumed pending recruitment:", "unitId", args.UnitId, "player", args.NewSnapshot.OwnerId, "reason", args.Reason, "unitType", args.NewSnapshot.UnitType, "pendingUnitType", pendingUnitType);
+                    LogDebug("Active unit change consumed pending recruitment:", "unitId", args.UnitId, "player", args.NewSnapshot.OwnerId, "reason", args.Reason, "unitType", args.NewSnapshot.UnitType, "pendingUnitType", pendingUnitType);
             }
 
             RefreshLocalUnitRecruitableStates("OnActiveUnitChanged");
@@ -408,7 +408,7 @@ namespace UnitLimit
         private void ShowUnitLimitReachedMessage(eChimps unitType, int limit)
         {
             string message = "Max " + limit + " " + GetLocalizedUnitName(unitType);
-            LogInfo("Unit limit notification shown:", unitType, message);
+            LogDebug("Unit limit notification shown:", unitType, message);
             if (IsEngineerSiegeUnit(unitType))
                 DisplaySiegeLimitNotification(message);
             else
@@ -423,16 +423,16 @@ namespace UnitLimit
             {
                 if (!SoldierChimps.Contains(entry.Key))
                 {
-                    LogInfo("Unit limit type is not a supported recruitable soldier:", entry.Key);
+                    LogDebug("Unit limit type is not a supported recruitable soldier:", entry.Key);
                     continue;
                 }
 
                 activeUnitLimits[entry.Key] = entry.Value;
                 if (entry.Value >= 0)
-                    LogInfo("Active unit limit:", entry.Key, "=", entry.Value);
+                    LogDebug("Active unit limit:", entry.Key, "=", entry.Value);
             }
 
-            LogInfo("Applied active unit limit rules:", activeUnitLimits.Count);
+            LogDebug("Applied active unit limit rules:", activeUnitLimits.Count);
             RefreshLocalUnitRecruitableStates("ApplyUnitLimits", showNotifications);
             RefreshCurrentUnitLimitTooltip();
         }
@@ -468,7 +468,7 @@ namespace UnitLimit
                         if (locallyDisabledUnitRecruitment.Add(unitType))
                         {
                             if (ShouldLogHumanPlayer(playerId))
-                                LogInfo("Unit recruitment disabled by limit:", unitType, "player", playerId, "count", count, "limit", limit, "source", source);
+                                LogDebug("Unit recruitment disabled by limit:", unitType, "player", playerId, "count", count, "limit", limit, "source", source);
                             if (showNotifications)
                                 ShowUnitLimitReachedMessageForLocalPlayer(playerId, unitType, limit);
                         }
@@ -476,13 +476,13 @@ namespace UnitLimit
                     else if (locallyDisabledUnitRecruitment.Remove(unitType))
                     {
                         if (ShouldLogHumanPlayer(playerId))
-                            LogInfo("Unit recruitment enabled again:", unitType, "player", playerId, "count", count, "limit", limit, "source", source);
+                            LogDebug("Unit recruitment enabled again:", unitType, "player", playerId, "count", count, "limit", limit, "source", source);
                     }
                 }
             }
             catch (Exception ex)
             {
-                LogInfo("RefreshLocalUnitRecruitableStates failed:", "source", source, ex.Message);
+                LogDebug("RefreshLocalUnitRecruitableStates failed:", "source", source, ex.Message);
             }
         }
 
@@ -529,11 +529,11 @@ namespace UnitLimit
                 foreach (KeyValuePair<eChimps, bool> entry in originalUnitRecruitableStates)
                     GamePlayerManagerAPI.Instance.SetIsUnitAllowed(entry.Key, entry.Value);
 
-                LogInfo("Restored original unit recruitable states:", originalUnitRecruitableStates.Count);
+                LogDebug("Restored original unit recruitable states:", originalUnitRecruitableStates.Count);
             }
             catch (Exception ex)
             {
-                LogInfo("RestoreOriginalUnitRecruitableStates failed:", ex.Message);
+                LogDebug("RestoreOriginalUnitRecruitableStates failed:", ex.Message);
             }
         }
 
@@ -589,7 +589,7 @@ namespace UnitLimit
             }
             catch (Exception ex)
             {
-                LogInfo("Could not start unit limit recruitable refresh timer:", ex.Message);
+                LogDebug("Could not start unit limit recruitable refresh timer:", ex.Message);
             }
         }
 
@@ -609,7 +609,7 @@ namespace UnitLimit
             }
             catch (Exception ex)
             {
-                LogInfo("Could not cancel unit limit recruitable refresh timer:", ex.Message);
+                LogDebug("Could not cancel unit limit recruitable refresh timer:", ex.Message);
             }
 
             unitLimitRecruitableRefreshTimerHandle = null;

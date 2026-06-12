@@ -31,7 +31,7 @@ namespace UnitCosts
             leaveHook = new Hook(FindHoverMethod("ButtonLeaveCreateTroop"), (ButtonCreateTroopHoverDelegate)ButtonLeaveCreateTroopHook);
             leaveTrampoline = leaveHook.GenerateTrampoline<ButtonCreateTroopHoverDelegate>();
 
-            log.LogInfo("UnitCosts create troop hover hooks installed.");
+            log.LogDebug("UnitCosts create troop hover hooks installed.");
         }
 
         public void Dispose()
@@ -44,7 +44,7 @@ namespace UnitCosts
             enterHook?.Dispose();
             leaveHook?.Undo();
             leaveHook?.Dispose();
-            log.LogInfo("UnitCosts create troop hover hooks disposed.");
+            log.LogDebug("UnitCosts create troop hover hooks disposed.");
         }
 
         private static MethodInfo FindHoverMethod(string methodName)
@@ -72,7 +72,7 @@ namespace UnitCosts
             }
             catch (Exception ex)
             {
-                log.LogInfo("UnitCosts create troop enter hook failed: " + ex.Message);
+                log.LogDebug("UnitCosts create troop enter hook failed: " + ex.Message);
             }
         }
 
@@ -86,7 +86,7 @@ namespace UnitCosts
             }
             catch (Exception ex)
             {
-                log.LogInfo("UnitCosts create troop leave hook failed: " + ex.Message);
+                log.LogDebug("UnitCosts create troop leave hook failed: " + ex.Message);
             }
         }
     }

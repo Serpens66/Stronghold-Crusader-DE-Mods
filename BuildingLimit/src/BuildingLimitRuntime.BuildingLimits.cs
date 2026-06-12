@@ -27,7 +27,7 @@ namespace BuildingLimit
                 if (IsSiegeTentPlacementMapper(args.Mappers))
                     return;
 
-                LogInfo(
+                LogDebug(
                     "Building placement validation has no active limit rule:",
                     "player", args.PlayerId,
                     "mapper", args.Mappers);
@@ -36,7 +36,7 @@ namespace BuildingLimit
 
             if (rule.Limit < 0)
             {
-                LogInfo(
+                LogDebug(
                     "Building placement validation limit is unlimited:",
                     "player", args.PlayerId,
                     "mapper", args.Mappers,
@@ -45,7 +45,7 @@ namespace BuildingLimit
             }
 
             int aliveCount = CountAliveBuildings(args.PlayerId, rule.Definition);
-            LogInfo(
+            LogDebug(
                 "Building placement validation count:",
                 "player", args.PlayerId,
                 "mapper", args.Mappers,
@@ -56,7 +56,7 @@ namespace BuildingLimit
 
             if (aliveCount < rule.Limit)
             {
-                LogInfo(
+                LogDebug(
                     "Building placement validation below limit:",
                     "player", args.PlayerId,
                     "mapper", args.Mappers,
@@ -67,7 +67,7 @@ namespace BuildingLimit
 
             args.CustomValidationRules = true;
             args.ForceBlockPlacementState = true;
-            LogInfo(
+            LogDebug(
                 "Building placement validation blocked by limit:",
                 "player", args.PlayerId,
                 "mapper", args.Mappers,
@@ -80,7 +80,7 @@ namespace BuildingLimit
         {
             if (!IsLocalPlayer(playerId))
             {
-                LogInfo(
+                LogDebug(
                     "Building limit message skipped for non-local player:",
                     definition.Mapper,
                     "player", playerId);
@@ -149,7 +149,7 @@ namespace BuildingLimit
             }
             catch (Exception ex)
             {
-                LogInfo("Error updating building limit tooltip:", ex.Message);
+                LogDebug("Error updating building limit tooltip:", ex.Message);
                 BuildingLimitTooltip.Clear();
             }
         }
@@ -205,7 +205,7 @@ namespace BuildingLimit
 
         private void ShowBuildingLimitMessage(eMappers building, string message)
         {
-            LogInfo("Building limit notification shown:", building, message);
+            LogDebug("Building limit notification shown:", building, message);
             DisplayLimitNotification(message);
         }
 
@@ -257,7 +257,7 @@ namespace BuildingLimit
             }
             catch (Exception ex)
             {
-                LogInfo("Could not cancel building limit message timer:", ex.Message);
+                LogDebug("Could not cancel building limit message timer:", ex.Message);
             }
 
             buildingLimitMessageTimerHandle = null;
@@ -272,7 +272,7 @@ namespace BuildingLimit
                 if (!BuildingLimitDefinitions.TryGetValue(entry.Key, out BuildingLimitDefinition definition) ||
                     definition.Mapper != entry.Key)
                 {
-                    LogInfo("Building limit mapper is not a supported limit key:", entry.Key);
+                    LogDebug("Building limit mapper is not a supported limit key:", entry.Key);
                     continue;
                 }
 
@@ -286,7 +286,7 @@ namespace BuildingLimit
 
                 if (entry.Value >= 0)
                 {
-                    LogInfo(
+                    LogDebug(
                         "Active building limit:",
                         entry.Key,
                         "=",
@@ -298,7 +298,7 @@ namespace BuildingLimit
                 }
             }
 
-            LogInfo("Applied active building limit rules:", activeBuildingLimitRules.Count);
+            LogDebug("Applied active building limit rules:", activeBuildingLimitRules.Count);
         }
 
         private static int GetInternalBuildingLimit(BuildingLimitDefinition definition, int configuredLimit)

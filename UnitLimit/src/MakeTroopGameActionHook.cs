@@ -34,7 +34,7 @@ namespace UnitLimit
 
             hook = new Hook(gameActionMethod, (EngineInterfaceGameActionDelegate)EngineInterfaceGameActionHook);
             trampoline = hook.GenerateTrampoline<EngineInterfaceGameActionDelegate>();
-            log.LogInfo("UnitLimit MakeTroop GameAction hook installed.");
+            log.LogDebug("UnitLimit MakeTroop GameAction hook installed.");
         }
 
         public void Dispose()
@@ -45,7 +45,7 @@ namespace UnitLimit
             disposed = true;
             hook?.Undo();
             hook?.Dispose();
-            log.LogInfo("UnitLimit MakeTroop GameAction hook disposed.");
+            log.LogDebug("UnitLimit MakeTroop GameAction hook disposed.");
         }
 
         private int EngineInterfaceGameActionHook(Enums.GameActionCommand command, int structureID, int state, int value2)
@@ -62,7 +62,7 @@ namespace UnitLimit
             }
             catch (Exception ex)
             {
-                log.LogInfo("Unit limit game action hook failed: " + ex.Message);
+                log.LogDebug("Unit limit game action hook failed: " + ex.Message);
             }
 
             return trampoline(command, structureID, state, value2);

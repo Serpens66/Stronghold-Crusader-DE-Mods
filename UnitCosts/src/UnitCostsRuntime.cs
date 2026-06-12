@@ -85,7 +85,7 @@ namespace UnitCosts
             siegeBuildHoverHook = new SiegeBuildHoverHook(log, UpdateSiegeBuildCostTooltip, ClearRecruitmentCostTooltip);
 
             hooksSubscribed = true;
-            log.LogInfo("UnitCosts runtime hooks subscribed");
+            log.LogDebug("UnitCosts runtime hooks subscribed");
         }
 
         public void Dispose()
@@ -116,7 +116,7 @@ namespace UnitCosts
 
         private void OnSettingChanged(string propertyName)
         {
-            log.LogInfo("UnitCosts settings changed: " + propertyName);
+            log.LogDebug("UnitCosts settings changed: " + propertyName);
 
             if (propertyName == nameof(UnitCostsLobbyViewModel.UnitCosts))
             {
@@ -139,7 +139,7 @@ namespace UnitCosts
             }
             catch (Exception ex)
             {
-                log.LogInfo("UnitCosts OnStartMap failed: " + ex);
+                log.LogDebug("UnitCosts OnStartMap failed: " + ex);
             }
         }
 
@@ -173,7 +173,7 @@ namespace UnitCosts
                 changedValues += CountConfiguredGoodSlots(values);
             }
 
-            log.LogInfo("Applied unit cost values: " + changedValues);
+            log.LogDebug("Applied unit cost values: " + changedValues);
         }
 
         private void ApplyHumanExtraUnitCosts()
@@ -188,7 +188,7 @@ namespace UnitCosts
                     configuredUnits++;
             }
 
-            log.LogInfo("Applied human extra unit cost rows: " + configuredUnits);
+            log.LogDebug("Applied human extra unit cost rows: " + configuredUnits);
         }
 
         private bool ShouldBlockMakeTroopGameAction(int amount, eChimps unitType, int rawUnitType)
@@ -199,7 +199,7 @@ namespace UnitCosts
             }
             catch (Exception ex)
             {
-                log.LogInfo("UnitCosts local recruitment cost check failed: " + ex.Message);
+                log.LogDebug("UnitCosts local recruitment cost check failed: " + ex.Message);
                 return false;
             }
         }
@@ -219,7 +219,7 @@ namespace UnitCosts
             if (HasEnoughExtraCosts(playerId, costs, amount, out eGoods missingGood, out int requiredAmount, out int availableAmount))
                 return false;
 
-            LogInfo(
+            LogDebug(
                 "UnitCosts blocked recruitment:",
                 "unit", unitType,
                 "player", playerId,
@@ -384,7 +384,7 @@ namespace UnitCosts
 
                 if (!HasEnoughExtraCosts(playerId, costs, 1, out eGoods missingGood, out int requiredAmount, out int availableAmount))
                 {
-                    LogInfo(
+                    LogDebug(
                         "UnitCosts transition extra cost missing:",
                         "unit", args.NextUnitType,
                         "player", playerId,
@@ -395,11 +395,11 @@ namespace UnitCosts
                 }
 
                 ApplyExtraCosts(playerId, costs, 1);
-                log.LogInfo("UnitCosts applied human extra costs: " + args.NextUnitType + " player " + playerId);
+                log.LogDebug("UnitCosts applied human extra costs: " + args.NextUnitType + " player " + playerId);
             }
             catch (Exception ex)
             {
-                log.LogInfo("UnitCosts OnUnitTransition failed: " + ex.Message);
+                log.LogDebug("UnitCosts OnUnitTransition failed: " + ex.Message);
             }
         }
 
@@ -421,7 +421,7 @@ namespace UnitCosts
 
                 args.CustomValidationRules = true;
                 args.ForceBlockPlacementState = true;
-                LogInfo(
+                LogDebug(
                     "UnitCosts blocked siege placement:",
                     "unit", unitType,
                     "player", args.PlayerId,
@@ -433,7 +433,7 @@ namespace UnitCosts
             }
             catch (Exception ex)
             {
-                log.LogInfo("UnitCosts siege placement validation failed: " + ex.Message);
+                log.LogDebug("UnitCosts siege placement validation failed: " + ex.Message);
             }
         }
 
@@ -452,7 +452,7 @@ namespace UnitCosts
 
                 if (!HasEnoughExtraCosts(args.PlayerId, costs, 1, out eGoods missingGood, out int requiredAmount, out int availableAmount))
                 {
-                    LogInfo(
+                    LogDebug(
                         "UnitCosts siege extra cost skipped after spawn because resources are missing:",
                         "unit", unitType,
                         "player", args.PlayerId,
@@ -466,7 +466,7 @@ namespace UnitCosts
                 }
 
                 ApplyExtraCosts(args.PlayerId, costs, 1);
-                LogInfo(
+                LogDebug(
                     "UnitCosts applied siege extra costs:",
                     "unit", unitType,
                     "player", args.PlayerId,
@@ -474,7 +474,7 @@ namespace UnitCosts
             }
             catch (Exception ex)
             {
-                log.LogInfo("UnitCosts OnBuildingSpawn failed: " + ex.Message);
+                log.LogDebug("UnitCosts OnBuildingSpawn failed: " + ex.Message);
             }
         }
 
@@ -557,9 +557,9 @@ namespace UnitCosts
             return playerId == GetLocalHumanPlayerId();
         }
 
-        private void LogInfo(params object[] parts)
+        private void LogDebug(params object[] parts)
         {
-            log.LogInfo(string.Join(" ", parts));
+            log.LogDebug(string.Join(" ", parts));
         }
 
         private void ShowMissingResourcesMessage()
@@ -588,7 +588,7 @@ namespace UnitCosts
         {
             try
             {
-                LogInfo("UnitCosts missing resources speech:", MissingResourcesSpeechFileName);
+                LogDebug("UnitCosts missing resources speech:", MissingResourcesSpeechFileName);
 
                 SFXManager.instance?.playSpeech(
                     1,
@@ -597,7 +597,7 @@ namespace UnitCosts
             }
             catch (Exception ex)
             {
-                LogInfo("Could not play UnitCosts missing resources speech:", ex.Message);
+                LogDebug("Could not play UnitCosts missing resources speech:", ex.Message);
             }
         }
 
@@ -634,7 +634,7 @@ namespace UnitCosts
             }
             catch (Exception ex)
             {
-                LogInfo("Could not cancel UnitCosts material message timer:", ex.Message);
+                LogDebug("Could not cancel UnitCosts material message timer:", ex.Message);
             }
 
             materialMessageTimerHandle = null;

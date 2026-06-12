@@ -93,7 +93,7 @@ namespace UnitLimit
             if (hooksSubscribed)
                 return;
 
-            LogInfo("Subscribing unit limit runtime hooks");
+            LogDebug("Subscribing unit limit runtime hooks");
             activeUnitCache.SubscribeHooks();
             activeUnitCache.OnActiveUnitChanged += OnActiveUnitChanged;
             makeTroopGameActionHook = new MakeTroopGameActionHook(log, ShouldBlockMakeTroopGameAction);
@@ -117,7 +117,7 @@ namespace UnitLimit
                 .Where(args => args.Phase == EventHookPhase.Pre)
                 .Subscribe(OnBuildingPlacementValidation);
 
-            LogInfo("Unit limit runtime hooks subscribed");
+            LogDebug("Unit limit runtime hooks subscribed");
             hooksSubscribed = true;
         }
 
@@ -128,7 +128,7 @@ namespace UnitLimit
 
             ApplyUnitLimits();
             SubscribeSettingsChanges();
-            LogInfo("Applied unit limit settings");
+            LogDebug("Applied unit limit settings");
             libraryInitialized = true;
         }
 
@@ -163,7 +163,7 @@ namespace UnitLimit
 
         private void OnStartMap(MapStartEventArgs args)
         {
-            LogInfo("OnStartMap");
+            LogDebug("OnStartMap");
             ResetUnitRecruitableTracking();
             ApplyUnitLimits(false);
             StartUnitLimitRecruitableRefresh();
@@ -171,7 +171,7 @@ namespace UnitLimit
 
         private void OnLoadSave(LoadSaveGameEventArgs args)
         {
-            LogInfo("OnLoadSave");
+            LogDebug("OnLoadSave");
             ResetUnitRecruitableTracking();
             ApplyUnitLimits(false);
             StartUnitLimitRecruitableRefresh();
@@ -179,7 +179,7 @@ namespace UnitLimit
 
         private void OnUnloadMap(MapUnloadEventArgs args)
         {
-            LogInfo("OnUnloadMap");
+            LogDebug("OnUnloadMap");
             ClearPendingRecruitments("OnUnloadMap");
             CancelUnitLimitRecruitableRefresh();
             RestoreOriginalUnitRecruitableStates();
@@ -190,9 +190,9 @@ namespace UnitLimit
             // matchingUnitIds.Clear();
         }
 
-        private void LogInfo(params object[] parts)
+        private void LogDebug(params object[] parts)
         {
-            log.LogInfo(string.Join(" ", parts));
+            log.LogDebug(string.Join(" ", parts));
         }
     }
 }

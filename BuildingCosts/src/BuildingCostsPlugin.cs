@@ -24,7 +24,7 @@ namespace BuildingCosts
 
         private void Awake()
         {
-            Logger.LogInfo($"{PluginName} {PluginVersion} loaded.");
+            Logger.LogDebug($"{PluginName} {PluginVersion} loaded.");
 
             Settings = new BuildingCostsLobbyViewModel();
             runtime = new BuildingCostsRuntime(Logger, Settings);
@@ -34,13 +34,13 @@ namespace BuildingCosts
 
         private void OnDestroy()
         {
-            Logger.LogInfo("BuildingCostsPlugin OnDestroy called; keeping runtime active until application quit.");
+            Logger.LogDebug("BuildingCostsPlugin OnDestroy called; keeping runtime active until application quit.");
             CrusaderLibrary.Instance.LibraryLoaded -= OnCrusaderLibraryLoaded;
         }
 
         private void OnApplicationQuit()
         {
-            Logger.LogInfo("BuildingCostsPlugin OnApplicationQuit called; disposing runtime.");
+            Logger.LogDebug("BuildingCostsPlugin OnApplicationQuit called; disposing runtime.");
             DisposeRuntime();
         }
 
@@ -71,7 +71,7 @@ namespace BuildingCosts
                     "BuildingCostsTooltipHostCompact",
                     BuildingCostTooltipViewModel);
 
-                Logger.LogInfo("Crusader library loaded; BuildingCosts UI registered.");
+                Logger.LogDebug("Crusader library loaded; BuildingCosts UI registered.");
                 runtime.InitializeAfterLibraryLoaded();
             }
             catch (Exception ex)

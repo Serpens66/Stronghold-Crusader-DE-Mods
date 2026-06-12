@@ -18,7 +18,7 @@ namespace StartConditions
         private void ApplyStartTroopDefaultPatches()
         {
             PatchAiStartTroopDefaults();
-            LogInfo("Human start troop default patching is disabled because the extender API can crash the game.");
+            LogDebug("Human start troop default patching is disabled because the extender API can crash the game.");
         }
 
         private void RestoreStartTroopDefaultPatches()
@@ -43,7 +43,7 @@ namespace StartConditions
                     PatchAiStartTroopMode(values, lordIndex, modeIndex, factor);
             }
 
-            LogInfo("Patched AI lord start troop defaults with factor", factor);
+            LogDebug("Patched AI lord start troop defaults with factor", factor);
         }
 
         private unsafe void PatchAiStartTroopMode(int* values, int lordIndex, int modeIndex, int factor)
@@ -114,7 +114,7 @@ namespace StartConditions
             ulong address = (ulong)GameAIManagerAPI.Instance.GetAICArray().GetArrayAddress();
             if (address == 0)
             {
-                LogInfo("AIC array address is null; cannot patch AI start troops.");
+                LogDebug("AIC array address is null; cannot patch AI start troops.");
                 return null;
             }
 
@@ -128,7 +128,7 @@ namespace StartConditions
 
         private void PatchHumanStartTroopDefaults()
         {
-            LogInfo("Skipping human start troop default patching; GetPlayerSkirmishDefaultUnitsAmount is unsafe.");
+            LogDebug("Skipping human start troop default patching; GetPlayerSkirmishDefaultUnitsAmount is unsafe.");
         }
 
         private void RestoreHumanStartTroopDefaults()
@@ -152,8 +152,8 @@ namespace StartConditions
             try
             {
                 CancelPendingStartTroopProcessing();
-                LogInfo("Raw AI AddStartTroops:", settings.AddStartTroopsAI);
-                LogInfo("Raw Human AddStartTroops:", settings.AddStartTroopsHuman);
+                LogDebug("Raw AI AddStartTroops:", settings.AddStartTroopsAI);
+                LogDebug("Raw Human AddStartTroops:", settings.AddStartTroopsHuman);
                 Dictionary<eChimps, int> aiTroops = ParseEnumAmounts<eChimps>(settings.AddStartTroopsAI);
                 Dictionary<eChimps, int> humanTroops = ParseEnumAmounts<eChimps>(settings.AddStartTroopsHuman);
                 LogConfiguredTroops("AI AddStartTroops", aiTroops);
@@ -171,7 +171,7 @@ namespace StartConditions
                         if (playerCounts == null)
                         {
                             plan.PendingPlayers.Add(new PendingStartTroopPlayer(playerId, isAI, multiplier));
-                            LogInfo("Scheduling delayed start troop count for player", playerId, "multiplier", multiplier);
+                            LogDebug("Scheduling delayed start troop count for player", playerId, "multiplier", multiplier);
                             return;
                         }
 
@@ -186,7 +186,7 @@ namespace StartConditions
             }
             catch (Exception ex)
             {
-                LogInfo("AddStartTroops failed:", ex);
+                LogDebug("AddStartTroops failed:", ex);
             }
         }
 
@@ -198,7 +198,7 @@ namespace StartConditions
                 RunDelayedStartTroopProcessing,
                 string.Empty);
 
-            LogInfo("Scheduled delayed start troop processing in", DelayedStartTroopCountMilliseconds, "ms for", plan.PendingPlayers.Count, "players. Timer is not save/load persistent.");
+            LogDebug("Scheduled delayed start troop processing in", DelayedStartTroopCountMilliseconds, "ms for", plan.PendingPlayers.Count, "players. Timer is not save/load persistent.");
         }
 
         private void RunDelayedStartTroopProcessing()
@@ -212,27 +212,27 @@ namespace StartConditions
 
             try
             {
-                LogInfo("Running delayed start troop count for", plan.PendingPlayers.Count, "players");
+                LogDebug("Running delayed start troop count for", plan.PendingPlayers.Count, "players");
                 Dictionary<int, Dictionary<eChimps, int>> troopCounts = CountSoldiersForPlayers();
                 foreach (PendingStartTroopPlayer pending in plan.PendingPlayers)
                 {
                     if (!GamePlayerManagerAPI.Instance.IsPlayerIdValid(pending.PlayerId) || !HasKeep(pending.PlayerId))
                     {
-                        LogInfo("Delayed start troop count skipped; player no longer valid or has no keep:", pending.PlayerId);
+                        LogDebug("Delayed start troop count skipped; player no longer valid or has no keep:", pending.PlayerId);
                         continue;
                     }
 
                     if (troopCounts.TryGetValue(pending.PlayerId, out Dictionary<eChimps, int> playerCounts))
                         SpawnMultipliedStartTroops(pending.PlayerId, playerCounts, pending.Multiplier, "delayed count");
                     else
-                        LogInfo("No start troop counts available for player", pending.PlayerId, "multiplier skipped.");
+                        LogDebug("No start troop counts available for player", pending.PlayerId, "multiplier skipped.");
                 }
 
                 SpawnConfiguredStartTroops(plan.AiTroops, plan.HumanTroops);
             }
             catch (Exception ex)
             {
-                LogInfo("RunDelayedStartTroopProcessing failed:", ex);
+                LogDebug("RunDelayedStartTroopProcessing failed:", ex);
             }
         }
 
@@ -243,11 +243,11 @@ namespace StartConditions
                 try
                 {
                     GameTimeManagerAPI.Instance.GetTimerEngine().RemoveAction(pendingStartTroopTimerHandle);
-                    LogInfo("Cancelled pending start troop timer", pendingStartTroopTimerHandle);
+                    LogDebug("Cancelled pending start troop timer", pendingStartTroopTimerHandle);
                 }
                 catch (Exception ex)
                 {
-                    LogInfo("Could not cancel pending start troop timer:", ex.Message);
+                    LogDebug("Could not cancel pending start troop timer:", ex.Message);
                 }
             }
 
@@ -262,7 +262,7 @@ namespace StartConditions
                 int amount = entry.Value * (multiplier - 1);
                 if (amount > 0)
                 {
-                    LogInfo("Spawning multiplied start troops from", source, "for player", playerId, entry.Key, entry.Value, "x", multiplier, "=> add", amount);
+                    LogDebug("Spawning multiplied start troops from", source, "for player", playerId, entry.Key, entry.Value, "x", multiplier, "=> add", amount);
                     SpawnUnitsNearKeep(playerId, entry.Key, amount);
                 }
             }
@@ -270,7 +270,7 @@ namespace StartConditions
 
         private void SpawnConfiguredStartTroops(Dictionary<eChimps, int> aiTroops, Dictionary<eChimps, int> humanTroops)
         {
-            LogInfo("Applying configured AddStartTroops after multiplier phase");
+            LogDebug("Applying configured AddStartTroops after multiplier phase");
             ForEachAlivePlayer(playerId =>
             {
                 bool isAI = GamePlayerManagerAPI.Instance.IsAIPlayer(playerId);
@@ -289,7 +289,7 @@ namespace StartConditions
             {
                 if (!isAI)
                 {
-                    LogInfo("Human start troop defaults are not read because GetPlayerSkirmishDefaultUnitsAmount is unsafe.");
+                    LogDebug("Human start troop defaults are not read because GetPlayerSkirmishDefaultUnitsAmount is unsafe.");
                     return null;
                 }
 
@@ -302,7 +302,7 @@ namespace StartConditions
             }
             catch (Exception ex)
             {
-                LogInfo("Could not read start troop defaults for player", playerId, ":", ex.Message);
+                LogDebug("Could not read start troop defaults for player", playerId, ":", ex.Message);
                 return null;
             }
         }
@@ -316,7 +316,7 @@ namespace StartConditions
             int lordIndex = (int)lord;
             if (aicArray == null || lordIndex <= 0 || lordIndex >= lordCount)
             {
-                LogInfo("AI player", playerId, "lord index is outside AIC array:", lordName, lordIndex, "count", lordCount);
+                LogDebug("AI player", playerId, "lord index is outside AIC array:", lordName, lordIndex, "count", lordCount);
                 return null;
             }
 
@@ -324,10 +324,10 @@ namespace StartConditions
             int offset = GetAiStartTroopModeOffset();
             LogAiStartTroopModes(playerId, lordName, values);
             Dictionary<eChimps, int> troops = CountStartTroopMode(values, offset);
-            LogInfo("Read AI start troop defaults for player", playerId, "lord", lordName, "modeOffset", offset);
+            LogDebug("Read AI start troop defaults for player", playerId, "lord", lordName, "modeOffset", offset);
             if (troops.Count == 0)
             {
-                LogInfo("AI start troop defaults are empty for selected mode; delayed count fallback required for player", playerId, "lord", lordName);
+                LogDebug("AI start troop defaults are empty for selected mode; delayed count fallback required for player", playerId, "lord", lordName);
                 DumpAllAiStartTroopDefaultsOnce();
             }
 
@@ -342,18 +342,18 @@ namespace StartConditions
             lordName = GameAIManagerAPI.Instance.GetCustomAILordNameByPlayerId(playerId);
             if (string.IsNullOrWhiteSpace(lordName))
             {
-                LogInfo("AI player", playerId, "has no readable lord name.");
+                LogDebug("AI player", playerId, "has no readable lord name.");
                 lord = default(AILords);
                 return false;
             }
 
             if (!Enum.TryParse(lordName, true, out lord))
             {
-                LogInfo("AI player", playerId, "lord name cannot be mapped to AILords:", lordName);
+                LogDebug("AI player", playerId, "lord name cannot be mapped to AILords:", lordName);
                 return false;
             }
 
-            LogInfo("Resolved AI lord via custom slot name for player", playerId, lordName, lord);
+            LogDebug("Resolved AI lord via custom slot name for player", playerId, lordName, lord);
             return true;
         }
 
@@ -368,7 +368,7 @@ namespace StartConditions
                 {
                     var gameLord = GamePlayerManagerAPI.Instance.GetAILord(candidatePlayerId);
                     lordName = gameLord.ToString();
-                    LogInfo("GetAILord candidate for player", playerId, "arg", candidatePlayerId, "=>", lordName, Convert.ToInt32(gameLord));
+                    LogDebug("GetAILord candidate for player", playerId, "arg", candidatePlayerId, "=>", lordName, Convert.ToInt32(gameLord));
 
                     if (Enum.TryParse(lordName, true, out lord) && (int)lord > 0 && IsDefinedEnumValue<AILords>(lord))
                     {
@@ -381,7 +381,7 @@ namespace StartConditions
                 }
                 catch (Exception ex)
                 {
-                    LogInfo("GetAILord failed for player", playerId, "arg", candidatePlayerId, ":", ex.Message);
+                    LogDebug("GetAILord failed for player", playerId, "arg", candidatePlayerId, ":", ex.Message);
                 }
             }
 
@@ -422,7 +422,7 @@ namespace StartConditions
             for (int modeIndex = 0; modeIndex < AiStartTroopModeCount; modeIndex++)
             {
                 Dictionary<eChimps, int> troops = CountStartTroopMode(values, modeIndex * AiStartTroopFieldCountPerMode);
-                LogInfo("AI start troop mode", modeIndex, "player", playerId, "lord", lordName, FormatTroopCounts(troops));
+                LogDebug("AI start troop mode", modeIndex, "player", playerId, "lord", lordName, FormatTroopCounts(troops));
             }
         }
 
@@ -436,13 +436,13 @@ namespace StartConditions
             InternalAIC* aicArray = GetAicArrayPointer(out int lordCount);
             if (aicArray == null || lordCount <= 1)
             {
-                LogInfo("AI start troop dump skipped; AIC array is unavailable.");
+                LogDebug("AI start troop dump skipped; AIC array is unavailable.");
                 return;
             }
 
             int nonEmptyModes = 0;
             int emptyModes = 0;
-            LogInfo("AI start troop full dump begin; lords", lordCount - 1, "modesPerLord", AiStartTroopModeCount);
+            LogDebug("AI start troop full dump begin; lords", lordCount - 1, "modesPerLord", AiStartTroopModeCount);
 
             for (int lordIndex = 1; lordIndex < lordCount; lordIndex++)
             {
@@ -458,16 +458,16 @@ namespace StartConditions
                     }
 
                     nonEmptyModes++;
-                    LogInfo("AI start troop full dump", lord, "mode", modeIndex, FormatTroopCounts(troops));
+                    LogDebug("AI start troop full dump", lord, "mode", modeIndex, FormatTroopCounts(troops));
                 }
             }
 
-            LogInfo("AI start troop full dump complete; nonEmptyModes", nonEmptyModes, "emptyModes", emptyModes);
+            LogDebug("AI start troop full dump complete; nonEmptyModes", nonEmptyModes, "emptyModes", emptyModes);
         }
 
         private void LogStartTroopDefaults(int playerId, bool isAI, Dictionary<eChimps, int> troops)
         {
-            LogInfo(isAI ? "AI start troop defaults" : "Human start troop defaults", "player", playerId, FormatTroopCounts(troops));
+            LogDebug(isAI ? "AI start troop defaults" : "Human start troop defaults", "player", playerId, FormatTroopCounts(troops));
         }
 
         private Dictionary<int, Dictionary<eChimps, int>> CountSoldiersForPlayers()
@@ -501,7 +501,7 @@ namespace StartConditions
             }
 
             if (skippedInvalidUnitIds > 0)
-                LogInfo("CountSoldiersForPlayers skipped invalid unit ids:", skippedInvalidUnitIds);
+                LogDebug("CountSoldiersForPlayers skipped invalid unit ids:", skippedInvalidUnitIds);
 
             return troopCounts;
         }
@@ -510,11 +510,11 @@ namespace StartConditions
         {
             if (!TryGetTileNearKeep(playerId, out int x, out int y, out int height))
             {
-                LogInfo("Could not find spawn tile near keep for player", playerId, "unit", unitType, "amount", amount);
+                LogDebug("Could not find spawn tile near keep for player", playerId, "unit", unitType, "amount", amount);
                 return;
             }
 
-            LogInfo("CreateLocal", amount, unitType, "for player", playerId, "at", x, y, height);
+            LogDebug("CreateLocal", amount, unitType, "for player", playerId, "at", x, y, height);
             for (int i = 0; i < amount; i++)
                 GameUnitManagerAPI.Instance.CreateUnitLocal(playerId, playerId, x, y, height, unitType);
         }
@@ -527,7 +527,7 @@ namespace StartConditions
 
             if (!GamePlayerManagerAPI.Instance.IsPlayerIdValid(playerId) || !HasKeep(playerId))
             {
-                LogInfo("Cannot find keep spawn tile; player is invalid or has no keep:", playerId);
+                LogDebug("Cannot find keep spawn tile; player is invalid or has no keep:", playerId);
                 return false;
             }
 
@@ -537,7 +537,7 @@ namespace StartConditions
 
             if (!GameTileManagerAPI.Instance.IsValidTileId(tileId) || !GameTileManagerAPI.Instance.IsTileWalkableAndUnoccupied(tileId))
             {
-                LogInfo("Nearest keep tile is not valid/walkable/unoccupied for player", playerId, "door", door.X, door.Y, "candidate", position.X, position.Y, "tile", tileId);
+                LogDebug("Nearest keep tile is not valid/walkable/unoccupied for player", playerId, "door", door.X, door.Y, "candidate", position.X, position.Y, "tile", tileId);
                 return false;
             }
 

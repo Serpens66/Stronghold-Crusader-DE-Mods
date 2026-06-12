@@ -71,7 +71,7 @@ namespace StartConditions
             if (hooksSubscribed)
                 return;
 
-            LogInfo("Subscribing start conditions runtime hooks");
+            LogDebug("Subscribing start conditions runtime hooks");
 
             PlayerR3EventHooks.OnPlayerAddResource.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
@@ -89,7 +89,7 @@ namespace StartConditions
                 .Where(args => args.Phase == EventHookPhase.Post)
                 .Subscribe(OnUnloadMap);
 
-            LogInfo("Start conditions runtime hooks subscribed");
+            LogDebug("Start conditions runtime hooks subscribed");
             hooksSubscribed = true;
         }
 
@@ -98,7 +98,7 @@ namespace StartConditions
             if (libraryInitialized)
                 return;
 
-            LogInfo("Start conditions initialized");
+            LogDebug("Start conditions initialized");
             libraryInitialized = true;
         }
 
@@ -109,9 +109,9 @@ namespace StartConditions
             goodsAddedByCode.Clear();
         }
 
-        private void LogInfo(params object[] parts)
+        private void LogDebug(params object[] parts)
         {
-            log.LogInfo(string.Join(" ", parts));
+            log.LogDebug(string.Join(" ", parts));
         }
     }
 }

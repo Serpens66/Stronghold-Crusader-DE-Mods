@@ -22,7 +22,7 @@ namespace UnitCosts
 
         private void Awake()
         {
-            Logger.LogInfo($"{PluginName} {PluginVersion} loaded.");
+            Logger.LogDebug($"{PluginName} {PluginVersion} loaded.");
 
             Settings = new UnitCostsLobbyViewModel();
             runtime = new UnitCostsRuntime(Logger, Settings);
@@ -31,13 +31,13 @@ namespace UnitCosts
 
         private void OnDestroy()
         {
-            Logger.LogInfo("UnitCostsPlugin OnDestroy called; keeping runtime active until application quit.");
+            Logger.LogDebug("UnitCostsPlugin OnDestroy called; keeping runtime active until application quit.");
             CrusaderLibrary.Instance.LibraryLoaded -= OnCrusaderLibraryLoaded;
         }
 
         private void OnApplicationQuit()
         {
-            Logger.LogInfo("UnitCostsPlugin OnApplicationQuit called; disposing runtime.");
+            Logger.LogDebug("UnitCostsPlugin OnApplicationQuit called; disposing runtime.");
             DisposeRuntime();
         }
 
@@ -70,7 +70,7 @@ namespace UnitCosts
                 RegisterRecruitmentCostTooltipBindings();
 
                 runtime.InitializeAfterLibraryLoaded();
-                Logger.LogInfo("Crusader library loaded; UnitCosts UI registered.");
+                Logger.LogDebug("Crusader library loaded; UnitCosts UI registered.");
             }
             catch (Exception ex)
             {

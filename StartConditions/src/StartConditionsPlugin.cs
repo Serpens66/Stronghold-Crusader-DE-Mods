@@ -22,7 +22,7 @@ namespace StartConditions
 
         private void Awake()
         {
-            Logger.LogInfo($"{PluginName} {PluginVersion} loaded.");
+            Logger.LogDebug($"{PluginName} {PluginVersion} loaded.");
 
             Settings = new StartConditionsLobbyViewModel();
             runtime = new StartConditionsRuntime(Logger, Settings);
@@ -32,13 +32,13 @@ namespace StartConditions
 
         private void OnDestroy()
         {
-            Logger.LogInfo("StartConditionsPlugin OnDestroy called; keeping runtime active until application quit.");
+            Logger.LogDebug("StartConditionsPlugin OnDestroy called; keeping runtime active until application quit.");
             CrusaderLibrary.Instance.LibraryLoaded -= OnCrusaderLibraryLoaded;
         }
 
         private void OnApplicationQuit()
         {
-            Logger.LogInfo("StartConditionsPlugin OnApplicationQuit called; disposing runtime.");
+            Logger.LogDebug("StartConditionsPlugin OnApplicationQuit called; disposing runtime.");
             DisposeRuntime();
         }
 
@@ -56,14 +56,14 @@ namespace StartConditions
         {
             try
             {
-                Settings.RefreshLocalizedNames(message => Logger.LogInfo(message));
+                Settings.RefreshLocalizedNames(message => Logger.LogDebug(message));
                 GameXAMLManagerAPI.Instance.RegisterLobbyModSettings(
                     this,
                     "StartConditions",
                     Settings,
                     "ScriptExtenderUI/StartConditionsSettings.xaml");
 
-                Logger.LogInfo("Crusader library loaded; StartConditions UI registered.");
+                Logger.LogDebug("Crusader library loaded; StartConditions UI registered.");
                 runtime.InitializeAfterLibraryLoaded();
             }
             catch (Exception ex)

@@ -51,11 +51,11 @@ namespace BuildingCosts
             }
             catch (Exception ex)
             {
-                LogInfo("Could not install building cost tooltip hook:", ex);
+                LogDebug("Could not install building cost tooltip hook:", ex);
             }
 
             hooksSubscribed = true;
-            LogInfo("Building cost runtime hooks subscribed");
+            LogDebug("Building cost runtime hooks subscribed");
         }
 
         public void InitializeAfterLibraryLoaded()
@@ -67,7 +67,7 @@ namespace BuildingCosts
             ApplyBuildingCosts();
             SubscribeSettingsChanges();
             libraryInitialized = true;
-            LogInfo("Applied initial building cost settings");
+            LogDebug("Applied initial building cost settings");
         }
 
         public void Dispose()
@@ -100,7 +100,7 @@ namespace BuildingCosts
 
             updateRolloverHook = new Hook(updateRolloverTarget, new UpdateRolloverDelegate(UpdateRolloverHookImpl));
             updateRolloverTrampoline = updateRolloverHook.GenerateTrampoline<UpdateRolloverDelegate>();
-            LogInfo("HUD_Main.UpdateRollover hook installed");
+            LogDebug("HUD_Main.UpdateRollover hook installed");
         }
 
         private void SubscribeSettingsChanges()
@@ -114,7 +114,7 @@ namespace BuildingCosts
 
         private void OnSettingChanged(string propertyName)
         {
-            LogInfo("Settings changed:", propertyName);
+            LogDebug("Settings changed:", propertyName);
 
             if (propertyName == nameof(BuildingCostsLobbyViewModel.BuildingCosts))
                 ApplyBuildingCosts();
@@ -124,12 +124,12 @@ namespace BuildingCosts
         {
             try
             {
-                LogInfo("OnStartMap");
+                LogDebug("OnStartMap");
                 ApplyBuildingCosts();
             }
             catch (Exception ex)
             {
-                LogInfo("OnStartMap failed:", ex);
+                LogDebug("OnStartMap failed:", ex);
             }
         }
 
@@ -149,19 +149,20 @@ namespace BuildingCosts
                 eStructs structure = definition.Structures[0];
                 try
                 {
+                    BuildingCost cost = GameBuildingManagerAPI.Instance.GetDefaultCost(structure);
                     vanillaCosts[mapper] = new BuildingCostValues(
-                        GameBuildingManagerAPI.Instance.GetWoodCost(structure),
-                        GameBuildingManagerAPI.Instance.GetStoneCost(structure),
-                        GameBuildingManagerAPI.Instance.GetIronIngotCost(structure),
-                        GameBuildingManagerAPI.Instance.GetRawPitchCost(structure),
-                        GameBuildingManagerAPI.Instance.GetGoldCost(structure));
+                        cost.Wood,
+                        cost.Stone,
+                        cost.Iron,
+                        cost.Pitch,
+                        cost.Gold);
                 }
                 catch (Exception ex)
                 {
                     if (!vanillaCostTooltipReadFailureLogged)
                     {
                         vanillaCostTooltipReadFailureLogged = true;
-                        LogInfo("Could not read vanilla building costs for options tooltip:", mapper, structure, ex);
+                        LogDebug("Could not read vanilla building costs for options tooltip:", mapper, structure, ex);
                     }
                 }
             }
@@ -178,7 +179,7 @@ namespace BuildingCosts
             {
                 if (!BuildingCostDefinitions.TryGetValue(entry.Key, out BuildingCostDefinition definition))
                 {
-                    LogInfo("Building cost mapper is not supported:", entry.Key);
+                    LogDebug("Building cost mapper is not supported:", entry.Key);
                     continue;
                 }
 
@@ -186,7 +187,7 @@ namespace BuildingCosts
                     changedMaterials += ApplyStructureCosts(structure, entry.Value);
             }
 
-            LogInfo("Applied building cost materials:", changedMaterials);
+            LogDebug("Applied building cost materials:", changedMaterials);
         }
 
         private int ApplyStructureCosts(eStructs structure, BuildingCostValues values)
@@ -262,7 +263,7 @@ namespace BuildingCosts
             }
             catch (Exception ex)
             {
-                LogInfo("Error updating building cost tooltip:", ex);
+                LogDebug("Error updating building cost tooltip:", ex);
             }
         }
 
@@ -705,9 +706,9 @@ namespace BuildingCosts
             return names;
         }
 
-        private void LogInfo(params object[] parts)
+        private void LogDebug(params object[] parts)
         {
-            log.LogInfo(string.Join(" ", parts));
+            log.LogDebug(string.Join(" ", parts));
         }
     }
 }
