@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Patch>
+  <Operation Type="Add" XPath="/n:UserControl/n:Grid">
+    <Content>
+      <Grid
+        x:Name="BuildingCostsTooltipHost"
+        Margin="0,0,280,100"
+        Width="500"
+        HorizontalAlignment="Right"
+        VerticalAlignment="Bottom"
+        Panel.ZIndex="10001"
+        IsHitTestVisible="False"
+        Visibility="{Binding DetailedVisibility}">
+        <ItemsControl
+          Margin="10,-1,10,2"
+          HorizontalAlignment="Left"
+          VerticalAlignment="Bottom"
+          ItemsSource="{Binding Costs}"
+          Tag="Ignore">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <StackPanel Orientation="Horizontal" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <StackPanel Orientation="Horizontal">
+                <TextBlock FontSize="20" Foreground="#FFDDDDDD" Text="{Binding AmountRequired}">
+                  <TextBlock.Effect>
+                    <DropShadowEffect ShadowDepth="2" Direction="315" Color="#CC000000" BlurRadius="0" />
+                  </TextBlock.Effect>
+                </TextBlock>
+                <Image Source="{Binding Image}" Height="18" Margin="0,4,0,-4" />
+                <TextBlock FontSize="20" Foreground="#FFDDDDDD" Text="{Binding AmountAvailable}">
+                  <TextBlock.Effect>
+                    <DropShadowEffect ShadowDepth="2" Direction="315" Color="#CC000000" BlurRadius="0" />
+                  </TextBlock.Effect>
+                </TextBlock>
+              </StackPanel>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </Grid>
+
+      <Grid
+        x:Name="BuildingCostsTooltipHostCompact"
+        HorizontalAlignment="Right"
+        VerticalAlignment="Bottom"
+        Margin="{Binding Path=DataContext.RollOverText_Margin, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type UserControl}}}"
+        Width="550"
+        Panel.ZIndex="10001"
+        IsHitTestVisible="False"
+        Visibility="{Binding CompactVisibility}">
+        <ItemsControl
+          HorizontalAlignment="Left"
+          Margin="0,24,0,0"
+          ItemsSource="{Binding Costs}"
+          Tag="Ignore">
+          <ItemsControl.RenderTransform>
+            <TransformGroup>
+              <TranslateTransform X="-250" />
+            </TransformGroup>
+          </ItemsControl.RenderTransform>
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <StackPanel Orientation="Horizontal" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <StackPanel Orientation="Horizontal">
+                <TextBlock FontSize="20" Foreground="#FFDDDDDD" Text="{Binding AmountRequired}">
+                  <TextBlock.Effect>
+                    <DropShadowEffect ShadowDepth="2" Direction="315" Color="#CC000000" BlurRadius="0" />
+                  </TextBlock.Effect>
+                </TextBlock>
+                <Image Source="{Binding Image}" Height="18" Margin="0,4,0,-4" />
+                <TextBlock FontSize="20" Foreground="#FFDDDDDD" Text="{Binding AmountAvailable}">
+                  <TextBlock.Effect>
+                    <DropShadowEffect ShadowDepth="2" Direction="315" Color="#CC000000" BlurRadius="0" />
+                  </TextBlock.Effect>
+                </TextBlock>
+              </StackPanel>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </Grid>
+
+      <Grid
+        x:Name="BuildingCostsMissingNotificationOverlay"
+        Width="550"
+        Margin="{Binding Path=DataContext.RollOverText_Margin, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type UserControl}}}"
+        HorizontalAlignment="Right"
+        VerticalAlignment="Bottom"
+        Panel.ZIndex="10002"
+        IsHitTestVisible="False"
+        Visibility="{Binding Visibility}">
+        <Border
+          MaxWidth="520"
+          MinHeight="38"
+          Padding="10,4"
+          HorizontalAlignment="Left"
+          VerticalAlignment="Bottom"
+          Background="#88000000"
+          BorderBrush="#00000000"
+          CornerRadius="8"
+          BorderThickness="0"
+          Tag="Ignore">
+          <TextBlock
+            Text="{Binding Message}"
+            Foreground="#FFDDDDDD"
+            FontSize="20"
+            TextAlignment="Left"
+            TextWrapping="Wrap"
+            Tag="Ignore">
+            <TextBlock.Effect>
+              <DropShadowEffect ShadowDepth="2" Direction="315" Color="#CC000000" BlurRadius="0" />
+            </TextBlock.Effect>
+          </TextBlock>
+        </Border>
+      </Grid>
+    </Content>
+  </Operation>
+</Patch>

@@ -1,0 +1,9 @@
+{
+  "GUID": "BuildingCosts",
+  "Author": "Serpens66",
+  "Name": "Building Costs",
+  "Description": "Configures and replaces building costs in Stronghold Crusader Definitive Edition.",
+  "Version": "0.1.0",
+  "Website": "",
+  "Manifest": 1
+}
