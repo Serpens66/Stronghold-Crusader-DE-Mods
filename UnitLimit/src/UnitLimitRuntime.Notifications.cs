@@ -6,7 +6,20 @@ namespace UnitLimit
     {
         private void DisplayLimitNotification(string message)
         {
+            SiegeLimitNotification.Hide();
             LimitNotification.Show(message);
+            StartLimitMessageTimer();
+        }
+
+        private void DisplaySiegeLimitNotification(string message)
+        {
+            LimitNotification.Hide();
+            SiegeLimitNotification.Show(message);
+            StartLimitMessageTimer();
+        }
+
+        private void StartLimitMessageTimer()
+        {
             CancelLimitMessageTimer();
             limitMessageTimerHandle = GameTimeManagerAPI.Instance.GetTimerEngine().AddDelayedAction(
                 LimitMessageDurationMilliseconds,
@@ -18,12 +31,14 @@ namespace UnitLimit
         {
             limitMessageTimerHandle = null;
             LimitNotification.Hide();
+            SiegeLimitNotification.Hide();
         }
 
         private void HideLimitMessage()
         {
             CancelLimitMessageTimer();
             LimitNotification.Hide();
+            SiegeLimitNotification.Hide();
         }
 
         private void CancelLimitMessageTimer()

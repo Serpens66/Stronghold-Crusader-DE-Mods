@@ -65,6 +65,9 @@ namespace UnitLimit
                 GameXAMLManagerAPI.Instance.RegisterBinding(
                     "UnitLimitNotificationOverlay",
                     runtime.LimitNotification);
+                GameXAMLManagerAPI.Instance.RegisterBinding(
+                    "UnitLimitSiegeNotificationInlineHost",
+                    runtime.SiegeLimitNotification);
 
                 Logger.LogInfo("Crusader library loaded; UnitLimit UI registered.");
                 runtime.InitializeAfterLibraryLoaded();

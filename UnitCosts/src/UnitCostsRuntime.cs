@@ -3,6 +3,7 @@ using CrusaderDE;
 using R3;
 using SHCDESE.API;
 using SHCDESE.EventAPI;
+using SHCDESE.EventAPI.Buildings;
 using SHCDESE.EventAPI.MapLoader;
 using SHCDESE.EventAPI.Units;
 using SHCDESE.Extensions;
@@ -21,11 +22,16 @@ namespace UnitCosts
         private readonly Dictionary<eChimps, UnitExtraCostValues> humanExtraCosts = new Dictionary<eChimps, UnitExtraCostValues>();
         private MakeTroopGameActionHook makeTroopGameActionHook;
         private CreateTroopHoverHook createTroopHoverHook;
+        private SiegeBuildHoverHook siegeBuildHoverHook;
         private string materialMessageTimerHandle;
+        private DateTime nextSiegeMissingResourcesMessageUtc = DateTime.MinValue;
+        private DateTime nextSiegeMissingResourcesSpeechUtc = DateTime.MinValue;
         private bool settingsChangedSubscribed;
         private const string GoodsTextSection = "TEXT_GOODS";
         private bool hooksSubscribed;
         private const int MaterialMessageDurationMilliseconds = 3000;
+        private const int SiegeMissingResourcesMessageThrottleMilliseconds = 1000;
+        private const int SiegeMissingResourcesSpeechThrottleMilliseconds = 10000;
         private const string MissingResourcesSpeechFileName = "Other_Warning6.wav";
         private static readonly Dictionary<eChimps, UnitGoodCosts> VanillaEuropeanGoodCosts = new Dictionary<eChimps, UnitGoodCosts>();
         private static readonly Dictionary<eChimps, int> VanillaGoldCosts = new Dictionary<eChimps, int>();
@@ -66,8 +72,17 @@ namespace UnitCosts
             UnitR3EventHooks.OnUnitTransition.Observable
                 .Subscribe(OnUnitTransition);
 
+            BuildingR3EventHooks.OnPlacementValidation.Observable
+                .Where(args => args.Phase == EventHookPhase.Pre)
+                .Subscribe(OnBuildingPlacementValidation);
+
+            BuildingR3EventHooks.OnBuildingSpawn.Observable
+                .Where(args => args.Phase == EventHookPhase.Post)
+                .Subscribe(OnBuildingSpawn);
+
             makeTroopGameActionHook = new MakeTroopGameActionHook(log, ShouldBlockMakeTroopGameAction);
             createTroopHoverHook = new CreateTroopHoverHook(log, UpdateRecruitmentCostTooltip, ClearRecruitmentCostTooltip);
+            siegeBuildHoverHook = new SiegeBuildHoverHook(log, UpdateSiegeBuildCostTooltip, ClearRecruitmentCostTooltip);
 
             hooksSubscribed = true;
             log.LogInfo("UnitCosts runtime hooks subscribed");
@@ -85,6 +100,8 @@ namespace UnitCosts
             makeTroopGameActionHook = null;
             createTroopHoverHook?.Dispose();
             createTroopHoverHook = null;
+            siegeBuildHoverHook?.Dispose();
+            siegeBuildHoverHook = null;
             HideMaterialMessage();
         }
 
@@ -239,6 +256,35 @@ namespace UnitCosts
                 return;
             }
 
+            RecruitmentCostTooltip.SetCosts(CreateRecruitmentCostEntries(costs, multiplier));
+        }
+
+        private void UpdateSiegeBuildCostTooltip(object parameter)
+        {
+            if (!TryGetSiegeBuildHoverUnit(parameter, out eChimps unitType))
+            {
+                RecruitmentCostTooltip.Clear();
+                return;
+            }
+
+            int playerId = GetLocalHumanPlayerId();
+            if (playerId <= 0)
+            {
+                RecruitmentCostTooltip.Clear();
+                return;
+            }
+
+            if (!TryGetHumanExtraCosts(unitType, out UnitExtraCostValues costs))
+            {
+                RecruitmentCostTooltip.Clear();
+                return;
+            }
+
+            RecruitmentCostTooltip.SetCosts(CreateRecruitmentCostEntries(costs, 1));
+        }
+
+        private List<UnitRecruitmentCostEntry> CreateRecruitmentCostEntries(UnitExtraCostValues costs, int multiplier)
+        {
             List<UnitRecruitmentCostEntry> entries = new List<UnitRecruitmentCostEntry>();
             foreach (KeyValuePair<eGoods, int> entry in costs.Costs)
             {
@@ -260,7 +306,57 @@ namespace UnitCosts
                 });
             }
 
-            RecruitmentCostTooltip.SetCosts(entries);
+            return entries;
+        }
+
+        private static bool TryGetSiegeBuildHoverUnit(object parameter, out eChimps unitType)
+        {
+            switch (parameter as string)
+            {
+                case "UnitBuildCat":
+                    unitType = eChimps.CHIMP_TYPE_CATAPULT;
+                    return true;
+                case "UnitBuildTreb":
+                    unitType = eChimps.CHIMP_TYPE_TREBUCHET;
+                    return true;
+                case "UnitBuildRam":
+                    unitType = eChimps.CHIMP_TYPE_BATTERING_RAM;
+                    return true;
+                case "UnitBuildTower":
+                    unitType = eChimps.CHIMP_TYPE_SIEGE_TOWER;
+                    return true;
+                case "UnitbuildMantlet":
+                    unitType = eChimps.CHIMP_TYPE_PORTABLE_SHIELD;
+                    return true;
+                default:
+                    unitType = eChimps.CHIMP_TYPE_NULL;
+                    return false;
+            }
+        }
+
+        private static bool TryGetSiegeUnitFromMapper(eMappers mapper, out eChimps unitType)
+        {
+            switch (mapper)
+            {
+                case eMappers.MAPPER_CATAPULT:
+                    unitType = eChimps.CHIMP_TYPE_CATAPULT;
+                    return true;
+                case eMappers.MAPPER_TREBUCHET:
+                    unitType = eChimps.CHIMP_TYPE_TREBUCHET;
+                    return true;
+                case eMappers.MAPPER_BATTERING_RAM:
+                    unitType = eChimps.CHIMP_TYPE_BATTERING_RAM;
+                    return true;
+                case eMappers.MAPPER_SIEGE_TOWER:
+                    unitType = eChimps.CHIMP_TYPE_SIEGE_TOWER;
+                    return true;
+                case eMappers.MAPPER_PORTABLE_SHIELD:
+                    unitType = eChimps.CHIMP_TYPE_PORTABLE_SHIELD;
+                    return true;
+                default:
+                    unitType = eChimps.CHIMP_TYPE_NULL;
+                    return false;
+            }
         }
 
         private void ClearRecruitmentCostTooltip()
@@ -304,6 +400,81 @@ namespace UnitCosts
             catch (Exception ex)
             {
                 log.LogInfo("UnitCosts OnUnitTransition failed: " + ex.Message);
+            }
+        }
+
+        private void OnBuildingPlacementValidation(BuildingPlacementValidationEventArgs args)
+        {
+            try
+            {
+                if (!IsHumanPlayer(args.PlayerId) || !IsLocalPlayer(args.PlayerId))
+                    return;
+
+                if (!TryGetSiegeUnitFromMapper(args.Mappers, out eChimps unitType))
+                    return;
+
+                if (!TryGetHumanExtraCosts(unitType, out UnitExtraCostValues costs))
+                    return;
+
+                if (HasEnoughExtraCosts(args.PlayerId, costs, 1, out eGoods missingGood, out int requiredAmount, out int availableAmount))
+                    return;
+
+                args.CustomValidationRules = true;
+                args.ForceBlockPlacementState = true;
+                LogInfo(
+                    "UnitCosts blocked siege placement:",
+                    "unit", unitType,
+                    "player", args.PlayerId,
+                    "missing", missingGood,
+                    "required", requiredAmount,
+                    "available", availableAmount,
+                    "mapper", args.Mappers);
+                ShowMissingResourcesMessageThrottledForSiege();
+            }
+            catch (Exception ex)
+            {
+                log.LogInfo("UnitCosts siege placement validation failed: " + ex.Message);
+            }
+        }
+
+        private void OnBuildingSpawn(BuildingSpawnEventArgs args)
+        {
+            try
+            {
+                if (!IsHumanPlayer(args.PlayerId))
+                    return;
+
+                if (!TryGetSiegeUnitFromTentStructure(args.Building, out eChimps unitType))
+                    return;
+
+                if (!TryGetHumanExtraCosts(unitType, out UnitExtraCostValues costs))
+                    return;
+
+                if (!HasEnoughExtraCosts(args.PlayerId, costs, 1, out eGoods missingGood, out int requiredAmount, out int availableAmount))
+                {
+                    LogInfo(
+                        "UnitCosts siege extra cost skipped after spawn because resources are missing:",
+                        "unit", unitType,
+                        "player", args.PlayerId,
+                        "missing", missingGood,
+                        "required", requiredAmount,
+                        "available", availableAmount,
+                        "building", args.Building);
+                    if (IsLocalPlayer(args.PlayerId))
+                        ShowMissingResourcesMessageThrottledForSiege();
+                    return;
+                }
+
+                ApplyExtraCosts(args.PlayerId, costs, 1);
+                LogInfo(
+                    "UnitCosts applied siege extra costs:",
+                    "unit", unitType,
+                    "player", args.PlayerId,
+                    "building", args.Building);
+            }
+            catch (Exception ex)
+            {
+                log.LogInfo("UnitCosts OnBuildingSpawn failed: " + ex.Message);
             }
         }
 
@@ -381,6 +552,11 @@ namespace UnitCosts
             }
         }
 
+        private static bool IsLocalPlayer(int playerId)
+        {
+            return playerId == GetLocalHumanPlayerId();
+        }
+
         private void LogInfo(params object[] parts)
         {
             log.LogInfo(string.Join(" ", parts));
@@ -390,6 +566,22 @@ namespace UnitCosts
         {
             PlayWeaponsNeededSpeech();
             DisplayMaterialNotification(IsGermanLanguage() ? "Material fehlt" : "Resources missing");
+        }
+
+        private void ShowMissingResourcesMessageThrottledForSiege()
+        {
+            DateTime now = DateTime.UtcNow;
+            if (now >= nextSiegeMissingResourcesSpeechUtc)
+            {
+                nextSiegeMissingResourcesSpeechUtc = now.AddMilliseconds(SiegeMissingResourcesSpeechThrottleMilliseconds);
+                PlayWeaponsNeededSpeech();
+            }
+
+            if (now >= nextSiegeMissingResourcesMessageUtc)
+            {
+                nextSiegeMissingResourcesMessageUtc = now.AddMilliseconds(SiegeMissingResourcesMessageThrottleMilliseconds);
+                DisplayMaterialNotification(IsGermanLanguage() ? "Material fehlt" : "Resources missing");
+            }
         }
 
         private void PlayWeaponsNeededSpeech()
@@ -661,6 +853,31 @@ namespace UnitCosts
                     return true;
                 default:
                     siegeTentStructure = eStructs.STRUCT_NULL;
+                    return false;
+            }
+        }
+
+        private static bool TryGetSiegeUnitFromTentStructure(eStructs siegeTentStructure, out eChimps unitType)
+        {
+            switch (siegeTentStructure)
+            {
+                case eStructs.STRUCT_SIEGE_TENT_CATAPULT:
+                    unitType = eChimps.CHIMP_TYPE_CATAPULT;
+                    return true;
+                case eStructs.STRUCT_SIEGE_TENT_TREBUCHET:
+                    unitType = eChimps.CHIMP_TYPE_TREBUCHET;
+                    return true;
+                case eStructs.STRUCT_SIEGE_TENT_BATTERING_RAM:
+                    unitType = eChimps.CHIMP_TYPE_BATTERING_RAM;
+                    return true;
+                case eStructs.STRUCT_SIEGE_TENT_SIEGE_TOWER:
+                    unitType = eChimps.CHIMP_TYPE_SIEGE_TOWER;
+                    return true;
+                case eStructs.STRUCT_SIEGE_TENT_PORTABLE_SHIELD:
+                    unitType = eChimps.CHIMP_TYPE_PORTABLE_SHIELD;
+                    return true;
+                default:
+                    unitType = eChimps.CHIMP_TYPE_NULL;
                     return false;
             }
         }

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Patch xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Operation Type="InsertAfter" XPath="//n:TextBlock[@x:Name='TroopsPanelRollover']">
+    <Content>
+      <Border x:Name="UnitLimitSiegeNotificationInlineHost"
+              Padding="6,2,6,0"
+              Margin="330,-21,0,0"
+              HorizontalAlignment="Left"
+              VerticalAlignment="Top"
+              Panel.ZIndex="2"
+              Background="#77000000"
+              Visibility="{Binding IsVisible, Converter={StaticResource booleanToVisibilityConverter}}"
+              Tag="Ignore">
+        <TextBlock Text="{Binding Message}"
+                   FontSize="16"
+                   Foreground="#FFDDDDDD"
+                   Tag="Ignore">
+          <TextBlock.Effect>
+            <DropShadowEffect ShadowDepth="2"
+                              Direction="315"
+                              Color="#CC000000"
+                              BlurRadius="0"/>
+          </TextBlock.Effect>
+        </TextBlock>
+      </Border>
+    </Content>
+  </Operation>
+</Patch>

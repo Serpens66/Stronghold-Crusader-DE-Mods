@@ -108,7 +108,7 @@ namespace UnitLimit
                 "amount", amount,
                 "limit", limit,
                 "rawUnitType", rawUnitType);
-            ShowUnitLimitMessageForLocalPlayer(playerId, unitType, limit);
+            ShowUnitLimitReachedMessageForLocalPlayer(playerId, unitType, limit);
             RefreshLocalUnitRecruitableStates("MakeTroopBlock", false);
             return true;
         }
@@ -258,7 +258,7 @@ namespace UnitLimit
                 "unit", unitType,
                 "count", count,
                 "limit", limit);
-            ShowUnitLimitMessageForLocalPlayer(args.PlayerId, unitType, limit);
+            ShowUnitLimitReachedMessage(unitType, limit);
         }
 
         private int GetPendingRecruitmentCount(int playerId, eChimps unitType)
@@ -394,18 +394,22 @@ namespace UnitLimit
                 aliveState == AliveState.NeedsInit;
         }
 
-        private void ShowUnitLimitMessageForLocalPlayer(int playerId, eChimps unitType, int limit)
+        private void ShowUnitLimitReachedMessageForLocalPlayer(int playerId, eChimps unitType, int limit)
         {
             if (!IsLocalPlayer(playerId))
                 return;
 
-            ShowUnitLimitMessage(unitType, "Max " + limit + " " + GetLocalizedUnitName(unitType));
+            ShowUnitLimitReachedMessage(unitType, limit);
         }
 
-        private void ShowUnitLimitMessage(eChimps unitType, string message)
+        private void ShowUnitLimitReachedMessage(eChimps unitType, int limit)
         {
+            string message = "Max " + limit + " " + GetLocalizedUnitName(unitType);
             LogInfo("Unit limit notification shown:", unitType, message);
-            DisplayLimitNotification(message);
+            if (IsEngineerSiegeUnit(unitType))
+                DisplaySiegeLimitNotification(message);
+            else
+                DisplayLimitNotification(message);
         }
 
         private void ApplyUnitLimits(bool showNotifications = true)
@@ -462,7 +466,7 @@ namespace UnitLimit
                             if (ShouldLogHumanPlayer(playerId))
                                 LogInfo("Unit recruitment disabled by limit:", unitType, "player", playerId, "count", count, "limit", limit, "source", source);
                             if (showNotifications)
-                                ShowUnitLimitMessageForLocalPlayer(playerId, unitType, limit);
+                                ShowUnitLimitReachedMessageForLocalPlayer(playerId, unitType, limit);
                         }
                     }
                     else if (locallyDisabledUnitRecruitment.Remove(unitType))

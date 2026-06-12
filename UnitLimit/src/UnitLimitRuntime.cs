@@ -40,6 +40,7 @@ namespace UnitLimit
         private string unitLimitRecruitableRefreshTimerHandle;
 
         public LimitNotificationViewModel LimitNotification { get; } = new LimitNotificationViewModel();
+        public LimitNotificationViewModel SiegeLimitNotification { get; } = new LimitNotificationViewModel();
 
         private static readonly HashSet<eChimps> SoldierChimps = new HashSet<eChimps>
         {

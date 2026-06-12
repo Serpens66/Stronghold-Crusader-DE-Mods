@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Patch xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Operation Type="InsertAfter" XPath="//n:TextBlock[@x:Name='TroopsPanelRollover']">
+    <Content>
+      <StackPanel Orientation="Horizontal"
+                  Margin="140,-21,0,0"
+                  HorizontalAlignment="Left"
+                  VerticalAlignment="Top"
+                  Panel.ZIndex="1"
+                  Tag="Ignore">
+        <Border x:Name="UnitCostsSiegeBuildCostsInlineHost"
+                Padding="4,2,4,0"
+                Background="#77000000"
+                Visibility="{Binding CostsVisibility}"
+                Tag="Ignore">
+          <ItemsControl ItemsSource="{Binding Costs}"
+                        Tag="Ignore">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <StackPanel Orientation="Horizontal"/>
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <StackPanel Orientation="Horizontal"
+                            VerticalAlignment="Center">
+                  <TextBlock Text="{Binding Amount}"
+                             FontSize="16"
+                             Foreground="#FFDDDDDD"
+                             Tag="Ignore">
+                    <TextBlock.Effect>
+                      <DropShadowEffect ShadowDepth="2"
+                                        Direction="315"
+                                        Color="#CC000000"
+                                        BlurRadius="0"/>
+                    </TextBlock.Effect>
+                  </TextBlock>
+                  <Image Source="{Binding Image}"
+                         Height="18"
+                         Margin="5,5,6,-5"/>
+                </StackPanel>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </Border>
+        <Border x:Name="UnitCostsSiegeNotificationInlineHost"
+                Padding="6,2,6,0"
+                Margin="8,0,0,0"
+                Background="#77000000"
+                Visibility="{Binding IsVisible, Converter={StaticResource booleanToVisibilityConverter}}"
+                Tag="Ignore">
+          <TextBlock Text="{Binding Message}"
+                     FontSize="16"
+                     Foreground="#FFDDDDDD"
+                     Tag="Ignore">
+            <TextBlock.Effect>
+              <DropShadowEffect ShadowDepth="2"
+                                Direction="315"
+                                Color="#CC000000"
+                                BlurRadius="0"/>
+            </TextBlock.Effect>
+          </TextBlock>
+        </Border>
+      </StackPanel>
+    </Content>
+  </Operation>
+</Patch>

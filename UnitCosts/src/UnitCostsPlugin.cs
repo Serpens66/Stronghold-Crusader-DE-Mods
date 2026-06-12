@@ -64,6 +64,9 @@ namespace UnitCosts
                 GameXAMLManagerAPI.Instance.RegisterBinding(
                     "UnitCostsNotificationOverlay",
                     runtime.Notification);
+                GameXAMLManagerAPI.Instance.RegisterBinding(
+                    "UnitCostsSiegeNotificationInlineHost",
+                    runtime.Notification);
                 RegisterRecruitmentCostTooltipBindings();
 
                 runtime.InitializeAfterLibraryLoaded();
@@ -85,6 +88,7 @@ namespace UnitCosts
                 "UnitCostsEngineersCostsInlineHost",
                 "UnitCostsTunellersCostsInlineHost",
                 "UnitCostsMonkCostsInlineHost",
+                "UnitCostsSiegeBuildCostsInlineHost",
             };
 
             foreach (string bindingTarget in bindingTargets)
