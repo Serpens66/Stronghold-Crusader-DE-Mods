@@ -3,6 +3,7 @@
   <Operation Type="Replace" XPath="//n:DockPanel[@Visibility='{Binding RolloverBuilding_TooltipVis, Converter={StaticResource booleanToVisibilityConverter}}']//n:TextBlock[n:Run[@Text='{Binding RollOverText_AmountReq1}']]">
     <Content>
       <StackPanel x:Name="BuildingCostsTooltipHost"
+                  Orientation="Horizontal"
                   HorizontalAlignment="Left"
                   Tag="Ignore">
         <TextBlock HorizontalAlignment="Left"
@@ -17,8 +18,7 @@
                               BlurRadius="0"/>
           </TextBlock.Effect>
         </TextBlock>
-        <ItemsControl Margin="0,-1,0,0"
-                      HorizontalAlignment="Left"
+        <ItemsControl HorizontalAlignment="Left"
                       ItemsSource="{Binding Costs}"
                       Visibility="{Binding CostsVisibility}"
                       Tag="Ignore">
@@ -64,6 +64,7 @@
   <Operation Type="Replace" XPath="//n:TextBlock[@x:Name='GameHoverText']">
     <Content>
       <StackPanel x:Name="BuildingCostsTooltipHostCompact"
+                  Orientation="Horizontal"
                   HorizontalAlignment="Left"
                   Panel.ZIndex="1"
                   Tag="Ignore">

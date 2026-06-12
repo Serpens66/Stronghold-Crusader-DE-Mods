@@ -1,5 +1,9 @@
 using BepInEx.Logging;
+using R3;
 using SHCDESE.API;
+using SHCDESE.EventAPI;
+using SHCDESE.EventAPI.MapLoader;
+using SHCDESE.Extensions;
 using SHCDESE.Interop;
 using System;
 using System.Collections.Generic;
@@ -11,6 +15,7 @@ namespace UnitCosts
         private readonly ManualLogSource log;
         private readonly UnitCostsLobbyViewModel settings;
         private bool settingsChangedSubscribed;
+        private bool hooksSubscribed;
 
         public UnitCostsRuntime(ManualLogSource log, UnitCostsLobbyViewModel settings)
         {
@@ -20,8 +25,22 @@ namespace UnitCosts
 
         public void InitializeAfterLibraryLoaded()
         {
+            SubscribeHooks();
             SubscribeSettingsChanges();
             LogConfiguredUnitCosts();
+        }
+
+        private void SubscribeHooks()
+        {
+            if (hooksSubscribed)
+                return;
+
+            MapLoaderR3EventHooks.OnStartMap.Observable
+                .Where(args => args.Phase == EventHookPhase.Post)
+                .Subscribe(OnStartMap);
+
+            hooksSubscribed = true;
+            log.LogInfo("UnitCosts runtime hooks subscribed");
         }
 
         public void Dispose()
@@ -48,6 +67,32 @@ namespace UnitCosts
 
             if (propertyName == nameof(UnitCostsLobbyViewModel.UnitCosts))
                 LogConfiguredUnitCosts();
+        }
+
+        private void OnStartMap(MapStartEventArgs args)
+        {
+            try
+            {
+                ApplyArcherTestCosts();
+            }
+            catch (Exception ex)
+            {
+                log.LogInfo("UnitCosts OnStartMap failed: " + ex);
+            }
+        }
+
+        private void ApplyArcherTestCosts()
+        {
+            GameUnitManagerAPI.Instance.SetUnitGoldCost(eChimps.CHIMP_TYPE_ARCHER, 50);
+            GameUnitManagerAPI.Instance.SetUnitGoodCosts(
+                eChimps.CHIMP_TYPE_ARCHER,
+                new UnitGoodCosts(
+                    eGoods.STORED_BOWS.To32(),
+                    eGoods.STORED_LEATHER_ARMOUR.To32(),
+                    eGoods.STORED_FOOD_ALE.To32(),
+                    eGoods.STORED_NULL.To32()));
+
+            log.LogInfo("Applied test costs for Archer: 50 gold, bow, leather armour, ale");
         }
 
         private void LogConfiguredUnitCosts()
