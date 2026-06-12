@@ -98,6 +98,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="src\ActiveSiegeTentCache.cs" />
     <Compile Include="src\ActiveUnitCache.cs" />
     <Compile Include="src\CreateTroopHoverHook.cs" />
     <Compile Include="src\DisbandGameActionHook.cs" />

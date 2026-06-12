@@ -29,6 +29,7 @@ namespace UnitLimit
         private readonly Dictionary<PendingRecruitmentKey, List<DateTime>> pendingRecruitments = new Dictionary<PendingRecruitmentKey, List<DateTime>>();
         // private readonly List<int> matchingUnitIds = new List<int>();
         private readonly ActiveUnitCache activeUnitCache;
+        private readonly ActiveSiegeTentCache activeSiegeTentCache;
         private MakeTroopGameActionHook makeTroopGameActionHook;
         private DisbandGameActionHook disbandGameActionHook;
         private CreateTroopHoverHook createTroopHoverHook;
@@ -86,6 +87,7 @@ namespace UnitLimit
             this.log = log;
             this.settings = settings;
             activeUnitCache = new ActiveUnitCache(log);
+            activeSiegeTentCache = new ActiveSiegeTentCache(log);
         }
 
         public void SubscribeHooks()
@@ -96,6 +98,8 @@ namespace UnitLimit
             LogDebug("Subscribing unit limit runtime hooks");
             activeUnitCache.SubscribeHooks();
             activeUnitCache.OnActiveUnitChanged += OnActiveUnitChanged;
+            activeSiegeTentCache.SubscribeHooks();
+            activeSiegeTentCache.OnActiveSiegeTentChanged += OnActiveSiegeTentChanged;
             makeTroopGameActionHook = new MakeTroopGameActionHook(log, ShouldBlockMakeTroopGameAction);
             disbandGameActionHook = new DisbandGameActionHook(log, activeUnitCache.NotifyNativeSnapshotChanged);
             createTroopHoverHook = new CreateTroopHoverHook(log, UpdateRecruitmentLimitTooltip, ClearUnitLimitTooltip);
@@ -154,7 +158,9 @@ namespace UnitLimit
             siegeBuildHoverHook = null;
             ClearUnitLimitTooltip();
             activeUnitCache.OnActiveUnitChanged -= OnActiveUnitChanged;
+            activeSiegeTentCache.OnActiveSiegeTentChanged -= OnActiveSiegeTentChanged;
             activeUnitCache.Dispose();
+            activeSiegeTentCache.Dispose();
 
             locallyDisabledUnitRecruitment.Clear();
             originalUnitRecruitableStates.Clear();

@@ -140,23 +140,7 @@ namespace UnitLimit
 
         private int CountActiveSiegeTentBuildings(int playerId, eChimps unitType)
         {
-            if (!TryGetSiegeTentStructure(unitType, out eStructs siegeTentStructure))
-                return 0;
-
-            int count = 0;
-            Span<GameBuilding> buildings = GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
-            for (int i = 0; i < buildings.Length; i++)
-            {
-                GameBuilding building = buildings[i];
-                if (building.r_PlayerIdOwner == playerId &&
-                    building.r_BuildingType == siegeTentStructure &&
-                    IsActiveBuildingState(building.r_AliveState))
-                {
-                    count++;
-                }
-            }
-
-            return count;
+            return activeSiegeTentCache.GetActiveSiegeTentCount(playerId, unitType);
         }
 
         private static bool IsEngineerSiegeUnit(eChimps unitType)
@@ -195,31 +179,6 @@ namespace UnitLimit
                     return true;
                 default:
                     unitType = eChimps.CHIMP_TYPE_NULL;
-                    return false;
-            }
-        }
-
-        private static bool TryGetSiegeTentStructure(eChimps unitType, out eStructs siegeTentStructure)
-        {
-            switch (unitType)
-            {
-                case eChimps.CHIMP_TYPE_CATAPULT:
-                    siegeTentStructure = eStructs.STRUCT_SIEGE_TENT_CATAPULT;
-                    return true;
-                case eChimps.CHIMP_TYPE_TREBUCHET:
-                    siegeTentStructure = eStructs.STRUCT_SIEGE_TENT_TREBUCHET;
-                    return true;
-                case eChimps.CHIMP_TYPE_BATTERING_RAM:
-                    siegeTentStructure = eStructs.STRUCT_SIEGE_TENT_BATTERING_RAM;
-                    return true;
-                case eChimps.CHIMP_TYPE_SIEGE_TOWER:
-                    siegeTentStructure = eStructs.STRUCT_SIEGE_TENT_SIEGE_TOWER;
-                    return true;
-                case eChimps.CHIMP_TYPE_PORTABLE_SHIELD:
-                    siegeTentStructure = eStructs.STRUCT_SIEGE_TENT_PORTABLE_SHIELD;
-                    return true;
-                default:
-                    siegeTentStructure = eStructs.STRUCT_NULL;
                     return false;
             }
         }
@@ -365,6 +324,15 @@ namespace UnitLimit
             RefreshCurrentUnitLimitTooltip();
         }
 
+        private void OnActiveSiegeTentChanged(ActiveSiegeTentCache.ActiveSiegeTentChangedEventArgs args)
+        {
+            if (!IsLocalPlayer(args.PlayerId))
+                return;
+
+            RefreshLocalUnitRecruitableStates("OnActiveSiegeTentChanged");
+            RefreshCurrentUnitLimitTooltip();
+        }
+
         private bool IsLocalSoldierSnapshot(ActiveUnitCache.UnitSnapshot snapshot)
         {
             return IsActiveUnitState(snapshot.AliveState) &&
@@ -386,12 +354,6 @@ namespace UnitLimit
         }
 
         private static bool IsActiveUnitState(AliveState aliveState)
-        {
-            return aliveState == AliveState.IsAlive ||
-                aliveState == AliveState.NeedsInit;
-        }
-
-        private static bool IsActiveBuildingState(AliveState aliveState)
         {
             return aliveState == AliveState.IsAlive ||
                 aliveState == AliveState.NeedsInit;
