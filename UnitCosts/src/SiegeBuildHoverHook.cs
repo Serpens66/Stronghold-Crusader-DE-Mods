@@ -72,7 +72,7 @@ namespace UnitCosts
             }
             catch (Exception ex)
             {
-                log.LogDebug("UnitCosts siege build enter hook failed: " + ex.Message);
+                Shared.DebugLogHelper.LogDebug(log, "UnitCosts siege build enter hook failed:", ex.Message);
             }
         }
 
@@ -86,7 +86,7 @@ namespace UnitCosts
             }
             catch (Exception ex)
             {
-                log.LogDebug("UnitCosts siege build leave hook failed: " + ex.Message);
+                Shared.DebugLogHelper.LogDebug(log, "UnitCosts siege build leave hook failed:", ex.Message);
             }
         }
     }

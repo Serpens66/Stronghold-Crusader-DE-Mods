@@ -96,7 +96,11 @@ namespace StartConditions
 
         private void LogConfiguredTroops(string label, Dictionary<eChimps, int> troops)
         {
-            LogDebug(label, FormatTroopCounts(troops));
+            if (!Shared.DebugLogHelper.IsDebugEnabled())
+                return;
+
+            string formattedTroops = FormatTroopCounts(troops);
+            LogDebug(label, formattedTroops);
         }
 
         private static string FormatTroopCounts(Dictionary<eChimps, int> troops)

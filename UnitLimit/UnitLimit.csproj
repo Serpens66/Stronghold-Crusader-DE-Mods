@@ -98,6 +98,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="..\Shared\DebugLogHelper.cs">
+      <Link>Shared\DebugLogHelper.cs</Link>
+    </Compile>
     <Compile Include="src\ActiveSiegeTentCache.cs" />
     <Compile Include="src\ActiveUnitCache.cs" />
     <Compile Include="src\CreateTroopHoverHook.cs" />

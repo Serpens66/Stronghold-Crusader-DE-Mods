@@ -72,7 +72,7 @@ namespace UnitCosts
             }
             catch (Exception ex)
             {
-                log.LogDebug("UnitCosts create troop enter hook failed: " + ex.Message);
+                Shared.DebugLogHelper.LogDebug(log, "UnitCosts create troop enter hook failed:", ex.Message);
             }
         }
 
@@ -86,7 +86,7 @@ namespace UnitCosts
             }
             catch (Exception ex)
             {
-                log.LogDebug("UnitCosts create troop leave hook failed: " + ex.Message);
+                Shared.DebugLogHelper.LogDebug(log, "UnitCosts create troop leave hook failed:", ex.Message);
             }
         }
     }

@@ -323,10 +323,7 @@ namespace UnitLimit
 
         private void LogDebug(params object[] parts)
         {
-            if (log == null)
-                return;
-
-            log.LogDebug(string.Join(" ", parts));
+            Shared.DebugLogHelper.LogDebug(log, parts);
         }
 
         internal enum ActiveSiegeTentChangeReason

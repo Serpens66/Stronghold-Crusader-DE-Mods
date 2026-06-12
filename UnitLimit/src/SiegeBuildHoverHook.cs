@@ -72,7 +72,7 @@ namespace UnitLimit
             }
             catch (Exception ex)
             {
-                log.LogDebug("UnitLimit siege build enter hook failed: " + ex.Message);
+                Shared.DebugLogHelper.LogDebug(log, "UnitLimit siege build enter hook failed:", ex.Message);
             }
         }
 
@@ -86,7 +86,7 @@ namespace UnitLimit
             }
             catch (Exception ex)
             {
-                log.LogDebug("UnitLimit siege build leave hook failed: " + ex.Message);
+                Shared.DebugLogHelper.LogDebug(log, "UnitLimit siege build leave hook failed:", ex.Message);
             }
         }
     }

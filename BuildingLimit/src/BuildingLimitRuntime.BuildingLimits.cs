@@ -45,14 +45,18 @@ namespace BuildingLimit
             }
 
             int aliveCount = CountAliveBuildings(args.PlayerId, rule.Definition);
-            LogDebug(
-                "Building placement validation count:",
-                "player", args.PlayerId,
-                "mapper", args.Mappers,
-                "definition", rule.Definition.Mapper,
-                "limit", rule.Limit,
-                "count", aliveCount,
-                "structures", string.Join(",", Array.ConvertAll(rule.Definition.Structures, structure => structure.ToString())));
+            if (Shared.DebugLogHelper.IsDebugEnabled())
+            {
+                string structures = string.Join(",", Array.ConvertAll(rule.Definition.Structures, structure => structure.ToString()));
+                LogDebug(
+                    "Building placement validation count:",
+                    "player", args.PlayerId,
+                    "mapper", args.Mappers,
+                    "definition", rule.Definition.Mapper,
+                    "limit", rule.Limit,
+                    "count", aliveCount,
+                    "structures", structures);
+            }
 
             if (aliveCount < rule.Limit)
             {
@@ -277,15 +281,19 @@ namespace BuildingLimit
 
                 if (entry.Value >= 0)
                 {
-                    LogDebug(
-                        "Active building limit:",
-                        entry.Key,
-                        "=",
-                        entry.Value,
-                        "internal",
-                        internalLimit,
-                        "structures",
-                        string.Join(",", Array.ConvertAll(definition.Structures, structure => structure.ToString())));
+                    if (Shared.DebugLogHelper.IsDebugEnabled())
+                    {
+                        string structures = string.Join(",", Array.ConvertAll(definition.Structures, structure => structure.ToString()));
+                        LogDebug(
+                            "Active building limit:",
+                            entry.Key,
+                            "=",
+                            entry.Value,
+                            "internal",
+                            internalLimit,
+                            "structures",
+                            structures);
+                    }
                 }
             }
 

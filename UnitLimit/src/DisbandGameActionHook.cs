@@ -83,7 +83,7 @@ namespace UnitLimit
             }
             catch (Exception ex)
             {
-                log.LogDebug("Unit limit disband begin hook failed: " + ex.Message);
+                Shared.DebugLogHelper.LogDebug(log, "Unit limit disband begin hook failed:", ex.Message);
             }
 
             int result = trampoline(command, structureID, state, value2);
@@ -100,7 +100,7 @@ namespace UnitLimit
             }
             catch (Exception ex)
             {
-                log.LogDebug("Unit limit disband end hook failed: " + ex.Message);
+                Shared.DebugLogHelper.LogDebug(log, "Unit limit disband end hook failed:", ex.Message);
             }
 
             return result;
@@ -470,10 +470,7 @@ namespace UnitLimit
 
         private void LogDebug(params object[] parts)
         {
-            if (log == null)
-                return;
-
-            log.LogDebug(string.Join(" ", parts));
+            Shared.DebugLogHelper.LogDebug(log, parts);
         }
     }
 }

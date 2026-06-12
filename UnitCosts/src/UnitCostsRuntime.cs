@@ -116,7 +116,7 @@ namespace UnitCosts
 
         private void OnSettingChanged(string propertyName)
         {
-            log.LogDebug("UnitCosts settings changed: " + propertyName);
+            Shared.DebugLogHelper.LogDebug(log, "UnitCosts settings changed:", propertyName);
 
             if (propertyName == nameof(UnitCostsLobbyViewModel.UnitCosts))
             {
@@ -139,7 +139,7 @@ namespace UnitCosts
             }
             catch (Exception ex)
             {
-                log.LogDebug("UnitCosts OnStartMap failed: " + ex);
+                Shared.DebugLogHelper.LogDebug(log, "UnitCosts OnStartMap failed:", ex);
             }
         }
 
@@ -173,7 +173,7 @@ namespace UnitCosts
                 changedValues += CountConfiguredGoodSlots(values);
             }
 
-            log.LogDebug("Applied unit cost values: " + changedValues);
+            Shared.DebugLogHelper.LogDebug(log, "Applied unit cost values:", changedValues);
         }
 
         private void ApplyHumanExtraUnitCosts()
@@ -188,7 +188,7 @@ namespace UnitCosts
                     configuredUnits++;
             }
 
-            log.LogDebug("Applied human extra unit cost rows: " + configuredUnits);
+            Shared.DebugLogHelper.LogDebug(log, "Applied human extra unit cost rows:", configuredUnits);
         }
 
         private bool ShouldBlockMakeTroopGameAction(int amount, eChimps unitType, int rawUnitType)
@@ -199,7 +199,7 @@ namespace UnitCosts
             }
             catch (Exception ex)
             {
-                log.LogDebug("UnitCosts local recruitment cost check failed: " + ex.Message);
+                Shared.DebugLogHelper.LogDebug(log, "UnitCosts local recruitment cost check failed:", ex.Message);
                 return false;
             }
         }
@@ -395,11 +395,11 @@ namespace UnitCosts
                 }
 
                 ApplyExtraCosts(playerId, costs, 1);
-                log.LogDebug("UnitCosts applied human extra costs: " + args.NextUnitType + " player " + playerId);
+                Shared.DebugLogHelper.LogDebug(log, "UnitCosts applied human extra costs:", args.NextUnitType, "player", playerId);
             }
             catch (Exception ex)
             {
-                log.LogDebug("UnitCosts OnUnitTransition failed: " + ex.Message);
+                Shared.DebugLogHelper.LogDebug(log, "UnitCosts OnUnitTransition failed:", ex.Message);
             }
         }
 
@@ -433,7 +433,7 @@ namespace UnitCosts
             }
             catch (Exception ex)
             {
-                log.LogDebug("UnitCosts siege placement validation failed: " + ex.Message);
+                Shared.DebugLogHelper.LogDebug(log, "UnitCosts siege placement validation failed:", ex.Message);
             }
         }
 
@@ -474,7 +474,7 @@ namespace UnitCosts
             }
             catch (Exception ex)
             {
-                log.LogDebug("UnitCosts OnBuildingSpawn failed: " + ex.Message);
+                Shared.DebugLogHelper.LogDebug(log, "UnitCosts OnBuildingSpawn failed:", ex.Message);
             }
         }
 
@@ -559,7 +559,7 @@ namespace UnitCosts
 
         private void LogDebug(params object[] parts)
         {
-            log.LogDebug(string.Join(" ", parts));
+            Shared.DebugLogHelper.LogDebug(log, parts);
         }
 
         private void ShowMissingResourcesMessage()

@@ -752,7 +752,7 @@ namespace BuildingCosts
 
         private void LogDebug(params object[] parts)
         {
-            log.LogDebug(string.Join(" ", parts));
+            Shared.DebugLogHelper.LogDebug(log, parts);
         }
     }
 }

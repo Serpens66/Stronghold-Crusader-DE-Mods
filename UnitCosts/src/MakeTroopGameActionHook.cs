@@ -62,7 +62,7 @@ namespace UnitCosts
             }
             catch (Exception ex)
             {
-                log.LogDebug("UnitCosts game action hook failed: " + ex.Message);
+                Shared.DebugLogHelper.LogDebug(log, "UnitCosts game action hook failed:", ex.Message);
             }
 
             return trampoline(command, structureID, state, value2);

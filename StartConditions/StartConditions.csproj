@@ -90,6 +90,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="..\Shared\DebugLogHelper.cs">
+      <Link>Shared\DebugLogHelper.cs</Link>
+    </Compile>
     <Compile Include="src\StartConditionsPlugin.cs" />
     <Compile Include="src\StartConditionsLobbyViewModel.cs" />
     <Compile Include="src\StartConditionsRuntime.cs" />

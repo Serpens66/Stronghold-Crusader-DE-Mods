@@ -422,7 +422,11 @@ namespace StartConditions
             for (int modeIndex = 0; modeIndex < AiStartTroopModeCount; modeIndex++)
             {
                 Dictionary<eChimps, int> troops = CountStartTroopMode(values, modeIndex * AiStartTroopFieldCountPerMode);
-                LogDebug("AI start troop mode", modeIndex, "player", playerId, "lord", lordName, FormatTroopCounts(troops));
+                if (Shared.DebugLogHelper.IsDebugEnabled())
+                {
+                    string formattedTroops = FormatTroopCounts(troops);
+                    LogDebug("AI start troop mode", modeIndex, "player", playerId, "lord", lordName, formattedTroops);
+                }
             }
         }
 
@@ -458,7 +462,11 @@ namespace StartConditions
                     }
 
                     nonEmptyModes++;
-                    LogDebug("AI start troop full dump", lord, "mode", modeIndex, FormatTroopCounts(troops));
+                    if (Shared.DebugLogHelper.IsDebugEnabled())
+                    {
+                        string formattedTroops = FormatTroopCounts(troops);
+                        LogDebug("AI start troop full dump", lord, "mode", modeIndex, formattedTroops);
+                    }
                 }
             }
 
@@ -467,7 +475,11 @@ namespace StartConditions
 
         private void LogStartTroopDefaults(int playerId, bool isAI, Dictionary<eChimps, int> troops)
         {
-            LogDebug(isAI ? "AI start troop defaults" : "Human start troop defaults", "player", playerId, FormatTroopCounts(troops));
+            if (!Shared.DebugLogHelper.IsDebugEnabled())
+                return;
+
+            string formattedTroops = FormatTroopCounts(troops);
+            LogDebug(isAI ? "AI start troop defaults" : "Human start troop defaults", "player", playerId, formattedTroops);
         }
 
         private Dictionary<int, Dictionary<eChimps, int>> CountSoldiersForPlayers()

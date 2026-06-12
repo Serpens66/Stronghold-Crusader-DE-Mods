@@ -98,6 +98,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="..\Shared\DebugLogHelper.cs">
+      <Link>Shared\DebugLogHelper.cs</Link>
+    </Compile>
     <Compile Include="src\ActiveBuildingCache.cs" />
     <Compile Include="src\BuildingLimitRuntime.BuildingLimits.cs" />
     <Compile Include="src\BuildingLimitRuntime.cs" />

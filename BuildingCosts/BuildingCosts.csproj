@@ -98,6 +98,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="..\Shared\DebugLogHelper.cs">
+      <Link>Shared\DebugLogHelper.cs</Link>
+    </Compile>
     <Compile Include="src\BuildingCostDefinition.cs" />
     <Compile Include="src\BuildingCostTooltipEntry.cs" />
     <Compile Include="src\BuildingCostTooltipViewModel.cs" />

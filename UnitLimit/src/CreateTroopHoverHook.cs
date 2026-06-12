@@ -72,7 +72,7 @@ namespace UnitLimit
             }
             catch (Exception ex)
             {
-                log.LogDebug("UnitLimit create troop enter hook failed: " + ex.Message);
+                Shared.DebugLogHelper.LogDebug(log, "UnitLimit create troop enter hook failed:", ex.Message);
             }
         }
 
@@ -86,7 +86,7 @@ namespace UnitLimit
             }
             catch (Exception ex)
             {
-                log.LogDebug("UnitLimit create troop leave hook failed: " + ex.Message);
+                Shared.DebugLogHelper.LogDebug(log, "UnitLimit create troop leave hook failed:", ex.Message);
             }
         }
     }

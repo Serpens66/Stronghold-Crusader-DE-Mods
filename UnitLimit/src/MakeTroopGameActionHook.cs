@@ -62,7 +62,7 @@ namespace UnitLimit
             }
             catch (Exception ex)
             {
-                log.LogDebug("Unit limit game action hook failed: " + ex.Message);
+                Shared.DebugLogHelper.LogDebug(log, "Unit limit game action hook failed:", ex.Message);
             }
 
             return trampoline(command, structureID, state, value2);
