@@ -97,6 +97,7 @@ namespace BuildingCosts
         public BuildingCostsLobbyViewModel()
         {
             CostEntries = CreateCostEntriesWithCallback(buildingCosts);
+            RefreshCostEntryToolTips();
             ResetToDefaultCommand = new RelayCommand(ResetToDefault);
         }
 
@@ -160,6 +161,19 @@ namespace BuildingCosts
             OnPropertyChanged(nameof(IronHeaderText));
             OnPropertyChanged(nameof(PitchHeaderText));
             OnPropertyChanged(nameof(GoldHeaderText));
+            RefreshCostEntryToolTips();
+        }
+
+        private void RefreshCostEntryToolTips()
+        {
+            foreach (CostEntryViewModel entry in CostEntries)
+            {
+                entry.WoodToolTip = WoodHeaderText;
+                entry.StoneToolTip = StoneHeaderText;
+                entry.IronToolTip = IronHeaderText;
+                entry.PitchToolTip = PitchHeaderText;
+                entry.GoldToolTip = GoldHeaderText;
+            }
         }
 
         private static string GetLocalizedGoodName(eGoods good, string fallback)
@@ -395,6 +409,11 @@ namespace BuildingCosts
         {
             private readonly Action changed;
             private string displayName;
+            private string woodToolTip;
+            private string stoneToolTip;
+            private string ironToolTip;
+            private string pitchToolTip;
+            private string goldToolTip;
             private int wood;
             private int stone;
             private int iron;
@@ -428,6 +447,36 @@ namespace BuildingCosts
                     displayName = value;
                     OnPropertyChanged();
                 }
+            }
+
+            public string WoodToolTip
+            {
+                get => woodToolTip;
+                set => SetToolTip(ref woodToolTip, value);
+            }
+
+            public string StoneToolTip
+            {
+                get => stoneToolTip;
+                set => SetToolTip(ref stoneToolTip, value);
+            }
+
+            public string IronToolTip
+            {
+                get => ironToolTip;
+                set => SetToolTip(ref ironToolTip, value);
+            }
+
+            public string PitchToolTip
+            {
+                get => pitchToolTip;
+                set => SetToolTip(ref pitchToolTip, value);
+            }
+
+            public string GoldToolTip
+            {
+                get => goldToolTip;
+                set => SetToolTip(ref goldToolTip, value);
             }
 
             public int Wood
@@ -520,6 +569,15 @@ namespace BuildingCosts
                 OnPropertyChanged();
                 OnPropertyChanged(textPropertyName);
                 changed?.Invoke();
+            }
+
+            private void SetToolTip(ref string field, string value, [CallerMemberName] string propertyName = null)
+            {
+                if (field == value)
+                    return;
+
+                field = value;
+                OnPropertyChanged(propertyName);
             }
 
             private void OnPropertyChanged([CallerMemberName] string propertyName = null)

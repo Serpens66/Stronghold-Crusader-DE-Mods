@@ -82,6 +82,7 @@ namespace UnitCosts
             CostEntries = CreateCostEntriesWithCallback(unitCosts);
             ExtraCostHeaders = CreateExtraCostHeaders();
             ExtraCostEntries = CreateExtraCostEntriesWithCallback(humanExtraUnitCosts);
+            RefreshCostEntryToolTips();
             ResetToDefaultCommand = new RelayCommand(ResetToDefault);
         }
 
@@ -154,6 +155,9 @@ namespace UnitCosts
             foreach (ExtraCostHeaderViewModel header in ExtraCostHeaders)
                 header.DisplayName = GetGoodOptionDisplayName(header.Good);
 
+            RefreshCostEntryToolTips();
+            RefreshExtraCostCellToolTips();
+
             foreach (CostEntryViewModel entry in CostEntries)
             {
                 if (!Enum.TryParse(entry.Key, out eChimps unitType))
@@ -211,6 +215,28 @@ namespace UnitCosts
             OnPropertyChanged(nameof(Slot3HeaderText));
             OnPropertyChanged(nameof(Slot4HeaderText));
             OnPropertyChanged(nameof(GoldHeaderText));
+            RefreshCostEntryToolTips();
+        }
+
+        private void RefreshCostEntryToolTips()
+        {
+            foreach (CostEntryViewModel entry in CostEntries)
+            {
+                entry.GoldToolTip = GoldHeaderText;
+                entry.Slot1ToolTip = Slot1HeaderText;
+                entry.Slot2ToolTip = Slot2HeaderText;
+                entry.Slot3ToolTip = Slot3HeaderText;
+                entry.Slot4ToolTip = Slot4HeaderText;
+            }
+        }
+
+        private void RefreshExtraCostCellToolTips()
+        {
+            foreach (ExtraCostEntryViewModel entry in ExtraCostEntries)
+            {
+                foreach (ExtraCostCellViewModel cell in entry.CostCells)
+                    cell.ToolTip = GetGoodOptionDisplayName(cell.Good);
+            }
         }
 
         private static string CreateDefaultUnitCosts()
@@ -642,6 +668,11 @@ namespace UnitCosts
             private readonly Action changed;
             private string displayName;
             private string toolTip;
+            private string goldToolTip;
+            private string slot1ToolTip;
+            private string slot2ToolTip;
+            private string slot3ToolTip;
+            private string slot4ToolTip;
             private GoodOptionViewModel selectedGood1;
             private GoodOptionViewModel selectedGood2;
             private GoodOptionViewModel selectedGood3;
@@ -703,6 +734,36 @@ namespace UnitCosts
                     toolTip = value;
                     OnPropertyChanged();
                 }
+            }
+
+            public string GoldToolTip
+            {
+                get => goldToolTip;
+                set => SetToolTip(ref goldToolTip, value);
+            }
+
+            public string Slot1ToolTip
+            {
+                get => slot1ToolTip;
+                set => SetToolTip(ref slot1ToolTip, value);
+            }
+
+            public string Slot2ToolTip
+            {
+                get => slot2ToolTip;
+                set => SetToolTip(ref slot2ToolTip, value);
+            }
+
+            public string Slot3ToolTip
+            {
+                get => slot3ToolTip;
+                set => SetToolTip(ref slot3ToolTip, value);
+            }
+
+            public string Slot4ToolTip
+            {
+                get => slot4ToolTip;
+                set => SetToolTip(ref slot4ToolTip, value);
             }
 
             public GoodOptionViewModel SelectedGood1
@@ -809,6 +870,15 @@ namespace UnitCosts
                 OnPropertyChanged();
                 OnPropertyChanged(textPropertyName);
                 changed?.Invoke();
+            }
+
+            private void SetToolTip(ref string field, string value, [CallerMemberName] string propertyName = null)
+            {
+                if (field == value)
+                    return;
+
+                field = value;
+                OnPropertyChanged(propertyName);
             }
 
             private void OnPropertyChanged([CallerMemberName] string propertyName = null)
@@ -924,6 +994,7 @@ namespace UnitCosts
         {
             private readonly Action changed;
             private readonly Func<int> getMinAmount;
+            private string toolTip;
             private int amount;
 
             public event PropertyChangedEventHandler PropertyChanged;
@@ -933,10 +1004,24 @@ namespace UnitCosts
                 Good = good;
                 this.getMinAmount = getMinAmount;
                 this.amount = ClampAmount(amount);
+                toolTip = GetGoodOptionDisplayName(good);
                 this.changed = changed;
             }
 
             public eGoods Good { get; }
+            public string ToolTip
+            {
+                get => toolTip;
+                set
+                {
+                    if (toolTip == value)
+                        return;
+
+                    toolTip = value;
+                    OnPropertyChanged();
+                }
+            }
+
             public int Amount { get => amount; private set => SetAmount(value, true); }
             public string AmountText { get => amount.ToString(); set => SetTextAmount(value); }
 

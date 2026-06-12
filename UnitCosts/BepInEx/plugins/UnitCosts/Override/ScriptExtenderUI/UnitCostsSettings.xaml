@@ -48,6 +48,7 @@
                          Margin="0,2,8,2"/>
               <TextBox Grid.Column="1"
                        Text="{Binding GoldText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}"
+                       ToolTip="{Binding GoldToolTip}"
                        MaxLength="4"
                        HorizontalContentAlignment="Right"
                        Margin="3"
@@ -58,21 +59,25 @@
                 <ComboBox ItemsSource="{Binding GoodSlotOptions}"
                           SelectedItem="{Binding SelectedGood1, Mode=TwoWay}"
                           DisplayMemberPath="DisplayName"
+                          ToolTip="{Binding Slot1ToolTip}"
                           Width="150"
                           Margin="3"/>
                 <ComboBox ItemsSource="{Binding GoodSlotOptions}"
                           SelectedItem="{Binding SelectedGood2, Mode=TwoWay}"
                           DisplayMemberPath="DisplayName"
+                          ToolTip="{Binding Slot2ToolTip}"
                           Width="150"
                           Margin="3"/>
                 <ComboBox ItemsSource="{Binding GoodSlotOptions}"
                           SelectedItem="{Binding SelectedGood3, Mode=TwoWay}"
                           DisplayMemberPath="DisplayName"
+                          ToolTip="{Binding Slot3ToolTip}"
                           Width="150"
                           Margin="3"/>
                 <ComboBox ItemsSource="{Binding GoodSlot4Options}"
                           SelectedItem="{Binding SelectedGood4, Mode=TwoWay}"
                           DisplayMemberPath="DisplayName"
+                          ToolTip="{Binding Slot4ToolTip}"
                           Width="150"
                           Margin="3"/>
               </StackPanel>
@@ -128,6 +133,7 @@
                 <ItemsControl.ItemTemplate>
                   <DataTemplate>
                     <TextBox Text="{Binding AmountText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}"
+                             ToolTip="{Binding ToolTip}"
                              MaxLength="4"
                              Width="74"
                              HorizontalContentAlignment="Right"
