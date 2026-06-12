@@ -21,6 +21,7 @@ namespace BuildingCosts
         private bool settingsChangedSubscribed;
         private bool hooksSubscribed;
         private bool libraryInitialized;
+        private bool vanillaCostTooltipReadFailureLogged;
         private Hook updateRolloverHook;
         private UpdateRolloverDelegate updateRolloverTrampoline;
         private FieldInfo hoverStructField;
@@ -62,6 +63,7 @@ namespace BuildingCosts
             if (libraryInitialized)
                 return;
 
+            InitializeVanillaCostTooltips();
             ApplyBuildingCosts();
             SubscribeSettingsChanges();
             libraryInitialized = true;
@@ -129,6 +131,42 @@ namespace BuildingCosts
             {
                 LogInfo("OnStartMap failed:", ex);
             }
+        }
+
+        private void InitializeVanillaCostTooltips()
+        {
+            Dictionary<eMappers, BuildingCostValues> vanillaCosts = new Dictionary<eMappers, BuildingCostValues>();
+
+            foreach (BuildingCostsLobbyViewModel.CostEntryViewModel entry in settings.CostEntries)
+            {
+                if (!Enum.TryParse(entry.Key, true, out eMappers mapper) ||
+                    !BuildingCostDefinitions.TryGetValue(mapper, out BuildingCostDefinition definition) ||
+                    definition.Structures.Length == 0)
+                {
+                    continue;
+                }
+
+                eStructs structure = definition.Structures[0];
+                try
+                {
+                    vanillaCosts[mapper] = new BuildingCostValues(
+                        GameBuildingManagerAPI.Instance.GetWoodCost(structure),
+                        GameBuildingManagerAPI.Instance.GetStoneCost(structure),
+                        GameBuildingManagerAPI.Instance.GetIronIngotCost(structure),
+                        GameBuildingManagerAPI.Instance.GetRawPitchCost(structure),
+                        GameBuildingManagerAPI.Instance.GetGoldCost(structure));
+                }
+                catch (Exception ex)
+                {
+                    if (!vanillaCostTooltipReadFailureLogged)
+                    {
+                        vanillaCostTooltipReadFailureLogged = true;
+                        LogInfo("Could not read vanilla building costs for options tooltip:", mapper, structure, ex);
+                    }
+                }
+            }
+
+            settings.SetVanillaCostToolTips(vanillaCosts);
         }
 
         private void ApplyBuildingCosts()

@@ -68,7 +68,7 @@ namespace BuildingLimit
                 "mapper", args.Mappers,
                 "limit", rule.Limit,
                 "count", aliveCount);
-            ShowBuildingLimitMessageForLocalPlayer(args.PlayerId, rule.Definition, rule.Limit);
+            ShowBuildingLimitMessageForLocalPlayer(args.PlayerId, rule.Definition, rule.DisplayLimit);
         }
 
         private void ShowBuildingLimitMessageForLocalPlayer(int playerId, BuildingLimitDefinition definition, int limit)
@@ -173,7 +173,8 @@ namespace BuildingLimit
                     continue;
                 }
 
-                BuildingLimitRule rule = new BuildingLimitRule(definition, entry.Value);
+                int internalLimit = GetInternalBuildingLimit(definition, entry.Value);
+                BuildingLimitRule rule = new BuildingLimitRule(definition, internalLimit, entry.Value);
                 foreach (KeyValuePair<eMappers, BuildingLimitDefinition> mappedDefinition in BuildingLimitDefinitions)
                 {
                     if (mappedDefinition.Value.Mapper == definition.Mapper)
@@ -187,12 +188,22 @@ namespace BuildingLimit
                         entry.Key,
                         "=",
                         entry.Value,
+                        "internal",
+                        internalLimit,
                         "structures",
                         string.Join(",", Array.ConvertAll(definition.Structures, structure => structure.ToString())));
                 }
             }
 
             LogInfo("Applied active building limit rules:", activeBuildingLimitRules.Count);
+        }
+
+        private static int GetInternalBuildingLimit(BuildingLimitDefinition definition, int configuredLimit)
+        {
+            if (configuredLimit <= 0 || definition.Mapper != eMappers.MAPPER_STORES)
+                return configuredLimit;
+
+            return configuredLimit * 4;
         }
 
         internal static Dictionary<eMappers, BuildingLimitDefinition> CreateBuildingLimitDefinitions()

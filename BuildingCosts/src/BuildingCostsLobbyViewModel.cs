@@ -172,6 +172,46 @@ namespace BuildingCosts
             }
         }
 
+        public void SetVanillaCostToolTips(Dictionary<eMappers, BuildingCostValues> vanillaCosts)
+        {
+            foreach (CostEntryViewModel entry in CostEntries)
+            {
+                if (!Enum.TryParse(entry.Key, true, out eMappers mapper) ||
+                    vanillaCosts == null ||
+                    !vanillaCosts.TryGetValue(mapper, out BuildingCostValues values))
+                {
+                    entry.BuildingToolTip = entry.Key;
+                    continue;
+                }
+
+                entry.BuildingToolTip = FormatBuildingToolTip(entry.Key, values);
+            }
+        }
+
+        private string FormatBuildingToolTip(string key, BuildingCostValues values)
+        {
+            List<string> parts = new List<string>(5);
+            AddVanillaCostPart(parts, WoodHeaderText, values.Wood);
+            AddVanillaCostPart(parts, StoneHeaderText, values.Stone);
+            AddVanillaCostPart(parts, IronHeaderText, values.Iron);
+            AddVanillaCostPart(parts, PitchHeaderText, values.Pitch);
+            AddVanillaCostPart(parts, GoldHeaderText, values.Gold);
+
+            string vanillaText = parts.Count == 0
+                ? "Vanilla: keine Kosten"
+                : "Vanilla: " + string.Join(", ", parts);
+
+            return key + Environment.NewLine + vanillaText;
+        }
+
+        private static void AddVanillaCostPart(List<string> parts, string label, int amount)
+        {
+            if (amount == 0)
+                return;
+
+            parts.Add(label + " " + amount);
+        }
+
         private static string GetLocalizedGoodName(eGoods good, string fallback)
         {
             int index = (int)good;
@@ -428,6 +468,7 @@ namespace BuildingCosts
         {
             private readonly Action changed;
             private string displayName;
+            private string buildingToolTip;
             private string woodToolTip;
             private string stoneToolTip;
             private string ironToolTip;
@@ -445,6 +486,7 @@ namespace BuildingCosts
             {
                 Key = key;
                 this.displayName = displayName;
+                buildingToolTip = key;
                 this.changed = changed;
                 wood = values.Wood;
                 stone = values.Stone;
@@ -466,6 +508,12 @@ namespace BuildingCosts
                     displayName = value;
                     OnPropertyChanged();
                 }
+            }
+
+            public string BuildingToolTip
+            {
+                get => buildingToolTip;
+                set => SetToolTip(ref buildingToolTip, value);
             }
 
             public string WoodToolTip
