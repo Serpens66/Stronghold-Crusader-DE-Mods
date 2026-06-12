@@ -16,13 +16,13 @@ namespace StartConditions
 
         private int multiplyGoodsGainAI = 0;
         private int multiplyGoodsGainHuman = 0;
-        private int multiplyGoodsGainInMoneyAI = 2;
+        private int multiplyGoodsGainInMoneyAI = 0;
         private int multiplyGoodsGainInMoneyHuman = 0;
         private int setStartGoldAI = -1;
-        private int setStartGoldHuman = 0;
-        private int addStartGoldAI = 10000;
+        private int setStartGoldHuman = -1;
+        private int addStartGoldAI = 0;
         private int addStartGoldHuman = 0;
-        private int multiplyStartTroopsAI = 10;
+        private int multiplyStartTroopsAI = 0;
         private int multiplyStartTroopsHuman = 0;
         private string startGoodsAI = DefaultStartGoodsAI;
         private string startGoodsHuman = DefaultStartGoodsHuman;
@@ -30,47 +30,47 @@ namespace StartConditions
         private string addStartTroopsHuman = DefaultTroops;
         private bool updatingEntries;
 
-        public const string DefaultStartGoodsAI = @"STORED_WOOD_PLANKS=192
-STORED_RAW_HOPS=0
-STORED_STONE_BLOCKS=240
-STORED_IRON_INGOTS=48
-STORED_PITCH_RAW=48
-STORED_RAW_WHEAT=0
-STORED_FOOD_BREAD=100
-STORED_FOOD_CHEESE=100
-STORED_FOOD_MEAT=100
-STORED_FOOD_FRUIT=100
-STORED_FOOD_ALE=16
-STORED_FLOUR=0
-STORED_BOWS=0
-STORED_CROSSBOWS=0
-STORED_SPEARS=0
-STORED_PIKES=0
-STORED_MACES=0
-STORED_SWORDS=0
-STORED_LEATHER_ARMOUR=0
-STORED_METAL_ARMOUR=0";
+        public const string DefaultStartGoodsAI = @"STORED_WOOD_PLANKS=-1
+STORED_RAW_HOPS=-1
+STORED_STONE_BLOCKS=-1
+STORED_IRON_INGOTS=-1
+STORED_PITCH_RAW=-1
+STORED_RAW_WHEAT=-1
+STORED_FOOD_BREAD=-1
+STORED_FOOD_CHEESE=-1
+STORED_FOOD_MEAT=-1
+STORED_FOOD_FRUIT=-1
+STORED_FOOD_ALE=-1
+STORED_FLOUR=-1
+STORED_BOWS=-1
+STORED_CROSSBOWS=-1
+STORED_SPEARS=-1
+STORED_PIKES=-1
+STORED_MACES=-1
+STORED_SWORDS=-1
+STORED_LEATHER_ARMOUR=-1
+STORED_METAL_ARMOUR=-1";
 
-        public const string DefaultStartGoodsHuman = @"STORED_WOOD_PLANKS=96
-STORED_RAW_HOPS=0
-STORED_STONE_BLOCKS=48
-STORED_IRON_INGOTS=0
-STORED_PITCH_RAW=0
-STORED_RAW_WHEAT=0
-STORED_FOOD_BREAD=50
-STORED_FOOD_CHEESE=0
-STORED_FOOD_MEAT=0
-STORED_FOOD_FRUIT=0
-STORED_FOOD_ALE=0
-STORED_FLOUR=0
-STORED_BOWS=0
-STORED_CROSSBOWS=0
-STORED_SPEARS=0
-STORED_PIKES=0
-STORED_MACES=0
-STORED_SWORDS=0
-STORED_LEATHER_ARMOUR=0
-STORED_METAL_ARMOUR=0";
+        public const string DefaultStartGoodsHuman = @"STORED_WOOD_PLANKS=-1
+STORED_RAW_HOPS=-1
+STORED_STONE_BLOCKS=-1
+STORED_IRON_INGOTS=-1
+STORED_PITCH_RAW=-1
+STORED_RAW_WHEAT=-1
+STORED_FOOD_BREAD=-1
+STORED_FOOD_CHEESE=-1
+STORED_FOOD_MEAT=-1
+STORED_FOOD_FRUIT=-1
+STORED_FOOD_ALE=-1
+STORED_FLOUR=-1
+STORED_BOWS=-1
+STORED_CROSSBOWS=-1
+STORED_SPEARS=-1
+STORED_PIKES=-1
+STORED_MACES=-1
+STORED_SWORDS=-1
+STORED_LEATHER_ARMOUR=-1
+STORED_METAL_ARMOUR=-1";
 
         private const string VanillaSkirmishGoods = @"STORED_WOOD_PLANKS=100
 STORED_RAW_HOPS=0
