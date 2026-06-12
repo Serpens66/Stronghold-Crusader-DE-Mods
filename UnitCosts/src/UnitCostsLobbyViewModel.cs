@@ -67,7 +67,7 @@ namespace UnitCosts
         public string Slot1HeaderText => IsGermanLanguage() ? "Slot 1" : "Slot 1";
         public string Slot2HeaderText => IsGermanLanguage() ? "Slot 2" : "Slot 2";
         public string Slot3HeaderText => IsGermanLanguage() ? "Slot 3" : "Slot 3";
-        public string Slot4HeaderText => IsGermanLanguage() ? "Slot 4" : "Slot 4";
+        public string Slot4HeaderText => IsGermanLanguage() ? "Slot 4 / Pferd" : "Slot 4 / Horse";
         public string GoldHeaderText => UnitCostsRuntime.GetLocalizedGoodName(eGoods.STORED_GOLD, "Gold");
 
         [SyncHostOnly]
