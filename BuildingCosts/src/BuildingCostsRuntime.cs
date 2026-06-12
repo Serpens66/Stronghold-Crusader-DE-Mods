@@ -26,6 +26,11 @@ namespace BuildingCosts
         private UpdateRolloverDelegate updateRolloverTrampoline;
         private FieldInfo hoverStructField;
         private FieldInfo selectedStructField;
+        private int lastTooltipStruct = int.MinValue;
+        private int lastLocalPlayerId = int.MinValue;
+        private bool lastDetailedTooltipVisible;
+        private bool lastCompactTooltipVisible;
+        private bool tooltipIsClear = true;
 
         private static readonly Dictionary<eMappers, BuildingCostDefinition> BuildingCostDefinitions = CreateBuildingCostDefinitions();
         private delegate void UpdateRolloverDelegate(HUD_Main self);
@@ -81,7 +86,8 @@ namespace BuildingCosts
             updateRolloverHook?.Dispose();
             updateRolloverHook = null;
             updateRolloverTrampoline = null;
-            BuildingCostsPlugin.BuildingCostTooltipViewModel.Clear();
+            ClearBuildingCostTooltip();
+            ResetTooltipCache();
         }
 
         private void InstallUpdateRolloverHook()
@@ -126,6 +132,7 @@ namespace BuildingCosts
             {
                 LogDebug("OnStartMap");
                 ApplyBuildingCosts();
+                ResetTooltipCache();
             }
             catch (Exception ex)
             {
@@ -188,6 +195,7 @@ namespace BuildingCosts
             }
 
             LogDebug("Applied building cost materials:", changedMaterials);
+            ResetTooltipCache();
         }
 
         private int ApplyStructureCosts(eStructs structure, BuildingCostValues values)
@@ -237,34 +245,70 @@ namespace BuildingCosts
         {
             try
             {
-                BuildingCostsPlugin.BuildingCostTooltipViewModel.SetPlacement(
-                    MainViewModel.Instance.RolloverBuilding_TooltipVis,
-                    MainViewModel.Instance.RolloverBuilding_TooltipVisNot);
-
+                bool detailedTooltipVisible = MainViewModel.Instance.RolloverBuilding_TooltipVis;
+                bool compactTooltipVisible = MainViewModel.Instance.RolloverBuilding_TooltipVisNot;
                 int hoverStruct = (int)hoverStructField.GetValue(hud);
                 int selectedStruct = (int)selectedStructField.GetValue(hud);
                 int tooltipStruct = hoverStruct != 0 ? hoverStruct : selectedStruct;
+                int localPlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
+
+                if (tooltipStruct == lastTooltipStruct &&
+                    detailedTooltipVisible == lastDetailedTooltipVisible &&
+                    compactTooltipVisible == lastCompactTooltipVisible &&
+                    localPlayerId == lastLocalPlayerId)
+                {
+                    return;
+                }
+
+                lastTooltipStruct = tooltipStruct;
+                lastDetailedTooltipVisible = detailedTooltipVisible;
+                lastCompactTooltipVisible = compactTooltipVisible;
+                lastLocalPlayerId = localPlayerId;
+
+                BuildingCostsPlugin.BuildingCostTooltipViewModel.SetPlacement(
+                    detailedTooltipVisible,
+                    compactTooltipVisible);
+
                 if (tooltipStruct <= 0)
                 {
-                    BuildingCostsPlugin.BuildingCostTooltipViewModel.Clear();
+                    ClearBuildingCostTooltip();
                     return;
                 }
 
                 eStructs building = ResolveTooltipBuilding(tooltipStruct);
                 if (building == eStructs.STRUCT_NULL)
                 {
-                    BuildingCostsPlugin.BuildingCostTooltipViewModel.Clear();
+                    ClearBuildingCostTooltip();
                     return;
                 }
 
-                int localPlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
                 List<BuildingCostTooltipEntry> entries = CreateAdditionalTooltipEntries(building, localPlayerId);
                 BuildingCostsPlugin.BuildingCostTooltipViewModel.SetTooltip("", entries);
+                tooltipIsClear = false;
             }
             catch (Exception ex)
             {
                 LogDebug("Error updating building cost tooltip:", ex);
+                ClearBuildingCostTooltip();
+                ResetTooltipCache();
             }
+        }
+
+        private void ClearBuildingCostTooltip()
+        {
+            if (tooltipIsClear)
+                return;
+
+            BuildingCostsPlugin.BuildingCostTooltipViewModel.Clear();
+            tooltipIsClear = true;
+        }
+
+        private void ResetTooltipCache()
+        {
+            lastTooltipStruct = int.MinValue;
+            lastLocalPlayerId = int.MinValue;
+            lastDetailedTooltipVisible = false;
+            lastCompactTooltipVisible = false;
         }
 
         private static eStructs ResolveTooltipBuilding(int tooltipStruct)

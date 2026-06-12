@@ -83,71 +83,76 @@
             <TranslateTransform X="-250"/>
           </TransformGroup>
         </StackPanel.RenderTransform>
-        <TextBlock x:Name="GameHoverText"
-                   HorizontalAlignment="Left"
-                   FlowDirection="{Binding GlobalTextFlowAL2R}"
-                   FontSize="20"
-                   Foreground="#FFDDDDDD"
-                   Background="#55000000"
-                   Tag="Ignore">
-          <TextBlock.Effect>
-            <DropShadowEffect ShadowDepth="2"
-                              Direction="315"
-                              Color="#CC000000"
-                              BlurRadius="0"/>
-          </TextBlock.Effect>
-          <Run Text="{Binding RollOverText}"/><!--
-       --><Run Text="{Binding RollOverText_AmountReq1}"/><!--
-       --><InlineUIContainer><Image Source="{Binding RollOverText_GoodsImage1}" Height="18" Margin="0,4,0,-4"/></InlineUIContainer><!--
-       --><Run Text="{Binding RollOverText_AmountGot1}"/><!--
-       --><Run Text="{Binding RollOverText_AmountReq2}"/><!--
-       --><InlineUIContainer><Image Source="{Binding RollOverText_GoodsImage2}" Height="18" Margin="0,4,0,-4"/></InlineUIContainer><!--
-       --><Run Text="{Binding RollOverText_AmountGot2}"/>
-        </TextBlock>
-        <ItemsControl x:Name="BuildingCostsTooltipHostCompact"
-                      ItemsSource="{Binding AdditionalCosts}"
-                      Visibility="{Binding AdditionalCostsVisibility}"
-                      HorizontalAlignment="Left"
-                      VerticalAlignment="Center"
-                      Background="#55000000"
+        <Border Background="#55000000"
+                HorizontalAlignment="Left"
+                Tag="Ignore">
+          <StackPanel HorizontalAlignment="Left"
                       Tag="Ignore">
-          <ItemsControl.ItemsPanel>
-            <ItemsPanelTemplate>
-              <StackPanel Orientation="Horizontal"
-                          VerticalAlignment="Center"/>
-            </ItemsPanelTemplate>
-          </ItemsControl.ItemsPanel>
-          <ItemsControl.ItemTemplate>
-            <DataTemplate>
-              <StackPanel Orientation="Horizontal"
-                          VerticalAlignment="Center">
-                <TextBlock FontSize="20"
-                           Foreground="#FFDDDDDD"
-                           Text="{Binding AmountRequired}">
-                  <TextBlock.Effect>
-                    <DropShadowEffect ShadowDepth="2"
-                                      Direction="315"
-                                      Color="#CC000000"
-                                      BlurRadius="0"/>
-                  </TextBlock.Effect>
-                </TextBlock>
-                <Image Source="{Binding Image}"
-                       Height="18"
-                       Margin="0,4,0,-4"/>
-                <TextBlock FontSize="20"
-                           Foreground="#FFDDDDDD"
-                           Text="{Binding AmountAvailable}">
-                  <TextBlock.Effect>
-                    <DropShadowEffect ShadowDepth="2"
-                                      Direction="315"
-                                      Color="#CC000000"
-                                      BlurRadius="0"/>
-                  </TextBlock.Effect>
-                </TextBlock>
-              </StackPanel>
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
+            <TextBlock x:Name="GameHoverText"
+                       HorizontalAlignment="Left"
+                       FlowDirection="{Binding GlobalTextFlowAL2R}"
+                       FontSize="20"
+                       Foreground="#FFDDDDDD"
+                       Tag="Ignore">
+              <TextBlock.Effect>
+                <DropShadowEffect ShadowDepth="2"
+                                  Direction="315"
+                                  Color="#CC000000"
+                                  BlurRadius="0"/>
+              </TextBlock.Effect>
+              <Run Text="{Binding RollOverText}"/><!--
+           --><Run Text="{Binding RollOverText_AmountReq1}"/><!--
+           --><InlineUIContainer><Image Source="{Binding RollOverText_GoodsImage1}" Height="18" Margin="0,4,0,-4"/></InlineUIContainer><!--
+           --><Run Text="{Binding RollOverText_AmountGot1}"/><!--
+           --><Run Text="{Binding RollOverText_AmountReq2}"/><!--
+           --><InlineUIContainer><Image Source="{Binding RollOverText_GoodsImage2}" Height="18" Margin="0,4,0,-4"/></InlineUIContainer><!--
+           --><Run Text="{Binding RollOverText_AmountGot2}"/>
+            </TextBlock>
+            <ItemsControl x:Name="BuildingCostsTooltipHostCompact"
+                          ItemsSource="{Binding AdditionalCosts}"
+                          Visibility="{Binding AdditionalCostsVisibility}"
+                          HorizontalAlignment="Left"
+                          VerticalAlignment="Center"
+                          Tag="Ignore">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <StackPanel Orientation="Horizontal"
+                              VerticalAlignment="Center"/>
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <StackPanel Orientation="Horizontal"
+                              VerticalAlignment="Center">
+                    <TextBlock FontSize="20"
+                               Foreground="#FFDDDDDD"
+                               Text="{Binding AmountRequired}">
+                      <TextBlock.Effect>
+                        <DropShadowEffect ShadowDepth="2"
+                                          Direction="315"
+                                          Color="#CC000000"
+                                          BlurRadius="0"/>
+                      </TextBlock.Effect>
+                    </TextBlock>
+                    <Image Source="{Binding Image}"
+                           Height="18"
+                           Margin="0,4,0,-4"/>
+                    <TextBlock FontSize="20"
+                               Foreground="#FFDDDDDD"
+                               Text="{Binding AmountAvailable}">
+                      <TextBlock.Effect>
+                        <DropShadowEffect ShadowDepth="2"
+                                          Direction="315"
+                                          Color="#CC000000"
+                                          BlurRadius="0"/>
+                      </TextBlock.Effect>
+                    </TextBlock>
+                  </StackPanel>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </Border>
       </StackPanel>
     </Content>
   </Operation>

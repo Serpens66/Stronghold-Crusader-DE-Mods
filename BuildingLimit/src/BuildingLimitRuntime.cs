@@ -19,6 +19,7 @@ namespace BuildingLimit
         private readonly ManualLogSource log;
         private readonly BuildingLimitLobbyViewModel settings;
         private readonly Dictionary<eMappers, BuildingLimitRule> activeBuildingLimitRules = new Dictionary<eMappers, BuildingLimitRule>();
+        private readonly Dictionary<eStructs, BuildingLimitRule> activeBuildingLimitRulesByStructure = new Dictionary<eStructs, BuildingLimitRule>();
         // private readonly List<int> matchingBuildingIds = new List<int>();
         private readonly ActiveBuildingCache activeBuildingCache;
         private bool settingsPropertyChangedSubscribed;
@@ -106,6 +107,7 @@ namespace BuildingLimit
             updateRolloverTrampoline = null;
             activeBuildingCache.Dispose();
             activeBuildingLimitRules.Clear();
+            activeBuildingLimitRulesByStructure.Clear();
         }
 
         private void OnStartMap(MapStartEventArgs args)

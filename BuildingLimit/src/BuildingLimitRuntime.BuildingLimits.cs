@@ -179,20 +179,7 @@ namespace BuildingLimit
                 return false;
             }
 
-            foreach (BuildingLimitRule candidate in activeBuildingLimitRules.Values)
-            {
-                foreach (eStructs candidateStructure in candidate.Definition.Structures)
-                {
-                    if (candidateStructure == structure)
-                    {
-                        rule = candidate;
-                        return true;
-                    }
-                }
-            }
-
-            rule = null;
-            return false;
+            return activeBuildingLimitRulesByStructure.TryGetValue(structure, out rule);
         }
 
         private static int GetDisplayBuildingCount(BuildingLimitRule rule, int internalCount)
@@ -266,6 +253,7 @@ namespace BuildingLimit
         private void ApplyBuildingLimits()
         {
             activeBuildingLimitRules.Clear();
+            activeBuildingLimitRulesByStructure.Clear();
             Dictionary<eMappers, int> parsedLimits = ParseEnumAmounts<eMappers>(settings.BuildingLimits);
             foreach (KeyValuePair<eMappers, int> entry in parsedLimits)
             {
@@ -283,6 +271,9 @@ namespace BuildingLimit
                     if (mappedDefinition.Value.Mapper == definition.Mapper)
                         activeBuildingLimitRules[mappedDefinition.Key] = rule;
                 }
+
+                foreach (eStructs structure in definition.Structures)
+                    activeBuildingLimitRulesByStructure[structure] = rule;
 
                 if (entry.Value >= 0)
                 {
