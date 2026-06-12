@@ -10,26 +10,18 @@
       <Grid Margin="0,2,0,2">
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="230"/>
-          <ColumnDefinition Width="74"/>
-          <ColumnDefinition Width="86"/>
-          <ColumnDefinition Width="74"/>
-          <ColumnDefinition Width="74"/>
-          <ColumnDefinition Width="74"/>
-          <ColumnDefinition Width="74"/>
-          <ColumnDefinition Width="96"/>
-          <ColumnDefinition Width="96"/>
+          <ColumnDefinition Width="150"/>
+          <ColumnDefinition Width="150"/>
+          <ColumnDefinition Width="150"/>
+          <ColumnDefinition Width="150"/>
           <ColumnDefinition Width="74"/>
         </Grid.ColumnDefinitions>
         <TextBlock Grid.Column="0" Text="{Binding UnitHeaderText}" Foreground="#CCCCCC" FontWeight="Bold" Margin="0,0,8,0"/>
-        <TextBlock Grid.Column="1" Text="{Binding BowsHeaderText}" Foreground="#CCCCCC" FontWeight="Bold" HorizontalAlignment="Right" Margin="3,0"/>
-        <TextBlock Grid.Column="2" Text="{Binding CrossbowsHeaderText}" Foreground="#CCCCCC" FontWeight="Bold" HorizontalAlignment="Right" Margin="3,0"/>
-        <TextBlock Grid.Column="3" Text="{Binding SpearsHeaderText}" Foreground="#CCCCCC" FontWeight="Bold" HorizontalAlignment="Right" Margin="3,0"/>
-        <TextBlock Grid.Column="4" Text="{Binding PikesHeaderText}" Foreground="#CCCCCC" FontWeight="Bold" HorizontalAlignment="Right" Margin="3,0"/>
-        <TextBlock Grid.Column="5" Text="{Binding MacesHeaderText}" Foreground="#CCCCCC" FontWeight="Bold" HorizontalAlignment="Right" Margin="3,0"/>
-        <TextBlock Grid.Column="6" Text="{Binding SwordsHeaderText}" Foreground="#CCCCCC" FontWeight="Bold" HorizontalAlignment="Right" Margin="3,0"/>
-        <TextBlock Grid.Column="7" Text="{Binding LeatherArmourHeaderText}" Foreground="#CCCCCC" FontWeight="Bold" HorizontalAlignment="Right" Margin="3,0"/>
-        <TextBlock Grid.Column="8" Text="{Binding MetalArmourHeaderText}" Foreground="#CCCCCC" FontWeight="Bold" HorizontalAlignment="Right" Margin="3,0"/>
-        <TextBlock Grid.Column="9" Text="{Binding GoldHeaderText}" Foreground="#CCCCCC" FontWeight="Bold" HorizontalAlignment="Right" Margin="3,0"/>
+        <TextBlock Grid.Column="1" Text="{Binding Slot1HeaderText}" Foreground="#CCCCCC" FontWeight="Bold" HorizontalAlignment="Left" Margin="3,0"/>
+        <TextBlock Grid.Column="2" Text="{Binding Slot2HeaderText}" Foreground="#CCCCCC" FontWeight="Bold" HorizontalAlignment="Left" Margin="3,0"/>
+        <TextBlock Grid.Column="3" Text="{Binding Slot3HeaderText}" Foreground="#CCCCCC" FontWeight="Bold" HorizontalAlignment="Left" Margin="3,0"/>
+        <TextBlock Grid.Column="4" Text="{Binding Slot4HeaderText}" Foreground="#CCCCCC" FontWeight="Bold" HorizontalAlignment="Left" Margin="3,0"/>
+        <TextBlock Grid.Column="5" Text="{Binding GoldHeaderText}" Foreground="#CCCCCC" FontWeight="Bold" HorizontalAlignment="Right" Margin="3,0"/>
       </Grid>
       <ItemsControl ItemsSource="{Binding CostEntries}" Margin="0,3,0,8">
         <ItemsControl.ItemTemplate>
@@ -37,31 +29,48 @@
             <Grid Margin="0,1">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="230"/>
-                <ColumnDefinition Width="74"/>
-                <ColumnDefinition Width="86"/>
-                <ColumnDefinition Width="74"/>
-                <ColumnDefinition Width="74"/>
-                <ColumnDefinition Width="74"/>
-                <ColumnDefinition Width="74"/>
-                <ColumnDefinition Width="96"/>
-                <ColumnDefinition Width="96"/>
+                <ColumnDefinition Width="150"/>
+                <ColumnDefinition Width="150"/>
+                <ColumnDefinition Width="150"/>
+                <ColumnDefinition Width="150"/>
                 <ColumnDefinition Width="74"/>
               </Grid.ColumnDefinitions>
               <TextBlock Grid.Column="0"
                          Text="{Binding DisplayName}"
-                         ToolTip="{Binding Key}"
+                         ToolTip="{Binding ToolTip}"
                          Foreground="White"
                          VerticalAlignment="Center"
                          Margin="0,2,8,2"/>
-              <TextBox Grid.Column="1" Text="{Binding BowsText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" MaxLength="4" HorizontalContentAlignment="Right" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
-              <TextBox Grid.Column="2" Text="{Binding CrossbowsText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" MaxLength="4" HorizontalContentAlignment="Right" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
-              <TextBox Grid.Column="3" Text="{Binding SpearsText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" MaxLength="4" HorizontalContentAlignment="Right" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
-              <TextBox Grid.Column="4" Text="{Binding PikesText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" MaxLength="4" HorizontalContentAlignment="Right" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
-              <TextBox Grid.Column="5" Text="{Binding MacesText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" MaxLength="4" HorizontalContentAlignment="Right" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
-              <TextBox Grid.Column="6" Text="{Binding SwordsText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" MaxLength="4" HorizontalContentAlignment="Right" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
-              <TextBox Grid.Column="7" Text="{Binding LeatherArmourText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" MaxLength="4" HorizontalContentAlignment="Right" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
-              <TextBox Grid.Column="8" Text="{Binding MetalArmourText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" MaxLength="4" HorizontalContentAlignment="Right" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
-              <TextBox Grid.Column="9" Text="{Binding GoldText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" MaxLength="4" HorizontalContentAlignment="Right" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+              <ComboBox Grid.Column="1"
+                        ItemsSource="{Binding GoodSlotOptions}"
+                        SelectedItem="{Binding SelectedGood1, Mode=TwoWay}"
+                        DisplayMemberPath="DisplayName"
+                        IsEnabled="{Binding IsEuropeanUnit}"
+                        Margin="3"/>
+              <ComboBox Grid.Column="2"
+                        ItemsSource="{Binding GoodSlotOptions}"
+                        SelectedItem="{Binding SelectedGood2, Mode=TwoWay}"
+                        DisplayMemberPath="DisplayName"
+                        IsEnabled="{Binding IsEuropeanUnit}"
+                        Margin="3"/>
+              <ComboBox Grid.Column="3"
+                        ItemsSource="{Binding GoodSlotOptions}"
+                        SelectedItem="{Binding SelectedGood3, Mode=TwoWay}"
+                        DisplayMemberPath="DisplayName"
+                        IsEnabled="{Binding IsEuropeanUnit}"
+                        Margin="3"/>
+              <ComboBox Grid.Column="4"
+                        ItemsSource="{Binding GoodSlot4Options}"
+                        SelectedItem="{Binding SelectedGood4, Mode=TwoWay}"
+                        DisplayMemberPath="DisplayName"
+                        IsEnabled="{Binding IsEuropeanUnit}"
+                        Margin="3"/>
+              <TextBox Grid.Column="5"
+                       Text="{Binding GoldText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}"
+                       MaxLength="4"
+                       HorizontalContentAlignment="Right"
+                       Margin="3"
+                       ui:KeyboardCaptureBinding.Enabled="True"/>
             </Grid>
           </DataTemplate>
         </ItemsControl.ItemTemplate>
