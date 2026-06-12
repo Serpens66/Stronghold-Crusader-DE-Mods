@@ -1,6 +1,7 @@
 using SHCDESE.API;
 using SHCDESE.API.Components.Network;
 using SHCDESE.Interop;
+using SHCDESE.NoesisUtil;
 using SHCDESE.ViewModels;
 using System;
 using System.Collections.Generic;
@@ -81,6 +82,7 @@ namespace UnitCosts
             CostEntries = CreateCostEntriesWithCallback(unitCosts);
             ExtraCostHeaders = CreateExtraCostHeaders();
             ExtraCostEntries = CreateExtraCostEntriesWithCallback(humanExtraUnitCosts);
+            ResetToDefaultCommand = new RelayCommand(ResetToDefault);
         }
 
         public IReadOnlyList<CostEntryViewModel> CostEntries { get; }
@@ -88,6 +90,7 @@ namespace UnitCosts
         public IReadOnlyList<ExtraCostHeaderViewModel> ExtraCostHeaders { get; }
         public ObservableCollection<GoodOptionViewModel> GoodSlotOptions { get; }
         public ObservableCollection<GoodOptionViewModel> GoodSlot4Options { get; }
+        public RelayCommand ResetToDefaultCommand { get; }
 
         public string TitleText => IsGermanLanguage() ? "EINHEITENKOSTEN" : "UNIT COSTS";
         public string HelpText => IsGermanLanguage()
@@ -135,6 +138,12 @@ namespace UnitCosts
                 SettingChanged?.Invoke(nameof(HumanExtraUnitCosts));
                 OnPropertyChanged(nameof(HumanExtraUnitCosts));
             }
+        }
+
+        private void ResetToDefault()
+        {
+            UnitCosts = CreateDefaultUnitCosts();
+            HumanExtraUnitCosts = CreateDefaultHumanExtraUnitCosts();
         }
 
         public void RefreshLocalizedNames()

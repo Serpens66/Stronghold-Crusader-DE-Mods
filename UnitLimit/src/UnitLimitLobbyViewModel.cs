@@ -1,5 +1,6 @@
 using SHCDESE.API.Components.Network;
 using SHCDESE.Interop;
+using SHCDESE.NoesisUtil;
 using SHCDESE.ViewModels;
 using System;
 using System.Collections.Generic;
@@ -47,9 +48,12 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=-1";
         public UnitLimitLobbyViewModel()
         {
             LimitEntries = CreateLimitEntriesWithCallback(DefaultUnitLimits);
+            ResetToDefaultCommand = new RelayCommand(ResetToDefault);
         }
 
         public IReadOnlyList<LimitEntryViewModel> LimitEntries { get; }
+
+        public RelayCommand ResetToDefaultCommand { get; }
 
         public void RefreshLocalizedNames()
         {
@@ -74,6 +78,11 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=-1";
                 SettingChanged?.Invoke(nameof(UnitLimits));
                 OnPropertyChanged(nameof(UnitLimits));
             }
+        }
+
+        private void ResetToDefault()
+        {
+            UnitLimits = DefaultUnitLimits;
         }
 
         private static IReadOnlyList<LimitEntryViewModel> CreateLimitEntries(string serializedLimits)

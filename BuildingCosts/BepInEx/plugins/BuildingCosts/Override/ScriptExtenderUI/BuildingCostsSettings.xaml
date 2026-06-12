@@ -4,6 +4,11 @@
   <ScrollViewer VerticalScrollBarVisibility="Auto"
                 HorizontalScrollBarVisibility="Auto">
     <StackPanel Margin="10">
+      <Button Content="Reset to Default"
+              Command="{Binding ResetToDefaultCommand}"
+              HorizontalAlignment="Left"
+              Margin="0,0,0,8"
+              Padding="10,3"/>
       <TextBlock Text="{Binding TitleText}" Foreground="#77AAFF" FontWeight="Bold" Margin="0,0,0,4"/>
       <TextBlock Text="{Binding HelpText}"
                  Foreground="#CCCCCC" TextWrapping="Wrap" Margin="0,0,0,6"/>

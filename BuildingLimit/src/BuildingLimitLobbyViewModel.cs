@@ -1,5 +1,6 @@
 using SHCDESE.API.Components.Network;
 using SHCDESE.Interop;
+using SHCDESE.NoesisUtil;
 using SHCDESE.ViewModels;
 using System;
 using System.Collections.Generic;
@@ -93,9 +94,12 @@ MAPPER_BEDOUIN_STOCKADE=-1";
         public BuildingLimitLobbyViewModel()
         {
             LimitEntries = CreateLimitEntriesWithCallback(DefaultBuildingLimits);
+            ResetToDefaultCommand = new RelayCommand(ResetToDefault);
         }
 
         public IReadOnlyList<LimitEntryViewModel> LimitEntries { get; }
+
+        public RelayCommand ResetToDefaultCommand { get; }
 
         public void RefreshLocalizedNames()
         {
@@ -124,6 +128,11 @@ MAPPER_BEDOUIN_STOCKADE=-1";
                 SettingChanged?.Invoke(nameof(BuildingLimits));
                 OnPropertyChanged(nameof(BuildingLimits));
             }
+        }
+
+        private void ResetToDefault()
+        {
+            BuildingLimits = DefaultBuildingLimits;
         }
 
         private static IReadOnlyList<LimitEntryViewModel> CreateLimitEntries(string serializedLimits)

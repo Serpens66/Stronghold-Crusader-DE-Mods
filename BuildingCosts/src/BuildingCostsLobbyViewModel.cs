@@ -1,6 +1,7 @@
 using SHCDESE.API;
 using SHCDESE.API.Components.Network;
 using SHCDESE.Interop;
+using SHCDESE.NoesisUtil;
 using SHCDESE.ViewModels;
 using System;
 using System.Collections.Generic;
@@ -96,9 +97,12 @@ namespace BuildingCosts
         public BuildingCostsLobbyViewModel()
         {
             CostEntries = CreateCostEntriesWithCallback(buildingCosts);
+            ResetToDefaultCommand = new RelayCommand(ResetToDefault);
         }
 
         public IReadOnlyList<CostEntryViewModel> CostEntries { get; }
+
+        public RelayCommand ResetToDefaultCommand { get; }
 
         public string TitleText => IsGermanLanguage() ? "BAUKOSTEN" : "BUILDING COSTS";
         public string HelpText => IsGermanLanguage()
@@ -125,6 +129,11 @@ namespace BuildingCosts
                 SettingChanged?.Invoke(nameof(BuildingCosts));
                 OnPropertyChanged(nameof(BuildingCosts));
             }
+        }
+
+        private void ResetToDefault()
+        {
+            BuildingCosts = CreateDefaultBuildingCosts();
         }
 
         public void RefreshLocalizedNames()

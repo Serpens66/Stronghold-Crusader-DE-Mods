@@ -1,5 +1,6 @@
 using SHCDESE.API.Components.Network;
 using SHCDESE.Interop;
+using SHCDESE.NoesisUtil;
 using SHCDESE.ViewModels;
 using System;
 using System.Collections.Generic;
@@ -144,11 +145,14 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
         {
             StartGoodEntries = CreateGoodEntriesWithCallback(DefaultStartGoodsAI, DefaultStartGoodsHuman);
             StartTroopEntries = CreateTroopEntriesWithCallback(DefaultTroops, DefaultTroops);
+            ResetToDefaultCommand = new RelayCommand(ResetToDefault);
         }
 
         public IReadOnlyList<AmountEntryViewModel> StartGoodEntries { get; }
 
         public IReadOnlyList<AmountEntryViewModel> StartTroopEntries { get; }
+
+        public RelayCommand ResetToDefaultCommand { get; }
 
         public void RefreshLocalizedNames()
         {
@@ -251,6 +255,24 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
                 SettingChanged?.Invoke(nameof(AddStartTroopsHuman));
                 OnPropertyChanged(nameof(AddStartTroopsHuman));
             }
+        }
+
+        private void ResetToDefault()
+        {
+            MultiplyGoodsGainAI = 0;
+            MultiplyGoodsGainHuman = 0;
+            MultiplyGoodsGainInMoneyAI = 2;
+            MultiplyGoodsGainInMoneyHuman = 0;
+            SetStartGoldAI = -1;
+            SetStartGoldHuman = 0;
+            AddStartGoldAI = 10000;
+            AddStartGoldHuman = 0;
+            MultiplyStartTroopsAI = 10;
+            MultiplyStartTroopsHuman = 0;
+            StartGoodsAI = DefaultStartGoodsAI;
+            StartGoodsHuman = DefaultStartGoodsHuman;
+            AddStartTroopsAI = DefaultTroops;
+            AddStartTroopsHuman = DefaultTroops;
         }
 
         private static IReadOnlyList<AmountEntryViewModel> CreateGoodEntries(string aiSerialized, string humanSerialized)

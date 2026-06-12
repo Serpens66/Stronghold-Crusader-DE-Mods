@@ -3,6 +3,11 @@
       xmlns:ui="clr-namespace:SHCDESE.UI;assembly=SHCDESE">
   <ScrollViewer VerticalScrollBarVisibility="Auto">
     <StackPanel Margin="10">
+      <Button Content="Reset to Default"
+              Command="{Binding ResetToDefaultCommand}"
+              HorizontalAlignment="Left"
+              Margin="0,0,0,8"
+              Padding="10,3"/>
       <TextBlock Text="BUILDING LIMITS" Foreground="#77AAFF" FontWeight="Bold" Margin="0,0,0,4"/>
       <TextBlock Text="-1 = unlimited. Allowed range: -1 to 10000. Variants such as gardens, statues, shrines and ponds are counted together."
                  Foreground="#CCCCCC" TextWrapping="Wrap" Margin="0,0,0,6"/>
