@@ -21,9 +21,7 @@ namespace UnitLimit
     {
         private readonly ManualLogSource log;
         private readonly UnitLimitLobbyViewModel settings;
-        private readonly HashSet<eChimps> loggedUnitLimitCooldownSuppressions = new HashSet<eChimps>();
         private readonly HashSet<eChimps> locallyDisabledUnitRecruitment = new HashSet<eChimps>();
-        private readonly Dictionary<eChimps, DateTime> unitLimitMessageCooldowns = new Dictionary<eChimps, DateTime>();
         private readonly Dictionary<eChimps, bool> originalUnitRecruitableStates = new Dictionary<eChimps, bool>();
         private readonly Dictionary<eChimps, int> activeUnitLimits = new Dictionary<eChimps, int>();
         private readonly Dictionary<PendingRecruitmentKey, List<DateTime>> pendingRecruitments = new Dictionary<PendingRecruitmentKey, List<DateTime>>();
@@ -36,7 +34,6 @@ namespace UnitLimit
         private bool libraryInitialized;
         private const int LimitMessageDurationMilliseconds = 3000;
         private const int UnitLimitRecruitableRefreshMilliseconds = 5000;
-        private static readonly TimeSpan UnitLimitMessageCooldown = TimeSpan.FromSeconds(10);
         private static readonly TimeSpan PendingRecruitmentLifetime = TimeSpan.FromSeconds(3);
         private string limitMessageTimerHandle;
         private string unitLimitRecruitableRefreshTimerHandle;
@@ -137,9 +134,7 @@ namespace UnitLimit
             activeUnitCache.OnActiveUnitChanged -= OnActiveUnitChanged;
             activeUnitCache.Dispose();
 
-            loggedUnitLimitCooldownSuppressions.Clear();
             locallyDisabledUnitRecruitment.Clear();
-            unitLimitMessageCooldowns.Clear();
             originalUnitRecruitableStates.Clear();
             activeUnitLimits.Clear();
         }
@@ -167,8 +162,6 @@ namespace UnitLimit
             CancelUnitLimitRecruitableRefresh();
             RestoreOriginalUnitRecruitableStates();
             HideLimitMessage();
-            unitLimitMessageCooldowns.Clear();
-            loggedUnitLimitCooldownSuppressions.Clear();
             locallyDisabledUnitRecruitment.Clear();
             originalUnitRecruitableStates.Clear();
             // matchingUnitIds.Clear();

@@ -14,8 +14,6 @@ namespace BuildingLimit
     {
         private readonly ManualLogSource log;
         private readonly BuildingLimitLobbyViewModel settings;
-        private readonly HashSet<eMappers> loggedBuildingLimitCooldownSuppressions = new HashSet<eMappers>();
-        private readonly Dictionary<eMappers, DateTime> buildingLimitMessageCooldowns = new Dictionary<eMappers, DateTime>();
         private readonly Dictionary<eMappers, BuildingLimitRule> activeBuildingLimitRules = new Dictionary<eMappers, BuildingLimitRule>();
         // private readonly List<int> matchingBuildingIds = new List<int>();
         private readonly ActiveBuildingCache activeBuildingCache;
@@ -23,7 +21,6 @@ namespace BuildingLimit
         private bool hooksSubscribed;
         private bool libraryInitialized;
         private const int BuildingLimitMessageDurationMilliseconds = 3000;
-        private static readonly TimeSpan BuildingLimitMessageCooldown = TimeSpan.FromSeconds(10);
         private static readonly Dictionary<eMappers, BuildingLimitDefinition> BuildingLimitDefinitions = CreateBuildingLimitDefinitions();
         private string buildingLimitMessageTimerHandle;
 
@@ -85,8 +82,6 @@ namespace BuildingLimit
 
             HideBuildingLimitMessage();
             activeBuildingCache.Dispose();
-            loggedBuildingLimitCooldownSuppressions.Clear();
-            buildingLimitMessageCooldowns.Clear();
             activeBuildingLimitRules.Clear();
         }
 
@@ -113,8 +108,6 @@ namespace BuildingLimit
         {
             LogInfo("OnUnloadMap");
             HideBuildingLimitMessage();
-            buildingLimitMessageCooldowns.Clear();
-            loggedBuildingLimitCooldownSuppressions.Clear();
             // matchingBuildingIds.Clear();
         }
 

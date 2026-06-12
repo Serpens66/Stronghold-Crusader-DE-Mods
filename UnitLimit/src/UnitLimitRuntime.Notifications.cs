@@ -1,12 +1,4 @@
-using BepInEx.Logging;
-using R3;
 using SHCDESE.API;
-using SHCDESE.EventAPI;
-using SHCDESE.EventAPI.MapLoader;
-using SHCDESE.EventAPI.Units;
-using SHCDESE.Interop.Enums;
-using System;
-using System.Collections.Generic;
 
 namespace UnitLimit
 {
@@ -24,6 +16,7 @@ namespace UnitLimit
 
         private void OnLimitMessageTimerElapsed()
         {
+            limitMessageTimerHandle = null;
             LimitNotification.Hide();
         }
 
@@ -42,7 +35,7 @@ namespace UnitLimit
             {
                 GameTimeManagerAPI.Instance.GetTimerEngine().RemoveAction(limitMessageTimerHandle);
             }
-            catch (Exception ex)
+            catch (System.Exception ex)
             {
                 LogInfo("Could not cancel limit message timer:", ex.Message);
             }

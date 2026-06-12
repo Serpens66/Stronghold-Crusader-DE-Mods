@@ -22,11 +22,9 @@ namespace UnitCosts
         private MakeTroopGameActionHook makeTroopGameActionHook;
         private CreateTroopHoverHook createTroopHoverHook;
         private string materialMessageTimerHandle;
-        private DateTime lastMaterialMessageShownUtc = DateTime.MinValue;
         private bool settingsChangedSubscribed;
         private bool hooksSubscribed;
-        private const int MaterialMessageDurationMilliseconds = 1800;
-        private static readonly TimeSpan MaterialMessageCooldown = TimeSpan.FromMilliseconds(700);
+        private const int MaterialMessageDurationMilliseconds = 3000;
         private const string MissingResourcesSpeechFileName = "Other_Warning6.wav";
         private static readonly Dictionary<eChimps, UnitGoodCosts> VanillaEuropeanGoodCosts = new Dictionary<eChimps, UnitGoodCosts>();
         private static readonly Dictionary<eChimps, int> VanillaGoldCosts = new Dictionary<eChimps, int>();
@@ -59,6 +57,10 @@ namespace UnitCosts
             MapLoaderR3EventHooks.OnStartMap.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
                 .Subscribe(OnStartMap);
+
+            MapLoaderR3EventHooks.OnUnloadMap.Observable
+                .Where(args => args.Phase == EventHookPhase.Post)
+                .Subscribe(OnUnloadMap);
 
             UnitR3EventHooks.OnUnitTransition.Observable
                 .Subscribe(OnUnitTransition);
@@ -121,6 +123,11 @@ namespace UnitCosts
             {
                 log.LogInfo("UnitCosts OnStartMap failed: " + ex);
             }
+        }
+
+        private void OnUnloadMap(MapUnloadEventArgs args)
+        {
+            HideMaterialMessage();
         }
 
         private void ApplyUnitCosts()
@@ -379,11 +386,6 @@ namespace UnitCosts
         private void ShowMissingResourcesMessage()
         {
             PlayWeaponsNeededSpeech();
-
-            if (DateTime.UtcNow - lastMaterialMessageShownUtc < MaterialMessageCooldown)
-                return;
-
-            lastMaterialMessageShownUtc = DateTime.UtcNow;
             DisplayMaterialNotification(IsGermanLanguage() ? "Material fehlt" : "Resources missing");
         }
 
@@ -416,6 +418,7 @@ namespace UnitCosts
 
         private void OnMaterialMessageTimerElapsed()
         {
+            materialMessageTimerHandle = null;
             Notification.Hide();
         }
 

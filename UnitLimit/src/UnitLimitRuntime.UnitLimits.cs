@@ -253,18 +253,6 @@ namespace UnitLimit
 
         private void ShowUnitLimitMessage(eChimps unitType, string message)
         {
-            DateTime now = DateTime.UtcNow;
-            if (unitLimitMessageCooldowns.TryGetValue(unitType, out DateTime cooldownStart) &&
-                now - cooldownStart < UnitLimitMessageCooldown)
-            {
-                if (loggedUnitLimitCooldownSuppressions.Add(unitType))
-                    LogInfo("Unit limit notification suppressed by cooldown:", unitType);
-
-                return;
-            }
-
-            unitLimitMessageCooldowns[unitType] = now;
-            loggedUnitLimitCooldownSuppressions.Remove(unitType);
             LogInfo("Unit limit notification shown:", unitType, message);
             DisplayLimitNotification(message);
         }

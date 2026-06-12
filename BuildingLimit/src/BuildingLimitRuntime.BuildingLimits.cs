@@ -117,18 +117,6 @@ namespace BuildingLimit
 
         private void ShowBuildingLimitMessage(eMappers building, string message)
         {
-            DateTime now = DateTime.UtcNow;
-            if (buildingLimitMessageCooldowns.TryGetValue(building, out DateTime cooldownStart) &&
-                now - cooldownStart < BuildingLimitMessageCooldown)
-            {
-                if (loggedBuildingLimitCooldownSuppressions.Add(building))
-                    LogInfo("Building limit notification suppressed by cooldown:", building);
-
-                return;
-            }
-
-            buildingLimitMessageCooldowns[building] = now;
-            loggedBuildingLimitCooldownSuppressions.Remove(building);
             LogInfo("Building limit notification shown:", building, message);
             DisplayLimitNotification(message);
         }
