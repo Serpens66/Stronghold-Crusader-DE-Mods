@@ -11,10 +11,8 @@
 -- verschieben von gebäuden bei shift+delete?
 -- blaupausen planung?
 -- auch mit Gebäude am Mauszeiger auf der Minimap bewegen können! und minimap bewegung bei gedrückter maustaste schneller machen...
+-- KI kann Soldaten von Spielern überbauen und dadurch löschen: wenn möglich soldaten stattdessen verschieben
 
--- Um jede Kosten zuzufügen reicht theoretisch einfach die Baukostenanzeige anzupassen.
--- Und dann recruit/bauen blocken, wenn das Gut nicht vorrätig ist und beim Bauen dann abziehen.
--- Das kann ChatGTP schon recht gut implementieren (icons im baumenü über MainViewModel.Instance.getSmallGoodsIcon((int)good))
 
 
 -- OnUnitDeleted wird ausgeführt bei:

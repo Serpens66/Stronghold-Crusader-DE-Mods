@@ -15,6 +15,7 @@ using System.Collections.Generic;
 // aber falls OnUnitTransition korrekt soldier->peasant erkennt, kann man das dann stattdessen nutzen.
 // Eventuell dann ActiveUnmitCache nochmal überarbeiten, dass es effizienter läuft und auch keinen Timer mehr braucht usw und eigentlich auch kein resync mehr, wobei man das evlt doch alle 60 sek oderso machen sollte.
 // sobald im extender ein weg eingebaut wurde die Rekrutierung zu verhinden, dann MakeTroopGameActionHooks dadurch ersetzen
+// anstelle von AliveCount kann für den lokalen Spieler auch das verwendet werden: GameUnitManagerAPI.Instance.GetUnitArmyCount(eChimps chimp) liefert selbe ergebnisse wie alive (also kein pending und keine siege tents)
 
 namespace UnitLimit
 {
