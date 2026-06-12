@@ -3,6 +3,7 @@ using R3;
 using SHCDESE.API;
 using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.MapLoader;
+using SHCDESE.EventAPI.Units;
 using SHCDESE.Extensions;
 using SHCDESE.Interop;
 using System;
@@ -15,6 +16,8 @@ namespace UnitCosts
     {
         private readonly ManualLogSource log;
         private readonly UnitCostsLobbyViewModel settings;
+        private readonly Dictionary<eChimps, UnitExtraCostValues> humanExtraCosts = new Dictionary<eChimps, UnitExtraCostValues>();
+        private MakeTroopGameActionHook makeTroopGameActionHook;
         private bool settingsChangedSubscribed;
         private bool hooksSubscribed;
         private static readonly Dictionary<eChimps, UnitGoodCosts> VanillaEuropeanGoodCosts = new Dictionary<eChimps, UnitGoodCosts>();
@@ -31,6 +34,7 @@ namespace UnitCosts
             SubscribeSettingsChanges();
             CaptureVanillaEuropeanGoodCosts();
             ApplyUnitCosts();
+            ApplyHumanExtraUnitCosts();
         }
 
         private void SubscribeHooks()
@@ -41,6 +45,11 @@ namespace UnitCosts
             MapLoaderR3EventHooks.OnStartMap.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
                 .Subscribe(OnStartMap);
+
+            UnitR3EventHooks.OnUnitTransition.Observable
+                .Subscribe(OnUnitTransition);
+
+            makeTroopGameActionHook = new MakeTroopGameActionHook(log, ShouldBlockMakeTroopGameAction);
 
             hooksSubscribed = true;
             log.LogInfo("UnitCosts runtime hooks subscribed");
@@ -53,6 +62,9 @@ namespace UnitCosts
                 settings.SettingChanged -= OnSettingChanged;
                 settingsChangedSubscribed = false;
             }
+
+            makeTroopGameActionHook?.Dispose();
+            makeTroopGameActionHook = null;
         }
 
         private void SubscribeSettingsChanges()
@@ -70,6 +82,9 @@ namespace UnitCosts
 
             if (propertyName == nameof(UnitCostsLobbyViewModel.UnitCosts))
                 ApplyUnitCosts();
+
+            if (propertyName == nameof(UnitCostsLobbyViewModel.HumanExtraUnitCosts))
+                ApplyHumanExtraUnitCosts();
         }
 
         private void OnStartMap(MapStartEventArgs args)
@@ -77,6 +92,7 @@ namespace UnitCosts
             try
             {
                 ApplyUnitCosts();
+                ApplyHumanExtraUnitCosts();
             }
             catch (Exception ex)
             {
@@ -108,6 +124,173 @@ namespace UnitCosts
             }
 
             log.LogInfo("Applied unit cost values: " + changedValues);
+        }
+
+        private void ApplyHumanExtraUnitCosts()
+        {
+            humanExtraCosts.Clear();
+            Dictionary<eChimps, UnitExtraCostValues> parsedCosts = settings.ParseHumanExtraUnitCosts();
+            int configuredUnits = 0;
+            foreach (KeyValuePair<eChimps, UnitExtraCostValues> entry in parsedCosts)
+            {
+                humanExtraCosts[entry.Key] = entry.Value;
+                if (entry.Value.HasAnyCost())
+                    configuredUnits++;
+            }
+
+            log.LogInfo("Applied human extra unit cost rows: " + configuredUnits);
+        }
+
+        private bool ShouldBlockMakeTroopGameAction(int amount, eChimps unitType, int rawUnitType)
+        {
+            try
+            {
+                return ShouldBlockLocalHumanRecruitment(amount, unitType, rawUnitType);
+            }
+            catch (Exception ex)
+            {
+                log.LogInfo("UnitCosts local recruitment cost check failed: " + ex.Message);
+                return false;
+            }
+        }
+
+        private bool ShouldBlockLocalHumanRecruitment(int amount, eChimps unitType, int rawUnitType)
+        {
+            if (amount <= 0)
+                return false;
+
+            int playerId = GetLocalHumanPlayerId();
+            if (playerId <= 0)
+                return false;
+
+            if (!TryGetHumanExtraCosts(unitType, out UnitExtraCostValues costs))
+                return false;
+
+            if (HasEnoughExtraCosts(playerId, costs, amount, out eGoods missingGood, out int requiredAmount, out int availableAmount))
+                return false;
+
+            LogInfo(
+                "UnitCosts blocked recruitment:",
+                "unit", unitType,
+                "player", playerId,
+                "missing", missingGood,
+                "required", requiredAmount,
+                "available", availableAmount,
+                "amount", amount,
+                "rawUnitType", rawUnitType);
+            return true;
+        }
+
+        private void OnUnitTransition(UnitTransitionEventArgs args)
+        {
+            try
+            {
+                if (args.Phase != EventHookPhase.Pre)
+                    return;
+
+                if (args.Source != UnitTransitionSource.EuropeanBarracks &&
+                    args.Source != UnitTransitionSource.MercenaryOutpost)
+                    return;
+
+                int playerId = args.PlayerOwnerId;
+                if (!IsHumanPlayer(playerId))
+                    return;
+
+                if (!TryGetHumanExtraCosts(args.NextUnitType, out UnitExtraCostValues costs))
+                    return;
+
+                if (!HasEnoughExtraCosts(playerId, costs, 1, out eGoods missingGood, out int requiredAmount, out int availableAmount))
+                {
+                    LogInfo(
+                        "UnitCosts transition extra cost missing:",
+                        "unit", args.NextUnitType,
+                        "player", playerId,
+                        "missing", missingGood,
+                        "required", requiredAmount,
+                        "available", availableAmount);
+                    return;
+                }
+
+                RemoveExtraCosts(playerId, costs, 1);
+                log.LogInfo("UnitCosts deducted human extra costs: " + args.NextUnitType + " player " + playerId);
+            }
+            catch (Exception ex)
+            {
+                log.LogInfo("UnitCosts OnUnitTransition failed: " + ex.Message);
+            }
+        }
+
+        private bool TryGetHumanExtraCosts(eChimps unitType, out UnitExtraCostValues costs)
+        {
+            if (humanExtraCosts.TryGetValue(unitType, out costs) && costs.HasAnyCost())
+                return true;
+
+            costs = null;
+            return false;
+        }
+
+        private static bool HasEnoughExtraCosts(
+            int playerId,
+            UnitExtraCostValues costs,
+            int multiplier,
+            out eGoods missingGood,
+            out int requiredAmount,
+            out int availableAmount)
+        {
+            foreach (KeyValuePair<eGoods, int> entry in costs.Costs)
+            {
+                int required = entry.Value * multiplier;
+                if (required <= 0)
+                    continue;
+
+                int available = GamePlayerManagerAPI.Instance.GetGoodAmount(playerId, entry.Key);
+                if (available < required)
+                {
+                    missingGood = entry.Key;
+                    requiredAmount = required;
+                    availableAmount = available;
+                    return false;
+                }
+            }
+
+            missingGood = eGoods.STORED_NULL;
+            requiredAmount = 0;
+            availableAmount = 0;
+            return true;
+        }
+
+        private static void RemoveExtraCosts(int playerId, UnitExtraCostValues costs, int multiplier)
+        {
+            foreach (KeyValuePair<eGoods, int> entry in costs.Costs)
+            {
+                int amount = entry.Value * multiplier;
+                if (amount > 0)
+                    GamePlayerManagerAPI.Instance.RemoveGood(playerId, entry.Key, amount);
+            }
+        }
+
+        private static int GetLocalHumanPlayerId()
+        {
+            int playerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
+            return IsHumanPlayer(playerId) ? playerId : -1;
+        }
+
+        private static bool IsHumanPlayer(int playerId)
+        {
+            try
+            {
+                return GamePlayerManagerAPI.Instance.IsPlayerIdValid(playerId) &&
+                    !GamePlayerManagerAPI.Instance.IsAIPlayer(playerId);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private void LogInfo(params object[] parts)
+        {
+            log.LogInfo(string.Join(" ", parts));
         }
 
         private static void CaptureVanillaEuropeanGoodCosts()

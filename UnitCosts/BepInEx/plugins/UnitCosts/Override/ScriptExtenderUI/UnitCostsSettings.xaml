@@ -10,18 +10,18 @@
       <Grid Margin="0,2,0,2">
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="230"/>
-          <ColumnDefinition Width="150"/>
-          <ColumnDefinition Width="150"/>
-          <ColumnDefinition Width="150"/>
-          <ColumnDefinition Width="150"/>
           <ColumnDefinition Width="74"/>
+          <ColumnDefinition Width="150"/>
+          <ColumnDefinition Width="150"/>
+          <ColumnDefinition Width="150"/>
+          <ColumnDefinition Width="150"/>
         </Grid.ColumnDefinitions>
         <TextBlock Grid.Column="0" Text="{Binding UnitHeaderText}" Foreground="#CCCCCC" FontWeight="Bold" Margin="0,0,8,0"/>
-        <TextBlock Grid.Column="1" Text="{Binding Slot1HeaderText}" Foreground="#CCCCCC" FontWeight="Bold" HorizontalAlignment="Left" Margin="3,0"/>
-        <TextBlock Grid.Column="2" Text="{Binding Slot2HeaderText}" Foreground="#CCCCCC" FontWeight="Bold" HorizontalAlignment="Left" Margin="3,0"/>
-        <TextBlock Grid.Column="3" Text="{Binding Slot3HeaderText}" Foreground="#CCCCCC" FontWeight="Bold" HorizontalAlignment="Left" Margin="3,0"/>
-        <TextBlock Grid.Column="4" Text="{Binding Slot4HeaderText}" Foreground="#CCCCCC" FontWeight="Bold" HorizontalAlignment="Left" Margin="3,0"/>
-        <TextBlock Grid.Column="5" Text="{Binding GoldHeaderText}" Foreground="#CCCCCC" FontWeight="Bold" HorizontalAlignment="Right" Margin="3,0"/>
+        <TextBlock Grid.Column="1" Text="{Binding GoldHeaderText}" Foreground="#CCCCCC" FontWeight="Bold" HorizontalAlignment="Right" Margin="3,0"/>
+        <TextBlock Grid.Column="2" Text="{Binding Slot1HeaderText}" Foreground="#CCCCCC" FontWeight="Bold" HorizontalAlignment="Left" Margin="3,0"/>
+        <TextBlock Grid.Column="3" Text="{Binding Slot2HeaderText}" Foreground="#CCCCCC" FontWeight="Bold" HorizontalAlignment="Left" Margin="3,0"/>
+        <TextBlock Grid.Column="4" Text="{Binding Slot3HeaderText}" Foreground="#CCCCCC" FontWeight="Bold" HorizontalAlignment="Left" Margin="3,0"/>
+        <TextBlock Grid.Column="5" Text="{Binding Slot4HeaderText}" Foreground="#CCCCCC" FontWeight="Bold" HorizontalAlignment="Left" Margin="3,0"/>
       </Grid>
       <ItemsControl ItemsSource="{Binding CostEntries}" Margin="0,3,0,8">
         <ItemsControl.ItemTemplate>
@@ -29,11 +29,11 @@
             <Grid Margin="0,1">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="230"/>
-                <ColumnDefinition Width="150"/>
-                <ColumnDefinition Width="150"/>
-                <ColumnDefinition Width="150"/>
-                <ColumnDefinition Width="150"/>
                 <ColumnDefinition Width="74"/>
+                <ColumnDefinition Width="150"/>
+                <ColumnDefinition Width="150"/>
+                <ColumnDefinition Width="150"/>
+                <ColumnDefinition Width="150"/>
               </Grid.ColumnDefinitions>
               <TextBlock Grid.Column="0"
                          Text="{Binding DisplayName}"
@@ -41,37 +41,97 @@
                          Foreground="White"
                          VerticalAlignment="Center"
                          Margin="0,2,8,2"/>
-              <ComboBox Grid.Column="1"
-                        ItemsSource="{Binding GoodSlotOptions}"
-                        SelectedItem="{Binding SelectedGood1, Mode=TwoWay}"
-                        DisplayMemberPath="DisplayName"
-                        IsEnabled="{Binding IsEuropeanUnit}"
-                        Margin="3"/>
-              <ComboBox Grid.Column="2"
-                        ItemsSource="{Binding GoodSlotOptions}"
-                        SelectedItem="{Binding SelectedGood2, Mode=TwoWay}"
-                        DisplayMemberPath="DisplayName"
-                        IsEnabled="{Binding IsEuropeanUnit}"
-                        Margin="3"/>
-              <ComboBox Grid.Column="3"
-                        ItemsSource="{Binding GoodSlotOptions}"
-                        SelectedItem="{Binding SelectedGood3, Mode=TwoWay}"
-                        DisplayMemberPath="DisplayName"
-                        IsEnabled="{Binding IsEuropeanUnit}"
-                        Margin="3"/>
-              <ComboBox Grid.Column="4"
-                        ItemsSource="{Binding GoodSlot4Options}"
-                        SelectedItem="{Binding SelectedGood4, Mode=TwoWay}"
-                        DisplayMemberPath="DisplayName"
-                        IsEnabled="{Binding IsEuropeanUnit}"
-                        Margin="3"/>
-              <TextBox Grid.Column="5"
+              <TextBox Grid.Column="1"
                        Text="{Binding GoldText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}"
                        MaxLength="4"
                        HorizontalContentAlignment="Right"
                        Margin="3"
                        ui:KeyboardCaptureBinding.Enabled="True"/>
+              <ComboBox Grid.Column="2"
+                        ItemsSource="{Binding GoodSlotOptions}"
+                        SelectedItem="{Binding SelectedGood1, Mode=TwoWay}"
+                        DisplayMemberPath="DisplayName"
+                        IsEnabled="{Binding IsEuropeanUnit}"
+                        Margin="3"/>
+              <ComboBox Grid.Column="3"
+                        ItemsSource="{Binding GoodSlotOptions}"
+                        SelectedItem="{Binding SelectedGood2, Mode=TwoWay}"
+                        DisplayMemberPath="DisplayName"
+                        IsEnabled="{Binding IsEuropeanUnit}"
+                        Margin="3"/>
+              <ComboBox Grid.Column="4"
+                        ItemsSource="{Binding GoodSlotOptions}"
+                        SelectedItem="{Binding SelectedGood3, Mode=TwoWay}"
+                        DisplayMemberPath="DisplayName"
+                        IsEnabled="{Binding IsEuropeanUnit}"
+                        Margin="3"/>
+              <ComboBox Grid.Column="5"
+                        ItemsSource="{Binding GoodSlot4Options}"
+                        SelectedItem="{Binding SelectedGood4, Mode=TwoWay}"
+                        DisplayMemberPath="DisplayName"
+                        IsEnabled="{Binding IsEuropeanUnit}"
+                        Margin="3"/>
             </Grid>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+
+      <Separator Margin="0,8,0,8" Background="#44FFFFFF"/>
+      <TextBlock Text="{Binding ExtraTitleText}" Foreground="#77AAFF" FontWeight="Bold" Margin="0,0,0,4"/>
+      <TextBlock Text="{Binding ExtraHelpText}"
+                 Foreground="#CCCCCC" TextWrapping="Wrap" Margin="0,0,0,6"/>
+      <StackPanel Orientation="Horizontal" Margin="0,2,0,2">
+        <TextBlock Text="{Binding UnitHeaderText}"
+                   Width="230"
+                   Foreground="#CCCCCC"
+                   FontWeight="Bold"
+                   Margin="0,0,8,0"/>
+        <ItemsControl ItemsSource="{Binding ExtraCostHeaders}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <StackPanel Orientation="Horizontal"/>
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <TextBlock Text="{Binding DisplayName}"
+                         Width="74"
+                         Foreground="#CCCCCC"
+                         FontWeight="Bold"
+                         TextAlignment="Right"
+                         Margin="3,0"/>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+      <ItemsControl ItemsSource="{Binding ExtraCostEntries}" Margin="0,3,0,8">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate>
+            <StackPanel Orientation="Horizontal" Margin="0,1">
+              <TextBlock Text="{Binding DisplayName}"
+                         ToolTip="{Binding ToolTip}"
+                         Width="230"
+                         Foreground="White"
+                         VerticalAlignment="Center"
+                         Margin="0,2,8,2"/>
+              <ItemsControl ItemsSource="{Binding CostCells}">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <StackPanel Orientation="Horizontal"/>
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <TextBox Text="{Binding AmountText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}"
+                             MaxLength="4"
+                             Width="74"
+                             HorizontalContentAlignment="Right"
+                             Margin="3"
+                             ui:KeyboardCaptureBinding.Enabled="True"/>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
           </DataTemplate>
         </ItemsControl.ItemTemplate>
       </ItemsControl>

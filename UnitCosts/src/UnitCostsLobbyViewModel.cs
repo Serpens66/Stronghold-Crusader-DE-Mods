@@ -16,7 +16,33 @@ namespace UnitCosts
         public event Action<string> SettingChanged;
 
         private string unitCosts = CreateDefaultUnitCosts();
+        private string humanExtraUnitCosts = CreateDefaultHumanExtraUnitCosts();
         private bool updatingEntries;
+
+        internal static readonly eGoods[] HumanExtraCostGoods =
+        {
+            eGoods.STORED_GOLD,
+            eGoods.STORED_BOWS,
+            eGoods.STORED_CROSSBOWS,
+            eGoods.STORED_SPEARS,
+            eGoods.STORED_PIKES,
+            eGoods.STORED_MACES,
+            eGoods.STORED_SWORDS,
+            eGoods.STORED_LEATHER_ARMOUR,
+            eGoods.STORED_METAL_ARMOUR,
+            eGoods.STORED_WOOD_PLANKS,
+            eGoods.STORED_RAW_HOPS,
+            eGoods.STORED_STONE_BLOCKS,
+            eGoods.STORED_IRON_INGOTS,
+            eGoods.STORED_PITCH_RAW,
+            eGoods.STORED_RAW_WHEAT,
+            eGoods.STORED_FLOUR,
+            eGoods.STORED_FOOD_BREAD,
+            eGoods.STORED_FOOD_CHEESE,
+            eGoods.STORED_FOOD_MEAT,
+            eGoods.STORED_FOOD_FRUIT,
+            eGoods.STORED_FOOD_ALE
+        };
 
         private static readonly string[] DefaultUnitKeys =
         {
@@ -53,9 +79,13 @@ namespace UnitCosts
             GoodSlotOptions = CreateGoodOptions(includeHorse: false);
             GoodSlot4Options = CreateGoodOptions(includeHorse: true);
             CostEntries = CreateCostEntriesWithCallback(unitCosts);
+            ExtraCostHeaders = CreateExtraCostHeaders();
+            ExtraCostEntries = CreateExtraCostEntriesWithCallback(humanExtraUnitCosts);
         }
 
         public IReadOnlyList<CostEntryViewModel> CostEntries { get; }
+        public IReadOnlyList<ExtraCostEntryViewModel> ExtraCostEntries { get; }
+        public IReadOnlyList<ExtraCostHeaderViewModel> ExtraCostHeaders { get; }
         public ObservableCollection<GoodOptionViewModel> GoodSlotOptions { get; }
         public ObservableCollection<GoodOptionViewModel> GoodSlot4Options { get; }
 
@@ -63,6 +93,10 @@ namespace UnitCosts
         public string HelpText => IsGermanLanguage()
             ? "Good-Slots gelten für europäische Einheiten. unchanged lässt den Vanilla-Slot unverändert; Gold -1 bleibt unverändert."
             : "Good slots apply to European units. unchanged keeps the vanilla slot; gold -1 stays unchanged.";
+        public string ExtraTitleText => IsGermanLanguage() ? "ZUSATZKOSTEN FUER MENSCHLICHE SPIELER" : "EXTRA COSTS FOR HUMAN PLAYERS";
+        public string ExtraHelpText => IsGermanLanguage()
+            ? "0 = keine Zusatzkosten. Werte von 1 bis 1000 werden zusätzlich zu den normalen Kosten pro Einheit abgezogen; KI-Spieler ignorieren diese Tabelle."
+            : "0 = no extra cost. Values 1 to 1000 are charged in addition to normal costs per unit; AI players ignore this table.";
         public string UnitHeaderText => IsGermanLanguage() ? "Einheit" : "Unit";
         public string Slot1HeaderText => IsGermanLanguage() ? "Slot 1" : "Slot 1";
         public string Slot2HeaderText => IsGermanLanguage() ? "Slot 2" : "Slot 2";
@@ -86,13 +120,40 @@ namespace UnitCosts
             }
         }
 
+        [SyncHostOnly]
+        public string HumanExtraUnitCosts
+        {
+            get => humanExtraUnitCosts;
+            set
+            {
+                if (Equals(humanExtraUnitCosts, value))
+                    return;
+
+                humanExtraUnitCosts = value;
+                ApplySerializedExtraCostsToEntries(value);
+                SettingChanged?.Invoke(nameof(HumanExtraUnitCosts));
+                OnPropertyChanged(nameof(HumanExtraUnitCosts));
+            }
+        }
+
         public void RefreshLocalizedNames()
         {
             RefreshLocalizedHeaderTexts();
             RefreshGoodOptionNames(GoodSlotOptions);
             RefreshGoodOptionNames(GoodSlot4Options);
+            foreach (ExtraCostHeaderViewModel header in ExtraCostHeaders)
+                header.DisplayName = GetGoodOptionDisplayName(header.Good);
 
             foreach (CostEntryViewModel entry in CostEntries)
+            {
+                if (!Enum.TryParse(entry.Key, out eChimps unitType))
+                    continue;
+
+                entry.DisplayName = UnitCostsRuntime.GetLocalizedUnitName(unitType);
+                entry.ToolTip = UnitCostsRuntime.GetUnitSettingsTooltip(unitType);
+            }
+
+            foreach (ExtraCostEntryViewModel entry in ExtraCostEntries)
             {
                 if (!Enum.TryParse(entry.Key, out eChimps unitType))
                     continue;
@@ -115,10 +176,25 @@ namespace UnitCosts
             return result;
         }
 
+        public Dictionary<eChimps, UnitExtraCostValues> ParseHumanExtraUnitCosts()
+        {
+            Dictionary<eChimps, UnitExtraCostValues> result = new Dictionary<eChimps, UnitExtraCostValues>();
+            Dictionary<string, UnitExtraCostValues> parsed = ParseSerializedExtraCosts(humanExtraUnitCosts);
+            foreach (KeyValuePair<string, UnitExtraCostValues> entry in parsed)
+            {
+                if (Enum.TryParse(entry.Key, true, out eChimps unitType))
+                    result[unitType] = entry.Value;
+            }
+
+            return result;
+        }
+
         private void RefreshLocalizedHeaderTexts()
         {
             OnPropertyChanged(nameof(TitleText));
             OnPropertyChanged(nameof(HelpText));
+            OnPropertyChanged(nameof(ExtraTitleText));
+            OnPropertyChanged(nameof(ExtraHelpText));
             OnPropertyChanged(nameof(UnitHeaderText));
             OnPropertyChanged(nameof(Slot1HeaderText));
             OnPropertyChanged(nameof(Slot2HeaderText));
@@ -135,6 +211,26 @@ namespace UnitCosts
                 builder.AppendLine();
                 builder.Append(key);
                 builder.Append("=UNCHANGED,UNCHANGED,UNCHANGED,UNCHANGED,-1");
+            }
+
+            return builder.ToString();
+        }
+
+        private static string CreateDefaultHumanExtraUnitCosts()
+        {
+            StringBuilder builder = new StringBuilder("# 0 = no extra cost; order is ");
+            AppendExtraCostHeaderComment(builder);
+            foreach (string key in DefaultUnitKeys)
+            {
+                builder.AppendLine();
+                builder.Append(key);
+                builder.Append('=');
+                for (int i = 0; i < HumanExtraCostGoods.Length; i++)
+                {
+                    if (i > 0)
+                        builder.Append(',');
+                    builder.Append('0');
+                }
             }
 
             return builder.ToString();
@@ -165,6 +261,30 @@ namespace UnitCosts
                     GoodSlot4Options,
                     value,
                     OnEntryChanged));
+            }
+
+            return entries;
+        }
+
+        private IReadOnlyList<ExtraCostHeaderViewModel> CreateExtraCostHeaders()
+        {
+            List<ExtraCostHeaderViewModel> headers = new List<ExtraCostHeaderViewModel>(HumanExtraCostGoods.Length);
+            foreach (eGoods good in HumanExtraCostGoods)
+                headers.Add(new ExtraCostHeaderViewModel(good, GetGoodOptionDisplayName(good)));
+
+            return headers;
+        }
+
+        private IReadOnlyList<ExtraCostEntryViewModel> CreateExtraCostEntriesWithCallback(string serializedCosts)
+        {
+            Dictionary<string, UnitExtraCostValues> values = ParseSerializedExtraCosts(serializedCosts);
+            List<ExtraCostEntryViewModel> entries = new List<ExtraCostEntryViewModel>(DefaultUnitKeys.Length);
+            foreach (string key in DefaultUnitKeys)
+            {
+                if (!values.TryGetValue(key, out UnitExtraCostValues value))
+                    value = CreateEmptyExtraCosts();
+
+                entries.Add(new ExtraCostEntryViewModel(key, FormatDisplayName(key), value, OnExtraEntryChanged));
             }
 
             return entries;
@@ -205,6 +325,47 @@ namespace UnitCosts
             return result;
         }
 
+        private static Dictionary<string, UnitExtraCostValues> ParseSerializedExtraCosts(string text)
+        {
+            Dictionary<string, UnitExtraCostValues> result = new Dictionary<string, UnitExtraCostValues>(StringComparer.OrdinalIgnoreCase);
+            if (string.IsNullOrWhiteSpace(text))
+                return result;
+
+            string[] lines = text.Split(new[] { '\r', '\n', ';' }, StringSplitOptions.RemoveEmptyEntries);
+            foreach (string rawLine in lines)
+            {
+                string line = rawLine.Trim();
+                if (line.Length == 0 || line.StartsWith("#"))
+                    continue;
+
+                string[] keyValue = line.Split(new[] { '=' }, 2);
+                if (keyValue.Length != 2)
+                    continue;
+
+                string[] costParts = keyValue[1].Split(',');
+                if (costParts.Length != HumanExtraCostGoods.Length)
+                    continue;
+
+                Dictionary<eGoods, int> costs = new Dictionary<eGoods, int>();
+                bool valid = true;
+                for (int i = 0; i < HumanExtraCostGoods.Length; i++)
+                {
+                    if (!int.TryParse(costParts[i].Trim(), out int amount))
+                    {
+                        valid = false;
+                        break;
+                    }
+
+                    costs[HumanExtraCostGoods[i]] = UnitExtraCostValues.ClampCost(amount);
+                }
+
+                if (valid)
+                    result[keyValue[0].Trim()] = new UnitExtraCostValues(costs);
+            }
+
+            return result;
+        }
+
         private void ApplySerializedCostsToEntries(string text)
         {
             if (updatingEntries)
@@ -226,6 +387,27 @@ namespace UnitCosts
             }
         }
 
+        private void ApplySerializedExtraCostsToEntries(string text)
+        {
+            if (updatingEntries)
+                return;
+
+            Dictionary<string, UnitExtraCostValues> values = ParseSerializedExtraCosts(text);
+            updatingEntries = true;
+            try
+            {
+                foreach (ExtraCostEntryViewModel entry in ExtraCostEntries)
+                {
+                    if (values.TryGetValue(entry.Key, out UnitExtraCostValues value))
+                        entry.SetCostsFromOwner(value);
+                }
+            }
+            finally
+            {
+                updatingEntries = false;
+            }
+        }
+
         private void OnEntryChanged()
         {
             if (updatingEntries)
@@ -234,6 +416,16 @@ namespace UnitCosts
             unitCosts = BuildSerializedCosts();
             SettingChanged?.Invoke(nameof(UnitCosts));
             OnPropertyChanged(nameof(UnitCosts));
+        }
+
+        private void OnExtraEntryChanged()
+        {
+            if (updatingEntries)
+                return;
+
+            humanExtraUnitCosts = BuildSerializedExtraCosts();
+            SettingChanged?.Invoke(nameof(HumanExtraUnitCosts));
+            OnPropertyChanged(nameof(HumanExtraUnitCosts));
         }
 
         private string BuildSerializedCosts()
@@ -258,6 +450,45 @@ namespace UnitCosts
             return builder.ToString();
         }
 
+        private string BuildSerializedExtraCosts()
+        {
+            StringBuilder builder = new StringBuilder("# 0 = no extra cost; order is ");
+            AppendExtraCostHeaderComment(builder);
+            foreach (ExtraCostEntryViewModel entry in ExtraCostEntries)
+            {
+                builder.AppendLine();
+                builder.Append(entry.Key);
+                builder.Append('=');
+                for (int i = 0; i < entry.CostCells.Count; i++)
+                {
+                    if (i > 0)
+                        builder.Append(',');
+                    builder.Append(entry.CostCells[i].Amount);
+                }
+            }
+
+            return builder.ToString();
+        }
+
+        private static void AppendExtraCostHeaderComment(StringBuilder builder)
+        {
+            for (int i = 0; i < HumanExtraCostGoods.Length; i++)
+            {
+                if (i > 0)
+                    builder.Append(',');
+                builder.Append(HumanExtraCostGoods[i]);
+            }
+        }
+
+        private static UnitExtraCostValues CreateEmptyExtraCosts()
+        {
+            Dictionary<eGoods, int> costs = new Dictionary<eGoods, int>();
+            foreach (eGoods good in HumanExtraCostGoods)
+                costs[good] = 0;
+
+            return new UnitExtraCostValues(costs);
+        }
+
         private static ObservableCollection<GoodOptionViewModel> CreateGoodOptions(bool includeHorse)
         {
             ObservableCollection<GoodOptionViewModel> options = new ObservableCollection<GoodOptionViewModel>
@@ -280,16 +511,12 @@ namespace UnitCosts
                 options.Add(new GoodOptionViewModel(eGoods._SE_REQUIRE_HORSE.ToString(), "Horse"));
 
             AddGoodOptions(options,
-                eGoods.STORED_WOOD_LOGS,
                 eGoods.STORED_WOOD_PLANKS,
                 eGoods.STORED_RAW_HOPS,
                 eGoods.STORED_STONE_BLOCKS,
-                eGoods.STORED_COW_HIDES,
                 eGoods.STORED_IRON_INGOTS,
                 eGoods.STORED_PITCH_RAW,
-                eGoods.STORED_PITCH_REFINED,
                 eGoods.STORED_RAW_WHEAT,
-                eGoods.STORED_GOLD,
                 eGoods.STORED_FLOUR);
 
             AddGoodOptions(options,
@@ -347,14 +574,11 @@ namespace UnitCosts
                 case eGoods.STORED_SWORDS: return UnitCostsRuntime.GetLocalizedGoodName(good, "Swords");
                 case eGoods.STORED_LEATHER_ARMOUR: return UnitCostsRuntime.GetLocalizedGoodName(good, "Leather Armour");
                 case eGoods.STORED_METAL_ARMOUR: return UnitCostsRuntime.GetLocalizedGoodName(good, "Metal Armour");
-                case eGoods.STORED_WOOD_LOGS: return UnitCostsRuntime.GetLocalizedGoodName(good, "Wood Logs");
                 case eGoods.STORED_WOOD_PLANKS: return UnitCostsRuntime.GetLocalizedGoodName(good, "Wood");
                 case eGoods.STORED_RAW_HOPS: return UnitCostsRuntime.GetLocalizedGoodName(good, "Hops");
                 case eGoods.STORED_STONE_BLOCKS: return UnitCostsRuntime.GetLocalizedGoodName(good, "Stone");
-                case eGoods.STORED_COW_HIDES: return UnitCostsRuntime.GetLocalizedGoodName(good, "Hides");
                 case eGoods.STORED_IRON_INGOTS: return UnitCostsRuntime.GetLocalizedGoodName(good, "Iron");
                 case eGoods.STORED_PITCH_RAW: return UnitCostsRuntime.GetLocalizedGoodName(good, "Pitch");
-                case eGoods.STORED_PITCH_REFINED: return UnitCostsRuntime.GetLocalizedGoodName(good, "Oil");
                 case eGoods.STORED_RAW_WHEAT: return UnitCostsRuntime.GetLocalizedGoodName(good, "Wheat");
                 case eGoods.STORED_GOLD: return UnitCostsRuntime.GetLocalizedGoodName(good, "Gold");
                 case eGoods.STORED_FLOUR: return UnitCostsRuntime.GetLocalizedGoodName(good, "Flour");
@@ -553,6 +777,152 @@ namespace UnitCosts
                 OnPropertyChanged();
                 OnPropertyChanged(textPropertyName);
                 changed?.Invoke();
+            }
+
+            private void OnPropertyChanged([CallerMemberName] string propertyName = null)
+            {
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+            }
+        }
+
+        public sealed class ExtraCostHeaderViewModel : INotifyPropertyChanged
+        {
+            private string displayName;
+
+            public event PropertyChangedEventHandler PropertyChanged;
+
+            public ExtraCostHeaderViewModel(eGoods good, string displayName)
+            {
+                Good = good;
+                this.displayName = displayName;
+            }
+
+            public eGoods Good { get; }
+
+            public string DisplayName
+            {
+                get => displayName;
+                set
+                {
+                    if (displayName == value)
+                        return;
+
+                    displayName = value;
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DisplayName)));
+                }
+            }
+        }
+
+        public sealed class ExtraCostEntryViewModel : INotifyPropertyChanged
+        {
+            private readonly Action changed;
+            private string displayName;
+            private string toolTip;
+
+            public event PropertyChangedEventHandler PropertyChanged;
+
+            public ExtraCostEntryViewModel(string key, string displayName, UnitExtraCostValues values, Action changed = null)
+            {
+                Key = key;
+                this.displayName = displayName;
+                toolTip = key;
+                this.changed = changed;
+                CostCells = new ObservableCollection<ExtraCostCellViewModel>();
+                foreach (eGoods good in HumanExtraCostGoods)
+                    CostCells.Add(new ExtraCostCellViewModel(good, values.GetCost(good), OnCellChanged));
+            }
+
+            public string Key { get; }
+            public ObservableCollection<ExtraCostCellViewModel> CostCells { get; }
+
+            public string DisplayName
+            {
+                get => displayName;
+                set
+                {
+                    if (displayName == value)
+                        return;
+
+                    displayName = value;
+                    OnPropertyChanged();
+                }
+            }
+
+            public string ToolTip
+            {
+                get => toolTip;
+                set
+                {
+                    if (toolTip == value)
+                        return;
+
+                    toolTip = value;
+                    OnPropertyChanged();
+                }
+            }
+
+            public void SetCostsFromOwner(UnitExtraCostValues values)
+            {
+                foreach (ExtraCostCellViewModel cell in CostCells)
+                    cell.SetAmountFromOwner(values.GetCost(cell.Good));
+            }
+
+            private void OnCellChanged()
+            {
+                changed?.Invoke();
+            }
+
+            private void OnPropertyChanged([CallerMemberName] string propertyName = null)
+            {
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+            }
+        }
+
+        public sealed class ExtraCostCellViewModel : INotifyPropertyChanged
+        {
+            private readonly Action changed;
+            private int amount;
+
+            public event PropertyChangedEventHandler PropertyChanged;
+
+            public ExtraCostCellViewModel(eGoods good, int amount, Action changed = null)
+            {
+                Good = good;
+                this.amount = UnitExtraCostValues.ClampCost(amount);
+                this.changed = changed;
+            }
+
+            public eGoods Good { get; }
+            public int Amount { get => amount; private set => SetAmount(value, true); }
+            public string AmountText { get => amount.ToString(); set => SetTextAmount(value); }
+
+            public void SetAmountFromOwner(int value)
+            {
+                SetAmount(value, false);
+            }
+
+            private void SetTextAmount(string value)
+            {
+                if (!int.TryParse(value, out int parsed))
+                {
+                    OnPropertyChanged(nameof(AmountText));
+                    return;
+                }
+
+                Amount = parsed;
+            }
+
+            private void SetAmount(int value, bool notifyOwner)
+            {
+                int clamped = UnitExtraCostValues.ClampCost(value);
+                if (amount == clamped)
+                    return;
+
+                amount = clamped;
+                OnPropertyChanged(nameof(Amount));
+                OnPropertyChanged(nameof(AmountText));
+                if (notifyOwner)
+                    changed?.Invoke();
             }
 
             private void OnPropertyChanged([CallerMemberName] string propertyName = null)

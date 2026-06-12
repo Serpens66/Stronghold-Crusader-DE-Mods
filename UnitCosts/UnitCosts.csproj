@@ -59,6 +59,10 @@
       <HintPath>$(GameDir)\BepInEx\core\BepInEx.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="MonoMod.RuntimeDetour">
+      <HintPath>$(GameDir)\BepInEx\core\MonoMod.RuntimeDetour.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="UnityEngine">
       <HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.dll</HintPath>
       <Private>false</Private>
@@ -90,7 +94,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="src\MakeTroopGameActionHook.cs" />
     <Compile Include="src\UnitCostValues.cs" />
+    <Compile Include="src\UnitExtraCostValues.cs" />
     <Compile Include="src\UnitCostsLobbyViewModel.cs" />
     <Compile Include="src\UnitCostsPlugin.cs" />
     <Compile Include="src\UnitCostsRuntime.cs" />
