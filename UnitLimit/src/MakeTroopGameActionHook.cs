@@ -55,7 +55,8 @@ namespace UnitLimit
 
             try
             {
-                bool block = shouldBlockMakeTroop(structureID, (eChimps)state, state);
+                int amount = NormalizeMakeTroopAmount(structureID, state, value2);
+                bool block = shouldBlockMakeTroop(amount, (eChimps)state, state);
                 if (block)
                     return 0;
             }
@@ -65,6 +66,21 @@ namespace UnitLimit
             }
 
             return trampoline(command, structureID, state, value2);
+        }
+
+        private int NormalizeMakeTroopAmount(int structureID, int state, int value2)
+        {
+            // For MakeTroop the generic structureID GameAction parameter is the requested amount.
+            // Vanilla passes 1, 5 with Shift, or 1000 with Ctrl.
+            if (structureID == 1 || structureID == 5 || structureID == 1000)
+                return structureID;
+
+            log.LogWarning("UnitLimit MakeTroop received unexpected amount parameter: " +
+                "structureID=" + structureID +
+                " state=" + state +
+                " value2=" + value2 +
+                "; falling back to amount=1.");
+            return 1;
         }
     }
 }
