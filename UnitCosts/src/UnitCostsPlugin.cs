@@ -61,6 +61,10 @@ namespace UnitCosts
                     "UnitCosts",
                     Settings,
                     "ScriptExtenderUI/UnitCostsSettings.xaml");
+                GameXAMLManagerAPI.Instance.RegisterBinding(
+                    "UnitCostsNotificationOverlay",
+                    runtime.Notification);
+                RegisterRecruitmentCostTooltipBindings();
 
                 runtime.InitializeAfterLibraryLoaded();
                 Logger.LogInfo("Crusader library loaded; UnitCosts UI registered.");
@@ -68,6 +72,26 @@ namespace UnitCosts
             catch (Exception ex)
             {
                 Logger.LogError($"Error while initializing UnitCosts after library load: {ex}");
+            }
+        }
+
+        private void RegisterRecruitmentCostTooltipBindings()
+        {
+            string[] bindingTargets =
+            {
+                "UnitCostsTroopCostsInlineHost",
+                "UnitCostsArabTroopCostsInlineHost",
+                "UnitCostsBedouinTroopCostsInlineHost",
+                "UnitCostsEngineersCostsInlineHost",
+                "UnitCostsTunellersCostsInlineHost",
+                "UnitCostsMonkCostsInlineHost",
+            };
+
+            foreach (string bindingTarget in bindingTargets)
+            {
+                GameXAMLManagerAPI.Instance.RegisterBinding(
+                    bindingTarget,
+                    runtime.RecruitmentCostTooltip);
             }
         }
     }

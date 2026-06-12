@@ -1,0 +1,2 @@
+# Optional localization overrides for this asset mod.
+# Add crusader.txt entries here when the mod needs German text replacements.

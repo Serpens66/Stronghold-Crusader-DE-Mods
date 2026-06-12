@@ -95,8 +95,8 @@ namespace UnitCosts
             : "Good slots apply to European units. unchanged keeps the vanilla slot; gold -1 stays unchanged.";
         public string ExtraTitleText => IsGermanLanguage() ? "ZUSATZKOSTEN FUER MENSCHLICHE SPIELER" : "EXTRA COSTS FOR HUMAN PLAYERS";
         public string ExtraHelpText => IsGermanLanguage()
-            ? "0 = keine Zusatzkosten. Werte von 1 bis 1000 werden zusätzlich zu den normalen Kosten pro Einheit abgezogen; KI-Spieler ignorieren diese Tabelle."
-            : "0 = no extra cost. Values 1 to 1000 are charged in addition to normal costs per unit; AI players ignore this table.";
+            ? "0 = keine Zusatzkosten. Positive Werte werden zusätzlich abgezogen; negatives Gold wird bis maximal zu den aktuellen Goldkosten erstattet. KI-Spieler ignorieren diese Tabelle."
+            : "0 = no extra cost. Positive values are charged in addition; negative gold refunds up to the current gold cost. AI players ignore this table.";
         public string UnitHeaderText => IsGermanLanguage() ? "Einheit" : "Unit";
         public string Slot1HeaderText => IsGermanLanguage() ? "Slot 1" : "Slot 1";
         public string Slot2HeaderText => IsGermanLanguage() ? "Slot 2" : "Slot 2";
@@ -117,6 +117,7 @@ namespace UnitCosts
                 ApplySerializedCostsToEntries(value);
                 SettingChanged?.Invoke(nameof(UnitCosts));
                 OnPropertyChanged(nameof(UnitCosts));
+                NormalizeExtraCostsAfterNativeGoldChange();
             }
         }
 
@@ -284,7 +285,8 @@ namespace UnitCosts
                 if (!values.TryGetValue(key, out UnitExtraCostValues value))
                     value = CreateEmptyExtraCosts();
 
-                entries.Add(new ExtraCostEntryViewModel(key, FormatDisplayName(key), value, OnExtraEntryChanged));
+                eChimps unitType = Enum.TryParse(key, out eChimps parsedUnitType) ? parsedUnitType : eChimps.CHIMP_TYPE_NULL;
+                entries.Add(new ExtraCostEntryViewModel(key, FormatDisplayName(key), unitType, value, OnExtraEntryChanged));
             }
 
             return entries;
@@ -356,7 +358,15 @@ namespace UnitCosts
                         break;
                     }
 
-                    costs[HumanExtraCostGoods[i]] = UnitExtraCostValues.ClampCost(amount);
+                    eGoods good = HumanExtraCostGoods[i];
+                    int currentGoldCost = 0;
+                    if (good == eGoods.STORED_GOLD &&
+                        Enum.TryParse(keyValue[0].Trim(), true, out eChimps unitType))
+                    {
+                        currentGoldCost = UnitCostsRuntime.GetCurrentUnitGoldCost(unitType);
+                    }
+
+                    costs[good] = UnitExtraCostValues.ClampCost(good, amount, currentGoldCost);
                 }
 
                 if (valid)
@@ -416,6 +426,7 @@ namespace UnitCosts
             unitCosts = BuildSerializedCosts();
             SettingChanged?.Invoke(nameof(UnitCosts));
             OnPropertyChanged(nameof(UnitCosts));
+            NormalizeExtraCostsAfterNativeGoldChange();
         }
 
         private void OnExtraEntryChanged()
@@ -448,6 +459,18 @@ namespace UnitCosts
             }
 
             return builder.ToString();
+        }
+
+        internal void NormalizeExtraCostsAfterNativeGoldChange()
+        {
+            ApplySerializedExtraCostsToEntries(humanExtraUnitCosts);
+            string normalized = BuildSerializedExtraCosts();
+            if (humanExtraUnitCosts == normalized)
+                return;
+
+            humanExtraUnitCosts = normalized;
+            SettingChanged?.Invoke(nameof(HumanExtraUnitCosts));
+            OnPropertyChanged(nameof(HumanExtraUnitCosts));
         }
 
         private string BuildSerializedExtraCosts()
@@ -816,20 +839,22 @@ namespace UnitCosts
         public sealed class ExtraCostEntryViewModel : INotifyPropertyChanged
         {
             private readonly Action changed;
+            private readonly eChimps unitType;
             private string displayName;
             private string toolTip;
 
             public event PropertyChangedEventHandler PropertyChanged;
 
-            public ExtraCostEntryViewModel(string key, string displayName, UnitExtraCostValues values, Action changed = null)
+            public ExtraCostEntryViewModel(string key, string displayName, eChimps unitType, UnitExtraCostValues values, Action changed = null)
             {
                 Key = key;
+                this.unitType = unitType;
                 this.displayName = displayName;
                 toolTip = key;
                 this.changed = changed;
                 CostCells = new ObservableCollection<ExtraCostCellViewModel>();
                 foreach (eGoods good in HumanExtraCostGoods)
-                    CostCells.Add(new ExtraCostCellViewModel(good, values.GetCost(good), OnCellChanged));
+                    CostCells.Add(new ExtraCostCellViewModel(good, values.GetCost(good), () => GetMinCost(good), OnCellChanged));
             }
 
             public string Key { get; }
@@ -872,6 +897,14 @@ namespace UnitCosts
                 changed?.Invoke();
             }
 
+            private int GetMinCost(eGoods good)
+            {
+                if (good != eGoods.STORED_GOLD)
+                    return 0;
+
+                return -UnitCostsRuntime.GetCurrentUnitGoldCost(unitType);
+            }
+
             private void OnPropertyChanged([CallerMemberName] string propertyName = null)
             {
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
@@ -881,14 +914,16 @@ namespace UnitCosts
         public sealed class ExtraCostCellViewModel : INotifyPropertyChanged
         {
             private readonly Action changed;
+            private readonly Func<int> getMinAmount;
             private int amount;
 
             public event PropertyChangedEventHandler PropertyChanged;
 
-            public ExtraCostCellViewModel(eGoods good, int amount, Action changed = null)
+            public ExtraCostCellViewModel(eGoods good, int amount, Func<int> getMinAmount, Action changed = null)
             {
                 Good = good;
-                this.amount = UnitExtraCostValues.ClampCost(amount);
+                this.getMinAmount = getMinAmount;
+                this.amount = ClampAmount(amount);
                 this.changed = changed;
             }
 
@@ -914,7 +949,7 @@ namespace UnitCosts
 
             private void SetAmount(int value, bool notifyOwner)
             {
-                int clamped = UnitExtraCostValues.ClampCost(value);
+                int clamped = ClampAmount(value);
                 if (amount == clamped)
                     return;
 
@@ -923,6 +958,25 @@ namespace UnitCosts
                 OnPropertyChanged(nameof(AmountText));
                 if (notifyOwner)
                     changed?.Invoke();
+            }
+
+            private int ClampAmount(int value)
+            {
+                if (Good == eGoods.STORED_GOLD)
+                {
+                    int minAmount = getMinAmount != null ? getMinAmount() : 0;
+                    if (value < minAmount)
+                        return minAmount;
+                }
+                else if (value < 0)
+                {
+                    return 0;
+                }
+
+                if (value > 1000)
+                    return 1000;
+
+                return value;
             }
 
             private void OnPropertyChanged([CallerMemberName] string propertyName = null)

@@ -1,0 +1,9 @@
+{
+  "GUID": "TestModSerp",
+  "Author": "Serpens66",
+  "Name": "Test Mod",
+  "Description": "Test Mod with lua script",
+  "Version": "0.1.0",
+  "Website": "",
+  "Manifest": 1
+}

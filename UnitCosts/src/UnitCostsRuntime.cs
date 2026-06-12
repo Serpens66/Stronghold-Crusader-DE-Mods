@@ -1,4 +1,5 @@
 using BepInEx.Logging;
+using CrusaderDE;
 using R3;
 using SHCDESE.API;
 using SHCDESE.EventAPI;
@@ -8,6 +9,7 @@ using SHCDESE.Extensions;
 using SHCDESE.Interop;
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using System.Text;
 
 namespace UnitCosts
@@ -18,9 +20,19 @@ namespace UnitCosts
         private readonly UnitCostsLobbyViewModel settings;
         private readonly Dictionary<eChimps, UnitExtraCostValues> humanExtraCosts = new Dictionary<eChimps, UnitExtraCostValues>();
         private MakeTroopGameActionHook makeTroopGameActionHook;
+        private CreateTroopHoverHook createTroopHoverHook;
+        private string materialMessageTimerHandle;
+        private DateTime lastMaterialMessageShownUtc = DateTime.MinValue;
         private bool settingsChangedSubscribed;
         private bool hooksSubscribed;
+        private const int MaterialMessageDurationMilliseconds = 1800;
+        private static readonly TimeSpan MaterialMessageCooldown = TimeSpan.FromMilliseconds(700);
+        private const string MissingResourcesSpeechFileName = "Other_Warning6.wav";
         private static readonly Dictionary<eChimps, UnitGoodCosts> VanillaEuropeanGoodCosts = new Dictionary<eChimps, UnitGoodCosts>();
+        private static readonly Dictionary<eChimps, int> VanillaGoldCosts = new Dictionary<eChimps, int>();
+
+        public UnitCostsNotificationViewModel Notification { get; } = new UnitCostsNotificationViewModel();
+        public UnitRecruitmentCostTooltipViewModel RecruitmentCostTooltip { get; } = new UnitRecruitmentCostTooltipViewModel();
 
         public UnitCostsRuntime(ManualLogSource log, UnitCostsLobbyViewModel settings)
         {
@@ -32,8 +44,10 @@ namespace UnitCosts
         {
             SubscribeHooks();
             SubscribeSettingsChanges();
+            CaptureVanillaGoldCosts();
             CaptureVanillaEuropeanGoodCosts();
             ApplyUnitCosts();
+            settings.NormalizeExtraCostsAfterNativeGoldChange();
             ApplyHumanExtraUnitCosts();
         }
 
@@ -50,6 +64,7 @@ namespace UnitCosts
                 .Subscribe(OnUnitTransition);
 
             makeTroopGameActionHook = new MakeTroopGameActionHook(log, ShouldBlockMakeTroopGameAction);
+            createTroopHoverHook = new CreateTroopHoverHook(log, UpdateRecruitmentCostTooltip, ClearRecruitmentCostTooltip);
 
             hooksSubscribed = true;
             log.LogInfo("UnitCosts runtime hooks subscribed");
@@ -65,6 +80,9 @@ namespace UnitCosts
 
             makeTroopGameActionHook?.Dispose();
             makeTroopGameActionHook = null;
+            createTroopHoverHook?.Dispose();
+            createTroopHoverHook = null;
+            HideMaterialMessage();
         }
 
         private void SubscribeSettingsChanges()
@@ -81,7 +99,11 @@ namespace UnitCosts
             log.LogInfo("UnitCosts settings changed: " + propertyName);
 
             if (propertyName == nameof(UnitCostsLobbyViewModel.UnitCosts))
+            {
                 ApplyUnitCosts();
+                settings.NormalizeExtraCostsAfterNativeGoldChange();
+                ApplyHumanExtraUnitCosts();
+            }
 
             if (propertyName == nameof(UnitCostsLobbyViewModel.HumanExtraUnitCosts))
                 ApplyHumanExtraUnitCosts();
@@ -92,6 +114,7 @@ namespace UnitCosts
             try
             {
                 ApplyUnitCosts();
+                settings.NormalizeExtraCostsAfterNativeGoldChange();
                 ApplyHumanExtraUnitCosts();
             }
             catch (Exception ex)
@@ -178,7 +201,61 @@ namespace UnitCosts
                 "available", availableAmount,
                 "amount", amount,
                 "rawUnitType", rawUnitType);
+            ShowMissingResourcesMessage();
             return true;
+        }
+
+        private void UpdateRecruitmentCostTooltip(MainViewModel mainViewModel)
+        {
+            if (mainViewModel == null)
+            {
+                RecruitmentCostTooltip.Clear();
+                return;
+            }
+
+            int playerId = GetLocalHumanPlayerId();
+            if (playerId <= 0)
+            {
+                RecruitmentCostTooltip.Clear();
+                return;
+            }
+
+            eChimps unitType = GetLastTroopBuildChimp(mainViewModel);
+            int multiplier = GetLastTroopsAmountToMake(mainViewModel);
+
+            if (!TryGetHumanExtraCosts(unitType, out UnitExtraCostValues costs))
+            {
+                RecruitmentCostTooltip.Clear();
+                return;
+            }
+
+            List<UnitRecruitmentCostEntry> entries = new List<UnitRecruitmentCostEntry>();
+            foreach (KeyValuePair<eGoods, int> entry in costs.Costs)
+            {
+                int amount = entry.Value * multiplier;
+                if (entry.Key == eGoods.STORED_GOLD)
+                {
+                    if (amount == 0)
+                        continue;
+                }
+                else if (amount <= 0)
+                {
+                    continue;
+                }
+
+                entries.Add(new UnitRecruitmentCostEntry
+                {
+                    Amount = "   " + amount + " ",
+                    Image = GetGoodImage(entry.Key)
+                });
+            }
+
+            RecruitmentCostTooltip.SetCosts(entries);
+        }
+
+        private void ClearRecruitmentCostTooltip()
+        {
+            RecruitmentCostTooltip.Clear();
         }
 
         private void OnUnitTransition(UnitTransitionEventArgs args)
@@ -211,8 +288,8 @@ namespace UnitCosts
                     return;
                 }
 
-                RemoveExtraCosts(playerId, costs, 1);
-                log.LogInfo("UnitCosts deducted human extra costs: " + args.NextUnitType + " player " + playerId);
+                ApplyExtraCosts(playerId, costs, 1);
+                log.LogInfo("UnitCosts applied human extra costs: " + args.NextUnitType + " player " + playerId);
             }
             catch (Exception ex)
             {
@@ -259,13 +336,19 @@ namespace UnitCosts
             return true;
         }
 
-        private static void RemoveExtraCosts(int playerId, UnitExtraCostValues costs, int multiplier)
+        private static void ApplyExtraCosts(int playerId, UnitExtraCostValues costs, int multiplier)
         {
             foreach (KeyValuePair<eGoods, int> entry in costs.Costs)
             {
                 int amount = entry.Value * multiplier;
                 if (amount > 0)
+                {
                     GamePlayerManagerAPI.Instance.RemoveGood(playerId, entry.Key, amount);
+                }
+                else if (amount < 0 && entry.Key == eGoods.STORED_GOLD)
+                {
+                    GamePlayerManagerAPI.Instance.TryAddGood(playerId, entry.Key, -amount);
+                }
             }
         }
 
@@ -293,12 +376,145 @@ namespace UnitCosts
             log.LogInfo(string.Join(" ", parts));
         }
 
+        private void ShowMissingResourcesMessage()
+        {
+            PlayWeaponsNeededSpeech();
+
+            if (DateTime.UtcNow - lastMaterialMessageShownUtc < MaterialMessageCooldown)
+                return;
+
+            lastMaterialMessageShownUtc = DateTime.UtcNow;
+            DisplayMaterialNotification(IsGermanLanguage() ? "Material fehlt" : "Resources missing");
+        }
+
+        private void PlayWeaponsNeededSpeech()
+        {
+            try
+            {
+                LogInfo("UnitCosts missing resources speech:", MissingResourcesSpeechFileName);
+
+                SFXManager.instance?.playSpeech(
+                    1,
+                    MissingResourcesSpeechFileName,
+                    1f);
+            }
+            catch (Exception ex)
+            {
+                LogInfo("Could not play UnitCosts missing resources speech:", ex.Message);
+            }
+        }
+
+        private void DisplayMaterialNotification(string message)
+        {
+            Notification.Show(message);
+            CancelMaterialMessageTimer();
+            materialMessageTimerHandle = GameTimeManagerAPI.Instance.GetTimerEngine().AddDelayedAction(
+                MaterialMessageDurationMilliseconds,
+                OnMaterialMessageTimerElapsed,
+                null);
+        }
+
+        private void OnMaterialMessageTimerElapsed()
+        {
+            Notification.Hide();
+        }
+
+        private void HideMaterialMessage()
+        {
+            CancelMaterialMessageTimer();
+            Notification.Hide();
+        }
+
+        private void CancelMaterialMessageTimer()
+        {
+            if (string.IsNullOrEmpty(materialMessageTimerHandle))
+                return;
+
+            try
+            {
+                GameTimeManagerAPI.Instance.GetTimerEngine().RemoveAction(materialMessageTimerHandle);
+            }
+            catch (Exception ex)
+            {
+                LogInfo("Could not cancel UnitCosts material message timer:", ex.Message);
+            }
+
+            materialMessageTimerHandle = null;
+        }
+
+        private static eChimps GetLastTroopBuildChimp(MainViewModel mainViewModel)
+        {
+            object value = GetMainViewModelMemberValue(mainViewModel, "lastTroopBuildChimp");
+            if (value == null)
+                return eChimps.CHIMP_TYPE_ARCHER;
+
+            try
+            {
+                return (eChimps)Convert.ToInt32(value);
+            }
+            catch
+            {
+                return eChimps.CHIMP_TYPE_ARCHER;
+            }
+        }
+
+        private static int GetLastTroopsAmountToMake(MainViewModel mainViewModel)
+        {
+            object value = GetMainViewModelMemberValue(mainViewModel, "lastTroopsAmountToMake");
+            if (value == null)
+                return 1;
+
+            try
+            {
+                return Math.Max(1, Convert.ToInt32(value));
+            }
+            catch
+            {
+                return 1;
+            }
+        }
+
+        private static object GetMainViewModelMemberValue(MainViewModel mainViewModel, string memberName)
+        {
+            if (mainViewModel == null)
+                return null;
+
+            const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+            FieldInfo field = typeof(MainViewModel).GetField(memberName, flags);
+            if (field != null)
+                return field.GetValue(mainViewModel);
+
+            PropertyInfo property = typeof(MainViewModel).GetProperty(memberName, flags);
+            return property?.GetValue(mainViewModel);
+        }
+
+        private static Noesis.ImageSource GetGoodImage(eGoods good)
+        {
+            return MainViewModel.Instance.getSmallGoodsIcon((int)good);
+        }
+
+        private static bool IsGermanLanguage()
+        {
+            string language = GameAssetManagerAPI.Instance.CurrentLanguage;
+            return !string.IsNullOrEmpty(language) &&
+                language.StartsWith("de", StringComparison.OrdinalIgnoreCase);
+        }
+
         private static void CaptureVanillaEuropeanGoodCosts()
         {
             foreach (eChimps unitType in GetEuropeanRecruitTypes())
             {
                 if (!VanillaEuropeanGoodCosts.ContainsKey(unitType))
                     VanillaEuropeanGoodCosts[unitType] = GameUnitManagerAPI.Instance.GetUnitGoodCosts(unitType);
+            }
+        }
+
+        private static void CaptureVanillaGoldCosts()
+        {
+            foreach (eChimps unitType in GetRecruitTypes())
+            {
+                if (!VanillaGoldCosts.ContainsKey(unitType))
+                    VanillaGoldCosts[unitType] = GameUnitManagerAPI.Instance.GetUnitGoldCost(unitType);
             }
         }
 
@@ -368,9 +584,53 @@ namespace UnitCosts
             yield return eChimps.CHIMP_TYPE_KNIGHT;
         }
 
+        private static IEnumerable<eChimps> GetRecruitTypes()
+        {
+            yield return eChimps.CHIMP_TYPE_ARCHER;
+            yield return eChimps.CHIMP_TYPE_SPEARMAN;
+            yield return eChimps.CHIMP_TYPE_MACEMAN;
+            yield return eChimps.CHIMP_TYPE_XBOWMAN;
+            yield return eChimps.CHIMP_TYPE_PIKEMAN;
+            yield return eChimps.CHIMP_TYPE_SWORDSMAN;
+            yield return eChimps.CHIMP_TYPE_KNIGHT;
+            yield return eChimps.CHIMP_TYPE_ENGINEER;
+            yield return eChimps.CHIMP_TYPE_MONK;
+            yield return eChimps.CHIMP_TYPE_LADDERMAN;
+            yield return eChimps.CHIMP_TYPE_TUNNELER;
+            yield return eChimps.CHIMP_TYPE_ARAB_BOW;
+            yield return eChimps.CHIMP_TYPE_ARAB_SLAVE;
+            yield return eChimps.CHIMP_TYPE_ARAB_SLINGER;
+            yield return eChimps.CHIMP_TYPE_ARAB_ASSASIN;
+            yield return eChimps.CHIMP_TYPE_ARAB_HORSEMAN;
+            yield return eChimps.CHIMP_TYPE_ARAB_SWORDSMAN;
+            yield return eChimps.CHIMP_TYPE_ARAB_GRENADIER;
+            yield return eChimps.CHIMP_TYPE_BEDOUIN_CAMEL_LANCER;
+            yield return eChimps.CHIMP_TYPE_BEDOUIN_HEALER;
+            yield return eChimps.CHIMP_TYPE_BEDOUIN_EUNUCH;
+            yield return eChimps.CHIMP_TYPE_BEDOUIN_AMBUSHER;
+            yield return eChimps.CHIMP_TYPE_BEDOUIN_SKIRMISHER;
+            yield return eChimps.CHIMP_TYPE_BEDOUIN_HEAVY_CAMEL;
+            yield return eChimps.CHIMP_TYPE_BEDOUIN_SAPPER;
+            yield return eChimps.CHIMP_TYPE_BEDOUIN_DEMOLISHER;
+        }
+
+        internal static int GetCurrentUnitGoldCost(eChimps unitType)
+        {
+            try
+            {
+                return Math.Max(0, GameUnitManagerAPI.Instance.GetUnitGoldCost(unitType));
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
         internal static string GetUnitSettingsTooltip(eChimps unitType)
         {
             StringBuilder builder = new StringBuilder(unitType.ToString());
+            AppendVanillaGoldCost(builder, unitType);
+
             if (!IsEuropeanRecruit(unitType))
                 return builder.ToString();
 
@@ -388,6 +648,24 @@ namespace UnitCosts
             }
 
             return builder.ToString();
+        }
+
+        private static void AppendVanillaGoldCost(StringBuilder builder, eChimps unitType)
+        {
+            int goldCost = GetVanillaGoldCost(unitType);
+            builder.AppendLine();
+            builder.Append("vanilla gold: ");
+            builder.Append(goldCost);
+        }
+
+        private static int GetVanillaGoldCost(eChimps unitType)
+        {
+            if (VanillaGoldCosts.TryGetValue(unitType, out int goldCost))
+                return goldCost;
+
+            goldCost = GetCurrentUnitGoldCost(unitType);
+            VanillaGoldCosts[unitType] = goldCost;
+            return goldCost;
         }
 
         private static void AppendVanillaGoodCost(StringBuilder builder, int slot, eGoods32 good32)

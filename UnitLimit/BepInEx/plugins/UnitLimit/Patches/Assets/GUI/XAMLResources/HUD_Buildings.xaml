@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<Patch>
+<Patch xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <Operation Type="Add" XPath="/n:UserControl/n:Grid">
     <Content>
       <Grid x:Name="UnitLimitNotificationOverlay"
-            Width="550"
-            Margin="{Binding Path=DataContext.RollOverText_Margin, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type UserControl}}}"
+            Width="800"
+            Height="195"
             HorizontalAlignment="Right"
             VerticalAlignment="Bottom"
             Panel.ZIndex="10000"
@@ -12,21 +12,17 @@
             Visibility="{Binding IsVisible, Converter={StaticResource booleanToVisibilityConverter}}">
         <TextBlock x:Name="UnitLimitNotification"
                    Text="{Binding Message}"
-                   HorizontalAlignment="Left"
-                   VerticalAlignment="Bottom"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Top"
                    MaxWidth="520"
-                   Padding="2,0"
+                   Margin="0,-48,0,0"
+                   Padding="8,1"
                    Background="#55000000"
                    Foreground="#FFDDDDDD"
                    FontSize="20"
-                   TextAlignment="Left"
+                   TextAlignment="Center"
                    TextWrapping="Wrap"
                    Tag="Ignore">
-          <TextBlock.RenderTransform>
-            <TransformGroup>
-              <TranslateTransform X="8"/>
-            </TransformGroup>
-          </TextBlock.RenderTransform>
           <TextBlock.Effect>
             <DropShadowEffect
               ShadowDepth="2"
@@ -39,4 +35,3 @@
     </Content>
   </Operation>
 </Patch>
-

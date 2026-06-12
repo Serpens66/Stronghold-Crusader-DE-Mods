@@ -69,6 +69,7 @@ if "%BUILD_EXIT_CODE%"=="0" (
   echo Kopiere Plugin in den Spielordner...
   if not exist "%GAME_DIR%\BepInEx\plugins\UnitCosts" mkdir "%GAME_DIR%\BepInEx\plugins\UnitCosts"
   if not exist "%GAME_DIR%\BepInEx\plugins\UnitCosts\Override\ScriptExtenderUI" mkdir "%GAME_DIR%\BepInEx\plugins\UnitCosts\Override\ScriptExtenderUI"
+  if not exist "%GAME_DIR%\BepInEx\plugins\UnitCosts\Patches\Assets\GUI\XAMLResources" mkdir "%GAME_DIR%\BepInEx\plugins\UnitCosts\Patches\Assets\GUI\XAMLResources"
 
   copy /Y "%PROJECT_DIR%BepInEx\plugins\UnitCosts\UnitCosts.dll" "%GAME_DIR%\BepInEx\plugins\UnitCosts\UnitCosts.dll"
   if errorlevel 1 goto copy_failed
@@ -78,6 +79,9 @@ if "%BUILD_EXIT_CODE%"=="0" (
   if errorlevel 1 goto copy_failed
   copy /Y "%PROJECT_DIR%BepInEx\plugins\UnitCosts\Override\ScriptExtenderUI\UnitCostsSettings.xaml" "%GAME_DIR%\BepInEx\plugins\UnitCosts\Override\ScriptExtenderUI\UnitCostsSettings.xaml"
   if errorlevel 1 goto copy_failed
+  copy /Y "%PROJECT_DIR%BepInEx\plugins\UnitCosts\Patches\Assets\GUI\XAMLResources\HUD_Buildings.xaml" "%GAME_DIR%\BepInEx\plugins\UnitCosts\Patches\Assets\GUI\XAMLResources\HUD_Buildings.xaml"
+  if errorlevel 1 goto copy_failed
+  if exist "%GAME_DIR%\BepInEx\plugins\UnitCosts\Patches\Assets\GUI\XAML\MainHUD.xaml" del "%GAME_DIR%\BepInEx\plugins\UnitCosts\Patches\Assets\GUI\XAML\MainHUD.xaml"
 
   echo Plugin kopiert.
 ) else (

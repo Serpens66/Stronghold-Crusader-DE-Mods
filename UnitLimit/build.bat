@@ -69,7 +69,7 @@ if "%BUILD_EXIT_CODE%"=="0" (
   echo Kopiere Plugin in den Spielordner...
   if not exist "%GAME_DIR%\BepInEx\plugins\UnitLimit" mkdir "%GAME_DIR%\BepInEx\plugins\UnitLimit"
   if not exist "%GAME_DIR%\BepInEx\plugins\UnitLimit\Override\ScriptExtenderUI" mkdir "%GAME_DIR%\BepInEx\plugins\UnitLimit\Override\ScriptExtenderUI"
-  if not exist "%GAME_DIR%\BepInEx\plugins\UnitLimit\Patches\Assets\GUI\XAML" mkdir "%GAME_DIR%\BepInEx\plugins\UnitLimit\Patches\Assets\GUI\XAML"
+  if not exist "%GAME_DIR%\BepInEx\plugins\UnitLimit\Patches\Assets\GUI\XAMLResources" mkdir "%GAME_DIR%\BepInEx\plugins\UnitLimit\Patches\Assets\GUI\XAMLResources"
 
   copy /Y "%PROJECT_DIR%BepInEx\plugins\UnitLimit\UnitLimit.dll" "%GAME_DIR%\BepInEx\plugins\UnitLimit\UnitLimit.dll"
   if errorlevel 1 goto copy_failed
@@ -79,11 +79,11 @@ if "%BUILD_EXIT_CODE%"=="0" (
   if errorlevel 1 goto copy_failed
   copy /Y "%PROJECT_DIR%BepInEx\plugins\UnitLimit\Override\ScriptExtenderUI\UnitLimitSettings.xaml" "%GAME_DIR%\BepInEx\plugins\UnitLimit\Override\ScriptExtenderUI\UnitLimitSettings.xaml"
   if errorlevel 1 goto copy_failed
-  copy /Y "%PROJECT_DIR%BepInEx\plugins\UnitLimit\Patches\Assets\GUI\XAML\MainHUD.xaml" "%GAME_DIR%\BepInEx\plugins\UnitLimit\Patches\Assets\GUI\XAML\MainHUD.xaml"
+  copy /Y "%PROJECT_DIR%BepInEx\plugins\UnitLimit\Patches\Assets\GUI\XAMLResources\HUD_Buildings.xaml" "%GAME_DIR%\BepInEx\plugins\UnitLimit\Patches\Assets\GUI\XAMLResources\HUD_Buildings.xaml"
   if errorlevel 1 goto copy_failed
 
   if exist "%GAME_DIR%\BepInEx\plugins\UnitLimit\ScriptExtenderUI\UnitLimitSettings.xaml" del "%GAME_DIR%\BepInEx\plugins\UnitLimit\ScriptExtenderUI\UnitLimitSettings.xaml"
-  if exist "%GAME_DIR%\BepInEx\plugins\UnitLimit\Patches\Assets\GUI\XAMLResources\HUD_Buildings.xaml" del "%GAME_DIR%\BepInEx\plugins\UnitLimit\Patches\Assets\GUI\XAMLResources\HUD_Buildings.xaml"
+  if exist "%GAME_DIR%\BepInEx\plugins\UnitLimit\Patches\Assets\GUI\XAML\MainHUD.xaml" del "%GAME_DIR%\BepInEx\plugins\UnitLimit\Patches\Assets\GUI\XAML\MainHUD.xaml"
   echo Plugin kopiert.
 ) else (
   echo Build fehlgeschlagen. Exit Code: %BUILD_EXIT_CODE%
