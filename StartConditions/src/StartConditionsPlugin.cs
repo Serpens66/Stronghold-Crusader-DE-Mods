@@ -56,7 +56,7 @@ namespace StartConditions
         {
             try
             {
-                Settings.RefreshLocalizedNames();
+                Settings.RefreshLocalizedNames(message => Logger.LogInfo(message));
                 GameXAMLManagerAPI.Instance.RegisterLobbyModSettings(
                     this,
                     "StartConditions",

@@ -67,19 +67,34 @@ echo.
 if "%BUILD_EXIT_CODE%"=="0" (
   echo Build erfolgreich.
   echo Kopiere Plugin in den Spielordner...
-  if not exist "%GAME_DIR%\BepInEx\plugins\StartConditions" mkdir "%GAME_DIR%\BepInEx\plugins\StartConditions"
-  if not exist "%GAME_DIR%\BepInEx\plugins\StartConditions\Override\ScriptExtenderUI" mkdir "%GAME_DIR%\BepInEx\plugins\StartConditions\Override\ScriptExtenderUI"
+  set "PLUGIN_NAME=StartConditions"
+  set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\!PLUGIN_NAME!"
+  set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\!PLUGIN_NAME!"
 
-  copy /Y "%PROJECT_DIR%BepInEx\plugins\StartConditions\StartConditions.dll" "%GAME_DIR%\BepInEx\plugins\StartConditions\StartConditions.dll"
-  if errorlevel 1 goto copy_failed
-  copy /Y "%PROJECT_DIR%BepInEx\plugins\StartConditions\StartConditions.pdb" "%GAME_DIR%\BepInEx\plugins\StartConditions\StartConditions.pdb"
-  if errorlevel 1 goto copy_failed
-  copy /Y "%PROJECT_DIR%BepInEx\plugins\StartConditions\info.json" "%GAME_DIR%\BepInEx\plugins\StartConditions\info.json"
-  if errorlevel 1 goto copy_failed
-  copy /Y "%PROJECT_DIR%BepInEx\plugins\StartConditions\Override\ScriptExtenderUI\StartConditionsSettings.xaml" "%GAME_DIR%\BepInEx\plugins\StartConditions\Override\ScriptExtenderUI\StartConditionsSettings.xaml"
-  if errorlevel 1 goto copy_failed
+  if not exist "!LOCAL_PLUGIN_DIR!\" (
+    echo Lokaler Plugin-Ordner wurde nicht gefunden:
+    echo !LOCAL_PLUGIN_DIR!
+    goto copy_failed
+  )
 
-  if exist "%GAME_DIR%\BepInEx\plugins\StartConditions\ScriptExtenderUI\StartConditionsSettings.xaml" del "%GAME_DIR%\BepInEx\plugins\StartConditions\ScriptExtenderUI\StartConditionsSettings.xaml"
+  if exist "!GAME_PLUGIN_DIR!\" (
+    for /D %%D in ("!GAME_PLUGIN_DIR!\*") do (
+      if /I not "%%~nxD"=="LobbyModSettings" (
+        rmdir /S /Q "%%~fD"
+        if errorlevel 1 goto copy_failed
+      )
+    )
+    for %%F in ("!GAME_PLUGIN_DIR!\*") do (
+      if exist "%%~fF" (
+        if not exist "%%~fF\" (
+          del /F /Q "%%~fF"
+          if errorlevel 1 goto copy_failed
+        )
+      )
+    )
+  )
+  xcopy "!LOCAL_PLUGIN_DIR!" "!GAME_PLUGIN_DIR!\" /E /I /Y
+  if errorlevel 1 goto copy_failed
   echo Plugin kopiert.
 ) else (
   echo Build fehlgeschlagen. Exit Code: %BUILD_EXIT_CODE%

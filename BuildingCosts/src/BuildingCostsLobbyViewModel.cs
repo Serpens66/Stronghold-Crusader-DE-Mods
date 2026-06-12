@@ -17,6 +17,7 @@ namespace BuildingCosts
 
         private string buildingCosts = CreateDefaultBuildingCosts();
         private bool updatingEntries;
+        private const string GoodsTextSection = "TEXT_GOODS";
 
         private static readonly string[] DefaultCostKeys =
         {
@@ -64,8 +65,6 @@ namespace BuildingCosts
             "MAPPER_GATE_MAIN",
             "MAPPER_GATE_INNER",
             "MAPPER_GATE_WOOD",
-            "MAPPER_GATEHOUSE",
-            "MAPPER_GATE_POSTERN",
             "MAPPER_DRAWBRIDGE",
             "MAPPER_KILLING_PIT",
             "MAPPER_BRAZIER",
@@ -80,16 +79,13 @@ namespace BuildingCosts
             "MAPPER_GIBBET",
             "MAPPER_DUNGEON",
             "MAPPER_RACK_STRETCHING",
-            "MAPPER_RACK_FLOGGING",
             "MAPPER_CHOPPING_BLOCK",
             "MAPPER_DUNKING_STOOL",
             "MAPPER_DOG_CAGE",
             "MAPPER_STATUE1",
             "MAPPER_SHRINE1",
-            "MAPPER_BEE_HIVE",
             "MAPPER_DANCING_BEAR",
             "MAPPER_POND1",
-            "MAPPER_BEAR_CAVE",
             "MAPPER_OUTPOST_BEDOUIN",
             "MAPPER_BEDOUIN_STOCKADE"
         };
@@ -179,35 +175,55 @@ namespace BuildingCosts
         private static string GetLocalizedGoodName(eGoods good, string fallback)
         {
             int index = (int)good;
-            string[] sections =
-            {
-                "TEXT_GOODS_NAMES",
-                "TEXT_GOOD_NAMES",
-                "TEXT_GOODS",
-                "TEXT_GOOD",
-            };
+            string translationKey = GetTranslationKey(GoodsTextSection, index);
 
-            foreach (string section in sections)
-            {
-                if (TryGetLocalizedGameText(section, index, out string localizedName))
-                    return localizedName;
-            }
+            if (TryGetGameTextDictionaryValue(translationKey, out string localizedName))
+                return localizedName;
 
-            string[] keyPrefixes =
-            {
-                "TEXT_GOODS_NAMES_",
-                "TEXT_GOOD_NAMES_",
-                "TEXT_GOODS_",
-                "TEXT_GOOD_",
-            };
-
-            foreach (string keyPrefix in keyPrefixes)
-            {
-                if (TryGetLocalizedGameTextKey(keyPrefix + (index + 1).ToString("D3"), out string localizedName))
-                    return localizedName;
-            }
+            if (TryGetLocalizedGameTextExOnly(GoodsTextSection, index, out localizedName))
+                return localizedName;
 
             return fallback;
+        }
+
+        private static bool TryGetGameTextDictionaryValue(string translationKey, out string localizedName)
+        {
+            localizedName = null;
+            if (string.IsNullOrEmpty(translationKey))
+                return false;
+
+            if (CrusaderDE.Translate.Instance?.GameTexts != null &&
+                CrusaderDE.Translate.Instance.GameTexts.TryGetValue(translationKey, out localizedName) &&
+                !string.IsNullOrWhiteSpace(localizedName))
+            {
+                return true;
+            }
+
+            localizedName = null;
+            return false;
+        }
+
+        private static bool TryGetLocalizedGameTextExOnly(string sectionName, int index, out string localizedName)
+        {
+            localizedName = null;
+            if (string.IsNullOrEmpty(sectionName) || index < 0)
+                return false;
+
+            try
+            {
+                localizedName = GameTranslateAPI.Instance.GetLookUpTextEx(sectionName, index);
+                if (!string.IsNullOrWhiteSpace(localizedName) &&
+                    !string.Equals(localizedName, GetTranslationKey(sectionName, index), StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+            catch (Exception)
+            {
+            }
+
+            localizedName = null;
+            return false;
         }
 
         private static bool TryGetLocalizedGameText(string sectionName, int index, out string localizedName)
@@ -222,12 +238,11 @@ namespace BuildingCosts
                 if (!string.IsNullOrWhiteSpace(localizedName))
                     return true;
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                System.Diagnostics.Debug.WriteLine("GameTranslateAPI lookup failed: " + sectionName + " " + index + " " + ex.Message);
             }
 
-            return TryGetLocalizedGameTextKey(sectionName + "_" + (index + 1).ToString("D3"), out localizedName);
+            return TryGetLocalizedGameTextKey(GetTranslationKey(sectionName, index), out localizedName);
         }
 
         private static bool TryGetLocalizedGameTextKey(string translationKey, out string localizedName)
@@ -245,9 +260,8 @@ namespace BuildingCosts
                     return true;
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                System.Diagnostics.Debug.WriteLine("GameTranslateAPI lookup failed: " + translationKey + " " + ex.Message);
             }
 
             if (CrusaderDE.Translate.Instance?.GameTexts != null &&
@@ -259,6 +273,11 @@ namespace BuildingCosts
 
             localizedName = null;
             return false;
+        }
+
+        private static string GetTranslationKey(string sectionName, int index)
+        {
+            return sectionName + "_" + (index + 1).ToString("D3");
         }
 
         private static bool IsGermanLanguage()

@@ -23,6 +23,7 @@ namespace UnitCosts
         private CreateTroopHoverHook createTroopHoverHook;
         private string materialMessageTimerHandle;
         private bool settingsChangedSubscribed;
+        private const string GoodsTextSection = "TEXT_GOODS";
         private bool hooksSubscribed;
         private const int MaterialMessageDurationMilliseconds = 3000;
         private const string MissingResourcesSpeechFileName = "Other_Warning6.wav";
@@ -700,35 +701,55 @@ namespace UnitCosts
         internal static string GetLocalizedGoodName(eGoods good, string fallback)
         {
             int index = (int)good;
-            string[] sections =
-            {
-                "TEXT_GOODS_NAMES",
-                "TEXT_GOOD_NAMES",
-                "TEXT_GOODS",
-                "TEXT_GOOD",
-            };
+            string translationKey = GetTranslationKey(GoodsTextSection, index);
 
-            foreach (string section in sections)
-            {
-                if (TryGetLocalizedGameText(section, index, out string localizedName))
-                    return localizedName;
-            }
+            if (TryGetGameTextDictionaryValue(translationKey, out string localizedName))
+                return localizedName;
 
-            string[] keyPrefixes =
-            {
-                "TEXT_GOODS_NAMES_",
-                "TEXT_GOOD_NAMES_",
-                "TEXT_GOODS_",
-                "TEXT_GOOD_",
-            };
-
-            foreach (string keyPrefix in keyPrefixes)
-            {
-                if (TryGetLocalizedGameTextKey(keyPrefix + (index + 1).ToString("D3"), out string localizedName))
-                    return localizedName;
-            }
+            if (TryGetLocalizedGameTextExOnly(GoodsTextSection, index, out localizedName))
+                return localizedName;
 
             return fallback;
+        }
+
+        private static bool TryGetGameTextDictionaryValue(string translationKey, out string localizedName)
+        {
+            localizedName = null;
+            if (string.IsNullOrEmpty(translationKey))
+                return false;
+
+            if (CrusaderDE.Translate.Instance?.GameTexts != null &&
+                CrusaderDE.Translate.Instance.GameTexts.TryGetValue(translationKey, out localizedName) &&
+                !string.IsNullOrWhiteSpace(localizedName))
+            {
+                return true;
+            }
+
+            localizedName = null;
+            return false;
+        }
+
+        private static bool TryGetLocalizedGameTextExOnly(string sectionName, int index, out string localizedName)
+        {
+            localizedName = null;
+            if (string.IsNullOrEmpty(sectionName) || index < 0)
+                return false;
+
+            try
+            {
+                localizedName = GameTranslateAPI.Instance.GetLookUpTextEx(sectionName, index);
+                if (!string.IsNullOrWhiteSpace(localizedName) &&
+                    !string.Equals(localizedName, GetTranslationKey(sectionName, index), StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+            catch (Exception)
+            {
+            }
+
+            localizedName = null;
+            return false;
         }
 
         private static int GetUnitNameTranslationIndex(eChimps unitType)
@@ -756,12 +777,11 @@ namespace UnitCosts
                 if (!string.IsNullOrWhiteSpace(localizedName))
                     return true;
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                System.Diagnostics.Debug.WriteLine("GameTranslateAPI lookup failed: " + sectionName + " " + index + " " + ex.Message);
             }
 
-            return TryGetLocalizedGameTextKey(sectionName + "_" + (index + 1).ToString("D3"), out localizedName);
+            return TryGetLocalizedGameTextKey(GetTranslationKey(sectionName, index), out localizedName);
         }
 
         private static bool TryGetLocalizedGameTextKey(string translationKey, out string localizedName)
@@ -779,9 +799,8 @@ namespace UnitCosts
                     return true;
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                System.Diagnostics.Debug.WriteLine("GameTranslateAPI lookup failed: " + translationKey + " " + ex.Message);
             }
 
             if (CrusaderDE.Translate.Instance?.GameTexts != null &&
@@ -793,6 +812,11 @@ namespace UnitCosts
 
             localizedName = null;
             return false;
+        }
+
+        private static string GetTranslationKey(string sectionName, int index)
+        {
+            return sectionName + "_" + (index + 1).ToString("D3");
         }
     }
 }

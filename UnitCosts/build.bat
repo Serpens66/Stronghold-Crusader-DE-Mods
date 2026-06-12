@@ -67,22 +67,34 @@ echo.
 if "%BUILD_EXIT_CODE%"=="0" (
   echo Build erfolgreich.
   echo Kopiere Plugin in den Spielordner...
-  if not exist "%GAME_DIR%\BepInEx\plugins\UnitCosts" mkdir "%GAME_DIR%\BepInEx\plugins\UnitCosts"
-  if not exist "%GAME_DIR%\BepInEx\plugins\UnitCosts\Override\ScriptExtenderUI" mkdir "%GAME_DIR%\BepInEx\plugins\UnitCosts\Override\ScriptExtenderUI"
-  if not exist "%GAME_DIR%\BepInEx\plugins\UnitCosts\Patches\Assets\GUI\XAMLResources" mkdir "%GAME_DIR%\BepInEx\plugins\UnitCosts\Patches\Assets\GUI\XAMLResources"
+  set "PLUGIN_NAME=UnitCosts"
+  set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\!PLUGIN_NAME!"
+  set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\!PLUGIN_NAME!"
 
-  copy /Y "%PROJECT_DIR%BepInEx\plugins\UnitCosts\UnitCosts.dll" "%GAME_DIR%\BepInEx\plugins\UnitCosts\UnitCosts.dll"
-  if errorlevel 1 goto copy_failed
-  copy /Y "%PROJECT_DIR%BepInEx\plugins\UnitCosts\UnitCosts.pdb" "%GAME_DIR%\BepInEx\plugins\UnitCosts\UnitCosts.pdb"
-  if errorlevel 1 goto copy_failed
-  copy /Y "%PROJECT_DIR%BepInEx\plugins\UnitCosts\info.json" "%GAME_DIR%\BepInEx\plugins\UnitCosts\info.json"
-  if errorlevel 1 goto copy_failed
-  copy /Y "%PROJECT_DIR%BepInEx\plugins\UnitCosts\Override\ScriptExtenderUI\UnitCostsSettings.xaml" "%GAME_DIR%\BepInEx\plugins\UnitCosts\Override\ScriptExtenderUI\UnitCostsSettings.xaml"
-  if errorlevel 1 goto copy_failed
-  copy /Y "%PROJECT_DIR%BepInEx\plugins\UnitCosts\Patches\Assets\GUI\XAMLResources\HUD_Buildings.xaml" "%GAME_DIR%\BepInEx\plugins\UnitCosts\Patches\Assets\GUI\XAMLResources\HUD_Buildings.xaml"
-  if errorlevel 1 goto copy_failed
-  if exist "%GAME_DIR%\BepInEx\plugins\UnitCosts\Patches\Assets\GUI\XAML\MainHUD.xaml" del "%GAME_DIR%\BepInEx\plugins\UnitCosts\Patches\Assets\GUI\XAML\MainHUD.xaml"
+  if not exist "!LOCAL_PLUGIN_DIR!\" (
+    echo Lokaler Plugin-Ordner wurde nicht gefunden:
+    echo !LOCAL_PLUGIN_DIR!
+    goto copy_failed
+  )
 
+  if exist "!GAME_PLUGIN_DIR!\" (
+    for /D %%D in ("!GAME_PLUGIN_DIR!\*") do (
+      if /I not "%%~nxD"=="LobbyModSettings" (
+        rmdir /S /Q "%%~fD"
+        if errorlevel 1 goto copy_failed
+      )
+    )
+    for %%F in ("!GAME_PLUGIN_DIR!\*") do (
+      if exist "%%~fF" (
+        if not exist "%%~fF\" (
+          del /F /Q "%%~fF"
+          if errorlevel 1 goto copy_failed
+        )
+      )
+    )
+  )
+  xcopy "!LOCAL_PLUGIN_DIR!" "!GAME_PLUGIN_DIR!\" /E /I /Y
+  if errorlevel 1 goto copy_failed
   echo Plugin kopiert.
 ) else (
   echo Build fehlgeschlagen. Exit Code: %BUILD_EXIT_CODE%

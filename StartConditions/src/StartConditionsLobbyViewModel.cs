@@ -29,6 +29,7 @@ namespace StartConditions
         private string addStartTroopsAI = DefaultTroops;
         private string addStartTroopsHuman = DefaultTroops;
         private bool updatingEntries;
+        private bool loggedGoodsLocalizationDiagnostics;
 
         public const string DefaultStartGoodsAI = @"STORED_WOOD_PLANKS=-1
 STORED_RAW_HOPS=-1
@@ -154,15 +155,31 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
 
         public RelayCommand ResetToDefaultCommand { get; }
 
-        public void RefreshLocalizedNames()
+        public void RefreshLocalizedNames(Action<string> logInfo = null)
         {
+            bool logGoodsDiagnostics = !loggedGoodsLocalizationDiagnostics && logInfo != null;
+            if (logGoodsDiagnostics)
+            {
+                loggedGoodsLocalizationDiagnostics = true;
+                logInfo("Goods localization diagnostics begin");
+            }
+
             foreach (AmountEntryViewModel entry in StartGoodEntries)
             {
                 if (Enum.TryParse(entry.Key, out eGoods good))
                 {
-                    entry.DisplayName = StartConditionsRuntime.GetLocalizedGoodName(good);
+                    StartConditionsRuntime.TryGetLocalizedGoodName(good, out string displayName, out string translationKey, out bool found);
+                    entry.DisplayName = displayName;
+
+                    if (logGoodsDiagnostics)
+                    {
+                        logInfo("Good " + good + " index=" + (int)good + " key=" + translationKey + " found=" + found + " name=" + displayName);
+                    }
                 }
             }
+
+            if (logGoodsDiagnostics)
+                logInfo("Goods localization diagnostics end");
 
             foreach (AmountEntryViewModel entry in StartTroopEntries)
             {
@@ -261,13 +278,13 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
         {
             MultiplyGoodsGainAI = 0;
             MultiplyGoodsGainHuman = 0;
-            MultiplyGoodsGainInMoneyAI = 2;
+            MultiplyGoodsGainInMoneyAI = 0;
             MultiplyGoodsGainInMoneyHuman = 0;
             SetStartGoldAI = -1;
-            SetStartGoldHuman = 0;
-            AddStartGoldAI = 10000;
+            SetStartGoldHuman = -1;
+            AddStartGoldAI = 0;
             AddStartGoldHuman = 0;
-            MultiplyStartTroopsAI = 10;
+            MultiplyStartTroopsAI = 0;
             MultiplyStartTroopsHuman = 0;
             StartGoodsAI = DefaultStartGoodsAI;
             StartGoodsHuman = DefaultStartGoodsHuman;
