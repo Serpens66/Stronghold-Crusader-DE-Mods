@@ -1,4 +1,5 @@
 using BepInEx.Logging;
+using CrusaderDE;
 using R3;
 using SHCDESE.API;
 using SHCDESE.EventAPI;
@@ -6,6 +7,7 @@ using SHCDESE.EventAPI.Buildings;
 using SHCDESE.EventAPI.MapLoader;
 using SHCDESE.EventAPI.Player;
 using SHCDESE.EventAPI.Units;
+using SHCDESE.Extensions;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
@@ -116,6 +118,89 @@ namespace BuildingLimit
                 count += activeBuildingCache.GetActiveBuildingCount(playerId, structure);
 
             return count;
+        }
+
+        private void UpdateBuildingLimitTooltip(HUD_Main hud)
+        {
+            try
+            {
+                int localPlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
+                if (localPlayerId <= 0 ||
+                    !GamePlayerManagerAPI.Instance.IsPlayerIdValid(localPlayerId) ||
+                    GamePlayerManagerAPI.Instance.IsAIPlayer(localPlayerId))
+                {
+                    BuildingLimitTooltip.Clear();
+                    return;
+                }
+
+                int hoverStruct = (int)hoverStructField.GetValue(hud);
+                int selectedStruct = (int)selectedStructField.GetValue(hud);
+                int tooltipStruct = hoverStruct != 0 ? hoverStruct : selectedStruct;
+                if (tooltipStruct <= 0 ||
+                    !TryResolveActiveBuildingLimitRule(tooltipStruct, out BuildingLimitRule rule) ||
+                    rule.Limit < 0)
+                {
+                    BuildingLimitTooltip.Clear();
+                    return;
+                }
+
+                int count = GetDisplayBuildingCount(rule, CountAliveBuildings(localPlayerId, rule.Definition));
+                BuildingLimitTooltip.Show(count, rule.DisplayLimit);
+            }
+            catch (Exception ex)
+            {
+                LogInfo("Error updating building limit tooltip:", ex.Message);
+                BuildingLimitTooltip.Clear();
+            }
+        }
+
+        private bool TryResolveActiveBuildingLimitRule(int tooltipStruct, out BuildingLimitRule rule)
+        {
+            eStructs direct = (eStructs)tooltipStruct;
+            if (Enum.IsDefined(typeof(eStructs), direct) &&
+                TryGetActiveBuildingLimitRuleByStructure(direct, out rule))
+            {
+                return true;
+            }
+
+            eMappers mapper = (eMappers)tooltipStruct;
+            if (activeBuildingLimitRules.TryGetValue(mapper, out rule))
+                return true;
+
+            eStructs mapped = mapper.ConvertToEStructs();
+            return TryGetActiveBuildingLimitRuleByStructure(mapped, out rule);
+        }
+
+        private bool TryGetActiveBuildingLimitRuleByStructure(eStructs structure, out BuildingLimitRule rule)
+        {
+            if (structure == eStructs.STRUCT_NULL)
+            {
+                rule = null;
+                return false;
+            }
+
+            foreach (BuildingLimitRule candidate in activeBuildingLimitRules.Values)
+            {
+                foreach (eStructs candidateStructure in candidate.Definition.Structures)
+                {
+                    if (candidateStructure == structure)
+                    {
+                        rule = candidate;
+                        return true;
+                    }
+                }
+            }
+
+            rule = null;
+            return false;
+        }
+
+        private static int GetDisplayBuildingCount(BuildingLimitRule rule, int internalCount)
+        {
+            if (rule.Definition.Mapper != eMappers.MAPPER_STORES)
+                return internalCount;
+
+            return (internalCount + 3) / 4;
         }
 
         private void ShowBuildingLimitMessage(eMappers building, string message)

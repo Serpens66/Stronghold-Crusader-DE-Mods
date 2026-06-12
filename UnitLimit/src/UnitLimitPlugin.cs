@@ -68,6 +68,27 @@ namespace UnitLimit
                 GameXAMLManagerAPI.Instance.RegisterBinding(
                     "UnitLimitSiegeNotificationInlineHost",
                     runtime.SiegeLimitNotification);
+                GameXAMLManagerAPI.Instance.RegisterBinding(
+                    "UnitLimitTroopLimitInlineHost",
+                    runtime.UnitLimitTooltip);
+                GameXAMLManagerAPI.Instance.RegisterBinding(
+                    "UnitLimitArabTroopLimitInlineHost",
+                    runtime.UnitLimitTooltip);
+                GameXAMLManagerAPI.Instance.RegisterBinding(
+                    "UnitLimitBedouinTroopLimitInlineHost",
+                    runtime.UnitLimitTooltip);
+                GameXAMLManagerAPI.Instance.RegisterBinding(
+                    "UnitLimitEngineersLimitInlineHost",
+                    runtime.UnitLimitTooltip);
+                GameXAMLManagerAPI.Instance.RegisterBinding(
+                    "UnitLimitTunellersLimitInlineHost",
+                    runtime.UnitLimitTooltip);
+                GameXAMLManagerAPI.Instance.RegisterBinding(
+                    "UnitLimitMonkLimitInlineHost",
+                    runtime.UnitLimitTooltip);
+                GameXAMLManagerAPI.Instance.RegisterBinding(
+                    "UnitLimitSiegeLimitInlineHost",
+                    runtime.UnitLimitTooltip);
 
                 Logger.LogInfo("Crusader library loaded; UnitLimit UI registered.");
                 runtime.InitializeAfterLibraryLoaded();

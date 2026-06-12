@@ -65,6 +65,12 @@ namespace BuildingLimit
                 GameXAMLManagerAPI.Instance.RegisterBinding(
                     "BuildingLimitNotificationOverlay",
                     runtime.BuildingLimitNotification);
+                GameXAMLManagerAPI.Instance.RegisterBinding(
+                    "BuildingLimitTooltipHost",
+                    runtime.BuildingLimitTooltip);
+                GameXAMLManagerAPI.Instance.RegisterBinding(
+                    "BuildingLimitTooltipHostCompact",
+                    runtime.BuildingLimitTooltip);
 
                 Logger.LogInfo("Crusader library loaded; BuildingLimit UI registered.");
                 runtime.InitializeAfterLibraryLoaded();

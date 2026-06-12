@@ -1,12 +1,16 @@
 using BepInEx.Logging;
+using CrusaderDE;
+using MonoMod.RuntimeDetour;
 using R3;
 using SHCDESE.API;
 using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.Buildings;
 using SHCDESE.EventAPI.MapLoader;
+using SHCDESE.Extensions;
 using SHCDESE.Interop;
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 
 namespace BuildingLimit
 {
@@ -23,8 +27,15 @@ namespace BuildingLimit
         private const int BuildingLimitMessageDurationMilliseconds = 3000;
         private static readonly Dictionary<eMappers, BuildingLimitDefinition> BuildingLimitDefinitions = CreateBuildingLimitDefinitions();
         private string buildingLimitMessageTimerHandle;
+        private Hook updateRolloverHook;
+        private UpdateRolloverDelegate updateRolloverTrampoline;
+        private FieldInfo hoverStructField;
+        private FieldInfo selectedStructField;
+
+        private delegate void UpdateRolloverDelegate(HUD_Main self);
 
         public BuildingLimitNotificationViewModel BuildingLimitNotification { get; } = new BuildingLimitNotificationViewModel();
+        public BuildingLimitTooltipViewModel BuildingLimitTooltip { get; } = new BuildingLimitTooltipViewModel();
 
         public BuildingLimitRuntime(ManualLogSource log, BuildingLimitLobbyViewModel settings)
         {
@@ -40,6 +51,14 @@ namespace BuildingLimit
 
             LogInfo("Subscribing building limit runtime hooks");
             activeBuildingCache.SubscribeHooks();
+            try
+            {
+                InstallUpdateRolloverHook();
+            }
+            catch (Exception ex)
+            {
+                LogInfo("Could not install building limit tooltip hook:", ex);
+            }
 
             BuildingR3EventHooks.OnPlacementValidation.Observable
                 .Where(args => args.Phase == EventHookPhase.Pre)
@@ -81,6 +100,10 @@ namespace BuildingLimit
             }
 
             HideBuildingLimitMessage();
+            BuildingLimitTooltip.Clear();
+            updateRolloverHook?.Dispose();
+            updateRolloverHook = null;
+            updateRolloverTrampoline = null;
             activeBuildingCache.Dispose();
             activeBuildingLimitRules.Clear();
         }
@@ -108,7 +131,33 @@ namespace BuildingLimit
         {
             LogInfo("OnUnloadMap");
             HideBuildingLimitMessage();
+            BuildingLimitTooltip.Clear();
             // matchingBuildingIds.Clear();
+        }
+
+        private void InstallUpdateRolloverHook()
+        {
+            MethodInfo updateRolloverTarget = typeof(HUD_Main).GetMethod(
+                "UpdateRollover",
+                BindingFlags.Public | BindingFlags.Instance);
+
+            if (updateRolloverTarget == null)
+                throw new MissingMethodException(typeof(HUD_Main).FullName, "UpdateRollover");
+
+            hoverStructField = typeof(HUD_Main).GetField("HoverStruct", BindingFlags.NonPublic | BindingFlags.Instance);
+            selectedStructField = typeof(HUD_Main).GetField("SelectedStruct", BindingFlags.NonPublic | BindingFlags.Instance);
+            if (hoverStructField == null || selectedStructField == null)
+                throw new MissingFieldException(typeof(HUD_Main).FullName, "HoverStruct/SelectedStruct");
+
+            updateRolloverHook = new Hook(updateRolloverTarget, new UpdateRolloverDelegate(UpdateRolloverHookImpl));
+            updateRolloverTrampoline = updateRolloverHook.GenerateTrampoline<UpdateRolloverDelegate>();
+            LogInfo("HUD_Main.UpdateRollover building limit hook installed");
+        }
+
+        private void UpdateRolloverHookImpl(HUD_Main self)
+        {
+            updateRolloverTrampoline(self);
+            UpdateBuildingLimitTooltip(self);
         }
 
         private void LogInfo(params object[] parts)

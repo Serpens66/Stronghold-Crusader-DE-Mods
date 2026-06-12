@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<Patch>
+<Patch xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <Operation Type="Add" XPath="/n:UserControl/n:Grid">
     <Content>
       <Grid x:Name="BuildingLimitNotificationOverlay"
@@ -38,5 +38,57 @@
       </Grid>
     </Content>
   </Operation>
-</Patch>
 
+  <Operation Type="InsertBefore" XPath="//n:TextBlock[@Text='{Binding RolloverBuilding_TooltipBody}']">
+    <Content>
+      <TextBlock x:Name="BuildingLimitTooltipHost"
+                 Text="{Binding LimitText}"
+                 Visibility="{Binding LimitVisibility}"
+                 Margin="10,0,10,0"
+                 Padding="2,0"
+                 HorizontalAlignment="Left"
+                 TextAlignment="Left"
+                 FlowDirection="{Binding Path=DataContext.GlobalTextFlowAL2R, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type UserControl}}}"
+                 FontSize="16"
+                 Foreground="#FFEFF3C6"
+                 Background="#33000000"
+                 Tag="Ignore">
+        <TextBlock.Effect>
+          <DropShadowEffect
+            ShadowDepth="2"
+            Direction="315"
+            Color="#CC000000"
+            BlurRadius="0"/>
+        </TextBlock.Effect>
+      </TextBlock>
+    </Content>
+  </Operation>
+
+  <Operation Type="Add" XPath="//n:StackPanel[@Visibility='{Binding RolloverBuilding_TooltipVisNot, Converter={StaticResource booleanToVisibilityConverter}}']">
+    <Content>
+      <TextBlock x:Name="BuildingLimitTooltipHostCompact"
+                 Text="{Binding LimitText}"
+                 Visibility="{Binding LimitVisibility}"
+                 HorizontalAlignment="Left"
+                 Panel.ZIndex="1"
+                 FontSize="16"
+                 Foreground="#FFEFF3C6"
+                 Background="#55000000"
+                 FlowDirection="{Binding Path=DataContext.GlobalTextFlowAL2R, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type UserControl}}}"
+                 Tag="Ignore">
+        <TextBlock.RenderTransform>
+          <TransformGroup>
+            <TranslateTransform X="-250"/>
+          </TransformGroup>
+        </TextBlock.RenderTransform>
+        <TextBlock.Effect>
+          <DropShadowEffect
+            ShadowDepth="2"
+            Direction="315"
+            Color="#CC000000"
+            BlurRadius="0"/>
+        </TextBlock.Effect>
+      </TextBlock>
+    </Content>
+  </Operation>
+</Patch>

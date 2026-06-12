@@ -59,6 +59,10 @@
       <HintPath>$(GameDir)\BepInEx\core\BepInEx.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="MonoMod.RuntimeDetour">
+      <HintPath>$(GameDir)\BepInEx\core\MonoMod.RuntimeDetour.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="UnityEngine">
       <HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.dll</HintPath>
       <Private>false</Private>
@@ -69,6 +73,10 @@
     </Reference>
     <Reference Include="Assembly-CSharp">
       <HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\Assembly-CSharp.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Noesis.NoesisGUI">
+      <HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\Noesis.NoesisGUI.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="SHCDESE">
@@ -99,6 +107,7 @@
     <Compile Include="src\BuildingLimitPlugin.cs" />
     <Compile Include="src\BuildingLimitLobbyViewModel.cs" />
     <Compile Include="src\BuildingLimitNotificationViewModel.cs" />
+    <Compile Include="src\BuildingLimitTooltipViewModel.cs" />
     <Compile Include="src\BuildingLimitDefinition.cs" />
     <Compile Include="src\BuildingLimitRule.cs" />
   </ItemGroup>

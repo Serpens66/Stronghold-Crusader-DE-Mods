@@ -30,6 +30,8 @@ namespace UnitLimit
         private readonly ActiveUnitCache activeUnitCache;
         private MakeTroopGameActionHook makeTroopGameActionHook;
         private DisbandGameActionHook disbandGameActionHook;
+        private CreateTroopHoverHook createTroopHoverHook;
+        private SiegeBuildHoverHook siegeBuildHoverHook;
         private bool settingsPropertyChangedSubscribed;
         private bool hooksSubscribed;
         private bool libraryInitialized;
@@ -41,6 +43,7 @@ namespace UnitLimit
 
         public LimitNotificationViewModel LimitNotification { get; } = new LimitNotificationViewModel();
         public LimitNotificationViewModel SiegeLimitNotification { get; } = new LimitNotificationViewModel();
+        public UnitLimitTooltipViewModel UnitLimitTooltip { get; } = new UnitLimitTooltipViewModel();
 
         private static readonly HashSet<eChimps> SoldierChimps = new HashSet<eChimps>
         {
@@ -94,6 +97,8 @@ namespace UnitLimit
             activeUnitCache.OnActiveUnitChanged += OnActiveUnitChanged;
             makeTroopGameActionHook = new MakeTroopGameActionHook(log, ShouldBlockMakeTroopGameAction);
             disbandGameActionHook = new DisbandGameActionHook(log, activeUnitCache.NotifyNativeSnapshotChanged);
+            createTroopHoverHook = new CreateTroopHoverHook(log, UpdateRecruitmentLimitTooltip, ClearUnitLimitTooltip);
+            siegeBuildHoverHook = new SiegeBuildHoverHook(log, UpdateSiegeBuildLimitTooltip, ClearUnitLimitTooltip);
 
             MapLoaderR3EventHooks.OnStartMap.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
@@ -142,6 +147,11 @@ namespace UnitLimit
             disbandGameActionHook = null;
             makeTroopGameActionHook?.Dispose();
             makeTroopGameActionHook = null;
+            createTroopHoverHook?.Dispose();
+            createTroopHoverHook = null;
+            siegeBuildHoverHook?.Dispose();
+            siegeBuildHoverHook = null;
+            ClearUnitLimitTooltip();
             activeUnitCache.OnActiveUnitChanged -= OnActiveUnitChanged;
             activeUnitCache.Dispose();
 
@@ -173,6 +183,7 @@ namespace UnitLimit
             CancelUnitLimitRecruitableRefresh();
             RestoreOriginalUnitRecruitableStates();
             HideLimitMessage();
+            ClearUnitLimitTooltip();
             locallyDisabledUnitRecruitment.Clear();
             originalUnitRecruitableStates.Clear();
             // matchingUnitIds.Clear();

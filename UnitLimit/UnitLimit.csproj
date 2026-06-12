@@ -75,6 +75,10 @@
       <HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\Assembly-CSharp.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="Noesis.NoesisGUI">
+      <HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\Noesis.NoesisGUI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="SHCDESE">
       <HintPath>$(ExtenderDir)\SHCDESE.dll</HintPath>
       <Private>false</Private>
@@ -95,10 +99,13 @@
 
   <ItemGroup>
     <Compile Include="src\ActiveUnitCache.cs" />
+    <Compile Include="src\CreateTroopHoverHook.cs" />
     <Compile Include="src\DisbandGameActionHook.cs" />
     <Compile Include="src\MakeTroopGameActionHook.cs" />
+    <Compile Include="src\SiegeBuildHoverHook.cs" />
     <Compile Include="src\UnitLimitRuntime.cs" />
     <Compile Include="src\UnitLimitRuntime.Settings.cs" />
+    <Compile Include="src\UnitLimitRuntime.Tooltips.cs" />
     <Compile Include="src\UnitLimitRuntime.Localization.cs" />
     <Compile Include="src\UnitLimitRuntime.Helpers.cs" />
     <Compile Include="src\UnitLimitPlugin.cs" />
@@ -106,6 +113,7 @@
     <Compile Include="src\UnitLimitRuntime.UnitLimits.cs" />
     <Compile Include="src\UnitLimitRuntime.Notifications.cs" />
     <Compile Include="src\LimitNotificationViewModel.cs" />
+    <Compile Include="src\UnitLimitTooltipViewModel.cs" />
   </ItemGroup>
 
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

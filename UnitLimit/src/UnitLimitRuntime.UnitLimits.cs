@@ -95,6 +95,7 @@ namespace UnitLimit
                     "amount", amount,
                     "limit", limit);
                 ReservePendingRecruitment(playerId, unitType, amount);
+                RefreshCurrentUnitLimitTooltip();
                 return false;
             }
 
@@ -110,6 +111,7 @@ namespace UnitLimit
                 "rawUnitType", rawUnitType);
             ShowUnitLimitReachedMessageForLocalPlayer(playerId, unitType, limit);
             RefreshLocalUnitRecruitableStates("MakeTroopBlock", false);
+            RefreshCurrentUnitLimitTooltip();
             return true;
         }
 
@@ -360,6 +362,7 @@ namespace UnitLimit
             }
 
             RefreshLocalUnitRecruitableStates("OnActiveUnitChanged");
+            RefreshCurrentUnitLimitTooltip();
         }
 
         private bool IsLocalSoldierSnapshot(ActiveUnitCache.UnitSnapshot snapshot)
@@ -431,6 +434,7 @@ namespace UnitLimit
 
             LogInfo("Applied active unit limit rules:", activeUnitLimits.Count);
             RefreshLocalUnitRecruitableStates("ApplyUnitLimits", showNotifications);
+            RefreshCurrentUnitLimitTooltip();
         }
 
         private void RefreshLocalUnitRecruitableStates(string source)
