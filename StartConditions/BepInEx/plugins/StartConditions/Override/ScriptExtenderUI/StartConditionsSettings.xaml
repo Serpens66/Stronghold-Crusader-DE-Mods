@@ -28,20 +28,20 @@
         <TextBlock Grid.Row="0" Grid.Column="2" Text="Human" Foreground="White" FontWeight="Bold"/>
 
         <TextBlock Grid.Row="1" Grid.Column="0" Text="Multiply goods gain" Foreground="White" Margin="0,4" ToolTip="Whenever a player gains goods, this multiplier is applied"/>
-        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding MultiplyGoodsGainAIText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="AI" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
-        <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding MultiplyGoodsGainHumanText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="Human" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding MultiplyGoodsGainAIText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="Multiply goods gain / AI" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+        <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding MultiplyGoodsGainHumanText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="Multiply goods gain / Human" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
 
         <TextBlock Grid.Row="2" Grid.Column="0" Text="Multiply goods as money" Foreground="White" Margin="0,4" ToolTip="Whenever a player gains goods, he also gets money on top as if he sold them"/>
-        <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding MultiplyGoodsGainInMoneyAIText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="AI" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
-        <TextBox Grid.Row="2" Grid.Column="2" Text="{Binding MultiplyGoodsGainInMoneyHumanText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="Human" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+        <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding MultiplyGoodsGainInMoneyAIText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="Multiply goods as money / AI" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+        <TextBox Grid.Row="2" Grid.Column="2" Text="{Binding MultiplyGoodsGainInMoneyHumanText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="Multiply goods as money / Human" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
 
         <TextBlock Grid.Row="3" Grid.Column="0" Text="Set start gold (-1 = unchanged)" Foreground="White" Margin="0,4" ToolTip="Sets the initial amount of gold for each player. -1 means unchanged."/>
-        <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding SetStartGoldAIText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="AI" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
-        <TextBox Grid.Row="3" Grid.Column="2" Text="{Binding SetStartGoldHumanText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="Human" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+        <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding SetStartGoldAIText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="Set start gold (-1 = unchanged) / AI" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+        <TextBox Grid.Row="3" Grid.Column="2" Text="{Binding SetStartGoldHumanText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="Set start gold (-1 = unchanged) / Human" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
 
         <TextBlock Grid.Row="4" Grid.Column="0" Text="Add start gold" Foreground="White" Margin="0,4" ToolTip="Adds the specified amount of gold to the initial amount for each player."/>
-        <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding AddStartGoldAIText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="AI" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
-        <TextBox Grid.Row="4" Grid.Column="2" Text="{Binding AddStartGoldHumanText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="Human" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+        <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding AddStartGoldAIText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="Add start gold / AI" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+        <TextBox Grid.Row="4" Grid.Column="2" Text="{Binding AddStartGoldHumanText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="Add start gold / Human" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
       </Grid>
 
       <Separator Background="#444466" Margin="0,10"/>
@@ -79,26 +79,28 @@
                          Margin="0,2,8,2"/>
               <TextBox Grid.Column="1"
                        Text="{Binding AIAmountText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}"
-                       ToolTip="AI"
+                       ToolTip="{Binding AIAmountToolTip}"
                        MaxLength="7"
                        HorizontalContentAlignment="Right"
                        Margin="3"
                        ui:KeyboardCaptureBinding.Enabled="True"/>
               <TextBox Grid.Column="2"
                        Text="{Binding HumanAmountText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}"
-                       ToolTip="Human"
+                       ToolTip="{Binding HumanAmountToolTip}"
                        MaxLength="7"
                        HorizontalContentAlignment="Right"
                        Margin="3"
                        ui:KeyboardCaptureBinding.Enabled="True"/>
               <TextBlock Grid.Column="3"
                          Text="{Binding NormalCrusaderAmountText}"
+                         ToolTip="{Binding NormalCrusaderAmountToolTip}"
                          Foreground="#CCCCCC"
                          HorizontalAlignment="Right"
                          VerticalAlignment="Center"
                          Margin="3"/>
               <TextBlock Grid.Column="4"
                          Text="{Binding DeathmatchAmountText}"
+                         ToolTip="{Binding DeathmatchAmountToolTip}"
                          Foreground="#CCCCCC"
                          HorizontalAlignment="Right"
                          VerticalAlignment="Center"
@@ -123,8 +125,8 @@
         <TextBlock Grid.Row="0" Grid.Column="1" Text="AI" Foreground="White" FontWeight="Bold"/>
         <TextBlock Grid.Row="0" Grid.Column="2" Text="Human" Foreground="White" FontWeight="Bold"/>
         <TextBlock Grid.Row="1" Grid.Column="0" Text="Extra Start Troop armies" Foreground="White" Margin="0,4"/>
-        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding MultiplyStartTroopsAIText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="AI" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
-        <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding MultiplyStartTroopsHumanText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="Human" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding MultiplyStartTroopsAIText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="Extra Start Troop armies / AI" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+        <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding MultiplyStartTroopsHumanText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="Extra Start Troop armies / Human" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
       </Grid>
 
       <TextBlock Text="Extra Start Units: -1 or 0 = no extra units. Allowed range: -1 to 100000." Foreground="#CCCCCC" TextWrapping="Wrap" Margin="0,8,0,6"/>
@@ -154,14 +156,14 @@
                          Margin="0,2,8,2"/>
               <TextBox Grid.Column="1"
                        Text="{Binding AIAmountText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}"
-                       ToolTip="AI"
+                       ToolTip="{Binding AIAmountToolTip}"
                        MaxLength="7"
                        HorizontalContentAlignment="Right"
                        Margin="3"
                        ui:KeyboardCaptureBinding.Enabled="True"/>
               <TextBox Grid.Column="2"
                        Text="{Binding HumanAmountText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}"
-                       ToolTip="Human"
+                       ToolTip="{Binding HumanAmountToolTip}"
                        MaxLength="7"
                        HorizontalContentAlignment="Right"
                        Margin="3"

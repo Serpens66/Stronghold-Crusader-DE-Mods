@@ -160,9 +160,6 @@ namespace UnitCosts
             foreach (ExtraCostHeaderViewModel header in ExtraCostHeaders)
                 header.DisplayName = GetGoodOptionDisplayName(header.Good);
 
-            RefreshCostEntryToolTips();
-            RefreshExtraCostCellToolTips();
-
             foreach (CostEntryViewModel entry in CostEntries)
             {
                 if (!Enum.TryParse(entry.Key, out eChimps unitType))
@@ -180,6 +177,9 @@ namespace UnitCosts
                 entry.DisplayName = UnitCostsRuntime.GetLocalizedUnitName(unitType);
                 entry.ToolTip = UnitCostsRuntime.GetUnitSettingsTooltip(unitType);
             }
+
+            RefreshCostEntryToolTips();
+            RefreshExtraCostCellToolTips();
         }
 
         public Dictionary<eChimps, UnitCostValues> ParseUnitCosts()
@@ -227,11 +227,11 @@ namespace UnitCosts
         {
             foreach (CostEntryViewModel entry in CostEntries)
             {
-                entry.GoldToolTip = GoldHeaderText;
-                entry.Slot1ToolTip = Slot1HeaderText;
-                entry.Slot2ToolTip = Slot2HeaderText;
-                entry.Slot3ToolTip = Slot3HeaderText;
-                entry.Slot4ToolTip = Slot4HeaderText;
+                entry.GoldToolTip = FormatCellToolTip(entry.DisplayName, GoldHeaderText);
+                entry.Slot1ToolTip = FormatCellToolTip(entry.DisplayName, Slot1HeaderText);
+                entry.Slot2ToolTip = FormatCellToolTip(entry.DisplayName, Slot2HeaderText);
+                entry.Slot3ToolTip = FormatCellToolTip(entry.DisplayName, Slot3HeaderText);
+                entry.Slot4ToolTip = FormatCellToolTip(entry.DisplayName, Slot4HeaderText);
             }
         }
 
@@ -240,8 +240,19 @@ namespace UnitCosts
             foreach (ExtraCostEntryViewModel entry in ExtraCostEntries)
             {
                 foreach (ExtraCostCellViewModel cell in entry.CostCells)
-                    cell.ToolTip = GetGoodOptionDisplayName(cell.Good);
+                    cell.ToolTip = FormatCellToolTip(entry.DisplayName, GetGoodOptionDisplayName(cell.Good));
             }
+        }
+
+        private static string FormatCellToolTip(string rowName, string columnName)
+        {
+            if (string.IsNullOrWhiteSpace(rowName))
+                return columnName ?? "";
+
+            if (string.IsNullOrWhiteSpace(columnName))
+                return rowName;
+
+            return rowName + " / " + columnName;
         }
 
         private static string CreateDefaultUnitCosts()

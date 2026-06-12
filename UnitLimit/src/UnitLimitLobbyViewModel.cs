@@ -225,8 +225,11 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=-1";
 
                     displayName = value;
                     OnPropertyChanged();
+                    OnPropertyChanged(nameof(LimitToolTip));
                 }
             }
+
+            public string LimitToolTip => string.IsNullOrWhiteSpace(DisplayName) ? "Limit" : DisplayName + " / Limit";
 
             public int Limit
             {

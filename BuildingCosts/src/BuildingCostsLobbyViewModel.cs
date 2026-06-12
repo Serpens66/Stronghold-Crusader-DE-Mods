@@ -145,6 +145,8 @@ namespace BuildingCosts
                     entry.DisplayName = BuildingCostsRuntime.GetLocalizedBuildingName(definition);
                 }
             }
+
+            RefreshCostEntryToolTips();
         }
 
         private void RefreshLocalizedHeaderTexts()
@@ -164,12 +166,23 @@ namespace BuildingCosts
         {
             foreach (CostEntryViewModel entry in CostEntries)
             {
-                entry.WoodToolTip = WoodHeaderText;
-                entry.StoneToolTip = StoneHeaderText;
-                entry.IronToolTip = IronHeaderText;
-                entry.PitchToolTip = PitchHeaderText;
-                entry.GoldToolTip = GoldHeaderText;
+                entry.WoodToolTip = FormatCellToolTip(entry.DisplayName, WoodHeaderText);
+                entry.StoneToolTip = FormatCellToolTip(entry.DisplayName, StoneHeaderText);
+                entry.IronToolTip = FormatCellToolTip(entry.DisplayName, IronHeaderText);
+                entry.PitchToolTip = FormatCellToolTip(entry.DisplayName, PitchHeaderText);
+                entry.GoldToolTip = FormatCellToolTip(entry.DisplayName, GoldHeaderText);
             }
+        }
+
+        private static string FormatCellToolTip(string rowName, string columnName)
+        {
+            if (string.IsNullOrWhiteSpace(rowName))
+                return columnName ?? "";
+
+            if (string.IsNullOrWhiteSpace(columnName))
+                return rowName;
+
+            return rowName + " / " + columnName;
         }
 
         public void SetVanillaCostToolTips(Dictionary<eMappers, BuildingCostValues> vanillaCosts)

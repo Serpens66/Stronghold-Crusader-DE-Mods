@@ -188,6 +188,17 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
             }
         }
 
+        private static string FormatCellToolTip(string rowName, string columnName)
+        {
+            if (string.IsNullOrWhiteSpace(rowName))
+                return columnName ?? "";
+
+            if (string.IsNullOrWhiteSpace(columnName))
+                return rowName;
+
+            return rowName + " / " + columnName;
+        }
+
         [SyncHostOnly] public int MultiplyGoodsGainAI { get => multiplyGoodsGainAI; set => SetInt(ref multiplyGoodsGainAI, value, nameof(MultiplyGoodsGainAI), nameof(MultiplyGoodsGainAIText)); }
         [SyncHostOnly] public int MultiplyGoodsGainHuman { get => multiplyGoodsGainHuman; set => SetInt(ref multiplyGoodsGainHuman, value, nameof(MultiplyGoodsGainHuman), nameof(MultiplyGoodsGainHumanText)); }
         [SyncHostOnly] public int MultiplyGoodsGainInMoneyAI { get => multiplyGoodsGainInMoneyAI; set => SetInt(ref multiplyGoodsGainInMoneyAI, value, nameof(MultiplyGoodsGainInMoneyAI), nameof(MultiplyGoodsGainInMoneyAIText)); }
@@ -583,8 +594,20 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
 
                     displayName = value;
                     OnPropertyChanged();
+                    OnPropertyChanged(nameof(AIAmountToolTip));
+                    OnPropertyChanged(nameof(HumanAmountToolTip));
+                    OnPropertyChanged(nameof(NormalCrusaderAmountToolTip));
+                    OnPropertyChanged(nameof(DeathmatchAmountToolTip));
                 }
             }
+
+            public string AIAmountToolTip => FormatCellToolTip(DisplayName, "AI");
+
+            public string HumanAmountToolTip => FormatCellToolTip(DisplayName, "Human");
+
+            public string NormalCrusaderAmountToolTip => FormatCellToolTip(DisplayName, "Normal/Crusade");
+
+            public string DeathmatchAmountToolTip => FormatCellToolTip(DisplayName, "Deathmatch");
 
             public int AIAmount
             {

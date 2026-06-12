@@ -258,8 +258,11 @@ MAPPER_POND1=-1";
 
                     displayName = value;
                     OnPropertyChanged();
+                    OnPropertyChanged(nameof(LimitToolTip));
                 }
             }
+
+            public string LimitToolTip => string.IsNullOrWhiteSpace(DisplayName) ? "Limit" : DisplayName + " / Limit";
 
             public int Limit
             {
