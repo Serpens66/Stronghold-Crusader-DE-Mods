@@ -77,12 +77,10 @@ if "%BUILD_EXIT_CODE%"=="0" (
   if errorlevel 1 goto copy_failed
   copy /Y "%PROJECT_DIR%BepInEx\plugins\BuildingCosts\info.json" "%GAME_DIR%\BepInEx\plugins\BuildingCosts\info.json"
   if errorlevel 1 goto copy_failed
-  copy /Y "%PROJECT_DIR%BepInEx\plugins\BuildingCosts\Patches\Assets\GUI\XAML\MainHUD.xaml" "%GAME_DIR%\BepInEx\plugins\BuildingCosts\Patches\Assets\GUI\XAML\MainHUD.xaml"
-  if errorlevel 1 goto copy_failed
   copy /Y "%PROJECT_DIR%BepInEx\plugins\BuildingCosts\Override\ScriptExtenderUI\BuildingCostsSettings.xaml" "%GAME_DIR%\BepInEx\plugins\BuildingCosts\Override\ScriptExtenderUI\BuildingCostsSettings.xaml"
   if errorlevel 1 goto copy_failed
-
-  if exist "%GAME_DIR%\BepInEx\plugins\BuildingCosts\ScriptExtenderUI\BuildingCostsSettings.xaml" del "%GAME_DIR%\BepInEx\plugins\BuildingCosts\ScriptExtenderUI\BuildingCostsSettings.xaml"
+  copy /Y "%PROJECT_DIR%BepInEx\plugins\BuildingCosts\Patches\Assets\GUI\XAML\MainHUD.xaml" "%GAME_DIR%\BepInEx\plugins\BuildingCosts\Patches\Assets\GUI\XAML\MainHUD.xaml"
+  if errorlevel 1 goto copy_failed
 
   echo Plugin kopiert.
 ) else (

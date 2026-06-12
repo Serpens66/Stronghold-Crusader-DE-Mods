@@ -12,6 +12,8 @@ namespace BuildingCosts
         private bool showDetailed;
         private bool showCompact;
 
+        public event PropertyChangedEventHandler PropertyChanged;
+
         public ObservableCollection<BuildingCostTooltipEntry> Costs { get; } = new ObservableCollection<BuildingCostTooltipEntry>();
 
         public bool HasCosts
@@ -24,17 +26,13 @@ namespace BuildingCosts
 
                 hasCosts = value;
                 OnPropertyChanged(nameof(HasCosts));
-                OnPropertyChanged(nameof(Visibility));
                 OnPropertyChanged(nameof(DetailedVisibility));
                 OnPropertyChanged(nameof(CompactVisibility));
             }
         }
 
-        public Visibility Visibility => HasCosts ? Noesis.Visibility.Visible : Noesis.Visibility.Collapsed;
-        public Visibility DetailedVisibility => HasCosts && showDetailed ? Noesis.Visibility.Visible : Noesis.Visibility.Collapsed;
-        public Visibility CompactVisibility => HasCosts && showCompact ? Noesis.Visibility.Visible : Noesis.Visibility.Collapsed;
-
-        public event PropertyChangedEventHandler PropertyChanged;
+        public Visibility DetailedVisibility => HasCosts && showDetailed ? Visibility.Visible : Visibility.Collapsed;
+        public Visibility CompactVisibility => HasCosts && showCompact ? Visibility.Visible : Visibility.Collapsed;
 
         public void SetCosts(IEnumerable<BuildingCostTooltipEntry> costs)
         {

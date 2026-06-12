@@ -2,17 +2,17 @@ using SHCDESE.Interop;
 
 namespace BuildingCosts
 {
-    internal sealed class BuildingCostDefinition
+    public sealed class BuildingCostDefinition
     {
-        public BuildingCostDefinition(eMappers mapper, eStructs structure, string displayName)
+        public eMappers Mapper { get; }
+        public eStructs[] Structures { get; }
+        public string DisplayName { get; }
+
+        public BuildingCostDefinition(eMappers mapper, string displayName, params eStructs[] structures)
         {
             Mapper = mapper;
-            Structure = structure;
+            Structures = structures;
             DisplayName = displayName;
         }
-
-        public eMappers Mapper { get; }
-        public eStructs Structure { get; }
-        public string DisplayName { get; }
     }
 }

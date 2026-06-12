@@ -5,7 +5,7 @@
   <PropertyGroup>
     <Configuration Condition="'$(Configuration)' == ''">Debug</Configuration>
     <Platform Condition="'$(Platform)' == ''">AnyCPU</Platform>
-    <ProjectGuid>{0D029C35-0487-4E92-84AE-32F13FBC9C4F}</ProjectGuid>
+    <ProjectGuid>{C626F5DD-77D1-43E0-9F0D-3A9A1CB02C4E}</ProjectGuid>
     <OutputType>Library</OutputType>
     <RootNamespace>BuildingCosts</RootNamespace>
     <AssemblyName>BuildingCosts</AssemblyName>
@@ -98,19 +98,13 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="src\BuildingCostGlobalAPI.cs" />
     <Compile Include="src\BuildingCostDefinition.cs" />
-    <Compile Include="src\BuildingCostDefinitions.cs" />
-    <Compile Include="src\BuildingCostsAPI.cs" />
+    <Compile Include="src\BuildingCostTooltipEntry.cs" />
+    <Compile Include="src\BuildingCostTooltipViewModel.cs" />
+    <Compile Include="src\BuildingCostValues.cs" />
     <Compile Include="src\BuildingCostsLobbyViewModel.cs" />
     <Compile Include="src\BuildingCostsPlugin.cs" />
     <Compile Include="src\BuildingCostsRuntime.cs" />
-    <Compile Include="src\BuildingCostsRuntime.Options.cs" />
-    <Compile Include="src\BuildingCostMissingNotificationViewModel.cs" />
-    <Compile Include="src\BuildingCostTooltipEntry.cs" />
-    <Compile Include="src\BuildingCostTooltipViewModel.cs" />
-    <Compile Include="src\BuildingGoodCost.cs" />
-    <Compile Include="src\BuildingGoodCostTarget.cs" />
   </ItemGroup>
 
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

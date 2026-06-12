@@ -16,9 +16,9 @@ namespace BuildingCosts
         public const string PluginVersion = "0.1.0";
 
         internal static readonly BuildingCostTooltipViewModel BuildingCostTooltipViewModel = new BuildingCostTooltipViewModel();
-        internal static readonly BuildingCostMissingNotificationViewModel BuildingCostMissingNotificationViewModel = new BuildingCostMissingNotificationViewModel();
 
         private BuildingCostsRuntime runtime;
+        private bool runtimeDisposed;
 
         public BuildingCostsLobbyViewModel Settings { get; private set; }
 
@@ -28,53 +28,55 @@ namespace BuildingCosts
 
             Settings = new BuildingCostsLobbyViewModel();
             runtime = new BuildingCostsRuntime(Logger, Settings);
-            try
-            {
-                runtime.SubscribeHooks();
-            }
-            catch (Exception ex)
-            {
-                Logger.LogError($"Failed to install BuildingCosts hooks: {ex}");
-            }
-
+            runtime.SubscribeHooks();
             CrusaderLibrary.Instance.LibraryLoaded += OnCrusaderLibraryLoaded;
-        }
-
-        private void Update()
-        {
-            BuildingCostMissingNotificationViewModel.Update();
         }
 
         private void OnDestroy()
         {
+            Logger.LogInfo("BuildingCostsPlugin OnDestroy called; keeping runtime active until application quit.");
             CrusaderLibrary.Instance.LibraryLoaded -= OnCrusaderLibraryLoaded;
         }
 
         private void OnApplicationQuit()
         {
+            Logger.LogInfo("BuildingCostsPlugin OnApplicationQuit called; disposing runtime.");
+            DisposeRuntime();
+        }
+
+        private void DisposeRuntime()
+        {
+            if (runtimeDisposed)
+                return;
+
             CrusaderLibrary.Instance.LibraryLoaded -= OnCrusaderLibraryLoaded;
             runtime?.Dispose();
+            runtimeDisposed = true;
         }
 
         private void OnCrusaderLibraryLoaded(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
         {
             try
             {
-                GameXAMLManagerAPI.Instance.RegisterBinding("BuildingCostsTooltipHost", BuildingCostTooltipViewModel);
-                GameXAMLManagerAPI.Instance.RegisterBinding("BuildingCostsTooltipHostCompact", BuildingCostTooltipViewModel);
-                GameXAMLManagerAPI.Instance.RegisterBinding("BuildingCostsMissingNotificationOverlay", BuildingCostMissingNotificationViewModel);
                 Settings.RefreshLocalizedNames();
                 GameXAMLManagerAPI.Instance.RegisterLobbyModSettings(
                     this,
                     "BuildingCosts",
                     Settings,
                     "ScriptExtenderUI/BuildingCostsSettings.xaml");
+                GameXAMLManagerAPI.Instance.RegisterBinding(
+                    "BuildingCostsTooltipHost",
+                    BuildingCostTooltipViewModel);
+                GameXAMLManagerAPI.Instance.RegisterBinding(
+                    "BuildingCostsTooltipHostCompact",
+                    BuildingCostTooltipViewModel);
+
+                Logger.LogInfo("Crusader library loaded; BuildingCosts UI registered.");
                 runtime.InitializeAfterLibraryLoaded();
-                Logger.LogInfo("BuildingCosts XAML bindings registered.");
             }
             catch (Exception ex)
             {
-                Logger.LogError($"Failed to register BuildingCosts XAML bindings: {ex}");
+                Logger.LogError($"Error while initializing BuildingCosts after library load: {ex}");
             }
         }
     }

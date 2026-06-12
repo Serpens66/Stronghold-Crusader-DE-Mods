@@ -13,16 +13,91 @@ namespace BuildingCosts
     {
         public event Action<string> SettingChanged;
 
-        private string buildingCosts;
+        private string buildingCosts = CreateDefaultBuildingCosts();
         private bool updatingEntries;
+
+        private static readonly string[] DefaultCostKeys =
+        {
+            "MAPPER_WOODSMAN",
+            "MAPPER_HUNTER",
+            "MAPPER_OXENBASE",
+            "MAPPER_QUARRY",
+            "MAPPER_IRON_MINE",
+            "MAPPER_PITCH_WORKINGS",
+            "MAPPER_WHEATFARM",
+            "MAPPER_HOPSFARM",
+            "MAPPER_APPLEFARM",
+            "MAPPER_CATTLEFARM",
+            "MAPPER_MILL",
+            "MAPPER_BAKER",
+            "MAPPER_BREWER",
+            "MAPPER_HOVEL",
+            "MAPPER_GRANARY",
+            "MAPPER_STORES",
+            "MAPPER_ARMOURY",
+            "MAPPER_TRADEPOST",
+            "MAPPER_INN",
+            "MAPPER_HEALER",
+            "MAPPER_FLETCHER",
+            "MAPPER_POLETURNER",
+            "MAPPER_BLACKSMITH",
+            "MAPPER_ARMOURER",
+            "MAPPER_TANNER",
+            "MAPPER_STABLES",
+            "MAPPER_BARRACKS_WOOD",
+            "MAPPER_BARRACKS_STONE",
+            "MAPPER_ENGINEERS_GUILD",
+            "MAPPER_TUNNELERS_GUILD",
+            "MAPPER_OIL_SMELTER",
+            "MAPPER_WELL",
+            "MAPPER_WATERPOT",
+            "MAPPER_CHURCH1",
+            "MAPPER_CHURCH2",
+            "MAPPER_CHURCH3",
+            "MAPPER_TOWER1",
+            "MAPPER_TOWER2",
+            "MAPPER_TOWER3",
+            "MAPPER_TOWER4",
+            "MAPPER_TOWER5",
+            "MAPPER_GATE_MAIN",
+            "MAPPER_GATE_INNER",
+            "MAPPER_GATE_WOOD",
+            "MAPPER_GATEHOUSE",
+            "MAPPER_GATE_POSTERN",
+            "MAPPER_DRAWBRIDGE",
+            "MAPPER_KILLING_PIT",
+            "MAPPER_BRAZIER",
+            "MAPPER_MANGONEL",
+            "MAPPER_BALLISTA",
+            "MAPPER_MAYPOLE",
+            "MAPPER_GALLOWS",
+            "MAPPER_STOCKS",
+            "MAPPER_GARDEN1",
+            "MAPPER_CESS_PIT1",
+            "MAPPER_BURNING_STAKE",
+            "MAPPER_GIBBET",
+            "MAPPER_DUNGEON",
+            "MAPPER_RACK_STRETCHING",
+            "MAPPER_RACK_FLOGGING",
+            "MAPPER_CHOPPING_BLOCK",
+            "MAPPER_DUNKING_STOOL",
+            "MAPPER_DOG_CAGE",
+            "MAPPER_STATUE1",
+            "MAPPER_SHRINE1",
+            "MAPPER_BEE_HIVE",
+            "MAPPER_DANCING_BEAR",
+            "MAPPER_POND1",
+            "MAPPER_BEAR_CAVE",
+            "MAPPER_OUTPOST_BEDOUIN",
+            "MAPPER_BEDOUIN_STOCKADE"
+        };
 
         public BuildingCostsLobbyViewModel()
         {
-            buildingCosts = BuildDefaultBuildingCosts();
             CostEntries = CreateCostEntriesWithCallback(buildingCosts);
         }
 
-        public IReadOnlyList<BuildingCostEntryViewModel> CostEntries { get; }
+        public IReadOnlyList<CostEntryViewModel> CostEntries { get; }
 
         [SyncHostOnly]
         public string BuildingCosts
@@ -42,30 +117,59 @@ namespace BuildingCosts
 
         public void RefreshLocalizedNames()
         {
-            foreach (BuildingCostEntryViewModel entry in CostEntries)
+            Dictionary<eMappers, BuildingCostDefinition> definitions = BuildingCostsRuntime.CreateBuildingCostDefinitions();
+            foreach (CostEntryViewModel entry in CostEntries)
             {
                 if (Enum.TryParse(entry.Key, out eMappers mapper) &&
-                    BuildingCostDefinitions.TryGet(mapper, out BuildingCostDefinition definition))
+                    definitions.TryGetValue(mapper, out BuildingCostDefinition definition))
                 {
-                    entry.DisplayName = BuildingCostDefinitions.GetLocalizedBuildingName(definition);
+                    entry.DisplayName = BuildingCostsRuntime.GetLocalizedBuildingName(definition);
                 }
             }
         }
 
-        internal static string BuildDefaultBuildingCosts()
+        public Dictionary<eMappers, BuildingCostValues> ParseBuildingCosts()
         {
-            StringBuilder builder = new StringBuilder("# -1 = unchanged; values 0..1000 set the configured construction cost");
-            foreach (BuildingCostDefinition definition in BuildingCostDefinitions.All)
+            Dictionary<eMappers, BuildingCostValues> result = new Dictionary<eMappers, BuildingCostValues>();
+            Dictionary<string, BuildingCostValues> parsed = ParseSerializedCosts(buildingCosts);
+            foreach (KeyValuePair<string, BuildingCostValues> entry in parsed)
+            {
+                if (Enum.TryParse(entry.Key, true, out eMappers mapper))
+                    result[mapper] = entry.Value;
+            }
+
+            return result;
+        }
+
+        private static string CreateDefaultBuildingCosts()
+        {
+            StringBuilder builder = new StringBuilder("# -1 = unchanged; order is wood,stone,iron,pitch,gold");
+            foreach (string key in DefaultCostKeys)
             {
                 builder.AppendLine();
-                builder.Append(definition.Mapper);
-                builder.Append("=-1,-1,-1,-1,-1,-1");
+                builder.Append(key);
+                builder.Append("=-1,-1,-1,-1,-1");
             }
 
             return builder.ToString();
         }
 
-        internal static Dictionary<string, BuildingCostValues> ParseSerializedCosts(string text)
+        private IReadOnlyList<CostEntryViewModel> CreateCostEntriesWithCallback(string serializedCosts)
+        {
+            Dictionary<string, BuildingCostValues> values = ParseSerializedCosts(serializedCosts);
+            List<CostEntryViewModel> entries = new List<CostEntryViewModel>();
+            foreach (string key in DefaultCostKeys)
+            {
+                if (!values.TryGetValue(key, out BuildingCostValues value))
+                    value = new BuildingCostValues(-1, -1, -1, -1, -1);
+
+                entries.Add(new CostEntryViewModel(key, FormatDisplayName(key), value, OnEntryChanged));
+            }
+
+            return entries;
+        }
+
+        private static Dictionary<string, BuildingCostValues> ParseSerializedCosts(string text)
         {
             Dictionary<string, BuildingCostValues> result = new Dictionary<string, BuildingCostValues>(StringComparer.OrdinalIgnoreCase);
             if (string.IsNullOrWhiteSpace(text))
@@ -78,41 +182,27 @@ namespace BuildingCosts
                 if (line.Length == 0 || line.StartsWith("#"))
                     continue;
 
-                string[] parts = line.Split(new[] { '=' }, 2);
-                if (parts.Length != 2)
+                string[] keyValue = line.Split(new[] { '=' }, 2);
+                if (keyValue.Length != 2)
                     continue;
 
-                string[] values = parts[1].Split(',');
-                if (values.Length != 5 && values.Length != 6)
+                string[] costParts = keyValue[1].Split(',');
+                if (costParts.Length != 5)
                     continue;
 
-                if (!TryParseCost(values[0], out int wood) ||
-                    !TryParseCost(values[1], out int stone) ||
-                    !TryParseCost(values[2], out int iron) ||
-                    !TryParseCost(values[3], out int pitch) ||
-                    !TryParseCost(values[4], out int gold))
+                if (!int.TryParse(costParts[0].Trim(), out int wood) ||
+                    !int.TryParse(costParts[1].Trim(), out int stone) ||
+                    !int.TryParse(costParts[2].Trim(), out int iron) ||
+                    !int.TryParse(costParts[3].Trim(), out int pitch) ||
+                    !int.TryParse(costParts[4].Trim(), out int gold))
+                {
                     continue;
+                }
 
-                int ale = -1;
-                if (values.Length == 6 && !TryParseCost(values[5], out ale))
-                    continue;
-
-                result[parts[0].Trim()] = new BuildingCostValues(wood, stone, iron, pitch, gold, ale);
+                result[keyValue[0].Trim()] = new BuildingCostValues(wood, stone, iron, pitch, gold);
             }
 
             return result;
-        }
-
-        private static bool TryParseCost(string text, out int value)
-        {
-            if (!int.TryParse(text.Trim(), out value))
-            {
-                value = -1;
-                return false;
-            }
-
-            value = ClampCost(value);
-            return true;
         }
 
         private void ApplySerializedCostsToEntries(string text)
@@ -124,10 +214,10 @@ namespace BuildingCosts
             updatingEntries = true;
             try
             {
-                foreach (BuildingCostEntryViewModel entry in CostEntries)
+                foreach (CostEntryViewModel entry in CostEntries)
                 {
-                    if (values.TryGetValue(entry.Key, out BuildingCostValues costValues))
-                        entry.SetCostsFromOwner(costValues);
+                    if (values.TryGetValue(entry.Key, out BuildingCostValues value))
+                        entry.SetCostsFromOwner(value);
                 }
             }
             finally
@@ -148,8 +238,8 @@ namespace BuildingCosts
 
         private string BuildSerializedCosts()
         {
-            StringBuilder builder = new StringBuilder("# -1 = unchanged; values 0..1000 set the configured construction cost");
-            foreach (BuildingCostEntryViewModel entry in CostEntries)
+            StringBuilder builder = new StringBuilder("# -1 = unchanged; order is wood,stone,iron,pitch,gold");
+            foreach (CostEntryViewModel entry in CostEntries)
             {
                 builder.AppendLine();
                 builder.Append(entry.Key);
@@ -163,70 +253,19 @@ namespace BuildingCosts
                 builder.Append(entry.Pitch);
                 builder.Append(',');
                 builder.Append(entry.Gold);
-                builder.Append(',');
-                builder.Append(entry.Ale);
             }
 
             return builder.ToString();
         }
 
-        private static IReadOnlyList<BuildingCostEntryViewModel> CreateCostEntries(string serializedCosts)
+        private static string FormatDisplayName(string key)
         {
-            Dictionary<string, BuildingCostValues> values = ParseSerializedCosts(serializedCosts);
-            List<BuildingCostEntryViewModel> entries = new List<BuildingCostEntryViewModel>();
-            foreach (BuildingCostDefinition definition in BuildingCostDefinitions.All)
-            {
-                string key = definition.Mapper.ToString();
-                if (!values.TryGetValue(key, out BuildingCostValues costValues))
-                    costValues = BuildingCostValues.Unchanged;
-
-                entries.Add(new BuildingCostEntryViewModel(key, definition.DisplayName, costValues));
-            }
-
-            return entries;
+            const string prefix = "MAPPER_";
+            string name = key.StartsWith(prefix, StringComparison.Ordinal) ? key.Substring(prefix.Length) : key;
+            return name.Replace('_', ' ').ToLowerInvariant();
         }
 
-        private IReadOnlyList<BuildingCostEntryViewModel> CreateCostEntriesWithCallback(string serializedCosts)
-        {
-            List<BuildingCostEntryViewModel> entries = new List<BuildingCostEntryViewModel>();
-            foreach (BuildingCostEntryViewModel entry in CreateCostEntries(serializedCosts))
-                entries.Add(new BuildingCostEntryViewModel(entry.Key, entry.DisplayName, entry.Values, OnEntryChanged));
-
-            return entries;
-        }
-
-        internal static int ClampCost(int value)
-        {
-            if (value < -1)
-                return -1;
-            if (value > 1000)
-                return 1000;
-            return value;
-        }
-
-        public readonly struct BuildingCostValues
-        {
-            public static readonly BuildingCostValues Unchanged = new BuildingCostValues(-1, -1, -1, -1, -1, -1);
-
-            public BuildingCostValues(int wood, int stone, int iron, int pitch, int gold, int ale)
-            {
-                Wood = ClampCost(wood);
-                Stone = ClampCost(stone);
-                Iron = ClampCost(iron);
-                Pitch = ClampCost(pitch);
-                Gold = ClampCost(gold);
-                Ale = ClampCost(ale);
-            }
-
-            public int Wood { get; }
-            public int Stone { get; }
-            public int Iron { get; }
-            public int Pitch { get; }
-            public int Gold { get; }
-            public int Ale { get; }
-        }
-
-        public sealed class BuildingCostEntryViewModel : INotifyPropertyChanged
+        public sealed class CostEntryViewModel : INotifyPropertyChanged
         {
             private readonly Action changed;
             private string displayName;
@@ -235,11 +274,10 @@ namespace BuildingCosts
             private int iron;
             private int pitch;
             private int gold;
-            private int ale;
 
             public event PropertyChangedEventHandler PropertyChanged;
 
-            public BuildingCostEntryViewModel(string key, string displayName, BuildingCostValues values, Action changed = null)
+            public CostEntryViewModel(string key, string displayName, BuildingCostValues values, Action changed = null)
             {
                 Key = key;
                 this.displayName = displayName;
@@ -249,12 +287,9 @@ namespace BuildingCosts
                 iron = values.Iron;
                 pitch = values.Pitch;
                 gold = values.Gold;
-                ale = values.Ale;
             }
 
             public string Key { get; }
-
-            internal BuildingCostValues Values => new BuildingCostValues(Wood, Stone, Iron, Pitch, Gold, Ale);
 
             public string DisplayName
             {
@@ -299,46 +334,34 @@ namespace BuildingCosts
                 private set => SetCost(ref gold, value, nameof(GoldText));
             }
 
-            public int Ale
-            {
-                get => ale;
-                private set => SetCost(ref ale, value, nameof(AleText));
-            }
-
             public string WoodText
             {
-                get => Wood.ToString();
-                set => SetCostText(value, cost => Wood = cost);
+                get => wood.ToString();
+                set => SetTextCost(value, v => Wood = v);
             }
 
             public string StoneText
             {
-                get => Stone.ToString();
-                set => SetCostText(value, cost => Stone = cost);
+                get => stone.ToString();
+                set => SetTextCost(value, v => Stone = v);
             }
 
             public string IronText
             {
-                get => Iron.ToString();
-                set => SetCostText(value, cost => Iron = cost);
+                get => iron.ToString();
+                set => SetTextCost(value, v => Iron = v);
             }
 
             public string PitchText
             {
-                get => Pitch.ToString();
-                set => SetCostText(value, cost => Pitch = cost);
+                get => pitch.ToString();
+                set => SetTextCost(value, v => Pitch = v);
             }
 
             public string GoldText
             {
-                get => Gold.ToString();
-                set => SetCostText(value, cost => Gold = cost);
-            }
-
-            public string AleText
-            {
-                get => Ale.ToString();
-                set => SetCostText(value, cost => Ale = cost);
+                get => gold.ToString();
+                set => SetTextCost(value, v => Gold = v);
             }
 
             public void SetCostsFromOwner(BuildingCostValues values)
@@ -348,29 +371,29 @@ namespace BuildingCosts
                 Iron = values.Iron;
                 Pitch = values.Pitch;
                 Gold = values.Gold;
-                Ale = values.Ale;
             }
 
-            private void SetCost(ref int field, int value, string textPropertyName)
+            private void SetTextCost(string value, Action<int> setCost)
             {
-                int clamped = ClampCost(value);
-                if (field == clamped)
-                    return;
-
-                field = clamped;
-                OnPropertyChanged(textPropertyName);
-                changed?.Invoke();
-            }
-
-            private void SetCostText(string text, Action<int> setter)
-            {
-                if (!int.TryParse(text, out int parsed))
+                if (!int.TryParse(value, out int parsed))
                 {
                     OnPropertyChanged();
                     return;
                 }
 
-                setter(parsed);
+                setCost(parsed);
+            }
+
+            private void SetCost(ref int field, int value, string textPropertyName)
+            {
+                int clamped = BuildingCostValues.ClampCost(value);
+                if (field == clamped)
+                    return;
+
+                field = clamped;
+                OnPropertyChanged();
+                OnPropertyChanged(textPropertyName);
+                changed?.Invoke();
             }
 
             private void OnPropertyChanged([CallerMemberName] string propertyName = null)
