@@ -202,6 +202,7 @@ namespace BuildingCosts
                     MainViewModel.Instance.RolloverBuilding_TooltipVis,
                     MainViewModel.Instance.RolloverBuilding_TooltipVisNot);
 
+                string rollOverText = GetMainViewModelString("RollOverText");
                 int hoverStruct = (int)hoverStructField.GetValue(hud);
                 int selectedStruct = (int)selectedStructField.GetValue(hud);
                 int tooltipStruct = hoverStruct != 0 ? hoverStruct : selectedStruct;
@@ -214,13 +215,13 @@ namespace BuildingCosts
                 eStructs building = ResolveTooltipBuilding(tooltipStruct);
                 if (building == eStructs.STRUCT_NULL)
                 {
-                    BuildingCostsPlugin.BuildingCostTooltipViewModel.Clear();
+                    BuildingCostsPlugin.BuildingCostTooltipViewModel.SetRollOverTextOnly(rollOverText);
                     return;
                 }
 
                 int localPlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
                 List<BuildingCostTooltipEntry> entries = CreateTooltipEntries(building, localPlayerId);
-                BuildingCostsPlugin.BuildingCostTooltipViewModel.SetCosts(entries);
+                BuildingCostsPlugin.BuildingCostTooltipViewModel.SetTooltip(rollOverText, entries);
             }
             catch (Exception ex)
             {
@@ -329,6 +330,14 @@ namespace BuildingCosts
         private static ImageSource GetGoodImage(eGoods good)
         {
             return MainViewModel.Instance.getSmallGoodsIcon((int)good);
+        }
+
+        private static string GetMainViewModelString(string propertyName)
+        {
+            object viewModel = MainViewModel.Instance;
+            PropertyInfo property = viewModel.GetType().GetProperty(propertyName, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+            object value = property?.GetValue(viewModel, null);
+            return value?.ToString() ?? "";
         }
 
         internal static string GetLocalizedBuildingName(BuildingCostDefinition definition)

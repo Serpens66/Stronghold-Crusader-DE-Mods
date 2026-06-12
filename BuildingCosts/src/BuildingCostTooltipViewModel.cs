@@ -11,10 +11,24 @@ namespace BuildingCosts
         private bool hasCosts;
         private bool showDetailed;
         private bool showCompact;
+        private string rollOverText = "";
 
         public event PropertyChangedEventHandler PropertyChanged;
 
         public ObservableCollection<BuildingCostTooltipEntry> Costs { get; } = new ObservableCollection<BuildingCostTooltipEntry>();
+
+        public string RollOverText
+        {
+            get => rollOverText;
+            private set
+            {
+                if (rollOverText == value)
+                    return;
+
+                rollOverText = value;
+                OnPropertyChanged(nameof(RollOverText));
+            }
+        }
 
         public bool HasCosts
         {
@@ -33,19 +47,27 @@ namespace BuildingCosts
 
         public Visibility DetailedVisibility => HasCosts && showDetailed ? Visibility.Visible : Visibility.Collapsed;
         public Visibility CompactVisibility => HasCosts && showCompact ? Visibility.Visible : Visibility.Collapsed;
+        public Visibility CostsVisibility => HasCosts ? Visibility.Visible : Visibility.Collapsed;
 
-        public void SetCosts(IEnumerable<BuildingCostTooltipEntry> costs)
+        public void SetTooltip(string rollOverText, IEnumerable<BuildingCostTooltipEntry> costs)
         {
+            RollOverText = rollOverText ?? "";
             Costs.Clear();
             foreach (BuildingCostTooltipEntry cost in costs)
                 Costs.Add(cost);
 
             HasCosts = Costs.Count > 0;
+            OnPropertyChanged(nameof(CostsVisibility));
         }
 
         public void Clear()
         {
-            SetCosts(Array.Empty<BuildingCostTooltipEntry>());
+            SetTooltip("", Array.Empty<BuildingCostTooltipEntry>());
+        }
+
+        public void SetRollOverTextOnly(string rollOverText)
+        {
+            SetTooltip(rollOverText, Array.Empty<BuildingCostTooltipEntry>());
         }
 
         public void SetPlacement(bool detailed, bool compact)

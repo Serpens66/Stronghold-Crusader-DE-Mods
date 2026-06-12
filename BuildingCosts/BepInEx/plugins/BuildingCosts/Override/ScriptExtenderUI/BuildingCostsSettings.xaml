@@ -4,8 +4,8 @@
   <ScrollViewer VerticalScrollBarVisibility="Auto"
                 HorizontalScrollBarVisibility="Auto">
     <StackPanel Margin="10">
-      <TextBlock Text="BUILDING COSTS" Foreground="#77AAFF" FontWeight="Bold" Margin="0,0,0,4"/>
-      <TextBlock Text="-1 = unchanged. Values 0 to 1000 set the native construction cost for that material."
+      <TextBlock Text="{Binding TitleText}" Foreground="#77AAFF" FontWeight="Bold" Margin="0,0,0,4"/>
+      <TextBlock Text="{Binding HelpText}"
                  Foreground="#CCCCCC" TextWrapping="Wrap" Margin="0,0,0,6"/>
       <Grid Margin="0,2,0,2">
         <Grid.ColumnDefinitions>
@@ -16,12 +16,12 @@
           <ColumnDefinition Width="78"/>
           <ColumnDefinition Width="78"/>
         </Grid.ColumnDefinitions>
-        <TextBlock Grid.Column="0" Text="Building" Foreground="#CCCCCC" FontWeight="Bold" Margin="0,0,8,0"/>
-        <TextBlock Grid.Column="1" Text="Wood" Foreground="#CCCCCC" FontWeight="Bold" HorizontalAlignment="Right" Margin="3,0"/>
-        <TextBlock Grid.Column="2" Text="Stone" Foreground="#CCCCCC" FontWeight="Bold" HorizontalAlignment="Right" Margin="3,0"/>
-        <TextBlock Grid.Column="3" Text="Iron" Foreground="#CCCCCC" FontWeight="Bold" HorizontalAlignment="Right" Margin="3,0"/>
-        <TextBlock Grid.Column="4" Text="Pitch" Foreground="#CCCCCC" FontWeight="Bold" HorizontalAlignment="Right" Margin="3,0"/>
-        <TextBlock Grid.Column="5" Text="Gold" Foreground="#CCCCCC" FontWeight="Bold" HorizontalAlignment="Right" Margin="3,0"/>
+        <TextBlock Grid.Column="0" Text="{Binding BuildingHeaderText}" Foreground="#CCCCCC" FontWeight="Bold" Margin="0,0,8,0"/>
+        <TextBlock Grid.Column="1" Text="{Binding WoodHeaderText}" Foreground="#CCCCCC" FontWeight="Bold" HorizontalAlignment="Right" Margin="3,0"/>
+        <TextBlock Grid.Column="2" Text="{Binding StoneHeaderText}" Foreground="#CCCCCC" FontWeight="Bold" HorizontalAlignment="Right" Margin="3,0"/>
+        <TextBlock Grid.Column="3" Text="{Binding IronHeaderText}" Foreground="#CCCCCC" FontWeight="Bold" HorizontalAlignment="Right" Margin="3,0"/>
+        <TextBlock Grid.Column="4" Text="{Binding PitchHeaderText}" Foreground="#CCCCCC" FontWeight="Bold" HorizontalAlignment="Right" Margin="3,0"/>
+        <TextBlock Grid.Column="5" Text="{Binding GoldHeaderText}" Foreground="#CCCCCC" FontWeight="Bold" HorizontalAlignment="Right" Margin="3,0"/>
       </Grid>
       <ItemsControl ItemsSource="{Binding CostEntries}" Margin="0,3,0,8">
         <ItemsControl.ItemTemplate>

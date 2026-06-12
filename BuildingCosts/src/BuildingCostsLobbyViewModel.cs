@@ -1,3 +1,4 @@
+using SHCDESE.API;
 using SHCDESE.API.Components.Network;
 using SHCDESE.Interop;
 using SHCDESE.ViewModels;
@@ -99,6 +100,17 @@ namespace BuildingCosts
 
         public IReadOnlyList<CostEntryViewModel> CostEntries { get; }
 
+        public string TitleText => IsGermanLanguage() ? "BAUKOSTEN" : "BUILDING COSTS";
+        public string HelpText => IsGermanLanguage()
+            ? "-1 = unverändert. Werte von 0 bis 1000 setzen die nativen Baukosten für dieses Material."
+            : "-1 = unchanged. Values 0 to 1000 set the native construction cost for that material.";
+        public string BuildingHeaderText => IsGermanLanguage() ? "Gebäude" : "Building";
+        public string WoodHeaderText => GetLocalizedGoodName(eGoods.STORED_WOOD_PLANKS, "Wood");
+        public string StoneHeaderText => GetLocalizedGoodName(eGoods.STORED_STONE_BLOCKS, "Stone");
+        public string IronHeaderText => GetLocalizedGoodName(eGoods.STORED_IRON_INGOTS, "Iron");
+        public string PitchHeaderText => GetLocalizedGoodName(eGoods.STORED_PITCH_RAW, "Pitch");
+        public string GoldHeaderText => GetLocalizedGoodName(eGoods.STORED_GOLD, "Gold");
+
         [SyncHostOnly]
         public string BuildingCosts
         {
@@ -117,6 +129,7 @@ namespace BuildingCosts
 
         public void RefreshLocalizedNames()
         {
+            RefreshLocalizedHeaderTexts();
             Dictionary<eMappers, BuildingCostDefinition> definitions = BuildingCostsRuntime.CreateBuildingCostDefinitions();
             foreach (CostEntryViewModel entry in CostEntries)
             {
@@ -126,6 +139,110 @@ namespace BuildingCosts
                     entry.DisplayName = BuildingCostsRuntime.GetLocalizedBuildingName(definition);
                 }
             }
+        }
+
+        private void RefreshLocalizedHeaderTexts()
+        {
+            OnPropertyChanged(nameof(TitleText));
+            OnPropertyChanged(nameof(HelpText));
+            OnPropertyChanged(nameof(BuildingHeaderText));
+            OnPropertyChanged(nameof(WoodHeaderText));
+            OnPropertyChanged(nameof(StoneHeaderText));
+            OnPropertyChanged(nameof(IronHeaderText));
+            OnPropertyChanged(nameof(PitchHeaderText));
+            OnPropertyChanged(nameof(GoldHeaderText));
+        }
+
+        private static string GetLocalizedGoodName(eGoods good, string fallback)
+        {
+            int index = (int)good;
+            string[] sections =
+            {
+                "TEXT_GOODS_NAMES",
+                "TEXT_GOOD_NAMES",
+                "TEXT_GOODS",
+                "TEXT_GOOD",
+            };
+
+            foreach (string section in sections)
+            {
+                if (TryGetLocalizedGameText(section, index, out string localizedName))
+                    return localizedName;
+            }
+
+            string[] keyPrefixes =
+            {
+                "TEXT_GOODS_NAMES_",
+                "TEXT_GOOD_NAMES_",
+                "TEXT_GOODS_",
+                "TEXT_GOOD_",
+            };
+
+            foreach (string keyPrefix in keyPrefixes)
+            {
+                if (TryGetLocalizedGameTextKey(keyPrefix + (index + 1).ToString("D3"), out string localizedName))
+                    return localizedName;
+            }
+
+            return fallback;
+        }
+
+        private static bool TryGetLocalizedGameText(string sectionName, int index, out string localizedName)
+        {
+            localizedName = null;
+            if (string.IsNullOrEmpty(sectionName) || index < 0)
+                return false;
+
+            try
+            {
+                localizedName = GameTranslateAPI.Instance.GetLookUpTextEx(sectionName, index);
+                if (!string.IsNullOrWhiteSpace(localizedName))
+                    return true;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("GameTranslateAPI lookup failed: " + sectionName + " " + index + " " + ex.Message);
+            }
+
+            return TryGetLocalizedGameTextKey(sectionName + "_" + (index + 1).ToString("D3"), out localizedName);
+        }
+
+        private static bool TryGetLocalizedGameTextKey(string translationKey, out string localizedName)
+        {
+            localizedName = null;
+            if (string.IsNullOrEmpty(translationKey))
+                return false;
+
+            try
+            {
+                localizedName = GameTranslateAPI.Instance.GetLookUpText(translationKey);
+                if (!string.IsNullOrWhiteSpace(localizedName) &&
+                    !string.Equals(localizedName, translationKey, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("GameTranslateAPI lookup failed: " + translationKey + " " + ex.Message);
+            }
+
+            if (CrusaderDE.Translate.Instance?.GameTexts != null &&
+                CrusaderDE.Translate.Instance.GameTexts.TryGetValue(translationKey, out localizedName) &&
+                !string.IsNullOrWhiteSpace(localizedName))
+            {
+                return true;
+            }
+
+            localizedName = null;
+            return false;
+        }
+
+        private static bool IsGermanLanguage()
+        {
+            string language = GameAssetManagerAPI.Instance.CurrentLanguage;
+            return !string.IsNullOrWhiteSpace(language) &&
+                language.Replace('_', '-').StartsWith("de", StringComparison.OrdinalIgnoreCase);
         }
 
         public Dictionary<eMappers, BuildingCostValues> ParseBuildingCosts()
