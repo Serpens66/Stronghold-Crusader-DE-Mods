@@ -8,14 +8,14 @@ namespace BuildingCosts
 {
     public sealed class BuildingCostTooltipViewModel : INotifyPropertyChanged
     {
-        private bool hasCosts;
+        private bool hasAdditionalCosts;
         private bool showDetailed;
         private bool showCompact;
         private string rollOverText = "";
 
         public event PropertyChangedEventHandler PropertyChanged;
 
-        public ObservableCollection<BuildingCostTooltipEntry> Costs { get; } = new ObservableCollection<BuildingCostTooltipEntry>();
+        public ObservableCollection<BuildingCostTooltipEntry> AdditionalCosts { get; } = new ObservableCollection<BuildingCostTooltipEntry>();
 
         public string RollOverText
         {
@@ -30,34 +30,36 @@ namespace BuildingCosts
             }
         }
 
-        public bool HasCosts
+        public bool HasAdditionalCosts
         {
-            get => hasCosts;
+            get => hasAdditionalCosts;
             private set
             {
-                if (hasCosts == value)
+                if (hasAdditionalCosts == value)
                     return;
 
-                hasCosts = value;
-                OnPropertyChanged(nameof(HasCosts));
+                hasAdditionalCosts = value;
+                OnPropertyChanged(nameof(HasAdditionalCosts));
                 OnPropertyChanged(nameof(DetailedVisibility));
                 OnPropertyChanged(nameof(CompactVisibility));
+                OnPropertyChanged(nameof(AdditionalCostsVisibility));
             }
         }
 
-        public Visibility DetailedVisibility => HasCosts && showDetailed ? Visibility.Visible : Visibility.Collapsed;
-        public Visibility CompactVisibility => HasCosts && showCompact ? Visibility.Visible : Visibility.Collapsed;
-        public Visibility CostsVisibility => HasCosts ? Visibility.Visible : Visibility.Collapsed;
+        public Visibility DetailedVisibility => HasAdditionalCosts && showDetailed ? Visibility.Visible : Visibility.Collapsed;
+        public Visibility CompactVisibility => HasAdditionalCosts && showCompact ? Visibility.Visible : Visibility.Collapsed;
+        public Visibility AdditionalCostsVisibility => HasAdditionalCosts ? Visibility.Visible : Visibility.Collapsed;
 
         public void SetTooltip(string rollOverText, IEnumerable<BuildingCostTooltipEntry> costs)
         {
             RollOverText = rollOverText ?? "";
-            Costs.Clear();
+            AdditionalCosts.Clear();
             foreach (BuildingCostTooltipEntry cost in costs)
-                Costs.Add(cost);
+                AdditionalCosts.Add(cost);
 
-            HasCosts = Costs.Count > 0;
-            OnPropertyChanged(nameof(CostsVisibility));
+            HasAdditionalCosts = AdditionalCosts.Count > 0;
+            OnPropertyChanged(nameof(AdditionalCosts));
+            OnPropertyChanged(nameof(AdditionalCostsVisibility));
         }
 
         public void Clear()

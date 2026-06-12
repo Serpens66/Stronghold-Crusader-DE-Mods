@@ -240,7 +240,6 @@ namespace BuildingCosts
                     MainViewModel.Instance.RolloverBuilding_TooltipVis,
                     MainViewModel.Instance.RolloverBuilding_TooltipVisNot);
 
-                string rollOverText = GetMainViewModelString("RollOverText");
                 int hoverStruct = (int)hoverStructField.GetValue(hud);
                 int selectedStruct = (int)selectedStructField.GetValue(hud);
                 int tooltipStruct = hoverStruct != 0 ? hoverStruct : selectedStruct;
@@ -253,13 +252,13 @@ namespace BuildingCosts
                 eStructs building = ResolveTooltipBuilding(tooltipStruct);
                 if (building == eStructs.STRUCT_NULL)
                 {
-                    BuildingCostsPlugin.BuildingCostTooltipViewModel.SetRollOverTextOnly(rollOverText);
+                    BuildingCostsPlugin.BuildingCostTooltipViewModel.Clear();
                     return;
                 }
 
                 int localPlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
-                List<BuildingCostTooltipEntry> entries = CreateTooltipEntries(building, localPlayerId);
-                BuildingCostsPlugin.BuildingCostTooltipViewModel.SetTooltip(rollOverText, entries);
+                List<BuildingCostTooltipEntry> entries = CreateAdditionalTooltipEntries(building, localPlayerId);
+                BuildingCostsPlugin.BuildingCostTooltipViewModel.SetTooltip("", entries);
             }
             catch (Exception ex)
             {
@@ -270,27 +269,25 @@ namespace BuildingCosts
         private static eStructs ResolveTooltipBuilding(int tooltipStruct)
         {
             List<eStructs> candidates = new List<eStructs>(3);
+            eStructs direct = (eStructs)tooltipStruct;
+            if (Enum.IsDefined(typeof(eStructs), direct))
+                AddTooltipBuildingCandidate(candidates, direct);
+
             eMappers mapper = (eMappers)tooltipStruct;
             if (BuildingCostDefinitions.TryGetValue(mapper, out BuildingCostDefinition definition) &&
                 definition.Structures.Length > 0)
             {
-                candidates.Add(definition.Structures[0]);
+                AddTooltipBuildingCandidate(candidates, definition.Structures[0]);
             }
 
             eStructs mapped = mapper.ConvertToEStructs();
             AddTooltipBuildingCandidate(candidates, mapped);
-            eStructs direct = (eStructs)tooltipStruct;
-            if (Enum.IsDefined(typeof(eStructs), direct))
-                AddTooltipBuildingCandidate(candidates, direct);
 
             foreach (eStructs candidate in candidates)
             {
                 if (HasAnyNativeCost(candidate))
                     return candidate;
             }
-
-            if (candidates.Count > 0)
-                return candidates[0];
 
             return eStructs.STRUCT_NULL;
         }
@@ -319,17 +316,32 @@ namespace BuildingCosts
             }
         }
 
-        private static List<BuildingCostTooltipEntry> CreateTooltipEntries(eStructs building, int playerId)
+        private static List<BuildingCostTooltipEntry> CreateAdditionalTooltipEntries(eStructs building, int playerId)
         {
-            List<BuildingCostTooltipEntry> entries = new List<BuildingCostTooltipEntry>(5);
+            List<BuildingCostTooltipEntry> entries = new List<BuildingCostTooltipEntry>(3);
+            int vanillaSlotsUsed = 0;
 
-            AddTooltipEntry(entries, playerId, eGoods.STORED_WOOD_PLANKS, GameBuildingManagerAPI.Instance.GetWoodCost(building));
-            AddTooltipEntry(entries, playerId, eGoods.STORED_STONE_BLOCKS, GameBuildingManagerAPI.Instance.GetStoneCost(building));
-            AddTooltipEntry(entries, playerId, eGoods.STORED_IRON_INGOTS, GameBuildingManagerAPI.Instance.GetIronIngotCost(building));
-            AddTooltipEntry(entries, playerId, eGoods.STORED_PITCH_RAW, GameBuildingManagerAPI.Instance.GetRawPitchCost(building));
-            AddTooltipEntry(entries, playerId, eGoods.STORED_GOLD, GameBuildingManagerAPI.Instance.GetGoldCost(building));
+            AddAdditionalTooltipEntry(entries, playerId, eGoods.STORED_WOOD_PLANKS, GameBuildingManagerAPI.Instance.GetWoodCost(building), ref vanillaSlotsUsed);
+            AddAdditionalTooltipEntry(entries, playerId, eGoods.STORED_STONE_BLOCKS, GameBuildingManagerAPI.Instance.GetStoneCost(building), ref vanillaSlotsUsed);
+            AddAdditionalTooltipEntry(entries, playerId, eGoods.STORED_IRON_INGOTS, GameBuildingManagerAPI.Instance.GetIronIngotCost(building), ref vanillaSlotsUsed);
+            AddAdditionalTooltipEntry(entries, playerId, eGoods.STORED_PITCH_RAW, GameBuildingManagerAPI.Instance.GetRawPitchCost(building), ref vanillaSlotsUsed);
+            AddAdditionalTooltipEntry(entries, playerId, eGoods.STORED_GOLD, GameBuildingManagerAPI.Instance.GetGoldCost(building), ref vanillaSlotsUsed);
 
             return entries;
+        }
+
+        private static void AddAdditionalTooltipEntry(List<BuildingCostTooltipEntry> entries, int playerId, eGoods good, int amount, ref int vanillaSlotsUsed)
+        {
+            if (amount == 0)
+                return;
+
+            if (vanillaSlotsUsed < 2)
+            {
+                vanillaSlotsUsed++;
+                return;
+            }
+
+            AddTooltipEntry(entries, playerId, good, amount);
         }
 
         private static void AddTooltipEntry(List<BuildingCostTooltipEntry> entries, int playerId, eGoods good, int amount)
