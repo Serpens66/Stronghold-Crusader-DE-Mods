@@ -26,6 +26,11 @@ CHIMP_TYPE_PIKEMAN=-1
 CHIMP_TYPE_SWORDSMAN=-1
 CHIMP_TYPE_KNIGHT=-1
 CHIMP_TYPE_ENGINEER=-1
+CHIMP_TYPE_CATAPULT=-1
+CHIMP_TYPE_TREBUCHET=-1
+CHIMP_TYPE_BATTERING_RAM=-1
+CHIMP_TYPE_SIEGE_TOWER=-1
+CHIMP_TYPE_PORTABLE_SHIELD=-1
 CHIMP_TYPE_MONK=-1
 CHIMP_TYPE_LADDERMAN=-1
 CHIMP_TYPE_TUNNELER=-1
@@ -88,39 +93,19 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=-1";
         private static IReadOnlyList<LimitEntryViewModel> CreateLimitEntries(string serializedLimits)
         {
             Dictionary<string, int> values = ParseSerializedLimits(serializedLimits);
-            string[] keys =
+            List<LimitEntryViewModel> entries = new List<LimitEntryViewModel>();
+            string[] lines = DefaultUnitLimits.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            foreach (string rawLine in lines)
             {
-                "CHIMP_TYPE_ARCHER",
-                "CHIMP_TYPE_SPEARMAN",
-                "CHIMP_TYPE_MACEMAN",
-                "CHIMP_TYPE_XBOWMAN",
-                "CHIMP_TYPE_PIKEMAN",
-                "CHIMP_TYPE_SWORDSMAN",
-                "CHIMP_TYPE_KNIGHT",
-                "CHIMP_TYPE_ENGINEER",
-                "CHIMP_TYPE_MONK",
-                "CHIMP_TYPE_LADDERMAN",
-                "CHIMP_TYPE_TUNNELER",
-                "CHIMP_TYPE_ARAB_BOW",
-                "CHIMP_TYPE_ARAB_SLAVE",
-                "CHIMP_TYPE_ARAB_SLINGER",
-                "CHIMP_TYPE_ARAB_ASSASIN",
-                "CHIMP_TYPE_ARAB_HORSEMAN",
-                "CHIMP_TYPE_ARAB_SWORDSMAN",
-                "CHIMP_TYPE_ARAB_GRENADIER",
-                "CHIMP_TYPE_BEDOUIN_CAMEL_LANCER",
-                "CHIMP_TYPE_BEDOUIN_HEALER",
-                "CHIMP_TYPE_BEDOUIN_EUNUCH",
-                "CHIMP_TYPE_BEDOUIN_AMBUSHER",
-                "CHIMP_TYPE_BEDOUIN_SKIRMISHER",
-                "CHIMP_TYPE_BEDOUIN_HEAVY_CAMEL",
-                "CHIMP_TYPE_BEDOUIN_SAPPER",
-                "CHIMP_TYPE_BEDOUIN_DEMOLISHER",
-            };
+                string line = rawLine.Trim();
+                if (line.Length == 0 || line.StartsWith("#"))
+                    continue;
 
-            List<LimitEntryViewModel> entries = new List<LimitEntryViewModel>(keys.Length);
-            foreach (string key in keys)
-            {
+                string[] parts = line.Split(new[] { '=' }, 2);
+                if (parts.Length != 2)
+                    continue;
+
+                string key = parts[0].Trim();
                 values.TryGetValue(key, out int value);
                 entries.Add(new LimitEntryViewModel(key, FormatDisplayName(key), value));
             }

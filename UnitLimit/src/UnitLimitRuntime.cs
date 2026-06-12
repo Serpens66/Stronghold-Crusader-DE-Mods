@@ -2,6 +2,7 @@ using BepInEx.Logging;
 using R3;
 using SHCDESE.API;
 using SHCDESE.EventAPI;
+using SHCDESE.EventAPI.Buildings;
 using SHCDESE.EventAPI.MapLoader;
 using SHCDESE.EventAPI.Units;
 using SHCDESE.Interop;
@@ -50,6 +51,11 @@ namespace UnitLimit
             eChimps.CHIMP_TYPE_SWORDSMAN,
             eChimps.CHIMP_TYPE_KNIGHT,
             eChimps.CHIMP_TYPE_ENGINEER,
+            eChimps.CHIMP_TYPE_CATAPULT,
+            eChimps.CHIMP_TYPE_TREBUCHET,
+            eChimps.CHIMP_TYPE_BATTERING_RAM,
+            eChimps.CHIMP_TYPE_SIEGE_TOWER,
+            eChimps.CHIMP_TYPE_PORTABLE_SHIELD,
             eChimps.CHIMP_TYPE_MONK,
             eChimps.CHIMP_TYPE_LADDERMAN,
             eChimps.CHIMP_TYPE_TUNNELER,
@@ -99,6 +105,10 @@ namespace UnitLimit
             MapLoaderR3EventHooks.OnUnloadMap.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
                 .Subscribe(OnUnloadMap);
+
+            BuildingR3EventHooks.OnPlacementValidation.Observable
+                .Where(args => args.Phase == EventHookPhase.Pre)
+                .Subscribe(OnBuildingPlacementValidation);
 
             LogInfo("Unit limit runtime hooks subscribed");
             hooksSubscribed = true;

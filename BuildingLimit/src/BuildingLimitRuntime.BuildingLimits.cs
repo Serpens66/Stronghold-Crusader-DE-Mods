@@ -22,6 +22,9 @@ namespace BuildingLimit
 
             if (!activeBuildingLimitRules.TryGetValue(args.Mappers, out BuildingLimitRule rule))
             {
+                if (IsSiegeTentPlacementMapper(args.Mappers))
+                    return;
+
                 LogInfo(
                     "Building placement validation has no active limit rule:",
                     "player", args.PlayerId,
@@ -119,6 +122,21 @@ namespace BuildingLimit
         {
             LogInfo("Building limit notification shown:", building, message);
             DisplayLimitNotification(message);
+        }
+
+        private static bool IsSiegeTentPlacementMapper(eMappers mapper)
+        {
+            switch (mapper)
+            {
+                case eMappers.MAPPER_CATAPULT:
+                case eMappers.MAPPER_TREBUCHET:
+                case eMappers.MAPPER_BATTERING_RAM:
+                case eMappers.MAPPER_SIEGE_TOWER:
+                case eMappers.MAPPER_PORTABLE_SHIELD:
+                    return true;
+                default:
+                    return false;
+            }
         }
 
         private void DisplayLimitNotification(string message)

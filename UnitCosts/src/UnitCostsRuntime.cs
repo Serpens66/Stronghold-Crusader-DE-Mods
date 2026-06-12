@@ -143,6 +143,8 @@ namespace UnitCosts
                 if (values.Gold != -1)
                 {
                     GameUnitManagerAPI.Instance.SetUnitGoldCost(entry.Key, values.Gold);
+                    if (TryGetSiegeTentStructure(entry.Key, out eStructs siegeTentStructure))
+                        GameBuildingManagerAPI.Instance.SetGoldCost(siegeTentStructure, values.Gold);
                     changedValues++;
                 }
 
@@ -518,7 +520,7 @@ namespace UnitCosts
             foreach (eChimps unitType in GetRecruitTypes())
             {
                 if (!VanillaGoldCosts.ContainsKey(unitType))
-                    VanillaGoldCosts[unitType] = GameUnitManagerAPI.Instance.GetUnitGoldCost(unitType);
+                    VanillaGoldCosts[unitType] = GetCurrentUnitGoldCost(unitType);
             }
         }
 
@@ -598,6 +600,11 @@ namespace UnitCosts
             yield return eChimps.CHIMP_TYPE_SWORDSMAN;
             yield return eChimps.CHIMP_TYPE_KNIGHT;
             yield return eChimps.CHIMP_TYPE_ENGINEER;
+            yield return eChimps.CHIMP_TYPE_CATAPULT;
+            yield return eChimps.CHIMP_TYPE_TREBUCHET;
+            yield return eChimps.CHIMP_TYPE_BATTERING_RAM;
+            yield return eChimps.CHIMP_TYPE_SIEGE_TOWER;
+            yield return eChimps.CHIMP_TYPE_PORTABLE_SHIELD;
             yield return eChimps.CHIMP_TYPE_MONK;
             yield return eChimps.CHIMP_TYPE_LADDERMAN;
             yield return eChimps.CHIMP_TYPE_TUNNELER;
@@ -622,11 +629,39 @@ namespace UnitCosts
         {
             try
             {
+                if (TryGetSiegeTentStructure(unitType, out eStructs siegeTentStructure))
+                    return Math.Max(0, GameBuildingManagerAPI.Instance.GetGoldCost(siegeTentStructure));
+
                 return Math.Max(0, GameUnitManagerAPI.Instance.GetUnitGoldCost(unitType));
             }
             catch
             {
                 return 0;
+            }
+        }
+
+        private static bool TryGetSiegeTentStructure(eChimps unitType, out eStructs siegeTentStructure)
+        {
+            switch (unitType)
+            {
+                case eChimps.CHIMP_TYPE_CATAPULT:
+                    siegeTentStructure = eStructs.STRUCT_SIEGE_TENT_CATAPULT;
+                    return true;
+                case eChimps.CHIMP_TYPE_TREBUCHET:
+                    siegeTentStructure = eStructs.STRUCT_SIEGE_TENT_TREBUCHET;
+                    return true;
+                case eChimps.CHIMP_TYPE_BATTERING_RAM:
+                    siegeTentStructure = eStructs.STRUCT_SIEGE_TENT_BATTERING_RAM;
+                    return true;
+                case eChimps.CHIMP_TYPE_SIEGE_TOWER:
+                    siegeTentStructure = eStructs.STRUCT_SIEGE_TENT_SIEGE_TOWER;
+                    return true;
+                case eChimps.CHIMP_TYPE_PORTABLE_SHIELD:
+                    siegeTentStructure = eStructs.STRUCT_SIEGE_TENT_PORTABLE_SHIELD;
+                    return true;
+                default:
+                    siegeTentStructure = eStructs.STRUCT_NULL;
+                    return false;
             }
         }
 

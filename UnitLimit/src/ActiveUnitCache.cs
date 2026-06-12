@@ -83,6 +83,24 @@ namespace UnitLimit
             }
         }
 
+        public int CountActiveUnits(Func<UnitSnapshot, bool> predicate)
+        {
+            if (predicate == null)
+                return 0;
+
+            int count = 0;
+            lock (syncRoot)
+            {
+                foreach (UnitSnapshot snapshot in snapshotsById.Values)
+                {
+                    if (IsActiveUnitState(snapshot.AliveState) && predicate(snapshot))
+                        count++;
+                }
+            }
+
+            return count;
+        }
+
         public void ResyncAll(bool raiseEvents)
         {
             Dictionary<int, UnitSnapshot> seenSnapshots = new Dictionary<int, UnitSnapshot>();
@@ -192,6 +210,7 @@ namespace UnitLimit
             UnitSnapshot transitionedSnapshot = new UnitSnapshot(
                 snapshot.AliveState,
                 args.NextUnitType,
+                snapshot.TransformIntoUnitOfType,
                 args.PlayerOwnerId);
             if (ShouldLogPlayer(snapshot.OwnerId) || ShouldLogPlayer(transitionedSnapshot.OwnerId))
             {
@@ -641,18 +660,24 @@ namespace UnitLimit
         {
             public readonly AliveState AliveState;
             public readonly eChimps UnitType;
+            public readonly eChimps TransformIntoUnitOfType;
             public readonly int OwnerId;
 
-            public UnitSnapshot(AliveState aliveState, eChimps unitType, int ownerId)
+            public UnitSnapshot(AliveState aliveState, eChimps unitType, eChimps transformIntoUnitOfType, int ownerId)
             {
                 AliveState = aliveState;
                 UnitType = unitType;
+                TransformIntoUnitOfType = transformIntoUnitOfType;
                 OwnerId = ownerId;
             }
 
             public static UnitSnapshot From(GameUnit unit)
             {
-                return new UnitSnapshot(unit.r_AliveState, unit.r_UnitChimp, unit.r_ControllableForPlayerId);
+                return new UnitSnapshot(
+                    unit.r_AliveState,
+                    unit.r_UnitChimp,
+                    unit.r_TransformIntoUnitOfType,
+                    unit.r_ControllableForPlayerId);
             }
         }
 

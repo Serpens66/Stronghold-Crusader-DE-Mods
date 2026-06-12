@@ -127,7 +127,138 @@ namespace UnitLimit
 
         private int CountAliveUnits(int playerId, eChimps unitType)
         {
+            if (IsEngineerSiegeUnit(unitType))
+            {
+                return activeUnitCache.GetActiveUnitCount(playerId, unitType) +
+                    CountActiveSiegeTentBuildings(playerId, unitType);
+            }
+
             return activeUnitCache.GetActiveUnitCount(playerId, unitType);
+        }
+
+        private int CountActiveSiegeTentBuildings(int playerId, eChimps unitType)
+        {
+            if (!TryGetSiegeTentStructure(unitType, out eStructs siegeTentStructure))
+                return 0;
+
+            int count = 0;
+            Span<GameBuilding> buildings = GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
+            for (int i = 0; i < buildings.Length; i++)
+            {
+                GameBuilding building = buildings[i];
+                if (building.r_PlayerIdOwner == playerId &&
+                    building.r_BuildingType == siegeTentStructure &&
+                    IsActiveBuildingState(building.r_AliveState))
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+
+        private static bool IsEngineerSiegeUnit(eChimps unitType)
+        {
+            switch (unitType)
+            {
+                case eChimps.CHIMP_TYPE_CATAPULT:
+                case eChimps.CHIMP_TYPE_TREBUCHET:
+                case eChimps.CHIMP_TYPE_BATTERING_RAM:
+                case eChimps.CHIMP_TYPE_SIEGE_TOWER:
+                case eChimps.CHIMP_TYPE_PORTABLE_SHIELD:
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        private static bool TryGetSiegeUnitFromMapper(eMappers mapper, out eChimps unitType)
+        {
+            switch (mapper)
+            {
+                case eMappers.MAPPER_CATAPULT:
+                    unitType = eChimps.CHIMP_TYPE_CATAPULT;
+                    return true;
+                case eMappers.MAPPER_TREBUCHET:
+                    unitType = eChimps.CHIMP_TYPE_TREBUCHET;
+                    return true;
+                case eMappers.MAPPER_BATTERING_RAM:
+                    unitType = eChimps.CHIMP_TYPE_BATTERING_RAM;
+                    return true;
+                case eMappers.MAPPER_SIEGE_TOWER:
+                    unitType = eChimps.CHIMP_TYPE_SIEGE_TOWER;
+                    return true;
+                case eMappers.MAPPER_PORTABLE_SHIELD:
+                    unitType = eChimps.CHIMP_TYPE_PORTABLE_SHIELD;
+                    return true;
+                default:
+                    unitType = eChimps.CHIMP_TYPE_NULL;
+                    return false;
+            }
+        }
+
+        private static bool TryGetSiegeTentStructure(eChimps unitType, out eStructs siegeTentStructure)
+        {
+            switch (unitType)
+            {
+                case eChimps.CHIMP_TYPE_CATAPULT:
+                    siegeTentStructure = eStructs.STRUCT_SIEGE_TENT_CATAPULT;
+                    return true;
+                case eChimps.CHIMP_TYPE_TREBUCHET:
+                    siegeTentStructure = eStructs.STRUCT_SIEGE_TENT_TREBUCHET;
+                    return true;
+                case eChimps.CHIMP_TYPE_BATTERING_RAM:
+                    siegeTentStructure = eStructs.STRUCT_SIEGE_TENT_BATTERING_RAM;
+                    return true;
+                case eChimps.CHIMP_TYPE_SIEGE_TOWER:
+                    siegeTentStructure = eStructs.STRUCT_SIEGE_TENT_SIEGE_TOWER;
+                    return true;
+                case eChimps.CHIMP_TYPE_PORTABLE_SHIELD:
+                    siegeTentStructure = eStructs.STRUCT_SIEGE_TENT_PORTABLE_SHIELD;
+                    return true;
+                default:
+                    siegeTentStructure = eStructs.STRUCT_NULL;
+                    return false;
+            }
+        }
+
+        private void OnBuildingPlacementValidation(BuildingPlacementValidationEventArgs args)
+        {
+            try
+            {
+                ValidateSiegeTentPlacement(args);
+            }
+            catch (Exception ex)
+            {
+                LogInfo("Unit limit siege placement validation failed:", ex.Message);
+            }
+        }
+
+        private void ValidateSiegeTentPlacement(BuildingPlacementValidationEventArgs args)
+        {
+            if (GamePlayerManagerAPI.Instance.IsAIPlayer(args.PlayerId))
+                return;
+
+            if (!TryGetSiegeUnitFromMapper(args.Mappers, out eChimps unitType))
+                return;
+
+            if (!activeUnitLimits.TryGetValue(unitType, out int limit) || limit < 0)
+                return;
+
+            int count = CountAliveUnits(args.PlayerId, unitType);
+            if (count < limit)
+                return;
+
+            args.CustomValidationRules = true;
+            args.ForceBlockPlacementState = true;
+            LogInfo(
+                "Siege tent placement blocked by unit limit:",
+                "player", args.PlayerId,
+                "mapper", args.Mappers,
+                "unit", unitType,
+                "count", count,
+                "limit", limit);
+            ShowUnitLimitMessageForLocalPlayer(args.PlayerId, unitType, limit);
         }
 
         private int GetPendingRecruitmentCount(int playerId, eChimps unitType)
@@ -222,9 +353,10 @@ namespace UnitLimit
                 (args.Reason == ActiveUnitCache.ActiveUnitChangeReason.Created ||
                     args.Reason == ActiveUnitCache.ActiveUnitChangeReason.TypeChanged))
             {
-                bool consumed = ConsumePendingRecruitment(args.NewSnapshot.OwnerId, args.NewSnapshot.UnitType);
+                eChimps pendingUnitType = GetPendingRecruitmentUnitType(args.NewSnapshot);
+                bool consumed = ConsumePendingRecruitment(args.NewSnapshot.OwnerId, pendingUnitType);
                 if (consumed && ShouldLogHumanPlayer(args.NewSnapshot.OwnerId))
-                    LogInfo("Active unit change consumed pending recruitment:", "unitId", args.UnitId, "player", args.NewSnapshot.OwnerId, "reason", args.Reason, "unitType", args.NewSnapshot.UnitType);
+                    LogInfo("Active unit change consumed pending recruitment:", "unitId", args.UnitId, "player", args.NewSnapshot.OwnerId, "reason", args.Reason, "unitType", args.NewSnapshot.UnitType, "pendingUnitType", pendingUnitType);
             }
 
             RefreshLocalUnitRecruitableStates("OnActiveUnitChanged");
@@ -233,11 +365,30 @@ namespace UnitLimit
         private bool IsLocalSoldierSnapshot(ActiveUnitCache.UnitSnapshot snapshot)
         {
             return IsActiveUnitState(snapshot.AliveState) &&
-                SoldierChimps.Contains(snapshot.UnitType) &&
+                (SoldierChimps.Contains(snapshot.UnitType) ||
+                    (snapshot.UnitType == eChimps.CHIMP_SIEGE_TENT &&
+                        IsEngineerSiegeUnit(snapshot.TransformIntoUnitOfType))) &&
                 IsLocalPlayer(snapshot.OwnerId);
         }
 
+        private static eChimps GetPendingRecruitmentUnitType(ActiveUnitCache.UnitSnapshot snapshot)
+        {
+            if (snapshot.UnitType == eChimps.CHIMP_SIEGE_TENT &&
+                IsEngineerSiegeUnit(snapshot.TransformIntoUnitOfType))
+            {
+                return snapshot.TransformIntoUnitOfType;
+            }
+
+            return snapshot.UnitType;
+        }
+
         private static bool IsActiveUnitState(AliveState aliveState)
+        {
+            return aliveState == AliveState.IsAlive ||
+                aliveState == AliveState.NeedsInit;
+        }
+
+        private static bool IsActiveBuildingState(AliveState aliveState)
         {
             return aliveState == AliveState.IsAlive ||
                 aliveState == AliveState.NeedsInit;
