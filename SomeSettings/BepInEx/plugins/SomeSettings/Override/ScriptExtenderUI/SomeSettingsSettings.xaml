@@ -1,0 +1,45 @@
+<Grid xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:ui="clr-namespace:SHCDESE.UI;assembly=SHCDESE">
+  <ScrollViewer VerticalScrollBarVisibility="Auto">
+    <StackPanel Margin="10">
+      <TextBlock Text="BULLDOZE" Foreground="#77AAFF" FontWeight="Bold" Margin="0,0,0,4"/>
+      <TextBlock Text="-1 = unchanged. Refund values are percentages from 0 to 100."
+                 Foreground="#CCCCCC" TextWrapping="Wrap" Margin="0,0,0,8"/>
+
+      <Grid Margin="0,0,0,8">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="170"/>
+          <ColumnDefinition Width="90"/>
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto"/>
+          <RowDefinition Height="Auto"/>
+          <RowDefinition Height="Auto"/>
+          <RowDefinition Height="Auto"/>
+          <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" Grid.Column="0" Text="Wood refund %" Foreground="White" VerticalAlignment="Center" Margin="0,3,8,3"/>
+        <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding WoodRefundPercentText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" MaxLength="4" HorizontalContentAlignment="Right" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+
+        <TextBlock Grid.Row="1" Grid.Column="0" Text="Stone refund %" Foreground="White" VerticalAlignment="Center" Margin="0,3,8,3"/>
+        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding StoneRefundPercentText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" MaxLength="4" HorizontalContentAlignment="Right" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+
+        <TextBlock Grid.Row="2" Grid.Column="0" Text="Iron refund %" Foreground="White" VerticalAlignment="Center" Margin="0,3,8,3"/>
+        <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding IronRefundPercentText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" MaxLength="4" HorizontalContentAlignment="Right" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+
+        <TextBlock Grid.Row="3" Grid.Column="0" Text="Pitch refund %" Foreground="White" VerticalAlignment="Center" Margin="0,3,8,3"/>
+        <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding PitchRefundPercentText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" MaxLength="4" HorizontalContentAlignment="Right" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+
+        <TextBlock Grid.Row="4" Grid.Column="0" Text="Gold refund %" Foreground="White" VerticalAlignment="Center" Margin="0,3,8,3"/>
+        <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding GoldRefundPercentText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" MaxLength="4" HorizontalContentAlignment="Right" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+      </Grid>
+
+      <CheckBox IsChecked="{Binding KeepStorageContent, Mode=TwoWay}"
+                Content="Keep Storage Content"
+                Foreground="White"
+                Margin="0,4,14,4"/>
+    </StackPanel>
+  </ScrollViewer>
+</Grid>

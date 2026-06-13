@@ -186,6 +186,8 @@ namespace UnitLimit
             if (args.Phase != EventHookPhase.Post || args.ReturnValue <= 0 || args.ReturnValue > int.MaxValue)
                 return;
 
+            LogDebug($"OnUnitCreate: unitId={args.ReturnValue}, type={args.UnitType}, owner={args.PlayerOwnerId}, phase={args.Phase}");
+
             NotifyNativeSnapshotChanged((int)args.ReturnValue, ActiveUnitChangeReason.Created);
         }
 
