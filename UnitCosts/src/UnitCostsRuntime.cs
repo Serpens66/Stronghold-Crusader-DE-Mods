@@ -80,7 +80,7 @@ namespace UnitCosts
                 .Where(args => args.Phase == EventHookPhase.Post)
                 .Subscribe(OnBuildingSpawn);
 
-            makeTroopGameActionHook = new MakeTroopGameActionHook(log, ShouldBlockMakeTroopGameAction);
+            makeTroopGameActionHook = new MakeTroopGameActionHook(log, DecideMakeTroopGameAction);
             createTroopHoverHook = new CreateTroopHoverHook(log, UpdateRecruitmentCostTooltip, ClearRecruitmentCostTooltip);
             siegeBuildHoverHook = new SiegeBuildHoverHook(log, UpdateSiegeBuildCostTooltip, ClearRecruitmentCostTooltip);
 
@@ -191,45 +191,72 @@ namespace UnitCosts
             Shared.DebugLogHelper.LogDebug(log, "Applied human extra unit cost rows:", configuredUnits);
         }
 
-        private bool ShouldBlockMakeTroopGameAction(int amount, eChimps unitType, int rawUnitType)
+        private MakeTroopGameActionDecision DecideMakeTroopGameAction(int amount, eChimps unitType, int rawUnitType)
         {
             try
             {
-                return ShouldBlockLocalHumanRecruitment(amount, unitType, rawUnitType);
+                return DecideLocalHumanRecruitment(amount, unitType, rawUnitType);
             }
             catch (Exception ex)
             {
                 Shared.DebugLogHelper.LogDebug(log, "UnitCosts local recruitment cost check failed:", ex.Message);
-                return false;
+                return MakeTroopGameActionDecision.AllowOriginal();
             }
         }
 
-        private bool ShouldBlockLocalHumanRecruitment(int amount, eChimps unitType, int rawUnitType)
+        private MakeTroopGameActionDecision DecideLocalHumanRecruitment(int amount, eChimps unitType, int rawUnitType)
         {
             if (amount <= 0)
-                return false;
+                return MakeTroopGameActionDecision.AllowOriginal();
 
             int playerId = GetLocalHumanPlayerId();
             if (playerId <= 0)
-                return false;
+                return MakeTroopGameActionDecision.AllowOriginal();
 
             if (!TryGetHumanExtraCosts(unitType, out UnitExtraCostValues costs))
-                return false;
+                return MakeTroopGameActionDecision.AllowOriginal();
 
-            if (HasEnoughExtraCosts(playerId, costs, amount, out eGoods missingGood, out int requiredAmount, out int availableAmount))
-                return false;
+            if (!TryGetMaxAffordableExtraCostAmount(
+                playerId,
+                costs,
+                out int affordableAmount,
+                out eGoods limitingGood,
+                out int limitingRequiredPerUnit,
+                out int limitingAvailableAmount))
+            {
+                return MakeTroopGameActionDecision.AllowOriginal();
+            }
+
+            if (affordableAmount >= amount)
+                return MakeTroopGameActionDecision.AllowOriginal();
+
+            if (affordableAmount > 0)
+            {
+                LogDebug(
+                    "UnitCosts reduced recruitment amount:",
+                    "unit", unitType,
+                    "player", playerId,
+                    "limiting", limitingGood,
+                    "requiredPerUnit", limitingRequiredPerUnit,
+                    "available", limitingAvailableAmount,
+                    "requestedAmount", amount,
+                    "allowedAmount", affordableAmount,
+                    "rawUnitType", rawUnitType);
+                return MakeTroopGameActionDecision.ForwardAmount(affordableAmount);
+            }
 
             LogDebug(
                 "UnitCosts blocked recruitment:",
                 "unit", unitType,
                 "player", playerId,
-                "missing", missingGood,
-                "required", requiredAmount,
-                "available", availableAmount,
-                "amount", amount,
+                "missing", limitingGood,
+                "requiredPerUnit", limitingRequiredPerUnit,
+                "available", limitingAvailableAmount,
+                "requestedAmount", amount,
+                "allowedAmount", affordableAmount,
                 "rawUnitType", rawUnitType);
             ShowMissingResourcesMessage();
-            return true;
+            return MakeTroopGameActionDecision.BlockAction();
         }
 
         private void UpdateRecruitmentCostTooltip(MainViewModel mainViewModel)
@@ -515,6 +542,45 @@ namespace UnitCosts
             requiredAmount = 0;
             availableAmount = 0;
             return true;
+        }
+
+        private static bool TryGetMaxAffordableExtraCostAmount(
+            int playerId,
+            UnitExtraCostValues costs,
+            out int affordableAmount,
+            out eGoods limitingGood,
+            out int limitingRequiredPerUnit,
+            out int limitingAvailableAmount)
+        {
+            bool hasPositiveCost = false;
+            affordableAmount = int.MaxValue;
+            limitingGood = eGoods.STORED_NULL;
+            limitingRequiredPerUnit = 0;
+            limitingAvailableAmount = 0;
+
+            foreach (KeyValuePair<eGoods, int> entry in costs.Costs)
+            {
+                int requiredPerUnit = entry.Value;
+                if (requiredPerUnit <= 0)
+                    continue;
+
+                hasPositiveCost = true;
+                int available = Math.Max(0, GamePlayerManagerAPI.Instance.GetGoodAmount(playerId, entry.Key));
+                int affordableForGood = available / requiredPerUnit;
+                if (affordableForGood >= affordableAmount)
+                    continue;
+
+                affordableAmount = affordableForGood;
+                limitingGood = entry.Key;
+                limitingRequiredPerUnit = requiredPerUnit;
+                limitingAvailableAmount = available;
+            }
+
+            if (hasPositiveCost)
+                return true;
+
+            affordableAmount = 0;
+            return false;
         }
 
         private static void ApplyExtraCosts(int playerId, UnitExtraCostValues costs, int multiplier)

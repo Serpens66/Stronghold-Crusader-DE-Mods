@@ -19,11 +19,7 @@
 
 -- C# mods:
 
--- [UnitLimit/MakeTroopGameActionHook.cs (line 75)](/d:/CDesktopLink/Unterlagen/Mods/Stronghold Crusader DE/Meine Mods/UnitLimit/src/MakeTroopGameActionHook.cs:75) und [UnitLimitRuntime.UnitLimits.cs (line 88)](/d:/CDesktopLink/Unterlagen/Mods/Stronghold Crusader DE/Meine Mods/UnitLimit/src/UnitLimitRuntime.UnitLimits.cs:88): Ctrl-Rekrutierung wird als amount=1000 behandelt. Damit wird eine Ctrl-Rekrutierung fast immer komplett blockiert, sobald ein Limit unter 1000 liegt, selbst wenn noch freie Slots vorhanden sind.
--- Fix: 1000 als “maximal möglich” interpretieren und gegen limit - effectiveCount begrenzen, nicht wörtlich als 1000 Einheiten. (genauso mit Shift für +5)
 
--- [UnitCosts/MakeTroopGameActionHook.cs (line 75)](/d:/CDesktopLink/Unterlagen/Mods/Stronghold Crusader DE/Meine Mods/UnitCosts/src/MakeTroopGameActionHook.cs:75) und [UnitCostsRuntime.cs (line 219)](/d:/CDesktopLink/Unterlagen/Mods/Stronghold Crusader DE/Meine Mods/UnitCosts/src/UnitCostsRuntime.cs:219): gleiches Ctrl-Problem bei Zusatzkosten. Der Code verlangt Ressourcen für 1000 Einheiten und blockiert dadurch praktisch jede Ctrl-Rekrutierung mit Zusatzkosten.
--- Fix: Ctrl-Menge auf die real bezahlbare/erlaubte Menge reduzieren oder nur blockieren, wenn nicht einmal 1 Einheit bezahlbar ist.
 
 -- [StartConditionsRuntime.StartResources.cs (line 85)](/d:/CDesktopLink/Unterlagen/Mods/Stronghold Crusader DE/Meine Mods/StartConditions/src/StartConditionsRuntime.StartResources.cs:85): MultiplyGoodsGain addiert args.Amount * multiplyGoods zusätzlich zum Original. Falls die UI-Absicht “2x Gewinn” ist, erzeugt 2 effektiv 3x. Zusammen mit dem Critical-Bug eskaliert das.
 -- Fix: Semantik festlegen. Für echte Multiplikation args.Amount * (factor - 1) addieren und factor <= 1 als keine Zusatzmenge behandeln.

@@ -118,8 +118,8 @@ namespace UnitLimit
         private int NormalizeMakeTroopAmount(int structureID, int state, int value2)
         {
             // For MakeTroop the generic structureID GameAction parameter is the requested amount.
-            // Vanilla passes 1, 5 with Shift, or 1000 with Ctrl.
-            if (structureID == 1 || structureID == 5 || structureID == 1000)
+            // Vanilla passes 1, 5 with Shift, or 1000 with Ctrl. Other hooks can forward exact amounts.
+            if (structureID > 0)
                 return structureID;
 
             log.LogWarning("UnitLimit MakeTroop received unexpected amount parameter: " +

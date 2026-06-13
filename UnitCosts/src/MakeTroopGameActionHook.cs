@@ -7,20 +7,47 @@ using System.Reflection;
 
 namespace UnitCosts
 {
+    internal struct MakeTroopGameActionDecision
+    {
+        public readonly bool Block;
+        public readonly int AmountToForward;
+
+        private MakeTroopGameActionDecision(bool block, int amountToForward)
+        {
+            Block = block;
+            AmountToForward = amountToForward;
+        }
+
+        public static MakeTroopGameActionDecision AllowOriginal()
+        {
+            return new MakeTroopGameActionDecision(false, 0);
+        }
+
+        public static MakeTroopGameActionDecision ForwardAmount(int amount)
+        {
+            return new MakeTroopGameActionDecision(false, amount);
+        }
+
+        public static MakeTroopGameActionDecision BlockAction()
+        {
+            return new MakeTroopGameActionDecision(true, 0);
+        }
+    }
+
     internal sealed class MakeTroopGameActionHook : IDisposable
     {
         private readonly ManualLogSource log;
-        private readonly Func<int, eChimps, int, bool> shouldBlockMakeTroop;
+        private readonly Func<int, eChimps, int, MakeTroopGameActionDecision> decideMakeTroop;
         private readonly Hook hook;
         private readonly EngineInterfaceGameActionDelegate trampoline;
         private bool disposed;
 
         private delegate int EngineInterfaceGameActionDelegate(Enums.GameActionCommand command, int structureID, int state, int value2);
 
-        public MakeTroopGameActionHook(ManualLogSource log, Func<int, eChimps, int, bool> shouldBlockMakeTroop)
+        public MakeTroopGameActionHook(ManualLogSource log, Func<int, eChimps, int, MakeTroopGameActionDecision> decideMakeTroop)
         {
             this.log = log;
-            this.shouldBlockMakeTroop = shouldBlockMakeTroop;
+            this.decideMakeTroop = decideMakeTroop;
 
             MethodInfo gameActionMethod = typeof(EngineInterface).GetMethod(
                 nameof(EngineInterface.GameAction),
@@ -56,9 +83,29 @@ namespace UnitCosts
             try
             {
                 int amount = NormalizeMakeTroopAmount(structureID, state, value2);
-                bool block = shouldBlockMakeTroop(amount, (eChimps)state, state);
-                if (block)
+                MakeTroopGameActionDecision decision = decideMakeTroop(amount, (eChimps)state, state);
+                if (decision.Block)
+                {
+                    Shared.DebugLogHelper.LogDebug(
+                        log,
+                        "UnitCosts MakeTroop hook blocked original action:",
+                        "originalAmount", amount,
+                        "state", state,
+                        "value2", value2);
                     return 0;
+                }
+
+                if (decision.AmountToForward > 0 && decision.AmountToForward != amount)
+                {
+                    Shared.DebugLogHelper.LogDebug(
+                        log,
+                        "UnitCosts MakeTroop hook replaced original action:",
+                        "originalAmount", amount,
+                        "forwardedAmount", decision.AmountToForward,
+                        "state", state,
+                        "value2", value2);
+                    return trampoline(command, decision.AmountToForward, state, value2);
+                }
             }
             catch (Exception ex)
             {
@@ -71,8 +118,8 @@ namespace UnitCosts
         private int NormalizeMakeTroopAmount(int structureID, int state, int value2)
         {
             // For MakeTroop the generic structureID GameAction parameter is the requested amount.
-            // Vanilla passes 1, 5 with Shift, or 1000 with Ctrl.
-            if (structureID == 1 || structureID == 5 || structureID == 1000)
+            // Vanilla passes 1, 5 with Shift, or 1000 with Ctrl. Other hooks can forward exact amounts.
+            if (structureID > 0)
                 return structureID;
 
             log.LogWarning("UnitCosts MakeTroop received unexpected amount parameter: " +
