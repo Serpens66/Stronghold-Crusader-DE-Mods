@@ -15,6 +15,49 @@
 
 
 
+
+
+-- C# mods:
+
+-- [UnitLimit/MakeTroopGameActionHook.cs (line 75)](/d:/CDesktopLink/Unterlagen/Mods/Stronghold Crusader DE/Meine Mods/UnitLimit/src/MakeTroopGameActionHook.cs:75) und [UnitLimitRuntime.UnitLimits.cs (line 88)](/d:/CDesktopLink/Unterlagen/Mods/Stronghold Crusader DE/Meine Mods/UnitLimit/src/UnitLimitRuntime.UnitLimits.cs:88): Ctrl-Rekrutierung wird als amount=1000 behandelt. Damit wird eine Ctrl-Rekrutierung fast immer komplett blockiert, sobald ein Limit unter 1000 liegt, selbst wenn noch freie Slots vorhanden sind.
+-- Fix: 1000 als “maximal möglich” interpretieren und gegen limit - effectiveCount begrenzen, nicht wörtlich als 1000 Einheiten. (genauso mit Shift für +5)
+
+-- [UnitCosts/MakeTroopGameActionHook.cs (line 75)](/d:/CDesktopLink/Unterlagen/Mods/Stronghold Crusader DE/Meine Mods/UnitCosts/src/MakeTroopGameActionHook.cs:75) und [UnitCostsRuntime.cs (line 219)](/d:/CDesktopLink/Unterlagen/Mods/Stronghold Crusader DE/Meine Mods/UnitCosts/src/UnitCostsRuntime.cs:219): gleiches Ctrl-Problem bei Zusatzkosten. Der Code verlangt Ressourcen für 1000 Einheiten und blockiert dadurch praktisch jede Ctrl-Rekrutierung mit Zusatzkosten.
+-- Fix: Ctrl-Menge auf die real bezahlbare/erlaubte Menge reduzieren oder nur blockieren, wenn nicht einmal 1 Einheit bezahlbar ist.
+
+-- [StartConditionsRuntime.StartResources.cs (line 85)](/d:/CDesktopLink/Unterlagen/Mods/Stronghold Crusader DE/Meine Mods/StartConditions/src/StartConditionsRuntime.StartResources.cs:85): MultiplyGoodsGain addiert args.Amount * multiplyGoods zusätzlich zum Original. Falls die UI-Absicht “2x Gewinn” ist, erzeugt 2 effektiv 3x. Zusammen mit dem Critical-Bug eskaliert das.
+-- Fix: Semantik festlegen. Für echte Multiplikation args.Amount * (factor - 1) addieren und factor <= 1 als keine Zusatzmenge behandeln.
+
+-- Medium
+-- [BuildingCostsRuntime.cs (line 49)](/d:/CDesktopLink/Unterlagen/Mods/Stronghold Crusader DE/Meine Mods/BuildingCosts/src/BuildingCostsRuntime.cs:49), [BuildingLimitRuntime.cs (line 64)](/d:/CDesktopLink/Unterlagen/Mods/Stronghold Crusader DE/Meine Mods/BuildingLimit/src/BuildingLimitRuntime.cs:64), [StartConditionsRuntime.cs (line 76)](/d:/CDesktopLink/Unterlagen/Mods/Stronghold Crusader DE/Meine Mods/StartConditions/src/StartConditionsRuntime.cs:76), [UnitCostsRuntime.cs (line 64)](/d:/CDesktopLink/Unterlagen/Mods/Stronghold Crusader DE/Meine Mods/UnitCosts/src/UnitCostsRuntime.cs:64), [UnitLimitRuntime.cs (line 108)](/d:/CDesktopLink/Unterlagen/Mods/Stronghold Crusader DE/Meine Mods/UnitLimit/src/UnitLimitRuntime.cs:108): mehrere R3-Subscriptions werden nicht gespeichert und können in Dispose() nicht abgemeldet werden. SomeSettings und die Cache-Klassen machen es korrekt.
+-- Fix: pro Runtime List<IDisposable> subscriptions einführen, alle .Subscribe(...)-Rückgaben hinzufügen, in Dispose() disposen/clearen und hooksSubscribed=false setzen.
+
+-- [UnitCostsRuntime.cs (line 410)](/d:/CDesktopLink/Unterlagen/Mods/Stronghold Crusader DE/Meine Mods/UnitCosts/src/UnitCostsRuntime.cs:410): Siege-Zusatzkosten blockieren Placement nur für lokalen Spieler. [OnBuildingSpawn (line 453)](/d:/CDesktopLink/Unterlagen/Mods/Stronghold Crusader DE/Meine Mods/UnitCosts/src/UnitCostsRuntime.cs:453) überspringt bei fehlenden Ressourcen nur die Zusatzkosten, lässt das Siege Tent aber bestehen. In Multiplayer kann das je nach Autorität/Client-Eventfluss einen Bypass erzeugen.
+-- Fix: Host-/Autoritätsmodell klären; notfalls Spawn rückgängig machen oder Kostenprüfung auf der autoritativen Seite erzwingen.
+
+-- [BuildingLimitRuntime.BuildingLimits.cs (line 127)](/d:/CDesktopLink/Unterlagen/Mods/Stronghold Crusader DE/Meine Mods/BuildingLimit/src/BuildingLimitRuntime.BuildingLimits.cs:127): Tooltip wird bei jedem HUD_Main.UpdateRollover neu berechnet und Show() aufgerufen. BuildingCosts hat dafür bereits einen Cache; BuildingLimit nicht.
+-- Fix: last tooltipStruct/localPlayerId/count/limit cachen und nur bei Änderung ViewModel aktualisieren.
+
+-- Low
+-- [UnitCostsRuntime.cs (line 675)](/d:/CDesktopLink/Unterlagen/Mods/Stronghold Crusader DE/Meine Mods/UnitCosts/src/UnitCostsRuntime.cs:675): GetMainViewModelMemberValue sucht Field/Property per Reflection bei jedem Hover. Gleiches Muster in UnitLimitRuntime.Tooltips.cs.
+-- Fix: FieldInfo/PropertyInfo statisch cachen.
+
+-- [SomeSettingsRuntime.cs (line 107)](/d:/CDesktopLink/Unterlagen/Mods/Stronghold Crusader DE/Meine Mods/SomeSettings/src/SomeSettingsRuntime.cs:107): Duplicate-Schutz für Storage-Refund nutzt nur BuildingId. Falls IDs sehr schnell wiederverwendet werden, kann ein echter Refund innerhalb von 2 Sekunden übersprungen werden.
+-- Fix: Key um Player/Structure/evtl. Tick erweitern oder Event-spezifisch statt zeitbasiert deduplizieren.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 -- OnUnitDeleted wird ausgeführt bei:
 -- - Sterben einer unit im Kampf.
 -- - NICHT beim auflösen (vermutlich OnUnitTransition? nur in C# nicht lua)
