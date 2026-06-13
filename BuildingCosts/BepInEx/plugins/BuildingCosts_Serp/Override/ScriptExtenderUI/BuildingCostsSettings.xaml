@@ -22,11 +22,26 @@
           <ColumnDefinition Width="78"/>
         </Grid.ColumnDefinitions>
         <TextBlock Grid.Column="0" Text="{Binding BuildingHeaderText}" Foreground="#CCCCCC" FontWeight="Bold" Margin="0,0,8,0"/>
-        <TextBlock Grid.Column="1" Text="{Binding WoodHeaderText}" Foreground="#CCCCCC" FontWeight="Bold" HorizontalAlignment="Right" Margin="3,0"/>
-        <TextBlock Grid.Column="2" Text="{Binding StoneHeaderText}" Foreground="#CCCCCC" FontWeight="Bold" HorizontalAlignment="Right" Margin="3,0"/>
-        <TextBlock Grid.Column="3" Text="{Binding IronHeaderText}" Foreground="#CCCCCC" FontWeight="Bold" HorizontalAlignment="Right" Margin="3,0"/>
-        <TextBlock Grid.Column="4" Text="{Binding PitchHeaderText}" Foreground="#CCCCCC" FontWeight="Bold" HorizontalAlignment="Right" Margin="3,0"/>
-        <TextBlock Grid.Column="5" Text="{Binding GoldHeaderText}" Foreground="#CCCCCC" FontWeight="Bold" HorizontalAlignment="Right" Margin="3,0"/>
+        <StackPanel Grid.Column="1" Margin="3,0">
+          <Image Source="{Binding WoodHeaderIcon}" Width="18" Height="18" Stretch="Uniform" HorizontalAlignment="Right" Margin="0,0,0,1"/>
+          <TextBlock Text="{Binding WoodHeaderText}" Foreground="#CCCCCC" FontWeight="Bold" TextAlignment="Right"/>
+        </StackPanel>
+        <StackPanel Grid.Column="2" Margin="3,0">
+          <Image Source="{Binding StoneHeaderIcon}" Width="18" Height="18" Stretch="Uniform" HorizontalAlignment="Right" Margin="0,0,0,1"/>
+          <TextBlock Text="{Binding StoneHeaderText}" Foreground="#CCCCCC" FontWeight="Bold" TextAlignment="Right"/>
+        </StackPanel>
+        <StackPanel Grid.Column="3" Margin="3,0">
+          <Image Source="{Binding IronHeaderIcon}" Width="18" Height="18" Stretch="Uniform" HorizontalAlignment="Right" Margin="0,0,0,1"/>
+          <TextBlock Text="{Binding IronHeaderText}" Foreground="#CCCCCC" FontWeight="Bold" TextAlignment="Right"/>
+        </StackPanel>
+        <StackPanel Grid.Column="4" Margin="3,0">
+          <Image Source="{Binding PitchHeaderIcon}" Width="18" Height="18" Stretch="Uniform" HorizontalAlignment="Right" Margin="0,0,0,1"/>
+          <TextBlock Text="{Binding PitchHeaderText}" Foreground="#CCCCCC" FontWeight="Bold" TextAlignment="Right"/>
+        </StackPanel>
+        <StackPanel Grid.Column="5" Margin="3,0">
+          <Image Source="{Binding GoldHeaderIcon}" Width="18" Height="18" Stretch="Uniform" HorizontalAlignment="Right" Margin="0,0,0,1"/>
+          <TextBlock Text="{Binding GoldHeaderText}" Foreground="#CCCCCC" FontWeight="Bold" TextAlignment="Right"/>
+        </StackPanel>
       </Grid>
       <ItemsControl ItemsSource="{Binding CostEntries}" Margin="0,3,0,8">
         <ItemsControl.ItemTemplate>
@@ -40,12 +55,20 @@
                 <ColumnDefinition Width="78"/>
                 <ColumnDefinition Width="78"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Grid.Column="0"
-                         Text="{Binding DisplayName}"
-                         ToolTip="{Binding BuildingToolTip}"
-                         Foreground="White"
-                         VerticalAlignment="Center"
-                         Margin="0,2,8,2"/>
+              <StackPanel Grid.Column="0"
+                          Orientation="Horizontal"
+                          ToolTip="{Binding BuildingToolTip}"
+                          VerticalAlignment="Center"
+                          Margin="0,2,8,2">
+                <Image Source="{Binding IconImage}"
+                       Width="18"
+                       Height="18"
+                       Stretch="Uniform"
+                       Margin="0,0,6,0"/>
+                <TextBlock Text="{Binding DisplayName}"
+                           Foreground="White"
+                           VerticalAlignment="Center"/>
+              </StackPanel>
               <TextBox Grid.Column="1"
                        Text="{Binding WoodText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}"
                        ToolTip="{Binding WoodToolTip}"

@@ -2,6 +2,7 @@ using SHCDESE.API.Components.Network;
 using SHCDESE.Interop;
 using SHCDESE.NoesisUtil;
 using SHCDESE.ViewModels;
+using Noesis;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -140,7 +141,7 @@ MAPPER_POND1=-1";
 
                 string key = parts[0].Trim();
                 values.TryGetValue(key, out int value);
-                entries.Add(new LimitEntryViewModel(key, FormatDisplayName(key), value));
+                entries.Add(new LimitEntryViewModel(key, FormatDisplayName(key), null, value));
             }
 
             return entries;
@@ -230,6 +231,86 @@ MAPPER_POND1=-1";
             return value;
         }
 
+        private static ImageSource GetBuildingIconImage(string key)
+        {
+            switch (key)
+            {
+                case "MAPPER_WOODSMAN": return GetResourceImage("UI-Buildings D003");
+                case "MAPPER_HUNTER": return GetResourceImage("UI-Buildings E001");
+                case "MAPPER_OXENBASE": return GetResourceImage("UI-Buildings D007");
+                case "MAPPER_QUARRY": return GetResourceImage("UI-Buildings D005");
+                case "MAPPER_IRON_MINE": return GetResourceImage("UI-Buildings D009");
+                case "MAPPER_PITCH_WORKINGS": return GetResourceImage("UI-Buildings D011");
+                case "MAPPER_WHEATFARM": return GetResourceImage("UI-Buildings E007");
+                case "MAPPER_HOPSFARM": return GetResourceImage("UI-Buildings E009");
+                case "MAPPER_APPLEFARM": return GetResourceImage("UI-Buildings E005");
+                case "MAPPER_CATTLEFARM": return GetResourceImage("UI-Buildings E003");
+                case "MAPPER_MILL": return GetResourceImage("UI-Buildings J005");
+                case "MAPPER_BAKER": return GetResourceImage("UI-Buildings J003");
+                case "MAPPER_BREWER": return GetResourceImage("UI-Buildings J007");
+                case "MAPPER_HOVEL": return GetResourceImage("UI-Buildings F001");
+                case "MAPPER_GRANARY": return GetResourceImage("UI-Buildings J001");
+                case "MAPPER_STORES": return GetResourceImage("UI-Buildings D001");
+                case "MAPPER_ARMOURY": return GetResourceImage("UI-Buildings C013");
+                case "MAPPER_INN": return GetResourceImage("UI-Buildings J009");
+                case "MAPPER_HEALER": return GetResourceImage("UI-Buildings F009");
+                case "MAPPER_FLETCHER": return GetResourceImage("UI-Buildings I001");
+                case "MAPPER_POLETURNER": return GetResourceImage("UI-Buildings I003");
+                case "MAPPER_BLACKSMITH": return GetResourceImage("UI-Buildings I005");
+                case "MAPPER_ARMOURER": return GetResourceImage("UI-Buildings I009");
+                case "MAPPER_TANNER": return GetResourceImage("UI-Buildings I007");
+                case "MAPPER_STABLES": return GetResourceImage("UI-Buildings M007");
+                case "MAPPER_OIL_SMELTER": return GetResourceImage("UI-Buildings M011");
+                case "MAPPER_WELL": return GetResourceImage("UI-Buildings F011");
+                case "MAPPER_WATERPOT": return GetResourceImage("UI-Buildings F013");
+                case "MAPPER_CHURCH1": return GetResourceImage("UI-Buildings F003");
+                case "MAPPER_CHURCH2": return GetResourceImage("UI-Buildings F005");
+                case "MAPPER_CHURCH3": return GetResourceImage("UI-Buildings F007");
+                case "MAPPER_TOWER1": return GetResourceImage("UI-Buildings K001");
+                case "MAPPER_TOWER2": return GetResourceImage("UI-Buildings K003");
+                case "MAPPER_TOWER3": return GetResourceImage("UI-Buildings K005");
+                case "MAPPER_TOWER4": return GetResourceImage("UI-Buildings K007");
+                case "MAPPER_TOWER5": return GetResourceImage("UI-Buildings K009");
+                case "MAPPER_GATE_MAIN": return GetResourceImage("UI-Buildings L005");
+                case "MAPPER_GATE_INNER": return GetResourceImage("UI-Buildings L003");
+                case "MAPPER_GATE_WOOD": return GetResourceImage("UI-Buildings L001");
+                case "MAPPER_DRAWBRIDGE": return GetResourceImage("UI-Buildings L007");
+                case "MAPPER_KILLING_PIT": return GetResourceImage("UI-Buildings L013");
+                case "MAPPER_BRAZIER": return GetResourceImage("UI-Buildings L015");
+                case "MAPPER_MANGONEL": return GetResourceImage("UI-Buildings M003");
+                case "MAPPER_BALLISTA": return GetResourceImage("UI-Buildings M005");
+                case "MAPPER_MAYPOLE": return GetResourceImage("UI-Buildings H001");
+                case "MAPPER_GALLOWS": return GetResourceImage("UI-Buildings G001");
+                case "MAPPER_STOCKS": return GetResourceImage("UI-Buildings G005");
+                case "MAPPER_GARDEN1": return GetResourceImage("UI-Buildings H005");
+                case "MAPPER_CESS_PIT1": return GetResourceImage("UI-Buildings G003");
+                case "MAPPER_BURNING_STAKE": return GetResourceImage("UI-Buildings G009");
+                case "MAPPER_GIBBET": return GetResourceImage("UI-Buildings G015");
+                case "MAPPER_DUNGEON": return GetResourceImage("UI-Buildings G011");
+                case "MAPPER_RACK_STRETCHING": return GetResourceImage("UI-Buildings G013");
+                case "MAPPER_CHOPPING_BLOCK": return GetResourceImage("UI-Buildings G017");
+                case "MAPPER_DUNKING_STOOL": return GetResourceImage("UI-Buildings G019");
+                case "MAPPER_DOG_CAGE": return GetResourceImage("UI-Buildings L009");
+                case "MAPPER_STATUE1": return GetResourceImage("UI-Buildings H007");
+                case "MAPPER_SHRINE1": return GetResourceImage("UI-Buildings H009");
+                case "MAPPER_DANCING_BEAR": return GetResourceImage("UI-Buildings H003");
+                case "MAPPER_POND1": return GetResourceImage("UI-Buildings H011");
+                default: return null;
+            }
+        }
+
+        private static ImageSource GetResourceImage(string key)
+        {
+            try
+            {
+                return GUI.GetApplicationResources()?[key] as ImageSource;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
         public sealed class LimitEntryViewModel : INotifyPropertyChanged
         {
             private readonly Action changed;
@@ -238,7 +319,7 @@ MAPPER_POND1=-1";
 
             public event PropertyChangedEventHandler PropertyChanged;
 
-            public LimitEntryViewModel(string key, string displayName, int limit, Action changed = null)
+            public LimitEntryViewModel(string key, string displayName, ImageSource iconImage, int limit, Action changed = null)
             {
                 Key = key;
                 DisplayName = displayName;
@@ -247,6 +328,7 @@ MAPPER_POND1=-1";
             }
 
             public string Key { get; }
+            public ImageSource IconImage => GetBuildingIconImage(Key);
 
             public string DisplayName
             {
@@ -310,7 +392,7 @@ MAPPER_POND1=-1";
         {
             List<LimitEntryViewModel> entries = new List<LimitEntryViewModel>();
             foreach (LimitEntryViewModel entry in CreateLimitEntries(serializedLimits))
-                entries.Add(new LimitEntryViewModel(entry.Key, entry.DisplayName, entry.Limit, OnEntryChanged));
+                entries.Add(new LimitEntryViewModel(entry.Key, entry.DisplayName, entry.IconImage, entry.Limit, OnEntryChanged));
             return entries;
         }
     }

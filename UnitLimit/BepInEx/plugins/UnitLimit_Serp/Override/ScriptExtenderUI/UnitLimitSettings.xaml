@@ -19,12 +19,20 @@
                 <ColumnDefinition Width="260"/>
                 <ColumnDefinition Width="90"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Grid.Column="0"
-                         Text="{Binding DisplayName}"
-                         ToolTip="{Binding Key}"
-                         Foreground="White"
-                         VerticalAlignment="Center"
-                         Margin="0,2,8,2"/>
+              <StackPanel Grid.Column="0"
+                          Orientation="Horizontal"
+                          ToolTip="{Binding Key}"
+                          VerticalAlignment="Center"
+                          Margin="0,2,8,2">
+                <Image Source="{Binding IconImage}"
+                       Width="18"
+                       Height="18"
+                       Stretch="Uniform"
+                       Margin="0,0,6,0"/>
+                <TextBlock Text="{Binding DisplayName}"
+                           Foreground="White"
+                           VerticalAlignment="Center"/>
+              </StackPanel>
               <TextBox Grid.Column="1"
                        Text="{Binding LimitText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}"
                        ToolTip="{Binding LimitToolTip}"

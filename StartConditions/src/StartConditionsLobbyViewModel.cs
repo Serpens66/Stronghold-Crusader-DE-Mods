@@ -2,6 +2,7 @@ using SHCDESE.API.Components.Network;
 using SHCDESE.Interop;
 using SHCDESE.NoesisUtil;
 using SHCDESE.ViewModels;
+using Noesis;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -304,6 +305,7 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
                 entries.Add(new AmountEntryViewModel(
                     key,
                     FormatDisplayName(key, "STORED_"),
+                    null,
                     GetValueOrDefault(aiValues, key, -1),
                     GetValueOrDefault(humanValues, key, -1),
                     FormatVanillaAmount(normalCrusaderValues, key),
@@ -350,9 +352,11 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
             List<AmountEntryViewModel> entries = new List<AmountEntryViewModel>(keys.Length);
             foreach (string key in keys)
             {
+                eChimps unitType = Enum.TryParse(key, out eChimps parsedUnitType) ? parsedUnitType : eChimps.CHIMP_TYPE_NULL;
                 entries.Add(new AmountEntryViewModel(
                     key,
                     FormatDisplayName(key, "CHIMP_TYPE_"),
+                    null,
                     GetValueOrDefault(aiValues, key, 0),
                     GetValueOrDefault(humanValues, key, 0),
                     string.Empty,
@@ -480,6 +484,7 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
                 entries.Add(new AmountEntryViewModel(
                     entry.Key,
                     entry.DisplayName,
+                    entry.IconImage,
                     entry.AIAmount,
                     entry.HumanAmount,
                     entry.NormalCrusaderAmountText,
@@ -495,6 +500,7 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
                 entries.Add(new AmountEntryViewModel(
                     entry.Key,
                     entry.DisplayName,
+                    entry.IconImage,
                     entry.AIAmount,
                     entry.HumanAmount,
                     entry.NormalCrusaderAmountText,
@@ -535,6 +541,64 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
             setValue(parsed);
         }
 
+        private static ImageSource GetGoodIconImage(eGoods good)
+        {
+            try
+            {
+                return CrusaderDE.MainViewModel.Instance?.getSmallGoodsIcon((int)good);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static ImageSource GetUnitIconImage(eChimps unitType)
+        {
+            switch (unitType)
+            {
+                case eChimps.CHIMP_TYPE_ARCHER: return GetResourceImage("UI-Buttons K023 Green");
+                case eChimps.CHIMP_TYPE_SPEARMAN: return GetResourceImage("UI-Buttons K001 Green");
+                case eChimps.CHIMP_TYPE_MACEMAN: return GetResourceImage("UI-Buttons K003 Green");
+                case eChimps.CHIMP_TYPE_XBOWMAN: return GetResourceImage("UI-Buttons K005 Green");
+                case eChimps.CHIMP_TYPE_PIKEMAN: return GetResourceImage("UI-Buttons K025 Green");
+                case eChimps.CHIMP_TYPE_SWORDSMAN: return GetResourceImage("UI-Buttons K007 Green");
+                case eChimps.CHIMP_TYPE_KNIGHT: return GetResourceImage("UI-Buttons K027 Green");
+                case eChimps.CHIMP_TYPE_ENGINEER: return GetResourceImage("UI-Buttons K009 Green");
+                case eChimps.CHIMP_TYPE_MONK: return GetResourceImage("UI-Buttons K011 Green");
+                case eChimps.CHIMP_TYPE_LADDERMAN: return GetResourceImage("UI-Buttons K029 Green");
+                case eChimps.CHIMP_TYPE_TUNNELER: return GetResourceImage("UI-Buttons K031 Green");
+                case eChimps.CHIMP_TYPE_ARAB_BOW: return GetResourceImage("UI-Buttons K037 Green");
+                case eChimps.CHIMP_TYPE_ARAB_SLAVE: return GetResourceImage("UI-Buttons K039 Green");
+                case eChimps.CHIMP_TYPE_ARAB_SLINGER: return GetResourceImage("UI-Buttons K041 Green");
+                case eChimps.CHIMP_TYPE_ARAB_ASSASIN: return GetResourceImage("UI-Buttons K043 Green");
+                case eChimps.CHIMP_TYPE_ARAB_HORSEMAN: return GetResourceImage("UI-Buttons K045 Green");
+                case eChimps.CHIMP_TYPE_ARAB_SWORDSMAN: return GetResourceImage("UI-Buttons K047 Green");
+                case eChimps.CHIMP_TYPE_ARAB_GRENADIER: return GetResourceImage("UI-Buttons K049 Green");
+                case eChimps.CHIMP_TYPE_BEDOUIN_CAMEL_LANCER: return GetResourceImage("UI-Buttons K053 Green");
+                case eChimps.CHIMP_TYPE_BEDOUIN_HEALER: return GetResourceImage("UI-Buttons K055 Green");
+                case eChimps.CHIMP_TYPE_BEDOUIN_EUNUCH: return GetResourceImage("UI-Buttons K057 Green");
+                case eChimps.CHIMP_TYPE_BEDOUIN_AMBUSHER: return GetResourceImage("UI-Buttons K059 Green");
+                case eChimps.CHIMP_TYPE_BEDOUIN_SKIRMISHER: return GetResourceImage("UI-Buttons K061 Green");
+                case eChimps.CHIMP_TYPE_BEDOUIN_HEAVY_CAMEL: return GetResourceImage("UI-Buttons K063 Green");
+                case eChimps.CHIMP_TYPE_BEDOUIN_SAPPER: return GetResourceImage("UI-Buttons K065 Green");
+                case eChimps.CHIMP_TYPE_BEDOUIN_DEMOLISHER: return GetResourceImage("UI-Buttons K067 Green");
+                default: return null;
+            }
+        }
+
+        private static ImageSource GetResourceImage(string key)
+        {
+            try
+            {
+                return GUI.GetApplicationResources()?[key] as ImageSource;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
         public sealed class AmountEntryViewModel : INotifyPropertyChanged
         {
             private readonly Action changed;
@@ -547,6 +611,7 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
             public AmountEntryViewModel(
                 string key,
                 string displayName,
+                ImageSource iconImage,
                 int aiAmount,
                 int humanAmount,
                 string normalCrusaderAmountText = "",
@@ -563,6 +628,17 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
             }
 
             public string Key { get; }
+            public ImageSource IconImage
+            {
+                get
+                {
+                    if (Enum.TryParse(Key, out eGoods good))
+                        return GetGoodIconImage(good);
+                    if (Enum.TryParse(Key, out eChimps unitType))
+                        return GetUnitIconImage(unitType);
+                    return null;
+                }
+            }
 
             public string NormalCrusaderAmountText { get; }
 

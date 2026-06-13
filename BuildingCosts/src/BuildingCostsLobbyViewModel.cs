@@ -3,6 +3,7 @@ using SHCDESE.API.Components.Network;
 using SHCDESE.Interop;
 using SHCDESE.NoesisUtil;
 using SHCDESE.ViewModels;
+using Noesis;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -111,6 +112,11 @@ namespace BuildingCosts
         public string IronHeaderText => GetLocalizedGoodName(eGoods.STORED_IRON_INGOTS, "Iron");
         public string PitchHeaderText => GetLocalizedGoodName(eGoods.STORED_PITCH_RAW, "Pitch");
         public string GoldHeaderText => GetLocalizedGoodName(eGoods.STORED_GOLD, "Gold");
+        public ImageSource WoodHeaderIcon => GetGoodIconImage(eGoods.STORED_WOOD_PLANKS);
+        public ImageSource StoneHeaderIcon => GetGoodIconImage(eGoods.STORED_STONE_BLOCKS);
+        public ImageSource IronHeaderIcon => GetGoodIconImage(eGoods.STORED_IRON_INGOTS);
+        public ImageSource PitchHeaderIcon => GetGoodIconImage(eGoods.STORED_PITCH_RAW);
+        public ImageSource GoldHeaderIcon => GetGoodIconImage(eGoods.STORED_GOLD);
 
         [SyncHostOnly]
         public string BuildingCosts
@@ -159,6 +165,11 @@ namespace BuildingCosts
             OnPropertyChanged(nameof(IronHeaderText));
             OnPropertyChanged(nameof(PitchHeaderText));
             OnPropertyChanged(nameof(GoldHeaderText));
+            OnPropertyChanged(nameof(WoodHeaderIcon));
+            OnPropertyChanged(nameof(StoneHeaderIcon));
+            OnPropertyChanged(nameof(IronHeaderIcon));
+            OnPropertyChanged(nameof(PitchHeaderIcon));
+            OnPropertyChanged(nameof(GoldHeaderIcon));
             RefreshCostEntryToolTips();
         }
 
@@ -375,10 +386,132 @@ namespace BuildingCosts
                 if (!values.TryGetValue(key, out BuildingCostValues value))
                     value = new BuildingCostValues(-1, -1, -1, -1, -1);
 
-                entries.Add(new CostEntryViewModel(key, FormatDisplayName(key), value, OnEntryChanged));
+                entries.Add(new CostEntryViewModel(key, FormatDisplayName(key), null, value, OnEntryChanged));
             }
 
             return entries;
+        }
+
+        private static ImageSource GetGoodIconImage(eGoods good)
+        {
+            try
+            {
+                return CrusaderDE.MainViewModel.Instance?.getSmallGoodsIcon((int)good);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static ImageSource GetBuildingIconImage(string key)
+        {
+            if (!Enum.TryParse(key, out eMappers mapper))
+                return null;
+
+            Dictionary<eMappers, BuildingCostDefinition> definitions = BuildingCostsRuntime.CreateBuildingCostDefinitions();
+            if (!definitions.TryGetValue(mapper, out BuildingCostDefinition definition) || definition.Structures.Length == 0)
+                return null;
+
+            return GetResourceImage(GetBuildingResourceKey(definition.Structures[0]));
+        }
+
+        private static string GetBuildingResourceKey(eStructs structure)
+        {
+            switch (structure)
+            {
+                case eStructs.STRUCT_WOODCUTTERS_HUT: return "UI-Buildings D003";
+                case eStructs.STRUCT_HUNTERS_HUT: return "UI-Buildings E001";
+                case eStructs.STRUCT_OXEN_BASE: return "UI-Buildings D007";
+                case eStructs.STRUCT_QUARRY: return "UI-Buildings D005";
+                case eStructs.STRUCT_IRON_MINE: return "UI-Buildings D009";
+                case eStructs.STRUCT_PITCH_DIGGER: return "UI-Buildings D011";
+                case eStructs.STRUCT_WHEATFARM: return "UI-Buildings E007";
+                case eStructs.STRUCT_HOPSFARM: return "UI-Buildings E009";
+                case eStructs.STRUCT_APPLEFARM: return "UI-Buildings E005";
+                case eStructs.STRUCT_CATTLEFARM: return "UI-Buildings E003";
+                case eStructs.STRUCT_MILL: return "UI-Buildings J005";
+                case eStructs.STRUCT_BAKERS_WORKSHOP: return "UI-Buildings J003";
+                case eStructs.STRUCT_BREWERS_WORKSHOP: return "UI-Buildings J007";
+                case eStructs.STRUCT_HOVEL: return "UI-Buildings F001";
+                case eStructs.STRUCT_GRANARY: return "UI-Buildings J001";
+                case eStructs.STRUCT_GOODS_YARD: return "UI-Buildings D001";
+                case eStructs.STRUCT_ARMOURY: return "UI-Buildings C013";
+                case eStructs.STRUCT_TRADEPOST: return "UI-Buildings D013";
+                case eStructs.STRUCT_INN: return "UI-Buildings J009";
+                case eStructs.STRUCT_HEALER: return "UI-Buildings F009";
+                case eStructs.STRUCT_FLETCHERS_WORKSHOP: return "UI-Buildings I001";
+                case eStructs.STRUCT_POLETURNERS_WORKSHOP: return "UI-Buildings I003";
+                case eStructs.STRUCT_BLACKSMITHS_WORKSHOP: return "UI-Buildings I005";
+                case eStructs.STRUCT_ARMOURERS_WORKSHOP: return "UI-Buildings I009";
+                case eStructs.STRUCT_TANNERS_WORKSHOP: return "UI-Buildings I007";
+                case eStructs.STRUCT_STABLES: return "UI-Buildings M007";
+                case eStructs.STRUCT_BARRACKS_WOOD: return "UI-Buildings C011";
+                case eStructs.STRUCT_BARRACKS_STONE: return "UI-Buildings C009";
+                case eStructs.STRUCT_ENGINEERS_GUILD: return "UI-Buildings M001";
+                case eStructs.STRUCT_TUNNELLERS_GUILD: return "UI-Buildings M009";
+                case eStructs.STRUCT_OIL_SMELTER: return "UI-Buildings M011";
+                case eStructs.STRUCT_WELL: return "UI-Buildings F011";
+                case eStructs.STRUCT_WATERPOT: return "UI-Buildings F013";
+                case eStructs.STRUCT_CHURCH1: return "UI-Buildings F003";
+                case eStructs.STRUCT_CHURCH2: return "UI-Buildings F005";
+                case eStructs.STRUCT_CHURCH3: return "UI-Buildings F007";
+                case eStructs.STRUCT_TOWER1: return "UI-Buildings K001";
+                case eStructs.STRUCT_TOWER2: return "UI-Buildings K003";
+                case eStructs.STRUCT_TOWER3: return "UI-Buildings K005";
+                case eStructs.STRUCT_TOWER4: return "UI-Buildings K007";
+                case eStructs.STRUCT_TOWER5: return "UI-Buildings K009";
+                case eStructs.STRUCT_GATE_MAIN:
+                case eStructs.STRUCT_GATE_STONE2A:
+                case eStructs.STRUCT_GATE_STONE2B: return "UI-Buildings L005";
+                case eStructs.STRUCT_GATE_INNER:
+                case eStructs.STRUCT_GATE_STONE1A:
+                case eStructs.STRUCT_GATE_STONE1B: return "UI-Buildings L003";
+                case eStructs.STRUCT_GATE_WOOD:
+                case eStructs.STRUCT_GATE_WOOD1A:
+                case eStructs.STRUCT_GATE_WOOD1B:
+                case eStructs.STRUCT_GATE_WOOD1C:
+                case eStructs.STRUCT_GATE_WOOD1D: return "UI-Buildings L001";
+                case eStructs.STRUCT_DRAWBRIDGE: return "UI-Buildings L007";
+                case eStructs.STRUCT_KILLING_PIT: return "UI-Buildings L013";
+                case eStructs.STRUCT_BRAZIER: return "UI-Buildings L015";
+                case eStructs.STRUCT_MANGONEL: return "UI-Buildings M003";
+                case eStructs.STRUCT_BALLISTA: return "UI-Buildings M005";
+                case eStructs.STRUCT_MAYPOLE: return "UI-Buildings H001";
+                case eStructs.STRUCT_GALLOWS: return "UI-Buildings G001";
+                case eStructs.STRUCT_STOCKS: return "UI-Buildings G005";
+                case eStructs.STRUCT_GARDEN: return "UI-Buildings H005";
+                case eStructs.STRUCT_CESS_PIT: return "UI-Buildings G003";
+                case eStructs.STRUCT_BURNING_STAKE: return "UI-Buildings G009";
+                case eStructs.STRUCT_GIBBET: return "UI-Buildings G015";
+                case eStructs.STRUCT_DUNGEON: return "UI-Buildings G011";
+                case eStructs.STRUCT_RACK_STRETCHING: return "UI-Buildings G013";
+                case eStructs.STRUCT_CHOPPING_BLOCK: return "UI-Buildings G017";
+                case eStructs.STRUCT_DUNKING_STOOL: return "UI-Buildings G019";
+                case eStructs.STRUCT_DOG_CAGE: return "UI-Buildings L009";
+                case eStructs.STRUCT_STATUE: return "UI-Buildings H007";
+                case eStructs.STRUCT_SHRINE: return "UI-Buildings H009";
+                case eStructs.STRUCT_DANCING_BEAR: return "UI-Buildings H003";
+                case eStructs.STRUCT_POND: return "UI-Buildings H011";
+                case eStructs.STRUCT_OUTPOST_BEDOUIN: return "UI-Buildings N075";
+                case eStructs.STRUCT_BEDOUIN_STOCKADE: return "UI-Buildings C015";
+                default: return null;
+            }
+        }
+
+        private static ImageSource GetResourceImage(string key)
+        {
+            if (string.IsNullOrEmpty(key))
+                return null;
+
+            try
+            {
+                return GUI.GetApplicationResources()?[key] as ImageSource;
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         private static Dictionary<string, BuildingCostValues> ParseSerializedCosts(string text)
@@ -495,7 +628,7 @@ namespace BuildingCosts
 
             public event PropertyChangedEventHandler PropertyChanged;
 
-            public CostEntryViewModel(string key, string displayName, BuildingCostValues values, Action changed = null)
+            public CostEntryViewModel(string key, string displayName, ImageSource iconImage, BuildingCostValues values, Action changed = null)
             {
                 Key = key;
                 this.displayName = displayName;
@@ -509,6 +642,7 @@ namespace BuildingCosts
             }
 
             public string Key { get; }
+            public ImageSource IconImage => GetBuildingIconImage(Key);
 
             public string DisplayName
             {
