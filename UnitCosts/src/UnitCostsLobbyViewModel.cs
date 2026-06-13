@@ -682,37 +682,37 @@ namespace UnitCosts
         {
             switch (unitType)
             {
-                case eChimps.CHIMP_TYPE_ARCHER: return GetResourceImage("UI-Buttons K023 Green");
-                case eChimps.CHIMP_TYPE_SPEARMAN: return GetResourceImage("UI-Buttons K001 Green");
-                case eChimps.CHIMP_TYPE_MACEMAN: return GetResourceImage("UI-Buttons K003 Green");
-                case eChimps.CHIMP_TYPE_XBOWMAN: return GetResourceImage("UI-Buttons K005 Green");
-                case eChimps.CHIMP_TYPE_PIKEMAN: return GetResourceImage("UI-Buttons K025 Green");
-                case eChimps.CHIMP_TYPE_SWORDSMAN: return GetResourceImage("UI-Buttons K007 Green");
-                case eChimps.CHIMP_TYPE_KNIGHT: return GetResourceImage("UI-Buttons K027 Green");
-                case eChimps.CHIMP_TYPE_ENGINEER: return GetResourceImage("UI-Buttons K009 Green");
-                case eChimps.CHIMP_TYPE_CATAPULT: return GetResourceImage("UI-Buttons K013 Green");
-                case eChimps.CHIMP_TYPE_TREBUCHET: return GetResourceImage("UI-Buttons K015 Green");
-                case eChimps.CHIMP_TYPE_BATTERING_RAM: return GetResourceImage("UI-Buttons K017 Green");
-                case eChimps.CHIMP_TYPE_SIEGE_TOWER: return GetResourceImage("UI-Buttons K019 Green");
-                case eChimps.CHIMP_TYPE_PORTABLE_SHIELD: return GetResourceImage("UI-Buttons K033 Green");
-                case eChimps.CHIMP_TYPE_MONK: return GetResourceImage("UI-Buttons K011 Green");
-                case eChimps.CHIMP_TYPE_LADDERMAN: return GetResourceImage("UI-Buttons K029 Green");
-                case eChimps.CHIMP_TYPE_TUNNELER: return GetResourceImage("UI-Buttons K031 Green");
-                case eChimps.CHIMP_TYPE_ARAB_BOW: return GetResourceImage("UI-Buttons K037 Green");
-                case eChimps.CHIMP_TYPE_ARAB_SLAVE: return GetResourceImage("UI-Buttons K039 Green");
-                case eChimps.CHIMP_TYPE_ARAB_SLINGER: return GetResourceImage("UI-Buttons K041 Green");
-                case eChimps.CHIMP_TYPE_ARAB_ASSASIN: return GetResourceImage("UI-Buttons K043 Green");
-                case eChimps.CHIMP_TYPE_ARAB_HORSEMAN: return GetResourceImage("UI-Buttons K045 Green");
-                case eChimps.CHIMP_TYPE_ARAB_SWORDSMAN: return GetResourceImage("UI-Buttons K047 Green");
-                case eChimps.CHIMP_TYPE_ARAB_GRENADIER: return GetResourceImage("UI-Buttons K049 Green");
-                case eChimps.CHIMP_TYPE_BEDOUIN_CAMEL_LANCER: return GetResourceImage("UI-Buttons K053 Green");
-                case eChimps.CHIMP_TYPE_BEDOUIN_HEALER: return GetResourceImage("UI-Buttons K055 Green");
-                case eChimps.CHIMP_TYPE_BEDOUIN_EUNUCH: return GetResourceImage("UI-Buttons K057 Green");
-                case eChimps.CHIMP_TYPE_BEDOUIN_AMBUSHER: return GetResourceImage("UI-Buttons K059 Green");
-                case eChimps.CHIMP_TYPE_BEDOUIN_SKIRMISHER: return GetResourceImage("UI-Buttons K061 Green");
-                case eChimps.CHIMP_TYPE_BEDOUIN_HEAVY_CAMEL: return GetResourceImage("UI-Buttons K063 Green");
-                case eChimps.CHIMP_TYPE_BEDOUIN_SAPPER: return GetResourceImage("UI-Buttons K065 Green");
-                case eChimps.CHIMP_TYPE_BEDOUIN_DEMOLISHER: return GetResourceImage("UI-Buttons K067 Green");
+                case eChimps.CHIMP_TYPE_ARCHER: return GetResourceImage("UI-Buildings O001");
+                case eChimps.CHIMP_TYPE_SPEARMAN: return GetResourceImage("UI-Buildings O003");
+                case eChimps.CHIMP_TYPE_MACEMAN: return GetResourceImage("UI-Buildings O007");
+                case eChimps.CHIMP_TYPE_XBOWMAN: return GetResourceImage("UI-Buildings O009");
+                case eChimps.CHIMP_TYPE_PIKEMAN: return GetResourceImage("UI-Buildings O005");
+                case eChimps.CHIMP_TYPE_SWORDSMAN: return GetResourceImage("UI-Buildings O011");
+                case eChimps.CHIMP_TYPE_KNIGHT: return GetResourceImage("UI-Buildings O013");
+                case eChimps.CHIMP_TYPE_ENGINEER: return GetResourceImage("UI-Buildings O017");
+                case eChimps.CHIMP_TYPE_CATAPULT: return GetResourceImage("UI-Buildings O023");
+                case eChimps.CHIMP_TYPE_TREBUCHET: return GetResourceImage("UI-Buildings O025");
+                case eChimps.CHIMP_TYPE_BATTERING_RAM: return GetResourceImage("UI-Buildings O027");
+                case eChimps.CHIMP_TYPE_SIEGE_TOWER: return GetResourceImage("UI-Buildings O029");
+                case eChimps.CHIMP_TYPE_PORTABLE_SHIELD: return GetResourceImage("UI-Buildings O031");
+                case eChimps.CHIMP_TYPE_MONK: return GetResourceImage("UI-Buildings O021");
+                case eChimps.CHIMP_TYPE_LADDERMAN: return GetResourceImage("UI-Buildings O015");
+                case eChimps.CHIMP_TYPE_TUNNELER: return GetResourceImage("UI-Buildings O033");
+                case eChimps.CHIMP_TYPE_ARAB_BOW: return GetResourceImage("UI-Buildings O035");
+                case eChimps.CHIMP_TYPE_ARAB_SLAVE: return GetResourceImage("UI-Buildings O037");
+                case eChimps.CHIMP_TYPE_ARAB_SLINGER: return GetResourceImage("UI-Buildings O039");
+                case eChimps.CHIMP_TYPE_ARAB_ASSASIN: return GetResourceImage("UI-Buildings O041");
+                case eChimps.CHIMP_TYPE_ARAB_HORSEMAN: return GetResourceImage("UI-Buildings O043");
+                case eChimps.CHIMP_TYPE_ARAB_SWORDSMAN: return GetResourceImage("UI-Buildings O045");
+                case eChimps.CHIMP_TYPE_ARAB_GRENADIER: return GetResourceImage("UI-Buildings O047");
+                case eChimps.CHIMP_TYPE_BEDOUIN_CAMEL_LANCER: return GetResourceImage("UI-Buildings O051");
+                case eChimps.CHIMP_TYPE_BEDOUIN_HEALER: return GetResourceImage("UI-Buildings O053");
+                case eChimps.CHIMP_TYPE_BEDOUIN_EUNUCH: return GetResourceImage("UI-Buildings O055");
+                case eChimps.CHIMP_TYPE_BEDOUIN_AMBUSHER: return GetResourceImage("UI-Buildings O057");
+                case eChimps.CHIMP_TYPE_BEDOUIN_SKIRMISHER: return GetResourceImage("UI-Buildings O059");
+                case eChimps.CHIMP_TYPE_BEDOUIN_HEAVY_CAMEL: return GetResourceImage("UI-Buildings O061");
+                case eChimps.CHIMP_TYPE_BEDOUIN_SAPPER: return GetResourceImage("UI-Buildings O063");
+                case eChimps.CHIMP_TYPE_BEDOUIN_DEMOLISHER: return GetResourceImage("UI-Buildings O065");
                 default: return null;
             }
         }
