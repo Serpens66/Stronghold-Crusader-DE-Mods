@@ -1,4 +1,4 @@
-using BepInEx.Logging;
+﻿using BepInEx.Logging;
 using CrusaderDE;
 using R3;
 using SHCDESE.API;
@@ -12,6 +12,7 @@ using Zhuqiaomon.Memory.Managed;
 
 namespace SomeSettings
 {
+    // TODO: Remove the building refund duplicate guard once the Script Extender fires Pre only once and Post again.
     public sealed class SomeSettingsRuntime : IDisposable
     {
         private static readonly int GoodsCount = (int)eGoods.Count;
@@ -20,6 +21,7 @@ namespace SomeSettings
         private readonly SomeSettingsViewModel settings;
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
         private readonly Dictionary<int, DateTime> recentlyKeptStorageBuildingIds = new Dictionary<int, DateTime>();
+        private PendingStockpileRefund pendingStockpileRefund;
 
         private bool hooksSubscribed;
         private bool settingsSubscribed;
@@ -36,6 +38,8 @@ namespace SomeSettings
             if (hooksSubscribed)
                 return;
 
+            subscriptions.Add(BuildingR3EventHooks.OnBuildingBulldoze.Observable.Subscribe(OnBuildingBulldoze));
+            subscriptions.Add(BuildingR3EventHooks.OnBuildingDelete.Observable.Subscribe(OnBuildingDelete));
             subscriptions.Add(BuildingR3EventHooks.OnBuildingRefund.Observable.Subscribe(OnBuildingRefund));
             hooksSubscribed = true;
             log.LogDebug("SomeSettings hooks subscribed.");
@@ -59,6 +63,7 @@ namespace SomeSettings
 
             subscriptions.Clear();
             recentlyKeptStorageBuildingIds.Clear();
+            pendingStockpileRefund = null;
             hooksSubscribed = false;
 
             if (settingsSubscribed)
@@ -96,10 +101,111 @@ namespace SomeSettings
             refundMultiplier.SetValue(percent / 100f);
         }
 
+        private unsafe void OnBuildingDelete(BuildingDeleteEventArgs args)
+        {
+            try
+            {
+                if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(args.BuildingId, out GameBuilding* building))
+                {
+                    string reason = args.Phase == EventHookPhase.Post
+                        ? "building-not-readable-after-delete"
+                        : "building-not-readable";
+                    log.LogDebug($"OnBuildingDelete: phase={args.Phase}, buildingId={args.BuildingId}, ignored={reason}.");
+                    return;
+                }
+
+                int[] goods = CopyLocalGoods(building);
+                int total = GetGoodsTotal(goods);
+                string goodsSummary = BuildGoodsSummary(goods);
+
+                log.LogDebug($"OnBuildingDelete: phase={args.Phase}, buildingId={args.BuildingId}, owner={building->r_PlayerIdOwner}, type={building->r_BuildingType}, globalId={building->r_GlobalId}, tileX={building->r_TilePositionXBegin}, tileY={building->r_TilePositionYBegin}, total={total}, goods={goodsSummary}.");
+            }
+            catch (Exception ex)
+            {
+                log.LogError($"SomeSettings delete diagnostic hook failed: {ex}");
+            }
+        }
+
+        private unsafe void OnBuildingBulldoze(BuildingBulldozeEventArgs args)
+        {
+            try
+            {
+                if (args.Phase != EventHookPhase.Pre)
+                    return;
+
+                if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(args.BuildingId, out GameBuilding* building))
+                {
+                    log.LogDebug($"OnBuildingBulldoze: phase={args.Phase}, buildingId={args.BuildingId}, ignored=building-not-found.");
+                    return;
+                }
+
+                eStructs structure = building->r_BuildingType;
+                int owner = building->r_PlayerIdOwner;
+                uint globalId = building->r_GlobalId;
+                ushort tileX = building->r_TilePositionXBegin;
+                ushort tileY = building->r_TilePositionYBegin;
+
+                log.LogDebug($"OnBuildingBulldoze: phase={args.Phase}, buildingId={args.BuildingId}, owner={owner}, type={structure}, globalId={globalId}, tileX={tileX}, tileY={tileY}.");
+
+                if (structure != eStructs.STRUCT_GOODS_YARD)
+                {
+                    log.LogDebug($"OnBuildingBulldoze ignored non-stockpile buildingId={args.BuildingId}, type={structure}.");
+                    return;
+                }
+
+                PendingStockpileRefund pending = pendingStockpileRefund;
+                if (pending == null)
+                {
+                    log.LogDebug($"OnBuildingBulldoze stockpile ignored: no pending stockpile refund, buildingId={args.BuildingId}, owner={owner}, globalId={globalId}, tileX={tileX}, tileY={tileY}.");
+                    return;
+                }
+
+                if (pending.CreatedAt < DateTime.UtcNow.AddSeconds(-2))
+                {
+                    log.LogWarning($"Pending stockpile refund expired: refundBuildingId={pending.RefundBuildingId}, playerId={pending.PlayerId}, owner={pending.Owner}, partsRemaining={pending.PartsRemaining}.");
+                    pendingStockpileRefund = null;
+                    return;
+                }
+
+                if (owner != pending.Owner)
+                {
+                    log.LogDebug($"OnBuildingBulldoze stockpile ignored: owner mismatch, buildingId={args.BuildingId}, owner={owner}, pendingOwner={pending.Owner}, refundBuildingId={pending.RefundBuildingId}, playerId={pending.PlayerId}, globalId={globalId}, tileX={tileX}, tileY={tileY}.");
+                    return;
+                }
+
+                if (pending.ProcessedBuildingIds.Contains(args.BuildingId))
+                {
+                    log.LogDebug($"OnBuildingBulldoze stockpile ignored: duplicate processed buildingId={args.BuildingId}, refundBuildingId={pending.RefundBuildingId}, playerId={pending.PlayerId}, owner={pending.Owner}, processedBuildingIds={BuildProcessedBuildingIdSummary(pending.ProcessedBuildingIds)}.");
+                    return;
+                }
+
+                int[] goods = CopyLocalGoods(building);
+                RestoreGoods(pending.PlayerId, goods);
+                int total = GetGoodsTotal(goods);
+                string goodsSummary = BuildGoodsSummary(goods);
+                pending.ProcessedBuildingIds.Add(args.BuildingId);
+                pending.PartsRemaining--;
+
+                log.LogDebug($"OnBuildingBulldoze restored pending stockpile part: buildingId={args.BuildingId}, refundBuildingId={pending.RefundBuildingId}, playerId={pending.PlayerId}, owner={pending.Owner}, globalId={globalId}, tileX={tileX}, tileY={tileY}, total={total}, goods={goodsSummary}, partsRemaining={pending.PartsRemaining}.");
+
+                if (pending.PartsRemaining <= 0)
+                {
+                    log.LogDebug($"OnBuildingBulldoze pending stockpile refund completed: refundBuildingId={pending.RefundBuildingId}, playerId={pending.PlayerId}, owner={pending.Owner}, processedBuildingIds={BuildProcessedBuildingIdSummary(pending.ProcessedBuildingIds)}.");
+                    pendingStockpileRefund = null;
+                }
+            }
+            catch (Exception ex)
+            {
+                log.LogError($"SomeSettings bulldoze pending stockpile refund hook failed: {ex}");
+            }
+        }
+
         private unsafe void OnBuildingRefund(BuildingRefundEventArgs args)
         {
             try
             {
+                log.LogDebug($"OnBuildingRefund: phase={args.Phase}, playerId={args.PlayerId}, buildingId={args.BuildingId}, percentage={args.Percentage}, skipOriginal={args.SkipOriginalFunction}.");
+
                 if (args.Phase != EventHookPhase.Pre || !settings.KeepStorageContent)
                     return;
 
@@ -115,31 +221,91 @@ namespace SomeSettings
 
                 recentlyKeptStorageBuildingIds[args.BuildingId] = DateTime.UtcNow;
                 eStructs structure = building->r_BuildingType;
-                int total = 0;
-                List<string> parts = new List<string>();
-                int* localStorage = (int*)&building->r_NullAmount;
+                int owner = building->r_PlayerIdOwner;
+                uint globalId = building->r_GlobalId;
+                ushort tileX = building->r_TilePositionXBegin;
+                ushort tileY = building->r_TilePositionYBegin;
 
-                for (int i = 0; i < GoodsCount; i++)
+                log.LogDebug($"OnBuildingRefund resolved building: buildingId={args.BuildingId}, owner={owner}, type={structure}, globalId={globalId}, tileX={tileX}, tileY={tileY}.");
+
+                if (structure == eStructs.STRUCT_GOODS_YARD)
                 {
-                    int amount = localStorage[i];
-                    if (amount <= 0)
-                        continue;
+                    pendingStockpileRefund = new PendingStockpileRefund
+                    {
+                        PlayerId = args.PlayerId,
+                        Owner = owner,
+                        RefundBuildingId = args.BuildingId,
+                        CreatedAt = DateTime.UtcNow,
+                        PartsRemaining = 4
+                    };
 
-                    eGoods good = (eGoods)i;
-                    GamePlayerManagerAPI.Instance.AddIncomingGood(args.PlayerId, good, amount);
-                    total += amount;
-                    parts.Add($"{good}={amount}");
+                    log.LogDebug($"OnBuildingRefund pending stockpile refund created: refundBuildingId={args.BuildingId}, playerId={args.PlayerId}, owner={owner}, globalId={globalId}, tileX={tileX}, tileY={tileY}, partsRemaining=4.");
+                    return;
                 }
 
-                if (total > 0)
-                {
-                    log.LogDebug($"Kept storage content for refunded {structure} buildingId={args.BuildingId}, playerId={args.PlayerId}, percentage={args.Percentage}, total={total}, goods={string.Join(", ", parts)}.");
-                }
+                int[] goods = CopyLocalGoods(building);
+                RestoreGoods(args.PlayerId, goods);
+                int total = GetGoodsTotal(goods);
+                string goodsSummary = BuildGoodsSummary(goods);
+
+                log.LogDebug($"Kept storage content for refunded {structure} buildingId={args.BuildingId}, playerId={args.PlayerId}, percentage={args.Percentage}, total={total}, goods={goodsSummary}.");
             }
             catch (Exception ex)
             {
                 log.LogError($"SomeSettings refund storage hook failed: {ex}");
             }
+        }
+
+        private unsafe static int[] CopyLocalGoods(GameBuilding* building)
+        {
+            int[] goods = new int[GoodsCount];
+            int* localStorage = (int*)&building->r_NullAmount;
+            for (int i = 0; i < GoodsCount; i++)
+                goods[i] = localStorage[i];
+
+            return goods;
+        }
+
+        private static void RestoreGoods(int playerId, int[] goods)
+        {
+            for (int i = 0; i < GoodsCount; i++)
+            {
+                int amount = goods[i];
+                if (amount <= 0)
+                    continue;
+
+                GamePlayerManagerAPI.Instance.AddIncomingGood(playerId, (eGoods)i, amount);
+            }
+        }
+
+        private static int GetGoodsTotal(int[] goods)
+        {
+            int total = 0;
+            for (int i = 0; i < goods.Length; i++)
+            {
+                if (goods[i] > 0)
+                    total += goods[i];
+            }
+
+            return total;
+        }
+
+        private static string BuildGoodsSummary(int[] goods)
+        {
+            List<string> parts = new List<string>();
+            for (int i = 0; i < goods.Length; i++)
+            {
+                int amount = goods[i];
+                if (amount <= 0)
+                    continue;
+
+                parts.Add($"{(eGoods)i}={amount}");
+            }
+
+            if (parts.Count == 0)
+                return "none";
+
+            return string.Join(", ", parts);
         }
 
         private void PruneRecentlyKeptStorageIds()
@@ -165,6 +331,26 @@ namespace SomeSettings
 
             for (int i = 0; i < expired.Count; i++)
                 recentlyKeptStorageBuildingIds.Remove(expired[i]);
+        }
+
+        private static string BuildProcessedBuildingIdSummary(HashSet<int> ids)
+        {
+            if (ids == null || ids.Count == 0)
+                return "none";
+
+            List<int> sorted = new List<int>(ids);
+            sorted.Sort();
+            return string.Join(", ", sorted);
+        }
+
+        private sealed class PendingStockpileRefund
+        {
+            public int PlayerId;
+            public int Owner;
+            public int RefundBuildingId;
+            public DateTime CreatedAt;
+            public int PartsRemaining;
+            public HashSet<int> ProcessedBuildingIds = new HashSet<int>();
         }
     }
 }
