@@ -224,47 +224,80 @@ namespace UnitCosts
             if (playerId <= 0)
                 return MakeTroopGameActionDecision.AllowOriginal();
 
-            if (!TryGetHumanExtraCosts(unitType, out UnitExtraCostValues costs))
-                return MakeTroopGameActionDecision.AllowOriginal();
+            bool hasExtraCosts = TryGetHumanExtraCosts(unitType, out UnitExtraCostValues costs);
+            int affordableAmount = amount;
+            GetMaxAffordableNativeRecruitAmount(
+                playerId,
+                unitType,
+                out int nativeAffordableAmount,
+                out string nativeLimitingReason,
+                out eGoods nativeLimitingGood,
+                out int nativeLimitingRequiredPerUnit,
+                out int nativeLimitingAvailableAmount,
+                out int readyPeasants);
 
-            if (!TryGetMaxAffordableExtraCostAmount(
+            if (nativeAffordableAmount < affordableAmount)
+                affordableAmount = nativeAffordableAmount;
+
+            int extraAffordableAmount = -1;
+            eGoods extraLimitingGood = eGoods.STORED_NULL;
+            int extraLimitingRequiredPerUnit = 0;
+            int extraLimitingAvailableAmount = 0;
+            bool hasPositiveExtraCost = hasExtraCosts &&
+                TryGetMaxAffordableExtraCostAmount(
                 playerId,
                 costs,
-                out int affordableAmount,
-                out eGoods limitingGood,
-                out int limitingRequiredPerUnit,
-                out int limitingAvailableAmount))
-            {
-                return MakeTroopGameActionDecision.AllowOriginal();
-            }
+                out extraAffordableAmount,
+                out extraLimitingGood,
+                out extraLimitingRequiredPerUnit,
+                out extraLimitingAvailableAmount);
+
+            if (hasPositiveExtraCost && extraAffordableAmount < affordableAmount)
+                affordableAmount = extraAffordableAmount;
 
             if (affordableAmount >= amount)
                 return MakeTroopGameActionDecision.AllowOriginal();
 
             if (affordableAmount > 0)
             {
-                LogDebug(
+                Shared.DebugLogHelper.LogDebug(
+                    log,
                     "UnitCosts reduced recruitment amount:",
                     "unit", unitType,
                     "player", playerId,
-                    "limiting", limitingGood,
-                    "requiredPerUnit", limitingRequiredPerUnit,
-                    "available", limitingAvailableAmount,
                     "requestedAmount", amount,
                     "allowedAmount", affordableAmount,
+                    "nativeAffordable", nativeAffordableAmount,
+                    "nativeLimitingReason", nativeLimitingReason,
+                    "nativeLimitingGood", nativeLimitingGood,
+                    "nativeRequiredPerUnit", nativeLimitingRequiredPerUnit,
+                    "nativeAvailable", nativeLimitingAvailableAmount,
+                    "readyPeasants", readyPeasants,
+                    "extraAffordable", hasPositiveExtraCost ? extraAffordableAmount : -1,
+                    "extraLimitingGood", hasPositiveExtraCost ? extraLimitingGood : eGoods.STORED_NULL,
+                    "extraRequiredPerUnit", hasPositiveExtraCost ? extraLimitingRequiredPerUnit : 0,
+                    "extraAvailable", hasPositiveExtraCost ? extraLimitingAvailableAmount : 0,
                     "rawUnitType", rawUnitType);
                 return MakeTroopGameActionDecision.ForwardAmount(affordableAmount);
             }
 
-            LogDebug(
+            Shared.DebugLogHelper.LogDebug(
+                log,
                 "UnitCosts blocked recruitment:",
                 "unit", unitType,
                 "player", playerId,
-                "missing", limitingGood,
-                "requiredPerUnit", limitingRequiredPerUnit,
-                "available", limitingAvailableAmount,
                 "requestedAmount", amount,
                 "allowedAmount", affordableAmount,
+                "nativeAffordable", nativeAffordableAmount,
+                "nativeLimitingReason", nativeLimitingReason,
+                "nativeLimitingGood", nativeLimitingGood,
+                "nativeRequiredPerUnit", nativeLimitingRequiredPerUnit,
+                "nativeAvailable", nativeLimitingAvailableAmount,
+                "readyPeasants", readyPeasants,
+                "extraAffordable", hasPositiveExtraCost ? extraAffordableAmount : -1,
+                "extraLimitingGood", hasPositiveExtraCost ? extraLimitingGood : eGoods.STORED_NULL,
+                "extraRequiredPerUnit", hasPositiveExtraCost ? extraLimitingRequiredPerUnit : 0,
+                "extraAvailable", hasPositiveExtraCost ? extraLimitingAvailableAmount : 0,
                 "rawUnitType", rawUnitType);
             ShowMissingResourcesMessage();
             return MakeTroopGameActionDecision.BlockAction();
@@ -592,6 +625,138 @@ namespace UnitCosts
 
             affordableAmount = 0;
             return false;
+        }
+
+        private static void GetMaxAffordableNativeRecruitAmount(
+            int playerId,
+            eChimps unitType,
+            out int affordableAmount,
+            out string limitingReason,
+            out eGoods limitingGood,
+            out int limitingRequiredPerUnit,
+            out int limitingAvailableAmount,
+            out int readyPeasants)
+        {
+            affordableAmount = int.MaxValue;
+            limitingReason = "none";
+            limitingGood = eGoods.STORED_NULL;
+            limitingRequiredPerUnit = 0;
+            limitingAvailableAmount = 0;
+            readyPeasants = -1;
+
+            if (ConsumesPeasant(unitType) && TryGetReadyPeasantCount(playerId, out readyPeasants))
+            {
+                CapAffordableAmount(
+                    readyPeasants,
+                    "peasants",
+                    eGoods.STORED_NULL,
+                    1,
+                    readyPeasants,
+                    ref affordableAmount,
+                    ref limitingReason,
+                    ref limitingGood,
+                    ref limitingRequiredPerUnit,
+                    ref limitingAvailableAmount);
+            }
+
+            int goldCost = GetCurrentUnitGoldCost(unitType);
+            if (goldCost > 0)
+            {
+                int availableGold = Math.Max(0, GamePlayerManagerAPI.Instance.GetGoodAmount(playerId, eGoods.STORED_GOLD));
+                CapAffordableAmount(
+                    availableGold / goldCost,
+                    "gold",
+                    eGoods.STORED_GOLD,
+                    goldCost,
+                    availableGold,
+                    ref affordableAmount,
+                    ref limitingReason,
+                    ref limitingGood,
+                    ref limitingRequiredPerUnit,
+                    ref limitingAvailableAmount);
+            }
+
+            if (!IsEuropeanRecruit(unitType))
+                return;
+
+            UnitGoodCosts goodCosts = GameUnitManagerAPI.Instance.GetUnitGoodCosts(unitType);
+            Dictionary<eGoods, int> requiredGoods = new Dictionary<eGoods, int>();
+            AddNativeGoodRequirement(requiredGoods, goodCosts.cost1);
+            AddNativeGoodRequirement(requiredGoods, goodCosts.cost2);
+            AddNativeGoodRequirement(requiredGoods, goodCosts.cost3);
+            AddNativeGoodRequirement(requiredGoods, goodCosts.cost4);
+
+            foreach (KeyValuePair<eGoods, int> entry in requiredGoods)
+            {
+                int available = Math.Max(0, GamePlayerManagerAPI.Instance.GetGoodAmount(playerId, entry.Key));
+                CapAffordableAmount(
+                    available / entry.Value,
+                    "goods",
+                    entry.Key,
+                    entry.Value,
+                    available,
+                    ref affordableAmount,
+                    ref limitingReason,
+                    ref limitingGood,
+                    ref limitingRequiredPerUnit,
+                    ref limitingAvailableAmount);
+            }
+        }
+
+        private static void AddNativeGoodRequirement(Dictionary<eGoods, int> requiredGoods, eGoods32 good32)
+        {
+            eGoods good = good32.To16();
+            if (good == eGoods.STORED_NULL || good == eGoods._SE_REQUIRE_HORSE)
+                return;
+
+            if (requiredGoods.TryGetValue(good, out int requiredPerUnit))
+                requiredGoods[good] = requiredPerUnit + 1;
+            else
+                requiredGoods[good] = 1;
+        }
+
+        private static void CapAffordableAmount(
+            int candidateAmount,
+            string candidateReason,
+            eGoods candidateGood,
+            int candidateRequiredPerUnit,
+            int candidateAvailableAmount,
+            ref int affordableAmount,
+            ref string limitingReason,
+            ref eGoods limitingGood,
+            ref int limitingRequiredPerUnit,
+            ref int limitingAvailableAmount)
+        {
+            if (candidateAmount >= affordableAmount)
+                return;
+
+            affordableAmount = Math.Max(0, candidateAmount);
+            limitingReason = candidateReason;
+            limitingGood = candidateGood;
+            limitingRequiredPerUnit = candidateRequiredPerUnit;
+            limitingAvailableAmount = candidateAvailableAmount;
+        }
+
+        private static bool ConsumesPeasant(eChimps unitType)
+        {
+            return !TryGetSiegeTentStructure(unitType, out _);
+        }
+
+        private static bool TryGetReadyPeasantCount(int playerId, out int readyPeasants)
+        {
+            readyPeasants = 0;
+            unsafe
+            {
+                if (!GamePlayerManagerAPI.Instance.TryGetPlayerResourcesById(playerId, out GamePlayerResources* resources) ||
+                    resources == null)
+                {
+                    return false;
+                }
+
+                uint readyPeasantValue = resources->r_ReadyPeasants;
+                readyPeasants = readyPeasantValue > (uint)int.MaxValue ? int.MaxValue : (int)readyPeasantValue;
+                return true;
+            }
         }
 
         private static void ApplyExtraCosts(int playerId, UnitExtraCostValues costs, int multiplier)

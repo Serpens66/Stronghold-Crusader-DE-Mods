@@ -76,12 +76,18 @@ namespace UnitLimit
             int pendingCount = GetPendingRecruitmentCount(playerId, unitType);
             int effectiveCount = liveCount + pendingCount;
             int remaining = limit - effectiveCount;
-            int allowedAmount = remaining <= 0
+            int readyPeasants = -1;
+            int peasantLimitedRemaining = remaining;
+            if (!IsEngineerSiegeUnit(unitType) && TryGetReadyPeasantCount(playerId, out readyPeasants))
+                peasantLimitedRemaining = Math.Min(peasantLimitedRemaining, readyPeasants);
+
+            int allowedAmount = peasantLimitedRemaining <= 0
                 ? 0
                 : amount == 1000
-                    ? remaining
-                    : Math.Min(amount, remaining);
+                    ? peasantLimitedRemaining
+                    : Math.Min(amount, peasantLimitedRemaining);
             LogDebug(
+                log,
                 "MakeTroop decision:",
                 "unit", unitType,
                 "player", playerId,
@@ -89,6 +95,8 @@ namespace UnitLimit
                 "pending", pendingCount,
                 "effective", effectiveCount,
                 "remaining", remaining,
+                "readyPeasants", readyPeasants,
+                "peasantLimitedRemaining", peasantLimitedRemaining,
                 "requestedAmount", amount,
                 "allowedAmount", allowedAmount,
                 "limit", limit,
@@ -102,6 +110,7 @@ namespace UnitLimit
             }
 
             LogDebug(
+                log,
                 "MakeTroop block: unit limit exceeded",
                 unitType,
                 "player", playerId,
@@ -109,11 +118,16 @@ namespace UnitLimit
                 "pending", pendingCount,
                 "effective", effectiveCount,
                 "remaining", remaining,
+                "readyPeasants", readyPeasants,
+                "peasantLimitedRemaining", peasantLimitedRemaining,
                 "requestedAmount", amount,
                 "allowedAmount", allowedAmount,
                 "limit", limit,
                 "rawUnitType", rawUnitType);
-            ShowUnitLimitReachedMessageForLocalPlayer(playerId, unitType, limit);
+
+            if (remaining <= 0)
+                ShowUnitLimitReachedMessageForLocalPlayer(playerId, unitType, limit);
+
             RefreshLocalUnitRecruitableStates("MakeTroopBlock", false);
             RefreshCurrentUnitLimitTooltip();
             return MakeTroopGameActionDecision.BlockAction();
@@ -159,6 +173,23 @@ namespace UnitLimit
                     return true;
                 default:
                     return false;
+            }
+        }
+
+        private static bool TryGetReadyPeasantCount(int playerId, out int readyPeasants)
+        {
+            readyPeasants = 0;
+            unsafe
+            {
+                if (!GamePlayerManagerAPI.Instance.TryGetPlayerResourcesById(playerId, out GamePlayerResources* resources) ||
+                    resources == null)
+                {
+                    return false;
+                }
+
+                uint readyPeasantValue = resources->r_ReadyPeasants;
+                readyPeasants = readyPeasantValue > (uint)int.MaxValue ? int.MaxValue : (int)readyPeasantValue;
+                return true;
             }
         }
 

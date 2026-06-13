@@ -80,10 +80,27 @@ namespace UnitLimit
             if (command != Enums.GameActionCommand.MakeTroop)
                 return trampoline(command, structureID, state, value2);
 
+            int amount = NormalizeMakeTroopAmount(structureID, state, value2);
+            MakeTroopGameActionDecision decision = MakeTroopGameActionDecision.AllowOriginal();
             try
             {
-                int amount = NormalizeMakeTroopAmount(structureID, state, value2);
-                MakeTroopGameActionDecision decision = decideMakeTroop(amount, (eChimps)state, state);
+                Shared.DebugLogHelper.LogDebug(
+                    log,
+                    "UnitLimit MakeTroop hook enter:",
+                    "incomingAmount", amount,
+                    "state", state,
+                    "value2", value2);
+
+                decision = decideMakeTroop(amount, (eChimps)state, state);
+                Shared.DebugLogHelper.LogDebug(
+                    log,
+                    "UnitLimit MakeTroop hook decision:",
+                    "incomingAmount", amount,
+                    "state", state,
+                    "value2", value2,
+                    "decision", GetDecisionName(decision, amount),
+                    "forwardedAmount", GetForwardedAmount(decision, amount, structureID));
+
                 if (decision.Block)
                 {
                     Shared.DebugLogHelper.LogDebug(
@@ -104,7 +121,7 @@ namespace UnitLimit
                         "forwardedAmount", decision.AmountToForward,
                         "state", state,
                         "value2", value2);
-                    return trampoline(command, decision.AmountToForward, state, value2);
+                    return CallTrampoline(command, decision.AmountToForward, state, value2, decision, amount);
                 }
             }
             catch (Exception ex)
@@ -112,7 +129,58 @@ namespace UnitLimit
                 Shared.DebugLogHelper.LogDebug(log, "Unit limit game action hook failed:", ex.Message);
             }
 
-            return trampoline(command, structureID, state, value2);
+            return CallTrampoline(command, structureID, state, value2, decision, amount);
+        }
+
+        private int CallTrampoline(
+            Enums.GameActionCommand command,
+            int forwardedAmount,
+            int state,
+            int value2,
+            MakeTroopGameActionDecision decision,
+            int incomingAmount)
+        {
+            Shared.DebugLogHelper.LogDebug(
+                log,
+                "UnitLimit MakeTroop hook trampoline enter:",
+                "incomingAmount", incomingAmount,
+                "state", state,
+                "value2", value2,
+                "decision", GetDecisionName(decision, incomingAmount),
+                "forwardedAmount", forwardedAmount);
+            int result = trampoline(command, forwardedAmount, state, value2);
+            Shared.DebugLogHelper.LogDebug(
+                log,
+                "UnitLimit MakeTroop hook trampoline returned:",
+                "incomingAmount", incomingAmount,
+                "state", state,
+                "value2", value2,
+                "decision", GetDecisionName(decision, incomingAmount),
+                "forwardedAmount", forwardedAmount,
+                "result", result);
+            return result;
+        }
+
+        private static string GetDecisionName(MakeTroopGameActionDecision decision, int incomingAmount)
+        {
+            if (decision.Block)
+                return "BlockAction";
+
+            if (decision.AmountToForward > 0 && decision.AmountToForward != incomingAmount)
+                return "ForwardAmount";
+
+            return "AllowOriginal";
+        }
+
+        private static int GetForwardedAmount(MakeTroopGameActionDecision decision, int incomingAmount, int originalAmount)
+        {
+            if (decision.Block)
+                return 0;
+
+            if (decision.AmountToForward > 0 && decision.AmountToForward != incomingAmount)
+                return decision.AmountToForward;
+
+            return originalAmount;
         }
 
         private int NormalizeMakeTroopAmount(int structureID, int state, int value2)
