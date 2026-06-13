@@ -33,6 +33,11 @@ namespace UnitCosts
         private const int SiegeMissingResourcesMessageThrottleMilliseconds = 1000;
         private const int SiegeMissingResourcesSpeechThrottleMilliseconds = 10000;
         private const string MissingResourcesSpeechFileName = "Other_Warning6.wav";
+        private const BindingFlags MainViewModelFlags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+        private static readonly FieldInfo LastTroopBuildChimpField = typeof(MainViewModel).GetField("lastTroopBuildChimp", MainViewModelFlags);
+        private static readonly PropertyInfo LastTroopBuildChimpProperty = typeof(MainViewModel).GetProperty("lastTroopBuildChimp", MainViewModelFlags);
+        private static readonly FieldInfo LastTroopsAmountToMakeField = typeof(MainViewModel).GetField("lastTroopsAmountToMake", MainViewModelFlags);
+        private static readonly PropertyInfo LastTroopsAmountToMakeProperty = typeof(MainViewModel).GetProperty("lastTroopsAmountToMake", MainViewModelFlags);
         private static readonly Dictionary<eChimps, UnitGoodCosts> VanillaEuropeanGoodCosts = new Dictionary<eChimps, UnitGoodCosts>();
         private static readonly Dictionary<eChimps, int> VanillaGoldCosts = new Dictionary<eChimps, int>();
 
@@ -708,7 +713,10 @@ namespace UnitCosts
 
         private static eChimps GetLastTroopBuildChimp(MainViewModel mainViewModel)
         {
-            object value = GetMainViewModelMemberValue(mainViewModel, "lastTroopBuildChimp");
+            object value = GetMainViewModelMemberValue(
+                mainViewModel,
+                LastTroopBuildChimpField,
+                LastTroopBuildChimpProperty);
             if (value == null)
                 return eChimps.CHIMP_TYPE_ARCHER;
 
@@ -724,7 +732,10 @@ namespace UnitCosts
 
         private static int GetLastTroopsAmountToMake(MainViewModel mainViewModel)
         {
-            object value = GetMainViewModelMemberValue(mainViewModel, "lastTroopsAmountToMake");
+            object value = GetMainViewModelMemberValue(
+                mainViewModel,
+                LastTroopsAmountToMakeField,
+                LastTroopsAmountToMakeProperty);
             if (value == null)
                 return 1;
 
@@ -738,17 +749,14 @@ namespace UnitCosts
             }
         }
 
-        private static object GetMainViewModelMemberValue(MainViewModel mainViewModel, string memberName)
+        private static object GetMainViewModelMemberValue(MainViewModel mainViewModel, FieldInfo field, PropertyInfo property)
         {
             if (mainViewModel == null)
                 return null;
 
-            const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-            FieldInfo field = typeof(MainViewModel).GetField(memberName, flags);
             if (field != null)
                 return field.GetValue(mainViewModel);
 
-            PropertyInfo property = typeof(MainViewModel).GetProperty(memberName, flags);
             return property?.GetValue(mainViewModel);
         }
 

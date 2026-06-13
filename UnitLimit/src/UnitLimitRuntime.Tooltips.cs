@@ -7,6 +7,9 @@ namespace UnitLimit
 {
     public sealed partial class UnitLimitRuntime
     {
+        private const BindingFlags MainViewModelFlags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+        private static readonly FieldInfo LastTroopBuildChimpField = typeof(MainViewModel).GetField("lastTroopBuildChimp", MainViewModelFlags);
+        private static readonly PropertyInfo LastTroopBuildChimpProperty = typeof(MainViewModel).GetProperty("lastTroopBuildChimp", MainViewModelFlags);
         private eChimps currentTooltipUnitType = eChimps.CHIMP_TYPE_NULL;
         private bool hasCurrentTooltipUnitType;
 
@@ -69,7 +72,10 @@ namespace UnitLimit
 
         private static eChimps GetLastTroopBuildChimp(MainViewModel mainViewModel)
         {
-            object value = GetMainViewModelMemberValue(mainViewModel, "lastTroopBuildChimp");
+            object value = GetMainViewModelMemberValue(
+                mainViewModel,
+                LastTroopBuildChimpField,
+                LastTroopBuildChimpProperty);
             if (value == null)
                 return eChimps.CHIMP_TYPE_ARCHER;
 
@@ -83,17 +89,14 @@ namespace UnitLimit
             }
         }
 
-        private static object GetMainViewModelMemberValue(MainViewModel mainViewModel, string memberName)
+        private static object GetMainViewModelMemberValue(MainViewModel mainViewModel, FieldInfo field, PropertyInfo property)
         {
             if (mainViewModel == null)
                 return null;
 
-            const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-            FieldInfo field = typeof(MainViewModel).GetField(memberName, flags);
             if (field != null)
                 return field.GetValue(mainViewModel);
 
-            PropertyInfo property = typeof(MainViewModel).GetProperty(memberName, flags);
             return property?.GetValue(mainViewModel);
         }
 
