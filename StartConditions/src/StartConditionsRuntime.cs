@@ -17,10 +17,6 @@ namespace StartConditions
         private readonly ManualLogSource log;
         private readonly StartConditionsLobbyViewModel settings;
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
-        private readonly HashSet<string> resourceAddReentryGuards = new HashSet<string>();
-        private readonly Dictionary<string, ResourceEventCountGuard> marketBuyResourceGuards = new Dictionary<string, ResourceEventCountGuard>();
-        private readonly Dictionary<string, ResourceEventCountGuard> refundResourceGuards = new Dictionary<string, ResourceEventCountGuard>();
-        private readonly Dictionary<string, DateTime> refundEventDuplicateGuards = new Dictionary<string, DateTime>();
         private readonly Dictionary<eChimps, uint> originalHumanStartTroops = new Dictionary<eChimps, uint>();
         private int[,] originalAiStartTroops;
         private bool handledCurrentMap;
@@ -32,18 +28,8 @@ namespace StartConditions
         private const int AiStartTroopFieldCount = AiStartTroopFieldCountPerMode * AiStartTroopModeCount;
         private const int DelayedStartTroopCountMilliseconds = 20000;
         private const int IncomingGoodClearAmount = 100000;
-        private const int MarketBuyAmount = 5;
-        private const int MarketBuyShiftAmount = 25;
-        private static readonly TimeSpan MarketBuyGuardLifetime = TimeSpan.FromSeconds(2);
-        private static readonly TimeSpan RefundGuardLifetime = TimeSpan.FromSeconds(2);
         private string pendingStartTroopTimerHandle;
         private StartTroopPlan pendingStartTroopPlan;
-
-        private sealed class ResourceEventCountGuard
-        {
-            public int RemainingAmount { get; set; }
-            public DateTime ExpiresAt { get; set; }
-        }
 
         private static readonly HashSet<eChimps> SoldierChimps = new HashSet<eChimps>
         {
@@ -88,15 +74,6 @@ namespace StartConditions
 
             LogDebug("Subscribing start conditions runtime hooks");
 
-            subscriptions.Add(BuildingR3EventHooks.OnGoodsyardAddGood.Observable
-                .Subscribe(OnGoodsyardAddGood));
-
-            subscriptions.Add(PlayerR3EventHooks.OnPlayerMarketInteraction.Observable
-                .Subscribe(OnPlayerMarketInteraction));
-
-            subscriptions.Add(BuildingR3EventHooks.OnBuildingRefund.Observable
-                .Subscribe(OnBuildingRefund));
-
             subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
                 .Subscribe(OnStartMap));
@@ -131,7 +108,6 @@ namespace StartConditions
             hooksSubscribed = false;
             RestoreStartTroopDefaultPatches();
             CancelPendingStartTroopProcessing();
-            ClearResourceEventGuards();
         }
 
         private void LogDebug(params object[] parts)

@@ -8,7 +8,7 @@
               HorizontalAlignment="Left"
               Margin="0,0,0,8"
               Padding="10,3"/>
-      <TextBlock Text="START RESOURCES" Foreground="#77AAFF" FontWeight="Bold" Margin="0,0,0,8"/>
+      <TextBlock Text="START GOLD" Foreground="#77AAFF" FontWeight="Bold" Margin="0,0,0,8"/>
 
       <Grid>
         <Grid.ColumnDefinitions>
@@ -20,28 +20,18 @@
           <RowDefinition Height="Auto"/>
           <RowDefinition Height="Auto"/>
           <RowDefinition Height="Auto"/>
-          <RowDefinition Height="Auto"/>
-          <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
         <TextBlock Grid.Row="0" Grid.Column="1" Text="AI" Foreground="White" FontWeight="Bold"/>
         <TextBlock Grid.Row="0" Grid.Column="2" Text="Human" Foreground="White" FontWeight="Bold"/>
 
-        <TextBlock Grid.Row="1" Grid.Column="0" Text="Multiply goods gain" Foreground="White" Margin="0,4" ToolTip="Whenever a player gains goods, this multiplier is applied"/>
-        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding MultiplyGoodsGainAIText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="Multiply goods gain / AI" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
-        <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding MultiplyGoodsGainHumanText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="Multiply goods gain / Human" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+        <TextBlock Grid.Row="1" Grid.Column="0" Text="Set start gold (-1 = unchanged)" Foreground="White" Margin="0,4" ToolTip="Sets the initial amount of gold for each player. -1 means unchanged."/>
+        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding SetStartGoldAIText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="Set start gold (-1 = unchanged) / AI" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+        <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding SetStartGoldHumanText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="Set start gold (-1 = unchanged) / Human" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
 
-        <TextBlock Grid.Row="2" Grid.Column="0" Text="Multiply goods as money" Foreground="White" Margin="0,4" ToolTip="Whenever a player gains goods, he also gets money on top as if he sold them"/>
-        <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding MultiplyGoodsGainInMoneyAIText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="Multiply goods as money / AI" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
-        <TextBox Grid.Row="2" Grid.Column="2" Text="{Binding MultiplyGoodsGainInMoneyHumanText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="Multiply goods as money / Human" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
-
-        <TextBlock Grid.Row="3" Grid.Column="0" Text="Set start gold (-1 = unchanged)" Foreground="White" Margin="0,4" ToolTip="Sets the initial amount of gold for each player. -1 means unchanged."/>
-        <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding SetStartGoldAIText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="Set start gold (-1 = unchanged) / AI" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
-        <TextBox Grid.Row="3" Grid.Column="2" Text="{Binding SetStartGoldHumanText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="Set start gold (-1 = unchanged) / Human" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
-
-        <TextBlock Grid.Row="4" Grid.Column="0" Text="Add start gold" Foreground="White" Margin="0,4" ToolTip="Adds the specified amount of gold to the initial amount for each player."/>
-        <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding AddStartGoldAIText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="Add start gold / AI" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
-        <TextBox Grid.Row="4" Grid.Column="2" Text="{Binding AddStartGoldHumanText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="Add start gold / Human" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+        <TextBlock Grid.Row="2" Grid.Column="0" Text="Add start gold" Foreground="White" Margin="0,4" ToolTip="Adds the specified amount of gold to the initial amount for each player."/>
+        <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding AddStartGoldAIText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="Add start gold / AI" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+        <TextBox Grid.Row="2" Grid.Column="2" Text="{Binding AddStartGoldHumanText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="Add start gold / Human" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
       </Grid>
 
       <Separator Background="#444466" Margin="0,10"/>

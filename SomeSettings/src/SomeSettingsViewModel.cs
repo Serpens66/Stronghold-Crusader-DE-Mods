@@ -1,4 +1,5 @@
 using SHCDESE.API.Components.Network;
+using SHCDESE.NoesisUtil;
 using SHCDESE.ViewModels;
 using System;
 
@@ -13,7 +14,18 @@ namespace SomeSettings
         private string ironRefundPercentText = "-1";
         private string pitchRefundPercentText = "-1";
         private string goldRefundPercentText = "-1";
+        private int multiplyGoodsGainAI;
+        private int multiplyGoodsGainHuman;
+        private int multiplyGoodsGainInMoneyAI;
+        private int multiplyGoodsGainInMoneyHuman;
         private bool keepStorageContent;
+
+        public SomeSettingsViewModel()
+        {
+            ResetToDefaultCommand = new RelayCommand(ResetToDefault);
+        }
+
+        public RelayCommand ResetToDefaultCommand { get; }
 
         [SyncHostOnly]
         public string WoodRefundPercentText
@@ -71,6 +83,30 @@ namespace SomeSettings
         public int PitchRefundPercent => ParsePercentOrUnchanged(PitchRefundPercentText);
         public int GoldRefundPercent => ParsePercentOrUnchanged(GoldRefundPercentText);
 
+        [SyncHostOnly] public int MultiplyGoodsGainAI { get => multiplyGoodsGainAI; set => SetIntSetting(ref multiplyGoodsGainAI, value, nameof(MultiplyGoodsGainAI), nameof(MultiplyGoodsGainAIText)); }
+        [SyncHostOnly] public int MultiplyGoodsGainHuman { get => multiplyGoodsGainHuman; set => SetIntSetting(ref multiplyGoodsGainHuman, value, nameof(MultiplyGoodsGainHuman), nameof(MultiplyGoodsGainHumanText)); }
+        [SyncHostOnly] public int MultiplyGoodsGainInMoneyAI { get => multiplyGoodsGainInMoneyAI; set => SetIntSetting(ref multiplyGoodsGainInMoneyAI, value, nameof(MultiplyGoodsGainInMoneyAI), nameof(MultiplyGoodsGainInMoneyAIText)); }
+        [SyncHostOnly] public int MultiplyGoodsGainInMoneyHuman { get => multiplyGoodsGainInMoneyHuman; set => SetIntSetting(ref multiplyGoodsGainInMoneyHuman, value, nameof(MultiplyGoodsGainInMoneyHuman), nameof(MultiplyGoodsGainInMoneyHumanText)); }
+
+        public string MultiplyGoodsGainAIText { get => MultiplyGoodsGainAI.ToString(); set => SetIntText(value, parsed => MultiplyGoodsGainAI = parsed, nameof(MultiplyGoodsGainAIText)); }
+        public string MultiplyGoodsGainHumanText { get => MultiplyGoodsGainHuman.ToString(); set => SetIntText(value, parsed => MultiplyGoodsGainHuman = parsed, nameof(MultiplyGoodsGainHumanText)); }
+        public string MultiplyGoodsGainInMoneyAIText { get => MultiplyGoodsGainInMoneyAI.ToString(); set => SetIntText(value, parsed => MultiplyGoodsGainInMoneyAI = parsed, nameof(MultiplyGoodsGainInMoneyAIText)); }
+        public string MultiplyGoodsGainInMoneyHumanText { get => MultiplyGoodsGainInMoneyHuman.ToString(); set => SetIntText(value, parsed => MultiplyGoodsGainInMoneyHuman = parsed, nameof(MultiplyGoodsGainInMoneyHumanText)); }
+
+        private void ResetToDefault()
+        {
+            WoodRefundPercentText = "-1";
+            StoneRefundPercentText = "-1";
+            IronRefundPercentText = "-1";
+            PitchRefundPercentText = "-1";
+            GoldRefundPercentText = "-1";
+            KeepStorageContent = false;
+            MultiplyGoodsGainAI = 0;
+            MultiplyGoodsGainHuman = 0;
+            MultiplyGoodsGainInMoneyAI = 0;
+            MultiplyGoodsGainInMoneyHuman = 0;
+        }
+
         private void SetTextSetting(ref string field, string value, string propertyName)
         {
             string normalized = NormalizePercentText(value);
@@ -80,6 +116,28 @@ namespace SomeSettings
             field = normalized;
             SettingChanged?.Invoke(propertyName);
             OnPropertyChanged(propertyName);
+        }
+
+        private void SetIntSetting(ref int field, int value, string propertyName, string textPropertyName)
+        {
+            if (field == value)
+                return;
+
+            field = value;
+            SettingChanged?.Invoke(propertyName);
+            OnPropertyChanged(propertyName);
+            OnPropertyChanged(textPropertyName);
+        }
+
+        private void SetIntText(string text, Action<int> setValue, string textPropertyName)
+        {
+            if (!int.TryParse(text, out int parsed))
+            {
+                OnPropertyChanged(textPropertyName);
+                return;
+            }
+
+            setValue(parsed);
         }
 
         private static string NormalizePercentText(string value)

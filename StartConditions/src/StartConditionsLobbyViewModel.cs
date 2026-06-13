@@ -14,10 +14,6 @@ namespace StartConditions
     {
         public event Action<string> SettingChanged;
 
-        private int multiplyGoodsGainAI = 0;
-        private int multiplyGoodsGainHuman = 0;
-        private int multiplyGoodsGainInMoneyAI = 0;
-        private int multiplyGoodsGainInMoneyHuman = 0;
         private int setStartGoldAI = -1;
         private int setStartGoldHuman = -1;
         private int addStartGoldAI = 0;
@@ -199,10 +195,6 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
             return rowName + " / " + columnName;
         }
 
-        [SyncHostOnly] public int MultiplyGoodsGainAI { get => multiplyGoodsGainAI; set => SetInt(ref multiplyGoodsGainAI, value, nameof(MultiplyGoodsGainAI), nameof(MultiplyGoodsGainAIText)); }
-        [SyncHostOnly] public int MultiplyGoodsGainHuman { get => multiplyGoodsGainHuman; set => SetInt(ref multiplyGoodsGainHuman, value, nameof(MultiplyGoodsGainHuman), nameof(MultiplyGoodsGainHumanText)); }
-        [SyncHostOnly] public int MultiplyGoodsGainInMoneyAI { get => multiplyGoodsGainInMoneyAI; set => SetInt(ref multiplyGoodsGainInMoneyAI, value, nameof(MultiplyGoodsGainInMoneyAI), nameof(MultiplyGoodsGainInMoneyAIText)); }
-        [SyncHostOnly] public int MultiplyGoodsGainInMoneyHuman { get => multiplyGoodsGainInMoneyHuman; set => SetInt(ref multiplyGoodsGainInMoneyHuman, value, nameof(MultiplyGoodsGainInMoneyHuman), nameof(MultiplyGoodsGainInMoneyHumanText)); }
         [SyncHostOnly] public int SetStartGoldAI { get => setStartGoldAI; set => SetInt(ref setStartGoldAI, value, nameof(SetStartGoldAI), nameof(SetStartGoldAIText)); }
         [SyncHostOnly] public int SetStartGoldHuman { get => setStartGoldHuman; set => SetInt(ref setStartGoldHuman, value, nameof(SetStartGoldHuman), nameof(SetStartGoldHumanText)); }
         [SyncHostOnly] public int AddStartGoldAI { get => addStartGoldAI; set => SetInt(ref addStartGoldAI, value, nameof(AddStartGoldAI), nameof(AddStartGoldAIText)); }
@@ -210,10 +202,6 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
         [SyncHostOnly] public int MultiplyStartTroopsAI { get => multiplyStartTroopsAI; set => SetInt(ref multiplyStartTroopsAI, value, nameof(MultiplyStartTroopsAI), nameof(MultiplyStartTroopsAIText)); }
         [SyncHostOnly] public int MultiplyStartTroopsHuman { get => multiplyStartTroopsHuman; set => SetInt(ref multiplyStartTroopsHuman, value, nameof(MultiplyStartTroopsHuman), nameof(MultiplyStartTroopsHumanText)); }
 
-        public string MultiplyGoodsGainAIText { get => MultiplyGoodsGainAI.ToString(); set => SetIntText(value, parsed => MultiplyGoodsGainAI = parsed, nameof(MultiplyGoodsGainAIText)); }
-        public string MultiplyGoodsGainHumanText { get => MultiplyGoodsGainHuman.ToString(); set => SetIntText(value, parsed => MultiplyGoodsGainHuman = parsed, nameof(MultiplyGoodsGainHumanText)); }
-        public string MultiplyGoodsGainInMoneyAIText { get => MultiplyGoodsGainInMoneyAI.ToString(); set => SetIntText(value, parsed => MultiplyGoodsGainInMoneyAI = parsed, nameof(MultiplyGoodsGainInMoneyAIText)); }
-        public string MultiplyGoodsGainInMoneyHumanText { get => MultiplyGoodsGainInMoneyHuman.ToString(); set => SetIntText(value, parsed => MultiplyGoodsGainInMoneyHuman = parsed, nameof(MultiplyGoodsGainInMoneyHumanText)); }
         public string SetStartGoldAIText { get => SetStartGoldAI.ToString(); set => SetIntText(value, parsed => SetStartGoldAI = parsed, nameof(SetStartGoldAIText)); }
         public string SetStartGoldHumanText { get => SetStartGoldHuman.ToString(); set => SetIntText(value, parsed => SetStartGoldHuman = parsed, nameof(SetStartGoldHumanText)); }
         public string AddStartGoldAIText { get => AddStartGoldAI.ToString(); set => SetIntText(value, parsed => AddStartGoldAI = parsed, nameof(AddStartGoldAIText)); }
@@ -287,10 +275,6 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
 
         private void ResetToDefault()
         {
-            MultiplyGoodsGainAI = 0;
-            MultiplyGoodsGainHuman = 0;
-            MultiplyGoodsGainInMoneyAI = 0;
-            MultiplyGoodsGainInMoneyHuman = 0;
             SetStartGoldAI = -1;
             SetStartGoldHuman = -1;
             AddStartGoldAI = 0;
