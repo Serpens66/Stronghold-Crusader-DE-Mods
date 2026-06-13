@@ -19,6 +19,7 @@ namespace UnitCosts
     {
         private readonly ManualLogSource log;
         private readonly UnitCostsLobbyViewModel settings;
+        private readonly List<IDisposable> subscriptions = new List<IDisposable>();
         private readonly Dictionary<eChimps, UnitExtraCostValues> humanExtraCosts = new Dictionary<eChimps, UnitExtraCostValues>();
         private MakeTroopGameActionHook makeTroopGameActionHook;
         private CreateTroopHoverHook createTroopHoverHook;
@@ -66,24 +67,24 @@ namespace UnitCosts
             if (hooksSubscribed)
                 return;
 
-            MapLoaderR3EventHooks.OnStartMap.Observable
+            subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
-                .Subscribe(OnStartMap);
+                .Subscribe(OnStartMap));
 
-            MapLoaderR3EventHooks.OnUnloadMap.Observable
+            subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
-                .Subscribe(OnUnloadMap);
+                .Subscribe(OnUnloadMap));
 
-            UnitR3EventHooks.OnUnitTransition.Observable
-                .Subscribe(OnUnitTransition);
+            subscriptions.Add(UnitR3EventHooks.OnUnitTransition.Observable
+                .Subscribe(OnUnitTransition));
 
-            BuildingR3EventHooks.OnPlacementValidation.Observable
+            subscriptions.Add(BuildingR3EventHooks.OnPlacementValidation.Observable
                 .Where(args => args.Phase == EventHookPhase.Pre)
-                .Subscribe(OnBuildingPlacementValidation);
+                .Subscribe(OnBuildingPlacementValidation));
 
-            BuildingR3EventHooks.OnBuildingSpawn.Observable
+            subscriptions.Add(BuildingR3EventHooks.OnBuildingSpawn.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
-                .Subscribe(OnBuildingSpawn);
+                .Subscribe(OnBuildingSpawn));
 
             makeTroopGameActionHook = new MakeTroopGameActionHook(log, DecideMakeTroopGameAction);
             createTroopHoverHook = new CreateTroopHoverHook(log, UpdateRecruitmentCostTooltip, ClearRecruitmentCostTooltip);
@@ -101,6 +102,11 @@ namespace UnitCosts
                 settingsChangedSubscribed = false;
             }
 
+            foreach (IDisposable subscription in subscriptions)
+                subscription.Dispose();
+
+            subscriptions.Clear();
+            hooksSubscribed = false;
             makeTroopGameActionHook?.Dispose();
             makeTroopGameActionHook = null;
             createTroopHoverHook?.Dispose();

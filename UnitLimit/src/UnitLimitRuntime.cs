@@ -28,6 +28,7 @@ namespace UnitLimit
         private readonly Dictionary<eChimps, int> activeUnitLimits = new Dictionary<eChimps, int>();
         private readonly Dictionary<PendingRecruitmentKey, List<DateTime>> pendingRecruitments = new Dictionary<PendingRecruitmentKey, List<DateTime>>();
         // private readonly List<int> matchingUnitIds = new List<int>();
+        private readonly List<IDisposable> subscriptions = new List<IDisposable>();
         private readonly ActiveUnitCache activeUnitCache;
         private readonly ActiveSiegeTentCache activeSiegeTentCache;
         private MakeTroopGameActionHook makeTroopGameActionHook;
@@ -105,21 +106,21 @@ namespace UnitLimit
             createTroopHoverHook = new CreateTroopHoverHook(log, UpdateRecruitmentLimitTooltip, ClearUnitLimitTooltip);
             siegeBuildHoverHook = new SiegeBuildHoverHook(log, UpdateSiegeBuildLimitTooltip, ClearUnitLimitTooltip);
 
-            MapLoaderR3EventHooks.OnStartMap.Observable
+            subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
-                .Subscribe(OnStartMap);
+                .Subscribe(OnStartMap));
 
-            MapLoaderR3EventHooks.OnLoadSave.Observable
+            subscriptions.Add(MapLoaderR3EventHooks.OnLoadSave.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
-                .Subscribe(OnLoadSave);
+                .Subscribe(OnLoadSave));
 
-            MapLoaderR3EventHooks.OnUnloadMap.Observable
+            subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
-                .Subscribe(OnUnloadMap);
+                .Subscribe(OnUnloadMap));
 
-            BuildingR3EventHooks.OnPlacementValidation.Observable
+            subscriptions.Add(BuildingR3EventHooks.OnPlacementValidation.Observable
                 .Where(args => args.Phase == EventHookPhase.Pre)
-                .Subscribe(OnBuildingPlacementValidation);
+                .Subscribe(OnBuildingPlacementValidation));
 
             LogDebug("Unit limit runtime hooks subscribed");
             hooksSubscribed = true;
@@ -144,6 +145,11 @@ namespace UnitLimit
                 settingsPropertyChangedSubscribed = false;
             }
 
+            foreach (IDisposable subscription in subscriptions)
+                subscription.Dispose();
+
+            subscriptions.Clear();
+            hooksSubscribed = false;
             CancelUnitLimitRecruitableRefresh();
             RestoreOriginalUnitRecruitableStates();
             HideLimitMessage();

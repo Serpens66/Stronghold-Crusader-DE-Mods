@@ -21,6 +21,7 @@ namespace BuildingLimit
         private readonly Dictionary<eMappers, BuildingLimitRule> activeBuildingLimitRules = new Dictionary<eMappers, BuildingLimitRule>();
         private readonly Dictionary<eStructs, BuildingLimitRule> activeBuildingLimitRulesByStructure = new Dictionary<eStructs, BuildingLimitRule>();
         // private readonly List<int> matchingBuildingIds = new List<int>();
+        private readonly List<IDisposable> subscriptions = new List<IDisposable>();
         private readonly ActiveBuildingCache activeBuildingCache;
         private bool settingsPropertyChangedSubscribed;
         private bool hooksSubscribed;
@@ -66,21 +67,21 @@ namespace BuildingLimit
                 LogDebug("Could not install building limit tooltip hook:", ex);
             }
 
-            BuildingR3EventHooks.OnPlacementValidation.Observable
+            subscriptions.Add(BuildingR3EventHooks.OnPlacementValidation.Observable
                 .Where(args => args.Phase == EventHookPhase.Pre)
-                .Subscribe(OnBuildingPlacementValidation);
+                .Subscribe(OnBuildingPlacementValidation));
 
-            MapLoaderR3EventHooks.OnStartMap.Observable
+            subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
-                .Subscribe(OnStartMap);
+                .Subscribe(OnStartMap));
 
-            MapLoaderR3EventHooks.OnLoadSave.Observable
+            subscriptions.Add(MapLoaderR3EventHooks.OnLoadSave.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
-                .Subscribe(OnLoadSave);
+                .Subscribe(OnLoadSave));
 
-            MapLoaderR3EventHooks.OnUnloadMap.Observable
+            subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
-                .Subscribe(OnUnloadMap);
+                .Subscribe(OnUnloadMap));
 
             LogDebug("Building limit runtime hooks subscribed");
             hooksSubscribed = true;
@@ -105,6 +106,11 @@ namespace BuildingLimit
                 settingsPropertyChangedSubscribed = false;
             }
 
+            foreach (IDisposable subscription in subscriptions)
+                subscription.Dispose();
+
+            subscriptions.Clear();
+            hooksSubscribed = false;
             HideBuildingLimitMessage();
             ClearBuildingLimitTooltip();
             ResetBuildingLimitTooltipCache();

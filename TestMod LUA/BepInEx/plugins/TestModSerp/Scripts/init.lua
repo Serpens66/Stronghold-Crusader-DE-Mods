@@ -22,9 +22,6 @@
 
 
 
--- Medium
--- [BuildingCostsRuntime.cs (line 49)](/d:/CDesktopLink/Unterlagen/Mods/Stronghold Crusader DE/Meine Mods/BuildingCosts/src/BuildingCostsRuntime.cs:49), [BuildingLimitRuntime.cs (line 64)](/d:/CDesktopLink/Unterlagen/Mods/Stronghold Crusader DE/Meine Mods/BuildingLimit/src/BuildingLimitRuntime.cs:64), [StartConditionsRuntime.cs (line 76)](/d:/CDesktopLink/Unterlagen/Mods/Stronghold Crusader DE/Meine Mods/StartConditions/src/StartConditionsRuntime.cs:76), [UnitCostsRuntime.cs (line 64)](/d:/CDesktopLink/Unterlagen/Mods/Stronghold Crusader DE/Meine Mods/UnitCosts/src/UnitCostsRuntime.cs:64), [UnitLimitRuntime.cs (line 108)](/d:/CDesktopLink/Unterlagen/Mods/Stronghold Crusader DE/Meine Mods/UnitLimit/src/UnitLimitRuntime.cs:108): mehrere R3-Subscriptions werden nicht gespeichert und können in Dispose() nicht abgemeldet werden. SomeSettings und die Cache-Klassen machen es korrekt.
--- Fix: pro Runtime List<IDisposable> subscriptions einführen, alle .Subscribe(...)-Rückgaben hinzufügen, in Dispose() disposen/clearen und hooksSubscribed=false setzen.
 
 -- [UnitCostsRuntime.cs (line 410)](/d:/CDesktopLink/Unterlagen/Mods/Stronghold Crusader DE/Meine Mods/UnitCosts/src/UnitCostsRuntime.cs:410): Siege-Zusatzkosten blockieren Placement nur für lokalen Spieler. [OnBuildingSpawn (line 453)](/d:/CDesktopLink/Unterlagen/Mods/Stronghold Crusader DE/Meine Mods/UnitCosts/src/UnitCostsRuntime.cs:453) überspringt bei fehlenden Ressourcen nur die Zusatzkosten, lässt das Siege Tent aber bestehen. In Multiplayer kann das je nach Autorität/Client-Eventfluss einen Bypass erzeugen.
 -- Fix: Host-/Autoritätsmodell klären; notfalls Spawn rückgängig machen oder Kostenprüfung auf der autoritativen Seite erzwingen.

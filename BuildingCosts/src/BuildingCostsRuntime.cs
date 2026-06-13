@@ -18,6 +18,7 @@ namespace BuildingCosts
     {
         private readonly ManualLogSource log;
         private readonly BuildingCostsLobbyViewModel settings;
+        private readonly List<IDisposable> subscriptions = new List<IDisposable>();
         private bool settingsChangedSubscribed;
         private bool hooksSubscribed;
         private bool libraryInitialized;
@@ -46,9 +47,9 @@ namespace BuildingCosts
             if (hooksSubscribed)
                 return;
 
-            MapLoaderR3EventHooks.OnStartMap.Observable
+            subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
-                .Subscribe(OnStartMap);
+                .Subscribe(OnStartMap));
 
             try
             {
@@ -83,6 +84,11 @@ namespace BuildingCosts
                 settingsChangedSubscribed = false;
             }
 
+            foreach (IDisposable subscription in subscriptions)
+                subscription.Dispose();
+
+            subscriptions.Clear();
+            hooksSubscribed = false;
             updateRolloverHook?.Dispose();
             updateRolloverHook = null;
             updateRolloverTrampoline = null;
