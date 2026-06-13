@@ -19,20 +19,9 @@
 
 -- C# mods:
 
-
-
-
-
 -- [UnitCostsRuntime.cs (line 410)](/d:/CDesktopLink/Unterlagen/Mods/Stronghold Crusader DE/Meine Mods/UnitCosts/src/UnitCostsRuntime.cs:410): Siege-Zusatzkosten blockieren Placement nur für lokalen Spieler. [OnBuildingSpawn (line 453)](/d:/CDesktopLink/Unterlagen/Mods/Stronghold Crusader DE/Meine Mods/UnitCosts/src/UnitCostsRuntime.cs:453) überspringt bei fehlenden Ressourcen nur die Zusatzkosten, lässt das Siege Tent aber bestehen. In Multiplayer kann das je nach Autorität/Client-Eventfluss einen Bypass erzeugen.
 -- Fix: Host-/Autoritätsmodell klären; notfalls Spawn rückgängig machen oder Kostenprüfung auf der autoritativen Seite erzwingen.
 --> TESTEN ob Placement Event nur für lokalen Spieler läuft, oder für alle spieler. Wenn alle für alle spieler dieses event bekommen, dann muss das gefixt werden.
-
-
-
-
-
-
-
 
 
 
