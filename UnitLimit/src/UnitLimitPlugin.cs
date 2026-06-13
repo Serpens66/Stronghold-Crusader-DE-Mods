@@ -11,7 +11,7 @@ namespace UnitLimit
     {
         private const string ScriptExtenderGuid = "000shcdese";
 
-        public const string PluginGuid = "UnitLimit";
+        public const string PluginGuid = "UnitLimit_Serp";
         public const string PluginName = "Unit Limit";
         public const string PluginVersion = "0.1.0";
 
@@ -59,7 +59,7 @@ namespace UnitLimit
                 Settings.RefreshLocalizedNames();
                 GameXAMLManagerAPI.Instance.RegisterLobbyModSettings(
                     this,
-                    "UnitLimit",
+                    "UnitLimit_Serp",
                     Settings,
                     "ScriptExtenderUI/UnitLimitSettings.xaml");
                 GameXAMLManagerAPI.Instance.RegisterBinding(

@@ -11,7 +11,7 @@ namespace SomeSettings
     {
         private const string ScriptExtenderGuid = "000shcdese";
 
-        public const string PluginGuid = "SomeSettings";
+        public const string PluginGuid = "SomeSettings_Serp";
         public const string PluginName = "Some Settings";
         public const string PluginVersion = "0.1.0";
 
@@ -56,7 +56,7 @@ namespace SomeSettings
             {
                 GameXAMLManagerAPI.Instance.RegisterLobbyModSettings(
                     this,
-                    "SomeSettings",
+                    "SomeSettings_Serp",
                     Settings,
                     "ScriptExtenderUI/SomeSettingsSettings.xaml");
 

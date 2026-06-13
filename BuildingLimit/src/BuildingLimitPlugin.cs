@@ -11,7 +11,7 @@ namespace BuildingLimit
     {
         private const string ScriptExtenderGuid = "000shcdese";
 
-        public const string PluginGuid = "BuildingLimit";
+        public const string PluginGuid = "BuildingLimit_Serp";
         public const string PluginName = "Building Limit";
         public const string PluginVersion = "0.1.0";
 
@@ -59,7 +59,7 @@ namespace BuildingLimit
                 Settings.RefreshLocalizedNames();
                 GameXAMLManagerAPI.Instance.RegisterLobbyModSettings(
                     this,
-                    "BuildingLimit",
+                    "BuildingLimit_Serp",
                     Settings,
                     "ScriptExtenderUI/BuildingLimitSettings.xaml");
                 GameXAMLManagerAPI.Instance.RegisterBinding(

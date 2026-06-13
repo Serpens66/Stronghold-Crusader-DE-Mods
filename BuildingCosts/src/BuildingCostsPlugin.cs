@@ -11,7 +11,7 @@ namespace BuildingCosts
     {
         private const string ScriptExtenderGuid = "000shcdese";
 
-        public const string PluginGuid = "BuildingCosts";
+        public const string PluginGuid = "BuildingCosts_Serp";
         public const string PluginName = "Building Costs";
         public const string PluginVersion = "0.1.0";
 
@@ -61,7 +61,7 @@ namespace BuildingCosts
                 Settings.RefreshLocalizedNames();
                 GameXAMLManagerAPI.Instance.RegisterLobbyModSettings(
                     this,
-                    "BuildingCosts",
+                    "BuildingCosts_Serp",
                     Settings,
                     "ScriptExtenderUI/BuildingCostsSettings.xaml");
                 GameXAMLManagerAPI.Instance.RegisterBinding(

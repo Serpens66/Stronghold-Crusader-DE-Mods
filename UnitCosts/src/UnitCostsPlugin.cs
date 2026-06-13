@@ -11,7 +11,7 @@ namespace UnitCosts
     {
         private const string ScriptExtenderGuid = "000shcdese";
 
-        public const string PluginGuid = "UnitCosts";
+        public const string PluginGuid = "UnitCosts_Serp";
         public const string PluginName = "Unit Costs";
         public const string PluginVersion = "0.1.0";
 
@@ -58,7 +58,7 @@ namespace UnitCosts
                 Settings.RefreshLocalizedNames();
                 GameXAMLManagerAPI.Instance.RegisterLobbyModSettings(
                     this,
-                    "UnitCosts",
+                    "UnitCosts_Serp",
                     Settings,
                     "ScriptExtenderUI/UnitCostsSettings.xaml");
                 GameXAMLManagerAPI.Instance.RegisterBinding(

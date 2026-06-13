@@ -67,9 +67,11 @@ echo.
 if "%BUILD_EXIT_CODE%"=="0" (
   echo Build erfolgreich.
   echo Kopiere Plugin in den Spielordner...
-  set "PLUGIN_NAME=SomeSettings"
+  set "PLUGIN_NAME=SomeSettings_Serp"
+  set "OLD_PLUGIN_NAME=SomeSettings"
   set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\!PLUGIN_NAME!"
   set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\!PLUGIN_NAME!"
+  set "OLD_GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\!OLD_PLUGIN_NAME!"
 
   if not exist "!LOCAL_PLUGIN_DIR!\" (
     echo Lokaler Plugin-Ordner wurde nicht gefunden:
@@ -95,6 +97,10 @@ if "%BUILD_EXIT_CODE%"=="0" (
   )
   xcopy "!LOCAL_PLUGIN_DIR!" "!GAME_PLUGIN_DIR!\" /E /I /Y
   if errorlevel 1 goto copy_failed
+  if exist "!OLD_GAME_PLUGIN_DIR!\" (
+    rmdir /S /Q "!OLD_GAME_PLUGIN_DIR!"
+    if errorlevel 1 goto copy_failed
+  )
   echo Plugin kopiert.
 ) else (
   echo Build fehlgeschlagen. Exit Code: %BUILD_EXIT_CODE%

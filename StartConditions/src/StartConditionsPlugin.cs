@@ -11,7 +11,7 @@ namespace StartConditions
     {
         private const string ScriptExtenderGuid = "000shcdese";
 
-        public const string PluginGuid = "StartConditions";
+        public const string PluginGuid = "StartConditions_Serp";
         public const string PluginName = "Start Conditions";
         public const string PluginVersion = "0.1.0";
 
@@ -59,7 +59,7 @@ namespace StartConditions
                 Settings.RefreshLocalizedNames(message => Logger.LogDebug(message));
                 GameXAMLManagerAPI.Instance.RegisterLobbyModSettings(
                     this,
-                    "StartConditions",
+                    "StartConditions_Serp",
                     Settings,
                     "ScriptExtenderUI/StartConditionsSettings.xaml");
 
