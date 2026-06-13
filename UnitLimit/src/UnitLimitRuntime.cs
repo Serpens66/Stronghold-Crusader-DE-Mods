@@ -100,7 +100,7 @@ namespace UnitLimit
             activeUnitCache.OnActiveUnitChanged += OnActiveUnitChanged;
             activeSiegeTentCache.SubscribeHooks();
             activeSiegeTentCache.OnActiveSiegeTentChanged += OnActiveSiegeTentChanged;
-            makeTroopGameActionHook = new MakeTroopGameActionHook(log, ShouldBlockMakeTroopGameAction);
+            makeTroopGameActionHook = new MakeTroopGameActionHook(log, DecideMakeTroopGameAction);
             disbandGameActionHook = new DisbandGameActionHook(log, activeUnitCache.NotifyNativeSnapshotChanged);
             createTroopHoverHook = new CreateTroopHoverHook(log, UpdateRecruitmentLimitTooltip, ClearUnitLimitTooltip);
             siegeBuildHoverHook = new SiegeBuildHoverHook(log, UpdateSiegeBuildLimitTooltip, ClearUnitLimitTooltip);

@@ -43,60 +43,62 @@ namespace UnitLimit
             }
         }
 
-        internal bool ShouldBlockMakeTroopGameAction(int amount, eChimps unitType, int rawUnitType)
+        internal MakeTroopGameActionDecision DecideMakeTroopGameAction(int amount, eChimps unitType, int rawUnitType)
         {
             try
             {
-                return ShouldBlockLocalUnitRecruitmentRequest(amount, unitType, rawUnitType);
+                return DecideLocalUnitRecruitmentRequest(amount, unitType, rawUnitType);
             }
             catch (Exception ex)
             {
                 LogDebug("Unit limit game action event failed:", ex.Message);
-                return false;
+                return MakeTroopGameActionDecision.AllowOriginal();
             }
         }
 
-        private bool ShouldBlockLocalUnitRecruitmentRequest(int amount, eChimps unitType, int rawUnitType)
+        private MakeTroopGameActionDecision DecideLocalUnitRecruitmentRequest(int amount, eChimps unitType, int rawUnitType)
         {
             if (amount <= 0)
-                return false;
+                return MakeTroopGameActionDecision.AllowOriginal();
 
             if (!SoldierChimps.Contains(unitType))
-                return false;
+                return MakeTroopGameActionDecision.AllowOriginal();
 
             if (!activeUnitLimits.TryGetValue(unitType, out int limit) || limit < 0)
-                return false;
+                return MakeTroopGameActionDecision.AllowOriginal();
 
             int playerId = GetLocalHumanPlayerId();
             if (playerId <= 0)
-                return false;
+                return MakeTroopGameActionDecision.AllowOriginal();
 
             RemoveExpiredPendingRecruitments();
             int liveCount = CountAliveUnits(playerId, unitType);
             int pendingCount = GetPendingRecruitmentCount(playerId, unitType);
             int effectiveCount = liveCount + pendingCount;
+            int remaining = limit - effectiveCount;
+            int allowedAmount = remaining <= 0
+                ? 0
+                : amount == 1000
+                    ? remaining
+                    : Math.Min(amount, remaining);
             LogDebug(
-                "MakeTroop count:",
+                "MakeTroop decision:",
                 "unit", unitType,
                 "player", playerId,
                 "live", liveCount,
                 "pending", pendingCount,
                 "effective", effectiveCount,
-                "amount", amount,
+                "remaining", remaining,
+                "requestedAmount", amount,
+                "allowedAmount", allowedAmount,
                 "limit", limit,
                 "rawUnitType", rawUnitType);
-            if (effectiveCount + amount <= limit)
+
+            if (allowedAmount > 0)
             {
-                LogDebug(
-                    "MakeTroop allow: below or at unit limit",
-                    "unit", unitType,
-                    "player", playerId,
-                    "effective", effectiveCount,
-                    "amount", amount,
-                    "limit", limit);
-                ReservePendingRecruitment(playerId, unitType, amount);
+                ReservePendingRecruitment(playerId, unitType, allowedAmount);
                 RefreshCurrentUnitLimitTooltip();
-                return false;
+                return MakeTroopGameActionDecision.ForwardAmount(allowedAmount);
             }
 
             LogDebug(
@@ -106,13 +108,15 @@ namespace UnitLimit
                 "live", liveCount,
                 "pending", pendingCount,
                 "effective", effectiveCount,
-                "amount", amount,
+                "remaining", remaining,
+                "requestedAmount", amount,
+                "allowedAmount", allowedAmount,
                 "limit", limit,
                 "rawUnitType", rawUnitType);
             ShowUnitLimitReachedMessageForLocalPlayer(playerId, unitType, limit);
             RefreshLocalUnitRecruitableStates("MakeTroopBlock", false);
             RefreshCurrentUnitLimitTooltip();
-            return true;
+            return MakeTroopGameActionDecision.BlockAction();
         }
 
         // private int CountAliveUnits(int playerId, eChimps unitType)
