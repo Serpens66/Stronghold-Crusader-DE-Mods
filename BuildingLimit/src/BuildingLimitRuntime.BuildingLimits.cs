@@ -133,7 +133,7 @@ namespace BuildingLimit
                     !GamePlayerManagerAPI.Instance.IsPlayerIdValid(localPlayerId) ||
                     GamePlayerManagerAPI.Instance.IsAIPlayer(localPlayerId))
                 {
-                    BuildingLimitTooltip.Clear();
+                    ClearBuildingLimitTooltip();
                     return;
                 }
 
@@ -144,17 +144,33 @@ namespace BuildingLimit
                     !TryResolveActiveBuildingLimitRule(tooltipStruct, out BuildingLimitRule rule) ||
                     rule.Limit < 0)
                 {
-                    BuildingLimitTooltip.Clear();
+                    ClearBuildingLimitTooltip();
                     return;
                 }
 
                 int count = GetDisplayBuildingCount(rule, CountAliveBuildings(localPlayerId, rule.Definition));
+                int limit = rule.DisplayLimit;
+                if (!buildingLimitTooltipIsClear &&
+                    tooltipStruct == lastTooltipStruct &&
+                    localPlayerId == lastTooltipLocalPlayerId &&
+                    count == lastTooltipCount &&
+                    limit == lastTooltipLimit)
+                {
+                    return;
+                }
+
                 BuildingLimitTooltip.Show(count, rule.DisplayLimit);
+                lastTooltipStruct = tooltipStruct;
+                lastTooltipLocalPlayerId = localPlayerId;
+                lastTooltipCount = count;
+                lastTooltipLimit = limit;
+                buildingLimitTooltipIsClear = false;
             }
             catch (Exception ex)
             {
                 LogDebug("Error updating building limit tooltip:", ex.Message);
-                BuildingLimitTooltip.Clear();
+                ClearBuildingLimitTooltip();
+                ResetBuildingLimitTooltipCache();
             }
         }
 
@@ -298,6 +314,7 @@ namespace BuildingLimit
             }
 
             LogDebug("Applied active building limit rules:", activeBuildingLimitRules.Count);
+            ResetBuildingLimitTooltipCache();
         }
 
         private static int GetInternalBuildingLimit(BuildingLimitDefinition definition, int configuredLimit)

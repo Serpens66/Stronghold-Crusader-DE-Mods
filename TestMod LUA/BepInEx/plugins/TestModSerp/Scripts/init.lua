@@ -28,17 +28,7 @@
 
 -- [UnitCostsRuntime.cs (line 410)](/d:/CDesktopLink/Unterlagen/Mods/Stronghold Crusader DE/Meine Mods/UnitCosts/src/UnitCostsRuntime.cs:410): Siege-Zusatzkosten blockieren Placement nur für lokalen Spieler. [OnBuildingSpawn (line 453)](/d:/CDesktopLink/Unterlagen/Mods/Stronghold Crusader DE/Meine Mods/UnitCosts/src/UnitCostsRuntime.cs:453) überspringt bei fehlenden Ressourcen nur die Zusatzkosten, lässt das Siege Tent aber bestehen. In Multiplayer kann das je nach Autorität/Client-Eventfluss einen Bypass erzeugen.
 -- Fix: Host-/Autoritätsmodell klären; notfalls Spawn rückgängig machen oder Kostenprüfung auf der autoritativen Seite erzwingen.
-
--- [BuildingLimitRuntime.BuildingLimits.cs (line 127)](/d:/CDesktopLink/Unterlagen/Mods/Stronghold Crusader DE/Meine Mods/BuildingLimit/src/BuildingLimitRuntime.BuildingLimits.cs:127): Tooltip wird bei jedem HUD_Main.UpdateRollover neu berechnet und Show() aufgerufen. BuildingCosts hat dafür bereits einen Cache; BuildingLimit nicht.
--- Fix: last tooltipStruct/localPlayerId/count/limit cachen und nur bei Änderung ViewModel aktualisieren.
-
--- Low
--- [UnitCostsRuntime.cs (line 675)](/d:/CDesktopLink/Unterlagen/Mods/Stronghold Crusader DE/Meine Mods/UnitCosts/src/UnitCostsRuntime.cs:675): GetMainViewModelMemberValue sucht Field/Property per Reflection bei jedem Hover. Gleiches Muster in UnitLimitRuntime.Tooltips.cs.
--- Fix: FieldInfo/PropertyInfo statisch cachen.
-
--- [SomeSettingsRuntime.cs (line 107)](/d:/CDesktopLink/Unterlagen/Mods/Stronghold Crusader DE/Meine Mods/SomeSettings/src/SomeSettingsRuntime.cs:107): Duplicate-Schutz für Storage-Refund nutzt nur BuildingId. Falls IDs sehr schnell wiederverwendet werden, kann ein echter Refund innerhalb von 2 Sekunden übersprungen werden.
--- Fix: Key um Player/Structure/evtl. Tick erweitern oder Event-spezifisch statt zeitbasiert deduplizieren.
-
+--> TESTEN ob Placement Event nur für lokalen Spieler läuft, oder für alle spieler. Wenn alle für alle spieler dieses event bekommen, dann muss das gefixt werden.
 
 
 

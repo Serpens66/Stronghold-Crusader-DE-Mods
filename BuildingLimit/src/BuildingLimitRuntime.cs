@@ -32,6 +32,11 @@ namespace BuildingLimit
         private UpdateRolloverDelegate updateRolloverTrampoline;
         private FieldInfo hoverStructField;
         private FieldInfo selectedStructField;
+        private int lastTooltipStruct = int.MinValue;
+        private int lastTooltipLocalPlayerId = int.MinValue;
+        private int lastTooltipCount = int.MinValue;
+        private int lastTooltipLimit = int.MinValue;
+        private bool buildingLimitTooltipIsClear = true;
 
         private delegate void UpdateRolloverDelegate(HUD_Main self);
 
@@ -101,7 +106,8 @@ namespace BuildingLimit
             }
 
             HideBuildingLimitMessage();
-            BuildingLimitTooltip.Clear();
+            ClearBuildingLimitTooltip();
+            ResetBuildingLimitTooltipCache();
             updateRolloverHook?.Dispose();
             updateRolloverHook = null;
             updateRolloverTrampoline = null;
@@ -115,6 +121,7 @@ namespace BuildingLimit
             try
             {
                 LogDebug("OnStartMap");
+                ResetBuildingLimitTooltipCache();
                 ApplyBuildingLimits();
             }
             catch (Exception ex)
@@ -126,6 +133,7 @@ namespace BuildingLimit
         private void OnLoadSave(LoadSaveGameEventArgs args)
         {
             LogDebug("OnLoadSave");
+            ResetBuildingLimitTooltipCache();
             ApplyBuildingLimits();
         }
 
@@ -133,7 +141,8 @@ namespace BuildingLimit
         {
             LogDebug("OnUnloadMap");
             HideBuildingLimitMessage();
-            BuildingLimitTooltip.Clear();
+            ClearBuildingLimitTooltip();
+            ResetBuildingLimitTooltipCache();
             // matchingBuildingIds.Clear();
         }
 
@@ -165,6 +174,23 @@ namespace BuildingLimit
         private void LogDebug(params object[] parts)
         {
             Shared.DebugLogHelper.LogDebug(log, parts);
+        }
+
+        private void ClearBuildingLimitTooltip()
+        {
+            if (buildingLimitTooltipIsClear)
+                return;
+
+            BuildingLimitTooltip.Clear();
+            buildingLimitTooltipIsClear = true;
+        }
+
+        private void ResetBuildingLimitTooltipCache()
+        {
+            lastTooltipStruct = int.MinValue;
+            lastTooltipLocalPlayerId = int.MinValue;
+            lastTooltipCount = int.MinValue;
+            lastTooltipLimit = int.MinValue;
         }
     }
 }
