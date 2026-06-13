@@ -363,9 +363,9 @@ namespace SomeSettings
                 "multiplyGoods", multiplyGoods,
                 "multiplyMoney", multiplyMoney);
 
-            if (multiplyGoods > 0)
+            if (multiplyGoods > 1)
             {
-                int bonusAmount = args.AddAmount * multiplyGoods;
+                int bonusAmount = args.AddAmount * (multiplyGoods - 1);
                 LogDebugForResourceEventPlayer(
                     playerId,
                     "OnGoodsyardAddGood TryAddGood bonus:",

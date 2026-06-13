@@ -65,13 +65,13 @@
         <TextBlock Grid.Row="0" Grid.Column="1" Text="AI" Foreground="White" FontWeight="Bold"/>
         <TextBlock Grid.Row="0" Grid.Column="2" Text="Human" Foreground="White" FontWeight="Bold"/>
 
-        <TextBlock Grid.Row="1" Grid.Column="0" Text="Multiply goods gain" Foreground="White" Margin="0,4" ToolTip="Whenever a player gains goods, he gets that amount this times on top (0 means unchanged)"/>
-        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding MultiplyGoodsGainAIText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="Multiply goods gain / AI" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
-        <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding MultiplyGoodsGainHumanText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="Multiply goods gain / Human" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+        <TextBlock Grid.Row="1" Grid.Column="0" Text="Multiply goods gain" Foreground="White" Margin="0,4" ToolTip="Multiplier for gained goods. 1 = unchanged, 2 = double, 3 = triple. Values 1 or lower add nothing."/>
+        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding MultiplyGoodsGainAIText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="Goods gain multiplier factor / AI" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+        <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding MultiplyGoodsGainHumanText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="Goods gain multiplier factor / Human" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
 
-        <TextBlock Grid.Row="2" Grid.Column="0" Text="Multiply goods as money" Foreground="White" Margin="0,4" ToolTip="Whenever a player gains goods, he also gets money on top as if he sold them (0 means unchanged)"/>
-        <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding MultiplyGoodsGainInMoneyAIText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="Multiply goods as money / AI" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
-        <TextBox Grid.Row="2" Grid.Column="2" Text="{Binding MultiplyGoodsGainInMoneyHumanText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="Multiply goods as money / Human" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+        <TextBlock Grid.Row="2" Grid.Column="0" Text="Multiply goods as money" Foreground="White" Margin="0,4" ToolTip="Extra gold payouts based on sell value of gained goods. 0 = unchanged, 1 = one sell-value payout, 2 = two payouts."/>
+        <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding MultiplyGoodsGainInMoneyAIText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="Goods-as-money payout count / AI" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+        <TextBox Grid.Row="2" Grid.Column="2" Text="{Binding MultiplyGoodsGainInMoneyHumanText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="Goods-as-money payout count / Human" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
       </Grid>
     </StackPanel>
   </ScrollViewer>

@@ -21,8 +21,6 @@
 
 
 
--- [StartConditionsRuntime.StartResources.cs (line 85)](/d:/CDesktopLink/Unterlagen/Mods/Stronghold Crusader DE/Meine Mods/StartConditions/src/StartConditionsRuntime.StartResources.cs:85): MultiplyGoodsGain addiert args.Amount * multiplyGoods zusätzlich zum Original. Falls die UI-Absicht “2x Gewinn” ist, erzeugt 2 effektiv 3x. Zusammen mit dem Critical-Bug eskaliert das.
--- Fix: Semantik festlegen. Für echte Multiplikation args.Amount * (factor - 1) addieren und factor <= 1 als keine Zusatzmenge behandeln.
 
 -- Medium
 -- [BuildingCostsRuntime.cs (line 49)](/d:/CDesktopLink/Unterlagen/Mods/Stronghold Crusader DE/Meine Mods/BuildingCosts/src/BuildingCostsRuntime.cs:49), [BuildingLimitRuntime.cs (line 64)](/d:/CDesktopLink/Unterlagen/Mods/Stronghold Crusader DE/Meine Mods/BuildingLimit/src/BuildingLimitRuntime.cs:64), [StartConditionsRuntime.cs (line 76)](/d:/CDesktopLink/Unterlagen/Mods/Stronghold Crusader DE/Meine Mods/StartConditions/src/StartConditionsRuntime.cs:76), [UnitCostsRuntime.cs (line 64)](/d:/CDesktopLink/Unterlagen/Mods/Stronghold Crusader DE/Meine Mods/UnitCosts/src/UnitCostsRuntime.cs:64), [UnitLimitRuntime.cs (line 108)](/d:/CDesktopLink/Unterlagen/Mods/Stronghold Crusader DE/Meine Mods/UnitLimit/src/UnitLimitRuntime.cs:108): mehrere R3-Subscriptions werden nicht gespeichert und können in Dispose() nicht abgemeldet werden. SomeSettings und die Cache-Klassen machen es korrekt.

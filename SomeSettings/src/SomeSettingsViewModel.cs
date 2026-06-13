@@ -14,8 +14,8 @@ namespace SomeSettings
         private string ironRefundPercentText = "-1";
         private string pitchRefundPercentText = "-1";
         private string goldRefundPercentText = "-1";
-        private int multiplyGoodsGainAI;
-        private int multiplyGoodsGainHuman;
+        private int multiplyGoodsGainAI = 1;
+        private int multiplyGoodsGainHuman = 1;
         private int multiplyGoodsGainInMoneyAI;
         private int multiplyGoodsGainInMoneyHuman;
         private bool keepStorageContent;
@@ -101,8 +101,8 @@ namespace SomeSettings
             PitchRefundPercentText = "-1";
             GoldRefundPercentText = "-1";
             KeepStorageContent = false;
-            MultiplyGoodsGainAI = 0;
-            MultiplyGoodsGainHuman = 0;
+            MultiplyGoodsGainAI = 1;
+            MultiplyGoodsGainHuman = 1;
             MultiplyGoodsGainInMoneyAI = 0;
             MultiplyGoodsGainInMoneyHuman = 0;
         }
