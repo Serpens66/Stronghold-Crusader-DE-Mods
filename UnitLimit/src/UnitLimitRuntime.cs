@@ -73,6 +73,7 @@ namespace UnitLimit
             eChimps.CHIMP_TYPE_ARAB_HORSEMAN,
             eChimps.CHIMP_TYPE_ARAB_SWORDSMAN,
             eChimps.CHIMP_TYPE_ARAB_GRENADIER,
+            eChimps.CHIMP_TYPE_ARAB_BALLISTA,
             eChimps.CHIMP_TYPE_BEDOUIN_CAMEL_LANCER,
             eChimps.CHIMP_TYPE_BEDOUIN_HEALER,
             eChimps.CHIMP_TYPE_BEDOUIN_EUNUCH,

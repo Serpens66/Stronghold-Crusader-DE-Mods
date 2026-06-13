@@ -1,4 +1,6 @@
+using Noesis;
 using SHCDESE.API.Components.Network;
+using SHCDESE.Interop;
 using SHCDESE.NoesisUtil;
 using SHCDESE.ViewModels;
 using System;
@@ -26,6 +28,14 @@ namespace SomeSettings
         }
 
         public RelayCommand ResetToDefaultCommand { get; }
+        public ImageSource WoodRefundIcon => GetGoodIconImage(eGoods.STORED_WOOD_PLANKS);
+        public ImageSource StoneRefundIcon => GetGoodIconImage(eGoods.STORED_STONE_BLOCKS);
+        public ImageSource IronRefundIcon => GetGoodIconImage(eGoods.STORED_IRON_INGOTS);
+        public ImageSource PitchRefundIcon => GetGoodIconImage(eGoods.STORED_PITCH_RAW);
+        public ImageSource GoldRefundIcon => GetGoodIconImage(eGoods.STORED_GOLD);
+        public ImageSource KeepStorageFruitIcon => GetGoodIconImage(eGoods.STORED_FOOD_FRUIT);
+        public ImageSource KeepStorageWoodIcon => GetGoodIconImage(eGoods.STORED_WOOD_PLANKS);
+        public ImageSource KeepStorageBowsIcon => GetGoodIconImage(eGoods.STORED_BOWS);
 
         [SyncHostOnly]
         public string WoodRefundPercentText
@@ -158,6 +168,18 @@ namespace SomeSettings
                 return 100;
 
             return parsed;
+        }
+
+        private static ImageSource GetGoodIconImage(eGoods good)
+        {
+            try
+            {
+                return CrusaderDE.MainViewModel.Instance?.getSmallGoodsIcon((int)good);
+            }
+            catch
+            {
+                return null;
+            }
         }
     }
 }

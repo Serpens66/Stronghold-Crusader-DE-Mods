@@ -71,6 +71,7 @@ namespace UnitCosts
             "CHIMP_TYPE_ARAB_HORSEMAN",
             "CHIMP_TYPE_ARAB_SWORDSMAN",
             "CHIMP_TYPE_ARAB_GRENADIER",
+            "CHIMP_TYPE_ARAB_BALLISTA",
             "CHIMP_TYPE_BEDOUIN_CAMEL_LANCER",
             "CHIMP_TYPE_BEDOUIN_HEALER",
             "CHIMP_TYPE_BEDOUIN_EUNUCH",
@@ -113,6 +114,7 @@ namespace UnitCosts
         public string Slot3HeaderText => IsGermanLanguage() ? "Slot 3" : "Slot 3";
         public string Slot4HeaderText => IsGermanLanguage() ? "Slot 4 / Pferd" : "Slot 4 / Horse";
         public string GoldHeaderText => UnitCostsRuntime.GetLocalizedGoodName(eGoods.STORED_GOLD, "Gold");
+        public ImageSource GoldHeaderIcon => GetGoodIconImage(eGoods.STORED_GOLD);
 
         [SyncHostOnly]
         public string UnitCosts
@@ -221,6 +223,7 @@ namespace UnitCosts
             OnPropertyChanged(nameof(Slot3HeaderText));
             OnPropertyChanged(nameof(Slot4HeaderText));
             OnPropertyChanged(nameof(GoldHeaderText));
+            OnPropertyChanged(nameof(GoldHeaderIcon));
             RefreshCostEntryToolTips();
         }
 
@@ -705,6 +708,7 @@ namespace UnitCosts
                 case eChimps.CHIMP_TYPE_ARAB_HORSEMAN: return GetResourceImage("UI-Buildings O043");
                 case eChimps.CHIMP_TYPE_ARAB_SWORDSMAN: return GetResourceImage("UI-Buildings O045");
                 case eChimps.CHIMP_TYPE_ARAB_GRENADIER: return GetResourceImage("UI-Buildings O047");
+                case eChimps.CHIMP_TYPE_ARAB_BALLISTA: return GetResourceImage("UI-Buildings O049");
                 case eChimps.CHIMP_TYPE_BEDOUIN_CAMEL_LANCER: return GetResourceImage("UI-Buildings O051");
                 case eChimps.CHIMP_TYPE_BEDOUIN_HEALER: return GetResourceImage("UI-Buildings O053");
                 case eChimps.CHIMP_TYPE_BEDOUIN_EUNUCH: return GetResourceImage("UI-Buildings O055");
@@ -1183,6 +1187,21 @@ namespace UnitCosts
             }
 
             public string Key { get; }
+
+            public ImageSource IconImage
+            {
+                get
+                {
+                    if (Enum.TryParse(Key, out eGoods good) &&
+                        good != eGoods.STORED_NULL &&
+                        good != eGoods._SE_REQUIRE_HORSE)
+                    {
+                        return GetGoodIconImage(good);
+                    }
+
+                    return null;
+                }
+            }
 
             public string DisplayName
             {

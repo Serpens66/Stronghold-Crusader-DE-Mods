@@ -57,6 +57,7 @@ namespace UnitCosts
         {
             try
             {
+                runtime.InitializeAfterLibraryLoaded();
                 Settings.RefreshLocalizedNames();
                 GameXAMLManagerAPI.Instance.RegisterLobbyModSettings(
                     this,
@@ -70,8 +71,6 @@ namespace UnitCosts
                     "UnitCostsSiegeNotificationInlineHost",
                     runtime.Notification);
                 RegisterRecruitmentCostTooltipBindings();
-
-                runtime.InitializeAfterLibraryLoaded();
                 Logger.LogDebug("Crusader library loaded; UnitCosts UI registered.");
             }
             catch (Exception ex)

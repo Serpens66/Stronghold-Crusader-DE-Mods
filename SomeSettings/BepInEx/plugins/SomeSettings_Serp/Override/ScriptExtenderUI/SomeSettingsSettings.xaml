@@ -25,27 +25,48 @@
           <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.Row="0" Grid.Column="0" Text="Wood refund %" Foreground="White" VerticalAlignment="Center" Margin="0,3,8,3" ToolTip="Vanilla value: 50%."/>
+        <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,3,8,3" ToolTip="Vanilla value: 50%.">
+          <Image Source="{Binding WoodRefundIcon}" Width="18" Height="18" Stretch="Uniform" Margin="0,0,6,0"/>
+          <TextBlock Text="Wood refund %" Foreground="White" VerticalAlignment="Center"/>
+        </StackPanel>
         <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding WoodRefundPercentText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" MaxLength="4" HorizontalContentAlignment="Right" Margin="3" ToolTip="Vanilla value: 50%." ui:KeyboardCaptureBinding.Enabled="True"/>
 
-        <TextBlock Grid.Row="1" Grid.Column="0" Text="Stone refund %" Foreground="White" VerticalAlignment="Center" Margin="0,3,8,3" ToolTip="Vanilla value: 50%."/>
+        <StackPanel Grid.Row="1" Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,3,8,3" ToolTip="Vanilla value: 50%.">
+          <Image Source="{Binding StoneRefundIcon}" Width="18" Height="18" Stretch="Uniform" Margin="0,0,6,0"/>
+          <TextBlock Text="Stone refund %" Foreground="White" VerticalAlignment="Center"/>
+        </StackPanel>
         <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding StoneRefundPercentText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" MaxLength="4" HorizontalContentAlignment="Right" Margin="3" ToolTip="Vanilla value: 50%." ui:KeyboardCaptureBinding.Enabled="True"/>
 
-        <TextBlock Grid.Row="2" Grid.Column="0" Text="Iron refund %" Foreground="White" VerticalAlignment="Center" Margin="0,3,8,3" ToolTip="Vanilla value: 50%."/>
+        <StackPanel Grid.Row="2" Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,3,8,3" ToolTip="Vanilla value: 50%.">
+          <Image Source="{Binding IronRefundIcon}" Width="18" Height="18" Stretch="Uniform" Margin="0,0,6,0"/>
+          <TextBlock Text="Iron refund %" Foreground="White" VerticalAlignment="Center"/>
+        </StackPanel>
         <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding IronRefundPercentText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" MaxLength="4" HorizontalContentAlignment="Right" Margin="3" ToolTip="Vanilla value: 50%." ui:KeyboardCaptureBinding.Enabled="True"/>
 
-        <TextBlock Grid.Row="3" Grid.Column="0" Text="Pitch refund %" Foreground="White" VerticalAlignment="Center" Margin="0,3,8,3" ToolTip="Vanilla value: 50%."/>
+        <StackPanel Grid.Row="3" Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,3,8,3" ToolTip="Vanilla value: 50%.">
+          <Image Source="{Binding PitchRefundIcon}" Width="18" Height="18" Stretch="Uniform" Margin="0,0,6,0"/>
+          <TextBlock Text="Pitch refund %" Foreground="White" VerticalAlignment="Center"/>
+        </StackPanel>
         <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding PitchRefundPercentText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" MaxLength="4" HorizontalContentAlignment="Right" Margin="3" ToolTip="Vanilla value: 50%." ui:KeyboardCaptureBinding.Enabled="True"/>
 
-        <TextBlock Grid.Row="4" Grid.Column="0" Text="Gold refund %" Foreground="White" VerticalAlignment="Center" Margin="0,3,8,3" ToolTip="Vanilla value: 50%."/>
+        <StackPanel Grid.Row="4" Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,3,8,3" ToolTip="Vanilla value: 50%.">
+          <Image Source="{Binding GoldRefundIcon}" Width="18" Height="18" Stretch="Uniform" Margin="0,0,6,0"/>
+          <TextBlock Text="Gold refund %" Foreground="White" VerticalAlignment="Center"/>
+        </StackPanel>
         <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding GoldRefundPercentText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" MaxLength="4" HorizontalContentAlignment="Right" Margin="3" ToolTip="Vanilla value: 50%." ui:KeyboardCaptureBinding.Enabled="True"/>
       </Grid>
 
       <CheckBox IsChecked="{Binding KeepStorageContent, Mode=TwoWay}"
-                Content="Keep Storage Content"
                 Foreground="White"
                 ToolTip="When enabled, bulldozing a granary, armory, or stockpile keeps the goods stored inside by adding them back as incoming goods."
-                Margin="0,4,14,4"/>
+                Margin="0,4,14,4">
+        <StackPanel Orientation="Horizontal">
+          <TextBlock Text="Keep Storage Content" Foreground="White" VerticalAlignment="Center"/>
+          <Image Source="{Binding KeepStorageFruitIcon}" Width="18" Height="18" Stretch="Uniform" Margin="8,0,0,0"/>
+          <Image Source="{Binding KeepStorageWoodIcon}" Width="18" Height="18" Stretch="Uniform" Margin="4,0,0,0"/>
+          <Image Source="{Binding KeepStorageBowsIcon}" Width="18" Height="18" Stretch="Uniform" Margin="4,0,0,0"/>
+        </StackPanel>
+      </CheckBox>
 
       <Separator Background="#444466" Margin="0,10"/>
       <TextBlock Text="Economy Buffs" Foreground="#77AAFF" FontWeight="Bold" Margin="0,0,0,8"/>

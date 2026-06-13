@@ -151,6 +151,7 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
         public IReadOnlyList<AmountEntryViewModel> StartTroopEntries { get; }
 
         public RelayCommand ResetToDefaultCommand { get; }
+        public ImageSource GoldIcon => GetGoodIconImage(eGoods.STORED_GOLD);
 
         public void RefreshLocalizedNames(Action<string> logInfo = null)
         {

@@ -3,6 +3,17 @@
       xmlns:ui="clr-namespace:SHCDESE.UI;assembly=SHCDESE">
   <Grid.Resources>
     <BooleanToVisibilityConverter x:Key="booleanToVisibilityConverter"/>
+    <DataTemplate x:Key="GoodOptionTemplate">
+      <StackPanel Orientation="Horizontal">
+        <Image Source="{Binding IconImage}"
+               Width="16"
+               Height="16"
+               Stretch="Uniform"
+               Margin="0,0,5,0"/>
+        <TextBlock Text="{Binding DisplayName}"
+                   VerticalAlignment="Center"/>
+      </StackPanel>
+    </DataTemplate>
   </Grid.Resources>
   <ScrollViewer VerticalScrollBarVisibility="Auto"
                 HorizontalScrollBarVisibility="Auto">
@@ -25,7 +36,14 @@
           <ColumnDefinition Width="150"/>
         </Grid.ColumnDefinitions>
         <TextBlock Grid.Column="0" Text="{Binding UnitHeaderText}" Foreground="#CCCCCC" FontWeight="Bold" Margin="0,0,8,0"/>
-        <TextBlock Grid.Column="1" Text="{Binding GoldHeaderText}" Foreground="#CCCCCC" FontWeight="Bold" HorizontalAlignment="Right" Margin="3,0"/>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="3,0">
+          <Image Source="{Binding GoldHeaderIcon}"
+                 Width="18"
+                 Height="18"
+                 Stretch="Uniform"
+                 Margin="0,0,4,0"/>
+          <TextBlock Text="{Binding GoldHeaderText}" Foreground="#CCCCCC" FontWeight="Bold"/>
+        </StackPanel>
         <TextBlock Grid.Column="2" Text="{Binding Slot1HeaderText}" Foreground="#CCCCCC" FontWeight="Bold" HorizontalAlignment="Left" Margin="3,0"/>
         <TextBlock Grid.Column="3" Text="{Binding Slot2HeaderText}" Foreground="#CCCCCC" FontWeight="Bold" HorizontalAlignment="Left" Margin="3,0"/>
         <TextBlock Grid.Column="4" Text="{Binding Slot3HeaderText}" Foreground="#CCCCCC" FontWeight="Bold" HorizontalAlignment="Left" Margin="3,0"/>
@@ -66,25 +84,25 @@
                           Visibility="{Binding IsEuropeanUnit, Converter={StaticResource booleanToVisibilityConverter}}">
                 <ComboBox ItemsSource="{Binding GoodSlotOptions}"
                           SelectedItem="{Binding SelectedGood1, Mode=TwoWay}"
-                          DisplayMemberPath="DisplayName"
+                          ItemTemplate="{StaticResource GoodOptionTemplate}"
                           ToolTip="{Binding Slot1ToolTip}"
                           Width="150"
                           Margin="3"/>
                 <ComboBox ItemsSource="{Binding GoodSlotOptions}"
                           SelectedItem="{Binding SelectedGood2, Mode=TwoWay}"
-                          DisplayMemberPath="DisplayName"
+                          ItemTemplate="{StaticResource GoodOptionTemplate}"
                           ToolTip="{Binding Slot2ToolTip}"
                           Width="150"
                           Margin="3"/>
                 <ComboBox ItemsSource="{Binding GoodSlotOptions}"
                           SelectedItem="{Binding SelectedGood3, Mode=TwoWay}"
-                          DisplayMemberPath="DisplayName"
+                          ItemTemplate="{StaticResource GoodOptionTemplate}"
                           ToolTip="{Binding Slot3ToolTip}"
                           Width="150"
                           Margin="3"/>
                 <ComboBox ItemsSource="{Binding GoodSlot4Options}"
                           SelectedItem="{Binding SelectedGood4, Mode=TwoWay}"
-                          DisplayMemberPath="DisplayName"
+                          ItemTemplate="{StaticResource GoodOptionTemplate}"
                           ToolTip="{Binding Slot4ToolTip}"
                           Width="150"
                           Margin="3"/>

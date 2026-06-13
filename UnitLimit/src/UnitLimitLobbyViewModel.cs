@@ -42,6 +42,7 @@ CHIMP_TYPE_ARAB_ASSASIN=-1
 CHIMP_TYPE_ARAB_HORSEMAN=-1
 CHIMP_TYPE_ARAB_SWORDSMAN=-1
 CHIMP_TYPE_ARAB_GRENADIER=-1
+CHIMP_TYPE_ARAB_BALLISTA=-1
 CHIMP_TYPE_BEDOUIN_CAMEL_LANCER=-1
 CHIMP_TYPE_BEDOUIN_HEALER=-1
 CHIMP_TYPE_BEDOUIN_EUNUCH=-1
@@ -225,6 +226,7 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=-1";
                 case eChimps.CHIMP_TYPE_ARAB_HORSEMAN: return GetResourceImage("UI-Buildings O043");
                 case eChimps.CHIMP_TYPE_ARAB_SWORDSMAN: return GetResourceImage("UI-Buildings O045");
                 case eChimps.CHIMP_TYPE_ARAB_GRENADIER: return GetResourceImage("UI-Buildings O047");
+                case eChimps.CHIMP_TYPE_ARAB_BALLISTA: return GetResourceImage("UI-Buildings O049");
                 case eChimps.CHIMP_TYPE_BEDOUIN_CAMEL_LANCER: return GetResourceImage("UI-Buildings O051");
                 case eChimps.CHIMP_TYPE_BEDOUIN_HEALER: return GetResourceImage("UI-Buildings O053");
                 case eChimps.CHIMP_TYPE_BEDOUIN_EUNUCH: return GetResourceImage("UI-Buildings O055");

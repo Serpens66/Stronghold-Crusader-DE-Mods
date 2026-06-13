@@ -299,6 +299,9 @@ namespace UnitLimit
                 case eStructs.STRUCT_SIEGE_TENT_PORTABLE_SHIELD:
                     unitType = eChimps.CHIMP_TYPE_PORTABLE_SHIELD;
                     return true;
+                case eStructs.STRUCT_SIEGE_TENT_ARAB_BALLISTA:
+                    unitType = eChimps.CHIMP_TYPE_ARAB_BALLISTA;
+                    return true;
                 default:
                     unitType = eChimps.CHIMP_TYPE_NULL;
                     return false;

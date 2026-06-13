@@ -170,6 +170,7 @@ namespace UnitLimit
                 case eChimps.CHIMP_TYPE_BATTERING_RAM:
                 case eChimps.CHIMP_TYPE_SIEGE_TOWER:
                 case eChimps.CHIMP_TYPE_PORTABLE_SHIELD:
+                case eChimps.CHIMP_TYPE_ARAB_BALLISTA:
                     return true;
                 default:
                     return false;
@@ -211,6 +212,10 @@ namespace UnitLimit
                     return true;
                 case eMappers.MAPPER_PORTABLE_SHIELD:
                     unitType = eChimps.CHIMP_TYPE_PORTABLE_SHIELD;
+                    return true;
+                case eMappers.MAPPER_PEOPLE_ARAB_BALLISTA:
+                case eMappers.MAPPER_ARAB_BALLISTA:
+                    unitType = eChimps.CHIMP_TYPE_ARAB_BALLISTA;
                     return true;
                 default:
                     unitType = eChimps.CHIMP_TYPE_NULL;

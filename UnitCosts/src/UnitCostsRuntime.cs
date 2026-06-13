@@ -399,6 +399,9 @@ namespace UnitCosts
                 case "UnitbuildMantlet":
                     unitType = eChimps.CHIMP_TYPE_PORTABLE_SHIELD;
                     return true;
+                case "UnitbuildArabBallista":
+                    unitType = eChimps.CHIMP_TYPE_ARAB_BALLISTA;
+                    return true;
                 default:
                     unitType = eChimps.CHIMP_TYPE_NULL;
                     return false;
@@ -423,6 +426,10 @@ namespace UnitCosts
                     return true;
                 case eMappers.MAPPER_PORTABLE_SHIELD:
                     unitType = eChimps.CHIMP_TYPE_PORTABLE_SHIELD;
+                    return true;
+                case eMappers.MAPPER_PEOPLE_ARAB_BALLISTA:
+                case eMappers.MAPPER_ARAB_BALLISTA:
+                    unitType = eChimps.CHIMP_TYPE_ARAB_BALLISTA;
                     return true;
                 default:
                     unitType = eChimps.CHIMP_TYPE_NULL;
@@ -955,10 +962,7 @@ namespace UnitCosts
         private static void CaptureVanillaGoldCosts()
         {
             foreach (eChimps unitType in GetRecruitTypes())
-            {
-                if (!VanillaGoldCosts.ContainsKey(unitType))
-                    VanillaGoldCosts[unitType] = GetCurrentUnitGoldCost(unitType);
-            }
+                VanillaGoldCosts[unitType] = GetCurrentUnitGoldCost(unitType);
         }
 
         private static UnitGoodCosts MergeWithVanillaGoodCosts(eChimps unitType, UnitCostValues values)
@@ -1052,6 +1056,7 @@ namespace UnitCosts
             yield return eChimps.CHIMP_TYPE_ARAB_HORSEMAN;
             yield return eChimps.CHIMP_TYPE_ARAB_SWORDSMAN;
             yield return eChimps.CHIMP_TYPE_ARAB_GRENADIER;
+            yield return eChimps.CHIMP_TYPE_ARAB_BALLISTA;
             yield return eChimps.CHIMP_TYPE_BEDOUIN_CAMEL_LANCER;
             yield return eChimps.CHIMP_TYPE_BEDOUIN_HEALER;
             yield return eChimps.CHIMP_TYPE_BEDOUIN_EUNUCH;
@@ -1096,6 +1101,9 @@ namespace UnitCosts
                 case eChimps.CHIMP_TYPE_PORTABLE_SHIELD:
                     siegeTentStructure = eStructs.STRUCT_SIEGE_TENT_PORTABLE_SHIELD;
                     return true;
+                case eChimps.CHIMP_TYPE_ARAB_BALLISTA:
+                    siegeTentStructure = eStructs.STRUCT_SIEGE_TENT_ARAB_BALLISTA;
+                    return true;
                 default:
                     siegeTentStructure = eStructs.STRUCT_NULL;
                     return false;
@@ -1120,6 +1128,9 @@ namespace UnitCosts
                     return true;
                 case eStructs.STRUCT_SIEGE_TENT_PORTABLE_SHIELD:
                     unitType = eChimps.CHIMP_TYPE_PORTABLE_SHIELD;
+                    return true;
+                case eStructs.STRUCT_SIEGE_TENT_ARAB_BALLISTA:
+                    unitType = eChimps.CHIMP_TYPE_ARAB_BALLISTA;
                     return true;
                 default:
                     unitType = eChimps.CHIMP_TYPE_NULL;
@@ -1153,10 +1164,30 @@ namespace UnitCosts
 
         private static void AppendVanillaGoldCost(StringBuilder builder, eChimps unitType)
         {
-            int goldCost = GetVanillaGoldCost(unitType);
+            int goldCost = GetVanillaTooltipGoldCost(unitType);
             builder.AppendLine();
             builder.Append("vanilla gold: ");
             builder.Append(goldCost);
+        }
+
+        private static int GetVanillaTooltipGoldCost(eChimps unitType)
+        {
+            if (TryGetSiegeTentStructure(unitType, out eStructs siegeTentStructure))
+                return GetVanillaSiegeTentGoldCost(siegeTentStructure);
+
+            return GetVanillaGoldCost(unitType);
+        }
+
+        private static int GetVanillaSiegeTentGoldCost(eStructs siegeTentStructure)
+        {
+            try
+            {
+                return Math.Max(0, GameBuildingManagerAPI.Instance.GetDefaultCost(siegeTentStructure).Gold);
+            }
+            catch
+            {
+                return 0;
+            }
         }
 
         private static int GetVanillaGoldCost(eChimps unitType)

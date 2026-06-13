@@ -25,11 +25,17 @@
         <TextBlock Grid.Row="0" Grid.Column="1" Text="AI" Foreground="White" FontWeight="Bold"/>
         <TextBlock Grid.Row="0" Grid.Column="2" Text="Human" Foreground="White" FontWeight="Bold"/>
 
-        <TextBlock Grid.Row="1" Grid.Column="0" Text="Set start gold (-1 = unchanged)" Foreground="White" Margin="0,4" ToolTip="Sets the initial amount of gold for each player. -1 means unchanged."/>
+        <StackPanel Grid.Row="1" Grid.Column="0" Orientation="Horizontal" Margin="0,4" ToolTip="Sets the initial amount of gold for each player. -1 means unchanged.">
+          <Image Source="{Binding GoldIcon}" Width="18" Height="18" Stretch="Uniform" Margin="0,0,6,0"/>
+          <TextBlock Text="Set start gold (-1 = unchanged)" Foreground="White" VerticalAlignment="Center"/>
+        </StackPanel>
         <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding SetStartGoldAIText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="Set start gold (-1 = unchanged) / AI" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
         <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding SetStartGoldHumanText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="Set start gold (-1 = unchanged) / Human" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
 
-        <TextBlock Grid.Row="2" Grid.Column="0" Text="Add start gold" Foreground="White" Margin="0,4" ToolTip="Adds the specified amount of gold to the initial amount for each player."/>
+        <StackPanel Grid.Row="2" Grid.Column="0" Orientation="Horizontal" Margin="0,4" ToolTip="Adds the specified amount of gold to the initial amount for each player.">
+          <Image Source="{Binding GoldIcon}" Width="18" Height="18" Stretch="Uniform" Margin="0,0,6,0"/>
+          <TextBlock Text="Add start gold" Foreground="White" VerticalAlignment="Center"/>
+        </StackPanel>
         <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding AddStartGoldAIText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="Add start gold / AI" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
         <TextBox Grid.Row="2" Grid.Column="2" Text="{Binding AddStartGoldHumanText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="Add start gold / Human" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
       </Grid>
