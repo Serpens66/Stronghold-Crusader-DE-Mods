@@ -2,6 +2,7 @@ using BepInEx.Logging;
 using R3;
 using SHCDESE.API;
 using SHCDESE.EventAPI;
+using SHCDESE.EventAPI.Buildings;
 using SHCDESE.EventAPI.MapLoader;
 using SHCDESE.EventAPI.Player;
 using SHCDESE.Interop;
@@ -15,7 +16,11 @@ namespace StartConditions
     {
         private readonly ManualLogSource log;
         private readonly StartConditionsLobbyViewModel settings;
-        private readonly HashSet<string> goodsAddedByCode = new HashSet<string>();
+        private readonly List<IDisposable> subscriptions = new List<IDisposable>();
+        private readonly HashSet<string> resourceAddReentryGuards = new HashSet<string>();
+        private readonly Dictionary<string, ResourceEventCountGuard> marketBuyResourceGuards = new Dictionary<string, ResourceEventCountGuard>();
+        private readonly Dictionary<string, ResourceEventCountGuard> refundResourceGuards = new Dictionary<string, ResourceEventCountGuard>();
+        private readonly Dictionary<string, DateTime> refundEventDuplicateGuards = new Dictionary<string, DateTime>();
         private readonly Dictionary<eChimps, uint> originalHumanStartTroops = new Dictionary<eChimps, uint>();
         private int[,] originalAiStartTroops;
         private bool handledCurrentMap;
@@ -27,8 +32,18 @@ namespace StartConditions
         private const int AiStartTroopFieldCount = AiStartTroopFieldCountPerMode * AiStartTroopModeCount;
         private const int DelayedStartTroopCountMilliseconds = 20000;
         private const int IncomingGoodClearAmount = 100000;
+        private const int MarketBuyAmount = 5;
+        private const int MarketBuyShiftAmount = 25;
+        private static readonly TimeSpan MarketBuyGuardLifetime = TimeSpan.FromSeconds(2);
+        private static readonly TimeSpan RefundGuardLifetime = TimeSpan.FromSeconds(2);
         private string pendingStartTroopTimerHandle;
         private StartTroopPlan pendingStartTroopPlan;
+
+        private sealed class ResourceEventCountGuard
+        {
+            public int RemainingAmount { get; set; }
+            public DateTime ExpiresAt { get; set; }
+        }
 
         private static readonly HashSet<eChimps> SoldierChimps = new HashSet<eChimps>
         {
@@ -73,21 +88,26 @@ namespace StartConditions
 
             LogDebug("Subscribing start conditions runtime hooks");
 
-            PlayerR3EventHooks.OnPlayerAddResource.Observable
-                .Where(args => args.Phase == EventHookPhase.Post)
-                .Subscribe(OnPlayerAddResource);
+            subscriptions.Add(BuildingR3EventHooks.OnGoodsyardAddGood.Observable
+                .Subscribe(OnGoodsyardAddGood));
 
-            MapLoaderR3EventHooks.OnStartMap.Observable
-                .Where(args => args.Phase == EventHookPhase.Post)
-                .Subscribe(OnStartMap);
+            subscriptions.Add(PlayerR3EventHooks.OnPlayerMarketInteraction.Observable
+                .Subscribe(OnPlayerMarketInteraction));
 
-            MapLoaderR3EventHooks.OnLoadSave.Observable
-                .Where(args => args.Phase == EventHookPhase.Post)
-                .Subscribe(OnLoadSave);
+            subscriptions.Add(BuildingR3EventHooks.OnBuildingRefund.Observable
+                .Subscribe(OnBuildingRefund));
 
-            MapLoaderR3EventHooks.OnUnloadMap.Observable
+            subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
-                .Subscribe(OnUnloadMap);
+                .Subscribe(OnStartMap));
+
+            subscriptions.Add(MapLoaderR3EventHooks.OnLoadSave.Observable
+                .Where(args => args.Phase == EventHookPhase.Post)
+                .Subscribe(OnLoadSave));
+
+            subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
+                .Where(args => args.Phase == EventHookPhase.Post)
+                .Subscribe(OnUnloadMap));
 
             LogDebug("Start conditions runtime hooks subscribed");
             hooksSubscribed = true;
@@ -104,14 +124,24 @@ namespace StartConditions
 
         public void Dispose()
         {
+            foreach (IDisposable subscription in subscriptions)
+                subscription.Dispose();
+
+            subscriptions.Clear();
+            hooksSubscribed = false;
             RestoreStartTroopDefaultPatches();
             CancelPendingStartTroopProcessing();
-            goodsAddedByCode.Clear();
+            ClearResourceEventGuards();
         }
 
         private void LogDebug(params object[] parts)
         {
             Shared.DebugLogHelper.LogDebug(log, parts);
+        }
+
+        private void LogInfo(params object[] parts)
+        {
+            log?.LogInfo(string.Join(" ", parts));
         }
     }
 }

@@ -44,7 +44,7 @@ namespace StartConditions
         {
             LogDebug("OnUnloadMap");
             CancelPendingStartTroopProcessing();
-            goodsAddedByCode.Clear();
+            ClearResourceEventGuards();
             handledCurrentMap = false;
         }
 
