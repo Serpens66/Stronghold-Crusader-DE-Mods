@@ -19,8 +19,8 @@ namespace StartConditions
         private int setStartGoldHuman = -1;
         private int addStartGoldAI = 0;
         private int addStartGoldHuman = 0;
-        private int multiplyStartTroopsAI = 0;
-        private int multiplyStartTroopsHuman = 0;
+        private int multiplyStartTroopsAI = 1;
+        private int multiplyStartTroopsHuman = 1;
         private string startGoodsAI = DefaultStartGoodsAI;
         private string startGoodsHuman = DefaultStartGoodsHuman;
         private string addStartTroopsAI = DefaultTroops;
@@ -201,8 +201,8 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
         [SyncHostOnly] public int SetStartGoldHuman { get => setStartGoldHuman; set => SetInt(ref setStartGoldHuman, value, nameof(SetStartGoldHuman), nameof(SetStartGoldHumanText)); }
         [SyncHostOnly] public int AddStartGoldAI { get => addStartGoldAI; set => SetInt(ref addStartGoldAI, value, nameof(AddStartGoldAI), nameof(AddStartGoldAIText)); }
         [SyncHostOnly] public int AddStartGoldHuman { get => addStartGoldHuman; set => SetInt(ref addStartGoldHuman, value, nameof(AddStartGoldHuman), nameof(AddStartGoldHumanText)); }
-        [SyncHostOnly] public int MultiplyStartTroopsAI { get => multiplyStartTroopsAI; set => SetInt(ref multiplyStartTroopsAI, value, nameof(MultiplyStartTroopsAI), nameof(MultiplyStartTroopsAIText)); }
-        [SyncHostOnly] public int MultiplyStartTroopsHuman { get => multiplyStartTroopsHuman; set => SetInt(ref multiplyStartTroopsHuman, value, nameof(MultiplyStartTroopsHuman), nameof(MultiplyStartTroopsHumanText)); }
+        [SyncHostOnly] public int MultiplyStartTroopsAI { get => multiplyStartTroopsAI; set => SetMultiplierInt(ref multiplyStartTroopsAI, value, nameof(MultiplyStartTroopsAI), nameof(MultiplyStartTroopsAIText)); }
+        [SyncHostOnly] public int MultiplyStartTroopsHuman { get => multiplyStartTroopsHuman; set => SetMultiplierInt(ref multiplyStartTroopsHuman, value, nameof(MultiplyStartTroopsHuman), nameof(MultiplyStartTroopsHumanText)); }
 
         public string SetStartGoldAIText { get => SetStartGoldAI.ToString(); set => SetIntText(value, parsed => SetStartGoldAI = parsed, nameof(SetStartGoldAIText)); }
         public string SetStartGoldHumanText { get => SetStartGoldHuman.ToString(); set => SetIntText(value, parsed => SetStartGoldHuman = parsed, nameof(SetStartGoldHumanText)); }
@@ -281,8 +281,8 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
             SetStartGoldHuman = -1;
             AddStartGoldAI = 0;
             AddStartGoldHuman = 0;
-            MultiplyStartTroopsAI = 0;
-            MultiplyStartTroopsHuman = 0;
+            MultiplyStartTroopsAI = 1;
+            MultiplyStartTroopsHuman = 1;
             StartGoodsAI = DefaultStartGoodsAI;
             StartGoodsHuman = DefaultStartGoodsHuman;
             AddStartTroopsAI = DefaultTroops;
@@ -531,6 +531,22 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
             OnPropertyChanged(textPropertyName);
         }
 
+        private void SetMultiplierInt(ref int field, int value, string propertyName, string textPropertyName)
+        {
+            int clamped = ClampMultiplier(value);
+            if (field == clamped)
+            {
+                if (value != clamped)
+                    OnPropertyChanged(textPropertyName);
+                return;
+            }
+
+            field = clamped;
+            SettingChanged?.Invoke(propertyName);
+            OnPropertyChanged(propertyName);
+            OnPropertyChanged(textPropertyName);
+        }
+
         private void SetIntText(string text, Action<int> setValue, string textPropertyName)
         {
             if (!int.TryParse(text, out int parsed))
@@ -540,6 +556,15 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
             }
 
             setValue(parsed);
+        }
+
+        private static int ClampMultiplier(int value)
+        {
+            if (value < 0)
+                return 0;
+            if (value > 100)
+                return 100;
+            return value;
         }
 
         private static ImageSource GetGoodIconImage(eGoods good)

@@ -17,15 +17,9 @@ namespace StartConditions
         private readonly ManualLogSource log;
         private readonly StartConditionsLobbyViewModel settings;
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
-        private readonly Dictionary<eChimps, uint> originalHumanStartTroops = new Dictionary<eChimps, uint>();
-        private int[,] originalAiStartTroops;
         private bool handledCurrentMap;
         private bool hooksSubscribed;
         private bool libraryInitialized;
-        private bool dumpedAllAiStartTroopDefaults;
-        private const int AiStartTroopFieldCountPerMode = 28;
-        private const int AiStartTroopModeCount = 3;
-        private const int AiStartTroopFieldCount = AiStartTroopFieldCountPerMode * AiStartTroopModeCount;
         private const int DelayedStartTroopCountMilliseconds = 20000;
         private const int IncomingGoodClearAmount = 100000;
         private string pendingStartTroopTimerHandle;
@@ -106,7 +100,6 @@ namespace StartConditions
 
             subscriptions.Clear();
             hooksSubscribed = false;
-            RestoreStartTroopDefaultPatches();
             CancelPendingStartTroopProcessing();
         }
 

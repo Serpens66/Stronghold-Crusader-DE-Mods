@@ -128,11 +128,12 @@
         </Grid.RowDefinitions>
         <TextBlock Grid.Row="0" Grid.Column="1" Text="AI" Foreground="White" FontWeight="Bold"/>
         <TextBlock Grid.Row="0" Grid.Column="2" Text="Human" Foreground="White" FontWeight="Bold"/>
-        <TextBlock Grid.Row="1" Grid.Column="0" Text="Multiply Start Troop armies" Foreground="White" Margin="0,4" ToolTip="Multiplies the initial amount of start troops for each player. CAREFUL: For AI these count as Defense-Troops, if the amount is higher than their max defense, they may not recruit new defense which may result in no ranged defense!"/>
-        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding MultiplyStartTroopsAIText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="Multiplier for Start Troop armies / AI" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
-        <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding MultiplyStartTroopsHumanText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="Multiplier for Start Troop armies / Human" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+        <TextBlock Grid.Row="1" Grid.Column="0" Text="Multiply Start Troop armies" Foreground="White" Margin="0,4" ToolTip="Start troops are updated after DelayedStartTroopCountMilliseconds, currently 20 seconds after map start. 0 = remove official start troops after the delay, 1 = unchanged, 2 = double. Allowed range: 0 to 100. CAREFUL: For AI these count as Defense-Troops, if the amount is higher than their max defense, they may not recruit new defense which may result in no ranged defense!"/>
+        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding MultiplyStartTroopsAIText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="Multiplier for Start Troop armies / AI. Applied after DelayedStartTroopCountMilliseconds, currently 20 seconds after map start. 0 = remove, 1 = unchanged, 2 = double. Allowed range: 0 to 100." Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+        <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding MultiplyStartTroopsHumanText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="Multiplier for Start Troop armies / Human. Applied after DelayedStartTroopCountMilliseconds, currently 20 seconds after map start. 0 = remove, 1 = unchanged, 2 = double. Allowed range: 0 to 100." Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
       </Grid>
 
+      <TextBlock Text="Multiplier: 0 = remove official start troops after 20 seconds, 1 = unchanged, 2 = double. Allowed range: 0 to 100." Foreground="#CCCCCC" TextWrapping="Wrap" Margin="0,8,0,6"/>
       <TextBlock Text="Extra Start Units: -1 or 0 = no extra units. Allowed range: -1 to 100000." Foreground="#CCCCCC" TextWrapping="Wrap" Margin="0,8,0,6"/>
       <Grid Margin="0,0,0,4">
         <Grid.ColumnDefinitions>
