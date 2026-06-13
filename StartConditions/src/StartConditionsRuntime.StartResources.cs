@@ -77,7 +77,7 @@ namespace StartConditions
             string key = BuildResourceEventKey(playerId, args.Good);
             bool reentryGuardActive = resourceAddReentryGuards.Contains(key);
 
-            LogInfoForResourceEventPlayer(
+            LogDebugForResourceEventPlayer(
                 playerId,
                 "OnGoodsyardAddGood:",
                 "phase", args.Phase,
@@ -109,7 +109,7 @@ namespace StartConditions
 
             if (reentryGuardActive)
             {
-                LogInfoForResourceEventPlayer(playerId, "OnGoodsyardAddGood ignored own TryAddGood event:", "player", playerId, "good", args.Good, "addAmount", args.AddAmount);
+                LogDebugForResourceEventPlayer(playerId, "OnGoodsyardAddGood ignored own TryAddGood event:", "player", playerId, "good", args.Good, "addAmount", args.AddAmount);
                 return;
             }
 
@@ -119,7 +119,7 @@ namespace StartConditions
                 if (marketGuard.RemainingAmount <= 0)
                     marketBuyResourceGuards.Remove(key);
 
-                LogInfoForResourceEventPlayer(
+                LogDebugForResourceEventPlayer(
                     playerId,
                     "OnGoodsyardAddGood ignored market buy resource event:",
                     "player", playerId,
@@ -135,7 +135,7 @@ namespace StartConditions
                 if (refundGuard.RemainingAmount <= 0)
                     refundResourceGuards.Remove(key);
 
-                LogInfoForResourceEventPlayer(
+                LogDebugForResourceEventPlayer(
                     playerId,
                     "OnGoodsyardAddGood ignored building refund resource event:",
                     "player", playerId,
@@ -148,7 +148,7 @@ namespace StartConditions
             bool isAI = GamePlayerManagerAPI.Instance.IsAIPlayer(playerId);
             int multiplyGoods = isAI ? settings.MultiplyGoodsGainAI : settings.MultiplyGoodsGainHuman;
             int multiplyMoney = isAI ? settings.MultiplyGoodsGainInMoneyAI : settings.MultiplyGoodsGainInMoneyHuman;
-            LogInfoForResourceEventPlayer(
+            LogDebugForResourceEventPlayer(
                 playerId,
                 "OnGoodsyardAddGood processing:",
                 "player", playerId,
@@ -163,7 +163,7 @@ namespace StartConditions
             if (multiplyGoods > 0)
             {
                 int bonusAmount = args.AddAmount * multiplyGoods;
-                LogInfoForResourceEventPlayer(
+                LogDebugForResourceEventPlayer(
                     playerId,
                     "OnGoodsyardAddGood TryAddGood bonus:",
                     "player", playerId,
@@ -187,7 +187,7 @@ namespace StartConditions
                 PackedGoodPrice price = GamePlayerManagerAPI.Instance.GetTradeBasePrice(args.Good);
                 int sellPricePerItem = price.SellPrice / 5;
                 int money = args.AddAmount * sellPricePerItem * multiplyMoney;
-                LogInfoForResourceEventPlayer(
+                LogDebugForResourceEventPlayer(
                     playerId,
                     "OnGoodsyardAddGood money bonus:",
                     "player", playerId,
@@ -204,7 +204,7 @@ namespace StartConditions
         private void OnPlayerMarketInteraction(PlayerMarketInteractionEventArgs args)
         {
             string key = BuildResourceEventKey(args.PlayerId, args.Good);
-            LogInfoForResourceEventPlayer(
+            LogDebugForResourceEventPlayer(
                 args.PlayerId,
                 "OnPlayerMarketInteraction:",
                 "phase", args.Phase,
@@ -227,7 +227,7 @@ namespace StartConditions
                     RemainingAmount = expectedAmount,
                     ExpiresAt = DateTime.UtcNow + MarketBuyGuardLifetime
                 };
-                LogInfoForResourceEventPlayer(
+                LogDebugForResourceEventPlayer(
                     args.PlayerId,
                     "OnPlayerMarketInteraction market buy guard added:",
                     "player", args.PlayerId,
@@ -240,7 +240,7 @@ namespace StartConditions
             if (args.Phase == EventHookPhase.Post)
             {
                 marketBuyResourceGuards.Remove(key);
-                LogInfoForResourceEventPlayer(args.PlayerId, "OnPlayerMarketInteraction market buy guard removed on post:", "player", args.PlayerId, "good", args.Good, "key", key);
+                LogDebugForResourceEventPlayer(args.PlayerId, "OnPlayerMarketInteraction market buy guard removed on post:", "player", args.PlayerId, "good", args.Good, "key", key);
             }
         }
 
@@ -253,7 +253,7 @@ namespace StartConditions
             string duplicateKey = BuildRefundEventDuplicateKey(args.PlayerId, args.BuildingId, args.Percentage);
             if (refundEventDuplicateGuards.ContainsKey(duplicateKey))
             {
-                LogInfoForResourceEventPlayer(
+                LogDebugForResourceEventPlayer(
                     args.PlayerId,
                     "OnBuildingRefund duplicate event ignored:",
                     "phase", args.Phase,
@@ -266,7 +266,7 @@ namespace StartConditions
 
             refundEventDuplicateGuards[duplicateKey] = DateTime.UtcNow + RefundGuardLifetime;
             AddBuildingRefundGuards(args);
-            LogInfoForResourceEventPlayer(
+            LogDebugForResourceEventPlayer(
                 args.PlayerId,
                 "OnBuildingRefund refund guard added:",
                 "phase", args.Phase,
@@ -418,7 +418,7 @@ namespace StartConditions
                 ExpiresAt = expiresAt
             };
 
-            LogInfoForResourceEventPlayer(
+            LogDebugForResourceEventPlayer(
                 playerId,
                 "OnBuildingRefund resource guard added:",
                 "player", playerId,
@@ -435,10 +435,10 @@ namespace StartConditions
             return (int)(cost * refundMultiplier);
         }
 
-        private void LogInfoForResourceEventPlayer(int playerId, params object[] parts)
+        private void LogDebugForResourceEventPlayer(int playerId, params object[] parts)
         {
             if (ShouldLogResourceEventPlayer(playerId))
-                LogInfo(parts);
+                LogDebug(parts);
         }
 
         private static bool ShouldLogResourceEventPlayer(int playerId)
