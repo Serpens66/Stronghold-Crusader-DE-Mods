@@ -104,8 +104,8 @@ namespace BuildingCosts
 
         public string TitleText => IsGermanLanguage() ? "BAUKOSTEN" : "BUILDING COSTS";
         public string HelpText => IsGermanLanguage()
-            ? "-1 = unverändert. Werte von 0 bis 1000 setzen die nativen Baukosten für dieses Material."
-            : "-1 = unchanged. Values 0 to 1000 set the native construction cost for that material.";
+            ? "-1 = unverändert. Werte von 0 bis 1000 setzen die nativen Baukosten für dieses Material (Mensch und KI)."
+            : "-1 = unchanged. Values 0 to 1000 set the native construction cost for that material (Human and AI).";
         public string BuildingHeaderText => IsGermanLanguage() ? "Gebäude" : "Building";
         public string WoodHeaderText => GetLocalizedGoodName(eGoods.STORED_WOOD_PLANKS, "Wood");
         public string StoneHeaderText => GetLocalizedGoodName(eGoods.STORED_STONE_BLOCKS, "Stone");

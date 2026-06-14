@@ -23,8 +23,6 @@
 -- Fix: Host-/Autoritätsmodell klären; notfalls Spawn rückgängig machen oder Kostenprüfung auf der autoritativen Seite erzwingen.
 --> TESTEN ob Placement Event nur für lokalen Spieler läuft, oder für alle spieler. Wenn alle für alle spieler dieses event bekommen, dann muss das gefixt werden.
 
--- SE update checken und anpassen
-
 -- evtl. ein eigenes Bild für meine mods ins hauptmenü packen, aber nur eines für alle, evtl. mit chatgpt erstellt
 
 -- ein Ein/Aus Button mit Default Aus oben bei den Mods einbauen, neben dem Reset knopf.
