@@ -30,10 +30,15 @@ namespace StartConditions
                 LogDebug("Set gold of player", playerId, "to", setGold);
             }
 
-            if (addGold != 0)
+            if (addGold > 0)
             {
-                GamePlayerManagerAPI.Instance.AddPlayerGold(playerId, addGold);
+                GamePlayerManagerAPI.Instance.AddIncomingGood(playerId, eGoods.STORED_GOLD, addGold);
                 LogDebug("Add gold to player", playerId, addGold);
+            }
+            else if (addGold < 0)
+            {
+                GamePlayerManagerAPI.Instance.SubtractIncomingGood(playerId, eGoods.STORED_GOLD, -addGold);
+                LogDebug("Subtract incoming gold from player", playerId, -addGold);
             }
         }
 
