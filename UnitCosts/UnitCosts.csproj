@@ -101,6 +101,9 @@
     <Compile Include="..\Shared\DebugLogHelper.cs">
       <Link>Shared\DebugLogHelper.cs</Link>
     </Compile>
+    <Compile Include="..\Shared\SerpLocalization.cs">
+      <Link>Shared\SerpLocalization.cs</Link>
+    </Compile>
     <Compile Include="src\CreateTroopHoverHook.cs" />
     <Compile Include="src\MakeTroopGameActionHook.cs" />
     <Compile Include="src\SiegeBuildHoverHook.cs" />
@@ -112,6 +115,12 @@
     <Compile Include="src\UnitCostsRuntime.cs" />
     <Compile Include="src\UnitRecruitmentCostEntry.cs" />
     <Compile Include="src\UnitRecruitmentCostTooltipViewModel.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Locales\*.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

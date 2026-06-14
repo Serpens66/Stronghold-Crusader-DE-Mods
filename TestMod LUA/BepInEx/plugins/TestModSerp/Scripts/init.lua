@@ -30,7 +30,6 @@
 
 -- EnemyHealthModifier testen, wann man das setzen muss, damit der setting wert es nicht überschreibt
 
--- mod options texte deutlicher machen was für human/AI gilt
 
 
 

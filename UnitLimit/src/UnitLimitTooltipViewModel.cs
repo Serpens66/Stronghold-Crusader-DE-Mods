@@ -28,7 +28,7 @@ namespace UnitLimit
 
         public void Show(int count, int limit)
         {
-            LimitText = "Limit: " + count + "/" + limit;
+            LimitText = SerpLocalization.Get(SerpLocalization.Limit) + ": " + count + "/" + limit;
             SetVisible(true);
         }
 

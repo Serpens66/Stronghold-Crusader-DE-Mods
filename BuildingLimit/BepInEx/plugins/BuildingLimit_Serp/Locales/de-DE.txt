@@ -1,0 +1,7 @@
+# Serp mod localization
+# Format: key=value
+Common.ResetToDefault=Zurücksetzen
+Common.Limit=Limit
+Common.Max=Max
+BuildingLimit.Title=GEBAEUDELIMITS (Mensch)
+BuildingLimit.Help=Nur für Menschen! -1 = unbegrenzt. Erlaubter Bereich: -1 bis 10000. Varianten wie Gaerten, Statuen, Schreine und Teiche werden zusammengezaehlt.

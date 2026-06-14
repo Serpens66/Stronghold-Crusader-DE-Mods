@@ -36,6 +36,24 @@ namespace SomeSettings
         public ImageSource KeepStorageFruitIcon => GetGoodIconImage(eGoods.STORED_FOOD_FRUIT);
         public ImageSource KeepStorageWoodIcon => GetGoodIconImage(eGoods.STORED_WOOD_PLANKS);
         public ImageSource KeepStorageBowsIcon => GetGoodIconImage(eGoods.STORED_BOWS);
+        public string ResetToDefaultText => SerpLocalization.Get(SerpLocalization.ResetToDefault);
+        public string BulldozeTitleText => SerpLocalization.Get(SerpLocalization.BulldozeTitle);
+        public string BulldozeHelpText => SerpLocalization.Get(SerpLocalization.BulldozeHelp);
+        public string WoodRefundText => SerpLocalization.Get(SerpLocalization.WoodRefund);
+        public string StoneRefundText => SerpLocalization.Get(SerpLocalization.StoneRefund);
+        public string IronRefundText => SerpLocalization.Get(SerpLocalization.IronRefund);
+        public string PitchRefundText => SerpLocalization.Get(SerpLocalization.PitchRefund);
+        public string GoldRefundText => SerpLocalization.Get(SerpLocalization.GoldRefund);
+        public string VanillaValue50Text => SerpLocalization.Get(SerpLocalization.VanillaValue50);
+        public string KeepStorageContentText => SerpLocalization.Get(SerpLocalization.KeepStorageContent);
+        public string KeepStorageContentHelpText => SerpLocalization.Get(SerpLocalization.KeepStorageContentHelp);
+        public string EconomyBuffsTitleText => SerpLocalization.Get(SerpLocalization.EconomyBuffsTitle);
+        public string AiText => SerpLocalization.Get(SerpLocalization.Ai);
+        public string HumanText => SerpLocalization.Get(SerpLocalization.Human);
+        public string MultiplyGoodsGainText => SerpLocalization.Get(SerpLocalization.MultiplyGoodsGain);
+        public string MultiplyGoodsGainHelpText => SerpLocalization.Get(SerpLocalization.MultiplyGoodsGainHelp);
+        public string MultiplyGoodsAsMoneyText => SerpLocalization.Get(SerpLocalization.MultiplyGoodsAsMoney);
+        public string MultiplyGoodsAsMoneyHelpText => SerpLocalization.Get(SerpLocalization.MultiplyGoodsAsMoneyHelp);
 
         [SyncHostOnly]
         public string WoodRefundPercentText

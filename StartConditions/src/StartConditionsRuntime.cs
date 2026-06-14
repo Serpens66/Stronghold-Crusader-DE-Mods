@@ -20,7 +20,8 @@ namespace StartConditions
         private bool handledCurrentMap;
         private bool hooksSubscribed;
         private bool libraryInitialized;
-        private const int DelayedStartTroopCountMilliseconds = 20000;
+        internal const int DelayedStartTroopCountMilliseconds = 20000;
+        internal const int DelayedStartTroopCountSeconds = DelayedStartTroopCountMilliseconds / 1000;
         private const int IncomingGoodClearAmount = 100000;
         private string pendingStartTroopTimerHandle;
         private StartTroopPlan pendingStartTroopPlan;

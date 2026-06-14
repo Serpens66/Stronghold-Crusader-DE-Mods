@@ -438,7 +438,7 @@ namespace UnitLimit
 
         private void ShowUnitLimitReachedMessage(eChimps unitType, int limit)
         {
-            string message = "Max " + limit + " " + GetLocalizedUnitName(unitType);
+            string message = SerpLocalization.Get(SerpLocalization.Max) + " " + limit + " " + GetLocalizedUnitName(unitType);
             LogDebug("Unit limit notification shown:", unitType, message);
             if (IsEngineerSiegeUnit(unitType))
                 DisplaySiegeLimitNotification(message);

@@ -101,6 +101,9 @@
     <Compile Include="..\Shared\DebugLogHelper.cs">
       <Link>Shared\DebugLogHelper.cs</Link>
     </Compile>
+    <Compile Include="..\Shared\SerpLocalization.cs">
+      <Link>Shared\SerpLocalization.cs</Link>
+    </Compile>
     <Compile Include="src\ActiveSiegeTentCache.cs" />
     <Compile Include="src\ActiveUnitCache.cs" />
     <Compile Include="src\CreateTroopHoverHook.cs" />
@@ -117,6 +120,12 @@
     <Compile Include="src\UnitLimitRuntime.Notifications.cs" />
     <Compile Include="src\LimitNotificationViewModel.cs" />
     <Compile Include="src\UnitLimitTooltipViewModel.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Locales\*.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

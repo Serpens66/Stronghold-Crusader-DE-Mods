@@ -586,10 +586,10 @@ namespace SomeSettings
             eStructs buildingType = buildingApi.GetType(args.BuildingId);
             DateTime expiresAt = DateTime.UtcNow + RefundGuardLifetime;
 
-            AddBuildingRefundGuard(args.PlayerId, eGoods.STORED_WOOD_PLANKS, GetRefundAmount(buildingApi.GetWoodCost(buildingType), buildingApi.WoodRefundMultiplier), expiresAt);
-            AddBuildingRefundGuard(args.PlayerId, eGoods.STORED_STONE_BLOCKS, GetRefundAmount(buildingApi.GetStoneCost(buildingType), buildingApi.StoneRefundMultiplier), expiresAt);
-            AddBuildingRefundGuard(args.PlayerId, eGoods.STORED_IRON_INGOTS, GetRefundAmount(buildingApi.GetIronIngotCost(buildingType), buildingApi.IronRefundMultiplier), expiresAt);
-            AddBuildingRefundGuard(args.PlayerId, eGoods.STORED_PITCH_RAW, GetRefundAmount(buildingApi.GetRawPitchCost(buildingType), buildingApi.PitchRefundMultiplier), expiresAt);
+            AddBuildingRefundGuard(args.PlayerId, eGoods.STORED_WOOD_PLANKS, GetRefundAmount(buildingApi.GetWoodCost(buildingType), buildingApi.WoodRefundMultiplier, args.Percentage), expiresAt);
+            AddBuildingRefundGuard(args.PlayerId, eGoods.STORED_STONE_BLOCKS, GetRefundAmount(buildingApi.GetStoneCost(buildingType), buildingApi.StoneRefundMultiplier, args.Percentage), expiresAt);
+            AddBuildingRefundGuard(args.PlayerId, eGoods.STORED_IRON_INGOTS, GetRefundAmount(buildingApi.GetIronIngotCost(buildingType), buildingApi.IronRefundMultiplier, args.Percentage), expiresAt);
+            AddBuildingRefundGuard(args.PlayerId, eGoods.STORED_PITCH_RAW, GetRefundAmount(buildingApi.GetRawPitchCost(buildingType), buildingApi.PitchRefundMultiplier, args.Percentage), expiresAt);
         }
 
         private void AddBuildingRefundGuard(int playerId, eGoods good, int amount, DateTime expiresAt)
@@ -613,12 +613,12 @@ namespace SomeSettings
                 "key", key);
         }
 
-        private static int GetRefundAmount(int cost, float refundMultiplier)
+        private static int GetRefundAmount(int cost, float refundMultiplier, int percentage)
         {
-            if (cost <= 0 || refundMultiplier <= 0)
+            if (cost <= 0 || refundMultiplier <= 0 || percentage <= 0)
                 return 0;
 
-            return (int)(cost * refundMultiplier);
+            return (int)(cost * refundMultiplier * (percentage / 100f));
         }
 
         private void LogDebugForResourceEventPlayer(int playerId, params object[] parts)

@@ -1,0 +1,20 @@
+# Serp mod localization
+# Format: key=value
+Common.ResetToDefault=Zurücksetzen
+Common.Ai=KI
+Common.Human=Mensch
+SomeSettings.BulldozeTitle=ABREISSEN
+SomeSettings.BulldozeHelp=-1 = unverändert. Erstattungswerte sind Prozentwerte von 0 bis 100.
+SomeSettings.WoodRefund=Holz-Erstattung %
+SomeSettings.StoneRefund=Stein-Erstattung %
+SomeSettings.IronRefund=Eisen-Erstattung %
+SomeSettings.PitchRefund=Pech-Erstattung %
+SomeSettings.GoldRefund=Gold-Erstattung %
+SomeSettings.VanillaValue50=Vanilla-Wert: 50%.
+SomeSettings.KeepStorageContent=Lagerinhalt behalten
+SomeSettings.KeepStorageContentHelp=Wenn aktiviert, bleiben beim Abreissen von Kornspeicher, Waffenkammer oder Vorratslager die enthaltenen Gueter erhalten und werden als eingehende Gueter wieder hinzugefuegt.
+SomeSettings.EconomyBuffsTitle=Wirtschafts-Buffs
+SomeSettings.MultiplyGoodsGain=Guetergewinn multiplizieren
+SomeSettings.MultiplyGoodsGainHelp=Multiplikator für erhaltene Gueter. 1 = unverändert, 2 = doppelt, 3 = dreifach. Werte 1 oder kleiner fuegen nichts hinzu.
+SomeSettings.MultiplyGoodsAsMoney=Gueter als Geld multiplizieren
+SomeSettings.MultiplyGoodsAsMoneyHelp=Extra-Goldzahlungen basierend auf dem Verkaufswert erhaltener Gueter. 0 = unverändert, 1 = eine Verkaufswert-Zahlung, 2 = zwei Zahlungen.

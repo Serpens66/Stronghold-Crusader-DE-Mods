@@ -101,6 +101,9 @@
     <Compile Include="..\Shared\DebugLogHelper.cs">
       <Link>Shared\DebugLogHelper.cs</Link>
     </Compile>
+    <Compile Include="..\Shared\SerpLocalization.cs">
+      <Link>Shared\SerpLocalization.cs</Link>
+    </Compile>
     <Compile Include="src\BuildingCostDefinition.cs" />
     <Compile Include="src\BuildingCostTooltipEntry.cs" />
     <Compile Include="src\BuildingCostTooltipViewModel.cs" />
@@ -108,6 +111,12 @@
     <Compile Include="src\BuildingCostsLobbyViewModel.cs" />
     <Compile Include="src\BuildingCostsPlugin.cs" />
     <Compile Include="src\BuildingCostsRuntime.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Locales\*.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

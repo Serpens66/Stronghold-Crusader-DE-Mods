@@ -99,20 +99,17 @@ namespace UnitCosts
         public ObservableCollection<GoodOptionViewModel> GoodSlotOptions { get; }
         public ObservableCollection<GoodOptionViewModel> GoodSlot4Options { get; }
         public RelayCommand ResetToDefaultCommand { get; }
+        public string ResetToDefaultText => SerpLocalization.Get(SerpLocalization.ResetToDefault);
 
-        public string TitleText => IsGermanLanguage() ? "EINHEITENKOSTEN (Mensch und KI)" : "UNIT COSTS (Human and AI)";
-        public string HelpText => IsGermanLanguage()
-            ? "Good-Slots gelten für europäische Einheiten. unchanged lässt den Vanilla-Slot unverändert; Gold -1 bleibt unverändert."
-            : "Good slots apply to European units. unchanged keeps the vanilla slot; gold -1 stays unchanged.";
-        public string ExtraTitleText => IsGermanLanguage() ? "ZUSATZKOSTEN (nur Mensch)" : "EXTRA COSTS (only Human)";
-        public string ExtraHelpText => IsGermanLanguage()
-            ? "0 = keine Zusatzkosten. Positive Werte werden zusätzlich abgezogen; negatives Gold wird bis maximal zu den aktuellen Goldkosten erstattet. KI-Spieler ignorieren diese Tabelle."
-            : "0 = no extra cost. Positive values are charged in addition; negative gold refunds up to the current gold cost. AI players ignore this table.";
-        public string UnitHeaderText => IsGermanLanguage() ? "Einheit" : "Unit";
-        public string Slot1HeaderText => IsGermanLanguage() ? "Slot 1" : "Slot 1";
-        public string Slot2HeaderText => IsGermanLanguage() ? "Slot 2" : "Slot 2";
-        public string Slot3HeaderText => IsGermanLanguage() ? "Slot 3" : "Slot 3";
-        public string Slot4HeaderText => IsGermanLanguage() ? "Slot 4 / Pferd" : "Slot 4 / Horse";
+        public string TitleText => SerpLocalization.Get(SerpLocalization.UnitCostsTitle);
+        public string HelpText => SerpLocalization.Get(SerpLocalization.UnitCostsHelp);
+        public string ExtraTitleText => SerpLocalization.Get(SerpLocalization.UnitCostsExtraTitle);
+        public string ExtraHelpText => SerpLocalization.Get(SerpLocalization.UnitCostsExtraHelp);
+        public string UnitHeaderText => SerpLocalization.Get(SerpLocalization.UnitHeader);
+        public string Slot1HeaderText => SerpLocalization.Get(SerpLocalization.Slot1Header);
+        public string Slot2HeaderText => SerpLocalization.Get(SerpLocalization.Slot2Header);
+        public string Slot3HeaderText => SerpLocalization.Get(SerpLocalization.Slot3Header);
+        public string Slot4HeaderText => SerpLocalization.Get(SerpLocalization.Slot4HorseHeader);
         public string GoldHeaderText => UnitCostsRuntime.GetLocalizedGoodName(eGoods.STORED_GOLD, "Gold");
         public ImageSource GoldHeaderIcon => GetGoodIconImage(eGoods.STORED_GOLD);
 
@@ -625,13 +622,13 @@ namespace UnitCosts
 
                 if (option.Key == eGoods.STORED_NULL.ToString())
                 {
-                    option.DisplayName = IsGermanLanguage() ? "keine" : "none";
+                    option.DisplayName = SerpLocalization.Get(SerpLocalization.None);
                     continue;
                 }
 
                 if (option.Key == eGoods._SE_REQUIRE_HORSE.ToString())
                 {
-                    option.DisplayName = IsGermanLanguage() ? "Pferd" : "Horse";
+                    option.DisplayName = SerpLocalization.Get(SerpLocalization.Horse);
                     continue;
                 }
 
@@ -738,13 +735,6 @@ namespace UnitCosts
             const string prefix = "CHIMP_TYPE_";
             string name = key.StartsWith(prefix, StringComparison.Ordinal) ? key.Substring(prefix.Length) : key;
             return name.Replace('_', ' ').ToLowerInvariant();
-        }
-
-        private static bool IsGermanLanguage()
-        {
-            string language = GameAssetManagerAPI.Instance.CurrentLanguage;
-            return !string.IsNullOrWhiteSpace(language) &&
-                language.Replace('_', '-').StartsWith("de", StringComparison.OrdinalIgnoreCase);
         }
 
         public sealed class CostEntryViewModel : INotifyPropertyChanged

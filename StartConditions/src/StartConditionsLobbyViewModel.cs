@@ -152,6 +152,34 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
 
         public RelayCommand ResetToDefaultCommand { get; }
         public ImageSource GoldIcon => GetGoodIconImage(eGoods.STORED_GOLD);
+        public string ResetToDefaultText => SerpLocalization.Get(SerpLocalization.ResetToDefault);
+        public string AiText => SerpLocalization.Get(SerpLocalization.Ai);
+        public string HumanText => SerpLocalization.Get(SerpLocalization.Human);
+        public string StartGoldTitleText => SerpLocalization.Get(SerpLocalization.StartGoldTitle);
+        public string StartGoodsTitleText => SerpLocalization.Get(SerpLocalization.StartGoodsTitle);
+        public string StartTroopsTitleText => SerpLocalization.Get(SerpLocalization.StartTroopsTitle);
+        public string UnchangedRangeHelpText => SerpLocalization.Get(SerpLocalization.UnchangedRangeHelp);
+        public string NormalCrusadeText => SerpLocalization.Get(SerpLocalization.NormalCrusade);
+        public string DeathmatchText => SerpLocalization.Get(SerpLocalization.Deathmatch);
+        public string SetStartGoldText => SerpLocalization.Get(SerpLocalization.SetStartGold);
+        public string SetStartGoldHelpText => SerpLocalization.Get(SerpLocalization.SetStartGoldHelp);
+        public string SetStartGoldAiToolTipText => FormatCellToolTip(SetStartGoldText, AiText);
+        public string SetStartGoldHumanToolTipText => FormatCellToolTip(SetStartGoldText, HumanText);
+        public string AddStartGoldText => SerpLocalization.Get(SerpLocalization.AddStartGold);
+        public string AddStartGoldHelpText => SerpLocalization.Get(SerpLocalization.AddStartGoldHelp);
+        public string AddStartGoldAiToolTipText => FormatCellToolTip(AddStartGoldText, AiText);
+        public string AddStartGoldHumanToolTipText => FormatCellToolTip(AddStartGoldText, HumanText);
+        public string MultiplyStartTroopsText => SerpLocalization.Get(SerpLocalization.MultiplyStartTroops);
+        public string StartTroopsMultiplierHelpText => SerpLocalization.Get(SerpLocalization.StartTroopsMultiplierHelp);
+        public string StartTroopsMultiplierToolTipText => SerpLocalization.Get(
+            SerpLocalization.StartTroopsMultiplierToolTip,
+            nameof(StartConditionsRuntime.DelayedStartTroopCountMilliseconds),
+            StartConditionsRuntime.DelayedStartTroopCountMilliseconds,
+            nameof(StartConditionsRuntime.DelayedStartTroopCountSeconds),
+            StartConditionsRuntime.DelayedStartTroopCountSeconds);
+        public string StartTroopsMultiplierAiToolTipText => FormatCellToolTip(StartTroopsMultiplierToolTipText, AiText);
+        public string StartTroopsMultiplierHumanToolTipText => FormatCellToolTip(StartTroopsMultiplierToolTipText, HumanText);
+        public string ExtraStartUnitsHelpText => SerpLocalization.Get(SerpLocalization.ExtraStartUnitsHelp);
 
         public void RefreshLocalizedNames(Action<string> logInfo = null)
         {
@@ -687,13 +715,13 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
                 }
             }
 
-            public string AIAmountToolTip => FormatCellToolTip(DisplayName, "AI");
+            public string AIAmountToolTip => FormatCellToolTip(DisplayName, SerpLocalization.Get(SerpLocalization.Ai));
 
-            public string HumanAmountToolTip => FormatCellToolTip(DisplayName, "Human");
+            public string HumanAmountToolTip => FormatCellToolTip(DisplayName, SerpLocalization.Get(SerpLocalization.Human));
 
-            public string NormalCrusaderAmountToolTip => FormatCellToolTip(DisplayName, "Normal/Crusade");
+            public string NormalCrusaderAmountToolTip => FormatCellToolTip(DisplayName, SerpLocalization.Get(SerpLocalization.NormalCrusade));
 
-            public string DeathmatchAmountToolTip => FormatCellToolTip(DisplayName, "Deathmatch");
+            public string DeathmatchAmountToolTip => FormatCellToolTip(DisplayName, SerpLocalization.Get(SerpLocalization.Deathmatch));
 
             public int AIAmount
             {

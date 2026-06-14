@@ -3,12 +3,12 @@
       xmlns:ui="clr-namespace:SHCDESE.UI;assembly=SHCDESE">
   <ScrollViewer VerticalScrollBarVisibility="Auto">
     <StackPanel Margin="10">
-      <Button Content="Reset to Default"
+      <Button Content="{Binding ResetToDefaultText}"
               Command="{Binding ResetToDefaultCommand}"
               HorizontalAlignment="Left"
               Margin="0,0,0,8"
               Padding="10,3"/>
-      <TextBlock Text="START GOLD" Foreground="#77AAFF" FontWeight="Bold" Margin="0,0,0,8"/>
+      <TextBlock Text="{Binding StartGoldTitleText}" Foreground="#77AAFF" FontWeight="Bold" Margin="0,0,0,8"/>
 
       <Grid>
         <Grid.ColumnDefinitions>
@@ -22,27 +22,27 @@
           <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.Row="0" Grid.Column="1" Text="AI" Foreground="White" FontWeight="Bold"/>
-        <TextBlock Grid.Row="0" Grid.Column="2" Text="Human" Foreground="White" FontWeight="Bold"/>
+        <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding AiText}" Foreground="White" FontWeight="Bold"/>
+        <TextBlock Grid.Row="0" Grid.Column="2" Text="{Binding HumanText}" Foreground="White" FontWeight="Bold"/>
 
-        <StackPanel Grid.Row="1" Grid.Column="0" Orientation="Horizontal" Margin="0,4" ToolTip="Sets the initial amount of gold for each player. -1 means unchanged.">
+        <StackPanel Grid.Row="1" Grid.Column="0" Orientation="Horizontal" Margin="0,4" ToolTip="{Binding SetStartGoldHelpText}">
           <Image Source="{Binding GoldIcon}" Width="18" Height="18" Stretch="Uniform" Margin="0,0,6,0"/>
-          <TextBlock Text="Set start gold (-1 = unchanged)" Foreground="White" VerticalAlignment="Center"/>
+          <TextBlock Text="{Binding SetStartGoldText}" Foreground="White" VerticalAlignment="Center"/>
         </StackPanel>
-        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding SetStartGoldAIText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="Set start gold (-1 = unchanged) / AI" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
-        <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding SetStartGoldHumanText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="Set start gold (-1 = unchanged) / Human" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding SetStartGoldAIText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="{Binding SetStartGoldAiToolTipText}" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+        <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding SetStartGoldHumanText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="{Binding SetStartGoldHumanToolTipText}" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
 
-        <StackPanel Grid.Row="2" Grid.Column="0" Orientation="Horizontal" Margin="0,4" ToolTip="Adds the specified amount of gold to the initial amount for each player.">
+        <StackPanel Grid.Row="2" Grid.Column="0" Orientation="Horizontal" Margin="0,4" ToolTip="{Binding AddStartGoldHelpText}">
           <Image Source="{Binding GoldIcon}" Width="18" Height="18" Stretch="Uniform" Margin="0,0,6,0"/>
-          <TextBlock Text="Add start gold" Foreground="White" VerticalAlignment="Center"/>
+          <TextBlock Text="{Binding AddStartGoldText}" Foreground="White" VerticalAlignment="Center"/>
         </StackPanel>
-        <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding AddStartGoldAIText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="Add start gold / AI" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
-        <TextBox Grid.Row="2" Grid.Column="2" Text="{Binding AddStartGoldHumanText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="Add start gold / Human" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+        <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding AddStartGoldAIText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="{Binding AddStartGoldAiToolTipText}" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+        <TextBox Grid.Row="2" Grid.Column="2" Text="{Binding AddStartGoldHumanText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="{Binding AddStartGoldHumanToolTipText}" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
       </Grid>
 
       <Separator Background="#444466" Margin="0,10"/>
-      <TextBlock Text="START GOODS" Foreground="#77AAFF" FontWeight="Bold" Margin="0,0,0,8"/>
-      <TextBlock Text="-1 = unchanged. Allowed range: -1 to 100000." Foreground="#CCCCCC" TextWrapping="Wrap" Margin="0,0,0,6"/>
+      <TextBlock Text="{Binding StartGoodsTitleText}" Foreground="#77AAFF" FontWeight="Bold" Margin="0,0,0,8"/>
+      <TextBlock Text="{Binding UnchangedRangeHelpText}" Foreground="#CCCCCC" TextWrapping="Wrap" Margin="0,0,0,6"/>
       <Grid Margin="0,0,0,4">
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="220"/>
@@ -51,10 +51,10 @@
           <ColumnDefinition Width="120"/>
           <ColumnDefinition Width="90"/>
         </Grid.ColumnDefinitions>
-        <TextBlock Grid.Column="1" Text="AI" Foreground="White" FontWeight="Bold"/>
-        <TextBlock Grid.Column="2" Text="Human" Foreground="White" FontWeight="Bold"/>
-        <TextBlock Grid.Column="3" Text="Normal/Crusade" Foreground="White" FontWeight="Bold"/>
-        <TextBlock Grid.Column="4" Text="Deathmatch" Foreground="White" FontWeight="Bold"/>
+        <TextBlock Grid.Column="1" Text="{Binding AiText}" Foreground="White" FontWeight="Bold"/>
+        <TextBlock Grid.Column="2" Text="{Binding HumanText}" Foreground="White" FontWeight="Bold"/>
+        <TextBlock Grid.Column="3" Text="{Binding NormalCrusadeText}" Foreground="White" FontWeight="Bold"/>
+        <TextBlock Grid.Column="4" Text="{Binding DeathmatchText}" Foreground="White" FontWeight="Bold"/>
       </Grid>
       <ItemsControl ItemsSource="{Binding StartGoodEntries}" Margin="0,3,0,8">
         <ItemsControl.ItemTemplate>
@@ -115,7 +115,7 @@
       </ItemsControl>
 
       <Separator Background="#444466" Margin="0,10"/>
-      <TextBlock Text="START TROOPS" Foreground="#77AAFF" FontWeight="Bold" Margin="0,0,0,8"/>
+      <TextBlock Text="{Binding StartTroopsTitleText}" Foreground="#77AAFF" FontWeight="Bold" Margin="0,0,0,8"/>
       <Grid>
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="220"/>
@@ -126,23 +126,23 @@
           <RowDefinition Height="Auto"/>
           <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
-        <TextBlock Grid.Row="0" Grid.Column="1" Text="AI" Foreground="White" FontWeight="Bold"/>
-        <TextBlock Grid.Row="0" Grid.Column="2" Text="Human" Foreground="White" FontWeight="Bold"/>
-        <TextBlock Grid.Row="1" Grid.Column="0" Text="Multiply Start Troop armies" Foreground="White" Margin="0,4" ToolTip="Start troops are updated after DelayedStartTroopCountMilliseconds, currently 20 seconds after map start. 0 = remove official start troops after the delay, 1 = unchanged, 2 = double. Allowed range: 0 to 100. CAREFUL: For AI these count as Defense-Troops, if the amount is higher than their max defense, they may not recruit new defense which may result in no ranged defense!"/>
-        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding MultiplyStartTroopsAIText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="Multiplier for Start Troop armies / AI. Applied after DelayedStartTroopCountMilliseconds, currently 20 seconds after map start. 0 = remove, 1 = unchanged, 2 = double. Allowed range: 0 to 100." Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
-        <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding MultiplyStartTroopsHumanText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="Multiplier for Start Troop armies / Human. Applied after DelayedStartTroopCountMilliseconds, currently 20 seconds after map start. 0 = remove, 1 = unchanged, 2 = double. Allowed range: 0 to 100." Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+        <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding AiText}" Foreground="White" FontWeight="Bold"/>
+        <TextBlock Grid.Row="0" Grid.Column="2" Text="{Binding HumanText}" Foreground="White" FontWeight="Bold"/>
+        <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding MultiplyStartTroopsText}" Foreground="White" Margin="0,4" ToolTip="{Binding StartTroopsMultiplierHelpText}"/>
+        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding MultiplyStartTroopsAIText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="{Binding StartTroopsMultiplierAiToolTipText}" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+        <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding MultiplyStartTroopsHumanText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="{Binding StartTroopsMultiplierHumanToolTipText}" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
       </Grid>
 
-      <TextBlock Text="Multiplier: 0 = remove official start troops after 20 seconds, 1 = unchanged, 2 = double. Allowed range: 0 to 100." Foreground="#CCCCCC" TextWrapping="Wrap" Margin="0,8,0,6"/>
-      <TextBlock Text="Extra Start Units: -1 or 0 = no extra units. Allowed range: -1 to 100000." Foreground="#CCCCCC" TextWrapping="Wrap" Margin="0,8,0,6"/>
+      <TextBlock Text="{Binding StartTroopsMultiplierHelpText}" Foreground="#CCCCCC" TextWrapping="Wrap" Margin="0,8,0,6"/>
+      <TextBlock Text="{Binding ExtraStartUnitsHelpText}" Foreground="#CCCCCC" TextWrapping="Wrap" Margin="0,8,0,6"/>
       <Grid Margin="0,0,0,4">
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="260"/>
           <ColumnDefinition Width="90"/>
           <ColumnDefinition Width="90"/>
         </Grid.ColumnDefinitions>
-        <TextBlock Grid.Column="1" Text="AI" Foreground="White" FontWeight="Bold"/>
-        <TextBlock Grid.Column="2" Text="Human" Foreground="White" FontWeight="Bold"/>
+        <TextBlock Grid.Column="1" Text="{Binding AiText}" Foreground="White" FontWeight="Bold"/>
+        <TextBlock Grid.Column="2" Text="{Binding HumanText}" Foreground="White" FontWeight="Bold"/>
       </Grid>
       <ItemsControl ItemsSource="{Binding StartTroopEntries}" Margin="0,3,0,8">
         <ItemsControl.ItemTemplate>

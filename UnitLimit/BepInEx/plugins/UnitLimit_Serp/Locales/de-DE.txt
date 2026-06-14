@@ -1,0 +1,7 @@
+# Serp mod localization
+# Format: key=value
+Common.ResetToDefault=Zurücksetzen
+Common.Limit=Limit
+Common.Max=Max
+UnitLimit.Title=EINHEITENLIMITS (Mensch)
+UnitLimit.Help=Nur für Menschen! -1 = unbegrenzt. Erlaubter Bereich: -1 bis 10000. Vorhandene lebende Einheiten zaehlen gegen das Limit.

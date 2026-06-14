@@ -1,0 +1,20 @@
+# Serp mod localization
+# Format: key=value
+Common.ResetToDefault=Reset to Default
+Common.Ai=AI
+Common.Human=Human
+SomeSettings.BulldozeTitle=BULLDOZE
+SomeSettings.BulldozeHelp=-1 = unchanged. Refund values are percentages from 0 to 100.
+SomeSettings.WoodRefund=Wood refund %
+SomeSettings.StoneRefund=Stone refund %
+SomeSettings.IronRefund=Iron refund %
+SomeSettings.PitchRefund=Pitch refund %
+SomeSettings.GoldRefund=Gold refund %
+SomeSettings.VanillaValue50=Vanilla value: 50%.
+SomeSettings.KeepStorageContent=Keep Storage Content
+SomeSettings.KeepStorageContentHelp=When enabled, bulldozing a granary, armory, or stockpile keeps the goods stored inside by adding them back as incoming goods.
+SomeSettings.EconomyBuffsTitle=Economy Buffs
+SomeSettings.MultiplyGoodsGain=Multiply goods gain
+SomeSettings.MultiplyGoodsGainHelp=Multiplier for gained goods. 1 = unchanged, 2 = double, 3 = triple. Values 1 or lower add nothing.
+SomeSettings.MultiplyGoodsAsMoney=Multiply goods as money
+SomeSettings.MultiplyGoodsAsMoneyHelp=Extra gold payouts based on sell value of gained goods. 0 = unchanged, 1 = one sell-value payout, 2 = two payouts.

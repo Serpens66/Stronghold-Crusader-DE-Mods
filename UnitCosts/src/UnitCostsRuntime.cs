@@ -814,7 +814,7 @@ namespace UnitCosts
         private void ShowMissingResourcesMessage()
         {
             PlayWeaponsNeededSpeech();
-            DisplayMaterialNotification(IsGermanLanguage() ? "Material fehlt" : "Resources missing");
+            DisplayMaterialNotification(SerpLocalization.Get(SerpLocalization.ResourcesMissing));
         }
 
         private void ShowMissingResourcesMessageThrottledForSiege()
@@ -829,7 +829,7 @@ namespace UnitCosts
             if (now >= nextSiegeMissingResourcesMessageUtc)
             {
                 nextSiegeMissingResourcesMessageUtc = now.AddMilliseconds(SiegeMissingResourcesMessageThrottleMilliseconds);
-                DisplayMaterialNotification(IsGermanLanguage() ? "Material fehlt" : "Resources missing");
+                DisplayMaterialNotification(SerpLocalization.Get(SerpLocalization.ResourcesMissing));
             }
         }
 
@@ -941,13 +941,6 @@ namespace UnitCosts
         private static Noesis.ImageSource GetGoodImage(eGoods good)
         {
             return MainViewModel.Instance.getSmallGoodsIcon((int)good);
-        }
-
-        private static bool IsGermanLanguage()
-        {
-            string language = GameAssetManagerAPI.Instance.CurrentLanguage;
-            return !string.IsNullOrEmpty(language) &&
-                language.StartsWith("de", StringComparison.OrdinalIgnoreCase);
         }
 
         private static void CaptureVanillaEuropeanGoodCosts()

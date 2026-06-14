@@ -94,9 +94,18 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="..\Shared\SerpLocalization.cs">
+      <Link>Shared\SerpLocalization.cs</Link>
+    </Compile>
     <Compile Include="src\SomeSettingsPlugin.cs" />
     <Compile Include="src\SomeSettingsRuntime.cs" />
     <Compile Include="src\SomeSettingsViewModel.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Locales\*.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

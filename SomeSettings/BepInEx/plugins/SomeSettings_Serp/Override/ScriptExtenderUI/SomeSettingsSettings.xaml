@@ -3,13 +3,13 @@
       xmlns:ui="clr-namespace:SHCDESE.UI;assembly=SHCDESE">
   <ScrollViewer VerticalScrollBarVisibility="Auto">
     <StackPanel Margin="10">
-      <Button Content="Reset to Default"
+      <Button Content="{Binding ResetToDefaultText}"
               Command="{Binding ResetToDefaultCommand}"
               HorizontalAlignment="Left"
               Margin="0,0,0,8"
               Padding="10,3"/>
-      <TextBlock Text="BULLDOZE" Foreground="#77AAFF" FontWeight="Bold" Margin="0,0,0,4"/>
-      <TextBlock Text="-1 = unchanged. Refund values are percentages from 0 to 100."
+      <TextBlock Text="{Binding BulldozeTitleText}" Foreground="#77AAFF" FontWeight="Bold" Margin="0,0,0,4"/>
+      <TextBlock Text="{Binding BulldozeHelpText}"
                  Foreground="#CCCCCC" TextWrapping="Wrap" Margin="0,0,0,8"/>
 
       <Grid Margin="0,0,0,8">
@@ -25,43 +25,43 @@
           <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,3,8,3" ToolTip="Vanilla value: 50%.">
+        <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,3,8,3" ToolTip="{Binding VanillaValue50Text}">
           <Image Source="{Binding WoodRefundIcon}" Width="18" Height="18" Stretch="Uniform" Margin="0,0,6,0"/>
-          <TextBlock Text="Wood refund %" Foreground="White" VerticalAlignment="Center"/>
+          <TextBlock Text="{Binding WoodRefundText}" Foreground="White" VerticalAlignment="Center"/>
         </StackPanel>
-        <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding WoodRefundPercentText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" MaxLength="4" HorizontalContentAlignment="Right" Margin="3" ToolTip="Vanilla value: 50%." ui:KeyboardCaptureBinding.Enabled="True"/>
+        <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding WoodRefundPercentText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" MaxLength="4" HorizontalContentAlignment="Right" Margin="3" ToolTip="{Binding VanillaValue50Text}" ui:KeyboardCaptureBinding.Enabled="True"/>
 
-        <StackPanel Grid.Row="1" Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,3,8,3" ToolTip="Vanilla value: 50%.">
+        <StackPanel Grid.Row="1" Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,3,8,3" ToolTip="{Binding VanillaValue50Text}">
           <Image Source="{Binding StoneRefundIcon}" Width="18" Height="18" Stretch="Uniform" Margin="0,0,6,0"/>
-          <TextBlock Text="Stone refund %" Foreground="White" VerticalAlignment="Center"/>
+          <TextBlock Text="{Binding StoneRefundText}" Foreground="White" VerticalAlignment="Center"/>
         </StackPanel>
-        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding StoneRefundPercentText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" MaxLength="4" HorizontalContentAlignment="Right" Margin="3" ToolTip="Vanilla value: 50%." ui:KeyboardCaptureBinding.Enabled="True"/>
+        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding StoneRefundPercentText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" MaxLength="4" HorizontalContentAlignment="Right" Margin="3" ToolTip="{Binding VanillaValue50Text}" ui:KeyboardCaptureBinding.Enabled="True"/>
 
-        <StackPanel Grid.Row="2" Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,3,8,3" ToolTip="Vanilla value: 50%.">
+        <StackPanel Grid.Row="2" Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,3,8,3" ToolTip="{Binding VanillaValue50Text}">
           <Image Source="{Binding IronRefundIcon}" Width="18" Height="18" Stretch="Uniform" Margin="0,0,6,0"/>
-          <TextBlock Text="Iron refund %" Foreground="White" VerticalAlignment="Center"/>
+          <TextBlock Text="{Binding IronRefundText}" Foreground="White" VerticalAlignment="Center"/>
         </StackPanel>
-        <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding IronRefundPercentText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" MaxLength="4" HorizontalContentAlignment="Right" Margin="3" ToolTip="Vanilla value: 50%." ui:KeyboardCaptureBinding.Enabled="True"/>
+        <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding IronRefundPercentText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" MaxLength="4" HorizontalContentAlignment="Right" Margin="3" ToolTip="{Binding VanillaValue50Text}" ui:KeyboardCaptureBinding.Enabled="True"/>
 
-        <StackPanel Grid.Row="3" Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,3,8,3" ToolTip="Vanilla value: 50%.">
+        <StackPanel Grid.Row="3" Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,3,8,3" ToolTip="{Binding VanillaValue50Text}">
           <Image Source="{Binding PitchRefundIcon}" Width="18" Height="18" Stretch="Uniform" Margin="0,0,6,0"/>
-          <TextBlock Text="Pitch refund %" Foreground="White" VerticalAlignment="Center"/>
+          <TextBlock Text="{Binding PitchRefundText}" Foreground="White" VerticalAlignment="Center"/>
         </StackPanel>
-        <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding PitchRefundPercentText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" MaxLength="4" HorizontalContentAlignment="Right" Margin="3" ToolTip="Vanilla value: 50%." ui:KeyboardCaptureBinding.Enabled="True"/>
+        <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding PitchRefundPercentText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" MaxLength="4" HorizontalContentAlignment="Right" Margin="3" ToolTip="{Binding VanillaValue50Text}" ui:KeyboardCaptureBinding.Enabled="True"/>
 
-        <StackPanel Grid.Row="4" Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,3,8,3" ToolTip="Vanilla value: 50%.">
+        <StackPanel Grid.Row="4" Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,3,8,3" ToolTip="{Binding VanillaValue50Text}">
           <Image Source="{Binding GoldRefundIcon}" Width="18" Height="18" Stretch="Uniform" Margin="0,0,6,0"/>
-          <TextBlock Text="Gold refund %" Foreground="White" VerticalAlignment="Center"/>
+          <TextBlock Text="{Binding GoldRefundText}" Foreground="White" VerticalAlignment="Center"/>
         </StackPanel>
-        <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding GoldRefundPercentText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" MaxLength="4" HorizontalContentAlignment="Right" Margin="3" ToolTip="Vanilla value: 50%." ui:KeyboardCaptureBinding.Enabled="True"/>
+        <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding GoldRefundPercentText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" MaxLength="4" HorizontalContentAlignment="Right" Margin="3" ToolTip="{Binding VanillaValue50Text}" ui:KeyboardCaptureBinding.Enabled="True"/>
       </Grid>
 
       <CheckBox IsChecked="{Binding KeepStorageContent, Mode=TwoWay}"
                 Foreground="White"
-                ToolTip="When enabled, bulldozing a granary, armory, or stockpile keeps the goods stored inside by adding them back as incoming goods."
+                ToolTip="{Binding KeepStorageContentHelpText}"
                 Margin="0,4,14,4">
         <StackPanel Orientation="Horizontal">
-          <TextBlock Text="Keep Storage Content" Foreground="White" VerticalAlignment="Center"/>
+          <TextBlock Text="{Binding KeepStorageContentText}" Foreground="White" VerticalAlignment="Center"/>
           <Image Source="{Binding KeepStorageFruitIcon}" Width="18" Height="18" Stretch="Uniform" Margin="8,0,0,0"/>
           <Image Source="{Binding KeepStorageWoodIcon}" Width="18" Height="18" Stretch="Uniform" Margin="4,0,0,0"/>
           <Image Source="{Binding KeepStorageBowsIcon}" Width="18" Height="18" Stretch="Uniform" Margin="4,0,0,0"/>
@@ -69,7 +69,7 @@
       </CheckBox>
 
       <Separator Background="#444466" Margin="0,10"/>
-      <TextBlock Text="Economy Buffs" Foreground="#77AAFF" FontWeight="Bold" Margin="0,0,0,8"/>
+      <TextBlock Text="{Binding EconomyBuffsTitleText}" Foreground="#77AAFF" FontWeight="Bold" Margin="0,0,0,8"/>
 
       <Grid>
         <Grid.ColumnDefinitions>
@@ -83,16 +83,16 @@
           <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.Row="0" Grid.Column="1" Text="AI" Foreground="White" FontWeight="Bold"/>
-        <TextBlock Grid.Row="0" Grid.Column="2" Text="Human" Foreground="White" FontWeight="Bold"/>
+        <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding AiText}" Foreground="White" FontWeight="Bold"/>
+        <TextBlock Grid.Row="0" Grid.Column="2" Text="{Binding HumanText}" Foreground="White" FontWeight="Bold"/>
 
-        <TextBlock Grid.Row="1" Grid.Column="0" Text="Multiply goods gain" Foreground="White" Margin="0,4" ToolTip="Multiplier for gained goods. 1 = unchanged, 2 = double, 3 = triple. Values 1 or lower add nothing."/>
-        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding MultiplyGoodsGainAIText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="Goods gain multiplier factor / AI" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
-        <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding MultiplyGoodsGainHumanText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="Goods gain multiplier factor / Human" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+        <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding MultiplyGoodsGainText}" Foreground="White" Margin="0,4" ToolTip="{Binding MultiplyGoodsGainHelpText}"/>
+        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding MultiplyGoodsGainAIText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="{Binding MultiplyGoodsGainHelpText}" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+        <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding MultiplyGoodsGainHumanText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="{Binding MultiplyGoodsGainHelpText}" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
 
-        <TextBlock Grid.Row="2" Grid.Column="0" Text="Multiply goods as money" Foreground="White" Margin="0,4" ToolTip="Extra gold payouts based on sell value of gained goods. 0 = unchanged, 1 = one sell-value payout, 2 = two payouts."/>
-        <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding MultiplyGoodsGainInMoneyAIText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="Goods-as-money payout count / AI" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
-        <TextBox Grid.Row="2" Grid.Column="2" Text="{Binding MultiplyGoodsGainInMoneyHumanText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="Goods-as-money payout count / Human" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+        <TextBlock Grid.Row="2" Grid.Column="0" Text="{Binding MultiplyGoodsAsMoneyText}" Foreground="White" Margin="0,4" ToolTip="{Binding MultiplyGoodsAsMoneyHelpText}"/>
+        <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding MultiplyGoodsGainInMoneyAIText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="{Binding MultiplyGoodsAsMoneyHelpText}" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+        <TextBox Grid.Row="2" Grid.Column="2" Text="{Binding MultiplyGoodsGainInMoneyHumanText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="{Binding MultiplyGoodsAsMoneyHelpText}" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
       </Grid>
     </StackPanel>
   </ScrollViewer>

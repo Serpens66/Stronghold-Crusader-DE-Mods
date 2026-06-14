@@ -97,6 +97,9 @@
     <Compile Include="..\Shared\DebugLogHelper.cs">
       <Link>Shared\DebugLogHelper.cs</Link>
     </Compile>
+    <Compile Include="..\Shared\SerpLocalization.cs">
+      <Link>Shared\SerpLocalization.cs</Link>
+    </Compile>
     <Compile Include="src\StartConditionsPlugin.cs" />
     <Compile Include="src\StartConditionsLobbyViewModel.cs" />
     <Compile Include="src\StartConditionsRuntime.cs" />
@@ -105,6 +108,12 @@
     <Compile Include="src\StartConditionsRuntime.MapLifecycle.cs" />
     <Compile Include="src\StartConditionsRuntime.Helpers.cs" />
     <Compile Include="src\StartConditionsRuntime.Localization.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Locales\*.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

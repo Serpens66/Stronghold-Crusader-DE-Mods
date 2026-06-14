@@ -1,0 +1,8 @@
+# Serp mod localization
+# Format: key=value
+Common.ResetToDefault=Zurücksetzen
+BuildingCosts.Title=BAUKOSTEN
+BuildingCosts.Help=-1 = unverändert. Werte von 0 bis 1000 setzen die nativen Baukosten für dieses Material (Mensch und KI).
+BuildingCosts.BuildingHeader=Gebaeude
+BuildingCosts.Vanilla=Vanilla
+BuildingCosts.VanillaNoCosts=keine Kosten

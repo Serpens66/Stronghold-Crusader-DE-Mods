@@ -1,0 +1,7 @@
+# Serp mod localization
+# Format: key=value
+Common.ResetToDefault=Reset to Default
+Common.Limit=Limit
+Common.Max=Max
+UnitLimit.Title=UNIT LIMITS (Human)
+UnitLimit.Help=Only for Human! -1 = unlimited. Allowed range: -1 to 10000. Existing living units count against the limit.

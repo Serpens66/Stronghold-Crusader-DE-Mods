@@ -3,13 +3,13 @@
       xmlns:ui="clr-namespace:SHCDESE.UI;assembly=SHCDESE">
   <ScrollViewer VerticalScrollBarVisibility="Auto">
     <StackPanel Margin="10">
-      <Button Content="Reset to Default"
+      <Button Content="{Binding ResetToDefaultText}"
               Command="{Binding ResetToDefaultCommand}"
               HorizontalAlignment="Left"
               Margin="0,0,0,8"
               Padding="10,3"/>
-      <TextBlock Text="BUILDING LIMITS (Human)" Foreground="#77AAFF" FontWeight="Bold" Margin="0,0,0,4"/>
-      <TextBlock Text="Only for Human! -1 = unlimited. Allowed range: -1 to 10000. Variants such as gardens, statues, shrines and ponds are counted together."
+      <TextBlock Text="{Binding TitleText}" Foreground="#77AAFF" FontWeight="Bold" Margin="0,0,0,4"/>
+      <TextBlock Text="{Binding HelpText}"
                  Foreground="#CCCCCC" TextWrapping="Wrap" Margin="0,0,0,6"/>
       <ItemsControl ItemsSource="{Binding LimitEntries}" Margin="0,3,0,8">
         <ItemsControl.ItemTemplate>

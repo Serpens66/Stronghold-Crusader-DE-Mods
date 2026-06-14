@@ -61,6 +61,9 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=-1";
         public IReadOnlyList<LimitEntryViewModel> LimitEntries { get; }
 
         public RelayCommand ResetToDefaultCommand { get; }
+        public string ResetToDefaultText => SerpLocalization.Get(SerpLocalization.ResetToDefault);
+        public string TitleText => SerpLocalization.Get(SerpLocalization.UnitLimitsTitle);
+        public string HelpText => SerpLocalization.Get(SerpLocalization.UnitLimitsHelp);
 
         public void RefreshLocalizedNames()
         {
@@ -292,7 +295,7 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=-1";
                 }
             }
 
-            public string LimitToolTip => string.IsNullOrWhiteSpace(DisplayName) ? "Limit" : DisplayName + " / Limit";
+            public string LimitToolTip => string.IsNullOrWhiteSpace(DisplayName) ? SerpLocalization.Get(SerpLocalization.Limit) : DisplayName + " / " + SerpLocalization.Get(SerpLocalization.Limit);
 
             public int Limit
             {

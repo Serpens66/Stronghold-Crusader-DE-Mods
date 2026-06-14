@@ -93,7 +93,7 @@ namespace BuildingLimit
 
             ShowBuildingLimitMessage(
                 definition.Mapper,
-                "Max " + limit + " " + GetLocalizedBuildingName(definition));
+                SerpLocalization.Get(SerpLocalization.Max) + " " + limit + " " + GetLocalizedBuildingName(definition));
         }
 
         // This method is no longer used since we switched to using the active building cache for counting alive buildings, but it's kept here for reference in case we need to revert that change or want to compare results.

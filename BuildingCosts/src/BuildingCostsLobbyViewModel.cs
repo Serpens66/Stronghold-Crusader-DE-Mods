@@ -101,12 +101,11 @@ namespace BuildingCosts
         public IReadOnlyList<CostEntryViewModel> CostEntries { get; }
 
         public RelayCommand ResetToDefaultCommand { get; }
+        public string ResetToDefaultText => SerpLocalization.Get(SerpLocalization.ResetToDefault);
 
-        public string TitleText => IsGermanLanguage() ? "BAUKOSTEN" : "BUILDING COSTS";
-        public string HelpText => IsGermanLanguage()
-            ? "-1 = unverändert. Werte von 0 bis 1000 setzen die nativen Baukosten für dieses Material (Mensch und KI)."
-            : "-1 = unchanged. Values 0 to 1000 set the native construction cost for that material (Human and AI).";
-        public string BuildingHeaderText => IsGermanLanguage() ? "Gebäude" : "Building";
+        public string TitleText => SerpLocalization.Get(SerpLocalization.BuildingCostsTitle);
+        public string HelpText => SerpLocalization.Get(SerpLocalization.BuildingCostsHelp);
+        public string BuildingHeaderText => SerpLocalization.Get(SerpLocalization.BuildingHeader);
         public string WoodHeaderText => GetLocalizedGoodName(eGoods.STORED_WOOD_PLANKS, "Wood");
         public string StoneHeaderText => GetLocalizedGoodName(eGoods.STORED_STONE_BLOCKS, "Stone");
         public string IronHeaderText => GetLocalizedGoodName(eGoods.STORED_IRON_INGOTS, "Iron");
@@ -222,8 +221,8 @@ namespace BuildingCosts
             AddVanillaCostPart(parts, GoldHeaderText, values.Gold);
 
             string vanillaText = parts.Count == 0
-                ? "Vanilla: keine Kosten"
-                : "Vanilla: " + string.Join(", ", parts);
+                ? SerpLocalization.Get(SerpLocalization.Vanilla) + ": " + SerpLocalization.Get(SerpLocalization.VanillaNoCosts)
+                : SerpLocalization.Get(SerpLocalization.Vanilla) + ": " + string.Join(", ", parts);
 
             return key + Environment.NewLine + vanillaText;
         }
@@ -342,13 +341,6 @@ namespace BuildingCosts
         private static string GetTranslationKey(string sectionName, int index)
         {
             return sectionName + "_" + (index + 1).ToString("D3");
-        }
-
-        private static bool IsGermanLanguage()
-        {
-            string language = GameAssetManagerAPI.Instance.CurrentLanguage;
-            return !string.IsNullOrWhiteSpace(language) &&
-                language.Replace('_', '-').StartsWith("de", StringComparison.OrdinalIgnoreCase);
         }
 
         public Dictionary<eMappers, BuildingCostValues> ParseBuildingCosts()
