@@ -1,4 +1,5 @@
 using Noesis;
+using SHCDESE.API;
 using SHCDESE.API.Components.Network;
 using SHCDESE.Interop;
 using SHCDESE.NoesisUtil;
@@ -22,9 +23,11 @@ namespace SomeSettings
         private int multiplyGoodsGainInMoneyAI;
         private int multiplyGoodsGainInMoneyHuman;
         private bool keepStorageContent;
+        private readonly bool[] allowMinimapWhilePlacingBuildingData = new bool[9];
 
         public SomeSettingsViewModel()
         {
+            SetAllowMinimapDefaults();
             ResetToDefaultCommand = new RelayCommand(ResetToDefault);
         }
 
@@ -40,6 +43,8 @@ namespace SomeSettings
         public ImageSource KeepStorageBowsIcon => GetGoodIconImage(eGoods.STORED_BOWS);
         public string ResetToDefaultText => SerpLocalization.Get(SerpLocalization.ResetToDefault);
         public string MarketKeyMainTradeMenuHelpText => SerpLocalization.Get(SerpLocalization.MarketKeyMainTradeMenuHelp);
+        public string AllowMinimapWhilePlacingBuildingText => SerpLocalization.Get(SerpLocalization.AllowMinimapWhilePlacingBuilding);
+        public string AllowMinimapWhilePlacingBuildingHelpText => SerpLocalization.Get(SerpLocalization.AllowMinimapWhilePlacingBuildingHelp);
         public string BulldozeTitleText => SerpLocalization.Get(SerpLocalization.BulldozeTitle);
         public string BulldozeHelpText => SerpLocalization.Get(SerpLocalization.BulldozeHelp);
         public string WoodRefundText => SerpLocalization.Get(SerpLocalization.WoodRefund);
@@ -57,6 +62,8 @@ namespace SomeSettings
         public string MultiplyGoodsGainHelpText => SerpLocalization.Get(SerpLocalization.MultiplyGoodsGainHelp);
         public string MultiplyGoodsAsMoneyText => SerpLocalization.Get(SerpLocalization.MultiplyGoodsAsMoney);
         public string MultiplyGoodsAsMoneyHelpText => SerpLocalization.Get(SerpLocalization.MultiplyGoodsAsMoneyHelp);
+
+        public bool[] AllowMinimapWhilePlacingBuildingData => allowMinimapWhilePlacingBuildingData;
 
         [SyncHostOnly]
         public bool EnableMod
@@ -115,6 +122,22 @@ namespace SomeSettings
             }
         }
 
+        [SyncPerPlayer]
+        public bool AllowMinimapWhilePlacingBuilding
+        {
+            get => allowMinimapWhilePlacingBuildingData[LocalPlayerIdOrOne];
+            set
+            {
+                int playerId = LocalPlayerIdOrOne;
+                if (allowMinimapWhilePlacingBuildingData[playerId] == value)
+                    return;
+
+                allowMinimapWhilePlacingBuildingData[playerId] = value;
+                SettingChanged?.Invoke(nameof(AllowMinimapWhilePlacingBuilding));
+                OnPropertyChanged(nameof(AllowMinimapWhilePlacingBuilding));
+            }
+        }
+
         public int WoodRefundPercent => ParsePercentOrUnchanged(WoodRefundPercentText);
         public int StoneRefundPercent => ParsePercentOrUnchanged(StoneRefundPercentText);
         public int IronRefundPercent => ParsePercentOrUnchanged(IronRefundPercentText);
@@ -143,6 +166,9 @@ namespace SomeSettings
             MultiplyGoodsGainHuman = 1;
             MultiplyGoodsGainInMoneyAI = 0;
             MultiplyGoodsGainInMoneyHuman = 0;
+            SetAllowMinimapDefaults();
+            SettingChanged?.Invoke(nameof(AllowMinimapWhilePlacingBuilding));
+            OnPropertyChanged(nameof(AllowMinimapWhilePlacingBuilding));
         }
 
         private void SetTextSetting(ref string field, string value, string propertyName)
@@ -218,6 +244,14 @@ namespace SomeSettings
             {
                 return null;
             }
+        }
+
+        private static int LocalPlayerIdOrOne => Math.Max(1, GameNetworkAPI.GetLocalPlayerId());
+
+        private void SetAllowMinimapDefaults()
+        {
+            for (int i = 1; i < allowMinimapWhilePlacingBuildingData.Length; i++)
+                allowMinimapWhilePlacingBuildingData[i] = true;
         }
     }
 }

@@ -29,6 +29,7 @@ namespace SomeSettings
         private readonly Dictionary<string, ResourceEventCountGuard> marketBuyResourceGuards = new Dictionary<string, ResourceEventCountGuard>();
         private readonly Dictionary<string, ResourceEventCountGuard> refundResourceGuards = new Dictionary<string, ResourceEventCountGuard>();
         private PendingStockpileRefund pendingStockpileRefund;
+        private MinimapPlacementClickHook minimapPlacementClickHook;
 
         private bool hooksSubscribed;
         private bool settingsSubscribed;
@@ -68,6 +69,7 @@ namespace SomeSettings
             subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
                 .Subscribe(OnUnloadMap));
+            minimapPlacementClickHook = new MinimapPlacementClickHook(log, settings);
             hooksSubscribed = true;
             log.LogDebug("SomeSettings hooks subscribed.");
         }
@@ -103,6 +105,8 @@ namespace SomeSettings
                 subscription.Dispose();
 
             subscriptions.Clear();
+            minimapPlacementClickHook?.Dispose();
+            minimapPlacementClickHook = null;
             ClearResourceEventGuards();
             pendingStockpileRefund = null;
             hooksSubscribed = false;

@@ -4,6 +4,8 @@ Common.ResetToDefault=Reset to Default
 Common.Ai=AI
 Common.Human=Human
 SomeSettings.MarketKeyMainTradeMenuHelp=Pressing the market keybind while the market is already selected returns the menu to the main trade menu.
+SomeSettings.AllowMinimapWhilePlacingBuilding=Allow minimap while placing buildings
+SomeSettings.AllowMinimapWhilePlacingBuildingHelp=When enabled, left-clicking the minimap moves the camera even while a building is selected for placement. This is a per-player setting.
 SomeSettings.BulldozeTitle=BULLDOZE
 SomeSettings.BulldozeHelp=-1 = unchanged. Refund values are percentages from 0 to 100.
 SomeSettings.WoodRefund=Wood refund %
