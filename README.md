@@ -23,4 +23,4 @@ They all have a build.bat file. You have need to adjust them to your paths thoug
 ## Other Mods:
 - https://gitlab.com/rawra-stronghold-crusader/shcde-fixes
 - https://gitlab.com/ensrick7/crusader-de-tweaker
-- https://github.com/richardbinder/Stronghold-Crusader-DE-AI-Unit-Buff
+- https://github.com/richardbinder/Stronghold-Crusader-DE-AI-Buff/releases
