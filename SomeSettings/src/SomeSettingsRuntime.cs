@@ -4,6 +4,7 @@ using R3;
 using SHCDESE.API;
 using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.Buildings;
+using SHCDESE.EventAPI.Input;
 using SHCDESE.EventAPI.MapLoader;
 using SHCDESE.EventAPI.Player;
 using SHCDESE.Interop;
@@ -31,6 +32,14 @@ namespace SomeSettings
 
         private bool hooksSubscribed;
         private bool settingsSubscribed;
+        private const int BuildingAppMode = 16;
+        private const int TradepostMainPanel = 25;
+        private const int TradepostStructureType = 26;
+        private const int TradepostPricesPanel = 53;
+        private const int TradepostFoodPanel = 54;
+        private const int TradepostResourcesPanel = 55;
+        private const int TradepostWeaponsPanel = 56;
+        private const int TradepostTradePanel = 57;
         private const int MarketBuyAmount = 5;
         private const int MarketBuyShiftAmount = 25;
         private static readonly TimeSpan MarketBuyGuardLifetime = TimeSpan.FromSeconds(2);
@@ -55,6 +64,7 @@ namespace SomeSettings
             subscriptions.Add(BuildingR3EventHooks.OnBuildingRefund.Observable.Subscribe(OnBuildingRefund));
             subscriptions.Add(BuildingR3EventHooks.OnGoodsyardAddGood.Observable.Subscribe(OnGoodsyardAddGood));
             subscriptions.Add(PlayerR3EventHooks.OnPlayerMarketInteraction.Observable.Subscribe(OnPlayerMarketInteraction));
+            subscriptions.Add(InputR3EventHooks.OnKeyDown.Observable.Subscribe(OnKeyDown));
             subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
                 .Subscribe(OnUnloadMap));
@@ -153,6 +163,56 @@ namespace SomeSettings
             buildingApi.IronRefundMultiplier.SetValue(0.5f);
             buildingApi.PitchRefundMultiplier.SetValue(0.5f);
             buildingApi.GoldRefundMultiplier.SetValue(0.5f);
+        }
+
+        private void OnKeyDown(UnityInputEventArgs args)
+        {
+            try
+            {
+                if (!settings.EnableMod || args.Phase != EventHookPhase.Post)
+                    return;
+
+                KeyManager keyManager = KeyManager.instance;
+                if (keyManager == null || !keyManager.IsActionPressed(Enums.KeyFunctions.Market))
+                    return;
+
+                if (GameData.Instance == null || GameData.Instance.lastGameState == null)
+                    return;
+
+                if (GameData.Instance.app_mode != BuildingAppMode)
+                    return;
+
+                int selectedBuildingId = GamePlayerManagerAPI.Instance.GetSelectedBuildingId();
+                if (selectedBuildingId <= 0)
+                    return;
+
+                if (GameBuildingManagerAPI.Instance.GetType(selectedBuildingId) != eStructs.STRUCT_TRADEPOST)
+                    return;
+
+                int subMode = GameData.Instance.app_sub_mode;
+                if (subMode == TradepostMainPanel || !IsTradepostSubPanel(subMode))
+                    return;
+
+                if (EditorDirector.instance == null || MainViewModel.Instance == null)
+                    return;
+
+                EditorDirector.instance.directSetAppSubMode(TradepostMainPanel);
+                MainViewModel.Instance.setUpInbuilding(TradepostMainPanel, TradepostStructureType);
+                log.LogDebug($"SomeSettings reset tradepost menu from market key: selectedBuildingId={selectedBuildingId}, previousSubMode={subMode}.");
+            }
+            catch (Exception ex)
+            {
+                log.LogError($"SomeSettings market key tradepost menu reset failed: {ex}");
+            }
+        }
+
+        private static bool IsTradepostSubPanel(int subMode)
+        {
+            return subMode == TradepostPricesPanel
+                || subMode == TradepostFoodPanel
+                || subMode == TradepostResourcesPanel
+                || subMode == TradepostWeaponsPanel
+                || subMode == TradepostTradePanel;
         }
 
         private unsafe void OnBuildingBulldoze(BuildingBulldozeEventArgs args)

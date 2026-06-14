@@ -25,9 +25,6 @@
 
 -- evtl. ein eigenes Bild für meine mods ins hauptmenü packen, aber nur eines für alle, evtl. mit chatgpt erstellt
 
--- ein Ein/Aus Button mit Default Aus oben bei den Mods einbauen, neben dem Reset knopf.
--- Dieser setzt einfach alles intern auf Default, was bei mir "aus" ist, ohne die Settings selbst umzustellen. und bei ein wieder auf den eigentlichen settings wert
-
 -- EnemyHealthModifier testen, wann man das setzen muss, damit der setting wert es nicht überschreibt
 
 

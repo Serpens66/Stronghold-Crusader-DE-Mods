@@ -47,6 +47,7 @@ public static class SerpLocalization
     public const string StartTroopsMultiplierHelp = "StartConditions.StartTroopsMultiplierHelp";
     public const string StartTroopsMultiplierToolTip = "StartConditions.StartTroopsMultiplierToolTip";
     public const string ExtraStartUnitsHelp = "StartConditions.ExtraStartUnitsHelp";
+    public const string MarketKeyMainTradeMenuHelp = "SomeSettings.MarketKeyMainTradeMenuHelp";
     public const string BulldozeTitle = "SomeSettings.BulldozeTitle";
     public const string BulldozeHelp = "SomeSettings.BulldozeHelp";
     public const string WoodRefund = "SomeSettings.WoodRefund";
@@ -110,6 +111,7 @@ public static class SerpLocalization
         { StartTroopsMultiplierHelp, "Multiplier: 0 = remove official start troops after 20 seconds, 1 = unchanged, 2 = double. Allowed range: 0 to 100." },
         { StartTroopsMultiplierToolTip, "Multiplier for Start Troop armies. Applied after {DelayedStartTroopCountMilliseconds} ms, currently {DelayedStartTroopCountSeconds} seconds after map start. 0 = remove, 1 = unchanged, 2 = double. Allowed range: 0 to 100." },
         { ExtraStartUnitsHelp, "Extra Start Units: -1 or 0 = no extra units. Allowed range: -1 to 100000." },
+        { MarketKeyMainTradeMenuHelp, "Pressing the market keybind while the market is already selected returns the menu to the main trade menu." },
         { BulldozeTitle, "BULLDOZE" },
         { BulldozeHelp, "-1 = unchanged. Refund values are percentages from 0 to 100." },
         { WoodRefund, "Wood refund %" },

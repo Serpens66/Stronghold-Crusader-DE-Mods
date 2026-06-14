@@ -39,6 +39,7 @@ namespace SomeSettings
         public ImageSource KeepStorageWoodIcon => GetGoodIconImage(eGoods.STORED_WOOD_PLANKS);
         public ImageSource KeepStorageBowsIcon => GetGoodIconImage(eGoods.STORED_BOWS);
         public string ResetToDefaultText => SerpLocalization.Get(SerpLocalization.ResetToDefault);
+        public string MarketKeyMainTradeMenuHelpText => SerpLocalization.Get(SerpLocalization.MarketKeyMainTradeMenuHelp);
         public string BulldozeTitleText => SerpLocalization.Get(SerpLocalization.BulldozeTitle);
         public string BulldozeHelpText => SerpLocalization.Get(SerpLocalization.BulldozeHelp);
         public string WoodRefundText => SerpLocalization.Get(SerpLocalization.WoodRefund);

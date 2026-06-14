@@ -14,6 +14,10 @@
                   VerticalAlignment="Center"
                   Margin="14,0,0,0"/>
       </StackPanel>
+      <TextBlock Text="{Binding MarketKeyMainTradeMenuHelpText}"
+                 Foreground="#CCCCCC"
+                 TextWrapping="Wrap"
+                 Margin="0,0,0,10"/>
       <TextBlock Text="{Binding BulldozeTitleText}" Foreground="#77AAFF" FontWeight="Bold" Margin="0,0,0,4"/>
       <TextBlock Text="{Binding BulldozeHelpText}"
                  Foreground="#CCCCCC" TextWrapping="Wrap" Margin="0,0,0,8"/>
