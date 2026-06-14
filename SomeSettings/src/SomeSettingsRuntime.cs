@@ -14,7 +14,9 @@ using Zhuqiaomon.Memory.Managed;
 
 namespace SomeSettings
 {
-    // TODO: Remove the building refund duplicate guard once the Script Extender fires Pre only once and Post again.
+    // Storage refunds need both OnBuildingRefund and OnBuildingBulldoze:
+    // OnBuildingRefund fires once for a stockpile refund, even though the game removes all four stockpile parts at once.
+    // OnBuildingBulldoze fires for each of those four parts, but it also fires for buildings destroyed by enemies.
     public sealed class SomeSettingsRuntime : IDisposable
     {
         private static readonly int GoodsCount = (int)eGoods.Count;
@@ -22,11 +24,9 @@ namespace SomeSettings
         private readonly ManualLogSource log;
         private readonly SomeSettingsViewModel settings;
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
-        private readonly Dictionary<int, DateTime> recentlyKeptStorageBuildingIds = new Dictionary<int, DateTime>();
         private readonly HashSet<string> resourceAddReentryGuards = new HashSet<string>();
         private readonly Dictionary<string, ResourceEventCountGuard> marketBuyResourceGuards = new Dictionary<string, ResourceEventCountGuard>();
         private readonly Dictionary<string, ResourceEventCountGuard> refundResourceGuards = new Dictionary<string, ResourceEventCountGuard>();
-        private readonly Dictionary<string, DateTime> refundEventDuplicateGuards = new Dictionary<string, DateTime>();
         private PendingStockpileRefund pendingStockpileRefund;
 
         private bool hooksSubscribed;
@@ -49,7 +49,6 @@ namespace SomeSettings
                 return;
 
             subscriptions.Add(BuildingR3EventHooks.OnBuildingBulldoze.Observable.Subscribe(OnBuildingBulldoze));
-            subscriptions.Add(BuildingR3EventHooks.OnBuildingDelete.Observable.Subscribe(OnBuildingDelete));
             subscriptions.Add(BuildingR3EventHooks.OnBuildingRefund.Observable.Subscribe(OnBuildingRefund));
             subscriptions.Add(BuildingR3EventHooks.OnGoodsyardAddGood.Observable.Subscribe(OnGoodsyardAddGood));
             subscriptions.Add(PlayerR3EventHooks.OnPlayerMarketInteraction.Observable.Subscribe(OnPlayerMarketInteraction));
@@ -77,7 +76,6 @@ namespace SomeSettings
                 subscription.Dispose();
 
             subscriptions.Clear();
-            recentlyKeptStorageBuildingIds.Clear();
             ClearResourceEventGuards();
             pendingStockpileRefund = null;
             hooksSubscribed = false;
@@ -115,31 +113,6 @@ namespace SomeSettings
                 return;
 
             refundMultiplier.SetValue(percent / 100f);
-        }
-
-        private unsafe void OnBuildingDelete(BuildingDeleteEventArgs args)
-        {
-            try
-            {
-                if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(args.BuildingId, out GameBuilding* building))
-                {
-                    string reason = args.Phase == EventHookPhase.Post
-                        ? "building-not-readable-after-delete"
-                        : "building-not-readable";
-                    log.LogDebug($"OnBuildingDelete: phase={args.Phase}, buildingId={args.BuildingId}, ignored={reason}.");
-                    return;
-                }
-
-                int[] goods = CopyLocalGoods(building);
-                int total = GetGoodsTotal(goods);
-                string goodsSummary = BuildGoodsSummary(goods);
-
-                log.LogDebug($"OnBuildingDelete: phase={args.Phase}, buildingId={args.BuildingId}, owner={building->r_PlayerIdOwner}, type={building->r_BuildingType}, globalId={building->r_GlobalId}, tileX={building->r_TilePositionXBegin}, tileY={building->r_TilePositionYBegin}, total={total}, goods={goodsSummary}.");
-            }
-            catch (Exception ex)
-            {
-                log.LogError($"SomeSettings delete diagnostic hook failed: {ex}");
-            }
         }
 
         private unsafe void OnBuildingBulldoze(BuildingBulldozeEventArgs args)
@@ -227,17 +200,9 @@ namespace SomeSettings
                 if (args.Phase != EventHookPhase.Pre || !settings.KeepStorageContent)
                     return;
 
-                PruneRecentlyKeptStorageIds();
-                if (recentlyKeptStorageBuildingIds.ContainsKey(args.BuildingId))
-                {
-                    log.LogDebug($"Skipped duplicate keep-storage refund event for buildingId={args.BuildingId}, playerId={args.PlayerId}, percentage={args.Percentage}.");
-                    return;
-                }
-
                 if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(args.BuildingId, out GameBuilding* building))
                     return;
 
-                recentlyKeptStorageBuildingIds[args.BuildingId] = DateTime.UtcNow;
                 eStructs structure = building->r_BuildingType;
                 int owner = building->r_PlayerIdOwner;
                 uint globalId = building->r_GlobalId;
@@ -504,31 +469,6 @@ namespace SomeSettings
             return string.Join(", ", parts);
         }
 
-        private void PruneRecentlyKeptStorageIds()
-        {
-            if (recentlyKeptStorageBuildingIds.Count == 0)
-                return;
-
-            DateTime cutoff = DateTime.UtcNow.AddSeconds(-2);
-            List<int> expired = null;
-            foreach (KeyValuePair<int, DateTime> entry in recentlyKeptStorageBuildingIds)
-            {
-                if (entry.Value < cutoff)
-                {
-                    if (expired == null)
-                        expired = new List<int>();
-
-                    expired.Add(entry.Key);
-                }
-            }
-
-            if (expired == null)
-                return;
-
-            for (int i = 0; i < expired.Count; i++)
-                recentlyKeptStorageBuildingIds.Remove(expired[i]);
-        }
-
         private static string BuildProcessedBuildingIdSummary(HashSet<int> ids)
         {
             if (ids == null || ids.Count == 0)
@@ -541,25 +481,13 @@ namespace SomeSettings
 
         private void AddResourceRefundGuards(BuildingRefundEventArgs args)
         {
+            if (args.Phase != EventHookPhase.Pre)
+                return;
+
             if (args.PlayerId <= 0)
                 return;
 
             PruneExpiredResourceGuards();
-            string duplicateKey = BuildRefundEventDuplicateKey(args.PlayerId, args.BuildingId, args.Percentage);
-            if (refundEventDuplicateGuards.ContainsKey(duplicateKey))
-            {
-                LogDebugForResourceEventPlayer(
-                    args.PlayerId,
-                    "OnBuildingRefund duplicate resource event ignored:",
-                    "phase", args.Phase,
-                    "player", args.PlayerId,
-                    "buildingId", args.BuildingId,
-                    "percentage", args.Percentage,
-                    "duplicateKey", duplicateKey);
-                return;
-            }
-
-            refundEventDuplicateGuards[duplicateKey] = DateTime.UtcNow + RefundGuardLifetime;
             AddBuildingRefundGuards(args);
             LogDebugForResourceEventPlayer(
                 args.PlayerId,
@@ -576,24 +504,17 @@ namespace SomeSettings
             return playerId + ":" + (int)good;
         }
 
-        private static string BuildRefundEventDuplicateKey(int playerId, int buildingId, int percentage)
-        {
-            return playerId + ":" + buildingId;
-        }
-
         private void ClearResourceEventGuards()
         {
             resourceAddReentryGuards.Clear();
             marketBuyResourceGuards.Clear();
             refundResourceGuards.Clear();
-            refundEventDuplicateGuards.Clear();
         }
 
         private void PruneExpiredResourceGuards()
         {
             PruneExpiredMarketBuyResourceGuards();
             PruneExpiredRefundResourceGuards();
-            PruneExpiredRefundEventDuplicateGuards();
         }
 
         private void PruneExpiredMarketBuyResourceGuards()
@@ -624,36 +545,6 @@ namespace SomeSettings
         private void PruneExpiredRefundResourceGuards()
         {
             PruneExpiredCountGuardKeys(refundResourceGuards);
-        }
-
-        private void PruneExpiredRefundEventDuplicateGuards()
-        {
-            PruneExpiredResourceGuardKeys(refundEventDuplicateGuards);
-        }
-
-        private static void PruneExpiredResourceGuardKeys<TKey>(Dictionary<TKey, DateTime> guards)
-        {
-            if (guards.Count == 0)
-                return;
-
-            DateTime now = DateTime.UtcNow;
-            List<TKey> expiredKeys = null;
-            foreach (KeyValuePair<TKey, DateTime> entry in guards)
-            {
-                if (entry.Value > now)
-                    continue;
-
-                if (expiredKeys == null)
-                    expiredKeys = new List<TKey>();
-
-                expiredKeys.Add(entry.Key);
-            }
-
-            if (expiredKeys == null)
-                return;
-
-            for (int i = 0; i < expiredKeys.Count; i++)
-                guards.Remove(expiredKeys[i]);
         }
 
         private static void PruneExpiredCountGuardKeys(Dictionary<string, ResourceEventCountGuard> guards)
