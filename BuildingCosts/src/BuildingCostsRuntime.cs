@@ -44,6 +44,9 @@ namespace BuildingCosts
 
         public void SubscribeHooks()
         {
+            if (!settings.EnableMod)
+                return;
+
             if (hooksSubscribed)
                 return;
 
@@ -69,21 +72,33 @@ namespace BuildingCosts
             if (libraryInitialized)
                 return;
 
+            SubscribeSettingsChanges();
+            if (!settings.EnableMod)
+            {
+                libraryInitialized = true;
+                LogDebug("Building costs disabled; runtime hooks not subscribed");
+                return;
+            }
+
+            SubscribeHooks();
             InitializeVanillaCostTooltips();
             ApplyBuildingCosts();
-            SubscribeSettingsChanges();
             libraryInitialized = true;
             LogDebug("Applied initial building cost settings");
         }
 
         public void Dispose()
         {
+            UnsubscribeHooks();
             if (settingsChangedSubscribed)
             {
                 settings.SettingChanged -= OnSettingChanged;
                 settingsChangedSubscribed = false;
             }
+        }
 
+        private void UnsubscribeHooks()
+        {
             foreach (IDisposable subscription in subscriptions)
                 subscription.Dispose();
 
@@ -127,6 +142,26 @@ namespace BuildingCosts
         private void OnSettingChanged(string propertyName)
         {
             LogDebug("Settings changed:", propertyName);
+
+            if (propertyName == nameof(BuildingCostsLobbyViewModel.EnableMod))
+            {
+                if (settings.EnableMod)
+                {
+                    SubscribeHooks();
+                    InitializeVanillaCostTooltips();
+                    ApplyBuildingCosts();
+                }
+                else
+                {
+                    RestoreDefaultBuildingCosts();
+                    UnsubscribeHooks();
+                }
+
+                return;
+            }
+
+            if (!settings.EnableMod)
+                return;
 
             if (propertyName == nameof(BuildingCostsLobbyViewModel.BuildingCosts))
                 ApplyBuildingCosts();
@@ -201,6 +236,27 @@ namespace BuildingCosts
             }
 
             LogDebug("Applied building cost materials:", changedMaterials);
+            ResetTooltipCache();
+        }
+
+        private void RestoreDefaultBuildingCosts()
+        {
+            int restoredMaterials = 0;
+            foreach (BuildingCostDefinition definition in BuildingCostDefinitions.Values)
+            {
+                foreach (eStructs structure in definition.Structures)
+                {
+                    BuildingCost cost = GameBuildingManagerAPI.Instance.GetDefaultCost(structure);
+                    GameBuildingManagerAPI.Instance.SetWoodCost(structure, cost.Wood);
+                    GameBuildingManagerAPI.Instance.SetStoneCost(structure, cost.Stone);
+                    GameBuildingManagerAPI.Instance.SetIronIngotCost(structure, cost.Iron);
+                    GameBuildingManagerAPI.Instance.SetRawPitchCost(structure, cost.Pitch);
+                    GameBuildingManagerAPI.Instance.SetGoldCost(structure, cost.Gold);
+                    restoredMaterials += 5;
+                }
+            }
+
+            LogDebug("Restored default building cost materials:", restoredMaterials);
             ResetTooltipCache();
         }
 

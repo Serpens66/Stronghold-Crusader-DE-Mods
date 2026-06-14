@@ -15,6 +15,7 @@ namespace BuildingLimit
     {
         public event Action<string> SettingChanged;
 
+        private bool enableMod = true;
         private string buildingLimits = DefaultBuildingLimits;
         private bool updatingEntries;
 
@@ -89,6 +90,7 @@ MAPPER_POND1=-1";
         public IReadOnlyList<LimitEntryViewModel> LimitEntries { get; }
 
         public RelayCommand ResetToDefaultCommand { get; }
+        public string EnableModText => SerpLocalization.Get(SerpLocalization.EnableMod);
         public string ResetToDefaultText => SerpLocalization.Get(SerpLocalization.ResetToDefault);
         public string TitleText => SerpLocalization.Get(SerpLocalization.BuildingLimitsTitle);
         public string HelpText => SerpLocalization.Get(SerpLocalization.BuildingLimitsHelp);
@@ -104,6 +106,13 @@ MAPPER_POND1=-1";
                     entry.DisplayName = BuildingLimitRuntime.GetLocalizedBuildingName(definition);
                 }
             }
+        }
+
+        [SyncHostOnly]
+        public bool EnableMod
+        {
+            get => enableMod;
+            set => Set(ref enableMod, value, nameof(EnableMod));
         }
 
         [SyncHostOnly]
@@ -232,6 +241,16 @@ MAPPER_POND1=-1";
             if (value > 10000)
                 return 10000;
             return value;
+        }
+
+        private void Set<T>(ref T field, T value, string propertyName)
+        {
+            if (Equals(field, value))
+                return;
+
+            field = value;
+            SettingChanged?.Invoke(propertyName);
+            OnPropertyChanged(propertyName);
         }
 
         private static ImageSource GetBuildingIconImage(string key)

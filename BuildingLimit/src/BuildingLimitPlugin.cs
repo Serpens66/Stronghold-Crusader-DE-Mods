@@ -26,7 +26,6 @@ namespace BuildingLimit
 
             Settings = new BuildingLimitLobbyViewModel();
             runtime = new BuildingLimitRuntime(Logger, Settings);
-            runtime.SubscribeHooks();
             CrusaderLibrary.Instance.LibraryLoaded += OnCrusaderLibraryLoaded;
         }
 

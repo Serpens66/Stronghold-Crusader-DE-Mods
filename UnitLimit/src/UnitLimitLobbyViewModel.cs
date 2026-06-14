@@ -15,6 +15,7 @@ namespace UnitLimit
     {
         public event Action<string> SettingChanged;
 
+        private bool enableMod = true;
         private string unitLimits = DefaultUnitLimits;
         private bool updatingEntries;
 
@@ -61,6 +62,7 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=-1";
         public IReadOnlyList<LimitEntryViewModel> LimitEntries { get; }
 
         public RelayCommand ResetToDefaultCommand { get; }
+        public string EnableModText => SerpLocalization.Get(SerpLocalization.EnableMod);
         public string ResetToDefaultText => SerpLocalization.Get(SerpLocalization.ResetToDefault);
         public string TitleText => SerpLocalization.Get(SerpLocalization.UnitLimitsTitle);
         public string HelpText => SerpLocalization.Get(SerpLocalization.UnitLimitsHelp);
@@ -72,6 +74,13 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=-1";
                 if (Enum.TryParse(entry.Key, out eChimps unitType))
                     entry.DisplayName = UnitLimitRuntime.GetLocalizedUnitName(unitType);
             }
+        }
+
+        [SyncHostOnly]
+        public bool EnableMod
+        {
+            get => enableMod;
+            set => Set(ref enableMod, value, nameof(EnableMod));
         }
 
         [SyncHostOnly]
@@ -200,6 +209,16 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=-1";
             if (value > 10000)
                 return 10000;
             return value;
+        }
+
+        private void Set<T>(ref T field, T value, string propertyName)
+        {
+            if (Equals(field, value))
+                return;
+
+            field = value;
+            SettingChanged?.Invoke(propertyName);
+            OnPropertyChanged(propertyName);
         }
 
         private static ImageSource GetUnitIconImage(eChimps unitType)

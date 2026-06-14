@@ -28,7 +28,6 @@ namespace BuildingCosts
 
             Settings = new BuildingCostsLobbyViewModel();
             runtime = new BuildingCostsRuntime(Logger, Settings);
-            runtime.SubscribeHooks();
             CrusaderLibrary.Instance.LibraryLoaded += OnCrusaderLibraryLoaded;
         }
 

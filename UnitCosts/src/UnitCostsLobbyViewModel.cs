@@ -17,6 +17,7 @@ namespace UnitCosts
     {
         public event Action<string> SettingChanged;
 
+        private bool enableMod = true;
         private string unitCosts = CreateDefaultUnitCosts();
         private string humanExtraUnitCosts = CreateDefaultHumanExtraUnitCosts();
         private bool updatingEntries;
@@ -99,6 +100,7 @@ namespace UnitCosts
         public ObservableCollection<GoodOptionViewModel> GoodSlotOptions { get; }
         public ObservableCollection<GoodOptionViewModel> GoodSlot4Options { get; }
         public RelayCommand ResetToDefaultCommand { get; }
+        public string EnableModText => SerpLocalization.Get(SerpLocalization.EnableMod);
         public string ResetToDefaultText => SerpLocalization.Get(SerpLocalization.ResetToDefault);
 
         public string TitleText => SerpLocalization.Get(SerpLocalization.UnitCostsTitle);
@@ -112,6 +114,13 @@ namespace UnitCosts
         public string Slot4HeaderText => SerpLocalization.Get(SerpLocalization.Slot4HorseHeader);
         public string GoldHeaderText => UnitCostsRuntime.GetLocalizedGoodName(eGoods.STORED_GOLD, "Gold");
         public ImageSource GoldHeaderIcon => GetGoodIconImage(eGoods.STORED_GOLD);
+
+        [SyncHostOnly]
+        public bool EnableMod
+        {
+            get => enableMod;
+            set => Set(ref enableMod, value, nameof(EnableMod));
+        }
 
         [SyncHostOnly]
         public string UnitCosts
@@ -150,6 +159,16 @@ namespace UnitCosts
         {
             UnitCosts = CreateDefaultUnitCosts();
             HumanExtraUnitCosts = CreateDefaultHumanExtraUnitCosts();
+        }
+
+        private void Set<T>(ref T field, T value, string propertyName)
+        {
+            if (Equals(field, value))
+                return;
+
+            field = value;
+            SettingChanged?.Invoke(propertyName);
+            OnPropertyChanged(propertyName);
         }
 
         public void RefreshLocalizedNames()

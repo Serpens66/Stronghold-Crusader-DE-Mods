@@ -25,6 +25,24 @@ namespace UnitLimit
         {
             LogDebug("Settings changed:", propertyName);
 
+            if (propertyName == nameof(UnitLimitLobbyViewModel.EnableMod))
+            {
+                if (settings.EnableMod)
+                {
+                    SubscribeHooks();
+                    ApplyUnitLimits(false);
+                }
+                else
+                {
+                    UnsubscribeHooks();
+                }
+
+                return;
+            }
+
+            if (!settings.EnableMod)
+                return;
+
             if (propertyName == nameof(UnitLimitLobbyViewModel.UnitLimits))
                 ApplyUnitLimits();
         }

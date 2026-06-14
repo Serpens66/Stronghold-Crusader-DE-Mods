@@ -53,8 +53,14 @@ namespace UnitCosts
 
         public void InitializeAfterLibraryLoaded()
         {
-            SubscribeHooks();
             SubscribeSettingsChanges();
+            if (!settings.EnableMod)
+            {
+                Shared.DebugLogHelper.LogDebug(log, "UnitCosts disabled; runtime hooks not subscribed");
+                return;
+            }
+
+            SubscribeHooks();
             CaptureVanillaGoldCosts();
             CaptureVanillaEuropeanGoodCosts();
             ApplyUnitCosts();
@@ -96,12 +102,16 @@ namespace UnitCosts
 
         public void Dispose()
         {
+            UnsubscribeHooks();
             if (settingsChangedSubscribed)
             {
                 settings.SettingChanged -= OnSettingChanged;
                 settingsChangedSubscribed = false;
             }
+        }
 
+        private void UnsubscribeHooks()
+        {
             foreach (IDisposable subscription in subscriptions)
                 subscription.Dispose();
 
@@ -128,6 +138,29 @@ namespace UnitCosts
         private void OnSettingChanged(string propertyName)
         {
             Shared.DebugLogHelper.LogDebug(log, "UnitCosts settings changed:", propertyName);
+
+            if (propertyName == nameof(UnitCostsLobbyViewModel.EnableMod))
+            {
+                if (settings.EnableMod)
+                {
+                    SubscribeHooks();
+                    CaptureVanillaGoldCosts();
+                    CaptureVanillaEuropeanGoodCosts();
+                    ApplyUnitCosts();
+                    settings.NormalizeExtraCostsAfterNativeGoldChange();
+                    ApplyHumanExtraUnitCosts();
+                }
+                else
+                {
+                    RestoreVanillaUnitCosts();
+                    UnsubscribeHooks();
+                }
+
+                return;
+            }
+
+            if (!settings.EnableMod)
+                return;
 
             if (propertyName == nameof(UnitCostsLobbyViewModel.UnitCosts))
             {
@@ -185,6 +218,29 @@ namespace UnitCosts
             }
 
             Shared.DebugLogHelper.LogDebug(log, "Applied unit cost values:", changedValues);
+        }
+
+        private void RestoreVanillaUnitCosts()
+        {
+            int restoredValues = 0;
+            foreach (KeyValuePair<eChimps, int> entry in VanillaGoldCosts)
+            {
+                GameUnitManagerAPI.Instance.SetUnitGoldCost(entry.Key, entry.Value);
+                if (TryGetSiegeTentStructure(entry.Key, out eStructs siegeTentStructure))
+                    GameBuildingManagerAPI.Instance.SetGoldCost(siegeTentStructure, entry.Value);
+
+                restoredValues++;
+            }
+
+            foreach (KeyValuePair<eChimps, UnitGoodCosts> entry in VanillaEuropeanGoodCosts)
+            {
+                GameUnitManagerAPI.Instance.SetUnitGoodCosts(entry.Key, entry.Value);
+                restoredValues++;
+            }
+
+            humanExtraCosts.Clear();
+            RecruitmentCostTooltip.Clear();
+            Shared.DebugLogHelper.LogDebug(log, "Restored vanilla unit cost values:", restoredValues);
         }
 
         private void ApplyHumanExtraUnitCosts()

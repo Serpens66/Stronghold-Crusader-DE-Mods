@@ -15,6 +15,7 @@ namespace StartConditions
     {
         public event Action<string> SettingChanged;
 
+        private bool enableMod = true;
         private int setStartGoldAI = -1;
         private int setStartGoldHuman = -1;
         private int addStartGoldAI = 0;
@@ -151,6 +152,7 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
         public IReadOnlyList<AmountEntryViewModel> StartTroopEntries { get; }
 
         public RelayCommand ResetToDefaultCommand { get; }
+        public string EnableModText => SerpLocalization.Get(SerpLocalization.EnableMod);
         public ImageSource GoldIcon => GetGoodIconImage(eGoods.STORED_GOLD);
         public string ResetToDefaultText => SerpLocalization.Get(SerpLocalization.ResetToDefault);
         public string AiText => SerpLocalization.Get(SerpLocalization.Ai);
@@ -225,6 +227,7 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
             return rowName + " / " + columnName;
         }
 
+        [SyncHostOnly] public bool EnableMod { get => enableMod; set => Set(ref enableMod, value, nameof(EnableMod)); }
         [SyncHostOnly] public int SetStartGoldAI { get => setStartGoldAI; set => SetInt(ref setStartGoldAI, value, nameof(SetStartGoldAI), nameof(SetStartGoldAIText)); }
         [SyncHostOnly] public int SetStartGoldHuman { get => setStartGoldHuman; set => SetInt(ref setStartGoldHuman, value, nameof(SetStartGoldHuman), nameof(SetStartGoldHumanText)); }
         [SyncHostOnly] public int AddStartGoldAI { get => addStartGoldAI; set => SetInt(ref addStartGoldAI, value, nameof(AddStartGoldAI), nameof(AddStartGoldAIText)); }

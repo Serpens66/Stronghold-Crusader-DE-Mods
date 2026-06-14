@@ -16,6 +16,7 @@ namespace BuildingCosts
     {
         public event Action<string> SettingChanged;
 
+        private bool enableMod = true;
         private string buildingCosts = CreateDefaultBuildingCosts();
         private bool updatingEntries;
         private const string GoodsTextSection = "TEXT_GOODS";
@@ -101,6 +102,7 @@ namespace BuildingCosts
         public IReadOnlyList<CostEntryViewModel> CostEntries { get; }
 
         public RelayCommand ResetToDefaultCommand { get; }
+        public string EnableModText => SerpLocalization.Get(SerpLocalization.EnableMod);
         public string ResetToDefaultText => SerpLocalization.Get(SerpLocalization.ResetToDefault);
 
         public string TitleText => SerpLocalization.Get(SerpLocalization.BuildingCostsTitle);
@@ -116,6 +118,13 @@ namespace BuildingCosts
         public ImageSource IronHeaderIcon => GetGoodIconImage(eGoods.STORED_IRON_INGOTS);
         public ImageSource PitchHeaderIcon => GetGoodIconImage(eGoods.STORED_PITCH_RAW);
         public ImageSource GoldHeaderIcon => GetGoodIconImage(eGoods.STORED_GOLD);
+
+        [SyncHostOnly]
+        public bool EnableMod
+        {
+            get => enableMod;
+            set => Set(ref enableMod, value, nameof(EnableMod));
+        }
 
         [SyncHostOnly]
         public string BuildingCosts
@@ -136,6 +145,16 @@ namespace BuildingCosts
         private void ResetToDefault()
         {
             BuildingCosts = CreateDefaultBuildingCosts();
+        }
+
+        private void Set<T>(ref T field, T value, string propertyName)
+        {
+            if (Equals(field, value))
+                return;
+
+            field = value;
+            SettingChanged?.Invoke(propertyName);
+            OnPropertyChanged(propertyName);
         }
 
         public void RefreshLocalizedNames()

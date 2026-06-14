@@ -26,7 +26,6 @@ namespace StartConditions
 
             Settings = new StartConditionsLobbyViewModel();
             runtime = new StartConditionsRuntime(Logger, Settings);
-            runtime.SubscribeHooks();
             CrusaderLibrary.Instance.LibraryLoaded += OnCrusaderLibraryLoaded;
         }
 

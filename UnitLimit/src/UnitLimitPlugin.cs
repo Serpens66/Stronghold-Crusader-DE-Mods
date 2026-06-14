@@ -26,7 +26,6 @@ namespace UnitLimit
 
             Settings = new UnitLimitLobbyViewModel();
             runtime = new UnitLimitRuntime(Logger, Settings);
-            runtime.SubscribeHooks();
             CrusaderLibrary.Instance.LibraryLoaded += OnCrusaderLibraryLoaded;
         }
 

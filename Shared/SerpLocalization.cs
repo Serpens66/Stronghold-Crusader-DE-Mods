@@ -7,6 +7,7 @@ using System.Reflection;
 public static class SerpLocalization
 {
     public const string ResetToDefault = "Common.ResetToDefault";
+    public const string EnableMod = "Common.EnableMod";
     public const string Ai = "Common.Ai";
     public const string Human = "Common.Human";
     public const string Limit = "Common.Limit";
@@ -69,6 +70,7 @@ public static class SerpLocalization
     private static readonly Dictionary<string, string> EnglishFallbacks = new Dictionary<string, string>
     {
         { ResetToDefault, "Reset to Default" },
+        { EnableMod, "Enable Mod" },
         { Ai, "AI" },
         { Human, "Human" },
         { Limit, "Limit" },

@@ -18,6 +18,7 @@ namespace StartConditions
         private readonly StartConditionsLobbyViewModel settings;
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
         private bool handledCurrentMap;
+        private bool settingsChangedSubscribed;
         private bool hooksSubscribed;
         private bool libraryInitialized;
         internal const int DelayedStartTroopCountMilliseconds = 20000;
@@ -64,6 +65,9 @@ namespace StartConditions
 
         public void SubscribeHooks()
         {
+            if (!settings.EnableMod)
+                return;
+
             if (hooksSubscribed)
                 return;
 
@@ -90,11 +94,43 @@ namespace StartConditions
             if (libraryInitialized)
                 return;
 
+            SubscribeSettingsChanges();
+            SubscribeHooks();
             LogDebug("Start conditions initialized");
             libraryInitialized = true;
         }
 
         public void Dispose()
+        {
+            UnsubscribeHooks();
+            if (settingsChangedSubscribed)
+            {
+                settings.SettingChanged -= OnSettingChanged;
+                settingsChangedSubscribed = false;
+            }
+        }
+
+        private void SubscribeSettingsChanges()
+        {
+            if (settingsChangedSubscribed)
+                return;
+
+            settings.SettingChanged += OnSettingChanged;
+            settingsChangedSubscribed = true;
+        }
+
+        private void OnSettingChanged(string propertyName)
+        {
+            if (propertyName != nameof(StartConditionsLobbyViewModel.EnableMod))
+                return;
+
+            if (settings.EnableMod)
+                SubscribeHooks();
+            else
+                UnsubscribeHooks();
+        }
+
+        private void UnsubscribeHooks()
         {
             foreach (IDisposable subscription in subscriptions)
                 subscription.Dispose();

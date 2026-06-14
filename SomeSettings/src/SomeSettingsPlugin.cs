@@ -26,7 +26,6 @@ namespace SomeSettings
 
             Settings = new SomeSettingsViewModel();
             runtime = new SomeSettingsRuntime(Logger, Settings);
-            runtime.SubscribeHooks();
             CrusaderLibrary.Instance.LibraryLoaded += OnCrusaderLibraryLoaded;
         }
 

@@ -90,6 +90,9 @@ namespace UnitLimit
 
         public void SubscribeHooks()
         {
+            if (!settings.EnableMod)
+                return;
+
             if (hooksSubscribed)
                 return;
 
@@ -127,20 +130,32 @@ namespace UnitLimit
             if (libraryInitialized)
                 return;
 
-            ApplyUnitLimits();
             SubscribeSettingsChanges();
+            if (!settings.EnableMod)
+            {
+                LogDebug("Unit limit disabled; runtime hooks not subscribed");
+                libraryInitialized = true;
+                return;
+            }
+
+            SubscribeHooks();
+            ApplyUnitLimits();
             LogDebug("Applied unit limit settings");
             libraryInitialized = true;
         }
 
         public void Dispose()
         {
+            UnsubscribeHooks();
             if (settingsPropertyChangedSubscribed)
             {
                 settings.SettingChanged -= OnSettingChanged;
                 settingsPropertyChangedSubscribed = false;
             }
+        }
 
+        private void UnsubscribeHooks()
+        {
             foreach (IDisposable subscription in subscriptions)
                 subscription.Dispose();
 

@@ -45,6 +45,9 @@ namespace SomeSettings
 
         public void SubscribeHooks()
         {
+            if (!settings.EnableMod)
+                return;
+
             if (hooksSubscribed)
                 return;
 
@@ -61,6 +64,10 @@ namespace SomeSettings
 
         public void ApplySettings()
         {
+            if (!settings.EnableMod)
+                return;
+
+            SubscribeHooks();
             GameBuildingManagerAPI buildingApi = GameBuildingManagerAPI.Instance;
 
             ApplyRefundPercent(buildingApi.WoodRefundMultiplier, settings.WoodRefundPercent, "wood");
@@ -72,6 +79,16 @@ namespace SomeSettings
 
         public void Dispose()
         {
+            UnsubscribeHooks();
+            if (settingsSubscribed)
+            {
+                settings.SettingChanged -= OnSettingChanged;
+                settingsSubscribed = false;
+            }
+        }
+
+        private void UnsubscribeHooks()
+        {
             foreach (IDisposable subscription in subscriptions)
                 subscription.Dispose();
 
@@ -79,12 +96,6 @@ namespace SomeSettings
             ClearResourceEventGuards();
             pendingStockpileRefund = null;
             hooksSubscribed = false;
-
-            if (settingsSubscribed)
-            {
-                settings.SettingChanged -= OnSettingChanged;
-                settingsSubscribed = false;
-            }
         }
 
         private void SubscribeSettingsChanges()
@@ -98,6 +109,25 @@ namespace SomeSettings
 
         private void OnSettingChanged(string propertyName)
         {
+            if (propertyName == nameof(SomeSettingsViewModel.EnableMod))
+            {
+                if (settings.EnableMod)
+                {
+                    SubscribeHooks();
+                    ApplySettings();
+                }
+                else
+                {
+                    RestoreDefaultSettings();
+                    UnsubscribeHooks();
+                }
+
+                return;
+            }
+
+            if (!settings.EnableMod)
+                return;
+
             if (propertyName == nameof(SomeSettingsViewModel.KeepStorageContent))
             {
                 log.LogDebug($"SomeSettings changed: KeepStorageContent={settings.KeepStorageContent}.");
@@ -113,6 +143,16 @@ namespace SomeSettings
                 return;
 
             refundMultiplier.SetValue(percent / 100f);
+        }
+
+        private void RestoreDefaultSettings()
+        {
+            GameBuildingManagerAPI buildingApi = GameBuildingManagerAPI.Instance;
+            buildingApi.WoodRefundMultiplier.SetValue(0.5f);
+            buildingApi.StoneRefundMultiplier.SetValue(0.5f);
+            buildingApi.IronRefundMultiplier.SetValue(0.5f);
+            buildingApi.PitchRefundMultiplier.SetValue(0.5f);
+            buildingApi.GoldRefundMultiplier.SetValue(0.5f);
         }
 
         private unsafe void OnBuildingBulldoze(BuildingBulldozeEventArgs args)

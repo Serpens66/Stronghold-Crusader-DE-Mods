@@ -3,11 +3,17 @@
       xmlns:ui="clr-namespace:SHCDESE.UI;assembly=SHCDESE">
   <ScrollViewer VerticalScrollBarVisibility="Auto">
     <StackPanel Margin="10">
-      <Button Content="{Binding ResetToDefaultText}"
-              Command="{Binding ResetToDefaultCommand}"
-              HorizontalAlignment="Left"
-              Margin="0,0,0,8"
-              Padding="10,3"/>
+      <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+        <Button Content="{Binding ResetToDefaultText}"
+                Command="{Binding ResetToDefaultCommand}"
+                HorizontalAlignment="Left"
+                Padding="10,3"/>
+        <CheckBox IsChecked="{Binding EnableMod, Mode=TwoWay}"
+                  Content="{Binding EnableModText}"
+                  Foreground="White"
+                  VerticalAlignment="Center"
+                  Margin="14,0,0,0"/>
+      </StackPanel>
       <TextBlock Text="{Binding TitleText}" Foreground="#77AAFF" FontWeight="Bold" Margin="0,0,0,4"/>
       <TextBlock Text="{Binding HelpText}"
                  Foreground="#CCCCCC" TextWrapping="Wrap" Margin="0,0,0,6"/>

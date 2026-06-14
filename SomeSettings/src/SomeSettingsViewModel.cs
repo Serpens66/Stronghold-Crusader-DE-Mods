@@ -11,6 +11,7 @@ namespace SomeSettings
     {
         public event Action<string> SettingChanged;
 
+        private bool enableMod = true;
         private string woodRefundPercentText = "-1";
         private string stoneRefundPercentText = "-1";
         private string ironRefundPercentText = "-1";
@@ -28,6 +29,7 @@ namespace SomeSettings
         }
 
         public RelayCommand ResetToDefaultCommand { get; }
+        public string EnableModText => SerpLocalization.Get(SerpLocalization.EnableMod);
         public ImageSource WoodRefundIcon => GetGoodIconImage(eGoods.STORED_WOOD_PLANKS);
         public ImageSource StoneRefundIcon => GetGoodIconImage(eGoods.STORED_STONE_BLOCKS);
         public ImageSource IronRefundIcon => GetGoodIconImage(eGoods.STORED_IRON_INGOTS);
@@ -54,6 +56,13 @@ namespace SomeSettings
         public string MultiplyGoodsGainHelpText => SerpLocalization.Get(SerpLocalization.MultiplyGoodsGainHelp);
         public string MultiplyGoodsAsMoneyText => SerpLocalization.Get(SerpLocalization.MultiplyGoodsAsMoney);
         public string MultiplyGoodsAsMoneyHelpText => SerpLocalization.Get(SerpLocalization.MultiplyGoodsAsMoneyHelp);
+
+        [SyncHostOnly]
+        public bool EnableMod
+        {
+            get => enableMod;
+            set => SetSetting(ref enableMod, value, nameof(EnableMod));
+        }
 
         [SyncHostOnly]
         public string WoodRefundPercentText
@@ -142,6 +151,16 @@ namespace SomeSettings
                 return;
 
             field = normalized;
+            SettingChanged?.Invoke(propertyName);
+            OnPropertyChanged(propertyName);
+        }
+
+        private void SetSetting<T>(ref T field, T value, string propertyName)
+        {
+            if (Equals(field, value))
+                return;
+
+            field = value;
             SettingChanged?.Invoke(propertyName);
             OnPropertyChanged(propertyName);
         }

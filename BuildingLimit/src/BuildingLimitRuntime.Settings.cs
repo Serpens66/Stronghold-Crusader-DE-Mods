@@ -25,6 +25,24 @@ namespace BuildingLimit
         {
             LogDebug("Settings changed:", propertyName);
 
+            if (propertyName == nameof(BuildingLimitLobbyViewModel.EnableMod))
+            {
+                if (settings.EnableMod)
+                {
+                    SubscribeHooks();
+                    ApplyBuildingLimits();
+                }
+                else
+                {
+                    UnsubscribeHooks();
+                }
+
+                return;
+            }
+
+            if (!settings.EnableMod)
+                return;
+
             if (propertyName == nameof(BuildingLimitLobbyViewModel.BuildingLimits))
                 ApplyBuildingLimits();
         }
