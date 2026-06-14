@@ -104,7 +104,6 @@
     <Compile Include="src\ActiveSiegeTentCache.cs" />
     <Compile Include="src\ActiveUnitCache.cs" />
     <Compile Include="src\CreateTroopHoverHook.cs" />
-    <Compile Include="src\DisbandGameActionHook.cs" />
     <Compile Include="src\MakeTroopGameActionHook.cs" />
     <Compile Include="src\SiegeBuildHoverHook.cs" />
     <Compile Include="src\UnitLimitRuntime.cs" />

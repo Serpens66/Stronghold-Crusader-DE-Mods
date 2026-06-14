@@ -202,7 +202,14 @@ namespace UnitLimit
 
         private void OnUnitTransition(UnitTransitionEventArgs args)
         {
-            
+            LogDebug(
+                "ActiveUnitCache OnUnitTransition fired: " +
+                "phase=" + args.Phase +
+                ", unitId=" + args.UnitId +
+                ", playerOwnerId=" + args.PlayerOwnerId +
+                ", nextUnitType=" + args.NextUnitType +
+                ", source=" + args.Source);
+
             if (args.Phase != EventHookPhase.Pre || args.UnitId <= 0)
                 return;
 
@@ -214,18 +221,11 @@ namespace UnitLimit
                 args.NextUnitType,
                 snapshot.TransformIntoUnitOfType,
                 args.PlayerOwnerId);
-            if (ShouldLogPlayer(snapshot.OwnerId) || ShouldLogPlayer(transitionedSnapshot.OwnerId))
-            {
-                LogDebug(
-                    "ActiveUnitCache OnUnitTransition processing:",
-                    "unitId", args.UnitId,
-                    "oldOwner", snapshot.OwnerId,
-                    "oldType", snapshot.UnitType,
-                    "oldAliveState", snapshot.AliveState,
-                    "newOwner", transitionedSnapshot.OwnerId,
-                    "newType", transitionedSnapshot.UnitType);
-            }
-            UpdateSnapshot(args.UnitId, transitionedSnapshot, ActiveUnitChangeReason.TypeChanged, true);
+
+            ActiveUnitChangeReason reason = args.Source == UnitTransitionSource.Disband
+                ? ActiveUnitChangeReason.Disbanded
+                : ActiveUnitChangeReason.TypeChanged;
+            UpdateSnapshot(args.UnitId, transitionedSnapshot, reason, true);
         }
 
         internal void NotifyNativeSnapshotChanged(int unitId, ActiveUnitChangeReason fallbackReason, bool preferFallbackReason = false)

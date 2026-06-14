@@ -11,9 +11,7 @@ using System;
 using System.Collections.Generic;
 
 // TODO
-// script extender update: GetSelectedChimps in DisbandGameActionHook , dadurch aktuell keine auflösung von mehreren units supported.
-// aber falls OnUnitTransition korrekt soldier->peasant erkennt, kann man das dann stattdessen nutzen.
-// Eventuell dann ActiveUnmitCache nochmal überarbeiten, dass es effizienter läuft und auch keinen Timer mehr braucht usw und eigentlich auch kein resync mehr, wobei man das evlt doch alle 60 sek oderso machen sollte.
+// Eventuell dann ActiveUnitCache nochmal überarbeiten, dass es effizienter läuft und auch keinen Timer mehr braucht usw und eigentlich auch kein resync mehr, wobei man das evlt doch alle 60 sek oderso machen sollte.
 // sobald im extender ein weg eingebaut wurde die Rekrutierung zu verhinden, dann MakeTroopGameActionHooks dadurch ersetzen
 // anstelle von AliveCount kann für den lokalen Spieler auch das verwendet werden: GameUnitManagerAPI.Instance.GetUnitArmyCount(eChimps chimp) liefert selbe ergebnisse wie alive (also kein pending und keine siege tents)
 
@@ -32,7 +30,6 @@ namespace UnitLimit
         private readonly ActiveUnitCache activeUnitCache;
         private readonly ActiveSiegeTentCache activeSiegeTentCache;
         private MakeTroopGameActionHook makeTroopGameActionHook;
-        private DisbandGameActionHook disbandGameActionHook;
         private CreateTroopHoverHook createTroopHoverHook;
         private SiegeBuildHoverHook siegeBuildHoverHook;
         private bool settingsPropertyChangedSubscribed;
@@ -103,7 +100,6 @@ namespace UnitLimit
             activeSiegeTentCache.SubscribeHooks();
             activeSiegeTentCache.OnActiveSiegeTentChanged += OnActiveSiegeTentChanged;
             makeTroopGameActionHook = new MakeTroopGameActionHook(log, DecideMakeTroopGameAction);
-            disbandGameActionHook = new DisbandGameActionHook(log, activeUnitCache.NotifyNativeSnapshotChanged);
             createTroopHoverHook = new CreateTroopHoverHook(log, UpdateRecruitmentLimitTooltip, ClearUnitLimitTooltip);
             siegeBuildHoverHook = new SiegeBuildHoverHook(log, UpdateSiegeBuildLimitTooltip, ClearUnitLimitTooltip);
 
@@ -155,8 +151,6 @@ namespace UnitLimit
             RestoreOriginalUnitRecruitableStates();
             HideLimitMessage();
             ClearPendingRecruitments("Dispose");
-            disbandGameActionHook?.Dispose();
-            disbandGameActionHook = null;
             makeTroopGameActionHook?.Dispose();
             makeTroopGameActionHook = null;
             createTroopHoverHook?.Dispose();
