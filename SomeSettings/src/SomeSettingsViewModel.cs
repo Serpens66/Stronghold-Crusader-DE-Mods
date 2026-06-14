@@ -42,6 +42,8 @@ namespace SomeSettings
         public ImageSource KeepStorageWoodIcon => GetGoodIconImage(eGoods.STORED_WOOD_PLANKS);
         public ImageSource KeepStorageBowsIcon => GetGoodIconImage(eGoods.STORED_BOWS);
         public string ResetToDefaultText => SerpLocalization.Get(SerpLocalization.ResetToDefault);
+        public string AlwaysActiveTitleText => SerpLocalization.Get(SerpLocalization.AlwaysActiveTitle);
+        public string AlwaysActiveHelpText => SerpLocalization.Get(SerpLocalization.AlwaysActiveHelp);
         public string MarketKeyMainTradeMenuHelpText => SerpLocalization.Get(SerpLocalization.MarketKeyMainTradeMenuHelp);
         public string AllowMinimapWhilePlacingBuildingText => SerpLocalization.Get(SerpLocalization.AllowMinimapWhilePlacingBuilding);
         public string AllowMinimapWhilePlacingBuildingHelpText => SerpLocalization.Get(SerpLocalization.AllowMinimapWhilePlacingBuildingHelp);

@@ -47,6 +47,8 @@ public static class SerpLocalization
     public const string StartTroopsMultiplierHelp = "StartConditions.StartTroopsMultiplierHelp";
     public const string StartTroopsMultiplierToolTip = "StartConditions.StartTroopsMultiplierToolTip";
     public const string ExtraStartUnitsHelp = "StartConditions.ExtraStartUnitsHelp";
+    public const string AlwaysActiveTitle = "SomeSettings.AlwaysActiveTitle";
+    public const string AlwaysActiveHelp = "SomeSettings.AlwaysActiveHelp";
     public const string MarketKeyMainTradeMenuHelp = "SomeSettings.MarketKeyMainTradeMenuHelp";
     public const string AllowMinimapWhilePlacingBuilding = "SomeSettings.AllowMinimapWhilePlacingBuilding";
     public const string AllowMinimapWhilePlacingBuildingHelp = "SomeSettings.AllowMinimapWhilePlacingBuildingHelp";
@@ -113,6 +115,8 @@ public static class SerpLocalization
         { StartTroopsMultiplierHelp, "Multiplier: 0 = remove official start troops after 20 seconds, 1 = unchanged, 2 = double. Allowed range: 0 to 100." },
         { StartTroopsMultiplierToolTip, "Multiplier for Start Troop armies. Applied after {DelayedStartTroopCountMilliseconds} ms, currently {DelayedStartTroopCountSeconds} seconds after map start. 0 = remove, 1 = unchanged, 2 = double. Allowed range: 0 to 100." },
         { ExtraStartUnitsHelp, "Extra Start Units: -1 or 0 = no extra units. Allowed range: -1 to 100000." },
+        { AlwaysActiveTitle, "Always active (if mod enabled)" },
+        { AlwaysActiveHelp, "Minimap dragging follows the mouse cursor directly. Pressing the market keybind while the market is selected returns the menu to the main trade menu." },
         { MarketKeyMainTradeMenuHelp, "Pressing the market keybind while the market is already selected returns the menu to the main trade menu." },
         { AllowMinimapWhilePlacingBuilding, "Allow minimap while placing buildings" },
         { AllowMinimapWhilePlacingBuildingHelp, "When enabled, left-clicking the minimap moves the camera even while a building is selected for placement. This is a per-player setting." },

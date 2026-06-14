@@ -2,8 +2,16 @@
   "GUID": "SomeSettings_Serp",
   "Author": "Serpens66",
   "Name": "Some Settings",
-  "Description": "Adds small gameplay settings for Stronghold Crusader Definitive Edition.",
-  "Version": "0.1.0",
+  "Description": "Adds small gameplay/QoL settings for Stronghold Crusader Definitive Edition.",
+  "Version": "1.0.1",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
-  "Manifest": 1
+  "Manifest": 1,
+  "SerpChangelog": [
+    {
+      "Version": "1.0.1",
+      "Changes": [
+        "Minimap dragging now follows the mouse cursor directly."
+      ]
+    }
+  ]
 }
