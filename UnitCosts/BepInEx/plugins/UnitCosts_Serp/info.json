@@ -2,8 +2,8 @@
   "GUID": "UnitCosts_Serp",
   "Author": "Serpens66",
   "Name": "Unit Costs",
-  "Description": "Adds lobby settings for configurable recruit costs in Stronghold Crusader Definitive Edition.",
+  "Description": "Configure recruit costs in Stronghold Crusader Definitive Edition.",
   "Version": "0.1.0",
-  "Website": "",
+  "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1
 }
