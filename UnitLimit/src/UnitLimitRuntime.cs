@@ -11,7 +11,6 @@ using System;
 using System.Collections.Generic;
 
 // TODO
-// Eventuell dann ActiveUnitCache nochmal überarbeiten, dass es effizienter läuft und auch keinen Timer mehr braucht usw und eigentlich auch kein resync mehr, wobei man das evlt doch alle 60 sek oderso machen sollte.
 // sobald im extender ein weg eingebaut wurde die Rekrutierung zu verhinden, dann MakeTroopGameActionHooks dadurch ersetzen
 // anstelle von AliveCount kann für den lokalen Spieler auch das verwendet werden: GameUnitManagerAPI.Instance.GetUnitArmyCount(eChimps chimp) liefert selbe ergebnisse wie alive (also kein pending und keine siege tents)
 
@@ -24,7 +23,7 @@ namespace UnitLimit
         private readonly HashSet<eChimps> locallyDisabledUnitRecruitment = new HashSet<eChimps>();
         private readonly Dictionary<eChimps, bool> originalUnitRecruitableStates = new Dictionary<eChimps, bool>();
         private readonly Dictionary<eChimps, int> activeUnitLimits = new Dictionary<eChimps, int>();
-        private readonly Dictionary<PendingRecruitmentKey, List<DateTime>> pendingRecruitments = new Dictionary<PendingRecruitmentKey, List<DateTime>>();
+        private readonly Dictionary<PendingRecruitmentKey, PendingRecruitmentQueue> pendingRecruitments = new Dictionary<PendingRecruitmentKey, PendingRecruitmentQueue>();
         // private readonly List<int> matchingUnitIds = new List<int>();
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
         private readonly ActiveUnitCache activeUnitCache;
@@ -36,7 +35,7 @@ namespace UnitLimit
         private bool hooksSubscribed;
         private bool libraryInitialized;
         private const int LimitMessageDurationMilliseconds = 3000;
-        private const int UnitLimitRecruitableRefreshMilliseconds = 5000;
+        private const int UnitLimitRecruitableRefreshMilliseconds = 30000;
         private static readonly TimeSpan PendingRecruitmentLifetime = TimeSpan.FromSeconds(3);
         private string limitMessageTimerHandle;
         private string unitLimitRecruitableRefreshTimerHandle;

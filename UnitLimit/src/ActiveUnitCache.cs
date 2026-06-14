@@ -14,7 +14,6 @@ namespace UnitLimit
     internal sealed class ActiveUnitCache : IDisposable
     {
         private readonly object syncRoot = new object();
-        private readonly SortedSet<int> activeUnitIds = new SortedSet<int>();
         private readonly Dictionary<int, UnitSnapshot> snapshotsById = new Dictionary<int, UnitSnapshot>();
         private readonly Dictionary<UnitCountKey, int> countsByOwnerAndType = new Dictionary<UnitCountKey, int>();
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
@@ -22,7 +21,6 @@ namespace UnitLimit
         private bool subscribed;
 
         public event Action<ActiveUnitChangedEventArgs> OnActiveUnitChanged;
-        public event Action<ActiveUnitTypeCountChangedEventArgs> OnActiveUnitTypeCountChanged;
 
         public ActiveUnitCache(ManualLogSource log = null)
         {
@@ -64,15 +62,6 @@ namespace UnitLimit
             Clear();
         }
 
-        public void GetActiveUnitIds(List<int> results)
-        {
-            results.Clear();
-            lock (syncRoot)
-            {
-                results.AddRange(activeUnitIds);
-            }
-        }
-
         public int GetActiveUnitCount(int playerId, eChimps unitType)
         {
             lock (syncRoot)
@@ -81,24 +70,6 @@ namespace UnitLimit
                     ? count
                     : 0;
             }
-        }
-
-        public int CountActiveUnits(Func<UnitSnapshot, bool> predicate)
-        {
-            if (predicate == null)
-                return 0;
-
-            int count = 0;
-            lock (syncRoot)
-            {
-                foreach (UnitSnapshot snapshot in snapshotsById.Values)
-                {
-                    if (IsActiveUnitState(snapshot.AliveState) && predicate(snapshot))
-                        count++;
-                }
-            }
-
-            return count;
         }
 
         public void ResyncAll(bool raiseEvents)
@@ -120,47 +91,31 @@ namespace UnitLimit
             List<ActiveUnitChangedEventArgs> events = null;
             lock (syncRoot)
             {
+                HashSet<int> previousUnitIds = new HashSet<int>(snapshotsById.Keys);
                 foreach (KeyValuePair<int, UnitSnapshot> pair in seenSnapshots)
                 {
                     int unitId = pair.Key;
                     UnitSnapshot snapshot = pair.Value;
-                    bool wasActive = activeUnitIds.Contains(unitId);
                     bool hadSnapshot = snapshotsById.TryGetValue(unitId, out UnitSnapshot oldSnapshot);
 
-                    activeUnitIds.Add(unitId);
                     snapshotsById[unitId] = snapshot;
+                    previousUnitIds.Remove(unitId);
 
                     if (!raiseEvents)
                         continue;
 
-                    if (!wasActive || !hadSnapshot)
+                    if (!hadSnapshot)
                         AddUnitEvent(ref events, unitId, hadSnapshot ? oldSnapshot : default(UnitSnapshot), snapshot, ActiveUnitChangeReason.ResyncAdded);
                     else if (TryGetChangeReason(oldSnapshot, snapshot, out ActiveUnitChangeReason reason))
                         AddUnitEvent(ref events, unitId, oldSnapshot, snapshot, reason);
                 }
 
-                List<int> removedIds = null;
-                foreach (int unitId in activeUnitIds)
+                foreach (int unitId in previousUnitIds)
                 {
-                    if (seenSnapshots.ContainsKey(unitId))
-                        continue;
-
-                    if (removedIds == null)
-                        removedIds = new List<int>();
-
-                    removedIds.Add(unitId);
-                }
-
-                if (removedIds != null)
-                {
-                    foreach (int unitId in removedIds)
-                    {
-                        snapshotsById.TryGetValue(unitId, out UnitSnapshot oldSnapshot);
-                        activeUnitIds.Remove(unitId);
-                        snapshotsById.Remove(unitId);
-                        if (raiseEvents)
-                            AddUnitEvent(ref events, unitId, oldSnapshot, default(UnitSnapshot), ActiveUnitChangeReason.ResyncRemoved);
-                    }
+                    snapshotsById.TryGetValue(unitId, out UnitSnapshot oldSnapshot);
+                    snapshotsById.Remove(unitId);
+                    if (raiseEvents)
+                        AddUnitEvent(ref events, unitId, oldSnapshot, default(UnitSnapshot), ActiveUnitChangeReason.ResyncRemoved);
                 }
             }
 
@@ -278,33 +233,33 @@ namespace UnitLimit
             bool changed = false;
             lock (syncRoot)
             {
-                bool wasActive = activeUnitIds.Contains(unitId);
                 bool hadSnapshot = snapshotsById.TryGetValue(unitId, out UnitSnapshot oldSnapshot);
                 bool isActive = IsActiveUnitState(snapshot.AliveState);
 
                 if (!isActive)
                 {
-                    bool removed = activeUnitIds.Remove(unitId);
                     snapshotsById.Remove(unitId);
-                    if (removed || hadSnapshot)
+                    if (hadSnapshot)
                     {
                         eventArgs = CreateEvent(unitId, hadSnapshot ? oldSnapshot : default(UnitSnapshot), snapshot, fallbackReason);
+                        ApplyCountDelta(eventArgs);
                         changed = true;
                     }
                 }
                 else
                 {
-                    activeUnitIds.Add(unitId);
                     snapshotsById[unitId] = snapshot;
 
-                    if (!wasActive || !hadSnapshot)
+                    if (!hadSnapshot)
                     {
                         eventArgs = CreateEvent(unitId, hadSnapshot ? oldSnapshot : default(UnitSnapshot), snapshot, fallbackReason);
+                        ApplyCountDelta(eventArgs);
                         changed = true;
                     }
                     else if (TryGetChangeReason(oldSnapshot, snapshot, out ActiveUnitChangeReason reason))
                     {
                         eventArgs = CreateEvent(unitId, oldSnapshot, snapshot, preferFallbackReason ? fallbackReason : reason);
+                        ApplyCountDelta(eventArgs);
                         changed = true;
                     }
                 }
@@ -338,14 +293,14 @@ namespace UnitLimit
             UnitSnapshot removedSnapshot = default(UnitSnapshot);
             lock (syncRoot)
             {
-                bool wasActive = activeUnitIds.Remove(unitId);
                 bool hadSnapshot = snapshotsById.TryGetValue(unitId, out UnitSnapshot oldSnapshot);
                 removedSnapshot = oldSnapshot;
                 snapshotsById.Remove(unitId);
 
-                if (wasActive || hadSnapshot)
+                if (hadSnapshot)
                 {
                     eventArgs = CreateEvent(unitId, oldSnapshot, default(UnitSnapshot), reason);
+                    ApplyCountDelta(eventArgs);
                     removedOrKnown = true;
                 }
             }
@@ -368,10 +323,7 @@ namespace UnitLimit
 
         private void ApplyAndRaiseEvent(ActiveUnitChangedEventArgs eventArgs)
         {
-            ActiveUnitTypeCountChangedEventArgs countEvent = ApplyCountDelta(eventArgs);
             OnActiveUnitChanged?.Invoke(eventArgs);
-            if (countEvent != null)
-                OnActiveUnitTypeCountChanged?.Invoke(countEvent);
         }
 
         private void RaiseEvents(List<ActiveUnitChangedEventArgs> events)
@@ -387,51 +339,23 @@ namespace UnitLimit
             // batch count events, so avoid replaying deltas into the freshly rebuilt cache.
         }
 
-        private ActiveUnitTypeCountChangedEventArgs ApplyCountDelta(ActiveUnitChangedEventArgs eventArgs)
+        private void ApplyCountDelta(ActiveUnitChangedEventArgs eventArgs)
         {
-            Dictionary<UnitCountKey, int> oldCounts = new Dictionary<UnitCountKey, int>();
-            Dictionary<UnitCountKey, int> newCounts = new Dictionary<UnitCountKey, int>();
-            lock (syncRoot)
-            {
-                TrackCountDelta(eventArgs.OldSnapshot, -1, oldCounts, newCounts);
-                TrackCountDelta(eventArgs.NewSnapshot, 1, oldCounts, newCounts);
-            }
-
-            foreach (KeyValuePair<UnitCountKey, int> pair in newCounts)
-            {
-                int oldCount = oldCounts[pair.Key];
-                int newCount = pair.Value;
-                if (oldCount != newCount)
-                {
-                    if (ShouldLogCacheChange(eventArgs.Reason, pair.Key.PlayerId))
-                    {
-                        LogDebug(
-                            "ActiveUnitCache count changed:",
-                            "player", pair.Key.PlayerId,
-                            "type", pair.Key.UnitType,
-                            "old", oldCount,
-                            "new", newCount,
-                            "delta", newCount - oldCount,
-                            "unitId", eventArgs.UnitId,
-                            "reason", eventArgs.Reason);
-                    }
-                    return new ActiveUnitTypeCountChangedEventArgs(pair.Key.PlayerId, pair.Key.UnitType, oldCount, newCount, eventArgs.UnitId, eventArgs.Reason);
-                }
-            }
-
-            return null;
-        }
-
-        private void TrackCountDelta(UnitSnapshot snapshot, int delta, Dictionary<UnitCountKey, int> oldCounts, Dictionary<UnitCountKey, int> newCounts)
-        {
-            if (!IsActiveUnitState(snapshot.AliveState))
+            bool oldCounted = TryGetActiveCountKey(eventArgs.OldSnapshot, out UnitCountKey oldKey);
+            bool newCounted = TryGetActiveCountKey(eventArgs.NewSnapshot, out UnitCountKey newKey);
+            if (oldCounted && newCounted && oldKey.Equals(newKey))
                 return;
 
-            UnitCountKey key = new UnitCountKey(snapshot.OwnerId, snapshot.UnitType);
-            countsByOwnerAndType.TryGetValue(key, out int oldCount);
-            if (!oldCounts.ContainsKey(key))
-                oldCounts[key] = oldCount;
+            if (oldCounted)
+                ApplyCountDelta(oldKey, -1, eventArgs.UnitId, eventArgs.Reason);
 
+            if (newCounted)
+                ApplyCountDelta(newKey, 1, eventArgs.UnitId, eventArgs.Reason);
+        }
+
+        private bool ApplyCountDelta(UnitCountKey key, int delta, int unitId, ActiveUnitChangeReason reason)
+        {
+            countsByOwnerAndType.TryGetValue(key, out int oldCount);
             int newCount = oldCount + delta;
             if (newCount <= 0)
             {
@@ -443,7 +367,35 @@ namespace UnitLimit
                 countsByOwnerAndType[key] = newCount;
             }
 
-            newCounts[key] = newCount;
+            if (oldCount == newCount)
+                return false;
+
+            if (ShouldLogCacheChange(reason, key.PlayerId))
+            {
+                LogDebug(
+                    "ActiveUnitCache count changed:",
+                    "player", key.PlayerId,
+                    "type", key.UnitType,
+                    "old", oldCount,
+                    "new", newCount,
+                    "delta", newCount - oldCount,
+                    "unitId", unitId,
+                    "reason", reason);
+            }
+
+            return true;
+        }
+
+        private static bool TryGetActiveCountKey(UnitSnapshot snapshot, out UnitCountKey key)
+        {
+            if (IsActiveUnitState(snapshot.AliveState))
+            {
+                key = new UnitCountKey(snapshot.OwnerId, snapshot.UnitType);
+                return true;
+            }
+
+            key = default(UnitCountKey);
+            return false;
         }
 
         private void RebuildCounts()
@@ -592,7 +544,6 @@ namespace UnitLimit
         {
             lock (syncRoot)
             {
-                activeUnitIds.Clear();
                 snapshotsById.Clear();
                 countsByOwnerAndType.Clear();
             }
@@ -629,28 +580,6 @@ namespace UnitLimit
                 UnitId = unitId;
                 OldSnapshot = oldSnapshot;
                 NewSnapshot = newSnapshot;
-                Reason = reason;
-            }
-        }
-
-        internal sealed class ActiveUnitTypeCountChangedEventArgs
-        {
-            public readonly int PlayerId;
-            public readonly eChimps UnitType;
-            public readonly int OldCount;
-            public readonly int NewCount;
-            public readonly int Delta;
-            public readonly int UnitId;
-            public readonly ActiveUnitChangeReason Reason;
-
-            public ActiveUnitTypeCountChangedEventArgs(int playerId, eChimps unitType, int oldCount, int newCount, int unitId, ActiveUnitChangeReason reason)
-            {
-                PlayerId = playerId;
-                UnitType = unitType;
-                OldCount = oldCount;
-                NewCount = newCount;
-                Delta = newCount - oldCount;
-                UnitId = unitId;
                 Reason = reason;
             }
         }

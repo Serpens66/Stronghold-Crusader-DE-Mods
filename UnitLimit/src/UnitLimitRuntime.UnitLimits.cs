@@ -43,6 +43,37 @@ namespace UnitLimit
             }
         }
 
+        private sealed class PendingRecruitmentQueue
+        {
+            private readonly Queue<DateTime> expirations = new Queue<DateTime>();
+
+            public int Count => expirations.Count;
+
+            public void Add(DateTime expiration, int amount)
+            {
+                for (int i = 0; i < amount; i++)
+                    expirations.Enqueue(expiration);
+            }
+
+            public bool ConsumeOne()
+            {
+                if (expirations.Count == 0)
+                    return false;
+
+                expirations.Dequeue();
+                return true;
+            }
+
+            public int RemoveExpired(DateTime now)
+            {
+                int before = expirations.Count;
+                while (expirations.Count > 0 && expirations.Peek() <= now)
+                    expirations.Dequeue();
+
+                return before - expirations.Count;
+            }
+        }
+
         internal MakeTroopGameActionDecision DecideMakeTroopGameAction(int amount, eChimps unitType, int rawUnitType)
         {
             try
@@ -265,10 +296,10 @@ namespace UnitLimit
         private int GetPendingRecruitmentCount(int playerId, eChimps unitType)
         {
             PendingRecruitmentKey key = new PendingRecruitmentKey(playerId, unitType);
-            if (!pendingRecruitments.TryGetValue(key, out List<DateTime> expiresAt))
+            if (!pendingRecruitments.TryGetValue(key, out PendingRecruitmentQueue pending))
                 return 0;
 
-            return expiresAt.Count;
+            return pending.Count;
         }
 
         private void ReservePendingRecruitment(int playerId, eChimps unitType, int amount)
@@ -277,26 +308,24 @@ namespace UnitLimit
                 return;
 
             PendingRecruitmentKey key = new PendingRecruitmentKey(playerId, unitType);
-            if (!pendingRecruitments.TryGetValue(key, out List<DateTime> expiresAt))
+            if (!pendingRecruitments.TryGetValue(key, out PendingRecruitmentQueue pending))
             {
-                expiresAt = new List<DateTime>();
-                pendingRecruitments[key] = expiresAt;
+                pending = new PendingRecruitmentQueue();
+                pendingRecruitments[key] = pending;
             }
 
             DateTime expiration = DateTime.UtcNow + PendingRecruitmentLifetime;
-            for (int i = 0; i < amount; i++)
-                expiresAt.Add(expiration);
+            pending.Add(expiration, amount);
         }
 
         private bool ConsumePendingRecruitment(int playerId, eChimps unitType)
         {
             RemoveExpiredPendingRecruitments();
             PendingRecruitmentKey key = new PendingRecruitmentKey(playerId, unitType);
-            if (!pendingRecruitments.TryGetValue(key, out List<DateTime> expiresAt) || expiresAt.Count == 0)
+            if (!pendingRecruitments.TryGetValue(key, out PendingRecruitmentQueue pending) || !pending.ConsumeOne())
                 return false;
 
-            expiresAt.RemoveAt(0);
-            int remaining = expiresAt.Count;
+            int remaining = pending.Count;
             if (remaining == 0)
                 pendingRecruitments.Remove(key);
 
@@ -310,14 +339,14 @@ namespace UnitLimit
 
             DateTime now = DateTime.UtcNow;
             List<PendingRecruitmentKey> emptyKeys = null;
-            foreach (KeyValuePair<PendingRecruitmentKey, List<DateTime>> entry in pendingRecruitments)
+            foreach (KeyValuePair<PendingRecruitmentKey, PendingRecruitmentQueue> entry in pendingRecruitments)
             {
-                int before = entry.Value.Count;
-                entry.Value.RemoveAll(expiration => expiration <= now);
-                int expired = before - entry.Value.Count;
+                int expired = entry.Value.RemoveExpired(now);
                 if (expired > 0)
-                        if (ShouldLogHumanPlayer(entry.Key.PlayerId))
-                            LogDebug("Pending recruit expired:", entry.Key.UnitType, "player", entry.Key.PlayerId, "expired", expired, "remaining", entry.Value.Count);
+                {
+                    if (ShouldLogHumanPlayer(entry.Key.PlayerId))
+                        LogDebug("Pending recruit expired:", entry.Key.UnitType, "player", entry.Key.PlayerId, "expired", expired, "remaining", entry.Value.Count);
+                }
 
                 if (entry.Value.Count == 0)
                 {
