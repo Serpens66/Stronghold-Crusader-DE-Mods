@@ -67,6 +67,11 @@ public static class SerpLocalization
     public const string MultiplyGoodsGainHelp = "SomeSettings.MultiplyGoodsGainHelp";
     public const string MultiplyGoodsAsMoney = "SomeSettings.MultiplyGoodsAsMoney";
     public const string MultiplyGoodsAsMoneyHelp = "SomeSettings.MultiplyGoodsAsMoneyHelp";
+    public const string MarketPriceMultipliersTitle = "SomeSettings.MarketPriceMultipliersTitle";
+    public const string MarketBuyPriceMultiplier = "SomeSettings.MarketBuyPriceMultiplier";
+    public const string MarketBuyPriceMultiplierHelp = "SomeSettings.MarketBuyPriceMultiplierHelp";
+    public const string MarketSellPriceMultiplier = "SomeSettings.MarketSellPriceMultiplier";
+    public const string MarketSellPriceMultiplierHelp = "SomeSettings.MarketSellPriceMultiplierHelp";
 
     private const string DefaultLocale = "en-US";
     private static Dictionary<string, string> loadedTexts;
@@ -134,7 +139,12 @@ public static class SerpLocalization
         { MultiplyGoodsGain, "Multiply goods gain" },
         { MultiplyGoodsGainHelp, "Multiplier for gained goods. 1 = unchanged, 2 = double, 3 = triple. Values 1 or lower add nothing." },
         { MultiplyGoodsAsMoney, "Multiply goods as money" },
-        { MultiplyGoodsAsMoneyHelp, "Extra gold payouts based on sell value of gained goods. 0 = unchanged, 1 = one sell-value payout, 2 = two payouts." }
+        { MultiplyGoodsAsMoneyHelp, "Extra gold payouts based on sell value of gained goods. 0 = unchanged, 1 = one sell-value payout, 2 = two payouts." },
+        { MarketPriceMultipliersTitle, "Market Price Multipliers" },
+        { MarketBuyPriceMultiplier, "Buy prices" },
+        { MarketBuyPriceMultiplierHelp, "Multiplier for all market buy prices. 1.0 = unchanged, 0.0 = free, 5.0 = five times the vanilla price." },
+        { MarketSellPriceMultiplier, "Sell prices" },
+        { MarketSellPriceMultiplierHelp, "Multiplier for all market sell prices. 1.0 = unchanged, 0.0 = no gold from selling, 5.0 = five times the vanilla price." }
     };
 
     public static string Get(string key)

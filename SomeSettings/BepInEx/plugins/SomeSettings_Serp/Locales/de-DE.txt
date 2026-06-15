@@ -23,3 +23,8 @@ SomeSettings.MultiplyGoodsGain=Guetergewinn multiplizieren
 SomeSettings.MultiplyGoodsGainHelp=Multiplikator für erhaltene Gueter. 1 = unverändert, 2 = doppelt, 3 = dreifach. Werte 1 oder kleiner fuegen nichts hinzu.
 SomeSettings.MultiplyGoodsAsMoney=Gueter als Geld multiplizieren
 SomeSettings.MultiplyGoodsAsMoneyHelp=Extra-Goldzahlungen basierend auf dem Verkaufswert erhaltener Gueter. 0 = unverändert, 1 = eine Verkaufswert-Zahlung, 2 = zwei Zahlungen.
+SomeSettings.MarketPriceMultipliersTitle=Marktpreis-Multiplikatoren
+SomeSettings.MarketBuyPriceMultiplier=Kaufpreise
+SomeSettings.MarketBuyPriceMultiplierHelp=Multiplikator fuer alle Markt-Kaufpreise. 1.0 = unveraendert, 0.0 = kostenlos, 5.0 = fuenffacher Vanilla-Preis.
+SomeSettings.MarketSellPriceMultiplier=Verkaufspreise
+SomeSettings.MarketSellPriceMultiplierHelp=Multiplikator fuer alle Markt-Verkaufspreise. 1.0 = unveraendert, 0.0 = kein Gold durch Verkauf, 5.0 = fuenffacher Vanilla-Preis.

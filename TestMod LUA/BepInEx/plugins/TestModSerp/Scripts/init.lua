@@ -8,12 +8,9 @@
   -- weil gespawnde und starttruppen zu defense gehören und wenn schwein 100 leute in defense hat, aber über 100 maceman, dann stellt es keine range in defense mehr rein -> spawned truppen müssen die defense verteilung haben und am besten insg. nicht mehr als gesamt defense
 -- brauch ich OnUnloadMap ?
 -- 3) mehr priester für church/cathedral?
--- verschieben von gebäuden bei shift+delete?
--- blaupausen planung?
--- auch mit Gebäude am Mauszeiger auf der Minimap bewegen können! und minimap bewegung bei gedrückter maustaste schneller machen...
 -- KI kann Soldaten von Spielern überbauen und dadurch löschen: wenn möglich soldaten stattdessen verschieben
-
-
+-- - UCP KI improvements, siehe ucp anpassungen (zb häuser bauen, schlafen legen, abreißen usw.)
+-- - save last AI settings (chosen AIV/AIC)
 
 
 
@@ -25,6 +22,13 @@
 
 
 -- EnemyHealthModifier testen, wann man das setzen muss, damit der setting wert es nicht überschreibt
+
+-- tweak settings:
+-- kaufpreise verdoppeln
+-- evlt acension und oder stronghold 1 balance einbauen, zb. bier nur noch maximal +4
+
+-- mp testen
+
 
 
 

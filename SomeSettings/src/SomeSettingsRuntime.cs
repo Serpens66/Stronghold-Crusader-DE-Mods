@@ -66,6 +66,12 @@ namespace SomeSettings
             subscriptions.Add(BuildingR3EventHooks.OnGoodsyardAddGood.Observable.Subscribe(OnGoodsyardAddGood));
             subscriptions.Add(PlayerR3EventHooks.OnPlayerMarketInteraction.Observable.Subscribe(OnPlayerMarketInteraction));
             subscriptions.Add(InputR3EventHooks.OnKeyDown.Observable.Subscribe(OnKeyDown));
+            subscriptions.Add(MapLoaderR3EventHooks.OnLoadMap.Observable
+                .Where(args => args.Phase == EventHookPhase.Post)
+                .Subscribe(_ => ApplyMarketPriceMultipliers()));
+            subscriptions.Add(MapLoaderR3EventHooks.OnLoadSave.Observable
+                .Where(args => args.Phase == EventHookPhase.Post)
+                .Subscribe(_ => ApplyMarketPriceMultipliers()));
             subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
                 .Subscribe(OnUnloadMap));
@@ -87,6 +93,7 @@ namespace SomeSettings
             ApplyRefundPercent(buildingApi.IronRefundMultiplier, settings.IronRefundPercent, "iron");
             ApplyRefundPercent(buildingApi.PitchRefundMultiplier, settings.PitchRefundPercent, "pitch");
             ApplyRefundPercent(buildingApi.GoldRefundMultiplier, settings.GoldRefundPercent, "gold");
+            ApplyMarketPriceMultipliers();
         }
 
         public void Dispose()
@@ -167,6 +174,43 @@ namespace SomeSettings
             buildingApi.IronRefundMultiplier.SetValue(0.5f);
             buildingApi.PitchRefundMultiplier.SetValue(0.5f);
             buildingApi.GoldRefundMultiplier.SetValue(0.5f);
+            RestoreTradeBasePrices();
+        }
+
+        private void ApplyMarketPriceMultipliers()
+        {
+            if (!settings.EnableMod)
+                return;
+
+            GamePlayerManagerAPI playerApi = GamePlayerManagerAPI.Instance;
+            for (int i = 0; i < GoodsCount; i++)
+            {
+                eGoods good = (eGoods)i;
+                PackedGoodPrice vanillaPrice = playerApi.GetDefaultTradeBasePrice(good);
+                PackedGoodPrice multipliedPrice = new PackedGoodPrice(
+                    MultiplyPrice(vanillaPrice.BuyPrice, settings.MarketBuyPriceMultiplier),
+                    MultiplyPrice(vanillaPrice.SellPrice, settings.MarketSellPriceMultiplier));
+
+                playerApi.SetTradeBasePrice(good, multipliedPrice);
+            }
+        }
+
+        private void RestoreTradeBasePrices()
+        {
+            GamePlayerManagerAPI playerApi = GamePlayerManagerAPI.Instance;
+            for (int i = 0; i < GoodsCount; i++)
+            {
+                eGoods good = (eGoods)i;
+                playerApi.SetTradeBasePrice(good, playerApi.GetDefaultTradeBasePrice(good));
+            }
+        }
+
+        private static int MultiplyPrice(int price, double multiplier)
+        {
+            if (price == 0 || Math.Abs(multiplier - 1.0) < 0.0001)
+                return price;
+
+            return (int)Math.Round(price * multiplier, MidpointRounding.AwayFromZero);
         }
 
         private void OnKeyDown(UnityInputEventArgs args)
