@@ -23,19 +23,48 @@ namespace StartConditions
 
         private void ForEachAlivePlayer(Action<int> callback)
         {
-            int[] aliveIds = GamePlayerManagerAPI.Instance.GetAlivePlayerIds();
+            int[] aliveIds = GamePlayerManagerAPI.Instance.GetAlivePlayerIds();// returns 0 based
+            HashSet<int> playerIdsWithKeep = GetPlayerIdsWithKeeps();
             for (int i = 0; i < aliveIds.Length; i++)
             {
                 int playerId = aliveIds[i] + 1;
-                if (GamePlayerManagerAPI.Instance.IsPlayerIdValid(playerId) && HasKeep(playerId))
+                bool isValid = GamePlayerManagerAPI.Instance.IsPlayerIdValid(playerId);
+                bool hasKeep = isValid && playerIdsWithKeep.Contains(playerId);
+                LogDebug("ForEachAlivePlayer candidate", "slotId", aliveIds[i], "playerId", playerId, "isValid", isValid, "hasKeep", hasKeep);
+                if (isValid && hasKeep)
+                {
                     callback(playerId);
+                }
             }
         }
-
         private bool HasKeep(int playerId)
         {
-            int keepId = GamePlayerManagerAPI.Instance.GetPlayerKeepId(playerId);
-            return keepId != -1 && keepId != 0;
+            return GetPlayerIdsWithKeeps().Contains(playerId);
+        } // is not enough:  int keepId = GamePlayerManagerAPI.Instance.GetPlayerKeepId(playerId); return keepId != -1 && keepId != 0;
+
+        private HashSet<int> GetPlayerIdsWithKeeps()
+        {
+            HashSet<int> playerIds = new HashSet<int>();
+            Span<GameBuilding> buildings = GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
+            for (int i = 0; i < buildings.Length; i++)
+            {
+                GameBuilding building = buildings[i];
+                int owner = building.r_PlayerIdOwner;
+                if (!GamePlayerManagerAPI.Instance.IsPlayerIdValid(owner) || !IsKeepType(building.r_BuildingType))
+                    continue; // dont check building.r_AliveState != AliveState.IsAlive, because at game start it is not yet alive and it should be filtered anyways by GetAlivePlayerIds
+
+                playerIds.Add(owner);
+            }
+            return playerIds;
+        }
+
+        private static bool IsKeepType(eStructs buildingType)
+        {
+            return buildingType == eStructs.STRUCT_KEEP_ONE
+                || buildingType == eStructs.STRUCT_KEEP_TWO
+                || buildingType == eStructs.STRUCT_KEEP_THREE
+                || buildingType == eStructs.STRUCT_KEEP_FOUR
+                || buildingType == eStructs.STRUCT_KEEP_FIVE;
         }
 
         private static bool TryParseNullableInt(string text, out int value)

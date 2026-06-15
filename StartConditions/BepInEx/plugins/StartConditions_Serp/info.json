@@ -3,7 +3,15 @@
   "Author": "Serpens66",
   "Name": "Start Conditions",
   "Description": "Configures start resources and start troops in Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.2",
+  "Version": "1.0.3",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
-  "Manifest": 1
+  "Manifest": 1,
+  "SerpChangelog": [
+    {
+      "Version": "1.0.3",
+      "Changes": [
+        "Minor internal code improvement."
+      ]
+    }
+  ]
 }

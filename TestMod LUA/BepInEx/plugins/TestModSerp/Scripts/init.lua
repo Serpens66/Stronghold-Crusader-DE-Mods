@@ -45,46 +45,7 @@
 
 -- besser haskeep fn:
 
--- private void ForEachAlivePlayer(Action<int> callback)
--- {
-    -- int[] aliveIds = GamePlayerManagerAPI.Instance.GetAlivePlayerIds();
-    -- HashSet<int> playerIdsWithKeep = GetPlayerIdsWithKeeps(); // returns 0 based
-    -- for (int i = 0; i < aliveIds.Length; i++)
-    -- {
-        -- int playerId = aliveIds[i] + 1;
-        -- bool isValid = GamePlayerManagerAPI.Instance.IsPlayerIdValid(playerId);
-        -- bool hasKeep = isValid && playerIdsWithKeep.Contains(playerId);
-        -- LogDebug("ForEachAlivePlayer candidate", "slotId", aliveIds[i], "playerId", playerId, "isValid", isValid, "hasKeep", hasKeep);
-        -- if (isValid && hasKeep)
-        -- {
-            -- callback(playerId);
-        -- }
-    -- }
--- }
 
-
--- private bool HasKeep(int playerId)
--- {
-    -- return GetPlayerIdsWithKeeps().Contains(playerId);
--- }
-
--- private HashSet<int> GetPlayerIdsWithKeeps()
--- {
-    -- HashSet<int> playerIds = new HashSet<int>();
-    -- Span<GameBuilding> buildings = GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
-
-    -- for (int i = 0; i < buildings.Length; i++)
-    -- {
-        -- GameBuilding keep = buildings[i];
-        -- int owner = keep.r_PlayerIdOwner;
-        -- if (!GamePlayerManagerAPI.Instance.IsPlayerIdValid(owner) || !IsKeepType(keep.r_BuildingType))
-            -- continue;
-
-        -- playerIds.Add(owner);
-    -- }
-
-    -- return playerIds;
--- }
 
 
 
