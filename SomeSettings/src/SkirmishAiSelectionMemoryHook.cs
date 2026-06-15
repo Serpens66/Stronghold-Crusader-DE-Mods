@@ -81,7 +81,7 @@ namespace SomeSettings
             bool mayAddAi = string.Equals(param, "AddCustomLord", StringComparison.Ordinal);
             Dictionary<int, string> before = featureActiveBefore && (relevant || mayAddAi) ? CaptureAiSlotKeys(self) : null;
             if (relevant)
-                log.LogInfo($"SomeSettings AI selection memory ButtonClicked before original: param={param}, featureActive={featureActiveBefore}, beforeSlots={FormatSlotKeys(before)}, storedCount={storedSelections.Count}");
+                log.LogDebug($"SomeSettings AI selection memory ButtonClicked before original: param={param}, featureActive={featureActiveBefore}, beforeSlots={FormatSlotKeys(before)}, storedCount={storedSelections.Count}");
 
             if (featureActiveBefore && string.Equals(param, "CancelAISettings", StringComparison.Ordinal))
                 SaveActiveAiSettings();
@@ -91,7 +91,7 @@ namespace SomeSettings
             bool featureActiveAfter = IsFeatureActive();
             Dictionary<int, string> after = featureActiveAfter && (relevant || mayAddAi) ? CaptureAiSlotKeys(self) : null;
             if (relevant)
-                log.LogInfo($"SomeSettings AI selection memory ButtonClicked after original: param={param}, featureActive={featureActiveAfter}, afterSlots={FormatSlotKeys(after)}, storedCount={storedSelections.Count}");
+                log.LogDebug($"SomeSettings AI selection memory ButtonClicked after original: param={param}, featureActive={featureActiveAfter}, afterSlots={FormatSlotKeys(after)}, storedCount={storedSelections.Count}");
 
             if (!featureActiveAfter || !mayAddAi)
                 return;
@@ -111,13 +111,13 @@ namespace SomeSettings
         {
             bool featureActiveBefore = IsFeatureActive();
             Dictionary<int, string> before = featureActiveBefore ? CaptureAiSlotKeys(self) : null;
-            log.LogInfo($"SomeSettings AI selection memory SkirmishAIAddClick before original: param={param}, featureActive={featureActiveBefore}, beforeSlots={FormatSlotKeys(before)}, storedCount={storedSelections.Count}");
+            log.LogDebug($"SomeSettings AI selection memory SkirmishAIAddClick before original: param={param}, featureActive={featureActiveBefore}, beforeSlots={FormatSlotKeys(before)}, storedCount={storedSelections.Count}");
 
             skirmishAiAddClickTrampoline(self, param);
 
             bool featureActiveAfter = IsFeatureActive();
             Dictionary<int, string> after = featureActiveAfter ? CaptureAiSlotKeys(self) : null;
-            log.LogInfo($"SomeSettings AI selection memory SkirmishAIAddClick after original: param={param}, featureActive={featureActiveAfter}, afterSlots={FormatSlotKeys(after)}, storedCount={storedSelections.Count}");
+            log.LogDebug($"SomeSettings AI selection memory SkirmishAIAddClick after original: param={param}, featureActive={featureActiveAfter}, afterSlots={FormatSlotKeys(after)}, storedCount={storedSelections.Count}");
 
             if (!featureActiveAfter)
                 return;
@@ -233,42 +233,42 @@ namespace SomeSettings
         {
             if (storedSelections.Count == 0 || parent == null || parent.AIVs == null || parent.currentLobby == null || before == null)
             {
-                log.LogInfo($"SomeSettings AI selection memory apply skipped before scan: reason={reason}, storedCount={storedSelections.Count}, hasParent={parent != null}, hasAIVs={parent?.AIVs != null}, hasLobby={parent?.currentLobby != null}, hasBefore={before != null}");
+                log.LogDebug($"SomeSettings AI selection memory apply skipped before scan: reason={reason}, storedCount={storedSelections.Count}, hasParent={parent != null}, hasAIVs={parent?.AIVs != null}, hasLobby={parent?.currentLobby != null}, hasBefore={before != null}");
                 return false;
             }
 
-            log.LogInfo($"SomeSettings AI selection memory apply scan started: reason={reason}, beforeSlots={FormatSlotKeys(before)}, storedCount={storedSelections.Count}, lobbyMemberCount={parent.currentLobby.members.Count}");
+            log.LogDebug($"SomeSettings AI selection memory apply scan started: reason={reason}, beforeSlots={FormatSlotKeys(before)}, storedCount={storedSelections.Count}, lobbyMemberCount={parent.currentLobby.members.Count}");
             bool applied = false;
             foreach (Platform_Multiplayer.MPLobbyMember member in parent.currentLobby.members)
             {
                 if (!TryGetAiSlotInfo(parent, member, out int playerId, out string key))
                 {
-                    log.LogInfo($"SomeSettings AI selection memory apply skipped lobby member: reason={reason}, skirmish={member?.SkirmishMember}, human={member?.SkirmishHumanMember}, steamId={member?.GetSteamID()}");
+                    log.LogDebug($"SomeSettings AI selection memory apply skipped lobby member: reason={reason}, skirmish={member?.SkirmishMember}, human={member?.SkirmishHumanMember}, steamId={member?.GetSteamID()}");
                     continue;
                 }
 
                 if (playerId < 1 || playerId > parent.AIVs.Length)
                 {
-                    log.LogInfo($"SomeSettings AI selection memory apply skipped invalid player id: reason={reason}, key={key}, lobbyPlayer={playerId}, aivLength={parent.AIVs.Length}");
+                    log.LogDebug($"SomeSettings AI selection memory apply skipped invalid player id: reason={reason}, key={key}, lobbyPlayer={playerId}, aivLength={parent.AIVs.Length}");
                     continue;
                 }
 
                 if (before.TryGetValue(playerId, out string previousKey) && string.Equals(previousKey, key, StringComparison.OrdinalIgnoreCase))
                 {
-                    log.LogInfo($"SomeSettings AI selection memory apply skipped existing unchanged slot: reason={reason}, key={key}, lobbyPlayer={playerId}, previousKey={previousKey}");
+                    log.LogDebug($"SomeSettings AI selection memory apply skipped existing unchanged slot: reason={reason}, key={key}, lobbyPlayer={playerId}, previousKey={previousKey}");
                     continue;
                 }
 
                 if (!storedSelections.TryGetValue(key, out string encoded))
                 {
-                    log.LogInfo($"SomeSettings AI selection memory apply skipped missing stored selection: reason={reason}, key={key}, lobbyPlayer={playerId}, previousKey={(before.TryGetValue(playerId, out previousKey) ? previousKey : "<new-slot>")}");
+                    log.LogDebug($"SomeSettings AI selection memory apply skipped missing stored selection: reason={reason}, key={key}, lobbyPlayer={playerId}, previousKey={(before.TryGetValue(playerId, out previousKey) ? previousKey : "<new-slot>")}");
                     continue;
                 }
 
                 string currentEncoded = parent.AIVs[playerId - 1].encode();
                 if (currentEncoded == encoded)
                 {
-                    log.LogInfo($"SomeSettings AI selection memory apply skipped already matching encoded selection: reason={reason}, key={key}, lobbyPlayer={playerId}, encodedLength={(encoded == null ? 0 : encoded.Length)}");
+                    log.LogDebug($"SomeSettings AI selection memory apply skipped already matching encoded selection: reason={reason}, key={key}, lobbyPlayer={playerId}, encodedLength={(encoded == null ? 0 : encoded.Length)}");
                     continue;
                 }
 
@@ -282,10 +282,10 @@ namespace SomeSettings
 
                 parent.AIVs[playerId - 1].decode(encoded);
                 applied = true;
-                log.LogInfo($"SomeSettings loaded/applied remembered AI AIV/lord selection: reason={reason}, key={key}, lobbyPlayer={playerId}, previousKey={(before.TryGetValue(playerId, out previousKey) ? previousKey : "<new-slot>")}, previousEncodedLength={(currentEncoded == null ? 0 : currentEncoded.Length)}, {BuildInfoSummary(decoded)}");
+                log.LogDebug($"SomeSettings loaded/applied remembered AI AIV/lord selection: reason={reason}, key={key}, lobbyPlayer={playerId}, previousKey={(before.TryGetValue(playerId, out previousKey) ? previousKey : "<new-slot>")}, previousEncodedLength={(currentEncoded == null ? 0 : currentEncoded.Length)}, {BuildInfoSummary(decoded)}");
             }
 
-            log.LogInfo($"SomeSettings AI selection memory apply scan finished: reason={reason}, applied={applied}");
+            log.LogDebug($"SomeSettings AI selection memory apply scan finished: reason={reason}, applied={applied}");
             return applied;
         }
 
