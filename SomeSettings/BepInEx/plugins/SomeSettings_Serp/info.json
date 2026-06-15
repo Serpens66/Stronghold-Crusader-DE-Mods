@@ -12,6 +12,13 @@
       "Changes": [
         "Minimap dragging now follows the mouse cursor directly."
       ]
+    },
+    {
+      "Version": "1.0.2",
+      "Changes": [
+        "Add Slider for Market Buy/Sell Prices",
+        "Added checkbox to remember the last used AIV/AIC setting for the AI"
+      ]
     }
   ]
 }

@@ -25,6 +25,7 @@ namespace SomeSettings
         private double marketBuyPriceMultiplier = 1.0;
         private double marketSellPriceMultiplier = 1.0;
         private bool keepStorageContent;
+        private bool rememberAiAivSettings = true;
         private readonly bool[] allowMinimapWhilePlacingBuildingData = new bool[9];
 
         public SomeSettingsViewModel()
@@ -49,6 +50,8 @@ namespace SomeSettings
         public string MarketKeyMainTradeMenuHelpText => SerpLocalization.Get(SerpLocalization.MarketKeyMainTradeMenuHelp);
         public string AllowMinimapWhilePlacingBuildingText => SerpLocalization.Get(SerpLocalization.AllowMinimapWhilePlacingBuilding);
         public string AllowMinimapWhilePlacingBuildingHelpText => SerpLocalization.Get(SerpLocalization.AllowMinimapWhilePlacingBuildingHelp);
+        public string RememberAiAivSettingsText => SerpLocalization.Get(SerpLocalization.RememberAiAivSettings);
+        public string RememberAiAivSettingsHelpText => SerpLocalization.Get(SerpLocalization.RememberAiAivSettingsHelp);
         public string BulldozeTitleText => SerpLocalization.Get(SerpLocalization.BulldozeTitle);
         public string BulldozeHelpText => SerpLocalization.Get(SerpLocalization.BulldozeHelp);
         public string WoodRefundText => SerpLocalization.Get(SerpLocalization.WoodRefund);
@@ -159,6 +162,7 @@ namespace SomeSettings
         [SyncHostOnly] public int MultiplyGoodsGainInMoneyHuman { get => multiplyGoodsGainInMoneyHuman; set => SetIntSetting(ref multiplyGoodsGainInMoneyHuman, value, nameof(MultiplyGoodsGainInMoneyHuman), nameof(MultiplyGoodsGainInMoneyHumanText)); }
         [SyncHostOnly] public double MarketBuyPriceMultiplier { get => marketBuyPriceMultiplier; set => SetDoubleSetting(ref marketBuyPriceMultiplier, value, nameof(MarketBuyPriceMultiplier), nameof(MarketBuyPriceMultiplierValueText)); }
         [SyncHostOnly] public double MarketSellPriceMultiplier { get => marketSellPriceMultiplier; set => SetDoubleSetting(ref marketSellPriceMultiplier, value, nameof(MarketSellPriceMultiplier), nameof(MarketSellPriceMultiplierValueText)); }
+        [SyncHostOnly] public bool RememberAiAivSettings { get => rememberAiAivSettings; set => SetSetting(ref rememberAiAivSettings, value, nameof(RememberAiAivSettings)); }
 
         public string MultiplyGoodsGainAIText { get => MultiplyGoodsGainAI.ToString(); set => SetIntText(value, parsed => MultiplyGoodsGainAI = parsed, nameof(MultiplyGoodsGainAIText)); }
         public string MultiplyGoodsGainHumanText { get => MultiplyGoodsGainHuman.ToString(); set => SetIntText(value, parsed => MultiplyGoodsGainHuman = parsed, nameof(MultiplyGoodsGainHumanText)); }
@@ -181,6 +185,7 @@ namespace SomeSettings
             MultiplyGoodsGainInMoneyHuman = 0;
             MarketBuyPriceMultiplier = 1.0;
             MarketSellPriceMultiplier = 1.0;
+            RememberAiAivSettings = true;
             SetAllowMinimapDefaults();
             SettingChanged?.Invoke(nameof(AllowMinimapWhilePlacingBuilding));
             OnPropertyChanged(nameof(AllowMinimapWhilePlacingBuilding));

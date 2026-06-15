@@ -102,6 +102,7 @@
       <Link>Shared\SerpLocalization.cs</Link>
     </Compile>
     <Compile Include="src\MinimapPlacementClickHook.cs" />
+    <Compile Include="src\SkirmishAiSelectionMemoryHook.cs" />
     <Compile Include="src\SomeSettingsPlugin.cs" />
     <Compile Include="src\SomeSettingsRuntime.cs" />
     <Compile Include="src\SomeSettingsViewModel.cs" />

@@ -11,7 +11,7 @@
 -- KI kann Soldaten von Spielern überbauen und dadurch löschen: wenn möglich soldaten stattdessen verschieben
 -- - UCP KI improvements, siehe ucp anpassungen (zb häuser bauen, schlafen legen, abreißen usw.)
 -- - save last AI settings (chosen AIV/AIC)
-
+-- - die Trails haben alle einen "Anpassen" Button um die karte des trails in skirmish zu laden. Kann man diesen auch bei coop trails zufügen?
 
 
 -- C# mods:

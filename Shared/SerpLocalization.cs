@@ -72,6 +72,8 @@ public static class SerpLocalization
     public const string MarketBuyPriceMultiplierHelp = "SomeSettings.MarketBuyPriceMultiplierHelp";
     public const string MarketSellPriceMultiplier = "SomeSettings.MarketSellPriceMultiplier";
     public const string MarketSellPriceMultiplierHelp = "SomeSettings.MarketSellPriceMultiplierHelp";
+    public const string RememberAiAivSettings = "SomeSettings.RememberAiAivSettings";
+    public const string RememberAiAivSettingsHelp = "SomeSettings.RememberAiAivSettingsHelp";
 
     private const string DefaultLocale = "en-US";
     private static Dictionary<string, string> loadedTexts;
@@ -144,7 +146,9 @@ public static class SerpLocalization
         { MarketBuyPriceMultiplier, "Buy prices" },
         { MarketBuyPriceMultiplierHelp, "Multiplier for all market buy prices. 1.0 = unchanged, 0.0 = free, 5.0 = five times the vanilla price." },
         { MarketSellPriceMultiplier, "Sell prices" },
-        { MarketSellPriceMultiplierHelp, "Multiplier for all market sell prices. 1.0 = unchanged, 0.0 = no gold from selling, 5.0 = five times the vanilla price." }
+        { MarketSellPriceMultiplierHelp, "Multiplier for all market sell prices. 1.0 = unchanged, 0.0 = no gold from selling, 5.0 = five times the vanilla price." },
+        { RememberAiAivSettings, "Remember AI castle/settings selection" },
+        { RememberAiAivSettingsHelp, "When enabled, the last AIV, rotation, and custom lord settings selected for each AI lord are applied automatically when that AI is added to a skirmish lobby." }
     };
 
     public static string Get(string key)

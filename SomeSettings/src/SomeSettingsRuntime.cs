@@ -30,6 +30,7 @@ namespace SomeSettings
         private readonly Dictionary<string, ResourceEventCountGuard> refundResourceGuards = new Dictionary<string, ResourceEventCountGuard>();
         private PendingStockpileRefund pendingStockpileRefund;
         private MinimapPlacementClickHook minimapPlacementClickHook;
+        private SkirmishAiSelectionMemoryHook skirmishAiSelectionMemoryHook;
 
         private bool hooksSubscribed;
         private bool settingsSubscribed;
@@ -76,6 +77,7 @@ namespace SomeSettings
                 .Where(args => args.Phase == EventHookPhase.Post)
                 .Subscribe(OnUnloadMap));
             minimapPlacementClickHook = new MinimapPlacementClickHook(log, settings);
+            skirmishAiSelectionMemoryHook = new SkirmishAiSelectionMemoryHook(log, settings);
             hooksSubscribed = true;
             log.LogDebug("SomeSettings hooks subscribed.");
         }
@@ -114,6 +116,8 @@ namespace SomeSettings
             subscriptions.Clear();
             minimapPlacementClickHook?.Dispose();
             minimapPlacementClickHook = null;
+            skirmishAiSelectionMemoryHook?.Dispose();
+            skirmishAiSelectionMemoryHook = null;
             ClearResourceEventGuards();
             pendingStockpileRefund = null;
             hooksSubscribed = false;

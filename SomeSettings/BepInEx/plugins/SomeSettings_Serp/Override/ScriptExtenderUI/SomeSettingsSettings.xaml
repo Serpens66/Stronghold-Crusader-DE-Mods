@@ -25,6 +25,12 @@
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding AllowMinimapWhilePlacingBuildingText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox>
+      <CheckBox IsChecked="{Binding RememberAiAivSettings, Mode=TwoWay}"
+                Foreground="White"
+                ToolTip="{Binding RememberAiAivSettingsHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding RememberAiAivSettingsText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox>
       <TextBlock Text="{Binding BulldozeTitleText}" Foreground="#77AAFF" FontWeight="Bold" Margin="0,0,0,4"/>
       <TextBlock Text="{Binding BulldozeHelpText}"
                  Foreground="#CCCCCC" TextWrapping="Wrap" Margin="0,0,0,8"/>

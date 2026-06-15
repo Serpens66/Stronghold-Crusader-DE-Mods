@@ -28,3 +28,5 @@ SomeSettings.MarketBuyPriceMultiplier=Kaufpreise
 SomeSettings.MarketBuyPriceMultiplierHelp=Multiplikator fuer alle Markt-Kaufpreise. 1.0 = unveraendert, 0.0 = kostenlos, 5.0 = fuenffacher Vanilla-Preis.
 SomeSettings.MarketSellPriceMultiplier=Verkaufspreise
 SomeSettings.MarketSellPriceMultiplierHelp=Multiplikator fuer alle Markt-Verkaufspreise. 1.0 = unveraendert, 0.0 = kein Gold durch Verkauf, 5.0 = fuenffacher Vanilla-Preis.
+SomeSettings.RememberAiAivSettings=Remember AI castle/settings selection
+SomeSettings.RememberAiAivSettingsHelp=When enabled, the last AIV, rotation, and custom lord settings selected for each AI lord are applied automatically when that AI is added to a skirmish lobby.
