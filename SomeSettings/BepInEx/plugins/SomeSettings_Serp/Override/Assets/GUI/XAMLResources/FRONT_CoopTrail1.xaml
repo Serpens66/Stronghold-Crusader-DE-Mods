@@ -1,0 +1,3259 @@
+<!-- NOTDEMOSTART -->
+<UserControl
+    x:Class="CrusaderDE.FRONT_CoopTrail1"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:b="http://schemas.microsoft.com/xaml/behaviors"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="clr-namespace:CrusaderDE"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:noesis="clr-namespace:NoesisGUIExtensions;assembly=Noesis.GUI.Extensions"
+    d:DesignHeight="1080"
+    d:DesignWidth="1920"
+    mc:Ignorable="d">
+
+
+    <UserControl.Resources>
+
+        <BooleanToVisibilityConverter x:Key="booleanToVisibilityConverter" />
+        <Storyboard
+            x:Key="FlagAnim"
+            RepeatBehavior="Forever"
+            Duration="0:0:0.96">
+            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="Flag" Storyboard.TargetProperty="Source">
+                <DiscreteObjectKeyFrame KeyTime="0:0:0.00" Value="{StaticResource skirmish_trail_icons-16}" />
+                <DiscreteObjectKeyFrame KeyTime="0:0:0.06" Value="{StaticResource skirmish_trail_icons-17}" />
+                <DiscreteObjectKeyFrame KeyTime="0:0:0.12" Value="{StaticResource skirmish_trail_icons-18}" />
+                <DiscreteObjectKeyFrame KeyTime="0:0:0.18" Value="{StaticResource skirmish_trail_icons-19}" />
+                <DiscreteObjectKeyFrame KeyTime="0:0:0.24" Value="{StaticResource skirmish_trail_icons-20}" />
+                <DiscreteObjectKeyFrame KeyTime="0:0:0.30" Value="{StaticResource skirmish_trail_icons-21}" />
+                <DiscreteObjectKeyFrame KeyTime="0:0:0.36" Value="{StaticResource skirmish_trail_icons-22}" />
+                <DiscreteObjectKeyFrame KeyTime="0:0:0.42" Value="{StaticResource skirmish_trail_icons-23}" />
+                <DiscreteObjectKeyFrame KeyTime="0:0:0.48" Value="{StaticResource skirmish_trail_icons-24}" />
+                <DiscreteObjectKeyFrame KeyTime="0:0:0.54" Value="{StaticResource skirmish_trail_icons-25}" />
+                <DiscreteObjectKeyFrame KeyTime="0:0:0.60" Value="{StaticResource skirmish_trail_icons-26}" />
+                <DiscreteObjectKeyFrame KeyTime="0:0:0.66" Value="{StaticResource skirmish_trail_icons-27}" />
+                <DiscreteObjectKeyFrame KeyTime="0:0:0.72" Value="{StaticResource skirmish_trail_icons-28}" />
+                <DiscreteObjectKeyFrame KeyTime="0:0:0.78" Value="{StaticResource skirmish_trail_icons-29}" />
+                <DiscreteObjectKeyFrame KeyTime="0:0:0.84" Value="{StaticResource skirmish_trail_icons-30}" />
+                <DiscreteObjectKeyFrame KeyTime="0:0:0.90" Value="{StaticResource skirmish_trail_icons-31}" />
+            </ObjectAnimationUsingKeyFrames>
+        </Storyboard>
+    </UserControl.Resources>
+
+    <UserControl.Triggers>
+        <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+            <BeginStoryboard Storyboard="{StaticResource FlagAnim}" />
+        </EventTrigger>
+    </UserControl.Triggers>
+
+    <Grid
+        Name="mapgrid"
+        Background="Black"
+        Width="1920"
+        Height="1080"
+        IsHitTestVisible="True">
+
+        <Image
+            Name="Basemap"
+            Width="1920"
+            Height="1080"
+            Margin="0,0,0,0"
+            FlowDirection="{Binding GlobalTextFlow}"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            Source="../Images/SkirmishCoop1Map.png"
+            Stretch="UniformToFill" />
+
+        <Grid
+            Visibility="{Binding Show_CoopMapIcons, Converter={StaticResource booleanToVisibilityConverter}}">
+            <Image
+                x:Name="Knight"
+                Width="340"
+                Height="210"
+                Margin="-75,-190, -1000, -1000"
+                FlowDirection="{Binding GlobalTextFlow}"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                RenderTransformOrigin="0,1"
+                IsHitTestVisible="False"
+                Panel.ZIndex="{Binding KnightZPos}"
+                Source="{Binding TrailKnight}">
+                <Image.RenderTransform>
+                    <TransformGroup>
+                        <TranslateTransform
+                            X="{Binding KnightXPos}" />
+                        <TranslateTransform
+                            Y="{Binding KnightYPos}" />
+                    </TransformGroup>
+                </Image.RenderTransform>
+            </Image>
+
+            <!-- swords/chickens -->
+            <Image
+                Height="100"
+                Margin="-94,-132,-1000,-1000"
+                Panel.ZIndex="{Binding TrailSwordYPos[0]}"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                RenderTransformOrigin="0,1"
+                IsHitTestVisible="False"
+                Source="{Binding TrailSwordImg0}">
+                <Image.RenderTransform>
+                    <TransformGroup>
+                        <TranslateTransform
+                            X="{Binding TrailSwordXPos[0]}" />
+                        <TranslateTransform
+                            Y="{Binding TrailSwordYPos[0]}" />
+                    </TransformGroup>
+                </Image.RenderTransform>
+            </Image>
+            <Image
+                Height="100"
+                Margin="-94,-132,-1000,-1000"
+                Panel.ZIndex="{Binding TrailSwordYPos[1]}"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                RenderTransformOrigin="0,1"
+                IsHitTestVisible="False"
+                Source="{Binding TrailSwordImg1}">
+                <Image.RenderTransform>
+                    <TransformGroup>
+                        <TranslateTransform
+                            X="{Binding TrailSwordXPos[1]}" />
+                        <TranslateTransform
+                            Y="{Binding TrailSwordYPos[1]}" />
+                    </TransformGroup>
+                </Image.RenderTransform>
+            </Image>
+            <Image
+                Height="100"
+                Margin="-94,-132,-1000,-1000"
+                Panel.ZIndex="{Binding TrailSwordYPos[2]}"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                RenderTransformOrigin="0,1"
+                IsHitTestVisible="False"
+                Source="{Binding TrailSwordImg2}">
+                <Image.RenderTransform>
+                    <TransformGroup>
+                        <TranslateTransform
+                            X="{Binding TrailSwordXPos[2]}" />
+                        <TranslateTransform
+                            Y="{Binding TrailSwordYPos[2]}" />
+                    </TransformGroup>
+                </Image.RenderTransform>
+            </Image>
+            <Image
+                Height="100"
+                Margin="-94,-132,-1000,-1000"
+                Panel.ZIndex="{Binding TrailSwordYPos[3]}"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                RenderTransformOrigin="0,1"
+                IsHitTestVisible="False"
+                Source="{Binding TrailSwordImg3}">
+                <Image.RenderTransform>
+                    <TransformGroup>
+                        <TranslateTransform
+                            X="{Binding TrailSwordXPos[3]}" />
+                        <TranslateTransform
+                            Y="{Binding TrailSwordYPos[3]}" />
+                    </TransformGroup>
+                </Image.RenderTransform>
+            </Image>
+            <Image
+                Height="100"
+                Margin="-94,-132,-1000,-1000"
+                Panel.ZIndex="{Binding TrailSwordYPos[4]}"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                RenderTransformOrigin="0,1"
+                IsHitTestVisible="False"
+                Source="{Binding TrailSwordImg4}">
+                <Image.RenderTransform>
+                    <TransformGroup>
+                        <TranslateTransform
+                            X="{Binding TrailSwordXPos[4]}" />
+                        <TranslateTransform
+                            Y="{Binding TrailSwordYPos[4]}" />
+                    </TransformGroup>
+                </Image.RenderTransform>
+            </Image>
+            <Image
+                Height="100"
+                Margin="-94,-132,-1000,-1000"
+                Panel.ZIndex="{Binding TrailSwordYPos[5]}"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                RenderTransformOrigin="0,1"
+                IsHitTestVisible="False"
+                Source="{Binding TrailSwordImg5}">
+                <Image.RenderTransform>
+                    <TransformGroup>
+                        <TranslateTransform
+                            X="{Binding TrailSwordXPos[5]}" />
+                        <TranslateTransform
+                            Y="{Binding TrailSwordYPos[5]}" />
+                    </TransformGroup>
+                </Image.RenderTransform>
+            </Image>
+            <Image
+                Height="100"
+                Margin="-94,-132,-1000,-1000"
+                Panel.ZIndex="{Binding TrailSwordYPos[6]}"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                RenderTransformOrigin="0,1"
+                IsHitTestVisible="False"
+                Source="{Binding TrailSwordImg6}">
+                <Image.RenderTransform>
+                    <TransformGroup>
+                        <TranslateTransform
+                            X="{Binding TrailSwordXPos[6]}" />
+                        <TranslateTransform
+                            Y="{Binding TrailSwordYPos[6]}" />
+                    </TransformGroup>
+                </Image.RenderTransform>
+            </Image>
+            <Image
+                Height="100"
+                Margin="-94,-132,-1000,-1000"
+                Panel.ZIndex="{Binding TrailSwordYPos[7]}"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                RenderTransformOrigin="0,1"
+                IsHitTestVisible="False"
+                Source="{Binding TrailSwordImg7}">
+                <Image.RenderTransform>
+                    <TransformGroup>
+                        <TranslateTransform
+                            X="{Binding TrailSwordXPos[7]}" />
+                        <TranslateTransform
+                            Y="{Binding TrailSwordYPos[7]}" />
+                    </TransformGroup>
+                </Image.RenderTransform>
+            </Image>
+            <Image
+                Height="100"
+                Margin="-94,-132,-1000,-1000"
+                Panel.ZIndex="{Binding TrailSwordYPos[8]}"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                RenderTransformOrigin="0,1"
+                IsHitTestVisible="False"
+                Source="{Binding TrailSwordImg8}">
+                <Image.RenderTransform>
+                    <TransformGroup>
+                        <TranslateTransform
+                            X="{Binding TrailSwordXPos[8]}" />
+                        <TranslateTransform
+                            Y="{Binding TrailSwordYPos[8]}" />
+                    </TransformGroup>
+                </Image.RenderTransform>
+            </Image>
+            <Image
+                Height="100"
+                Margin="-94,-132,-1000,-1000"
+                Panel.ZIndex="{Binding TrailSwordYPos[9]}"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                RenderTransformOrigin="0,1"
+                IsHitTestVisible="False"
+                Source="{Binding TrailSwordImg9}">
+                <Image.RenderTransform>
+                    <TransformGroup>
+                        <TranslateTransform
+                            X="{Binding TrailSwordXPos[9]}" />
+                        <TranslateTransform
+                            Y="{Binding TrailSwordYPos[9]}" />
+                    </TransformGroup>
+                </Image.RenderTransform>
+            </Image>
+
+
+
+            <Image
+                x:Name="Flag"
+                Height="120"
+                Margin="-69,-170, -1000, -1000"
+                FlowDirection="{Binding GlobalTextFlow}"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                RenderTransformOrigin="0,1"
+                IsHitTestVisible="False"
+                Panel.ZIndex="20000"
+                Source="{StaticResource UISprites D001}">
+                <Image.RenderTransform>
+                    <TransformGroup>
+                        <TranslateTransform
+                            X="{Binding FlagXPos}" />
+                        <TranslateTransform
+                            Y="{Binding FlagYPos}" />
+                    </TransformGroup>
+                </Image.RenderTransform>
+            </Image>
+        </Grid>
+
+        <Grid
+            Margin="0,0,0,0"
+            Width="1920"
+            Height="1080"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Center">
+
+            <!-- Controls -->
+            <Grid
+                Width="680"
+                Height="940"
+                Margin="10,30,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top">
+                <Button
+                    Margin="5,0,0,0"
+                    Width="640"
+                    Height="910"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Top"
+                    Style="{StaticResource BDR_Wood}" />
+                <Viewbox
+                    Width="600"
+                    Height="855"
+                    Margin="45,10,0,0"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top">
+                    <Grid
+                        Margin="10,15,0,0"
+                        Width="400"
+                        Height="590">
+                        <Grid
+                            Name="HostInvitePane"
+                            Visibility="{Binding Show_CoopHostInvitePane, Converter={StaticResource booleanToVisibilityConverter}}">
+
+                            <!-- previous player list -->
+                            <StackPanel
+                                Margin="10,50,0,0"
+                                HorizontalAlignment="Left"
+                                VerticalAlignment="Top">
+                                <Grid
+                                    x:Name="Row1"
+                                    Width="360"
+                                    Height="30"
+                                    Margin="0,0,0,0"
+                                    HorizontalAlignment="Left"
+                                    VerticalAlignment="Top"
+                                    Background="#44000000">
+                                    <Image
+                                        Margin="5,0,0,0"
+                                        Width="30"
+                                        Height="30"
+                                        HorizontalAlignment="Left"
+                                        VerticalAlignment="Center"
+                                        Source="{Binding Coop_Image_1}" />
+                                    <TextBlock
+                                        Margin="40,3,0,0"
+                                        HorizontalAlignment="Left"
+                                        VerticalAlignment="Center"
+                                        Text="{Binding Coop_Name_1}"
+                                        Foreground="{StaticResource Brush.Accent7}"
+                                        TextAlignment="Left" />
+                                    <Button
+                                        HorizontalAlignment="Stretch"
+                                        VerticalAlignment="Stretch"
+                                        Opacity="0"
+                                        Command="{Binding MultiplayerMenuCommand}"
+                                        CommandParameter="Coop_Friend1">
+                                        <b:Interaction.Triggers>
+                                            <b:EventTrigger
+                                                EventName="MouseRightButtonUp">
+                                                <b:InvokeCommandAction
+                                                    Command="{Binding MultiplayerMenuCommand}"
+                                                    CommandParameter="Coop_Friend1-" />
+                                            </b:EventTrigger>
+                                        </b:Interaction.Triggers>
+                                    </Button>
+                                    <Button
+                                        Width="30"
+                                        Margin="0,0,100,0"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Center"
+                                        Visibility="{Binding Coop_Hide_Line_1}"
+                                        local:PropEx.Sprite1="{StaticResource btn_Hide}"
+                                        local:PropEx.Sprite2="{StaticResource btn_Hide_Over}"
+                                        local:PropEx.Sprite3="{StaticResource btn_Hide_Over}"
+                                        local:PropEx.Sprite4="{StaticResource btn_Hide}"
+                                        Command="{Binding MultiplayerMenuCommand}"
+                                        CommandParameter="Coop_Friend1-"
+                                        Style="{StaticResource BTN_Image}" />
+                                    <Button
+                                        Width="30"
+                                        Margin="0,0,100,0"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Center"
+                                        Visibility="{Binding Coop_Show_Line_1}"
+                                        local:PropEx.Sprite1="{StaticResource btn_Show}"
+                                        local:PropEx.Sprite2="{StaticResource btn_Show_Over}"
+                                        local:PropEx.Sprite3="{StaticResource btn_Show_Over}"
+                                        local:PropEx.Sprite4="{StaticResource btn_Show}"
+                                        Command="{Binding MultiplayerMenuCommand}"
+                                        CommandParameter="Coop_Friend1-"
+                                        Style="{StaticResource BTN_Image}" />
+                                    <Viewbox
+                                        Width="100"
+                                        Margin="0,0,0,0"
+                                        Visibility="{Binding Coop_Invite_Line_1}"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Center">
+                                        <Button
+                                            Width="150"
+                                            local:PropEx.TextCentre="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_NEW_TEXT2_058]}"
+                                            local:PropEx.TextLeft=""
+                                            local:PropEx.TextRight=""
+                                            local:PropEx.GlowButtonTextHeight="28"
+                                            Command="{Binding MultiplayerMenuCommand}"
+                                            CommandParameter="Invite"
+                                            Style="{StaticResource BTN_SH_GlowL}" />
+                                    </Viewbox>
+                                    <Viewbox
+                                        Width="100"
+                                        Margin="0,0,0,0"
+                                        Visibility="{Binding Coop_Continue_Line_1}"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Center">
+                                        <Button
+                                            Width="150"
+                                            local:PropEx.TextCentre="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_TUTORIAL_BUTTONS_002]}"
+                                            local:PropEx.TextLeft=""
+                                            local:PropEx.TextRight=""
+                                            local:PropEx.GlowButtonTextHeight="28"
+                                            Command="{Binding MultiplayerMenuCommand}"
+                                            CommandParameter="CoopContinue1"
+                                            Style="{StaticResource BTN_SH_GlowL}" />
+                                    </Viewbox>
+                                </Grid>
+                                <Grid
+                                    x:Name="Row2"
+                                    Width="360"
+                                    Height="30"
+                                    Margin="0,0,0,0"
+                                    HorizontalAlignment="Left"
+                                    VerticalAlignment="Top"
+                                    Background="#22000000">
+                                    <Image
+                                        Margin="5,0,0,0"
+                                        Width="30"
+                                        Height="30"
+                                        HorizontalAlignment="Left"
+                                        VerticalAlignment="Center"
+                                        Source="{Binding Coop_Image_2}" />
+                                    <TextBlock
+                                        Margin="40,3,0,0"
+                                        HorizontalAlignment="Left"
+                                        VerticalAlignment="Center"
+                                        Text="{Binding Coop_Name_2}"
+                                        Foreground="{StaticResource Brush.Accent7}"
+                                        TextAlignment="Left" />
+                                    <Button
+                                        HorizontalAlignment="Stretch"
+                                        VerticalAlignment="Stretch"
+                                        Opacity="0"
+                                        Command="{Binding MultiplayerMenuCommand}"
+                                        CommandParameter="Coop_Friend2">
+                                        <b:Interaction.Triggers>
+                                            <b:EventTrigger
+                                                EventName="MouseRightButtonUp">
+                                                <b:InvokeCommandAction
+                                                    Command="{Binding MultiplayerMenuCommand}"
+                                                    CommandParameter="Coop_Friend2-" />
+                                            </b:EventTrigger>
+                                        </b:Interaction.Triggers>
+                                    </Button>
+                                    <Button
+                                        Width="30"
+                                        Margin="0,0,100,0"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Center"
+                                        Visibility="{Binding Coop_Hide_Line_2}"
+                                        local:PropEx.Sprite1="{StaticResource btn_Hide}"
+                                        local:PropEx.Sprite2="{StaticResource btn_Hide_Over}"
+                                        local:PropEx.Sprite3="{StaticResource btn_Hide_Over}"
+                                        local:PropEx.Sprite4="{StaticResource btn_Hide}"
+                                        Command="{Binding MultiplayerMenuCommand}"
+                                        CommandParameter="Coop_Friend2-"
+                                        Style="{StaticResource BTN_Image}" />
+                                    <Button
+                                        Width="30"
+                                        Margin="0,0,100,0"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Center"
+                                        Visibility="{Binding Coop_Show_Line_2}"
+                                        local:PropEx.Sprite1="{StaticResource btn_Show}"
+                                        local:PropEx.Sprite2="{StaticResource btn_Show_Over}"
+                                        local:PropEx.Sprite3="{StaticResource btn_Show_Over}"
+                                        local:PropEx.Sprite4="{StaticResource btn_Show}"
+                                        Command="{Binding MultiplayerMenuCommand}"
+                                        CommandParameter="Coop_Friend2-"
+                                        Style="{StaticResource BTN_Image}" />
+                                    <Viewbox
+                                        Width="100"
+                                        Margin="0,0,0,0"
+                                        Visibility="{Binding Coop_Invite_Line_2}"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Center">
+                                        <Button
+                                            Width="150"
+                                            local:PropEx.TextCentre="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_NEW_TEXT2_058]}"
+                                            local:PropEx.TextLeft=""
+                                            local:PropEx.TextRight=""
+                                            local:PropEx.GlowButtonTextHeight="28"
+                                            Command="{Binding MultiplayerMenuCommand}"
+                                            CommandParameter="Invite"
+                                            Style="{StaticResource BTN_SH_GlowL}" />
+                                    </Viewbox>
+                                    <Viewbox
+                                        Width="100"
+                                        Margin="0,0,0,0"
+                                        Visibility="{Binding Coop_Continue_Line_2}"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Center">
+                                        <Button
+                                            Width="150"
+                                            local:PropEx.TextCentre="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_TUTORIAL_BUTTONS_002]}"
+                                            local:PropEx.TextLeft=""
+                                            local:PropEx.TextRight=""
+                                            local:PropEx.GlowButtonTextHeight="28"
+                                            Command="{Binding MultiplayerMenuCommand}"
+                                            CommandParameter="CoopContinue2"
+                                            Style="{StaticResource BTN_SH_GlowL}" />
+                                    </Viewbox>
+                                </Grid>
+                                <Grid
+                                    x:Name="Row3"
+                                    Width="360"
+                                    Height="30"
+                                    Margin="0,0,0,0"
+                                    HorizontalAlignment="Left"
+                                    VerticalAlignment="Top"
+                                    Background="#44000000">
+                                    <Image
+                                        Margin="5,0,0,0"
+                                        Width="30"
+                                        Height="30"
+                                        HorizontalAlignment="Left"
+                                        VerticalAlignment="Center"
+                                        Source="{Binding Coop_Image_3}" />
+                                    <TextBlock
+                                        Margin="40,3,0,0"
+                                        HorizontalAlignment="Left"
+                                        VerticalAlignment="Center"
+                                        Text="{Binding Coop_Name_3}"
+                                        Foreground="{StaticResource Brush.Accent7}"
+                                        TextAlignment="Left" />
+                                    <Button
+                                        HorizontalAlignment="Stretch"
+                                        VerticalAlignment="Stretch"
+                                        Opacity="0"
+                                        Command="{Binding MultiplayerMenuCommand}"
+                                        CommandParameter="Coop_Friend3">
+                                        <b:Interaction.Triggers>
+                                            <b:EventTrigger
+                                                EventName="MouseRightButtonUp">
+                                                <b:InvokeCommandAction
+                                                    Command="{Binding MultiplayerMenuCommand}"
+                                                    CommandParameter="Coop_Friend3-" />
+                                            </b:EventTrigger>
+                                        </b:Interaction.Triggers>
+                                    </Button>
+                                    <Button
+                                        Width="30"
+                                        Margin="0,0,100,0"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Center"
+                                        Visibility="{Binding Coop_Hide_Line_3}"
+                                        local:PropEx.Sprite1="{StaticResource btn_Hide}"
+                                        local:PropEx.Sprite2="{StaticResource btn_Hide_Over}"
+                                        local:PropEx.Sprite3="{StaticResource btn_Hide_Over}"
+                                        local:PropEx.Sprite4="{StaticResource btn_Hide}"
+                                        Command="{Binding MultiplayerMenuCommand}"
+                                        CommandParameter="Coop_Friend3-"
+                                        Style="{StaticResource BTN_Image}" />
+                                    <Button
+                                        Width="30"
+                                        Margin="0,0,100,0"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Center"
+                                        Visibility="{Binding Coop_Show_Line_3}"
+                                        local:PropEx.Sprite1="{StaticResource btn_Show}"
+                                        local:PropEx.Sprite2="{StaticResource btn_Show_Over}"
+                                        local:PropEx.Sprite3="{StaticResource btn_Show_Over}"
+                                        local:PropEx.Sprite4="{StaticResource btn_Show}"
+                                        Command="{Binding MultiplayerMenuCommand}"
+                                        CommandParameter="Coop_Friend3-"
+                                        Style="{StaticResource BTN_Image}" />
+                                    <Viewbox
+                                        Width="100"
+                                        Margin="0,0,0,0"
+                                        Visibility="{Binding Coop_Invite_Line_3}"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Center">
+                                        <Button
+                                            Width="150"
+                                            local:PropEx.TextCentre="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_NEW_TEXT2_058]}"
+                                            local:PropEx.TextLeft=""
+                                            local:PropEx.TextRight=""
+                                            local:PropEx.GlowButtonTextHeight="28"
+                                            Command="{Binding MultiplayerMenuCommand}"
+                                            CommandParameter="Invite"
+                                            Style="{StaticResource BTN_SH_GlowL}" />
+                                    </Viewbox>
+                                    <Viewbox
+                                        Width="100"
+                                        Margin="0,0,0,0"
+                                        Visibility="{Binding Coop_Continue_Line_3}"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Center">
+                                        <Button
+                                            Width="150"
+                                            local:PropEx.TextCentre="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_TUTORIAL_BUTTONS_002]}"
+                                            local:PropEx.TextLeft=""
+                                            local:PropEx.TextRight=""
+                                            local:PropEx.GlowButtonTextHeight="28"
+                                            Command="{Binding MultiplayerMenuCommand}"
+                                            CommandParameter="CoopContinue3"
+                                            Style="{StaticResource BTN_SH_GlowL}" />
+                                    </Viewbox>
+                                </Grid>
+                                <Grid
+                                    x:Name="Row4"
+                                    Width="360"
+                                    Height="30"
+                                    Margin="0,0,0,0"
+                                    HorizontalAlignment="Left"
+                                    VerticalAlignment="Top"
+                                    Background="#22000000">
+                                    <Image
+                                        Margin="5,0,0,0"
+                                        Width="30"
+                                        Height="30"
+                                        HorizontalAlignment="Left"
+                                        VerticalAlignment="Center"
+                                        Source="{Binding Coop_Image_4}" />
+                                    <TextBlock
+                                        Margin="40,3,0,0"
+                                        HorizontalAlignment="Left"
+                                        VerticalAlignment="Center"
+                                        Text="{Binding Coop_Name_4}"
+                                        Foreground="{StaticResource Brush.Accent7}"
+                                        TextAlignment="Left" />
+                                    <Button
+                                        HorizontalAlignment="Stretch"
+                                        VerticalAlignment="Stretch"
+                                        Opacity="0"
+                                        Command="{Binding MultiplayerMenuCommand}"
+                                        CommandParameter="Coop_Friend4">
+                                        <b:Interaction.Triggers>
+                                            <b:EventTrigger
+                                                EventName="MouseRightButtonUp">
+                                                <b:InvokeCommandAction
+                                                    Command="{Binding MultiplayerMenuCommand}"
+                                                    CommandParameter="Coop_Friend4-" />
+                                            </b:EventTrigger>
+                                        </b:Interaction.Triggers>
+                                    </Button>
+                                    <Button
+                                        Width="30"
+                                        Margin="0,0,100,0"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Center"
+                                        Visibility="{Binding Coop_Hide_Line_4}"
+                                        local:PropEx.Sprite1="{StaticResource btn_Hide}"
+                                        local:PropEx.Sprite2="{StaticResource btn_Hide_Over}"
+                                        local:PropEx.Sprite3="{StaticResource btn_Hide_Over}"
+                                        local:PropEx.Sprite4="{StaticResource btn_Hide}"
+                                        Command="{Binding MultiplayerMenuCommand}"
+                                        CommandParameter="Coop_Friend4-"
+                                        Style="{StaticResource BTN_Image}" />
+                                    <Button
+                                        Width="30"
+                                        Margin="0,0,100,0"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Center"
+                                        Visibility="{Binding Coop_Show_Line_4}"
+                                        local:PropEx.Sprite1="{StaticResource btn_Show}"
+                                        local:PropEx.Sprite2="{StaticResource btn_Show_Over}"
+                                        local:PropEx.Sprite3="{StaticResource btn_Show_Over}"
+                                        local:PropEx.Sprite4="{StaticResource btn_Show}"
+                                        Command="{Binding MultiplayerMenuCommand}"
+                                        CommandParameter="Coop_Friend4-"
+                                        Style="{StaticResource BTN_Image}" />
+                                    <Viewbox
+                                        Width="100"
+                                        Margin="0,0,0,0"
+                                        Visibility="{Binding Coop_Invite_Line_4}"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Center">
+                                        <Button
+                                            Width="150"
+                                            local:PropEx.TextCentre="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_NEW_TEXT2_058]}"
+                                            local:PropEx.TextLeft=""
+                                            local:PropEx.TextRight=""
+                                            local:PropEx.GlowButtonTextHeight="28"
+                                            Command="{Binding MultiplayerMenuCommand}"
+                                            CommandParameter="Invite"
+                                            Style="{StaticResource BTN_SH_GlowL}" />
+                                    </Viewbox>
+                                    <Viewbox
+                                        Width="100"
+                                        Margin="0,0,0,0"
+                                        Visibility="{Binding Coop_Continue_Line_4}"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Center">
+                                        <Button
+                                            Width="150"
+                                            local:PropEx.TextCentre="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_TUTORIAL_BUTTONS_002]}"
+                                            local:PropEx.TextLeft=""
+                                            local:PropEx.TextRight=""
+                                            local:PropEx.GlowButtonTextHeight="28"
+                                            Command="{Binding MultiplayerMenuCommand}"
+                                            CommandParameter="CoopContinue4"
+                                            Style="{StaticResource BTN_SH_GlowL}" />
+                                    </Viewbox>
+                                </Grid>
+                                <Grid
+                                    x:Name="Row5"
+                                    Width="360"
+                                    Height="30"
+                                    Margin="0,0,0,0"
+                                    HorizontalAlignment="Left"
+                                    VerticalAlignment="Top"
+                                    Background="#44000000">
+                                    <Image
+                                        Margin="5,0,0,0"
+                                        Width="30"
+                                        Height="30"
+                                        HorizontalAlignment="Left"
+                                        VerticalAlignment="Center"
+                                        Source="{Binding Coop_Image_5}" />
+                                    <TextBlock
+                                        Margin="40,3,0,0"
+                                        HorizontalAlignment="Left"
+                                        VerticalAlignment="Center"
+                                        Text="{Binding Coop_Name_5}"
+                                        Foreground="{StaticResource Brush.Accent7}"
+                                        TextAlignment="Left" />
+                                    <Button
+                                        HorizontalAlignment="Stretch"
+                                        VerticalAlignment="Stretch"
+                                        Opacity="0"
+                                        Command="{Binding MultiplayerMenuCommand}"
+                                        CommandParameter="Coop_Friend5">
+                                        <b:Interaction.Triggers>
+                                            <b:EventTrigger
+                                                EventName="MouseRightButtonUp">
+                                                <b:InvokeCommandAction
+                                                    Command="{Binding MultiplayerMenuCommand}"
+                                                    CommandParameter="Coop_Friend5-" />
+                                            </b:EventTrigger>
+                                        </b:Interaction.Triggers>
+                                    </Button>
+                                    <Button
+                                        Width="30"
+                                        Margin="0,0,100,0"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Center"
+                                        Visibility="{Binding Coop_Hide_Line_5}"
+                                        local:PropEx.Sprite1="{StaticResource btn_Hide}"
+                                        local:PropEx.Sprite2="{StaticResource btn_Hide_Over}"
+                                        local:PropEx.Sprite3="{StaticResource btn_Hide_Over}"
+                                        local:PropEx.Sprite4="{StaticResource btn_Hide}"
+                                        Command="{Binding MultiplayerMenuCommand}"
+                                        CommandParameter="Coop_Friend5-"
+                                        Style="{StaticResource BTN_Image}" />
+                                    <Button
+                                        Width="30"
+                                        Margin="0,0,100,0"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Center"
+                                        Visibility="{Binding Coop_Show_Line_5}"
+                                        local:PropEx.Sprite1="{StaticResource btn_Show}"
+                                        local:PropEx.Sprite2="{StaticResource btn_Show_Over}"
+                                        local:PropEx.Sprite3="{StaticResource btn_Show_Over}"
+                                        local:PropEx.Sprite4="{StaticResource btn_Show}"
+                                        Command="{Binding MultiplayerMenuCommand}"
+                                        CommandParameter="Coop_Friend5-"
+                                        Style="{StaticResource BTN_Image}" />
+                                    <Viewbox
+                                        Width="100"
+                                        Margin="0,0,0,0"
+                                        Visibility="{Binding Coop_Invite_Line_5}"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Center">
+                                        <Button
+                                            Width="150"
+                                            local:PropEx.TextCentre="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_NEW_TEXT2_058]}"
+                                            local:PropEx.TextLeft=""
+                                            local:PropEx.TextRight=""
+                                            local:PropEx.GlowButtonTextHeight="28"
+                                            Command="{Binding MultiplayerMenuCommand}"
+                                            CommandParameter="Invite"
+                                            Style="{StaticResource BTN_SH_GlowL}" />
+                                    </Viewbox>
+                                    <Viewbox
+                                        Width="100"
+                                        Margin="0,0,0,0"
+                                        Visibility="{Binding Coop_Continue_Line_5}"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Center">
+                                        <Button
+                                            Width="150"
+                                            local:PropEx.TextCentre="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_TUTORIAL_BUTTONS_002]}"
+                                            local:PropEx.TextLeft=""
+                                            local:PropEx.TextRight=""
+                                            local:PropEx.GlowButtonTextHeight="28"
+                                            Command="{Binding MultiplayerMenuCommand}"
+                                            CommandParameter="CoopContinue5"
+                                            Style="{StaticResource BTN_SH_GlowL}" />
+                                    </Viewbox>
+                                </Grid>
+                                <Grid
+                                    x:Name="Row6"
+                                    Width="360"
+                                    Height="30"
+                                    Margin="0,0,0,0"
+                                    HorizontalAlignment="Left"
+                                    VerticalAlignment="Top"
+                                    Background="#22000000">
+                                    <Image
+                                        Margin="5,0,0,0"
+                                        Width="30"
+                                        Height="30"
+                                        HorizontalAlignment="Left"
+                                        VerticalAlignment="Center"
+                                        Source="{Binding Coop_Image_6}" />
+                                    <TextBlock
+                                        Margin="40,3,0,0"
+                                        HorizontalAlignment="Left"
+                                        VerticalAlignment="Center"
+                                        Text="{Binding Coop_Name_6}"
+                                        Foreground="{StaticResource Brush.Accent7}"
+                                        TextAlignment="Left" />
+                                    <Button
+                                        HorizontalAlignment="Stretch"
+                                        VerticalAlignment="Stretch"
+                                        Opacity="0"
+                                        Command="{Binding MultiplayerMenuCommand}"
+                                        CommandParameter="Coop_Friend6">
+                                        <b:Interaction.Triggers>
+                                            <b:EventTrigger
+                                                EventName="MouseRightButtonUp">
+                                                <b:InvokeCommandAction
+                                                    Command="{Binding MultiplayerMenuCommand}"
+                                                    CommandParameter="Coop_Friend6-" />
+                                            </b:EventTrigger>
+                                        </b:Interaction.Triggers>
+                                    </Button>
+                                    <Button
+                                        Width="30"
+                                        Margin="0,0,100,0"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Center"
+                                        Visibility="{Binding Coop_Hide_Line_6}"
+                                        local:PropEx.Sprite1="{StaticResource btn_Hide}"
+                                        local:PropEx.Sprite2="{StaticResource btn_Hide_Over}"
+                                        local:PropEx.Sprite3="{StaticResource btn_Hide_Over}"
+                                        local:PropEx.Sprite4="{StaticResource btn_Hide}"
+                                        Command="{Binding MultiplayerMenuCommand}"
+                                        CommandParameter="Coop_Friend6-"
+                                        Style="{StaticResource BTN_Image}" />
+                                    <Button
+                                        Width="30"
+                                        Margin="0,0,100,0"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Center"
+                                        Visibility="{Binding Coop_Show_Line_6}"
+                                        local:PropEx.Sprite1="{StaticResource btn_Show}"
+                                        local:PropEx.Sprite2="{StaticResource btn_Show_Over}"
+                                        local:PropEx.Sprite3="{StaticResource btn_Show_Over}"
+                                        local:PropEx.Sprite4="{StaticResource btn_Show}"
+                                        Command="{Binding MultiplayerMenuCommand}"
+                                        CommandParameter="Coop_Friend6-"
+                                        Style="{StaticResource BTN_Image}" />
+                                    <Viewbox
+                                        Width="100"
+                                        Margin="0,0,0,0"
+                                        Visibility="{Binding Coop_Invite_Line_6}"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Center">
+                                        <Button
+                                            Width="150"
+                                            local:PropEx.TextCentre="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_NEW_TEXT2_058]}"
+                                            local:PropEx.TextLeft=""
+                                            local:PropEx.TextRight=""
+                                            local:PropEx.GlowButtonTextHeight="28"
+                                            Command="{Binding MultiplayerMenuCommand}"
+                                            CommandParameter="Invite"
+                                            Style="{StaticResource BTN_SH_GlowL}" />
+                                    </Viewbox>
+                                    <Viewbox
+                                        Width="100"
+                                        Margin="0,0,0,0"
+                                        Visibility="{Binding Coop_Continue_Line_6}"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Center">
+                                        <Button
+                                            Width="150"
+                                            local:PropEx.TextCentre="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_TUTORIAL_BUTTONS_002]}"
+                                            local:PropEx.TextLeft=""
+                                            local:PropEx.TextRight=""
+                                            local:PropEx.GlowButtonTextHeight="28"
+                                            Command="{Binding MultiplayerMenuCommand}"
+                                            CommandParameter="CoopContinue6"
+                                            Style="{StaticResource BTN_SH_GlowL}" />
+                                    </Viewbox>
+                                </Grid>
+                                <Grid
+                                    x:Name="Row7"
+                                    Width="360"
+                                    Height="30"
+                                    Margin="0,0,0,0"
+                                    HorizontalAlignment="Left"
+                                    VerticalAlignment="Top"
+                                    Background="#44000000">
+                                    <Image
+                                        Margin="5,0,0,0"
+                                        Width="30"
+                                        Height="30"
+                                        HorizontalAlignment="Left"
+                                        VerticalAlignment="Center"
+                                        Source="{Binding Coop_Image_7}" />
+                                    <TextBlock
+                                        Margin="40,3,0,0"
+                                        HorizontalAlignment="Left"
+                                        VerticalAlignment="Center"
+                                        Text="{Binding Coop_Name_7}"
+                                        Foreground="{StaticResource Brush.Accent7}"
+                                        TextAlignment="Left" />
+                                    <Button
+                                        HorizontalAlignment="Stretch"
+                                        VerticalAlignment="Stretch"
+                                        Opacity="0"
+                                        Command="{Binding MultiplayerMenuCommand}"
+                                        CommandParameter="Coop_Friend7">
+                                        <b:Interaction.Triggers>
+                                            <b:EventTrigger
+                                                EventName="MouseRightButtonUp">
+                                                <b:InvokeCommandAction
+                                                    Command="{Binding MultiplayerMenuCommand}"
+                                                    CommandParameter="Coop_Friend7-" />
+                                            </b:EventTrigger>
+                                        </b:Interaction.Triggers>
+                                    </Button>
+                                    <Button
+                                        Width="30"
+                                        Margin="0,0,100,0"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Center"
+                                        Visibility="{Binding Coop_Hide_Line_7}"
+                                        local:PropEx.Sprite1="{StaticResource btn_Hide}"
+                                        local:PropEx.Sprite2="{StaticResource btn_Hide_Over}"
+                                        local:PropEx.Sprite3="{StaticResource btn_Hide_Over}"
+                                        local:PropEx.Sprite4="{StaticResource btn_Hide}"
+                                        Command="{Binding MultiplayerMenuCommand}"
+                                        CommandParameter="Coop_Friend7-"
+                                        Style="{StaticResource BTN_Image}" />
+                                    <Button
+                                        Width="30"
+                                        Margin="0,0,100,0"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Center"
+                                        Visibility="{Binding Coop_Show_Line_7}"
+                                        local:PropEx.Sprite1="{StaticResource btn_Show}"
+                                        local:PropEx.Sprite2="{StaticResource btn_Show_Over}"
+                                        local:PropEx.Sprite3="{StaticResource btn_Show_Over}"
+                                        local:PropEx.Sprite4="{StaticResource btn_Show}"
+                                        Command="{Binding MultiplayerMenuCommand}"
+                                        CommandParameter="Coop_Friend7-"
+                                        Style="{StaticResource BTN_Image}" />
+                                    <Viewbox
+                                        Width="100"
+                                        Margin="0,0,0,0"
+                                        Visibility="{Binding Coop_Invite_Line_7}"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Center">
+                                        <Button
+                                            Width="150"
+                                            local:PropEx.TextCentre="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_NEW_TEXT2_058]}"
+                                            local:PropEx.TextLeft=""
+                                            local:PropEx.TextRight=""
+                                            local:PropEx.GlowButtonTextHeight="28"
+                                            Command="{Binding MultiplayerMenuCommand}"
+                                            CommandParameter="Invite"
+                                            Style="{StaticResource BTN_SH_GlowL}" />
+                                    </Viewbox>
+                                    <Viewbox
+                                        Width="100"
+                                        Margin="0,0,0,0"
+                                        Visibility="{Binding Coop_Continue_Line_7}"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Center">
+                                        <Button
+                                            Width="150"
+                                            local:PropEx.TextCentre="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_TUTORIAL_BUTTONS_002]}"
+                                            local:PropEx.TextLeft=""
+                                            local:PropEx.TextRight=""
+                                            local:PropEx.GlowButtonTextHeight="28"
+                                            Command="{Binding MultiplayerMenuCommand}"
+                                            CommandParameter="CoopContinue7"
+                                            Style="{StaticResource BTN_SH_GlowL}" />
+                                    </Viewbox>
+                                </Grid>
+                                <Grid
+                                    x:Name="Row8"
+                                    Width="360"
+                                    Height="30"
+                                    Margin="0,0,0,0"
+                                    HorizontalAlignment="Left"
+                                    VerticalAlignment="Top"
+                                    Background="#22000000">
+                                    <Image
+                                        Margin="5,0,0,0"
+                                        Width="30"
+                                        Height="30"
+                                        HorizontalAlignment="Left"
+                                        VerticalAlignment="Center"
+                                        Source="{Binding Coop_Image_8}" />
+                                    <TextBlock
+                                        Margin="40,3,0,0"
+                                        HorizontalAlignment="Left"
+                                        VerticalAlignment="Center"
+                                        Text="{Binding Coop_Name_8}"
+                                        Foreground="{StaticResource Brush.Accent7}"
+                                        TextAlignment="Left" />
+                                    <Button
+                                        HorizontalAlignment="Stretch"
+                                        VerticalAlignment="Stretch"
+                                        Opacity="0"
+                                        Command="{Binding MultiplayerMenuCommand}"
+                                        CommandParameter="Coop_Friend8">
+                                        <b:Interaction.Triggers>
+                                            <b:EventTrigger
+                                                EventName="MouseRightButtonUp">
+                                                <b:InvokeCommandAction
+                                                    Command="{Binding MultiplayerMenuCommand}"
+                                                    CommandParameter="Coop_Friend8-" />
+                                            </b:EventTrigger>
+                                        </b:Interaction.Triggers>
+                                    </Button>
+                                    <Button
+                                        Width="30"
+                                        Margin="0,0,100,0"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Center"
+                                        Visibility="{Binding Coop_Hide_Line_8}"
+                                        local:PropEx.Sprite1="{StaticResource btn_Hide}"
+                                        local:PropEx.Sprite2="{StaticResource btn_Hide_Over}"
+                                        local:PropEx.Sprite3="{StaticResource btn_Hide_Over}"
+                                        local:PropEx.Sprite4="{StaticResource btn_Hide}"
+                                        Command="{Binding MultiplayerMenuCommand}"
+                                        CommandParameter="Coop_Friend8-"
+                                        Style="{StaticResource BTN_Image}" />
+                                    <Button
+                                        Width="30"
+                                        Margin="0,0,100,0"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Center"
+                                        Visibility="{Binding Coop_Show_Line_8}"
+                                        local:PropEx.Sprite1="{StaticResource btn_Show}"
+                                        local:PropEx.Sprite2="{StaticResource btn_Show_Over}"
+                                        local:PropEx.Sprite3="{StaticResource btn_Show_Over}"
+                                        local:PropEx.Sprite4="{StaticResource btn_Show}"
+                                        Command="{Binding MultiplayerMenuCommand}"
+                                        CommandParameter="Coop_Friend8-"
+                                        Style="{StaticResource BTN_Image}" />
+                                    <Viewbox
+                                        Width="100"
+                                        Margin="0,0,0,0"
+                                        Visibility="{Binding Coop_Invite_Line_8}"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Center">
+                                        <Button
+                                            Width="150"
+                                            local:PropEx.TextCentre="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_NEW_TEXT2_058]}"
+                                            local:PropEx.TextLeft=""
+                                            local:PropEx.TextRight=""
+                                            local:PropEx.GlowButtonTextHeight="28"
+                                            Command="{Binding MultiplayerMenuCommand}"
+                                            CommandParameter="Invite"
+                                            Style="{StaticResource BTN_SH_GlowL}" />
+                                    </Viewbox>
+                                    <Viewbox
+                                        Width="100"
+                                        Margin="0,0,0,0"
+                                        Visibility="{Binding Coop_Continue_Line_8}"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Center">
+                                        <Button
+                                            Width="150"
+                                            local:PropEx.TextCentre="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_TUTORIAL_BUTTONS_002]}"
+                                            local:PropEx.TextLeft=""
+                                            local:PropEx.TextRight=""
+                                            local:PropEx.GlowButtonTextHeight="28"
+                                            Command="{Binding MultiplayerMenuCommand}"
+                                            CommandParameter="CoopContinue8"
+                                            Style="{StaticResource BTN_SH_GlowL}" />
+                                    </Viewbox>
+                                </Grid>
+                            </StackPanel>
+                            <CheckBox
+                                x:Name="ShowHidden"
+                                Margin="-30,292,0,0"
+                                Width="350"
+                                Height="23"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Top"
+                                Style="{StaticResource CheckBox_Template}">
+                                <TextBlock
+                                    Text="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_NEW_CTEXT_382]}"
+                                    Margin="0,2,0,-2"
+                                    FontSize="20"
+                                    VerticalAlignment="Center" />
+                            </CheckBox>
+
+                            <Button
+                                Width="30"
+                                Height="30"
+                                Margin="0,48,0,0"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Top"
+                                local:PropEx.Sprite1="{StaticResource LeaderboardUp}"
+                                local:PropEx.Sprite2="{StaticResource LeaderboardUpOver}"
+                                local:PropEx.Sprite3="{StaticResource LeaderboardUpOver}"
+                                local:PropEx.Sprite4="{StaticResource LeaderboardUp}"
+                                Visibility="{Binding Show_CoopShowUp, Converter={StaticResource booleanToVisibilityConverter}}"
+                                Command="{Binding MultiplayerMenuCommand}"
+                                CommandParameter="CoopUp"
+                                Style="{StaticResource BTN_Image}" />
+                            <Button
+                                Width="30"
+                                Height="30"
+                                Margin="0,260,0,0"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Top"
+                                local:PropEx.Sprite1="{StaticResource LeaderboardDown}"
+                                local:PropEx.Sprite2="{StaticResource LeaderboardDownOver}"
+                                local:PropEx.Sprite3="{StaticResource LeaderboardDownOver}"
+                                local:PropEx.Sprite4="{StaticResource LeaderboardDown}"
+                                Visibility="{Binding Show_CoopShowDown, Converter={StaticResource booleanToVisibilityConverter}}"
+                                Command="{Binding MultiplayerMenuCommand}"
+                                CommandParameter="CoopDown"
+                                Style="{StaticResource BTN_Image}" />
+
+
+                            <TextBlock
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Top"
+                                Margin="0,0,0,0"
+                                Foreground="{StaticResource Brush.Accent7}"
+                                FontSize="18"
+                                Text="{Binding GameTexts[TEXT_COOP_023], Source={x:Static local:Translate.Instance}}" />
+
+                            <Viewbox
+                                Margin="0,0,0,230"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Bottom"
+                                Width="300">
+                                <Button
+                                    Name="CoopInvite"
+                                    Width="350"
+                                    local:PropEx.TextCentre="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_NEW_TEXT2_058]}"
+                                    local:PropEx.TextLeft=""
+                                    local:PropEx.TextRight=""
+                                    local:PropEx.GlowButtonTextHeight="28"
+                                    Command="{Binding MultiplayerMenuCommand}"
+                                    CommandParameter="Invite"
+                                    Style="{StaticResource BTN_SH_GlowL}" />
+                            </Viewbox>
+                            <TextBlock
+                                Margin="0,0,0,200"
+                                Width="400"
+                                FontSize="18"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Bottom"
+                                TextAlignment="Center"
+                                Foreground="{StaticResource Brush.Accent7}"
+                                Text="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_NEW_TEXT2_176]}" />
+                            <TextBox
+                                Name="MP_EnterShareCodeText"
+                                Width="290"
+                                Height="26"
+                                Padding="5"
+                                FontSize="14"
+                                Margin="0,0,0,175"
+                                MaxLength="20"
+                                TextAlignment="Center"
+                                Focusable="True"
+                                Text="{Binding MultiplayerEnterShareCode}"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Bottom">
+                            </TextBox>
+                            <Viewbox
+                                Margin="0,0,0,131"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Bottom"
+                                Width="300">
+                                <Button
+                                    Name="ShareJoinButton"
+                                    Width="350"
+                                    local:PropEx.TextCentre="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_MULTIPLAYER_CONNECTION_009]}"
+                                    local:PropEx.TextLeft=""
+                                    local:PropEx.TextRight=""
+                                    local:PropEx.GlowButtonTextHeight="28"
+                                    IsEnabled="False"
+                                    Command="{Binding MultiplayerMenuCommand}"
+                                    CommandParameter="ShareJoin"
+                                    MouseEnter="CommonRedButtonEnter"
+                                    Style="{StaticResource BTN_SH_GlowL}" />
+                            </Viewbox>
+                            <Viewbox
+                                Margin="0,0,0,91"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Bottom"
+                                Width="300">
+                                <Button
+                                    Width="350"
+                                    local:PropEx.TextCentre="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_NEW_TEXT2_177]}"
+                                    local:PropEx.TextLeft=""
+                                    local:PropEx.TextRight=""
+                                    local:PropEx.GlowButtonTextHeight="28"
+                                    Command="{Binding MultiplayerMenuCommand}"
+                                    CommandParameter="ShowSharing"
+                                    MouseEnter="CommonRedButtonEnter"
+                                    Style="{StaticResource BTN_SH_GlowL}" />
+                            </Viewbox>
+                            <Viewbox
+                                Margin="0,0,0,51"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Bottom"
+                                Width="300">
+                                <Button
+                                    Width="350"
+                                    local:PropEx.TextCentre="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_MAPEDIT_013]}"
+                                    local:PropEx.TextLeft=""
+                                    local:PropEx.TextRight=""
+                                    local:PropEx.GlowButtonTextHeight="28"
+                                    Command="{Binding MultiplayerMenuCommand}"
+                                    CommandParameter="CoopSinglePlayer"
+                                    MouseEnter="CommonRedButtonEnter"
+                                    Style="{StaticResource BTN_SH_GlowL}" />
+                            </Viewbox>
+
+                            <Viewbox
+                                Margin="0,0,0,1"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Bottom"
+                                Width="300">
+                                <Button
+                                    Name="CoopCustomGame"
+                                    Width="350"
+                                    local:PropEx.TextCentre="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_NEW_CTEXT_434]}"
+                                    local:PropEx.TextLeft=""
+                                    local:PropEx.TextRight=""
+                                    local:PropEx.GlowButtonTextHeight="28"
+                                    Command="{Binding MultiplayerMenuCommand}"
+                                    CommandParameter="CreateCustomCoop"
+                                    MouseEnter="CommonRedButtonEnter"
+                                    Style="{StaticResource BTN_SH_GlowL}" />
+                            </Viewbox>
+                        </Grid>
+                        <Grid
+                            Name="HostJoinedPane"
+                            Visibility="{Binding Show_CoopHostJoinedPane, Converter={StaticResource booleanToVisibilityConverter}}">
+                            <Button
+                                Name="CoopKick"
+                                Width="200"
+                                Margin="0,0,0,10"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Bottom"
+                                local:PropEx.TextCentre="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_NEW_TEXT_043]}"
+                                local:PropEx.TextLeft=""
+                                local:PropEx.TextRight=""
+                                local:PropEx.GlowButtonTextHeight="28"
+                                Command="{Binding MultiplayerMenuCommand}"
+                                CommandParameter="CoopKick"
+                                Style="{StaticResource BTN_SH_GlowL}" />
+                            <Button
+                                Name="SomeSettingsCoopCustomize"
+                                Width="200"
+                                Margin="0,0,0,78"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Bottom"
+                                local:PropEx.TextCentre="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_CUSTOMISATION_071]}"
+                                local:PropEx.TextLeft=""
+                                local:PropEx.TextRight=""
+                                local:PropEx.GlowButtonTextHeight="28"
+                                Command="{Binding MultiplayerMenuCommand}"
+                                CommandParameter="SomeSettingsCustomizeCoopTrail"
+                                MouseEnter="CommonRedButtonEnter"
+                                Style="{StaticResource BTN_SH_GlowL}" />
+
+                            <!-- Options Button -->
+                            <Button
+                                Name="OptionsButton"
+                                Width="60"
+                                Height="76"
+                                Margin="0,0,0,0"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Bottom"
+                                local:PropEx.Sprite1="{StaticResource Settings Up}"
+                                local:PropEx.Sprite2="{StaticResource Settings Over}"
+                                local:PropEx.Sprite3="{StaticResource Settings Over}"
+                                local:PropEx.Sprite4=""
+                                Command="{Binding MultiplayerMenuCommand}"
+                                CommandParameter="CoopOptions"
+                                RenderTransformOrigin="0.5,0.5"
+                                Style="{StaticResource BTN_Image}">
+                            </Button>
+                        </Grid>
+                        <Grid
+                            Name="ClientPane"
+                            Visibility="{Binding Show_CoopClientPane, Converter={StaticResource booleanToVisibilityConverter}}">
+                            <Button
+                                Name="CoopLeave"
+                                Width="200"
+                                Margin="0,0,0,10"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Bottom"
+                                local:PropEx.TextCentre="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_NEW_TEXT_044]}"
+                                local:PropEx.TextLeft=""
+                                local:PropEx.TextRight=""
+                                local:PropEx.GlowButtonTextHeight="28"
+                                Command="{Binding MultiplayerMenuCommand}"
+                                CommandParameter="CoopLeave"
+                                Style="{StaticResource BTN_SH_GlowL}" />
+
+
+                            <!-- Ready Button -->
+                            <Button
+                                Name="ReadyButton"
+                                Width="60"
+                                Height="76"
+                                Margin="0,0,0,0"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Bottom"
+                                local:PropEx.Sprite1="{StaticResource notready_norm}"
+                                local:PropEx.Sprite2="{StaticResource notready_over}"
+                                local:PropEx.Sprite3="{StaticResource notready_over}"
+                                local:PropEx.Sprite4=""
+                                Command="{Binding MultiplayerMenuCommand}"
+                                CommandParameter="Ready"
+                                RenderTransformOrigin="0.5,0.5"
+                                Visibility="{Binding MultiplayerSetupMode, Converter={StaticResource booleanToVisibilityConverter}}"
+                                Style="{StaticResource BTN_Image}">
+                                <Button.RenderTransform>
+                                    <ScaleTransform
+                                        ScaleX="1.00"
+                                        ScaleY="1.00"
+                                        x:Name="ReadyButtonScale" />
+                                </Button.RenderTransform>
+                            </Button>
+                            <Button
+                                Name="ReadyButtonLock"
+                                Width="30"
+                                Height="38"
+                                Margin="0,0,-5,-5"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Bottom"
+                                local:PropEx.Sprite1="{StaticResource tick_unlocked_norm}"
+                                local:PropEx.Sprite2="{StaticResource tick_unlocked_over}"
+                                local:PropEx.Sprite3="{StaticResource tick_unlocked_over}"
+                                local:PropEx.Sprite4=""
+                                Command="{Binding MultiplayerMenuCommand}"
+                                CommandParameter="ReadyLock"
+                                RenderTransformOrigin="0.5,0.5"
+                                Visibility="{Binding MultiplayerSetupMode, Converter={StaticResource booleanToVisibilityConverter}}"
+                                Style="{StaticResource BTN_Image}">
+                            </Button>
+
+                        </Grid>
+
+                        <Grid
+                            Name="CommonConnectedPane"
+                            Visibility="{Binding Show_CoopConnected, Converter={StaticResource booleanToVisibilityConverter}}">
+
+                            <TextBlock
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Top"
+                                Margin="0,0,0,0"
+                                Foreground="{StaticResource Brush.Accent7}"
+                                FontSize="18"
+                                Text="{Binding CoopMissionTitle}" />
+
+                            <!-- Radar  -->
+                            <Grid
+                                Width="232"
+                                Height="232"
+                                Margin="0,30,0,0"
+                                FlowDirection="LeftToRight"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Top">
+                                <Button
+                                    Style="{StaticResource BDR_SH1DEb}" />
+                                <Grid
+                                    Name="RadarMultiplayerGrid"
+                                    HorizontalAlignment="Stretch"
+                                    VerticalAlignment="Stretch">
+                                    <Image
+                                        Name="RadarMultiplayerImage"
+                                        IsHitTestVisible="True"
+                                        RenderTransformOrigin="0.5,0.5"
+                                        Source="{Binding RadarStandaloneImage}" />
+                                    <Image
+                                        Visibility="{Binding Show_Radar160Border, Converter={StaticResource booleanToVisibilityConverter}}"
+                                        Source="{StaticResource Border 160}" />
+                                    <Image
+                                        Visibility="{Binding Show_Radar300Border, Converter={StaticResource booleanToVisibilityConverter}}"
+                                        Source="{StaticResource Border 300}" />
+                                    <Image
+                                        Visibility="{Binding Show_Radar500Border, Converter={StaticResource booleanToVisibilityConverter}}"
+                                        Source="{StaticResource Border 500}" />
+                                    <Image
+                                        Visibility="{Binding Show_Radar700Border, Converter={StaticResource booleanToVisibilityConverter}}"
+                                        Source="{StaticResource Border 700}" />
+                                </Grid>
+                                <Button
+                                    Style="{StaticResource BDR_SH1DEc}" />
+                                <Grid
+                                    Name="RadarMultiplayerGrid2"
+                                    HorizontalAlignment="Stretch"
+                                    VerticalAlignment="Stretch">
+                                    <Button
+                                        Name="RadarShield1"
+                                        Width="16"
+                                        Height="16"
+                                        Margin="0,0,0,0"
+                                        VerticalAlignment="Top"
+                                        HorizontalAlignment="Left"
+                                        Style="{StaticResource BTN_Image}" />
+                                    <Button
+                                        Name="RadarShield2"
+                                        Width="16"
+                                        Height="16"
+                                        Margin="0,0,0,0"
+                                        VerticalAlignment="Top"
+                                        HorizontalAlignment="Left"
+                                        Style="{StaticResource BTN_Image}" />
+                                    <Button
+                                        Name="RadarShield3"
+                                        Width="16"
+                                        Height="16"
+                                        Margin="0,0,0,0"
+                                        VerticalAlignment="Top"
+                                        HorizontalAlignment="Left"
+                                        Style="{StaticResource BTN_Image}" />
+                                    <Button
+                                        Name="RadarShield4"
+                                        Width="16"
+                                        Height="16"
+                                        Margin="0,0,0,0"
+                                        VerticalAlignment="Top"
+                                        HorizontalAlignment="Left"
+                                        Style="{StaticResource BTN_Image}" />
+                                    <Button
+                                        Name="RadarShield5"
+                                        Width="16"
+                                        Height="16"
+                                        Margin="0,0,0,0"
+                                        VerticalAlignment="Top"
+                                        HorizontalAlignment="Left"
+                                        Style="{StaticResource BTN_Image}" />
+                                    <Button
+                                        Name="RadarShield6"
+                                        Width="16"
+                                        Height="16"
+                                        Margin="0,0,0,0"
+                                        VerticalAlignment="Top"
+                                        HorizontalAlignment="Left"
+                                        Style="{StaticResource BTN_Image}" />
+                                    <Button
+                                        Name="RadarShield7"
+                                        Width="16"
+                                        Height="16"
+                                        Margin="0,0,0,0"
+                                        VerticalAlignment="Top"
+                                        HorizontalAlignment="Left"
+                                        Style="{StaticResource BTN_Image}" />
+                                    <Button
+                                        Name="RadarShield8"
+                                        Width="16"
+                                        Height="16"
+                                        Margin="0,0,0,0"
+                                        VerticalAlignment="Top"
+                                        HorizontalAlignment="Left"
+                                        Style="{StaticResource BTN_Image}" />
+                                </Grid>
+
+                                <Button
+                                    Width="50"
+                                    Height="50"
+                                    Margin="255,95,-100,-100"
+                                    HorizontalAlignment="Left"
+                                    VerticalAlignment="Top"
+                                    local:PropEx.Sprite1="{StaticResource btn_CoOpSwap}"
+                                    local:PropEx.Sprite2="{StaticResource btn_CoOpSwap_Over}"
+                                    local:PropEx.Sprite3="{StaticResource btn_CoOpSwap_Over}"
+                                    local:PropEx.Sprite4="{StaticResource btn_CoOpSwap}"
+                                    Command="{Binding MultiplayerMenuCommand}"
+                                    CommandParameter="SwapCoop"
+                                    Visibility="{Binding Show_CoopHostJoinedPane, Converter={StaticResource booleanToVisibilityConverter}}"
+                                    Style="{StaticResource BTN_Image}">
+                                </Button>
+                            </Grid>
+
+                            <!-- Player List -->
+                            <StackPanel
+                                HorizontalAlignment="Left"
+                                Width="363"
+                                Margin="55,275,55,5">
+                                <Grid
+                                    VerticalAlignment="Top"
+                                    Height="28">
+                                    <Grid
+                                        Visibility="Visible"
+                                        Background="#88222222"
+                                        Name="Player1_Row">
+                                        <Image
+                                            Name="Player1_ReadyState"
+                                            Margin="262,1,0,0"
+                                            Width="25"
+                                            HorizontalAlignment="Left"
+                                            VerticalAlignment="Top"
+                                            Source="{StaticResource tick_norm}" />
+                                        <Image
+                                            Name="Player1_Colour"
+                                            Margin="1,1,0,0"
+                                            Width="26"
+                                            Height="26"
+                                            HorizontalAlignment="Left"
+                                            VerticalAlignment="Top"
+                                            Source="{StaticResource UI-Buttons H007}" />
+                                        <TextBlock
+                                            Name="Player1_Name"
+                                            Margin="40,0,0,0"
+                                            Foreground="#FFEFF3C6"
+                                            HorizontalAlignment="Left"
+                                            VerticalAlignment="Center"
+                                            Text="HELLO World" />
+                                    </Grid>
+                                </Grid>
+                                <Grid
+                                    VerticalAlignment="Top"
+                                    Height="28"
+                                    Margin="0,0,0,0">
+                                    <Grid
+                                        Visibility="Visible"
+                                        Background="#88222222"
+                                        Name="Player2_Row">
+                                        <Image
+                                            Name="Player2_ReadyState"
+                                            Margin="262,1,0,0"
+                                            Width="25"
+                                            HorizontalAlignment="Left"
+                                            VerticalAlignment="Top"
+                                            Source="{StaticResource tick_norm}" />
+                                        <Image
+                                            Name="Player2_Colour"
+                                            Margin="1,1,0,0"
+                                            Width="26"
+                                            Height="26"
+                                            HorizontalAlignment="Left"
+                                            VerticalAlignment="Top"
+                                            Source="{StaticResource UI-Buttons H010}" />
+                                        <TextBlock
+                                            Name="Player2_Name"
+                                            Margin="40,0,0,0"
+                                            Foreground="#FFEFF3C6"
+                                            HorizontalAlignment="Left"
+                                            VerticalAlignment="Center"
+                                            Text="HELLO World" />
+                                    </Grid>
+                                </Grid>
+
+                                <Image
+                                    Width="30"
+                                    Margin="125,2,0,2"
+                                    HorizontalAlignment="Left"
+                                    VerticalAlignment="Top"
+                                    Source="{StaticResource UI-Buttons S041}" />
+
+                                <Grid
+                                    VerticalAlignment="Top"
+                                    Height="28">
+                                    <Grid
+                                        Visibility="Visible"
+                                        Background="#88222222"
+                                        Name="Player3_Row">
+                                        <Image
+                                            Name="Player3_Colour"
+                                            Margin="1,1,0,0"
+                                            Width="26"
+                                            Height="26"
+                                            HorizontalAlignment="Left"
+                                            VerticalAlignment="Top"
+                                            Source="{StaticResource UI-Buttons H013}" />
+                                        <TextBlock
+                                            Name="Player3_Name"
+                                            Margin="40,0,0,0"
+                                            Foreground="#FFEFF3C6"
+                                            HorizontalAlignment="Left"
+                                            VerticalAlignment="Center"
+                                            Text="HELLO World" />
+                                    </Grid>
+                                </Grid>
+                                <Grid
+                                    VerticalAlignment="Top"
+                                    Height="28">
+                                    <Grid
+                                        Visibility="Visible"
+                                        Background="#88222222"
+                                        Name="Player4_Row">
+                                        <Image
+                                            Name="Player4_Colour"
+                                            Margin="1,1,0,0"
+                                            Width="26"
+                                            Height="26"
+                                            HorizontalAlignment="Left"
+                                            VerticalAlignment="Top"
+                                            Source="{StaticResource UI-Buttons H016}" />
+                                        <TextBlock
+                                            Name="Player4_Name"
+                                            Margin="40,0,0,0"
+                                            Foreground="#FFEFF3C6"
+                                            HorizontalAlignment="Left"
+                                            VerticalAlignment="Center"
+                                            Text="HELLO World" />
+                                    </Grid>
+                                </Grid>
+                                <Grid
+                                    VerticalAlignment="Top"
+                                    Height="28">
+                                    <Grid
+                                        Visibility="Visible"
+                                        Background="#88222222"
+                                        Name="Player5_Row">
+                                        <Image
+                                            Name="Player5_Colour"
+                                            Margin="1,1,0,0"
+                                            Width="26"
+                                            Height="26"
+                                            HorizontalAlignment="Left"
+                                            VerticalAlignment="Top"
+                                            Source="{StaticResource UI-Buttons H019}" />
+                                        <TextBlock
+                                            Name="Player5_Name"
+                                            Margin="40,0,0,0"
+                                            Foreground="#FFEFF3C6"
+                                            HorizontalAlignment="Left"
+                                            VerticalAlignment="Center"
+                                            Text="HELLO World" />
+                                    </Grid>
+                                </Grid>
+                                <Grid
+                                    VerticalAlignment="Top"
+                                    Height="28">
+                                    <Grid
+                                        Visibility="Visible"
+                                        Background="#88222222"
+                                        Name="Player6_Row">
+                                        <Image
+                                            Name="Player6_Colour"
+                                            Margin="1,1,0,0"
+                                            Width="26"
+                                            Height="26"
+                                            HorizontalAlignment="Left"
+                                            VerticalAlignment="Top"
+                                            Source="{StaticResource UI-Buttons H022}" />
+                                        <TextBlock
+                                            Name="Player6_Name"
+                                            Margin="40,0,0,0"
+                                            Foreground="#FFEFF3C6"
+                                            HorizontalAlignment="Left"
+                                            VerticalAlignment="Center"
+                                            Text="HELLO World" />
+                                    </Grid>
+                                </Grid>
+                                <Grid
+                                    VerticalAlignment="Top"
+                                    Height="28">
+                                    <Grid
+                                        Visibility="Visible"
+                                        Background="#88222222"
+                                        Name="Player7_Row">
+                                        <Image
+                                            Name="Player7_Colour"
+                                            Margin="1,1,0,0"
+                                            Width="26"
+                                            Height="26"
+                                            HorizontalAlignment="Left"
+                                            VerticalAlignment="Top"
+                                            Source="{StaticResource UI-Buttons H025}" />
+                                        <TextBlock
+                                            Name="Player7_Name"
+                                            Margin="40,0,0,0"
+                                            Foreground="#FFEFF3C6"
+                                            HorizontalAlignment="Left"
+                                            VerticalAlignment="Center"
+                                            Text="HELLO World" />
+                                    </Grid>
+                                </Grid>
+                                <Grid
+                                    VerticalAlignment="Top"
+                                    Height="25">
+                                    <Grid
+                                        Visibility="Visible"
+                                        Background="#88222222"
+                                        Name="Player8_Row">
+                                        <Image
+                                            Name="Player8_Colour"
+                                            Margin="1,1,0,0"
+                                            Width="26"
+                                            Height="26"
+                                            HorizontalAlignment="Left"
+                                            VerticalAlignment="Top"
+                                            Source="{StaticResource UI-Buttons H028}" />
+                                        <TextBlock
+                                            Name="Player8_Name"
+                                            Margin="40,0,0,0"
+                                            Foreground="#FFEFF3C6"
+                                            HorizontalAlignment="Left"
+                                            VerticalAlignment="Center"
+                                            Text="HELLO World" />
+                                    </Grid>
+                                </Grid>
+                            </StackPanel>
+
+                        </Grid>
+                    </Grid>
+                </Viewbox>
+            </Grid>
+
+            <!-- Add AI Ally -->
+            <Grid
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch"
+                Background="#88000000"
+                Panel.ZIndex="100"
+                Visibility="{Binding Show_CoopAIAllyPanel, Converter={StaticResource booleanToVisibilityConverter}}">
+                <Grid
+                    Margin="0,0,0,0"
+                    Width="1080"
+                    Height="530"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Visibility="{Binding Show_CoopAIAllyPanel, Converter={StaticResource booleanToVisibilityConverter}}">
+                    <Button
+                        Margin="-13,-13,-13,-13"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Stretch"
+                        IsHitTestVisible="True"
+                        Style="{StaticResource BDR_Wood}">
+                    </Button>
+
+                    <Grid
+                        Margin="25,0,0,0">
+                        <Image
+                            Width="100"
+                            Height="100"
+                            Margin="20,20,0,0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            IsHitTestVisible="False"
+                            Source="{StaticResource Face Background Generic}" />
+                        <Button
+                            Width="100"
+                            Height="100"
+                            Margin="20,20,0,0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1="{StaticResource Face 01}"
+                            local:PropEx.Sprite2="{StaticResource Face 01}"
+                            local:PropEx.Sprite3="{StaticResource Face 01}"
+                            local:PropEx.Sprite4="{StaticResource Face 01}"
+                            Command="{Binding SkirmishAIAddClickCommand}"
+                            CommandParameter="0"
+                            Style="{StaticResource BTN_Image}">
+                            <b:Interaction.Triggers>
+                                <b:EventTrigger
+                                    EventName="MouseEnter">
+                                    <b:InvokeCommandAction
+                                        Command="{Binding SkirmishAIAddClickEnterCommand}"
+                                        CommandParameter="0" />
+                                </b:EventTrigger>
+                                <b:EventTrigger
+                                    EventName="MouseLeave">
+                                    <b:InvokeCommandAction
+                                        Command="{Binding SkirmishAIAddClickEnterCommand}"
+                                        CommandParameter="-1" />
+                                </b:EventTrigger>
+                            </b:Interaction.Triggers>
+                        </Button>
+
+                        <Image
+                            Width="100"
+                            Height="100"
+                            Margin="130,20,0,0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            Source="{StaticResource Face Background Generic}" />
+                        <Button
+                            Width="100"
+                            Height="100"
+                            Margin="130,20,0,0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1="{StaticResource Face 02}"
+                            local:PropEx.Sprite2="{StaticResource Face 02}"
+                            local:PropEx.Sprite3="{StaticResource Face 02}"
+                            local:PropEx.Sprite4="{StaticResource Face 02}"
+                            Command="{Binding SkirmishAIAddClickCommand}"
+                            CommandParameter="1"
+                            Style="{StaticResource BTN_Image}">
+                            <b:Interaction.Triggers>
+                                <b:EventTrigger
+                                    EventName="MouseEnter">
+                                    <b:InvokeCommandAction
+                                        Command="{Binding SkirmishAIAddClickEnterCommand}"
+                                        CommandParameter="1" />
+                                </b:EventTrigger>
+                                <b:EventTrigger
+                                    EventName="MouseLeave">
+                                    <b:InvokeCommandAction
+                                        Command="{Binding SkirmishAIAddClickEnterCommand}"
+                                        CommandParameter="-1" />
+                                </b:EventTrigger>
+                            </b:Interaction.Triggers>
+                        </Button>
+
+                        <Image
+                            Width="100"
+                            Height="100"
+                            Margin="240,20,0,0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            Source="{StaticResource Face Background Generic}" />
+                        <Button
+                            Width="100"
+                            Height="100"
+                            Margin="240,20,0,0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1="{StaticResource Face 03}"
+                            local:PropEx.Sprite2="{StaticResource Face 03}"
+                            local:PropEx.Sprite3="{StaticResource Face 03}"
+                            local:PropEx.Sprite4="{StaticResource Face 03}"
+                            Command="{Binding SkirmishAIAddClickCommand}"
+                            CommandParameter="2"
+                            Style="{StaticResource BTN_Image}">
+                            <b:Interaction.Triggers>
+                                <b:EventTrigger
+                                    EventName="MouseEnter">
+                                    <b:InvokeCommandAction
+                                        Command="{Binding SkirmishAIAddClickEnterCommand}"
+                                        CommandParameter="2" />
+                                </b:EventTrigger>
+                                <b:EventTrigger
+                                    EventName="MouseLeave">
+                                    <b:InvokeCommandAction
+                                        Command="{Binding SkirmishAIAddClickEnterCommand}"
+                                        CommandParameter="-1" />
+                                </b:EventTrigger>
+                            </b:Interaction.Triggers>
+                        </Button>
+
+                        <Image
+                            Width="100"
+                            Height="100"
+                            Margin="350,20,0,0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            Source="{StaticResource Face Background Generic}" />
+                        <Button
+                            Width="100"
+                            Height="100"
+                            Margin="350,20,0,0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1="{StaticResource Face 04}"
+                            local:PropEx.Sprite2="{StaticResource Face 04}"
+                            local:PropEx.Sprite3="{StaticResource Face 04}"
+                            local:PropEx.Sprite4="{StaticResource Face 04}"
+                            Command="{Binding SkirmishAIAddClickCommand}"
+                            CommandParameter="3"
+                            Style="{StaticResource BTN_Image}">
+                            <b:Interaction.Triggers>
+                                <b:EventTrigger
+                                    EventName="MouseEnter">
+                                    <b:InvokeCommandAction
+                                        Command="{Binding SkirmishAIAddClickEnterCommand}"
+                                        CommandParameter="3" />
+                                </b:EventTrigger>
+                                <b:EventTrigger
+                                    EventName="MouseLeave">
+                                    <b:InvokeCommandAction
+                                        Command="{Binding SkirmishAIAddClickEnterCommand}"
+                                        CommandParameter="-1" />
+                                </b:EventTrigger>
+                            </b:Interaction.Triggers>
+                        </Button>
+
+                        <Image
+                            Width="100"
+                            Height="100"
+                            Margin="460,20,0,0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            Source="{StaticResource Face Background Generic}" />
+                        <Button
+                            Width="100"
+                            Height="100"
+                            Margin="460,20,0,0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1="{StaticResource Face 05}"
+                            local:PropEx.Sprite2="{StaticResource Face 05}"
+                            local:PropEx.Sprite3="{StaticResource Face 05}"
+                            local:PropEx.Sprite4="{StaticResource Face 05}"
+                            Command="{Binding SkirmishAIAddClickCommand}"
+                            CommandParameter="4"
+                            Style="{StaticResource BTN_Image}">
+                            <b:Interaction.Triggers>
+                                <b:EventTrigger
+                                    EventName="MouseEnter">
+                                    <b:InvokeCommandAction
+                                        Command="{Binding SkirmishAIAddClickEnterCommand}"
+                                        CommandParameter="4" />
+                                </b:EventTrigger>
+                                <b:EventTrigger
+                                    EventName="MouseLeave">
+                                    <b:InvokeCommandAction
+                                        Command="{Binding SkirmishAIAddClickEnterCommand}"
+                                        CommandParameter="-1" />
+                                </b:EventTrigger>
+                            </b:Interaction.Triggers>
+                        </Button>
+
+                        <Image
+                            Width="100"
+                            Height="100"
+                            Margin="570,20,0,0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            Source="{StaticResource Face Background Generic}" />
+                        <Button
+                            Width="100"
+                            Height="100"
+                            Margin="570,20,0,0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1="{StaticResource Face 06}"
+                            local:PropEx.Sprite2="{StaticResource Face 06}"
+                            local:PropEx.Sprite3="{StaticResource Face 06}"
+                            local:PropEx.Sprite4="{StaticResource Face 06}"
+                            Command="{Binding SkirmishAIAddClickCommand}"
+                            CommandParameter="5"
+                            Style="{StaticResource BTN_Image}">
+                            <b:Interaction.Triggers>
+                                <b:EventTrigger
+                                    EventName="MouseEnter">
+                                    <b:InvokeCommandAction
+                                        Command="{Binding SkirmishAIAddClickEnterCommand}"
+                                        CommandParameter="5" />
+                                </b:EventTrigger>
+                                <b:EventTrigger
+                                    EventName="MouseLeave">
+                                    <b:InvokeCommandAction
+                                        Command="{Binding SkirmishAIAddClickEnterCommand}"
+                                        CommandParameter="-1" />
+                                </b:EventTrigger>
+                            </b:Interaction.Triggers>
+                        </Button>
+
+                        <Image
+                            Width="100"
+                            Height="100"
+                            Margin="680,20,0,0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            Source="{StaticResource Face Background Generic}" />
+                        <Button
+                            Width="100"
+                            Height="100"
+                            Margin="680,20,0,0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1="{StaticResource Face 07}"
+                            local:PropEx.Sprite2="{StaticResource Face 07}"
+                            local:PropEx.Sprite3="{StaticResource Face 07}"
+                            local:PropEx.Sprite4="{StaticResource Face 07}"
+                            Command="{Binding SkirmishAIAddClickCommand}"
+                            CommandParameter="6"
+                            Style="{StaticResource BTN_Image}">
+                            <b:Interaction.Triggers>
+                                <b:EventTrigger
+                                    EventName="MouseEnter">
+                                    <b:InvokeCommandAction
+                                        Command="{Binding SkirmishAIAddClickEnterCommand}"
+                                        CommandParameter="6" />
+                                </b:EventTrigger>
+                                <b:EventTrigger
+                                    EventName="MouseLeave">
+                                    <b:InvokeCommandAction
+                                        Command="{Binding SkirmishAIAddClickEnterCommand}"
+                                        CommandParameter="-1" />
+                                </b:EventTrigger>
+                            </b:Interaction.Triggers>
+                        </Button>
+
+                        <Image
+                            Width="100"
+                            Height="100"
+                            Margin="790,20,0,0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            Source="{StaticResource Face Background Generic}" />
+                        <Button
+                            Width="100"
+                            Height="100"
+                            Margin="790,20,0,0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1="{StaticResource Face 08}"
+                            local:PropEx.Sprite2="{StaticResource Face 08}"
+                            local:PropEx.Sprite3="{StaticResource Face 08}"
+                            local:PropEx.Sprite4="{StaticResource Face 08}"
+                            Command="{Binding SkirmishAIAddClickCommand}"
+                            CommandParameter="7"
+                            Style="{StaticResource BTN_Image}">
+                            <b:Interaction.Triggers>
+                                <b:EventTrigger
+                                    EventName="MouseEnter">
+                                    <b:InvokeCommandAction
+                                        Command="{Binding SkirmishAIAddClickEnterCommand}"
+                                        CommandParameter="7" />
+                                </b:EventTrigger>
+                                <b:EventTrigger
+                                    EventName="MouseLeave">
+                                    <b:InvokeCommandAction
+                                        Command="{Binding SkirmishAIAddClickEnterCommand}"
+                                        CommandParameter="-1" />
+                                </b:EventTrigger>
+                            </b:Interaction.Triggers>
+                        </Button>
+
+                        <!-- AI row 2 -->
+
+                        <Image
+                            Width="100"
+                            Height="100"
+                            Margin="900,20,0,0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            Source="{StaticResource Face Background Generic}" />
+                        <Button
+                            Width="100"
+                            Height="100"
+                            Margin="900,20,0,0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1="{StaticResource Face 09}"
+                            local:PropEx.Sprite2="{StaticResource Face 09}"
+                            local:PropEx.Sprite3="{StaticResource Face 09}"
+                            local:PropEx.Sprite4="{StaticResource Face 09}"
+                            Command="{Binding SkirmishAIAddClickCommand}"
+                            CommandParameter="8"
+                            Style="{StaticResource BTN_Image}">
+                            <b:Interaction.Triggers>
+                                <b:EventTrigger
+                                    EventName="MouseEnter">
+                                    <b:InvokeCommandAction
+                                        Command="{Binding SkirmishAIAddClickEnterCommand}"
+                                        CommandParameter="8" />
+                                </b:EventTrigger>
+                                <b:EventTrigger
+                                    EventName="MouseLeave">
+                                    <b:InvokeCommandAction
+                                        Command="{Binding SkirmishAIAddClickEnterCommand}"
+                                        CommandParameter="-1" />
+                                </b:EventTrigger>
+                            </b:Interaction.Triggers>
+                        </Button>
+
+                        <Image
+                            Width="100"
+                            Height="100"
+                            Margin="20,130,0,0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            Source="{StaticResource Face Background Generic}" />
+                        <Button
+                            Width="100"
+                            Height="100"
+                            Margin="20,130,0,0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1="{StaticResource Face 10}"
+                            local:PropEx.Sprite2="{StaticResource Face 10}"
+                            local:PropEx.Sprite3="{StaticResource Face 10}"
+                            local:PropEx.Sprite4="{StaticResource Face 10}"
+                            Command="{Binding SkirmishAIAddClickCommand}"
+                            CommandParameter="9"
+                            Style="{StaticResource BTN_Image}">
+                            <b:Interaction.Triggers>
+                                <b:EventTrigger
+                                    EventName="MouseEnter">
+                                    <b:InvokeCommandAction
+                                        Command="{Binding SkirmishAIAddClickEnterCommand}"
+                                        CommandParameter="9" />
+                                </b:EventTrigger>
+                                <b:EventTrigger
+                                    EventName="MouseLeave">
+                                    <b:InvokeCommandAction
+                                        Command="{Binding SkirmishAIAddClickEnterCommand}"
+                                        CommandParameter="-1" />
+                                </b:EventTrigger>
+                            </b:Interaction.Triggers>
+                        </Button>
+
+                        <Image
+                            Width="100"
+                            Height="100"
+                            Margin="130,130,0,0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            Source="{StaticResource Face Background Generic}" />
+                        <Button
+                            Width="100"
+                            Height="100"
+                            Margin="130,130,0,0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1="{StaticResource Face 11}"
+                            local:PropEx.Sprite2="{StaticResource Face 11}"
+                            local:PropEx.Sprite3="{StaticResource Face 11}"
+                            local:PropEx.Sprite4="{StaticResource Face 11}"
+                            Command="{Binding SkirmishAIAddClickCommand}"
+                            CommandParameter="10"
+                            Style="{StaticResource BTN_Image}">
+                            <b:Interaction.Triggers>
+                                <b:EventTrigger
+                                    EventName="MouseEnter">
+                                    <b:InvokeCommandAction
+                                        Command="{Binding SkirmishAIAddClickEnterCommand}"
+                                        CommandParameter="10" />
+                                </b:EventTrigger>
+                                <b:EventTrigger
+                                    EventName="MouseLeave">
+                                    <b:InvokeCommandAction
+                                        Command="{Binding SkirmishAIAddClickEnterCommand}"
+                                        CommandParameter="-1" />
+                                </b:EventTrigger>
+                            </b:Interaction.Triggers>
+                        </Button>
+
+                        <Image
+                            Width="100"
+                            Height="100"
+                            Margin="240,130,0,0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            Source="{StaticResource Face Background Generic}" />
+                        <Button
+                            Width="100"
+                            Height="100"
+                            Margin="240,130,0,0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1="{StaticResource Face 12}"
+                            local:PropEx.Sprite2="{StaticResource Face 12}"
+                            local:PropEx.Sprite3="{StaticResource Face 12}"
+                            local:PropEx.Sprite4="{StaticResource Face 12}"
+                            Command="{Binding SkirmishAIAddClickCommand}"
+                            CommandParameter="11"
+                            Style="{StaticResource BTN_Image}">
+                            <b:Interaction.Triggers>
+                                <b:EventTrigger
+                                    EventName="MouseEnter">
+                                    <b:InvokeCommandAction
+                                        Command="{Binding SkirmishAIAddClickEnterCommand}"
+                                        CommandParameter="11" />
+                                </b:EventTrigger>
+                                <b:EventTrigger
+                                    EventName="MouseLeave">
+                                    <b:InvokeCommandAction
+                                        Command="{Binding SkirmishAIAddClickEnterCommand}"
+                                        CommandParameter="-1" />
+                                </b:EventTrigger>
+                            </b:Interaction.Triggers>
+                        </Button>
+
+                        <Image
+                            Width="100"
+                            Height="100"
+                            Margin="350,130,0,0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            Source="{StaticResource Face Background Generic}" />
+                        <Button
+                            Width="100"
+                            Height="100"
+                            Margin="350,130,0,0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1="{StaticResource Face 13}"
+                            local:PropEx.Sprite2="{StaticResource Face 13}"
+                            local:PropEx.Sprite3="{StaticResource Face 13}"
+                            local:PropEx.Sprite4="{StaticResource Face 13}"
+                            Command="{Binding SkirmishAIAddClickCommand}"
+                            CommandParameter="12"
+                            Style="{StaticResource BTN_Image}">
+                            <b:Interaction.Triggers>
+                                <b:EventTrigger
+                                    EventName="MouseEnter">
+                                    <b:InvokeCommandAction
+                                        Command="{Binding SkirmishAIAddClickEnterCommand}"
+                                        CommandParameter="12" />
+                                </b:EventTrigger>
+                                <b:EventTrigger
+                                    EventName="MouseLeave">
+                                    <b:InvokeCommandAction
+                                        Command="{Binding SkirmishAIAddClickEnterCommand}"
+                                        CommandParameter="-1" />
+                                </b:EventTrigger>
+                            </b:Interaction.Triggers>
+                        </Button>
+
+
+                        <Image
+                            Width="100"
+                            Height="100"
+                            Margin="460,130,0,0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            Source="{StaticResource Face Background Generic}" />
+                        <Button
+                            Width="100"
+                            Height="100"
+                            Margin="460,130,0,0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1="{StaticResource Face 14}"
+                            local:PropEx.Sprite2="{StaticResource Face 14}"
+                            local:PropEx.Sprite3="{StaticResource Face 14}"
+                            local:PropEx.Sprite4="{StaticResource Face 14}"
+                            Command="{Binding SkirmishAIAddClickCommand}"
+                            CommandParameter="13"
+                            Style="{StaticResource BTN_Image}">
+                            <b:Interaction.Triggers>
+                                <b:EventTrigger
+                                    EventName="MouseEnter">
+                                    <b:InvokeCommandAction
+                                        Command="{Binding SkirmishAIAddClickEnterCommand}"
+                                        CommandParameter="13" />
+                                </b:EventTrigger>
+                                <b:EventTrigger
+                                    EventName="MouseLeave">
+                                    <b:InvokeCommandAction
+                                        Command="{Binding SkirmishAIAddClickEnterCommand}"
+                                        CommandParameter="-1" />
+                                </b:EventTrigger>
+                            </b:Interaction.Triggers>
+                        </Button>
+
+                        <Image
+                            Width="100"
+                            Height="100"
+                            Margin="570,130,0,0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            Source="{StaticResource Face Background Generic}" />
+                        <Button
+                            Width="100"
+                            Height="100"
+                            Margin="570,130,0,0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1="{StaticResource Face 15}"
+                            local:PropEx.Sprite2="{StaticResource Face 15}"
+                            local:PropEx.Sprite3="{StaticResource Face 15}"
+                            local:PropEx.Sprite4="{StaticResource Face 15}"
+                            Command="{Binding SkirmishAIAddClickCommand}"
+                            CommandParameter="14"
+                            Style="{StaticResource BTN_Image}">
+                            <b:Interaction.Triggers>
+                                <b:EventTrigger
+                                    EventName="MouseEnter">
+                                    <b:InvokeCommandAction
+                                        Command="{Binding SkirmishAIAddClickEnterCommand}"
+                                        CommandParameter="14" />
+                                </b:EventTrigger>
+                                <b:EventTrigger
+                                    EventName="MouseLeave">
+                                    <b:InvokeCommandAction
+                                        Command="{Binding SkirmishAIAddClickEnterCommand}"
+                                        CommandParameter="-1" />
+                                </b:EventTrigger>
+                            </b:Interaction.Triggers>
+                        </Button>
+
+                        <Image
+                            Width="100"
+                            Height="100"
+                            Margin="680,130,0,0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            Source="{StaticResource Face Background Generic}" />
+                        <Button
+                            Width="100"
+                            Height="100"
+                            Margin="680,130,0,0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1="{StaticResource Face 16}"
+                            local:PropEx.Sprite2="{StaticResource Face 16}"
+                            local:PropEx.Sprite3="{StaticResource Face 16}"
+                            local:PropEx.Sprite4="{StaticResource Face 16}"
+                            Command="{Binding SkirmishAIAddClickCommand}"
+                            CommandParameter="15"
+                            Style="{StaticResource BTN_Image}">
+                            <b:Interaction.Triggers>
+                                <b:EventTrigger
+                                    EventName="MouseEnter">
+                                    <b:InvokeCommandAction
+                                        Command="{Binding SkirmishAIAddClickEnterCommand}"
+                                        CommandParameter="15" />
+                                </b:EventTrigger>
+                                <b:EventTrigger
+                                    EventName="MouseLeave">
+                                    <b:InvokeCommandAction
+                                        Command="{Binding SkirmishAIAddClickEnterCommand}"
+                                        CommandParameter="-1" />
+                                </b:EventTrigger>
+                            </b:Interaction.Triggers>
+                        </Button>
+
+                        <Image
+                            Width="100"
+                            Height="100"
+                            Margin="790,130,0,0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            Source="{StaticResource Face Background Generic}" />
+                        <Button
+                            Width="100"
+                            Height="100"
+                            Margin="790,130,0,0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1="{StaticResource Face 17}"
+                            local:PropEx.Sprite2="{StaticResource Face 17}"
+                            local:PropEx.Sprite3="{StaticResource Face 17}"
+                            local:PropEx.Sprite4="{StaticResource Face 17}"
+                            Command="{Binding SkirmishAIAddClickCommand}"
+                            CommandParameter="16"
+                            Style="{StaticResource BTN_Image}">
+                            <b:Interaction.Triggers>
+                                <b:EventTrigger
+                                    EventName="MouseEnter">
+                                    <b:InvokeCommandAction
+                                        Command="{Binding SkirmishAIAddClickEnterCommand}"
+                                        CommandParameter="16" />
+                                </b:EventTrigger>
+                                <b:EventTrigger
+                                    EventName="MouseLeave">
+                                    <b:InvokeCommandAction
+                                        Command="{Binding SkirmishAIAddClickEnterCommand}"
+                                        CommandParameter="-1" />
+                                </b:EventTrigger>
+                            </b:Interaction.Triggers>
+                        </Button>
+
+                        <Image
+                            Width="100"
+                            Height="100"
+                            Margin="900,130,0,0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            Source="{StaticResource Face Background Generic}" />
+                        <Button
+                            Width="100"
+                            Height="100"
+                            Margin="900,130,0,0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1="{StaticResource Face 18}"
+                            local:PropEx.Sprite2="{StaticResource Face 18}"
+                            local:PropEx.Sprite3="{StaticResource Face 18}"
+                            local:PropEx.Sprite4="{StaticResource Face 18}"
+                            Command="{Binding SkirmishAIAddClickCommand}"
+                            CommandParameter="17"
+                            Style="{StaticResource BTN_Image}">
+                            <b:Interaction.Triggers>
+                                <b:EventTrigger
+                                    EventName="MouseEnter">
+                                    <b:InvokeCommandAction
+                                        Command="{Binding SkirmishAIAddClickEnterCommand}"
+                                        CommandParameter="17" />
+                                </b:EventTrigger>
+                                <b:EventTrigger
+                                    EventName="MouseLeave">
+                                    <b:InvokeCommandAction
+                                        Command="{Binding SkirmishAIAddClickEnterCommand}"
+                                        CommandParameter="-1" />
+                                </b:EventTrigger>
+                            </b:Interaction.Triggers>
+                        </Button>
+
+                        <!-- 3rd AI Row -->
+
+                        <Image
+                            Width="100"
+                            Height="100"
+                            Margin="20,240,0,0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            Source="{StaticResource Face Background Generic}" />
+                        <Button
+                            Width="100"
+                            Height="100"
+                            Margin="20,240,0,0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1="{StaticResource Face 19}"
+                            local:PropEx.Sprite2="{StaticResource Face 19}"
+                            local:PropEx.Sprite3="{StaticResource Face 19}"
+                            local:PropEx.Sprite4="{StaticResource Face 19}"
+                            Command="{Binding SkirmishAIAddClickCommand}"
+                            CommandParameter="18"
+                            Style="{StaticResource BTN_Image}">
+                            <b:Interaction.Triggers>
+                                <b:EventTrigger
+                                    EventName="MouseEnter">
+                                    <b:InvokeCommandAction
+                                        Command="{Binding SkirmishAIAddClickEnterCommand}"
+                                        CommandParameter="18" />
+                                </b:EventTrigger>
+                                <b:EventTrigger
+                                    EventName="MouseLeave">
+                                    <b:InvokeCommandAction
+                                        Command="{Binding SkirmishAIAddClickEnterCommand}"
+                                        CommandParameter="-1" />
+                                </b:EventTrigger>
+                            </b:Interaction.Triggers>
+                        </Button>
+
+                        <Image
+                            Width="100"
+                            Height="100"
+                            Margin="130,240,0,0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            Source="{StaticResource Face Background Generic}" />
+                        <Button
+                            Width="100"
+                            Height="100"
+                            Margin="130,240,0,0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1="{StaticResource Face 20}"
+                            local:PropEx.Sprite2="{StaticResource Face 20}"
+                            local:PropEx.Sprite3="{StaticResource Face 20}"
+                            local:PropEx.Sprite4="{StaticResource Face 20}"
+                            Command="{Binding SkirmishAIAddClickCommand}"
+                            CommandParameter="19"
+                            Style="{StaticResource BTN_Image}">
+                            <b:Interaction.Triggers>
+                                <b:EventTrigger
+                                    EventName="MouseEnter">
+                                    <b:InvokeCommandAction
+                                        Command="{Binding SkirmishAIAddClickEnterCommand}"
+                                        CommandParameter="19" />
+                                </b:EventTrigger>
+                                <b:EventTrigger
+                                    EventName="MouseLeave">
+                                    <b:InvokeCommandAction
+                                        Command="{Binding SkirmishAIAddClickEnterCommand}"
+                                        CommandParameter="-1" />
+                                </b:EventTrigger>
+                            </b:Interaction.Triggers>
+                        </Button>
+
+                        <Image
+                            Width="100"
+                            Height="100"
+                            Margin="240,240,0,0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            Source="{StaticResource Face Background Generic}" />
+                        <Button
+                            Width="100"
+                            Height="100"
+                            Margin="240,240,0,0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1="{StaticResource Face 25}"
+                            local:PropEx.Sprite2="{StaticResource Face 25}"
+                            local:PropEx.Sprite3="{StaticResource Face 25}"
+                            local:PropEx.Sprite4="{StaticResource Face 25}"
+                            Command="{Binding SkirmishAIAddClickCommand}"
+                            CommandParameter="24"
+                            Style="{StaticResource BTN_Image}">
+                            <b:Interaction.Triggers>
+                                <b:EventTrigger
+                                    EventName="MouseEnter">
+                                    <b:InvokeCommandAction
+                                        Command="{Binding SkirmishAIAddClickEnterCommand}"
+                                        CommandParameter="24" />
+                                </b:EventTrigger>
+                                <b:EventTrigger
+                                    EventName="MouseLeave">
+                                    <b:InvokeCommandAction
+                                        Command="{Binding SkirmishAIAddClickEnterCommand}"
+                                        CommandParameter="-1" />
+                                </b:EventTrigger>
+                            </b:Interaction.Triggers>
+                        </Button>
+
+                        <Image
+                            Width="100"
+                            Height="100"
+                            Margin="350,240,0,0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            Visibility="{Binding NewAILordNotVisible[0]}"
+                            Source="{StaticResource Face Background Generic}" />
+                        <Button
+                            Width="100"
+                            Height="100"
+                            Margin="350,240,0,0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1="{StaticResource Face 21}"
+                            local:PropEx.Sprite2="{StaticResource Face 21}"
+                            local:PropEx.Sprite3="{StaticResource Face 21}"
+                            local:PropEx.Sprite4="{StaticResource Face 21}"
+                            Command="{Binding SkirmishAIAddClickCommand}"
+                            CommandParameter="20"
+                            Visibility="{Binding NewAILordNotVisible[0]}"
+                            Style="{StaticResource BTN_Image}">
+                            <b:Interaction.Triggers>
+                                <b:EventTrigger
+                                    EventName="MouseEnter">
+                                    <b:InvokeCommandAction
+                                        Command="{Binding SkirmishAIAddClickEnterCommand}"
+                                        CommandParameter="20" />
+                                </b:EventTrigger>
+                                <b:EventTrigger
+                                    EventName="MouseLeave">
+                                    <b:InvokeCommandAction
+                                        Command="{Binding SkirmishAIAddClickEnterCommand}"
+                                        CommandParameter="-1" />
+                                </b:EventTrigger>
+                            </b:Interaction.Triggers>
+                        </Button>
+
+                        <Image
+                            Width="100"
+                            Height="100"
+                            Margin="460,240,0,0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            Visibility="{Binding NewAILordNotVisible[1]}"
+                            Source="{StaticResource Face Background Generic}" />
+                        <Button
+                            Width="100"
+                            Height="100"
+                            Margin="460,240,0,0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1="{StaticResource Face 22}"
+                            local:PropEx.Sprite2="{StaticResource Face 22}"
+                            local:PropEx.Sprite3="{StaticResource Face 22}"
+                            local:PropEx.Sprite4="{StaticResource Face 22}"
+                            Command="{Binding SkirmishAIAddClickCommand}"
+                            CommandParameter="21"
+                            Visibility="{Binding NewAILordNotVisible[1]}"
+                            Style="{StaticResource BTN_Image}">
+                            <b:Interaction.Triggers>
+                                <b:EventTrigger
+                                    EventName="MouseEnter">
+                                    <b:InvokeCommandAction
+                                        Command="{Binding SkirmishAIAddClickEnterCommand}"
+                                        CommandParameter="21" />
+                                </b:EventTrigger>
+                                <b:EventTrigger
+                                    EventName="MouseLeave">
+                                    <b:InvokeCommandAction
+                                        Command="{Binding SkirmishAIAddClickEnterCommand}"
+                                        CommandParameter="-1" />
+                                </b:EventTrigger>
+                            </b:Interaction.Triggers>
+                        </Button>
+
+                        <!--  DLC2 RE-ADD                       -->
+                        <Image
+                            Width="100"
+                            Height="100"
+                            Margin="570,240,0,0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            Visibility="{Binding NewAILordNotVisible[2]}"
+                            Source="{StaticResource Face Background Generic}" />
+                        <Button
+                            Width="100"
+                            Height="100"
+                            Margin="570,240,0,0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1="{StaticResource Face 23}"
+                            local:PropEx.Sprite2="{StaticResource Face 23}"
+                            local:PropEx.Sprite3="{StaticResource Face 23}"
+                            local:PropEx.Sprite4="{StaticResource Face 23}"
+                            Command="{Binding SkirmishAIAddClickCommand}"
+                            CommandParameter="22"
+                            Visibility="{Binding NewAILordNotVisible[2]}"
+                            Style="{StaticResource BTN_Image}">
+                            <b:Interaction.Triggers>
+                                <b:EventTrigger
+                                    EventName="MouseEnter">
+                                    <b:InvokeCommandAction
+                                        Command="{Binding SkirmishAIAddClickEnterCommand}"
+                                        CommandParameter="22" />
+                                </b:EventTrigger>
+                                <b:EventTrigger
+                                    EventName="MouseLeave">
+                                    <b:InvokeCommandAction
+                                        Command="{Binding SkirmishAIAddClickEnterCommand}"
+                                        CommandParameter="-1" />
+                                </b:EventTrigger>
+                            </b:Interaction.Triggers>
+                        </Button>
+
+                        <Image
+                            Width="100"
+                            Height="100"
+                            Margin="680,240,0,0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            Visibility="{Binding NewAILordNotVisible[3]}"
+                            Source="{StaticResource Face Background Generic}" />
+                        <Button
+                            Width="100"
+                            Height="100"
+                            Margin="680,240,0,0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1="{StaticResource Face 24}"
+                            local:PropEx.Sprite2="{StaticResource Face 24}"
+                            local:PropEx.Sprite3="{StaticResource Face 24}"
+                            local:PropEx.Sprite4="{StaticResource Face 24}"
+                            Command="{Binding SkirmishAIAddClickCommand}"
+                            CommandParameter="23"
+                            Visibility="{Binding NewAILordNotVisible[3]}"
+                            Style="{StaticResource BTN_Image}">
+                            <b:Interaction.Triggers>
+                                <b:EventTrigger
+                                    EventName="MouseEnter">
+                                    <b:InvokeCommandAction
+                                        Command="{Binding SkirmishAIAddClickEnterCommand}"
+                                        CommandParameter="23" />
+                                </b:EventTrigger>
+                                <b:EventTrigger
+                                    EventName="MouseLeave">
+                                    <b:InvokeCommandAction
+                                        Command="{Binding SkirmishAIAddClickEnterCommand}"
+                                        CommandParameter="-1" />
+                                </b:EventTrigger>
+                            </b:Interaction.Triggers>
+                        </Button>
+                       <!-- DLC 3 -->
+                        <Image
+                            Width="100"
+                            Height="100"
+                            Margin="790,240,0,0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            Visibility="{Binding NewAILordNotVisible[5]}"
+                            Source="{StaticResource Face Background Generic}" />
+                        <Button
+                            Width="100"
+                            Height="100"
+                            Margin="790,240,0,0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1="{StaticResource Face 26}"
+                            local:PropEx.Sprite2="{StaticResource Face 26}"
+                            local:PropEx.Sprite3="{StaticResource Face 26}"
+                            local:PropEx.Sprite4="{StaticResource Face 26}"
+                            Command="{Binding SkirmishAIAddClickCommand}"
+                            CommandParameter="25"
+                            Visibility="{Binding NewAILordNotVisible[5]}"
+                            Style="{StaticResource BTN_Image}">
+                            <b:Interaction.Triggers>
+                                <b:EventTrigger
+                                    EventName="MouseEnter">
+                                    <b:InvokeCommandAction
+                                        Command="{Binding SkirmishAIAddClickEnterCommand}"
+                                        CommandParameter="25" />
+                                </b:EventTrigger>
+                                <b:EventTrigger
+                                    EventName="MouseLeave">
+                                    <b:InvokeCommandAction
+                                        Command="{Binding SkirmishAIAddClickEnterCommand}"
+                                        CommandParameter="-1" />
+                                </b:EventTrigger>
+                            </b:Interaction.Triggers>
+                        </Button>
+                        <Image
+                            Width="100"
+                            Height="100"
+                            Margin="900,240,0,0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            Visibility="{Binding NewAILordNotVisible[6]}"
+                            Source="{StaticResource Face Background Generic}" />
+                        <Button
+                            Width="100"
+                            Height="100"
+                            Margin="900,240,0,0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1="{StaticResource Face 27}"
+                            local:PropEx.Sprite2="{StaticResource Face 27}"
+                            local:PropEx.Sprite3="{StaticResource Face 27}"
+                            local:PropEx.Sprite4="{StaticResource Face 27}"
+                            Command="{Binding SkirmishAIAddClickCommand}"
+                            CommandParameter="26"
+                            Visibility="{Binding NewAILordNotVisible[6]}"
+                            Style="{StaticResource BTN_Image}">
+                            <b:Interaction.Triggers>
+                                <b:EventTrigger
+                                    EventName="MouseEnter">
+                                    <b:InvokeCommandAction
+                                        Command="{Binding SkirmishAIAddClickEnterCommand}"
+                                        CommandParameter="26" />
+                                </b:EventTrigger>
+                                <b:EventTrigger
+                                    EventName="MouseLeave">
+                                    <b:InvokeCommandAction
+                                        Command="{Binding SkirmishAIAddClickEnterCommand}"
+                                        CommandParameter="-1" />
+                                </b:EventTrigger>
+                            </b:Interaction.Triggers>
+                        </Button>
+                        
+                        
+                       
+                    </Grid>
+                    <TextBlock
+                        Margin="20,350,30,0"
+                        HorizontalAlignment="Stretch"
+                        FontSize="24"
+                        VerticalAlignment="Top"
+                        FlowDirection="{Binding GlobalTextFlowAL2R}"
+                        Foreground="{StaticResource Brush.Accent7}"
+                        Text="{Binding SkirmishLordRolloverName}">
+                    </TextBlock>
+
+                    <TextBlock
+                        Margin="20,380,30,0"
+                        HorizontalAlignment="Stretch"
+                        FontSize="20"
+                        VerticalAlignment="Top"
+                        FlowDirection="{Binding GlobalTextFlowAL2R}"
+                        TextWrapping="WrapWithOverflow"
+                        Foreground="{StaticResource Brush.Accent7}"
+                        Text="{Binding SkirmishLordRolloverDesc}">
+                    </TextBlock>
+
+
+                    <Button
+                        Width="200"
+                        Margin="0,0,20,20"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Bottom"
+                        local:PropEx.TextCentre="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_NEW_TEXT_091]}"
+                        local:PropEx.TextLeft=""
+                        local:PropEx.TextRight=""
+                        Command="{Binding MultiplayerMenuCommand}"
+                        CommandParameter="CoopSinglePlayerBack"
+                        Style="{StaticResource BTN_SH_GlowS}" />
+                </Grid>
+            </Grid>
+
+            <!-- Chat text -->
+            <Viewbox
+                Width="900"
+                Height="350"
+                Margin="0,0,200,114"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Bottom">
+                <Grid
+                    Width="679"
+                    Height="270"
+                    Visibility="{Binding Show_CoopConnectedChatVisible, Converter={StaticResource booleanToVisibilityConverter}}">
+                    <Grid
+                        Width="679"
+                        Height="270"
+                        Margin="0,0,0,0"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Bottom"
+                        Visibility="{Binding Show_CoopConnectedChat, Converter={StaticResource booleanToVisibilityConverter}}">
+                        <Button
+                            Style="{StaticResource BDR_SH1DEb}" />
+                        <ScrollViewer
+                            Name="MP_ChatScrollView"
+                            Margin="10,5,10,30"
+                            Width="659"
+                            Height="225"
+                            HorizontalAlignment="Stretch"
+                            VerticalAlignment="Stretch">
+                            <TextBlock
+                                Name="MP_ChatDisplay"
+                                TextAlignment="Left"
+                                TextWrapping="Wrap"
+                                Foreground="Black"
+                                FontSize="12"
+                                VerticalAlignment="Bottom" />
+                        </ScrollViewer>
+                    </Grid>
+
+                    <TextBox
+                        Name="MP_ChatInput"
+                        Width="517"
+                        Height="28"
+                        Margin="0,0,155,4"
+                        Padding="5"
+                        MaxLength="300"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Bottom"
+                        Visibility="{Binding Show_CoopConnectedChat, Converter={StaticResource booleanToVisibilityConverter}}" />
+
+                    <Button
+                        Name="MP_ChatSend"
+                        Width="150"
+                        Margin="0,0,3,3"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Bottom"
+                        local:PropEx.TextCentre="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_MULTIPLAYER_CONNECTION_034]}"
+                        local:PropEx.TextLeft=""
+                        local:PropEx.TextRight=""
+                        Command="{Binding MultiplayerMenuCommand}"
+                        CommandParameter="SendChat"
+                        MouseEnter="CommonRedButtonEnter"
+                        Visibility="{Binding Show_CoopConnectedChat, Converter={StaticResource booleanToVisibilityConverter}}"
+                        Style="{StaticResource BTN_SH_GlowS}" />
+                </Grid>
+            </Viewbox>
+            <Viewbox
+                Width="300"
+                Height="450"
+                Margin="0,0,780,64"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Bottom"
+                Visibility="{Binding Show_CoopConnectedChat, Converter={StaticResource booleanToVisibilityConverter}}">
+                <Grid
+                    Width="250"
+                    Margin="0,0,3,3"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Bottom">
+                    <Button
+                        Name="MP_ToggleChat"
+                        Width="250"
+                        Margin="0,0,0,0"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Bottom"
+                        local:PropEx.TextCentre="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_NEW_CTEXT_342]}"
+                        local:PropEx.TextLeft=""
+                        local:PropEx.TextRight=""
+                        Command="{Binding MultiplayerMenuCommand}"
+                        CommandParameter="ChatToggle"
+                        MouseEnter="CommonRedButtonEnter"
+                        Style="{StaticResource BTN_SH_GlowS}">
+                    </Button>
+                    <Image
+                        Margin="220,5.5,0,0"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Top"
+                        Width="18"
+                        Visibility="{Binding CoopNewChatVis, Converter={StaticResource booleanToVisibilityConverter}}"
+                        Source="{StaticResource Notification}" />
+                </Grid>
+
+            </Viewbox>
+
+            <Button
+                Name="Coop1QuitButtonX"
+                Width="151"
+                Height="66"
+                Margin="60,0,0,30"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Bottom"
+                local:PropEx.ImageFlow="{Binding GlobalTextFlow}"
+                local:PropEx.Sprite1="{StaticResource UI-Buttons B005}"
+                local:PropEx.Sprite2="{StaticResource UI-Buttons B006}"
+                local:PropEx.Sprite3="{StaticResource UI-Buttons B007}"
+                local:PropEx.Sprite4="{StaticResource UI-Buttons B008}"
+                Command="{Binding MultiplayerMenuCommand}"
+                CommandParameter="Back"
+                Style="{StaticResource BTN_Image}" />
+
+            <Button
+                Name="Coop1ResumeButtonX"
+                Width="151"
+                Height="66"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Bottom"
+                Margin="0,0,60,30"
+                local:PropEx.ImageFlow="{Binding GlobalTextFlow}"
+                local:PropEx.Sprite1="{StaticResource UI-Buttons B001}"
+                local:PropEx.Sprite2="{StaticResource UI-Buttons B002}"
+                local:PropEx.Sprite3="{StaticResource UI-Buttons B003}"
+                local:PropEx.Sprite4="{StaticResource UI-Buttons B004}"
+                Command="{Binding MultiplayerMenuCommand}"
+                CommandParameter="COOP_START"
+                Visibility="{Binding Show_CoopHostJoinedPane, Converter={StaticResource booleanToVisibilityConverter}}"
+                Style="{StaticResource BTN_Image}" />
+
+            <Button
+                Name="CoopLoadButton"
+                Width="90"
+                Margin="0,0,280,21"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Bottom"
+                local:PropEx.Sprite1="{StaticResource MPLoad}"
+                local:PropEx.Sprite2="{StaticResource MPLoad_over}"
+                local:PropEx.Sprite3="{StaticResource MPLoad_over}"
+                local:PropEx.Sprite4="{StaticResource MPLoad_disabled}"
+                Command="{Binding MultiplayerMenuCommand}"
+                CommandParameter="Load"
+                Visibility="{Binding Show_CoopLoadButton, Converter={StaticResource booleanToVisibilityConverter}}"
+                Style="{StaticResource BTN_Image}" />
+
+            <!--
+            <Button
+                Name="Sands1_LoadButton"
+                Height="103"
+                Margin="0,0,250,20"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Bottom"
+                local:PropEx.Sprite1="{StaticResource Load Shield Up}"
+                local:PropEx.Sprite2="{StaticResource Load Shield Over}"
+                local:PropEx.Sprite3="{StaticResource Load Shield Over}"
+                local:PropEx.Sprite4="{StaticResource Load Shield Up}"
+                Command="{Binding ButtonMainMenuCommand}"
+                CommandParameter="LoadTrail"
+                Style="{StaticResource BTN_Image}">
+            </Button>
+            <TextBlock
+                Margin="0,0,0,20"
+                HorizontalAlignment="Center"
+                FontSize="24"
+                Foreground="#FFEFF3C6"
+                VerticalAlignment="Bottom"
+                Visibility="{Binding ChickenCheatRolloverVis}"
+                Text="{Binding GameTexts[TEXT_CHEATS_001], Source={x:Static local:Translate.Instance}}" />
+            -->
+        </Grid>
+        <!--
+        <local:HUD_Leaderboard
+            Margin="890, 400, 0, 0"
+            Panel.ZIndex="25000"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Top"
+            Visibility="{Binding Show_Leaderboard, Converter={StaticResource booleanToVisibilityConverter}}" />
+-->
+        <Grid
+            Margin="-1000,-1000,-1000,-1000"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch"
+            Background="#AA000000"
+            Visibility="{Binding Show_CoopWaiting, Converter={StaticResource booleanToVisibilityConverter}}" />
+
+        <Grid
+            Visibility="{Binding Show_CoopWaiting, Converter={StaticResource booleanToVisibilityConverter}}"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center">
+            <Button
+                Width="820"
+                Height="210"
+                Margin="0,0,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                
+                Style="{StaticResource BDR_Wood}" />
+
+            <TextBlock
+                Width="568"
+                Margin="0,30,0,0"
+                HorizontalAlignment="Center"
+                FontSize="30"
+                Foreground="{StaticResource Brush.Accent7}"
+                TextWrapping="Wrap"
+                VerticalAlignment="Top"
+                TextAlignment="Center"
+                Text="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_NEW_CTEXT_298]}" />
+            <Button
+                Width="183"
+                Margin="0,0,44,38"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Bottom"
+                local:PropEx.TextCentre="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_MULTIPLAYER_CONNECTION_004]}"
+                local:PropEx.TextLeft=""
+                local:PropEx.TextRight=""
+                Command="{Binding MultiplayerMenuCommand}"
+                CommandParameter="ClearWait"
+                MouseEnter="CommonRedButtonEnter"
+                Style="{StaticResource BTN_SH_GlowL}" />
+        </Grid>
+
+        <Grid
+            Margin="-1000,-1000,-1000,-1000"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch"
+            Background="#AA000000"
+            Visibility="{Binding Show_CoopOptions, Converter={StaticResource booleanToVisibilityConverter}}" />
+
+        <Grid
+            Visibility="{Binding Show_CoopOptions, Converter={StaticResource booleanToVisibilityConverter}}"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center">
+            <Button
+                Width="620"
+                Height="360"
+                Margin="0,0,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                Style="{StaticResource BDR_SH1DEa}" />
+
+            <Viewbox
+                Width="620"
+                Height="360">
+                <Grid
+                    Width="434"
+                    Height="252">
+                    <!-- Extreme Powers -->
+                    <Button
+                        Width="350"
+                        Margin="0,19,0,0"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Top"
+                        local:PropEx.TextCentre=""
+                        local:PropEx.TextLeft="{Binding GameTexts[TEXT_SKIRMISH_MISC_017], Source={x:Static local:Translate.Instance}}"
+                        local:PropEx.Sprite1="{Binding MP_Settings_ExPowers}"
+                        local:PropEx.Sprite1Width="29"
+                        local:PropEx.Sprite1Height="29"
+                        local:PropEx.Sprite1Margin="320,0,0,0"
+                        Command="{Binding MultiplayerMenuCommand}"
+                        CommandParameter="Settings_ExtremePowers"
+                        MouseEnter="CommonRedButtonEnter"
+                        Style="{StaticResource BTN_SH_GlowSImage}">
+                    </Button>
+                    <!-- Extreme Powers near lord -->
+                    <Button
+                        Width="350"
+                        Margin="0,57,0,0"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Top"
+                        local:PropEx.TextCentre=""
+                        local:PropEx.TextLeft="{Binding GameTexts[TEXT_SKIRMISH_MISC_015], Source={x:Static local:Translate.Instance}}"
+                        local:PropEx.Sprite1="{Binding MP_Settings_ExPowersLord}"
+                        local:PropEx.Sprite1Width="29"
+                        local:PropEx.Sprite1Height="29"
+                        local:PropEx.Sprite1Margin="320,0,0,0"
+                        Command="{Binding MultiplayerMenuCommand}"
+                        CommandParameter="Settings_ExtremePowerLord"
+                        MouseEnter="CommonRedButtonEnter"
+                        Style="{StaticResource BTN_SH_GlowSImage}">
+                    </Button>
+
+                    <!-- Game speed -->
+                    <Grid
+                        Width="350"
+                        Height="60"
+                        Margin="0,95,0,0"
+                        Background="{StaticResource Brush.InsetColour2}"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Top">
+                        <b:Interaction.Triggers>
+                            <b:EventTrigger
+                                EventName="MouseEnter">
+                                <b:InvokeCommandAction
+                                    Command="{Binding MultiplayerMenuCommand}"
+                                    CommandParameter="Settings_GameSpeed_Enter" />
+                            </b:EventTrigger>
+                            <b:EventTrigger
+                                EventName="MouseLeave">
+                                <b:InvokeCommandAction
+                                    Command="{Binding MultiplayerMenuCommand}"
+                                    CommandParameter="Settings_leave" />
+                            </b:EventTrigger>
+                        </b:Interaction.Triggers>
+                        <TextBlock
+                            Width="200"
+                            Margin="5,5,0,0"
+                            FontSize="20"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            Text="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_XPLAY_WAITING_ROOM_083]}" />
+
+                        <TextBlock
+                            Width="200"
+                            FontSize="20"
+                            Margin="0,5,9,0"
+                            TextAlignment="Right"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Top"
+                            Text="{Binding MP_Settings_GameSpeed}" />
+
+                        <StackPanel
+                            Width="208"
+                            Margin="26,24,5,5"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Bottom">
+                            <Slider
+                                Name="MP_Settings_GameSpeed_Slider"
+                                IsSnapToTickEnabled="False"
+                                Minimum="2"
+                                Maximum="16"
+                                TickFrequency="1"
+                                TickPlacement="BottomRight"
+                                Style="{StaticResource SDR_SH_Plain}" />
+                        </StackPanel>
+                    </Grid>
+                    
+                    <!-- Auto save -->
+                    <Button
+                        Width="350"
+                        Margin="0,162,0,0"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Top"
+                        Opacity="{Binding MPSettings_Autosave_Opacity}"
+                        local:PropEx.TextCentre=""
+                        local:PropEx.TextLeft="{Binding GameTexts[TEXT_XPLAY_WAITING_ROOM_095], Source={x:Static local:Translate.Instance}}"
+                        local:PropEx.TextRight="{Binding MP_Settings_Autosave}"
+                        Command="{Binding MultiplayerMenuCommand}"
+                        CommandParameter="Settings_Autosave"
+                        MouseEnter="CommonRedButtonEnter"
+                        Style="{StaticResource BTN_SH_GlowS}">
+                    </Button>
+                    <Button
+                        Width="183"
+                        Margin="0,0,0,18"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Bottom"
+                        local:PropEx.TextCentre="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_MAINOPTIONS_009]}"
+                        local:PropEx.TextLeft=""
+                        local:PropEx.TextRight=""
+                        Command="{Binding MultiplayerMenuCommand}"
+                        CommandParameter="CloseCoopOptions"
+                        MouseEnter="CommonRedButtonEnter"
+                        Style="{StaticResource BTN_SH_GlowS}" />
+
+                </Grid>
+            </Viewbox>
+        </Grid>
+
+        <Grid
+            Margin="-1000,-1000,-1000,-1000"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch"
+            Background="#AA000000"
+            Visibility="{Binding Show_CoopHidePanel, Converter={StaticResource booleanToVisibilityConverter}}" />
+
+        <Grid
+            Visibility="{Binding Show_CoopHidePanel, Converter={StaticResource booleanToVisibilityConverter}}"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center">
+            <Button
+                Width="520"
+                Height="240"
+                Margin="0,0,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                Style="{StaticResource BDR_SH1DEa}" />
+
+            <Viewbox
+                Width="420"
+                Height="240">
+                <Grid
+                    Width="304"
+                    Height="180">
+                    <Rectangle
+                        Opacity="1"
+                        Margin="-40,50,-40,0"
+                        Height="7.5"
+                        VerticalAlignment="Top"
+                        HorizontalAlignment="Stretch"
+                        SnapsToDevicePixels="True">
+                        <Rectangle.Fill>
+                            <ImageBrush
+                                ImageSource="{StaticResource Panel_Divider}"
+                                Viewport="0,0,250,7.5"
+                                ViewportUnits="Absolute"
+                                AlignmentX="Center"
+                                AlignmentY="Top"
+                                TileMode="Tile" />
+                        </Rectangle.Fill>
+                    </Rectangle>
+                    <TextBlock
+                        Margin="0,15,0,0"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Top"
+                        FontSize="24"
+                        Text="{Binding CoopHideName}"
+                        TextAlignment="Center" />
+
+                    <Button
+                        Width="240"
+                        Margin="0,79,0,0"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Top"
+                        local:PropEx.TextCentre="{Binding GameTexts[TEXT_NEW_CTEXT_383], Source={x:Static local:Translate.Instance}}"
+                        Command="{Binding MultiplayerMenuCommand}"
+                        CommandParameter="Coop_Hide"
+                        MouseEnter="CommonRedButtonEnter"
+                        Visibility="{Binding Show_CoopHideButton, Converter={StaticResource booleanToVisibilityConverter}}"
+                        Style="{StaticResource BTN_SH_GlowS}">
+                    </Button>
+                    <Button
+                        Width="240"
+                        Margin="0,79,0,0"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Top"
+                        local:PropEx.TextCentre="{Binding GameTexts[TEXT_NEW_CTEXT_384], Source={x:Static local:Translate.Instance}}"
+                        Command="{Binding MultiplayerMenuCommand}"
+                        CommandParameter="Coop_Show"
+                        MouseEnter="CommonRedButtonEnter"
+                        Visibility="{Binding Show_CoopShowButton, Converter={StaticResource booleanToVisibilityConverter}}"
+                        Style="{StaticResource BTN_SH_GlowS}">
+                    </Button>
+                    <Button
+                        Width="183"
+                        Margin="0,0,0,18"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Bottom"
+                        local:PropEx.TextCentre="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_MAINOPTIONS_009]}"
+                        local:PropEx.TextLeft=""
+                        local:PropEx.TextRight=""
+                        Command="{Binding MultiplayerMenuCommand}"
+                        CommandParameter="CloseCoopHide"
+                        MouseEnter="CommonRedButtonEnter"
+                        Style="{StaticResource BTN_SH_GlowS}" />
+
+                </Grid>
+            </Viewbox>
+        </Grid>
+    </Grid>
+
+</UserControl>
+
+<!-- NOTDEMOEND -->

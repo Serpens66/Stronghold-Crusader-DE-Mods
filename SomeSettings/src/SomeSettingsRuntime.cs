@@ -30,6 +30,7 @@ namespace SomeSettings
         private readonly Dictionary<string, ResourceEventCountGuard> refundResourceGuards = new Dictionary<string, ResourceEventCountGuard>();
         private PendingStockpileRefund pendingStockpileRefund;
         private MinimapPlacementClickHook minimapPlacementClickHook;
+        private CoopTrailCustomizeHook coopTrailCustomizeHook;
         private SkirmishAiSelectionMemoryHook skirmishAiSelectionMemoryHook;
 
         private bool hooksSubscribed;
@@ -77,6 +78,7 @@ namespace SomeSettings
                 .Where(args => args.Phase == EventHookPhase.Post)
                 .Subscribe(OnUnloadMap));
             minimapPlacementClickHook = new MinimapPlacementClickHook(log, settings);
+            coopTrailCustomizeHook = new CoopTrailCustomizeHook(log);
             skirmishAiSelectionMemoryHook = new SkirmishAiSelectionMemoryHook(log, settings);
             hooksSubscribed = true;
             log.LogDebug("SomeSettings hooks subscribed.");
@@ -116,6 +118,8 @@ namespace SomeSettings
             subscriptions.Clear();
             minimapPlacementClickHook?.Dispose();
             minimapPlacementClickHook = null;
+            coopTrailCustomizeHook?.Dispose();
+            coopTrailCustomizeHook = null;
             skirmishAiSelectionMemoryHook?.Dispose();
             skirmishAiSelectionMemoryHook = null;
             ClearResourceEventGuards();

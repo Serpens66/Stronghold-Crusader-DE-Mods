@@ -14,6 +14,8 @@
 -- - die Trails haben alle einen "Anpassen" Button um die karte des trails in skirmish zu laden. Kann man diesen auch bei coop trails zufügen?
 
 
+
+
 -- C# mods:
 
 -- [UnitCostsRuntime.cs (line 410)](/d:/CDesktopLink/Unterlagen/Mods/Stronghold Crusader DE/Meine Mods/UnitCosts/src/UnitCostsRuntime.cs:410): Siege-Zusatzkosten blockieren Placement nur für lokalen Spieler. [OnBuildingSpawn (line 453)](/d:/CDesktopLink/Unterlagen/Mods/Stronghold Crusader DE/Meine Mods/UnitCosts/src/UnitCostsRuntime.cs:453) überspringt bei fehlenden Ressourcen nur die Zusatzkosten, lässt das Siege Tent aber bestehen. In Multiplayer kann das je nach Autorität/Client-Eventfluss einen Bypass erzeugen.
@@ -21,13 +23,74 @@
 --> TESTEN ob Placement Event nur für lokalen Spieler läuft, oder für alle spieler. Wenn alle für alle spieler dieses event bekommen, dann muss das gefixt werden.
 
 
+-- BUG:
+-- aus inem grund funkt mein startconditions mod nicht mehr für die KI?
+-- gibt kein extra gold, nur für human, und die KI startet mit hunderten Mehl?!
+
+
+
 -- EnemyHealthModifier testen, wann man das setzen muss, damit der setting wert es nicht überschreibt
 
--- tweak settings:
--- kaufpreise verdoppeln
 -- evlt acension und oder stronghold 1 balance einbauen, zb. bier nur noch maximal +4
 
 -- mp testen
+
+-- modsettings Einstellungen speichern/wiederherstellen, die man benennen kann und in liste auswählen kann
+
+-- UnitLimit/Cost: Wenn die benötigten Rekruten nicht reichen, dann vanilla fehlermeldung ausgeben, also "es werden rekruten benötig",
+ -- aktuell ists es werden fwaffen benötig
+
+-- welcher mod verursacht im log:
+-- [Warning:  SHCDE-SE] [GameTileManagerAPI] [IsTileWalkableAndUnoccupied] Tried to access invalid tileId: -396
+
+-- besser haskeep fn:
+
+-- private void ForEachAlivePlayer(Action<int> callback)
+-- {
+    -- int[] aliveIds = GamePlayerManagerAPI.Instance.GetAlivePlayerIds();
+    -- HashSet<int> playerIdsWithKeep = GetPlayerIdsWithKeeps(); // returns 0 based
+    -- for (int i = 0; i < aliveIds.Length; i++)
+    -- {
+        -- int playerId = aliveIds[i] + 1;
+        -- bool isValid = GamePlayerManagerAPI.Instance.IsPlayerIdValid(playerId);
+        -- bool hasKeep = isValid && playerIdsWithKeep.Contains(playerId);
+        -- LogDebug("ForEachAlivePlayer candidate", "slotId", aliveIds[i], "playerId", playerId, "isValid", isValid, "hasKeep", hasKeep);
+        -- if (isValid && hasKeep)
+        -- {
+            -- callback(playerId);
+        -- }
+    -- }
+-- }
+
+
+-- private bool HasKeep(int playerId)
+-- {
+    -- return GetPlayerIdsWithKeeps().Contains(playerId);
+-- }
+
+-- private HashSet<int> GetPlayerIdsWithKeeps()
+-- {
+    -- HashSet<int> playerIds = new HashSet<int>();
+    -- Span<GameBuilding> buildings = GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
+
+    -- for (int i = 0; i < buildings.Length; i++)
+    -- {
+        -- GameBuilding keep = buildings[i];
+        -- int owner = keep.r_PlayerIdOwner;
+        -- if (!GamePlayerManagerAPI.Instance.IsPlayerIdValid(owner) || !IsKeepType(keep.r_BuildingType))
+            -- continue;
+
+        -- playerIds.Add(owner);
+    -- }
+
+    -- return playerIds;
+-- }
+
+
+
+
+
+
 
 
 

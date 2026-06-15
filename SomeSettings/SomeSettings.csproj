@@ -101,6 +101,7 @@
     <Compile Include="..\Shared\SerpLocalization.cs">
       <Link>Shared\SerpLocalization.cs</Link>
     </Compile>
+    <Compile Include="src\CoopTrailCustomizeHook.cs" />
     <Compile Include="src\MinimapPlacementClickHook.cs" />
     <Compile Include="src\SkirmishAiSelectionMemoryHook.cs" />
     <Compile Include="src\SomeSettingsPlugin.cs" />
