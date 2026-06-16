@@ -26,6 +26,7 @@ namespace StartConditions
 
             if (setGold >= 0)
             {
+                GamePlayerManagerAPI.Instance.SubtractIncomingGood(playerId, eGoods.STORED_GOLD, 1000000);
                 GamePlayerManagerAPI.Instance.SetPlayerGold(playerId, (uint)setGold);
                 LogDebug("Set gold of player", playerId, "to", setGold);
             }

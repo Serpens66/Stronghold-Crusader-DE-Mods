@@ -376,10 +376,6 @@ namespace BuildingCosts
         private static eStructs ResolveTooltipBuilding(int tooltipStruct)
         {
             List<eStructs> candidates = new List<eStructs>(3);
-            eStructs direct = (eStructs)tooltipStruct;
-            if (Enum.IsDefined(typeof(eStructs), direct))
-                AddTooltipBuildingCandidate(candidates, direct);
-
             eMappers mapper = (eMappers)tooltipStruct;
             if (BuildingCostDefinitions.TryGetValue(mapper, out BuildingCostDefinition definition) &&
                 definition.Structures.Length > 0)
@@ -388,7 +384,15 @@ namespace BuildingCosts
             }
 
             eStructs mapped = mapper.ConvertToEStructs();
-            AddTooltipBuildingCandidate(candidates, mapped);
+            if (IsSupportedTooltipStructure(mapped))
+                AddTooltipBuildingCandidate(candidates, mapped);
+
+            if (Enum.IsDefined(typeof(eMappers), mapper) && candidates.Count == 0)
+                return eStructs.STRUCT_NULL;
+
+            eStructs direct = (eStructs)tooltipStruct;
+            if (Enum.IsDefined(typeof(eStructs), direct) && IsSupportedTooltipStructure(direct))
+                AddTooltipBuildingCandidate(candidates, direct);
 
             foreach (eStructs candidate in candidates)
             {
@@ -397,6 +401,23 @@ namespace BuildingCosts
             }
 
             return eStructs.STRUCT_NULL;
+        }
+
+        private static bool IsSupportedTooltipStructure(eStructs building)
+        {
+            if (building == eStructs.STRUCT_NULL)
+                return false;
+
+            foreach (BuildingCostDefinition definition in BuildingCostDefinitions.Values)
+            {
+                foreach (eStructs structure in definition.Structures)
+                {
+                    if (structure == building)
+                        return true;
+                }
+            }
+
+            return false;
         }
 
         private static void AddTooltipBuildingCandidate(List<eStructs> candidates, eStructs building)

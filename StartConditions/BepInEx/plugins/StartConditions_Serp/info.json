@@ -10,7 +10,8 @@
     {
       "Version": "1.0.3",
       "Changes": [
-        "Minor internal code improvement."
+        "Minor internal code improvement.",
+        "Fix -Set Gold- to properly override the vanilla start gold"
       ]
     }
   ]

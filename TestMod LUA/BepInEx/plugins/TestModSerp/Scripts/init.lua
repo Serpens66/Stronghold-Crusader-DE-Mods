@@ -23,19 +23,12 @@
 --> TESTEN ob Placement Event nur für lokalen Spieler läuft, oder für alle spieler. Wenn alle für alle spieler dieses event bekommen, dann muss das gefixt werden.
 
 
--- BUG:
--- aus inem grund funkt mein startconditions mod nicht mehr für die KI?
--- gibt kein extra gold, nur für human, und die KI startet mit hunderten Mehl?!
-
 
 -- EnemyHealthModifier testen, wann man das setzen muss, damit der setting wert es nicht überschreibt
 
 -- evlt stronghold 1 balance einbauen, zb. bier nur noch maximal +4, muss extender noch einbauen
 
 -- mp testen
-
--- UnitLimit/Cost: Wenn die benötigten Rekruten nicht reichen, dann vanilla fehlermeldung ausgeben, also "es werden rekruten benötig",
- -- aktuell ists es werden fwaffen benötig
 
 
 
