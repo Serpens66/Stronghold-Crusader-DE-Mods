@@ -34,6 +34,9 @@ namespace UnitCosts
         private const int SiegeMissingResourcesMessageThrottleMilliseconds = 1000;
         private const int SiegeMissingResourcesSpeechThrottleMilliseconds = 10000;
         private const string MissingResourcesSpeechFileName = "Other_Warning6.wav";
+        private const string MissingRecruitsLimitingReason = "peasants";
+        private static readonly string[] MissingRecruitsSpeechFileNames = { "Other_Warning4.wav", "Other_Warning5.wav" };
+        private static readonly Random MissingRecruitsSpeechRandom = new Random();
         private const BindingFlags MainViewModelFlags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
         private static readonly FieldInfo LastTroopBuildChimpField = typeof(MainViewModel).GetField("lastTroopBuildChimp", MainViewModelFlags);
         private static readonly PropertyInfo LastTroopBuildChimpProperty = typeof(MainViewModel).GetProperty("lastTroopBuildChimp", MainViewModelFlags);
@@ -355,7 +358,11 @@ namespace UnitCosts
                 "extraRequiredPerUnit", hasPositiveExtraCost ? extraLimitingRequiredPerUnit : 0,
                 "extraAvailable", hasPositiveExtraCost ? extraLimitingAvailableAmount : 0,
                 "rawUnitType", rawUnitType);
-            ShowMissingResourcesMessage();
+            if (nativeAffordableAmount == affordableAmount && nativeLimitingReason == MissingRecruitsLimitingReason)
+                PlayRecruitsNeededSpeech();
+            else
+                ShowMissingResourcesMessage();
+
             return MakeTroopGameActionDecision.BlockAction();
         }
 
@@ -903,6 +910,32 @@ namespace UnitCosts
             catch (Exception ex)
             {
                 LogDebug("Could not play UnitCosts missing resources speech:", ex.Message);
+            }
+        }
+
+        private void PlayRecruitsNeededSpeech()
+        {
+            try
+            {
+                string speechFileName = GetRandomMissingRecruitsSpeechFileName();
+                LogDebug("UnitCosts missing recruits speech:", speechFileName);
+
+                SFXManager.instance?.playSpeech(
+                    1,
+                    speechFileName,
+                    1f);
+            }
+            catch (Exception ex)
+            {
+                LogDebug("Could not play UnitCosts missing recruits speech:", ex.Message);
+            }
+        }
+
+        private static string GetRandomMissingRecruitsSpeechFileName()
+        {
+            lock (MissingRecruitsSpeechRandom)
+            {
+                return MissingRecruitsSpeechFileNames[MissingRecruitsSpeechRandom.Next(MissingRecruitsSpeechFileNames.Length)];
             }
         }
 

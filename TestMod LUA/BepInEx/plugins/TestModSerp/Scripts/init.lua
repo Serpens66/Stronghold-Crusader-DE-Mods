@@ -28,23 +28,14 @@
 -- gibt kein extra gold, nur für human, und die KI startet mit hunderten Mehl?!
 
 
-
 -- EnemyHealthModifier testen, wann man das setzen muss, damit der setting wert es nicht überschreibt
 
--- evlt acension und oder stronghold 1 balance einbauen, zb. bier nur noch maximal +4
+-- evlt stronghold 1 balance einbauen, zb. bier nur noch maximal +4, muss extender noch einbauen
 
 -- mp testen
 
--- modsettings Einstellungen speichern/wiederherstellen, die man benennen kann und in liste auswählen kann
-
 -- UnitLimit/Cost: Wenn die benötigten Rekruten nicht reichen, dann vanilla fehlermeldung ausgeben, also "es werden rekruten benötig",
  -- aktuell ists es werden fwaffen benötig
-
--- welcher mod verursacht im log:
--- [Warning:  SHCDE-SE] [GameTileManagerAPI] [IsTileWalkableAndUnoccupied] Tried to access invalid tileId: -396
-
--- besser haskeep fn:
-
 
 
 

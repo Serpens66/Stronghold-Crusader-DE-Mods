@@ -36,6 +36,8 @@ namespace UnitLimit
         private bool libraryInitialized;
         private const int LimitMessageDurationMilliseconds = 3000;
         private const int UnitLimitRecruitableRefreshMilliseconds = 30000;
+        private static readonly string[] MissingRecruitsSpeechFileNames = { "Other_Warning4.wav", "Other_Warning5.wav" };
+        private static readonly Random MissingRecruitsSpeechRandom = new Random();
         private static readonly TimeSpan PendingRecruitmentLifetime = TimeSpan.FromSeconds(3);
         private string limitMessageTimerHandle;
         private string unitLimitRecruitableRefreshTimerHandle;

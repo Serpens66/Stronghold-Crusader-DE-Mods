@@ -158,6 +158,8 @@ namespace UnitLimit
 
             if (remaining <= 0)
                 ShowUnitLimitReachedMessageForLocalPlayer(playerId, unitType, limit);
+            else if (readyPeasants == 0 && peasantLimitedRemaining <= 0)
+                PlayRecruitsNeededSpeech();
 
             RefreshLocalUnitRecruitableStates("MakeTroopBlock", false);
             RefreshCurrentUnitLimitTooltip();
