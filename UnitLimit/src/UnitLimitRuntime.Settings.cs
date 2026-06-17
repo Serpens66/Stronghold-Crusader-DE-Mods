@@ -30,7 +30,7 @@ namespace UnitLimit
                 if (settings.EnableMod)
                 {
                     SubscribeHooks();
-                    ApplyUnitLimits(false);
+                    ApplyUnitLimits();
                     ApplyCampfirePeasantsLimit();
                 }
                 else

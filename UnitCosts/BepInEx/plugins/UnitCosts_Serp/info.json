@@ -10,7 +10,8 @@
     {
       "Version": "1.0.1",
       "Changes": [
-        "Play -recruits are missing- if this is the reason for not being able to recruit"
+        "Play -recruits are missing- if this is the reason for not being able to recruit",
+        "Do not highlight units as recruitable if extra costs are missing."
       ]
     }
   ]

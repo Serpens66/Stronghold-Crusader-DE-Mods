@@ -24,6 +24,7 @@ namespace UnitCosts
         private MakeTroopGameActionHook makeTroopGameActionHook;
         private CreateTroopHoverHook createTroopHoverHook;
         private SiegeBuildHoverHook siegeBuildHoverHook;
+        private RecruitmentAvailabilityUiHook recruitmentAvailabilityUiHook;
         private string materialMessageTimerHandle;
         private DateTime nextSiegeMissingResourcesMessageUtc = DateTime.MinValue;
         private DateTime nextSiegeMissingResourcesSpeechUtc = DateTime.MinValue;
@@ -98,6 +99,7 @@ namespace UnitCosts
             makeTroopGameActionHook = new MakeTroopGameActionHook(log, DecideMakeTroopGameAction);
             createTroopHoverHook = new CreateTroopHoverHook(log, UpdateRecruitmentCostTooltip, ClearRecruitmentCostTooltip);
             siegeBuildHoverHook = new SiegeBuildHoverHook(log, UpdateSiegeBuildCostTooltip, ClearRecruitmentCostTooltip);
+            recruitmentAvailabilityUiHook = new RecruitmentAvailabilityUiHook(log, RefreshRecruitmentButtonAvailability);
 
             hooksSubscribed = true;
             log.LogDebug("UnitCosts runtime hooks subscribed");
@@ -126,6 +128,8 @@ namespace UnitCosts
             createTroopHoverHook = null;
             siegeBuildHoverHook?.Dispose();
             siegeBuildHoverHook = null;
+            recruitmentAvailabilityUiHook?.Dispose();
+            recruitmentAvailabilityUiHook = null;
             HideMaterialMessage();
         }
 
@@ -441,6 +445,70 @@ namespace UnitCosts
             }
 
             return entries;
+        }
+
+        internal void RefreshRecruitmentButtonAvailability()
+        {
+            if (!settings.EnableMod || humanExtraCosts.Count == 0)
+                return;
+
+            int playerId = GetLocalHumanPlayerId();
+            if (playerId <= 0)
+                return;
+
+            MainViewModel mainViewModel = MainViewModel.Instance;
+            if (mainViewModel?.HUDBuildingPanel == null)
+                return;
+
+            eChimps hoveredUnitType = GetLastTroopBuildChimp(mainViewModel);
+            int amount = hoveredUnitType == eChimps.CHIMP_NUM_TYPES ? 1 : GetLastTroopsAmountToMake(mainViewModel);
+            HUD_Buildings panel = mainViewModel.HUDBuildingPanel;
+
+            DisableRecruitmentButtonIfMissingExtraCosts(playerId, amount, eChimps.CHIMP_TYPE_ARCHER, panel.RefRecruitArcherButton);
+            DisableRecruitmentButtonIfMissingExtraCosts(playerId, amount, eChimps.CHIMP_TYPE_SPEARMAN, panel.RefRecruitSpearmanButton);
+            DisableRecruitmentButtonIfMissingExtraCosts(playerId, amount, eChimps.CHIMP_TYPE_MACEMAN, panel.RefRecruitMacemanButton);
+            DisableRecruitmentButtonIfMissingExtraCosts(playerId, amount, eChimps.CHIMP_TYPE_XBOWMAN, panel.RefRecruitXBowmanButton);
+            DisableRecruitmentButtonIfMissingExtraCosts(playerId, amount, eChimps.CHIMP_TYPE_PIKEMAN, panel.RefRecruitPikemanButton);
+            DisableRecruitmentButtonIfMissingExtraCosts(playerId, amount, eChimps.CHIMP_TYPE_SWORDSMAN, panel.RefRecruitSwordsmanButton);
+            DisableRecruitmentButtonIfMissingExtraCosts(playerId, amount, eChimps.CHIMP_TYPE_KNIGHT, panel.RefRecruitKnightButton);
+
+            DisableRecruitmentButtonIfMissingExtraCosts(playerId, amount, eChimps.CHIMP_TYPE_ENGINEER, panel.RefRecruitEngineerButton);
+            DisableRecruitmentButtonIfMissingExtraCosts(playerId, amount, eChimps.CHIMP_TYPE_LADDERMAN, panel.RefRecruitLaddermanButton);
+            DisableRecruitmentButtonIfMissingExtraCosts(playerId, amount, eChimps.CHIMP_TYPE_TUNNELER, panel.RefRecruitTunellerButton);
+            DisableRecruitmentButtonIfMissingExtraCosts(playerId, amount, eChimps.CHIMP_TYPE_MONK, panel.RefRecruitMonkButton);
+
+            DisableRecruitmentButtonIfMissingExtraCosts(playerId, amount, eChimps.CHIMP_TYPE_ARAB_BOW, panel.RefRecruitArabBowButton);
+            DisableRecruitmentButtonIfMissingExtraCosts(playerId, amount, eChimps.CHIMP_TYPE_ARAB_SLAVE, panel.RefRecruitArabSlaveButton);
+            DisableRecruitmentButtonIfMissingExtraCosts(playerId, amount, eChimps.CHIMP_TYPE_ARAB_SLINGER, panel.RefRecruitArabSlingerButton);
+            DisableRecruitmentButtonIfMissingExtraCosts(playerId, amount, eChimps.CHIMP_TYPE_ARAB_ASSASIN, panel.RefRecruitArabAssassinButton);
+            DisableRecruitmentButtonIfMissingExtraCosts(playerId, amount, eChimps.CHIMP_TYPE_ARAB_HORSEMAN, panel.RefRecruitArabHorseArcherButton);
+            DisableRecruitmentButtonIfMissingExtraCosts(playerId, amount, eChimps.CHIMP_TYPE_ARAB_SWORDSMAN, panel.RefRecruitArabSwordsmanButton);
+            DisableRecruitmentButtonIfMissingExtraCosts(playerId, amount, eChimps.CHIMP_TYPE_ARAB_GRENADIER, panel.RefRecruitArabGrenadierButton);
+
+            DisableRecruitmentButtonIfMissingExtraCosts(playerId, amount, eChimps.CHIMP_TYPE_BEDOUIN_CAMEL_LANCER, panel.RefRecruitBedouinCamelLancerButton);
+            DisableRecruitmentButtonIfMissingExtraCosts(playerId, amount, eChimps.CHIMP_TYPE_BEDOUIN_HEALER, panel.RefRecruitBedouinHealerButton);
+            DisableRecruitmentButtonIfMissingExtraCosts(playerId, amount, eChimps.CHIMP_TYPE_BEDOUIN_EUNUCH, panel.RefRecruitBedouinEunuchButton);
+            DisableRecruitmentButtonIfMissingExtraCosts(playerId, amount, eChimps.CHIMP_TYPE_BEDOUIN_AMBUSHER, panel.RefRecruitBedouinAmbusherButton);
+            DisableRecruitmentButtonIfMissingExtraCosts(playerId, amount, eChimps.CHIMP_TYPE_BEDOUIN_SKIRMISHER, panel.RefRecruitBedouinSkirmisherButton);
+            DisableRecruitmentButtonIfMissingExtraCosts(playerId, amount, eChimps.CHIMP_TYPE_BEDOUIN_HEAVY_CAMEL, panel.RefRecruitBedouinHeavyCamelButton);
+            DisableRecruitmentButtonIfMissingExtraCosts(playerId, amount, eChimps.CHIMP_TYPE_BEDOUIN_SAPPER, panel.RefRecruitBedouinSapperButton);
+            DisableRecruitmentButtonIfMissingExtraCosts(playerId, amount, eChimps.CHIMP_TYPE_BEDOUIN_DEMOLISHER, panel.RefRecruitBedouinDemolisherButton);
+        }
+
+        private void DisableRecruitmentButtonIfMissingExtraCosts(
+            int playerId,
+            int amount,
+            eChimps unitType,
+            Noesis.UIElement button)
+        {
+            if (button == null || !button.IsEnabled)
+                return;
+
+            if (!TryGetHumanExtraCosts(unitType, out UnitExtraCostValues costs))
+                return;
+
+            if (!HasEnoughExtraCosts(playerId, costs, amount, out eGoods _, out int _, out int _))
+                button.IsEnabled = false;
         }
 
         private static bool TryGetSiegeBuildHoverUnit(object parameter, out eChimps unitType)

@@ -161,7 +161,6 @@ namespace UnitLimit
             else if (readyPeasants == 0 && peasantLimitedRemaining <= 0)
                 PlayRecruitsNeededSpeech();
 
-            RefreshLocalUnitRecruitableStates("MakeTroopBlock", false);
             RefreshCurrentUnitLimitTooltip();
             return MakeTroopGameActionDecision.BlockAction();
         }
@@ -391,7 +390,6 @@ namespace UnitLimit
                     LogDebug("Active unit change consumed pending recruitment:", "unitId", args.UnitId, "player", args.NewSnapshot.OwnerId, "reason", args.Reason, "unitType", args.NewSnapshot.UnitType, "pendingUnitType", pendingUnitType);
             }
 
-            RefreshLocalUnitRecruitableStates("OnActiveUnitChanged");
             RefreshCurrentUnitLimitTooltip();
         }
 
@@ -400,7 +398,6 @@ namespace UnitLimit
             if (!IsLocalPlayer(args.PlayerId))
                 return;
 
-            RefreshLocalUnitRecruitableStates("OnActiveSiegeTentChanged");
             RefreshCurrentUnitLimitTooltip();
         }
 
@@ -448,7 +445,7 @@ namespace UnitLimit
                 DisplayLimitNotification(message);
         }
 
-        private void ApplyUnitLimits(bool showNotifications = true)
+        private void ApplyUnitLimits()
         {
             activeUnitLimits.Clear();
             Dictionary<eChimps, int> parsedLimits = ParseEnumAmounts<eChimps>(settings.UnitLimits);
@@ -466,115 +463,12 @@ namespace UnitLimit
             }
 
             LogDebug("Applied active unit limit rules:", activeUnitLimits.Count);
-            RefreshLocalUnitRecruitableStates("ApplyUnitLimits", showNotifications);
             RefreshCurrentUnitLimitTooltip();
-        }
-
-        private void RefreshLocalUnitRecruitableStates(string source)
-        {
-            RefreshLocalUnitRecruitableStates(source, true);
-        }
-
-        private void RefreshLocalUnitRecruitableStates(string source, bool showNotifications)
-        {
-            try
-            {
-                int playerId = GetLocalHumanPlayerId();
-                if (playerId <= 0)
-                    return;
-                RemoveExpiredPendingRecruitments();
-                CaptureOriginalUnitRecruitableStates();
-                foreach (eChimps unitType in SoldierChimps)
-                {
-                    bool mapAllowsUnit = GetOriginalUnitRecruitableState(unitType);
-                    int limit = -1;
-                    int count = 0;
-                    bool shouldAllowRecruitment = mapAllowsUnit && ShouldAllowLocalUnitRecruitment(playerId, unitType, out limit, out count);
-                    bool currentlyAllowed = GamePlayerManagerAPI.Instance.IsUnitAllowed(unitType);
-
-                    if (currentlyAllowed != shouldAllowRecruitment)
-                        GamePlayerManagerAPI.Instance.SetIsUnitAllowed(unitType, shouldAllowRecruitment);
-
-                    bool disabledByLimit = mapAllowsUnit && !shouldAllowRecruitment;
-                    if (disabledByLimit)
-                    {
-                        if (locallyDisabledUnitRecruitment.Add(unitType))
-                        {
-                            if (ShouldLogHumanPlayer(playerId))
-                                LogDebug("Unit recruitment disabled by limit:", unitType, "player", playerId, "count", count, "limit", limit, "source", source);
-                            if (showNotifications)
-                                ShowUnitLimitReachedMessageForLocalPlayer(playerId, unitType, limit);
-                        }
-                    }
-                    else if (locallyDisabledUnitRecruitment.Remove(unitType))
-                    {
-                        if (ShouldLogHumanPlayer(playerId))
-                            LogDebug("Unit recruitment enabled again:", unitType, "player", playerId, "count", count, "limit", limit, "source", source);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                LogDebug("RefreshLocalUnitRecruitableStates failed:", "source", source, ex.Message);
-            }
-        }
-
-        private bool ShouldAllowLocalUnitRecruitment(int playerId, eChimps unitType, out int limit, out int count)
-        {
-            limit = -1;
-            count = 0;
-
-            if (!activeUnitLimits.TryGetValue(unitType, out limit) || limit < 0)
-                return true;
-
-            count = CountAliveUnits(playerId, unitType) + GetPendingRecruitmentCount(playerId, unitType);
-            return count < limit;
-        }
-
-        private void CaptureOriginalUnitRecruitableStates()
-        {
-            foreach (eChimps unitType in SoldierChimps)
-            {
-                if (originalUnitRecruitableStates.ContainsKey(unitType))
-                    continue;
-
-                originalUnitRecruitableStates[unitType] = GamePlayerManagerAPI.Instance.IsUnitAllowed(unitType);
-            }
-        }
-
-        private bool GetOriginalUnitRecruitableState(eChimps unitType)
-        {
-            if (originalUnitRecruitableStates.TryGetValue(unitType, out bool allowed))
-                return allowed;
-
-            allowed = GamePlayerManagerAPI.Instance.IsUnitAllowed(unitType);
-            originalUnitRecruitableStates[unitType] = allowed;
-            return allowed;
-        }
-
-        private void RestoreOriginalUnitRecruitableStates()
-        {
-            if (originalUnitRecruitableStates.Count == 0)
-                return;
-
-            try
-            {
-                foreach (KeyValuePair<eChimps, bool> entry in originalUnitRecruitableStates)
-                    GamePlayerManagerAPI.Instance.SetIsUnitAllowed(entry.Key, entry.Value);
-
-                LogDebug("Restored original unit recruitable states:", originalUnitRecruitableStates.Count);
-            }
-            catch (Exception ex)
-            {
-                LogDebug("RestoreOriginalUnitRecruitableStates failed:", ex.Message);
-            }
         }
 
         private void ResetUnitRecruitableTracking()
         {
-            locallyDisabledUnitRecruitment.Clear();
             ClearPendingRecruitments("ResetUnitRecruitableTracking");
-            originalUnitRecruitableStates.Clear();
         }
 
         private int GetLocalHumanPlayerId()
@@ -610,43 +504,6 @@ namespace UnitLimit
             return IsUsableHumanPlayerId(playerId, false);
         }
 
-        private void StartUnitLimitRecruitableRefresh()
-        {
-            CancelUnitLimitRecruitableRefresh();
-            try
-            {
-                unitLimitRecruitableRefreshTimerHandle = GameTimeManagerAPI.Instance.GetTimerEngine().AddRepeatedAction(
-                    UnitLimitRecruitableRefreshMilliseconds,
-                    OnUnitLimitRecruitableRefreshTimerElapsed,
-                    null);
-            }
-            catch (Exception ex)
-            {
-                LogDebug("Could not start unit limit recruitable refresh timer:", ex.Message);
-            }
-        }
-
-        private void OnUnitLimitRecruitableRefreshTimerElapsed()
-        {
-            RefreshLocalUnitRecruitableStates("UnitLimitRecruitableRefreshTimer");
-        }
-
-        private void CancelUnitLimitRecruitableRefresh()
-        {
-            if (string.IsNullOrEmpty(unitLimitRecruitableRefreshTimerHandle))
-                return;
-
-            try
-            {
-                GameTimeManagerAPI.Instance.GetTimerEngine().RemoveAction(unitLimitRecruitableRefreshTimerHandle);
-            }
-            catch (Exception ex)
-            {
-                LogDebug("Could not cancel unit limit recruitable refresh timer:", ex.Message);
-            }
-
-            unitLimitRecruitableRefreshTimerHandle = null;
-        }
     }
 }
 

@@ -11,7 +11,8 @@
       "Version": "1.0.1",
       "Changes": [
         "Play -recruits are missing- if this is the reason for not being able to recruit",
-        "Added option to set the max amount for peasants at the campfire"
+        "Added option to set the max amount for peasants at the campfire",
+        "Do no longer remove units from UI after reaching the limit, but mark them as not recruitable"
       ]
     }
   ]

@@ -21,8 +21,6 @@ namespace UnitLimit
     {
         private readonly ManualLogSource log;
         private readonly UnitLimitLobbyViewModel settings;
-        private readonly HashSet<eChimps> locallyDisabledUnitRecruitment = new HashSet<eChimps>();
-        private readonly Dictionary<eChimps, bool> originalUnitRecruitableStates = new Dictionary<eChimps, bool>();
         private readonly Dictionary<eChimps, int> activeUnitLimits = new Dictionary<eChimps, int>();
         private readonly Dictionary<PendingRecruitmentKey, PendingRecruitmentQueue> pendingRecruitments = new Dictionary<PendingRecruitmentKey, PendingRecruitmentQueue>();
         // private readonly List<int> matchingUnitIds = new List<int>();
@@ -32,18 +30,17 @@ namespace UnitLimit
         private MakeTroopGameActionHook makeTroopGameActionHook;
         private CreateTroopHoverHook createTroopHoverHook;
         private SiegeBuildHoverHook siegeBuildHoverHook;
+        private RecruitmentAvailabilityUiHook recruitmentAvailabilityUiHook;
         private bool settingsPropertyChangedSubscribed;
         private bool hooksSubscribed;
         private bool libraryInitialized;
         private bool mapActive;
         private ushort? originalCampPeasantsCap;
         private const int LimitMessageDurationMilliseconds = 3000;
-        private const int UnitLimitRecruitableRefreshMilliseconds = 30000;
         private static readonly string[] MissingRecruitsSpeechFileNames = { "Other_Warning4.wav", "Other_Warning5.wav" };
         private static readonly Random MissingRecruitsSpeechRandom = new Random();
         private static readonly TimeSpan PendingRecruitmentLifetime = TimeSpan.FromSeconds(3);
         private string limitMessageTimerHandle;
-        private string unitLimitRecruitableRefreshTimerHandle;
 
         public LimitNotificationViewModel LimitNotification { get; } = new LimitNotificationViewModel();
         public LimitNotificationViewModel SiegeLimitNotification { get; } = new LimitNotificationViewModel();
@@ -109,6 +106,7 @@ namespace UnitLimit
             makeTroopGameActionHook = new MakeTroopGameActionHook(log, DecideMakeTroopGameAction);
             createTroopHoverHook = new CreateTroopHoverHook(log, UpdateRecruitmentLimitTooltip, ClearUnitLimitTooltip);
             siegeBuildHoverHook = new SiegeBuildHoverHook(log, UpdateSiegeBuildLimitTooltip, ClearUnitLimitTooltip);
+            recruitmentAvailabilityUiHook = new RecruitmentAvailabilityUiHook(log, RefreshRecruitmentButtonAvailability);
 
             subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
@@ -166,8 +164,6 @@ namespace UnitLimit
 
             subscriptions.Clear();
             hooksSubscribed = false;
-            CancelUnitLimitRecruitableRefresh();
-            RestoreOriginalUnitRecruitableStates();
             HideLimitMessage();
             RestoreCampfirePeasantsCap();
             mapActive = false;
@@ -178,14 +174,14 @@ namespace UnitLimit
             createTroopHoverHook = null;
             siegeBuildHoverHook?.Dispose();
             siegeBuildHoverHook = null;
+            recruitmentAvailabilityUiHook?.Dispose();
+            recruitmentAvailabilityUiHook = null;
             ClearUnitLimitTooltip();
             activeUnitCache.OnActiveUnitChanged -= OnActiveUnitChanged;
             activeSiegeTentCache.OnActiveSiegeTentChanged -= OnActiveSiegeTentChanged;
             activeUnitCache.Dispose();
             activeSiegeTentCache.Dispose();
 
-            locallyDisabledUnitRecruitment.Clear();
-            originalUnitRecruitableStates.Clear();
             activeUnitLimits.Clear();
         }
 
@@ -194,9 +190,8 @@ namespace UnitLimit
             LogDebug("OnStartMap");
             mapActive = true;
             ResetUnitRecruitableTracking();
-            ApplyUnitLimits(false);
+            ApplyUnitLimits();
             ApplyCampfirePeasantsLimit();
-            StartUnitLimitRecruitableRefresh();
         }
 
         private void OnLoadSave(LoadSaveGameEventArgs args)
@@ -204,23 +199,18 @@ namespace UnitLimit
             LogDebug("OnLoadSave");
             mapActive = true;
             ResetUnitRecruitableTracking();
-            ApplyUnitLimits(false);
+            ApplyUnitLimits();
             ApplyCampfirePeasantsLimit();
-            StartUnitLimitRecruitableRefresh();
         }
 
         private void OnUnloadMap(MapUnloadEventArgs args)
         {
             LogDebug("OnUnloadMap");
             ClearPendingRecruitments("OnUnloadMap");
-            CancelUnitLimitRecruitableRefresh();
-            RestoreOriginalUnitRecruitableStates();
             HideLimitMessage();
             RestoreCampfirePeasantsCap();
             mapActive = false;
             ClearUnitLimitTooltip();
-            locallyDisabledUnitRecruitment.Clear();
-            originalUnitRecruitableStates.Clear();
             // matchingUnitIds.Clear();
         }
 

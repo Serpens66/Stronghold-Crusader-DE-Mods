@@ -106,6 +106,7 @@
     </Compile>
     <Compile Include="src\CreateTroopHoverHook.cs" />
     <Compile Include="src\MakeTroopGameActionHook.cs" />
+    <Compile Include="src\RecruitmentAvailabilityUiHook.cs" />
     <Compile Include="src\SiegeBuildHoverHook.cs" />
     <Compile Include="src\UnitCostValues.cs" />
     <Compile Include="src\UnitExtraCostValues.cs" />
