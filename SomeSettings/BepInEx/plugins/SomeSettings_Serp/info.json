@@ -19,6 +19,12 @@
         "Add Slider for Market Buy/Sell Prices",
         "Added checkbox to remember the last used AIV/AIC setting for the AI"
       ]
+    },
+    {
+      "Version": "1.0.3",
+      "Changes": [
+        "Allow auto-sell in market if amount is bigger than 0 (so no longer at least 1 in storage)"
+      ]
     }
   ]
 }

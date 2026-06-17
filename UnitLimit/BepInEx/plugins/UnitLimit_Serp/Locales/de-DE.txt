@@ -5,3 +5,5 @@ Common.Limit=Limit
 Common.Max=Max
 UnitLimit.Title=EINHEITENLIMITS (Mensch)
 UnitLimit.Help=Nur für Menschen! -1 = unbegrenzt. Erlaubter Bereich: -1 bis 10000. Vorhandene lebende Einheiten zaehlen gegen das Limit.
+UnitLimit.CampfirePeasants=Bauern am Lagerfeuer
+UnitLimit.CampfirePeasantsHelp=-1 = unveraendert. Erlaubter Bereich: -1 bis 500. Setzt die maximale Anzahl Bauern, die am Lagerfeuer warten.

@@ -5,3 +5,5 @@ Common.Limit=Limit
 Common.Max=Max
 UnitLimit.Title=UNIT LIMITS (Human)
 UnitLimit.Help=Only for Human! -1 = unlimited. Allowed range: -1 to 10000. Existing living units count against the limit.
+UnitLimit.CampfirePeasants=Campfire Peasants
+UnitLimit.CampfirePeasantsHelp=-1 = unchanged. Allowed range: -1 to 500. Sets the maximum peasants waiting at the campfire.

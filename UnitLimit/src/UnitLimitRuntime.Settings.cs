@@ -31,9 +31,11 @@ namespace UnitLimit
                 {
                     SubscribeHooks();
                     ApplyUnitLimits(false);
+                    ApplyCampfirePeasantsLimit();
                 }
                 else
                 {
+                    RestoreCampfirePeasantsCap();
                     UnsubscribeHooks();
                 }
 
@@ -45,6 +47,9 @@ namespace UnitLimit
 
             if (propertyName == nameof(UnitLimitLobbyViewModel.UnitLimits))
                 ApplyUnitLimits();
+
+            if (propertyName == nameof(UnitLimitLobbyViewModel.CampfirePeasantsLimit))
+                ApplyCampfirePeasantsLimit();
         }
     }
 }

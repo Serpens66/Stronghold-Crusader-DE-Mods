@@ -5,6 +5,7 @@ using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.Buildings;
 using SHCDESE.EventAPI.MapLoader;
 using SHCDESE.EventAPI.Units;
+using SHCDESE.GameGlobals;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
@@ -34,6 +35,8 @@ namespace UnitLimit
         private bool settingsPropertyChangedSubscribed;
         private bool hooksSubscribed;
         private bool libraryInitialized;
+        private bool mapActive;
+        private ushort? originalCampPeasantsCap;
         private const int LimitMessageDurationMilliseconds = 3000;
         private const int UnitLimitRecruitableRefreshMilliseconds = 30000;
         private static readonly string[] MissingRecruitsSpeechFileNames = { "Other_Warning4.wav", "Other_Warning5.wav" };
@@ -166,6 +169,8 @@ namespace UnitLimit
             CancelUnitLimitRecruitableRefresh();
             RestoreOriginalUnitRecruitableStates();
             HideLimitMessage();
+            RestoreCampfirePeasantsCap();
+            mapActive = false;
             ClearPendingRecruitments("Dispose");
             makeTroopGameActionHook?.Dispose();
             makeTroopGameActionHook = null;
@@ -187,16 +192,20 @@ namespace UnitLimit
         private void OnStartMap(MapStartEventArgs args)
         {
             LogDebug("OnStartMap");
+            mapActive = true;
             ResetUnitRecruitableTracking();
             ApplyUnitLimits(false);
+            ApplyCampfirePeasantsLimit();
             StartUnitLimitRecruitableRefresh();
         }
 
         private void OnLoadSave(LoadSaveGameEventArgs args)
         {
             LogDebug("OnLoadSave");
+            mapActive = true;
             ResetUnitRecruitableTracking();
             ApplyUnitLimits(false);
+            ApplyCampfirePeasantsLimit();
             StartUnitLimitRecruitableRefresh();
         }
 
@@ -207,10 +216,71 @@ namespace UnitLimit
             CancelUnitLimitRecruitableRefresh();
             RestoreOriginalUnitRecruitableStates();
             HideLimitMessage();
+            RestoreCampfirePeasantsCap();
+            mapActive = false;
             ClearUnitLimitTooltip();
             locallyDisabledUnitRecruitment.Clear();
             originalUnitRecruitableStates.Clear();
             // matchingUnitIds.Clear();
+        }
+
+        private void ApplyCampfirePeasantsLimit()
+        {
+            if (settings.CampfirePeasantsLimit < 0)
+            {
+                RestoreCampfirePeasantsCap();
+                return;
+            }
+
+            if (!IsMapActive())
+            {
+                LogDebug("Campfire peasants limit deferred until a map is active.");
+                return;
+            }
+
+            if (GameGlobalsManager.Instance.CampPeasantsCap == null)
+            {
+                LogDebug("Campfire peasants limit skipped: CampPeasantsCap global was not found.");
+                return;
+            }
+
+            if (!originalCampPeasantsCap.HasValue)
+                originalCampPeasantsCap = GameGlobalsManager.Instance.CampPeasantsCap.GetValue();
+
+            ushort value = (ushort)Math.Min(500, Math.Max(0, settings.CampfirePeasantsLimit));
+            GameGlobalsManager.Instance.CampPeasantsCap.SetValue(value);
+            LogDebug("Applied campfire peasants limit:", value);
+        }
+
+        private bool IsMapActive()
+        {
+            if (mapActive)
+                return true;
+
+            try
+            {
+                if (!string.IsNullOrEmpty(GamePlayerManagerAPI.Instance.GetCurrentMapName()))
+                {
+                    mapActive = true;
+                    return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                LogDebug("Could not determine active map state:", ex.Message);
+            }
+
+            return false;
+        }
+
+        private void RestoreCampfirePeasantsCap()
+        {
+            if (!originalCampPeasantsCap.HasValue || GameGlobalsManager.Instance.CampPeasantsCap == null)
+                return;
+
+            GameGlobalsManager.Instance.CampPeasantsCap.SetValue(originalCampPeasantsCap.Value);
+            LogDebug("Restored campfire peasants limit:", originalCampPeasantsCap.Value);
+            originalCampPeasantsCap = null;
         }
 
         private void LogDebug(params object[] parts)

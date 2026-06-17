@@ -39,8 +39,6 @@
 
 
 
-
-
 -- OnUnitDeleted wird ausgeführt bei:
 -- - Sterben einer unit im Kampf.
 -- - NICHT beim auflösen (vermutlich OnUnitTransition? nur in C# nicht lua)

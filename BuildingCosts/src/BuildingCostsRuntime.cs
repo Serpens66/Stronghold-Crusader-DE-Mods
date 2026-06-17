@@ -375,6 +375,9 @@ namespace BuildingCosts
 
         private static eStructs ResolveTooltipBuilding(int tooltipStruct)
         {
+            if (IsWallTooltipStruct(tooltipStruct))
+                return eStructs.STRUCT_NULL;
+
             List<eStructs> candidates = new List<eStructs>(3);
             eMappers mapper = (eMappers)tooltipStruct;
             if (BuildingCostDefinitions.TryGetValue(mapper, out BuildingCostDefinition definition) &&
@@ -401,6 +404,22 @@ namespace BuildingCosts
             }
 
             return eStructs.STRUCT_NULL;
+        }
+
+        private static bool IsWallTooltipStruct(int tooltipStruct)
+        {
+            eStructs structure = (eStructs)tooltipStruct;
+            if (structure == eStructs.STRUCT_WOOD_WALL ||
+                structure == eStructs.STRUCT_STONE_WALL ||
+                structure == eStructs.STRUCT_CRENAL_WALL)
+            {
+                return true;
+            }
+
+            eMappers mapper = (eMappers)tooltipStruct;
+            return mapper == eMappers.MAPPER_WALL ||
+                mapper == eMappers.MAPPER_CRENAL ||
+                mapper == eMappers.MAPPER_WOODWALL;
         }
 
         private static bool IsSupportedTooltipStructure(eStructs building)

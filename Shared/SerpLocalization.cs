@@ -14,6 +14,8 @@ public static class SerpLocalization
     public const string Max = "Common.Max";
     public const string UnitLimitsTitle = "UnitLimit.Title";
     public const string UnitLimitsHelp = "UnitLimit.Help";
+    public const string UnitLimitsCampfirePeasants = "UnitLimit.CampfirePeasants";
+    public const string UnitLimitsCampfirePeasantsHelp = "UnitLimit.CampfirePeasantsHelp";
     public const string BuildingLimitsTitle = "BuildingLimit.Title";
     public const string BuildingLimitsHelp = "BuildingLimit.Help";
     public const string UnitCostsTitle = "UnitCosts.Title";
@@ -89,6 +91,8 @@ public static class SerpLocalization
         { Max, "Max" },
         { UnitLimitsTitle, "UNIT LIMITS (Human)" },
         { UnitLimitsHelp, "Only for Human! -1 = unlimited. Allowed range: -1 to 10000. Existing living units count against the limit." },
+        { UnitLimitsCampfirePeasants, "Campfire Peasants" },
+        { UnitLimitsCampfirePeasantsHelp, "-1 = unchanged. Allowed range: -1 to 500. Sets the maximum peasants waiting at the campfire." },
         { BuildingLimitsTitle, "BUILDING LIMITS (Human)" },
         { BuildingLimitsHelp, "Only for Human! -1 = unlimited. Allowed range: -1 to 10000. Variants such as gardens, statues, shrines and ponds are counted together." },
         { UnitCostsTitle, "UNIT COSTS (Human and AI)" },

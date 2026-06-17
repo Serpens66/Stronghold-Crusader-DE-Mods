@@ -101,6 +101,7 @@
     <Compile Include="..\Shared\SerpLocalization.cs">
       <Link>Shared\SerpLocalization.cs</Link>
     </Compile>
+    <Compile Include="src\AutoTradeSellZeroHook.cs" />
     <Compile Include="src\CoopTrailCustomizeHook.cs" />
     <Compile Include="src\MinimapPlacementClickHook.cs" />
     <Compile Include="src\SkirmishAiSelectionMemoryHook.cs" />
@@ -111,6 +112,9 @@
 
   <ItemGroup>
     <Content Include="Locales\*.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Patches\**\*.xaml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>

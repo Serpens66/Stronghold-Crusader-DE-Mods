@@ -17,6 +17,7 @@ namespace UnitLimit
 
         private bool enableMod = true;
         private string unitLimits = DefaultUnitLimits;
+        private int campfirePeasantsLimit = -1;
         private bool updatingEntries;
 
         public const string DefaultUnitLimits = @"# -1 = unlimited
@@ -66,6 +67,8 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=-1";
         public string ResetToDefaultText => SerpLocalization.Get(SerpLocalization.ResetToDefault);
         public string TitleText => SerpLocalization.Get(SerpLocalization.UnitLimitsTitle);
         public string HelpText => SerpLocalization.Get(SerpLocalization.UnitLimitsHelp);
+        public string CampfirePeasantsText => SerpLocalization.Get(SerpLocalization.UnitLimitsCampfirePeasants);
+        public string CampfirePeasantsHelpText => SerpLocalization.Get(SerpLocalization.UnitLimitsCampfirePeasantsHelp);
 
         public void RefreshLocalizedNames()
         {
@@ -99,9 +102,44 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=-1";
             }
         }
 
+        [SyncHostOnly]
+        public int CampfirePeasantsLimit
+        {
+            get => campfirePeasantsLimit;
+            set
+            {
+                int clamped = ClampCampfirePeasantsLimit(value);
+                if (campfirePeasantsLimit == clamped)
+                    return;
+
+                campfirePeasantsLimit = clamped;
+                SettingChanged?.Invoke(nameof(CampfirePeasantsLimit));
+                OnPropertyChanged(nameof(CampfirePeasantsLimit));
+                OnPropertyChanged(nameof(CampfirePeasantsLimitText));
+            }
+        }
+
+        public string CampfirePeasantsLimitText
+        {
+            get => CampfirePeasantsLimit.ToString();
+            set
+            {
+                if (!int.TryParse(value, out int parsed))
+                {
+                    OnPropertyChanged(nameof(CampfirePeasantsLimitText));
+                    return;
+                }
+
+                CampfirePeasantsLimit = parsed;
+                OnPropertyChanged(nameof(CampfirePeasantsLimitText));
+            }
+        }
+
         private void ResetToDefault()
         {
             UnitLimits = DefaultUnitLimits;
+            CampfirePeasantsLimit = -1;
+            OnPropertyChanged(nameof(CampfirePeasantsLimitText));
         }
 
         private static IReadOnlyList<LimitEntryViewModel> CreateLimitEntries(string serializedLimits)
@@ -208,6 +246,15 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=-1";
                 return -1;
             if (value > 10000)
                 return 10000;
+            return value;
+        }
+
+        private static int ClampCampfirePeasantsLimit(int value)
+        {
+            if (value < -1)
+                return -1;
+            if (value > 500)
+                return 500;
             return value;
         }
 

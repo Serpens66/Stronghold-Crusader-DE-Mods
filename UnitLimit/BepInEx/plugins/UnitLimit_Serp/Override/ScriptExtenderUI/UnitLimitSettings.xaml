@@ -17,6 +17,25 @@
       <TextBlock Text="{Binding TitleText}" Foreground="#77AAFF" FontWeight="Bold" Margin="0,0,0,4"/>
       <TextBlock Text="{Binding HelpText}"
                  Foreground="#CCCCCC" TextWrapping="Wrap" Margin="0,0,0,6"/>
+      <Grid Margin="0,3,0,8">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="260"/>
+          <ColumnDefinition Width="90"/>
+        </Grid.ColumnDefinitions>
+        <TextBlock Grid.Column="0"
+                   Text="{Binding CampfirePeasantsText}"
+                   Foreground="White"
+                   ToolTip="{Binding CampfirePeasantsHelpText}"
+                   VerticalAlignment="Center"
+                   Margin="0,2,8,2"/>
+        <TextBox Grid.Column="1"
+                 Text="{Binding CampfirePeasantsLimitText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}"
+                 ToolTip="{Binding CampfirePeasantsHelpText}"
+                 MaxLength="4"
+                 HorizontalContentAlignment="Right"
+                 Margin="3"
+                 ui:KeyboardCaptureBinding.Enabled="True"/>
+      </Grid>
       <ItemsControl ItemsSource="{Binding LimitEntries}" Margin="0,3,0,8">
         <ItemsControl.ItemTemplate>
           <DataTemplate>

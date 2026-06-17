@@ -32,6 +32,7 @@ namespace SomeSettings
         private MinimapPlacementClickHook minimapPlacementClickHook;
         private CoopTrailCustomizeHook coopTrailCustomizeHook;
         private SkirmishAiSelectionMemoryHook skirmishAiSelectionMemoryHook;
+        private AutoTradeSellZeroHook autoTradeSellZeroHook;
 
         private bool hooksSubscribed;
         private bool settingsSubscribed;
@@ -80,6 +81,7 @@ namespace SomeSettings
             minimapPlacementClickHook = new MinimapPlacementClickHook(log, settings);
             coopTrailCustomizeHook = new CoopTrailCustomizeHook(log);
             skirmishAiSelectionMemoryHook = new SkirmishAiSelectionMemoryHook(log, settings);
+            InstallAutoTradeSellZeroHook();
             hooksSubscribed = true;
             log.LogDebug("SomeSettings hooks subscribed.");
         }
@@ -122,9 +124,23 @@ namespace SomeSettings
             coopTrailCustomizeHook = null;
             skirmishAiSelectionMemoryHook?.Dispose();
             skirmishAiSelectionMemoryHook = null;
+            autoTradeSellZeroHook?.Dispose();
+            autoTradeSellZeroHook = null;
             ClearResourceEventGuards();
             pendingStockpileRefund = null;
             hooksSubscribed = false;
+        }
+
+        private void InstallAutoTradeSellZeroHook()
+        {
+            try
+            {
+                autoTradeSellZeroHook = new AutoTradeSellZeroHook(log);
+            }
+            catch (Exception ex)
+            {
+                log.LogError($"SomeSettings auto-trade sell zero hook could not be installed: {ex}");
+            }
         }
 
         private void SubscribeSettingsChanges()
