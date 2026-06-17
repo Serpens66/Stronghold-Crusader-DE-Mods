@@ -394,7 +394,7 @@ namespace UnitCosts
                 return;
             }
 
-            RecruitmentCostTooltip.SetCosts(CreateRecruitmentCostEntries(costs, multiplier));
+            RecruitmentCostTooltip.SetCosts(CreateRecruitmentCostEntries(playerId, costs, multiplier));
         }
 
         private void UpdateSiegeBuildCostTooltip(object parameter)
@@ -418,10 +418,10 @@ namespace UnitCosts
                 return;
             }
 
-            RecruitmentCostTooltip.SetCosts(CreateRecruitmentCostEntries(costs, 1));
+            RecruitmentCostTooltip.SetCosts(CreateRecruitmentCostEntries(playerId, costs, 1));
         }
 
-        private List<UnitRecruitmentCostEntry> CreateRecruitmentCostEntries(UnitExtraCostValues costs, int multiplier)
+        private List<UnitRecruitmentCostEntry> CreateRecruitmentCostEntries(int playerId, UnitExtraCostValues costs, int multiplier)
         {
             List<UnitRecruitmentCostEntry> entries = new List<UnitRecruitmentCostEntry>();
             foreach (KeyValuePair<eGoods, int> entry in costs.Costs)
@@ -440,11 +440,17 @@ namespace UnitCosts
                 entries.Add(new UnitRecruitmentCostEntry
                 {
                     Amount = "   " + amount + " ",
+                    AmountAvailable = $"({GetAvailableGoodAmount(playerId, entry.Key)})",
                     Image = GetGoodImage(entry.Key)
                 });
             }
 
             return entries;
+        }
+
+        private static int GetAvailableGoodAmount(int playerId, eGoods good)
+        {
+            return Math.Max(0, GamePlayerManagerAPI.Instance.GetGoodAmount(playerId, good));
         }
 
         internal void RefreshRecruitmentButtonAvailability()

@@ -38,6 +38,17 @@
                   <Image Source="{Binding Image}"
                          Height="18"
                          Margin="5,5,6,-5"/>
+                  <TextBlock Text="{Binding AmountAvailable}"
+                             FontSize="16"
+                             Foreground="#FFDDDDDD"
+                             Tag="Ignore">
+                    <TextBlock.Effect>
+                      <DropShadowEffect ShadowDepth="2"
+                                        Direction="315"
+                                        Color="#CC000000"
+                                        BlurRadius="0"/>
+                    </TextBlock.Effect>
+                  </TextBlock>
                 </StackPanel>
               </DataTemplate>
             </ItemsControl.ItemTemplate>
