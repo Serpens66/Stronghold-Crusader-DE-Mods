@@ -2,7 +2,7 @@
 # Format: key=value
 Common.ResetToDefault=Zurücksetzen
 UnitCosts.Title=EINHEITENKOSTEN (Mensch und KI)
-UnitCosts.Help=Good-Slots gelten für europäische Einheiten. unchanged lässt den Vanilla-Slot unverändert; Gold -1 bleibt unverändert.
+UnitCosts.Help=Hier können nur native Goldkosten geändert werden. Materialkosten werden über die Zusatzkosten für menschliche Spieler hinzugefügt.
 UnitCosts.ExtraTitle=ZUSATZKOSTEN (nur Mensch)
 UnitCosts.ExtraHelp=0 = keine Zusatzkosten. Positive Werte werden zusätzlich abgezogen; negatives Gold wird bis maximal zu den aktuellen Goldkosten erstattet. KI-Spieler ignorieren diese Tabelle.
 UnitCosts.UnitHeader=Einheit

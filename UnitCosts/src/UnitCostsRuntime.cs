@@ -43,7 +43,6 @@ namespace UnitCosts
         private static readonly PropertyInfo LastTroopBuildChimpProperty = typeof(MainViewModel).GetProperty("lastTroopBuildChimp", MainViewModelFlags);
         private static readonly FieldInfo LastTroopsAmountToMakeField = typeof(MainViewModel).GetField("lastTroopsAmountToMake", MainViewModelFlags);
         private static readonly PropertyInfo LastTroopsAmountToMakeProperty = typeof(MainViewModel).GetProperty("lastTroopsAmountToMake", MainViewModelFlags);
-        private static readonly Dictionary<eChimps, UnitGoodCosts> VanillaEuropeanGoodCosts = new Dictionary<eChimps, UnitGoodCosts>();
         private static readonly Dictionary<eChimps, int> VanillaGoldCosts = new Dictionary<eChimps, int>();
 
         public UnitCostsNotificationViewModel Notification { get; } = new UnitCostsNotificationViewModel();
@@ -66,7 +65,6 @@ namespace UnitCosts
 
             SubscribeHooks();
             CaptureVanillaGoldCosts();
-            CaptureVanillaEuropeanGoodCosts();
             ApplyUnitCosts();
             settings.NormalizeExtraCostsAfterNativeGoldChange();
             ApplyHumanExtraUnitCosts();
@@ -152,7 +150,6 @@ namespace UnitCosts
                 {
                     SubscribeHooks();
                     CaptureVanillaGoldCosts();
-                    CaptureVanillaEuropeanGoodCosts();
                     ApplyUnitCosts();
                     settings.NormalizeExtraCostsAfterNativeGoldChange();
                     ApplyHumanExtraUnitCosts();
@@ -201,8 +198,6 @@ namespace UnitCosts
 
         private void ApplyUnitCosts()
         {
-            CaptureVanillaEuropeanGoodCosts();
-
             Dictionary<eChimps, UnitCostValues> parsedCosts = settings.ParseUnitCosts();
             int changedValues = 0;
             foreach (KeyValuePair<eChimps, UnitCostValues> entry in parsedCosts)
@@ -215,13 +210,6 @@ namespace UnitCosts
                         GameBuildingManagerAPI.Instance.SetGoldCost(siegeTentStructure, values.Gold);
                     changedValues++;
                 }
-
-                if (!IsEuropeanRecruit(entry.Key))
-                    continue;
-
-                UnitGoodCosts mergedCosts = MergeWithVanillaGoodCosts(entry.Key, values);
-                GameUnitManagerAPI.Instance.SetUnitGoodCosts(entry.Key, mergedCosts);
-                changedValues += CountConfiguredGoodSlots(values);
             }
 
             Shared.DebugLogHelper.LogDebug(log, "Applied unit cost values:", changedValues);
@@ -236,12 +224,6 @@ namespace UnitCosts
                 if (TryGetSiegeTentStructure(entry.Key, out eStructs siegeTentStructure))
                     GameBuildingManagerAPI.Instance.SetGoldCost(siegeTentStructure, entry.Value);
 
-                restoredValues++;
-            }
-
-            foreach (KeyValuePair<eChimps, UnitGoodCosts> entry in VanillaEuropeanGoodCosts)
-            {
-                GameUnitManagerAPI.Instance.SetUnitGoodCosts(entry.Key, entry.Value);
                 restoredValues++;
             }
 
@@ -1106,85 +1088,16 @@ namespace UnitCosts
             return MainViewModel.Instance.getSmallGoodsIcon((int)good);
         }
 
-        private static void CaptureVanillaEuropeanGoodCosts()
-        {
-            foreach (eChimps unitType in GetEuropeanRecruitTypes())
-            {
-                if (!VanillaEuropeanGoodCosts.ContainsKey(unitType))
-                    VanillaEuropeanGoodCosts[unitType] = GameUnitManagerAPI.Instance.GetUnitGoodCosts(unitType);
-            }
-        }
-
         private static void CaptureVanillaGoldCosts()
         {
             foreach (eChimps unitType in GetRecruitTypes())
                 VanillaGoldCosts[unitType] = GetCurrentUnitGoldCost(unitType);
         }
 
-        private static UnitGoodCosts MergeWithVanillaGoodCosts(eChimps unitType, UnitCostValues values)
-        {
-            UnitGoodCosts vanilla = GetVanillaEuropeanGoodCosts(unitType);
-            return new UnitGoodCosts(
-                ResolveGoodSlot(values.Slot1, vanilla.cost1),
-                ResolveGoodSlot(values.Slot2, vanilla.cost2),
-                ResolveGoodSlot(values.Slot3, vanilla.cost3),
-                ResolveGoodSlot(values.Slot4, vanilla.cost4));
-        }
-
-        private static eGoods32 ResolveGoodSlot(string key, eGoods32 vanillaValue)
-        {
-            string normalizedKey = UnitCostValues.NormalizeSlotKey(key);
-            if (normalizedKey == UnitCostValues.UnchangedKey)
-                return vanillaValue;
-
-            if (Enum.TryParse(normalizedKey, out eGoods good))
-                return good.To32();
-
-            return vanillaValue;
-        }
-
-        private static UnitGoodCosts GetVanillaEuropeanGoodCosts(eChimps unitType)
-        {
-            if (VanillaEuropeanGoodCosts.TryGetValue(unitType, out UnitGoodCosts costs))
-                return costs;
-
-            if (!IsEuropeanRecruit(unitType))
-                return new UnitGoodCosts(
-                    eGoods.STORED_NULL.To32(),
-                    eGoods.STORED_NULL.To32(),
-                    eGoods.STORED_NULL.To32(),
-                    eGoods.STORED_NULL.To32());
-
-            costs = GameUnitManagerAPI.Instance.GetUnitGoodCosts(unitType);
-            VanillaEuropeanGoodCosts[unitType] = costs;
-            return costs;
-        }
-
-        private static int CountConfiguredGoodSlots(UnitCostValues values)
-        {
-            int count = 0;
-            if (values.Slot1 != UnitCostValues.UnchangedKey) count++;
-            if (values.Slot2 != UnitCostValues.UnchangedKey) count++;
-            if (values.Slot3 != UnitCostValues.UnchangedKey) count++;
-            if (values.Slot4 != UnitCostValues.UnchangedKey) count++;
-            return count;
-        }
-
         internal static bool IsEuropeanRecruit(eChimps unitType)
         {
             return unitType >= eChimps.CHIMP_TYPE_ARCHER &&
                 unitType <= eChimps.CHIMP_TYPE_KNIGHT;
-        }
-
-        private static IEnumerable<eChimps> GetEuropeanRecruitTypes()
-        {
-            yield return eChimps.CHIMP_TYPE_ARCHER;
-            yield return eChimps.CHIMP_TYPE_XBOWMAN;
-            yield return eChimps.CHIMP_TYPE_SPEARMAN;
-            yield return eChimps.CHIMP_TYPE_PIKEMAN;
-            yield return eChimps.CHIMP_TYPE_MACEMAN;
-            yield return eChimps.CHIMP_TYPE_SWORDSMAN;
-            yield return eChimps.CHIMP_TYPE_KNIGHT;
         }
 
         private static IEnumerable<eChimps> GetRecruitTypes()
@@ -1299,22 +1212,6 @@ namespace UnitCosts
             StringBuilder builder = new StringBuilder(unitType.ToString());
             AppendVanillaGoldCost(builder, unitType);
 
-            if (!IsEuropeanRecruit(unitType))
-                return builder.ToString();
-
-            try
-            {
-                UnitGoodCosts costs = GetVanillaEuropeanGoodCosts(unitType);
-                AppendVanillaGoodCost(builder, 1, costs.cost1);
-                AppendVanillaGoodCost(builder, 2, costs.cost2);
-                AppendVanillaGoodCost(builder, 3, costs.cost3);
-                AppendVanillaGoodCost(builder, 4, costs.cost4);
-            }
-            catch
-            {
-                return builder.ToString();
-            }
-
             return builder.ToString();
         }
 
@@ -1354,19 +1251,6 @@ namespace UnitCosts
             goldCost = GetCurrentUnitGoldCost(unitType);
             VanillaGoldCosts[unitType] = goldCost;
             return goldCost;
-        }
-
-        private static void AppendVanillaGoodCost(StringBuilder builder, int slot, eGoods32 good32)
-        {
-            eGoods good = good32.To16();
-            if (good == eGoods.STORED_NULL)
-                return;
-
-            builder.AppendLine();
-            builder.Append("vanilla slot ");
-            builder.Append(slot);
-            builder.Append(": ");
-            builder.Append(good);
         }
 
         internal static string GetLocalizedUnitName(eChimps unitType)

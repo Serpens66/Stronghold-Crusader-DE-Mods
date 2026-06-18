@@ -11,7 +11,14 @@
       "Version": "1.0.1",
       "Changes": [
         "Play -recruits are missing- if this is the reason for not being able to recruit",
-        "Do not highlight units as recruitable if extra costs are missing."
+        "Do not highlight units as recruitable if extra costs are missing.",
+        "Also display current amounts of extra costs in tooltip"
+      ]
+    },
+    {
+      "Version": "1.0.2",
+      "Changes": [
+        "Removed support to change vanilla material costs of european units for everyone, because I think the extra costs for humans is enough and it makes this mod less complicated."
       ]
     }
   ]

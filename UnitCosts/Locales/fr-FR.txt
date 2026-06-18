@@ -2,7 +2,7 @@
 # Format: key=value
 Common.ResetToDefault=Reset to Default
 UnitCosts.Title=UNIT COSTS (Human and AI)
-UnitCosts.Help=Good slots apply to European units. unchanged keeps the vanilla slot; gold -1 stays unchanged.
+UnitCosts.Help=Only native gold costs can be changed here. Add material costs through extra costs for human players.
 UnitCosts.ExtraTitle=EXTRA COSTS (only Human)
 UnitCosts.ExtraHelp=0 = no extra cost. Positive values are charged in addition; negative gold refunds up to the current gold cost. AI players ignore this table.
 UnitCosts.UnitHeader=Unit
