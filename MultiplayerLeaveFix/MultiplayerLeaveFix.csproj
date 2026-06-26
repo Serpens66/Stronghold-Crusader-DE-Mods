@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+
+  <PropertyGroup>
+    <Configuration Condition="'$(Configuration)' == ''">Debug</Configuration>
+    <Platform Condition="'$(Platform)' == ''">AnyCPU</Platform>
+    <ProjectGuid>{5BB6E67F-5947-4FDB-88F2-F5B9B382361A}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <RootNamespace>MultiplayerLeaveFix</RootNamespace>
+    <AssemblyName>MultiplayerLeaveFix</AssemblyName>
+    <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|AnyCPU'">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>BepInEx\plugins\MultiplayerLeaveFix_Serp\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|AnyCPU'">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>BepInEx\plugins\MultiplayerLeaveFix_Serp\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(GameDir)' == ''">
+    <GameDir>$(MSBuildThisFileDirectory)..\..\..\..\..\..\..\Steam\steamapps\common\Stronghold Crusader Definitive Edition</GameDir>
+  </PropertyGroup>
+  <PropertyGroup>
+    <LocalScriptExtenderRoot>$(MSBuildThisFileDirectory)..\shcde-script-extender</LocalScriptExtenderRoot>
+    <LocalScriptExtenderModOutput>$(LocalScriptExtenderRoot)\mod_output\000shcdese</LocalScriptExtenderModOutput>
+    <LocalScriptExtenderBuildOutput>$(LocalScriptExtenderRoot)\src\SHCDESE.BepInEx\bin\net481</LocalScriptExtenderBuildOutput>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(ExtenderDir)' == '' and Exists('$(LocalScriptExtenderBuildOutput)\SHCDESE.dll')">
+    <ExtenderDir>$(LocalScriptExtenderBuildOutput)</ExtenderDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(ExtenderDir)' == '' and Exists('$(LocalScriptExtenderModOutput)\SHCDESE.dll')">
+    <ExtenderDir>$(LocalScriptExtenderModOutput)</ExtenderDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(ExtenderDir)' == '' and !Exists('$(LocalScriptExtenderRoot)')">
+    <ExtenderDir>$(GameDir)\BepInEx\plugins\000shcdese</ExtenderDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="BepInEx">
+      <HintPath>$(GameDir)\BepInEx\core\BepInEx.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="MonoMod.RuntimeDetour">
+      <HintPath>$(GameDir)\BepInEx\core\MonoMod.RuntimeDetour.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine">
+      <HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Assembly-CSharp">
+      <HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\Assembly-CSharp.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Noesis.NoesisGUI">
+      <HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\Noesis.NoesisGUI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="SHCDESE">
+      <HintPath>$(ExtenderDir)\SHCDESE.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="R3">
+      <HintPath>$(ExtenderDir)\R3.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="System.Memory">
+      <HintPath>$(ExtenderDir)\System.Memory.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="src\MultiplayerLeaveFixPlugin.cs" />
+    <Compile Include="src\MultiplayerLeaveFixRuntime.cs" />
+    <Compile Include="src\MultiplayerLeavePacketHook.cs" />
+    <Compile Include="src\MultiplayerSystemMessageLimiterHook.cs" />
+  </ItemGroup>
+
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+
+  <Target Name="ValidateScriptExtenderReference" BeforeTargets="BeforeBuild">
+    <Error Condition="Exists('$(LocalScriptExtenderRoot)') and '$(ExtenderDir)' == ''"
+           Text="Der lokale Script Extender Nebenordner existiert, aber es wurde keine lokale SHCDESE.dll gefunden. Baue zuerst ..\shcde-script-extender\build.bat oder uebergib /p:ExtenderDir=... explizit." />
+    <Error Condition="'$(ExtenderDir)' != '' and !Exists('$(ExtenderDir)\SHCDESE.dll')"
+           Text="SHCDESE.dll wurde im ExtenderDir nicht gefunden: $(ExtenderDir)" />
+  </Target>
+</Project>
