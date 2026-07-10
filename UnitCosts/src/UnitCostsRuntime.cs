@@ -34,10 +34,11 @@ namespace UnitCosts
         private const int MaterialMessageDurationMilliseconds = 3000;
         private const int SiegeMissingResourcesMessageThrottleMilliseconds = 1000;
         private const int SiegeMissingResourcesSpeechThrottleMilliseconds = 10000;
-        private const string MissingResourcesSpeechFileName = "Other_Warning6.wav";
+        private const string MissingWeaponsSpeechFileName = "Other_Warning6.wav";
+        private static readonly string[] MissingGoldSpeechFileNames = { "Other_Warning1.wav", "Other_Warning2.wav", "Other_Warning3.wav" };
         private const string MissingRecruitsLimitingReason = "peasants";
         private static readonly string[] MissingRecruitsSpeechFileNames = { "Other_Warning4.wav", "Other_Warning5.wav" };
-        private static readonly Random MissingRecruitsSpeechRandom = new Random();
+        private static readonly Random SpeechRandom = new Random();
         private const BindingFlags MainViewModelFlags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
         private static readonly FieldInfo LastTroopBuildChimpField = typeof(MainViewModel).GetField("lastTroopBuildChimp", MainViewModelFlags);
         private static readonly PropertyInfo LastTroopBuildChimpProperty = typeof(MainViewModel).GetProperty("lastTroopBuildChimp", MainViewModelFlags);
@@ -344,10 +345,11 @@ namespace UnitCosts
                 "extraRequiredPerUnit", hasPositiveExtraCost ? extraLimitingRequiredPerUnit : 0,
                 "extraAvailable", hasPositiveExtraCost ? extraLimitingAvailableAmount : 0,
                 "rawUnitType", rawUnitType);
-            if (nativeAffordableAmount == affordableAmount && nativeLimitingReason == MissingRecruitsLimitingReason)
+            bool nativeCostIsLimiting = nativeAffordableAmount == affordableAmount;
+            if (nativeCostIsLimiting && nativeLimitingReason == MissingRecruitsLimitingReason)
                 PlayRecruitsNeededSpeech();
             else
-                ShowMissingResourcesMessage();
+                ShowMissingResourcesMessage(nativeCostIsLimiting ? nativeLimitingGood : extraLimitingGood);
 
             return MakeTroopGameActionDecision.BlockAction();
         }
@@ -626,7 +628,7 @@ namespace UnitCosts
                     "required", requiredAmount,
                     "available", availableAmount,
                     "mapper", args.Mappers);
-                ShowMissingResourcesMessageThrottledForSiege();
+                ShowMissingResourcesMessageThrottledForSiege(missingGood);
             }
             catch (Exception ex)
             {
@@ -658,7 +660,7 @@ namespace UnitCosts
                         "available", availableAmount,
                         "building", args.Building);
                     if (IsLocalPlayer(args.PlayerId))
-                        ShowMissingResourcesMessageThrottledForSiege();
+                        ShowMissingResourcesMessageThrottledForSiege(missingGood);
                     return;
                 }
 
@@ -930,19 +932,19 @@ namespace UnitCosts
             Shared.DebugLogHelper.LogDebug(log, parts);
         }
 
-        private void ShowMissingResourcesMessage()
+        private void ShowMissingResourcesMessage(eGoods missingGood)
         {
-            PlayWeaponsNeededSpeech();
+            PlayMissingResourcesSpeech(missingGood);
             DisplayMaterialNotification(SerpLocalization.Get(SerpLocalization.ResourcesMissing));
         }
 
-        private void ShowMissingResourcesMessageThrottledForSiege()
+        private void ShowMissingResourcesMessageThrottledForSiege(eGoods missingGood)
         {
             DateTime now = DateTime.UtcNow;
             if (now >= nextSiegeMissingResourcesSpeechUtc)
             {
                 nextSiegeMissingResourcesSpeechUtc = now.AddMilliseconds(SiegeMissingResourcesSpeechThrottleMilliseconds);
-                PlayWeaponsNeededSpeech();
+                PlayMissingResourcesSpeech(missingGood);
             }
 
             if (now >= nextSiegeMissingResourcesMessageUtc)
@@ -952,15 +954,18 @@ namespace UnitCosts
             }
         }
 
-        private void PlayWeaponsNeededSpeech()
+        private void PlayMissingResourcesSpeech(eGoods missingGood)
         {
             try
             {
-                LogDebug("UnitCosts missing resources speech:", MissingResourcesSpeechFileName);
+                string speechFileName = missingGood == eGoods.STORED_GOLD
+                    ? GetRandomSpeechFileName(MissingGoldSpeechFileNames)
+                    : MissingWeaponsSpeechFileName;
+                LogDebug("UnitCosts missing resources speech:", "good", missingGood, "file", speechFileName);
 
                 SFXManager.instance?.playSpeech(
                     1,
-                    MissingResourcesSpeechFileName,
+                    speechFileName,
                     1f);
             }
             catch (Exception ex)
@@ -973,7 +978,7 @@ namespace UnitCosts
         {
             try
             {
-                string speechFileName = GetRandomMissingRecruitsSpeechFileName();
+                string speechFileName = GetRandomSpeechFileName(MissingRecruitsSpeechFileNames);
                 LogDebug("UnitCosts missing recruits speech:", speechFileName);
 
                 SFXManager.instance?.playSpeech(
@@ -987,11 +992,11 @@ namespace UnitCosts
             }
         }
 
-        private static string GetRandomMissingRecruitsSpeechFileName()
+        private static string GetRandomSpeechFileName(string[] speechFileNames)
         {
-            lock (MissingRecruitsSpeechRandom)
+            lock (SpeechRandom)
             {
-                return MissingRecruitsSpeechFileNames[MissingRecruitsSpeechRandom.Next(MissingRecruitsSpeechFileNames.Length)];
+                return speechFileNames[SpeechRandom.Next(speechFileNames.Length)];
             }
         }
 

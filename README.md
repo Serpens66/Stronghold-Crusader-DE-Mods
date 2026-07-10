@@ -8,6 +8,13 @@
 - Make sure you installed the script extender below.
 - Copy paste the mod folder into your "\Stronghold Crusader Definitive Edition\BepInEx\plugins" folder.
 
+## AI Economy Protection:
+
+- Prevents AI-controlled players from pausing buildings before the game can abort their current work or reset production state.
+- Prevents the AI's special under-pressure resource recovery from demolishing its own buildings. Normal AI demolition decisions remain unchanged.
+- Human-controlled building pauses, unpauses, and demolitions keep their normal behavior.
+- In multiplayer, every participant must use the same mod version.
+
 ## Script Extender: 
 https://gitlab.com/rawra-stronghold-crusader/shcde-script-extender / https://www.nexusmods.com/strongholdcrusaderdefinitiveedition/mods/35  
 
