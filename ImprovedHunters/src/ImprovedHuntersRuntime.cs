@@ -31,8 +31,6 @@ namespace ImprovedHunters
         private const int MaxPreyCacheDiagnosticLogs = 120;
         private const int MaxHunterTargetDiagnosticLogs = 160;
         private const int MaxHunterProjectileDiagnosticLogs = 160;
-        private const int MaxCorpseDiagnosticLogs = 80;
-        private const int CorpsePickupFallbackRadius = 8;
         private const ushort HunterCorpsePickupAiState = 0x6E;
         private const ushort HunterFreshCorpseAiState = 0x6F;
         private const string CamelDespawnTickTimePattern = "66 83 FE 6E 75 4D FE 84 2B 86 09 00 00 B9 ? ? ? ? 38 8C 2B 86 09 00 00";
@@ -48,8 +46,6 @@ namespace ImprovedHunters
         private static readonly long HunterTargetSummaryInterval = Stopwatch.Frequency * 5;
         private static readonly long HunterSearchDetectionGap = Stopwatch.Frequency / 4;
         private static readonly long PendingHunterShotIntentDelay = Stopwatch.Frequency;
-        private static readonly long RecentHunterTargetRetention = Stopwatch.Frequency * 10;
-        private static readonly long RuntimeCorpsePreserveDuration = Stopwatch.Frequency * 60;
 
         private readonly ManualLogSource log;
         private readonly ImprovedHuntersViewModel settings;
@@ -61,8 +57,6 @@ namespace ImprovedHunters
         private readonly Dictionary<PathCostKey, CachedPathCost> pathCostCache = new Dictionary<PathCostKey, CachedPathCost>();
         private readonly Dictionary<int, CachedBestTarget> bestTargetCache = new Dictionary<int, CachedBestTarget>();
         private readonly Dictionary<int, HunterTargetSnapshot> activeHunterTargets = new Dictionary<int, HunterTargetSnapshot>();
-        private readonly Dictionary<int, RecentHunterTargetSnapshot> recentHunterTargets = new Dictionary<int, RecentHunterTargetSnapshot>();
-        private readonly Dictionary<uint, long> preservedShortLivedCorpseExpirations = new Dictionary<uint, long>();
         private readonly Dictionary<HunterPreyCooldownKey, long> abortedTargetCooldowns = new Dictionary<HunterPreyCooldownKey, long>();
         private readonly Dictionary<int, long> lastHunterQueryTimestamps = new Dictionary<int, long>();
         private readonly Dictionary<int, long> hunterMeatPickupTimestamps = new Dictionary<int, long>();
@@ -102,7 +96,6 @@ namespace ImprovedHunters
         private int pathCacheHits;
         private int pathCacheMisses;
         private int hunterProjectileDiagnosticLogs;
-        private int corpseDiagnosticLogs;
         private bool applied;
 
         public ImprovedHuntersRuntime(ManualLogSource log, ImprovedHuntersViewModel settings)
@@ -192,7 +185,7 @@ namespace ImprovedHunters
                         IsRuntimeHuntingEnabled(unit->r_UnitChimp) &&
                         IsOwnerAllowedForAnyHunter(unitId, unit))
                     {
-                        PreserveShortLivedCorpse(unitId, unit, timestamp);
+                        PreserveShortLivedCorpse(unit);
                     }
 
                     if (unit->r_AliveState == AliveState.None)
@@ -211,7 +204,7 @@ namespace ImprovedHunters
                 if (adjustedLiveCamels > 0)
                     LogCamelHealthPatch(adjustedLiveCamels);
 
-                TrackHunterPreyState(units, hunters, timestamp);
+                TrackHunterPreyAndExpireCollectedCorpses(units, hunters, timestamp);
                 RequeryIdleHuntersNearPrey(units, hunters, eligiblePrey, timestamp);
             }
             catch (Exception exception)
@@ -284,7 +277,7 @@ namespace ImprovedHunters
             }
         }
 
-        private unsafe void TrackHunterPreyState(
+        private unsafe void TrackHunterPreyAndExpireCollectedCorpses(
             SimpleNativeArray<GameUnit> units,
             List<IntPtr> hunters,
             long timestamp)
@@ -306,10 +299,26 @@ namespace ImprovedHunters
                     continue;
 
                 hunterPreyTypes[hunterId] = target->r_UnitChimp;
+
+                byte* targetBytes = (byte*)target;
+                if (*(ushort*)(hunterBytes + 0x2BC) != 0x02 ||
+                    !IsShortLivedPrey(target->r_UnitChimp) ||
+                    *(uint*)(targetBytes + 0x94) != targetGlobalId ||
+                    !IsPreservableCorpseState(*(ushort*)(targetBytes + 0x2BC)))
+                {
+                    continue;
+                }
+
+                ushort deathTimer = *(ushort*)(targetBytes + 0x2C4);
+                if (deathTimer <= CollectedCorpseDespawnTicks)
+                    *(ushort*)(targetBytes + 0x2C4) = CollectedCorpseDespawnTicks;
+
+                if (loggedCollectedCorpseGlobalIds.Add(targetGlobalId))
+                    target->r_AliveState = AliveState.MarkedForDeletion;
             }
         }
 
-        private unsafe void PreserveShortLivedCorpse(int unitId, GameUnit* unit, long timestamp)
+        private unsafe void PreserveShortLivedCorpse(GameUnit* unit)
         {
             if (!IsShortLivedPrey(unit->r_UnitChimp))
                 return;
@@ -318,7 +327,6 @@ namespace ImprovedHunters
             if (!IsPreservableCorpseState(*(ushort*)(unitBytes + 0x2BC)) ||
                 *(ushort*)(unitBytes + 0x29C) == 0)
             {
-                preservedShortLivedCorpseExpirations.Remove(unit->r_GlobalId);
                 return;
             }
 
@@ -326,34 +334,9 @@ namespace ImprovedHunters
             if (reservation != 0 && reservation != 2)
                 return;
 
-            uint globalId = unit->r_GlobalId;
-            if (!preservedShortLivedCorpseExpirations.TryGetValue(globalId, out long expiresAt))
-            {
-                expiresAt = timestamp + RuntimeCorpsePreserveDuration;
-                preservedShortLivedCorpseExpirations[globalId] = expiresAt;
-                LogCorpseDiagnostic(
-                    $"Improved Hunters runtime corpse preserve start: unit={unitId}/{unit->r_UnitChimp}, " +
-                    $"globalId={globalId}, aiState=0x{*(ushort*)(unitBytes + 0x2BC):X}, reservation={reservation}, " +
-                    $"durationSeconds={RuntimeCorpsePreserveDuration / Stopwatch.Frequency}.");
-            }
-
-            if (timestamp >= expiresAt)
-            {
-                preservedShortLivedCorpseExpirations.Remove(globalId);
-                return;
-            }
-
             ushort deathTimer = *(ushort*)(unitBytes + 0x2C4);
-            if (deathTimer > 0 && deathTimer < CollectedCorpseDespawnTicks)
-            {
+            if (deathTimer > 0 && deathTimer < VisualCorpseTimerResetThreshold)
                 *(ushort*)(unitBytes + 0x2C4) = 0;
-                if (deathTimer < VisualCorpseTimerResetThreshold)
-                {
-                    LogCorpseDiagnostic(
-                        $"Improved Hunters runtime corpse timer reset: unit={unitId}/{unit->r_UnitChimp}, " +
-                        $"globalId={globalId}, timer={deathTimer}, aiState=0x{*(ushort*)(unitBytes + 0x2BC):X}, reservation={reservation}.");
-                }
-            }
         }
 
         private unsafe bool IsEligibleUnreservedPrey(int unitId, GameUnit* prey)
@@ -1156,7 +1139,6 @@ namespace ImprovedHunters
             hunterMeatPickupTimestamps[args.UnitId] = Stopwatch.GetTimestamp();
             TryDeleteCollectedShortLivedCorpse(args.UnitId);
             activeHunterTargets.Remove(args.UnitId);
-            recentHunterTargets.Remove(args.UnitId);
             bestTargetCache.Remove(args.UnitId);
         }
 
@@ -1178,128 +1160,36 @@ namespace ImprovedHunters
 
         private unsafe void TryDeleteCollectedShortLivedCorpse(int hunterUnitId)
         {
-            GameUnit* unit = null;
-            HunterTargetSnapshot target = default;
-            string source = "hunter-target";
-
-            if (!TryGetCollectedCorpseTarget(hunterUnitId, out target) ||
-                !GameUnitManagerAPI.Instance.TryGetUnitById(target.UnitId, out unit) ||
+            if (!TryGetCollectedCorpseTarget(hunterUnitId, out HunterTargetSnapshot target) ||
+                !GameUnitManagerAPI.Instance.TryGetUnitById(target.UnitId, out GameUnit* unit) ||
                 unit == null ||
                 unit->r_GlobalId != target.GlobalId ||
                 !IsShortLivedPrey(unit->r_UnitChimp))
             {
-                if (!TryFindCollectedCorpseNearHunter(hunterUnitId, out target, out unit))
-                {
-                    LogCorpseDiagnostic($"Improved Hunters collected corpse remove skipped: hunter={hunterUnitId}, reason=no-target-or-nearby-corpse.");
-                    return;
-                }
-
-                source = "nearby-corpse";
+                return;
             }
 
             byte* unitBytes = (byte*)unit;
-            if (*(ushort*)(unitBytes + 0x29C) == 0)
+            if (*(ushort*)(unitBytes + 0x29C) == 0 ||
+                !IsPreservableCorpseState(*(ushort*)(unitBytes + 0x2BC)))
             {
-                LogCorpseDiagnostic(
-                    $"Improved Hunters collected corpse remove skipped: hunter={hunterUnitId}, target={target.UnitId}, " +
-                    $"globalId={target.GlobalId}, reason=corpse-flag-zero, aiState=0x{*(ushort*)(unitBytes + 0x2BC):X}.");
                 return;
             }
 
             *(ushort*)(unitBytes + 0x2C4) = CollectedCorpseDespawnTicks;
             unit->r_AliveState = AliveState.MarkedForDeletion;
-            preservedShortLivedCorpseExpirations.Remove(target.GlobalId);
 
             if (loggedCollectedCorpseGlobalIds.Add(target.GlobalId) &&
                 hunterTargetDiagnosticLogs < MaxHunterTargetDiagnosticLogs)
             {
                 log.LogInfo(
                     $"Improved Hunters collected corpse removed: hunter={hunterUnitId}, target={target.UnitId}, " +
-                    $"globalId={target.GlobalId}, aiState=0x{*(ushort*)(unitBytes + 0x2BC):X}, source={source}.");
+                    $"globalId={target.GlobalId}, aiState=0x{*(ushort*)(unitBytes + 0x2BC):X}.");
             }
-        }
-
-        private unsafe bool TryFindCollectedCorpseNearHunter(
-            int hunterUnitId,
-            out HunterTargetSnapshot target,
-            out GameUnit* corpse)
-        {
-            target = default;
-            corpse = null;
-
-            if (!GameUnitManagerAPI.Instance.TryGetUnitById(hunterUnitId, out GameUnit* hunter) ||
-                hunter == null ||
-                hunter->r_UnitChimp != eChimps.CHIMP_TYPE_HUNTER)
-            {
-                return false;
-            }
-
-            int hunterTileX = hunter->r_CurrentTilePositionX;
-            int hunterTileY = hunter->r_CurrentTilePositionY;
-            SimpleNativeArray<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitArray();
-            if (units._array == null || units.Length == 0)
-                return false;
-
-            int bestUnitId = 0;
-            uint bestGlobalId = 0;
-            int bestScore = int.MaxValue;
-            GameUnit* bestCorpse = null;
-            for (int index = 0; index < units.Length; index++)
-            {
-                GameUnit* candidate = units.GetValuePointer(index);
-                if (candidate == null ||
-                    candidate->r_AliveState != AliveState.IsAlive ||
-                    !IsShortLivedPrey(candidate->r_UnitChimp))
-                {
-                    continue;
-                }
-
-                byte* candidateBytes = (byte*)candidate;
-                if (*(ushort*)(candidateBytes + 0x29C) == 0)
-                    continue;
-
-                int distance = Math.Max(
-                    Math.Abs(candidate->r_CurrentTilePositionX - hunterTileX),
-                    Math.Abs(candidate->r_CurrentTilePositionY - hunterTileY));
-                if (distance > CorpsePickupFallbackRadius)
-                    continue;
-
-                ushort reservation = *(ushort*)(candidateBytes + 0x448);
-                int score = (distance * 10) + (reservation == 2 ? 0 : 5);
-                if (score >= bestScore)
-                    continue;
-
-                bestScore = score;
-                bestUnitId = index + 1;
-                bestGlobalId = candidate->r_GlobalId;
-                bestCorpse = candidate;
-            }
-
-            if (bestCorpse == null)
-                return false;
-
-            target = new HunterTargetSnapshot(checked((ushort)bestUnitId), bestGlobalId);
-            corpse = bestCorpse;
-            return true;
         }
 
         private unsafe bool TryGetCollectedCorpseTarget(int hunterUnitId, out HunterTargetSnapshot target)
         {
-            if (activeHunterTargets.TryGetValue(hunterUnitId, out target))
-                return true;
-
-            if (recentHunterTargets.TryGetValue(hunterUnitId, out RecentHunterTargetSnapshot recentTarget))
-            {
-                long timestamp = Stopwatch.GetTimestamp();
-                if (timestamp <= recentTarget.ExpiresAt)
-                {
-                    target = recentTarget.Target;
-                    return true;
-                }
-
-                recentHunterTargets.Remove(hunterUnitId);
-            }
-
             if (GameUnitManagerAPI.Instance.TryGetUnitById(hunterUnitId, out GameUnit* hunter) &&
                 hunter != null &&
                 hunter->r_UnitChimp == eChimps.CHIMP_TYPE_HUNTER)
@@ -1314,8 +1204,7 @@ namespace ImprovedHunters
                 }
             }
 
-            target = default;
-            return false;
+            return activeHunterTargets.TryGetValue(hunterUnitId, out target);
         }
 
         private void TrackHunterTargetState(int hunterUnitId, ushort targetUnitId, uint targetGlobalId, long timestamp)
@@ -1333,7 +1222,6 @@ namespace ImprovedHunters
                 return;
 
             activeHunterTargets.Remove(hunterUnitId);
-            recentHunterTargets[hunterUnitId] = new RecentHunterTargetSnapshot(previousTarget, timestamp + RecentHunterTargetRetention);
             abortedTargetCooldowns[new HunterPreyCooldownKey(hunterUnitId, previousTarget.GlobalId)] = timestamp + AbortedTargetCooldownInterval;
             bestTargetCache.Remove(hunterUnitId);
 
@@ -1724,18 +1612,6 @@ namespace ImprovedHunters
                 log.LogInfo("Improved Hunters hunter projectile diagnostic limit reached.");
         }
 
-        private void LogCorpseDiagnostic(string message)
-        {
-            if (corpseDiagnosticLogs >= MaxCorpseDiagnosticLogs)
-                return;
-
-            corpseDiagnosticLogs++;
-            log.LogInfo($"{message} ({corpseDiagnosticLogs}/{MaxCorpseDiagnosticLogs}).");
-
-            if (corpseDiagnosticLogs == MaxCorpseDiagnosticLogs)
-                log.LogInfo("Improved Hunters corpse diagnostic limit reached.");
-        }
-
         private void OnSettingChanged(string propertyName)
         {
             ClearTargetSelectionCaches();
@@ -2035,8 +1911,6 @@ namespace ImprovedHunters
             pathCostCache.Clear();
             bestTargetCache.Clear();
             activeHunterTargets.Clear();
-            recentHunterTargets.Clear();
-            preservedShortLivedCorpseExpirations.Clear();
             abortedTargetCooldowns.Clear();
             lastHunterQueryTimestamps.Clear();
             hunterMeatPickupTimestamps.Clear();
@@ -2049,7 +1923,6 @@ namespace ImprovedHunters
             hunterTargetDiagnosticLogs = 0;
             preyCacheDiagnosticLogs = 0;
             hunterProjectileDiagnosticLogs = 0;
-            corpseDiagnosticLogs = 0;
             hunterTargetQueryEvents = 0;
             hunterTargetAcceptedEvents = 0;
             hunterTargetRejectedEvents = 0;
@@ -2255,18 +2128,6 @@ namespace ImprovedHunters
             {
                 UnitId = unitId;
                 GlobalId = globalId;
-            }
-        }
-
-        private struct RecentHunterTargetSnapshot
-        {
-            public readonly HunterTargetSnapshot Target;
-            public readonly long ExpiresAt;
-
-            public RecentHunterTargetSnapshot(HunterTargetSnapshot target, long expiresAt)
-            {
-                Target = target;
-                ExpiresAt = expiresAt;
             }
         }
 
