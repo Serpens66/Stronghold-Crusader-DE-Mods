@@ -30,11 +30,23 @@ namespace ImprovedHunters
         private const int MaxPreyCacheDiagnosticLogs = 120;
         private const int MaxHunterTargetDiagnosticLogs = 160;
         private const int MaxHunterProjectileDiagnosticLogs = 160;
+
+        // Native animal AI states observed for hunter corpses. 0x6E is the normal
+        // pickupable corpse state; 0x6F is used when we have to finalize a corpse
+        // after compensating a hunter shot that was blocked by geometry.
         private const ushort HunterCorpsePickupAiState = 0x6E;
         private const ushort HunterFreshCorpseAiState = 0x6F;
+        private const long ExpiredShortLivedCorpsePreserve = long.MinValue;
+
+        // Rabbit despawn is exposed by the Script Extender. Camel and chicken use
+        // the same native logic, but their constants are not exposed, so we patch
+        // the immediate operands found by these byte patterns.
         private const string CamelDespawnTickTimePattern = "66 83 FE 6E 75 4D FE 84 2B 86 09 00 00 B9 ? ? ? ? 38 8C 2B 86 09 00 00";
         private const string ChickenDespawnTickTimePattern = "66 83 FF 6E 75 55 FE 84 2B 86 09 00 00 B9 ? ? ? ? 66 FF 84 2B 20 09 00 00";
         private const int ExtraDespawnPatternImmediateOffset = 13;
+
+        // The BepInEx plugin component is short-lived in SHCDE, so all repeating
+        // work is driven from persistent Script Extender events and Stopwatch.
         private static readonly long NativeScanInterval = Stopwatch.Frequency / 10;
         private static readonly long IdleHunterRequeryInterval = Stopwatch.Frequency;
         private static readonly long PreyCacheRefreshInterval = Stopwatch.Frequency * 5;
@@ -46,6 +58,7 @@ namespace ImprovedHunters
         private static readonly long HunterSearchDetectionGap = Stopwatch.Frequency / 4;
         private static readonly long PendingHunterShotIntentDelay = Stopwatch.Frequency;
         private static readonly long ShortLivedCorpseVisiblePreserveDuration = Stopwatch.Frequency * 60;
+        private static readonly long ShortLivedCorpsePreserveCleanupInterval = Stopwatch.Frequency * 10;
 
         private readonly ManualLogSource log;
         private readonly ImprovedHuntersViewModel settings;
@@ -61,6 +74,9 @@ namespace ImprovedHunters
         private readonly Dictionary<int, long> lastHunterQueryTimestamps = new Dictionary<int, long>();
         private readonly Dictionary<int, long> hunterMeatPickupTimestamps = new Dictionary<int, long>();
         private readonly Dictionary<HunterShotIntentKey, PendingHunterShotIntent> pendingHunterShotIntents = new Dictionary<HunterShotIntentKey, PendingHunterShotIntent>();
+
+        // Keeps short-lived corpses visible long enough for hunters to reach them.
+        // The value is either the preserve-until timestamp or ExpiredShortLivedCorpsePreserve.
         private readonly Dictionary<uint, long> shortLivedCorpsePreserveUntil = new Dictionary<uint, long>();
 
         private ManagedAssemblyImmediate<short> rabbitDespawnTickTime;
@@ -86,6 +102,7 @@ namespace ImprovedHunters
         private long nextPreyCacheRefreshTimestamp;
         private long nextStaleReservationCleanupTimestamp;
         private long nextHunterTargetSummaryTimestamp;
+        private long nextShortLivedCorpsePreserveCleanupTimestamp;
         private int hunterTargetDiagnosticLogs;
         private int preyCacheDiagnosticLogs;
         private int hunterTargetQueryEvents;
@@ -157,6 +174,8 @@ namespace ImprovedHunters
 
             try
             {
+                // Re-apply cheap native/default patches here because settings and
+                // some game globals can be recreated around map transitions.
                 ApplyDespawnPatches();
                 ApplyCamelHealthPatch();
                 ResolvePendingHunterShotIntents(timestamp);
@@ -206,6 +225,7 @@ namespace ImprovedHunters
                 if (adjustedLiveCamels > 0)
                     LogCamelHealthPatch(adjustedLiveCamels);
 
+                CleanupShortLivedCorpsePreserveCache(units, timestamp);
                 TrackHunterPreyAndExpireCollectedCorpses(units, hunters, timestamp);
                 RequeryIdleHuntersNearPrey(units, hunters, eligiblePrey, timestamp);
             }
@@ -322,20 +342,17 @@ namespace ImprovedHunters
 
         private unsafe void PreserveShortLivedCorpse(GameUnit* unit, long timestamp)
         {
-            if (!IsShortLivedPrey(unit->r_UnitChimp))
+            if (!IsTrackedShortLivedCorpse(unit))
                 return;
 
             byte* unitBytes = (byte*)unit;
-            if (!IsPreservableCorpseState(*(ushort*)(unitBytes + 0x2BC)) ||
-                *(ushort*)(unitBytes + 0x29C) == 0)
-            {
-                return;
-            }
-
             ushort reservation = *(ushort*)(unitBytes + 0x448);
             if (reservation != 0 && reservation != 2)
                 return;
 
+            // The native timer can jump past small thresholds at high game speed.
+            // Reset it for a fixed real-time window instead of depending on one
+            // exact timer value being observed before the visual corpse disappears.
             uint globalId = unit->r_GlobalId;
             if (!shortLivedCorpsePreserveUntil.TryGetValue(globalId, out long preserveUntil))
             {
@@ -345,10 +362,16 @@ namespace ImprovedHunters
                     $"Improved Hunters corpse visible preserve started: unit={globalId}/{unit->r_UnitChimp}, " +
                     $"seconds={ShortLivedCorpseVisiblePreserveDuration / Stopwatch.Frequency}.");
             }
+            else if (preserveUntil == ExpiredShortLivedCorpsePreserve)
+            {
+                // Keep the expired marker while the unit still exists. Otherwise
+                // the next scan would start a fresh 60-second preserve window.
+                return;
+            }
 
             if (timestamp > preserveUntil)
             {
-                shortLivedCorpsePreserveUntil.Remove(globalId);
+                shortLivedCorpsePreserveUntil[globalId] = ExpiredShortLivedCorpsePreserve;
                 LogShortLivedCorpsePreserve(
                     $"Improved Hunters corpse visible preserve expired: unit={globalId}/{unit->r_UnitChimp}.");
                 return;
@@ -357,6 +380,45 @@ namespace ImprovedHunters
             ushort deathTimer = *(ushort*)(unitBytes + 0x2C4);
             if (deathTimer > 0)
                 *(ushort*)(unitBytes + 0x2C4) = 0;
+        }
+
+        private unsafe void CleanupShortLivedCorpsePreserveCache(SimpleNativeArray<GameUnit> units, long timestamp)
+        {
+            if (shortLivedCorpsePreserveUntil.Count == 0 ||
+                timestamp < nextShortLivedCorpsePreserveCleanupTimestamp)
+            {
+                return;
+            }
+
+            nextShortLivedCorpsePreserveCleanupTimestamp = timestamp + ShortLivedCorpsePreserveCleanupInterval;
+
+            // Run this only every few seconds. It prevents stale preserve entries
+            // from accumulating after the engine removes corpses from the unit list.
+            HashSet<uint> activeCorpseGlobalIds = new HashSet<uint>();
+            for (int index = 0; index < units.Length; index++)
+            {
+                GameUnit* unit = units.GetValuePointer(index);
+                if (unit != null && IsTrackedShortLivedCorpse(unit))
+                    activeCorpseGlobalIds.Add(unit->r_GlobalId);
+            }
+
+            List<uint> staleGlobalIds = null;
+            foreach (uint globalId in shortLivedCorpsePreserveUntil.Keys)
+            {
+                if (activeCorpseGlobalIds.Contains(globalId))
+                    continue;
+
+                if (staleGlobalIds == null)
+                    staleGlobalIds = new List<uint>();
+
+                staleGlobalIds.Add(globalId);
+            }
+
+            if (staleGlobalIds == null)
+                return;
+
+            for (int index = 0; index < staleGlobalIds.Count; index++)
+                shortLivedCorpsePreserveUntil.Remove(staleGlobalIds[index]);
         }
 
         private unsafe bool IsEligibleUnreservedPrey(int unitId, GameUnit* prey)
@@ -1353,6 +1415,8 @@ namespace ImprovedHunters
             if (!TryGetCompensableProjectileTarget(args, out _, out PreyEligibility eligibility))
                 return;
 
+            // Hunter arrows do not always report the hunter as SourceUnitId. Use
+            // several weak signals and fall back to the target intent if needed.
             bool hasHunterContext = TryResolveHunterForProjectile(
                 args.SourceUnitId,
                 args.AttackedUnitId,
@@ -1577,6 +1641,9 @@ namespace ImprovedHunters
                 return;
             }
 
+            // If the animal is still alive after the shot delay, assume the arrow
+            // was blocked by terrain/buildings and complete the kill so the hunter
+            // can continue with the normal pickup workflow.
             unitApi.KillUnit(intent.TargetUnitId);
 
             bool corpseFinalized = false;
@@ -1627,6 +1694,8 @@ namespace ImprovedHunters
             *(ushort*)(targetBytes + 0x29C) = 1;
             *(ushort*)(targetBytes + 0x2BC) = HunterFreshCorpseAiState;
 
+            // Start at zero so the visible-corpse preserve can take over on the
+            // next native scan.
             if (IsShortLivedPrey(targetType))
                 *(ushort*)(targetBytes + 0x2C4) = 0;
 
@@ -1705,6 +1774,8 @@ namespace ImprovedHunters
 
                 return new ManagedAssemblyImmediate<short>(
                     new IntPtr(unchecked((long)(imageBase + (ulong)offset + ExtraDespawnPatternImmediateOffset))),
+                    // The matched instruction has more than one operand; operand 1
+                    // is the immediate despawn threshold.
                     operand: 1);
             }
             catch (Exception exception)
@@ -1933,6 +2004,18 @@ namespace ImprovedHunters
                 type == eChimps.CHIMP_TYPE_CHICKEN;
         }
 
+        private static unsafe bool IsTrackedShortLivedCorpse(GameUnit* unit)
+        {
+            if (unit == null || !IsShortLivedPrey(unit->r_UnitChimp))
+                return false;
+
+            // 0x29C is the observed corpse marker, 0x2BC is the native animal
+            // state. Both must agree before we manipulate the despawn timer.
+            byte* unitBytes = (byte*)unit;
+            return *(ushort*)(unitBytes + 0x29C) != 0 &&
+                IsPreservableCorpseState(*(ushort*)(unitBytes + 0x2BC));
+        }
+
         private static bool IsPreservableCorpseState(ushort aiState)
         {
             return aiState == HunterCorpsePickupAiState ||
@@ -1952,6 +2035,7 @@ namespace ImprovedHunters
             nextPreyCacheRefreshTimestamp = 0;
             nextStaleReservationCleanupTimestamp = 0;
             nextHunterTargetSummaryTimestamp = 0;
+            nextShortLivedCorpsePreserveCleanupTimestamp = 0;
             lastLoggedDesiredCamelHealth = 0;
             despawnPatchStateLogged = false;
             hunterTargetDiagnosticLogs = 0;
