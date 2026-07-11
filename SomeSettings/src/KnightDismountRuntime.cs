@@ -14,7 +14,6 @@ using SHCDESE.NoesisUtil;
 using SHCDESE.ViewModels;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Globalization;
 using System.Reflection;
 
@@ -182,23 +181,6 @@ namespace SomeSettings
         private R3PacketEventHook<KnightDismountPacket> packetHook;
         private IDisposable packetSubscription;
         private Button hookedDismountButton;
-        private FieldInfo engineSelectedChimpsField;
-        private FieldInfo editorSelectedChimpListField;
-        private FieldInfo editorLastSelectedChimpListField;
-        private FieldInfo editorGotNewSelectionInfoField;
-        private FieldInfo editorUnderCursorChimpListField;
-        private FieldInfo editorTroopSelectionBoxOnField;
-        private FieldInfo editorScheduleTroopSelectionEndField;
-        private FieldInfo editorLeftMouseStateForEngineField;
-        private FieldInfo editorStateReadField;
-        private FieldInfo editorUpPendingField;
-        private FieldInfo editorRightDownForEngineField;
-        private FieldInfo editorRightUpForEngineField;
-        private FieldInfo editorMouseStateSetTimeField;
-        private List<int> pendingSelectionIds;
-        private int pendingSelectionLocalPlayerId;
-        private int pendingSelectionAttempts;
-        private long pendingSelectionDueTimestamp;
         private int nextRequestId;
         private string lastPlacementName;
         private bool initialized;
@@ -221,22 +203,8 @@ namespace SomeSettings
             disposed = false;
             packetHook = GameNetworkAPI.Instance.GetPacketEventFor<KnightDismountPacket>();
             packetSubscription = packetHook.GetBaseHook().Observable.Subscribe(OnPacketReceived);
-            GameTimeManagerAPI.Instance.OnTick += OnGameTick;
             setupTroopActionsHook = new Hook(FindSetuptroopActionsUIMethod(), (SetuptroopActionsUIDelegate)SetuptroopActionsUIHook);
             setupTroopActionsTrampoline = setupTroopActionsHook.GenerateTrampoline<SetuptroopActionsUIDelegate>();
-            engineSelectedChimpsField = typeof(EngineInterface).GetField("selectedChimps", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
-            editorSelectedChimpListField = typeof(EditorDirector).GetField("selectedChimpList", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-            editorLastSelectedChimpListField = typeof(EditorDirector).GetField("lastSelectedChimpList", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-            editorGotNewSelectionInfoField = typeof(EditorDirector).GetField("gotNewSelectionInfo", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-            editorUnderCursorChimpListField = typeof(EditorDirector).GetField("underCursorChimpList", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-            editorTroopSelectionBoxOnField = typeof(EditorDirector).GetField("troopSelectionBoxOn", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-            editorScheduleTroopSelectionEndField = typeof(EditorDirector).GetField("scheduleTroopSelectionEnd", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-            editorLeftMouseStateForEngineField = typeof(EditorDirector).GetField("leftMouseStateForEngine", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-            editorStateReadField = typeof(EditorDirector).GetField("stateRead", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-            editorUpPendingField = typeof(EditorDirector).GetField("upPending", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-            editorRightDownForEngineField = typeof(EditorDirector).GetField("rightDownForEngine", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-            editorRightUpForEngineField = typeof(EditorDirector).GetField("rightUpForEngine", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-            editorMouseStateSetTimeField = typeof(EditorDirector).GetField("mouseStateSetTime", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
             initialized = true;
             RefreshButtonVisibility();
             LogDebug("Knight dismount runtime initialized.");
@@ -257,26 +225,12 @@ namespace SomeSettings
                 hookedDismountButton = null;
             }
 
-            GameTimeManagerAPI.Instance.OnTick -= OnGameTick;
             packetSubscription?.Dispose();
             packetSubscription = null;
             setupTroopActionsHook?.Undo();
             setupTroopActionsHook?.Dispose();
             setupTroopActionsHook = null;
             setupTroopActionsTrampoline = null;
-            engineSelectedChimpsField = null;
-            editorSelectedChimpListField = null;
-            editorLastSelectedChimpListField = null;
-            editorGotNewSelectionInfoField = null;
-            editorUnderCursorChimpListField = null;
-            editorTroopSelectionBoxOnField = null;
-            editorScheduleTroopSelectionEndField = null;
-            editorLeftMouseStateForEngineField = null;
-            editorStateReadField = null;
-            editorUpPendingField = null;
-            editorRightDownForEngineField = null;
-            editorRightUpForEngineField = null;
-            editorMouseStateSetTimeField = null;
             packetHook = null;
             processedRequestIds.Clear();
             LogDebug("Knight dismount runtime disposed.");
@@ -486,7 +440,6 @@ namespace SomeSettings
                     return;
 
                 int localPlayerId = GetLocalPlayerIdOrOne();
-                int[] originalSelectedUnits = GetSelectedChimpsSafe();
                 List<KnightDismountSnapshot> snapshots = CaptureSelectedKnightSnapshots(localPlayerId);
                 if (snapshots.Count == 0)
                 {
@@ -497,15 +450,13 @@ namespace SomeSettings
 
                 LogInfo($"Knight dismount clicked: sourcePlayerId={localPlayerId}, count={snapshots.Count}.");
                 List<KnightDismountSnapshot> appliedSnapshots = new List<KnightDismountSnapshot>(snapshots.Count);
-                List<int> createdSwordsmanIds = ApplyDismountBatch(snapshots, "local-click", appliedSnapshots);
+                ApplyDismountBatch(snapshots, "local-click", appliedSnapshots);
                 for (int i = 0; i < appliedSnapshots.Count; i++)
                 {
                     int requestId = ++nextRequestId;
                     SendDismountPacket(localPlayerId, requestId, appliedSnapshots[i]);
                 }
 
-                List<int> postDismountSelectionIds = BuildPostDismountSelection(originalSelectedUnits, snapshots, createdSwordsmanIds, localPlayerId);
-                ScheduleDeferredSelection(postDismountSelectionIds, localPlayerId);
                 RefreshButtonVisibility();
             }
             catch (Exception ex)
@@ -811,264 +762,6 @@ namespace SomeSettings
             }
 
             return -1;
-        }
-
-        private List<int> BuildPostDismountSelection(int[] originalSelectedUnits, List<KnightDismountSnapshot> snapshots, List<int> createdSwordsmanIds, int localPlayerId)
-        {
-            List<int> selectionIds = new List<int>();
-            HashSet<int> seenIds = new HashSet<int>();
-            HashSet<int> removedKnightUnitIds = new HashSet<int>();
-
-            if (snapshots != null)
-            {
-                for (int i = 0; i < snapshots.Count; i++)
-                    removedKnightUnitIds.Add(snapshots[i].UnitId);
-            }
-
-            if (originalSelectedUnits != null)
-            {
-                for (int i = 0; i < originalSelectedUnits.Length; i++)
-                {
-                    int unitId = originalSelectedUnits[i];
-                    if (unitId <= 0 || removedKnightUnitIds.Contains(unitId) || !seenIds.Add(unitId))
-                        continue;
-
-                    if (IsSelectableOwnAliveUnit(unitId, localPlayerId))
-                        selectionIds.Add(unitId);
-                }
-            }
-
-            if (createdSwordsmanIds != null)
-            {
-                for (int i = 0; i < createdSwordsmanIds.Count; i++)
-                {
-                    int unitId = createdSwordsmanIds[i];
-                    if (unitId <= 0 || !seenIds.Add(unitId))
-                        continue;
-
-                    selectionIds.Add(unitId);
-                }
-            }
-
-            LogInfo($"Knight dismount post selection built: original={originalSelectedUnits?.Length ?? 0}, removedKnights={removedKnightUnitIds.Count}, created={createdSwordsmanIds?.Count ?? 0}, final={selectionIds.Count}, ids={string.Join(",", selectionIds)}.");
-            return selectionIds;
-        }
-
-        private void SelectUnits(List<int> requestedUnitIds, int localPlayerId)
-        {
-            if (requestedUnitIds == null || requestedUnitIds.Count == 0)
-                return;
-
-            List<int> selectableIds = new List<int>(requestedUnitIds.Count);
-            List<int> selectableTypes = new List<int>(requestedUnitIds.Count);
-            HashSet<int> seenIds = new HashSet<int>();
-            GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
-
-            for (int i = 0; i < requestedUnitIds.Count; i++)
-            {
-                int unitId = requestedUnitIds[i];
-                if (unitId <= 0 || !seenIds.Add(unitId))
-                    continue;
-
-                if (!unitApi.TryGetUnitById(unitId, out GameUnit* unit) ||
-                    unit->r_AliveState != AliveState.IsAlive ||
-                    unit->r_ControllableForPlayerId != localPlayerId)
-                    continue;
-
-                unit->r_UnitSelected = 1;
-                unit->r_UnitSelected2 = 1;
-                unit->r_SelectionRelevant3 = (ushort)UnitSelectionType.SelectionRect;
-                selectableIds.Add(unitId);
-                selectableTypes.Add((int)unit->r_UnitChimp);
-            }
-
-            if (selectableIds.Count == 0)
-            {
-                LogDebug("Knight dismount selection skipped, no requested units were selectable.");
-                return;
-            }
-
-            try
-            {
-                int[] idsArray = selectableIds.ToArray();
-                ApplyEngineSelection(selectableIds, selectableTypes);
-                QueueEditorDirectorSelection(idsArray);
-                UpdateEditorDirectorSelection(selectableIds, selectableTypes);
-                MainViewModel.Instance?.TroopsSelectedGameAction(false);
-                LogSelectionState("Knight dismount selected units", selectableIds);
-            }
-            catch (Exception ex)
-            {
-                LogError($"Knight dismount selection failed: count={selectableIds.Count}, ids={string.Join(",", selectableIds)}: {ex}");
-            }
-        }
-
-        private void ApplyEngineSelection(List<int> selectableIds, List<int> selectableTypes)
-        {
-            int[] selectedChimps = engineSelectedChimpsField?.GetValue(null) as int[];
-            if (selectedChimps == null)
-            {
-                LogInfo("Knight dismount engine selection skipped, selectedChimps field was not found.");
-                return;
-            }
-
-            int maxCount = Math.Min(selectableIds.Count, selectedChimps.Length / 2);
-            Array.Clear(selectedChimps, 0, selectedChimps.Length);
-            ClearSelectedUnitFlags();
-
-            for (int i = 0; i < maxCount; i++)
-            {
-                int unitId = selectableIds[i];
-                selectedChimps[i * 2] = unitId;
-                selectedChimps[i * 2 + 1] = selectableTypes[i];
-
-                if (GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit))
-                {
-                    unit->r_UnitSelected = 1;
-                    unit->r_UnitSelected2 = 1;
-                    unit->r_SelectionRelevant3 = (ushort)UnitSelectionType.SelectionRect;
-                }
-            }
-
-            GameUnitManagerAPI.Instance.GetUnitManager().Pointer->r_SelectedChimpsCount = (uint)maxCount;
-            LogInfo($"Knight dismount engine selection applied: count={maxCount}, ids={string.Join(",", selectableIds)}.");
-        }
-
-        private void ApplyEditorDirectorSelectionCache(int[] selectableIds)
-        {
-            EditorDirector editorDirector = EditorDirector.instance;
-            if (editorDirector == null)
-                return;
-
-            editorSelectedChimpListField?.SetValue(editorDirector, selectableIds);
-            editorLastSelectedChimpListField?.SetValue(editorDirector, selectableIds);
-            editorGotNewSelectionInfoField?.SetValue(editorDirector, true);
-        }
-
-        private void QueueEditorDirectorSelection(int[] selectableIds)
-        {
-            if (selectableIds == null || selectableIds.Length == 0)
-                return;
-
-            EditorDirector editorDirector = EditorDirector.instance;
-            if (editorDirector == null)
-                return;
-
-            int[] selectionCopy = new int[selectableIds.Length];
-            Array.Copy(selectableIds, selectionCopy, selectableIds.Length);
-
-            ApplyEditorDirectorSelectionCache(selectionCopy);
-            editorUnderCursorChimpListField?.SetValue(editorDirector, Array.Empty<int>());
-            editorTroopSelectionBoxOnField?.SetValue(editorDirector, true);
-            editorScheduleTroopSelectionEndField?.SetValue(editorDirector, false);
-            editorLeftMouseStateForEngineField?.SetValue(editorDirector, 3);
-            editorStateReadField?.SetValue(editorDirector, false);
-            editorUpPendingField?.SetValue(editorDirector, false);
-            editorRightDownForEngineField?.SetValue(editorDirector, false);
-            editorRightUpForEngineField?.SetValue(editorDirector, false);
-            editorMouseStateSetTimeField?.SetValue(editorDirector, DateTime.UtcNow);
-
-            if (MainControls.instance != null)
-                MainControls.instance.CurrentAction = 9;
-
-            LogInfo($"Knight dismount queued editor selection: count={selectionCopy.Length}, currentAction={(MainControls.instance == null ? -1 : MainControls.instance.CurrentAction)}, mouseState=3, ids={string.Join(",", selectionCopy)}.");
-        }
-
-        private void ResetCommandInputState()
-        {
-            try
-            {
-                if (MainControls.instance != null)
-                    MainControls.instance.CurrentAction = 0;
-
-                EditorDirector.instance?.clearMouseStateForEngine();
-            }
-            catch (Exception ex)
-            {
-                LogError($"Knight dismount command input reset failed: {ex}");
-            }
-        }
-
-        private void LogSelectionState(string prefix, List<int> selectableIds)
-        {
-            try
-            {
-                int selectedCount = GamePlayerManagerAPI.Instance.GetSelectedChimpsCount();
-                int[] selectedUnits = GetSelectedChimpsSafe();
-                int currentAction = MainControls.instance == null ? -1 : MainControls.instance.CurrentAction;
-                LogInfo($"{prefix}: requestedCount={selectableIds.Count}, engineCount={selectedCount}, engineIds={string.Join(",", selectedUnits)}, currentAction={currentAction}, ids={string.Join(",", selectableIds)}.");
-            }
-            catch (Exception ex)
-            {
-                LogError($"Knight dismount selection state log failed: {ex}");
-            }
-        }
-
-        private static void ClearSelectedUnitFlags()
-        {
-            GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
-            int[] aliveUnitIds = unitApi.GetAllAliveUnits();
-            for (int i = 0; i < aliveUnitIds.Length; i++)
-            {
-                int unitId = aliveUnitIds[i];
-                if (unitId <= 0 || !unitApi.TryGetUnitById(unitId, out GameUnit* unit))
-                    continue;
-
-                unit->r_UnitSelected = 0;
-                unit->r_UnitSelected2 = 0;
-            }
-        }
-
-        private void ScheduleDeferredSelection(List<int> createdSwordsmanIds, int localPlayerId)
-        {
-            if (createdSwordsmanIds == null || createdSwordsmanIds.Count == 0)
-                return;
-
-            pendingSelectionIds = new List<int>(createdSwordsmanIds);
-            pendingSelectionLocalPlayerId = localPlayerId;
-            pendingSelectionAttempts = 8;
-            pendingSelectionDueTimestamp = Stopwatch.GetTimestamp() + (Stopwatch.Frequency / 2);
-            LogInfo($"Knight dismount deferred selection scheduled: delayMs=500, count={pendingSelectionIds.Count}, ids={string.Join(",", pendingSelectionIds)}.");
-        }
-
-        private void OnGameTick(int tick)
-        {
-            if (pendingSelectionIds == null || pendingSelectionIds.Count == 0 || pendingSelectionAttempts <= 0)
-                return;
-
-            if (Stopwatch.GetTimestamp() < pendingSelectionDueTimestamp)
-                return;
-
-            pendingSelectionAttempts--;
-            SelectUnits(pendingSelectionIds, pendingSelectionLocalPlayerId);
-            if (pendingSelectionAttempts <= 0)
-            {
-                pendingSelectionIds = null;
-                pendingSelectionLocalPlayerId = 0;
-                pendingSelectionDueTimestamp = 0;
-            }
-        }
-
-        private void UpdateEditorDirectorSelection(List<int> selectableIds, List<int> selectableTypes)
-        {
-            EngineInterface.PlayState playState = new EngineInterface.PlayState();
-            playState.numSelectedChimps = selectableIds.Count;
-
-            for (int i = 0; i < selectableIds.Count; i++)
-            {
-                playState.selectedChimps[i] = selectableIds[i];
-                playState.selectedChimpTypes[i] = selectableTypes[i];
-            }
-
-            EditorDirector.instance.updateDLLSelectedTroops(playState, true);
-        }
-
-        private static bool IsSelectableOwnAliveUnit(int unitId, int localPlayerId)
-        {
-            return unitId > 0 &&
-                GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) &&
-                unit->r_AliveState == AliveState.IsAlive &&
-                unit->r_ControllableForPlayerId == localPlayerId;
         }
 
         private void ApplyHealthRatio(int swordsmanUnitId, int sourceCurrentHealth, int sourceMaxHealth)
