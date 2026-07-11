@@ -12,16 +12,17 @@
             VerticalAlignment="Top"
             Visibility="{Binding ButtonVisibility}">
         <Button x:Name="SomeSettingsKnightDismountButton"
-                local:PropEx.Sprite1="{StaticResource UI-Buildings O011}"
-                local:PropEx.Sprite2="{StaticResource UI-Buildings O011}"
-                local:PropEx.Sprite3="{StaticResource UI-Buildings O011}"
-                local:PropEx.Sprite4="{StaticResource UI-Buildings O011}"
-                Width="39"
-                Height="39"
-                Margin="-1,-1,0,0"
-                HorizontalAlignment="Center"
-                VerticalAlignment="Center"
+                local:PropEx.Sprite1="{StaticResource UI-Buttons O016}"
+                local:PropEx.Sprite2="{StaticResource UI-Buttons O017}"
+                local:PropEx.Sprite3="{StaticResource UI-Buttons O017}"
+                local:PropEx.Sprite4="{StaticResource UI-Buttons O018}"
+                Width="37"
+                Height="37"
+                Margin="0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
                 Command="{Binding DismountCommand}"
+                Content=""
                 Style="{StaticResource BTN_Image}">
           <b:Interaction.Triggers>
             <b:EventTrigger EventName="MouseEnter">
