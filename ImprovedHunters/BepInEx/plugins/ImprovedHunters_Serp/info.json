@@ -1,0 +1,182 @@
+{
+  "GUID": "ImprovedHunters_Serp",
+  "Author": "Serpens66",
+  "Name": "Improved Hunters",
+  "Description": "Adds configurable hunter prey and meat yield for deer, goats, rabbits, camels, chickens and cows.",
+  "Version": "1.1.15",
+  "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
+  "Manifest": 1,
+  "SerpChangelog": [
+    {
+      "Version": "1.1.15",
+      "Changes": [
+        "Remove obsolete hunter building availability workaround code.",
+        "Remove temporary diagnostic logs for animal detection, hunter target queries and scan summaries.",
+        "Keep only the active Improved Hunters runtime behavior and essential warning logs."
+      ]
+    },
+    {
+      "Version": "1.1.14",
+      "Changes": [
+        "Remove the temporary non-hunter chicken projectile and target-state workaround because it could leave ranged units stuck in shooting animations.",
+        "Disable cow hunting in runtime logic while keeping the cow settings visible for later experiments.",
+        "Restore cow arrow damage to the original value if a previous runtime patch had changed it."
+      ]
+    },
+    {
+      "Version": "1.1.13",
+      "Changes": [
+        "Clear automatic non-hunter ranged targets against chickens while chicken hunting is enabled.",
+        "Allow explicit AttackUnit orders against chickens for a short time so manual attacks remain possible.",
+        "Add diagnostics for cleared chicken auto-targets."
+      ]
+    },
+    {
+      "Version": "1.1.12",
+      "Changes": [
+        "Convert player-owned chickens to nature-owned chickens while chicken hunting is enabled.",
+        "Use OnUnitCreate to make newly spawned chickens nature-owned before the original spawn runs.",
+        "Remove the temporary delayed test animal/unit spawn diagnostics."
+      ]
+    },
+    {
+      "Version": "1.1.11",
+      "Changes": [
+        "Trigger the delayed test animal/unit spawn from the native scan loop instead of the Script Extender timer engine."
+      ]
+    },
+    {
+      "Version": "1.1.10",
+      "Changes": [
+        "Use the StartConditions-style single spawn tile per keep for the delayed chicken/deer spawn test.",
+        "Spawn one player-owned arab slinger at the same test position to verify unit spawning.",
+        "Force hunter building availability again immediately after spawning the test deer."
+      ]
+    },
+    {
+      "Version": "1.1.9",
+      "Changes": [
+        "Also spawn one owner=0 test deer near every keep together with the delayed owner=0 test chickens."
+      ]
+    },
+    {
+      "Version": "1.1.8",
+      "Changes": [
+        "Spawn ten owner=0 test chickens near every keep five seconds after map start while chicken hunting is enabled.",
+        "Add logs for the owner=0 chicken spawn test to diagnose whether chicken ownership blocks hunter targeting."
+      ]
+    },
+    {
+      "Version": "1.1.7",
+      "Changes": [
+        "Accept hunter target queries for valid prey even when the Script Extender reports an invalid hunter id.",
+        "Add more detailed invalid hunter target query diagnostics.",
+        "Repeat the delayed hunter building availability refresh several times after map start."
+      ]
+    },
+    {
+      "Version": "1.1.6",
+      "Changes": [
+        "Add cows as an optional hunter prey type, disabled by default with a default meat yield of 6.",
+        "Add cow detection, scan and hunter target query diagnostics.",
+        "Increase arrow damage against cows while cow hunting is enabled for reliable hunter kills."
+      ]
+    },
+    {
+      "Version": "1.1.5",
+      "Changes": [
+        "Add detailed hunter building availability diagnostics and force a build screen refresh when enabled prey exists.",
+        "Add hunter scan, requery and invalid target query diagnostics for chicken hunting.",
+        "Mark collected short-lived prey corpses for deletion immediately after pickup."
+      ]
+    },
+    {
+      "Version": "1.1.4",
+      "Changes": [
+        "Allow chickens with player ownership flags to become eligible hunter targets.",
+        "Delay and retry the hunter building availability workaround after map start.",
+        "Increase arrow damage against animal camels while camel hunting is enabled for more reliable hunter kills."
+      ]
+    },
+    {
+      "Version": "1.1.3",
+      "Changes": [
+        "Only re-enable the hunter building on map start when at least one enabled Improved Hunters prey animal exists on the loaded map."
+      ]
+    },
+    {
+      "Version": "1.1.2",
+      "Changes": [
+        "Add diagnostic logs for chicken detection and hunter target queries.",
+        "Re-enable the hunter building on map start when the mod has extra prey enabled."
+      ]
+    },
+    {
+      "Version": "1.1.1",
+      "Changes": [
+        "Extend corpse despawn time for camels and chickens while their hunting options are enabled.",
+        "Allow chickens to be selected as hunter targets without changing chicken ownership."
+      ]
+    },
+    {
+      "Version": "1.1.0",
+      "Changes": [
+        "Renamed Hunt Rabbits to Improved Hunters.",
+        "Added lobby settings to enable or disable the mod, configure huntable animal types and set meat yield per animal.",
+        "Added support for deer, goats, rabbits, camels and player-owned granary chickens."
+      ]
+    },
+    {
+      "Version": "1.0.7",
+      "Changes": [
+        "Preserve the hunter's mandatory initial walk to the hunter post before allowing rabbit searches.",
+        "Remove rabbit corpses immediately after a hunter collects them.",
+        "Prefer nearby rabbits by removing the base game's minimum target distance for rabbits only."
+      ]
+    },
+    {
+      "Version": "1.0.6",
+      "Changes": [
+        "Let idle wandering hunters immediately repeat the native target search when an unreserved rabbit is within the normal hunting radius.",
+        "Keep slain rabbits for about one minute (1800 game ticks) so hunters can reach and collect them."
+      ]
+    },
+    {
+      "Version": "1.0.5",
+      "Changes": [
+        "Trace hunter AI state and target assignment after rabbits are accepted by the target hook."
+      ]
+    },
+    {
+      "Version": "1.0.4",
+      "Changes": [
+        "Keep the runtime, event subscriptions and rabbit despawn patch active when the BepInEx manager is destroyed after bootstrap."
+      ]
+    },
+    {
+      "Version": "1.0.3",
+      "Changes": [
+        "Run diagnostics through map, unit and coroutine triggers and log the complete plugin lifecycle."
+      ]
+    },
+    {
+      "Version": "1.0.2",
+      "Changes": [
+        "Add direct native unit polling and machine-code verification for diagnostics."
+      ]
+    },
+    {
+      "Version": "1.0.1",
+      "Changes": [
+        "Add targeted diagnostics for rabbit eligibility and hunter target queries."
+      ]
+    },
+    {
+      "Version": "1.0.0",
+      "Changes": [
+        "Allow hunters to select rabbits as hunting targets.",
+        "Keep slain rabbits on the map long enough for hunters to collect them."
+      ]
+    }
+  ]
+}

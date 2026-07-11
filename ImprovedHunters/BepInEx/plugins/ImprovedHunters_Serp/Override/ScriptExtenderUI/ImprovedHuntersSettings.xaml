@@ -1,0 +1,72 @@
+﻿<Grid xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:ui="clr-namespace:SHCDESE.UI;assembly=SHCDESE">
+  <ScrollViewer VerticalScrollBarVisibility="Auto">
+    <StackPanel Margin="10">
+      <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+        <Button Content="{Binding ResetToDefaultText}"
+                Command="{Binding ResetToDefaultCommand}"
+                HorizontalAlignment="Left"
+                Padding="10,3"/>
+        <CheckBox IsChecked="{Binding EnableMod, Mode=TwoWay}"
+                  Content="{Binding EnableModText}"
+                  Foreground="White"
+                  VerticalAlignment="Center"
+                  Margin="14,0,0,0"/>
+        <CheckBox IsChecked="{Binding ImprovedPathfinding, Mode=TwoWay}"
+                  Content="{Binding ImprovedPathfindingText}"
+                  Foreground="White"
+                  VerticalAlignment="Center"
+                  Margin="14,0,0,0"
+                  ToolTip="{Binding ImprovedPathfindingHelpText}"/>
+      </StackPanel>
+
+      <TextBlock Text="{Binding TitleText}" Foreground="#77AAFF" FontWeight="Bold" Margin="0,0,0,4"/>
+      <TextBlock Text="{Binding HelpText}" Foreground="#CCCCCC" TextWrapping="Wrap" Margin="0,0,0,10"/>
+
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="180"/>
+          <ColumnDefinition Width="70"/>
+          <ColumnDefinition Width="90"/>
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto"/>
+          <RowDefinition Height="Auto"/>
+          <RowDefinition Height="Auto"/>
+          <RowDefinition Height="Auto"/>
+          <RowDefinition Height="Auto"/>
+          <RowDefinition Height="Auto"/>
+          <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding HuntText}" Foreground="White" FontWeight="Bold" HorizontalAlignment="Center" Margin="3"/>
+        <TextBlock Grid.Row="0" Grid.Column="2" Text="{Binding MeatText}" Foreground="White" FontWeight="Bold" HorizontalAlignment="Center" Margin="3" ToolTip="{Binding MeatHelpText}"/>
+
+        <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding DeerText}" Foreground="White" VerticalAlignment="Center" Margin="0,4"/>
+        <CheckBox Grid.Row="1" Grid.Column="1" IsChecked="{Binding HuntDeer, Mode=TwoWay}" HorizontalAlignment="Center" Margin="3"/>
+        <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding DeerMeatText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" HorizontalContentAlignment="Right" MaxLength="3" Margin="3" ToolTip="{Binding MeatHelpText}" ui:KeyboardCaptureBinding.Enabled="True"/>
+
+        <TextBlock Grid.Row="2" Grid.Column="0" Text="{Binding GoatText}" Foreground="White" VerticalAlignment="Center" Margin="0,4"/>
+        <CheckBox Grid.Row="2" Grid.Column="1" IsChecked="{Binding HuntGoat, Mode=TwoWay}" HorizontalAlignment="Center" Margin="3"/>
+        <TextBox Grid.Row="2" Grid.Column="2" Text="{Binding GoatMeatText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" HorizontalContentAlignment="Right" MaxLength="3" Margin="3" ToolTip="{Binding MeatHelpText}" ui:KeyboardCaptureBinding.Enabled="True"/>
+
+        <TextBlock Grid.Row="3" Grid.Column="0" Text="{Binding RabbitText}" Foreground="White" VerticalAlignment="Center" Margin="0,4"/>
+        <CheckBox Grid.Row="3" Grid.Column="1" IsChecked="{Binding HuntRabbit, Mode=TwoWay}" HorizontalAlignment="Center" Margin="3"/>
+        <TextBox Grid.Row="3" Grid.Column="2" Text="{Binding RabbitMeatText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" HorizontalContentAlignment="Right" MaxLength="3" Margin="3" ToolTip="{Binding MeatHelpText}" ui:KeyboardCaptureBinding.Enabled="True"/>
+
+        <TextBlock Grid.Row="4" Grid.Column="0" Text="{Binding CamelText}" Foreground="White" VerticalAlignment="Center" Margin="0,4"/>
+        <CheckBox Grid.Row="4" Grid.Column="1" IsChecked="{Binding HuntCamel, Mode=TwoWay}" HorizontalAlignment="Center" Margin="3"/>
+        <TextBox Grid.Row="4" Grid.Column="2" Text="{Binding CamelMeatText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" HorizontalContentAlignment="Right" MaxLength="3" Margin="3" ToolTip="{Binding MeatHelpText}" ui:KeyboardCaptureBinding.Enabled="True"/>
+
+        <TextBlock Grid.Row="5" Grid.Column="0" Text="{Binding ChickenText}" Foreground="White" VerticalAlignment="Center" Margin="0,4" ToolTip="{Binding ChickenHelpText}"/>
+        <CheckBox Grid.Row="5" Grid.Column="1" IsChecked="{Binding HuntChicken, Mode=TwoWay}" HorizontalAlignment="Center" Margin="3" ToolTip="{Binding ChickenHelpText}"/>
+        <TextBox Grid.Row="5" Grid.Column="2" Text="{Binding ChickenMeatText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" HorizontalContentAlignment="Right" MaxLength="3" Margin="3" ToolTip="{Binding ChickenHelpText}" ui:KeyboardCaptureBinding.Enabled="True"/>
+
+        <TextBlock Grid.Row="6" Grid.Column="0" Text="{Binding CowText}" Foreground="White" VerticalAlignment="Center" Margin="0,4" ToolTip="{Binding CowHelpText}"/>
+        <CheckBox Grid.Row="6" Grid.Column="1" IsChecked="{Binding HuntCow, Mode=TwoWay}" HorizontalAlignment="Center" Margin="3" ToolTip="{Binding CowHelpText}"/>
+        <TextBox Grid.Row="6" Grid.Column="2" Text="{Binding CowMeatText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" HorizontalContentAlignment="Right" MaxLength="3" Margin="3" ToolTip="{Binding CowHelpText}" ui:KeyboardCaptureBinding.Enabled="True"/>
+      </Grid>
+    </StackPanel>
+  </ScrollViewer>
+</Grid>

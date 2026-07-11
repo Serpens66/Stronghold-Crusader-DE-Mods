@@ -1,0 +1,17 @@
+﻿Common.ResetToDefault=Reset to Default
+Common.EnableMod=Enable Mod
+ImprovedHunters.Title=IMPROVED HUNTERS
+ImprovedHunters.Help=When disabled, hunter behavior stays vanilla. Meat values are the final amount added from one collected animal.
+ImprovedHunters.Hunt=Hunt
+ImprovedHunters.Meat=Meat
+ImprovedHunters.MeatHelp=Final meat amount from one collected animal. Allowed range: 0 to 100.
+ImprovedHunters.ImprovedPathfinding=Improved Pathfinding
+ImprovedHunters.ImprovedPathfindingHelp=Hunters choose the most efficient prey target.
+ImprovedHunters.Deer=Deer
+ImprovedHunters.Goat=Goat
+ImprovedHunters.Rabbit=Rabbit
+ImprovedHunters.Camel=Camel
+ImprovedHunters.Chicken=Chicken
+ImprovedHunters.ChickenHelp=Hunters can target chickens regardless of owner.
+ImprovedHunters.Cow=Cow
+ImprovedHunters.CowHelp=Hunters can target cows regardless of owner. Disabled by default.

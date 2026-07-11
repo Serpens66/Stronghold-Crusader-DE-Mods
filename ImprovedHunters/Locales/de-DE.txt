@@ -1,0 +1,17 @@
+﻿Common.ResetToDefault=Standardwerte wiederherstellen
+Common.EnableMod=Mod aktivieren
+ImprovedHunters.Title=VERBESSERTE JAEGER
+ImprovedHunters.Help=Wenn deaktiviert, bleibt das Jaegerverhalten vanilla. Fleischwerte sind die finale Menge pro eingesammeltem Tier.
+ImprovedHunters.Hunt=Jagen
+ImprovedHunters.Meat=Fleisch
+ImprovedHunters.MeatHelp=Finale Fleischmenge pro eingesammeltem Tier. Erlaubter Bereich: 0 bis 100.
+ImprovedHunters.ImprovedPathfinding=Verbesserte Wegfindung
+ImprovedHunters.ImprovedPathfindingHelp=Jaeger treffen dadurch die effizienteste Wahl fuer ihre Beute.
+ImprovedHunters.Deer=Reh
+ImprovedHunters.Goat=Ziege
+ImprovedHunters.Rabbit=Hase
+ImprovedHunters.Camel=Kamel
+ImprovedHunters.Chicken=Huhn
+ImprovedHunters.ChickenHelp=Hunters can target chickens regardless of owner.
+ImprovedHunters.Cow=Kuh
+ImprovedHunters.CowHelp=Hunters can target cows regardless of owner. Disabled by default.
