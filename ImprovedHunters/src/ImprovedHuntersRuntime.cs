@@ -18,15 +18,14 @@ namespace ImprovedHunters
 {
     internal sealed class ImprovedHuntersRuntime : IDisposable
     {
-        private const short RabbitCorpseDespawnTicks = 2400;
-        private const short ExtraCorpseDespawnTicks = 2400;
-        private const ushort CollectedCorpseDespawnTicks = 2401;
+        private const short RabbitCorpseDespawnTicks = 1800;
+        private const short ExtraCorpseDespawnTicks = 1800;
+        private const ushort CollectedCorpseDespawnTicks = 1801;
         private const int HunterSearchRadius = 20;
         private const int HunterTargetCandidateRadius = 54;
         private const int MaxPathCandidatesPerHunter = 24;
         private const int HunterHutWorkCost = 600;
         private const int BestTargetToleranceCost = 80;
-        private const int VisualCorpseTimerResetThreshold = 120;
         private const int DefaultPreyHandlingCost = 100;
         private const int MaxPreyCacheDiagnosticLogs = 120;
         private const int MaxHunterTargetDiagnosticLogs = 160;
@@ -46,6 +45,7 @@ namespace ImprovedHunters
         private static readonly long HunterTargetSummaryInterval = Stopwatch.Frequency * 5;
         private static readonly long HunterSearchDetectionGap = Stopwatch.Frequency / 4;
         private static readonly long PendingHunterShotIntentDelay = Stopwatch.Frequency;
+        private static readonly long ShortLivedCorpseVisiblePreserveDuration = Stopwatch.Frequency * 60;
 
         private readonly ManualLogSource log;
         private readonly ImprovedHuntersViewModel settings;
@@ -61,6 +61,7 @@ namespace ImprovedHunters
         private readonly Dictionary<int, long> lastHunterQueryTimestamps = new Dictionary<int, long>();
         private readonly Dictionary<int, long> hunterMeatPickupTimestamps = new Dictionary<int, long>();
         private readonly Dictionary<HunterShotIntentKey, PendingHunterShotIntent> pendingHunterShotIntents = new Dictionary<HunterShotIntentKey, PendingHunterShotIntent>();
+        private readonly Dictionary<uint, long> shortLivedCorpsePreserveUntil = new Dictionary<uint, long>();
 
         private ManagedAssemblyImmediate<short> rabbitDespawnTickTime;
         private ManagedAssemblyImmediate<short> camelDespawnTickTime;
@@ -96,6 +97,7 @@ namespace ImprovedHunters
         private int pathCacheHits;
         private int pathCacheMisses;
         private int hunterProjectileDiagnosticLogs;
+        private int shortLivedCorpsePreserveLogs;
         private bool applied;
 
         public ImprovedHuntersRuntime(ManualLogSource log, ImprovedHuntersViewModel settings)
@@ -185,7 +187,7 @@ namespace ImprovedHunters
                         IsRuntimeHuntingEnabled(unit->r_UnitChimp) &&
                         IsOwnerAllowedForAnyHunter(unitId, unit))
                     {
-                        PreserveShortLivedCorpse(unit);
+                        PreserveShortLivedCorpse(unit, timestamp);
                     }
 
                     if (unit->r_AliveState == AliveState.None)
@@ -318,7 +320,7 @@ namespace ImprovedHunters
             }
         }
 
-        private unsafe void PreserveShortLivedCorpse(GameUnit* unit)
+        private unsafe void PreserveShortLivedCorpse(GameUnit* unit, long timestamp)
         {
             if (!IsShortLivedPrey(unit->r_UnitChimp))
                 return;
@@ -334,8 +336,26 @@ namespace ImprovedHunters
             if (reservation != 0 && reservation != 2)
                 return;
 
+            uint globalId = unit->r_GlobalId;
+            if (!shortLivedCorpsePreserveUntil.TryGetValue(globalId, out long preserveUntil))
+            {
+                preserveUntil = timestamp + ShortLivedCorpseVisiblePreserveDuration;
+                shortLivedCorpsePreserveUntil[globalId] = preserveUntil;
+                LogShortLivedCorpsePreserve(
+                    $"Improved Hunters corpse visible preserve started: unit={globalId}/{unit->r_UnitChimp}, " +
+                    $"seconds={ShortLivedCorpseVisiblePreserveDuration / Stopwatch.Frequency}.");
+            }
+
+            if (timestamp > preserveUntil)
+            {
+                shortLivedCorpsePreserveUntil.Remove(globalId);
+                LogShortLivedCorpsePreserve(
+                    $"Improved Hunters corpse visible preserve expired: unit={globalId}/{unit->r_UnitChimp}.");
+                return;
+            }
+
             ushort deathTimer = *(ushort*)(unitBytes + 0x2C4);
-            if (deathTimer > 0 && deathTimer < VisualCorpseTimerResetThreshold)
+            if (deathTimer > 0)
                 *(ushort*)(unitBytes + 0x2C4) = 0;
         }
 
@@ -386,6 +406,7 @@ namespace ImprovedHunters
             hunterPreyTypes.Clear();
             nextIdleHunterRequeryTimestamps.Clear();
             loggedCollectedCorpseGlobalIds.Clear();
+            shortLivedCorpsePreserveUntil.Clear();
             ClearTargetSelectionCaches();
             nativeScanFailureLogged = false;
             RunNativeScan(force: true);
@@ -1170,6 +1191,7 @@ namespace ImprovedHunters
             }
 
             byte* unitBytes = (byte*)unit;
+            shortLivedCorpsePreserveUntil.Remove(target.GlobalId);
             if (*(ushort*)(unitBytes + 0x29C) == 0 ||
                 !IsPreservableCorpseState(*(ushort*)(unitBytes + 0x2BC)))
             {
@@ -1186,6 +1208,18 @@ namespace ImprovedHunters
                     $"Improved Hunters collected corpse removed: hunter={hunterUnitId}, target={target.UnitId}, " +
                     $"globalId={target.GlobalId}, aiState=0x{*(ushort*)(unitBytes + 0x2BC):X}.");
             }
+        }
+
+        private void LogShortLivedCorpsePreserve(string message)
+        {
+            if (shortLivedCorpsePreserveLogs >= 80)
+                return;
+
+            shortLivedCorpsePreserveLogs++;
+            log.LogInfo($"{message} ({shortLivedCorpsePreserveLogs}/80).");
+
+            if (shortLivedCorpsePreserveLogs == 80)
+                log.LogInfo("Improved Hunters corpse visible preserve diagnostic limit reached.");
         }
 
         private unsafe bool TryGetCollectedCorpseTarget(int hunterUnitId, out HunterTargetSnapshot target)
