@@ -27,6 +27,9 @@ namespace SomeSettings
         private double marketSellPriceMultiplier = 1.0;
         private bool keepStorageContent;
         private bool rememberAiAivSettings = true;
+        private bool preventAIPause = true;
+        private bool preventEmergencyDemolition = true;
+        private bool preventHovelDeletion = true;
         private readonly bool[] allowMinimapWhilePlacingBuildingData = new bool[9];
 
         public SomeSettingsViewModel()
@@ -75,6 +78,13 @@ namespace SomeSettings
         public string MarketBuyPriceMultiplierHelpText => SerpLocalization.Get(SerpLocalization.MarketBuyPriceMultiplierHelp);
         public string MarketSellPriceMultiplierText => SerpLocalization.Get(SerpLocalization.MarketSellPriceMultiplier);
         public string MarketSellPriceMultiplierHelpText => SerpLocalization.Get(SerpLocalization.MarketSellPriceMultiplierHelp);
+        public string AiEconomyProtectionTitleText => SerpLocalization.Get(SerpLocalization.AiEconomyProtectionTitle);
+        public string PreventAIPauseText => SerpLocalization.Get(SerpLocalization.PreventAIPause);
+        public string PreventAIPauseHelpText => SerpLocalization.Get(SerpLocalization.PreventAIPauseHelp);
+        public string PreventEmergencyDemolitionText => SerpLocalization.Get(SerpLocalization.PreventEmergencyDemolition);
+        public string PreventEmergencyDemolitionHelpText => SerpLocalization.Get(SerpLocalization.PreventEmergencyDemolitionHelp);
+        public string PreventHovelDeletionText => SerpLocalization.Get(SerpLocalization.PreventHovelDeletion);
+        public string PreventHovelDeletionHelpText => SerpLocalization.Get(SerpLocalization.PreventHovelDeletionHelp);
 
         public bool[] AllowMinimapWhilePlacingBuildingData => allowMinimapWhilePlacingBuildingData;
 
@@ -164,6 +174,9 @@ namespace SomeSettings
         [SyncHostOnly] public double MarketBuyPriceMultiplier { get => marketBuyPriceMultiplier; set => SetDoubleSetting(ref marketBuyPriceMultiplier, value, nameof(MarketBuyPriceMultiplier), nameof(MarketBuyPriceMultiplierValueText)); }
         [SyncHostOnly] public double MarketSellPriceMultiplier { get => marketSellPriceMultiplier; set => SetDoubleSetting(ref marketSellPriceMultiplier, value, nameof(MarketSellPriceMultiplier), nameof(MarketSellPriceMultiplierValueText)); }
         [SyncHostOnly] public bool RememberAiAivSettings { get => rememberAiAivSettings; set => SetSetting(ref rememberAiAivSettings, value, nameof(RememberAiAivSettings)); }
+        [SyncHostOnly] public bool PreventAIPause { get => preventAIPause; set => SetSetting(ref preventAIPause, value, nameof(PreventAIPause)); }
+        [SyncHostOnly] public bool PreventEmergencyDemolition { get => preventEmergencyDemolition; set => SetSetting(ref preventEmergencyDemolition, value, nameof(PreventEmergencyDemolition)); }
+        [SyncHostOnly] public bool PreventHovelDeletion { get => preventHovelDeletion; set => SetSetting(ref preventHovelDeletion, value, nameof(PreventHovelDeletion)); }
 
         public string MultiplyGoodsGainAIText { get => FormatDecimalMultiplier(MultiplyGoodsGainAI); set => SetDecimalMultiplierText(value, parsed => MultiplyGoodsGainAI = parsed, nameof(MultiplyGoodsGainAIText)); }
         public string MultiplyGoodsGainHumanText { get => FormatDecimalMultiplier(MultiplyGoodsGainHuman); set => SetDecimalMultiplierText(value, parsed => MultiplyGoodsGainHuman = parsed, nameof(MultiplyGoodsGainHumanText)); }
@@ -187,6 +200,9 @@ namespace SomeSettings
             MarketBuyPriceMultiplier = 1.0;
             MarketSellPriceMultiplier = 1.0;
             RememberAiAivSettings = true;
+            PreventAIPause = true;
+            PreventEmergencyDemolition = true;
+            PreventHovelDeletion = true;
             SetAllowMinimapDefaults();
             SettingChanged?.Invoke(nameof(AllowMinimapWhilePlacingBuilding));
             OnPropertyChanged(nameof(AllowMinimapWhilePlacingBuilding));

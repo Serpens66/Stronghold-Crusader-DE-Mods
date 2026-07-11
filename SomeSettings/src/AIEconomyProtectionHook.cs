@@ -1,7 +1,7 @@
 using BepInEx.Logging;
 using SHCDESE.API;
-using SHCDESE.Interop.Enums;
 using SHCDESE.Interop;
+using SHCDESE.Interop.Enums;
 using System;
 using System.Runtime.InteropServices;
 using Zhuqiaomon.Assembly;
@@ -10,7 +10,7 @@ using Zhuqiaomon.Hooks;
 using Zhuqiaomon.Hooks.Transaction;
 using Zhuqiaomon.Memory;
 
-namespace AIEconomyProtection
+namespace SomeSettings
 {
     internal sealed unsafe class AIEconomyProtectionHook : IDisposable
     {
@@ -40,7 +40,7 @@ namespace AIEconomyProtection
         private delegate long BuildingDeleteDelegate(NativePointer<GameBuildingManager> buildingManager, int buildingId);
 
         private readonly ManualLogSource log;
-        private readonly AIEconomyProtectionSettings settings;
+        private readonly SomeSettingsViewModel settings;
         private readonly HookTransaction transaction;
         private HookRef<X64InlineHook> sleepStateHook = new HookRef<X64InlineHook>();
         private HookRef<X64InlineHook> emergencyDemolitionHook = new HookRef<X64InlineHook>();
@@ -51,7 +51,7 @@ namespace AIEconomyProtection
         private bool deleteCallbackFailureLogged;
         private bool disposed;
 
-        public AIEconomyProtectionHook(ManualLogSource log, AIEconomyProtectionSettings settings, IntPtr libraryHandle, ReadOnlySpan<byte> memory)
+        public AIEconomyProtectionHook(ManualLogSource log, SomeSettingsViewModel settings, IntPtr libraryHandle, ReadOnlySpan<byte> memory)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
@@ -108,7 +108,7 @@ namespace AIEconomyProtection
             try
             {
                 X64SmartCPUContext* registers = context.Pointer;
-                if (!settings.IsPauseProtectionEnabled)
+                if (!settings.EnableMod || !settings.PreventAIPause)
                     return;
 
                 byte requestedState = (byte)registers->RCX;
@@ -127,12 +127,10 @@ namespace AIEconomyProtection
             }
             catch (Exception ex)
             {
-                // Native callbacks must never let managed exceptions escape. Fail open so
-                // the original game behavior remains intact if an unexpected problem occurs.
                 if (!pauseCallbackFailureLogged)
                 {
                     pauseCallbackFailureLogged = true;
-                    log.LogError($"AI pause prevention callback failed; this pause uses vanilla behavior: {ex}");
+                    log.LogError($"SomeSettings AI pause prevention callback failed; this pause uses vanilla behavior: {ex}");
                 }
             }
         }
@@ -141,7 +139,7 @@ namespace AIEconomyProtection
         {
             try
             {
-                if (!settings.IsEmergencyDemolitionProtectionEnabled)
+                if (!settings.EnableMod || !settings.PreventEmergencyDemolition)
                     return;
 
                 X64SmartCPUContext* registers = context.Pointer;
@@ -156,7 +154,7 @@ namespace AIEconomyProtection
                 if (!emergencyCallbackFailureLogged)
                 {
                     emergencyCallbackFailureLogged = true;
-                    log.LogError($"AI emergency-demolition prevention callback failed; this check uses vanilla behavior: {ex}");
+                    log.LogError($"SomeSettings AI emergency-demolition prevention callback failed; this check uses vanilla behavior: {ex}");
                 }
             }
         }
@@ -165,7 +163,8 @@ namespace AIEconomyProtection
         {
             try
             {
-                if (settings.IsHovelDeletionProtectionEnabled &&
+                if (settings.EnableMod &&
+                    settings.PreventHovelDeletion &&
                     ShouldBlockLiveAIHovelDelete(buildingId, out _))
                 {
                     // In the measured AI retry loop, the same hovel was targeted
@@ -180,7 +179,7 @@ namespace AIEconomyProtection
                 if (!deleteCallbackFailureLogged)
                 {
                     deleteCallbackFailureLogged = true;
-                    log.LogError($"AI live hovel deletion prevention failed; this delete uses vanilla behavior: {ex}");
+                    log.LogError($"SomeSettings AI live hovel deletion prevention failed; this delete uses vanilla behavior: {ex}");
                 }
             }
 

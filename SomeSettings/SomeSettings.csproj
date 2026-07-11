@@ -95,12 +95,25 @@
       <HintPath>$(ExtenderDir)\Zhuqiaomon.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="PolyHook2.NET">
+      <HintPath>$(ExtenderDir)\PolyHook2.NET.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Iced">
+      <HintPath>$(ExtenderDir)\Iced.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Microsoft.Extensions.Logging.Abstractions">
+      <HintPath>$(ExtenderDir)\Microsoft.Extensions.Logging.Abstractions.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
   </ItemGroup>
 
   <ItemGroup>
     <Compile Include="..\Shared\SerpLocalization.cs">
       <Link>Shared\SerpLocalization.cs</Link>
     </Compile>
+    <Compile Include="src\AIEconomyProtectionHook.cs" />
     <Compile Include="src\AutoTradeSellZeroHook.cs" />
     <Compile Include="src\CoopTrailCustomizeHook.cs" />
     <Compile Include="src\EnemyProximityBulldozeCursorHook.cs" />

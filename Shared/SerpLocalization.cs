@@ -76,6 +76,13 @@ public static class SerpLocalization
     public const string MarketSellPriceMultiplierHelp = "SomeSettings.MarketSellPriceMultiplierHelp";
     public const string RememberAiAivSettings = "SomeSettings.RememberAiAivSettings";
     public const string RememberAiAivSettingsHelp = "SomeSettings.RememberAiAivSettingsHelp";
+    public const string AiEconomyProtectionTitle = "SomeSettings.AIEconomyProtectionTitle";
+    public const string PreventAIPause = "SomeSettings.PreventAIPause";
+    public const string PreventAIPauseHelp = "SomeSettings.PreventAIPauseHelp";
+    public const string PreventEmergencyDemolition = "SomeSettings.PreventEmergencyDemolition";
+    public const string PreventEmergencyDemolitionHelp = "SomeSettings.PreventEmergencyDemolitionHelp";
+    public const string PreventHovelDeletion = "SomeSettings.PreventHovelDeletion";
+    public const string PreventHovelDeletionHelp = "SomeSettings.PreventHovelDeletionHelp";
 
     private const string DefaultLocale = "en-US";
     private static Dictionary<string, string> loadedTexts;
@@ -152,7 +159,14 @@ public static class SerpLocalization
         { MarketSellPriceMultiplier, "Sell prices" },
         { MarketSellPriceMultiplierHelp, "Multiplier for all market sell prices. 1.0 = unchanged, 0.0 = no gold from selling, 5.0 = five times the vanilla price." },
         { RememberAiAivSettings, "Remember AI castle/settings selection" },
-        { RememberAiAivSettingsHelp, "When enabled, the last AIV, rotation, and custom lord settings selected for each AI lord are applied automatically when that AI is added to a skirmish lobby." }
+        { RememberAiAivSettingsHelp, "When enabled, the last AIV, rotation, and custom lord settings selected for each AI lord are applied automatically when that AI is added to a skirmish lobby." },
+        { AiEconomyProtectionTitle, "AI Economy Protection" },
+        { PreventAIPause, "Prevent AI building pauses" },
+        { PreventAIPauseHelp, "Prevents AI-controlled players from putting their own production buildings to sleep." },
+        { PreventEmergencyDemolition, "Prevent AI panic demolition" },
+        { PreventEmergencyDemolitionHelp, "Skips the AI emergency resource-recovery demolition block, which can otherwise remove useful buildings under pressure." },
+        { PreventHovelDeletion, "Prevent AI hovel deletion" },
+        { PreventHovelDeletionHelp, "Blocks direct deletes of living AI-owned hovels while still allowing normal destruction by damage." }
     };
 
     public static string Get(string key)

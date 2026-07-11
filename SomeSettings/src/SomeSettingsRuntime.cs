@@ -34,6 +34,7 @@ namespace SomeSettings
         private SkirmishAiSelectionMemoryHook skirmishAiSelectionMemoryHook;
         private AutoTradeSellZeroHook autoTradeSellZeroHook;
         private EnemyProximityBulldozeCursorHook enemyProximityBulldozeCursorHook;
+        private AIEconomyProtectionHook aiEconomyProtectionHook;
 
         private bool hooksSubscribed;
         private bool settingsSubscribed;
@@ -47,6 +48,7 @@ namespace SomeSettings
         private const int TradepostTradePanel = 57;
         private const int MarketBuyAmount = 5;
         private const int MarketBuyShiftAmount = 25;
+        private const float VanillaRefundMultiplier = 0.5f;
         private static readonly TimeSpan MarketBuyGuardLifetime = TimeSpan.FromSeconds(2);
         private static readonly TimeSpan RefundGuardLifetime = TimeSpan.FromSeconds(2);
 
@@ -104,9 +106,26 @@ namespace SomeSettings
             ApplyMarketPriceMultipliers();
         }
 
+        public void InstallAIEconomyProtectionHook(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
+        {
+            if (aiEconomyProtectionHook != null)
+                return;
+
+            try
+            {
+                aiEconomyProtectionHook = new AIEconomyProtectionHook(log, settings, libraryHandle, memory);
+            }
+            catch (Exception ex)
+            {
+                log.LogError($"SomeSettings AI economy protection hook could not be installed: {ex}");
+            }
+        }
+
         public void Dispose()
         {
             UnsubscribeHooks();
+            aiEconomyProtectionHook?.Dispose();
+            aiEconomyProtectionHook = null;
             if (settingsSubscribed)
             {
                 settings.SettingChanged -= OnSettingChanged;
@@ -201,7 +220,10 @@ namespace SomeSettings
         private static void ApplyRefundPercent(ManagedValue<float> refundMultiplier, int percent, string label)
         {
             if (percent < 0)
+            {
+                refundMultiplier.SetValue(VanillaRefundMultiplier);
                 return;
+            }
 
             refundMultiplier.SetValue(percent / 100f);
         }
@@ -383,6 +405,7 @@ namespace SomeSettings
             {
                 log.LogDebug($"OnBuildingRefund: phase={args.Phase}, playerId={args.PlayerId}, buildingId={args.BuildingId}, percentage={args.Percentage}, skipOriginal={args.SkipOriginalFunction}.");
 
+                NormalizeRefundPercentage(args);
                 AddResourceRefundGuards(args);
 
                 if (args.Phase != EventHookPhase.Pre || !settings.KeepStorageContent)
@@ -425,6 +448,29 @@ namespace SomeSettings
             {
                 log.LogError($"SomeSettings refund storage hook failed: {ex}");
             }
+        }
+
+        private void NormalizeRefundPercentage(BuildingRefundEventArgs args)
+        {
+            if (args.Phase != EventHookPhase.Pre || !HasCustomRefundPercent())
+                return;
+
+            // The script extender calculates:
+            // cost * (args.Percentage / 100f) * ResourceRefundMultiplier.
+            // SomeSettings exposes final refund percentages, so custom values
+            // use the per-resource multiplier directly and keep the event
+            // percentage at 100. Vanilla/unchanged resources remain 50% through
+            // their default 0.5 multiplier.
+            args.Percentage = 100;
+        }
+
+        private bool HasCustomRefundPercent()
+        {
+            return settings.WoodRefundPercent >= 0 ||
+                settings.StoneRefundPercent >= 0 ||
+                settings.IronRefundPercent >= 0 ||
+                settings.PitchRefundPercent >= 0 ||
+                settings.GoldRefundPercent >= 0;
         }
 
         private void OnGoodsyardAddGood(AddGoodToGoodsyardEventArgs args)

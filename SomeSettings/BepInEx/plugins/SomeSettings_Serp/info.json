@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Some Settings",
   "Description": "Adds small gameplay/QoL settings for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.1",
+  "Version": "1.0.5",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
@@ -24,6 +24,18 @@
       "Version": "1.0.3",
       "Changes": [
         "Allow auto-sell in market if amount is bigger than 0 (so no longer at least 1 in storage)"
+      ]
+    },
+    {
+      "Version": "1.0.4",
+      "Changes": [
+        "Integrated AI Economy Protection with separate settings for AI building pauses, AI panic demolition, and AI hovel deletion."
+      ]
+    },
+    {
+      "Version": "1.0.5",
+      "Changes": [
+        "Fixed custom building refund percentages above the vanilla 50 percent value."
       ]
     }
   ]

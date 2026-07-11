@@ -30,3 +30,11 @@ SomeSettings.MarketSellPriceMultiplier=Verkaufspreise
 SomeSettings.MarketSellPriceMultiplierHelp=Multiplikator fuer alle Markt-Verkaufspreise. 1.0 = unveraendert, 0.0 = kein Gold durch Verkauf, 5.0 = fuenffacher Vanilla-Preis.
 SomeSettings.RememberAiAivSettings=Remember AI castle/settings selection
 SomeSettings.RememberAiAivSettingsHelp=When enabled, the last AIV, rotation, and custom lord settings selected for each AI lord are applied automatically when that AI is added to a skirmish lobby.
+
+SomeSettings.AIEconomyProtectionTitle=AI Economy Protection
+SomeSettings.PreventAIPause=KI-Gebaeudepausen verhindern
+SomeSettings.PreventAIPauseHelp=Verhindert, dass KI-Spieler ihre eigenen Produktionsgebaeude schlafen legen.
+SomeSettings.PreventEmergencyDemolition=KI-Panikabriss verhindern
+SomeSettings.PreventEmergencyDemolitionHelp=Ueberspringt den KI-Notfallabriss zur Rohstoffrueckgewinnung, der sonst nuetzliche Gebaeude entfernen kann.
+SomeSettings.PreventHovelDeletion=KI-Huettenabriss verhindern
+SomeSettings.PreventHovelDeletionHelp=Blockiert direktes Loeschen lebender KI-eigener Huetten, erlaubt aber weiterhin normale Zerstoerung durch Schaden.

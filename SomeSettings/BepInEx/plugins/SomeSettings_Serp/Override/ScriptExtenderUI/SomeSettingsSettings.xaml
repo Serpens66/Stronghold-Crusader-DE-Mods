@@ -31,6 +31,28 @@
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding RememberAiAivSettingsText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox>
+
+      <Separator Background="#444466" Margin="0,10"/>
+      <TextBlock Text="{Binding AiEconomyProtectionTitleText}" Foreground="#77AAFF" FontWeight="Bold" Margin="0,0,0,8"/>
+      <CheckBox IsChecked="{Binding PreventAIPause, Mode=TwoWay}"
+                Foreground="White"
+                ToolTip="{Binding PreventAIPauseHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding PreventAIPauseText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox>
+      <CheckBox IsChecked="{Binding PreventEmergencyDemolition, Mode=TwoWay}"
+                Foreground="White"
+                ToolTip="{Binding PreventEmergencyDemolitionHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding PreventEmergencyDemolitionText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox>
+      <CheckBox IsChecked="{Binding PreventHovelDeletion, Mode=TwoWay}"
+                Foreground="White"
+                ToolTip="{Binding PreventHovelDeletionHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding PreventHovelDeletionText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox>
+
       <TextBlock Text="{Binding BulldozeTitleText}" Foreground="#77AAFF" FontWeight="Bold" Margin="0,0,0,4"/>
       <TextBlock Text="{Binding BulldozeHelpText}"
                  Foreground="#CCCCCC" TextWrapping="Wrap" Margin="0,0,0,8"/>
