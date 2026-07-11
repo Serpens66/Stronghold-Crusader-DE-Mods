@@ -295,6 +295,9 @@ namespace SomeSettings
         private static readonly Thickness BottomRightSlotMargin = new Thickness(81, 40, 0, 3);
         private const int StableHorseSlotCount = 4;
         private const string MissingWeaponsSpeechFileName = "Other_Warning6.wav";
+        private static readonly string[] MountSpeechFileNames = { "Knight_m1.wav", "Knight_m2.wav", "Knight_m3.wav" };
+        private static readonly string[] DismountSpeechFileNames = { "Sword_s4.wav", "Sword_s5.wav", "Sword_s6.wav" };
+        private static readonly Random SpeechRandom = new Random();
 
         private readonly ManualLogSource log;
         private readonly SomeSettingsViewModel settings;
@@ -643,6 +646,10 @@ namespace SomeSettings
 
                 List<UnitTransformSnapshot> appliedSnapshots = new List<UnitTransformSnapshot>(snapshots.Count);
                 ApplyDismountBatch(snapshots, "local-click", appliedSnapshots);
+
+                if (appliedSnapshots.Count > 0)
+                    PlayRandomLocalSpeech(DismountSpeechFileNames, "dismount");
+
                 for (int i = 0; i < appliedSnapshots.Count; i++)
                 {
                     int requestId = ++nextRequestId;
@@ -663,15 +670,12 @@ namespace SomeSettings
             {
                 if (!settings.EnableMod || !settings.EnableKnightDismount)
                 {
-                    LogInfo("Knight mount click ignored: setting disabled.");
                     return;
                 }
 
                 int localPlayerId = GetLocalPlayerIdOrOne();
-                LogInfo($"Knight mount click: localPlayerId={localPlayerId}.");
 
                 List<UnitTransformSnapshot> snapshots = CaptureSelectedUnitSnapshots(localPlayerId, eChimps.CHIMP_TYPE_SWORDSMAN);
-                LogInfo($"Knight mount click captured swordsmen: count={snapshots.Count}.");
                 if (snapshots.Count == 0)
                 {
                     RefreshButtonVisibility();
@@ -679,20 +683,20 @@ namespace SomeSettings
                 }
 
                 List<HorseAllocation> allocations = FindHorseAllocations(localPlayerId, snapshots.Count);
-                LogInfo($"Knight mount click found horse allocations: count={allocations.Count}, requested={snapshots.Count}.");
                 if (allocations.Count == 0)
                 {
-                    LogStableHorseCandidates(localPlayerId);
                     PlayMissingWeaponsSpeech();
                     RefreshButtonVisibility();
                     return;
                 }
 
                 int applyCount = Math.Min(snapshots.Count, allocations.Count);
-                LogInfo($"Knight mount click applying: applyCount={applyCount}, selectedSwordsmen={snapshots.Count}, availableHorses={allocations.Count}.");
                 List<AppliedMountSnapshot> appliedSnapshots = new List<AppliedMountSnapshot>(applyCount);
                 ApplyMountBatch(snapshots, allocations, applyCount, "local-click", appliedSnapshots);
-                LogInfo($"Knight mount click applied: count={appliedSnapshots.Count}.");
+
+                if (appliedSnapshots.Count > 0)
+                    PlayRandomLocalSpeech(MountSpeechFileNames, "mount");
+
                 for (int i = 0; i < appliedSnapshots.Count; i++)
                 {
                     int requestId = ++nextRequestId;
@@ -711,7 +715,6 @@ namespace SomeSettings
         {
             try
             {
-                LogInfo($"Knight mount missing stable horse speech: file={MissingWeaponsSpeechFileName}.");
                 SFXManager.instance?.playSpeech(
                     1,
                     MissingWeaponsSpeechFileName,
@@ -720,6 +723,30 @@ namespace SomeSettings
             catch (Exception ex)
             {
                 LogError($"Could not play knight mount missing stable horse speech: {ex}");
+            }
+        }
+
+        private void PlayRandomLocalSpeech(string[] fileNames, string label)
+        {
+            try
+            {
+                string speechFileName = GetRandomSpeechFileName(fileNames);
+                SFXManager.instance?.playSpeech(
+                    1,
+                    speechFileName,
+                    1f);
+            }
+            catch (Exception ex)
+            {
+                LogError($"Could not play knight {label} speech: {ex}");
+            }
+        }
+
+        private static string GetRandomSpeechFileName(string[] speechFileNames)
+        {
+            lock (SpeechRandom)
+            {
+                return speechFileNames[SpeechRandom.Next(speechFileNames.Length)];
             }
         }
 
@@ -765,10 +792,15 @@ namespace SomeSettings
             if (!seenGlobalIds.Add(snapshotKey))
                 return;
 
-            UnitTransformSnapshot snapshot = new UnitTransformSnapshot
+            snapshots.Add(CreateSnapshotFromUnit(unitId, unit));
+        }
+
+        private static UnitTransformSnapshot CreateSnapshotFromUnit(int unitId, GameUnit* unit)
+        {
+            return new UnitTransformSnapshot
             {
                 UnitId = unitId,
-                GlobalId = globalId,
+                GlobalId = (int)unit->r_GlobalId,
                 OwnerPlayerId = unit->r_ControllableForPlayerId,
                 ColorPlayerId = (int)unit->r_SpritePlayerColorId,
                 TileX = unit->r_CurrentTilePositionX,
@@ -777,8 +809,6 @@ namespace SomeSettings
                 CurrentHealth = (int)unit->r_CurrentHealth,
                 MaxHealth = (int)unit->r_MaxHealth
             };
-
-            snapshots.Add(snapshot);
         }
 
         private void SendDismountPacket(int sourcePlayerId, int requestId, UnitTransformSnapshot snapshot)
@@ -975,8 +1005,12 @@ namespace SomeSettings
                 if (!TryResolveAliveUnitByUnitId(resolved.Snapshot, eChimps.CHIMP_TYPE_KNIGHT, out int deleteUnitId))
                     continue;
 
+                if (!GameUnitManagerAPI.Instance.TryGetUnitById(deleteUnitId, out GameUnit* deleteUnit))
+                    continue;
+
+                UnitTransformSnapshot currentSnapshot = CreateSnapshotFromUnit(deleteUnitId, deleteUnit);
                 GameUnitManagerAPI.Instance.DeleteUnit(deleteUnitId);
-                deletedSnapshots.Add(resolved.Snapshot);
+                deletedSnapshots.Add(currentSnapshot);
             }
 
             for (int i = 0; i < deletedSnapshots.Count; i++)
@@ -992,8 +1026,12 @@ namespace SomeSettings
             if (!TryResolveAliveUnitByGlobalId(snapshot, eChimps.CHIMP_TYPE_KNIGHT, out int currentUnitId))
                 return false;
 
+            if (!GameUnitManagerAPI.Instance.TryGetUnitById(currentUnitId, out GameUnit* currentUnit))
+                return false;
+
+            UnitTransformSnapshot currentSnapshot = CreateSnapshotFromUnit(currentUnitId, currentUnit);
             GameUnitManagerAPI.Instance.DeleteUnit(currentUnitId);
-            return CreateUnitFromSnapshot(snapshot, eChimps.CHIMP_TYPE_SWORDSMAN, "dismount", reason) > 0;
+            return CreateUnitFromSnapshot(currentSnapshot, eChimps.CHIMP_TYPE_SWORDSMAN, "dismount", reason) > 0;
         }
 
         private void ApplyMountBatch(
@@ -1034,10 +1072,14 @@ namespace SomeSettings
                 if (!TryResolveAliveUnitByUnitId(resolved.Snapshot, eChimps.CHIMP_TYPE_SWORDSMAN, out int deleteUnitId))
                     continue;
 
+                if (!GameUnitManagerAPI.Instance.TryGetUnitById(deleteUnitId, out GameUnit* deleteUnit))
+                    continue;
+
+                UnitTransformSnapshot currentSnapshot = CreateSnapshotFromUnit(deleteUnitId, deleteUnit);
                 GameUnitManagerAPI.Instance.DeleteUnit(deleteUnitId);
                 deletedSnapshots.Add(new AppliedMountSnapshot
                 {
-                    Snapshot = resolved.Snapshot,
+                    Snapshot = currentSnapshot,
                     Allocation = resolved.Allocation
                 });
             }
@@ -1055,8 +1097,12 @@ namespace SomeSettings
             if (!TryResolveAliveUnitByGlobalId(snapshot, eChimps.CHIMP_TYPE_SWORDSMAN, out int currentUnitId))
                 return false;
 
+            if (!GameUnitManagerAPI.Instance.TryGetUnitById(currentUnitId, out GameUnit* currentUnit))
+                return false;
+
+            UnitTransformSnapshot currentSnapshot = CreateSnapshotFromUnit(currentUnitId, currentUnit);
             GameUnitManagerAPI.Instance.DeleteUnit(currentUnitId);
-            return CreateMountedKnightFromSnapshot(snapshot, allocation, reason);
+            return CreateMountedKnightFromSnapshot(currentSnapshot, allocation, reason);
         }
 
         private bool TryResolveAliveUnitByUnitId(UnitTransformSnapshot snapshot, eChimps expectedType, out int currentUnitId)
@@ -1150,60 +1196,27 @@ namespace SomeSettings
                 if (!IsUsableStable(stable, playerId))
                     continue;
 
-                int availableAtStable = ClampStableHorseCount(stable->r_TotalHorses);
+                NormalizeStableHorseCounters(stable);
+                int availableAtStable = GetAvailableStableHorseCount(stable);
                 for (int slot = 0; slot < StableHorseSlotCount && availableAtStable > 0 && allocations.Count < maxCount; slot++)
                 {
                     if (!IsStableHorseSlotFree(stable, slot))
                         continue;
 
-                    allocations.Add(new HorseAllocation
+                    HorseAllocation allocation = new HorseAllocation
                     {
                         StableId = stableId,
                         StableGlobalId = (int)stable->r_GlobalId,
                         OwnerPlayerId = playerId,
                         Slot = slot
-                    });
+                    };
+
+                    allocations.Add(allocation);
                     availableAtStable--;
                 }
             }
 
             return allocations;
-        }
-
-        private void LogStableHorseCandidates(int playerId)
-        {
-            try
-            {
-                List<int> stableIndexes = new List<int>();
-                GameBuildingManagerAPI.Instance.GetAllBuildings(stableIndexes, AliveState.IsAlive, eStructs.STRUCT_STABLES, PlayerRelationship.Any, playerId);
-                stableIndexes.Sort();
-
-                if (stableIndexes.Count == 0)
-                {
-                    LogInfo($"Knight mount stable scan: no alive stables found, playerId={playerId}.");
-                    return;
-                }
-
-                List<string> summaries = new List<string>();
-                for (int i = 0; i < stableIndexes.Count; i++)
-                {
-                    int stableId = stableIndexes[i] + 1;
-                    if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(stableId, out GameBuilding* stable))
-                    {
-                        summaries.Add($"id={stableId}:missing");
-                        continue;
-                    }
-
-                    summaries.Add(
-                        $"id={stableId},owner={stable->r_PlayerIdOwner},global={stable->r_GlobalId},total={stable->r_TotalHorses},used={stable->r_UsedHorses},slots={BuildStableHorseSlotSummary(stable)}");
-                }
-
-                LogInfo($"Knight mount stable scan: playerId={playerId}, stables={stableIndexes.Count}, {string.Join("; ", summaries)}.");
-            }
-            catch (Exception ex)
-            {
-                LogError($"Knight mount stable scan failed: {ex}");
-            }
         }
 
         private bool TryResolveHorseAllocation(int ownerPlayerId, int stableId, int stableGlobalId, int slot, out HorseAllocation allocation)
@@ -1221,7 +1234,8 @@ namespace SomeSettings
             if (stableGlobalId > 0 && (int)stable->r_GlobalId != stableGlobalId)
                 return false;
 
-            if (stable->r_TotalHorses <= 0 || !IsStableHorseSlotFree(stable, slot))
+            NormalizeStableHorseCounters(stable);
+            if (GetAvailableStableHorseCount(stable) <= 0 || !IsStableHorseSlotFree(stable, slot))
                 return false;
 
             allocation = new HorseAllocation
@@ -1248,11 +1262,11 @@ namespace SomeSettings
             if (allocation.StableGlobalId > 0 && (int)stable->r_GlobalId != allocation.StableGlobalId)
                 return false;
 
-            if (stable->r_TotalHorses <= 0 || !IsStableHorseSlotFree(stable, allocation.Slot))
+            NormalizeStableHorseCounters(stable);
+            if (GetAvailableStableHorseCount(stable) <= 0 || !IsStableHorseSlotFree(stable, allocation.Slot))
                 return false;
 
             SetStableHorseSlot(stable, allocation.Slot, unitId, unitGlobalId);
-            stable->r_TotalHorses = (byte)Math.Max(0, stable->r_TotalHorses - 1);
             stable->r_UsedHorses = (byte)Math.Min(StableHorseSlotCount, (int)stable->r_UsedHorses + 1);
             return true;
         }
@@ -1270,19 +1284,52 @@ namespace SomeSettings
             return Math.Max(0, Math.Min(StableHorseSlotCount, (int)value));
         }
 
+        private static void NormalizeStableHorseCounters(GameBuilding* stable)
+        {
+            int total = ClampStableHorseCount(stable->r_TotalHorses);
+            int used = ClampStableHorseCount(stable->r_UsedHorses);
+
+            if (stable->r_TotalHorses != total)
+            {
+                stable->r_TotalHorses = (byte)total;
+            }
+
+            if (stable->r_UsedHorses != used)
+            {
+                stable->r_UsedHorses = (byte)used;
+            }
+
+            if (total < used)
+            {
+                total = used;
+                stable->r_TotalHorses = (byte)total;
+            }
+        }
+
+        private static int GetAvailableStableHorseCount(GameBuilding* stable)
+        {
+            int total = ClampStableHorseCount(stable->r_TotalHorses);
+            int used = ClampStableHorseCount(stable->r_UsedHorses);
+            int freeSlots = CountFreeStableHorseSlots(stable);
+            return Math.Max(0, Math.Min(freeSlots, total - used));
+        }
+
+        private static int CountFreeStableHorseSlots(GameBuilding* stable)
+        {
+            int count = 0;
+            for (int slot = 0; slot < StableHorseSlotCount; slot++)
+            {
+                if (IsStableHorseSlotFree(stable, slot))
+                    count++;
+            }
+
+            return count;
+        }
+
         private static bool IsStableHorseSlotFree(GameBuilding* stable, int slot)
         {
             return GetStableHorseSlotUnitId(stable, slot) == 0 &&
                 GetStableHorseSlotGlobalId(stable, slot) == 0;
-        }
-
-        private static string BuildStableHorseSlotSummary(GameBuilding* stable)
-        {
-            List<string> slots = new List<string>(StableHorseSlotCount);
-            for (int slot = 0; slot < StableHorseSlotCount; slot++)
-                slots.Add($"{slot}:{GetStableHorseSlotUnitId(stable, slot)}/{GetStableHorseSlotGlobalId(stable, slot)}");
-
-            return string.Join(",", slots);
         }
 
         private static int GetStableHorseSlotUnitId(GameBuilding* stable, int slot)
@@ -1405,11 +1452,6 @@ namespace SomeSettings
         private void LogError(string message)
         {
             log.LogError($"[{TimestampNow()}] SomeSettings {message}");
-        }
-
-        private void LogInfo(string message)
-        {
-            log.LogInfo($"[{TimestampNow()}] SomeSettings {message}");
         }
 
         private static string TimestampNow()

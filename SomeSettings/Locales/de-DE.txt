@@ -1,4 +1,4 @@
-# Serp mod localization
+﻿# Serp mod localization
 # Format: key=value
 Common.ResetToDefault=Zurücksetzen
 Common.Ai=KI
@@ -38,8 +38,8 @@ SomeSettings.PreventEmergencyDemolition=KI-Panikabriss verhindern
 SomeSettings.PreventEmergencyDemolitionHelp=Ueberspringt den KI-Notfallabriss zur Rohstoffrueckgewinnung, der sonst nuetzliche Gebaeude entfernen kann.
 SomeSettings.PreventHovelDeletion=KI-Huettenabriss verhindern
 SomeSettings.PreventHovelDeletionHelp=Blockiert direktes Loeschen lebender KI-eigener Huetten, erlaubt aber weiterhin normale Zerstoerung durch Schaden.
-SomeSettings.EnableKnightDismount=Ritter-Absteigen-Button aktivieren
-SomeSettings.EnableKnightDismountHelp=Fuegt ausgewaehlten berittenen Rittern einen Befehlsbutton hinzu. Ein Klick wandelt ausgewaehlte eigene Ritter an derselben Position mit derselben Lebenspunkte-Rate in Schwertkaempfer um.
+SomeSettings.EnableKnightDismount=Ritter auf- und absitzen aktivieren
+SomeSettings.EnableKnightDismountHelp=Fuegt Befehlsbuttons zum Aufsatteln von Schwertkaempfern und Absteigen berittener Ritter hinzu.
 SomeSettings.KnightDismountTooltip=Absteigen
 SomeSettings.KnightDismountTooltipBody=Wandelt ausgewaehlte berittene Ritter an derselben Position in Schwertkaempfer um.
 SomeSettings.KnightMountTooltip=Aufsatteln

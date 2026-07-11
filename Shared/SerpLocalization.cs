@@ -1,4 +1,4 @@
-using SHCDESE.API;
+﻿using SHCDESE.API;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -166,8 +166,8 @@ public static class SerpLocalization
         { MarketSellPriceMultiplierHelp, "Multiplier for all market sell prices. 1.0 = unchanged, 0.0 = no gold from selling, 5.0 = five times the vanilla price." },
         { RememberAiAivSettings, "Remember AI castle/settings selection" },
         { RememberAiAivSettingsHelp, "When enabled, the last AIV, rotation, and custom lord settings selected for each AI lord are applied automatically when that AI is added to a skirmish lobby." },
-        { EnableKnightDismount, "Enable knight dismount button" },
-        { EnableKnightDismountHelp, "Adds a command button for selected mounted knights. Clicking it turns selected own knights into swordsmen at the same position with the same health ratio." },
+        { EnableKnightDismount, "Enable knight mount/dismount buttons" },
+        { EnableKnightDismountHelp, "Adds command buttons to mount swordsmen and dismount mounted knights." },
         { KnightDismountTooltip, "Dismount" },
         { KnightDismountTooltipBody, "Turns selected mounted knights into swordsmen at the same position." },
         { KnightMountTooltip, "Mount" },

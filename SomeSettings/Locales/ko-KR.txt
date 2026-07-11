@@ -1,4 +1,4 @@
-# Serp mod localization
+﻿# Serp mod localization
 # Format: key=value
 Common.ResetToDefault=Reset to Default
 Common.Ai=AI
@@ -38,8 +38,8 @@ SomeSettings.PreventEmergencyDemolition=Prevent AI panic demolition
 SomeSettings.PreventEmergencyDemolitionHelp=Skips the AI emergency resource-recovery demolition block, which can otherwise remove useful buildings under pressure.
 SomeSettings.PreventHovelDeletion=Prevent AI hovel deletion
 SomeSettings.PreventHovelDeletionHelp=Blocks direct deletes of living AI-owned hovels while still allowing normal destruction by damage.
-SomeSettings.EnableKnightDismount=Enable knight dismount button
-SomeSettings.EnableKnightDismountHelp=Adds a command button for selected mounted knights. Clicking it turns selected own knights into swordsmen at the same position with the same health ratio.
+SomeSettings.EnableKnightDismount=Enable knight mount/dismount buttons
+SomeSettings.EnableKnightDismountHelp=Adds command buttons to mount swordsmen and dismount mounted knights.
 SomeSettings.KnightDismountTooltip=Dismount
 SomeSettings.KnightDismountTooltipBody=Turns selected mounted knights into swordsmen at the same position.
 SomeSettings.KnightMountTooltip=Mount
