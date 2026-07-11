@@ -182,7 +182,6 @@ namespace SomeSettings
         private IDisposable packetSubscription;
         private Button hookedDismountButton;
         private int nextRequestId;
-        private string lastPlacementName;
         private bool initialized;
         private bool disposed;
 
@@ -207,7 +206,6 @@ namespace SomeSettings
             setupTroopActionsTrampoline = setupTroopActionsHook.GenerateTrampoline<SetuptroopActionsUIDelegate>();
             initialized = true;
             RefreshButtonVisibility();
-            LogDebug("Knight dismount runtime initialized.");
         }
 
         public void Dispose()
@@ -233,7 +231,6 @@ namespace SomeSettings
             setupTroopActionsTrampoline = null;
             packetHook = null;
             processedRequestIds.Clear();
-            LogDebug("Knight dismount runtime disposed.");
         }
 
         public void RefreshButtonVisibility()
@@ -244,33 +241,20 @@ namespace SomeSettings
                 if (!visible)
                 {
                     buttonViewModel.SetVisible(false);
-                    lastPlacementName = null;
                     return;
                 }
 
                 if (!IsBottomRightSlotFree())
                 {
                     buttonViewModel.SetVisible(false);
-                    if (!string.Equals(lastPlacementName, "hidden-bottom-right-occupied", StringComparison.Ordinal))
-                    {
-                        lastPlacementName = "hidden-bottom-right-occupied";
-                        LogDebug("Knight dismount button hidden: bottom-right command slot is occupied.");
-                    }
-
                     return;
                 }
 
                 buttonViewModel.SetPlacement(true, BottomRightSlotMargin);
-                if (!string.Equals(lastPlacementName, "slot-bottom-right", StringComparison.Ordinal))
-                {
-                    lastPlacementName = "slot-bottom-right";
-                    LogDebug("Knight dismount button placement: slot-bottom-right.");
-                }
             }
             catch (Exception ex)
             {
                 buttonViewModel.SetVisible(false);
-                lastPlacementName = null;
                 LogError($"Knight dismount visibility refresh failed: {ex}");
             }
         }
@@ -315,7 +299,6 @@ namespace SomeSettings
             hookedDismountButton = button;
             hookedDismountButton.MouseEnter += OnDismountButtonMouseEnter;
             hookedDismountButton.MouseLeave += OnDismountButtonMouseLeave;
-            LogInfo("Knight dismount button mouse events hooked.");
         }
 
         private void OnDismountButtonMouseEnter(object sender, MouseEventArgs e)
@@ -342,7 +325,6 @@ namespace SomeSettings
                 mainViewModel.TroopsPanelRollover_AmountGot1 = SerpLocalization.Get(SerpLocalization.KnightDismountTooltipBody);
                 mainViewModel.TroopsPanelRollover_GoodsImage1 = null;
                 SetTroopRolloverVisibility(troopPanel, false, true);
-                LogInfo("Knight dismount tooltip shown.");
             }
             catch (Exception ex)
             {
@@ -443,12 +425,10 @@ namespace SomeSettings
                 List<KnightDismountSnapshot> snapshots = CaptureSelectedKnightSnapshots(localPlayerId);
                 if (snapshots.Count == 0)
                 {
-                    LogInfo("Knight dismount clicked, but no selected own mounted knights were found.");
                     RefreshButtonVisibility();
                     return;
                 }
 
-                LogInfo($"Knight dismount clicked: sourcePlayerId={localPlayerId}, count={snapshots.Count}.");
                 List<KnightDismountSnapshot> appliedSnapshots = new List<KnightDismountSnapshot>(snapshots.Count);
                 ApplyDismountBatch(snapshots, "local-click", appliedSnapshots);
                 for (int i = 0; i < appliedSnapshots.Count; i++)
@@ -472,8 +452,6 @@ namespace SomeSettings
             GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
             HashSet<int> seenGlobalIds = new HashSet<int>();
 
-            LogInfo($"Knight dismount capture started: selectedUnitCount={selectedUnits.Length}.");
-
             for (int i = 0; i < selectedUnits.Length; i++)
             {
                 int unitId = selectedUnits[i];
@@ -487,7 +465,6 @@ namespace SomeSettings
             }
 
             int[] aliveUnits = unitApi.GetAllAliveUnits();
-            int selectedFlagMatches = 0;
             for (int i = 0; i < aliveUnits.Length; i++)
             {
                 int unitId = aliveUnits[i];
@@ -497,11 +474,9 @@ namespace SomeSettings
                 if (!IsSelected(unit) || !IsOwnAliveKnight(unit, localPlayerId))
                     continue;
 
-                selectedFlagMatches++;
                 AddSnapshot(snapshots, seenGlobalIds, unitId, unit);
             }
 
-            LogInfo($"Knight dismount capture finished: apiSelected={selectedUnits.Length}, selectedFlagMatches={selectedFlagMatches}, snapshots={snapshots.Count}.");
             return snapshots;
         }
 
@@ -526,7 +501,6 @@ namespace SomeSettings
             };
 
             snapshots.Add(snapshot);
-            LogInfo($"Knight dismount snapshot: unitId={snapshot.UnitId}, globalId={snapshot.GlobalId}, owner={snapshot.OwnerPlayerId}, color={snapshot.ColorPlayerId}, selected=({unit->r_UnitSelected},{unit->r_UnitSelected2}), tile=({snapshot.TileX},{snapshot.TileY}), height={snapshot.Height}, hp={snapshot.CurrentHealth}/{snapshot.MaxHealth}.");
         }
 
         private void SendDismountPacket(int sourcePlayerId, int requestId, KnightDismountSnapshot snapshot)
@@ -551,7 +525,6 @@ namespace SomeSettings
                 };
 
                 GameNetworkAPI.SendPacketToAll(packet, packetHook.GetPacketId());
-                LogDebug($"Knight dismount packet sent: sourcePlayerId={sourcePlayerId}, requestId={requestId}, globalId={snapshot.GlobalId}, owner={snapshot.OwnerPlayerId}.");
             }
             catch (Exception ex)
             {
@@ -568,25 +541,16 @@ namespace SomeSettings
 
                 KnightDismountPacket packet = args.Packet;
                 if (IsDuplicatePacket(packet.SourcePlayerId, packet.RequestId))
-                {
-                    LogDebug($"Knight dismount packet ignored as duplicate: sourcePlayerId={packet.SourcePlayerId}, requestId={packet.RequestId}.");
                     return;
-                }
 
                 int unitId = FindAliveUnitIdByGlobalId(packet.KnightGlobalId);
                 if (unitId <= 0 || !GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit))
-                {
-                    LogDebug($"Knight dismount packet ignored, unit not found: sourcePlayerId={packet.SourcePlayerId}, requestId={packet.RequestId}, globalId={packet.KnightGlobalId}.");
                     return;
-                }
 
                 if (unit->r_AliveState != AliveState.IsAlive ||
                     unit->r_UnitChimp != eChimps.CHIMP_TYPE_KNIGHT ||
                     unit->r_ControllableForPlayerId != packet.OwnerPlayerId)
-                {
-                    LogDebug($"Knight dismount packet ignored, validation failed: sourcePlayerId={packet.SourcePlayerId}, requestId={packet.RequestId}, unitId={unitId}, type={unit->r_UnitChimp}, owner={unit->r_ControllableForPlayerId}, expectedOwner={packet.OwnerPlayerId}, alive={unit->r_AliveState}.");
                     return;
-                }
 
                 KnightDismountSnapshot snapshot = new KnightDismountSnapshot
                 {
@@ -601,7 +565,7 @@ namespace SomeSettings
                     MaxHealth = packet.MaxHealth
                 };
 
-                ApplyDismount(snapshot, $"network:{packet.SourcePlayerId}:{packet.RequestId}", out _);
+                ApplyDismount(snapshot, $"network:{packet.SourcePlayerId}:{packet.RequestId}");
                 RefreshButtonVisibility();
             }
             catch (Exception ex)
@@ -624,11 +588,10 @@ namespace SomeSettings
             return !requestIds.Add(requestId);
         }
 
-        private List<int> ApplyDismountBatch(List<KnightDismountSnapshot> snapshots, string reason, List<KnightDismountSnapshot> appliedSnapshots)
+        private void ApplyDismountBatch(List<KnightDismountSnapshot> snapshots, string reason, List<KnightDismountSnapshot> appliedSnapshots)
         {
-            List<int> createdSwordsmanIds = new List<int>();
             if (snapshots == null || snapshots.Count == 0)
-                return createdSwordsmanIds;
+                return;
 
             List<ResolvedDismountSnapshot> resolvedSnapshots = new List<ResolvedDismountSnapshot>(snapshots.Count);
             HashSet<int> seenCurrentUnitIds = new HashSet<int>();
@@ -636,14 +599,11 @@ namespace SomeSettings
             for (int i = 0; i < snapshots.Count; i++)
             {
                 KnightDismountSnapshot snapshot = snapshots[i];
-                if (!TryResolveAliveKnightByUnitId(snapshot, reason, out int currentUnitId))
+                if (!TryResolveAliveKnightByUnitId(snapshot, out int currentUnitId))
                     continue;
 
                 if (!seenCurrentUnitIds.Add(currentUnitId))
-                {
-                    LogInfo($"Knight dismount skipped duplicate resolved unit: reason={reason}, unitId={currentUnitId}, originalUnitId={snapshot.UnitId}, globalId={snapshot.GlobalId}.");
                     continue;
-                }
 
                 resolvedSnapshots.Add(new ResolvedDismountSnapshot
                 {
@@ -657,73 +617,59 @@ namespace SomeSettings
             for (int i = 0; i < resolvedSnapshots.Count; i++)
             {
                 ResolvedDismountSnapshot resolved = resolvedSnapshots[i];
-                if (!TryResolveAliveKnightByUnitId(resolved.Snapshot, $"{reason}:delete", out int deleteUnitId))
+                if (!TryResolveAliveKnightByUnitId(resolved.Snapshot, out int deleteUnitId))
                     continue;
 
                 GameUnitManagerAPI.Instance.DeleteUnit(deleteUnitId);
                 deletedSnapshots.Add(resolved.Snapshot);
-                LogInfo($"Knight dismount deleted knight: reason={reason}, unitId={deleteUnitId}, originalUnitId={resolved.Snapshot.UnitId}, globalId={resolved.Snapshot.GlobalId}.");
             }
 
             for (int i = 0; i < deletedSnapshots.Count; i++)
             {
                 KnightDismountSnapshot snapshot = deletedSnapshots[i];
-                if (CreateSwordsmanFromSnapshot(snapshot, reason, out int swordsmanUnitId))
+                if (CreateSwordsmanFromSnapshot(snapshot, reason))
                 {
-                    createdSwordsmanIds.Add(swordsmanUnitId);
                     appliedSnapshots?.Add(snapshot);
                 }
             }
-
-            LogInfo($"Knight dismount batch applied: reason={reason}, requested={snapshots.Count}, resolved={resolvedSnapshots.Count}, deleted={deletedSnapshots.Count}, created={createdSwordsmanIds.Count}, ids={string.Join(",", createdSwordsmanIds)}.");
-            return createdSwordsmanIds;
         }
 
-        private bool ApplyDismount(KnightDismountSnapshot snapshot, string reason, out int swordsmanUnitId)
+        private bool ApplyDismount(KnightDismountSnapshot snapshot, string reason)
         {
-            swordsmanUnitId = 0;
-            if (!TryResolveAliveKnightByGlobalId(snapshot, reason, out int currentUnitId))
+            if (!TryResolveAliveKnightByGlobalId(snapshot, out int currentUnitId))
                 return false;
 
             GameUnitManagerAPI.Instance.DeleteUnit(currentUnitId);
-            LogInfo($"Knight dismount deleted knight: reason={reason}, unitId={currentUnitId}, originalUnitId={snapshot.UnitId}, globalId={snapshot.GlobalId}.");
-            return CreateSwordsmanFromSnapshot(snapshot, reason, out swordsmanUnitId);
+            return CreateSwordsmanFromSnapshot(snapshot, reason);
         }
 
-        private bool TryResolveAliveKnightByUnitId(KnightDismountSnapshot snapshot, string reason, out int currentUnitId)
+        private bool TryResolveAliveKnightByUnitId(KnightDismountSnapshot snapshot, out int currentUnitId)
         {
             currentUnitId = snapshot.UnitId;
-            return ValidateAliveKnight(snapshot, reason, currentUnitId);
+            return ValidateAliveKnight(snapshot, currentUnitId);
         }
 
-        private bool TryResolveAliveKnightByGlobalId(KnightDismountSnapshot snapshot, string reason, out int currentUnitId)
+        private bool TryResolveAliveKnightByGlobalId(KnightDismountSnapshot snapshot, out int currentUnitId)
         {
             currentUnitId = snapshot.GlobalId > 0 ? FindAliveUnitIdByGlobalId(snapshot.GlobalId) : snapshot.UnitId;
-            return ValidateAliveKnight(snapshot, reason, currentUnitId);
+            return ValidateAliveKnight(snapshot, currentUnitId);
         }
 
-        private bool ValidateAliveKnight(KnightDismountSnapshot snapshot, string reason, int currentUnitId)
+        private bool ValidateAliveKnight(KnightDismountSnapshot snapshot, int currentUnitId)
         {
             if (currentUnitId <= 0 || !GameUnitManagerAPI.Instance.TryGetUnitById(currentUnitId, out GameUnit* unit))
-            {
-                LogInfo($"Knight dismount skipped, unit missing: reason={reason}, unitId={snapshot.UnitId}, globalId={snapshot.GlobalId}.");
                 return false;
-            }
 
             if (unit->r_AliveState != AliveState.IsAlive ||
                 unit->r_UnitChimp != eChimps.CHIMP_TYPE_KNIGHT ||
                 unit->r_ControllableForPlayerId != snapshot.OwnerPlayerId)
-            {
-                LogInfo($"Knight dismount skipped, validation failed: reason={reason}, unitId={currentUnitId}, originalUnitId={snapshot.UnitId}, globalId={snapshot.GlobalId}, type={unit->r_UnitChimp}, owner={unit->r_ControllableForPlayerId}, expectedOwner={snapshot.OwnerPlayerId}, alive={unit->r_AliveState}.");
                 return false;
-            }
 
             return true;
         }
 
-        private bool CreateSwordsmanFromSnapshot(KnightDismountSnapshot snapshot, string reason, out int swordsmanUnitId)
+        private bool CreateSwordsmanFromSnapshot(KnightDismountSnapshot snapshot, string reason)
         {
-            swordsmanUnitId = 0;
             long createdId = GameUnitManagerAPI.Instance.CreateUnitLocal(
                 snapshot.ColorPlayerId,
                 snapshot.OwnerPlayerId,
@@ -738,9 +684,7 @@ namespace SomeSettings
                 return false;
             }
 
-            swordsmanUnitId = (int)createdId;
-            ApplyHealthRatio(swordsmanUnitId, snapshot.CurrentHealth, snapshot.MaxHealth);
-            LogInfo($"Knight dismount created swordsman: reason={reason}, originalUnitId={snapshot.UnitId}, knightGlobalId={snapshot.GlobalId}, swordsmanUnitId={createdId}, owner={snapshot.OwnerPlayerId}, color={snapshot.ColorPlayerId}, tile=({snapshot.TileX},{snapshot.TileY}), sourceHp={snapshot.CurrentHealth}/{snapshot.MaxHealth}.");
+            ApplyHealthRatio((int)createdId, snapshot.CurrentHealth, snapshot.MaxHealth);
             return true;
         }
 
@@ -780,7 +724,6 @@ namespace SomeSettings
             unit->r_CurrentHealth = (uint)targetHealth;
             unit->r_CurrentHealthPercentage = targetPercent;
             unit->r_HealthBarBlocks = (uint)(targetPercent / 10);
-            LogDebug($"Knight dismount health set: swordsmanUnitId={swordsmanUnitId}, ratio={ratio.ToString("0.###", CultureInfo.InvariantCulture)}, hp={targetHealth}/{targetMaxHealth}, percent={targetPercent}, blocks={unit->r_HealthBarBlocks}.");
         }
 
         private static bool IsOwnAliveKnight(GameUnit* unit, int localPlayerId)
@@ -815,19 +758,9 @@ namespace SomeSettings
             return localPlayerId > 0 ? localPlayerId : 1;
         }
 
-        private void LogDebug(string message)
-        {
-            log.LogDebug($"[{TimestampNow()}] SomeSettings {message}");
-        }
-
         private void LogError(string message)
         {
             log.LogError($"[{TimestampNow()}] SomeSettings {message}");
-        }
-
-        private void LogInfo(string message)
-        {
-            log.LogInfo($"[{TimestampNow()}] SomeSettings {message}");
         }
 
         private static string TimestampNow()
