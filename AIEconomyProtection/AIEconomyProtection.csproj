@@ -83,6 +83,10 @@
       <HintPath>$(ExtenderDir)\Microsoft.Extensions.Logging.Abstractions.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="PolyHook2.NET">
+      <HintPath>$(ExtenderDir)\PolyHook2.NET.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="System.Memory">
       <HintPath>$(ExtenderDir)\System.Memory.dll</HintPath>
       <Private>false</Private>
@@ -92,6 +96,7 @@
   <ItemGroup>
     <Compile Include="src\AIEconomyProtectionHook.cs" />
     <Compile Include="src\AIEconomyProtectionPlugin.cs" />
+    <Compile Include="src\AIEconomyProtectionSettings.cs" />
   </ItemGroup>
 
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

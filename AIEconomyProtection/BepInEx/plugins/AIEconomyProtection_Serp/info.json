@@ -2,8 +2,8 @@
   "GUID": "AIEconomyProtection_Serp",
   "Author": "Serpens66",
   "Name": "AI Economy Protection",
-  "Description": "Prevents AI-controlled players from pausing production buildings in any situation and demolishing their own buildings for emergency resources in Stronghold Crusader Definitive Edition.",
-  "Version": "0.2.0",
+  "Description": "Prevents AI-controlled players from pausing production buildings, demolishing their own buildings for emergency resources, and deleting their own live hovels in Stronghold Crusader Definitive Edition.",
+  "Version": "0.5.2",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1
 }

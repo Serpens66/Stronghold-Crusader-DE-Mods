@@ -1,6 +1,6 @@
 using BepInEx.Logging;
-using Iced.Intel;
 using SHCDESE.API;
+using SHCDESE.Interop.Enums;
 using SHCDESE.Interop;
 using System;
 using System.Runtime.InteropServices;
@@ -26,21 +26,35 @@ namespace AIEconomyProtection
         private const string EmergencyDemolitionComparisonPattern =
             "80 BC 24 80 00 00 00 00 0F 84 ?? ?? ?? ?? 4C 8D BD ?? ?? ?? ?? 8B D6 4D 03 FE";
 
+        // c_game_building_delete:
+        // This catches non-UI AI demolition paths which do not call c_game_building_bulldoze.
+        private const string BuildingDeletePattern =
+            "48 89 5C 24 ?? 48 89 6C 24 ?? 48 89 74 24 ?? 48 89 7C 24 ?? 41 56 48 83 EC ?? 41 BE";
+
         private const byte ActiveState = 0;
         private const byte SleepingState = 1;
 
         private static readonly ulong PlayerOwnerDistanceFromSleeping = GetPlayerOwnerDistanceFromSleeping();
 
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate long BuildingDeleteDelegate(NativePointer<GameBuildingManager> buildingManager, int buildingId);
+
         private readonly ManualLogSource log;
+        private readonly AIEconomyProtectionSettings settings;
         private readonly HookTransaction transaction;
         private HookRef<X64InlineHook> sleepStateHook = new HookRef<X64InlineHook>();
         private HookRef<X64InlineHook> emergencyDemolitionHook = new HookRef<X64InlineHook>();
-        private bool callbackFailureLogged;
+        private HookRef<X64ManagedFunctionDetourAOB<BuildingDeleteDelegate>> buildingDeleteHook =
+            new HookRef<X64ManagedFunctionDetourAOB<BuildingDeleteDelegate>>();
+        private bool pauseCallbackFailureLogged;
+        private bool emergencyCallbackFailureLogged;
+        private bool deleteCallbackFailureLogged;
         private bool disposed;
 
-        public AIEconomyProtectionHook(ManualLogSource log, IntPtr libraryHandle, ReadOnlySpan<byte> memory)
+        public AIEconomyProtectionHook(ManualLogSource log, AIEconomyProtectionSettings settings, IntPtr libraryHandle, ReadOnlySpan<byte> memory)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
+            this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
 
             transaction = new HookTransaction(
                 memory,
@@ -56,24 +70,18 @@ namespace AIEconomyProtection
                 errorMode: CallbackErrorMode.LogAndContinue,
                 placement: OverwrittenInstructionPlacement.AfterCallback);
 
-            transaction.AddInline(
+            transaction.AddContextHook(
                 ref emergencyDemolitionHook,
                 EmergencyDemolitionComparisonPattern,
-                (assembler, overwrittenInstructions, returnAddress) =>
-                {
-                    if (overwrittenInstructions.Length != 2 ||
-                        overwrittenInstructions[0].Mnemonic != Mnemonic.Cmp ||
-                        overwrittenInstructions[1].Mnemonic != Mnemonic.Je)
-                    {
-                        throw new InvalidOperationException(
-                            "The AI emergency-demolition hook did not resolve to the expected cmp/je instruction pair.");
-                    }
+                PreventEmergencyDemolition,
+                regs: X64SmartCPUContextRegs.Volatile,
+                errorMode: CallbackErrorMode.LogAndContinue,
+                placement: OverwrittenInstructionPlacement.AfterCallback);
 
-                    // Always take the original JE target. This bypasses only the emergency
-                    // resource-recovery demolition block and preserves surrounding AI logic.
-                    assembler.AddUnrestrictedJmp(overwrittenInstructions[1].NearBranchTarget);
-                },
-                hookSize: 14);
+            transaction.AddDetour(
+                ref buildingDeleteHook,
+                BuildingDeletePattern,
+                PreventLiveAIHovelDelete);
 
             transaction.Commit();
 
@@ -81,10 +89,8 @@ namespace AIEconomyProtection
                 throw new InvalidOperationException("The AI building sleep-state AOB signature was not found.");
             if (!emergencyDemolitionHook.Success)
                 throw new InvalidOperationException("The AI emergency-demolition AOB signature was not found.");
-
-            log.LogDebug(
-                $"AI building sleep-state hook installed. Player-owner distance from r_IsSleeping: 0x{PlayerOwnerDistanceFromSleeping:X}.");
-            log.LogDebug("AI emergency resource-recovery demolition hook installed.");
+            if (!buildingDeleteHook.Success)
+                throw new InvalidOperationException("The building delete AOB signature was not found.");
         }
 
         public void Dispose()
@@ -95,7 +101,6 @@ namespace AIEconomyProtection
             disposed = true;
             transaction.Unload();
             transaction.Dispose();
-            log.LogDebug("AI economy protection hooks disabled.");
         }
 
         private void PreventAIPause(NativePointer<X64SmartCPUContext> context)
@@ -103,6 +108,9 @@ namespace AIEconomyProtection
             try
             {
                 X64SmartCPUContext* registers = context.Pointer;
+                if (!settings.IsPauseProtectionEnabled)
+                    return;
+
                 byte requestedState = (byte)registers->RCX;
                 byte currentState = *(byte*)registers->R8;
 
@@ -121,12 +129,80 @@ namespace AIEconomyProtection
             {
                 // Native callbacks must never let managed exceptions escape. Fail open so
                 // the original game behavior remains intact if an unexpected problem occurs.
-                if (!callbackFailureLogged)
+                if (!pauseCallbackFailureLogged)
                 {
-                    callbackFailureLogged = true;
+                    pauseCallbackFailureLogged = true;
                     log.LogError($"AI pause prevention callback failed; this pause uses vanilla behavior: {ex}");
                 }
             }
+        }
+
+        private void PreventEmergencyDemolition(NativePointer<X64SmartCPUContext> context)
+        {
+            try
+            {
+                if (!settings.IsEmergencyDemolitionProtectionEnabled)
+                    return;
+
+                X64SmartCPUContext* registers = context.Pointer;
+                byte* emergencyDemolitionRequested = (byte*)(registers->RSP + 0x80);
+                if (*emergencyDemolitionRequested == 0)
+                    return;
+
+                *emergencyDemolitionRequested = 0;
+            }
+            catch (Exception ex)
+            {
+                if (!emergencyCallbackFailureLogged)
+                {
+                    emergencyCallbackFailureLogged = true;
+                    log.LogError($"AI emergency-demolition prevention callback failed; this check uses vanilla behavior: {ex}");
+                }
+            }
+        }
+
+        private long PreventLiveAIHovelDelete(NativePointer<GameBuildingManager> buildingManager, int buildingId)
+        {
+            try
+            {
+                if (settings.IsHovelDeletionProtectionEnabled &&
+                    ShouldBlockLiveAIHovelDelete(buildingId, out _))
+                {
+                    // In the measured AI retry loop, the same hovel was targeted
+                    // around 22 times per minute. Blocking here is still cheap:
+                    // this detour runs only on actual delete attempts and returns
+                    // before the game mutates building state.
+                    return 0;
+                }
+            }
+            catch (Exception ex)
+            {
+                if (!deleteCallbackFailureLogged)
+                {
+                    deleteCallbackFailureLogged = true;
+                    log.LogError($"AI live hovel deletion prevention failed; this delete uses vanilla behavior: {ex}");
+                }
+            }
+
+            return buildingDeleteHook.Value.Hook.Trampoline(buildingManager, buildingId);
+        }
+
+        private static bool ShouldBlockLiveAIHovelDelete(int buildingId, out ushort ownerId)
+        {
+            ownerId = 0;
+
+            if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building))
+                return false;
+
+            if (building->r_AliveState != AliveState.IsAlive ||
+                building->r_BuildingType != eStructs.STRUCT_HOVEL ||
+                building->r_CurrentHealth <= 0)
+            {
+                return false;
+            }
+
+            ownerId = building->r_PlayerIdOwner;
+            return GamePlayerManagerAPI.Instance.IsAIPlayer(ownerId);
         }
 
         private static ulong GetPlayerOwnerDistanceFromSleeping()
