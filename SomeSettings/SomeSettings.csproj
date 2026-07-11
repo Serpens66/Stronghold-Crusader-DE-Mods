@@ -103,6 +103,7 @@
     </Compile>
     <Compile Include="src\AutoTradeSellZeroHook.cs" />
     <Compile Include="src\CoopTrailCustomizeHook.cs" />
+    <Compile Include="src\EnemyProximityBulldozeCursorHook.cs" />
     <Compile Include="src\MinimapPlacementClickHook.cs" />
     <Compile Include="src\SkirmishAiSelectionMemoryHook.cs" />
     <Compile Include="src\SomeSettingsPlugin.cs" />

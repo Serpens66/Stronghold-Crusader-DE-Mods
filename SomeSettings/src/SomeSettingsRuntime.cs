@@ -33,6 +33,7 @@ namespace SomeSettings
         private CoopTrailCustomizeHook coopTrailCustomizeHook;
         private SkirmishAiSelectionMemoryHook skirmishAiSelectionMemoryHook;
         private AutoTradeSellZeroHook autoTradeSellZeroHook;
+        private EnemyProximityBulldozeCursorHook enemyProximityBulldozeCursorHook;
 
         private bool hooksSubscribed;
         private bool settingsSubscribed;
@@ -82,6 +83,7 @@ namespace SomeSettings
             coopTrailCustomizeHook = new CoopTrailCustomizeHook(log);
             skirmishAiSelectionMemoryHook = new SkirmishAiSelectionMemoryHook(log, settings);
             InstallAutoTradeSellZeroHook();
+            InstallEnemyProximityBulldozeCursorHook();
             hooksSubscribed = true;
             log.LogDebug("SomeSettings hooks subscribed.");
         }
@@ -126,6 +128,8 @@ namespace SomeSettings
             skirmishAiSelectionMemoryHook = null;
             autoTradeSellZeroHook?.Dispose();
             autoTradeSellZeroHook = null;
+            enemyProximityBulldozeCursorHook?.Dispose();
+            enemyProximityBulldozeCursorHook = null;
             ClearResourceEventGuards();
             pendingStockpileRefund = null;
             hooksSubscribed = false;
@@ -140,6 +144,18 @@ namespace SomeSettings
             catch (Exception ex)
             {
                 log.LogError($"SomeSettings auto-trade sell zero hook could not be installed: {ex}");
+            }
+        }
+
+        private void InstallEnemyProximityBulldozeCursorHook()
+        {
+            try
+            {
+                enemyProximityBulldozeCursorHook = new EnemyProximityBulldozeCursorHook(log, settings);
+            }
+            catch (Exception ex)
+            {
+                log.LogError($"SomeSettings enemy-proximity bulldoze cursor hook could not be installed: {ex}");
             }
         }
 
@@ -486,8 +502,8 @@ namespace SomeSettings
             }
 
             bool isAI = GamePlayerManagerAPI.Instance.IsAIPlayer(playerId);
-            int multiplyGoods = isAI ? settings.MultiplyGoodsGainAI : settings.MultiplyGoodsGainHuman;
-            int multiplyMoney = isAI ? settings.MultiplyGoodsGainInMoneyAI : settings.MultiplyGoodsGainInMoneyHuman;
+            double multiplyGoods = isAI ? settings.MultiplyGoodsGainAI : settings.MultiplyGoodsGainHuman;
+            double multiplyMoney = isAI ? settings.MultiplyGoodsGainInMoneyAI : settings.MultiplyGoodsGainInMoneyHuman;
             LogDebugForResourceEventPlayer(
                 playerId,
                 "OnGoodsyardAddGood processing:",
@@ -502,7 +518,7 @@ namespace SomeSettings
 
             if (multiplyGoods > 1)
             {
-                int bonusAmount = args.AddAmount * (multiplyGoods - 1);
+                int bonusAmount = (int)Math.Round(args.AddAmount * (multiplyGoods - 1), MidpointRounding.AwayFromZero);
                 LogDebugForResourceEventPlayer(
                     playerId,
                     "OnGoodsyardAddGood TryAddGood bonus:",
@@ -526,7 +542,7 @@ namespace SomeSettings
             {
                 PackedGoodPrice price = GamePlayerManagerAPI.Instance.GetTradeBasePrice(args.Good);
                 int sellPricePerItem = price.SellPrice / 5;
-                int money = args.AddAmount * sellPricePerItem * multiplyMoney;
+                int money = (int)Math.Round(args.AddAmount * sellPricePerItem * multiplyMoney, MidpointRounding.AwayFromZero);
                 LogDebugForResourceEventPlayer(
                     playerId,
                     "OnGoodsyardAddGood money bonus:",

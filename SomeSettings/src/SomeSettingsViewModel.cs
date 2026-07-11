@@ -5,6 +5,7 @@ using SHCDESE.Interop;
 using SHCDESE.NoesisUtil;
 using SHCDESE.ViewModels;
 using System;
+using System.Globalization;
 
 namespace SomeSettings
 {
@@ -18,10 +19,10 @@ namespace SomeSettings
         private string ironRefundPercentText = "-1";
         private string pitchRefundPercentText = "-1";
         private string goldRefundPercentText = "-1";
-        private int multiplyGoodsGainAI = 1;
-        private int multiplyGoodsGainHuman = 1;
-        private int multiplyGoodsGainInMoneyAI;
-        private int multiplyGoodsGainInMoneyHuman;
+        private double multiplyGoodsGainAI = 1.0;
+        private double multiplyGoodsGainHuman = 1.0;
+        private double multiplyGoodsGainInMoneyAI;
+        private double multiplyGoodsGainInMoneyHuman;
         private double marketBuyPriceMultiplier = 1.0;
         private double marketSellPriceMultiplier = 1.0;
         private bool keepStorageContent;
@@ -156,18 +157,18 @@ namespace SomeSettings
         public int PitchRefundPercent => ParsePercentOrUnchanged(PitchRefundPercentText);
         public int GoldRefundPercent => ParsePercentOrUnchanged(GoldRefundPercentText);
 
-        [SyncHostOnly] public int MultiplyGoodsGainAI { get => multiplyGoodsGainAI; set => SetIntSetting(ref multiplyGoodsGainAI, value, nameof(MultiplyGoodsGainAI), nameof(MultiplyGoodsGainAIText)); }
-        [SyncHostOnly] public int MultiplyGoodsGainHuman { get => multiplyGoodsGainHuman; set => SetIntSetting(ref multiplyGoodsGainHuman, value, nameof(MultiplyGoodsGainHuman), nameof(MultiplyGoodsGainHumanText)); }
-        [SyncHostOnly] public int MultiplyGoodsGainInMoneyAI { get => multiplyGoodsGainInMoneyAI; set => SetIntSetting(ref multiplyGoodsGainInMoneyAI, value, nameof(MultiplyGoodsGainInMoneyAI), nameof(MultiplyGoodsGainInMoneyAIText)); }
-        [SyncHostOnly] public int MultiplyGoodsGainInMoneyHuman { get => multiplyGoodsGainInMoneyHuman; set => SetIntSetting(ref multiplyGoodsGainInMoneyHuman, value, nameof(MultiplyGoodsGainInMoneyHuman), nameof(MultiplyGoodsGainInMoneyHumanText)); }
+        [SyncHostOnly] public double MultiplyGoodsGainAI { get => multiplyGoodsGainAI; set => SetDecimalMultiplierSetting(ref multiplyGoodsGainAI, value, nameof(MultiplyGoodsGainAI), nameof(MultiplyGoodsGainAIText)); }
+        [SyncHostOnly] public double MultiplyGoodsGainHuman { get => multiplyGoodsGainHuman; set => SetDecimalMultiplierSetting(ref multiplyGoodsGainHuman, value, nameof(MultiplyGoodsGainHuman), nameof(MultiplyGoodsGainHumanText)); }
+        [SyncHostOnly] public double MultiplyGoodsGainInMoneyAI { get => multiplyGoodsGainInMoneyAI; set => SetDecimalMultiplierSetting(ref multiplyGoodsGainInMoneyAI, value, nameof(MultiplyGoodsGainInMoneyAI), nameof(MultiplyGoodsGainInMoneyAIText)); }
+        [SyncHostOnly] public double MultiplyGoodsGainInMoneyHuman { get => multiplyGoodsGainInMoneyHuman; set => SetDecimalMultiplierSetting(ref multiplyGoodsGainInMoneyHuman, value, nameof(MultiplyGoodsGainInMoneyHuman), nameof(MultiplyGoodsGainInMoneyHumanText)); }
         [SyncHostOnly] public double MarketBuyPriceMultiplier { get => marketBuyPriceMultiplier; set => SetDoubleSetting(ref marketBuyPriceMultiplier, value, nameof(MarketBuyPriceMultiplier), nameof(MarketBuyPriceMultiplierValueText)); }
         [SyncHostOnly] public double MarketSellPriceMultiplier { get => marketSellPriceMultiplier; set => SetDoubleSetting(ref marketSellPriceMultiplier, value, nameof(MarketSellPriceMultiplier), nameof(MarketSellPriceMultiplierValueText)); }
         [SyncHostOnly] public bool RememberAiAivSettings { get => rememberAiAivSettings; set => SetSetting(ref rememberAiAivSettings, value, nameof(RememberAiAivSettings)); }
 
-        public string MultiplyGoodsGainAIText { get => MultiplyGoodsGainAI.ToString(); set => SetIntText(value, parsed => MultiplyGoodsGainAI = parsed, nameof(MultiplyGoodsGainAIText)); }
-        public string MultiplyGoodsGainHumanText { get => MultiplyGoodsGainHuman.ToString(); set => SetIntText(value, parsed => MultiplyGoodsGainHuman = parsed, nameof(MultiplyGoodsGainHumanText)); }
-        public string MultiplyGoodsGainInMoneyAIText { get => MultiplyGoodsGainInMoneyAI.ToString(); set => SetIntText(value, parsed => MultiplyGoodsGainInMoneyAI = parsed, nameof(MultiplyGoodsGainInMoneyAIText)); }
-        public string MultiplyGoodsGainInMoneyHumanText { get => MultiplyGoodsGainInMoneyHuman.ToString(); set => SetIntText(value, parsed => MultiplyGoodsGainInMoneyHuman = parsed, nameof(MultiplyGoodsGainInMoneyHumanText)); }
+        public string MultiplyGoodsGainAIText { get => FormatDecimalMultiplier(MultiplyGoodsGainAI); set => SetDecimalMultiplierText(value, parsed => MultiplyGoodsGainAI = parsed, nameof(MultiplyGoodsGainAIText)); }
+        public string MultiplyGoodsGainHumanText { get => FormatDecimalMultiplier(MultiplyGoodsGainHuman); set => SetDecimalMultiplierText(value, parsed => MultiplyGoodsGainHuman = parsed, nameof(MultiplyGoodsGainHumanText)); }
+        public string MultiplyGoodsGainInMoneyAIText { get => FormatDecimalMultiplier(MultiplyGoodsGainInMoneyAI); set => SetDecimalMultiplierText(value, parsed => MultiplyGoodsGainInMoneyAI = parsed, nameof(MultiplyGoodsGainInMoneyAIText)); }
+        public string MultiplyGoodsGainInMoneyHumanText { get => FormatDecimalMultiplier(MultiplyGoodsGainInMoneyHuman); set => SetDecimalMultiplierText(value, parsed => MultiplyGoodsGainInMoneyHuman = parsed, nameof(MultiplyGoodsGainInMoneyHumanText)); }
         public string MarketBuyPriceMultiplierValueText => MarketBuyPriceMultiplier.ToString("0.0");
         public string MarketSellPriceMultiplierValueText => MarketSellPriceMultiplier.ToString("0.0");
 
@@ -235,9 +236,32 @@ namespace SomeSettings
             OnPropertyChanged(textPropertyName);
         }
 
+        private void SetDecimalMultiplierSetting(ref double field, double value, string propertyName, string textPropertyName)
+        {
+            double normalized = NormalizeDecimalMultiplier(value);
+            if (Math.Abs(field - normalized) < 0.0001)
+                return;
+
+            field = normalized;
+            SettingChanged?.Invoke(propertyName);
+            OnPropertyChanged(propertyName);
+            OnPropertyChanged(textPropertyName);
+        }
+
         private void SetIntText(string text, Action<int> setValue, string textPropertyName)
         {
             if (!int.TryParse(text, out int parsed))
+            {
+                OnPropertyChanged(textPropertyName);
+                return;
+            }
+
+            setValue(parsed);
+        }
+
+        private void SetDecimalMultiplierText(string text, Action<double> setValue, string textPropertyName)
+        {
+            if (!TryParseDecimalMultiplier(text, out double parsed))
             {
                 OnPropertyChanged(textPropertyName);
                 return;
@@ -279,6 +303,34 @@ namespace SomeSettings
                 return 5.0;
 
             return rounded;
+        }
+
+        private static double NormalizeDecimalMultiplier(double value)
+        {
+            if (double.IsNaN(value) || double.IsInfinity(value))
+                return 0.0;
+
+            double rounded = Math.Round(value, 2, MidpointRounding.AwayFromZero);
+            return Math.Max(0.0, rounded);
+        }
+
+        private static bool TryParseDecimalMultiplier(string text, out double value)
+        {
+            string normalized = (text ?? string.Empty).Trim().Replace(',', '.');
+            bool parsed = double.TryParse(
+                normalized,
+                NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint,
+                CultureInfo.InvariantCulture,
+                out value);
+            if (parsed)
+                value = NormalizeDecimalMultiplier(value);
+
+            return parsed;
+        }
+
+        private static string FormatDecimalMultiplier(double value)
+        {
+            return NormalizeDecimalMultiplier(value).ToString("0.00", CultureInfo.InvariantCulture);
         }
 
         private static ImageSource GetGoodIconImage(eGoods good)
