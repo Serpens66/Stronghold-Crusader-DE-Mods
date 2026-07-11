@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Some Settings",
   "Description": "Adds small gameplay/QoL settings for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.5",
+  "Version": "1.0.6",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
@@ -36,6 +36,12 @@
       "Version": "1.0.5",
       "Changes": [
         "Fixed custom building refund percentages above the vanilla 50 percent value."
+      ]
+    },
+    {
+      "Version": "1.0.6",
+      "Changes": [
+        "Added a synchronized knight dismount command button that turns selected own mounted knights into swordsmen with matching health ratio."
       ]
     }
   ]

@@ -31,6 +31,12 @@
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding RememberAiAivSettingsText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox>
+      <CheckBox IsChecked="{Binding EnableKnightDismount, Mode=TwoWay}"
+                Foreground="White"
+                ToolTip="{Binding EnableKnightDismountHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding EnableKnightDismountText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox>
 
       <Separator Background="#444466" Margin="0,10"/>
       <TextBlock Text="{Binding AiEconomyProtectionTitleText}" Foreground="#77AAFF" FontWeight="Bold" Margin="0,0,0,8"/>

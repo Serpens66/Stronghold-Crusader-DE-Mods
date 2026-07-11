@@ -13,7 +13,7 @@ namespace SomeSettings
 
         public const string PluginGuid = "SomeSettings_Serp";
         public const string PluginName = "Some Settings";
-        public const string PluginVersion = "1.0.5";
+        public const string PluginVersion = "1.0.6";
 
         private SomeSettingsRuntime runtime;
         private bool runtimeDisposed;
@@ -58,6 +58,10 @@ namespace SomeSettings
                     "SomeSettings_Serp",
                     Settings,
                     "ScriptExtenderUI/SomeSettingsSettings.xaml");
+
+                GameXAMLManagerAPI.Instance.RegisterBinding(
+                    "SomeSettingsKnightDismountButtonHost",
+                    runtime.KnightDismountButton);
 
                 runtime.ApplySettings();
                 runtime.InstallAIEconomyProtectionHook(libraryHandle, memory);

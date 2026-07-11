@@ -34,6 +34,7 @@ namespace SomeSettings
         private SkirmishAiSelectionMemoryHook skirmishAiSelectionMemoryHook;
         private AutoTradeSellZeroHook autoTradeSellZeroHook;
         private EnemyProximityBulldozeCursorHook enemyProximityBulldozeCursorHook;
+        private KnightDismountRuntime knightDismountRuntime;
         private AIEconomyProtectionHook aiEconomyProtectionHook;
 
         private bool hooksSubscribed;
@@ -56,8 +57,11 @@ namespace SomeSettings
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
+            knightDismountRuntime = new KnightDismountRuntime(log, settings);
             SubscribeSettingsChanges();
         }
+
+        public object KnightDismountButton => knightDismountRuntime.ButtonViewModel;
 
         public void SubscribeHooks()
         {
@@ -84,6 +88,7 @@ namespace SomeSettings
             minimapPlacementClickHook = new MinimapPlacementClickHook(log, settings);
             coopTrailCustomizeHook = new CoopTrailCustomizeHook(log);
             skirmishAiSelectionMemoryHook = new SkirmishAiSelectionMemoryHook(log, settings);
+            knightDismountRuntime.Initialize();
             InstallAutoTradeSellZeroHook();
             InstallEnemyProximityBulldozeCursorHook();
             hooksSubscribed = true;
@@ -145,6 +150,8 @@ namespace SomeSettings
             coopTrailCustomizeHook = null;
             skirmishAiSelectionMemoryHook?.Dispose();
             skirmishAiSelectionMemoryHook = null;
+            knightDismountRuntime?.Dispose();
+            knightDismountRuntime = new KnightDismountRuntime(log, settings);
             autoTradeSellZeroHook?.Dispose();
             autoTradeSellZeroHook = null;
             enemyProximityBulldozeCursorHook?.Dispose();
@@ -211,6 +218,12 @@ namespace SomeSettings
             if (propertyName == nameof(SomeSettingsViewModel.KeepStorageContent))
             {
                 log.LogDebug($"SomeSettings changed: KeepStorageContent={settings.KeepStorageContent}.");
+                return;
+            }
+
+            if (propertyName == nameof(SomeSettingsViewModel.EnableKnightDismount))
+            {
+                knightDismountRuntime?.RefreshButtonVisibility();
                 return;
             }
 

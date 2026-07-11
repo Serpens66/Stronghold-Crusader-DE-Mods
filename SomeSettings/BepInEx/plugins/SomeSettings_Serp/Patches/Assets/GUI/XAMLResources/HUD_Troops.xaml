@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Patch xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+       xmlns:b="http://schemas.microsoft.com/xaml/behaviors"
+       xmlns:local="clr-namespace:CrusaderDE">
+  <Operation Type="Add" XPath="//n:Grid[@Name='UnitControls']">
+    <Content>
+      <Grid x:Name="SomeSettingsKnightDismountButtonHost"
+            Width="37"
+            Height="37"
+            Margin="{Binding ButtonMargin}"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Top"
+            Visibility="{Binding ButtonVisibility}">
+        <Button x:Name="SomeSettingsKnightDismountButton"
+                local:PropEx.Sprite1="{StaticResource UI-Buildings O011}"
+                local:PropEx.Sprite2="{StaticResource UI-Buildings O011}"
+                local:PropEx.Sprite3="{StaticResource UI-Buildings O011}"
+                local:PropEx.Sprite4="{StaticResource UI-Buildings O011}"
+                Width="39"
+                Height="39"
+                Margin="-1,-1,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Command="{Binding DismountCommand}"
+                Style="{StaticResource BTN_Image}">
+          <b:Interaction.Triggers>
+            <b:EventTrigger EventName="MouseEnter">
+              <b:InvokeCommandAction Command="{Binding MouseEnterCommand}" />
+            </b:EventTrigger>
+            <b:EventTrigger EventName="MouseLeave">
+              <b:InvokeCommandAction Command="{Binding MouseLeaveCommand}" />
+            </b:EventTrigger>
+          </b:Interaction.Triggers>
+        </Button>
+      </Grid>
+    </Content>
+  </Operation>
+</Patch>

@@ -107,6 +107,14 @@
       <HintPath>$(ExtenderDir)\Microsoft.Extensions.Logging.Abstractions.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="MessagePack">
+      <HintPath>$(ExtenderDir)\MessagePack.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="MessagePack.Annotations">
+      <HintPath>$(ExtenderDir)\MessagePack.Annotations.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
   </ItemGroup>
 
   <ItemGroup>
@@ -117,6 +125,7 @@
     <Compile Include="src\AutoTradeSellZeroHook.cs" />
     <Compile Include="src\CoopTrailCustomizeHook.cs" />
     <Compile Include="src\EnemyProximityBulldozeCursorHook.cs" />
+    <Compile Include="src\KnightDismountRuntime.cs" />
     <Compile Include="src\MinimapPlacementClickHook.cs" />
     <Compile Include="src\SkirmishAiSelectionMemoryHook.cs" />
     <Compile Include="src\SomeSettingsPlugin.cs" />
