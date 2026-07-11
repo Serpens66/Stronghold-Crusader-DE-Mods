@@ -186,6 +186,15 @@ namespace SomeSettings
         private FieldInfo editorSelectedChimpListField;
         private FieldInfo editorLastSelectedChimpListField;
         private FieldInfo editorGotNewSelectionInfoField;
+        private FieldInfo editorUnderCursorChimpListField;
+        private FieldInfo editorTroopSelectionBoxOnField;
+        private FieldInfo editorScheduleTroopSelectionEndField;
+        private FieldInfo editorLeftMouseStateForEngineField;
+        private FieldInfo editorStateReadField;
+        private FieldInfo editorUpPendingField;
+        private FieldInfo editorRightDownForEngineField;
+        private FieldInfo editorRightUpForEngineField;
+        private FieldInfo editorMouseStateSetTimeField;
         private List<int> pendingSelectionIds;
         private int pendingSelectionLocalPlayerId;
         private int pendingSelectionAttempts;
@@ -219,6 +228,15 @@ namespace SomeSettings
             editorSelectedChimpListField = typeof(EditorDirector).GetField("selectedChimpList", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
             editorLastSelectedChimpListField = typeof(EditorDirector).GetField("lastSelectedChimpList", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
             editorGotNewSelectionInfoField = typeof(EditorDirector).GetField("gotNewSelectionInfo", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            editorUnderCursorChimpListField = typeof(EditorDirector).GetField("underCursorChimpList", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            editorTroopSelectionBoxOnField = typeof(EditorDirector).GetField("troopSelectionBoxOn", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            editorScheduleTroopSelectionEndField = typeof(EditorDirector).GetField("scheduleTroopSelectionEnd", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            editorLeftMouseStateForEngineField = typeof(EditorDirector).GetField("leftMouseStateForEngine", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            editorStateReadField = typeof(EditorDirector).GetField("stateRead", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            editorUpPendingField = typeof(EditorDirector).GetField("upPending", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            editorRightDownForEngineField = typeof(EditorDirector).GetField("rightDownForEngine", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            editorRightUpForEngineField = typeof(EditorDirector).GetField("rightUpForEngine", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            editorMouseStateSetTimeField = typeof(EditorDirector).GetField("mouseStateSetTime", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
             initialized = true;
             RefreshButtonVisibility();
             LogDebug("Knight dismount runtime initialized.");
@@ -250,6 +268,15 @@ namespace SomeSettings
             editorSelectedChimpListField = null;
             editorLastSelectedChimpListField = null;
             editorGotNewSelectionInfoField = null;
+            editorUnderCursorChimpListField = null;
+            editorTroopSelectionBoxOnField = null;
+            editorScheduleTroopSelectionEndField = null;
+            editorLeftMouseStateForEngineField = null;
+            editorStateReadField = null;
+            editorUpPendingField = null;
+            editorRightDownForEngineField = null;
+            editorRightUpForEngineField = null;
+            editorMouseStateSetTimeField = null;
             packetHook = null;
             processedRequestIds.Clear();
             LogDebug("Knight dismount runtime disposed.");
@@ -865,11 +892,8 @@ namespace SomeSettings
             {
                 int[] idsArray = selectableIds.ToArray();
                 ApplyEngineSelection(selectableIds, selectableTypes);
-                ApplyEditorDirectorSelectionCache(idsArray);
-                ApplyNativeTroopSelection(idsArray);
-                EngineInterface.TroopSelectionChanged(selectableIds.ToArray());
+                QueueEditorDirectorSelection(idsArray);
                 UpdateEditorDirectorSelection(selectableIds, selectableTypes);
-                ResetCommandInputState();
                 MainViewModel.Instance?.TroopsSelectedGameAction(false);
                 LogSelectionState("Knight dismount selected units", selectableIds);
             }
@@ -921,12 +945,33 @@ namespace SomeSettings
             editorGotNewSelectionInfoField?.SetValue(editorDirector, true);
         }
 
-        private static void ApplyNativeTroopSelection(int[] selectableIds)
+        private void QueueEditorDirectorSelection(int[] selectableIds)
         {
-            int[] empty = Array.Empty<int>();
-            EngineInterface.TroopSelection(1, false, false, selectableIds, false, false, empty, -1, -1, false, empty);
-            EngineInterface.TroopSelection(2, false, false, selectableIds, true, false, empty, -1, -1, false, empty);
-            EngineInterface.TroopSelection(3, false, false, selectableIds, true, true, empty, -1, -1, false, empty);
+            if (selectableIds == null || selectableIds.Length == 0)
+                return;
+
+            EditorDirector editorDirector = EditorDirector.instance;
+            if (editorDirector == null)
+                return;
+
+            int[] selectionCopy = new int[selectableIds.Length];
+            Array.Copy(selectableIds, selectionCopy, selectableIds.Length);
+
+            ApplyEditorDirectorSelectionCache(selectionCopy);
+            editorUnderCursorChimpListField?.SetValue(editorDirector, Array.Empty<int>());
+            editorTroopSelectionBoxOnField?.SetValue(editorDirector, true);
+            editorScheduleTroopSelectionEndField?.SetValue(editorDirector, false);
+            editorLeftMouseStateForEngineField?.SetValue(editorDirector, 3);
+            editorStateReadField?.SetValue(editorDirector, false);
+            editorUpPendingField?.SetValue(editorDirector, false);
+            editorRightDownForEngineField?.SetValue(editorDirector, false);
+            editorRightUpForEngineField?.SetValue(editorDirector, false);
+            editorMouseStateSetTimeField?.SetValue(editorDirector, DateTime.UtcNow);
+
+            if (MainControls.instance != null)
+                MainControls.instance.CurrentAction = 9;
+
+            LogInfo($"Knight dismount queued editor selection: count={selectionCopy.Length}, currentAction={(MainControls.instance == null ? -1 : MainControls.instance.CurrentAction)}, mouseState=3, ids={string.Join(",", selectionCopy)}.");
         }
 
         private void ResetCommandInputState()
