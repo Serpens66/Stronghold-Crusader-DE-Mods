@@ -819,8 +819,7 @@ namespace SomeSettings
                     if (unitId <= 0 || !seenIds.Add(unitId))
                         continue;
 
-                    if (IsSelectableOwnAliveUnit(unitId, localPlayerId))
-                        selectionIds.Add(unitId);
+                    selectionIds.Add(unitId);
                 }
             }
 
@@ -851,6 +850,7 @@ namespace SomeSettings
 
                 unit->r_UnitSelected = 1;
                 unit->r_UnitSelected2 = 1;
+                unit->r_SelectionRelevant3 = (ushort)UnitSelectionType.SelectionRect;
                 selectableIds.Add(unitId);
                 selectableTypes.Add((int)unit->r_UnitChimp);
             }
@@ -866,11 +866,12 @@ namespace SomeSettings
                 int[] idsArray = selectableIds.ToArray();
                 ApplyEngineSelection(selectableIds, selectableTypes);
                 ApplyEditorDirectorSelectionCache(idsArray);
-                EngineInterface.TroopSelection(3, false, false, idsArray, false, true, Array.Empty<int>(), -1, -1, false, Array.Empty<int>());
+                ApplyNativeTroopSelection(idsArray);
                 EngineInterface.TroopSelectionChanged(selectableIds.ToArray());
                 UpdateEditorDirectorSelection(selectableIds, selectableTypes);
+                ResetCommandInputState();
                 MainViewModel.Instance?.TroopsSelectedGameAction(false);
-                LogInfo($"Knight dismount selected units: count={selectableIds.Count}, ids={string.Join(",", selectableIds)}.");
+                LogSelectionState("Knight dismount selected units", selectableIds);
             }
             catch (Exception ex)
             {
@@ -901,6 +902,7 @@ namespace SomeSettings
                 {
                     unit->r_UnitSelected = 1;
                     unit->r_UnitSelected2 = 1;
+                    unit->r_SelectionRelevant3 = (ushort)UnitSelectionType.SelectionRect;
                 }
             }
 
@@ -917,6 +919,44 @@ namespace SomeSettings
             editorSelectedChimpListField?.SetValue(editorDirector, selectableIds);
             editorLastSelectedChimpListField?.SetValue(editorDirector, selectableIds);
             editorGotNewSelectionInfoField?.SetValue(editorDirector, true);
+        }
+
+        private static void ApplyNativeTroopSelection(int[] selectableIds)
+        {
+            int[] empty = Array.Empty<int>();
+            EngineInterface.TroopSelection(1, false, false, selectableIds, false, false, empty, -1, -1, false, empty);
+            EngineInterface.TroopSelection(2, false, false, selectableIds, true, false, empty, -1, -1, false, empty);
+            EngineInterface.TroopSelection(3, false, false, selectableIds, true, true, empty, -1, -1, false, empty);
+        }
+
+        private void ResetCommandInputState()
+        {
+            try
+            {
+                if (MainControls.instance != null)
+                    MainControls.instance.CurrentAction = 0;
+
+                EditorDirector.instance?.clearMouseStateForEngine();
+            }
+            catch (Exception ex)
+            {
+                LogError($"Knight dismount command input reset failed: {ex}");
+            }
+        }
+
+        private void LogSelectionState(string prefix, List<int> selectableIds)
+        {
+            try
+            {
+                int selectedCount = GamePlayerManagerAPI.Instance.GetSelectedChimpsCount();
+                int[] selectedUnits = GetSelectedChimpsSafe();
+                int currentAction = MainControls.instance == null ? -1 : MainControls.instance.CurrentAction;
+                LogInfo($"{prefix}: requestedCount={selectableIds.Count}, engineCount={selectedCount}, engineIds={string.Join(",", selectedUnits)}, currentAction={currentAction}, ids={string.Join(",", selectableIds)}.");
+            }
+            catch (Exception ex)
+            {
+                LogError($"Knight dismount selection state log failed: {ex}");
+            }
         }
 
         private static void ClearSelectedUnitFlags()
