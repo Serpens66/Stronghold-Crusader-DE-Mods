@@ -57,7 +57,7 @@ namespace ImprovedHunters
         private static readonly long HunterTargetSummaryInterval = Stopwatch.Frequency * 5;
         private static readonly long HunterSearchDetectionGap = Stopwatch.Frequency / 4;
         private static readonly long PendingHunterShotIntentDelay = Stopwatch.Frequency;
-        private static readonly long ShortLivedCorpseVisiblePreserveDuration = Stopwatch.Frequency * 60;
+        private const int ShortLivedCorpseVisiblePreserveMapTicksAtSpeed40 = 1800;
         private static readonly long ShortLivedCorpsePreserveCleanupInterval = Stopwatch.Frequency * 10;
 
         private readonly ManualLogSource log;
@@ -76,7 +76,7 @@ namespace ImprovedHunters
         private readonly Dictionary<HunterShotIntentKey, PendingHunterShotIntent> pendingHunterShotIntents = new Dictionary<HunterShotIntentKey, PendingHunterShotIntent>();
 
         // Keeps short-lived corpses visible long enough for hunters to reach them.
-        // The value is either the preserve-until timestamp or ExpiredShortLivedCorpsePreserve.
+        // The value is either the preserve-until map tick or ExpiredShortLivedCorpsePreserve.
         private readonly Dictionary<uint, long> shortLivedCorpsePreserveUntil = new Dictionary<uint, long>();
 
         private ManagedAssemblyImmediate<short> rabbitDespawnTickTime;
@@ -187,6 +187,7 @@ namespace ImprovedHunters
                 List<IntPtr> hunters = new List<IntPtr>();
                 List<IntPtr> eligiblePrey = new List<IntPtr>();
                 int adjustedLiveCamels = 0;
+                long currentMapTick = GameTimeManagerAPI.Instance.GetElapsedMapTicks();
 
                 for (int index = 0; index < units.Length; index++)
                 {
@@ -206,7 +207,7 @@ namespace ImprovedHunters
                         IsRuntimeHuntingEnabled(unit->r_UnitChimp) &&
                         IsOwnerAllowedForAnyHunter(unitId, unit))
                     {
-                        PreserveShortLivedCorpse(unit, timestamp);
+                        PreserveShortLivedCorpse(unit, currentMapTick);
                     }
 
                     if (unit->r_AliveState == AliveState.None)
@@ -340,7 +341,7 @@ namespace ImprovedHunters
             }
         }
 
-        private unsafe void PreserveShortLivedCorpse(GameUnit* unit, long timestamp)
+        private unsafe void PreserveShortLivedCorpse(GameUnit* unit, long currentMapTick)
         {
             if (!IsTrackedShortLivedCorpse(unit))
                 return;
@@ -351,16 +352,16 @@ namespace ImprovedHunters
                 return;
 
             // The native timer can jump past small thresholds at high game speed.
-            // Reset it for a fixed real-time window instead of depending on one
-            // exact timer value being observed before the visual corpse disappears.
+            // Use map ticks instead of real time, so the 60-second preserve target
+            // is reached at speed 40 and scales naturally with game speed and pause.
             uint globalId = unit->r_GlobalId;
             if (!shortLivedCorpsePreserveUntil.TryGetValue(globalId, out long preserveUntil))
             {
-                preserveUntil = timestamp + ShortLivedCorpseVisiblePreserveDuration;
+                preserveUntil = currentMapTick + ShortLivedCorpseVisiblePreserveMapTicksAtSpeed40;
                 shortLivedCorpsePreserveUntil[globalId] = preserveUntil;
                 LogShortLivedCorpsePreserve(
                     $"Improved Hunters corpse visible preserve started: unit={globalId}/{unit->r_UnitChimp}, " +
-                    $"seconds={ShortLivedCorpseVisiblePreserveDuration / Stopwatch.Frequency}.");
+                    $"mapTicks={ShortLivedCorpseVisiblePreserveMapTicksAtSpeed40}, baselineSpeed=40.");
             }
             else if (preserveUntil == ExpiredShortLivedCorpsePreserve)
             {
@@ -369,11 +370,12 @@ namespace ImprovedHunters
                 return;
             }
 
-            if (timestamp > preserveUntil)
+            if (currentMapTick > preserveUntil)
             {
                 shortLivedCorpsePreserveUntil[globalId] = ExpiredShortLivedCorpsePreserve;
                 LogShortLivedCorpsePreserve(
-                    $"Improved Hunters corpse visible preserve expired: unit={globalId}/{unit->r_UnitChimp}.");
+                    $"Improved Hunters corpse visible preserve expired: unit={globalId}/{unit->r_UnitChimp}, " +
+                    $"currentMapTick={currentMapTick}, preserveUntil={preserveUntil}.");
                 return;
             }
 
