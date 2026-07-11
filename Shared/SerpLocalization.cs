@@ -147,7 +147,7 @@ public static class SerpLocalization
         { GoldRefund, "Gold refund %" },
         { VanillaValue50, "Vanilla value: 50%." },
         { KeepStorageContent, "Keep Storage Content" },
-        { KeepStorageContentHelp, "When enabled, bulldozing a granary, armory, or stockpile keeps the goods stored inside by adding them back as incoming goods." },
+        { KeepStorageContentHelp, "When enabled, bulldozing a granary, armory, or stockpile keeps the goods stored inside by adding them back as incoming goods.\nIf Granary was built for free can't credit goods back (happens when building it while no wood is on stock)" },
         { EconomyBuffsTitle, "Economy Buffs" },
         { MultiplyGoodsGain, "Multiply goods gain" },
         { MultiplyGoodsGainHelp, "Multiplier for gained goods. 1 = unchanged, 2 = double, 3 = triple. Values 1 or lower add nothing." },

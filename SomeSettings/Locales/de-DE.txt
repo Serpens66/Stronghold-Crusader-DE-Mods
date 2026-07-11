@@ -17,7 +17,7 @@ SomeSettings.PitchRefund=Pech-Erstattung %
 SomeSettings.GoldRefund=Gold-Erstattung %
 SomeSettings.VanillaValue50=Vanilla-Wert: 50%.
 SomeSettings.KeepStorageContent=Lagerinhalt behalten
-SomeSettings.KeepStorageContentHelp=Wenn aktiviert, bleiben beim Abreissen von Kornspeicher, Waffenkammer oder Vorratslager die enthaltenen Gueter erhalten und werden als eingehende Gueter wieder hinzugefuegt.
+SomeSettings.KeepStorageContentHelp=Wenn aktiviert, bleiben beim Abreissen von Kornspeicher, Waffenkammer oder Vorratslager die enthaltenen Gueter erhalten und werden als eingehende Gueter wieder hinzugefuegt.\nIf Granary was built for free can't credit goods back (happens when building it while no wood is on stock)
 SomeSettings.EconomyBuffsTitle=Wirtschafts-Buffs
 SomeSettings.MultiplyGoodsGain=Guetergewinn multiplizieren
 SomeSettings.MultiplyGoodsGainHelp=Multiplikator für erhaltene Gueter. 1 = unverändert, 2 = doppelt, 3 = dreifach. Werte 1 oder kleiner fuegen nichts hinzu.
