@@ -1,4 +1,4 @@
-using BepInEx.Logging;
+﻿using BepInEx.Logging;
 using CrusaderDE;
 using MessagePack;
 using MessagePack.Formatters;
@@ -70,39 +70,95 @@ namespace SomeSettings
             {
                 switch (i)
                 {
-                    case 0:
-                        packet.SourcePlayerId = reader.ReadInt32();
-                        break;
-                    case 1:
-                        packet.RequestId = reader.ReadInt32();
-                        break;
-                    case 2:
-                        packet.KnightGlobalId = reader.ReadInt32();
-                        break;
-                    case 3:
-                        packet.OwnerPlayerId = reader.ReadInt32();
-                        break;
-                    case 4:
-                        packet.ColorPlayerId = reader.ReadInt32();
-                        break;
-                    case 5:
-                        packet.TileX = reader.ReadInt32();
-                        break;
-                    case 6:
-                        packet.TileY = reader.ReadInt32();
-                        break;
-                    case 7:
-                        packet.Height = reader.ReadInt32();
-                        break;
-                    case 8:
-                        packet.CurrentHealth = reader.ReadInt32();
-                        break;
-                    case 9:
-                        packet.MaxHealth = reader.ReadInt32();
-                        break;
-                    default:
-                        reader.Skip();
-                        break;
+                    case 0: packet.SourcePlayerId = reader.ReadInt32(); break;
+                    case 1: packet.RequestId = reader.ReadInt32(); break;
+                    case 2: packet.KnightGlobalId = reader.ReadInt32(); break;
+                    case 3: packet.OwnerPlayerId = reader.ReadInt32(); break;
+                    case 4: packet.ColorPlayerId = reader.ReadInt32(); break;
+                    case 5: packet.TileX = reader.ReadInt32(); break;
+                    case 6: packet.TileY = reader.ReadInt32(); break;
+                    case 7: packet.Height = reader.ReadInt32(); break;
+                    case 8: packet.CurrentHealth = reader.ReadInt32(); break;
+                    case 9: packet.MaxHealth = reader.ReadInt32(); break;
+                    default: reader.Skip(); break;
+                }
+            }
+
+            return packet;
+        }
+    }
+
+    [MessagePackObject]
+    [MessagePackFormatter(typeof(KnightMountPacketFormatter))]
+    public sealed class KnightMountPacket
+    {
+        [Key(0)] public int SourcePlayerId { get; set; }
+        [Key(1)] public int RequestId { get; set; }
+        [Key(2)] public int SwordsmanGlobalId { get; set; }
+        [Key(3)] public int OwnerPlayerId { get; set; }
+        [Key(4)] public int ColorPlayerId { get; set; }
+        [Key(5)] public int TileX { get; set; }
+        [Key(6)] public int TileY { get; set; }
+        [Key(7)] public int Height { get; set; }
+        [Key(8)] public int CurrentHealth { get; set; }
+        [Key(9)] public int MaxHealth { get; set; }
+        [Key(10)] public int StableId { get; set; }
+        [Key(11)] public int StableGlobalId { get; set; }
+        [Key(12)] public int StableSlot { get; set; }
+    }
+
+    public sealed class KnightMountPacketFormatter : IMessagePackFormatter<KnightMountPacket>
+    {
+        public void Serialize(ref MessagePackWriter writer, KnightMountPacket value, MessagePackSerializerOptions options)
+        {
+            if (value == null)
+            {
+                writer.WriteNil();
+                return;
+            }
+
+            writer.WriteArrayHeader(13);
+            writer.Write(value.SourcePlayerId);
+            writer.Write(value.RequestId);
+            writer.Write(value.SwordsmanGlobalId);
+            writer.Write(value.OwnerPlayerId);
+            writer.Write(value.ColorPlayerId);
+            writer.Write(value.TileX);
+            writer.Write(value.TileY);
+            writer.Write(value.Height);
+            writer.Write(value.CurrentHealth);
+            writer.Write(value.MaxHealth);
+            writer.Write(value.StableId);
+            writer.Write(value.StableGlobalId);
+            writer.Write(value.StableSlot);
+        }
+
+        public KnightMountPacket Deserialize(ref MessagePackReader reader, MessagePackSerializerOptions options)
+        {
+            if (reader.TryReadNil())
+                return null;
+
+            int count = reader.ReadArrayHeader();
+            KnightMountPacket packet = new KnightMountPacket();
+
+            for (int i = 0; i < count; i++)
+            {
+                switch (i)
+                {
+                    case 0: packet.SourcePlayerId = reader.ReadInt32(); break;
+                    case 1: packet.RequestId = reader.ReadInt32(); break;
+                    case 2: packet.SwordsmanGlobalId = reader.ReadInt32(); break;
+                    case 3: packet.OwnerPlayerId = reader.ReadInt32(); break;
+                    case 4: packet.ColorPlayerId = reader.ReadInt32(); break;
+                    case 5: packet.TileX = reader.ReadInt32(); break;
+                    case 6: packet.TileY = reader.ReadInt32(); break;
+                    case 7: packet.Height = reader.ReadInt32(); break;
+                    case 8: packet.CurrentHealth = reader.ReadInt32(); break;
+                    case 9: packet.MaxHealth = reader.ReadInt32(); break;
+                    case 10: packet.StableId = reader.ReadInt32(); break;
+                    case 11: packet.StableGlobalId = reader.ReadInt32(); break;
+                    case 12: packet.StableSlot = reader.ReadInt32(); break;
+                    default: reader.Skip(); break;
                 }
             }
 
@@ -115,17 +171,29 @@ namespace SomeSettings
         private static readonly Thickness DefaultButtonMargin = new Thickness(81, 40, 0, 3);
 
         private Visibility buttonVisibility = Visibility.Hidden;
+        private Visibility dismountButtonVisibility = Visibility.Hidden;
+        private Visibility mountButtonVisibility = Visibility.Hidden;
         private Thickness buttonMargin = DefaultButtonMargin;
+        private bool mountButtonEnabled;
 
-        public KnightDismountButtonViewModel(Action dismount, Action showTooltip, Action hideTooltip)
+        public KnightDismountButtonViewModel(
+            Action dismount,
+            Action mount,
+            Action showDismountTooltip,
+            Action showMountTooltip,
+            Action hideTooltip)
         {
             DismountCommand = new RelayCommand(dismount ?? throw new ArgumentNullException(nameof(dismount)));
-            MouseEnterCommand = new RelayCommand(showTooltip ?? throw new ArgumentNullException(nameof(showTooltip)));
+            MountCommand = new RelayCommand(mount ?? throw new ArgumentNullException(nameof(mount)));
+            DismountMouseEnterCommand = new RelayCommand(showDismountTooltip ?? throw new ArgumentNullException(nameof(showDismountTooltip)));
+            MountMouseEnterCommand = new RelayCommand(showMountTooltip ?? throw new ArgumentNullException(nameof(showMountTooltip)));
             MouseLeaveCommand = new RelayCommand(hideTooltip ?? throw new ArgumentNullException(nameof(hideTooltip)));
         }
 
         public RelayCommand DismountCommand { get; }
-        public RelayCommand MouseEnterCommand { get; }
+        public RelayCommand MountCommand { get; }
+        public RelayCommand DismountMouseEnterCommand { get; }
+        public RelayCommand MountMouseEnterCommand { get; }
         public RelayCommand MouseLeaveCommand { get; }
 
         public Thickness ButtonMargin
@@ -154,15 +222,69 @@ namespace SomeSettings
             }
         }
 
-        public void SetVisible(bool visible)
+        public Visibility DismountButtonVisibility
         {
-            ButtonVisibility = visible ? Visibility.Visible : Visibility.Hidden;
+            get => dismountButtonVisibility;
+            private set
+            {
+                if (dismountButtonVisibility == value)
+                    return;
+
+                dismountButtonVisibility = value;
+                OnPropertyChanged(nameof(DismountButtonVisibility));
+            }
         }
 
-        public void SetPlacement(bool visible, Thickness margin)
+        public Visibility MountButtonVisibility
+        {
+            get => mountButtonVisibility;
+            private set
+            {
+                if (mountButtonVisibility == value)
+                    return;
+
+                mountButtonVisibility = value;
+                OnPropertyChanged(nameof(MountButtonVisibility));
+            }
+        }
+
+        public bool MountButtonEnabled
+        {
+            get => mountButtonEnabled;
+            private set
+            {
+                if (mountButtonEnabled == value)
+                    return;
+
+                mountButtonEnabled = value;
+                OnPropertyChanged(nameof(MountButtonEnabled));
+            }
+        }
+
+        public void Hide()
+        {
+            ButtonVisibility = Visibility.Hidden;
+            DismountButtonVisibility = Visibility.Hidden;
+            MountButtonVisibility = Visibility.Hidden;
+            MountButtonEnabled = false;
+        }
+
+        public void ShowDismount(Thickness margin)
         {
             ButtonMargin = margin;
-            SetVisible(visible);
+            ButtonVisibility = Visibility.Visible;
+            DismountButtonVisibility = Visibility.Visible;
+            MountButtonVisibility = Visibility.Hidden;
+            MountButtonEnabled = false;
+        }
+
+        public void ShowMount(Thickness margin, bool enabled)
+        {
+            ButtonMargin = margin;
+            ButtonVisibility = Visibility.Visible;
+            DismountButtonVisibility = Visibility.Hidden;
+            MountButtonVisibility = Visibility.Visible;
+            MountButtonEnabled = enabled;
         }
     }
 
@@ -171,6 +293,8 @@ namespace SomeSettings
         private delegate void SetuptroopActionsUIDelegate(HUD_Troops self, bool fromInitialOpening);
 
         private static readonly Thickness BottomRightSlotMargin = new Thickness(81, 40, 0, 3);
+        private const int StableHorseSlotCount = 4;
+        private const string MissingWeaponsSpeechFileName = "Other_Warning6.wav";
 
         private readonly ManualLogSource log;
         private readonly SomeSettingsViewModel settings;
@@ -178,9 +302,12 @@ namespace SomeSettings
         private readonly KnightDismountButtonViewModel buttonViewModel;
         private Hook setupTroopActionsHook;
         private SetuptroopActionsUIDelegate setupTroopActionsTrampoline;
-        private R3PacketEventHook<KnightDismountPacket> packetHook;
-        private IDisposable packetSubscription;
+        private R3PacketEventHook<KnightDismountPacket> dismountPacketHook;
+        private R3PacketEventHook<KnightMountPacket> mountPacketHook;
+        private IDisposable dismountPacketSubscription;
+        private IDisposable mountPacketSubscription;
         private Button hookedDismountButton;
+        private Button hookedMountButton;
         private int nextRequestId;
         private bool initialized;
         private bool disposed;
@@ -189,7 +316,12 @@ namespace SomeSettings
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
-            buttonViewModel = new KnightDismountButtonViewModel(OnDismountCommand, ShowDismountTooltip, HideDismountTooltip);
+            buttonViewModel = new KnightDismountButtonViewModel(
+                OnDismountCommand,
+                OnMountCommand,
+                ShowDismountTooltip,
+                ShowMountTooltip,
+                HideTooltip);
         }
 
         public KnightDismountButtonViewModel ButtonViewModel => buttonViewModel;
@@ -200,8 +332,10 @@ namespace SomeSettings
                 return;
 
             disposed = false;
-            packetHook = GameNetworkAPI.Instance.GetPacketEventFor<KnightDismountPacket>();
-            packetSubscription = packetHook.GetBaseHook().Observable.Subscribe(OnPacketReceived);
+            dismountPacketHook = GameNetworkAPI.Instance.GetPacketEventFor<KnightDismountPacket>();
+            mountPacketHook = GameNetworkAPI.Instance.GetPacketEventFor<KnightMountPacket>();
+            dismountPacketSubscription = dismountPacketHook.GetBaseHook().Observable.Subscribe(OnDismountPacketReceived);
+            mountPacketSubscription = mountPacketHook.GetBaseHook().Observable.Subscribe(OnMountPacketReceived);
             setupTroopActionsHook = new Hook(FindSetuptroopActionsUIMethod(), (SetuptroopActionsUIDelegate)SetuptroopActionsUIHook);
             setupTroopActionsTrampoline = setupTroopActionsHook.GenerateTrampoline<SetuptroopActionsUIDelegate>();
             initialized = true;
@@ -215,21 +349,19 @@ namespace SomeSettings
 
             disposed = true;
             initialized = false;
-            buttonViewModel.SetVisible(false);
-            if (hookedDismountButton != null)
-            {
-                hookedDismountButton.MouseEnter -= OnDismountButtonMouseEnter;
-                hookedDismountButton.MouseLeave -= OnDismountButtonMouseLeave;
-                hookedDismountButton = null;
-            }
+            buttonViewModel.Hide();
+            UnhookButtonEvents();
 
-            packetSubscription?.Dispose();
-            packetSubscription = null;
+            dismountPacketSubscription?.Dispose();
+            mountPacketSubscription?.Dispose();
+            dismountPacketSubscription = null;
+            mountPacketSubscription = null;
             setupTroopActionsHook?.Undo();
             setupTroopActionsHook?.Dispose();
             setupTroopActionsHook = null;
             setupTroopActionsTrampoline = null;
-            packetHook = null;
+            dismountPacketHook = null;
+            mountPacketHook = null;
             processedRequestIds.Clear();
         }
 
@@ -237,25 +369,37 @@ namespace SomeSettings
         {
             try
             {
-                bool visible = settings.EnableMod && settings.EnableKnightDismount && HasSelectedOwnKnight();
-                if (!visible)
+                if (!settings.EnableMod || !settings.EnableKnightDismount)
                 {
-                    buttonViewModel.SetVisible(false);
+                    buttonViewModel.Hide();
                     return;
                 }
 
                 if (!IsBottomRightSlotFree())
                 {
-                    buttonViewModel.SetVisible(false);
+                    buttonViewModel.Hide();
                     return;
                 }
 
-                buttonViewModel.SetPlacement(true, BottomRightSlotMargin);
+                int localPlayerId = GetLocalPlayerIdOrOne();
+                if (HasSelectedOwnKnight(localPlayerId))
+                {
+                    buttonViewModel.ShowDismount(BottomRightSlotMargin);
+                    return;
+                }
+
+                if (HasSelectedOwnSwordsman(localPlayerId))
+                {
+                    buttonViewModel.ShowMount(BottomRightSlotMargin, CountAvailableHorseSlots(localPlayerId) > 0);
+                    return;
+                }
+
+                buttonViewModel.Hide();
             }
             catch (Exception ex)
             {
-                buttonViewModel.SetVisible(false);
-                LogError($"Knight dismount visibility refresh failed: {ex}");
+                buttonViewModel.Hide();
+                LogError($"Knight mount/dismount visibility refresh failed: {ex}");
             }
         }
 
@@ -277,28 +421,66 @@ namespace SomeSettings
         private void SetuptroopActionsUIHook(HUD_Troops self, bool fromInitialOpening)
         {
             setupTroopActionsTrampoline(self, fromInitialOpening);
-            HookDismountButtonEvents(self);
+            HookButtonEvents(self);
             RefreshButtonVisibility();
         }
 
-        private void HookDismountButtonEvents(HUD_Troops troopPanel)
+        private void HookButtonEvents(HUD_Troops troopPanel)
         {
             if (troopPanel == null)
                 return;
 
-            Button button = troopPanel.FindName("SomeSettingsKnightDismountButton") as Button;
+            HookDismountButton(troopPanel.FindName("SomeSettingsKnightDismountButton") as Button);
+            HookMountButton(troopPanel.FindName("SomeSettingsKnightMountButton") as Button);
+        }
+
+        private void HookDismountButton(Button button)
+        {
             if (button == null || ReferenceEquals(button, hookedDismountButton))
                 return;
 
             if (hookedDismountButton != null)
             {
                 hookedDismountButton.MouseEnter -= OnDismountButtonMouseEnter;
-                hookedDismountButton.MouseLeave -= OnDismountButtonMouseLeave;
+                hookedDismountButton.MouseLeave -= OnButtonMouseLeave;
             }
 
             hookedDismountButton = button;
             hookedDismountButton.MouseEnter += OnDismountButtonMouseEnter;
-            hookedDismountButton.MouseLeave += OnDismountButtonMouseLeave;
+            hookedDismountButton.MouseLeave += OnButtonMouseLeave;
+        }
+
+        private void HookMountButton(Button button)
+        {
+            if (button == null || ReferenceEquals(button, hookedMountButton))
+                return;
+
+            if (hookedMountButton != null)
+            {
+                hookedMountButton.MouseEnter -= OnMountButtonMouseEnter;
+                hookedMountButton.MouseLeave -= OnButtonMouseLeave;
+            }
+
+            hookedMountButton = button;
+            hookedMountButton.MouseEnter += OnMountButtonMouseEnter;
+            hookedMountButton.MouseLeave += OnButtonMouseLeave;
+        }
+
+        private void UnhookButtonEvents()
+        {
+            if (hookedDismountButton != null)
+            {
+                hookedDismountButton.MouseEnter -= OnDismountButtonMouseEnter;
+                hookedDismountButton.MouseLeave -= OnButtonMouseLeave;
+                hookedDismountButton = null;
+            }
+
+            if (hookedMountButton != null)
+            {
+                hookedMountButton.MouseEnter -= OnMountButtonMouseEnter;
+                hookedMountButton.MouseLeave -= OnButtonMouseLeave;
+                hookedMountButton = null;
+            }
         }
 
         private void OnDismountButtonMouseEnter(object sender, MouseEventArgs e)
@@ -306,12 +488,33 @@ namespace SomeSettings
             ShowDismountTooltip();
         }
 
-        private void OnDismountButtonMouseLeave(object sender, MouseEventArgs e)
+        private void OnMountButtonMouseEnter(object sender, MouseEventArgs e)
         {
-            HideDismountTooltip();
+            ShowMountTooltip();
+        }
+
+        private void OnButtonMouseLeave(object sender, MouseEventArgs e)
+        {
+            HideTooltip();
         }
 
         private void ShowDismountTooltip()
+        {
+            ShowTooltip(
+                SerpLocalization.Get(SerpLocalization.KnightDismountTooltip),
+                SerpLocalization.Get(SerpLocalization.KnightDismountTooltipBody),
+                "dismount");
+        }
+
+        private void ShowMountTooltip()
+        {
+            ShowTooltip(
+                SerpLocalization.Get(SerpLocalization.KnightMountTooltip),
+                SerpLocalization.Get(SerpLocalization.KnightMountTooltipBody),
+                "mount");
+        }
+
+        private void ShowTooltip(string title, string body, string label)
         {
             try
             {
@@ -320,19 +523,19 @@ namespace SomeSettings
                 if (mainViewModel == null || troopPanel == null)
                     return;
 
-                mainViewModel.TroopsPanelRollover = SerpLocalization.Get(SerpLocalization.KnightDismountTooltip);
+                mainViewModel.TroopsPanelRollover = title;
                 mainViewModel.TroopsPanelRollover_AmountReq1 = string.Empty;
-                mainViewModel.TroopsPanelRollover_AmountGot1 = SerpLocalization.Get(SerpLocalization.KnightDismountTooltipBody);
+                mainViewModel.TroopsPanelRollover_AmountGot1 = body;
                 mainViewModel.TroopsPanelRollover_GoodsImage1 = null;
                 SetTroopRolloverVisibility(troopPanel, false, true);
             }
             catch (Exception ex)
             {
-                LogError($"Knight dismount tooltip show failed: {ex}");
+                LogError($"Knight {label} tooltip show failed: {ex}");
             }
         }
 
-        private void HideDismountTooltip()
+        private void HideTooltip()
         {
             try
             {
@@ -342,7 +545,7 @@ namespace SomeSettings
             }
             catch (Exception ex)
             {
-                LogError($"Knight dismount tooltip hide failed: {ex}");
+                LogError($"Knight mount/dismount tooltip hide failed: {ex}");
             }
         }
 
@@ -358,10 +561,19 @@ namespace SomeSettings
                 longTooltip.Visibility = showLongTooltip ? Visibility.Visible : Visibility.Hidden;
         }
 
-        private bool HasSelectedOwnKnight()
+        private bool HasSelectedOwnKnight(int localPlayerId)
         {
-            int localPlayerId = GetLocalPlayerIdOrOne();
-            int[] selectedUnits = GamePlayerManagerAPI.Instance.GetSelectedChimps();
+            return HasSelectedOwnUnit(localPlayerId, eChimps.CHIMP_TYPE_KNIGHT);
+        }
+
+        private bool HasSelectedOwnSwordsman(int localPlayerId)
+        {
+            return HasSelectedOwnUnit(localPlayerId, eChimps.CHIMP_TYPE_SWORDSMAN);
+        }
+
+        private bool HasSelectedOwnUnit(int localPlayerId, eChimps unitType)
+        {
+            int[] selectedUnits = GetSelectedChimpsSafe();
             GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
 
             for (int i = 0; i < selectedUnits.Length; i++)
@@ -370,7 +582,7 @@ namespace SomeSettings
                 if (unitId <= 0 || !unitApi.TryGetUnitById(unitId, out GameUnit* unit))
                     continue;
 
-                if (IsOwnAliveKnight(unit, localPlayerId))
+                if (IsOwnAliveUnit(unit, localPlayerId, unitType))
                     return true;
             }
 
@@ -381,7 +593,7 @@ namespace SomeSettings
                 if (unitId <= 0 || !unitApi.TryGetUnitById(unitId, out GameUnit* unit))
                     continue;
 
-                if (IsSelected(unit) && IsOwnAliveKnight(unit, localPlayerId))
+                if (IsSelected(unit) && IsOwnAliveUnit(unit, localPlayerId, unitType))
                     return true;
             }
 
@@ -422,14 +634,14 @@ namespace SomeSettings
                     return;
 
                 int localPlayerId = GetLocalPlayerIdOrOne();
-                List<KnightDismountSnapshot> snapshots = CaptureSelectedKnightSnapshots(localPlayerId);
+                List<UnitTransformSnapshot> snapshots = CaptureSelectedUnitSnapshots(localPlayerId, eChimps.CHIMP_TYPE_KNIGHT);
                 if (snapshots.Count == 0)
                 {
                     RefreshButtonVisibility();
                     return;
                 }
 
-                List<KnightDismountSnapshot> appliedSnapshots = new List<KnightDismountSnapshot>(snapshots.Count);
+                List<UnitTransformSnapshot> appliedSnapshots = new List<UnitTransformSnapshot>(snapshots.Count);
                 ApplyDismountBatch(snapshots, "local-click", appliedSnapshots);
                 for (int i = 0; i < appliedSnapshots.Count; i++)
                 {
@@ -445,9 +657,75 @@ namespace SomeSettings
             }
         }
 
-        private List<KnightDismountSnapshot> CaptureSelectedKnightSnapshots(int localPlayerId)
+        private void OnMountCommand()
         {
-            List<KnightDismountSnapshot> snapshots = new List<KnightDismountSnapshot>();
+            try
+            {
+                if (!settings.EnableMod || !settings.EnableKnightDismount)
+                {
+                    LogInfo("Knight mount click ignored: setting disabled.");
+                    return;
+                }
+
+                int localPlayerId = GetLocalPlayerIdOrOne();
+                LogInfo($"Knight mount click: localPlayerId={localPlayerId}.");
+
+                List<UnitTransformSnapshot> snapshots = CaptureSelectedUnitSnapshots(localPlayerId, eChimps.CHIMP_TYPE_SWORDSMAN);
+                LogInfo($"Knight mount click captured swordsmen: count={snapshots.Count}.");
+                if (snapshots.Count == 0)
+                {
+                    RefreshButtonVisibility();
+                    return;
+                }
+
+                List<HorseAllocation> allocations = FindHorseAllocations(localPlayerId, snapshots.Count);
+                LogInfo($"Knight mount click found horse allocations: count={allocations.Count}, requested={snapshots.Count}.");
+                if (allocations.Count == 0)
+                {
+                    LogStableHorseCandidates(localPlayerId);
+                    PlayMissingWeaponsSpeech();
+                    RefreshButtonVisibility();
+                    return;
+                }
+
+                int applyCount = Math.Min(snapshots.Count, allocations.Count);
+                LogInfo($"Knight mount click applying: applyCount={applyCount}, selectedSwordsmen={snapshots.Count}, availableHorses={allocations.Count}.");
+                List<AppliedMountSnapshot> appliedSnapshots = new List<AppliedMountSnapshot>(applyCount);
+                ApplyMountBatch(snapshots, allocations, applyCount, "local-click", appliedSnapshots);
+                LogInfo($"Knight mount click applied: count={appliedSnapshots.Count}.");
+                for (int i = 0; i < appliedSnapshots.Count; i++)
+                {
+                    int requestId = ++nextRequestId;
+                    SendMountPacket(localPlayerId, requestId, appliedSnapshots[i].Snapshot, appliedSnapshots[i].Allocation);
+                }
+
+                RefreshButtonVisibility();
+            }
+            catch (Exception ex)
+            {
+                LogError($"Knight mount click failed: {ex}");
+            }
+        }
+
+        private void PlayMissingWeaponsSpeech()
+        {
+            try
+            {
+                LogInfo($"Knight mount missing stable horse speech: file={MissingWeaponsSpeechFileName}.");
+                SFXManager.instance?.playSpeech(
+                    1,
+                    MissingWeaponsSpeechFileName,
+                    1f);
+            }
+            catch (Exception ex)
+            {
+                LogError($"Could not play knight mount missing stable horse speech: {ex}");
+            }
+        }
+
+        private List<UnitTransformSnapshot> CaptureSelectedUnitSnapshots(int localPlayerId, eChimps unitType)
+        {
+            List<UnitTransformSnapshot> snapshots = new List<UnitTransformSnapshot>();
             int[] selectedUnits = GetSelectedChimpsSafe();
             GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
             HashSet<int> seenGlobalIds = new HashSet<int>();
@@ -458,7 +736,7 @@ namespace SomeSettings
                 if (unitId <= 0 || !unitApi.TryGetUnitById(unitId, out GameUnit* unit))
                     continue;
 
-                if (!IsOwnAliveKnight(unit, localPlayerId))
+                if (!IsOwnAliveUnit(unit, localPlayerId, unitType))
                     continue;
 
                 AddSnapshot(snapshots, seenGlobalIds, unitId, unit);
@@ -471,7 +749,7 @@ namespace SomeSettings
                 if (unitId <= 0 || !unitApi.TryGetUnitById(unitId, out GameUnit* unit))
                     continue;
 
-                if (!IsSelected(unit) || !IsOwnAliveKnight(unit, localPlayerId))
+                if (!IsSelected(unit) || !IsOwnAliveUnit(unit, localPlayerId, unitType))
                     continue;
 
                 AddSnapshot(snapshots, seenGlobalIds, unitId, unit);
@@ -480,14 +758,14 @@ namespace SomeSettings
             return snapshots;
         }
 
-        private void AddSnapshot(List<KnightDismountSnapshot> snapshots, HashSet<int> seenGlobalIds, int unitId, GameUnit* unit)
+        private void AddSnapshot(List<UnitTransformSnapshot> snapshots, HashSet<int> seenGlobalIds, int unitId, GameUnit* unit)
         {
             int globalId = (int)unit->r_GlobalId;
             int snapshotKey = globalId > 0 ? globalId : -unitId;
             if (!seenGlobalIds.Add(snapshotKey))
                 return;
 
-            KnightDismountSnapshot snapshot = new KnightDismountSnapshot
+            UnitTransformSnapshot snapshot = new UnitTransformSnapshot
             {
                 UnitId = unitId,
                 GlobalId = globalId,
@@ -503,9 +781,9 @@ namespace SomeSettings
             snapshots.Add(snapshot);
         }
 
-        private void SendDismountPacket(int sourcePlayerId, int requestId, KnightDismountSnapshot snapshot)
+        private void SendDismountPacket(int sourcePlayerId, int requestId, UnitTransformSnapshot snapshot)
         {
-            if (!GameNetworkAPI.IsNetworkedEnvironment() || packetHook == null)
+            if (!GameNetworkAPI.IsNetworkedEnvironment() || dismountPacketHook == null)
                 return;
 
             try
@@ -524,7 +802,7 @@ namespace SomeSettings
                     MaxHealth = snapshot.MaxHealth
                 };
 
-                GameNetworkAPI.SendPacketToAll(packet, packetHook.GetPacketId());
+                GameNetworkAPI.SendPacketToAll(packet, dismountPacketHook.GetPacketId());
             }
             catch (Exception ex)
             {
@@ -532,7 +810,39 @@ namespace SomeSettings
             }
         }
 
-        private void OnPacketReceived(ReceiveCustomPacketEventArgs<KnightDismountPacket> args)
+        private void SendMountPacket(int sourcePlayerId, int requestId, UnitTransformSnapshot snapshot, HorseAllocation allocation)
+        {
+            if (!GameNetworkAPI.IsNetworkedEnvironment() || mountPacketHook == null)
+                return;
+
+            try
+            {
+                KnightMountPacket packet = new KnightMountPacket
+                {
+                    SourcePlayerId = sourcePlayerId,
+                    RequestId = requestId,
+                    SwordsmanGlobalId = snapshot.GlobalId,
+                    OwnerPlayerId = snapshot.OwnerPlayerId,
+                    ColorPlayerId = snapshot.ColorPlayerId,
+                    TileX = snapshot.TileX,
+                    TileY = snapshot.TileY,
+                    Height = snapshot.Height,
+                    CurrentHealth = snapshot.CurrentHealth,
+                    MaxHealth = snapshot.MaxHealth,
+                    StableId = allocation.StableId,
+                    StableGlobalId = allocation.StableGlobalId,
+                    StableSlot = allocation.Slot
+                };
+
+                GameNetworkAPI.SendPacketToAll(packet, mountPacketHook.GetPacketId());
+            }
+            catch (Exception ex)
+            {
+                LogError($"Knight mount packet send failed: sourcePlayerId={sourcePlayerId}, requestId={requestId}, globalId={snapshot.GlobalId}, owner={snapshot.OwnerPlayerId}, stableId={allocation.StableId}, slot={allocation.Slot}: {ex}");
+            }
+        }
+
+        private void OnDismountPacketReceived(ReceiveCustomPacketEventArgs<KnightDismountPacket> args)
         {
             try
             {
@@ -552,7 +862,7 @@ namespace SomeSettings
                     unit->r_ControllableForPlayerId != packet.OwnerPlayerId)
                     return;
 
-                KnightDismountSnapshot snapshot = new KnightDismountSnapshot
+                UnitTransformSnapshot snapshot = new UnitTransformSnapshot
                 {
                     UnitId = unitId,
                     GlobalId = packet.KnightGlobalId,
@@ -574,6 +884,51 @@ namespace SomeSettings
             }
         }
 
+        private void OnMountPacketReceived(ReceiveCustomPacketEventArgs<KnightMountPacket> args)
+        {
+            try
+            {
+                if (!settings.EnableMod || !settings.EnableKnightDismount || args == null || args.Packet == null)
+                    return;
+
+                KnightMountPacket packet = args.Packet;
+                if (IsDuplicatePacket(packet.SourcePlayerId, packet.RequestId))
+                    return;
+
+                int unitId = FindAliveUnitIdByGlobalId(packet.SwordsmanGlobalId);
+                if (unitId <= 0 || !GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit))
+                    return;
+
+                if (unit->r_AliveState != AliveState.IsAlive ||
+                    unit->r_UnitChimp != eChimps.CHIMP_TYPE_SWORDSMAN ||
+                    unit->r_ControllableForPlayerId != packet.OwnerPlayerId)
+                    return;
+
+                if (!TryResolveHorseAllocation(packet.OwnerPlayerId, packet.StableId, packet.StableGlobalId, packet.StableSlot, out HorseAllocation allocation))
+                    return;
+
+                UnitTransformSnapshot snapshot = new UnitTransformSnapshot
+                {
+                    UnitId = unitId,
+                    GlobalId = packet.SwordsmanGlobalId,
+                    OwnerPlayerId = packet.OwnerPlayerId,
+                    ColorPlayerId = packet.ColorPlayerId,
+                    TileX = packet.TileX,
+                    TileY = packet.TileY,
+                    Height = packet.Height,
+                    CurrentHealth = packet.CurrentHealth,
+                    MaxHealth = packet.MaxHealth
+                };
+
+                ApplyMount(snapshot, allocation, $"network:{packet.SourcePlayerId}:{packet.RequestId}");
+                RefreshButtonVisibility();
+            }
+            catch (Exception ex)
+            {
+                LogError($"Knight mount packet handling failed: {ex}");
+            }
+        }
+
         private bool IsDuplicatePacket(int sourcePlayerId, int requestId)
         {
             if (sourcePlayerId <= 0 || requestId <= 0)
@@ -588,36 +943,36 @@ namespace SomeSettings
             return !requestIds.Add(requestId);
         }
 
-        private void ApplyDismountBatch(List<KnightDismountSnapshot> snapshots, string reason, List<KnightDismountSnapshot> appliedSnapshots)
+        private void ApplyDismountBatch(List<UnitTransformSnapshot> snapshots, string reason, List<UnitTransformSnapshot> appliedSnapshots)
         {
             if (snapshots == null || snapshots.Count == 0)
                 return;
 
-            List<ResolvedDismountSnapshot> resolvedSnapshots = new List<ResolvedDismountSnapshot>(snapshots.Count);
+            List<ResolvedTransformSnapshot> resolvedSnapshots = new List<ResolvedTransformSnapshot>(snapshots.Count);
             HashSet<int> seenCurrentUnitIds = new HashSet<int>();
 
             for (int i = 0; i < snapshots.Count; i++)
             {
-                KnightDismountSnapshot snapshot = snapshots[i];
-                if (!TryResolveAliveKnightByUnitId(snapshot, out int currentUnitId))
+                UnitTransformSnapshot snapshot = snapshots[i];
+                if (!TryResolveAliveUnitByUnitId(snapshot, eChimps.CHIMP_TYPE_KNIGHT, out int currentUnitId))
                     continue;
 
                 if (!seenCurrentUnitIds.Add(currentUnitId))
                     continue;
 
-                resolvedSnapshots.Add(new ResolvedDismountSnapshot
+                resolvedSnapshots.Add(new ResolvedTransformSnapshot
                 {
                     Snapshot = snapshot,
                     CurrentUnitId = currentUnitId
                 });
             }
 
-            List<KnightDismountSnapshot> deletedSnapshots = new List<KnightDismountSnapshot>(resolvedSnapshots.Count);
+            List<UnitTransformSnapshot> deletedSnapshots = new List<UnitTransformSnapshot>(resolvedSnapshots.Count);
             resolvedSnapshots.Sort((left, right) => right.CurrentUnitId.CompareTo(left.CurrentUnitId));
             for (int i = 0; i < resolvedSnapshots.Count; i++)
             {
-                ResolvedDismountSnapshot resolved = resolvedSnapshots[i];
-                if (!TryResolveAliveKnightByUnitId(resolved.Snapshot, out int deleteUnitId))
+                ResolvedTransformSnapshot resolved = resolvedSnapshots[i];
+                if (!TryResolveAliveUnitByUnitId(resolved.Snapshot, eChimps.CHIMP_TYPE_KNIGHT, out int deleteUnitId))
                     continue;
 
                 GameUnitManagerAPI.Instance.DeleteUnit(deleteUnitId);
@@ -626,49 +981,110 @@ namespace SomeSettings
 
             for (int i = 0; i < deletedSnapshots.Count; i++)
             {
-                KnightDismountSnapshot snapshot = deletedSnapshots[i];
-                if (CreateSwordsmanFromSnapshot(snapshot, reason))
-                {
+                UnitTransformSnapshot snapshot = deletedSnapshots[i];
+                if (CreateUnitFromSnapshot(snapshot, eChimps.CHIMP_TYPE_SWORDSMAN, "dismount", reason) > 0)
                     appliedSnapshots?.Add(snapshot);
-                }
             }
         }
 
-        private bool ApplyDismount(KnightDismountSnapshot snapshot, string reason)
+        private bool ApplyDismount(UnitTransformSnapshot snapshot, string reason)
         {
-            if (!TryResolveAliveKnightByGlobalId(snapshot, out int currentUnitId))
+            if (!TryResolveAliveUnitByGlobalId(snapshot, eChimps.CHIMP_TYPE_KNIGHT, out int currentUnitId))
                 return false;
 
             GameUnitManagerAPI.Instance.DeleteUnit(currentUnitId);
-            return CreateSwordsmanFromSnapshot(snapshot, reason);
+            return CreateUnitFromSnapshot(snapshot, eChimps.CHIMP_TYPE_SWORDSMAN, "dismount", reason) > 0;
         }
 
-        private bool TryResolveAliveKnightByUnitId(KnightDismountSnapshot snapshot, out int currentUnitId)
+        private void ApplyMountBatch(
+            List<UnitTransformSnapshot> snapshots,
+            List<HorseAllocation> allocations,
+            int applyCount,
+            string reason,
+            List<AppliedMountSnapshot> appliedSnapshots)
+        {
+            if (snapshots == null || allocations == null || applyCount <= 0)
+                return;
+
+            List<ResolvedMountSnapshot> resolvedSnapshots = new List<ResolvedMountSnapshot>(applyCount);
+            HashSet<int> seenCurrentUnitIds = new HashSet<int>();
+
+            for (int i = 0; i < applyCount; i++)
+            {
+                UnitTransformSnapshot snapshot = snapshots[i];
+                if (!TryResolveAliveUnitByUnitId(snapshot, eChimps.CHIMP_TYPE_SWORDSMAN, out int currentUnitId))
+                    continue;
+
+                if (!seenCurrentUnitIds.Add(currentUnitId))
+                    continue;
+
+                resolvedSnapshots.Add(new ResolvedMountSnapshot
+                {
+                    Snapshot = snapshot,
+                    Allocation = allocations[i],
+                    CurrentUnitId = currentUnitId
+                });
+            }
+
+            List<AppliedMountSnapshot> deletedSnapshots = new List<AppliedMountSnapshot>(resolvedSnapshots.Count);
+            resolvedSnapshots.Sort((left, right) => right.CurrentUnitId.CompareTo(left.CurrentUnitId));
+            for (int i = 0; i < resolvedSnapshots.Count; i++)
+            {
+                ResolvedMountSnapshot resolved = resolvedSnapshots[i];
+                if (!TryResolveAliveUnitByUnitId(resolved.Snapshot, eChimps.CHIMP_TYPE_SWORDSMAN, out int deleteUnitId))
+                    continue;
+
+                GameUnitManagerAPI.Instance.DeleteUnit(deleteUnitId);
+                deletedSnapshots.Add(new AppliedMountSnapshot
+                {
+                    Snapshot = resolved.Snapshot,
+                    Allocation = resolved.Allocation
+                });
+            }
+
+            for (int i = 0; i < deletedSnapshots.Count; i++)
+            {
+                AppliedMountSnapshot applied = deletedSnapshots[i];
+                if (CreateMountedKnightFromSnapshot(applied.Snapshot, applied.Allocation, reason))
+                    appliedSnapshots?.Add(applied);
+            }
+        }
+
+        private bool ApplyMount(UnitTransformSnapshot snapshot, HorseAllocation allocation, string reason)
+        {
+            if (!TryResolveAliveUnitByGlobalId(snapshot, eChimps.CHIMP_TYPE_SWORDSMAN, out int currentUnitId))
+                return false;
+
+            GameUnitManagerAPI.Instance.DeleteUnit(currentUnitId);
+            return CreateMountedKnightFromSnapshot(snapshot, allocation, reason);
+        }
+
+        private bool TryResolveAliveUnitByUnitId(UnitTransformSnapshot snapshot, eChimps expectedType, out int currentUnitId)
         {
             currentUnitId = snapshot.UnitId;
-            return ValidateAliveKnight(snapshot, currentUnitId);
+            return ValidateAliveUnit(snapshot, expectedType, currentUnitId);
         }
 
-        private bool TryResolveAliveKnightByGlobalId(KnightDismountSnapshot snapshot, out int currentUnitId)
+        private bool TryResolveAliveUnitByGlobalId(UnitTransformSnapshot snapshot, eChimps expectedType, out int currentUnitId)
         {
             currentUnitId = snapshot.GlobalId > 0 ? FindAliveUnitIdByGlobalId(snapshot.GlobalId) : snapshot.UnitId;
-            return ValidateAliveKnight(snapshot, currentUnitId);
+            return ValidateAliveUnit(snapshot, expectedType, currentUnitId);
         }
 
-        private bool ValidateAliveKnight(KnightDismountSnapshot snapshot, int currentUnitId)
+        private bool ValidateAliveUnit(UnitTransformSnapshot snapshot, eChimps expectedType, int currentUnitId)
         {
             if (currentUnitId <= 0 || !GameUnitManagerAPI.Instance.TryGetUnitById(currentUnitId, out GameUnit* unit))
                 return false;
 
             if (unit->r_AliveState != AliveState.IsAlive ||
-                unit->r_UnitChimp != eChimps.CHIMP_TYPE_KNIGHT ||
+                unit->r_UnitChimp != expectedType ||
                 unit->r_ControllableForPlayerId != snapshot.OwnerPlayerId)
                 return false;
 
             return true;
         }
 
-        private bool CreateSwordsmanFromSnapshot(KnightDismountSnapshot snapshot, string reason)
+        private int CreateUnitFromSnapshot(UnitTransformSnapshot snapshot, eChimps unitType, string label, string reason)
         {
             long createdId = GameUnitManagerAPI.Instance.CreateUnitLocal(
                 snapshot.ColorPlayerId,
@@ -676,16 +1092,244 @@ namespace SomeSettings
                 snapshot.TileX,
                 snapshot.TileY,
                 snapshot.Height,
-                eChimps.CHIMP_TYPE_SWORDSMAN);
+                unitType);
 
             if (createdId <= 0 || createdId > int.MaxValue)
             {
-                LogError($"Knight dismount spawned invalid swordsman id: reason={reason}, originalUnitId={snapshot.UnitId}, globalId={snapshot.GlobalId}, createdId={createdId}.");
+                LogError($"Knight {label} spawned invalid {unitType} id: reason={reason}, originalUnitId={snapshot.UnitId}, globalId={snapshot.GlobalId}, createdId={createdId}.");
+                return -1;
+            }
+
+            ApplyHealthRatio((int)createdId, snapshot.CurrentHealth, snapshot.MaxHealth, label);
+            return (int)createdId;
+        }
+
+        private bool CreateMountedKnightFromSnapshot(UnitTransformSnapshot snapshot, HorseAllocation allocation, string reason)
+        {
+            int knightUnitId = CreateUnitFromSnapshot(snapshot, eChimps.CHIMP_TYPE_KNIGHT, "mount", reason);
+            if (knightUnitId <= 0)
+                return false;
+
+            if (!GameUnitManagerAPI.Instance.TryGetUnitById(knightUnitId, out GameUnit* knight))
+            {
+                LogError($"Knight mount could not resolve spawned knight: reason={reason}, knightUnitId={knightUnitId}, sourceGlobalId={snapshot.GlobalId}.");
                 return false;
             }
 
-            ApplyHealthRatio((int)createdId, snapshot.CurrentHealth, snapshot.MaxHealth);
+            if (!TryConsumeStableHorse(allocation, knightUnitId, (int)knight->r_GlobalId))
+            {
+                LogError($"Knight mount could not link stable horse: reason={reason}, knightUnitId={knightUnitId}, stableId={allocation.StableId}, slot={allocation.Slot}.");
+                return false;
+            }
+
             return true;
+        }
+
+        private int CountAvailableHorseSlots(int playerId)
+        {
+            return FindHorseAllocations(playerId, int.MaxValue).Count;
+        }
+
+        private List<HorseAllocation> FindHorseAllocations(int playerId, int maxCount)
+        {
+            List<HorseAllocation> allocations = new List<HorseAllocation>();
+            if (maxCount <= 0)
+                return allocations;
+
+            List<int> stableIds = new List<int>();
+            GameBuildingManagerAPI.Instance.GetAllBuildings(stableIds, AliveState.IsAlive, eStructs.STRUCT_STABLES, PlayerRelationship.Self, playerId);
+            stableIds.Sort();
+
+            for (int i = 0; i < stableIds.Count && allocations.Count < maxCount; i++)
+            {
+                // GetAllBuildings currently returns zero-based array indexes, while TryGetBuildingById expects one-based IDs.
+                int stableId = stableIds[i] + 1;
+                if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(stableId, out GameBuilding* stable))
+                    continue;
+
+                if (!IsUsableStable(stable, playerId))
+                    continue;
+
+                int availableAtStable = ClampStableHorseCount(stable->r_TotalHorses);
+                for (int slot = 0; slot < StableHorseSlotCount && availableAtStable > 0 && allocations.Count < maxCount; slot++)
+                {
+                    if (!IsStableHorseSlotFree(stable, slot))
+                        continue;
+
+                    allocations.Add(new HorseAllocation
+                    {
+                        StableId = stableId,
+                        StableGlobalId = (int)stable->r_GlobalId,
+                        OwnerPlayerId = playerId,
+                        Slot = slot
+                    });
+                    availableAtStable--;
+                }
+            }
+
+            return allocations;
+        }
+
+        private void LogStableHorseCandidates(int playerId)
+        {
+            try
+            {
+                List<int> stableIndexes = new List<int>();
+                GameBuildingManagerAPI.Instance.GetAllBuildings(stableIndexes, AliveState.IsAlive, eStructs.STRUCT_STABLES, PlayerRelationship.Any, playerId);
+                stableIndexes.Sort();
+
+                if (stableIndexes.Count == 0)
+                {
+                    LogInfo($"Knight mount stable scan: no alive stables found, playerId={playerId}.");
+                    return;
+                }
+
+                List<string> summaries = new List<string>();
+                for (int i = 0; i < stableIndexes.Count; i++)
+                {
+                    int stableId = stableIndexes[i] + 1;
+                    if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(stableId, out GameBuilding* stable))
+                    {
+                        summaries.Add($"id={stableId}:missing");
+                        continue;
+                    }
+
+                    summaries.Add(
+                        $"id={stableId},owner={stable->r_PlayerIdOwner},global={stable->r_GlobalId},total={stable->r_TotalHorses},used={stable->r_UsedHorses},slots={BuildStableHorseSlotSummary(stable)}");
+                }
+
+                LogInfo($"Knight mount stable scan: playerId={playerId}, stables={stableIndexes.Count}, {string.Join("; ", summaries)}.");
+            }
+            catch (Exception ex)
+            {
+                LogError($"Knight mount stable scan failed: {ex}");
+            }
+        }
+
+        private bool TryResolveHorseAllocation(int ownerPlayerId, int stableId, int stableGlobalId, int slot, out HorseAllocation allocation)
+        {
+            allocation = default;
+            if (stableId <= 0 || slot < 0 || slot >= StableHorseSlotCount)
+                return false;
+
+            if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(stableId, out GameBuilding* stable))
+                return false;
+
+            if (!IsUsableStable(stable, ownerPlayerId))
+                return false;
+
+            if (stableGlobalId > 0 && (int)stable->r_GlobalId != stableGlobalId)
+                return false;
+
+            if (stable->r_TotalHorses <= 0 || !IsStableHorseSlotFree(stable, slot))
+                return false;
+
+            allocation = new HorseAllocation
+            {
+                StableId = stableId,
+                StableGlobalId = (int)stable->r_GlobalId,
+                OwnerPlayerId = ownerPlayerId,
+                Slot = slot
+            };
+            return true;
+        }
+
+        private bool TryConsumeStableHorse(HorseAllocation allocation, int unitId, int unitGlobalId)
+        {
+            if (unitId <= 0 || unitId > ushort.MaxValue || unitGlobalId <= 0)
+                return false;
+
+            if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(allocation.StableId, out GameBuilding* stable))
+                return false;
+
+            if (!IsUsableStable(stable, allocation.OwnerPlayerId))
+                return false;
+
+            if (allocation.StableGlobalId > 0 && (int)stable->r_GlobalId != allocation.StableGlobalId)
+                return false;
+
+            if (stable->r_TotalHorses <= 0 || !IsStableHorseSlotFree(stable, allocation.Slot))
+                return false;
+
+            SetStableHorseSlot(stable, allocation.Slot, unitId, unitGlobalId);
+            stable->r_TotalHorses = (byte)Math.Max(0, stable->r_TotalHorses - 1);
+            stable->r_UsedHorses = (byte)Math.Min(StableHorseSlotCount, (int)stable->r_UsedHorses + 1);
+            return true;
+        }
+
+        private static bool IsUsableStable(GameBuilding* stable, int ownerPlayerId)
+        {
+            return stable != null &&
+                stable->r_AliveState == AliveState.IsAlive &&
+                stable->r_BuildingType == eStructs.STRUCT_STABLES &&
+                (ownerPlayerId <= 0 || stable->r_PlayerIdOwner == ownerPlayerId);
+        }
+
+        private static int ClampStableHorseCount(byte value)
+        {
+            return Math.Max(0, Math.Min(StableHorseSlotCount, (int)value));
+        }
+
+        private static bool IsStableHorseSlotFree(GameBuilding* stable, int slot)
+        {
+            return GetStableHorseSlotUnitId(stable, slot) == 0 &&
+                GetStableHorseSlotGlobalId(stable, slot) == 0;
+        }
+
+        private static string BuildStableHorseSlotSummary(GameBuilding* stable)
+        {
+            List<string> slots = new List<string>(StableHorseSlotCount);
+            for (int slot = 0; slot < StableHorseSlotCount; slot++)
+                slots.Add($"{slot}:{GetStableHorseSlotUnitId(stable, slot)}/{GetStableHorseSlotGlobalId(stable, slot)}");
+
+            return string.Join(",", slots);
+        }
+
+        private static int GetStableHorseSlotUnitId(GameBuilding* stable, int slot)
+        {
+            switch (slot)
+            {
+                case 0: return stable->r_UsedHorse1UnitId;
+                case 1: return stable->r_UsedHorse2UnitId;
+                case 2: return stable->r_UsedHorse3UnitId;
+                case 3: return stable->r_UsedHorse4UnitId;
+                default: return -1;
+            }
+        }
+
+        private static int GetStableHorseSlotGlobalId(GameBuilding* stable, int slot)
+        {
+            switch (slot)
+            {
+                case 0: return (int)stable->r_UsedHorse1GlobalId;
+                case 1: return (int)stable->r_UsedHorse2GlobalId;
+                case 2: return (int)stable->r_UsedHorse3GlobalId;
+                case 3: return (int)stable->r_UsedHorse4GlobalId;
+                default: return -1;
+            }
+        }
+
+        private static void SetStableHorseSlot(GameBuilding* stable, int slot, int unitId, int unitGlobalId)
+        {
+            switch (slot)
+            {
+                case 0:
+                    stable->r_UsedHorse1UnitId = (ushort)unitId;
+                    stable->r_UsedHorse1GlobalId = (uint)unitGlobalId;
+                    break;
+                case 1:
+                    stable->r_UsedHorse2UnitId = (ushort)unitId;
+                    stable->r_UsedHorse2GlobalId = (uint)unitGlobalId;
+                    break;
+                case 2:
+                    stable->r_UsedHorse3UnitId = (ushort)unitId;
+                    stable->r_UsedHorse3GlobalId = (uint)unitGlobalId;
+                    break;
+                case 3:
+                    stable->r_UsedHorse4UnitId = (ushort)unitId;
+                    stable->r_UsedHorse4GlobalId = (uint)unitGlobalId;
+                    break;
+            }
         }
 
         private static int FindAliveUnitIdByGlobalId(int globalId)
@@ -708,11 +1352,11 @@ namespace SomeSettings
             return -1;
         }
 
-        private void ApplyHealthRatio(int swordsmanUnitId, int sourceCurrentHealth, int sourceMaxHealth)
+        private void ApplyHealthRatio(int targetUnitId, int sourceCurrentHealth, int sourceMaxHealth, string label)
         {
-            if (!GameUnitManagerAPI.Instance.TryGetUnitById(swordsmanUnitId, out GameUnit* unit))
+            if (!GameUnitManagerAPI.Instance.TryGetUnitById(targetUnitId, out GameUnit* unit))
             {
-                LogError($"Knight dismount could not set swordsman health, unit not found: swordsmanUnitId={swordsmanUnitId}.");
+                LogError($"Knight {label} could not set target health, unit not found: targetUnitId={targetUnitId}.");
                 return;
             }
 
@@ -726,11 +1370,11 @@ namespace SomeSettings
             unit->r_HealthBarBlocks = (uint)(targetPercent / 10);
         }
 
-        private static bool IsOwnAliveKnight(GameUnit* unit, int localPlayerId)
+        private static bool IsOwnAliveUnit(GameUnit* unit, int localPlayerId, eChimps unitType)
         {
             return unit != null &&
                 unit->r_AliveState == AliveState.IsAlive &&
-                unit->r_UnitChimp == eChimps.CHIMP_TYPE_KNIGHT &&
+                unit->r_UnitChimp == unitType &&
                 unit->r_ControllableForPlayerId == localPlayerId;
         }
 
@@ -747,7 +1391,7 @@ namespace SomeSettings
             }
             catch (Exception ex)
             {
-                LogError($"Knight dismount could not read selected units: {ex}");
+                LogError($"Knight mount/dismount could not read selected units: {ex}");
                 return Array.Empty<int>();
             }
         }
@@ -763,12 +1407,17 @@ namespace SomeSettings
             log.LogError($"[{TimestampNow()}] SomeSettings {message}");
         }
 
+        private void LogInfo(string message)
+        {
+            log.LogInfo($"[{TimestampNow()}] SomeSettings {message}");
+        }
+
         private static string TimestampNow()
         {
             return DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture);
         }
 
-        private struct KnightDismountSnapshot
+        private struct UnitTransformSnapshot
         {
             public int UnitId;
             public int GlobalId;
@@ -781,10 +1430,31 @@ namespace SomeSettings
             public int MaxHealth;
         }
 
-        private struct ResolvedDismountSnapshot
+        private struct HorseAllocation
         {
-            public KnightDismountSnapshot Snapshot;
+            public int StableId;
+            public int StableGlobalId;
+            public int OwnerPlayerId;
+            public int Slot;
+        }
+
+        private struct ResolvedTransformSnapshot
+        {
+            public UnitTransformSnapshot Snapshot;
             public int CurrentUnitId;
+        }
+
+        private struct ResolvedMountSnapshot
+        {
+            public UnitTransformSnapshot Snapshot;
+            public HorseAllocation Allocation;
+            public int CurrentUnitId;
+        }
+
+        private struct AppliedMountSnapshot
+        {
+            public UnitTransformSnapshot Snapshot;
+            public HorseAllocation Allocation;
         }
     }
 }

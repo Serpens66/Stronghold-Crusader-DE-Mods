@@ -41,4 +41,6 @@ SomeSettings.PreventHovelDeletionHelp=Blockiert direktes Loeschen lebender KI-ei
 SomeSettings.EnableKnightDismount=Ritter-Absteigen-Button aktivieren
 SomeSettings.EnableKnightDismountHelp=Fuegt ausgewaehlten berittenen Rittern einen Befehlsbutton hinzu. Ein Klick wandelt ausgewaehlte eigene Ritter an derselben Position mit derselben Lebenspunkte-Rate in Schwertkaempfer um.
 SomeSettings.KnightDismountTooltip=Absteigen
-SomeSettings.KnightDismountTooltipBody=Wandelt die Einheit in einen Schwertkämpfer um. Wieder aufs Pferd aufsteigen ist nicht möglich.
+SomeSettings.KnightDismountTooltipBody=Wandelt ausgewaehlte berittene Ritter an derselben Position in Schwertkaempfer um.
+SomeSettings.KnightMountTooltip=Aufsatteln
+SomeSettings.KnightMountTooltipBody=Wandelt ausgewaehlte Schwertkaempfer in berittene Ritter um. Benoetigt verfuegbare Pferde in einem Stall.

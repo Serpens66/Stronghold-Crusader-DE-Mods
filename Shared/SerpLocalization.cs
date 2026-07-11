@@ -80,6 +80,8 @@ public static class SerpLocalization
     public const string EnableKnightDismountHelp = "SomeSettings.EnableKnightDismountHelp";
     public const string KnightDismountTooltip = "SomeSettings.KnightDismountTooltip";
     public const string KnightDismountTooltipBody = "SomeSettings.KnightDismountTooltipBody";
+    public const string KnightMountTooltip = "SomeSettings.KnightMountTooltip";
+    public const string KnightMountTooltipBody = "SomeSettings.KnightMountTooltipBody";
     public const string AiEconomyProtectionTitle = "SomeSettings.AIEconomyProtectionTitle";
     public const string PreventAIPause = "SomeSettings.PreventAIPause";
     public const string PreventAIPauseHelp = "SomeSettings.PreventAIPauseHelp";
@@ -167,7 +169,9 @@ public static class SerpLocalization
         { EnableKnightDismount, "Enable knight dismount button" },
         { EnableKnightDismountHelp, "Adds a command button for selected mounted knights. Clicking it turns selected own knights into swordsmen at the same position with the same health ratio." },
         { KnightDismountTooltip, "Dismount" },
-        { KnightDismountTooltipBody, "Turns the unit into a swordsman. Mounting the horse again is not possible." },
+        { KnightDismountTooltipBody, "Turns selected mounted knights into swordsmen at the same position." },
+        { KnightMountTooltip, "Mount" },
+        { KnightMountTooltipBody, "Turns selected swordsmen into mounted knights. Requires available horses in a stable." },
         { AiEconomyProtectionTitle, "AI Economy Protection" },
         { PreventAIPause, "Prevent AI building pauses" },
         { PreventAIPauseHelp, "Prevents AI-controlled players from putting their own production buildings to sleep." },

@@ -23,10 +23,34 @@
                 VerticalAlignment="Top"
                 Command="{Binding DismountCommand}"
                 Content=""
-                Style="{StaticResource BTN_Image}">
+                Style="{StaticResource BTN_Image}"
+                Visibility="{Binding DismountButtonVisibility}">
           <b:Interaction.Triggers>
             <b:EventTrigger EventName="MouseEnter">
-              <b:InvokeCommandAction Command="{Binding MouseEnterCommand}" />
+              <b:InvokeCommandAction Command="{Binding DismountMouseEnterCommand}" />
+            </b:EventTrigger>
+            <b:EventTrigger EventName="MouseLeave">
+              <b:InvokeCommandAction Command="{Binding MouseLeaveCommand}" />
+            </b:EventTrigger>
+          </b:Interaction.Triggers>
+        </Button>
+        <Button x:Name="SomeSettingsKnightMountButton"
+                local:PropEx.Sprite1="{StaticResource UI-Buttons O019}"
+                local:PropEx.Sprite2="{StaticResource UI-Buttons O020}"
+                local:PropEx.Sprite3="{StaticResource UI-Buttons O020}"
+                local:PropEx.Sprite4="{StaticResource UI-Buttons O021}"
+                Width="37"
+                Height="37"
+                Margin="0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                Command="{Binding MountCommand}"
+                Content=""
+                Style="{StaticResource BTN_Image}"
+                Visibility="{Binding MountButtonVisibility}">
+          <b:Interaction.Triggers>
+            <b:EventTrigger EventName="MouseEnter">
+              <b:InvokeCommandAction Command="{Binding MountMouseEnterCommand}" />
             </b:EventTrigger>
             <b:EventTrigger EventName="MouseLeave">
               <b:InvokeCommandAction Command="{Binding MouseLeaveCommand}" />

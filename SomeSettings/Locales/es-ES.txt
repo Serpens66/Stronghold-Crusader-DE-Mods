@@ -41,4 +41,6 @@ SomeSettings.PreventHovelDeletionHelp=Blocks direct deletes of living AI-owned h
 SomeSettings.EnableKnightDismount=Enable knight dismount button
 SomeSettings.EnableKnightDismountHelp=Adds a command button for selected mounted knights. Clicking it turns selected own knights into swordsmen at the same position with the same health ratio.
 SomeSettings.KnightDismountTooltip=Dismount
-SomeSettings.KnightDismountTooltipBody=Turns the unit into a swordsman. Mounting the horse again is not possible.
+SomeSettings.KnightDismountTooltipBody=Turns selected mounted knights into swordsmen at the same position.
+SomeSettings.KnightMountTooltip=Mount
+SomeSettings.KnightMountTooltipBody=Turns selected swordsmen into mounted knights. Requires available horses in a stable.
