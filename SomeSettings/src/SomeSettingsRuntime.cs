@@ -1,4 +1,4 @@
-using BepInEx.Logging;
+﻿using BepInEx.Logging;
 using CrusaderDE;
 using R3;
 using SHCDESE.API;
@@ -63,6 +63,11 @@ namespace SomeSettings
         }
 
         public object KnightDismountButton => knightDismountRuntime.ButtonViewModel;
+
+        public void InstallKnightMountNativeFunctions(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
+        {
+            knightDismountRuntime.InstallNativeFunctions(libraryHandle, memory);
+        }
 
         public void SubscribeHooks()
         {

@@ -1,4 +1,4 @@
-using BepInEx;
+﻿using BepInEx;
 using SHCDESE.API;
 using SHCDESE.API.LowLevel;
 using System;
@@ -63,6 +63,7 @@ namespace SomeSettings
                     "SomeSettingsKnightDismountButtonHost",
                     runtime.KnightDismountButton);
 
+                runtime.InstallKnightMountNativeFunctions(libraryHandle, memory);
                 runtime.ApplySettings();
                 runtime.InstallAIEconomyProtectionHook(libraryHandle, memory);
                 Logger.LogDebug("Crusader library loaded; SomeSettings UI registered.");

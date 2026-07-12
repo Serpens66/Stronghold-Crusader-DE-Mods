@@ -16,6 +16,9 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Reflection;
+using System.Runtime.InteropServices;
+using Zhuqiaomon.Memory;
+using Zhuqiaomon.Memory.Scanners;
 
 namespace SomeSettings
 {
@@ -33,6 +36,7 @@ namespace SomeSettings
         [Key(7)] public int Height { get; set; }
         [Key(8)] public int CurrentHealth { get; set; }
         [Key(9)] public int MaxHealth { get; set; }
+        [Key(10)] public int LinkedProductionBuildingId { get; set; }
     }
 
     public sealed class KnightDismountPacketFormatter : IMessagePackFormatter<KnightDismountPacket>
@@ -45,7 +49,7 @@ namespace SomeSettings
                 return;
             }
 
-            writer.WriteArrayHeader(10);
+            writer.WriteArrayHeader(11);
             writer.Write(value.SourcePlayerId);
             writer.Write(value.RequestId);
             writer.Write(value.KnightGlobalId);
@@ -56,6 +60,7 @@ namespace SomeSettings
             writer.Write(value.Height);
             writer.Write(value.CurrentHealth);
             writer.Write(value.MaxHealth);
+            writer.Write(value.LinkedProductionBuildingId);
         }
 
         public KnightDismountPacket Deserialize(ref MessagePackReader reader, MessagePackSerializerOptions options)
@@ -80,6 +85,7 @@ namespace SomeSettings
                     case 7: packet.Height = reader.ReadInt32(); break;
                     case 8: packet.CurrentHealth = reader.ReadInt32(); break;
                     case 9: packet.MaxHealth = reader.ReadInt32(); break;
+                    case 10: packet.LinkedProductionBuildingId = reader.ReadInt32(); break;
                     default: reader.Skip(); break;
                 }
             }
@@ -105,6 +111,7 @@ namespace SomeSettings
         [Key(10)] public int StableId { get; set; }
         [Key(11)] public int StableGlobalId { get; set; }
         [Key(12)] public int StableSlot { get; set; }
+        [Key(13)] public int LinkedProductionBuildingId { get; set; }
     }
 
     public sealed class KnightMountPacketFormatter : IMessagePackFormatter<KnightMountPacket>
@@ -117,7 +124,7 @@ namespace SomeSettings
                 return;
             }
 
-            writer.WriteArrayHeader(13);
+            writer.WriteArrayHeader(14);
             writer.Write(value.SourcePlayerId);
             writer.Write(value.RequestId);
             writer.Write(value.SwordsmanGlobalId);
@@ -131,6 +138,7 @@ namespace SomeSettings
             writer.Write(value.StableId);
             writer.Write(value.StableGlobalId);
             writer.Write(value.StableSlot);
+            writer.Write(value.LinkedProductionBuildingId);
         }
 
         public KnightMountPacket Deserialize(ref MessagePackReader reader, MessagePackSerializerOptions options)
@@ -158,6 +166,7 @@ namespace SomeSettings
                     case 10: packet.StableId = reader.ReadInt32(); break;
                     case 11: packet.StableGlobalId = reader.ReadInt32(); break;
                     case 12: packet.StableSlot = reader.ReadInt32(); break;
+                    case 13: packet.LinkedProductionBuildingId = reader.ReadInt32(); break;
                     default: reader.Skip(); break;
                 }
             }
@@ -292,8 +301,16 @@ namespace SomeSettings
     {
         private delegate void SetuptroopActionsUIDelegate(HUD_Troops self, bool fromInitialOpening);
 
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate void ReleaseStableHorseDelegate(NativePointer<GameBuildingManager> buildingManager, int stableId, int unitId);
+
         private static readonly Thickness BottomRightSlotMargin = new Thickness(81, 40, 0, 3);
+        // Vanilla uses this helper for horse cleanup during knight disband/death.
+        private const string ReleaseStableHorsePattern =
+            "48 89 5C 24 08 48 89 74 24 10 57 48 63 DA 48 8D 35 ?? ?? ?? ?? 4C 69 DB 96 01 00 00 33 FF 4C 8B C9 4C 8B D3";
         private const int StableHorseSlotCount = 4;
+        private const int KnightStableBuildingIdOffset = 0x3D2;
+        private const int KnightStableBuildingGlobalIdOffset = 0x3DC;
         private const string MissingWeaponsSpeechFileName = "Other_Warning6.wav";
         private static readonly string[] MountSpeechFileNames = { "Knight_m1.wav", "Knight_m2.wav", "Knight_m3.wav" };
         private static readonly string[] DismountSpeechFileNames = { "Sword_s4.wav", "Sword_s5.wav", "Sword_s6.wav" };
@@ -311,6 +328,7 @@ namespace SomeSettings
         private IDisposable mountPacketSubscription;
         private Button hookedDismountButton;
         private Button hookedMountButton;
+        private static ReleaseStableHorseDelegate releaseStableHorse;
         private int nextRequestId;
         private bool initialized;
         private bool disposed;
@@ -328,6 +346,16 @@ namespace SomeSettings
         }
 
         public KnightDismountButtonViewModel ButtonViewModel => buttonViewModel;
+
+        public void InstallNativeFunctions(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
+        {
+            DataScanner scanner = DataScanner.Create(memory, unchecked((ulong)libraryHandle.ToInt64()));
+            scanner.Scan(ReleaseStableHorsePattern);
+            if (scanner.CurrentAddress == 0)
+                throw new InvalidOperationException("The Vanilla stable horse release function was not found.");
+
+            releaseStableHorse = System.Runtime.InteropServices.Marshal.GetDelegateForFunctionPointer<ReleaseStableHorseDelegate>((IntPtr)scanner.CurrentAddress);
+        }
 
         public void Initialize()
         {
@@ -826,7 +854,8 @@ namespace SomeSettings
                 TileY = unit->r_CurrentTilePositionY,
                 Height = unit->r_HeightElevation,
                 CurrentHealth = (int)unit->r_CurrentHealth,
-                MaxHealth = (int)unit->r_MaxHealth
+                MaxHealth = (int)unit->r_MaxHealth,
+                LinkedProductionBuildingId = unit->r_LinkedProductionBuildingId
             };
         }
 
@@ -848,7 +877,8 @@ namespace SomeSettings
                     TileY = snapshot.TileY,
                     Height = snapshot.Height,
                     CurrentHealth = snapshot.CurrentHealth,
-                    MaxHealth = snapshot.MaxHealth
+                    MaxHealth = snapshot.MaxHealth,
+                    LinkedProductionBuildingId = snapshot.LinkedProductionBuildingId
                 };
 
                 GameNetworkAPI.SendPacketToAll(packet, dismountPacketHook.GetPacketId());
@@ -880,7 +910,8 @@ namespace SomeSettings
                     MaxHealth = snapshot.MaxHealth,
                     StableId = allocation.StableId,
                     StableGlobalId = allocation.StableGlobalId,
-                    StableSlot = allocation.Slot
+                    StableSlot = allocation.Slot,
+                    LinkedProductionBuildingId = snapshot.LinkedProductionBuildingId
                 };
 
                 GameNetworkAPI.SendPacketToAll(packet, mountPacketHook.GetPacketId());
@@ -921,7 +952,8 @@ namespace SomeSettings
                     TileY = packet.TileY,
                     Height = packet.Height,
                     CurrentHealth = packet.CurrentHealth,
-                    MaxHealth = packet.MaxHealth
+                    MaxHealth = packet.MaxHealth,
+                    LinkedProductionBuildingId = packet.LinkedProductionBuildingId
                 };
 
                 ApplyDismount(snapshot, $"network:{packet.SourcePlayerId}:{packet.RequestId}");
@@ -966,7 +998,8 @@ namespace SomeSettings
                     TileY = packet.TileY,
                     Height = packet.Height,
                     CurrentHealth = packet.CurrentHealth,
-                    MaxHealth = packet.MaxHealth
+                    MaxHealth = packet.MaxHealth,
+                    LinkedProductionBuildingId = packet.LinkedProductionBuildingId
                 };
 
                 ApplyMount(snapshot, allocation, $"network:{packet.SourcePlayerId}:{packet.RequestId}");
@@ -1028,7 +1061,12 @@ namespace SomeSettings
                     continue;
 
                 UnitTransformSnapshot currentSnapshot = CreateSnapshotFromUnit(deleteUnitId, deleteUnit);
-                GameUnitManagerAPI.Instance.DeleteUnit(deleteUnitId);
+                if (!TryReleaseKnightHorseWithVanilla(deleteUnitId, deleteUnit, reason))
+                    continue;
+
+                if (!GameUnitManagerAPI.Instance.DeleteUnitSafe(deleteUnitId))
+                    continue;
+
                 deletedSnapshots.Add(currentSnapshot);
             }
 
@@ -1049,7 +1087,12 @@ namespace SomeSettings
                 return false;
 
             UnitTransformSnapshot currentSnapshot = CreateSnapshotFromUnit(currentUnitId, currentUnit);
-            GameUnitManagerAPI.Instance.DeleteUnit(currentUnitId);
+            if (!TryReleaseKnightHorseWithVanilla(currentUnitId, currentUnit, reason))
+                return false;
+
+            if (!GameUnitManagerAPI.Instance.DeleteUnitSafe(currentUnitId))
+                return false;
+
             return CreateUnitFromSnapshot(currentSnapshot, eChimps.CHIMP_TYPE_SWORDSMAN, "dismount", reason) > 0;
         }
 
@@ -1165,6 +1208,14 @@ namespace SomeSettings
                 return -1;
             }
 
+            if (snapshot.LinkedProductionBuildingId > 0 &&
+                snapshot.LinkedProductionBuildingId <= ushort.MaxValue &&
+                GameUnitManagerAPI.Instance.TryGetUnitById((int)createdId, out GameUnit* createdUnit))
+            {
+                // Preserve the barracks/production link; the horse stable has separate hidden fields.
+                createdUnit->r_LinkedProductionBuildingId = (ushort)snapshot.LinkedProductionBuildingId;
+            }
+
             ApplyHealthRatio((int)createdId, snapshot.CurrentHealth, snapshot.MaxHealth, label);
             return (int)createdId;
         }
@@ -1184,6 +1235,9 @@ namespace SomeSettings
             if (!TryConsumeStableHorse(allocation, knightUnitId, (int)knight->r_GlobalId))
             {
                 LogError($"Knight mount could not link stable horse: reason={reason}, knightUnitId={knightUnitId}, stableId={allocation.StableId}, slot={allocation.Slot}.");
+                GameUnitManagerAPI.Instance.DeleteUnit(knightUnitId);
+                if (CreateUnitFromSnapshot(snapshot, eChimps.CHIMP_TYPE_SWORDSMAN, "mount-rollback", reason) <= 0)
+                    LogError($"Knight mount rollback could not restore swordsman: reason={reason}, sourceGlobalId={snapshot.GlobalId}.");
                 return false;
             }
 
@@ -1207,15 +1261,13 @@ namespace SomeSettings
 
             for (int i = 0; i < stableIds.Count && allocations.Count < maxCount; i++)
             {
-                // GetAllBuildings currently returns zero-based array indexes, while TryGetBuildingById expects one-based IDs.
-                int stableId = stableIds[i] + 1;
+                int stableId = ConvertQueryBuildingIndexToId(stableIds[i]);
                 if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(stableId, out GameBuilding* stable))
                     continue;
 
                 if (!IsUsableStable(stable, playerId))
                     continue;
 
-                NormalizeStableHorseCounters(stable);
                 int availableAtStable = GetAvailableStableHorseCount(stable);
                 for (int slot = 0; slot < StableHorseSlotCount && availableAtStable > 0 && allocations.Count < maxCount; slot++)
                 {
@@ -1253,7 +1305,6 @@ namespace SomeSettings
             if (stableGlobalId > 0 && (int)stable->r_GlobalId != stableGlobalId)
                 return false;
 
-            NormalizeStableHorseCounters(stable);
             if (GetAvailableStableHorseCount(stable) <= 0 || !IsStableHorseSlotFree(stable, slot))
                 return false;
 
@@ -1272,6 +1323,15 @@ namespace SomeSettings
             if (unitId <= 0 || unitId > ushort.MaxValue || unitGlobalId <= 0)
                 return false;
 
+            if (allocation.StableId <= 0 || allocation.StableId > ushort.MaxValue)
+                return false;
+
+            if (allocation.Slot < 0 || allocation.Slot >= StableHorseSlotCount)
+                return false;
+
+            if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* mountedUnit))
+                return false;
+
             if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(allocation.StableId, out GameBuilding* stable))
                 return false;
 
@@ -1281,12 +1341,12 @@ namespace SomeSettings
             if (allocation.StableGlobalId > 0 && (int)stable->r_GlobalId != allocation.StableGlobalId)
                 return false;
 
-            NormalizeStableHorseCounters(stable);
             if (GetAvailableStableHorseCount(stable) <= 0 || !IsStableHorseSlotFree(stable, allocation.Slot))
                 return false;
 
-            SetStableHorseSlot(stable, allocation.Slot, unitId, unitGlobalId);
-            stable->r_UsedHorses = (byte)Math.Min(StableHorseSlotCount, (int)stable->r_UsedHorses + 1);
+            SetKnightStableBuildingLink(mountedUnit, allocation.StableId, allocation.StableGlobalId);
+            SetStablesUnitIdLinkFixed(stable, allocation.Slot, unitId, unitGlobalId);
+            stable->r_UsedHorses = (byte)Math.Min(StableHorseSlotCount, ClampStableHorseCount(stable->r_UsedHorses) + 1);
             return true;
         }
 
@@ -1301,28 +1361,6 @@ namespace SomeSettings
         private static int ClampStableHorseCount(byte value)
         {
             return Math.Max(0, Math.Min(StableHorseSlotCount, (int)value));
-        }
-
-        private static void NormalizeStableHorseCounters(GameBuilding* stable)
-        {
-            int total = ClampStableHorseCount(stable->r_TotalHorses);
-            int used = ClampStableHorseCount(stable->r_UsedHorses);
-
-            if (stable->r_TotalHorses != total)
-            {
-                stable->r_TotalHorses = (byte)total;
-            }
-
-            if (stable->r_UsedHorses != used)
-            {
-                stable->r_UsedHorses = (byte)used;
-            }
-
-            if (total < used)
-            {
-                total = used;
-                stable->r_TotalHorses = (byte)total;
-            }
         }
 
         private static int GetAvailableStableHorseCount(GameBuilding* stable)
@@ -1375,27 +1413,121 @@ namespace SomeSettings
             }
         }
 
-        private static void SetStableHorseSlot(GameBuilding* stable, int slot, int unitId, int unitGlobalId)
+        private static void SetStablesUnitIdLinkFixed(GameBuilding* stable, int slot, int unitId, int unitGlobalId)
         {
-            switch (slot)
+            // Script Extender bug: SetStablesUnitIdLink indexes the UInt16 unit-id fields through int*,
+            // which overlaps/skips slots. Replace this helper with the API once it uses ushort* correctly.
+            ushort* linksId = &stable->r_UsedHorse1UnitId;
+            uint* linksGlobalId = &stable->r_UsedHorse1GlobalId;
+            linksId[slot] = (ushort)unitId;
+            linksGlobalId[slot] = (uint)unitGlobalId;
+        }
+
+        private static int GetKnightStableBuildingId(GameUnit* unit)
+        {
+            return unit == null ? 0 : *(ushort*)((byte*)unit + KnightStableBuildingIdOffset);
+        }
+
+        private static int GetKnightStableBuildingGlobalId(GameUnit* unit)
+        {
+            return unit == null ? 0 : (int)*(uint*)((byte*)unit + KnightStableBuildingGlobalIdOffset);
+        }
+
+        private static void SetKnightStableBuildingLink(GameUnit* unit, int stableId, int stableGlobalId)
+        {
+            // These currently unnamed GameUnit fields are the stable backlink validated by Vanilla.
+            // Replace the raw offsets once the Script Extender exposes named fields or an equivalent API.
+            *(ushort*)((byte*)unit + KnightStableBuildingIdOffset) = (ushort)stableId;
+            *(uint*)((byte*)unit + KnightStableBuildingGlobalIdOffset) = (uint)stableGlobalId;
+        }
+
+        private bool TryReleaseKnightHorseWithVanilla(int unitId, GameUnit* unit, string reason)
+        {
+            int stableId = GetKnightStableBuildingId(unit);
+            int stableGlobalId = GetKnightStableBuildingGlobalId(unit);
+            int unitGlobalId = (int)unit->r_GlobalId;
+            bool hasSlotLink = TryFindStableHorseLink(unitId, unitGlobalId, out int slotStableId, out int slot);
+
+            if (stableId <= 0 && !hasSlotLink)
+                return true;
+
+            if (stableId <= 0 || stableGlobalId <= 0 || !hasSlotLink || slotStableId != stableId)
             {
-                case 0:
-                    stable->r_UsedHorse1UnitId = (ushort)unitId;
-                    stable->r_UsedHorse1GlobalId = (uint)unitGlobalId;
-                    break;
-                case 1:
-                    stable->r_UsedHorse2UnitId = (ushort)unitId;
-                    stable->r_UsedHorse2GlobalId = (uint)unitGlobalId;
-                    break;
-                case 2:
-                    stable->r_UsedHorse3UnitId = (ushort)unitId;
-                    stable->r_UsedHorse3GlobalId = (uint)unitGlobalId;
-                    break;
-                case 3:
-                    stable->r_UsedHorse4UnitId = (ushort)unitId;
-                    stable->r_UsedHorse4GlobalId = (uint)unitGlobalId;
-                    break;
+                LogError($"Knight dismount found an incomplete Vanilla horse link: reason={reason}, unitId={unitId}, unitGlobalId={unit->r_GlobalId}, horseStableId={stableId}, horseStableGlobalId={stableGlobalId}, slotStableId={slotStableId}, slot={slot}.");
+                return false;
             }
+
+            if (releaseStableHorse == null)
+            {
+                LogError($"Knight dismount cannot use Vanilla horse release because the native function is unavailable: reason={reason}, unitId={unitId}, stableId={stableId}.");
+                return false;
+            }
+
+            if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(stableId, out GameBuilding* stable) ||
+                stable->r_AliveState != AliveState.IsAlive ||
+                stable->r_BuildingType != eStructs.STRUCT_STABLES ||
+                (int)stable->r_GlobalId != stableGlobalId ||
+                stable->r_TotalHorses == 0 ||
+                stable->r_UsedHorses == 0 ||
+                GetStableHorseSlotUnitId(stable, slot) != unitId ||
+                GetStableHorseSlotGlobalId(stable, slot) != unitGlobalId)
+            {
+                LogError($"Knight dismount rejected an invalid Vanilla stable link: reason={reason}, unitId={unitId}, stableId={stableId}, expectedStableGlobalId={stableGlobalId}.");
+                return false;
+            }
+
+            // DeleteUnitSafe only removes stale slots. Calling Vanilla's release helper also consumes the
+            // returned horse from r_TotalHorses so the stable regenerates it normally.
+            releaseStableHorse(GameBuildingManagerAPI.Instance.GetBuildingManager(), stableId, unitId);
+
+            if (TryFindStableHorseLink(unitId, unitGlobalId, out int remainingStableId, out int remainingSlot))
+            {
+                LogError($"Knight dismount Vanilla horse release left the slot reserved: reason={reason}, unitId={unitId}, stableId={remainingStableId}, slot={remainingSlot}, {FormatStableState(stableId, stable, slot)}.");
+                return false;
+            }
+
+            return true;
+        }
+
+        private static bool TryFindStableHorseLink(int unitId, int unitGlobalId, out int stableId, out int slot)
+        {
+            stableId = 0;
+            slot = -1;
+            List<int> stableIndexes = new List<int>();
+            GameBuildingManagerAPI.Instance.GetAllBuildings(stableIndexes, AliveState.IsAlive, eStructs.STRUCT_STABLES);
+
+            for (int i = 0; i < stableIndexes.Count; i++)
+            {
+                int candidateStableId = ConvertQueryBuildingIndexToId(stableIndexes[i]);
+                if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(candidateStableId, out GameBuilding* stable))
+                    continue;
+
+                for (int candidateSlot = 0; candidateSlot < StableHorseSlotCount; candidateSlot++)
+                {
+                    int linkedUnitId = GetStableHorseSlotUnitId(stable, candidateSlot);
+                    int linkedGlobalId = GetStableHorseSlotGlobalId(stable, candidateSlot);
+                    if ((unitId > 0 && linkedUnitId == unitId) || (unitGlobalId > 0 && linkedGlobalId == unitGlobalId))
+                    {
+                        stableId = candidateStableId;
+                        slot = candidateSlot;
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        private static int ConvertQueryBuildingIndexToId(int queryIndex)
+        {
+            // Script Extender bug: GameStructQuery.ToIdList currently returns zero-based array indexes,
+            // while building APIs expect one-based IDs. Remove this +1 once ToIdList returns API IDs.
+            return queryIndex + 1;
+        }
+
+        private static string FormatStableState(int stableId, GameBuilding* stable, int slot)
+        {
+            return $"stableId={stableId}, stableGlobalId={stable->r_GlobalId}, total={stable->r_TotalHorses}, used={stable->r_UsedHorses}, recharge={stable->r_HorseRechargeTimer}, observedSlot={slot}, slots=[{stable->r_UsedHorse1UnitId}/{stable->r_UsedHorse1GlobalId},{stable->r_UsedHorse2UnitId}/{stable->r_UsedHorse2GlobalId},{stable->r_UsedHorse3UnitId}/{stable->r_UsedHorse3GlobalId},{stable->r_UsedHorse4UnitId}/{stable->r_UsedHorse4GlobalId}]";
         }
 
         private static int FindAliveUnitIdByGlobalId(int globalId)
@@ -1489,6 +1621,7 @@ namespace SomeSettings
             public int Height;
             public int CurrentHealth;
             public int MaxHealth;
+            public int LinkedProductionBuildingId;
         }
 
         private struct HorseAllocation
@@ -1517,5 +1650,6 @@ namespace SomeSettings
             public UnitTransformSnapshot Snapshot;
             public HorseAllocation Allocation;
         }
+
     }
 }
