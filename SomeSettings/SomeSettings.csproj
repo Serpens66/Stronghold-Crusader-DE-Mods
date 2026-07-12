@@ -127,6 +127,7 @@
     <Compile Include="src\EnemyProximityBulldozeCursorHook.cs" />
     <Compile Include="src\KnightDismountRuntime.cs" />
     <Compile Include="src\MinimapPlacementClickHook.cs" />
+    <Compile Include="src\SingleBuildingPauseHook.cs" />
     <Compile Include="src\SkirmishAiSelectionMemoryHook.cs" />
     <Compile Include="src\SomeSettingsPlugin.cs" />
     <Compile Include="src\SomeSettingsRuntime.cs" />

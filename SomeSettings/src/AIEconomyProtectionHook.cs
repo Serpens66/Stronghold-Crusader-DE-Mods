@@ -3,6 +3,9 @@ using SHCDESE.API;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Globalization;
 using System.Runtime.InteropServices;
 using Zhuqiaomon.Assembly;
 using Zhuqiaomon.Extensions;
@@ -33,6 +36,7 @@ namespace SomeSettings
 
         private const byte ActiveState = 0;
         private const byte SleepingState = 1;
+        private const long SingleBuildingOverrideInfoLogIntervalMilliseconds = 2000;
 
         private static readonly ulong PlayerOwnerDistanceFromSleeping = GetPlayerOwnerDistanceFromSleeping();
 
@@ -42,11 +46,13 @@ namespace SomeSettings
         private readonly ManualLogSource log;
         private readonly SomeSettingsViewModel settings;
         private readonly HookTransaction transaction;
+        private readonly Dictionary<int, NativeSleepOverrideLogState> nativeSleepOverrideLogStates = new Dictionary<int, NativeSleepOverrideLogState>();
         private HookRef<X64InlineHook> sleepStateHook = new HookRef<X64InlineHook>();
         private HookRef<X64InlineHook> emergencyDemolitionHook = new HookRef<X64InlineHook>();
         private HookRef<X64ManagedFunctionDetourAOB<BuildingDeleteDelegate>> buildingDeleteHook =
             new HookRef<X64ManagedFunctionDetourAOB<BuildingDeleteDelegate>>();
         private bool pauseCallbackFailureLogged;
+        private bool singleBuildingOverrideCallbackFailureLogged;
         private bool emergencyCallbackFailureLogged;
         private bool deleteCallbackFailureLogged;
         private bool disposed;
@@ -91,6 +97,8 @@ namespace SomeSettings
                 throw new InvalidOperationException("The AI emergency-demolition AOB signature was not found.");
             if (!buildingDeleteHook.Success)
                 throw new InvalidOperationException("The building delete AOB signature was not found.");
+
+            LogInfo("AI economy native hooks installed; single-building sleep override support is active.");
         }
 
         public void Dispose()
@@ -108,6 +116,9 @@ namespace SomeSettings
             try
             {
                 X64SmartCPUContext* registers = context.Pointer;
+                if (ApplySingleBuildingSleepOverride(registers))
+                    return;
+
                 if (!settings.EnableMod || !settings.PreventAIPause)
                     return;
 
@@ -130,9 +141,95 @@ namespace SomeSettings
                 if (!pauseCallbackFailureLogged)
                 {
                     pauseCallbackFailureLogged = true;
-                    log.LogError($"SomeSettings AI pause prevention callback failed; this pause uses vanilla behavior: {ex}");
+                    LogError($"AI pause prevention callback failed; this pause uses vanilla behavior: {ex}");
                 }
             }
+        }
+
+        private bool ApplySingleBuildingSleepOverride(X64SmartCPUContext* registers)
+        {
+            try
+            {
+                if (!settings.EnableMod)
+                    return false;
+
+                IntPtr sleepingAddress = unchecked((IntPtr)(long)registers->R8);
+                if (!SingleBuildingPauseHook.TryResolveManualOverrideForSleepingAddress(sleepingAddress, out SingleBuildingPauseHook.ManualSleepOverrideMatch match))
+                    return false;
+
+                byte desiredState = (byte)(match.IsSleeping ? 1 : 0);
+                byte requestedState = (byte)registers->RCX;
+                byte currentState = *(byte*)registers->R8;
+                bool adjustedRequest = requestedState != desiredState;
+                bool wroteMemory = currentState != desiredState;
+
+                if (wroteMemory)
+                    *(byte*)registers->R8 = desiredState;
+
+                if (adjustedRequest)
+                    registers->RCX = (registers->RCX & ~0xFFUL) | desiredState;
+
+                if (adjustedRequest || wroteMemory)
+                {
+                    LogSingleBuildingNativeOverride(
+                        match.BuildingId,
+                        match.BuildingType,
+                        match.Owner,
+                        currentState,
+                        requestedState,
+                        desiredState,
+                        adjustedRequest,
+                        wroteMemory);
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                if (!singleBuildingOverrideCallbackFailureLogged)
+                {
+                    singleBuildingOverrideCallbackFailureLogged = true;
+                    LogError($"single-building sleep native override failed; this sync uses vanilla behavior: {ex}");
+                }
+
+                return false;
+            }
+        }
+
+        private void LogSingleBuildingNativeOverride(
+            int buildingId,
+            eStructs buildingType,
+            int owner,
+            byte currentState,
+            byte requestedState,
+            byte desiredState,
+            bool adjustedRequest,
+            bool wroteMemory)
+        {
+            long now = Stopwatch.GetTimestamp();
+            if (!nativeSleepOverrideLogStates.TryGetValue(buildingId, out NativeSleepOverrideLogState state))
+            {
+                state = new NativeSleepOverrideLogState();
+                nativeSleepOverrideLogStates[buildingId] = state;
+            }
+
+            long elapsedMilliseconds = state.LastInfoLogTimestamp == 0
+                ? SingleBuildingOverrideInfoLogIntervalMilliseconds
+                : (now - state.LastInfoLogTimestamp) * 1000 / Stopwatch.Frequency;
+
+            if (elapsedMilliseconds >= SingleBuildingOverrideInfoLogIntervalMilliseconds)
+            {
+                string suppressedSummary = state.SuppressedRepeats > 0
+                    ? $", suppressedRepeats={state.SuppressedRepeats}"
+                    : string.Empty;
+
+                LogInfo($"single-building sleep native override: buildingId={buildingId}, type={buildingType}, owner={owner}, currentState={currentState}, vanillaRequested={requestedState}, desiredState={desiredState}, adjustedRequest={adjustedRequest}, wroteMemory={wroteMemory}{suppressedSummary}.");
+                state.LastInfoLogTimestamp = now;
+                state.SuppressedRepeats = 0;
+                return;
+            }
+
+            state.SuppressedRepeats++;
         }
 
         private void PreventEmergencyDemolition(NativePointer<X64SmartCPUContext> context)
@@ -154,7 +251,7 @@ namespace SomeSettings
                 if (!emergencyCallbackFailureLogged)
                 {
                     emergencyCallbackFailureLogged = true;
-                    log.LogError($"SomeSettings AI emergency-demolition prevention callback failed; this check uses vanilla behavior: {ex}");
+                    LogError($"AI emergency-demolition prevention callback failed; this check uses vanilla behavior: {ex}");
                 }
             }
         }
@@ -179,7 +276,7 @@ namespace SomeSettings
                 if (!deleteCallbackFailureLogged)
                 {
                     deleteCallbackFailureLogged = true;
-                    log.LogError($"SomeSettings AI live hovel deletion prevention failed; this delete uses vanilla behavior: {ex}");
+                    LogError($"AI live hovel deletion prevention failed; this delete uses vanilla behavior: {ex}");
                 }
             }
 
@@ -214,6 +311,27 @@ namespace SomeSettings
                 throw new InvalidOperationException("The GameBuilding layout has an invalid r_IsSleeping/r_PlayerIdOwner ordering.");
 
             return checked((ulong)distance);
+        }
+
+        private void LogInfo(string message)
+        {
+            log.LogInfo($"[{TimestampNow()}] SomeSettings {message}");
+        }
+
+        private void LogError(string message)
+        {
+            log.LogError($"[{TimestampNow()}] SomeSettings {message}");
+        }
+
+        private static string TimestampNow()
+        {
+            return DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture);
+        }
+
+        private sealed class NativeSleepOverrideLogState
+        {
+            public long LastInfoLogTimestamp;
+            public int SuppressedRepeats;
         }
     }
 }

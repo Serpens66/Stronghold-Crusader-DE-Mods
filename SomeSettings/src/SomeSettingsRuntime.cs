@@ -34,6 +34,7 @@ namespace SomeSettings
         private SkirmishAiSelectionMemoryHook skirmishAiSelectionMemoryHook;
         private AutoTradeSellZeroHook autoTradeSellZeroHook;
         private EnemyProximityBulldozeCursorHook enemyProximityBulldozeCursorHook;
+        private SingleBuildingPauseHook singleBuildingPauseHook;
         private KnightDismountRuntime knightDismountRuntime;
         private AIEconomyProtectionHook aiEconomyProtectionHook;
 
@@ -91,6 +92,7 @@ namespace SomeSettings
             knightDismountRuntime.Initialize();
             InstallAutoTradeSellZeroHook();
             InstallEnemyProximityBulldozeCursorHook();
+            InstallSingleBuildingPauseHook();
             hooksSubscribed = true;
             log.LogDebug("SomeSettings hooks subscribed.");
         }
@@ -156,6 +158,8 @@ namespace SomeSettings
             autoTradeSellZeroHook = null;
             enemyProximityBulldozeCursorHook?.Dispose();
             enemyProximityBulldozeCursorHook = null;
+            singleBuildingPauseHook?.Dispose();
+            singleBuildingPauseHook = null;
             ClearResourceEventGuards();
             pendingStockpileRefund = null;
             hooksSubscribed = false;
@@ -182,6 +186,18 @@ namespace SomeSettings
             catch (Exception ex)
             {
                 log.LogError($"SomeSettings enemy-proximity bulldoze cursor hook could not be installed: {ex}");
+            }
+        }
+
+        private void InstallSingleBuildingPauseHook()
+        {
+            try
+            {
+                singleBuildingPauseHook = new SingleBuildingPauseHook(log, settings);
+            }
+            catch (Exception ex)
+            {
+                log.LogError($"SomeSettings single-building pause hook could not be installed: {ex}");
             }
         }
 
@@ -662,6 +678,7 @@ namespace SomeSettings
         private void OnUnloadMap(MapUnloadEventArgs args)
         {
             ClearResourceEventGuards();
+            singleBuildingPauseHook?.ClearOverrides("map unload");
         }
 
         private unsafe static int[] CopyLocalGoods(GameBuilding* building)
