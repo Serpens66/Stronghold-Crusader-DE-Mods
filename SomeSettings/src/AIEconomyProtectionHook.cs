@@ -3,8 +3,6 @@ using SHCDESE.API;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
-using System.Collections.Generic;
-using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.InteropServices;
 using Zhuqiaomon.Assembly;
@@ -36,7 +34,6 @@ namespace SomeSettings
 
         private const byte ActiveState = 0;
         private const byte SleepingState = 1;
-        private const long SingleBuildingOverrideInfoLogIntervalMilliseconds = 2000;
 
         private static readonly ulong PlayerOwnerDistanceFromSleeping = GetPlayerOwnerDistanceFromSleeping();
 
@@ -46,7 +43,6 @@ namespace SomeSettings
         private readonly ManualLogSource log;
         private readonly SomeSettingsViewModel settings;
         private readonly HookTransaction transaction;
-        private readonly Dictionary<int, NativeSleepOverrideLogState> nativeSleepOverrideLogStates = new Dictionary<int, NativeSleepOverrideLogState>();
         private HookRef<X64InlineHook> sleepStateHook = new HookRef<X64InlineHook>();
         private HookRef<X64InlineHook> emergencyDemolitionHook = new HookRef<X64InlineHook>();
         private HookRef<X64ManagedFunctionDetourAOB<BuildingDeleteDelegate>> buildingDeleteHook =
@@ -97,8 +93,6 @@ namespace SomeSettings
                 throw new InvalidOperationException("The AI emergency-demolition AOB signature was not found.");
             if (!buildingDeleteHook.Success)
                 throw new InvalidOperationException("The building delete AOB signature was not found.");
-
-            LogInfo("AI economy native hooks installed; single-building sleep override support is active.");
         }
 
         public void Dispose()
@@ -169,19 +163,6 @@ namespace SomeSettings
                 if (adjustedRequest)
                     registers->RCX = (registers->RCX & ~0xFFUL) | desiredState;
 
-                if (adjustedRequest || wroteMemory)
-                {
-                    LogSingleBuildingNativeOverride(
-                        match.BuildingId,
-                        match.BuildingType,
-                        match.Owner,
-                        currentState,
-                        requestedState,
-                        desiredState,
-                        adjustedRequest,
-                        wroteMemory);
-                }
-
                 return true;
             }
             catch (Exception ex)
@@ -194,42 +175,6 @@ namespace SomeSettings
 
                 return false;
             }
-        }
-
-        private void LogSingleBuildingNativeOverride(
-            int buildingId,
-            eStructs buildingType,
-            int owner,
-            byte currentState,
-            byte requestedState,
-            byte desiredState,
-            bool adjustedRequest,
-            bool wroteMemory)
-        {
-            long now = Stopwatch.GetTimestamp();
-            if (!nativeSleepOverrideLogStates.TryGetValue(buildingId, out NativeSleepOverrideLogState state))
-            {
-                state = new NativeSleepOverrideLogState();
-                nativeSleepOverrideLogStates[buildingId] = state;
-            }
-
-            long elapsedMilliseconds = state.LastInfoLogTimestamp == 0
-                ? SingleBuildingOverrideInfoLogIntervalMilliseconds
-                : (now - state.LastInfoLogTimestamp) * 1000 / Stopwatch.Frequency;
-
-            if (elapsedMilliseconds >= SingleBuildingOverrideInfoLogIntervalMilliseconds)
-            {
-                string suppressedSummary = state.SuppressedRepeats > 0
-                    ? $", suppressedRepeats={state.SuppressedRepeats}"
-                    : string.Empty;
-
-                LogInfo($"single-building sleep native override: buildingId={buildingId}, type={buildingType}, owner={owner}, currentState={currentState}, vanillaRequested={requestedState}, desiredState={desiredState}, adjustedRequest={adjustedRequest}, wroteMemory={wroteMemory}{suppressedSummary}.");
-                state.LastInfoLogTimestamp = now;
-                state.SuppressedRepeats = 0;
-                return;
-            }
-
-            state.SuppressedRepeats++;
         }
 
         private void PreventEmergencyDemolition(NativePointer<X64SmartCPUContext> context)
@@ -313,11 +258,6 @@ namespace SomeSettings
             return checked((ulong)distance);
         }
 
-        private void LogInfo(string message)
-        {
-            log.LogInfo($"[{TimestampNow()}] SomeSettings {message}");
-        }
-
         private void LogError(string message)
         {
             log.LogError($"[{TimestampNow()}] SomeSettings {message}");
@@ -328,10 +268,5 @@ namespace SomeSettings
             return DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture);
         }
 
-        private sealed class NativeSleepOverrideLogState
-        {
-            public long LastInfoLogTimestamp;
-            public int SuppressedRepeats;
-        }
     }
 }

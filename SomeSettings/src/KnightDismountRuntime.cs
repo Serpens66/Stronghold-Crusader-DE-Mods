@@ -342,7 +342,7 @@ namespace SomeSettings
             setupTroopActionsHook = new Hook(FindSetuptroopActionsUIMethod(), (SetuptroopActionsUIDelegate)SetuptroopActionsUIHook);
             setupTroopActionsTrampoline = setupTroopActionsHook.GenerateTrampoline<SetuptroopActionsUIDelegate>();
             initialized = true;
-            RefreshButtonVisibility();
+            buttonViewModel.Hide();
         }
 
         public void Dispose()
@@ -370,6 +370,11 @@ namespace SomeSettings
 
         public void RefreshButtonVisibility()
         {
+            RefreshButtonVisibility(null);
+        }
+
+        private void RefreshButtonVisibility(HUD_Troops troopPanel)
+        {
             try
             {
                 if (!settings.EnableMod || !settings.EnableKnightDismount)
@@ -378,7 +383,13 @@ namespace SomeSettings
                     return;
                 }
 
-                if (!IsBottomRightSlotFree())
+                if (troopPanel == null && !TryGetHudTroopPanel(out troopPanel))
+                {
+                    buttonViewModel.Hide();
+                    return;
+                }
+
+                if (!IsBottomRightSlotFree(troopPanel))
                 {
                     buttonViewModel.Hide();
                     return;
@@ -425,7 +436,7 @@ namespace SomeSettings
         {
             setupTroopActionsTrampoline(self, fromInitialOpening);
             HookButtonEvents(self);
-            RefreshButtonVisibility();
+            RefreshButtonVisibility(self);
         }
 
         private void HookButtonEvents(HUD_Troops troopPanel)
@@ -603,12 +614,20 @@ namespace SomeSettings
             return false;
         }
 
-        private static bool IsBottomRightSlotFree()
+        private static bool TryGetHudTroopPanel(out HUD_Troops troopPanel)
         {
-            HUD_Troops troopPanel = MainViewModel.Instance == null ? null : MainViewModel.Instance.HUDTroopPanel;
-            if (troopPanel == null)
-                return true;
+            troopPanel = null;
 
+            if (!MainViewModel.viewModelLoaded)
+                return false;
+
+            MainViewModel mainViewModel = MainViewModel.Instance;
+            troopPanel = mainViewModel == null ? null : mainViewModel.HUDTroopPanel;
+            return troopPanel != null;
+        }
+
+        private static bool IsBottomRightSlotFree(HUD_Troops troopPanel)
+        {
             return IsSlotFree(troopPanel, "UnitFireCow", "UnitbuildArabBallista");
         }
 

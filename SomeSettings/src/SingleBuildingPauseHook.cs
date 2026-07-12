@@ -21,13 +21,12 @@ namespace SomeSettings
 
         private static readonly bool EnablePeriodicManualSleepOverrideRestore = false;
         private const long DuplicateToggleSuppressMilliseconds = 750;
-        private const long RestoreInfoLogIntervalMilliseconds = 5000;
         private static readonly object ManualSleepOverridesLock = new object();
-        private static readonly Dictionary<int, bool> ManualSleepOverrides = new Dictionary<int, bool>();
+        private static readonly Dictionary<int, ManualSleepOverride> ManualSleepOverrides = new Dictionary<int, ManualSleepOverride>();
+        private static readonly Dictionary<IntPtr, int> ManualSleepOverrideIdsBySleepingAddress = new Dictionary<IntPtr, int>();
 
         private readonly ManualLogSource log;
         private readonly SomeSettingsViewModel settings;
-        private readonly Dictionary<int, OverrideRestoreLogState> overrideRestoreLogStates = new Dictionary<int, OverrideRestoreLogState>();
         private readonly Hook buttonHook;
         private readonly Hook guiUpdateHook;
         private readonly ButtonToggleZzzModeDelegate buttonTrampoline;
@@ -46,8 +45,6 @@ namespace SomeSettings
 
             guiUpdateHook = new Hook(FindNoesisGuiUpdateChecksInGameMethod(), (NoesisGuiUpdateChecksInGameDelegate)NoesisGuiUpdateChecksInGameHook);
             guiUpdateTrampoline = guiUpdateHook.GenerateTrampoline<NoesisGuiUpdateChecksInGameDelegate>();
-
-            LogInfo("single-building pause hook installed.");
         }
 
         public void Dispose()
@@ -61,18 +58,11 @@ namespace SomeSettings
             guiUpdateHook?.Undo();
             guiUpdateHook?.Dispose();
             ClearManualSleepOverrides();
-            overrideRestoreLogStates.Clear();
-            LogInfo("single-building pause hook disposed.");
         }
 
         public void ClearOverrides(string reason)
         {
-            int cleared = ClearManualSleepOverrides();
-            if (cleared == 0)
-                return;
-
-            overrideRestoreLogStates.Clear();
-            LogInfo($"single-building pause cleared all overrides: reason={reason}, cleared={cleared}.");
+            ClearManualSleepOverrides();
         }
 
         internal unsafe static bool TryResolveManualOverrideForSleepingAddress(IntPtr sleepingAddress, out ManualSleepOverrideMatch match)
@@ -81,36 +71,41 @@ namespace SomeSettings
             if (sleepingAddress == IntPtr.Zero)
                 return false;
 
+            ManualSleepOverride entry;
             lock (ManualSleepOverridesLock)
             {
-                if (ManualSleepOverrides.Count == 0)
-                    return false;
-
-                GameBuildingManagerAPI buildingApi = GameBuildingManagerAPI.Instance;
-                foreach (KeyValuePair<int, bool> entry in ManualSleepOverrides)
+                if (!ManualSleepOverrideIdsBySleepingAddress.TryGetValue(sleepingAddress, out int buildingId) ||
+                    !ManualSleepOverrides.TryGetValue(buildingId, out entry))
                 {
-                    if (!buildingApi.TryGetBuildingById(entry.Key, out GameBuilding* building) ||
-                        building->r_AliveState != AliveState.IsAlive)
-                    {
-                        continue;
-                    }
+                    ManualSleepOverrideIdsBySleepingAddress.Remove(sleepingAddress);
+                    return false;
+                }
 
-                    if ((IntPtr)(&building->r_IsSleeping) != sleepingAddress)
-                        continue;
-
-                    match = new ManualSleepOverrideMatch
-                    {
-                        BuildingId = entry.Key,
-                        IsSleeping = entry.Value,
-                        BuildingType = building->r_BuildingType,
-                        Owner = building->r_PlayerIdOwner,
-                        CurrentSleeping = building->r_IsSleeping
-                    };
-                    return true;
+                if (entry.SleepingAddress != sleepingAddress)
+                {
+                    ManualSleepOverrideIdsBySleepingAddress.Remove(sleepingAddress);
+                    return false;
                 }
             }
 
-            return false;
+            GameBuildingManagerAPI buildingApi = GameBuildingManagerAPI.Instance;
+            if (!buildingApi.TryGetBuildingById(entry.BuildingId, out GameBuilding* building) ||
+                building->r_AliveState != AliveState.IsAlive ||
+                (IntPtr)(&building->r_IsSleeping) != sleepingAddress)
+            {
+                RemoveManualSleepOverride(entry.BuildingId);
+                return false;
+            }
+
+            match = new ManualSleepOverrideMatch
+            {
+                BuildingId = entry.BuildingId,
+                IsSleeping = entry.IsSleeping,
+                BuildingType = building->r_BuildingType,
+                Owner = building->r_PlayerIdOwner,
+                CurrentSleeping = building->r_IsSleeping
+            };
+            return true;
         }
 
         private static MethodInfo FindButtonToggleZzzModeMethod()
@@ -147,7 +142,6 @@ namespace SomeSettings
         {
             int selectedBuildingId = TryGetSelectedBuildingId();
             bool controlPressed = IsControlPressed();
-            LogInfo($"single-building pause command: enabled={settings.EnableMod}, ctrl={controlPressed}, selected={BuildBuildingStateSummary(selectedBuildingId)}, overrides={GetManualSleepOverrideCount()}.");
 
             if (!settings.EnableMod)
             {
@@ -158,10 +152,7 @@ namespace SomeSettings
             if (!controlPressed)
             {
                 if (IsRecentManualToggle(selectedBuildingId))
-                {
-                    LogInfo($"single-building pause suppressed follow-up vanilla command: selected={BuildBuildingStateSummary(selectedBuildingId)}.");
                     return;
-                }
 
                 ToggleSelectedBuildingTypeFromSelectedState(self, parameter);
                 return;
@@ -201,33 +192,21 @@ namespace SomeSettings
         {
             int buildingId = TryGetSelectedBuildingId();
             if (buildingId <= 0)
-            {
-                LogInfo($"single-building pause skipped: invalid selected building id {buildingId}.");
                 return;
-            }
 
             if (IsDuplicateManualToggle(buildingId))
-            {
-                LogInfo($"single-building pause duplicate ctrl command suppressed: selected={BuildBuildingStateSummary(buildingId)}.");
                 return;
-            }
 
             GameBuildingManagerAPI buildingApi = GameBuildingManagerAPI.Instance;
             if (!buildingApi.TryGetBuildingById(buildingId, out GameBuilding* building))
-            {
-                LogInfo($"single-building pause skipped: building id {buildingId} could not be resolved.");
                 return;
-            }
 
-            bool wasSleeping = building->r_IsSleeping == 1;
-            bool isSleeping = !wasSleeping;
-            SetManualSleepOverride(buildingId, isSleeping);
-            overrideRestoreLogStates.Remove(buildingId);
+            bool isSleeping = building->r_IsSleeping != 1;
+            if (!SetManualSleepOverride(buildingId, isSleeping))
+                return;
+
             buildingApi.SetSleeping(buildingId, isSleeping);
             MarkManualToggle(buildingId);
-
-            LogInfo(
-                $"single-building pause toggled: buildingId={buildingId}, type={building->r_BuildingType}, owner={building->r_PlayerIdOwner}, wasSleeping={wasSleeping}, isSleeping={isSleeping}, overrides={GetManualSleepOverrideCount()}, periodicRestore={EnablePeriodicManualSleepOverrideRestore}.");
         }
 
         private unsafe void ToggleSelectedBuildingTypeFromSelectedState(MainViewModel self, object parameter)
@@ -235,7 +214,6 @@ namespace SomeSettings
             int selectedBuildingId = TryGetSelectedBuildingId();
             if (selectedBuildingId <= 0)
             {
-                LogInfo($"single-building pause vanilla-type toggle fallback: invalid selected building id {selectedBuildingId}.");
                 buttonTrampoline(self, parameter);
                 return;
             }
@@ -243,7 +221,6 @@ namespace SomeSettings
             GameBuildingManagerAPI buildingApi = GameBuildingManagerAPI.Instance;
             if (!buildingApi.TryGetBuildingById(selectedBuildingId, out GameBuilding* selectedBuilding))
             {
-                LogInfo($"single-building pause vanilla-type toggle fallback: building id {selectedBuildingId} could not be resolved.");
                 buttonTrampoline(self, parameter);
                 return;
             }
@@ -254,13 +231,9 @@ namespace SomeSettings
             byte targetState = (byte)(targetSleeping ? 1 : 0);
             int owner = selectedBuilding->r_PlayerIdOwner;
             eStructs buildingType = selectedBuilding->r_BuildingType;
-            int overridesBefore = GetManualSleepOverrideCount();
 
             ClearManualOverridesForSelectedBuildingType();
 
-            int matched = 0;
-            int corrected = 0;
-            int overridesAdded = 0;
             Span<GameBuilding> buildings = buildingApi.GetBuildingsAsSpan();
             for (int i = 0; i < buildings.Length; i++)
             {
@@ -272,21 +245,16 @@ namespace SomeSettings
                     continue;
                 }
 
-                matched++;
                 int buildingId = i + 1;
                 SetManualSleepOverride(buildingId, targetSleeping);
-                overrideRestoreLogStates.Remove(buildingId);
-                overridesAdded++;
 
                 if (building.r_IsSleeping == targetState)
                     continue;
 
                 building.r_IsSleeping = targetState;
-                corrected++;
             }
 
             UpdateSleepButtonVisibility(self, targetSleeping);
-            LogInfo($"single-building pause type toggle from selected state: selectedBuildingId={selectedBuildingId}, type={buildingType}, owner={owner}, selectedWasSleeping={selectedWasSleeping}, targetSleeping={targetSleeping}, selectedOverride={selectedHasOverride}, overridesBefore={overridesBefore}, overridesAfter={GetManualSleepOverrideCount()}, matched={matched}, corrected={corrected}, overridesAdded={overridesAdded}, vanillaSuppressed=True.");
         }
 
         private static bool IsControlPressed()
@@ -327,24 +295,16 @@ namespace SomeSettings
 
             lock (ManualSleepOverridesLock)
             {
-                foreach (int buildingId in ManualSleepOverrides.Keys)
+                foreach (ManualSleepOverride entry in ManualSleepOverrides.Values)
                 {
-                    if (!buildingApi.TryGetBuildingById(buildingId, out GameBuilding* building) ||
-                        building->r_PlayerIdOwner == owner && building->r_BuildingType == buildingType)
-                    {
-                        idsToRemove.Add(buildingId);
-                    }
+                    if (entry.Owner == owner && entry.BuildingType == buildingType)
+                        idsToRemove.Add(entry.BuildingId);
                 }
 
                 foreach (int buildingId in idsToRemove)
-                    ManualSleepOverrides.Remove(buildingId);
+                    RemoveManualSleepOverrideUnsafe(buildingId);
             }
 
-            foreach (int buildingId in idsToRemove)
-                overrideRestoreLogStates.Remove(buildingId);
-
-            if (idsToRemove.Count > 0)
-                LogInfo($"single-building pause cleared overrides for vanilla toggle: owner={owner}, type={buildingType}, cleared={idsToRemove.Count}, remaining={GetManualSleepOverrideCount()}.");
         }
 
         private unsafe void ApplyManualSleepOverrides()
@@ -354,29 +314,28 @@ namespace SomeSettings
 
             GameBuildingManagerAPI buildingApi = GameBuildingManagerAPI.Instance;
             List<int> idsToRemove = null;
-            List<KeyValuePair<int, bool>> overrides;
+            List<ManualSleepOverride> overrides;
 
             lock (ManualSleepOverridesLock)
-                overrides = new List<KeyValuePair<int, bool>>(ManualSleepOverrides);
+                overrides = new List<ManualSleepOverride>(ManualSleepOverrides.Values);
 
-            foreach (KeyValuePair<int, bool> entry in overrides)
+            foreach (ManualSleepOverride entry in overrides)
             {
-                if (!buildingApi.TryGetBuildingById(entry.Key, out GameBuilding* building) ||
+                if (!buildingApi.TryGetBuildingById(entry.BuildingId, out GameBuilding* building) ||
                     building->r_AliveState != AliveState.IsAlive)
                 {
                     if (idsToRemove == null)
                         idsToRemove = new List<int>();
 
-                    idsToRemove.Add(entry.Key);
+                    idsToRemove.Add(entry.BuildingId);
                     continue;
                 }
 
-                byte desired = (byte)(entry.Value ? 1 : 0);
+                byte desired = (byte)(entry.IsSleeping ? 1 : 0);
                 if (building->r_IsSleeping == desired)
                     continue;
 
                 building->r_IsSleeping = desired;
-                LogOverrideRestored(entry.Key, building->r_BuildingType, entry.Value);
             }
 
             if (idsToRemove == null)
@@ -385,42 +344,9 @@ namespace SomeSettings
             lock (ManualSleepOverridesLock)
             {
                 foreach (int buildingId in idsToRemove)
-                    ManualSleepOverrides.Remove(buildingId);
+                    RemoveManualSleepOverrideUnsafe(buildingId);
             }
 
-            foreach (int buildingId in idsToRemove)
-                overrideRestoreLogStates.Remove(buildingId);
-
-            LogInfo($"single-building pause removed stale overrides: removed={idsToRemove.Count}, remaining={GetManualSleepOverrideCount()}.");
-        }
-
-        private void LogOverrideRestored(int buildingId, eStructs buildingType, bool desiredSleeping)
-        {
-            long now = Stopwatch.GetTimestamp();
-            if (!overrideRestoreLogStates.TryGetValue(buildingId, out OverrideRestoreLogState state))
-            {
-                state = new OverrideRestoreLogState();
-                overrideRestoreLogStates[buildingId] = state;
-            }
-
-            long elapsedMilliseconds = state.LastInfoLogTimestamp == 0
-                ? RestoreInfoLogIntervalMilliseconds
-                : (now - state.LastInfoLogTimestamp) * 1000 / Stopwatch.Frequency;
-
-            if (elapsedMilliseconds >= RestoreInfoLogIntervalMilliseconds)
-            {
-                string suppressedSummary = state.SuppressedRepeats > 0
-                    ? $", suppressedRepeats={state.SuppressedRepeats}"
-                    : string.Empty;
-
-                LogInfo($"single-building pause override restored: buildingId={buildingId}, type={buildingType}, desiredSleeping={desiredSleeping}{suppressedSummary}.");
-                state.LastInfoLogTimestamp = now;
-                state.SuppressedRepeats = 0;
-                return;
-            }
-
-            state.SuppressedRepeats++;
-            LogDebug($"single-building pause override restored: buildingId={buildingId}, type={buildingType}, desiredSleeping={desiredSleeping}, suppressedUntilInfo=True.");
         }
 
         private void RefreshSelectedBuildingSleepButton()
@@ -459,35 +385,62 @@ namespace SomeSettings
             lastManualToggleTimestamp = Stopwatch.GetTimestamp();
         }
 
-        private unsafe string BuildBuildingStateSummary(int buildingId)
-        {
-            if (buildingId <= 0)
-                return $"id={buildingId}";
-
-            GameBuildingManagerAPI buildingApi = GameBuildingManagerAPI.Instance;
-            if (!buildingApi.TryGetBuildingById(buildingId, out GameBuilding* building))
-                return $"id={buildingId}, resolved=false";
-
-            bool hasOverride = TryGetManualSleepOverride(buildingId, out bool overrideSleeping);
-            return $"id={buildingId}, resolved=true, type={building->r_BuildingType}, owner={building->r_PlayerIdOwner}, sleeping={building->r_IsSleeping}, override={(hasOverride ? overrideSleeping.ToString() : "none")}";
-        }
-
         private static int GetManualSleepOverrideCount()
         {
             lock (ManualSleepOverridesLock)
                 return ManualSleepOverrides.Count;
         }
 
-        private static void SetManualSleepOverride(int buildingId, bool isSleeping)
+        private unsafe static bool SetManualSleepOverride(int buildingId, bool isSleeping)
         {
+            if (buildingId <= 0)
+                return false;
+
+            GameBuildingManagerAPI buildingApi = GameBuildingManagerAPI.Instance;
+            if (!buildingApi.TryGetBuildingById(buildingId, out GameBuilding* building) ||
+                building->r_AliveState != AliveState.IsAlive)
+            {
+                return false;
+            }
+
+            ManualSleepOverride entry = new ManualSleepOverride
+            {
+                BuildingId = buildingId,
+                IsSleeping = isSleeping,
+                SleepingAddress = (IntPtr)(&building->r_IsSleeping),
+                BuildingType = building->r_BuildingType,
+                Owner = building->r_PlayerIdOwner
+            };
+
             lock (ManualSleepOverridesLock)
-                ManualSleepOverrides[buildingId] = isSleeping;
+            {
+                if (ManualSleepOverrides.TryGetValue(buildingId, out ManualSleepOverride oldEntry) &&
+                    ManualSleepOverrideIdsBySleepingAddress.TryGetValue(oldEntry.SleepingAddress, out int oldBuildingId) &&
+                    oldBuildingId == buildingId)
+                {
+                    ManualSleepOverrideIdsBySleepingAddress.Remove(oldEntry.SleepingAddress);
+                }
+
+                ManualSleepOverrides[buildingId] = entry;
+                ManualSleepOverrideIdsBySleepingAddress[entry.SleepingAddress] = buildingId;
+            }
+
+            return true;
         }
 
         private static bool TryGetManualSleepOverride(int buildingId, out bool isSleeping)
         {
             lock (ManualSleepOverridesLock)
-                return ManualSleepOverrides.TryGetValue(buildingId, out isSleeping);
+            {
+                if (ManualSleepOverrides.TryGetValue(buildingId, out ManualSleepOverride entry))
+                {
+                    isSleeping = entry.IsSleeping;
+                    return true;
+                }
+            }
+
+            isSleeping = false;
+            return false;
         }
 
         private static int ClearManualSleepOverrides()
@@ -496,7 +449,27 @@ namespace SomeSettings
             {
                 int count = ManualSleepOverrides.Count;
                 ManualSleepOverrides.Clear();
+                ManualSleepOverrideIdsBySleepingAddress.Clear();
                 return count;
+            }
+        }
+
+        private static void RemoveManualSleepOverride(int buildingId)
+        {
+            lock (ManualSleepOverridesLock)
+                RemoveManualSleepOverrideUnsafe(buildingId);
+        }
+
+        private static void RemoveManualSleepOverrideUnsafe(int buildingId)
+        {
+            if (!ManualSleepOverrides.TryGetValue(buildingId, out ManualSleepOverride entry))
+                return;
+
+            ManualSleepOverrides.Remove(buildingId);
+            if (ManualSleepOverrideIdsBySleepingAddress.TryGetValue(entry.SleepingAddress, out int indexedBuildingId) &&
+                indexedBuildingId == buildingId)
+            {
+                ManualSleepOverrideIdsBySleepingAddress.Remove(entry.SleepingAddress);
             }
         }
 
@@ -519,16 +492,6 @@ namespace SomeSettings
             }
         }
 
-        private void LogDebug(string message)
-        {
-            log.LogDebug($"[{TimestampNow()}] SomeSettings {message}");
-        }
-
-        private void LogInfo(string message)
-        {
-            log.LogInfo($"[{TimestampNow()}] SomeSettings {message}");
-        }
-
         private void LogError(string message)
         {
             log.LogError($"[{TimestampNow()}] SomeSettings {message}");
@@ -539,10 +502,13 @@ namespace SomeSettings
             return DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture);
         }
 
-        private sealed class OverrideRestoreLogState
+        private struct ManualSleepOverride
         {
-            public long LastInfoLogTimestamp;
-            public int SuppressedRepeats;
+            public int BuildingId;
+            public bool IsSleeping;
+            public IntPtr SleepingAddress;
+            public eStructs BuildingType;
+            public int Owner;
         }
 
         internal struct ManualSleepOverrideMatch
