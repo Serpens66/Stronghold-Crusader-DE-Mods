@@ -134,6 +134,7 @@ namespace SomeSettings
             try
             {
                 aiEconomyProtectionHook = new AIEconomyProtectionHook(log, settings, libraryHandle, memory);
+                singleBuildingPauseHook?.SetSleepStateSynchronizer(aiEconomyProtectionHook.SynchronizeSleepStatesNow);
             }
             catch (Exception ex)
             {
@@ -206,6 +207,8 @@ namespace SomeSettings
             try
             {
                 singleBuildingPauseHook = new SingleBuildingPauseHook(log, settings);
+                if (aiEconomyProtectionHook != null)
+                    singleBuildingPauseHook.SetSleepStateSynchronizer(aiEconomyProtectionHook.SynchronizeSleepStatesNow);
             }
             catch (Exception ex)
             {

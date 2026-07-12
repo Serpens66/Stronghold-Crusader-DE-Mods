@@ -33,6 +33,7 @@ namespace SomeSettings
         private readonly NoesisGuiUpdateChecksInGameDelegate guiUpdateTrampoline;
         private int lastManualToggleBuildingId;
         private long lastManualToggleTimestamp;
+        private Action synchronizeSleepStates;
         private bool disposed;
 
         public SingleBuildingPauseHook(ManualLogSource log, SomeSettingsViewModel settings)
@@ -81,6 +82,11 @@ namespace SomeSettings
         public void ClearOverrides(string reason)
         {
             ClearManualSleepOverrides();
+        }
+
+        internal void SetSleepStateSynchronizer(Action synchronizer)
+        {
+            synchronizeSleepStates = synchronizer ?? throw new ArgumentNullException(nameof(synchronizer));
         }
 
         internal unsafe static bool TryResolveManualOverrideForSleepingAddress(IntPtr sleepingAddress, out ManualSleepOverrideMatch match)
@@ -228,6 +234,7 @@ namespace SomeSettings
             // Do not write r_IsSleeping directly. The native sleep-state sync must
             // observe the state change so it can run the game's worker reset and
             // reassignment bookkeeping for this building.
+            synchronizeSleepStates?.Invoke();
             UpdateSleepButtonVisibility(self, targetSleeping);
             MarkManualToggle(buildingId);
         }
@@ -261,6 +268,8 @@ namespace SomeSettings
             // every affected building runs the native worker bookkeeping.
             if (buildingTypeWasSleeping != targetSleeping)
                 buttonTrampoline(self, parameter);
+            else
+                synchronizeSleepStates?.Invoke();
 
             UpdateSleepButtonVisibility(self, targetSleeping);
         }

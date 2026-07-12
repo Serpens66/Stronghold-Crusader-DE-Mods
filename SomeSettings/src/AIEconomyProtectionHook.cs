@@ -10,6 +10,7 @@ using Zhuqiaomon.Extensions;
 using Zhuqiaomon.Hooks;
 using Zhuqiaomon.Hooks.Transaction;
 using Zhuqiaomon.Memory;
+using Zhuqiaomon.Memory.Scanners;
 
 namespace SomeSettings
 {
@@ -19,6 +20,11 @@ namespace SomeSettings
         // cmp [r8], cl; je unchanged; mov [r8], cl; begin destructive reset block
         private const string SleepStateComparisonPattern =
             "41 38 08 0F 84 ?? ?? ?? ?? 41 88 08 66 41 89 B8 ?? ?? ?? ??";
+
+        // c_game_building_sync_sleep_state function start. This is the vanilla
+        // manager-wide synchronization routine containing the comparison above.
+        private const string SleepStateSynchronizationFunctionPattern =
+            "40 53 41 BA 01 00 00 00 48 8B D9 44 39 51 50 0F 8E ?? ?? ?? ?? 48 89 74 24 10 4C 8D 81 1E 06 00 00";
 
         // c_game_ai_strategy_update:
         // cmp emergencyDemolitionRequested, 0; je afterEmergencyDemolition
@@ -40,6 +46,9 @@ namespace SomeSettings
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate long BuildingDeleteDelegate(NativePointer<GameBuildingManager> buildingManager, int buildingId);
 
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate void SynchronizeSleepStatesDelegate(NativePointer<GameBuildingManager> buildingManager);
+
         private readonly ManualLogSource log;
         private readonly SomeSettingsViewModel settings;
         private readonly HookTransaction transaction;
@@ -47,6 +56,7 @@ namespace SomeSettings
         private HookRef<X64InlineHook> emergencyDemolitionHook = new HookRef<X64InlineHook>();
         private HookRef<X64ManagedFunctionDetourAOB<BuildingDeleteDelegate>> buildingDeleteHook =
             new HookRef<X64ManagedFunctionDetourAOB<BuildingDeleteDelegate>>();
+        private readonly SynchronizeSleepStatesDelegate synchronizeSleepStates;
         private bool pauseCallbackFailureLogged;
         private bool singleBuildingOverrideCallbackFailureLogged;
         private bool emergencyCallbackFailureLogged;
@@ -57,6 +67,13 @@ namespace SomeSettings
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
+
+            DataScanner scanner = DataScanner.Create(memory, unchecked((ulong)libraryHandle.ToInt64()));
+            scanner.Scan(SleepStateSynchronizationFunctionPattern);
+            if (scanner.CurrentAddress == 0)
+                throw new InvalidOperationException("The building sleep-state synchronization function was not found.");
+
+            synchronizeSleepStates = Marshal.GetDelegateForFunctionPointer<SynchronizeSleepStatesDelegate>((IntPtr)scanner.CurrentAddress);
 
             transaction = new HookTransaction(
                 memory,
@@ -93,6 +110,11 @@ namespace SomeSettings
                 throw new InvalidOperationException("The AI emergency-demolition AOB signature was not found.");
             if (!buildingDeleteHook.Success)
                 throw new InvalidOperationException("The building delete AOB signature was not found.");
+        }
+
+        internal void SynchronizeSleepStatesNow()
+        {
+            synchronizeSleepStates(GameBuildingManagerAPI.Instance.GetBuildingManager());
         }
 
         public void Dispose()
