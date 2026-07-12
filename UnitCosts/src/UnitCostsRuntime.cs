@@ -35,7 +35,7 @@ namespace UnitCosts
         private const int SiegeMissingResourcesMessageThrottleMilliseconds = 1000;
         private const int SiegeMissingResourcesSpeechThrottleMilliseconds = 10000;
         private const string MissingWeaponsSpeechFileName = "Other_Warning6.wav";
-        private static readonly string[] MissingGoldSpeechFileNames = { "Other_Warning1.wav", "Other_Warning2.wav", "Other_Warning3.wav" };
+        private static readonly string[] MissingGoldSpeechFileNames = { "Units_Warning3.wav", "Units_Warning4.wav" };
         private const string MissingRecruitsLimitingReason = "peasants";
         private static readonly string[] MissingRecruitsSpeechFileNames = { "Other_Warning4.wav", "Other_Warning5.wav" };
         private static readonly Random SpeechRandom = new Random();
