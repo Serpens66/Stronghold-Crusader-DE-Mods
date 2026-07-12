@@ -153,15 +153,14 @@ namespace SomeSettings
 
                 byte desiredState = (byte)(match.IsSleeping ? 1 : 0);
                 byte requestedState = (byte)registers->RCX;
-                byte currentState = *(byte*)registers->R8;
                 bool adjustedRequest = requestedState != desiredState;
-                bool wroteMemory = currentState != desiredState;
-
-                if (wroteMemory)
-                    *(byte*)registers->R8 = desiredState;
 
                 if (adjustedRequest)
                     registers->RCX = (registers->RCX & ~0xFFUL) | desiredState;
+
+                // Do not write the state field here. The overwritten native
+                // comparison must see a real change and execute the game's full
+                // worker reset/reassignment bookkeeping before writing the state.
 
                 return true;
             }

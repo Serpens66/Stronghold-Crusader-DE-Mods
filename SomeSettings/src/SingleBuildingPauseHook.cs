@@ -219,11 +219,16 @@ namespace SomeSettings
             if (!buildingApi.TryGetBuildingById(buildingId, out GameBuilding* building))
                 return;
 
-            bool isSleeping = building->r_IsSleeping != 1;
-            if (!SetManualSleepOverride(buildingId, isSleeping))
+            bool hasOverride = TryGetManualSleepOverride(buildingId, out bool overrideSleeping);
+            bool wasSleeping = hasOverride ? overrideSleeping : building->r_IsSleeping == 1;
+            bool targetSleeping = !wasSleeping;
+            if (!SetManualSleepOverride(buildingId, targetSleeping))
                 return;
 
-            buildingApi.SetSleeping(buildingId, isSleeping);
+            // Do not write r_IsSleeping directly. The native sleep-state sync must
+            // observe the state change so it can run the game's worker reset and
+            // reassignment bookkeeping for this building.
+            UpdateSleepButtonVisibility(self, targetSleeping);
             MarkManualToggle(buildingId);
         }
 
@@ -246,31 +251,16 @@ namespace SomeSettings
             bool selectedHasOverride = TryGetManualSleepOverride(selectedBuildingId, out bool overrideSleeping);
             bool selectedWasSleeping = selectedHasOverride ? overrideSleeping : selectedBuilding->r_IsSleeping == 1;
             bool targetSleeping = !selectedWasSleeping;
-            byte targetState = (byte)(targetSleeping ? 1 : 0);
-            int owner = selectedBuilding->r_PlayerIdOwner;
-            eStructs buildingType = selectedBuilding->r_BuildingType;
+            bool buildingTypeWasSleeping = GameData.Instance.lastGameState.building_type_sleeping != 0;
 
             ClearManualOverridesForSelectedBuildingType();
 
-            Span<GameBuilding> buildings = buildingApi.GetBuildingsAsSpan();
-            for (int i = 0; i < buildings.Length; i++)
-            {
-                ref GameBuilding building = ref buildings[i];
-                if (building.r_AliveState != AliveState.IsAlive ||
-                    building.r_PlayerIdOwner != owner ||
-                    building.r_BuildingType != buildingType)
-                {
-                    continue;
-                }
-
-                int buildingId = i + 1;
-                SetManualSleepOverride(buildingId, targetSleeping);
-
-                if (building.r_IsSleeping == targetState)
-                    continue;
-
-                building.r_IsSleeping = targetState;
-            }
+            // If the selected building had an individual override opposite to the
+            // type-wide state, clearing that override already produces the desired
+            // result. Otherwise let the vanilla GameAction toggle the whole type so
+            // every affected building runs the native worker bookkeeping.
+            if (buildingTypeWasSleeping != targetSleeping)
+                buttonTrampoline(self, parameter);
 
             UpdateSleepButtonVisibility(self, targetSleeping);
         }
