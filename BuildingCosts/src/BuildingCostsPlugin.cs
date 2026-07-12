@@ -13,7 +13,7 @@ namespace BuildingCosts
 
         public const string PluginGuid = "BuildingCosts_Serp";
         public const string PluginName = "Building Costs";
-        public const string PluginVersion = "0.1.0";
+        public const string PluginVersion = "1.0.1";
 
         internal static readonly BuildingCostTooltipViewModel BuildingCostTooltipViewModel = new BuildingCostTooltipViewModel();
 
@@ -24,7 +24,7 @@ namespace BuildingCosts
 
         private void Awake()
         {
-            Logger.LogDebug($"{PluginName} {PluginVersion} loaded.");
+            Shared.DebugLogHelper.LogDebug(Logger, $"{PluginName} {PluginVersion} loaded.");
 
             Settings = new BuildingCostsLobbyViewModel();
             runtime = new BuildingCostsRuntime(Logger, Settings);
@@ -33,13 +33,13 @@ namespace BuildingCosts
 
         private void OnDestroy()
         {
-            Logger.LogDebug("BuildingCostsPlugin OnDestroy called; keeping runtime active until application quit.");
+            Shared.DebugLogHelper.LogDebug(Logger, "BuildingCostsPlugin OnDestroy called; keeping runtime active until application quit.");
             CrusaderLibrary.Instance.LibraryLoaded -= OnCrusaderLibraryLoaded;
         }
 
         private void OnApplicationQuit()
         {
-            Logger.LogDebug("BuildingCostsPlugin OnApplicationQuit called; disposing runtime.");
+            Shared.DebugLogHelper.LogDebug(Logger, "BuildingCostsPlugin OnApplicationQuit called; disposing runtime.");
             DisposeRuntime();
         }
 
@@ -70,12 +70,12 @@ namespace BuildingCosts
                     "BuildingCostsTooltipHostCompact",
                     BuildingCostTooltipViewModel);
 
-                Logger.LogDebug("Crusader library loaded; BuildingCosts UI registered.");
+                Shared.DebugLogHelper.LogDebug(Logger, "Crusader library loaded; BuildingCosts UI registered.");
                 runtime.InitializeAfterLibraryLoaded();
             }
             catch (Exception ex)
             {
-                Logger.LogError($"Error while initializing BuildingCosts after library load: {ex}");
+                Shared.DebugLogHelper.LogError(Logger, $"Error while initializing BuildingCosts after library load: {ex}");
             }
         }
     }

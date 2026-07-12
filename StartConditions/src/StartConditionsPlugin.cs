@@ -13,7 +13,7 @@ namespace StartConditions
 
         public const string PluginGuid = "StartConditions_Serp";
         public const string PluginName = "Start Conditions";
-        public const string PluginVersion = "0.1.0";
+        public const string PluginVersion = "1.0.3";
 
         private StartConditionsRuntime runtime;
         private bool runtimeDisposed;
@@ -22,7 +22,7 @@ namespace StartConditions
 
         private void Awake()
         {
-            Logger.LogDebug($"{PluginName} {PluginVersion} loaded.");
+            Shared.DebugLogHelper.LogDebug(Logger, $"{PluginName} {PluginVersion} loaded.");
 
             Settings = new StartConditionsLobbyViewModel();
             runtime = new StartConditionsRuntime(Logger, Settings);
@@ -31,13 +31,13 @@ namespace StartConditions
 
         private void OnDestroy()
         {
-            Logger.LogDebug("StartConditionsPlugin OnDestroy called; keeping runtime active until application quit.");
+            Shared.DebugLogHelper.LogDebug(Logger, "StartConditionsPlugin OnDestroy called; keeping runtime active until application quit.");
             CrusaderLibrary.Instance.LibraryLoaded -= OnCrusaderLibraryLoaded;
         }
 
         private void OnApplicationQuit()
         {
-            Logger.LogDebug("StartConditionsPlugin OnApplicationQuit called; disposing runtime.");
+            Shared.DebugLogHelper.LogDebug(Logger, "StartConditionsPlugin OnApplicationQuit called; disposing runtime.");
             DisposeRuntime();
         }
 
@@ -55,19 +55,19 @@ namespace StartConditions
         {
             try
             {
-                Settings.RefreshLocalizedNames(message => Logger.LogDebug(message));
+                Settings.RefreshLocalizedNames(message => Shared.DebugLogHelper.LogDebug(Logger, message));
                 GameXAMLManagerAPI.Instance.RegisterLobbyModSettings(
                     this,
                     "StartConditions_Serp",
                     Settings,
                     "ScriptExtenderUI/StartConditionsSettings.xaml");
 
-                Logger.LogDebug("Crusader library loaded; StartConditions UI registered.");
+                Shared.DebugLogHelper.LogDebug(Logger, "Crusader library loaded; StartConditions UI registered.");
                 runtime.InitializeAfterLibraryLoaded();
             }
             catch (Exception ex)
             {
-                Logger.LogError($"Error while initializing StartConditions after library load: {ex}");
+                Shared.DebugLogHelper.LogError(Logger, $"Error while initializing StartConditions after library load: {ex}");
             }
         }
     }

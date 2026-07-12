@@ -1,4 +1,4 @@
-﻿using BepInEx;
+using BepInEx;
 using SHCDESE.API;
 using SHCDESE.API.LowLevel;
 using System;
@@ -22,7 +22,7 @@ namespace SomeSettings
 
         private void Awake()
         {
-            Logger.LogDebug($"{PluginName} {PluginVersion} loaded.");
+            Shared.DebugLogHelper.LogDebug(Logger, $"{PluginName} {PluginVersion} loaded.");
 
             Settings = new SomeSettingsViewModel();
             runtime = new SomeSettingsRuntime(Logger, Settings);
@@ -66,11 +66,11 @@ namespace SomeSettings
                 runtime.InstallKnightMountNativeFunctions(libraryHandle, memory);
                 runtime.ApplySettings();
                 runtime.InstallAIEconomyProtectionHook(libraryHandle, memory);
-                Logger.LogDebug("Crusader library loaded; SomeSettings UI registered.");
+                Shared.DebugLogHelper.LogDebug(Logger, "Crusader library loaded; SomeSettings UI registered.");
             }
             catch (Exception ex)
             {
-                Logger.LogError($"Error while initializing SomeSettings after library load: {ex}");
+                Shared.DebugLogHelper.LogError(Logger, $"Error while initializing SomeSettings after library load: {ex}");
             }
         }
     }

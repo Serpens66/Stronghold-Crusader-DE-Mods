@@ -25,13 +25,30 @@ namespace UnitLimit
             this.onEnter = onEnter;
             this.onLeave = onLeave;
 
-            enterHook = new Hook(FindHoverMethod("ButtonTroopPanelMouseEnter"), (ButtonTroopPanelHoverDelegate)ButtonTroopPanelMouseEnterHook);
-            enterTrampoline = enterHook.GenerateTrampoline<ButtonTroopPanelHoverDelegate>();
+            MethodInfo enterMethod = FindHoverMethod("ButtonTroopPanelMouseEnter");
+            MethodInfo leaveMethod = FindHoverMethod("ButtonTroopPanelMouseLeave");
+            Hook installedEnterHook = null;
+            Hook installedLeaveHook = null;
+            try
+            {
+                installedEnterHook = new Hook(enterMethod, (ButtonTroopPanelHoverDelegate)ButtonTroopPanelMouseEnterHook);
+                ButtonTroopPanelHoverDelegate installedEnterTrampoline = installedEnterHook.GenerateTrampoline<ButtonTroopPanelHoverDelegate>();
+                installedLeaveHook = new Hook(leaveMethod, (ButtonTroopPanelHoverDelegate)ButtonTroopPanelMouseLeaveHook);
+                ButtonTroopPanelHoverDelegate installedLeaveTrampoline = installedLeaveHook.GenerateTrampoline<ButtonTroopPanelHoverDelegate>();
 
-            leaveHook = new Hook(FindHoverMethod("ButtonTroopPanelMouseLeave"), (ButtonTroopPanelHoverDelegate)ButtonTroopPanelMouseLeaveHook);
-            leaveTrampoline = leaveHook.GenerateTrampoline<ButtonTroopPanelHoverDelegate>();
+                enterHook = installedEnterHook;
+                enterTrampoline = installedEnterTrampoline;
+                leaveHook = installedLeaveHook;
+                leaveTrampoline = installedLeaveTrampoline;
+            }
+            catch
+            {
+                installedLeaveHook?.Dispose();
+                installedEnterHook?.Dispose();
+                throw;
+            }
 
-            log.LogDebug("UnitLimit siege build hover hooks installed.");
+            Shared.DebugLogHelper.LogDebug(log, "UnitLimit siege build hover hooks installed.");
         }
 
         public void Dispose()
@@ -44,7 +61,7 @@ namespace UnitLimit
             enterHook?.Dispose();
             leaveHook?.Undo();
             leaveHook?.Dispose();
-            log.LogDebug("UnitLimit siege build hover hooks disposed.");
+            Shared.DebugLogHelper.LogDebug(log, "UnitLimit siege build hover hooks disposed.");
         }
 
         private static MethodInfo FindHoverMethod(string methodName)

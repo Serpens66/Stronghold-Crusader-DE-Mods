@@ -61,7 +61,7 @@ namespace UnitCosts
 
             hook = new Hook(gameActionMethod, (EngineInterfaceGameActionDelegate)EngineInterfaceGameActionHook);
             trampoline = hook.GenerateTrampoline<EngineInterfaceGameActionDelegate>();
-            log.LogDebug("UnitCosts MakeTroop GameAction hook installed.");
+            Shared.DebugLogHelper.LogDebug(log, "UnitCosts MakeTroop GameAction hook installed.");
         }
 
         public void Dispose()
@@ -72,7 +72,7 @@ namespace UnitCosts
             disposed = true;
             hook?.Undo();
             hook?.Dispose();
-            log.LogDebug("UnitCosts MakeTroop GameAction hook disposed.");
+            Shared.DebugLogHelper.LogDebug(log, "UnitCosts MakeTroop GameAction hook disposed.");
         }
 
         private int EngineInterfaceGameActionHook(Enums.GameActionCommand command, int structureID, int state, int value2)
@@ -190,7 +190,7 @@ namespace UnitCosts
             if (structureID > 0)
                 return structureID;
 
-            log.LogWarning("UnitCosts MakeTroop received unexpected amount parameter: " +
+            Shared.DebugLogHelper.LogWarning(log, "UnitCosts MakeTroop received unexpected amount parameter: " +
                 "structureID=" + structureID +
                 " state=" + state +
                 " value2=" + value2 +

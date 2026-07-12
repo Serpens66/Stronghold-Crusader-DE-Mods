@@ -29,7 +29,7 @@ namespace SomeSettings
 
             hook = new Hook(FindRadarScrollMapMethod(), (RadarScrollMapDelegate)RadarScrollMapHook);
             trampoline = hook.GenerateTrampoline<RadarScrollMapDelegate>();
-            log.LogDebug("SomeSettings minimap placement click hook installed.");
+            Shared.DebugLogHelper.LogDebug(log, "SomeSettings minimap placement click hook installed.");
         }
 
         public void Dispose()
@@ -40,7 +40,7 @@ namespace SomeSettings
             disposed = true;
             hook?.Undo();
             hook.Dispose();
-            log.LogDebug("SomeSettings minimap placement click hook disposed.");
+            Shared.DebugLogHelper.LogDebug(log, "SomeSettings minimap placement click hook disposed.");
         }
 
         private static MethodInfo FindRadarScrollMapMethod()
@@ -81,7 +81,7 @@ namespace SomeSettings
             }
             catch (Exception ex)
             {
-                log.LogError($"SomeSettings minimap placement click hook failed: {ex}");
+                Shared.DebugLogHelper.LogError(log, $"SomeSettings minimap placement click hook failed: {ex}");
             }
         }
 

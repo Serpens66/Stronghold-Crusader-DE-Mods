@@ -43,7 +43,7 @@ namespace SomeSettings
 
             hook = new Hook(FindSetCursorMethod(), (SetCursorDelegate)SetCursorHook);
             trampoline = hook.GenerateTrampoline<SetCursorDelegate>();
-            log.LogDebug("SomeSettings enemy-proximity bulldoze cursor hook installed.");
+            Shared.DebugLogHelper.LogDebug(log, "SomeSettings enemy-proximity bulldoze cursor hook installed.");
         }
 
         public void Dispose()
@@ -54,7 +54,7 @@ namespace SomeSettings
             disposed = true;
             hook.Undo();
             hook.Dispose();
-            log.LogDebug("SomeSettings enemy-proximity bulldoze cursor hook disposed.");
+            Shared.DebugLogHelper.LogDebug(log, "SomeSettings enemy-proximity bulldoze cursor hook disposed.");
         }
 
         private static MethodInfo FindSetCursorMethod()
@@ -98,7 +98,7 @@ namespace SomeSettings
                     if (!queryFailureLogged)
                     {
                         queryFailureLogged = true;
-                        log.LogError($"SomeSettings enemy-proximity bulldoze cursor query failed: {ex}");
+                        Shared.DebugLogHelper.LogError(log, $"SomeSettings enemy-proximity bulldoze cursor query failed: {ex}");
                     }
                 }
             }

@@ -1,4 +1,4 @@
-﻿using BepInEx.Logging;
+using BepInEx.Logging;
 using CrusaderDE;
 using MessagePack;
 using MessagePack.Formatters;
@@ -930,6 +930,13 @@ namespace SomeSettings
                     return;
 
                 KnightDismountPacket packet = args.Packet;
+                if (!IsValidPacketIdentity(packet.SourcePlayerId, packet.OwnerPlayerId) ||
+                    packet.RequestId <= 0 ||
+                    packet.KnightGlobalId <= 0)
+                {
+                    return;
+                }
+
                 if (IsDuplicatePacket(packet.SourcePlayerId, packet.RequestId))
                     return;
 
@@ -973,6 +980,13 @@ namespace SomeSettings
                     return;
 
                 KnightMountPacket packet = args.Packet;
+                if (!IsValidPacketIdentity(packet.SourcePlayerId, packet.OwnerPlayerId) ||
+                    packet.RequestId <= 0 ||
+                    packet.SwordsmanGlobalId <= 0)
+                {
+                    return;
+                }
+
                 if (IsDuplicatePacket(packet.SourcePlayerId, packet.RequestId))
                     return;
 
@@ -1025,6 +1039,14 @@ namespace SomeSettings
             return !requestIds.Add(requestId);
         }
 
+        private static bool IsValidPacketIdentity(int sourcePlayerId, int ownerPlayerId)
+        {
+            return sourcePlayerId > 0 &&
+                sourcePlayerId == ownerPlayerId &&
+                GamePlayerManagerAPI.Instance.IsPlayerIdValid(ownerPlayerId) &&
+                !GamePlayerManagerAPI.Instance.IsAIPlayer(ownerPlayerId);
+        }
+
         private void ApplyDismountBatch(List<UnitTransformSnapshot> snapshots, string reason, List<UnitTransformSnapshot> appliedSnapshots)
         {
             if (snapshots == null || snapshots.Count == 0)
@@ -1049,7 +1071,6 @@ namespace SomeSettings
                 });
             }
 
-            List<UnitTransformSnapshot> deletedSnapshots = new List<UnitTransformSnapshot>(resolvedSnapshots.Count);
             resolvedSnapshots.Sort((left, right) => right.CurrentUnitId.CompareTo(left.CurrentUnitId));
             for (int i = 0; i < resolvedSnapshots.Count; i++)
             {
@@ -1061,20 +1082,32 @@ namespace SomeSettings
                     continue;
 
                 UnitTransformSnapshot currentSnapshot = CreateSnapshotFromUnit(deleteUnitId, deleteUnit);
-                if (!TryReleaseKnightHorseWithVanilla(deleteUnitId, deleteUnit, reason))
+                int swordsmanUnitId = CreateUnitFromSnapshot(currentSnapshot, eChimps.CHIMP_TYPE_SWORDSMAN, "dismount", reason);
+                if (swordsmanUnitId <= 0)
                     continue;
 
-                if (!GameUnitManagerAPI.Instance.DeleteUnitSafe(deleteUnitId))
+                if (!TryResolveAliveUnitByGlobalId(currentSnapshot, eChimps.CHIMP_TYPE_KNIGHT, out int currentKnightId) ||
+                    !GameUnitManagerAPI.Instance.TryGetUnitById(currentKnightId, out GameUnit* currentKnight))
+                {
+                    LogError($"Knight dismount could not reacquire the original knight after spawning its replacement: reason={reason}, originalUnitId={deleteUnitId}, globalId={currentSnapshot.GlobalId}.");
+                    GameUnitManagerAPI.Instance.DeleteUnit(swordsmanUnitId);
                     continue;
+                }
 
-                deletedSnapshots.Add(currentSnapshot);
-            }
+                if (!TryReleaseKnightHorseWithVanilla(currentKnightId, currentKnight, reason))
+                {
+                    GameUnitManagerAPI.Instance.DeleteUnit(swordsmanUnitId);
+                    continue;
+                }
 
-            for (int i = 0; i < deletedSnapshots.Count; i++)
-            {
-                UnitTransformSnapshot snapshot = deletedSnapshots[i];
-                if (CreateUnitFromSnapshot(snapshot, eChimps.CHIMP_TYPE_SWORDSMAN, "dismount", reason) > 0)
-                    appliedSnapshots?.Add(snapshot);
+                if (!GameUnitManagerAPI.Instance.DeleteUnitSafe(currentKnightId))
+                {
+                    LogError($"Knight dismount could not mark the original knight for deletion after releasing its horse: reason={reason}, unitId={currentKnightId}, globalId={currentSnapshot.GlobalId}.");
+                    GameUnitManagerAPI.Instance.DeleteUnit(swordsmanUnitId);
+                    continue;
+                }
+
+                appliedSnapshots?.Add(currentSnapshot);
             }
         }
 
@@ -1087,13 +1120,32 @@ namespace SomeSettings
                 return false;
 
             UnitTransformSnapshot currentSnapshot = CreateSnapshotFromUnit(currentUnitId, currentUnit);
-            if (!TryReleaseKnightHorseWithVanilla(currentUnitId, currentUnit, reason))
+            int swordsmanUnitId = CreateUnitFromSnapshot(currentSnapshot, eChimps.CHIMP_TYPE_SWORDSMAN, "dismount", reason);
+            if (swordsmanUnitId <= 0)
                 return false;
 
-            if (!GameUnitManagerAPI.Instance.DeleteUnitSafe(currentUnitId))
+            if (!TryResolveAliveUnitByGlobalId(currentSnapshot, eChimps.CHIMP_TYPE_KNIGHT, out int currentKnightId) ||
+                !GameUnitManagerAPI.Instance.TryGetUnitById(currentKnightId, out GameUnit* currentKnight))
+            {
+                LogError($"Knight dismount could not reacquire the original knight after spawning its replacement: reason={reason}, originalUnitId={currentUnitId}, globalId={currentSnapshot.GlobalId}.");
+                GameUnitManagerAPI.Instance.DeleteUnit(swordsmanUnitId);
                 return false;
+            }
 
-            return CreateUnitFromSnapshot(currentSnapshot, eChimps.CHIMP_TYPE_SWORDSMAN, "dismount", reason) > 0;
+            if (!TryReleaseKnightHorseWithVanilla(currentKnightId, currentKnight, reason))
+            {
+                GameUnitManagerAPI.Instance.DeleteUnit(swordsmanUnitId);
+                return false;
+            }
+
+            if (!GameUnitManagerAPI.Instance.DeleteUnitSafe(currentKnightId))
+            {
+                LogError($"Knight dismount could not mark the original knight for deletion after releasing its horse: reason={reason}, unitId={currentKnightId}, globalId={currentSnapshot.GlobalId}.");
+                GameUnitManagerAPI.Instance.DeleteUnit(swordsmanUnitId);
+                return false;
+            }
+
+            return true;
         }
 
         private void ApplyMountBatch(
@@ -1224,11 +1276,18 @@ namespace SomeSettings
         {
             int knightUnitId = CreateUnitFromSnapshot(snapshot, eChimps.CHIMP_TYPE_KNIGHT, "mount", reason);
             if (knightUnitId <= 0)
+            {
+                if (CreateUnitFromSnapshot(snapshot, eChimps.CHIMP_TYPE_SWORDSMAN, "mount-spawn-rollback", reason) <= 0)
+                    LogError($"Knight mount spawn rollback could not restore swordsman: reason={reason}, sourceGlobalId={snapshot.GlobalId}.");
                 return false;
+            }
 
             if (!GameUnitManagerAPI.Instance.TryGetUnitById(knightUnitId, out GameUnit* knight))
             {
                 LogError($"Knight mount could not resolve spawned knight: reason={reason}, knightUnitId={knightUnitId}, sourceGlobalId={snapshot.GlobalId}.");
+                GameUnitManagerAPI.Instance.DeleteUnit(knightUnitId);
+                if (CreateUnitFromSnapshot(snapshot, eChimps.CHIMP_TYPE_SWORDSMAN, "mount-resolve-rollback", reason) <= 0)
+                    LogError($"Knight mount resolve rollback could not restore swordsman: reason={reason}, sourceGlobalId={snapshot.GlobalId}.");
                 return false;
             }
 

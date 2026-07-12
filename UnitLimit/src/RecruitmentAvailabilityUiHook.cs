@@ -33,7 +33,7 @@ namespace UnitLimit
 
             hook = new Hook(updateMethod, (FatControlerNoesisGuiUpdateDelegate)NoesisGuiUpdateChecksInGameHook);
             trampoline = hook.GenerateTrampoline<FatControlerNoesisGuiUpdateDelegate>();
-            log.LogDebug("UnitLimit recruitment availability UI hook installed.");
+            Shared.DebugLogHelper.LogDebug(log, "UnitLimit recruitment availability UI hook installed.");
         }
 
         public void Dispose()
@@ -44,7 +44,7 @@ namespace UnitLimit
             disposed = true;
             hook?.Undo();
             hook?.Dispose();
-            log.LogDebug("UnitLimit recruitment availability UI hook disposed.");
+            Shared.DebugLogHelper.LogDebug(log, "UnitLimit recruitment availability UI hook disposed.");
         }
 
         private void NoesisGuiUpdateChecksInGameHook(FatControler self)

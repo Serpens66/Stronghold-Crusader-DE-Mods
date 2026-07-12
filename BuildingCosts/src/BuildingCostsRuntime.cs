@@ -19,6 +19,7 @@ namespace BuildingCosts
         private readonly ManualLogSource log;
         private readonly BuildingCostsLobbyViewModel settings;
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
+        private readonly Dictionary<eStructs, CostMaterialMask> overriddenCostMaterials = new Dictionary<eStructs, CostMaterialMask>();
         private bool settingsChangedSubscribed;
         private bool hooksSubscribed;
         private bool libraryInitialized;
@@ -29,12 +30,24 @@ namespace BuildingCosts
         private FieldInfo selectedStructField;
         private int lastTooltipStruct = int.MinValue;
         private int lastLocalPlayerId = int.MinValue;
+        private int lastResourceSignature = int.MinValue;
         private bool lastDetailedTooltipVisible;
         private bool lastCompactTooltipVisible;
         private bool tooltipIsClear = true;
 
         private static readonly Dictionary<eMappers, BuildingCostDefinition> BuildingCostDefinitions = CreateBuildingCostDefinitions();
         private delegate void UpdateRolloverDelegate(HUD_Main self);
+
+        [Flags]
+        private enum CostMaterialMask
+        {
+            None = 0,
+            Wood = 1,
+            Stone = 2,
+            Iron = 4,
+            Pitch = 8,
+            Gold = 16
+        }
 
         public BuildingCostsRuntime(ManualLogSource log, BuildingCostsLobbyViewModel settings)
         {
@@ -242,20 +255,44 @@ namespace BuildingCosts
         private void RestoreDefaultBuildingCosts()
         {
             int restoredMaterials = 0;
-            foreach (BuildingCostDefinition definition in BuildingCostDefinitions.Values)
+            foreach (KeyValuePair<eStructs, CostMaterialMask> entry in overriddenCostMaterials)
             {
-                foreach (eStructs structure in definition.Structures)
+                eStructs structure = entry.Key;
+                CostMaterialMask materials = entry.Value;
+                BuildingCost cost = GameBuildingManagerAPI.Instance.GetDefaultCost(structure);
+
+                if ((materials & CostMaterialMask.Wood) != 0)
                 {
-                    BuildingCost cost = GameBuildingManagerAPI.Instance.GetDefaultCost(structure);
                     GameBuildingManagerAPI.Instance.SetWoodCost(structure, cost.Wood);
+                    restoredMaterials++;
+                }
+
+                if ((materials & CostMaterialMask.Stone) != 0)
+                {
                     GameBuildingManagerAPI.Instance.SetStoneCost(structure, cost.Stone);
+                    restoredMaterials++;
+                }
+
+                if ((materials & CostMaterialMask.Iron) != 0)
+                {
                     GameBuildingManagerAPI.Instance.SetIronIngotCost(structure, cost.Iron);
+                    restoredMaterials++;
+                }
+
+                if ((materials & CostMaterialMask.Pitch) != 0)
+                {
                     GameBuildingManagerAPI.Instance.SetRawPitchCost(structure, cost.Pitch);
+                    restoredMaterials++;
+                }
+
+                if ((materials & CostMaterialMask.Gold) != 0)
+                {
                     GameBuildingManagerAPI.Instance.SetGoldCost(structure, cost.Gold);
-                    restoredMaterials += 5;
+                    restoredMaterials++;
                 }
             }
 
+            overriddenCostMaterials.Clear();
             LogDebug("Restored default building cost materials:", restoredMaterials);
             ResetTooltipCache();
         }
@@ -263,36 +300,105 @@ namespace BuildingCosts
         private int ApplyStructureCosts(eStructs structure, BuildingCostValues values)
         {
             int changed = 0;
+            overriddenCostMaterials.TryGetValue(structure, out CostMaterialMask overriddenMaterials);
+            CostMaterialMask restoreMaterials = CostMaterialMask.None;
 
-            if (values.Wood != -1)
+            if (values.Wood == -1)
+            {
+                restoreMaterials |= overriddenMaterials & CostMaterialMask.Wood;
+            }
+            else
             {
                 GameBuildingManagerAPI.Instance.SetWoodCost(structure, values.Wood);
+                overriddenMaterials |= CostMaterialMask.Wood;
                 changed++;
             }
 
-            if (values.Stone != -1)
+            if (values.Stone == -1)
+            {
+                restoreMaterials |= overriddenMaterials & CostMaterialMask.Stone;
+            }
+            else
             {
                 GameBuildingManagerAPI.Instance.SetStoneCost(structure, values.Stone);
+                overriddenMaterials |= CostMaterialMask.Stone;
                 changed++;
             }
 
-            if (values.Iron != -1)
+            if (values.Iron == -1)
+            {
+                restoreMaterials |= overriddenMaterials & CostMaterialMask.Iron;
+            }
+            else
             {
                 GameBuildingManagerAPI.Instance.SetIronIngotCost(structure, values.Iron);
+                overriddenMaterials |= CostMaterialMask.Iron;
                 changed++;
             }
 
-            if (values.Pitch != -1)
+            if (values.Pitch == -1)
+            {
+                restoreMaterials |= overriddenMaterials & CostMaterialMask.Pitch;
+            }
+            else
             {
                 GameBuildingManagerAPI.Instance.SetRawPitchCost(structure, values.Pitch);
+                overriddenMaterials |= CostMaterialMask.Pitch;
                 changed++;
             }
 
-            if (values.Gold != -1)
+            if (values.Gold == -1)
+            {
+                restoreMaterials |= overriddenMaterials & CostMaterialMask.Gold;
+            }
+            else
             {
                 GameBuildingManagerAPI.Instance.SetGoldCost(structure, values.Gold);
+                overriddenMaterials |= CostMaterialMask.Gold;
                 changed++;
             }
+
+            if (restoreMaterials != CostMaterialMask.None)
+            {
+                BuildingCost defaultCost = GameBuildingManagerAPI.Instance.GetDefaultCost(structure);
+
+                if ((restoreMaterials & CostMaterialMask.Wood) != 0)
+                {
+                    GameBuildingManagerAPI.Instance.SetWoodCost(structure, defaultCost.Wood);
+                    changed++;
+                }
+
+                if ((restoreMaterials & CostMaterialMask.Stone) != 0)
+                {
+                    GameBuildingManagerAPI.Instance.SetStoneCost(structure, defaultCost.Stone);
+                    changed++;
+                }
+
+                if ((restoreMaterials & CostMaterialMask.Iron) != 0)
+                {
+                    GameBuildingManagerAPI.Instance.SetIronIngotCost(structure, defaultCost.Iron);
+                    changed++;
+                }
+
+                if ((restoreMaterials & CostMaterialMask.Pitch) != 0)
+                {
+                    GameBuildingManagerAPI.Instance.SetRawPitchCost(structure, defaultCost.Pitch);
+                    changed++;
+                }
+
+                if ((restoreMaterials & CostMaterialMask.Gold) != 0)
+                {
+                    GameBuildingManagerAPI.Instance.SetGoldCost(structure, defaultCost.Gold);
+                    changed++;
+                }
+
+                overriddenMaterials &= ~restoreMaterials;
+            }
+
+            if (overriddenMaterials == CostMaterialMask.None)
+                overriddenCostMaterials.Remove(structure);
+            else
+                overriddenCostMaterials[structure] = overriddenMaterials;
 
             return changed;
         }
@@ -312,27 +418,17 @@ namespace BuildingCosts
                 int hoverStruct = (int)hoverStructField.GetValue(hud);
                 int selectedStruct = (int)selectedStructField.GetValue(hud);
                 int tooltipStruct = hoverStruct != 0 ? hoverStruct : selectedStruct;
-                int localPlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
 
-                if (tooltipStruct == lastTooltipStruct &&
-                    detailedTooltipVisible == lastDetailedTooltipVisible &&
-                    compactTooltipVisible == lastCompactTooltipVisible &&
-                    localPlayerId == lastLocalPlayerId)
+                if (tooltipStruct <= 0 || (!detailedTooltipVisible && !compactTooltipVisible))
                 {
-                    return;
-                }
-
-                lastTooltipStruct = tooltipStruct;
-                lastDetailedTooltipVisible = detailedTooltipVisible;
-                lastCompactTooltipVisible = compactTooltipVisible;
-                lastLocalPlayerId = localPlayerId;
-
-                BuildingCostsPlugin.BuildingCostTooltipViewModel.SetPlacement(
-                    detailedTooltipVisible,
-                    compactTooltipVisible);
-
-                if (tooltipStruct <= 0)
-                {
+                    lastTooltipStruct = tooltipStruct;
+                    lastDetailedTooltipVisible = detailedTooltipVisible;
+                    lastCompactTooltipVisible = compactTooltipVisible;
+                    lastLocalPlayerId = int.MinValue;
+                    lastResourceSignature = int.MinValue;
+                    BuildingCostsPlugin.BuildingCostTooltipViewModel.SetPlacement(
+                        detailedTooltipVisible,
+                        compactTooltipVisible);
                     ClearBuildingCostTooltip();
                     return;
                 }
@@ -343,6 +439,28 @@ namespace BuildingCosts
                     ClearBuildingCostTooltip();
                     return;
                 }
+
+                int localPlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
+                int resourceSignature = GetTooltipResourceSignature(localPlayerId);
+
+                if (tooltipStruct == lastTooltipStruct &&
+                    detailedTooltipVisible == lastDetailedTooltipVisible &&
+                    compactTooltipVisible == lastCompactTooltipVisible &&
+                    localPlayerId == lastLocalPlayerId &&
+                    resourceSignature == lastResourceSignature)
+                {
+                    return;
+                }
+
+                lastTooltipStruct = tooltipStruct;
+                lastDetailedTooltipVisible = detailedTooltipVisible;
+                lastCompactTooltipVisible = compactTooltipVisible;
+                lastLocalPlayerId = localPlayerId;
+                lastResourceSignature = resourceSignature;
+
+                BuildingCostsPlugin.BuildingCostTooltipViewModel.SetPlacement(
+                    detailedTooltipVisible,
+                    compactTooltipVisible);
 
                 List<BuildingCostTooltipEntry> entries = CreateAdditionalTooltipEntries(building, localPlayerId);
                 BuildingCostsPlugin.BuildingCostTooltipViewModel.SetTooltip("", entries);
@@ -369,8 +487,23 @@ namespace BuildingCosts
         {
             lastTooltipStruct = int.MinValue;
             lastLocalPlayerId = int.MinValue;
+            lastResourceSignature = int.MinValue;
             lastDetailedTooltipVisible = false;
             lastCompactTooltipVisible = false;
+        }
+
+        private static int GetTooltipResourceSignature(int playerId)
+        {
+            unchecked
+            {
+                int signature = 17;
+                signature = (signature * 31) + GetAvailableAmount(playerId, eGoods.STORED_WOOD_PLANKS);
+                signature = (signature * 31) + GetAvailableAmount(playerId, eGoods.STORED_STONE_BLOCKS);
+                signature = (signature * 31) + GetAvailableAmount(playerId, eGoods.STORED_IRON_INGOTS);
+                signature = (signature * 31) + GetAvailableAmount(playerId, eGoods.STORED_PITCH_RAW);
+                signature = (signature * 31) + GetAvailableAmount(playerId, eGoods.STORED_GOLD);
+                return signature;
+            }
         }
 
         private static eStructs ResolveTooltipBuilding(int tooltipStruct)

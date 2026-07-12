@@ -22,7 +22,7 @@ namespace BuildingLimit
 
         private void Awake()
         {
-            Logger.LogDebug($"{PluginName} {PluginVersion} loaded.");
+            Shared.DebugLogHelper.LogDebug(Logger, $"{PluginName} {PluginVersion} loaded.");
 
             Settings = new BuildingLimitLobbyViewModel();
             runtime = new BuildingLimitRuntime(Logger, Settings);
@@ -31,13 +31,13 @@ namespace BuildingLimit
 
         private void OnDestroy()
         {
-            Logger.LogDebug("BuildingLimitPlugin OnDestroy called; keeping runtime active until application quit.");
+            Shared.DebugLogHelper.LogDebug(Logger, "BuildingLimitPlugin OnDestroy called; keeping runtime active until application quit.");
             CrusaderLibrary.Instance.LibraryLoaded -= OnCrusaderLibraryLoaded;
         }
 
         private void OnApplicationQuit()
         {
-            Logger.LogDebug("BuildingLimitPlugin OnApplicationQuit called; disposing runtime.");
+            Shared.DebugLogHelper.LogDebug(Logger, "BuildingLimitPlugin OnApplicationQuit called; disposing runtime.");
             DisposeRuntime();
         }
 
@@ -71,12 +71,12 @@ namespace BuildingLimit
                     "BuildingLimitTooltipHostCompact",
                     runtime.BuildingLimitTooltip);
 
-                Logger.LogDebug("Crusader library loaded; BuildingLimit UI registered.");
+                Shared.DebugLogHelper.LogDebug(Logger, "Crusader library loaded; BuildingLimit UI registered.");
                 runtime.InitializeAfterLibraryLoaded();
             }
             catch (Exception ex)
             {
-                Logger.LogError($"Error while initializing BuildingLimit after library load: {ex}");
+                Shared.DebugLogHelper.LogError(Logger, $"Error while initializing BuildingLimit after library load: {ex}");
             }
         }
     }

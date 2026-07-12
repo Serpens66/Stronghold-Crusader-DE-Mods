@@ -28,6 +28,10 @@ namespace UnitCosts
         private string materialMessageTimerHandle;
         private DateTime nextSiegeMissingResourcesMessageUtc = DateTime.MinValue;
         private DateTime nextSiegeMissingResourcesSpeechUtc = DateTime.MinValue;
+        private eChimps currentTooltipUnitType = eChimps.CHIMP_TYPE_NULL;
+        private int currentTooltipMultiplier = 1;
+        private bool hasCurrentTooltipUnitType;
+        private bool currentTooltipUsesRecruitAmount;
         private bool settingsChangedSubscribed;
         private const string GoodsTextSection = "TEXT_GOODS";
         private bool hooksSubscribed;
@@ -76,32 +80,40 @@ namespace UnitCosts
             if (hooksSubscribed)
                 return;
 
-            subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable
-                .Where(args => args.Phase == EventHookPhase.Post)
-                .Subscribe(OnStartMap));
+            try
+            {
+                subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable
+                    .Where(args => args.Phase == EventHookPhase.Post)
+                    .Subscribe(OnStartMap));
 
-            subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
-                .Where(args => args.Phase == EventHookPhase.Post)
-                .Subscribe(OnUnloadMap));
+                subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
+                    .Where(args => args.Phase == EventHookPhase.Post)
+                    .Subscribe(OnUnloadMap));
 
-            subscriptions.Add(UnitR3EventHooks.OnUnitTransition.Observable
-                .Subscribe(OnUnitTransition));
+                subscriptions.Add(UnitR3EventHooks.OnUnitTransition.Observable
+                    .Subscribe(OnUnitTransition));
 
-            subscriptions.Add(BuildingR3EventHooks.OnPlacementValidation.Observable
-                .Where(args => args.Phase == EventHookPhase.Pre)
-                .Subscribe(OnBuildingPlacementValidation));
+                subscriptions.Add(BuildingR3EventHooks.OnPlacementValidation.Observable
+                    .Where(args => args.Phase == EventHookPhase.Pre)
+                    .Subscribe(OnBuildingPlacementValidation));
 
-            subscriptions.Add(BuildingR3EventHooks.OnBuildingSpawn.Observable
-                .Where(args => args.Phase == EventHookPhase.Post)
-                .Subscribe(OnBuildingSpawn));
+                subscriptions.Add(BuildingR3EventHooks.OnBuildingSpawn.Observable
+                    .Where(args => args.Phase == EventHookPhase.Post)
+                    .Subscribe(OnBuildingSpawn));
 
-            makeTroopGameActionHook = new MakeTroopGameActionHook(log, DecideMakeTroopGameAction);
-            createTroopHoverHook = new CreateTroopHoverHook(log, UpdateRecruitmentCostTooltip, ClearRecruitmentCostTooltip);
-            siegeBuildHoverHook = new SiegeBuildHoverHook(log, UpdateSiegeBuildCostTooltip, ClearRecruitmentCostTooltip);
-            recruitmentAvailabilityUiHook = new RecruitmentAvailabilityUiHook(log, RefreshRecruitmentButtonAvailability);
+                makeTroopGameActionHook = new MakeTroopGameActionHook(log, DecideMakeTroopGameAction);
+                createTroopHoverHook = new CreateTroopHoverHook(log, UpdateRecruitmentCostTooltip, ClearRecruitmentCostTooltip);
+                siegeBuildHoverHook = new SiegeBuildHoverHook(log, UpdateSiegeBuildCostTooltip, ClearRecruitmentCostTooltip);
+                recruitmentAvailabilityUiHook = new RecruitmentAvailabilityUiHook(log, RefreshRecruitmentUi);
 
-            hooksSubscribed = true;
-            log.LogDebug("UnitCosts runtime hooks subscribed");
+                hooksSubscribed = true;
+                Shared.DebugLogHelper.LogDebug(log, "UnitCosts runtime hooks subscribed");
+            }
+            catch
+            {
+                UnsubscribeHooks();
+                throw;
+            }
         }
 
         public void Dispose()
@@ -204,13 +216,13 @@ namespace UnitCosts
             foreach (KeyValuePair<eChimps, UnitCostValues> entry in parsedCosts)
             {
                 UnitCostValues values = entry.Value;
+                int goldCost = values.Gold;
+                if (goldCost == -1 && !VanillaGoldCosts.TryGetValue(entry.Key, out goldCost))
+                    continue;
+
+                SetUnitGoldCost(entry.Key, goldCost);
                 if (values.Gold != -1)
-                {
-                    GameUnitManagerAPI.Instance.SetUnitGoldCost(entry.Key, values.Gold);
-                    if (TryGetSiegeTentStructure(entry.Key, out eStructs siegeTentStructure))
-                        GameBuildingManagerAPI.Instance.SetGoldCost(siegeTentStructure, values.Gold);
                     changedValues++;
-                }
             }
 
             Shared.DebugLogHelper.LogDebug(log, "Applied unit cost values:", changedValues);
@@ -221,16 +233,24 @@ namespace UnitCosts
             int restoredValues = 0;
             foreach (KeyValuePair<eChimps, int> entry in VanillaGoldCosts)
             {
-                GameUnitManagerAPI.Instance.SetUnitGoldCost(entry.Key, entry.Value);
-                if (TryGetSiegeTentStructure(entry.Key, out eStructs siegeTentStructure))
-                    GameBuildingManagerAPI.Instance.SetGoldCost(siegeTentStructure, entry.Value);
-
+                SetUnitGoldCost(entry.Key, entry.Value);
                 restoredValues++;
             }
 
             humanExtraCosts.Clear();
             RecruitmentCostTooltip.Clear();
+            hasCurrentTooltipUnitType = false;
+            currentTooltipUnitType = eChimps.CHIMP_TYPE_NULL;
+            currentTooltipMultiplier = 1;
+            currentTooltipUsesRecruitAmount = false;
             Shared.DebugLogHelper.LogDebug(log, "Restored vanilla unit cost values:", restoredValues);
+        }
+
+        private static void SetUnitGoldCost(eChimps unitType, int goldCost)
+        {
+            GameUnitManagerAPI.Instance.SetUnitGoldCost(unitType, goldCost);
+            if (TryGetSiegeTentStructure(unitType, out eStructs siegeTentStructure))
+                GameBuildingManagerAPI.Instance.SetGoldCost(siegeTentStructure, goldCost);
         }
 
         private void ApplyHumanExtraUnitCosts()
@@ -246,6 +266,7 @@ namespace UnitCosts
             }
 
             Shared.DebugLogHelper.LogDebug(log, "Applied human extra unit cost rows:", configuredUnits);
+            RefreshCurrentRecruitmentCostTooltip();
         }
 
         private MakeTroopGameActionDecision DecideMakeTroopGameAction(int amount, eChimps unitType, int rawUnitType)
@@ -362,23 +383,9 @@ namespace UnitCosts
                 return;
             }
 
-            int playerId = GetLocalHumanPlayerId();
-            if (playerId <= 0)
-            {
-                RecruitmentCostTooltip.Clear();
-                return;
-            }
-
             eChimps unitType = GetLastTroopBuildChimp(mainViewModel);
             int multiplier = GetLastTroopsAmountToMake(mainViewModel);
-
-            if (!TryGetHumanExtraCosts(unitType, out UnitExtraCostValues costs))
-            {
-                RecruitmentCostTooltip.Clear();
-                return;
-            }
-
-            RecruitmentCostTooltip.SetCosts(CreateRecruitmentCostEntries(playerId, costs, multiplier));
+            ShowRecruitmentCostTooltip(unitType, multiplier, true);
         }
 
         private void UpdateSiegeBuildCostTooltip(object parameter)
@@ -389,20 +396,40 @@ namespace UnitCosts
                 return;
             }
 
+            ShowRecruitmentCostTooltip(unitType, 1, false);
+        }
+
+        private void ShowRecruitmentCostTooltip(eChimps unitType, int multiplier, bool useRecruitAmount)
+        {
+            currentTooltipUnitType = unitType;
+            currentTooltipMultiplier = Math.Max(1, multiplier);
+            currentTooltipUsesRecruitAmount = useRecruitAmount;
+            hasCurrentTooltipUnitType = true;
+            RefreshCurrentRecruitmentCostTooltip();
+        }
+
+        private void RefreshCurrentRecruitmentCostTooltip()
+        {
+            if (!hasCurrentTooltipUnitType)
+                return;
+
+            if (currentTooltipUsesRecruitAmount && MainViewModel.Instance != null)
+                currentTooltipMultiplier = Math.Max(1, GetLastTroopsAmountToMake(MainViewModel.Instance));
+
             int playerId = GetLocalHumanPlayerId();
-            if (playerId <= 0)
+            if (playerId <= 0 || !TryGetHumanExtraCosts(currentTooltipUnitType, out UnitExtraCostValues costs))
             {
                 RecruitmentCostTooltip.Clear();
                 return;
             }
 
-            if (!TryGetHumanExtraCosts(unitType, out UnitExtraCostValues costs))
-            {
-                RecruitmentCostTooltip.Clear();
-                return;
-            }
+            RecruitmentCostTooltip.SetCosts(CreateRecruitmentCostEntries(playerId, costs, currentTooltipMultiplier));
+        }
 
-            RecruitmentCostTooltip.SetCosts(CreateRecruitmentCostEntries(playerId, costs, 1));
+        private void RefreshRecruitmentUi()
+        {
+            RefreshRecruitmentButtonAvailability();
+            RefreshCurrentRecruitmentCostTooltip();
         }
 
         private List<UnitRecruitmentCostEntry> CreateRecruitmentCostEntries(int playerId, UnitExtraCostValues costs, int multiplier)
@@ -560,6 +587,10 @@ namespace UnitCosts
 
         private void ClearRecruitmentCostTooltip()
         {
+            hasCurrentTooltipUnitType = false;
+            currentTooltipUnitType = eChimps.CHIMP_TYPE_NULL;
+            currentTooltipMultiplier = 1;
+            currentTooltipUsesRecruitAmount = false;
             RecruitmentCostTooltip.Clear();
         }
 

@@ -1,5 +1,6 @@
 using BepInEx.Logging;
 using System;
+using System.Globalization;
 using System.Reflection;
 
 namespace Shared
@@ -26,7 +27,7 @@ namespace Shared
             if (log == null || !IsDebugEnabled())
                 return;
 
-            log.LogDebug(string.Join(" ", parts));
+            log.LogDebug(WithTimestamp(string.Join(" ", parts)));
         }
 
         public static void LogDebug(ManualLogSource log, Func<string> messageFactory)
@@ -34,7 +35,27 @@ namespace Shared
             if (log == null || messageFactory == null || !IsDebugEnabled())
                 return;
 
-            log.LogDebug(messageFactory());
+            log.LogDebug(WithTimestamp(messageFactory()));
+        }
+
+        public static void LogInfo(ManualLogSource log, string message)
+        {
+            log?.LogInfo(WithTimestamp(message));
+        }
+
+        public static void LogWarning(ManualLogSource log, string message)
+        {
+            log?.LogWarning(WithTimestamp(message));
+        }
+
+        public static void LogError(ManualLogSource log, string message)
+        {
+            log?.LogError(WithTimestamp(message));
+        }
+
+        private static string WithTimestamp(string message)
+        {
+            return $"[{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture)}] {message ?? string.Empty}";
         }
 
         private static bool ComputeDebugEnabled()

@@ -147,7 +147,7 @@ namespace StartConditions
 
         private void LogInfo(params object[] parts)
         {
-            log?.LogInfo(string.Join(" ", parts));
+            Shared.DebugLogHelper.LogInfo(log, string.Join(" ", parts));
         }
     }
 }

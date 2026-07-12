@@ -40,11 +40,29 @@ namespace SomeSettings
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
 
-            buttonHook = new Hook(FindButtonToggleZzzModeMethod(), (ButtonToggleZzzModeDelegate)ButtonToggleZzzModeHook);
-            buttonTrampoline = buttonHook.GenerateTrampoline<ButtonToggleZzzModeDelegate>();
+            MethodInfo buttonMethod = FindButtonToggleZzzModeMethod();
+            MethodInfo guiUpdateMethod = FindNoesisGuiUpdateChecksInGameMethod();
+            Hook installedButtonHook = null;
+            Hook installedGuiUpdateHook = null;
+            try
+            {
+                installedButtonHook = new Hook(buttonMethod, (ButtonToggleZzzModeDelegate)ButtonToggleZzzModeHook);
+                ButtonToggleZzzModeDelegate installedButtonTrampoline = installedButtonHook.GenerateTrampoline<ButtonToggleZzzModeDelegate>();
 
-            guiUpdateHook = new Hook(FindNoesisGuiUpdateChecksInGameMethod(), (NoesisGuiUpdateChecksInGameDelegate)NoesisGuiUpdateChecksInGameHook);
-            guiUpdateTrampoline = guiUpdateHook.GenerateTrampoline<NoesisGuiUpdateChecksInGameDelegate>();
+                installedGuiUpdateHook = new Hook(guiUpdateMethod, (NoesisGuiUpdateChecksInGameDelegate)NoesisGuiUpdateChecksInGameHook);
+                NoesisGuiUpdateChecksInGameDelegate installedGuiUpdateTrampoline = installedGuiUpdateHook.GenerateTrampoline<NoesisGuiUpdateChecksInGameDelegate>();
+
+                buttonHook = installedButtonHook;
+                buttonTrampoline = installedButtonTrampoline;
+                guiUpdateHook = installedGuiUpdateHook;
+                guiUpdateTrampoline = installedGuiUpdateTrampoline;
+            }
+            catch
+            {
+                installedGuiUpdateHook?.Dispose();
+                installedButtonHook?.Dispose();
+                throw;
+            }
         }
 
         public void Dispose()

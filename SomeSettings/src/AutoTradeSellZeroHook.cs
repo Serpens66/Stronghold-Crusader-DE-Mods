@@ -27,7 +27,7 @@ namespace SomeSettings
 
             hook = new Hook(FindSellSliderValueChangedMethod(), (AutoTradeSellSliderValueChangedDelegate)SellSliderValueChangedHook);
             trampoline = hook.GenerateTrampoline<AutoTradeSellSliderValueChangedDelegate>();
-            log.LogDebug("SomeSettings auto-trade sell zero hook installed.");
+            Shared.DebugLogHelper.LogDebug(log, "SomeSettings auto-trade sell zero hook installed.");
         }
 
         public void Dispose()
@@ -38,7 +38,7 @@ namespace SomeSettings
             disposed = true;
             hook?.Undo();
             hook?.Dispose();
-            log.LogDebug("SomeSettings auto-trade sell zero hook disposed.");
+            Shared.DebugLogHelper.LogDebug(log, "SomeSettings auto-trade sell zero hook disposed.");
         }
 
         private static MethodInfo FindSellSliderValueChangedMethod()
@@ -97,7 +97,7 @@ namespace SomeSettings
             }
             catch (Exception ex)
             {
-                log.LogError($"SomeSettings auto-trade sell zero hook failed: {ex}");
+                Shared.DebugLogHelper.LogError(log, $"SomeSettings auto-trade sell zero hook failed: {ex}");
                 trampoline(self, sender, e);
             }
         }

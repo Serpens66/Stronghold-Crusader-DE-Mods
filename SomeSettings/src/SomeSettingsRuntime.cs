@@ -1,4 +1,4 @@
-﻿using BepInEx.Logging;
+using BepInEx.Logging;
 using CrusaderDE;
 using R3;
 using SHCDESE.API;
@@ -35,7 +35,7 @@ namespace SomeSettings
         private AutoTradeSellZeroHook autoTradeSellZeroHook;
         private EnemyProximityBulldozeCursorHook enemyProximityBulldozeCursorHook;
         private SingleBuildingPauseHook singleBuildingPauseHook;
-        private KnightDismountRuntime knightDismountRuntime;
+        private readonly KnightDismountRuntime knightDismountRuntime;
         private AIEconomyProtectionHook aiEconomyProtectionHook;
 
         private bool hooksSubscribed;
@@ -77,29 +77,37 @@ namespace SomeSettings
             if (hooksSubscribed)
                 return;
 
-            subscriptions.Add(BuildingR3EventHooks.OnBuildingBulldoze.Observable.Subscribe(OnBuildingBulldoze));
-            subscriptions.Add(BuildingR3EventHooks.OnBuildingRefund.Observable.Subscribe(OnBuildingRefund));
-            subscriptions.Add(BuildingR3EventHooks.OnGoodsyardAddGood.Observable.Subscribe(OnGoodsyardAddGood));
-            subscriptions.Add(PlayerR3EventHooks.OnPlayerMarketInteraction.Observable.Subscribe(OnPlayerMarketInteraction));
-            subscriptions.Add(InputR3EventHooks.OnKeyDown.Observable.Subscribe(OnKeyDown));
-            subscriptions.Add(MapLoaderR3EventHooks.OnLoadMap.Observable
-                .Where(args => args.Phase == EventHookPhase.Post)
-                .Subscribe(_ => ApplyMarketPriceMultipliers()));
-            subscriptions.Add(MapLoaderR3EventHooks.OnLoadSave.Observable
-                .Where(args => args.Phase == EventHookPhase.Post)
-                .Subscribe(_ => ApplyMarketPriceMultipliers()));
-            subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
-                .Where(args => args.Phase == EventHookPhase.Post)
-                .Subscribe(OnUnloadMap));
-            minimapPlacementClickHook = new MinimapPlacementClickHook(log, settings);
-            coopTrailCustomizeHook = new CoopTrailCustomizeHook(log);
-            skirmishAiSelectionMemoryHook = new SkirmishAiSelectionMemoryHook(log, settings);
-            knightDismountRuntime.Initialize();
-            InstallAutoTradeSellZeroHook();
-            InstallEnemyProximityBulldozeCursorHook();
-            InstallSingleBuildingPauseHook();
-            hooksSubscribed = true;
-            log.LogDebug("SomeSettings hooks subscribed.");
+            try
+            {
+                subscriptions.Add(BuildingR3EventHooks.OnBuildingBulldoze.Observable.Subscribe(OnBuildingBulldoze));
+                subscriptions.Add(BuildingR3EventHooks.OnBuildingRefund.Observable.Subscribe(OnBuildingRefund));
+                subscriptions.Add(BuildingR3EventHooks.OnGoodsyardAddGood.Observable.Subscribe(OnGoodsyardAddGood));
+                subscriptions.Add(PlayerR3EventHooks.OnPlayerMarketInteraction.Observable.Subscribe(OnPlayerMarketInteraction));
+                subscriptions.Add(InputR3EventHooks.OnKeyDown.Observable.Subscribe(OnKeyDown));
+                subscriptions.Add(MapLoaderR3EventHooks.OnLoadMap.Observable
+                    .Where(args => args.Phase == EventHookPhase.Post)
+                    .Subscribe(_ => ApplyMarketPriceMultipliers()));
+                subscriptions.Add(MapLoaderR3EventHooks.OnLoadSave.Observable
+                    .Where(args => args.Phase == EventHookPhase.Post)
+                    .Subscribe(_ => ApplyMarketPriceMultipliers()));
+                subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
+                    .Where(args => args.Phase == EventHookPhase.Post)
+                    .Subscribe(OnUnloadMap));
+                minimapPlacementClickHook = new MinimapPlacementClickHook(log, settings);
+                coopTrailCustomizeHook = new CoopTrailCustomizeHook(log);
+                skirmishAiSelectionMemoryHook = new SkirmishAiSelectionMemoryHook(log, settings);
+                knightDismountRuntime.Initialize();
+                InstallAutoTradeSellZeroHook();
+                InstallEnemyProximityBulldozeCursorHook();
+                InstallSingleBuildingPauseHook();
+                hooksSubscribed = true;
+                Shared.DebugLogHelper.LogDebug(log, "SomeSettings hooks subscribed.");
+            }
+            catch
+            {
+                UnsubscribeHooks();
+                throw;
+            }
         }
 
         public void ApplySettings()
@@ -129,7 +137,7 @@ namespace SomeSettings
             }
             catch (Exception ex)
             {
-                log.LogError($"SomeSettings AI economy protection hook could not be installed: {ex}");
+                Shared.DebugLogHelper.LogError(log, $"SomeSettings AI economy protection hook could not be installed: {ex}");
             }
         }
 
@@ -157,8 +165,7 @@ namespace SomeSettings
             coopTrailCustomizeHook = null;
             skirmishAiSelectionMemoryHook?.Dispose();
             skirmishAiSelectionMemoryHook = null;
-            knightDismountRuntime?.Dispose();
-            knightDismountRuntime = new KnightDismountRuntime(log, settings);
+            knightDismountRuntime.Dispose();
             autoTradeSellZeroHook?.Dispose();
             autoTradeSellZeroHook = null;
             enemyProximityBulldozeCursorHook?.Dispose();
@@ -178,7 +185,7 @@ namespace SomeSettings
             }
             catch (Exception ex)
             {
-                log.LogError($"SomeSettings auto-trade sell zero hook could not be installed: {ex}");
+                Shared.DebugLogHelper.LogError(log, $"SomeSettings auto-trade sell zero hook could not be installed: {ex}");
             }
         }
 
@@ -190,7 +197,7 @@ namespace SomeSettings
             }
             catch (Exception ex)
             {
-                log.LogError($"SomeSettings enemy-proximity bulldoze cursor hook could not be installed: {ex}");
+                Shared.DebugLogHelper.LogError(log, $"SomeSettings enemy-proximity bulldoze cursor hook could not be installed: {ex}");
             }
         }
 
@@ -202,7 +209,7 @@ namespace SomeSettings
             }
             catch (Exception ex)
             {
-                log.LogError($"SomeSettings single-building pause hook could not be installed: {ex}");
+                Shared.DebugLogHelper.LogError(log, $"SomeSettings single-building pause hook could not be installed: {ex}");
             }
         }
 
@@ -238,7 +245,7 @@ namespace SomeSettings
 
             if (propertyName == nameof(SomeSettingsViewModel.KeepStorageContent))
             {
-                log.LogDebug($"SomeSettings changed: KeepStorageContent={settings.KeepStorageContent}.");
+                Shared.DebugLogHelper.LogDebug(log, () => $"SomeSettings changed: KeepStorageContent={settings.KeepStorageContent}.");
                 return;
             }
 
@@ -342,11 +349,11 @@ namespace SomeSettings
 
                 EditorDirector.instance.directSetAppSubMode(TradepostMainPanel);
                 MainViewModel.Instance.setUpInbuilding(TradepostMainPanel, TradepostStructureType);
-                log.LogDebug($"SomeSettings reset tradepost menu from market key: selectedBuildingId={selectedBuildingId}, previousSubMode={subMode}.");
+                Shared.DebugLogHelper.LogDebug(log, () => $"SomeSettings reset tradepost menu from market key: selectedBuildingId={selectedBuildingId}, previousSubMode={subMode}.");
             }
             catch (Exception ex)
             {
-                log.LogError($"SomeSettings market key tradepost menu reset failed: {ex}");
+                Shared.DebugLogHelper.LogError(log, $"SomeSettings market key tradepost menu reset failed: {ex}");
             }
         }
 
@@ -368,7 +375,7 @@ namespace SomeSettings
 
                 if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(args.BuildingId, out GameBuilding* building))
                 {
-                    log.LogDebug($"OnBuildingBulldoze: phase={args.Phase}, buildingId={args.BuildingId}, ignored=building-not-found.");
+                    Shared.DebugLogHelper.LogDebug(log, () => $"OnBuildingBulldoze: phase={args.Phase}, buildingId={args.BuildingId}, ignored=building-not-found.");
                     return;
                 }
 
@@ -378,37 +385,37 @@ namespace SomeSettings
                 ushort tileX = building->r_TilePositionXBegin;
                 ushort tileY = building->r_TilePositionYBegin;
 
-                log.LogDebug($"OnBuildingBulldoze: phase={args.Phase}, buildingId={args.BuildingId}, owner={owner}, type={structure}, globalId={globalId}, tileX={tileX}, tileY={tileY}.");
+                Shared.DebugLogHelper.LogDebug(log, () => $"OnBuildingBulldoze: phase={args.Phase}, buildingId={args.BuildingId}, owner={owner}, type={structure}, globalId={globalId}, tileX={tileX}, tileY={tileY}.");
 
                 if (structure != eStructs.STRUCT_GOODS_YARD)
                 {
-                    log.LogDebug($"OnBuildingBulldoze ignored non-stockpile buildingId={args.BuildingId}, type={structure}.");
+                    Shared.DebugLogHelper.LogDebug(log, () => $"OnBuildingBulldoze ignored non-stockpile buildingId={args.BuildingId}, type={structure}.");
                     return;
                 }
 
                 PendingStockpileRefund pending = pendingStockpileRefund;
                 if (pending == null)
                 {
-                    log.LogDebug($"OnBuildingBulldoze stockpile ignored: no pending stockpile refund, buildingId={args.BuildingId}, owner={owner}, globalId={globalId}, tileX={tileX}, tileY={tileY}.");
+                    Shared.DebugLogHelper.LogDebug(log, () => $"OnBuildingBulldoze stockpile ignored: no pending stockpile refund, buildingId={args.BuildingId}, owner={owner}, globalId={globalId}, tileX={tileX}, tileY={tileY}.");
                     return;
                 }
 
                 if (pending.CreatedAt < DateTime.UtcNow.AddSeconds(-2))
                 {
-                    log.LogWarning($"Pending stockpile refund expired: refundBuildingId={pending.RefundBuildingId}, playerId={pending.PlayerId}, owner={pending.Owner}, partsRemaining={pending.PartsRemaining}.");
+                    Shared.DebugLogHelper.LogWarning(log, $"Pending stockpile refund expired: refundBuildingId={pending.RefundBuildingId}, playerId={pending.PlayerId}, owner={pending.Owner}, partsRemaining={pending.PartsRemaining}.");
                     pendingStockpileRefund = null;
                     return;
                 }
 
                 if (owner != pending.Owner)
                 {
-                    log.LogDebug($"OnBuildingBulldoze stockpile ignored: owner mismatch, buildingId={args.BuildingId}, owner={owner}, pendingOwner={pending.Owner}, refundBuildingId={pending.RefundBuildingId}, playerId={pending.PlayerId}, globalId={globalId}, tileX={tileX}, tileY={tileY}.");
+                    Shared.DebugLogHelper.LogDebug(log, () => $"OnBuildingBulldoze stockpile ignored: owner mismatch, buildingId={args.BuildingId}, owner={owner}, pendingOwner={pending.Owner}, refundBuildingId={pending.RefundBuildingId}, playerId={pending.PlayerId}, globalId={globalId}, tileX={tileX}, tileY={tileY}.");
                     return;
                 }
 
                 if (pending.ProcessedBuildingIds.Contains(args.BuildingId))
                 {
-                    log.LogDebug($"OnBuildingBulldoze stockpile ignored: duplicate processed buildingId={args.BuildingId}, refundBuildingId={pending.RefundBuildingId}, playerId={pending.PlayerId}, owner={pending.Owner}, processedBuildingIds={BuildProcessedBuildingIdSummary(pending.ProcessedBuildingIds)}.");
+                    Shared.DebugLogHelper.LogDebug(log, () => $"OnBuildingBulldoze stockpile ignored: duplicate processed buildingId={args.BuildingId}, refundBuildingId={pending.RefundBuildingId}, playerId={pending.PlayerId}, owner={pending.Owner}, processedBuildingIds={BuildProcessedBuildingIdSummary(pending.ProcessedBuildingIds)}.");
                     return;
                 }
 
@@ -419,17 +426,17 @@ namespace SomeSettings
                 pending.ProcessedBuildingIds.Add(args.BuildingId);
                 pending.PartsRemaining--;
 
-                log.LogDebug($"OnBuildingBulldoze restored pending stockpile part: buildingId={args.BuildingId}, refundBuildingId={pending.RefundBuildingId}, playerId={pending.PlayerId}, owner={pending.Owner}, globalId={globalId}, tileX={tileX}, tileY={tileY}, total={total}, goods={goodsSummary}, partsRemaining={pending.PartsRemaining}.");
+                Shared.DebugLogHelper.LogDebug(log, () => $"OnBuildingBulldoze restored pending stockpile part: buildingId={args.BuildingId}, refundBuildingId={pending.RefundBuildingId}, playerId={pending.PlayerId}, owner={pending.Owner}, globalId={globalId}, tileX={tileX}, tileY={tileY}, total={total}, goods={goodsSummary}, partsRemaining={pending.PartsRemaining}.");
 
                 if (pending.PartsRemaining <= 0)
                 {
-                    log.LogDebug($"OnBuildingBulldoze pending stockpile refund completed: refundBuildingId={pending.RefundBuildingId}, playerId={pending.PlayerId}, owner={pending.Owner}, processedBuildingIds={BuildProcessedBuildingIdSummary(pending.ProcessedBuildingIds)}.");
+                    Shared.DebugLogHelper.LogDebug(log, () => $"OnBuildingBulldoze pending stockpile refund completed: refundBuildingId={pending.RefundBuildingId}, playerId={pending.PlayerId}, owner={pending.Owner}, processedBuildingIds={BuildProcessedBuildingIdSummary(pending.ProcessedBuildingIds)}.");
                     pendingStockpileRefund = null;
                 }
             }
             catch (Exception ex)
             {
-                log.LogError($"SomeSettings bulldoze pending stockpile refund hook failed: {ex}");
+                Shared.DebugLogHelper.LogError(log, $"SomeSettings bulldoze pending stockpile refund hook failed: {ex}");
             }
         }
 
@@ -437,7 +444,7 @@ namespace SomeSettings
         {
             try
             {
-                log.LogDebug($"OnBuildingRefund: phase={args.Phase}, playerId={args.PlayerId}, buildingId={args.BuildingId}, percentage={args.Percentage}, skipOriginal={args.SkipOriginalFunction}.");
+                Shared.DebugLogHelper.LogDebug(log, () => $"OnBuildingRefund: phase={args.Phase}, playerId={args.PlayerId}, buildingId={args.BuildingId}, percentage={args.Percentage}, skipOriginal={args.SkipOriginalFunction}.");
 
                 NormalizeRefundPercentage(args);
                 AddResourceRefundGuards(args);
@@ -454,7 +461,7 @@ namespace SomeSettings
                 ushort tileX = building->r_TilePositionXBegin;
                 ushort tileY = building->r_TilePositionYBegin;
 
-                log.LogDebug($"OnBuildingRefund resolved building: buildingId={args.BuildingId}, owner={owner}, type={structure}, globalId={globalId}, tileX={tileX}, tileY={tileY}.");
+                Shared.DebugLogHelper.LogDebug(log, () => $"OnBuildingRefund resolved building: buildingId={args.BuildingId}, owner={owner}, type={structure}, globalId={globalId}, tileX={tileX}, tileY={tileY}.");
 
                 if (structure == eStructs.STRUCT_GOODS_YARD)
                 {
@@ -467,7 +474,7 @@ namespace SomeSettings
                         PartsRemaining = 4
                     };
 
-                    log.LogDebug($"OnBuildingRefund pending stockpile refund created: refundBuildingId={args.BuildingId}, playerId={args.PlayerId}, owner={owner}, globalId={globalId}, tileX={tileX}, tileY={tileY}, partsRemaining=4.");
+                    Shared.DebugLogHelper.LogDebug(log, () => $"OnBuildingRefund pending stockpile refund created: refundBuildingId={args.BuildingId}, playerId={args.PlayerId}, owner={owner}, globalId={globalId}, tileX={tileX}, tileY={tileY}, partsRemaining=4.");
                     return;
                 }
 
@@ -476,11 +483,11 @@ namespace SomeSettings
                 int total = GetGoodsTotal(goods);
                 string goodsSummary = BuildGoodsSummary(goods);
 
-                log.LogDebug($"Kept storage content for refunded {structure} buildingId={args.BuildingId}, playerId={args.PlayerId}, percentage={args.Percentage}, total={total}, goods={goodsSummary}.");
+                Shared.DebugLogHelper.LogDebug(log, () => $"Kept storage content for refunded {structure} buildingId={args.BuildingId}, playerId={args.PlayerId}, percentage={args.Percentage}, total={total}, goods={goodsSummary}.");
             }
             catch (Exception ex)
             {
-                log.LogError($"SomeSettings refund storage hook failed: {ex}");
+                Shared.DebugLogHelper.LogError(log, $"SomeSettings refund storage hook failed: {ex}");
             }
         }
 
@@ -621,7 +628,7 @@ namespace SomeSettings
             if (multiplyMoney > 0)
             {
                 PackedGoodPrice price = GamePlayerManagerAPI.Instance.GetTradeBasePrice(args.Good);
-                int sellPricePerItem = price.SellPrice / 5;
+                double sellPricePerItem = price.SellPrice / 5.0;
                 int money = (int)Math.Round(args.AddAmount * sellPricePerItem * multiplyMoney, MidpointRounding.AwayFromZero);
                 LogDebugForResourceEventPlayer(
                     playerId,
@@ -893,7 +900,7 @@ namespace SomeSettings
         private void LogDebugForResourceEventPlayer(int playerId, params object[] parts)
         {
             if (ShouldLogResourceEventPlayer(playerId))
-                log.LogDebug(string.Join(" ", parts));
+                Shared.DebugLogHelper.LogDebug(log, parts);
         }
 
         private static bool ShouldLogResourceEventPlayer(int playerId)

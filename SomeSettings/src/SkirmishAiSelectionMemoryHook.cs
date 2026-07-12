@@ -42,19 +42,48 @@ namespace SomeSettings
             storePath = Path.Combine(GetPluginDirectory(), StoreFileName);
             LoadStore();
 
-            multiplayerButtonClickedHook = new Hook(FindMethod(typeof(FRONT_Multiplayer), "ButtonClicked", typeof(string)), (MultiplayerButtonClickedDelegate)MultiplayerButtonClickedHook);
-            multiplayerButtonClickedTrampoline = multiplayerButtonClickedHook.GenerateTrampoline<MultiplayerButtonClickedDelegate>();
+            MethodInfo multiplayerButtonClickedMethod = FindMethod(typeof(FRONT_Multiplayer), "ButtonClicked", typeof(string));
+            MethodInfo skirmishAiAddClickMethod = FindMethod(typeof(FRONT_Multiplayer), "SkirmishAIAddClick", typeof(string));
+            MethodInfo aiSettingsButtonClickedMethod = FindMethod(typeof(FRONT_Multiplayer_AISettings), "ButtonClicked", typeof(string));
+            MethodInfo aiSettingsAddSelectedMethod = FindMethod(typeof(FRONT_Multiplayer_AISettings), "AddSelected");
 
-            skirmishAiAddClickHook = new Hook(FindMethod(typeof(FRONT_Multiplayer), "SkirmishAIAddClick", typeof(string)), (MultiplayerButtonClickedDelegate)SkirmishAiAddClickHook);
-            skirmishAiAddClickTrampoline = skirmishAiAddClickHook.GenerateTrampoline<MultiplayerButtonClickedDelegate>();
+            Hook multiplayerButtonClicked = null;
+            Hook skirmishAiAddClick = null;
+            Hook aiSettingsButtonClicked = null;
+            Hook aiSettingsAddSelected = null;
+            try
+            {
+                multiplayerButtonClicked = new Hook(multiplayerButtonClickedMethod, (MultiplayerButtonClickedDelegate)MultiplayerButtonClickedHook);
+                MultiplayerButtonClickedDelegate multiplayerButtonClickedOriginal = multiplayerButtonClicked.GenerateTrampoline<MultiplayerButtonClickedDelegate>();
 
-            aiSettingsButtonClickedHook = new Hook(FindMethod(typeof(FRONT_Multiplayer_AISettings), "ButtonClicked", typeof(string)), (AiSettingsButtonClickedDelegate)AiSettingsButtonClickedHook);
-            aiSettingsButtonClickedTrampoline = aiSettingsButtonClickedHook.GenerateTrampoline<AiSettingsButtonClickedDelegate>();
+                skirmishAiAddClick = new Hook(skirmishAiAddClickMethod, (MultiplayerButtonClickedDelegate)SkirmishAiAddClickHook);
+                MultiplayerButtonClickedDelegate skirmishAiAddClickOriginal = skirmishAiAddClick.GenerateTrampoline<MultiplayerButtonClickedDelegate>();
 
-            aiSettingsAddSelectedHook = new Hook(FindMethod(typeof(FRONT_Multiplayer_AISettings), "AddSelected"), (AiSettingsAddSelectedDelegate)AiSettingsAddSelectedHook);
-            aiSettingsAddSelectedTrampoline = aiSettingsAddSelectedHook.GenerateTrampoline<AiSettingsAddSelectedDelegate>();
+                aiSettingsButtonClicked = new Hook(aiSettingsButtonClickedMethod, (AiSettingsButtonClickedDelegate)AiSettingsButtonClickedHook);
+                AiSettingsButtonClickedDelegate aiSettingsButtonClickedOriginal = aiSettingsButtonClicked.GenerateTrampoline<AiSettingsButtonClickedDelegate>();
 
-            log.LogDebug($"SomeSettings AI selection memory hooks installed. enabled={settings.EnableMod && settings.RememberAiAivSettings}, storePath={storePath}");
+                aiSettingsAddSelected = new Hook(aiSettingsAddSelectedMethod, (AiSettingsAddSelectedDelegate)AiSettingsAddSelectedHook);
+                AiSettingsAddSelectedDelegate aiSettingsAddSelectedOriginal = aiSettingsAddSelected.GenerateTrampoline<AiSettingsAddSelectedDelegate>();
+
+                multiplayerButtonClickedHook = multiplayerButtonClicked;
+                multiplayerButtonClickedTrampoline = multiplayerButtonClickedOriginal;
+                skirmishAiAddClickHook = skirmishAiAddClick;
+                skirmishAiAddClickTrampoline = skirmishAiAddClickOriginal;
+                aiSettingsButtonClickedHook = aiSettingsButtonClicked;
+                aiSettingsButtonClickedTrampoline = aiSettingsButtonClickedOriginal;
+                aiSettingsAddSelectedHook = aiSettingsAddSelected;
+                aiSettingsAddSelectedTrampoline = aiSettingsAddSelectedOriginal;
+            }
+            catch
+            {
+                aiSettingsAddSelected?.Dispose();
+                aiSettingsButtonClicked?.Dispose();
+                skirmishAiAddClick?.Dispose();
+                multiplayerButtonClicked?.Dispose();
+                throw;
+            }
+
+            Shared.DebugLogHelper.LogDebug(log, () => $"SomeSettings AI selection memory hooks installed. enabled={settings.EnableMod && settings.RememberAiAivSettings}, storePath={storePath}");
         }
 
         public void Dispose()
@@ -71,7 +100,7 @@ namespace SomeSettings
             skirmishAiAddClickHook?.Dispose();
             aiSettingsButtonClickedHook?.Dispose();
             aiSettingsAddSelectedHook?.Dispose();
-            log.LogDebug("SomeSettings AI selection memory hooks disposed.");
+            Shared.DebugLogHelper.LogDebug(log, "SomeSettings AI selection memory hooks disposed.");
         }
 
         private void MultiplayerButtonClickedHook(FRONT_Multiplayer self, string param)
@@ -81,7 +110,7 @@ namespace SomeSettings
             bool mayAddAi = string.Equals(param, "AddCustomLord", StringComparison.Ordinal);
             Dictionary<int, string> before = featureActiveBefore && (relevant || mayAddAi) ? CaptureAiSlotKeys(self) : null;
             if (relevant)
-                log.LogDebug($"SomeSettings AI selection memory ButtonClicked before original: param={param}, featureActive={featureActiveBefore}, beforeSlots={FormatSlotKeys(before)}, storedCount={storedSelections.Count}");
+                Shared.DebugLogHelper.LogDebug(log, () => $"SomeSettings AI selection memory ButtonClicked before original: param={param}, featureActive={featureActiveBefore}, beforeSlots={FormatSlotKeys(before)}, storedCount={storedSelections.Count}");
 
             if (featureActiveBefore && string.Equals(param, "CancelAISettings", StringComparison.Ordinal))
                 SaveActiveAiSettings();
@@ -91,7 +120,7 @@ namespace SomeSettings
             bool featureActiveAfter = IsFeatureActive();
             Dictionary<int, string> after = featureActiveAfter && (relevant || mayAddAi) ? CaptureAiSlotKeys(self) : null;
             if (relevant)
-                log.LogDebug($"SomeSettings AI selection memory ButtonClicked after original: param={param}, featureActive={featureActiveAfter}, afterSlots={FormatSlotKeys(after)}, storedCount={storedSelections.Count}");
+                Shared.DebugLogHelper.LogDebug(log, () => $"SomeSettings AI selection memory ButtonClicked after original: param={param}, featureActive={featureActiveAfter}, afterSlots={FormatSlotKeys(after)}, storedCount={storedSelections.Count}");
 
             if (!featureActiveAfter || !mayAddAi)
                 return;
@@ -103,7 +132,7 @@ namespace SomeSettings
             }
             catch (Exception ex)
             {
-                log.LogError($"SomeSettings AI selection memory apply after ButtonClicked({param}) failed: {ex}");
+                Shared.DebugLogHelper.LogError(log, $"SomeSettings AI selection memory apply after ButtonClicked({param}) failed: {ex}");
             }
         }
 
@@ -111,13 +140,13 @@ namespace SomeSettings
         {
             bool featureActiveBefore = IsFeatureActive();
             Dictionary<int, string> before = featureActiveBefore ? CaptureAiSlotKeys(self) : null;
-            log.LogDebug($"SomeSettings AI selection memory SkirmishAIAddClick before original: param={param}, featureActive={featureActiveBefore}, beforeSlots={FormatSlotKeys(before)}, storedCount={storedSelections.Count}");
+            Shared.DebugLogHelper.LogDebug(log, () => $"SomeSettings AI selection memory SkirmishAIAddClick before original: param={param}, featureActive={featureActiveBefore}, beforeSlots={FormatSlotKeys(before)}, storedCount={storedSelections.Count}");
 
             skirmishAiAddClickTrampoline(self, param);
 
             bool featureActiveAfter = IsFeatureActive();
             Dictionary<int, string> after = featureActiveAfter ? CaptureAiSlotKeys(self) : null;
-            log.LogDebug($"SomeSettings AI selection memory SkirmishAIAddClick after original: param={param}, featureActive={featureActiveAfter}, afterSlots={FormatSlotKeys(after)}, storedCount={storedSelections.Count}");
+            Shared.DebugLogHelper.LogDebug(log, () => $"SomeSettings AI selection memory SkirmishAIAddClick after original: param={param}, featureActive={featureActiveAfter}, afterSlots={FormatSlotKeys(after)}, storedCount={storedSelections.Count}");
 
             if (!featureActiveAfter)
                 return;
@@ -129,7 +158,7 @@ namespace SomeSettings
             }
             catch (Exception ex)
             {
-                log.LogError($"SomeSettings AI selection memory apply after SkirmishAIAddClick({param}) failed: {ex}");
+                Shared.DebugLogHelper.LogError(log, $"SomeSettings AI selection memory apply after SkirmishAIAddClick({param}) failed: {ex}");
             }
         }
 
@@ -146,7 +175,7 @@ namespace SomeSettings
             }
             catch (Exception ex)
             {
-                log.LogError($"SomeSettings AI selection memory save failed after ButtonClicked({param}): {ex}");
+                Shared.DebugLogHelper.LogError(log, $"SomeSettings AI selection memory save failed after ButtonClicked({param}): {ex}");
             }
         }
 
@@ -163,7 +192,7 @@ namespace SomeSettings
             }
             catch (Exception ex)
             {
-                log.LogError($"SomeSettings AI selection memory save failed after AddSelected: {ex}");
+                Shared.DebugLogHelper.LogError(log, $"SomeSettings AI selection memory save failed after AddSelected: {ex}");
             }
         }
 
@@ -202,7 +231,7 @@ namespace SomeSettings
             }
             catch (Exception ex)
             {
-                log.LogError($"SomeSettings AI selection memory save failed while closing settings: {ex}");
+                Shared.DebugLogHelper.LogError(log, $"SomeSettings AI selection memory save failed while closing settings: {ex}");
             }
         }
 
@@ -223,52 +252,52 @@ namespace SomeSettings
             if (hadExisting && existing == encoded)
                 return;
 
-            log.LogDebug($"SomeSettings detected changed AI AIV/lord selection: key={key}, hadExisting={hadExisting}, {BuildInfoSummary(info)}");
+            Shared.DebugLogHelper.LogDebug(log, () => $"SomeSettings detected changed AI AIV/lord selection: key={key}, hadExisting={hadExisting}, {BuildInfoSummary(info)}");
             storedSelections[key] = encoded;
             SaveStore();
-            log.LogDebug($"SomeSettings saved AI AIV/lord selection: key={key}, encodedLength={encoded.Length}");
+            Shared.DebugLogHelper.LogDebug(log, () => $"SomeSettings saved AI AIV/lord selection: key={key}, encodedLength={encoded.Length}");
         }
 
         private bool ApplyStoredSelectionsToNewAiSlots(FRONT_Multiplayer parent, Dictionary<int, string> before, string reason)
         {
             if (storedSelections.Count == 0 || parent == null || parent.AIVs == null || parent.currentLobby == null || before == null)
             {
-                log.LogDebug($"SomeSettings AI selection memory apply skipped before scan: reason={reason}, storedCount={storedSelections.Count}, hasParent={parent != null}, hasAIVs={parent?.AIVs != null}, hasLobby={parent?.currentLobby != null}, hasBefore={before != null}");
+                Shared.DebugLogHelper.LogDebug(log, () => $"SomeSettings AI selection memory apply skipped before scan: reason={reason}, storedCount={storedSelections.Count}, hasParent={parent != null}, hasAIVs={parent?.AIVs != null}, hasLobby={parent?.currentLobby != null}, hasBefore={before != null}");
                 return false;
             }
 
-            log.LogDebug($"SomeSettings AI selection memory apply scan started: reason={reason}, beforeSlots={FormatSlotKeys(before)}, storedCount={storedSelections.Count}, lobbyMemberCount={parent.currentLobby.members.Count}");
+            Shared.DebugLogHelper.LogDebug(log, () => $"SomeSettings AI selection memory apply scan started: reason={reason}, beforeSlots={FormatSlotKeys(before)}, storedCount={storedSelections.Count}, lobbyMemberCount={parent.currentLobby.members.Count}");
             bool applied = false;
             foreach (Platform_Multiplayer.MPLobbyMember member in parent.currentLobby.members)
             {
                 if (!TryGetAiSlotInfo(parent, member, out int playerId, out string key))
                 {
-                    log.LogDebug($"SomeSettings AI selection memory apply skipped lobby member: reason={reason}, skirmish={member?.SkirmishMember}, human={member?.SkirmishHumanMember}, steamId={member?.GetSteamID()}");
+                    Shared.DebugLogHelper.LogDebug(log, () => $"SomeSettings AI selection memory apply skipped lobby member: reason={reason}, skirmish={member?.SkirmishMember}, human={member?.SkirmishHumanMember}, steamId={member?.GetSteamID()}");
                     continue;
                 }
 
                 if (playerId < 1 || playerId > parent.AIVs.Length)
                 {
-                    log.LogDebug($"SomeSettings AI selection memory apply skipped invalid player id: reason={reason}, key={key}, lobbyPlayer={playerId}, aivLength={parent.AIVs.Length}");
+                    Shared.DebugLogHelper.LogDebug(log, () => $"SomeSettings AI selection memory apply skipped invalid player id: reason={reason}, key={key}, lobbyPlayer={playerId}, aivLength={parent.AIVs.Length}");
                     continue;
                 }
 
                 if (before.TryGetValue(playerId, out string previousKey) && string.Equals(previousKey, key, StringComparison.OrdinalIgnoreCase))
                 {
-                    log.LogDebug($"SomeSettings AI selection memory apply skipped existing unchanged slot: reason={reason}, key={key}, lobbyPlayer={playerId}, previousKey={previousKey}");
+                    Shared.DebugLogHelper.LogDebug(log, () => $"SomeSettings AI selection memory apply skipped existing unchanged slot: reason={reason}, key={key}, lobbyPlayer={playerId}, previousKey={previousKey}");
                     continue;
                 }
 
                 if (!storedSelections.TryGetValue(key, out string encoded))
                 {
-                    log.LogDebug($"SomeSettings AI selection memory apply skipped missing stored selection: reason={reason}, key={key}, lobbyPlayer={playerId}, previousKey={(before.TryGetValue(playerId, out previousKey) ? previousKey : "<new-slot>")}");
+                    Shared.DebugLogHelper.LogDebug(log, () => $"SomeSettings AI selection memory apply skipped missing stored selection: reason={reason}, key={key}, lobbyPlayer={playerId}, previousKey={(before.TryGetValue(playerId, out previousKey) ? previousKey : "<new-slot>")}");
                     continue;
                 }
 
                 string currentEncoded = parent.AIVs[playerId - 1].encode();
                 if (currentEncoded == encoded)
                 {
-                    log.LogDebug($"SomeSettings AI selection memory apply skipped already matching encoded selection: reason={reason}, key={key}, lobbyPlayer={playerId}, encodedLength={(encoded == null ? 0 : encoded.Length)}");
+                    Shared.DebugLogHelper.LogDebug(log, () => $"SomeSettings AI selection memory apply skipped already matching encoded selection: reason={reason}, key={key}, lobbyPlayer={playerId}, encodedLength={(encoded == null ? 0 : encoded.Length)}");
                     continue;
                 }
 
@@ -276,16 +305,16 @@ namespace SomeSettings
                 decoded.decode(encoded);
                 if (!string.Equals(BuildLordKey(decoded), key, StringComparison.OrdinalIgnoreCase))
                 {
-                    log.LogWarning($"SomeSettings ignored stored AI AIV selection for {key}: decoded data no longer matches this lord. decodedLordKey={BuildLordKey(decoded)}");
+                    Shared.DebugLogHelper.LogWarning(log, $"SomeSettings ignored stored AI AIV selection for {key}: decoded data no longer matches this lord. decodedLordKey={BuildLordKey(decoded)}");
                     continue;
                 }
 
                 parent.AIVs[playerId - 1].decode(encoded);
                 applied = true;
-                log.LogDebug($"SomeSettings loaded/applied remembered AI AIV/lord selection: reason={reason}, key={key}, lobbyPlayer={playerId}, previousKey={(before.TryGetValue(playerId, out previousKey) ? previousKey : "<new-slot>")}, previousEncodedLength={(currentEncoded == null ? 0 : currentEncoded.Length)}, {BuildInfoSummary(decoded)}");
+                Shared.DebugLogHelper.LogDebug(log, () => $"SomeSettings loaded/applied remembered AI AIV/lord selection: reason={reason}, key={key}, lobbyPlayer={playerId}, previousKey={(before.TryGetValue(playerId, out previousKey) ? previousKey : "<new-slot>")}, previousEncodedLength={(currentEncoded == null ? 0 : currentEncoded.Length)}, {BuildInfoSummary(decoded)}");
             }
 
-            log.LogDebug($"SomeSettings AI selection memory apply scan finished: reason={reason}, applied={applied}");
+            Shared.DebugLogHelper.LogDebug(log, () => $"SomeSettings AI selection memory apply scan finished: reason={reason}, applied={applied}");
             return applied;
         }
 
@@ -394,7 +423,7 @@ namespace SomeSettings
             storedSelections.Clear();
             if (!File.Exists(storePath))
             {
-                log.LogDebug($"SomeSettings AI AIV/lord selection memory file not found: {storePath}");
+                Shared.DebugLogHelper.LogDebug(log, () => $"SomeSettings AI AIV/lord selection memory file not found: {storePath}");
                 return;
             }
 
@@ -403,14 +432,14 @@ namespace SomeSettings
                 foreach (KeyValuePair<string, string> entry in ParseJsonObject(File.ReadAllText(storePath)))
                 {
                     storedSelections[entry.Key] = entry.Value;
-                    log.LogDebug($"SomeSettings loaded remembered AI AIV/lord selection from disk: key={entry.Key}, encodedLength={entry.Value.Length}");
+                    Shared.DebugLogHelper.LogDebug(log, () => $"SomeSettings loaded remembered AI AIV/lord selection from disk: key={entry.Key}, encodedLength={entry.Value.Length}");
                 }
 
-                log.LogDebug($"SomeSettings loaded {storedSelections.Count} remembered AI AIV/lord selections from {storePath}.");
+                Shared.DebugLogHelper.LogDebug(log, () => $"SomeSettings loaded {storedSelections.Count} remembered AI AIV/lord selections from {storePath}.");
             }
             catch (Exception ex)
             {
-                log.LogWarning($"SomeSettings could not load AI AIV selection memory from {storePath}: {ex.Message}");
+                Shared.DebugLogHelper.LogWarning(log, $"SomeSettings could not load AI AIV selection memory from {storePath}: {ex.Message}");
             }
         }
 
@@ -423,7 +452,7 @@ namespace SomeSettings
             }
             catch (Exception ex)
             {
-                log.LogError($"SomeSettings could not save AI AIV selection memory to {storePath}: {ex}");
+                Shared.DebugLogHelper.LogError(log, $"SomeSettings could not save AI AIV selection memory to {storePath}: {ex}");
             }
         }
 

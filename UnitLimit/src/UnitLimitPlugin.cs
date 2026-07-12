@@ -13,7 +13,7 @@ namespace UnitLimit
 
         public const string PluginGuid = "UnitLimit_Serp";
         public const string PluginName = "Unit Limit";
-        public const string PluginVersion = "0.1.0";
+        public const string PluginVersion = "1.0.1";
 
         private UnitLimitRuntime runtime;
         private bool runtimeDisposed;
@@ -22,7 +22,7 @@ namespace UnitLimit
 
         private void Awake()
         {
-            Logger.LogDebug($"{PluginName} {PluginVersion} loaded.");
+            Shared.DebugLogHelper.LogDebug(Logger, $"{PluginName} {PluginVersion} loaded.");
 
             Settings = new UnitLimitLobbyViewModel();
             runtime = new UnitLimitRuntime(Logger, Settings);
@@ -31,13 +31,13 @@ namespace UnitLimit
 
         private void OnDestroy()
         {
-            Logger.LogDebug("UnitLimitPlugin OnDestroy called; keeping runtime active until application quit.");
+            Shared.DebugLogHelper.LogDebug(Logger, "UnitLimitPlugin OnDestroy called; keeping runtime active until application quit.");
             CrusaderLibrary.Instance.LibraryLoaded -= OnCrusaderLibraryLoaded;
         }
 
         private void OnApplicationQuit()
         {
-            Logger.LogDebug("UnitLimitPlugin OnApplicationQuit called; disposing runtime.");
+            Shared.DebugLogHelper.LogDebug(Logger, "UnitLimitPlugin OnApplicationQuit called; disposing runtime.");
             DisposeRuntime();
         }
 
@@ -89,12 +89,12 @@ namespace UnitLimit
                     "UnitLimitSiegeLimitInlineHost",
                     runtime.UnitLimitTooltip);
 
-                Logger.LogDebug("Crusader library loaded; UnitLimit UI registered.");
+                Shared.DebugLogHelper.LogDebug(Logger, "Crusader library loaded; UnitLimit UI registered.");
                 runtime.InitializeAfterLibraryLoaded();
             }
             catch (Exception ex)
             {
-                Logger.LogError($"Error while initializing UnitLimit after library load: {ex}");
+                Shared.DebugLogHelper.LogError(Logger, $"Error while initializing UnitLimit after library load: {ex}");
             }
         }
     }

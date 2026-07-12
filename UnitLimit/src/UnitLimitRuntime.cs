@@ -99,33 +99,41 @@ namespace UnitLimit
                 return;
 
             LogDebug("Subscribing unit limit runtime hooks");
-            activeUnitCache.SubscribeHooks();
-            activeUnitCache.OnActiveUnitChanged += OnActiveUnitChanged;
-            activeSiegeTentCache.SubscribeHooks();
-            activeSiegeTentCache.OnActiveSiegeTentChanged += OnActiveSiegeTentChanged;
-            makeTroopGameActionHook = new MakeTroopGameActionHook(log, DecideMakeTroopGameAction);
-            createTroopHoverHook = new CreateTroopHoverHook(log, UpdateRecruitmentLimitTooltip, ClearUnitLimitTooltip);
-            siegeBuildHoverHook = new SiegeBuildHoverHook(log, UpdateSiegeBuildLimitTooltip, ClearUnitLimitTooltip);
-            recruitmentAvailabilityUiHook = new RecruitmentAvailabilityUiHook(log, RefreshRecruitmentButtonAvailability);
+            try
+            {
+                activeUnitCache.SubscribeHooks();
+                activeUnitCache.OnActiveUnitChanged += OnActiveUnitChanged;
+                activeSiegeTentCache.SubscribeHooks();
+                activeSiegeTentCache.OnActiveSiegeTentChanged += OnActiveSiegeTentChanged;
+                makeTroopGameActionHook = new MakeTroopGameActionHook(log, DecideMakeTroopGameAction);
+                createTroopHoverHook = new CreateTroopHoverHook(log, UpdateRecruitmentLimitTooltip, ClearUnitLimitTooltip);
+                siegeBuildHoverHook = new SiegeBuildHoverHook(log, UpdateSiegeBuildLimitTooltip, ClearUnitLimitTooltip);
+                recruitmentAvailabilityUiHook = new RecruitmentAvailabilityUiHook(log, RefreshRecruitmentButtonAvailability);
 
-            subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable
-                .Where(args => args.Phase == EventHookPhase.Post)
-                .Subscribe(OnStartMap));
+                subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable
+                    .Where(args => args.Phase == EventHookPhase.Post)
+                    .Subscribe(OnStartMap));
 
-            subscriptions.Add(MapLoaderR3EventHooks.OnLoadSave.Observable
-                .Where(args => args.Phase == EventHookPhase.Post)
-                .Subscribe(OnLoadSave));
+                subscriptions.Add(MapLoaderR3EventHooks.OnLoadSave.Observable
+                    .Where(args => args.Phase == EventHookPhase.Post)
+                    .Subscribe(OnLoadSave));
 
-            subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
-                .Where(args => args.Phase == EventHookPhase.Post)
-                .Subscribe(OnUnloadMap));
+                subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
+                    .Where(args => args.Phase == EventHookPhase.Post)
+                    .Subscribe(OnUnloadMap));
 
-            subscriptions.Add(BuildingR3EventHooks.OnPlacementValidation.Observable
-                .Where(args => args.Phase == EventHookPhase.Pre)
-                .Subscribe(OnBuildingPlacementValidation));
+                subscriptions.Add(BuildingR3EventHooks.OnPlacementValidation.Observable
+                    .Where(args => args.Phase == EventHookPhase.Pre)
+                    .Subscribe(OnBuildingPlacementValidation));
 
-            LogDebug("Unit limit runtime hooks subscribed");
-            hooksSubscribed = true;
+                LogDebug("Unit limit runtime hooks subscribed");
+                hooksSubscribed = true;
+            }
+            catch
+            {
+                UnsubscribeHooks();
+                throw;
+            }
         }
 
         public void InitializeAfterLibraryLoaded()

@@ -28,6 +28,8 @@ namespace StartConditions
         private string addStartTroopsHuman = DefaultTroops;
         private bool updatingEntries;
         private bool loggedGoodsLocalizationDiagnostics;
+        private const int MaximumStartAmount = 100000;
+        private const int MinimumAddedGold = -MaximumStartAmount;
 
         public const string DefaultStartGoodsAI = @"STORED_WOOD_PLANKS=-1
 STORED_RAW_HOPS=-1
@@ -228,10 +230,10 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
         }
 
         [SyncHostOnly] public bool EnableMod { get => enableMod; set => Set(ref enableMod, value, nameof(EnableMod)); }
-        [SyncHostOnly] public int SetStartGoldAI { get => setStartGoldAI; set => SetInt(ref setStartGoldAI, value, nameof(SetStartGoldAI), nameof(SetStartGoldAIText)); }
-        [SyncHostOnly] public int SetStartGoldHuman { get => setStartGoldHuman; set => SetInt(ref setStartGoldHuman, value, nameof(SetStartGoldHuman), nameof(SetStartGoldHumanText)); }
-        [SyncHostOnly] public int AddStartGoldAI { get => addStartGoldAI; set => SetInt(ref addStartGoldAI, value, nameof(AddStartGoldAI), nameof(AddStartGoldAIText)); }
-        [SyncHostOnly] public int AddStartGoldHuman { get => addStartGoldHuman; set => SetInt(ref addStartGoldHuman, value, nameof(AddStartGoldHuman), nameof(AddStartGoldHumanText)); }
+        [SyncHostOnly] public int SetStartGoldAI { get => setStartGoldAI; set => SetStartGold(ref setStartGoldAI, value, nameof(SetStartGoldAI), nameof(SetStartGoldAIText)); }
+        [SyncHostOnly] public int SetStartGoldHuman { get => setStartGoldHuman; set => SetStartGold(ref setStartGoldHuman, value, nameof(SetStartGoldHuman), nameof(SetStartGoldHumanText)); }
+        [SyncHostOnly] public int AddStartGoldAI { get => addStartGoldAI; set => SetAddedGold(ref addStartGoldAI, value, nameof(AddStartGoldAI), nameof(AddStartGoldAIText)); }
+        [SyncHostOnly] public int AddStartGoldHuman { get => addStartGoldHuman; set => SetAddedGold(ref addStartGoldHuman, value, nameof(AddStartGoldHuman), nameof(AddStartGoldHumanText)); }
         [SyncHostOnly] public int MultiplyStartTroopsAI { get => multiplyStartTroopsAI; set => SetMultiplierInt(ref multiplyStartTroopsAI, value, nameof(MultiplyStartTroopsAI), nameof(MultiplyStartTroopsAIText)); }
         [SyncHostOnly] public int MultiplyStartTroopsHuman { get => multiplyStartTroopsHuman; set => SetMultiplierInt(ref multiplyStartTroopsHuman, value, nameof(MultiplyStartTroopsHuman), nameof(MultiplyStartTroopsHumanText)); }
 
@@ -551,7 +553,17 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
             OnPropertyChanged(propertyName);
         }
 
-        private void SetInt(ref int field, int value, string propertyName, string textPropertyName)
+        private void SetStartGold(ref int field, int value, string propertyName, string textPropertyName)
+        {
+            SetClampedInt(ref field, Math.Max(-1, Math.Min(MaximumStartAmount, value)), propertyName, textPropertyName);
+        }
+
+        private void SetAddedGold(ref int field, int value, string propertyName, string textPropertyName)
+        {
+            SetClampedInt(ref field, Math.Max(MinimumAddedGold, Math.Min(MaximumStartAmount, value)), propertyName, textPropertyName);
+        }
+
+        private void SetClampedInt(ref int field, int value, string propertyName, string textPropertyName)
         {
             if (field == value)
                 return;

@@ -26,7 +26,7 @@ namespace SomeSettings
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             buttonClickedHook = new Hook(FindMethod(typeof(FRONT_Multiplayer), "ButtonClicked", typeof(string)), (MultiplayerButtonClickedDelegate)ButtonClickedHook);
             buttonClickedTrampoline = buttonClickedHook.GenerateTrampoline<MultiplayerButtonClickedDelegate>();
-            log.LogDebug("SomeSettings coop trail customize hook installed.");
+            Shared.DebugLogHelper.LogDebug(log, "SomeSettings coop trail customize hook installed.");
         }
 
         public void Dispose()
@@ -37,7 +37,7 @@ namespace SomeSettings
             disposed = true;
             buttonClickedHook?.Undo();
             buttonClickedHook?.Dispose();
-            log.LogDebug("SomeSettings coop trail customize hook disposed.");
+            Shared.DebugLogHelper.LogDebug(log, "SomeSettings coop trail customize hook disposed.");
         }
 
         private void ButtonClickedHook(FRONT_Multiplayer self, string param)
@@ -54,7 +54,7 @@ namespace SomeSettings
             }
             catch (Exception ex)
             {
-                log.LogError($"SomeSettings failed to open coop trail customize lobby: {ex}");
+                Shared.DebugLogHelper.LogError(log, $"SomeSettings failed to open coop trail customize lobby: {ex}");
             }
         }
 
@@ -64,13 +64,13 @@ namespace SomeSettings
             int currentMission = GetCurrentCoopMission(currentTrail);
             if (currentMission <= 0)
             {
-                log.LogWarning($"SomeSettings ignored coop trail customize command: unsupportedTrail={currentTrail}, mission={currentMission}.");
+                Shared.DebugLogHelper.LogWarning(log, $"SomeSettings ignored coop trail customize command: unsupportedTrail={currentTrail}, mission={currentMission}.");
                 return;
             }
 
             if (self.currentLobby == null || (!MainViewModel.Instance.Show_CoopHostJoinedPane && !MainViewModel.Instance.Show_CoopClientPane))
             {
-                log.LogWarning($"SomeSettings ignored coop trail customize command outside joined coop lobby: trail={currentTrail}, mission={currentMission}.");
+                Shared.DebugLogHelper.LogWarning(log, $"SomeSettings ignored coop trail customize command outside joined coop lobby: trail={currentTrail}, mission={currentMission}.");
                 return;
             }
 
@@ -78,12 +78,12 @@ namespace SomeSettings
             if (self.singlePlayerCoop)
             {
                 SwitchAiCoopToSinglePlayerSkirmishSetup(self, currentTrail);
-                log.LogDebug($"SomeSettings switched AI coop trail to singleplayer skirmish setup: trail={currentTrail}, mission={currentMission}.");
+                Shared.DebugLogHelper.LogDebug(log, () => $"SomeSettings switched AI coop trail to singleplayer skirmish setup: trail={currentTrail}, mission={currentMission}.");
                 return;
             }
 
             SwitchHumanCoopToMultiplayerSetup(self, currentTrail);
-            log.LogDebug($"SomeSettings switched coop trail to multiplayer setup screen: trail={currentTrail}, mission={currentMission}, isHost={self.currentLobby.isHost}.");
+            Shared.DebugLogHelper.LogDebug(log, () => $"SomeSettings switched coop trail to multiplayer setup screen: trail={currentTrail}, mission={currentMission}, isHost={self.currentLobby.isHost}.");
         }
 
         private static int GetCurrentCoopMission(int currentTrail)

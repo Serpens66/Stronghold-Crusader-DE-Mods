@@ -25,13 +25,30 @@ namespace UnitCosts
             this.onEnter = onEnter;
             this.onLeave = onLeave;
 
-            enterHook = new Hook(FindHoverMethod("ButtonEnterCreateTroop"), (ButtonCreateTroopHoverDelegate)ButtonEnterCreateTroopHook);
-            enterTrampoline = enterHook.GenerateTrampoline<ButtonCreateTroopHoverDelegate>();
+            MethodInfo enterMethod = FindHoverMethod("ButtonEnterCreateTroop");
+            MethodInfo leaveMethod = FindHoverMethod("ButtonLeaveCreateTroop");
+            Hook installedEnterHook = null;
+            Hook installedLeaveHook = null;
+            try
+            {
+                installedEnterHook = new Hook(enterMethod, (ButtonCreateTroopHoverDelegate)ButtonEnterCreateTroopHook);
+                ButtonCreateTroopHoverDelegate installedEnterTrampoline = installedEnterHook.GenerateTrampoline<ButtonCreateTroopHoverDelegate>();
+                installedLeaveHook = new Hook(leaveMethod, (ButtonCreateTroopHoverDelegate)ButtonLeaveCreateTroopHook);
+                ButtonCreateTroopHoverDelegate installedLeaveTrampoline = installedLeaveHook.GenerateTrampoline<ButtonCreateTroopHoverDelegate>();
 
-            leaveHook = new Hook(FindHoverMethod("ButtonLeaveCreateTroop"), (ButtonCreateTroopHoverDelegate)ButtonLeaveCreateTroopHook);
-            leaveTrampoline = leaveHook.GenerateTrampoline<ButtonCreateTroopHoverDelegate>();
+                enterHook = installedEnterHook;
+                enterTrampoline = installedEnterTrampoline;
+                leaveHook = installedLeaveHook;
+                leaveTrampoline = installedLeaveTrampoline;
+            }
+            catch
+            {
+                installedLeaveHook?.Dispose();
+                installedEnterHook?.Dispose();
+                throw;
+            }
 
-            log.LogDebug("UnitCosts create troop hover hooks installed.");
+            Shared.DebugLogHelper.LogDebug(log, "UnitCosts create troop hover hooks installed.");
         }
 
         public void Dispose()
@@ -44,7 +61,7 @@ namespace UnitCosts
             enterHook?.Dispose();
             leaveHook?.Undo();
             leaveHook?.Dispose();
-            log.LogDebug("UnitCosts create troop hover hooks disposed.");
+            Shared.DebugLogHelper.LogDebug(log, "UnitCosts create troop hover hooks disposed.");
         }
 
         private static MethodInfo FindHoverMethod(string methodName)

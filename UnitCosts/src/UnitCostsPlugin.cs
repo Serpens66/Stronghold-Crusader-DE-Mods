@@ -15,7 +15,7 @@ namespace UnitCosts
 
         public const string PluginGuid = "UnitCosts_Serp";
         public const string PluginName = "Unit Costs";
-        public const string PluginVersion = "0.1.0";
+        public const string PluginVersion = "1.0.2";
 
         private UnitCostsRuntime runtime;
         private bool runtimeDisposed;
@@ -24,7 +24,7 @@ namespace UnitCosts
 
         private void Awake()
         {
-            Logger.LogDebug($"{PluginName} {PluginVersion} loaded.");
+            Shared.DebugLogHelper.LogDebug(Logger, $"{PluginName} {PluginVersion} loaded.");
 
             Settings = new UnitCostsLobbyViewModel();
             runtime = new UnitCostsRuntime(Logger, Settings);
@@ -33,13 +33,13 @@ namespace UnitCosts
 
         private void OnDestroy()
         {
-            Logger.LogDebug("UnitCostsPlugin OnDestroy called; keeping runtime active until application quit.");
+            Shared.DebugLogHelper.LogDebug(Logger, "UnitCostsPlugin OnDestroy called; keeping runtime active until application quit.");
             CrusaderLibrary.Instance.LibraryLoaded -= OnCrusaderLibraryLoaded;
         }
 
         private void OnApplicationQuit()
         {
-            Logger.LogDebug("UnitCostsPlugin OnApplicationQuit called; disposing runtime.");
+            Shared.DebugLogHelper.LogDebug(Logger, "UnitCostsPlugin OnApplicationQuit called; disposing runtime.");
             DisposeRuntime();
         }
 
@@ -71,11 +71,11 @@ namespace UnitCosts
                     "UnitCostsSiegeNotificationInlineHost",
                     runtime.Notification);
                 RegisterRecruitmentCostTooltipBindings();
-                Logger.LogDebug("Crusader library loaded; UnitCosts UI registered.");
+                Shared.DebugLogHelper.LogDebug(Logger, "Crusader library loaded; UnitCosts UI registered.");
             }
             catch (Exception ex)
             {
-                Logger.LogError($"Error while initializing UnitCosts after library load: {ex}");
+                Shared.DebugLogHelper.LogError(Logger, $"Error while initializing UnitCosts after library load: {ex}");
             }
         }
 
