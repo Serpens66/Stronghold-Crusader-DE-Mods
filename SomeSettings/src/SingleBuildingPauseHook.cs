@@ -163,8 +163,7 @@ namespace SomeSettings
                     return;
                 }
 
-                ClearManualOverridesForSelectedBuildingType();
-                buttonTrampoline(self, parameter);
+                ToggleSelectedBuildingTypeFromSelectedState(self, parameter);
                 return;
             }
 
@@ -229,6 +228,65 @@ namespace SomeSettings
 
             LogInfo(
                 $"single-building pause toggled: buildingId={buildingId}, type={building->r_BuildingType}, owner={building->r_PlayerIdOwner}, wasSleeping={wasSleeping}, isSleeping={isSleeping}, overrides={GetManualSleepOverrideCount()}, periodicRestore={EnablePeriodicManualSleepOverrideRestore}.");
+        }
+
+        private unsafe void ToggleSelectedBuildingTypeFromSelectedState(MainViewModel self, object parameter)
+        {
+            int selectedBuildingId = TryGetSelectedBuildingId();
+            if (selectedBuildingId <= 0)
+            {
+                LogInfo($"single-building pause vanilla-type toggle fallback: invalid selected building id {selectedBuildingId}.");
+                buttonTrampoline(self, parameter);
+                return;
+            }
+
+            GameBuildingManagerAPI buildingApi = GameBuildingManagerAPI.Instance;
+            if (!buildingApi.TryGetBuildingById(selectedBuildingId, out GameBuilding* selectedBuilding))
+            {
+                LogInfo($"single-building pause vanilla-type toggle fallback: building id {selectedBuildingId} could not be resolved.");
+                buttonTrampoline(self, parameter);
+                return;
+            }
+
+            bool selectedHasOverride = TryGetManualSleepOverride(selectedBuildingId, out bool overrideSleeping);
+            bool selectedWasSleeping = selectedHasOverride ? overrideSleeping : selectedBuilding->r_IsSleeping == 1;
+            bool targetSleeping = !selectedWasSleeping;
+            byte targetState = (byte)(targetSleeping ? 1 : 0);
+            int owner = selectedBuilding->r_PlayerIdOwner;
+            eStructs buildingType = selectedBuilding->r_BuildingType;
+            int overridesBefore = GetManualSleepOverrideCount();
+
+            ClearManualOverridesForSelectedBuildingType();
+
+            int matched = 0;
+            int corrected = 0;
+            int overridesAdded = 0;
+            Span<GameBuilding> buildings = buildingApi.GetBuildingsAsSpan();
+            for (int i = 0; i < buildings.Length; i++)
+            {
+                ref GameBuilding building = ref buildings[i];
+                if (building.r_AliveState != AliveState.IsAlive ||
+                    building.r_PlayerIdOwner != owner ||
+                    building.r_BuildingType != buildingType)
+                {
+                    continue;
+                }
+
+                matched++;
+                int buildingId = i + 1;
+                SetManualSleepOverride(buildingId, targetSleeping);
+                overrideRestoreLogStates.Remove(buildingId);
+                overridesAdded++;
+
+                if (building.r_IsSleeping == targetState)
+                    continue;
+
+                building.r_IsSleeping = targetState;
+                corrected++;
+            }
+
+            UpdateSleepButtonVisibility(self, targetSleeping);
+            LogInfo($"single-building pause type toggle from selected state: selectedBuildingId={selectedBuildingId}, type={buildingType}, owner={owner}, selectedWasSleeping={selectedWasSleeping}, targetSleeping={targetSleeping}, selectedOverride={selectedHasOverride}, overridesBefore={overridesBefore}, overridesAfter={GetManualSleepOverrideCount()}, matched={matched}, corrected={corrected}, overridesAdded={overridesAdded}, vanillaSuppressed=True.");
         }
 
         private static bool IsControlPressed()
