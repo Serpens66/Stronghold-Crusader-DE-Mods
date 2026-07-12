@@ -177,7 +177,7 @@ namespace SomeSettings
 
     internal sealed class KnightDismountButtonViewModel : LobbyModSettingsBaseViewModel
     {
-        private static readonly Thickness DefaultButtonMargin = new Thickness(81, 40, 0, 3);
+        private static readonly Thickness DefaultButtonMargin = new Thickness(80, 40, 0, 3);
 
         private Visibility buttonVisibility = Visibility.Hidden;
         private Visibility dismountButtonVisibility = Visibility.Hidden;
@@ -304,7 +304,7 @@ namespace SomeSettings
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate void ReleaseStableHorseDelegate(NativePointer<GameBuildingManager> buildingManager, int stableId, int unitId);
 
-        private static readonly Thickness BottomRightSlotMargin = new Thickness(81, 40, 0, 3);
+        private static readonly Thickness BottomRightSlotMargin = new Thickness(80, 40, 0, 3);
         // Vanilla uses this helper for horse cleanup during knight disband/death.
         private const string ReleaseStableHorsePattern =
             "48 89 5C 24 08 48 89 74 24 10 57 48 63 DA 48 8D 35 ?? ?? ?? ?? 4C 69 DB 96 01 00 00 33 FF 4C 8B C9 4C 8B D3";
