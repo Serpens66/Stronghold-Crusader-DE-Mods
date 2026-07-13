@@ -1,4 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
-<Patch>
+<Patch xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+       xmlns:local="clr-namespace:CrusaderDE">
   <Operation Type="SetAttribute" XPath="//n:Slider[@Name='Autotrade_Sell_Slider']" AttributeName="Minimum" Value="0" />
+  <Operation Type="Add" XPath="//n:Grid[@Name='WorkerPanel']">
+    <Content>
+      <Grid x:Name="SomeSettingsQuarryPileRelocationButtonHost"
+            Width="36"
+            Height="35"
+            Margin="0,38,296,0"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Top"
+            Visibility="{Binding ButtonVisibility}">
+        <Button x:Name="SomeSettingsQuarryPileRelocationButton"
+                Width="36"
+                Height="35"
+                Margin="0"
+                local:PropEx.Sprite1="{StaticResource UI-Buttons L020}"
+                local:PropEx.Sprite2="{StaticResource UI-Buttons L021}"
+                local:PropEx.Sprite3="{StaticResource UI-Buttons L021}"
+                local:PropEx.Sprite4="{StaticResource UI-Buttons L021}"
+                Command="{Binding RelocateCommand}"
+                ToolTip="{Binding TooltipText}"
+                Content=""
+                Style="{StaticResource BTN_Image}" />
+      </Grid>
+    </Content>
+  </Operation>
 </Patch>

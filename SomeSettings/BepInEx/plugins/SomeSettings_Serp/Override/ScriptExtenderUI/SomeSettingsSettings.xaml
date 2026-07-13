@@ -37,6 +37,12 @@
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding EnableKnightDismountText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox>
+      <CheckBox IsChecked="{Binding EnableQuarryPileRelocation, Mode=TwoWay}"
+                Foreground="White"
+                ToolTip="{Binding EnableQuarryPileRelocationHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding EnableQuarryPileRelocationText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox>
 
       <Separator Background="#444466" Margin="0,10"/>
       <TextBlock Text="{Binding AiEconomyProtectionTitleText}" Foreground="#77AAFF" FontWeight="Bold" Margin="0,0,0,8"/>

@@ -36,6 +36,7 @@ namespace SomeSettings
         private EnemyProximityBulldozeCursorHook enemyProximityBulldozeCursorHook;
         private SingleBuildingPauseHook singleBuildingPauseHook;
         private readonly KnightDismountRuntime knightDismountRuntime;
+        private readonly QuarryPileRelocationRuntime quarryPileRelocationRuntime;
         private AIEconomyProtectionHook aiEconomyProtectionHook;
 
         private bool hooksSubscribed;
@@ -59,10 +60,12 @@ namespace SomeSettings
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
             knightDismountRuntime = new KnightDismountRuntime(log, settings);
+            quarryPileRelocationRuntime = new QuarryPileRelocationRuntime(log, settings);
             SubscribeSettingsChanges();
         }
 
         public object KnightDismountButton => knightDismountRuntime.ButtonViewModel;
+        public object QuarryPileRelocationButton => quarryPileRelocationRuntime.ButtonViewModel;
 
         public void InstallKnightMountNativeFunctions(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
         {
@@ -97,6 +100,7 @@ namespace SomeSettings
                 coopTrailCustomizeHook = new CoopTrailCustomizeHook(log);
                 skirmishAiSelectionMemoryHook = new SkirmishAiSelectionMemoryHook(log, settings);
                 knightDismountRuntime.Initialize();
+                quarryPileRelocationRuntime.Initialize();
                 InstallAutoTradeSellZeroHook();
                 InstallEnemyProximityBulldozeCursorHook();
                 InstallSingleBuildingPauseHook();
@@ -167,6 +171,7 @@ namespace SomeSettings
             skirmishAiSelectionMemoryHook?.Dispose();
             skirmishAiSelectionMemoryHook = null;
             knightDismountRuntime.Dispose();
+            quarryPileRelocationRuntime.Dispose();
             autoTradeSellZeroHook?.Dispose();
             autoTradeSellZeroHook = null;
             enemyProximityBulldozeCursorHook?.Dispose();
@@ -206,7 +211,10 @@ namespace SomeSettings
         {
             try
             {
-                singleBuildingPauseHook = new SingleBuildingPauseHook(log, settings);
+                singleBuildingPauseHook = new SingleBuildingPauseHook(
+                    log,
+                    settings,
+                    quarryPileRelocationRuntime.ProcessPendingVisualRefreshes);
                 if (aiEconomyProtectionHook != null)
                     singleBuildingPauseHook.SetSleepStateSynchronizer(aiEconomyProtectionHook.SynchronizeSleepStatesNow);
             }
@@ -255,6 +263,12 @@ namespace SomeSettings
             if (propertyName == nameof(SomeSettingsViewModel.EnableKnightDismount))
             {
                 knightDismountRuntime?.RefreshButtonVisibility();
+                return;
+            }
+
+            if (propertyName == nameof(SomeSettingsViewModel.EnableQuarryPileRelocation))
+            {
+                quarryPileRelocationRuntime?.ApplySetting();
                 return;
             }
 

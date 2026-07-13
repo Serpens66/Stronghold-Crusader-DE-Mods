@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Some Settings",
   "Description": "Adds small gameplay/QoL settings for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.6",
+  "Version": "1.0.15",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
@@ -42,6 +42,60 @@
       "Version": "1.0.6",
       "Changes": [
         "Added a synchronized knight dismount command button that turns selected own mounted knights into swordsmen with matching health ratio."
+      ]
+    },
+    {
+      "Version": "1.0.7",
+      "Changes": [
+        "Added an optional synchronized quarry button for relocating its linked stone pile after placing a replacement nearby."
+      ]
+    },
+    {
+      "Version": "1.0.8",
+      "Changes": [
+        "Added detailed Info-level diagnostics for every quarry-pile relocation stage."
+      ]
+    },
+    {
+      "Version": "1.0.9",
+      "Changes": [
+        "Fixed quarry relocation packet serialization by using an explicit MessagePack formatter."
+      ]
+    },
+    {
+      "Version": "1.0.10",
+      "Changes": [
+        "Replaced the unusable quarry-pile placement mode with a validated clockwise rotation to the next available position."
+      ]
+    },
+    {
+      "Version": "1.0.11",
+      "Changes": [
+        "Fixed quarry-pile rotation using the rectangular tile span instead of the original pile grid size, which caused the replacement to fail verification and be removed."
+      ]
+    },
+    {
+      "Version": "1.0.12",
+      "Changes": [
+        "Fixed freshly spawned quarry piles being rejected while they were in the game's normal NeedsInit state."
+      ]
+    },
+    {
+      "Version": "1.0.13",
+      "Changes": [
+        "Kept the quarry-pile rotation button visible while an owned quarry remains selected and left NeedsInit visual setup to the game."
+      ]
+    },
+    {
+      "Version": "1.0.14",
+      "Changes": [
+        "Added post-initialization quarry-pile tile visuals, cleared old stone visuals before rotation, and restored linked quarry-pile demolition."
+      ]
+    },
+    {
+      "Version": "1.0.15",
+      "Changes": [
+        "Replaced raw quarry-pile spawns with full prefab placement and expanded the isometric rotation ring for normal tile interaction and visual registration."
       ]
     }
   ]

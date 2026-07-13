@@ -1,4 +1,4 @@
-﻿# Serp mod localization
+# Serp mod localization
 # Format: key=value
 Common.ResetToDefault=Reset to Default
 Common.Ai=AI
@@ -44,3 +44,7 @@ SomeSettings.KnightDismountTooltip=Dismount
 SomeSettings.KnightDismountTooltipBody=Turns selected mounted knights into swordsmen at the same position.
 SomeSettings.KnightMountTooltip=Mount
 SomeSettings.KnightMountTooltipBody=Turns selected swordsmen into mounted knights. Requires available horses in a stable.
+SomeSettings.EnableQuarryPileRelocation=Enable quarry pile rotation button
+SomeSettings.EnableQuarryPileRelocationHelp=Adds a button to selected quarries that rotates their linked stone pile clockwise to the next valid position. The existing pile is kept if no valid replacement can be created.
+SomeSettings.QuarryPileRelocationTooltip=Rotate quarry pile
+SomeSettings.QuarryPileRelocationTooltipBody=Moves the linked stone pile clockwise to the next valid position around this quarry.

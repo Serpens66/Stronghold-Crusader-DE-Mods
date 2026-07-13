@@ -1,4 +1,4 @@
-﻿# Serp mod localization
+# Serp mod localization
 # Format: key=value
 Common.ResetToDefault=Zurücksetzen
 Common.Ai=KI
@@ -44,3 +44,7 @@ SomeSettings.KnightDismountTooltip=Absteigen
 SomeSettings.KnightDismountTooltipBody=Wandelt ausgewaehlte berittene Ritter an derselben Position in Schwertkaempfer um.
 SomeSettings.KnightMountTooltip=Aufsatteln
 SomeSettings.KnightMountTooltipBody=Wandelt ausgewaehlte Schwertkaempfer in berittene Ritter um. Benoetigt verfuegbare Pferde in einem Stall.
+SomeSettings.EnableQuarryPileRelocation=Steinhaufen-Rotation aktivieren
+SomeSettings.EnableQuarryPileRelocationHelp=Fuegt ausgewaehlten Steinbruechen einen Button hinzu, der ihren verknuepften Steinhaufen im Uhrzeigersinn zur naechsten gueltigen Position verschiebt. Wenn kein gueltiger Ersatz erzeugt werden kann, bleibt der vorhandene Haufen unveraendert.
+SomeSettings.QuarryPileRelocationTooltip=Steinhaufen im Uhrzeigersinn verschieben
+SomeSettings.QuarryPileRelocationTooltipBody=Verschiebt den verknuepften Steinhaufen zur naechsten gueltigen Position im Uhrzeigersinn um diesen Steinbruch.

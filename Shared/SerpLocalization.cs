@@ -1,4 +1,4 @@
-﻿using SHCDESE.API;
+using SHCDESE.API;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -82,6 +82,10 @@ public static class SerpLocalization
     public const string KnightDismountTooltipBody = "SomeSettings.KnightDismountTooltipBody";
     public const string KnightMountTooltip = "SomeSettings.KnightMountTooltip";
     public const string KnightMountTooltipBody = "SomeSettings.KnightMountTooltipBody";
+    public const string EnableQuarryPileRelocation = "SomeSettings.EnableQuarryPileRelocation";
+    public const string EnableQuarryPileRelocationHelp = "SomeSettings.EnableQuarryPileRelocationHelp";
+    public const string QuarryPileRelocationTooltip = "SomeSettings.QuarryPileRelocationTooltip";
+    public const string QuarryPileRelocationTooltipBody = "SomeSettings.QuarryPileRelocationTooltipBody";
     public const string AiEconomyProtectionTitle = "SomeSettings.AIEconomyProtectionTitle";
     public const string PreventAIPause = "SomeSettings.PreventAIPause";
     public const string PreventAIPauseHelp = "SomeSettings.PreventAIPauseHelp";
@@ -172,6 +176,10 @@ public static class SerpLocalization
         { KnightDismountTooltipBody, "Turns selected mounted knights into swordsmen at the same position." },
         { KnightMountTooltip, "Mount" },
         { KnightMountTooltipBody, "Turns selected swordsmen into mounted knights. Requires available horses in a stable." },
+        { EnableQuarryPileRelocation, "Enable quarry pile rotation button" },
+        { EnableQuarryPileRelocationHelp, "Adds a button to selected quarries that rotates their linked stone pile clockwise to the next valid position. The existing pile is kept if no valid replacement can be created." },
+        { QuarryPileRelocationTooltip, "Rotate quarry pile" },
+        { QuarryPileRelocationTooltipBody, "Moves the linked stone pile clockwise to the next valid position around this quarry." },
         { AiEconomyProtectionTitle, "AI Economy Protection" },
         { PreventAIPause, "Prevent AI building pauses" },
         { PreventAIPauseHelp, "Prevents AI-controlled players from putting their own production buildings to sleep." },
