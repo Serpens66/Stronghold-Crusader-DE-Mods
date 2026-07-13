@@ -20,9 +20,15 @@
                 local:PropEx.Sprite3="{StaticResource UI-Buttons L021}"
                 local:PropEx.Sprite4="{StaticResource UI-Buttons L021}"
                 Command="{Binding RelocateCommand}"
-                ToolTip="{Binding TooltipText}"
+                ToolTipService.InitialShowDelay="0"
+                ToolTipService.BetweenShowDelay="0"
                 Content=""
-                Style="{StaticResource BTN_Image}" />
+                Style="{StaticResource BTN_Image}">
+          <Button.ToolTip>
+            <ToolTip Style="{StaticResource {x:Type ToolTip}}"
+                     Content="{Binding TooltipText}" />
+          </Button.ToolTip>
+        </Button>
       </Grid>
     </Content>
   </Operation>

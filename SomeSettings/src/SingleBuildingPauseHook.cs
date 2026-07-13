@@ -31,7 +31,6 @@ namespace SomeSettings
         private readonly Hook guiUpdateHook;
         private readonly ButtonToggleZzzModeDelegate buttonTrampoline;
         private readonly NoesisGuiUpdateChecksInGameDelegate guiUpdateTrampoline;
-        private readonly Action persistentGuiUpdate;
         private int lastManualToggleBuildingId;
         private long lastManualToggleTimestamp;
         private Action synchronizeSleepStates;
@@ -39,12 +38,10 @@ namespace SomeSettings
 
         public SingleBuildingPauseHook(
             ManualLogSource log,
-            SomeSettingsViewModel settings,
-            Action persistentGuiUpdate)
+            SomeSettingsViewModel settings)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
-            this.persistentGuiUpdate = persistentGuiUpdate;
 
             MethodInfo buttonMethod = FindButtonToggleZzzModeMethod();
             MethodInfo guiUpdateMethod = FindNoesisGuiUpdateChecksInGameMethod();
@@ -206,8 +203,6 @@ namespace SomeSettings
 
             try
             {
-                persistentGuiUpdate?.Invoke();
-
                 if (EnablePeriodicManualSleepOverrideRestore)
                     ApplyManualSleepOverrides();
 

@@ -17,7 +17,6 @@ using SHCDESE.NoesisUtil;
 using SHCDESE.ViewModels;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Reflection;
 
 namespace SomeSettings
@@ -94,9 +93,7 @@ namespace SomeSettings
 
         public RelayCommand RelocateCommand { get; }
 
-        public string TooltipText =>
-            SerpLocalization.Get(SerpLocalization.QuarryPileRelocationTooltip) + Environment.NewLine +
-            SerpLocalization.Get(SerpLocalization.QuarryPileRelocationTooltipBody);
+        public string TooltipText => SerpLocalization.Get(SerpLocalization.QuarryPileRelocationTooltip);
 
         public Visibility ButtonVisibility
         {
@@ -126,15 +123,11 @@ namespace SomeSettings
     {
         private delegate void SetUpInbuildingDelegate(MainViewModel self, int overridePanel, int overrideType);
 
-        private static readonly long PendingVisualRetryInterval = Math.Max(1L, Stopwatch.Frequency / 4);
-        private static readonly long PendingVisualTimeout = Stopwatch.Frequency * 10L;
-
         private readonly ManualLogSource log;
         private readonly SomeSettingsViewModel settings;
         private readonly QuarryPileRelocationButtonViewModel buttonViewModel;
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
         private readonly Dictionary<int, HashSet<int>> processedRequestIds = new Dictionary<int, HashSet<int>>();
-        private readonly Dictionary<int, PendingPileVisualRefresh> pendingVisualRefreshes = new Dictionary<int, PendingPileVisualRefresh>();
 
         private Hook setUpInbuildingHook;
         private SetUpInbuildingDelegate setUpInbuildingTrampoline;
@@ -142,7 +135,6 @@ namespace SomeSettings
         private Button hookedRelocationButton;
         private PrefabSpawnCapture activePrefabSpawnCapture;
         private int nextRequestId;
-        private long nextPendingVisualRefreshTimestamp;
         private int linkedRemovalSuppressionDepth;
         private bool initialized;
         private string lastVisibilityLogState;
@@ -230,8 +222,6 @@ namespace SomeSettings
         {
             try
             {
-                ProcessPendingVisualRefreshes();
-
                 if (!settings.EnableMod || !settings.EnableQuarryPileRelocation)
                 {
                     buttonViewModel.Hide();
@@ -256,73 +246,6 @@ namespace SomeSettings
                 buttonViewModel.Hide();
                 Shared.DebugLogHelper.LogError(log, $"SomeSettings quarry-pile button visibility refresh failed: {ex}");
             }
-        }
-
-        internal void ProcessPendingVisualRefreshes()
-        {
-            if (!initialized || pendingVisualRefreshes.Count == 0)
-                return;
-
-            long now = Stopwatch.GetTimestamp();
-            if (now < nextPendingVisualRefreshTimestamp)
-                return;
-
-            nextPendingVisualRefreshTimestamp = now + PendingVisualRetryInterval;
-            List<int> completedGlobalIds = null;
-            foreach (KeyValuePair<int, PendingPileVisualRefresh> entry in pendingVisualRefreshes)
-            {
-                int pileGlobalId = entry.Key;
-                PendingPileVisualRefresh pending = entry.Value;
-                int pileId = FindBuildingIdByGlobalIdForInitialization(pileGlobalId);
-                if (pileId <= 0 || !GameBuildingManagerAPI.Instance.TryGetBuildingById(pileId, out GameBuilding* pile))
-                {
-                    if (now - pending.ScheduledTimestamp < PendingVisualTimeout)
-                        continue;
-
-                    Shared.DebugLogHelper.LogWarning(
-                        log,
-                        $"SomeSettings quarry-pile pending visual refresh expired because the replacement could not be resolved: requestId={pending.RequestId}, pileGlobalId={pileGlobalId}.");
-                    (completedGlobalIds ??= new List<int>()).Add(pileGlobalId);
-                    continue;
-                }
-
-                if (pile->r_AliveState == AliveState.NeedsInit)
-                    continue;
-
-                if (!IsAliveBuilding(pile, eStructs.STRUCT_QUARRYPILE, pending.OwnerPlayerId))
-                {
-                    Shared.DebugLogHelper.LogWarning(
-                        log,
-                        $"SomeSettings quarry-pile pending visual refresh discarded an invalid replacement: requestId={pending.RequestId}, pileGlobalId={pileGlobalId}, actual={DescribeBuilding(pile)}.");
-                    (completedGlobalIds ??= new List<int>()).Add(pileGlobalId);
-                    continue;
-                }
-
-                pending.Attempts++;
-                bool tileVisualsUpdated = TryRefreshPileVisuals(
-                    pileId,
-                    pending.RequestId,
-                    "new-pile-post-init",
-                    pending.Attempts == 1);
-                if (tileVisualsUpdated)
-                {
-                    LogInfo($"pending replacement visual refresh completed: requestId={pending.RequestId}, pileId={pileId}, pileGlobalId={pileGlobalId}, attempts={pending.Attempts}.");
-                    (completedGlobalIds ??= new List<int>()).Add(pileGlobalId);
-                }
-                else if (now - pending.ScheduledTimestamp >= PendingVisualTimeout)
-                {
-                    Shared.DebugLogHelper.LogWarning(
-                        log,
-                        $"SomeSettings quarry-pile pending visual refresh timed out: requestId={pending.RequestId}, pileId={pileId}, pileGlobalId={pileGlobalId}, attempts={pending.Attempts}.");
-                    (completedGlobalIds ??= new List<int>()).Add(pileGlobalId);
-                }
-            }
-
-            if (completedGlobalIds == null)
-                return;
-
-            for (int index = 0; index < completedGlobalIds.Count; index++)
-                pendingVisualRefreshes.Remove(completedGlobalIds[index]);
         }
 
         private static MethodInfo FindSetUpInbuildingMethod()
@@ -426,7 +349,7 @@ namespace SomeSettings
                     TargetTileY = target.Y
                 };
 
-                if (!TryApplyRotation(packet, "local-click"))
+                if (!TryApplyRotation(packet, "local-click", targetAlreadyValidated: true))
                 {
                     LogInfo($"rotation command stopped: replacement transaction failed, requestId={requestId}, target={target.X},{target.Y}.");
                     RefreshButtonVisibility();
@@ -565,8 +488,7 @@ namespace SomeSettings
                     if (pile->r_PlayerIdOwner != building->r_PlayerIdOwner)
                         return;
 
-                    pendingVisualRefreshes.Remove(pileGlobalId);
-                    ClearPileVisualsBeforeDeletion(pileId, pile, 0, source + "-linked-pile");
+                    ClearPileContentBeforeDeletion(pileId, pile, 0, source + "-linked-pile");
                     bool pileMarkedForDeletion = pile->r_AliveState == AliveState.MarkedForDeletion ||
                         DeleteBuildingWithoutLinkedPropagation(pileId, source + "-paired-pile");
                     LogInfo($"linked demolition propagated from quarry to pile: source={source}, quarryId={buildingId}, quarryGlobalId={quarryGlobalId}, pileId={pileId}, pileGlobalId={pileGlobalId}, pileMarkedForDeletion={pileMarkedForDeletion}.");
@@ -585,8 +507,7 @@ namespace SomeSettings
                 }
 
                 int linkedQuarryGlobalId = (int)linkedQuarry->r_GlobalId;
-                pendingVisualRefreshes.Remove(removedPileGlobalId);
-                ClearPileVisualsBeforeDeletion(buildingId, building, 0, source + "-linked-pile");
+                ClearPileContentBeforeDeletion(buildingId, building, 0, source + "-linked-pile");
 
                 bool quarryMarkedForDeletion = DeleteBuildingWithoutLinkedPropagation(linkedQuarryId, source + "-paired-quarry");
 
@@ -630,7 +551,10 @@ namespace SomeSettings
             return !requestIds.Add(requestId);
         }
 
-        private bool TryApplyRotation(QuarryPileRelocationPacket packet, string reason)
+        private bool TryApplyRotation(
+            QuarryPileRelocationPacket packet,
+            string reason,
+            bool targetAlreadyValidated = false)
         {
             LogInfo($"replacement transaction started: reason={reason}, playerId={packet.SourcePlayerId}, requestId={packet.RequestId}, quarryGlobalId={packet.QuarryGlobalId}, oldPileGlobalId={packet.OldPileGlobalId}, requestedTarget={packet.TargetTileX},{packet.TargetTileY}.");
 
@@ -653,13 +577,18 @@ namespace SomeSettings
                 return false;
             }
 
-            if (!TryFindNextRotationTarget(packet.SourcePlayerId, quarry, oldPile, packet.RequestId, out RingPosition expectedTarget))
+            RingPosition expectedTarget;
+            if (targetAlreadyValidated)
+            {
+                expectedTarget = new RingPosition(packet.TargetTileX, packet.TargetTileY);
+                LogInfo($"replacement transaction reuses synchronously validated local target: requestId={packet.RequestId}, target={expectedTarget.X},{expectedTarget.Y}.");
+            }
+            else if (!TryFindNextRotationTarget(packet.SourcePlayerId, quarry, oldPile, packet.RequestId, out expectedTarget))
             {
                 LogInfo($"replacement transaction rejected: reason=no-valid-clockwise-target, requestId={packet.RequestId}.");
                 return false;
             }
-
-            if (expectedTarget.X != packet.TargetTileX || expectedTarget.Y != packet.TargetTileY)
+            else if (expectedTarget.X != packet.TargetTileX || expectedTarget.Y != packet.TargetTileY)
             {
                 LogInfo($"replacement transaction rejected: reason=target-mismatch, requestId={packet.RequestId}, expected={expectedTarget.X},{expectedTarget.Y}, received={packet.TargetTileX},{packet.TargetTileY}.");
                 return false;
@@ -693,16 +622,7 @@ namespace SomeSettings
             content.ApplyTo(newPile);
             newPile->r_CurrentHealth = previousCurrentHealth;
             newPile->r_MaxHealth = previousMaxHealth;
-            ClearPileVisualsBeforeDeletion(oldPileId, oldPile, packet.RequestId, "rotation-old-pile");
-
-            if (newPile->r_AliveState == AliveState.IsAlive)
-            {
-                TryRefreshPileVisuals(newPileId, packet.RequestId, "new-pile-already-alive", true);
-            }
-            else
-            {
-                SchedulePendingVisualRefresh(newPileGlobalId, packet.SourcePlayerId, packet.RequestId);
-            }
+            ClearPileContentBeforeDeletion(oldPileId, oldPile, packet.RequestId, "rotation-old-pile");
 
             quarry->r_StoneQuarry_StockPileBuildingId = checked((ushort)newPileId);
             bool oldPileMarkedForDeletion = oldPile->r_AliveState == AliveState.MarkedForDeletion ||
@@ -710,14 +630,9 @@ namespace SomeSettings
             if (!oldPileMarkedForDeletion)
             {
                 quarry->r_StoneQuarry_StockPileBuildingId = checked((ushort)oldPileId);
-                pendingVisualRefreshes.Remove(newPileGlobalId);
                 content.ApplyTo(oldPile);
-                if (oldPile->r_AliveState == AliveState.IsAlive)
-                    TryRefreshPileVisuals(oldPileId, packet.RequestId, "rollback-old-pile-restore", true);
                 newPile->r_StoneBlocksAmount = 0;
                 newPile->r_CurrentGoodStackAmount = 0;
-                if (newPile->r_AliveState == AliveState.IsAlive)
-                    TryRefreshPileVisuals(newPileId, packet.RequestId, "rollback-new-pile-clear", true);
                 bool replacementMarkedForDeletion = DeleteBuildingWithoutLinkedPropagation(newPileId, "rotation-rollback-new-pile");
                 LogInfo($"replacement transaction rolled back: reason=old-pile-delete-failed, requestId={packet.RequestId}, oldPileId={oldPileId}, newPileId={newPileId}, replacementMarkedForDeletion={replacementMarkedForDeletion}.");
                 return false;
@@ -725,7 +640,7 @@ namespace SomeSettings
 
             Shared.DebugLogHelper.LogInfo(
                 log,
-                $"SomeSettings quarry-pile rotation completed: reason={reason}, playerId={packet.SourcePlayerId}, requestId={packet.RequestId}, quarryId={quarryId}, quarryGlobalId={packet.QuarryGlobalId}, oldPileId={oldPileId}, oldPileGlobalId={packet.OldPileGlobalId}, newPileId={newPileId}, newPileGlobalId={newPileGlobalId}, newPileState={newPile->r_AliveState}, target={expectedTarget.X},{expectedTarget.Y}, stoneBlocks={newPile->r_StoneBlocksAmount}, oldPileMarkedForDeletion={oldPileMarkedForDeletion}, pendingVisualRefresh={pendingVisualRefreshes.ContainsKey(newPileGlobalId)}.");
+                $"SomeSettings quarry-pile rotation completed: reason={reason}, playerId={packet.SourcePlayerId}, requestId={packet.RequestId}, quarryId={quarryId}, quarryGlobalId={packet.QuarryGlobalId}, oldPileId={oldPileId}, oldPileGlobalId={packet.OldPileGlobalId}, newPileId={newPileId}, newPileGlobalId={newPileGlobalId}, newPileState={newPile->r_AliveState}, target={expectedTarget.X},{expectedTarget.Y}, stoneBlocks={newPile->r_StoneBlocksAmount}, oldPileMarkedForDeletion={oldPileMarkedForDeletion}, visualLifecycle=prefab-managed.");
             return true;
         }
 
@@ -926,10 +841,11 @@ namespace SomeSettings
 
             if (prefabException != null)
             {
-                CleanupFailedPrefabSpawns(capture, oldPileId, requestId, "prefab-exception");
+                int fallbackPileId = FindFreshPileAtTarget(oldPileId, playerId, target, out _);
+                CleanupFailedPrefabSpawns(capture, oldPileId, requestId, "prefab-exception", fallbackPileId);
                 Shared.DebugLogHelper.LogError(
                     log,
-                    $"SomeSettings quarry-pile prefab replacement spawn failed: requestId={requestId}, exception={prefabException}");
+                    $"SomeSettings quarry-pile prefab replacement spawn failed: requestId={requestId}, fallbackPileId={fallbackPileId}, exception={prefabException}");
                 return false;
             }
 
@@ -1088,17 +1004,7 @@ namespace SomeSettings
             return $"registered={registered},empty={empty},other={occupiedByOther},total={(maxX - minX + 1) * (maxY - minY + 1)}";
         }
 
-        private void SchedulePendingVisualRefresh(int pileGlobalId, int ownerPlayerId, int requestId)
-        {
-            pendingVisualRefreshes[pileGlobalId] = new PendingPileVisualRefresh(
-                ownerPlayerId,
-                requestId,
-                Stopwatch.GetTimestamp());
-            nextPendingVisualRefreshTimestamp = 0;
-            LogInfo($"replacement resource visual refresh scheduled for post-init: requestId={requestId}, pileGlobalId={pileGlobalId}, owner={ownerPlayerId}.");
-        }
-
-        private void ClearPileVisualsBeforeDeletion(
+        private void ClearPileContentBeforeDeletion(
             int pileId,
             GameBuilding* pile,
             int requestId,
@@ -1108,44 +1014,14 @@ namespace SomeSettings
                 return;
 
             int pileGlobalId = (int)pile->r_GlobalId;
-            pendingVisualRefreshes.Remove(pileGlobalId);
             uint previousStoneBlocks = pile->r_StoneBlocksAmount;
             uint previousGoodStack = pile->r_CurrentGoodStackAmount;
             pile->r_StoneBlocksAmount = 0;
             pile->r_CurrentGoodStackAmount = 0;
 
-            if (pile->r_AliveState == AliveState.IsAlive)
-            {
-                bool tileVisualsUpdated = TryRefreshPileVisuals(pileId, requestId, stage, true);
-                LogInfo($"old pile resource visuals cleared before deletion: stage={stage}, requestId={requestId}, pileId={pileId}, pileGlobalId={pileGlobalId}, previousStoneBlocks={previousStoneBlocks}, previousGoodStack={previousGoodStack}, tileVisualsUpdated={tileVisualsUpdated}.");
-            }
-            else
-            {
-                LogInfo($"old pile resource visual clear skipped for non-alive pile: stage={stage}, requestId={requestId}, pileId={pileId}, pileGlobalId={pileGlobalId}, aliveState={pile->r_AliveState}, previousStoneBlocks={previousStoneBlocks}, previousGoodStack={previousGoodStack}.");
-            }
-        }
-
-        private bool TryRefreshPileVisuals(
-            int pileId,
-            int requestId,
-            string stage,
-            bool logResult)
-        {
-            try
-            {
-                GameBuildingManagerAPI.Instance.UpdateVisualResourceGoods(pileId);
-                bool tileVisualsUpdated = GameTileManagerAPI.Instance.TryUpdateTileResourceVisualsForBuilding(pileId);
-                if (logResult || tileVisualsUpdated)
-                    LogInfo($"pile resource visuals refreshed: stage={stage}, requestId={requestId}, pileId={pileId}, tileVisualsUpdated={tileVisualsUpdated}.");
-                return tileVisualsUpdated;
-            }
-            catch (Exception ex)
-            {
-                Shared.DebugLogHelper.LogWarning(
-                    log,
-                    $"SomeSettings quarry-pile visual refresh failed: stage={stage}, requestId={requestId}, pileId={pileId}, exception={ex}");
-                return false;
-            }
+            // CreatePrefab/DeleteBuildingSafe own the tile and visual lifecycle. Only clear the transferred
+            // resource state here; forcing the raw visual APIs is ineffective for these prefab instances.
+            LogInfo($"pile content cleared before prefab-managed deletion: stage={stage}, requestId={requestId}, pileId={pileId}, pileGlobalId={pileGlobalId}, aliveState={pile->r_AliveState}, previousStoneBlocks={previousStoneBlocks}, previousGoodStack={previousGoodStack}.");
         }
 
         private static List<RingPosition> CreateClockwiseRing(
@@ -1417,25 +1293,6 @@ namespace SomeSettings
             return 0;
         }
 
-        private static int FindBuildingIdByGlobalIdForInitialization(int globalId)
-        {
-            if (globalId <= 0)
-                return 0;
-
-            Span<GameBuilding> buildings = GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
-            for (int index = 0; index < buildings.Length; index++)
-            {
-                ref GameBuilding building = ref buildings[index];
-                if ((building.r_AliveState == AliveState.NeedsInit || building.r_AliveState == AliveState.IsAlive) &&
-                    (int)building.r_GlobalId == globalId)
-                {
-                    return index + 1;
-                }
-            }
-
-            return 0;
-        }
-
         private bool DeleteBuildingWithoutLinkedPropagation(int buildingId, string reason)
         {
             if (buildingId <= 0)
@@ -1456,13 +1313,11 @@ namespace SomeSettings
 
         private void ClearMapState()
         {
-            LogInfo($"clearing rotation state: processedRequestPlayerCount={processedRequestIds.Count}, pendingVisualRefreshCount={pendingVisualRefreshes.Count}, nextRequestId={nextRequestId}, prefabCaptureActive={activePrefabSpawnCapture != null}, linkedRemovalSuppressionDepth={linkedRemovalSuppressionDepth}.");
+            LogInfo($"clearing rotation state: processedRequestPlayerCount={processedRequestIds.Count}, nextRequestId={nextRequestId}, prefabCaptureActive={activePrefabSpawnCapture != null}, linkedRemovalSuppressionDepth={linkedRemovalSuppressionDepth}.");
             processedRequestIds.Clear();
-            pendingVisualRefreshes.Clear();
             activePrefabSpawnCapture = null;
             linkedRemovalSuppressionDepth = 0;
             nextRequestId = 0;
-            nextPendingVisualRefreshTimestamp = 0;
             lastVisibilityLogState = null;
             buttonViewModel.Hide();
         }
@@ -1499,21 +1354,6 @@ namespace SomeSettings
         {
             int localPlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
             return localPlayerId > 0 ? localPlayerId : 1;
-        }
-
-        private sealed class PendingPileVisualRefresh
-        {
-            public PendingPileVisualRefresh(int ownerPlayerId, int requestId, long scheduledTimestamp)
-            {
-                OwnerPlayerId = ownerPlayerId;
-                RequestId = requestId;
-                ScheduledTimestamp = scheduledTimestamp;
-            }
-
-            public int OwnerPlayerId { get; }
-            public int RequestId { get; }
-            public long ScheduledTimestamp { get; }
-            public int Attempts { get; set; }
         }
 
         private sealed class PrefabSpawnCapture

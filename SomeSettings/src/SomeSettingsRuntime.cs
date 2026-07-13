@@ -211,10 +211,7 @@ namespace SomeSettings
         {
             try
             {
-                singleBuildingPauseHook = new SingleBuildingPauseHook(
-                    log,
-                    settings,
-                    quarryPileRelocationRuntime.ProcessPendingVisualRefreshes);
+                singleBuildingPauseHook = new SingleBuildingPauseHook(log, settings);
                 if (aiEconomyProtectionHook != null)
                     singleBuildingPauseHook.SetSleepStateSynchronizer(aiEconomyProtectionHook.SynchronizeSleepStatesNow);
             }

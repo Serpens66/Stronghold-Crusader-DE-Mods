@@ -13,7 +13,7 @@ namespace SomeSettings
 
         public const string PluginGuid = "SomeSettings_Serp";
         public const string PluginName = "Some Settings";
-        public const string PluginVersion = "1.0.15";
+        public const string PluginVersion = "1.0.07";
 
         private SomeSettingsRuntime runtime;
         private bool runtimeDisposed;
@@ -29,11 +29,8 @@ namespace SomeSettings
             CrusaderLibrary.Instance.LibraryLoaded += OnCrusaderLibraryLoaded;
         }
 
-        private void OnDestroy()
-        {
-            CrusaderLibrary.Instance.LibraryLoaded -= OnCrusaderLibraryLoaded;
-        }
-
+        // The BepInEx manager destroys this component during startup, so OnDestroy must not tear down
+        // process-lifetime hooks or the LibraryLoaded bootstrap registration.
         private void OnApplicationQuit()
         {
             DisposeRuntime();
