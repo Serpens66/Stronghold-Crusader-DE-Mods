@@ -10,7 +10,6 @@ using SHCDESE.Detours;
 using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.Buildings;
 using SHCDESE.EventAPI.MapLoader;
-using SHCDESE.EventAPI.Network;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using SHCDESE.NoesisUtil;
@@ -19,28 +18,36 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Text;
 using Zhuqiaomon.Memory;
 using Zhuqiaomon.Memory.Scanners;
 
 namespace SomeSettings
 {
     [MessagePackObject]
-    [MessagePackFormatter(typeof(QuarryPileRelocationPacketFormatter))]
-    public sealed class QuarryPileRelocationPacket
+    [MessagePackFormatter(typeof(QuarryPileRelocationCommandFormatter))]
+    public sealed class QuarryPileRelocationCommand
     {
-        [Key(0)] public int SourcePlayerId;
-        [Key(1)] public int RequestId;
-        [Key(2)] public int QuarryGlobalId;
-        [Key(3)] public int OldPileGlobalId;
-        [Key(4)] public int TargetTileX;
-        [Key(5)] public int TargetTileY;
+        [Key(0)] public int QuarryGlobalId;
+        [Key(1)] public int OldPileGlobalId;
+        [Key(2)] public int TargetTileX;
+        [Key(3)] public int TargetTileY;
+        [Key(4)] public uint SourceStoneBlocks;
+        [Key(5)] public uint SourceCurrentGoodStack;
+        [Key(6)] public uint SourceMaxGoodStack;
+        [Key(7)] public int SourceLocalStorageGoodType;
+        [Key(8)] public short SourceCurrentHealth;
+        [Key(9)] public ushort SourceMaxHealth;
+
+        [IgnoreMember] public int SourcePlayerId;
+        [IgnoreMember] public int RequestId;
     }
 
-    public sealed class QuarryPileRelocationPacketFormatter : IMessagePackFormatter<QuarryPileRelocationPacket>
+    public sealed class QuarryPileRelocationCommandFormatter : IMessagePackFormatter<QuarryPileRelocationCommand>
     {
         public void Serialize(
             ref MessagePackWriter writer,
-            QuarryPileRelocationPacket value,
+            QuarryPileRelocationCommand value,
             MessagePackSerializerOptions options)
         {
             if (value == null)
@@ -49,16 +56,20 @@ namespace SomeSettings
                 return;
             }
 
-            writer.WriteArrayHeader(6);
-            writer.Write(value.SourcePlayerId);
-            writer.Write(value.RequestId);
+            writer.WriteArrayHeader(10);
             writer.Write(value.QuarryGlobalId);
             writer.Write(value.OldPileGlobalId);
             writer.Write(value.TargetTileX);
             writer.Write(value.TargetTileY);
+            writer.Write(value.SourceStoneBlocks);
+            writer.Write(value.SourceCurrentGoodStack);
+            writer.Write(value.SourceMaxGoodStack);
+            writer.Write(value.SourceLocalStorageGoodType);
+            writer.Write(value.SourceCurrentHealth);
+            writer.Write(value.SourceMaxHealth);
         }
 
-        public QuarryPileRelocationPacket Deserialize(
+        public QuarryPileRelocationCommand Deserialize(
             ref MessagePackReader reader,
             MessagePackSerializerOptions options)
         {
@@ -66,22 +77,26 @@ namespace SomeSettings
                 return null;
 
             int count = reader.ReadArrayHeader();
-            QuarryPileRelocationPacket packet = new QuarryPileRelocationPacket();
+            QuarryPileRelocationCommand command = new QuarryPileRelocationCommand();
             for (int index = 0; index < count; index++)
             {
                 switch (index)
                 {
-                    case 0: packet.SourcePlayerId = reader.ReadInt32(); break;
-                    case 1: packet.RequestId = reader.ReadInt32(); break;
-                    case 2: packet.QuarryGlobalId = reader.ReadInt32(); break;
-                    case 3: packet.OldPileGlobalId = reader.ReadInt32(); break;
-                    case 4: packet.TargetTileX = reader.ReadInt32(); break;
-                    case 5: packet.TargetTileY = reader.ReadInt32(); break;
+                    case 0: command.QuarryGlobalId = reader.ReadInt32(); break;
+                    case 1: command.OldPileGlobalId = reader.ReadInt32(); break;
+                    case 2: command.TargetTileX = reader.ReadInt32(); break;
+                    case 3: command.TargetTileY = reader.ReadInt32(); break;
+                    case 4: command.SourceStoneBlocks = reader.ReadUInt32(); break;
+                    case 5: command.SourceCurrentGoodStack = reader.ReadUInt32(); break;
+                    case 6: command.SourceMaxGoodStack = reader.ReadUInt32(); break;
+                    case 7: command.SourceLocalStorageGoodType = reader.ReadInt32(); break;
+                    case 8: command.SourceCurrentHealth = reader.ReadInt16(); break;
+                    case 9: command.SourceMaxHealth = reader.ReadUInt16(); break;
                     default: reader.Skip(); break;
                 }
             }
 
-            return packet;
+            return command;
         }
     }
 
@@ -122,6 +137,7 @@ namespace SomeSettings
 
     internal sealed unsafe class QuarryPileRelocationRuntime : IDisposable
     {
+        private const int PendingRelocationTimeoutTicks = 300;
         // Vanilla placeQuarry uses size 6 for the quarry, size 2 for its pile and tries 1..9.
         // setupBuildingEntrancesOffset exposes 4 * buildingSize clockwise perimeter candidates.
         private const int VanillaQuarryScale = 6;
@@ -131,6 +147,7 @@ namespace SomeSettings
         private const int VanillaMaximumPlacementTry = 9;
         private const int VanillaCandidateOffsetX = 0x31B7D0;
         private const int VanillaCandidateOffsetY = 0x31B7D4;
+        private const string RelocationCommandChannel = "quarry-pile-relocation";
 
         // CrusaderDE setupBuildingEntrancesOffset. This is the native helper used by
         // findQuarryPileLocation to turn (buildingSize, pileSize, perimeterIndex, try)
@@ -152,27 +169,33 @@ namespace SomeSettings
 
         private readonly ManualLogSource log;
         private readonly SomeSettingsViewModel settings;
+        private readonly Shared.DeterministicMultiplayerCommandBus commandBus;
         private readonly QuarryPileRelocationButtonViewModel buttonViewModel;
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
-        private readonly Dictionary<int, HashSet<int>> processedRequestIds = new Dictionary<int, HashSet<int>>();
         private readonly Dictionary<int, FailedRotationTargets> failedRotationTargetsByQuarry = new Dictionary<int, FailedRotationTargets>();
+        private readonly List<PendingStateFingerprint> pendingStateFingerprints = new List<PendingStateFingerprint>();
 
         private Hook setUpInbuildingHook;
         private SetUpInbuildingDelegate setUpInbuildingTrampoline;
-        private R3PacketEventHook<QuarryPileRelocationPacket> packetHook;
         private Button hookedRelocationButton;
         private TextBlock hookedRelocationTooltip;
         private PrefabSpawnCapture activePrefabSpawnCapture;
         private SetupBuildingEntrancesOffsetDelegate setupBuildingEntrancesOffset;
-        private int nextRequestId;
         private int linkedRemovalSuppressionDepth;
+        private int pendingRelocationRequestId;
+        private int pendingRelocationStartTick;
+        private bool diagnosticTickSubscribed;
         private bool initialized;
         private string lastVisibilityLogState;
 
-        public QuarryPileRelocationRuntime(ManualLogSource log, SomeSettingsViewModel settings)
+        public QuarryPileRelocationRuntime(
+            ManualLogSource log,
+            SomeSettingsViewModel settings,
+            Shared.DeterministicMultiplayerCommandBus commandBus)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
+            this.commandBus = commandBus ?? throw new ArgumentNullException(nameof(commandBus));
             buttonViewModel = new QuarryPileRelocationButtonViewModel(OnRelocateCommand);
         }
 
@@ -204,8 +227,10 @@ namespace SomeSettings
             Hook installedHook = null;
             try
             {
-                packetHook = GameNetworkAPI.Instance.GetPacketEventFor<QuarryPileRelocationPacket>();
-                subscriptions.Add(packetHook.GetBaseHook().Observable.Subscribe(OnRelocationPacketReceived));
+                commandBus.RegisterChannel<QuarryPileRelocationCommand>(
+                    RelocationCommandChannel,
+                    ValidateRelocationCommand,
+                    ExecuteRelocationCommand);
                 subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
                     .Where(args => args.Phase == EventHookPhase.Pre)
                     .Subscribe(_ => ClearMapState()));
@@ -217,19 +242,22 @@ namespace SomeSettings
                     .Subscribe(args => OnLinkedBuildingRemoval(args.BuildingId, "delete-pre")));
                 subscriptions.Add(BuildingR3EventHooks.OnBuildingSpawn.Observable
                     .Subscribe(OnBuildingSpawn));
+                GameTimeManagerAPI.Instance.GetFrameProvider().OnGameTick += OnDiagnosticGameTick;
+                diagnosticTickSubscribed = true;
 
                 installedHook = new Hook(FindSetUpInbuildingMethod(), (SetUpInbuildingDelegate)SetUpInbuildingHook);
                 setUpInbuildingTrampoline = installedHook.GenerateTrampoline<SetUpInbuildingDelegate>();
                 setUpInbuildingHook = installedHook;
                 initialized = true;
                 buttonViewModel.Hide();
-                LogInfo($"runtime initialized: mode=Vanilla-clockwise-prefab-spawn, nativeCandidateHelperAvailable={setupBuildingEntrancesOffset != null}, packetId={packetHook.GetPacketId()}, subscriptions={subscriptions.Count}, setUpInbuildingHookInstalled={setUpInbuildingHook != null}.");
+                LogInfo($"runtime initialized: mode=Vanilla-clockwise-prefab-spawn, nativeCandidateHelperAvailable={setupBuildingEntrancesOffset != null}, syncChannel={RelocationCommandChannel}, subscriptions={subscriptions.Count}, setUpInbuildingHookInstalled={setUpInbuildingHook != null}.");
             }
             catch
             {
                 installedHook?.Dispose();
+                UnsubscribeDiagnosticTick();
                 DisposeSubscriptions();
-                packetHook = null;
+                commandBus.UnregisterChannel(RelocationCommandChannel);
                 throw;
             }
         }
@@ -244,12 +272,13 @@ namespace SomeSettings
             buttonViewModel.Hide();
             ClearMapState();
             UnhookRelocationButton();
+            UnsubscribeDiagnosticTick();
             DisposeSubscriptions();
+            commandBus.UnregisterChannel(RelocationCommandChannel);
             setUpInbuildingHook?.Undo();
             setUpInbuildingHook?.Dispose();
             setUpInbuildingHook = null;
             setUpInbuildingTrampoline = null;
-            packetHook = null;
             LogInfo("runtime dispose completed.");
         }
 
@@ -264,7 +293,6 @@ namespace SomeSettings
 
             buttonViewModel.Hide();
             HideRelocationTooltip();
-            processedRequestIds.Clear();
         }
 
         public void RefreshButtonVisibility()
@@ -284,6 +312,14 @@ namespace SomeSettings
                     buttonViewModel.Hide();
                     HideRelocationTooltip();
                     LogVisibilityState("hidden: Vanilla candidate helper unavailable");
+                    return;
+                }
+
+                if (pendingRelocationRequestId > 0)
+                {
+                    buttonViewModel.Hide();
+                    HideRelocationTooltip();
+                    LogVisibilityState($"hidden: relocation request {pendingRelocationRequestId} is pending");
                     return;
                 }
 
@@ -406,7 +442,7 @@ namespace SomeSettings
         {
             int localPlayerId = 0;
             int selectedBuildingId = 0;
-            QuarryPileRelocationPacket attemptedPacket = null;
+            QuarryPileRelocationCommand attemptedCommand = null;
 
             try
             {
@@ -414,6 +450,14 @@ namespace SomeSettings
                 if (!settings.EnableMod || !settings.EnableQuarryPileRelocation)
                 {
                     LogInfo("rotation command stopped: feature is disabled.");
+                    return;
+                }
+
+                if (pendingRelocationRequestId > 0)
+                {
+                    LogInfo($"rotation command stopped: reason=request-already-pending, pendingRequestId={pendingRelocationRequestId}, pendingSinceTick={pendingRelocationStartTick}, currentTick={GameTimeManagerAPI.Instance.GetFrameProvider().CurrentGameTick}.");
+                    buttonViewModel.Hide();
+                    HideRelocationTooltip();
                     return;
                 }
 
@@ -428,7 +472,7 @@ namespace SomeSettings
                     return;
                 }
 
-                int requestId = NextRequestId();
+                int requestId = commandBus.ReserveRequestId();
                 LogInfo($"selected quarry validated: requestId={requestId}, quarryId={selectedBuildingId}, quarryGlobalId={quarry->r_GlobalId}, owner={quarry->r_PlayerIdOwner}, quarryTiles={quarry->r_TilePositionXBegin},{quarry->r_TilePositionYBegin}-{quarry->r_TilePositionXEnd},{quarry->r_TilePositionYEnd}, oldPileId={quarry->r_StoneQuarry_StockPileBuildingId}, oldPileGlobalId={oldPile->r_GlobalId}, oldPileTiles={oldPile->r_TilePositionXBegin},{oldPile->r_TilePositionYBegin}-{oldPile->r_TilePositionXEnd},{oldPile->r_TilePositionYEnd}, oldPileGridSize={oldPile->r_OccupyTileGridSize}.");
 
                 if (!TryFindNextRotationTarget(localPlayerId, quarry, oldPile, requestId, out PlacementPosition target))
@@ -439,31 +483,39 @@ namespace SomeSettings
                     return;
                 }
 
-                attemptedPacket = new QuarryPileRelocationPacket
+                PileContentSnapshot sourceContent = PileContentSnapshot.Capture(oldPile);
+                attemptedCommand = new QuarryPileRelocationCommand
                 {
                     SourcePlayerId = localPlayerId,
                     RequestId = requestId,
                     QuarryGlobalId = (int)quarry->r_GlobalId,
                     OldPileGlobalId = (int)oldPile->r_GlobalId,
                     TargetTileX = target.X,
-                    TargetTileY = target.Y
+                    TargetTileY = target.Y,
+                    SourceStoneBlocks = sourceContent.StoneBlocks,
+                    SourceCurrentGoodStack = sourceContent.CurrentGoodStack,
+                    SourceMaxGoodStack = sourceContent.MaxGoodStack,
+                    SourceLocalStorageGoodType = (int)sourceContent.LocalStorageGoodType,
+                    SourceCurrentHealth = oldPile->r_CurrentHealth,
+                    SourceMaxHealth = oldPile->r_MaxHealth
                 };
 
-                if (!TryApplyRotation(attemptedPacket, "local-click", targetAlreadyValidated: true))
+                bool submitted = commandBus.Submit(RelocationCommandChannel, requestId, attemptedCommand);
+                if (submitted)
                 {
-                    RememberFailedRotationTarget(attemptedPacket, "replacement-transaction-failed");
-                    LogInfo($"rotation command stopped: replacement transaction failed, requestId={requestId}, target={target.X},{target.Y}.");
-                    RefreshButtonVisibility();
-                    return;
+                    pendingRelocationRequestId = requestId;
+                    pendingRelocationStartTick = GameTimeManagerAPI.Instance.GetFrameProvider().CurrentGameTick;
+                    buttonViewModel.Hide();
+                    HideRelocationTooltip();
                 }
 
-                SendRelocationPacket(attemptedPacket);
+                LogInfo($"deterministic rotation command submitted: playerId={localPlayerId}, requestId={requestId}, quarryGlobalId={attemptedCommand.QuarryGlobalId}, oldPileGlobalId={attemptedCommand.OldPileGlobalId}, target={target.X},{target.Y}, authoritativeContent={attemptedCommand.SourceStoneBlocks}/{attemptedCommand.SourceCurrentGoodStack}/{attemptedCommand.SourceMaxGoodStack}/{attemptedCommand.SourceLocalStorageGoodType}, authoritativeHealth={attemptedCommand.SourceCurrentHealth}/{attemptedCommand.SourceMaxHealth}, submitted={submitted}, pendingRequestId={pendingRelocationRequestId}.");
                 RefreshButtonVisibility();
             }
             catch (Exception ex)
             {
-                if (attemptedPacket != null)
-                    RememberFailedRotationTarget(attemptedPacket, "rotation-command-exception");
+                if (attemptedCommand != null)
+                    RememberFailedRotationTarget(attemptedCommand, "rotation-command-exception");
 
                 Shared.DebugLogHelper.LogError(
                     log,
@@ -472,57 +524,369 @@ namespace SomeSettings
             }
         }
 
-        private void SendRelocationPacket(QuarryPileRelocationPacket packet)
+        private static string ValidateRelocationCommand(QuarryPileRelocationCommand command)
         {
-            bool networked = GameNetworkAPI.IsNetworkedEnvironment();
-            if (!networked || packetHook == null)
+            if (command == null)
+                return "command-null";
+            if (command.QuarryGlobalId <= 0)
+                return "quarry-global-id-not-positive";
+            if (command.OldPileGlobalId <= 0)
+                return "old-pile-global-id-not-positive";
+            if (command.TargetTileX < 0 || command.TargetTileY < 0)
+                return "target-tile-negative";
+            if (command.SourceLocalStorageGoodType < (int)eGoods.STORED_NULL ||
+                command.SourceLocalStorageGoodType >= (int)eGoods.Count)
             {
-                LogInfo($"network packet not required: networked={networked}, packetHookAvailable={packetHook != null}, playerId={packet.SourcePlayerId}, requestId={packet.RequestId}.");
+                return "source-good-type-out-of-range";
+            }
+            return null;
+        }
+
+        private bool ExecuteRelocationCommand(
+            QuarryPileRelocationCommand command,
+            Shared.DeterministicCommandContext context)
+        {
+            LogInfo(
+                $"deterministic feature handler entered: channel={context.ChannelId}, sourcePlayerId={context.SourcePlayerId}, " +
+                $"requestId={context.RequestId}, sequence={context.Sequence}, executionTick={context.ExecutionTick}, " +
+                $"localSource={context.IsLocalSource}, EnableMod={settings.EnableMod}, " +
+                $"EnableQuarryPileRelocation={settings.EnableQuarryPileRelocation}, quarryGlobalId={command?.QuarryGlobalId ?? 0}, " +
+                $"oldPileGlobalId={command?.OldPileGlobalId ?? 0}, target={command?.TargetTileX ?? 0},{command?.TargetTileY ?? 0}, " +
+                $"authoritativeContent={command?.SourceStoneBlocks ?? 0}/{command?.SourceCurrentGoodStack ?? 0}/{command?.SourceMaxGoodStack ?? 0}/{command?.SourceLocalStorageGoodType ?? 0}, " +
+                $"authoritativeHealth={command?.SourceCurrentHealth ?? 0}/{command?.SourceMaxHealth ?? 0}.");
+
+            CompletePendingRelocation(context, "deterministic-handler-entered");
+
+            if (!settings.EnableMod || !settings.EnableQuarryPileRelocation)
+            {
+                LogInfo($"deterministic feature handler stopped: reason=feature-disabled, requestId={context.RequestId}, sequence={context.Sequence}.");
+                QueueVisibilityRefresh();
+                return false;
+            }
+
+            command.SourcePlayerId = context.SourcePlayerId;
+            command.RequestId = context.RequestId;
+            CaptureAndReportStateFingerprint(command, context, "before");
+            string reason = $"deterministic:{context.SourcePlayerId}:{context.RequestId}:{context.Sequence}:{context.ExecutionTick}";
+            bool applied = TryApplyRotation(command, reason);
+            CaptureAndReportStateFingerprint(command, context, "after-0");
+            ScheduleStateFingerprint(command, context, context.ExecutionTick + 1, "after-1");
+            ScheduleStateFingerprint(command, context, context.ExecutionTick + 5, "after-5");
+            ScheduleStateFingerprint(command, context, context.ExecutionTick + 40, "after-40");
+            if (!applied)
+                RememberFailedRotationTarget(command, "deterministic-transaction-failed");
+
+            LogInfo(
+                $"deterministic feature handler finished: sourcePlayerId={context.SourcePlayerId}, requestId={context.RequestId}, " +
+                $"sequence={context.Sequence}, executionTick={context.ExecutionTick}, applied={applied}.");
+
+            QueueVisibilityRefresh();
+            return applied;
+        }
+
+        private void CompletePendingRelocation(
+            Shared.DeterministicCommandContext context,
+            string reason)
+        {
+            if (!context.IsLocalSource || pendingRelocationRequestId <= 0)
+                return;
+
+            if (pendingRelocationRequestId != context.RequestId)
+            {
+                LogInfo(
+                    $"pending relocation lock was not cleared: reason=request-mismatch, completionReason={reason}, " +
+                    $"pendingRequestId={pendingRelocationRequestId}, executedRequestId={context.RequestId}, sequence={context.Sequence}.");
                 return;
             }
 
-            GameNetworkAPI.SendPacketToAll(packet, packetHook.GetPacketId(), true);
-            LogInfo($"network packet sent: packetId={packetHook.GetPacketId()}, instant=true, playerId={packet.SourcePlayerId}, requestId={packet.RequestId}, quarryGlobalId={packet.QuarryGlobalId}, oldPileGlobalId={packet.OldPileGlobalId}, target={packet.TargetTileX},{packet.TargetTileY}.");
+            int completedRequestId = pendingRelocationRequestId;
+            pendingRelocationRequestId = 0;
+            pendingRelocationStartTick = 0;
+            LogInfo(
+                $"pending relocation lock released: reason={reason}, requestId={completedRequestId}, " +
+                $"sequence={context.Sequence}, executionTick={context.ExecutionTick}.");
         }
 
-        private void OnRelocationPacketReceived(ReceiveCustomPacketEventArgs<QuarryPileRelocationPacket> args)
+        private void QueueVisibilityRefresh()
+        {
+            UnityMainThreadDispatcher.EnqueueStatic(() =>
+            {
+                if (initialized)
+                    RefreshButtonVisibility();
+            });
+        }
+
+        private void ScheduleStateFingerprint(
+            QuarryPileRelocationCommand command,
+            Shared.DeterministicCommandContext context,
+            int dueTick,
+            string checkpoint)
+        {
+            QuarryPileRelocationCommand commandCopy = new QuarryPileRelocationCommand
+            {
+                QuarryGlobalId = command.QuarryGlobalId,
+                OldPileGlobalId = command.OldPileGlobalId,
+                TargetTileX = command.TargetTileX,
+                TargetTileY = command.TargetTileY,
+                SourceStoneBlocks = command.SourceStoneBlocks,
+                SourceCurrentGoodStack = command.SourceCurrentGoodStack,
+                SourceMaxGoodStack = command.SourceMaxGoodStack,
+                SourceLocalStorageGoodType = command.SourceLocalStorageGoodType,
+                SourceCurrentHealth = command.SourceCurrentHealth,
+                SourceMaxHealth = command.SourceMaxHealth,
+                SourcePlayerId = command.SourcePlayerId,
+                RequestId = command.RequestId
+            };
+            pendingStateFingerprints.Add(new PendingStateFingerprint(commandCopy, context, dueTick, checkpoint));
+            LogInfo(
+                $"state fingerprint scheduled: requestId={context.RequestId}, sequence={context.Sequence}, " +
+                $"executionTick={context.ExecutionTick}, checkpoint={checkpoint}, dueTick={dueTick}, pendingCount={pendingStateFingerprints.Count}.");
+        }
+
+        private void OnDiagnosticGameTick(int tick)
+        {
+            if (!initialized)
+                return;
+
+            if (pendingRelocationRequestId > 0 &&
+                tick - pendingRelocationStartTick >= PendingRelocationTimeoutTicks)
+            {
+                int timedOutRequestId = pendingRelocationRequestId;
+                pendingRelocationRequestId = 0;
+                pendingRelocationStartTick = 0;
+                LogInfo($"pending relocation lock released by timeout: requestId={timedOutRequestId}, currentTick={tick}, timeoutTicks={PendingRelocationTimeoutTicks}.");
+                QueueVisibilityRefresh();
+            }
+
+            if (pendingStateFingerprints.Count == 0)
+                return;
+
+            for (int index = pendingStateFingerprints.Count - 1; index >= 0; index--)
+            {
+                PendingStateFingerprint pending = pendingStateFingerprints[index];
+                if (pending.DueTick > tick)
+                    continue;
+
+                pendingStateFingerprints.RemoveAt(index);
+                if (pending.DueTick < tick)
+                {
+                    LogInfo(
+                        $"state fingerprint checkpoint ran late: requestId={pending.Context.RequestId}, sequence={pending.Context.Sequence}, " +
+                        $"checkpoint={pending.Checkpoint}, dueTick={pending.DueTick}, currentTick={tick}.");
+                }
+
+                CaptureAndReportStateFingerprint(pending.Command, pending.Context, pending.Checkpoint);
+            }
+        }
+
+        private void CaptureAndReportStateFingerprint(
+            QuarryPileRelocationCommand command,
+            Shared.DeterministicCommandContext context,
+            string checkpoint)
         {
             try
             {
-                if (args?.Packet == null)
-                {
-                    LogInfo("network packet callback received without a packet payload.");
-                    return;
-                }
-
-                QuarryPileRelocationPacket packet = args.Packet;
-                LogInfo($"network packet received: phase={args.Phase}, playerId={packet.SourcePlayerId}, requestId={packet.RequestId}, quarryGlobalId={packet.QuarryGlobalId}, oldPileGlobalId={packet.OldPileGlobalId}, target={packet.TargetTileX},{packet.TargetTileY}, EnableMod={settings.EnableMod}, EnableQuarryPileRelocation={settings.EnableQuarryPileRelocation}.");
-                if (!settings.EnableMod || !settings.EnableQuarryPileRelocation)
-                {
-                    LogInfo("network packet ignored: feature is disabled.");
-                    return;
-                }
-
-                string packetFailure = GetPacketValidationFailure(packet);
-                if (packetFailure != null)
-                {
-                    LogInfo($"network packet rejected: reason={packetFailure}.");
-                    return;
-                }
-
-                if (IsDuplicatePacket(packet.SourcePlayerId, packet.RequestId))
-                {
-                    LogInfo($"network packet ignored as duplicate: playerId={packet.SourcePlayerId}, requestId={packet.RequestId}.");
-                    return;
-                }
-
-                bool applied = TryApplyRotation(packet, "network-packet");
-                LogInfo($"network packet application finished: playerId={packet.SourcePlayerId}, requestId={packet.RequestId}, applied={applied}.");
+                string simulationFingerprint = BuildStateFingerprint(command, checkpoint, false);
+                string rawDiagnosticFingerprint = BuildStateFingerprint(command, checkpoint, true);
+                LogInfo(
+                    $"raw diagnostic fingerprint captured: requestId={context.RequestId}, sequence={context.Sequence}, " +
+                    $"checkpoint={checkpoint}, fingerprint={rawDiagnosticFingerprint}.");
+                bool reported = commandBus.ReportStateFingerprint(context, checkpoint, simulationFingerprint);
+                LogInfo(
+                    $"state fingerprint report completed: requestId={context.RequestId}, sequence={context.Sequence}, " +
+                    $"checkpoint={checkpoint}, currentTick={GameTimeManagerAPI.Instance.GetFrameProvider().CurrentGameTick}, reported={reported}.");
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogError(log, $"SomeSettings quarry-pile rotation packet handling failed: {ex}");
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"SomeSettings quarry-pile state fingerprint failed: requestId={context.RequestId}, sequence={context.Sequence}, checkpoint={checkpoint}, exception={ex}");
             }
+        }
+
+        private static string BuildStateFingerprint(
+            QuarryPileRelocationCommand command,
+            string checkpoint,
+            bool includeRawBuildingMemory)
+        {
+            int currentTick = GameTimeManagerAPI.Instance.GetFrameProvider().CurrentGameTick;
+            int quarryId = FindBuildingIdByGlobalIdAnyState(command.QuarryGlobalId);
+            GameBuilding* quarry = null;
+            if (quarryId > 0)
+                GameBuildingManagerAPI.Instance.TryGetBuildingById(quarryId, out quarry);
+
+            int oldPileId = FindBuildingIdByGlobalIdAnyState(command.OldPileGlobalId);
+            GameBuilding* oldPile = null;
+            if (oldPileId > 0)
+                GameBuildingManagerAPI.Instance.TryGetBuildingById(oldPileId, out oldPile);
+
+            int linkedPileId = quarry != null ? quarry->r_StoneQuarry_StockPileBuildingId : 0;
+            GameBuilding* linkedPile = null;
+            if (linkedPileId > 0)
+                GameBuildingManagerAPI.Instance.TryGetBuildingById(linkedPileId, out linkedPile);
+
+            GameTileManagerAPI tileApi = GameTileManagerAPI.Instance;
+            int targetTileId = tileApi.IsTileInsideMapBounds(command.TargetTileX, command.TargetTileY)
+                ? tileApi.GetTileId(command.TargetTileX, command.TargetTileY)
+                : -1;
+            int targetBuildingId = targetTileId >= 0 && tileApi.IsValidTileId(targetTileId)
+                ? tileApi.GetTileBuildingId(targetTileId)
+                : -1;
+
+            string quarryTiles = BuildBuildingTileRegionFingerprint("quarry", quarry);
+            string oldPileTiles = BuildBuildingTileRegionFingerprint("oldPile", oldPile);
+            string linkedPileTiles = BuildBuildingTileRegionFingerprint("linkedPile", linkedPile);
+            string targetTiles = BuildTileRegionFingerprint(
+                "target",
+                command.TargetTileX - 3,
+                command.TargetTileY - 3,
+                command.TargetTileX + 3,
+                command.TargetTileY + 3);
+
+            return
+                $"checkpoint={checkpoint};captureTick={currentTick};source={command.SourcePlayerId};" +
+                $"quarryGlobal={command.QuarryGlobalId};oldPileGlobal={command.OldPileGlobalId};" +
+                $"target={command.TargetTileX},{command.TargetTileY};targetBuildingId={targetBuildingId};" +
+                $"payloadContent={command.SourceStoneBlocks}/{command.SourceCurrentGoodStack}/{command.SourceMaxGoodStack}/{command.SourceLocalStorageGoodType};" +
+                $"payloadHealth={command.SourceCurrentHealth}/{command.SourceMaxHealth};" +
+                $"quarry=[{DescribeBuildingFingerprint(quarryId, quarry, includeRawBuildingMemory)}];" +
+                $"oldPile=[{DescribeBuildingFingerprint(oldPileId, oldPile, includeRawBuildingMemory)}];" +
+                $"linkedPile=[{DescribeBuildingFingerprint(linkedPileId, linkedPile, includeRawBuildingMemory)}];" +
+                $"tileRegions=[{quarryTiles}|{oldPileTiles}|{linkedPileTiles}|{targetTiles}]";
+        }
+
+        private static string DescribeBuildingFingerprint(
+            int buildingId,
+            GameBuilding* building,
+            bool includeRawBuildingMemory)
+        {
+            if (buildingId <= 0 || building == null)
+                return $"id={buildingId}:missing";
+
+            string simulationState =
+                $"id={buildingId}:alive={(int)building->r_AliveState}:type={(int)building->r_BuildingType}:" +
+                $"owner={building->r_PlayerIdOwner}:global={building->r_GlobalId}:" +
+                $"tiles={building->r_TilePositionXBegin},{building->r_TilePositionYBegin}-" +
+                $"{building->r_TilePositionXEnd},{building->r_TilePositionYEnd}:grid={building->r_OccupyTileGridSize}:" +
+                $"quarryLink={building->r_StoneQuarry_StockPileBuildingId}:stone={building->r_StoneBlocksAmount}:" +
+                $"good={building->r_CurrentGoodStackAmount}/{building->r_MaxGoodStackAmount}:" +
+                $"goodType={(int)building->r_LocalStorageGoodType}:health={building->r_CurrentHealth}/{building->r_MaxHealth}";
+            if (!includeRawBuildingMemory)
+                return simulationState;
+
+            int byteCount = sizeof(GameBuilding);
+            byte* bytes = (byte*)building;
+            StringBuilder blockHashes = new StringBuilder();
+            const int blockSize = 64;
+            for (int offset = 0; offset < byteCount; offset += blockSize)
+            {
+                int count = Math.Min(blockSize, byteCount - offset);
+                if (blockHashes.Length > 0)
+                    blockHashes.Append(',');
+                blockHashes.Append(offset.ToString("X3"));
+                blockHashes.Append(':');
+                blockHashes.Append(HashBytes(bytes + offset, count).ToString("X16"));
+            }
+
+            return simulationState + ":" +
+                $"rawSize={byteCount}:raw={HashBytes(bytes, byteCount):X16}:blocks={blockHashes}";
+        }
+
+        private static string BuildBuildingTileRegionFingerprint(string name, GameBuilding* building)
+        {
+            if (building == null)
+                return name + ":missing";
+
+            int minX = Math.Min(building->r_TilePositionXBegin, building->r_TilePositionXEnd) - 1;
+            int maxX = Math.Max(building->r_TilePositionXBegin, building->r_TilePositionXEnd) + 1;
+            int minY = Math.Min(building->r_TilePositionYBegin, building->r_TilePositionYEnd) - 1;
+            int maxY = Math.Max(building->r_TilePositionYBegin, building->r_TilePositionYEnd) + 1;
+            return BuildTileRegionFingerprint(name, minX, minY, maxX, maxY);
+        }
+
+        private static string BuildTileRegionFingerprint(string name, int minX, int minY, int maxX, int maxY)
+        {
+            const ulong offsetBasis = 14695981039346656037UL;
+            ulong fullHash = offsetBasis;
+            int validTiles = 0;
+            StringBuilder rowHashes = new StringBuilder();
+            GameTileManagerAPI tileApi = GameTileManagerAPI.Instance;
+            for (int y = minY; y <= maxY; y++)
+            {
+                ulong rowHash = offsetBasis;
+                for (int x = minX; x <= maxX; x++)
+                {
+                    UpdateHash(ref fullHash, x);
+                    UpdateHash(ref fullHash, y);
+                    UpdateHash(ref rowHash, x);
+                    UpdateHash(ref rowHash, y);
+                    if (!tileApi.IsTileInsideMapBounds(x, y))
+                    {
+                        UpdateHash(ref fullHash, -1);
+                        UpdateHash(ref rowHash, -1);
+                        continue;
+                    }
+
+                    int tileId = tileApi.GetTileId(x, y);
+                    if (!tileApi.IsValidTileId(tileId))
+                    {
+                        UpdateHash(ref fullHash, -2);
+                        UpdateHash(ref rowHash, -2);
+                        continue;
+                    }
+
+                    validTiles++;
+                    UpdateTileHash(ref fullHash, tileApi, tileId);
+                    UpdateTileHash(ref rowHash, tileApi, tileId);
+                }
+
+                if (rowHashes.Length > 0)
+                    rowHashes.Append(',');
+                rowHashes.Append(y);
+                rowHashes.Append(':');
+                rowHashes.Append(rowHash.ToString("X16"));
+            }
+
+            return
+                $"{name}:bounds={minX},{minY}-{maxX},{maxY}:valid={validTiles}:" +
+                $"hash={fullHash:X16}:rows={rowHashes}";
+        }
+
+        private static void UpdateTileHash(ref ulong hash, GameTileManagerAPI tileApi, int tileId)
+        {
+            UpdateHash(ref hash, tileId);
+            UpdateHash(ref hash, (int)tileApi.GetTilePropertyFlag(tileId));
+            UpdateHash(ref hash, tileApi.GetTileHeight(tileId));
+            UpdateHash(ref hash, tileApi.GetTileState(tileId));
+            UpdateHash(ref hash, tileApi.GetTileDefaultHeight(tileId));
+            UpdateHash(ref hash, tileApi.GetTilePlayerOwnerId(tileId));
+            UpdateHash(ref hash, tileApi.GetTileBuildingId(tileId));
+            UpdateHash(ref hash, (int)tileApi.GetTileType(tileId));
+        }
+
+        private static void UpdateHash(ref ulong hash, int value)
+        {
+            const ulong prime = 1099511628211UL;
+            uint unsigned = unchecked((uint)value);
+            for (int shift = 0; shift < 32; shift += 8)
+            {
+                hash ^= (byte)(unsigned >> shift);
+                hash *= prime;
+            }
+        }
+
+        private static ulong HashBytes(byte* bytes, int count)
+        {
+            const ulong offsetBasis = 14695981039346656037UL;
+            const ulong prime = 1099511628211UL;
+            ulong hash = offsetBasis;
+            for (int i = 0; i < count; i++)
+            {
+                hash ^= bytes[i];
+                hash *= prime;
+            }
+
+            return hash;
         }
 
         private void OnBuildingSpawn(BuildingSpawnEventArgs args)
@@ -625,40 +989,9 @@ namespace SomeSettings
             }
         }
 
-        private static string GetPacketValidationFailure(QuarryPileRelocationPacket packet)
-        {
-            if (packet.SourcePlayerId <= 0)
-                return "source-player-id-not-positive";
-            if (packet.RequestId <= 0)
-                return "request-id-not-positive";
-            if (packet.QuarryGlobalId <= 0)
-                return "quarry-global-id-not-positive";
-            if (packet.OldPileGlobalId <= 0)
-                return "old-pile-global-id-not-positive";
-            if (!GamePlayerManagerAPI.Instance.IsPlayerIdValid(packet.SourcePlayerId))
-                return "source-player-id-invalid";
-            if (GamePlayerManagerAPI.Instance.IsAIPlayer(packet.SourcePlayerId))
-                return "source-player-is-ai";
-            if (!GameTileManagerAPI.Instance.IsTileInsideMapBounds(packet.TargetTileX, packet.TargetTileY))
-                return "target-tile-outside-map";
-            return null;
-        }
-
-        private bool IsDuplicatePacket(int sourcePlayerId, int requestId)
-        {
-            if (!processedRequestIds.TryGetValue(sourcePlayerId, out HashSet<int> requestIds))
-            {
-                requestIds = new HashSet<int>();
-                processedRequestIds[sourcePlayerId] = requestIds;
-            }
-
-            return !requestIds.Add(requestId);
-        }
-
         private bool TryApplyRotation(
-            QuarryPileRelocationPacket packet,
-            string reason,
-            bool targetAlreadyValidated = false)
+            QuarryPileRelocationCommand packet,
+            string reason)
         {
             LogInfo($"replacement transaction started: reason={reason}, playerId={packet.SourcePlayerId}, requestId={packet.RequestId}, quarryGlobalId={packet.QuarryGlobalId}, oldPileGlobalId={packet.OldPileGlobalId}, requestedTarget={packet.TargetTileX},{packet.TargetTileY}.");
 
@@ -681,30 +1014,29 @@ namespace SomeSettings
                 return false;
             }
 
-            PlacementPosition expectedTarget;
-            if (targetAlreadyValidated)
+            PlacementPosition expectedTarget = new PlacementPosition(packet.TargetTileX, packet.TargetTileY);
+            if (!ValidateRequestedRotationTarget(
+                packet.SourcePlayerId,
+                quarry,
+                oldPile,
+                expectedTarget,
+                packet.RequestId))
             {
-                expectedTarget = new PlacementPosition(packet.TargetTileX, packet.TargetTileY);
-                LogInfo($"replacement transaction reuses synchronously validated local target: requestId={packet.RequestId}, target={expectedTarget.X},{expectedTarget.Y}.");
-            }
-            else
-            {
-                expectedTarget = new PlacementPosition(packet.TargetTileX, packet.TargetTileY);
-                if (!ValidateRequestedRotationTarget(
-                    packet.SourcePlayerId,
-                    quarry,
-                    oldPile,
-                    expectedTarget,
-                    packet.RequestId))
-                {
-                    LogInfo($"replacement transaction rejected: reason=requested-target-invalid, requestId={packet.RequestId}, target={expectedTarget.X},{expectedTarget.Y}.");
-                    return false;
-                }
+                LogInfo($"replacement transaction rejected: reason=requested-target-invalid, requestId={packet.RequestId}, target={expectedTarget.X},{expectedTarget.Y}.");
+                return false;
             }
 
-            PileContentSnapshot content = PileContentSnapshot.Capture(oldPile);
-            short previousCurrentHealth = oldPile->r_CurrentHealth;
-            ushort previousMaxHealth = oldPile->r_MaxHealth;
+            PileContentSnapshot localContent = PileContentSnapshot.Capture(oldPile);
+            short localCurrentHealth = oldPile->r_CurrentHealth;
+            ushort localMaxHealth = oldPile->r_MaxHealth;
+            PileContentSnapshot content = PileContentSnapshot.FromCommand(packet);
+            short authoritativeCurrentHealth = packet.SourceCurrentHealth;
+            ushort authoritativeMaxHealth = packet.SourceMaxHealth;
+            LogInfo(
+                $"replacement transaction content comparison: requestId={packet.RequestId}, " +
+                $"local={localContent.StoneBlocks}/{localContent.CurrentGoodStack}/{localContent.MaxGoodStack}/{(int)localContent.LocalStorageGoodType}, " +
+                $"authoritative={content.StoneBlocks}/{content.CurrentGoodStack}/{content.MaxGoodStack}/{(int)content.LocalStorageGoodType}, " +
+                $"localHealth={localCurrentHealth}/{localMaxHealth}, authoritativeHealth={authoritativeCurrentHealth}/{authoritativeMaxHealth}.");
             if (!TrySpawnReplacement(
                 packet.SourcePlayerId,
                 quarryId,
@@ -728,8 +1060,8 @@ namespace SomeSettings
 
             int newPileGlobalId = (int)newPile->r_GlobalId;
             content.ApplyTo(newPile);
-            newPile->r_CurrentHealth = previousCurrentHealth;
-            newPile->r_MaxHealth = previousMaxHealth;
+            newPile->r_CurrentHealth = authoritativeCurrentHealth;
+            newPile->r_MaxHealth = authoritativeMaxHealth;
             ClearPileContentBeforeDeletion(oldPileId, oldPile, packet.RequestId, "rotation-old-pile");
 
             quarry->r_StoneQuarry_StockPileBuildingId = checked((ushort)newPileId);
@@ -739,6 +1071,8 @@ namespace SomeSettings
             {
                 quarry->r_StoneQuarry_StockPileBuildingId = checked((ushort)oldPileId);
                 content.ApplyTo(oldPile);
+                oldPile->r_CurrentHealth = authoritativeCurrentHealth;
+                oldPile->r_MaxHealth = authoritativeMaxHealth;
                 newPile->r_StoneBlocksAmount = 0;
                 newPile->r_CurrentGoodStackAmount = 0;
                 bool replacementMarkedForDeletion = DeleteBuildingWithoutLinkedPropagation(newPileId, "rotation-rollback-new-pile");
@@ -1445,6 +1779,22 @@ namespace SomeSettings
             return 0;
         }
 
+        private static int FindBuildingIdByGlobalIdAnyState(int globalId)
+        {
+            if (globalId <= 0)
+                return 0;
+
+            Span<GameBuilding> buildings = GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
+            for (int index = 0; index < buildings.Length; index++)
+            {
+                ref GameBuilding building = ref buildings[index];
+                if ((int)building.r_GlobalId == globalId)
+                    return index + 1;
+            }
+
+            return 0;
+        }
+
         private static int FindAliveQuarryIdByPileId(int pileId, int ownerPlayerId)
         {
             if (pileId <= 0)
@@ -1499,7 +1849,7 @@ namespace SomeSettings
             return null;
         }
 
-        private void RememberFailedRotationTarget(QuarryPileRelocationPacket packet, string reason)
+        private void RememberFailedRotationTarget(QuarryPileRelocationCommand packet, string reason)
         {
             if (packet == null || packet.QuarryGlobalId <= 0 || packet.OldPileGlobalId <= 0)
                 return;
@@ -1534,14 +1884,15 @@ namespace SomeSettings
         private void ClearMapState()
         {
             LogInfo(
-                $"clearing rotation state: processedRequestPlayerCount={processedRequestIds.Count}, " +
-                $"failedTargetQuarryCount={failedRotationTargetsByQuarry.Count}, nextRequestId={nextRequestId}, " +
-                $"prefabCaptureActive={activePrefabSpawnCapture != null}, linkedRemovalSuppressionDepth={linkedRemovalSuppressionDepth}.");
-            processedRequestIds.Clear();
+                $"clearing rotation state: failedTargetQuarryCount={failedRotationTargetsByQuarry.Count}, " +
+                $"prefabCaptureActive={activePrefabSpawnCapture != null}, linkedRemovalSuppressionDepth={linkedRemovalSuppressionDepth}, " +
+                $"pendingStateFingerprints={pendingStateFingerprints.Count}, pendingRelocationRequestId={pendingRelocationRequestId}.");
             failedRotationTargetsByQuarry.Clear();
+            pendingStateFingerprints.Clear();
+            pendingRelocationRequestId = 0;
+            pendingRelocationStartTick = 0;
             activePrefabSpawnCapture = null;
             linkedRemovalSuppressionDepth = 0;
-            nextRequestId = 0;
             lastVisibilityLogState = null;
             buttonViewModel.Hide();
         }
@@ -1557,7 +1908,7 @@ namespace SomeSettings
 
         private void LogInfo(string message)
         {
-            Shared.DebugLogHelper.LogDebug(log, $"SomeSettings quarry-pile diagnostic: {message}");
+            Shared.DebugLogHelper.LogInfo(log, $"SomeSettings quarry-pile diagnostic: {message}");
         }
 
         private void DisposeSubscriptions()
@@ -1567,11 +1918,13 @@ namespace SomeSettings
             subscriptions.Clear();
         }
 
-        private int NextRequestId()
+        private void UnsubscribeDiagnosticTick()
         {
-            if (nextRequestId == int.MaxValue)
-                nextRequestId = 0;
-            return ++nextRequestId;
+            if (!diagnosticTickSubscribed)
+                return;
+
+            GameTimeManagerAPI.Instance.GetFrameProvider().OnGameTick -= OnDiagnosticGameTick;
+            diagnosticTickSubscribed = false;
         }
 
         private static int GetLocalPlayerIdOrOne()
@@ -1589,6 +1942,26 @@ namespace SomeSettings
 
             public int OldPileGlobalId { get; }
             public HashSet<long> Targets { get; } = new HashSet<long>();
+        }
+
+        private sealed class PendingStateFingerprint
+        {
+            public PendingStateFingerprint(
+                QuarryPileRelocationCommand command,
+                Shared.DeterministicCommandContext context,
+                int dueTick,
+                string checkpoint)
+            {
+                Command = command;
+                Context = context;
+                DueTick = dueTick;
+                Checkpoint = checkpoint;
+            }
+
+            public QuarryPileRelocationCommand Command { get; }
+            public Shared.DeterministicCommandContext Context { get; }
+            public int DueTick { get; }
+            public string Checkpoint { get; }
         }
 
         private sealed class PrefabSpawnCapture
@@ -1658,6 +2031,15 @@ namespace SomeSettings
                     pile->r_CurrentGoodStackAmount,
                     pile->r_MaxGoodStackAmount,
                     pile->r_LocalStorageGoodType);
+            }
+
+            public static PileContentSnapshot FromCommand(QuarryPileRelocationCommand command)
+            {
+                return new PileContentSnapshot(
+                    command.SourceStoneBlocks,
+                    command.SourceCurrentGoodStack,
+                    command.SourceMaxGoodStack,
+                    (eGoods)command.SourceLocalStorageGoodType);
             }
 
             public void ApplyTo(GameBuilding* pile)
