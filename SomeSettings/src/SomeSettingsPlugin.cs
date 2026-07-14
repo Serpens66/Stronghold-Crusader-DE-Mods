@@ -65,6 +65,7 @@ namespace SomeSettings
                     runtime.QuarryPileRelocationButton);
 
                 runtime.InstallKnightMountNativeFunctions(libraryHandle, memory);
+                runtime.InstallQuarryPileNativeFunctions(libraryHandle, memory);
                 runtime.ApplySettings();
                 runtime.InstallAIEconomyProtectionHook(libraryHandle, memory);
                 Shared.DebugLogHelper.LogDebug(Logger, "Crusader library loaded; SomeSettings UI registered.");

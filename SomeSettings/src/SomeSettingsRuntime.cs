@@ -72,6 +72,11 @@ namespace SomeSettings
             knightDismountRuntime.InstallNativeFunctions(libraryHandle, memory);
         }
 
+        public void InstallQuarryPileNativeFunctions(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
+        {
+            quarryPileRelocationRuntime.InstallNativeFunctions(libraryHandle, memory);
+        }
+
         public void SubscribeHooks()
         {
             if (!settings.EnableMod)

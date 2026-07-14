@@ -18,6 +18,9 @@ using SHCDESE.ViewModels;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Runtime.InteropServices;
+using Zhuqiaomon.Memory;
+using Zhuqiaomon.Memory.Scanners;
 
 namespace SomeSettings
 {
@@ -119,13 +122,40 @@ namespace SomeSettings
 
     internal sealed unsafe class QuarryPileRelocationRuntime : IDisposable
     {
+        // Vanilla placeQuarry uses size 6 for the quarry, size 2 for its pile and tries 1..9.
+        // setupBuildingEntrancesOffset exposes 4 * buildingSize clockwise perimeter candidates.
+        private const int VanillaQuarryScale = 6;
+        private const int VanillaPileScale = 2;
+        private const int VanillaCandidateCount = VanillaQuarryScale * 4;
+        private const int VanillaMinimumPlacementTry = 1;
+        private const int VanillaMaximumPlacementTry = 9;
+        private const int VanillaCandidateOffsetX = 0x31B7D0;
+        private const int VanillaCandidateOffsetY = 0x31B7D4;
+
+        // CrusaderDE setupBuildingEntrancesOffset. This is the native helper used by
+        // findQuarryPileLocation to turn (buildingSize, pileSize, perimeterIndex, try)
+        // into the exact relative candidate coordinates used by Vanilla.
+        private const string SetupBuildingEntrancesOffsetPattern =
+            "48 89 5C 24 08 8D 42 FF 41 8B D8 44 8B DA 4C 8B D1 83 F8 0C 0F 87 ?? ?? ?? ?? " +
+            "48 98 48 8D 15 ?? ?? ?? ?? 8B 84 82 ?? ?? ?? ?? 48 03 C2 FF E0 49 63 C1 " +
+            "8B 8C C2 ?? ?? ?? ?? 41 89 8A D0 B7 31 00";
+
         private delegate void SetUpInbuildingDelegate(MainViewModel self, int overridePanel, int overrideType);
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate void SetupBuildingEntrancesOffsetDelegate(
+            NativePointer<GameBuildingManager> buildingManager,
+            int buildingSize,
+            int pileSize,
+            int perimeterIndex,
+            int placementTry);
 
         private readonly ManualLogSource log;
         private readonly SomeSettingsViewModel settings;
         private readonly QuarryPileRelocationButtonViewModel buttonViewModel;
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
         private readonly Dictionary<int, HashSet<int>> processedRequestIds = new Dictionary<int, HashSet<int>>();
+        private readonly Dictionary<int, FailedRotationTargets> failedRotationTargetsByQuarry = new Dictionary<int, FailedRotationTargets>();
 
         private Hook setUpInbuildingHook;
         private SetUpInbuildingDelegate setUpInbuildingTrampoline;
@@ -133,6 +163,7 @@ namespace SomeSettings
         private Button hookedRelocationButton;
         private TextBlock hookedRelocationTooltip;
         private PrefabSpawnCapture activePrefabSpawnCapture;
+        private SetupBuildingEntrancesOffsetDelegate setupBuildingEntrancesOffset;
         private int nextRequestId;
         private int linkedRemovalSuppressionDepth;
         private bool initialized;
@@ -146,6 +177,24 @@ namespace SomeSettings
         }
 
         public QuarryPileRelocationButtonViewModel ButtonViewModel => buttonViewModel;
+
+        public void InstallNativeFunctions(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
+        {
+            DataScanner scanner = DataScanner.Create(memory, unchecked((ulong)libraryHandle.ToInt64()));
+            scanner.Scan(SetupBuildingEntrancesOffsetPattern);
+            if (scanner.CurrentAddress == 0)
+            {
+                setupBuildingEntrancesOffset = null;
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    "SomeSettings quarry-pile Vanilla candidate helper was not found; relocation remains disabled.");
+                return;
+            }
+
+            setupBuildingEntrancesOffset = System.Runtime.InteropServices.Marshal.GetDelegateForFunctionPointer<SetupBuildingEntrancesOffsetDelegate>(
+                (IntPtr)scanner.CurrentAddress);
+            LogInfo($"Vanilla candidate helper installed: address=0x{scanner.CurrentAddress:X16}, candidatesPerTry={VanillaCandidateCount}, placementTries={VanillaMinimumPlacementTry}-{VanillaMaximumPlacementTry}.");
+        }
 
         public void Initialize()
         {
@@ -174,7 +223,7 @@ namespace SomeSettings
                 setUpInbuildingHook = installedHook;
                 initialized = true;
                 buttonViewModel.Hide();
-                LogInfo($"runtime initialized: mode=clockwise-prefab-spawn, packetId={packetHook.GetPacketId()}, subscriptions={subscriptions.Count}, setUpInbuildingHookInstalled={setUpInbuildingHook != null}.");
+                LogInfo($"runtime initialized: mode=Vanilla-clockwise-prefab-spawn, nativeCandidateHelperAvailable={setupBuildingEntrancesOffset != null}, packetId={packetHook.GetPacketId()}, subscriptions={subscriptions.Count}, setUpInbuildingHookInstalled={setUpInbuildingHook != null}.");
             }
             catch
             {
@@ -227,6 +276,14 @@ namespace SomeSettings
                     buttonViewModel.Hide();
                     HideRelocationTooltip();
                     LogVisibilityState($"hidden: feature-disabled, EnableMod={settings.EnableMod}, EnableQuarryPileRelocation={settings.EnableQuarryPileRelocation}");
+                    return;
+                }
+
+                if (setupBuildingEntrancesOffset == null)
+                {
+                    buttonViewModel.Hide();
+                    HideRelocationTooltip();
+                    LogVisibilityState("hidden: Vanilla candidate helper unavailable");
                     return;
                 }
 
@@ -349,6 +406,7 @@ namespace SomeSettings
         {
             int localPlayerId = 0;
             int selectedBuildingId = 0;
+            QuarryPileRelocationPacket attemptedPacket = null;
 
             try
             {
@@ -373,7 +431,7 @@ namespace SomeSettings
                 int requestId = NextRequestId();
                 LogInfo($"selected quarry validated: requestId={requestId}, quarryId={selectedBuildingId}, quarryGlobalId={quarry->r_GlobalId}, owner={quarry->r_PlayerIdOwner}, quarryTiles={quarry->r_TilePositionXBegin},{quarry->r_TilePositionYBegin}-{quarry->r_TilePositionXEnd},{quarry->r_TilePositionYEnd}, oldPileId={quarry->r_StoneQuarry_StockPileBuildingId}, oldPileGlobalId={oldPile->r_GlobalId}, oldPileTiles={oldPile->r_TilePositionXBegin},{oldPile->r_TilePositionYBegin}-{oldPile->r_TilePositionXEnd},{oldPile->r_TilePositionYEnd}, oldPileGridSize={oldPile->r_OccupyTileGridSize}.");
 
-                if (!TryFindNextRotationTarget(localPlayerId, quarry, oldPile, requestId, out RingPosition target))
+                if (!TryFindNextRotationTarget(localPlayerId, quarry, oldPile, requestId, out PlacementPosition target))
                 {
                     Shared.DebugLogHelper.LogWarning(
                         log,
@@ -381,7 +439,7 @@ namespace SomeSettings
                     return;
                 }
 
-                QuarryPileRelocationPacket packet = new QuarryPileRelocationPacket
+                attemptedPacket = new QuarryPileRelocationPacket
                 {
                     SourcePlayerId = localPlayerId,
                     RequestId = requestId,
@@ -391,18 +449,22 @@ namespace SomeSettings
                     TargetTileY = target.Y
                 };
 
-                if (!TryApplyRotation(packet, "local-click", targetAlreadyValidated: true))
+                if (!TryApplyRotation(attemptedPacket, "local-click", targetAlreadyValidated: true))
                 {
+                    RememberFailedRotationTarget(attemptedPacket, "replacement-transaction-failed");
                     LogInfo($"rotation command stopped: replacement transaction failed, requestId={requestId}, target={target.X},{target.Y}.");
                     RefreshButtonVisibility();
                     return;
                 }
 
-                SendRelocationPacket(packet);
+                SendRelocationPacket(attemptedPacket);
                 RefreshButtonVisibility();
             }
             catch (Exception ex)
             {
+                if (attemptedPacket != null)
+                    RememberFailedRotationTarget(attemptedPacket, "rotation-command-exception");
+
                 Shared.DebugLogHelper.LogError(
                     log,
                     $"SomeSettings quarry-pile rotation click failed: selectedBuildingId={selectedBuildingId}, playerId={localPlayerId}: {ex}");
@@ -619,21 +681,25 @@ namespace SomeSettings
                 return false;
             }
 
-            RingPosition expectedTarget;
+            PlacementPosition expectedTarget;
             if (targetAlreadyValidated)
             {
-                expectedTarget = new RingPosition(packet.TargetTileX, packet.TargetTileY);
+                expectedTarget = new PlacementPosition(packet.TargetTileX, packet.TargetTileY);
                 LogInfo($"replacement transaction reuses synchronously validated local target: requestId={packet.RequestId}, target={expectedTarget.X},{expectedTarget.Y}.");
             }
-            else if (!TryFindNextRotationTarget(packet.SourcePlayerId, quarry, oldPile, packet.RequestId, out expectedTarget))
+            else
             {
-                LogInfo($"replacement transaction rejected: reason=no-valid-clockwise-target, requestId={packet.RequestId}.");
-                return false;
-            }
-            else if (expectedTarget.X != packet.TargetTileX || expectedTarget.Y != packet.TargetTileY)
-            {
-                LogInfo($"replacement transaction rejected: reason=target-mismatch, requestId={packet.RequestId}, expected={expectedTarget.X},{expectedTarget.Y}, received={packet.TargetTileX},{packet.TargetTileY}.");
-                return false;
+                expectedTarget = new PlacementPosition(packet.TargetTileX, packet.TargetTileY);
+                if (!ValidateRequestedRotationTarget(
+                    packet.SourcePlayerId,
+                    quarry,
+                    oldPile,
+                    expectedTarget,
+                    packet.RequestId))
+                {
+                    LogInfo($"replacement transaction rejected: reason=requested-target-invalid, requestId={packet.RequestId}, target={expectedTarget.X},{expectedTarget.Y}.");
+                    return false;
+                }
             }
 
             PileContentSnapshot content = PileContentSnapshot.Capture(oldPile);
@@ -680,9 +746,12 @@ namespace SomeSettings
                 return false;
             }
 
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                $"SomeSettings quarry-pile rotation completed: reason={reason}, playerId={packet.SourcePlayerId}, requestId={packet.RequestId}, quarryId={quarryId}, quarryGlobalId={packet.QuarryGlobalId}, oldPileId={oldPileId}, oldPileGlobalId={packet.OldPileGlobalId}, newPileId={newPileId}, newPileGlobalId={newPileGlobalId}, newPileState={newPile->r_AliveState}, target={expectedTarget.X},{expectedTarget.Y}, stoneBlocks={newPile->r_StoneBlocksAmount}, oldPileMarkedForDeletion={oldPileMarkedForDeletion}, visualLifecycle=prefab-managed.");
+            ClearFailedRotationTargets(packet.QuarryGlobalId, "rotation-completed");
+            LogInfo(
+                $"rotation completed: reason={reason}, playerId={packet.SourcePlayerId}, requestId={packet.RequestId}, quarryId={quarryId}, " +
+                $"quarryGlobalId={packet.QuarryGlobalId}, oldPileId={oldPileId}, oldPileGlobalId={packet.OldPileGlobalId}, newPileId={newPileId}, " +
+                $"newPileGlobalId={newPileGlobalId}, newPileState={newPile->r_AliveState}, target={expectedTarget.X},{expectedTarget.Y}, " +
+                $"stoneBlocks={newPile->r_StoneBlocksAmount}, oldPileMarkedForDeletion={oldPileMarkedForDeletion}, visualLifecycle=prefab-managed.");
             return true;
         }
 
@@ -691,91 +760,281 @@ namespace SomeSettings
             GameBuilding* quarry,
             GameBuilding* oldPile,
             int requestId,
-            out RingPosition target)
+            out PlacementPosition target)
         {
             target = default;
-            int pileWidth = GetBuildingWidth(oldPile);
-            int pileHeight = GetBuildingHeight(oldPile);
+            if (setupBuildingEntrancesOffset == null)
+            {
+                LogInfo($"rotation target search failed: requestId={requestId}, reason=Vanilla-candidate-helper-unavailable.");
+                return false;
+            }
+
+            int quarryScale = GetBuildingScale(quarry);
             int buildingScale = GetBuildingScale(oldPile);
-            if (pileWidth <= 0 || pileHeight <= 0)
+            if (quarryScale != VanillaQuarryScale || buildingScale != VanillaPileScale)
             {
-                LogInfo($"rotation target search failed: requestId={requestId}, reason=invalid-pile-footprint, width={pileWidth}, height={pileHeight}.");
+                LogInfo(
+                    $"rotation target search failed: requestId={requestId}, reason=unexpected-Vanilla-scales, " +
+                    $"quarryScale={quarryScale}, expectedQuarryScale={VanillaQuarryScale}, pileScale={buildingScale}, expectedPileScale={VanillaPileScale}.");
                 return false;
             }
 
-            if (buildingScale <= 0)
+            int quarryGlobalId = (int)quarry->r_GlobalId;
+            int oldPileGlobalId = (int)oldPile->r_GlobalId;
+            int oldX = oldPile->r_TilePositionXBegin;
+            int oldY = oldPile->r_TilePositionYBegin;
+            if (!TryResolveVanillaCursor(
+                quarry,
+                oldX,
+                oldY,
+                out int currentIndex,
+                out int currentPlacementTry,
+                out bool exactCurrentPosition))
             {
-                LogInfo($"rotation target search failed: requestId={requestId}, reason=invalid-pile-grid-size, gridSize={oldPile->r_OccupyTileGridSize}.");
+                LogInfo($"rotation target search failed: requestId={requestId}, reason=Vanilla-cursor-resolution-failed.");
                 return false;
             }
 
-            List<RingPosition> ring = CreateClockwiseRing(quarry, oldPile, pileWidth, pileHeight, out RingGeometry ringGeometry);
-            if (ring.Count < 2)
-            {
-                LogInfo($"rotation target search failed: requestId={requestId}, reason=ring-empty, ringCount={ring.Count}.");
-                return false;
-            }
-
-            int oldX = Math.Min(oldPile->r_TilePositionXBegin, oldPile->r_TilePositionXEnd);
-            int oldY = Math.Min(oldPile->r_TilePositionYBegin, oldPile->r_TilePositionYEnd);
-            int currentIndex = FindRingPosition(ring, oldX, oldY);
-            bool exactCurrentPosition = currentIndex >= 0;
-            if (!exactCurrentPosition)
-                currentIndex = FindNearestRingPosition(ring, oldPile, pileWidth, pileHeight);
+            HashSet<long> failedTargets = GetFailedRotationTargets(quarryGlobalId, oldPileGlobalId);
+            int failedTargetSkipCount = 0;
+            int candidateAttemptCount = 0;
 
             LogInfo(
-                $"rotation target search started: requestId={requestId}, playerId={playerId}, pileFootprint={pileWidth}x{pileHeight}, " +
-                $"buildingScale={buildingScale}, ringCount={ring.Count}, ringCenter2={ringGeometry.CenterX2},{ringGeometry.CenterY2}, " +
-                $"ringRadius2={ringGeometry.Radius2}, ringBounds={ringGeometry.Left},{ringGeometry.Top}-{ringGeometry.Right},{ringGeometry.Bottom}, " +
-                $"oldAnchor={oldX},{oldY}, startIndex={currentIndex}, exactCurrentPosition={exactCurrentPosition}.");
+                $"rotation target search started: requestId={requestId}, playerId={playerId}, quarryGlobalId={quarryGlobalId}, " +
+                $"oldPileGlobalId={oldPileGlobalId}, quarryAnchor={quarry->r_TilePositionXBegin},{quarry->r_TilePositionYBegin}, " +
+                $"oldAnchor={oldX},{oldY}, currentVanillaIndex={currentIndex}, currentVanillaTry={currentPlacementTry}, " +
+                $"exactCurrentPosition={exactCurrentPosition}, candidatesPerTry={VanillaCandidateCount}, " +
+                $"placementTries={VanillaMinimumPlacementTry}-{VanillaMaximumPlacementTry}, failedTargetCount={failedTargets?.Count ?? 0}.");
 
-            int attempts = exactCurrentPosition ? ring.Count - 1 : ring.Count;
-            for (int offset = 1; offset <= attempts; offset++)
+            // Vanilla's perimeter indexes increase clockwise. Always exhaust the closest Vanilla distance first,
+            // but begin immediately after the current angular index so a vacated position is not selected again.
+            for (int placementTry = VanillaMinimumPlacementTry;
+                placementTry <= VanillaMaximumPlacementTry;
+                placementTry++)
             {
-                int candidateIndex = (currentIndex + offset) % ring.Count;
-                RingPosition candidate = ring[candidateIndex];
-
-                if (candidate.X == oldX && candidate.Y == oldY)
-                    continue;
-
-                if (RectanglesOverlap(
-                    candidate.X,
-                    candidate.Y,
-                    pileWidth,
-                    pileHeight,
-                    oldX,
-                    oldY,
-                    pileWidth,
-                    pileHeight))
+                for (int clockwiseOffset = 1; clockwiseOffset <= VanillaCandidateCount; clockwiseOffset++)
                 {
-                    LogInfo($"rotation candidate skipped: requestId={requestId}, candidateIndex={candidateIndex}, target={candidate.X},{candidate.Y}, reason=overlaps-existing-pile.");
-                    continue;
+                    int candidateIndex = (currentIndex + clockwiseOffset) % VanillaCandidateCount;
+                    if (!TryGetVanillaCandidate(quarry, candidateIndex, placementTry, out PlacementPosition candidate))
+                    {
+                        LogInfo(
+                            $"rotation target search failed: requestId={requestId}, reason=Vanilla-candidate-generation-failed, " +
+                            $"vanillaTry={placementTry}, candidateIndex={candidateIndex}.");
+                        return false;
+                    }
+
+                    candidateAttemptCount++;
+
+                    if (candidate.X == oldX && candidate.Y == oldY)
+                    {
+                        LogInfo(
+                            $"rotation candidate skipped: requestId={requestId}, vanillaTry={placementTry}, candidateIndex={candidateIndex}, " +
+                            $"target={candidate.X},{candidate.Y}, reason=current-pile-position.");
+                        continue;
+                    }
+
+                    if (failedTargets != null && failedTargets.Contains(GetPositionKey(candidate)))
+                    {
+                        failedTargetSkipCount++;
+                        LogInfo(
+                            $"rotation candidate skipped: requestId={requestId}, vanillaTry={placementTry}, candidateIndex={candidateIndex}, " +
+                            $"target={candidate.X},{candidate.Y}, reason=previous-spawn-failure.");
+                        continue;
+                    }
+
+                    if (!ValidateCandidateWithGame(
+                        playerId,
+                        candidate,
+                        buildingScale,
+                        requestId,
+                        candidateIndex,
+                        placementTry))
+                    {
+                        continue;
+                    }
+
+                    target = candidate;
+                    LogInfo(
+                        $"rotation target selected: requestId={requestId}, vanillaTry={placementTry}, candidateIndex={candidateIndex}, " +
+                        $"target={target.X},{target.Y}, clockwiseOffset={clockwiseOffset}, totalCandidateAttempts={candidateAttemptCount}, " +
+                        $"previousFailedTargetsSkipped={failedTargetSkipCount}.");
+                    return true;
                 }
-
-                if (!IsFootprintInsideMap(candidate.X, candidate.Y, pileWidth, pileHeight))
-                {
-                    LogInfo($"rotation candidate skipped: requestId={requestId}, candidateIndex={candidateIndex}, target={candidate.X},{candidate.Y}, reason=footprint-outside-map.");
-                    continue;
-                }
-
-                if (!ValidateCandidateWithGame(playerId, candidate, buildingScale, requestId, candidateIndex))
-                    continue;
-
-                target = candidate;
-                LogInfo($"rotation target selected: requestId={requestId}, candidateIndex={candidateIndex}, target={target.X},{target.Y}, attemptsUsed={offset}.");
-                return true;
             }
 
-            LogInfo($"rotation target search exhausted: requestId={requestId}, playerId={playerId}, ringCount={ring.Count}, attempts={attempts}.");
+            LogInfo(
+                $"rotation target search exhausted: requestId={requestId}, playerId={playerId}, totalCandidateAttempts={candidateAttemptCount}, " +
+                $"previousFailedTargetsSkipped={failedTargetSkipCount}, maximumVanillaTry={VanillaMaximumPlacementTry}.");
+
             return false;
+        }
+
+        private bool ValidateRequestedRotationTarget(
+            int playerId,
+            GameBuilding* quarry,
+            GameBuilding* oldPile,
+            PlacementPosition target,
+            int requestId)
+        {
+            if (setupBuildingEntrancesOffset == null)
+                return false;
+
+            int quarryScale = GetBuildingScale(quarry);
+            int buildingScale = GetBuildingScale(oldPile);
+            if (quarryScale != VanillaQuarryScale || buildingScale != VanillaPileScale)
+                return false;
+
+            int targetCandidateIndex = -1;
+            int targetPlacementTry = -1;
+            for (int placementTry = VanillaMinimumPlacementTry;
+                placementTry <= VanillaMaximumPlacementTry && targetPlacementTry < 0;
+                placementTry++)
+            {
+                for (int candidateIndex = 0; candidateIndex < VanillaCandidateCount; candidateIndex++)
+                {
+                    if (!TryGetVanillaCandidate(quarry, candidateIndex, placementTry, out PlacementPosition candidate))
+                        return false;
+
+                    if (candidate.X != target.X || candidate.Y != target.Y)
+                        continue;
+
+                    targetCandidateIndex = candidateIndex;
+                    targetPlacementTry = placementTry;
+                    break;
+                }
+            }
+
+            if (targetPlacementTry < 0)
+            {
+                LogInfo(
+                    $"requested rotation target rejected: requestId={requestId}, target={target.X},{target.Y}, " +
+                    $"reason=not-a-Vanilla-quarry-pile-candidate.");
+                return false;
+            }
+
+            LogInfo(
+                $"requested rotation target matched Vanilla candidate: requestId={requestId}, target={target.X},{target.Y}, " +
+                $"vanillaTry={targetPlacementTry}, candidateIndex={targetCandidateIndex}.");
+            return ValidateCandidateWithGame(
+                playerId,
+                target,
+                buildingScale,
+                requestId,
+                targetCandidateIndex,
+                targetPlacementTry);
+        }
+
+        private bool TryResolveVanillaCursor(
+            GameBuilding* quarry,
+            int oldX,
+            int oldY,
+            out int currentIndex,
+            out int currentPlacementTry,
+            out bool exactCurrentPosition)
+        {
+            currentIndex = VanillaCandidateCount / 4;
+            currentPlacementTry = 0;
+            exactCurrentPosition = false;
+            long nearestDistanceSquared = long.MaxValue;
+
+            for (int placementTry = VanillaMinimumPlacementTry;
+                placementTry <= VanillaMaximumPlacementTry;
+                placementTry++)
+            {
+                for (int candidateIndex = 0; candidateIndex < VanillaCandidateCount; candidateIndex++)
+                {
+                    if (!TryGetVanillaCandidate(quarry, candidateIndex, placementTry, out PlacementPosition candidate))
+                        return false;
+
+                    if (candidate.X == oldX && candidate.Y == oldY)
+                    {
+                        currentIndex = candidateIndex;
+                        currentPlacementTry = placementTry;
+                        exactCurrentPosition = true;
+                        return true;
+                    }
+
+                    if (placementTry != VanillaMinimumPlacementTry)
+                        continue;
+
+                    long dx = candidate.X - (long)oldX;
+                    long dy = candidate.Y - (long)oldY;
+                    long distanceSquared = dx * dx + dy * dy;
+                    if (distanceSquared >= nearestDistanceSquared)
+                        continue;
+
+                    currentIndex = candidateIndex;
+                    nearestDistanceSquared = distanceSquared;
+                }
+            }
+
+            return true;
+        }
+
+        private bool TryGetVanillaCandidate(
+            GameBuilding* quarry,
+            int candidateIndex,
+            int placementTry,
+            out PlacementPosition candidate)
+        {
+            candidate = default;
+            if (quarry == null ||
+                setupBuildingEntrancesOffset == null ||
+                candidateIndex < 0 ||
+                candidateIndex >= VanillaCandidateCount ||
+                placementTry < VanillaMinimumPlacementTry ||
+                placementTry > VanillaMaximumPlacementTry)
+            {
+                return false;
+            }
+
+            NativePointer<GameBuildingManager> buildingManager = GameBuildingManagerAPI.Instance.GetBuildingManager();
+            GameBuildingManager* buildingManagerPointer = buildingManager;
+            if (buildingManagerPointer == null)
+                return false;
+
+            int* relativeXPointer = (int*)((byte*)buildingManagerPointer + VanillaCandidateOffsetX);
+            int* relativeYPointer = (int*)((byte*)buildingManagerPointer + VanillaCandidateOffsetY);
+            int previousRelativeX = *relativeXPointer;
+            int previousRelativeY = *relativeYPointer;
+            try
+            {
+                setupBuildingEntrancesOffset(
+                    buildingManager,
+                    VanillaQuarryScale,
+                    VanillaPileScale,
+                    candidateIndex,
+                    placementTry);
+
+                int relativeX = *relativeXPointer;
+                int relativeY = *relativeYPointer;
+                candidate = new PlacementPosition(
+                    quarry->r_TilePositionXBegin + relativeX,
+                    quarry->r_TilePositionYBegin + relativeY);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"SomeSettings quarry-pile Vanilla candidate generation failed: candidateIndex={candidateIndex}, " +
+                    $"placementTry={placementTry}: {ex}");
+                return false;
+            }
+            finally
+            {
+                *relativeXPointer = previousRelativeX;
+                *relativeYPointer = previousRelativeY;
+            }
         }
 
         private bool ValidateCandidateWithGame(
             int playerId,
-            RingPosition candidate,
+            PlacementPosition candidate,
             int buildingScale,
             int requestId,
-            int candidateIndex)
+            int candidateIndex,
+            int placementTry)
         {
             GameTileManagerAPI tileApi = GameTileManagerAPI.Instance;
             bool previousBlockedState = tileApi.TileManager.IsPlacementBlocked;
@@ -791,14 +1050,14 @@ namespace SomeSettings
                     buildingScale,
                     0);
                 bool blocked = tileApi.TileManager.IsPlacementBlocked;
-                LogInfo($"native placement validation returned: requestId={requestId}, candidateIndex={candidateIndex}, target={candidate.X},{candidate.Y}, buildingScale={buildingScale}, returnValue={validatorResult}, blocked={blocked}.");
+                LogInfo($"native placement validation returned: requestId={requestId}, vanillaTry={placementTry}, candidateIndex={candidateIndex}, target={candidate.X},{candidate.Y}, buildingScale={buildingScale}, returnValue={validatorResult}, blocked={blocked}.");
                 return !blocked;
             }
             catch (Exception ex)
             {
                 Shared.DebugLogHelper.LogError(
                     log,
-                    $"SomeSettings quarry-pile native placement validation failed: requestId={requestId}, candidateIndex={candidateIndex}, target={candidate.X},{candidate.Y}: {ex}");
+                    $"SomeSettings quarry-pile native placement validation failed: requestId={requestId}, vanillaTry={placementTry}, candidateIndex={candidateIndex}, target={candidate.X},{candidate.Y}: {ex}");
                 return false;
             }
             finally
@@ -813,7 +1072,7 @@ namespace SomeSettings
             GameBuilding* quarry,
             int oldPileId,
             GameBuilding* oldPile,
-            RingPosition target,
+            PlacementPosition target,
             int requestId,
             out int newPileId,
             out GameBuilding* newPile)
@@ -907,8 +1166,7 @@ namespace SomeSettings
 
             bool replacementVerified = newPileId > 0 &&
                 IsValidFreshSpawn(newPile, eStructs.STRUCT_QUARRYPILE, playerId) &&
-                Math.Min(newPile->r_TilePositionXBegin, newPile->r_TilePositionXEnd) == target.X &&
-                Math.Min(newPile->r_TilePositionYBegin, newPile->r_TilePositionYEnd) == target.Y &&
+                MatchesSpawnAnchor(newPile->r_TilePositionXBegin, newPile->r_TilePositionYBegin, target) &&
                 newPile->r_OccupyTileGridSize == oldPile->r_OccupyTileGridSize;
             if (!replacementVerified)
             {
@@ -934,7 +1192,7 @@ namespace SomeSettings
             PrefabSpawnCapture capture,
             int oldPileId,
             int playerId,
-            RingPosition target,
+            PlacementPosition target,
             uint expectedGridSize,
             out int newPileId,
             out GameBuilding* newPile)
@@ -951,8 +1209,10 @@ namespace SomeSettings
                     continue;
                 }
 
-                bool matchesTarget = Math.Min(candidate->r_TilePositionXBegin, candidate->r_TilePositionXEnd) == target.X &&
-                    Math.Min(candidate->r_TilePositionYBegin, candidate->r_TilePositionYEnd) == target.Y &&
+                bool matchesTarget = MatchesSpawnAnchor(
+                        candidate->r_TilePositionXBegin,
+                        candidate->r_TilePositionYBegin,
+                        target) &&
                     candidate->r_OccupyTileGridSize == expectedGridSize;
                 LogInfo($"captured prefab candidate inspected: requestId={capture.RequestId}, candidateId={candidateId}, matchesTarget={matchesTarget}, actual={DescribeBuilding(candidate)}.");
                 if (!matchesTarget)
@@ -969,7 +1229,7 @@ namespace SomeSettings
         private static int FindFreshPileAtTarget(
             int oldPileId,
             int playerId,
-            RingPosition target,
+            PlacementPosition target,
             out GameBuilding* pile)
         {
             pile = null;
@@ -984,8 +1244,10 @@ namespace SomeSettings
                 if ((building.r_AliveState == AliveState.NeedsInit || building.r_AliveState == AliveState.IsAlive) &&
                     building.r_BuildingType == eStructs.STRUCT_QUARRYPILE &&
                     building.r_PlayerIdOwner == playerId &&
-                    Math.Min(building.r_TilePositionXBegin, building.r_TilePositionXEnd) == target.X &&
-                    Math.Min(building.r_TilePositionYBegin, building.r_TilePositionYEnd) == target.Y)
+                    MatchesSpawnAnchor(
+                        building.r_TilePositionXBegin,
+                        building.r_TilePositionYBegin,
+                        target))
                 {
                     if (GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out pile))
                         return buildingId;
@@ -993,6 +1255,13 @@ namespace SomeSettings
             }
 
             return 0;
+        }
+
+        private static bool MatchesSpawnAnchor(int tileXBegin, int tileYBegin, PlacementPosition target)
+        {
+            // CreatePrefab stores its requested placement anchor in Begin. End describes the footprint
+            // direction and can therefore be smaller than Begin for candidates above or left of a quarry.
+            return tileXBegin == target.X && tileYBegin == target.Y;
         }
 
         private void CleanupFailedPrefabSpawns(
@@ -1064,134 +1333,6 @@ namespace SomeSettings
             // CreatePrefab/DeleteBuildingSafe own the tile and visual lifecycle. Only clear the transferred
             // resource state here; forcing the raw visual APIs is ineffective for these prefab instances.
             LogInfo($"pile content cleared before prefab-managed deletion: stage={stage}, requestId={requestId}, pileId={pileId}, pileGlobalId={pileGlobalId}, aliveState={pile->r_AliveState}, previousStoneBlocks={previousStoneBlocks}, previousGoodStack={previousGoodStack}.");
-        }
-
-        private static List<RingPosition> CreateClockwiseRing(
-            GameBuilding* quarry,
-            GameBuilding* oldPile,
-            int pileWidth,
-            int pileHeight,
-            out RingGeometry geometry)
-        {
-            int quarryMinX = Math.Min(quarry->r_TilePositionXBegin, quarry->r_TilePositionXEnd);
-            int quarryMaxX = Math.Max(quarry->r_TilePositionXBegin, quarry->r_TilePositionXEnd);
-            int quarryMinY = Math.Min(quarry->r_TilePositionYBegin, quarry->r_TilePositionYEnd);
-            int quarryMaxY = Math.Max(quarry->r_TilePositionYBegin, quarry->r_TilePositionYEnd);
-            int quarryWidth = quarryMaxX - quarryMinX + 1;
-            int quarryHeight = quarryMaxY - quarryMinY + 1;
-            int quarryCenterX2 = quarryMinX + quarryMaxX;
-            int quarryCenterY2 = quarryMinY + quarryMaxY;
-            int oldCenterX2 = Math.Min(oldPile->r_TilePositionXBegin, oldPile->r_TilePositionXEnd) * 2 + pileWidth - 1;
-            int oldCenterY2 = Math.Min(oldPile->r_TilePositionYBegin, oldPile->r_TilePositionYEnd) * 2 + pileHeight - 1;
-
-            // A rectangle in tile coordinates projects to a diamond in the isometric view. The old one-tile
-            // X margin sat inside the visible quarry footprint. Keep the ring centered on both building centers
-            // and at least as far out as the vanilla right-hand pile position.
-            int currentRadius2 = Math.Max(
-                Math.Abs(oldCenterX2 - quarryCenterX2),
-                Math.Abs(oldCenterY2 - quarryCenterY2));
-            int minimumRadius2 = Math.Max(
-                3 * quarryWidth + pileWidth - 2,
-                quarryHeight + pileHeight);
-            int radius2 = Math.Max(currentRadius2, minimumRadius2);
-
-            int left = DivideCeiling(quarryCenterX2 - radius2 - (pileWidth - 1), 2);
-            int right = DivideFloor(quarryCenterX2 + radius2 - (pileWidth - 1), 2);
-            int top = DivideCeiling(quarryCenterY2 - radius2 - (pileHeight - 1), 2);
-            int bottom = DivideFloor(quarryCenterY2 + radius2 - (pileHeight - 1), 2);
-            geometry = new RingGeometry(quarryCenterX2, quarryCenterY2, radius2, left, top, right, bottom);
-
-            if (right < left || bottom < top)
-                return new List<RingPosition>();
-
-            List<RingPosition> ring = new List<RingPosition>(2 * ((right - left) + (bottom - top)));
-
-            for (int x = left; x <= right; x++)
-                ring.Add(new RingPosition(x, top));
-            for (int y = top + 1; y <= bottom; y++)
-                ring.Add(new RingPosition(right, y));
-            for (int x = right - 1; x >= left; x--)
-                ring.Add(new RingPosition(x, bottom));
-            for (int y = bottom - 1; y > top; y--)
-                ring.Add(new RingPosition(left, y));
-
-            return ring;
-        }
-
-        private static int DivideCeiling(int value, int divisor)
-        {
-            int quotient = value / divisor;
-            int remainder = value % divisor;
-            return remainder > 0 ? quotient + 1 : quotient;
-        }
-
-        private static int DivideFloor(int value, int divisor)
-        {
-            int quotient = value / divisor;
-            int remainder = value % divisor;
-            return remainder < 0 ? quotient - 1 : quotient;
-        }
-
-        private static int FindRingPosition(List<RingPosition> ring, int x, int y)
-        {
-            for (int index = 0; index < ring.Count; index++)
-            {
-                if (ring[index].X == x && ring[index].Y == y)
-                    return index;
-            }
-
-            return -1;
-        }
-
-        private static int FindNearestRingPosition(
-            List<RingPosition> ring,
-            GameBuilding* oldPile,
-            int pileWidth,
-            int pileHeight)
-        {
-            int oldCenterX2 = Math.Min(oldPile->r_TilePositionXBegin, oldPile->r_TilePositionXEnd) * 2 + pileWidth - 1;
-            int oldCenterY2 = Math.Min(oldPile->r_TilePositionYBegin, oldPile->r_TilePositionYEnd) * 2 + pileHeight - 1;
-            int nearestIndex = 0;
-            long nearestDistanceSquared = long.MaxValue;
-
-            for (int index = 0; index < ring.Count; index++)
-            {
-                long dx = ring[index].X * 2L + pileWidth - 1 - oldCenterX2;
-                long dy = ring[index].Y * 2L + pileHeight - 1 - oldCenterY2;
-                long distanceSquared = dx * dx + dy * dy;
-                if (distanceSquared >= nearestDistanceSquared)
-                    continue;
-
-                nearestIndex = index;
-                nearestDistanceSquared = distanceSquared;
-            }
-
-            return nearestIndex;
-        }
-
-        private static bool RectanglesOverlap(
-            int firstX,
-            int firstY,
-            int firstWidth,
-            int firstHeight,
-            int secondX,
-            int secondY,
-            int secondWidth,
-            int secondHeight)
-        {
-            return firstX < secondX + secondWidth &&
-                firstX + firstWidth > secondX &&
-                firstY < secondY + secondHeight &&
-                firstY + firstHeight > secondY;
-        }
-
-        private static bool IsFootprintInsideMap(int x, int y, int width, int height)
-        {
-            GameTileManagerAPI tileApi = GameTileManagerAPI.Instance;
-            return tileApi.IsTileInsideMapBounds(x, y) &&
-                tileApi.IsTileInsideMapBounds(x + width - 1, y) &&
-                tileApi.IsTileInsideMapBounds(x, y + height - 1) &&
-                tileApi.IsTileInsideMapBounds(x + width - 1, y + height - 1);
         }
 
         private bool TryGetRelocatableQuarry(
@@ -1273,16 +1414,6 @@ namespace SomeSettings
                 building->r_PlayerIdOwner == ownerPlayerId;
         }
 
-        private static int GetBuildingWidth(GameBuilding* building)
-        {
-            return Math.Abs(building->r_TilePositionXEnd - building->r_TilePositionXBegin) + 1;
-        }
-
-        private static int GetBuildingHeight(GameBuilding* building)
-        {
-            return Math.Abs(building->r_TilePositionYEnd - building->r_TilePositionYBegin) + 1;
-        }
-
         private static int GetBuildingScale(GameBuilding* building)
         {
             uint gridSize = building->r_OccupyTileGridSize;
@@ -1353,10 +1484,61 @@ namespace SomeSettings
             }
         }
 
+        private HashSet<long> GetFailedRotationTargets(int quarryGlobalId, int oldPileGlobalId)
+        {
+            if (!failedRotationTargetsByQuarry.TryGetValue(quarryGlobalId, out FailedRotationTargets state))
+                return null;
+
+            if (state.OldPileGlobalId == oldPileGlobalId)
+                return state.Targets;
+
+            failedRotationTargetsByQuarry.Remove(quarryGlobalId);
+            LogInfo(
+                $"discarded stale failed-target state: quarryGlobalId={quarryGlobalId}, " +
+                $"storedOldPileGlobalId={state.OldPileGlobalId}, currentOldPileGlobalId={oldPileGlobalId}.");
+            return null;
+        }
+
+        private void RememberFailedRotationTarget(QuarryPileRelocationPacket packet, string reason)
+        {
+            if (packet == null || packet.QuarryGlobalId <= 0 || packet.OldPileGlobalId <= 0)
+                return;
+
+            if (!failedRotationTargetsByQuarry.TryGetValue(packet.QuarryGlobalId, out FailedRotationTargets state) ||
+                state.OldPileGlobalId != packet.OldPileGlobalId)
+            {
+                state = new FailedRotationTargets(packet.OldPileGlobalId);
+                failedRotationTargetsByQuarry[packet.QuarryGlobalId] = state;
+            }
+
+            PlacementPosition target = new PlacementPosition(packet.TargetTileX, packet.TargetTileY);
+            bool added = state.Targets.Add(GetPositionKey(target));
+            LogInfo(
+                $"failed rotation target remembered: reason={reason}, quarryGlobalId={packet.QuarryGlobalId}, " +
+                $"oldPileGlobalId={packet.OldPileGlobalId}, target={target.X},{target.Y}, added={added}, failedTargetCount={state.Targets.Count}.");
+        }
+
+        private void ClearFailedRotationTargets(int quarryGlobalId, string reason)
+        {
+            if (quarryGlobalId <= 0 || !failedRotationTargetsByQuarry.Remove(quarryGlobalId))
+                return;
+
+            LogInfo($"failed rotation targets cleared: reason={reason}, quarryGlobalId={quarryGlobalId}.");
+        }
+
+        private static long GetPositionKey(PlacementPosition position)
+        {
+            return ((long)position.X << 32) | (uint)position.Y;
+        }
+
         private void ClearMapState()
         {
-            LogInfo($"clearing rotation state: processedRequestPlayerCount={processedRequestIds.Count}, nextRequestId={nextRequestId}, prefabCaptureActive={activePrefabSpawnCapture != null}, linkedRemovalSuppressionDepth={linkedRemovalSuppressionDepth}.");
+            LogInfo(
+                $"clearing rotation state: processedRequestPlayerCount={processedRequestIds.Count}, " +
+                $"failedTargetQuarryCount={failedRotationTargetsByQuarry.Count}, nextRequestId={nextRequestId}, " +
+                $"prefabCaptureActive={activePrefabSpawnCapture != null}, linkedRemovalSuppressionDepth={linkedRemovalSuppressionDepth}.");
             processedRequestIds.Clear();
+            failedRotationTargetsByQuarry.Clear();
             activePrefabSpawnCapture = null;
             linkedRemovalSuppressionDepth = 0;
             nextRequestId = 0;
@@ -1398,6 +1580,17 @@ namespace SomeSettings
             return localPlayerId > 0 ? localPlayerId : 1;
         }
 
+        private sealed class FailedRotationTargets
+        {
+            public FailedRotationTargets(int oldPileGlobalId)
+            {
+                OldPileGlobalId = oldPileGlobalId;
+            }
+
+            public int OldPileGlobalId { get; }
+            public HashSet<long> Targets { get; } = new HashSet<long>();
+        }
+
         private sealed class PrefabSpawnCapture
         {
             public PrefabSpawnCapture(int requestId, int playerId, int targetX, int targetY)
@@ -1427,9 +1620,9 @@ namespace SomeSettings
             }
         }
 
-        private readonly struct RingPosition
+        private readonly struct PlacementPosition
         {
-            public RingPosition(int x, int y)
+            public PlacementPosition(int x, int y)
             {
                 X = x;
                 Y = y;
@@ -1437,28 +1630,6 @@ namespace SomeSettings
 
             public int X { get; }
             public int Y { get; }
-        }
-
-        private readonly struct RingGeometry
-        {
-            public RingGeometry(int centerX2, int centerY2, int radius2, int left, int top, int right, int bottom)
-            {
-                CenterX2 = centerX2;
-                CenterY2 = centerY2;
-                Radius2 = radius2;
-                Left = left;
-                Top = top;
-                Right = right;
-                Bottom = bottom;
-            }
-
-            public int CenterX2 { get; }
-            public int CenterY2 { get; }
-            public int Radius2 { get; }
-            public int Left { get; }
-            public int Top { get; }
-            public int Right { get; }
-            public int Bottom { get; }
         }
 
         private readonly struct PileContentSnapshot
