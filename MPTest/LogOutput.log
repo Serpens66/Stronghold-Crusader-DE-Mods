@@ -1,0 +1,1617 @@
+[Message:   BepInEx] BepInEx 5.4.23.2 - Stronghold Crusader Definitive Edition (04.06.2026 21:44:14)
+[Info   :   BepInEx] Running under Unity v2021.3.45.8976527
+[Info   :   BepInEx] CLR runtime version: 4.0.30319.42000
+[Info   :   BepInEx] Supports SRE: True
+[Info   :   BepInEx] System platform: Bits64, Windows
+[Message:   BepInEx] Preloader started
+[Info   :   BepInEx] Loaded 1 patcher method from [BepInEx.Preloader 5.4.23.2]
+[Info   :   BepInEx] 1 patcher plugin loaded
+[Info   :   BepInEx] Patching [UnityEngine.CoreModule] with [BepInEx.Chainloader]
+[Message:   BepInEx] Preloader finished
+[Message:   BepInEx] Chainloader ready
+[Message:   BepInEx] Chainloader started
+[Info   :   BepInEx] 11 plugins to load
+[Warning:   BepInEx] Skipping [Some Settings 1.0.7] because a newer version exists (Some Settings 1.0.7)
+[Info   :   BepInEx] Loading [UU-ImGUI API 1.6.7]
+[Info   :UU-ImGUI API] Plugin UU-ImGUI API is loading!
+[Info   :UU-ImGUI API] Adding to PATH: E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\x86_64
+[Info   :UU-ImGUI API] Initializing...
+[Info   :UU-ImGUI API] Trying locale-path: E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\data\localization
+[Info   :UU-ImGUI API] hModule base image addr:		0x7FF67F7B0000
+[Info   :UU-ImGUI API] hModule size of image:		0xDF000
+[Info   :UU-ImGUI API] GAME PROCESS ID: 18700
+[Info   :UU-ImGUI API] GAME WINDOW HWND: 2557184
+[Info   :UU-ImGUI API] D3D11 SWAPCHAIN VTABLE.PRESENT ADDR: 7FFB2ECFD7E0
+[Warning:UU-ImGUI API] GetProcAddressProxy: 7FFA69660000::ImGuiFreeType_GetBuilderForFreeType -> returned null
+[Warning:UU-ImGUI API] GetProcAddressProxy: 7FFA69660000::TextEditor_GetTextLines -> returned null
+[Info   :UU-ImGUI API] LibD3D11: Initialize
+[Info   :UU-ImGUI API] Plugin UU-ImGUI API is loaded!
+[Info   :   BepInEx] Loading [SHCDE-SE 1.39.0.0]
+[Info   :  SHCDE-SE] [Plugin] [InitLanguageProviderEarly] Set language provider to de-DE
+[Info   :  SHCDE-SE] [Plugin] [Awake] Plugin SHCDE-SE is loading!
+[Info   :  SHCDE-SE] [Plugin] [Awake] Added to library search path: E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese
+[Info   :  SHCDE-SE] [ILHooksManager] [ApplyEarly] Applying Managed Early IL Detours
+[Info   :  SHCDE-SE] [ManagedHookManager] [ApplyEarly] Applying Managed Early Detours
+[Info   :  SHCDE-SE] [ManagedDetour] [.ctor] Created detour [LoadXaml]->[NoesisXamlProvider_LoadXaml]
+[Info   :  SHCDE-SE] [ManagedDetour] [.ctor] Created detour [GetTextureInfo]->[NoesisTextureProvider_GetTextureInfo]
+[Info   :  SHCDE-SE] [ManagedDetour] [.ctor] Created detour [LoadComponent]->[NoesisGUI_LoadComponent_Hook]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [RegisterBinding] Registering auto-binding: [SEMainMenuContainer]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [RegisterBinding] Registering auto-binding: [SE_ModOptionsToggle]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [RegisterBinding] Registering auto-binding: [SE_ModOptionsModal]
+[Info   :  SHCDE-SE] [GameAssetModManager] [RegisterAll] Loading Asset Mod: [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing assets for [000shcdese] from [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\Override]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [AIV/.gitignore]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [ScriptExtenderUI/.gitignore]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/Sprites/000shcdese.png]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/Sprites/modsettingspanel.png]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/Sprites/selogo_1.png]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/Sprites/selogo_2.png]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/Sprites/selogo_3.png]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/Sprites/UI-Colour1Atlas.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/Sprites/UI-Colour2Atlas.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/Sprites/UI-MasterAtlas.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/Sprites/UI-TrailAtlas.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAML/FrontendMenus.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAML/IngameUIScreens.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAML/IntroSequence.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAML/MainHUD.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAML/MasterController.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/ApplicationResources.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/BackgroundScreens.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/BDR_Stronghold.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/BTN_Building.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/BTN_FrontMenu.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/BTN_Image.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/BTN_NewFrontend.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/BTN_RADIO_Image.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/BTN_SH_BuySell.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/BTN_SH_Glow.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/BTN_SH_Plain.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/BTN_StartingGood.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/CheckBox_Template.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/FRONT_CoopTrail1.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/FRONT_CoopTrail2.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/FRONT_CoopTrail3.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/FRONT_Credits.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/FRONT_EditorSetup.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/FRONT_Extra1Campaign.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/FRONT_Extra2Campaign.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/FRONT_Extra3Campaign.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/FRONT_Extra4Campaign.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/FRONT_Extra5Campaign.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/FRONT_Extra6Campaign.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/FRONT_Extra7Campaign.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/FRONT_ManageTrail.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/FRONT_Multiplayer.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/FRONT_Multiplayer_AISettings.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/FRONT_Multiplayer_Setup.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/FRONT_SandsTrail1.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/FRONT_SandsTrail2.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/FRONT_SandsTrail3.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/FRONT_SandsTrail4.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/FRONT_SandsTrail5.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/FRONT_SandsTrail6.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/FRONT_SandsTrail7.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/FRONT_SkirmishMasters.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/FRONT_StandaloneMission.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/FRONT_Story.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/FRONT_Trail.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/FRONT_Trail2.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/FRONT_Trail3.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/HUD_AlliesPanel.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/HUD_Briefing.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/HUD_Buildings.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/HUD_CoatOfArms.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/HUD_ConfirmationPopup.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/HUD_ControlGroups.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/HUD_CustomTrailsSelect.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/HUD_EditorWarning.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/HUD_ExtremePowers.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/HUD_FreebuildMenu.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/HUD_Goods.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/HUD_Help.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/HUD_IngameMenu.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/HUD_Leaderboard.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/HUD_LoadSaveRequester.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/HUD_Main.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/HUD_Markers.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/HUD_MeritPanel.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/HUD_MissionOver.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/HUD_MPChatMessages.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/HUD_MPChatPanel.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/HUD_MPConnectionIssue.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/HUD_MPInviteWarning.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/HUD_MPResync.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/HUD_Objectives.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/HUD_Options.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/HUD_RightClick.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/HUD_Scenario.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/HUD_ScenarioSpecial.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/HUD_Scenario_Popup.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/HUD_Troops.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/HUD_Tutorial.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/HUD_WorkshopUploader.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/ListViewItem_Styles.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/LST_SH_BuildingAvailable.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/LST_SH_HotKeys.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/OST_Koth.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/OST_Pings.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/OST_StartingGoods.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/SDR_SH_Plain.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/SVG_Images.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/Theme.Brushes.DarkRed.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/Theme.DarkRed.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/TOOLTIPS.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/WGT_Heading.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/WGT_Heading2.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/WGT_Objective.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/WGT_Popularity.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/WGT_SkirmishMastersRow.xaml]
+[Info   :  SHCDE-SE] [GameAssetModManager] [RegisterAssetMod] Mod [Script Extender] has no Lua scripts (Scripts/init.lua not found) - This is fine.
+[Info   :  SHCDE-SE] [GameAssetModManager] [RegisterAll] Loading Asset Mod: [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\BuildingCosts_Serp]
+[Warning:  SHCDE-SE] [GameAssetModManager] [RegisterAssetMod] Mod has no sprite logo at [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\BuildingCosts_Serp\Override\Assets\GUI\Sprites\BuildingCosts_Serp.png] - This may be ignored.
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing assets for [BuildingCosts_Serp] from [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\BuildingCosts_Serp\Override]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [ScriptExtenderUI/BuildingCostsSettings.xaml]
+[Info   :  SHCDE-SE] [GameTranslateAPI] [LoadModLocalizations] Loaded 0 localization files from E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\BuildingCosts_Serp
+[Info   :  SHCDE-SE] [GameAssetModManager] [RegisterAssetMod] Mod [Building Costs] has no Lua scripts (Scripts/init.lua not found) - This is fine.
+[Info   :  SHCDE-SE] [GameAssetModManager] [RegisterAll] Loading Asset Mod: [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\BuildingLimit_Serp]
+[Warning:  SHCDE-SE] [GameAssetModManager] [RegisterAssetMod] Mod has no sprite logo at [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\BuildingLimit_Serp\Override\Assets\GUI\Sprites\BuildingLimit_Serp.png] - This may be ignored.
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing assets for [BuildingLimit_Serp] from [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\BuildingLimit_Serp\Override]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [ScriptExtenderUI/BuildingLimitSettings.xaml]
+[Info   :  SHCDE-SE] [GameTranslateAPI] [LoadModLocalizations] Loaded 0 localization files from E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\BuildingLimit_Serp
+[Info   :  SHCDE-SE] [GameAssetModManager] [RegisterAssetMod] Mod [Building Limit] has no Lua scripts (Scripts/init.lua not found) - This is fine.
+[Info   :  SHCDE-SE] [GameAssetModManager] [RegisterAll] Loading Asset Mod: [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\fixes]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing assets for [fixes] from [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\fixes\Override]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [AIV/SK_SHERIFF_7.aivjson]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [AIV/SK_SNAKE_4.aivjson]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [AIV/SK_WOLF_1.aivjson]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [ScriptExtenderUI/FixesSettings.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/Sprites/fixes.png]
+[Info   :  SHCDE-SE] [GameAssetModManager] [RegisterAssetMod] Mod [Fixes] has no Lua scripts (Scripts/init.lua not found) - This is fine.
+[Info   :  SHCDE-SE] [GameAssetModManager] [RegisterAll] Loading Asset Mod: [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\MPTest_Serp]
+[Warning:  SHCDE-SE] [GameAssetModManager] [RegisterAssetMod] Mod has no sprite logo at [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\MPTest_Serp\Override\Assets\GUI\Sprites\MPTest_Serp.png] - This may be ignored.
+[Warning:  SHCDE-SE] [GameAssetModManager] [RegisterAssetMod] Mod has no asset overrides at [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\MPTest_Serp\Override] - This may be ignored.
+[Info   :  SHCDE-SE] [GameAssetModManager] [RegisterAssetMod] Mod [MPTest] has no Lua scripts (Scripts/init.lua not found) - This is fine.
+[Info   :  SHCDE-SE] [GameAssetModManager] [RegisterAll] Loading Asset Mod: [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\SomeSettings_Serp]
+[Warning:  SHCDE-SE] [GameAssetModManager] [RegisterAssetMod] Mod has no sprite logo at [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\SomeSettings_Serp\Override\Assets\GUI\Sprites\SomeSettings_Serp.png] - This may be ignored.
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing assets for [SomeSettings_Serp] from [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\SomeSettings_Serp\Override]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [ScriptExtenderUI/SomeSettingsSettings.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/FRONT_CoopTrail1.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/FRONT_CoopTrail2.xaml]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [Assets/GUI/XAMLResources/FRONT_CoopTrail3.xaml]
+[Info   :  SHCDE-SE] [GameTranslateAPI] [LoadModLocalizations] Loaded 0 localization files from E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\SomeSettings_Serp
+[Info   :  SHCDE-SE] [GameAssetModManager] [RegisterAssetMod] Mod [Some Settings] has no Lua scripts (Scripts/init.lua not found) - This is fine.
+[Info   :  SHCDE-SE] [GameAssetModManager] [RegisterAll] Loading Asset Mod: [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\StartConditions_Serp]
+[Warning:  SHCDE-SE] [GameAssetModManager] [RegisterAssetMod] Mod has no sprite logo at [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\StartConditions_Serp\Override\Assets\GUI\Sprites\StartConditions_Serp.png] - This may be ignored.
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing assets for [StartConditions_Serp] from [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\StartConditions_Serp\Override]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [ScriptExtenderUI/StartConditionsSettings.xaml]
+[Info   :  SHCDE-SE] [GameTranslateAPI] [LoadModLocalizations] Loaded 0 localization files from E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\StartConditions_Serp
+[Info   :  SHCDE-SE] [GameAssetModManager] [RegisterAssetMod] Mod [Start Conditions] has no Lua scripts (Scripts/init.lua not found) - This is fine.
+[Info   :  SHCDE-SE] [GameAssetModManager] [RegisterAll] Loading Asset Mod: [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\UnitCosts_Serp]
+[Warning:  SHCDE-SE] [GameAssetModManager] [RegisterAssetMod] Mod has no sprite logo at [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\UnitCosts_Serp\Override\Assets\GUI\Sprites\UnitCosts_Serp.png] - This may be ignored.
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing assets for [UnitCosts_Serp] from [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\UnitCosts_Serp\Override]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [ScriptExtenderUI/UnitCostsSettings.xaml]
+[Info   :  SHCDE-SE] [GameTranslateAPI] [LoadModLocalizations] Loaded 0 localization files from E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\UnitCosts_Serp
+[Info   :  SHCDE-SE] [GameAssetModManager] [RegisterAssetMod] Mod [Unit Costs] has no Lua scripts (Scripts/init.lua not found) - This is fine.
+[Info   :  SHCDE-SE] [GameAssetModManager] [RegisterAll] Loading Asset Mod: [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\UnitLimit_Serp]
+[Warning:  SHCDE-SE] [GameAssetModManager] [RegisterAssetMod] Mod has no sprite logo at [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\UnitLimit_Serp\Override\Assets\GUI\Sprites\UnitLimit_Serp.png] - This may be ignored.
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing assets for [UnitLimit_Serp] from [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\UnitLimit_Serp\Override]
+[Info   :  SHCDE-SE] [GameAssetManagerAPI] [RegisterAssetProvider] Indexing: [ScriptExtenderUI/UnitLimitSettings.xaml]
+[Info   :  SHCDE-SE] [GameTranslateAPI] [LoadModLocalizations] Loaded 0 localization files from E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\UnitLimit_Serp
+[Info   :  SHCDE-SE] [GameAssetModManager] [RegisterAssetMod] Mod [Unit Limit] has no Lua scripts (Scripts/init.lua not found) - This is fine.
+[Info   :  SHCDE-SE] [ILHooksManager] [Apply] Applying Managed IL Detours
+[Info   :  SHCDE-SE] [ManagedHookManager] [Apply] Applying Managed Detours
+[Info   :  SHCDE-SE] [ManagedDetour] [.ctor] Created detour [getChimpGoldCost]->[GameData_getChimpGoldCosts_Hook]
+[Info   :  SHCDE-SE] [ManagedDetour] [.ctor] Created detour [GetRadarFromFile]->[MapFileManager_GetRadarFromFile_Hook]
+[Info   :  SHCDE-SE] [ManagedDetour] [.ctor] Created detour [lookUpText]->[Translate_lookUpText_Hook]
+[Info   :  SHCDE-SE] [ManagedDetour] [.ctor] Created detour [lookUpText]->[Translate_lookUpText2_Hook]
+[Info   :  SHCDE-SE] [ManagedDetour] [.ctor] Created detour [lookUpText]->[Translate_lookUpTextEx_Hook]
+[Info   :  SHCDE-SE] [ManagedDetour] [.ctor] Created detour [recieveIngameChat]->[HUD_MPChatMessages_ReceiveIngameChat_Hook]
+[Info   :  SHCDE-SE] [ManagedDetour] [.ctor] Created detour [ChatHandle]->[Platform_Multiplayer_ChatHandle_Hook]
+[Info   :  SHCDE-SE] [ManagedDetour] [.ctor] Created detour [SendLobbyChatMessage]->[Platform_Multiplayer_SendLobbyChatMessage_Hook]
+[Info   :  SHCDE-SE] [ManagedDetour] [.ctor] Created detour [SendIngameChat]->[Platform_Multiplayer_SendIngameChat_Hook]
+[Info   :  SHCDE-SE] [ManagedDetour] [.ctor] Created detour [receiveLobbyMessages]->[Platform_Multiplayer_ReceiveLobbyMessages_Hook]
+[Info   :  SHCDE-SE] [ManagedDetour] [.ctor] Created detour [NoesisGUIUpdateChecksInGame]->[FatControler_NoesisGUIUpdateChecksInGame_Hook]
+[Info   :  SHCDE-SE] [ManagedDetour] [.ctor] Created detour [.ctor]->[HUD_Buildings_CTOR_Hook]
+[Info   :  SHCDE-SE] [ManagedDetour] [.ctor] Created detour [interpChimp]->[GameMap_InterpChimpHook]
+[Info   :  SHCDE-SE] [ManagedDetour] [.ctor] Created detour [deleteChimp]->[GameMap_DeleteChimpHook]
+[Info   :  SHCDE-SE] [ManagedDetour] [.ctor] Created detour [playSFX]->[MyAudioManager_PlaySFX_Hook]
+[Info   :  SHCDE-SE] [ManagedDetour] [.ctor] Created detour [LoadClip]->[MyAudioManager_LoadClip_Hook]
+[Info   :  SHCDE-SE] [ManagedDetour] [.ctor] Created detour [UpdateWorkshopMap]->[MapFileManager_UpdateWorkshopMap_Hook]
+[Info   :  SHCDE-SE] [ManagedDetour] [.ctor] Created detour [SetBodySprite]->[SpriteMapping_SetBodySprite_Hook]
+[Info   :  SHCDE-SE] [ManagedDetour] [.ctor] Created detour [SetVisibleState]->[MainViewModel_SetVisibleState_Hook]
+[Info   :  SHCDE-SE] [ManagedDetour] [.ctor] Created detour [Update]->[KeyManager_Update_Hook_Impl]
+[Info   :  SHCDE-SE] [ManagedDetour] [.ctor] Created detour [ProcessExtendedLordFile]->[CustomisationFileManager_ProcessExtendedLordFile_Hook]
+[Info   :  SHCDE-SE] [ManagedDetour] [.ctor] Created detour [getAIFace]->[MainViewModel_GetAIFace_Hook]
+[Info   :  SHCDE-SE] [ManagedDetour] [.ctor] Created detour [set_Source]->[NoesisMediaElement_Setter_Hook]
+[Info   :  SHCDE-SE] [ManagedDetour] [.ctor] Created detour [playSpeech]->[SFXManager_PlaySpeech_Hook]
+[Info   :  SHCDE-SE] [ManagedDetour] [.ctor] Created detour [getComputerName]->[OnScreenText_GetComputerName_Hook]
+[Info   :  SHCDE-SE] [ManagedDetour] [.ctor] Created detour [getAIVData]->[AIVLoader_GetAIVData_Hook]
+[Info   :  SHCDE-SE] [ManagedDetour] [.ctor] Created detour [GetListOfSubscribedItemsPaths]->[Platform_Workshop_GetListOfSubscribedItemsPaths_Hook]
+[Info   :  SHCDE-SE] [ManagedDetour] [.ctor] Created detour [ClearUIPanels]->[FrontendMenus_ClearUIPanels_Hook]
+[Info   :  SHCDE-SE] [ManagedDetour] [.ctor] Created detour [setTileColour]->[GameTile_SetTileColor_Hook]
+[Info   :  SHCDE-SE] [ManagedDetour] [.ctor] Created detour [Awake]->[SteamManager_Awake_Hook]
+[Info   :  SHCDE-SE] [Plugin] [LoadNativeLibrary] CrusaderDE: 00007FFA0F030000
+[Info   :  SHCDE-SE] [Unknown] Base address: 0x00007FFA0F030000
+[Info   :  SHCDE-SE] [Unknown] Module size: 0x0000000008900000 bytes
+[Info   :  SHCDE-SE] [Plugin] [CrusaderLibrary_LibraryLoaded] Initializing native-side...
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] Finding Game Globals...
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] GameUnitManager found at VA: 00007FFA158153F0
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gRangedBoltDamageTableRVA found at RVA: 0000000000320C10
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gRangedJavelinDamageTableRVA found at RVA: 0000000000320D80
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gRangedArrowDamageTableRVA found at RVA: 0000000000320930
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gRangedSlingerDamageTableRVA found at RVA: 0000000000320AA0
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gMeleeDamageTableRVA found at RVA: 00000000003211D0
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gMeleeEunuchAOEDamageTableRVA found at RVA: 0000000000320EF0
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gBallistaDamageDefault: 10000
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gBallistaDamageToPortableShields: 500
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gBallistaDamageToBallista: 2000
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gBallistaDamageToMangonel: 2000
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gBallistaDamageToArabBallista: 2000
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gBallistaDamageToCatapult: 2500
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gBallistaDamageToTrebutchet: 4000
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gBallistaDamageToBatteringRam: 20000
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gUnitHealthTable found at RVA: 00000000003207C0
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gBuildingHealthTable found at RVA: 00000000002E54B0
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gBuildingHousingPopulatonSpaceTable found at RVA: 00000000002E56E0
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gSpeedTable found at RVA: 0000000000321060
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gMapRowLookupTable found at RVA: 000000000402DEBC
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gMapColumnLookupTableRVA found at RVA: 0000000003AAC234
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gMapBuildingManager found at RVA: 00007FFA154F9BA0
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gMaxRandomLions found at VA: 00007FFA0F14D3BD
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gMaxRandomLions: 3
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gGameTribeManagerVA found at RVA: 00007FFA16CF3710
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gPlayerManager found at RVA: 00007FFA1269A1A0
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gBuildingCostDefaults found at VA: 00007FFA0F30C1E4
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gBuildingCostDefaultsEnd found at VA: 00007FFA0F30CA7C
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gBuildingStoneCostsTable found at RVA: 00000000067E2B80
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gBuildingRawPitchCostsTable found at RVA: 00000000067E2B88
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gBuildingGoldCostsTable found at RVA: 00000000067E2B8C
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gBuildingWoodCostsTable found at RVA: 00000000067E2B7C
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gBuildingIronIngotsCostsTable found at RVA: 00000000067E2B84
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gMaxGoodYards found at VA: 00007FFA0F0A7C24
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gMaxGoodYards: 32
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gMaxArmories found at VA: 00007FFA0F0A7D24
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gMaxArmories: 8
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gMaxGranaries found at VA: 00007FFA0F0A7CA4
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gMaxGranaries: 8
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gGateHouseCloseDistance found at VA: 00007FFA0F0E6DD0
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gGateHouseCloseDistance: 200
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gGateHouseReOpenDistance found at VA: 00007FFA0F0E6DD9
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gGateHouseReOpenDistance: 1200
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gGateHouseUnkDistance found at VA: 00007FFA0F0E6DE0
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gGateHouseUnkDistance: 1200
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] Peasant Respawn Tick Target Value: 4000
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] Peasant Respawn Tick Reset Value: 2000
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gLocalPlayerId found at VA: 00007FFA17910D60
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gElapsedMapTicksVA found at VA: 00007FFA12693EE8
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gCurrentlySelectedBuildingId found at VA: 00007FFA15815384
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gp_PathfindingContextVA found at VA: 00007FFA150DB5F0
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gAIVDataTableVA found at VA: 00007FFA0F8F25D0
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gSkirmishSpawnGoldTable found at RVA: 00000000002D2D30
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gMonkAvailable found at RVA: 00007FFA1781B3E8
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gEngineerAvailableVA found at RVA: 00007FFA1781B3D0
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gLaddermanAvailableVA found at RVA: 00007FFA1781B3CC
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gPlayerDefaultSkirmishResourcesVA found at VA: 00007FFA0F302DE0
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gPlayerDefaultSkirmishSettingsTableRVA found at VA: 00007FFA124D7F00
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gGameVegetationManager found at VA: 00007FFA1230C3D0
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gAILordManager found at RVA: 000000000404A8E0 / VA: 00007FFA1307A8E0
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gAIBoolPlayerListVA found at VA: 00007FFA175A1BBC
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gAILineUpVA found at VA: 00007FFA175A1C34
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gGamePaused found at VA: 00007FFA12698088
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gCurrentMapName found at VA: 00007FFA12695F70
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gCurrentMapNameLength found at VA: 00007FFA12696164
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gIsInMapEditorVA found at VA: 00007FFA175A1B88
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gTeamsListRVA found at VA: 00000000037EBECC
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gTreeGrowthProgressionTableRVA found at VA: 000000000031C1C4
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gGameTileManagerVA found at VA: 00007FFA1308CD40
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] GameGatehouseManagerRVA found at RVA: 00000000060AC680 / VA 00007FFA150DC680
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gGameGatehouseFunctionsVA found at VA: 00007FFA0F340570
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] GameUnitFunctionsVTable found at VA: 00007FFA0F34FC50
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] GameBuildingFunctionsVTable found at VA: 00007FFA0F30CA80
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gLocalPlayerArmyCounts found at VA: 00007FFA0FAC6630
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gPeasantSpawnRateIncrementsHighPopRVA found at RVA: 000000000030FD30
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gPeasantSpawnRateIncrementsLowPopRVA found at RVA: 000000000030FD90
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gPeasantSpawnRateIncrementsDefaultsRVA found at RVA: 000000000030FDF0
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] BuildingAvailabilityManagerVA found at VA: 00007FFA122F56C0
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gMapRulesInfo_AllowedTradingGoodsRVA found: 00000000037EBAE8
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gMapRulesInfo_AllowedEuroUnitsVA found at VA: 00007FFA1281BE8C
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gMapRulesInfo_AllowedArabUnitsVA found at VA: 00007FFA1281DA0C
+[Info   :  SHCDE-SE] [Unknown] gMapRulesInfo_AllowedBedouinUnitsVA found at VA: 00007FFA128C8088
+[Info   :  SHCDE-SE] [Unknown] gCurrentSkirmishGameModeVA found at VA: 00007FFA12696FD0
+[Info   :  SHCDE-SE] [Unknown] gCurrentTrailTypeVA found at VA: 00007FFA12696FD8
+[Info   :  SHCDE-SE] [Unknown] gCurrentGameSkirmishModeVA found at VA: 00007FFA178199F4
+[Info   :  SHCDE-SE] [Unknown] gAIAdvantage found at VA: 00007FFA17819AC0
+[Info   :  SHCDE-SE] [Unknown] gCoopTrailIdVA found at VA: 00007FFA12698020
+[Info   :  SHCDE-SE] [Unknown] gCoopMissionIdVA found at VA: 00007FFA12698024
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gMapRulesInfo_AllowedProductionGoodsVA found at VA: 00007FFA12693FC0
+[Info   :  SHCDE-SE] [Unknown] gGameCursorManagerVA found at VA: 00007FFA12A3FD50
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gFriendlyWallToEnemyWallProximityDistAllowance found at VA: 00007FFA0F0A99EC
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gFriendlyWallToEnemyWallProximityDistAllowance: 7
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gCurrentMapSize found at VA: 00007FFA150DB524
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gPlayerKeepIsEnclosedVA found at VA: 00007FFA0F3672FC
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gPlayerExtremePowersEnabledVA found at VA: 00007FFA1281D8F8
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gSoundManagerVA found at VA: 00007FFA179142C0
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gProjectilesManagerVA found at VA: 00007FFA11FA8610
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gUnitEUGoldCostTableRVA found at RVA: 000000000030FC38
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gUnitEUGoodTypeCostsTableRVA found at RVA: 000000000031F990
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gTreeProximityAreaLevelTableRVA found at RVA: 00000000002CFBD8
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gDateTimeCurrentYearRVA: 000000000018129C
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gBedouinDemolisherShieldHealth: 40000
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gCatapultRestockStoneCost: 10
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gCatapultRestockStoneAmount: 20
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gCatapultInitialStoneAmount: 20
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gAssassinDetectionRange: 160
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gAssassinTransparencyThreshold: 120
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gAIMaxOxTethers: 10
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gAIStoneToOxenRatio: 20
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gAIHighGoldThresholdForSiege: 10000
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gAIGoldThresholdForHarassmentSiegeEngines: 500
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gKnightRunSpeedBonus found at VA: 00007FFA0F1786F5
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gArabHorsemanRunSpeedBonus found at VA: 00007FFA0F19D821
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gBedouinCamelLancerRunSpeedBonus found at VA: 00007FFA0F1A24F1
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gBedouinHeavyCamelRunSpeedBonus found at VA: 00007FFA0F1A98E4
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gCurrentContextMapperValueVA found at VA: 00007FFA150DB3EC
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gCurrentContextUnitValueVA found at VA: 00007FFA0F95E254
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gCurrentContextBuildingValueVA found at VA: 00007FFA0F927B74
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gBuildingRepairProximityCheckRange found at VA: 00007FFA0F1043E2
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gBuildingRepairProximityCheckExRange found at VA: 00007FFA0F1043DD
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] ChoreManager found at VA: 00007FFA175A1310
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gNoKnockdownWalls found at VA: 00007FFA1281B454
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gGlobalImprovedSiegingBehaviourVA found at VA: 00007FFA12693F48
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gGlobalMoreAggressiveAISiegingBehaviourVA found at VA: 00007FFA12693F4C
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gGlobalAdvancedOptions found at VA: 00007FFA1781B2E0
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gStablesHorseRegenTickTarget: 550
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gStablesHorsesCap: 4
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gDiseaseDamage1: 150
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gDiseaseDamage2: 200
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gDiseaseDamage3: 400
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gGlobalIdsUsedVA found at VA: 00007FFA12693F14
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] AIResourceSellCategoryTableVA found at VA: 00007FFA0F2FCC34
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] AIResourceSellCategoryTableEndVA found at VA: 00007FFA0F2FCCD4
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gDefaultTradePriceTable found at VA: 000000000030EE50
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gRabbitDespawnTickTime: 32
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gCurrentContextUnitIdVA found at VA: 00007FFA0F95E254
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gCampPeasantsCap: 24
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] gPathfindingMaxTilesConstraint: 2000
+[Info   :  SHCDE-SE] [GameVegetationManagerAPI] [.ctor] _vegetationManager: 00007FFA1230C3D0
+[Info   :  SHCDE-SE] [GameVegetationManagerAPI] [.ctor] _vegArray: 00007FFA1230C484
+[Info   :  SHCDE-SE] [GameVegetationManagerAPI] [.ctor] _treeGrowthStageTable: 00007FFA0F34C1C4
+[Info   :  SHCDE-SE] [GameVegetationManagerAPI] [.ctor] _treeAreaProximityLevelTable: 00007FFA0F2FFBD8
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] Tree Growth of Oak Stage0: 24
+[Info   :  SHCDE-SE] [GamePlayerManagerAPI] [.ctor] _playerManager: 00007FFA1269A1A0
+[Info   :  SHCDE-SE] [GamePlayerManagerAPI] [.ctor] _playerResources: 00007FFA127CE59C
+[Info   :  SHCDE-SE] [GamePlayerManagerAPI] [.ctor] _defaultSkirmishGold: 00007FFA0F302D30
+[Info   :  SHCDE-SE] [GamePlayerManagerAPI] [.ctor] _defaultSkirmishResources: 00007FFA0F302DE0
+[Info   :  SHCDE-SE] [GamePlayerManagerAPI] [.ctor] _defaultSkirmishSettingsTable: 00007FFA124D7F00
+[Info   :  SHCDE-SE] [GamePlayerManagerAPI] [.ctor] _peasantSpawnRateIncrementsHighPop: 00007FFA0F33FD30
+[Info   :  SHCDE-SE] [GamePlayerManagerAPI] [.ctor] _peasantSpawnRateIncrementsLowPop: 00007FFA0F33FD90
+[Info   :  SHCDE-SE] [GamePlayerManagerAPI] [.ctor] _peasantSpawnRateIncrementsDefault: 00007FFA0F33FDF0
+[Info   :  SHCDE-SE] [GamePlayerManagerAPI] [.ctor] CursorManager: 00007FFA12A3FD50
+[Info   :  SHCDE-SE] [GamePlayerManagerAPI] [.ctor] _aiBoolPlayerList: 00007FFA175A1BBC
+[Info   :  SHCDE-SE] [GamePlayerManagerAPI] [.ctor] _aiLineUp: 00007FFA175A1C34
+[Info   :  SHCDE-SE] [GamePlayerManagerAPI] [.ctor] _teamList: 00007FFA1281BECC
+[Info   :  SHCDE-SE] [GamePlayerManagerAPI] [.ctor] _localPause: 00007FFA12698088
+[Info   :  SHCDE-SE] [GamePlayerManagerAPI] [.ctor] _currentMapName: 00007FFA12695F70
+[Info   :  SHCDE-SE] [GamePlayerManagerAPI] [.ctor] _currentMapNameLength: 00007FFA12696164
+[Info   :  SHCDE-SE] [GamePlayerManagerAPI] [.ctor] _isInMapEditor: 00007FFA175A1B88
+[Info   :  SHCDE-SE] [GamePlayerManagerAPI] [.ctor] _mapRulesManager: 00007FFA122F56C0
+[Info   :  SHCDE-SE] [GamePlayerManagerAPI] [.ctor] _allowedTradingGoods: 00007FFA1281BAE8
+[Info   :  SHCDE-SE] [GamePlayerManagerAPI] [.ctor] _cursorManager: 00007FFA12A3FD50
+[Info   :  SHCDE-SE] [GamePlayerManagerAPI] [.ctor] _noKnockdownWalls: 00007FFA1281B454
+[Info   :  SHCDE-SE] [GamePlayerManagerAPI] [.ctor] _globalImprovedSiegeBehaviour: 00007FFA12693F48
+[Info   :  SHCDE-SE] [GamePlayerManagerAPI] [.ctor] _globalMoreAggressiveSiegeBehaviour: 00007FFA12693F4C
+[Info   :  SHCDE-SE] [GamePlayerManagerAPI] [.ctor] _choreManagerOptionsInternal: 00007FFA175A1310
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] Default Wood for Skirmish: 100
+[Info   :  SHCDE-SE] [GameUnitManagerAPI] [.ctor] _gameManager: 00007FFA158153F0
+[Info   :  SHCDE-SE] [GameUnitManagerAPI] [.ctor] _unitArray: 00007FFA15815EDC
+[Info   :  SHCDE-SE] [GameUnitManagerAPI] [.ctor] _meleeEunuchAOEDamageArray: 00007FFA0F350EF0
+[Info   :  SHCDE-SE] [GameUnitManagerAPI] [.ctor] _rangedArrowDamageArray: 00007FFA0F350930
+[Info   :  SHCDE-SE] [GameUnitManagerAPI] [.ctor] _rangedBoltDamageArray: 00007FFA0F350C10
+[Info   :  SHCDE-SE] [GameUnitManagerAPI] [.ctor] _rangedSlingerDamageArray: 00007FFA0F350AA0
+[Info   :  SHCDE-SE] [GameUnitManagerAPI] [.ctor] _rangedJavelinDamageArray: 00007FFA0F350D80
+[Info   :  SHCDE-SE] [GameUnitManagerAPI] [.ctor] _healthDefaultsArray: 00007FFA0F3507C0
+[Info   :  SHCDE-SE] [GameUnitManagerAPI] [.ctor] _speedDefaultsArray: 00007FFA0F351060
+[Info   :  SHCDE-SE] [GameUnitManagerAPI] [.ctor] _localPlayerArmyCountsArray: 00007FFA0FAC6630
+[Info   :  SHCDE-SE] [GameUnitManagerAPI] [.ctor] _euUnitsGoldCostsArray: 00007FFA0F33FC38
+[Info   :  SHCDE-SE] [GameUnitManagerAPI] [.ctor] _euUnitsGoodTypeCostArray: 00007FFA0F34F990
+[Info   :  SHCDE-SE] [GameUnitManagerAPI] [.ctor] SizeOf(GameUnitManager)=3964, SizeOf(GameUnit)=1168
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] Knight Damage: 50
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] Knight Health: 20000
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] Knight Speed: 1
+[Info   :  SHCDE-SE] [GameBuildingManagerAPI] [.ctor] _buildingManager: 00007FFA154F9BA0
+[Info   :  SHCDE-SE] [GameBuildingManagerAPI] [.ctor] _buildingArray: 00007FFA154F9F28
+[Info   :  SHCDE-SE] [GameBuildingManagerAPI] [.ctor] _buildingDefaultCostsArray: 00007FFA0F30C1E4
+[Info   :  SHCDE-SE] [GameBuildingManagerAPI] [.ctor] _buildingDefaultCostsArrayEnd: 00007FFA0F30CA7C
+[Info   :  SHCDE-SE] [GameBuildingManagerAPI] [.ctor] _buildingStoneCostsArray: 00007FFA15812B80
+[Info   :  SHCDE-SE] [GameBuildingManagerAPI] [.ctor] _buildingRawPitchCostsArray: 00007FFA15812B88
+[Info   :  SHCDE-SE] [GameBuildingManagerAPI] [.ctor] _buildingGoldCostsArray: 00007FFA15812B8C
+[Info   :  SHCDE-SE] [GameBuildingManagerAPI] [.ctor] _buildingWoodCostsArray: 00007FFA15812B7C
+[Info   :  SHCDE-SE] [GameBuildingManagerAPI] [.ctor] _buildingIronIngotsCostsArray: 00007FFA15812B84
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] NULL DEFAULT Wood Cost: Wood=0, Stone=0, Iron=0, Pitch=0, Gold=0
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] HOVEL DEFAULT Wood Cost: Wood=6, Stone=0, Iron=0, Pitch=0, Gold=0
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] Woodcutters Hut DEFAULT Wood Cost: Wood=3, Stone=0, Iron=0, Pitch=0, Gold=0
+[Info   :  SHCDE-SE] [GameGlobalsManager] [FindGameGlobals] Lion->Spearman Damage: 100
+[Info   :  SHCDE-SE] [BulkTribeDetours] [.ctor] Applying
+[Info   :  SHCDE-SE] [HookTransaction] 8 patterns scanned in 9ms.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_assign_tribe_hook] installed at 0x00007FFA0F14C490.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_create_new_tribe_hook] installed at 0x00007FFA0F14D29C.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_tribe_issueorder_movehere_hook] installed at 0x00007FFA0F14A640.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_tribe_issueorder_withtarget_hook] installed at 0x00007FFA0F14DA80.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_tribe_delete] installed at 0x00007FFA0F147D90.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_spawn_unit_group_eu_and_arab] installed at 0x00007FFA0F146E40.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_tribe_remove_unit] installed at 0x00007FFA0F152FC0.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F150000, size: 164 bytes (target: 0x00007FFA0F149E06).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F149E06, stub 0x00007FF99F150000.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_tribe_get_next_waypoint] installed at 0x00007FFA0F149E06.
+[Info   :  SHCDE-SE] [HookTransaction] Commit complete - 8 active, 8 registered. 33ms total.
+[Info   :  SHCDE-SE] [BulkUnitDetours] [.ctor] Applying
+[Info   :  SHCDE-SE] [BulkUnitDetours] [.ctor] c_game_unit_hunter_query_for_target found at 00007FFA0F1B9F10
+[Info   :  SHCDE-SE] [BulkUnitDetours] [.ctor] Anchor point found: 00007FFA0F1B9FA6
+[Info   :  SHCDE-SE] [HookTransaction] 74 patterns scanned in 25ms.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_takedamage_melee_hook] installed at 0x00007FFA0F1C80C0.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_takedamage_projectile_hook] installed at 0x00007FFA0F1C1710.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_spawn_ex_hook] installed at 0x00007FFA0F1AEF30.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_handle_movement_hook] installed at 0x00007FFA0F1AF270.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_delete_hook] installed at 0x00007FFA0F1B5980.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_issueorder_movehere_hook] installed at 0x00007FFA0F1C5240.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_calculate_worker_good_yield_hook] installed at 0x00007FFA0F1BC900.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_dll_troopselection_hook] installed at 0x00007FFA0F0B6C00.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D0000, size: 148 bytes (target: 0x00007FFA0F1C2323).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F1C2323, stub 0x00007FF99F1D0000.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_killed_by_projectile_hook] installed at 0x00007FFA0F1C2323.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D01E0, size: 150 bytes (target: 0x00007FFA0F1C83F4).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F1C83F4, stub 0x00007FF99F1D01E0.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_killed_by_melee_hook] installed at 0x00007FFA0F1C83F4.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D03C0, size: 160 bytes (target: 0x00007FFA0F1C203E).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F1C203E, stub 0x00007FF99F1D03C0.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_damaged_by_projectile_hook] installed at 0x00007FFA0F1C203E.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D05D0, size: 157 bytes (target: 0x00007FFA0F1B0BAE).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F1B0BAE, stub 0x00007FF99F1D05D0.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_player_buy_mercenary_hook] installed at 0x00007FFA0F1B0BAE.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D07D0, size: 147 bytes (target: 0x00007FFA0F1C1470).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F1C1470, stub 0x00007FF99F1D07D0.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_take_fire_damage] installed at 0x00007FFA0F1C1470.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D09E0, size: 143 bytes (target: 0x00007FFA0F1A395A).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F1A395A, stub 0x00007FF99F1D09E0.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_bedouin_healer_heal_hook] installed at 0x00007FFA0F1A395A.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D0BC0, size: 148 bytes (target: 0x00007FFA0F15B9B6).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F15B9B6, stub 0x00007FF99F1D0BC0.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_woodcutter_update_pickup_planks_hook] installed at 0x00007FFA0F15B9B6.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D0DA0, size: 148 bytes (target: 0x00007FFA0F15BB1B).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F15BB1B, stub 0x00007FF99F1D0DA0.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_woodcutter_update_dropoff_planks_hook] installed at 0x00007FFA0F15BB1B.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D0F80, size: 148 bytes (target: 0x00007FFA0F166295).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F166295, stub 0x00007FF99F1D0F80.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_farmer_cattle_update_pickup_cheese_hook] installed at 0x00007FFA0F166295.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D1160, size: 148 bytes (target: 0x00007FFA0F166416).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F166416, stub 0x00007FF99F1D1160.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_farmer_cattle_update_dropoff_cheese_hook] installed at 0x00007FFA0F166416.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D1340, size: 147 bytes (target: 0x00007FFA0F165452).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F165452, stub 0x00007FF99F1D1340.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_farmer_apple_update_pickup_apple_hook] installed at 0x00007FFA0F165452.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D1530, size: 146 bytes (target: 0x00007FFA0F16595C).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F16595C, stub 0x00007FF99F1D1530.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_farmer_apple_update_dropoff_apple_hook] installed at 0x00007FFA0F16595C.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D1710, size: 154 bytes (target: 0x00007FFA0F164926).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F164926, stub 0x00007FF99F1D1710.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_farmer_hemp_update_pickup_hemp_hook] installed at 0x00007FFA0F164926.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D1900, size: 148 bytes (target: 0x00007FFA0F164A8F).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F164A8F, stub 0x00007FF99F1D1900.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_farmer_hemp_update_dropoff_hemp_hook] installed at 0x00007FFA0F164A8F.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D1AE0, size: 149 bytes (target: 0x00007FFA0F167E11).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F167E11, stub 0x00007FF99F1D1AE0.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_baker_update_pickup_flour_hook] installed at 0x00007FFA0F167E11.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D1CD0, size: 156 bytes (target: 0x00007FFA0F168100).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F168100, stub 0x00007FF99F1D1CD0.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_baker_update_pickup_bread_hook] installed at 0x00007FFA0F168100.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D1EE0, size: 146 bytes (target: 0x00007FFA0F168413).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F168413, stub 0x00007FF99F1D1EE0.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_baker_update_dropoff_bread_hook] installed at 0x00007FFA0F168413.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D20C0, size: 146 bytes (target: 0x00007FFA0F163995).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F163995, stub 0x00007FF99F1D20C0.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_farmer_wheat_update_pickup_wheat_hook] installed at 0x00007FFA0F163995.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D22B0, size: 148 bytes (target: 0x00007FFA0F163B2C).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F163B2C, stub 0x00007FF99F1D22B0.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_farmer_wheat_update_dropoff_wheat_hook] installed at 0x00007FFA0F163B2C.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D2490, size: 146 bytes (target: 0x00007FFA0F166D36).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F166D36, stub 0x00007FF99F1D2490.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_miller_update_pickup_wheat_hook] installed at 0x00007FFA0F166D36.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D2670, size: 148 bytes (target: 0x00007FFA0F16728F).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F16728F, stub 0x00007FF99F1D2670.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_miller_update_dropoff_flour_hook] installed at 0x00007FFA0F16728F.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D2860, size: 147 bytes (target: 0x00007FFA0F167174).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F167174, stub 0x00007FF99F1D2860.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_miller_update_pickup_flour_hook] installed at 0x00007FFA0F167174.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D2A40, size: 149 bytes (target: 0x00007FFA0F168D4D).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F168D4D, stub 0x00007FF99F1D2A40.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_brewer_update_pickup_hemp_hook] installed at 0x00007FFA0F168D4D.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D2C30, size: 148 bytes (target: 0x00007FFA0F168FA1).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F168FA1, stub 0x00007FF99F1D2C30.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_brewer_update_dropoff_hemp_hook] installed at 0x00007FFA0F168FA1.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D2E10, size: 157 bytes (target: 0x00007FFA0F1692C6).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F1692C6, stub 0x00007FF99F1D2E10.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_brewer_update_pickup_ale_hook] installed at 0x00007FFA0F1692C6.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D3030, size: 158 bytes (target: 0x00007FFA0F16956B).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F16956B, stub 0x00007FF99F1D3030.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_brewer_update_dropoff_ale_hook] installed at 0x00007FFA0F16956B.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D3230, size: 150 bytes (target: 0x00007FFA0F169155).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F169155, stub 0x00007FF99F1D3230.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_brewer_update_produced_ale_hook] installed at 0x00007FFA0F169155.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D3420, size: 148 bytes (target: 0x00007FFA0F17F971).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F17F971, stub 0x00007FF99F1D3420.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_innkeeper_update_pickup_ale_hook] installed at 0x00007FFA0F17F971.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D3610, size: 150 bytes (target: 0x00007FFA0F17FBD0).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F17FBD0, stub 0x00007FF99F1D3610.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_innkeeper_update_dropoff_ale_hook] installed at 0x00007FFA0F17FBD0.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D37F0, size: 151 bytes (target: 0x00007FFA0F15C5C6).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F15C5C6, stub 0x00007FF99F1D37F0.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_fletcher_update_pickup_wood_hook] installed at 0x00007FFA0F15C5C6.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D39E0, size: 148 bytes (target: 0x00007FFA0F15C7EB).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F15C7EB, stub 0x00007FF99F1D39E0.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_fletcher_update_dropoff_wood_hook] installed at 0x00007FFA0F15C7EB.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D3BC0, size: 146 bytes (target: 0x00007FFA0F15CE0D).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F15CE0D, stub 0x00007FF99F1D3BC0.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_fletcher_update_dropoff_produce_hook] installed at 0x00007FFA0F15CE0D.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D3DA0, size: 149 bytes (target: 0x00007FFA0F169ED5).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F169ED5, stub 0x00007FF99F1D3DA0.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_poleturner_update_pickup_wood_hook] installed at 0x00007FFA0F169ED5.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D3F90, size: 148 bytes (target: 0x00007FFA0F16A10B).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F16A10B, stub 0x00007FF99F1D3F90.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_poleturner_update_dropoff_wood_hook] installed at 0x00007FFA0F16A10B.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D4170, size: 152 bytes (target: 0x00007FFA0F16A704).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F16A704, stub 0x00007FF99F1D4170.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_poleturner_update_dropoff_produce_hook] installed at 0x00007FFA0F16A704.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D4360, size: 148 bytes (target: 0x00007FFA0F16B0BD).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F16B0BD, stub 0x00007FF99F1D4360.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_blacksmith_update_pickup_iron_hook] installed at 0x00007FFA0F16B0BD.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D4550, size: 148 bytes (target: 0x00007FFA0F16B32F).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F16B32F, stub 0x00007FF99F1D4550.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_blacksmith_update_dropoff_iron_hook] installed at 0x00007FFA0F16B32F.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D4730, size: 153 bytes (target: 0x00007FFA0F16B56B).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F16B56B, stub 0x00007FF99F1D4730.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_blacksmith_update_produce_hook] installed at 0x00007FFA0F16B56B.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D4920, size: 151 bytes (target: 0x00007FFA0F16B894).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F16B894, stub 0x00007FF99F1D4920.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_blacksmith_update_dropoff_produce_hook] installed at 0x00007FFA0F16B894.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D4B10, size: 151 bytes (target: 0x00007FFA0F16DA93).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F16DA93, stub 0x00007FF99F1D4B10.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_tanner_update_store_cowhides_hook] installed at 0x00007FFA0F16DA93.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D4CF0, size: 150 bytes (target: 0x00007FFA0F16DD2E).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F16DD2E, stub 0x00007FF99F1D4CF0.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_tanner_update_produce_hook] installed at 0x00007FFA0F16DD2E.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D4EE0, size: 158 bytes (target: 0x00007FFA0F16DFC8).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F16DFC8, stub 0x00007FF99F1D4EE0.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_tanner_update_dropoff_cowhides_hook] installed at 0x00007FFA0F16DFC8.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D50E0, size: 148 bytes (target: 0x00007FFA0F16C215).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F16C215, stub 0x00007FF99F1D50E0.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_armourer_update_pickup_iron_hook] installed at 0x00007FFA0F16C215.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D52D0, size: 148 bytes (target: 0x00007FFA0F16C497).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F16C497, stub 0x00007FF99F1D52D0.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_armourer_update_dropoff_iron_hook] installed at 0x00007FFA0F16C497.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D54B0, size: 154 bytes (target: 0x00007FFA0F16C659).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F16C659, stub 0x00007FF99F1D54B0.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_armourer_update_store_produce_hook] installed at 0x00007FFA0F16C659.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D56A0, size: 151 bytes (target: 0x00007FFA0F16C713).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F16C713, stub 0x00007FF99F1D56A0.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_armourer_update_produce_hook] installed at 0x00007FFA0F16C713.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D5890, size: 151 bytes (target: 0x00007FFA0F16CA5E).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F16CA5E, stub 0x00007FF99F1D5890.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_armourer_update_dropoff_produce_hook] installed at 0x00007FFA0F16CA5E.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D5A80, size: 151 bytes (target: 0x00007FFA0F16C76C).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F16C76C, stub 0x00007FF99F1D5A80.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_armourer_update_pickup_produce_hook] installed at 0x00007FFA0F16C76C.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D5C70, size: 150 bytes (target: 0x00007FFA0F15EE5C).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F15EE5C, stub 0x00007FF99F1D5C70.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_hunter_update_pickup_meat_hook] installed at 0x00007FFA0F15EE5C.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D5E60, size: 157 bytes (target: 0x00007FFA0F15FC34).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F15FC34, stub 0x00007FF99F1D5E60.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_hunter_update_dropoff_meat_hook] installed at 0x00007FFA0F15FC34.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D6060, size: 164 bytes (target: 0x00007FFA0F161008).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F161008, stub 0x00007FF99F1D6060.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_quarry_grunt_update_pickup_stone_hook] installed at 0x00007FFA0F161008.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D6270, size: 152 bytes (target: 0x00007FFA0F1615EE).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F1615EE, stub 0x00007FF99F1D6270.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_quarry_grunt_update_dropoff_stone_hook] installed at 0x00007FFA0F1615EE.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D6460, size: 147 bytes (target: 0x00007FFA0F161B2C).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F161B2C, stub 0x00007FF99F1D6460.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_quarry_ox_update_depart_hook] installed at 0x00007FFA0F161B2C.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D6650, size: 146 bytes (target: 0x00007FFA0F161F37).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F161F37, stub 0x00007FF99F1D6650.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_quarry_ox_update_dropoff_stone_hook] installed at 0x00007FFA0F161F37.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D6830, size: 156 bytes (target: 0x00007FFA0F17D068).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F17D068, stub 0x00007FF99F1D6830.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_miner2_update_pickup_iron_hook] installed at 0x00007FFA0F17D068.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D6A30, size: 151 bytes (target: 0x00007FFA0F17CEF3).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F17CEF3, stub 0x00007FF99F1D6A30.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_miner2_update_dropoff_iron_hook] installed at 0x00007FFA0F17CEF3.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D6C20, size: 150 bytes (target: 0x00007FFA0F162880).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F162880, stub 0x00007FF99F1D6C20.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_pitcher_update_pickup_rawpitch_hook] installed at 0x00007FFA0F162880.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D6E10, size: 156 bytes (target: 0x00007FFA0F1629CC).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F1629CC, stub 0x00007FF99F1D6E10.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_pitcher_update_dropoff_rawpitch_hook] installed at 0x00007FFA0F1629CC.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D7010, size: 86 bytes (target: 0x00007FFA0F0F63D5).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F0F63D5, stub 0x00007FF99F1D7010.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_is_over_killingpit_update_hook] installed at 0x00007FFA0F0F63D5.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D71F0, size: 179 bytes (target: 0x00007FFA0F1B0D20).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F1B0D20, stub 0x00007FF99F1D71F0.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_transition_hook1_c_game_player_buy_mercenary] installed at 0x00007FFA0F1B0D20.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D7430, size: 167 bytes (target: 0x00007FFA0F1BFE7B).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F1BFE7B, stub 0x00007FF99F1D7430.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_transition_hook2_c_game_player_buy_eu_mercenary] installed at 0x00007FFA0F1BFE7B.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D7660, size: 168 bytes (target: 0x00007FFA0F1BFBD2).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F1BFBD2, stub 0x00007FF99F1D7660.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_transition_hook3_c_game_building_assign_worker] installed at 0x00007FFA0F1BFBD2.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D7890, size: 169 bytes (target: 0x00007FFA0F1B5E3A).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F1B5E3A, stub 0x00007FF99F1D7890.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_transition_hook4_c_game_unit_disband] installed at 0x00007FFA0F1B5E3A.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D7AB0, size: 81 bytes (target: 0x00007FFA0F1B9FA6).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F1B9FA6, stub 0x00007FF99F1D7AB0.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_hunter_query_for_target_hook] installed at 0x00007FFA0F1B9FA6.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D7C80, size: 171 bytes (target: 0x00007FFA0F0BDCC0).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F0BDCC0, stub 0x00007FF99F1D7C80.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_control_capability_unknown] installed at 0x00007FFA0F0BDCC0.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D7EA0, size: 159 bytes (target: 0x00007FFA0F199479).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F199479, stub 0x00007FF99F1D7EA0.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_fsm_arabslave_attack_capability_wall] installed at 0x00007FFA0F199479.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D80A0, size: 101 bytes (target: 0x00007FFA0F1994D0).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F1994D0, stub 0x00007FF99F1D80A0.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_fsm_arabslave_attack_capability_wall2] installed at 0x00007FFA0F1994D0.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D82D0, size: 98 bytes (target: 0x00007FFA0F1994ED).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F1994ED, stub 0x00007FF99F1D82D0.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unit_fsm_arabslave_attack_capability_wall3] installed at 0x00007FFA0F1994ED.
+[Info   :  SHCDE-SE] [HookTransaction] Commit complete - 76 active, 76 registered. 46ms total.
+[Info   :  SHCDE-SE] [BulkBuildingDetours] [.ctor] Applying
+[Info   :  SHCDE-SE] [HookTransaction] 26 patterns scanned in 4ms.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_build_wall_hook] installed at 0x00007FFA0F09E4A0.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_buildingtile_take_melee_damage_hook] installed at 0x00007FFA0F0ADD70.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_building_spawn_hook] installed at 0x00007FFA0F0E39F0.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_is_player_building_within_range_to_same_type_hook] installed at 0x00007FFA0F0F64D0.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_player_build_structure_hook] installed at 0x00007FFA0F09C7F0.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_building_bulldoze_hook] installed at 0x00007FFA0F0E7520.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_building_delete_hook] installed at 0x00007FFA0F0F34A0.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_add_good_to_goodsyard_hook] installed at 0x00007FFA0F0E5310.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_building_set_production_good_hook] installed at 0x00007FFA0F104A80.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_player_build_placement_validator_hook] installed at 0x00007FFA0F0A70D0.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_bulldoze_wall_hook] installed at 0x00007FFA0F092970.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_building_repair_hook] installed at 0x00007FFA0F104240.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_building_refund_hook] installed at 0x00007FFA0F0F3690.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_allow_repair_for_building_proximity_hook] installed at 0x00007FFA0F11D7B0.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_player_build_pitch_ditch_hook] installed at 0x00007FFA0F0885F0.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_player_remove_pitch_ditch_hook] installed at 0x00007FFA0F092120.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D8520, size: 48 bytes (target: 0x00007FFA0F102041).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F102041, stub 0x00007FF99F1D8520.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_building_keep_spawn_peasant_hook] installed at 0x00007FFA0F102041.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D85D0, size: 148 bytes (target: 0x00007FFA0F101D5C).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F101D5C, stub 0x00007FF99F1D85D0.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_building_granary_spawn_chicken_hook] installed at 0x00007FFA0F101D5C.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D87E0, size: 156 bytes (target: 0x00007FFA0F0F7F2C).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F0F7F2C, stub 0x00007FF99F1D87E0.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_building_calculate_wall_cost_hook] installed at 0x00007FFA0F0F7F2C.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D8BA0, size: 195 bytes (target: 0x00007FFA0F0C33FB).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F0C33FB, stub 0x00007FF99F1D8BA0.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_building_calculate_wall_cost_placement_hook] installed at 0x00007FFA0F0C33FB.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D9000, size: 94 bytes (target: 0x00007FFA0F0F57A9).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F0F57A9, stub 0x00007FF99F1D9000.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_building_take_fire_damage_hook] installed at 0x00007FFA0F0F57A9.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D9210, size: 147 bytes (target: 0x00007FFA0F0F7123).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F0F7123, stub 0x00007FF99F1D9210.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_building_toggle_pause_hook] installed at 0x00007FFA0F0F7123.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D93F0, size: 182 bytes (target: 0x00007FFA0F0F3A8A).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F0F3A8A, stub 0x00007FF99F1D93F0.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_building_refund_intercept_hook] installed at 0x00007FFA0F0F3A8A.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D9640, size: 95 bytes (target: 0x00007FFA0F0E6241).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F0E6241, stub 0x00007FF99F1D9640.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_building_set_repair_costs_stone_hook] installed at 0x00007FFA0F0E6241.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D9890, size: 93 bytes (target: 0x00007FFA0F0E620D).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F0E620D, stub 0x00007FF99F1D9890.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_building_set_repair_costs_wood_hook] installed at 0x00007FFA0F0E620D.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D9AB0, size: 76 bytes (target: 0x00007FFA0F0E6D5B).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F0E6D5B, stub 0x00007FF99F1D9AB0.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_building_gatehouse_query_hook] installed at 0x00007FFA0F0E6D5B.
+[Info   :  SHCDE-SE] [HookTransaction] Commit complete - 26 active, 26 registered. 23ms total.
+[Info   :  SHCDE-SE] [BulkVegetationDetours] [.ctor] Applying
+[Info   :  SHCDE-SE] [BulkMapLoaderDetours] [.ctor] Applying
+[Info   :  SHCDE-SE] [BulkMapLoaderDetours] [.ctor] c_game_save_file_write found at 00007FFA0F20CB44
+[Info   :  SHCDE-SE] [HookTransaction] 5 patterns scanned in 1ms.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_unload_map_hook] installed at 0x00007FFA0F08AEE0.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_start_skirmish_game_handler] installed at 0x00007FFA0F0C35A0.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_start_non_skirmish_game_handler] installed at 0x00007FFA0F0BA0E0.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_start_campaign_game_handler] installed at 0x00007FFA0F0B6EA0.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_dll_loadsavegame_hook] installed at 0x00007FFA0F0B4660.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_dll_savesavegame_hook] installed at 0x00007FFA0F0B61E0.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D9CB0, size: 158 bytes (target: 0x00007FFA0F035A4C).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F035A4C, stub 0x00007FF99F1D9CB0.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_save_game_file] installed at 0x00007FFA0F035A4C.
+[Info   :  SHCDE-SE] [HookTransaction] Commit complete - 7 active, 7 registered. 7ms total.
+[Info   :  SHCDE-SE] [BulkProjectileDetours] [.ctor] Applying
+[Info   :  SHCDE-SE] [HookTransaction] 3 patterns scanned in 1ms.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_projectile_spawn_hook] installed at 0x00007FFA0F0CA4E0.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_projectile_delete_hook] installed at 0x00007FFA0F0CE500.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_spawn_fire_internal_hook] installed at 0x00007FFA0F0CB350.
+[Info   :  SHCDE-SE] [HookTransaction] Commit complete - 3 active, 3 registered. 4ms total.
+[Info   :  SHCDE-SE] [BulkPlayerDetours] [.ctor] Applying
+[Info   :  SHCDE-SE] [HookTransaction] 14 patterns scanned in 2ms.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_player_subtract_resources_hook] installed at 0x00007FFA0F0E6F90.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_player_add_resources_hook] installed at 0x00007FFA0F0E4AC0.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_player_market_buy_hook] installed at 0x00007FFA0F104C10.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_player_calculate_drunk_percentage_hook] installed at 0x00007FFA0F0FDCA0.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_ai_request_eval_defend_order_hook] installed at 0x00007FFA0F05A4D0.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_ai_request_eval_attack_order_hook] installed at 0x00007FFA0F0708F0.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_ai_can_spare_resource_amount_hook] installed at 0x00007FFA0F060250.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_player_ai_request_good_hook] installed at 0x00007FFA0F106AD0.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_player_ai_send_good_hook] installed at 0x00007FFA0F106CE0.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_calculate_tax_income_hook] installed at 0x00007FFA0F0FAEE0.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_calculate_donation_expense_hook] installed at 0x00007FFA0F0FABB0.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1D9ED0, size: 148 bytes (target: 0x00007FFA0F0FDE9E).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F0FDE9E, stub 0x00007FF99F1D9ED0.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_player_food_consumption_update_baseconsumptionrate] installed at 0x00007FFA0F0FDE9E.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1DA0C0, size: 157 bytes (target: 0x00007FFA0F0FBE92).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F0FBE92, stub 0x00007FF99F1DA0C0.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_add_tax_money_addgold] installed at 0x00007FFA0F0FBE92.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1DA2D0, size: 160 bytes (target: 0x00007FFA0F0FBEA1).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F0FBEA1, stub 0x00007FF99F1DA2D0.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_add_tax_money_removegold] installed at 0x00007FFA0F0FBEA1.
+[Info   :  SHCDE-SE] [HookTransaction] Commit complete - 14 active, 14 registered. 14ms total.
+[Info   :  SHCDE-SE] [BulkSoundDetours] [.ctor] Applying
+[Info   :  SHCDE-SE] [BulkTileDetours] [.ctor] Applying
+[Info   :  SHCDE-SE] [BulkTimeDetours] [.ctor] Applying
+[Info   :  SHCDE-SE] [HookTransaction] 2 patterns scanned in 5ms.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_update_datetime_hook] installed at 0x00007FFA0F0FD540.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1DA4E0, size: 150 bytes (target: 0x00007FFA0F100F5F).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F100F5F, stub 0x00007FF99F1DA4E0.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_handle_time_stuff] installed at 0x00007FFA0F100F5F.
+[Info   :  SHCDE-SE] [HookTransaction] Commit complete - 2 active, 2 registered. 6ms total.
+[Info   :  SHCDE-SE] [BulkMapEditorDetours] [.ctor] Applying
+[Info   :  SHCDE-SE] [BulkMapEditorDetours] [.ctor] c_game_tile_refresh_visual found at 00007FFA0F112D40
+[Info   :  SHCDE-SE] [HookTransaction] 10 patterns scanned in 3ms.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_editor_brush_set_tiletype_hook] installed at 0x00007FFA0F09F100.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_editor_brush_set_tiletype_to_none_hook] installed at 0x00007FFA0F0AA0C0.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_editor_brush_set_height_to_preset_hook] installed at 0x00007FFA0F09EC80.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_editor_brush_set_height_to_number_hook] installed at 0x00007FFA0F0A0060.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_editor_brush_even_height_hook] installed at 0x00007FFA0F093970.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_editor_brush_raise_tileheight_hook] installed at 0x00007FFA0F09B360.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_editor_spawn_unit_hook] installed at 0x00007FFA0F147DC0.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_editor_place_vegetation_hook] installed at 0x00007FFA0F09D530.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_editor_place_animal_hook] installed at 0x00007FFA0F14D270.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_editor_brush_delete_hook] installed at 0x00007FFA0F091D20.
+[Info   :  SHCDE-SE] [HookTransaction] Commit complete - 10 active, 10 registered. 13ms total.
+[Info   :  SHCDE-SE] [BulkAIDetours] [.ctor] Applying
+[Info   :  SHCDE-SE] [HookTransaction] 4 patterns scanned in 2ms.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_ai_enqueue_message_hook] installed at 0x00007FFA0F1323B0.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_dll_importaiv_hook] installed at 0x00007FFA0F0B3AC0.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_ai_build_wall_hook] installed at 0x00007FFA0F09BD90.
+[Info   :  SHCDE-SE] [X64InlineHook] Compiled stub at 0x00007FF99F1DA6D0, size: 147 bytes (target: 0x00007FFA0F05D305).
+[Info   :  SHCDE-SE] [X64InlineHook] Hook enabled at 0x00007FFA0F05D305, stub 0x00007FF99F1DA6D0.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_ai_setup_siege_pathing_stuff_hook] installed at 0x00007FFA0F05D305.
+[Info   :  SHCDE-SE] [HookTransaction] [c_game_ai_should_not_build_hovel_hook] installed at 0x00007FFA0F070890.
+[Info   :  SHCDE-SE] [HookTransaction] Commit complete - 5 active, 5 registered. 6ms total.
+[Info   :  SHCDE-SE] [GameMapArchiveManagerAPI] [InitializeSubscribers] Setting up subscribers
+[Info   :  SHCDE-SE] [LuaManager] [InitializeSubscribers] Setting up subscribers
+[Info   :  SHCDE-SE] [GameNetworkAPI] [InitializeSubscribers] Setting up subscribers
+[Info   :  SHCDE-SE] [DeterministicRandom] [InitializeSubscribers] Setting up subscribers
+[Info   :  SHCDE-SE] [GameNetworkAPI] [GetPacketEventFor] Created R3 event stream for packet ID 1003 [SeedSyncNetworkPacket]
+[Info   :  SHCDE-SE] [ModSaveDataAPI] [RegisterModDataHandler] Registered handler for [se-deterministicrandom-state]
+[Info   :  SHCDE-SE] [GameNetworkAPI] [GetPacketEventFor] Dynamically registered packet type 'LobbyModSettingSyncPacket' with ID: 1100
+[Info   :  SHCDE-SE] [GameNetworkAPI] [GetPacketEventFor] Created R3 event stream for packet ID 1100 [LobbyModSettingSyncPacket]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [SetupNetworking] Mod-settings sync packet registered with ID=1100
+[Info   :  SHCDE-SE] [GamePlayerManagerAPI] [InitializeSubscribers] Setting up subscribers
+[Info   :  SHCDE-SE] [GameUnitManagerAPI] [InitializeSubscribers] Setting up subscribers
+[Info   :  SHCDE-SE] [GameBuildingManagerAPI] [InitializeSubscribers] Setting up subscribers
+[Info   :  SHCDE-SE] [GameMetadataManagerAPI] [InitializeSubscribers] Setting up subscribers
+[Info   :  SHCDE-SE] [GameSoundManagerAPI] [.ctor] _soundManager: 00007FFA179142C0
+[Info   :  SHCDE-SE] [GameSoundManagerAPI] [InitializeSubscribers] Setting up GameSoundManagerAPI event subscribers
+[Info   :  SHCDE-SE] [GameTranslateAPI] [InitializeSubscribers] Setting up GameTranslateAPI subscribers
+[Info   :  SHCDE-SE] [GameTriggerManager] [InitializeSubscribers] Setting up subscribers
+[Info   :  SHCDE-SE] [GameTimeManagerAPI] [InitializeSubscribers] Setting up subscribers
+[Info   :  SHCDE-SE] [GameAfterImageManager] [InitializeSubscribers] Setting up subscribers
+[Info   :  SHCDE-SE] [GameBundleManager] [InitializeSubscribers] Setting up subscribers
+[Info   :  SHCDE-SE] [MapModManager] [InitializeSubscribers] Setting up subscribers
+[Info   :  SHCDE-SE] [Plugin] [InitLanguageProviderLate] Set language provider to de-DE
+[Info   :  SHCDE-SE] [Plugin] [CrusaderLibrary_LibraryLoaded] Native-side initialization done
+[Info   :  SHCDE-SE] [Plugin] [Awake] Plugin SHCDE-SE is loaded!
+[Info   :   BepInEx] Loading [Building Costs 1.0.2]
+[Info   :  SHCDE-SE] [LobbyModSettingsStorage] [Load] [BuildingCosts_Serp]: Settings restored from [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\BuildingCosts_Serp\LobbyModSettings\BuildingCosts_Serp.msgpack]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [RegisterLobbyModSettings] Registered mod [BuildingCosts_Serp]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [RegisterBinding] Registering auto-binding: [BuildingCostsTooltipHost]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [RegisterBinding] Registering auto-binding: [BuildingCostsTooltipHostCompact]
+[Info   :   BepInEx] Loading [Building Limit 1.0.1]
+[Info   :  SHCDE-SE] [LobbyModSettingsStorage] [Load] [BuildingLimit_Serp]: Settings restored from [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\BuildingLimit_Serp\LobbyModSettings\BuildingLimit_Serp.msgpack]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [RegisterLobbyModSettings] Registered mod [BuildingLimit_Serp]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [RegisterBinding] Registering auto-binding: [BuildingLimitNotificationOverlay]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [RegisterBinding] Registering auto-binding: [BuildingLimitTooltipHost]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [RegisterBinding] Registering auto-binding: [BuildingLimitTooltipHostCompact]
+[Info   :   BepInEx] Loading [Fixes 1.7.1.0]
+[Info   :     Fixes] [Plugin] [Awake] Plugin Fixes is loading!
+[Info   :     Fixes] [BuildingDetours] [.ctor] Applying
+[Info   :     Fixes] [Fixes-BuildingDetours] Retargeted NearRelative jmp at 0x00007FFA0F0A49DE to 0x00007FF99F1DA8C0.
+[Info   :     Fixes] [HookTransaction] 4 patterns scanned in 2ms.
+[Info   :     Fixes] [X64InlineHook] Compiled stub at 0x00007FF99F1DA940, size: 38 bytes (target: 0x00007FFA0F09E532).
+[Info   :     Fixes] [X64InlineHook] Hook enabled at 0x00007FFA0F09E532, stub 0x00007FF99F1DA940.
+[Info   :     Fixes] [HookTransaction] [c_game_build_wall_hook] installed at 0x00007FFA0F09E532.
+[Info   :     Fixes] [X64InlineHook] Compiled stub at 0x00007FF99F1DAA00, size: 49 bytes (target: 0x00007FFA0F041D4A).
+[Info   :     Fixes] [X64InlineHook] Hook enabled at 0x00007FFA0F041D4A, stub 0x00007FF99F1DAA00.
+[Info   :     Fixes] [HookTransaction] [c_game_player_queue_build_wall_hook] installed at 0x00007FFA0F041D4A.
+[Info   :     Fixes] [X64InlineHook] Compiled stub at 0x00007FF99F1DAAF0, size: 100 bytes (target: 0x00007FFA0F0905DF).
+[Info   :     Fixes] [X64InlineHook] Hook enabled at 0x00007FFA0F0905DF, stub 0x00007FF99F1DAAF0.
+[Info   :     Fixes] [HookTransaction] [c_game_player_placing_walls_hook] installed at 0x00007FFA0F0905DF.
+[Info   :     Fixes] [X64InlineHook] Compiled stub at 0x00007FF99F1DAD60, size: 83 bytes (target: 0x00007FFA0F0E6E49).
+[Info   :     Fixes] [X64InlineHook] Hook enabled at 0x00007FFA0F0E6E49, stub 0x00007FF99F1DAD60.
+[Info   :     Fixes] [HookTransaction] [c_game_gatehouse_query_farmerstuck_fix_hook] installed at 0x00007FFA0F0E6E49.
+[Info   :     Fixes] [HookTransaction] Commit complete - 4 active, 4 registered. 4ms total.
+[Info   :     Fixes] [AIDetours] [.ctor] Applying
+[Info   :     Fixes] [HookTransaction] 5 patterns scanned in 2ms.
+[Info   :     Fixes] [HookTransaction] [c_game_ai_siege_master_handler_hook] installed at 0x00007FFA0F05AE00.
+[Info   :     Fixes] [X64InlineHook] Compiled stub at 0x00007FF99F1DAF40, size: 101 bytes (target: 0x00007FFA0F05EF8B).
+[Info   :     Fixes] [X64InlineHook] Hook enabled at 0x00007FFA0F05EF8B, stub 0x00007FF99F1DAF40.
+[Info   :     Fixes] [HookTransaction] [c_game_ai_deploy_harassing_siege_engine_tents_hook] installed at 0x00007FFA0F05EF8B.
+[Info   :     Fixes] [X64InlineHook] Compiled stub at 0x00007FF99F1DB160, size: 103 bytes (target: 0x00007FFA0F119B67).
+[Info   :     Fixes] [X64InlineHook] Hook enabled at 0x00007FFA0F119B67, stub 0x00007FF99F1DB160.
+[Info   :     Fixes] [HookTransaction] [c_game_ai_find_valid_siege_tent_site_hook] installed at 0x00007FFA0F119B67.
+[Info   :     Fixes] [X64InlineHook] Compiled stub at 0x00007FF99F1DB350, size: 107 bytes (target: 0x00007FFA0F0E73F2).
+[Info   :     Fixes] [X64InlineHook] Hook enabled at 0x00007FFA0F0E73F2, stub 0x00007FF99F1DB350.
+[Info   :     Fixes] [HookTransaction] [c_game_ai_count_active_farms_hook] installed at 0x00007FFA0F0E73F2.
+[Info   :     Fixes] [X64InlineHook] Compiled stub at 0x00007FF99F1DB5C0, size: 22 bytes (target: 0x00007FFA0F083EF0).
+[Info   :     Fixes] [X64InlineHook] Hook enabled at 0x00007FFA0F083EF0, stub 0x00007FF99F1DB5C0.
+[Info   :     Fixes] [HookTransaction] [c_game_aiv_prepare_layout_hook] installed at 0x00007FFA0F083EF0.
+[Info   :     Fixes] [HookTransaction] Commit complete - 5 active, 5 registered. 5ms total.
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [RegisterLobbyModSettings] Registered mod [Fixes]
+[Info   :     Fixes] [Plugin] [LoadExternalConfigs] Loading external configuration...
+[Info   :     Fixes] [Plugin] [OverrideGlobals] Overriding globals...
+[Info   :     Fixes] [Plugin] [OverrideGlobals] Old Wheat Sale Category Value: 2
+[Info   :     Fixes] [Plugin] [OverrideGlobals] New Wheat Sale Category Value: 6
+[Info   :     Fixes] [Plugin] [Awake] Plugin Fixes is loaded!
+[Info   :   BepInEx] Loading [MPTest 1.0.0]
+[Info   :    MPTest] [2026-07-14 18:19:16.279] MPTest 1.0.0 loaded.
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [RegisterBinding] Registering auto-binding: [MPTestWoodcutterSpawnButtonHost]
+[Info   :  SHCDE-SE] [GameNetworkAPI] [GetPacketEventFor] Dynamically registered packet type 'WoodcutterSwordsmanSpawnPacket' with ID: 1101
+[Info   :  SHCDE-SE] [GameNetworkAPI] [GetPacketEventFor] Created R3 event stream for packet ID 1101 [WoodcutterSwordsmanSpawnPacket]
+[Info   :    MPTest] [2026-07-14 18:19:16.319] MPTest: Runtime initialized: packetId=1101, synchronization=local-first-broadcast.
+[Info   :    MPTest] [2026-07-14 18:19:16.319] MPTest Crusader library loaded; UI binding and runtime initialized.
+[Info   :   BepInEx] Loading [Some Settings 1.0.7]
+[Info   :Some Settings] [2026-07-14 18:19:16.329] Deterministic channel unregistered: scope=SomeSettings_Serp, channel=knight-dismount, removed=False.
+[Info   :Some Settings] [2026-07-14 18:19:16.329] Deterministic channel unregistered: scope=SomeSettings_Serp, channel=knight-mount, removed=False.
+[Info   :Some Settings] [2026-07-14 18:19:16.329] SomeSettings knight mount/dismount diagnostic: Knight mount/dismount runtime disposed.
+[Warning:  SHCDE-SE] [GameNetworkAPI] [GetLocalPlayerId] EditorDirector returned invalid ID -1 outside lobby phase
+[Info   :  SHCDE-SE] [LobbyModSettingsStorage] [Load] [SomeSettings_Serp]: Settings restored from [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\SomeSettings_Serp\LobbyModSettings\SomeSettings_Serp.msgpack]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [RegisterLobbyModSettings] Registered mod [SomeSettings_Serp]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [RegisterBinding] Registering auto-binding: [SomeSettingsKnightDismountButtonHost]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [RegisterBinding] Registering auto-binding: [SomeSettingsQuarryPileRelocationButtonHost]
+[Info   :Some Settings] [2026-07-14 18:19:16.339] SomeSettings quarry-pile diagnostic: Vanilla candidate helper installed: address=0x00007FFA0F0EF480, candidatesPerTry=24, placementTries=1-9.
+[Info   :   BepInEx] Loading [Start Conditions 1.0.3]
+[Info   :  SHCDE-SE] [LobbyModSettingsStorage] [Load] [StartConditions_Serp]: Settings restored from [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\StartConditions_Serp\LobbyModSettings\StartConditions_Serp.msgpack]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [RegisterLobbyModSettings] Registered mod [StartConditions_Serp]
+[Info   :   BepInEx] Loading [Unit Limit 1.0.2]
+[Info   :  SHCDE-SE] [LobbyModSettingsStorage] [Load] [UnitLimit_Serp]: Settings restored from [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\UnitLimit_Serp\LobbyModSettings\UnitLimit_Serp.msgpack]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [RegisterLobbyModSettings] Registered mod [UnitLimit_Serp]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [RegisterBinding] Registering auto-binding: [UnitLimitNotificationOverlay]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [RegisterBinding] Registering auto-binding: [UnitLimitSiegeNotificationInlineHost]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [RegisterBinding] Registering auto-binding: [UnitLimitTroopLimitInlineHost]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [RegisterBinding] Registering auto-binding: [UnitLimitArabTroopLimitInlineHost]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [RegisterBinding] Registering auto-binding: [UnitLimitBedouinTroopLimitInlineHost]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [RegisterBinding] Registering auto-binding: [UnitLimitEngineersLimitInlineHost]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [RegisterBinding] Registering auto-binding: [UnitLimitTunellersLimitInlineHost]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [RegisterBinding] Registering auto-binding: [UnitLimitMonkLimitInlineHost]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [RegisterBinding] Registering auto-binding: [UnitLimitSiegeLimitInlineHost]
+[Info   :   BepInEx] Loading [Unit Costs 1.0.5]
+[Info   :  SHCDE-SE] [LobbyModSettingsStorage] [Load] [UnitCosts_Serp]: Settings restored from [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\UnitCosts_Serp\LobbyModSettings\UnitCosts_Serp.msgpack]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [RegisterLobbyModSettings] Registered mod [UnitCosts_Serp]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [RegisterBinding] Registering auto-binding: [UnitCostsNotificationOverlay]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [RegisterBinding] Registering auto-binding: [UnitCostsSiegeNotificationInlineHost]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [RegisterBinding] Registering auto-binding: [UnitCostsTroopCostsInlineHost]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [RegisterBinding] Registering auto-binding: [UnitCostsArabTroopCostsInlineHost]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [RegisterBinding] Registering auto-binding: [UnitCostsBedouinTroopCostsInlineHost]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [RegisterBinding] Registering auto-binding: [UnitCostsEngineersCostsInlineHost]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [RegisterBinding] Registering auto-binding: [UnitCostsTunellersCostsInlineHost]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [RegisterBinding] Registering auto-binding: [UnitCostsMonkCostsInlineHost]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [RegisterBinding] Registering auto-binding: [UnitCostsSiegeBuildCostsInlineHost]
+[Message:   BepInEx] Chainloader startup complete
+[Info   :  SHCDE-SE] [MapModManager] [TryUpdateModsFromRemote] Trying to update mods from steam-remote...
+[Info   :  SHCDE-SE] [WorkshopUpdateManager] [CheckAndDownloadUpdates] Checking for Steam Workshop updates...
+[Info   :  SHCDE-SE] [WorkshopUpdateManager] [CheckAndDownloadUpdates] No subscribed workshop items found
+[Info   :  SHCDE-SE] [MapModManager] [TryUpdateModsFromRemote] Retrieved 0 items
+[Info   :  SHCDE-SE] [MapModManager] [DetectAndStageUninstalls] Scanning for uninstalls in: [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\_SE]
+[Warning:  SHCDE-SE] [MapModManager] [DetectAndStageUninstalls] _SE Directory not found. Skipping uninstall check.
+[Info   :UU-ImGUI API] idxgiswapchain_present_hook_impl: init
+[Info   :UU-ImGUI API] idxgiswapchain_present_hook_impl: overwritten wndproc of hwnd: 2557184. old: 1EDE460D2B0, new=1EDE31F9240
+[Info   :UU-ImGUI API] idxgiswapchain_present_hook_impl: created imgui context: 1EDD06F3030
+[Info   :UU-ImGUI API] idxgiswapchain_present_hook_impl: created implot context: 1ECAB87A4A0
+[Info   :UU-ImGUI API] idxgiswapchain_present_hook_impl: created imnodes context: 1ED4063FF50
+[Info   :UU-ImGUI API] idxgiswapchain_present_hook_impl: created implot3d context: 1EDCFF88070
+[Info   :UU-ImGUI API] idxgiswapchain_present_hook_impl: context creation complete
+[Info   :UU-ImGUI API] idxgiswapchain_present_hook_impl: idgxiswapchain_getdesc::getdesc OK
+[Info   :UU-ImGUI API] idxgiswapchain_present_hook_impl: idgxiswapchain_getdevice::getdevice OK
+[Info   :UU-ImGUI API] idxgiswapchain_present_hook_impl: cached id3d11 device, id3d11 device context
+[Info   :UU-ImGUI API] idxgiswapchain_present_hook_impl: idgxiswapchain_getbuffer::getbuffer
+[Info   :UU-ImGUI API] idxgiswapchain_present_hook_impl: cached_ID3D11Device::createrendertargetview
+[Info   :UU-ImGUI API] idxgiswapchain_present_hook_impl: pBackBuffer release OK
+[Info   :UU-ImGUI API] idxgiswapchain_present_hook_impl: imgui get io
+[Info   :UU-ImGUI API] idxgiswapchain_present_hook_impl: adding primary font: E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\data\fonts/FiraCode-Regular.ttf
+[Info   :UU-ImGUI API] idxgiswapchain_present_hook_impl: win32 init begin
+[Info   :UU-ImGUI API] idxgiswapchain_present_hook_impl: win32 init ok
+[Info   :UU-ImGUI API] idxgiswapchain_present_hook_impl: dx11 init begin, ppDevice=1EC1CE54580, pID3D11DeviceContext=1EC1CE73DB8 PTRSIZE=8 / 8
+[Info   :UU-ImGUI API] idxgiswapchain_present_hook_impl: dx11 init ok
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [GetPatchesForPath] Found patch for [Assets/GUI/XAML/FrontendMenus.xaml] -> [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\Patches\Assets/GUI/XAML/FrontendMenus.xaml]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [ApplyPatchForPath] Applying 1 patch files to Assets/GUI/XAML/FrontendMenus.xaml
+[Info   :  SHCDE-SE] [XamlPatcher] [ApplyPatches] Applying patch: InsertAfter, xpath: [//n:TextBlock[@Text='{Binding VersionString}']]
+[Info   :  SHCDE-SE] [NoesisTextureProvider_Hooks] [NoesisTextureProvider_GetTextureInfo] Registering Mod Texture: Assets/GUI/Sprites/selogo_1.png
+[Info   :  SHCDE-SE] [NoesisTextureProvider_Hooks] [NoesisTextureProvider_GetTextureInfo] Registering Mod Texture: Assets/GUI/Sprites/selogo_2.png
+[Info   :  SHCDE-SE] [NoesisTextureProvider_Hooks] [NoesisTextureProvider_GetTextureInfo] Registering Mod Texture: Assets/GUI/Sprites/selogo_3.png
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [GetPatchesForPath] Found patch for [Assets/GUI/XAMLResources/HUD_Options.xaml] -> [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\Patches\Assets/GUI/XAMLResources/HUD_Options.xaml]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [ApplyPatchForPath] Applying 1 patch files to Assets/GUI/XAMLResources/HUD_Options.xaml
+[Info   :  SHCDE-SE] [XamlPatcher] [ApplyPatches] Applying patch: SetAttribute, xpath: [//*[@Name='GameSpeedSlider']]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [GetPatchesForPath] Found patch for [Assets/GUI/XAMLResources/FRONT_Multiplayer.xaml] -> [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\Patches\Assets/GUI/XAMLResources/FRONT_Multiplayer.xaml]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [ApplyPatchForPath] Applying 1 patch files to Assets/GUI/XAMLResources/FRONT_Multiplayer.xaml
+[Info   :  SHCDE-SE] [XamlPatcher] [ApplyPatches] Applying patch: InsertAfter, xpath: [(//n:Button[@CommandParameter='Back'])[1]]
+[Info   :  SHCDE-SE] [XamlPatcher] [ApplyPatches] Applying patch: Add, xpath: [//n:Grid[@Name='mapgrid']]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [GetPatchesForPath] Found patch for [Assets/GUI/XAMLResources/FRONT_Multiplayer_Setup.xaml] -> [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\Patches\Assets/GUI/XAMLResources/FRONT_Multiplayer_Setup.xaml]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [ApplyPatchForPath] Applying 1 patch files to Assets/GUI/XAMLResources/FRONT_Multiplayer_Setup.xaml
+[Info   :  SHCDE-SE] [XamlPatcher] [ApplyPatches] Applying patch: SetAttribute, xpath: [//*[@Name='MP_Settings_GameSpeed_Slider']]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [GetPatchesForPath] Found patch for [Assets/GUI/XAMLResources/FRONT_Multiplayer_Setup.xaml] -> [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\Patches\Assets/GUI/XAMLResources/FRONT_Multiplayer_Setup.xaml]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [ApplyPatchForPath] Applying 1 patch files to Assets/GUI/XAMLResources/FRONT_Multiplayer_Setup.xaml
+[Info   :  SHCDE-SE] [XamlPatcher] [ApplyPatches] Applying patch: SetAttribute, xpath: [//*[@Name='MP_Settings_GameSpeed_Slider']]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [GetPatchesForPath] Found patch for [Assets/GUI/XAMLResources/HUD_Options.xaml] -> [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\Patches\Assets/GUI/XAMLResources/HUD_Options.xaml]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [ApplyPatchForPath] Applying 1 patch files to Assets/GUI/XAMLResources/HUD_Options.xaml
+[Info   :  SHCDE-SE] [XamlPatcher] [ApplyPatches] Applying patch: SetAttribute, xpath: [//*[@Name='GameSpeedSlider']]
+[Info   :  SHCDE-SE] [NoesisTextureProvider_Hooks] [NoesisTextureProvider_GetTextureInfo] Registering Mod Texture: Assets/GUI/Sprites/modsettingspanel.png
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [InjectBindings] ViewModel Linked [SE_ModOptionsToggle] in [FRONT_Multiplayer]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [ApplyBinding] ViewModel Linked [SE_ModOptionsToggle]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [InjectBindings] ViewModel Linked [SE_ModOptionsModal] in [FRONT_Multiplayer]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [ApplyBinding] ViewModel Linked [SE_ModOptionsModal]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [InjectBindings] ViewModel Linked [SEMainMenuContainer] in [FrontendMenus]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [ApplyBinding] ViewModel Linked [SEMainMenuContainer]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [GetPatchesForPath] Found patch for [Assets/GUI/XAML/MainHUD.xaml] -> [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\BuildingCosts_Serp\Patches\Assets/GUI/XAML/MainHUD.xaml]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [GetPatchesForPath] Found patch for [Assets/GUI/XAML/MainHUD.xaml] -> [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\BuildingLimit_Serp\Patches\Assets/GUI/XAML/MainHUD.xaml]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [GetPatchesForPath] Found patch for [Assets/GUI/XAML/MainHUD.xaml] -> [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\UnitLimit_Serp\Patches\Assets/GUI/XAML/MainHUD.xaml]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [ApplyPatchForPath] Applying 3 patch files to Assets/GUI/XAML/MainHUD.xaml
+[Info   :  SHCDE-SE] [XamlPatcher] [ApplyPatches] Applying patch: Replace, xpath: [//n:DockPanel[@Visibility='{Binding RolloverBuilding_TooltipVis, Converter={StaticResource booleanToVisibilityConverter}}']//n:TextBlock[n:Run[@Text='{Binding RollOverText_AmountReq1}']]]
+[Info   :  SHCDE-SE] [XamlPatcher] [ApplyPatches] Applying patch: InsertBefore, xpath: [//n:TextBlock[@Text='{Binding RolloverBuilding_TooltipBody}']]
+[Info   :  SHCDE-SE] [XamlPatcher] [ApplyPatches] Applying patch: Replace, xpath: [//n:TextBlock[@x:Name='GameHoverText']]
+[Info   :  SHCDE-SE] [XamlPatcher] [ApplyPatches] Applying patch: Add, xpath: [/n:UserControl/n:Grid]
+[Info   :  SHCDE-SE] [XamlPatcher] [ApplyPatches] Applying patch: InsertBefore, xpath: [//n:TextBlock[@Text='{Binding RolloverBuilding_TooltipBody}']]
+[Info   :  SHCDE-SE] [XamlPatcher] [ApplyPatches] Applying patch: Add, xpath: [//n:StackPanel[@Visibility='{Binding RolloverBuilding_TooltipVisNot, Converter={StaticResource booleanToVisibilityConverter}}']]
+[Info   :  SHCDE-SE] [XamlPatcher] [ApplyPatches] Applying patch: Add, xpath: [/n:UserControl/n:Grid]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [GetPatchesForPath] Found patch for [Assets/GUI/XAMLResources/HUD_Troops.xaml] -> [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\SomeSettings_Serp\Patches\Assets/GUI/XAMLResources/HUD_Troops.xaml]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [GetPatchesForPath] Found patch for [Assets/GUI/XAMLResources/HUD_Troops.xaml] -> [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\UnitCosts_Serp\Patches\Assets/GUI/XAMLResources/HUD_Troops.xaml]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [GetPatchesForPath] Found patch for [Assets/GUI/XAMLResources/HUD_Troops.xaml] -> [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\UnitLimit_Serp\Patches\Assets/GUI/XAMLResources/HUD_Troops.xaml]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [ApplyPatchForPath] Applying 3 patch files to Assets/GUI/XAMLResources/HUD_Troops.xaml
+[Info   :  SHCDE-SE] [XamlPatcher] [ApplyPatches] Applying patch: Add, xpath: [//n:Grid[@Name='UnitControls']]
+[Info   :  SHCDE-SE] [XamlPatcher] [ApplyPatches] Applying patch: InsertAfter, xpath: [//n:TextBlock[@x:Name='TroopsPanelRollover']]
+[Info   :  SHCDE-SE] [XamlPatcher] [ApplyPatches] Applying patch: InsertAfter, xpath: [//n:TextBlock[@x:Name='TroopsPanelRollover']]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [InjectBindings] ViewModel Linked [SomeSettingsKnightDismountButtonHost] in [HUD_Troops]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [ApplyBinding] ViewModel Linked [SomeSettingsKnightDismountButtonHost]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [InjectBindings] ViewModel Linked [UnitLimitSiegeNotificationInlineHost] in [HUD_Troops]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [ApplyBinding] ViewModel Linked [UnitLimitSiegeNotificationInlineHost]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [InjectBindings] ViewModel Linked [UnitLimitSiegeLimitInlineHost] in [HUD_Troops]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [ApplyBinding] ViewModel Linked [UnitLimitSiegeLimitInlineHost]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [InjectBindings] ViewModel Linked [UnitCostsSiegeNotificationInlineHost] in [HUD_Troops]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [ApplyBinding] ViewModel Linked [UnitCostsSiegeNotificationInlineHost]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [InjectBindings] ViewModel Linked [UnitCostsSiegeBuildCostsInlineHost] in [HUD_Troops]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [ApplyBinding] ViewModel Linked [UnitCostsSiegeBuildCostsInlineHost]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [GetPatchesForPath] Found patch for [Assets/GUI/XAMLResources/HUD_Buildings.xaml] -> [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\MPTest_Serp\Patches\Assets/GUI/XAMLResources/HUD_Buildings.xaml]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [GetPatchesForPath] Found patch for [Assets/GUI/XAMLResources/HUD_Buildings.xaml] -> [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\SomeSettings_Serp\Patches\Assets/GUI/XAMLResources/HUD_Buildings.xaml]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [GetPatchesForPath] Found patch for [Assets/GUI/XAMLResources/HUD_Buildings.xaml] -> [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\UnitCosts_Serp\Patches\Assets/GUI/XAMLResources/HUD_Buildings.xaml]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [GetPatchesForPath] Found patch for [Assets/GUI/XAMLResources/HUD_Buildings.xaml] -> [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\UnitLimit_Serp\Patches\Assets/GUI/XAMLResources/HUD_Buildings.xaml]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [ApplyPatchForPath] Applying 4 patch files to Assets/GUI/XAMLResources/HUD_Buildings.xaml
+[Info   :  SHCDE-SE] [XamlPatcher] [ApplyPatches] Applying patch: Add, xpath: [//n:Grid[@Name='WorkerPanel']]
+[Info   :  SHCDE-SE] [XamlPatcher] [ApplyPatches] Applying patch: SetAttribute, xpath: [//n:Slider[@Name='Autotrade_Sell_Slider']]
+[Info   :  SHCDE-SE] [XamlPatcher] [ApplyPatches] Applying patch: Add, xpath: [//n:Grid[@Name='WorkerPanel']]
+[Info   :  SHCDE-SE] [XamlPatcher] [ApplyPatches] Applying patch: Add, xpath: [//n:Grid[@Name='WorkerPanel']]
+[Info   :  SHCDE-SE] [XamlPatcher] [ApplyPatches] Applying patch: Add, xpath: [/n:UserControl/n:Grid]
+[Info   :  SHCDE-SE] [XamlPatcher] [ApplyPatches] Applying patch: InsertBefore, xpath: [//n:TextBlock[@x:Name='TroopCostsText']]
+[Info   :  SHCDE-SE] [XamlPatcher] [ApplyPatches] Applying patch: InsertBefore, xpath: [//n:TextBlock[@x:Name='ArabTroopCostsText']]
+[Info   :  SHCDE-SE] [XamlPatcher] [ApplyPatches] Applying patch: InsertBefore, xpath: [//n:TextBlock[@x:Name='BedouinTroopCostsText']]
+[Info   :  SHCDE-SE] [XamlPatcher] [ApplyPatches] Applying patch: InsertBefore, xpath: [//n:TextBlock[@x:Name='EngineersCostsText']]
+[Info   :  SHCDE-SE] [XamlPatcher] [ApplyPatches] Applying patch: InsertBefore, xpath: [//n:TextBlock[@x:Name='TunellersCostsText']]
+[Info   :  SHCDE-SE] [XamlPatcher] [ApplyPatches] Applying patch: InsertBefore, xpath: [//n:TextBlock[@x:Name='MonkCostsText']]
+[Info   :  SHCDE-SE] [XamlPatcher] [ApplyPatches] Applying patch: InsertBefore, xpath: [//n:TextBlock[@x:Name='TroopCostsText']]
+[Info   :  SHCDE-SE] [XamlPatcher] [ApplyPatches] Applying patch: InsertBefore, xpath: [//n:TextBlock[@x:Name='ArabTroopCostsText']]
+[Info   :  SHCDE-SE] [XamlPatcher] [ApplyPatches] Applying patch: InsertBefore, xpath: [//n:TextBlock[@x:Name='BedouinTroopCostsText']]
+[Info   :  SHCDE-SE] [XamlPatcher] [ApplyPatches] Applying patch: InsertBefore, xpath: [//n:TextBlock[@x:Name='EngineersCostsText']]
+[Info   :  SHCDE-SE] [XamlPatcher] [ApplyPatches] Applying patch: InsertBefore, xpath: [//n:TextBlock[@x:Name='TunellersCostsText']]
+[Info   :  SHCDE-SE] [XamlPatcher] [ApplyPatches] Applying patch: InsertBefore, xpath: [//n:TextBlock[@x:Name='MonkCostsText']]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [InjectBindings] ViewModel Linked [MPTestWoodcutterSpawnButtonHost] in [HUD_Buildings]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [ApplyBinding] ViewModel Linked [MPTestWoodcutterSpawnButtonHost]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [InjectBindings] ViewModel Linked [SomeSettingsQuarryPileRelocationButtonHost] in [HUD_Buildings]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [ApplyBinding] ViewModel Linked [SomeSettingsQuarryPileRelocationButtonHost]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [InjectBindings] ViewModel Linked [UnitLimitTroopLimitInlineHost] in [HUD_Buildings]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [ApplyBinding] ViewModel Linked [UnitLimitTroopLimitInlineHost]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [InjectBindings] ViewModel Linked [UnitLimitArabTroopLimitInlineHost] in [HUD_Buildings]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [ApplyBinding] ViewModel Linked [UnitLimitArabTroopLimitInlineHost]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [InjectBindings] ViewModel Linked [UnitLimitBedouinTroopLimitInlineHost] in [HUD_Buildings]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [ApplyBinding] ViewModel Linked [UnitLimitBedouinTroopLimitInlineHost]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [InjectBindings] ViewModel Linked [UnitLimitEngineersLimitInlineHost] in [HUD_Buildings]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [ApplyBinding] ViewModel Linked [UnitLimitEngineersLimitInlineHost]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [InjectBindings] ViewModel Linked [UnitLimitTunellersLimitInlineHost] in [HUD_Buildings]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [ApplyBinding] ViewModel Linked [UnitLimitTunellersLimitInlineHost]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [InjectBindings] ViewModel Linked [UnitLimitMonkLimitInlineHost] in [HUD_Buildings]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [ApplyBinding] ViewModel Linked [UnitLimitMonkLimitInlineHost]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [InjectBindings] ViewModel Linked [UnitCostsNotificationOverlay] in [HUD_Buildings]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [ApplyBinding] ViewModel Linked [UnitCostsNotificationOverlay]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [InjectBindings] ViewModel Linked [UnitCostsTroopCostsInlineHost] in [HUD_Buildings]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [ApplyBinding] ViewModel Linked [UnitCostsTroopCostsInlineHost]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [InjectBindings] ViewModel Linked [UnitCostsArabTroopCostsInlineHost] in [HUD_Buildings]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [ApplyBinding] ViewModel Linked [UnitCostsArabTroopCostsInlineHost]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [InjectBindings] ViewModel Linked [UnitCostsBedouinTroopCostsInlineHost] in [HUD_Buildings]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [ApplyBinding] ViewModel Linked [UnitCostsBedouinTroopCostsInlineHost]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [InjectBindings] ViewModel Linked [UnitCostsEngineersCostsInlineHost] in [HUD_Buildings]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [ApplyBinding] ViewModel Linked [UnitCostsEngineersCostsInlineHost]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [InjectBindings] ViewModel Linked [UnitCostsTunellersCostsInlineHost] in [HUD_Buildings]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [ApplyBinding] ViewModel Linked [UnitCostsTunellersCostsInlineHost]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [InjectBindings] ViewModel Linked [UnitCostsMonkCostsInlineHost] in [HUD_Buildings]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [ApplyBinding] ViewModel Linked [UnitCostsMonkCostsInlineHost]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [InjectBindings] ViewModel Linked [BuildingCostsTooltipHost] in [MainHUD]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [ApplyBinding] ViewModel Linked [BuildingCostsTooltipHost]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [InjectBindings] ViewModel Linked [BuildingCostsTooltipHostCompact] in [MainHUD]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [ApplyBinding] ViewModel Linked [BuildingCostsTooltipHostCompact]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [InjectBindings] ViewModel Linked [BuildingLimitNotificationOverlay] in [MainHUD]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [ApplyBinding] ViewModel Linked [BuildingLimitNotificationOverlay]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [InjectBindings] ViewModel Linked [BuildingLimitTooltipHost] in [MainHUD]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [ApplyBinding] ViewModel Linked [BuildingLimitTooltipHost]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [InjectBindings] ViewModel Linked [BuildingLimitTooltipHostCompact] in [MainHUD]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [ApplyBinding] ViewModel Linked [BuildingLimitTooltipHostCompact]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [InjectBindings] ViewModel Linked [UnitLimitNotificationOverlay] in [MainHUD]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [ApplyBinding] ViewModel Linked [UnitLimitNotificationOverlay]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [GetPatchesForPath] Found patch for [Assets/GUI/XAMLResources/HUD_Options.xaml] -> [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\Patches\Assets/GUI/XAMLResources/HUD_Options.xaml]
+[Info   :  SHCDE-SE] [GameXAMLManagerAPI] [ApplyPatchForPath] Applying 1 patch files to Assets/GUI/XAMLResources/HUD_Options.xaml
+[Info   :  SHCDE-SE] [XamlPatcher] [ApplyPatches] Applying patch: SetAttribute, xpath: [//*[@Name='GameSpeedSlider']]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Abbot
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Abbot]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Abbot
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Abbot]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Abbot
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Abbot]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Abbot
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Abbot]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Abbot
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Abbot]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Abbot
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Abbot]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Baldwin
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Baldwin]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Baldwin
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Baldwin]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Baldwin
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Baldwin]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Baldwin
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Baldwin]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Baldwin
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Baldwin]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Bullseye
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Bullseye]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Bullseye
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Bullseye]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Bullseye
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Bullseye]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Bullseye
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Bullseye]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Bullseye
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Bullseye]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Caliph
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Caliph]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Caliph
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Caliph]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Caliph
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Caliph]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Caliph
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Caliph]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Caliph
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Caliph]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Canary
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Canary]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Canary
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Canary]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Canary
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Canary]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Canary
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Canary]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Canary
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Canary]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Crocodile
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Crocodile]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Crocodile
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Crocodile]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Crocodile
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Crocodile]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Crocodile
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Crocodile]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Crocodile
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Crocodile]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Emir
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Emir]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Emir
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Emir]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Emir
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Emir]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Emir
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Emir]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Emir
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Emir]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Frederick
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Frederick]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Frederick
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Frederick]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Frederick
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Frederick]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Frederick
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Frederick]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Frederick
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Frederick]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Frederick
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Frederick]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Jewel
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Jewel]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Jewel
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Jewel]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Jewel
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Jewel]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Jewel
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Jewel]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Jewel
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Jewel]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Kahinah
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Kahinah]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Kahinah
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Kahinah]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Kahinah
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Kahinah]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Kahinah
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Kahinah]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Kahinah
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Kahinah]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Kahinah
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Kahinah]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Kahinah
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Kahinah]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Kahinah
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Kahinah]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Kahinah
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Kahinah]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Kahinah
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Kahinah]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Lioness
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Lioness]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Lioness
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Lioness]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Lioness
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Lioness]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Lioness
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Lioness]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Lioness
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Lioness]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Marshal
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Marshal]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Marshal
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Marshal]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Marshal
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Marshal]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Marshal
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Marshal]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Marshal
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Marshal]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Nizar
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Nizar]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Nizar
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Nizar]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Nizar
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Nizar]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Nizar
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Nizar]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Nizar
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Nizar]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Nomad
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Nomad]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Nomad
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Nomad]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Nomad
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Nomad]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Nomad
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Nomad]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Nomad
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Nomad]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Philip
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Philip]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Philip
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Philip]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Philip
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Philip]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Philip
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Philip]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Philip
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Philip]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Pig
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Pig]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Pig
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Pig]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Pig
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Pig]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Pig
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Pig]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Pig
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Pig]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Rat
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Rat]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Rat
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Rat]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Rat
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Rat]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Rat
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Rat]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Rat
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Rat]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Richard
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Richard]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Richard
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Richard]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Richard
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Richard]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Richard
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Richard]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Richard
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Richard]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Saladin
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Saladin]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Saladin
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Saladin]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Saladin
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Saladin]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Saladin
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Saladin]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Saladin
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Saladin]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Sentinel
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Sentinel]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Sentinel
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Sentinel]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Sentinel
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Sentinel]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Sentinel
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Sentinel]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Sentinel
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Sentinel]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Sergeant
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Sergeant]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Sergeant
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Sergeant]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Sergeant
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Sergeant]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Sergeant
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Sergeant]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Sergeant
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Sergeant]
+[Info   :  SHCDE-SE] [AIVLoader_Hooks] [AIVLoader_GetAIVData_Hook] Intercepting load of lord: [SK_SHERIFF], index=7 - overriden
+[Info   :  SHCDE-SE] [AIVLoader_Hooks] [AIVLoader_GetAIVData_Hook] Intercepting load of lord: [SK_SHERIFF], index=7 - overriden
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Sheriff
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Sheriff]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Sheriff
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Sheriff]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Sheriff
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Sheriff]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Sheriff
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Sheriff]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Sheriff
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Sheriff]
+[Info   :  SHCDE-SE] [AIVLoader_Hooks] [AIVLoader_GetAIVData_Hook] Intercepting load of lord: [SK_SNAKE], index=4 - overriden
+[Info   :  SHCDE-SE] [AIVLoader_Hooks] [AIVLoader_GetAIVData_Hook] Intercepting load of lord: [SK_SNAKE], index=4 - overriden
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Snake
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Snake]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Snake
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Snake]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Snake
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Snake]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Snake
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Snake]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Snake
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Snake]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Sultan
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Sultan]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Sultan
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Sultan]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Sultan
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Sultan]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Sultan
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Sultan]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Sultan
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Sultan]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Trader
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Trader]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Trader
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Trader]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Trader
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Trader]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Trader
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Trader]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Trader
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Trader]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Wazir
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Wazir]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Wazir
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Wazir]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Wazir
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Wazir]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Wazir
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Wazir]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Wazir
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Wazir]
+[Info   :  SHCDE-SE] [AIVLoader_Hooks] [AIVLoader_GetAIVData_Hook] Intercepting load of lord: [SK_WOLF], index=1 - overriden
+[Info   :  SHCDE-SE] [AIVLoader_Hooks] [AIVLoader_GetAIVData_Hook] Intercepting load of lord: [SK_WOLF], index=1 - overriden
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Wolf
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Wolf]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Wolf
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Wolf]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Wolf
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Wolf]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Wolf
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Wolf]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Wolf
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Wolf]
+[Info   :     Fixes] [FixesAIEvents] [OnProcessCustomLord] Processing custom AI lord: Wolf
+[Warning:     Fixes] [FixesAIEvents] [OnProcessCustomLord] Preference file not found for [Wolf]
+[Info   :  SHCDE-SE] [GameSpriteManagerAPI] [ApplyRuntimeOverrides] Starting Sprite Override Injection...
+[Info   :  SHCDE-SE] [GameSpriteManagerAPI] [ApplyRuntimeOverrides] Replaced 0 sprites and generated materials.
+[Info   :  SHCDE-SE] [NoesisTextureProvider_Hooks] [NoesisTextureProvider_GetTextureInfo] Registering Mod Texture: Assets/GUI/Sprites/000shcdese
+[Info   :  SHCDE-SE] [NoesisTextureProvider_Hooks] [NoesisTextureProvider_GetTextureInfo] Registering Mod Texture: Assets/GUI/Sprites/fixes
+[Info   :  SHCDE-SE] [BulkMapLoaderDetours] [c_game_unload_map_hook_impl] pTileManager=00007FFA1308CD40, preventNotification=False
+[Info   :  SHCDE-SE] [GameMapArchiveManagerAPI] [OnUnloadMap] Unloading archive
+[Info   :  SHCDE-SE] [GameMapArchiveManagerAPI] [RemoveActiveArchive] Attempting to remove active archive
+[Info   :  SHCDE-SE] [LuaManager] [OnUnloadMap] Attempting to unload lua state due to event, phase: Pre
+[Info   :  SHCDE-SE] [LuaManager] [TryUnload] Attempting to unload lua state
+[Warning:  SHCDE-SE] [LuaManager] [TryUnload] Lua state already unloaded!
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [DeterministicRandom] [OnUnloadMap] uninitializing shared state.
+[Info   :  SHCDE-SE] [GamePlayerManagerAPI] [OnUnloadMap] Unloading
+[Info   :  SHCDE-SE] [GameUnitManagerAPI] [OnUnloadMap] Unloading
+[Info   :  SHCDE-SE] [GameBuildingManagerAPI] [OnUnloadMap] Unloading
+[Info   :  SHCDE-SE] [GameMetadataManagerAPI] [OnUnloadMap] Unloading metadata
+[Info   :  SHCDE-SE] [GameSoundManagerAPI] [Unload] Unloading sounds
+[Info   :  SHCDE-SE] [GameSoundManagerAPI] [Unload] Unloading sounds complete
+[Info   :  SHCDE-SE] [GameTriggerManager] [OnUnloadMap] Unloading
+[Info   :  SHCDE-SE] [GameTimeManagerAPI] [OnUnloadMap] Unloading
+[Info   :  SHCDE-SE] [GameAfterImageManager] [OnUnloadMap] Unloading active effects
+[Info   :  SHCDE-SE] [GameBundleManager] [OnUnloadMap] Unloading
+[Info   :    MPTest] [2026-07-14 18:19:27.869] MPTest: Map state cleared.
+[Info   :  SHCDE-SE] [GameMapArchiveManagerAPI] [OnUnloadMap] Unloading archive
+[Info   :  SHCDE-SE] [GameMapArchiveManagerAPI] [RemoveActiveArchive] Attempting to remove active archive
+[Info   :  SHCDE-SE] [DeterministicRandom] [OnUnloadMap] uninitializing shared state.
+[Info   :  SHCDE-SE] [GamePlayerManagerAPI] [OnUnloadMap] Unloading
+[Info   :  SHCDE-SE] [GameUnitManagerAPI] [OnUnloadMap] Unloading
+[Info   :  SHCDE-SE] [GameBuildingManagerAPI] [OnUnloadMap] Unloading
+[Info   :  SHCDE-SE] [GameMetadataManagerAPI] [OnUnloadMap] Unloading metadata
+[Info   :  SHCDE-SE] [GameSoundManagerAPI] [Unload] Unloading sounds
+[Info   :  SHCDE-SE] [GameSoundManagerAPI] [Unload] Unloading sounds complete
+[Info   :  SHCDE-SE] [GameTriggerManager] [OnUnloadMap] Unloading
+[Info   :  SHCDE-SE] [GameTimeManagerAPI] [OnUnloadMap] Unloading
+[Info   :  SHCDE-SE] [GameAfterImageManager] [OnUnloadMap] Unloading active effects
+[Info   :  SHCDE-SE] [GameBundleManager] [OnUnloadMap] Unloading
+[Info   :  SHCDE-SE] [BulkMapLoaderDetours] [c_game_unload_map_hook_impl] pTileManager=00007FFA1308CD40, preventNotification=False
+[Info   :  SHCDE-SE] [GameMapArchiveManagerAPI] [OnUnloadMap] Unloading archive
+[Info   :  SHCDE-SE] [GameMapArchiveManagerAPI] [RemoveActiveArchive] Attempting to remove active archive
+[Info   :  SHCDE-SE] [LuaManager] [OnUnloadMap] Attempting to unload lua state due to event, phase: Pre
+[Info   :  SHCDE-SE] [LuaManager] [TryUnload] Attempting to unload lua state
+[Warning:  SHCDE-SE] [LuaManager] [TryUnload] Lua state already unloaded!
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [DeterministicRandom] [OnUnloadMap] uninitializing shared state.
+[Info   :  SHCDE-SE] [GamePlayerManagerAPI] [OnUnloadMap] Unloading
+[Info   :  SHCDE-SE] [GameUnitManagerAPI] [OnUnloadMap] Unloading
+[Info   :  SHCDE-SE] [GameBuildingManagerAPI] [OnUnloadMap] Unloading
+[Info   :  SHCDE-SE] [GameMetadataManagerAPI] [OnUnloadMap] Unloading metadata
+[Info   :  SHCDE-SE] [GameSoundManagerAPI] [Unload] Unloading sounds
+[Info   :  SHCDE-SE] [GameSoundManagerAPI] [Unload] Unloading sounds complete
+[Info   :  SHCDE-SE] [GameTriggerManager] [OnUnloadMap] Unloading
+[Info   :  SHCDE-SE] [GameTimeManagerAPI] [OnUnloadMap] Unloading
+[Info   :  SHCDE-SE] [GameAfterImageManager] [OnUnloadMap] Unloading active effects
+[Info   :  SHCDE-SE] [GameBundleManager] [OnUnloadMap] Unloading
+[Info   :    MPTest] [2026-07-14 18:19:27.891] MPTest: Map state cleared.
+[Info   :  SHCDE-SE] [GameMapArchiveManagerAPI] [OnUnloadMap] Unloading archive
+[Info   :  SHCDE-SE] [GameMapArchiveManagerAPI] [RemoveActiveArchive] Attempting to remove active archive
+[Info   :  SHCDE-SE] [DeterministicRandom] [OnUnloadMap] uninitializing shared state.
+[Info   :  SHCDE-SE] [GamePlayerManagerAPI] [OnUnloadMap] Unloading
+[Info   :  SHCDE-SE] [GameUnitManagerAPI] [OnUnloadMap] Unloading
+[Info   :  SHCDE-SE] [GameBuildingManagerAPI] [OnUnloadMap] Unloading
+[Info   :  SHCDE-SE] [GameMetadataManagerAPI] [OnUnloadMap] Unloading metadata
+[Info   :  SHCDE-SE] [GameSoundManagerAPI] [Unload] Unloading sounds
+[Info   :  SHCDE-SE] [GameSoundManagerAPI] [Unload] Unloading sounds complete
+[Info   :  SHCDE-SE] [GameTriggerManager] [OnUnloadMap] Unloading
+[Info   :  SHCDE-SE] [GameTimeManagerAPI] [OnUnloadMap] Unloading
+[Info   :  SHCDE-SE] [GameAfterImageManager] [OnUnloadMap] Unloading active effects
+[Info   :  SHCDE-SE] [GameBundleManager] [OnUnloadMap] Unloading
+[Warning:  SHCDE-SE] [MapArchive] [.ctor] ZIP EOCD-Header not found for [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\StreamingAssets\Maps\Close Encounters.map]. Not a valid archive.
+[Info   :  SHCDE-SE] [Unknown] Platform_Multiplayer_CreateLobbyResult_ILHook: Lobby created
+[Info   :  SHCDE-SE] [BulkMapLoaderDetours] [c_game_unload_map_hook_impl] pTileManager=00007FFA1308CD40, preventNotification=False
+[Info   :  SHCDE-SE] [GameMapArchiveManagerAPI] [OnUnloadMap] Unloading archive
+[Info   :  SHCDE-SE] [GameMapArchiveManagerAPI] [RemoveActiveArchive] Attempting to remove active archive
+[Info   :  SHCDE-SE] [LuaManager] [OnUnloadMap] Attempting to unload lua state due to event, phase: Pre
+[Info   :  SHCDE-SE] [LuaManager] [TryUnload] Attempting to unload lua state
+[Warning:  SHCDE-SE] [LuaManager] [TryUnload] Lua state already unloaded!
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [DeterministicRandom] [OnUnloadMap] uninitializing shared state.
+[Info   :  SHCDE-SE] [GamePlayerManagerAPI] [OnUnloadMap] Unloading
+[Info   :  SHCDE-SE] [GameUnitManagerAPI] [OnUnloadMap] Unloading
+[Info   :  SHCDE-SE] [GameBuildingManagerAPI] [OnUnloadMap] Unloading
+[Info   :  SHCDE-SE] [GameMetadataManagerAPI] [OnUnloadMap] Unloading metadata
+[Info   :  SHCDE-SE] [GameSoundManagerAPI] [Unload] Unloading sounds
+[Info   :  SHCDE-SE] [GameSoundManagerAPI] [Unload] Unloading sounds complete
+[Info   :  SHCDE-SE] [GameTriggerManager] [OnUnloadMap] Unloading
+[Info   :  SHCDE-SE] [GameTimeManagerAPI] [OnUnloadMap] Unloading
+[Info   :  SHCDE-SE] [GameAfterImageManager] [OnUnloadMap] Unloading active effects
+[Info   :  SHCDE-SE] [GameBundleManager] [OnUnloadMap] Unloading
+[Info   :    MPTest] [2026-07-14 18:19:52.818] MPTest: Map state cleared.
+[Info   :  SHCDE-SE] [GameMapArchiveManagerAPI] [OnUnloadMap] Unloading archive
+[Info   :  SHCDE-SE] [GameMapArchiveManagerAPI] [RemoveActiveArchive] Attempting to remove active archive
+[Info   :  SHCDE-SE] [DeterministicRandom] [OnUnloadMap] uninitializing shared state.
+[Info   :  SHCDE-SE] [GamePlayerManagerAPI] [OnUnloadMap] Unloading
+[Info   :  SHCDE-SE] [GameUnitManagerAPI] [OnUnloadMap] Unloading
+[Info   :  SHCDE-SE] [GameBuildingManagerAPI] [OnUnloadMap] Unloading
+[Info   :  SHCDE-SE] [GameMetadataManagerAPI] [OnUnloadMap] Unloading metadata
+[Info   :  SHCDE-SE] [GameSoundManagerAPI] [Unload] Unloading sounds
+[Info   :  SHCDE-SE] [GameSoundManagerAPI] [Unload] Unloading sounds complete
+[Info   :  SHCDE-SE] [GameTriggerManager] [OnUnloadMap] Unloading
+[Info   :  SHCDE-SE] [GameTimeManagerAPI] [OnUnloadMap] Unloading
+[Info   :  SHCDE-SE] [GameAfterImageManager] [OnUnloadMap] Unloading active effects
+[Info   :  SHCDE-SE] [GameBundleManager] [OnUnloadMap] Unloading
+[Info   :  SHCDE-SE] [BulkMapLoaderDetours] [c_game_unload_map_hook_impl] pTileManager=00007FFA1308CD40, preventNotification=False
+[Info   :  SHCDE-SE] [GameMapArchiveManagerAPI] [OnUnloadMap] Unloading archive
+[Info   :  SHCDE-SE] [GameMapArchiveManagerAPI] [RemoveActiveArchive] Attempting to remove active archive
+[Info   :  SHCDE-SE] [LuaManager] [OnUnloadMap] Attempting to unload lua state due to event, phase: Pre
+[Info   :  SHCDE-SE] [LuaManager] [TryUnload] Attempting to unload lua state
+[Warning:  SHCDE-SE] [LuaManager] [TryUnload] Lua state already unloaded!
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [Scanner] Trying to pop value
+[Info   :  SHCDE-SE] [DeterministicRandom] [OnUnloadMap] uninitializing shared state.
+[Info   :  SHCDE-SE] [GamePlayerManagerAPI] [OnUnloadMap] Unloading
+[Info   :  SHCDE-SE] [GameUnitManagerAPI] [OnUnloadMap] Unloading
+[Info   :  SHCDE-SE] [GameBuildingManagerAPI] [OnUnloadMap] Unloading
+[Info   :  SHCDE-SE] [GameMetadataManagerAPI] [OnUnloadMap] Unloading metadata
+[Info   :  SHCDE-SE] [GameSoundManagerAPI] [Unload] Unloading sounds
+[Info   :  SHCDE-SE] [GameSoundManagerAPI] [Unload] Unloading sounds complete
+[Info   :  SHCDE-SE] [GameTriggerManager] [OnUnloadMap] Unloading
+[Info   :  SHCDE-SE] [GameTimeManagerAPI] [OnUnloadMap] Unloading
+[Info   :  SHCDE-SE] [GameAfterImageManager] [OnUnloadMap] Unloading active effects
+[Info   :  SHCDE-SE] [GameBundleManager] [OnUnloadMap] Unloading
+[Info   :    MPTest] [2026-07-14 18:19:52.839] MPTest: Map state cleared.
+[Info   :  SHCDE-SE] [GameMapArchiveManagerAPI] [OnUnloadMap] Unloading archive
+[Info   :  SHCDE-SE] [GameMapArchiveManagerAPI] [RemoveActiveArchive] Attempting to remove active archive
+[Info   :  SHCDE-SE] [DeterministicRandom] [OnUnloadMap] uninitializing shared state.
+[Info   :  SHCDE-SE] [GamePlayerManagerAPI] [OnUnloadMap] Unloading
+[Info   :  SHCDE-SE] [GameUnitManagerAPI] [OnUnloadMap] Unloading
+[Info   :  SHCDE-SE] [GameBuildingManagerAPI] [OnUnloadMap] Unloading
+[Info   :  SHCDE-SE] [GameMetadataManagerAPI] [OnUnloadMap] Unloading metadata
+[Info   :  SHCDE-SE] [GameSoundManagerAPI] [Unload] Unloading sounds
+[Info   :  SHCDE-SE] [GameSoundManagerAPI] [Unload] Unloading sounds complete
+[Info   :  SHCDE-SE] [GameTriggerManager] [OnUnloadMap] Unloading
+[Info   :  SHCDE-SE] [GameTimeManagerAPI] [OnUnloadMap] Unloading
+[Info   :  SHCDE-SE] [GameAfterImageManager] [OnUnloadMap] Unloading active effects
+[Info   :  SHCDE-SE] [GameBundleManager] [OnUnloadMap] Unloading
+[Info   :  SHCDE-SE] [BulkMapLoaderDetours] [c_game_dll_loadmaptoplay_hook_impl] campaignMapID=4294967295, safeFileName=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\StreamingAssets\Maps\Close Encounters.map, length=322, retData=000001ED4C7536E0, dummy=0, safeMapName=Close Encounters.map, maplength=40, multiplayerSave=0, trailType=-1, trailID=0, allow_classic_bedouins=0
+[Info   :  SHCDE-SE] [GameMapArchiveManagerAPI] [OnLoadMap] Loading archive from map file
+[Info   :  SHCDE-SE] [GameMapArchiveManagerAPI] [LoadMapArchive] Loading archive: [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\StreamingAssets\Maps\Close Encounters.map]
+[Warning:  SHCDE-SE] [MapArchive] [.ctor] ZIP EOCD-Header not found for [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\StreamingAssets\Maps\Close Encounters.map]. Not a valid archive.
+[Info   :  SHCDE-SE] [GameMapArchiveManagerAPI] [LoadMapArchive] No existing archive found - will create on-demand if needed
+[Info   :  SHCDE-SE] [ModSaveDataAPI] [ReadAllModDataFromArchive] Reading mod data from archive (IsSaveFile=False)
+[Info   :  SHCDE-SE] [ModSaveDataAPI] [ReadAllModDataFromArchive] No archive exists - skipping mod data load (this is normal for new maps)
+[Info   :  SHCDE-SE] [GameMapArchiveManagerAPI] [LoadMapArchive] Archive loaded (or will be created on-demand)
+[Info   :  SHCDE-SE] [GameMapArchiveManagerAPI] [OnLoadMap] Archive Contents: [
+]
+[Info   :  SHCDE-SE] [LuaManager] [OnLoadMap] Attempting to create lua state due to event, phase: Pre
+[Info   :  SHCDE-SE] [LuaManager] [TryLoad] Loading file: [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\StreamingAssets\Maps\Close Encounters.map]
+[Info   :  SHCDE-SE] [LuaManager] [TryLoad] Loading [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\StreamingAssets\Maps\Close Encounters.map] - Archive mode.
+[Warning:  SHCDE-SE] [LuaManager] [TryLoad] No Lua source found for [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\StreamingAssets\Maps\Close Encounters.map] and no lord AI or asset mod scripts registered. Skipping Lua init.
+[Info   :  SHCDE-SE] [BulkMapLoaderDetours] [c_game_start_skirmish_game_handler_hook_impl] a1=00000034D12ED280, bMultiplayerSave=0, a3=0
+[Info   :  SHCDE-SE] [BulkMapLoaderDetours] [c_game_unload_map_hook_impl] pTileManager=00007FFA1308CD40, preventNotification=True
+[Info   :     Fixes] [BuildingDetours] [.ctor] Build goodsyard for player 1: True
+[Info   :     Fixes] [BuildingDetours] [.ctor] Build goodsyard for player 2: True
+[Info   :  SHCDE-SE] [LuaManager] [OnStartMap] Attempting to run init due to event, phase: Post
+[Info   :  SHCDE-SE] [LuaManager] [TryRunInit] Attempting to execute lua-side init functions. Reason=NewGame
+[Warning:  SHCDE-SE] [LuaManager] [TryRunInit] Lua state is null
+[Info   :  SHCDE-SE] [DeterministicRandom] [OnStartMap] Initializing shared state.
+[Info   :  SHCDE-SE] [DeterministicRandom] [InitializeSeedAsHost] Initializing random seed [916649260] as host.
+[Info   :  SHCDE-SE] [GameMapArchiveManagerAPI] [OnLoadMap] Loading archive from map file
+[Info   :  SHCDE-SE] [GameMapArchiveManagerAPI] [LoadMapArchive] Loading archive: [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\StreamingAssets\Maps\Close Encounters.map]
+[Warning:  SHCDE-SE] [MapArchive] [.ctor] ZIP EOCD-Header not found for [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\StreamingAssets\Maps\Close Encounters.map]. Not a valid archive.
+[Info   :  SHCDE-SE] [GameMapArchiveManagerAPI] [LoadMapArchive] No existing archive found - will create on-demand if needed
+[Info   :  SHCDE-SE] [ModSaveDataAPI] [ReadAllModDataFromArchive] Reading mod data from archive (IsSaveFile=False)
+[Info   :  SHCDE-SE] [ModSaveDataAPI] [ReadAllModDataFromArchive] No archive exists - skipping mod data load (this is normal for new maps)
+[Info   :  SHCDE-SE] [GameMapArchiveManagerAPI] [LoadMapArchive] Archive loaded (or will be created on-demand)
+[Info   :  SHCDE-SE] [GameMapArchiveManagerAPI] [OnLoadMap] Archive Contents: [
+]
+[Info   :  SHCDE-SE] [GameTileManagerAPI] [.ctor] TileManager: 00007FFA1308CD40
+[Info   :  SHCDE-SE] [GameTileManagerAPI] [.ctor] TileHeightGridVA: 00007FFA13E0B2E0
+[Info   :  SHCDE-SE] [GameTileManagerAPI] [.ctor] TilePropertyFlagsVA: 00007FFA13925140
+[Info   :  SHCDE-SE] [GameTileManagerAPI] [.ctor] VegetationTypeLookupVA: 00007FFA13AFBFA0
+[Info   :  SHCDE-SE] [GameTileManagerAPI] [.ctor] TilePlayerOwnerIdVA: 00007FFA13EA7D20
+[Info   :  SHCDE-SE] [GameTileManagerAPI] [.ctor] TileBuildingIdGridVA: 00007FFA13B989E0
+[Info   :  SHCDE-SE] [GameTileManagerAPI] [.ctor] TileUnitIdGridVA: 00007FFA13C83940
+[Info   :  SHCDE-SE] [GameTileManagerAPI] [.ctor] TileStateGridVA: 00007FFA1402F6C0
+[Info   :  SHCDE-SE] [GameTileManagerAPI] [.ctor] TileTypeVA: 00007FFA13A5F240
+[Info   :  SHCDE-SE] [GameTileManagerAPI] [.ctor] _currentMapSize: 00007FFA150DB524
+[Info   :  SHCDE-SE] [GameTileManagerAPI] [.ctor] _gp_pathfindingContext: 00007FFA150DB5F0
+[Info   :    MPTest] [2026-07-14 18:20:01.360] MPTest spawn snapshot timing: source=local-multiplayer-click, playerId=1, requestId=1, unitId=49, gameTick=310, gameTimeUnits=7750000, elapsedMapTicks=311, deterministicSeed=916649260, structSize=1168, structFnv1a64=0xD61D94F514791AE0.
+[Info   :    MPTest] [2026-07-14 18:20:01.360] MPTest spawn snapshot state: source=local-multiplayer-click, playerId=1, requestId=1, unitId=49, globalId=3964, aliveState=NeedsInit, chimp=CHIMP_TYPE_SWORDSMAN, owner=1, color=1, spawnedForPlayerIndex=1, linkedProductionBuildingId=0, health=25000/25000, healthPercent=100, ticksAlive=0/0, aliveTicks=0/0.
+[Info   :    MPTest] [2026-07-14 18:20:01.360] MPTest spawn snapshot visual: source=local-multiplayer-click, playerId=1, requestId=1, unitId=49, material=GM_BODY_SWORDSMAN, animationFrame=1, spriteAnimationFrame=0, animationTimer=0, direction=Centre, attackFacing=Centre, invisible=0.
+[Info   :    MPTest] [2026-07-14 18:20:01.360] MPTest spawn snapshot position: source=local-multiplayer-click, playerId=1, requestId=1, unitId=49, requestedTile=265,414,8, world=2124,3316,8, tile=265,414, target=0,0, previous=0,0, tileIds=171669/0/0, next=265,414,0, target2=265,414, pathFlags=0, moving=8, pathPosition=0, pathSize=0, aiState=0, speed=4/4.
+[Info   :    MPTest] [2026-07-14 18:20:01.360] MPTest: Swordsman spawned: source=local-multiplayer-click, playerId=1, requestId=1, unitId=49, woodcutterId=20, woodcutterGlobalId=3959, tile=265,414, height=8.
+[Info   :    MPTest] [2026-07-14 18:20:01.360] MPTest: Spawn packet broadcast after local spawn: playerId=1, requestId=1, woodcutterGlobalId=3959, target=265,414.
+[Info   :    MPTest] [2026-07-14 18:20:09.725] MPTest spawn snapshot timing: source=local-multiplayer-click, playerId=1, requestId=2, unitId=74, gameTick=645, gameTimeUnits=15350000, elapsedMapTicks=615, deterministicSeed=916649260, structSize=1168, structFnv1a64=0xEC5F4039FFF89D5A.
+[Info   :    MPTest] [2026-07-14 18:20:09.725] MPTest spawn snapshot state: source=local-multiplayer-click, playerId=1, requestId=2, unitId=74, globalId=3991, aliveState=NeedsInit, chimp=CHIMP_TYPE_SWORDSMAN, owner=1, color=1, spawnedForPlayerIndex=1, linkedProductionBuildingId=0, health=25000/25000, healthPercent=100, ticksAlive=0/0, aliveTicks=0/0.
+[Info   :    MPTest] [2026-07-14 18:20:09.725] MPTest spawn snapshot visual: source=local-multiplayer-click, playerId=1, requestId=2, unitId=74, material=GM_BODY_SWORDSMAN, animationFrame=1, spriteAnimationFrame=0, animationTimer=0, direction=Centre, attackFacing=Centre, invisible=0.
+[Info   :    MPTest] [2026-07-14 18:20:09.725] MPTest spawn snapshot position: source=local-multiplayer-click, playerId=1, requestId=2, unitId=74, requestedTile=265,414,8, world=2124,3316,8, tile=265,414, target=0,0, previous=0,0, tileIds=171669/0/0, next=265,414,0, target2=265,414, pathFlags=0, moving=8, pathPosition=0, pathSize=0, aiState=0, speed=4/4.
+[Info   :    MPTest] [2026-07-14 18:20:09.725] MPTest: Swordsman spawned: source=local-multiplayer-click, playerId=1, requestId=2, unitId=74, woodcutterId=20, woodcutterGlobalId=3959, tile=265,414, height=8.
+[Info   :    MPTest] [2026-07-14 18:20:09.725] MPTest: Spawn packet broadcast after local spawn: playerId=1, requestId=2, woodcutterGlobalId=3959, target=265,414.
+[Info   :    MPTest] [2026-07-14 18:20:22.886] MPTest spawn snapshot timing: source=local-multiplayer-click, playerId=1, requestId=3, unitId=77, gameTick=1169, gameTimeUnits=28425000, elapsedMapTicks=1138, deterministicSeed=916649260, structSize=1168, structFnv1a64=0x95CB2518AF4C746C.
+[Info   :    MPTest] [2026-07-14 18:20:22.886] MPTest spawn snapshot state: source=local-multiplayer-click, playerId=1, requestId=3, unitId=77, globalId=3997, aliveState=NeedsInit, chimp=CHIMP_TYPE_SWORDSMAN, owner=1, color=1, spawnedForPlayerIndex=1, linkedProductionBuildingId=0, health=25000/25000, healthPercent=100, ticksAlive=0/0, aliveTicks=0/0.
+[Info   :    MPTest] [2026-07-14 18:20:22.886] MPTest spawn snapshot visual: source=local-multiplayer-click, playerId=1, requestId=3, unitId=77, material=GM_BODY_SWORDSMAN, animationFrame=1, spriteAnimationFrame=0, animationTimer=0, direction=Centre, attackFacing=Centre, invisible=0.
+[Info   :    MPTest] [2026-07-14 18:20:22.886] MPTest spawn snapshot position: source=local-multiplayer-click, playerId=1, requestId=3, unitId=77, requestedTile=265,414,8, world=2124,3316,8, tile=265,414, target=0,0, previous=0,0, tileIds=171669/0/0, next=265,414,0, target2=265,414, pathFlags=0, moving=8, pathPosition=0, pathSize=0, aiState=0, speed=4/4.
+[Info   :    MPTest] [2026-07-14 18:20:22.886] MPTest: Swordsman spawned: source=local-multiplayer-click, playerId=1, requestId=3, unitId=77, woodcutterId=20, woodcutterGlobalId=3959, tile=265,414, height=8.
+[Info   :    MPTest] [2026-07-14 18:20:22.886] MPTest: Spawn packet broadcast after local spawn: playerId=1, requestId=3, woodcutterGlobalId=3959, target=265,414.

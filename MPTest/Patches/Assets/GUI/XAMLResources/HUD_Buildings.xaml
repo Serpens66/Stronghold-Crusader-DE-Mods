@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Patch xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+       xmlns:local="clr-namespace:CrusaderDE">
+  <Operation Type="Add" XPath="//n:Grid[@Name='WorkerPanel']">
+    <Content>
+      <Grid x:Name="MPTestWoodcutterSpawnButtonHost"
+            Width="36"
+            Height="35"
+            Margin="0,38,296,0"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Top"
+            Visibility="{Binding ButtonVisibility}">
+        <Button x:Name="MPTestWoodcutterSpawnButton"
+                Width="36"
+                Height="35"
+                Margin="0"
+                local:PropEx.Sprite1="{StaticResource UI-Buttons L020}"
+                local:PropEx.Sprite2="{StaticResource UI-Buttons L021}"
+                local:PropEx.Sprite3="{StaticResource UI-Buttons L021}"
+                local:PropEx.Sprite4="{StaticResource UI-Buttons L021}"
+                Command="{Binding SpawnCommand}"
+                Content=""
+                Style="{StaticResource BTN_Image}" />
+      </Grid>
+    </Content>
+  </Operation>
+</Patch>

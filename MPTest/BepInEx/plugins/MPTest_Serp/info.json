@@ -1,0 +1,17 @@
+{
+  "GUID": "MPTest_Serp",
+  "Author": "Serpens66",
+  "Name": "MPTest",
+  "Description": "Adds a woodcutter-hut action button that spawns a synchronized swordsman on a valid adjacent tile.",
+  "Version": "1.0.0",
+  "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
+  "Manifest": 1,
+  "SerpChangelog": [
+    {
+      "Version": "1.0.0",
+      "Changes": [
+        "Add a synchronized woodcutter-hut button for spawning one swordsman on a valid adjacent tile."
+      ]
+    }
+  ]
+}
