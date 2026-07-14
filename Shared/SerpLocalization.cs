@@ -178,7 +178,7 @@ public static class SerpLocalization
         { KnightMountTooltipBody, "Turns selected swordsmen into mounted knights. Requires available horses in a stable." },
         { EnableQuarryPileRelocation, "Enable quarry pile rotation button" },
         { EnableQuarryPileRelocationHelp, "Adds a button to selected quarries that rotates their linked stone pile clockwise to the next valid position. The existing pile is kept if no valid replacement can be created." },
-        { QuarryPileRelocationTooltip, "Rotate quarry pile" },
+        { QuarryPileRelocationTooltip, "Move stone pile" },
         { QuarryPileRelocationTooltipBody, "Moves the linked stone pile clockwise to the next valid position around this quarry." },
         { AiEconomyProtectionTitle, "AI Economy Protection" },
         { PreventAIPause, "Prevent AI building pauses" },

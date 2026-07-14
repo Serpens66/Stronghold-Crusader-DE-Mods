@@ -46,5 +46,5 @@ SomeSettings.KnightMountTooltip=Mount
 SomeSettings.KnightMountTooltipBody=Turns selected swordsmen into mounted knights. Requires available horses in a stable.
 SomeSettings.EnableQuarryPileRelocation=Enable quarry pile rotation button
 SomeSettings.EnableQuarryPileRelocationHelp=Adds a button to selected quarries that rotates their linked stone pile clockwise to the next valid position. The existing pile is kept if no valid replacement can be created.
-SomeSettings.QuarryPileRelocationTooltip=Rotate quarry pile
+SomeSettings.QuarryPileRelocationTooltip=Kőrakás áthelyezése
 SomeSettings.QuarryPileRelocationTooltipBody=Moves the linked stone pile clockwise to the next valid position around this quarry.

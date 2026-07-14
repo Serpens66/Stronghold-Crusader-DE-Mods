@@ -105,9 +105,9 @@
       ]
     },
     {
-      "Version": "1.0.17",
+      "Version": "1.0.07",
       "Changes": [
-        "Matched the quarry-pile button tooltip to the standard in-game style, shortened its text, and removed its hover delay."
+        "Matched and translated the quarry-pile button tooltip to the standard in-game style, removed its hover delay, and moved its diagnostic logging to Debug."
       ]
     }
   ]

@@ -638,7 +638,7 @@ namespace SomeSettings
                 return false;
             }
 
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 $"SomeSettings quarry-pile rotation completed: reason={reason}, playerId={packet.SourcePlayerId}, requestId={packet.RequestId}, quarryId={quarryId}, quarryGlobalId={packet.QuarryGlobalId}, oldPileId={oldPileId}, oldPileGlobalId={packet.OldPileGlobalId}, newPileId={newPileId}, newPileGlobalId={newPileGlobalId}, newPileState={newPile->r_AliveState}, target={expectedTarget.X},{expectedTarget.Y}, stoneBlocks={newPile->r_StoneBlocksAmount}, oldPileMarkedForDeletion={oldPileMarkedForDeletion}, visualLifecycle=prefab-managed.");
             return true;
@@ -1333,7 +1333,7 @@ namespace SomeSettings
 
         private void LogInfo(string message)
         {
-            Shared.DebugLogHelper.LogInfo(log, $"SomeSettings quarry-pile diagnostic: {message}");
+            Shared.DebugLogHelper.LogDebug(log, $"SomeSettings quarry-pile diagnostic: {message}");
         }
 
         private void DisposeSubscriptions()
