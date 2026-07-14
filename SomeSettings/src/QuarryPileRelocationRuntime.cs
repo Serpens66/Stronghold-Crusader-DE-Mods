@@ -93,8 +93,6 @@ namespace SomeSettings
 
         public RelayCommand RelocateCommand { get; }
 
-        public string TooltipText => SerpLocalization.Get(SerpLocalization.QuarryPileRelocationTooltip);
-
         public Visibility ButtonVisibility
         {
             get => buttonVisibility;
@@ -133,6 +131,7 @@ namespace SomeSettings
         private SetUpInbuildingDelegate setUpInbuildingTrampoline;
         private R3PacketEventHook<QuarryPileRelocationPacket> packetHook;
         private Button hookedRelocationButton;
+        private TextBlock hookedRelocationTooltip;
         private PrefabSpawnCapture activePrefabSpawnCapture;
         private int nextRequestId;
         private int linkedRemovalSuppressionDepth;
@@ -215,6 +214,7 @@ namespace SomeSettings
             }
 
             buttonViewModel.Hide();
+            HideRelocationTooltip();
             processedRequestIds.Clear();
         }
 
@@ -225,6 +225,7 @@ namespace SomeSettings
                 if (!settings.EnableMod || !settings.EnableQuarryPileRelocation)
                 {
                     buttonViewModel.Hide();
+                    HideRelocationTooltip();
                     LogVisibilityState($"hidden: feature-disabled, EnableMod={settings.EnableMod}, EnableQuarryPileRelocation={settings.EnableQuarryPileRelocation}");
                     return;
                 }
@@ -234,6 +235,7 @@ namespace SomeSettings
                 if (!TryGetOwnedQuarry(selectedBuildingId, localPlayerId, out _, out string failureReason))
                 {
                     buttonViewModel.Hide();
+                    HideRelocationTooltip();
                     LogVisibilityState($"hidden: playerId={localPlayerId}, selectedBuildingId={selectedBuildingId}, reason={failureReason}");
                     return;
                 }
@@ -244,6 +246,7 @@ namespace SomeSettings
             catch (Exception ex)
             {
                 buttonViewModel.Hide();
+                HideRelocationTooltip();
                 Shared.DebugLogHelper.LogError(log, $"SomeSettings quarry-pile button visibility refresh failed: {ex}");
             }
         }
@@ -273,11 +276,18 @@ namespace SomeSettings
         private void HookRelocationButton(MainViewModel mainViewModel)
         {
             Button button = mainViewModel?.HUDBuildingPanel?.FindName("SomeSettingsQuarryPileRelocationButton") as Button;
-            if (ReferenceEquals(button, hookedRelocationButton))
+            TextBlock tooltip = mainViewModel?.HUDBuildingPanel?.FindName("SomeSettingsQuarryPileRelocationTooltipHost") as TextBlock;
+
+            if (tooltip != null)
+                tooltip.Text = SerpLocalization.Get(SerpLocalization.QuarryPileRelocationTooltip);
+
+            if (ReferenceEquals(button, hookedRelocationButton) && ReferenceEquals(tooltip, hookedRelocationTooltip))
                 return;
 
             UnhookRelocationButton();
             hookedRelocationButton = button;
+            hookedRelocationTooltip = tooltip;
+            HideRelocationTooltip();
             if (hookedRelocationButton == null)
             {
                 LogInfo("UI lookup did not find SomeSettingsQuarryPileRelocationButton after setUpInbuilding.");
@@ -285,16 +295,48 @@ namespace SomeSettings
             }
 
             hookedRelocationButton.Click += OnRelocationButtonClicked;
-            LogInfo($"UI button hooked: visibility={hookedRelocationButton.Visibility}, isEnabled={hookedRelocationButton.IsEnabled}, dataContext={hookedRelocationButton.DataContext?.GetType().FullName ?? "null"}.");
+            hookedRelocationButton.MouseEnter += OnRelocationButtonMouseEnter;
+            hookedRelocationButton.MouseLeave += OnRelocationButtonMouseLeave;
+            LogInfo($"UI button hooked: visibility={hookedRelocationButton.Visibility}, isEnabled={hookedRelocationButton.IsEnabled}, dataContext={hookedRelocationButton.DataContext?.GetType().FullName ?? "null"}, tooltipFound={hookedRelocationTooltip != null}.");
         }
 
         private void UnhookRelocationButton()
         {
-            if (hookedRelocationButton == null)
-                return;
+            if (hookedRelocationButton != null)
+            {
+                hookedRelocationButton.Click -= OnRelocationButtonClicked;
+                hookedRelocationButton.MouseEnter -= OnRelocationButtonMouseEnter;
+                hookedRelocationButton.MouseLeave -= OnRelocationButtonMouseLeave;
+            }
 
-            hookedRelocationButton.Click -= OnRelocationButtonClicked;
+            HideRelocationTooltip();
             hookedRelocationButton = null;
+            hookedRelocationTooltip = null;
+        }
+
+        private void OnRelocationButtonMouseEnter(object sender, MouseEventArgs args)
+        {
+            if (hookedRelocationTooltip == null)
+            {
+                LogInfo("tooltip hover entered, but SomeSettingsQuarryPileRelocationTooltipHost was not found.");
+                return;
+            }
+
+            hookedRelocationTooltip.Text = SerpLocalization.Get(SerpLocalization.QuarryPileRelocationTooltip);
+            hookedRelocationTooltip.Visibility = Visibility.Visible;
+            LogInfo("tooltip shown from physical MouseEnter event.");
+        }
+
+        private void OnRelocationButtonMouseLeave(object sender, MouseEventArgs args)
+        {
+            HideRelocationTooltip();
+            LogInfo("tooltip hidden from physical MouseLeave event.");
+        }
+
+        private void HideRelocationTooltip()
+        {
+            if (hookedRelocationTooltip != null)
+                hookedRelocationTooltip.Visibility = Visibility.Hidden;
         }
 
         private void OnRelocationButtonClicked(object sender, RoutedEventArgs args)

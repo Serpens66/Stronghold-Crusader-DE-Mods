@@ -20,16 +20,37 @@
                 local:PropEx.Sprite3="{StaticResource UI-Buttons L021}"
                 local:PropEx.Sprite4="{StaticResource UI-Buttons L021}"
                 Command="{Binding RelocateCommand}"
-                ToolTipService.InitialShowDelay="0"
-                ToolTipService.BetweenShowDelay="0"
                 Content=""
-                Style="{StaticResource BTN_Image}">
-          <Button.ToolTip>
-            <ToolTip Style="{StaticResource {x:Type ToolTip}}"
-                     Content="{Binding TooltipText}" />
-          </Button.ToolTip>
-        </Button>
+                Style="{StaticResource BTN_Image}" />
       </Grid>
+    </Content>
+  </Operation>
+  <Operation Type="Add" XPath="//n:Grid[@Name='WorkerPanel']">
+    <Content>
+      <TextBlock x:Name="SomeSettingsQuarryPileRelocationTooltipHost"
+                 Padding="4,2,4,0"
+                 Margin="140,-400,0,127"
+                 HorizontalAlignment="Left"
+                 VerticalAlignment="Bottom"
+                 Panel.ZIndex="1"
+                 FontSize="16"
+                 FontWeight="Normal"
+                 MaxWidth="380"
+                 TextWrapping="Wrap"
+                 Foreground="#FFDDDDDD"
+                 Background="#55000000"
+                 FlowDirection="{Binding GlobalTextFlowAL2R}"
+                 IsHitTestVisible="False"
+                 Tag="Ignore"
+                 Text=""
+                 Visibility="Hidden">
+        <TextBlock.Effect>
+          <DropShadowEffect ShadowDepth="2"
+                            Direction="315"
+                            Color="#CC000000"
+                            BlurRadius="0" />
+        </TextBlock.Effect>
+      </TextBlock>
     </Content>
   </Operation>
 </Patch>
