@@ -121,12 +121,6 @@
     <Compile Include="..\Shared\DebugLogHelper.cs">
       <Link>Shared\DebugLogHelper.cs</Link>
     </Compile>
-    <Compile Include="..\Shared\DeterministicMultiplayerCommandBus.cs">
-      <Link>Shared\DeterministicMultiplayerCommandBus.cs</Link>
-    </Compile>
-    <Compile Include="..\Shared\MultiplayerStateDiagnostics.cs">
-      <Link>Shared\MultiplayerStateDiagnostics.cs</Link>
-    </Compile>
     <Compile Include="..\Shared\SerpLocalization.cs">
       <Link>Shared\SerpLocalization.cs</Link>
     </Compile>

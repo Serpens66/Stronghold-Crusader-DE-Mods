@@ -35,8 +35,6 @@ namespace SomeSettings
         private AutoTradeSellZeroHook autoTradeSellZeroHook;
         private EnemyProximityBulldozeCursorHook enemyProximityBulldozeCursorHook;
         private SingleBuildingPauseHook singleBuildingPauseHook;
-        private readonly Shared.DeterministicMultiplayerCommandBus multiplayerCommandBus;
-        private readonly Shared.MultiplayerStateDiagnostics multiplayerStateDiagnostics;
         private readonly KnightDismountRuntime knightDismountRuntime;
         private readonly QuarryPileRelocationRuntime quarryPileRelocationRuntime;
         private AIEconomyProtectionHook aiEconomyProtectionHook;
@@ -61,10 +59,8 @@ namespace SomeSettings
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
-            multiplayerCommandBus = new Shared.DeterministicMultiplayerCommandBus(log, SomeSettingsPlugin.PluginGuid);
-            multiplayerStateDiagnostics = new Shared.MultiplayerStateDiagnostics(log, SomeSettingsPlugin.PluginGuid);
-            knightDismountRuntime = new KnightDismountRuntime(log, settings, multiplayerCommandBus);
-            quarryPileRelocationRuntime = new QuarryPileRelocationRuntime(log, settings, multiplayerCommandBus);
+            knightDismountRuntime = new KnightDismountRuntime(log, settings);
+            quarryPileRelocationRuntime = new QuarryPileRelocationRuntime(log, settings);
             SubscribeSettingsChanges();
         }
 
@@ -110,8 +106,6 @@ namespace SomeSettings
                 skirmishAiSelectionMemoryHook = new SkirmishAiSelectionMemoryHook(log, settings);
                 knightDismountRuntime.Initialize();
                 quarryPileRelocationRuntime.Initialize();
-                multiplayerCommandBus.Initialize();
-                multiplayerStateDiagnostics.Initialize();
                 InstallAutoTradeSellZeroHook();
                 InstallEnemyProximityBulldozeCursorHook();
                 InstallSingleBuildingPauseHook();
@@ -183,8 +177,6 @@ namespace SomeSettings
             skirmishAiSelectionMemoryHook = null;
             knightDismountRuntime.Dispose();
             quarryPileRelocationRuntime.Dispose();
-            multiplayerStateDiagnostics.Dispose();
-            multiplayerCommandBus.Dispose();
             autoTradeSellZeroHook?.Dispose();
             autoTradeSellZeroHook = null;
             enemyProximityBulldozeCursorHook?.Dispose();
