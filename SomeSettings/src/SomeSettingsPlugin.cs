@@ -13,7 +13,7 @@ namespace SomeSettings
 
         public const string PluginGuid = "SomeSettings_Serp";
         public const string PluginName = "Some Settings";
-        public const string PluginVersion = "1.0.07";
+        public const string PluginVersion = "1.0.8";
 
         private SomeSettingsRuntime runtime;
         private bool runtimeDisposed;
