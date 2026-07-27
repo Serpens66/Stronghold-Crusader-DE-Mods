@@ -1,7 +1,7 @@
 # Stronghold Crusader DE Mods
 
 ## Download:
-- Releases: https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/releases  
+- Releases: https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/releases (not often updated)  
 - Nexusmods: https://www.nexusmods.com/profile/Serpens66/mods?gameId=7959  
 
 ## Installation:
