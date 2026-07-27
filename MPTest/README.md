@@ -1,29 +1,41 @@
 # MPTest Multiplayer Spawn Desync
 
-## Current implementation
+## Previous implementation and problem
 
-When the button is clicked, the initiating player spawns the swordsman locally and then broadcasts a custom packet:
+The initiating player previously spawned the swordsman directly from the Unity button callback and then broadcast a custom packet:
 
     if (!TryApplySpawn(packet, "local-multiplayer-click"))
         return;
 
     GameNetworkAPI.SendPacketToAll(packet, packetHook.GetPacketId(), true);
 
-The receiving client handles the packet and performs the same spawn:
+The receiving client also performed the spawn directly from the network callback:
 
     if (!TryApplySpawn(packet, "remote-multiplayer-packet"))
         return;
 
 Both paths eventually call `GameUnitManagerAPI.CreateUnitLocal(...)`.
 
+## Timer-based implementation under test
+
+The button and network callbacks now only validate and schedule the request. `TryApplySpawn` runs from a non-savable `0 ms` Script Extender `TimerEngine` action:
+
+    ScheduleSpawn(
+        packet,
+        networked ? "local-multiplayer-timer" : "singleplayer-timer",
+        () => CompleteLocalSpawn(packet, networked));
+
+The timer executes during the native simulation update window. After a successful local timed spawn, the packet is broadcast. A receiving client schedules the same operation through its own timer instead of changing game state directly from the packet handler.
+
 Relevant code:
 
-- [Local spawn and packet broadcast](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/blob/main/MPTest/src/MPTestRuntime.cs#L197-L207)
-- [Packet handler](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/blob/main/MPTest/src/MPTestRuntime.cs#L217-L251)
-- [Actual unit creation](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/blob/main/MPTest/src/MPTestRuntime.cs#L258-L300)
+- [Local scheduling](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/blob/main/MPTest/src/MPTestRuntime.cs#L197-L205)
+- [Packet validation and remote scheduling](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/blob/main/MPTest/src/MPTestRuntime.cs#L211-L257)
+- [Timer scheduling and execution](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/blob/main/MPTest/src/MPTestRuntime.cs#L261-L310)
+- [Actual unit creation](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/blob/main/MPTest/src/MPTestRuntime.cs#L319-L361)
 - [Diagnostic snapshot and full `GameUnit` hash](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/blob/main/MPTest/src/UnitSpawnDiagnostics.cs#L19-L91)
 
-## Observed behaviour
+## Observed behaviour before the timer change
 
 The button was pressed three times. The game appeared to resync after the first and third spawn, but not after the second.
 
@@ -57,15 +69,14 @@ Both sides executed the spawn at the same deterministic game time. The complete 
 
 Again, the client executed the spawn one simulation tick later, producing a different native structure.
 
-## Conclusion
+## Working theory
 
 The packet is received exactly once and the unit ID, global ID, owner, type, position, height, health, and other known fields match on both machines.
 
-The likely problem is the execution time:
+The likely problem is the execution context:
 
-- The host calls `CreateUnitLocal` immediately.
-- The client calls it later when the packet arrives.
-- If both calls happen during the same simulation tick, the result is identical.
-- If the client is one tick later, unknown native `GameUnit` fields differ and the game detects a desync.
+- A Unity button callback or network callback can run outside the short native window in which game-state changes are safe.
+- The previous direct calls sometimes produced different unknown native `GameUnit` fields.
+- The second test spawn happened to produce identical structures and did not appear to cause a resync.
 
-Therefore, “spawn locally and let clients follow as soon as possible” does not reliably guarantee deterministic execution. A likely solution is to send a future simulation/map tick in the packet and let every participant, including the host, execute the spawn at exactly that tick.
+The timer-based implementation moves all calls to `CreateUnitLocal` into the Script Extender's deterministic simulation-tick callback. The existing timing and full-structure diagnostics remain enabled so the result can be verified in new host and client logs.
