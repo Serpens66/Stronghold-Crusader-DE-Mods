@@ -64,6 +64,10 @@ namespace SomeSettings
                     "SomeSettingsQuarryPileRelocationButtonHost",
                     runtime.QuarryPileRelocationButton);
 
+                GameXAMLManagerAPI.Instance.RegisterBinding(
+                    "SomeSettingsAivSelectionListHost",
+                    runtime.AiAivSelectionList);
+
                 runtime.InstallKnightMountNativeFunctions(libraryHandle, memory);
                 runtime.InstallQuarryPileNativeFunctions(libraryHandle, memory);
                 runtime.ApplySettings();

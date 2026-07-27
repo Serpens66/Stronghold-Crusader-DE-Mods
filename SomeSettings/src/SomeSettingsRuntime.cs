@@ -28,6 +28,7 @@ namespace SomeSettings
         private readonly HashSet<string> resourceAddReentryGuards = new HashSet<string>();
         private readonly Dictionary<string, ResourceEventCountGuard> marketBuyResourceGuards = new Dictionary<string, ResourceEventCountGuard>();
         private readonly Dictionary<string, ResourceEventCountGuard> refundResourceGuards = new Dictionary<string, ResourceEventCountGuard>();
+        private readonly AiAivSelectionListViewModel aiAivSelectionListViewModel;
         private PendingStockpileRefund pendingStockpileRefund;
         private MinimapPlacementClickHook minimapPlacementClickHook;
         private CoopTrailCustomizeHook coopTrailCustomizeHook;
@@ -59,11 +60,13 @@ namespace SomeSettings
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
+            aiAivSelectionListViewModel = new AiAivSelectionListViewModel();
             knightDismountRuntime = new KnightDismountRuntime(log, settings);
             quarryPileRelocationRuntime = new QuarryPileRelocationRuntime(log, settings);
             SubscribeSettingsChanges();
         }
 
+        public object AiAivSelectionList => aiAivSelectionListViewModel;
         public object KnightDismountButton => knightDismountRuntime.ButtonViewModel;
         public object QuarryPileRelocationButton => quarryPileRelocationRuntime.ButtonViewModel;
 
@@ -103,7 +106,6 @@ namespace SomeSettings
                     .Subscribe(OnUnloadMap));
                 minimapPlacementClickHook = new MinimapPlacementClickHook(log, settings);
                 coopTrailCustomizeHook = new CoopTrailCustomizeHook(log);
-                skirmishAiSelectionMemoryHook = new SkirmishAiSelectionMemoryHook(log, settings);
                 knightDismountRuntime.Initialize();
                 quarryPileRelocationRuntime.Initialize();
                 InstallAutoTradeSellZeroHook();
@@ -121,6 +123,8 @@ namespace SomeSettings
 
         public void ApplySettings()
         {
+            EnsureAiSelectionHook();
+
             if (!settings.EnableMod)
                 return;
 
@@ -154,6 +158,8 @@ namespace SomeSettings
         public void Dispose()
         {
             UnsubscribeHooks();
+            skirmishAiSelectionMemoryHook?.Dispose();
+            skirmishAiSelectionMemoryHook = null;
             aiEconomyProtectionHook?.Dispose();
             aiEconomyProtectionHook = null;
             if (settingsSubscribed)
@@ -173,8 +179,6 @@ namespace SomeSettings
             minimapPlacementClickHook = null;
             coopTrailCustomizeHook?.Dispose();
             coopTrailCustomizeHook = null;
-            skirmishAiSelectionMemoryHook?.Dispose();
-            skirmishAiSelectionMemoryHook = null;
             knightDismountRuntime.Dispose();
             quarryPileRelocationRuntime.Dispose();
             autoTradeSellZeroHook?.Dispose();
@@ -186,6 +190,15 @@ namespace SomeSettings
             ClearResourceEventGuards();
             pendingStockpileRefund = null;
             hooksSubscribed = false;
+        }
+
+        private void EnsureAiSelectionHook()
+        {
+            if (skirmishAiSelectionMemoryHook != null)
+                return;
+
+            skirmishAiSelectionMemoryHook =
+                new SkirmishAiSelectionMemoryHook(log, settings, aiAivSelectionListViewModel);
         }
 
         private void InstallAutoTradeSellZeroHook()
