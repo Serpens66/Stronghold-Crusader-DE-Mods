@@ -1,0 +1,62 @@
+{
+  "GUID": "AIDefense_Serp",
+  "Author": "Serpens66",
+  "Name": "AI Defense",
+  "Description": "Keeps AI castle towers garrisoned with targetable ranged defenders held in private, neutral tribes outside normal AI command groups and troop categories.",
+  "Version": "1.2.3",
+  "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
+  "Manifest": 1,
+  "SerpChangelog": [
+    {
+      "Version": "1.2.3",
+      "Changes": [
+        "Allow automatic unit and private-tribe movement orders whose destination belongs to the defender's own tower while continuing to block destinations outside it.",
+        "Keep the Hold stance so ranged defenders can reposition for line of sight without pursuing enemies away from their tower.",
+        "Remove the redundant animal-specific SetAttackNearestUnit(false) call.",
+        "Add timestamped Info diagnostics and summary counters for allowed on-tower movement orders."
+      ]
+    },
+    {
+      "Version": "1.2.2",
+      "Changes": [
+        "Assign protected defenders the signed AI behaviour sentinel -1 so they remain outside all known Defense, Patrol, attack, and siege troop buckets instead of appearing unclassified as type 0.",
+        "Correct Script Extender query results from zero-based array indices to one-based game IDs before unit and building access.",
+        "Rename role and category diagnostics to AI behaviour type and related-value terminology based on runtime evidence.",
+        "Retain private tribes and all movement, target-order, assignment, and recovery hooks as safety fallbacks."
+      ]
+    },
+    {
+      "Version": "1.2.1",
+      "Changes": [
+        "Add aggregate diagnostics for AI combat-unit roles, related category values, tribe membership, neighboring raw AI fields, and the player army counter.",
+        "Include target tribe state, owner, stance, group size, patrol mode, and attack-nearest state in blocked assignment diagnostics.",
+        "Throttle repeated assignment and classification-reset diagnostics after the first three occurrences."
+      ]
+    },
+    {
+      "Version": "1.2.0",
+      "Changes": [
+        "Assign every protected tower defender once to its own neutral private tribe instead of repeatedly blocking normal AI assignment attempts.",
+        "Validate private tribes by both local and global ID and automatically recover deleted or stale tribes.",
+        "Block movement and target orders addressed to private tribes while retaining direct unit movement protection as a fallback.",
+        "Add timestamped Info diagnostics for private tribe creation, recovery, orders, and failures."
+      ]
+    },
+    {
+      "Version": "1.1.0",
+      "Changes": [
+        "Keep spawned defenders selectable and targetable by removing the global Script Extender selectability filter.",
+        "Reset protected defenders to the neutral AI behavior category and tribe role whenever the AI tries to classify them.",
+        "Add timestamped Info diagnostics for AI behavior category and tribe role resets."
+      ]
+    },
+    {
+      "Version": "1.0.0",
+      "Changes": [
+        "Add automatic AI tower garrison checks and protected archer spawning.",
+        "Prevent spawned tower defenders from being assigned to AI tribes or receiving direct movement orders.",
+        "Add timestamped Info diagnostics for tower scans, spawning, blocked orders, deaths, and cleanup."
+      ]
+    }
+  ]
+}
