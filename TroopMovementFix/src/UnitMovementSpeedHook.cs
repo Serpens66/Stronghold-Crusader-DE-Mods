@@ -1,4 +1,5 @@
 using BepInEx.Logging;
+using Iced.Intel;
 using SHCDESE.API;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
@@ -24,14 +25,17 @@ namespace TroopMovementFix
     {
         public UnitMovementDirective(
             MovementCadenceMode movementMode,
-            ushort synchronizedSpeed)
+            ushort synchronizedSpeed,
+            ushort runningSpeedBonus)
         {
             MovementMode = movementMode;
             SynchronizedSpeed = synchronizedSpeed;
+            RunningSpeedBonus = runningSpeedBonus;
         }
 
         public MovementCadenceMode MovementMode { get; }
         public ushort SynchronizedSpeed { get; }
+        public ushort RunningSpeedBonus { get; }
     }
 
     internal sealed unsafe class UnitMovementSpeedHook : IDisposable
@@ -144,6 +148,34 @@ namespace TroopMovementFix
             return animationTransitionsByType.ContainsKey(unitType);
         }
 
+        public ushort GetNativeRunningSpeedBonus(eChimps unitType, bool improvedSpearmen)
+        {
+            if (unitType == eChimps.CHIMP_TYPE_SPEARMAN)
+                return improvedSpearmen ? (ushort)1 : (ushort)0;
+
+            switch (unitType)
+            {
+                case eChimps.CHIMP_TYPE_KNIGHT:
+                case eChimps.CHIMP_TYPE_ARAB_HORSEMAN:
+                case eChimps.CHIMP_TYPE_BEDOUIN_CAMEL_LANCER:
+                case eChimps.CHIMP_TYPE_BEDOUIN_HEAVY_CAMEL:
+                    return GameUnitManagerAPI.Instance.GetDefaultCavalryRunSpeedBonus(unitType);
+            }
+
+            if (animationTransitionsByType.TryGetValue(
+                    unitType,
+                    out AnimationTransitions animationTransitions) &&
+                animationTransitions.NativeRunningSpeedBonus.HasValue)
+            {
+                return animationTransitions.NativeRunningSpeedBonus.Value;
+            }
+
+            // No value is safer than a generic bonus: an unknown positive value can
+            // make a unit exceed its native maximum. Native handlers still control
+            // types for which no running animation transition was discovered.
+            return 0;
+        }
+
         public void Dispose()
         {
             if (disposed)
@@ -183,16 +215,8 @@ namespace TroopMovementFix
 
                 if (movementMode != MovementCadenceMode.SynchronizedWalking)
                 {
-                    // Synchronized running deliberately gives every compatible member
-                    // the same running cadence. Uncapped Ctrl movement instead keeps
-                    // the cadence just calculated by the unit's native type handler:
-                    // units such as Assassins can have a different native run cadence
-                    // even when their stored maximum-speed delay resembles an Archer's.
-                    if (movementMode == MovementCadenceMode.SynchronizedRunning &&
-                        animationTransitions != null)
-                    {
-                        unit->r_SpeedBonus = 1;
-                    }
+                    if (animationTransitions != null)
+                        unit->r_SpeedBonus = movementDirective.RunningSpeedBonus;
 
                     // Type handlers use several animation families. Their native running
                     // state is the corresponding walking state plus the 0x80 run flag,
@@ -268,6 +292,7 @@ namespace TroopMovementFix
             }
 
             List<ulong> sortedHandlers = new List<ulong>(uniqueHandlers);
+            int nativeRunningSpeedBonusCount = 0;
 
             for (int unitTypeValue = 0; unitTypeValue < unitTypeCount; unitTypeValue++)
             {
@@ -292,8 +317,18 @@ namespace TroopMovementFix
                 if (transitions.Count == 0)
                     continue;
 
+                ushort? nativeRunningSpeedBonus = TryFindNativeRunningSpeedBonus(
+                    (byte*)handlerStart,
+                    checked((int)(handlerEnd - handlerStart)),
+                    out ushort discoveredRunningSpeedBonus)
+                    ? discoveredRunningSpeedBonus
+                    : (ushort?)null;
+                if (nativeRunningSpeedBonus.HasValue)
+                    nativeRunningSpeedBonusCount++;
+
                 eChimps unitType = (eChimps)unitTypeValue;
-                animationTransitionsByType[unitType] = new AnimationTransitions(transitions);
+                animationTransitionsByType[unitType] =
+                    new AnimationTransitions(transitions, nativeRunningSpeedBonus);
             }
 
             if (animationTransitionsByType.Count == 0)
@@ -301,7 +336,8 @@ namespace TroopMovementFix
 
             Shared.DebugLogHelper.LogDebug(
                 log,
-                $"Discovered native running-animation capabilities for {animationTransitionsByType.Count} unit types.");
+                $"Discovered native running-animation capabilities for {animationTransitionsByType.Count} unit types " +
+                $"and statically resolved the native running cadence for {nativeRunningSpeedBonusCount} of them.");
         }
 
         private static Dictionary<uint, uint> FindRunningAnimationTransitions(byte* code, int length)
@@ -339,6 +375,247 @@ namespace TroopMovementFix
             }
 
             return transitions;
+        }
+
+        private static bool TryFindNativeRunningSpeedBonus(
+            byte* code,
+            int length,
+            out ushort runningSpeedBonus)
+        {
+            runningSpeedBonus = 0;
+            byte[] codeBytes = new ReadOnlySpan<byte>(code, length).ToArray();
+            Iced.Intel.Decoder decoder =
+                Iced.Intel.Decoder.Create(64, new ByteArrayCodeReader(codeBytes));
+            List<Instruction> instructions = new List<Instruction>(2048);
+
+            while (decoder.IP < unchecked((ulong)length) && instructions.Count < 10000)
+            {
+                Instruction instruction = decoder.Decode();
+                instructions.Add(instruction);
+                if (instruction.Mnemonic == Mnemonic.Ret)
+                    break;
+            }
+
+            bool found = false;
+            for (int runningIndex = 0; runningIndex < instructions.Count; runningIndex++)
+            {
+                Instruction runningInstruction = instructions[runningIndex];
+                if (runningInstruction.Mnemonic != Mnemonic.Mov ||
+                    runningInstruction.Op0Kind != OpKind.Memory ||
+                    runningInstruction.MemoryDisplacement64 != 0x660 ||
+                    runningInstruction.Op1Kind != OpKind.Immediate32)
+                {
+                    continue;
+                }
+
+                uint animationState = unchecked((uint)runningInstruction.GetImmediate(1));
+                if ((animationState & 0xFF) != 0x81 || animationState > 0x1000)
+                    continue;
+
+                bool cadenceResolvedForState = false;
+                for (int distance = 1; distance <= 12 && !cadenceResolvedForState; distance++)
+                {
+                    int precedingIndex = runningIndex - distance;
+                    int followingIndex = runningIndex + distance;
+
+                    if (precedingIndex >= 0 &&
+                        TryResolveNearbySpeedBonus(
+                            instructions,
+                            precedingIndex,
+                            out ushort precedingSpeedBonus))
+                    {
+                        if (found && runningSpeedBonus != precedingSpeedBonus)
+                            return false;
+
+                        runningSpeedBonus = precedingSpeedBonus;
+                        found = true;
+                        cadenceResolvedForState = true;
+                        continue;
+                    }
+
+                    if (followingIndex < instructions.Count &&
+                        TryResolveNearbySpeedBonus(
+                            instructions,
+                            followingIndex,
+                            out ushort followingSpeedBonus))
+                    {
+                        if (found && runningSpeedBonus != followingSpeedBonus)
+                            return false;
+
+                        runningSpeedBonus = followingSpeedBonus;
+                        found = true;
+                        cadenceResolvedForState = true;
+                    }
+                }
+            }
+
+            return found;
+        }
+
+        private static bool TryResolveNearbySpeedBonus(
+            List<Instruction> instructions,
+            int storeIndex,
+            out ushort speedBonus)
+        {
+            speedBonus = 0;
+            Instruction storeInstruction = instructions[storeIndex];
+            if (storeInstruction.Mnemonic != Mnemonic.Mov ||
+                storeInstruction.Op0Kind != OpKind.Memory ||
+                storeInstruction.MemoryDisplacement64 != 0x916)
+            {
+                return false;
+            }
+
+            if (IsImmediate(storeInstruction.Op1Kind))
+            {
+                speedBonus = unchecked((ushort)storeInstruction.GetImmediate(1));
+                return true;
+            }
+
+            if (storeInstruction.Op1Kind != OpKind.Register)
+                return false;
+
+            Register sourceRegister = NormalizeRegister(storeInstruction.Op1Register);
+            for (int instructionIndex = storeIndex - 1; instructionIndex >= 0; instructionIndex--)
+            {
+                Instruction instruction = instructions[instructionIndex];
+                if (instruction.Op0Kind != OpKind.Register ||
+                    NormalizeRegister(instruction.Op0Register) != sourceRegister)
+                {
+                    continue;
+                }
+
+                if (instruction.Mnemonic == Mnemonic.Mov && IsImmediate(instruction.Op1Kind))
+                {
+                    speedBonus = unchecked((ushort)instruction.GetImmediate(1));
+                    return true;
+                }
+
+                if ((instruction.Mnemonic == Mnemonic.Xor ||
+                     instruction.Mnemonic == Mnemonic.Sub) &&
+                    instruction.Op1Kind == OpKind.Register &&
+                    NormalizeRegister(instruction.Op1Register) == sourceRegister)
+                {
+                    speedBonus = 0;
+                    return true;
+                }
+
+                return false;
+            }
+
+            return false;
+        }
+
+        private static bool IsImmediate(OpKind operandKind)
+        {
+            switch (operandKind)
+            {
+                case OpKind.Immediate8:
+                case OpKind.Immediate8_2nd:
+                case OpKind.Immediate16:
+                case OpKind.Immediate32:
+                case OpKind.Immediate64:
+                case OpKind.Immediate8to16:
+                case OpKind.Immediate8to32:
+                case OpKind.Immediate8to64:
+                case OpKind.Immediate32to64:
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        private static Register NormalizeRegister(Register register)
+        {
+            switch (register)
+            {
+                case Register.AL:
+                case Register.AH:
+                case Register.AX:
+                case Register.EAX:
+                case Register.RAX:
+                    return Register.RAX;
+                case Register.CL:
+                case Register.CH:
+                case Register.CX:
+                case Register.ECX:
+                case Register.RCX:
+                    return Register.RCX;
+                case Register.DL:
+                case Register.DH:
+                case Register.DX:
+                case Register.EDX:
+                case Register.RDX:
+                    return Register.RDX;
+                case Register.BL:
+                case Register.BH:
+                case Register.BX:
+                case Register.EBX:
+                case Register.RBX:
+                    return Register.RBX;
+                case Register.SPL:
+                case Register.SP:
+                case Register.ESP:
+                case Register.RSP:
+                    return Register.RSP;
+                case Register.BPL:
+                case Register.BP:
+                case Register.EBP:
+                case Register.RBP:
+                    return Register.RBP;
+                case Register.SIL:
+                case Register.SI:
+                case Register.ESI:
+                case Register.RSI:
+                    return Register.RSI;
+                case Register.DIL:
+                case Register.DI:
+                case Register.EDI:
+                case Register.RDI:
+                    return Register.RDI;
+                case Register.R8L:
+                case Register.R8W:
+                case Register.R8D:
+                case Register.R8:
+                    return Register.R8;
+                case Register.R9L:
+                case Register.R9W:
+                case Register.R9D:
+                case Register.R9:
+                    return Register.R9;
+                case Register.R10L:
+                case Register.R10W:
+                case Register.R10D:
+                case Register.R10:
+                    return Register.R10;
+                case Register.R11L:
+                case Register.R11W:
+                case Register.R11D:
+                case Register.R11:
+                    return Register.R11;
+                case Register.R12L:
+                case Register.R12W:
+                case Register.R12D:
+                case Register.R12:
+                    return Register.R12;
+                case Register.R13L:
+                case Register.R13W:
+                case Register.R13D:
+                case Register.R13:
+                    return Register.R13;
+                case Register.R14L:
+                case Register.R14W:
+                case Register.R14D:
+                case Register.R14:
+                    return Register.R14;
+                case Register.R15L:
+                case Register.R15W:
+                case Register.R15D:
+                case Register.R15:
+                    return Register.R15;
+                default:
+                    return register;
+            }
         }
 
         private void CalculateMovementSpeed(
@@ -397,15 +674,20 @@ namespace TroopMovementFix
             private readonly Dictionary<uint, uint> walkingToRunning;
             private readonly Dictionary<uint, uint> runningToWalking;
 
-            public AnimationTransitions(Dictionary<uint, uint> walkingToRunning)
+            public AnimationTransitions(
+                Dictionary<uint, uint> walkingToRunning,
+                ushort? nativeRunningSpeedBonus)
             {
                 this.walkingToRunning =
                     walkingToRunning ?? throw new ArgumentNullException(nameof(walkingToRunning));
+                NativeRunningSpeedBonus = nativeRunningSpeedBonus;
                 runningToWalking = new Dictionary<uint, uint>(walkingToRunning.Count);
 
                 foreach (KeyValuePair<uint, uint> transition in walkingToRunning)
                     runningToWalking[transition.Value] = transition.Key;
             }
+
+            public ushort? NativeRunningSpeedBonus { get; }
 
             public bool TryGetRunningState(uint currentState, out uint runningState)
             {

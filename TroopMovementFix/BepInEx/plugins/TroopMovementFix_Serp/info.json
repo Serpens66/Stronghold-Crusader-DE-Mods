@@ -3,10 +3,26 @@
   "Author": "Serpens66",
   "Name": "Troop Movement Fix",
   "Description": "Keeps vanilla troop movement by default. Hold Alt while moving to synchronize the group at the slowest member's maximum speed, or hold Ctrl to let every unit use its own maximum speed.",
-  "Version": "1.0.16",
+  "Version": "1.0.18",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.18",
+      "Changes": [
+        "Guarantee that unmodified click movement leaves the incoming vanilla MoveType unchanged and removes all prior unit-bound custom directives before and after the native order.",
+        "Clear stale directives when Vanilla reassigns units to the commanded tribe during order processing without affecting units that did not receive the new order.",
+        "Ignore internal IsNewOrder=false movement continuations so they neither create nor remove TroopMovementFix directives."
+      ]
+    },
+    {
+      "Version": "1.0.17",
+      "Changes": [
+        "Discover each run-capable unit type's native running cadence from its native handler instead of using one shared value.",
+        "Make Ctrl movement restore Archers to their own faster cadence while Assassins retain their lower native maximum speed.",
+        "Respect the advanced Spearman setting and the Script Extender's configurable cavalry running bonuses when creating per-unit Ctrl directives."
+      ]
+    },
     {
       "Version": "1.0.16",
       "Changes": [

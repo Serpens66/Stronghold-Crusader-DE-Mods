@@ -20,6 +20,7 @@ namespace TroopMovementFix
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
         private readonly Dictionary<int, UnitMovementDirective> movementDirectiveByUnitId =
             new Dictionary<int, UnitMovementDirective>(ExpectedMaximumTrackedUnits);
+        private readonly HashSet<int> pendingVanillaMoveOrderTribeIds = new HashSet<int>();
         private readonly List<int> unitIds = new List<int>(ExpectedMaximumTrackedUnits);
         private readonly List<int> activeUnitIds = new List<int>(ExpectedMaximumTrackedUnits);
 
@@ -44,12 +45,25 @@ namespace TroopMovementFix
                 TryGetMovementDirective);
 
             subscriptions.Add(TribeR3EventHooks.OnTribeIssueOrderMoveHere.Observable
-                .Where(args => args.Phase == EventHookPhase.Pre)
                 .Subscribe(OnTribeIssueOrderMoveHere));
 
             subscriptions.Add(TribeR3EventHooks.OnTribeIssueOrderWithTarget.Observable
+                .Subscribe(args =>
+                {
+                    if (args.Phase == EventHookPhase.Pre ||
+                        args.Phase == EventHookPhase.Post)
+                    {
+                        RemoveSynchronization(args.TribeId);
+                    }
+                }));
+
+            subscriptions.Add(TribeR3EventHooks.OnTribeAssignUnit.Observable
                 .Where(args => args.Phase == EventHookPhase.Pre)
-                .Subscribe(args => RemoveSynchronization(args.TribeId)));
+                .Subscribe(args =>
+                {
+                    if (pendingVanillaMoveOrderTribeIds.Contains(args.TribeId))
+                        movementDirectiveByUnitId.Remove(args.UnitId);
+                }));
 
             subscriptions.Add(UnitR3EventHooks.OnUnitDelete.Observable
                 .Where(args => args.Phase == EventHookPhase.Pre)
@@ -75,6 +89,7 @@ namespace TroopMovementFix
 
             subscriptions.Clear();
             ClearSynchronization();
+            pendingVanillaMoveOrderTribeIds.Clear();
             movementSpeedHook?.Dispose();
             movementSpeedHook = null;
             applied = false;
@@ -82,17 +97,45 @@ namespace TroopMovementFix
 
         private void OnTribeIssueOrderMoveHere(TribeIssueOrderMoveHereEventArgs args)
         {
+            if (args.Phase == EventHookPhase.Post)
+            {
+                if (pendingVanillaMoveOrderTribeIds.Remove(args.TribeId))
+                {
+                    int removedDirectiveCount = RemoveSynchronization(args.TribeId);
+                    if (Shared.DebugLogHelper.IsDebugEnabled())
+                    {
+                        Shared.DebugLogHelper.LogDebug(
+                            log,
+                            $"Vanilla movement post-cleanup completed: tribeId={args.TribeId}, " +
+                            $"removedRemainingDirectives={removedDirectiveCount}.");
+                    }
+                }
+
+                return;
+            }
+
             // NoChange is used extensively by internal AI and animal movement. It is not a
             // newly synchronized player move order and must not be rewritten to Fast.
             if (args.MoveType == TribeMoveType.NoChange)
                 return;
 
-            bool altModifierHeld = false;
-            bool ctrlModifierHeld = false;
-            if (args.IsNewOrder)
-                ReadMovementModifiers(out altModifierHeld, out ctrlModifierHeld);
-
             bool debugLoggingEnabled = Shared.DebugLogHelper.IsDebugEnabled();
+            if (!args.IsNewOrder)
+            {
+                if (debugLoggingEnabled)
+                {
+                    Shared.DebugLogHelper.LogDebug(
+                        log,
+                        $"Movement continuation retained without TroopMovementFix changes: " +
+                        $"tribeId={args.TribeId}, moveType={args.MoveType}, " +
+                        $"target=({args.TileX},{args.TileY}), patrol={args.IsPatrolPath != 0}.");
+                }
+
+                return;
+            }
+
+            ReadMovementModifiers(out bool altModifierHeld, out bool ctrlModifierHeld);
+
             if (debugLoggingEnabled)
             {
                 Shared.DebugLogHelper.LogDebug(
@@ -104,13 +147,15 @@ namespace TroopMovementFix
 
             if (!altModifierHeld && !ctrlModifierHeld)
             {
-                RemoveSynchronization(args.TribeId);
+                int removedDirectiveCount = RemoveSynchronization(args.TribeId);
+                pendingVanillaMoveOrderTribeIds.Add(args.TribeId);
 
                 if (debugLoggingEnabled)
                 {
                     Shared.DebugLogHelper.LogDebug(
                         log,
-                        $"Vanilla movement order retained: tribeId={args.TribeId}, unchangedMoveType={args.MoveType}.");
+                        $"Vanilla movement order retained: tribeId={args.TribeId}, " +
+                        $"removedExistingDirectives={removedDirectiveCount}, unchangedMoveType={args.MoveType}.");
                 }
 
                 return;
@@ -118,14 +163,16 @@ namespace TroopMovementFix
 
             if (altModifierHeld && ctrlModifierHeld)
             {
-                RemoveSynchronization(args.TribeId);
+                int removedDirectiveCount = RemoveSynchronization(args.TribeId);
+                pendingVanillaMoveOrderTribeIds.Add(args.TribeId);
 
                 if (debugLoggingEnabled)
                 {
                     Shared.DebugLogHelper.LogDebug(
                         log,
                         $"Alt and Ctrl were both held; ambiguous movement modifier keeps vanilla behavior: " +
-                        $"tribeId={args.TribeId}, unchangedMoveType={args.MoveType}.");
+                        $"tribeId={args.TribeId}, removedExistingDirectives={removedDirectiveCount}, " +
+                        $"unchangedMoveType={args.MoveType}.");
                 }
 
                 return;
@@ -133,19 +180,14 @@ namespace TroopMovementFix
 
             if (ctrlModifierHeld)
             {
+                pendingVanillaMoveOrderTribeIds.Remove(args.TribeId);
                 RemoveSynchronization(args.TribeId);
-                if (!TryCollectActiveUnits(args.TribeId))
+                if (!TryApplyUncappedMovementDirectives(args.TribeId))
                 {
                     Shared.DebugLogHelper.LogWarning(
                         log,
                         $"Ctrl was held, but no active members were found for maximum-speed movement of tribeId={args.TribeId}; " +
                         "the order is still rewritten to Fast without a persistent unit directive.");
-                }
-                else
-                {
-                    ApplyMovementDirectiveToActiveUnits(
-                        MovementCadenceMode.UncappedRunning,
-                        synchronizedSpeed: 0);
                 }
 
                 // Fast lets the game calculate every member at its own maximum speed.
@@ -171,6 +213,7 @@ namespace TroopMovementFix
                 out int nativeRunningMemberCount,
                 out bool synchronizeRunning))
             {
+                pendingVanillaMoveOrderTribeIds.Remove(args.TribeId);
                 RemoveSynchronization(args.TribeId);
                 Shared.DebugLogHelper.LogWarning(
                     log,
@@ -178,6 +221,8 @@ namespace TroopMovementFix
                     "the order keeps its incoming vanilla movement behavior.");
                 return;
             }
+
+            pendingVanillaMoveOrderTribeIds.Remove(args.TribeId);
 
             MovementCadenceMode movementMode = synchronizeRunning
                 ? MovementCadenceMode.SynchronizedRunning
@@ -220,7 +265,7 @@ namespace TroopMovementFix
             }
         }
 
-        private bool TryCollectActiveUnits(int tribeId)
+        private bool TryApplyUncappedMovementDirectives(int tribeId)
         {
             unitIds.Clear();
             activeUnitIds.Clear();
@@ -228,6 +273,7 @@ namespace TroopMovementFix
             if (!GameTribeManagerAPI.Instance.GetUnits(tribeId, unitIds))
                 return false;
 
+            bool improvedSpearmen = GamePlayerManagerAPI.Instance.IsImprovedSpearman();
             foreach (int unitId in unitIds)
             {
                 if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
@@ -238,6 +284,14 @@ namespace TroopMovementFix
                 }
 
                 activeUnitIds.Add(unitId);
+                ushort nativeRunningSpeedBonus =
+                    movementSpeedHook.GetNativeRunningSpeedBonus(
+                        unit->r_UnitChimp,
+                        improvedSpearmen);
+                movementDirectiveByUnitId[unitId] = new UnitMovementDirective(
+                    MovementCadenceMode.UncappedRunning,
+                    synchronizedSpeed: 0,
+                    runningSpeedBonus: nativeRunningSpeedBonus);
             }
 
             return activeUnitIds.Count > 0;
@@ -300,19 +354,26 @@ namespace TroopMovementFix
             return true;
         }
 
-        private void RemoveSynchronization(int tribeId)
+        private int RemoveSynchronization(int tribeId)
         {
             unitIds.Clear();
             if (!GameTribeManagerAPI.Instance.GetUnits(tribeId, unitIds))
-                return;
+                return 0;
 
+            int removedDirectiveCount = 0;
             foreach (int unitId in unitIds)
-                movementDirectiveByUnitId.Remove(unitId);
+            {
+                if (movementDirectiveByUnitId.Remove(unitId))
+                    removedDirectiveCount++;
+            }
+
+            return removedDirectiveCount;
         }
 
         private void ClearSynchronization()
         {
             movementDirectiveByUnitId.Clear();
+            pendingVanillaMoveOrderTribeIds.Clear();
         }
 
         private void ApplyMovementDirectiveToActiveUnits(
@@ -321,7 +382,10 @@ namespace TroopMovementFix
         {
             UnitMovementDirective movementDirective = new UnitMovementDirective(
                 movementMode,
-                synchronizedSpeed);
+                synchronizedSpeed,
+                runningSpeedBonus: movementMode == MovementCadenceMode.SynchronizedRunning
+                    ? (ushort)1
+                    : (ushort)0);
 
             foreach (int unitId in activeUnitIds)
                 movementDirectiveByUnitId[unitId] = movementDirective;
