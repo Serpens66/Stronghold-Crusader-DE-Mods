@@ -2,11 +2,19 @@
   "GUID": "MPTest_Serp",
   "Author": "Serpens66",
   "Name": "MPTest",
-  "Description": "Adds a woodcutter-hut action button that spawns a synchronized swordsman on a valid adjacent tile.",
-  "Version": "1.0.1",
+  "Description": "Tests opcode 111 as a native multiplayer Chore without changing game state; singleplayer keeps the woodcutter swordsman action.",
+  "Version": "1.1.0",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.1.0",
+      "Changes": [
+        "Replace the multiplayer spawn with a strictly version-gated native opcode-111 no-op Chore probe.",
+        "Log native command IDs, scheduled ticks, SyncEvent barriers, and actual execution ticks.",
+        "Add an optional client-side incoming Chore delay for lockstep barrier tests."
+      ]
+    },
     {
       "Version": "1.0.1",
       "Changes": [

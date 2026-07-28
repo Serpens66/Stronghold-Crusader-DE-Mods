@@ -107,6 +107,7 @@
     </Compile>
     <Compile Include="src\MPTestPlugin.cs" />
     <Compile Include="src\MPTestRuntime.cs" />
+    <Compile Include="src\NativeChoreProbe.cs" />
     <Compile Include="src\UnitSpawnDiagnostics.cs" />
     <Compile Include="src\WoodcutterSpawnButtonViewModel.cs" />
     <Compile Include="src\WoodcutterSwordsmanSpawnPacket.cs" />

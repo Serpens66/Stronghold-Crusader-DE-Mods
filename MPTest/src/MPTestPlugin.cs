@@ -1,4 +1,5 @@
 using BepInEx;
+using BepInEx.Configuration;
 using SHCDESE.API;
 using SHCDESE.API.LowLevel;
 using System;
@@ -13,18 +14,25 @@ namespace MPTest
 
         public const string PluginGuid = "MPTest_Serp";
         public const string PluginName = "MPTest";
-        public const string PluginVersion = "1.0.1";
+        public const string PluginVersion = "1.1.0";
 
         private static MPTestRuntime runtime;
         private static bool libraryLoadedHandled;
+        private ConfigEntry<int> delayIncomingProbeMilliseconds;
 
         private void Awake()
         {
             if (runtime != null)
                 return;
 
+            delayIncomingProbeMilliseconds = Config.Bind(
+                "ChoreProbe",
+                "DelayIncomingProbeMs",
+                0,
+                "Delays incoming opcode-111 probe chores on non-host peers. Use 0 normally and 500 for the barrier test. Values above 2500 are clamped.");
+
             Shared.DebugLogHelper.LogInfo(Logger, $"{PluginName} {PluginVersion} loaded.");
-            runtime = new MPTestRuntime(Logger);
+            runtime = new MPTestRuntime(Logger, () => delayIncomingProbeMilliseconds.Value);
             CrusaderLibrary.Instance.LibraryLoaded += OnCrusaderLibraryLoaded;
         }
 
@@ -37,10 +45,9 @@ namespace MPTest
 
         private void OnApplicationQuit()
         {
-            CrusaderLibrary.Instance.LibraryLoaded -= OnCrusaderLibraryLoaded;
-            runtime?.Dispose();
-            runtime = null;
-            libraryLoadedHandled = false;
+            Shared.DebugLogHelper.LogDebug(
+                Logger,
+                "MPTestPlugin OnApplicationQuit called; process-lifetime native Chore hooks remain rooted until process exit.");
         }
 
         private void OnCrusaderLibraryLoaded(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
@@ -54,7 +61,7 @@ namespace MPTest
                     "MPTestWoodcutterSpawnButtonHost",
                     runtime.ButtonViewModel);
 
-                runtime.Initialize();
+                runtime.Initialize(libraryHandle);
                 libraryLoadedHandled = true;
                 Shared.DebugLogHelper.LogInfo(Logger, "MPTest Crusader library loaded; UI binding and runtime initialized.");
             }

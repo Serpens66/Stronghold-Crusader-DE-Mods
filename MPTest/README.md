@@ -1,82 +1,69 @@
-# MPTest Multiplayer Spawn Desync
+# MPTest Native Chore Probe
 
-## Previous implementation and problem
+## Purpose
 
-The initiating player previously spawned the swordsman directly from the Unity button callback and then broadcast a custom packet:
+The multiplayer button no longer creates a unit. It schedules a fixed 16-byte no-op payload through
+the native Chore queue with opcode `111`. This is the safety gate before implementing a reusable
+Script Extender Chore API or moving the swordsman spawn into a native synchronized callback.
 
-    if (!TryApplySpawn(packet, "local-multiplayer-click"))
-        return;
+Singleplayer keeps the previous woodcutter swordsman action.
 
-    GameNetworkAPI.SendPacketToAll(packet, packetHook.GetPacketId(), true);
+The native integration is enabled only for this exact game DLL:
 
-The receiving client also performed the spawn directly from the network callback:
+    SHA-256:
+    17F8DD4A92FF6125BD6A3A70ABC80C727682E489696C218D146A7EA6D2F88BF4
 
-    if (!TryApplySpawn(packet, "remote-multiplayer-packet"))
-        return;
+The runtime also validates the original opcode-111 handler pointer and bytes, the handler table's
+memory protection, and the prologues of the native enqueue and field-copy functions. A failed check
+leaves the handler table untouched and hides the multiplayer button.
 
-Both paths eventually call `GameUnitManagerAPI.CreateUnitLocal(...)`.
+## Probe flow
 
-## Shared future-tick implementation under test
+1. Select a locally owned woodcutter hut.
+2. Press the existing action button.
+3. In multiplayer the callback stages a diagnostic payload and calls the native
+   `QueueLocalChore(ChoreManager, 111)` function while holding `EngineInterface.threadLock`.
+4. Handler mode 1 serializes the payload into the local pending slot.
+5. The original game distributes the Chore and includes its command ID in a host SyncEvent.
+6. Handler mode 0 logs execution on every peer and intentionally performs no mutation.
 
-The multiplayer initiator selects one shared future map tick, schedules its local spawn for that tick, and broadcasts the packet before the spawn happens:
+`Platform_Multiplayer.SendChores` and `EngineInterface.ReceiveChore` are observed without changing
+their buffers. Logs contain source/request IDs, native command ID, scheduled tick, SyncEvent
+membership, and actual execution tick with millisecond wall-clock timestamps.
 
-    ExecuteAtMapTick =
-        GameTimeManagerAPI.Instance.GetElapsedMapTicks() + MultiplayerSpawnLeadTicks;
+## Normal two-peer test
 
-The receiving client calculates the remaining ticks from the packet's `ExecuteAtMapTick`. Both sides then use a non-savable Script Extender `TimerEngine` action and only apply the spawn if the callback executes at exactly the requested map tick.
+1. Install the identical `MPTest.dll` and Script Extender build on both peers.
+2. Keep `DelayIncomingProbeMs = 0` in both `BepInEx/config/MPTest_Serp.cfg` files.
+3. Start a fresh multiplayer game.
+4. Trigger one request on the host, one on the client, then several alternating requests.
+5. Close the game or copy both logs after the test.
+6. Compare them:
 
-The lead is eight simulation ticks: the largest observed packet-to-remote-execution difference was six ticks, so this adds a two-tick safety margin. At the normal 40 Hz simulation rate this is 200 ms of game time. Singleplayer does not use this multiplayer lead and retains the next `0 ms` timer callback.
+       powershell -ExecutionPolicy Bypass -File .\Compare-ChoreProbeLogs.ps1 `
+         -HostLog .\LogOutput.log `
+         -ClientLog .\LogOutputC.log
 
-Relevant code:
+The script fails unless each request executes exactly once on both peers with the same command ID,
+scheduled tick, execution tick, and an outgoing host SyncEvent containing that command ID.
 
-- [Target-tick selection, local scheduling, and packet broadcast](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/blob/main/MPTest/src/MPTestRuntime.cs#L190-L226)
-- [Packet validation and remote scheduling](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/blob/main/MPTest/src/MPTestRuntime.cs#L246-L284)
-- [Timer scheduling and exact-tick enforcement](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/blob/main/MPTest/src/MPTestRuntime.cs#L291-L358)
-- [Actual unit creation](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/blob/main/MPTest/src/MPTestRuntime.cs#L385-L427)
-- [Diagnostic snapshot and full `GameUnit` hash](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/blob/main/MPTest/src/UnitSpawnDiagnostics.cs#L19-L91)
+## Delayed barrier test
 
-## Observed behaviour before the timer change
+After the normal test passes, set the non-host client's configuration to:
 
-The button was pressed three times. The game appeared to resync after the first and third spawn, but not after the second.
+    DelayIncomingProbeMs = 500
 
-### First spawn — likely resync
+Leave the host at `0`, start a fresh match, and trigger at least one request on the host. The client
+holds only the incoming opcode-111 packet; SyncEvents continue normally. A persistent
+`EngineInterface.run` detour releases the packet later without sleeping or relying on the short-lived
+BepInEx plugin component.
 
-    Host:   gameTimeUnits=7750000, elapsedMapTicks=311,
-            structFnv1a64=0xD61D94F514791AE0
+Compare the fresh logs with:
 
-    Client: gameTimeUnits=7775000, elapsedMapTicks=312,
-            structFnv1a64=0xFC570BF53EE77FDF
+       powershell -ExecutionPolicy Bypass -File .\Compare-ChoreProbeLogs.ps1 `
+         -HostLog .\LogOutput.log `
+         -ClientLog .\LogOutputC.log `
+         -RequireDelayProof
 
-The client executed the spawn one simulation tick later, and the resulting native `GameUnit` structures differ.
-
-### Second spawn — no observed resync
-
-    Host:   gameTimeUnits=15350000, elapsedMapTicks=615,
-            structFnv1a64=0xEC5F4039FFF89D5A
-
-    Client: gameTimeUnits=15350000, elapsedMapTicks=615,
-            structFnv1a64=0xEC5F4039FFF89D5A
-
-Both sides executed the spawn at the same deterministic game time. The complete 1168-byte `GameUnit` structures are identical.
-
-### Third spawn — likely resync
-
-    Host:   gameTimeUnits=28425000, elapsedMapTicks=1138,
-            structFnv1a64=0x95CB2518AF4C746C
-
-    Client: gameTimeUnits=28450000, elapsedMapTicks=1139,
-            structFnv1a64=0x6799A9320B894FD8
-
-Again, the client executed the spawn one simulation tick later, producing a different native structure.
-
-## Previous timer-only test result
-
-The packet is received exactly once and the unit ID, global ID, owner, type, position, height, health, and other known fields match on both machines.
-
-The timer-only test moved the mutation into the expected execution context, but it was not sufficient:
-
-- A Unity button callback or network callback can run outside the short native window in which game-state changes are safe.
-- The previous direct calls sometimes produced different unknown native `GameUnit` fields.
-- The second test spawn happened to produce identical structures and did not appear to cause a resync.
-
-The shared future-tick implementation additionally aligns the exact map tick on all participants. The existing timing and full-structure diagnostics remain enabled so the result can be verified in new host and client logs.
+Do not proceed to state-changing Chores if the game reports a resync,
+`SyncEvent - Forced run`, duplicate execution, malformed payload, or different execution ticks.

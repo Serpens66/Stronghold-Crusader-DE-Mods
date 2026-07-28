@@ -6,7 +6,6 @@ using SHCDESE.API;
 using SHCDESE.API.Components.Timer;
 using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.MapLoader;
-using SHCDESE.EventAPI.Network;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
@@ -17,7 +16,6 @@ namespace MPTest
 {
     internal sealed unsafe class MPTestRuntime : IDisposable
     {
-        private const int MultiplayerSpawnLeadTicks = 8;
         private const int SimulationTickMilliseconds =
             1000 / DeterministicClock.BASE_TICKS_PER_SECOND;
 
@@ -25,24 +23,24 @@ namespace MPTest
 
         private readonly ManualLogSource log;
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
-        private readonly HashSet<long> processedRequests = new HashSet<long>();
+        private readonly NativeChoreProbe nativeChoreProbe;
 
         private Hook setUpInbuildingHook;
         private SetUpInbuildingDelegate setUpInbuildingTrampoline;
-        private R3PacketEventHook<WoodcutterSwordsmanSpawnPacket> packetHook;
         private int nextRequestId;
         private bool initialized;
         private string lastVisibilityState;
 
-        public MPTestRuntime(ManualLogSource log)
+        public MPTestRuntime(ManualLogSource log, Func<int> getIncomingProbeDelayMilliseconds)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
+            nativeChoreProbe = new NativeChoreProbe(log, getIncomingProbeDelayMilliseconds);
             ButtonViewModel = new WoodcutterSpawnButtonViewModel(OnSpawnCommand);
         }
 
         public WoodcutterSpawnButtonViewModel ButtonViewModel { get; }
 
-        public void Initialize()
+        public void Initialize(IntPtr crusaderModuleBase)
         {
             if (initialized)
                 return;
@@ -50,8 +48,7 @@ namespace MPTest
             Hook installedHook = null;
             try
             {
-                packetHook = GameNetworkAPI.Instance.GetPacketEventFor<WoodcutterSwordsmanSpawnPacket>();
-                subscriptions.Add(packetHook.GetBaseHook().Observable.Subscribe(OnPacketReceived));
+                nativeChoreProbe.Initialize(crusaderModuleBase);
                 subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
                     .Where(args => args.Phase == EventHookPhase.Pre)
                     .Subscribe(_ => ClearMapState()));
@@ -63,14 +60,13 @@ namespace MPTest
                 ButtonViewModel.SetVisible(false);
 
                 LogInfo(
-                    $"Runtime initialized: packetId={packetHook.GetPacketId()}, " +
-                    $"synchronization=shared-future-map-tick, multiplayerLeadTicks={MultiplayerSpawnLeadTicks}.");
+                    $"Runtime initialized: synchronization=native-opcode-111-no-op, " +
+                    $"nativeChoreProbeSupported={nativeChoreProbe.IsSupported}.");
             }
             catch
             {
                 installedHook?.Dispose();
                 DisposeSubscriptions();
-                packetHook = null;
                 throw;
             }
         }
@@ -87,7 +83,6 @@ namespace MPTest
             setUpInbuildingHook?.Dispose();
             setUpInbuildingHook = null;
             setUpInbuildingTrampoline = null;
-            packetHook = null;
             LogInfo("Runtime disposed during application shutdown.");
         }
 
@@ -128,6 +123,14 @@ namespace MPTest
                     SetButtonVisibility(
                         false,
                         $"hidden: playerId={localPlayerId}, selectedBuildingId={selectedBuildingId}, reason={failureReason}");
+                    return;
+                }
+
+                if (GameNetworkAPI.IsNetworkedEnvironment() && !nativeChoreProbe.IsSupported)
+                {
+                    SetButtonVisibility(
+                        false,
+                        $"hidden: playerId={localPlayerId}, selectedBuildingId={selectedBuildingId}, reason=native-chore-probe-unsupported");
                     return;
                 }
 
@@ -173,20 +176,28 @@ namespace MPTest
                     return;
                 }
 
-                if (!TryFindAdjacentSpawnTile(woodcutter, out int targetTileX, out int targetTileY))
+                int requestId = NextRequestId();
+                bool networked = GameNetworkAPI.IsNetworkedEnvironment();
+                if (networked)
                 {
-                    LogInfo($"Spawn click rejected: no valid directly adjacent tile exists for woodcutterId={selectedBuildingId}, globalId={woodcutter->r_GlobalId}.");
+                    if (!nativeChoreProbe.TryEnqueue(sourcePlayerId, requestId, out string enqueueFailure))
+                    {
+                        LogInfo(
+                            $"Chore probe click rejected: playerId={sourcePlayerId}, requestId={requestId}, " +
+                            $"selectedBuildingId={selectedBuildingId}, reason={enqueueFailure}.");
+                        RefreshButtonVisibility();
+                        return;
+                    }
+
+                    LogInfo(
+                        $"Chore probe enqueued without state mutation: playerId={sourcePlayerId}, " +
+                        $"requestId={requestId}, selectedBuildingId={selectedBuildingId}.");
                     return;
                 }
 
-                int requestId = NextRequestId();
-                bool networked = GameNetworkAPI.IsNetworkedEnvironment();
-
-                if (networked && packetHook == null)
+                if (!TryFindAdjacentSpawnTile(woodcutter, out int targetTileX, out int targetTileY))
                 {
-                    Shared.DebugLogHelper.LogError(
-                        log,
-                        "MPTest rejected a multiplayer spawn because the packet hook is unavailable.");
+                    LogInfo($"Spawn click rejected: no valid directly adjacent tile exists for woodcutterId={selectedBuildingId}, globalId={woodcutter->r_GlobalId}.");
                     return;
                 }
 
@@ -197,94 +208,19 @@ namespace MPTest
                     WoodcutterGlobalId = (int)woodcutter->r_GlobalId,
                     TargetTileX = targetTileX,
                     TargetTileY = targetTileY,
-                    ExecuteAtMapTick = networked
-                        ? checked(GameTimeManagerAPI.Instance.GetElapsedMapTicks() + MultiplayerSpawnLeadTicks)
-                        : 0
+                    ExecuteAtMapTick = 0
                 };
 
-                // Detect serialization problems before changing the local game state.
-                if (networked)
-                {
-                    GameNetworkAPI.Serialize(packet);
-
-                    string timerHandle = null;
-                    try
-                    {
-                        timerHandle = ScheduleSpawn(packet, "local-multiplayer-timer", null);
-                        MarkRequestProcessed(sourcePlayerId, requestId);
-                        GameNetworkAPI.SendPacketToAll(packet, packetHook.GetPacketId(), true);
-                        LogInfo(
-                            $"Spawn packet broadcast before synchronized spawn: playerId={packet.SourcePlayerId}, " +
-                            $"requestId={packet.RequestId}, woodcutterGlobalId={packet.WoodcutterGlobalId}, " +
-                            $"target={packet.TargetTileX},{packet.TargetTileY}, executeAtMapTick={packet.ExecuteAtMapTick}.");
-                    }
-                    catch
-                    {
-                        CancelScheduledSpawn(timerHandle);
-                        UnmarkRequestProcessed(sourcePlayerId, requestId);
-                        throw;
-                    }
-                }
-                else
-                {
-                    ScheduleSpawn(
-                        packet,
-                        "singleplayer-timer",
-                        () => MarkRequestProcessed(sourcePlayerId, requestId));
-                }
+                ScheduleSpawn(
+                    packet,
+                    "singleplayer-timer",
+                    null);
             }
             catch (Exception ex)
             {
                 Shared.DebugLogHelper.LogError(
                     log,
                     $"MPTest spawn click failed: selectedBuildingId={selectedBuildingId}, playerId={sourcePlayerId}: {ex}");
-            }
-        }
-
-        private void OnPacketReceived(ReceiveCustomPacketEventArgs<WoodcutterSwordsmanSpawnPacket> args)
-        {
-            try
-            {
-                WoodcutterSwordsmanSpawnPacket packet = args?.Packet;
-                if (packet == null)
-                {
-                    LogInfo("Network packet rejected: payload is null.");
-                    return;
-                }
-
-                string packetFailure = GetPacketValidationFailure(packet);
-                if (packetFailure != null)
-                {
-                    LogInfo($"Network packet rejected: playerId={packet.SourcePlayerId}, requestId={packet.RequestId}, reason={packetFailure}.");
-                    return;
-                }
-
-                if (!GameNetworkAPI.IsNetworkedEnvironment())
-                {
-                    LogInfo($"Network packet ignored outside multiplayer: playerId={packet.SourcePlayerId}, requestId={packet.RequestId}.");
-                    return;
-                }
-
-                if (IsRequestProcessed(packet.SourcePlayerId, packet.RequestId))
-                {
-                    LogInfo($"Duplicate spawn packet ignored: playerId={packet.SourcePlayerId}, requestId={packet.RequestId}.");
-                    return;
-                }
-
-                MarkRequestProcessed(packet.SourcePlayerId, packet.RequestId);
-                try
-                {
-                    ScheduleSpawn(packet, "remote-multiplayer-timer", null);
-                }
-                catch
-                {
-                    UnmarkRequestProcessed(packet.SourcePlayerId, packet.RequestId);
-                    throw;
-                }
-            }
-            catch (Exception ex)
-            {
-                Shared.DebugLogHelper.LogError(log, $"MPTest network packet handling failed: {ex}");
             }
         }
 
@@ -354,14 +290,6 @@ namespace MPTest
             }
 
             return remainingTicks;
-        }
-
-        private void CancelScheduledSpawn(string timerHandle)
-        {
-            if (string.IsNullOrEmpty(timerHandle))
-                return;
-
-            GameTimeManagerAPI.Instance.GetTimerEngine().RemoveAction(timerHandle);
         }
 
         private void LogSpawnTimerState(
@@ -444,27 +372,6 @@ namespace MPTest
             }
 
             return TryGetOwnedWoodcutter(buildingId, ownerPlayerId, out building, out failureReason);
-        }
-
-        private static string GetPacketValidationFailure(WoodcutterSwordsmanSpawnPacket packet)
-        {
-            if (packet.SourcePlayerId <= 0)
-                return "source-player-id-not-positive";
-            if (packet.RequestId <= 0)
-                return "request-id-not-positive";
-            if (packet.WoodcutterGlobalId <= 0)
-                return "woodcutter-global-id-not-positive";
-            if (packet.ExecuteAtMapTick <= 0)
-                return "execute-at-map-tick-not-positive";
-            if (!GamePlayerManagerAPI.Instance.IsPlayerIdValid(packet.SourcePlayerId))
-                return "source-player-id-invalid";
-            if (GamePlayerManagerAPI.Instance.IsAIPlayer(packet.SourcePlayerId))
-                return "source-player-is-ai";
-            if (GameNetworkAPI.IsNetworkedEnvironment() && GameNetworkAPI.GetPlayerById(packet.SourcePlayerId) == null)
-                return "source-player-is-not-a-network-member";
-            if (!GameTileManagerAPI.Instance.IsTileInsideMapBounds(packet.TargetTileX, packet.TargetTileY))
-                return "target-outside-map";
-            return null;
         }
 
         private static bool TryGetOwnedWoodcutter(
@@ -660,26 +567,6 @@ namespace MPTest
                 !GamePlayerManagerAPI.Instance.IsAIPlayer(playerId);
         }
 
-        private bool IsRequestProcessed(int sourcePlayerId, int requestId)
-        {
-            return processedRequests.Contains(GetRequestKey(sourcePlayerId, requestId));
-        }
-
-        private void MarkRequestProcessed(int sourcePlayerId, int requestId)
-        {
-            processedRequests.Add(GetRequestKey(sourcePlayerId, requestId));
-        }
-
-        private void UnmarkRequestProcessed(int sourcePlayerId, int requestId)
-        {
-            processedRequests.Remove(GetRequestKey(sourcePlayerId, requestId));
-        }
-
-        private static long GetRequestKey(int sourcePlayerId, int requestId)
-        {
-            return ((long)sourcePlayerId << 32) | (uint)requestId;
-        }
-
         private int NextRequestId()
         {
             if (nextRequestId == int.MaxValue)
@@ -689,9 +576,9 @@ namespace MPTest
 
         private void ClearMapState()
         {
-            processedRequests.Clear();
             nextRequestId = 0;
             lastVisibilityState = null;
+            nativeChoreProbe.ClearMapState();
             ButtonViewModel.SetVisible(false);
             LogInfo("Map state cleared.");
         }
