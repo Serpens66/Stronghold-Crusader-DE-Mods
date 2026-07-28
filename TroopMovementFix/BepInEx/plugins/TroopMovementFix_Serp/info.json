@@ -1,0 +1,139 @@
+{
+  "GUID": "TroopMovementFix_Serp",
+  "Author": "Serpens66",
+  "Name": "Troop Movement Fix",
+  "Description": "Keeps vanilla troop movement by default. Hold Alt while moving to synchronize the group at the slowest member's maximum speed, or hold Ctrl to let every unit use its own maximum speed.",
+  "Version": "1.0.15",
+  "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
+  "Manifest": 1,
+  "SerpChangelog": [
+    {
+      "Version": "1.0.15",
+      "Changes": [
+        "Move routine operational diagnostics from Info to Debug while retaining warnings and errors.",
+        "Remove per-unit diagnostic string construction, native-hook confirmation tracking, and diagnostic-only group analysis from vanilla movement orders.",
+        "Use precomputed bidirectional animation-state mappings and a leaner Ctrl unit collection path to reduce work for large armies."
+      ]
+    },
+    {
+      "Version": "1.0.14",
+      "Changes": [
+        "Keep incoming vanilla movement behavior for move orders issued without Alt or Ctrl.",
+        "Use Alt+move for synchronization at the slowest member's maximum speed and Ctrl+move for every member's uncapped maximum speed.",
+        "Preserve vanilla Shift waypoint handling; when Alt and Ctrl are held together, keep vanilla movement behavior instead of choosing an ambiguous custom mode."
+      ]
+    },
+    {
+      "Version": "1.0.13",
+      "Changes": [
+        "Reverse the movement modifier: normal move orders now let every unit use its own maximum speed and native running animation where available.",
+        "Make Alt+move synchronize every group member at the slowest member's maximum speed with the matching walking or running cadence.",
+        "Leave the game's Alt- and Ctrl-based edge-scrolling restriction unchanged."
+      ]
+    },
+    {
+      "Version": "1.0.12",
+      "Changes": [
+        "Remove the read-only processUnitMove detour so the mod no longer adds an unnecessary managed callback to every native movement step.",
+        "Reject untracked units before native unit lookup, cache the stable game-unit array metadata, and reuse each unit type's animation-transition lookup in the cadence hot path.",
+        "Preallocate directive and command-analysis collections for 10000 units and compile optimized Release builds while retaining the detailed Info-level movement diagnostics."
+      ]
+    },
+    {
+      "Version": "1.0.11",
+      "Changes": [
+        "Bind the commanded movement mode and speed to each unit instead of its mutable tribe, preserving the order across later selection changes.",
+        "Keep walking, synchronized running, and Alt maximum-speed directives active until the affected unit receives a new movement or target order.",
+        "Log when the game reassigns a moving unit to another tribe while its original unit-bound movement directive is preserved."
+      ]
+    },
+    {
+      "Version": "1.0.10",
+      "Changes": [
+        "Restore every Alt-moved unit's effective speed delay to its own native maximum after the game reapplies a previous group delay.",
+        "Keep slow units at their own maximum while fast members of the same group regain their full individual speed.",
+        "Log the first Alt speed restoration with the game-calculated, native maximum, and final effective speed levels."
+      ]
+    },
+    {
+      "Version": "1.0.9",
+      "Changes": [
+        "Add an Alt+move mode that removes the synchronized speed cap and lets every group member use its own maximum movement speed.",
+        "Force the matching native running cadence and animation for every unit type with a discovered running transition while Alt movement is active.",
+        "Log Alt detection, the number of run-capable group members, uncapped mode activation, and effective cadence behavior."
+      ]
+    },
+    {
+      "Version": "1.0.8",
+      "Changes": [
+        "Keep synchronized walking groups tracked so every member remains capped at the slowest unit type's maximum speed.",
+        "Suppress late per-type running-bonus overrides, including Improved Spearmen, when their synchronized group must walk.",
+        "Restore the matching native walking animation state before the common movement cadence is calculated whenever the unit type provides one."
+      ]
+    },
+    {
+      "Version": "1.0.7",
+      "Changes": [
+        "Discover walking-to-running animation transitions from every native unit-type handler instead of using a fixed list of three unit types.",
+        "Preserve each unit's animation family when switching states, including transitions such as 0x1 to 0x81, 0x101 to 0x181, and 0x201 to 0x281.",
+        "Keep vanilla synchronized walking for groups containing a unit type without a native running transition or a spearman whose improved-running option is disabled."
+      ]
+    },
+    {
+      "Version": "1.0.6",
+      "Changes": [
+        "Synchronize the infantry running-animation state together with the already-correct running cadence.",
+        "Use the native 0x81 running animation state for European archers, Arabian archers, and improved spearmen without changing their synchronized speed.",
+        "Log original and final animation states at the cadence hook and the effective processUnitMove call."
+      ]
+    },
+    {
+      "Version": "1.0.5",
+      "Changes": [
+        "Synchronize the running sub-step bonus before the native cadence threshold is calculated, keeping interval and movement distance consistent.",
+        "Respect the advanced spearman setting: groups containing normal walking spearmen retain their vanilla walking cadence, while improved spearmen can use synchronized running cadence.",
+        "Remove the post-order and processUnitMove category overrides that accelerated walking spearmen and could give archers two movement sub-steps at a walking interval."
+      ]
+    },
+    {
+      "Version": "1.0.4",
+      "Changes": [
+        "Synchronize the stored movement category after the vanilla group order, so movement cadence and sub-step count use the same running mode.",
+        "Update the stored category in processUnitMove when a walking category is promoted, allowing the game to select its running animation path.",
+        "Log post-order category synchronization and the stored category before and after the effective movement call."
+      ]
+    },
+    {
+      "Version": "1.0.3",
+      "Changes": [
+        "Hook the native processUnitMove routine that consumes the actual per-tick walking or running category.",
+        "Promote category 0 to category 1 for synchronized groups, while preserving idle, combat, and special categories.",
+        "Log the original and final movement category to confirm that running is forced at the effective movement call."
+      ]
+    },
+    {
+      "Version": "1.0.2",
+      "Changes": [
+        "Log the separate state-based movement speed, speed bonus, and AI state used by the per-tick movement code.",
+        "Emit a fresh native-hook confirmation for every synchronized movement order.",
+        "Do not rewrite internal NoChange movement orders from AI units and animals."
+      ]
+    },
+    {
+      "Version": "1.0.1",
+      "Changes": [
+        "Add Info-level diagnostics for every tribe movement order and all speed inputs.",
+        "Log whether an order was rewritten, skipped, or could not be synchronized.",
+        "Confirm when the native movement-speed hook first reaches a tracked tribe."
+      ]
+    },
+    {
+      "Version": "1.0.0",
+      "Changes": [
+        "Make normal synchronized movement orders use each unit's running movement state.",
+        "Cap faster group members at the slowest member's normal maximum speed while preserving terrain and state penalties.",
+        "Leave explicit Fast movement orders uncapped as the foundation for a future Alt+move command."
+      ]
+    }
+  ]
+}
