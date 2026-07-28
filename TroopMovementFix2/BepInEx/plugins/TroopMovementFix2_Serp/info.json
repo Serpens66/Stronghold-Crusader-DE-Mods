@@ -1,0 +1,44 @@
+{
+  "GUID": "TroopMovementFix2_Serp",
+  "Author": "Serpens66",
+  "Name": "Troop Movement Fix 2",
+  "Description": "Diagnoses Vanilla selection-driven movement changes, keeps Improved Spearmen synchronized, and maps Ctrl+move to Vanilla free-unit-speeds movement.",
+  "Version": "1.0.3",
+  "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
+  "Manifest": 1,
+  "SerpChangelog": [
+    {
+      "Version": "1.0.3",
+      "Changes": [
+        "Correct the Script Extender GameTribe pointer offset so Ctrl writes Vanilla freeUnitSpeeds at the actual native field.",
+        "Remove the ineffective selection-marker restoration and leave selection fully Vanilla.",
+        "Add capped Info diagnostics for mouse/UI selection, tracked tribe assignments, and Vanilla movement-state recalculation without writing captured values back.",
+        "Document that the original TroopMovementFix already works and Fix2 exists to achieve the result with less intervention."
+      ]
+    },
+    {
+      "Version": "1.0.2",
+      "Changes": [
+        "Preserve the exact per-unit Vanilla movement marker changed by DLL_TroopSelection instead of relying on movement-order events that selection changes bypass.",
+        "Map Ctrl+move to Vanilla's native freeUnitSpeeds tribe state while leaving the ordinary movement argument and all per-unit speed calculations to the game.",
+        "Keep the native speed and cadence correction restricted to Improved Spearmen in mixed synchronized groups."
+      ]
+    },
+    {
+      "Version": "1.0.1",
+      "Changes": [
+        "Use Vanilla Fast movement directly for Ctrl+move without custom per-unit maximum-speed or animation overrides.",
+        "Preserve selection state by remembering only each unit's last Vanilla movement mode and correcting conflicting internal continuations.",
+        "Restrict native speed and cadence correction to Improved Spearmen in mixed synchronized groups and move operational logging to Info."
+      ]
+    },
+    {
+      "Version": "1.0.0",
+      "Changes": [
+        "Preserve synchronized and free-speed mixed-group movement when the running units are selected again or clicked in the bottom selection bar.",
+        "Keep Improved Spearmen at the synchronized group speed in mixed Vanilla movement without limiting homogeneous or Fast movement.",
+        "Map Ctrl+move to Vanilla's existing Fast mode so the game calculates every unit's own maximum speed and running cadence."
+      ]
+    }
+  ]
+}
