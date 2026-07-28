@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "MPTest",
   "Description": "Adds a woodcutter-hut action button that spawns a synchronized swordsman on a valid adjacent tile.",
-  "Version": "1.0.0",
+  "Version": "1.0.1",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.1",
+      "Changes": [
+        "Schedule multiplayer spawns for one shared future map tick with the lowest tested safe lead."
+      ]
+    },
     {
       "Version": "1.0.0",
       "Changes": [

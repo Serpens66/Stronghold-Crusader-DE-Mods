@@ -35,7 +35,8 @@ namespace MPTest
                 ulong structHash = ComputeStructHash(unit);
 
                 string context =
-                    $"source={source}, playerId={packet.SourcePlayerId}, requestId={packet.RequestId}, unitId={unitId}";
+                    $"source={source}, playerId={packet.SourcePlayerId}, requestId={packet.RequestId}, " +
+                    $"targetMapTick={packet.ExecuteAtMapTick}, unitId={unitId}";
 
                 Shared.DebugLogHelper.LogInfo(
                     log,

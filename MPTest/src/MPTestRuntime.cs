@@ -3,6 +3,7 @@ using CrusaderDE;
 using MonoMod.RuntimeDetour;
 using R3;
 using SHCDESE.API;
+using SHCDESE.API.Components.Timer;
 using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.MapLoader;
 using SHCDESE.EventAPI.Network;
@@ -16,7 +17,9 @@ namespace MPTest
 {
     internal sealed unsafe class MPTestRuntime : IDisposable
     {
-        private const int SpawnTimerDelayMilliseconds = 0;
+        private const int MultiplayerSpawnLeadTicks = 8;
+        private const int SimulationTickMilliseconds =
+            1000 / DeterministicClock.BASE_TICKS_PER_SECOND;
 
         private delegate void SetUpInbuildingDelegate(MainViewModel self, int overridePanel, int overrideType);
 
@@ -59,7 +62,9 @@ namespace MPTest
                 initialized = true;
                 ButtonViewModel.SetVisible(false);
 
-                LogInfo($"Runtime initialized: packetId={packetHook.GetPacketId()}, synchronization=local-first-broadcast.");
+                LogInfo(
+                    $"Runtime initialized: packetId={packetHook.GetPacketId()}, " +
+                    $"synchronization=shared-future-map-tick, multiplayerLeadTicks={MultiplayerSpawnLeadTicks}.");
             }
             catch
             {
@@ -191,17 +196,42 @@ namespace MPTest
                     RequestId = requestId,
                     WoodcutterGlobalId = (int)woodcutter->r_GlobalId,
                     TargetTileX = targetTileX,
-                    TargetTileY = targetTileY
+                    TargetTileY = targetTileY,
+                    ExecuteAtMapTick = networked
+                        ? checked(GameTimeManagerAPI.Instance.GetElapsedMapTicks() + MultiplayerSpawnLeadTicks)
+                        : 0
                 };
 
                 // Detect serialization problems before changing the local game state.
                 if (networked)
+                {
                     GameNetworkAPI.Serialize(packet);
 
-                ScheduleSpawn(
-                    packet,
-                    networked ? "local-multiplayer-timer" : "singleplayer-timer",
-                    () => CompleteLocalSpawn(packet, networked));
+                    string timerHandle = null;
+                    try
+                    {
+                        timerHandle = ScheduleSpawn(packet, "local-multiplayer-timer", null);
+                        MarkRequestProcessed(sourcePlayerId, requestId);
+                        GameNetworkAPI.SendPacketToAll(packet, packetHook.GetPacketId(), true);
+                        LogInfo(
+                            $"Spawn packet broadcast before synchronized spawn: playerId={packet.SourcePlayerId}, " +
+                            $"requestId={packet.RequestId}, woodcutterGlobalId={packet.WoodcutterGlobalId}, " +
+                            $"target={packet.TargetTileX},{packet.TargetTileY}, executeAtMapTick={packet.ExecuteAtMapTick}.");
+                    }
+                    catch
+                    {
+                        CancelScheduledSpawn(timerHandle);
+                        UnmarkRequestProcessed(sourcePlayerId, requestId);
+                        throw;
+                    }
+                }
+                else
+                {
+                    ScheduleSpawn(
+                        packet,
+                        "singleplayer-timer",
+                        () => MarkRequestProcessed(sourcePlayerId, requestId));
+                }
             }
             catch (Exception ex)
             {
@@ -258,18 +288,23 @@ namespace MPTest
             }
         }
 
-        private void ScheduleSpawn(
+        private string ScheduleSpawn(
             WoodcutterSwordsmanSpawnPacket packet,
             string source,
             Action onSpawnSucceeded)
         {
+            int currentMapTick = GameTimeManagerAPI.Instance.GetElapsedMapTicks();
+            int remainingTicks = GetRemainingSpawnTicks(packet, currentMapTick);
+            int delayMilliseconds = checked(remainingTicks * SimulationTickMilliseconds);
+
             string timerHandle = null;
             timerHandle = GameTimeManagerAPI.Instance.GetTimerEngine().AddDelayedAction(
-                SpawnTimerDelayMilliseconds,
+                delayMilliseconds,
                 () => ExecuteScheduledSpawn(packet, source, timerHandle, onSpawnSucceeded),
                 string.Empty);
 
             LogSpawnTimerState("scheduled", source, packet, timerHandle);
+            return timerHandle;
         }
 
         private void ExecuteScheduledSpawn(
@@ -281,6 +316,17 @@ namespace MPTest
             try
             {
                 LogSpawnTimerState("executing", source, packet, timerHandle);
+                int currentMapTick = GameTimeManagerAPI.Instance.GetElapsedMapTicks();
+                if (packet.ExecuteAtMapTick > 0 && currentMapTick != packet.ExecuteAtMapTick)
+                {
+                    Shared.DebugLogHelper.LogError(
+                        log,
+                        $"MPTest synchronized spawn missed its target tick: source={source}, " +
+                        $"playerId={packet.SourcePlayerId}, requestId={packet.RequestId}, timerHandle={timerHandle}, " +
+                        $"targetMapTick={packet.ExecuteAtMapTick}, actualMapTick={currentMapTick}. Spawn was not applied.");
+                    return;
+                }
+
                 if (TryApplySpawn(packet, source))
                     onSpawnSucceeded?.Invoke();
             }
@@ -292,14 +338,30 @@ namespace MPTest
             }
         }
 
-        private void CompleteLocalSpawn(WoodcutterSwordsmanSpawnPacket packet, bool networked)
+        private static int GetRemainingSpawnTicks(
+            WoodcutterSwordsmanSpawnPacket packet,
+            int currentMapTick)
         {
-            MarkRequestProcessed(packet.SourcePlayerId, packet.RequestId);
-            if (!networked)
+            if (packet.ExecuteAtMapTick <= 0)
+                return 0;
+
+            int remainingTicks = packet.ExecuteAtMapTick - currentMapTick;
+            if (remainingTicks <= 0)
+            {
+                throw new InvalidOperationException(
+                    $"Synchronized spawn packet arrived too late: targetMapTick={packet.ExecuteAtMapTick}, " +
+                    $"currentMapTick={currentMapTick}.");
+            }
+
+            return remainingTicks;
+        }
+
+        private void CancelScheduledSpawn(string timerHandle)
+        {
+            if (string.IsNullOrEmpty(timerHandle))
                 return;
 
-            GameNetworkAPI.SendPacketToAll(packet, packetHook.GetPacketId(), true);
-            LogInfo($"Spawn packet broadcast after timed local spawn: playerId={packet.SourcePlayerId}, requestId={packet.RequestId}, woodcutterGlobalId={packet.WoodcutterGlobalId}, target={packet.TargetTileX},{packet.TargetTileY}.");
+            GameTimeManagerAPI.Instance.GetTimerEngine().RemoveAction(timerHandle);
         }
 
         private void LogSpawnTimerState(
@@ -310,10 +372,14 @@ namespace MPTest
         {
             var timeStamp = GameTimeManagerAPI.Instance.CaptureTimeStamp();
             int mapTicks = GameTimeManagerAPI.Instance.GetElapsedMapTicks();
+            int ticksUntilTarget = packet.ExecuteAtMapTick > 0
+                ? packet.ExecuteAtMapTick - mapTicks
+                : 0;
             LogInfo(
                 $"Spawn timer {state}: source={source}, playerId={packet.SourcePlayerId}, requestId={packet.RequestId}, " +
-                $"timerHandle={timerHandle}, delayMs={SpawnTimerDelayMilliseconds}, gameTick={timeStamp.CapturedGameTick}, " +
-                $"gameTimeUnits={timeStamp.CapturedGameTimeUnits}, elapsedMapTicks={mapTicks}.");
+                $"timerHandle={timerHandle}, targetMapTick={packet.ExecuteAtMapTick}, currentMapTick={mapTicks}, " +
+                $"ticksUntilTarget={ticksUntilTarget}, gameTick={timeStamp.CapturedGameTick}, " +
+                $"gameTimeUnits={timeStamp.CapturedGameTimeUnits}.");
         }
 
         private bool TryApplySpawn(WoodcutterSwordsmanSpawnPacket packet, string reason)
@@ -388,6 +454,8 @@ namespace MPTest
                 return "request-id-not-positive";
             if (packet.WoodcutterGlobalId <= 0)
                 return "woodcutter-global-id-not-positive";
+            if (packet.ExecuteAtMapTick <= 0)
+                return "execute-at-map-tick-not-positive";
             if (!GamePlayerManagerAPI.Instance.IsPlayerIdValid(packet.SourcePlayerId))
                 return "source-player-id-invalid";
             if (GamePlayerManagerAPI.Instance.IsAIPlayer(packet.SourcePlayerId))

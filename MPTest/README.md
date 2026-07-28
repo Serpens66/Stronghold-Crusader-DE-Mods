@@ -16,23 +16,23 @@ The receiving client also performed the spawn directly from the network callback
 
 Both paths eventually call `GameUnitManagerAPI.CreateUnitLocal(...)`.
 
-## Timer-based implementation under test
+## Shared future-tick implementation under test
 
-The button and network callbacks now only validate and schedule the request. `TryApplySpawn` runs from a non-savable `0 ms` Script Extender `TimerEngine` action:
+The multiplayer initiator selects one shared future map tick, schedules its local spawn for that tick, and broadcasts the packet before the spawn happens:
 
-    ScheduleSpawn(
-        packet,
-        networked ? "local-multiplayer-timer" : "singleplayer-timer",
-        () => CompleteLocalSpawn(packet, networked));
+    ExecuteAtMapTick =
+        GameTimeManagerAPI.Instance.GetElapsedMapTicks() + MultiplayerSpawnLeadTicks;
 
-The timer executes during the native simulation update window. After a successful local timed spawn, the packet is broadcast. A receiving client schedules the same operation through its own timer instead of changing game state directly from the packet handler.
+The receiving client calculates the remaining ticks from the packet's `ExecuteAtMapTick`. Both sides then use a non-savable Script Extender `TimerEngine` action and only apply the spawn if the callback executes at exactly the requested map tick.
+
+The lead is eight simulation ticks: the largest observed packet-to-remote-execution difference was six ticks, so this adds a two-tick safety margin. At the normal 40 Hz simulation rate this is 200 ms of game time. Singleplayer does not use this multiplayer lead and retains the next `0 ms` timer callback.
 
 Relevant code:
 
-- [Local scheduling](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/blob/main/MPTest/src/MPTestRuntime.cs#L197-L205)
-- [Packet validation and remote scheduling](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/blob/main/MPTest/src/MPTestRuntime.cs#L211-L257)
-- [Timer scheduling and execution](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/blob/main/MPTest/src/MPTestRuntime.cs#L261-L310)
-- [Actual unit creation](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/blob/main/MPTest/src/MPTestRuntime.cs#L319-L361)
+- [Target-tick selection, local scheduling, and packet broadcast](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/blob/main/MPTest/src/MPTestRuntime.cs#L190-L226)
+- [Packet validation and remote scheduling](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/blob/main/MPTest/src/MPTestRuntime.cs#L246-L284)
+- [Timer scheduling and exact-tick enforcement](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/blob/main/MPTest/src/MPTestRuntime.cs#L291-L358)
+- [Actual unit creation](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/blob/main/MPTest/src/MPTestRuntime.cs#L385-L427)
 - [Diagnostic snapshot and full `GameUnit` hash](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/blob/main/MPTest/src/UnitSpawnDiagnostics.cs#L19-L91)
 
 ## Observed behaviour before the timer change
@@ -69,14 +69,14 @@ Both sides executed the spawn at the same deterministic game time. The complete 
 
 Again, the client executed the spawn one simulation tick later, producing a different native structure.
 
-## Working theory
+## Previous timer-only test result
 
 The packet is received exactly once and the unit ID, global ID, owner, type, position, height, health, and other known fields match on both machines.
 
-The likely problem is the execution context:
+The timer-only test moved the mutation into the expected execution context, but it was not sufficient:
 
 - A Unity button callback or network callback can run outside the short native window in which game-state changes are safe.
 - The previous direct calls sometimes produced different unknown native `GameUnit` fields.
 - The second test spawn happened to produce identical structures and did not appear to cause a resync.
 
-The timer-based implementation moves all calls to `CreateUnitLocal` into the Script Extender's deterministic simulation-tick callback. The existing timing and full-structure diagnostics remain enabled so the result can be verified in new host and client logs.
+The shared future-tick implementation additionally aligns the exact map tick on all participants. The existing timing and full-structure diagnostics remain enabled so the result can be verified in new host and client logs.

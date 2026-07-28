@@ -12,6 +12,7 @@ namespace MPTest
         [Key(2)] public int WoodcutterGlobalId;
         [Key(3)] public int TargetTileX;
         [Key(4)] public int TargetTileY;
+        [Key(5)] public int ExecuteAtMapTick;
     }
 
     public sealed class WoodcutterSwordsmanSpawnPacketFormatter : IMessagePackFormatter<WoodcutterSwordsmanSpawnPacket>
@@ -27,12 +28,13 @@ namespace MPTest
                 return;
             }
 
-            writer.WriteArrayHeader(5);
+            writer.WriteArrayHeader(6);
             writer.Write(value.SourcePlayerId);
             writer.Write(value.RequestId);
             writer.Write(value.WoodcutterGlobalId);
             writer.Write(value.TargetTileX);
             writer.Write(value.TargetTileY);
+            writer.Write(value.ExecuteAtMapTick);
         }
 
         public WoodcutterSwordsmanSpawnPacket Deserialize(
@@ -53,6 +55,7 @@ namespace MPTest
                     case 2: packet.WoodcutterGlobalId = reader.ReadInt32(); break;
                     case 3: packet.TargetTileX = reader.ReadInt32(); break;
                     case 4: packet.TargetTileY = reader.ReadInt32(); break;
+                    case 5: packet.ExecuteAtMapTick = reader.ReadInt32(); break;
                     default: reader.Skip(); break;
                 }
             }
