@@ -3,10 +3,18 @@
   "Author": "Serpens66",
   "Name": "Troop Movement Fix",
   "Description": "Keeps vanilla troop movement by default. Hold Alt while moving to synchronize the group at the slowest member's maximum speed, or hold Ctrl to let every unit use its own maximum speed.",
-  "Version": "1.0.15",
+  "Version": "1.0.16",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.16",
+      "Changes": [
+        "Preserve each unit type's native running cadence during Ctrl maximum-speed movement instead of assigning a generic speed bonus.",
+        "Prevent units such as Assassins from exceeding their own native maximum speed when moved together with faster Archers.",
+        "Continue forcing the native running animation where available without using the animation capability as a generic speed-bonus rule."
+      ]
+    },
     {
       "Version": "1.0.15",
       "Changes": [

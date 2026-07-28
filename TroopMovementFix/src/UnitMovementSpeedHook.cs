@@ -183,8 +183,16 @@ namespace TroopMovementFix
 
                 if (movementMode != MovementCadenceMode.SynchronizedWalking)
                 {
-                    if (animationTransitions != null)
+                    // Synchronized running deliberately gives every compatible member
+                    // the same running cadence. Uncapped Ctrl movement instead keeps
+                    // the cadence just calculated by the unit's native type handler:
+                    // units such as Assassins can have a different native run cadence
+                    // even when their stored maximum-speed delay resembles an Archer's.
+                    if (movementMode == MovementCadenceMode.SynchronizedRunning &&
+                        animationTransitions != null)
+                    {
                         unit->r_SpeedBonus = 1;
+                    }
 
                     // Type handlers use several animation families. Their native running
                     // state is the corresponding walking state plus the 0x80 run flag,
