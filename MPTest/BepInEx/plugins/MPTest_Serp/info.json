@@ -3,10 +3,19 @@
   "Author": "Serpens66",
   "Name": "MPTest",
   "Description": "Tests opcode 111 as a native multiplayer Chore without changing game state; singleplayer keeps the woodcutter swordsman action.",
-  "Version": "1.1.0",
+  "Version": "1.2.0",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.2.0",
+      "Changes": [
+        "Enable a comprehensive 500 ms non-host barrier test profile by default.",
+        "Queue five no-op Chores per multiplayer button click to test batching and ordering.",
+        "Log barrier-before-release, real hold time, stalled ticks, reinjection, duplicate execution, and tick invariants.",
+        "Compare only the latest map containing probe executions so multiple tests in one process do not collide."
+      ]
+    },
     {
       "Version": "1.1.0",
       "Changes": [

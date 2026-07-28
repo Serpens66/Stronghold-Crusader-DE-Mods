@@ -24,16 +24,23 @@ namespace MPTest
         private readonly ManualLogSource log;
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
         private readonly NativeChoreProbe nativeChoreProbe;
+        private readonly Func<int> getCommandsPerClick;
 
         private Hook setUpInbuildingHook;
         private SetUpInbuildingDelegate setUpInbuildingTrampoline;
         private int nextRequestId;
         private bool initialized;
         private string lastVisibilityState;
+        private bool commandsPerClickClampLogged;
 
-        public MPTestRuntime(ManualLogSource log, Func<int> getIncomingProbeDelayMilliseconds)
+        public MPTestRuntime(
+            ManualLogSource log,
+            Func<int> getIncomingProbeDelayMilliseconds,
+            Func<int> getCommandsPerClick)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
+            this.getCommandsPerClick =
+                getCommandsPerClick ?? throw new ArgumentNullException(nameof(getCommandsPerClick));
             nativeChoreProbe = new NativeChoreProbe(log, getIncomingProbeDelayMilliseconds);
             ButtonViewModel = new WoodcutterSpawnButtonViewModel(OnSpawnCommand);
         }
@@ -61,7 +68,8 @@ namespace MPTest
 
                 LogInfo(
                     $"Runtime initialized: synchronization=native-opcode-111-no-op, " +
-                    $"nativeChoreProbeSupported={nativeChoreProbe.IsSupported}.");
+                    $"nativeChoreProbeSupported={nativeChoreProbe.IsSupported}, " +
+                    $"commandsPerMultiplayerClick={GetConfiguredCommandsPerClick()}.");
             }
             catch
             {
@@ -176,25 +184,36 @@ namespace MPTest
                     return;
                 }
 
-                int requestId = NextRequestId();
                 bool networked = GameNetworkAPI.IsNetworkedEnvironment();
                 if (networked)
                 {
-                    if (!nativeChoreProbe.TryEnqueue(sourcePlayerId, requestId, out string enqueueFailure))
+                    int commandCount = GetConfiguredCommandsPerClick();
+                    int[] requestIds = new int[commandCount];
+                    for (int index = 0; index < requestIds.Length; index++)
+                        requestIds[index] = NextRequestId();
+
+                    if (!nativeChoreProbe.TryEnqueueBatch(
+                        sourcePlayerId,
+                        requestIds,
+                        out int enqueuedCount,
+                        out string enqueueFailure))
                     {
                         LogInfo(
-                            $"Chore probe click rejected: playerId={sourcePlayerId}, requestId={requestId}, " +
+                            $"Chore probe batch rejected: playerId={sourcePlayerId}, " +
+                            $"firstRequestId={requestIds[0]}, count={commandCount}, enqueued={enqueuedCount}, " +
                             $"selectedBuildingId={selectedBuildingId}, reason={enqueueFailure}.");
                         RefreshButtonVisibility();
                         return;
                     }
 
                     LogInfo(
-                        $"Chore probe enqueued without state mutation: playerId={sourcePlayerId}, " +
-                        $"requestId={requestId}, selectedBuildingId={selectedBuildingId}.");
+                        $"Chore probe batch enqueued without state mutation: playerId={sourcePlayerId}, " +
+                        $"firstRequestId={requestIds[0]}, lastRequestId={requestIds[requestIds.Length - 1]}, " +
+                        $"count={commandCount}, selectedBuildingId={selectedBuildingId}.");
                     return;
                 }
 
+                int requestId = NextRequestId();
                 if (!TryFindAdjacentSpawnTile(woodcutter, out int targetTileX, out int targetTileY))
                 {
                     LogInfo($"Spawn click rejected: no valid directly adjacent tile exists for woodcutterId={selectedBuildingId}, globalId={woodcutter->r_GlobalId}.");
@@ -572,6 +591,31 @@ namespace MPTest
             if (nextRequestId == int.MaxValue)
                 nextRequestId = 0;
             return ++nextRequestId;
+        }
+
+        private int GetConfiguredCommandsPerClick()
+        {
+            int value;
+            try
+            {
+                value = getCommandsPerClick();
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"MPTest failed to read CommandsPerClick; using 1: {ex}");
+                return 1;
+            }
+
+            int clamped = Math.Max(1, Math.Min(10, value));
+            if (clamped != value && !commandsPerClickClampLogged)
+            {
+                commandsPerClickClampLogged = true;
+                LogInfo($"CommandsPerClick clamped: requested={value}, effective={clamped}.");
+            }
+
+            return clamped;
         }
 
         private void ClearMapState()

@@ -1,0 +1,18 @@
+[Info : MPTest] MPTest ChoreProbe: event=initialized role=singleplayer hash=fixture delayMs=500
+[Info : MPTest] MPTest ChoreProbe: event=map-state-cleared role=client discardedDelayed=0
+[Info : MPTest] MPTest ChoreProbe: event=batch-start role=client source=2 firstRequest=1 count=1 currentTick=80
+[Info : MPTest] MPTest ChoreProbe: event=enqueue role=client source=2 request=1 currentTick=80 opcode=111
+[Info : MPTest] MPTest ChoreProbe: event=handler role=client mode=1 opcode=111 source=2 request=1 commandId=201 scheduledTick=281 currentTick=80 payloadSize=16 valid=true mutation=none
+[Info : MPTest] MPTest ChoreProbe: event=batch-complete role=client source=2 firstRequest=1 lastRequest=1 count=1 currentTick=80
+[Info : MPTest] MPTest ChoreProbe: event=edge role=client direction=outgoing opcode=111 source=2 request=1 commandId=201 scheduledTick=281 currentTick=81 sender=-1 target=0 valid=true
+[Info : MPTest] MPTest ChoreProbe: event=edge role=client direction=incoming opcode=111 source=1 request=1 commandId=101 scheduledTick=280 currentTick=81 sender=1 target=-1 valid=true
+[Info : MPTest] MPTest ChoreProbe: event=delay-held role=client source=1 request=1 commandId=101 initialScheduledTick=280 sender=1 delayMs=500 heldAtTick=81
+[Info : MPTest] MPTest ChoreProbe: event=barrier role=client direction=incoming opcode=120 syncCommandId=102 scheduledTick=0 targetTick=100 count=2 sequence=20 ids=101,201 matched=101,201 currentTick=97 sender=1
+[Info : MPTest] MPTest ChoreProbe: event=delay-barrier-observed role=client source=1 request=1 commandId=101 targetTick=100 sequence=20 observedAtTick=97 heldAtTick=81
+[Info : MPTest] MPTest ChoreProbe: event=delay-released role=client source=1 request=1 commandId=101 sender=1 elapsedMs=503 heldAtTick=81 maxObservedTick=100 releaseTick=100 runCalls=31 repeatedTickRuns=15 barrierObserved=true barrierTargetTick=100 barrierSequence=20 barrierObservedAtTick=97 barrierWaitRunCalls=12 crossedBarrier=false
+[Info : MPTest] MPTest ChoreProbe: event=handler role=client mode=2 opcode=111 source=1 request=1 commandId=101 scheduledTick=280 payloadSize=16 currentTick=100 valid=true mutation=none
+[Info : MPTest] MPTest ChoreProbe: event=delay-injected role=client source=1 request=1 commandId=101 injectedAtTick=100 elapsedMs=503
+[Info : MPTest] MPTest ChoreProbe: event=schedule-updated role=client sourcePath=handler-mode0 source=1 request=1 commandId=101 oldScheduledTick=280 newScheduledTick=100
+[Info : MPTest] MPTest ChoreProbe: event=execute role=client mode=0 opcode=111 source=1 request=1 commandId=101 scheduledTick=100 actualTick=100 executeSequence=1 payloadSize=16 valid=true mutation=none
+[Info : MPTest] MPTest ChoreProbe: event=schedule-updated role=client sourcePath=handler-mode0 source=2 request=1 commandId=201 oldScheduledTick=281 newScheduledTick=100
+[Info : MPTest] MPTest ChoreProbe: event=execute role=client mode=0 opcode=111 source=2 request=1 commandId=201 scheduledTick=100 actualTick=100 executeSequence=2 payloadSize=16 valid=true mutation=none

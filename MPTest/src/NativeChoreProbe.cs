@@ -118,11 +118,22 @@ namespace MPTest
             public int PlayerId;
             public byte[] Data;
             public int DataLength;
+            public int CommandId;
+            public int InitialScheduledTick;
             public long DueTimestamp;
+            public long HeldTimestamp;
             public int SourcePlayerId;
             public int RequestId;
             public int HeldAtMapTick;
             public int MaximumObservedMapTick;
+            public int LastObservedMapTick;
+            public int RunCallsWhileHeld;
+            public int RepeatedTickRunCalls;
+            public int BarrierWaitRunCalls;
+            public bool BarrierObserved;
+            public int BarrierTargetTick;
+            public int BarrierSequence;
+            public int BarrierObservedAtTick;
         }
 
         private readonly ManualLogSource log;
@@ -133,6 +144,8 @@ namespace MPTest
             new Dictionary<int, ChoreObservation>();
         private readonly Dictionary<long, ChoreObservation> observationsByRequest =
             new Dictionary<long, ChoreObservation>();
+        private readonly HashSet<int> executedCommandIds = new HashSet<int>();
+        private readonly HashSet<long> executedRequests = new HashSet<long>();
         private readonly List<DelayedChore> delayedChores = new List<DelayedChore>();
 
         private IntPtr moduleBase;
@@ -150,6 +163,7 @@ namespace MPTest
         private volatile bool supported;
         private volatile bool operational;
         private bool delayClampWarningLogged;
+        private int executeSequence;
 
         public NativeChoreProbe(
             ManualLogSource log,
@@ -332,6 +346,45 @@ namespace MPTest
             }
         }
 
+        public bool TryEnqueueBatch(
+            int sourcePlayerId,
+            IReadOnlyList<int> requestIds,
+            out int enqueuedCount,
+            out string failureReason)
+        {
+            enqueuedCount = 0;
+            failureReason = null;
+            if (requestIds == null || requestIds.Count == 0)
+            {
+                failureReason = "request-batch-is-empty";
+                return false;
+            }
+
+            LogInfo(
+                $"event=batch-start role={GetPeerRole()} source={sourcePlayerId} " +
+                $"firstRequest={requestIds[0]} count={requestIds.Count} currentTick={GetCurrentMapTick()}");
+
+            for (int index = 0; index < requestIds.Count; index++)
+            {
+                if (!TryEnqueue(sourcePlayerId, requestIds[index], out failureReason))
+                {
+                    LogError(
+                        $"event=batch-failed role={GetPeerRole()} source={sourcePlayerId} " +
+                        $"firstRequest={requestIds[0]} count={requestIds.Count} enqueued={enqueuedCount} " +
+                        $"failedRequest={requestIds[index]} reason={Sanitize(failureReason)}");
+                    return false;
+                }
+
+                enqueuedCount++;
+            }
+
+            LogInfo(
+                $"event=batch-complete role={GetPeerRole()} source={sourcePlayerId} " +
+                $"firstRequest={requestIds[0]} lastRequest={requestIds[requestIds.Count - 1]} " +
+                $"count={requestIds.Count} currentTick={GetCurrentMapTick()}");
+            return true;
+        }
+
         public void ClearMapState()
         {
             int delayedCount;
@@ -339,6 +392,9 @@ namespace MPTest
             {
                 observationsByCommandId.Clear();
                 observationsByRequest.Clear();
+                executedCommandIds.Clear();
+                executedRequests.Clear();
+                executeSequence = 0;
             }
 
             lock (delayedChoreLock)
@@ -372,9 +428,19 @@ namespace MPTest
                         SerializeStagedPayload();
                         break;
                     case 2:
+                        bool slotValid = TryReadCurrentSlot(out ChoreObservation slot);
+                        ChoreObservation correlated = null;
+                        bool correlationValid =
+                            slotValid &&
+                            TryGetObservationByCommandId(slot.CommandId, out correlated);
                         LogInfo(
                             $"event=handler role={GetPeerRole()} mode=2 opcode={ProbeOpcode} " +
-                            $"payloadSize={ProbePayloadSize} currentTick={GetCurrentMapTick()} mutation=none");
+                            $"source={(correlationValid ? correlated.SourcePlayerId : 0)} " +
+                            $"request={(correlationValid ? correlated.RequestId : 0)} " +
+                            $"commandId={(slotValid ? slot.CommandId : 0)} " +
+                            $"scheduledTick={(slotValid ? slot.ScheduledTick : -1)} " +
+                            $"payloadSize={ProbePayloadSize} currentTick={GetCurrentMapTick()} " +
+                            $"valid={correlationValid.ToString().ToLowerInvariant()} mutation=none");
                         break;
                     default:
                         operational = false;
@@ -449,11 +515,50 @@ namespace MPTest
                 slotValid = true;
             }
 
+            int actualTick = GetCurrentMapTick();
+            int sequence = 0;
+            if (payloadValid && slotValid)
+            {
+                long requestKey = GetRequestKey(parsedPayload.SourcePlayerId, parsedPayload.RequestId);
+                bool duplicateCommand;
+                bool duplicateRequest;
+                lock (observationLock)
+                {
+                    duplicateCommand = !executedCommandIds.Add(slot.CommandId);
+                    duplicateRequest = !executedRequests.Add(requestKey);
+                    sequence = ++executeSequence;
+                }
+
+                if (duplicateCommand || duplicateRequest)
+                {
+                    LogError(
+                        $"event=duplicate-execute role={GetPeerRole()} source={parsedPayload.SourcePlayerId} " +
+                        $"request={parsedPayload.RequestId} commandId={slot.CommandId} " +
+                        $"duplicateCommand={duplicateCommand.ToString().ToLowerInvariant()} " +
+                        $"duplicateRequest={duplicateRequest.ToString().ToLowerInvariant()} actualTick={actualTick}");
+                }
+
+                if (slot.ScheduledTick != actualTick)
+                {
+                    LogError(
+                        $"event=execute-tick-mismatch role={GetPeerRole()} source={parsedPayload.SourcePlayerId} " +
+                        $"request={parsedPayload.RequestId} commandId={slot.CommandId} " +
+                        $"scheduledTick={slot.ScheduledTick} actualTick={actualTick}");
+                }
+            }
+            else
+            {
+                LogError(
+                    $"event=invalid-execute role={GetPeerRole()} source={parsedPayload.SourcePlayerId} " +
+                    $"request={parsedPayload.RequestId} payloadValid={payloadValid.ToString().ToLowerInvariant()} " +
+                    $"slotValid={slotValid.ToString().ToLowerInvariant()} actualTick={actualTick}");
+            }
+
             LogInfo(
                 $"event=execute role={GetPeerRole()} mode=0 opcode={ProbeOpcode} " +
                 $"source={parsedPayload.SourcePlayerId} request={parsedPayload.RequestId} " +
                 $"commandId={(slotValid ? slot.CommandId : 0)} scheduledTick={(slotValid ? slot.ScheduledTick : -1)} " +
-                $"actualTick={GetCurrentMapTick()} payloadSize={ProbePayloadSize} " +
+                $"actualTick={actualTick} executeSequence={sequence} payloadSize={ProbePayloadSize} " +
                 $"valid={(payloadValid && slotValid).ToString().ToLowerInvariant()} mutation=none");
         }
 
@@ -490,8 +595,17 @@ namespace MPTest
                 LogError($"event=edge-inspection-failed direction=incoming exception={Sanitize(ex.ToString())}");
             }
 
-            if (validProbe && TryHoldIncomingProbe(playerId, data, dataLength, parsedPayload))
+            if (validProbe &&
+                TryHoldIncomingProbe(
+                    playerId,
+                    data,
+                    dataLength,
+                    ReadInt32(data, 4),
+                    ReadUInt24(data, 1),
+                    parsedPayload))
+            {
                 return;
+            }
 
             receiveChoreTrampoline(playerId, data, dataLength);
         }
@@ -669,12 +783,21 @@ namespace MPTest
                 $"syncCommandId={syncCommandId} scheduledTick={scheduledTick} targetTick={targetTick} " +
                 $"count={count} sequence={sequence} ids={JoinIds(allIds)} matched={JoinIds(matchedIds)} " +
                 $"currentTick={currentTick} sender={senderPlayerId}");
+
+            ObserveBarrierForDelayedChores(
+                direction,
+                allIds,
+                targetTick,
+                sequence,
+                currentTick);
         }
 
         private bool TryHoldIncomingProbe(
             int playerId,
             byte[] data,
             int dataLength,
+            int commandId,
+            int initialScheduledTick,
             ProbePayload payload)
         {
             int delayMilliseconds = GetConfiguredDelayMilliseconds();
@@ -691,17 +814,22 @@ namespace MPTest
             byte[] copy = new byte[dataLength];
             Buffer.BlockCopy(data, 0, copy, 0, dataLength);
             int currentTick = GetCurrentMapTick();
+            long heldTimestamp = Stopwatch.GetTimestamp();
             long delayTicks = checked((long)delayMilliseconds * Stopwatch.Frequency / 1000L);
             DelayedChore delayed = new DelayedChore
             {
                 PlayerId = playerId,
                 Data = copy,
                 DataLength = dataLength,
-                DueTimestamp = Stopwatch.GetTimestamp() + delayTicks,
+                CommandId = commandId,
+                InitialScheduledTick = initialScheduledTick,
+                DueTimestamp = heldTimestamp + delayTicks,
+                HeldTimestamp = heldTimestamp,
                 SourcePlayerId = payload.SourcePlayerId,
                 RequestId = payload.RequestId,
                 HeldAtMapTick = currentTick,
-                MaximumObservedMapTick = currentTick
+                MaximumObservedMapTick = currentTick,
+                LastObservedMapTick = currentTick
             };
 
             lock (delayedChoreLock)
@@ -719,8 +847,55 @@ namespace MPTest
 
             LogInfo(
                 $"event=delay-held role={GetPeerRole()} source={payload.SourcePlayerId} request={payload.RequestId} " +
-                $"sender={playerId} delayMs={delayMilliseconds} heldAtTick={currentTick}");
+                $"commandId={commandId} initialScheduledTick={initialScheduledTick} sender={playerId} " +
+                $"delayMs={delayMilliseconds} heldAtTick={currentTick}");
             return true;
+        }
+
+        private void ObserveBarrierForDelayedChores(
+            string direction,
+            List<int> commandIds,
+            int targetTick,
+            int sequence,
+            int currentTick)
+        {
+            if (!string.Equals(direction, "incoming", StringComparison.Ordinal) ||
+                commandIds == null ||
+                commandIds.Count == 0)
+            {
+                return;
+            }
+
+            List<DelayedChore> newlyObserved = null;
+            lock (delayedChoreLock)
+            {
+                for (int delayedIndex = 0; delayedIndex < delayedChores.Count; delayedIndex++)
+                {
+                    DelayedChore delayed = delayedChores[delayedIndex];
+                    if (delayed.BarrierObserved || !commandIds.Contains(delayed.CommandId))
+                        continue;
+
+                    delayed.BarrierObserved = true;
+                    delayed.BarrierTargetTick = targetTick;
+                    delayed.BarrierSequence = sequence;
+                    delayed.BarrierObservedAtTick = currentTick;
+                    if (newlyObserved == null)
+                        newlyObserved = new List<DelayedChore>();
+                    newlyObserved.Add(delayed);
+                }
+            }
+
+            if (newlyObserved == null)
+                return;
+
+            for (int index = 0; index < newlyObserved.Count; index++)
+            {
+                DelayedChore delayed = newlyObserved[index];
+                LogInfo(
+                    $"event=delay-barrier-observed role={GetPeerRole()} source={delayed.SourcePlayerId} " +
+                    $"request={delayed.RequestId} commandId={delayed.CommandId} targetTick={targetTick} " +
+                    $"sequence={sequence} observedAtTick={currentTick} heldAtTick={delayed.HeldAtMapTick}");
+            }
         }
 
         private void FlushDueChores()
@@ -734,8 +909,14 @@ namespace MPTest
                 for (int index = delayedChores.Count - 1; index >= 0; index--)
                 {
                     DelayedChore delayed = delayedChores[index];
+                    delayed.RunCallsWhileHeld++;
+                    if (currentTick == delayed.LastObservedMapTick)
+                        delayed.RepeatedTickRunCalls++;
+                    delayed.LastObservedMapTick = currentTick;
                     if (currentTick > delayed.MaximumObservedMapTick)
                         delayed.MaximumObservedMapTick = currentTick;
+                    if (delayed.BarrierObserved && currentTick >= delayed.BarrierTargetTick)
+                        delayed.BarrierWaitRunCalls++;
 
                     if (now < delayed.DueTimestamp)
                         continue;
@@ -754,11 +935,29 @@ namespace MPTest
             for (int index = 0; index < due.Count; index++)
             {
                 DelayedChore delayed = due[index];
+                long releasedTimestamp = Stopwatch.GetTimestamp();
+                long elapsedMilliseconds =
+                    (releasedTimestamp - delayed.HeldTimestamp) * 1000L / Stopwatch.Frequency;
+                int releaseTick = GetCurrentMapTick();
+                bool crossedBarrier =
+                    delayed.BarrierObserved &&
+                    delayed.MaximumObservedMapTick > delayed.BarrierTargetTick;
                 LogInfo(
                     $"event=delay-released role={GetPeerRole()} source={delayed.SourcePlayerId} " +
-                    $"request={delayed.RequestId} sender={delayed.PlayerId} heldAtTick={delayed.HeldAtMapTick} " +
-                    $"maxObservedTick={delayed.MaximumObservedMapTick} releaseTick={GetCurrentMapTick()}");
+                    $"request={delayed.RequestId} commandId={delayed.CommandId} sender={delayed.PlayerId} " +
+                    $"elapsedMs={elapsedMilliseconds} heldAtTick={delayed.HeldAtMapTick} " +
+                    $"maxObservedTick={delayed.MaximumObservedMapTick} releaseTick={releaseTick} " +
+                    $"runCalls={delayed.RunCallsWhileHeld} repeatedTickRuns={delayed.RepeatedTickRunCalls} " +
+                    $"barrierObserved={delayed.BarrierObserved.ToString().ToLowerInvariant()} " +
+                    $"barrierTargetTick={delayed.BarrierTargetTick} barrierSequence={delayed.BarrierSequence} " +
+                    $"barrierObservedAtTick={delayed.BarrierObservedAtTick} " +
+                    $"barrierWaitRunCalls={delayed.BarrierWaitRunCalls} " +
+                    $"crossedBarrier={crossedBarrier.ToString().ToLowerInvariant()}");
                 receiveChoreTrampoline(delayed.PlayerId, delayed.Data, delayed.DataLength);
+                LogInfo(
+                    $"event=delay-injected role={GetPeerRole()} source={delayed.SourcePlayerId} " +
+                    $"request={delayed.RequestId} commandId={delayed.CommandId} " +
+                    $"injectedAtTick={GetCurrentMapTick()} elapsedMs={elapsedMilliseconds}");
             }
         }
 
@@ -853,29 +1052,57 @@ namespace MPTest
             long requestKey = GetRequestKey(observation.SourcePlayerId, observation.RequestId);
             lock (observationLock)
             {
+                bool identityConflict = false;
+                int previousScheduledTick = int.MinValue;
                 if (observationsByCommandId.TryGetValue(
                     observation.CommandId,
-                    out ChoreObservation byCommand) &&
-                    (byCommand.SourcePlayerId != observation.SourcePlayerId ||
-                     byCommand.RequestId != observation.RequestId ||
-                     byCommand.ScheduledTick != observation.ScheduledTick))
+                    out ChoreObservation byCommand))
                 {
-                    LogError(
-                        $"event=correlation-conflict kind=command sourcePath={source} commandId={observation.CommandId} " +
-                        $"oldSource={byCommand.SourcePlayerId} oldRequest={byCommand.RequestId} " +
-                        $"newSource={observation.SourcePlayerId} newRequest={observation.RequestId}");
+                    if (byCommand.SourcePlayerId != observation.SourcePlayerId ||
+                        byCommand.RequestId != observation.RequestId)
+                    {
+                        identityConflict = true;
+                        LogError(
+                            $"event=correlation-conflict kind=command sourcePath={source} commandId={observation.CommandId} " +
+                            $"oldSource={byCommand.SourcePlayerId} oldRequest={byCommand.RequestId} " +
+                            $"newSource={observation.SourcePlayerId} newRequest={observation.RequestId} " +
+                            $"oldScheduledTick={byCommand.ScheduledTick} newScheduledTick={observation.ScheduledTick}");
+                    }
+                    else if (byCommand.ScheduledTick != observation.ScheduledTick)
+                    {
+                        previousScheduledTick = byCommand.ScheduledTick;
+                    }
                 }
 
                 if (observationsByRequest.TryGetValue(
                     requestKey,
-                    out ChoreObservation byRequest) &&
-                    (byRequest.CommandId != observation.CommandId ||
-                     byRequest.ScheduledTick != observation.ScheduledTick))
+                    out ChoreObservation byRequest))
                 {
-                    LogError(
-                        $"event=correlation-conflict kind=request sourcePath={source} " +
+                    if (byRequest.CommandId != observation.CommandId)
+                    {
+                        identityConflict = true;
+                        LogError(
+                            $"event=correlation-conflict kind=request sourcePath={source} " +
+                            $"source={observation.SourcePlayerId} request={observation.RequestId} " +
+                            $"oldCommandId={byRequest.CommandId} newCommandId={observation.CommandId} " +
+                            $"oldScheduledTick={byRequest.ScheduledTick} newScheduledTick={observation.ScheduledTick}");
+                    }
+                    else if (byRequest.ScheduledTick != observation.ScheduledTick &&
+                        previousScheduledTick == int.MinValue)
+                    {
+                        previousScheduledTick = byRequest.ScheduledTick;
+                    }
+                }
+
+                if (!identityConflict &&
+                    previousScheduledTick != int.MinValue &&
+                    previousScheduledTick != observation.ScheduledTick)
+                {
+                    LogInfo(
+                        $"event=schedule-updated role={GetPeerRole()} sourcePath={source} " +
                         $"source={observation.SourcePlayerId} request={observation.RequestId} " +
-                        $"oldCommandId={byRequest.CommandId} newCommandId={observation.CommandId}");
+                        $"commandId={observation.CommandId} oldScheduledTick={previousScheduledTick} " +
+                        $"newScheduledTick={observation.ScheduledTick}");
                 }
 
                 observationsByCommandId[observation.CommandId] = observation;
@@ -890,6 +1117,14 @@ namespace MPTest
         {
             lock (observationLock)
                 return observationsByRequest.TryGetValue(GetRequestKey(sourcePlayerId, requestId), out observation);
+        }
+
+        private bool TryGetObservationByCommandId(
+            int commandId,
+            out ChoreObservation observation)
+        {
+            lock (observationLock)
+                return observationsByCommandId.TryGetValue(commandId, out observation);
         }
 
         private static byte[] CreatePayload(byte sourcePlayerId, int requestId)

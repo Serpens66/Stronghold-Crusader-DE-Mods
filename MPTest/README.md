@@ -31,39 +31,61 @@ leaves the handler table untouched and hides the multiplayer button.
 their buffers. Logs contain source/request IDs, native command ID, scheduled tick, SyncEvent
 membership, and actual execution tick with millisecond wall-clock timestamps.
 
-## Normal two-peer test
+## Comprehensive two-peer test
+
+MPTest 1.2.0 creates these settings on both peers:
+
+    ComprehensiveBarrierTestEnabled = true
+    BarrierTestIncomingDelayMs = 500
+    CommandsPerClick = 5
+
+Both peers use the same DLL and configuration. The delay still affects only incoming opcode-111
+Chores on the non-host client. The host never delays its incoming Chores. One multiplayer button
+click queues five consecutive no-op commands, allowing batching and ordering to be tested with few
+manual actions.
+
+Use this sequence for one comprehensive game start:
 
 1. Install the identical `MPTest.dll` and Script Extender build on both peers.
-2. Keep `DelayIncomingProbeMs = 0` in both `BepInEx/config/MPTest_Serp.cfg` files.
-3. Start a fresh multiplayer game.
-4. Trigger one request on the host, one on the client, then several alternating requests.
-5. Close the game or copy both logs after the test.
-6. Compare them:
+2. Start one fresh two-human multiplayer game.
+3. On the host, select an owned woodcutter hut and click the MPTest button once.
+4. Wait about two seconds.
+5. On the client, select an owned woodcutter hut and click once.
+6. Wait about two seconds.
+7. For the overlap stress test, click once on both peers at nearly the same time.
+8. Let the match continue for at least five seconds, then copy both logs.
 
-       powershell -ExecutionPolicy Bypass -File .\Compare-ChoreProbeLogs.ps1 `
-         -HostLog .\LogOutput.log `
-         -ClientLog .\LogOutputC.log
+This produces at least 20 commands: two isolated five-command batches and two overlapping
+five-command batches. No unit or other game-state mutation is performed.
 
-The script fails unless each request executes exactly once on both peers with the same command ID,
-scheduled tick, execution tick, and an outgoing host SyncEvent containing that command ID.
-
-## Delayed barrier test
-
-After the normal test passes, set the non-host client's configuration to:
-
-    DelayIncomingProbeMs = 500
-
-Leave the host at `0`, start a fresh match, and trigger at least one request on the host. The client
-holds only the incoming opcode-111 packet; SyncEvents continue normally. A persistent
-`EngineInterface.run` detour releases the packet later without sleeping or relying on the short-lived
-BepInEx plugin component.
-
-Compare the fresh logs with:
+Compare the logs with:
 
        powershell -ExecutionPolicy Bypass -File .\Compare-ChoreProbeLogs.ps1 `
          -HostLog .\LogOutput.log `
          -ClientLog .\LogOutputC.log `
-         -RequireDelayProof
+         -Comprehensive
 
-Do not proceed to state-changing Chores if the game reports a resync,
-`SyncEvent - Forced run`, duplicate execution, malformed payload, or different execution ticks.
+The comparer automatically selects the latest map containing probe executions, even when smoke and
+two-peer tests share one process log. Comprehensive mode requires at least ten requests and proves:
+
+- one enqueue, mode-1 serialization, remote mode-2 size query, and mode-0 execution per request;
+- identical source/request IDs, native command IDs, scheduled ticks, and execution ticks;
+- matching outgoing host and incoming client SyncEvents;
+- at least one SyncEvent containing multiple probe command IDs;
+- a real client hold of at least approximately 500 ms;
+- receipt of the matching SyncEvent while the Chore is still held;
+- repeated engine-run calls without crossing the target barrier tick;
+- reinjection before the exactly-once execution on the original target tick;
+- no resync, forced run, duplicate execution, malformed payload, legacy spawn path, or mutation.
+
+The delay path uses a persistent `EngineInterface.run` detour. It does not sleep the simulation or
+network thread. Set `ComprehensiveBarrierTestEnabled = false` after the diagnostic phase.
+
+Do not proceed to state-changing Chores if the comparer fails any invariant.
+
+## Comparer self-test
+
+The positive fixture contains one delayed host command and one non-delayed local client command.
+The negative run deliberately requires too many requests and must return exit code 1:
+
+       powershell -ExecutionPolicy Bypass -File .\Test-ChoreProbeComparer.ps1

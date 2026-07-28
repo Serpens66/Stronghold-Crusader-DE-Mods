@@ -14,25 +14,47 @@ namespace MPTest
 
         public const string PluginGuid = "MPTest_Serp";
         public const string PluginName = "MPTest";
-        public const string PluginVersion = "1.1.0";
+        public const string PluginVersion = "1.2.0";
 
         private static MPTestRuntime runtime;
         private static bool libraryLoadedHandled;
-        private ConfigEntry<int> delayIncomingProbeMilliseconds;
+        private ConfigEntry<bool> comprehensiveBarrierTestEnabled;
+        private ConfigEntry<int> barrierTestIncomingDelayMilliseconds;
+        private ConfigEntry<int> commandsPerClick;
 
         private void Awake()
         {
             if (runtime != null)
                 return;
 
-            delayIncomingProbeMilliseconds = Config.Bind(
+            comprehensiveBarrierTestEnabled = Config.Bind(
                 "ChoreProbe",
-                "DelayIncomingProbeMs",
-                0,
-                "Delays incoming opcode-111 probe chores on non-host peers. Use 0 normally and 500 for the barrier test. Values above 2500 are clamped.");
+                "ComprehensiveBarrierTestEnabled",
+                true,
+                "Enables the comprehensive no-op Chore test. Only non-host peers delay incoming opcode-111 probes.");
+            barrierTestIncomingDelayMilliseconds = Config.Bind(
+                "ChoreProbe",
+                "BarrierTestIncomingDelayMs",
+                500,
+                "Real-time delay for incoming opcode-111 probes on non-host peers while SyncEvents pass normally. Values above 2500 are clamped.");
+            commandsPerClick = Config.Bind(
+                "ChoreProbe",
+                "CommandsPerClick",
+                5,
+                "Number of consecutive no-op Chores queued by one multiplayer button click. Values are clamped to 1 through 10.");
 
             Shared.DebugLogHelper.LogInfo(Logger, $"{PluginName} {PluginVersion} loaded.");
-            runtime = new MPTestRuntime(Logger, () => delayIncomingProbeMilliseconds.Value);
+            Shared.DebugLogHelper.LogInfo(
+                Logger,
+                $"{PluginName} comprehensive test profile: enabled={comprehensiveBarrierTestEnabled.Value}, " +
+                $"nonHostIncomingDelayMs={barrierTestIncomingDelayMilliseconds.Value}, " +
+                $"commandsPerClick={commandsPerClick.Value}.");
+            runtime = new MPTestRuntime(
+                Logger,
+                () => comprehensiveBarrierTestEnabled.Value
+                    ? barrierTestIncomingDelayMilliseconds.Value
+                    : 0,
+                () => commandsPerClick.Value);
             CrusaderLibrary.Instance.LibraryLoaded += OnCrusaderLibraryLoaded;
         }
 
