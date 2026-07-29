@@ -16,7 +16,7 @@ namespace TroopMovementFix
 
         public const string PluginGuid = "TroopMovementFix3_Serp";
         public const string PluginName = "Troop Movement Fix 3";
-        public const string PluginVersion = "1.3.2";
+        public const string PluginVersion = "1.3.3";
 
         private static TroopMovementFix3Runtime persistentRuntime;
         private static bool libraryLoadedSubscriptionInstalled;

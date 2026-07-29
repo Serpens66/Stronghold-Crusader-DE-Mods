@@ -3,10 +3,18 @@
   "Author": "Serpens66",
   "Name": "Troop Movement Fix 3",
   "Description": "Synchronizes mixed DefaultInSync groups at their slowest member's Vanilla maximum speed with a shared walk/run cadence, while Ctrl+move keeps Vanilla free-unit-speeds movement.",
-  "Version": "1.3.2",
+  "Version": "1.3.3",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.3.3",
+      "Changes": [
+        "Cache running capability and native cadence together once per distinct unit type during the existing command scan.",
+        "Decode each unique native unit-type handler only once at startup and share its immutable animation data between types.",
+        "Store tribe synchronization as a value type and keep all routine diagnostics at Debug using only values already calculated for movement."
+      ]
+    },
     {
       "Version": "1.3.2",
       "Changes": [

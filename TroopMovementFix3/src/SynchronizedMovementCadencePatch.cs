@@ -13,7 +13,7 @@ using Zhuqiaomon.Memory.Scanners;
 
 namespace TroopMovementFix
 {
-    internal enum SynchronizedMovementCadence
+    internal enum SynchronizedMovementCadence : byte
     {
         Walking,
         Running
@@ -45,7 +45,8 @@ namespace TroopMovementFix
         private readonly HookTransaction transaction;
         private readonly Dictionary<eChimps, AnimationTransitions>
             animationTransitionsByType =
-                new Dictionary<eChimps, AnimationTransitions>();
+                new Dictionary<eChimps, AnimationTransitions>(
+                    (int)eChimps.CHIMP_NUM_TYPES);
 
         private HookRef<X64InlineHook> movementCadenceHook =
             new HookRef<X64InlineHook>();
@@ -254,6 +255,10 @@ namespace TroopMovementFix
             }
 
             List<ulong> sortedHandlers = new List<ulong>(uniqueHandlers);
+            Dictionary<ulong, AnimationTransitions>
+                animationTransitionsByHandler =
+                    new Dictionary<ulong, AnimationTransitions>(
+                        uniqueHandlers.Count);
             for (int unitTypeValue = 0;
                  unitTypeValue < unitTypeCount;
                  unitTypeValue++)
@@ -262,43 +267,65 @@ namespace TroopMovementFix
                 if (handlerStart == 0)
                     continue;
 
-                int handlerIndex = sortedHandlers.BinarySearch(handlerStart);
-                ulong handlerEnd =
-                    handlerIndex >= 0 &&
-                    handlerIndex + 1 < sortedHandlers.Count
-                        ? sortedHandlers[handlerIndex + 1]
-                        : Math.Min(
-                            handlerStart + MaximumUnitTypeHandlerLength,
-                            moduleEnd);
-
-                if (handlerEnd <= handlerStart ||
-                    handlerEnd - handlerStart >
-                        MaximumUnitTypeHandlerLength)
+                if (!animationTransitionsByHandler.TryGetValue(
+                        handlerStart,
+                        out AnimationTransitions animationTransitions))
                 {
-                    handlerEnd = Math.Min(
-                        handlerStart + MaximumUnitTypeHandlerLength,
-                        moduleEnd);
+                    int handlerIndex =
+                        sortedHandlers.BinarySearch(handlerStart);
+                    ulong handlerEnd =
+                        handlerIndex >= 0 &&
+                        handlerIndex + 1 < sortedHandlers.Count
+                            ? sortedHandlers[handlerIndex + 1]
+                            : Math.Min(
+                                handlerStart +
+                                    MaximumUnitTypeHandlerLength,
+                                moduleEnd);
+
+                    if (handlerEnd <= handlerStart ||
+                        handlerEnd - handlerStart >
+                            MaximumUnitTypeHandlerLength)
+                    {
+                        handlerEnd = Math.Min(
+                            handlerStart +
+                                MaximumUnitTypeHandlerLength,
+                            moduleEnd);
+                    }
+
+                    int handlerLength =
+                        checked((int)(handlerEnd - handlerStart));
+                    Dictionary<uint, uint> transitions =
+                        FindRunningAnimationTransitions(
+                            (byte*)handlerStart,
+                            handlerLength);
+
+                    if (transitions.Count != 0)
+                    {
+                        ushort? nativeRunningSpeedBonus =
+                            TryFindNativeRunningSpeedBonus(
+                                (byte*)handlerStart,
+                                handlerLength,
+                                out ushort discoveredRunningSpeedBonus)
+                                ? discoveredRunningSpeedBonus
+                                : (ushort?)null;
+
+                        animationTransitions =
+                            new AnimationTransitions(
+                                transitions,
+                                nativeRunningSpeedBonus);
+                    }
+
+                    animationTransitionsByHandler.Add(
+                        handlerStart,
+                        animationTransitions);
                 }
 
-                Dictionary<uint, uint> transitions =
-                    FindRunningAnimationTransitions(
-                        (byte*)handlerStart,
-                        checked((int)(handlerEnd - handlerStart)));
-                if (transitions.Count == 0)
-                    continue;
-
-                ushort? nativeRunningSpeedBonus =
-                    TryFindNativeRunningSpeedBonus(
-                        (byte*)handlerStart,
-                        checked((int)(handlerEnd - handlerStart)),
-                        out ushort discoveredRunningSpeedBonus)
-                        ? discoveredRunningSpeedBonus
-                        : (ushort?)null;
-
-                animationTransitionsByType[(eChimps)unitTypeValue] =
-                    new AnimationTransitions(
-                        transitions,
-                        nativeRunningSpeedBonus);
+                if (animationTransitions != null)
+                {
+                    animationTransitionsByType[
+                        (eChimps)unitTypeValue] =
+                            animationTransitions;
+                }
             }
 
             if (animationTransitionsByType.Count == 0)

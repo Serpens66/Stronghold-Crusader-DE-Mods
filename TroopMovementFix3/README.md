@@ -56,13 +56,18 @@ their native bonuses becomes the shared value. This keeps faster types such as
 Archers on the Assassin cadence instead of either accelerating the Assassin or
 pulling ahead of it.
 
+Per-type movement capability and cadence data are cached once for each distinct
+type encountered by the command. Native handlers shared by multiple unit types
+are decoded only once during startup.
+
 The existing Spearman fix remains a transactionally installed native inline
 stub. Runtime subscriptions and native hooks are held for the complete process
 lifetime because the BepInEx manager object is destroyed shortly after startup
 in this game.
 
 Operational diagnostics use Debug level and include millisecond timestamps.
-Warnings and errors remain visible at their corresponding levels.
+They contain only state already calculated for normal operation. Warnings and
+errors remain visible at their corresponding levels.
 
 ## Compatibility
 

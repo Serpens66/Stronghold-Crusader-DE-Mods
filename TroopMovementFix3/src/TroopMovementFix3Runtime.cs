@@ -28,13 +28,12 @@ namespace TroopMovementFix
             new HashSet<int>();
         private readonly List<int> unitIds =
             new List<int>(ExpectedMaximumTrackedUnits);
-        private readonly HashSet<eChimps> unitTypes =
-            new HashSet<eChimps>();
-        private readonly Dictionary<eChimps, ushort>
-            runningSpeedBonusByUnitType =
-                new Dictionary<eChimps, ushort>();
+        private readonly Dictionary<eChimps, UnitTypeMovementInfo>
+            unitTypeMovementInfoByType =
+                new Dictionary<eChimps, UnitTypeMovementInfo>(
+                    (int)eChimps.CHIMP_NUM_TYPES);
         private readonly List<IDisposable> subscriptions =
-            new List<IDisposable>();
+            new List<IDisposable>(4);
 
         private SpearmanMovementPatch spearmanMovementPatch;
         private SynchronizedMovementCadencePatch cadencePatch;
@@ -57,7 +56,7 @@ namespace TroopMovementFix
             SpearmanMovementPatch newSpearmanMovementPatch = null;
             SynchronizedMovementCadencePatch newCadencePatch = null;
             List<IDisposable> newSubscriptions =
-                new List<IDisposable>();
+                new List<IDisposable>(4);
 
             try
             {
@@ -190,14 +189,12 @@ namespace TroopMovementFix
             }
 
             unitIds.Clear();
-            unitTypes.Clear();
-            runningSpeedBonusByUnitType.Clear();
+            unitTypeMovementInfoByType.Clear();
             if (!GameTribeManagerAPI.Instance.GetUnits(tribeId, unitIds))
                 return false;
 
             ushort slowestMaximumSpeed = 0;
             ushort sharedRunningSpeedBonus = 0;
-            bool hasLimitingRunningSpeedBonus = false;
             int activeUnitCount = 0;
             bool synchronizeRunning = true;
             bool improvedSpearmen =
@@ -214,50 +211,51 @@ namespace TroopMovementFix
                     continue;
                 }
 
+                bool isFirstActiveUnit = activeUnitCount == 0;
                 activeUnitCount++;
-                unitTypes.Add(unit->r_UnitChimp);
-
-                bool supportsSynchronizedRunning =
-                    cadencePatch.SupportsSynchronizedRunning(
-                        unit->r_UnitChimp);
-                if (!runningSpeedBonusByUnitType.ContainsKey(
-                        unit->r_UnitChimp))
+                eChimps unitType = unit->r_UnitChimp;
+                if (!unitTypeMovementInfoByType.TryGetValue(
+                        unitType,
+                        out UnitTypeMovementInfo movementInfo))
                 {
-                    runningSpeedBonusByUnitType[unit->r_UnitChimp] =
-                        cadencePatch.GetNativeRunningSpeedBonus(
-                            unit->r_UnitChimp,
-                            improvedSpearmen);
+                    bool supportsSynchronizedRunning =
+                        cadencePatch.SupportsSynchronizedRunning(
+                            unitType) &&
+                        (unitType != eChimps.CHIMP_TYPE_SPEARMAN ||
+                         improvedSpearmen);
+                    movementInfo = new UnitTypeMovementInfo(
+                        supportsSynchronizedRunning,
+                        supportsSynchronizedRunning
+                            ? cadencePatch.GetNativeRunningSpeedBonus(
+                                unitType,
+                                improvedSpearmen)
+                            : (ushort)0);
+                    unitTypeMovementInfoByType.Add(
+                        unitType,
+                        movementInfo);
                 }
 
-                ushort nativeRunningSpeedBonus =
-                    runningSpeedBonusByUnitType[unit->r_UnitChimp];
                 ushort maximumSpeed = unit->r_CurrentSpeed;
-                if (maximumSpeed > slowestMaximumSpeed)
+                if (isFirstActiveUnit ||
+                    maximumSpeed > slowestMaximumSpeed)
                 {
                     slowestMaximumSpeed = maximumSpeed;
                     sharedRunningSpeedBonus =
-                        nativeRunningSpeedBonus;
-                    hasLimitingRunningSpeedBonus = true;
+                        movementInfo.NativeRunningSpeedBonus;
                 }
                 else if (maximumSpeed == slowestMaximumSpeed &&
-                         (!hasLimitingRunningSpeedBonus ||
-                          nativeRunningSpeedBonus <
-                              sharedRunningSpeedBonus))
+                         movementInfo.NativeRunningSpeedBonus <
+                             sharedRunningSpeedBonus)
                 {
                     sharedRunningSpeedBonus =
-                        nativeRunningSpeedBonus;
-                    hasLimitingRunningSpeedBonus = true;
+                        movementInfo.NativeRunningSpeedBonus;
                 }
 
-                if (!supportsSynchronizedRunning ||
-                    (unit->r_UnitChimp == eChimps.CHIMP_TYPE_SPEARMAN &&
-                     !improvedSpearmen))
-                {
+                if (!movementInfo.SupportsSynchronizedRunning)
                     synchronizeRunning = false;
-                }
             }
 
-            if (activeUnitCount == 0 || unitTypes.Count < 2)
+            if (unitTypeMovementInfoByType.Count < 2)
                 return false;
 
             byte* tribeBytes = (byte*)tribe;
@@ -285,7 +283,7 @@ namespace TroopMovementFix
                 log,
                 $"Mixed-group synchronization prepared: " +
                 $"tribeId={tribeId}, members={activeUnitCount}, " +
-                $"unitTypes={unitTypes.Count}, " +
+                $"unitTypes={unitTypeMovementInfoByType.Count}, " +
                 $"slowestMaximumSpeedLevel={slowestMaximumSpeed}, " +
                 $"cadence={synchronization.Cadence}, " +
                 $"sharedRunningSpeedBonus=" +
@@ -360,8 +358,7 @@ namespace TroopMovementFix
             synchronizationByTribeId.Clear();
             activeMoveOrderTribeIds.Clear();
             unitIds.Clear();
-            unitTypes.Clear();
-            runningSpeedBonusByUnitType.Clear();
+            unitTypeMovementInfoByType.Clear();
         }
 
         private static bool TryGetTribe(
@@ -398,7 +395,23 @@ namespace TroopMovementFix
             }
         }
 
-        private sealed class TribeSynchronization
+        private readonly struct UnitTypeMovementInfo
+        {
+            public UnitTypeMovementInfo(
+                bool supportsSynchronizedRunning,
+                ushort nativeRunningSpeedBonus)
+            {
+                SupportsSynchronizedRunning =
+                    supportsSynchronizedRunning;
+                NativeRunningSpeedBonus =
+                    nativeRunningSpeedBonus;
+            }
+
+            public bool SupportsSynchronizedRunning { get; }
+            public ushort NativeRunningSpeedBonus { get; }
+        }
+
+        private readonly struct TribeSynchronization
         {
             public TribeSynchronization(
                 SynchronizedMovementCadence cadence,
