@@ -1,0 +1,61 @@
+{
+  "GUID": "ActiveAIVDetector_Serp",
+  "Author": "Serpens66",
+  "Name": "Active AIV Detector",
+  "Description": "Diagnostic mod that logs the lord and AIVJSON selected by the native castle placement engine.",
+  "Version": "0.5.0",
+  "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
+  "Manifest": 1,
+  "SerpChangelog": [
+    {
+      "Version": "0.5.0",
+      "Changes": [
+        "Bundle all vanilla AIVJSON files from the official Castle and CPU Lord Editor.",
+        "Report the concrete bundled vanilla AIVJSON path and SHA-256 while distinguishing it from the embedded data actually used by the game."
+      ]
+    },
+    {
+      "Version": "0.4.0",
+      "Changes": [
+        "Report the concrete bundled vanilla lordjson corresponding to an embedded default AIC.",
+        "Verify bundled vanilla AIC exports against the installed CrusaderDE.dll SHA-256 and distinguish equivalent exports from files actually read by the game."
+      ]
+    },
+    {
+      "Version": "0.3.0",
+      "Changes": [
+        "Distinguish the logical base lord from temporary SK_X1 through SK_X8 runtime slots.",
+        "Report the selected custom lordjson path and checksum when an Extended Lord configuration is active."
+      ]
+    },
+    {
+      "Version": "0.2.1",
+      "Changes": [
+        "Use the runtime AILords enum's Int32 backing type when validating captured lord IDs.",
+        "Keep reporting finalized selections even if source metadata resolution fails for one player."
+      ]
+    },
+    {
+      "Version": "0.2.0",
+      "Changes": [
+        "Capture the lobby lord and AIV source list before a skirmish starts.",
+        "Resolve the native candidate ID to custom AIV names and paths or equivalent vanilla editor filenames.",
+        "Report effective Script Extender AIV asset overrides when present."
+      ]
+    },
+    {
+      "Version": "0.1.1",
+      "Changes": [
+        "Buffer final native AIV selections until OnStartMap(Post) confirms the map has fully started.",
+        "Report selections only for active AI player slots and use Info logging for normal diagnostics."
+      ]
+    },
+    {
+      "Version": "0.1.0",
+      "Changes": [
+        "Detect the final native AIV selection for every AI player.",
+        "Log candidate ID, orientation, placement result, AI type, and AIVSpec index with millisecond timestamps."
+      ]
+    }
+  ]
+}
