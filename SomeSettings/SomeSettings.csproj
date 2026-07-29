@@ -71,6 +71,10 @@
       <HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="UnityEngine.InputLegacyModule">
+      <HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.InputLegacyModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="Assembly-CSharp">
       <HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\Assembly-CSharp.dll</HintPath>
       <Private>false</Private>
@@ -138,6 +142,10 @@
     <Compile Include="src\SomeSettingsPlugin.cs" />
     <Compile Include="src\SomeSettingsRuntime.cs" />
     <Compile Include="src\SomeSettingsViewModel.cs" />
+    <Compile Include="src\TroopMovementFix3ModLog.cs" />
+    <Compile Include="src\TroopMovementFix3Runtime.cs" />
+    <Compile Include="src\TroopMovementFix3SpearmanMovementPatch.cs" />
+    <Compile Include="src\TroopMovementFix3SynchronizedMovementCadencePatch.cs" />
   </ItemGroup>
 
   <ItemGroup>

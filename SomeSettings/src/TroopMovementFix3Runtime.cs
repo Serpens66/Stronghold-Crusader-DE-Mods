@@ -9,9 +9,9 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace TroopMovementFix
+namespace SomeSettings
 {
-    internal sealed unsafe class TroopMovementFix3Runtime
+    internal sealed unsafe class TroopMovementFix3Runtime : IDisposable
     {
         private const int ExpectedMaximumTrackedUnits = 10000;
 
@@ -21,6 +21,7 @@ namespace TroopMovementFix
         private const int TribeMovementSpeedOffset = 0x54E;
 
         private readonly ManualLogSource log;
+        private readonly SomeSettingsViewModel settings;
         private readonly Dictionary<int, TribeSynchronization>
             synchronizationByTribeId =
                 new Dictionary<int, TribeSynchronization>();
@@ -37,21 +38,79 @@ namespace TroopMovementFix
 
         private SpearmanMovementPatch spearmanMovementPatch;
         private SynchronizedMovementCadencePatch cadencePatch;
+        private IntPtr libraryHandle;
+        private int libraryLength;
+        private bool nativeLibraryAvailable;
         private bool inputFailureLogged;
 
-        public TroopMovementFix3Runtime(ManualLogSource log)
+        public TroopMovementFix3Runtime(
+            ManualLogSource log,
+            SomeSettingsViewModel settings)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
+            this.settings =
+                settings ?? throw new ArgumentNullException(nameof(settings));
         }
 
-        public void Apply(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
+        public void InitializeNative(
+            IntPtr newLibraryHandle,
+            ReadOnlySpan<byte> memory)
         {
-            if (spearmanMovementPatch != null ||
-                cadencePatch != null ||
-                subscriptions.Count != 0)
-            {
+            if (nativeLibraryAvailable)
                 return;
-            }
+
+            if (newLibraryHandle == IntPtr.Zero || memory.Length == 0)
+                throw new ArgumentException("The Crusader library is unavailable.");
+
+            libraryHandle = newLibraryHandle;
+            libraryLength = memory.Length;
+            nativeLibraryAvailable = true;
+            ApplySetting();
+        }
+
+        public void ApplySetting()
+        {
+            if (!nativeLibraryAvailable)
+                return;
+
+            bool shouldBeActive =
+                settings.EnableMod &&
+                settings.EnableTroopMovementFix;
+            if (shouldBeActive == IsActive)
+                return;
+
+            if (shouldBeActive)
+                Enable();
+            else
+                Disable();
+        }
+
+        public void Dispose()
+        {
+            Disable();
+            nativeLibraryAvailable = false;
+            libraryHandle = IntPtr.Zero;
+            libraryLength = 0;
+        }
+
+        private bool IsActive =>
+            spearmanMovementPatch != null &&
+            cadencePatch != null &&
+            subscriptions.Count != 0;
+
+        private bool IsFeatureEnabled =>
+            settings.EnableMod &&
+            settings.EnableTroopMovementFix &&
+            IsActive;
+
+        private void Enable()
+        {
+            // The module stays loaded for the process lifetime, so recreating
+            // this span lets a setting change reinstall the native patches.
+            ReadOnlySpan<byte> memory =
+                new ReadOnlySpan<byte>(
+                    libraryHandle.ToPointer(),
+                    libraryLength);
 
             SpearmanMovementPatch newSpearmanMovementPatch = null;
             SynchronizedMovementCadencePatch newCadencePatch = null;
@@ -103,7 +162,7 @@ namespace TroopMovementFix
                 throw;
             }
 
-            ModLog.Debug(
+            TroopMovementFix3ModLog.Debug(
                 log,
                 "Troop Movement Fix 3 active: mixed DefaultInSync groups " +
                 "use the slowest member's Vanilla maximum speed and a " +
@@ -113,10 +172,37 @@ namespace TroopMovementFix
                 "free-unit-speeds.");
         }
 
+        private void Disable()
+        {
+            foreach (IDisposable subscription in subscriptions)
+                subscription.Dispose();
+
+            subscriptions.Clear();
+
+            // Restore only values still owned by this feature before removing
+            // the cadence hook and all remembered synchronization state.
+            foreach (int tribeId in
+                     new List<int>(synchronizationByTribeId.Keys))
+            {
+                RemoveSynchronization(tribeId, restoreSpeed: true);
+            }
+
+            ClearSynchronization();
+            cadencePatch?.Dispose();
+            cadencePatch = null;
+            spearmanMovementPatch?.Dispose();
+            spearmanMovementPatch = null;
+
+            TroopMovementFix3ModLog.Debug(
+                log,
+                "Troop Movement Fix 3 inactive; native patches and event subscriptions removed.");
+        }
+
         private void OnTribeIssueOrderMoveHere(
             TribeIssueOrderMoveHereEventArgs args)
         {
-            if (!args.IsNewOrder ||
+            if (!IsFeatureEnabled ||
+                !args.IsNewOrder ||
                 args.MoveType == TribeMoveType.NoChange)
             {
                 return;
@@ -151,13 +237,15 @@ namespace TroopMovementFix
         private void OnTribeIssueOrderWithTarget(
             TribeIssueOrderWithTargetEventArgs args)
         {
-            if (args.Phase == EventHookPhase.Pre)
+            if (IsFeatureEnabled &&
+                args.Phase == EventHookPhase.Pre)
                 RemoveSynchronization(args.TribeId, restoreSpeed: true);
         }
 
         private void OnTribeAssignUnit(TribeAssignUnitEventArgs args)
         {
-            if (args.Phase != EventHookPhase.Pre ||
+            if (!IsFeatureEnabled ||
+                args.Phase != EventHookPhase.Pre ||
                 activeMoveOrderTribeIds.Contains(args.TribeId))
             {
                 return;
@@ -181,7 +269,7 @@ namespace TroopMovementFix
         {
             if (!TryGetTribe(tribeId, out GameTribe* tribe))
             {
-                ModLog.Warning(
+                TroopMovementFix3ModLog.Warning(
                     log,
                     $"Mixed-group synchronization could not access " +
                     $"tribeId={tribeId}; this order remains Vanilla.");
@@ -279,7 +367,7 @@ namespace TroopMovementFix
             *movementSpeed = slowestMaximumSpeed;
             synchronizationByTribeId[tribeId] = synchronization;
 
-            ModLog.Debug(
+            TroopMovementFix3ModLog.Debug(
                 log,
                 $"Mixed-group synchronization prepared: " +
                 $"tribeId={tribeId}, members={activeUnitCount}, " +
@@ -295,7 +383,7 @@ namespace TroopMovementFix
         {
             if (!TryGetTribe(tribeId, out GameTribe* tribe))
             {
-                ModLog.Warning(
+                TroopMovementFix3ModLog.Warning(
                     log,
                     $"Ctrl movement could not enable Vanilla free-unit-speeds: " +
                     $"tribeId={tribeId} was not available.");
@@ -313,7 +401,8 @@ namespace TroopMovementFix
             out SynchronizedMovementCadence cadence,
             out ushort runningSpeedBonus)
         {
-            if (synchronizationByTribeId.TryGetValue(
+            if (IsFeatureEnabled &&
+                synchronizationByTribeId.TryGetValue(
                     tribeId,
                     out TribeSynchronization synchronization))
             {
@@ -385,7 +474,7 @@ namespace TroopMovementFix
                 if (!inputFailureLogged)
                 {
                     inputFailureLogged = true;
-                    ModLog.Error(
+                    TroopMovementFix3ModLog.Error(
                         log,
                         $"Could not read the Ctrl movement modifier; " +
                         $"this order remains completely Vanilla: {ex}");

@@ -2,9 +2,9 @@ using BepInEx.Logging;
 using System;
 using System.Globalization;
 
-namespace TroopMovementFix
+namespace SomeSettings
 {
-    internal static class ModLog
+    internal static class TroopMovementFix3ModLog
     {
         public static void Debug(ManualLogSource log, string message)
         {

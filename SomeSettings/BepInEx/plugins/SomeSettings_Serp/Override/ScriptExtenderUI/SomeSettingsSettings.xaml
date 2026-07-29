@@ -31,6 +31,12 @@
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding RememberAiAivSettingsText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox>
+      <CheckBox IsChecked="{Binding EnableTroopMovementFix, Mode=TwoWay}"
+                Foreground="White"
+                ToolTip="{Binding EnableTroopMovementFixHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding EnableTroopMovementFixText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox>
       <CheckBox IsChecked="{Binding EnableKnightDismount, Mode=TwoWay}"
                 Foreground="White"
                 ToolTip="{Binding EnableKnightDismountHelpText}"

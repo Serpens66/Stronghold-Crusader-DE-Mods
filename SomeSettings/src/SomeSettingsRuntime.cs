@@ -38,6 +38,7 @@ namespace SomeSettings
         private SingleBuildingPauseHook singleBuildingPauseHook;
         private readonly KnightDismountRuntime knightDismountRuntime;
         private readonly QuarryPileRelocationRuntime quarryPileRelocationRuntime;
+        private readonly TroopMovementFix3Runtime troopMovementFixRuntime;
         private AIEconomyProtectionHook aiEconomyProtectionHook;
 
         private bool hooksSubscribed;
@@ -63,6 +64,8 @@ namespace SomeSettings
             aiAivSelectionListViewModel = new AiAivSelectionListViewModel();
             knightDismountRuntime = new KnightDismountRuntime(log, settings);
             quarryPileRelocationRuntime = new QuarryPileRelocationRuntime(log, settings);
+            troopMovementFixRuntime =
+                new TroopMovementFix3Runtime(log, settings);
             SubscribeSettingsChanges();
         }
 
@@ -78,6 +81,24 @@ namespace SomeSettings
         public void InstallQuarryPileNativeFunctions(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
         {
             quarryPileRelocationRuntime.InstallNativeFunctions(libraryHandle, memory);
+        }
+
+        public void InstallTroopMovementFixNativeFunctions(
+            IntPtr libraryHandle,
+            ReadOnlySpan<byte> memory)
+        {
+            try
+            {
+                troopMovementFixRuntime.InitializeNative(
+                    libraryHandle,
+                    memory);
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"SomeSettings Troop Movement Fix 3 could not be initialized: {ex}");
+            }
         }
 
         public void SubscribeHooks()
@@ -162,6 +183,7 @@ namespace SomeSettings
             skirmishAiSelectionMemoryHook = null;
             aiEconomyProtectionHook?.Dispose();
             aiEconomyProtectionHook = null;
+            troopMovementFixRuntime.Dispose();
             if (settingsSubscribed)
             {
                 settings.SettingChanged -= OnSettingChanged;
@@ -252,6 +274,9 @@ namespace SomeSettings
         {
             if (propertyName == nameof(SomeSettingsViewModel.EnableMod))
             {
+                // Native movement patches must follow the global switch too.
+                troopMovementFixRuntime.ApplySetting();
+
                 if (settings.EnableMod)
                 {
                     SubscribeHooks();
@@ -284,6 +309,12 @@ namespace SomeSettings
             if (propertyName == nameof(SomeSettingsViewModel.EnableQuarryPileRelocation))
             {
                 quarryPileRelocationRuntime?.ApplySetting();
+                return;
+            }
+
+            if (propertyName == nameof(SomeSettingsViewModel.EnableTroopMovementFix))
+            {
+                troopMovementFixRuntime.ApplySetting();
                 return;
             }
 

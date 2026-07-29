@@ -6,14 +6,20 @@ using System;
 namespace SomeSettings
 {
     [BepInDependency(ScriptExtenderGuid, BepInDependency.DependencyFlags.HardDependency)]
+    [BepInIncompatibility(LegacyTroopMovementFixGuid)]
+    [BepInIncompatibility(TroopMovementFix2Guid)]
+    [BepInIncompatibility(TroopMovementFix3Guid)]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class SomeSettingsPlugin : BaseUnityPlugin
     {
         private const string ScriptExtenderGuid = "000shcdese";
+        private const string LegacyTroopMovementFixGuid = "TroopMovementFix_Serp";
+        private const string TroopMovementFix2Guid = "TroopMovementFix2_Serp";
+        private const string TroopMovementFix3Guid = "TroopMovementFix3_Serp";
 
         public const string PluginGuid = "SomeSettings_Serp";
         public const string PluginName = "Some Settings";
-        public const string PluginVersion = "1.0.8";
+        public const string PluginVersion = "1.0.9";
 
         private SomeSettingsRuntime runtime;
         private bool runtimeDisposed;
@@ -70,6 +76,7 @@ namespace SomeSettings
 
                 runtime.InstallKnightMountNativeFunctions(libraryHandle, memory);
                 runtime.InstallQuarryPileNativeFunctions(libraryHandle, memory);
+                runtime.InstallTroopMovementFixNativeFunctions(libraryHandle, memory);
                 runtime.ApplySettings();
                 runtime.InstallAIEconomyProtectionHook(libraryHandle, memory);
                 Shared.DebugLogHelper.LogDebug(Logger, "Crusader library loaded; SomeSettings UI registered.");

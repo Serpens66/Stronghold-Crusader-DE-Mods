@@ -76,6 +76,8 @@ public static class SerpLocalization
     public const string MarketSellPriceMultiplierHelp = "SomeSettings.MarketSellPriceMultiplierHelp";
     public const string RememberAiAivSettings = "SomeSettings.RememberAiAivSettings";
     public const string RememberAiAivSettingsHelp = "SomeSettings.RememberAiAivSettingsHelp";
+    public const string EnableTroopMovementFix = "SomeSettings.EnableTroopMovementFix";
+    public const string EnableTroopMovementFixHelp = "SomeSettings.EnableTroopMovementFixHelp";
     public const string EnableKnightDismount = "SomeSettings.EnableKnightDismount";
     public const string EnableKnightDismountHelp = "SomeSettings.EnableKnightDismountHelp";
     public const string KnightDismountTooltip = "SomeSettings.KnightDismountTooltip";
@@ -170,6 +172,8 @@ public static class SerpLocalization
         { MarketSellPriceMultiplierHelp, "Multiplier for all market sell prices. 1.0 = unchanged, 0.0 = no gold from selling, 5.0 = five times the vanilla price." },
         { RememberAiAivSettings, "Remember AI castle/settings selection" },
         { RememberAiAivSettingsHelp, "When enabled, the last AIV, rotation, and custom lord settings selected for each AI lord are applied automatically when that AI is added to a skirmish lobby." },
+        { EnableTroopMovementFix, "Troop Speed Fix and Ctrl+Click=Run" },
+        { EnableTroopMovementFixHelp, "With Ctrl+Click, all units move at their maximum speed. Normal movement is also fixed: With a normal click, all units move at the speed of the slowest unit in the group." },
         { EnableKnightDismount, "Enable knight mount/dismount buttons" },
         { EnableKnightDismountHelp, "Adds command buttons to mount swordsmen and dismount mounted knights." },
         { KnightDismountTooltip, "Dismount" },

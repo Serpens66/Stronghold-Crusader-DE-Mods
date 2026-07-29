@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Some Settings",
   "Description": "Adds small gameplay/QoL settings for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.8",
+  "Version": "1.0.9",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
@@ -66,6 +66,12 @@
         "Shared the last AIV/AIC selection for each AI lord between singleplayer and multiplayer skirmish lobbies.",
         "Added scrollable custom AIV lists with add, replace, and remove controls for up to 999 unique entries in both lobby types.",
         "Multiplayer hosts now randomly select one configured AIV per AI at game start and transmit it through the vanilla lobby format."
+      ]
+    },
+    {
+      "Version": "1.0.9",
+      "Changes": [
+        "Troop Speed Fix (all units now move at the speed of slowest unit of the group, like intended) and Ctrl+Click=Run"
       ]
     }
   ]

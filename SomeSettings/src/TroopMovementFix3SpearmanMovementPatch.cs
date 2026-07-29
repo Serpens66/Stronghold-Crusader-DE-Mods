@@ -8,7 +8,7 @@ using Zhuqiaomon.Hooks.Transaction;
 using Zhuqiaomon.Memory.Scanners;
 using static Iced.Intel.AssemblerRegisters;
 
-namespace TroopMovementFix
+namespace SomeSettings
 {
     /// <summary>
     /// Keeps Vanilla's walking-only behavior while Improved Spearmen are
@@ -85,7 +85,7 @@ namespace TroopMovementFix
                     "The native Spearman movement decision was not found.");
             }
 
-            ModLog.Debug(
+            TroopMovementFix3ModLog.Debug(
                 log,
                 "Native Spearman movement-option branch replaced with the " +
                 "ordinary Archer walk/run decision while the Improved " +
