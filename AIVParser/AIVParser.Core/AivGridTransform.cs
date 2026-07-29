@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 
 namespace AIVParser.Core
 {
@@ -37,6 +38,48 @@ namespace AIVParser.Core
             return new AivGridDelta(
                 rotatedPoint.Row - rotatedKeep.Row,
                 rotatedPoint.Column - rotatedKeep.Column);
+        }
+
+        public static AivFootprint GetFootprint(
+            AivGridPoint rawAnchor,
+            int size,
+            AivRotation rotation)
+        {
+            if (size <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(size));
+            }
+
+            int firstRow = rawAnchor.Row - size + 1;
+            int lastColumn = rawAnchor.Column + size - 1;
+            if (firstRow < 0 ||
+                lastColumn >= AivGridPoint.GridSize)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(rawAnchor),
+                    "The footprint extends outside the 100x100 AIV grid.");
+            }
+
+            AivGridPoint[] corners =
+            {
+                Rotate(rawAnchor, rotation),
+                Rotate(new AivGridPoint(rawAnchor.Row, lastColumn), rotation),
+                Rotate(new AivGridPoint(firstRow, rawAnchor.Column), rotation),
+                Rotate(new AivGridPoint(firstRow, lastColumn), rotation)
+            };
+
+            int minRow = corners.Min(point => point.Row);
+            int maxRow = corners.Max(point => point.Row);
+            int minColumn = corners.Min(point => point.Column);
+            int maxColumn = corners.Max(point => point.Column);
+
+            return new AivFootprint(
+                rawAnchor,
+                Rotate(rawAnchor, rotation),
+                new AivGridPoint(minRow, minColumn),
+                new AivGridPoint(maxRow, maxColumn),
+                size,
+                rotation);
         }
     }
 }

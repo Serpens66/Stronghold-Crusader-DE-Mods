@@ -13,6 +13,9 @@ internal static class Program
         {
             ("Decode offsets", TestDecodeOffsets),
             ("Rotate all four directions", TestRotations),
+            ("Resolve DE footprint sizes", TestFootprintCatalog),
+            ("Rotate footprints", TestFootprintRotations),
+            ("Resolve associated blocked areas", TestBlockedAreas),
             ("Compute rotated keep deltas", TestAnchorDelta),
             ("Parse build order and multi-tile paths", TestValidParse),
             ("Normalize DE misc types", TestMiscNormalization),
@@ -63,6 +66,47 @@ internal static class Program
         AssertPoint(AivGridTransform.Rotate(source, AivRotation.Degrees270), 79, 10, 7910);
     }
 
+    private static void TestFootprintCatalog()
+    {
+        AssertEqual(4, AivMapperCatalog.Resolve(50).FootprintSize);
+        AssertEqual(5, AivMapperCatalog.Resolve(52).FootprintSize);
+        AssertEqual(7, AivMapperCatalog.Resolve(61).FootprintSize);
+        AssertEqual(11, AivMapperCatalog.Resolve(62).FootprintSize);
+        AssertEqual(5, AivMapperCatalog.Resolve(87).FootprintSize);
+        AssertEqual(1, AivMapperCatalog.Resolve(99).FootprintSize);
+        AssertEqual(4, AivMapperCatalog.Resolve(342).FootprintSize);
+        AssertEqual<int?>(null, AivMapperCatalog.Resolve(63).FootprintSize);
+    }
+
+    private static void TestFootprintRotations()
+    {
+        var anchor = new AivGridPoint(10, 20);
+        AssertFootprint(
+            AivGridTransform.GetFootprint(anchor, 4, AivRotation.Degrees0),
+            7,
+            20,
+            10,
+            23);
+        AssertFootprint(
+            AivGridTransform.GetFootprint(anchor, 4, AivRotation.Degrees90),
+            20,
+            89,
+            23,
+            92);
+        AssertFootprint(
+            AivGridTransform.GetFootprint(anchor, 4, AivRotation.Degrees180),
+            89,
+            76,
+            92,
+            79);
+        AssertFootprint(
+            AivGridTransform.GetFootprint(anchor, 4, AivRotation.Degrees270),
+            76,
+            7,
+            79,
+            10);
+    }
+
     private static void TestAnchorDelta()
     {
         var keep = new AivGridPoint(50, 44);
@@ -80,6 +124,59 @@ internal static class Program
         AssertEqual(
             new AivGridDelta(3, 7),
             AivGridTransform.GetAnchorDelta(point, keep, AivRotation.Degrees270));
+    }
+
+    private static void TestBlockedAreas()
+    {
+        IReadOnlyList<AivBlockedArea> keepAreas =
+            AivBlockedAreaCatalog.Resolve(
+                AivMapperCatalog.Resolve(61),
+                new AivGridPoint(50, 44),
+                AivRotation.Degrees0);
+        AssertEqual(1, keepAreas.Count);
+        AssertEqual(AivBlockedAreaKind.Campfire, keepAreas[0].Kind);
+        AssertPoint(keepAreas[0].Footprint.RawAnchor, 43, 45, 4345);
+        AssertFootprint(
+            keepAreas[0].Footprint,
+            39,
+            45,
+            43,
+            49);
+
+        IReadOnlyList<AivBlockedArea> rotatedKeepAreas =
+            AivBlockedAreaCatalog.Resolve(
+                AivMapperCatalog.Resolve(61),
+                new AivGridPoint(50, 44),
+                AivRotation.Degrees90);
+        AssertFootprint(
+            rotatedKeepAreas[0].Footprint,
+            45,
+            56,
+            49,
+            60);
+
+        IReadOnlyList<AivBlockedArea> barracksAreas =
+            AivBlockedAreaCatalog.Resolve(
+                AivMapperCatalog.Resolve(87),
+                new AivGridPoint(43, 51),
+                AivRotation.Degrees0);
+        AssertEqual(3, barracksAreas.Count);
+        AssertPoint(barracksAreas[0].Footprint.RawAnchor, 38, 51, 3851);
+        AssertPoint(barracksAreas[1].Footprint.RawAnchor, 43, 56, 4356);
+        AssertPoint(barracksAreas[2].Footprint.RawAnchor, 38, 56, 3856);
+
+        AssertEqual(
+            1,
+            AivBlockedAreaCatalog.Resolve(
+                AivMapperCatalog.Resolve(88),
+                new AivGridPoint(46, 15),
+                AivRotation.Degrees0).Count);
+        AssertEqual(
+            1,
+            AivBlockedAreaCatalog.Resolve(
+                AivMapperCatalog.Resolve(180),
+                new AivGridPoint(54, 75),
+                AivRotation.Degrees0).Count);
     }
 
     private static void TestValidParse()
@@ -172,6 +269,23 @@ internal static class Program
         AivJsonDocument offGrid = CreateValidDocument();
         offGrid.frames[1].tilePositionOfsets[0] = 10000;
         AssertHasError(new AivBlueprintParser().Parse(offGrid), "AIV014");
+
+        AivJsonDocument offGridFootprint = CreateValidDocument();
+        offGridFootprint.frames.Add(new AivJsonFrame
+        {
+            itemType = 97,
+            tilePositionOfsets = new List<int> { 9090 },
+            shouldPause = false
+        });
+        AssertHasError(
+            new AivBlueprintParser().Parse(offGridFootprint),
+            "AIV016");
+
+        AivJsonDocument offGridAssociatedArea = CreateValidDocument();
+        offGridAssociatedArea.frames[0].tilePositionOfsets[0] = 744;
+        AssertHasError(
+            new AivBlueprintParser().Parse(offGridAssociatedArea),
+            "AIV017");
     }
 
     private static void TestInvalidMiscSlot()
@@ -271,15 +385,103 @@ internal static class Program
                 .GetProperty("frames")[0]
                 .GetProperty("positions")[0];
             Assert(firstPosition.TryGetProperty("anchorDelta", out _), "Anchor delta is missing.");
+            AssertEqual(
+                7,
+                firstPosition.GetProperty("footprint").GetProperty("size").GetInt32());
+            JsonElement exportedFootprint =
+                firstPosition.GetProperty("footprint");
+            Assert(
+                !exportedFootprint.TryGetProperty("center", out _),
+                "Footprint center should not be exported.");
+            Assert(
+                !exportedFootprint.TryGetProperty(
+                    "centerDeltaFromKeepCenter",
+                    out _),
+                "Center delta should not be exported.");
+            AssertEqual(
+                1,
+                firstPosition.GetProperty("additionalBlockedAreas")
+                    .GetArrayLength());
 
             XDocument svg = XDocument.Load(svgPath);
             XNamespace ns = "http://www.w3.org/2000/svg";
             int buildCells = svg.Descendants(ns + "rect")
                 .Count(element => element.Attribute("data-frame") != null);
             AssertEqual(4, buildCells);
+            XElement keepRect = svg.Descendants(ns + "rect")
+                .Single(element => (string?)element.Attribute("data-offset") == "5044");
+            AssertEqual("56", (string?)keepRect.Attribute("width"));
+            AssertEqual("56", (string?)keepRect.Attribute("height"));
+            AssertEqual("7", (string?)keepRect.Attribute("data-footprint-size"));
+            AssertEqual(
+                1,
+                svg.Descendants(ns + "g")
+                    .Single(element =>
+                        (string?)element.Attribute("id") ==
+                        "additional-blocked-areas")
+                    .Elements(ns + "rect")
+                    .Count());
+            Assert(
+                svg.Descendants(ns + "text")
+                    .Any(element => element.Attribute("data-label-for") != null),
+                "Building labels are missing.");
+            Assert(
+                svg.Descendants(ns + "pattern")
+                    .Any(element => (string?)element.Attribute("id") == "stair-pattern"),
+                "Three-step stair pattern is missing.");
+            Assert(
+                !svg.Descendants(ns + "pattern")
+                    .Any(element => (string?)element.Attribute("id") == "pitch-pattern"),
+                "Pitch ditch should use a solid black fill.");
+            string svgStyles = string.Concat(
+                svg.Descendants(ns + "style").Select(element => element.Value));
+            Assert(
+                svgStyles.Contains(
+                    ".pitch { fill: #050505;",
+                    StringComparison.Ordinal),
+                "Pitch ditch solid-black style is missing.");
+            Assert(
+                svgStyles.Contains(
+                    ".anchor-marker { fill: #000000;",
+                    StringComparison.Ordinal),
+                "Stored AIV anchor black-circle style is missing.");
+            XElement stairPattern = svg.Descendants(ns + "pattern")
+                .Single(element =>
+                    (string?)element.Attribute("id") == "stair-pattern");
+            Assert(
+                stairPattern.Descendants(ns + "path").Any(element =>
+                    (string?)element.Attribute("d") ==
+                    "M1,7 H3 V5 H5 V3 H7 V1"),
+                "Stair pattern must contain three visible steps.");
+            Assert(
+                svg.Descendants(ns + "pattern")
+                    .Any(element =>
+                        (string?)element.Attribute("id") ==
+                        "blocked-area-pattern"),
+                "Blocked-area pattern is missing.");
             Assert(
                 svg.Descendants(ns + "title").Any(),
                 "SVG placement tooltips are missing.");
+            Assert(
+                !svg.Root!.DescendantsAndSelf()
+                    .Attributes()
+                    .Any(attribute =>
+                        attribute.Name.LocalName.StartsWith(
+                            "data-center",
+                            StringComparison.Ordinal)),
+                "SVG should not expose building centers.");
+            Assert(
+                !svg.Descendants()
+                    .Any(element =>
+                        ((string?)element.Attribute("class"))?
+                            .Contains("center-marker", StringComparison.Ordinal) ==
+                        true),
+                "SVG should not render building center markers.");
+            Assert(
+                svg.Descendants(ns + "circle")
+                    .Any(element =>
+                        (string?)element.Attribute("class") == "anchor-marker"),
+                "Stored AIV anchors should be rendered as circles.");
             Assert(
                 !svg.Root!.DescendantsAndSelf()
                     .Attributes()
@@ -353,6 +555,25 @@ internal static class Program
         AssertEqual(row, point.Row);
         AssertEqual(column, point.Column);
         AssertEqual(offset, point.EncodedOffset);
+    }
+
+    private static void AssertFootprint(
+        AivFootprint footprint,
+        int minRow,
+        int minColumn,
+        int maxRow,
+        int maxColumn)
+    {
+        AssertPoint(
+            footprint.Minimum,
+            minRow,
+            minColumn,
+            minRow * AivGridPoint.GridSize + minColumn);
+        AssertPoint(
+            footprint.Maximum,
+            maxRow,
+            maxColumn,
+            maxRow * AivGridPoint.GridSize + maxColumn);
     }
 
     private static void AssertHasError(AivParseResult result, string code)

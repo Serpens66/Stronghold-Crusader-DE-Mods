@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Globalization;
 
 namespace AIVParser.Core
 {
@@ -111,7 +112,226 @@ namespace AIVParser.Core
             string name,
             AivItemCategory category = AivItemCategory.Building)
         {
-            target.Add(value, new AivMapperInfo(value, name, category, true));
+            target.Add(
+                value,
+                new AivMapperInfo(
+                    value,
+                    name,
+                    category,
+                    true,
+                    GetFootprintSize(value, category),
+                    GetVisualGroup(value),
+                    GetDisplayName(value, name, category)));
+        }
+
+        private static int? GetFootprintSize(int value, AivItemCategory category)
+        {
+            if (category == AivItemCategory.HighWallPath ||
+                category == AivItemCategory.LowWallPath ||
+                category == AivItemCategory.CrenelPath ||
+                category == AivItemCategory.Stair ||
+                category == AivItemCategory.PitchDitchPath ||
+                category == AivItemCategory.MoatPath ||
+                category == AivItemCategory.Trap)
+            {
+                // AIV path frames already enumerate every occupied cell.
+                return 1;
+            }
+
+            // These are the DE placement scales from SHCDESE BuildingScales.
+            // They intentionally differ from a few older Sourcehold HD values.
+            switch (value)
+            {
+                case 50:
+                case 54:
+                case 75:
+                case 76:
+                case 80:
+                case 81:
+                case 82:
+                case 83:
+                case 84:
+                case 85:
+                case 111:
+                case 169:
+                case 180:
+                case 342:
+                    return 4;
+                case 52:
+                case 77:
+                case 79:
+                case 86:
+                case 87:
+                case 88:
+                case 89:
+                case 92:
+                case 105:
+                case 112:
+                case 144:
+                case 145:
+                case 301:
+                case 307:
+                case 324:
+                    return 5;
+                case 60:
+                case 61:
+                case 146:
+                case 147:
+                    return 7;
+                case 62:
+                    return 11;
+                case 65:
+                case 93:
+                case 95:
+                case 113:
+                case 114:
+                    return 6;
+                case 74:
+                case 110:
+                case 166:
+                case 175:
+                case 177:
+                case 305:
+                case 308:
+                case 310:
+                case 312:
+                case 330:
+                    return 3;
+                case 96:
+                    return 9;
+                case 97:
+                    return 13;
+                case 160:
+                case 176:
+                case 306:
+                case 313:
+                case 318:
+                    return 2;
+                default:
+                    // KEEP4/KEEP5 exist in the enum but have no DE scale entry.
+                    return null;
+            }
+        }
+
+        private static AivVisualGroup GetVisualGroup(int value)
+        {
+            switch (value)
+            {
+                case 54:
+                    return AivVisualGroup.Housing;
+                case 74:
+                case 75:
+                case 76:
+                case 80:
+                case 92:
+                    return AivVisualGroup.Food;
+                case 50:
+                case 81:
+                case 82:
+                case 83:
+                case 84:
+                case 85:
+                    return AivVisualGroup.Industry;
+                case 52:
+                case 77:
+                    return AivVisualGroup.Storage;
+                case 65:
+                case 79:
+                case 86:
+                case 87:
+                case 88:
+                case 89:
+                    return AivVisualGroup.Military;
+                case 105:
+                case 110:
+                case 111:
+                case 112:
+                case 113:
+                case 114:
+                case 144:
+                case 145:
+                case 146:
+                case 147:
+                case 180:
+                    return AivVisualGroup.Defense;
+                case 93:
+                case 95:
+                case 96:
+                case 97:
+                    return AivVisualGroup.Civic;
+                case 160:
+                case 166:
+                case 169:
+                case 175:
+                case 313:
+                case 318:
+                case 324:
+                    return AivVisualGroup.PositiveFear;
+                case 176:
+                case 177:
+                case 301:
+                case 305:
+                case 306:
+                case 307:
+                case 308:
+                case 310:
+                case 312:
+                    return AivVisualGroup.NegativeFear;
+                case 330:
+                case 342:
+                    return AivVisualGroup.Water;
+                default:
+                    return AivVisualGroup.GeneralBuilding;
+            }
+        }
+
+        private static string GetDisplayName(
+            int value,
+            string mapperName,
+            AivItemCategory category)
+        {
+            if (category == AivItemCategory.Keep)
+            {
+                return "Keep";
+            }
+
+            switch (value)
+            {
+                case 52: return "Stockpile";
+                case 77: return "Marketplace";
+                case 79: return "Bedouin Stockade";
+                case 82: return "Poleturner";
+                case 83: return "Blacksmith";
+                case 84: return "Armourer";
+                case 85: return "Tanner";
+                case 86:
+                case 87: return "Barracks";
+                case 88: return "Engineers Guild";
+                case 89: return "Tunnelers Guild";
+                case 95:
+                case 96:
+                case 97: return "Church";
+                case 98: return "Killing Pit";
+                case 99: return "Pitch Ditch";
+                case 105: return "Drawbridge";
+                case 106: return "Moat";
+                case 110:
+                case 111:
+                case 112:
+                case 113:
+                case 114: return "Tower";
+                case 144:
+                case 145:
+                case 146:
+                case 147: return "Gatehouse";
+                case 342: return "Water Pot";
+            }
+
+            string plainName = mapperName.StartsWith("MAPPER_")
+                ? mapperName.Substring("MAPPER_".Length)
+                : mapperName;
+            return CultureInfo.InvariantCulture.TextInfo.ToTitleCase(
+                plainName.Replace('_', ' ').ToLowerInvariant());
         }
     }
 

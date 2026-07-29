@@ -32,6 +32,34 @@ namespace AIVParser.Core
         Trap
     }
 
+    public enum AivVisualGroup
+    {
+        Unknown,
+        GeneralBuilding,
+        Housing,
+        Food,
+        Industry,
+        Storage,
+        Military,
+        Defense,
+        Civic,
+        PositiveFear,
+        NegativeFear,
+        Water
+    }
+
+    public enum AivBlockedAreaKind
+    {
+        Campfire,
+        PlacementReserve
+    }
+
+    public enum AivBlockedAreaSource
+    {
+        DefinitiveEditionNativeTable,
+        EditorDerivedKeepCampfire
+    }
+
     public sealed class AivDiagnostic
     {
         public AivDiagnostic(
@@ -135,20 +163,84 @@ namespace AIVParser.Core
         }
     }
 
+    public readonly struct AivFootprint
+    {
+        public AivFootprint(
+            AivGridPoint rawAnchor,
+            AivGridPoint rotatedAnchor,
+            AivGridPoint minimum,
+            AivGridPoint maximum,
+            int size,
+            AivRotation rotation)
+        {
+            RawAnchor = rawAnchor;
+            RotatedAnchor = rotatedAnchor;
+            Minimum = minimum;
+            Maximum = maximum;
+            Size = size;
+            Rotation = rotation;
+        }
+
+        // Editor rows grow upwards, so buildings extend towards smaller rows.
+        public AivGridPoint RawAnchor { get; }
+        public AivGridPoint RotatedAnchor { get; }
+        public AivGridPoint Minimum { get; }
+        public AivGridPoint Maximum { get; }
+        public AivGridPoint EditorTopLeft =>
+            new AivGridPoint(Maximum.Row, Minimum.Column);
+        public AivGridPoint EditorBottomRight =>
+            new AivGridPoint(Minimum.Row, Maximum.Column);
+        public int Size { get; }
+        public AivRotation Rotation { get; }
+    }
+
+    public readonly struct AivBlockedArea
+    {
+        public AivBlockedArea(
+            string name,
+            AivBlockedAreaKind kind,
+            AivBlockedAreaSource source,
+            AivFootprint footprint)
+        {
+            Name = name ?? string.Empty;
+            Kind = kind;
+            Source = source;
+            Footprint = footprint;
+        }
+
+        public string Name { get; }
+        public AivBlockedAreaKind Kind { get; }
+        public AivBlockedAreaSource Source { get; }
+        public AivFootprint Footprint { get; }
+    }
+
     public sealed class AivMapperInfo
     {
-        public AivMapperInfo(int value, string name, AivItemCategory category, bool isKnown)
+        public AivMapperInfo(
+            int value,
+            string name,
+            AivItemCategory category,
+            bool isKnown,
+            int? footprintSize = null,
+            AivVisualGroup visualGroup = AivVisualGroup.Unknown,
+            string displayName = null)
         {
             Value = value;
             Name = name ?? $"UNKNOWN_MAPPER_{value}";
             Category = category;
             IsKnown = isKnown;
+            FootprintSize = footprintSize;
+            VisualGroup = visualGroup;
+            DisplayName = displayName ?? Name;
         }
 
         public int Value { get; }
         public string Name { get; }
         public AivItemCategory Category { get; }
         public bool IsKnown { get; }
+        public int? FootprintSize { get; }
+        public AivVisualGroup VisualGroup { get; }
+        public string DisplayName { get; }
     }
 
     public sealed class AivMiscTypeInfo

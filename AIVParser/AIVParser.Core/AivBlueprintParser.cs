@@ -184,6 +184,55 @@ namespace AIVParser.Core
                     }
                 }
 
+                if (mapper.IsKnown &&
+                    (mapper.Category == AivItemCategory.Building ||
+                     mapper.Category == AivItemCategory.Keep) &&
+                    !mapper.FootprintSize.HasValue)
+                {
+                    diagnostics.Add(Warning(
+                        "AIV015",
+                        $"No confirmed DE footprint size is available for {mapper.Name}; only its raw anchor can be shown.",
+                        frameLocation + ".itemType"));
+                }
+
+                if (mapper.FootprintSize.HasValue &&
+                    mapper.FootprintSize.Value > 1)
+                {
+                    int size = mapper.FootprintSize.Value;
+                    for (int positionIndex = 0;
+                         positionIndex < positions.Count;
+                         positionIndex++)
+                    {
+                        AivGridPoint position = positions[positionIndex];
+                        bool coreOutside =
+                            position.Row - size + 1 < 0 ||
+                            position.Column + size > AivGridPoint.GridSize;
+                        if (coreOutside)
+                        {
+                            diagnostics.Add(Error(
+                                "AIV016",
+                                $"{mapper.Name} has a {size}x{size} footprint extending outside the 100x100 grid.",
+                                $"{frameLocation}.tilePositionOfsets[{positionIndex}]"));
+                            continue;
+                        }
+
+                        try
+                        {
+                            AivBlockedAreaCatalog.Resolve(
+                                mapper,
+                                position,
+                                AivRotation.Degrees0);
+                        }
+                        catch (ArgumentOutOfRangeException)
+                        {
+                            diagnostics.Add(Error(
+                                "AIV017",
+                                $"{mapper.Name} has an associated blocked area extending outside the 100x100 grid.",
+                                $"{frameLocation}.tilePositionOfsets[{positionIndex}]"));
+                        }
+                    }
+                }
+
                 var frame = new AivBuildFrame(
                     frameIndex,
                     source.itemType,

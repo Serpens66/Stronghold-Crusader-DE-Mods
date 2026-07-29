@@ -13,6 +13,8 @@ public static class ParsedJsonExporter
     {
         AivBlueprint blueprint = result.Blueprint;
         AivGridPoint? keep = blueprint.KeepAnchor;
+        AivBuildFrame? keepFrame = blueprint.Frames.FirstOrDefault(
+            frame => frame.Mapper.Category == AivItemCategory.Keep);
 
         using FileStream stream = File.Create(path);
         using var writer = new Utf8JsonWriter(
@@ -39,9 +41,14 @@ public static class ParsedJsonExporter
         writer.WriteEndObject();
 
         writer.WritePropertyName("keepAnchor");
-        if (keep.HasValue)
+        if (keep.HasValue && keepFrame != null)
         {
-            WritePoint(writer, keep.Value, keep, rotation);
+            WritePlacement(
+                writer,
+                keep.Value,
+                keepFrame.Mapper,
+                keep,
+                rotation);
         }
         else
         {
@@ -56,14 +63,29 @@ public static class ParsedJsonExporter
             writer.WriteNumber("buildIndex", frame.BuildIndex);
             writer.WriteNumber("itemType", frame.RawItemType);
             writer.WriteString("mapperName", frame.Mapper.Name);
+            writer.WriteString("displayName", frame.Mapper.DisplayName);
             writer.WriteString("category", frame.Mapper.Category.ToString());
+            writer.WriteString("visualGroup", frame.Mapper.VisualGroup.ToString());
             writer.WriteBoolean("knownMapper", frame.Mapper.IsKnown);
+            if (frame.Mapper.FootprintSize.HasValue)
+            {
+                writer.WriteNumber("footprintSize", frame.Mapper.FootprintSize.Value);
+            }
+            else
+            {
+                writer.WriteNull("footprintSize");
+            }
             writer.WriteBoolean("shouldPause", frame.ShouldPause);
             writer.WritePropertyName("positions");
             writer.WriteStartArray();
             foreach (AivGridPoint point in frame.Positions)
             {
-                WritePoint(writer, point, keep, rotation);
+                WritePlacement(
+                    writer,
+                    point,
+                    frame.Mapper,
+                    keep,
+                    rotation);
             }
 
             writer.WriteEndArray();
@@ -117,6 +139,91 @@ public static class ParsedJsonExporter
         File.WriteAllText(path, json, new UTF8Encoding(false));
     }
 
+    private static void WritePlacement(
+        Utf8JsonWriter writer,
+        AivGridPoint point,
+        AivMapperInfo mapper,
+        AivGridPoint? keep,
+        AivRotation rotation)
+    {
+        AivGridPoint rotated = AivGridTransform.Rotate(point, rotation);
+
+        writer.WriteStartObject();
+        WritePointProperties(writer, point, rotated, keep, rotation);
+        writer.WritePropertyName("footprint");
+        if (mapper.FootprintSize is int size)
+        {
+            AivFootprint footprint =
+                AivGridTransform.GetFootprint(point, size, rotation);
+            writer.WriteStartObject();
+            writer.WriteNumber("size", footprint.Size);
+            writer.WritePropertyName("bounds");
+            writer.WriteStartObject();
+            writer.WriteNumber("minRow", footprint.Minimum.Row);
+            writer.WriteNumber("minColumn", footprint.Minimum.Column);
+            writer.WriteNumber("maxRow", footprint.Maximum.Row);
+            writer.WriteNumber("maxColumn", footprint.Maximum.Column);
+            writer.WriteEndObject();
+            WriteCoordinate(
+                writer,
+                "editorTopLeft",
+                footprint.EditorTopLeft.Row,
+                footprint.EditorTopLeft.Column);
+            WriteCoordinate(
+                writer,
+                "editorBottomRight",
+                footprint.EditorBottomRight.Row,
+                footprint.EditorBottomRight.Column);
+
+            writer.WriteEndObject();
+        }
+        else
+        {
+            writer.WriteNullValue();
+        }
+
+        writer.WritePropertyName("additionalBlockedAreas");
+        writer.WriteStartArray();
+        foreach (AivBlockedArea area in
+                 AivBlockedAreaCatalog.Resolve(mapper, point, rotation))
+        {
+            WriteBlockedArea(writer, area);
+        }
+
+        writer.WriteEndArray();
+        writer.WriteEndObject();
+    }
+
+    private static void WriteBlockedArea(
+        Utf8JsonWriter writer,
+        AivBlockedArea area)
+    {
+        AivFootprint footprint = area.Footprint;
+        writer.WriteStartObject();
+        writer.WriteString("name", area.Name);
+        writer.WriteString("kind", area.Kind.ToString());
+        writer.WriteString("source", area.Source.ToString());
+        writer.WriteNumber("size", footprint.Size);
+        WriteCoordinate(
+            writer,
+            "rawAnchor",
+            footprint.RawAnchor.Row,
+            footprint.RawAnchor.Column);
+        WriteCoordinate(
+            writer,
+            "rotatedAnchor",
+            footprint.RotatedAnchor.Row,
+            footprint.RotatedAnchor.Column);
+        writer.WritePropertyName("bounds");
+        writer.WriteStartObject();
+        writer.WriteNumber("minRow", footprint.Minimum.Row);
+        writer.WriteNumber("minColumn", footprint.Minimum.Column);
+        writer.WriteNumber("maxRow", footprint.Maximum.Row);
+        writer.WriteNumber("maxColumn", footprint.Maximum.Column);
+        writer.WriteEndObject();
+        writer.WriteEndObject();
+    }
+
     private static void WritePoint(
         Utf8JsonWriter writer,
         AivGridPoint point,
@@ -126,6 +233,17 @@ public static class ParsedJsonExporter
         AivGridPoint rotated = AivGridTransform.Rotate(point, rotation);
 
         writer.WriteStartObject();
+        WritePointProperties(writer, point, rotated, keep, rotation);
+        writer.WriteEndObject();
+    }
+
+    private static void WritePointProperties(
+        Utf8JsonWriter writer,
+        AivGridPoint point,
+        AivGridPoint rotated,
+        AivGridPoint? keep,
+        AivRotation rotation)
+    {
         writer.WriteNumber("encodedOffset", point.EncodedOffset);
         writer.WriteNumber("row", point.Row);
         writer.WriteNumber("column", point.Column);
@@ -146,7 +264,18 @@ public static class ParsedJsonExporter
         {
             writer.WriteNullValue();
         }
+    }
 
+    private static void WriteCoordinate(
+        Utf8JsonWriter writer,
+        string propertyName,
+        double row,
+        double column)
+    {
+        writer.WritePropertyName(propertyName);
+        writer.WriteStartObject();
+        writer.WriteNumber("row", row);
+        writer.WriteNumber("column", column);
         writer.WriteEndObject();
     }
 }
