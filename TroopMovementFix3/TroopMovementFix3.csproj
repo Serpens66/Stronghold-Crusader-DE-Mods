@@ -106,10 +106,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="src\InfoLogHelper.cs" />
-    <Compile Include="..\TroopMovementFix\src\UnitMovementSpeedHook.cs">
-      <Link>src\UnitMovementSpeedHook.cs</Link>
-    </Compile>
+    <Compile Include="src\ModLog.cs" />
+    <Compile Include="src\SpearmanMovementPatch.cs" />
     <Compile Include="src\TroopMovementFix3Plugin.cs" />
     <Compile Include="src\TroopMovementFix3Runtime.cs" />
   </ItemGroup>

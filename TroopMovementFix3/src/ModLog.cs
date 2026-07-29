@@ -1,0 +1,29 @@
+using BepInEx.Logging;
+using System;
+using System.Globalization;
+
+namespace TroopMovementFix
+{
+    internal static class ModLog
+    {
+        public static void Debug(ManualLogSource log, string message)
+        {
+            log?.LogDebug(WithTimestamp(message));
+        }
+
+        public static void Warning(ManualLogSource log, string message)
+        {
+            log?.LogWarning(WithTimestamp(message));
+        }
+
+        public static void Error(ManualLogSource log, string message)
+        {
+            log?.LogError(WithTimestamp(message));
+        }
+
+        private static string WithTimestamp(string message)
+        {
+            return $"[{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture)}] {message ?? string.Empty}";
+        }
+    }
+}

@@ -16,24 +16,19 @@ namespace TroopMovementFix
 
         public const string PluginGuid = "TroopMovementFix3_Serp";
         public const string PluginName = "Troop Movement Fix 3";
-        public const string PluginVersion = "1.0.0";
+        public const string PluginVersion = "1.2.0";
 
         private static TroopMovementFix3Runtime persistentRuntime;
         private static bool libraryLoadedSubscriptionInstalled;
-        private static bool runtimeDisposed;
-
-        private bool applicationQuitting;
 
         private void Awake()
         {
-            Shared.DebugLogHelper.LogInfo(
+            ModLog.Debug(
                 Logger,
                 $"{PluginName} {PluginVersion} loaded.");
 
             if (persistentRuntime == null)
                 persistentRuntime = new TroopMovementFix3Runtime(Logger);
-
-            runtimeDisposed = false;
 
             if (!libraryLoadedSubscriptionInstalled)
             {
@@ -44,21 +39,9 @@ namespace TroopMovementFix
 
         private void OnDestroy()
         {
-            if (applicationQuitting)
-            {
-                DisposeRuntime("OnDestroy during application quit");
-                return;
-            }
-
-            Shared.DebugLogHelper.LogInfo(
+            ModLog.Debug(
                 Logger,
                 "TroopMovementFix3Plugin OnDestroy called during BepInEx manager cleanup; preserving the process-lifetime runtime and native hooks.");
-        }
-
-        private void OnApplicationQuit()
-        {
-            applicationQuitting = true;
-            DisposeRuntime("OnApplicationQuit");
         }
 
         private void OnCrusaderLibraryLoaded(
@@ -68,37 +51,16 @@ namespace TroopMovementFix
             try
             {
                 persistentRuntime?.Apply(libraryHandle, memory);
-                Shared.DebugLogHelper.LogInfo(
+                ModLog.Debug(
                     Logger,
                     "Crusader library loaded; Troop Movement Fix 3 runtime initialized.");
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogError(
+                ModLog.Error(
                     Logger,
                     $"Troop Movement Fix 3 initialization failed; no partial runtime remains active: {ex}");
             }
-        }
-
-        private void DisposeRuntime(string reason)
-        {
-            if (runtimeDisposed)
-                return;
-
-            Shared.DebugLogHelper.LogInfo(
-                Logger,
-                $"Disposing Troop Movement Fix 3 runtime because of {reason}.");
-
-            if (libraryLoadedSubscriptionInstalled)
-            {
-                CrusaderLibrary.Instance.LibraryLoaded -=
-                    OnCrusaderLibraryLoaded;
-                libraryLoadedSubscriptionInstalled = false;
-            }
-
-            persistentRuntime?.Dispose();
-            persistentRuntime = null;
-            runtimeDisposed = true;
         }
     }
 }
