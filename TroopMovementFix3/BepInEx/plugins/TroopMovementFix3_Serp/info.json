@@ -2,11 +2,36 @@
   "GUID": "TroopMovementFix3_Serp",
   "Author": "Serpens66",
   "Name": "Troop Movement Fix 3",
-  "Description": "Keeps disabled Spearmen walking, makes Improved Spearmen use the ordinary Vanilla walk/run decision, and maps Ctrl+move to Vanilla free-unit-speeds movement.",
-  "Version": "1.2.0",
+  "Description": "Synchronizes mixed DefaultInSync groups at their slowest member's Vanilla maximum speed with a shared walk/run cadence, while Ctrl+move keeps Vanilla free-unit-speeds movement.",
+  "Version": "1.3.2",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.3.2",
+      "Changes": [
+        "Use one shared running cadence bonus from the unit type that defines the group's slowest maximum speed.",
+        "Keep Archers synchronized with Assassins without accelerating the Assassins beyond their individual Vanilla maximum.",
+        "Use the smallest native bonus when multiple unit types share the limiting speed and remove the per-type bonus lookup from the cadence hot path."
+      ]
+    },
+    {
+      "Version": "1.3.1",
+      "Changes": [
+        "Use each running unit type's native cadence bonus instead of assigning the Archer bonus to every synchronized runner.",
+        "Prevent Assassins and other lower-cadence runners from exceeding their individual Vanilla maximum speed in mixed groups.",
+        "Resolve and cache the small type-to-bonus table once per real movement order without adding a speed detour or recurring unit scan."
+      ]
+    },
+    {
+      "Version": "1.3.0",
+      "Changes": [
+        "Synchronize every mixed DefaultInSync group at the slowest member's individual Vanilla maximum speed through the tribe MovementSpeed field.",
+        "Choose one shared running cadence only when every member type supports it; otherwise keep the complete group on a shared walking cadence.",
+        "Preserve Vanilla terrain and state penalties without a movement-speed detour, per-unit speed directives, timers, or recurring group scans.",
+        "Invalidate synchronization on Ctrl movement, target orders, selection-driven tribe assignment, later movement orders, and map unload."
+      ]
+    },
     {
       "Version": "1.2.0",
       "Changes": [
