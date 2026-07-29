@@ -1,0 +1,8163 @@
+{
+  "sourceName": "C:\\Users\\Serpens66\\AppData\\LocalLow\\Firefly Studios\\Stronghold Crusader Definitive Edition\\ExtendedLords\\Bullseye\\bullseye3.aivjson",
+  "pauseDelayAmount": 100,
+  "rotation": 90,
+  "summary": {
+    "frameCount": 105,
+    "pausedFrameCount": 0,
+    "miscItemCount": 18,
+    "warningCount": 0,
+    "errorCount": 0
+  },
+  "keepAnchor": {
+    "encodedOffset": 5044,
+    "row": 50,
+    "column": 44,
+    "rotatedRow": 44,
+    "rotatedColumn": 49,
+    "anchorDelta": {
+      "row": 0,
+      "column": 0
+    }
+  },
+  "frames": [
+    {
+      "buildIndex": 0,
+      "itemType": 61,
+      "mapperName": "MAPPER_KEEP2",
+      "category": "Keep",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 5044,
+          "row": 50,
+          "column": 44,
+          "rotatedRow": 44,
+          "rotatedColumn": 49,
+          "anchorDelta": {
+            "row": 0,
+            "column": 0
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 1,
+      "itemType": 52,
+      "mapperName": "MAPPER_STORES",
+      "category": "Building",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 4856,
+          "row": 48,
+          "column": 56,
+          "rotatedRow": 56,
+          "rotatedColumn": 51,
+          "anchorDelta": {
+            "row": 12,
+            "column": 2
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 2,
+      "itemType": 52,
+      "mapperName": "MAPPER_STORES",
+      "category": "Building",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 4861,
+          "row": 48,
+          "column": 61,
+          "rotatedRow": 61,
+          "rotatedColumn": 51,
+          "anchorDelta": {
+            "row": 17,
+            "column": 2
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 3,
+      "itemType": 77,
+      "mapperName": "MAPPER_TRADEPOST",
+      "category": "Building",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 6353,
+          "row": 63,
+          "column": 53,
+          "rotatedRow": 53,
+          "rotatedColumn": 36,
+          "anchorDelta": {
+            "row": 9,
+            "column": -13
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 4,
+      "itemType": 81,
+      "mapperName": "MAPPER_ARMOURY",
+      "category": "Building",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 3939,
+          "row": 39,
+          "column": 39,
+          "rotatedRow": 39,
+          "rotatedColumn": 60,
+          "anchorDelta": {
+            "row": -5,
+            "column": 11
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 5,
+      "itemType": 80,
+      "mapperName": "MAPPER_GRANARY",
+      "category": "Building",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 4938,
+          "row": 49,
+          "column": 38,
+          "rotatedRow": 38,
+          "rotatedColumn": 50,
+          "anchorDelta": {
+            "row": -6,
+            "column": 1
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 6,
+      "itemType": 80,
+      "mapperName": "MAPPER_GRANARY",
+      "category": "Building",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 5338,
+          "row": 53,
+          "column": 38,
+          "rotatedRow": 38,
+          "rotatedColumn": 46,
+          "anchorDelta": {
+            "row": -6,
+            "column": -3
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 7,
+      "itemType": 81,
+      "mapperName": "MAPPER_ARMOURY",
+      "category": "Building",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 4339,
+          "row": 43,
+          "column": 39,
+          "rotatedRow": 39,
+          "rotatedColumn": 56,
+          "anchorDelta": {
+            "row": -5,
+            "column": 7
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 8,
+      "itemType": 54,
+      "mapperName": "MAPPER_HOVEL",
+      "category": "Building",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 6333,
+          "row": 63,
+          "column": 33,
+          "rotatedRow": 33,
+          "rotatedColumn": 36,
+          "anchorDelta": {
+            "row": -11,
+            "column": -13
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 9,
+      "itemType": 54,
+      "mapperName": "MAPPER_HOVEL",
+      "category": "Building",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 6337,
+          "row": 63,
+          "column": 37,
+          "rotatedRow": 37,
+          "rotatedColumn": 36,
+          "anchorDelta": {
+            "row": -7,
+            "column": -13
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 10,
+      "itemType": 54,
+      "mapperName": "MAPPER_HOVEL",
+      "category": "Building",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 6341,
+          "row": 63,
+          "column": 41,
+          "rotatedRow": 41,
+          "rotatedColumn": 36,
+          "anchorDelta": {
+            "row": -3,
+            "column": -13
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 11,
+      "itemType": 54,
+      "mapperName": "MAPPER_HOVEL",
+      "category": "Building",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 6345,
+          "row": 63,
+          "column": 45,
+          "rotatedRow": 45,
+          "rotatedColumn": 36,
+          "anchorDelta": {
+            "row": 1,
+            "column": -13
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 12,
+      "itemType": 76,
+      "mapperName": "MAPPER_BREWER",
+      "category": "Building",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 5267,
+          "row": 52,
+          "column": 67,
+          "rotatedRow": 67,
+          "rotatedColumn": 47,
+          "anchorDelta": {
+            "row": 23,
+            "column": -2
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 13,
+      "itemType": 76,
+      "mapperName": "MAPPER_BREWER",
+      "category": "Building",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 4867,
+          "row": 48,
+          "column": 67,
+          "rotatedRow": 67,
+          "rotatedColumn": 51,
+          "anchorDelta": {
+            "row": 23,
+            "column": 2
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 14,
+      "itemType": 92,
+      "mapperName": "MAPPER_INN",
+      "category": "Building",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 6358,
+          "row": 63,
+          "column": 58,
+          "rotatedRow": 58,
+          "rotatedColumn": 36,
+          "anchorDelta": {
+            "row": 14,
+            "column": -13
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 15,
+      "itemType": 50,
+      "mapperName": "MAPPER_FLETCHER",
+      "category": "Building",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 5352,
+          "row": 53,
+          "column": 52,
+          "rotatedRow": 52,
+          "rotatedColumn": 46,
+          "anchorDelta": {
+            "row": 8,
+            "column": -3
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 16,
+      "itemType": 50,
+      "mapperName": "MAPPER_FLETCHER",
+      "category": "Building",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 5752,
+          "row": 57,
+          "column": 52,
+          "rotatedRow": 52,
+          "rotatedColumn": 42,
+          "anchorDelta": {
+            "row": 8,
+            "column": -7
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 17,
+      "itemType": 50,
+      "mapperName": "MAPPER_FLETCHER",
+      "category": "Building",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 5357,
+          "row": 53,
+          "column": 57,
+          "rotatedRow": 57,
+          "rotatedColumn": 46,
+          "anchorDelta": {
+            "row": 13,
+            "column": -3
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 18,
+      "itemType": 50,
+      "mapperName": "MAPPER_FLETCHER",
+      "category": "Building",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 5757,
+          "row": 57,
+          "column": 57,
+          "rotatedRow": 57,
+          "rotatedColumn": 42,
+          "anchorDelta": {
+            "row": 13,
+            "column": -7
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 19,
+      "itemType": 50,
+      "mapperName": "MAPPER_FLETCHER",
+      "category": "Building",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 5362,
+          "row": 53,
+          "column": 62,
+          "rotatedRow": 62,
+          "rotatedColumn": 46,
+          "anchorDelta": {
+            "row": 18,
+            "column": -3
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 20,
+      "itemType": 85,
+      "mapperName": "MAPPER_TANNER",
+      "category": "Building",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 4261,
+          "row": 42,
+          "column": 61,
+          "rotatedRow": 61,
+          "rotatedColumn": 57,
+          "anchorDelta": {
+            "row": 17,
+            "column": 8
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 21,
+      "itemType": 85,
+      "mapperName": "MAPPER_TANNER",
+      "category": "Building",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 4265,
+          "row": 42,
+          "column": 65,
+          "rotatedRow": 65,
+          "rotatedColumn": 57,
+          "anchorDelta": {
+            "row": 21,
+            "column": 8
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 22,
+      "itemType": 85,
+      "mapperName": "MAPPER_TANNER",
+      "category": "Building",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 5333,
+          "row": 53,
+          "column": 33,
+          "rotatedRow": 33,
+          "rotatedColumn": 46,
+          "anchorDelta": {
+            "row": -11,
+            "column": -3
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 23,
+      "itemType": 85,
+      "mapperName": "MAPPER_TANNER",
+      "category": "Building",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 5329,
+          "row": 53,
+          "column": 29,
+          "rotatedRow": 29,
+          "rotatedColumn": 46,
+          "anchorDelta": {
+            "row": -15,
+            "column": -3
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 24,
+      "itemType": 54,
+      "mapperName": "MAPPER_HOVEL",
+      "category": "Building",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 3246,
+          "row": 32,
+          "column": 46,
+          "rotatedRow": 46,
+          "rotatedColumn": 67,
+          "anchorDelta": {
+            "row": 2,
+            "column": 18
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 25,
+      "itemType": 54,
+      "mapperName": "MAPPER_HOVEL",
+      "category": "Building",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 3250,
+          "row": 32,
+          "column": 50,
+          "rotatedRow": 50,
+          "rotatedColumn": 67,
+          "anchorDelta": {
+            "row": 6,
+            "column": 18
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 26,
+      "itemType": 54,
+      "mapperName": "MAPPER_HOVEL",
+      "category": "Building",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 3254,
+          "row": 32,
+          "column": 54,
+          "rotatedRow": 54,
+          "rotatedColumn": 67,
+          "anchorDelta": {
+            "row": 10,
+            "column": 18
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 27,
+      "itemType": 54,
+      "mapperName": "MAPPER_HOVEL",
+      "category": "Building",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 3258,
+          "row": 32,
+          "column": 58,
+          "rotatedRow": 58,
+          "rotatedColumn": 67,
+          "anchorDelta": {
+            "row": 14,
+            "column": 18
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 28,
+      "itemType": 87,
+      "mapperName": "MAPPER_BARRACKS_STONE",
+      "category": "Building",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 4351,
+          "row": 43,
+          "column": 51,
+          "rotatedRow": 51,
+          "rotatedColumn": 56,
+          "anchorDelta": {
+            "row": 7,
+            "column": 7
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 29,
+      "itemType": 25,
+      "mapperName": "MAPPER_WALL",
+      "category": "HighWallPath",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 5323,
+          "row": 53,
+          "column": 23,
+          "rotatedRow": 23,
+          "rotatedColumn": 46,
+          "anchorDelta": {
+            "row": -21,
+            "column": -3
+          }
+        },
+        {
+          "encodedOffset": 5423,
+          "row": 54,
+          "column": 23,
+          "rotatedRow": 23,
+          "rotatedColumn": 45,
+          "anchorDelta": {
+            "row": -21,
+            "column": -4
+          }
+        },
+        {
+          "encodedOffset": 5523,
+          "row": 55,
+          "column": 23,
+          "rotatedRow": 23,
+          "rotatedColumn": 44,
+          "anchorDelta": {
+            "row": -21,
+            "column": -5
+          }
+        },
+        {
+          "encodedOffset": 5623,
+          "row": 56,
+          "column": 23,
+          "rotatedRow": 23,
+          "rotatedColumn": 43,
+          "anchorDelta": {
+            "row": -21,
+            "column": -6
+          }
+        },
+        {
+          "encodedOffset": 5723,
+          "row": 57,
+          "column": 23,
+          "rotatedRow": 23,
+          "rotatedColumn": 42,
+          "anchorDelta": {
+            "row": -21,
+            "column": -7
+          }
+        },
+        {
+          "encodedOffset": 5824,
+          "row": 58,
+          "column": 24,
+          "rotatedRow": 24,
+          "rotatedColumn": 41,
+          "anchorDelta": {
+            "row": -20,
+            "column": -8
+          }
+        },
+        {
+          "encodedOffset": 5925,
+          "row": 59,
+          "column": 25,
+          "rotatedRow": 25,
+          "rotatedColumn": 40,
+          "anchorDelta": {
+            "row": -19,
+            "column": -9
+          }
+        },
+        {
+          "encodedOffset": 6228,
+          "row": 62,
+          "column": 28,
+          "rotatedRow": 28,
+          "rotatedColumn": 37,
+          "anchorDelta": {
+            "row": -16,
+            "column": -12
+          }
+        },
+        {
+          "encodedOffset": 6329,
+          "row": 63,
+          "column": 29,
+          "rotatedRow": 29,
+          "rotatedColumn": 36,
+          "anchorDelta": {
+            "row": -15,
+            "column": -13
+          }
+        },
+        {
+          "encodedOffset": 6430,
+          "row": 64,
+          "column": 30,
+          "rotatedRow": 30,
+          "rotatedColumn": 35,
+          "anchorDelta": {
+            "row": -14,
+            "column": -14
+          }
+        },
+        {
+          "encodedOffset": 6431,
+          "row": 64,
+          "column": 31,
+          "rotatedRow": 31,
+          "rotatedColumn": 35,
+          "anchorDelta": {
+            "row": -13,
+            "column": -14
+          }
+        },
+        {
+          "encodedOffset": 6432,
+          "row": 64,
+          "column": 32,
+          "rotatedRow": 32,
+          "rotatedColumn": 35,
+          "anchorDelta": {
+            "row": -12,
+            "column": -14
+          }
+        },
+        {
+          "encodedOffset": 6433,
+          "row": 64,
+          "column": 33,
+          "rotatedRow": 33,
+          "rotatedColumn": 35,
+          "anchorDelta": {
+            "row": -11,
+            "column": -14
+          }
+        },
+        {
+          "encodedOffset": 6434,
+          "row": 64,
+          "column": 34,
+          "rotatedRow": 34,
+          "rotatedColumn": 35,
+          "anchorDelta": {
+            "row": -10,
+            "column": -14
+          }
+        },
+        {
+          "encodedOffset": 6435,
+          "row": 64,
+          "column": 35,
+          "rotatedRow": 35,
+          "rotatedColumn": 35,
+          "anchorDelta": {
+            "row": -9,
+            "column": -14
+          }
+        },
+        {
+          "encodedOffset": 6436,
+          "row": 64,
+          "column": 36,
+          "rotatedRow": 36,
+          "rotatedColumn": 35,
+          "anchorDelta": {
+            "row": -8,
+            "column": -14
+          }
+        },
+        {
+          "encodedOffset": 6437,
+          "row": 64,
+          "column": 37,
+          "rotatedRow": 37,
+          "rotatedColumn": 35,
+          "anchorDelta": {
+            "row": -7,
+            "column": -14
+          }
+        },
+        {
+          "encodedOffset": 6438,
+          "row": 64,
+          "column": 38,
+          "rotatedRow": 38,
+          "rotatedColumn": 35,
+          "anchorDelta": {
+            "row": -6,
+            "column": -14
+          }
+        },
+        {
+          "encodedOffset": 6439,
+          "row": 64,
+          "column": 39,
+          "rotatedRow": 39,
+          "rotatedColumn": 35,
+          "anchorDelta": {
+            "row": -5,
+            "column": -14
+          }
+        },
+        {
+          "encodedOffset": 6440,
+          "row": 64,
+          "column": 40,
+          "rotatedRow": 40,
+          "rotatedColumn": 35,
+          "anchorDelta": {
+            "row": -4,
+            "column": -14
+          }
+        },
+        {
+          "encodedOffset": 6441,
+          "row": 64,
+          "column": 41,
+          "rotatedRow": 41,
+          "rotatedColumn": 35,
+          "anchorDelta": {
+            "row": -3,
+            "column": -14
+          }
+        },
+        {
+          "encodedOffset": 6442,
+          "row": 64,
+          "column": 42,
+          "rotatedRow": 42,
+          "rotatedColumn": 35,
+          "anchorDelta": {
+            "row": -2,
+            "column": -14
+          }
+        },
+        {
+          "encodedOffset": 6443,
+          "row": 64,
+          "column": 43,
+          "rotatedRow": 43,
+          "rotatedColumn": 35,
+          "anchorDelta": {
+            "row": -1,
+            "column": -14
+          }
+        },
+        {
+          "encodedOffset": 6444,
+          "row": 64,
+          "column": 44,
+          "rotatedRow": 44,
+          "rotatedColumn": 35,
+          "anchorDelta": {
+            "row": 0,
+            "column": -14
+          }
+        },
+        {
+          "encodedOffset": 6445,
+          "row": 64,
+          "column": 45,
+          "rotatedRow": 45,
+          "rotatedColumn": 35,
+          "anchorDelta": {
+            "row": 1,
+            "column": -14
+          }
+        },
+        {
+          "encodedOffset": 6446,
+          "row": 64,
+          "column": 46,
+          "rotatedRow": 46,
+          "rotatedColumn": 35,
+          "anchorDelta": {
+            "row": 2,
+            "column": -14
+          }
+        },
+        {
+          "encodedOffset": 6447,
+          "row": 64,
+          "column": 47,
+          "rotatedRow": 47,
+          "rotatedColumn": 35,
+          "anchorDelta": {
+            "row": 3,
+            "column": -14
+          }
+        },
+        {
+          "encodedOffset": 6448,
+          "row": 64,
+          "column": 48,
+          "rotatedRow": 48,
+          "rotatedColumn": 35,
+          "anchorDelta": {
+            "row": 4,
+            "column": -14
+          }
+        },
+        {
+          "encodedOffset": 6453,
+          "row": 64,
+          "column": 53,
+          "rotatedRow": 53,
+          "rotatedColumn": 35,
+          "anchorDelta": {
+            "row": 9,
+            "column": -14
+          }
+        },
+        {
+          "encodedOffset": 6454,
+          "row": 64,
+          "column": 54,
+          "rotatedRow": 54,
+          "rotatedColumn": 35,
+          "anchorDelta": {
+            "row": 10,
+            "column": -14
+          }
+        },
+        {
+          "encodedOffset": 6455,
+          "row": 64,
+          "column": 55,
+          "rotatedRow": 55,
+          "rotatedColumn": 35,
+          "anchorDelta": {
+            "row": 11,
+            "column": -14
+          }
+        },
+        {
+          "encodedOffset": 6456,
+          "row": 64,
+          "column": 56,
+          "rotatedRow": 56,
+          "rotatedColumn": 35,
+          "anchorDelta": {
+            "row": 12,
+            "column": -14
+          }
+        },
+        {
+          "encodedOffset": 6457,
+          "row": 64,
+          "column": 57,
+          "rotatedRow": 57,
+          "rotatedColumn": 35,
+          "anchorDelta": {
+            "row": 13,
+            "column": -14
+          }
+        },
+        {
+          "encodedOffset": 6458,
+          "row": 64,
+          "column": 58,
+          "rotatedRow": 58,
+          "rotatedColumn": 35,
+          "anchorDelta": {
+            "row": 14,
+            "column": -14
+          }
+        },
+        {
+          "encodedOffset": 6459,
+          "row": 64,
+          "column": 59,
+          "rotatedRow": 59,
+          "rotatedColumn": 35,
+          "anchorDelta": {
+            "row": 15,
+            "column": -14
+          }
+        },
+        {
+          "encodedOffset": 6460,
+          "row": 64,
+          "column": 60,
+          "rotatedRow": 60,
+          "rotatedColumn": 35,
+          "anchorDelta": {
+            "row": 16,
+            "column": -14
+          }
+        },
+        {
+          "encodedOffset": 6461,
+          "row": 64,
+          "column": 61,
+          "rotatedRow": 61,
+          "rotatedColumn": 35,
+          "anchorDelta": {
+            "row": 17,
+            "column": -14
+          }
+        },
+        {
+          "encodedOffset": 6462,
+          "row": 64,
+          "column": 62,
+          "rotatedRow": 62,
+          "rotatedColumn": 35,
+          "anchorDelta": {
+            "row": 18,
+            "column": -14
+          }
+        },
+        {
+          "encodedOffset": 6463,
+          "row": 64,
+          "column": 63,
+          "rotatedRow": 63,
+          "rotatedColumn": 35,
+          "anchorDelta": {
+            "row": 19,
+            "column": -14
+          }
+        },
+        {
+          "encodedOffset": 6464,
+          "row": 64,
+          "column": 64,
+          "rotatedRow": 64,
+          "rotatedColumn": 35,
+          "anchorDelta": {
+            "row": 20,
+            "column": -14
+          }
+        },
+        {
+          "encodedOffset": 6365,
+          "row": 63,
+          "column": 65,
+          "rotatedRow": 65,
+          "rotatedColumn": 36,
+          "anchorDelta": {
+            "row": 21,
+            "column": -13
+          }
+        },
+        {
+          "encodedOffset": 6266,
+          "row": 62,
+          "column": 66,
+          "rotatedRow": 66,
+          "rotatedColumn": 37,
+          "anchorDelta": {
+            "row": 22,
+            "column": -12
+          }
+        },
+        {
+          "encodedOffset": 5969,
+          "row": 59,
+          "column": 69,
+          "rotatedRow": 69,
+          "rotatedColumn": 40,
+          "anchorDelta": {
+            "row": 25,
+            "column": -9
+          }
+        },
+        {
+          "encodedOffset": 5870,
+          "row": 58,
+          "column": 70,
+          "rotatedRow": 70,
+          "rotatedColumn": 41,
+          "anchorDelta": {
+            "row": 26,
+            "column": -8
+          }
+        },
+        {
+          "encodedOffset": 5771,
+          "row": 57,
+          "column": 71,
+          "rotatedRow": 71,
+          "rotatedColumn": 42,
+          "anchorDelta": {
+            "row": 27,
+            "column": -7
+          }
+        },
+        {
+          "encodedOffset": 5671,
+          "row": 56,
+          "column": 71,
+          "rotatedRow": 71,
+          "rotatedColumn": 43,
+          "anchorDelta": {
+            "row": 27,
+            "column": -6
+          }
+        },
+        {
+          "encodedOffset": 5571,
+          "row": 55,
+          "column": 71,
+          "rotatedRow": 71,
+          "rotatedColumn": 44,
+          "anchorDelta": {
+            "row": 27,
+            "column": -5
+          }
+        },
+        {
+          "encodedOffset": 5471,
+          "row": 54,
+          "column": 71,
+          "rotatedRow": 71,
+          "rotatedColumn": 45,
+          "anchorDelta": {
+            "row": 27,
+            "column": -4
+          }
+        },
+        {
+          "encodedOffset": 5371,
+          "row": 53,
+          "column": 71,
+          "rotatedRow": 71,
+          "rotatedColumn": 46,
+          "anchorDelta": {
+            "row": 27,
+            "column": -3
+          }
+        },
+        {
+          "encodedOffset": 5271,
+          "row": 52,
+          "column": 71,
+          "rotatedRow": 71,
+          "rotatedColumn": 47,
+          "anchorDelta": {
+            "row": 27,
+            "column": -2
+          }
+        },
+        {
+          "encodedOffset": 5171,
+          "row": 51,
+          "column": 71,
+          "rotatedRow": 71,
+          "rotatedColumn": 48,
+          "anchorDelta": {
+            "row": 27,
+            "column": -1
+          }
+        },
+        {
+          "encodedOffset": 5071,
+          "row": 50,
+          "column": 71,
+          "rotatedRow": 71,
+          "rotatedColumn": 49,
+          "anchorDelta": {
+            "row": 27,
+            "column": 0
+          }
+        },
+        {
+          "encodedOffset": 4971,
+          "row": 49,
+          "column": 71,
+          "rotatedRow": 71,
+          "rotatedColumn": 50,
+          "anchorDelta": {
+            "row": 27,
+            "column": 1
+          }
+        },
+        {
+          "encodedOffset": 4871,
+          "row": 48,
+          "column": 71,
+          "rotatedRow": 71,
+          "rotatedColumn": 51,
+          "anchorDelta": {
+            "row": 27,
+            "column": 2
+          }
+        },
+        {
+          "encodedOffset": 4771,
+          "row": 47,
+          "column": 71,
+          "rotatedRow": 71,
+          "rotatedColumn": 52,
+          "anchorDelta": {
+            "row": 27,
+            "column": 3
+          }
+        },
+        {
+          "encodedOffset": 4671,
+          "row": 46,
+          "column": 71,
+          "rotatedRow": 71,
+          "rotatedColumn": 53,
+          "anchorDelta": {
+            "row": 27,
+            "column": 4
+          }
+        },
+        {
+          "encodedOffset": 4571,
+          "row": 45,
+          "column": 71,
+          "rotatedRow": 71,
+          "rotatedColumn": 54,
+          "anchorDelta": {
+            "row": 27,
+            "column": 5
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 30,
+      "itemType": 25,
+      "mapperName": "MAPPER_WALL",
+      "category": "HighWallPath",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 3971,
+          "row": 39,
+          "column": 71,
+          "rotatedRow": 71,
+          "rotatedColumn": 60,
+          "anchorDelta": {
+            "row": 27,
+            "column": 11
+          }
+        },
+        {
+          "encodedOffset": 3871,
+          "row": 38,
+          "column": 71,
+          "rotatedRow": 71,
+          "rotatedColumn": 61,
+          "anchorDelta": {
+            "row": 27,
+            "column": 12
+          }
+        },
+        {
+          "encodedOffset": 3771,
+          "row": 37,
+          "column": 71,
+          "rotatedRow": 71,
+          "rotatedColumn": 62,
+          "anchorDelta": {
+            "row": 27,
+            "column": 13
+          }
+        },
+        {
+          "encodedOffset": 3671,
+          "row": 36,
+          "column": 71,
+          "rotatedRow": 71,
+          "rotatedColumn": 63,
+          "anchorDelta": {
+            "row": 27,
+            "column": 14
+          }
+        },
+        {
+          "encodedOffset": 3571,
+          "row": 35,
+          "column": 71,
+          "rotatedRow": 71,
+          "rotatedColumn": 64,
+          "anchorDelta": {
+            "row": 27,
+            "column": 15
+          }
+        },
+        {
+          "encodedOffset": 3470,
+          "row": 34,
+          "column": 70,
+          "rotatedRow": 70,
+          "rotatedColumn": 65,
+          "anchorDelta": {
+            "row": 26,
+            "column": 16
+          }
+        },
+        {
+          "encodedOffset": 3369,
+          "row": 33,
+          "column": 69,
+          "rotatedRow": 69,
+          "rotatedColumn": 66,
+          "anchorDelta": {
+            "row": 25,
+            "column": 17
+          }
+        },
+        {
+          "encodedOffset": 3066,
+          "row": 30,
+          "column": 66,
+          "rotatedRow": 66,
+          "rotatedColumn": 69,
+          "anchorDelta": {
+            "row": 22,
+            "column": 20
+          }
+        },
+        {
+          "encodedOffset": 2965,
+          "row": 29,
+          "column": 65,
+          "rotatedRow": 65,
+          "rotatedColumn": 70,
+          "anchorDelta": {
+            "row": 21,
+            "column": 21
+          }
+        },
+        {
+          "encodedOffset": 2864,
+          "row": 28,
+          "column": 64,
+          "rotatedRow": 64,
+          "rotatedColumn": 71,
+          "anchorDelta": {
+            "row": 20,
+            "column": 22
+          }
+        },
+        {
+          "encodedOffset": 2863,
+          "row": 28,
+          "column": 63,
+          "rotatedRow": 63,
+          "rotatedColumn": 71,
+          "anchorDelta": {
+            "row": 19,
+            "column": 22
+          }
+        },
+        {
+          "encodedOffset": 2862,
+          "row": 28,
+          "column": 62,
+          "rotatedRow": 62,
+          "rotatedColumn": 71,
+          "anchorDelta": {
+            "row": 18,
+            "column": 22
+          }
+        },
+        {
+          "encodedOffset": 2861,
+          "row": 28,
+          "column": 61,
+          "rotatedRow": 61,
+          "rotatedColumn": 71,
+          "anchorDelta": {
+            "row": 17,
+            "column": 22
+          }
+        },
+        {
+          "encodedOffset": 2860,
+          "row": 28,
+          "column": 60,
+          "rotatedRow": 60,
+          "rotatedColumn": 71,
+          "anchorDelta": {
+            "row": 16,
+            "column": 22
+          }
+        },
+        {
+          "encodedOffset": 2859,
+          "row": 28,
+          "column": 59,
+          "rotatedRow": 59,
+          "rotatedColumn": 71,
+          "anchorDelta": {
+            "row": 15,
+            "column": 22
+          }
+        },
+        {
+          "encodedOffset": 2858,
+          "row": 28,
+          "column": 58,
+          "rotatedRow": 58,
+          "rotatedColumn": 71,
+          "anchorDelta": {
+            "row": 14,
+            "column": 22
+          }
+        },
+        {
+          "encodedOffset": 2857,
+          "row": 28,
+          "column": 57,
+          "rotatedRow": 57,
+          "rotatedColumn": 71,
+          "anchorDelta": {
+            "row": 13,
+            "column": 22
+          }
+        },
+        {
+          "encodedOffset": 2856,
+          "row": 28,
+          "column": 56,
+          "rotatedRow": 56,
+          "rotatedColumn": 71,
+          "anchorDelta": {
+            "row": 12,
+            "column": 22
+          }
+        },
+        {
+          "encodedOffset": 2855,
+          "row": 28,
+          "column": 55,
+          "rotatedRow": 55,
+          "rotatedColumn": 71,
+          "anchorDelta": {
+            "row": 11,
+            "column": 22
+          }
+        },
+        {
+          "encodedOffset": 2854,
+          "row": 28,
+          "column": 54,
+          "rotatedRow": 54,
+          "rotatedColumn": 71,
+          "anchorDelta": {
+            "row": 10,
+            "column": 22
+          }
+        },
+        {
+          "encodedOffset": 2853,
+          "row": 28,
+          "column": 53,
+          "rotatedRow": 53,
+          "rotatedColumn": 71,
+          "anchorDelta": {
+            "row": 9,
+            "column": 22
+          }
+        },
+        {
+          "encodedOffset": 2852,
+          "row": 28,
+          "column": 52,
+          "rotatedRow": 52,
+          "rotatedColumn": 71,
+          "anchorDelta": {
+            "row": 8,
+            "column": 22
+          }
+        },
+        {
+          "encodedOffset": 2851,
+          "row": 28,
+          "column": 51,
+          "rotatedRow": 51,
+          "rotatedColumn": 71,
+          "anchorDelta": {
+            "row": 7,
+            "column": 22
+          }
+        },
+        {
+          "encodedOffset": 2850,
+          "row": 28,
+          "column": 50,
+          "rotatedRow": 50,
+          "rotatedColumn": 71,
+          "anchorDelta": {
+            "row": 6,
+            "column": 22
+          }
+        },
+        {
+          "encodedOffset": 2849,
+          "row": 28,
+          "column": 49,
+          "rotatedRow": 49,
+          "rotatedColumn": 71,
+          "anchorDelta": {
+            "row": 5,
+            "column": 22
+          }
+        },
+        {
+          "encodedOffset": 2848,
+          "row": 28,
+          "column": 48,
+          "rotatedRow": 48,
+          "rotatedColumn": 71,
+          "anchorDelta": {
+            "row": 4,
+            "column": 22
+          }
+        },
+        {
+          "encodedOffset": 2847,
+          "row": 28,
+          "column": 47,
+          "rotatedRow": 47,
+          "rotatedColumn": 71,
+          "anchorDelta": {
+            "row": 3,
+            "column": 22
+          }
+        },
+        {
+          "encodedOffset": 2846,
+          "row": 28,
+          "column": 46,
+          "rotatedRow": 46,
+          "rotatedColumn": 71,
+          "anchorDelta": {
+            "row": 2,
+            "column": 22
+          }
+        },
+        {
+          "encodedOffset": 2841,
+          "row": 28,
+          "column": 41,
+          "rotatedRow": 41,
+          "rotatedColumn": 71,
+          "anchorDelta": {
+            "row": -3,
+            "column": 22
+          }
+        },
+        {
+          "encodedOffset": 2840,
+          "row": 28,
+          "column": 40,
+          "rotatedRow": 40,
+          "rotatedColumn": 71,
+          "anchorDelta": {
+            "row": -4,
+            "column": 22
+          }
+        },
+        {
+          "encodedOffset": 2839,
+          "row": 28,
+          "column": 39,
+          "rotatedRow": 39,
+          "rotatedColumn": 71,
+          "anchorDelta": {
+            "row": -5,
+            "column": 22
+          }
+        },
+        {
+          "encodedOffset": 2838,
+          "row": 28,
+          "column": 38,
+          "rotatedRow": 38,
+          "rotatedColumn": 71,
+          "anchorDelta": {
+            "row": -6,
+            "column": 22
+          }
+        },
+        {
+          "encodedOffset": 2837,
+          "row": 28,
+          "column": 37,
+          "rotatedRow": 37,
+          "rotatedColumn": 71,
+          "anchorDelta": {
+            "row": -7,
+            "column": 22
+          }
+        },
+        {
+          "encodedOffset": 2836,
+          "row": 28,
+          "column": 36,
+          "rotatedRow": 36,
+          "rotatedColumn": 71,
+          "anchorDelta": {
+            "row": -8,
+            "column": 22
+          }
+        },
+        {
+          "encodedOffset": 2835,
+          "row": 28,
+          "column": 35,
+          "rotatedRow": 35,
+          "rotatedColumn": 71,
+          "anchorDelta": {
+            "row": -9,
+            "column": 22
+          }
+        },
+        {
+          "encodedOffset": 2834,
+          "row": 28,
+          "column": 34,
+          "rotatedRow": 34,
+          "rotatedColumn": 71,
+          "anchorDelta": {
+            "row": -10,
+            "column": 22
+          }
+        },
+        {
+          "encodedOffset": 2833,
+          "row": 28,
+          "column": 33,
+          "rotatedRow": 33,
+          "rotatedColumn": 71,
+          "anchorDelta": {
+            "row": -11,
+            "column": 22
+          }
+        },
+        {
+          "encodedOffset": 2832,
+          "row": 28,
+          "column": 32,
+          "rotatedRow": 32,
+          "rotatedColumn": 71,
+          "anchorDelta": {
+            "row": -12,
+            "column": 22
+          }
+        },
+        {
+          "encodedOffset": 2831,
+          "row": 28,
+          "column": 31,
+          "rotatedRow": 31,
+          "rotatedColumn": 71,
+          "anchorDelta": {
+            "row": -13,
+            "column": 22
+          }
+        },
+        {
+          "encodedOffset": 2830,
+          "row": 28,
+          "column": 30,
+          "rotatedRow": 30,
+          "rotatedColumn": 71,
+          "anchorDelta": {
+            "row": -14,
+            "column": 22
+          }
+        },
+        {
+          "encodedOffset": 2929,
+          "row": 29,
+          "column": 29,
+          "rotatedRow": 29,
+          "rotatedColumn": 70,
+          "anchorDelta": {
+            "row": -15,
+            "column": 21
+          }
+        },
+        {
+          "encodedOffset": 3028,
+          "row": 30,
+          "column": 28,
+          "rotatedRow": 28,
+          "rotatedColumn": 69,
+          "anchorDelta": {
+            "row": -16,
+            "column": 20
+          }
+        },
+        {
+          "encodedOffset": 3325,
+          "row": 33,
+          "column": 25,
+          "rotatedRow": 25,
+          "rotatedColumn": 66,
+          "anchorDelta": {
+            "row": -19,
+            "column": 17
+          }
+        },
+        {
+          "encodedOffset": 3424,
+          "row": 34,
+          "column": 24,
+          "rotatedRow": 24,
+          "rotatedColumn": 65,
+          "anchorDelta": {
+            "row": -20,
+            "column": 16
+          }
+        },
+        {
+          "encodedOffset": 3523,
+          "row": 35,
+          "column": 23,
+          "rotatedRow": 23,
+          "rotatedColumn": 64,
+          "anchorDelta": {
+            "row": -21,
+            "column": 15
+          }
+        },
+        {
+          "encodedOffset": 3623,
+          "row": 36,
+          "column": 23,
+          "rotatedRow": 23,
+          "rotatedColumn": 63,
+          "anchorDelta": {
+            "row": -21,
+            "column": 14
+          }
+        },
+        {
+          "encodedOffset": 3723,
+          "row": 37,
+          "column": 23,
+          "rotatedRow": 23,
+          "rotatedColumn": 62,
+          "anchorDelta": {
+            "row": -21,
+            "column": 13
+          }
+        },
+        {
+          "encodedOffset": 3823,
+          "row": 38,
+          "column": 23,
+          "rotatedRow": 23,
+          "rotatedColumn": 61,
+          "anchorDelta": {
+            "row": -21,
+            "column": 12
+          }
+        },
+        {
+          "encodedOffset": 3923,
+          "row": 39,
+          "column": 23,
+          "rotatedRow": 23,
+          "rotatedColumn": 60,
+          "anchorDelta": {
+            "row": -21,
+            "column": 11
+          }
+        },
+        {
+          "encodedOffset": 4023,
+          "row": 40,
+          "column": 23,
+          "rotatedRow": 23,
+          "rotatedColumn": 59,
+          "anchorDelta": {
+            "row": -21,
+            "column": 10
+          }
+        },
+        {
+          "encodedOffset": 4123,
+          "row": 41,
+          "column": 23,
+          "rotatedRow": 23,
+          "rotatedColumn": 58,
+          "anchorDelta": {
+            "row": -21,
+            "column": 9
+          }
+        },
+        {
+          "encodedOffset": 4223,
+          "row": 42,
+          "column": 23,
+          "rotatedRow": 23,
+          "rotatedColumn": 57,
+          "anchorDelta": {
+            "row": -21,
+            "column": 8
+          }
+        },
+        {
+          "encodedOffset": 4323,
+          "row": 43,
+          "column": 23,
+          "rotatedRow": 23,
+          "rotatedColumn": 56,
+          "anchorDelta": {
+            "row": -21,
+            "column": 7
+          }
+        },
+        {
+          "encodedOffset": 4423,
+          "row": 44,
+          "column": 23,
+          "rotatedRow": 23,
+          "rotatedColumn": 55,
+          "anchorDelta": {
+            "row": -21,
+            "column": 6
+          }
+        },
+        {
+          "encodedOffset": 4523,
+          "row": 45,
+          "column": 23,
+          "rotatedRow": 23,
+          "rotatedColumn": 54,
+          "anchorDelta": {
+            "row": -21,
+            "column": 5
+          }
+        },
+        {
+          "encodedOffset": 4623,
+          "row": 46,
+          "column": 23,
+          "rotatedRow": 23,
+          "rotatedColumn": 53,
+          "anchorDelta": {
+            "row": -21,
+            "column": 4
+          }
+        },
+        {
+          "encodedOffset": 4723,
+          "row": 47,
+          "column": 23,
+          "rotatedRow": 23,
+          "rotatedColumn": 52,
+          "anchorDelta": {
+            "row": -21,
+            "column": 3
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 31,
+      "itemType": 145,
+      "mapperName": "MAPPER_GATE_STONE1B",
+      "category": "Building",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 4470,
+          "row": 44,
+          "column": 70,
+          "rotatedRow": 70,
+          "rotatedColumn": 55,
+          "anchorDelta": {
+            "row": 26,
+            "column": 6
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 32,
+      "itemType": 145,
+      "mapperName": "MAPPER_GATE_STONE1B",
+      "category": "Building",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 5220,
+          "row": 52,
+          "column": 20,
+          "rotatedRow": 20,
+          "rotatedColumn": 47,
+          "anchorDelta": {
+            "row": -24,
+            "column": -2
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 33,
+      "itemType": 185,
+      "mapperName": "MAPPER_STAIR5",
+      "category": "Stair",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 3362,
+          "row": 33,
+          "column": 62,
+          "rotatedRow": 62,
+          "rotatedColumn": 66,
+          "anchorDelta": {
+            "row": 18,
+            "column": 17
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 34,
+      "itemType": 184,
+      "mapperName": "MAPPER_STAIR4",
+      "category": "Stair",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 3262,
+          "row": 32,
+          "column": 62,
+          "rotatedRow": 62,
+          "rotatedColumn": 67,
+          "anchorDelta": {
+            "row": 18,
+            "column": 18
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 35,
+      "itemType": 183,
+      "mapperName": "MAPPER_STAIR3",
+      "category": "Stair",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 3162,
+          "row": 31,
+          "column": 62,
+          "rotatedRow": 62,
+          "rotatedColumn": 68,
+          "anchorDelta": {
+            "row": 18,
+            "column": 19
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 36,
+      "itemType": 182,
+      "mapperName": "MAPPER_STAIR2",
+      "category": "Stair",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 3062,
+          "row": 30,
+          "column": 62,
+          "rotatedRow": 62,
+          "rotatedColumn": 69,
+          "anchorDelta": {
+            "row": 18,
+            "column": 20
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 37,
+      "itemType": 181,
+      "mapperName": "MAPPER_STAIR1",
+      "category": "Stair",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 2962,
+          "row": 29,
+          "column": 62,
+          "rotatedRow": 62,
+          "rotatedColumn": 70,
+          "anchorDelta": {
+            "row": 18,
+            "column": 21
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 38,
+      "itemType": 185,
+      "mapperName": "MAPPER_STAIR5",
+      "category": "Stair",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 5932,
+          "row": 59,
+          "column": 32,
+          "rotatedRow": 32,
+          "rotatedColumn": 40,
+          "anchorDelta": {
+            "row": -12,
+            "column": -9
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 39,
+      "itemType": 184,
+      "mapperName": "MAPPER_STAIR4",
+      "category": "Stair",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 6032,
+          "row": 60,
+          "column": 32,
+          "rotatedRow": 32,
+          "rotatedColumn": 39,
+          "anchorDelta": {
+            "row": -12,
+            "column": -10
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 40,
+      "itemType": 183,
+      "mapperName": "MAPPER_STAIR3",
+      "category": "Stair",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 6132,
+          "row": 61,
+          "column": 32,
+          "rotatedRow": 32,
+          "rotatedColumn": 38,
+          "anchorDelta": {
+            "row": -12,
+            "column": -11
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 41,
+      "itemType": 182,
+      "mapperName": "MAPPER_STAIR2",
+      "category": "Stair",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 6232,
+          "row": 62,
+          "column": 32,
+          "rotatedRow": 32,
+          "rotatedColumn": 37,
+          "anchorDelta": {
+            "row": -12,
+            "column": -12
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 42,
+      "itemType": 181,
+      "mapperName": "MAPPER_STAIR1",
+      "category": "Stair",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 6332,
+          "row": 63,
+          "column": 32,
+          "rotatedRow": 32,
+          "rotatedColumn": 36,
+          "anchorDelta": {
+            "row": -12,
+            "column": -13
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 43,
+      "itemType": 76,
+      "mapperName": "MAPPER_BREWER",
+      "category": "Building",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 4724,
+          "row": 47,
+          "column": 24,
+          "rotatedRow": 24,
+          "rotatedColumn": 52,
+          "anchorDelta": {
+            "row": -20,
+            "column": 3
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 44,
+      "itemType": 76,
+      "mapperName": "MAPPER_BREWER",
+      "category": "Building",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 4324,
+          "row": 43,
+          "column": 24,
+          "rotatedRow": 24,
+          "rotatedColumn": 56,
+          "anchorDelta": {
+            "row": -20,
+            "column": 7
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 45,
+      "itemType": 92,
+      "mapperName": "MAPPER_INN",
+      "category": "Building",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 3337,
+          "row": 33,
+          "column": 37,
+          "rotatedRow": 37,
+          "rotatedColumn": 66,
+          "anchorDelta": {
+            "row": -7,
+            "column": 17
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 46,
+      "itemType": 92,
+      "mapperName": "MAPPER_INN",
+      "category": "Building",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 3332,
+          "row": 33,
+          "column": 32,
+          "rotatedRow": 32,
+          "rotatedColumn": 66,
+          "anchorDelta": {
+            "row": -12,
+            "column": 17
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 47,
+      "itemType": 88,
+      "mapperName": "MAPPER_ENGINEERS_GUILD",
+      "category": "Building",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 4615,
+          "row": 46,
+          "column": 15,
+          "rotatedRow": 15,
+          "rotatedColumn": 53,
+          "anchorDelta": {
+            "row": -29,
+            "column": 4
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 48,
+      "itemType": 180,
+      "mapperName": "MAPPER_OIL_SMELTER",
+      "category": "Building",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 5475,
+          "row": 54,
+          "column": 75,
+          "rotatedRow": 75,
+          "rotatedColumn": 45,
+          "anchorDelta": {
+            "row": 31,
+            "column": -4
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 49,
+      "itemType": 111,
+      "mapperName": "MAPPER_TOWER2",
+      "category": "Building",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 6549,
+          "row": 65,
+          "column": 49,
+          "rotatedRow": 49,
+          "rotatedColumn": 34,
+          "anchorDelta": {
+            "row": 5,
+            "column": -15
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 50,
+      "itemType": 111,
+      "mapperName": "MAPPER_TOWER2",
+      "category": "Building",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 3042,
+          "row": 30,
+          "column": 42,
+          "rotatedRow": 42,
+          "rotatedColumn": 69,
+          "anchorDelta": {
+            "row": -2,
+            "column": 20
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 51,
+      "itemType": 83,
+      "mapperName": "MAPPER_BLACKSMITH",
+      "category": "Building",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 3834,
+          "row": 38,
+          "column": 34,
+          "rotatedRow": 34,
+          "rotatedColumn": 61,
+          "anchorDelta": {
+            "row": -10,
+            "column": 12
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 52,
+      "itemType": 83,
+      "mapperName": "MAPPER_BLACKSMITH",
+      "category": "Building",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 4234,
+          "row": 42,
+          "column": 34,
+          "rotatedRow": 34,
+          "rotatedColumn": 57,
+          "anchorDelta": {
+            "row": -10,
+            "column": 8
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 53,
+      "itemType": 82,
+      "mapperName": "MAPPER_POLETURNER",
+      "category": "Building",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 5834,
+          "row": 58,
+          "column": 34,
+          "rotatedRow": 34,
+          "rotatedColumn": 41,
+          "anchorDelta": {
+            "row": -10,
+            "column": -8
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 54,
+      "itemType": 82,
+      "mapperName": "MAPPER_POLETURNER",
+      "category": "Building",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 5838,
+          "row": 58,
+          "column": 38,
+          "rotatedRow": 38,
+          "rotatedColumn": 41,
+          "anchorDelta": {
+            "row": -6,
+            "column": -8
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 55,
+      "itemType": 54,
+      "mapperName": "MAPPER_HOVEL",
+      "category": "Building",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 3442,
+          "row": 34,
+          "column": 42,
+          "rotatedRow": 42,
+          "rotatedColumn": 65,
+          "anchorDelta": {
+            "row": -2,
+            "column": 16
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 56,
+      "itemType": 342,
+      "mapperName": "MAPPER_WATERPOT",
+      "category": "Building",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 5843,
+          "row": 58,
+          "column": 43,
+          "rotatedRow": 43,
+          "rotatedColumn": 41,
+          "anchorDelta": {
+            "row": -1,
+            "column": -8
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 57,
+      "itemType": 50,
+      "mapperName": "MAPPER_FLETCHER",
+      "category": "Building",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 5447,
+          "row": 54,
+          "column": 47,
+          "rotatedRow": 47,
+          "rotatedColumn": 45,
+          "anchorDelta": {
+            "row": 3,
+            "column": -4
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 58,
+      "itemType": 50,
+      "mapperName": "MAPPER_FLETCHER",
+      "category": "Building",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 5847,
+          "row": 58,
+          "column": 47,
+          "rotatedRow": 47,
+          "rotatedColumn": 41,
+          "anchorDelta": {
+            "row": 3,
+            "column": -8
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 59,
+      "itemType": 50,
+      "mapperName": "MAPPER_FLETCHER",
+      "category": "Building",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 5443,
+          "row": 54,
+          "column": 43,
+          "rotatedRow": 43,
+          "rotatedColumn": 45,
+          "anchorDelta": {
+            "row": -1,
+            "column": -4
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 60,
+      "itemType": 85,
+      "mapperName": "MAPPER_TANNER",
+      "category": "Building",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 4833,
+          "row": 48,
+          "column": 33,
+          "rotatedRow": 33,
+          "rotatedColumn": 51,
+          "anchorDelta": {
+            "row": -11,
+            "column": 2
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 61,
+      "itemType": 85,
+      "mapperName": "MAPPER_TANNER",
+      "category": "Building",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 4829,
+          "row": 48,
+          "column": 29,
+          "rotatedRow": 29,
+          "rotatedColumn": 51,
+          "anchorDelta": {
+            "row": -15,
+            "column": 2
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 62,
+      "itemType": 83,
+      "mapperName": "MAPPER_BLACKSMITH",
+      "category": "Building",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 4229,
+          "row": 42,
+          "column": 29,
+          "rotatedRow": 29,
+          "rotatedColumn": 57,
+          "anchorDelta": {
+            "row": -15,
+            "column": 8
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 63,
+      "itemType": 25,
+      "mapperName": "MAPPER_WALL",
+      "category": "HighWallPath",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 5322,
+          "row": 53,
+          "column": 22,
+          "rotatedRow": 22,
+          "rotatedColumn": 46,
+          "anchorDelta": {
+            "row": -22,
+            "column": -3
+          }
+        },
+        {
+          "encodedOffset": 5422,
+          "row": 54,
+          "column": 22,
+          "rotatedRow": 22,
+          "rotatedColumn": 45,
+          "anchorDelta": {
+            "row": -22,
+            "column": -4
+          }
+        },
+        {
+          "encodedOffset": 5522,
+          "row": 55,
+          "column": 22,
+          "rotatedRow": 22,
+          "rotatedColumn": 44,
+          "anchorDelta": {
+            "row": -22,
+            "column": -5
+          }
+        },
+        {
+          "encodedOffset": 5622,
+          "row": 56,
+          "column": 22,
+          "rotatedRow": 22,
+          "rotatedColumn": 43,
+          "anchorDelta": {
+            "row": -22,
+            "column": -6
+          }
+        },
+        {
+          "encodedOffset": 5722,
+          "row": 57,
+          "column": 22,
+          "rotatedRow": 22,
+          "rotatedColumn": 42,
+          "anchorDelta": {
+            "row": -22,
+            "column": -7
+          }
+        },
+        {
+          "encodedOffset": 5823,
+          "row": 58,
+          "column": 23,
+          "rotatedRow": 23,
+          "rotatedColumn": 41,
+          "anchorDelta": {
+            "row": -21,
+            "column": -8
+          }
+        },
+        {
+          "encodedOffset": 5924,
+          "row": 59,
+          "column": 24,
+          "rotatedRow": 24,
+          "rotatedColumn": 40,
+          "anchorDelta": {
+            "row": -20,
+            "column": -9
+          }
+        },
+        {
+          "encodedOffset": 6025,
+          "row": 60,
+          "column": 25,
+          "rotatedRow": 25,
+          "rotatedColumn": 39,
+          "anchorDelta": {
+            "row": -19,
+            "column": -10
+          }
+        },
+        {
+          "encodedOffset": 6227,
+          "row": 62,
+          "column": 27,
+          "rotatedRow": 27,
+          "rotatedColumn": 37,
+          "anchorDelta": {
+            "row": -17,
+            "column": -12
+          }
+        },
+        {
+          "encodedOffset": 6328,
+          "row": 63,
+          "column": 28,
+          "rotatedRow": 28,
+          "rotatedColumn": 36,
+          "anchorDelta": {
+            "row": -16,
+            "column": -13
+          }
+        },
+        {
+          "encodedOffset": 6429,
+          "row": 64,
+          "column": 29,
+          "rotatedRow": 29,
+          "rotatedColumn": 35,
+          "anchorDelta": {
+            "row": -15,
+            "column": -14
+          }
+        },
+        {
+          "encodedOffset": 6530,
+          "row": 65,
+          "column": 30,
+          "rotatedRow": 30,
+          "rotatedColumn": 34,
+          "anchorDelta": {
+            "row": -14,
+            "column": -15
+          }
+        },
+        {
+          "encodedOffset": 6531,
+          "row": 65,
+          "column": 31,
+          "rotatedRow": 31,
+          "rotatedColumn": 34,
+          "anchorDelta": {
+            "row": -13,
+            "column": -15
+          }
+        },
+        {
+          "encodedOffset": 6532,
+          "row": 65,
+          "column": 32,
+          "rotatedRow": 32,
+          "rotatedColumn": 34,
+          "anchorDelta": {
+            "row": -12,
+            "column": -15
+          }
+        },
+        {
+          "encodedOffset": 6533,
+          "row": 65,
+          "column": 33,
+          "rotatedRow": 33,
+          "rotatedColumn": 34,
+          "anchorDelta": {
+            "row": -11,
+            "column": -15
+          }
+        },
+        {
+          "encodedOffset": 6534,
+          "row": 65,
+          "column": 34,
+          "rotatedRow": 34,
+          "rotatedColumn": 34,
+          "anchorDelta": {
+            "row": -10,
+            "column": -15
+          }
+        },
+        {
+          "encodedOffset": 6535,
+          "row": 65,
+          "column": 35,
+          "rotatedRow": 35,
+          "rotatedColumn": 34,
+          "anchorDelta": {
+            "row": -9,
+            "column": -15
+          }
+        },
+        {
+          "encodedOffset": 6536,
+          "row": 65,
+          "column": 36,
+          "rotatedRow": 36,
+          "rotatedColumn": 34,
+          "anchorDelta": {
+            "row": -8,
+            "column": -15
+          }
+        },
+        {
+          "encodedOffset": 6537,
+          "row": 65,
+          "column": 37,
+          "rotatedRow": 37,
+          "rotatedColumn": 34,
+          "anchorDelta": {
+            "row": -7,
+            "column": -15
+          }
+        },
+        {
+          "encodedOffset": 6538,
+          "row": 65,
+          "column": 38,
+          "rotatedRow": 38,
+          "rotatedColumn": 34,
+          "anchorDelta": {
+            "row": -6,
+            "column": -15
+          }
+        },
+        {
+          "encodedOffset": 6539,
+          "row": 65,
+          "column": 39,
+          "rotatedRow": 39,
+          "rotatedColumn": 34,
+          "anchorDelta": {
+            "row": -5,
+            "column": -15
+          }
+        },
+        {
+          "encodedOffset": 6540,
+          "row": 65,
+          "column": 40,
+          "rotatedRow": 40,
+          "rotatedColumn": 34,
+          "anchorDelta": {
+            "row": -4,
+            "column": -15
+          }
+        },
+        {
+          "encodedOffset": 6541,
+          "row": 65,
+          "column": 41,
+          "rotatedRow": 41,
+          "rotatedColumn": 34,
+          "anchorDelta": {
+            "row": -3,
+            "column": -15
+          }
+        },
+        {
+          "encodedOffset": 6542,
+          "row": 65,
+          "column": 42,
+          "rotatedRow": 42,
+          "rotatedColumn": 34,
+          "anchorDelta": {
+            "row": -2,
+            "column": -15
+          }
+        },
+        {
+          "encodedOffset": 6543,
+          "row": 65,
+          "column": 43,
+          "rotatedRow": 43,
+          "rotatedColumn": 34,
+          "anchorDelta": {
+            "row": -1,
+            "column": -15
+          }
+        },
+        {
+          "encodedOffset": 6544,
+          "row": 65,
+          "column": 44,
+          "rotatedRow": 44,
+          "rotatedColumn": 34,
+          "anchorDelta": {
+            "row": 0,
+            "column": -15
+          }
+        },
+        {
+          "encodedOffset": 6545,
+          "row": 65,
+          "column": 45,
+          "rotatedRow": 45,
+          "rotatedColumn": 34,
+          "anchorDelta": {
+            "row": 1,
+            "column": -15
+          }
+        },
+        {
+          "encodedOffset": 6546,
+          "row": 65,
+          "column": 46,
+          "rotatedRow": 46,
+          "rotatedColumn": 34,
+          "anchorDelta": {
+            "row": 2,
+            "column": -15
+          }
+        },
+        {
+          "encodedOffset": 6547,
+          "row": 65,
+          "column": 47,
+          "rotatedRow": 47,
+          "rotatedColumn": 34,
+          "anchorDelta": {
+            "row": 3,
+            "column": -15
+          }
+        },
+        {
+          "encodedOffset": 6548,
+          "row": 65,
+          "column": 48,
+          "rotatedRow": 48,
+          "rotatedColumn": 34,
+          "anchorDelta": {
+            "row": 4,
+            "column": -15
+          }
+        },
+        {
+          "encodedOffset": 6553,
+          "row": 65,
+          "column": 53,
+          "rotatedRow": 53,
+          "rotatedColumn": 34,
+          "anchorDelta": {
+            "row": 9,
+            "column": -15
+          }
+        },
+        {
+          "encodedOffset": 6554,
+          "row": 65,
+          "column": 54,
+          "rotatedRow": 54,
+          "rotatedColumn": 34,
+          "anchorDelta": {
+            "row": 10,
+            "column": -15
+          }
+        },
+        {
+          "encodedOffset": 6555,
+          "row": 65,
+          "column": 55,
+          "rotatedRow": 55,
+          "rotatedColumn": 34,
+          "anchorDelta": {
+            "row": 11,
+            "column": -15
+          }
+        },
+        {
+          "encodedOffset": 6556,
+          "row": 65,
+          "column": 56,
+          "rotatedRow": 56,
+          "rotatedColumn": 34,
+          "anchorDelta": {
+            "row": 12,
+            "column": -15
+          }
+        },
+        {
+          "encodedOffset": 6557,
+          "row": 65,
+          "column": 57,
+          "rotatedRow": 57,
+          "rotatedColumn": 34,
+          "anchorDelta": {
+            "row": 13,
+            "column": -15
+          }
+        },
+        {
+          "encodedOffset": 6558,
+          "row": 65,
+          "column": 58,
+          "rotatedRow": 58,
+          "rotatedColumn": 34,
+          "anchorDelta": {
+            "row": 14,
+            "column": -15
+          }
+        },
+        {
+          "encodedOffset": 6559,
+          "row": 65,
+          "column": 59,
+          "rotatedRow": 59,
+          "rotatedColumn": 34,
+          "anchorDelta": {
+            "row": 15,
+            "column": -15
+          }
+        },
+        {
+          "encodedOffset": 6560,
+          "row": 65,
+          "column": 60,
+          "rotatedRow": 60,
+          "rotatedColumn": 34,
+          "anchorDelta": {
+            "row": 16,
+            "column": -15
+          }
+        },
+        {
+          "encodedOffset": 6561,
+          "row": 65,
+          "column": 61,
+          "rotatedRow": 61,
+          "rotatedColumn": 34,
+          "anchorDelta": {
+            "row": 17,
+            "column": -15
+          }
+        },
+        {
+          "encodedOffset": 6562,
+          "row": 65,
+          "column": 62,
+          "rotatedRow": 62,
+          "rotatedColumn": 34,
+          "anchorDelta": {
+            "row": 18,
+            "column": -15
+          }
+        },
+        {
+          "encodedOffset": 6563,
+          "row": 65,
+          "column": 63,
+          "rotatedRow": 63,
+          "rotatedColumn": 34,
+          "anchorDelta": {
+            "row": 19,
+            "column": -15
+          }
+        },
+        {
+          "encodedOffset": 6564,
+          "row": 65,
+          "column": 64,
+          "rotatedRow": 64,
+          "rotatedColumn": 34,
+          "anchorDelta": {
+            "row": 20,
+            "column": -15
+          }
+        },
+        {
+          "encodedOffset": 6465,
+          "row": 64,
+          "column": 65,
+          "rotatedRow": 65,
+          "rotatedColumn": 35,
+          "anchorDelta": {
+            "row": 21,
+            "column": -14
+          }
+        },
+        {
+          "encodedOffset": 6366,
+          "row": 63,
+          "column": 66,
+          "rotatedRow": 66,
+          "rotatedColumn": 36,
+          "anchorDelta": {
+            "row": 22,
+            "column": -13
+          }
+        },
+        {
+          "encodedOffset": 6267,
+          "row": 62,
+          "column": 67,
+          "rotatedRow": 67,
+          "rotatedColumn": 37,
+          "anchorDelta": {
+            "row": 23,
+            "column": -12
+          }
+        },
+        {
+          "encodedOffset": 6069,
+          "row": 60,
+          "column": 69,
+          "rotatedRow": 69,
+          "rotatedColumn": 39,
+          "anchorDelta": {
+            "row": 25,
+            "column": -10
+          }
+        },
+        {
+          "encodedOffset": 5970,
+          "row": 59,
+          "column": 70,
+          "rotatedRow": 70,
+          "rotatedColumn": 40,
+          "anchorDelta": {
+            "row": 26,
+            "column": -9
+          }
+        },
+        {
+          "encodedOffset": 5871,
+          "row": 58,
+          "column": 71,
+          "rotatedRow": 71,
+          "rotatedColumn": 41,
+          "anchorDelta": {
+            "row": 27,
+            "column": -8
+          }
+        },
+        {
+          "encodedOffset": 5772,
+          "row": 57,
+          "column": 72,
+          "rotatedRow": 72,
+          "rotatedColumn": 42,
+          "anchorDelta": {
+            "row": 28,
+            "column": -7
+          }
+        },
+        {
+          "encodedOffset": 5672,
+          "row": 56,
+          "column": 72,
+          "rotatedRow": 72,
+          "rotatedColumn": 43,
+          "anchorDelta": {
+            "row": 28,
+            "column": -6
+          }
+        },
+        {
+          "encodedOffset": 5572,
+          "row": 55,
+          "column": 72,
+          "rotatedRow": 72,
+          "rotatedColumn": 44,
+          "anchorDelta": {
+            "row": 28,
+            "column": -5
+          }
+        },
+        {
+          "encodedOffset": 5472,
+          "row": 54,
+          "column": 72,
+          "rotatedRow": 72,
+          "rotatedColumn": 45,
+          "anchorDelta": {
+            "row": 28,
+            "column": -4
+          }
+        },
+        {
+          "encodedOffset": 5372,
+          "row": 53,
+          "column": 72,
+          "rotatedRow": 72,
+          "rotatedColumn": 46,
+          "anchorDelta": {
+            "row": 28,
+            "column": -3
+          }
+        },
+        {
+          "encodedOffset": 5272,
+          "row": 52,
+          "column": 72,
+          "rotatedRow": 72,
+          "rotatedColumn": 47,
+          "anchorDelta": {
+            "row": 28,
+            "column": -2
+          }
+        },
+        {
+          "encodedOffset": 5172,
+          "row": 51,
+          "column": 72,
+          "rotatedRow": 72,
+          "rotatedColumn": 48,
+          "anchorDelta": {
+            "row": 28,
+            "column": -1
+          }
+        },
+        {
+          "encodedOffset": 5072,
+          "row": 50,
+          "column": 72,
+          "rotatedRow": 72,
+          "rotatedColumn": 49,
+          "anchorDelta": {
+            "row": 28,
+            "column": 0
+          }
+        },
+        {
+          "encodedOffset": 4972,
+          "row": 49,
+          "column": 72,
+          "rotatedRow": 72,
+          "rotatedColumn": 50,
+          "anchorDelta": {
+            "row": 28,
+            "column": 1
+          }
+        },
+        {
+          "encodedOffset": 4872,
+          "row": 48,
+          "column": 72,
+          "rotatedRow": 72,
+          "rotatedColumn": 51,
+          "anchorDelta": {
+            "row": 28,
+            "column": 2
+          }
+        },
+        {
+          "encodedOffset": 4772,
+          "row": 47,
+          "column": 72,
+          "rotatedRow": 72,
+          "rotatedColumn": 52,
+          "anchorDelta": {
+            "row": 28,
+            "column": 3
+          }
+        },
+        {
+          "encodedOffset": 4672,
+          "row": 46,
+          "column": 72,
+          "rotatedRow": 72,
+          "rotatedColumn": 53,
+          "anchorDelta": {
+            "row": 28,
+            "column": 4
+          }
+        },
+        {
+          "encodedOffset": 4572,
+          "row": 45,
+          "column": 72,
+          "rotatedRow": 72,
+          "rotatedColumn": 54,
+          "anchorDelta": {
+            "row": 28,
+            "column": 5
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 64,
+      "itemType": 25,
+      "mapperName": "MAPPER_WALL",
+      "category": "HighWallPath",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 3972,
+          "row": 39,
+          "column": 72,
+          "rotatedRow": 72,
+          "rotatedColumn": 60,
+          "anchorDelta": {
+            "row": 28,
+            "column": 11
+          }
+        },
+        {
+          "encodedOffset": 3872,
+          "row": 38,
+          "column": 72,
+          "rotatedRow": 72,
+          "rotatedColumn": 61,
+          "anchorDelta": {
+            "row": 28,
+            "column": 12
+          }
+        },
+        {
+          "encodedOffset": 3772,
+          "row": 37,
+          "column": 72,
+          "rotatedRow": 72,
+          "rotatedColumn": 62,
+          "anchorDelta": {
+            "row": 28,
+            "column": 13
+          }
+        },
+        {
+          "encodedOffset": 3672,
+          "row": 36,
+          "column": 72,
+          "rotatedRow": 72,
+          "rotatedColumn": 63,
+          "anchorDelta": {
+            "row": 28,
+            "column": 14
+          }
+        },
+        {
+          "encodedOffset": 3572,
+          "row": 35,
+          "column": 72,
+          "rotatedRow": 72,
+          "rotatedColumn": 64,
+          "anchorDelta": {
+            "row": 28,
+            "column": 15
+          }
+        },
+        {
+          "encodedOffset": 3471,
+          "row": 34,
+          "column": 71,
+          "rotatedRow": 71,
+          "rotatedColumn": 65,
+          "anchorDelta": {
+            "row": 27,
+            "column": 16
+          }
+        },
+        {
+          "encodedOffset": 3370,
+          "row": 33,
+          "column": 70,
+          "rotatedRow": 70,
+          "rotatedColumn": 66,
+          "anchorDelta": {
+            "row": 26,
+            "column": 17
+          }
+        },
+        {
+          "encodedOffset": 3269,
+          "row": 32,
+          "column": 69,
+          "rotatedRow": 69,
+          "rotatedColumn": 67,
+          "anchorDelta": {
+            "row": 25,
+            "column": 18
+          }
+        },
+        {
+          "encodedOffset": 3067,
+          "row": 30,
+          "column": 67,
+          "rotatedRow": 67,
+          "rotatedColumn": 69,
+          "anchorDelta": {
+            "row": 23,
+            "column": 20
+          }
+        },
+        {
+          "encodedOffset": 2966,
+          "row": 29,
+          "column": 66,
+          "rotatedRow": 66,
+          "rotatedColumn": 70,
+          "anchorDelta": {
+            "row": 22,
+            "column": 21
+          }
+        },
+        {
+          "encodedOffset": 2865,
+          "row": 28,
+          "column": 65,
+          "rotatedRow": 65,
+          "rotatedColumn": 71,
+          "anchorDelta": {
+            "row": 21,
+            "column": 22
+          }
+        },
+        {
+          "encodedOffset": 2764,
+          "row": 27,
+          "column": 64,
+          "rotatedRow": 64,
+          "rotatedColumn": 72,
+          "anchorDelta": {
+            "row": 20,
+            "column": 23
+          }
+        },
+        {
+          "encodedOffset": 2763,
+          "row": 27,
+          "column": 63,
+          "rotatedRow": 63,
+          "rotatedColumn": 72,
+          "anchorDelta": {
+            "row": 19,
+            "column": 23
+          }
+        },
+        {
+          "encodedOffset": 2762,
+          "row": 27,
+          "column": 62,
+          "rotatedRow": 62,
+          "rotatedColumn": 72,
+          "anchorDelta": {
+            "row": 18,
+            "column": 23
+          }
+        },
+        {
+          "encodedOffset": 2761,
+          "row": 27,
+          "column": 61,
+          "rotatedRow": 61,
+          "rotatedColumn": 72,
+          "anchorDelta": {
+            "row": 17,
+            "column": 23
+          }
+        },
+        {
+          "encodedOffset": 2760,
+          "row": 27,
+          "column": 60,
+          "rotatedRow": 60,
+          "rotatedColumn": 72,
+          "anchorDelta": {
+            "row": 16,
+            "column": 23
+          }
+        },
+        {
+          "encodedOffset": 2759,
+          "row": 27,
+          "column": 59,
+          "rotatedRow": 59,
+          "rotatedColumn": 72,
+          "anchorDelta": {
+            "row": 15,
+            "column": 23
+          }
+        },
+        {
+          "encodedOffset": 2758,
+          "row": 27,
+          "column": 58,
+          "rotatedRow": 58,
+          "rotatedColumn": 72,
+          "anchorDelta": {
+            "row": 14,
+            "column": 23
+          }
+        },
+        {
+          "encodedOffset": 2757,
+          "row": 27,
+          "column": 57,
+          "rotatedRow": 57,
+          "rotatedColumn": 72,
+          "anchorDelta": {
+            "row": 13,
+            "column": 23
+          }
+        },
+        {
+          "encodedOffset": 2756,
+          "row": 27,
+          "column": 56,
+          "rotatedRow": 56,
+          "rotatedColumn": 72,
+          "anchorDelta": {
+            "row": 12,
+            "column": 23
+          }
+        },
+        {
+          "encodedOffset": 2755,
+          "row": 27,
+          "column": 55,
+          "rotatedRow": 55,
+          "rotatedColumn": 72,
+          "anchorDelta": {
+            "row": 11,
+            "column": 23
+          }
+        },
+        {
+          "encodedOffset": 2754,
+          "row": 27,
+          "column": 54,
+          "rotatedRow": 54,
+          "rotatedColumn": 72,
+          "anchorDelta": {
+            "row": 10,
+            "column": 23
+          }
+        },
+        {
+          "encodedOffset": 2753,
+          "row": 27,
+          "column": 53,
+          "rotatedRow": 53,
+          "rotatedColumn": 72,
+          "anchorDelta": {
+            "row": 9,
+            "column": 23
+          }
+        },
+        {
+          "encodedOffset": 2752,
+          "row": 27,
+          "column": 52,
+          "rotatedRow": 52,
+          "rotatedColumn": 72,
+          "anchorDelta": {
+            "row": 8,
+            "column": 23
+          }
+        },
+        {
+          "encodedOffset": 2751,
+          "row": 27,
+          "column": 51,
+          "rotatedRow": 51,
+          "rotatedColumn": 72,
+          "anchorDelta": {
+            "row": 7,
+            "column": 23
+          }
+        },
+        {
+          "encodedOffset": 2750,
+          "row": 27,
+          "column": 50,
+          "rotatedRow": 50,
+          "rotatedColumn": 72,
+          "anchorDelta": {
+            "row": 6,
+            "column": 23
+          }
+        },
+        {
+          "encodedOffset": 2749,
+          "row": 27,
+          "column": 49,
+          "rotatedRow": 49,
+          "rotatedColumn": 72,
+          "anchorDelta": {
+            "row": 5,
+            "column": 23
+          }
+        },
+        {
+          "encodedOffset": 2748,
+          "row": 27,
+          "column": 48,
+          "rotatedRow": 48,
+          "rotatedColumn": 72,
+          "anchorDelta": {
+            "row": 4,
+            "column": 23
+          }
+        },
+        {
+          "encodedOffset": 2747,
+          "row": 27,
+          "column": 47,
+          "rotatedRow": 47,
+          "rotatedColumn": 72,
+          "anchorDelta": {
+            "row": 3,
+            "column": 23
+          }
+        },
+        {
+          "encodedOffset": 2746,
+          "row": 27,
+          "column": 46,
+          "rotatedRow": 46,
+          "rotatedColumn": 72,
+          "anchorDelta": {
+            "row": 2,
+            "column": 23
+          }
+        },
+        {
+          "encodedOffset": 2741,
+          "row": 27,
+          "column": 41,
+          "rotatedRow": 41,
+          "rotatedColumn": 72,
+          "anchorDelta": {
+            "row": -3,
+            "column": 23
+          }
+        },
+        {
+          "encodedOffset": 2740,
+          "row": 27,
+          "column": 40,
+          "rotatedRow": 40,
+          "rotatedColumn": 72,
+          "anchorDelta": {
+            "row": -4,
+            "column": 23
+          }
+        },
+        {
+          "encodedOffset": 2739,
+          "row": 27,
+          "column": 39,
+          "rotatedRow": 39,
+          "rotatedColumn": 72,
+          "anchorDelta": {
+            "row": -5,
+            "column": 23
+          }
+        },
+        {
+          "encodedOffset": 2738,
+          "row": 27,
+          "column": 38,
+          "rotatedRow": 38,
+          "rotatedColumn": 72,
+          "anchorDelta": {
+            "row": -6,
+            "column": 23
+          }
+        },
+        {
+          "encodedOffset": 2737,
+          "row": 27,
+          "column": 37,
+          "rotatedRow": 37,
+          "rotatedColumn": 72,
+          "anchorDelta": {
+            "row": -7,
+            "column": 23
+          }
+        },
+        {
+          "encodedOffset": 2736,
+          "row": 27,
+          "column": 36,
+          "rotatedRow": 36,
+          "rotatedColumn": 72,
+          "anchorDelta": {
+            "row": -8,
+            "column": 23
+          }
+        },
+        {
+          "encodedOffset": 2735,
+          "row": 27,
+          "column": 35,
+          "rotatedRow": 35,
+          "rotatedColumn": 72,
+          "anchorDelta": {
+            "row": -9,
+            "column": 23
+          }
+        },
+        {
+          "encodedOffset": 2734,
+          "row": 27,
+          "column": 34,
+          "rotatedRow": 34,
+          "rotatedColumn": 72,
+          "anchorDelta": {
+            "row": -10,
+            "column": 23
+          }
+        },
+        {
+          "encodedOffset": 2733,
+          "row": 27,
+          "column": 33,
+          "rotatedRow": 33,
+          "rotatedColumn": 72,
+          "anchorDelta": {
+            "row": -11,
+            "column": 23
+          }
+        },
+        {
+          "encodedOffset": 2732,
+          "row": 27,
+          "column": 32,
+          "rotatedRow": 32,
+          "rotatedColumn": 72,
+          "anchorDelta": {
+            "row": -12,
+            "column": 23
+          }
+        },
+        {
+          "encodedOffset": 2731,
+          "row": 27,
+          "column": 31,
+          "rotatedRow": 31,
+          "rotatedColumn": 72,
+          "anchorDelta": {
+            "row": -13,
+            "column": 23
+          }
+        },
+        {
+          "encodedOffset": 2730,
+          "row": 27,
+          "column": 30,
+          "rotatedRow": 30,
+          "rotatedColumn": 72,
+          "anchorDelta": {
+            "row": -14,
+            "column": 23
+          }
+        },
+        {
+          "encodedOffset": 2829,
+          "row": 28,
+          "column": 29,
+          "rotatedRow": 29,
+          "rotatedColumn": 71,
+          "anchorDelta": {
+            "row": -15,
+            "column": 22
+          }
+        },
+        {
+          "encodedOffset": 2928,
+          "row": 29,
+          "column": 28,
+          "rotatedRow": 28,
+          "rotatedColumn": 70,
+          "anchorDelta": {
+            "row": -16,
+            "column": 21
+          }
+        },
+        {
+          "encodedOffset": 3027,
+          "row": 30,
+          "column": 27,
+          "rotatedRow": 27,
+          "rotatedColumn": 69,
+          "anchorDelta": {
+            "row": -17,
+            "column": 20
+          }
+        },
+        {
+          "encodedOffset": 3225,
+          "row": 32,
+          "column": 25,
+          "rotatedRow": 25,
+          "rotatedColumn": 67,
+          "anchorDelta": {
+            "row": -19,
+            "column": 18
+          }
+        },
+        {
+          "encodedOffset": 3324,
+          "row": 33,
+          "column": 24,
+          "rotatedRow": 24,
+          "rotatedColumn": 66,
+          "anchorDelta": {
+            "row": -20,
+            "column": 17
+          }
+        },
+        {
+          "encodedOffset": 3423,
+          "row": 34,
+          "column": 23,
+          "rotatedRow": 23,
+          "rotatedColumn": 65,
+          "anchorDelta": {
+            "row": -21,
+            "column": 16
+          }
+        },
+        {
+          "encodedOffset": 3522,
+          "row": 35,
+          "column": 22,
+          "rotatedRow": 22,
+          "rotatedColumn": 64,
+          "anchorDelta": {
+            "row": -22,
+            "column": 15
+          }
+        },
+        {
+          "encodedOffset": 3622,
+          "row": 36,
+          "column": 22,
+          "rotatedRow": 22,
+          "rotatedColumn": 63,
+          "anchorDelta": {
+            "row": -22,
+            "column": 14
+          }
+        },
+        {
+          "encodedOffset": 3722,
+          "row": 37,
+          "column": 22,
+          "rotatedRow": 22,
+          "rotatedColumn": 62,
+          "anchorDelta": {
+            "row": -22,
+            "column": 13
+          }
+        },
+        {
+          "encodedOffset": 3822,
+          "row": 38,
+          "column": 22,
+          "rotatedRow": 22,
+          "rotatedColumn": 61,
+          "anchorDelta": {
+            "row": -22,
+            "column": 12
+          }
+        },
+        {
+          "encodedOffset": 3922,
+          "row": 39,
+          "column": 22,
+          "rotatedRow": 22,
+          "rotatedColumn": 60,
+          "anchorDelta": {
+            "row": -22,
+            "column": 11
+          }
+        },
+        {
+          "encodedOffset": 4022,
+          "row": 40,
+          "column": 22,
+          "rotatedRow": 22,
+          "rotatedColumn": 59,
+          "anchorDelta": {
+            "row": -22,
+            "column": 10
+          }
+        },
+        {
+          "encodedOffset": 4122,
+          "row": 41,
+          "column": 22,
+          "rotatedRow": 22,
+          "rotatedColumn": 58,
+          "anchorDelta": {
+            "row": -22,
+            "column": 9
+          }
+        },
+        {
+          "encodedOffset": 4222,
+          "row": 42,
+          "column": 22,
+          "rotatedRow": 22,
+          "rotatedColumn": 57,
+          "anchorDelta": {
+            "row": -22,
+            "column": 8
+          }
+        },
+        {
+          "encodedOffset": 4322,
+          "row": 43,
+          "column": 22,
+          "rotatedRow": 22,
+          "rotatedColumn": 56,
+          "anchorDelta": {
+            "row": -22,
+            "column": 7
+          }
+        },
+        {
+          "encodedOffset": 4422,
+          "row": 44,
+          "column": 22,
+          "rotatedRow": 22,
+          "rotatedColumn": 55,
+          "anchorDelta": {
+            "row": -22,
+            "column": 6
+          }
+        },
+        {
+          "encodedOffset": 4522,
+          "row": 45,
+          "column": 22,
+          "rotatedRow": 22,
+          "rotatedColumn": 54,
+          "anchorDelta": {
+            "row": -22,
+            "column": 5
+          }
+        },
+        {
+          "encodedOffset": 4622,
+          "row": 46,
+          "column": 22,
+          "rotatedRow": 22,
+          "rotatedColumn": 53,
+          "anchorDelta": {
+            "row": -22,
+            "column": 4
+          }
+        },
+        {
+          "encodedOffset": 4722,
+          "row": 47,
+          "column": 22,
+          "rotatedRow": 22,
+          "rotatedColumn": 52,
+          "anchorDelta": {
+            "row": -22,
+            "column": 3
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 65,
+      "itemType": 330,
+      "mapperName": "MAPPER_WELL",
+      "category": "Building",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 5568,
+          "row": 55,
+          "column": 68,
+          "rotatedRow": 68,
+          "rotatedColumn": 44,
+          "anchorDelta": {
+            "row": 24,
+            "column": -5
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 66,
+      "itemType": 330,
+      "mapperName": "MAPPER_WELL",
+      "category": "Building",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 3924,
+          "row": 39,
+          "column": 24,
+          "rotatedRow": 24,
+          "rotatedColumn": 60,
+          "anchorDelta": {
+            "row": -20,
+            "column": 11
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 67,
+      "itemType": 25,
+      "mapperName": "MAPPER_WALL",
+      "category": "HighWallPath",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 5321,
+          "row": 53,
+          "column": 21,
+          "rotatedRow": 21,
+          "rotatedColumn": 46,
+          "anchorDelta": {
+            "row": -23,
+            "column": -3
+          }
+        },
+        {
+          "encodedOffset": 5421,
+          "row": 54,
+          "column": 21,
+          "rotatedRow": 21,
+          "rotatedColumn": 45,
+          "anchorDelta": {
+            "row": -23,
+            "column": -4
+          }
+        },
+        {
+          "encodedOffset": 5521,
+          "row": 55,
+          "column": 21,
+          "rotatedRow": 21,
+          "rotatedColumn": 44,
+          "anchorDelta": {
+            "row": -23,
+            "column": -5
+          }
+        },
+        {
+          "encodedOffset": 5621,
+          "row": 56,
+          "column": 21,
+          "rotatedRow": 21,
+          "rotatedColumn": 43,
+          "anchorDelta": {
+            "row": -23,
+            "column": -6
+          }
+        },
+        {
+          "encodedOffset": 5721,
+          "row": 57,
+          "column": 21,
+          "rotatedRow": 21,
+          "rotatedColumn": 42,
+          "anchorDelta": {
+            "row": -23,
+            "column": -7
+          }
+        },
+        {
+          "encodedOffset": 5822,
+          "row": 58,
+          "column": 22,
+          "rotatedRow": 22,
+          "rotatedColumn": 41,
+          "anchorDelta": {
+            "row": -22,
+            "column": -8
+          }
+        },
+        {
+          "encodedOffset": 5923,
+          "row": 59,
+          "column": 23,
+          "rotatedRow": 23,
+          "rotatedColumn": 40,
+          "anchorDelta": {
+            "row": -21,
+            "column": -9
+          }
+        },
+        {
+          "encodedOffset": 6024,
+          "row": 60,
+          "column": 24,
+          "rotatedRow": 24,
+          "rotatedColumn": 39,
+          "anchorDelta": {
+            "row": -20,
+            "column": -10
+          }
+        },
+        {
+          "encodedOffset": 6125,
+          "row": 61,
+          "column": 25,
+          "rotatedRow": 25,
+          "rotatedColumn": 38,
+          "anchorDelta": {
+            "row": -19,
+            "column": -11
+          }
+        },
+        {
+          "encodedOffset": 6226,
+          "row": 62,
+          "column": 26,
+          "rotatedRow": 26,
+          "rotatedColumn": 37,
+          "anchorDelta": {
+            "row": -18,
+            "column": -12
+          }
+        },
+        {
+          "encodedOffset": 6327,
+          "row": 63,
+          "column": 27,
+          "rotatedRow": 27,
+          "rotatedColumn": 36,
+          "anchorDelta": {
+            "row": -17,
+            "column": -13
+          }
+        },
+        {
+          "encodedOffset": 6428,
+          "row": 64,
+          "column": 28,
+          "rotatedRow": 28,
+          "rotatedColumn": 35,
+          "anchorDelta": {
+            "row": -16,
+            "column": -14
+          }
+        },
+        {
+          "encodedOffset": 6529,
+          "row": 65,
+          "column": 29,
+          "rotatedRow": 29,
+          "rotatedColumn": 34,
+          "anchorDelta": {
+            "row": -15,
+            "column": -15
+          }
+        },
+        {
+          "encodedOffset": 6630,
+          "row": 66,
+          "column": 30,
+          "rotatedRow": 30,
+          "rotatedColumn": 33,
+          "anchorDelta": {
+            "row": -14,
+            "column": -16
+          }
+        },
+        {
+          "encodedOffset": 6631,
+          "row": 66,
+          "column": 31,
+          "rotatedRow": 31,
+          "rotatedColumn": 33,
+          "anchorDelta": {
+            "row": -13,
+            "column": -16
+          }
+        },
+        {
+          "encodedOffset": 6632,
+          "row": 66,
+          "column": 32,
+          "rotatedRow": 32,
+          "rotatedColumn": 33,
+          "anchorDelta": {
+            "row": -12,
+            "column": -16
+          }
+        },
+        {
+          "encodedOffset": 6633,
+          "row": 66,
+          "column": 33,
+          "rotatedRow": 33,
+          "rotatedColumn": 33,
+          "anchorDelta": {
+            "row": -11,
+            "column": -16
+          }
+        },
+        {
+          "encodedOffset": 6634,
+          "row": 66,
+          "column": 34,
+          "rotatedRow": 34,
+          "rotatedColumn": 33,
+          "anchorDelta": {
+            "row": -10,
+            "column": -16
+          }
+        },
+        {
+          "encodedOffset": 6635,
+          "row": 66,
+          "column": 35,
+          "rotatedRow": 35,
+          "rotatedColumn": 33,
+          "anchorDelta": {
+            "row": -9,
+            "column": -16
+          }
+        },
+        {
+          "encodedOffset": 6636,
+          "row": 66,
+          "column": 36,
+          "rotatedRow": 36,
+          "rotatedColumn": 33,
+          "anchorDelta": {
+            "row": -8,
+            "column": -16
+          }
+        },
+        {
+          "encodedOffset": 6637,
+          "row": 66,
+          "column": 37,
+          "rotatedRow": 37,
+          "rotatedColumn": 33,
+          "anchorDelta": {
+            "row": -7,
+            "column": -16
+          }
+        },
+        {
+          "encodedOffset": 6638,
+          "row": 66,
+          "column": 38,
+          "rotatedRow": 38,
+          "rotatedColumn": 33,
+          "anchorDelta": {
+            "row": -6,
+            "column": -16
+          }
+        },
+        {
+          "encodedOffset": 6639,
+          "row": 66,
+          "column": 39,
+          "rotatedRow": 39,
+          "rotatedColumn": 33,
+          "anchorDelta": {
+            "row": -5,
+            "column": -16
+          }
+        },
+        {
+          "encodedOffset": 6640,
+          "row": 66,
+          "column": 40,
+          "rotatedRow": 40,
+          "rotatedColumn": 33,
+          "anchorDelta": {
+            "row": -4,
+            "column": -16
+          }
+        },
+        {
+          "encodedOffset": 6641,
+          "row": 66,
+          "column": 41,
+          "rotatedRow": 41,
+          "rotatedColumn": 33,
+          "anchorDelta": {
+            "row": -3,
+            "column": -16
+          }
+        },
+        {
+          "encodedOffset": 6642,
+          "row": 66,
+          "column": 42,
+          "rotatedRow": 42,
+          "rotatedColumn": 33,
+          "anchorDelta": {
+            "row": -2,
+            "column": -16
+          }
+        },
+        {
+          "encodedOffset": 6643,
+          "row": 66,
+          "column": 43,
+          "rotatedRow": 43,
+          "rotatedColumn": 33,
+          "anchorDelta": {
+            "row": -1,
+            "column": -16
+          }
+        },
+        {
+          "encodedOffset": 6644,
+          "row": 66,
+          "column": 44,
+          "rotatedRow": 44,
+          "rotatedColumn": 33,
+          "anchorDelta": {
+            "row": 0,
+            "column": -16
+          }
+        },
+        {
+          "encodedOffset": 6645,
+          "row": 66,
+          "column": 45,
+          "rotatedRow": 45,
+          "rotatedColumn": 33,
+          "anchorDelta": {
+            "row": 1,
+            "column": -16
+          }
+        },
+        {
+          "encodedOffset": 6646,
+          "row": 66,
+          "column": 46,
+          "rotatedRow": 46,
+          "rotatedColumn": 33,
+          "anchorDelta": {
+            "row": 2,
+            "column": -16
+          }
+        },
+        {
+          "encodedOffset": 6647,
+          "row": 66,
+          "column": 47,
+          "rotatedRow": 47,
+          "rotatedColumn": 33,
+          "anchorDelta": {
+            "row": 3,
+            "column": -16
+          }
+        },
+        {
+          "encodedOffset": 6648,
+          "row": 66,
+          "column": 48,
+          "rotatedRow": 48,
+          "rotatedColumn": 33,
+          "anchorDelta": {
+            "row": 4,
+            "column": -16
+          }
+        },
+        {
+          "encodedOffset": 6649,
+          "row": 66,
+          "column": 49,
+          "rotatedRow": 49,
+          "rotatedColumn": 33,
+          "anchorDelta": {
+            "row": 5,
+            "column": -16
+          }
+        },
+        {
+          "encodedOffset": 6650,
+          "row": 66,
+          "column": 50,
+          "rotatedRow": 50,
+          "rotatedColumn": 33,
+          "anchorDelta": {
+            "row": 6,
+            "column": -16
+          }
+        },
+        {
+          "encodedOffset": 6651,
+          "row": 66,
+          "column": 51,
+          "rotatedRow": 51,
+          "rotatedColumn": 33,
+          "anchorDelta": {
+            "row": 7,
+            "column": -16
+          }
+        },
+        {
+          "encodedOffset": 6652,
+          "row": 66,
+          "column": 52,
+          "rotatedRow": 52,
+          "rotatedColumn": 33,
+          "anchorDelta": {
+            "row": 8,
+            "column": -16
+          }
+        },
+        {
+          "encodedOffset": 6653,
+          "row": 66,
+          "column": 53,
+          "rotatedRow": 53,
+          "rotatedColumn": 33,
+          "anchorDelta": {
+            "row": 9,
+            "column": -16
+          }
+        },
+        {
+          "encodedOffset": 6654,
+          "row": 66,
+          "column": 54,
+          "rotatedRow": 54,
+          "rotatedColumn": 33,
+          "anchorDelta": {
+            "row": 10,
+            "column": -16
+          }
+        },
+        {
+          "encodedOffset": 6655,
+          "row": 66,
+          "column": 55,
+          "rotatedRow": 55,
+          "rotatedColumn": 33,
+          "anchorDelta": {
+            "row": 11,
+            "column": -16
+          }
+        },
+        {
+          "encodedOffset": 6656,
+          "row": 66,
+          "column": 56,
+          "rotatedRow": 56,
+          "rotatedColumn": 33,
+          "anchorDelta": {
+            "row": 12,
+            "column": -16
+          }
+        },
+        {
+          "encodedOffset": 6657,
+          "row": 66,
+          "column": 57,
+          "rotatedRow": 57,
+          "rotatedColumn": 33,
+          "anchorDelta": {
+            "row": 13,
+            "column": -16
+          }
+        },
+        {
+          "encodedOffset": 6658,
+          "row": 66,
+          "column": 58,
+          "rotatedRow": 58,
+          "rotatedColumn": 33,
+          "anchorDelta": {
+            "row": 14,
+            "column": -16
+          }
+        },
+        {
+          "encodedOffset": 6659,
+          "row": 66,
+          "column": 59,
+          "rotatedRow": 59,
+          "rotatedColumn": 33,
+          "anchorDelta": {
+            "row": 15,
+            "column": -16
+          }
+        },
+        {
+          "encodedOffset": 6660,
+          "row": 66,
+          "column": 60,
+          "rotatedRow": 60,
+          "rotatedColumn": 33,
+          "anchorDelta": {
+            "row": 16,
+            "column": -16
+          }
+        },
+        {
+          "encodedOffset": 6661,
+          "row": 66,
+          "column": 61,
+          "rotatedRow": 61,
+          "rotatedColumn": 33,
+          "anchorDelta": {
+            "row": 17,
+            "column": -16
+          }
+        },
+        {
+          "encodedOffset": 6662,
+          "row": 66,
+          "column": 62,
+          "rotatedRow": 62,
+          "rotatedColumn": 33,
+          "anchorDelta": {
+            "row": 18,
+            "column": -16
+          }
+        },
+        {
+          "encodedOffset": 6663,
+          "row": 66,
+          "column": 63,
+          "rotatedRow": 63,
+          "rotatedColumn": 33,
+          "anchorDelta": {
+            "row": 19,
+            "column": -16
+          }
+        },
+        {
+          "encodedOffset": 6664,
+          "row": 66,
+          "column": 64,
+          "rotatedRow": 64,
+          "rotatedColumn": 33,
+          "anchorDelta": {
+            "row": 20,
+            "column": -16
+          }
+        },
+        {
+          "encodedOffset": 6565,
+          "row": 65,
+          "column": 65,
+          "rotatedRow": 65,
+          "rotatedColumn": 34,
+          "anchorDelta": {
+            "row": 21,
+            "column": -15
+          }
+        },
+        {
+          "encodedOffset": 6466,
+          "row": 64,
+          "column": 66,
+          "rotatedRow": 66,
+          "rotatedColumn": 35,
+          "anchorDelta": {
+            "row": 22,
+            "column": -14
+          }
+        },
+        {
+          "encodedOffset": 6367,
+          "row": 63,
+          "column": 67,
+          "rotatedRow": 67,
+          "rotatedColumn": 36,
+          "anchorDelta": {
+            "row": 23,
+            "column": -13
+          }
+        },
+        {
+          "encodedOffset": 6268,
+          "row": 62,
+          "column": 68,
+          "rotatedRow": 68,
+          "rotatedColumn": 37,
+          "anchorDelta": {
+            "row": 24,
+            "column": -12
+          }
+        },
+        {
+          "encodedOffset": 6169,
+          "row": 61,
+          "column": 69,
+          "rotatedRow": 69,
+          "rotatedColumn": 38,
+          "anchorDelta": {
+            "row": 25,
+            "column": -11
+          }
+        },
+        {
+          "encodedOffset": 6070,
+          "row": 60,
+          "column": 70,
+          "rotatedRow": 70,
+          "rotatedColumn": 39,
+          "anchorDelta": {
+            "row": 26,
+            "column": -10
+          }
+        },
+        {
+          "encodedOffset": 5971,
+          "row": 59,
+          "column": 71,
+          "rotatedRow": 71,
+          "rotatedColumn": 40,
+          "anchorDelta": {
+            "row": 27,
+            "column": -9
+          }
+        },
+        {
+          "encodedOffset": 5872,
+          "row": 58,
+          "column": 72,
+          "rotatedRow": 72,
+          "rotatedColumn": 41,
+          "anchorDelta": {
+            "row": 28,
+            "column": -8
+          }
+        },
+        {
+          "encodedOffset": 5773,
+          "row": 57,
+          "column": 73,
+          "rotatedRow": 73,
+          "rotatedColumn": 42,
+          "anchorDelta": {
+            "row": 29,
+            "column": -7
+          }
+        },
+        {
+          "encodedOffset": 5673,
+          "row": 56,
+          "column": 73,
+          "rotatedRow": 73,
+          "rotatedColumn": 43,
+          "anchorDelta": {
+            "row": 29,
+            "column": -6
+          }
+        },
+        {
+          "encodedOffset": 5573,
+          "row": 55,
+          "column": 73,
+          "rotatedRow": 73,
+          "rotatedColumn": 44,
+          "anchorDelta": {
+            "row": 29,
+            "column": -5
+          }
+        },
+        {
+          "encodedOffset": 5473,
+          "row": 54,
+          "column": 73,
+          "rotatedRow": 73,
+          "rotatedColumn": 45,
+          "anchorDelta": {
+            "row": 29,
+            "column": -4
+          }
+        },
+        {
+          "encodedOffset": 5373,
+          "row": 53,
+          "column": 73,
+          "rotatedRow": 73,
+          "rotatedColumn": 46,
+          "anchorDelta": {
+            "row": 29,
+            "column": -3
+          }
+        },
+        {
+          "encodedOffset": 5273,
+          "row": 52,
+          "column": 73,
+          "rotatedRow": 73,
+          "rotatedColumn": 47,
+          "anchorDelta": {
+            "row": 29,
+            "column": -2
+          }
+        },
+        {
+          "encodedOffset": 5173,
+          "row": 51,
+          "column": 73,
+          "rotatedRow": 73,
+          "rotatedColumn": 48,
+          "anchorDelta": {
+            "row": 29,
+            "column": -1
+          }
+        },
+        {
+          "encodedOffset": 5073,
+          "row": 50,
+          "column": 73,
+          "rotatedRow": 73,
+          "rotatedColumn": 49,
+          "anchorDelta": {
+            "row": 29,
+            "column": 0
+          }
+        },
+        {
+          "encodedOffset": 4973,
+          "row": 49,
+          "column": 73,
+          "rotatedRow": 73,
+          "rotatedColumn": 50,
+          "anchorDelta": {
+            "row": 29,
+            "column": 1
+          }
+        },
+        {
+          "encodedOffset": 4873,
+          "row": 48,
+          "column": 73,
+          "rotatedRow": 73,
+          "rotatedColumn": 51,
+          "anchorDelta": {
+            "row": 29,
+            "column": 2
+          }
+        },
+        {
+          "encodedOffset": 4773,
+          "row": 47,
+          "column": 73,
+          "rotatedRow": 73,
+          "rotatedColumn": 52,
+          "anchorDelta": {
+            "row": 29,
+            "column": 3
+          }
+        },
+        {
+          "encodedOffset": 4673,
+          "row": 46,
+          "column": 73,
+          "rotatedRow": 73,
+          "rotatedColumn": 53,
+          "anchorDelta": {
+            "row": 29,
+            "column": 4
+          }
+        },
+        {
+          "encodedOffset": 4573,
+          "row": 45,
+          "column": 73,
+          "rotatedRow": 73,
+          "rotatedColumn": 54,
+          "anchorDelta": {
+            "row": 29,
+            "column": 5
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 68,
+      "itemType": 25,
+      "mapperName": "MAPPER_WALL",
+      "category": "HighWallPath",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 3973,
+          "row": 39,
+          "column": 73,
+          "rotatedRow": 73,
+          "rotatedColumn": 60,
+          "anchorDelta": {
+            "row": 29,
+            "column": 11
+          }
+        },
+        {
+          "encodedOffset": 3873,
+          "row": 38,
+          "column": 73,
+          "rotatedRow": 73,
+          "rotatedColumn": 61,
+          "anchorDelta": {
+            "row": 29,
+            "column": 12
+          }
+        },
+        {
+          "encodedOffset": 3773,
+          "row": 37,
+          "column": 73,
+          "rotatedRow": 73,
+          "rotatedColumn": 62,
+          "anchorDelta": {
+            "row": 29,
+            "column": 13
+          }
+        },
+        {
+          "encodedOffset": 3673,
+          "row": 36,
+          "column": 73,
+          "rotatedRow": 73,
+          "rotatedColumn": 63,
+          "anchorDelta": {
+            "row": 29,
+            "column": 14
+          }
+        },
+        {
+          "encodedOffset": 3573,
+          "row": 35,
+          "column": 73,
+          "rotatedRow": 73,
+          "rotatedColumn": 64,
+          "anchorDelta": {
+            "row": 29,
+            "column": 15
+          }
+        },
+        {
+          "encodedOffset": 3472,
+          "row": 34,
+          "column": 72,
+          "rotatedRow": 72,
+          "rotatedColumn": 65,
+          "anchorDelta": {
+            "row": 28,
+            "column": 16
+          }
+        },
+        {
+          "encodedOffset": 3371,
+          "row": 33,
+          "column": 71,
+          "rotatedRow": 71,
+          "rotatedColumn": 66,
+          "anchorDelta": {
+            "row": 27,
+            "column": 17
+          }
+        },
+        {
+          "encodedOffset": 3270,
+          "row": 32,
+          "column": 70,
+          "rotatedRow": 70,
+          "rotatedColumn": 67,
+          "anchorDelta": {
+            "row": 26,
+            "column": 18
+          }
+        },
+        {
+          "encodedOffset": 3169,
+          "row": 31,
+          "column": 69,
+          "rotatedRow": 69,
+          "rotatedColumn": 68,
+          "anchorDelta": {
+            "row": 25,
+            "column": 19
+          }
+        },
+        {
+          "encodedOffset": 3068,
+          "row": 30,
+          "column": 68,
+          "rotatedRow": 68,
+          "rotatedColumn": 69,
+          "anchorDelta": {
+            "row": 24,
+            "column": 20
+          }
+        },
+        {
+          "encodedOffset": 2967,
+          "row": 29,
+          "column": 67,
+          "rotatedRow": 67,
+          "rotatedColumn": 70,
+          "anchorDelta": {
+            "row": 23,
+            "column": 21
+          }
+        },
+        {
+          "encodedOffset": 2866,
+          "row": 28,
+          "column": 66,
+          "rotatedRow": 66,
+          "rotatedColumn": 71,
+          "anchorDelta": {
+            "row": 22,
+            "column": 22
+          }
+        },
+        {
+          "encodedOffset": 2765,
+          "row": 27,
+          "column": 65,
+          "rotatedRow": 65,
+          "rotatedColumn": 72,
+          "anchorDelta": {
+            "row": 21,
+            "column": 23
+          }
+        },
+        {
+          "encodedOffset": 2664,
+          "row": 26,
+          "column": 64,
+          "rotatedRow": 64,
+          "rotatedColumn": 73,
+          "anchorDelta": {
+            "row": 20,
+            "column": 24
+          }
+        },
+        {
+          "encodedOffset": 2663,
+          "row": 26,
+          "column": 63,
+          "rotatedRow": 63,
+          "rotatedColumn": 73,
+          "anchorDelta": {
+            "row": 19,
+            "column": 24
+          }
+        },
+        {
+          "encodedOffset": 2662,
+          "row": 26,
+          "column": 62,
+          "rotatedRow": 62,
+          "rotatedColumn": 73,
+          "anchorDelta": {
+            "row": 18,
+            "column": 24
+          }
+        },
+        {
+          "encodedOffset": 2661,
+          "row": 26,
+          "column": 61,
+          "rotatedRow": 61,
+          "rotatedColumn": 73,
+          "anchorDelta": {
+            "row": 17,
+            "column": 24
+          }
+        },
+        {
+          "encodedOffset": 2660,
+          "row": 26,
+          "column": 60,
+          "rotatedRow": 60,
+          "rotatedColumn": 73,
+          "anchorDelta": {
+            "row": 16,
+            "column": 24
+          }
+        },
+        {
+          "encodedOffset": 2659,
+          "row": 26,
+          "column": 59,
+          "rotatedRow": 59,
+          "rotatedColumn": 73,
+          "anchorDelta": {
+            "row": 15,
+            "column": 24
+          }
+        },
+        {
+          "encodedOffset": 2658,
+          "row": 26,
+          "column": 58,
+          "rotatedRow": 58,
+          "rotatedColumn": 73,
+          "anchorDelta": {
+            "row": 14,
+            "column": 24
+          }
+        },
+        {
+          "encodedOffset": 2657,
+          "row": 26,
+          "column": 57,
+          "rotatedRow": 57,
+          "rotatedColumn": 73,
+          "anchorDelta": {
+            "row": 13,
+            "column": 24
+          }
+        },
+        {
+          "encodedOffset": 2656,
+          "row": 26,
+          "column": 56,
+          "rotatedRow": 56,
+          "rotatedColumn": 73,
+          "anchorDelta": {
+            "row": 12,
+            "column": 24
+          }
+        },
+        {
+          "encodedOffset": 2655,
+          "row": 26,
+          "column": 55,
+          "rotatedRow": 55,
+          "rotatedColumn": 73,
+          "anchorDelta": {
+            "row": 11,
+            "column": 24
+          }
+        },
+        {
+          "encodedOffset": 2654,
+          "row": 26,
+          "column": 54,
+          "rotatedRow": 54,
+          "rotatedColumn": 73,
+          "anchorDelta": {
+            "row": 10,
+            "column": 24
+          }
+        },
+        {
+          "encodedOffset": 2653,
+          "row": 26,
+          "column": 53,
+          "rotatedRow": 53,
+          "rotatedColumn": 73,
+          "anchorDelta": {
+            "row": 9,
+            "column": 24
+          }
+        },
+        {
+          "encodedOffset": 2652,
+          "row": 26,
+          "column": 52,
+          "rotatedRow": 52,
+          "rotatedColumn": 73,
+          "anchorDelta": {
+            "row": 8,
+            "column": 24
+          }
+        },
+        {
+          "encodedOffset": 2651,
+          "row": 26,
+          "column": 51,
+          "rotatedRow": 51,
+          "rotatedColumn": 73,
+          "anchorDelta": {
+            "row": 7,
+            "column": 24
+          }
+        },
+        {
+          "encodedOffset": 2650,
+          "row": 26,
+          "column": 50,
+          "rotatedRow": 50,
+          "rotatedColumn": 73,
+          "anchorDelta": {
+            "row": 6,
+            "column": 24
+          }
+        },
+        {
+          "encodedOffset": 2649,
+          "row": 26,
+          "column": 49,
+          "rotatedRow": 49,
+          "rotatedColumn": 73,
+          "anchorDelta": {
+            "row": 5,
+            "column": 24
+          }
+        },
+        {
+          "encodedOffset": 2648,
+          "row": 26,
+          "column": 48,
+          "rotatedRow": 48,
+          "rotatedColumn": 73,
+          "anchorDelta": {
+            "row": 4,
+            "column": 24
+          }
+        },
+        {
+          "encodedOffset": 2647,
+          "row": 26,
+          "column": 47,
+          "rotatedRow": 47,
+          "rotatedColumn": 73,
+          "anchorDelta": {
+            "row": 3,
+            "column": 24
+          }
+        },
+        {
+          "encodedOffset": 2646,
+          "row": 26,
+          "column": 46,
+          "rotatedRow": 46,
+          "rotatedColumn": 73,
+          "anchorDelta": {
+            "row": 2,
+            "column": 24
+          }
+        },
+        {
+          "encodedOffset": 2645,
+          "row": 26,
+          "column": 45,
+          "rotatedRow": 45,
+          "rotatedColumn": 73,
+          "anchorDelta": {
+            "row": 1,
+            "column": 24
+          }
+        },
+        {
+          "encodedOffset": 2644,
+          "row": 26,
+          "column": 44,
+          "rotatedRow": 44,
+          "rotatedColumn": 73,
+          "anchorDelta": {
+            "row": 0,
+            "column": 24
+          }
+        },
+        {
+          "encodedOffset": 2643,
+          "row": 26,
+          "column": 43,
+          "rotatedRow": 43,
+          "rotatedColumn": 73,
+          "anchorDelta": {
+            "row": -1,
+            "column": 24
+          }
+        },
+        {
+          "encodedOffset": 2642,
+          "row": 26,
+          "column": 42,
+          "rotatedRow": 42,
+          "rotatedColumn": 73,
+          "anchorDelta": {
+            "row": -2,
+            "column": 24
+          }
+        },
+        {
+          "encodedOffset": 2641,
+          "row": 26,
+          "column": 41,
+          "rotatedRow": 41,
+          "rotatedColumn": 73,
+          "anchorDelta": {
+            "row": -3,
+            "column": 24
+          }
+        },
+        {
+          "encodedOffset": 2640,
+          "row": 26,
+          "column": 40,
+          "rotatedRow": 40,
+          "rotatedColumn": 73,
+          "anchorDelta": {
+            "row": -4,
+            "column": 24
+          }
+        },
+        {
+          "encodedOffset": 2639,
+          "row": 26,
+          "column": 39,
+          "rotatedRow": 39,
+          "rotatedColumn": 73,
+          "anchorDelta": {
+            "row": -5,
+            "column": 24
+          }
+        },
+        {
+          "encodedOffset": 2638,
+          "row": 26,
+          "column": 38,
+          "rotatedRow": 38,
+          "rotatedColumn": 73,
+          "anchorDelta": {
+            "row": -6,
+            "column": 24
+          }
+        },
+        {
+          "encodedOffset": 2637,
+          "row": 26,
+          "column": 37,
+          "rotatedRow": 37,
+          "rotatedColumn": 73,
+          "anchorDelta": {
+            "row": -7,
+            "column": 24
+          }
+        },
+        {
+          "encodedOffset": 2636,
+          "row": 26,
+          "column": 36,
+          "rotatedRow": 36,
+          "rotatedColumn": 73,
+          "anchorDelta": {
+            "row": -8,
+            "column": 24
+          }
+        },
+        {
+          "encodedOffset": 2635,
+          "row": 26,
+          "column": 35,
+          "rotatedRow": 35,
+          "rotatedColumn": 73,
+          "anchorDelta": {
+            "row": -9,
+            "column": 24
+          }
+        },
+        {
+          "encodedOffset": 2634,
+          "row": 26,
+          "column": 34,
+          "rotatedRow": 34,
+          "rotatedColumn": 73,
+          "anchorDelta": {
+            "row": -10,
+            "column": 24
+          }
+        },
+        {
+          "encodedOffset": 2633,
+          "row": 26,
+          "column": 33,
+          "rotatedRow": 33,
+          "rotatedColumn": 73,
+          "anchorDelta": {
+            "row": -11,
+            "column": 24
+          }
+        },
+        {
+          "encodedOffset": 2632,
+          "row": 26,
+          "column": 32,
+          "rotatedRow": 32,
+          "rotatedColumn": 73,
+          "anchorDelta": {
+            "row": -12,
+            "column": 24
+          }
+        },
+        {
+          "encodedOffset": 2631,
+          "row": 26,
+          "column": 31,
+          "rotatedRow": 31,
+          "rotatedColumn": 73,
+          "anchorDelta": {
+            "row": -13,
+            "column": 24
+          }
+        },
+        {
+          "encodedOffset": 2630,
+          "row": 26,
+          "column": 30,
+          "rotatedRow": 30,
+          "rotatedColumn": 73,
+          "anchorDelta": {
+            "row": -14,
+            "column": 24
+          }
+        },
+        {
+          "encodedOffset": 2729,
+          "row": 27,
+          "column": 29,
+          "rotatedRow": 29,
+          "rotatedColumn": 72,
+          "anchorDelta": {
+            "row": -15,
+            "column": 23
+          }
+        },
+        {
+          "encodedOffset": 2828,
+          "row": 28,
+          "column": 28,
+          "rotatedRow": 28,
+          "rotatedColumn": 71,
+          "anchorDelta": {
+            "row": -16,
+            "column": 22
+          }
+        },
+        {
+          "encodedOffset": 2927,
+          "row": 29,
+          "column": 27,
+          "rotatedRow": 27,
+          "rotatedColumn": 70,
+          "anchorDelta": {
+            "row": -17,
+            "column": 21
+          }
+        },
+        {
+          "encodedOffset": 3026,
+          "row": 30,
+          "column": 26,
+          "rotatedRow": 26,
+          "rotatedColumn": 69,
+          "anchorDelta": {
+            "row": -18,
+            "column": 20
+          }
+        },
+        {
+          "encodedOffset": 3125,
+          "row": 31,
+          "column": 25,
+          "rotatedRow": 25,
+          "rotatedColumn": 68,
+          "anchorDelta": {
+            "row": -19,
+            "column": 19
+          }
+        },
+        {
+          "encodedOffset": 3224,
+          "row": 32,
+          "column": 24,
+          "rotatedRow": 24,
+          "rotatedColumn": 67,
+          "anchorDelta": {
+            "row": -20,
+            "column": 18
+          }
+        },
+        {
+          "encodedOffset": 3323,
+          "row": 33,
+          "column": 23,
+          "rotatedRow": 23,
+          "rotatedColumn": 66,
+          "anchorDelta": {
+            "row": -21,
+            "column": 17
+          }
+        },
+        {
+          "encodedOffset": 3422,
+          "row": 34,
+          "column": 22,
+          "rotatedRow": 22,
+          "rotatedColumn": 65,
+          "anchorDelta": {
+            "row": -22,
+            "column": 16
+          }
+        },
+        {
+          "encodedOffset": 3521,
+          "row": 35,
+          "column": 21,
+          "rotatedRow": 21,
+          "rotatedColumn": 64,
+          "anchorDelta": {
+            "row": -23,
+            "column": 15
+          }
+        },
+        {
+          "encodedOffset": 3621,
+          "row": 36,
+          "column": 21,
+          "rotatedRow": 21,
+          "rotatedColumn": 63,
+          "anchorDelta": {
+            "row": -23,
+            "column": 14
+          }
+        },
+        {
+          "encodedOffset": 3721,
+          "row": 37,
+          "column": 21,
+          "rotatedRow": 21,
+          "rotatedColumn": 62,
+          "anchorDelta": {
+            "row": -23,
+            "column": 13
+          }
+        },
+        {
+          "encodedOffset": 3821,
+          "row": 38,
+          "column": 21,
+          "rotatedRow": 21,
+          "rotatedColumn": 61,
+          "anchorDelta": {
+            "row": -23,
+            "column": 12
+          }
+        },
+        {
+          "encodedOffset": 3921,
+          "row": 39,
+          "column": 21,
+          "rotatedRow": 21,
+          "rotatedColumn": 60,
+          "anchorDelta": {
+            "row": -23,
+            "column": 11
+          }
+        },
+        {
+          "encodedOffset": 4021,
+          "row": 40,
+          "column": 21,
+          "rotatedRow": 21,
+          "rotatedColumn": 59,
+          "anchorDelta": {
+            "row": -23,
+            "column": 10
+          }
+        },
+        {
+          "encodedOffset": 4121,
+          "row": 41,
+          "column": 21,
+          "rotatedRow": 21,
+          "rotatedColumn": 58,
+          "anchorDelta": {
+            "row": -23,
+            "column": 9
+          }
+        },
+        {
+          "encodedOffset": 4221,
+          "row": 42,
+          "column": 21,
+          "rotatedRow": 21,
+          "rotatedColumn": 57,
+          "anchorDelta": {
+            "row": -23,
+            "column": 8
+          }
+        },
+        {
+          "encodedOffset": 4321,
+          "row": 43,
+          "column": 21,
+          "rotatedRow": 21,
+          "rotatedColumn": 56,
+          "anchorDelta": {
+            "row": -23,
+            "column": 7
+          }
+        },
+        {
+          "encodedOffset": 4421,
+          "row": 44,
+          "column": 21,
+          "rotatedRow": 21,
+          "rotatedColumn": 55,
+          "anchorDelta": {
+            "row": -23,
+            "column": 6
+          }
+        },
+        {
+          "encodedOffset": 4521,
+          "row": 45,
+          "column": 21,
+          "rotatedRow": 21,
+          "rotatedColumn": 54,
+          "anchorDelta": {
+            "row": -23,
+            "column": 5
+          }
+        },
+        {
+          "encodedOffset": 4621,
+          "row": 46,
+          "column": 21,
+          "rotatedRow": 21,
+          "rotatedColumn": 53,
+          "anchorDelta": {
+            "row": -23,
+            "column": 4
+          }
+        },
+        {
+          "encodedOffset": 4721,
+          "row": 47,
+          "column": 21,
+          "rotatedRow": 21,
+          "rotatedColumn": 52,
+          "anchorDelta": {
+            "row": -23,
+            "column": 3
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 69,
+      "itemType": 26,
+      "mapperName": "MAPPER_CRENAL",
+      "category": "CrenelPath",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 5320,
+          "row": 53,
+          "column": 20,
+          "rotatedRow": 20,
+          "rotatedColumn": 46,
+          "anchorDelta": {
+            "row": -24,
+            "column": -3
+          }
+        },
+        {
+          "encodedOffset": 5420,
+          "row": 54,
+          "column": 20,
+          "rotatedRow": 20,
+          "rotatedColumn": 45,
+          "anchorDelta": {
+            "row": -24,
+            "column": -4
+          }
+        },
+        {
+          "encodedOffset": 5520,
+          "row": 55,
+          "column": 20,
+          "rotatedRow": 20,
+          "rotatedColumn": 44,
+          "anchorDelta": {
+            "row": -24,
+            "column": -5
+          }
+        },
+        {
+          "encodedOffset": 5620,
+          "row": 56,
+          "column": 20,
+          "rotatedRow": 20,
+          "rotatedColumn": 43,
+          "anchorDelta": {
+            "row": -24,
+            "column": -6
+          }
+        },
+        {
+          "encodedOffset": 5720,
+          "row": 57,
+          "column": 20,
+          "rotatedRow": 20,
+          "rotatedColumn": 42,
+          "anchorDelta": {
+            "row": -24,
+            "column": -7
+          }
+        },
+        {
+          "encodedOffset": 5821,
+          "row": 58,
+          "column": 21,
+          "rotatedRow": 21,
+          "rotatedColumn": 41,
+          "anchorDelta": {
+            "row": -23,
+            "column": -8
+          }
+        },
+        {
+          "encodedOffset": 5922,
+          "row": 59,
+          "column": 22,
+          "rotatedRow": 22,
+          "rotatedColumn": 40,
+          "anchorDelta": {
+            "row": -22,
+            "column": -9
+          }
+        },
+        {
+          "encodedOffset": 6023,
+          "row": 60,
+          "column": 23,
+          "rotatedRow": 23,
+          "rotatedColumn": 39,
+          "anchorDelta": {
+            "row": -21,
+            "column": -10
+          }
+        },
+        {
+          "encodedOffset": 6124,
+          "row": 61,
+          "column": 24,
+          "rotatedRow": 24,
+          "rotatedColumn": 38,
+          "anchorDelta": {
+            "row": -20,
+            "column": -11
+          }
+        },
+        {
+          "encodedOffset": 6225,
+          "row": 62,
+          "column": 25,
+          "rotatedRow": 25,
+          "rotatedColumn": 37,
+          "anchorDelta": {
+            "row": -19,
+            "column": -12
+          }
+        },
+        {
+          "encodedOffset": 6326,
+          "row": 63,
+          "column": 26,
+          "rotatedRow": 26,
+          "rotatedColumn": 36,
+          "anchorDelta": {
+            "row": -18,
+            "column": -13
+          }
+        },
+        {
+          "encodedOffset": 6427,
+          "row": 64,
+          "column": 27,
+          "rotatedRow": 27,
+          "rotatedColumn": 35,
+          "anchorDelta": {
+            "row": -17,
+            "column": -14
+          }
+        },
+        {
+          "encodedOffset": 6528,
+          "row": 65,
+          "column": 28,
+          "rotatedRow": 28,
+          "rotatedColumn": 34,
+          "anchorDelta": {
+            "row": -16,
+            "column": -15
+          }
+        },
+        {
+          "encodedOffset": 6629,
+          "row": 66,
+          "column": 29,
+          "rotatedRow": 29,
+          "rotatedColumn": 33,
+          "anchorDelta": {
+            "row": -15,
+            "column": -16
+          }
+        },
+        {
+          "encodedOffset": 6730,
+          "row": 67,
+          "column": 30,
+          "rotatedRow": 30,
+          "rotatedColumn": 32,
+          "anchorDelta": {
+            "row": -14,
+            "column": -17
+          }
+        },
+        {
+          "encodedOffset": 6731,
+          "row": 67,
+          "column": 31,
+          "rotatedRow": 31,
+          "rotatedColumn": 32,
+          "anchorDelta": {
+            "row": -13,
+            "column": -17
+          }
+        },
+        {
+          "encodedOffset": 6732,
+          "row": 67,
+          "column": 32,
+          "rotatedRow": 32,
+          "rotatedColumn": 32,
+          "anchorDelta": {
+            "row": -12,
+            "column": -17
+          }
+        },
+        {
+          "encodedOffset": 6733,
+          "row": 67,
+          "column": 33,
+          "rotatedRow": 33,
+          "rotatedColumn": 32,
+          "anchorDelta": {
+            "row": -11,
+            "column": -17
+          }
+        },
+        {
+          "encodedOffset": 6734,
+          "row": 67,
+          "column": 34,
+          "rotatedRow": 34,
+          "rotatedColumn": 32,
+          "anchorDelta": {
+            "row": -10,
+            "column": -17
+          }
+        },
+        {
+          "encodedOffset": 6735,
+          "row": 67,
+          "column": 35,
+          "rotatedRow": 35,
+          "rotatedColumn": 32,
+          "anchorDelta": {
+            "row": -9,
+            "column": -17
+          }
+        },
+        {
+          "encodedOffset": 6736,
+          "row": 67,
+          "column": 36,
+          "rotatedRow": 36,
+          "rotatedColumn": 32,
+          "anchorDelta": {
+            "row": -8,
+            "column": -17
+          }
+        },
+        {
+          "encodedOffset": 6737,
+          "row": 67,
+          "column": 37,
+          "rotatedRow": 37,
+          "rotatedColumn": 32,
+          "anchorDelta": {
+            "row": -7,
+            "column": -17
+          }
+        },
+        {
+          "encodedOffset": 6738,
+          "row": 67,
+          "column": 38,
+          "rotatedRow": 38,
+          "rotatedColumn": 32,
+          "anchorDelta": {
+            "row": -6,
+            "column": -17
+          }
+        },
+        {
+          "encodedOffset": 6739,
+          "row": 67,
+          "column": 39,
+          "rotatedRow": 39,
+          "rotatedColumn": 32,
+          "anchorDelta": {
+            "row": -5,
+            "column": -17
+          }
+        },
+        {
+          "encodedOffset": 6740,
+          "row": 67,
+          "column": 40,
+          "rotatedRow": 40,
+          "rotatedColumn": 32,
+          "anchorDelta": {
+            "row": -4,
+            "column": -17
+          }
+        },
+        {
+          "encodedOffset": 6741,
+          "row": 67,
+          "column": 41,
+          "rotatedRow": 41,
+          "rotatedColumn": 32,
+          "anchorDelta": {
+            "row": -3,
+            "column": -17
+          }
+        },
+        {
+          "encodedOffset": 6742,
+          "row": 67,
+          "column": 42,
+          "rotatedRow": 42,
+          "rotatedColumn": 32,
+          "anchorDelta": {
+            "row": -2,
+            "column": -17
+          }
+        },
+        {
+          "encodedOffset": 6743,
+          "row": 67,
+          "column": 43,
+          "rotatedRow": 43,
+          "rotatedColumn": 32,
+          "anchorDelta": {
+            "row": -1,
+            "column": -17
+          }
+        },
+        {
+          "encodedOffset": 6744,
+          "row": 67,
+          "column": 44,
+          "rotatedRow": 44,
+          "rotatedColumn": 32,
+          "anchorDelta": {
+            "row": 0,
+            "column": -17
+          }
+        },
+        {
+          "encodedOffset": 6745,
+          "row": 67,
+          "column": 45,
+          "rotatedRow": 45,
+          "rotatedColumn": 32,
+          "anchorDelta": {
+            "row": 1,
+            "column": -17
+          }
+        },
+        {
+          "encodedOffset": 6746,
+          "row": 67,
+          "column": 46,
+          "rotatedRow": 46,
+          "rotatedColumn": 32,
+          "anchorDelta": {
+            "row": 2,
+            "column": -17
+          }
+        },
+        {
+          "encodedOffset": 6747,
+          "row": 67,
+          "column": 47,
+          "rotatedRow": 47,
+          "rotatedColumn": 32,
+          "anchorDelta": {
+            "row": 3,
+            "column": -17
+          }
+        },
+        {
+          "encodedOffset": 6748,
+          "row": 67,
+          "column": 48,
+          "rotatedRow": 48,
+          "rotatedColumn": 32,
+          "anchorDelta": {
+            "row": 4,
+            "column": -17
+          }
+        },
+        {
+          "encodedOffset": 6749,
+          "row": 67,
+          "column": 49,
+          "rotatedRow": 49,
+          "rotatedColumn": 32,
+          "anchorDelta": {
+            "row": 5,
+            "column": -17
+          }
+        },
+        {
+          "encodedOffset": 6750,
+          "row": 67,
+          "column": 50,
+          "rotatedRow": 50,
+          "rotatedColumn": 32,
+          "anchorDelta": {
+            "row": 6,
+            "column": -17
+          }
+        },
+        {
+          "encodedOffset": 6751,
+          "row": 67,
+          "column": 51,
+          "rotatedRow": 51,
+          "rotatedColumn": 32,
+          "anchorDelta": {
+            "row": 7,
+            "column": -17
+          }
+        },
+        {
+          "encodedOffset": 6752,
+          "row": 67,
+          "column": 52,
+          "rotatedRow": 52,
+          "rotatedColumn": 32,
+          "anchorDelta": {
+            "row": 8,
+            "column": -17
+          }
+        },
+        {
+          "encodedOffset": 6753,
+          "row": 67,
+          "column": 53,
+          "rotatedRow": 53,
+          "rotatedColumn": 32,
+          "anchorDelta": {
+            "row": 9,
+            "column": -17
+          }
+        },
+        {
+          "encodedOffset": 6754,
+          "row": 67,
+          "column": 54,
+          "rotatedRow": 54,
+          "rotatedColumn": 32,
+          "anchorDelta": {
+            "row": 10,
+            "column": -17
+          }
+        },
+        {
+          "encodedOffset": 6755,
+          "row": 67,
+          "column": 55,
+          "rotatedRow": 55,
+          "rotatedColumn": 32,
+          "anchorDelta": {
+            "row": 11,
+            "column": -17
+          }
+        },
+        {
+          "encodedOffset": 6756,
+          "row": 67,
+          "column": 56,
+          "rotatedRow": 56,
+          "rotatedColumn": 32,
+          "anchorDelta": {
+            "row": 12,
+            "column": -17
+          }
+        },
+        {
+          "encodedOffset": 6757,
+          "row": 67,
+          "column": 57,
+          "rotatedRow": 57,
+          "rotatedColumn": 32,
+          "anchorDelta": {
+            "row": 13,
+            "column": -17
+          }
+        },
+        {
+          "encodedOffset": 6758,
+          "row": 67,
+          "column": 58,
+          "rotatedRow": 58,
+          "rotatedColumn": 32,
+          "anchorDelta": {
+            "row": 14,
+            "column": -17
+          }
+        },
+        {
+          "encodedOffset": 6759,
+          "row": 67,
+          "column": 59,
+          "rotatedRow": 59,
+          "rotatedColumn": 32,
+          "anchorDelta": {
+            "row": 15,
+            "column": -17
+          }
+        },
+        {
+          "encodedOffset": 6760,
+          "row": 67,
+          "column": 60,
+          "rotatedRow": 60,
+          "rotatedColumn": 32,
+          "anchorDelta": {
+            "row": 16,
+            "column": -17
+          }
+        },
+        {
+          "encodedOffset": 6761,
+          "row": 67,
+          "column": 61,
+          "rotatedRow": 61,
+          "rotatedColumn": 32,
+          "anchorDelta": {
+            "row": 17,
+            "column": -17
+          }
+        },
+        {
+          "encodedOffset": 6762,
+          "row": 67,
+          "column": 62,
+          "rotatedRow": 62,
+          "rotatedColumn": 32,
+          "anchorDelta": {
+            "row": 18,
+            "column": -17
+          }
+        },
+        {
+          "encodedOffset": 6763,
+          "row": 67,
+          "column": 63,
+          "rotatedRow": 63,
+          "rotatedColumn": 32,
+          "anchorDelta": {
+            "row": 19,
+            "column": -17
+          }
+        },
+        {
+          "encodedOffset": 6764,
+          "row": 67,
+          "column": 64,
+          "rotatedRow": 64,
+          "rotatedColumn": 32,
+          "anchorDelta": {
+            "row": 20,
+            "column": -17
+          }
+        },
+        {
+          "encodedOffset": 6665,
+          "row": 66,
+          "column": 65,
+          "rotatedRow": 65,
+          "rotatedColumn": 33,
+          "anchorDelta": {
+            "row": 21,
+            "column": -16
+          }
+        },
+        {
+          "encodedOffset": 6566,
+          "row": 65,
+          "column": 66,
+          "rotatedRow": 66,
+          "rotatedColumn": 34,
+          "anchorDelta": {
+            "row": 22,
+            "column": -15
+          }
+        },
+        {
+          "encodedOffset": 6467,
+          "row": 64,
+          "column": 67,
+          "rotatedRow": 67,
+          "rotatedColumn": 35,
+          "anchorDelta": {
+            "row": 23,
+            "column": -14
+          }
+        },
+        {
+          "encodedOffset": 6368,
+          "row": 63,
+          "column": 68,
+          "rotatedRow": 68,
+          "rotatedColumn": 36,
+          "anchorDelta": {
+            "row": 24,
+            "column": -13
+          }
+        },
+        {
+          "encodedOffset": 6269,
+          "row": 62,
+          "column": 69,
+          "rotatedRow": 69,
+          "rotatedColumn": 37,
+          "anchorDelta": {
+            "row": 25,
+            "column": -12
+          }
+        },
+        {
+          "encodedOffset": 6170,
+          "row": 61,
+          "column": 70,
+          "rotatedRow": 70,
+          "rotatedColumn": 38,
+          "anchorDelta": {
+            "row": 26,
+            "column": -11
+          }
+        },
+        {
+          "encodedOffset": 6071,
+          "row": 60,
+          "column": 71,
+          "rotatedRow": 71,
+          "rotatedColumn": 39,
+          "anchorDelta": {
+            "row": 27,
+            "column": -10
+          }
+        },
+        {
+          "encodedOffset": 5972,
+          "row": 59,
+          "column": 72,
+          "rotatedRow": 72,
+          "rotatedColumn": 40,
+          "anchorDelta": {
+            "row": 28,
+            "column": -9
+          }
+        },
+        {
+          "encodedOffset": 5873,
+          "row": 58,
+          "column": 73,
+          "rotatedRow": 73,
+          "rotatedColumn": 41,
+          "anchorDelta": {
+            "row": 29,
+            "column": -8
+          }
+        },
+        {
+          "encodedOffset": 5774,
+          "row": 57,
+          "column": 74,
+          "rotatedRow": 74,
+          "rotatedColumn": 42,
+          "anchorDelta": {
+            "row": 30,
+            "column": -7
+          }
+        },
+        {
+          "encodedOffset": 5674,
+          "row": 56,
+          "column": 74,
+          "rotatedRow": 74,
+          "rotatedColumn": 43,
+          "anchorDelta": {
+            "row": 30,
+            "column": -6
+          }
+        },
+        {
+          "encodedOffset": 5574,
+          "row": 55,
+          "column": 74,
+          "rotatedRow": 74,
+          "rotatedColumn": 44,
+          "anchorDelta": {
+            "row": 30,
+            "column": -5
+          }
+        },
+        {
+          "encodedOffset": 5474,
+          "row": 54,
+          "column": 74,
+          "rotatedRow": 74,
+          "rotatedColumn": 45,
+          "anchorDelta": {
+            "row": 30,
+            "column": -4
+          }
+        },
+        {
+          "encodedOffset": 5374,
+          "row": 53,
+          "column": 74,
+          "rotatedRow": 74,
+          "rotatedColumn": 46,
+          "anchorDelta": {
+            "row": 30,
+            "column": -3
+          }
+        },
+        {
+          "encodedOffset": 5274,
+          "row": 52,
+          "column": 74,
+          "rotatedRow": 74,
+          "rotatedColumn": 47,
+          "anchorDelta": {
+            "row": 30,
+            "column": -2
+          }
+        },
+        {
+          "encodedOffset": 5174,
+          "row": 51,
+          "column": 74,
+          "rotatedRow": 74,
+          "rotatedColumn": 48,
+          "anchorDelta": {
+            "row": 30,
+            "column": -1
+          }
+        },
+        {
+          "encodedOffset": 5074,
+          "row": 50,
+          "column": 74,
+          "rotatedRow": 74,
+          "rotatedColumn": 49,
+          "anchorDelta": {
+            "row": 30,
+            "column": 0
+          }
+        },
+        {
+          "encodedOffset": 4974,
+          "row": 49,
+          "column": 74,
+          "rotatedRow": 74,
+          "rotatedColumn": 50,
+          "anchorDelta": {
+            "row": 30,
+            "column": 1
+          }
+        },
+        {
+          "encodedOffset": 4874,
+          "row": 48,
+          "column": 74,
+          "rotatedRow": 74,
+          "rotatedColumn": 51,
+          "anchorDelta": {
+            "row": 30,
+            "column": 2
+          }
+        },
+        {
+          "encodedOffset": 4774,
+          "row": 47,
+          "column": 74,
+          "rotatedRow": 74,
+          "rotatedColumn": 52,
+          "anchorDelta": {
+            "row": 30,
+            "column": 3
+          }
+        },
+        {
+          "encodedOffset": 4674,
+          "row": 46,
+          "column": 74,
+          "rotatedRow": 74,
+          "rotatedColumn": 53,
+          "anchorDelta": {
+            "row": 30,
+            "column": 4
+          }
+        },
+        {
+          "encodedOffset": 4574,
+          "row": 45,
+          "column": 74,
+          "rotatedRow": 74,
+          "rotatedColumn": 54,
+          "anchorDelta": {
+            "row": 30,
+            "column": 5
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 70,
+      "itemType": 26,
+      "mapperName": "MAPPER_CRENAL",
+      "category": "CrenelPath",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 3974,
+          "row": 39,
+          "column": 74,
+          "rotatedRow": 74,
+          "rotatedColumn": 60,
+          "anchorDelta": {
+            "row": 30,
+            "column": 11
+          }
+        },
+        {
+          "encodedOffset": 3874,
+          "row": 38,
+          "column": 74,
+          "rotatedRow": 74,
+          "rotatedColumn": 61,
+          "anchorDelta": {
+            "row": 30,
+            "column": 12
+          }
+        },
+        {
+          "encodedOffset": 3774,
+          "row": 37,
+          "column": 74,
+          "rotatedRow": 74,
+          "rotatedColumn": 62,
+          "anchorDelta": {
+            "row": 30,
+            "column": 13
+          }
+        },
+        {
+          "encodedOffset": 3674,
+          "row": 36,
+          "column": 74,
+          "rotatedRow": 74,
+          "rotatedColumn": 63,
+          "anchorDelta": {
+            "row": 30,
+            "column": 14
+          }
+        },
+        {
+          "encodedOffset": 3574,
+          "row": 35,
+          "column": 74,
+          "rotatedRow": 74,
+          "rotatedColumn": 64,
+          "anchorDelta": {
+            "row": 30,
+            "column": 15
+          }
+        },
+        {
+          "encodedOffset": 3473,
+          "row": 34,
+          "column": 73,
+          "rotatedRow": 73,
+          "rotatedColumn": 65,
+          "anchorDelta": {
+            "row": 29,
+            "column": 16
+          }
+        },
+        {
+          "encodedOffset": 3372,
+          "row": 33,
+          "column": 72,
+          "rotatedRow": 72,
+          "rotatedColumn": 66,
+          "anchorDelta": {
+            "row": 28,
+            "column": 17
+          }
+        },
+        {
+          "encodedOffset": 3271,
+          "row": 32,
+          "column": 71,
+          "rotatedRow": 71,
+          "rotatedColumn": 67,
+          "anchorDelta": {
+            "row": 27,
+            "column": 18
+          }
+        },
+        {
+          "encodedOffset": 3170,
+          "row": 31,
+          "column": 70,
+          "rotatedRow": 70,
+          "rotatedColumn": 68,
+          "anchorDelta": {
+            "row": 26,
+            "column": 19
+          }
+        },
+        {
+          "encodedOffset": 3069,
+          "row": 30,
+          "column": 69,
+          "rotatedRow": 69,
+          "rotatedColumn": 69,
+          "anchorDelta": {
+            "row": 25,
+            "column": 20
+          }
+        },
+        {
+          "encodedOffset": 2968,
+          "row": 29,
+          "column": 68,
+          "rotatedRow": 68,
+          "rotatedColumn": 70,
+          "anchorDelta": {
+            "row": 24,
+            "column": 21
+          }
+        },
+        {
+          "encodedOffset": 2867,
+          "row": 28,
+          "column": 67,
+          "rotatedRow": 67,
+          "rotatedColumn": 71,
+          "anchorDelta": {
+            "row": 23,
+            "column": 22
+          }
+        },
+        {
+          "encodedOffset": 2766,
+          "row": 27,
+          "column": 66,
+          "rotatedRow": 66,
+          "rotatedColumn": 72,
+          "anchorDelta": {
+            "row": 22,
+            "column": 23
+          }
+        },
+        {
+          "encodedOffset": 2665,
+          "row": 26,
+          "column": 65,
+          "rotatedRow": 65,
+          "rotatedColumn": 73,
+          "anchorDelta": {
+            "row": 21,
+            "column": 24
+          }
+        },
+        {
+          "encodedOffset": 2564,
+          "row": 25,
+          "column": 64,
+          "rotatedRow": 64,
+          "rotatedColumn": 74,
+          "anchorDelta": {
+            "row": 20,
+            "column": 25
+          }
+        },
+        {
+          "encodedOffset": 2563,
+          "row": 25,
+          "column": 63,
+          "rotatedRow": 63,
+          "rotatedColumn": 74,
+          "anchorDelta": {
+            "row": 19,
+            "column": 25
+          }
+        },
+        {
+          "encodedOffset": 2562,
+          "row": 25,
+          "column": 62,
+          "rotatedRow": 62,
+          "rotatedColumn": 74,
+          "anchorDelta": {
+            "row": 18,
+            "column": 25
+          }
+        },
+        {
+          "encodedOffset": 2561,
+          "row": 25,
+          "column": 61,
+          "rotatedRow": 61,
+          "rotatedColumn": 74,
+          "anchorDelta": {
+            "row": 17,
+            "column": 25
+          }
+        },
+        {
+          "encodedOffset": 2560,
+          "row": 25,
+          "column": 60,
+          "rotatedRow": 60,
+          "rotatedColumn": 74,
+          "anchorDelta": {
+            "row": 16,
+            "column": 25
+          }
+        },
+        {
+          "encodedOffset": 2559,
+          "row": 25,
+          "column": 59,
+          "rotatedRow": 59,
+          "rotatedColumn": 74,
+          "anchorDelta": {
+            "row": 15,
+            "column": 25
+          }
+        },
+        {
+          "encodedOffset": 2558,
+          "row": 25,
+          "column": 58,
+          "rotatedRow": 58,
+          "rotatedColumn": 74,
+          "anchorDelta": {
+            "row": 14,
+            "column": 25
+          }
+        },
+        {
+          "encodedOffset": 2557,
+          "row": 25,
+          "column": 57,
+          "rotatedRow": 57,
+          "rotatedColumn": 74,
+          "anchorDelta": {
+            "row": 13,
+            "column": 25
+          }
+        },
+        {
+          "encodedOffset": 2556,
+          "row": 25,
+          "column": 56,
+          "rotatedRow": 56,
+          "rotatedColumn": 74,
+          "anchorDelta": {
+            "row": 12,
+            "column": 25
+          }
+        },
+        {
+          "encodedOffset": 2555,
+          "row": 25,
+          "column": 55,
+          "rotatedRow": 55,
+          "rotatedColumn": 74,
+          "anchorDelta": {
+            "row": 11,
+            "column": 25
+          }
+        },
+        {
+          "encodedOffset": 2554,
+          "row": 25,
+          "column": 54,
+          "rotatedRow": 54,
+          "rotatedColumn": 74,
+          "anchorDelta": {
+            "row": 10,
+            "column": 25
+          }
+        },
+        {
+          "encodedOffset": 2553,
+          "row": 25,
+          "column": 53,
+          "rotatedRow": 53,
+          "rotatedColumn": 74,
+          "anchorDelta": {
+            "row": 9,
+            "column": 25
+          }
+        },
+        {
+          "encodedOffset": 2552,
+          "row": 25,
+          "column": 52,
+          "rotatedRow": 52,
+          "rotatedColumn": 74,
+          "anchorDelta": {
+            "row": 8,
+            "column": 25
+          }
+        },
+        {
+          "encodedOffset": 2551,
+          "row": 25,
+          "column": 51,
+          "rotatedRow": 51,
+          "rotatedColumn": 74,
+          "anchorDelta": {
+            "row": 7,
+            "column": 25
+          }
+        },
+        {
+          "encodedOffset": 2550,
+          "row": 25,
+          "column": 50,
+          "rotatedRow": 50,
+          "rotatedColumn": 74,
+          "anchorDelta": {
+            "row": 6,
+            "column": 25
+          }
+        },
+        {
+          "encodedOffset": 2549,
+          "row": 25,
+          "column": 49,
+          "rotatedRow": 49,
+          "rotatedColumn": 74,
+          "anchorDelta": {
+            "row": 5,
+            "column": 25
+          }
+        },
+        {
+          "encodedOffset": 2548,
+          "row": 25,
+          "column": 48,
+          "rotatedRow": 48,
+          "rotatedColumn": 74,
+          "anchorDelta": {
+            "row": 4,
+            "column": 25
+          }
+        },
+        {
+          "encodedOffset": 2547,
+          "row": 25,
+          "column": 47,
+          "rotatedRow": 47,
+          "rotatedColumn": 74,
+          "anchorDelta": {
+            "row": 3,
+            "column": 25
+          }
+        },
+        {
+          "encodedOffset": 2546,
+          "row": 25,
+          "column": 46,
+          "rotatedRow": 46,
+          "rotatedColumn": 74,
+          "anchorDelta": {
+            "row": 2,
+            "column": 25
+          }
+        },
+        {
+          "encodedOffset": 2545,
+          "row": 25,
+          "column": 45,
+          "rotatedRow": 45,
+          "rotatedColumn": 74,
+          "anchorDelta": {
+            "row": 1,
+            "column": 25
+          }
+        },
+        {
+          "encodedOffset": 2544,
+          "row": 25,
+          "column": 44,
+          "rotatedRow": 44,
+          "rotatedColumn": 74,
+          "anchorDelta": {
+            "row": 0,
+            "column": 25
+          }
+        },
+        {
+          "encodedOffset": 2543,
+          "row": 25,
+          "column": 43,
+          "rotatedRow": 43,
+          "rotatedColumn": 74,
+          "anchorDelta": {
+            "row": -1,
+            "column": 25
+          }
+        },
+        {
+          "encodedOffset": 2542,
+          "row": 25,
+          "column": 42,
+          "rotatedRow": 42,
+          "rotatedColumn": 74,
+          "anchorDelta": {
+            "row": -2,
+            "column": 25
+          }
+        },
+        {
+          "encodedOffset": 2541,
+          "row": 25,
+          "column": 41,
+          "rotatedRow": 41,
+          "rotatedColumn": 74,
+          "anchorDelta": {
+            "row": -3,
+            "column": 25
+          }
+        },
+        {
+          "encodedOffset": 2540,
+          "row": 25,
+          "column": 40,
+          "rotatedRow": 40,
+          "rotatedColumn": 74,
+          "anchorDelta": {
+            "row": -4,
+            "column": 25
+          }
+        },
+        {
+          "encodedOffset": 2539,
+          "row": 25,
+          "column": 39,
+          "rotatedRow": 39,
+          "rotatedColumn": 74,
+          "anchorDelta": {
+            "row": -5,
+            "column": 25
+          }
+        },
+        {
+          "encodedOffset": 2538,
+          "row": 25,
+          "column": 38,
+          "rotatedRow": 38,
+          "rotatedColumn": 74,
+          "anchorDelta": {
+            "row": -6,
+            "column": 25
+          }
+        },
+        {
+          "encodedOffset": 2537,
+          "row": 25,
+          "column": 37,
+          "rotatedRow": 37,
+          "rotatedColumn": 74,
+          "anchorDelta": {
+            "row": -7,
+            "column": 25
+          }
+        },
+        {
+          "encodedOffset": 2536,
+          "row": 25,
+          "column": 36,
+          "rotatedRow": 36,
+          "rotatedColumn": 74,
+          "anchorDelta": {
+            "row": -8,
+            "column": 25
+          }
+        },
+        {
+          "encodedOffset": 2535,
+          "row": 25,
+          "column": 35,
+          "rotatedRow": 35,
+          "rotatedColumn": 74,
+          "anchorDelta": {
+            "row": -9,
+            "column": 25
+          }
+        },
+        {
+          "encodedOffset": 2534,
+          "row": 25,
+          "column": 34,
+          "rotatedRow": 34,
+          "rotatedColumn": 74,
+          "anchorDelta": {
+            "row": -10,
+            "column": 25
+          }
+        },
+        {
+          "encodedOffset": 2533,
+          "row": 25,
+          "column": 33,
+          "rotatedRow": 33,
+          "rotatedColumn": 74,
+          "anchorDelta": {
+            "row": -11,
+            "column": 25
+          }
+        },
+        {
+          "encodedOffset": 2532,
+          "row": 25,
+          "column": 32,
+          "rotatedRow": 32,
+          "rotatedColumn": 74,
+          "anchorDelta": {
+            "row": -12,
+            "column": 25
+          }
+        },
+        {
+          "encodedOffset": 2531,
+          "row": 25,
+          "column": 31,
+          "rotatedRow": 31,
+          "rotatedColumn": 74,
+          "anchorDelta": {
+            "row": -13,
+            "column": 25
+          }
+        },
+        {
+          "encodedOffset": 2530,
+          "row": 25,
+          "column": 30,
+          "rotatedRow": 30,
+          "rotatedColumn": 74,
+          "anchorDelta": {
+            "row": -14,
+            "column": 25
+          }
+        },
+        {
+          "encodedOffset": 2629,
+          "row": 26,
+          "column": 29,
+          "rotatedRow": 29,
+          "rotatedColumn": 73,
+          "anchorDelta": {
+            "row": -15,
+            "column": 24
+          }
+        },
+        {
+          "encodedOffset": 2728,
+          "row": 27,
+          "column": 28,
+          "rotatedRow": 28,
+          "rotatedColumn": 72,
+          "anchorDelta": {
+            "row": -16,
+            "column": 23
+          }
+        },
+        {
+          "encodedOffset": 2827,
+          "row": 28,
+          "column": 27,
+          "rotatedRow": 27,
+          "rotatedColumn": 71,
+          "anchorDelta": {
+            "row": -17,
+            "column": 22
+          }
+        },
+        {
+          "encodedOffset": 2926,
+          "row": 29,
+          "column": 26,
+          "rotatedRow": 26,
+          "rotatedColumn": 70,
+          "anchorDelta": {
+            "row": -18,
+            "column": 21
+          }
+        },
+        {
+          "encodedOffset": 3025,
+          "row": 30,
+          "column": 25,
+          "rotatedRow": 25,
+          "rotatedColumn": 69,
+          "anchorDelta": {
+            "row": -19,
+            "column": 20
+          }
+        },
+        {
+          "encodedOffset": 3124,
+          "row": 31,
+          "column": 24,
+          "rotatedRow": 24,
+          "rotatedColumn": 68,
+          "anchorDelta": {
+            "row": -20,
+            "column": 19
+          }
+        },
+        {
+          "encodedOffset": 3223,
+          "row": 32,
+          "column": 23,
+          "rotatedRow": 23,
+          "rotatedColumn": 67,
+          "anchorDelta": {
+            "row": -21,
+            "column": 18
+          }
+        },
+        {
+          "encodedOffset": 3322,
+          "row": 33,
+          "column": 22,
+          "rotatedRow": 22,
+          "rotatedColumn": 66,
+          "anchorDelta": {
+            "row": -22,
+            "column": 17
+          }
+        },
+        {
+          "encodedOffset": 3421,
+          "row": 34,
+          "column": 21,
+          "rotatedRow": 21,
+          "rotatedColumn": 65,
+          "anchorDelta": {
+            "row": -23,
+            "column": 16
+          }
+        },
+        {
+          "encodedOffset": 3520,
+          "row": 35,
+          "column": 20,
+          "rotatedRow": 20,
+          "rotatedColumn": 64,
+          "anchorDelta": {
+            "row": -24,
+            "column": 15
+          }
+        },
+        {
+          "encodedOffset": 3620,
+          "row": 36,
+          "column": 20,
+          "rotatedRow": 20,
+          "rotatedColumn": 63,
+          "anchorDelta": {
+            "row": -24,
+            "column": 14
+          }
+        },
+        {
+          "encodedOffset": 3720,
+          "row": 37,
+          "column": 20,
+          "rotatedRow": 20,
+          "rotatedColumn": 62,
+          "anchorDelta": {
+            "row": -24,
+            "column": 13
+          }
+        },
+        {
+          "encodedOffset": 3820,
+          "row": 38,
+          "column": 20,
+          "rotatedRow": 20,
+          "rotatedColumn": 61,
+          "anchorDelta": {
+            "row": -24,
+            "column": 12
+          }
+        },
+        {
+          "encodedOffset": 3920,
+          "row": 39,
+          "column": 20,
+          "rotatedRow": 20,
+          "rotatedColumn": 60,
+          "anchorDelta": {
+            "row": -24,
+            "column": 11
+          }
+        },
+        {
+          "encodedOffset": 4020,
+          "row": 40,
+          "column": 20,
+          "rotatedRow": 20,
+          "rotatedColumn": 59,
+          "anchorDelta": {
+            "row": -24,
+            "column": 10
+          }
+        },
+        {
+          "encodedOffset": 4120,
+          "row": 41,
+          "column": 20,
+          "rotatedRow": 20,
+          "rotatedColumn": 58,
+          "anchorDelta": {
+            "row": -24,
+            "column": 9
+          }
+        },
+        {
+          "encodedOffset": 4220,
+          "row": 42,
+          "column": 20,
+          "rotatedRow": 20,
+          "rotatedColumn": 57,
+          "anchorDelta": {
+            "row": -24,
+            "column": 8
+          }
+        },
+        {
+          "encodedOffset": 4320,
+          "row": 43,
+          "column": 20,
+          "rotatedRow": 20,
+          "rotatedColumn": 56,
+          "anchorDelta": {
+            "row": -24,
+            "column": 7
+          }
+        },
+        {
+          "encodedOffset": 4420,
+          "row": 44,
+          "column": 20,
+          "rotatedRow": 20,
+          "rotatedColumn": 55,
+          "anchorDelta": {
+            "row": -24,
+            "column": 6
+          }
+        },
+        {
+          "encodedOffset": 4520,
+          "row": 45,
+          "column": 20,
+          "rotatedRow": 20,
+          "rotatedColumn": 54,
+          "anchorDelta": {
+            "row": -24,
+            "column": 5
+          }
+        },
+        {
+          "encodedOffset": 4620,
+          "row": 46,
+          "column": 20,
+          "rotatedRow": 20,
+          "rotatedColumn": 53,
+          "anchorDelta": {
+            "row": -24,
+            "column": 4
+          }
+        },
+        {
+          "encodedOffset": 4720,
+          "row": 47,
+          "column": 20,
+          "rotatedRow": 20,
+          "rotatedColumn": 52,
+          "anchorDelta": {
+            "row": -24,
+            "column": 3
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 71,
+      "itemType": 113,
+      "mapperName": "MAPPER_TOWER4",
+      "category": "Building",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 6163,
+          "row": 61,
+          "column": 63,
+          "rotatedRow": 63,
+          "rotatedColumn": 38,
+          "anchorDelta": {
+            "row": 19,
+            "column": -11
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 72,
+      "itemType": 113,
+      "mapperName": "MAPPER_TOWER4",
+      "category": "Building",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 6126,
+          "row": 61,
+          "column": 26,
+          "rotatedRow": 26,
+          "rotatedColumn": 38,
+          "anchorDelta": {
+            "row": -18,
+            "column": -11
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 73,
+      "itemType": 113,
+      "mapperName": "MAPPER_TOWER4",
+      "category": "Building",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 3626,
+          "row": 36,
+          "column": 26,
+          "rotatedRow": 26,
+          "rotatedColumn": 63,
+          "anchorDelta": {
+            "row": -18,
+            "column": 14
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 74,
+      "itemType": 113,
+      "mapperName": "MAPPER_TOWER4",
+      "category": "Building",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 3663,
+          "row": 36,
+          "column": 63,
+          "rotatedRow": 63,
+          "rotatedColumn": 63,
+          "anchorDelta": {
+            "row": 19,
+            "column": 14
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 75,
+      "itemType": 98,
+      "mapperName": "MAPPER_KILLING_PIT",
+      "category": "Trap",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 4375,
+          "row": 43,
+          "column": 75,
+          "rotatedRow": 75,
+          "rotatedColumn": 56,
+          "anchorDelta": {
+            "row": 31,
+            "column": 7
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 76,
+      "itemType": 98,
+      "mapperName": "MAPPER_KILLING_PIT",
+      "category": "Trap",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 4475,
+          "row": 44,
+          "column": 75,
+          "rotatedRow": 75,
+          "rotatedColumn": 55,
+          "anchorDelta": {
+            "row": 31,
+            "column": 6
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 77,
+      "itemType": 98,
+      "mapperName": "MAPPER_KILLING_PIT",
+      "category": "Trap",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 4275,
+          "row": 42,
+          "column": 75,
+          "rotatedRow": 75,
+          "rotatedColumn": 57,
+          "anchorDelta": {
+            "row": 31,
+            "column": 8
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 78,
+      "itemType": 98,
+      "mapperName": "MAPPER_KILLING_PIT",
+      "category": "Trap",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 4175,
+          "row": 41,
+          "column": 75,
+          "rotatedRow": 75,
+          "rotatedColumn": 58,
+          "anchorDelta": {
+            "row": 31,
+            "column": 9
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 79,
+      "itemType": 98,
+      "mapperName": "MAPPER_KILLING_PIT",
+      "category": "Trap",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 3975,
+          "row": 39,
+          "column": 75,
+          "rotatedRow": 75,
+          "rotatedColumn": 60,
+          "anchorDelta": {
+            "row": 31,
+            "column": 11
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 80,
+      "itemType": 98,
+      "mapperName": "MAPPER_KILLING_PIT",
+      "category": "Trap",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 4075,
+          "row": 40,
+          "column": 75,
+          "rotatedRow": 75,
+          "rotatedColumn": 59,
+          "anchorDelta": {
+            "row": 31,
+            "column": 10
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 81,
+      "itemType": 98,
+      "mapperName": "MAPPER_KILLING_PIT",
+      "category": "Trap",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 4575,
+          "row": 45,
+          "column": 75,
+          "rotatedRow": 75,
+          "rotatedColumn": 54,
+          "anchorDelta": {
+            "row": 31,
+            "column": 5
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 82,
+      "itemType": 98,
+      "mapperName": "MAPPER_KILLING_PIT",
+      "category": "Trap",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 4376,
+          "row": 43,
+          "column": 76,
+          "rotatedRow": 76,
+          "rotatedColumn": 56,
+          "anchorDelta": {
+            "row": 32,
+            "column": 7
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 83,
+      "itemType": 98,
+      "mapperName": "MAPPER_KILLING_PIT",
+      "category": "Trap",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 4476,
+          "row": 44,
+          "column": 76,
+          "rotatedRow": 76,
+          "rotatedColumn": 55,
+          "anchorDelta": {
+            "row": 32,
+            "column": 6
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 84,
+      "itemType": 98,
+      "mapperName": "MAPPER_KILLING_PIT",
+      "category": "Trap",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 4276,
+          "row": 42,
+          "column": 76,
+          "rotatedRow": 76,
+          "rotatedColumn": 57,
+          "anchorDelta": {
+            "row": 32,
+            "column": 8
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 85,
+      "itemType": 98,
+      "mapperName": "MAPPER_KILLING_PIT",
+      "category": "Trap",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 4176,
+          "row": 41,
+          "column": 76,
+          "rotatedRow": 76,
+          "rotatedColumn": 58,
+          "anchorDelta": {
+            "row": 32,
+            "column": 9
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 86,
+      "itemType": 98,
+      "mapperName": "MAPPER_KILLING_PIT",
+      "category": "Trap",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 4076,
+          "row": 40,
+          "column": 76,
+          "rotatedRow": 76,
+          "rotatedColumn": 59,
+          "anchorDelta": {
+            "row": 32,
+            "column": 10
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 87,
+      "itemType": 98,
+      "mapperName": "MAPPER_KILLING_PIT",
+      "category": "Trap",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 4719,
+          "row": 47,
+          "column": 19,
+          "rotatedRow": 19,
+          "rotatedColumn": 52,
+          "anchorDelta": {
+            "row": -25,
+            "column": 3
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 88,
+      "itemType": 98,
+      "mapperName": "MAPPER_KILLING_PIT",
+      "category": "Trap",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 4819,
+          "row": 48,
+          "column": 19,
+          "rotatedRow": 19,
+          "rotatedColumn": 51,
+          "anchorDelta": {
+            "row": -25,
+            "column": 2
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 89,
+      "itemType": 98,
+      "mapperName": "MAPPER_KILLING_PIT",
+      "category": "Trap",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 4919,
+          "row": 49,
+          "column": 19,
+          "rotatedRow": 19,
+          "rotatedColumn": 50,
+          "anchorDelta": {
+            "row": -25,
+            "column": 1
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 90,
+      "itemType": 98,
+      "mapperName": "MAPPER_KILLING_PIT",
+      "category": "Trap",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 5019,
+          "row": 50,
+          "column": 19,
+          "rotatedRow": 19,
+          "rotatedColumn": 49,
+          "anchorDelta": {
+            "row": -25,
+            "column": 0
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 91,
+      "itemType": 98,
+      "mapperName": "MAPPER_KILLING_PIT",
+      "category": "Trap",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 5119,
+          "row": 51,
+          "column": 19,
+          "rotatedRow": 19,
+          "rotatedColumn": 48,
+          "anchorDelta": {
+            "row": -25,
+            "column": -1
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 92,
+      "itemType": 98,
+      "mapperName": "MAPPER_KILLING_PIT",
+      "category": "Trap",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 5219,
+          "row": 52,
+          "column": 19,
+          "rotatedRow": 19,
+          "rotatedColumn": 47,
+          "anchorDelta": {
+            "row": -25,
+            "column": -2
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 93,
+      "itemType": 98,
+      "mapperName": "MAPPER_KILLING_PIT",
+      "category": "Trap",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 5319,
+          "row": 53,
+          "column": 19,
+          "rotatedRow": 19,
+          "rotatedColumn": 46,
+          "anchorDelta": {
+            "row": -25,
+            "column": -3
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 94,
+      "itemType": 98,
+      "mapperName": "MAPPER_KILLING_PIT",
+      "category": "Trap",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 5218,
+          "row": 52,
+          "column": 18,
+          "rotatedRow": 18,
+          "rotatedColumn": 47,
+          "anchorDelta": {
+            "row": -26,
+            "column": -2
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 95,
+      "itemType": 98,
+      "mapperName": "MAPPER_KILLING_PIT",
+      "category": "Trap",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 5118,
+          "row": 51,
+          "column": 18,
+          "rotatedRow": 18,
+          "rotatedColumn": 48,
+          "anchorDelta": {
+            "row": -26,
+            "column": -1
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 96,
+      "itemType": 98,
+      "mapperName": "MAPPER_KILLING_PIT",
+      "category": "Trap",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 5018,
+          "row": 50,
+          "column": 18,
+          "rotatedRow": 18,
+          "rotatedColumn": 49,
+          "anchorDelta": {
+            "row": -26,
+            "column": 0
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 97,
+      "itemType": 98,
+      "mapperName": "MAPPER_KILLING_PIT",
+      "category": "Trap",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 4918,
+          "row": 49,
+          "column": 18,
+          "rotatedRow": 18,
+          "rotatedColumn": 50,
+          "anchorDelta": {
+            "row": -26,
+            "column": 1
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 98,
+      "itemType": 98,
+      "mapperName": "MAPPER_KILLING_PIT",
+      "category": "Trap",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 4818,
+          "row": 48,
+          "column": 18,
+          "rotatedRow": 18,
+          "rotatedColumn": 51,
+          "anchorDelta": {
+            "row": -26,
+            "column": 2
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 99,
+      "itemType": 98,
+      "mapperName": "MAPPER_KILLING_PIT",
+      "category": "Trap",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 3619,
+          "row": 36,
+          "column": 19,
+          "rotatedRow": 19,
+          "rotatedColumn": 63,
+          "anchorDelta": {
+            "row": -25,
+            "column": 14
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 100,
+      "itemType": 98,
+      "mapperName": "MAPPER_KILLING_PIT",
+      "category": "Trap",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 3519,
+          "row": 35,
+          "column": 19,
+          "rotatedRow": 19,
+          "rotatedColumn": 64,
+          "anchorDelta": {
+            "row": -25,
+            "column": 15
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 101,
+      "itemType": 98,
+      "mapperName": "MAPPER_KILLING_PIT",
+      "category": "Trap",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 5575,
+          "row": 55,
+          "column": 75,
+          "rotatedRow": 75,
+          "rotatedColumn": 44,
+          "anchorDelta": {
+            "row": 31,
+            "column": -5
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 102,
+      "itemType": 98,
+      "mapperName": "MAPPER_KILLING_PIT",
+      "category": "Trap",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 5675,
+          "row": 56,
+          "column": 75,
+          "rotatedRow": 75,
+          "rotatedColumn": 43,
+          "anchorDelta": {
+            "row": 31,
+            "column": -6
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 103,
+      "itemType": 98,
+      "mapperName": "MAPPER_KILLING_PIT",
+      "category": "Trap",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 5775,
+          "row": 57,
+          "column": 75,
+          "rotatedRow": 75,
+          "rotatedColumn": 42,
+          "anchorDelta": {
+            "row": 31,
+            "column": -7
+          }
+        }
+      ]
+    },
+    {
+      "buildIndex": 104,
+      "itemType": 98,
+      "mapperName": "MAPPER_KILLING_PIT",
+      "category": "Trap",
+      "knownMapper": true,
+      "shouldPause": false,
+      "positions": [
+        {
+          "encodedOffset": 4675,
+          "row": 46,
+          "column": 75,
+          "rotatedRow": 75,
+          "rotatedColumn": 53,
+          "anchorDelta": {
+            "row": 31,
+            "column": 4
+          }
+        }
+      ]
+    }
+  ],
+  "miscItems": [
+    {
+      "sourceIndex": 0,
+      "rawItemType": 3,
+      "engineItemType": 3,
+      "itemTypeName": "BALLISTA",
+      "knownItemType": true,
+      "slotIndex": 0,
+      "position": {
+        "encodedOffset": 5866,
+        "row": 58,
+        "column": 66,
+        "rotatedRow": 66,
+        "rotatedColumn": 41,
+        "anchorDelta": {
+          "row": 22,
+          "column": -8
+        }
+      }
+    },
+    {
+      "sourceIndex": 1,
+      "rawItemType": 3,
+      "engineItemType": 3,
+      "itemTypeName": "BALLISTA",
+      "knownItemType": true,
+      "slotIndex": 1,
+      "position": {
+        "encodedOffset": 3466,
+        "row": 34,
+        "column": 66,
+        "rotatedRow": 66,
+        "rotatedColumn": 65,
+        "anchorDelta": {
+          "row": 22,
+          "column": 16
+        }
+      }
+    },
+    {
+      "sourceIndex": 2,
+      "rawItemType": 3,
+      "engineItemType": 3,
+      "itemTypeName": "BALLISTA",
+      "knownItemType": true,
+      "slotIndex": 2,
+      "position": {
+        "encodedOffset": 5829,
+        "row": 58,
+        "column": 29,
+        "rotatedRow": 29,
+        "rotatedColumn": 41,
+        "anchorDelta": {
+          "row": -15,
+          "column": -8
+        }
+      }
+    },
+    {
+      "sourceIndex": 3,
+      "rawItemType": 3,
+      "engineItemType": 3,
+      "itemTypeName": "BALLISTA",
+      "knownItemType": true,
+      "slotIndex": 3,
+      "position": {
+        "encodedOffset": 3429,
+        "row": 34,
+        "column": 29,
+        "rotatedRow": 29,
+        "rotatedColumn": 65,
+        "anchorDelta": {
+          "row": -15,
+          "column": 16
+        }
+      }
+    },
+    {
+      "sourceIndex": 4,
+      "rawItemType": 1,
+      "engineItemType": 1,
+      "itemTypeName": "ENGINEER",
+      "knownItemType": true,
+      "slotIndex": 0,
+      "position": {
+        "encodedOffset": 4273,
+        "row": 42,
+        "column": 73,
+        "rotatedRow": 73,
+        "rotatedColumn": 57,
+        "anchorDelta": {
+          "row": 29,
+          "column": 8
+        }
+      }
+    },
+    {
+      "sourceIndex": 5,
+      "rawItemType": 1,
+      "engineItemType": 1,
+      "itemTypeName": "ENGINEER",
+      "knownItemType": true,
+      "slotIndex": 1,
+      "position": {
+        "encodedOffset": 5021,
+        "row": 50,
+        "column": 21,
+        "rotatedRow": 21,
+        "rotatedColumn": 49,
+        "anchorDelta": {
+          "row": -23,
+          "column": 0
+        }
+      }
+    },
+    {
+      "sourceIndex": 6,
+      "rawItemType": 1,
+      "engineItemType": 1,
+      "itemTypeName": "ENGINEER",
+      "knownItemType": true,
+      "slotIndex": 2,
+      "position": {
+        "encodedOffset": 4547,
+        "row": 45,
+        "column": 47,
+        "rotatedRow": 47,
+        "rotatedColumn": 54,
+        "anchorDelta": {
+          "row": 3,
+          "column": 5
+        }
+      }
+    },
+    {
+      "sourceIndex": 7,
+      "rawItemType": 7,
+      "engineItemType": 7,
+      "itemTypeName": "CROSSBOWMAN",
+      "knownItemType": true,
+      "slotIndex": 0,
+      "position": {
+        "encodedOffset": 4271,
+        "row": 42,
+        "column": 71,
+        "rotatedRow": 71,
+        "rotatedColumn": 57,
+        "anchorDelta": {
+          "row": 27,
+          "column": 8
+        }
+      }
+    },
+    {
+      "sourceIndex": 8,
+      "rawItemType": 7,
+      "engineItemType": 7,
+      "itemTypeName": "CROSSBOWMAN",
+      "knownItemType": true,
+      "slotIndex": 1,
+      "position": {
+        "encodedOffset": 5022,
+        "row": 50,
+        "column": 22,
+        "rotatedRow": 22,
+        "rotatedColumn": 49,
+        "anchorDelta": {
+          "row": -22,
+          "column": 0
+        }
+      }
+    },
+    {
+      "sourceIndex": 9,
+      "rawItemType": 7,
+      "engineItemType": 7,
+      "itemTypeName": "CROSSBOWMAN",
+      "knownItemType": true,
+      "slotIndex": 2,
+      "position": {
+        "encodedOffset": 6027,
+        "row": 60,
+        "column": 27,
+        "rotatedRow": 27,
+        "rotatedColumn": 39,
+        "anchorDelta": {
+          "row": -17,
+          "column": -10
+        }
+      }
+    },
+    {
+      "sourceIndex": 10,
+      "rawItemType": 7,
+      "engineItemType": 7,
+      "itemTypeName": "CROSSBOWMAN",
+      "knownItemType": true,
+      "slotIndex": 3,
+      "position": {
+        "encodedOffset": 3327,
+        "row": 33,
+        "column": 27,
+        "rotatedRow": 27,
+        "rotatedColumn": 66,
+        "anchorDelta": {
+          "row": -17,
+          "column": 17
+        }
+      }
+    },
+    {
+      "sourceIndex": 11,
+      "rawItemType": 7,
+      "engineItemType": 7,
+      "itemTypeName": "CROSSBOWMAN",
+      "knownItemType": true,
+      "slotIndex": 4,
+      "position": {
+        "encodedOffset": 3364,
+        "row": 33,
+        "column": 64,
+        "rotatedRow": 64,
+        "rotatedColumn": 66,
+        "anchorDelta": {
+          "row": 20,
+          "column": 17
+        }
+      }
+    },
+    {
+      "sourceIndex": 12,
+      "rawItemType": 7,
+      "engineItemType": 7,
+      "itemTypeName": "CROSSBOWMAN",
+      "knownItemType": true,
+      "slotIndex": 5,
+      "position": {
+        "encodedOffset": 6064,
+        "row": 60,
+        "column": 64,
+        "rotatedRow": 64,
+        "rotatedColumn": 39,
+        "anchorDelta": {
+          "row": 20,
+          "column": -10
+        }
+      }
+    },
+    {
+      "sourceIndex": 13,
+      "rawItemType": 7,
+      "engineItemType": 7,
+      "itemTypeName": "CROSSBOWMAN",
+      "knownItemType": true,
+      "slotIndex": 6,
+      "position": {
+        "encodedOffset": 6350,
+        "row": 63,
+        "column": 50,
+        "rotatedRow": 50,
+        "rotatedColumn": 36,
+        "anchorDelta": {
+          "row": 6,
+          "column": -13
+        }
+      }
+    },
+    {
+      "sourceIndex": 14,
+      "rawItemType": 7,
+      "engineItemType": 7,
+      "itemTypeName": "CROSSBOWMAN",
+      "knownItemType": true,
+      "slotIndex": 7,
+      "position": {
+        "encodedOffset": 2944,
+        "row": 29,
+        "column": 44,
+        "rotatedRow": 44,
+        "rotatedColumn": 70,
+        "anchorDelta": {
+          "row": 0,
+          "column": 21
+        }
+      }
+    },
+    {
+      "sourceIndex": 15,
+      "rawItemType": 7,
+      "engineItemType": 7,
+      "itemTypeName": "CROSSBOWMAN",
+      "knownItemType": true,
+      "slotIndex": 8,
+      "position": {
+        "encodedOffset": 6029,
+        "row": 60,
+        "column": 29,
+        "rotatedRow": 29,
+        "rotatedColumn": 39,
+        "anchorDelta": {
+          "row": -15,
+          "column": -10
+        }
+      }
+    },
+    {
+      "sourceIndex": 16,
+      "rawItemType": 7,
+      "engineItemType": 7,
+      "itemTypeName": "CROSSBOWMAN",
+      "knownItemType": true,
+      "slotIndex": 9,
+      "position": {
+        "encodedOffset": 5764,
+        "row": 57,
+        "column": 64,
+        "rotatedRow": 64,
+        "rotatedColumn": 42,
+        "anchorDelta": {
+          "row": 20,
+          "column": -7
+        }
+      }
+    },
+    {
+      "sourceIndex": 17,
+      "rawItemType": 10,
+      "engineItemType": 10,
+      "itemTypeName": "MACEMAN",
+      "knownItemType": true,
+      "slotIndex": 0,
+      "position": {
+        "encodedOffset": 4847,
+        "row": 48,
+        "column": 47,
+        "rotatedRow": 47,
+        "rotatedColumn": 51,
+        "anchorDelta": {
+          "row": 3,
+          "column": 2
+        }
+      }
+    }
+  ],
+  "diagnostics": []
+}

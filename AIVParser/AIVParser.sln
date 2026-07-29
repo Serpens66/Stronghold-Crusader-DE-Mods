@@ -1,0 +1,30 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AIVParser.Core", "AIVParser.Core\AIVParser.Core.csproj", "{613C733B-21B8-48FD-BE84-B966E7E661B8}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AIVParser.Cli", "AIVParser.Cli\AIVParser.Cli.csproj", "{A8AAE22E-40B4-4B42-9D99-2928CE3F67C9}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AIVParser.Tests", "AIVParser.Tests\AIVParser.Tests.csproj", "{642AEE50-0017-42E0-AC49-45F55550E922}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{613C733B-21B8-48FD-BE84-B966E7E661B8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{613C733B-21B8-48FD-BE84-B966E7E661B8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{613C733B-21B8-48FD-BE84-B966E7E661B8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{613C733B-21B8-48FD-BE84-B966E7E661B8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A8AAE22E-40B4-4B42-9D99-2928CE3F67C9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A8AAE22E-40B4-4B42-9D99-2928CE3F67C9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A8AAE22E-40B4-4B42-9D99-2928CE3F67C9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A8AAE22E-40B4-4B42-9D99-2928CE3F67C9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{642AEE50-0017-42E0-AC49-45F55550E922}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{642AEE50-0017-42E0-AC49-45F55550E922}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{642AEE50-0017-42E0-AC49-45F55550E922}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{642AEE50-0017-42E0-AC49-45F55550E922}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

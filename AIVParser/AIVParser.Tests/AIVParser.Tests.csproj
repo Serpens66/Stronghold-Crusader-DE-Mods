@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>AIVParser.Tests</RootNamespace>
+    <AssemblyName>AIVParser.Tests</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\AIVParser.Core\AIVParser.Core.csproj" />
+    <ProjectReference Include="..\AIVParser.Cli\AIVParser.Cli.csproj" />
+  </ItemGroup>
+</Project>
