@@ -6,17 +6,19 @@ namespace TroopMovementFix
 {
     [BepInDependency(ScriptExtenderGuid, BepInDependency.DependencyFlags.HardDependency)]
     [BepInIncompatibility(LegacyPluginGuid)]
+    [BepInIncompatibility(Fix2PluginGuid)]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
-    public sealed class TroopMovementFix2Plugin : BaseUnityPlugin
+    public sealed class TroopMovementFix3Plugin : BaseUnityPlugin
     {
         private const string ScriptExtenderGuid = "000shcdese";
         private const string LegacyPluginGuid = "TroopMovementFix_Serp";
+        private const string Fix2PluginGuid = "TroopMovementFix2_Serp";
 
-        public const string PluginGuid = "TroopMovementFix2_Serp";
-        public const string PluginName = "Troop Movement Fix 2";
-        public const string PluginVersion = "1.0.11";
+        public const string PluginGuid = "TroopMovementFix3_Serp";
+        public const string PluginName = "Troop Movement Fix 3";
+        public const string PluginVersion = "1.0.0";
 
-        private static TroopMovementFix2Runtime persistentRuntime;
+        private static TroopMovementFix3Runtime persistentRuntime;
         private static bool libraryLoadedSubscriptionInstalled;
         private static bool runtimeDisposed;
 
@@ -24,10 +26,12 @@ namespace TroopMovementFix
 
         private void Awake()
         {
-            Shared.DebugLogHelper.LogInfo(Logger, $"{PluginName} {PluginVersion} loaded.");
+            Shared.DebugLogHelper.LogInfo(
+                Logger,
+                $"{PluginName} {PluginVersion} loaded.");
 
             if (persistentRuntime == null)
-                persistentRuntime = new TroopMovementFix2Runtime(Logger);
+                persistentRuntime = new TroopMovementFix3Runtime(Logger);
 
             runtimeDisposed = false;
 
@@ -48,7 +52,7 @@ namespace TroopMovementFix
 
             Shared.DebugLogHelper.LogInfo(
                 Logger,
-                "TroopMovementFix2Plugin OnDestroy called during BepInEx manager cleanup; preserving the process-lifetime runtime and native hooks.");
+                "TroopMovementFix3Plugin OnDestroy called during BepInEx manager cleanup; preserving the process-lifetime runtime and native hooks.");
         }
 
         private void OnApplicationQuit()
@@ -57,20 +61,22 @@ namespace TroopMovementFix
             DisposeRuntime("OnApplicationQuit");
         }
 
-        private void OnCrusaderLibraryLoaded(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
+        private void OnCrusaderLibraryLoaded(
+            IntPtr libraryHandle,
+            ReadOnlySpan<byte> memory)
         {
             try
             {
                 persistentRuntime?.Apply(libraryHandle, memory);
                 Shared.DebugLogHelper.LogInfo(
                     Logger,
-                    "Crusader library loaded; Troop Movement Fix 2 runtime initialized.");
+                    "Crusader library loaded; Troop Movement Fix 3 runtime initialized.");
             }
             catch (Exception ex)
             {
                 Shared.DebugLogHelper.LogError(
                     Logger,
-                    $"Troop Movement Fix 2 initialization failed; no partial runtime remains active: {ex}");
+                    $"Troop Movement Fix 3 initialization failed; no partial runtime remains active: {ex}");
             }
         }
 
@@ -81,11 +87,12 @@ namespace TroopMovementFix
 
             Shared.DebugLogHelper.LogInfo(
                 Logger,
-                $"Disposing Troop Movement Fix 2 runtime because of {reason}.");
+                $"Disposing Troop Movement Fix 3 runtime because of {reason}.");
 
             if (libraryLoadedSubscriptionInstalled)
             {
-                CrusaderLibrary.Instance.LibraryLoaded -= OnCrusaderLibraryLoaded;
+                CrusaderLibrary.Instance.LibraryLoaded -=
+                    OnCrusaderLibraryLoaded;
                 libraryLoadedSubscriptionInstalled = false;
             }
 

@@ -1,0 +1,20 @@
+{
+  "GUID": "TroopMovementFix3_Serp",
+  "Author": "Serpens66",
+  "Name": "Troop Movement Fix 3",
+  "Description": "Keeps Improved Spearmen synchronized with slower mixed-group members and maps Ctrl+move to Vanilla free-unit-speeds movement.",
+  "Version": "1.0.0",
+  "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
+  "Manifest": 1,
+  "SerpChangelog": [
+    {
+      "Version": "1.0.0",
+      "Changes": [
+        "Keep ordinary movement commands and all selection/tribe rebuilding completely Vanilla.",
+        "Limit Improved Spearmen to the slowest normal maximum speed and matching cadence in mixed DefaultInSync groups.",
+        "Use Vanilla freeUnitSpeeds for Ctrl+move so every unit uses its own Vanilla maximum speed.",
+        "Deliberately accept Vanilla speed changes caused by later selection or tribe changes."
+      ]
+    }
+  ]
+}

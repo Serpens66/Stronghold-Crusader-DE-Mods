@@ -2,11 +2,78 @@
   "GUID": "TroopMovementFix2_Serp",
   "Author": "Serpens66",
   "Name": "Troop Movement Fix 2",
-  "Description": "Diagnoses Vanilla selection-driven movement changes, keeps Improved Spearmen synchronized, and maps Ctrl+move to Vanilla free-unit-speeds movement.",
-  "Version": "1.0.3",
+  "Description": "Preserves compatible Vanilla tribe movement across selection rebuilds, keeps Improved Spearmen synchronized, and maps Ctrl+move to Vanilla free-unit-speeds movement.",
+  "Version": "1.0.11",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.11",
+      "Changes": [
+        "Prevent Vanilla unit-type handlers from interpreting a selection-only temporary tribe 0 as free maximum-speed movement.",
+        "Expose the unit's last valid Vanilla movement tribe only for the synchronous duration of its unchanged native type handler, then immediately restore tribe 0 so selection rebuilding and later commands remain Vanilla.",
+        "Apply the guard generically to observed moving units instead of special-casing Archer, Spearman, or any other unit type."
+      ]
+    },
+    {
+      "Version": "1.0.10",
+      "Changes": [
+        "Capture the authoritative Vanilla tribe movement state before the mouse-selection or bottom-bar selection helper clears and rebuilds unit tribe assignments.",
+        "Keep the original Vanilla selection helpers fully active after the snapshot so selection, UI, and tribe rebuilding behavior remain unchanged."
+      ]
+    },
+    {
+      "Version": "1.0.9",
+      "Changes": [
+        "Hook Vanilla's selection-only final tribe-template copy and inherit the compatible previous tribe's movement-continuation state before unit handlers can observe the new tribe.",
+        "Capture the authoritative tribe movement state at the selection boundary instead of reusing a potentially stale immediate post-order snapshot.",
+        "Preserve the native leader speed seeds, transition seed, free-speed flag, synchronized speed fields, patrol mode, and adjacent movement-continuation fields without writing unit speed bonuses or animations.",
+        "Log the per-unit Vanilla transition timer for diagnostics without modifying it."
+      ]
+    },
+    {
+      "Version": "1.0.8",
+      "Changes": [
+        "Remove the 1.0.7 pre-selection speed-bonus and animation restoration which could block Vanilla's legitimate slowdown after deselection.",
+        "Prepare synchronized speed and cadence fallback data only from a completed real Vanilla DefaultInSync order.",
+        "Expose that fallback for a concrete unit only while Vanilla temporarily leaves it at tribe zero during selection rebuilding.",
+        "Return immediately to Vanilla behavior as soon as the unit has any valid tribe ID; Ctrl/Fast and the permanent mixed-group Improved Spearman correction remain unchanged."
+      ]
+    },
+    {
+      "Version": "1.0.7",
+      "Changes": [
+        "Use each unit's settled Vanilla speed bonus and walk/run animation immediately before selection instead of the potentially transient immediate post-order snapshot.",
+        "Restore selection-changed speed bonus and animation immediately after Vanilla recalculates a tracked DefaultInSync unit.",
+        "Keep the settled cadence through the existing unit-bound directive while Vanilla temporarily leaves the unit at tribe zero.",
+        "Report preserved walking, preserved running, and immediate cadence-restoration counts in the capped selection summary."
+      ]
+    },
+    {
+      "Version": "1.0.6",
+      "Changes": [
+        "Preserve compatible existing tribes at the selection boundary, covering unit types which stay in their current tribe while Vanilla changes that tribe's synchronized movement speed.",
+        "Require every living tribe member to have the same known movement state before restoring any existing tribe.",
+        "Add compact Info diagnostics for restored, unchanged, and rejected existing-tribe candidates."
+      ]
+    },
+    {
+      "Version": "1.0.5",
+      "Changes": [
+        "Preserve the synchronized speed and walk/run cadence established by the last real DefaultInSync order when Vanilla recalculates a running unit because of selection.",
+        "Activate the unit-bound preservation only for units actually observed in the post-selection movement calculation; Fast/Ctrl movement remains entirely on Vanilla freeUnitSpeeds.",
+        "Keep the later compatible-tribe field restoration so both stages of Vanilla's selection rebuild retain the last real order."
+      ]
+    },
+    {
+      "Version": "1.0.4",
+      "Changes": [
+        "Let Vanilla rebuild selected tribes normally, then preserve only the five group movement fields established by the units' last real order.",
+        "Apply selection preservation only when every assigned tracked unit has the same known movement state; ambiguous groups remain Vanilla.",
+        "Keep the implementation group-bound and event-driven instead of restoring general per-unit speed, animation, or cadence values.",
+        "Retain capped Info diagnostics for verification of selection rebuilds and movement-field preservation."
+      ]
+    },
     {
       "Version": "1.0.3",
       "Changes": [

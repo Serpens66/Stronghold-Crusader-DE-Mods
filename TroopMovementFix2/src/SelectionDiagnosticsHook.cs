@@ -101,11 +101,13 @@ namespace TroopMovementFix
             int selectedUnitCount,
             IntPtr selectedUnitIds)
         {
+            // Capture the current Vanilla tribe state before this helper starts
+            // clearing and rebuilding the selected units' tribe assignments.
+            NotifySelectionChanged("MouseSelection", selectedUnitCount);
             mouseHook.Value.Hook.Trampoline(
                 unitManager,
                 selectedUnitCount,
                 selectedUnitIds);
-            NotifySelectionChanged("MouseSelection", selectedUnitCount);
         }
 
         private void OnUiSelectionChanged(
@@ -113,11 +115,13 @@ namespace TroopMovementFix
             IntPtr selectedUnitIds,
             int selectedUnitCount)
         {
+            // The bottom-bar/UI path performs the same destructive rebuild in a
+            // separate helper, so its snapshot must also precede the trampoline.
+            NotifySelectionChanged("UiSelectionChanged", selectedUnitCount);
             uiHook.Value.Hook.Trampoline(
                 unitManager,
                 selectedUnitIds,
                 selectedUnitCount);
-            NotifySelectionChanged("UiSelectionChanged", selectedUnitCount);
         }
 
         private void NotifySelectionChanged(string source, int selectedUnitCount)

@@ -5,10 +5,10 @@
   <PropertyGroup>
     <Configuration Condition="'$(Configuration)' == ''">Debug</Configuration>
     <Platform Condition="'$(Platform)' == ''">AnyCPU</Platform>
-    <ProjectGuid>{B5787216-B107-4D75-8A30-C9B19206117E}</ProjectGuid>
+    <ProjectGuid>{29582C42-F828-44B7-8E3A-70A8D0FE5800}</ProjectGuid>
     <OutputType>Library</OutputType>
     <RootNamespace>TroopMovementFix</RootNamespace>
-    <AssemblyName>TroopMovementFix2</AssemblyName>
+    <AssemblyName>TroopMovementFix3</AssemblyName>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <LangVersion>latest</LangVersion>
@@ -19,7 +19,7 @@
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
-    <OutputPath>BepInEx\plugins\TroopMovementFix2_Serp\</OutputPath>
+    <OutputPath>BepInEx\plugins\TroopMovementFix3_Serp\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
@@ -28,7 +28,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|AnyCPU'">
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
-    <OutputPath>BepInEx\plugins\TroopMovementFix2_Serp\</OutputPath>
+    <OutputPath>BepInEx\plugins\TroopMovementFix3_Serp\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
@@ -107,14 +107,11 @@
 
   <ItemGroup>
     <Compile Include="src\InfoLogHelper.cs" />
-    <Compile Include="src\SelectionDiagnosticsHook.cs" />
-    <Compile Include="src\SelectionUnitTypeMovementGuard.cs" />
-    <Compile Include="src\TribeSelectionSpeedHook.cs" />
     <Compile Include="..\TroopMovementFix\src\UnitMovementSpeedHook.cs">
       <Link>src\UnitMovementSpeedHook.cs</Link>
     </Compile>
-    <Compile Include="src\TroopMovementFix2Plugin.cs" />
-    <Compile Include="src\TroopMovementFix2Runtime.cs" />
+    <Compile Include="src\TroopMovementFix3Plugin.cs" />
+    <Compile Include="src\TroopMovementFix3Runtime.cs" />
   </ItemGroup>
 
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
