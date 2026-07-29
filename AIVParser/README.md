@@ -50,6 +50,7 @@ Die DE-AIVs befinden sich üblicherweise in einem dieser Ordner:
 
     C:\Users\<Benutzername>\AppData\LocalLow\Firefly Studios\Stronghold Crusader Definitive Edition\CustomLords
     C:\Users\<Benutzername>\AppData\LocalLow\Firefly Studios\Stronghold Crusader Definitive Edition\ExtendedLords
+    Steam\steamapps\common\Stronghold Crusader Definitive Edition - Castle & CPU Lord Editor\CrusaderCastleEditorUnity_Data\StreamingAssets\Villages
 
 Suche dort die gewünschte Datei mit der Endung `.aivjson`. Für die folgenden Befehle
 wird ihr vollständiger Pfad benötigt. Am einfachsten lässt er sich im Windows Explorer
