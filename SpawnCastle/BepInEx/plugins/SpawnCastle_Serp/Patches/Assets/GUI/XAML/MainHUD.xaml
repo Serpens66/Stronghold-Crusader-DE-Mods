@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Patch xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Operation Type="Add" XPath="/n:UserControl/n:Grid">
+    <Content>
+      <Button x:Name="SpawnCastleBlueprintToggle"
+              Content="{Binding StatusText}"
+              Command="{Binding ToggleCommand}"
+              Width="190"
+              Height="34"
+              Margin="16,72,0,0"
+              Padding="8,2"
+              HorizontalAlignment="Left"
+              VerticalAlignment="Top"
+              Panel.ZIndex="10000"
+              FontSize="16"
+              Foreground="#FFE8F2FF"
+              Background="#AA14243A"
+              BorderBrush="#CC77AAFF"
+              BorderThickness="1"
+              Visibility="{Binding HudVisible, Converter={StaticResource booleanToVisibilityConverter}}"
+              IsEnabled="{Binding CanToggle}"
+              Tag="Ignore"/>
+    </Content>
+  </Operation>
+</Patch>

@@ -14,10 +14,11 @@ namespace SpawnCastle
 
         public const string PluginGuid = "SpawnCastle_Serp";
         public const string PluginName = "Spawn Castle";
-        public const string PluginVersion = "0.2.7";
+        public const string PluginVersion = "0.3.5";
 
         // The BepInEx component is destroyed during startup, so runtime state remains static.
         private static SpawnCastleRuntime runtime;
+        private static BlueprintRuntimeController blueprintRuntime;
         private static bool libraryLoadedHandled;
 
         public SpawnCastleSettingsViewModel Settings { get; private set; }
@@ -27,7 +28,7 @@ namespace SpawnCastle
             if (runtime != null)
                 return;
 
-            Settings = new SpawnCastleSettingsViewModel(Logger);
+            Settings = new SpawnCastleSettingsViewModel(Logger, Config);
             runtime = new SpawnCastleRuntime(Logger, Settings);
             CrusaderLibrary.Instance.LibraryLoaded += OnCrusaderLibraryLoaded;
             Shared.DebugLogHelper.LogInfo(
@@ -49,36 +50,47 @@ namespace SpawnCastle
 
             try
             {
-                string settingsPath = Path.Combine(
-                    Path.GetDirectoryName(Info.Location),
-                    "LobbyModSettings",
-                    PluginGuid + ".msgpack");
-                bool settingsFileExisted = File.Exists(settingsPath);
                 Shared.DebugLogHelper.LogInfo(
                     Logger,
-                    $"Registering SpawnCastle settings: path={settingsPath}, " +
-                    $"fileExists={settingsFileExisted}, " +
-                    $"selectionBeforeLoad='{Settings.SelectedCastle}'.");
+                    $"Registering local SpawnCastle settings: " +
+                    $"config={Config.ConfigFilePath}, mode={Settings.Mode}, " +
+                    $"selection='{Settings.SelectedCastle}'.");
 
                 GameXAMLManagerAPI.Instance.RegisterLobbyModSettings(
                     this,
                     PluginGuid,
                     Settings,
                     "ScriptExtenderUI/SpawnCastleSettings.xaml");
-                Settings.RewriteInvalidPersistedSelectionIfNeeded();
+                blueprintRuntime =
+                    BlueprintRuntimeController.Create(Logger, Settings);
+                GameXAMLManagerAPI.Instance.RegisterBinding(
+                    "SpawnCastleBlueprintToggle",
+                    blueprintRuntime.Hud);
                 Shared.DebugLogHelper.LogInfo(
                     Logger,
                     $"SpawnCastle settings registration completed: " +
-                    $"fileExistedBeforeLoad={settingsFileExisted}, " +
-                    $"selectionAfterLoad='{Settings.SelectedCastle}', " +
-                    $"selectionDisabled={Settings.IsDisabled}.");
+                    $"mode={Settings.Mode}, " +
+                    $"selection='{Settings.SelectedCastle}', " +
+                    $"hotkey={Settings.HotkeyDisplayText}.");
 
-                runtime.Install(libraryHandle, memory);
+                try
+                {
+                    runtime.Install(libraryHandle, memory);
+                }
+                catch (Exception ex)
+                {
+                    // Blueprint mode is managed and remains useful when a future
+                    // game version invalidates the native Spawn signatures.
+                    Shared.DebugLogHelper.LogError(
+                        Logger,
+                        $"Native Spawn mode initialization failed; " +
+                        $"local Blueprint mode remains available: {ex}");
+                }
+
                 libraryLoadedHandled = true;
                 Shared.DebugLogHelper.LogInfo(
                     Logger,
-                    "Crusader library loaded; native AIV spawning and map lifecycle hooks registered. " +
-                    "Selection storage=LobbyModSettings/SpawnCastle_Serp.msgpack.");
+                    "Crusader library initialization completed; local Blueprint mode is registered and native Spawn mode was initialized when supported.");
             }
             catch (Exception ex)
             {

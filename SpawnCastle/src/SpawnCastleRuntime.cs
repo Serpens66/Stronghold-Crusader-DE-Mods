@@ -220,9 +220,11 @@ namespace SpawnCastle
             }
 
             handledCurrentMap = true;
-            if (settings.IsDisabled)
+            if (!settings.IsSpawnMode)
             {
-                Shared.DebugLogHelper.LogInfo(log, "SpawnCastle is disabled for this map.");
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    $"Native castle spawning skipped because mode is '{settings.Mode}'.");
                 return;
             }
 
@@ -278,7 +280,7 @@ namespace SpawnCastle
                 $"OnStartMap(Pre) received: handledCurrentMap={handledCurrentMap}, " +
                 $"selection='{settings.SelectedCastle}'.");
 
-            if (handledCurrentMap || settings.IsDisabled)
+            if (handledCurrentMap || !settings.IsSpawnMode)
                 return;
 
             try

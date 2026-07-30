@@ -2,8 +2,8 @@
   "GUID": "SpawnCastle_Serp",
   "Author": "Serpens66",
   "Name": "Spawn Castle",
-  "Description": "Spawns a selected AIVJSON castle for the human player through the game's native AIV pipeline.",
-  "Version": "0.2.7",
+  "Description": "Displays a local visual AIVJSON castle blueprint or spawns it through the game's native AIV pipeline.",
+  "Version": "0.3.5",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
@@ -126,6 +126,54 @@
         "Corrected native AIV Hovel visual styles for the human player from the AI-only sentinel value 15 to Vanilla's deterministic 0-through-6 variation cycle.",
         "Scoped the correction strictly to Hovel BuildStructure calls made synchronously by SpawnCastle's native AIV execution.",
         "Added Hovel visual-style and material diagnostics without changing the player's internal AI-control state."
+      ]
+    },
+    {
+      "Version": "0.3.0",
+      "Changes": [
+        "Added Disabled, Blueprint, and Spawn modes with fully local persistence through the BepInEx configuration.",
+        "Added a non-simulating Blueprint mode with translucent ground footprints and original build-menu sketch images anchored to the human Keep.",
+        "Added a MainHUD visibility toggle, an optional freely assignable Unity KeyCode, map-rotation rebuilding, savegame support, and client-local multiplayer behavior."
+      ]
+    },
+    {
+      "Version": "0.3.1",
+      "Changes": [
+        "Moved Blueprint ticking and key capture onto the Script Extender's process-lifetime dispatcher so they survive startup.",
+        "Made map-start HUD availability and initial Blueprint preparation event-driven.",
+        "Restored the AIVJSON selector to its previous dialog position to prevent popup overlap and accidental immediate selection."
+      ]
+    },
+    {
+      "Version": "0.3.2",
+      "Changes": [
+        "Made Blueprint key assignment work while Noesis owns input focus by combining Vanilla's selector with held-state polling.",
+        "Replaced large building sketch images with the normal non-highlighted UI-MasterAtlas build-menu icons.",
+        "Added the previously unknown Woodsman, Dunking Stool, and Pond AIV mapper definitions."
+      ]
+    },
+    {
+      "Version": "0.3.3",
+      "Changes": [
+        "Captured keyboard and mouse assignment directly from Noesis settings events and added the persistent component's own polling fallback.",
+        "Added dedicated visible SpriteRenderer ground markers instead of relying only on the game's hidden overlay tile layer.",
+        "Switched dynamic build-menu icons to Unity's standard sprite material and added atlas-pixel validation."
+      ]
+    },
+    {
+      "Version": "0.3.4",
+      "Changes": [
+        "Linked Blueprint icons directly to Vanilla's Unity UI-MasterAtlas texture after Noesis CroppedBitmap pixel copies proved empty.",
+        "Added bubbling KeyDown capture and persistent Application.onBeforeRender input polling for keyboard assignment.",
+        "Kept the colored footprint markers beneath the newly restored normal build-menu icons."
+      ]
+    },
+    {
+      "Version": "0.3.5",
+      "Changes": [
+        "Corrected every 64x32 Blueprint ground marker to one SHCDE tile by using 64 pixels per unit.",
+        "Centered footprint markers on Tilemap cell centers while retaining terrain height and Vanilla's proven depth value.",
+        "Removed duplicate Tilemap overlay writes and documented the process-persistent Noesis hotkey implementation."
       ]
     }
   ]

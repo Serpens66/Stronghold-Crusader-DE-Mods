@@ -36,18 +36,26 @@ namespace AIVParser.Core
             Add(result, 35, "MAPPER_CRENAL2", AivItemCategory.CrenelPath);
             Add(result, 46, "MAPPER_WOODWALL", AivItemCategory.LowWallPath);
             Add(result, 50, "MAPPER_FLETCHER");
+            Add(result, 51, "MAPPER_WOODSMAN");
             Add(result, 52, "MAPPER_STORES");
             Add(result, 54, "MAPPER_HOVEL");
+            Add(result, 55, "MAPPER_OXENBASE");
+            Add(result, 56, "MAPPER_QUARRY");
             Add(result, 60, "MAPPER_KEEP1", AivItemCategory.Keep);
             Add(result, 61, "MAPPER_KEEP2", AivItemCategory.Keep);
             Add(result, 62, "MAPPER_KEEP3", AivItemCategory.Keep);
             Add(result, 63, "MAPPER_KEEP4", AivItemCategory.Keep);
             Add(result, 64, "MAPPER_KEEP5", AivItemCategory.Keep);
             Add(result, 65, "MAPPER_STABLES");
+            Add(result, 70, "MAPPER_WHEATFARM");
+            Add(result, 71, "MAPPER_HOPSFARM");
+            Add(result, 72, "MAPPER_APPLEFARM");
+            Add(result, 73, "MAPPER_CATTLEFARM");
             Add(result, 74, "MAPPER_MILL");
             Add(result, 75, "MAPPER_BAKER");
             Add(result, 76, "MAPPER_BREWER");
             Add(result, 77, "MAPPER_TRADEPOST");
+            Add(result, 78, "MAPPER_HUNTER");
             Add(result, 79, "MAPPER_BEDOUIN_STOCKADE");
             Add(result, 80, "MAPPER_GRANARY");
             Add(result, 81, "MAPPER_ARMOURY");
@@ -59,6 +67,8 @@ namespace AIVParser.Core
             Add(result, 87, "MAPPER_BARRACKS_STONE");
             Add(result, 88, "MAPPER_ENGINEERS_GUILD");
             Add(result, 89, "MAPPER_TUNNELERS_GUILD");
+            Add(result, 90, "MAPPER_IRON_MINE");
+            Add(result, 91, "MAPPER_PITCH_WORKINGS");
             Add(result, 92, "MAPPER_INN");
             Add(result, 93, "MAPPER_HEALER");
             Add(result, 95, "MAPPER_CHURCH1");
@@ -96,10 +106,13 @@ namespace AIVParser.Core
             Add(result, 307, "MAPPER_DUNGEON");
             Add(result, 308, "MAPPER_RACK_STRETCHING");
             Add(result, 310, "MAPPER_CHOPPING_BLOCK");
+            Add(result, 311, "MAPPER_DUNKING_STOOL");
             Add(result, 312, "MAPPER_DOG_CAGE");
             Add(result, 313, "MAPPER_STATUE1");
             Add(result, 318, "MAPPER_SHRINE1");
             Add(result, 324, "MAPPER_DANCING_BEAR");
+            Add(result, 325, "MAPPER_POND1");
+            Add(result, 327, "MAPPER_POND3");
             Add(result, 330, "MAPPER_WELL");
             Add(result, 342, "MAPPER_WATERPOT");
 
@@ -152,6 +165,8 @@ namespace AIVParser.Core
                 case 83:
                 case 84:
                 case 85:
+                case 90:
+                case 91:
                 case 111:
                 case 169:
                 case 180:
@@ -172,6 +187,8 @@ namespace AIVParser.Core
                 case 301:
                 case 307:
                 case 324:
+                case 311:
+                case 325:
                     return 5;
                 case 60:
                 case 61:
@@ -185,8 +202,12 @@ namespace AIVParser.Core
                 case 95:
                 case 113:
                 case 114:
+                case 56:
+                case 327:
                     return 6;
+                case 51:
                 case 74:
+                case 78:
                 case 110:
                 case 166:
                 case 175:
@@ -197,8 +218,13 @@ namespace AIVParser.Core
                 case 312:
                 case 330:
                     return 3;
+                case 70:
+                case 71:
                 case 96:
                     return 9;
+                case 72:
+                case 73:
+                    return 10;
                 case 97:
                     return 13;
                 case 160:
@@ -206,6 +232,7 @@ namespace AIVParser.Core
                 case 306:
                 case 313:
                 case 318:
+                case 55:
                     return 2;
                 default:
                     // KEEP4/KEEP5 exist in the enum but have no DE scale entry.
@@ -224,13 +251,23 @@ namespace AIVParser.Core
                 case 76:
                 case 80:
                 case 92:
+                case 70:
+                case 71:
+                case 72:
+                case 73:
+                case 78:
                     return AivVisualGroup.Food;
                 case 50:
+                case 51:
+                case 55:
+                case 56:
                 case 81:
                 case 82:
                 case 83:
                 case 84:
                 case 85:
+                case 90:
+                case 91:
                     return AivVisualGroup.Industry;
                 case 52:
                 case 77:
@@ -266,6 +303,8 @@ namespace AIVParser.Core
                 case 313:
                 case 318:
                 case 324:
+                case 325:
+                case 327:
                     return AivVisualGroup.PositiveFear;
                 case 176:
                 case 177:
@@ -275,6 +314,7 @@ namespace AIVParser.Core
                 case 307:
                 case 308:
                 case 310:
+                case 311:
                 case 312:
                     return AivVisualGroup.NegativeFear;
                 case 330:

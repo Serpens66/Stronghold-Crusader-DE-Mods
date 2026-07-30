@@ -1,9 +1,11 @@
 # SpawnCastle
 
-`SpawnCastle` adds a Script Extender Mod Settings dropdown for selecting an
-`.aivjson` castle blueprint. On a newly started singleplayer map, the blueprint is
-spawned for the local human player through the game's native AIV castle-building
-pipeline.
+`SpawnCastle` adds three operating modes for a selected `.aivjson` castle:
+
+- `Disabled` leaves the game unchanged.
+- `Blueprint` displays a local, non-simulating construction guide.
+- `Spawn` builds the castle on a newly started singleplayer map through the
+  game's native AIV castle-building pipeline.
 
 The dropdown scans:
 
@@ -11,13 +13,56 @@ The dropdown scans:
 - the game's `CustomLords` and `ExtendedLords` directories
 - the official Castle & CPU Lord Editor's `StreamingAssets/Villages` directory
 
-Choose `disabled` to leave new maps unchanged. Loading a savegame never spawns a
-second copy. The host selection uses the Script Extender's normal mod-settings
-storage and is restored before the settings UI is bound:
+Mode, selection, and the optional Blueprint key are stored locally in
+`BepInEx/config/SpawnCastle_Serp.cfg`. They are never synchronized to other
+players.
 
-`BepInEx/plugins/SpawnCastle_Serp/LobbyModSettings/SpawnCastle_Serp.msgpack`
+## Visual Blueprint mode
 
-If the selected file no longer exists, the setting safely falls back to `disabled`.
+Blueprint mode parses the selected AIVJSON without invoking native build,
+placement, tile, or network actions. It anchors the layout to the existing local
+human Keep using the fixed human-Keep orientation. The overlay consists of:
+
+- translucent isometric footprint markers rendered by mod-owned sprites above
+  the ground;
+- distinct colors for buildings, walls, crenellations, stairs, traps, moats, and
+  pitch ditches; and
+- the normal, non-highlighted build-menu icon linked directly from Vanilla's
+  loaded Unity `UI-MasterAtlas` texture over each regular building footprint.
+
+The Keep frame is used only as the anchor and is not drawn. AIV `miscItems` are
+ignored. Unknown mapper values remain visible as magenta one-tile markers.
+
+The overlay starts hidden on every map. Use the `Blueprint: off/on` button in the
+upper-left MainHUD or assign any single Unity key, mouse button, or controller
+button in Mod Settings. The overlay rebuilds after map rotation or flattened
+landscape changes and is cleared on map unload.
+
+Because Blueprint mode does not change simulation state, it works on new maps,
+loaded savegames, and multiplayer. Every multiplayer client independently selects
+and displays its own local file.
+
+## Blueprint hotkey implementation
+
+SHCDE destroys BepInEx's early plugin GameObject after the Chainloader finishes.
+Consequently, `BaseUnityPlugin.Update`, component-bound coroutines, and cleanup
+from its early `OnDestroy` are unsuitable for input functionality that must
+remain active for the complete process lifetime.
+
+Noesis owns the input focus while Mod Settings is open, so
+`UnityEngine.Input.GetKeyDown` alone does not reliably receive assignment input.
+The settings XAML therefore captures keyboard and mouse input directly through
+`PreviewKeyDown`, `KeyDown`, and `PreviewMouseDown` event triggers. Their
+`InvokeCommandAction` instances use `PassEventArgsToCommand="True"`. The commands
+translate Noesis keys and mouse buttons into individual Unity `KeyCode` values
+and mark the triggering event as handled.
+
+The mouse click that activates **Assign key** is not assigned accidentally:
+Noesis delivers the button's mouse event before its command enables capture.
+`Application.onBeforeRender`, Vanilla's `KeyManager`, and held-state polling
+provide process-persistent fallbacks, especially for controller buttons. These
+callbacks and Noesis event registrations must not be removed from the early
+`BaseUnityPlugin.OnDestroy()`.
 
 ## Native castle spawning
 
@@ -74,9 +119,10 @@ Every private function and native global is resolved with an AOB signature and
 must match exactly once. A hash or signature mismatch disables initialization
 instead of calling unknown native code.
 
-SpawnCastle permits local singleplayer skirmishes and blocks real multiplayer
-sessions because invoking the pipeline on only one client would desynchronize the
-native game state. It does not use `GameNetworkAPI.IsNetworkedEnvironment()` as
+Native Spawn mode permits local singleplayer skirmishes and blocks real
+multiplayer sessions because invoking the pipeline on only one client would
+desynchronize the native game state. It does not use
+`GameNetworkAPI.IsNetworkedEnvironment()` as
 the deciding signal: Vanilla also creates a local `gameMembers` list for regular
 singleplayer skirmishes. Instead, the guard combines `Director` state with lobby
 member classification, real Steam-backed game members, and `GameData`'s skirmish
@@ -85,8 +131,8 @@ native callback because Vanilla sets it later in the managed loading sequence.
 Loading a savegame is also excluded to prevent duplicate castles.
 
 The development `build.bat` overlays deployed files instead of deleting the
-installed plugin directory. This preserves the runtime-created
-`LobbyModSettings/SpawnCastle_Serp.msgpack` file across rebuilds.
+installed plugin directory. This preserves the local BepInEx configuration
+across rebuilds.
 
 Technical reverse-engineering and implementation details are documented in
 [`AISpawnCastle.md`](AISpawnCastle.md).

@@ -17,6 +17,7 @@ internal static class Program
             ("Rotate footprints", TestFootprintRotations),
             ("Resolve associated blocked areas", TestBlockedAreas),
             ("Compute rotated keep deltas", TestAnchorDelta),
+            ("Project AIV coordinates into world tiles", TestWorldProjection),
             ("Parse build order and multi-tile paths", TestValidParse),
             ("Normalize DE misc types", TestMiscNormalization),
             ("Preserve unknown positive types", TestUnknownTypes),
@@ -69,11 +70,21 @@ internal static class Program
     private static void TestFootprintCatalog()
     {
         AssertEqual(4, AivMapperCatalog.Resolve(50).FootprintSize);
+        AssertEqual(3, AivMapperCatalog.Resolve(51).FootprintSize);
         AssertEqual(5, AivMapperCatalog.Resolve(52).FootprintSize);
+        AssertEqual(4, AivMapperCatalog.Resolve(54).FootprintSize);
+        AssertEqual(2, AivMapperCatalog.Resolve(55).FootprintSize);
+        AssertEqual(6, AivMapperCatalog.Resolve(56).FootprintSize);
         AssertEqual(7, AivMapperCatalog.Resolve(61).FootprintSize);
         AssertEqual(11, AivMapperCatalog.Resolve(62).FootprintSize);
+        AssertEqual(9, AivMapperCatalog.Resolve(70).FootprintSize);
+        AssertEqual(10, AivMapperCatalog.Resolve(72).FootprintSize);
+        AssertEqual(3, AivMapperCatalog.Resolve(78).FootprintSize);
         AssertEqual(5, AivMapperCatalog.Resolve(87).FootprintSize);
         AssertEqual(1, AivMapperCatalog.Resolve(99).FootprintSize);
+        AssertEqual(5, AivMapperCatalog.Resolve(311).FootprintSize);
+        AssertEqual(5, AivMapperCatalog.Resolve(325).FootprintSize);
+        AssertEqual(6, AivMapperCatalog.Resolve(327).FootprintSize);
         AssertEqual(4, AivMapperCatalog.Resolve(342).FootprintSize);
         AssertEqual<int?>(null, AivMapperCatalog.Resolve(63).FootprintSize);
     }
@@ -124,6 +135,28 @@ internal static class Program
         AssertEqual(
             new AivGridDelta(3, 7),
             AivGridTransform.GetAnchorDelta(point, keep, AivRotation.Degrees270));
+    }
+
+    private static void TestWorldProjection()
+    {
+        var keep = new AivGridPoint(50, 44);
+        AivWorldTile same = AivWorldTransform.Project(
+            keep,
+            keep,
+            320,
+            410,
+            AivRotation.Degrees0);
+        AssertEqual(320, same.X);
+        AssertEqual(410, same.Y);
+
+        AivWorldTile projected = AivWorldTransform.Project(
+            new AivGridPoint(57, 41),
+            keep,
+            320,
+            410,
+            AivRotation.Degrees0);
+        AssertEqual(317, projected.X);
+        AssertEqual(403, projected.Y);
     }
 
     private static void TestBlockedAreas()

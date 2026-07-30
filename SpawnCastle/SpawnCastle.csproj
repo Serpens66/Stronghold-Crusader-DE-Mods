@@ -63,12 +63,28 @@
       <HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\Assembly-CSharp.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="Noesis.NoesisGUI">
+      <HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\Noesis.NoesisGUI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="UnityEngine">
       <HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="UnityEngine.CoreModule">
       <HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.GridModule">
+      <HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.GridModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.InputLegacyModule">
+      <HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.InputLegacyModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.TilemapModule">
+      <HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.TilemapModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="SHCDESE">
@@ -89,10 +105,27 @@
     <Compile Include="..\Shared\DebugLogHelper.cs">
       <Link>Shared\DebugLogHelper.cs</Link>
     </Compile>
+    <Compile Include="..\AIVParser\AIVParser.Core\AivModels.cs">
+      <Link>AIVParser.Core\AivModels.cs</Link>
+    </Compile>
+    <Compile Include="..\AIVParser\AIVParser.Core\AivCatalogs.cs">
+      <Link>AIVParser.Core\AivCatalogs.cs</Link>
+    </Compile>
+    <Compile Include="..\AIVParser\AIVParser.Core\AivGridTransform.cs">
+      <Link>AIVParser.Core\AivGridTransform.cs</Link>
+    </Compile>
+    <Compile Include="..\AIVParser\AIVParser.Core\AivWorldTransform.cs">
+      <Link>AIVParser.Core\AivWorldTransform.cs</Link>
+    </Compile>
     <Compile Include="src\AivFileCatalog.cs" />
     <Compile Include="src\AivJsonModels.cs" />
     <Compile Include="src\AivJsonReader.cs" />
     <Compile Include="src\AivRawDataEncoder.cs" />
+    <Compile Include="src\BlueprintBuildingIconCatalog.cs" />
+    <Compile Include="src\BlueprintHudViewModel.cs" />
+    <Compile Include="src\BlueprintLayout.cs" />
+    <Compile Include="src\BlueprintRenderer.cs" />
+    <Compile Include="src\BlueprintRuntimeController.cs" />
     <Compile Include="src\SpawnCastlePlugin.cs" />
     <Compile Include="src\SpawnCastleRuntime.cs" />
     <Compile Include="src\SpawnCastleSettingsViewModel.cs" />
