@@ -1,23 +1,122 @@
+using BepInEx;
 using BepInEx.Logging;
 using R3;
 using SHCDESE.API;
 using SHCDESE.EventAPI;
+using SHCDESE.EventAPI.Buildings;
 using SHCDESE.EventAPI.MapLoader;
+using SHCDESE.GameGlobals;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
+using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 
 namespace SpawnCastle
 {
-    internal sealed class SpawnCastleRuntime
+    internal sealed unsafe class SpawnCastleRuntime
     {
+        private const string SupportedNativeSha256 =
+            "17F8DD4A92FF6125BD6A3A70ABC80C727682E489696C218D146A7EA6D2F88BF4";
+
+        private const int AivSpecStride = 0x6D98;
+        private const int PlayerAivStateStride = 0x583C;
+        private const int ImportedCandidatesPerPlayer = 1000;
+        private const int SpecCopiedPlayerAivValueOffset = 0x08;
+        private const int SpecOrientationOffset = 0x0C;
+        private const int SpecCandidateIdOffset = 0x10;
+        private const int SpecPlacementStateOffset = 0x14;
+        private const int SpecHighestFrameOffset = 0x24;
+
+        private const string AllocateSpecPattern =
+            "48 89 74 24 10 57 48 83 EC 20 BF 01 00 00 00 " +
+            "48 8D 81 9C 6D 00 00";
+        private const string SetPlacementPattern =
+            "40 53 48 83 EC 30 48 63 C2 45 8B D1 48 69 D8 98 6D 00 00";
+        private const string SelectBestFitPattern =
+            "44 88 44 24 18 89 54 24 10 55 56 41 54 41 55 41 56 41 57 " +
+            "48 83 EC 58";
+        private const string TestSpecificCandidatePattern =
+            "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 " +
+            "48 89 7C 24 20 41 56 48 83 EC 20 41 8B F0 48 63 EA " +
+            "48 8B F9 4C 8D 89 44 98 1B 00";
+        private const string PrepareLayoutPattern =
+            "44 89 44 24 18 53 55 56 57 41 54 41 55 41 56 41 57 " +
+            "48 83 EC 68";
+        private const string ExecuteToPercentagePattern =
+            "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 " +
+            "48 83 EC 30 48 63 F2 48 8D 05 ?? ?? ?? ?? " +
+            "4C 69 CE 3C 58 00 00";
+        private const string AivStateReferencePattern =
+            "48 89 1D ?? ?? ?? ?? 41 89 4E 04 48 8D 0D ?? ?? ?? ?? " +
+            "89 1D ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 83 BD B0 00 00 00 00";
+        private const string PrebuiltPlayersReferencePattern =
+            "8B 0D ?? ?? ?? ?? 8D 46 FF 0F AB C1 41 B8 64 00 00 00 " +
+            "89 0D ?? ?? ?? ?? 8B D6 49 8B CD E8 ?? ?? ?? ??";
+        private const string PreparedKeepCoordinatesReferencePattern =
+            "42 8B 44 2F 0C 48 8D 0D ?? ?? ?? ?? " +
+            "44 8B 0D ?? ?? ?? ?? 8B D6 44 8B 05 ?? ?? ?? ?? " +
+            "C6 44 24 38 00 89 44 24 30 B8 3D 00 00 00";
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate int AllocateSpecDelegate(IntPtr aivState, int playerId);
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate void SetPlacementDelegate(
+            IntPtr aivState,
+            int specIndex,
+            int keepX,
+            int keepY,
+            int orientation);
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate void SelectBestFitDelegate(
+            IntPtr aivState,
+            int specIndex,
+            byte tryOtherRotations);
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate uint TestSpecificCandidateDelegate(
+            IntPtr aivState,
+            int specIndex,
+            int candidateId);
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate void PrepareLayoutDelegate(
+            IntPtr aivState,
+            int specIndex,
+            int playerId);
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate void ExecuteToPercentageDelegate(
+            IntPtr aivState,
+            int playerId,
+            int percentage);
+
         private readonly ManualLogSource log;
         private readonly SpawnCastleSettingsViewModel settings;
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
+
+        private AllocateSpecDelegate allocateSpec;
+        private SetPlacementDelegate setPlacement;
+        private SelectBestFitDelegate selectBestFit;
+        private TestSpecificCandidateDelegate testSpecificCandidate;
+        private PrepareLayoutDelegate prepareLayout;
+        private ExecuteToPercentageDelegate executeToPercentage;
+        private IntPtr aivState;
+        private IntPtr playerAivStateBase;
+        private IntPtr prebuiltPlayersBitField;
+        private IntPtr preparedKeepX;
+        private IntPtr preparedKeepY;
         private bool installed;
         private bool handledCurrentMap;
+        private bool aivImportedForCurrentMap;
+        private PendingAivImport pendingAivImport;
+        private PreparedAivCastle preparedAivCastle;
+        private PreparedAivCastle executedAivCastle;
 
         public SpawnCastleRuntime(
             ManualLogSource log,
@@ -27,19 +126,27 @@ namespace SpawnCastle
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
         }
 
-        public void Install()
+        public void Install(
+            IntPtr libraryHandle,
+            ReadOnlySpan<byte> memory)
         {
             if (installed)
                 return;
 
-            subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable
-                .Where(args => args.Phase == EventHookPhase.Post)
-                .Subscribe(OnStartMap));
+            VerifyNativeLibrary();
+            BindNativeFunctions(libraryHandle, memory);
 
+            subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable
+                .Subscribe(OnStartMap));
+            subscriptions.Add(BuildingR3EventHooks.OnBuildStructure.Observable
+                .Where(args => args.Phase == EventHookPhase.Pre)
+                .Subscribe(OnBuildStructurePre));
+            subscriptions.Add(BuildingR3EventHooks.OnBuildStructure.Observable
+                .Where(args => args.Phase == EventHookPhase.Post)
+                .Subscribe(OnBuildStructurePost));
             subscriptions.Add(MapLoaderR3EventHooks.OnLoadSave.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
                 .Subscribe(OnLoadSave));
-
             subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
                 .Subscribe(OnUnloadMap));
@@ -47,33 +154,54 @@ namespace SpawnCastle
             installed = true;
             Shared.DebugLogHelper.LogInfo(
                 log,
-                "SpawnCastle map lifecycle subscriptions installed.");
+                "Native AIV castle spawner installed; all private functions and globals resolved uniquely.");
         }
 
         private void OnLoadSave(LoadSaveGameEventArgs args)
         {
-            // A saved game already contains earlier SpawnCastle output.
             handledCurrentMap = true;
+            aivImportedForCurrentMap = false;
+            pendingAivImport = null;
+            preparedAivCastle = null;
+            executedAivCastle = null;
             Shared.DebugLogHelper.LogInfo(
                 log,
-                "Savegame load detected; SpawnCastle will not duplicate the castle.");
+                "Savegame load detected; native castle spawning is disabled for this map.");
         }
 
         private void OnUnloadMap(MapUnloadEventArgs args)
         {
             handledCurrentMap = false;
+            aivImportedForCurrentMap = false;
+            pendingAivImport = null;
+            preparedAivCastle = null;
+            executedAivCastle = null;
             Shared.DebugLogHelper.LogInfo(
                 log,
-                "OnUnloadMap(Post) received; the next new map may spawn a castle.");
+                "OnUnloadMap(Post) received; the next new map may spawn a native AIV castle.");
         }
 
         private void OnStartMap(MapStartEventArgs args)
         {
+            if (args.Phase == EventHookPhase.Pre)
+            {
+                OnStartMapPre(args);
+                return;
+            }
+
+            if (args.Phase != EventHookPhase.Post)
+                return;
+
             Shared.DebugLogHelper.LogInfo(
                 log,
                 $"OnStartMap(Post) received: handledCurrentMap={handledCurrentMap}, " +
                 $"selection='{settings.SelectedCastle}', " +
-                $"networkedEnvironment={GameNetworkAPI.IsNetworkedEnvironment()}.");
+                $"preImportReady={pendingAivImport != null}, " +
+                $"keepPreSpawnPrepared={preparedAivCastle != null}, " +
+                $"keepPostSpawnExecuted={executedAivCastle != null}.");
+
+            GameModeSnapshot gameMode = CaptureGameMode(args);
+            LogGameModeDiagnostics(gameMode);
 
             if (handledCurrentMap)
             {
@@ -84,762 +212,1056 @@ namespace SpawnCastle
             }
 
             handledCurrentMap = true;
+            if (settings.IsDisabled)
+            {
+                Shared.DebugLogHelper.LogInfo(log, "SpawnCastle is disabled for this map.");
+                return;
+            }
+
             try
             {
-                SpawnSelectedCastle();
+                EnsureSupportedGameMode(gameMode);
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    $"Game-mode guard accepted local singleplayer skirmish: " +
+                    $"gameDataSkirmishGameType={gameMode.GameDataSkirmishGameType}, " +
+                    $"lobbySkirmishMembers={gameMode.LobbySkirmishMemberCount}, " +
+                    $"lobbySkirmishHumans={gameMode.LobbySkirmishHumanCount}, " +
+                    $"lobbyNetworkHumans={gameMode.LobbyNetworkHumanCount}, " +
+                    $"realNetworkGameMembers={gameMode.RealNetworkGameMemberCount}.");
+
+                bool imported = aivImportedForCurrentMap;
+                aivImportedForCurrentMap = false;
+                pendingAivImport = null;
+                PreparedAivCastle castle = executedAivCastle;
+                preparedAivCastle = null;
+                executedAivCastle = null;
+                if (castle == null)
+                {
+                    throw new InvalidOperationException(
+                        !imported
+                            ? "No AIV was imported during OnStartMap(Pre); native execution could not run."
+                            : "The selected AIV was imported, but the local Keep BuildStructure(Post) event did not execute it.");
+                }
+
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    $"Native castle execution already completed inside the native map start: " +
+                    $"playerId={castle.PlayerId}, specIndex={castle.SpecIndex}, " +
+                    $"highestFrame={castle.HighestFrame}.");
             }
             catch (Exception ex)
             {
+                // There is deliberately no managed placement fallback.
                 Shared.DebugLogHelper.LogError(
                     log,
-                    $"Castle spawn failed: {ex}");
+                    $"Native AIV castle spawn failed; no fallback was attempted: {ex}");
             }
         }
 
-        private void SpawnSelectedCastle()
+        private void OnStartMapPre(MapStartEventArgs args)
         {
-            if (settings.IsDisabled)
+            aivImportedForCurrentMap = false;
+            pendingAivImport = null;
+            preparedAivCastle = null;
+            executedAivCastle = null;
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"OnStartMap(Pre) received: handledCurrentMap={handledCurrentMap}, " +
+                $"selection='{settings.SelectedCastle}'.");
+
+            if (handledCurrentMap || settings.IsDisabled)
+                return;
+
+            try
             {
+                GameModeSnapshot gameMode = CaptureGameMode(args);
+                EnsureSupportedGameMode(gameMode);
+
+                if (!settings.TryResolveSelectedFile(out string filePath))
+                {
+                    throw new FileNotFoundException(
+                        $"Selected AIVJSON file is unavailable: '{settings.SelectedCastle}'.");
+                }
+
+                int nativePlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
+                int networkPlayerId = GameNetworkAPI.GetLocalPlayerId();
+                if (!GamePlayerManagerAPI.Instance.IsPlayerIdValid(nativePlayerId) ||
+                    GamePlayerManagerAPI.Instance.IsAIPlayer(nativePlayerId))
+                {
+                    throw new InvalidOperationException(
+                        $"No valid native local human player was found during pre-import; " +
+                        $"nativePlayerId={nativePlayerId}, networkPlayerId={networkPlayerId}.");
+                }
+                if (networkPlayerId > 0 && networkPlayerId != nativePlayerId)
+                {
+                    throw new InvalidOperationException(
+                        $"Local player IDs disagree during pre-import: " +
+                        $"nativePlayerId={nativePlayerId}, networkPlayerId={networkPlayerId}.");
+                }
+
+                string json = File.ReadAllText(filePath);
+                AivJsonDocument document = AivJsonReader.Parse(json);
+                short[] rawAiv = AivRawDataEncoder.Encode(document);
+
+                // Pre runs after Vanilla's InitAIVLoading/import loop but before the native
+                // start consumes the candidate table. Importing in Post is too late.
+                EngineInterface.ImportAIV(nativePlayerId - 1, 0, rawAiv, 1);
+                ImportedCandidateSnapshot importedCandidates =
+                    CaptureImportedCandidates(nativePlayerId - 1);
+                pendingAivImport = new PendingAivImport(
+                    nativePlayerId,
+                    filePath,
+                    new FileInfo(filePath).Length,
+                    document,
+                    rawAiv.Length);
+                aivImportedForCurrentMap = true;
+
                 Shared.DebugLogHelper.LogInfo(
                     log,
-                    "SpawnCastle is disabled for this map.");
-                return;
+                    $"Native AIV pre-import completed: phase=OnStartMap(Pre), " +
+                    $"playerId={nativePlayerId}, playerSlot={nativePlayerId - 1}, " +
+                    $"candidateId=0, custom=1, file={filePath}, " +
+                    $"frames={document.frames.Count}, miscItems={document.miscItems.Count}, " +
+                    $"rawShorts={rawAiv.Length}, " +
+                    $"nativeCandidateCountAfterImport={importedCandidates.Count}, " +
+                    $"nativeCandidate0Pointer=0x{importedCandidates.FirstPointer.ToInt64():X}, " +
+                    $"nativeCandidateTable=0x{importedCandidates.TableAddress.ToInt64():X}.");
             }
-
-            bool networkedEnvironment = GameNetworkAPI.IsNetworkedEnvironment();
-            if (networkedEnvironment)
+            catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogWarning(
-                    log,
-                    "GameNetworkAPI reports a networked environment; continuing because regular skirmish starts can also report this state.");
-            }
-
-            if (!settings.TryResolveSelectedFile(out string filePath))
-            {
+                aivImportedForCurrentMap = false;
+                pendingAivImport = null;
                 Shared.DebugLogHelper.LogError(
                     log,
-                    $"Selected AIVJSON file is unavailable: '{settings.SelectedCastle}'.");
+                    $"Native AIV pre-import failed; Keep-preparation and Post execution will be skipped: {ex}");
+            }
+        }
+
+        private void OnBuildStructurePre(BuildStructureEventArgs args)
+        {
+            PendingAivImport imported = pendingAivImport;
+            if (imported == null ||
+                preparedAivCastle != null ||
+                args.PlayerId != imported.PlayerId ||
+                !IsKeepMapper(args.Mappers))
+            {
                 return;
             }
 
-            long fileLength = new FileInfo(filePath).Length;
-            Shared.DebugLogHelper.LogInfo(
-                log,
-                $"Loading selected AIVJSON: path={filePath}, bytes={fileLength}.");
-
-            AivParseResult parsed = LoadBlueprint(filePath);
-            LogDiagnostics(parsed);
-            Shared.DebugLogHelper.LogInfo(
-                log,
-                $"AIVJSON parsed: valid={parsed.IsValid}, frames={parsed.Blueprint.Frames.Count}, " +
-                $"hasKeepAnchor={parsed.Blueprint.KeepAnchor.HasValue}, " +
-                $"errors={parsed.ErrorCount}, warnings={parsed.WarningCount}.");
-
-            if (!parsed.IsValid || !parsed.Blueprint.KeepAnchor.HasValue)
+            // Vanilla reaches this event immediately before placing the human Keep.
+            // Preparing here lets the native fit test see an empty Keep footprint.
+            pendingAivImport = null;
+            try
             {
+                PreparedAivCastle castle = PrepareSelectedCastle(
+                    imported,
+                    args.TileX,
+                    args.TileY);
+
+                args.TileX = castle.PreparedKeepX;
+                args.TileY = castle.PreparedKeepY;
+                args.Mappers = eMappers.MAPPER_KEEP2;
+                args.BuildingScaleUnknown = 7;
+                args.Unknown1 = castle.Orientation;
+                args.IsFree = false;
+                preparedAivCastle = castle;
+
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    $"Vanilla local Keep intercepted after AIV preparation: " +
+                    $"playerId={args.PlayerId}, " +
+                    $"originalKeep=({castle.RequestedKeepX},{castle.RequestedKeepY}), " +
+                    $"preparedKeep=({castle.PreparedKeepX},{castle.PreparedKeepY}), " +
+                    $"mapper={args.Mappers}, scale={args.BuildingScaleUnknown}, " +
+                    $"orientation={args.Unknown1}, isFree={args.IsFree}.");
+            }
+            catch (Exception ex)
+            {
+                preparedAivCastle = null;
                 Shared.DebugLogHelper.LogError(
                     log,
-                    $"AIVJSON rejected: path={filePath}, errors={parsed.ErrorCount}, warnings={parsed.WarningCount}.");
+                    $"Native AIV preparation at local Keep BuildStructure(Pre) failed; " +
+                    $"the Vanilla Keep will remain unchanged and no castle fallback will run: {ex}");
+            }
+        }
+
+        private void OnBuildStructurePost(BuildStructureEventArgs args)
+        {
+            PreparedAivCastle castle = preparedAivCastle;
+            if (castle == null ||
+                args.PlayerId != castle.PlayerId ||
+                !IsKeepMapper(args.Mappers))
+            {
                 return;
             }
 
+            // Execute while the native skirmish-start function is still running.
+            // Vanilla performs its completed-AI-castle execution at this stage too,
+            // before the outer map-start finalizes building tiles and visuals.
+            preparedAivCastle = null;
+            try
+            {
+                ExecutePreparedCastle(castle);
+                executedAivCastle = castle;
+            }
+            catch (Exception ex)
+            {
+                executedAivCastle = null;
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Native AIV execution at local Keep BuildStructure(Post) failed; " +
+                    $"no castle fallback will run: {ex}");
+            }
+        }
+
+        private PreparedAivCastle PrepareSelectedCastle(
+            PendingAivImport prepared,
+            int keepX,
+            int keepY)
+        {
             int playerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
             if (!GamePlayerManagerAPI.Instance.IsPlayerIdValid(playerId) ||
                 GamePlayerManagerAPI.Instance.IsAIPlayer(playerId))
             {
-                Shared.DebugLogHelper.LogError(
-                    log,
+                throw new InvalidOperationException(
                     $"No valid local human player was found; playerId={playerId}.");
-                return;
             }
-
-            int reportedKeepId =
-                GamePlayerManagerAPI.Instance.GetPlayerKeepId(playerId);
-            if (!TryGetActualKeep(playerId, reportedKeepId, out KeepPlacement keep))
+            if (playerId != prepared.PlayerId)
             {
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"No real local-player keep was found in the building array; " +
-                    $"playerId={playerId}, reportedKeepId={reportedKeepId}.");
-                return;
+                throw new InvalidOperationException(
+                    $"Local player changed between AIV import and placement: " +
+                    $"prePlayerId={prepared.PlayerId}, postPlayerId={playerId}.");
             }
 
-            UnmanagedVector2<int> reportedKeepPosition =
-                GamePlayerManagerAPI.Instance.GetPlayerKeepPosition(playerId);
-            UnmanagedVector2<int> keepDoorPosition =
-                GamePlayerManagerAPI.Instance.GetPlayerKeepDoorPosition(playerId);
-            Shared.DebugLogHelper.LogInfo(
-                log,
-                $"Keep anchor resolved: playerId={playerId}, " +
-                $"reportedKeepId={reportedKeepId}, actualKeepId={keep.BuildingId}, " +
-                $"resourceTile=({reportedKeepPosition.X},{reportedKeepPosition.Y}), " +
-                $"doorTile=({keepDoorPosition.X},{keepDoorPosition.Y}), " +
-                $"buildingBegin=({keep.BeginX},{keep.BeginY}), " +
-                $"buildingEnd=({keep.EndX},{keep.EndY}), " +
-                $"gridSize={keep.GridSize}, type={keep.Type}, aliveState={keep.AliveState}.");
-            Shared.DebugLogHelper.LogInfo(
-                log,
-                $"Castle spawn planned: playerId={playerId}, " +
-                $"keepAnchor=({keep.BeginX},{keep.BeginY}), " +
-                $"anchorSource=actual-building-begin, file={filePath}, " +
-                $"frames={parsed.Blueprint.Frames.Count}.");
+            if (!GameTileManagerAPI.Instance.IsTileInsideMapBounds(
+                    keepX,
+                    keepY))
+            {
+                throw new InvalidOperationException(
+                    $"Native keep reference is outside the map: " +
+                    $"({keepX},{keepY}).");
+            }
 
-            SpawnStatistics statistics = SpawnBlueprint(
-                parsed.Blueprint,
+            int ownedBuildingsBefore = CountOwnedBuildings(playerId);
+            ImportedCandidateSnapshot importedCandidates =
+                CaptureImportedCandidates(playerId - 1);
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"Native castle spawn planned: playerId={playerId}, " +
+                $"phase=OnBuildStructure(Pre), keepReference=({keepX},{keepY}), " +
+                $"file={prepared.FilePath}, jsonBytes={prepared.JsonBytes}, " +
+                $"frames={prepared.Document.frames.Count}, " +
+                $"miscItems={prepared.Document.miscItems.Count}, " +
+                $"rawShorts={prepared.RawShortCount}, importedDuringPre=True, " +
+                $"ownedBuildingsBefore={ownedBuildingsBefore}, " +
+                $"nativeCandidateCountBeforePlacement={importedCandidates.Count}, " +
+                $"nativeCandidate0Pointer=0x{importedCandidates.FirstPointer.ToInt64():X}.");
+
+            int specIndex = allocateSpec(aivState, playerId);
+            if (specIndex < 1 || specIndex > 8)
+            {
+                throw new InvalidOperationException(
+                    $"Native AIV spec allocation failed; returned specIndex={specIndex}.");
+            }
+
+            // Start at zero degrees and let Vanilla try the other rotations only when needed.
+            setPlacement(
+                aivState,
+                specIndex,
+                keepX,
+                keepY,
+                0);
+            selectBestFit(aivState, specIndex, 1);
+
+            IntPtr spec = IntPtr.Add(aivState, checked(specIndex * AivSpecStride));
+            int copiedPlayerAivValue =
+                Marshal.ReadInt32(spec, SpecCopiedPlayerAivValueOffset);
+            int orientation = Marshal.ReadInt32(spec, SpecOrientationOffset);
+            int candidateId = Marshal.ReadInt32(spec, SpecCandidateIdOffset);
+            int placementState = Marshal.ReadInt32(spec, SpecPlacementStateOffset);
+            if (placementState != 1 && placementState != 2)
+            {
+                uint explicitFit = testSpecificCandidate(aivState, specIndex, 0);
+                placementState = Marshal.ReadInt32(spec, SpecPlacementStateOffset);
+                candidateId = Marshal.ReadInt32(spec, SpecCandidateIdOffset);
+                orientation = Marshal.ReadInt32(spec, SpecOrientationOffset);
+                throw new InvalidOperationException(
+                    $"Vanilla could not place the selected AIV: specIndex={specIndex}, " +
+                    $"candidateId={candidateId}, orientation={orientation}, " +
+                    $"placementState={placementState}, " +
+                    $"explicitCandidateFitUnsigned={explicitFit}, " +
+                    $"explicitCandidateFitSigned={unchecked((int)explicitFit)}, " +
+                    $"nativeCandidateCount={importedCandidates.Count}, " +
+                    $"copiedPlayerAivValue={copiedPlayerAivValue}, " +
+                    $"failureClass={DescribePlacementFailure(importedCandidates.Count)}.");
+            }
+            if (candidateId != 0)
+            {
+                throw new InvalidOperationException(
+                    $"Native candidate selection returned unexpected candidateId={candidateId}; " +
+                    "only candidate zero was imported.");
+            }
+
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"Native AIV placement selected: specIndex={specIndex}, candidateId={candidateId}, " +
+                $"orientation={orientation} ({DescribeOrientation(orientation)}), " +
+                $"placementState={placementState} ({DescribePlacementState(placementState)}).");
+
+            prepareLayout(aivState, specIndex, playerId);
+            int highestFrame = Marshal.ReadInt32(spec, SpecHighestFrameOffset);
+            if (highestFrame < 0)
+            {
+                throw new InvalidOperationException(
+                    $"Native layout preparation returned invalid highestFrame={highestFrame}.");
+            }
+
+            IntPtr activeSpecAddress = IntPtr.Add(
+                playerAivStateBase,
+                checked(playerId * PlayerAivStateStride));
+            int previousActiveSpec = Marshal.ReadInt32(activeSpecAddress);
+            Marshal.WriteInt32(activeSpecAddress, specIndex);
+            int nativePreparedKeepX = Marshal.ReadInt32(preparedKeepX);
+            int nativePreparedKeepY = Marshal.ReadInt32(preparedKeepY);
+            if (!GameTileManagerAPI.Instance.IsTileInsideMapBounds(
+                    nativePreparedKeepX,
+                    nativePreparedKeepY))
+            {
+                throw new InvalidOperationException(
+                    $"Native layout preparation produced an out-of-bounds Keep: " +
+                    $"({nativePreparedKeepX},{nativePreparedKeepY}).");
+            }
+
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"Native AIV layout prepared before Vanilla Keep: playerId={playerId}, " +
+                $"specIndex={specIndex}, highestFrame={highestFrame}, " +
+                $"requestedKeep=({keepX},{keepY}), " +
+                $"preparedKeep=({nativePreparedKeepX},{nativePreparedKeepY}), " +
+                $"orientation={orientation}, previousActiveSpec={previousActiveSpec}.");
+
+            return new PreparedAivCastle(
                 playerId,
-                keep.BeginX,
-                keep.BeginY,
-                keep.GridSize);
-
-            Shared.DebugLogHelper.LogInfo(
-                log,
-                $"Castle spawn executed: playerId={playerId}, attempted={statistics.Attempted}, " +
-                $"succeeded={statistics.Succeeded}, failed={statistics.Failed}, " +
-                $"skipped={statistics.Skipped}, outOfBounds={statistics.OutOfBounds}, " +
-                $"buildings={statistics.Buildings}, wallSegments={statistics.WallSegments}, " +
-                $"wallTilesRequested={statistics.WallTilesRequested}, " +
-                $"wallTilesVerified={statistics.WallTilesVerified}, " +
-                $"wallTilesDeferred={statistics.WallTilesDeferred}, " +
-                $"pitchTiles={statistics.PitchTiles}, " +
-                $"preflightRejected={statistics.PreflightRejected}.");
+                specIndex,
+                highestFrame,
+                orientation,
+                keepX,
+                keepY,
+                nativePreparedKeepX,
+                nativePreparedKeepY,
+                ownedBuildingsBefore);
         }
 
-        private bool TryGetActualKeep(
-            int playerId,
-            int reportedKeepId,
-            out KeepPlacement keep)
+        private void ExecutePreparedCastle(PreparedAivCastle castle)
         {
-            keep = default;
-            int fallbackBuildingId = -1;
+            int ownedBuildingsBeforeExecution = CountOwnedBuildings(castle.PlayerId);
+            SetPrebuiltPlayerBit(castle.PlayerId);
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"Native castle execution planned: playerId={castle.PlayerId}, " +
+                $"specIndex={castle.SpecIndex}, highestFrame={castle.HighestFrame}, " +
+                $"completion=100, ownedBuildingsAtKeepPre={castle.OwnedBuildingsAtPreparation}, " +
+                $"ownedBuildingsBeforeExecution={ownedBuildingsBeforeExecution}.");
+
+            executeToPercentage(aivState, castle.PlayerId, 100);
+            int ownedBuildingsAfter = CountOwnedBuildings(castle.PlayerId);
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"Native castle execution completed: playerId={castle.PlayerId}, " +
+                $"specIndex={castle.SpecIndex}, highestFrame={castle.HighestFrame}, " +
+                $"ownedBuildingsBefore={ownedBuildingsBeforeExecution}, " +
+                $"ownedBuildingsAfter={ownedBuildingsAfter}, " +
+                $"buildingDelta={ownedBuildingsAfter - ownedBuildingsBeforeExecution}.");
+            LogSpecialBuildingDiagnostics(castle.PlayerId);
+        }
+
+        private void BindNativeFunctions(
+            IntPtr libraryHandle,
+            ReadOnlySpan<byte> memory)
+        {
+            IntPtr allocateAddress = ResolveUniqueAddress(
+                libraryHandle,
+                memory,
+                nameof(AllocateSpecDelegate),
+                AllocateSpecPattern);
+            allocateSpec = Marshal.GetDelegateForFunctionPointer<AllocateSpecDelegate>(
+                allocateAddress);
+            setPlacement = Bind<SetPlacementDelegate>(
+                libraryHandle,
+                memory,
+                SetPlacementPattern);
+            selectBestFit = Bind<SelectBestFitDelegate>(
+                libraryHandle,
+                memory,
+                SelectBestFitPattern);
+            testSpecificCandidate = Bind<TestSpecificCandidateDelegate>(
+                libraryHandle,
+                memory,
+                TestSpecificCandidatePattern);
+            prepareLayout = Bind<PrepareLayoutDelegate>(
+                libraryHandle,
+                memory,
+                PrepareLayoutPattern);
+            executeToPercentage = Bind<ExecuteToPercentageDelegate>(
+                libraryHandle,
+                memory,
+                ExecuteToPercentagePattern);
+
+            int stateReferenceOffset = FindUniquePattern(
+                memory,
+                nameof(aivState),
+                AivStateReferencePattern);
+            IntPtr stateReferenceInstruction = IntPtr.Add(
+                libraryHandle,
+                stateReferenceOffset + 11);
+            aivState = ResolveRipRelativeAddress(
+                stateReferenceInstruction,
+                displacementOffset: 3,
+                instructionLength: 7);
+
+            // AllocateSpec contains LEA RAX,[playerStateBase+4] at function offset 0x5F.
+            IntPtr playerStateInstruction = IntPtr.Add(allocateAddress, 0x5F);
+            RequireBytes(
+                playerStateInstruction,
+                "player AIV state reference",
+                0x48,
+                0x8D,
+                0x05);
+            playerAivStateBase = IntPtr.Subtract(
+                ResolveRipRelativeAddress(
+                    playerStateInstruction,
+                    displacementOffset: 3,
+                    instructionLength: 7),
+                4);
+
+            int prebuiltReferenceOffset = FindUniquePattern(
+                memory,
+                nameof(prebuiltPlayersBitField),
+                PrebuiltPlayersReferencePattern);
+            IntPtr prebuiltReferenceInstruction = IntPtr.Add(
+                libraryHandle,
+                prebuiltReferenceOffset);
+            prebuiltPlayersBitField = ResolveRipRelativeAddress(
+                prebuiltReferenceInstruction,
+                displacementOffset: 2,
+                instructionLength: 6);
+
+            int preparedKeepReferenceOffset = FindUniquePattern(
+                memory,
+                "prepared Keep coordinates",
+                PreparedKeepCoordinatesReferencePattern);
+            IntPtr preparedKeepReference = IntPtr.Add(
+                libraryHandle,
+                preparedKeepReferenceOffset);
+            preparedKeepY = ResolveRipRelativeAddress(
+                IntPtr.Add(preparedKeepReference, 12),
+                displacementOffset: 3,
+                instructionLength: 7);
+            preparedKeepX = ResolveRipRelativeAddress(
+                IntPtr.Add(preparedKeepReference, 21),
+                displacementOffset: 3,
+                instructionLength: 7);
+
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"Native AIV bindings resolved: module=0x{libraryHandle.ToInt64():X}, " +
+                $"aivState=0x{aivState.ToInt64():X}, " +
+                $"playerAivStateBase=0x{playerAivStateBase.ToInt64():X}, " +
+                $"prebuiltPlayers=0x{prebuiltPlayersBitField.ToInt64():X}, " +
+                $"preparedKeepX=0x{preparedKeepX.ToInt64():X}, " +
+                $"preparedKeepY=0x{preparedKeepY.ToInt64():X}.");
+        }
+
+        private T Bind<T>(
+            IntPtr libraryHandle,
+            ReadOnlySpan<byte> memory,
+            string pattern)
+            where T : Delegate
+        {
+            IntPtr address = ResolveUniqueAddress(
+                libraryHandle,
+                memory,
+                typeof(T).Name,
+                pattern);
+            return Marshal.GetDelegateForFunctionPointer<T>(address);
+        }
+
+        private static IntPtr ResolveUniqueAddress(
+            IntPtr libraryHandle,
+            ReadOnlySpan<byte> memory,
+            string name,
+            string pattern)
+        {
+            return IntPtr.Add(
+                libraryHandle,
+                FindUniquePattern(memory, name, pattern));
+        }
+
+        private static int FindUniquePattern(
+            ReadOnlySpan<byte> memory,
+            string name,
+            string pattern)
+        {
+            PatternByte[] bytes = ParsePattern(pattern);
+            int match = -1;
+            int matchCount = 0;
+            for (int offset = 0; offset <= memory.Length - bytes.Length; offset++)
+            {
+                bool matches = true;
+                for (int index = 0; index < bytes.Length; index++)
+                {
+                    if (!bytes[index].Wildcard &&
+                        memory[offset + index] != bytes[index].Value)
+                    {
+                        matches = false;
+                        break;
+                    }
+                }
+
+                if (!matches)
+                    continue;
+
+                match = offset;
+                matchCount++;
+                if (matchCount > 1)
+                    break;
+            }
+
+            if (matchCount != 1)
+            {
+                throw new InvalidOperationException(
+                    $"Native signature '{name}' expected one match but found {matchCount}.");
+            }
+
+            return match;
+        }
+
+        private static PatternByte[] ParsePattern(string pattern)
+        {
+            string[] tokens = pattern.Split(
+                new[] { ' ' },
+                StringSplitOptions.RemoveEmptyEntries);
+            var result = new PatternByte[tokens.Length];
+            for (int index = 0; index < tokens.Length; index++)
+            {
+                string token = tokens[index];
+                result[index] = token == "?" || token == "??"
+                    ? new PatternByte(0, true)
+                    : new PatternByte(
+                        byte.Parse(token, NumberStyles.HexNumber, CultureInfo.InvariantCulture),
+                        false);
+            }
+
+            return result;
+        }
+
+        private static IntPtr ResolveRipRelativeAddress(
+            IntPtr instruction,
+            int displacementOffset,
+            int instructionLength)
+        {
+            int displacement = Marshal.ReadInt32(instruction, displacementOffset);
+            return new IntPtr(
+                checked(instruction.ToInt64() + instructionLength + displacement));
+        }
+
+        private static void RequireBytes(
+            IntPtr address,
+            string name,
+            params byte[] expected)
+        {
+            for (int index = 0; index < expected.Length; index++)
+            {
+                byte actual = Marshal.ReadByte(address, index);
+                if (actual != expected[index])
+                {
+                    throw new InvalidOperationException(
+                        $"Native {name} opcode mismatch at +0x{index:X}: " +
+                        $"expected=0x{expected[index]:X2}, actual=0x{actual:X2}.");
+                }
+            }
+        }
+
+        private void SetPrebuiltPlayerBit(int playerId)
+        {
+            int current = Marshal.ReadInt32(prebuiltPlayersBitField);
+            int updated = current | (1 << (playerId - 1));
+            Marshal.WriteInt32(prebuiltPlayersBitField, updated);
+        }
+
+        private static ImportedCandidateSnapshot CaptureImportedCandidates(
+            int zeroBasedPlayerSlot)
+        {
+            if (zeroBasedPlayerSlot < 0 || zeroBasedPlayerSlot >= 8)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(zeroBasedPlayerSlot),
+                    zeroBasedPlayerSlot,
+                    "The native AIV candidate table only contains eight player slots.");
+            }
+
+            ulong tableVirtualAddress = GameGlobalsManager.Instance.AIVDataTableVA;
+            if (tableVirtualAddress == 0)
+            {
+                throw new InvalidOperationException(
+                    "The Script Extender did not resolve the native AIV candidate table.");
+            }
+
+            IntPtr tableAddress = new IntPtr(checked((long)tableVirtualAddress));
+            IntPtr playerTableAddress = IntPtr.Add(
+                tableAddress,
+                checked(zeroBasedPlayerSlot * ImportedCandidatesPerPlayer * IntPtr.Size));
+            IntPtr firstPointer = Marshal.ReadIntPtr(playerTableAddress);
+            int count = 0;
+            while (count < ImportedCandidatesPerPlayer &&
+                   Marshal.ReadIntPtr(
+                       playerTableAddress,
+                       checked(count * IntPtr.Size)) != IntPtr.Zero)
+            {
+                count++;
+            }
+
+            return new ImportedCandidateSnapshot(
+                tableAddress,
+                firstPointer,
+                count);
+        }
+
+        private static string DescribePlacementFailure(int nativeCandidateCount)
+        {
+            // Native TestSpecificCandidate returns -2 both for an absent candidate
+            // and for a candidate whose layout cannot be placed.
+            return nativeCandidateCount == 0
+                ? "candidate-missing-from-native-table"
+                : "candidate-present-but-map-fit-rejected";
+        }
+
+        private static GameModeSnapshot CaptureGameMode(MapStartEventArgs args)
+        {
+            Director director = Director.instance;
+            Platform_Multiplayer platform = Platform_Multiplayer.Instance;
+            Platform_Multiplayer.MPLobby lobby = platform?.activeLobby;
+
+            int lobbyMemberCount = lobby?.members?.Count ?? -1;
+            int lobbySkirmishMemberCount = 0;
+            int lobbySkirmishHumanCount = 0;
+            int lobbyNetworkHumanCount = 0;
+            if (lobby?.members != null)
+            {
+                foreach (Platform_Multiplayer.MPLobbyMember member in lobby.members)
+                {
+                    if (member.SkirmishMember)
+                    {
+                        lobbySkirmishMemberCount++;
+                        if (member.SkirmishHumanMember)
+                            lobbySkirmishHumanCount++;
+                    }
+                    else
+                    {
+                        // Real multiplayer humans are the only lobby members not marked as skirmish.
+                        lobbyNetworkHumanCount++;
+                    }
+                }
+            }
+
+            int gameMemberCount = platform?.gameMembers?.Count ?? -1;
+            int realNetworkGameMemberCount = 0;
+            var gameMemberDetails = new List<string>();
+            if (platform?.gameMembers != null)
+            {
+                foreach (Platform_Multiplayer.MPGameMember member in platform.gameMembers)
+                {
+                    bool realNetworkMember =
+                        !member.skirmishAI &&
+                        member.steamID > 1000;
+                    if (realNetworkMember)
+                        realNetworkGameMemberCount++;
+
+                    gameMemberDetails.Add(
+                        $"{member.playerID}:self={member.isSelf}," +
+                        $"host={member.isHost},ai={member.skirmishAI}," +
+                        $"steam={(member.steamID > 1000 ? "real" : member.steamID.ToString())}," +
+                        $"kicked={member.kicked}");
+                }
+            }
+
+            var aliveSlotDetails = new List<string>();
+            foreach (int id in GamePlayerManagerAPI.Instance.GetAlivePlayerIds())
+            {
+                aliveSlotDetails.Add(
+                    $"{id}:ai={GamePlayerManagerAPI.Instance.IsAIPlayer(id)}");
+            }
+
+            bool networkedEnvironment = GameNetworkAPI.IsNetworkedEnvironment();
+            int networkActivePlayers = networkedEnvironment
+                ? GameNetworkAPI.GetNumActivePlayers()
+                : -1;
+
+            return new GameModeSnapshot
+            {
+                CampaignMapId = args.CampaignMapId,
+                MultiplayerSave = args.bMultiplayerSave,
+                Unknown1 = args.Unknown1,
+                Unknown3 = args.Unknown3,
+                DirectorAvailable = director != null,
+                DirectorMultiplayerGame = director != null && director.MultiplayerGame,
+                DirectorSkirmishModeGame = director != null && director.SkirmishModeGame,
+                DirectorSimRunning = director != null && director.SimRunning,
+                NetworkedEnvironment = networkedEnvironment,
+                NetworkActivePlayers = networkActivePlayers,
+                NetworkLocalPlayerId = GameNetworkAPI.GetLocalPlayerId(),
+                NativeLocalPlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId(),
+                PlatformAvailable = platform != null,
+                PlatformMpGameActive = Platform_Multiplayer.MPGameActive,
+                PlatformIsHost = platform != null && platform.IsHost,
+                ActiveLobbyAvailable = lobby != null,
+                LobbyReportedMemberCount = lobby?.numLobbyMembers ?? -1,
+                LobbyMemberCount = lobbyMemberCount,
+                LobbySkirmishMemberCount = lobbySkirmishMemberCount,
+                LobbySkirmishHumanCount = lobbySkirmishHumanCount,
+                LobbyNetworkHumanCount = lobbyNetworkHumanCount,
+                GameMemberCount = gameMemberCount,
+                RealNetworkGameMemberCount = realNetworkGameMemberCount,
+                GameMemberDetails = string.Join(" | ", gameMemberDetails),
+                AliveSlotDetails = string.Join(" | ", aliveSlotDetails),
+                GameDataMultiplayerMap = GameData.Instance.multiplayerMap,
+                GameDataSkirmishGameType = GameData.Instance.SkirmishGameType,
+                GameDataGameType = GameData.Instance.game_type
+            };
+        }
+
+        private void LogGameModeDiagnostics(GameModeSnapshot mode)
+        {
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"Game-mode diagnostics: campaignMapId={mode.CampaignMapId}, " +
+                $"bMultiplayerSave={mode.MultiplayerSave}, " +
+                $"unknown1=0x{mode.Unknown1.ToInt64():X}, unknown3={mode.Unknown3}, " +
+                $"directorAvailable={mode.DirectorAvailable}, " +
+                $"directorMultiplayerGame={mode.DirectorMultiplayerGame}, " +
+                $"directorSkirmishModeGame={mode.DirectorSkirmishModeGame}, " +
+                $"directorSimRunning={mode.DirectorSimRunning}, " +
+                $"networkedEnvironment={mode.NetworkedEnvironment}, " +
+                $"networkActivePlayers={mode.NetworkActivePlayers}, " +
+                $"networkLocalPlayerId={mode.NetworkLocalPlayerId}, " +
+                $"nativeLocalPlayerId={mode.NativeLocalPlayerId}, " +
+                $"platformAvailable={mode.PlatformAvailable}, " +
+                $"platformMpGameActive={mode.PlatformMpGameActive}, " +
+                $"platformIsHost={mode.PlatformIsHost}, " +
+                $"activeLobbyAvailable={mode.ActiveLobbyAvailable}, " +
+                $"lobbyReportedMembers={mode.LobbyReportedMemberCount}, " +
+                $"lobbyMembers={mode.LobbyMemberCount}, " +
+                $"lobbySkirmishMembers={mode.LobbySkirmishMemberCount}, " +
+                $"lobbySkirmishHumans={mode.LobbySkirmishHumanCount}, " +
+                $"lobbyNetworkHumans={mode.LobbyNetworkHumanCount}, " +
+                $"gameMembers={mode.GameMemberCount}, " +
+                $"realNetworkGameMembers={mode.RealNetworkGameMemberCount}, " +
+                $"gameDataMultiplayerMap={mode.GameDataMultiplayerMap}, " +
+                $"gameDataSkirmishGameType={mode.GameDataSkirmishGameType}, " +
+                $"gameDataGameType={mode.GameDataGameType}.");
+
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"Game-member diagnostics: [{mode.GameMemberDetails}].");
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"Alive-slot diagnostics (not used for multiplayer detection): " +
+                $"[{mode.AliveSlotDetails}].");
+        }
+
+        private static void EnsureSupportedGameMode(GameModeSnapshot mode)
+        {
+            if (!mode.DirectorAvailable)
+            {
+                throw new InvalidOperationException(
+                    "Director is unavailable during the map-start callback; game mode cannot be verified.");
+            }
+
+            // IsNetworkedEnvironment is true in local skirmish because Vanilla creates
+            // a local gameMembers list. Real network humans are identified separately.
+            bool realMultiplayer =
+                mode.DirectorMultiplayerGame ||
+                mode.LobbyNetworkHumanCount > 0 ||
+                mode.RealNetworkGameMemberCount > 0;
+            if (realMultiplayer)
+            {
+                throw new NotSupportedException(
+                    $"Native SpawnCastle is disabled for real multiplayer: " +
+                    $"directorMultiplayerGame={mode.DirectorMultiplayerGame}, " +
+                    $"lobbyNetworkHumans={mode.LobbyNetworkHumanCount}, " +
+                    $"realNetworkGameMembers={mode.RealNetworkGameMemberCount}.");
+            }
+
+            bool localSkirmishLobby =
+                mode.ActiveLobbyAvailable &&
+                mode.LobbyMemberCount > 0 &&
+                mode.LobbySkirmishMemberCount == mode.LobbyMemberCount &&
+                mode.LobbySkirmishHumanCount >= 1 &&
+                mode.LobbyNetworkHumanCount == 0 &&
+                mode.RealNetworkGameMemberCount == 0;
+            if (!localSkirmishLobby || mode.GameDataSkirmishGameType < 0)
+            {
+                throw new NotSupportedException(
+                    $"Native SpawnCastle requires a singleplayer skirmish: " +
+                    $"localSkirmishLobby={localSkirmishLobby}, " +
+                    $"directorSkirmishModeGame={mode.DirectorSkirmishModeGame}, " +
+                    $"gameDataSkirmishGameType={mode.GameDataSkirmishGameType}, " +
+                    $"lobbyMembers={mode.LobbyMemberCount}, " +
+                    $"lobbySkirmishMembers={mode.LobbySkirmishMemberCount}, " +
+                    $"lobbySkirmishHumans={mode.LobbySkirmishHumanCount}.");
+            }
+        }
+
+        private static int CountOwnedBuildings(int playerId)
+        {
+            int count = 0;
             Span<GameBuilding> buildings =
                 GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
+            foreach (GameBuilding building in buildings)
+            {
+                if (building.r_PlayerIdOwner == playerId &&
+                    (building.r_AliveState == AliveState.NeedsInit ||
+                     building.r_AliveState == AliveState.IsAlive))
+                {
+                    count++;
+                }
+            }
 
+            return count;
+        }
+
+        private void LogSpecialBuildingDiagnostics(int playerId)
+        {
+            int granaryCount = 0;
+            int hovelCount = 0;
+            Span<GameBuilding> buildings =
+                GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
             for (int buildingId = 0; buildingId < buildings.Length; buildingId++)
             {
                 GameBuilding building = buildings[buildingId];
                 if (building.r_PlayerIdOwner != playerId ||
-                    !IsKeepType(building.r_BuildingType) ||
-                    (building.r_AliveState != AliveState.NeedsInit &&
-                     building.r_AliveState != AliveState.IsAlive))
+                    (building.r_BuildingType != eStructs.STRUCT_GRANARY &&
+                     building.r_BuildingType != eStructs.STRUCT_HOVEL))
                 {
                     continue;
                 }
 
-                if (buildingId == reportedKeepId)
-                {
-                    keep = KeepPlacement.FromBuilding(buildingId, building);
-                    return true;
-                }
-
-                if (fallbackBuildingId < 0)
-                    fallbackBuildingId = buildingId;
-            }
-
-            if (fallbackBuildingId < 0)
-                return false;
-
-            // StartConditions also trusts the real building array over the player resource.
-            keep = KeepPlacement.FromBuilding(
-                fallbackBuildingId,
-                buildings[fallbackBuildingId]);
-            Shared.DebugLogHelper.LogWarning(
-                log,
-                $"Reported keep id did not identify the real player keep; " +
-                $"reportedKeepId={reportedKeepId}, usingBuildingId={fallbackBuildingId}.");
-            return true;
-        }
-
-        private AivParseResult LoadBlueprint(string filePath)
-        {
-            string json = File.ReadAllText(filePath);
-            AivJsonDocument document = AivJsonReader.Parse(json);
-            return new AivBlueprintParser().Parse(document, filePath);
-        }
-
-        private void LogDiagnostics(AivParseResult parsed)
-        {
-            foreach (AivDiagnostic diagnostic in parsed.Diagnostics)
-            {
-                string message =
-                    $"AIV diagnostic {diagnostic.Code} at {diagnostic.Location}: {diagnostic.Message}";
-                if (diagnostic.Severity == AivDiagnosticSeverity.Error)
-                    Shared.DebugLogHelper.LogError(log, message);
+                if (building.r_BuildingType == eStructs.STRUCT_GRANARY)
+                    granaryCount++;
                 else
-                    Shared.DebugLogHelper.LogWarning(log, message);
-            }
-        }
+                    hovelCount++;
 
-        private SpawnStatistics SpawnBlueprint(
-            AivBlueprint blueprint,
-            int playerId,
-            int keepTileX,
-            int keepTileY,
-            int keepGridSize)
-        {
-            var statistics = new SpawnStatistics();
-            AivGridPoint keepAnchor = blueprint.KeepAnchor.Value;
-            if (!ValidateBuildingFootprints(
-                    blueprint,
-                    keepAnchor,
-                    keepTileX,
-                    keepTileY,
-                    keepGridSize))
-            {
-                statistics.PreflightRejected = true;
-                return statistics;
-            }
-
-            foreach (AivBuildFrame frame in blueprint.Frames)
-            {
-                if (!frame.Mapper.IsKnown)
-                {
-                    statistics.Skipped += frame.Positions.Count;
-                    Shared.DebugLogHelper.LogInfo(
-                        log,
-                        $"Skipping unknown frame={frame.BuildIndex}, mapper={frame.Mapper.Name}, " +
-                        $"positions={frame.Positions.Count}.");
-                    continue;
-                }
-
-                // The map already owns and initializes the human keep.
-                if (frame.Mapper.Category == AivItemCategory.Keep)
-                {
-                    statistics.Skipped += frame.Positions.Count;
-                    Shared.DebugLogHelper.LogInfo(
-                        log,
-                        $"Skipping AIV keep frame={frame.BuildIndex}, mapper={frame.Mapper.Name}, " +
-                        "because the real human keep is used as the world anchor.");
-                    continue;
-                }
-
-                if (IsWallCategory(frame.Mapper.Category))
-                {
-                    // Wall cost bypassing will be solved separately without changing costs or goods.
-                    statistics.Skipped += frame.Positions.Count;
-                    statistics.WallTilesDeferred += frame.Positions.Count;
-                    continue;
-                }
-
-                foreach (AivGridPoint point in frame.Positions)
-                {
-                    WorldTile tile = AivWorldPlacement.ToWorld(
-                        point,
-                        keepAnchor,
-                        keepTileX,
-                        keepTileY);
-                    if (!GameTileManagerAPI.Instance.IsTileInsideMapBounds(tile.X, tile.Y))
-                    {
-                        statistics.OutOfBounds++;
-                        Shared.DebugLogHelper.LogWarning(
-                            log,
-                            $"Skipping out-of-bounds spawn: frame={frame.BuildIndex}, " +
-                            $"mapper={frame.Mapper.Name}, tile=({tile.X},{tile.Y}).");
-                        continue;
-                    }
-
-                    SpawnFramePosition(
-                        frame,
-                        playerId,
-                        tile.X,
-                        tile.Y,
-                        statistics);
-                }
-            }
-
-            if (statistics.WallTilesDeferred > 0)
-            {
                 Shared.DebugLogHelper.LogInfo(
                     log,
-                    $"Wall spawning deferred for the building-position test: " +
-                    $"sourceTiles={statistics.WallTilesDeferred}. " +
-                    "No wall cost multiplier or player stone was changed.");
-            }
-
-            return statistics;
-        }
-
-        private bool ValidateBuildingFootprints(
-            AivBlueprint blueprint,
-            AivGridPoint keepAnchor,
-            int keepTileX,
-            int keepTileY,
-            int keepGridSize)
-        {
-            var footprints = new List<WorldFootprint>();
-            foreach (AivBuildFrame frame in blueprint.Frames)
-            {
-                if (!frame.Mapper.IsKnown ||
-                    (frame.Mapper.Category != AivItemCategory.Keep &&
-                     frame.Mapper.Category != AivItemCategory.Building))
-                {
-                    continue;
-                }
-
-                int scale = frame.Mapper.Category == AivItemCategory.Keep
-                    ? keepGridSize
-                    : GetPlacementScale(frame.Mapper);
-                foreach (AivGridPoint point in frame.Positions)
-                {
-                    WorldTile tile = frame.Mapper.Category == AivItemCategory.Keep
-                        ? new WorldTile(keepTileX, keepTileY)
-                        : AivWorldPlacement.ToWorld(
-                            point,
-                            keepAnchor,
-                            keepTileX,
-                            keepTileY);
-                    var footprint = new WorldFootprint(
-                        frame.BuildIndex,
-                        frame.Mapper.Name,
-                        tile.X,
-                        tile.Y,
-                        scale);
-
-                    if (!GameTileManagerAPI.Instance.IsTileInsideMapBounds(
-                            footprint.MinX,
-                            footprint.MinY) ||
-                        !GameTileManagerAPI.Instance.IsTileInsideMapBounds(
-                            footprint.MaxX,
-                            footprint.MaxY))
-                    {
-                        Shared.DebugLogHelper.LogError(
-                            log,
-                            $"World footprint is outside the map: frame={frame.BuildIndex}, " +
-                            $"mapper={frame.Mapper.Name}, bounds=({footprint.MinX},{footprint.MinY})-" +
-                            $"({footprint.MaxX},{footprint.MaxY}).");
-                        return false;
-                    }
-
-                    footprints.Add(footprint);
-                }
-            }
-
-            int overlapCount = 0;
-            for (int leftIndex = 0; leftIndex < footprints.Count; leftIndex++)
-            {
-                WorldFootprint left = footprints[leftIndex];
-                for (int rightIndex = leftIndex + 1;
-                     rightIndex < footprints.Count;
-                     rightIndex++)
-                {
-                    WorldFootprint right = footprints[rightIndex];
-                    if (!left.Overlaps(right))
-                        continue;
-
-                    overlapCount++;
-                    Shared.DebugLogHelper.LogError(
-                        log,
-                        $"World footprint overlap: frame={left.FrameIndex} {left.MapperName} " +
-                        $"bounds=({left.MinX},{left.MinY})-({left.MaxX},{left.MaxY}) with " +
-                        $"frame={right.FrameIndex} {right.MapperName} " +
-                        $"bounds=({right.MinX},{right.MinY})-({right.MaxX},{right.MaxY}).");
-                }
-            }
-
-            if (overlapCount != 0)
-            {
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"World footprint preflight rejected the castle: " +
-                    $"buildings={footprints.Count}, overlaps={overlapCount}, " +
-                    "anchorSource=actual-building-begin, rowMapping=inverted.");
-                return false;
+                    $"Native special-building diagnostics: playerId={playerId}, " +
+                    $"buildingId={buildingId}, globalId={building.r_GlobalId}, " +
+                    $"type={building.r_BuildingType}, aliveState={building.r_AliveState}, " +
+                    $"tiles=({building.r_TilePositionXBegin},{building.r_TilePositionYBegin})-" +
+                    $"({building.r_TilePositionXEnd},{building.r_TilePositionYEnd}), " +
+                    $"gridSize={building.r_OccupyTileGridSize}, " +
+                    $"height={building.r_HeightElevation}, " +
+                    $"spritePlayerColorId={building.r_SpritePlayerColorId}, " +
+                    $"spriteVariation={building.r_SpriteVariationIndex}, " +
+                    $"health={building.r_CurrentHealth}/{building.r_MaxHealth}.");
             }
 
             Shared.DebugLogHelper.LogInfo(
                 log,
-                $"World footprint preflight passed: buildings={footprints.Count}, " +
-                "overlaps=0, outOfBounds=0, " +
-                "anchorSource=actual-building-begin, rowMapping=inverted.");
-            return true;
+                $"Native special-building summary: playerId={playerId}, " +
+                $"granaries={granaryCount}, hovels={hovelCount}.");
         }
 
-        private void SpawnWallMapper(
-            AivBlueprint blueprint,
-            AivBuildFrame firstFrame,
-            int playerId,
-            AivGridPoint keepAnchor,
-            int keepTileX,
-            int keepTileY,
-            SpawnStatistics statistics)
+        private static bool IsKeepMapper(eMappers mapper)
         {
-            var worldTiles = new List<WorldTile>();
-            int sourceFrameCount = 0;
-            foreach (AivBuildFrame frame in blueprint.Frames)
+            return mapper == eMappers.MAPPER_KEEP1 ||
+                   mapper == eMappers.MAPPER_KEEP2 ||
+                   mapper == eMappers.MAPPER_KEEP3 ||
+                   mapper == eMappers.MAPPER_KEEP4 ||
+                   mapper == eMappers.MAPPER_KEEP5;
+        }
+
+        private static string DescribeOrientation(int orientation)
+        {
+            switch (orientation)
             {
-                if (frame.Mapper.Value != firstFrame.Mapper.Value)
-                    continue;
+                case 0:
+                    return "0 degrees";
+                case 2:
+                    return "90 degrees";
+                case 4:
+                    return "180 degrees";
+                case 6:
+                    return "270 degrees";
+                default:
+                    return "unknown";
+            }
+        }
 
-                sourceFrameCount++;
-                foreach (AivGridPoint point in frame.Positions)
-                {
-                    WorldTile tile = AivWorldPlacement.ToWorld(
-                        point,
-                        keepAnchor,
-                        keepTileX,
-                        keepTileY);
-                    if (!GameTileManagerAPI.Instance.IsTileInsideMapBounds(tile.X, tile.Y))
-                    {
-                        statistics.OutOfBounds++;
-                        Shared.DebugLogHelper.LogWarning(
-                            log,
-                            $"Skipping out-of-bounds wall tile: frame={frame.BuildIndex}, " +
-                            $"mapper={frame.Mapper.Name}, tile=({tile.X},{tile.Y}).");
-                        continue;
-                    }
+        private static string DescribePlacementState(int placementState)
+        {
+            switch (placementState)
+            {
+                case 1:
+                    return "best partial fit";
+                case 2:
+                    return "complete fit";
+                default:
+                    return "not placed";
+            }
+        }
 
-                    worldTiles.Add(tile);
-                }
+        private readonly struct ImportedCandidateSnapshot
+        {
+            public ImportedCandidateSnapshot(
+                IntPtr tableAddress,
+                IntPtr firstPointer,
+                int count)
+            {
+                TableAddress = tableAddress;
+                FirstPointer = firstPointer;
+                Count = count;
             }
 
-            IReadOnlyList<WallSegment> segments =
-                AivWorldPlacement.CreateWallSegments(
-                    worldTiles,
-                    out IReadOnlyList<WorldTile> isolatedTiles,
-                    out int duplicateTileCount);
+            public IntPtr TableAddress { get; }
+            public IntPtr FirstPointer { get; }
+            public int Count { get; }
+        }
 
-            statistics.Skipped += isolatedTiles.Count;
-            foreach (WorldTile tile in isolatedTiles)
+        private readonly struct PatternByte
+        {
+            public PatternByte(byte value, bool wildcard)
             {
-                Shared.DebugLogHelper.LogWarning(
-                    log,
-                    $"Skipping isolated wall tile because CreateWall requires a line: " +
-                    $"mapper={firstFrame.Mapper.Name}, tile=({tile.X},{tile.Y}).");
+                Value = value;
+                Wildcard = wildcard;
+            }
+
+            public byte Value { get; }
+            public bool Wildcard { get; }
+        }
+
+        private sealed class GameModeSnapshot
+        {
+            public int CampaignMapId { get; set; }
+            public byte MultiplayerSave { get; set; }
+            public IntPtr Unknown1 { get; set; }
+            public ulong Unknown3 { get; set; }
+            public bool DirectorAvailable { get; set; }
+            public bool DirectorMultiplayerGame { get; set; }
+            public bool DirectorSkirmishModeGame { get; set; }
+            public bool DirectorSimRunning { get; set; }
+            public bool NetworkedEnvironment { get; set; }
+            public int NetworkActivePlayers { get; set; }
+            public int NetworkLocalPlayerId { get; set; }
+            public int NativeLocalPlayerId { get; set; }
+            public bool PlatformAvailable { get; set; }
+            public bool PlatformMpGameActive { get; set; }
+            public bool PlatformIsHost { get; set; }
+            public bool ActiveLobbyAvailable { get; set; }
+            public int LobbyReportedMemberCount { get; set; }
+            public int LobbyMemberCount { get; set; }
+            public int LobbySkirmishMemberCount { get; set; }
+            public int LobbySkirmishHumanCount { get; set; }
+            public int LobbyNetworkHumanCount { get; set; }
+            public int GameMemberCount { get; set; }
+            public int RealNetworkGameMemberCount { get; set; }
+            public string GameMemberDetails { get; set; }
+            public string AliveSlotDetails { get; set; }
+            public bool GameDataMultiplayerMap { get; set; }
+            public int GameDataSkirmishGameType { get; set; }
+            public int GameDataGameType { get; set; }
+        }
+
+        private sealed class PendingAivImport
+        {
+            public PendingAivImport(
+                int playerId,
+                string filePath,
+                long jsonBytes,
+                AivJsonDocument document,
+                int rawShortCount)
+            {
+                PlayerId = playerId;
+                FilePath = filePath;
+                JsonBytes = jsonBytes;
+                Document = document;
+                RawShortCount = rawShortCount;
+            }
+
+            public int PlayerId { get; }
+            public string FilePath { get; }
+            public long JsonBytes { get; }
+            public AivJsonDocument Document { get; }
+            public int RawShortCount { get; }
+        }
+
+        private sealed class PreparedAivCastle
+        {
+            public PreparedAivCastle(
+                int playerId,
+                int specIndex,
+                int highestFrame,
+                int orientation,
+                int requestedKeepX,
+                int requestedKeepY,
+                int preparedKeepX,
+                int preparedKeepY,
+                int ownedBuildingsAtPreparation)
+            {
+                PlayerId = playerId;
+                SpecIndex = specIndex;
+                HighestFrame = highestFrame;
+                Orientation = orientation;
+                RequestedKeepX = requestedKeepX;
+                RequestedKeepY = requestedKeepY;
+                PreparedKeepX = preparedKeepX;
+                PreparedKeepY = preparedKeepY;
+                OwnedBuildingsAtPreparation = ownedBuildingsAtPreparation;
+            }
+
+            public int PlayerId { get; }
+            public int SpecIndex { get; }
+            public int HighestFrame { get; }
+            public int Orientation { get; }
+            public int RequestedKeepX { get; }
+            public int RequestedKeepY { get; }
+            public int PreparedKeepX { get; }
+            public int PreparedKeepY { get; }
+            public int OwnedBuildingsAtPreparation { get; }
+        }
+
+        private void VerifyNativeLibrary()
+        {
+            string nativePath = Path.Combine(
+                Paths.GameRootPath,
+                "Stronghold Crusader Definitive Edition_Data",
+                "Plugins",
+                "x86_64",
+                "CrusaderDE.dll");
+            if (!File.Exists(nativePath))
+                throw new FileNotFoundException("CrusaderDE.dll was not found.", nativePath);
+
+            string actualHash;
+            using (FileStream stream = File.OpenRead(nativePath))
+            using (SHA256 sha256 = SHA256.Create())
+            {
+                actualHash = BitConverter.ToString(sha256.ComputeHash(stream))
+                    .Replace("-", string.Empty);
+            }
+
+            if (!string.Equals(
+                    actualHash,
+                    SupportedNativeSha256,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                throw new NotSupportedException(
+                    $"Unsupported CrusaderDE.dll: expected SHA-256 " +
+                    $"{SupportedNativeSha256}, actual {actualHash}.");
             }
 
             Shared.DebugLogHelper.LogInfo(
                 log,
-                $"Wall segmentation prepared: mapper={firstFrame.Mapper.Name}, " +
-                $"sourceFrames={sourceFrameCount}, sourceTiles={worldTiles.Count}, " +
-                $"segments={segments.Count}, isolatedTiles={isolatedTiles.Count}, " +
-                $"duplicateTiles={duplicateTileCount}.");
-
-            foreach (WallSegment segment in segments)
-            {
-                SpawnWallSegment(
-                    firstFrame,
-                    playerId,
-                    segment,
-                    statistics);
-            }
-        }
-
-        private void SpawnWallSegment(
-            AivBuildFrame frame,
-            int playerId,
-            WallSegment segment,
-            SpawnStatistics statistics)
-        {
-            statistics.Attempted++;
-            statistics.WallSegments++;
-            RecordSegmentTiles(segment, statistics.RequestedWallTiles);
-            eMappers mapper = (eMappers)frame.Mapper.Value;
-
-            try
-            {
-                GameBuildingManagerAPI.Instance.CreateWall(
-                    playerId,
-                    segment.Start.X,
-                    segment.Start.Y,
-                    segment.End.X,
-                    segment.End.Y,
-                    mapper,
-                    segment.TileCount);
-
-                int verifiedTiles = CountVerifiedWallTiles(
-                    frame.Mapper.Category,
-                    segment,
-                    statistics.VerifiedWallTiles);
-                if (verifiedTiles == segment.TileCount)
-                    statistics.Succeeded++;
-                else
-                    statistics.Failed++;
-
-                Shared.DebugLogHelper.LogInfo(
-                    log,
-                    $"Wall segment mapper={frame.Mapper.Name}, " +
-                    $"start=({segment.Start.X},{segment.Start.Y}), " +
-                    $"end=({segment.End.X},{segment.End.Y}), " +
-                    $"requestedTiles={segment.TileCount}, " +
-                    $"verifiedTiles={verifiedTiles}/{segment.TileCount}.");
-            }
-            catch (Exception ex)
-            {
-                statistics.Failed++;
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Wall segment failed: mapper={frame.Mapper.Name}, " +
-                    $"start=({segment.Start.X},{segment.Start.Y}), " +
-                    $"end=({segment.End.X},{segment.End.Y}): {ex}");
-            }
-        }
-
-        private static int CountVerifiedWallTiles(
-            AivItemCategory category,
-            WallSegment segment,
-            ISet<WorldTile> verifiedWallTiles)
-        {
-            int verified = 0;
-            int stepX = Math.Sign(segment.End.X - segment.Start.X);
-            int stepY = Math.Sign(segment.End.Y - segment.Start.Y);
-            for (int offset = 0; offset < segment.TileCount; offset++)
-            {
-                int tileX = segment.Start.X + (stepX * offset);
-                int tileY = segment.Start.Y + (stepY * offset);
-                int tileId = GameTileManagerAPI.Instance.GetTileId(tileX, tileY);
-                TilePropertyFlag flags =
-                    GameTileManagerAPI.Instance.GetTilePropertyFlag(tileId);
-                bool matches;
-                switch (category)
-                {
-                    case AivItemCategory.LowWallPath:
-                        matches = (flags & TilePropertyFlag.IsWall) != 0 &&
-                                  (flags & TilePropertyFlag.IsLowWall) != 0;
-                        break;
-
-                    case AivItemCategory.CrenelPath:
-                        matches = (flags & TilePropertyFlag.IsWall) != 0 &&
-                                  (flags & (TilePropertyFlag.CrenelationComponent |
-                                            TilePropertyFlag.CrenelationModifier)) != 0;
-                        break;
-
-                    default:
-                        matches = (flags & TilePropertyFlag.IsWall) != 0;
-                        break;
-                }
-
-                if (matches)
-                {
-                    verified++;
-                    verifiedWallTiles.Add(new WorldTile(tileX, tileY));
-                }
-            }
-
-            return verified;
-        }
-
-        private static void RecordSegmentTiles(
-            WallSegment segment,
-            ISet<WorldTile> target)
-        {
-            int stepX = Math.Sign(segment.End.X - segment.Start.X);
-            int stepY = Math.Sign(segment.End.Y - segment.Start.Y);
-            for (int offset = 0; offset < segment.TileCount; offset++)
-            {
-                target.Add(
-                    new WorldTile(
-                        segment.Start.X + (stepX * offset),
-                        segment.Start.Y + (stepY * offset)));
-            }
-        }
-
-        private void SpawnFramePosition(
-            AivBuildFrame frame,
-            int playerId,
-            int tileX,
-            int tileY,
-            SpawnStatistics statistics)
-        {
-            statistics.Attempted++;
-            eMappers mapper = (eMappers)frame.Mapper.Value;
-            string resultText = "<not-called>";
-            try
-            {
-                switch (frame.Mapper.Category)
-                {
-                    case AivItemCategory.PitchDitchPath:
-                        int pitchId = GamePitchManagerAPI.Instance.CreatePitch(
-                            tileX,
-                            tileY,
-                            playerId);
-                        statistics.PitchTiles++;
-                        RecordResult(pitchId, statistics);
-                        resultText = pitchId.ToString();
-                        break;
-
-                    case AivItemCategory.Building:
-                    case AivItemCategory.Stair:
-                    case AivItemCategory.MoatPath:
-                    case AivItemCategory.Trap:
-                        int scale = GetPlacementScale(frame.Mapper);
-
-                        long result = GameBuildingManagerAPI.Instance.CreatePrefab(
-                            playerId,
-                            tileX,
-                            tileY,
-                            mapper,
-                            scale,
-                            0,
-                            true,
-                            true);
-                        statistics.Buildings++;
-                        RecordResult(result, statistics);
-                        resultText = result.ToString();
-                        break;
-
-                    default:
-                        statistics.Attempted--;
-                        statistics.Skipped++;
-                        resultText = "skipped-category";
-                        break;
-                }
-
-                Shared.DebugLogHelper.LogInfo(
-                    log,
-                    $"Spawn frame={frame.BuildIndex}, mapper={frame.Mapper.Name}, " +
-                    $"tile=({tileX},{tileY}), category={frame.Mapper.Category}, " +
-                    $"result={resultText}.");
-            }
-            catch (Exception ex)
-            {
-                statistics.Failed++;
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Spawn failed for frame={frame.BuildIndex}, mapper={frame.Mapper.Name}, " +
-                    $"tile=({tileX},{tileY}): {ex}");
-            }
-        }
-
-        private static void RecordResult(long result, SpawnStatistics statistics)
-        {
-            if (result != 0)
-                statistics.Succeeded++;
-            else
-                statistics.Failed++;
-        }
-
-        private static int GetPlacementScale(AivMapperInfo mapper)
-        {
-            int scale = mapper.FootprintSize ??
-                        BuildingScales.GetScale((eMappers)mapper.Value);
-            return scale > 0 ? scale : 1;
-        }
-
-        private static bool IsWallCategory(AivItemCategory category)
-        {
-            return category == AivItemCategory.HighWallPath ||
-                   category == AivItemCategory.LowWallPath ||
-                   category == AivItemCategory.CrenelPath;
-        }
-
-        private static bool IsKeepType(eStructs buildingType)
-        {
-            return buildingType == eStructs.STRUCT_KEEP_ONE ||
-                   buildingType == eStructs.STRUCT_KEEP_TWO ||
-                   buildingType == eStructs.STRUCT_KEEP_THREE ||
-                   buildingType == eStructs.STRUCT_KEEP_FOUR ||
-                   buildingType == eStructs.STRUCT_KEEP_FIVE;
-        }
-
-        private readonly struct KeepPlacement
-        {
-            public KeepPlacement(
-                int buildingId,
-                int beginX,
-                int beginY,
-                int endX,
-                int endY,
-                int gridSize,
-                eStructs type,
-                AliveState aliveState)
-            {
-                BuildingId = buildingId;
-                BeginX = beginX;
-                BeginY = beginY;
-                EndX = endX;
-                EndY = endY;
-                GridSize = gridSize;
-                Type = type;
-                AliveState = aliveState;
-            }
-
-            public int BuildingId { get; }
-            public int BeginX { get; }
-            public int BeginY { get; }
-            public int EndX { get; }
-            public int EndY { get; }
-            public int GridSize { get; }
-            public eStructs Type { get; }
-            public AliveState AliveState { get; }
-
-            public static KeepPlacement FromBuilding(
-                int buildingId,
-                GameBuilding building)
-            {
-                int gridSize = (int)building.r_OccupyTileGridSize;
-                if (gridSize <= 0)
-                {
-                    gridSize = Math.Max(
-                        Math.Abs(
-                            building.r_TilePositionXEnd -
-                            building.r_TilePositionXBegin) + 1,
-                        Math.Abs(
-                            building.r_TilePositionYEnd -
-                            building.r_TilePositionYBegin) + 1);
-                }
-
-                return new KeepPlacement(
-                    buildingId,
-                    building.r_TilePositionXBegin,
-                    building.r_TilePositionYBegin,
-                    building.r_TilePositionXEnd,
-                    building.r_TilePositionYEnd,
-                    gridSize,
-                    building.r_BuildingType,
-                    building.r_AliveState);
-            }
-        }
-
-        private sealed class WorldFootprint
-        {
-            public WorldFootprint(
-                int frameIndex,
-                string mapperName,
-                int minX,
-                int minY,
-                int scale)
-            {
-                FrameIndex = frameIndex;
-                MapperName = mapperName;
-                MinX = minX;
-                MinY = minY;
-                MaxX = minX + scale - 1;
-                MaxY = minY + scale - 1;
-            }
-
-            public int FrameIndex { get; }
-            public string MapperName { get; }
-            public int MinX { get; }
-            public int MinY { get; }
-            public int MaxX { get; }
-            public int MaxY { get; }
-
-            public bool Overlaps(WorldFootprint other)
-            {
-                return MinX <= other.MaxX &&
-                       other.MinX <= MaxX &&
-                       MinY <= other.MaxY &&
-                       other.MinY <= MaxY;
-            }
-        }
-
-        private sealed class SpawnStatistics
-        {
-            public int Attempted;
-            public int Succeeded;
-            public int Failed;
-            public int Skipped;
-            public int OutOfBounds;
-            public int Buildings;
-            public int WallSegments;
-            public int WallTilesDeferred;
-            public readonly HashSet<WorldTile> RequestedWallTiles =
-                new HashSet<WorldTile>();
-            public readonly HashSet<WorldTile> VerifiedWallTiles =
-                new HashSet<WorldTile>();
-            public int WallTilesRequested => RequestedWallTiles.Count;
-            public int WallTilesVerified => VerifiedWallTiles.Count;
-            public int PitchTiles;
-            public bool PreflightRejected;
+                $"Native library verified: path={nativePath}, sha256={actualHash}.");
         }
     }
 }

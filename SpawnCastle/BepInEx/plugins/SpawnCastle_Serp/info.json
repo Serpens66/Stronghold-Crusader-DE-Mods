@@ -2,8 +2,8 @@
   "GUID": "SpawnCastle_Serp",
   "Author": "Serpens66",
   "Name": "Spawn Castle",
-  "Description": "Spawns a selected AIVJSON castle around the human player's keep when a new map starts.",
-  "Version": "0.1.6",
+  "Description": "Spawns a selected AIVJSON castle for the human player through the game's native AIV pipeline.",
+  "Version": "0.2.6",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
@@ -59,6 +59,65 @@
         "Moved AIVJSON selection persistence from BepInEx cfg to the Script Extender LobbyModSettings storage used by other mod settings.",
         "Stored the host selection in SpawnCastle_Serp.msgpack next to the plugin and restored it before the settings UI is bound.",
         "Kept catalog validation and the safe disabled fallback for missing AIVJSON files."
+      ]
+    },
+    {
+      "Version": "0.2.0",
+      "Changes": [
+        "Replaced individual CreatePrefab, wall, moat, pitch, and trap spawning with the native AIV pipeline used by Completed enemy castles.",
+        "Added native AIVJSON encoding, Vanilla placement and rotation selection, layout preparation, and 100 percent castle execution.",
+        "Version-gated all private native calls with a CrusaderDE.dll SHA-256 check and unique AOB signatures.",
+        "Removed the old managed placement path completely; native failures do not fall back to CreatePrefab.",
+        "Limited native spawning to new singleplayer maps to avoid savegame duplication and multiplayer desynchronization."
+      ]
+    },
+    {
+      "Version": "0.2.1",
+      "Changes": [
+        "Replaced the unreliable alive-human slot count with game-mode, lobby-member, and real Steam game-member detection.",
+        "Allowed local singleplayer skirmishes even though Vanilla creates a local gameMembers list and the Script Extender reports a networked environment.",
+        "Added detailed Director, map-start, network, lobby, game-member, GameData, local-player, and alive-slot diagnostics."
+      ]
+    },
+    {
+      "Version": "0.2.2",
+      "Changes": [
+        "Stopped requiring Director.SkirmishModeGame during the early native map-start callback, where Vanilla has not set it yet.",
+        "Recognized local singleplayer skirmishes through their all-skirmish pseudo-lobby and nonnegative GameData skirmish type.",
+        "Preserved LobbyModSettings during build.bat deployments instead of deleting runtime-created settings with the plugin directory.",
+        "Added settings-file and restored-selection diagnostics around LobbyModSettings registration."
+      ]
+    },
+    {
+      "Version": "0.2.3",
+      "Changes": [
+        "Moved the selected human AIV import from OnStartMap Post to OnStartMap Pre, after Vanilla clears and loads the candidate table but before the native start consumes it.",
+        "Split AIV preparation/import and native placement/execution across the map-start Pre and Post phases.",
+        "Added explicit pre-import readiness, player-slot consistency, and phase diagnostics."
+      ]
+    },
+    {
+      "Version": "0.2.4",
+      "Changes": [
+        "Added direct diagnostics for the native eight-by-1000 AIV candidate pointer table immediately after import and before placement.",
+        "Classified native -2 placement failures as either a missing candidate or a present candidate rejected by the map-fit test.",
+        "Logged the native value copied into the allocated human AIV specification to distinguish import-state and placement-state failures."
+      ]
+    },
+    {
+      "Version": "0.2.5",
+      "Changes": [
+        "Moved native AIV fit selection and layout preparation into the local Keep OnBuildStructure Pre event, before Vanilla occupies the Keep footprint.",
+        "Reused Vanilla's prepared Keep coordinates and orientation for the human Keep, matching the native completed-AI-castle order.",
+        "Kept 100 percent AIV execution in OnStartMap Post and added separate preparation, Keep interception, and execution diagnostics."
+      ]
+    },
+    {
+      "Version": "0.2.6",
+      "Changes": [
+        "Moved 100 percent AIV execution from OnStartMap Post to the local Keep OnBuildStructure Post event, while the native skirmish-start function is still running.",
+        "Aligned castle construction with Vanilla's completed-AI-castle timing so later native startup can finalize building tiles and visuals.",
+        "Added detailed Granary and Hovel diagnostics for alive state, footprint, sprite color, variation, and health."
       ]
     }
   ]

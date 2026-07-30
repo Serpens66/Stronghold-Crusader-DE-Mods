@@ -5,6 +5,26 @@ option **Completed enemy castles** (`Settings_PreBuild`). It describes how the
 game selects, places, and fully constructs an AI castle from AIV data and which
 parts of that mechanism may be reusable by `SpawnCastle`.
 
+`SpawnCastle` version `0.2.0` now implements this reuse directly. The former
+managed `CreatePrefab`/wall/tile spawner has been removed; there is deliberately
+no fallback path.
+
+Since version `0.2.1`, multiplayer detection does not count alive non-AI player
+resource slots and does not rely on
+`GameNetworkAPI.IsNetworkedEnvironment()`. Both are false-positive sources in a
+local skirmish: unused player resources can appear alive, and Vanilla creates a
+local `Platform_Multiplayer.gameMembers` list even without network peers.
+SpawnCastle instead combines `Director.MultiplayerGame` with lobby members not
+marked as `SkirmishMember` and Steam-backed non-AI game members. The `Director`
+value alone is not sufficient at `OnStartMap(Post)`, because the online frontend
+can set it only after the synchronous native start call returns.
+
+The same timing applies to `Director.SkirmishModeGame`: a local skirmish can
+still report `false` at this callback. Version `0.2.2` therefore confirms a
+singleplayer skirmish from an active lobby containing only `SkirmishMember`
+entries, at least one `SkirmishHumanMember`, no Steam-backed human game member,
+and a nonnegative `GameData.SkirmishGameType`.
+
 The analysis applies to the following native library:
 
 - File: `x86_64/CrusaderDE.dll`
@@ -164,6 +184,12 @@ The native import accepts player slots `0` through `7`. It allocates and copies
 the raw AIV data, then stores the pointer in an eight-by-1000 candidate pointer
 table. Passing an invalid player slot is used by `InitAIVLoading()` to free and
 clear all previously imported candidates.
+
+For the supported DLL, the candidate-count helper at RVA `0x52F30` scans this
+pointer table from candidate zero until the first null pointer. Each player
+slot occupies `1000 * sizeof(void*)`, or 8000 bytes in the 64-bit process. The
+Script Extender exposes the runtime table address as
+`GameGlobalsManager.Instance.AIVDataTableVA`.
 
 Consequently, a human player's slot can technically hold imported AIV bytes.
 The missing part is not import support; it is the native AIV initialization
@@ -335,6 +361,35 @@ at the already selected orientation. It returns:
 
 Vanilla uses this path when lobby data requests a concrete preferred AIV.
 
+The function returns `0xFFFFFFFE` in two distinct cases:
+
+1. the requested candidate ID is outside the number of consecutive non-null
+   candidate pointers for that player slot; or
+2. the candidate was loaded, but the native map-fit function returned a
+   non-positive score.
+
+Since version `0.2.4`, `SpawnCastle` reads the real candidate table directly
+after the Pre import and again before Post placement. The failure log labels
+these cases as `candidate-missing-from-native-table` or
+`candidate-present-but-map-fit-rejected`; it also logs candidate zero's native
+pointer and the per-player value copied into AIV spec offset `0x08`.
+
+The version `0.2.4` test comparison isolated the initial stockpile from this
+failure:
+
+- with **Place Initial Stockpile** enabled, player 1 owned nine building
+  records before the Post fit test;
+- with it disabled, player 1 owned five building records;
+- both tests retained candidate zero at the same non-null native pointer; and
+- both explicit fit tests returned signed `-2`.
+
+The stockpile therefore accounts for four records in this startup state but is
+not the placement blocker. The five records left without it belong to the
+already-created Vanilla Keep complex. More importantly, native control flow
+shows that AI placement selection and `PrepareAIV` run before the AI Keep is
+built, whereas the original SpawnCastle prototype ran them from
+`OnStartMap(Post)`, after the human Keep existed.
+
 ### RVA `0x52F70`: prepare final AIV layout
 
 Known name used by `ActiveAIVDetector`:
@@ -417,7 +472,7 @@ Observed special handling includes:
 - stairs, traps, and other mapper-specific entries;
 - retry/delay states used by gradual AI construction.
 
-This is the main advantage over `SpawnCastle`'s current manual
+This is the main advantage over `SpawnCastle`'s former manual
 `CreatePrefab(...)` loop: Vanilla already knows which AIV entries represent
 buildings, paths, tile overlays, or multi-part structures and invokes the
 appropriate low-level game operation.
@@ -487,24 +542,44 @@ all affected state afterward is not understood and would be fragile.
 
 ### Option 3: manually invoke the native AIV pipeline for the human
 
-This is technically feasible and is the preferred research direction.
+This is technically feasible and is the implementation used since
+`SpawnCastle` version `0.2.0`.
 
-A likely implementation sequence is:
+The corrected sequence used since version `0.2.5` is:
 
 1. parse the selected AIVJSON with the existing dependency-free reader;
 2. encode the document into Vanilla's native `short[]` representation;
-3. hook a managed/native point after `InitAIVLoading()` and import the
-   candidate into `localPlayerId - 1`;
-4. allow Vanilla to load the map and create the human Keep;
-5. obtain or capture the native AIV state pointer;
+3. import candidate zero into `localPlayerId - 1` from
+   `MapLoaderR3EventHooks.OnStartMap(Pre)`, after `InitAIVLoading()` and the
+   normal lobby imports but before the native start consumes the candidate
+   table;
+4. subscribe to `BuildingR3EventHooks.OnBuildStructure(Pre)` and wait for the
+   local player's Keep mapper;
+5. at that point, Vanilla has initialized native AIV state but has not yet
+   occupied the Keep footprint;
 6. allocate an AIV spec for the local player;
-7. pass the native Keep/reference coordinates and selected rotation;
-8. run the best-fit or explicit-candidate placement function;
-9. require a nonzero placement state;
-10. prepare the selected layout;
-11. write the spec index into the local player's active-AIV state;
-12. reproduce any required prebuilt-player bookkeeping;
-13. execute the AIV to 100 percent for the local player.
+7. use the intercepted Keep coordinates and orientation zero as the initial
+   placement;
+8. run the best-fit function with rotation search enabled and require placement
+   state 1 or 2;
+9. prepare the selected layout and write its spec index into the local player's
+   active-AIV state;
+10. read the prepared Keep X/Y globals and orientation from the selected spec;
+11. replace the intercepted Keep call's coordinates and orientation with those
+    prepared values, while retaining Vanilla's `MAPPER_KEEP2`, scale 7, and
+    non-free build flags;
+12. let the original native Keep call continue;
+13. from the same Keep's `OnBuildStructure(Post)` event, set the local player's
+    prebuilt bit and execute the prepared AIV to 100 percent, before the outer
+    native skirmish-start function returns.
+
+This matches the relevant native AI ordering at RVAs `0x950DE` through
+`0x9511A`: `PrepareAIV` is called first, then the game reads the prepared global
+Keep coordinates, reads the orientation from spec offset `0x0C`, and invokes
+`c_game_player_build_structure` for mapper 61. The Script Extender's
+`OnBuildStructure(Pre)` is a detour on that same building function (RVA
+`0x6C7F0`), so it is early enough to reproduce the ordering for the human
+branch without suppressing the entire Keep initialization path.
 
 The per-player active spec field follows a stride of `0x583C`. In the analyzed
 build, the field for player 1 is at virtual address `0x1837A0898`; subtracting
@@ -533,8 +608,8 @@ A native implementation should include at least:
 - no cleanup from `BaseUnityPlugin.OnDestroy()`, because that callback occurs
   during startup in this BepInEx environment.
 
-The first prototype should keep the current `CreatePrefab(...)` implementation
-available as a fallback until native spawning has been verified with:
+There is intentionally no `CreatePrefab(...)` fallback. Runtime verification
+should cover:
 
 - stone and wood walls;
 - crenellations;
@@ -570,16 +645,19 @@ until synchronized execution has been tested explicitly.
 ## Current conclusion
 
 The game's AI PreBuild mechanism is not a public Script Extender feature, but
-the underlying native pipeline is reusable in principle. It is a better match
-for `SpawnCastle` than individually translating every AIV mapper into
+the underlying native pipeline is reusable and is now used by `SpawnCastle`.
+It is a better match than individually translating every AIV mapper into
 `CreatePrefab`, `CreateWall`, pitch, moat, and trap API calls.
 
-The recommended design is a separate version-gated
-`NativeAivCastleSpawner` with:
+The current implementation is version-gated and contains:
 
 - dependency-free AIVJSON-to-raw conversion;
-- carefully timed local-slot import;
+- local-slot import from `OnStartMap(Pre)`;
+- AIV fit and layout preparation from the local Keep's
+  `OnBuildStructure(Pre)` event;
+- 100-percent execution from the local Keep's `OnBuildStructure(Post)` event;
 - AOB-resolved private native calls;
-- explicit validation and logging; and
-- fallback to the current managed spawner while the native path is being
-  validated.
+- explicit validation and logging;
+- a strict SHA-256 gate for the supported native DLL;
+- singleplayer and new-map-only guards; and
+- no managed placement fallback.

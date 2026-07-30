@@ -79,13 +79,10 @@ if "%BUILD_EXIT_CODE%"=="0" (
     goto copy_failed
   )
 
-  if exist "!GAME_PLUGIN_DIR!\" (
-    rmdir /S /Q "!GAME_PLUGIN_DIR!"
-    if errorlevel 1 goto copy_failed
-  )
+  rem Overlay managed mod files so runtime-created LobbyModSettings survive rebuilds.
   xcopy "!LOCAL_PLUGIN_DIR!" "!GAME_PLUGIN_DIR!\" /E /I /Q /Y
   if errorlevel 1 goto copy_failed
-  echo Plugin kopiert.
+  echo Plugin kopiert; vorhandene Laufzeitdaten wurden beibehalten.
 ) else (
   echo Build fehlgeschlagen. Exit Code: %BUILD_EXIT_CODE%
 )

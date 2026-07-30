@@ -89,10 +89,10 @@
     <Compile Include="..\Shared\DebugLogHelper.cs">
       <Link>Shared\DebugLogHelper.cs</Link>
     </Compile>
-    <Compile Include="src\AivBlueprint.cs" />
     <Compile Include="src\AivFileCatalog.cs" />
+    <Compile Include="src\AivJsonModels.cs" />
     <Compile Include="src\AivJsonReader.cs" />
-    <Compile Include="src\AivWorldPlacement.cs" />
+    <Compile Include="src\AivRawDataEncoder.cs" />
     <Compile Include="src\SpawnCastlePlugin.cs" />
     <Compile Include="src\SpawnCastleRuntime.cs" />
     <Compile Include="src\SpawnCastleSettingsViewModel.cs" />

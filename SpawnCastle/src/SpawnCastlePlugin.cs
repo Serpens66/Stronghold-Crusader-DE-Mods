@@ -2,6 +2,7 @@ using BepInEx;
 using SHCDESE.API;
 using SHCDESE.API.LowLevel;
 using System;
+using System.IO;
 
 namespace SpawnCastle
 {
@@ -13,7 +14,7 @@ namespace SpawnCastle
 
         public const string PluginGuid = "SpawnCastle_Serp";
         public const string PluginName = "Spawn Castle";
-        public const string PluginVersion = "0.1.6";
+        public const string PluginVersion = "0.2.6";
 
         // The BepInEx component is destroyed during startup, so runtime state remains static.
         private static SpawnCastleRuntime runtime;
@@ -48,18 +49,35 @@ namespace SpawnCastle
 
             try
             {
+                string settingsPath = Path.Combine(
+                    Path.GetDirectoryName(Info.Location),
+                    "LobbyModSettings",
+                    PluginGuid + ".msgpack");
+                bool settingsFileExisted = File.Exists(settingsPath);
+                Shared.DebugLogHelper.LogInfo(
+                    Logger,
+                    $"Registering SpawnCastle settings: path={settingsPath}, " +
+                    $"fileExists={settingsFileExisted}, " +
+                    $"selectionBeforeLoad='{Settings.SelectedCastle}'.");
+
                 GameXAMLManagerAPI.Instance.RegisterLobbyModSettings(
                     this,
                     PluginGuid,
                     Settings,
                     "ScriptExtenderUI/SpawnCastleSettings.xaml");
                 Settings.RewriteInvalidPersistedSelectionIfNeeded();
+                Shared.DebugLogHelper.LogInfo(
+                    Logger,
+                    $"SpawnCastle settings registration completed: " +
+                    $"fileExistedBeforeLoad={settingsFileExisted}, " +
+                    $"selectionAfterLoad='{Settings.SelectedCastle}', " +
+                    $"selectionDisabled={Settings.IsDisabled}.");
 
-                runtime.Install();
+                runtime.Install(libraryHandle, memory);
                 libraryLoadedHandled = true;
                 Shared.DebugLogHelper.LogInfo(
                     Logger,
-                    "Crusader library loaded; SpawnCastle settings and map lifecycle hooks registered. " +
+                    "Crusader library loaded; native AIV spawning and map lifecycle hooks registered. " +
                     "Selection storage=LobbyModSettings/SpawnCastle_Serp.msgpack.");
             }
             catch (Exception ex)
