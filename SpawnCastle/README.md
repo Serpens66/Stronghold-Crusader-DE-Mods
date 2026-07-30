@@ -45,6 +45,15 @@ occupies its footprint prevents the human Keep from rejecting its own AIV;
 executing before the outer start returns lets Vanilla's remaining startup
 steps finalize building tiles and visuals.
 
+Hovels require one additional native-compatibility adjustment. The AIV
+executor passes visual-style argument `15` because Vanilla's AI-only Hovel
+placement path ignores it and instead cycles through styles `0..6`. A human
+player takes Vanilla's human Hovel path, which consumes the argument directly;
+style `15` consequently selects invalid Hovel graphics. While the prepared AIV
+is executing, SpawnCastle rewrites only Hovel `OnBuildStructure(Pre)` arguments
+to the same deterministic `0..6` cycle. It does not mark the human player as AI
+and does not alter non-Hovel buildings.
+
 This lets Vanilla handle regular buildings, walls, crenellations, gates, stairs,
 traps, moats, pitch ditches, and other mapper-specific AIV entries. The previous
 manual `CreatePrefab`/wall/tile implementation has been removed and is not used as

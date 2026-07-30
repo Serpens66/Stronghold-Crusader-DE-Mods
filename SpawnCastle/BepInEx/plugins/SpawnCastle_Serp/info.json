@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Spawn Castle",
   "Description": "Spawns a selected AIVJSON castle for the human player through the game's native AIV pipeline.",
-  "Version": "0.2.6",
+  "Version": "0.2.7",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
@@ -118,6 +118,14 @@
         "Moved 100 percent AIV execution from OnStartMap Post to the local Keep OnBuildStructure Post event, while the native skirmish-start function is still running.",
         "Aligned castle construction with Vanilla's completed-AI-castle timing so later native startup can finalize building tiles and visuals.",
         "Added detailed Granary and Hovel diagnostics for alive state, footprint, sprite color, variation, and health."
+      ]
+    },
+    {
+      "Version": "0.2.7",
+      "Changes": [
+        "Corrected native AIV Hovel visual styles for the human player from the AI-only sentinel value 15 to Vanilla's deterministic 0-through-6 variation cycle.",
+        "Scoped the correction strictly to Hovel BuildStructure calls made synchronously by SpawnCastle's native AIV execution.",
+        "Added Hovel visual-style and material diagnostics without changing the player's internal AI-control state."
       ]
     }
   ]

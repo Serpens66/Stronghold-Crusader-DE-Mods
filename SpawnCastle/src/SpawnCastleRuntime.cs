@@ -117,6 +117,10 @@ namespace SpawnCastle
         private PendingAivImport pendingAivImport;
         private PreparedAivCastle preparedAivCastle;
         private PreparedAivCastle executedAivCastle;
+        private bool nativeCastleExecutionInProgress;
+        private int nativeCastleExecutionPlayerId;
+        private int nextHovelVisualStyle;
+        private int correctedHovelVisualCount;
 
         public SpawnCastleRuntime(
             ManualLogSource log,
@@ -176,6 +180,10 @@ namespace SpawnCastle
             pendingAivImport = null;
             preparedAivCastle = null;
             executedAivCastle = null;
+            nativeCastleExecutionInProgress = false;
+            nativeCastleExecutionPlayerId = 0;
+            nextHovelVisualStyle = 0;
+            correctedHovelVisualCount = 0;
             Shared.DebugLogHelper.LogInfo(
                 log,
                 "OnUnloadMap(Post) received; the next new map may spawn a native AIV castle.");
@@ -340,6 +348,9 @@ namespace SpawnCastle
 
         private void OnBuildStructurePre(BuildStructureEventArgs args)
         {
+            if (TryCorrectNativeHovelVisualStyle(args))
+                return;
+
             PendingAivImport imported = pendingAivImport;
             if (imported == null ||
                 preparedAivCastle != null ||
@@ -384,6 +395,31 @@ namespace SpawnCastle
                     $"Native AIV preparation at local Keep BuildStructure(Pre) failed; " +
                     $"the Vanilla Keep will remain unchanged and no castle fallback will run: {ex}");
             }
+        }
+
+        private bool TryCorrectNativeHovelVisualStyle(BuildStructureEventArgs args)
+        {
+            if (!nativeCastleExecutionInProgress ||
+                args.PlayerId != nativeCastleExecutionPlayerId ||
+                args.Mappers != eMappers.MAPPER_HOVEL)
+            {
+                return false;
+            }
+
+            int originalVisualStyle = args.Unknown1;
+            int correctedVisualStyle = nextHovelVisualStyle;
+            nextHovelVisualStyle = (nextHovelVisualStyle + 1) % 7;
+            correctedHovelVisualCount++;
+
+            // The native AI path ignores AIV's value 15 and cycles Hovel styles 0..6.
+            // The human path consumes that value directly, so mirror the AI cycle here.
+            args.Unknown1 = correctedVisualStyle;
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"Native Hovel visual style corrected: playerId={args.PlayerId}, " +
+                $"ordinal={correctedHovelVisualCount}, " +
+                $"originalStyle={originalVisualStyle}, correctedStyle={correctedVisualStyle}.");
+            return true;
         }
 
         private void OnBuildStructurePost(BuildStructureEventArgs args)
@@ -557,6 +593,10 @@ namespace SpawnCastle
         {
             int ownedBuildingsBeforeExecution = CountOwnedBuildings(castle.PlayerId);
             SetPrebuiltPlayerBit(castle.PlayerId);
+            nativeCastleExecutionInProgress = true;
+            nativeCastleExecutionPlayerId = castle.PlayerId;
+            nextHovelVisualStyle = 0;
+            correctedHovelVisualCount = 0;
             Shared.DebugLogHelper.LogInfo(
                 log,
                 $"Native castle execution planned: playerId={castle.PlayerId}, " +
@@ -564,7 +604,16 @@ namespace SpawnCastle
                 $"completion=100, ownedBuildingsAtKeepPre={castle.OwnedBuildingsAtPreparation}, " +
                 $"ownedBuildingsBeforeExecution={ownedBuildingsBeforeExecution}.");
 
-            executeToPercentage(aivState, castle.PlayerId, 100);
+            try
+            {
+                executeToPercentage(aivState, castle.PlayerId, 100);
+            }
+            finally
+            {
+                nativeCastleExecutionInProgress = false;
+                nativeCastleExecutionPlayerId = 0;
+            }
+
             int ownedBuildingsAfter = CountOwnedBuildings(castle.PlayerId);
             Shared.DebugLogHelper.LogInfo(
                 log,
@@ -572,7 +621,8 @@ namespace SpawnCastle
                 $"specIndex={castle.SpecIndex}, highestFrame={castle.HighestFrame}, " +
                 $"ownedBuildingsBefore={ownedBuildingsBeforeExecution}, " +
                 $"ownedBuildingsAfter={ownedBuildingsAfter}, " +
-                $"buildingDelta={ownedBuildingsAfter - ownedBuildingsBeforeExecution}.");
+                $"buildingDelta={ownedBuildingsAfter - ownedBuildingsBeforeExecution}, " +
+                $"correctedHovelVisuals={correctedHovelVisualCount}.");
             LogSpecialBuildingDiagnostics(castle.PlayerId);
         }
 
@@ -1063,6 +1113,8 @@ namespace SpawnCastle
                     $"height={building.r_HeightElevation}, " +
                     $"spritePlayerColorId={building.r_SpritePlayerColorId}, " +
                     $"spriteVariation={building.r_SpriteVariationIndex}, " +
+                    $"hovelVisualStyle={building.r_BuildingVariation}, " +
+                    $"material={building.r_GameMaterialIndex}, " +
                     $"health={building.r_CurrentHealth}/{building.r_MaxHealth}.");
             }
 

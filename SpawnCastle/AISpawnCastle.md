@@ -571,7 +571,10 @@ The corrected sequence used since version `0.2.5` is:
 12. let the original native Keep call continue;
 13. from the same Keep's `OnBuildStructure(Post)` event, set the local player's
     prebuilt bit and execute the prepared AIV to 100 percent, before the outer
-    native skirmish-start function returns.
+    native skirmish-start function returns;
+14. while that synchronous execution is active, rewrite only Hovel
+    `OnBuildStructure(Pre)` argument `a7` from the AIV sentinel `15` to a
+    deterministic `0..6` cycle.
 
 This matches the relevant native AI ordering at RVAs `0x950DE` through
 `0x9511A`: `PrepareAIV` is called first, then the game reads the prepared global
@@ -585,6 +588,34 @@ The per-player active spec field follows a stride of `0x583C`. In the analyzed
 build, the field for player 1 is at virtual address `0x1837A0898`; subtracting
 one stride gives the base associated with player index zero. These absolute
 addresses must not be hard-coded.
+
+### Hovel visual special case
+
+The analyzed `c_game_player_build_structure` function at RVA `0x6C7F0`
+contains a dedicated Hovel branch at RVA `0x6D0F9`. It reads Vanilla's internal
+per-player AI boolean:
+
+- human player: call RVA `0x73EA0`;
+- AI player: force argument `a7=15` and call RVA `0x749F0`.
+
+The AI function does not use `15` as the actual Hovel style. For structure type
+`STRUCT_HOVEL` it reads a per-player counter, writes the corresponding visual
+and material entries into the new building, increments the counter, and wraps
+it with `% 7`. Correct AI Hovel styles are therefore `0..6`.
+
+The human function instead consumes `a7` directly for the same visual-style and
+material lookup. The native AIV executor supplies `15` for every building
+because its normal caller is an AI player; reusing it for a human player thus
+selects an invalid Hovel visual even though owner, footprint, health, and
+building type are otherwise correct.
+
+SpawnCastle fixes this at the existing Script Extender detour around
+`c_game_player_build_structure`. During only the synchronous
+`executeToPercentage(..., 100)` call, Hovel `OnBuildStructure(Pre)` events for
+the local player have `Unknown1` (native `a7`) rewritten to the same repeating
+`0..6` sequence. The detour passes the modified value to the native trampoline.
+Non-Hovel calls and calls outside SpawnCastle's execution window are unchanged.
+The internal AI flag is deliberately not modified.
 
 This approach should create all castle elements directly for the human player,
 so ownership conversion after spawning should not be necessary.
@@ -656,6 +687,8 @@ The current implementation is version-gated and contains:
 - AIV fit and layout preparation from the local Keep's
   `OnBuildStructure(Pre)` event;
 - 100-percent execution from the local Keep's `OnBuildStructure(Post)` event;
+- scoped native Hovel visual-style correction matching Vanilla's `0..6` AI
+  variation cycle;
 - AOB-resolved private native calls;
 - explicit validation and logging;
 - a strict SHA-256 gate for the supported native DLL;
