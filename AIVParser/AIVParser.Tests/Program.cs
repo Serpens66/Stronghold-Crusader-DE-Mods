@@ -15,6 +15,7 @@ internal static class Program
             ("Rotate all four directions", TestRotations),
             ("Resolve DE footprint sizes", TestFootprintCatalog),
             ("Resolve all special Blueprint icons", TestSpecialBlueprintIcons),
+            ("Align cropped Blueprint building icons", TestBuildingIconPivots),
             ("Rotate footprints", TestFootprintRotations),
             ("Resolve associated blocked areas", TestBlockedAreas),
             ("Compute rotated keep deltas", TestAnchorDelta),
@@ -120,6 +121,21 @@ internal static class Program
                 SpawnCastle.BlueprintBuildingIconCatalog.Resolve(
                     $"MAPPER_STAIR{stair}"));
         }
+    }
+
+    private static void TestBuildingIconPivots()
+    {
+        // Hovel keeps the proven 21 px baseline while differently cropped
+        // Church and Mercenary Post icons get matching normalized pivots.
+        AssertEqual(
+            21f / 96f,
+            SpawnCastle.BlueprintBuildingIconCatalog.CalculateGroundPivotY(96));
+        AssertEqual(
+            21f / 82f,
+            SpawnCastle.BlueprintBuildingIconCatalog.CalculateGroundPivotY(82));
+        AssertEqual(
+            21f / 89f,
+            SpawnCastle.BlueprintBuildingIconCatalog.CalculateGroundPivotY(89));
     }
 
     private static void TestFootprintRotations()

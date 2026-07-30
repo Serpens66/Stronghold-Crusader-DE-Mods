@@ -14,7 +14,7 @@ namespace SpawnCastle
 
         public const string PluginGuid = "SpawnCastle_Serp";
         public const string PluginName = "Spawn Castle";
-        public const string PluginVersion = "0.3.8";
+        public const string PluginVersion = "0.3.11";
 
         // The BepInEx component is destroyed during startup, so runtime state remains static.
         private static SpawnCastleRuntime runtime;

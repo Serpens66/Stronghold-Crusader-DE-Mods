@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Spawn Castle",
   "Description": "Displays a local visual AIVJSON castle blueprint or spawns it through the game's native AIV pipeline.",
-  "Version": "0.3.8",
+  "Version": "0.3.11",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
@@ -195,6 +195,27 @@
       "Version": "0.3.8",
       "Changes": [
         "Centered regular building icons on the geometric center of their actual footprint cells instead of Vanilla's offset building-sprite pivot."
+      ]
+    },
+    {
+      "Version": "0.3.9",
+      "Changes": [
+        "Aligned perspective building icons by their visible ground-contact point so their bases are centered on the complete footprint.",
+        "Kept flat one-cell construction icons centered by their rectangular image midpoint."
+      ]
+    },
+    {
+      "Version": "0.3.10",
+      "Changes": [
+        "Delayed the final Blueprint projection refresh for 0.75 seconds after map-view changes so Vanilla can fully restore terrain heights and Tilemap transforms.",
+        "Restarted the settle delay when another rotation or flattened-landscape change occurs while retaining the immediate transition rebuild."
+      ]
+    },
+    {
+      "Version": "0.3.11",
+      "Changes": [
+        "Hid the complete Blueprint overlay while Vanilla restores normal terrain after leaving flattened-landscape view, preventing the stale projection from flashing before the settled rebuild.",
+        "Aligned regular build-menu icons to a fixed ground-contact pixel baseline so differently cropped images such as the Church and Mercenary Post remain centered on their colored footprints."
       ]
     }
   ]

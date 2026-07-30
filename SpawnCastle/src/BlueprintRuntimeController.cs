@@ -17,6 +17,7 @@ namespace SpawnCastle
 {
     internal sealed class BlueprintRuntimeController : MonoBehaviour
     {
+        private const float ViewSettleDelaySeconds = 0.75f;
         private static readonly KeyCode[] SupportedKeys = CreateSupportedKeys();
         private readonly List<IDisposable> subscriptions =
             new List<IDisposable>();
@@ -36,7 +37,8 @@ namespace SpawnCastle
         private float nextPrepareAttemptTime;
         private int lastRotation = int.MinValue;
         private bool lastFlattenedLandscape;
-        private int pendingViewSettleFrame = -1;
+        private float pendingViewSettleTime = -1f;
+        private bool suppressOverlayUntilViewSettled;
         private float nextRuntimeErrorLogTime;
         private int lastTickFrame = -1;
         private bool componentUpdateObserved;
@@ -104,6 +106,7 @@ namespace SpawnCastle
                     "Persistent Application.onBeforeRender blueprint callback is active.");
             }
 
+            HideStaleNormalProjectionBeforeRender();
             TickOncePerFrame();
         }
 
@@ -185,17 +188,24 @@ namespace SpawnCastle
                 if (rotation != lastRotation ||
                     flattened != lastFlattenedLandscape)
                 {
-                    if (RenderCurrentLayout("map view changed"))
+                    bool returningToNormal =
+                        !flattened && lastFlattenedLandscape;
+                    if (returningToNormal ||
+                        (suppressOverlayUntilViewSettled && !flattened))
                     {
-                        // Vanilla can finish flattening or rotating after this
-                        // callback, so confirm projection after two frames.
-                        pendingViewSettleFrame = Time.frameCount + 2;
+                        SuppressOverlayUntilViewSettled(rotation);
+                    }
+                    else if (RenderCurrentLayout("map view changed"))
+                    {
+                        suppressOverlayUntilViewSettled = false;
+                        ScheduleViewSettleRebuild(flattened, rotation);
                     }
                 }
-                else if (pendingViewSettleFrame >= 0 &&
-                    Time.frameCount >= pendingViewSettleFrame)
+                else if (pendingViewSettleTime >= 0f &&
+                    Time.unscaledTime >= pendingViewSettleTime)
                 {
-                    pendingViewSettleFrame = -1;
+                    pendingViewSettleTime = -1f;
+                    suppressOverlayUntilViewSettled = false;
                     RenderCurrentLayout("map view settled");
                 }
             }
@@ -262,7 +272,8 @@ namespace SpawnCastle
             blueprintVisible = false;
             preparePending = false;
             showAfterPrepare = false;
-            pendingViewSettleFrame = -1;
+            pendingViewSettleTime = -1f;
+            suppressOverlayUntilViewSettled = false;
 
             if (settings.IsBlueprintMode && mapActive)
             {
@@ -501,13 +512,69 @@ namespace SpawnCastle
             {
                 renderer.Clear();
                 blueprintVisible = false;
-                pendingViewSettleFrame = -1;
+                pendingViewSettleTime = -1f;
+                suppressOverlayUntilViewSettled = false;
                 Shared.DebugLogHelper.LogInfo(
                     log,
                     $"Blueprint hidden locally: reason={reason}.");
             }
 
             RefreshHud();
+        }
+
+        private void HideStaleNormalProjectionBeforeRender()
+        {
+            if (!initialized ||
+                !mapActive ||
+                !blueprintVisible ||
+                layout == null ||
+                GameMap.instance == null ||
+                EngineInterface.FlattenedLandscape)
+            {
+                return;
+            }
+
+            int rotation = (int)GameMap.instance.CurrentRotation();
+            if (lastFlattenedLandscape ||
+                (suppressOverlayUntilViewSettled &&
+                    rotation != lastRotation))
+            {
+                // This callback can observe Vanilla's view change after our
+                // regular tick, but still before Unity submits the frame.
+                SuppressOverlayUntilViewSettled(rotation);
+            }
+        }
+
+        private void SuppressOverlayUntilViewSettled(int rotation)
+        {
+            // Normal terrain heights remain stale briefly after leaving flat
+            // view. Hide instead of displaying that incorrect projection.
+            renderer.Clear();
+            lastRotation = rotation;
+            lastFlattenedLandscape = false;
+            suppressOverlayUntilViewSettled = true;
+            pendingViewSettleTime =
+                Time.unscaledTime + ViewSettleDelaySeconds;
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"Blueprint temporarily hidden while the normal map " +
+                $"projection settles: delay={ViewSettleDelaySeconds:F2}s, " +
+                $"flattened=false, rotation={rotation}.");
+        }
+
+        private void ScheduleViewSettleRebuild(
+            bool flattened,
+            int rotation)
+        {
+            // The native flag changes before terrain heights and Tilemaps have
+            // fully settled, so retain the final confirmation render.
+            pendingViewSettleTime =
+                Time.unscaledTime + ViewSettleDelaySeconds;
+            Shared.DebugLogHelper.LogDebug(
+                log,
+                $"Blueprint view settle rebuild scheduled: " +
+                $"delay={ViewSettleDelaySeconds:F2}s, " +
+                $"flattened={flattened}, rotation={rotation}.");
         }
 
         private bool RenderCurrentLayout(string reason)
@@ -545,7 +612,8 @@ namespace SpawnCastle
             blueprintVisible = false;
             lastRotation = int.MinValue;
             lastFlattenedLandscape = false;
-            pendingViewSettleFrame = -1;
+            pendingViewSettleTime = -1f;
+            suppressOverlayUntilViewSettled = false;
         }
 
         private void RefreshHud()

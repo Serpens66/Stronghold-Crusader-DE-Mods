@@ -7,6 +7,10 @@ namespace SpawnCastle
 {
     internal static class BlueprintBuildingIconCatalog
     {
+        // Vanilla crops icons to different heights, but their isometric ground
+        // contact stays at the same pixel baseline above the lower crop edge.
+        private const float GroundContactPixelsFromBottom = 21f;
+
         private static readonly IReadOnlyDictionary<string, string> ResourceKeys =
             new Dictionary<string, string>(StringComparer.Ordinal)
             {
@@ -99,6 +103,16 @@ namespace SpawnCastle
                 ResourceKeys.TryGetValue(mapperName, out string? key)
                     ? key
                     : null;
+        }
+
+        public static float CalculateGroundPivotY(int iconPixelHeight)
+        {
+            if (iconPixelHeight <= 0)
+                throw new ArgumentOutOfRangeException(nameof(iconPixelHeight));
+
+            return Math.Min(
+                0.5f,
+                GroundContactPixelsFromBottom / iconPixelHeight);
         }
     }
 }

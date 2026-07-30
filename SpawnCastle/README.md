@@ -32,6 +32,13 @@ human Keep using the fixed human-Keep orientation. The overlay consists of:
   centered on its actual footprint cells, including individual wall, stair,
   moat, pitch-ditch, and trap cells.
 
+Perspective building icons use a fixed visible ground-contact baseline measured
+in source pixels instead of the rectangular image center. Vanilla crops Church,
+Mercenary Post, Hovel, and other menu images to different heights, so the
+normalized sprite pivot is calculated separately from each crop. This keeps the
+building base centered on its complete footprint; flat one-cell construction
+icons retain a center pivot.
+
 The Keep frame is used only as the anchor and is not drawn. AIV `miscItems` are
 ignored. Unknown mapper values remain visible as magenta one-tile markers.
 
@@ -41,7 +48,10 @@ button in Mod Settings. The overlay rebuilds after map rotation or flattened
 landscape changes and is cleared on map unload. In Vanilla's flattened-landscape
 view, Blueprint icons are hidden and only the colored ground footprints remain
 visible for an unobstructed overview. Returning to the normal view restores the
-icons automatically.
+icons automatically. When leaving the flattened view, the complete Blueprint is
+temporarily hidden while Vanilla restores terrain heights and Tilemap transforms.
+It is rendered again only after the normal-height projection has settled, so no
+stale intermediate overlay is displayed.
 
 Because Blueprint mode does not change simulation state, it works on new maps,
 loaded savegames, and multiplayer. Every multiplayer client independently selects

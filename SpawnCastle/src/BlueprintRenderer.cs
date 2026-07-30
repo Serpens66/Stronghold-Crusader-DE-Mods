@@ -83,6 +83,9 @@ namespace SpawnCastle
         {
             if (overlayRoot != null)
             {
+                // Destroy is deferred until the end of the frame. Deactivate
+                // first so a stale projection cannot flash for one more frame.
+                overlayRoot.SetActive(false);
                 Object.Destroy(overlayRoot);
                 overlayRoot = null;
             }
@@ -200,15 +203,23 @@ namespace SpawnCastle
                     throw new InvalidOperationException(
                         $"Vanilla resource '{resourceKey}' is unavailable.");
 
+                bool alignBuildingGround =
+                    mapper.Category == AivItemCategory.Building;
                 Sprite sprite =
-                    CreateSpriteFromVanillaAtlas(source, resourceKey);
+                    CreateSpriteFromVanillaAtlas(
+                        source,
+                        resourceKey,
+                        alignBuildingGround);
                 Object.DontDestroyOnLoad(sprite);
                 iconSprites.Add(resourceKey, sprite);
+                float normalizedPivotY =
+                    sprite.pivot.y / Math.Max(1f, sprite.rect.height);
                 Shared.DebugLogHelper.LogDebug(
                     log,
                     $"Loaded Vanilla build-menu icon: mapper={mapper.Name}, " +
                     $"resource='{resourceKey}', size=" +
-                    $"{sprite.rect.width}x{sprite.rect.height}.");
+                    $"{sprite.rect.width}x{sprite.rect.height}, " +
+                    $"pivot=(0.5, {normalizedPivotY:F4}).");
                 return sprite;
             }
             catch (Exception ex)
@@ -224,7 +235,8 @@ namespace SpawnCastle
 
         private Sprite CreateSpriteFromVanillaAtlas(
             Noesis.BitmapSource source,
-            string resourceKey)
+            string resourceKey,
+            bool alignBuildingGround)
         {
             if (!(source is Noesis.CroppedBitmap cropped))
                 throw new InvalidOperationException(
@@ -256,6 +268,12 @@ namespace SpawnCastle
 
             Noesis.Int32Rect crop = cropped.SourceRect;
             Noesis.Int32Rect atlasRect = atlasValue.rect;
+            Vector2 pivot = alignBuildingGround
+                ? new Vector2(
+                    0.5f,
+                    BlueprintBuildingIconCatalog.CalculateGroundPivotY(
+                        crop.Height))
+                : new Vector2(0.5f, 0.5f);
             float unityY =
                 atlasRect.Y + atlasRect.Height - crop.Y - crop.Height;
             var spriteRect = new Rect(
@@ -277,7 +295,7 @@ namespace SpawnCastle
             Sprite sprite = Sprite.Create(
                 atlasTexture,
                 spriteRect,
-                new Vector2(0.5f, 0.5f),
+                pivot,
                 100f,
                 0,
                 SpriteMeshType.FullRect);
@@ -286,7 +304,8 @@ namespace SpawnCastle
             Shared.DebugLogHelper.LogInfo(
                 log,
                 $"Vanilla build-menu atlas linked: resource='{resourceKey}', " +
-                $"uri='{uri}', crop={crop}, unityRect={spriteRect}.");
+                $"uri='{uri}', crop={crop}, unityRect={spriteRect}, " +
+                $"pivot={pivot}.");
             return sprite;
         }
 
