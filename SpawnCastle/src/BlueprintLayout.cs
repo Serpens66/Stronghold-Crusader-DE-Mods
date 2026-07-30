@@ -182,7 +182,9 @@ namespace SpawnCastle
                         }
                     }
 
-                    if (mapper.Category == AivItemCategory.Building)
+                    // Path frames enumerate individual cells, so giving every
+                    // mapped placement an icon also covers walls and defenses.
+                    if (BlueprintBuildingIconCatalog.Resolve(mapper.Name) != null)
                     {
                         icons.Add(new BlueprintIconPlacement(
                             frame.itemType,

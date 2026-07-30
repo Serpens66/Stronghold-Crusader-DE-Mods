@@ -61,13 +61,16 @@ namespace SpawnCastle
             }
 
             int renderedIcons = 0;
-            foreach (BlueprintIconPlacement placement in layout.Icons)
+            if (!EngineInterface.FlattenedLandscape)
             {
-                Sprite icon = GetBuildingIcon(placement.MapperValue);
-                if (icon == null)
-                    continue;
-                if (TryCreateIcon(placement, icon))
-                    renderedIcons++;
+                foreach (BlueprintIconPlacement placement in layout.Icons)
+                {
+                    Sprite icon = GetBlueprintIcon(placement.MapperValue);
+                    if (icon == null)
+                        continue;
+                    if (TryCreateIcon(placement, icon))
+                        renderedIcons++;
+                }
             }
 
             return new BlueprintRenderResult(
@@ -95,17 +98,8 @@ namespace SpawnCastle
 
             var marker = new GameObject("BlueprintGroundMarker");
             marker.transform.SetParent(overlayRoot.transform, false);
-            Vector3 worldPosition = mapTile.tilemapRef.GetCellCenterWorld(
-                new Vector3Int(tilePosition.x, tilePosition.y, 0));
-            Vector3 sortingPosition = GameMap.instance.getSpritePosVector(
-                tilePosition.x,
-                tilePosition.y);
-            // Cell center supplies the correct ground pivot; Vanilla's sprite
-            // position still provides the proven depth value for row sorting.
-            worldPosition.z = sortingPosition.z;
-            if (!EngineInterface.FlattenedLandscape)
-                worldPosition.y += mapTile.height;
-            marker.transform.position = worldPosition;
+            marker.transform.position =
+                GetGroundCellCenter(mapTile, tilePosition);
 
             SpriteRenderer renderer = marker.AddComponent<SpriteRenderer>();
             renderer.sprite = sprite;
@@ -183,7 +177,7 @@ namespace SpawnCastle
             return sprite;
         }
 
-        private Sprite GetBuildingIcon(int mapperValue)
+        private Sprite GetBlueprintIcon(int mapperValue)
         {
             if (missingIconMappers.Contains(mapperValue))
                 return null;
@@ -330,11 +324,10 @@ namespace SpawnCastle
                     continue;
                 }
 
-                Vector3 cornerPosition = GameMap.instance.getSpritePosVector(
-                    tilePosition.x,
-                    tilePosition.y);
-                if (!EngineInterface.FlattenedLandscape)
-                    cornerPosition.y += mapTile.height;
+                // Every icon is centered from its actual footprint cells;
+                // Vanilla's building-sprite pivot is intentionally not used.
+                Vector3 cornerPosition =
+                    GetGroundCellCenter(mapTile, tilePosition);
                 position += cornerPosition;
                 validCorners++;
                 frontRow = Math.Max(frontRow, mapTile.row);
@@ -353,14 +346,35 @@ namespace SpawnCastle
             renderer.color = new Color(1f, 1f, 1f, 0.68f);
             renderer.sortingOrder = -20000 + frontRow * 49 + 4;
 
-            float targetWidth = Math.Max(1.5f, placement.Size * 1.35f);
-            float targetHeight = Math.Max(0.75f, placement.Size * 0.52f);
+            float targetWidth = placement.Size == 1
+                ? 1f
+                : Math.Max(1.5f, placement.Size * 1.35f);
+            float targetHeight = placement.Size == 1
+                ? 0.5f
+                : Math.Max(0.75f, placement.Size * 0.52f);
             float scale = Math.Min(
                 targetWidth / Math.Max(0.01f, icon.bounds.size.x),
                 targetHeight / Math.Max(0.01f, icon.bounds.size.y));
             iconObject.transform.localScale =
                 new Vector3(scale, scale, 1f);
             return true;
+        }
+
+        private static Vector3 GetGroundCellCenter(
+            GameMapTile mapTile,
+            Vector3Int tilePosition)
+        {
+            Vector3 worldPosition = mapTile.tilemapRef.GetCellCenterWorld(
+                new Vector3Int(tilePosition.x, tilePosition.y, 0));
+            Vector3 sortingPosition = GameMap.instance.getSpritePosVector(
+                tilePosition.x,
+                tilePosition.y);
+            // The cell center fixes the ground pivot while Vanilla's sprite
+            // position retains its proven depth value for row sorting.
+            worldPosition.z = sortingPosition.z;
+            if (!EngineInterface.FlattenedLandscape)
+                worldPosition.y += mapTile.height;
+            return worldPosition;
         }
 
         private static Color GetOverlayColor(

@@ -14,6 +14,7 @@ internal static class Program
             ("Decode offsets", TestDecodeOffsets),
             ("Rotate all four directions", TestRotations),
             ("Resolve DE footprint sizes", TestFootprintCatalog),
+            ("Resolve all special Blueprint icons", TestSpecialBlueprintIcons),
             ("Rotate footprints", TestFootprintRotations),
             ("Resolve associated blocked areas", TestBlockedAreas),
             ("Compute rotated keep deltas", TestAnchorDelta),
@@ -87,6 +88,38 @@ internal static class Program
         AssertEqual(6, AivMapperCatalog.Resolve(327).FootprintSize);
         AssertEqual(4, AivMapperCatalog.Resolve(342).FootprintSize);
         AssertEqual<int?>(null, AivMapperCatalog.Resolve(63).FootprintSize);
+    }
+
+    private static void TestSpecialBlueprintIcons()
+    {
+        AssertEqual(
+            "UI-Buildings C005",
+            SpawnCastle.BlueprintBuildingIconCatalog.Resolve("MAPPER_WALL"));
+        AssertEqual(
+            "UI-Buildings C007",
+            SpawnCastle.BlueprintBuildingIconCatalog.Resolve("MAPPER_CRENAL"));
+        AssertEqual(
+            "UI-Buildings C007",
+            SpawnCastle.BlueprintBuildingIconCatalog.Resolve("MAPPER_CRENAL2"));
+        AssertEqual(
+            "UI-Buildings C003",
+            SpawnCastle.BlueprintBuildingIconCatalog.Resolve("MAPPER_WOODWALL"));
+        AssertEqual(
+            "UI-Buildings L013",
+            SpawnCastle.BlueprintBuildingIconCatalog.Resolve("MAPPER_KILLING_PIT"));
+        AssertEqual(
+            "UI-Buildings L011",
+            SpawnCastle.BlueprintBuildingIconCatalog.Resolve("MAPPER_PITCH_DITCH"));
+        AssertEqual(
+            "UI-Buildings A013",
+            SpawnCastle.BlueprintBuildingIconCatalog.Resolve("MAPPER_MOAT"));
+        for (int stair = 1; stair <= 6; stair++)
+        {
+            AssertEqual(
+                "UI-Buildings C001",
+                SpawnCastle.BlueprintBuildingIconCatalog.Resolve(
+                    $"MAPPER_STAIR{stair}"));
+        }
     }
 
     private static void TestFootprintRotations()

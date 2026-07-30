@@ -28,7 +28,9 @@ human Keep using the fixed human-Keep orientation. The overlay consists of:
 - distinct colors for buildings, walls, crenellations, stairs, traps, moats, and
   pitch ditches; and
 - the normal, non-highlighted build-menu icon linked directly from Vanilla's
-  loaded Unity `UI-MasterAtlas` texture over each regular building footprint.
+  loaded Unity `UI-MasterAtlas` texture over every known construction placement,
+  centered on its actual footprint cells, including individual wall, stair,
+  moat, pitch-ditch, and trap cells.
 
 The Keep frame is used only as the anchor and is not drawn. AIV `miscItems` are
 ignored. Unknown mapper values remain visible as magenta one-tile markers.
@@ -36,7 +38,10 @@ ignored. Unknown mapper values remain visible as magenta one-tile markers.
 The overlay starts hidden on every map. Use the `Blueprint: off/on` button in the
 upper-left MainHUD or assign any single Unity key, mouse button, or controller
 button in Mod Settings. The overlay rebuilds after map rotation or flattened
-landscape changes and is cleared on map unload.
+landscape changes and is cleared on map unload. In Vanilla's flattened-landscape
+view, Blueprint icons are hidden and only the colored ground footprints remain
+visible for an unobstructed overview. Returning to the normal view restores the
+icons automatically.
 
 Because Blueprint mode does not change simulation state, it works on new maps,
 loaded savegames, and multiplayer. Every multiplayer client independently selects

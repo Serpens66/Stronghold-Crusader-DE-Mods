@@ -1,3 +1,5 @@
+#nullable enable
+
 using System;
 using System.Collections.Generic;
 
@@ -8,6 +10,21 @@ namespace SpawnCastle
         private static readonly IReadOnlyDictionary<string, string> ResourceKeys =
             new Dictionary<string, string>(StringComparer.Ordinal)
             {
+                // Odd-numbered resources are Vanilla's normal variants; the
+                // following even numbers are the highlighted build-menu images.
+                ["MAPPER_STAIR1"] = "UI-Buildings C001",
+                ["MAPPER_STAIR2"] = "UI-Buildings C001",
+                ["MAPPER_STAIR3"] = "UI-Buildings C001",
+                ["MAPPER_STAIR4"] = "UI-Buildings C001",
+                ["MAPPER_STAIR5"] = "UI-Buildings C001",
+                ["MAPPER_STAIR6"] = "UI-Buildings C001",
+                ["MAPPER_WOODWALL"] = "UI-Buildings C003",
+                ["MAPPER_WALL"] = "UI-Buildings C005",
+                ["MAPPER_CRENAL"] = "UI-Buildings C007",
+                ["MAPPER_CRENAL2"] = "UI-Buildings C007",
+                ["MAPPER_PITCH_DITCH"] = "UI-Buildings L011",
+                ["MAPPER_KILLING_PIT"] = "UI-Buildings L013",
+                ["MAPPER_MOAT"] = "UI-Buildings A013",
                 ["MAPPER_FLETCHER"] = "UI-Buildings I001",
                 ["MAPPER_WOODSMAN"] = "UI-Buildings D003",
                 ["MAPPER_STORES"] = "UI-Buildings D001",
@@ -76,10 +93,10 @@ namespace SpawnCastle
                 ["MAPPER_WATERPOT"] = "UI-Buildings F013"
             };
 
-        public static string Resolve(string mapperName)
+        public static string? Resolve(string? mapperName)
         {
             return mapperName != null &&
-                ResourceKeys.TryGetValue(mapperName, out string key)
+                ResourceKeys.TryGetValue(mapperName, out string? key)
                     ? key
                     : null;
         }

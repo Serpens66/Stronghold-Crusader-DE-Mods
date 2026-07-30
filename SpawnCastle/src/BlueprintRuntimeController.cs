@@ -36,6 +36,7 @@ namespace SpawnCastle
         private float nextPrepareAttemptTime;
         private int lastRotation = int.MinValue;
         private bool lastFlattenedLandscape;
+        private int pendingViewSettleFrame = -1;
         private float nextRuntimeErrorLogTime;
         private int lastTickFrame = -1;
         private bool componentUpdateObserved;
@@ -184,7 +185,18 @@ namespace SpawnCastle
                 if (rotation != lastRotation ||
                     flattened != lastFlattenedLandscape)
                 {
-                    RenderCurrentLayout("map view changed");
+                    if (RenderCurrentLayout("map view changed"))
+                    {
+                        // Vanilla can finish flattening or rotating after this
+                        // callback, so confirm projection after two frames.
+                        pendingViewSettleFrame = Time.frameCount + 2;
+                    }
+                }
+                else if (pendingViewSettleFrame >= 0 &&
+                    Time.frameCount >= pendingViewSettleFrame)
+                {
+                    pendingViewSettleFrame = -1;
+                    RenderCurrentLayout("map view settled");
                 }
             }
 
@@ -250,6 +262,7 @@ namespace SpawnCastle
             blueprintVisible = false;
             preparePending = false;
             showAfterPrepare = false;
+            pendingViewSettleFrame = -1;
 
             if (settings.IsBlueprintMode && mapActive)
             {
@@ -488,6 +501,7 @@ namespace SpawnCastle
             {
                 renderer.Clear();
                 blueprintVisible = false;
+                pendingViewSettleFrame = -1;
                 Shared.DebugLogHelper.LogInfo(
                     log,
                     $"Blueprint hidden locally: reason={reason}.");
@@ -531,6 +545,7 @@ namespace SpawnCastle
             blueprintVisible = false;
             lastRotation = int.MinValue;
             lastFlattenedLandscape = false;
+            pendingViewSettleFrame = -1;
         }
 
         private void RefreshHud()
