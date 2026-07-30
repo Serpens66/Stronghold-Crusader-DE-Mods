@@ -15,6 +15,11 @@ internal static class Program
             ("Rotate all four directions", TestRotations),
             ("Resolve DE footprint sizes", TestFootprintCatalog),
             ("Resolve all special Blueprint icons", TestSpecialBlueprintIcons),
+            ("Resolve selected Blueprint help images", TestBlueprintHelpImages),
+            ("Resolve lord-dependent Church skins", TestChurchBlueprintSkins),
+            ("Scale Blueprint sources independently", TestBlueprintSourceScale),
+            ("Select safe Blueprint calibration sources", TestBlueprintCalibrationSources),
+            ("Exclude Blueprint placement-ground sprites", TestBlueprintPreviewSpriteFilter),
             ("Align cropped Blueprint building icons", TestBuildingIconPivots),
             ("Rotate footprints", TestFootprintRotations),
             ("Resolve associated blocked areas", TestBlockedAreas),
@@ -136,6 +141,210 @@ internal static class Program
         AssertEqual(
             21f / 89f,
             SpawnCastle.BlueprintBuildingIconCatalog.CalculateGroundPivotY(89));
+    }
+
+    private static void TestBlueprintHelpImages()
+    {
+        var expected = new Dictionary<string, string>
+        {
+            ["MAPPER_STAIR1"] = "stairs_help.png",
+            ["MAPPER_STAIR2"] = "stairs_help.png",
+            ["MAPPER_STAIR3"] = "stairs_help.png",
+            ["MAPPER_STAIR4"] = "stairs_help.png",
+            ["MAPPER_STAIR5"] = "stairs_help.png",
+            ["MAPPER_STAIR6"] = "stairs_help.png",
+            ["MAPPER_HOVEL"] = "ST02_House.png",
+            ["MAPPER_WOODSMAN"] = "ST03_Woodcutters_Hut.png",
+            ["MAPPER_OXENBASE"] = "ST04_Oxen_Base.png",
+            ["MAPPER_IRON_MINE"] = "ST05_Iron_Mine.png",
+            ["MAPPER_PITCH_WORKINGS"] = "ST06_Pitch_Digger.png",
+            ["MAPPER_HUNTER"] = "ST07_Hunters_Hut.png",
+            ["MAPPER_BARRACKS_WOOD"] = "ST08_Mercenary_Post.png",
+            ["MAPPER_BARRACKS_STONE"] = "ST08_Barracks.png",
+            ["MAPPER_BEDOUIN_STOCKADE"] = "ST08_Bedouin_Stockade.png",
+            ["MAPPER_FLETCHER"] = "ST12_Fletchers_Workshop.png",
+            ["MAPPER_BLACKSMITH"] = "ST13_Blacksmiths_Workshop.png",
+            ["MAPPER_POLETURNER"] = "ST14_Poleturners_Workshop.png",
+            ["MAPPER_ARMOURER"] = "ST15_Armourers_Workshop.png",
+            ["MAPPER_TANNER"] = "ST16_Tanners_Workshop.png",
+            ["MAPPER_BAKER"] = "ST17_Bakers_Workshop.png",
+            ["MAPPER_BREWER"] = "ST18_Brewers_Workshop.png",
+            ["MAPPER_GRANARY"] = "ST19_Granary.png",
+            ["MAPPER_QUARRY"] = "ST20_Quarry.png",
+            ["MAPPER_INN"] = "ST22_Inn.png",
+            ["MAPPER_HEALER"] = "ST23_Healer.png",
+            ["MAPPER_ENGINEERS_GUILD"] = "ST24_Engineers_Guild.png",
+            ["MAPPER_TUNNELERS_GUILD"] = "ST25_Tunnellers_Guild.png",
+            ["MAPPER_TRADEPOST"] = "ST26_Tradepost.png",
+            ["MAPPER_WELL"] = "ST27_well.png",
+            ["MAPPER_OIL_SMELTER"] = "ST28_Oil_Smelter.png",
+            ["MAPPER_WHEATFARM"] = "ST30_Wheatfarm.png",
+            ["MAPPER_HOPSFARM"] = "ST31_Hopsfarm.png",
+            ["MAPPER_APPLEFARM"] = "ST32_Applefarm.png",
+            ["MAPPER_CATTLEFARM"] = "ST33_Cattlefarm.png",
+            ["MAPPER_MILL"] = "ST34_Mill.png",
+            ["MAPPER_STABLES"] = "ST35_Stables.png",
+            ["MAPPER_CHURCH3"] = "ST36_Church.png",
+            ["MAPPER_GATE_STONE2A"] = "ST45_Gate_Main.png",
+            ["MAPPER_GATE_STONE2B"] = "ST45_Gate_Main.png",
+            ["MAPPER_DRAWBRIDGE"] = "ST49_Drawbridge.png",
+            ["MAPPER_GALLOWS"] = "ST62_Gallows.png",
+            ["MAPPER_MAYPOLE"] = "ST65_Maypole.png",
+            ["MAPPER_TOWER1"] = "ST74_Tower1.png",
+            ["MAPPER_TOWER2"] = "ST74_Tower2.png",
+            ["MAPPER_TOWER3"] = "ST74_Tower3.png",
+            ["MAPPER_TOWER4"] = "ST74_Tower4.png",
+            ["MAPPER_TOWER5"] = "ST74_Tower5.png",
+            ["MAPPER_DOG_CAGE"] = "st99_dog_cage.png",
+            ["MAPPER_WATERPOT"] = "st70_Water_Pot.png"
+        };
+        foreach ((string mapper, string fileName) in expected)
+        {
+            AssertEqual(
+                fileName,
+                SpawnCastle.BlueprintBuildingIconCatalog
+                    .ResolveDefinition(mapper)!
+                    .HelpImageFileName);
+        }
+
+        foreach (string mapper in new[]
+        {
+            "MAPPER_STORES",
+            "MAPPER_ARMOURY",
+            "MAPPER_CHURCH1",
+            "MAPPER_CHURCH2",
+            "MAPPER_KILLING_PIT",
+            "MAPPER_PITCH_DITCH",
+            "MAPPER_GATE_STONE1A",
+            "MAPPER_GATE_STONE1B"
+        })
+        {
+            AssertEqual<string?>(
+                null,
+                SpawnCastle.BlueprintBuildingIconCatalog
+                    .ResolveDefinition(mapper)!
+                    .HelpImageFileName);
+        }
+
+        AssertEqual(
+            SpawnCastle.BlueprintHelpImageCleanup.RemoveTannerArtifacts,
+            SpawnCastle.BlueprintBuildingIconCatalog
+                .ResolveDefinition("MAPPER_TANNER")!
+                .Cleanup);
+    }
+
+    private static void TestChurchBlueprintSkins()
+    {
+        SpawnCastle.BlueprintBuildingIconDefinition church1 =
+            SpawnCastle.BlueprintBuildingIconCatalog
+                .ResolveDefinition("MAPPER_CHURCH1")!;
+        SpawnCastle.BlueprintBuildingIconDefinition church2 =
+            SpawnCastle.BlueprintBuildingIconCatalog
+                .ResolveDefinition("MAPPER_CHURCH2")!;
+        SpawnCastle.BlueprintBuildingIconDefinition church3 =
+            SpawnCastle.BlueprintBuildingIconCatalog
+                .ResolveDefinition("MAPPER_CHURCH3")!;
+        AssertEqual("UI-Buildings F003", church1.ResolveBuildMenuResource(false));
+        AssertEqual("UI-Buildings F003a", church1.ResolveBuildMenuResource(true));
+        AssertEqual("UI-Buildings F005", church2.ResolveBuildMenuResource(false));
+        AssertEqual("UI-Buildings F005a", church2.ResolveBuildMenuResource(true));
+        AssertEqual("UI-Buildings F007", church3.ResolveBuildMenuResource(false));
+        AssertEqual("UI-Buildings F007a", church3.ResolveBuildMenuResource(true));
+        AssertEqual("ST36_Church.png", church3.ResolveHelpImage(false));
+        AssertEqual("ST100_Mosque.png", church3.ResolveHelpImage(true));
+
+        for (int lordType = 0; lordType <= 8; lordType++)
+        {
+            bool expected =
+                lordType == 1 ||
+                lordType == 2 ||
+                lordType == 6 ||
+                lordType == 7;
+            AssertEqual(
+                expected,
+                SpawnCastle.BlueprintBuildingIconCatalog
+                    .IsIslamicLordType(lordType));
+        }
+    }
+
+    private static void TestBlueprintSourceScale()
+    {
+        float helpScale =
+            SpawnCastle.BlueprintBuildingIconCatalog.CalculateNormalWorldScale(
+                "MAPPER_GRANARY",
+                4,
+                4f,
+                3f,
+                4f,
+                3f,
+                true);
+        float buildMenuScale =
+            SpawnCastle.BlueprintBuildingIconCatalog.CalculateNormalWorldScale(
+                "MAPPER_GRANARY",
+                4,
+                4f,
+                3f,
+                4f,
+                3f,
+                false);
+        AssertEqual(1f, helpScale);
+        AssertEqual(1.1f, buildMenuScale);
+    }
+
+    private static void TestBlueprintCalibrationSources()
+    {
+        AssertEqual(
+            true,
+            SpawnCastle.BlueprintBuildingIconCatalog
+                .RequiresCursorPreviewMeasurement("MAPPER_BARRACKS_STONE"));
+        AssertEqual(
+            true,
+            SpawnCastle.BlueprintBuildingIconCatalog
+                .RequiresCursorPreviewMeasurement("MAPPER_ENGINEERS_GUILD"));
+        AssertEqual(
+            false,
+            SpawnCastle.BlueprintBuildingIconCatalog
+                .RequiresCursorPreviewMeasurement("MAPPER_GRANARY"));
+        AssertEqual(
+            true,
+            SpawnCastle.BlueprintBuildingIconCatalog
+                .IsUsableCalibrationRevision("MAPPER_DOG_CAGE", 1));
+        AssertEqual(
+            false,
+            SpawnCastle.BlueprintBuildingIconCatalog
+                .IsUsableCalibrationRevision("MAPPER_DOG_CAGE", 2));
+        AssertEqual(
+            false,
+            SpawnCastle.BlueprintBuildingIconCatalog
+                .IsUsableCalibrationRevision("MAPPER_DOG_CAGE", 3));
+        AssertEqual(
+            true,
+            SpawnCastle.BlueprintBuildingIconCatalog
+                .IsUsableCalibrationRevision("MAPPER_DOG_CAGE", 4));
+        AssertEqual(
+            false,
+            SpawnCastle.BlueprintBuildingIconCatalog
+                .IsUsableCalibrationRevision("MAPPER_BARRACKS_STONE", 1));
+        AssertEqual(
+            true,
+            SpawnCastle.BlueprintBuildingIconCatalog
+                .IsUsableCalibrationRevision("MAPPER_BARRACKS_STONE", 4));
+    }
+
+    private static void TestBlueprintPreviewSpriteFilter()
+    {
+        AssertEqual(
+            false,
+            SpawnCastle.BlueprintBuildingIconCatalog
+                .IsExtendedPreviewSprite(64f, 32f));
+        AssertEqual(
+            true,
+            SpawnCastle.BlueprintBuildingIconCatalog
+                .IsExtendedPreviewSprite(65f, 32f));
+        AssertEqual(
+            true,
+            SpawnCastle.BlueprintBuildingIconCatalog
+                .IsExtendedPreviewSprite(64f, 33f));
     }
 
     private static void TestFootprintRotations()

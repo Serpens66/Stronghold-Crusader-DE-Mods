@@ -4,6 +4,7 @@ using CrusaderDE;
 using SHCDESE.Interop;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Reflection;
 using UnityEngine;
 using Object = UnityEngine.Object;
@@ -12,21 +13,34 @@ namespace SpawnCastle
 {
     internal sealed class BlueprintRenderer
     {
+        // Match Vanilla's world-sprite import setting. Per-building UI
+        // normalization is reversed separately from the AIV footprint.
+        private const float BuildMenuPixelsPerWorldUnit = 64f;
+
         private readonly ManualLogSource log;
+        private readonly BlueprintBuildingSizeCalibration sizeCalibration;
         private readonly Dictionary<int, Sprite> markerSprites =
             new Dictionary<int, Sprite>();
-        private readonly Dictionary<string, Sprite> iconSprites =
+        private readonly Dictionary<string, Sprite> buildMenuSprites =
+            new Dictionary<string, Sprite>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, Sprite> helpImageSprites =
             new Dictionary<string, Sprite>(StringComparer.OrdinalIgnoreCase);
         private readonly HashSet<int> missingIconMappers = new HashSet<int>();
+        private readonly HashSet<string> failedHelpImages =
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private static readonly FieldInfo NoesisTextureCacheField =
             typeof(NoesisTextureProvider).GetField(
                 "_textures",
                 BindingFlags.Instance | BindingFlags.NonPublic);
         private GameObject overlayRoot;
 
-        public BlueprintRenderer(ManualLogSource log)
+        public BlueprintRenderer(
+            ManualLogSource log,
+            BlueprintBuildingSizeCalibration sizeCalibration)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
+            this.sizeCalibration = sizeCalibration ??
+                throw new ArgumentNullException(nameof(sizeCalibration));
         }
 
         public BlueprintRenderResult Render(BlueprintLayout layout)
@@ -61,15 +75,21 @@ namespace SpawnCastle
             }
 
             int renderedIcons = 0;
-            if (!EngineInterface.FlattenedLandscape)
+            bool flattenedLandscape = EngineInterface.FlattenedLandscape;
+            foreach (BlueprintIconPlacement placement in layout.Icons)
             {
-                foreach (BlueprintIconPlacement placement in layout.Icons)
+                BlueprintIconVisual icon =
+                    GetBlueprintIcon(
+                        placement.MapperValue,
+                        flattenedLandscape);
+                if (icon.Sprite == null)
+                    continue;
+                if (TryCreateIcon(
+                        placement,
+                        icon,
+                        flattenedLandscape))
                 {
-                    Sprite icon = GetBlueprintIcon(placement.MapperValue);
-                    if (icon == null)
-                        continue;
-                    if (TryCreateIcon(placement, icon))
-                        renderedIcons++;
+                    renderedIcons++;
                 }
             }
 
@@ -180,47 +200,40 @@ namespace SpawnCastle
             return sprite;
         }
 
-        private Sprite GetBlueprintIcon(int mapperValue)
+        private BlueprintIconVisual GetBlueprintIcon(
+            int mapperValue,
+            bool flattenedLandscape)
         {
             if (missingIconMappers.Contains(mapperValue))
-                return null;
+                return default;
 
             try
             {
                 AivMapperInfo mapper = AivMapperCatalog.Resolve(mapperValue);
+                BlueprintBuildingIconDefinition definition =
+                    BlueprintBuildingIconCatalog.ResolveDefinition(mapper.Name);
+                if (definition == null)
+                    throw new InvalidOperationException(
+                        $"No Blueprint icon is mapped for {mapper.Name}.");
+
+                bool islamicSkin = UsesIslamicChurchSkin();
+                string helpImage = flattenedLandscape
+                    ? null
+                    : definition.ResolveHelpImage(islamicSkin);
+                if (!string.IsNullOrWhiteSpace(helpImage) &&
+                    TryGetHelpImageSprite(
+                        helpImage,
+                        definition.Cleanup,
+                        out Sprite helpSprite))
+                {
+                    return new BlueprintIconVisual(helpSprite, true);
+                }
+
                 string resourceKey =
-                    BlueprintBuildingIconCatalog.Resolve(mapper.Name);
-                if (string.IsNullOrWhiteSpace(resourceKey))
-                    throw new InvalidOperationException(
-                        $"No normal build-menu icon is mapped for {mapper.Name}.");
-                if (iconSprites.TryGetValue(resourceKey, out Sprite cached))
-                    return cached;
-
-                Noesis.BitmapSource source =
-                    Noesis.GUI.GetApplicationResources()?[resourceKey]
-                        as Noesis.BitmapSource;
-                if (source == null)
-                    throw new InvalidOperationException(
-                        $"Vanilla resource '{resourceKey}' is unavailable.");
-
-                bool alignBuildingGround =
-                    mapper.Category == AivItemCategory.Building;
-                Sprite sprite =
-                    CreateSpriteFromVanillaAtlas(
-                        source,
-                        resourceKey,
-                        alignBuildingGround);
-                Object.DontDestroyOnLoad(sprite);
-                iconSprites.Add(resourceKey, sprite);
-                float normalizedPivotY =
-                    sprite.pivot.y / Math.Max(1f, sprite.rect.height);
-                Shared.DebugLogHelper.LogDebug(
-                    log,
-                    $"Loaded Vanilla build-menu icon: mapper={mapper.Name}, " +
-                    $"resource='{resourceKey}', size=" +
-                    $"{sprite.rect.width}x{sprite.rect.height}, " +
-                    $"pivot=(0.5, {normalizedPivotY:F4}).");
-                return sprite;
+                    definition.ResolveBuildMenuResource(islamicSkin);
+                Sprite buildMenuSprite =
+                    GetBuildMenuSprite(mapper, resourceKey);
+                return new BlueprintIconVisual(buildMenuSprite, false);
             }
             catch (Exception ex)
             {
@@ -229,8 +242,300 @@ namespace SpawnCastle
                     log,
                     $"Blueprint icon unavailable for mapper {mapperValue}; " +
                     $"the colored footprint remains visible: {ex.Message}");
-                return null;
+                return default;
             }
+        }
+
+        private Sprite GetBuildMenuSprite(
+            AivMapperInfo mapper,
+            string resourceKey)
+        {
+            if (buildMenuSprites.TryGetValue(
+                    resourceKey,
+                    out Sprite cached))
+            {
+                return cached;
+            }
+
+            Noesis.BitmapSource source =
+                Noesis.GUI.GetApplicationResources()?[resourceKey]
+                    as Noesis.BitmapSource;
+            if (source == null)
+                throw new InvalidOperationException(
+                    $"Vanilla resource '{resourceKey}' is unavailable.");
+
+            bool alignBuildingGround =
+                mapper.Category == AivItemCategory.Building;
+            Sprite sprite =
+                CreateSpriteFromVanillaAtlas(
+                    source,
+                    resourceKey,
+                    alignBuildingGround);
+            Object.DontDestroyOnLoad(sprite);
+            buildMenuSprites.Add(resourceKey, sprite);
+            float normalizedPivotY =
+                sprite.pivot.y / Math.Max(1f, sprite.rect.height);
+            Shared.DebugLogHelper.LogDebug(
+                log,
+                $"Loaded Vanilla build-menu icon: mapper={mapper.Name}, " +
+                $"resource='{resourceKey}', size=" +
+                $"{sprite.rect.width}x{sprite.rect.height}, " +
+                $"pivot=(0.5, {normalizedPivotY:F4}).");
+            return sprite;
+        }
+
+        private bool TryGetHelpImageSprite(
+            string fileName,
+            BlueprintHelpImageCleanup cleanup,
+            out Sprite sprite)
+        {
+            sprite = null;
+            if (helpImageSprites.TryGetValue(fileName, out Sprite cached))
+            {
+                sprite = cached;
+                return true;
+            }
+            if (failedHelpImages.Contains(fileName))
+                return false;
+
+            string fullPath = Path.Combine(
+                Application.streamingAssetsPath,
+                "Help",
+                "Images",
+                fileName);
+            try
+            {
+                if (!File.Exists(fullPath))
+                    throw new FileNotFoundException(
+                        "Vanilla help image was not found.",
+                        fullPath);
+
+                byte[] pngBytes = File.ReadAllBytes(fullPath);
+                var texture = new Texture2D(
+                    2,
+                    2,
+                    TextureFormat.ARGB32,
+                    false);
+                texture.name = "SpawnCastle_Help_" +
+                    Path.GetFileNameWithoutExtension(fileName);
+                texture.filterMode = FilterMode.Bilinear;
+                texture.wrapMode = TextureWrapMode.Clamp;
+                if (!ImageConversion.LoadImage(
+                        texture,
+                        pngBytes,
+                        false))
+                {
+                    Object.Destroy(texture);
+                    throw new InvalidDataException(
+                        $"Unity could not decode '{fullPath}'.");
+                }
+
+                Color32[] pixels = texture.GetPixels32();
+                ApplyHelpImageCleanup(
+                    pixels,
+                    texture.width,
+                    texture.height,
+                    cleanup);
+                if (!TryFindAlphaBounds(
+                        pixels,
+                        texture.width,
+                        texture.height,
+                        out RectInt alphaBounds))
+                {
+                    Object.Destroy(texture);
+                    throw new InvalidDataException(
+                        $"Vanilla help image '{fullPath}' has no visible pixels.");
+                }
+
+                texture.SetPixels32(pixels);
+                texture.Apply(false, true);
+                var spriteRect = new Rect(
+                    alphaBounds.x,
+                    alphaBounds.y,
+                    alphaBounds.width,
+                    alphaBounds.height);
+                var pivot = new Vector2(
+                    0.5f,
+                    BlueprintBuildingIconCatalog.CalculateGroundPivotY(
+                        alphaBounds.height));
+                sprite = Sprite.Create(
+                    texture,
+                    spriteRect,
+                    pivot,
+                    BuildMenuPixelsPerWorldUnit,
+                    0,
+                    SpriteMeshType.FullRect);
+                sprite.name = texture.name;
+                Object.DontDestroyOnLoad(texture);
+                Object.DontDestroyOnLoad(sprite);
+                helpImageSprites.Add(fileName, sprite);
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    $"Loaded clean Vanilla help image for Blueprint: " +
+                    $"file='{fileName}', source={texture.width}x{texture.height}, " +
+                    $"alphaBounds={alphaBounds}, cleanup={cleanup}.");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                failedHelpImages.Add(fileName);
+                Shared.DebugLogHelper.LogWarning(
+                    log,
+                    $"Vanilla help image '{fileName}' is unavailable; " +
+                    $"falling back to its build-menu icon: {ex.Message}");
+                return false;
+            }
+        }
+
+        private static void ApplyHelpImageCleanup(
+            Color32[] pixels,
+            int width,
+            int height,
+            BlueprintHelpImageCleanup cleanup)
+        {
+            if (cleanup == BlueprintHelpImageCleanup.None)
+                return;
+
+            // Four legacy Help PNGs contain the same opaque corrupt wedge in
+            // their bottom 35 rows. Remove it before calculating alpha bounds.
+            ClearRectangle(
+                pixels,
+                width,
+                height,
+                0,
+                0,
+                width,
+                Math.Min(35, height));
+
+            if (cleanup != BlueprintHelpImageCleanup.RemoveTannerArtifacts)
+                return;
+
+            // The Tanner source additionally contains stretched edge pixels.
+            // These masks only cover the corrupt bands outside the workshop.
+            ClearTopOriginRectangle(
+                pixels,
+                width,
+                height,
+                0,
+                0,
+                38,
+                46);
+            ClearTopOriginRectangle(
+                pixels,
+                width,
+                height,
+                Math.Max(0, width - 35),
+                0,
+                35,
+                150);
+            ClearTopOriginRectangle(
+                pixels,
+                width,
+                height,
+                0,
+                105,
+                30,
+                Math.Max(0, height - 140));
+            ClearTopOriginRectangle(
+                pixels,
+                width,
+                height,
+                Math.Max(0, width - 20),
+                80,
+                20,
+                Math.Max(0, height - 115));
+        }
+
+        private static void ClearTopOriginRectangle(
+            Color32[] pixels,
+            int width,
+            int height,
+            int x,
+            int topY,
+            int rectangleWidth,
+            int rectangleHeight)
+        {
+            int unityY = height - topY - rectangleHeight;
+            ClearRectangle(
+                pixels,
+                width,
+                height,
+                x,
+                unityY,
+                rectangleWidth,
+                rectangleHeight);
+        }
+
+        private static void ClearRectangle(
+            Color32[] pixels,
+            int width,
+            int height,
+            int x,
+            int y,
+            int rectangleWidth,
+            int rectangleHeight)
+        {
+            int minimumX = Math.Max(0, x);
+            int maximumX = Math.Min(width, x + rectangleWidth);
+            int minimumY = Math.Max(0, y);
+            int maximumY = Math.Min(height, y + rectangleHeight);
+            for (int pixelY = minimumY; pixelY < maximumY; pixelY++)
+            {
+                int row = pixelY * width;
+                for (int pixelX = minimumX;
+                     pixelX < maximumX;
+                     pixelX++)
+                {
+                    pixels[row + pixelX].a = 0;
+                }
+            }
+        }
+
+        private static bool TryFindAlphaBounds(
+            Color32[] pixels,
+            int width,
+            int height,
+            out RectInt bounds)
+        {
+            int minimumX = width;
+            int maximumX = -1;
+            int minimumY = height;
+            int maximumY = -1;
+            for (int y = 0; y < height; y++)
+            {
+                int row = y * width;
+                for (int x = 0; x < width; x++)
+                {
+                    if (pixels[row + x].a <= 8)
+                        continue;
+
+                    minimumX = Math.Min(minimumX, x);
+                    maximumX = Math.Max(maximumX, x);
+                    minimumY = Math.Min(minimumY, y);
+                    maximumY = Math.Max(maximumY, y);
+                }
+            }
+
+            if (maximumX < minimumX || maximumY < minimumY)
+            {
+                bounds = default;
+                return false;
+            }
+
+            bounds = new RectInt(
+                minimumX,
+                minimumY,
+                maximumX - minimumX + 1,
+                maximumY - minimumY + 1);
+            return true;
+        }
+
+        private static bool UsesIslamicChurchSkin()
+        {
+            return GameData.Instance != null &&
+                GameData.Instance.lastGameState != null &&
+                BlueprintBuildingIconCatalog.IsIslamicLordType(
+                    GameData.Instance.lastGameState.lord_Type);
         }
 
         private Sprite CreateSpriteFromVanillaAtlas(
@@ -296,7 +601,7 @@ namespace SpawnCastle
                 atlasTexture,
                 spriteRect,
                 pivot,
-                100f,
+                BuildMenuPixelsPerWorldUnit,
                 0,
                 SpriteMeshType.FullRect);
             sprite.name = "SpawnCastle_" +
@@ -311,8 +616,10 @@ namespace SpawnCastle
 
         private bool TryCreateIcon(
             BlueprintIconPlacement placement,
-            Sprite icon)
+            BlueprintIconVisual icon,
+            bool flattenedLandscape)
         {
+            Sprite sprite = icon.Sprite;
             var corners = new[]
             {
                 new BlueprintWorldTile(
@@ -361,22 +668,52 @@ namespace SpawnCastle
             iconObject.transform.SetParent(overlayRoot.transform, false);
             iconObject.transform.position = position;
             SpriteRenderer renderer = iconObject.AddComponent<SpriteRenderer>();
-            renderer.sprite = icon;
+            renderer.sprite = sprite;
             renderer.color = new Color(1f, 1f, 1f, 0.68f);
             renderer.sortingOrder = -20000 + frontRow * 49 + 4;
 
+            AivMapperInfo mapper =
+                AivMapperCatalog.Resolve(placement.MapperValue);
+            bool useOriginalBuildingScale =
+                !flattenedLandscape &&
+                (mapper.Category == AivItemCategory.Building ||
+                    icon.UsesHelpImage);
+            Vector2 calibratedWorldSize =
+                sizeCalibration.TryGetWorldSize(
+                    placement.MapperValue,
+                    out Vector2 measuredSize)
+                    ? measuredSize
+                    : Vector2.zero;
+            float scale = useOriginalBuildingScale
+                ? BlueprintBuildingIconCatalog.CalculateNormalWorldScale(
+                    mapper.Name,
+                    placement.Size,
+                    sprite.bounds.size.x,
+                    sprite.bounds.size.y,
+                    calibratedWorldSize.x,
+                    calibratedWorldSize.y,
+                    icon.UsesHelpImage)
+                : CalculateCompactIconScale(placement, sprite);
+            iconObject.transform.localScale =
+                new Vector3(scale, scale, 1f);
+            return true;
+        }
+
+        private static float CalculateCompactIconScale(
+            BlueprintIconPlacement placement,
+            Sprite icon)
+        {
+            // Flat mode keeps the former footprint-constrained overview size;
+            // non-building path icons also stay compact in the normal view.
             float targetWidth = placement.Size == 1
                 ? 1f
                 : Math.Max(1.5f, placement.Size * 1.35f);
             float targetHeight = placement.Size == 1
                 ? 0.5f
                 : Math.Max(0.75f, placement.Size * 0.52f);
-            float scale = Math.Min(
+            return Math.Min(
                 targetWidth / Math.Max(0.01f, icon.bounds.size.x),
                 targetHeight / Math.Max(0.01f, icon.bounds.size.y));
-            iconObject.transform.localScale =
-                new Vector3(scale, scale, 1f);
-            return true;
         }
 
         private static Vector3 GetGroundCellCenter(
@@ -446,6 +783,19 @@ namespace SpawnCastle
             }
         }
 
+    }
+
+    internal readonly struct BlueprintIconVisual
+    {
+        public BlueprintIconVisual(Sprite sprite, bool usesHelpImage)
+        {
+            Sprite = sprite;
+            UsesHelpImage = usesHelpImage;
+        }
+
+        public Sprite Sprite { get; }
+
+        public bool UsesHelpImage { get; }
     }
 
     internal readonly struct BlueprintRenderResult

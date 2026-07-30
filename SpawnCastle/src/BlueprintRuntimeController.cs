@@ -26,6 +26,7 @@ namespace SpawnCastle
         private ManualLogSource log;
         private SpawnCastleSettingsViewModel settings;
         private BlueprintRenderer renderer;
+        private BlueprintBuildingSizeCalibration sizeCalibration;
         private BlueprintLayout layout;
         private bool initialized;
         private bool mapActive;
@@ -65,7 +66,9 @@ namespace SpawnCastle
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings =
                 settings ?? throw new ArgumentNullException(nameof(settings));
-            renderer = new BlueprintRenderer(log);
+            sizeCalibration =
+                new BlueprintBuildingSizeCalibration(log);
+            renderer = new BlueprintRenderer(log, sizeCalibration);
             Hud = new BlueprintHudViewModel(ToggleBlueprint);
 
             settings.SettingsChanged += OnSettingsChanged;
@@ -174,6 +177,13 @@ namespace SpawnCastle
 
             if (!mapActive || !settings.IsBlueprintMode)
                 return;
+
+            if (sizeCalibration.Tick() &&
+                blueprintVisible &&
+                layout != null)
+            {
+                RenderCurrentLayout("Vanilla building preview calibrated");
+            }
 
             if (preparePending &&
                 Time.unscaledTime >= nextPrepareAttemptTime)

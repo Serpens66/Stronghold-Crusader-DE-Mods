@@ -27,17 +27,22 @@ human Keep using the fixed human-Keep orientation. The overlay consists of:
   the ground;
 - distinct colors for buildings, walls, crenellations, stairs, traps, moats, and
   pitch ditches; and
-- the normal, non-highlighted build-menu icon linked directly from Vanilla's
-  loaded Unity `UI-MasterAtlas` texture over every known construction placement,
-  centered on its actual footprint cells, including individual wall, stair,
-  moat, pitch-ditch, and trap cells.
+- a manually selected clean building image from Vanilla's
+  `StreamingAssets/Help/Images` for supported normal-view structures, with the
+  normal non-highlighted `UI-MasterAtlas` build-menu image as fallback; and
+- compact build-menu images for flattened view and for individual wall, moat,
+  pitch-ditch, trap, and other placements without an approved Help image.
 
-Perspective building icons use a fixed visible ground-contact baseline measured
-in source pixels instead of the rectangular image center. Vanilla crops Church,
-Mercenary Post, Hovel, and other menu images to different heights, so the
-normalized sprite pivot is calculated separately from each crop. This keeps the
-building base centered on its complete footprint; flat one-cell construction
-icons retain a center pivot.
+Help images are decoded once from the installed game, cleaned without modifying
+the original files, alpha-trimmed on the CPU, and cached as inexpensive
+`FullRect` sprites. The renderer never requests Unity's synchronous `Tight`
+mesh generation. Missing or unreadable images safely fall back to the matching
+build-menu resource.
+
+The three Church mappers follow Vanilla's lord skin condition. Lord types 1, 2,
+6, and 7 use the Mosque menu variants; the large normal-view building uses
+`ST100_Mosque.png`. Other lord types use the Church menu variants and
+`ST36_Church.png`.
 
 The Keep frame is used only as the anchor and is not drawn. AIV `miscItems` are
 ignored. Unknown mapper values remain visible as magenta one-tile markers.
@@ -46,12 +51,12 @@ The overlay starts hidden on every map. Use the `Blueprint: off/on` button in th
 upper-left MainHUD or assign any single Unity key, mouse button, or controller
 button in Mod Settings. The overlay rebuilds after map rotation or flattened
 landscape changes and is cleared on map unload. In Vanilla's flattened-landscape
-view, Blueprint icons are hidden and only the colored ground footprints remain
-visible for an unobstructed overview. Returning to the normal view restores the
-icons automatically. When leaving the flattened view, the complete Blueprint is
-temporarily hidden while Vanilla restores terrain heights and Tilemap transforms.
-It is rendered again only after the normal-height projection has settled, so no
-stale intermediate overlay is displayed.
+view, all Blueprint images use the former compact, footprint-constrained icon
+size so the overview remains readable. Returning to the normal view restores
+regular buildings to their natural world scale. When leaving the flattened view,
+the complete Blueprint is temporarily hidden while Vanilla restores terrain
+heights and Tilemap transforms. It is rendered again only after the normal-height
+projection has settled, so no stale intermediate overlay is displayed.
 
 Because Blueprint mode does not change simulation state, it works on new maps,
 loaded savegames, and multiplayer. Every multiplayer client independently selects
@@ -78,6 +83,29 @@ Noesis delivers the button's mouse event before its command enables capture.
 provide process-persistent fallbacks, especially for controller buttons. These
 callbacks and Noesis event registrations must not be removed from the early
 `BaseUnityPlugin.OnDestroy()`.
+
+In normal landscape view, building-icon sizes can be calibrated directly from
+Vanilla's transparent construction preview. Selecting a supported building in
+the build menu and holding it over the map is sufficient; no placement is
+required. SpawnCastle first measures the bounds of Vanilla's actual cursor
+renderers. If those are unavailable for an ordinary building, it restores the
+proven wide Tilemap scan and ignores unchanged sprites and ordinary 64x32
+placement-ground sprites. Reservation-bearing buildings never use that broad
+fallback, so their yards cannot enlarge the result. After three stable samples
+the measurement is stored in
+`BepInEx/config/SpawnCastle_Serp.BlueprintBuildingSizes.tsv`. A visible
+Blueprint is refreshed immediately. Buildings not measured yet retain the
+footprint-derived fallback size, while flattened-landscape mode continues to
+use the compact icons. The uniform normal-view scale covers both the measured
+width and height. Clean Help images use the measurement without a generic
+correction; build-menu fallbacks retain their small visual correction.
+
+Saved measurements carry an algorithm revision. Revisions 2 and 3 are ignored
+because their filters could either measure only the tinted placement ground or
+discard the real preview. Revision 1 remains valid for ordinary buildings.
+Reservation-bearing Barracks, Engineers Guild, and Oil Smelter require a new
+revision 4 cursor-renderer measurement. Their additional placement reservations
+remain visible as colored ground tiles but never enlarge the building image.
 
 ## Native castle spawning
 

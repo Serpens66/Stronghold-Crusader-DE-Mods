@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Spawn Castle",
   "Description": "Displays a local visual AIVJSON castle blueprint or spawns it through the game's native AIV pipeline.",
-  "Version": "0.3.11",
+  "Version": "0.3.21",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
@@ -216,6 +216,85 @@
       "Changes": [
         "Hid the complete Blueprint overlay while Vanilla restores normal terrain after leaving flattened-landscape view, preventing the stale projection from flashing before the settled rebuild.",
         "Aligned regular build-menu icons to a fixed ground-contact pixel baseline so differently cropped images such as the Church and Mercenary Post remain centered on their colored footprints."
+      ]
+    },
+    {
+      "Version": "0.3.12",
+      "Changes": [
+        "Separated regular Blueprint building scale in the normal landscape view from the former footprint-height compression.",
+        "Restored the former compact Blueprint icons in flattened-landscape view while keeping walls, traps, moats, and other one-cell construction images compact in both views."
+      ]
+    },
+    {
+      "Version": "0.3.13",
+      "Changes": [
+        "Corrected normal-view building scale for the build-menu crops, whose pixel dimensions are approximately half those of Vanilla's 64-PPU world sprites.",
+        "Rendered regular buildings at 32 PPU so Churches and other Blueprint buildings regain their intended full world size without changing compact flattened-view icons."
+      ]
+    },
+    {
+      "Version": "0.3.14",
+      "Changes": [
+        "Replaced the incorrect global build-menu scale with an individual scale derived from each icon width and its AIV footprint.",
+        "Validated the calculation against matching fragments from Vanilla's 64-PPU building, workshop, church, castle, and animation sprites.",
+        "Excluded farm crop clearances from visual scaling while retaining the former compact icons in flattened-landscape view."
+      ]
+    },
+    {
+      "Version": "0.3.15",
+      "Changes": [
+        "Added automatic per-building size calibration from Vanilla's transparent construction preview while a building is held at the mouse cursor.",
+        "Persisted measured world dimensions by mapper and immediately refreshed visible Blueprint icons after a stable preview measurement.",
+        "Kept the footprint-derived scale only as a fallback for buildings that have not yet been shown in Vanilla's construction preview."
+      ]
+    },
+    {
+      "Version": "0.3.16",
+      "Changes": [
+        "Corrected calibration to measure Vanilla's complete cursor-rendered building preview instead of the colored placement footprint.",
+        "Excluded ordinary one-tile ground sprites from the fallback preview measurement.",
+        "Created build-menu sprites with tight meshes so transparent atlas margins no longer make Blueprint buildings visibly too small."
+      ]
+    },
+    {
+      "Version": "0.3.17",
+      "Changes": [
+        "Removed synchronous Tight-mesh generation that could freeze the game for roughly one second per unique UI-atlas crop when enabling a large Blueprint.",
+        "Used both measured preview width and height for uniform building scale, selecting the larger required factor so sliced previews such as the Inn retain their full visual extent.",
+        "Kept the filtered extended-tile preview measurement and reused already stored two-dimensional calibration values."
+      ]
+    },
+    {
+      "Version": "0.3.18",
+      "Changes": [
+        "Excluded Barracks, Engineers Guild, and Oil Smelter placement reservations from building-icon scale calculations.",
+        "Scaled reserved-area buildings from their core footprint while retaining every reserved tile as a colored Blueprint ground marker.",
+        "Applied a small 10 percent visual correction to calibrated regular buildings whose sliced Vanilla preview bounds remained slightly too small."
+      ]
+    },
+    {
+      "Version": "0.3.19",
+      "Changes": [
+        "Used the manually selected clean Vanilla Help images for normal-view Blueprint buildings while retaining compact build-menu icons in flattened view.",
+        "Added alpha trimming, source-specific cleanup for corrupt workshop image borders, cached FullRect sprites, and safe build-menu fallbacks.",
+        "Selected Church and Mosque images from Vanilla's lord-type condition and restricted preview calibration to each building's core footprint.",
+        "Versioned saved calibration measurements so legacy Barracks, Engineers Guild, and Oil Smelter reservation bounds cannot enlarge their Blueprint images."
+      ]
+    },
+    {
+      "Version": "0.3.20",
+      "Changes": [
+        "Excluded Vanilla's tinted 64x32 placement-ground sprites from automatic building-preview calibration while retaining the core-footprint restriction.",
+        "Ignored faulty revision 2 measurements that made Blueprint buildings such as the Dog Cage, Granary, and Inn substantially too small.",
+        "Preserved useful revision 1 measurements for ordinary buildings and introduced revision 3 for newly measured preview graphics."
+      ]
+    },
+    {
+      "Version": "0.3.21",
+      "Changes": [
+        "Restored measurement of Vanilla's complete cursor-rendered building preview with the proven wide changed-sprite fallback for ordinary buildings.",
+        "Required reservation-bearing Barracks, Engineers Guild, and Oil Smelter to use cursor-renderer bounds so their yards cannot enlarge Blueprint images.",
+        "Ignored faulty revision 2 and 3 measurements, retained valid revision 1 ordinary-building bounds, and introduced revision 4 calibration."
       ]
     }
   ]
