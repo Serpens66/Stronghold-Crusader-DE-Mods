@@ -1,0 +1,65 @@
+{
+  "GUID": "SpawnCastle_Serp",
+  "Author": "Serpens66",
+  "Name": "Spawn Castle",
+  "Description": "Spawns a selected AIVJSON castle around the human player's keep when a new map starts.",
+  "Version": "0.1.6",
+  "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
+  "Manifest": 1,
+  "SerpChangelog": [
+    {
+      "Version": "0.1.0",
+      "Changes": [
+        "Added a Mod Settings dropdown for AIVJSON files from the mod folder, CustomLords, ExtendedLords, and the official Castle Editor.",
+        "Added automatic singleplayer castle spawning around the existing human keep after a new map starts.",
+        "Added savegame duplication protection and detailed millisecond-timestamped spawn diagnostics."
+      ]
+    },
+    {
+      "Version": "0.1.1",
+      "Changes": [
+        "Removed the false-positive network-environment spawn block that also affected regular skirmish starts.",
+        "Promoted lifecycle and per-placement diagnostics to Info level."
+      ]
+    },
+    {
+      "Version": "0.1.2",
+      "Changes": [
+        "Replaced Unity JsonUtility with a dependency-free AIVJSON reader after JsonUtility returned empty frame lists.",
+        "Added strict JSON error positions and support for safely skipping future unknown properties."
+      ]
+    },
+    {
+      "Version": "0.1.3",
+      "Changes": [
+        "Corrected the inverted AIV editor row when mapping castle positions to world tile Y coordinates.",
+        "Grouped connected wall tiles into real line segments and added immediate tile-flag verification.",
+        "Added a building-footprint preflight check and temporary free wall placement with guaranteed cost restoration."
+      ]
+    },
+    {
+      "Version": "0.1.4",
+      "Changes": [
+        "Anchored AIV placement to the real keep building begin tile found in the building array instead of relying on the player-resource keep tile.",
+        "Added side-by-side diagnostics for the reported keep id, resource tile, door tile, and actual keep footprint.",
+        "Deferred wall spawning while building placement is tested and removed all wall-cost multiplier changes."
+      ]
+    },
+    {
+      "Version": "0.1.5",
+      "Changes": [
+        "Persisted the locally selected AIVJSON blueprint in the BepInEx configuration across game restarts.",
+        "Validated restored selections against the current AIV file catalog and safely falls back to disabled when a file disappeared.",
+        "Documented the verified real-keep anchor and world-coordinate conversion used for building spawning."
+      ]
+    },
+    {
+      "Version": "0.1.6",
+      "Changes": [
+        "Moved AIVJSON selection persistence from BepInEx cfg to the Script Extender LobbyModSettings storage used by other mod settings.",
+        "Stored the host selection in SpawnCastle_Serp.msgpack next to the plugin and restored it before the settings UI is bound.",
+        "Kept catalog validation and the safe disabled fallback for missing AIVJSON files."
+      ]
+    }
+  ]
+}

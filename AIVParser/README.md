@@ -197,8 +197,18 @@ unbekannten Wert blind an das Spiel zu übergeben.
 
 ### AIV relativ zu einem Weltanker ausrichten
 
-Als Weltanker bietet sich der lokale Tile-Punkt an, an dem der AIV-Keep liegen soll.
-Für jeden AIV-Punkt berechnet der Parser zunächst nur die sichere, rotierte Differenz:
+Als Weltanker bietet sich der tatsächliche Begin-Tile des bereits vorhandenen
+Keep-Gebäudes an. `GamePlayerManagerAPI.GetPlayerKeepPosition(...)` sollte dafür
+nicht allein als Wahrheit verwendet werden. In der funktionierenden
+SpawnCastle-Integration wird das Keep in
+`GameBuildingManagerAPI.Instance.GetBuildingsAsSpan()` über Besitzer und
+`STRUCT_KEEP_ONE` bis `STRUCT_KEEP_FIVE` gesucht. Dabei werden sowohl
+`AliveState.NeedsInit` als auch `AliveState.IsAlive` zugelassen, weil das Keep beim
+frühen Kartenstart noch initialisiert werden kann.
+
+Der bestätigte Weltanker ist anschließend
+`r_TilePositionXBegin/r_TilePositionYBegin` dieses realen Keep-Gebäudes. Für jeden
+AIV-Punkt berechnet der Parser zunächst die Differenz zum AIV-Keep:
 
     AivRotation rotation = AivRotation.Degrees0;
     AivGridPoint aivKeep = result.Blueprint.KeepAnchor.Value;
@@ -213,16 +223,16 @@ Für jeden AIV-Punkt berechnet der Parser zunächst nur die sichere, rotierte Di
                     aivKeep,
                     rotation);
 
-            // delta.Row und delta.Column jetzt über einen im Spiel
-            // verifizierten Adapter auf keepTileX/keepTileY abbilden.
+            int tileX = realKeepBeginX + delta.Column;
+            int tileY = realKeepBeginY - delta.Row;
         }
     }
 
-Diese Trennung ist wichtig: Eine SVG-Rotation beweist noch nicht, ob `Row` im Spiel
-Tile-X oder Tile-Y entspricht und welches Vorzeichen benötigt wird. Der spätere Mod
-sollte die vier möglichen Achsen-/Vorzeichenzuordnungen zunächst mit wenigen
-Testgebäuden prüfen. Erst danach gehört diese Abbildung in eine zentrale Methode wie
-`ConvertAivDeltaToWorld(...)`.
+Diese Zuordnung wurde mit einer tatsächlich gespawnten AIV-Burg für
+`AivRotation.Degrees0` bestätigt: AIV-Spalten laufen in Welt-X-Richtung, AIV-Zeilen
+laufen invertiert zur Welt-Y-Richtung. Der Parser selbst bleibt absichtlich
+spielunabhängig und gibt weiterhin nur AIV-Punkte und Ankerdifferenzen zurück; die
+obige Abbildung gehört in den Spieladapter des jeweiligen Mods.
 
 Wenn bereits ein Keep des Zielspielers existiert, kann dessen Platzierung als
 Weltanker verwendet und der Keep-Frame der AIV übersprungen werden. Soll eine
@@ -255,12 +265,8 @@ Spawners sieht nach der verifizierten Koordinatenumrechnung so aus:
                     result.Blueprint.KeepAnchor.Value,
                     rotation);
 
-            ConvertAivDeltaToWorld(
-                keepTileX,
-                keepTileY,
-                delta,
-                out int tileX,
-                out int tileY);
+            int tileX = realKeepBeginX + delta.Column;
+            int tileY = realKeepBeginY - delta.Row;
 
             GameBuildingManagerAPI.Instance.CreatePrefab(
                 playerId,
@@ -270,17 +276,16 @@ Spawners sieht nach der verifizierten Koordinatenumrechnung so aus:
                 scale,
                 0,
                 true,
-                bypassPlacementRules: false);
+                bypassPlacementRules: true);
         }
     }
 
-`ConvertAivDeltaToWorld(...)` ist dabei bewusst noch nicht implementiert. Die Methode
-muss die zuvor im Spiel bestätigte Achsen- und Vorzeichenzuordnung enthalten.
-
 `bIsFree: true` verhindert Ressourcenkosten beim Wiederherstellen einer fertigen
-AIV-Burg. Mit `bypassPlacementRules: false` gelten weiterhin die normalen
-Platzierungsregeln. Ein absichtliches Umgehen dieser Regeln sollte erst nach
-gründlicher Überlappungs- und Kartenrandprüfung aktiviert werden.
+AIV-Burg. `bypassPlacementRules: true` ist für das Wiederherstellen einer bereits
+validierten fertigen Burg sinnvoll, darf aber erst nach einer eigenen Kartenrand-
+und Footprint-Überlappungsprüfung verwendet werden. Diese Prüfung muss das reale
+Keep mit dessen `r_OccupyTileGridSize` einschließen. Andernfalls kann das Spiel
+ungültige oder überlappende Platzierungen akzeptieren.
 
 Der Rückgabewert von `CreatePrefab(...)` sollte nicht als zuverlässige Gebäude-ID
 behandelt werden. Falls der Mod die erzeugten IDs benötigt, sollte er sie synchron
@@ -329,7 +334,7 @@ Platzierungsregeln abgelehnte Gebäude nachvollziehen.
 
 ## Coordinate contract
 
-The parser does not guess how the AIV axes map to the game's world-tile X/Y axes:
+The parser itself remains independent from game-world coordinates:
 
 - `Row = encodedOffset / 100`
 - `Column = encodedOffset % 100`
@@ -338,6 +343,11 @@ The parser does not guess how the AIV axes map to the game's world-tile X/Y axes
 - a building offset is the editor-space upper-left corner of its `size x size`
   footprint; the footprint extends towards smaller rows and larger columns
 - the stored anchor remains available for later world placement
+- the verified SHCDE adapter for zero-degree rotation maps
+  `worldX = realKeepBeginX + delta.Column` and
+  `worldY = realKeepBeginY - delta.Row`
+- `realKeepBegin` must come from the actual owned keep building, not solely from
+  the player-resource keep position
 
 The SVG draws rows upward, matching the official AIV editor. This affects only screen
 Y; exported row/column values and rotation math remain unchanged.
