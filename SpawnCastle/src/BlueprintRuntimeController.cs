@@ -27,6 +27,7 @@ namespace SpawnCastle
         private SpawnCastleSettingsViewModel settings;
         private BlueprintRenderer renderer;
         private BlueprintBuildingSizeCalibration sizeCalibration;
+        private BlueprintDrawbridgePreviewCapture drawbridgePreviewCapture;
         private BlueprintLayout layout;
         private bool initialized;
         private bool mapActive;
@@ -68,6 +69,8 @@ namespace SpawnCastle
                 settings ?? throw new ArgumentNullException(nameof(settings));
             sizeCalibration =
                 new BlueprintBuildingSizeCalibration(log);
+            drawbridgePreviewCapture =
+                new BlueprintDrawbridgePreviewCapture(log);
             renderer = new BlueprintRenderer(log, sizeCalibration);
             Hud = new BlueprintHudViewModel(ToggleBlueprint);
 
@@ -175,7 +178,14 @@ namespace SpawnCastle
                 RefreshHud();
             }
 
-            if (!mapActive || !settings.IsBlueprintMode)
+            if (!mapActive)
+                return;
+
+            // The held Vanilla construction preview is available regardless
+            // of whether this match was started in Blueprint mode.
+            drawbridgePreviewCapture.Tick();
+
+            if (!settings.IsBlueprintMode)
                 return;
 
             if (sizeCalibration.Tick() &&

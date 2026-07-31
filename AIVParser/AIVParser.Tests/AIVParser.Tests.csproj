@@ -13,5 +13,9 @@
     <ProjectReference Include="..\AIVParser.Cli\AIVParser.Cli.csproj" />
     <Compile Include="..\..\SpawnCastle\src\BlueprintBuildingIconCatalog.cs"
              Link="SpawnCastle\BlueprintBuildingIconCatalog.cs" />
+    <Compile Include="..\..\SpawnCastle\src\AivJsonModels.cs"
+             Link="SpawnCastle\AivJsonModels.cs" />
+    <Compile Include="..\..\SpawnCastle\src\BlueprintLayout.cs"
+             Link="SpawnCastle\BlueprintLayout.cs" />
   </ItemGroup>
 </Project>

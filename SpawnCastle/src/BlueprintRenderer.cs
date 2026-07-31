@@ -25,8 +25,12 @@ namespace SpawnCastle
             new Dictionary<string, Sprite>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, Sprite> helpImageSprites =
             new Dictionary<string, Sprite>(StringComparer.OrdinalIgnoreCase);
-        private readonly HashSet<int> missingIconMappers = new HashSet<int>();
+        private readonly HashSet<string> missingIconKeys =
+            new HashSet<string>(StringComparer.Ordinal);
         private readonly HashSet<int> missingScaleMappers = new HashSet<int>();
+        private readonly HashSet<BlueprintDrawbridgePosition>
+            reportedDrawbridgePlaceholders =
+                new HashSet<BlueprintDrawbridgePosition>();
         private readonly HashSet<string> failedHelpImages =
             new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private static readonly FieldInfo NoesisTextureCacheField =
@@ -79,10 +83,13 @@ namespace SpawnCastle
             bool flattenedLandscape = EngineInterface.FlattenedLandscape;
             foreach (BlueprintIconPlacement placement in layout.Icons)
             {
+                BlueprintDrawbridgePosition drawbridgePosition =
+                    ResolveDrawbridgePosition(placement);
                 BlueprintIconVisual icon =
                     GetBlueprintIcon(
                         placement.MapperValue,
-                        flattenedLandscape);
+                        flattenedLandscape,
+                        drawbridgePosition);
                 if (icon.Sprite == null)
                     continue;
                 if (TryCreateIcon(
@@ -203,48 +210,260 @@ namespace SpawnCastle
 
         private BlueprintIconVisual GetBlueprintIcon(
             int mapperValue,
-            bool flattenedLandscape)
+            bool flattenedLandscape,
+            BlueprintDrawbridgePosition drawbridgePosition)
         {
-            if (missingIconMappers.Contains(mapperValue))
-                return default;
-
+            string iconKey = mapperValue + ":" + drawbridgePosition;
             try
             {
                 AivMapperInfo mapper = AivMapperCatalog.Resolve(mapperValue);
+                bool mapRotationSwapsAxes = GameMap.instance != null &&
+                    (GameMap.instance.CurrentRotation() == Enums.Dircs.East ||
+                     GameMap.instance.CurrentRotation() == Enums.Dircs.West);
+                string visualMapperName = BlueprintBuildingIconCatalog
+                    .ResolveGateVisualMapper(
+                        mapper.Name,
+                        mapRotationSwapsAxes);
+                iconKey += ":" + visualMapperName;
+                if (missingIconKeys.Contains(iconKey))
+                    return default;
+
                 BlueprintBuildingIconDefinition definition =
-                    BlueprintBuildingIconCatalog.ResolveDefinition(mapper.Name);
+                    BlueprintBuildingIconCatalog.ResolveDefinition(
+                        visualMapperName);
                 if (definition == null)
                     throw new InvalidOperationException(
-                        $"No Blueprint icon is mapped for {mapper.Name}.");
+                        $"No Blueprint icon is mapped for {visualMapperName}.");
 
                 bool islamicSkin = UsesIslamicChurchSkin();
+                BlueprintDrawbridgeImageDefinition drawbridgeImage =
+                    string.Equals(
+                        mapper.Name,
+                        "MAPPER_DRAWBRIDGE",
+                        StringComparison.Ordinal)
+                            ? BlueprintBuildingIconCatalog
+                                .ResolveDrawbridgeImage(drawbridgePosition)
+                            : null;
                 string helpImage = flattenedLandscape
                     ? null
-                    : definition.ResolveHelpImage(islamicSkin);
+                    : drawbridgeImage?.HelpImageFileName ??
+                        definition.ResolveHelpImage(islamicSkin);
+                bool flipHorizontally =
+                    drawbridgeImage?.FlipHorizontally ?? false;
+                bool usesPlaceholderImage =
+                    drawbridgeImage?.UsesPlaceholderImage ?? false;
+                ReportDrawbridgePlaceholder(
+                    drawbridgePosition,
+                    usesPlaceholderImage);
+                if (!flattenedLandscape &&
+                    drawbridgeImage?.UsesBundledImage == true &&
+                    TryGetBundledDrawbridgeSprite(
+                        drawbridgeImage.HelpImageFileName,
+                        drawbridgeImage.BundledPivotPixelsFromBottom,
+                        out Sprite bundledDrawbridgeSprite))
+                {
+                    return new BlueprintIconVisual(
+                        bundledDrawbridgeSprite,
+                        true,
+                        false,
+                        false,
+                        drawbridgePosition,
+                        true);
+                }
+
+                // Keep the Vanilla Help image as a safe fallback if a bundled
+                // directional asset is missing from an installation.
+                if (drawbridgeImage?.UsesBundledImage == true)
+                    helpImage = definition.ResolveHelpImage(islamicSkin);
                 if (!string.IsNullOrWhiteSpace(helpImage) &&
                     TryGetHelpImageSprite(
                         helpImage,
                         definition.Cleanup,
                         out Sprite helpSprite))
                 {
-                    return new BlueprintIconVisual(helpSprite, true);
+                    return new BlueprintIconVisual(
+                        helpSprite,
+                        true,
+                        flipHorizontally,
+                        usesPlaceholderImage,
+                        drawbridgePosition,
+                        false);
                 }
 
                 string resourceKey =
                     definition.ResolveBuildMenuResource(islamicSkin);
                 Sprite buildMenuSprite =
                     GetBuildMenuSprite(mapper, resourceKey);
-                return new BlueprintIconVisual(buildMenuSprite, false);
+                return new BlueprintIconVisual(
+                    buildMenuSprite,
+                    false,
+                    flipHorizontally,
+                    usesPlaceholderImage,
+                    drawbridgePosition,
+                    false);
             }
             catch (Exception ex)
             {
-                missingIconMappers.Add(mapperValue);
+                missingIconKeys.Add(iconKey);
                 Shared.DebugLogHelper.LogWarning(
                     log,
                     $"Blueprint icon unavailable for mapper {mapperValue}; " +
                     $"the colored footprint remains visible: {ex.Message}");
                 return default;
             }
+        }
+
+        private bool TryGetBundledDrawbridgeSprite(
+            string fileName,
+            float pivotPixelsFromBottom,
+            out Sprite sprite)
+        {
+            string cacheKey = "BundledDrawbridge:" + fileName;
+            sprite = null;
+            if (helpImageSprites.TryGetValue(cacheKey, out Sprite cached))
+            {
+                sprite = cached;
+                return true;
+            }
+            if (failedHelpImages.Contains(cacheKey))
+                return false;
+
+            string assemblyDirectory = Path.GetDirectoryName(
+                typeof(BlueprintRenderer).Assembly.Location);
+            string fullPath = Path.Combine(
+                assemblyDirectory,
+                "BlueprintImages",
+                fileName);
+            try
+            {
+                if (!File.Exists(fullPath))
+                    throw new FileNotFoundException(
+                        "Bundled directional Drawbridge image was not found.",
+                        fullPath);
+
+                var texture = new Texture2D(
+                    2,
+                    2,
+                    TextureFormat.ARGB32,
+                    false);
+                texture.name = "SpawnCastle_" +
+                    Path.GetFileNameWithoutExtension(fileName);
+                texture.filterMode = FilterMode.Bilinear;
+                texture.wrapMode = TextureWrapMode.Clamp;
+                if (!ImageConversion.LoadImage(
+                        texture,
+                        File.ReadAllBytes(fullPath),
+                        false))
+                {
+                    Object.Destroy(texture);
+                    throw new InvalidDataException(
+                        $"Unity could not decode '{fullPath}'.");
+                }
+
+                // The captures preserve the complete 5-tile Vanilla preview.
+                // Keeping the full rect retains its exact 64-PPU dimensions;
+                // the composite pivot was reconstructed from all 25 tiles.
+                sprite = Sprite.Create(
+                    texture,
+                    new Rect(0f, 0f, texture.width, texture.height),
+                    new Vector2(
+                        0.5f,
+                        pivotPixelsFromBottom / texture.height),
+                    BuildMenuPixelsPerWorldUnit,
+                    0,
+                    SpriteMeshType.FullRect);
+                sprite.name = texture.name;
+                Object.DontDestroyOnLoad(texture);
+                Object.DontDestroyOnLoad(sprite);
+                helpImageSprites.Add(cacheKey, sprite);
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    $"Loaded bundled directional Drawbridge Blueprint: " +
+                    $"file='{fileName}', size={texture.width}x{texture.height}, " +
+                    $"pivotPixels={pivotPixelsFromBottom:F1}, " +
+                    $"path={fullPath}.");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                failedHelpImages.Add(cacheKey);
+                Shared.DebugLogHelper.LogWarning(
+                    log,
+                    $"Bundled directional Drawbridge image '{fileName}' " +
+                    $"is unavailable; falling back to ST49: {ex.Message}");
+                return false;
+            }
+        }
+
+        private BlueprintDrawbridgePosition ResolveDrawbridgePosition(
+            BlueprintIconPlacement placement)
+        {
+            if (placement.MapperValue != 105)
+                return BlueprintDrawbridgePosition.NotApplicable;
+            if (!placement.AdjacentGateCenter.HasValue)
+                return BlueprintDrawbridgePosition.Unknown;
+
+            int bridgeCenterX =
+                (placement.MinimumWorldX + placement.MaximumWorldX) / 2;
+            int bridgeCenterY =
+                (placement.MinimumWorldY + placement.MaximumWorldY) / 2;
+            BlueprintWorldTile gateCenter =
+                placement.AdjacentGateCenter.Value;
+            if (!TryGetGroundPosition(
+                    bridgeCenterX,
+                    bridgeCenterY,
+                    out Vector3 bridgePosition) ||
+                !TryGetGroundPosition(
+                    gateCenter.X,
+                    gateCenter.Y,
+                    out Vector3 gatePosition))
+            {
+                return BlueprintDrawbridgePosition.Unknown;
+            }
+
+            Vector3 delta = bridgePosition - gatePosition;
+            return BlueprintBuildingIconCatalog.ResolveDrawbridgePosition(
+                delta.x,
+                delta.y);
+        }
+
+        private bool TryGetGroundPosition(
+            int worldX,
+            int worldY,
+            out Vector3 position)
+        {
+            if (!TryGetRenderedTile(
+                    worldX,
+                    worldY,
+                    out GameMapTile mapTile,
+                    out Vector3Int tilePosition))
+            {
+                position = default;
+                return false;
+            }
+
+            position = GetGroundCellCenter(mapTile, tilePosition);
+            return true;
+        }
+
+        private void ReportDrawbridgePlaceholder(
+            BlueprintDrawbridgePosition position,
+            bool usesPlaceholderImage)
+        {
+            if (!usesPlaceholderImage ||
+                !reportedDrawbridgePlaceholders.Add(position))
+            {
+                return;
+            }
+
+            string reason = position == BlueprintDrawbridgePosition.Unknown
+                ? "no unique adjacent directional gatehouse was found"
+                : "a dedicated view from behind the gatehouse is still missing";
+            Shared.DebugLogHelper.LogWarning(
+                log,
+                $"Drawbridge Blueprint uses a temporary image: " +
+                $"position={position}, reason={reason}. " +
+                $"Replace this position's directional image when available.");
         }
 
         private Sprite GetBuildMenuSprite(
@@ -671,7 +890,10 @@ namespace SpawnCastle
 
             position /= validCorners;
             var iconObject = new GameObject(
-                $"BlueprintIcon_{placement.MapperValue}");
+                icon.UsesPlaceholderImage
+                    ? $"BlueprintIcon_{placement.MapperValue}_" +
+                        $"{icon.DrawbridgePosition}_Placeholder"
+                    : $"BlueprintIcon_{placement.MapperValue}");
             iconObject.transform.SetParent(overlayRoot.transform, false);
             iconObject.transform.position = position;
             SpriteRenderer renderer = iconObject.AddComponent<SpriteRenderer>();
@@ -686,7 +908,10 @@ namespace SpawnCastle
                 ? normalScale
                 : CalculateCompactIconScale(placement, sprite);
             iconObject.transform.localScale =
-                new Vector3(scale, scale, 1f);
+                new Vector3(
+                    icon.FlipHorizontally ? -scale : scale,
+                    scale,
+                    1f);
             return true;
         }
 
@@ -698,6 +923,15 @@ namespace SpawnCastle
             out float scale)
         {
             Vector3 spriteSize = sprite.bounds.size;
+            if (icon.UsesExactWorldScale)
+            {
+                // Directional Drawbridge captures already contain exactly five
+                // 64-PPU world tiles; their differing heights are real views.
+                scale = 1f;
+                missingScaleMappers.Remove(placement.MapperValue);
+                return true;
+            }
+
             Vector2 calibratedWorldSize =
                 sizeCalibration.TryGetWorldSize(
                     placement.MapperValue,
@@ -866,15 +1100,33 @@ namespace SpawnCastle
 
     internal readonly struct BlueprintIconVisual
     {
-        public BlueprintIconVisual(Sprite sprite, bool usesHelpImage)
+        public BlueprintIconVisual(
+            Sprite sprite,
+            bool usesHelpImage,
+            bool flipHorizontally,
+            bool usesPlaceholderImage,
+            BlueprintDrawbridgePosition drawbridgePosition,
+            bool usesExactWorldScale)
         {
             Sprite = sprite;
             UsesHelpImage = usesHelpImage;
+            FlipHorizontally = flipHorizontally;
+            UsesPlaceholderImage = usesPlaceholderImage;
+            DrawbridgePosition = drawbridgePosition;
+            UsesExactWorldScale = usesExactWorldScale;
         }
 
         public Sprite Sprite { get; }
 
         public bool UsesHelpImage { get; }
+
+        public bool FlipHorizontally { get; }
+
+        public bool UsesPlaceholderImage { get; }
+
+        public BlueprintDrawbridgePosition DrawbridgePosition { get; }
+
+        public bool UsesExactWorldScale { get; }
     }
 
     internal readonly struct BlueprintRenderResult

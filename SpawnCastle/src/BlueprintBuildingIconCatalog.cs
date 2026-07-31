@@ -12,6 +12,50 @@ namespace SpawnCastle
         RemoveTannerArtifacts
     }
 
+    internal enum BlueprintDrawbridgePosition
+    {
+        NotApplicable,
+        Unknown,
+        BottomLeft,
+        BottomRight,
+        TopLeft,
+        TopRight
+    }
+
+    internal sealed class BlueprintDrawbridgeImageDefinition
+    {
+        public BlueprintDrawbridgeImageDefinition(
+            string bundledImageFileName,
+            bool flipHorizontally,
+            bool usesPlaceholderImage,
+            bool usesBundledImage,
+            float bundledPivotPixelsFromBottom = 0f)
+        {
+            if (usesBundledImage && bundledPivotPixelsFromBottom <= 0f)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(bundledPivotPixelsFromBottom));
+            }
+
+            HelpImageFileName = bundledImageFileName ??
+                throw new ArgumentNullException(nameof(bundledImageFileName));
+            FlipHorizontally = flipHorizontally;
+            UsesPlaceholderImage = usesPlaceholderImage;
+            UsesBundledImage = usesBundledImage;
+            BundledPivotPixelsFromBottom = bundledPivotPixelsFromBottom;
+        }
+
+        public string HelpImageFileName { get; }
+
+        public bool FlipHorizontally { get; }
+
+        public bool UsesPlaceholderImage { get; }
+
+        public bool UsesBundledImage { get; }
+
+        public float BundledPivotPixelsFromBottom { get; }
+    }
+
     internal sealed class BlueprintBuildingIconDefinition
     {
         public BlueprintBuildingIconDefinition(
@@ -95,6 +139,49 @@ namespace SpawnCastle
                     ["MAPPER_CATTLEFARM"] = 1.64f
                 };
 
+        private static readonly IReadOnlyDictionary<
+            BlueprintDrawbridgePosition,
+            BlueprintDrawbridgeImageDefinition> DrawbridgeImages =
+                new Dictionary<
+                    BlueprintDrawbridgePosition,
+                    BlueprintDrawbridgeImageDefinition>
+                {
+                    [BlueprintDrawbridgePosition.BottomLeft] =
+                        new BlueprintDrawbridgeImageDefinition(
+                            "ST49_Drawbridge.png",
+                            false,
+                            false,
+                            false),
+                    [BlueprintDrawbridgePosition.BottomRight] =
+                        new BlueprintDrawbridgeImageDefinition(
+                            "ST49_Drawbridge.png",
+                            true,
+                            false,
+                            false),
+                    [BlueprintDrawbridgePosition.TopLeft] =
+                        new BlueprintDrawbridgeImageDefinition(
+                            "Drawbridge_TopRight.png",
+                            false,
+                            false,
+                            true,
+                            80.5f),
+                    [BlueprintDrawbridgePosition.TopRight] =
+                        new BlueprintDrawbridgeImageDefinition(
+                            "Drawbridge_TopLeft.png",
+                            false,
+                            false,
+                            true,
+                            80.5f)
+                };
+
+        private static readonly BlueprintDrawbridgeImageDefinition
+            UnknownDrawbridgeImage =
+                new BlueprintDrawbridgeImageDefinition(
+                    "ST49_Drawbridge.png",
+                    false,
+                    true,
+                    false);
+
         private static readonly IReadOnlyDictionary<string, string>
             HelpImageFiles =
                 new Dictionary<string, string>(StringComparer.Ordinal)
@@ -148,8 +235,8 @@ namespace SpawnCastle
                     ["MAPPER_TOWER3"] = "ST74_Tower3.png",
                     ["MAPPER_TOWER4"] = "ST74_Tower4.png",
                     ["MAPPER_TOWER5"] = "ST74_Tower5.png",
+                    // The Help image shows only Vanilla's A/NS orientation.
                     ["MAPPER_GATE_STONE2A"] = "ST45_Gate_Main.png",
-                    ["MAPPER_GATE_STONE2B"] = "ST45_Gate_Main.png",
                     ["MAPPER_MAYPOLE"] = "ST65_Maypole.png",
                     ["MAPPER_GALLOWS"] = "ST62_Gallows.png",
                     ["MAPPER_OIL_SMELTER"] = "ST28_Oil_Smelter.png",
@@ -216,10 +303,11 @@ namespace SpawnCastle
                 ["MAPPER_TOWER3"] = "UI-Buildings K005",
                 ["MAPPER_TOWER4"] = "UI-Buildings K007",
                 ["MAPPER_TOWER5"] = "UI-Buildings K009",
+                // Vanilla provides separate normal sprites for both axes.
                 ["MAPPER_GATE_STONE1A"] = "UI-Buildings L003",
-                ["MAPPER_GATE_STONE1B"] = "UI-Buildings L003",
+                ["MAPPER_GATE_STONE1B"] = "UI-Buildings L025",
                 ["MAPPER_GATE_STONE2A"] = "UI-Buildings L005",
-                ["MAPPER_GATE_STONE2B"] = "UI-Buildings L005",
+                ["MAPPER_GATE_STONE2B"] = "UI-Buildings L023",
                 ["MAPPER_GARDEN1"] = "UI-Buildings H005",
                 ["MAPPER_GARDEN7"] = "UI-Buildings H005",
                 ["MAPPER_GARDEN10"] = "UI-Buildings H005",
@@ -282,6 +370,58 @@ namespace SpawnCastle
                     out BlueprintBuildingIconDefinition? definition)
                     ? definition
                     : null;
+        }
+
+        public static string? ResolveGateVisualMapper(
+            string? mapperName,
+            bool mapRotationSwapsAxes)
+        {
+            if (!mapRotationSwapsAxes || mapperName == null)
+                return mapperName;
+
+            // East/West camera views exchange the two screen diagonals. Keep
+            // the AIV mapper unchanged, but use the opposite Vanilla picture.
+            return mapperName switch
+            {
+                "MAPPER_GATE_STONE1A" => "MAPPER_GATE_STONE1B",
+                "MAPPER_GATE_STONE1B" => "MAPPER_GATE_STONE1A",
+                "MAPPER_GATE_STONE2A" => "MAPPER_GATE_STONE2B",
+                "MAPPER_GATE_STONE2B" => "MAPPER_GATE_STONE2A",
+                _ => mapperName
+            };
+        }
+
+        public static BlueprintDrawbridgeImageDefinition
+            ResolveDrawbridgeImage(BlueprintDrawbridgePosition position)
+        {
+            return DrawbridgeImages.TryGetValue(
+                position,
+                out BlueprintDrawbridgeImageDefinition? definition)
+                    ? definition
+                    : UnknownDrawbridgeImage;
+        }
+
+        public static BlueprintDrawbridgePosition ResolveDrawbridgePosition(
+            float horizontalDelta,
+            float verticalDelta)
+        {
+            const float epsilon = 0.001f;
+            if (Math.Abs(horizontalDelta) <= epsilon ||
+                Math.Abs(verticalDelta) <= epsilon)
+            {
+                return BlueprintDrawbridgePosition.Unknown;
+            }
+
+            if (verticalDelta < 0f)
+            {
+                return horizontalDelta < 0f
+                    ? BlueprintDrawbridgePosition.BottomLeft
+                    : BlueprintDrawbridgePosition.BottomRight;
+            }
+
+            return horizontalDelta < 0f
+                ? BlueprintDrawbridgePosition.TopLeft
+                : BlueprintDrawbridgePosition.TopRight;
         }
 
         public static bool IsIslamicLordType(int lordType)

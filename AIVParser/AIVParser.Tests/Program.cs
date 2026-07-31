@@ -15,6 +15,9 @@ internal static class Program
             ("Rotate all four directions", TestRotations),
             ("Resolve DE footprint sizes", TestFootprintCatalog),
             ("Resolve all special Blueprint icons", TestSpecialBlueprintIcons),
+            ("Rotate Gatehouse Blueprint images with the map", TestGateVisualRotation),
+            ("Resolve four Drawbridge image slots", TestDrawbridgeImageSlots),
+            ("Associate Drawbridges with directional gates", TestDrawbridgeGateAssociations),
             ("Resolve selected Blueprint help images", TestBlueprintHelpImages),
             ("Resolve lord-dependent Church skins", TestChurchBlueprintSkins),
             ("Scale Blueprint sources independently", TestBlueprintSourceScale),
@@ -125,6 +128,18 @@ internal static class Program
         AssertEqual(
             "UI-Buildings A013",
             SpawnCastle.BlueprintBuildingIconCatalog.Resolve("MAPPER_MOAT"));
+        AssertEqual(
+            "UI-Buildings L003",
+            SpawnCastle.BlueprintBuildingIconCatalog.Resolve("MAPPER_GATE_STONE1A"));
+        AssertEqual(
+            "UI-Buildings L025",
+            SpawnCastle.BlueprintBuildingIconCatalog.Resolve("MAPPER_GATE_STONE1B"));
+        AssertEqual(
+            "UI-Buildings L005",
+            SpawnCastle.BlueprintBuildingIconCatalog.Resolve("MAPPER_GATE_STONE2A"));
+        AssertEqual(
+            "UI-Buildings L023",
+            SpawnCastle.BlueprintBuildingIconCatalog.Resolve("MAPPER_GATE_STONE2B"));
         for (int stair = 1; stair <= 6; stair++)
         {
             AssertEqual(
@@ -147,6 +162,223 @@ internal static class Program
         AssertEqual(
             21f / 89f,
             SpawnCastle.BlueprintBuildingIconCatalog.CalculateGroundPivotY(89));
+    }
+
+    private static void TestGateVisualRotation()
+    {
+        string[] gates =
+        [
+            "MAPPER_GATE_STONE1A",
+            "MAPPER_GATE_STONE1B",
+            "MAPPER_GATE_STONE2A",
+            "MAPPER_GATE_STONE2B"
+        ];
+        string[] swapped =
+        [
+            "MAPPER_GATE_STONE1B",
+            "MAPPER_GATE_STONE1A",
+            "MAPPER_GATE_STONE2B",
+            "MAPPER_GATE_STONE2A"
+        ];
+
+        for (int index = 0; index < gates.Length; index++)
+        {
+            AssertEqual(
+                gates[index],
+                SpawnCastle.BlueprintBuildingIconCatalog
+                    .ResolveGateVisualMapper(gates[index], false));
+            AssertEqual(
+                swapped[index],
+                SpawnCastle.BlueprintBuildingIconCatalog
+                    .ResolveGateVisualMapper(gates[index], true));
+        }
+
+        AssertEqual(
+            "MAPPER_DRAWBRIDGE",
+            SpawnCastle.BlueprintBuildingIconCatalog.ResolveGateVisualMapper(
+                "MAPPER_DRAWBRIDGE",
+                true));
+    }
+
+    private static void TestDrawbridgeImageSlots()
+    {
+        AssertDrawbridgeImage(
+            SpawnCastle.BlueprintDrawbridgePosition.BottomLeft,
+            "ST49_Drawbridge.png",
+            flipHorizontally: false,
+            usesPlaceholderImage: false,
+            usesBundledImage: false,
+            expectedPivotPixelsFromBottom: 0f);
+        AssertDrawbridgeImage(
+            SpawnCastle.BlueprintDrawbridgePosition.BottomRight,
+            "ST49_Drawbridge.png",
+            flipHorizontally: true,
+            usesPlaceholderImage: false,
+            usesBundledImage: false,
+            expectedPivotPixelsFromBottom: 0f);
+        AssertDrawbridgeImage(
+            SpawnCastle.BlueprintDrawbridgePosition.TopLeft,
+            "Drawbridge_TopRight.png",
+            flipHorizontally: false,
+            usesPlaceholderImage: false,
+            usesBundledImage: true,
+            expectedPivotPixelsFromBottom: 80.5f);
+        AssertDrawbridgeImage(
+            SpawnCastle.BlueprintDrawbridgePosition.TopRight,
+            "Drawbridge_TopLeft.png",
+            flipHorizontally: false,
+            usesPlaceholderImage: false,
+            usesBundledImage: true,
+            expectedPivotPixelsFromBottom: 80.5f);
+
+        AssertEqual(
+            SpawnCastle.BlueprintDrawbridgePosition.BottomLeft,
+            SpawnCastle.BlueprintBuildingIconCatalog
+                .ResolveDrawbridgePosition(-1f, -1f));
+        AssertEqual(
+            SpawnCastle.BlueprintDrawbridgePosition.BottomRight,
+            SpawnCastle.BlueprintBuildingIconCatalog
+                .ResolveDrawbridgePosition(1f, -1f));
+        AssertEqual(
+            SpawnCastle.BlueprintDrawbridgePosition.TopLeft,
+            SpawnCastle.BlueprintBuildingIconCatalog
+                .ResolveDrawbridgePosition(-1f, 1f));
+        AssertEqual(
+            SpawnCastle.BlueprintDrawbridgePosition.TopRight,
+            SpawnCastle.BlueprintBuildingIconCatalog
+                .ResolveDrawbridgePosition(1f, 1f));
+    }
+
+    private static void TestDrawbridgeGateAssociations()
+    {
+        // Small A gates accept the centered five-tile edge above and below.
+        AssertDrawbridgeGateAssociation(144, 4040, 3540);
+        AssertDrawbridgeGateAssociation(144, 4040, 4540);
+        // Small B gates accept the matching edge left and right.
+        AssertDrawbridgeGateAssociation(145, 4040, 4035);
+        AssertDrawbridgeGateAssociation(145, 4040, 4045);
+        // A seven-tile gate centers the same five-tile Drawbridge edge.
+        AssertDrawbridgeGateAssociation(146, 4040, 3341);
+        AssertDrawbridgeGateAssociation(146, 4040, 4541);
+        AssertDrawbridgeGateAssociation(147, 4040, 3935);
+        AssertDrawbridgeGateAssociation(147, 4040, 3947);
+
+        SpawnCastle.BlueprintIconPlacement isolated =
+            BuildDrawbridgeLayout(144, 4040, 2020)
+                .Icons.Single(icon => icon.MapperValue == 105);
+        Assert(
+            !isolated.AdjacentGateCenter.HasValue,
+            "A non-adjacent Drawbridge must retain an unresolved image slot.");
+
+        var twoGateDocument = new SpawnCastle.AivJsonDocument
+        {
+            frames =
+            [
+                new SpawnCastle.AivJsonFrame
+                {
+                    itemType = 60,
+                    tilePositionOfsets = [5050]
+                },
+                new SpawnCastle.AivJsonFrame
+                {
+                    itemType = 144,
+                    tilePositionOfsets = [3540]
+                },
+                new SpawnCastle.AivJsonFrame
+                {
+                    itemType = 105,
+                    tilePositionOfsets = [4040]
+                },
+                new SpawnCastle.AivJsonFrame
+                {
+                    itemType = 54,
+                    tilePositionOfsets = [6060]
+                },
+                new SpawnCastle.AivJsonFrame
+                {
+                    itemType = 144,
+                    tilePositionOfsets = [4540]
+                }
+            ],
+            miscItems = []
+        };
+        SpawnCastle.BlueprintIconPlacement betweenTwoGates =
+            SpawnCastle.BlueprintLayoutBuilder.Build(
+                    twoGateDocument,
+                    400,
+                    400)
+                .Icons.Single(icon => icon.MapperValue == 105);
+        AssertEqual(
+            new SpawnCastle.BlueprintWorldTile(392, 417),
+            betweenTwoGates.AdjacentGateCenter!.Value);
+    }
+
+    private static void AssertDrawbridgeImage(
+        SpawnCastle.BlueprintDrawbridgePosition position,
+        string expectedFileName,
+        bool flipHorizontally,
+        bool usesPlaceholderImage,
+        bool usesBundledImage,
+        float expectedPivotPixelsFromBottom)
+    {
+        SpawnCastle.BlueprintDrawbridgeImageDefinition definition =
+            SpawnCastle.BlueprintBuildingIconCatalog
+                .ResolveDrawbridgeImage(position);
+        AssertEqual(expectedFileName, definition.HelpImageFileName);
+        AssertEqual(flipHorizontally, definition.FlipHorizontally);
+        AssertEqual(usesPlaceholderImage, definition.UsesPlaceholderImage);
+        AssertEqual(usesBundledImage, definition.UsesBundledImage);
+        AssertEqual(
+            expectedPivotPixelsFromBottom,
+            definition.BundledPivotPixelsFromBottom);
+    }
+
+    private static void AssertDrawbridgeGateAssociation(
+        int gateMapper,
+        int gateOffset,
+        int drawbridgeOffset)
+    {
+        SpawnCastle.BlueprintIconPlacement drawbridge =
+            BuildDrawbridgeLayout(gateMapper, gateOffset, drawbridgeOffset)
+                .Icons.Single(icon => icon.MapperValue == 105);
+        Assert(
+            drawbridge.AdjacentGateCenter.HasValue,
+            $"Drawbridge {drawbridgeOffset} was not associated with " +
+            $"gate {gateMapper} at {gateOffset}.");
+    }
+
+    private static SpawnCastle.BlueprintLayout BuildDrawbridgeLayout(
+        int gateMapper,
+        int gateOffset,
+        int drawbridgeOffset)
+    {
+        var document = new SpawnCastle.AivJsonDocument
+        {
+            frames =
+            [
+                new SpawnCastle.AivJsonFrame
+                {
+                    itemType = 60,
+                    tilePositionOfsets = [5050]
+                },
+                new SpawnCastle.AivJsonFrame
+                {
+                    itemType = gateMapper,
+                    tilePositionOfsets = [gateOffset]
+                },
+                new SpawnCastle.AivJsonFrame
+                {
+                    itemType = 105,
+                    tilePositionOfsets = [drawbridgeOffset]
+                }
+            ],
+            miscItems = []
+        };
+
+        return SpawnCastle.BlueprintLayoutBuilder.Build(
+            document,
+            400,
+            400);
     }
 
     private static void TestBlueprintHelpImages()
@@ -192,7 +424,6 @@ internal static class Program
             ["MAPPER_STABLES"] = "ST35_Stables.png",
             ["MAPPER_CHURCH3"] = "ST36_Church.png",
             ["MAPPER_GATE_STONE2A"] = "ST45_Gate_Main.png",
-            ["MAPPER_GATE_STONE2B"] = "ST45_Gate_Main.png",
             ["MAPPER_DRAWBRIDGE"] = "ST49_Drawbridge.png",
             ["MAPPER_GALLOWS"] = "ST62_Gallows.png",
             ["MAPPER_MAYPOLE"] = "ST65_Maypole.png",
@@ -222,7 +453,8 @@ internal static class Program
             "MAPPER_KILLING_PIT",
             "MAPPER_PITCH_DITCH",
             "MAPPER_GATE_STONE1A",
-            "MAPPER_GATE_STONE1B"
+            "MAPPER_GATE_STONE1B",
+            "MAPPER_GATE_STONE2B"
         })
         {
             AssertEqual<string?>(

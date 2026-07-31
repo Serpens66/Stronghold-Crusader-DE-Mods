@@ -130,6 +130,7 @@
     <Compile Include="src\AivRawDataEncoder.cs" />
     <Compile Include="src\BlueprintBuildingIconCatalog.cs" />
     <Compile Include="src\BlueprintBuildingSizeCalibration.cs" />
+    <Compile Include="src\BlueprintDrawbridgePreviewCapture.cs" />
     <Compile Include="src\BlueprintHudViewModel.cs" />
     <Compile Include="src\BlueprintLayout.cs" />
     <Compile Include="src\BlueprintRenderer.cs" />
