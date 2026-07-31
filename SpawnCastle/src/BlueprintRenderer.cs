@@ -58,7 +58,10 @@ namespace SpawnCastle
                 throw new ArgumentNullException(nameof(buildingImageLibrary));
         }
 
-        public BlueprintRenderResult Render(BlueprintLayout layout)
+        public BlueprintRenderResult Render(
+            BlueprintLayout layout,
+            float iconScale,
+            float iconAlpha)
         {
             if (layout == null)
                 throw new ArgumentNullException(nameof(layout));
@@ -111,7 +114,9 @@ namespace SpawnCastle
                 if (TryCreateIcon(
                         placement,
                         icon,
-                        flattenedLandscape))
+                        flattenedLandscape,
+                        iconScale,
+                        iconAlpha))
                 {
                     renderedIcons++;
                 }
@@ -1279,7 +1284,9 @@ namespace SpawnCastle
         private bool TryCreateIcon(
             BlueprintIconPlacement placement,
             BlueprintIconVisual icon,
-            bool flattenedLandscape)
+            bool flattenedLandscape,
+            float iconScale,
+            float iconAlpha)
         {
             Sprite sprite = icon.Sprite;
             AivMapperInfo mapper =
@@ -1324,6 +1331,9 @@ namespace SpawnCastle
                 : useOriginalBuildingScale
                     ? normalScale
                     : CalculateCompactIconScale(placement, sprite);
+            // Scale around each sprite's established pivot in both views, so
+            // flat decals remain aligned while users can reduce visual clutter.
+            scale *= iconScale;
             if (useOriginalBuildingScale &&
                 !icon.UsesExactWorldScale)
             {
@@ -1347,7 +1357,7 @@ namespace SpawnCastle
             iconObject.transform.position = position;
             SpriteRenderer renderer = iconObject.AddComponent<SpriteRenderer>();
             renderer.sprite = sprite;
-            renderer.color = new Color(1f, 1f, 1f, 0.68f);
+            renderer.color = new Color(1f, 1f, 1f, iconAlpha);
             renderer.sortingOrder = -20000 + frontRow * 49 + 4;
 
             iconObject.transform.localScale =

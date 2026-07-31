@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Spawn Castle",
   "Description": "Displays a local visual AIVJSON castle blueprint or spawns it through the game's native AIV pipeline.",
-  "Version": "0.3.26",
+  "Version": "0.3.28",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
@@ -333,6 +333,21 @@
       "Changes": [
         "Kept flattened Blueprint artwork aligned to the screen like its normal-view capture instead of rotating its contents along the diagonal AIV grid axes.",
         "Continued using the exact isometric footprint as a clipping mask so the corrected image cannot extend beyond the colored placement area."
+      ]
+    },
+    {
+      "Version": "0.3.27",
+      "Changes": [
+        "Extended the in-game Blueprint toggle with an AIVJSON selector plus live icon scale and alpha controls.",
+        "Persisted the normal-view icon scale and icon alpha locally with defaults of 1.0 and 0.3.",
+        "Kept flattened-view geometry and colored ground markers independent from the configurable normal-view icon scale."
+      ]
+    },
+    {
+      "Version": "0.3.28",
+      "Changes": [
+        "Applied the configurable Blueprint icon scale to both normal and flattened map views.",
+        "Changed the icon scale range to 0.05 through 1.00 while retaining 1.00 as the default."
       ]
     }
   ]

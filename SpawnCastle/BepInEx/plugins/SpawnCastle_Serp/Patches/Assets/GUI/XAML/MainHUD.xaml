@@ -2,24 +2,86 @@
 <Patch xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <Operation Type="Add" XPath="/n:UserControl/n:Grid">
     <Content>
-      <Button x:Name="SpawnCastleBlueprintToggle"
-              Content="{Binding StatusText}"
-              Command="{Binding ToggleCommand}"
-              Width="190"
-              Height="34"
+      <Border x:Name="SpawnCastleBlueprintToggle"
+              Width="360"
               Margin="16,72,0,0"
-              Padding="8,2"
+              Padding="8"
               HorizontalAlignment="Left"
               VerticalAlignment="Top"
               Panel.ZIndex="10000"
-              FontSize="16"
-              Foreground="#FFE8F2FF"
-              Background="#AA14243A"
+              Background="#CC14243A"
               BorderBrush="#CC77AAFF"
               BorderThickness="1"
               Visibility="{Binding HudVisible, Converter={StaticResource booleanToVisibilityConverter}}"
-              IsEnabled="{Binding CanToggle}"
-              Tag="Ignore"/>
+              Tag="Ignore">
+        <StackPanel>
+          <Button Content="{Binding StatusText}"
+                  Command="{Binding ToggleCommand}"
+                  Height="34"
+                  Padding="8,2"
+                  FontSize="16"
+                  Foreground="#FFE8F2FF"
+                  Background="#AA14243A"
+                  BorderBrush="#CC77AAFF"
+                  BorderThickness="1"
+                  IsEnabled="{Binding CanToggle}"/>
+
+          <TextBlock Text="AIVJSON"
+                     Foreground="#FFE8F2FF"
+                     Margin="0,8,0,3"/>
+          <ComboBox ItemsSource="{Binding CastleOptions}"
+                    SelectedItem="{Binding SelectedCastle, Mode=TwoWay}"
+                    MaxDropDownHeight="420"/>
+
+          <Grid Margin="0,8,0,0">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="105"/>
+              <ColumnDefinition Width="*"/>
+              <ColumnDefinition Width="42"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0"
+                       Text="Icon scale"
+                       Foreground="#FFE8F2FF"
+                       VerticalAlignment="Center"/>
+            <Slider Grid.Column="1"
+                    Minimum="0.05"
+                    Maximum="1"
+                    Value="{Binding BlueprintIconScale, Mode=TwoWay}"
+                    TickFrequency="0.05"
+                    IsSnapToTickEnabled="True"
+                    Margin="4,0"/>
+            <TextBlock Grid.Column="2"
+                       Text="{Binding BlueprintIconScaleText}"
+                       Foreground="#FFE8F2FF"
+                       HorizontalAlignment="Right"
+                       VerticalAlignment="Center"/>
+          </Grid>
+
+          <Grid Margin="0,5,0,0">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="105"/>
+              <ColumnDefinition Width="*"/>
+              <ColumnDefinition Width="42"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0"
+                       Text="Icon alpha"
+                       Foreground="#FFE8F2FF"
+                       VerticalAlignment="Center"/>
+            <Slider Grid.Column="1"
+                    Minimum="0"
+                    Maximum="1"
+                    Value="{Binding BlueprintIconAlpha, Mode=TwoWay}"
+                    TickFrequency="0.05"
+                    IsSnapToTickEnabled="True"
+                    Margin="4,0"/>
+            <TextBlock Grid.Column="2"
+                       Text="{Binding BlueprintIconAlphaText}"
+                       Foreground="#FFE8F2FF"
+                       HorizontalAlignment="Right"
+                       VerticalAlignment="Center"/>
+          </Grid>
+        </StackPanel>
+      </Border>
     </Content>
   </Operation>
 </Patch>

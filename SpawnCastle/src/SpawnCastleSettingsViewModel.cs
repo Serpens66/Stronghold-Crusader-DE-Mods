@@ -23,9 +23,13 @@ namespace SpawnCastle
         private readonly ConfigEntry<SpawnCastleMode> modeConfig;
         private readonly ConfigEntry<string> selectedCastleConfig;
         private readonly ConfigEntry<int> hotkeyConfig;
+        private readonly ConfigEntry<double> blueprintIconScaleConfig;
+        private readonly ConfigEntry<double> blueprintIconAlphaConfig;
         private SpawnCastleMode mode;
         private string selectedCastle;
         private KeyCode blueprintHotkey;
+        private double blueprintIconScale;
+        private double blueprintIconAlpha;
         private bool isCapturingHotkey;
 
         public SpawnCastleSettingsViewModel(
@@ -59,10 +63,22 @@ namespace SpawnCastle
                 "ToggleHotkey",
                 (int)KeyCode.None,
                 "Unity KeyCode used to toggle the local blueprint. 0 means unassigned.");
+            blueprintIconScaleConfig = config.Bind(
+                "Blueprint",
+                "IconScale",
+                1.0,
+                "Scale of Blueprint icons in normal and flattened map views.");
+            blueprintIconAlphaConfig = config.Bind(
+                "Blueprint",
+                "IconAlpha",
+                0.3,
+                "Opacity of Blueprint building and construction icons.");
 
             mode = NormalizeMode(modeConfig.Value);
             selectedCastle = NormalizeCastle(selectedCastleConfig.Value, defaultCastle);
             blueprintHotkey = NormalizeKeyCode(hotkeyConfig.Value);
+            blueprintIconScale = NormalizeIconScale(blueprintIconScaleConfig.Value);
+            blueprintIconAlpha = NormalizeIconAlpha(blueprintIconAlphaConfig.Value);
             PersistNormalizedValues();
 
             AssignHotkeyCommand = new RelayCommand(BeginHotkeyCapture);
@@ -72,6 +88,7 @@ namespace SpawnCastle
         }
 
         internal event Action SettingsChanged;
+        internal event Action BlueprintVisualSettingsChanged;
         internal event Action HotkeyCaptureRequested;
 
         public ObservableCollection<SpawnCastleMode> ModeOptions { get; } =
@@ -134,6 +151,46 @@ namespace SpawnCastle
             set => SetHotkey(NormalizeKeyCode(value));
         }
 
+        public double BlueprintIconScale
+        {
+            get => blueprintIconScale;
+            set
+            {
+                double normalized = NormalizeIconScale(value);
+                if (Math.Abs(blueprintIconScale - normalized) < 0.0001)
+                    return;
+
+                blueprintIconScale = normalized;
+                blueprintIconScaleConfig.Value = blueprintIconScale;
+                OnPropertyChanged(nameof(BlueprintIconScale));
+                OnPropertyChanged(nameof(BlueprintIconScaleText));
+                BlueprintVisualSettingsChanged?.Invoke();
+            }
+        }
+
+        public double BlueprintIconAlpha
+        {
+            get => blueprintIconAlpha;
+            set
+            {
+                double normalized = NormalizeIconAlpha(value);
+                if (Math.Abs(blueprintIconAlpha - normalized) < 0.0001)
+                    return;
+
+                blueprintIconAlpha = normalized;
+                blueprintIconAlphaConfig.Value = blueprintIconAlpha;
+                OnPropertyChanged(nameof(BlueprintIconAlpha));
+                OnPropertyChanged(nameof(BlueprintIconAlphaText));
+                BlueprintVisualSettingsChanged?.Invoke();
+            }
+        }
+
+        public string BlueprintIconScaleText =>
+            BlueprintIconScale.ToString("0.00");
+
+        public string BlueprintIconAlphaText =>
+            BlueprintIconAlpha.ToString("0.00");
+
         public string HotkeyDisplayText =>
             blueprintHotkey == KeyCode.None
                 ? "Not assigned"
@@ -146,6 +203,8 @@ namespace SpawnCastle
         public bool IsBlueprintMode => mode == SpawnCastleMode.Blueprint;
         public bool IsSpawnMode => mode == SpawnCastleMode.Spawn;
         internal KeyCode BlueprintHotkeyCode => blueprintHotkey;
+        internal float BlueprintIconScaleValue => (float)blueprintIconScale;
+        internal float BlueprintIconAlphaValue => (float)blueprintIconAlpha;
 
         internal bool TryResolveSelectedFile(out string fullPath)
         {
@@ -405,11 +464,36 @@ namespace SpawnCastle
                 : KeyCode.None;
         }
 
+        private static double NormalizeIconScale(double value)
+        {
+            if (double.IsNaN(value) || double.IsInfinity(value))
+                return 1.0;
+
+            // Keep malformed config values inside the range exposed by the HUD.
+            return Math.Round(
+                Math.Max(0.05, Math.Min(1.0, value)),
+                2,
+                MidpointRounding.AwayFromZero);
+        }
+
+        private static double NormalizeIconAlpha(double value)
+        {
+            if (double.IsNaN(value) || double.IsInfinity(value))
+                return 0.3;
+
+            return Math.Round(
+                Math.Max(0.0, Math.Min(1.0, value)),
+                2,
+                MidpointRounding.AwayFromZero);
+        }
+
         private void PersistNormalizedValues()
         {
             modeConfig.Value = mode;
             selectedCastleConfig.Value = selectedCastle;
             hotkeyConfig.Value = (int)blueprintHotkey;
+            blueprintIconScaleConfig.Value = blueprintIconScale;
+            blueprintIconAlphaConfig.Value = blueprintIconAlpha;
         }
 
         private static string GetKeyDisplayName(KeyCode key)

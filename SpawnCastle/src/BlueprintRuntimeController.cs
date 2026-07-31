@@ -81,9 +81,11 @@ namespace SpawnCastle
                 log,
                 sizeCalibration,
                 buildingImageLibrary);
-            Hud = new BlueprintHudViewModel(ToggleBlueprint);
+            Hud = new BlueprintHudViewModel(ToggleBlueprint, settings);
 
             settings.SettingsChanged += OnSettingsChanged;
+            settings.BlueprintVisualSettingsChanged +=
+                OnBlueprintVisualSettingsChanged;
             settings.HotkeyCaptureRequested += OnHotkeyCaptureRequested;
             subscriptions.Add(
                 MapLoaderR3EventHooks.OnStartMap.Observable
@@ -317,6 +319,14 @@ namespace SpawnCastle
             }
 
             RefreshHud();
+        }
+
+        private void OnBlueprintVisualSettingsChanged()
+        {
+            // Slider changes only need a cheap visual rebuild; the selected
+            // AIV layout and current visibility can remain intact.
+            if (blueprintVisible && layout != null)
+                RenderCurrentLayout("Blueprint visual settings changed");
         }
 
         private void OnHotkeyCaptureRequested()
@@ -664,7 +674,10 @@ namespace SpawnCastle
         {
             try
             {
-                BlueprintRenderResult result = renderer.Render(layout);
+                BlueprintRenderResult result = renderer.Render(
+                    layout,
+                    settings.BlueprintIconScaleValue,
+                    settings.BlueprintIconAlphaValue);
                 lastRotation = (int)GameMap.instance.CurrentRotation();
                 lastFlattenedLandscape =
                     EngineInterface.FlattenedLandscape;
