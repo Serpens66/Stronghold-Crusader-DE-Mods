@@ -14,6 +14,10 @@ namespace SpawnCastle
 {
     internal sealed class BlueprintBuildingSizeCalibration
     {
+        // All currently known buildings are calibrated. Toggle this only when
+        // collecting new Vanilla mouse-preview measurements.
+        internal static bool EnablePreviewMeasurement = false;
+
         private const float SampleIntervalSeconds = 0.12f;
         private const float StableWidthTolerance = 0.01f;
         private const int StableSamplesRequired = 3;
@@ -41,8 +45,11 @@ namespace SpawnCastle
 
         public bool Tick()
         {
-            if (Time.unscaledTime < nextSampleTime)
+            if (!EnablePreviewMeasurement ||
+                Time.unscaledTime < nextSampleTime)
+            {
                 return false;
+            }
 
             nextSampleTime = Time.unscaledTime + SampleIntervalSeconds;
             if (!CanMeasure(

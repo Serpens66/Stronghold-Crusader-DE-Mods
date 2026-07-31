@@ -627,105 +627,44 @@ namespace SpawnCastle
                 mapper.Category == AivItemCategory.Building ||
                 icon.UsesHelpImage;
             float normalScale = 0f;
-            if (isBuildingIcon)
+            if (isBuildingIcon &&
+                !TryResolveBuildingScale(
+                    placement,
+                    icon,
+                    mapper,
+                    sprite,
+                    out normalScale))
             {
-                Vector2 calibratedWorldSize =
-                    sizeCalibration.TryGetWorldSize(
-                        placement.MapperValue,
-                        out Vector2 measuredSize)
-                        ? measuredSize
-                        : Vector2.zero;
-                if (!BlueprintBuildingIconCatalog
-                        .TryCalculateNormalWorldScale(
-                            mapper.Name,
-                            sprite.bounds.size.x,
-                            sprite.bounds.size.y,
-                            calibratedWorldSize.x,
-                            calibratedWorldSize.y,
-                            icon.UsesHelpImage,
-                            out normalScale))
-                {
-                    if (BlueprintBuildingIconCatalog
-                        .TryCalculateFootprintEstimatedScale(
-                            placement.Size,
-                            sprite.bounds.size.x,
-                            out normalScale))
-                    {
-                        if (missingScaleMappers.Add(placement.MapperValue))
-                        {
-                            Shared.DebugLogHelper.LogError(
-                                log,
-                                $"Blueprint icon uses an estimated scale: " +
-                                $"no measured or fixed scale is defined for " +
-                                $"mapper={mapper.Name} " +
-                                $"({placement.MapperValue}); the complete " +
-                                $"icon width is fitted to footprint=" +
-                                $"{placement.Size}. Hold its Vanilla build " +
-                                $"preview over the map to calibrate it.");
-                        }
-                    }
-                    else
-                    {
-                        if (missingScaleMappers.Add(placement.MapperValue))
-                        {
-                            Shared.DebugLogHelper.LogError(
-                                log,
-                                $"Blueprint icon skipped: no scale is " +
-                                $"defined and no meaningful footprint " +
-                                $"estimate is possible for mapper=" +
-                                $"{mapper.Name} ({placement.MapperValue}), " +
-                                $"footprint={placement.Size}, iconWidth=" +
-                                $"{sprite.bounds.size.x:F4}. The colored " +
-                                $"footprint and all other icons remain " +
-                                $"visible.");
-                        }
-                        return false;
-                    }
-                }
-                else
-                {
-                    missingScaleMappers.Remove(placement.MapperValue);
-                }
+                return false;
             }
-
-            var corners = new[]
-            {
-                new BlueprintWorldTile(
-                    placement.MinimumWorldX,
-                    placement.MinimumWorldY),
-                new BlueprintWorldTile(
-                    placement.MinimumWorldX,
-                    placement.MaximumWorldY),
-                new BlueprintWorldTile(
-                    placement.MaximumWorldX,
-                    placement.MinimumWorldY),
-                new BlueprintWorldTile(
-                    placement.MaximumWorldX,
-                    placement.MaximumWorldY)
-            };
 
             Vector3 position = Vector3.zero;
             int validCorners = 0;
             int frontRow = 0;
-            foreach (BlueprintWorldTile corner in corners)
-            {
-                if (!TryGetRenderedTile(
-                        corner.X,
-                        corner.Y,
-                        out GameMapTile mapTile,
-                        out Vector3Int tilePosition))
-                {
-                    continue;
-                }
-
-                // Every icon is centered from its actual footprint cells;
-                // Vanilla's building-sprite pivot is intentionally not used.
-                Vector3 cornerPosition =
-                    GetGroundCellCenter(mapTile, tilePosition);
-                position += cornerPosition;
-                validCorners++;
-                frontRow = Math.Max(frontRow, mapTile.row);
-            }
+            AccumulateIconCorner(
+                placement.MinimumWorldX,
+                placement.MinimumWorldY,
+                ref position,
+                ref validCorners,
+                ref frontRow);
+            AccumulateIconCorner(
+                placement.MinimumWorldX,
+                placement.MaximumWorldY,
+                ref position,
+                ref validCorners,
+                ref frontRow);
+            AccumulateIconCorner(
+                placement.MaximumWorldX,
+                placement.MinimumWorldY,
+                ref position,
+                ref validCorners,
+                ref frontRow);
+            AccumulateIconCorner(
+                placement.MaximumWorldX,
+                placement.MaximumWorldY,
+                ref position,
+                ref validCorners,
+                ref frontRow);
 
             if (validCorners == 0)
                 return false;
@@ -751,6 +690,93 @@ namespace SpawnCastle
             return true;
         }
 
+        private bool TryResolveBuildingScale(
+            BlueprintIconPlacement placement,
+            BlueprintIconVisual icon,
+            AivMapperInfo mapper,
+            Sprite sprite,
+            out float scale)
+        {
+            Vector3 spriteSize = sprite.bounds.size;
+            Vector2 calibratedWorldSize =
+                sizeCalibration.TryGetWorldSize(
+                    placement.MapperValue,
+                    out Vector2 measuredSize)
+                    ? measuredSize
+                    : Vector2.zero;
+            if (BlueprintBuildingIconCatalog.TryCalculateNormalWorldScale(
+                    mapper.Name,
+                    spriteSize.x,
+                    spriteSize.y,
+                    calibratedWorldSize.x,
+                    calibratedWorldSize.y,
+                    icon.UsesHelpImage,
+                    out scale))
+            {
+                missingScaleMappers.Remove(placement.MapperValue);
+                return true;
+            }
+
+            if (BlueprintBuildingIconCatalog
+                .TryCalculateFootprintEstimatedScale(
+                    placement.Size,
+                    spriteSize.x,
+                    out scale))
+            {
+                if (missingScaleMappers.Add(placement.MapperValue))
+                {
+                    Shared.DebugLogHelper.LogError(
+                        log,
+                        $"Blueprint icon uses an estimated scale: " +
+                        $"no measured or fixed scale is defined for " +
+                        $"mapper={mapper.Name} " +
+                        $"({placement.MapperValue}); the complete " +
+                        $"icon width is fitted to footprint=" +
+                        $"{placement.Size}. Hold its Vanilla build " +
+                        $"preview over the map to calibrate it.");
+                }
+                return true;
+            }
+
+            if (missingScaleMappers.Add(placement.MapperValue))
+            {
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Blueprint icon skipped: no scale is " +
+                    $"defined and no meaningful footprint " +
+                    $"estimate is possible for mapper=" +
+                    $"{mapper.Name} ({placement.MapperValue}), " +
+                    $"footprint={placement.Size}, iconWidth=" +
+                    $"{spriteSize.x:F4}. The colored " +
+                    $"footprint and all other icons remain " +
+                    $"visible.");
+            }
+            return false;
+        }
+
+        private void AccumulateIconCorner(
+            int worldX,
+            int worldY,
+            ref Vector3 position,
+            ref int validCorners,
+            ref int frontRow)
+        {
+            if (!TryGetRenderedTile(
+                    worldX,
+                    worldY,
+                    out GameMapTile mapTile,
+                    out Vector3Int tilePosition))
+            {
+                return;
+            }
+
+            // Every icon is centered from its actual footprint cells;
+            // Vanilla's building-sprite pivot is intentionally not used.
+            position += GetGroundCellCenter(mapTile, tilePosition);
+            validCorners++;
+            frontRow = Math.Max(frontRow, mapTile.row);
+        }
+
         private static float CalculateCompactIconScale(
             BlueprintIconPlacement placement,
             Sprite icon)
@@ -763,9 +789,10 @@ namespace SpawnCastle
             float targetHeight = placement.Size == 1
                 ? 0.5f
                 : Math.Max(0.75f, placement.Size * 0.52f);
+            Vector3 iconSize = icon.bounds.size;
             return Math.Min(
-                targetWidth / Math.Max(0.01f, icon.bounds.size.x),
-                targetHeight / Math.Max(0.01f, icon.bounds.size.y));
+                targetWidth / Math.Max(0.01f, iconSize.x),
+                targetHeight / Math.Max(0.01f, iconSize.y));
         }
 
         private static Vector3 GetGroundCellCenter(

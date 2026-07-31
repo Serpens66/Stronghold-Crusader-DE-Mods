@@ -258,46 +258,30 @@ namespace SpawnCastle
                     ["MAPPER_CHURCH3"] = "UI-Buildings F007a"
                 };
 
+        private static readonly IReadOnlyDictionary<
+            string,
+            BlueprintBuildingIconDefinition> Definitions =
+                CreateDefinitions();
+
         public static string? Resolve(string? mapperName)
         {
             return mapperName != null &&
-                ResourceKeys.TryGetValue(mapperName, out string? key)
-                    ? key
+                Definitions.TryGetValue(
+                    mapperName,
+                    out BlueprintBuildingIconDefinition? definition)
+                    ? definition.BuildMenuResourceKey
                     : null;
         }
 
         public static BlueprintBuildingIconDefinition? ResolveDefinition(
             string? mapperName)
         {
-            if (mapperName == null ||
-                !ResourceKeys.TryGetValue(
+            return mapperName != null &&
+                Definitions.TryGetValue(
                     mapperName,
-                    out string? buildMenuResource))
-            {
-                return null;
-            }
-
-            HelpImageFiles.TryGetValue(
-                mapperName,
-                out string? helpImageFile);
-            IslamicResourceKeys.TryGetValue(
-                mapperName,
-                out string? islamicBuildMenuResource);
-            string? islamicHelpImage =
-                string.Equals(
-                    mapperName,
-                    "MAPPER_CHURCH3",
-                    StringComparison.Ordinal)
-                    ? "ST100_Mosque.png"
+                    out BlueprintBuildingIconDefinition? definition)
+                    ? definition
                     : null;
-            BlueprintHelpImageCleanup cleanup =
-                ResolveCleanup(helpImageFile);
-            return new BlueprintBuildingIconDefinition(
-                buildMenuResource,
-                helpImageFile,
-                cleanup,
-                islamicBuildMenuResource,
-                islamicHelpImage);
         }
 
         public static bool IsIslamicLordType(int lordType)
@@ -420,6 +404,40 @@ namespace SpawnCastle
             return scale > 0f &&
                 !float.IsNaN(scale) &&
                 !float.IsInfinity(scale);
+        }
+
+        private static IReadOnlyDictionary<
+            string,
+            BlueprintBuildingIconDefinition> CreateDefinitions()
+        {
+            var definitions = new Dictionary<
+                string,
+                BlueprintBuildingIconDefinition>(StringComparer.Ordinal);
+            foreach (KeyValuePair<string, string> resource in ResourceKeys)
+            {
+                HelpImageFiles.TryGetValue(
+                    resource.Key,
+                    out string? helpImageFile);
+                IslamicResourceKeys.TryGetValue(
+                    resource.Key,
+                    out string? islamicBuildMenuResource);
+                string? islamicHelpImage = string.Equals(
+                    resource.Key,
+                    "MAPPER_CHURCH3",
+                    StringComparison.Ordinal)
+                        ? "ST100_Mosque.png"
+                        : null;
+                definitions.Add(
+                    resource.Key,
+                    new BlueprintBuildingIconDefinition(
+                        resource.Value,
+                        helpImageFile,
+                        ResolveCleanup(helpImageFile),
+                        islamicBuildMenuResource,
+                        islamicHelpImage));
+            }
+
+            return definitions;
         }
 
         private static BlueprintHelpImageCleanup ResolveCleanup(

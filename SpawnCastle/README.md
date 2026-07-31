@@ -84,12 +84,15 @@ provide process-persistent fallbacks, especially for controller buttons. These
 callbacks and Noesis event registrations must not be removed from the early
 `BaseUnityPlugin.OnDestroy()`.
 
-In normal landscape view, building-icon sizes can be calibrated directly from
-Vanilla's transparent construction preview. Selecting a supported building in
-the build menu and holding it over the map is sufficient; no placement is
-required. SpawnCastle uses the proven wide Tilemap scan and ignores unchanged
-sprites and ordinary 64x32 placement-ground sprites. Buildings with additional
-Vanilla placement reservations are excluded from mouse-preview measurement.
+The mouse-preview measurement code is retained but disabled by the central
+`BlueprintBuildingSizeCalibration.EnablePreviewMeasurement` switch. Setting it
+to `true` allows building-icon sizes to be calibrated directly from Vanilla's
+transparent construction preview in normal landscape view. Selecting a supported
+building in the build menu and holding it over the map is sufficient; no
+placement is required. SpawnCastle then uses the proven wide Tilemap scan and
+ignores unchanged sprites and ordinary 64x32 placement-ground sprites.
+Buildings with additional Vanilla placement reservations are excluded from
+mouse-preview measurement.
 Their visible widths are fixed from the Help-image-to-reservation ratios instead:
 all three Barracks 5/10, Engineers and Tunnelers Guild 5/7.5, and Oil Smelter
 253/384. After three stable samples a
