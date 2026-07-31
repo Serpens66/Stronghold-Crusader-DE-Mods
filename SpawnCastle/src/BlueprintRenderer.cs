@@ -26,6 +26,7 @@ namespace SpawnCastle
         private readonly Dictionary<string, Sprite> helpImageSprites =
             new Dictionary<string, Sprite>(StringComparer.OrdinalIgnoreCase);
         private readonly HashSet<int> missingIconMappers = new HashSet<int>();
+        private readonly HashSet<int> missingScaleMappers = new HashSet<int>();
         private readonly HashSet<string> failedHelpImages =
             new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private static readonly FieldInfo NoesisTextureCacheField =
@@ -620,6 +621,73 @@ namespace SpawnCastle
             bool flattenedLandscape)
         {
             Sprite sprite = icon.Sprite;
+            AivMapperInfo mapper =
+                AivMapperCatalog.Resolve(placement.MapperValue);
+            bool isBuildingIcon =
+                mapper.Category == AivItemCategory.Building ||
+                icon.UsesHelpImage;
+            float normalScale = 0f;
+            if (isBuildingIcon)
+            {
+                Vector2 calibratedWorldSize =
+                    sizeCalibration.TryGetWorldSize(
+                        placement.MapperValue,
+                        out Vector2 measuredSize)
+                        ? measuredSize
+                        : Vector2.zero;
+                if (!BlueprintBuildingIconCatalog
+                        .TryCalculateNormalWorldScale(
+                            mapper.Name,
+                            sprite.bounds.size.x,
+                            sprite.bounds.size.y,
+                            calibratedWorldSize.x,
+                            calibratedWorldSize.y,
+                            icon.UsesHelpImage,
+                            out normalScale))
+                {
+                    if (BlueprintBuildingIconCatalog
+                        .TryCalculateFootprintEstimatedScale(
+                            placement.Size,
+                            sprite.bounds.size.x,
+                            out normalScale))
+                    {
+                        if (missingScaleMappers.Add(placement.MapperValue))
+                        {
+                            Shared.DebugLogHelper.LogError(
+                                log,
+                                $"Blueprint icon uses an estimated scale: " +
+                                $"no measured or fixed scale is defined for " +
+                                $"mapper={mapper.Name} " +
+                                $"({placement.MapperValue}); the complete " +
+                                $"icon width is fitted to footprint=" +
+                                $"{placement.Size}. Hold its Vanilla build " +
+                                $"preview over the map to calibrate it.");
+                        }
+                    }
+                    else
+                    {
+                        if (missingScaleMappers.Add(placement.MapperValue))
+                        {
+                            Shared.DebugLogHelper.LogError(
+                                log,
+                                $"Blueprint icon skipped: no scale is " +
+                                $"defined and no meaningful footprint " +
+                                $"estimate is possible for mapper=" +
+                                $"{mapper.Name} ({placement.MapperValue}), " +
+                                $"footprint={placement.Size}, iconWidth=" +
+                                $"{sprite.bounds.size.x:F4}. The colored " +
+                                $"footprint and all other icons remain " +
+                                $"visible.");
+                        }
+                        return false;
+                    }
+                }
+                else
+                {
+                    missingScaleMappers.Remove(placement.MapperValue);
+                }
+            }
+
             var corners = new[]
             {
                 new BlueprintWorldTile(
@@ -672,27 +740,11 @@ namespace SpawnCastle
             renderer.color = new Color(1f, 1f, 1f, 0.68f);
             renderer.sortingOrder = -20000 + frontRow * 49 + 4;
 
-            AivMapperInfo mapper =
-                AivMapperCatalog.Resolve(placement.MapperValue);
             bool useOriginalBuildingScale =
                 !flattenedLandscape &&
-                (mapper.Category == AivItemCategory.Building ||
-                    icon.UsesHelpImage);
-            Vector2 calibratedWorldSize =
-                sizeCalibration.TryGetWorldSize(
-                    placement.MapperValue,
-                    out Vector2 measuredSize)
-                    ? measuredSize
-                    : Vector2.zero;
+                isBuildingIcon;
             float scale = useOriginalBuildingScale
-                ? BlueprintBuildingIconCatalog.CalculateNormalWorldScale(
-                    mapper.Name,
-                    placement.Size,
-                    sprite.bounds.size.x,
-                    sprite.bounds.size.y,
-                    calibratedWorldSize.x,
-                    calibratedWorldSize.y,
-                    icon.UsesHelpImage)
+                ? normalScale
                 : CalculateCompactIconScale(placement, sprite);
             iconObject.transform.localScale =
                 new Vector3(scale, scale, 1f);

@@ -88,22 +88,35 @@ In normal landscape view, building-icon sizes can be calibrated directly from
 Vanilla's transparent construction preview. Selecting a supported building in
 the build menu and holding it over the map is sufficient; no placement is
 required. SpawnCastle uses the proven wide Tilemap scan and ignores unchanged
-sprites and ordinary 64x32 placement-ground sprites. Reservation-bearing
-buildings use the same measurement, but obviously yard-sized or overly dense
-results are rejected instead of replacing a valid building value. After three
-stable samples the measurement is stored in
+sprites and ordinary 64x32 placement-ground sprites. Buildings with additional
+Vanilla placement reservations are excluded from mouse-preview measurement.
+Their visible widths are fixed from the Help-image-to-reservation ratios instead:
+all three Barracks 5/10, Engineers and Tunnelers Guild 5/7.5, and Oil Smelter
+253/384. After three stable samples a
+measurement for any other supported building is stored in
 `BepInEx/config/SpawnCastle_Serp.BlueprintBuildingSizes.tsv`. A visible
-Blueprint is refreshed immediately. Buildings not measured yet retain the
-footprint-derived fallback size, while flattened-landscape mode continues to
-use the compact icons. The uniform normal-view scale covers both the measured
-width and height. Clean Help images use the measurement without a generic
-correction; build-menu fallbacks retain their small visual correction.
+Blueprint is refreshed immediately. Every rendered building should have either
+a usable measurement or a fixed reserved-area width. If neither exists but a
+valid icon and footprint are known, SpawnCastle reports an error and estimates
+the normal-view scale by fitting the complete icon width to that footprint. Only
+when even this estimate is not meaningful is that building icon skipped; the
+Blueprint continues rendering without throwing. The preferred uniform
+normal-view scale covers both the measured width and height. Clean Help images
+use the measurement without a generic correction; build-menu image fallbacks
+retain their small visual correction.
+
+The Crusader, Arabian, and Bedouin Outposts are known footprint-5 calibration
+candidates even though they are not AIV Blueprint icon entries. Their map-editor
+build-menu images are `UI-Buildings N073`, `N071`, and `N075`, respectively.
+Holding each Outpost's Vanilla construction preview over the map therefore adds
+its measured size to the same TSV file. Unlike Barracks, they have no additional
+reserved placement area; the measured width of each Outpost is exactly 5 world
+units.
 
 Saved measurements carry an algorithm revision. Only revision 4 and newer are
-used; older measurements came from superseded filters. The non-buildable
-Mercenary Post reuses the Stone Barracks measurement. Additional Barracks,
-Engineers Guild, and Oil Smelter reservations remain visible as colored ground
-tiles but are rejected as building-size measurements.
+used; older measurements came from superseded filters. The three Barracks,
+both guilds, and the Oil Smelter cannot be overwritten by old TSV rows or by
+their much larger reservation-yard previews.
 
 ## Native castle spawning
 

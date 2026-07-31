@@ -66,15 +66,20 @@ namespace SpawnCastle
         private const float GroundContactPixelsFromBottom = 21f;
         private const float BuildMenuCalibratedVisualCorrection = 1.10f;
 
-        private static readonly ISet<string> ReservedAreaMappers =
-            new HashSet<string>(StringComparer.Ordinal)
+        private static readonly IReadOnlyDictionary<string, float>
+            ReservedAreaVisibleWorldWidths =
+            new Dictionary<string, float>(StringComparer.Ordinal)
             {
-                // These placement reservations are colored ground guidance,
-                // not part of the building graphic itself.
-                "MAPPER_BARRACKS_WOOD",
-                "MAPPER_BARRACKS_STONE",
-                "MAPPER_ENGINEERS_GUILD",
-                "MAPPER_OIL_SMELTER"
+                // The Vanilla preview reserves much more ground than the
+                // visible building. The fixed widths preserve the screenshot
+                // ratios against the clean Help images at 64 PPU:
+                // 5/10, 5/10, 5/10, 5/7.5, 5/7.5, and 253/384.
+                ["MAPPER_BARRACKS_STONE"] = 5f,
+                ["MAPPER_BARRACKS_WOOD"] = 5f,
+                ["MAPPER_BEDOUIN_STOCKADE"] = 5f,
+                ["MAPPER_ENGINEERS_GUILD"] = 5f,
+                ["MAPPER_TUNNELERS_GUILD"] = 5f,
+                ["MAPPER_OIL_SMELTER"] = 253f / 64f
             };
 
         private static readonly IReadOnlyDictionary<string, float>
@@ -236,7 +241,12 @@ namespace SpawnCastle
                 ["MAPPER_POND1"] = "UI-Buildings H011",
                 ["MAPPER_POND3"] = "UI-Buildings H011",
                 ["MAPPER_WELL"] = "UI-Buildings F011",
-                ["MAPPER_WATERPOT"] = "UI-Buildings F013"
+                ["MAPPER_WATERPOT"] = "UI-Buildings F013",
+                // These normal variants are exposed only by the map editor.
+                // HUD_Main.xaml maps them directly to the three outpost types.
+                ["MAPPER_OUTPOST_ARAB"] = "UI-Buildings N071",
+                ["MAPPER_OUTPOST"] = "UI-Buildings N073",
+                ["MAPPER_OUTPOST_BEDOUIN"] = "UI-Buildings N075"
             };
 
         private static readonly IReadOnlyDictionary<string, string>
@@ -304,37 +314,12 @@ namespace SpawnCastle
             string mapperName)
         {
             return !string.IsNullOrWhiteSpace(mapperName) &&
-                ReservedAreaMappers.Contains(mapperName);
-        }
-
-        public static int ResolveCalibrationMapperValue(int mapperValue)
-        {
-            // The Mercenary Post cannot be selected in normal play and shares
-            // the same required visual size as the Stone Barracks.
-            return mapperValue == 86 ? 87 : mapperValue;
+                ReservedAreaVisibleWorldWidths.ContainsKey(mapperName);
         }
 
         public static bool IsUsableCalibrationRevision(int revision)
         {
             return revision >= CurrentCalibrationRevision;
-        }
-
-        public static bool IsPlausibleCalibrationMeasurement(
-            string mapperName,
-            int footprintSize,
-            float worldWidth,
-            int fragmentCount)
-        {
-            if (footprintSize <= 0)
-                throw new ArgumentOutOfRangeException(nameof(footprintSize));
-
-            if (!HasReservedPlacementArea(mapperName))
-                return true;
-
-            // A reservation is much wider and denser than the core preview:
-            // e.g. the invalid Barracks result was 10 units / 100 fragments.
-            return worldWidth <= footprintSize + 2f &&
-                fragmentCount <= footprintSize * footprintSize;
         }
 
         public static bool IsExtendedPreviewSprite(
@@ -356,25 +341,33 @@ namespace SpawnCastle
                 GroundContactPixelsFromBottom / iconPixelHeight);
         }
 
-        public static float CalculateNormalWorldScale(
+        public static bool TryCalculateNormalWorldScale(
             string mapperName,
-            int footprintSize,
             float iconWorldWidth,
             float iconWorldHeight,
             float calibratedWorldWidth,
             float calibratedWorldHeight,
-            bool usesHelpImage)
+            bool usesHelpImage,
+            out float scale)
         {
             if (string.IsNullOrWhiteSpace(mapperName))
                 throw new ArgumentException(
                     "A mapper name is required.",
                     nameof(mapperName));
-            if (footprintSize <= 0)
-                throw new ArgumentOutOfRangeException(nameof(footprintSize));
             if (iconWorldWidth <= 0f)
                 throw new ArgumentOutOfRangeException(nameof(iconWorldWidth));
             if (iconWorldHeight <= 0f)
                 throw new ArgumentOutOfRangeException(nameof(iconWorldHeight));
+
+            if (ReservedAreaVisibleWorldWidths.TryGetValue(
+                    mapperName,
+                    out float visibleWorldWidth))
+            {
+                // Never let a reservation-yard preview determine the scale.
+                // This also gives a correctly sized build-menu fallback.
+                scale = visibleWorldWidth / iconWorldWidth;
+                return true;
+            }
 
             if (calibratedWorldWidth > 0f &&
                 calibratedWorldHeight > 0f)
@@ -385,9 +378,10 @@ namespace SpawnCastle
                 float correction = usesHelpImage
                     ? 1f
                     : BuildMenuCalibratedVisualCorrection;
-                return correction * Math.Max(
+                scale = correction * Math.Max(
                     calibratedWorldWidth / iconWorldWidth,
                     calibratedWorldHeight / iconWorldHeight);
+                return true;
             }
 
             if (!usesHelpImage &&
@@ -395,14 +389,37 @@ namespace SpawnCastle
                     mapperName,
                     out float measuredScale))
             {
-                return measuredScale;
+                scale = measuredScale;
+                return true;
             }
 
-            // The UI atlas normalizes every building independently. Restoring
-            // a visible width of footprint + one tile cancels that UI scaling
-            // and agrees closely with matched 64-PPU world-sprite fragments.
-            float targetWorldWidth = footprintSize + 1f;
-            return targetWorldWidth / iconWorldWidth;
+            // Missing calibration is recoverable: the renderer skips only
+            // this icon and keeps the remaining Blueprint operational.
+            scale = 0f;
+            return false;
+        }
+
+        public static bool TryCalculateFootprintEstimatedScale(
+            int footprintSize,
+            float iconWorldWidth,
+            out float scale)
+        {
+            scale = 0f;
+            if (footprintSize <= 0 ||
+                iconWorldWidth <= 0f ||
+                float.IsNaN(iconWorldWidth) ||
+                float.IsInfinity(iconWorldWidth))
+            {
+                return false;
+            }
+
+            // Only the ground width is known. Match the complete sprite width
+            // to it and preserve aspect ratio; building height cannot be
+            // inferred sensibly from an isometric ground footprint.
+            scale = footprintSize / iconWorldWidth;
+            return scale > 0f &&
+                !float.IsNaN(scale) &&
+                !float.IsInfinity(scale);
         }
 
         private static BlueprintHelpImageCleanup ResolveCleanup(

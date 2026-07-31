@@ -47,12 +47,8 @@ namespace SpawnCastle
             nextSampleTime = Time.unscaledTime + SampleIntervalSeconds;
             if (!CanMeasure(
                     out int mapperValue,
-                    out string mapperName,
-                    out int footprintSize) ||
-                !TryMeasurePreview(
-                    mapperName,
-                    footprintSize,
-                    out PreviewBounds preview))
+                    out string mapperName) ||
+                !TryMeasureTilePreview(out PreviewBounds preview))
             {
                 ResetCandidate();
                 return false;
@@ -120,11 +116,17 @@ namespace SpawnCastle
             int mapperValue,
             out Vector2 worldSize)
         {
-            int calibrationMapperValue =
-                BlueprintBuildingIconCatalog
-                    .ResolveCalibrationMapperValue(mapperValue);
+            AivMapperInfo mapper = AivMapperCatalog.Resolve(mapperValue);
+            if (BlueprintBuildingIconCatalog.HasReservedPlacementArea(
+                    mapper.Name))
+            {
+                // Ignore old TSV rows as well as new mouse-preview samples.
+                worldSize = Vector2.zero;
+                return false;
+            }
+
             if (measurements.TryGetValue(
-                    calibrationMapperValue,
+                    mapperValue,
                     out Measurement measurement) &&
                 IsUsableMeasurement(measurement))
             {
@@ -140,12 +142,10 @@ namespace SpawnCastle
 
         private static bool CanMeasure(
             out int mapperValue,
-            out string mapperName,
-            out int footprintSize)
+            out string mapperName)
         {
             mapperValue = 0;
             mapperName = string.Empty;
-            footprintSize = 0;
             if (EngineInterface.FlattenedLandscape ||
                 MainControls.instance == null ||
                 MainControls.instance.CurrentAction != 5 ||
@@ -159,36 +159,20 @@ namespace SpawnCastle
             {
                 AivMapperInfo mapper = AivMapperCatalog.Resolve(mapperValue);
                 mapperName = mapper.Name;
-                footprintSize = mapper.FootprintSize ?? 1;
                 BlueprintBuildingIconDefinition definition =
                     BlueprintBuildingIconCatalog.ResolveDefinition(mapperName);
-                return definition != null &&
+                return !BlueprintBuildingIconCatalog
+                        .HasReservedPlacementArea(mapperName) &&
+                    mapper.IsKnown &&
                     (mapper.Category == AivItemCategory.Building ||
-                        !string.IsNullOrWhiteSpace(
-                            definition.HelpImageFileName));
+                        (definition != null &&
+                         !string.IsNullOrWhiteSpace(
+                             definition.HelpImageFileName)));
             }
             catch
             {
                 return false;
             }
-        }
-
-        private static bool TryMeasurePreview(
-            string mapperName,
-            int footprintSize,
-            out PreviewBounds preview)
-        {
-            if (!TryMeasureTilePreview(out preview))
-                return false;
-
-            // Reject the characteristic full reservation-yard bounds while
-            // still allowing the same proven preview scan for every building.
-            return BlueprintBuildingIconCatalog
-                .IsPlausibleCalibrationMeasurement(
-                    mapperName,
-                    footprintSize,
-                    preview.Width,
-                    preview.FragmentCount);
         }
 
         private static bool TryMeasureTilePreview(
@@ -419,8 +403,10 @@ namespace SpawnCastle
 
         private static bool IsUsableMeasurement(Measurement measurement)
         {
-            return BlueprintBuildingIconCatalog
-                .IsUsableCalibrationRevision(measurement.Revision);
+            return !BlueprintBuildingIconCatalog.HasReservedPlacementArea(
+                    measurement.MapperName) &&
+                BlueprintBuildingIconCatalog
+                    .IsUsableCalibrationRevision(measurement.Revision);
         }
 
         private readonly struct PreviewBounds

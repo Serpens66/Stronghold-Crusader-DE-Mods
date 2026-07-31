@@ -79,6 +79,7 @@ internal static class Program
         AssertEqual(4, AivMapperCatalog.Resolve(50).FootprintSize);
         AssertEqual(3, AivMapperCatalog.Resolve(51).FootprintSize);
         AssertEqual(5, AivMapperCatalog.Resolve(52).FootprintSize);
+        AssertEqual(5, AivMapperCatalog.Resolve(53).FootprintSize);
         AssertEqual(4, AivMapperCatalog.Resolve(54).FootprintSize);
         AssertEqual(2, AivMapperCatalog.Resolve(55).FootprintSize);
         AssertEqual(6, AivMapperCatalog.Resolve(56).FootprintSize);
@@ -88,12 +89,17 @@ internal static class Program
         AssertEqual(10, AivMapperCatalog.Resolve(72).FootprintSize);
         AssertEqual(3, AivMapperCatalog.Resolve(78).FootprintSize);
         AssertEqual(5, AivMapperCatalog.Resolve(87).FootprintSize);
+        AssertEqual(5, AivMapperCatalog.Resolve(178).FootprintSize);
+        AssertEqual(5, AivMapperCatalog.Resolve(179).FootprintSize);
         AssertEqual(1, AivMapperCatalog.Resolve(99).FootprintSize);
         AssertEqual(5, AivMapperCatalog.Resolve(311).FootprintSize);
         AssertEqual(5, AivMapperCatalog.Resolve(325).FootprintSize);
         AssertEqual(6, AivMapperCatalog.Resolve(327).FootprintSize);
         AssertEqual(4, AivMapperCatalog.Resolve(342).FootprintSize);
         AssertEqual<int?>(null, AivMapperCatalog.Resolve(63).FootprintSize);
+        AssertEqual("Bedouin Outpost", AivMapperCatalog.Resolve(53).DisplayName);
+        AssertEqual("Crusader Outpost", AivMapperCatalog.Resolve(178).DisplayName);
+        AssertEqual("Arabian Outpost", AivMapperCatalog.Resolve(179).DisplayName);
     }
 
     private static void TestSpecialBlueprintIcons()
@@ -231,6 +237,23 @@ internal static class Program
             SpawnCastle.BlueprintBuildingIconCatalog
                 .ResolveDefinition("MAPPER_TANNER")!
                 .Cleanup);
+
+        // HUD_Main.xaml exposes these three build buttons only in the editor.
+        AssertEqual(
+            "UI-Buildings N071",
+            SpawnCastle.BlueprintBuildingIconCatalog
+                .ResolveDefinition("MAPPER_OUTPOST_ARAB")!
+                .BuildMenuResourceKey);
+        AssertEqual(
+            "UI-Buildings N073",
+            SpawnCastle.BlueprintBuildingIconCatalog
+                .ResolveDefinition("MAPPER_OUTPOST")!
+                .BuildMenuResourceKey);
+        AssertEqual(
+            "UI-Buildings N075",
+            SpawnCastle.BlueprintBuildingIconCatalog
+                .ResolveDefinition("MAPPER_OUTPOST_BEDOUIN")!
+                .BuildMenuResourceKey);
     }
 
     private static void TestChurchBlueprintSkins()
@@ -269,26 +292,107 @@ internal static class Program
 
     private static void TestBlueprintSourceScale()
     {
-        float helpScale =
-            SpawnCastle.BlueprintBuildingIconCatalog.CalculateNormalWorldScale(
+        AssertEqual(
+            true,
+            SpawnCastle.BlueprintBuildingIconCatalog
+                .TryCalculateNormalWorldScale(
                 "MAPPER_GRANARY",
-                4,
                 4f,
                 3f,
                 4f,
                 3f,
-                true);
-        float buildMenuScale =
-            SpawnCastle.BlueprintBuildingIconCatalog.CalculateNormalWorldScale(
+                true,
+                out float helpScale));
+        AssertEqual(
+            true,
+            SpawnCastle.BlueprintBuildingIconCatalog
+                .TryCalculateNormalWorldScale(
                 "MAPPER_GRANARY",
-                4,
                 4f,
                 3f,
                 4f,
                 3f,
-                false);
+                false,
+                out float buildMenuScale));
         AssertEqual(1f, helpScale);
         AssertEqual(1.1f, buildMenuScale);
+
+        var reservedSources = new[]
+        {
+            ("MAPPER_BARRACKS_STONE", 5f, 1f),
+            ("MAPPER_BARRACKS_WOOD", 4f, 1.25f),
+            ("MAPPER_BEDOUIN_STOCKADE", 4f, 1.25f),
+            ("MAPPER_ENGINEERS_GUILD", 4f, 1.25f),
+            ("MAPPER_TUNNELERS_GUILD", 4f, 1.25f),
+            ("MAPPER_OIL_SMELTER", 253f / 64f, 1f)
+        };
+        foreach ((
+            string mapperName,
+            float sourceWidth,
+            float expectedScale) in reservedSources)
+        {
+            AssertEqual(
+                true,
+                SpawnCastle.BlueprintBuildingIconCatalog
+                .TryCalculateNormalWorldScale(
+                    mapperName,
+                    sourceWidth,
+                    4f,
+                    10f,
+                    8f,
+                    true,
+                    out float reservedScale));
+            AssertEqual(expectedScale, reservedScale);
+        }
+
+        AssertEqual(
+            false,
+            SpawnCastle.BlueprintBuildingIconCatalog
+                .TryCalculateNormalWorldScale(
+                "MAPPER_OUTPOST",
+                4f,
+                3f,
+                0f,
+                0f,
+                false,
+                out float missingScale));
+        AssertEqual(0f, missingScale);
+
+        AssertEqual(
+            true,
+            SpawnCastle.BlueprintBuildingIconCatalog
+                .TryCalculateFootprintEstimatedScale(
+                    5,
+                    4f,
+                    out float estimatedScale));
+        AssertEqual(1.25f, estimatedScale);
+        AssertEqual(
+            false,
+            SpawnCastle.BlueprintBuildingIconCatalog
+                .TryCalculateFootprintEstimatedScale(
+                    0,
+                    4f,
+                    out estimatedScale));
+        AssertEqual(
+            false,
+            SpawnCastle.BlueprintBuildingIconCatalog
+                .TryCalculateFootprintEstimatedScale(
+                    5,
+                    float.NaN,
+                    out estimatedScale));
+
+        AssertEqual(
+            true,
+            SpawnCastle.BlueprintBuildingIconCatalog
+                .TryCalculateNormalWorldScale(
+                    "MAPPER_OUTPOST",
+                    140f / 64f,
+                    143f / 64f,
+                    5f,
+                    4.078125f,
+                    false,
+                    out float outpostScale));
+        Assert(outpostScale > 0f, "A measured Outpost scale must be usable.");
     }
 
     private static void TestBlueprintCalibrationRules()
@@ -302,9 +406,33 @@ internal static class Program
             SpawnCastle.BlueprintBuildingIconCatalog
                 .HasReservedPlacementArea("MAPPER_ENGINEERS_GUILD"));
         AssertEqual(
+            true,
+            SpawnCastle.BlueprintBuildingIconCatalog
+                .HasReservedPlacementArea("MAPPER_BEDOUIN_STOCKADE"));
+        AssertEqual(
+            true,
+            SpawnCastle.BlueprintBuildingIconCatalog
+                .HasReservedPlacementArea("MAPPER_TUNNELERS_GUILD"));
+        AssertEqual(
+            true,
+            SpawnCastle.BlueprintBuildingIconCatalog
+                .HasReservedPlacementArea("MAPPER_OIL_SMELTER"));
+        AssertEqual(
             false,
             SpawnCastle.BlueprintBuildingIconCatalog
                 .HasReservedPlacementArea("MAPPER_GRANARY"));
+        AssertEqual(
+            false,
+            SpawnCastle.BlueprintBuildingIconCatalog
+                .HasReservedPlacementArea("MAPPER_OUTPOST"));
+        AssertEqual(
+            false,
+            SpawnCastle.BlueprintBuildingIconCatalog
+                .HasReservedPlacementArea("MAPPER_OUTPOST_ARAB"));
+        AssertEqual(
+            false,
+            SpawnCastle.BlueprintBuildingIconCatalog
+                .HasReservedPlacementArea("MAPPER_OUTPOST_BEDOUIN"));
         AssertEqual(
             false,
             SpawnCastle.BlueprintBuildingIconCatalog
@@ -321,38 +449,6 @@ internal static class Program
             true,
             SpawnCastle.BlueprintBuildingIconCatalog
                 .IsUsableCalibrationRevision(4));
-        AssertEqual(
-            87,
-            SpawnCastle.BlueprintBuildingIconCatalog
-                .ResolveCalibrationMapperValue(86));
-        AssertEqual(
-            87,
-            SpawnCastle.BlueprintBuildingIconCatalog
-                .ResolveCalibrationMapperValue(87));
-        AssertEqual(
-            false,
-            SpawnCastle.BlueprintBuildingIconCatalog
-                .IsPlausibleCalibrationMeasurement(
-                    "MAPPER_BARRACKS_STONE",
-                    5,
-                    10f,
-                    100));
-        AssertEqual(
-            true,
-            SpawnCastle.BlueprintBuildingIconCatalog
-                .IsPlausibleCalibrationMeasurement(
-                    "MAPPER_BARRACKS_STONE",
-                    5,
-                    5.5f,
-                    9));
-        AssertEqual(
-            true,
-            SpawnCastle.BlueprintBuildingIconCatalog
-                .IsPlausibleCalibrationMeasurement(
-                    "MAPPER_GRANARY",
-                    4,
-                    10f,
-                    100));
     }
 
     private static void TestBlueprintPreviewSpriteFilter()

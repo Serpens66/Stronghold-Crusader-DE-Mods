@@ -38,6 +38,7 @@ namespace AIVParser.Core
             Add(result, 50, "MAPPER_FLETCHER");
             Add(result, 51, "MAPPER_WOODSMAN");
             Add(result, 52, "MAPPER_STORES");
+            Add(result, 53, "MAPPER_OUTPOST_BEDOUIN");
             Add(result, 54, "MAPPER_HOVEL");
             Add(result, 55, "MAPPER_OXENBASE");
             Add(result, 56, "MAPPER_QUARRY");
@@ -93,6 +94,8 @@ namespace AIVParser.Core
             Add(result, 175, "MAPPER_MAYPOLE");
             Add(result, 176, "MAPPER_GALLOWS");
             Add(result, 177, "MAPPER_STOCKS");
+            Add(result, 178, "MAPPER_OUTPOST");
+            Add(result, 179, "MAPPER_OUTPOST_ARAB");
             Add(result, 180, "MAPPER_OIL_SMELTER");
             Add(result, 181, "MAPPER_STAIR1", AivItemCategory.Stair);
             Add(result, 182, "MAPPER_STAIR2", AivItemCategory.Stair);
@@ -173,6 +176,7 @@ namespace AIVParser.Core
                 case 342:
                     return 4;
                 case 52:
+                case 53:
                 case 77:
                 case 79:
                 case 86:
@@ -184,6 +188,8 @@ namespace AIVParser.Core
                 case 112:
                 case 144:
                 case 145:
+                case 178:
+                case 179:
                 case 301:
                 case 307:
                 case 324:
@@ -272,12 +278,15 @@ namespace AIVParser.Core
                 case 52:
                 case 77:
                     return AivVisualGroup.Storage;
+                case 53:
                 case 65:
                 case 79:
                 case 86:
                 case 87:
                 case 88:
                 case 89:
+                case 178:
+                case 179:
                     return AivVisualGroup.Military;
                 case 105:
                 case 110:
@@ -338,6 +347,7 @@ namespace AIVParser.Core
             switch (value)
             {
                 case 52: return "Stockpile";
+                case 53: return "Bedouin Outpost";
                 case 77: return "Marketplace";
                 case 79: return "Bedouin Stockade";
                 case 82: return "Poleturner";
@@ -364,6 +374,8 @@ namespace AIVParser.Core
                 case 145:
                 case 146:
                 case 147: return "Gatehouse";
+                case 178: return "Crusader Outpost";
+                case 179: return "Arabian Outpost";
                 case 342: return "Water Pot";
             }
 
