@@ -26,6 +26,10 @@ namespace SpawnCastle
             new Dictionary<string, Sprite>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, Sprite> helpImageSprites =
             new Dictionary<string, Sprite>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, Sprite> flattenedBuildingSprites =
+            new Dictionary<string, Sprite>(StringComparer.Ordinal);
+        private readonly HashSet<string> failedFlattenedBuildingSprites =
+            new HashSet<string>(StringComparer.Ordinal);
         private readonly HashSet<string> missingIconKeys =
             new HashSet<string>(StringComparer.Ordinal);
         private readonly HashSet<int> missingScaleMappers = new HashSet<int>();
@@ -97,7 +101,7 @@ namespace SpawnCastle
                     ResolveStairFlipHorizontally(placement);
                 BlueprintIconVisual icon =
                     GetBlueprintIcon(
-                        placement.MapperValue,
+                        placement,
                         flattenedLandscape,
                         drawbridgePosition,
                         stairDirection,
@@ -221,14 +225,16 @@ namespace SpawnCastle
         }
 
         private BlueprintIconVisual GetBlueprintIcon(
-            int mapperValue,
+            BlueprintIconPlacement placement,
             bool flattenedLandscape,
             BlueprintDrawbridgePosition drawbridgePosition,
             BlueprintStairDirection stairDirection,
             bool stairFlipHorizontally)
         {
-            string iconKey = mapperValue + ":" + drawbridgePosition + ":" +
-                stairDirection + ":" + stairFlipHorizontally;
+            int mapperValue = placement.MapperValue;
+            string iconKey = flattenedLandscape + ":" + mapperValue + ":" +
+                drawbridgePosition + ":" + stairDirection + ":" +
+                stairFlipHorizontally;
             try
             {
                 AivMapperInfo mapper = AivMapperCatalog.Resolve(mapperValue);
@@ -251,7 +257,10 @@ namespace SpawnCastle
                         $"No Blueprint icon is mapped for {visualMapperName}.");
 
                 bool islamicSkin = UsesIslamicChurchSkin();
-                if (!flattenedLandscape &&
+                bool mayUseCapturedImage =
+                    !flattenedLandscape ||
+                    mapper.Category == AivItemCategory.Building;
+                if (mayUseCapturedImage &&
                     buildingImageLibrary.TryResolve(
                         mapperValue,
                         visualMapperName,
@@ -263,13 +272,37 @@ namespace SpawnCastle
                         out Sprite capturedSprite,
                         out bool capturedFlip))
                 {
-                    return new BlueprintIconVisual(
-                        capturedSprite,
-                        true,
-                        capturedFlip,
-                        false,
-                        drawbridgePosition,
-                        true);
+                    if (!flattenedLandscape)
+                    {
+                        return new BlueprintIconVisual(
+                            capturedSprite,
+                            true,
+                            capturedFlip,
+                            false,
+                            drawbridgePosition,
+                            true);
+                    }
+
+                    bool useMarkerBounds =
+                        BlueprintBuildingIconCatalog.HasReservedPlacementArea(
+                            mapper.Name);
+                    if (TryGetFlattenedBuildingSprite(
+                            placement,
+                            capturedSprite,
+                            capturedFlip,
+                            useMarkerBounds,
+                            out Sprite flattenedSprite))
+                    {
+                        // Horizontal capture orientation is baked into the
+                        // generated decal, so the GameObject stays unmirrored.
+                        return new BlueprintIconVisual(
+                            flattenedSprite,
+                            true,
+                            false,
+                            false,
+                            drawbridgePosition,
+                            true);
+                    }
                 }
 
                 BlueprintDrawbridgeImageDefinition drawbridgeImage =
@@ -347,6 +380,321 @@ namespace SpawnCastle
                     $"the colored footprint remains visible: {ex.Message}");
                 return default;
             }
+        }
+
+        private bool TryGetFlattenedBuildingSprite(
+            BlueprintIconPlacement placement,
+            Sprite source,
+            bool flipHorizontally,
+            bool useMarkerBounds,
+            out Sprite sprite)
+        {
+            int minimumWorldX = useMarkerBounds
+                ? placement.MarkerMinimumWorldX
+                : placement.MinimumWorldX;
+            int maximumWorldX = useMarkerBounds
+                ? placement.MarkerMaximumWorldX
+                : placement.MaximumWorldX;
+            int minimumWorldY = useMarkerBounds
+                ? placement.MarkerMinimumWorldY
+                : placement.MinimumWorldY;
+            int maximumWorldY = useMarkerBounds
+                ? placement.MarkerMaximumWorldY
+                : placement.MaximumWorldY;
+            int cellCountX = maximumWorldX - minimumWorldX + 1;
+            int cellCountY = maximumWorldY - minimumWorldY + 1;
+            string cacheKey = source.GetInstanceID() + ":" +
+                cellCountX + "x" + cellCountY + ":" +
+                GetCameraQuarter() + ":" + flipHorizontally;
+            if (flattenedBuildingSprites.TryGetValue(
+                    cacheKey,
+                    out Sprite cached))
+            {
+                sprite = cached;
+                return true;
+            }
+            if (failedFlattenedBuildingSprites.Contains(cacheKey))
+            {
+                sprite = null;
+                return false;
+            }
+
+            try
+            {
+                if (source == null || source.texture == null)
+                    throw new InvalidOperationException("The captured sprite has no texture.");
+                if (!TryGetGroundPosition(
+                        minimumWorldX,
+                        minimumWorldY,
+                        out Vector3 anchor))
+                {
+                    throw new InvalidOperationException(
+                        "The footprint anchor is outside the rendered map.");
+                }
+                if (!TryGetGroundBasis(
+                        minimumWorldX,
+                        minimumWorldY,
+                        anchor,
+                        1,
+                        0,
+                        out Vector2 basisX) ||
+                    !TryGetGroundBasis(
+                        minimumWorldX,
+                        minimumWorldY,
+                        anchor,
+                        0,
+                        1,
+                        out Vector2 basisY))
+                {
+                    throw new InvalidOperationException(
+                        "The flattened map projection basis is unavailable.");
+                }
+
+                Vector2 anchor2D = new Vector2(anchor.x, anchor.y);
+                Vector2 origin = anchor2D - basisX * 0.5f - basisY * 0.5f;
+                Vector2 edgeX = basisX * cellCountX;
+                Vector2 edgeY = basisY * cellCountY;
+                Vector2 cornerX = origin + edgeX;
+                Vector2 cornerY = origin + edgeY;
+                Vector2 opposite = origin + edgeX + edgeY;
+                float determinant = edgeX.x * edgeY.y - edgeX.y * edgeY.x;
+                if (Math.Abs(determinant) < 0.00001f)
+                {
+                    throw new InvalidOperationException(
+                        "The flattened map projection basis is degenerate.");
+                }
+
+                const float pixelsPerUnit =
+                    BlueprintBuildingCaptureCatalog.VanillaPixelsPerUnit;
+                float left = Mathf.Floor(
+                    Math.Min(Math.Min(origin.x, cornerX.x),
+                        Math.Min(cornerY.x, opposite.x)) * pixelsPerUnit) /
+                    pixelsPerUnit;
+                float right = Mathf.Ceil(
+                    Math.Max(Math.Max(origin.x, cornerX.x),
+                        Math.Max(cornerY.x, opposite.x)) * pixelsPerUnit) /
+                    pixelsPerUnit;
+                float bottom = Mathf.Floor(
+                    Math.Min(Math.Min(origin.y, cornerX.y),
+                        Math.Min(cornerY.y, opposite.y)) * pixelsPerUnit) /
+                    pixelsPerUnit;
+                float top = Mathf.Ceil(
+                    Math.Max(Math.Max(origin.y, cornerX.y),
+                        Math.Max(cornerY.y, opposite.y)) * pixelsPerUnit) /
+                    pixelsPerUnit;
+                int width = Math.Max(
+                    1,
+                    Mathf.RoundToInt((right - left) * pixelsPerUnit));
+                int height = Math.Max(
+                    1,
+                    Mathf.RoundToInt((top - bottom) * pixelsPerUnit));
+                if (width > 2048 || height > 2048)
+                {
+                    throw new InvalidOperationException(
+                        $"The flattened Blueprint decal is implausibly large: " +
+                        $"{width}x{height}.");
+                }
+
+                Texture2D sourceTexture = source.texture;
+                Color32[] sourcePixels = sourceTexture.GetPixels32();
+                if (!TryFindSpriteAlphaBounds(
+                        source,
+                        sourcePixels,
+                        sourceTexture.width,
+                        sourceTexture.height,
+                        out RectInt sourceBounds))
+                {
+                    throw new InvalidOperationException(
+                        "The captured sprite contains no visible pixels.");
+                }
+
+                var outputPixels = new Color32[width * height];
+                for (int y = 0; y < height; y++)
+                {
+                    float worldY = bottom + (y + 0.5f) / pixelsPerUnit;
+                    for (int x = 0; x < width; x++)
+                    {
+                        float worldX = left + (x + 0.5f) / pixelsPerUnit;
+                        float deltaX = worldX - origin.x;
+                        float deltaY = worldY - origin.y;
+                        float u = (deltaX * edgeY.y - deltaY * edgeY.x) /
+                            determinant;
+                        float v = (edgeX.x * deltaY - edgeX.y * deltaX) /
+                            determinant;
+                        if (u < 0f || u > 1f || v < 0f || v > 1f)
+                            continue;
+
+                        // Preserve the capture's screen orientation. The grid
+                        // coordinates above only clip it to the footprint;
+                        // using them as UVs would rotate the artwork with the
+                        // two diagonal AIV axes.
+                        float imageU = (worldX - left) / (right - left);
+                        float imageV = (worldY - bottom) / (top - bottom);
+                        outputPixels[y * width + x] = SampleBilinear(
+                            sourcePixels,
+                            sourceTexture.width,
+                            sourceTexture.height,
+                            sourceBounds,
+                            flipHorizontally ? 1f - imageU : imageU,
+                            imageV);
+                    }
+                }
+
+                var texture = new Texture2D(
+                    width,
+                    height,
+                    TextureFormat.ARGB32,
+                    false);
+                texture.name = source.name + "_Flattened";
+                texture.filterMode = FilterMode.Bilinear;
+                texture.wrapMode = TextureWrapMode.Clamp;
+                texture.SetPixels32(outputPixels);
+                texture.Apply(false, true);
+
+                Vector2 footprintCenter = (origin + opposite) * 0.5f;
+                Vector2 pivot = new Vector2(
+                    (footprintCenter.x - left) * pixelsPerUnit / width,
+                    (footprintCenter.y - bottom) * pixelsPerUnit / height);
+                sprite = Sprite.Create(
+                    texture,
+                    new Rect(0f, 0f, width, height),
+                    pivot,
+                    pixelsPerUnit,
+                    0,
+                    SpriteMeshType.FullRect);
+                sprite.name = texture.name;
+                Object.DontDestroyOnLoad(texture);
+                Object.DontDestroyOnLoad(sprite);
+                flattenedBuildingSprites.Add(cacheKey, sprite);
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    $"Generated flattened Blueprint decal: " +
+                    $"mapper={placement.MapperValue}, " +
+                    $"cells={cellCountX}x{cellCountY}, " +
+                    $"size={width}x{height}, rotation={GetCameraQuarter()}, " +
+                    $"source='{source.name}'.");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                failedFlattenedBuildingSprites.Add(cacheKey);
+                Shared.DebugLogHelper.LogWarning(
+                    log,
+                    $"Flattened Blueprint decal generation failed; using the " +
+                    $"compact Vanilla icon: mapper={placement.MapperValue}, " +
+                    $"error={ex.Message}");
+                sprite = null;
+                return false;
+            }
+        }
+
+        private bool TryGetGroundBasis(
+            int worldX,
+            int worldY,
+            Vector3 anchor,
+            int deltaX,
+            int deltaY,
+            out Vector2 basis)
+        {
+            if (TryGetGroundPosition(
+                    worldX + deltaX,
+                    worldY + deltaY,
+                    out Vector3 next))
+            {
+                basis = new Vector2(next.x - anchor.x, next.y - anchor.y);
+                return basis.sqrMagnitude > 0.000001f;
+            }
+            if (TryGetGroundPosition(
+                    worldX - deltaX,
+                    worldY - deltaY,
+                    out Vector3 previous))
+            {
+                basis = new Vector2(
+                    anchor.x - previous.x,
+                    anchor.y - previous.y);
+                return basis.sqrMagnitude > 0.000001f;
+            }
+
+            basis = default;
+            return false;
+        }
+
+        private static bool TryFindSpriteAlphaBounds(
+            Sprite sprite,
+            Color32[] pixels,
+            int textureWidth,
+            int textureHeight,
+            out RectInt bounds)
+        {
+            Rect rect = sprite.rect;
+            int minimumRectX = Math.Max(0, Mathf.FloorToInt(rect.xMin));
+            int maximumRectX = Math.Min(
+                textureWidth - 1,
+                Mathf.CeilToInt(rect.xMax) - 1);
+            int minimumRectY = Math.Max(0, Mathf.FloorToInt(rect.yMin));
+            int maximumRectY = Math.Min(
+                textureHeight - 1,
+                Mathf.CeilToInt(rect.yMax) - 1);
+            int minimumX = maximumRectX + 1;
+            int maximumX = -1;
+            int minimumY = maximumRectY + 1;
+            int maximumY = -1;
+            for (int y = minimumRectY; y <= maximumRectY; y++)
+            {
+                int row = y * textureWidth;
+                for (int x = minimumRectX; x <= maximumRectX; x++)
+                {
+                    if (pixels[row + x].a <= 8)
+                        continue;
+
+                    minimumX = Math.Min(minimumX, x);
+                    maximumX = Math.Max(maximumX, x);
+                    minimumY = Math.Min(minimumY, y);
+                    maximumY = Math.Max(maximumY, y);
+                }
+            }
+
+            if (maximumX < minimumX || maximumY < minimumY)
+            {
+                bounds = default;
+                return false;
+            }
+
+            bounds = new RectInt(
+                minimumX,
+                minimumY,
+                maximumX - minimumX + 1,
+                maximumY - minimumY + 1);
+            return true;
+        }
+
+        private static Color32 SampleBilinear(
+            Color32[] pixels,
+            int width,
+            int height,
+            RectInt bounds,
+            float u,
+            float v)
+        {
+            float sourceX = bounds.xMin +
+                Mathf.Clamp01(u) * Math.Max(0, bounds.width - 1);
+            float sourceY = bounds.yMin +
+                Mathf.Clamp01(v) * Math.Max(0, bounds.height - 1);
+            int x0 = Mathf.Clamp(Mathf.FloorToInt(sourceX), 0, width - 1);
+            int y0 = Mathf.Clamp(Mathf.FloorToInt(sourceY), 0, height - 1);
+            int x1 = Math.Min(width - 1, x0 + 1);
+            int y1 = Math.Min(height - 1, y0 + 1);
+            float blendX = sourceX - x0;
+            float blendY = sourceY - y0;
+            Color bottom = Color.LerpUnclamped(
+                pixels[y0 * width + x0],
+                pixels[y0 * width + x1],
+                blendX);
+            Color top = Color.LerpUnclamped(
+                pixels[y1 * width + x0],
+                pixels[y1 * width + x1],
+                blendX);
+            return Color.LerpUnclamped(bottom, top, blendY);
         }
 
         private bool TryGetBundledDrawbridgeSprite(
@@ -940,7 +1288,8 @@ namespace SpawnCastle
                 mapper.Category == AivItemCategory.Building ||
                 icon.UsesHelpImage;
             float normalScale = 0f;
-            if (isBuildingIcon &&
+            if (!flattenedLandscape &&
+                isBuildingIcon &&
                 !TryResolveBuildingScale(
                     placement,
                     icon,
@@ -970,9 +1319,11 @@ namespace SpawnCastle
             bool useOriginalBuildingScale =
                 !flattenedLandscape &&
                 isBuildingIcon;
-            float scale = useOriginalBuildingScale
-                ? normalScale
-                : CalculateCompactIconScale(placement, sprite);
+            float scale = flattenedLandscape && icon.UsesExactWorldScale
+                ? 1f
+                : useOriginalBuildingScale
+                    ? normalScale
+                    : CalculateCompactIconScale(placement, sprite);
             if (useOriginalBuildingScale &&
                 !icon.UsesExactWorldScale)
             {

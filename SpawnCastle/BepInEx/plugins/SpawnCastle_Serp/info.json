@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Spawn Castle",
   "Description": "Displays a local visual AIVJSON castle blueprint or spawns it through the game's native AIV pipeline.",
-  "Version": "0.3.24",
+  "Version": "0.3.26",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
@@ -318,6 +318,21 @@
         "Disabled development-time Blueprint image and manifest generation behind one central source switch while continuing to load the bundled BlueprintImages library.",
         "Stopped reading or writing the temporary _Captured library and its missing-capture report while image generation is disabled.",
         "Removed obsolete capture view values, unused manifest-origin state, and stale model metadata."
+      ]
+    },
+    {
+      "Version": "0.3.25",
+      "Changes": [
+        "Generated cached flat-view building decals at runtime from the bundled BlueprintImages instead of using unrelated build-menu icons.",
+        "Projected each captured image into its exact isometric core or reservation footprint so no image pixels extend beyond the colored placement area.",
+        "Retained compact Vanilla icons as a safe fallback when a captured image cannot be read or projected."
+      ]
+    },
+    {
+      "Version": "0.3.26",
+      "Changes": [
+        "Kept flattened Blueprint artwork aligned to the screen like its normal-view capture instead of rotating its contents along the diagonal AIV grid axes.",
+        "Continued using the exact isometric footprint as a clipping mask so the corrected image cannot extend beyond the colored placement area."
       ]
     }
   ]

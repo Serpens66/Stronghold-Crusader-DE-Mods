@@ -31,8 +31,10 @@ human Keep using the fixed human-Keep orientation. The overlay consists of:
 - a manually selected clean building image from Vanilla's
   `StreamingAssets/Help/Images` for supported normal-view structures, with the
   normal non-highlighted `UI-MasterAtlas` build-menu image as fallback; and
-- compact build-menu images for flattened view and for individual wall, moat,
-  pitch-ditch, trap, and other placements without an approved Help image.
+- runtime-flattened versions of the exact captured building images in flattened
+  view, projected into and clipped to their colored isometric footprint; and
+- compact build-menu images as a fallback and for individual wall, moat,
+  pitch-ditch, trap, and other non-building placements.
 
 Help images are decoded once from the installed game, cleaned without modifying
 the original files, alpha-trimmed on the CPU, and cached as inexpensive
@@ -69,7 +71,8 @@ The development pipeline that created the bundled PNG files and
 switch is `false`, SpawnCastle only reads the shipped library: it neither scans
 held construction previews for new images nor reads or writes the `_Captured`
 directory and its missing-capture report. Set the switch to `true` and rebuild
-the mod only when the image library needs to be extended.
+the mod only when the image library needs to be extended. Flat-view decals are
+generated in memory from these bundled images and never written to disk.
 
 ## Blueprint hotkey implementation
 
