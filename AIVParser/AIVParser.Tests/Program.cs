@@ -24,7 +24,7 @@ internal static class Program
             ("Validate Blueprint calibration rules", TestBlueprintCalibrationRules),
             ("Expand reserved Blueprint grounds without moving icons", TestReservedBlueprintGrounds),
             ("Exclude Blueprint placement-ground sprites", TestBlueprintPreviewSpriteFilter),
-            ("Align cropped Blueprint building icons", TestBuildingIconPivots),
+            ("Align Blueprint visuals to footprint centres", TestBuildingIconOffsets),
             ("Rotate footprints", TestFootprintRotations),
             ("Resolve associated blocked areas", TestBlockedAreas),
             ("Compute rotated keep deltas", TestAnchorDelta),
@@ -150,19 +150,38 @@ internal static class Program
         }
     }
 
-    private static void TestBuildingIconPivots()
+    private static void TestBuildingIconOffsets()
     {
-        // Hovel keeps the proven 21 px baseline while differently cropped
-        // Church and Mercenary Post icons get matching normalized pivots.
+        // The fallback places the visual centre above the footprint centre by
+        // half the visual height minus half the projected footprint depth.
         AssertEqual(
-            21f / 96f,
-            SpawnCastle.BlueprintBuildingIconCatalog.CalculateGroundPivotY(96));
+            0.5f,
+            SpawnCastle.BlueprintBuildingIconCatalog
+                .CalculateFootprintVisualCenterOffsetY(2, 2f));
         AssertEqual(
-            21f / 82f,
-            SpawnCastle.BlueprintBuildingIconCatalog.CalculateGroundPivotY(82));
+            2f,
+            SpawnCastle.BlueprintBuildingIconCatalog
+                .CalculateFootprintVisualCenterOffsetY(4, 6f));
         AssertEqual(
-            21f / 89f,
-            SpawnCastle.BlueprintBuildingIconCatalog.CalculateGroundPivotY(89));
+            -0.5f,
+            SpawnCastle.BlueprintBuildingIconCatalog
+                .CalculateFootprintVisualCenterOffsetY(5, 1.5f));
+        AssertEqual(
+            1.4453125f,
+            SpawnCastle.BlueprintBuildingIconCatalog
+                .ConvertPreviewSliceOffsetY(9, 3.4453125f));
+        AssertEqual(
+            -0.0234375f,
+            SpawnCastle.BlueprintBuildingIconCatalog
+                .ConvertPreviewSliceOffsetY(5, 0.9765625f));
+        AssertEqual(
+            3f,
+            SpawnCastle.BlueprintBuildingIconCatalog
+                .ScaleCalibratedVisualOffset(1f, 2f, 6f));
+        AssertEqual(
+            -3f,
+            SpawnCastle.BlueprintBuildingIconCatalog
+                .ScaleCalibratedVisualOffset(-1f, 2f, 6f));
     }
 
     private static void TestGateVisualRotation()
@@ -682,6 +701,18 @@ internal static class Program
             true,
             SpawnCastle.BlueprintBuildingIconCatalog
                 .IsUsableCalibrationRevision(4));
+        AssertEqual(
+            false,
+            SpawnCastle.BlueprintBuildingIconCatalog
+                .IsUsableGroundOffsetRevision(4));
+        AssertEqual(
+            false,
+            SpawnCastle.BlueprintBuildingIconCatalog
+                .IsUsableGroundOffsetRevision(5));
+        AssertEqual(
+            true,
+            SpawnCastle.BlueprintBuildingIconCatalog
+                .IsUsableGroundOffsetRevision(6));
     }
 
     private static void TestReservedBlueprintGrounds()

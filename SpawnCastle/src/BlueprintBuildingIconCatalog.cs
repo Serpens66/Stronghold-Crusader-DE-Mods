@@ -122,11 +122,12 @@ namespace SpawnCastle
 
     internal static class BlueprintBuildingIconCatalog
     {
-        public const int CurrentCalibrationRevision = 4;
+        public const int CurrentCalibrationRevision = 6;
 
-        // Vanilla crops these world-style images to different heights, but
-        // their ground contact stays at one baseline above the lower crop edge.
-        private const float GroundContactPixelsFromBottom = 21f;
+        public const int MinimumSizeCalibrationRevision = 4;
+
+        // Build-menu sources need a small correction to match the larger
+        // Vanilla construction-preview bounds used by the calibration.
         private const float BuildMenuCalibratedVisualCorrection = 1.10f;
 
         private static readonly IReadOnlyDictionary<
@@ -493,6 +494,11 @@ namespace SpawnCastle
 
         public static bool IsUsableCalibrationRevision(int revision)
         {
+            return revision >= MinimumSizeCalibrationRevision;
+        }
+
+        public static bool IsUsableGroundOffsetRevision(int revision)
+        {
             return revision >= CurrentCalibrationRevision;
         }
 
@@ -505,14 +511,70 @@ namespace SpawnCastle
             return pixelWidth > 64.5f || pixelHeight > 32.5f;
         }
 
-        public static float CalculateGroundPivotY(int iconPixelHeight)
+        public static float CalculateFootprintVisualCenterOffsetY(
+            int footprintSize,
+            float visualWorldHeight)
         {
-            if (iconPixelHeight <= 0)
-                throw new ArgumentOutOfRangeException(nameof(iconPixelHeight));
+            if (footprintSize <= 0)
+                throw new ArgumentOutOfRangeException(nameof(footprintSize));
+            if (visualWorldHeight <= 0f ||
+                float.IsNaN(visualWorldHeight) ||
+                float.IsInfinity(visualWorldHeight))
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(visualWorldHeight));
+            }
 
-            return Math.Min(
-                0.5f,
-                GroundContactPixelsFromBottom / iconPixelHeight);
+            // A square isometric footprint is footprintSize / 2 world units
+            // high. Its centre therefore sits footprintSize / 4 above the
+            // front tip. This is a useful fallback until Vanilla supplies the
+            // exact visual-centre offset for the mapper.
+            return visualWorldHeight / 2f - footprintSize / 4f;
+        }
+
+        public static float ConvertPreviewSliceOffsetY(
+            int footprintSize,
+            float measuredOffsetY)
+        {
+            if (footprintSize <= 0)
+                throw new ArgumentOutOfRangeException(nameof(footprintSize));
+            if (float.IsNaN(measuredOffsetY) ||
+                float.IsInfinity(measuredOffsetY))
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(measuredOffsetY));
+            }
+
+            // Vanilla anchors the 2N-1 preview slices on successive isometric
+            // rows. Their measured centre therefore still contains the depth
+            // from the first to the last footprint-cell centre.
+            return measuredOffsetY - (footprintSize - 1) / 4f;
+        }
+
+        public static float ScaleCalibratedVisualOffset(
+            float calibratedOffset,
+            float calibratedVisualSize,
+            float renderedVisualSize)
+        {
+            if (calibratedVisualSize <= 0f ||
+                renderedVisualSize <= 0f ||
+                float.IsNaN(calibratedOffset) ||
+                float.IsInfinity(calibratedOffset) ||
+                float.IsNaN(calibratedVisualSize) ||
+                float.IsInfinity(calibratedVisualSize) ||
+                float.IsNaN(renderedVisualSize) ||
+                float.IsInfinity(renderedVisualSize))
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(calibratedVisualSize));
+            }
+
+            // Help/build-menu sources can have a different aspect ratio from
+            // Vanilla's sliced preview. Preserve the measured anchor ratio,
+            // not its source-specific world distance.
+            return calibratedOffset /
+                calibratedVisualSize *
+                renderedVisualSize;
         }
 
         public static bool TryCalculateNormalWorldScale(

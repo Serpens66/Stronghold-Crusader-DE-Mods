@@ -422,6 +422,31 @@ namespace SpawnCastle
             if (!TryFindLocalKeep(out int keepX, out int keepY))
                 return;
 
+            if (!TryBuildBlueprintLayout(
+                    keepX,
+                    keepY,
+                    "scheduled preparation"))
+            {
+                preparePending = false;
+                showAfterPrepare = false;
+                RefreshHud();
+                return;
+            }
+
+            bool restoreVisibility = showAfterPrepare;
+            preparePending = false;
+            showAfterPrepare = false;
+            if (restoreVisibility)
+                SetBlueprintVisible(true, "settings reload");
+            else
+                RefreshHud();
+        }
+
+        private bool TryBuildBlueprintLayout(
+            int keepX,
+            int keepY,
+            string reason)
+        {
             try
             {
                 if (!settings.TryResolveSelectedFile(out string fullPath))
@@ -436,30 +461,23 @@ namespace SpawnCastle
                     document,
                     keepX,
                     keepY);
-                preparePending = false;
                 Shared.DebugLogHelper.LogInfo(
                     log,
-                    $"Blueprint prepared locally: file={fullPath}, " +
-                    $"keep=({keepX},{keepY}), tiles={layout.Tiles.Count}, " +
-                    $"icons={layout.Icons.Count}, " +
+                    $"Blueprint prepared locally: reason={reason}, " +
+                    $"file={fullPath}, keep=({keepX},{keepY}), " +
+                    $"tiles={layout.Tiles.Count}, icons={layout.Icons.Count}, " +
                     $"unknownMappers={layout.UnknownMapperCount}, " +
                     $"miscItemsIgnored={document.miscItems?.Count ?? 0}.");
-
-                if (showAfterPrepare)
-                    SetBlueprintVisible(true, "settings reload");
-                else
-                    RefreshHud();
+                return true;
             }
             catch (Exception ex)
             {
-                preparePending = false;
-                showAfterPrepare = false;
                 layout = null;
                 renderer.Clear();
                 Shared.DebugLogHelper.LogError(
                     log,
                     $"Blueprint preparation failed; overlay remains unavailable: {ex}");
-                RefreshHud();
+                return false;
             }
         }
 
@@ -500,18 +518,48 @@ namespace SpawnCastle
 
         private void ToggleBlueprint()
         {
-            if (!settings.IsBlueprintMode || !mapActive || layout == null)
+            if (!settings.IsBlueprintMode || !mapActive)
             {
                 Shared.DebugLogHelper.LogWarning(
                     log,
-                    "Blueprint toggle ignored because no prepared local blueprint is available.");
+                    "Blueprint toggle ignored because Blueprint mode or the map is inactive.");
                 RefreshHud();
                 return;
             }
 
-            SetBlueprintVisible(
-                !blueprintVisible,
-                "HUD or configured hotkey");
+            if (blueprintVisible)
+            {
+                SetBlueprintVisible(false, "HUD or configured hotkey");
+                return;
+            }
+
+            // The editor can move or replace the local Keep without a map
+            // reload, so every activation must project from its live position.
+            if (!TryFindLocalKeep(out int keepX, out int keepY))
+            {
+                renderer.Clear();
+                layout = null;
+                blueprintVisible = false;
+                SchedulePrepare(false);
+                Shared.DebugLogHelper.LogWarning(
+                    log,
+                    "Blueprint remains hidden because no live local Keep was found during activation.");
+                RefreshHud();
+                return;
+            }
+
+            preparePending = false;
+            showAfterPrepare = false;
+            if (!TryBuildBlueprintLayout(
+                    keepX,
+                    keepY,
+                    "activation Keep refresh"))
+            {
+                RefreshHud();
+                return;
+            }
+
+            SetBlueprintVisible(true, "HUD or configured hotkey");
         }
 
         private void SetBlueprintVisible(bool visible, string reason)

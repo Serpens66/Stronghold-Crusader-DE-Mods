@@ -28,6 +28,8 @@ namespace SpawnCastle
         private readonly HashSet<string> missingIconKeys =
             new HashSet<string>(StringComparer.Ordinal);
         private readonly HashSet<int> missingScaleMappers = new HashSet<int>();
+        private readonly HashSet<int> missingGroundOffsetMappers =
+            new HashSet<int>();
         private readonly HashSet<BlueprintDrawbridgePosition>
             reportedDrawbridgePlaceholders =
                 new HashSet<BlueprintDrawbridgePosition>();
@@ -484,13 +486,10 @@ namespace SpawnCastle
                 throw new InvalidOperationException(
                     $"Vanilla resource '{resourceKey}' is unavailable.");
 
-            bool alignBuildingGround =
-                mapper.Category == AivItemCategory.Building;
             Sprite sprite =
                 CreateSpriteFromVanillaAtlas(
                     source,
-                    resourceKey,
-                    alignBuildingGround);
+                    resourceKey);
             Object.DontDestroyOnLoad(sprite);
             buildMenuSprites.Add(resourceKey, sprite);
             float normalizedPivotY =
@@ -574,10 +573,9 @@ namespace SpawnCastle
                     alphaBounds.y,
                     alphaBounds.width,
                     alphaBounds.height);
-                var pivot = new Vector2(
-                    0.5f,
-                    BlueprintBuildingIconCatalog.CalculateGroundPivotY(
-                        alphaBounds.height));
+                // Ground alignment is applied in world space per mapper. A
+                // centred source pivot keeps image cropping out of that math.
+                var pivot = new Vector2(0.5f, 0.5f);
                 sprite = Sprite.Create(
                     texture,
                     spriteRect,
@@ -760,8 +758,7 @@ namespace SpawnCastle
 
         private Sprite CreateSpriteFromVanillaAtlas(
             Noesis.BitmapSource source,
-            string resourceKey,
-            bool alignBuildingGround)
+            string resourceKey)
         {
             if (!(source is Noesis.CroppedBitmap cropped))
                 throw new InvalidOperationException(
@@ -793,12 +790,9 @@ namespace SpawnCastle
 
             Noesis.Int32Rect crop = cropped.SourceRect;
             Noesis.Int32Rect atlasRect = atlasValue.rect;
-            Vector2 pivot = alignBuildingGround
-                ? new Vector2(
-                    0.5f,
-                    BlueprintBuildingIconCatalog.CalculateGroundPivotY(
-                        crop.Height))
-                : new Vector2(0.5f, 0.5f);
+            // The per-mapper world offset aligns the visible building centre
+            // to its footprint, so every cached source uses a neutral pivot.
+            Vector2 pivot = new Vector2(0.5f, 0.5f);
             float unityY =
                 atlasRect.Y + atlasRect.Height - crop.Y - crop.Height;
             var spriteRect = new Rect(
@@ -858,37 +852,38 @@ namespace SpawnCastle
             }
 
             Vector3 position = Vector3.zero;
-            int validCorners = 0;
+            int validGroundCells = 0;
             int frontRow = 0;
-            AccumulateIconCorner(
-                placement.MinimumWorldX,
-                placement.MinimumWorldY,
+            AccumulateIconFootprint(
+                placement,
                 ref position,
-                ref validCorners,
-                ref frontRow);
-            AccumulateIconCorner(
-                placement.MinimumWorldX,
-                placement.MaximumWorldY,
-                ref position,
-                ref validCorners,
-                ref frontRow);
-            AccumulateIconCorner(
-                placement.MaximumWorldX,
-                placement.MinimumWorldY,
-                ref position,
-                ref validCorners,
-                ref frontRow);
-            AccumulateIconCorner(
-                placement.MaximumWorldX,
-                placement.MaximumWorldY,
-                ref position,
-                ref validCorners,
+                ref validGroundCells,
                 ref frontRow);
 
-            if (validCorners == 0)
+            if (validGroundCells == 0)
                 return false;
 
-            position /= validCorners;
+            position /= validGroundCells;
+            bool useOriginalBuildingScale =
+                !flattenedLandscape &&
+                isBuildingIcon;
+            float scale = useOriginalBuildingScale
+                ? normalScale
+                : CalculateCompactIconScale(placement, sprite);
+            if (useOriginalBuildingScale &&
+                !icon.UsesExactWorldScale)
+            {
+                Vector2 visualOffset = ResolveVisualCenterOffset(
+                    placement,
+                    mapper,
+                    sprite,
+                    scale);
+                if (icon.FlipHorizontally)
+                    visualOffset.x = -visualOffset.x;
+                position.x += visualOffset.x;
+                position.y += visualOffset.y;
+            }
+
             var iconObject = new GameObject(
                 icon.UsesPlaceholderImage
                     ? $"BlueprintIcon_{placement.MapperValue}_" +
@@ -901,18 +896,52 @@ namespace SpawnCastle
             renderer.color = new Color(1f, 1f, 1f, 0.68f);
             renderer.sortingOrder = -20000 + frontRow * 49 + 4;
 
-            bool useOriginalBuildingScale =
-                !flattenedLandscape &&
-                isBuildingIcon;
-            float scale = useOriginalBuildingScale
-                ? normalScale
-                : CalculateCompactIconScale(placement, sprite);
             iconObject.transform.localScale =
                 new Vector3(
                     icon.FlipHorizontally ? -scale : scale,
                     scale,
                     1f);
             return true;
+        }
+
+        private Vector2 ResolveVisualCenterOffset(
+            BlueprintIconPlacement placement,
+            AivMapperInfo mapper,
+            Sprite sprite,
+            float scale)
+        {
+            Vector3 spriteSize = sprite.bounds.size;
+            var renderedWorldSize = new Vector2(
+                spriteSize.x * Math.Abs(scale),
+                spriteSize.y * Math.Abs(scale));
+            if (sizeCalibration.TryGetVisualCenterOffset(
+                    placement.MapperValue,
+                    renderedWorldSize,
+                    out Vector2 calibratedOffset))
+            {
+                missingGroundOffsetMappers.Remove(placement.MapperValue);
+                return calibratedOffset;
+            }
+
+            float visualHeight = renderedWorldSize.y;
+            float fallbackY = BlueprintBuildingIconCatalog
+                .CalculateFootprintVisualCenterOffsetY(
+                    placement.Size,
+                    visualHeight);
+            if (missingGroundOffsetMappers.Add(placement.MapperValue))
+            {
+                Shared.DebugLogHelper.LogWarning(
+                    log,
+                    $"Blueprint icon uses a geometric ground-alignment " +
+                    $"fallback: mapper={mapper.Name} " +
+                    $"({placement.MapperValue}), footprint={placement.Size}, " +
+                    $"visualHeight={visualHeight:F4}, offset=(0," +
+                    $"{fallbackY:F4}). Hold its Vanilla construction " +
+                    $"preview over level terrain for at least 0.4 seconds " +
+                    $"to record the exact alignment.");
+            }
+
+            return new Vector2(0f, fallbackY);
         }
 
         private bool TryResolveBuildingScale(
@@ -988,27 +1017,36 @@ namespace SpawnCastle
             return false;
         }
 
-        private void AccumulateIconCorner(
-            int worldX,
-            int worldY,
+        private void AccumulateIconFootprint(
+            BlueprintIconPlacement placement,
             ref Vector3 position,
-            ref int validCorners,
+            ref int validGroundCells,
             ref int frontRow)
         {
-            if (!TryGetRenderedTile(
-                    worldX,
-                    worldY,
-                    out GameMapTile mapTile,
-                    out Vector3Int tilePosition))
+            for (int worldY = placement.MinimumWorldY;
+                worldY <= placement.MaximumWorldY;
+                worldY++)
             {
-                return;
-            }
+                for (int worldX = placement.MinimumWorldX;
+                    worldX <= placement.MaximumWorldX;
+                    worldX++)
+                {
+                    if (!TryGetRenderedTile(
+                            worldX,
+                            worldY,
+                            out GameMapTile mapTile,
+                            out Vector3Int tilePosition))
+                    {
+                        continue;
+                    }
 
-            // Every icon is centered from its actual footprint cells;
-            // Vanilla's building-sprite pivot is intentionally not used.
-            position += GetGroundCellCenter(mapTile, tilePosition);
-            validCorners++;
-            frontRow = Math.Max(frontRow, mapTile.row);
+                    // Match the marker/calibration reference on uneven ground;
+                    // corner heights alone can bias the building vertically.
+                    position += GetGroundCellCenter(mapTile, tilePosition);
+                    validGroundCells++;
+                    frontRow = Math.Max(frontRow, mapTile.row);
+                }
+            }
         }
 
         private static float CalculateCompactIconScale(

@@ -14,9 +14,9 @@ namespace SpawnCastle
 {
     internal sealed class BlueprintBuildingSizeCalibration
     {
-        // All currently known buildings are calibrated. Toggle this only when
-        // collecting new Vanilla mouse-preview measurements.
-        internal static bool EnablePreviewMeasurement = false;
+        // Sampling stops per mapper once both size and ground alignment are
+        // known, so missing offsets can calibrate themselves during normal play.
+        internal static bool EnablePreviewMeasurement = true;
 
         private const float SampleIntervalSeconds = 0.12f;
         private const float StableWidthTolerance = 0.01f;
@@ -34,6 +34,8 @@ namespace SpawnCastle
         private int candidateMapper = int.MinValue;
         private float candidateWidth;
         private float candidateHeight;
+        private float candidateVisualOffsetX;
+        private float candidateVisualOffsetY;
         private int candidateStableSamples;
 
         public BlueprintBuildingSizeCalibration(ManualLogSource log)
@@ -54,8 +56,26 @@ namespace SpawnCastle
             nextSampleTime = Time.unscaledTime + SampleIntervalSeconds;
             if (!CanMeasure(
                     out int mapperValue,
-                    out string mapperName) ||
-                !TryMeasureTilePreview(out PreviewBounds preview))
+                    out string mapperName))
+            {
+                ResetCandidate();
+                return false;
+            }
+
+            if (measurements.TryGetValue(
+                    mapperValue,
+                    out Measurement completed) &&
+                HasUsableGroundOffset(completed))
+            {
+                ResetCandidate();
+                return false;
+            }
+
+            int footprintSize = AivMapperCatalog.Resolve(mapperValue)
+                .FootprintSize ?? 1;
+            if (!TryMeasureTilePreview(
+                    footprintSize,
+                    out PreviewBounds preview))
             {
                 ResetCandidate();
                 return false;
@@ -65,6 +85,10 @@ namespace SpawnCastle
                 Math.Abs(candidateWidth - preview.Width) <=
                     StableWidthTolerance &&
                 Math.Abs(candidateHeight - preview.Height) <=
+                    StableWidthTolerance &&
+                Math.Abs(candidateVisualOffsetX - preview.VisualOffsetX) <=
+                    StableWidthTolerance &&
+                Math.Abs(candidateVisualOffsetY - preview.VisualOffsetY) <=
                     StableWidthTolerance)
             {
                 candidateStableSamples++;
@@ -74,6 +98,8 @@ namespace SpawnCastle
                 candidateMapper = mapperValue;
                 candidateWidth = preview.Width;
                 candidateHeight = preview.Height;
+                candidateVisualOffsetX = preview.VisualOffsetX;
+                candidateVisualOffsetY = preview.VisualOffsetY;
                 candidateStableSamples = 1;
             }
 
@@ -81,19 +107,6 @@ namespace SpawnCastle
                 return false;
 
             candidateStableSamples = 0;
-            if (measurements.TryGetValue(
-                    mapperValue,
-                    out Measurement previous) &&
-                previous.Revision >= BlueprintBuildingIconCatalog
-                    .CurrentCalibrationRevision &&
-                Math.Abs(previous.WorldWidth - preview.Width) <=
-                    StableWidthTolerance &&
-                Math.Abs(previous.WorldHeight - preview.Height) <=
-                    StableWidthTolerance)
-            {
-                return false;
-            }
-
             int rotation = GameMap.instance != null
                 ? (int)GameMap.instance.CurrentRotation()
                 : -1;
@@ -102,17 +115,24 @@ namespace SpawnCastle
                 mapperName,
                 preview.Width,
                 preview.Height,
+                preview.VisualOffsetX,
+                preview.VisualOffsetY,
                 preview.FragmentCount,
+                preview.GroundTileCount,
                 rotation,
                 BlueprintBuildingIconCatalog
                     .CurrentCalibrationRevision);
             Save();
             Shared.DebugLogHelper.LogInfo(
                 log,
-                $"Blueprint building size calibrated from Vanilla preview: " +
+                $"Blueprint building alignment calibrated from Vanilla preview: " +
                 $"mapper={mapperName} ({mapperValue}), " +
                 $"worldSize={preview.Width:F4}x{preview.Height:F4}, " +
-                $"fragments={preview.FragmentCount}, source={preview.Source}, " +
+                $"visualOffset=({preview.VisualOffsetX:F4}," +
+                $"{preview.VisualOffsetY:F4}), " +
+                $"fragments={preview.FragmentCount}, " +
+                $"groundTiles={preview.GroundTileCount}, " +
+                $"source={preview.Source}, " +
                 $"rotation={rotation}, " +
                 $"revision={BlueprintBuildingIconCatalog.CurrentCalibrationRevision}, " +
                 $"file={filePath}.");
@@ -144,6 +164,34 @@ namespace SpawnCastle
             }
 
             worldSize = Vector2.zero;
+            return false;
+        }
+
+        public bool TryGetVisualCenterOffset(
+            int mapperValue,
+            Vector2 renderedWorldSize,
+            out Vector2 visualOffset)
+        {
+            if (measurements.TryGetValue(
+                    mapperValue,
+                    out Measurement measurement) &&
+                HasUsableGroundOffset(measurement))
+            {
+                visualOffset = new Vector2(
+                    BlueprintBuildingIconCatalog
+                        .ScaleCalibratedVisualOffset(
+                            measurement.VisualOffsetX,
+                            measurement.WorldWidth,
+                            renderedWorldSize.x),
+                    BlueprintBuildingIconCatalog
+                        .ScaleCalibratedVisualOffset(
+                            measurement.VisualOffsetY,
+                            measurement.WorldHeight,
+                            renderedWorldSize.y));
+                return true;
+            }
+
+            visualOffset = Vector2.zero;
             return false;
         }
 
@@ -183,6 +231,7 @@ namespace SpawnCastle
         }
 
         private static bool TryMeasureTilePreview(
+            int footprintSize,
             out PreviewBounds preview)
         {
             preview = default;
@@ -205,6 +254,11 @@ namespace SpawnCastle
             float bottom = float.PositiveInfinity;
             float top = float.NegativeInfinity;
             int fragmentCount = 0;
+            float groundCenterX = 0f;
+            float groundCenterY = 0f;
+            float minimumGroundHeight = float.PositiveInfinity;
+            float maximumGroundHeight = float.NegativeInfinity;
+            int groundTileCount = 0;
 
             for (int y = minimumY; y <= maximumY; y++)
             {
@@ -216,39 +270,85 @@ namespace SpawnCastle
                         tile.tilemapRef == null ||
                         tile.tileImage == null ||
                         tile.constructionOrigImage == null ||
-                        tile.tileImage == tile.constructionOrigImage ||
-                        !BlueprintBuildingIconCatalog
-                            .IsExtendedPreviewSprite(
-                                tile.tileImage.rect.width,
-                                tile.tileImage.rect.height))
+                        tile.tileImage == tile.constructionOrigImage)
                     {
                         continue;
                     }
 
-                    // Only changed, non-ground sprites form the proven
-                    // building-preview bounds used by every mapper.
                     Vector3 cellCenter =
                         tile.tilemapRef.GetCellCenterWorld(
                             new Vector3Int(x, y, 0));
                     cellCenter.y += tile.height;
-                    Bounds bounds = tile.tileImage.bounds;
-                    left = Math.Min(left, cellCenter.x + bounds.min.x);
-                    right = Math.Max(right, cellCenter.x + bounds.max.x);
-                    bottom = Math.Min(bottom, cellCenter.y + bounds.min.y);
-                    top = Math.Max(top, cellCenter.y + bounds.max.y);
-                    fragmentCount++;
+                    // Vanilla changes every footprint cell: extended sprites
+                    // occupy the isometric slice anchors and 64x32 sprites fill
+                    // the remaining diamonds. Averaging all changed cells
+                    // therefore recovers the complete placement centre.
+                    groundCenterX += cellCenter.x;
+                    groundCenterY += cellCenter.y;
+                    minimumGroundHeight = Math.Min(
+                        minimumGroundHeight,
+                        tile.height);
+                    maximumGroundHeight = Math.Max(
+                        maximumGroundHeight,
+                        tile.height);
+                    groundTileCount++;
+                    if (BlueprintBuildingIconCatalog
+                        .IsExtendedPreviewSprite(
+                            tile.tileImage.rect.width,
+                            tile.tileImage.rect.height))
+                    {
+                        // Extended fragments form the actual Vanilla building
+                        // visual; the 64x32 placement diamonds are measured
+                        // separately as its ground reference.
+                        Bounds bounds = tile.tileImage.bounds;
+                        left = Math.Min(left, cellCenter.x + bounds.min.x);
+                        right = Math.Max(right, cellCenter.x + bounds.max.x);
+                        bottom = Math.Min(
+                            bottom,
+                            cellCenter.y + bounds.min.y);
+                        top = Math.Max(top, cellCenter.y + bounds.max.y);
+                        fragmentCount++;
+                    }
                 }
             }
 
             float width = right - left;
             float height = top - bottom;
-            if (!IsPlausibleMeasurement(width, height, fragmentCount))
+            if (!IsPlausibleMeasurement(
+                    width,
+                    height,
+                    fragmentCount,
+                    groundTileCount) ||
+                maximumGroundHeight - minimumGroundHeight >
+                    StableWidthTolerance)
+            {
                 return false;
+            }
+
+            groundCenterX /= groundTileCount;
+            groundCenterY /= groundTileCount;
+            float visualOffsetX = (left + right) / 2f - groundCenterX;
+            float measuredVisualOffsetY =
+                (bottom + top) / 2f - groundCenterY;
+            float visualOffsetY = BlueprintBuildingIconCatalog
+                .ConvertPreviewSliceOffsetY(
+                    footprintSize,
+                    measuredVisualOffsetY);
+            if (float.IsNaN(visualOffsetX) ||
+                float.IsInfinity(visualOffsetX) ||
+                float.IsNaN(visualOffsetY) ||
+                float.IsInfinity(visualOffsetY))
+            {
+                return false;
+            }
 
             preview = new PreviewBounds(
                 width,
                 height,
+                visualOffsetX,
+                visualOffsetY,
                 fragmentCount,
+                groundTileCount,
                 "full-extended-preview-sprites");
             return true;
         }
@@ -256,9 +356,11 @@ namespace SpawnCastle
         private static bool IsPlausibleMeasurement(
             float width,
             float height,
-            int fragmentCount)
+            int fragmentCount,
+            int groundTileCount)
         {
             return fragmentCount > 0 &&
+                groundTileCount > 0 &&
                 width >= 0.25f &&
                 height >= 0.1f &&
                 width <= 64f &&
@@ -324,22 +426,59 @@ namespace SpawnCastle
                         continue;
                     }
 
+                    float visualOffsetX = 0f;
+                    float visualOffsetY = 0f;
+                    int groundTiles = 0;
+                    bool hasGroundOffset = false;
+                    if (parts.Length >= 10)
+                    {
+                        if (!float.TryParse(
+                                parts[7],
+                                NumberStyles.Float,
+                                CultureInfo.InvariantCulture,
+                                out visualOffsetX) ||
+                            !float.TryParse(
+                                parts[8],
+                                NumberStyles.Float,
+                                CultureInfo.InvariantCulture,
+                                out visualOffsetY) ||
+                            !int.TryParse(
+                                parts[9],
+                                NumberStyles.Integer,
+                                CultureInfo.InvariantCulture,
+                                out groundTiles))
+                        {
+                            continue;
+                        }
+
+                        hasGroundOffset = groundTiles > 0 &&
+                            BlueprintBuildingIconCatalog
+                                .IsUsableGroundOffsetRevision(revision);
+                    }
+
                     measurements[mapperValue] = new Measurement(
                         mapperValue,
                         parts[1],
                         width,
                         height,
+                        visualOffsetX,
+                        visualOffsetY,
                         fragments,
+                        groundTiles,
                         rotation,
-                        revision);
+                        revision,
+                        hasGroundOffset);
                 }
 
                 int usableCount = measurements.Values.Count(
                     IsUsableMeasurement);
+                int alignedCount = measurements.Values.Count(
+                    HasUsableGroundOffset);
                 Shared.DebugLogHelper.LogInfo(
                     log,
                     $"Loaded {measurements.Count} Blueprint building-size " +
-                    $"calibrations ({usableCount} usable) from {filePath}.");
+                    $"calibrations ({usableCount} usable sizes, " +
+                    $"{alignedCount} ground-aligned) from {filePath}.");
             }
             catch (Exception ex)
             {
@@ -358,7 +497,8 @@ namespace SpawnCastle
                 var output = new StringBuilder();
                 output.Append(
                     "# mapperValue\tmapperName\tworldWidth\tworldHeight\t" +
-                    "fragments\trotation\tmeasurementRevision\r\n");
+                    "fragments\trotation\tmeasurementRevision\t" +
+                    "visualOffsetX\tvisualOffsetY\tgroundTiles\r\n");
                 foreach (Measurement measurement in measurements.Values
                     .OrderBy(value => value.MapperValue))
                 {
@@ -383,6 +523,17 @@ namespace SpawnCastle
                     output.Append('\t');
                     output.Append(measurement.Revision.ToString(
                         CultureInfo.InvariantCulture));
+                    output.Append('\t');
+                    output.Append(measurement.VisualOffsetX.ToString(
+                        "F6",
+                        CultureInfo.InvariantCulture));
+                    output.Append('\t');
+                    output.Append(measurement.VisualOffsetY.ToString(
+                        "F6",
+                        CultureInfo.InvariantCulture));
+                    output.Append('\t');
+                    output.Append(measurement.GroundTileCount.ToString(
+                        CultureInfo.InvariantCulture));
                     output.Append("\r\n");
                 }
 
@@ -405,6 +556,8 @@ namespace SpawnCastle
             candidateMapper = int.MinValue;
             candidateWidth = 0f;
             candidateHeight = 0f;
+            candidateVisualOffsetX = 0f;
+            candidateVisualOffsetY = 0f;
             candidateStableSamples = 0;
         }
 
@@ -416,17 +569,30 @@ namespace SpawnCastle
                     .IsUsableCalibrationRevision(measurement.Revision);
         }
 
+        private static bool HasUsableGroundOffset(Measurement measurement)
+        {
+            return measurement.HasGroundOffset &&
+                BlueprintBuildingIconCatalog.IsUsableGroundOffsetRevision(
+                    measurement.Revision);
+        }
+
         private readonly struct PreviewBounds
         {
             public PreviewBounds(
                 float width,
                 float height,
+                float visualOffsetX,
+                float visualOffsetY,
                 int fragmentCount,
+                int groundTileCount,
                 string source)
             {
                 Width = width;
                 Height = height;
+                VisualOffsetX = visualOffsetX;
+                VisualOffsetY = visualOffsetY;
                 FragmentCount = fragmentCount;
+                GroundTileCount = groundTileCount;
                 Source = source ?? string.Empty;
             }
 
@@ -434,7 +600,13 @@ namespace SpawnCastle
 
             public float Height { get; }
 
+            public float VisualOffsetX { get; }
+
+            public float VisualOffsetY { get; }
+
             public int FragmentCount { get; }
+
+            public int GroundTileCount { get; }
 
             public string Source { get; }
         }
@@ -446,17 +618,25 @@ namespace SpawnCastle
                 string mapperName,
                 float worldWidth,
                 float worldHeight,
+                float visualOffsetX,
+                float visualOffsetY,
                 int fragmentCount,
+                int groundTileCount,
                 int rotation,
-                int revision)
+                int revision,
+                bool hasGroundOffset = true)
             {
                 MapperValue = mapperValue;
                 MapperName = mapperName ?? string.Empty;
                 WorldWidth = worldWidth;
                 WorldHeight = worldHeight;
+                VisualOffsetX = visualOffsetX;
+                VisualOffsetY = visualOffsetY;
                 FragmentCount = fragmentCount;
+                GroundTileCount = groundTileCount;
                 Rotation = rotation;
                 Revision = revision;
+                HasGroundOffset = hasGroundOffset;
             }
 
             public int MapperValue { get; }
@@ -467,11 +647,19 @@ namespace SpawnCastle
 
             public float WorldHeight { get; }
 
+            public float VisualOffsetX { get; }
+
+            public float VisualOffsetY { get; }
+
             public int FragmentCount { get; }
+
+            public int GroundTileCount { get; }
 
             public int Rotation { get; }
 
             public int Revision { get; }
+
+            public bool HasGroundOffset { get; }
         }
     }
 }
