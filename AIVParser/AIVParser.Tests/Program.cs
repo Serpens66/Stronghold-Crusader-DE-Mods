@@ -31,6 +31,8 @@ internal static class Program
             ("Exclude ground-only Blueprint capture variants", TestBlueprintCaptureRequirements),
             ("Resolve Blueprint capture skins and views", TestBlueprintCaptureRouting),
             ("Round-trip and validate Blueprint capture manifests", TestBlueprintCaptureManifest),
+            ("Round-trip Blueprint depth fragment manifests", TestBlueprintFragmentManifest),
+            ("Remap Blueprint depth rows", TestBlueprintDepthRows),
             ("Rotate footprints", TestFootprintRotations),
             ("Resolve associated blocked areas", TestBlockedAreas),
             ("Compute rotated keep deltas", TestAnchorDelta),
@@ -449,6 +451,120 @@ internal static class Program
         AssertEqual(
             "pivot is outside the sprite rectangle.",
             SpawnCastle.BlueprintBuildingCaptureCatalog.ValidateEntry(entry));
+    }
+
+    private static void TestBlueprintFragmentManifest()
+    {
+        var capture = new SpawnCastle.BlueprintFragmentCaptureEntry
+        {
+            FormatVersion = SpawnCastle.BlueprintFragmentCaptureCatalog.CurrentFormatVersion,
+            MapperValue = 84,
+            MapperName = "MAPPER_ARMOURER",
+            Skin = SpawnCastle.BlueprintCaptureSkin.Generic,
+            View = SpawnCastle.BlueprintCaptureView.Default,
+            CaptureRotation = 1,
+            NormalizedHorizontalFlip = false,
+            FragmentCount = 1,
+            TileCount = 1,
+            MinimumRow = 100,
+            MaximumRow = 106,
+            FragmentSignature = "0123456789ABCDEF"
+        };
+        capture.Metadata["futureField"] = "tabs\tnewlines\r\nand=equals%";
+        var tile = new SpawnCastle.BlueprintFragmentTileEntry
+        {
+            FormatVersion = SpawnCastle.BlueprintFragmentCaptureCatalog.CurrentFormatVersion,
+            CaptureKey = capture.Key,
+            Index = 0
+        };
+        tile.Metadata["row"] = "100";
+        var fragment = new SpawnCastle.BlueprintFragmentImageEntry
+        {
+            FormatVersion = SpawnCastle.BlueprintFragmentCaptureCatalog.CurrentFormatVersion,
+            CaptureKey = capture.Key,
+            Index = 0,
+            PngFile = "Fragments/Armourer/fragment_000.png",
+            Sha256 = new string('A', 64),
+            Width = 256,
+            Height = 128,
+            PivotX = 0.5f,
+            PivotY = 0.25f,
+            PixelsPerUnit = 64f,
+            RowOffset = 3,
+            PositionOffsetX = -1.25f,
+            PositionOffsetY = 0.5f,
+            PositionOffsetZ = 0f
+        };
+
+        string captureText = SpawnCastle.BlueprintFragmentCaptureCatalog
+            .SerializeCaptures([capture]);
+        string tileText = SpawnCastle.BlueprintFragmentCaptureCatalog
+            .SerializeTiles([tile]);
+        string fragmentText = SpawnCastle.BlueprintFragmentCaptureCatalog
+            .SerializeFragments([fragment]);
+        AssertCrLfString(captureText);
+        AssertCrLfString(tileText);
+        AssertCrLfString(fragmentText);
+
+        IReadOnlyList<SpawnCastle.BlueprintFragmentCaptureEntry> captures =
+            SpawnCastle.BlueprintFragmentCaptureCatalog.ParseCaptures(
+                captureText.Split(["\r\n"], StringSplitOptions.None),
+                out IReadOnlyList<string> captureErrors);
+        IReadOnlyList<SpawnCastle.BlueprintFragmentTileEntry> tiles =
+            SpawnCastle.BlueprintFragmentCaptureCatalog.ParseTiles(
+                tileText.Split(["\r\n"], StringSplitOptions.None),
+                out IReadOnlyList<string> tileErrors);
+        IReadOnlyList<SpawnCastle.BlueprintFragmentImageEntry> fragments =
+            SpawnCastle.BlueprintFragmentCaptureCatalog.ParseFragments(
+                fragmentText.Split(["\r\n"], StringSplitOptions.None),
+                out IReadOnlyList<string> fragmentErrors);
+        AssertEqual(0, captureErrors.Count + tileErrors.Count + fragmentErrors.Count);
+        AssertEqual(1, captures.Count);
+        AssertEqual(1, tiles.Count);
+        AssertEqual(1, fragments.Count);
+        AssertEqual(capture.Metadata["futureField"],
+            captures[0].Metadata["futureField"]);
+        AssertEqual(fragment.PositionOffsetX, fragments[0].PositionOffsetX);
+
+        fragment.PngFile = "../unsafe.png";
+        AssertEqual(
+            "fragment PNG path is unsafe or missing.",
+            SpawnCastle.BlueprintFragmentCaptureCatalog.ValidateFragment(fragment));
+        fragment.PngFile = "Fragments/Armourer/fragment_000.png";
+        fragment.RowOffset = 7;
+        Assert(
+            !SpawnCastle.BlueprintFragmentCaptureCatalog.IsValidRowOffset(
+                capture,
+                fragment),
+            "An out-of-range fragment row offset was accepted.");
+    }
+
+    private static void TestBlueprintDepthRows()
+    {
+        AssertEqual(
+            203,
+            SpawnCastle.BlueprintFragmentCaptureCatalog.RemapDepthRow(
+                100, 106, 200, 206, 3));
+        AssertEqual(
+            204,
+            SpawnCastle.BlueprintFragmentCaptureCatalog.GetMiddleDepthRow(
+                200, 208));
+
+        int rearWall = SpawnCastle.BlueprintFragmentCaptureCatalog
+            .RemapDepthRow(100, 106, 200, 206, 0);
+        int buildingMiddle = SpawnCastle.BlueprintFragmentCaptureCatalog
+            .RemapDepthRow(100, 106, 200, 206, 3);
+        int frontWall = SpawnCastle.BlueprintFragmentCaptureCatalog
+            .RemapDepthRow(100, 106, 200, 206, 6);
+        Assert(rearWall < buildingMiddle && buildingMiddle < frontWall,
+            "Depth fragments do not sort between rear and front walls.");
+
+        int secondBuildingInSameRow = SpawnCastle.BlueprintFragmentCaptureCatalog
+            .RemapDepthRow(100, 106, 200, 206, 3);
+        AssertEqual(buildingMiddle, secondBuildingInSameRow);
+        AssertEqual(
+            -20000 + buildingMiddle * 49 + 4,
+            -20000 + secondBuildingInSameRow * 49 + 4);
     }
 
     private static void TestGateVisualRotation()
@@ -1553,6 +1669,14 @@ internal static class Program
         Assert(
             !withoutCrLf.Contains('\r') && !withoutCrLf.Contains('\n'),
             $"{Path.GetFileName(path)} contains non-CRLF line endings.");
+    }
+
+    private static void AssertCrLfString(string value)
+    {
+        string withoutCrLf = value.Replace("\r\n", string.Empty);
+        Assert(
+            !withoutCrLf.Contains('\r') && !withoutCrLf.Contains('\n'),
+            "Serialized manifest contains non-CRLF line endings.");
     }
 
     private static AivJsonDocument CreateValidDocument()

@@ -70,6 +70,8 @@ namespace SpawnCastle
                 settings ?? throw new ArgumentNullException(nameof(settings));
             sizeCalibration =
                 new BlueprintBuildingSizeCalibration(log);
+            BlueprintBuildingPreviewCapture.EnableBlueprintImageGeneration =
+                settings.BlueprintFragmentCaptureEnabled;
             buildingImageLibrary =
                 new BlueprintBuildingImageLibrary(log);
             if (BlueprintBuildingPreviewCapture.EnableBlueprintImageGeneration)

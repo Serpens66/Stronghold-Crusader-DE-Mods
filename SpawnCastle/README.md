@@ -65,14 +65,14 @@ Because Blueprint mode does not change simulation state, it works on new maps,
 loaded savegames, and multiplayer. Every multiplayer client independently selects
 and displays its own local file.
 
-The development pipeline that created the bundled PNG files and
-`BlueprintImages.tsv` is retained but disabled by
-`BlueprintBuildingPreviewCapture.EnableBlueprintImageGeneration`. While the
-switch is `false`, SpawnCastle only reads the shipped library: it neither scans
-held construction previews for new images nor reads or writes the `_Captured`
-directory and its missing-capture report. Set the switch to `true` and rebuild
-the mod only when the image library needs to be extended. Flat-view decals are
-generated in memory from these bundled images and never written to disk.
+The development pipeline that created the bundled PNG files is disabled by the
+`[Development] CaptureBlueprintFragments` setting by default. Normal-view
+Blueprints use separately captured Vanilla Tilemap-depth fragments when the
+three versioned fragment manifests are present. Invalid or incomplete fragment
+data falls back to the bundled composite image; flattened view deliberately
+continues using that composite. The complete capture, validation, and import
+procedure is documented in
+[`BlueprintFragmentCapture.md`](BlueprintFragmentCapture.md).
 
 ## Blueprint hotkey implementation
 

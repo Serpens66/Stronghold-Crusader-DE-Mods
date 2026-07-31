@@ -275,7 +275,8 @@ namespace SpawnCastle
                         stairDirection,
                         stairFlipHorizontally,
                         out Sprite capturedSprite,
-                        out bool capturedFlip))
+                        out bool capturedFlip,
+                        out BlueprintFragmentVisual capturedFragments))
                 {
                     if (!flattenedLandscape)
                     {
@@ -285,7 +286,8 @@ namespace SpawnCastle
                             capturedFlip,
                             false,
                             drawbridgePosition,
-                            true);
+                            true,
+                            capturedFragments);
                     }
 
                     bool useMarkerBounds =
@@ -1309,7 +1311,8 @@ namespace SpawnCastle
 
             Vector3 position = Vector3.zero;
             int validGroundCells = 0;
-            int frontRow = 0;
+            int minimumDepthRow = int.MaxValue;
+            int maximumDepthRow = int.MinValue;
             AccumulateIconFootprint(
                 placement,
                 icon.UsesExactWorldScale &&
@@ -1317,7 +1320,8 @@ namespace SpawnCastle
                         mapper.Name),
                 ref position,
                 ref validGroundCells,
-                ref frontRow);
+                ref minimumDepthRow,
+                ref maximumDepthRow);
 
             if (validGroundCells == 0)
                 return false;
@@ -1355,16 +1359,68 @@ namespace SpawnCastle
                     : $"BlueprintIcon_{placement.MapperValue}");
             iconObject.transform.SetParent(overlayRoot.transform, false);
             iconObject.transform.position = position;
+            if (!flattenedLandscape && icon.Fragments != null)
+            {
+                return TryCreateFragmentedIcon(
+                    iconObject,
+                    icon,
+                    scale,
+                    iconAlpha,
+                    minimumDepthRow,
+                    maximumDepthRow);
+            }
+
             SpriteRenderer renderer = iconObject.AddComponent<SpriteRenderer>();
             renderer.sprite = sprite;
             renderer.color = new Color(1f, 1f, 1f, iconAlpha);
-            renderer.sortingOrder = -20000 + frontRow * 49 + 4;
+            int middleDepthRow = BlueprintFragmentCaptureCatalog
+                .GetMiddleDepthRow(minimumDepthRow, maximumDepthRow);
+            renderer.sortingOrder = -20000 + middleDepthRow * 49 + 4;
 
             iconObject.transform.localScale =
                 new Vector3(
                     icon.FlipHorizontally ? -scale : scale,
                     scale,
                     1f);
+            return true;
+        }
+
+        private static bool TryCreateFragmentedIcon(
+            GameObject root,
+            BlueprintIconVisual icon,
+            float scale,
+            float iconAlpha,
+            int minimumDepthRow,
+            int maximumDepthRow)
+        {
+            BlueprintFragmentVisual visual = icon.Fragments;
+            if (visual?.Fragments == null || visual.Fragments.Count == 0)
+                return false;
+
+            root.name += "_DepthFragments";
+            root.transform.localScale = new Vector3(
+                icon.FlipHorizontally ? -scale : scale,
+                scale,
+                1f);
+            foreach (BlueprintLoadedFragment fragment in visual.Fragments)
+            {
+                var fragmentObject = new GameObject(
+                    $"BlueprintDepthFragment_{fragment.Index}");
+                fragmentObject.transform.SetParent(root.transform, false);
+                fragmentObject.transform.localPosition = fragment.PositionOffset;
+                SpriteRenderer renderer =
+                    fragmentObject.AddComponent<SpriteRenderer>();
+                renderer.sprite = fragment.Sprite;
+                renderer.color = new Color(1f, 1f, 1f, iconAlpha);
+                int targetRow = BlueprintFragmentCaptureCatalog.RemapDepthRow(
+                    visual.CaptureMinimumRow,
+                    visual.CaptureMaximumRow,
+                    minimumDepthRow,
+                    maximumDepthRow,
+                    fragment.RowOffset);
+                renderer.sortingOrder =
+                    -20000 + targetRow * 49 + 4;
+            }
             return true;
         }
 
@@ -1488,7 +1544,8 @@ namespace SpawnCastle
             bool useMarkerBounds,
             ref Vector3 position,
             ref int validGroundCells,
-            ref int frontRow)
+            ref int minimumDepthRow,
+            ref int maximumDepthRow)
         {
             int minimumWorldX = useMarkerBounds
                 ? placement.MarkerMinimumWorldX
@@ -1523,7 +1580,12 @@ namespace SpawnCastle
                     // corner heights alone can bias the building vertically.
                     position += GetGroundCellCenter(mapTile, tilePosition);
                     validGroundCells++;
-                    frontRow = Math.Max(frontRow, mapTile.row);
+                    minimumDepthRow = Math.Min(
+                        minimumDepthRow,
+                        mapTile.row);
+                    maximumDepthRow = Math.Max(
+                        maximumDepthRow,
+                        mapTile.row);
                 }
             }
         }
@@ -1623,7 +1685,8 @@ namespace SpawnCastle
             bool flipHorizontally,
             bool usesPlaceholderImage,
             BlueprintDrawbridgePosition drawbridgePosition,
-            bool usesExactWorldScale)
+            bool usesExactWorldScale,
+            BlueprintFragmentVisual fragments = null)
         {
             Sprite = sprite;
             UsesHelpImage = usesHelpImage;
@@ -1631,6 +1694,7 @@ namespace SpawnCastle
             UsesPlaceholderImage = usesPlaceholderImage;
             DrawbridgePosition = drawbridgePosition;
             UsesExactWorldScale = usesExactWorldScale;
+            Fragments = fragments;
         }
 
         public Sprite Sprite { get; }
@@ -1644,6 +1708,8 @@ namespace SpawnCastle
         public BlueprintDrawbridgePosition DrawbridgePosition { get; }
 
         public bool UsesExactWorldScale { get; }
+
+        public BlueprintFragmentVisual Fragments { get; }
     }
 
     internal readonly struct BlueprintRenderResult

@@ -3,6 +3,8 @@ using BepInEx.Logging;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using System.Security.Cryptography;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
@@ -17,8 +19,14 @@ namespace SpawnCastle
             new Dictionary<string, LoadedEntry>(StringComparer.Ordinal);
         private readonly Dictionary<string, Sprite> sprites =
             new Dictionary<string, Sprite>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, LoadedFragmentCapture> fragmentCaptures =
+            new Dictionary<string, LoadedFragmentCapture>(StringComparer.Ordinal);
+        private readonly Dictionary<string, Sprite> fragmentSprites =
+            new Dictionary<string, Sprite>(StringComparer.OrdinalIgnoreCase);
         private readonly HashSet<string> failedFiles =
             new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        private readonly HashSet<string> failedFragmentCaptures =
+            new HashSet<string>(StringComparer.Ordinal);
 
         public BlueprintBuildingImageLibrary(ManualLogSource log)
         {
@@ -35,13 +43,17 @@ namespace SpawnCastle
         public void Reload()
         {
             entries.Clear();
+            fragmentCaptures.Clear();
             failedFiles.Clear();
+            failedFragmentCaptures.Clear();
             LoadManifest(libraryDirectory);
+            LoadFragmentManifests(libraryDirectory);
             if (BlueprintBuildingPreviewCapture.EnableBlueprintImageGeneration)
             {
                 // Development captures override bundled entries for immediate
                 // testing before they are promoted into the shipped library.
                 LoadManifest(capturedDirectory);
+                LoadFragmentManifests(capturedDirectory);
             }
             ReportStatus();
         }
@@ -55,7 +67,8 @@ namespace SpawnCastle
             BlueprintStairDirection stairDirection,
             bool stairFlipHorizontally,
             out Sprite sprite,
-            out bool flipHorizontally)
+            out bool flipHorizontally,
+            out BlueprintFragmentVisual fragmentVisual)
         {
             BlueprintCaptureRequest request = BlueprintBuildingCaptureCatalog
                 .ResolveRequest(
@@ -66,6 +79,7 @@ namespace SpawnCastle
                     stairDirection,
                     stairFlipHorizontally);
             sprite = null;
+            fragmentVisual = null;
             flipHorizontally = request.FlipHorizontally;
             if (!entries.TryGetValue(request.Key, out LoadedEntry loaded))
                 return false;
@@ -76,6 +90,7 @@ namespace SpawnCastle
                 return false;
             }
 
+            TryResolveFragmentVisual(request.Key, out fragmentVisual);
             if (sprites.TryGetValue(loaded.FullPath, out sprite))
                 return true;
             if (failedFiles.Contains(loaded.FullPath))
@@ -135,6 +150,99 @@ namespace SpawnCastle
             return entries.ContainsKey(request.Key);
         }
 
+        public bool ContainsFragmentCapture(BlueprintCaptureRequest request)
+        {
+            return fragmentCaptures.ContainsKey(request.Key);
+        }
+
+        private bool TryResolveFragmentVisual(
+            string key,
+            out BlueprintFragmentVisual visual)
+        {
+            visual = null;
+            if (!fragmentCaptures.TryGetValue(key, out LoadedFragmentCapture capture) ||
+                failedFragmentCaptures.Contains(key))
+            {
+                return false;
+            }
+
+            try
+            {
+                var loaded = new List<BlueprintLoadedFragment>(
+                    capture.Fragments.Count);
+                foreach (BlueprintFragmentImageEntry entry in capture.Fragments)
+                {
+                    string fullPath = Path.GetFullPath(
+                        Path.Combine(capture.Directory, entry.PngFile));
+                    if (!fragmentSprites.TryGetValue(fullPath, out Sprite sprite))
+                    {
+                        if (!File.Exists(fullPath))
+                            throw new FileNotFoundException(
+                                "Blueprint fragment PNG is missing.", fullPath);
+                        byte[] pngBytes = File.ReadAllBytes(fullPath);
+                        string actualHash = CalculateSha256(pngBytes);
+                        if (!string.Equals(actualHash, entry.Sha256,
+                                StringComparison.OrdinalIgnoreCase))
+                        {
+                            throw new InvalidDataException(
+                                $"Blueprint fragment hash mismatch: {entry.PngFile}.");
+                        }
+
+                        var texture = new Texture2D(
+                            2, 2, TextureFormat.ARGB32, false);
+                        texture.name = "SpawnCastle_Fragment_" +
+                            Path.GetFileNameWithoutExtension(entry.PngFile);
+                        texture.filterMode = FilterMode.Point;
+                        texture.wrapMode = TextureWrapMode.Clamp;
+                        if (!ImageConversion.LoadImage(texture, pngBytes, false) ||
+                            texture.width != entry.Width ||
+                            texture.height != entry.Height)
+                        {
+                            Object.Destroy(texture);
+                            throw new InvalidDataException(
+                                $"Blueprint fragment dimensions are invalid: {entry.PngFile}.");
+                        }
+
+                        sprite = Sprite.Create(
+                            texture,
+                            new Rect(0f, 0f, texture.width, texture.height),
+                            new Vector2(entry.PivotX, entry.PivotY),
+                            entry.PixelsPerUnit,
+                            0,
+                            SpriteMeshType.FullRect);
+                        sprite.name = texture.name;
+                        Object.DontDestroyOnLoad(texture);
+                        Object.DontDestroyOnLoad(sprite);
+                        fragmentSprites.Add(fullPath, sprite);
+                    }
+
+                    loaded.Add(new BlueprintLoadedFragment(
+                        sprite,
+                        entry.Index,
+                        entry.RowOffset,
+                        new Vector3(
+                            entry.PositionOffsetX,
+                            entry.PositionOffsetY,
+                            entry.PositionOffsetZ)));
+                }
+
+                visual = new BlueprintFragmentVisual(
+                    loaded,
+                    capture.Capture.MinimumRow,
+                    capture.Capture.MaximumRow);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                failedFragmentCaptures.Add(key);
+                Shared.DebugLogHelper.LogWarning(
+                    log,
+                    $"Blueprint fragments are invalid; the composite PNG remains " +
+                    $"active: key={key}, error={ex.Message}");
+                return false;
+            }
+        }
+
         private void LoadManifest(string directory)
         {
             string manifestPath = Path.Combine(
@@ -176,10 +284,115 @@ namespace SpawnCastle
             }
         }
 
+        private void LoadFragmentManifests(string directory)
+        {
+            string capturePath = Path.Combine(
+                directory,
+                BlueprintFragmentCaptureCatalog.CaptureManifestFileName);
+            string tilePath = Path.Combine(
+                directory,
+                BlueprintFragmentCaptureCatalog.TileManifestFileName);
+            string fragmentPath = Path.Combine(
+                directory,
+                BlueprintFragmentCaptureCatalog.FragmentManifestFileName);
+            if (!File.Exists(capturePath) ||
+                !File.Exists(tilePath) ||
+                !File.Exists(fragmentPath))
+            {
+                return;
+            }
+
+            try
+            {
+                IReadOnlyList<BlueprintFragmentCaptureEntry> captures =
+                    BlueprintFragmentCaptureCatalog.ParseCaptures(
+                        File.ReadAllLines(capturePath),
+                        out IReadOnlyList<string> captureErrors);
+                IReadOnlyList<BlueprintFragmentTileEntry> tiles =
+                    BlueprintFragmentCaptureCatalog.ParseTiles(
+                        File.ReadAllLines(tilePath),
+                        out IReadOnlyList<string> tileErrors);
+                IReadOnlyList<BlueprintFragmentImageEntry> fragments =
+                    BlueprintFragmentCaptureCatalog.ParseFragments(
+                        File.ReadAllLines(fragmentPath),
+                        out IReadOnlyList<string> fragmentErrors);
+                foreach (string error in captureErrors.Concat(tileErrors)
+                    .Concat(fragmentErrors))
+                {
+                    Shared.DebugLogHelper.LogWarning(
+                        log,
+                        $"Blueprint fragment manifest entry ignored: " +
+                        $"directory={directory}, error={error}");
+                }
+
+                foreach (BlueprintFragmentCaptureEntry capture in captures)
+                {
+                    List<BlueprintFragmentImageEntry> captureFragments = fragments
+                        .Where(value => value.CaptureKey == capture.Key)
+                        .OrderBy(value => value.Index)
+                        .ToList();
+                    List<BlueprintFragmentTileEntry> captureTiles = tiles
+                        .Where(value => value.CaptureKey == capture.Key)
+                        .OrderBy(value => value.Index)
+                        .ToList();
+                    if (captureFragments.Count != capture.FragmentCount ||
+                        captureTiles.Count != capture.TileCount ||
+                        !HasContiguousIndices(captureFragments.Select(value => value.Index)) ||
+                        !HasContiguousIndices(captureTiles.Select(value => value.Index)) ||
+                        captureFragments.Any(value =>
+                            !BlueprintFragmentCaptureCatalog.IsValidRowOffset(
+                                capture,
+                                value)))
+                    {
+                        Shared.DebugLogHelper.LogWarning(
+                            log,
+                            $"Incomplete Blueprint fragment capture ignored: " +
+                            $"key={capture.Key}, expectedFragments={capture.FragmentCount}, " +
+                            $"actualFragments={captureFragments.Count}, " +
+                            $"expectedTiles={capture.TileCount}, actualTiles={captureTiles.Count}.");
+                        continue;
+                    }
+
+                    fragmentCaptures[capture.Key] = new LoadedFragmentCapture(
+                        capture,
+                        captureFragments,
+                        directory);
+                }
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogWarning(
+                    log,
+                    $"Blueprint fragment manifests could not be loaded: " +
+                    $"directory={directory}, error={ex.Message}");
+            }
+        }
+
+        private static bool HasContiguousIndices(IEnumerable<int> indices)
+        {
+            int expected = 0;
+            foreach (int index in indices.OrderBy(value => value))
+            {
+                if (index != expected++)
+                    return false;
+            }
+            return true;
+        }
+
+        private static string CalculateSha256(byte[] bytes)
+        {
+            using (SHA256 sha = SHA256.Create())
+            {
+                return BitConverter.ToString(sha.ComputeHash(bytes))
+                    .Replace("-", string.Empty);
+            }
+        }
+
         private void ReportStatus()
         {
             int required = 0;
             var missing = new List<string>();
+            var missingFragments = new List<string>();
             var seen = new HashSet<string>(StringComparer.Ordinal);
             for (int mapperValue = 0; mapperValue <= 500; mapperValue++)
             {
@@ -198,6 +411,8 @@ namespace SpawnCastle
                     required++;
                     if (!entries.ContainsKey(request.Key))
                         missing.Add(request.Key);
+                    if (!fragmentCaptures.ContainsKey(request.Key))
+                        missingFragments.Add(request.Key);
                 }
             }
 
@@ -205,12 +420,21 @@ namespace SpawnCastle
                 log,
                 $"Blueprint capture status: available={required - missing.Count}, " +
                 $"required={required}, missing={missing.Count}, " +
+                $"fragmentCaptures={required - missingFragments.Count}, " +
+                $"missingFragments={missingFragments.Count}, " +
                 $"captureDirectory={capturedDirectory}.");
             if (missing.Count > 0)
             {
                 Shared.DebugLogHelper.LogInfo(
                     log,
                     "Missing Blueprint captures: " + string.Join(", ", missing));
+            }
+            if (missingFragments.Count > 0)
+            {
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    "Missing Blueprint depth captures: " +
+                    string.Join(", ", missingFragments));
             }
 
             if (!BlueprintBuildingPreviewCapture.EnableBlueprintImageGeneration)
@@ -224,8 +448,12 @@ namespace SpawnCastle
                 report.Append($"available\t{required - missing.Count}\r\n");
                 report.Append($"required\t{required}\r\n");
                 report.Append($"missing\t{missing.Count}\r\n");
+                report.Append($"fragmentMissing\t{missingFragments.Count}\r\n");
                 report.Append("\r\nMissing mapper|skin|view variants:\r\n");
                 foreach (string key in missing)
+                    report.Append(key).Append("\r\n");
+                report.Append("\r\nMissing depth-fragment variants:\r\n");
+                foreach (string key in missingFragments)
                     report.Append(key).Append("\r\n");
                 File.WriteAllText(
                     Path.Combine(capturedDirectory, "MissingBlueprintCaptures.txt"),
@@ -320,5 +548,59 @@ namespace SpawnCastle
 
             public string FullPath { get; }
         }
+
+        private sealed class LoadedFragmentCapture
+        {
+            public LoadedFragmentCapture(
+                BlueprintFragmentCaptureEntry capture,
+                IReadOnlyList<BlueprintFragmentImageEntry> fragments,
+                string directory)
+            {
+                Capture = capture;
+                Fragments = fragments;
+                Directory = directory;
+            }
+
+            public BlueprintFragmentCaptureEntry Capture { get; }
+            public IReadOnlyList<BlueprintFragmentImageEntry> Fragments { get; }
+            public string Directory { get; }
+        }
+    }
+
+    internal sealed class BlueprintFragmentVisual
+    {
+        public BlueprintFragmentVisual(
+            IReadOnlyList<BlueprintLoadedFragment> fragments,
+            int captureMinimumRow,
+            int captureMaximumRow)
+        {
+            Fragments = fragments;
+            CaptureMinimumRow = captureMinimumRow;
+            CaptureMaximumRow = captureMaximumRow;
+        }
+
+        public IReadOnlyList<BlueprintLoadedFragment> Fragments { get; }
+        public int CaptureMinimumRow { get; }
+        public int CaptureMaximumRow { get; }
+    }
+
+    internal readonly struct BlueprintLoadedFragment
+    {
+        public BlueprintLoadedFragment(
+            Sprite sprite,
+            int index,
+            int rowOffset,
+            Vector3 positionOffset)
+        {
+            Sprite = sprite;
+            Index = index;
+            RowOffset = rowOffset;
+            PositionOffset = positionOffset;
+        }
+
+        public Sprite Sprite { get; }
+        public int Index { get; }
+        public int RowOffset { get; }
+        public Vector3 PositionOffset { get; }
     }
 }
