@@ -300,20 +300,41 @@ namespace SpawnCastle
                 lordType == 7;
         }
 
-        public static bool RequiresCursorPreviewMeasurement(
+        public static bool HasReservedPlacementArea(
             string mapperName)
         {
             return !string.IsNullOrWhiteSpace(mapperName) &&
                 ReservedAreaMappers.Contains(mapperName);
         }
 
-        public static bool IsUsableCalibrationRevision(
-            string mapperName,
-            int revision)
+        public static int ResolveCalibrationMapperValue(int mapperValue)
         {
-            return revision >= CurrentCalibrationRevision ||
-                (revision == 1 &&
-                    !RequiresCursorPreviewMeasurement(mapperName));
+            // The Mercenary Post cannot be selected in normal play and shares
+            // the same required visual size as the Stone Barracks.
+            return mapperValue == 86 ? 87 : mapperValue;
+        }
+
+        public static bool IsUsableCalibrationRevision(int revision)
+        {
+            return revision >= CurrentCalibrationRevision;
+        }
+
+        public static bool IsPlausibleCalibrationMeasurement(
+            string mapperName,
+            int footprintSize,
+            float worldWidth,
+            int fragmentCount)
+        {
+            if (footprintSize <= 0)
+                throw new ArgumentOutOfRangeException(nameof(footprintSize));
+
+            if (!HasReservedPlacementArea(mapperName))
+                return true;
+
+            // A reservation is much wider and denser than the core preview:
+            // e.g. the invalid Barracks result was 10 units / 100 fragments.
+            return worldWidth <= footprintSize + 2f &&
+                fragmentCount <= footprintSize * footprintSize;
         }
 
         public static bool IsExtendedPreviewSprite(

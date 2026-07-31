@@ -87,12 +87,11 @@ callbacks and Noesis event registrations must not be removed from the early
 In normal landscape view, building-icon sizes can be calibrated directly from
 Vanilla's transparent construction preview. Selecting a supported building in
 the build menu and holding it over the map is sufficient; no placement is
-required. SpawnCastle first measures the bounds of Vanilla's actual cursor
-renderers. If those are unavailable for an ordinary building, it restores the
-proven wide Tilemap scan and ignores unchanged sprites and ordinary 64x32
-placement-ground sprites. Reservation-bearing buildings never use that broad
-fallback, so their yards cannot enlarge the result. After three stable samples
-the measurement is stored in
+required. SpawnCastle uses the proven wide Tilemap scan and ignores unchanged
+sprites and ordinary 64x32 placement-ground sprites. Reservation-bearing
+buildings use the same measurement, but obviously yard-sized or overly dense
+results are rejected instead of replacing a valid building value. After three
+stable samples the measurement is stored in
 `BepInEx/config/SpawnCastle_Serp.BlueprintBuildingSizes.tsv`. A visible
 Blueprint is refreshed immediately. Buildings not measured yet retain the
 footprint-derived fallback size, while flattened-landscape mode continues to
@@ -100,12 +99,11 @@ use the compact icons. The uniform normal-view scale covers both the measured
 width and height. Clean Help images use the measurement without a generic
 correction; build-menu fallbacks retain their small visual correction.
 
-Saved measurements carry an algorithm revision. Revisions 2 and 3 are ignored
-because their filters could either measure only the tinted placement ground or
-discard the real preview. Revision 1 remains valid for ordinary buildings.
-Reservation-bearing Barracks, Engineers Guild, and Oil Smelter require a new
-revision 4 cursor-renderer measurement. Their additional placement reservations
-remain visible as colored ground tiles but never enlarge the building image.
+Saved measurements carry an algorithm revision. Only revision 4 and newer are
+used; older measurements came from superseded filters. The non-buildable
+Mercenary Post reuses the Stone Barracks measurement. Additional Barracks,
+Engineers Guild, and Oil Smelter reservations remain visible as colored ground
+tiles but are rejected as building-size measurements.
 
 ## Native castle spawning
 

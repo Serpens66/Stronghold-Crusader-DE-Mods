@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Spawn Castle",
   "Description": "Displays a local visual AIVJSON castle blueprint or spawns it through the game's native AIV pipeline.",
-  "Version": "0.3.21",
+  "Version": "0.3.22",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
@@ -295,6 +295,14 @@
         "Restored measurement of Vanilla's complete cursor-rendered building preview with the proven wide changed-sprite fallback for ordinary buildings.",
         "Required reservation-bearing Barracks, Engineers Guild, and Oil Smelter to use cursor-renderer bounds so their yards cannot enlarge Blueprint images.",
         "Ignored faulty revision 2 and 3 measurements, retained valid revision 1 ordinary-building bounds, and introduced revision 4 calibration."
+      ]
+    },
+    {
+      "Version": "0.3.22",
+      "Changes": [
+        "Removed the unused cursor-renderer calibration path after runtime logs proved every successful exact measurement came from the wide changed-sprite scan.",
+        "Applied the same proven scan to reservation-bearing buildings while rejecting characteristic yard-sized or overly dense results.",
+        "Reused the Stone Barracks calibration for the non-buildable Mercenary Post and limited accepted saved measurements to revision 4 or newer."
       ]
     }
   ]

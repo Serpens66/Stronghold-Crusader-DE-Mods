@@ -31,7 +31,7 @@ namespace StartConditions
                 LogConfiguredTroops("Human AddStartTroops", humanTroops);
 
                 StartTroopPlan plan = new StartTroopPlan(aiTroops, humanTroops);
-                ForEachAlivePlayer(playerId =>
+                ForEachActivePlayer(playerId =>
                 {
                     bool isAI = GamePlayerManagerAPI.Instance.IsAIPlayer(playerId);
                     int multiplier = isAI ? settings.MultiplyStartTroopsAI : settings.MultiplyStartTroopsHuman;
@@ -92,7 +92,7 @@ namespace StartConditions
                         continue;
                     }
 
-                    if (!HasKeep(pending.PlayerId))
+                    if (!Shared.ActivePlayerHelper.HasKeep(pending.PlayerId))
                     {
                         LogDebug("Delayed start troop multiply skipped; player has no keep:", pending.PlayerId);
                         continue;
@@ -175,7 +175,7 @@ namespace StartConditions
         private void SpawnConfiguredStartTroops(Dictionary<eChimps, int> aiTroops, Dictionary<eChimps, int> humanTroops)
         {
             LogDebug("Applying configured AddStartTroops after multiplier phase");
-            ForEachAlivePlayer(playerId =>
+            ForEachActivePlayer(playerId =>
             {
                 bool isAI = GamePlayerManagerAPI.Instance.IsAIPlayer(playerId);
                 Dictionary<eChimps, int> configuredTroops = isAI ? aiTroops : humanTroops;
@@ -242,7 +242,8 @@ namespace StartConditions
             y = 0;
             height = 0;
 
-            if (!GamePlayerManagerAPI.Instance.IsPlayerIdValid(playerId) || !HasKeep(playerId))
+            if (!GamePlayerManagerAPI.Instance.IsPlayerIdValid(playerId) ||
+                !Shared.ActivePlayerHelper.HasKeep(playerId))
             {
                 LogDebug("Cannot find keep spawn tile; player is invalid or has no keep:", playerId);
                 return false;

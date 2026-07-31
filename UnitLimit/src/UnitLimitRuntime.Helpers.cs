@@ -18,12 +18,6 @@ namespace UnitLimit
             return playerId == rawLocalPlayerId;
         }
 
-        private bool HasKeep(int playerId)
-        {
-            int keepId = GamePlayerManagerAPI.Instance.GetPlayerKeepId(playerId);
-            return keepId != -1 && keepId != 0;
-        }
-
         private Dictionary<TEnum, int> ParseEnumAmounts<TEnum>(string text) where TEnum : struct
         {
             Dictionary<TEnum, int> result = new Dictionary<TEnum, int>();

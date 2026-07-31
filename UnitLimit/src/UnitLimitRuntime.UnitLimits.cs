@@ -474,24 +474,15 @@ namespace UnitLimit
         private int GetLocalHumanPlayerId()
         {
             int playerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
-            if (IsUsableHumanPlayerId(playerId, true))
-                return playerId;
-
-            if (IsUsableHumanPlayerId(playerId, false))
-                return playerId;
-
-            return -1;
+            return IsUsableHumanPlayerId(playerId) ? playerId : -1;
         }
 
-        private bool IsUsableHumanPlayerId(int playerId, bool requireKeep)
+        private bool IsUsableHumanPlayerId(int playerId)
         {
             try
             {
-                if (!GamePlayerManagerAPI.Instance.IsPlayerIdValid(playerId) ||
-                    GamePlayerManagerAPI.Instance.IsAIPlayer(playerId))
-                    return false;
-
-                return !requireKeep || HasKeep(playerId);
+                return GamePlayerManagerAPI.Instance.IsPlayerIdValid(playerId) &&
+                       !GamePlayerManagerAPI.Instance.IsAIPlayer(playerId);
             }
             catch
             {
@@ -501,7 +492,7 @@ namespace UnitLimit
 
         private bool ShouldLogHumanPlayer(int playerId)
         {
-            return IsUsableHumanPlayerId(playerId, false);
+            return IsUsableHumanPlayerId(playerId);
         }
 
     }

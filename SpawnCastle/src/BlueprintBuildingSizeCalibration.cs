@@ -7,7 +7,6 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Text;
 using UnityEngine;
 
@@ -22,18 +21,6 @@ namespace SpawnCastle
         private const int TilemapSize = 800;
         private const string FileName =
             "SpawnCastle_Serp.BlueprintBuildingSizes.tsv";
-        private static readonly FieldInfo MouseCursorField =
-            typeof(GameMap).GetField(
-                "mouseCursorGO",
-                BindingFlags.Instance |
-                BindingFlags.Public |
-                BindingFlags.NonPublic);
-        private static readonly FieldInfo MouseCursor2Field =
-            typeof(GameMap).GetField(
-                "mouseCursorGO2",
-                BindingFlags.Instance |
-                BindingFlags.Public |
-                BindingFlags.NonPublic);
 
         private readonly ManualLogSource log;
         private readonly string filePath;
@@ -60,9 +47,11 @@ namespace SpawnCastle
             nextSampleTime = Time.unscaledTime + SampleIntervalSeconds;
             if (!CanMeasure(
                     out int mapperValue,
-                    out string mapperName) ||
+                    out string mapperName,
+                    out int footprintSize) ||
                 !TryMeasurePreview(
                     mapperName,
+                    footprintSize,
                     out PreviewBounds preview))
             {
                 ResetCandidate();
@@ -131,8 +120,11 @@ namespace SpawnCastle
             int mapperValue,
             out Vector2 worldSize)
         {
+            int calibrationMapperValue =
+                BlueprintBuildingIconCatalog
+                    .ResolveCalibrationMapperValue(mapperValue);
             if (measurements.TryGetValue(
-                    mapperValue,
+                    calibrationMapperValue,
                     out Measurement measurement) &&
                 IsUsableMeasurement(measurement))
             {
@@ -148,10 +140,12 @@ namespace SpawnCastle
 
         private static bool CanMeasure(
             out int mapperValue,
-            out string mapperName)
+            out string mapperName,
+            out int footprintSize)
         {
             mapperValue = 0;
             mapperName = string.Empty;
+            footprintSize = 0;
             if (EngineInterface.FlattenedLandscape ||
                 MainControls.instance == null ||
                 MainControls.instance.CurrentAction != 5 ||
@@ -165,6 +159,7 @@ namespace SpawnCastle
             {
                 AivMapperInfo mapper = AivMapperCatalog.Resolve(mapperValue);
                 mapperName = mapper.Name;
+                footprintSize = mapper.FootprintSize ?? 1;
                 BlueprintBuildingIconDefinition definition =
                     BlueprintBuildingIconCatalog.ResolveDefinition(mapperName);
                 return definition != null &&
@@ -180,94 +175,20 @@ namespace SpawnCastle
 
         private static bool TryMeasurePreview(
             string mapperName,
+            int footprintSize,
             out PreviewBounds preview)
         {
-            if (TryMeasureCursorPreview(out preview))
-                return true;
-
-            // Reserved yards are part of the placement feedback but not the
-            // building. Never let their broad Tilemap bounds become its size.
-            return !BlueprintBuildingIconCatalog
-                    .RequiresCursorPreviewMeasurement(mapperName) &&
-                TryMeasureTilePreview(out preview);
-        }
-
-        private static bool TryMeasureCursorPreview(
-            out PreviewBounds preview)
-        {
-            preview = default;
-            if (GameMap.instance == null)
+            if (!TryMeasureTilePreview(out preview))
                 return false;
 
-            float left = float.PositiveInfinity;
-            float right = float.NegativeInfinity;
-            float bottom = float.PositiveInfinity;
-            float top = float.NegativeInfinity;
-            int fragmentCount = 0;
-            IncludeCursorRenderer(
-                GetCursorObject(MouseCursorField),
-                ref left,
-                ref right,
-                ref bottom,
-                ref top,
-                ref fragmentCount);
-            IncludeCursorRenderer(
-                GetCursorObject(MouseCursor2Field),
-                ref left,
-                ref right,
-                ref bottom,
-                ref top,
-                ref fragmentCount);
-
-            float width = right - left;
-            float height = top - bottom;
-            if (!IsPlausibleMeasurement(width, height, fragmentCount))
-                return false;
-
-            preview = new PreviewBounds(
-                width,
-                height,
-                fragmentCount,
-                "vanilla-cursor-renderers");
-            return true;
-        }
-
-        private static GameObject GetCursorObject(FieldInfo field)
-        {
-            // The installed public Assembly-CSharp surface hides these fields,
-            // while Vanilla still keeps them on the runtime GameMap instance.
-            return field?.GetValue(GameMap.instance) as GameObject;
-        }
-
-        private static void IncludeCursorRenderer(
-            GameObject gameObject,
-            ref float left,
-            ref float right,
-            ref float bottom,
-            ref float top,
-            ref int fragmentCount)
-        {
-            if (gameObject == null || !gameObject.activeInHierarchy)
-                return;
-
-            SpriteRenderer renderer =
-                gameObject.GetComponent<SpriteRenderer>();
-            if (renderer == null ||
-                !renderer.enabled ||
-                renderer.sprite == null)
-            {
-                return;
-            }
-
-            Bounds bounds = renderer.bounds;
-            if (bounds.size.x <= 0f || bounds.size.y <= 0f)
-                return;
-
-            left = Math.Min(left, bounds.min.x);
-            right = Math.Max(right, bounds.max.x);
-            bottom = Math.Min(bottom, bounds.min.y);
-            top = Math.Max(top, bounds.max.y);
-            fragmentCount++;
+            // Reject the characteristic full reservation-yard bounds while
+            // still allowing the same proven preview scan for every building.
+            return BlueprintBuildingIconCatalog
+                .IsPlausibleCalibrationMeasurement(
+                    mapperName,
+                    footprintSize,
+                    preview.Width,
+                    preview.FragmentCount);
         }
 
         private static bool TryMeasureTilePreview(
@@ -313,8 +234,8 @@ namespace SpawnCastle
                         continue;
                     }
 
-                    // The wide scan restores the proven fallback from 0.3.16:
-                    // only changed, non-ground sprites form preview bounds.
+                    // Only changed, non-ground sprites form the proven
+                    // building-preview bounds used by every mapper.
                     Vector3 cellCenter =
                         tile.tilemapRef.GetCellCenterWorld(
                             new Vector3Int(x, y, 0));
@@ -499,9 +420,7 @@ namespace SpawnCastle
         private static bool IsUsableMeasurement(Measurement measurement)
         {
             return BlueprintBuildingIconCatalog
-                .IsUsableCalibrationRevision(
-                    measurement.MapperName,
-                    measurement.Revision);
+                .IsUsableCalibrationRevision(measurement.Revision);
         }
 
         private readonly struct PreviewBounds

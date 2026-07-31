@@ -18,7 +18,7 @@ internal static class Program
             ("Resolve selected Blueprint help images", TestBlueprintHelpImages),
             ("Resolve lord-dependent Church skins", TestChurchBlueprintSkins),
             ("Scale Blueprint sources independently", TestBlueprintSourceScale),
-            ("Select safe Blueprint calibration sources", TestBlueprintCalibrationSources),
+            ("Validate Blueprint calibration rules", TestBlueprintCalibrationRules),
             ("Exclude Blueprint placement-ground sprites", TestBlueprintPreviewSpriteFilter),
             ("Align cropped Blueprint building icons", TestBuildingIconPivots),
             ("Rotate footprints", TestFootprintRotations),
@@ -291,44 +291,68 @@ internal static class Program
         AssertEqual(1.1f, buildMenuScale);
     }
 
-    private static void TestBlueprintCalibrationSources()
+    private static void TestBlueprintCalibrationRules()
     {
         AssertEqual(
             true,
             SpawnCastle.BlueprintBuildingIconCatalog
-                .RequiresCursorPreviewMeasurement("MAPPER_BARRACKS_STONE"));
+                .HasReservedPlacementArea("MAPPER_BARRACKS_STONE"));
         AssertEqual(
             true,
             SpawnCastle.BlueprintBuildingIconCatalog
-                .RequiresCursorPreviewMeasurement("MAPPER_ENGINEERS_GUILD"));
+                .HasReservedPlacementArea("MAPPER_ENGINEERS_GUILD"));
         AssertEqual(
             false,
             SpawnCastle.BlueprintBuildingIconCatalog
-                .RequiresCursorPreviewMeasurement("MAPPER_GRANARY"));
+                .HasReservedPlacementArea("MAPPER_GRANARY"));
+        AssertEqual(
+            false,
+            SpawnCastle.BlueprintBuildingIconCatalog
+                .IsUsableCalibrationRevision(1));
+        AssertEqual(
+            false,
+            SpawnCastle.BlueprintBuildingIconCatalog
+                .IsUsableCalibrationRevision(2));
+        AssertEqual(
+            false,
+            SpawnCastle.BlueprintBuildingIconCatalog
+                .IsUsableCalibrationRevision(3));
         AssertEqual(
             true,
             SpawnCastle.BlueprintBuildingIconCatalog
-                .IsUsableCalibrationRevision("MAPPER_DOG_CAGE", 1));
+                .IsUsableCalibrationRevision(4));
+        AssertEqual(
+            87,
+            SpawnCastle.BlueprintBuildingIconCatalog
+                .ResolveCalibrationMapperValue(86));
+        AssertEqual(
+            87,
+            SpawnCastle.BlueprintBuildingIconCatalog
+                .ResolveCalibrationMapperValue(87));
         AssertEqual(
             false,
             SpawnCastle.BlueprintBuildingIconCatalog
-                .IsUsableCalibrationRevision("MAPPER_DOG_CAGE", 2));
-        AssertEqual(
-            false,
-            SpawnCastle.BlueprintBuildingIconCatalog
-                .IsUsableCalibrationRevision("MAPPER_DOG_CAGE", 3));
+                .IsPlausibleCalibrationMeasurement(
+                    "MAPPER_BARRACKS_STONE",
+                    5,
+                    10f,
+                    100));
         AssertEqual(
             true,
             SpawnCastle.BlueprintBuildingIconCatalog
-                .IsUsableCalibrationRevision("MAPPER_DOG_CAGE", 4));
-        AssertEqual(
-            false,
-            SpawnCastle.BlueprintBuildingIconCatalog
-                .IsUsableCalibrationRevision("MAPPER_BARRACKS_STONE", 1));
+                .IsPlausibleCalibrationMeasurement(
+                    "MAPPER_BARRACKS_STONE",
+                    5,
+                    5.5f,
+                    9));
         AssertEqual(
             true,
             SpawnCastle.BlueprintBuildingIconCatalog
-                .IsUsableCalibrationRevision("MAPPER_BARRACKS_STONE", 4));
+                .IsPlausibleCalibrationMeasurement(
+                    "MAPPER_GRANARY",
+                    4,
+                    10f,
+                    100));
     }
 
     private static void TestBlueprintPreviewSpriteFilter()

@@ -14,6 +14,12 @@
         "Added option to set the max amount for peasants at the campfire",
         "Do no longer remove units from UI after reaching the limit, but mark them as not recruitable"
       ]
+    },
+    {
+      "Version": "1.0.2",
+      "Changes": [
+        "Code improvements"
+      ]
     }
   ]
 }

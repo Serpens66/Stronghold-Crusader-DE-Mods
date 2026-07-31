@@ -938,10 +938,10 @@ namespace SpawnCastle
                 }
             }
 
-            var aliveSlotDetails = new List<string>();
-            foreach (int id in GamePlayerManagerAPI.Instance.GetAlivePlayerIds())
+            var activePlayerDetails = new List<string>();
+            foreach (int id in Shared.ActivePlayerHelper.GetActivePlayerIds())
             {
-                aliveSlotDetails.Add(
+                activePlayerDetails.Add(
                     $"{id}:ai={GamePlayerManagerAPI.Instance.IsAIPlayer(id)}");
             }
 
@@ -976,7 +976,7 @@ namespace SpawnCastle
                 GameMemberCount = gameMemberCount,
                 RealNetworkGameMemberCount = realNetworkGameMemberCount,
                 GameMemberDetails = string.Join(" | ", gameMemberDetails),
-                AliveSlotDetails = string.Join(" | ", aliveSlotDetails),
+                ActivePlayerDetails = string.Join(" | ", activePlayerDetails),
                 GameDataMultiplayerMap = GameData.Instance.multiplayerMap,
                 GameDataSkirmishGameType = GameData.Instance.SkirmishGameType,
                 GameDataGameType = GameData.Instance.game_type
@@ -1018,8 +1018,8 @@ namespace SpawnCastle
                 $"Game-member diagnostics: [{mode.GameMemberDetails}].");
             Shared.DebugLogHelper.LogInfo(
                 log,
-                $"Alive-slot diagnostics (not used for multiplayer detection): " +
-                $"[{mode.AliveSlotDetails}].");
+                $"Active-player diagnostics (not used for multiplayer detection): " +
+                $"[{mode.ActivePlayerDetails}].");
         }
 
         private static void EnsureSupportedGameMode(GameModeSnapshot mode)
@@ -1220,7 +1220,7 @@ namespace SpawnCastle
             public int GameMemberCount { get; set; }
             public int RealNetworkGameMemberCount { get; set; }
             public string GameMemberDetails { get; set; }
-            public string AliveSlotDetails { get; set; }
+            public string ActivePlayerDetails { get; set; }
             public bool GameDataMultiplayerMap { get; set; }
             public int GameDataSkirmishGameType { get; set; }
             public int GameDataGameType { get; set; }

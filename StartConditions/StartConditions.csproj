@@ -94,6 +94,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="..\Shared\ActivePlayerHelper.cs">
+      <Link>Shared\ActivePlayerHelper.cs</Link>
+    </Compile>
     <Compile Include="..\Shared\DebugLogHelper.cs">
       <Link>Shared\DebugLogHelper.cs</Link>
     </Compile>

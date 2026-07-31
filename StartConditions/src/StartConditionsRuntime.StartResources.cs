@@ -10,7 +10,7 @@ namespace StartConditions
     {
         private void ApplyStartResources()
         {
-            ForEachAlivePlayer(playerId =>
+            ForEachActivePlayer(playerId =>
             {
                 LogDebug("Applying start resources for player", playerId);
                 ApplyStartGold(playerId);
