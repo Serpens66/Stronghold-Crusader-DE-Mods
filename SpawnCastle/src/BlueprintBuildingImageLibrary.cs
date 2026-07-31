@@ -2,6 +2,7 @@ using AIVParser.Core;
 using BepInEx.Logging;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
@@ -90,7 +91,8 @@ namespace SpawnCastle
                 return false;
             }
 
-            TryResolveFragmentVisual(request.Key, out fragmentVisual);
+            if (!BlueprintBuildingCaptureCatalog.UsesCompositeOnlyIcon(request.MapperName))
+                TryResolveFragmentVisual(request.Key, out fragmentVisual);
             if (sprites.TryGetValue(loaded.FullPath, out sprite))
                 return true;
             if (failedFiles.Contains(loaded.FullPath))
@@ -155,6 +157,44 @@ namespace SpawnCastle
             return fragmentCaptures.ContainsKey(request.Key);
         }
 
+        public bool ContainsFragmentCapture(
+            BlueprintCaptureRequest request,
+            string requiredSource)
+        {
+            if (!fragmentCaptures.TryGetValue(
+                    request.Key,
+                    out LoadedFragmentCapture capture))
+            {
+                return false;
+            }
+            if (!string.IsNullOrEmpty(requiredSource) &&
+                (!capture.Capture.Metadata.TryGetValue(
+                    "captureSource",
+                    out string source) ||
+                 !string.Equals(source, requiredSource, StringComparison.Ordinal)))
+            {
+                return false;
+            }
+
+            if (requiredSource == "placed" &&
+                RequiresCompletePlacedVisual(request.MapperName))
+            {
+                return capture.Capture.Metadata.TryGetValue(
+                        "placedVisualVersion",
+                        out string version) &&
+                    string.Equals(version, "4", StringComparison.Ordinal);
+            }
+            return true;
+        }
+
+        private static bool RequiresCompletePlacedVisual(string mapperName)
+        {
+            return mapperName == "MAPPER_WALL" ||
+                mapperName == "MAPPER_WOODWALL" ||
+                mapperName == "MAPPER_CRENAL" ||
+                mapperName == "MAPPER_CRENAL2";
+        }
+
         private bool TryResolveFragmentVisual(
             string key,
             out BlueprintFragmentVisual visual)
@@ -216,10 +256,22 @@ namespace SpawnCastle
                         fragmentSprites.Add(fullPath, sprite);
                     }
 
+                    int sortingOffset = 0;
+                    if (entry.Metadata.TryGetValue(
+                            "sortingOffset",
+                            out string sortingOffsetText))
+                    {
+                        int.TryParse(
+                            sortingOffsetText,
+                            NumberStyles.Integer,
+                            CultureInfo.InvariantCulture,
+                            out sortingOffset);
+                    }
                     loaded.Add(new BlueprintLoadedFragment(
                         sprite,
                         entry.Index,
                         entry.RowOffset,
+                        sortingOffset,
                         new Vector3(
                             entry.PositionOffsetX,
                             entry.PositionOffsetY,
@@ -411,7 +463,12 @@ namespace SpawnCastle
                     required++;
                     if (!entries.ContainsKey(request.Key))
                         missing.Add(request.Key);
-                    if (!fragmentCaptures.ContainsKey(request.Key))
+                    bool requiresPlaced = BlueprintBuildingCaptureCatalog
+                        .RequiresPlacedCapture(request.MapperName);
+                    if (!BlueprintBuildingCaptureCatalog.UsesCompositeOnlyIcon(request.MapperName) &&
+                        !ContainsFragmentCapture(
+                            request,
+                            requiresPlaced ? "placed" : string.Empty))
                         missingFragments.Add(request.Key);
                 }
             }
@@ -528,10 +585,8 @@ namespace SpawnCastle
                     capturedMapper == "MAPPER_GATE_STONE1A" ||
                 (requestedMapper == "MAPPER_GATE_STONE2A" || requestedMapper == "MAPPER_GATE_STONE2B") &&
                     capturedMapper == "MAPPER_GATE_STONE2A" ||
-                (requestedMapper == "MAPPER_CRENAL" || requestedMapper == "MAPPER_CRENAL2") &&
-                    capturedMapper == "MAPPER_CRENAL" ||
                 BlueprintBuildingCaptureCatalog.IsStairMapper(requestedMapper) &&
-                    capturedMapper == "MAPPER_STAIR1";
+                    capturedMapper == "MAPPER_STAIR";
         }
 
         private readonly struct LoadedEntry
@@ -590,17 +645,20 @@ namespace SpawnCastle
             Sprite sprite,
             int index,
             int rowOffset,
+            int sortingOffset,
             Vector3 positionOffset)
         {
             Sprite = sprite;
             Index = index;
             RowOffset = rowOffset;
+            SortingOffset = sortingOffset;
             PositionOffset = positionOffset;
         }
 
         public Sprite Sprite { get; }
         public int Index { get; }
         public int RowOffset { get; }
+        public int SortingOffset { get; }
         public Vector3 PositionOffset { get; }
     }
 }

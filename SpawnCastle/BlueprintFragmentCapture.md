@@ -7,11 +7,12 @@ This workflow is development-only. Normal players should leave
 ## Smoke capture
 
 1. Set `[Development] CaptureBlueprintFragments = true` and start the game.
-2. On a suitable map, hold a simple wall piece, a multi-row 4x4 building, and a
-   large building as valid Vanilla construction previews. Keep each preview
-   still until the log reports both successful reconstruction validation and a
-   saved depth capture. Crenellations and stairs are captured from their placed
-   Tilemap visuals because Vanilla does not expose an equivalent held preview.
+2. On a suitable map, hold a multi-row 4x4 building and a large building as
+   valid Vanilla construction previews. Stairs use their placed Tilemap visuals;
+   build them in both ascending directions and keep each target still until the
+   log reports both successful reconstruction validation and a saved depth
+   capture. Finished Wall, Woodwall, Crenal, and Crenal2 icons are maintained as
+   complete screenshot-derived PNGs and deliberately have no fragment capture.
 3. Inspect
    `BepInEx/plugins/SpawnCastle_Serp/BlueprintImages/_Captured`.
    `BlueprintFragmentCaptures.tsv`, `BlueprintCaptureTiles.tsv`, and
@@ -28,11 +29,22 @@ Continue selecting the requested construction previews until
 The list comes from the existing `GetRequiredRequests` catalog; it intentionally
 contains only the known mapper, skin, front/back, and normalized-flip variants,
 not every map rotation. Include the Church and Mosque skins, gates,
-drawbridges, stairs, and crenellations shown by that catalog.
+drawbridges and both stair directions shown by that catalog.
 
-The old composite PNG is copied byte-for-byte into `_Captured` when it already
-exists. Fragment recapture therefore does not alter the flat-view or fallback
-asset.
+Front/rear keys are routed automatically. Engineers/Tunnelers Guild and Oil
+Smelter still need to be shown once from each half-turn of the map; adjacent
+quarter-turns are normalized by mirroring. For Drawbridges, hold the preview at
+a front and a rear side of a built gatehouse. The actual side selects the key;
+rotating the map is optional and does not select a Drawbridge variant by itself.
+Stairs must be built in both ascending directions. All numbered stair mapper
+cells share `MAPPER_STAIR_Generic_StairNorth.png` or
+`MAPPER_STAIR_Generic_StairSouth.png`; their count is not limited by the image
+library. The operator never selects a front/rear key manually.
+
+Normal preview recaptures retain an existing composite PNG byte-for-byte.
+Placed stairs deliberately overwrite the shared directional stair composite.
+Do not replace the four screenshot-derived Wall/Crenal PNGs with held-preview
+captures.
 
 ## Validate and import
 

@@ -1419,7 +1419,7 @@ namespace SpawnCastle
                     maximumDepthRow,
                     fragment.RowOffset);
                 renderer.sortingOrder =
-                    -20000 + targetRow * 49 + 4;
+                    -20000 + targetRow * 49 + 4 + fragment.SortingOffset;
             }
             return true;
         }

@@ -321,9 +321,10 @@ if ($fragmentManifestPresence.Count -eq 3) {
     }
 
     $captureKeys = @($capturedFragmentCaptures | ForEach-Object Key)
-    $missingFragmentKeys = @($capturedEntries | Where-Object { $captureKeys -notcontains $_.Key } | ForEach-Object Key)
-    if ($missingFragmentKeys.Count -gt 0) {
-        throw "Composite captures are missing fragment data: $($missingFragmentKeys -join ', ')"
+    $compositeKeys = @($capturedEntries | ForEach-Object Key)
+    $orphanFragmentKeys = @($captureKeys | Where-Object { $compositeKeys -notcontains $_ })
+    if ($orphanFragmentKeys.Count -gt 0) {
+        throw "Fragment captures are missing composite fallbacks: $($orphanFragmentKeys -join ', ')"
     }
 
     # The game writes this report from GetRequiredRequests after every reload,

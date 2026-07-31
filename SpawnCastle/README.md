@@ -70,7 +70,9 @@ The development pipeline that created the bundled PNG files is disabled by the
 Blueprints use separately captured Vanilla Tilemap-depth fragments when the
 three versioned fragment manifests are present. Invalid or incomplete fragment
 data falls back to the bundled composite image; flattened view deliberately
-continues using that composite. The complete capture, validation, and import
+continues using that composite. The single-cell Wall, Woodwall, Crenal, and
+Crenal2 symbols always use their complete finished-structure PNG; numbered
+stairs share one PNG per ascending direction. The complete capture, validation, and import
 procedure is documented in
 [`BlueprintFragmentCapture.md`](BlueprintFragmentCapture.md).
 

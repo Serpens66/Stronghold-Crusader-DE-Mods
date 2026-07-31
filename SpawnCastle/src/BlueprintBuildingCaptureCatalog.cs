@@ -131,6 +131,26 @@ namespace SpawnCastle
                 !GroundOnlyMappers.Contains(mapperName);
         }
 
+        public static bool RequiresPlacedCapture(string mapperName)
+        {
+            return mapperName == "MAPPER_WALL" ||
+                mapperName == "MAPPER_WOODWALL" ||
+                mapperName == "MAPPER_CRENAL" ||
+                mapperName == "MAPPER_CRENAL2" ||
+                mapperName == "MAPPER_STAIR" ||
+                IsStairMapper(mapperName);
+        }
+
+        public static bool UsesCompositeOnlyIcon(string mapperName)
+        {
+            // These single-cell symbols come from finished structures in a
+            // screenshot. A fragment would only replace them with capture data.
+            return mapperName == "MAPPER_WALL" ||
+                mapperName == "MAPPER_WOODWALL" ||
+                mapperName == "MAPPER_CRENAL" ||
+                mapperName == "MAPPER_CRENAL2";
+        }
+
         public static BlueprintCaptureRequest ResolveRequest(
             string mapperName,
             bool islamicChurchSkin,
@@ -153,10 +173,10 @@ namespace SpawnCastle
             if (string.Equals(mapperName, "MAPPER_CRENAL", StringComparison.Ordinal) ||
                 string.Equals(mapperName, "MAPPER_CRENAL2", StringComparison.Ordinal))
             {
-                // Both AIV crenal paths can use the same readable wall-top
-                // symbol; a second placed-layer capture is unnecessary.
+                // Each placed capture includes the cap plus its fixed wall body:
+                // normal crenals use Wall, Crenal2 uses the small Woodwall.
                 return new BlueprintCaptureRequest(
-                    "MAPPER_CRENAL",
+                    mapperName,
                     skin,
                     BlueprintCaptureView.PlacedDefault,
                     false);
@@ -164,10 +184,11 @@ namespace SpawnCastle
 
             if (IsStairMapper(mapperName))
             {
-                // Height is already expressed by the six AIV path cells. Use
-                // one canonical stair symbol per visible rise direction.
+                // A staircase may contain any number of cells. Its individual
+                // pieces share one symbol; the changing wall below them carries
+                // the actual height, so only the visible rise direction matters.
                 return new BlueprintCaptureRequest(
-                    "MAPPER_STAIR1",
+                    "MAPPER_STAIR",
                     skin,
                     stairDirection == BlueprintStairDirection.South
                         ? BlueprintCaptureView.StairSouth
@@ -258,12 +279,21 @@ namespace SpawnCastle
 
         public static bool IsStairMapper(string mapperName)
         {
-            return mapperName == "MAPPER_STAIR1" ||
-                mapperName == "MAPPER_STAIR2" ||
-                mapperName == "MAPPER_STAIR3" ||
-                mapperName == "MAPPER_STAIR4" ||
-                mapperName == "MAPPER_STAIR5" ||
-                mapperName == "MAPPER_STAIR6";
+            const string prefix = "MAPPER_STAIR";
+            if (string.IsNullOrEmpty(mapperName) ||
+                !mapperName.StartsWith(prefix, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            // Do not impose the game's formerly observed 1..6 range here: all
+            // numbered stair cells intentionally resolve to one shared symbol.
+            return int.TryParse(
+                    mapperName.Substring(prefix.Length),
+                    NumberStyles.None,
+                    CultureInfo.InvariantCulture,
+                    out int stairNumber) &&
+                stairNumber > 0;
         }
 
         public static bool IsBuildingPreviewFragment(

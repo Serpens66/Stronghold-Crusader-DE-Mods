@@ -264,6 +264,22 @@ internal static class Program
             false,
             SpawnCastle.BlueprintBuildingCaptureCatalog
                 .RequiresCapturedImage("MAPPER_PITCH_DITCH"));
+        AssertEqual(
+            true,
+            SpawnCastle.BlueprintBuildingCaptureCatalog
+                .RequiresPlacedCapture("MAPPER_WALL"));
+        AssertEqual(
+            true,
+            SpawnCastle.BlueprintBuildingCaptureCatalog
+                .RequiresPlacedCapture("MAPPER_WOODWALL"));
+        AssertEqual(
+            true,
+            SpawnCastle.BlueprintBuildingCaptureCatalog
+                .RequiresPlacedCapture("MAPPER_CRENAL2"));
+        AssertEqual(
+            false,
+            SpawnCastle.BlueprintBuildingCaptureCatalog
+                .RequiresPlacedCapture("MAPPER_ARMOURY"));
     }
 
     private static void TestBlueprintCaptureRouting()
@@ -313,7 +329,10 @@ internal static class Program
                 SpawnCastle.BlueprintDrawbridgePosition.NotApplicable);
         AssertEqual(SpawnCastle.BlueprintCaptureView.PlacedDefault, crenel.View);
         AssertEqual(SpawnCastle.BlueprintCaptureView.PlacedDefault, crenel2.View);
-        AssertEqual(crenel.Key, crenel2.Key);
+        AssertEqual("MAPPER_CRENAL", crenel.MapperName);
+        AssertEqual("MAPPER_CRENAL2", crenel2.MapperName);
+        Assert(crenel.Key != crenel2.Key,
+            "Normal and small crenals need different wall-body captures.");
 
         SpawnCastle.BlueprintCaptureRequest stairNorth =
             SpawnCastle.BlueprintBuildingCaptureCatalog.ResolveRequest(
@@ -332,7 +351,9 @@ internal static class Program
         AssertEqual(SpawnCastle.BlueprintCaptureView.StairNorth, stairNorth.View);
         AssertEqual(SpawnCastle.BlueprintCaptureView.StairSouth, stairSouth.View);
         Assert(stairNorth.Key != stairSouth.Key, "Both stair directions need separate visuals.");
-        AssertEqual("MAPPER_STAIR1", stairNorth.MapperName);
+        AssertEqual("MAPPER_STAIR", stairNorth.MapperName);
+        Assert(SpawnCastle.BlueprintBuildingCaptureCatalog.IsStairMapper("MAPPER_STAIR7"),
+            "Numbered stair cells must not be restricted to the former 1..6 range.");
         SpawnCastle.BlueprintCaptureRequest stairNorthMirrored =
             SpawnCastle.BlueprintBuildingCaptureCatalog.ResolveRequest(
                 "MAPPER_STAIR4",
@@ -403,6 +424,33 @@ internal static class Program
         AssertEqual(true, tunnelerSouth.FlipHorizontally);
         AssertEqual(SpawnCastle.BlueprintCaptureView.ReservationFront, tunnelerWest.View);
         AssertEqual(false, tunnelerWest.FlipHorizontally);
+
+        SpawnCastle.BlueprintCaptureRequest bridgeFront =
+            SpawnCastle.BlueprintBuildingCaptureCatalog.ResolveRequest(
+                "MAPPER_DRAWBRIDGE",
+                false,
+                0,
+                SpawnCastle.BlueprintDrawbridgePosition.BottomLeft);
+        SpawnCastle.BlueprintCaptureRequest bridgeFrontMirrored =
+            SpawnCastle.BlueprintBuildingCaptureCatalog.ResolveRequest(
+                "MAPPER_DRAWBRIDGE",
+                false,
+                0,
+                SpawnCastle.BlueprintDrawbridgePosition.BottomRight);
+        SpawnCastle.BlueprintCaptureRequest bridgeFrontAfterMapRotation =
+            SpawnCastle.BlueprintBuildingCaptureCatalog.ResolveRequest(
+                "MAPPER_DRAWBRIDGE",
+                false,
+                2,
+                SpawnCastle.BlueprintDrawbridgePosition.BottomLeft);
+        AssertEqual(SpawnCastle.BlueprintCaptureView.DrawbridgeFront, bridgeFront.View);
+        AssertEqual(false, bridgeFront.FlipHorizontally);
+        AssertEqual(bridgeFront.Key, bridgeFrontMirrored.Key);
+        AssertEqual(true, bridgeFrontMirrored.FlipHorizontally);
+        AssertEqual(bridgeFront.Key, bridgeFrontAfterMapRotation.Key);
+        AssertEqual(
+            bridgeFront.FlipHorizontally,
+            bridgeFrontAfterMapRotation.FlipHorizontally);
 
         SpawnCastle.BlueprintCaptureRequest bridgeRear =
             SpawnCastle.BlueprintBuildingCaptureCatalog.ResolveRequest(

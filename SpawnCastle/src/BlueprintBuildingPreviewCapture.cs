@@ -29,9 +29,11 @@ namespace SpawnCastle
         private const float FlatHeightTolerance = 0.01f;
         private const int CaptureLayer = 31;
         private const int PlacedScanRadius = 10;
+        private const int WallToolMapperValue = 25;
         private const int HighCrenelToolMapperValue = 26;
         private const int StairToolMapperValue = 27;
         private const int LowCrenelToolMapperValue = 35;
+        private const int LowWallToolMapperValue = 46;
 
         private readonly ManualLogSource log;
         private readonly BlueprintBuildingImageLibrary library;
@@ -40,6 +42,7 @@ namespace SpawnCastle
         private string candidateSignature = string.Empty;
         private int candidateStableSamples;
         private float nextFailureDiagnosticTime;
+        private int pendingPlacedToolMapperValue;
 
         public BlueprintBuildingPreviewCapture(
             ManualLogSource log,
@@ -64,8 +67,7 @@ namespace SpawnCastle
             if (!TryGetCaptureContext(
                     out int mapperValue,
                     out AivMapperInfo mapper,
-                    out BlueprintCaptureRequest request) ||
-                library.ContainsFragmentCapture(request))
+                    out BlueprintCaptureRequest request))
             {
                 ResetCandidate();
                 return false;
@@ -87,6 +89,32 @@ namespace SpawnCastle
                         $"Blueprint preview capture is waiting: mapper={mapper.Name} " +
                         $"({mapperValue}), key={request.Key}, reason={failureReason}");
                 }
+                ResetCandidate();
+                return false;
+            }
+
+            if (mapper.Name == "MAPPER_DRAWBRIDGE" &&
+                !TryResolvePreviewDrawbridgeRequest(
+                    captureTiles,
+                    out request,
+                    out failureReason))
+            {
+                if (Time.unscaledTime >= nextFailureDiagnosticTime)
+                {
+                    nextFailureDiagnosticTime = Time.unscaledTime + 2f;
+                    Shared.DebugLogHelper.LogWarning(
+                        log,
+                        $"Blueprint preview capture is waiting: mapper={mapper.Name} " +
+                        $"({mapperValue}), reason={failureReason}");
+                }
+                ResetCandidate();
+                return false;
+            }
+            // Finished screenshot icons must never be replaced by a held or
+            // placed construction capture during development sessions.
+            if (BlueprintBuildingCaptureCatalog.UsesCompositeOnlyIcon(request.MapperName) ||
+                library.ContainsFragmentCapture(request))
+            {
                 ResetCandidate();
                 return false;
             }
@@ -115,7 +143,8 @@ namespace SpawnCastle
                     captureTiles,
                     groundCenter,
                     mouseTile,
-                    signature);
+                    signature,
+                    "preview");
                 library.Reload();
                 return true;
             }
@@ -135,19 +164,36 @@ namespace SpawnCastle
             captureCompleted = false;
             if (EngineInterface.FlattenedLandscape ||
                 MainControls.instance == null ||
-                MainControls.instance.CurrentAction != 5 ||
                 GameMap.instance == null)
             {
                 return false;
             }
 
-            int toolMapperValue = MainControls.instance.CurrentSubAction;
-            if (toolMapperValue != HighCrenelToolMapperValue &&
-                toolMapperValue != LowCrenelToolMapperValue &&
-                toolMapperValue != StairToolMapperValue)
+            if (MainControls.instance.CurrentAction == 5)
             {
-                return false;
+                int selectedMapperValue = MainControls.instance.CurrentSubAction;
+                if (!IsPlacedCaptureTool(selectedMapperValue))
+                {
+                    pendingPlacedToolMapperValue = 0;
+                    return false;
+                }
+
+                if (pendingPlacedToolMapperValue != selectedMapperValue)
+                {
+                    pendingPlacedToolMapperValue = selectedMapperValue;
+                    ResetCandidate();
+                    Shared.DebugLogHelper.LogInfo(
+                        log,
+                        $"Placed Blueprint capture armed: toolMapper=" +
+                        $"{selectedMapperValue}. Deselect the tool beside the " +
+                        $"finished structure to capture its final Tilemap visual.");
+                }
+                return true;
             }
+
+            int toolMapperValue = pendingPlacedToolMapperValue;
+            if (!IsPlacedCaptureTool(toolMapperValue))
+                return false;
 
             if (!TryCollectPlacedCaptureTargets(
                     toolMapperValue,
@@ -160,12 +206,18 @@ namespace SpawnCastle
             }
 
             List<PlacedCaptureTarget> missingTargets = targets
-                .Where(value => !library.ContainsFragmentCapture(value.Request))
+                .Where(value =>
+                    !BlueprintBuildingCaptureCatalog.UsesCompositeOnlyIcon(
+                        value.Request.MapperName) &&
+                    !library.ContainsFragmentCapture(
+                        value.Request,
+                        "placed"))
                 .GroupBy(value => value.Request.Key, StringComparer.Ordinal)
                 .Select(value => value.First())
                 .ToList();
             if (missingTargets.Count == 0)
             {
+                pendingPlacedToolMapperValue = 0;
                 ResetCandidate();
                 return true;
             }
@@ -197,13 +249,15 @@ namespace SpawnCastle
                         target.MapperValue,
                         target.MapperName,
                         target.Request,
-                        new[] { target.Fragment },
+                        target.Fragments,
                         new[] { target.Tile },
                         target.GroundCenter,
                         new Vector2(target.Tile.TileX, target.Tile.TileY),
-                        target.Signature);
+                        target.Signature,
+                        "placed");
                 }
                 library.Reload();
+                pendingPlacedToolMapperValue = 0;
                 captureCompleted = true;
             }
             catch (Exception ex)
@@ -214,6 +268,15 @@ namespace SpawnCastle
                     $"toolMapper={toolMapperValue}, keys={batchKey}, error={ex}");
             }
             return true;
+        }
+
+        private static bool IsPlacedCaptureTool(int mapperValue)
+        {
+            return mapperValue == WallToolMapperValue ||
+                mapperValue == LowWallToolMapperValue ||
+                mapperValue == HighCrenelToolMapperValue ||
+                mapperValue == LowCrenelToolMapperValue ||
+                mapperValue == StairToolMapperValue;
         }
 
         private static bool TryCollectPlacedCaptureTargets(
@@ -241,24 +304,32 @@ namespace SpawnCastle
                 .First();
             if (toolMapperValue != StairToolMapperValue)
             {
-                int mapperValue = toolMapperValue == HighCrenelToolMapperValue
-                    ? HighCrenelToolMapperValue
-                    : LowCrenelToolMapperValue;
+                int mapperValue = toolMapperValue;
+                if (toolMapperValue == HighCrenelToolMapperValue ||
+                    toolMapperValue == LowCrenelToolMapperValue)
+                {
+                    // The construction UI reports tool 26 for both variants.
+                    // The finished target tile reveals whether AIV mapper 26
+                    // or the low-wall mapper 35 must receive the capture.
+                    mapperValue = nearest.IsLowWall
+                        ? LowCrenelToolMapperValue
+                        : HighCrenelToolMapperValue;
+                }
                 AivMapperInfo mapper = AivMapperCatalog.Resolve(mapperValue);
                 BlueprintCaptureRequest request = BlueprintBuildingCaptureCatalog.ResolveRequest(
                     mapper.Name,
                     false,
                     GetCameraQuarter(),
                     BlueprintDrawbridgePosition.NotApplicable);
-                PreviewFragment fragment = nearest.ToFragment();
+                IReadOnlyList<PreviewFragment> fragments = nearest.ToFragments();
                 targets.Add(new PlacedCaptureTarget(
                     mapperValue,
                     mapper.Name,
                     request,
-                    fragment,
+                    fragments,
                     nearest.ToChangedTile(),
-                    nearest.Position,
-                    BuildSignature(new[] { fragment })));
+                    nearest.GroundPosition,
+                    BuildSignature(fragments)));
                 return true;
             }
 
@@ -298,15 +369,15 @@ namespace SpawnCastle
                     BlueprintDrawbridgePosition.NotApplicable,
                     direction,
                     flipHorizontally);
-                PreviewFragment fragment = ordered[index].ToFragment();
+                IReadOnlyList<PreviewFragment> fragments = ordered[index].ToFragments();
                 targets.Add(new PlacedCaptureTarget(
                     mapperValue,
                     mapper.Name,
                     request,
-                    fragment,
+                    fragments,
                     ordered[index].ToChangedTile(),
-                    ordered[index].Position,
-                    BuildSignature(new[] { fragment })));
+                    ordered[index].GroundPosition,
+                    BuildSignature(fragments)));
             }
             return true;
         }
@@ -323,7 +394,11 @@ namespace SpawnCastle
             int maximumY = Math.Min(TilemapSize - 1, mouseTileY + PlacedScanRadius);
             TilePropertyFlag wantedFlag = toolMapperValue == StairToolMapperValue
                 ? TilePropertyFlag.IsStairs
-                : TilePropertyFlag.CrenelationComponent;
+                : toolMapperValue == WallToolMapperValue
+                    ? TilePropertyFlag.IsWall
+                    : toolMapperValue == LowWallToolMapperValue
+                        ? TilePropertyFlag.IsLowWall
+                        : TilePropertyFlag.CrenelationComponent;
 
             for (int y = minimumY; y <= maximumY; y++)
             {
@@ -336,25 +411,70 @@ namespace SpawnCastle
                     int tileId = GameTileManagerAPI.Instance.GetTileId(tile.gameMapX, tile.gameMapY);
                     if (!GameTileManagerAPI.Instance.HasTilePropertyFlag(tileId, wantedFlag))
                         continue;
+                    if (toolMapperValue == WallToolMapperValue &&
+                        (GameTileManagerAPI.Instance.HasTilePropertyFlag(
+                            tileId, TilePropertyFlag.IsLowWall) ||
+                         GameTileManagerAPI.Instance.HasTilePropertyFlag(
+                            tileId, TilePropertyFlag.CrenelationComponent) ||
+                         GameTileManagerAPI.Instance.HasTilePropertyFlag(
+                            tileId, TilePropertyFlag.IsStairs)))
+                    {
+                        continue;
+                    }
+                    if (toolMapperValue == LowWallToolMapperValue &&
+                        GameTileManagerAPI.Instance.HasTilePropertyFlag(
+                            tileId, TilePropertyFlag.CrenelationComponent))
+                    {
+                        continue;
+                    }
+                    bool isLowWall = GameTileManagerAPI.Instance.HasTilePropertyFlag(
+                        tileId, TilePropertyFlag.IsLowWall);
 
-                    // While the placement cursor is active, constructionOrigImage
-                    // preserves the already-built visual underneath its overlay.
-                    Sprite sprite = tile.constructionOrigImage != null
-                        ? tile.constructionOrigImage
+                    if (tile.constructionOrigImage != null &&
+                        tile.tileImage != tile.constructionOrigImage)
+                    {
+                        // This cell is currently replaced by the held preview.
+                        // Capture a nearby untouched built tile instead.
+                        continue;
+                    }
+
+                    // mirrorTileImage is the sprite most recently emitted by
+                    // Vanilla's Tilemap renderer for the finished placed cell.
+                    Sprite sprite = tile.mirrorTileImage != null
+                        ? tile.mirrorTileImage
                         : tile.tileImage;
                     if (!IsPlacedCastleSprite(sprite))
                         continue;
+                    Sprite chevronSprite = tile.chevronImage;
+                    if (toolMapperValue != StairToolMapperValue &&
+                        (chevronSprite == null || chevronSprite.texture == null))
+                    {
+                        // A complete built wall icon needs Vanilla's separate
+                        // vertical face in addition to the top/cap tile.
+                        continue;
+                    }
 
-                    Vector3 position = tile.tilemapRef.GetCellCenterWorld(new Vector3Int(x, y, 0));
+                    Vector3 groundPosition = tile.tilemapRef.GetCellCenterWorld(
+                        new Vector3Int(x, y, 0));
+                    Vector3 position = groundPosition;
                     position.y += tile.height;
+                    Vector3 chevronPosition = groundPosition;
+                    chevronPosition.x -= 0.005f;
+                    chevronPosition.y += tile.height - tile.chevheightdiff;
                     result.Add(new PlacedTile(
                         x,
                         y,
                         tile.row,
                         tile.buildingHeight,
                         tile.height,
+                        isLowWall,
+                        groundPosition,
                         position,
-                        sprite));
+                        sprite,
+                        chevronSprite != null && chevronSprite.texture != null
+                            ? chevronSprite
+                            : null,
+                        chevronPosition));
                 }
             }
             return result;
@@ -459,20 +579,13 @@ namespace SpawnCastle
             int quarter = GetCameraQuarter();
             if (mapper.Name == "MAPPER_DRAWBRIDGE")
             {
-                // Rotating the map exposes the two canonical bridge faces;
-                // opposite directions are normalized into a mirrored base.
-                bool rear = quarter >= 2;
+                // This provisional request is replaced after the preview tiles
+                // reveal which side of the adjacent gate is actually selected.
                 request = BlueprintBuildingCaptureCatalog.ResolveRequest(
                     mapper.Name,
                     false,
                     quarter,
-                    rear
-                        ? (quarter == 3
-                            ? BlueprintDrawbridgePosition.TopRight
-                            : BlueprintDrawbridgePosition.TopLeft)
-                        : (quarter == 1
-                            ? BlueprintDrawbridgePosition.BottomRight
-                            : BlueprintDrawbridgePosition.BottomLeft));
+                    BlueprintDrawbridgePosition.BottomLeft);
             }
             else
             {
@@ -483,6 +596,202 @@ namespace SpawnCastle
                     BlueprintDrawbridgePosition.NotApplicable);
             }
             return true;
+        }
+
+        private static bool TryResolvePreviewDrawbridgeRequest(
+            IReadOnlyList<ChangedTile> captureTiles,
+            out BlueprintCaptureRequest request,
+            out string failureReason)
+        {
+            request = default;
+            failureReason = string.Empty;
+            if (captureTiles == null || captureTiles.Count == 0 ||
+                GameMap.instance == null)
+            {
+                failureReason = "no Drawbridge preview tiles are available";
+                return false;
+            }
+
+            var bridgeMapTiles = captureTiles
+                .Select(value => GameMap.instance.getMapTile(value.TileX, value.TileY))
+                .Where(value => value != null)
+                .ToList();
+            if (bridgeMapTiles.Count == 0)
+            {
+                failureReason = "the Drawbridge preview has no game-map coordinates";
+                return false;
+            }
+
+            int bridgeMinimumX = bridgeMapTiles.Min(value => value.gameMapX);
+            int bridgeMaximumX = bridgeMapTiles.Max(value => value.gameMapX);
+            int bridgeMinimumY = bridgeMapTiles.Min(value => value.gameMapY);
+            int bridgeMaximumY = bridgeMapTiles.Max(value => value.gameMapY);
+            float bridgeCenterX = (bridgeMinimumX + bridgeMaximumX) * 0.5f;
+            float bridgeCenterY = (bridgeMinimumY + bridgeMaximumY) * 0.5f;
+
+            bool gateFound = false;
+            int gateCenterX = 0;
+            int gateCenterY = 0;
+            float bestDistance = float.MaxValue;
+            Span<GameBuilding> buildings =
+                GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
+            foreach (GameBuilding building in buildings)
+            {
+                if (!IsDrawbridgeGate(building.r_BuildingType) ||
+                    (building.r_AliveState != AliveState.NeedsInit &&
+                     building.r_AliveState != AliveState.IsAlive))
+                {
+                    continue;
+                }
+
+                int gateMinimumX = Math.Min(
+                    building.r_TilePositionXBegin,
+                    building.r_TilePositionXEnd);
+                int gateMaximumX = Math.Max(
+                    building.r_TilePositionXBegin,
+                    building.r_TilePositionXEnd);
+                int gateMinimumY = Math.Min(
+                    building.r_TilePositionYBegin,
+                    building.r_TilePositionYEnd);
+                int gateMaximumY = Math.Max(
+                    building.r_TilePositionYBegin,
+                    building.r_TilePositionYEnd);
+                bool adjacentOnX =
+                    (bridgeMaximumX + 1 == gateMinimumX ||
+                     gateMaximumX + 1 == bridgeMinimumX) &&
+                    RangesOverlap(
+                        bridgeMinimumY,
+                        bridgeMaximumY,
+                        gateMinimumY,
+                        gateMaximumY);
+                bool adjacentOnY =
+                    (bridgeMaximumY + 1 == gateMinimumY ||
+                     gateMaximumY + 1 == bridgeMinimumY) &&
+                    RangesOverlap(
+                        bridgeMinimumX,
+                        bridgeMaximumX,
+                        gateMinimumX,
+                        gateMaximumX);
+                if (!adjacentOnX && !adjacentOnY)
+                    continue;
+
+                float candidateCenterX = (gateMinimumX + gateMaximumX) * 0.5f;
+                float candidateCenterY = (gateMinimumY + gateMaximumY) * 0.5f;
+                float deltaX = candidateCenterX - bridgeCenterX;
+                float deltaY = candidateCenterY - bridgeCenterY;
+                float distance = deltaX * deltaX + deltaY * deltaY;
+                if (distance >= bestDistance)
+                    continue;
+
+                gateFound = true;
+                bestDistance = distance;
+                gateCenterX = Mathf.RoundToInt(candidateCenterX);
+                gateCenterY = Mathf.RoundToInt(candidateCenterY);
+            }
+
+            if (!gateFound ||
+                !TryFindGameTileWorldPosition(
+                    captureTiles,
+                    gateCenterX,
+                    gateCenterY,
+                    out Vector3 gatePosition))
+            {
+                failureReason =
+                    "hold the Drawbridge at one of the four sides of a built gatehouse";
+                return false;
+            }
+
+            Vector2 bridgePosition = new Vector2(
+                captureTiles.Average(value => value.Position.x),
+                captureTiles.Average(value => value.Position.y - value.Height));
+            BlueprintDrawbridgePosition position =
+                BlueprintBuildingIconCatalog.ResolveDrawbridgePosition(
+                    bridgePosition.x - gatePosition.x,
+                    bridgePosition.y - gatePosition.y);
+            if (position == BlueprintDrawbridgePosition.Unknown)
+            {
+                failureReason = "the Drawbridge side relative to its gate is ambiguous";
+                return false;
+            }
+
+            request = BlueprintBuildingCaptureCatalog.ResolveRequest(
+                "MAPPER_DRAWBRIDGE",
+                false,
+                GetCameraQuarter(),
+                position);
+            return true;
+        }
+
+        private static bool TryFindGameTileWorldPosition(
+            IReadOnlyList<ChangedTile> captureTiles,
+            int gameMapX,
+            int gameMapY,
+            out Vector3 position)
+        {
+            position = Vector3.zero;
+            int minimumX = Math.Max(
+                1,
+                captureTiles.Min(value => value.TileX) - PlacedScanRadius * 2);
+            int maximumX = Math.Min(
+                TilemapSize - 1,
+                captureTiles.Max(value => value.TileX) + PlacedScanRadius * 2);
+            int minimumY = Math.Max(
+                1,
+                captureTiles.Min(value => value.TileY) - PlacedScanRadius * 2);
+            int maximumY = Math.Min(
+                TilemapSize - 1,
+                captureTiles.Max(value => value.TileY) + PlacedScanRadius * 2);
+            for (int y = minimumY; y <= maximumY; y++)
+            {
+                for (int x = minimumX; x <= maximumX; x++)
+                {
+                    GameMapTile tile = GameMap.instance.getMapTile(x, y);
+                    if (tile == null || tile.tilemapRef == null ||
+                        tile.gameMapX != gameMapX || tile.gameMapY != gameMapY)
+                    {
+                        continue;
+                    }
+
+                    // Use the cell centre without building height so the gate
+                    // and the level bridge are compared on the same ground plane.
+                    position = tile.tilemapRef.GetCellCenterWorld(
+                        new Vector3Int(x, y, 0));
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private static bool RangesOverlap(
+            int firstMinimum,
+            int firstMaximum,
+            int secondMinimum,
+            int secondMaximum)
+        {
+            return firstMinimum <= secondMaximum &&
+                secondMinimum <= firstMaximum;
+        }
+
+        private static bool IsDrawbridgeGate(eStructs structure)
+        {
+            switch (structure)
+            {
+                case eStructs.STRUCT_GATE_MAIN:
+                case eStructs.STRUCT_GATE_INNER:
+                case eStructs.STRUCT_GATE_WOOD:
+                case eStructs.STRUCT_GATEHOUSE:
+                case eStructs.STRUCT_GATE_STONE1A:
+                case eStructs.STRUCT_GATE_STONE1B:
+                case eStructs.STRUCT_GATE_STONE2A:
+                case eStructs.STRUCT_GATE_STONE2B:
+                case eStructs.STRUCT_GATE_WOOD1A:
+                case eStructs.STRUCT_GATE_WOOD1B:
+                case eStructs.STRUCT_GATE_WOOD1C:
+                case eStructs.STRUCT_GATE_WOOD1D:
+                    return true;
+                default:
+                    return false;
+            }
         }
 
         private static bool TryCollectPreview(
@@ -650,7 +959,8 @@ namespace SpawnCastle
             IReadOnlyList<ChangedTile> captureTiles,
             Vector2 groundCenter,
             Vector2 mouseTile,
-            string signature)
+            string signature,
+            string captureSource)
         {
             Directory.CreateDirectory(library.CapturedDirectory);
             string baseName = SanitizeFileName(
@@ -661,9 +971,13 @@ namespace SpawnCastle
                 fragments,
                 groundCenter,
                 request.FlipHorizontally);
-            // Preserve the shipped composite byte-for-byte: fragment recaptures
-            // must not silently change the flat-view and fallback visuals.
-            if (!File.Exists(pngPath))
+            // Placed castle structures deliberately replace their former
+            // construction-preview PNG with the complete built Tilemap visual.
+            if (string.Equals(captureSource, "placed", StringComparison.Ordinal))
+            {
+                File.WriteAllBytes(pngPath, composite.PngBytes);
+            }
+            else if (!File.Exists(pngPath))
             {
                 string libraryDirectory = Path.GetDirectoryName(
                     library.CapturedDirectory) ?? string.Empty;
@@ -712,6 +1026,7 @@ namespace SpawnCastle
                 groundCenter,
                 mouseTile,
                 signature,
+                captureSource,
                 pngFile,
                 composite);
 
@@ -733,6 +1048,7 @@ namespace SpawnCastle
             Vector2 groundCenter,
             Vector2 mouseTile,
             string signature,
+            string captureSource,
             string compositePng,
             RenderedComposite composite)
         {
@@ -778,6 +1094,9 @@ namespace SpawnCastle
             };
             Set(captureEntry.Metadata, "capturedUtc",
                 DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture));
+            Set(captureEntry.Metadata, "captureSource", captureSource);
+            if (string.Equals(captureSource, "placed", StringComparison.Ordinal))
+                Set(captureEntry.Metadata, "placedVisualVersion", 4);
             Set(captureEntry.Metadata, "gameVersion", Application.version ?? string.Empty);
             Set(captureEntry.Metadata, "pluginVersion",
                 typeof(BlueprintBuildingPreviewCapture).Assembly
@@ -830,7 +1149,8 @@ namespace SpawnCastle
             foreach (PreviewFragment fragment in fragments
                 .OrderBy(value => value.Row)
                 .ThenBy(value => value.TileY)
-                .ThenBy(value => value.TileX))
+                .ThenBy(value => value.TileX)
+                .ThenBy(value => value.SortingOffset))
             {
                 int index = fragmentEntries.Count;
                 RenderedFragment rendered = RenderTransparentFragment(
@@ -843,9 +1163,19 @@ namespace SpawnCastle
                 string fullPath = Path.Combine(fragmentDirectory, fileName);
                 File.WriteAllBytes(fullPath, rendered.PngBytes);
 
-                float offsetX = fragment.Position.x - groundCenter.x;
-                if (request.FlipHorizontally)
-                    offsetX = -offsetX;
+                float widthWorld = rendered.Width /
+                    BlueprintBuildingCaptureCatalog.VanillaPixelsPerUnit;
+                float heightWorld = rendered.Height /
+                    BlueprintBuildingCaptureCatalog.VanillaPixelsPerUnit;
+                float originOffsetX = fragment.Position.x - groundCenter.x;
+                // Store the image's bottom-left corner rather than recreating
+                // a fractional normalized pivot. This keeps every fragment on
+                // Vanilla's exact 1/64 world-pixel grid.
+                float offsetX = request.FlipHorizontally
+                    ? -originOffsetX - rendered.Pivot.x * widthWorld
+                    : originOffsetX - rendered.Pivot.x * widthWorld;
+                float offsetY = fragment.Position.y - groundCenter.y -
+                    rendered.Pivot.y * heightWorld;
                 var entry = new BlueprintFragmentImageEntry
                 {
                     FormatVersion =
@@ -856,13 +1186,13 @@ namespace SpawnCastle
                     Sha256 = CalculateSha256(rendered.PngBytes),
                     Width = rendered.Width,
                     Height = rendered.Height,
-                    PivotX = rendered.Pivot.x,
-                    PivotY = rendered.Pivot.y,
+                    PivotX = 0f,
+                    PivotY = 0f,
                     PixelsPerUnit =
                         BlueprintBuildingCaptureCatalog.VanillaPixelsPerUnit,
                     RowOffset = fragment.Row - minimumRow,
                     PositionOffsetX = offsetX,
-                    PositionOffsetY = fragment.Position.y - groundCenter.y,
+                    PositionOffsetY = offsetY,
                     PositionOffsetZ = fragment.Position.z - groundZ
                 };
                 PopulateFragmentMetadata(
@@ -872,19 +1202,24 @@ namespace SpawnCastle
                     minimumRow,
                     minimumColumn,
                     request.FlipHorizontally);
+                Set(entry.Metadata, "capturedPivotX", rendered.Pivot.x);
+                Set(entry.Metadata, "capturedPivotY", rendered.Pivot.y);
+                Set(entry.Metadata, "sortingOffset", fragment.SortingOffset);
                 fragmentEntries.Add(entry);
                 fragmentArtifacts.Add(new CapturedFragmentArtifact(
                     rendered,
                     entry.PositionOffsetX,
                     entry.PositionOffsetY,
-                    fragment.Row * 64 + fragment.TileX));
+                    fragment.Row * 64 + fragment.TileX + fragment.SortingOffset));
             }
 
             ValidateFragmentReconstruction(
                 fragmentArtifacts,
                 groundCenter,
                 composite,
-                captureKey);
+                captureKey,
+                string.Equals(captureSource, "placed", StringComparison.Ordinal) &&
+                    fragments.Count > 1);
 
             MergeAndWriteFragmentManifests(
                 captureEntry,
@@ -901,7 +1236,8 @@ namespace SpawnCastle
             IReadOnlyList<CapturedFragmentArtifact> artifacts,
             Vector2 groundCenter,
             RenderedComposite reference,
-            string captureKey)
+            string captureKey,
+            bool allowTilemapBlendTolerance)
         {
             const float ppu = BlueprintBuildingCaptureCatalog.VanillaPixelsPerUnit;
             float left = groundCenter.x - reference.Pivot.x * reference.Width / ppu;
@@ -947,7 +1283,7 @@ namespace SpawnCastle
                 Sprite sprite = Sprite.Create(
                     texture,
                     new Rect(0f, 0f, texture.width, texture.height),
-                    artifact.Rendered.Pivot,
+                    Vector2.zero,
                     ppu,
                     0,
                     SpriteMeshType.FullRect);
@@ -1009,6 +1345,8 @@ namespace SpawnCastle
                         $"Fragment reconstruction size mismatch for {captureKey}.");
                 int mismatchedPixels = 0;
                 int maximumDifference = 0;
+                int alphaMismatchedPixels = 0;
+                long totalMaximumDifference = 0;
                 for (int index = 0; index < actualPixels.Length; index++)
                 {
                     Color32 actual = actualPixels[index];
@@ -1021,22 +1359,49 @@ namespace SpawnCastle
                             Math.Abs(actual.b - wanted.b),
                             Math.Abs(actual.a - wanted.a)));
                     maximumDifference = Math.Max(maximumDifference, difference);
+                    totalMaximumDifference += difference;
                     if (difference > 2)
                         mismatchedPixels++;
+                    if (Math.Abs(actual.a - wanted.a) > 8)
+                        alphaMismatchedPixels++;
                 }
                 int allowedMismatches = Math.Max(4, actualPixels.Length / 1000);
-                if (mismatchedPixels > allowedMismatches || maximumDifference > 8)
+                float averageMaximumDifference =
+                    totalMaximumDifference / (float)actualPixels.Length;
+                int allowedAlphaMismatches = Math.Max(
+                    64,
+                    actualPixels.Length / 1000);
+                bool standardTolerancePassed =
+                    mismatchedPixels <= allowedMismatches &&
+                    maximumDifference <= 8;
+                bool tilemapBlendTolerancePassed =
+                    allowTilemapBlendTolerance &&
+                    averageMaximumDifference <= 8f &&
+                    maximumDifference <= 96 &&
+                    alphaMismatchedPixels <= allowedAlphaMismatches;
+                if (!standardTolerancePassed && !tilemapBlendTolerancePassed)
                 {
+                    SaveFragmentValidationDiagnostics(
+                        captureKey,
+                        reference.PngBytes,
+                        reconstructed,
+                        actualPixels,
+                        expectedPixels);
                     throw new InvalidDataException(
                         $"Fragment reconstruction differs from Vanilla: key={captureKey}, " +
                         $"mismatches={mismatchedPixels}/{actualPixels.Length}, " +
-                        $"allowed={allowedMismatches}, maxChannelDifference={maximumDifference}.");
+                        $"allowed={allowedMismatches}, maxChannelDifference={maximumDifference}, " +
+                        $"averageMaxDifference={averageMaximumDifference:F3}, " +
+                        $"alphaMismatches={alphaMismatchedPixels}/" +
+                        $"{allowedAlphaMismatches}.");
                 }
                 Shared.DebugLogHelper.LogInfo(
                     log,
                     $"Blueprint fragment reconstruction validated: key={captureKey}, " +
                     $"mismatches={mismatchedPixels}/{actualPixels.Length}, " +
-                    $"maxChannelDifference={maximumDifference}.");
+                    $"maxChannelDifference={maximumDifference}, " +
+                    $"averageMaxDifference={averageMaximumDifference:F3}, " +
+                    $"tolerance={(standardTolerancePassed ? "exact" : "tilemap-blend")}.");
             }
             finally
             {
@@ -1049,11 +1414,78 @@ namespace SpawnCastle
                 if (expected != null)
                     Object.Destroy(expected);
                 foreach (GameObject temporaryObject in temporaryObjects)
+                {
+                    // Destroy is deferred until frame end; disable immediately
+                    // so a later capture camera in this frame cannot draw it.
+                    temporaryObject.SetActive(false);
                     Object.Destroy(temporaryObject);
+                }
                 foreach (Sprite sprite in temporarySprites)
                     Object.Destroy(sprite);
                 foreach (Texture2D texture in temporaryTextures)
                     Object.Destroy(texture);
+            }
+        }
+
+        private void SaveFragmentValidationDiagnostics(
+            string captureKey,
+            byte[] referencePng,
+            Texture2D reconstructed,
+            IReadOnlyList<Color32> actualPixels,
+            IReadOnlyList<Color32> expectedPixels)
+        {
+            Texture2D difference = null;
+            try
+            {
+                string directory = Path.Combine(
+                    library.CapturedDirectory,
+                    "_Diagnostics",
+                    SanitizeFileName(captureKey));
+                Directory.CreateDirectory(directory);
+                File.WriteAllBytes(
+                    Path.Combine(directory, "reference.png"),
+                    referencePng);
+                File.WriteAllBytes(
+                    Path.Combine(directory, "reconstructed.png"),
+                    ImageConversion.EncodeToPNG(reconstructed));
+
+                var pixels = new Color32[actualPixels.Count];
+                for (int index = 0; index < pixels.Length; index++)
+                {
+                    Color32 actual = actualPixels[index];
+                    Color32 wanted = expectedPixels[index];
+                    pixels[index] = new Color32(
+                        (byte)Math.Abs(actual.r - wanted.r),
+                        (byte)Math.Abs(actual.g - wanted.g),
+                        (byte)Math.Abs(actual.b - wanted.b),
+                        (byte)Math.Abs(actual.a - wanted.a));
+                }
+                difference = new Texture2D(
+                    reconstructed.width,
+                    reconstructed.height,
+                    TextureFormat.ARGB32,
+                    false);
+                difference.SetPixels32(pixels);
+                difference.Apply(false, false);
+                File.WriteAllBytes(
+                    Path.Combine(directory, "difference.png"),
+                    ImageConversion.EncodeToPNG(difference));
+                Shared.DebugLogHelper.LogWarning(
+                    log,
+                    $"Blueprint fragment validation diagnostics saved: " +
+                    $"key={captureKey}, directory={directory}.");
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogWarning(
+                    log,
+                    $"Blueprint fragment validation diagnostics failed: " +
+                    $"key={captureKey}, error={ex.Message}");
+            }
+            finally
+            {
+                if (difference != null)
+                    Object.Destroy(difference);
             }
         }
 
@@ -1160,7 +1592,8 @@ namespace SpawnCastle
             foreach (PreviewFragment fragment in fragments
                 .OrderBy(value => value.Row)
                 .ThenBy(value => value.TileY)
-                .ThenBy(value => value.TileX))
+                .ThenBy(value => value.TileX)
+                .ThenBy(value => value.SortingOffset))
             {
                 var spriteObject = new GameObject("SpawnCastle_BlueprintCaptureFragment");
                 spriteObject.hideFlags = HideFlags.HideAndDontSave;
@@ -1169,7 +1602,8 @@ namespace SpawnCastle
                 SpriteRenderer renderer = spriteObject.AddComponent<SpriteRenderer>();
                 renderer.sprite = fragment.Sprite;
                 renderer.color = Color.white;
-                renderer.sortingOrder = fragment.Row * 64 + fragment.TileX;
+                renderer.sortingOrder = fragment.Row * 64 +
+                    fragment.TileX + fragment.SortingOffset;
                 temporaryObjects.Add(spriteObject);
             }
 
@@ -1214,7 +1648,10 @@ namespace SpawnCastle
                 if (readableTexture != null)
                     Object.Destroy(readableTexture);
                 foreach (GameObject temporaryObject in temporaryObjects)
+                {
+                    temporaryObject.SetActive(false);
                     Object.Destroy(temporaryObject);
+                }
             }
         }
 
@@ -1288,6 +1725,10 @@ namespace SpawnCastle
                 readableTexture.ReadPixels(
                     new Rect(0f, 0f, width, height), 0, 0, false);
                 readableTexture.Apply(false, false);
+                // The transparent target contains premultiplied RGB. Restore
+                // straight RGB for the next SpriteRenderer pass while keeping
+                // the captured alpha channel unchanged.
+                UnpremultiplyRgb(readableTexture);
                 if (normalizeHorizontalFlip)
                     FlipTextureHorizontally(readableTexture);
 
@@ -1310,7 +1751,10 @@ namespace SpawnCastle
                 if (readableTexture != null)
                     Object.Destroy(readableTexture);
                 foreach (GameObject temporaryObject in temporaryObjects)
+                {
+                    temporaryObject.SetActive(false);
                     Object.Destroy(temporaryObject);
+                }
             }
         }
 
@@ -1327,6 +1771,37 @@ namespace SpawnCastle
             }
             texture.SetPixels32(flipped);
             texture.Apply(false, false);
+        }
+
+        private static void UnpremultiplyRgb(Texture2D texture)
+        {
+            Color32[] pixels = texture.GetPixels32();
+            for (int index = 0; index < pixels.Length; index++)
+            {
+                Color32 pixel = pixels[index];
+                if (pixel.a == 0)
+                {
+                    pixel.r = 0;
+                    pixel.g = 0;
+                    pixel.b = 0;
+                }
+                else if (pixel.a < byte.MaxValue)
+                {
+                    pixel.r = UnpremultiplyChannel(pixel.r, pixel.a);
+                    pixel.g = UnpremultiplyChannel(pixel.g, pixel.a);
+                    pixel.b = UnpremultiplyChannel(pixel.b, pixel.a);
+                }
+                pixels[index] = pixel;
+            }
+            texture.SetPixels32(pixels);
+            texture.Apply(false, false);
+        }
+
+        private static byte UnpremultiplyChannel(byte channel, byte alpha)
+        {
+            return (byte)Math.Min(
+                byte.MaxValue,
+                (channel * byte.MaxValue + alpha / 2) / alpha);
         }
 
         private static void PopulateTileMetadata(
@@ -1410,6 +1885,7 @@ namespace SpawnCastle
             Set(metadata, "shader",
                 tileRenderer?.sharedMaterial?.shader?.name ?? string.Empty);
             Set(metadata, "normalizedHorizontalFlip", normalizedFlip ? "true" : "false");
+            Set(metadata, "sortingOffset", fragment.SortingOffset);
             Set(metadata, "spriteInstanceId", sprite.GetInstanceID());
             Set(metadata, "spriteName", sprite.name ?? string.Empty);
             Set(metadata, "textureName", sprite.texture?.name ?? string.Empty);
@@ -1542,14 +2018,16 @@ namespace SpawnCastle
             var value = new StringBuilder();
             foreach (PreviewFragment fragment in fragments
                 .OrderBy(item => item.TileY)
-                .ThenBy(item => item.TileX))
+                .ThenBy(item => item.TileX)
+                .ThenBy(item => item.SortingOffset))
             {
                 Sprite sprite = fragment.Sprite;
                 value.AppendFormat(
                     CultureInfo.InvariantCulture,
-                    "{0},{1}:{2}:{3}:{4:F0},{5:F0},{6:F2},{7:F2};",
+                    "{0},{1}:{2}:{3}:{4}:{5:F0},{6:F0},{7:F2},{8:F2};",
                     fragment.TileX - minimumX,
                     fragment.TileY - minimumY,
+                    fragment.SortingOffset,
                     sprite.name,
                     sprite.texture != null ? sprite.texture.name : string.Empty,
                     sprite.rect.width,
@@ -1650,13 +2128,20 @@ namespace SpawnCastle
 
         private readonly struct PreviewFragment
         {
-            public PreviewFragment(int tileX, int tileY, int row, Vector3 position, Sprite sprite)
+            public PreviewFragment(
+                int tileX,
+                int tileY,
+                int row,
+                Vector3 position,
+                Sprite sprite,
+                int sortingOffset = 0)
             {
                 TileX = tileX;
                 TileY = tileY;
                 Row = row;
                 Position = position;
                 Sprite = sprite;
+                SortingOffset = sortingOffset;
             }
 
             public int TileX { get; }
@@ -1664,6 +2149,7 @@ namespace SpawnCastle
             public int Row { get; }
             public Vector3 Position { get; }
             public Sprite Sprite { get; }
+            public int SortingOffset { get; }
         }
 
         private readonly struct PlacedTile
@@ -1674,16 +2160,24 @@ namespace SpawnCastle
                 int row,
                 float buildingHeight,
                 float landHeight,
+                bool isLowWall,
+                Vector3 groundPosition,
                 Vector3 position,
-                Sprite sprite)
+                Sprite sprite,
+                Sprite chevronSprite,
+                Vector3 chevronPosition)
             {
                 TileX = tileX;
                 TileY = tileY;
                 Row = row;
                 BuildingHeight = buildingHeight;
                 LandHeight = landHeight;
+                IsLowWall = isLowWall;
+                GroundPosition = groundPosition;
                 Position = position;
                 Sprite = sprite;
+                ChevronSprite = chevronSprite;
+                ChevronPosition = chevronPosition;
             }
 
             public int TileX { get; }
@@ -1691,12 +2185,35 @@ namespace SpawnCastle
             public int Row { get; }
             public float BuildingHeight { get; }
             public float LandHeight { get; }
+            public bool IsLowWall { get; }
+            public Vector3 GroundPosition { get; }
             public Vector3 Position { get; }
             public Sprite Sprite { get; }
+            public Sprite ChevronSprite { get; }
+            public Vector3 ChevronPosition { get; }
 
-            public PreviewFragment ToFragment()
+            public IReadOnlyList<PreviewFragment> ToFragments()
             {
-                return new PreviewFragment(TileX, TileY, Row, Position, Sprite);
+                var fragments = new List<PreviewFragment>(2);
+                if (ChevronSprite != null)
+                {
+                    // Vanilla draws the vertical wall face below the cap/top tile.
+                    fragments.Add(new PreviewFragment(
+                        TileX,
+                        TileY,
+                        Row,
+                        ChevronPosition,
+                        ChevronSprite,
+                        0));
+                }
+                fragments.Add(new PreviewFragment(
+                    TileX,
+                    TileY,
+                    Row,
+                    Position,
+                    Sprite,
+                    ChevronSprite != null ? 1 : 0));
+                return fragments;
             }
 
             public ChangedTile ToChangedTile()
@@ -1706,7 +2223,7 @@ namespace SpawnCastle
                     TileY,
                     Row,
                     LandHeight,
-                    Position,
+                    GroundPosition,
                     Sprite);
             }
         }
@@ -1717,7 +2234,7 @@ namespace SpawnCastle
                 int mapperValue,
                 string mapperName,
                 BlueprintCaptureRequest request,
-                PreviewFragment fragment,
+                IReadOnlyList<PreviewFragment> fragments,
                 ChangedTile tile,
                 Vector2 groundCenter,
                 string signature)
@@ -1725,7 +2242,7 @@ namespace SpawnCastle
                 MapperValue = mapperValue;
                 MapperName = mapperName;
                 Request = request;
-                Fragment = fragment;
+                Fragments = fragments;
                 Tile = tile;
                 GroundCenter = groundCenter;
                 Signature = signature;
@@ -1734,7 +2251,7 @@ namespace SpawnCastle
             public int MapperValue { get; }
             public string MapperName { get; }
             public BlueprintCaptureRequest Request { get; }
-            public PreviewFragment Fragment { get; }
+            public IReadOnlyList<PreviewFragment> Fragments { get; }
             public ChangedTile Tile { get; }
             public Vector2 GroundCenter { get; }
             public string Signature { get; }
