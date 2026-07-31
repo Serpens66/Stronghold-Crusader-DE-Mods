@@ -19,8 +19,6 @@ namespace SpawnCastle
     internal enum BlueprintCaptureView
     {
         Default,
-        AxisNorthSouth,
-        AxisEastWest,
         ReservationDefault,
         ReservationFront,
         ReservationRear,

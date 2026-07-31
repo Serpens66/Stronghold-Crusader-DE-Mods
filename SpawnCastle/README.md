@@ -63,6 +63,14 @@ Because Blueprint mode does not change simulation state, it works on new maps,
 loaded savegames, and multiplayer. Every multiplayer client independently selects
 and displays its own local file.
 
+The development pipeline that created the bundled PNG files and
+`BlueprintImages.tsv` is retained but disabled by
+`BlueprintBuildingPreviewCapture.EnableBlueprintImageGeneration`. While the
+switch is `false`, SpawnCastle only reads the shipped library: it neither scans
+held construction previews for new images nor reads or writes the `_Captured`
+directory and its missing-capture report. Set the switch to `true` and rebuild
+the mod only when the image library needs to be extended.
+
 ## Blueprint hotkey implementation
 
 SHCDE destroys BepInEx's early plugin GameObject after the Chainloader finishes.
@@ -85,13 +93,12 @@ provide process-persistent fallbacks, especially for controller buttons. These
 callbacks and Noesis event registrations must not be removed from the early
 `BaseUnityPlugin.OnDestroy()`.
 
-The mouse-preview measurement code is retained but disabled by the central
-`BlueprintBuildingSizeCalibration.EnablePreviewMeasurement` switch. Setting it
-to `true` allows building-icon sizes to be calibrated directly from Vanilla's
-transparent construction preview in normal landscape view. Selecting a supported
-building in the build menu and holding it over the map is sufficient; no
-placement is required. SpawnCastle then uses the proven wide Tilemap scan and
-ignores unchanged sprites and ordinary 64x32 placement-ground sprites.
+The separate mouse-preview size and alignment measurement remains enabled as a
+fallback for missing or invalid bundled images. It can be disabled through
+`BlueprintBuildingSizeCalibration.EnablePreviewMeasurement`. Selecting a
+supported building in the build menu and holding it over the map is sufficient;
+no placement is required. SpawnCastle then uses the proven wide Tilemap scan
+and ignores unchanged sprites and ordinary 64x32 placement-ground sprites.
 Buildings with additional Vanilla placement reservations are excluded from
 mouse-preview measurement.
 Their visible widths are fixed from the Help-image-to-reservation ratios instead:

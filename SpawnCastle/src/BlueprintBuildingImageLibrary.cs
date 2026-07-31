@@ -36,10 +36,13 @@ namespace SpawnCastle
         {
             entries.Clear();
             failedFiles.Clear();
-            LoadManifest(libraryDirectory, false);
-            // Fresh captures override bundled entries so they can be tested
-            // immediately before being promoted into the shipped library.
-            LoadManifest(capturedDirectory, true);
+            LoadManifest(libraryDirectory);
+            if (BlueprintBuildingPreviewCapture.EnableBlueprintImageGeneration)
+            {
+                // Development captures override bundled entries for immediate
+                // testing before they are promoted into the shipped library.
+                LoadManifest(capturedDirectory);
+            }
             ReportStatus();
         }
 
@@ -132,7 +135,7 @@ namespace SpawnCastle
             return entries.ContainsKey(request.Key);
         }
 
-        private void LoadManifest(string directory, bool isCaptured)
+        private void LoadManifest(string directory)
         {
             string manifestPath = Path.Combine(
                 directory,
@@ -161,7 +164,7 @@ namespace SpawnCastle
                         .TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
                     if (!fullPath.StartsWith(directoryPrefix, StringComparison.OrdinalIgnoreCase))
                         continue;
-                    entries[entry.Key] = new LoadedEntry(entry, fullPath, isCaptured);
+                    entries[entry.Key] = new LoadedEntry(entry, fullPath);
                 }
             }
             catch (Exception ex)
@@ -209,6 +212,9 @@ namespace SpawnCastle
                     log,
                     "Missing Blueprint captures: " + string.Join(", ", missing));
             }
+
+            if (!BlueprintBuildingPreviewCapture.EnableBlueprintImageGeneration)
+                return;
 
             try
             {
@@ -304,19 +310,15 @@ namespace SpawnCastle
         {
             public LoadedEntry(
                 BlueprintCaptureManifestEntry entry,
-                string fullPath,
-                bool isCaptured)
+                string fullPath)
             {
                 Entry = entry;
                 FullPath = fullPath;
-                IsCaptured = isCaptured;
             }
 
             public BlueprintCaptureManifestEntry Entry { get; }
 
             public string FullPath { get; }
-
-            public bool IsCaptured { get; }
         }
     }
 }

@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Spawn Castle",
   "Description": "Displays a local visual AIVJSON castle blueprint or spawns it through the game's native AIV pipeline.",
-  "Version": "0.3.23",
+  "Version": "0.3.24",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
@@ -310,6 +310,14 @@
       "Changes": [
         "Marked the complete 10x10 Barracks, 5x10 Guild, and 4x8 Oil Smelter placement reservations with colored Blueprint ground tiles.",
         "Kept reserved-area building images centered on their original 5x5 or 4x4 core footprints instead of the enlarged marker bounds."
+      ]
+    },
+    {
+      "Version": "0.3.24",
+      "Changes": [
+        "Disabled development-time Blueprint image and manifest generation behind one central source switch while continuing to load the bundled BlueprintImages library.",
+        "Stopped reading or writing the temporary _Captured library and its missing-capture report while image generation is disabled.",
+        "Removed obsolete capture view values, unused manifest-origin state, and stale model metadata."
       ]
     }
   ]

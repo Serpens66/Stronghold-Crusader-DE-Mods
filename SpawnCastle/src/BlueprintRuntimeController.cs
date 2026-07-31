@@ -72,8 +72,11 @@ namespace SpawnCastle
                 new BlueprintBuildingSizeCalibration(log);
             buildingImageLibrary =
                 new BlueprintBuildingImageLibrary(log);
-            buildingPreviewCapture =
-                new BlueprintBuildingPreviewCapture(log, buildingImageLibrary);
+            if (BlueprintBuildingPreviewCapture.EnableBlueprintImageGeneration)
+            {
+                buildingPreviewCapture =
+                    new BlueprintBuildingPreviewCapture(log, buildingImageLibrary);
+            }
             renderer = new BlueprintRenderer(
                 log,
                 sizeCalibration,
@@ -187,9 +190,10 @@ namespace SpawnCastle
             if (!mapActive)
                 return;
 
-            // Captures are collected even while the overlay is hidden. A new
-            // exact image replaces its fallback in the same frame.
-            if (buildingPreviewCapture.Tick() &&
+            // The development capture path is omitted entirely unless its
+            // central switch was enabled before building the plugin.
+            if (buildingPreviewCapture != null &&
+                buildingPreviewCapture.Tick() &&
                 blueprintVisible &&
                 layout != null)
             {

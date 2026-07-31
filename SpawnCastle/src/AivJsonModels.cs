@@ -1,13 +1,7 @@
-#nullable disable
-
-using System;
 using System.Collections.Generic;
-
-#pragma warning disable 0649
 
 namespace SpawnCastle
 {
-    [Serializable]
     internal sealed class AivJsonDocument
     {
         public int pauseDelayAmount;
@@ -15,7 +9,6 @@ namespace SpawnCastle
         public List<AivJsonMiscItem> miscItems;
     }
 
-    [Serializable]
     internal sealed class AivJsonFrame
     {
         public int itemType;
@@ -23,7 +16,6 @@ namespace SpawnCastle
         public bool shouldPause;
     }
 
-    [Serializable]
     internal sealed class AivJsonMiscItem
     {
         public int positionOfset;
@@ -31,5 +23,3 @@ namespace SpawnCastle
         public int number;
     }
 }
-
-#pragma warning restore 0649

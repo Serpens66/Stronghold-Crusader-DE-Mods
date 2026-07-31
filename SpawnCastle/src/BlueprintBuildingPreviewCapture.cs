@@ -17,6 +17,10 @@ namespace SpawnCastle
 {
     internal sealed class BlueprintBuildingPreviewCapture
     {
+        // Development-only switch: production builds only consume the bundled
+        // BlueprintImages library and never create capture PNGs or manifest data.
+        internal static bool EnableBlueprintImageGeneration = false;
+
         private const float SampleIntervalSeconds = 0.12f;
         private const int StableSamplesRequired = 4;
         private const int ScanRadius = 64;
@@ -46,6 +50,9 @@ namespace SpawnCastle
 
         public bool Tick()
         {
+            if (!EnableBlueprintImageGeneration)
+                return false;
+
             if (Time.unscaledTime < nextSampleTime)
                 return false;
 
