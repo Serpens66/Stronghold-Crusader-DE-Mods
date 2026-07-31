@@ -24,7 +24,8 @@ placement, tile, or network actions. It anchors the layout to the existing local
 human Keep using the fixed human-Keep orientation. The overlay consists of:
 
 - translucent isometric footprint markers rendered by mod-owned sprites above
-  the ground;
+  the ground, including Vanilla's extra reservation yards for Barracks,
+  Engineers/Tunnelers Guild, and the Oil Smelter;
 - distinct colors for buildings, walls, crenellations, stairs, traps, moats, and
   pitch ditches; and
 - a manually selected clean building image from Vanilla's
@@ -95,7 +96,9 @@ Buildings with additional Vanilla placement reservations are excluded from
 mouse-preview measurement.
 Their visible widths are fixed from the Help-image-to-reservation ratios instead:
 all three Barracks 5/10, Engineers and Tunnelers Guild 5/7.5, and Oil Smelter
-253/384. After three stable samples a
+253/384. The colored markers cover the corresponding 10x10, 5x10, and 4x8
+reservations, while each image remains anchored to its original 5x5 or 4x4
+building core. After three stable samples a
 measurement for any other supported building is stored in
 `BepInEx/config/SpawnCastle_Serp.BlueprintBuildingSizes.tsv`. A visible
 Blueprint is refreshed immediately. Every rendered building should have either

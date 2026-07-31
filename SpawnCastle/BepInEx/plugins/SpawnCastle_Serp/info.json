@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Spawn Castle",
   "Description": "Displays a local visual AIVJSON castle blueprint or spawns it through the game's native AIV pipeline.",
-  "Version": "0.3.22",
+  "Version": "0.3.23",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
@@ -303,6 +303,13 @@
         "Removed the unused cursor-renderer calibration path after runtime logs proved every successful exact measurement came from the wide changed-sprite scan.",
         "Applied the same proven scan to reservation-bearing buildings while rejecting characteristic yard-sized or overly dense results.",
         "Reused the Stone Barracks calibration for the non-buildable Mercenary Post and limited accepted saved measurements to revision 4 or newer."
+      ]
+    },
+    {
+      "Version": "0.3.23",
+      "Changes": [
+        "Marked the complete 10x10 Barracks, 5x10 Guild, and 4x8 Oil Smelter placement reservations with colored Blueprint ground tiles.",
+        "Kept reserved-area building images centered on their original 5x5 or 4x4 core footprints instead of the enlarged marker bounds."
       ]
     }
   ]

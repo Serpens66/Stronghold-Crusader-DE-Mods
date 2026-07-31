@@ -22,6 +22,7 @@ internal static class Program
             ("Resolve lord-dependent Church skins", TestChurchBlueprintSkins),
             ("Scale Blueprint sources independently", TestBlueprintSourceScale),
             ("Validate Blueprint calibration rules", TestBlueprintCalibrationRules),
+            ("Expand reserved Blueprint grounds without moving icons", TestReservedBlueprintGrounds),
             ("Exclude Blueprint placement-ground sprites", TestBlueprintPreviewSpriteFilter),
             ("Align cropped Blueprint building icons", TestBuildingIconPivots),
             ("Rotate footprints", TestFootprintRotations),
@@ -681,6 +682,57 @@ internal static class Program
             true,
             SpawnCastle.BlueprintBuildingIconCatalog
                 .IsUsableCalibrationRevision(4));
+    }
+
+    private static void TestReservedBlueprintGrounds()
+    {
+        var cases = new[]
+        {
+            (Mapper: 87, Tiles: 100, CoreSize: 5, MaximumX: 399, MaximumY: 419),
+            (Mapper: 86, Tiles: 100, CoreSize: 5, MaximumX: 399, MaximumY: 419),
+            (Mapper: 79, Tiles: 100, CoreSize: 5, MaximumX: 399, MaximumY: 419),
+            (Mapper: 88, Tiles: 50, CoreSize: 5, MaximumX: 394, MaximumY: 419),
+            (Mapper: 89, Tiles: 50, CoreSize: 5, MaximumX: 394, MaximumY: 419),
+            (Mapper: 180, Tiles: 32, CoreSize: 4, MaximumX: 393, MaximumY: 417)
+        };
+
+        foreach ((
+            int mapper,
+            int tiles,
+            int coreSize,
+            int maximumX,
+            int maximumY) in cases)
+        {
+            var document = new SpawnCastle.AivJsonDocument
+            {
+                frames =
+                [
+                    new SpawnCastle.AivJsonFrame
+                    {
+                        itemType = 60,
+                        tilePositionOfsets = [5050]
+                    },
+                    new SpawnCastle.AivJsonFrame
+                    {
+                        itemType = mapper,
+                        tilePositionOfsets = [4040]
+                    }
+                ],
+                miscItems = []
+            };
+            SpawnCastle.BlueprintLayout layout =
+                SpawnCastle.BlueprintLayoutBuilder.Build(document, 400, 400);
+            SpawnCastle.BlueprintIconPlacement icon = layout.Icons.Single();
+
+            AssertEqual(tiles, layout.Tiles.Count);
+            AssertEqual(coreSize, icon.Size);
+            AssertEqual(390, icon.MinimumWorldX);
+            AssertEqual(390 + coreSize - 1, icon.MaximumWorldX);
+            AssertEqual(410, icon.MinimumWorldY);
+            AssertEqual(410 + coreSize - 1, icon.MaximumWorldY);
+            AssertEqual(maximumX, layout.Tiles.Max(tile => tile.Tile.X));
+            AssertEqual(maximumY, layout.Tiles.Max(tile => tile.Tile.Y));
+        }
     }
 
     private static void TestBlueprintPreviewSpriteFilter()

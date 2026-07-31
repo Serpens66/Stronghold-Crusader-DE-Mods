@@ -163,16 +163,38 @@ namespace SpawnCastle
                         footprintSize,
                         AivRotation.Degrees0);
 
+                    int markerMinimumRow = footprint.Minimum.Row;
+                    int markerMaximumRow = footprint.Maximum.Row;
+                    int markerMinimumColumn = footprint.Minimum.Column;
+                    int markerMaximumColumn = footprint.Maximum.Column;
+                    if (BlueprintBuildingIconCatalog
+                        .TryGetReservedFootprintDimensions(
+                            mapper.Name,
+                            footprintSize,
+                            out int reservedRows,
+                            out int reservedColumns))
+                    {
+                        // Vanilla grows each special yard away from the same
+                        // AIV anchor. Only marker bounds use this extra space;
+                        // icon bounds below remain on the visible core.
+                        markerMinimumRow = Math.Max(
+                            0,
+                            anchor.Row - reservedRows + 1);
+                        markerMaximumColumn = Math.Min(
+                            AivGridPoint.GridSize - 1,
+                            anchor.Column + reservedColumns - 1);
+                    }
+
                     int minimumWorldX = int.MaxValue;
                     int maximumWorldX = int.MinValue;
                     int minimumWorldY = int.MaxValue;
                     int maximumWorldY = int.MinValue;
-                    for (int row = footprint.Minimum.Row;
-                         row <= footprint.Maximum.Row;
+                    for (int row = markerMinimumRow;
+                         row <= markerMaximumRow;
                          row++)
                     {
-                        for (int column = footprint.Minimum.Column;
-                             column <= footprint.Maximum.Column;
+                        for (int column = markerMinimumColumn;
+                             column <= markerMaximumColumn;
                              column++)
                         {
                             AivWorldTile world = AivWorldTransform.Project(
@@ -187,10 +209,16 @@ namespace SpawnCastle
                                 mapper.Category,
                                 mapper.VisualGroup);
 
-                            minimumWorldX = Math.Min(minimumWorldX, world.X);
-                            maximumWorldX = Math.Max(maximumWorldX, world.X);
-                            minimumWorldY = Math.Min(minimumWorldY, world.Y);
-                            maximumWorldY = Math.Max(maximumWorldY, world.Y);
+                            if (row >= footprint.Minimum.Row &&
+                                row <= footprint.Maximum.Row &&
+                                column >= footprint.Minimum.Column &&
+                                column <= footprint.Maximum.Column)
+                            {
+                                minimumWorldX = Math.Min(minimumWorldX, world.X);
+                                maximumWorldX = Math.Max(maximumWorldX, world.X);
+                                minimumWorldY = Math.Min(minimumWorldY, world.Y);
+                                maximumWorldY = Math.Max(maximumWorldY, world.Y);
+                            }
                         }
                     }
 

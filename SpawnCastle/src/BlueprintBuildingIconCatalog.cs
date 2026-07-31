@@ -101,6 +101,25 @@ namespace SpawnCastle
         }
     }
 
+    internal readonly struct BlueprintReservedAreaDefinition
+    {
+        public BlueprintReservedAreaDefinition(
+            float coreVisualWorldWidth,
+            int rowSizeMultiplier,
+            int columnSizeMultiplier)
+        {
+            CoreVisualWorldWidth = coreVisualWorldWidth;
+            RowSizeMultiplier = rowSizeMultiplier;
+            ColumnSizeMultiplier = columnSizeMultiplier;
+        }
+
+        public float CoreVisualWorldWidth { get; }
+
+        public int RowSizeMultiplier { get; }
+
+        public int ColumnSizeMultiplier { get; }
+    }
+
     internal static class BlueprintBuildingIconCatalog
     {
         public const int CurrentCalibrationRevision = 4;
@@ -110,20 +129,29 @@ namespace SpawnCastle
         private const float GroundContactPixelsFromBottom = 21f;
         private const float BuildMenuCalibratedVisualCorrection = 1.10f;
 
-        private static readonly IReadOnlyDictionary<string, float>
-            ReservedAreaVisibleWorldWidths =
-            new Dictionary<string, float>(StringComparer.Ordinal)
+        private static readonly IReadOnlyDictionary<
+            string,
+            BlueprintReservedAreaDefinition> ReservedAreas =
+            new Dictionary<string, BlueprintReservedAreaDefinition>(
+                StringComparer.Ordinal)
             {
-                // The Vanilla preview reserves much more ground than the
-                // visible building. The fixed widths preserve the screenshot
-                // ratios against the clean Help images at 64 PPU:
-                // 5/10, 5/10, 5/10, 5/7.5, 5/7.5, and 253/384.
-                ["MAPPER_BARRACKS_STONE"] = 5f,
-                ["MAPPER_BARRACKS_WOOD"] = 5f,
-                ["MAPPER_BEDOUIN_STOCKADE"] = 5f,
-                ["MAPPER_ENGINEERS_GUILD"] = 5f,
-                ["MAPPER_TUNNELERS_GUILD"] = 5f,
-                ["MAPPER_OIL_SMELTER"] = 253f / 64f
+                // Vanilla extends these reservations from the normal AIV
+                // anchor. Keep the smaller core width for the clean image.
+                ["MAPPER_BARRACKS_STONE"] =
+                    new BlueprintReservedAreaDefinition(5f, 2, 2),
+                ["MAPPER_BARRACKS_WOOD"] =
+                    new BlueprintReservedAreaDefinition(5f, 2, 2),
+                ["MAPPER_BEDOUIN_STOCKADE"] =
+                    new BlueprintReservedAreaDefinition(5f, 2, 2),
+                ["MAPPER_ENGINEERS_GUILD"] =
+                    new BlueprintReservedAreaDefinition(5f, 2, 1),
+                ["MAPPER_TUNNELERS_GUILD"] =
+                    new BlueprintReservedAreaDefinition(5f, 2, 1),
+                ["MAPPER_OIL_SMELTER"] =
+                    new BlueprintReservedAreaDefinition(
+                        253f / 64f,
+                        2,
+                        1)
             };
 
         private static readonly IReadOnlyDictionary<string, float>
@@ -438,7 +466,29 @@ namespace SpawnCastle
             string mapperName)
         {
             return !string.IsNullOrWhiteSpace(mapperName) &&
-                ReservedAreaVisibleWorldWidths.ContainsKey(mapperName);
+                ReservedAreas.ContainsKey(mapperName);
+        }
+
+        public static bool TryGetReservedFootprintDimensions(
+            string mapperName,
+            int coreFootprintSize,
+            out int rowCount,
+            out int columnCount)
+        {
+            rowCount = coreFootprintSize;
+            columnCount = coreFootprintSize;
+            if (coreFootprintSize <= 0 ||
+                string.IsNullOrWhiteSpace(mapperName) ||
+                !ReservedAreas.TryGetValue(
+                    mapperName,
+                    out BlueprintReservedAreaDefinition reservedArea))
+            {
+                return false;
+            }
+
+            rowCount *= reservedArea.RowSizeMultiplier;
+            columnCount *= reservedArea.ColumnSizeMultiplier;
+            return true;
         }
 
         public static bool IsUsableCalibrationRevision(int revision)
@@ -483,13 +533,13 @@ namespace SpawnCastle
             if (iconWorldHeight <= 0f)
                 throw new ArgumentOutOfRangeException(nameof(iconWorldHeight));
 
-            if (ReservedAreaVisibleWorldWidths.TryGetValue(
+            if (ReservedAreas.TryGetValue(
                     mapperName,
-                    out float visibleWorldWidth))
+                    out BlueprintReservedAreaDefinition reservedArea))
             {
                 // Never let a reservation-yard preview determine the scale.
                 // This also gives a correctly sized build-menu fallback.
-                scale = visibleWorldWidth / iconWorldWidth;
+                scale = reservedArea.CoreVisualWorldWidth / iconWorldWidth;
                 return true;
             }
 
