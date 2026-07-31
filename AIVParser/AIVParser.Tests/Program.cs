@@ -18,6 +18,7 @@ internal static class Program
             ("Rotate Gatehouse Blueprint images with the map", TestGateVisualRotation),
             ("Resolve four Drawbridge image slots", TestDrawbridgeImageSlots),
             ("Associate Drawbridges with directional gates", TestDrawbridgeGateAssociations),
+            ("Associate all six stair pieces with common endpoints", TestStaircaseEndpoints),
             ("Resolve selected Blueprint help images", TestBlueprintHelpImages),
             ("Resolve lord-dependent Church skins", TestChurchBlueprintSkins),
             ("Scale Blueprint sources independently", TestBlueprintSourceScale),
@@ -25,6 +26,11 @@ internal static class Program
             ("Expand reserved Blueprint grounds without moving icons", TestReservedBlueprintGrounds),
             ("Exclude Blueprint placement-ground sprites", TestBlueprintPreviewSpriteFilter),
             ("Align Blueprint visuals to footprint centres", TestBuildingIconOffsets),
+            ("Compute exact Blueprint capture pivots", TestBlueprintCapturePivots),
+            ("Filter Vanilla Blueprint preview fragments", TestBlueprintCaptureFragmentFilter),
+            ("Exclude ground-only Blueprint capture variants", TestBlueprintCaptureRequirements),
+            ("Resolve Blueprint capture skins and views", TestBlueprintCaptureRouting),
+            ("Round-trip and validate Blueprint capture manifests", TestBlueprintCaptureManifest),
             ("Rotate footprints", TestFootprintRotations),
             ("Resolve associated blocked areas", TestBlockedAreas),
             ("Compute rotated keep deltas", TestAnchorDelta),
@@ -104,6 +110,8 @@ internal static class Program
         AssertEqual("Bedouin Outpost", AivMapperCatalog.Resolve(53).DisplayName);
         AssertEqual("Crusader Outpost", AivMapperCatalog.Resolve(178).DisplayName);
         AssertEqual("Arabian Outpost", AivMapperCatalog.Resolve(179).DisplayName);
+        AssertEqual("Mercenary Post", AivMapperCatalog.Resolve(86).DisplayName);
+        AssertEqual("Low Wall", AivMapperCatalog.Resolve(46).DisplayName);
     }
 
     private static void TestSpecialBlueprintIcons()
@@ -184,6 +192,265 @@ internal static class Program
                 .ScaleCalibratedVisualOffset(-1f, 2f, 6f));
     }
 
+    private static void TestBlueprintCapturePivots()
+    {
+        AssertEqual(
+            0.5f,
+            SpawnCastle.BlueprintBuildingCaptureCatalog
+                .CalculateNormalizedPivot(1.25f, 0f, 160, 64f));
+        AssertEqual(
+            0.25f,
+            SpawnCastle.BlueprintBuildingCaptureCatalog
+                .CalculateNormalizedPivot(-0.5f, -1f, 128, 64f));
+    }
+
+    private static void TestBlueprintCaptureFragmentFilter()
+    {
+        AssertEqual(
+            true,
+            SpawnCastle.BlueprintBuildingCaptureCatalog
+                .IsBuildingPreviewFragment(
+                    "tile_castle 123",
+                    "AllTileSprites",
+                    64f,
+                    32f));
+        AssertEqual(
+            true,
+            SpawnCastle.BlueprintBuildingCaptureCatalog
+                .IsBuildingPreviewFragment(
+                    "tile_buildings2 45",
+                    "AllTileSprites",
+                    192f,
+                    160f));
+        AssertEqual(
+            false,
+            SpawnCastle.BlueprintBuildingCaptureCatalog
+                .IsBuildingPreviewFragment(
+                    "SpawnCastle_PlacementDiamond",
+                    "ConstructionOverlay",
+                    64f,
+                    32f));
+    }
+
+    private static void TestBlueprintCaptureRequirements()
+    {
+        AssertEqual(
+            true,
+            SpawnCastle.BlueprintBuildingCaptureCatalog
+                .RequiresCapturedImage("MAPPER_WHEATFARM"));
+        AssertEqual(
+            true,
+            SpawnCastle.BlueprintBuildingCaptureCatalog
+                .RequiresCapturedImage("MAPPER_CHURCH2"));
+        AssertEqual(
+            true,
+            SpawnCastle.BlueprintBuildingCaptureCatalog
+                .RequiresCapturedImage("MAPPER_WALL"));
+        AssertEqual(
+            true,
+            SpawnCastle.BlueprintBuildingCaptureCatalog
+                .RequiresCapturedImage("MAPPER_STAIR4"));
+        AssertEqual(
+            true,
+            SpawnCastle.BlueprintBuildingCaptureCatalog
+                .RequiresCapturedImage("MAPPER_POND1"));
+        AssertEqual(
+            false,
+            SpawnCastle.BlueprintBuildingCaptureCatalog
+                .RequiresCapturedImage("MAPPER_MOAT"));
+        AssertEqual(
+            false,
+            SpawnCastle.BlueprintBuildingCaptureCatalog
+                .RequiresCapturedImage("MAPPER_PITCH_DITCH"));
+    }
+
+    private static void TestBlueprintCaptureRouting()
+    {
+        SpawnCastle.BlueprintCaptureRequest european =
+            SpawnCastle.BlueprintBuildingCaptureCatalog.ResolveRequest(
+                "MAPPER_CHURCH2",
+                false,
+                0,
+                SpawnCastle.BlueprintDrawbridgePosition.NotApplicable);
+        SpawnCastle.BlueprintCaptureRequest islamic =
+            SpawnCastle.BlueprintBuildingCaptureCatalog.ResolveRequest(
+                "MAPPER_CHURCH2",
+                true,
+                0,
+                SpawnCastle.BlueprintDrawbridgePosition.NotApplicable);
+        AssertEqual(SpawnCastle.BlueprintCaptureSkin.European, european.Skin);
+        AssertEqual(SpawnCastle.BlueprintCaptureSkin.Islamic, islamic.Skin);
+
+        SpawnCastle.BlueprintCaptureRequest gateA =
+            SpawnCastle.BlueprintBuildingCaptureCatalog.ResolveRequest(
+                "MAPPER_GATE_STONE1A",
+                false,
+                0,
+                SpawnCastle.BlueprintDrawbridgePosition.NotApplicable);
+        SpawnCastle.BlueprintCaptureRequest gateB =
+            SpawnCastle.BlueprintBuildingCaptureCatalog.ResolveRequest(
+                "MAPPER_GATE_STONE1B",
+                false,
+                0,
+                SpawnCastle.BlueprintDrawbridgePosition.NotApplicable);
+        AssertEqual(gateA.Key, gateB.Key);
+        AssertEqual(false, gateA.FlipHorizontally);
+        AssertEqual(true, gateB.FlipHorizontally);
+
+        SpawnCastle.BlueprintCaptureRequest crenel =
+            SpawnCastle.BlueprintBuildingCaptureCatalog.ResolveRequest(
+                "MAPPER_CRENAL",
+                false,
+                0,
+                SpawnCastle.BlueprintDrawbridgePosition.NotApplicable);
+        SpawnCastle.BlueprintCaptureRequest crenel2 =
+            SpawnCastle.BlueprintBuildingCaptureCatalog.ResolveRequest(
+                "MAPPER_CRENAL2",
+                false,
+                0,
+                SpawnCastle.BlueprintDrawbridgePosition.NotApplicable);
+        AssertEqual(SpawnCastle.BlueprintCaptureView.PlacedDefault, crenel.View);
+        AssertEqual(SpawnCastle.BlueprintCaptureView.PlacedDefault, crenel2.View);
+        AssertEqual(crenel.Key, crenel2.Key);
+
+        SpawnCastle.BlueprintCaptureRequest stairNorth =
+            SpawnCastle.BlueprintBuildingCaptureCatalog.ResolveRequest(
+                "MAPPER_STAIR4",
+                false,
+                0,
+                SpawnCastle.BlueprintDrawbridgePosition.NotApplicable,
+                SpawnCastle.BlueprintStairDirection.North);
+        SpawnCastle.BlueprintCaptureRequest stairSouth =
+            SpawnCastle.BlueprintBuildingCaptureCatalog.ResolveRequest(
+                "MAPPER_STAIR4",
+                false,
+                0,
+                SpawnCastle.BlueprintDrawbridgePosition.NotApplicable,
+                SpawnCastle.BlueprintStairDirection.South);
+        AssertEqual(SpawnCastle.BlueprintCaptureView.StairNorth, stairNorth.View);
+        AssertEqual(SpawnCastle.BlueprintCaptureView.StairSouth, stairSouth.View);
+        Assert(stairNorth.Key != stairSouth.Key, "Both stair directions need separate visuals.");
+        AssertEqual("MAPPER_STAIR1", stairNorth.MapperName);
+        SpawnCastle.BlueprintCaptureRequest stairNorthMirrored =
+            SpawnCastle.BlueprintBuildingCaptureCatalog.ResolveRequest(
+                "MAPPER_STAIR4",
+                false,
+                0,
+                SpawnCastle.BlueprintDrawbridgePosition.NotApplicable,
+                SpawnCastle.BlueprintStairDirection.North,
+                true);
+        AssertEqual(stairNorth.Key, stairNorthMirrored.Key);
+        AssertEqual(true, stairNorthMirrored.FlipHorizontally);
+
+        SpawnCastle.BlueprintCaptureRequest oilNorth =
+            SpawnCastle.BlueprintBuildingCaptureCatalog.ResolveRequest(
+                "MAPPER_OIL_SMELTER",
+                false,
+                0,
+                SpawnCastle.BlueprintDrawbridgePosition.NotApplicable);
+        SpawnCastle.BlueprintCaptureRequest oilSouth =
+            SpawnCastle.BlueprintBuildingCaptureCatalog.ResolveRequest(
+                "MAPPER_OIL_SMELTER",
+                false,
+                2,
+                SpawnCastle.BlueprintDrawbridgePosition.NotApplicable);
+        SpawnCastle.BlueprintCaptureRequest oilEast =
+            SpawnCastle.BlueprintBuildingCaptureCatalog.ResolveRequest(
+                "MAPPER_OIL_SMELTER",
+                false,
+                1,
+                SpawnCastle.BlueprintDrawbridgePosition.NotApplicable);
+        Assert(oilNorth.Key != oilSouth.Key, "Front and rear reservations need separate visuals.");
+        AssertEqual(false, oilSouth.FlipHorizontally);
+        AssertEqual(SpawnCastle.BlueprintCaptureView.ReservationFront, oilNorth.View);
+        AssertEqual(SpawnCastle.BlueprintCaptureView.ReservationRear, oilSouth.View);
+        AssertEqual(
+            SpawnCastle.BlueprintCaptureView.ReservationFront,
+            oilEast.View);
+        AssertEqual(true, oilEast.FlipHorizontally);
+
+        SpawnCastle.BlueprintCaptureRequest tunnelerNorth =
+            SpawnCastle.BlueprintBuildingCaptureCatalog.ResolveRequest(
+                "MAPPER_TUNNELERS_GUILD",
+                false,
+                0,
+                SpawnCastle.BlueprintDrawbridgePosition.NotApplicable);
+        SpawnCastle.BlueprintCaptureRequest tunnelerEast =
+            SpawnCastle.BlueprintBuildingCaptureCatalog.ResolveRequest(
+                "MAPPER_TUNNELERS_GUILD",
+                false,
+                1,
+                SpawnCastle.BlueprintDrawbridgePosition.NotApplicable);
+        SpawnCastle.BlueprintCaptureRequest tunnelerSouth =
+            SpawnCastle.BlueprintBuildingCaptureCatalog.ResolveRequest(
+                "MAPPER_TUNNELERS_GUILD",
+                false,
+                2,
+                SpawnCastle.BlueprintDrawbridgePosition.NotApplicable);
+        SpawnCastle.BlueprintCaptureRequest tunnelerWest =
+            SpawnCastle.BlueprintBuildingCaptureCatalog.ResolveRequest(
+                "MAPPER_TUNNELERS_GUILD",
+                false,
+                3,
+                SpawnCastle.BlueprintDrawbridgePosition.NotApplicable);
+        AssertEqual(SpawnCastle.BlueprintCaptureView.ReservationRear, tunnelerNorth.View);
+        AssertEqual(true, tunnelerNorth.FlipHorizontally);
+        AssertEqual(SpawnCastle.BlueprintCaptureView.ReservationRear, tunnelerEast.View);
+        AssertEqual(false, tunnelerEast.FlipHorizontally);
+        AssertEqual(SpawnCastle.BlueprintCaptureView.ReservationFront, tunnelerSouth.View);
+        AssertEqual(true, tunnelerSouth.FlipHorizontally);
+        AssertEqual(SpawnCastle.BlueprintCaptureView.ReservationFront, tunnelerWest.View);
+        AssertEqual(false, tunnelerWest.FlipHorizontally);
+
+        SpawnCastle.BlueprintCaptureRequest bridgeRear =
+            SpawnCastle.BlueprintBuildingCaptureCatalog.ResolveRequest(
+                "MAPPER_DRAWBRIDGE",
+                false,
+                0,
+                SpawnCastle.BlueprintDrawbridgePosition.TopRight);
+        AssertEqual(SpawnCastle.BlueprintCaptureView.DrawbridgeRear, bridgeRear.View);
+        AssertEqual(false, bridgeRear.FlipHorizontally);
+        SpawnCastle.BlueprintCaptureRequest bridgeRearMirrored =
+            SpawnCastle.BlueprintBuildingCaptureCatalog.ResolveRequest(
+                "MAPPER_DRAWBRIDGE",
+                false,
+                0,
+                SpawnCastle.BlueprintDrawbridgePosition.TopLeft);
+        AssertEqual(true, bridgeRearMirrored.FlipHorizontally);
+    }
+
+    private static void TestBlueprintCaptureManifest()
+    {
+        var entry = new SpawnCastle.BlueprintCaptureManifestEntry
+        {
+            FormatVersion = SpawnCastle.BlueprintBuildingCaptureCatalog.CurrentFormatVersion,
+            MapperValue = 96,
+            MapperName = "MAPPER_CHURCH2",
+            Skin = SpawnCastle.BlueprintCaptureSkin.Islamic,
+            View = SpawnCastle.BlueprintCaptureView.Default,
+            PngFile = "Church2_Islamic.png",
+            PivotX = 0.45f,
+            PivotY = 0.2f,
+            PixelsPerUnit = 64f,
+            FragmentSignature = "0123456789ABCDEF"
+        };
+        string serialized = SpawnCastle.BlueprintBuildingCaptureCatalog
+            .SerializeManifest([entry]);
+        IReadOnlyList<SpawnCastle.BlueprintCaptureManifestEntry> parsed =
+            SpawnCastle.BlueprintBuildingCaptureCatalog.ParseManifest(
+                serialized.Split(["\r\n", "\n"], StringSplitOptions.None),
+                out IReadOnlyList<string> errors);
+        AssertEqual(0, errors.Count);
+        AssertEqual(1, parsed.Count);
+        AssertEqual(entry.Key, parsed[0].Key);
+        AssertEqual(entry.PivotX, parsed[0].PivotX);
+
+        entry.PivotY = 1.1f;
+        AssertEqual(
+            "pivot is outside the sprite rectangle.",
+            SpawnCastle.BlueprintBuildingCaptureCatalog.ValidateEntry(entry));
+    }
+
     private static void TestGateVisualRotation()
     {
         string[] gates =
@@ -238,14 +505,14 @@ internal static class Program
             expectedPivotPixelsFromBottom: 0f);
         AssertDrawbridgeImage(
             SpawnCastle.BlueprintDrawbridgePosition.TopLeft,
-            "Drawbridge_TopRight.png",
-            flipHorizontally: false,
+            "MAPPER_DRAWBRIDGE_Generic_DrawbridgeRear.png",
+            flipHorizontally: true,
             usesPlaceholderImage: false,
             usesBundledImage: true,
             expectedPivotPixelsFromBottom: 80.5f);
         AssertDrawbridgeImage(
             SpawnCastle.BlueprintDrawbridgePosition.TopRight,
-            "Drawbridge_TopLeft.png",
+            "MAPPER_DRAWBRIDGE_Generic_DrawbridgeRear.png",
             flipHorizontally: false,
             usesPlaceholderImage: false,
             usesBundledImage: true,
@@ -399,6 +666,50 @@ internal static class Program
             document,
             400,
             400);
+    }
+
+    private static void TestStaircaseEndpoints()
+    {
+        var frames = new List<SpawnCastle.AivJsonFrame>
+        {
+            new SpawnCastle.AivJsonFrame
+            {
+                itemType = 60,
+                tilePositionOfsets = [5050]
+            }
+        };
+        for (int index = 0; index < 6; index++)
+        {
+            frames.Add(new SpawnCastle.AivJsonFrame
+            {
+                itemType = 181 + index,
+                tilePositionOfsets = [4040 + index * 101]
+            });
+        }
+
+        var document = new SpawnCastle.AivJsonDocument
+        {
+            frames = frames,
+            miscItems = []
+        };
+        List<SpawnCastle.BlueprintIconPlacement> stairs =
+            SpawnCastle.BlueprintLayoutBuilder.Build(document, 400, 400)
+                .Icons
+                .Where(value => value.MapperValue >= 181 && value.MapperValue <= 186)
+                .OrderBy(value => value.MapperValue)
+                .ToList();
+        AssertEqual(6, stairs.Count);
+        Assert(stairs[0].StairLowEnd.HasValue, "The staircase needs a low endpoint.");
+        Assert(stairs[0].StairHighEnd.HasValue, "The staircase needs a high endpoint.");
+        Assert(
+            !stairs[0].StairLowEnd.GetValueOrDefault().Equals(
+                stairs[0].StairHighEnd.GetValueOrDefault()),
+            "The low and high staircase endpoints must differ.");
+        foreach (SpawnCastle.BlueprintIconPlacement stair in stairs)
+        {
+            AssertEqual(stairs[0].StairLowEnd, stair.StairLowEnd);
+            AssertEqual(stairs[0].StairHighEnd, stair.StairHighEnd);
+        }
     }
 
     private static void TestBlueprintHelpImages()
@@ -763,6 +1074,18 @@ internal static class Program
             AssertEqual(410 + coreSize - 1, icon.MaximumWorldY);
             AssertEqual(maximumX, layout.Tiles.Max(tile => tile.Tile.X));
             AssertEqual(maximumY, layout.Tiles.Max(tile => tile.Tile.Y));
+            AssertEqual(
+                layout.Tiles.Min(tile => tile.Tile.X),
+                icon.MarkerMinimumWorldX);
+            AssertEqual(
+                layout.Tiles.Max(tile => tile.Tile.X),
+                icon.MarkerMaximumWorldX);
+            AssertEqual(
+                layout.Tiles.Min(tile => tile.Tile.Y),
+                icon.MarkerMinimumWorldY);
+            AssertEqual(
+                layout.Tiles.Max(tile => tile.Tile.Y),
+                icon.MarkerMaximumWorldY);
         }
     }
 

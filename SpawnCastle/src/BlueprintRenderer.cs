@@ -19,6 +19,7 @@ namespace SpawnCastle
 
         private readonly ManualLogSource log;
         private readonly BlueprintBuildingSizeCalibration sizeCalibration;
+        private readonly BlueprintBuildingImageLibrary buildingImageLibrary;
         private readonly Dictionary<int, Sprite> markerSprites =
             new Dictionary<int, Sprite>();
         private readonly Dictionary<string, Sprite> buildMenuSprites =
@@ -43,11 +44,14 @@ namespace SpawnCastle
 
         public BlueprintRenderer(
             ManualLogSource log,
-            BlueprintBuildingSizeCalibration sizeCalibration)
+            BlueprintBuildingSizeCalibration sizeCalibration,
+            BlueprintBuildingImageLibrary buildingImageLibrary)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.sizeCalibration = sizeCalibration ??
                 throw new ArgumentNullException(nameof(sizeCalibration));
+            this.buildingImageLibrary = buildingImageLibrary ??
+                throw new ArgumentNullException(nameof(buildingImageLibrary));
         }
 
         public BlueprintRenderResult Render(BlueprintLayout layout)
@@ -87,11 +91,17 @@ namespace SpawnCastle
             {
                 BlueprintDrawbridgePosition drawbridgePosition =
                     ResolveDrawbridgePosition(placement);
+                BlueprintStairDirection stairDirection =
+                    ResolveStairDirection(placement);
+                bool stairFlipHorizontally =
+                    ResolveStairFlipHorizontally(placement);
                 BlueprintIconVisual icon =
                     GetBlueprintIcon(
                         placement.MapperValue,
                         flattenedLandscape,
-                        drawbridgePosition);
+                        drawbridgePosition,
+                        stairDirection,
+                        stairFlipHorizontally);
                 if (icon.Sprite == null)
                     continue;
                 if (TryCreateIcon(
@@ -213,9 +223,12 @@ namespace SpawnCastle
         private BlueprintIconVisual GetBlueprintIcon(
             int mapperValue,
             bool flattenedLandscape,
-            BlueprintDrawbridgePosition drawbridgePosition)
+            BlueprintDrawbridgePosition drawbridgePosition,
+            BlueprintStairDirection stairDirection,
+            bool stairFlipHorizontally)
         {
-            string iconKey = mapperValue + ":" + drawbridgePosition;
+            string iconKey = mapperValue + ":" + drawbridgePosition + ":" +
+                stairDirection + ":" + stairFlipHorizontally;
             try
             {
                 AivMapperInfo mapper = AivMapperCatalog.Resolve(mapperValue);
@@ -238,6 +251,27 @@ namespace SpawnCastle
                         $"No Blueprint icon is mapped for {visualMapperName}.");
 
                 bool islamicSkin = UsesIslamicChurchSkin();
+                if (!flattenedLandscape &&
+                    buildingImageLibrary.TryResolve(
+                        mapperValue,
+                        visualMapperName,
+                        islamicSkin,
+                        GetCameraQuarter(),
+                        drawbridgePosition,
+                        stairDirection,
+                        stairFlipHorizontally,
+                        out Sprite capturedSprite,
+                        out bool capturedFlip))
+                {
+                    return new BlueprintIconVisual(
+                        capturedSprite,
+                        true,
+                        capturedFlip,
+                        false,
+                        drawbridgePosition,
+                        true);
+                }
+
                 BlueprintDrawbridgeImageDefinition drawbridgeImage =
                     string.Equals(
                         mapper.Name,
@@ -427,6 +461,55 @@ namespace SpawnCastle
             return BlueprintBuildingIconCatalog.ResolveDrawbridgePosition(
                 delta.x,
                 delta.y);
+        }
+
+        private BlueprintStairDirection ResolveStairDirection(
+            BlueprintIconPlacement placement)
+        {
+            if (placement.MapperValue < 181 || placement.MapperValue > 186)
+                return BlueprintStairDirection.NotApplicable;
+            if (!placement.StairLowEnd.HasValue ||
+                !placement.StairHighEnd.HasValue ||
+                !TryGetGroundPosition(
+                    placement.StairLowEnd.Value.X,
+                    placement.StairLowEnd.Value.Y,
+                    out Vector3 lowPosition) ||
+                !TryGetGroundPosition(
+                    placement.StairHighEnd.Value.X,
+                    placement.StairHighEnd.Value.Y,
+                    out Vector3 highPosition))
+            {
+                return BlueprintStairDirection.Unknown;
+            }
+
+            // The selected capture follows the visible rise direction after
+            // the current map rotation, just like directional Drawbridges.
+            return highPosition.y >= lowPosition.y
+                ? BlueprintStairDirection.North
+                : BlueprintStairDirection.South;
+        }
+
+        private bool ResolveStairFlipHorizontally(
+            BlueprintIconPlacement placement)
+        {
+            if (placement.MapperValue < 181 || placement.MapperValue > 186 ||
+                !placement.StairLowEnd.HasValue ||
+                !placement.StairHighEnd.HasValue ||
+                !TryGetGroundPosition(
+                    placement.StairLowEnd.Value.X,
+                    placement.StairLowEnd.Value.Y,
+                    out Vector3 lowPosition) ||
+                !TryGetGroundPosition(
+                    placement.StairHighEnd.Value.X,
+                    placement.StairHighEnd.Value.Y,
+                    out Vector3 highPosition))
+            {
+                return false;
+            }
+
+            // Both front/back stair captures are normalized with the high end
+            // on the right; the other diagonal is the mirrored equivalent.
+            return highPosition.x < lowPosition.x;
         }
 
         private bool TryGetGroundPosition(
@@ -756,6 +839,23 @@ namespace SpawnCastle
                     GameData.Instance.lastGameState.lord_Type);
         }
 
+        private static int GetCameraQuarter()
+        {
+            if (GameMap.instance == null)
+                return 0;
+            switch (GameMap.instance.CurrentRotation())
+            {
+                case Enums.Dircs.East:
+                    return 1;
+                case Enums.Dircs.South:
+                    return 2;
+                case Enums.Dircs.West:
+                    return 3;
+                default:
+                    return 0;
+            }
+        }
+
         private Sprite CreateSpriteFromVanillaAtlas(
             Noesis.BitmapSource source,
             string resourceKey)
@@ -856,6 +956,9 @@ namespace SpawnCastle
             int frontRow = 0;
             AccumulateIconFootprint(
                 placement,
+                icon.UsesExactWorldScale &&
+                    BlueprintBuildingIconCatalog.HasReservedPlacementArea(
+                        mapper.Name),
                 ref position,
                 ref validGroundCells,
                 ref frontRow);
@@ -916,6 +1019,7 @@ namespace SpawnCastle
                 spriteSize.y * Math.Abs(scale));
             if (sizeCalibration.TryGetVisualCenterOffset(
                     placement.MapperValue,
+                    UsesIslamicChurchSkin(),
                     renderedWorldSize,
                     out Vector2 calibratedOffset))
             {
@@ -964,6 +1068,7 @@ namespace SpawnCastle
             Vector2 calibratedWorldSize =
                 sizeCalibration.TryGetWorldSize(
                     placement.MapperValue,
+                    UsesIslamicChurchSkin(),
                     out Vector2 measuredSize)
                     ? measuredSize
                     : Vector2.zero;
@@ -1019,16 +1124,29 @@ namespace SpawnCastle
 
         private void AccumulateIconFootprint(
             BlueprintIconPlacement placement,
+            bool useMarkerBounds,
             ref Vector3 position,
             ref int validGroundCells,
             ref int frontRow)
         {
-            for (int worldY = placement.MinimumWorldY;
-                worldY <= placement.MaximumWorldY;
+            int minimumWorldX = useMarkerBounds
+                ? placement.MarkerMinimumWorldX
+                : placement.MinimumWorldX;
+            int maximumWorldX = useMarkerBounds
+                ? placement.MarkerMaximumWorldX
+                : placement.MaximumWorldX;
+            int minimumWorldY = useMarkerBounds
+                ? placement.MarkerMinimumWorldY
+                : placement.MinimumWorldY;
+            int maximumWorldY = useMarkerBounds
+                ? placement.MarkerMaximumWorldY
+                : placement.MaximumWorldY;
+            for (int worldY = minimumWorldY;
+                worldY <= maximumWorldY;
                 worldY++)
             {
-                for (int worldX = placement.MinimumWorldX;
-                    worldX <= placement.MaximumWorldX;
+                for (int worldX = minimumWorldX;
+                    worldX <= maximumWorldX;
                     worldX++)
                 {
                     if (!TryGetRenderedTile(

@@ -1,6 +1,7 @@
 using AIVParser.Core;
 using BepInEx;
 using BepInEx.Logging;
+using CrusaderDE;
 using SHCDESE.Interop;
 using System;
 using System.Collections.Generic;
@@ -28,10 +29,11 @@ namespace SpawnCastle
 
         private readonly ManualLogSource log;
         private readonly string filePath;
-        private readonly Dictionary<int, Measurement> measurements =
-            new Dictionary<int, Measurement>();
+        private readonly Dictionary<string, Measurement> measurements =
+            new Dictionary<string, Measurement>(StringComparer.Ordinal);
         private float nextSampleTime;
         private int candidateMapper = int.MinValue;
+        private BlueprintCaptureSkin candidateSkin;
         private float candidateWidth;
         private float candidateHeight;
         private float candidateVisualOffsetX;
@@ -62,17 +64,18 @@ namespace SpawnCastle
                 return false;
             }
 
+            int footprintSize = AivMapperCatalog.Resolve(mapperValue)
+                .FootprintSize ?? 1;
+            BlueprintCaptureSkin skin = ResolveCalibrationSkin(mapperName);
+            string measurementKey = BuildMeasurementKey(mapperValue, skin);
             if (measurements.TryGetValue(
-                    mapperValue,
+                    measurementKey,
                     out Measurement completed) &&
                 HasUsableGroundOffset(completed))
             {
                 ResetCandidate();
                 return false;
             }
-
-            int footprintSize = AivMapperCatalog.Resolve(mapperValue)
-                .FootprintSize ?? 1;
             if (!TryMeasureTilePreview(
                     footprintSize,
                     out PreviewBounds preview))
@@ -82,6 +85,7 @@ namespace SpawnCastle
             }
 
             if (candidateMapper == mapperValue &&
+                candidateSkin == skin &&
                 Math.Abs(candidateWidth - preview.Width) <=
                     StableWidthTolerance &&
                 Math.Abs(candidateHeight - preview.Height) <=
@@ -96,6 +100,7 @@ namespace SpawnCastle
             else
             {
                 candidateMapper = mapperValue;
+                candidateSkin = skin;
                 candidateWidth = preview.Width;
                 candidateHeight = preview.Height;
                 candidateVisualOffsetX = preview.VisualOffsetX;
@@ -110,9 +115,10 @@ namespace SpawnCastle
             int rotation = GameMap.instance != null
                 ? (int)GameMap.instance.CurrentRotation()
                 : -1;
-            measurements[mapperValue] = new Measurement(
+            measurements[measurementKey] = new Measurement(
                 mapperValue,
                 mapperName,
+                skin,
                 preview.Width,
                 preview.Height,
                 preview.VisualOffsetX,
@@ -127,6 +133,7 @@ namespace SpawnCastle
                 log,
                 $"Blueprint building alignment calibrated from Vanilla preview: " +
                 $"mapper={mapperName} ({mapperValue}), " +
+                $"skin={skin}, " +
                 $"worldSize={preview.Width:F4}x{preview.Height:F4}, " +
                 $"visualOffset=({preview.VisualOffsetX:F4}," +
                 $"{preview.VisualOffsetY:F4}), " +
@@ -141,6 +148,7 @@ namespace SpawnCastle
 
         public bool TryGetWorldSize(
             int mapperValue,
+            bool islamicChurchSkin,
             out Vector2 worldSize)
         {
             AivMapperInfo mapper = AivMapperCatalog.Resolve(mapperValue);
@@ -152,8 +160,11 @@ namespace SpawnCastle
                 return false;
             }
 
+            string measurementKey = BuildMeasurementKey(
+                mapperValue,
+                ResolveCalibrationSkin(mapper.Name, islamicChurchSkin));
             if (measurements.TryGetValue(
-                    mapperValue,
+                    measurementKey,
                     out Measurement measurement) &&
                 IsUsableMeasurement(measurement))
             {
@@ -169,11 +180,16 @@ namespace SpawnCastle
 
         public bool TryGetVisualCenterOffset(
             int mapperValue,
+            bool islamicChurchSkin,
             Vector2 renderedWorldSize,
             out Vector2 visualOffset)
         {
+            AivMapperInfo mapper = AivMapperCatalog.Resolve(mapperValue);
+            string measurementKey = BuildMeasurementKey(
+                mapperValue,
+                ResolveCalibrationSkin(mapper.Name, islamicChurchSkin));
             if (measurements.TryGetValue(
-                    mapperValue,
+                    measurementKey,
                     out Measurement measurement) &&
                 HasUsableGroundOffset(measurement))
             {
@@ -456,9 +472,17 @@ namespace SpawnCastle
                                 .IsUsableGroundOffsetRevision(revision);
                     }
 
-                    measurements[mapperValue] = new Measurement(
+                    BlueprintCaptureSkin skin = BlueprintCaptureSkin.Generic;
+                    if (parts.Length >= 11 &&
+                        !Enum.TryParse(parts[10], false, out skin))
+                    {
+                        continue;
+                    }
+
+                    measurements[BuildMeasurementKey(mapperValue, skin)] = new Measurement(
                         mapperValue,
                         parts[1],
+                        skin,
                         width,
                         height,
                         visualOffsetX,
@@ -498,7 +522,7 @@ namespace SpawnCastle
                 output.Append(
                     "# mapperValue\tmapperName\tworldWidth\tworldHeight\t" +
                     "fragments\trotation\tmeasurementRevision\t" +
-                    "visualOffsetX\tvisualOffsetY\tgroundTiles\r\n");
+                    "visualOffsetX\tvisualOffsetY\tgroundTiles\tskin\r\n");
                 foreach (Measurement measurement in measurements.Values
                     .OrderBy(value => value.MapperValue))
                 {
@@ -534,6 +558,8 @@ namespace SpawnCastle
                     output.Append('\t');
                     output.Append(measurement.GroundTileCount.ToString(
                         CultureInfo.InvariantCulture));
+                    output.Append('\t');
+                    output.Append(measurement.Skin);
                     output.Append("\r\n");
                 }
 
@@ -554,6 +580,7 @@ namespace SpawnCastle
         private void ResetCandidate()
         {
             candidateMapper = int.MinValue;
+            candidateSkin = BlueprintCaptureSkin.Generic;
             candidateWidth = 0f;
             candidateHeight = 0f;
             candidateVisualOffsetX = 0f;
@@ -574,6 +601,44 @@ namespace SpawnCastle
             return measurement.HasGroundOffset &&
                 BlueprintBuildingIconCatalog.IsUsableGroundOffsetRevision(
                     measurement.Revision);
+        }
+
+        private static string BuildMeasurementKey(
+            int mapperValue,
+            BlueprintCaptureSkin skin)
+        {
+            return mapperValue.ToString(CultureInfo.InvariantCulture) + ":" + skin;
+        }
+
+        private static BlueprintCaptureSkin ResolveCalibrationSkin(string mapperName)
+        {
+            bool islamic = false;
+            try
+            {
+                islamic = GameData.Instance != null &&
+                    GameData.Instance.lastGameState != null &&
+                    BlueprintBuildingIconCatalog.IsIslamicLordType(
+                        GameData.Instance.lastGameState.lord_Type);
+            }
+            catch
+            {
+                // During scene changes a Church simply waits for the next sample.
+            }
+            return ResolveCalibrationSkin(mapperName, islamic);
+        }
+
+        private static BlueprintCaptureSkin ResolveCalibrationSkin(
+            string mapperName,
+            bool islamicChurchSkin)
+        {
+            bool church = mapperName == "MAPPER_CHURCH1" ||
+                mapperName == "MAPPER_CHURCH2" ||
+                mapperName == "MAPPER_CHURCH3";
+            if (!church)
+                return BlueprintCaptureSkin.Generic;
+            return islamicChurchSkin
+                ? BlueprintCaptureSkin.Islamic
+                : BlueprintCaptureSkin.European;
         }
 
         private readonly struct PreviewBounds
@@ -616,6 +681,7 @@ namespace SpawnCastle
             public Measurement(
                 int mapperValue,
                 string mapperName,
+                BlueprintCaptureSkin skin,
                 float worldWidth,
                 float worldHeight,
                 float visualOffsetX,
@@ -628,6 +694,7 @@ namespace SpawnCastle
             {
                 MapperValue = mapperValue;
                 MapperName = mapperName ?? string.Empty;
+                Skin = skin;
                 WorldWidth = worldWidth;
                 WorldHeight = worldHeight;
                 VisualOffsetX = visualOffsetX;
@@ -642,6 +709,8 @@ namespace SpawnCastle
             public int MapperValue { get; }
 
             public string MapperName { get; }
+
+            public BlueprintCaptureSkin Skin { get; }
 
             public float WorldWidth { get; }
 

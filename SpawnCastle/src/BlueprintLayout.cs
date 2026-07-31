@@ -3,6 +3,7 @@
 using AIVParser.Core;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace SpawnCastle
 {
@@ -61,14 +62,26 @@ namespace SpawnCastle
             int maximumWorldX,
             int minimumWorldY,
             int maximumWorldY,
-            BlueprintWorldTile? adjacentGateCenter = null)
+            int markerMinimumWorldX,
+            int markerMaximumWorldX,
+            int markerMinimumWorldY,
+            int markerMaximumWorldY,
+            BlueprintWorldTile? adjacentGateCenter = null,
+            BlueprintWorldTile? stairLowEnd = null,
+            BlueprintWorldTile? stairHighEnd = null)
         {
             MapperValue = mapperValue;
             MinimumWorldX = minimumWorldX;
             MaximumWorldX = maximumWorldX;
             MinimumWorldY = minimumWorldY;
             MaximumWorldY = maximumWorldY;
+            MarkerMinimumWorldX = markerMinimumWorldX;
+            MarkerMaximumWorldX = markerMaximumWorldX;
+            MarkerMinimumWorldY = markerMinimumWorldY;
+            MarkerMaximumWorldY = markerMaximumWorldY;
             AdjacentGateCenter = adjacentGateCenter;
+            StairLowEnd = stairLowEnd;
+            StairHighEnd = stairHighEnd;
         }
 
         public int MapperValue { get; }
@@ -76,7 +89,13 @@ namespace SpawnCastle
         public int MaximumWorldX { get; }
         public int MinimumWorldY { get; }
         public int MaximumWorldY { get; }
+        public int MarkerMinimumWorldX { get; }
+        public int MarkerMaximumWorldX { get; }
+        public int MarkerMinimumWorldY { get; }
+        public int MarkerMaximumWorldY { get; }
         public BlueprintWorldTile? AdjacentGateCenter { get; }
+        public BlueprintWorldTile? StairLowEnd { get; }
+        public BlueprintWorldTile? StairHighEnd { get; }
         public int Size => Math.Max(
             MaximumWorldX - MinimumWorldX + 1,
             MaximumWorldY - MinimumWorldY + 1);
@@ -132,6 +151,8 @@ namespace SpawnCastle
             var keepAnchor = CreateGridPoint(keepPositions[0], "Keep");
             IReadOnlyList<BlueprintGatePlacement> gatePlacements =
                 CollectGatePlacements(document.frames);
+            IReadOnlyDictionary<int, BlueprintStairEndpoints>
+                stairEndpointsByOffset = CollectStairEndpoints(document.frames);
             var tiles = new Dictionary<BlueprintWorldTile, BlueprintTilePlacement>();
             var icons = new List<BlueprintIconPlacement>();
             var unknownMappers = new HashSet<int>();
@@ -189,6 +210,10 @@ namespace SpawnCastle
                     int maximumWorldX = int.MinValue;
                     int minimumWorldY = int.MaxValue;
                     int maximumWorldY = int.MinValue;
+                    int markerMinimumWorldX = int.MaxValue;
+                    int markerMaximumWorldX = int.MinValue;
+                    int markerMinimumWorldY = int.MaxValue;
+                    int markerMaximumWorldY = int.MinValue;
                     for (int row = markerMinimumRow;
                          row <= markerMaximumRow;
                          row++)
@@ -208,6 +233,10 @@ namespace SpawnCastle
                                 tile,
                                 mapper.Category,
                                 mapper.VisualGroup);
+                            markerMinimumWorldX = Math.Min(markerMinimumWorldX, world.X);
+                            markerMaximumWorldX = Math.Max(markerMaximumWorldX, world.X);
+                            markerMinimumWorldY = Math.Min(markerMinimumWorldY, world.Y);
+                            markerMaximumWorldY = Math.Max(markerMaximumWorldY, world.Y);
 
                             if (row >= footprint.Minimum.Row &&
                                 row <= footprint.Maximum.Row &&
@@ -227,6 +256,8 @@ namespace SpawnCastle
                     if (BlueprintBuildingIconCatalog.Resolve(mapper.Name) != null)
                     {
                         BlueprintWorldTile? adjacentGateCenter = null;
+                        BlueprintWorldTile? stairLowEnd = null;
+                        BlueprintWorldTile? stairHighEnd = null;
                         if (frame.itemType == DrawbridgeMapperValue &&
                             TryFindAdjacentGate(
                                 footprint,
@@ -247,13 +278,43 @@ namespace SpawnCastle
                                 gateWorld.Y);
                         }
 
+                        if (stairEndpointsByOffset.TryGetValue(
+                                encodedOffset,
+                                out BlueprintStairEndpoints stairEndpoints))
+                        {
+                            AivWorldTile lowWorld = AivWorldTransform.Project(
+                                stairEndpoints.Low,
+                                keepAnchor,
+                                keepWorldX,
+                                keepWorldY,
+                                AivRotation.Degrees0);
+                            AivWorldTile highWorld = AivWorldTransform.Project(
+                                stairEndpoints.High,
+                                keepAnchor,
+                                keepWorldX,
+                                keepWorldY,
+                                AivRotation.Degrees0);
+                            stairLowEnd = new BlueprintWorldTile(
+                                lowWorld.X,
+                                lowWorld.Y);
+                            stairHighEnd = new BlueprintWorldTile(
+                                highWorld.X,
+                                highWorld.Y);
+                        }
+
                         icons.Add(new BlueprintIconPlacement(
                             frame.itemType,
                             minimumWorldX,
                             maximumWorldX,
                             minimumWorldY,
                             maximumWorldY,
-                            adjacentGateCenter));
+                            markerMinimumWorldX,
+                            markerMaximumWorldX,
+                            markerMinimumWorldY,
+                            markerMaximumWorldY,
+                            adjacentGateCenter,
+                            stairLowEnd,
+                            stairHighEnd));
                     }
                 }
             }
@@ -262,6 +323,72 @@ namespace SpawnCastle
                 new List<BlueprintTilePlacement>(tiles.Values),
                 icons,
                 unknownMappers.Count);
+        }
+
+        private static IReadOnlyDictionary<int, BlueprintStairEndpoints>
+            CollectStairEndpoints(IReadOnlyList<AivJsonFrame> frames)
+        {
+            var segments = new List<BlueprintStairSegment>();
+            foreach (AivJsonFrame frame in frames)
+            {
+                if (frame == null ||
+                    frame.itemType < 181 ||
+                    frame.itemType > 186 ||
+                    frame.tilePositionOfsets == null)
+                {
+                    continue;
+                }
+
+                foreach (int offset in frame.tilePositionOfsets)
+                {
+                    segments.Add(new BlueprintStairSegment(
+                        offset,
+                        frame.itemType,
+                        CreateGridPoint(offset, "Stair")));
+                }
+            }
+
+            var result = new Dictionary<int, BlueprintStairEndpoints>();
+            var unused = new List<BlueprintStairSegment>(segments);
+            while (unused.Count > 0)
+            {
+                BlueprintStairSegment first = unused
+                    .OrderBy(value => value.MapperValue)
+                    .First();
+                unused.Remove(first);
+                var chain = new List<BlueprintStairSegment> { first };
+                BlueprintStairSegment current = first;
+                for (int mapper = first.MapperValue + 1;
+                    mapper <= 186;
+                    mapper++)
+                {
+                    BlueprintStairSegment next = unused
+                        .Where(value => value.MapperValue == mapper &&
+                            AreAdjacent(current.Point, value.Point))
+                        .OrderBy(value => value.Offset)
+                        .FirstOrDefault();
+                    if (next == null)
+                        break;
+                    unused.Remove(next);
+                    chain.Add(next);
+                    current = next;
+                }
+
+                var endpoints = new BlueprintStairEndpoints(
+                    chain.First().Point,
+                    chain.Last().Point);
+                foreach (BlueprintStairSegment segment in chain)
+                    result[segment.Offset] = endpoints;
+            }
+
+            return result;
+        }
+
+        private static bool AreAdjacent(AivGridPoint first, AivGridPoint second)
+        {
+            return Math.Max(
+                Math.Abs(first.Row - second.Row),
+                Math.Abs(first.Column - second.Column)) <= 1;
         }
 
         private static IReadOnlyList<BlueprintGatePlacement>
@@ -427,6 +554,38 @@ namespace SpawnCastle
             public int FrameIndex { get; }
 
             public AivFootprint Footprint { get; }
+        }
+
+        private sealed class BlueprintStairSegment
+        {
+            public BlueprintStairSegment(
+                int offset,
+                int mapperValue,
+                AivGridPoint point)
+            {
+                Offset = offset;
+                MapperValue = mapperValue;
+                Point = point;
+            }
+
+            public int Offset { get; }
+
+            public int MapperValue { get; }
+
+            public AivGridPoint Point { get; }
+        }
+
+        private readonly struct BlueprintStairEndpoints
+        {
+            public BlueprintStairEndpoints(AivGridPoint low, AivGridPoint high)
+            {
+                Low = low;
+                High = high;
+            }
+
+            public AivGridPoint Low { get; }
+
+            public AivGridPoint High { get; }
         }
     }
 }

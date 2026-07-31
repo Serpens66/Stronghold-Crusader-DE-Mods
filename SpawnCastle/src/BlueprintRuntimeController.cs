@@ -27,7 +27,8 @@ namespace SpawnCastle
         private SpawnCastleSettingsViewModel settings;
         private BlueprintRenderer renderer;
         private BlueprintBuildingSizeCalibration sizeCalibration;
-        private BlueprintDrawbridgePreviewCapture drawbridgePreviewCapture;
+        private BlueprintBuildingImageLibrary buildingImageLibrary;
+        private BlueprintBuildingPreviewCapture buildingPreviewCapture;
         private BlueprintLayout layout;
         private bool initialized;
         private bool mapActive;
@@ -69,9 +70,14 @@ namespace SpawnCastle
                 settings ?? throw new ArgumentNullException(nameof(settings));
             sizeCalibration =
                 new BlueprintBuildingSizeCalibration(log);
-            drawbridgePreviewCapture =
-                new BlueprintDrawbridgePreviewCapture(log);
-            renderer = new BlueprintRenderer(log, sizeCalibration);
+            buildingImageLibrary =
+                new BlueprintBuildingImageLibrary(log);
+            buildingPreviewCapture =
+                new BlueprintBuildingPreviewCapture(log, buildingImageLibrary);
+            renderer = new BlueprintRenderer(
+                log,
+                sizeCalibration,
+                buildingImageLibrary);
             Hud = new BlueprintHudViewModel(ToggleBlueprint);
 
             settings.SettingsChanged += OnSettingsChanged;
@@ -181,9 +187,14 @@ namespace SpawnCastle
             if (!mapActive)
                 return;
 
-            // The held Vanilla construction preview is available regardless
-            // of whether this match was started in Blueprint mode.
-            drawbridgePreviewCapture.Tick();
+            // Captures are collected even while the overlay is hidden. A new
+            // exact image replaces its fallback in the same frame.
+            if (buildingPreviewCapture.Tick() &&
+                blueprintVisible &&
+                layout != null)
+            {
+                RenderCurrentLayout("exact Vanilla Blueprint image captured");
+            }
 
             if (!settings.IsBlueprintMode)
                 return;

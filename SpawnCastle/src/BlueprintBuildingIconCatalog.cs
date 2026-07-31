@@ -137,7 +137,7 @@ namespace SpawnCastle
                 StringComparer.Ordinal)
             {
                 // Vanilla extends these reservations from the normal AIV
-                // anchor. Keep the smaller core width for the clean image.
+                // anchor. Exact captures and markers share the full area.
                 ["MAPPER_BARRACKS_STONE"] =
                     new BlueprintReservedAreaDefinition(5f, 2, 2),
                 ["MAPPER_BARRACKS_WOOD"] =
@@ -189,14 +189,14 @@ namespace SpawnCastle
                             false),
                     [BlueprintDrawbridgePosition.TopLeft] =
                         new BlueprintDrawbridgeImageDefinition(
-                            "Drawbridge_TopRight.png",
-                            false,
+                            "MAPPER_DRAWBRIDGE_Generic_DrawbridgeRear.png",
+                            true,
                             false,
                             true,
                             80.5f),
                     [BlueprintDrawbridgePosition.TopRight] =
                         new BlueprintDrawbridgeImageDefinition(
-                            "Drawbridge_TopLeft.png",
+                            "MAPPER_DRAWBRIDGE_Generic_DrawbridgeRear.png",
                             false,
                             false,
                             true,

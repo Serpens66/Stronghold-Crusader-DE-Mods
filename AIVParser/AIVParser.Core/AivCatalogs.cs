@@ -346,6 +346,7 @@ namespace AIVParser.Core
 
             switch (value)
             {
+                case 46: return "Low Wall";
                 case 52: return "Stockpile";
                 case 53: return "Bedouin Outpost";
                 case 77: return "Marketplace";
@@ -354,7 +355,7 @@ namespace AIVParser.Core
                 case 83: return "Blacksmith";
                 case 84: return "Armourer";
                 case 85: return "Tanner";
-                case 86:
+                case 86: return "Mercenary Post";
                 case 87: return "Barracks";
                 case 88: return "Engineers Guild";
                 case 89: return "Tunnelers Guild";
