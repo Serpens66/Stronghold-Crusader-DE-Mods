@@ -1634,8 +1634,9 @@ namespace SpawnCastle
             // The cell center fixes the ground pivot while Vanilla's sprite
             // position retains its proven depth value for row sorting.
             worldPosition.z = sortingPosition.z;
-            if (!EngineInterface.FlattenedLandscape)
-                worldPosition.y += mapTile.height;
+            // Vanilla applies the native display height in both map views;
+            // flat mode already supplies its own unified height value.
+            worldPosition.y += mapTile.height;
             return worldPosition;
         }
 

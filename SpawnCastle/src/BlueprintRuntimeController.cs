@@ -17,7 +17,7 @@ namespace SpawnCastle
 {
     internal sealed class BlueprintRuntimeController : MonoBehaviour
     {
-        private const float ViewSettleDelaySeconds = 0.75f;
+        private const float ViewSettleDelaySeconds = 0.5f;
         private static readonly KeyCode[] SupportedKeys = CreateSupportedKeys();
         private readonly List<IDisposable> subscriptions =
             new List<IDisposable>();
