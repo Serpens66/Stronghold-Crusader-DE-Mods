@@ -987,6 +987,9 @@ namespace SpawnCastle
                 else
                     File.WriteAllBytes(pngPath, composite.PngBytes);
             }
+            // Non-placed recaptures may intentionally retain an older composite;
+            // store bounds for the bytes that will actually be imported.
+            RectInt importedAlphaBounds = ReadCompositeAlphaBounds(pngPath);
 
             string manifestPath = Path.Combine(
                 library.CapturedDirectory,
@@ -1010,6 +1013,10 @@ namespace SpawnCastle
                 PivotX = composite.Pivot.x,
                 PivotY = composite.Pivot.y,
                 PixelsPerUnit = BlueprintBuildingCaptureCatalog.VanillaPixelsPerUnit,
+                AlphaX = importedAlphaBounds.x,
+                AlphaY = importedAlphaBounds.y,
+                AlphaWidth = importedAlphaBounds.width,
+                AlphaHeight = importedAlphaBounds.height,
                 FragmentSignature = signature
             });
             File.WriteAllText(
@@ -1037,6 +1044,24 @@ namespace SpawnCastle
                 $"pivot=({composite.Pivot.x:F6},{composite.Pivot.y:F6}), " +
                 $"size={composite.Width}x{composite.Height}, signature={signature}, " +
                 $"png={pngPath}, manifest={manifestPath}.");
+        }
+
+        private static RectInt ReadCompositeAlphaBounds(string pngPath)
+        {
+            var texture = new Texture2D(2, 2, TextureFormat.ARGB32, false);
+            try
+            {
+                if (!ImageConversion.LoadImage(texture, File.ReadAllBytes(pngPath), false))
+                    throw new InvalidDataException($"Composite PNG could not be decoded: {pngPath}.");
+                return CalculateAlphaBounds(
+                    texture.GetPixels32(),
+                    texture.width,
+                    texture.height);
+            }
+            finally
+            {
+                Object.Destroy(texture);
+            }
         }
 
         private void SaveFragmentCapture(
@@ -1225,6 +1250,10 @@ namespace SpawnCastle
                 captureEntry,
                 tileEntries,
                 fragmentEntries);
+            SaveDepthAtlasCapture(
+                captureEntry,
+                fragmentEntries,
+                fragmentArtifacts);
             Shared.DebugLogHelper.LogInfo(
                 log,
                 $"Captured Vanilla Blueprint depth data: key={captureKey}, " +
@@ -1489,6 +1518,206 @@ namespace SpawnCastle
             }
         }
 
+        private void SaveDepthAtlasCapture(
+            BlueprintFragmentCaptureEntry sourceCapture,
+            IReadOnlyList<BlueprintFragmentImageEntry> sourceFragments,
+            IReadOnlyList<CapturedFragmentArtifact> artifacts)
+        {
+            const int padding = 1;
+            if (sourceFragments.Count != artifacts.Count)
+                throw new InvalidDataException("Depth atlas source counts differ.");
+            var images = sourceFragments.Select((fragment, index) =>
+                new DepthPackingImage(
+                    fragment,
+                    artifacts[index].Rendered.PngBytes))
+                .OrderBy(value => value.Fragment.RowOffset)
+                .ThenBy(value => value.SortingOffset)
+                .ThenByDescending(value => value.Fragment.Height)
+                .ThenBy(value => value.Fragment.Index)
+                .ToList();
+            DepthPackingResult packing = null;
+            foreach (int size in new[] { 256, 512, 1024, 2048 })
+            {
+                packing = TryPackDepthImages(images, size, padding);
+                if (packing != null)
+                    break;
+            }
+            if (packing == null)
+                throw new InvalidDataException($"Depth atlas does not fit for '{sourceCapture.Key}'.");
+
+            var atlasPixels = new Color32[packing.Width * packing.Height];
+            foreach (DepthPackingImage image in images)
+            {
+                var texture = new Texture2D(2, 2, TextureFormat.ARGB32, false);
+                try
+                {
+                    if (!ImageConversion.LoadImage(texture, image.PngBytes, false) ||
+                        texture.width != image.Fragment.Width ||
+                        texture.height != image.Fragment.Height)
+                    {
+                        throw new InvalidDataException(
+                            $"Depth fragment could not be decoded: key={sourceCapture.Key}, " +
+                            $"index={image.Fragment.Index}.");
+                    }
+                    Color32[] sourcePixels = texture.GetPixels32();
+                    DepthPackingPlacement placement = packing.Placements[image.Fragment.Index];
+                    for (int y = 0; y < texture.height; y++)
+                    {
+                        Array.Copy(
+                            sourcePixels,
+                            y * texture.width,
+                            atlasPixels,
+                            (placement.Y + y) * packing.Width + placement.X,
+                            texture.width);
+                    }
+                }
+                finally
+                {
+                    Object.Destroy(texture);
+                }
+            }
+
+            var atlas = new Texture2D(
+                packing.Width,
+                packing.Height,
+                TextureFormat.ARGB32,
+                false);
+            byte[] atlasPng;
+            try
+            {
+                atlas.SetPixels32(atlasPixels);
+                atlas.Apply(false, false);
+                atlasPng = ImageConversion.EncodeToPNG(atlas);
+            }
+            finally
+            {
+                Object.Destroy(atlas);
+            }
+
+            string atlasRelativeDirectory = "DepthAtlases";
+            string atlasDirectory = Path.Combine(
+                library.CapturedDirectory,
+                atlasRelativeDirectory);
+            Directory.CreateDirectory(atlasDirectory);
+            string atlasFile = SanitizeFileName(sourceCapture.Key) + "_p00.png";
+            string relativeAtlasPath = Path.Combine(atlasRelativeDirectory, atlasFile);
+            File.WriteAllBytes(Path.Combine(atlasDirectory, atlasFile), atlasPng);
+
+            var fragments = sourceFragments.Select(fragment =>
+            {
+                DepthPackingPlacement placement = packing.Placements[fragment.Index];
+                int sortingOffset = 0;
+                if (fragment.Metadata.TryGetValue("sortingOffset", out string sortingText))
+                {
+                    int.TryParse(
+                        sortingText,
+                        NumberStyles.Integer,
+                        CultureInfo.InvariantCulture,
+                        out sortingOffset);
+                }
+                return new BlueprintDepthAtlasFragmentDefinition
+                {
+                    CaptureKey = sourceCapture.Key,
+                    Index = fragment.Index,
+                    PageIndex = 0,
+                    X = placement.X,
+                    Y = placement.Y,
+                    Width = fragment.Width,
+                    Height = fragment.Height,
+                    RowOffset = fragment.RowOffset,
+                    SortingOffset = sortingOffset,
+                    PositionOffsetX = fragment.PositionOffsetX,
+                    PositionOffsetY = fragment.PositionOffsetY,
+                    PositionOffsetZ = fragment.PositionOffsetZ
+                };
+            }).OrderBy(value => value.Index).ToList();
+            sourceCapture.Metadata.TryGetValue("captureSource", out string captureSource);
+            sourceCapture.Metadata.TryGetValue("placedVisualVersion", out string placedVisualVersion);
+            var definition = new BlueprintDepthAtlasCaptureDefinition
+            {
+                Key = sourceCapture.Key,
+                MapperValue = sourceCapture.MapperValue,
+                MapperName = sourceCapture.MapperName,
+                Skin = sourceCapture.Skin,
+                View = sourceCapture.View,
+                CaptureRotation = sourceCapture.CaptureRotation,
+                NormalizedHorizontalFlip = sourceCapture.NormalizedHorizontalFlip,
+                MinimumRow = sourceCapture.MinimumRow,
+                MaximumRow = sourceCapture.MaximumRow,
+                FragmentCount = fragments.Count,
+                PageCount = 1,
+                FragmentSignature = sourceCapture.FragmentSignature,
+                CaptureSource = captureSource ?? "preview",
+                PlacedVisualVersion = placedVisualVersion ?? string.Empty,
+                Directory = library.CapturedDirectory,
+                Pages = new[]
+                {
+                    new BlueprintDepthAtlasPageDefinition
+                    {
+                        CaptureKey = sourceCapture.Key,
+                        PageIndex = 0,
+                        PngFile = relativeAtlasPath,
+                        Width = packing.Width,
+                        Height = packing.Height,
+                        Sha256 = CalculateSha256(atlasPng)
+                    }
+                },
+                Fragments = fragments
+            };
+
+            string manifestPath = Path.Combine(
+                library.CapturedDirectory,
+                BlueprintDepthAtlasCatalog.ManifestFileName);
+            var captures = File.Exists(manifestPath)
+                ? BlueprintDepthAtlasCatalog.Parse(
+                    library.CapturedDirectory,
+                    File.ReadAllLines(manifestPath),
+                    out _).ToList()
+                : new List<BlueprintDepthAtlasCaptureDefinition>();
+            captures.RemoveAll(value => value.Key == definition.Key);
+            captures.Add(definition);
+            File.WriteAllText(
+                manifestPath,
+                BlueprintDepthAtlasCatalog.Serialize(captures),
+                new UTF8Encoding(false));
+        }
+
+        private static DepthPackingResult TryPackDepthImages(
+            IReadOnlyList<DepthPackingImage> images,
+            int size,
+            int padding)
+        {
+            int x = padding;
+            int y = padding;
+            int rowHeight = 0;
+            int usedRight = 0;
+            int usedTop = 0;
+            var placements = new Dictionary<int, DepthPackingPlacement>();
+            foreach (DepthPackingImage image in images)
+            {
+                int width = image.Fragment.Width;
+                int height = image.Fragment.Height;
+                if (width + padding * 2 > size || height + padding * 2 > size)
+                    return null;
+                if (x + width + padding > size)
+                {
+                    x = padding;
+                    y += rowHeight + padding * 2;
+                    rowHeight = 0;
+                }
+                if (y + height + padding > size)
+                    return null;
+                placements.Add(image.Fragment.Index, new DepthPackingPlacement(x, y));
+                usedRight = Math.Max(usedRight, x + width + padding);
+                usedTop = Math.Max(usedTop, y + height + padding);
+                x += width + padding * 2;
+                rowHeight = Math.Max(rowHeight, height);
+            }
+            int packedWidth = Math.Max(4, ((usedRight + 3) / 4) * 4);
+            int packedHeight = Math.Max(4, ((usedTop + 3) / 4) * 4);
+            return new DepthPackingResult(packedWidth, packedHeight, placements);
+        }
+
         private void MergeAndWriteFragmentManifests(
             BlueprintFragmentCaptureEntry capture,
             IReadOnlyList<BlueprintFragmentTileEntry> tiles,
@@ -1621,9 +1850,9 @@ namespace SpawnCastle
                 readableTexture = new Texture2D(width, height, TextureFormat.ARGB32, false);
                 readableTexture.ReadPixels(new Rect(0f, 0f, width, height), 0, 0, false);
                 readableTexture.Apply(false, false);
+                Color32[] source = readableTexture.GetPixels32();
                 if (normalizeHorizontalFlip)
                 {
-                    Color32[] source = readableTexture.GetPixels32();
                     var flipped = new Color32[source.Length];
                     for (int y = 0; y < height; y++)
                     {
@@ -1632,12 +1861,15 @@ namespace SpawnCastle
                     }
                     readableTexture.SetPixels32(flipped);
                     readableTexture.Apply(false, false);
+                    source = flipped;
                 }
+                RectInt alphaBounds = CalculateAlphaBounds(source, width, height);
                 return new RenderedComposite(
                     ImageConversion.EncodeToPNG(readableTexture),
                     width,
                     height,
-                    new Vector2(pivotX, pivotY));
+                    new Vector2(pivotX, pivotY),
+                    alphaBounds);
             }
             finally
             {
@@ -1653,6 +1885,37 @@ namespace SpawnCastle
                     Object.Destroy(temporaryObject);
                 }
             }
+        }
+
+        private static RectInt CalculateAlphaBounds(
+            Color32[] pixels,
+            int width,
+            int height)
+        {
+            int minimumX = width;
+            int maximumX = -1;
+            int minimumY = height;
+            int maximumY = -1;
+            for (int y = 0; y < height; y++)
+            {
+                int row = y * width;
+                for (int x = 0; x < width; x++)
+                {
+                    if (pixels[row + x].a <= 8)
+                        continue;
+                    minimumX = Math.Min(minimumX, x);
+                    maximumX = Math.Max(maximumX, x);
+                    minimumY = Math.Min(minimumY, y);
+                    maximumY = Math.Max(maximumY, y);
+                }
+            }
+            if (maximumX < minimumX || maximumY < minimumY)
+                throw new InvalidDataException("The Blueprint composite contains no visible pixels.");
+            return new RectInt(
+                minimumX,
+                minimumY,
+                maximumX - minimumX + 1,
+                maximumY - minimumY + 1);
         }
 
         private static RenderedFragment RenderTransparentFragment(
@@ -2259,18 +2522,75 @@ namespace SpawnCastle
 
         private readonly struct RenderedComposite
         {
-            public RenderedComposite(byte[] pngBytes, int width, int height, Vector2 pivot)
+            public RenderedComposite(
+                byte[] pngBytes,
+                int width,
+                int height,
+                Vector2 pivot,
+                RectInt alphaBounds)
             {
                 PngBytes = pngBytes;
                 Width = width;
                 Height = height;
                 Pivot = pivot;
+                AlphaBounds = alphaBounds;
             }
 
             public byte[] PngBytes { get; }
             public int Width { get; }
             public int Height { get; }
             public Vector2 Pivot { get; }
+            public RectInt AlphaBounds { get; }
+        }
+
+        private sealed class DepthPackingImage
+        {
+            public DepthPackingImage(
+                BlueprintFragmentImageEntry fragment,
+                byte[] pngBytes)
+            {
+                Fragment = fragment;
+                PngBytes = pngBytes;
+                if (fragment.Metadata.TryGetValue("sortingOffset", out string text))
+                {
+                    int.TryParse(
+                        text,
+                        NumberStyles.Integer,
+                        CultureInfo.InvariantCulture,
+                        out int sortingOffset);
+                    SortingOffset = sortingOffset;
+                }
+            }
+            public BlueprintFragmentImageEntry Fragment { get; }
+            public byte[] PngBytes { get; }
+            public int SortingOffset { get; }
+        }
+
+        private sealed class DepthPackingResult
+        {
+            public DepthPackingResult(
+                int width,
+                int height,
+                IReadOnlyDictionary<int, DepthPackingPlacement> placements)
+            {
+                Width = width;
+                Height = height;
+                Placements = placements;
+            }
+            public int Width { get; }
+            public int Height { get; }
+            public IReadOnlyDictionary<int, DepthPackingPlacement> Placements { get; }
+        }
+
+        private readonly struct DepthPackingPlacement
+        {
+            public DepthPackingPlacement(int x, int y)
+            {
+                X = x;
+                Y = y;
+            }
+            public int X { get; }
+            public int Y { get; }
         }
 
         private readonly struct RenderedFragment

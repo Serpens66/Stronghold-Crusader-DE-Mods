@@ -13,6 +13,8 @@ namespace SpawnCastle
         private bool hudVisible;
         private bool canToggle;
         private bool blueprintVisible;
+        private int completedDepthCaptures;
+        private int requestedDepthCaptures;
 
         public BlueprintHudViewModel(
             Action toggle,
@@ -98,6 +100,8 @@ namespace SpawnCastle
         public string StatusText =>
             !CanToggle
                 ? "Blueprint: unavailable"
+                : BlueprintVisible && completedDepthCaptures < requestedDepthCaptures
+                    ? $"Blueprint: loading {completedDepthCaptures}/{requestedDepthCaptures}"
                 : BlueprintVisible
                     ? "Blueprint: on"
                     : "Blueprint: off";
@@ -106,8 +110,14 @@ namespace SpawnCastle
             bool isBlueprintMode,
             bool isMapActive,
             bool isReady,
-            bool isVisible)
+            bool isVisible,
+            int completedDepthCaptures,
+            int requestedDepthCaptures)
         {
+            this.completedDepthCaptures = Math.Max(0, completedDepthCaptures);
+            this.requestedDepthCaptures = Math.Max(
+                this.completedDepthCaptures,
+                requestedDepthCaptures);
             HudVisible = isBlueprintMode && isMapActive;
             CanToggle = HudVisible && isReady;
             BlueprintVisible = isVisible;

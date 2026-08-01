@@ -67,13 +67,14 @@ and displays its own local file.
 
 The development pipeline that created the bundled PNG files is disabled by the
 `[Development] CaptureBlueprintFragments` setting by default. Normal-view
-Blueprints use separately captured Vanilla Tilemap-depth fragments when the
-three versioned fragment manifests are present. Invalid or incomplete fragment
-data falls back to the bundled composite image; flattened view deliberately
-continues using that composite. The single-cell Wall, Woodwall, Crenal, and
-Crenal2 symbols always use their complete finished-structure PNG; numbered
-stairs share one PNG per ascending direction. The complete capture, validation, and import
-procedure is documented in
+Blueprints progressively load compact, versioned depth atlases and render each
+depth group as a reusable mesh. Invalid atlas pages leave only the affected
+colored footprint visible; they never fall back to an incorrectly layered
+composite. Flat view deliberately continues using the composite through a
+footprint mesh. The single-cell Wall, Woodwall, Crenal, and Crenal2 symbols
+always use their complete finished-structure PNG; numbered stairs share one PNG
+per ascending direction. The complete capture, validation, migration, and
+import procedure is documented in
 [`BlueprintFragmentCapture.md`](BlueprintFragmentCapture.md).
 
 ## Blueprint hotkey implementation

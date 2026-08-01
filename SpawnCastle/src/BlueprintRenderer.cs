@@ -4,6 +4,7 @@ using CrusaderDE;
 using SHCDESE.Interop;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using UnityEngine;
@@ -20,16 +21,11 @@ namespace SpawnCastle
         private readonly ManualLogSource log;
         private readonly BlueprintBuildingSizeCalibration sizeCalibration;
         private readonly BlueprintBuildingImageLibrary buildingImageLibrary;
-        private readonly Dictionary<int, Sprite> markerSprites =
-            new Dictionary<int, Sprite>();
+        private Sprite markerSprite;
         private readonly Dictionary<string, Sprite> buildMenuSprites =
             new Dictionary<string, Sprite>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, Sprite> helpImageSprites =
             new Dictionary<string, Sprite>(StringComparer.OrdinalIgnoreCase);
-        private readonly Dictionary<string, Sprite> flattenedBuildingSprites =
-            new Dictionary<string, Sprite>(StringComparer.Ordinal);
-        private readonly HashSet<string> failedFlattenedBuildingSprites =
-            new HashSet<string>(StringComparer.Ordinal);
         private readonly HashSet<string> missingIconKeys =
             new HashSet<string>(StringComparer.Ordinal);
         private readonly HashSet<int> missingScaleMappers = new HashSet<int>();
@@ -40,11 +36,33 @@ namespace SpawnCastle
                 new HashSet<BlueprintDrawbridgePosition>();
         private readonly HashSet<string> failedHelpImages =
             new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, List<PendingDepthIcon>> pendingDepthIcons =
+            new Dictionary<string, List<PendingDepthIcon>>(StringComparer.Ordinal);
+        private readonly HashSet<string> requestedDepthKeys =
+            new HashSet<string>(StringComparer.Ordinal);
+        private readonly HashSet<string> completedDepthKeys =
+            new HashSet<string>(StringComparer.Ordinal);
+        private readonly List<Renderer> alphaRenderers = new List<Renderer>();
+        private readonly List<TrackedIconRoot> trackedIconRoots =
+            new List<TrackedIconRoot>();
+        private readonly List<Mesh> projectionMeshes = new List<Mesh>();
+        private readonly Dictionary<string, Mesh> flattenedBuildingMeshes =
+            new Dictionary<string, Mesh>(StringComparer.Ordinal);
+        private readonly Dictionary<int, Material> meshMaterials =
+            new Dictionary<int, Material>();
         private static readonly FieldInfo NoesisTextureCacheField =
             typeof(NoesisTextureProvider).GetField(
                 "_textures",
                 BindingFlags.Instance | BindingFlags.NonPublic);
         private GameObject overlayRoot;
+        private BlueprintLayout renderedLayout;
+        private bool renderedFlattened;
+        private int renderedRotation = int.MinValue;
+        private float currentIconScale = 1f;
+        private float currentIconAlpha = 0.3f;
+        private int currentIconSortingBandOffset;
+        private Stopwatch progressiveLoadTimer;
+        private bool progressiveCompletionLogged;
 
         public BlueprintRenderer(
             ManualLogSource log,
@@ -56,6 +74,39 @@ namespace SpawnCastle
                 throw new ArgumentNullException(nameof(sizeCalibration));
             this.buildingImageLibrary = buildingImageLibrary ??
                 throw new ArgumentNullException(nameof(buildingImageLibrary));
+            this.buildingImageLibrary.DepthVisualLoaded += OnDepthVisualLoaded;
+        }
+
+        public int CompletedDepthCaptureCount => completedDepthKeys.Count;
+        public int RequestedDepthCaptureCount => requestedDepthKeys.Count;
+        public bool IsDepthLoading => completedDepthKeys.Count < requestedDepthKeys.Count;
+
+        public void PreloadDepthCaptures(BlueprintLayout layout)
+        {
+            if (layout == null || GameMap.instance == null)
+                return;
+            foreach (BlueprintIconPlacement placement in layout.Icons)
+            {
+                AivMapperInfo mapper = AivMapperCatalog.Resolve(placement.MapperValue);
+                bool swapsAxes = GameMap.instance.CurrentRotation() == Enums.Dircs.East ||
+                    GameMap.instance.CurrentRotation() == Enums.Dircs.West;
+                string visualMapperName = BlueprintBuildingIconCatalog.ResolveGateVisualMapper(
+                    mapper.Name,
+                    swapsAxes);
+                if (BlueprintBuildingCaptureCatalog.UsesCompositeOnlyIcon(visualMapperName))
+                    continue;
+                buildingImageLibrary.ResolveDepth(
+                    placement.MapperValue,
+                    visualMapperName,
+                    UsesIslamicChurchSkin(),
+                    GetCameraQuarter(),
+                    ResolveDrawbridgePosition(placement),
+                    ResolveStairDirection(placement),
+                    ResolveStairFlipHorizontally(placement),
+                    out _,
+                    out _,
+                    out _);
+            }
         }
 
         public BlueprintRenderResult Render(
@@ -69,12 +120,20 @@ namespace SpawnCastle
                 throw new InvalidOperationException("The game tilemap is not ready.");
 
             Clear();
+            progressiveLoadTimer = Stopwatch.StartNew();
+            progressiveCompletionLogged = false;
             overlayRoot = new GameObject("SpawnCastle_BlueprintOverlay");
+            renderedLayout = layout;
+            renderedFlattened = EngineInterface.FlattenedLandscape;
+            renderedRotation = (int)GameMap.instance.CurrentRotation();
+            currentIconScale = iconScale;
+            currentIconAlpha = iconAlpha;
 
             int clippedTiles = 0;
             int renderedTiles = 0;
             int minimumGroundDepthRow = int.MaxValue;
             int maximumGroundDepthRow = int.MinValue;
+            var markerBatches = new Dictionary<int, List<GroundMarkerInstance>>();
             foreach (BlueprintTilePlacement placement in layout.Tiles)
             {
                 if (!TryGetRenderedTile(
@@ -87,10 +146,16 @@ namespace SpawnCastle
                     continue;
                 }
 
-                Sprite markerSprite = GetMarkerSprite(
-                    placement.Category,
-                    placement.VisualGroup);
-                CreateVisibleGroundMarker(mapTile, position, markerSprite);
+                if (!markerBatches.TryGetValue(
+                        mapTile.row,
+                        out List<GroundMarkerInstance> markerPositions))
+                {
+                    markerPositions = new List<GroundMarkerInstance>();
+                    markerBatches.Add(mapTile.row, markerPositions);
+                }
+                markerPositions.Add(new GroundMarkerInstance(
+                    GetGroundCellCenter(mapTile, position),
+                    GetOverlayColor(placement.Category, placement.VisualGroup)));
                 minimumGroundDepthRow = Math.Min(
                     minimumGroundDepthRow,
                     mapTile.row);
@@ -99,6 +164,7 @@ namespace SpawnCastle
                     mapTile.row);
                 renderedTiles++;
             }
+            CreateGroundMarkerBatches(markerBatches);
 
             // One shared offset keeps all icon-to-icon depth differences while
             // placing their complete band ahead of every colored ground cell.
@@ -107,7 +173,8 @@ namespace SpawnCastle
                     minimumGroundDepthRow,
                     maximumGroundDepthRow);
             int renderedIcons = 0;
-            bool flattenedLandscape = EngineInterface.FlattenedLandscape;
+            bool flattenedLandscape = renderedFlattened;
+            currentIconSortingBandOffset = iconSortingBandOffset;
             foreach (BlueprintIconPlacement placement in layout.Icons)
             {
                 BlueprintDrawbridgePosition drawbridgePosition =
@@ -116,6 +183,21 @@ namespace SpawnCastle
                     ResolveStairDirection(placement);
                 bool stairFlipHorizontally =
                     ResolveStairFlipHorizontally(placement);
+                if (!flattenedLandscape && TryHandleDepthIcon(
+                        placement,
+                        drawbridgePosition,
+                        stairDirection,
+                        stairFlipHorizontally,
+                        iconScale,
+                        iconAlpha,
+                        iconSortingBandOffset,
+                        out bool depthRendered))
+                {
+                    if (depthRendered)
+                        renderedIcons++;
+                    continue;
+                }
+
                 BlueprintIconVisual icon =
                     GetBlueprintIcon(
                         placement,
@@ -137,6 +219,13 @@ namespace SpawnCastle
                 }
             }
 
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"Blueprint first visible output prepared: tiles={renderedTiles}, " +
+                $"icons={renderedIcons}, depthReady={CompletedDepthCaptureCount}/" +
+                $"{RequestedDepthCaptureCount}, elapsedMs={progressiveLoadTimer.Elapsed.TotalMilliseconds:F1}.");
+            LogProgressiveCompletionIfReady();
+
             return new BlueprintRenderResult(
                 renderedTiles,
                 renderedIcons,
@@ -145,6 +234,18 @@ namespace SpawnCastle
 
         public void Clear()
         {
+            pendingDepthIcons.Clear();
+            requestedDepthKeys.Clear();
+            completedDepthKeys.Clear();
+            alphaRenderers.Clear();
+            trackedIconRoots.Clear();
+            foreach (Mesh mesh in projectionMeshes)
+                Object.Destroy(mesh);
+            projectionMeshes.Clear();
+            renderedLayout = null;
+            renderedRotation = int.MinValue;
+            progressiveLoadTimer = null;
+            progressiveCompletionLogged = false;
             if (overlayRoot != null)
             {
                 // Destroy is deferred until the end of the frame. Deactivate
@@ -155,23 +256,283 @@ namespace SpawnCastle
             }
         }
 
-        private void CreateVisibleGroundMarker(
-            GameMapTile mapTile,
-            Vector3Int tilePosition,
-            Sprite sprite)
+        public void Hide()
         {
-            if (overlayRoot == null || sprite == null)
+            if (overlayRoot != null)
+                overlayRoot.SetActive(false);
+        }
+
+        public bool TryShowExisting(BlueprintLayout layout)
+        {
+            if (overlayRoot == null || renderedLayout != layout || GameMap.instance == null ||
+                renderedFlattened != EngineInterface.FlattenedLandscape ||
+                renderedRotation != (int)GameMap.instance.CurrentRotation())
+            {
+                return false;
+            }
+            overlayRoot.SetActive(true);
+            return true;
+        }
+
+        public void UpdateVisualSettings(float iconScale, float iconAlpha)
+        {
+            currentIconScale = iconScale;
+            currentIconAlpha = iconAlpha;
+            foreach (TrackedIconRoot tracked in trackedIconRoots)
+            {
+                tracked.Root.localScale = new Vector3(
+                    tracked.FlipHorizontally ? -tracked.BaseScale * iconScale : tracked.BaseScale * iconScale,
+                    tracked.BaseScale * iconScale,
+                    1f);
+                Vector2 offset = tracked.PositionOffsetPerScale * iconScale;
+                tracked.Root.position = tracked.GroundPosition +
+                    new Vector3(offset.x, offset.y, 0f);
+            }
+            foreach (Renderer renderer in alphaRenderers)
+            {
+                if (renderer is SpriteRenderer spriteRenderer)
+                    spriteRenderer.color = new Color(1f, 1f, 1f, iconAlpha);
+                else
+                    ApplyAlpha(renderer, iconAlpha);
+            }
+        }
+
+        private bool TryHandleDepthIcon(
+            BlueprintIconPlacement placement,
+            BlueprintDrawbridgePosition drawbridgePosition,
+            BlueprintStairDirection stairDirection,
+            bool stairFlipHorizontally,
+            float iconScale,
+            float iconAlpha,
+            int sortingBandOffset,
+            out bool rendered)
+        {
+            rendered = false;
+            AivMapperInfo mapper = AivMapperCatalog.Resolve(placement.MapperValue);
+            bool mapRotationSwapsAxes = GameMap.instance != null &&
+                (GameMap.instance.CurrentRotation() == Enums.Dircs.East ||
+                 GameMap.instance.CurrentRotation() == Enums.Dircs.West);
+            string visualMapperName = BlueprintBuildingIconCatalog.ResolveGateVisualMapper(
+                mapper.Name,
+                mapRotationSwapsAxes);
+            if (BlueprintBuildingCaptureCatalog.UsesCompositeOnlyIcon(visualMapperName))
+                return false;
+
+            BlueprintDepthResolveState state = buildingImageLibrary.ResolveDepth(
+                placement.MapperValue,
+                visualMapperName,
+                UsesIslamicChurchSkin(),
+                GetCameraQuarter(),
+                drawbridgePosition,
+                stairDirection,
+                stairFlipHorizontally,
+                out string key,
+                out bool flipHorizontally,
+                out BlueprintDepthVisual visual);
+            if (state == BlueprintDepthResolveState.Missing)
+            {
+                // Captured buildings deliberately do not fall back to the old flat composite.
+                return BlueprintBuildingCaptureCatalog.RequiresCapturedImage(visualMapperName);
+            }
+            if (state == BlueprintDepthResolveState.Failed)
+                return true;
+
+            requestedDepthKeys.Add(key);
+            if (state == BlueprintDepthResolveState.Pending)
+            {
+                if (!pendingDepthIcons.TryGetValue(key, out List<PendingDepthIcon> pending))
+                {
+                    pending = new List<PendingDepthIcon>();
+                    pendingDepthIcons.Add(key, pending);
+                }
+                pending.Add(new PendingDepthIcon(placement, flipHorizontally));
+                return true;
+            }
+
+            completedDepthKeys.Add(key);
+            rendered = TryCreateDepthIcon(
+                placement,
+                visual,
+                flipHorizontally,
+                iconScale,
+                iconAlpha,
+                sortingBandOffset);
+            return true;
+        }
+
+        private void OnDepthVisualLoaded(string key)
+        {
+            if (overlayRoot == null || renderedFlattened ||
+                !pendingDepthIcons.TryGetValue(key, out List<PendingDepthIcon> pending))
+            {
                 return;
+            }
+            pendingDepthIcons.Remove(key);
+            completedDepthKeys.Add(key);
+            if (!buildingImageLibrary.TryGetLoadedDepthVisual(key, out BlueprintDepthVisual visual))
+            {
+                LogProgressiveCompletionIfReady();
+                return;
+            }
+            foreach (PendingDepthIcon icon in pending)
+            {
+                TryCreateDepthIcon(
+                    icon.Placement,
+                    visual,
+                    icon.FlipHorizontally,
+                    currentIconScale,
+                    currentIconAlpha,
+                    currentIconSortingBandOffset);
+            }
+            LogProgressiveCompletionIfReady();
+        }
 
-            var marker = new GameObject("BlueprintGroundMarker");
-            marker.transform.SetParent(overlayRoot.transform, false);
-            marker.transform.position =
-                GetGroundCellCenter(mapTile, tilePosition);
+        private void LogProgressiveCompletionIfReady()
+        {
+            if (progressiveCompletionLogged || progressiveLoadTimer == null || IsDepthLoading)
+                return;
+            progressiveCompletionLogged = true;
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"Blueprint progressive rendering complete: depthCaptures=" +
+                $"{CompletedDepthCaptureCount}/{RequestedDepthCaptureCount}, " +
+                $"elapsedMs={progressiveLoadTimer.Elapsed.TotalMilliseconds:F1}.");
+        }
 
-            SpriteRenderer renderer = marker.AddComponent<SpriteRenderer>();
-            renderer.sprite = sprite;
-            renderer.color = Color.white;
-            renderer.sortingOrder = -20000 + mapTile.row * 49 + 1;
+        private bool TryCreateDepthIcon(
+            BlueprintIconPlacement placement,
+            BlueprintDepthVisual visual,
+            bool flipHorizontally,
+            float iconScale,
+            float iconAlpha,
+            int sortingBandOffset)
+        {
+            if (overlayRoot == null || visual?.Layers == null || visual.Layers.Count == 0)
+                return false;
+            AivMapperInfo mapper = AivMapperCatalog.Resolve(placement.MapperValue);
+            Vector3 position = Vector3.zero;
+            int validGroundCells = 0;
+            int minimumDepthRow = int.MaxValue;
+            int maximumDepthRow = int.MinValue;
+            AccumulateIconFootprint(
+                placement,
+                BlueprintBuildingIconCatalog.HasReservedPlacementArea(mapper.Name),
+                ref position,
+                ref validGroundCells,
+                ref minimumDepthRow,
+                ref maximumDepthRow);
+            if (validGroundCells == 0)
+                return false;
+            position /= validGroundCells;
+
+            var root = new GameObject($"BlueprintIcon_{placement.MapperValue}_DepthAtlas");
+            root.transform.SetParent(overlayRoot.transform, false);
+            root.transform.position = position;
+            root.transform.localScale = new Vector3(
+                flipHorizontally ? -iconScale : iconScale,
+                iconScale,
+                1f);
+            trackedIconRoots.Add(new TrackedIconRoot(
+                root.transform,
+                flipHorizontally,
+                1f,
+                position,
+                Vector2.zero));
+
+            foreach (BlueprintDepthLayer layer in visual.Layers)
+            {
+                var layerObject = new GameObject(
+                    $"BlueprintDepthLayer_{layer.RowOffset}_{layer.SortingOffset}_{layer.PageIndex}");
+                layerObject.transform.SetParent(root.transform, false);
+                MeshFilter filter = layerObject.AddComponent<MeshFilter>();
+                filter.sharedMesh = layer.Mesh;
+                MeshRenderer renderer = layerObject.AddComponent<MeshRenderer>();
+                renderer.sharedMaterial = layer.Material;
+                int targetRow = BlueprintFragmentCaptureCatalog.RemapDepthRow(
+                    visual.CaptureMinimumRow,
+                    visual.CaptureMaximumRow,
+                    minimumDepthRow,
+                    maximumDepthRow,
+                    layer.RowOffset);
+                renderer.sortingOrder =
+                    -20000 + targetRow * 49 + 4 + layer.SortingOffset + sortingBandOffset;
+                ApplyAlpha(renderer, iconAlpha);
+                alphaRenderers.Add(renderer);
+            }
+            return true;
+        }
+
+        private static void ApplyAlpha(Renderer renderer, float alpha)
+        {
+            var properties = new MaterialPropertyBlock();
+            renderer.GetPropertyBlock(properties);
+            properties.SetColor("_Color", new Color(1f, 1f, 1f, alpha));
+            properties.SetColor("_BaseColor", new Color(1f, 1f, 1f, alpha));
+            renderer.SetPropertyBlock(properties);
+        }
+
+        private void CreateGroundMarkerBatches(
+            Dictionary<int, List<GroundMarkerInstance>> batches)
+        {
+            Sprite sprite = GetMarkerSprite();
+            foreach (KeyValuePair<int, List<GroundMarkerInstance>> batch in batches)
+            {
+                if (sprite == null || batch.Value.Count == 0)
+                    continue;
+                Vector3 minimum = sprite.bounds.min;
+                Vector3 maximum = sprite.bounds.max;
+                Rect textureRect = sprite.textureRect;
+                float u0 = textureRect.xMin / sprite.texture.width;
+                float v0 = textureRect.yMin / sprite.texture.height;
+                float u1 = textureRect.xMax / sprite.texture.width;
+                float v1 = textureRect.yMax / sprite.texture.height;
+                var vertices = new Vector3[batch.Value.Count * 4];
+                var uv = new Vector2[vertices.Length];
+                var colors = new Color32[vertices.Length];
+                var triangles = new int[batch.Value.Count * 6];
+                for (int index = 0; index < batch.Value.Count; index++)
+                {
+                    int vertex = index * 4;
+                    int triangle = index * 6;
+                    GroundMarkerInstance instance = batch.Value[index];
+                    Vector3 center = instance.Position;
+                    vertices[vertex] = center + new Vector3(minimum.x, minimum.y, 0f);
+                    vertices[vertex + 1] = center + new Vector3(maximum.x, minimum.y, 0f);
+                    vertices[vertex + 2] = center + new Vector3(minimum.x, maximum.y, 0f);
+                    vertices[vertex + 3] = center + new Vector3(maximum.x, maximum.y, 0f);
+                    uv[vertex] = new Vector2(u0, v0);
+                    uv[vertex + 1] = new Vector2(u1, v0);
+                    uv[vertex + 2] = new Vector2(u0, v1);
+                    uv[vertex + 3] = new Vector2(u1, v1);
+                    Color32 color = instance.Color;
+                    colors[vertex] = color;
+                    colors[vertex + 1] = color;
+                    colors[vertex + 2] = color;
+                    colors[vertex + 3] = color;
+                    triangles[triangle] = vertex;
+                    triangles[triangle + 1] = vertex + 2;
+                    triangles[triangle + 2] = vertex + 1;
+                    triangles[triangle + 3] = vertex + 2;
+                    triangles[triangle + 4] = vertex + 3;
+                    triangles[triangle + 5] = vertex + 1;
+                }
+                var mesh = new Mesh
+                {
+                    name = $"SpawnCastle_GroundMarkers_{batch.Key}",
+                    vertices = vertices,
+                    uv = uv,
+                    colors32 = colors,
+                    triangles = triangles
+                };
+                mesh.RecalculateBounds();
+                projectionMeshes.Add(mesh);
+                var markerObject = new GameObject(mesh.name);
+                markerObject.transform.SetParent(overlayRoot.transform, false);
+                markerObject.AddComponent<MeshFilter>().sharedMesh = mesh;
+                MeshRenderer renderer = markerObject.AddComponent<MeshRenderer>();
+                renderer.sharedMaterial = GetMeshMaterial(sprite.texture);
+                renderer.sortingOrder = -20000 + batch.Key * 49 + 1;
+            }
         }
 
         private bool TryGetRenderedTile(
@@ -190,15 +551,10 @@ namespace SpawnCastle
             return mapTile != null && mapTile.tilemapRef != null;
         }
 
-        private Sprite GetMarkerSprite(
-            AivItemCategory category,
-            AivVisualGroup visualGroup)
+        private Sprite GetMarkerSprite()
         {
-            int key = ((int)category << 16) | (int)visualGroup;
-            if (markerSprites.TryGetValue(key, out Sprite cached))
-                return cached;
-
-            Color baseColor = GetOverlayColor(category, visualGroup);
+            if (markerSprite != null)
+                return markerSprite;
             const int width = 64;
             const int height = 32;
             var texture = new Texture2D(
@@ -206,7 +562,7 @@ namespace SpawnCastle
                 height,
                 TextureFormat.ARGB32,
                 false);
-            texture.name = $"SpawnCastle_BlueprintTile_{key}";
+            texture.name = "SpawnCastle_BlueprintTileMask";
             texture.filterMode = FilterMode.Point;
             texture.wrapMode = TextureWrapMode.Clamp;
 
@@ -221,7 +577,7 @@ namespace SpawnCastle
                     if (distance > 1f)
                         continue;
 
-                    Color pixel = baseColor;
+                    Color pixel = Color.white;
                     pixel.a = distance >= 0.84f ? 0.78f : 0.34f;
                     pixels[y * width + x] = pixel;
                 }
@@ -229,19 +585,18 @@ namespace SpawnCastle
 
             texture.SetPixels(pixels);
             texture.Apply(false, true);
-            Sprite sprite = Sprite.Create(
+            markerSprite = Sprite.Create(
                 texture,
                 new Rect(0f, 0f, width, height),
                 new Vector2(0.5f, 0.5f),
                 64f,
                 0,
                 SpriteMeshType.FullRect);
-            sprite.name = texture.name;
+            markerSprite.name = texture.name;
 
             Object.DontDestroyOnLoad(texture);
-            Object.DontDestroyOnLoad(sprite);
-            markerSprites.Add(key, sprite);
-            return sprite;
+            Object.DontDestroyOnLoad(markerSprite);
+            return markerSprite;
         }
 
         private BlueprintIconVisual GetBlueprintIcon(
@@ -278,10 +633,11 @@ namespace SpawnCastle
 
                 bool islamicSkin = UsesIslamicChurchSkin();
                 bool mayUseCapturedImage =
-                    !flattenedLandscape ||
-                    mapper.Category == AivItemCategory.Building;
+                    (flattenedLandscape && mapper.Category == AivItemCategory.Building) ||
+                    (!flattenedLandscape &&
+                     BlueprintBuildingCaptureCatalog.UsesCompositeOnlyIcon(visualMapperName));
                 if (mayUseCapturedImage &&
-                    buildingImageLibrary.TryResolve(
+                    buildingImageLibrary.TryResolveComposite(
                         mapperValue,
                         visualMapperName,
                         islamicSkin,
@@ -291,7 +647,7 @@ namespace SpawnCastle
                         stairFlipHorizontally,
                         out Sprite capturedSprite,
                         out bool capturedFlip,
-                        out BlueprintFragmentVisual capturedFragments))
+                        out RectInt alphaBounds))
                 {
                     if (!flattenedLandscape)
                     {
@@ -301,30 +657,18 @@ namespace SpawnCastle
                             capturedFlip,
                             false,
                             drawbridgePosition,
-                            true,
-                            capturedFragments);
-                    }
-
-                    bool useMarkerBounds =
-                        BlueprintBuildingIconCatalog.HasReservedPlacementArea(
-                            mapper.Name);
-                    if (TryGetFlattenedBuildingSprite(
-                            placement,
-                            capturedSprite,
-                            capturedFlip,
-                            useMarkerBounds,
-                            out Sprite flattenedSprite))
-                    {
-                        // Horizontal capture orientation is baked into the
-                        // generated decal, so the GameObject stays unmirrored.
-                        return new BlueprintIconVisual(
-                            flattenedSprite,
-                            true,
-                            false,
-                            false,
-                            drawbridgePosition,
                             true);
                     }
+
+                    return new BlueprintIconVisual(
+                        capturedSprite,
+                        true,
+                        capturedFlip,
+                        false,
+                        drawbridgePosition,
+                        true,
+                        true,
+                        alphaBounds);
                 }
 
                 BlueprintDrawbridgeImageDefinition drawbridgeImage =
@@ -404,212 +748,6 @@ namespace SpawnCastle
             }
         }
 
-        private bool TryGetFlattenedBuildingSprite(
-            BlueprintIconPlacement placement,
-            Sprite source,
-            bool flipHorizontally,
-            bool useMarkerBounds,
-            out Sprite sprite)
-        {
-            int minimumWorldX = useMarkerBounds
-                ? placement.MarkerMinimumWorldX
-                : placement.MinimumWorldX;
-            int maximumWorldX = useMarkerBounds
-                ? placement.MarkerMaximumWorldX
-                : placement.MaximumWorldX;
-            int minimumWorldY = useMarkerBounds
-                ? placement.MarkerMinimumWorldY
-                : placement.MinimumWorldY;
-            int maximumWorldY = useMarkerBounds
-                ? placement.MarkerMaximumWorldY
-                : placement.MaximumWorldY;
-            int cellCountX = maximumWorldX - minimumWorldX + 1;
-            int cellCountY = maximumWorldY - minimumWorldY + 1;
-            string cacheKey = source.GetInstanceID() + ":" +
-                cellCountX + "x" + cellCountY + ":" +
-                GetCameraQuarter() + ":" + flipHorizontally;
-            if (flattenedBuildingSprites.TryGetValue(
-                    cacheKey,
-                    out Sprite cached))
-            {
-                sprite = cached;
-                return true;
-            }
-            if (failedFlattenedBuildingSprites.Contains(cacheKey))
-            {
-                sprite = null;
-                return false;
-            }
-
-            try
-            {
-                if (source == null || source.texture == null)
-                    throw new InvalidOperationException("The captured sprite has no texture.");
-                if (!TryGetGroundPosition(
-                        minimumWorldX,
-                        minimumWorldY,
-                        out Vector3 anchor))
-                {
-                    throw new InvalidOperationException(
-                        "The footprint anchor is outside the rendered map.");
-                }
-                if (!TryGetGroundBasis(
-                        minimumWorldX,
-                        minimumWorldY,
-                        anchor,
-                        1,
-                        0,
-                        out Vector2 basisX) ||
-                    !TryGetGroundBasis(
-                        minimumWorldX,
-                        minimumWorldY,
-                        anchor,
-                        0,
-                        1,
-                        out Vector2 basisY))
-                {
-                    throw new InvalidOperationException(
-                        "The flattened map projection basis is unavailable.");
-                }
-
-                Vector2 anchor2D = new Vector2(anchor.x, anchor.y);
-                Vector2 origin = anchor2D - basisX * 0.5f - basisY * 0.5f;
-                Vector2 edgeX = basisX * cellCountX;
-                Vector2 edgeY = basisY * cellCountY;
-                Vector2 cornerX = origin + edgeX;
-                Vector2 cornerY = origin + edgeY;
-                Vector2 opposite = origin + edgeX + edgeY;
-                float determinant = edgeX.x * edgeY.y - edgeX.y * edgeY.x;
-                if (Math.Abs(determinant) < 0.00001f)
-                {
-                    throw new InvalidOperationException(
-                        "The flattened map projection basis is degenerate.");
-                }
-
-                const float pixelsPerUnit =
-                    BlueprintBuildingCaptureCatalog.VanillaPixelsPerUnit;
-                float left = Mathf.Floor(
-                    Math.Min(Math.Min(origin.x, cornerX.x),
-                        Math.Min(cornerY.x, opposite.x)) * pixelsPerUnit) /
-                    pixelsPerUnit;
-                float right = Mathf.Ceil(
-                    Math.Max(Math.Max(origin.x, cornerX.x),
-                        Math.Max(cornerY.x, opposite.x)) * pixelsPerUnit) /
-                    pixelsPerUnit;
-                float bottom = Mathf.Floor(
-                    Math.Min(Math.Min(origin.y, cornerX.y),
-                        Math.Min(cornerY.y, opposite.y)) * pixelsPerUnit) /
-                    pixelsPerUnit;
-                float top = Mathf.Ceil(
-                    Math.Max(Math.Max(origin.y, cornerX.y),
-                        Math.Max(cornerY.y, opposite.y)) * pixelsPerUnit) /
-                    pixelsPerUnit;
-                int width = Math.Max(
-                    1,
-                    Mathf.RoundToInt((right - left) * pixelsPerUnit));
-                int height = Math.Max(
-                    1,
-                    Mathf.RoundToInt((top - bottom) * pixelsPerUnit));
-                if (width > 2048 || height > 2048)
-                {
-                    throw new InvalidOperationException(
-                        $"The flattened Blueprint decal is implausibly large: " +
-                        $"{width}x{height}.");
-                }
-
-                Texture2D sourceTexture = source.texture;
-                Color32[] sourcePixels = sourceTexture.GetPixels32();
-                if (!TryFindSpriteAlphaBounds(
-                        source,
-                        sourcePixels,
-                        sourceTexture.width,
-                        sourceTexture.height,
-                        out RectInt sourceBounds))
-                {
-                    throw new InvalidOperationException(
-                        "The captured sprite contains no visible pixels.");
-                }
-
-                var outputPixels = new Color32[width * height];
-                for (int y = 0; y < height; y++)
-                {
-                    float worldY = bottom + (y + 0.5f) / pixelsPerUnit;
-                    for (int x = 0; x < width; x++)
-                    {
-                        float worldX = left + (x + 0.5f) / pixelsPerUnit;
-                        float deltaX = worldX - origin.x;
-                        float deltaY = worldY - origin.y;
-                        float u = (deltaX * edgeY.y - deltaY * edgeY.x) /
-                            determinant;
-                        float v = (edgeX.x * deltaY - edgeX.y * deltaX) /
-                            determinant;
-                        if (u < 0f || u > 1f || v < 0f || v > 1f)
-                            continue;
-
-                        // Preserve the capture's screen orientation. The grid
-                        // coordinates above only clip it to the footprint;
-                        // using them as UVs would rotate the artwork with the
-                        // two diagonal AIV axes.
-                        float imageU = (worldX - left) / (right - left);
-                        float imageV = (worldY - bottom) / (top - bottom);
-                        outputPixels[y * width + x] = SampleBilinear(
-                            sourcePixels,
-                            sourceTexture.width,
-                            sourceTexture.height,
-                            sourceBounds,
-                            flipHorizontally ? 1f - imageU : imageU,
-                            imageV);
-                    }
-                }
-
-                var texture = new Texture2D(
-                    width,
-                    height,
-                    TextureFormat.ARGB32,
-                    false);
-                texture.name = source.name + "_Flattened";
-                texture.filterMode = FilterMode.Bilinear;
-                texture.wrapMode = TextureWrapMode.Clamp;
-                texture.SetPixels32(outputPixels);
-                texture.Apply(false, true);
-
-                Vector2 footprintCenter = (origin + opposite) * 0.5f;
-                Vector2 pivot = new Vector2(
-                    (footprintCenter.x - left) * pixelsPerUnit / width,
-                    (footprintCenter.y - bottom) * pixelsPerUnit / height);
-                sprite = Sprite.Create(
-                    texture,
-                    new Rect(0f, 0f, width, height),
-                    pivot,
-                    pixelsPerUnit,
-                    0,
-                    SpriteMeshType.FullRect);
-                sprite.name = texture.name;
-                Object.DontDestroyOnLoad(texture);
-                Object.DontDestroyOnLoad(sprite);
-                flattenedBuildingSprites.Add(cacheKey, sprite);
-                Shared.DebugLogHelper.LogInfo(
-                    log,
-                    $"Generated flattened Blueprint decal: " +
-                    $"mapper={placement.MapperValue}, " +
-                    $"cells={cellCountX}x{cellCountY}, " +
-                    $"size={width}x{height}, rotation={GetCameraQuarter()}, " +
-                    $"source='{source.name}'.");
-                return true;
-            }
-            catch (Exception ex)
-            {
-                failedFlattenedBuildingSprites.Add(cacheKey);
-                Shared.DebugLogHelper.LogWarning(
-                    log,
-                    $"Flattened Blueprint decal generation failed; using the " +
-                    $"compact Vanilla icon: mapper={placement.MapperValue}, " +
-                    $"error={ex.Message}");
-                sprite = null;
-                return false;
-            }
-        }
-
         private bool TryGetGroundBasis(
             int worldX,
             int worldY,
@@ -639,84 +777,6 @@ namespace SpawnCastle
 
             basis = default;
             return false;
-        }
-
-        private static bool TryFindSpriteAlphaBounds(
-            Sprite sprite,
-            Color32[] pixels,
-            int textureWidth,
-            int textureHeight,
-            out RectInt bounds)
-        {
-            Rect rect = sprite.rect;
-            int minimumRectX = Math.Max(0, Mathf.FloorToInt(rect.xMin));
-            int maximumRectX = Math.Min(
-                textureWidth - 1,
-                Mathf.CeilToInt(rect.xMax) - 1);
-            int minimumRectY = Math.Max(0, Mathf.FloorToInt(rect.yMin));
-            int maximumRectY = Math.Min(
-                textureHeight - 1,
-                Mathf.CeilToInt(rect.yMax) - 1);
-            int minimumX = maximumRectX + 1;
-            int maximumX = -1;
-            int minimumY = maximumRectY + 1;
-            int maximumY = -1;
-            for (int y = minimumRectY; y <= maximumRectY; y++)
-            {
-                int row = y * textureWidth;
-                for (int x = minimumRectX; x <= maximumRectX; x++)
-                {
-                    if (pixels[row + x].a <= 8)
-                        continue;
-
-                    minimumX = Math.Min(minimumX, x);
-                    maximumX = Math.Max(maximumX, x);
-                    minimumY = Math.Min(minimumY, y);
-                    maximumY = Math.Max(maximumY, y);
-                }
-            }
-
-            if (maximumX < minimumX || maximumY < minimumY)
-            {
-                bounds = default;
-                return false;
-            }
-
-            bounds = new RectInt(
-                minimumX,
-                minimumY,
-                maximumX - minimumX + 1,
-                maximumY - minimumY + 1);
-            return true;
-        }
-
-        private static Color32 SampleBilinear(
-            Color32[] pixels,
-            int width,
-            int height,
-            RectInt bounds,
-            float u,
-            float v)
-        {
-            float sourceX = bounds.xMin +
-                Mathf.Clamp01(u) * Math.Max(0, bounds.width - 1);
-            float sourceY = bounds.yMin +
-                Mathf.Clamp01(v) * Math.Max(0, bounds.height - 1);
-            int x0 = Mathf.Clamp(Mathf.FloorToInt(sourceX), 0, width - 1);
-            int y0 = Mathf.Clamp(Mathf.FloorToInt(sourceY), 0, height - 1);
-            int x1 = Math.Min(width - 1, x0 + 1);
-            int y1 = Math.Min(height - 1, y0 + 1);
-            float blendX = sourceX - x0;
-            float blendY = sourceY - y0;
-            Color bottom = Color.LerpUnclamped(
-                pixels[y0 * width + x0],
-                pixels[y0 * width + x1],
-                blendX);
-            Color top = Color.LerpUnclamped(
-                pixels[y1 * width + x0],
-                pixels[y1 * width + x1],
-                blendX);
-            return Color.LerpUnclamped(bottom, top, blendY);
         }
 
         private bool TryGetBundledDrawbridgeSprite(
@@ -1343,6 +1403,7 @@ namespace SpawnCastle
                 return false;
 
             position /= validGroundCells;
+            Vector3 groundPosition = position;
             bool useOriginalBuildingScale =
                 !flattenedLandscape &&
                 isBuildingIcon;
@@ -1375,16 +1436,28 @@ namespace SpawnCastle
                     : $"BlueprintIcon_{placement.MapperValue}");
             iconObject.transform.SetParent(overlayRoot.transform, false);
             iconObject.transform.position = position;
+            bool transformFlip = icon.FlipHorizontally && !icon.UsesFlatMesh;
+            float baseScale = scale / iconScale;
             iconObject.transform.localScale =
                 new Vector3(
-                    icon.FlipHorizontally ? -scale : scale,
+                    transformFlip ? -scale : scale,
                     scale,
                     1f);
-            if (!flattenedLandscape && icon.Fragments != null)
+            trackedIconRoots.Add(new TrackedIconRoot(
+                iconObject.transform,
+                transformFlip,
+                baseScale,
+                groundPosition,
+                new Vector2(
+                    (position.x - groundPosition.x) / iconScale,
+                    (position.y - groundPosition.y) / iconScale)));
+            if (flattenedLandscape && icon.UsesFlatMesh)
             {
-                return TryCreateFragmentedIcon(
+                return TryCreateFlattenedMesh(
                     iconObject,
+                    placement,
                     icon,
+                    mapper,
                     iconAlpha,
                     minimumDepthRow,
                     maximumDepthRow,
@@ -1394,6 +1467,7 @@ namespace SpawnCastle
             SpriteRenderer renderer = iconObject.AddComponent<SpriteRenderer>();
             renderer.sprite = sprite;
             renderer.color = new Color(1f, 1f, 1f, iconAlpha);
+            alphaRenderers.Add(renderer);
             int middleDepthRow = BlueprintFragmentCaptureCatalog
                 .GetMiddleDepthRow(minimumDepthRow, maximumDepthRow);
             renderer.sortingOrder =
@@ -1402,40 +1476,150 @@ namespace SpawnCastle
             return true;
         }
 
-        private static bool TryCreateFragmentedIcon(
+        private bool TryCreateFlattenedMesh(
             GameObject root,
+            BlueprintIconPlacement placement,
             BlueprintIconVisual icon,
+            AivMapperInfo mapper,
             float iconAlpha,
             int minimumDepthRow,
             int maximumDepthRow,
             int sortingBandOffset)
         {
-            BlueprintFragmentVisual visual = icon.Fragments;
-            if (visual?.Fragments == null || visual.Fragments.Count == 0)
+            Sprite source = icon.Sprite;
+            if (source == null || source.texture == null)
+                return false;
+            bool useMarkerBounds = BlueprintBuildingIconCatalog.HasReservedPlacementArea(mapper.Name);
+            int minimumWorldX = useMarkerBounds ? placement.MarkerMinimumWorldX : placement.MinimumWorldX;
+            int maximumWorldX = useMarkerBounds ? placement.MarkerMaximumWorldX : placement.MaximumWorldX;
+            int minimumWorldY = useMarkerBounds ? placement.MarkerMinimumWorldY : placement.MinimumWorldY;
+            int maximumWorldY = useMarkerBounds ? placement.MarkerMaximumWorldY : placement.MaximumWorldY;
+            int cellCountX = maximumWorldX - minimumWorldX + 1;
+            int cellCountY = maximumWorldY - minimumWorldY + 1;
+            if (!TryGetGroundPosition(minimumWorldX, minimumWorldY, out Vector3 anchor) ||
+                !TryGetGroundBasis(minimumWorldX, minimumWorldY, anchor, 1, 0, out Vector2 basisX) ||
+                !TryGetGroundBasis(minimumWorldX, minimumWorldY, anchor, 0, 1, out Vector2 basisY))
+            {
+                return false;
+            }
+
+            Vector2 origin = new Vector2(anchor.x, anchor.y) - basisX * 0.5f - basisY * 0.5f;
+            Vector2 cornerX = origin + basisX * cellCountX;
+            Vector2 cornerY = origin + basisY * cellCountY;
+            Vector2 opposite = cornerX + basisY * cellCountY;
+            float left = Math.Min(Math.Min(origin.x, cornerX.x), Math.Min(cornerY.x, opposite.x));
+            float right = Math.Max(Math.Max(origin.x, cornerX.x), Math.Max(cornerY.x, opposite.x));
+            float bottom = Math.Min(Math.Min(origin.y, cornerX.y), Math.Min(cornerY.y, opposite.y));
+            float top = Math.Max(Math.Max(origin.y, cornerX.y), Math.Max(cornerY.y, opposite.y));
+            if (right - left < 0.00001f || top - bottom < 0.00001f)
                 return false;
 
-            root.name += "_DepthFragments";
-            foreach (BlueprintLoadedFragment fragment in visual.Fragments)
+            int spriteId = source.GetInstanceID();
+            RectInt alphaBounds = icon.AlphaBounds;
+            if (alphaBounds.width <= 0 || alphaBounds.height <= 0 ||
+                alphaBounds.x < 0 || alphaBounds.y < 0 ||
+                alphaBounds.xMax > source.texture.width ||
+                alphaBounds.yMax > source.texture.height)
             {
-                var fragmentObject = new GameObject(
-                    $"BlueprintDepthFragment_{fragment.Index}");
-                fragmentObject.transform.SetParent(root.transform, false);
-                fragmentObject.transform.localPosition = fragment.PositionOffset;
-                SpriteRenderer renderer =
-                    fragmentObject.AddComponent<SpriteRenderer>();
-                renderer.sprite = fragment.Sprite;
-                renderer.color = new Color(1f, 1f, 1f, iconAlpha);
-                int targetRow = BlueprintFragmentCaptureCatalog.RemapDepthRow(
-                    visual.CaptureMinimumRow,
-                    visual.CaptureMaximumRow,
-                    minimumDepthRow,
-                    maximumDepthRow,
-                    fragment.RowOffset);
-                renderer.sortingOrder =
-                    -20000 + targetRow * 49 + 4 + fragment.SortingOffset +
-                    sortingBandOffset;
+                return false;
             }
+
+            string cacheKey = spriteId + ":" + cellCountX + "x" + cellCountY + ":" +
+                GetCameraQuarter() + ":" + icon.FlipHorizontally;
+            if (!flattenedBuildingMeshes.TryGetValue(cacheKey, out Mesh mesh))
+            {
+                Vector2 rootPosition = new Vector2(root.transform.position.x, root.transform.position.y);
+                var points = new[] { origin, cornerX, opposite, cornerY };
+                var vertices = new Vector3[4];
+                var uv = new Vector2[4];
+                for (int index = 0; index < points.Length; index++)
+                {
+                    vertices[index] = new Vector3(
+                        points[index].x - rootPosition.x,
+                        points[index].y - rootPosition.y,
+                        0f);
+                    uv[index] = CalculateFlatUv(
+                        points[index],
+                        left,
+                        right,
+                        bottom,
+                        top,
+                        alphaBounds,
+                        source.texture.width,
+                        source.texture.height,
+                        icon.FlipHorizontally);
+                }
+                float determinant = basisX.x * basisY.y - basisX.y * basisY.x;
+                int[] triangles = determinant >= 0f
+                    ? new[] { 0, 3, 1, 1, 3, 2 }
+                    : new[] { 0, 1, 3, 1, 2, 3 };
+                mesh = new Mesh { name = "SpawnCastle_FlatMesh_" + cacheKey.Replace(':', '_') };
+                mesh.vertices = vertices;
+                mesh.uv = uv;
+                mesh.triangles = triangles;
+                mesh.colors32 = new[]
+                {
+                    new Color32(255, 255, 255, 255),
+                    new Color32(255, 255, 255, 255),
+                    new Color32(255, 255, 255, 255),
+                    new Color32(255, 255, 255, 255)
+                };
+                mesh.RecalculateBounds();
+                mesh.UploadMeshData(true);
+                Object.DontDestroyOnLoad(mesh);
+                flattenedBuildingMeshes.Add(cacheKey, mesh);
+            }
+
+            MeshFilter filter = root.AddComponent<MeshFilter>();
+            filter.sharedMesh = mesh;
+            MeshRenderer renderer = root.AddComponent<MeshRenderer>();
+            renderer.sharedMaterial = GetMeshMaterial(source.texture);
+            ApplyAlpha(renderer, iconAlpha);
+            alphaRenderers.Add(renderer);
+            int middleDepthRow = BlueprintFragmentCaptureCatalog.GetMiddleDepthRow(
+                minimumDepthRow,
+                maximumDepthRow);
+            renderer.sortingOrder = -20000 + middleDepthRow * 49 + 4 + sortingBandOffset;
             return true;
+        }
+
+        private Material GetMeshMaterial(Texture texture)
+        {
+            int key = texture.GetInstanceID();
+            if (meshMaterials.TryGetValue(key, out Material material))
+                return material;
+            Shader shader = Shader.Find("Universal Render Pipeline/2D/Sprite-Unlit-Default") ??
+                Shader.Find("Sprites/Default");
+            if (shader == null)
+                throw new InvalidOperationException("No compatible unlit sprite shader is available.");
+            material = new Material(shader)
+            {
+                name = texture.name + "_BlueprintMeshMaterial",
+                mainTexture = texture
+            };
+            Object.DontDestroyOnLoad(material);
+            meshMaterials.Add(key, material);
+            return material;
+        }
+
+        private static Vector2 CalculateFlatUv(
+            Vector2 point,
+            float left,
+            float right,
+            float bottom,
+            float top,
+            RectInt bounds,
+            int textureWidth,
+            int textureHeight,
+            bool flipHorizontally)
+        {
+            float normalizedX = (point.x - left) / (right - left);
+            float normalizedY = (point.y - bottom) / (top - bottom);
+            if (flipHorizontally)
+                normalizedX = 1f - normalizedX;
+            float pixelX = bounds.x + normalizedX * Math.Max(0, bounds.width - 1) + 0.5f;
+            float pixelY = bounds.y + normalizedY * Math.Max(0, bounds.height - 1) + 0.5f;
+            return new Vector2(pixelX / textureWidth, pixelY / textureHeight);
         }
 
         private Vector2 ResolveVisualCenterOffset(
@@ -1690,6 +1874,52 @@ namespace SpawnCastle
             }
         }
 
+        private readonly struct PendingDepthIcon
+        {
+            public PendingDepthIcon(
+                BlueprintIconPlacement placement,
+                bool flipHorizontally)
+            {
+                Placement = placement;
+                FlipHorizontally = flipHorizontally;
+            }
+            public BlueprintIconPlacement Placement { get; }
+            public bool FlipHorizontally { get; }
+        }
+
+        private readonly struct GroundMarkerInstance
+        {
+            public GroundMarkerInstance(Vector3 position, Color32 color)
+            {
+                Position = position;
+                Color = color;
+            }
+            public Vector3 Position { get; }
+            public Color32 Color { get; }
+        }
+
+        private readonly struct TrackedIconRoot
+        {
+            public TrackedIconRoot(
+                Transform root,
+                bool flipHorizontally,
+                float baseScale,
+                Vector3 groundPosition,
+                Vector2 positionOffsetPerScale)
+            {
+                Root = root;
+                FlipHorizontally = flipHorizontally;
+                BaseScale = baseScale;
+                GroundPosition = groundPosition;
+                PositionOffsetPerScale = positionOffsetPerScale;
+            }
+            public Transform Root { get; }
+            public bool FlipHorizontally { get; }
+            public float BaseScale { get; }
+            public Vector3 GroundPosition { get; }
+            public Vector2 PositionOffsetPerScale { get; }
+        }
+
     }
 
     internal readonly struct BlueprintIconVisual
@@ -1701,7 +1931,8 @@ namespace SpawnCastle
             bool usesPlaceholderImage,
             BlueprintDrawbridgePosition drawbridgePosition,
             bool usesExactWorldScale,
-            BlueprintFragmentVisual fragments = null)
+            bool usesFlatMesh = false,
+            RectInt alphaBounds = default)
         {
             Sprite = sprite;
             UsesHelpImage = usesHelpImage;
@@ -1709,7 +1940,8 @@ namespace SpawnCastle
             UsesPlaceholderImage = usesPlaceholderImage;
             DrawbridgePosition = drawbridgePosition;
             UsesExactWorldScale = usesExactWorldScale;
-            Fragments = fragments;
+            UsesFlatMesh = usesFlatMesh;
+            AlphaBounds = alphaBounds;
         }
 
         public Sprite Sprite { get; }
@@ -1724,7 +1956,9 @@ namespace SpawnCastle
 
         public bool UsesExactWorldScale { get; }
 
-        public BlueprintFragmentVisual Fragments { get; }
+        public bool UsesFlatMesh { get; }
+
+        public RectInt AlphaBounds { get; }
     }
 
     internal readonly struct BlueprintRenderResult

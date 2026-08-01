@@ -32,21 +32,32 @@ function Read-BlueprintManifest([string]$Path) {
         }
 
         $parts = $line.Split("`t")
-        if ($parts.Count -ne 10) {
+        if ($parts.Count -ne 14) {
             throw "Invalid manifest column count at ${Path}:$lineNumber"
         }
 
         [single]$pivotX = 0.0
         [single]$pivotY = 0.0
         [single]$ppu = 0.0
-        if ($parts[0] -ne "1" -or
+        [int]$alphaX = 0
+        [int]$alphaY = 0
+        [int]$alphaWidth = 0
+        [int]$alphaHeight = 0
+        if ($parts[0] -ne "2" -or
             -not [single]::TryParse($parts[6], [Globalization.NumberStyles]::Float, [Globalization.CultureInfo]::InvariantCulture, [ref]$pivotX) -or
             -not [single]::TryParse($parts[7], [Globalization.NumberStyles]::Float, [Globalization.CultureInfo]::InvariantCulture, [ref]$pivotY) -or
-            -not [single]::TryParse($parts[8], [Globalization.NumberStyles]::Float, [Globalization.CultureInfo]::InvariantCulture, [ref]$ppu)) {
+            -not [single]::TryParse($parts[8], [Globalization.NumberStyles]::Float, [Globalization.CultureInfo]::InvariantCulture, [ref]$ppu) -or
+            -not [int]::TryParse($parts[9], [Globalization.NumberStyles]::Integer, [Globalization.CultureInfo]::InvariantCulture, [ref]$alphaX) -or
+            -not [int]::TryParse($parts[10], [Globalization.NumberStyles]::Integer, [Globalization.CultureInfo]::InvariantCulture, [ref]$alphaY) -or
+            -not [int]::TryParse($parts[11], [Globalization.NumberStyles]::Integer, [Globalization.CultureInfo]::InvariantCulture, [ref]$alphaWidth) -or
+            -not [int]::TryParse($parts[12], [Globalization.NumberStyles]::Integer, [Globalization.CultureInfo]::InvariantCulture, [ref]$alphaHeight)) {
             throw "Invalid manifest values at ${Path}:$lineNumber"
         }
         if ($pivotX -lt 0 -or $pivotX -gt 1 -or $pivotY -lt 0 -or $pivotY -gt 1 -or [math]::Abs($ppu - 64) -gt 0.001) {
             throw "Invalid pivot or PPU at ${Path}:$lineNumber"
+        }
+        if ($alphaX -lt 0 -or $alphaY -lt 0 -or $alphaWidth -le 0 -or $alphaHeight -le 0) {
+            throw "Invalid alpha bounds at ${Path}:$lineNumber"
         }
         if ([IO.Path]::IsPathRooted($parts[5]) -or $parts[5].Contains("..")) {
             throw "Unsafe PNG path at ${Path}:$lineNumber"
@@ -58,6 +69,10 @@ function Read-BlueprintManifest([string]$Path) {
             PngFile = $parts[5]
             MapperName = $parts[2]
             View = $parts[4]
+            AlphaX = $alphaX
+            AlphaY = $alphaY
+            AlphaWidth = $alphaWidth
+            AlphaHeight = $alphaHeight
         }
     }
     return $entries
@@ -67,7 +82,7 @@ function Test-IsSupersededBlueprintEntry($Entry) {
     if ($Entry.MapperName -eq "MAPPER_CRENAL" -and $Entry.View -eq "Default") {
         return $true
     }
-    if ($Entry.MapperName -match '^MAPPER_STAIR[2-6]$') {
+    if ($Entry.MapperName -match '^MAPPER_STAIR[1-6]$') {
         return $true
     }
 
@@ -90,6 +105,17 @@ function Test-IsSupersededBlueprintEntry($Entry) {
          $Entry.View -eq "AxisEastWest" -or
          $Entry.View -eq "ReservationAxisNorthSouth" -or
          $Entry.View -eq "ReservationAxisEastWest")
+}
+
+function Test-IsNumberedStairEntry($Entry) {
+    return $Entry.MapperName -match '^MAPPER_STAIR[1-6]$'
+}
+
+function Test-IsProtectedCompositeEntry($Entry) {
+    return $Entry.MapperName -eq "MAPPER_WALL" -or
+        $Entry.MapperName -eq "MAPPER_WOODWALL" -or
+        $Entry.MapperName -eq "MAPPER_CRENAL" -or
+        $Entry.MapperName -eq "MAPPER_CRENAL2"
 }
 
 function Unescape-FragmentField([string]$Value) {
@@ -178,6 +204,9 @@ function Test-SafeRelativePath([string]$Path) {
 }
 
 $capturedEntries = @(Read-BlueprintManifest $capturedManifest)
+$capturedEntries = @($capturedEntries | Where-Object {
+    -not (Test-IsNumberedStairEntry $_)
+})
 if ($PruneSuperseded) {
     $capturedEntries = @($capturedEntries | Where-Object {
         -not (Test-IsSupersededBlueprintEntry $_)
@@ -196,6 +225,10 @@ foreach ($entry in $capturedEntries) {
     try {
         if ($image.Width -le 0 -or $image.Height -le 0) {
             throw "PNG has invalid dimensions: $pngPath"
+        }
+        if ($entry.AlphaX + $entry.AlphaWidth -gt $image.Width -or
+            $entry.AlphaY + $entry.AlphaHeight -gt $image.Height) {
+            throw "Alpha bounds exceed PNG dimensions: $pngPath"
         }
     }
     finally {
@@ -320,8 +353,13 @@ if ($fragmentManifestPresence.Count -eq 3) {
         }
     }
 
-    $captureKeys = @($capturedFragmentCaptures | ForEach-Object Key)
+    $captureKeys = @($capturedFragmentCaptures | ForEach-Object {
+        $_.Key -replace '^MAPPER_STAIR[1-6]\|', 'MAPPER_STAIR|'
+    })
     $compositeKeys = @($capturedEntries | ForEach-Object Key)
+    if (Test-Path -LiteralPath $libraryManifest -PathType Leaf) {
+        $compositeKeys += @(Read-BlueprintManifest $libraryManifest | ForEach-Object Key)
+    }
     $orphanFragmentKeys = @($captureKeys | Where-Object { $compositeKeys -notcontains $_ })
     if ($orphanFragmentKeys.Count -gt 0) {
         throw "Fragment captures are missing composite fallbacks: $($orphanFragmentKeys -join ', ')"
@@ -358,54 +396,49 @@ foreach ($entry in $libraryEntries) {
     $merged[$entry.Key] = $entry
 }
 foreach ($entry in $capturedEntries) {
+    if (Test-IsProtectedCompositeEntry $entry) {
+        if (-not $merged.ContainsKey($entry.Key)) {
+            throw "Protected production composite is missing and will not be regenerated: $($entry.Key)"
+        }
+        continue
+    }
     Copy-Item -LiteralPath (Join-Path $CapturedDirectory $entry.PngFile) -Destination (Join-Path $LibraryDirectory $entry.PngFile) -Force
     $merged[$entry.Key] = $entry
 }
 
 if ($fragmentManifestPresence.Count -eq 3) {
-    $libraryFragmentCapturePath = Join-Path $LibraryDirectory $fragmentCaptureManifestName
-    $libraryFragmentTilePath = Join-Path $LibraryDirectory $fragmentTileManifestName
-    $libraryFragmentPath = Join-Path $LibraryDirectory $fragmentManifestName
-    $libraryFragmentCaptures = if (Test-Path -LiteralPath $libraryFragmentCapturePath) { @(Read-FragmentRecords $libraryFragmentCapturePath) } else { @() }
-    $libraryFragmentTiles = if (Test-Path -LiteralPath $libraryFragmentTilePath) { @(Read-FragmentRecords $libraryFragmentTilePath) } else { @() }
-    $libraryFragments = if (Test-Path -LiteralPath $libraryFragmentPath) { @(Read-FragmentRecords $libraryFragmentPath) } else { @() }
-    $importedKeys = @($capturedFragmentCaptures | ForEach-Object Key)
-    $libraryFragmentCaptures = @($libraryFragmentCaptures | Where-Object { $importedKeys -notcontains $_.Key }) + $capturedFragmentCaptures
-    $libraryFragmentTiles = @($libraryFragmentTiles | Where-Object { $importedKeys -notcontains $_.Key }) + $capturedFragmentTiles
-    $libraryFragments = @($libraryFragments | Where-Object { $importedKeys -notcontains $_.Key }) + $capturedFragments
-
-    foreach ($fragment in $capturedFragments) {
-        $source = Join-Path $CapturedDirectory $fragment.Fields["pngFile"]
-        $destination = Join-Path $LibraryDirectory $fragment.Fields["pngFile"]
-        $destinationDirectory = Split-Path -Parent $destination
-        New-Item -ItemType Directory -Path $destinationDirectory -Force | Out-Null
-        Copy-Item -LiteralPath $source -Destination $destination -Force
+    $converter = Join-Path $PSScriptRoot "Convert-BlueprintFragmentsToAtlases.ps1"
+    if (-not (Test-Path -LiteralPath $converter -PathType Leaf)) {
+        throw "Depth-atlas converter is missing: $converter"
     }
-
-    $fragmentHeader = "# formatVersion`tcaptureKey`tname=value fields (UTF-8, CRLF)"
-    foreach ($output in @(
-        @{ Path = $libraryFragmentCapturePath; Records = $libraryFragmentCaptures },
-        @{ Path = $libraryFragmentTilePath; Records = $libraryFragmentTiles },
-        @{ Path = $libraryFragmentPath; Records = $libraryFragments }
-    )) {
-        $recordLines = @($output.Records | Sort-Object Key, Index | ForEach-Object Line)
-        $outputLines = @($fragmentHeader) + $recordLines
-        [IO.File]::WriteAllText(
-            $output.Path,
-            ($outputLines -join "`r`n") + "`r`n",
-            [Text.UTF8Encoding]::new($false))
-    }
+    & $converter `
+        -SourceDirectory $CapturedDirectory `
+        -TargetDirectory $LibraryDirectory `
+        -RemoveLegacy
 }
 
-$lines = @("# formatVersion`tmapperValue`tmapperName`tskin`tview`tpngFile`tpivotX`tpivotY`tppu`tfragmentSignature")
+$lines = @("# formatVersion`tmapperValue`tmapperName`tskin`tview`tpngFile`tpivotX`tpivotY`tppu`talphaX`talphaY`talphaWidth`talphaHeight`tfragmentSignature")
 $lines += $merged.Values | Sort-Object Key | ForEach-Object { $_.Line }
 [IO.File]::WriteAllText(
     $libraryManifest,
     (($lines -join "`r`n") + "`r`n"),
     [Text.UTF8Encoding]::new($false))
 
+# Numbered stair composites are legacy capture artifacts. Runtime lookup and
+# production assets always use the shared MAPPER_STAIR key and filenames.
+$resolvedLibrary = [IO.Path]::GetFullPath($LibraryDirectory).TrimEnd('\') + '\'
+foreach ($legacyStair in Get-ChildItem -LiteralPath $LibraryDirectory -File | Where-Object {
+    $_.Name -match '^MAPPER_STAIR[1-6]_.*\.png$'
+}) {
+    $legacyPath = [IO.Path]::GetFullPath($legacyStair.FullName)
+    if (-not $legacyPath.StartsWith($resolvedLibrary, [StringComparison]::OrdinalIgnoreCase)) {
+        throw "Refusing to remove unsafe numbered stair path '$legacyPath'."
+    }
+    Remove-Item -LiteralPath $legacyPath -Force
+}
+
 Write-ImportLog "Validated and imported $($capturedEntries.Count) Blueprint capture(s)."
 if ($fragmentManifestPresence.Count -eq 3) {
-    Write-ImportLog "Validated and imported $($capturedFragmentCaptures.Count) depth-fragment capture(s)."
+    Write-ImportLog "Validated and imported $($capturedFragmentCaptures.Count) depth-atlas capture(s)."
 }
 Write-ImportLog "Library manifest: $libraryManifest"

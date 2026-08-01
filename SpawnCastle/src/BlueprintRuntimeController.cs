@@ -30,6 +30,8 @@ namespace SpawnCastle
         private BlueprintBuildingImageLibrary buildingImageLibrary;
         private BlueprintBuildingPreviewCapture buildingPreviewCapture;
         private BlueprintLayout layout;
+        private int layoutKeepX = int.MinValue;
+        private int layoutKeepY = int.MinValue;
         private bool initialized;
         private bool mapActive;
         private bool preparePending;
@@ -194,6 +196,11 @@ namespace SpawnCastle
             if (!mapActive)
                 return;
 
+            // Decode at most one capture atlas per frame so the first projection
+            // stays responsive while exact building layers appear progressively.
+            if (buildingImageLibrary.ProcessOnePendingDepthLoad())
+                RefreshHud();
+
             // The development capture path is omitted entirely unless its
             // central switch was enabled before building the plugin.
             if (buildingPreviewCapture != null &&
@@ -308,6 +315,8 @@ namespace SpawnCastle
                 blueprintVisible && settings.IsBlueprintMode;
             renderer.Clear();
             layout = null;
+            layoutKeepX = int.MinValue;
+            layoutKeepY = int.MinValue;
             blueprintVisible = false;
             preparePending = false;
             showAfterPrepare = false;
@@ -325,10 +334,11 @@ namespace SpawnCastle
 
         private void OnBlueprintVisualSettingsChanged()
         {
-            // Slider changes only need a cheap visual rebuild; the selected
-            // AIV layout and current visibility can remain intact.
-            if (blueprintVisible && layout != null)
-                RenderCurrentLayout("Blueprint visual settings changed");
+            // Existing transforms and material properties can be updated without
+            // destroying thousands of projection objects while a slider moves.
+            renderer.UpdateVisualSettings(
+                settings.BlueprintIconScaleValue,
+                settings.BlueprintIconAlphaValue);
         }
 
         private void OnHotkeyCaptureRequested()
@@ -488,6 +498,9 @@ namespace SpawnCastle
                     document,
                     keepX,
                     keepY);
+                layoutKeepX = keepX;
+                layoutKeepY = keepY;
+                renderer.PreloadDepthCaptures(layout);
                 Shared.DebugLogHelper.LogInfo(
                     log,
                     $"Blueprint prepared locally: reason={reason}, " +
@@ -500,6 +513,8 @@ namespace SpawnCastle
             catch (Exception ex)
             {
                 layout = null;
+                layoutKeepX = int.MinValue;
+                layoutKeepY = int.MinValue;
                 renderer.Clear();
                 Shared.DebugLogHelper.LogError(
                     log,
@@ -566,6 +581,8 @@ namespace SpawnCastle
             {
                 renderer.Clear();
                 layout = null;
+                layoutKeepX = int.MinValue;
+                layoutKeepY = int.MinValue;
                 blueprintVisible = false;
                 SchedulePrepare(false);
                 Shared.DebugLogHelper.LogWarning(
@@ -577,13 +594,16 @@ namespace SpawnCastle
 
             preparePending = false;
             showAfterPrepare = false;
-            if (!TryBuildBlueprintLayout(
-                    keepX,
-                    keepY,
-                    "activation Keep refresh"))
+            if (layout == null || layoutKeepX != keepX || layoutKeepY != keepY)
             {
-                RefreshHud();
-                return;
+                if (!TryBuildBlueprintLayout(
+                        keepX,
+                        keepY,
+                        "activation Keep refresh"))
+                {
+                    RefreshHud();
+                    return;
+                }
             }
 
             SetBlueprintVisible(true, "HUD or configured hotkey");
@@ -597,7 +617,7 @@ namespace SpawnCastle
             if (visible)
             {
                 blueprintVisible = true;
-                if (!RenderCurrentLayout(reason))
+                if (!renderer.TryShowExisting(layout) && !RenderCurrentLayout(reason))
                 {
                     blueprintVisible = false;
                     renderer.Clear();
@@ -605,7 +625,7 @@ namespace SpawnCastle
             }
             else
             {
-                renderer.Clear();
+                renderer.Hide();
                 blueprintVisible = false;
                 pendingViewSettleTime = -1f;
                 suppressOverlayUntilViewSettled = false;
@@ -676,6 +696,7 @@ namespace SpawnCastle
         {
             try
             {
+                var stopwatch = System.Diagnostics.Stopwatch.StartNew();
                 BlueprintRenderResult result = renderer.Render(
                     layout,
                     settings.BlueprintIconScaleValue,
@@ -688,6 +709,9 @@ namespace SpawnCastle
                     $"Blueprint rendered locally: reason={reason}, " +
                     $"tiles={result.RenderedTiles}, icons={result.RenderedIcons}, " +
                     $"clipped={result.ClippedTiles}, " +
+                    $"depthReady={renderer.CompletedDepthCaptureCount}/" +
+                    $"{renderer.RequestedDepthCaptureCount}, " +
+                    $"elapsedMs={stopwatch.Elapsed.TotalMilliseconds:F1}, " +
                     $"rotation={lastRotation}, " +
                     $"flattened={lastFlattenedLandscape}.");
                 return true;
@@ -705,6 +729,8 @@ namespace SpawnCastle
         {
             renderer?.Clear();
             layout = null;
+            layoutKeepX = int.MinValue;
+            layoutKeepY = int.MinValue;
             preparePending = false;
             showAfterPrepare = false;
             blueprintVisible = false;
@@ -720,7 +746,9 @@ namespace SpawnCastle
                 settings?.IsBlueprintMode == true,
                 mapActive,
                 layout != null,
-                blueprintVisible);
+                blueprintVisible,
+                renderer?.CompletedDepthCaptureCount ?? 0,
+                renderer?.RequestedDepthCaptureCount ?? 0);
         }
 
         private static bool IsSimulationActive()

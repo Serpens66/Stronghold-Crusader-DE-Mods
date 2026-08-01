@@ -85,6 +85,14 @@ namespace SpawnCastle
 
         public float PixelsPerUnit { get; set; }
 
+        public int AlphaX { get; set; }
+
+        public int AlphaY { get; set; }
+
+        public int AlphaWidth { get; set; }
+
+        public int AlphaHeight { get; set; }
+
         public string FragmentSignature { get; set; } = string.Empty;
 
         public string Key => BlueprintBuildingCaptureCatalog.BuildKey(
@@ -95,7 +103,7 @@ namespace SpawnCastle
 
     internal static class BlueprintBuildingCaptureCatalog
     {
-        public const int CurrentFormatVersion = 1;
+        public const int CurrentFormatVersion = 2;
 
         public const float VanillaPixelsPerUnit = 64f;
 
@@ -345,14 +353,18 @@ namespace SpawnCastle
                 }
 
                 string[] parts = line.Split('\t');
-                if (parts.Length != 10 ||
+                if (parts.Length != 14 ||
                     !int.TryParse(parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out int version) ||
                     !int.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out int mapperValue) ||
                     !Enum.TryParse(parts[3], false, out BlueprintCaptureSkin skin) ||
                     !Enum.TryParse(parts[4], false, out BlueprintCaptureView view) ||
                     !float.TryParse(parts[6], NumberStyles.Float, CultureInfo.InvariantCulture, out float pivotX) ||
                     !float.TryParse(parts[7], NumberStyles.Float, CultureInfo.InvariantCulture, out float pivotY) ||
-                    !float.TryParse(parts[8], NumberStyles.Float, CultureInfo.InvariantCulture, out float ppu))
+                    !float.TryParse(parts[8], NumberStyles.Float, CultureInfo.InvariantCulture, out float ppu) ||
+                    !int.TryParse(parts[9], NumberStyles.Integer, CultureInfo.InvariantCulture, out int alphaX) ||
+                    !int.TryParse(parts[10], NumberStyles.Integer, CultureInfo.InvariantCulture, out int alphaY) ||
+                    !int.TryParse(parts[11], NumberStyles.Integer, CultureInfo.InvariantCulture, out int alphaWidth) ||
+                    !int.TryParse(parts[12], NumberStyles.Integer, CultureInfo.InvariantCulture, out int alphaHeight))
                 {
                     problems.Add($"Line {lineNumber}: invalid column data.");
                     continue;
@@ -369,7 +381,11 @@ namespace SpawnCastle
                     PivotX = pivotX,
                     PivotY = pivotY,
                     PixelsPerUnit = ppu,
-                    FragmentSignature = parts[9]
+                    AlphaX = alphaX,
+                    AlphaY = alphaY,
+                    AlphaWidth = alphaWidth,
+                    AlphaHeight = alphaHeight,
+                    FragmentSignature = parts[13]
                 };
                 string? validationError = ValidateEntry(entry);
                 if (validationError != null)
@@ -386,7 +402,7 @@ namespace SpawnCastle
             IEnumerable<BlueprintCaptureManifestEntry> entries)
         {
             var output = new StringBuilder();
-            output.Append("# formatVersion\tmapperValue\tmapperName\tskin\tview\tpngFile\tpivotX\tpivotY\tppu\tfragmentSignature\r\n");
+            output.Append("# formatVersion\tmapperValue\tmapperName\tskin\tview\tpngFile\tpivotX\tpivotY\tppu\talphaX\talphaY\talphaWidth\talphaHeight\tfragmentSignature\r\n");
             foreach (BlueprintCaptureManifestEntry entry in entries
                 .OrderBy(value => value.MapperValue)
                 .ThenBy(value => value.Skin)
@@ -394,7 +410,7 @@ namespace SpawnCastle
             {
                 output.AppendFormat(
                     CultureInfo.InvariantCulture,
-                    "{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6:R}\t{7:R}\t{8:R}\t{9}\r\n",
+                    "{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6:R}\t{7:R}\t{8:R}\t{9}\t{10}\t{11}\t{12}\t{13}\r\n",
                     entry.FormatVersion,
                     entry.MapperValue,
                     entry.MapperName,
@@ -404,6 +420,10 @@ namespace SpawnCastle
                     entry.PivotX,
                     entry.PivotY,
                     entry.PixelsPerUnit,
+                    entry.AlphaX,
+                    entry.AlphaY,
+                    entry.AlphaWidth,
+                    entry.AlphaHeight,
                     entry.FragmentSignature);
             }
 
@@ -429,6 +449,11 @@ namespace SpawnCastle
             }
             if (Math.Abs(entry.PixelsPerUnit - VanillaPixelsPerUnit) > 0.001f)
                 return "PPU must be 64.";
+            if (entry.AlphaX < 0 || entry.AlphaY < 0 ||
+                entry.AlphaWidth <= 0 || entry.AlphaHeight <= 0)
+            {
+                return "alpha bounds are invalid.";
+            }
             if (string.IsNullOrWhiteSpace(entry.FragmentSignature))
                 return "fragment signature is missing.";
             return null;
