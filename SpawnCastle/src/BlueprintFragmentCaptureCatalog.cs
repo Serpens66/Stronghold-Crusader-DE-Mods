@@ -383,6 +383,18 @@ namespace SpawnCastle
             return minimumRow + (maximumRow - minimumRow) / 2;
         }
 
+        public static int CalculateIconSortingBandOffset(
+            int minimumGroundRow,
+            int maximumGroundRow)
+        {
+            if (maximumGroundRow < minimumGroundRow)
+                return 0;
+
+            // Reserve one complete extra row so even the rearmost icon slot
+            // stays above the foremost colored Blueprint ground marker.
+            return checked((maximumGroundRow - minimumGroundRow + 1) * 49);
+        }
+
         private static IEnumerable<ParsedRecord> ParseRecords(
             IEnumerable<string> lines,
             ICollection<string> problems)

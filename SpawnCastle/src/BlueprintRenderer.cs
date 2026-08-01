@@ -73,6 +73,8 @@ namespace SpawnCastle
 
             int clippedTiles = 0;
             int renderedTiles = 0;
+            int minimumGroundDepthRow = int.MaxValue;
+            int maximumGroundDepthRow = int.MinValue;
             foreach (BlueprintTilePlacement placement in layout.Tiles)
             {
                 if (!TryGetRenderedTile(
@@ -89,9 +91,21 @@ namespace SpawnCastle
                     placement.Category,
                     placement.VisualGroup);
                 CreateVisibleGroundMarker(mapTile, position, markerSprite);
+                minimumGroundDepthRow = Math.Min(
+                    minimumGroundDepthRow,
+                    mapTile.row);
+                maximumGroundDepthRow = Math.Max(
+                    maximumGroundDepthRow,
+                    mapTile.row);
                 renderedTiles++;
             }
 
+            // One shared offset keeps all icon-to-icon depth differences while
+            // placing their complete band ahead of every colored ground cell.
+            int iconSortingBandOffset = BlueprintFragmentCaptureCatalog
+                .CalculateIconSortingBandOffset(
+                    minimumGroundDepthRow,
+                    maximumGroundDepthRow);
             int renderedIcons = 0;
             bool flattenedLandscape = EngineInterface.FlattenedLandscape;
             foreach (BlueprintIconPlacement placement in layout.Icons)
@@ -116,7 +130,8 @@ namespace SpawnCastle
                         icon,
                         flattenedLandscape,
                         iconScale,
-                        iconAlpha))
+                        iconAlpha,
+                        iconSortingBandOffset))
                 {
                     renderedIcons++;
                 }
@@ -1288,7 +1303,8 @@ namespace SpawnCastle
             BlueprintIconVisual icon,
             bool flattenedLandscape,
             float iconScale,
-            float iconAlpha)
+            float iconAlpha,
+            int sortingBandOffset)
         {
             Sprite sprite = icon.Sprite;
             AivMapperInfo mapper =
@@ -1359,15 +1375,20 @@ namespace SpawnCastle
                     : $"BlueprintIcon_{placement.MapperValue}");
             iconObject.transform.SetParent(overlayRoot.transform, false);
             iconObject.transform.position = position;
+            iconObject.transform.localScale =
+                new Vector3(
+                    icon.FlipHorizontally ? -scale : scale,
+                    scale,
+                    1f);
             if (!flattenedLandscape && icon.Fragments != null)
             {
                 return TryCreateFragmentedIcon(
                     iconObject,
                     icon,
-                    scale,
                     iconAlpha,
                     minimumDepthRow,
-                    maximumDepthRow);
+                    maximumDepthRow,
+                    sortingBandOffset);
             }
 
             SpriteRenderer renderer = iconObject.AddComponent<SpriteRenderer>();
@@ -1375,33 +1396,25 @@ namespace SpawnCastle
             renderer.color = new Color(1f, 1f, 1f, iconAlpha);
             int middleDepthRow = BlueprintFragmentCaptureCatalog
                 .GetMiddleDepthRow(minimumDepthRow, maximumDepthRow);
-            renderer.sortingOrder = -20000 + middleDepthRow * 49 + 4;
+            renderer.sortingOrder =
+                -20000 + middleDepthRow * 49 + 4 + sortingBandOffset;
 
-            iconObject.transform.localScale =
-                new Vector3(
-                    icon.FlipHorizontally ? -scale : scale,
-                    scale,
-                    1f);
             return true;
         }
 
         private static bool TryCreateFragmentedIcon(
             GameObject root,
             BlueprintIconVisual icon,
-            float scale,
             float iconAlpha,
             int minimumDepthRow,
-            int maximumDepthRow)
+            int maximumDepthRow,
+            int sortingBandOffset)
         {
             BlueprintFragmentVisual visual = icon.Fragments;
             if (visual?.Fragments == null || visual.Fragments.Count == 0)
                 return false;
 
             root.name += "_DepthFragments";
-            root.transform.localScale = new Vector3(
-                icon.FlipHorizontally ? -scale : scale,
-                scale,
-                1f);
             foreach (BlueprintLoadedFragment fragment in visual.Fragments)
             {
                 var fragmentObject = new GameObject(
@@ -1419,7 +1432,8 @@ namespace SpawnCastle
                     maximumDepthRow,
                     fragment.RowOffset);
                 renderer.sortingOrder =
-                    -20000 + targetRow * 49 + 4 + fragment.SortingOffset;
+                    -20000 + targetRow * 49 + 4 + fragment.SortingOffset +
+                    sortingBandOffset;
             }
             return true;
         }

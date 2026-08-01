@@ -613,6 +613,32 @@ internal static class Program
         AssertEqual(
             -20000 + buildingMiddle * 49 + 4,
             -20000 + secondBuildingInSameRow * 49 + 4);
+
+        int singleRowOffset = SpawnCastle.BlueprintFragmentCaptureCatalog
+            .CalculateIconSortingBandOffset(200, 200);
+        AssertEqual(49, singleRowOffset);
+
+        int multiRowOffset = SpawnCastle.BlueprintFragmentCaptureCatalog
+            .CalculateIconSortingBandOffset(200, 206);
+        AssertEqual(343, multiRowOffset);
+        int foremostGroundOrder = -20000 + 206 * 49 + 1;
+        int rearmostIconOrder = -20000 + 200 * 49 + 4 + multiRowOffset;
+        Assert(rearmostIconOrder > foremostGroundOrder,
+            "The rearmost icon fragment is not above every ground marker.");
+
+        int shiftedRearWall = rearWall * 49 + multiRowOffset;
+        int shiftedBuildingMiddle = buildingMiddle * 49 + multiRowOffset;
+        int shiftedFrontWall = frontWall * 49 + multiRowOffset;
+        AssertEqual(
+            buildingMiddle - rearWall,
+            (shiftedBuildingMiddle - shiftedRearWall) / 49);
+        AssertEqual(
+            frontWall - buildingMiddle,
+            (shiftedFrontWall - shiftedBuildingMiddle) / 49);
+        AssertEqual(
+            0,
+            SpawnCastle.BlueprintFragmentCaptureCatalog
+                .CalculateIconSortingBandOffset(int.MaxValue, int.MinValue));
     }
 
     private static void TestGateVisualRotation()
