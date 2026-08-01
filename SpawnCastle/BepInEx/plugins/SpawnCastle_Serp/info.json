@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Spawn Castle",
   "Description": "Displays a local visual AIVJSON castle blueprint or spawns it through the game's native AIV pipeline.",
-  "Version": "0.3.31",
+  "Version": "0.3.32",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
@@ -369,6 +369,13 @@
       "Changes": [
         "Corrected Blueprint projection to use the native baseline DefaultHeightGrid that remains unchanged when walls raise the live HeightGrid.",
         "Kept all normal-view Blueprint elements fixed to the terrain restored after wall demolition without reintroducing a dynamic-height fallback."
+      ]
+    },
+    {
+      "Version": "0.3.32",
+      "Changes": [
+        "Restored Vanilla's unified display height for colored ground markers and building anchors in the flattened Blueprint view.",
+        "Kept the normal Blueprint view isolated on DefaultHeightGrid without a dynamic-height fallback."
       ]
     }
   ]

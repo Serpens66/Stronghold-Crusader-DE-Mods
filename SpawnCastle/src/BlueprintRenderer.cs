@@ -37,6 +37,8 @@ namespace SpawnCastle
                 new HashSet<BlueprintDrawbridgePosition>();
         private readonly HashSet<string> failedHelpImages =
             new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        private readonly HashSet<string> reportedWallDepthDiagnostics =
+            new HashSet<string>(StringComparer.Ordinal);
         private readonly Dictionary<string, List<PendingDepthIcon>> pendingDepthIcons =
             new Dictionary<string, List<PendingDepthIcon>>(StringComparer.Ordinal);
         private readonly HashSet<string> requestedDepthKeys =
@@ -60,12 +62,12 @@ namespace SpawnCastle
                 "_textures",
                 BindingFlags.Instance | BindingFlags.NonPublic);
         private GameObject overlayRoot;
+        private GameObject groundMarkerRoot;
         private BlueprintLayout renderedLayout;
         private bool renderedFlattened;
         private int renderedRotation = int.MinValue;
         private float currentIconScale = 1f;
         private float currentIconAlpha = 0.3f;
-        private int currentIconSortingBandOffset;
         private Stopwatch progressiveLoadTimer;
         private bool progressiveCompletionLogged;
         private int terrainProjectionFailureCount;
@@ -137,59 +139,52 @@ namespace SpawnCastle
 
             int clippedTiles = 0;
             int renderedTiles = 0;
-            int minimumGroundDepthRow = int.MaxValue;
-            int maximumGroundDepthRow = int.MinValue;
-            var markerBatches = new Dictionary<int, List<GroundMarkerInstance>>();
-            foreach (BlueprintTilePlacement placement in layout.Tiles)
+            if (BlueprintMarkerVisibilityPolicy.GroundMarkersEnabled)
             {
-                if (!TryGetRenderedTile(
-                        placement.Tile.X,
-                        placement.Tile.Y,
-                        out GameMapTile mapTile,
-                        out Vector3Int position))
+                // Skip even marker placement/projection work while the test
+                // switch is off, so no hidden marker can affect the scene.
+                groundMarkerRoot = new GameObject("SpawnCastle_BlueprintGroundMarkers");
+                groundMarkerRoot.transform.SetParent(overlayRoot.transform, false);
+                var markerBatches = new Dictionary<int, List<GroundMarkerInstance>>();
+                foreach (BlueprintTilePlacement placement in layout.Tiles)
                 {
-                    clippedTiles++;
-                    continue;
-                }
+                    if (!TryGetRenderedTile(
+                            placement.Tile.X,
+                            placement.Tile.Y,
+                            out GameMapTile mapTile,
+                            out Vector3Int position))
+                    {
+                        clippedTiles++;
+                        continue;
+                    }
 
-                if (!TryGetGroundCellCenter(
-                        mapTile,
-                        position,
-                        out Vector3 groundPosition))
-                {
-                    clippedTiles++;
-                    continue;
-                }
+                    if (!TryGetGroundCellCenter(
+                            mapTile,
+                            position,
+                            out Vector3 groundPosition))
+                    {
+                        clippedTiles++;
+                        continue;
+                    }
 
-                if (!markerBatches.TryGetValue(
-                        mapTile.row,
-                        out List<GroundMarkerInstance> markerPositions))
-                {
-                    markerPositions = new List<GroundMarkerInstance>();
-                    markerBatches.Add(mapTile.row, markerPositions);
+                    if (!markerBatches.TryGetValue(
+                            mapTile.row,
+                            out List<GroundMarkerInstance> markerPositions))
+                    {
+                        markerPositions = new List<GroundMarkerInstance>();
+                        markerBatches.Add(mapTile.row, markerPositions);
+                    }
+                    markerPositions.Add(new GroundMarkerInstance(
+                        groundPosition,
+                        GetOverlayColor(placement.Category, placement.VisualGroup)));
+                    renderedTiles++;
                 }
-                markerPositions.Add(new GroundMarkerInstance(
-                    groundPosition,
-                    GetOverlayColor(placement.Category, placement.VisualGroup)));
-                minimumGroundDepthRow = Math.Min(
-                    minimumGroundDepthRow,
-                    mapTile.row);
-                maximumGroundDepthRow = Math.Max(
-                    maximumGroundDepthRow,
-                    mapTile.row);
-                renderedTiles++;
+                CreateGroundMarkerBatches(markerBatches);
+                UpdateGroundMarkerVisibility(iconScale, iconAlpha);
             }
-            CreateGroundMarkerBatches(markerBatches);
 
-            // One shared offset keeps all icon-to-icon depth differences while
-            // placing their complete band ahead of every colored ground cell.
-            int iconSortingBandOffset = BlueprintFragmentCaptureCatalog
-                .CalculateIconSortingBandOffset(
-                    minimumGroundDepthRow,
-                    maximumGroundDepthRow);
             int renderedIcons = 0;
             bool flattenedLandscape = renderedFlattened;
-            currentIconSortingBandOffset = iconSortingBandOffset;
             foreach (BlueprintIconPlacement placement in layout.Icons)
             {
                 BlueprintDrawbridgePosition drawbridgePosition =
@@ -205,7 +200,6 @@ namespace SpawnCastle
                         stairFlipHorizontally,
                         iconScale,
                         iconAlpha,
-                        iconSortingBandOffset,
                         out bool depthRendered))
                 {
                     if (depthRendered)
@@ -227,8 +221,7 @@ namespace SpawnCastle
                         icon,
                         flattenedLandscape,
                         iconScale,
-                        iconAlpha,
-                        iconSortingBandOffset))
+                        iconAlpha))
                 {
                     renderedIcons++;
                 }
@@ -274,6 +267,7 @@ namespace SpawnCastle
                 overlayRoot.SetActive(false);
                 Object.Destroy(overlayRoot);
                 overlayRoot = null;
+                groundMarkerRoot = null;
             }
         }
 
@@ -299,6 +293,7 @@ namespace SpawnCastle
         {
             currentIconScale = iconScale;
             currentIconAlpha = iconAlpha;
+            UpdateGroundMarkerVisibility(iconScale, iconAlpha);
             foreach (TrackedIconRoot tracked in trackedIconRoots)
             {
                 tracked.Root.localScale = new Vector3(
@@ -325,7 +320,6 @@ namespace SpawnCastle
             bool stairFlipHorizontally,
             float iconScale,
             float iconAlpha,
-            int sortingBandOffset,
             out bool rendered)
         {
             rendered = false;
@@ -373,8 +367,7 @@ namespace SpawnCastle
                 visual,
                 flipHorizontally,
                 iconScale,
-                iconAlpha,
-                sortingBandOffset);
+                iconAlpha);
             return true;
         }
 
@@ -399,8 +392,7 @@ namespace SpawnCastle
                     visual,
                     icon.FlipHorizontally,
                     currentIconScale,
-                    currentIconAlpha,
-                    currentIconSortingBandOffset);
+                    currentIconAlpha);
             }
             LogTerrainProjectionFailuresIfPending("progressive render");
             LogProgressiveCompletionIfReady();
@@ -423,8 +415,7 @@ namespace SpawnCastle
             BlueprintDepthVisual visual,
             bool flipHorizontally,
             float iconScale,
-            float iconAlpha,
-            int sortingBandOffset)
+            float iconAlpha)
         {
             if (overlayRoot == null || visual?.Layers == null || visual.Layers.Count == 0)
                 return false;
@@ -458,6 +449,12 @@ namespace SpawnCastle
                 position,
                 Vector2.zero));
 
+            bool reportWallDiagnostics = IsCuratedWallMapper(mapper.Name) &&
+                reportedWallDepthDiagnostics.Add(mapper.Name);
+            Bounds combinedBounds = default;
+            bool hasCombinedBounds = false;
+            int minimumSortingOrder = int.MaxValue;
+            int maximumSortingOrder = int.MinValue;
             foreach (BlueprintDepthLayer layer in visual.Layers)
             {
                 var layerObject = new GameObject(
@@ -473,12 +470,48 @@ namespace SpawnCastle
                     minimumDepthRow,
                     maximumDepthRow,
                     layer.RowOffset);
-                renderer.sortingOrder =
-                    -20000 + targetRow * 49 + 4 + layer.SortingOffset + sortingBandOffset;
+                // Match Vanilla's row band so real and preview buildings can
+                // occlude each other according to their actual map depth.
+                renderer.sortingOrder = BlueprintSortingPolicy
+                    .GetNaturalIconSortingOrder(targetRow, layer.SortingOffset);
                 ApplyAlpha(renderer, iconAlpha);
                 alphaRenderers.Add(renderer);
+                if (reportWallDiagnostics)
+                {
+                    if (hasCombinedBounds)
+                        combinedBounds.Encapsulate(layer.Mesh.bounds);
+                    else
+                    {
+                        combinedBounds = layer.Mesh.bounds;
+                        hasCombinedBounds = true;
+                    }
+                    minimumSortingOrder = Math.Min(
+                        minimumSortingOrder,
+                        renderer.sortingOrder);
+                    maximumSortingOrder = Math.Max(
+                        maximumSortingOrder,
+                        renderer.sortingOrder);
+                }
+            }
+            if (reportWallDiagnostics)
+            {
+                Shared.DebugLogHelper.LogDebug(
+                    log,
+                    $"Curated wall Blueprint depth visual: mapper={mapper.Name}, " +
+                    $"key={visual.Key}, layers={visual.Layers.Count}, " +
+                    $"meshBounds={combinedBounds}, rootPosition={position}, " +
+                    $"rootScale={root.transform.localScale}, sortingOrders=" +
+                    $"{minimumSortingOrder}..{maximumSortingOrder}, alpha={iconAlpha:F2}.");
             }
             return true;
+        }
+
+        private static bool IsCuratedWallMapper(string mapperName)
+        {
+            return string.Equals(mapperName, "MAPPER_WALL", StringComparison.Ordinal) ||
+                string.Equals(mapperName, "MAPPER_WOODWALL", StringComparison.Ordinal) ||
+                string.Equals(mapperName, "MAPPER_CRENAL", StringComparison.Ordinal) ||
+                string.Equals(mapperName, "MAPPER_CRENAL2", StringComparison.Ordinal);
         }
 
         private static void ApplyAlpha(Renderer renderer, float alpha)
@@ -493,6 +526,8 @@ namespace SpawnCastle
         private void CreateGroundMarkerBatches(
             Dictionary<int, List<GroundMarkerInstance>> batches)
         {
+            if (groundMarkerRoot == null)
+                return;
             Sprite sprite = GetMarkerSprite();
             foreach (KeyValuePair<int, List<GroundMarkerInstance>> batch in batches)
             {
@@ -546,12 +581,20 @@ namespace SpawnCastle
                 mesh.RecalculateBounds();
                 projectionMeshes.Add(mesh);
                 var markerObject = new GameObject(mesh.name);
-                markerObject.transform.SetParent(overlayRoot.transform, false);
+                markerObject.transform.SetParent(groundMarkerRoot.transform, false);
                 markerObject.AddComponent<MeshFilter>().sharedMesh = mesh;
                 MeshRenderer renderer = markerObject.AddComponent<MeshRenderer>();
                 renderer.sharedMaterial = GetMeshMaterial(sprite.texture);
                 renderer.sortingOrder = -20000 + batch.Key * 49 + 1;
             }
+        }
+
+        private void UpdateGroundMarkerVisibility(float iconScale, float iconAlpha)
+        {
+            if (groundMarkerRoot == null)
+                return;
+            groundMarkerRoot.SetActive(
+                BlueprintMarkerVisibilityPolicy.ShouldShow(iconScale, iconAlpha));
         }
 
         private bool TryGetRenderedTile(
@@ -1379,8 +1422,7 @@ namespace SpawnCastle
             BlueprintIconVisual icon,
             bool flattenedLandscape,
             float iconScale,
-            float iconAlpha,
-            int sortingBandOffset)
+            float iconAlpha)
         {
             Sprite sprite = icon.Sprite;
             AivMapperInfo mapper =
@@ -1474,10 +1516,7 @@ namespace SpawnCastle
                     placement,
                     icon,
                     mapper,
-                    iconAlpha,
-                    minimumDepthRow,
-                    maximumDepthRow,
-                    sortingBandOffset);
+                    iconAlpha);
             }
 
             SpriteRenderer renderer = iconObject.AddComponent<SpriteRenderer>();
@@ -1486,8 +1525,9 @@ namespace SpawnCastle
             alphaRenderers.Add(renderer);
             int middleDepthRow = BlueprintFragmentCaptureCatalog
                 .GetMiddleDepthRow(minimumDepthRow, maximumDepthRow);
-            renderer.sortingOrder =
-                -20000 + middleDepthRow * 49 + 4 + sortingBandOffset;
+            renderer.sortingOrder = flattenedLandscape
+                ? BlueprintSortingPolicy.FlattenedIconSortingOrder
+                : BlueprintSortingPolicy.GetNaturalIconSortingOrder(middleDepthRow);
 
             return true;
         }
@@ -1497,10 +1537,7 @@ namespace SpawnCastle
             BlueprintIconPlacement placement,
             BlueprintIconVisual icon,
             AivMapperInfo mapper,
-            float iconAlpha,
-            int minimumDepthRow,
-            int maximumDepthRow,
-            int sortingBandOffset)
+            float iconAlpha)
         {
             Sprite source = icon.Sprite;
             if (source == null || source.texture == null)
@@ -1592,10 +1629,9 @@ namespace SpawnCastle
             renderer.sharedMaterial = GetMeshMaterial(source.texture);
             ApplyAlpha(renderer, iconAlpha);
             alphaRenderers.Add(renderer);
-            int middleDepthRow = BlueprintFragmentCaptureCatalog.GetMiddleDepthRow(
-                minimumDepthRow,
-                maximumDepthRow);
-            renderer.sortingOrder = -20000 + middleDepthRow * 49 + 4 + sortingBandOffset;
+            // A flat footprint has no vertical overlap and must not inherit
+            // normal-view occlusion from buildings or terrain in front of it.
+            renderer.sortingOrder = BlueprintSortingPolicy.FlattenedIconSortingOrder;
             return true;
         }
 
@@ -1843,8 +1879,14 @@ namespace SpawnCastle
             // The cell center fixes the ground pivot while Vanilla's sprite
             // position retains its proven depth value for row sorting.
             worldPosition.z = sortingPosition.z;
-            if (EngineInterface.FlattenedLandscape)
+            if (renderedFlattened)
+            {
+                // Vanilla supplies one unified display height in flat view.
+                // The structure-independent native baseline is only correct
+                // for the normal terrain projection.
+                worldPosition.y += mapTile.height;
                 return true;
+            }
 
             if (!TryGetBaselineTerrainHeight(mapTile, out float terrainHeight))
             {

@@ -17,6 +17,10 @@
              Link="SpawnCastle\BlueprintBuildingCaptureCatalog.cs" />
     <Compile Include="..\..\SpawnCastle\src\BlueprintFragmentCaptureCatalog.cs"
              Link="SpawnCastle\BlueprintFragmentCaptureCatalog.cs" />
+    <Compile Include="..\..\SpawnCastle\src\BlueprintMarkerVisibilityPolicy.cs"
+             Link="SpawnCastle\BlueprintMarkerVisibilityPolicy.cs" />
+    <Compile Include="..\..\SpawnCastle\src\BlueprintSortingPolicy.cs"
+             Link="SpawnCastle\BlueprintSortingPolicy.cs" />
     <Compile Include="..\..\SpawnCastle\src\AivJsonModels.cs"
              Link="SpawnCastle\AivJsonModels.cs" />
     <Compile Include="..\..\SpawnCastle\src\BlueprintLayout.cs"

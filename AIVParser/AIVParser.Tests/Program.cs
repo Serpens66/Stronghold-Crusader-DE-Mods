@@ -33,6 +33,8 @@ internal static class Program
             ("Round-trip and validate Blueprint capture manifests", TestBlueprintCaptureManifest),
             ("Round-trip Blueprint depth fragment manifests", TestBlueprintFragmentManifest),
             ("Remap Blueprint depth rows", TestBlueprintDepthRows),
+            ("Choose Blueprint sorting orders", TestBlueprintSortingPolicies),
+            ("Toggle Blueprint ground markers from icon visibility", TestBlueprintMarkerVisibility),
             ("Rotate footprints", TestFootprintRotations),
             ("Resolve associated blocked areas", TestBlockedAreas),
             ("Compute rotated keep deltas", TestAnchorDelta),
@@ -482,6 +484,8 @@ internal static class Program
             PivotX = 0.45f,
             PivotY = 0.2f,
             PixelsPerUnit = 64f,
+            AlphaWidth = 1,
+            AlphaHeight = 1,
             FragmentSignature = "0123456789ABCDEF"
         };
         string serialized = SpawnCastle.BlueprintBuildingCaptureCatalog
@@ -614,31 +618,55 @@ internal static class Program
             -20000 + buildingMiddle * 49 + 4,
             -20000 + secondBuildingInSameRow * 49 + 4);
 
-        int singleRowOffset = SpawnCastle.BlueprintFragmentCaptureCatalog
-            .CalculateIconSortingBandOffset(200, 200);
-        AssertEqual(49, singleRowOffset);
+        int blueprintOrder = SpawnCastle.BlueprintSortingPolicy
+            .GetNaturalIconSortingOrder(buildingMiddle);
+        int vanillaOrderInSameRow = -20000 + buildingMiddle * 49 + 4;
+        AssertEqual(vanillaOrderInSameRow, blueprintOrder);
 
-        int multiRowOffset = SpawnCastle.BlueprintFragmentCaptureCatalog
-            .CalculateIconSortingBandOffset(200, 206);
-        AssertEqual(343, multiRowOffset);
-        int foremostGroundOrder = -20000 + 206 * 49 + 1;
-        int rearmostIconOrder = -20000 + 200 * 49 + 4 + multiRowOffset;
-        Assert(rearmostIconOrder > foremostGroundOrder,
-            "The rearmost icon fragment is not above every ground marker.");
+        int vanillaBuildingInFront = -20000 + (buildingMiddle + 1) * 49 + 4;
+        Assert(vanillaBuildingInFront > blueprintOrder,
+            "A Vanilla building in a foreground row does not sort above the Blueprint.");
+    }
 
-        int shiftedRearWall = rearWall * 49 + multiRowOffset;
-        int shiftedBuildingMiddle = buildingMiddle * 49 + multiRowOffset;
-        int shiftedFrontWall = frontWall * 49 + multiRowOffset;
+    private static void TestBlueprintSortingPolicies()
+    {
+        const int cursorOverlayOrder = 32000;
+        int foremostWorldOrder = SpawnCastle.BlueprintSortingPolicy
+            .GetNaturalIconSortingOrder(511, 48);
         AssertEqual(
-            buildingMiddle - rearWall,
-            (shiftedBuildingMiddle - shiftedRearWall) / 49);
-        AssertEqual(
-            frontWall - buildingMiddle,
-            (shiftedFrontWall - shiftedBuildingMiddle) / 49);
-        AssertEqual(
-            0,
-            SpawnCastle.BlueprintFragmentCaptureCatalog
-                .CalculateIconSortingBandOffset(int.MaxValue, int.MinValue));
+            31990,
+            SpawnCastle.BlueprintSortingPolicy.FlattenedIconSortingOrder);
+        Assert(
+            SpawnCastle.BlueprintSortingPolicy.FlattenedIconSortingOrder >
+                foremostWorldOrder,
+            "A flat Blueprint icon is not above the world depth range.");
+        Assert(
+            SpawnCastle.BlueprintSortingPolicy.FlattenedIconSortingOrder <
+                cursorOverlayOrder,
+            "A flat Blueprint icon can cover the cursor/UI overlay.");
+    }
+
+    private static void TestBlueprintMarkerVisibility()
+    {
+        AssertEqual(false,
+            SpawnCastle.BlueprintMarkerVisibilityPolicy.GroundMarkersEnabled);
+        AssertEqual(false,
+            SpawnCastle.BlueprintMarkerVisibilityPolicy.ShouldShow(1f, 0.3f));
+        AssertEqual(false,
+            SpawnCastle.BlueprintMarkerVisibilityPolicy.ShouldShow(1f, 0.25f));
+        AssertEqual(false,
+            SpawnCastle.BlueprintMarkerVisibilityPolicy.ShouldShow(0.5f, 1f));
+
+        AssertEqual(false,
+            SpawnCastle.BlueprintMarkerVisibilityPolicy.ShouldShowWhenEnabled(1f, 0.3f));
+        AssertEqual(true,
+            SpawnCastle.BlueprintMarkerVisibilityPolicy.ShouldShowWhenEnabled(1f, 0.25f));
+        AssertEqual(true,
+            SpawnCastle.BlueprintMarkerVisibilityPolicy.ShouldShowWhenEnabled(1f, 0f));
+        AssertEqual(true,
+            SpawnCastle.BlueprintMarkerVisibilityPolicy.ShouldShowWhenEnabled(0.99f, 0.3f));
+        AssertEqual(true,
+            SpawnCastle.BlueprintMarkerVisibilityPolicy.ShouldShowWhenEnabled(0.5f, 1f));
     }
 
     private static void TestGateVisualRotation()

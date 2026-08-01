@@ -137,7 +137,9 @@
     <Compile Include="src\BlueprintBuildingSizeCalibration.cs" />
     <Compile Include="src\BlueprintHudViewModel.cs" />
     <Compile Include="src\BlueprintLayout.cs" />
+    <Compile Include="src\BlueprintMarkerVisibilityPolicy.cs" />
     <Compile Include="src\BlueprintRenderer.cs" />
+    <Compile Include="src\BlueprintSortingPolicy.cs" />
     <Compile Include="src\BlueprintRuntimeController.cs" />
     <Compile Include="src\SpawnCastlePlugin.cs" />
     <Compile Include="src\SpawnCastleRuntime.cs" />
