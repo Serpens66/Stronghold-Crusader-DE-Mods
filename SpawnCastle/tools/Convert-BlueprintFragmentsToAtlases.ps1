@@ -9,6 +9,7 @@ $manifestName = "BlueprintDepthAtlases.tsv"
 $captureManifestName = "BlueprintFragmentCaptures.tsv"
 $fragmentManifestName = "BlueprintFragments.tsv"
 $tileManifestName = "BlueprintCaptureTiles.tsv"
+$compositeManifestName = "BlueprintImages.tsv"
 $atlasRelativeDirectory = "DepthAtlases"
 $padding = 1
 $maximumAtlasSize = 2048
@@ -49,6 +50,35 @@ function Read-Records([string]$Path) {
         }
     }
     return $records
+}
+
+function Read-CompositeEntries([string]$Path) {
+    $entries = @()
+    $lineNumber = 0
+    foreach ($line in [IO.File]::ReadLines($Path)) {
+        $lineNumber++
+        if ([string]::IsNullOrWhiteSpace($line) -or $line.StartsWith("#", [StringComparison]::Ordinal)) {
+            continue
+        }
+
+        $parts = $line.Split("`t")
+        if ($parts.Count -ne 14 -or $parts[0] -ne "2") {
+            throw "Invalid composite record at ${Path}:$lineNumber"
+        }
+        $entries += [pscustomobject]@{
+            Key = "$($parts[2])|$($parts[3])|$($parts[4])"
+            MapperValue = [int]::Parse($parts[1], $invariant)
+            MapperName = $parts[2]
+            Skin = $parts[3]
+            View = $parts[4]
+            PngFile = $parts[5]
+            PivotX = [double]::Parse($parts[6], [Globalization.NumberStyles]::Float, $invariant)
+            PivotY = [double]::Parse($parts[7], [Globalization.NumberStyles]::Float, $invariant)
+            PixelsPerUnit = [double]::Parse($parts[8], [Globalization.NumberStyles]::Float, $invariant)
+            FragmentSignature = $parts[13]
+        }
+    }
+    return $entries
 }
 
 function Require-Field($Record, [string]$Name) {
@@ -164,14 +194,14 @@ if ($captures.Count -eq 0 -or $fragments.Count -eq 0) {
     throw "No depth captures were found in '$SourceDirectory'."
 }
 
-# Finished single-cell wall symbols deliberately remain composite-only. Older
-# development captures may also use the observed numbered stair mapper instead
-# of the canonical shared key expected by the runtime.
-$compositeOnlyMappers = @("MAPPER_WALL", "MAPPER_WOODWALL", "MAPPER_CRENAL", "MAPPER_CRENAL2")
+# The four curated wall symbols are synthesized below as regular one-fragment
+# atlas captures. Ignore older automatic captures so they cannot replace the
+# manually verified finished-structure artwork.
+$curatedSingleFragmentMappers = @("MAPPER_WALL", "MAPPER_WOODWALL", "MAPPER_CRENAL", "MAPPER_CRENAL2")
 $selectedCaptures = [Collections.Generic.List[object]]::new()
 $selectedOriginalKeys = @{}
 foreach ($group in ($captures | Where-Object {
-    $compositeOnlyMappers -notcontains (Require-Field $_ "mapperName")
+    $curatedSingleFragmentMappers -notcontains (Require-Field $_ "mapperName")
 } | Group-Object {
     $_.Key -replace '^MAPPER_STAIR[1-6]\|', 'MAPPER_STAIR|'
 })) {
@@ -193,6 +223,22 @@ $fragments = @($fragments | Where-Object {
     $_.Key = $selectedOriginalKeys[$_.Key]
     $_
 })
+
+$compositeManifestPath = Join-Path $TargetDirectory $compositeManifestName
+if (-not (Test-Path -LiteralPath $compositeManifestPath -PathType Leaf)) {
+    throw "The production composite manifest is required: $compositeManifestPath"
+}
+$curatedEntries = @(Read-CompositeEntries $compositeManifestPath | Where-Object {
+    $curatedSingleFragmentMappers -contains $_.MapperName
+})
+if ($curatedEntries.Count -ne $curatedSingleFragmentMappers.Count) {
+    throw "Expected $($curatedSingleFragmentMappers.Count) curated wall composites but found $($curatedEntries.Count)."
+}
+foreach ($mapperName in $curatedSingleFragmentMappers) {
+    if (@($curatedEntries | Where-Object MapperName -eq $mapperName).Count -ne 1) {
+        throw "The curated wall composite '$mapperName' must have exactly one manifest entry."
+    }
+}
 
 New-Item -ItemType Directory -Path $TargetDirectory -Force | Out-Null
 $atlasDirectory = Join-Path $TargetDirectory $atlasRelativeDirectory
@@ -321,6 +367,91 @@ foreach ($capture in ($captures | Sort-Object Key)) {
         ) -join "`t"))
         $fragmentCount++
     }
+    $atlasCount++
+}
+
+foreach ($entry in ($curatedEntries | Sort-Object Key)) {
+    if ([IO.Path]::IsPathRooted($entry.PngFile) -or $entry.PngFile.Contains("..") -or $entry.PngFile.Contains(':')) {
+        throw "Unsafe curated composite path '$($entry.PngFile)'."
+    }
+    if ([Math]::Abs($entry.PixelsPerUnit - 64.0) -gt 0.001 -or
+        $entry.PivotX -lt 0.0 -or $entry.PivotX -gt 1.0 -or
+        $entry.PivotY -lt 0.0 -or $entry.PivotY -gt 1.0) {
+        throw "Invalid PPU or pivot for curated composite '$($entry.Key)'."
+    }
+
+    $sourcePath = [IO.Path]::GetFullPath((Join-Path $TargetDirectory $entry.PngFile))
+    if (-not (Test-Path -LiteralPath $sourcePath -PathType Leaf)) {
+        throw "Curated composite PNG is missing: $sourcePath"
+    }
+    $sourceImage = Read-BgraImage $sourcePath
+    $singleFragment = [pscustomobject]@{
+        Index = 0
+        Width = $sourceImage.Width
+        Height = $sourceImage.Height
+        Pixels = $sourceImage.Pixels
+        Stride = $sourceImage.Stride
+    }
+    $packing = $null
+    foreach ($size in @(256, 512, 1024, 2048)) {
+        $packing = Try-Pack @($singleFragment) $size
+        if ($null -ne $packing) { break }
+    }
+    if ($null -eq $packing -or $packing.Width -gt $maximumAtlasSize -or $packing.Height -gt $maximumAtlasSize) {
+        throw "Curated composite '$($entry.Key)' does not fit in a ${maximumAtlasSize}x${maximumAtlasSize} atlas."
+    }
+
+    $placement = $packing.Placements[0]
+    $atlasStride = $packing.Width * 4
+    $atlasPixels = [byte[]]::new($atlasStride * $packing.Height)
+    for ($row = 0; $row -lt $singleFragment.Height; $row++) {
+        [Buffer]::BlockCopy(
+            $singleFragment.Pixels,
+            $row * $singleFragment.Stride,
+            $atlasPixels,
+            ($placement.Y + $row) * $atlasStride + $placement.X * 4,
+            $singleFragment.Stride)
+    }
+
+    $baseName = Sanitize-Name $entry.Key
+    $pngFileName = "${baseName}_p00.png"
+    $relativeAtlasPath = "$atlasRelativeDirectory\$pngFileName"
+    $atlasPath = Join-Path $atlasDirectory $pngFileName
+    Write-Png $atlasPath $atlasPixels $packing.Width $packing.Height
+    [void]$generatedAtlasPaths.Add([IO.Path]::GetFullPath($atlasPath))
+    $validation = Read-BgraImage $atlasPath
+    if ($validation.Width -ne $packing.Width -or $validation.Height -ne $packing.Height) {
+        throw "Atlas dimensions changed while encoding '$($entry.Key)'."
+    }
+    for ($row = 0; $row -lt $singleFragment.Height; $row++) {
+        $sourceOffset = $row * $singleFragment.Stride
+        $atlasOffset = ($placement.Y + $row) * $validation.Stride + $placement.X * 4
+        for ($byte = 0; $byte -lt $singleFragment.Stride; $byte++) {
+            if ($singleFragment.Pixels[$sourceOffset + $byte] -ne $validation.Pixels[$atlasOffset + $byte]) {
+                throw "Atlas pixel verification failed for curated composite '$($entry.Key)'."
+            }
+        }
+    }
+
+    $sha256 = (Get-FileHash -LiteralPath $atlasPath -Algorithm SHA256).Hash
+    $left = (-$entry.PivotX * $singleFragment.Width / $entry.PixelsPerUnit).ToString("R", $invariant)
+    $bottom = (-$entry.PivotY * $singleFragment.Height / $entry.PixelsPerUnit).ToString("R", $invariant)
+    $unityY = $packing.Height - $placement.Y - $singleFragment.Height
+    $manifestLines.Add((@(
+        "C", $entry.Key, $entry.MapperValue, $entry.MapperName, $entry.Skin,
+        $entry.View, 0, "false", 0, 0, 1, 1,
+        $entry.FragmentSignature, "placed", "4"
+    ) -join "`t"))
+    $manifestLines.Add((@(
+        "P", $entry.Key, 0, $relativeAtlasPath,
+        $packing.Width, $packing.Height, $sha256
+    ) -join "`t"))
+    $manifestLines.Add((@(
+        "F", $entry.Key, 0, 0,
+        $placement.X, $unityY, $singleFragment.Width, $singleFragment.Height,
+        0, 0, $left, $bottom, 0
+    ) -join "`t"))
+    $fragmentCount++
     $atlasCount++
 }
 

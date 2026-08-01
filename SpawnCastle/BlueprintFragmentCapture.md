@@ -11,8 +11,9 @@ This workflow is development-only. Normal players should leave
    valid Vanilla construction previews. Stairs use their placed Tilemap visuals;
    build them in both ascending directions and keep each target still until the
    log reports both successful reconstruction validation and a saved depth
-   capture. Finished Wall, Woodwall, Crenal, and Crenal2 icons are maintained as
-   complete screenshot-derived PNGs and deliberately have no depth capture.
+   capture. Finished Wall, Woodwall, Crenal, and Crenal2 icons remain protected
+   screenshot-derived PNGs; the importer turns them into regular one-fragment
+   depth-atlas captures instead of accepting automatic wall fragments.
 3. Inspect
    `BepInEx/plugins/SpawnCastle_Serp/BlueprintImages/_Captured`. The detailed
    development manifests, individual source fragments, and the generated
@@ -63,8 +64,9 @@ The production library contains only `BlueprintDepthAtlases.tsv` and the PNGs
 below `DepthAtlases` for normal-view depth rendering. The compact CRLF manifest
 uses versioned capture (`C`), page (`P`), and fragment (`F`) rows. Detailed tile
 capture data and individual fragment PNGs stay under `_Captured` and are not
-loaded by normal players. Composite PNGs remain available only for flat view and
-explicitly composite-only buildings.
+loaded by normal players. Composite PNGs remain available for flat view. The
+four protected Wall/Crenal composites additionally serve as the deterministic
+sources for their generated single-fragment normal-view atlas pages.
 
 The standalone migration command is:
 

@@ -565,8 +565,9 @@ namespace SpawnCastle
                     if (!entries.ContainsKey(request.Key))
                         missing.Add(request.Key);
                     bool requiresPlaced = BlueprintBuildingCaptureCatalog.RequiresPlacedCapture(request.MapperName);
-                    if (!BlueprintBuildingCaptureCatalog.UsesCompositeOnlyIcon(request.MapperName) &&
-                        !ContainsFragmentCapture(request, requiresPlaced ? "placed" : string.Empty))
+                    if (!ContainsFragmentCapture(
+                            request,
+                            requiresPlaced ? "placed" : string.Empty))
                         missingDepth.Add(request.Key);
                 }
             }

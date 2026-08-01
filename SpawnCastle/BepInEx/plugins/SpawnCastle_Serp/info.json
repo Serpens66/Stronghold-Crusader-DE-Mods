@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Spawn Castle",
   "Description": "Displays a local visual AIVJSON castle blueprint or spawns it through the game's native AIV pipeline.",
-  "Version": "0.3.28",
+  "Version": "0.3.31",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
@@ -348,6 +348,27 @@
       "Changes": [
         "Applied the configurable Blueprint icon scale to both normal and flattened map views.",
         "Changed the icon scale range to 0.05 through 1.00 while retaining 1.00 as the default."
+      ]
+    },
+    {
+      "Version": "0.3.29",
+      "Changes": [
+        "Rendered stone walls, wooden walls, and both crenal variants through the same progressive depth-atlas mesh path as other normal-view Blueprint buildings.",
+        "Kept the manually verified wall composites protected while generating deterministic one-fragment atlas visuals from them."
+      ]
+    },
+    {
+      "Version": "0.3.30",
+      "Changes": [
+        "Projected every normal-view Blueprint element from the native terrain height instead of the structure-dependent Unity display height.",
+        "Kept flattened Blueprint elements on the flattened ground plane and skipped invalid native terrain cells without restoring the old height fallback."
+      ]
+    },
+    {
+      "Version": "0.3.31",
+      "Changes": [
+        "Corrected Blueprint projection to use the native baseline DefaultHeightGrid that remains unchanged when walls raise the live HeightGrid.",
+        "Kept all normal-view Blueprint elements fixed to the terrain restored after wall demolition without reintroducing a dynamic-height fallback."
       ]
     }
   ]

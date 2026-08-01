@@ -110,10 +110,7 @@ namespace SpawnCastle
                 ResetCandidate();
                 return false;
             }
-            // Finished screenshot icons must never be replaced by a held or
-            // placed construction capture during development sessions.
-            if (BlueprintBuildingCaptureCatalog.UsesCompositeOnlyIcon(request.MapperName) ||
-                library.ContainsFragmentCapture(request))
+            if (library.ContainsFragmentCapture(request))
             {
                 ResetCandidate();
                 return false;
@@ -207,8 +204,6 @@ namespace SpawnCastle
 
             List<PlacedCaptureTarget> missingTargets = targets
                 .Where(value =>
-                    !BlueprintBuildingCaptureCatalog.UsesCompositeOnlyIcon(
-                        value.Request.MapperName) &&
                     !library.ContainsFragmentCapture(
                         value.Request,
                         "placed"))

@@ -1,6 +1,7 @@
 using AIVParser.Core;
 using BepInEx.Logging;
 using CrusaderDE;
+using SHCDESE.API;
 using SHCDESE.Interop;
 using System;
 using System.Collections.Generic;
@@ -50,6 +51,10 @@ namespace SpawnCastle
             new Dictionary<string, Mesh>(StringComparer.Ordinal);
         private readonly Dictionary<int, Material> meshMaterials =
             new Dictionary<int, Material>();
+        private readonly Dictionary<int, float> baselineTerrainHeightCache =
+            new Dictionary<int, float>();
+        private readonly HashSet<long> invalidTerrainHeightTiles =
+            new HashSet<long>();
         private static readonly FieldInfo NoesisTextureCacheField =
             typeof(NoesisTextureProvider).GetField(
                 "_textures",
@@ -63,6 +68,9 @@ namespace SpawnCastle
         private int currentIconSortingBandOffset;
         private Stopwatch progressiveLoadTimer;
         private bool progressiveCompletionLogged;
+        private int terrainProjectionFailureCount;
+        private int reportedTerrainProjectionFailureCount;
+        private string firstTerrainProjectionFailure;
 
         public BlueprintRenderer(
             ManualLogSource log,
@@ -93,8 +101,6 @@ namespace SpawnCastle
                 string visualMapperName = BlueprintBuildingIconCatalog.ResolveGateVisualMapper(
                     mapper.Name,
                     swapsAxes);
-                if (BlueprintBuildingCaptureCatalog.UsesCompositeOnlyIcon(visualMapperName))
-                    continue;
                 buildingImageLibrary.ResolveDepth(
                     placement.MapperValue,
                     visualMapperName,
@@ -146,6 +152,15 @@ namespace SpawnCastle
                     continue;
                 }
 
+                if (!TryGetGroundCellCenter(
+                        mapTile,
+                        position,
+                        out Vector3 groundPosition))
+                {
+                    clippedTiles++;
+                    continue;
+                }
+
                 if (!markerBatches.TryGetValue(
                         mapTile.row,
                         out List<GroundMarkerInstance> markerPositions))
@@ -154,7 +169,7 @@ namespace SpawnCastle
                     markerBatches.Add(mapTile.row, markerPositions);
                 }
                 markerPositions.Add(new GroundMarkerInstance(
-                    GetGroundCellCenter(mapTile, position),
+                    groundPosition,
                     GetOverlayColor(placement.Category, placement.VisualGroup)));
                 minimumGroundDepthRow = Math.Min(
                     minimumGroundDepthRow,
@@ -224,6 +239,7 @@ namespace SpawnCastle
                 $"Blueprint first visible output prepared: tiles={renderedTiles}, " +
                 $"icons={renderedIcons}, depthReady={CompletedDepthCaptureCount}/" +
                 $"{RequestedDepthCaptureCount}, elapsedMs={progressiveLoadTimer.Elapsed.TotalMilliseconds:F1}.");
+            LogTerrainProjectionFailuresIfPending("initial render");
             LogProgressiveCompletionIfReady();
 
             return new BlueprintRenderResult(
@@ -239,6 +255,11 @@ namespace SpawnCastle
             completedDepthKeys.Clear();
             alphaRenderers.Clear();
             trackedIconRoots.Clear();
+            baselineTerrainHeightCache.Clear();
+            invalidTerrainHeightTiles.Clear();
+            terrainProjectionFailureCount = 0;
+            reportedTerrainProjectionFailureCount = 0;
+            firstTerrainProjectionFailure = null;
             foreach (Mesh mesh in projectionMeshes)
                 Object.Destroy(mesh);
             projectionMeshes.Clear();
@@ -315,9 +336,6 @@ namespace SpawnCastle
             string visualMapperName = BlueprintBuildingIconCatalog.ResolveGateVisualMapper(
                 mapper.Name,
                 mapRotationSwapsAxes);
-            if (BlueprintBuildingCaptureCatalog.UsesCompositeOnlyIcon(visualMapperName))
-                return false;
-
             BlueprintDepthResolveState state = buildingImageLibrary.ResolveDepth(
                 placement.MapperValue,
                 visualMapperName,
@@ -384,6 +402,7 @@ namespace SpawnCastle
                     currentIconAlpha,
                     currentIconSortingBandOffset);
             }
+            LogTerrainProjectionFailuresIfPending("progressive render");
             LogProgressiveCompletionIfReady();
         }
 
@@ -633,9 +652,7 @@ namespace SpawnCastle
 
                 bool islamicSkin = UsesIslamicChurchSkin();
                 bool mayUseCapturedImage =
-                    (flattenedLandscape && mapper.Category == AivItemCategory.Building) ||
-                    (!flattenedLandscape &&
-                     BlueprintBuildingCaptureCatalog.UsesCompositeOnlyIcon(visualMapperName));
+                    flattenedLandscape && mapper.Category == AivItemCategory.Building;
                 if (mayUseCapturedImage &&
                     buildingImageLibrary.TryResolveComposite(
                         mapperValue,
@@ -957,8 +974,7 @@ namespace SpawnCastle
                 return false;
             }
 
-            position = GetGroundCellCenter(mapTile, tilePosition);
-            return true;
+            return TryGetGroundCellCenter(mapTile, tilePosition, out position);
         }
 
         private void ReportDrawbridgePlaceholder(
@@ -1776,7 +1792,15 @@ namespace SpawnCastle
 
                     // Match the marker/calibration reference on uneven ground;
                     // corner heights alone can bias the building vertically.
-                    position += GetGroundCellCenter(mapTile, tilePosition);
+                    if (!TryGetGroundCellCenter(
+                            mapTile,
+                            tilePosition,
+                            out Vector3 groundPosition))
+                    {
+                        continue;
+                    }
+
+                    position += groundPosition;
                     validGroundCells++;
                     minimumDepthRow = Math.Min(
                         minimumDepthRow,
@@ -1806,11 +1830,12 @@ namespace SpawnCastle
                 targetHeight / Math.Max(0.01f, iconSize.y));
         }
 
-        private static Vector3 GetGroundCellCenter(
+        private bool TryGetGroundCellCenter(
             GameMapTile mapTile,
-            Vector3Int tilePosition)
+            Vector3Int tilePosition,
+            out Vector3 worldPosition)
         {
-            Vector3 worldPosition = mapTile.tilemapRef.GetCellCenterWorld(
+            worldPosition = mapTile.tilemapRef.GetCellCenterWorld(
                 new Vector3Int(tilePosition.x, tilePosition.y, 0));
             Vector3 sortingPosition = GameMap.instance.getSpritePosVector(
                 tilePosition.x,
@@ -1818,10 +1843,105 @@ namespace SpawnCastle
             // The cell center fixes the ground pivot while Vanilla's sprite
             // position retains its proven depth value for row sorting.
             worldPosition.z = sortingPosition.z;
-            // Vanilla applies the native display height in both map views;
-            // flat mode already supplies its own unified height value.
-            worldPosition.y += mapTile.height;
-            return worldPosition;
+            if (EngineInterface.FlattenedLandscape)
+                return true;
+
+            if (!TryGetBaselineTerrainHeight(mapTile, out float terrainHeight))
+            {
+                worldPosition = default;
+                return false;
+            }
+
+            // The live height layer includes walls. The native default-height
+            // layer retains the baseline terrain restored after demolition.
+            worldPosition.y += terrainHeight;
+            return true;
+        }
+
+        private bool TryGetBaselineTerrainHeight(
+            GameMapTile mapTile,
+            out float terrainHeight)
+        {
+            terrainHeight = 0f;
+            int gameMapX = mapTile.gameMapX;
+            int gameMapY = mapTile.gameMapY;
+            long coordinateKey = ((long)(uint)gameMapX << 32) | (uint)gameMapY;
+            if (invalidTerrainHeightTiles.Contains(coordinateKey))
+            {
+                terrainProjectionFailureCount++;
+                return false;
+            }
+
+            try
+            {
+                GameTileManagerAPI tileManager = GameTileManagerAPI.Instance;
+                if (tileManager == null)
+                    return RecordTerrainProjectionFailure(
+                        coordinateKey,
+                        gameMapX,
+                        gameMapY,
+                        "tile manager unavailable");
+                if (!tileManager.IsTileInsideMapBounds(gameMapX, gameMapY))
+                    return RecordTerrainProjectionFailure(
+                        coordinateKey,
+                        gameMapX,
+                        gameMapY,
+                        "coordinate outside map bounds");
+
+                int tileId = tileManager.GetTileId(gameMapX, gameMapY);
+                if (!tileManager.IsValidTileId(tileId))
+                    return RecordTerrainProjectionFailure(
+                        coordinateKey,
+                        gameMapX,
+                        gameMapY,
+                        $"invalid tileId={tileId}");
+                if (!baselineTerrainHeightCache.TryGetValue(tileId, out terrainHeight))
+                {
+                    terrainHeight = tileManager.GetTileDefaultHeight(tileId) / 32f;
+                    baselineTerrainHeightCache.Add(tileId, terrainHeight);
+                }
+                return true;
+            }
+            catch (Exception ex)
+            {
+                return RecordTerrainProjectionFailure(
+                    coordinateKey,
+                    gameMapX,
+                    gameMapY,
+                    $"{ex.GetType().Name}: {ex.Message}");
+            }
+        }
+
+        private bool RecordTerrainProjectionFailure(
+            long coordinateKey,
+            int gameMapX,
+            int gameMapY,
+            string reason)
+        {
+            invalidTerrainHeightTiles.Add(coordinateKey);
+            terrainProjectionFailureCount++;
+            if (firstTerrainProjectionFailure == null)
+            {
+                firstTerrainProjectionFailure =
+                    $"map=({gameMapX},{gameMapY}), reason={reason}";
+            }
+            return false;
+        }
+
+        private void LogTerrainProjectionFailuresIfPending(string phase)
+        {
+            if (terrainProjectionFailureCount <= reportedTerrainProjectionFailureCount)
+                return;
+
+            int newFailures = terrainProjectionFailureCount -
+                reportedTerrainProjectionFailureCount;
+            reportedTerrainProjectionFailureCount = terrainProjectionFailureCount;
+            Shared.DebugLogHelper.LogWarning(
+                log,
+                $"Blueprint terrain projection skipped cells: phase={phase}, " +
+                $"newFailures={newFailures}, totalFailures={terrainProjectionFailureCount}, " +
+                $"uniqueTiles={invalidTerrainHeightTiles.Count}, " +
+                $"firstFailure={firstTerrainProjectionFailure}.");
         }
 
         private static Color GetOverlayColor(

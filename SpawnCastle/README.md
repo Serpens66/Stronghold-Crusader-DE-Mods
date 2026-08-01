@@ -71,10 +71,11 @@ Blueprints progressively load compact, versioned depth atlases and render each
 depth group as a reusable mesh. Invalid atlas pages leave only the affected
 colored footprint visible; they never fall back to an incorrectly layered
 composite. Flat view deliberately continues using the composite through a
-footprint mesh. The single-cell Wall, Woodwall, Crenal, and Crenal2 symbols
-always use their complete finished-structure PNG; numbered stairs share one PNG
-per ascending direction. The complete capture, validation, migration, and
-import procedure is documented in
+footprint mesh. The single-cell Wall, Woodwall, Crenal, and Crenal2 symbols use
+their complete finished-structure PNG as a protected source for regular
+one-fragment depth-atlas meshes. Numbered stairs share one PNG per ascending
+direction. The complete capture, validation, migration, and import procedure is
+documented in
 [`BlueprintFragmentCapture.md`](BlueprintFragmentCapture.md).
 
 ## Blueprint hotkey implementation

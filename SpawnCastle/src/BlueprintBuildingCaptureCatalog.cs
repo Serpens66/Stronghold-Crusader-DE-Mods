@@ -149,16 +149,6 @@ namespace SpawnCastle
                 IsStairMapper(mapperName);
         }
 
-        public static bool UsesCompositeOnlyIcon(string mapperName)
-        {
-            // These single-cell symbols come from finished structures in a
-            // screenshot. A fragment would only replace them with capture data.
-            return mapperName == "MAPPER_WALL" ||
-                mapperName == "MAPPER_WOODWALL" ||
-                mapperName == "MAPPER_CRENAL" ||
-                mapperName == "MAPPER_CRENAL2";
-        }
-
         public static BlueprintCaptureRequest ResolveRequest(
             string mapperName,
             bool islamicChurchSkin,
