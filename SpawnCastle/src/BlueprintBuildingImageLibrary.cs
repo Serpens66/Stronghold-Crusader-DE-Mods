@@ -25,8 +25,6 @@ namespace SpawnCastle
             new Dictionary<string, Sprite>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, BlueprintDepthAtlasCaptureDefinition> depthCaptures =
             new Dictionary<string, BlueprintDepthAtlasCaptureDefinition>(StringComparer.Ordinal);
-        private readonly Dictionary<string, BlueprintFragmentCaptureEntry> developmentCaptures =
-            new Dictionary<string, BlueprintFragmentCaptureEntry>(StringComparer.Ordinal);
         private readonly Dictionary<string, BlueprintDepthVisual> depthVisuals =
             new Dictionary<string, BlueprintDepthVisual>(StringComparer.Ordinal);
         private readonly Queue<string> pendingDepthLoads = new Queue<string>();
@@ -52,6 +50,7 @@ namespace SpawnCastle
 
         public event Action<string> DepthVisualLoaded;
 
+        // Retained only for the uncompiled manual capture source.
         public string CapturedDirectory => capturedDirectory;
         public int PendingDepthLoadCount => pendingDepthLoads.Count;
 
@@ -60,7 +59,6 @@ namespace SpawnCastle
             Stopwatch stopwatch = Stopwatch.StartNew();
             entries.Clear();
             depthCaptures.Clear();
-            developmentCaptures.Clear();
             depthVisuals.Clear();
             pendingDepthLoads.Clear();
             queuedDepthLoads.Clear();
@@ -69,13 +67,6 @@ namespace SpawnCastle
             depthReadTasks.Clear();
             LoadManifest(libraryDirectory);
             LoadDepthManifest(libraryDirectory);
-            if (BlueprintBuildingPreviewCapture.EnableBlueprintImageGeneration)
-            {
-                // Development captures may override bundled composites and depth atlases.
-                LoadManifest(capturedDirectory);
-                LoadDepthManifest(capturedDirectory);
-                LoadDevelopmentCaptureStatus(capturedDirectory);
-            }
             ReportStatus();
             Shared.DebugLogHelper.LogInfo(
                 log,
@@ -371,7 +362,7 @@ namespace SpawnCastle
 
         public bool ContainsFragmentCapture(BlueprintCaptureRequest request)
         {
-            return depthCaptures.ContainsKey(request.Key) || developmentCaptures.ContainsKey(request.Key);
+            return depthCaptures.ContainsKey(request.Key);
         }
 
         public bool ContainsFragmentCapture(BlueprintCaptureRequest request, string requiredSource)
@@ -383,12 +374,6 @@ namespace SpawnCastle
                     requiredSource,
                     depth.CaptureSource,
                     depth.PlacedVisualVersion);
-            }
-            if (developmentCaptures.TryGetValue(request.Key, out BlueprintFragmentCaptureEntry development))
-            {
-                development.Metadata.TryGetValue("captureSource", out string source);
-                development.Metadata.TryGetValue("placedVisualVersion", out string version);
-                return SourceMatches(request.MapperName, requiredSource, source, version);
             }
             return false;
         }
@@ -527,23 +512,6 @@ namespace SpawnCastle
             }
         }
 
-        private void LoadDevelopmentCaptureStatus(string directory)
-        {
-            string path = Path.Combine(
-                directory,
-                BlueprintFragmentCaptureCatalog.CaptureManifestFileName);
-            if (!File.Exists(path))
-                return;
-            IReadOnlyList<BlueprintFragmentCaptureEntry> captures =
-                BlueprintFragmentCaptureCatalog.ParseCaptures(
-                    File.ReadAllLines(path),
-                    out IReadOnlyList<string> errors);
-            foreach (string error in errors)
-                Shared.DebugLogHelper.LogWarning(log, $"Development depth capture ignored: {error}");
-            foreach (BlueprintFragmentCaptureEntry capture in captures)
-                developmentCaptures[capture.Key] = capture;
-        }
-
         private void ReportStatus()
         {
             int required = 0;
@@ -575,37 +543,11 @@ namespace SpawnCastle
                 log,
                 $"Blueprint capture status: available={required - missing.Count}, required={required}, " +
                 $"missing={missing.Count}, depthAtlases={required - missingDepth.Count}, " +
-                $"missingDepth={missingDepth.Count}, captureDirectory={capturedDirectory}.");
+                $"missingDepth={missingDepth.Count}.");
             if (missing.Count > 0)
                 Shared.DebugLogHelper.LogInfo(log, "Missing Blueprint captures: " + string.Join(", ", missing));
             if (missingDepth.Count > 0)
                 Shared.DebugLogHelper.LogInfo(log, "Missing Blueprint depth atlases: " + string.Join(", ", missingDepth));
-            if (!BlueprintBuildingPreviewCapture.EnableBlueprintImageGeneration)
-                return;
-            try
-            {
-                Directory.CreateDirectory(capturedDirectory);
-                var report = new System.Text.StringBuilder();
-                report.Append("Blueprint capture status\r\n");
-                report.Append($"available\t{required - missing.Count}\r\n");
-                report.Append($"required\t{required}\r\n");
-                report.Append($"missing\t{missing.Count}\r\n");
-                report.Append($"fragmentMissing\t{missingDepth.Count}\r\n");
-                report.Append("\r\nMissing mapper|skin|view variants:\r\n");
-                foreach (string key in missing)
-                    report.Append(key).Append("\r\n");
-                report.Append("\r\nMissing depth-atlas variants:\r\n");
-                foreach (string key in missingDepth)
-                    report.Append(key).Append("\r\n");
-                File.WriteAllText(
-                    Path.Combine(capturedDirectory, "MissingBlueprintCaptures.txt"),
-                    report.ToString(),
-                    new System.Text.UTF8Encoding(false));
-            }
-            catch (Exception ex)
-            {
-                Shared.DebugLogHelper.LogWarning(log, $"Blueprint capture status report failed: {ex.Message}");
-            }
         }
 
         private static IEnumerable<BlueprintCaptureRequest> GetRequiredRequests(string mapperName)

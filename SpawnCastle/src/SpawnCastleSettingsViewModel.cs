@@ -25,7 +25,6 @@ namespace SpawnCastle
         private readonly ConfigEntry<int> hotkeyConfig;
         private readonly ConfigEntry<double> blueprintIconScaleConfig;
         private readonly ConfigEntry<double> blueprintIconAlphaConfig;
-        private readonly ConfigEntry<bool> blueprintFragmentCaptureConfig;
         private SpawnCastleMode mode;
         private string selectedCastle;
         private KeyCode blueprintHotkey;
@@ -74,13 +73,6 @@ namespace SpawnCastle
                 "IconAlpha",
                 0.3,
                 "Opacity of Blueprint building and construction icons.");
-            blueprintFragmentCaptureConfig = config.Bind(
-                "Development",
-                "CaptureBlueprintFragments",
-                false,
-                "Development-only: capture Vanilla Blueprint depth fragments. " +
-                "Keep disabled during normal play.");
-
             mode = NormalizeMode(modeConfig.Value);
             selectedCastle = NormalizeCastle(selectedCastleConfig.Value, defaultCastle);
             blueprintHotkey = NormalizeKeyCode(hotkeyConfig.Value);
@@ -212,9 +204,6 @@ namespace SpawnCastle
         internal KeyCode BlueprintHotkeyCode => blueprintHotkey;
         internal float BlueprintIconScaleValue => (float)blueprintIconScale;
         internal float BlueprintIconAlphaValue => (float)blueprintIconAlpha;
-        internal bool BlueprintFragmentCaptureEnabled =>
-            blueprintFragmentCaptureConfig.Value;
-
         internal bool TryResolveSelectedFile(out string fullPath)
         {
             return catalog.TryResolve(selectedCastle, out fullPath);

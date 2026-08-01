@@ -648,13 +648,13 @@ internal static class Program
 
     private static void TestBlueprintMarkerVisibility()
     {
-        AssertEqual(false,
+        AssertEqual(true,
             SpawnCastle.BlueprintMarkerVisibilityPolicy.GroundMarkersEnabled);
         AssertEqual(false,
             SpawnCastle.BlueprintMarkerVisibilityPolicy.ShouldShow(1f, 0.3f));
-        AssertEqual(false,
+        AssertEqual(true,
             SpawnCastle.BlueprintMarkerVisibilityPolicy.ShouldShow(1f, 0.25f));
-        AssertEqual(false,
+        AssertEqual(true,
             SpawnCastle.BlueprintMarkerVisibilityPolicy.ShouldShow(0.5f, 1f));
 
         AssertEqual(false,

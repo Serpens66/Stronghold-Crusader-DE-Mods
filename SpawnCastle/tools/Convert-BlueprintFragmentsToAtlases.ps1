@@ -194,14 +194,13 @@ if ($captures.Count -eq 0 -or $fragments.Count -eq 0) {
     throw "No depth captures were found in '$SourceDirectory'."
 }
 
-# The four curated wall symbols are synthesized below as regular one-fragment
-# atlas captures. Ignore older automatic captures so they cannot replace the
-# manually verified finished-structure artwork.
-$curatedSingleFragmentMappers = @("MAPPER_WALL", "MAPPER_WOODWALL", "MAPPER_CRENAL", "MAPPER_CRENAL2")
+# The four wall atlases are independently curated production assets. Raw
+# captures and compact root composites must never regenerate these pages.
+$protectedWallMappers = @("MAPPER_WALL", "MAPPER_WOODWALL", "MAPPER_CRENAL", "MAPPER_CRENAL2")
 $selectedCaptures = [Collections.Generic.List[object]]::new()
 $selectedOriginalKeys = @{}
 foreach ($group in ($captures | Where-Object {
-    $curatedSingleFragmentMappers -notcontains (Require-Field $_ "mapperName")
+    $protectedWallMappers -notcontains (Require-Field $_ "mapperName")
 } | Group-Object {
     $_.Key -replace '^MAPPER_STAIR[1-6]\|', 'MAPPER_STAIR|'
 })) {
@@ -228,17 +227,22 @@ $compositeManifestPath = Join-Path $TargetDirectory $compositeManifestName
 if (-not (Test-Path -LiteralPath $compositeManifestPath -PathType Leaf)) {
     throw "The production composite manifest is required: $compositeManifestPath"
 }
-$curatedEntries = @(Read-CompositeEntries $compositeManifestPath | Where-Object {
-    $curatedSingleFragmentMappers -contains $_.MapperName
+$protectedEntries = @(Read-CompositeEntries $compositeManifestPath | Where-Object {
+    $protectedWallMappers -contains $_.MapperName
 })
-if ($curatedEntries.Count -ne $curatedSingleFragmentMappers.Count) {
-    throw "Expected $($curatedSingleFragmentMappers.Count) curated wall composites but found $($curatedEntries.Count)."
+if ($protectedEntries.Count -ne $protectedWallMappers.Count) {
+    throw "Expected $($protectedWallMappers.Count) protected wall composites but found $($protectedEntries.Count)."
 }
-foreach ($mapperName in $curatedSingleFragmentMappers) {
-    if (@($curatedEntries | Where-Object MapperName -eq $mapperName).Count -ne 1) {
-        throw "The curated wall composite '$mapperName' must have exactly one manifest entry."
+foreach ($mapperName in $protectedWallMappers) {
+    if (@($protectedEntries | Where-Object MapperName -eq $mapperName).Count -ne 1) {
+        throw "The protected wall composite '$mapperName' must have exactly one manifest entry."
     }
 }
+$existingDepthManifestPath = Join-Path $TargetDirectory $manifestName
+if (-not (Test-Path -LiteralPath $existingDepthManifestPath -PathType Leaf)) {
+    throw "The protected production depth manifest is required: $existingDepthManifestPath"
+}
+$existingDepthLines = [IO.File]::ReadAllLines($existingDepthManifestPath)
 
 New-Item -ItemType Directory -Path $TargetDirectory -Force | Out-Null
 $atlasDirectory = Join-Path $TargetDirectory $atlasRelativeDirectory
@@ -370,89 +374,51 @@ foreach ($capture in ($captures | Sort-Object Key)) {
     $atlasCount++
 }
 
-foreach ($entry in ($curatedEntries | Sort-Object Key)) {
-    if ([IO.Path]::IsPathRooted($entry.PngFile) -or $entry.PngFile.Contains("..") -or $entry.PngFile.Contains(':')) {
-        throw "Unsafe curated composite path '$($entry.PngFile)'."
-    }
-    if ([Math]::Abs($entry.PixelsPerUnit - 64.0) -gt 0.001 -or
-        $entry.PivotX -lt 0.0 -or $entry.PivotX -gt 1.0 -or
-        $entry.PivotY -lt 0.0 -or $entry.PivotY -gt 1.0) {
-        throw "Invalid PPU or pivot for curated composite '$($entry.Key)'."
-    }
-
-    $sourcePath = [IO.Path]::GetFullPath((Join-Path $TargetDirectory $entry.PngFile))
-    if (-not (Test-Path -LiteralPath $sourcePath -PathType Leaf)) {
-        throw "Curated composite PNG is missing: $sourcePath"
-    }
-    $sourceImage = Read-BgraImage $sourcePath
-    $singleFragment = [pscustomobject]@{
-        Index = 0
-        Width = $sourceImage.Width
-        Height = $sourceImage.Height
-        Pixels = $sourceImage.Pixels
-        Stride = $sourceImage.Stride
-    }
-    $packing = $null
-    foreach ($size in @(256, 512, 1024, 2048)) {
-        $packing = Try-Pack @($singleFragment) $size
-        if ($null -ne $packing) { break }
-    }
-    if ($null -eq $packing -or $packing.Width -gt $maximumAtlasSize -or $packing.Height -gt $maximumAtlasSize) {
-        throw "Curated composite '$($entry.Key)' does not fit in a ${maximumAtlasSize}x${maximumAtlasSize} atlas."
-    }
-
-    $placement = $packing.Placements[0]
-    $atlasStride = $packing.Width * 4
-    $atlasPixels = [byte[]]::new($atlasStride * $packing.Height)
-    for ($row = 0; $row -lt $singleFragment.Height; $row++) {
-        [Buffer]::BlockCopy(
-            $singleFragment.Pixels,
-            $row * $singleFragment.Stride,
-            $atlasPixels,
-            ($placement.Y + $row) * $atlasStride + $placement.X * 4,
-            $singleFragment.Stride)
-    }
-
-    $baseName = Sanitize-Name $entry.Key
-    $pngFileName = "${baseName}_p00.png"
-    $relativeAtlasPath = "$atlasRelativeDirectory\$pngFileName"
-    $atlasPath = Join-Path $atlasDirectory $pngFileName
-    Write-Png $atlasPath $atlasPixels $packing.Width $packing.Height
-    [void]$generatedAtlasPaths.Add([IO.Path]::GetFullPath($atlasPath))
-    $validation = Read-BgraImage $atlasPath
-    if ($validation.Width -ne $packing.Width -or $validation.Height -ne $packing.Height) {
-        throw "Atlas dimensions changed while encoding '$($entry.Key)'."
-    }
-    for ($row = 0; $row -lt $singleFragment.Height; $row++) {
-        $sourceOffset = $row * $singleFragment.Stride
-        $atlasOffset = ($placement.Y + $row) * $validation.Stride + $placement.X * 4
-        for ($byte = 0; $byte -lt $singleFragment.Stride; $byte++) {
-            if ($singleFragment.Pixels[$sourceOffset + $byte] -ne $validation.Pixels[$atlasOffset + $byte]) {
-                throw "Atlas pixel verification failed for curated composite '$($entry.Key)'."
-            }
+foreach ($entry in ($protectedEntries | Sort-Object Key)) {
+    $records = @($existingDepthLines | Where-Object {
+        if ([string]::IsNullOrWhiteSpace($_) -or $_.StartsWith("#", [StringComparison]::Ordinal)) {
+            return $false
         }
+        $parts = $_.Split("`t")
+        return $parts.Count -gt 1 -and $parts[1] -eq $entry.Key
+    })
+    $captureRecords = @($records | Where-Object { $_.StartsWith("C`t", [StringComparison]::Ordinal) })
+    $pageRecords = @($records | Where-Object { $_.StartsWith("P`t", [StringComparison]::Ordinal) })
+    $fragmentRecords = @($records | Where-Object { $_.StartsWith("F`t", [StringComparison]::Ordinal) })
+    if ($captureRecords.Count -ne 1 -or $pageRecords.Count -lt 1 -or $fragmentRecords.Count -lt 1) {
+        throw "Protected wall atlas records are incomplete for '$($entry.Key)'."
     }
 
-    $sha256 = (Get-FileHash -LiteralPath $atlasPath -Algorithm SHA256).Hash
-    $left = (-$entry.PivotX * $singleFragment.Width / $entry.PixelsPerUnit).ToString("R", $invariant)
-    $bottom = (-$entry.PivotY * $singleFragment.Height / $entry.PixelsPerUnit).ToString("R", $invariant)
-    $unityY = $packing.Height - $placement.Y - $singleFragment.Height
-    $manifestLines.Add((@(
-        "C", $entry.Key, $entry.MapperValue, $entry.MapperName, $entry.Skin,
-        $entry.View, 0, "false", 0, 0, 1, 1,
-        $entry.FragmentSignature, "placed", "4"
-    ) -join "`t"))
-    $manifestLines.Add((@(
-        "P", $entry.Key, 0, $relativeAtlasPath,
-        $packing.Width, $packing.Height, $sha256
-    ) -join "`t"))
-    $manifestLines.Add((@(
-        "F", $entry.Key, 0, 0,
-        $placement.X, $unityY, $singleFragment.Width, $singleFragment.Height,
-        0, 0, $left, $bottom, 0
-    ) -join "`t"))
-    $fragmentCount++
-    $atlasCount++
+    foreach ($pageRecord in $pageRecords) {
+        $parts = $pageRecord.Split("`t")
+        if ($parts.Count -ne 7) {
+            throw "Protected wall atlas page record is invalid for '$($entry.Key)'."
+        }
+        $relativeAtlasPath = $parts[3]
+        if ([IO.Path]::IsPathRooted($relativeAtlasPath) -or
+            $relativeAtlasPath.Contains("..") -or $relativeAtlasPath.Contains(':')) {
+            throw "Unsafe protected wall atlas path '$relativeAtlasPath'."
+        }
+        $atlasPath = [IO.Path]::GetFullPath((Join-Path $TargetDirectory $relativeAtlasPath))
+        if (-not (Test-Path -LiteralPath $atlasPath -PathType Leaf)) {
+            throw "Protected wall atlas page is missing: $atlasPath"
+        }
+        $image = Read-BgraImage $atlasPath
+        if ($image.Width -ne [int]$parts[4] -or $image.Height -ne [int]$parts[5]) {
+            throw "Protected wall atlas dimensions differ for '$($entry.Key)'."
+        }
+        $sha256 = (Get-FileHash -LiteralPath $atlasPath -Algorithm SHA256).Hash
+        if ($sha256 -ne $parts[6]) {
+            throw "Protected wall atlas hash differs for '$($entry.Key)'."
+        }
+        [void]$generatedAtlasPaths.Add($atlasPath)
+    }
+
+    $manifestLines.Add($captureRecords[0])
+    foreach ($record in $pageRecords) { $manifestLines.Add($record) }
+    foreach ($record in $fragmentRecords) { $manifestLines.Add($record) }
+    $fragmentCount += $fragmentRecords.Count
+    $atlasCount += $pageRecords.Count
 }
 
 $manifestPath = Join-Path $TargetDirectory $manifestName

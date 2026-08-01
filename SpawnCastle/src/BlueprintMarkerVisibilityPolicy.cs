@@ -2,9 +2,9 @@ namespace SpawnCastle
 {
     internal static class BlueprintMarkerVisibilityPolicy
     {
-        // Test switch: keep this false to avoid creating any colored marker
-        // objects. Changing this one value restores the retained marker policy.
-        public static readonly bool GroundMarkersEnabled = false;
+        // Markers are available again, while the visibility thresholds keep
+        // full-size opaque Blueprint icons uncluttered.
+        public static readonly bool GroundMarkersEnabled = true;
 
         private const float FullIconScale = 1f;
         private const float LowIconAlpha = 0.25f;

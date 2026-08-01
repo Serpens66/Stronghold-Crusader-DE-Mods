@@ -111,13 +111,6 @@ function Test-IsNumberedStairEntry($Entry) {
     return $Entry.MapperName -match '^MAPPER_STAIR[1-6]$'
 }
 
-function Test-IsProtectedCompositeEntry($Entry) {
-    return $Entry.MapperName -eq "MAPPER_WALL" -or
-        $Entry.MapperName -eq "MAPPER_WOODWALL" -or
-        $Entry.MapperName -eq "MAPPER_CRENAL" -or
-        $Entry.MapperName -eq "MAPPER_CRENAL2"
-}
-
 function Unescape-FragmentField([string]$Value) {
     return $Value.Replace("%3D", "=").Replace("%0A", "`n").Replace("%0D", "`r").Replace("%09", "`t").Replace("%25", "%")
 }
@@ -390,21 +383,29 @@ if (Test-Path -LiteralPath $libraryManifest -PathType Leaf) {
         })
     }
 }
+foreach ($entry in $libraryEntries) {
+    $pngPath = Join-Path $LibraryDirectory $entry.PngFile
+    if (-not (Test-Path -LiteralPath $pngPath -PathType Leaf)) {
+        throw "Production composite is missing and automatic PNG import is disabled: $($entry.Key)"
+    }
+    $image = [Drawing.Image]::FromFile($pngPath)
+    try {
+        if ($entry.AlphaX + $entry.AlphaWidth -gt $image.Width -or
+            $entry.AlphaY + $entry.AlphaHeight -gt $image.Height) {
+            throw "Production composite bounds exceed PNG dimensions: $($entry.Key)"
+        }
+    }
+    finally {
+        $image.Dispose()
+    }
+}
 
 $merged = @{}
 foreach ($entry in $libraryEntries) {
     $merged[$entry.Key] = $entry
 }
-foreach ($entry in $capturedEntries) {
-    if (Test-IsProtectedCompositeEntry $entry) {
-        if (-not $merged.ContainsKey($entry.Key)) {
-            throw "Protected production composite is missing and will not be regenerated: $($entry.Key)"
-        }
-        continue
-    }
-    Copy-Item -LiteralPath (Join-Path $CapturedDirectory $entry.PngFile) -Destination (Join-Path $LibraryDirectory $entry.PngFile) -Force
-    $merged[$entry.Key] = $entry
-}
+# Capture composites are validated above but deliberately never copied. The
+# production manifest and its root PNGs are the only accepted composite set.
 
 if ($fragmentManifestPresence.Count -eq 3) {
     $converter = Join-Path $PSScriptRoot "Convert-BlueprintFragmentsToAtlases.ps1"
@@ -424,20 +425,7 @@ $lines += $merged.Values | Sort-Object Key | ForEach-Object { $_.Line }
     (($lines -join "`r`n") + "`r`n"),
     [Text.UTF8Encoding]::new($false))
 
-# Numbered stair composites are legacy capture artifacts. Runtime lookup and
-# production assets always use the shared MAPPER_STAIR key and filenames.
-$resolvedLibrary = [IO.Path]::GetFullPath($LibraryDirectory).TrimEnd('\') + '\'
-foreach ($legacyStair in Get-ChildItem -LiteralPath $LibraryDirectory -File | Where-Object {
-    $_.Name -match '^MAPPER_STAIR[1-6]_.*\.png$'
-}) {
-    $legacyPath = [IO.Path]::GetFullPath($legacyStair.FullName)
-    if (-not $legacyPath.StartsWith($resolvedLibrary, [StringComparison]::OrdinalIgnoreCase)) {
-        throw "Refusing to remove unsafe numbered stair path '$legacyPath'."
-    }
-    Remove-Item -LiteralPath $legacyPath -Force
-}
-
-Write-ImportLog "Validated and imported $($capturedEntries.Count) Blueprint capture(s)."
+Write-ImportLog "Validated $($capturedEntries.Count) staged Blueprint composite(s); production PNGs remained unchanged."
 if ($fragmentManifestPresence.Count -eq 3) {
     Write-ImportLog "Validated and imported $($capturedFragmentCaptures.Count) depth-atlas capture(s)."
 }

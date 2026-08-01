@@ -28,7 +28,6 @@ namespace SpawnCastle
         private BlueprintRenderer renderer;
         private BlueprintBuildingSizeCalibration sizeCalibration;
         private BlueprintBuildingImageLibrary buildingImageLibrary;
-        private BlueprintBuildingPreviewCapture buildingPreviewCapture;
         private BlueprintLayout layout;
         private int layoutKeepX = int.MinValue;
         private int layoutKeepY = int.MinValue;
@@ -72,15 +71,8 @@ namespace SpawnCastle
                 settings ?? throw new ArgumentNullException(nameof(settings));
             sizeCalibration =
                 new BlueprintBuildingSizeCalibration(log);
-            BlueprintBuildingPreviewCapture.EnableBlueprintImageGeneration =
-                settings.BlueprintFragmentCaptureEnabled;
             buildingImageLibrary =
                 new BlueprintBuildingImageLibrary(log);
-            if (BlueprintBuildingPreviewCapture.EnableBlueprintImageGeneration)
-            {
-                buildingPreviewCapture =
-                    new BlueprintBuildingPreviewCapture(log, buildingImageLibrary);
-            }
             renderer = new BlueprintRenderer(
                 log,
                 sizeCalibration,
@@ -200,16 +192,6 @@ namespace SpawnCastle
             // stays responsive while exact building layers appear progressively.
             if (buildingImageLibrary.ProcessOnePendingDepthLoad())
                 RefreshHud();
-
-            // The development capture path is omitted entirely unless its
-            // central switch was enabled before building the plugin.
-            if (buildingPreviewCapture != null &&
-                buildingPreviewCapture.Tick() &&
-                blueprintVisible &&
-                layout != null)
-            {
-                RenderCurrentLayout("exact Vanilla Blueprint image captured");
-            }
 
             if (!settings.IsBlueprintMode)
                 return;
