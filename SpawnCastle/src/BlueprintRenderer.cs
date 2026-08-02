@@ -464,7 +464,7 @@ namespace SpawnCastle
                 filter.sharedMesh = layer.Mesh;
                 MeshRenderer renderer = layerObject.AddComponent<MeshRenderer>();
                 renderer.sharedMaterial = layer.Material;
-                int targetRow = BlueprintFragmentCaptureCatalog.RemapDepthRow(
+                int targetRow = BlueprintSortingPolicy.RemapDepthRow(
                     visual.CaptureMinimumRow,
                     visual.CaptureMaximumRow,
                     minimumDepthRow,
@@ -1523,7 +1523,7 @@ namespace SpawnCastle
             renderer.sprite = sprite;
             renderer.color = new Color(1f, 1f, 1f, iconAlpha);
             alphaRenderers.Add(renderer);
-            int middleDepthRow = BlueprintFragmentCaptureCatalog
+            int middleDepthRow = BlueprintSortingPolicy
                 .GetMiddleDepthRow(minimumDepthRow, maximumDepthRow);
             renderer.sortingOrder = flattenedLandscape
                 ? BlueprintSortingPolicy.FlattenedIconSortingOrder

@@ -1,5 +1,4 @@
 using AIVParser.Core;
-using BepInEx;
 using BepInEx.Logging;
 using CrusaderDE;
 using SHCDESE.Interop;
@@ -24,8 +23,8 @@ namespace SpawnCastle
         private const int StableSamplesRequired = 3;
         private const int ScanRadius = 64;
         private const int TilemapSize = 800;
-        private const string FileName =
-            "SpawnCastle_Serp.BlueprintBuildingSizes.tsv";
+        private const string RuntimeDataDirectoryName = "RuntimeData";
+        private const string FileName = "BlueprintBuildingSizes.tsv";
 
         private readonly ManualLogSource log;
         private readonly string filePath;
@@ -43,7 +42,20 @@ namespace SpawnCastle
         public BlueprintBuildingSizeCalibration(ManualLogSource log)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
-            filePath = Path.Combine(Paths.ConfigPath, FileName);
+            string assemblyDirectory = Path.GetDirectoryName(
+                typeof(BlueprintBuildingSizeCalibration).Assembly.Location);
+            if (string.IsNullOrWhiteSpace(assemblyDirectory))
+            {
+                throw new InvalidOperationException(
+                    "The SpawnCastle plugin directory could not be resolved.");
+            }
+
+            // Calibration is runtime data owned by this plugin, not a BepInEx
+            // option. The overlay deployment preserves this directory.
+            filePath = Path.Combine(
+                assemblyDirectory,
+                RuntimeDataDirectoryName,
+                FileName);
             Load();
         }
 

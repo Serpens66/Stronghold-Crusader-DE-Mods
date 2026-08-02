@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Text;
 
 namespace SpawnCastle
 {
@@ -198,58 +197,6 @@ namespace SpawnCastle
 
             errors = problems;
             return valid;
-        }
-
-        public static string Serialize(
-            IEnumerable<BlueprintDepthAtlasCaptureDefinition> captures)
-        {
-            var output = new StringBuilder();
-            output.Append(ManifestHeader).Append("\r\n");
-            foreach (BlueprintDepthAtlasCaptureDefinition capture in captures
-                .OrderBy(value => value.Key, StringComparer.Ordinal))
-            {
-                output.Append("C\t").Append(capture.Key).Append('\t')
-                    .Append(capture.MapperValue).Append('\t')
-                    .Append(capture.MapperName).Append('\t')
-                    .Append(capture.Skin).Append('\t')
-                    .Append(capture.View).Append('\t')
-                    .Append(capture.CaptureRotation).Append('\t')
-                    .Append(capture.NormalizedHorizontalFlip ? "true" : "false").Append('\t')
-                    .Append(capture.MinimumRow).Append('\t')
-                    .Append(capture.MaximumRow).Append('\t')
-                    .Append(capture.FragmentCount).Append('\t')
-                    .Append(capture.PageCount).Append('\t')
-                    .Append(capture.FragmentSignature ?? string.Empty).Append('\t')
-                    .Append(capture.CaptureSource ?? string.Empty).Append('\t')
-                    .Append(capture.PlacedVisualVersion ?? string.Empty).Append("\r\n");
-                foreach (BlueprintDepthAtlasPageDefinition page in capture.Pages
-                    .OrderBy(value => value.PageIndex))
-                {
-                    output.Append("P\t").Append(capture.Key).Append('\t')
-                        .Append(page.PageIndex).Append('\t')
-                        .Append(page.PngFile).Append('\t')
-                        .Append(page.Width).Append('\t')
-                        .Append(page.Height).Append('\t')
-                        .Append(page.Sha256).Append("\r\n");
-                }
-                foreach (BlueprintDepthAtlasFragmentDefinition fragment in capture.Fragments
-                    .OrderBy(value => value.Index))
-                {
-                    output.Append("F\t").Append(capture.Key).Append('\t')
-                        .Append(fragment.Index).Append('\t')
-                        .Append(fragment.PageIndex).Append('\t')
-                        .Append(fragment.X).Append('\t')
-                        .Append(fragment.Y).Append('\t')
-                        .Append(fragment.Width).Append('\t')
-                        .Append(fragment.Height).Append('\t')
-                        .Append(fragment.RowOffset).Append('\t')
-                        .Append(fragment.SortingOffset).Append('\t')
-                        .Append(fragment.PositionOffsetX.ToString("R", CultureInfo.InvariantCulture)).Append('\t')
-                        .Append(fragment.PositionOffsetY.ToString("R", CultureInfo.InvariantCulture)).Append('\t')
-                        .Append(fragment.PositionOffsetZ.ToString("R", CultureInfo.InvariantCulture)).Append("\r\n");
-                }
-            }
-            return output.ToString();
         }
 
         private static string Validate(

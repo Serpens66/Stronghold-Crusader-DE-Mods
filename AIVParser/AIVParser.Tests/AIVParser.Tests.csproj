@@ -15,8 +15,6 @@
              Link="SpawnCastle\BlueprintBuildingIconCatalog.cs" />
     <Compile Include="..\..\SpawnCastle\src\BlueprintBuildingCaptureCatalog.cs"
              Link="SpawnCastle\BlueprintBuildingCaptureCatalog.cs" />
-    <Compile Include="..\..\SpawnCastle\src\BlueprintFragmentCaptureCatalog.cs"
-             Link="SpawnCastle\BlueprintFragmentCaptureCatalog.cs" />
     <Compile Include="..\..\SpawnCastle\src\BlueprintMarkerVisibilityPolicy.cs"
              Link="SpawnCastle\BlueprintMarkerVisibilityPolicy.cs" />
     <Compile Include="..\..\SpawnCastle\src\BlueprintSortingPolicy.cs"

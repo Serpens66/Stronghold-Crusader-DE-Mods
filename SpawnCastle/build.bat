@@ -79,7 +79,7 @@ if "%BUILD_EXIT_CODE%"=="0" (
     goto copy_failed
   )
 
-  rem Overlay managed mod files so runtime-created LobbyModSettings survive rebuilds.
+  rem Overlay managed files so Script Extender Msgpack settings survive rebuilds.
   xcopy "!LOCAL_PLUGIN_DIR!" "!GAME_PLUGIN_DIR!\" /E /I /Q /Y
   if errorlevel 1 goto copy_failed
   echo Plugin kopiert; vorhandene Laufzeitdaten wurden beibehalten.

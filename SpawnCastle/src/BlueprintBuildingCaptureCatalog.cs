@@ -4,8 +4,6 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
-using System.Linq;
-using System.Text;
 
 namespace SpawnCastle
 {
@@ -294,38 +292,6 @@ namespace SpawnCastle
                 stairNumber > 0;
         }
 
-        public static bool IsBuildingPreviewFragment(
-            string? spriteName,
-            string? textureName,
-            float pixelWidth,
-            float pixelHeight)
-        {
-            if (string.IsNullOrWhiteSpace(spriteName) ||
-                string.IsNullOrWhiteSpace(textureName))
-            {
-                return false;
-            }
-
-            // The colored 64x32 placement diamonds do not come from Vanilla's
-            // tile atlas. Keep even 64x32 tile-atlas slices because bridges and
-            // other low buildings use them as real visual fragments.
-            return spriteName!.StartsWith("tile_", StringComparison.OrdinalIgnoreCase) &&
-                textureName!.IndexOf("Tile", StringComparison.OrdinalIgnoreCase) >= 0;
-        }
-
-        public static float CalculateNormalizedPivot(
-            float groundCoordinate,
-            float minimumCoordinate,
-            int pixelCount,
-            float pixelsPerUnit)
-        {
-            if (pixelCount <= 0 || pixelsPerUnit <= 0f)
-                throw new ArgumentOutOfRangeException(nameof(pixelCount));
-
-            return (groundCoordinate - minimumCoordinate) *
-                pixelsPerUnit / pixelCount;
-        }
-
         public static IReadOnlyList<BlueprintCaptureManifestEntry> ParseManifest(
             IEnumerable<string> lines,
             out IReadOnlyList<string> errors)
@@ -386,38 +352,6 @@ namespace SpawnCastle
 
             errors = problems;
             return entries;
-        }
-
-        public static string SerializeManifest(
-            IEnumerable<BlueprintCaptureManifestEntry> entries)
-        {
-            var output = new StringBuilder();
-            output.Append("# formatVersion\tmapperValue\tmapperName\tskin\tview\tpngFile\tpivotX\tpivotY\tppu\talphaX\talphaY\talphaWidth\talphaHeight\tfragmentSignature\r\n");
-            foreach (BlueprintCaptureManifestEntry entry in entries
-                .OrderBy(value => value.MapperValue)
-                .ThenBy(value => value.Skin)
-                .ThenBy(value => value.View))
-            {
-                output.AppendFormat(
-                    CultureInfo.InvariantCulture,
-                    "{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6:R}\t{7:R}\t{8:R}\t{9}\t{10}\t{11}\t{12}\t{13}\r\n",
-                    entry.FormatVersion,
-                    entry.MapperValue,
-                    entry.MapperName,
-                    entry.Skin,
-                    entry.View,
-                    entry.PngFile,
-                    entry.PivotX,
-                    entry.PivotY,
-                    entry.PixelsPerUnit,
-                    entry.AlphaX,
-                    entry.AlphaY,
-                    entry.AlphaWidth,
-                    entry.AlphaHeight,
-                    entry.FragmentSignature);
-            }
-
-            return output.ToString();
         }
 
         public static string? ValidateEntry(BlueprintCaptureManifestEntry entry)

@@ -13,9 +13,10 @@ The dropdown scans:
 - the game's `CustomLords` and `ExtendedLords` directories
 - the official Castle & CPU Lord Editor's `StreamingAssets/Villages` directory
 
-Mode, selection, and the optional Blueprint key are stored locally in
-`BepInEx/config/SpawnCastle_Serp.cfg`. They are never synchronized to other
-players.
+All five in-game options (mode, selection, Blueprint key, icon scale, and icon
+alpha) are stored locally in
+`BepInEx/plugins/SpawnCastle_Serp/LobbyModSettings/SpawnCastle_Serp.msgpack`.
+They are never synchronized to other players.
 
 ## Visual Blueprint mode
 
@@ -65,18 +66,16 @@ Because Blueprint mode does not change simulation state, it works on new maps,
 loaded savegames, and multiplayer. Every multiplayer client independently selects
 and displays its own local file.
 
-The development pipeline that created the bundled PNG files is disabled by the
-`[Development] CaptureBlueprintFragments` setting by default. Normal-view
-Blueprints progressively load compact, versioned depth atlases and render each
+The bundled production image library contains complete composites for flattened
+view and compact, versioned depth atlases for normal view. Runtime code only
+reads these assets; it does not capture, generate, migrate, or import Blueprint
+images. Normal-view Blueprints progressively load the atlases and render each
 depth group as a reusable mesh. Invalid atlas pages leave only the affected
 colored footprint visible; they never fall back to an incorrectly layered
 composite. Flat view deliberately continues using the composite through a
 footprint mesh. The single-cell Wall, Woodwall, Crenal, and Crenal2 symbols use
-their complete finished-structure PNG as a protected source for regular
-one-fragment depth-atlas meshes. Numbered stairs share one PNG per ascending
-direction. The complete capture, validation, migration, and import procedure is
-documented in
-[`BlueprintFragmentCapture.md`](BlueprintFragmentCapture.md).
+regular one-fragment depth-atlas meshes. Numbered stairs share one PNG per
+ascending direction.
 
 ## Blueprint hotkey implementation
 
@@ -114,16 +113,16 @@ all three Barracks 5/10, Engineers and Tunnelers Guild 5/7.5, and Oil Smelter
 reservations, while each image remains anchored to its original 5x5 or 4x4
 building core. After three stable samples a
 measurement for any other supported building is stored in
-`BepInEx/config/SpawnCastle_Serp.BlueprintBuildingSizes.tsv`. A visible
-Blueprint is refreshed immediately. Every rendered building should have either
-a usable measurement or a fixed reserved-area width. If neither exists but a
-valid icon and footprint are known, SpawnCastle reports an error and estimates
-the normal-view scale by fitting the complete icon width to that footprint. Only
-when even this estimate is not meaningful is that building icon skipped; the
-Blueprint continues rendering without throwing. The preferred uniform
-normal-view scale covers both the measured width and height. Clean Help images
-use the measurement without a generic correction; build-menu image fallbacks
-retain their small visual correction.
+`BepInEx/plugins/SpawnCastle_Serp/RuntimeData/BlueprintBuildingSizes.tsv`.
+A visible Blueprint is refreshed immediately. Every rendered building should
+have either a usable measurement or a fixed reserved-area width. If neither
+exists but a valid icon and footprint are known, SpawnCastle reports an error
+and estimates the normal-view scale by fitting the complete icon width to that
+footprint. Only when even this estimate is not meaningful is that building icon
+skipped; the Blueprint continues rendering without throwing. The preferred
+uniform normal-view scale covers both the measured width and height. Clean Help
+images use the measurement without a generic correction; build-menu image
+fallbacks retain their small visual correction.
 
 The Crusader, Arabian, and Bedouin Outposts are known footprint-5 calibration
 candidates even though they are not AIV Blueprint icon entries. Their map-editor
@@ -205,8 +204,8 @@ native callback because Vanilla sets it later in the managed loading sequence.
 Loading a savegame is also excluded to prevent duplicate castles.
 
 The development `build.bat` overlays deployed files instead of deleting the
-installed plugin directory. This preserves the local BepInEx configuration
-across rebuilds.
+installed plugin directory. This preserves the local Script Extender Msgpack
+settings across rebuilds.
 
 Technical reverse-engineering and implementation details are documented in
 [`AISpawnCastle.md`](AISpawnCastle.md).

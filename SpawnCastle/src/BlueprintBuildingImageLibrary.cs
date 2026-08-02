@@ -18,7 +18,6 @@ namespace SpawnCastle
 
         private readonly ManualLogSource log;
         private readonly string libraryDirectory;
-        private readonly string capturedDirectory;
         private readonly Dictionary<string, LoadedEntry> entries =
             new Dictionary<string, LoadedEntry>(StringComparer.Ordinal);
         private readonly Dictionary<string, Sprite> sprites =
@@ -44,17 +43,12 @@ namespace SpawnCastle
             string assemblyDirectory = Path.GetDirectoryName(
                 typeof(BlueprintBuildingImageLibrary).Assembly.Location);
             libraryDirectory = Path.Combine(assemblyDirectory, "BlueprintImages");
-            capturedDirectory = Path.Combine(libraryDirectory, "_Captured");
             Reload();
         }
 
         public event Action<string> DepthVisualLoaded;
 
-        // Retained only for the uncompiled manual capture source.
-        public string CapturedDirectory => capturedDirectory;
-        public int PendingDepthLoadCount => pendingDepthLoads.Count;
-
-        public void Reload()
+        private void Reload()
         {
             Stopwatch stopwatch = Stopwatch.StartNew();
             entries.Clear();
@@ -355,17 +349,9 @@ namespace SpawnCastle
             return true;
         }
 
-        public bool Contains(BlueprintCaptureRequest request)
-        {
-            return entries.ContainsKey(request.Key);
-        }
-
-        public bool ContainsFragmentCapture(BlueprintCaptureRequest request)
-        {
-            return depthCaptures.ContainsKey(request.Key);
-        }
-
-        public bool ContainsFragmentCapture(BlueprintCaptureRequest request, string requiredSource)
+        private bool HasRequiredDepthCapture(
+            BlueprintCaptureRequest request,
+            string requiredSource)
         {
             if (depthCaptures.TryGetValue(request.Key, out BlueprintDepthAtlasCaptureDefinition depth))
             {
@@ -533,7 +519,7 @@ namespace SpawnCastle
                     if (!entries.ContainsKey(request.Key))
                         missing.Add(request.Key);
                     bool requiresPlaced = BlueprintBuildingCaptureCatalog.RequiresPlacedCapture(request.MapperName);
-                    if (!ContainsFragmentCapture(
+                    if (!HasRequiredDepthCapture(
                             request,
                             requiresPlaced ? "placed" : string.Empty))
                         missingDepth.Add(request.Key);

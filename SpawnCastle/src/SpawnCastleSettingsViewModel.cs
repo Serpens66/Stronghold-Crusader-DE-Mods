@@ -1,5 +1,6 @@
-using BepInEx.Configuration;
 using BepInEx.Logging;
+using SHCDESE.API.Components.ModManager;
+using SHCDESE.API.Components.Network;
 using SHCDESE.NoesisUtil;
 using SHCDESE.ViewModels;
 using System;
@@ -20,11 +21,9 @@ namespace SpawnCastle
     {
         private readonly ManualLogSource log;
         private readonly AivFileCatalog catalog = new AivFileCatalog();
-        private readonly ConfigEntry<SpawnCastleMode> modeConfig;
-        private readonly ConfigEntry<string> selectedCastleConfig;
-        private readonly ConfigEntry<int> hotkeyConfig;
-        private readonly ConfigEntry<double> blueprintIconScaleConfig;
-        private readonly ConfigEntry<double> blueprintIconAlphaConfig;
+        private readonly LobbyModSettingsStorage storage;
+        private readonly PersistedSettings persistedSettings =
+            new PersistedSettings();
         private SpawnCastleMode mode;
         private string selectedCastle;
         private KeyCode blueprintHotkey;
@@ -34,11 +33,15 @@ namespace SpawnCastle
 
         public SpawnCastleSettingsViewModel(
             ManualLogSource log,
-            ConfigFile config)
+            string pluginAssemblyLocation)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
-            if (config == null)
-                throw new ArgumentNullException(nameof(config));
+            if (string.IsNullOrWhiteSpace(pluginAssemblyLocation))
+            {
+                throw new ArgumentException(
+                    "The plugin assembly location is required.",
+                    nameof(pluginAssemblyLocation));
+            }
 
             foreach (SpawnCastleMode option in Enum.GetValues(typeof(SpawnCastleMode)))
                 ModeOptions.Add(option);
@@ -48,37 +51,22 @@ namespace SpawnCastle
             string defaultCastle = CastleOptions.Count > 0
                 ? CastleOptions[0]
                 : string.Empty;
-            modeConfig = config.Bind(
-                "General",
-                "Mode",
-                SpawnCastleMode.Disabled,
-                "Disabled, visual Blueprint, or native singleplayer Spawn.");
-            selectedCastleConfig = config.Bind(
-                "General",
-                "SelectedCastle",
-                defaultCastle,
-                "Local AIVJSON file name used by Blueprint and Spawn.");
-            hotkeyConfig = config.Bind(
-                "Blueprint",
-                "ToggleHotkey",
-                (int)KeyCode.None,
-                "Unity KeyCode used to toggle the local blueprint. 0 means unassigned.");
-            blueprintIconScaleConfig = config.Bind(
-                "Blueprint",
-                "IconScale",
-                1.0,
-                "Scale of Blueprint icons in normal and flattened map views.");
-            blueprintIconAlphaConfig = config.Bind(
-                "Blueprint",
-                "IconAlpha",
-                0.3,
-                "Opacity of Blueprint building and construction icons.");
-            mode = NormalizeMode(modeConfig.Value);
-            selectedCastle = NormalizeCastle(selectedCastleConfig.Value, defaultCastle);
-            blueprintHotkey = NormalizeKeyCode(hotkeyConfig.Value);
-            blueprintIconScale = NormalizeIconScale(blueprintIconScaleConfig.Value);
-            blueprintIconAlpha = NormalizeIconAlpha(blueprintIconAlphaConfig.Value);
-            PersistNormalizedValues();
+            storage = new LobbyModSettingsStorage(
+                pluginAssemblyLocation,
+                SpawnCastlePlugin.PluginGuid);
+            storage.Load(persistedSettings);
+
+            mode = NormalizeMode(persistedSettings.Mode);
+            selectedCastle = NormalizeCastle(
+                persistedSettings.SelectedCastle,
+                defaultCastle);
+            blueprintHotkey = NormalizeKeyCode(
+                persistedSettings.BlueprintHotkey);
+            blueprintIconScale = NormalizeIconScale(
+                persistedSettings.BlueprintIconScale);
+            blueprintIconAlpha = NormalizeIconAlpha(
+                persistedSettings.BlueprintIconAlpha);
+            PersistCurrentValues();
 
             AssignHotkeyCommand = new RelayCommand(BeginHotkeyCapture);
             ClearHotkeyCommand = new RelayCommand(ClearHotkey);
@@ -116,7 +104,7 @@ namespace SpawnCastle
                     return;
 
                 mode = normalized;
-                modeConfig.Value = mode;
+                PersistCurrentValues();
                 OnPropertyChanged(nameof(Mode));
                 OnPropertyChanged(nameof(IsBlueprintMode));
                 OnPropertyChanged(nameof(IsSpawnMode));
@@ -135,7 +123,7 @@ namespace SpawnCastle
                     return;
 
                 selectedCastle = normalized;
-                selectedCastleConfig.Value = selectedCastle;
+                PersistCurrentValues();
                 OnPropertyChanged(nameof(SelectedCastle));
                 Shared.DebugLogHelper.LogInfo(
                     log,
@@ -160,7 +148,7 @@ namespace SpawnCastle
                     return;
 
                 blueprintIconScale = normalized;
-                blueprintIconScaleConfig.Value = blueprintIconScale;
+                PersistCurrentValues();
                 OnPropertyChanged(nameof(BlueprintIconScale));
                 OnPropertyChanged(nameof(BlueprintIconScaleText));
                 BlueprintVisualSettingsChanged?.Invoke();
@@ -177,7 +165,7 @@ namespace SpawnCastle
                     return;
 
                 blueprintIconAlpha = normalized;
-                blueprintIconAlphaConfig.Value = blueprintIconAlpha;
+                PersistCurrentValues();
                 OnPropertyChanged(nameof(BlueprintIconAlpha));
                 OnPropertyChanged(nameof(BlueprintIconAlphaText));
                 BlueprintVisualSettingsChanged?.Invoke();
@@ -421,7 +409,7 @@ namespace SpawnCastle
                 return;
 
             blueprintHotkey = key;
-            hotkeyConfig.Value = (int)blueprintHotkey;
+            PersistCurrentValues();
             OnPropertyChanged(nameof(BlueprintHotkey));
             OnPropertyChanged(nameof(HotkeyDisplayText));
             Shared.DebugLogHelper.LogInfo(
@@ -467,7 +455,7 @@ namespace SpawnCastle
             if (double.IsNaN(value) || double.IsInfinity(value))
                 return 1.0;
 
-            // Keep malformed config values inside the range exposed by the HUD.
+            // Keep malformed persisted values inside the range exposed by the HUD.
             return Math.Round(
                 Math.Max(0.05, Math.Min(1.0, value)),
                 2,
@@ -485,13 +473,14 @@ namespace SpawnCastle
                 MidpointRounding.AwayFromZero);
         }
 
-        private void PersistNormalizedValues()
+        private void PersistCurrentValues()
         {
-            modeConfig.Value = mode;
-            selectedCastleConfig.Value = selectedCastle;
-            hotkeyConfig.Value = (int)blueprintHotkey;
-            blueprintIconScaleConfig.Value = blueprintIconScale;
-            blueprintIconAlphaConfig.Value = blueprintIconAlpha;
+            persistedSettings.Mode = mode;
+            persistedSettings.SelectedCastle = selectedCastle;
+            persistedSettings.BlueprintHotkey = (int)blueprintHotkey;
+            persistedSettings.BlueprintIconScale = blueprintIconScale;
+            persistedSettings.BlueprintIconAlpha = blueprintIconAlpha;
+            storage.Save(persistedSettings);
         }
 
         private static string GetKeyDisplayName(KeyCode key)
@@ -532,6 +521,27 @@ namespace SpawnCastle
                 add { }
                 remove { }
             }
+        }
+
+        private sealed class PersistedSettings
+        {
+            // These attributes are storage markers only. This private model is
+            // never registered for lobby sync, so all options remain local.
+            [SyncPerPlayer]
+            public SpawnCastleMode Mode { get; set; } =
+                SpawnCastleMode.Disabled;
+
+            [SyncPerPlayer]
+            public string SelectedCastle { get; set; } = string.Empty;
+
+            [SyncPerPlayer]
+            public int BlueprintHotkey { get; set; } = (int)KeyCode.None;
+
+            [SyncPerPlayer]
+            public double BlueprintIconScale { get; set; } = 1.0;
+
+            [SyncPerPlayer]
+            public double BlueprintIconAlpha { get; set; } = 0.3;
         }
     }
 }

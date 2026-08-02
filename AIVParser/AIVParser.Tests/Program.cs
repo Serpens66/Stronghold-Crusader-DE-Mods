@@ -26,12 +26,9 @@ internal static class Program
             ("Expand reserved Blueprint grounds without moving icons", TestReservedBlueprintGrounds),
             ("Exclude Blueprint placement-ground sprites", TestBlueprintPreviewSpriteFilter),
             ("Align Blueprint visuals to footprint centres", TestBuildingIconOffsets),
-            ("Compute exact Blueprint capture pivots", TestBlueprintCapturePivots),
-            ("Filter Vanilla Blueprint preview fragments", TestBlueprintCaptureFragmentFilter),
             ("Exclude ground-only Blueprint capture variants", TestBlueprintCaptureRequirements),
             ("Resolve Blueprint capture skins and views", TestBlueprintCaptureRouting),
-            ("Round-trip and validate Blueprint capture manifests", TestBlueprintCaptureManifest),
-            ("Round-trip Blueprint depth fragment manifests", TestBlueprintFragmentManifest),
+            ("Parse and validate Blueprint image manifests", TestBlueprintCaptureManifest),
             ("Remap Blueprint depth rows", TestBlueprintDepthRows),
             ("Choose Blueprint sorting orders", TestBlueprintSortingPolicies),
             ("Toggle Blueprint ground markers from icon visibility", TestBlueprintMarkerVisibility),
@@ -194,46 +191,6 @@ internal static class Program
             -3f,
             SpawnCastle.BlueprintBuildingIconCatalog
                 .ScaleCalibratedVisualOffset(-1f, 2f, 6f));
-    }
-
-    private static void TestBlueprintCapturePivots()
-    {
-        AssertEqual(
-            0.5f,
-            SpawnCastle.BlueprintBuildingCaptureCatalog
-                .CalculateNormalizedPivot(1.25f, 0f, 160, 64f));
-        AssertEqual(
-            0.25f,
-            SpawnCastle.BlueprintBuildingCaptureCatalog
-                .CalculateNormalizedPivot(-0.5f, -1f, 128, 64f));
-    }
-
-    private static void TestBlueprintCaptureFragmentFilter()
-    {
-        AssertEqual(
-            true,
-            SpawnCastle.BlueprintBuildingCaptureCatalog
-                .IsBuildingPreviewFragment(
-                    "tile_castle 123",
-                    "AllTileSprites",
-                    64f,
-                    32f));
-        AssertEqual(
-            true,
-            SpawnCastle.BlueprintBuildingCaptureCatalog
-                .IsBuildingPreviewFragment(
-                    "tile_buildings2 45",
-                    "AllTileSprites",
-                    192f,
-                    160f));
-        AssertEqual(
-            false,
-            SpawnCastle.BlueprintBuildingCaptureCatalog
-                .IsBuildingPreviewFragment(
-                    "SpawnCastle_PlacementDiamond",
-                    "ConstructionOverlay",
-                    64f,
-                    32f));
     }
 
     private static void TestBlueprintCaptureRequirements()
@@ -488,8 +445,12 @@ internal static class Program
             AlphaHeight = 1,
             FragmentSignature = "0123456789ABCDEF"
         };
-        string serialized = SpawnCastle.BlueprintBuildingCaptureCatalog
-            .SerializeManifest([entry]);
+        string serialized =
+            "# formatVersion\tmapperValue\tmapperName\tskin\tview\tpngFile\t" +
+            "pivotX\tpivotY\tppu\talphaX\talphaY\talphaWidth\talphaHeight\t" +
+            "fragmentSignature\r\n" +
+            "2\t96\tMAPPER_CHURCH2\tIslamic\tDefault\tChurch2_Islamic.png\t" +
+            "0.45\t0.2\t64\t0\t0\t1\t1\t0123456789ABCDEF\r\n";
         IReadOnlyList<SpawnCastle.BlueprintCaptureManifestEntry> parsed =
             SpawnCastle.BlueprintBuildingCaptureCatalog.ParseManifest(
                 serialized.Split(["\r\n", "\n"], StringSplitOptions.None),
@@ -505,113 +466,27 @@ internal static class Program
             SpawnCastle.BlueprintBuildingCaptureCatalog.ValidateEntry(entry));
     }
 
-    private static void TestBlueprintFragmentManifest()
-    {
-        var capture = new SpawnCastle.BlueprintFragmentCaptureEntry
-        {
-            FormatVersion = SpawnCastle.BlueprintFragmentCaptureCatalog.CurrentFormatVersion,
-            MapperValue = 84,
-            MapperName = "MAPPER_ARMOURER",
-            Skin = SpawnCastle.BlueprintCaptureSkin.Generic,
-            View = SpawnCastle.BlueprintCaptureView.Default,
-            CaptureRotation = 1,
-            NormalizedHorizontalFlip = false,
-            FragmentCount = 1,
-            TileCount = 1,
-            MinimumRow = 100,
-            MaximumRow = 106,
-            FragmentSignature = "0123456789ABCDEF"
-        };
-        capture.Metadata["futureField"] = "tabs\tnewlines\r\nand=equals%";
-        var tile = new SpawnCastle.BlueprintFragmentTileEntry
-        {
-            FormatVersion = SpawnCastle.BlueprintFragmentCaptureCatalog.CurrentFormatVersion,
-            CaptureKey = capture.Key,
-            Index = 0
-        };
-        tile.Metadata["row"] = "100";
-        var fragment = new SpawnCastle.BlueprintFragmentImageEntry
-        {
-            FormatVersion = SpawnCastle.BlueprintFragmentCaptureCatalog.CurrentFormatVersion,
-            CaptureKey = capture.Key,
-            Index = 0,
-            PngFile = "Fragments/Armourer/fragment_000.png",
-            Sha256 = new string('A', 64),
-            Width = 256,
-            Height = 128,
-            PivotX = 0.5f,
-            PivotY = 0.25f,
-            PixelsPerUnit = 64f,
-            RowOffset = 3,
-            PositionOffsetX = -1.25f,
-            PositionOffsetY = 0.5f,
-            PositionOffsetZ = 0f
-        };
-
-        string captureText = SpawnCastle.BlueprintFragmentCaptureCatalog
-            .SerializeCaptures([capture]);
-        string tileText = SpawnCastle.BlueprintFragmentCaptureCatalog
-            .SerializeTiles([tile]);
-        string fragmentText = SpawnCastle.BlueprintFragmentCaptureCatalog
-            .SerializeFragments([fragment]);
-        AssertCrLfString(captureText);
-        AssertCrLfString(tileText);
-        AssertCrLfString(fragmentText);
-
-        IReadOnlyList<SpawnCastle.BlueprintFragmentCaptureEntry> captures =
-            SpawnCastle.BlueprintFragmentCaptureCatalog.ParseCaptures(
-                captureText.Split(["\r\n"], StringSplitOptions.None),
-                out IReadOnlyList<string> captureErrors);
-        IReadOnlyList<SpawnCastle.BlueprintFragmentTileEntry> tiles =
-            SpawnCastle.BlueprintFragmentCaptureCatalog.ParseTiles(
-                tileText.Split(["\r\n"], StringSplitOptions.None),
-                out IReadOnlyList<string> tileErrors);
-        IReadOnlyList<SpawnCastle.BlueprintFragmentImageEntry> fragments =
-            SpawnCastle.BlueprintFragmentCaptureCatalog.ParseFragments(
-                fragmentText.Split(["\r\n"], StringSplitOptions.None),
-                out IReadOnlyList<string> fragmentErrors);
-        AssertEqual(0, captureErrors.Count + tileErrors.Count + fragmentErrors.Count);
-        AssertEqual(1, captures.Count);
-        AssertEqual(1, tiles.Count);
-        AssertEqual(1, fragments.Count);
-        AssertEqual(capture.Metadata["futureField"],
-            captures[0].Metadata["futureField"]);
-        AssertEqual(fragment.PositionOffsetX, fragments[0].PositionOffsetX);
-
-        fragment.PngFile = "../unsafe.png";
-        AssertEqual(
-            "fragment PNG path is unsafe or missing.",
-            SpawnCastle.BlueprintFragmentCaptureCatalog.ValidateFragment(fragment));
-        fragment.PngFile = "Fragments/Armourer/fragment_000.png";
-        fragment.RowOffset = 7;
-        Assert(
-            !SpawnCastle.BlueprintFragmentCaptureCatalog.IsValidRowOffset(
-                capture,
-                fragment),
-            "An out-of-range fragment row offset was accepted.");
-    }
-
     private static void TestBlueprintDepthRows()
     {
         AssertEqual(
             203,
-            SpawnCastle.BlueprintFragmentCaptureCatalog.RemapDepthRow(
+            SpawnCastle.BlueprintSortingPolicy.RemapDepthRow(
                 100, 106, 200, 206, 3));
         AssertEqual(
             204,
-            SpawnCastle.BlueprintFragmentCaptureCatalog.GetMiddleDepthRow(
+            SpawnCastle.BlueprintSortingPolicy.GetMiddleDepthRow(
                 200, 208));
 
-        int rearWall = SpawnCastle.BlueprintFragmentCaptureCatalog
+        int rearWall = SpawnCastle.BlueprintSortingPolicy
             .RemapDepthRow(100, 106, 200, 206, 0);
-        int buildingMiddle = SpawnCastle.BlueprintFragmentCaptureCatalog
+        int buildingMiddle = SpawnCastle.BlueprintSortingPolicy
             .RemapDepthRow(100, 106, 200, 206, 3);
-        int frontWall = SpawnCastle.BlueprintFragmentCaptureCatalog
+        int frontWall = SpawnCastle.BlueprintSortingPolicy
             .RemapDepthRow(100, 106, 200, 206, 6);
         Assert(rearWall < buildingMiddle && buildingMiddle < frontWall,
             "Depth fragments do not sort between rear and front walls.");
 
-        int secondBuildingInSameRow = SpawnCastle.BlueprintFragmentCaptureCatalog
+        int secondBuildingInSameRow = SpawnCastle.BlueprintSortingPolicy
             .RemapDepthRow(100, 106, 200, 206, 3);
         AssertEqual(buildingMiddle, secondBuildingInSameRow);
         AssertEqual(
@@ -1771,14 +1646,6 @@ internal static class Program
         Assert(
             !withoutCrLf.Contains('\r') && !withoutCrLf.Contains('\n'),
             $"{Path.GetFileName(path)} contains non-CRLF line endings.");
-    }
-
-    private static void AssertCrLfString(string value)
-    {
-        string withoutCrLf = value.Replace("\r\n", string.Empty);
-        Assert(
-            !withoutCrLf.Contains('\r') && !withoutCrLf.Contains('\n'),
-            "Serialized manifest contains non-CRLF line endings.");
     }
 
     private static AivJsonDocument CreateValidDocument()

@@ -13,7 +13,7 @@ namespace SpawnCastle
 
         public const string PluginGuid = "SpawnCastle_Serp";
         public const string PluginName = "Spawn Castle";
-        public const string PluginVersion = "0.3.32";
+        public const string PluginVersion = "0.3.36";
 
         // The BepInEx component is destroyed during startup, so runtime state remains static.
         private static SpawnCastleRuntime runtime;
@@ -27,7 +27,7 @@ namespace SpawnCastle
             if (runtime != null)
                 return;
 
-            Settings = new SpawnCastleSettingsViewModel(Logger, Config);
+            Settings = new SpawnCastleSettingsViewModel(Logger, Info.Location);
             runtime = new SpawnCastleRuntime(Logger, Settings);
             CrusaderLibrary.Instance.LibraryLoaded += OnCrusaderLibraryLoaded;
             Shared.DebugLogHelper.LogInfo(
@@ -52,7 +52,7 @@ namespace SpawnCastle
                 Shared.DebugLogHelper.LogInfo(
                     Logger,
                     $"Registering local SpawnCastle settings: " +
-                    $"config={Config.ConfigFilePath}, mode={Settings.Mode}, " +
+                    $"storage=LobbyModSettings/{PluginGuid}.msgpack, mode={Settings.Mode}, " +
                     $"selection='{Settings.SelectedCastle}'.");
 
                 GameXAMLManagerAPI.Instance.RegisterLobbyModSettings(

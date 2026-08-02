@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Spawn Castle",
   "Description": "Displays a local visual AIVJSON castle blueprint or spawns it through the game's native AIV pipeline.",
-  "Version": "0.3.32",
+  "Version": "0.3.36",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
@@ -376,6 +376,21 @@
       "Changes": [
         "Restored Vanilla's unified display height for colored ground markers and building anchors in the flattened Blueprint view.",
         "Kept the normal Blueprint view isolated on DefaultHeightGrid without a dynamic-height fallback."
+      ]
+    },
+    {
+      "Version": "0.3.35",
+      "Changes": [
+        "Moved all five local in-game options from the BepInEx cfg to the Script Extender Msgpack settings file without enabling multiplayer synchronization.",
+        "Removed the disabled Blueprint capture pipeline, its obsolete tests and documentation, and superseded image-processing tools and source assets.",
+        "Removed dead runtime helpers, duplicate production images, and stale generated build artifacts."
+      ]
+    },
+    {
+      "Version": "0.3.36",
+      "Changes": [
+        "Moved the runtime-generated Blueprint building-size calibration database from BepInEx/config into the plugin's dedicated RuntimeData directory.",
+        "Preserved existing calibration measurements across the storage-path migration and build deployments."
       ]
     }
   ]

@@ -1,3 +1,5 @@
+using System;
+
 namespace SpawnCastle
 {
     internal static class BlueprintSortingPolicy
@@ -16,6 +18,37 @@ namespace SpawnCastle
         {
             return VanillaWorldBaseOrder + depthRow * VanillaDepthRowStride +
                 VanillaIconLocalOffset + localSortingOffset;
+        }
+
+        // Captures store depth relative to their own footprint. Remap it to
+        // the current rotated footprint before calculating Unity sort order.
+        public static int RemapDepthRow(
+            int captureMinimumRow,
+            int captureMaximumRow,
+            int currentMinimumRow,
+            int currentMaximumRow,
+            int capturedRowOffset)
+        {
+            int capturedSpan = Math.Max(
+                0,
+                captureMaximumRow - captureMinimumRow);
+            int currentSpan = Math.Max(
+                0,
+                currentMaximumRow - currentMinimumRow);
+            int remappedOffset = capturedSpan == 0
+                ? 0
+                : (int)Math.Round(
+                    capturedRowOffset * currentSpan / (double)capturedSpan,
+                    MidpointRounding.AwayFromZero);
+            return currentMinimumRow + remappedOffset;
+        }
+
+        public static int GetMiddleDepthRow(int minimumRow, int maximumRow)
+        {
+            if (maximumRow < minimumRow)
+                throw new ArgumentOutOfRangeException(nameof(maximumRow));
+
+            return minimumRow + (maximumRow - minimumRow) / 2;
         }
     }
 }
