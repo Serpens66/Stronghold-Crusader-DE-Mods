@@ -1,0 +1,42 @@
+{
+  "source": "Integer observations from installed SCDE maps; no proprietary map payload is included.",
+  "maps": [
+    {
+      "name": "Height Advantage",
+      "worldSize": 160,
+      "slots": [
+        { "slot": 0, "radar": [64, 120], "native": [393, 427], "tileId": 181664 },
+        { "slot": 1, "radar": [138, 55], "native": [398, 357], "tileId": 128162 }
+      ]
+    },
+    {
+      "name": "Bow Ridge",
+      "worldSize": 200,
+      "slots": [
+        { "slot": 0, "radar": [156, 91], "native": [425, 366], "tileId": 134714 },
+        { "slot": 1, "radar": [32, 91], "native": [363, 428], "tileId": 182379 }
+      ]
+    },
+    {
+      "name": "A Layered Approach",
+      "worldSize": 300,
+      "slots": [
+        { "slot": 0, "radar": [147, 142], "native": [490, 392], "tileId": 154539 },
+        { "slot": 1, "radar": [135, 53], "native": [389, 315], "tileId": 99845 },
+        { "slot": 2, "radar": [50, 57], "native": [308, 405], "tileId": 164683 }
+      ]
+    },
+    {
+      "name": "A Friend Indeed",
+      "worldSize": 400,
+      "slots": [
+        { "slot": 0, "radar": [29, 54], "native": [284, 423], "tileId": 178555 },
+        { "slot": 1, "radar": [67, 26], "native": [294, 356], "tileId": 127343 },
+        { "slot": 2, "radar": [175, 70], "native": [446, 293], "tileId": 86482 },
+        { "slot": 3, "radar": [163, 114], "native": [478, 348], "tileId": 121879 },
+        { "slot": 4, "radar": [19, 149], "native": [369, 528], "tileId": 246785 },
+        { "slot": 5, "radar": [50, 171], "native": [422, 519], "tileId": 241861 }
+      ]
+    }
+  ]
+}

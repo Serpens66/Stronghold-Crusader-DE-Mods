@@ -266,7 +266,11 @@ Ungefähr:
 
 ## Chat 4: Keep-Tile-Anker offline belegen
 
-**Status:** Nächster Schritt.
+**Status:** Abgeschlossen. Der exakte Anker stammt aus dem lebenden
+Keep-Gebäudedatensatz in Section 1013. Native Herkunft, Feldlayout,
+Offline-/Runtime-Identität und Realmap-Vektoren für 160/200/300/400 stehen in
+`Docs/MAP_KEEP_TILE_ANCHORS.md`; die paketfreie API liefert pro Slot `Exact`
+oder einen expliziten `NotEvaluable`-Grund.
 
 ### Grund
 
@@ -310,7 +314,7 @@ offline nicht möglich ist.
 
 ## Chat 5: AIV-Projektion als unabhängigen Offline-Kern entwickeln
 
-**Status:** Ausstehend.
+**Status:** Nächster Schritt.
 
 ### Ziel
 

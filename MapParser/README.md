@@ -13,7 +13,7 @@ diesem Projekt.
 ## Projekte
 
 - `MapParser.Core` (`netstandard2.0`): paketfreie Bibliothek und öffentliche API
-- `MapParser.Cli` (`net10.0`): `info`, `list`, `dump` und `validate`
+- `MapParser.Cli` (`net10.0`): `info`, `list`, `keeps`, `dump` und `validate`
 - `MapParser.Tests` (`net10.0`): synthetische Negativ-, DCL-, CRC- und
   Directory-Tests sowie optionale lokale Integration und Python-Parität
 - `Reference`: strikt lesender Python-Referenzparser und relevante
@@ -52,6 +52,7 @@ Beispiele:
 
     MapParser.exe info "C:\Maps\Beispiel.map"
     MapParser.exe list "C:\Maps\Beispiel.map"
+    MapParser.exe keeps "C:\Maps\Beispiel.map"
     MapParser.exe dump "C:\Maps\Beispiel.map" 3003 logic.bin
     MapParser.exe validate "C:\Maps"
 
@@ -83,6 +84,10 @@ sind absichtlich nicht unterstützt.
         Console.WriteLine(tile.TerrainFlags);
     }
 
+    MapKeepAnchorResult keep = map.ReadKeepAnchors().GetSlot(slotIndex);
+    if (keep.Status == MapKeepAnchorStatus.Exact)
+        Console.WriteLine(keep.Coordinate);
+
 `MapDocument` behält die ursprünglichen Dateibytes intern. `MapSectionInfo`
 enthält Original-ID, logische ID, Speichertyp, Größen und Offsets; erst
 `ReadContent()` löst Dekompression und CRC-Prüfung aus. Zurückgegebene Arrays
@@ -97,6 +102,12 @@ sind Kopien. Die typisierten Placement-Layer sind schreibgeschützte Listen:
 werden; der Snapshot interpretiert dabei bewusst noch keine Flagbits. Fehlende,
 nicht verfügbare oder längeninkonsistente Layer liefern eine
 `MapPlacementSnapshotException` mit einem maschinenlesbaren `FailureKind`.
+
+`ReadKeepAnchors()` liest den exakten nativen Keep-Anker jedes auswählbaren
+Slots aus Section 1013. Unsichere Fälle liefern `NotEvaluable` mit einem
+maschinenlesbaren `MapKeepAnchorFailureKind`; U4-Radarwerte werden nie als
+Tile-Näherung ausgegeben. Der native Nachweis steht in
+`Docs/MAP_KEEP_TILE_ANCHORS.md`.
 
 Alte Tile-IDs wie `1003` und neue IDs wie `3003` werden über
 `LogicalSectionId` zusammengeführt; `SectionId` bewahrt die Original-ID.

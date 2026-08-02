@@ -166,12 +166,11 @@ Beobachtete reale Metadatenbeispiele sind in der Fixture enthalten. Es werden
 keine proprietären Kartendaten kopiert, sondern nur die acht bereits vom
 MapParser ausgegebenen Integer-Metadaten als Gegenbeispiele festgehalten.
 
-Der tatsächliche Runtime-Keep-Anker ist ein anderer Wert: Der Script Extender
-liest ihn nach dem Spawn aus `GamePlayerResources.r_KeepTilePositionX/Y`; die
-lokale SpawnCastle-Implementierung verwendet außerdem die Tile-Position des
-gebauten Keep-Gebäudes. Vor dem Mapstart muss dieser native Tile-Anker daher aus
-einer noch zu belegenden Offline-Datenquelle abgeleitet werden. U4 ersetzt
-diesen noch offenen Schritt nicht.
+Der tatsächliche Runtime-Keep-Anker ist ein anderer Wert. Chat 4 hat inzwischen
+belegt, dass er vor dem Mapstart exakt aus dem aktiven Keep-Gebäudedatensatz in
+Section 1013 gelesen werden kann. Details, Feldlayout und Realmap-Vektoren
+stehen in `MAP_KEEP_TILE_ANCHORS.md`. U4 bleibt davon unabhängig und darf nicht
+als Ersatzkoordinate verwendet werden.
 
 ## AIV-Grid, Keep-Anker und Rotation
 

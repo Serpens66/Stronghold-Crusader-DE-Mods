@@ -32,6 +32,8 @@ internal static class Program
             ("Roundtrip every map tile", TestMapTileGeometryRoundTrips),
             ("Separate fixed geometry from world-size bounds", TestMapTileWorldBounds),
             ("Reject invalid map-tile geometry inputs", TestInvalidMapTileGeometry),
+            ("Resolve exact Keep anchors for real-map vectors", TestKeepAnchorVectors),
+            ("Report explicit Keep-anchor failure reasons", TestKeepAnchorFailureReasons),
             ("Decode PKWARE-DCL and verify CRC32", TestCompressedSection),
             ("Reject truncated preamble", TestTruncatedPreamble),
             ("Reject invalid section offset", TestInvalidSectionOffset),
@@ -370,6 +372,189 @@ internal static class Program
             new MapTileGeometry(MapTileGeometry.FixedTileCount, 0));
         AssertThrows<MapUnsupportedGeometryException>(() =>
             new MapTileGeometry(MapTileGeometry.FixedTileCount, 800));
+    }
+
+    private static void TestKeepAnchorVectors()
+    {
+        using JsonDocument vectors = ReadKeepAnchorVectors();
+        foreach (JsonElement mapVector in vectors.RootElement.GetProperty("maps").EnumerateArray())
+        {
+            int worldSize = mapVector.GetProperty("worldSize").GetInt32();
+            JsonElement slotVectors = mapVector.GetProperty("slots");
+            var radarCoordinates = Enumerable.Repeat(new MapCoordinate(-1, -1), MapKeepAnchors.SlotCount).ToArray();
+            byte[] buildings = EmptyBuildingObjectSection();
+
+            int ordinal = 0;
+            foreach (JsonElement slotVector in slotVectors.EnumerateArray())
+            {
+                int slotIndex = slotVector.GetProperty("slot").GetInt32();
+                MapCoordinate radar = ReadCoordinate(slotVector.GetProperty("radar"));
+                MapCoordinate native = ReadCoordinate(slotVector.GetProperty("native"));
+                int expectedTileId = slotVector.GetProperty("tileId").GetInt32();
+                radarCoordinates[slotIndex] = radar;
+                WriteKeepRecord(buildings, 1 + ordinal * 9, slotIndex + 1, native.X, native.Y);
+                ordinal++;
+
+                var geometry = new MapTileGeometry(MapTileGeometry.FixedTileCount, worldSize);
+                AssertEqual(expectedTileId, geometry.GetTileId(native.X, native.Y));
+            }
+
+            MapDocument map = MapFileReader.Parse(
+                FixtureBuilder.Build(
+                    200,
+                    new[] { new SectionSpec(MapSectionCatalog.BuildingObjects, buildings) },
+                    keepLocations: radarCoordinates,
+                    worldSize: worldSize).Bytes);
+            MapKeepAnchors anchors = map.ReadKeepAnchors();
+            AssertEqual(MapKeepAnchors.SlotCount, anchors.Slots.Count);
+
+            foreach (JsonElement slotVector in slotVectors.EnumerateArray())
+            {
+                int slotIndex = slotVector.GetProperty("slot").GetInt32();
+                MapKeepAnchorResult result = anchors.GetSlot(slotIndex);
+                AssertTrue(result.IsSelectable);
+                AssertEqual(MapKeepAnchorStatus.Exact, result.Status);
+                AssertEqual(MapKeepAnchorFailureKind.None, result.FailureKind);
+                AssertEqual(ReadCoordinate(slotVector.GetProperty("radar")), result.RadarCoordinate);
+                AssertEqual((MapCoordinate?)ReadCoordinate(slotVector.GetProperty("native")), result.Coordinate);
+                AssertEqual((int?)slotVector.GetProperty("tileId").GetInt32(), result.TileId);
+                AssertTrue(result.BuildingRecordIndex.HasValue);
+            }
+
+            for (int slotIndex = slotVectors.GetArrayLength(); slotIndex < MapKeepAnchors.SlotCount; slotIndex++)
+            {
+                MapKeepAnchorResult result = anchors.GetSlot(slotIndex);
+                AssertTrue(!result.IsSelectable);
+                AssertEqual(MapKeepAnchorStatus.NotEvaluable, result.Status);
+                AssertEqual(MapKeepAnchorFailureKind.SlotNotSelectable, result.FailureKind);
+            }
+        }
+    }
+
+    private static void TestKeepAnchorFailureReasons()
+    {
+        MapCoordinate[] oneSlot = SingleSelectableRadar();
+
+        MapDocument missingSection = MapFileReader.Parse(
+            FixtureBuilder.Build(100, Array.Empty<SectionSpec>(), keepLocations: oneSlot).Bytes);
+        AssertKeepFailure(missingSection, MapKeepAnchorFailureKind.BuildingSectionMissing);
+
+        MapDocument invalidLength = MapFileReader.Parse(
+            FixtureBuilder.Build(
+                100,
+                new[] { new SectionSpec(MapSectionCatalog.BuildingObjects, new byte[812]) },
+                keepLocations: oneSlot).Bytes);
+        AssertKeepFailure(invalidLength, MapKeepAnchorFailureKind.InvalidBuildingSectionLength);
+
+        MapDocument missingRecord = MapFileReader.Parse(
+            FixtureBuilder.Build(
+                100,
+                new[] { new SectionSpec(MapSectionCatalog.BuildingObjects, EmptyBuildingObjectSection()) },
+                keepLocations: oneSlot).Bytes);
+        AssertKeepFailure(missingRecord, MapKeepAnchorFailureKind.KeepRecordMissing);
+
+        byte[] ambiguousRecords = EmptyBuildingObjectSection();
+        WriteKeepRecord(ambiguousRecords, 1, 1, 400, 400);
+        WriteKeepRecord(ambiguousRecords, 2, 1, 401, 400);
+        MapDocument ambiguous = MapFileReader.Parse(
+            FixtureBuilder.Build(
+                100,
+                new[] { new SectionSpec(MapSectionCatalog.BuildingObjects, ambiguousRecords) },
+                keepLocations: oneSlot).Bytes);
+        AssertKeepFailure(ambiguous, MapKeepAnchorFailureKind.AmbiguousKeepRecords);
+
+        byte[] invalidCoordinateRecords = EmptyBuildingObjectSection();
+        WriteKeepRecord(invalidCoordinateRecords, 1, 1, 0, 0);
+        MapDocument invalidCoordinate = MapFileReader.Parse(
+            FixtureBuilder.Build(
+                100,
+                new[] { new SectionSpec(MapSectionCatalog.BuildingObjects, invalidCoordinateRecords) },
+                keepLocations: oneSlot).Bytes);
+        AssertKeepFailure(invalidCoordinate, MapKeepAnchorFailureKind.InvalidKeepCoordinate);
+
+        byte[] outsideRecords = EmptyBuildingObjectSection();
+        WriteKeepRecord(outsideRecords, 1, 1, 399, 0);
+        MapDocument outside = MapFileReader.Parse(
+            FixtureBuilder.Build(
+                100,
+                new[] { new SectionSpec(MapSectionCatalog.BuildingObjects, outsideRecords) },
+                keepLocations: oneSlot).Bytes);
+        AssertKeepFailure(outside, MapKeepAnchorFailureKind.KeepOutsideWorldBounds);
+
+        byte[] validRecords = EmptyBuildingObjectSection();
+        WriteKeepRecord(validRecords, 1, 1, 400, 400);
+        MapDocument unsupportedGeometry = MapFileReader.Parse(
+            FixtureBuilder.Build(
+                100,
+                new[] { new SectionSpec(MapSectionCatalog.BuildingObjects, validRecords) },
+                keepLocations: oneSlot,
+                worldSize: 123).Bytes);
+        AssertKeepFailure(unsupportedGeometry, MapKeepAnchorFailureKind.UnsupportedGeometry);
+
+        MapCoordinate[] invalidMetadata = SingleSelectableRadar();
+        invalidMetadata[0] = new MapCoordinate(10, -1);
+        MapDocument invalidSlot = MapFileReader.Parse(
+            FixtureBuilder.Build(100, Array.Empty<SectionSpec>(), keepLocations: invalidMetadata).Bytes);
+        MapKeepAnchorResult invalidSlotResult = invalidSlot.ReadKeepAnchors().GetSlot(0);
+        AssertTrue(!invalidSlotResult.IsSelectable);
+        AssertEqual(MapKeepAnchorFailureKind.InvalidSlotMetadata, invalidSlotResult.FailureKind);
+
+        Fixture specialFixture = FixtureBuilder.Build(
+            100,
+            new[] { new SectionSpec(MapSectionCatalog.BuildingObjects, validRecords) },
+            keepLocations: oneSlot);
+        BinaryPrimitives.WriteUInt32LittleEndian(
+            specialFixture.Bytes.AsSpan(specialFixture.DirectoryTagOffset), 2100);
+        MapDocument special = MapFileReader.Parse(specialFixture.Bytes);
+        AssertKeepFailure(special, MapKeepAnchorFailureKind.SectionsUnavailable);
+
+        MapKeepAnchors slots = missingRecord.ReadKeepAnchors();
+        AssertThrows<ArgumentOutOfRangeException>(() => slots.GetSlot(-1));
+        AssertThrows<ArgumentOutOfRangeException>(() => slots.GetSlot(MapKeepAnchors.SlotCount));
+    }
+
+    private static void AssertKeepFailure(MapDocument map, MapKeepAnchorFailureKind expected)
+    {
+        MapKeepAnchorResult result = map.ReadKeepAnchors().GetSlot(0);
+        AssertTrue(result.IsSelectable);
+        AssertEqual(MapKeepAnchorStatus.NotEvaluable, result.Status);
+        AssertEqual(expected, result.FailureKind);
+        AssertEqual((MapCoordinate?)null, result.Coordinate);
+        AssertEqual((int?)null, result.TileId);
+    }
+
+    private static MapCoordinate[] SingleSelectableRadar()
+    {
+        MapCoordinate[] coordinates = Enumerable.Repeat(
+            new MapCoordinate(-1, -1),
+            MapKeepAnchors.SlotCount).ToArray();
+        coordinates[0] = new MapCoordinate(100, 100);
+        return coordinates;
+    }
+
+    private static byte[] EmptyBuildingObjectSection() => new byte[2000 * 0x32C];
+
+    private static void WriteKeepRecord(byte[] data, int recordIndex, int owner, int x, int y)
+    {
+        int offset = checked(recordIndex * 0x32C);
+        BinaryPrimitives.WriteInt16LittleEndian(data.AsSpan(offset + 0xD0), 2);
+        BinaryPrimitives.WriteUInt16LittleEndian(data.AsSpan(offset + 0xD2), 41);
+        BinaryPrimitives.WriteUInt16LittleEndian(data.AsSpan(offset + 0xD6), checked((ushort)owner));
+        BinaryPrimitives.WriteUInt16LittleEndian(data.AsSpan(offset + 0xEE), checked((ushort)x));
+        BinaryPrimitives.WriteUInt16LittleEndian(data.AsSpan(offset + 0xF0), checked((ushort)y));
+
+        var geometry = new MapTileGeometry(MapTileGeometry.FixedTileCount, 400);
+        uint tileId = geometry.TryGetTileId(x, y, out int value) ? checked((uint)value) : 0;
+        BinaryPrimitives.WriteUInt32LittleEndian(data.AsSpan(offset + 0xF4), tileId);
+    }
+
+    private static MapCoordinate ReadCoordinate(JsonElement value) =>
+        new MapCoordinate(value[0].GetInt32(), value[1].GetInt32());
+
+    private static JsonDocument ReadKeepAnchorVectors()
+    {
+        string path = Path.Combine(AppContext.BaseDirectory, "Fixtures", "MapKeepAnchorVectors.json");
+        return JsonDocument.Parse(File.ReadAllBytes(path));
     }
 
     private static JsonDocument ReadMapTileGeometryVectors()
@@ -838,7 +1023,12 @@ internal static class Program
 
     private static class FixtureBuilder
     {
-        public static Fixture Build(int capacity, IReadOnlyList<SectionSpec> sections, byte[]? tail = null)
+        public static Fixture Build(
+            int capacity,
+            IReadOnlyList<SectionSpec> sections,
+            byte[]? tail = null,
+            IReadOnlyList<MapCoordinate>? keepLocations = null,
+            int worldSize = 400)
         {
             if (capacity is not (100 or 150 or 200))
                 throw new ArgumentOutOfRangeException(nameof(capacity));
@@ -869,10 +1059,13 @@ internal static class Program
                 writer.Write(0);
                 for (int index = 0; index < 8; index++)
                 {
-                    writer.Write(index * 10 + 1);
-                    writer.Write(index * 10 + 2);
+                    MapCoordinate keep = keepLocations != null && index < keepLocations.Count
+                        ? keepLocations[index]
+                        : new MapCoordinate(index * 10 + 1, index * 10 + 2);
+                    writer.Write(keep.X);
+                    writer.Write(keep.Y);
                 }
-                writer.Write(400);
+                writer.Write(worldSize);
                 writer.Write(0u); // restart-info size
             }
 

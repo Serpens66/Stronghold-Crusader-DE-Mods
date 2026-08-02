@@ -18,6 +18,7 @@ internal static class Program
             {
                 "info" => RunInfo(args[1]),
                 "list" => RunList(args[1]),
+                "keeps" => RunKeeps(args[1]),
                 "dump" => RunDump(args),
                 "validate" => RunValidate(args[1]),
                 _ => UnknownCommand(args[0])
@@ -77,6 +78,22 @@ internal static class Program
                 $"{section.Index,5}  {section.SectionId,4}  {section.LogicalSectionId,7}  " +
                 $"{section.StorageKind,-9}  {section.StoredSize,9}  {section.UncompressedSize,13}  " +
                 $"{section.AbsoluteOffset,8}  {MapSectionCatalog.GetName(section.LogicalSectionId)}");
+        }
+        return 0;
+    }
+
+    private static int RunKeeps(string path)
+    {
+        MapKeepAnchors anchors = MapFileReader.Parse(path).ReadKeepAnchors();
+        Console.WriteLine("SLOT  SELECTABLE  STATUS         RADAR       NATIVE      TILE-ID  RECORD  REASON");
+        foreach (MapKeepAnchorResult slot in anchors.Slots)
+        {
+            string coordinate = slot.Coordinate?.ToString() ?? "-";
+            string tileId = slot.TileId?.ToString() ?? "-";
+            string record = slot.BuildingRecordIndex?.ToString() ?? "-";
+            Console.WriteLine(
+                $"{slot.SlotIndex,4}  {slot.IsSelectable,-10}  {slot.Status,-13}  " +
+                $"{slot.RadarCoordinate,-10}  {coordinate,-10}  {tileId,7}  {record,6}  {slot.FailureKind}");
         }
         return 0;
     }
@@ -162,6 +179,7 @@ internal static class Program
         Console.WriteLine("Read-only Stronghold Crusader Definitive Edition .map parser");
         Console.WriteLine("  MapParser info <file.map>");
         Console.WriteLine("  MapParser list <file.map>");
+        Console.WriteLine("  MapParser keeps <file.map>");
         Console.WriteLine("  MapParser dump <file.map> <section-id> [output.bin]");
         Console.WriteLine("  MapParser validate <file.map-or-directory>");
     }

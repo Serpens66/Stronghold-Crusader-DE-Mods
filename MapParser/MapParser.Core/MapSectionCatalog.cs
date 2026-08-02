@@ -8,6 +8,7 @@ namespace MapParser.Core
         public const int Organism = 1004;
         public const int Height = 1005;
         public const int Building = 1012;
+        public const int BuildingObjects = 1013;
         public const int Entity = 1026;
         public const int Logic2 = 1037;
         public const int WallOwner = 1043;
@@ -35,6 +36,7 @@ namespace MapParser.Core
                 case Organism: return "Organism";
                 case Height: return "Height";
                 case Building: return "Building";
+                case BuildingObjects: return "BuildingObjects";
                 case Entity: return "Entity";
                 case Logic2: return "Logic2";
                 case WallOwner: return "WallOwner";

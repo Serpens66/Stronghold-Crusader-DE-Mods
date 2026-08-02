@@ -265,6 +265,8 @@ namespace MapParser.Core
 
         public MapPlacementSnapshot ReadPlacementSnapshot() => MapPlacementSnapshot.Create(this);
 
+        public MapKeepAnchors ReadKeepAnchors() => MapKeepAnchors.Create(this);
+
         public byte[] ReadOpaqueTail()
         {
             if (OpaqueTailLength <= 0)
