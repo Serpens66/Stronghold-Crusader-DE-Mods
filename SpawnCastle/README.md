@@ -51,16 +51,22 @@ The three Church mappers follow Vanilla's lord skin condition. Lord types 1, 2,
 The Keep frame is used only as the anchor and is not drawn. AIV `miscItems` are
 ignored. Unknown mapper values remain visible as magenta one-tile markers.
 
-The overlay starts hidden on every map. Use the `Blueprint: off/on` button in the
-upper-left MainHUD or assign any single Unity key, mouse button, or controller
-button in Mod Settings. The overlay rebuilds after map rotation or flattened
-landscape changes and is cleared on map unload. In Vanilla's flattened-landscape
-view, all Blueprint images use the former compact, footprint-constrained icon
-size so the overview remains readable. Returning to the normal view restores
-regular buildings to their natural world scale. When leaving the flattened view,
-the complete Blueprint is temporarily hidden while Vanilla restores terrain
-heights and Tilemap transforms. It is rendered again only after the normal-height
-projection has settled, so no stale intermediate overlay is displayed.
+The overlay starts hidden on every map. A fixed Vanilla-styled castle button above
+the lower-left goods-list button opens the Blueprint settings window; in game
+modes that already place an objectives or Freebuild button there, the Blueprint
+button automatically moves up by one slot. The settings window starts closed on
+every map, can be dragged by its title bar, and stores its local screen-relative
+position across game restarts. Resolution and UI-scale changes keep the complete
+window inside the visible HUD. Use its `Blueprint: off/on` control or assign any
+single Unity key, mouse button, or controller button in Mod Settings. The overlay
+rebuilds after map rotation or flattened landscape changes and is cleared on map
+unload. In Vanilla's flattened-landscape view, all Blueprint images use the former
+compact, footprint-constrained icon size so the overview remains readable.
+Returning to the normal view restores regular buildings to their natural world
+scale. When leaving the flattened view, the complete Blueprint is temporarily
+hidden while Vanilla restores terrain heights and Tilemap transforms. It is
+rendered again only after the normal-height projection has settled, so no stale
+intermediate overlay is displayed.
 
 Because Blueprint mode does not change simulation state, it works on new maps,
 loaded savegames, and multiplayer. Every multiplayer client independently selects

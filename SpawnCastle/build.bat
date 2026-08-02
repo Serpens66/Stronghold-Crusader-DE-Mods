@@ -79,6 +79,13 @@ if "%BUILD_EXIT_CODE%"=="0" (
     goto copy_failed
   )
 
+  rem Remove the superseded patch so upgrades cannot leave a second HUD behind.
+  set "LEGACY_MAIN_HUD_PATCH=!GAME_PLUGIN_DIR!\Patches\Assets\GUI\XAML\MainHUD.xaml"
+  if exist "!LEGACY_MAIN_HUD_PATCH!" (
+    del /Q "!LEGACY_MAIN_HUD_PATCH!"
+    if exist "!LEGACY_MAIN_HUD_PATCH!" goto copy_failed
+  )
+
   rem Overlay managed files so Script Extender Msgpack settings survive rebuilds.
   xcopy "!LOCAL_PLUGIN_DIR!" "!GAME_PLUGIN_DIR!\" /E /I /Q /Y
   if errorlevel 1 goto copy_failed

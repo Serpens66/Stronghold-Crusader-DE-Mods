@@ -175,6 +175,15 @@ namespace SpawnCastle
             if (!initialized)
                 return;
 
+            CrusaderDE.MainViewModel mainViewModel =
+                CrusaderDE.MainViewModel.Instance;
+            Hud?.UpdateViewportSize(
+                CrusaderDE.MainViewModel.iUIScaleValueWidth,
+                CrusaderDE.MainViewModel.iUIScaleValueHeight);
+            Hud?.UpdateVanillaButtonSlot(
+                mainViewModel != null &&
+                (mainViewModel.Show_HUD_Extras_Button_Objectves ||
+                 mainViewModel.Show_HUD_Extras_Button_Freebuild));
             UpdateHotkeyCapture();
             if (!mapActive && IsSimulationActive())
             {
@@ -709,6 +718,7 @@ namespace SpawnCastle
 
         private void ResetMapState()
         {
+            Hud?.ResetForMapLifecycle();
             renderer?.Clear();
             layout = null;
             layoutKeepX = int.MinValue;

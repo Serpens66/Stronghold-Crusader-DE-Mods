@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Spawn Castle",
   "Description": "Displays a local visual AIVJSON castle blueprint or spawns it through the game's native AIV pipeline.",
-  "Version": "0.3.36",
+  "Version": "0.3.39",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
@@ -391,6 +391,30 @@
       "Changes": [
         "Moved the runtime-generated Blueprint building-size calibration database from BepInEx/config into the plugin's dedicated RuntimeData directory.",
         "Preserved existing calibration measurements across the storage-path migration and build deployments."
+      ]
+    },
+    {
+      "Version": "0.3.37",
+      "Changes": [
+        "Replaced the permanently open upper-left Blueprint HUD with a fixed Vanilla-styled button above the goods-list button.",
+        "Made the Blueprint settings window closable and draggable by its title bar while preserving every existing live control.",
+        "Persisted the window position locally and kept it reachable across resolution and UI-scale changes."
+      ]
+    },
+    {
+      "Version": "0.3.38",
+      "Changes": [
+        "Raised the AIVJSON selector height so its selected text is no longer clipped.",
+        "Replaced non-firing XAML drag behaviors with direct Noesis title-bar mouse events and explicit mouse capture.",
+        "Resolved the HUD host from the fixed toggle button so default placement, dragging, persistence, and resize clamping use the real HUD dimensions."
+      ]
+    },
+    {
+      "Version": "0.3.39",
+      "Changes": [
+        "Moved the Blueprint controls from MainHUD's short bottom strip into the full-screen IngameUIScreens viewport.",
+        "Based drag limits on Vanilla's current UI-scaled viewport dimensions so the complete visible area remains usable at every resolution.",
+        "Removed the superseded deployed MainHUD patch during builds to prevent duplicate Blueprint controls after upgrading."
       ]
     }
   ]

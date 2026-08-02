@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Patch xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+       xmlns:local="clr-namespace:CrusaderDE">
+  <Operation Type="Add" XPath="/n:UserControl/n:Grid">
+    <Content>
+      <!-- This root follows Vanilla's UIScaleValueWidth/Height and therefore
+           provides the real draggable viewport at every resolution. -->
+      <Grid x:Name="SpawnCastleBlueprintHud"
+            Grid.Row="0"
+            Grid.RowSpan="4"
+            Grid.Column="0"
+            Grid.ColumnSpan="4"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch"
+            Panel.ZIndex="10000"
+            Visibility="{Binding HudVisible, Converter={StaticResource booleanToVisibilityConverter}}"
+            Tag="IgnoreSelf">
+        <Border x:Name="SpawnCastleBlueprintPanel"
+                Width="360"
+                Height="196"
+                Padding="8"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                Panel.ZIndex="10000"
+                Background="#E614243A"
+                BorderBrush="#CC77AAFF"
+                BorderThickness="1"
+                Visibility="{Binding SettingsPanelVisible, Converter={StaticResource booleanToVisibilityConverter}}"
+                Tag="Ignore">
+          <Border.RenderTransform>
+            <TranslateTransform X="{Binding PanelLeft}"
+                                Y="{Binding PanelTop}"/>
+          </Border.RenderTransform>
+          <StackPanel>
+            <Border x:Name="SpawnCastleBlueprintDragHandle"
+                    Height="26"
+                    Margin="0,0,0,6"
+                    Padding="7,2"
+                    Background="#AA203A5A"
+                    BorderBrush="#8877AAFF"
+                    BorderThickness="0,0,0,1"
+                    Tag="Ignore">
+              <TextBlock Text="Blueprint settings"
+                         FontSize="16"
+                         FontWeight="Bold"
+                         Foreground="#FFE8F2FF"
+                         VerticalAlignment="Center"
+                         IsHitTestVisible="False"/>
+            </Border>
+
+            <Button Content="{Binding StatusText}"
+                    Command="{Binding ToggleCommand}"
+                    Height="30"
+                    Padding="8,2"
+                    FontSize="15"
+                    Foreground="#FFE8F2FF"
+                    Background="#AA14243A"
+                    BorderBrush="#CC77AAFF"
+                    BorderThickness="1"
+                    IsEnabled="{Binding CanToggle}"/>
+
+            <TextBlock Text="AIVJSON"
+                       Foreground="#FFE8F2FF"
+                       Margin="0,6,0,2"/>
+            <ComboBox ItemsSource="{Binding CastleOptions}"
+                      SelectedItem="{Binding SelectedCastle, Mode=TwoWay}"
+                      MaxDropDownHeight="420"
+                      Height="30"/>
+
+            <Grid Margin="0,6,0,0">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="105"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="42"/>
+              </Grid.ColumnDefinitions>
+              <TextBlock Grid.Column="0"
+                         Text="Icon scale"
+                         Foreground="#FFE8F2FF"
+                         VerticalAlignment="Center"/>
+              <Slider Grid.Column="1"
+                      Minimum="0.05"
+                      Maximum="1"
+                      Value="{Binding BlueprintIconScale, Mode=TwoWay}"
+                      TickFrequency="0.05"
+                      IsSnapToTickEnabled="True"
+                      Margin="4,0"/>
+              <TextBlock Grid.Column="2"
+                         Text="{Binding BlueprintIconScaleText}"
+                         Foreground="#FFE8F2FF"
+                         HorizontalAlignment="Right"
+                         VerticalAlignment="Center"/>
+            </Grid>
+
+            <Grid Margin="0,5,0,0">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="105"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="42"/>
+              </Grid.ColumnDefinitions>
+              <TextBlock Grid.Column="0"
+                         Text="Icon alpha"
+                         Foreground="#FFE8F2FF"
+                         VerticalAlignment="Center"/>
+              <Slider Grid.Column="1"
+                      Minimum="0"
+                      Maximum="1"
+                      Value="{Binding BlueprintIconAlpha, Mode=TwoWay}"
+                      TickFrequency="0.05"
+                      IsSnapToTickEnabled="True"
+                      Margin="4,0"/>
+              <TextBlock Grid.Column="2"
+                         Text="{Binding BlueprintIconAlphaText}"
+                         Foreground="#FFE8F2FF"
+                         HorizontalAlignment="Right"
+                         VerticalAlignment="Center"/>
+            </Grid>
+          </StackPanel>
+        </Border>
+
+        <!-- Keep this fixed trigger above the movable panel and Vanilla HUD. -->
+        <Button x:Name="SpawnCastleBlueprintSettingsButton"
+                Width="36"
+                Height="34"
+                Margin="0,0,0,34"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Bottom"
+                Panel.ZIndex="10001"
+                local:PropEx.Sprite1="{StaticResource UI-Buildings A001}"
+                local:PropEx.Sprite2="{StaticResource UI-Buildings A002}"
+                local:PropEx.Sprite3="{StaticResource UI-Buildings A002}"
+                local:PropEx.Sprite4="{StaticResource UI-Buildings A001}"
+                Command="{Binding ToggleSettingsPanelCommand}"
+                CommandParameter="{Binding RelativeSource={RelativeSource Self}}"
+                Style="{StaticResource BTN_Building}"
+                Tag="Ignore">
+          <Button.RenderTransform>
+            <TranslateTransform Y="{Binding TriggerVerticalOffset}"/>
+          </Button.RenderTransform>
+        </Button>
+      </Grid>
+    </Content>
+  </Operation>
+</Patch>

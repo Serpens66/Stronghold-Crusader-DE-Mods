@@ -66,6 +66,13 @@ namespace SpawnCastle
                 persistedSettings.BlueprintIconScale);
             blueprintIconAlpha = NormalizeIconAlpha(
                 persistedSettings.BlueprintIconAlpha);
+            if (persistedSettings.HasBlueprintHudPosition)
+            {
+                persistedSettings.BlueprintHudPositionX = NormalizeUnitValue(
+                    persistedSettings.BlueprintHudPositionX);
+                persistedSettings.BlueprintHudPositionY = NormalizeUnitValue(
+                    persistedSettings.BlueprintHudPositionY);
+            }
             PersistCurrentValues();
 
             AssignHotkeyCommand = new RelayCommand(BeginHotkeyCapture);
@@ -192,6 +199,40 @@ namespace SpawnCastle
         internal KeyCode BlueprintHotkeyCode => blueprintHotkey;
         internal float BlueprintIconScaleValue => (float)blueprintIconScale;
         internal float BlueprintIconAlphaValue => (float)blueprintIconAlpha;
+
+        internal bool TryGetBlueprintHudPosition(
+            out double normalizedX,
+            out double normalizedY)
+        {
+            normalizedX = NormalizeUnitValue(
+                persistedSettings.BlueprintHudPositionX);
+            normalizedY = NormalizeUnitValue(
+                persistedSettings.BlueprintHudPositionY);
+            return persistedSettings.HasBlueprintHudPosition;
+        }
+
+        internal void SaveBlueprintHudPosition(
+            double normalizedX,
+            double normalizedY)
+        {
+            persistedSettings.HasBlueprintHudPosition = true;
+            persistedSettings.BlueprintHudPositionX =
+                NormalizeUnitValue(normalizedX);
+            persistedSettings.BlueprintHudPositionY =
+                NormalizeUnitValue(normalizedY);
+            PersistCurrentValues();
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"Blueprint HUD position saved: " +
+                $"x={persistedSettings.BlueprintHudPositionX:0.000}, " +
+                $"y={persistedSettings.BlueprintHudPositionY:0.000}.");
+        }
+
+        internal void LogBlueprintHudMessage(string message)
+        {
+            Shared.DebugLogHelper.LogInfo(log, message);
+        }
+
         internal bool TryResolveSelectedFile(out string fullPath)
         {
             return catalog.TryResolve(selectedCastle, out fullPath);
@@ -473,6 +514,14 @@ namespace SpawnCastle
                 MidpointRounding.AwayFromZero);
         }
 
+        private static double NormalizeUnitValue(double value)
+        {
+            if (double.IsNaN(value) || double.IsInfinity(value))
+                return 0.0;
+
+            return Math.Max(0.0, Math.Min(1.0, value));
+        }
+
         private void PersistCurrentValues()
         {
             persistedSettings.Mode = mode;
@@ -542,6 +591,15 @@ namespace SpawnCastle
 
             [SyncPerPlayer]
             public double BlueprintIconAlpha { get; set; } = 0.3;
+
+            [SyncPerPlayer]
+            public bool HasBlueprintHudPosition { get; set; }
+
+            [SyncPerPlayer]
+            public double BlueprintHudPositionX { get; set; }
+
+            [SyncPerPlayer]
+            public double BlueprintHudPositionY { get; set; }
         }
     }
 }
