@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <RootNamespace>AIVPlacement.Core</RootNamespace>
+    <AssemblyName>AIVPlacement.Core</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\AIVParser\AIVParser.Core\AIVParser.Core.csproj" />
+    <ProjectReference Include="..\..\MapParser\MapParser.Core\MapParser.Core.csproj" />
+  </ItemGroup>
+</Project>

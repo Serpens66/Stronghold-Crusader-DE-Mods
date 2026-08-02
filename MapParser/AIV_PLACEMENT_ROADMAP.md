@@ -52,7 +52,7 @@ Der Status an jeder Chat-Überschrift ist verbindlich. Bei der Anweisung
 „Führe den nächsten Schritt aus“ wird der mit **Nächster Schritt** markierte
 Chat bearbeitet. Bei erfolgreicher Abnahme muss derselbe Chat außerdem seinen
 Status auf **Abgeschlossen** setzen und genau den unmittelbar folgenden Chat als
-**Nächster Schritt** markieren. Es darf höchstens einen solchen Status geben.
+**Nächster Schritt** markieren. Es darf höchstens einen solchen Status geben. Aktualisiere auch die letzte Zeile dieser Roadmap.
 Notwendige Arbeitsphasen dürfen nicht als unnummerierte Zwischenschritte zwischen
 zwei Chats stehen bleiben.
 
@@ -314,7 +314,10 @@ offline nicht möglich ist.
 
 ## Chat 5: AIV-Projektion als unabhängigen Offline-Kern entwickeln
 
-**Status:** Nächster Schritt.
+**Status:** Abgeschlossen. Der paketfreie `AIVPlacement`-Kern projiziert
+Build-Schritte, alle vier Rotationen, Footprints und bekannte Zusatzflächen
+deterministisch auf absolute Map-Koordinaten; der Release-Build und alle
+synthetischen Tests sind erfolgreich.
 
 ### Ziel
 
@@ -394,7 +397,7 @@ Rotation, AIV-Koordinaten, absolute Map-Koordinaten und belegte Tiles enthalten.
 
 ## Chat 6: Bedeutung von `placementState` und nativen Oracle-Aufruf klären
 
-**Status:** Ausstehend.
+**Status:** Nächster Schritt.
 
 ### Ziel
 
@@ -842,7 +845,6 @@ Stopppunkte sind:
 4. Vor Chat 13: Nutzerentscheidung einholen, ob die Lobby nur informiert,
    filtert oder ungültige AIV-Auswahlen blockiert.
 
-Der nächste auszuführende Schritt ist **Chat 4: Keep-Tile-Anker offline
-belegen**.
+Der nächste auszuführende Schritt ist "Chat 6".
 
 
