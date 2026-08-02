@@ -1,4 +1,8 @@
-# Stronghold Crusader DE Mods
+# Stronghold Crusader DE Mods and Code
+
+## Disclaimer:
+I don't know C#, only lua/python. So most code here was created by ChatGPT 5.6 Sol in the Visual Studio Code Codex extension.  
+I provided several open source projects of Stronghold Crusader as information source to Chatgpt. So besides ideas and prompts/instructions and ingame testing for the mods, I did not contribute any code myself.  
 
 ## Download:
 - Releases: https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/releases (not often updated)  
