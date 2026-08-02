@@ -39,14 +39,22 @@ Der derzeitige Workspace enthält:
 - `SpawnCastle`: enthält praktische Erfahrung mit AIV-Projektion und
   Gebäudeplatzierung im laufenden Spiel.
 
-Noch nicht vorhanden sind die validierte Map-Koordinatenabbildung, ein
-Placement-Snapshot, die eigentlichen Vanilla-Fit-Regeln und die Lobby-Anbindung.
+Noch nicht vorhanden sind der exakte Offline-Keep-Tile-Anker, die
+AIV-Projektion, die eigentlichen Vanilla-Fit-Regeln und die Lobby-Anbindung.
 
 ## Arbeitsregeln für die folgenden Chats
 
 Jeder nummerierte Schritt ist als eigener Chat gedacht. Ein Schritt gilt erst
 als abgeschlossen, wenn seine Abnahmekriterien erfüllt und die zugehörigen
 Tests erfolgreich sind.
+
+Der Status an jeder Chat-Überschrift ist verbindlich. Bei der Anweisung
+„Führe den nächsten Schritt aus“ wird der mit **Nächster Schritt** markierte
+Chat bearbeitet. Bei erfolgreicher Abnahme muss derselbe Chat außerdem seinen
+Status auf **Abgeschlossen** setzen und genau den unmittelbar folgenden Chat als
+**Nächster Schritt** markieren. Es darf höchstens einen solchen Status geben.
+Notwendige Arbeitsphasen dürfen nicht als unnummerierte Zwischenschritte zwischen
+zwei Chats stehen bleiben.
 
 - Keine nachfolgenden Phasen vorwegnehmen, wenn sie zur aktuellen Abnahme nicht
   erforderlich sind.
@@ -70,8 +78,8 @@ Tests erfolgreich sind.
 **Plan-Korrektur aus der Analyse:** U4 enthält 200×200-Radarpositionen für die
 Lobbydarstellung, keine nativen Keep-Tile-Koordinaten. Die linearen Sections
 verwenden unabhängig von der World Size eine feste 800-Zeilen-Raute mit 320800
-Tiles. Vor Chat 4 muss deshalb der unten beschriebene Zwischenschritt den echten
-Tile-Anker jedes Keep-Slots offline belegen.
+Tiles. Chat 4 muss deshalb den echten Tile-Anker jedes Keep-Slots offline
+belegen, bevor Chat 5 mit der AIV-Projektion beginnt.
 
 ### Ziel
 
@@ -133,6 +141,9 @@ werden. Es darf keine unbestätigte Formel wie `y * width + x` verwendet werden.
 
 ## Chat 2: `MapTileGeometry` implementieren
 
+**Status:** Abgeschlossen. `MapTileGeometry` und die nativen Testvektoren sind
+implementiert; der MapParser-Build ist erfolgreich.
+
 ### Ziel
 
 Die in Chat 1 bestätigte Transformation paketfrei in `MapParser.Core`
@@ -185,6 +196,10 @@ werden. Erwartet wird ungefähr:
 ---
 
 ## Chat 3: `MapPlacementSnapshot` aufbauen
+
+**Status:** Abgeschlossen. Der immutable Snapshot führt Geometrie und acht
+Placement-Layer zusammen; der MapParser-Build und alle synthetischen Tests sind
+erfolgreich.
 
 ### Ziel
 
@@ -249,13 +264,15 @@ Ungefähr:
 
 ---
 
-## Notwendiger Zwischenschritt nach Chat 3: Keep-Tile-Anker offline belegen
+## Chat 4: Keep-Tile-Anker offline belegen
+
+**Status:** Nächster Schritt.
 
 ### Grund
 
 Chat 1 hat gezeigt, dass die U4-Werte nur Positionen auf der 200×200-Radaransicht
 sind. Sie sind gerastert und nicht verlustfrei auf native Tiles umkehrbar.
-Chat 4 darf deshalb nicht mit U4 als `keepPosition` beginnen.
+Chat 5 darf deshalb nicht mit U4 als `keepPosition` beginnen.
 
 ### Ziel
 
@@ -280,11 +297,20 @@ offline nicht möglich ist.
   `NotEvaluable`-Grund.
 - Mehrere reale Karten und World Sizes stimmen offline und zur Laufzeit exakt
   überein.
-- Chat 4 erhält ausschließlich belegte native Tile-Koordinaten.
+- Chat 5 erhält ausschließlich belegte native Tile-Koordinaten.
+
+### Startprompt
+
+> Bearbeite Chat 4 aus `MapParser/AIV_PLACEMENT_ROADMAP.md`: Ermittle und belege
+> für jeden auswählbaren Keep-Slot den exakten nativen Tile-Anker vor dem
+> Mapstart. Verwende U4-Radarpositionen nicht als Näherung und beginne noch nicht
+> mit der AIV-Projektion.
 
 ---
 
-## Chat 4: AIV-Projektion als unabhängigen Offline-Kern entwickeln
+## Chat 5: AIV-Projektion als unabhängigen Offline-Kern entwickeln
+
+**Status:** Ausstehend.
 
 ### Ziel
 
@@ -355,14 +381,16 @@ Rotation, AIV-Koordinaten, absolute Map-Koordinaten und belegte Tiles enthalten.
 
 ### Startprompt
 
-> Bearbeite Chat 4 aus `MapParser/AIV_PLACEMENT_ROADMAP.md`: Erstelle den
+> Bearbeite Chat 5 aus `MapParser/AIV_PLACEMENT_ROADMAP.md`: Erstelle den
 > paketfreien `AIVPlacement`-Offline-Kern und projiziere AIV-Elemente inklusive
 > Rotation und Footprints auf absolute Map-Koordinaten. Implementiere noch keine
 > Vanilla-Bauregeln.
 
 ---
 
-## Chat 5: Bedeutung von `placementState` und nativen Oracle-Aufruf klären
+## Chat 6: Bedeutung von `placementState` und nativen Oracle-Aufruf klären
+
+**Status:** Ausstehend.
 
 ### Ziel
 
@@ -418,13 +446,15 @@ bewerten.
 
 ### Startprompt
 
-> Bearbeite Chat 5 aus `MapParser/AIV_PLACEMENT_ROADMAP.md`: Kläre die exakte
+> Bearbeite Chat 6 aus `MapParser/AIV_PLACEMENT_ROADMAP.md`: Kläre die exakte
 > Semantik von `TestSpecificCandidate` und `placementState` und baue einen
 > reproduzierbaren nativen Oracle-Vergleich. Ändere noch nichts an der Lobby.
 
 ---
 
-## Chat 6: Placement-Regeln inventarisieren und als Reason-Codes modellieren
+## Chat 7: Placement-Regeln inventarisieren und als Reason-Codes modellieren
+
+**Status:** Ausstehend.
 
 ### Ziel
 
@@ -480,17 +510,19 @@ Map-Koordinate und die für die Entscheidung relevanten Rohwerte.
 
 ### Startprompt
 
-> Bearbeite Chat 6 aus `MapParser/AIV_PLACEMENT_ROADMAP.md`: Inventarisiere die
+> Bearbeite Chat 7 aus `MapParser/AIV_PLACEMENT_ROADMAP.md`: Inventarisiere die
 > nativen AIV-Placement-Regeln und entwirf dafür nachvollziehbare Reason-Codes
 > samt benötigten Map-Layern. Implementiere nur Regeln, deren Semantik belegt ist.
 
 ---
 
-## Chat 7: Offline-Regeln schrittweise implementieren
+## Chat 8: Offline-Regeln schrittweise implementieren
+
+**Status:** Ausstehend.
 
 ### Ziel
 
-Die in Chat 6 belegten Regelgruppen im `AIVPlacement.Core` implementieren und
+Die in Chat 7 belegten Regelgruppen im `AIVPlacement.Core` implementieren und
 pro projiziertem AIV-Element auswerten.
 
 ### Empfohlene Unterteilung innerhalb des Chats
@@ -530,13 +562,15 @@ Ungefähr:
 
 ### Startprompt
 
-> Bearbeite Chat 7 aus `MapParser/AIV_PLACEMENT_ROADMAP.md`: Implementiere die in
-> Chat 6 belegten Placement-Regeln schrittweise im Offline-Kern und ergänze pro
+> Bearbeite Chat 8 aus `MapParser/AIV_PLACEMENT_ROADMAP.md`: Implementiere die in
+> Chat 7 belegten Placement-Regeln schrittweise im Offline-Kern und ergänze pro
 > Reason-Code positive und negative Tests.
 
 ---
 
-## Chat 8: Gesamte AIV bewerten und beste Variante bestimmen
+## Chat 9: Gesamte AIV bewerten und beste Variante bestimmen
+
+**Status:** Ausstehend.
 
 ### Ziel
 
@@ -562,7 +596,7 @@ und Rotation bilden.
       FirstBlockingBuildStep
       Score
 
-Der `Score` darf erst definiert werden, wenn Chat 5 geklärt hat, wie Vanilla
+Der `Score` darf erst definiert werden, wenn Chat 6 geklärt hat, wie Vanilla
 partielle Kandidaten vergleicht.
 
 ### Zusätzliche Funktionen
@@ -582,14 +616,16 @@ partielle Kandidaten vergleicht.
 
 ### Startprompt
 
-> Bearbeite Chat 8 aus `MapParser/AIV_PLACEMENT_ROADMAP.md`: Implementiere die
+> Bearbeite Chat 9 aus `MapParser/AIV_PLACEMENT_ROADMAP.md`: Implementiere die
 > Gesamtbewertung einer AIV pro Keep-Position und Rotation sowie die
 > deterministische Auswahl der besten Variante anhand der belegten nativen
 > Semantik.
 
 ---
 
-## Chat 9: Offline-Ergebnis systematisch gegen den nativen Oracle vergleichen
+## Chat 10: Offline-Ergebnis systematisch gegen den nativen Oracle vergleichen
+
+**Status:** Ausstehend.
 
 ### Ziel
 
@@ -635,14 +671,16 @@ erst gestartet, wenn die geschätzte Laufzeit zumutbar ist.
 
 ### Startprompt
 
-> Bearbeite Chat 9 aus `MapParser/AIV_PLACEMENT_ROADMAP.md`: Vergleiche den
+> Bearbeite Chat 10 aus `MapParser/AIV_PLACEMENT_ROADMAP.md`: Vergleiche den
 > Offline-Analyzer schrittweise gegen den nativen Oracle. Beginne mit genau einem
 > Fall, miss die Laufzeit und verwende bei größeren Stichproben sichtbaren
 > Fortschritt und ETA.
 
 ---
 
-## Chat 10: Lobby-Datenfluss ohne UI anbinden
+## Chat 11: Lobby-Datenfluss ohne UI anbinden
+
+**Status:** Ausstehend.
 
 ### Ziel
 
@@ -679,13 +717,15 @@ jedem Lobby-Slot gehören und welche AIV-Kandidaten geprüft werden müssen.
 
 ### Startprompt
 
-> Bearbeite Chat 10 aus `MapParser/AIV_PLACEMENT_ROADMAP.md`: Binde zunächst nur
+> Bearbeite Chat 11 aus `MapParser/AIV_PLACEMENT_ROADMAP.md`: Binde zunächst nur
 > den Lobby-Datenfluss an. Ermittle zuverlässig Mapdatei, KI-Slot, Keep-Position
 > und AIV-Kandidaten, aber ändere die sichtbare Lobby-UI noch nicht.
 
 ---
 
-## Chat 11: Cache und asynchrone Auswertung implementieren
+## Chat 12: Cache und asynchrone Auswertung implementieren
+
+**Status:** Ausstehend.
 
 ### Ziel
 
@@ -726,14 +766,16 @@ AIV-Ergebnis-Cache:
 
 ### Startprompt
 
-> Bearbeite Chat 11 aus `MapParser/AIV_PLACEMENT_ROADMAP.md`: Implementiere einen
+> Bearbeite Chat 12 aus `MapParser/AIV_PLACEMENT_ROADMAP.md`: Implementiere einen
 > begrenzten, invalidierbaren Cache und die sichere asynchrone Auswertung für
 > Map/AIV/Keep/Rotation-Kombinationen. Verwende keine Unity-Objekte im
 > Hintergrundthread.
 
 ---
 
-## Chat 12: Lobby-UI und Multiplayer-Verhalten fertigstellen
+## Chat 13: Lobby-UI und Multiplayer-Verhalten fertigstellen
+
+**Status:** Ausstehend.
 
 ### Ziel
 
@@ -775,7 +817,7 @@ festgelegt werden.
 
 ### Startprompt
 
-> Bearbeite Chat 12 aus `MapParser/AIV_PLACEMENT_ROADMAP.md`: Ergänze die
+> Bearbeite Chat 13 aus `MapParser/AIV_PLACEMENT_ROADMAP.md`: Ergänze die
 > Skirmish-Lobby um verständliche Complete/Partial/Impossible/NotEvaluable-
 > Anzeigen und kläre mit mir vorab, ob nur gewarnt, gefiltert oder eine Auswahl
 > blockiert werden soll sowie welches Host-/Client-Verhalten gewünscht ist.
@@ -784,16 +826,19 @@ festgelegt werden.
 
 ## Empfohlene Reihenfolge und Stopppunkte
 
-Die Chats werden in der Reihenfolge 1 bis 12 bearbeitet. Besonders wichtige
+Die Chats werden in der Reihenfolge 1 bis 13 bearbeitet. Besonders wichtige
 Stopppunkte sind:
 
 1. Nach Chat 1: Keine Geometrie implementieren, solange die native Zuordnung
    nicht belegt ist.
-2. Nach Chat 5: Keine Gesamtstatus-Semantik festschreiben, solange 0/1/2 nicht
+2. Nach Chat 6: Keine Gesamtstatus-Semantik festschreiben, solange 0/1/2 nicht
    eindeutig verstanden sind.
-3. Nach Chat 9: Keine Lobbyentscheidung auf Basis ungeklärter Abweichungen
+3. Nach Chat 10: Keine Lobbyentscheidung auf Basis ungeklärter Abweichungen
    erzwingen.
-4. Vor Chat 12: Nutzerentscheidung einholen, ob die Lobby nur informiert,
+4. Vor Chat 13: Nutzerentscheidung einholen, ob die Lobby nur informiert,
    filtert oder ungültige AIV-Auswahlen blockiert.
+
+Der nächste auszuführende Schritt ist **Chat 4: Keep-Tile-Anker offline
+belegen**.
 
 
