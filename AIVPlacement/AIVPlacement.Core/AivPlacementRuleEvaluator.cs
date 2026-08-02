@@ -94,6 +94,21 @@ namespace AIVPlacement.Core
             AivProjectedElement element)
         {
             var issues = new List<AivPlacementIssue>();
+            if (element.Kind == AivProjectedElementKind.AnchorOnly)
+            {
+                // An unknown footprint cannot safely contribute to a complete castle result.
+                issues.Add(new AivPlacementIssue(
+                    AivPlacementIssueKind.UnresolvedNativeRule,
+                    element.OriginalIndex,
+                    element.BuildIndex,
+                    element.Mapper.Value,
+                    AivProjectedTileKind.ElementAnchor,
+                    element.MapCoordinate,
+                    null,
+                    null));
+                return issues;
+            }
+
             foreach (AivProjectedTile tile in element.OccupiedTiles)
             {
                 MapCoordinate coordinate = tile.MapCoordinate;

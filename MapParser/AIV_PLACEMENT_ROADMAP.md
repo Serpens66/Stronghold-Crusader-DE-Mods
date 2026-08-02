@@ -591,7 +591,11 @@ Ungefähr:
 
 ## Chat 9: Gesamte AIV bewerten und beste Variante bestimmen
 
-**Status:** Nächster Schritt.
+**Status:** Abgeschlossen. Die immutable Gesamtbewertung definiert
+`Complete`, `Partial`, `Impossible` und `NotEvaluable`, bewahrt beide nativen
+Score-Dimensionen und wählt die beste Rotation in belegter nativer Reihenfolge.
+Alle Issues bleiben bis zum Element und Tile nachvollziehbar; der gezielte
+RVA-`0x541D0`-Audit und die synthetischen Tests belegen die Auswahlgrenzen.
 
 ### Ziel
 
@@ -646,7 +650,7 @@ partielle Kandidaten vergleicht.
 
 ## Chat 10: Offline-Ergebnis systematisch gegen den nativen Oracle vergleichen
 
-**Status:** Ausstehend.
+**Status:** Nächster Schritt.
 
 ### Ziel
 
@@ -859,6 +863,6 @@ Stopppunkte sind:
 4. Vor Chat 13: Nutzerentscheidung einholen, ob die Lobby nur informiert,
    filtert oder ungültige AIV-Auswahlen blockiert.
 
-Der nächste auszuführende Schritt ist "Chat 9".
+Der nächste auszuführende Schritt ist "Chat 10".
 
 

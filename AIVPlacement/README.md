@@ -15,6 +15,32 @@ or `NotEvaluable` plus immutable issues with the exact element, tile, Tile-ID an
 all eight raw layer values. `EvaluateElements(...)` additionally detects claims
 of the same coordinate by later AIV elements in original build order.
 
+`AivPlacementEvaluator.Evaluate(...)` aggregates those element results into
+`Complete`, `Partial`, `Impossible` or `NotEvaluable`. Its score retains both
+native dimensions: the build prefix before the first blocked step and the
+integer tile-fit percentage. Counts, the first blocking build step and every
+issue remain available in the immutable result.
+
+`EvaluateAllRotations(...)` tests the initial rotation followed by the other
+three native rotations. It selects the first complete fit, preserves a positive
+partial from the initial rotation, and only accepts an alternative partial above
+Vanilla's 85-percent boundary. Complete and partial variants are also exposed as
+separate deterministic sorted lists. An unresolved earlier variant yields
+`NotEvaluable` instead of being treated as a failed fit.
+
+The per-rotation statuses are defined as follows:
+
+- `Complete`: at least one tile was evaluated and no tile is blocked or
+  unresolved; the sequential score is the native sentinel `999999`.
+- `Partial`: the first proven block occurs after build step zero, so a positive
+  build prefix remains placeable.
+- `Impossible`: the first proven block is build step zero. A multi-rotation
+  selection also uses this status when no alternative passes the native partial
+  threshold.
+- `NotEvaluable`: a required native rule input or footprint is unknown, or the
+  blueprint contains no evaluable tiles. This state always remains distinct
+  from a proven rejection.
+
 Implemented rules cover the native coordinate domain and validity diamond,
 Height limit, Building occupancy, the proven Logic masks and mapper-specific
 edge/swamp/moat profiles, existing-wall ownership, and internal overlap. The one
@@ -39,6 +65,8 @@ documented in `../MapParser/Docs/AIV_PLACEMENT_RULES.md`.
   when two AIV elements overlap.
 - A frame without positions remains an empty build step. A mapper without a known
   footprint remains an `AnchorOnly` element and occupies no inferred tiles.
+- An anchor-only element is `NotEvaluable` during rule evaluation because its
+  unknown footprint cannot safely contribute to a complete result.
 
 ## Build and test
 

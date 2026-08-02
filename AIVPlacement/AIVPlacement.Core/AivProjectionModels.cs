@@ -15,7 +15,8 @@ namespace AIVPlacement.Core
     public enum AivProjectedTileKind
     {
         CoreFootprint,
-        AssociatedBlockedArea
+        AssociatedBlockedArea,
+        ElementAnchor
     }
 
     public sealed class AivProjectedTile

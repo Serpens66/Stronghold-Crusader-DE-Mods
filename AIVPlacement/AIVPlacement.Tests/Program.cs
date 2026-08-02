@@ -6,6 +6,7 @@ internal static class Program
 {
     private static readonly AivCastleProjector Projector = new();
     private static readonly AivPlacementRuleEvaluator RuleEvaluator = new();
+    private static readonly AivPlacementEvaluator PlacementEvaluator = new();
 
     private static int Main()
     {
@@ -29,7 +30,11 @@ internal static class Program
             ("Reject existing walls as owner conflicts", TestOwnerRule),
             ("Detect internal overlaps in build order", TestInternalOverlapRule),
             ("Evaluate associated areas separately from core footprints", TestAssociatedAreaRule),
-            ("Produce deterministic element results", TestDeterministicEvaluation)
+            ("Produce deterministic element results", TestDeterministicEvaluation),
+            ("Aggregate complete, partial and impossible candidates", TestCandidateStatuses),
+            ("Keep unresolved candidates not evaluable", TestCandidateNotEvaluable),
+            ("Select the first complete rotation in native order", TestCompleteRotationSelection),
+            ("Apply the native alternative-rotation threshold", TestPartialRotationSelection)
         };
 
         int failures = 0;
@@ -460,6 +465,238 @@ internal static class Program
         }
     }
 
+    private static void TestCandidateStatuses()
+    {
+        AivBlueprint blueprint = Blueprint(
+            Frame(0, 25, false, Point(45, 55)),
+            Frame(1, 25, false, Point(44, 56)),
+            Frame(2, 25, false, Point(43, 57)));
+        MapCoordinate keep = new(400, 400);
+
+        AivPlacementResult complete = PlacementEvaluator.Evaluate(
+            new SparsePlacementMap(),
+            blueprint,
+            keep,
+            AivRotation.Degrees0);
+        AssertEqual(AivPlacementStatus.Complete, complete.Status);
+        AssertEqual(3, complete.TotalElementCount);
+        AssertEqual(3, complete.PlaceableElementCount);
+        AssertEqual(AivPlacementEvaluator.CompleteSequentialScore,
+            complete.Score.SequentialBuildScore);
+        AssertEqual(100, complete.Score.FitPercentage);
+        AssertEqual((int?)null, complete.FirstBlockingBuildStep);
+
+        AivProjectedCastle projected = Projector.Project(
+            blueprint,
+            keep,
+            AivRotation.Degrees0);
+        var partialMap = new SparsePlacementMap();
+        partialMap.Set(projected.Elements[2].MapCoordinate, Evidence(buildingId: 12));
+        AivPlacementResult partial = PlacementEvaluator.Evaluate(
+            partialMap,
+            blueprint,
+            keep,
+            AivRotation.Degrees0);
+        AssertEqual(AivPlacementStatus.Partial, partial.Status);
+        AssertEqual(2, partial.PlaceableElementCount);
+        AssertEqual(1, partial.BlockedElementCount);
+        AssertEqual((int?)2, partial.FirstBlockingBuildStep);
+        AssertEqual(2, partial.Score.SequentialBuildScore);
+        AssertEqual(66, partial.Score.FitPercentage);
+        AssertEqual(1, partial.Issues.Count);
+        AssertEqual(2, partial.Issues[0].ElementIndex);
+
+        var impossibleMap = new SparsePlacementMap();
+        impossibleMap.Set(projected.Elements[0].MapCoordinate, Evidence(buildingId: 13));
+        AivPlacementResult impossible = PlacementEvaluator.Evaluate(
+            impossibleMap,
+            blueprint,
+            keep,
+            AivRotation.Degrees0);
+        AssertEqual(AivPlacementStatus.Impossible, impossible.Status);
+        AssertEqual((int?)0, impossible.FirstBlockingBuildStep);
+        AssertEqual(0, impossible.Score.SequentialBuildScore);
+    }
+
+    private static void TestCandidateNotEvaluable()
+    {
+        MapCoordinate keep = new(400, 400);
+        AivBlueprint organismBlueprint = Blueprint(
+            Frame(0, 25, false, Point(45, 55)));
+        AivProjectedElement element = Projector.Project(
+            organismBlueprint,
+            keep,
+            AivRotation.Degrees0).Elements[0];
+        var organismMap = new SparsePlacementMap();
+        organismMap.Set(element.MapCoordinate, Evidence(
+            terrainFlags: 0x00001000,
+            organismId: 9));
+
+        AivPlacementResult organism = PlacementEvaluator.Evaluate(
+            organismMap,
+            organismBlueprint,
+            keep,
+            AivRotation.Degrees0);
+        AssertEqual(AivPlacementStatus.NotEvaluable, organism.Status);
+        AssertEqual(-1, organism.Score.SequentialBuildScore);
+        AssertEqual(1, organism.NotEvaluableElementCount);
+
+        AivBlueprint unknownFootprint = Blueprint(
+            Frame(0, 999, false, Point(45, 55)));
+        AivPlacementResult unknown = PlacementEvaluator.Evaluate(
+            new SparsePlacementMap(),
+            unknownFootprint,
+            keep,
+            AivRotation.Degrees0);
+        AssertEqual(AivPlacementStatus.NotEvaluable, unknown.Status);
+        AssertEqual(1, unknown.Issues.Count);
+        AssertEqual(AivProjectedTileKind.ElementAnchor, unknown.Issues[0].TileKind);
+        AssertEqual(AivPlacementIssueKind.UnresolvedNativeRule, unknown.Issues[0].Kind);
+    }
+
+    private static void TestCompleteRotationSelection()
+    {
+        MapCoordinate keep = new(400, 400);
+        AivBlueprint blueprint = Blueprint(
+            Frame(0, 25, false, Point(40, 60)));
+        var map = new SparsePlacementMap();
+        foreach (AivRotation rotation in new[]
+        {
+            AivRotation.Degrees0,
+            AivRotation.Degrees180,
+            AivRotation.Degrees270
+        })
+        {
+            map.Set(Projector.Project(blueprint, keep, rotation).Elements[0].MapCoordinate,
+                Evidence(buildingId: 21));
+        }
+
+        AivPlacementRotationSelection selection =
+            PlacementEvaluator.EvaluateAllRotations(
+                map,
+                blueprint,
+                keep,
+                AivRotation.Degrees0);
+        AssertEqual(AivPlacementStatus.Complete, selection.Status);
+        AivPlacementResult complete = RequireBestVariant(selection);
+        AssertEqual(AivRotation.Degrees90, complete.Rotation);
+        AssertEqual(4, selection.Variants.Count);
+        AssertEqual(1, selection.CompleteVariants.Count);
+        AssertEqual(0, selection.PartialVariants.Count);
+    }
+
+    private static void TestPartialRotationSelection()
+    {
+        MapCoordinate keep = new(400, 400);
+        var frames = new List<AivBuildFrame>();
+        for (int index = 0; index < 10; index++)
+            frames.Add(Frame(index, 25, false, Point(40, 60 + index)));
+        AivBlueprint blueprint = Blueprint(frames.ToArray());
+
+        var map = new SparsePlacementMap();
+        AivProjectedCastle initial = Projector.Project(
+            blueprint,
+            keep,
+            AivRotation.Degrees0);
+        map.Set(initial.Elements[0].MapCoordinate, Evidence(buildingId: 31));
+        foreach (AivRotation rotation in new[]
+        {
+            AivRotation.Degrees90,
+            AivRotation.Degrees180,
+            AivRotation.Degrees270
+        })
+        {
+            AivProjectedCastle alternative = Projector.Project(blueprint, keep, rotation);
+            map.Set(alternative.Elements[9].MapCoordinate, Evidence(buildingId: 32));
+        }
+
+        AivPlacementRotationSelection accepted =
+            PlacementEvaluator.EvaluateAllRotations(
+                map,
+                blueprint,
+                keep,
+                AivRotation.Degrees0);
+        AssertEqual(AivPlacementStatus.Partial, accepted.Status);
+        AivPlacementResult acceptedPartial = RequireBestVariant(accepted);
+        AssertEqual(AivRotation.Degrees90, acceptedPartial.Rotation);
+        AssertEqual(90, acceptedPartial.Score.FitPercentage);
+        AssertEqual(3, accepted.PartialVariants.Count);
+
+        var initialPartialMap = new SparsePlacementMap();
+        initialPartialMap.Set(initial.Elements[1].MapCoordinate, Evidence(buildingId: 35));
+        foreach (AivRotation rotation in new[]
+        {
+            AivRotation.Degrees90,
+            AivRotation.Degrees180,
+            AivRotation.Degrees270
+        })
+        {
+            AivProjectedCastle alternative = Projector.Project(blueprint, keep, rotation);
+            initialPartialMap.Set(
+                alternative.Elements[9].MapCoordinate,
+                Evidence(buildingId: 36));
+        }
+
+        AivPlacementRotationSelection retainedInitial =
+            PlacementEvaluator.EvaluateAllRotations(
+                initialPartialMap,
+                blueprint,
+                keep,
+                AivRotation.Degrees0);
+        AssertEqual(AivPlacementStatus.Partial, retainedInitial.Status);
+        AivPlacementResult retainedPartial = RequireBestVariant(retainedInitial);
+        AssertEqual(AivRotation.Degrees0, retainedPartial.Rotation);
+        AssertEqual(1, retainedPartial.Score.SequentialBuildScore);
+        AssertEqual(9,
+            retainedInitial.PartialVariants[0].Score.SequentialBuildScore);
+
+        var belowThresholdMap = new SparsePlacementMap();
+        foreach (AivRotation rotation in new[]
+        {
+            AivRotation.Degrees0,
+            AivRotation.Degrees90,
+            AivRotation.Degrees180,
+            AivRotation.Degrees270
+        })
+        {
+            AivProjectedCastle variant = Projector.Project(blueprint, keep, rotation);
+            int firstBlocked = rotation == AivRotation.Degrees0 ? 0 : 1;
+            belowThresholdMap.Set(
+                variant.Elements[firstBlocked].MapCoordinate,
+                Evidence(buildingId: 41));
+            belowThresholdMap.Set(
+                variant.Elements[9].MapCoordinate,
+                Evidence(buildingId: 42));
+        }
+
+        AivPlacementRotationSelection rejected =
+            PlacementEvaluator.EvaluateAllRotations(
+                belowThresholdMap,
+                blueprint,
+                keep,
+                AivRotation.Degrees0);
+        AssertEqual(AivPlacementStatus.Impossible, rejected.Status);
+        Assert(rejected.BestVariant == null,
+            "A below-threshold alternative must not be accepted.");
+
+        AivPlacementRotationSelection repeated =
+            PlacementEvaluator.EvaluateAllRotations(
+                belowThresholdMap,
+                blueprint,
+                keep,
+                AivRotation.Degrees0);
+        AssertEqual(rejected.Status, repeated.Status);
+        for (int index = 0; index < rejected.Variants.Count; index++)
+        {
+            AssertEqual(rejected.Variants[index].Rotation,
+                repeated.Variants[index].Rotation);
+            AssertEqual(rejected.Variants[index].Score.SequentialBuildScore,
+                repeated.Variants[index].Score.SequentialBuildScore);
+            AssertEqual(rejected.Variants[index].Score.FitPercentage,
+                repeated.Variants[index].Score.FitPercentage);
+        }
+    }
+
     private static AivProjectedElement Element(
         AivBlueprint blueprint,
         AivRotation rotation,
@@ -619,6 +856,11 @@ internal static class Program
 
         throw new InvalidOperationException($"Expected {typeof(TException).Name}.");
     }
+
+    private static AivPlacementResult RequireBestVariant(
+        AivPlacementRotationSelection selection) =>
+        selection.BestVariant ??
+        throw new InvalidOperationException("The selection has no best variant.");
 
     private static void AssertEqual<T>(T expected, T actual)
     {

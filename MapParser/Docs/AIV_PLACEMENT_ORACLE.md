@@ -112,8 +112,24 @@ highest percentage. If no candidate passes the relevant partial thresholds,
 the allocation-time value `placementState=0` remains unchanged. Any accepted
 partial candidate sets `placementState=1`.
 
-The precise branch order and thresholds must be preserved when Chat 9 later
-ports best-variant selection. They must not be inferred from the status names.
+The targeted Chat-9 audit of RVA `0x541D0` fixes the exact branch order:
+
+1. The initial orientation tracks the highest percentage, the highest positive
+   sequential score, and the first candidate whose percentage is greater than
+   `95`.
+2. A complete score still returns immediately in every tested orientation.
+3. If the initial orientation produced any positive sequential score, rotated
+   partials do not replace it. The initial orientation chooses the first
+   greater-than-`95` candidate when present; otherwise a sequential score of at
+   least `30` wins, else a percentage greater than `90` wins, with the best
+   sequential candidate as the remaining fallback.
+4. Only when the initial orientation produced no positive sequential score can
+   a rotated partial be selected. It must have a percentage greater than `85`;
+   strict greater-than comparison retains the first orientation on a tie.
+
+`AivPlacementEvaluator.EvaluateAllRotations` ports the one-AIV subset of this
+contract. The multi-AIV candidate-order branches remain documented here for a
+future caller that owns more than one blueprint.
 
 ## Map state consulted by the fit
 
