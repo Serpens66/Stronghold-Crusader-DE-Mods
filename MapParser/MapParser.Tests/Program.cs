@@ -19,6 +19,10 @@ internal static class Program
             ("Parse 200-slot directory", () => TestDirectoryCapacity(200)),
             ("Normalize old and new tile IDs", TestLogicalSectionIds),
             ("Read typed placement layers", TestPlacementLayers),
+            ("Match native map-tile geometry vectors", TestMapTileGeometryVectors),
+            ("Roundtrip every map tile", TestMapTileGeometryRoundTrips),
+            ("Separate fixed geometry from world-size bounds", TestMapTileWorldBounds),
+            ("Reject invalid map-tile geometry inputs", TestInvalidMapTileGeometry),
             ("Decode PKWARE-DCL and verify CRC32", TestCompressedSection),
             ("Reject truncated preamble", TestTruncatedPreamble),
             ("Reject invalid section offset", TestInvalidSectionOffset),
@@ -140,6 +144,126 @@ internal static class Program
         AssertEqual((ushort)202, layers.BuildingOccupancy[2]);
         AssertEqual((ushort)302, layers.EntityOccupancy[2]);
         AssertEqual((byte)42, layers.OwnerOccupancy[2]);
+    }
+
+    private static void TestMapTileGeometryVectors()
+    {
+        using JsonDocument vectors = ReadMapTileGeometryVectors();
+        JsonElement root = vectors.RootElement;
+        JsonElement geometryData = root.GetProperty("geometry");
+        int tileCount = geometryData.GetProperty("tileCount").GetInt32();
+        var geometry = new MapTileGeometry(tileCount, 400);
+
+        AssertEqual(MapTileGeometry.FixedRowCount, geometryData.GetProperty("rowCount").GetInt32());
+        AssertEqual(MapTileGeometry.FixedTileCount, tileCount);
+        AssertEqual(0, geometryData.GetProperty("minimumTileId").GetInt32());
+        AssertEqual(tileCount - 1, geometryData.GetProperty("maximumTileId").GetInt32());
+
+        foreach (JsonElement vector in root.GetProperty("nativeCoordinateVectors").EnumerateArray())
+        {
+            int x = vector.GetProperty("x").GetInt32();
+            int y = vector.GetProperty("y").GetInt32();
+            int expectedTileId = vector.GetProperty("tileId").GetInt32();
+            AssertTrue(geometry.IsValidCoordinate(x, y));
+            AssertTrue(geometry.TryGetTileId(x, y, out int tileId));
+            AssertEqual(expectedTileId, tileId);
+            AssertEqual(expectedTileId, geometry.GetTileId(x, y));
+            AssertTrue(geometry.TryGetCoordinate(tileId, out MapCoordinate coordinate));
+            AssertEqual(new MapCoordinate(x, y), coordinate);
+        }
+
+        foreach (JsonElement vector in root.GetProperty("invalidCoordinateVectors").EnumerateArray())
+        {
+            int x = vector.GetProperty("x").GetInt32();
+            int y = vector.GetProperty("y").GetInt32();
+            AssertTrue(!geometry.IsValidCoordinate(x, y));
+            AssertTrue(!geometry.TryGetTileId(x, y, out _));
+            AssertThrows<ArgumentOutOfRangeException>(() => geometry.GetTileId(x, y));
+        }
+
+        foreach (JsonElement tileIdData in root.GetProperty("invalidTileIds").EnumerateArray())
+            AssertTrue(!geometry.TryGetCoordinate(tileIdData.GetInt32(), out _));
+
+        // U4 entries are deliberately radar observations and have no tile IDs to validate here.
+        foreach (JsonElement observation in root.GetProperty("u4RadarObservations").EnumerateArray())
+            AssertEqual(JsonValueKind.Null, observation.GetProperty("tileIds").ValueKind);
+    }
+
+    private static void TestMapTileGeometryRoundTrips()
+    {
+        var geometry = new MapTileGeometry(MapTileGeometry.FixedTileCount, 400);
+        AssertTrue(geometry.TryGetCoordinate(0, out MapCoordinate first));
+        AssertEqual(new MapCoordinate(399, 0), first);
+        AssertTrue(geometry.TryGetCoordinate(geometry.TileCount - 1, out MapCoordinate last));
+        AssertEqual(new MapCoordinate(400, 799), last);
+
+        for (int tileId = 0; tileId < geometry.TileCount; tileId++)
+        {
+            AssertTrue(geometry.TryGetCoordinate(tileId, out MapCoordinate coordinate));
+            AssertEqual(tileId, geometry.GetTileId(coordinate.X, coordinate.Y));
+        }
+    }
+
+    private static void TestMapTileWorldBounds()
+    {
+        using JsonDocument vectors = ReadMapTileGeometryVectors();
+        JsonElement root = vectors.RootElement;
+        int tileCount = root.GetProperty("geometry").GetProperty("tileCount").GetInt32();
+
+        foreach (JsonElement vector in root.GetProperty("worldSizeBoundaryVectors").EnumerateArray())
+        {
+            int worldSize = vector.GetProperty("worldSize").GetInt32();
+            var geometry = new MapTileGeometry(tileCount, worldSize);
+            int nativeX = vector.GetProperty("nativeX").GetInt32();
+            int nativeY = vector.GetProperty("nativeY").GetInt32();
+            AssertEqual(vector.GetProperty("border").GetInt32(), geometry.WorldBorder);
+            AssertEqual(vector.GetProperty("localX").GetInt32() + geometry.WorldBorder, nativeX);
+            AssertEqual(vector.GetProperty("localY").GetInt32() + geometry.WorldBorder, nativeY);
+            AssertTrue(geometry.IsWithinWorldBounds(nativeX, nativeY));
+            AssertEqual(vector.GetProperty("tileId").GetInt32(), geometry.GetTileId(nativeX, nativeY));
+        }
+
+        foreach (int worldSize in MapTileGeometry.SupportedWorldSizes)
+        {
+            var geometry = new MapTileGeometry(tileCount, worldSize);
+            int countedWorldTiles = 0;
+            for (int y = 0; y < MapTileGeometry.FixedRowCount; y++)
+            {
+                for (int x = 0; x < MapTileGeometry.FixedRowCount; x++)
+                {
+                    if (geometry.IsWithinWorldBounds(x, y))
+                    {
+                        countedWorldTiles++;
+                        AssertTrue(geometry.IsValidCoordinate(x, y));
+                    }
+                }
+            }
+            AssertEqual(geometry.WorldTileCount, countedWorldTiles);
+
+            // A fixed-geometry tile remains addressable even when outside this map's playable world.
+            AssertTrue(geometry.IsValidCoordinate(399, 0));
+            AssertTrue(!geometry.IsWithinWorldBounds(399, 0));
+            AssertEqual(0, geometry.GetTileId(399, 0));
+        }
+    }
+
+    private static void TestInvalidMapTileGeometry()
+    {
+        AssertThrows<MapUnsupportedGeometryException>(() => new MapTileGeometry(0, 400));
+        AssertThrows<MapUnsupportedGeometryException>(() =>
+            new MapTileGeometry(MapTileGeometry.FixedTileCount - 1, 400));
+        AssertThrows<MapUnsupportedGeometryException>(() =>
+            new MapTileGeometry(MapTileGeometry.FixedTileCount + 1, 400));
+        AssertThrows<MapUnsupportedGeometryException>(() =>
+            new MapTileGeometry(MapTileGeometry.FixedTileCount, 0));
+        AssertThrows<MapUnsupportedGeometryException>(() =>
+            new MapTileGeometry(MapTileGeometry.FixedTileCount, 800));
+    }
+
+    private static JsonDocument ReadMapTileGeometryVectors()
+    {
+        string path = Path.Combine(AppContext.BaseDirectory, "Fixtures", "MapTileGeometryVectors.json");
+        return JsonDocument.Parse(File.ReadAllBytes(path));
     }
 
     private static void TestCompressedSection()

@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "sourceBinarySha256": "17F8DD4A92FF6125BD6A3A70ABC80C727682E489696C218D146A7EA6D2F88BF4",
+  "geometry": {
+    "rowCount": 800,
+    "tileCount": 320800,
+    "minimumTileId": 0,
+    "maximumTileId": 320799,
+    "rowStrideInt32": 3
+  },
+  "nativeCoordinateVectors": [
+    { "label": "top first", "x": 399, "y": 0, "firstX": 399, "lastX": 400, "rowStart": -399, "tileId": 0 },
+    { "label": "top last", "x": 400, "y": 0, "firstX": 399, "lastX": 400, "rowStart": -399, "tileId": 1 },
+    { "label": "early row first", "x": 398, "y": 1, "firstX": 398, "lastX": 401, "rowStart": -396, "tileId": 2 },
+    { "label": "early row last", "x": 401, "y": 1, "firstX": 398, "lastX": 401, "rowStart": -396, "tileId": 5 },
+    { "label": "left upper middle", "x": 0, "y": 399, "firstX": 0, "lastX": 799, "rowStart": 159600, "tileId": 159600 },
+    { "label": "center north west", "x": 399, "y": 399, "firstX": 0, "lastX": 799, "rowStart": 159600, "tileId": 159999 },
+    { "label": "center north east", "x": 400, "y": 399, "firstX": 0, "lastX": 799, "rowStart": 159600, "tileId": 160000 },
+    { "label": "right upper middle", "x": 799, "y": 399, "firstX": 0, "lastX": 799, "rowStart": 159600, "tileId": 160399 },
+    { "label": "left lower middle", "x": 0, "y": 400, "firstX": 0, "lastX": 799, "rowStart": 160400, "tileId": 160400 },
+    { "label": "center south west", "x": 399, "y": 400, "firstX": 0, "lastX": 799, "rowStart": 160400, "tileId": 160799 },
+    { "label": "center south east", "x": 400, "y": 400, "firstX": 0, "lastX": 799, "rowStart": 160400, "tileId": 160800 },
+    { "label": "right lower middle", "x": 799, "y": 400, "firstX": 0, "lastX": 799, "rowStart": 160400, "tileId": 161199 },
+    { "label": "late row first", "x": 398, "y": 798, "firstX": 398, "lastX": 401, "rowStart": 320396, "tileId": 320794 },
+    { "label": "late row last", "x": 401, "y": 798, "firstX": 398, "lastX": 401, "rowStart": 320396, "tileId": 320797 },
+    { "label": "bottom first", "x": 399, "y": 799, "firstX": 399, "lastX": 400, "rowStart": 320399, "tileId": 320798 },
+    { "label": "bottom last", "x": 400, "y": 799, "firstX": 399, "lastX": 400, "rowStart": 320399, "tileId": 320799 }
+  ],
+  "worldSizeBoundaryVectors": [
+    { "worldSize": 160, "border": 320, "localX": 79, "localY": 0, "nativeX": 399, "nativeY": 320, "tileId": 103040 },
+    { "worldSize": 160, "border": 320, "localX": 80, "localY": 0, "nativeX": 400, "nativeY": 320, "tileId": 103041 },
+    { "worldSize": 200, "border": 300, "localX": 99, "localY": 0, "nativeX": 399, "nativeY": 300, "tileId": 90600 },
+    { "worldSize": 200, "border": 300, "localX": 100, "localY": 0, "nativeX": 400, "nativeY": 300, "tileId": 90601 },
+    { "worldSize": 300, "border": 250, "localX": 149, "localY": 0, "nativeX": 399, "nativeY": 250, "tileId": 63000 },
+    { "worldSize": 300, "border": 250, "localX": 150, "localY": 0, "nativeX": 400, "nativeY": 250, "tileId": 63001 },
+    { "worldSize": 400, "border": 200, "localX": 199, "localY": 0, "nativeX": 399, "nativeY": 200, "tileId": 40400 },
+    { "worldSize": 400, "border": 200, "localX": 200, "localY": 0, "nativeX": 400, "nativeY": 200, "tileId": 40401 }
+  ],
+  "invalidCoordinateVectors": [
+    { "label": "negative x", "x": -1, "y": 399 },
+    { "label": "negative y", "x": 399, "y": -1 },
+    { "label": "square corner outside diamond", "x": 0, "y": 0 },
+    { "label": "past top row", "x": 401, "y": 0 },
+    { "label": "x outside fixed grid", "x": 800, "y": 399 },
+    { "label": "y outside fixed grid", "x": 399, "y": 800 }
+  ],
+  "invalidTileIds": [-1, 320800],
+  "u4RadarObservations": [
+    { "worldSize": 160, "sourceMap": "Height Advantage.map", "radarPositions": [[64, 120], [138, 55]], "tileIds": null },
+    { "worldSize": 200, "sourceMap": "Bow Ridge.map", "radarPositions": [[156, 91], [32, 91]], "tileIds": null },
+    { "worldSize": 300, "sourceMap": "A Layered Approach.map", "radarPositions": [[147, 142], [135, 53]], "tileIds": null },
+    { "worldSize": 400, "sourceMap": "A Friend Indeed.map", "radarPositions": [[29, 54], [67, 26]], "tileIds": null },
+    { "worldSize": 200, "sourceMap": "unset slot sentinel", "radarPositions": [[-1, -1]], "tileIds": null }
+  ]
+}

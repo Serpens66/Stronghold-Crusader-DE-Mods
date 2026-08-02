@@ -36,6 +36,14 @@ namespace MapParser.Core
         }
     }
 
+    public sealed class MapUnsupportedGeometryException : MapParseException
+    {
+        public MapUnsupportedGeometryException(string message)
+            : base(message)
+        {
+        }
+    }
+
     public sealed class MapSectionCrcException : MapCorruptDataException
     {
         public MapSectionCrcException(int sectionId, uint expected, uint actual)

@@ -11,4 +11,7 @@
   <ItemGroup>
     <ProjectReference Include="..\MapParser.Core\MapParser.Core.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <None Update="Fixtures\MapTileGeometryVectors.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

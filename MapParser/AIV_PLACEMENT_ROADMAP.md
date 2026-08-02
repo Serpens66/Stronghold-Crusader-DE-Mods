@@ -30,7 +30,7 @@ Oracle-Vergleich festgelegt.
 
 Der derzeitige Workspace enthält:
 
-- `MapParser`: liest `.map`, Metadaten, Keep-Positionen und Placement-Layer
+- `MapParser`: liest `.map`, Metadaten, U4-Radarpositionen und Placement-Layer
   strikt und read-only.
 - `AIVParser`: liest `.aivjson`, Build-Reihenfolge, Keep-Anker, Rotationen,
   Footprints und bekannte zugehörige Blockierflächen.
@@ -62,6 +62,16 @@ Tests erfolgreich sind.
 ---
 
 ## Chat 1: Koordinatensysteme und native Row-LUT belegen
+
+**Status:** Abgeschlossen. Die Ergebnisse und nativen Nachweise stehen in
+`Docs/MAP_COORDINATE_SYSTEM.md`; die Testvektoren in
+`MapParser.Tests/Fixtures/MapTileGeometryVectors.json`.
+
+**Plan-Korrektur aus der Analyse:** U4 enthält 200×200-Radarpositionen für die
+Lobbydarstellung, keine nativen Keep-Tile-Koordinaten. Die linearen Sections
+verwenden unabhängig von der World Size eine feste 800-Zeilen-Raute mit 320800
+Tiles. Vor Chat 4 muss deshalb der unten beschriebene Zwischenschritt den echten
+Tile-Anker jedes Keep-Slots offline belegen.
 
 ### Ziel
 
@@ -236,6 +246,41 @@ Ungefähr:
 > Bearbeite Chat 3 aus `MapParser/AIV_PLACEMENT_ROADMAP.md`: Implementiere einen
 > immutable `MapPlacementSnapshot`, der Geometrie und die acht Placement-Layer
 > konsistent zusammenführt. Interpretiere die Flags noch nicht.
+
+---
+
+## Notwendiger Zwischenschritt nach Chat 3: Keep-Tile-Anker offline belegen
+
+### Grund
+
+Chat 1 hat gezeigt, dass die U4-Werte nur Positionen auf der 200×200-Radaransicht
+sind. Sie sind gerastert und nicht verlustfrei auf native Tiles umkehrbar.
+Chat 4 darf deshalb nicht mit U4 als `keepPosition` beginnen.
+
+### Ziel
+
+Für jeden auswählbaren Keep-Slot vor dem Mapstart den exakten nativen
+Tile-Anker bestimmen oder explizit nachweisen, dass dies für eine Kartenvariante
+offline nicht möglich ist.
+
+### Vorgehen
+
+- Native Maplade-/Keep-Erzeugung gezielt vom U4-Puffer bis zum tatsächlichen
+  `GamePlayerResources.r_KeepTilePositionX/Y` verfolgen.
+- Prüfen, ob der Anker aus einer Map-Section, einem Marker, einer Struktur oder
+  einer deterministischen nativen Transformation stammt.
+- Reale 160-/200-/300-/400-Karten nach Mapstart kontrolliert vergleichen:
+  U4-Radarposition, ermittelter Offline-Anker und Runtime-Keep-Tile.
+- Synthetische Fixtures für die belegte Offline-Datenquelle ergänzen.
+- Keine Näherung aus Radar-Pixeln als exakten Tile-Anker ausgeben.
+
+### Abnahme
+
+- Pro Keep-Slot existiert ein exakter `MapCoordinate`-Anker oder ein klarer
+  `NotEvaluable`-Grund.
+- Mehrere reale Karten und World Sizes stimmen offline und zur Laufzeit exakt
+  überein.
+- Chat 4 erhält ausschließlich belegte native Tile-Koordinaten.
 
 ---
 
