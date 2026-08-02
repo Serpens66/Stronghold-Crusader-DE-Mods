@@ -796,5 +796,4 @@ Stopppunkte sind:
 4. Vor Chat 12: Nutzerentscheidung einholen, ob die Lobby nur informiert,
    filtert oder ungültige AIV-Auswahlen blockiert.
 
-Der unmittelbar nächste Schritt ist damit **Chat 1: Koordinatensysteme und
-native Row-LUT belegen**.
+

@@ -9,6 +9,8 @@ namespace MapParser.Tests;
 
 internal static class Program
 {
+    private const int SnapshotSampleTileId = 160400;
+
     private static int Main(string[] args)
     {
         var tests = new (string Name, Action Body)[]
@@ -19,6 +21,13 @@ internal static class Program
             ("Parse 200-slot directory", () => TestDirectoryCapacity(200)),
             ("Normalize old and new tile IDs", TestLogicalSectionIds),
             ("Read typed placement layers", TestPlacementLayers),
+            ("Create immutable placement snapshot", TestPlacementSnapshot),
+            ("Create snapshot from old and new tile IDs", TestPlacementSnapshotSectionIds),
+            ("Reject snapshot without map sections", TestPlacementSnapshotSectionsUnavailable),
+            ("Reject snapshot with missing layer", TestPlacementSnapshotMissingLayer),
+            ("Reject snapshot with inconsistent layer lengths", TestPlacementSnapshotLayerLengths),
+            ("Reject snapshot with unsupported geometry", TestPlacementSnapshotGeometry),
+            ("Decode only placement layers for snapshot", TestPlacementSnapshotLazyDecoding),
             ("Match native map-tile geometry vectors", TestMapTileGeometryVectors),
             ("Roundtrip every map tile", TestMapTileGeometryRoundTrips),
             ("Separate fixed geometry from world-size bounds", TestMapTileWorldBounds),
@@ -144,6 +153,109 @@ internal static class Program
         AssertEqual((ushort)202, layers.BuildingOccupancy[2]);
         AssertEqual((ushort)302, layers.EntityOccupancy[2]);
         AssertEqual((byte)42, layers.OwnerOccupancy[2]);
+    }
+
+    private static void TestPlacementSnapshot()
+    {
+        MapDocument map = MapFileReader.Parse(
+            FixtureBuilder.Build(200, PlacementSnapshotSections(useNewIds: true)).Bytes);
+        AssertTrue(map.HasPlacementSnapshot);
+
+        MapPlacementSnapshot snapshot = map.ReadPlacementSnapshot();
+        AssertEqual(MapTileGeometry.FixedTileCount, snapshot.TileCount);
+        AssertEqual(map.Metadata.WorldSize, snapshot.Geometry.WorldSize);
+        AssertTrue(snapshot.Geometry.TryGetCoordinate(SnapshotSampleTileId, out MapCoordinate coordinate));
+
+        MapPlacementTile byId = snapshot.GetTile(SnapshotSampleTileId);
+        MapPlacementTile byCoordinate = snapshot.GetTile(coordinate.X, coordinate.Y);
+        AssertPlacementTile(byId);
+        AssertPlacementTile(byCoordinate);
+        AssertTrue(snapshot.TryGetTile(coordinate.X, coordinate.Y, out MapPlacementTile fromTry));
+        AssertPlacementTile(fromTry);
+
+        AssertTrue(!snapshot.TryGetTile(-1, 0, out _));
+        AssertThrows<ArgumentOutOfRangeException>(() => snapshot.GetTile(-1));
+        AssertThrows<ArgumentOutOfRangeException>(() => snapshot.GetTile(snapshot.TileCount));
+        AssertThrows<ArgumentOutOfRangeException>(() => snapshot.GetTile(-1, 0));
+    }
+
+    private static void TestPlacementSnapshotSectionIds()
+    {
+        foreach (bool useNewIds in new[] { false, true })
+        {
+            MapDocument map = MapFileReader.Parse(
+                FixtureBuilder.Build(200, PlacementSnapshotSections(useNewIds)).Bytes);
+            MapPlacementSnapshot snapshot = MapPlacementSnapshot.Create(map);
+            AssertPlacementTile(snapshot.GetTile(SnapshotSampleTileId));
+        }
+    }
+
+    private static void TestPlacementSnapshotSectionsUnavailable()
+    {
+        Fixture fixture = FixtureBuilder.Build(100, Array.Empty<SectionSpec>());
+        BinaryPrimitives.WriteUInt32LittleEndian(fixture.Bytes.AsSpan(fixture.DirectoryTagOffset), 1076);
+        MapDocument map = MapFileReader.Parse(fixture.Bytes);
+        AssertTrue(!map.HasPlacementSnapshot);
+
+        MapPlacementSnapshotException exception = AssertThrowsAndGet<MapPlacementSnapshotException>(
+            () => map.ReadPlacementSnapshot());
+        AssertEqual(MapPlacementSnapshotFailureKind.SectionsUnavailable, exception.FailureKind);
+    }
+
+    private static void TestPlacementSnapshotMissingLayer()
+    {
+        SectionSpec[] sections = PlacementSections()
+            .Where(section => section.Id != 3026)
+            .ToArray();
+        MapDocument map = MapFileReader.Parse(FixtureBuilder.Build(200, sections).Bytes);
+        AssertTrue(!map.HasPlacementSnapshot);
+
+        MapPlacementSnapshotException exception = AssertThrowsAndGet<MapPlacementSnapshotException>(
+            () => map.ReadPlacementSnapshot());
+        AssertEqual(MapPlacementSnapshotFailureKind.MissingLayer, exception.FailureKind);
+        AssertEqual((int?)MapSectionCatalog.Entity, exception.LogicalSectionId);
+    }
+
+    private static void TestPlacementSnapshotLayerLengths()
+    {
+        SectionSpec[] sections = PlacementSections();
+        sections[1] = new SectionSpec(3037, [10, 11]);
+        MapDocument map = MapFileReader.Parse(FixtureBuilder.Build(200, sections).Bytes);
+        AssertTrue(!map.HasPlacementSnapshot);
+
+        MapPlacementSnapshotException exception = AssertThrowsAndGet<MapPlacementSnapshotException>(
+            () => map.ReadPlacementSnapshot());
+        AssertEqual(MapPlacementSnapshotFailureKind.InconsistentLayerLength, exception.FailureKind);
+        AssertEqual((int?)MapSectionCatalog.Logic2, exception.LogicalSectionId);
+    }
+
+    private static void TestPlacementSnapshotGeometry()
+    {
+        MapDocument map = MapFileReader.Parse(FixtureBuilder.Build(200, PlacementSections()).Bytes);
+        AssertTrue(!map.HasPlacementSnapshot);
+
+        MapPlacementSnapshotException exception = AssertThrowsAndGet<MapPlacementSnapshotException>(
+            () => map.ReadPlacementSnapshot());
+        AssertEqual(MapPlacementSnapshotFailureKind.UnsupportedGeometry, exception.FailureKind);
+        AssertTrue(exception.InnerException is MapUnsupportedGeometryException);
+    }
+
+    private static void TestPlacementSnapshotLazyDecoding()
+    {
+        SectionSpec[] placement = PlacementSnapshotSections(useNewIds: true);
+        SectionSpec[] sections = placement
+            .Append(new SectionSpec(1050, Encoding.ASCII.GetBytes("unused invalid DCL"), Compressed: true))
+            .ToArray();
+        Fixture fixture = FixtureBuilder.Build(200, sections);
+        int unrelatedPayloadOffset = fixture.PayloadOffset + placement.Sum(section => section.Content.Length);
+        fixture.Bytes[unrelatedPayloadOffset + 12] = 9;
+
+        MapDocument map = MapFileReader.Parse(fixture.Bytes);
+        MapPlacementSnapshot snapshot = map.ReadPlacementSnapshot();
+        AssertPlacementTile(snapshot.GetTile(SnapshotSampleTileId));
+
+        // An invalid unrelated section would fail immediately if snapshot creation decoded it.
+        AssertThrows<MapCorruptDataException>(() => map.GetLogicalSection(1050).ReadContent());
     }
 
     private static void TestMapTileGeometryVectors()
@@ -592,6 +704,52 @@ internal static class Program
         new SectionSpec(3043, [40, 41, 42])
     ];
 
+    private static SectionSpec[] PlacementSnapshotSections(bool useNewIds)
+    {
+        int SectionId(int logicalId) => useNewIds ? logicalId + 2000 : logicalId;
+
+        return
+        [
+            new SectionSpec(SectionId(MapSectionCatalog.Logic),
+                Int32Layer(SnapshotSampleTileId, 0x11223344)),
+            new SectionSpec(SectionId(MapSectionCatalog.Logic2),
+                ByteLayer(SnapshotSampleTileId, 12)),
+            new SectionSpec(SectionId(MapSectionCatalog.Height),
+                ByteLayer(SnapshotSampleTileId, 22)),
+            new SectionSpec(SectionId(MapSectionCatalog.DefaultHeight),
+                ByteLayer(SnapshotSampleTileId, 32)),
+            new SectionSpec(SectionId(MapSectionCatalog.Organism),
+                UInt16Layer(SnapshotSampleTileId, 102)),
+            new SectionSpec(SectionId(MapSectionCatalog.Building),
+                UInt16Layer(SnapshotSampleTileId, 202)),
+            new SectionSpec(SectionId(MapSectionCatalog.Entity),
+                UInt16Layer(SnapshotSampleTileId, 302)),
+            new SectionSpec(SectionId(MapSectionCatalog.WallOwner),
+                ByteLayer(SnapshotSampleTileId, 42))
+        ];
+    }
+
+    private static byte[] ByteLayer(int tileId, byte value)
+    {
+        var bytes = new byte[MapTileGeometry.FixedTileCount];
+        bytes[tileId] = value;
+        return bytes;
+    }
+
+    private static byte[] UInt16Layer(int tileId, ushort value)
+    {
+        var bytes = new byte[MapTileGeometry.FixedTileCount * 2];
+        BinaryPrimitives.WriteUInt16LittleEndian(bytes.AsSpan(tileId * 2), value);
+        return bytes;
+    }
+
+    private static byte[] Int32Layer(int tileId, int value)
+    {
+        var bytes = new byte[MapTileGeometry.FixedTileCount * 4];
+        BinaryPrimitives.WriteInt32LittleEndian(bytes.AsSpan(tileId * 4), value);
+        return bytes;
+    }
+
     private static byte[] Int32Bytes(params int[] values)
     {
         var bytes = new byte[values.Length * 4];
@@ -610,15 +768,32 @@ internal static class Program
 
     private static string Sha256(byte[] value) => Convert.ToHexString(SHA256.HashData(value));
 
+    private static void AssertPlacementTile(MapPlacementTile tile)
+    {
+        AssertEqual(0x11223344, tile.TerrainFlags);
+        AssertEqual((byte)12, tile.SecondaryLogic);
+        AssertEqual((byte)22, tile.Height);
+        AssertEqual((byte)32, tile.DefaultHeight);
+        AssertEqual((ushort)102, tile.OrganismId);
+        AssertEqual((ushort)202, tile.BuildingId);
+        AssertEqual((ushort)302, tile.EntityId);
+        AssertEqual((byte)42, tile.OwnerId);
+    }
+
     private static void AssertThrows<TException>(Action action) where TException : Exception
+    {
+        AssertThrowsAndGet<TException>(action);
+    }
+
+    private static TException AssertThrowsAndGet<TException>(Action action) where TException : Exception
     {
         try
         {
             action();
         }
-        catch (TException)
+        catch (TException exception)
         {
-            return;
+            return exception;
         }
         throw new InvalidOperationException($"Expected {typeof(TException).Name}.");
     }

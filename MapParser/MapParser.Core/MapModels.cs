@@ -239,6 +239,7 @@ namespace MapParser.Core
         public int OpaqueTailLength { get; }
         public bool SectionsAvailable => Directory != null;
         public bool HasPlacementLayers => SectionsAvailable && MapTileLayers.CanCreate(this);
+        public bool HasPlacementSnapshot => MapPlacementSnapshot.CanCreate(this);
 
         public bool TryGetSection(int sectionId, out MapSectionInfo section) =>
             sectionsById.TryGetValue(sectionId, out section);
@@ -261,6 +262,8 @@ namespace MapParser.Core
         }
 
         public MapTileLayers ReadPlacementLayers() => MapTileLayers.Create(this);
+
+        public MapPlacementSnapshot ReadPlacementSnapshot() => MapPlacementSnapshot.Create(this);
 
         public byte[] ReadOpaqueTail()
         {

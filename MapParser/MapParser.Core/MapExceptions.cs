@@ -44,6 +44,31 @@ namespace MapParser.Core
         }
     }
 
+    public sealed class MapPlacementSnapshotException : MapParseException
+    {
+        public MapPlacementSnapshotException(
+            MapPlacementSnapshotFailureKind failureKind,
+            string message,
+            int? logicalSectionId = null)
+            : base(message)
+        {
+            FailureKind = failureKind;
+            LogicalSectionId = logicalSectionId;
+        }
+
+        public MapPlacementSnapshotException(
+            MapPlacementSnapshotFailureKind failureKind,
+            string message,
+            Exception innerException)
+            : base(message, innerException)
+        {
+            FailureKind = failureKind;
+        }
+
+        public MapPlacementSnapshotFailureKind FailureKind { get; }
+        public int? LogicalSectionId { get; }
+    }
+
     public sealed class MapSectionCrcException : MapCorruptDataException
     {
         public MapSectionCrcException(int sectionId, uint expected, uint actual)

@@ -7,8 +7,8 @@ PKWARE-DCL-Sections erst bei Bedarf. Weder Karten noch die Spielinstallation
 werden verändert.
 
 Der Parser ist die Datengrundlage für eine spätere AIV-Platzierungsprüfung.
-XY→Tile-ID, Vanillas Fit-Regeln und die Lobby-Integration gehören bewusst noch
-nicht zu diesem Projekt.
+Vanillas Fit-Regeln und die Lobby-Integration gehören bewusst noch nicht zu
+diesem Projekt.
 
 ## Projekte
 
@@ -76,6 +76,13 @@ sind absichtlich nicht unterstützt.
         int flags = layers.TerrainFlags[tileId];
     }
 
+    if (map.HasPlacementSnapshot)
+    {
+        MapPlacementSnapshot snapshot = map.ReadPlacementSnapshot();
+        MapPlacementTile tile = snapshot.GetTile(x, y);
+        Console.WriteLine(tile.TerrainFlags);
+    }
+
 `MapDocument` behält die ursprünglichen Dateibytes intern. `MapSectionInfo`
 enthält Original-ID, logische ID, Speichertyp, Größen und Offsets; erst
 `ReadContent()` löst Dekompression und CRC-Prüfung aus. Zurückgegebene Arrays
@@ -84,6 +91,12 @@ sind Kopien. Die typisierten Placement-Layer sind schreibgeschützte Listen:
 - `TerrainFlags` (`int`)
 - `SecondaryLogic`, `Heights`, `DefaultHeights`, `OwnerOccupancy` (`byte`)
 - `Organisms`, `BuildingOccupancy`, `EntityOccupancy` (`ushort`)
+
+`MapPlacementSnapshot` führt diese acht Roh-Layer mit der belegten
+`MapTileGeometry` zusammen. Tiles können über Tile-ID oder `(x,y)` gelesen
+werden; der Snapshot interpretiert dabei bewusst noch keine Flagbits. Fehlende,
+nicht verfügbare oder längeninkonsistente Layer liefern eine
+`MapPlacementSnapshotException` mit einem maschinenlesbaren `FailureKind`.
 
 Alte Tile-IDs wie `1003` und neue IDs wie `3003` werden über
 `LogicalSectionId` zusammengeführt; `SectionId` bewahrt die Original-ID.
