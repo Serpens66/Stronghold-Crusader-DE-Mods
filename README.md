@@ -1,4 +1,4 @@
-# Stronghold Crusader DE Mods
+# Stronghold Crusader DE Mods and Code
 
 ## Download:
 - Releases: https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/releases (not often updated)  
@@ -24,3 +24,10 @@ They all have a build.bat file. You need to adjust them to your paths though and
 - https://gitlab.com/rawra-stronghold-crusader/shcde-fixes
 - https://gitlab.com/ensrick7/crusader-de-tweaker
 - https://github.com/richardbinder/Stronghold-Crusader-DE-AI-Buff/releases
+
+## Disclaimer:
+I don't know C#, only lua/python. So most code here was created by ChatGPT 5.6 Sol in the Visual Studio Code Codex extension. I provided several open source projects of Stronghold Crusader as information source to Chatgpt. So besides ideas and prompts/instructions and ingame testing for the mods, I did not contribute any code myself.  
+Directly used sources:  
+- https://gitlab.com/rawra-stronghold-crusader/shcde-script-extender
+- https://github.com/sourcehold
+- https://github.com/UnofficialCrusaderPatch/UnofficialCrusaderPatch3
