@@ -1,15 +1,27 @@
 # AIVPlacement offline projection core
 
 `AIVPlacement.Core` projects a parsed Stronghold Crusader DE AIV castle onto
-absolute map coordinates. It preserves AIV build order, pause metadata, all four
-rotations, core footprints, path cells, and known associated blocked areas. It
-also defines stable placement reason codes and immutable raw-tile evidence for
-the later rule evaluator.
+absolute map coordinates and evaluates the native AIV fit rules that can be
+reproduced from a `MapPlacementSnapshot`. It preserves AIV build order, pause
+metadata, all four rotations, core footprints, path cells, and known associated
+blocked areas.
 
 The library targets `netstandard2.0`, has no package dependencies, and references
-only `AIVParser.Core` and `MapParser.Core`. It does not yet decide whether a
-projected tile is buildable. Coordinates outside the map remain in the result so
-the later placement-rule stage can explain them instead of silently clipping them.
+only `AIVParser.Core` and `MapParser.Core`. Coordinates outside the map remain in
+the result and are reported instead of silently clipped.
+
+`AivPlacementRuleEvaluator.EvaluateElement(...)` returns `Placeable`, `Blocked`
+or `NotEvaluable` plus immutable issues with the exact element, tile, Tile-ID and
+all eight raw layer values. `EvaluateElements(...)` additionally detects claims
+of the same coordinate by later AIV elements in original build order.
+
+Implemented rules cover the native coordinate domain and validity diamond,
+Height limit, Building occupancy, the proven Logic masks and mapper-specific
+edge/swamp/moat profiles, existing-wall ownership, and internal overlap. The one
+remaining non-evaluable branch is a tree/organism reference whose live organism
+class is not serialized in the map snapshot. Entity IDs are intentionally not
+treated as occupancy in this AIV path because the native caller passes player ID
+zero and bypasses the entity-record loop.
 
 The native-rule inventory and the evidence boundary for those reason codes are
 documented in `../MapParser/Docs/AIV_PLACEMENT_RULES.md`.
@@ -31,6 +43,6 @@ documented in `../MapParser/Docs/AIV_PLACEMENT_RULES.md`.
 ## Build and test
 
 Run `build.bat`. It builds the Release solution and executes the synthetic tests.
-The tests cover all rotations, asymmetric footprints, map-edge projection, walls,
-gates, drawbridges, stairs, overlap traceability, pauses, empty/anchor-only entries,
-and associated blocked areas.
+The tests cover projection plus positive and negative rule cases, multi-tile
+evidence, mapper exceptions, unresolved organism records, deterministic overlap
+ordering, and associated blocked areas.

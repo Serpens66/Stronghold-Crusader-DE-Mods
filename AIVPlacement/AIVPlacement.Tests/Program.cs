@@ -5,6 +5,7 @@ using MapParser.Core;
 internal static class Program
 {
     private static readonly AivCastleProjector Projector = new();
+    private static readonly AivPlacementRuleEvaluator RuleEvaluator = new();
 
     private static int Main()
     {
@@ -19,7 +20,16 @@ internal static class Program
             ("Project associated blocked areas separately", TestBlockedAreas),
             ("Require an exact AIV keep anchor", TestMissingKeep),
             ("Retain placement issue evidence", TestPlacementIssueEvidence),
-            ("Reject reasonless placement issues", TestReasonlessPlacementIssue)
+            ("Reject reasonless placement issues", TestReasonlessPlacementIssue),
+            ("Distinguish native-domain and diamond failures", TestGeometryRules),
+            ("Apply the native mapper height limit", TestHeightRule),
+            ("Report the exact blocked tile in a multi-tile building", TestBuildingRule),
+            ("Apply proven logic masks and mapper profiles", TestTerrainRules),
+            ("Keep unresolved organism records not evaluable", TestUnresolvedOrganismRule),
+            ("Reject existing walls as owner conflicts", TestOwnerRule),
+            ("Detect internal overlaps in build order", TestInternalOverlapRule),
+            ("Evaluate associated areas separately from core footprints", TestAssociatedAreaRule),
+            ("Produce deterministic element results", TestDeterministicEvaluation)
         };
 
         int failures = 0;
@@ -240,6 +250,216 @@ internal static class Program
             null));
     }
 
+    private static void TestGeometryRules()
+    {
+        var map = new SparsePlacementMap();
+
+        AivElementPlacementResult outside = RuleEvaluator.EvaluateElement(
+            map,
+            ElementAt(25, new MapCoordinate(-1, 399)));
+        AssertOnlyIssue(outside, AivElementPlacementStatus.Blocked,
+            AivPlacementIssueKind.OutsideMap);
+        AssertEqual((int?)null, outside.Issues[0].TileId);
+
+        AivElementPlacementResult invalid = RuleEvaluator.EvaluateElement(
+            map,
+            ElementAt(25, new MapCoordinate(0, 0)));
+        AssertOnlyIssue(invalid, AivElementPlacementStatus.Blocked,
+            AivPlacementIssueKind.InvalidMapTile);
+        AssertEqual((int?)null, invalid.Issues[0].TileId);
+
+        AivElementPlacementResult valid = RuleEvaluator.EvaluateElement(
+            map,
+            ElementAt(25, new MapCoordinate(400, 400)));
+        AssertEqual(AivElementPlacementStatus.Placeable, valid.Status);
+        AssertEqual(0, valid.Issues.Count);
+    }
+
+    private static void TestHeightRule()
+    {
+        MapCoordinate coordinate = new(400, 400);
+        var acceptedMap = new SparsePlacementMap();
+        acceptedMap.Set(coordinate, Evidence(height: 200));
+        AivElementPlacementResult accepted = RuleEvaluator.EvaluateElement(
+            acceptedMap,
+            ElementAt(25, coordinate));
+        AssertEqual(AivElementPlacementStatus.Placeable, accepted.Status);
+
+        var rejectedMap = new SparsePlacementMap();
+        rejectedMap.Set(coordinate, Evidence(height: 201));
+        AivElementPlacementResult rejected = RuleEvaluator.EvaluateElement(
+            rejectedMap,
+            ElementAt(25, coordinate));
+        AssertOnlyIssue(rejected, AivElementPlacementStatus.Blocked,
+            AivPlacementIssueKind.HeightMismatch);
+        AssertEqual((byte)201, rejected.Issues[0].TileEvidence!.Value.Height);
+    }
+
+    private static void TestBuildingRule()
+    {
+        AivProjectedElement element = ElementAt(50, new MapCoordinate(400, 400));
+        AivProjectedTile blockedTile = element.OccupiedTiles[5];
+        var map = new SparsePlacementMap();
+        map.Set(blockedTile.MapCoordinate, Evidence(buildingId: 77));
+
+        AivElementPlacementResult result = RuleEvaluator.EvaluateElement(map, element);
+        AssertOnlyIssue(result, AivElementPlacementStatus.Blocked,
+            AivPlacementIssueKind.BuildingOccupied);
+        AssertEqual(blockedTile.MapCoordinate, result.Issues[0].MapCoordinate);
+        AssertEqual((ushort)77, result.Issues[0].TileEvidence!.Value.BuildingId);
+
+        AivElementPlacementResult free = RuleEvaluator.EvaluateElement(
+            new SparsePlacementMap(),
+            element);
+        AssertEqual(AivElementPlacementStatus.Placeable, free.Status);
+    }
+
+    private static void TestTerrainRules()
+    {
+        AssertTerrainBlocked(50, 0x00000001); // Sea
+        AssertTerrainBlocked(50, 0x00000004); // IsFarm
+        AssertTerrainBlocked(99, 0x00000008); // PitchTrap only blocks its mapper
+        AssertTerrainBlocked(50, 0x00000010); // RealityEdge
+        AssertTerrainBlocked(50, 0x00000020); // MapBorder
+        AssertTerrainBlocked(50, 0x00100000); // River
+        AssertTerrainBlocked(50, 0x00000400); // IsBuilding
+        AssertTerrainBlocked(50, 0x10000000); // IsElevated
+        AssertTerrainBlocked(50, 0x01000000); // Farm type
+        AssertTerrainBlocked(50, 0x00200000); // Ford
+        AssertTerrainBlocked(50, 0x00000080); // Bare ImpassableEdge
+        AssertTerrainBlocked(50, 0x20000000); // Swamp
+        AssertTerrainBlocked(50, 0x40000000); // Moat
+
+        AssertTerrainAccepted(50, 0x00000008);
+        AssertTerrainAccepted(195, 0x00000001 | 0x00100000);
+        AssertTerrainAccepted(51, 0x00000080);
+        AssertTerrainAccepted(91, 0x20000000);
+        AssertTerrainAccepted(105, 0x40000000);
+    }
+
+    private static void TestUnresolvedOrganismRule()
+    {
+        MapCoordinate coordinate = new(400, 400);
+        var unresolvedMap = new SparsePlacementMap();
+        unresolvedMap.Set(coordinate, Evidence(
+            terrainFlags: 0x00001000,
+            organismId: 12));
+        AivElementPlacementResult unresolved = RuleEvaluator.EvaluateElement(
+            unresolvedMap,
+            ElementAt(25, coordinate));
+        AssertOnlyIssue(unresolved, AivElementPlacementStatus.NotEvaluable,
+            AivPlacementIssueKind.UnresolvedNativeRule);
+
+        var noRecordMap = new SparsePlacementMap();
+        noRecordMap.Set(coordinate, Evidence(terrainFlags: 0x00001000));
+        AivElementPlacementResult noRecord = RuleEvaluator.EvaluateElement(
+            noRecordMap,
+            ElementAt(25, coordinate));
+        AssertEqual(AivElementPlacementStatus.Placeable, noRecord.Status);
+
+        var outOfRecordRangeMap = new SparsePlacementMap();
+        outOfRecordRangeMap.Set(coordinate, Evidence(
+            terrainFlags: 0x00001000,
+            organismId: 4000));
+        AivElementPlacementResult outOfRecordRange = RuleEvaluator.EvaluateElement(
+            outOfRecordRangeMap,
+            ElementAt(25, coordinate));
+        AssertEqual(AivElementPlacementStatus.Placeable, outOfRecordRange.Status);
+
+        var entityOnlyMap = new SparsePlacementMap();
+        entityOnlyMap.Set(coordinate, Evidence(entityId: 41));
+        AivElementPlacementResult entityOnly = RuleEvaluator.EvaluateElement(
+            entityOnlyMap,
+            ElementAt(25, coordinate));
+        AssertEqual(AivElementPlacementStatus.Placeable, entityOnly.Status);
+
+        var deterministicallyBlockedMap = new SparsePlacementMap();
+        deterministicallyBlockedMap.Set(coordinate, Evidence(
+            terrainFlags: 0x00001000,
+            organismId: 12,
+            buildingId: 2));
+        AivElementPlacementResult blocked = RuleEvaluator.EvaluateElement(
+            deterministicallyBlockedMap,
+            ElementAt(25, coordinate));
+        AssertEqual(AivElementPlacementStatus.Blocked, blocked.Status);
+        Assert(blocked.Issues[0].Kind.HasFlag(AivPlacementIssueKind.UnresolvedNativeRule),
+            "The unresolved organism reason was lost beside a proven block.");
+        Assert(blocked.Issues[0].Kind.HasFlag(AivPlacementIssueKind.BuildingOccupied),
+            "The proven building block was lost.");
+    }
+
+    private static void TestOwnerRule()
+    {
+        MapCoordinate coordinate = new(400, 400);
+        var map = new SparsePlacementMap();
+        map.Set(coordinate, Evidence(terrainFlags: 0x00000100, ownerId: 5));
+
+        AivElementPlacementResult result = RuleEvaluator.EvaluateElement(
+            map,
+            ElementAt(25, coordinate));
+        AssertOnlyIssue(result, AivElementPlacementStatus.Blocked,
+            AivPlacementIssueKind.OwnerConflict);
+        AssertEqual((byte)5, result.Issues[0].TileEvidence!.Value.OwnerId);
+    }
+
+    private static void TestInternalOverlapRule()
+    {
+        AivGridPoint shared = Point(50, 50);
+        AivBlueprint blueprint = Blueprint(
+            Frame(0, 25, false, shared),
+            Frame(1, 46, false, shared));
+        AivProjectedCastle castle = Projector.Project(
+            blueprint,
+            new MapCoordinate(400, 400),
+            AivRotation.Degrees0);
+
+        IReadOnlyList<AivElementPlacementResult> results =
+            RuleEvaluator.EvaluateElements(new SparsePlacementMap(), castle);
+        AssertEqual(AivElementPlacementStatus.Placeable, results[0].Status);
+        AssertOnlyIssue(results[1], AivElementPlacementStatus.Blocked,
+            AivPlacementIssueKind.InternalOverlap);
+        AssertEqual((int?)0, results[1].Issues[0].ConflictingElementIndex);
+        AssertEqual(1, results[1].Issues[0].ElementIndex);
+    }
+
+    private static void TestAssociatedAreaRule()
+    {
+        AivProjectedElement barracks = ElementAt(87, new MapCoordinate(400, 400));
+        AivProjectedTile associated = barracks.OccupiedTiles.First(candidate =>
+            candidate.Kind == AivProjectedTileKind.AssociatedBlockedArea &&
+            barracks.OccupiedTiles.Count(tile =>
+                tile.MapCoordinate.Equals(candidate.MapCoordinate)) == 1);
+        var map = new SparsePlacementMap();
+        map.Set(associated.MapCoordinate, Evidence(buildingId: 4));
+
+        AivElementPlacementResult result = RuleEvaluator.EvaluateElement(map, barracks);
+        AssertOnlyIssue(result, AivElementPlacementStatus.Blocked,
+            AivPlacementIssueKind.BuildingOccupied);
+        AssertEqual(AivProjectedTileKind.AssociatedBlockedArea, result.Issues[0].TileKind);
+        AssertEqual(associated.MapCoordinate, result.Issues[0].MapCoordinate);
+    }
+
+    private static void TestDeterministicEvaluation()
+    {
+        AivProjectedElement element = ElementAt(50, new MapCoordinate(400, 400));
+        var map = new SparsePlacementMap();
+        map.Set(element.OccupiedTiles[2].MapCoordinate,
+            Evidence(terrainFlags: 0x00000020));
+        map.Set(element.OccupiedTiles[9].MapCoordinate,
+            Evidence(buildingId: 9));
+
+        AivElementPlacementResult first = RuleEvaluator.EvaluateElement(map, element);
+        AivElementPlacementResult second = RuleEvaluator.EvaluateElement(map, element);
+        AssertEqual(first.Status, second.Status);
+        AssertEqual(first.Issues.Count, second.Issues.Count);
+        for (int index = 0; index < first.Issues.Count; index++)
+        {
+            AssertEqual(first.Issues[index].Kind, second.Issues[index].Kind);
+            AssertEqual(first.Issues[index].MapCoordinate, second.Issues[index].MapCoordinate);
+            AssertEqual(first.Issues[index].TileId, second.Issues[index].TileId);
+        }
+    }
+
     private static AivProjectedElement Element(
         AivBlueprint blueprint,
         AivRotation rotation,
@@ -249,6 +469,96 @@ internal static class Program
             blueprint,
             new MapCoordinate(400, 400),
             rotation).Elements[index];
+    }
+
+    private static AivProjectedElement ElementAt(
+        int mapperValue,
+        MapCoordinate coordinate)
+    {
+        AivGridPoint anchor = Point(50, 50);
+        AivBuildFrame frame;
+        AivMapperInfo mapper = AivMapperCatalog.Resolve(mapperValue);
+        if (!mapper.FootprintSize.HasValue)
+        {
+            mapper = new AivMapperInfo(
+                mapperValue,
+                $"SYNTHETIC_MAPPER_{mapperValue}",
+                AivItemCategory.Building,
+                true,
+                1);
+            frame = new AivBuildFrame(
+                0,
+                mapperValue,
+                mapper,
+                false,
+                new[] { anchor });
+        }
+        else
+        {
+            frame = Frame(0, mapperValue, false, anchor);
+        }
+
+        return Projector.Project(
+            Blueprint(frame),
+            coordinate,
+            AivRotation.Degrees0).Elements[0];
+    }
+
+    private static AivPlacementTileEvidence Evidence(
+        int terrainFlags = 0,
+        byte secondaryLogic = 0,
+        byte height = 0,
+        byte defaultHeight = 0,
+        ushort organismId = 0,
+        ushort buildingId = 0,
+        ushort entityId = 0,
+        byte ownerId = 0)
+    {
+        return new AivPlacementTileEvidence(
+            terrainFlags,
+            secondaryLogic,
+            height,
+            defaultHeight,
+            organismId,
+            buildingId,
+            entityId,
+            ownerId);
+    }
+
+    private static void AssertTerrainBlocked(int mapperValue, int terrainFlags)
+    {
+        MapCoordinate coordinate = new(400, 400);
+        var map = new SparsePlacementMap();
+        map.Set(coordinate, Evidence(terrainFlags: terrainFlags));
+        AivElementPlacementResult result = RuleEvaluator.EvaluateElement(
+            map,
+            ElementAt(mapperValue, coordinate));
+        AssertEqual(AivElementPlacementStatus.Blocked, result.Status);
+        Assert(result.Issues.Any(issue =>
+            issue.Kind.HasFlag(AivPlacementIssueKind.TerrainBlocked)),
+            $"Mapper {mapperValue} did not reject flags 0x{terrainFlags:X8}.");
+    }
+
+    private static void AssertTerrainAccepted(int mapperValue, int terrainFlags)
+    {
+        MapCoordinate coordinate = new(400, 400);
+        var map = new SparsePlacementMap();
+        map.Set(coordinate, Evidence(terrainFlags: terrainFlags));
+        AivElementPlacementResult result = RuleEvaluator.EvaluateElement(
+            map,
+            ElementAt(mapperValue, coordinate));
+        AssertEqual(AivElementPlacementStatus.Placeable, result.Status);
+        AssertEqual(0, result.Issues.Count);
+    }
+
+    private static void AssertOnlyIssue(
+        AivElementPlacementResult result,
+        AivElementPlacementStatus expectedStatus,
+        AivPlacementIssueKind expectedKind)
+    {
+        AssertEqual(expectedStatus, result.Status);
+        AssertEqual(1, result.Issues.Count);
+        AssertEqual(expectedKind, result.Issues[0].Kind);
     }
 
     private static AivBlueprint Blueprint(params AivBuildFrame[] frames)
@@ -320,5 +630,25 @@ internal static class Program
     {
         if (!condition)
             throw new InvalidOperationException(message);
+    }
+
+    private sealed class SparsePlacementMap : IAivPlacementTileSource
+    {
+        private readonly Dictionary<int, AivPlacementTileEvidence> evidenceByTileId = new();
+
+        public MapTileGeometry Geometry { get; } =
+            new(MapTileGeometry.FixedTileCount, 400);
+
+        public AivPlacementTileEvidence GetTileEvidence(int tileId)
+        {
+            return evidenceByTileId.TryGetValue(tileId, out AivPlacementTileEvidence evidence)
+                ? evidence
+                : default;
+        }
+
+        public void Set(MapCoordinate coordinate, AivPlacementTileEvidence evidence)
+        {
+            evidenceByTileId[Geometry.GetTileId(coordinate.X, coordinate.Y)] = evidence;
+        }
     }
 }

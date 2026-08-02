@@ -534,7 +534,12 @@ Map-Koordinate und die für die Entscheidung relevanten Rohwerte.
 
 ## Chat 8: Offline-Regeln schrittweise implementieren
 
-**Status:** Nächster Schritt.
+**Status:** Abgeschlossen. Der paketfreie Offline-Evaluator prüft die belegten
+Geometrie-, Layer-, Height-, Logic-, Eigentümer- und Überlappungsregeln pro
+Element, erhält die vollständige Tile-Evidenz und markiert die fehlende lebende
+Organismusklasse explizit als nicht auswertbar. Die synthetische Testmatrix
+deckt positive und negative Fälle einschließlich Multi-Tile- und Sonderflächen
+ab.
 
 ### Ziel
 
@@ -586,7 +591,7 @@ Ungefähr:
 
 ## Chat 9: Gesamte AIV bewerten und beste Variante bestimmen
 
-**Status:** Ausstehend.
+**Status:** Nächster Schritt.
 
 ### Ziel
 
@@ -596,7 +601,7 @@ und Rotation bilden.
 ### Vorgesehene Eingabe
 
     MapPlacementSnapshot map
-    AivDocument aiv
+    AivBlueprint aiv
     MapCoordinate keepPosition
     AivRotation rotation
 
@@ -854,6 +859,6 @@ Stopppunkte sind:
 4. Vor Chat 13: Nutzerentscheidung einholen, ob die Lobby nur informiert,
    filtert oder ungültige AIV-Auswahlen blockiert.
 
-Der nächste auszuführende Schritt ist "Chat 8".
+Der nächste auszuführende Schritt ist "Chat 9".
 
 
