@@ -397,7 +397,12 @@ Rotation, AIV-Koordinaten, absolute Map-Koordinaten und belegte Tiles enthalten.
 
 ## Chat 6: Bedeutung von `placementState` und nativen Oracle-Aufruf klären
 
-**Status:** Nächster Schritt.
+**Status:** Abgeschlossen. Der native Vertrag, die binärgebundenen RVAs und der
+passive Laufzeit-Oracle sind in `Docs/AIV_PLACEMENT_ORACLE.md` dokumentiert.
+Ein einziger breit angelegter Skirmish-Start lieferte 35 Versuche, alle vier
+Rotationen sowie bestätigte Zustände `1` und `2`; Zustand `0` und der
+`TestSpecificCandidate`-Fehlerpfad sind durch den eindeutigen nativen
+Kontrollfluss belegt.
 
 ### Ziel
 
@@ -461,7 +466,7 @@ bewerten.
 
 ## Chat 7: Placement-Regeln inventarisieren und als Reason-Codes modellieren
 
-**Status:** Ausstehend.
+**Status:** Nächster Schritt.
 
 ### Ziel
 
@@ -845,6 +850,6 @@ Stopppunkte sind:
 4. Vor Chat 13: Nutzerentscheidung einholen, ob die Lobby nur informiert,
    filtert oder ungültige AIV-Auswahlen blockiert.
 
-Der nächste auszuführende Schritt ist "Chat 6".
+Der nächste auszuführende Schritt ist "Chat 7".
 
 

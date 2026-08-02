@@ -46,7 +46,10 @@ namespace ActiveAIVDetector
             new Dictionary<int, AivSelectionSnapshot>();
         private readonly Dictionary<int, LobbyAivSnapshot> lobbyAivSnapshots =
             new Dictionary<int, LobbyAivSnapshot>();
+        private readonly List<OracleSelectionSnapshot> pendingOracleSelections =
+            new List<OracleSelectionSnapshot>();
         private readonly HashSet<int> reportedPlayers = new HashSet<int>();
+        private readonly HashSet<long> reportedOracleSelections = new HashSet<long>();
         private readonly List<IDisposable> lifecycleSubscriptions = new List<IDisposable>();
         private HookRef<X64ManagedFunctionDetourAOB<PrepareLayoutDelegate>> prepareLayoutHook =
             new HookRef<X64ManagedFunctionDetourAOB<PrepareLayoutDelegate>>();
@@ -55,12 +58,15 @@ namespace ActiveAIVDetector
         private HookTransaction transaction;
         private Hook startSkirmishGameHook;
         private StartSkirmishGameDelegate startSkirmishGameTrampoline;
+        private AivPlacementOracle placementOracle;
         private int detectionCount;
         private bool installed;
         private bool mapStartCompleted;
         private bool callbackFailureLogged;
         private bool lobbyCapturePending;
         private bool lobbySnapshotAppliesToCurrentMap;
+        private string currentMapFileName = "<unknown>";
+        private string currentMapName = "<unknown>";
 
         public ActiveAIVDetectionRuntime(ManualLogSource log)
         {
@@ -99,18 +105,22 @@ namespace ActiveAIVDetector
                 PrepareLayoutPattern,
                 PrepareLayout);
 
+            placementOracle = new AivPlacementOracle(log, OnOracleSelectionCompleted);
+            placementOracle.RegisterHooks(transaction);
+
             transaction.Commit();
 
             if (!prepareLayoutHook.Success)
                 throw new InvalidOperationException(
                     "The c_game_aiv_prepare_layout signature was not found.");
+            placementOracle.ValidateHooks();
 
             SubscribeLifecycleHooks();
             installed = true;
             Shared.DebugLogHelper.LogInfo(
                 log,
-                "Native active-AIV detector installed at Info level; " +
-                "lobby lord/AIV metadata will be joined with finalized selections after OnStartMap(Post).");
+                "Native active-AIV detector and passive placement oracle installed at Info level; " +
+                "Vanilla candidate tests will be joined with lobby metadata after OnStartMap(Post).");
         }
 
         private void InstallLobbyCaptureHook()
@@ -257,7 +267,7 @@ namespace ActiveAIVDetector
         {
             lifecycleSubscriptions.Add(MapLoaderR3EventHooks.OnLoadMap.Observable
                 .Where(args => args.Phase == EventHookPhase.Pre)
-                .Subscribe(_ => ResetForMapTransition("map load")));
+                .Subscribe(OnMapLoadStarted));
 
             lifecycleSubscriptions.Add(MapLoaderR3EventHooks.OnLoadSave.Observable
                 .Where(args => args.Phase == EventHookPhase.Pre)
@@ -276,7 +286,9 @@ namespace ActiveAIVDetector
         {
             mapStartCompleted = false;
             pendingSelections.Clear();
+            pendingOracleSelections.Clear();
             reportedPlayers.Clear();
+            reportedOracleSelections.Clear();
             callbackFailureLogged = false;
 
             // StartSkirmishGame captures metadata before the game's repeated unload/load callbacks.
@@ -292,6 +304,24 @@ namespace ActiveAIVDetector
                 $"retainedPendingLobbyMetadata={lobbyCapturePending}.");
         }
 
+        private void OnMapLoadStarted(MapLoadEventArgs args)
+        {
+            ResetForMapTransition("map load");
+            currentMapFileName = string.IsNullOrEmpty(args.FileName)
+                ? "<unknown>"
+                : args.FileName;
+            currentMapName = string.IsNullOrEmpty(args.MapName)
+                ? "<unknown>"
+                : args.MapName;
+        }
+
+        private void OnOracleSelectionCompleted(OracleSelectionSnapshot snapshot)
+        {
+            pendingOracleSelections.Add(snapshot);
+            if (mapStartCompleted)
+                ReportOracleSelection(snapshot, "native callback after OnStartMap(Post)");
+        }
+
         private void OnMapStarted()
         {
             // OnStartMap(Post) runs after the game's complete native map-start routine.
@@ -301,6 +331,10 @@ namespace ActiveAIVDetector
                 lobbySnapshotAppliesToCurrentMap = true;
                 lobbyCapturePending = false;
             }
+
+            pendingOracleSelections.Sort((left, right) => left.Sequence.CompareTo(right.Sequence));
+            foreach (OracleSelectionSnapshot oracleSelection in pendingOracleSelections)
+                ReportOracleSelection(oracleSelection, "OnStartMap(Post)");
 
             List<int> playerIds = new List<int>(pendingSelections.Keys);
             playerIds.Sort();
@@ -333,6 +367,85 @@ namespace ActiveAIVDetector
                 $"Active AIV finalization completed after OnStartMap(Post): " +
                 $"activeAIs={activeAiCount}, reportedAIVs={reportedAiCount}, " +
                 $"capturedSelections={playerIds.Count}.");
+        }
+
+        private void ReportOracleSelection(
+            OracleSelectionSnapshot snapshot,
+            string confirmationPoint)
+        {
+            if (!reportedOracleSelections.Add(snapshot.Sequence))
+                return;
+
+            LobbyAivSnapshot lobbySnapshot = null;
+            if (lobbySnapshotAppliesToCurrentMap)
+                lobbyAivSnapshots.TryGetValue(snapshot.PlayerId, out lobbySnapshot);
+
+            ResolvedAivSource finalSource = ResolveOracleSource(
+                lobbySnapshot,
+                snapshot.PlayerId,
+                snapshot.FinalCandidateId);
+            string directReturn = snapshot.DirectReturnSigned.HasValue
+                ? snapshot.DirectReturnSigned.Value.ToString()
+                : "<not-applicable>";
+
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"AIV placement oracle selection #{snapshot.Sequence}: " +
+                $"mapName={currentMapName}, mapFile={currentMapFileName}, " +
+                $"playerId={snapshot.PlayerId}, method={snapshot.Method}, " +
+                $"tryOtherRotations={snapshot.TryOtherRotations}, " +
+                $"aivSpecIndex={snapshot.AivSpecIndex}, attempts={snapshot.Attempts.Count}, " +
+                $"finalCandidateId={snapshot.FinalCandidateId}, finalAivName={finalSource.Name}, " +
+                $"finalAivJson={finalSource.JsonPath}, " +
+                $"finalAivJsonSha256={ComputeFileSha256(finalSource.JsonPath)}, " +
+                $"finalOrientation={snapshot.FinalOrientation} " +
+                $"({DescribeOrientation(snapshot.FinalOrientation)}), " +
+                $"placementState={snapshot.PlacementState} " +
+                $"({DescribePlacementState(snapshot.PlacementState)}), " +
+                $"directReturnSigned={directReturn}, confirmationPoint={confirmationPoint}.");
+
+            foreach (OracleAttemptSnapshot attempt in snapshot.Attempts)
+            {
+                ResolvedAivSource source = ResolveOracleSource(
+                    lobbySnapshot,
+                    snapshot.PlayerId,
+                    attempt.CandidateId);
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    $"AIV placement oracle attempt #{snapshot.Sequence}.{attempt.AttemptNumber}: " +
+                    $"mapName={currentMapName}, mapFile={currentMapFileName}, " +
+                    $"playerId={snapshot.PlayerId}, method={snapshot.Method}, " +
+                    $"candidateId={attempt.CandidateId}, aivName={source.Name}, " +
+                    $"aivJson={source.JsonPath}, " +
+                    $"aivJsonSha256={ComputeFileSha256(source.JsonPath)}, " +
+                    $"orientation={attempt.Orientation} " +
+                    $"({DescribeOrientation(attempt.Orientation)}), " +
+                    $"result={attempt.ResultKind}, rawFitScore={attempt.RawFitScore}, " +
+                    $"fitPercent={attempt.FitPercent}, evaluatedCells={attempt.EvaluatedCells}, " +
+                    $"blockedCells={attempt.BlockedCells}, " +
+                    $"origin=({attempt.OriginX},{attempt.OriginY}), " +
+                    $"keepReference=({attempt.KeepX},{attempt.KeepY}).");
+            }
+        }
+
+        private ResolvedAivSource ResolveOracleSource(
+            LobbyAivSnapshot lobbySnapshot,
+            int playerId,
+            int candidateId)
+        {
+            try
+            {
+                Enums.AILords lord = GamePlayerManagerAPI.Instance.GetAILord(playerId);
+                return ResolveAivSource(lobbySnapshot, lord, candidateId);
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogWarning(
+                    log,
+                    $"Oracle AIV source resolution failed for playerId={playerId}, " +
+                    $"candidateId={candidateId}: {ex.Message}");
+                return ResolvedAivSource.Unknown("oracle source resolution failed");
+            }
         }
 
         private bool ReportSelectionIfActiveAI(AivSelectionSnapshot snapshot, string confirmationPoint)
@@ -742,6 +855,8 @@ namespace ActiveAIVDetector
                     return "best partial fit";
                 case 2:
                     return "complete fit";
+                case 0:
+                    return "no accepted placement";
                 default:
                     return "unknown";
             }

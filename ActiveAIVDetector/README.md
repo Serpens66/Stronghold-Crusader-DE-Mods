@@ -10,11 +10,19 @@ per player, and reports the joined result at Info level after `OnStartMap(Post)`
 confirms that the complete native map-start routine has returned. The player
 slot must also be an active AI at that point.
 
+The passive placement oracle additionally observes Vanilla's own candidate and
+rotation tests. It never invokes a placement function itself and returns every
+native result unchanged. Each `AIV placement oracle selection` line is followed
+by one `AIV placement oracle attempt` line per tested candidate/rotation with the
+raw fit score, fit percentage, evaluated and blocked cell counts, map identity,
+origin, and Keep reference.
+
 ## Test
 
 1. Close the game and run `build.bat`.
 2. Start a skirmish containing one or more AI players.
 3. Search `BepInEx/LogOutput.log` for `Active AIV confirmed`.
+   Search for `AIV placement oracle` to inspect all native fit attempts.
 4. Test these useful cases:
    - historical AIV set or a custom list containing one AIV;
    - a custom list containing several AIVs;
@@ -44,6 +52,16 @@ Expected values include:
 - `orientation`: `0`, `2`, `4`, or `6`;
 - `placementState=1`: best available partial fit;
 - `placementState=2`: complete fit.
+
+Oracle result fields use these native definitions:
+
+- `rawFitScore=999999`: every scored AIV cell passed the native validator;
+- positive lower score: partial fit, with the value tied to the earliest blocked
+  build entry;
+- non-positive score: rejected candidate/rotation;
+- `fitPercent=(evaluatedCells-blockedCells)*100/evaluatedCells`;
+- mapper value `1` is copied into the temporary occupancy grid but is not counted
+  as an evaluated building cell.
 
 This prototype intentionally does not hook `DLL_ImportAIV`, because the Script
 Extender already detours that export. The game's `StartSkirmishGame` code imports

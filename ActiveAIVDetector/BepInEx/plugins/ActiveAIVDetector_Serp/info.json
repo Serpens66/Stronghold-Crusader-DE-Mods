@@ -3,10 +3,17 @@
   "Author": "Serpens66",
   "Name": "Active AIV Detector",
   "Description": "Diagnostic mod that logs the lord and AIVJSON selected by the native castle placement engine.",
-  "Version": "0.5.0",
+  "Version": "0.6.0",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "0.6.0",
+      "Changes": [
+        "Add a passive native oracle for every Vanilla AIV candidate and rotation fit test.",
+        "Log raw fit score, fit percentage, evaluated and blocked cells, map identity, placement anchor, and final placement state without changing game state."
+      ]
+    },
     {
       "Version": "0.5.0",
       "Changes": [
