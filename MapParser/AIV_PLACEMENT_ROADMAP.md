@@ -466,7 +466,11 @@ bewerten.
 
 ## Chat 7: Placement-Regeln inventarisieren und als Reason-Codes modellieren
 
-**Status:** Nächster Schritt.
+**Status:** Abgeschlossen. Die nativen Ausschlussgründe, ihre belegten
+Map-Layer und noch unbekannten Branchsemantiken sind in
+`Docs/AIV_PLACEMENT_RULES.md` inventarisiert. Stabile Reason-Codes und immutable
+Tile-Rohwerte stehen in `AIVPlacement.Core`; Release-Build und alle synthetischen
+Tests sind erfolgreich.
 
 ### Ziel
 
@@ -530,7 +534,7 @@ Map-Koordinate und die für die Entscheidung relevanten Rohwerte.
 
 ## Chat 8: Offline-Regeln schrittweise implementieren
 
-**Status:** Ausstehend.
+**Status:** Nächster Schritt.
 
 ### Ziel
 
@@ -850,6 +854,6 @@ Stopppunkte sind:
 4. Vor Chat 13: Nutzerentscheidung einholen, ob die Lobby nur informiert,
    filtert oder ungültige AIV-Auswahlen blockiert.
 
-Der nächste auszuführende Schritt ist "Chat 7".
+Der nächste auszuführende Schritt ist "Chat 8".
 
 

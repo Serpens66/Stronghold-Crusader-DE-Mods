@@ -17,7 +17,9 @@ internal static class Program
             ("Keep overlapping elements traceable", TestOverlappingElements),
             ("Preserve build steps, pauses and anchor-only entries", TestBuildOrderAndNonPlacements),
             ("Project associated blocked areas separately", TestBlockedAreas),
-            ("Require an exact AIV keep anchor", TestMissingKeep)
+            ("Require an exact AIV keep anchor", TestMissingKeep),
+            ("Retain placement issue evidence", TestPlacementIssueEvidence),
+            ("Reject reasonless placement issues", TestReasonlessPlacementIssue)
         };
 
         int failures = 0;
@@ -187,6 +189,55 @@ internal static class Program
             blueprint,
             new MapCoordinate(400, 400),
             AivRotation.Degrees0));
+    }
+
+    private static void TestPlacementIssueEvidence()
+    {
+        var evidence = new AivPlacementTileEvidence(
+            unchecked((int)0xA0018400),
+            12,
+            22,
+            32,
+            102,
+            202,
+            302,
+            4);
+        var issue = new AivPlacementIssue(
+            AivPlacementIssueKind.BuildingOccupied | AivPlacementIssueKind.TerrainBlocked,
+            7,
+            11,
+            87,
+            AivProjectedTileKind.AssociatedBlockedArea,
+            new MapCoordinate(410, 390),
+            12345,
+            evidence,
+            3);
+
+        AssertEqual(7, issue.ElementIndex);
+        AssertEqual(11, issue.BuildIndex);
+        AssertEqual(87, issue.MapperValue);
+        AssertEqual((int?)12345, issue.TileId);
+        AssertEqual((int?)3, issue.ConflictingElementIndex);
+        Assert(issue.Kind.HasFlag(AivPlacementIssueKind.BuildingOccupied),
+            "The building reason was lost.");
+        Assert(issue.Kind.HasFlag(AivPlacementIssueKind.TerrainBlocked),
+            "The terrain reason was lost.");
+        AssertEqual(unchecked((int)0xA0018400), issue.TileEvidence!.Value.TerrainFlags);
+        AssertEqual((ushort)302, issue.TileEvidence.Value.EntityId);
+        AssertEqual((byte)4, issue.TileEvidence.Value.OwnerId);
+    }
+
+    private static void TestReasonlessPlacementIssue()
+    {
+        AssertThrows<ArgumentOutOfRangeException>(() => new AivPlacementIssue(
+            AivPlacementIssueKind.None,
+            0,
+            0,
+            25,
+            AivProjectedTileKind.CoreFootprint,
+            new MapCoordinate(400, 400),
+            160400,
+            null));
     }
 
     private static AivProjectedElement Element(

@@ -2,12 +2,17 @@
 
 `AIVPlacement.Core` projects a parsed Stronghold Crusader DE AIV castle onto
 absolute map coordinates. It preserves AIV build order, pause metadata, all four
-rotations, core footprints, path cells, and known associated blocked areas.
+rotations, core footprints, path cells, and known associated blocked areas. It
+also defines stable placement reason codes and immutable raw-tile evidence for
+the later rule evaluator.
 
 The library targets `netstandard2.0`, has no package dependencies, and references
-only `AIVParser.Core` and `MapParser.Core`. It deliberately does not decide whether
-a projected tile is buildable. Coordinates outside the map remain in the result so
+only `AIVParser.Core` and `MapParser.Core`. It does not yet decide whether a
+projected tile is buildable. Coordinates outside the map remain in the result so
 the later placement-rule stage can explain them instead of silently clipping them.
+
+The native-rule inventory and the evidence boundary for those reason codes are
+documented in `../MapParser/Docs/AIV_PLACEMENT_RULES.md`.
 
 ## Coordinate contract
 
