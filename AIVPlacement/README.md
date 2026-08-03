@@ -43,11 +43,11 @@ The per-rotation statuses are defined as follows:
 
 Implemented rules cover the native coordinate domain and validity diamond,
 Height limit, Building occupancy, the proven Logic masks and mapper-specific
-edge/swamp/moat profiles, existing-wall ownership, and internal overlap. The one
-remaining non-evaluable branch is a tree/organism reference whose live organism
-class is not serialized in the map snapshot. Entity IDs are intentionally not
-treated as occupancy in this AIV path because the native caller passes player ID
-zero and bypasses the entity-record loop.
+edge/swamp/moat profiles, existing-wall ownership, and internal overlap. Trees
+and other serialized organisms are accepted because Skirmish initializes the
+native mode to `1` or `99` and the AIV caller passes player ID zero; together
+these values bypass organism-class rejection. Entity IDs likewise are not
+treated as occupancy because player ID zero bypasses the entity-record loop.
 
 The native-rule inventory and the evidence boundary for those reason codes are
 documented in `../MapParser/Docs/AIV_PLACEMENT_RULES.md`.
@@ -76,7 +76,7 @@ documented in `../MapParser/Docs/AIV_PLACEMENT_RULES.md`.
 
 Run `build.bat`. It builds the Release solution and executes the synthetic tests.
 The tests cover projection plus positive and negative rule cases, multi-tile
-evidence, mapper exceptions, unresolved organism records, deterministic overlap
+evidence, mapper exceptions, the Skirmish organism bypass, deterministic overlap
 ordering, and associated blocked areas.
 
 `AIVPlacement.OracleComparison` remains a separate diagnostic executable. It

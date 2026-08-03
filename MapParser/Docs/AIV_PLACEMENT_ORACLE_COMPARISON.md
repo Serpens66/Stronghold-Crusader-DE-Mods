@@ -1,23 +1,29 @@
 # Chat 10: Offline-/Oracle-Vergleich
 
+Die konkrete Übergabe für die Fortsetzung in einem neuen Chat steht in
+`CHAT10_ORACLE_MISMATCH_HANDOFF.md`. Sie enthält die beiden priorisierten
+Einzelfälle, direkt ausführbare Befehle, die Diagnose- und Evidenzanforderungen,
+die Regressionsreihenfolge und die Stopplinie vor Chat 11.
+
 ## Ergebnis
 
-Chat 10 ist abgenommen. Die hashgebundene Matrix enthält 144 native
+Chat 10 ist nach der Organismusprüfung wieder geöffnet. Die hashgebundene Matrix enthält 144 native
 Einzelversuche auf World Sizes 160, 200, 300, 400 und 800. Sie umfasst
 Vanilla-Karten, für den Editor angelegte Vanilla-Kopien und zwei mit der
 aktuellen DE-Version erzeugte Custom-Maps.
 
-- 67 `ExactMatch`;
-- 77 begründete `NotEvaluable`;
-- 0 Mismatches;
+- 97 `ExactMatch`;
+- 0 `NotEvaluable`;
+- 47 Mismatches;
 - 0 Fehler.
 
-Alle 67 offline auswertbaren Fälle stimmen in Status, sequenziellem Score,
-Fit-Prozent, ausgewerteten Zellen und blockierten Zellen exakt mit dem nativen
-Oracle überein. Die 77 übrigen Fälle werden nicht als Match gezählt. Sie sind
-ausschließlich wegen der bereits dokumentierten, noch nicht aus den
-Baum-/Felsdatensätzen in den Offline-Snapshot aufgelösten Organismusklasse
-`NotEvaluable`.
+Die frühere Annahme eines fehlenden Organismusdatensatzes war zu konservativ.
+Die native Skirmish-Initialisierung setzt den relevanten Modus auf `1` oder
+`99`; zusammen mit dem festen AIV-Spielerwert `0` akzeptiert der Validator alle
+Organismusklassen. Dadurch verschwanden sämtliche 77 `NotEvaluable`-Fälle. 30
+davon stimmen nun zusätzlich exakt, 47 legen zuvor verdeckte Abweichungen in
+anderen AIV-, Mapper- oder Placement-Regeln offen. Chat 11 darf erst beginnen,
+wenn diese Abweichungen klassifiziert und behoben oder eng begründet sind.
 
 ## Reproduzierbarkeit
 
@@ -71,14 +77,14 @@ Custom-Ordner kopiert hat, um sie im Editor laden zu können.
 
 | Karte | Art / World Size | Fälle | Exakt | `NotEvaluable` | Mismatch / Fehler | Zeit |
 | --- | --- | ---: | ---: | ---: | ---: | ---: |
-| `Height Advantage` | Vanilla-Kopie / 160 | 10 | 2 | 8 | 0 / 0 | 175,7 ms |
-| `Bow Ridge` | Vanilla-Kopie / 200 | 12 | 0 | 12 | 0 / 0 | 174,9 ms |
-| `Thasos` | Vanilla-Kopie, Section-1190-Anomalie / 300 | 22 | 0 | 22 | 0 / 0 | 199,5 ms |
-| `A Friend Indeed` | Vanilla-Kopie / 400 | 14 | 1 | 13 | 0 / 0 | 190,5 ms |
-| `Province of Bodrum OP` | Vanilla-Kopie / 400 | 20 | 0 | 20 | 0 / 0 | 210,2 ms |
-| `unittest` | aktuelle Custom-Map / 160 | 58 | 58 | 0 | 0 / 0 | 237,4 ms |
-| `testmap` | aktuelle Custom-Map / 800 | 4 | 4 | 0 | 0 / 0 | 126,8 ms |
-| `Marshy Mayhem` | ältere Kontrollstichprobe / 400 | 4 | 2 | 2 | 0 / 0 | 103,2 ms |
+| `Height Advantage` | Vanilla-Kopie / 160 | 10 | 2 | 0 | 8 / 0 | 171,0 ms |
+| `Bow Ridge` | Vanilla-Kopie / 200 | 12 | 4 | 0 | 8 / 0 | 185,3 ms |
+| `Thasos` | Vanilla-Kopie, Section-1190-Anomalie / 300 | 22 | 6 | 0 | 16 / 0 | 194,6 ms |
+| `A Friend Indeed` | Vanilla-Kopie / 400 | 14 | 12 | 0 | 2 / 0 | 180,5 ms |
+| `Province of Bodrum OP` | Vanilla-Kopie / 400 | 20 | 8 | 0 | 12 / 0 | 209,1 ms |
+| `unittest` | aktuelle Custom-Map / 160 | 58 | 58 | 0 | 0 / 0 | 238,5 ms |
+| `testmap` | aktuelle Custom-Map / 800 | 4 | 4 | 0 | 0 / 0 | 123,2 ms |
+| `Marshy Mayhem` | ältere Kontrollstichprobe / 400 | 4 | 3 | 0 | 1 / 0 | 101,6 ms |
 
 Die Matrix deckt mehrere Keep-Slots, kleine bis große AIVs, alle vier
 Rotationen und die nativen Zustände `Complete`, `Partial` und `Rejected` ab.
@@ -93,7 +99,7 @@ Die maschinenlesbaren Quellen und Berichte liegen unter:
 - `AIVPlacement/OracleCorpus/Captured-2026-08-03-800/`
 - `AIVPlacement/OracleCorpus/Results/`
 
-## Vorbereitung für Chat 11
+## Sperre vor Chat 11
 
 Die Laufzeitmatrix bestätigt, dass `playerId - 1` kein verlässlicher
 Map-Keep-Slot ist. Derselbe `playerId=2` wurde durch Positionswechsel auf
@@ -104,10 +110,10 @@ Pfad und Hash der geladenen Karte, exakte Keep-Anker aus 1013/4013,
 Lord-/AIV-Listen und AIV-Hashes sind vorhanden. Der Offline-Kern unterstützt
 alle acht im installierten offiziellen Kartenbestand belegten World Sizes 160,
 200, 300, 400, 500, 600, 700 und 800. Die native Oracle-Matrix dieses Chats
-enthält davon 160, 200, 300, 400 und 800. Bei der einzigen verbleibenden, noch
-nicht offline aufgelösten datensatzabhängigen Regel liefert der Kern sicher
-`NotEvaluable`. Es bestehen keine ungeklärten Mismatches mehr, die eine
-Lobbyentscheidung verfälschen.
+enthält davon 160, 200, 300, 400 und 800. Die Organismusdaten sind für den
+Skirmish-AIV-Aufruf vollständig geklärt und werden nicht benötigt. Die 47 nun
+sichtbaren Mismatches können jedoch eine Lobbyentscheidung verfälschen; deshalb
+bleibt Chat 10 der nächste Schritt.
 
 Auf Thasos erfasste der Oracle alle sechs KI-Auswahlen, aber nur fünf erreichten
 den späteren `PrepareLayout`-Callback. Chat 11 muss Prüfaufträge daher für alle

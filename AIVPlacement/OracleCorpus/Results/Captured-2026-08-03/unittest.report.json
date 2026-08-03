@@ -3,8 +3,8 @@
   "MapName": "unittest.map",
   "MapSha256": "046F7DE98BC56000CFA80D880275D424970135F68CE84E2586A6BAD5E3E65594",
   "WorldSize": 160,
-  "StartedAtLocal": "2026-08-03T01:54:36.7480906+02:00",
-  "ElapsedMilliseconds": 237.428,
+  "StartedAtLocal": "2026-08-03T02:55:59.2988816+02:00",
+  "ElapsedMilliseconds": 234.2361,
   "ExactMatchCount": 58,
   "NotEvaluableCount": 0,
   "MismatchCount": 0,
@@ -58,7 +58,7 @@
         "EntityId": 0,
         "OwnerId": 0
       },
-      "ElapsedMilliseconds": 36.0533
+      "ElapsedMilliseconds": 35.6925
     },
     {
       "Id": "oracle-026-02-wolf-r0",
@@ -108,7 +108,7 @@
         "EntityId": 0,
         "OwnerId": 0
       },
-      "ElapsedMilliseconds": 27.2624
+      "ElapsedMilliseconds": 25.9077
     },
     {
       "Id": "oracle-026-03-wolf-r90",
@@ -158,7 +158,7 @@
         "EntityId": 0,
         "OwnerId": 0
       },
-      "ElapsedMilliseconds": 18.4437
+      "ElapsedMilliseconds": 17.5568
     },
     {
       "Id": "oracle-026-04-wolf-r180",
@@ -208,7 +208,7 @@
         "EntityId": 0,
         "OwnerId": 0
       },
-      "ElapsedMilliseconds": 8.6746
+      "ElapsedMilliseconds": 8.1668
     },
     {
       "Id": "oracle-027-01-wolf-r90",
@@ -258,7 +258,7 @@
         "EntityId": 0,
         "OwnerId": 0
       },
-      "ElapsedMilliseconds": 7.2712
+      "ElapsedMilliseconds": 6.4912
     },
     {
       "Id": "oracle-027-02-wolf-r180",
@@ -308,7 +308,7 @@
         "EntityId": 0,
         "OwnerId": 0
       },
-      "ElapsedMilliseconds": 6.5892
+      "ElapsedMilliseconds": 6.9693
     },
     {
       "Id": "oracle-027-03-wolf-r270",
@@ -358,7 +358,7 @@
         "EntityId": 0,
         "OwnerId": 0
       },
-      "ElapsedMilliseconds": 6.4085
+      "ElapsedMilliseconds": 6.8223
     },
     {
       "Id": "oracle-027-04-wolf-r0",
@@ -408,7 +408,7 @@
         "EntityId": 0,
         "OwnerId": 0
       },
-      "ElapsedMilliseconds": 6.1916
+      "ElapsedMilliseconds": 6.3837
     },
     {
       "Id": "oracle-028-01-standard-8-r90",
@@ -458,7 +458,7 @@
         "EntityId": 0,
         "OwnerId": 0
       },
-      "ElapsedMilliseconds": 1.2692
+      "ElapsedMilliseconds": 1.2771
     },
     {
       "Id": "oracle-028-02-standard-1-r90",
@@ -508,7 +508,7 @@
         "EntityId": 0,
         "OwnerId": 0
       },
-      "ElapsedMilliseconds": 6.2219
+      "ElapsedMilliseconds": 6.0257
     },
     {
       "Id": "oracle-028-03-standard-2-r90",
@@ -558,7 +558,7 @@
         "EntityId": 0,
         "OwnerId": 0
       },
-      "ElapsedMilliseconds": 1.131
+      "ElapsedMilliseconds": 0.9557
     },
     {
       "Id": "oracle-028-04-standard-3-r90",
@@ -608,7 +608,7 @@
         "EntityId": 0,
         "OwnerId": 0
       },
-      "ElapsedMilliseconds": 0.8316
+      "ElapsedMilliseconds": 0.7711
     },
     {
       "Id": "oracle-028-05-standard-4-r90",
@@ -658,7 +658,7 @@
         "EntityId": 0,
         "OwnerId": 0
       },
-      "ElapsedMilliseconds": 1.4367
+      "ElapsedMilliseconds": 1.0221
     },
     {
       "Id": "oracle-028-06-standard-5-r90",
@@ -708,7 +708,7 @@
         "EntityId": 0,
         "OwnerId": 0
       },
-      "ElapsedMilliseconds": 1.6019
+      "ElapsedMilliseconds": 1.0045
     },
     {
       "Id": "oracle-028-07-standard-6-r90",
@@ -758,7 +758,7 @@
         "EntityId": 0,
         "OwnerId": 0
       },
-      "ElapsedMilliseconds": 1.7834
+      "ElapsedMilliseconds": 1.2475
     },
     {
       "Id": "oracle-028-08-standard-7-r90",
@@ -808,7 +808,7 @@
         "EntityId": 0,
         "OwnerId": 0
       },
-      "ElapsedMilliseconds": 1.2951
+      "ElapsedMilliseconds": 1.1458
     },
     {
       "Id": "oracle-028-09-standard-8-r180",
@@ -858,7 +858,7 @@
         "EntityId": 0,
         "OwnerId": 0
       },
-      "ElapsedMilliseconds": 1.1786
+      "ElapsedMilliseconds": 1.2073
     },
     {
       "Id": "oracle-028-10-standard-1-r180",
@@ -908,7 +908,7 @@
         "EntityId": 0,
         "OwnerId": 0
       },
-      "ElapsedMilliseconds": 0.9362
+      "ElapsedMilliseconds": 0.9173
     },
     {
       "Id": "oracle-028-11-standard-2-r180",
@@ -958,7 +958,7 @@
         "EntityId": 0,
         "OwnerId": 0
       },
-      "ElapsedMilliseconds": 0.8789
+      "ElapsedMilliseconds": 0.9617
     },
     {
       "Id": "oracle-028-12-standard-3-r180",
@@ -1008,7 +1008,7 @@
         "EntityId": 0,
         "OwnerId": 0
       },
-      "ElapsedMilliseconds": 0.7774
+      "ElapsedMilliseconds": 0.9153
     },
     {
       "Id": "oracle-028-13-standard-4-r180",
@@ -1058,7 +1058,7 @@
         "EntityId": 0,
         "OwnerId": 0
       },
-      "ElapsedMilliseconds": 1.0417
+      "ElapsedMilliseconds": 1.1239
     },
     {
       "Id": "oracle-028-14-standard-5-r180",
@@ -1108,7 +1108,7 @@
         "EntityId": 0,
         "OwnerId": 0
       },
-      "ElapsedMilliseconds": 0.9664
+      "ElapsedMilliseconds": 0.933
     },
     {
       "Id": "oracle-028-15-standard-6-r180",
@@ -1158,7 +1158,7 @@
         "EntityId": 0,
         "OwnerId": 0
       },
-      "ElapsedMilliseconds": 1.2632
+      "ElapsedMilliseconds": 1.2271
     },
     {
       "Id": "oracle-028-16-standard-7-r180",
@@ -1208,7 +1208,7 @@
         "EntityId": 0,
         "OwnerId": 0
       },
-      "ElapsedMilliseconds": 1.1422
+      "ElapsedMilliseconds": 1.1065
     },
     {
       "Id": "oracle-028-17-standard-8-r270",
@@ -1258,7 +1258,7 @@
         "EntityId": 0,
         "OwnerId": 0
       },
-      "ElapsedMilliseconds": 1.1289
+      "ElapsedMilliseconds": 1.073
     },
     {
       "Id": "oracle-028-18-standard-1-r270",
@@ -1308,7 +1308,7 @@
         "EntityId": 0,
         "OwnerId": 0
       },
-      "ElapsedMilliseconds": 0.8784
+      "ElapsedMilliseconds": 0.8529
     },
     {
       "Id": "oracle-028-19-standard-2-r270",
@@ -1358,7 +1358,7 @@
         "EntityId": 0,
         "OwnerId": 0
       },
-      "ElapsedMilliseconds": 0.8362
+      "ElapsedMilliseconds": 0.806
     },
     {
       "Id": "oracle-028-20-standard-3-r270",
@@ -1408,7 +1408,7 @@
         "EntityId": 0,
         "OwnerId": 0
       },
-      "ElapsedMilliseconds": 0.7498
+      "ElapsedMilliseconds": 0.7247
     },
     {
       "Id": "oracle-028-21-standard-4-r270",
@@ -1458,7 +1458,7 @@
         "EntityId": 0,
         "OwnerId": 0
       },
-      "ElapsedMilliseconds": 1.5531
+      "ElapsedMilliseconds": 1.5227
     },
     {
       "Id": "oracle-028-22-standard-5-r270",
@@ -1508,7 +1508,7 @@
         "EntityId": 0,
         "OwnerId": 0
       },
-      "ElapsedMilliseconds": 0.8382
+      "ElapsedMilliseconds": 0.8173
     },
     {
       "Id": "oracle-028-23-standard-6-r270",
@@ -1558,7 +1558,7 @@
         "EntityId": 0,
         "OwnerId": 0
       },
-      "ElapsedMilliseconds": 1.0835
+      "ElapsedMilliseconds": 1.1027
     },
     {
       "Id": "oracle-028-24-standard-7-r270",
@@ -1608,7 +1608,7 @@
         "EntityId": 0,
         "OwnerId": 0
       },
-      "ElapsedMilliseconds": 0.9924
+      "ElapsedMilliseconds": 1.3304
     },
     {
       "Id": "oracle-028-25-standard-8-r0",
@@ -1658,7 +1658,7 @@
         "EntityId": 0,
         "OwnerId": 0
       },
-      "ElapsedMilliseconds": 0.9719
+      "ElapsedMilliseconds": 1.2614
     },
     {
       "Id": "oracle-028-26-standard-1-r0",
@@ -1708,7 +1708,7 @@
         "EntityId": 0,
         "OwnerId": 0
       },
-      "ElapsedMilliseconds": 0.89
+      "ElapsedMilliseconds": 1.1616
     },
     {
       "Id": "oracle-028-27-standard-2-r0",
@@ -1758,7 +1758,7 @@
         "EntityId": 0,
         "OwnerId": 0
       },
-      "ElapsedMilliseconds": 0.8178
+      "ElapsedMilliseconds": 1.0553
     },
     {
       "Id": "oracle-028-28-standard-3-r0",
@@ -1808,7 +1808,7 @@
         "EntityId": 0,
         "OwnerId": 0
       },
-      "ElapsedMilliseconds": 0.6465
+      "ElapsedMilliseconds": 0.6703
     },
     {
       "Id": "oracle-028-29-standard-4-r0",
@@ -1858,7 +1858,7 @@
         "EntityId": 0,
         "OwnerId": 0
       },
-      "ElapsedMilliseconds": 0.8285
+      "ElapsedMilliseconds": 0.8346
     },
     {
       "Id": "oracle-028-30-standard-5-r0",
@@ -1908,7 +1908,7 @@
         "EntityId": 0,
         "OwnerId": 0
       },
-      "ElapsedMilliseconds": 0.8005
+      "ElapsedMilliseconds": 0.7993
     },
     {
       "Id": "oracle-028-31-standard-6-r0",
@@ -1958,7 +1958,7 @@
         "EntityId": 0,
         "OwnerId": 0
       },
-      "ElapsedMilliseconds": 1.0248
+      "ElapsedMilliseconds": 1.0353
     },
     {
       "Id": "oracle-028-32-standard-7-r0",
@@ -2008,7 +2008,7 @@
         "EntityId": 0,
         "OwnerId": 0
       },
-      "ElapsedMilliseconds": 0.9436
+      "ElapsedMilliseconds": 0.9444
     },
     {
       "Id": "oracle-029-01-standard-1-r270",
@@ -2058,7 +2058,7 @@
         "EntityId": 0,
         "OwnerId": 0
       },
-      "ElapsedMilliseconds": 0.7919
+      "ElapsedMilliseconds": 0.796
     },
     {
       "Id": "oracle-029-02-standard-2-r270",
@@ -2108,7 +2108,7 @@
         "EntityId": 0,
         "OwnerId": 0
       },
-      "ElapsedMilliseconds": 0.7574
+      "ElapsedMilliseconds": 0.7548
     },
     {
       "Id": "oracle-029-03-standard-3-r270",
@@ -2158,7 +2158,7 @@
         "EntityId": 0,
         "OwnerId": 0
       },
-      "ElapsedMilliseconds": 0.641
+      "ElapsedMilliseconds": 0.6446
     },
     {
       "Id": "oracle-029-04-standard-4-r270",
@@ -2208,7 +2208,7 @@
         "EntityId": 0,
         "OwnerId": 0
       },
-      "ElapsedMilliseconds": 0.8394
+      "ElapsedMilliseconds": 0.8305
     },
     {
       "Id": "oracle-029-05-standard-5-r270",
@@ -2258,7 +2258,7 @@
         "EntityId": 0,
         "OwnerId": 0
       },
-      "ElapsedMilliseconds": 0.8229
+      "ElapsedMilliseconds": 0.7932
     },
     {
       "Id": "oracle-029-06-standard-6-r270",
@@ -2308,7 +2308,7 @@
         "EntityId": 0,
         "OwnerId": 0
       },
-      "ElapsedMilliseconds": 1.0587
+      "ElapsedMilliseconds": 1.0286
     },
     {
       "Id": "oracle-029-07-standard-7-r270",
@@ -2358,7 +2358,7 @@
         "EntityId": 0,
         "OwnerId": 0
       },
-      "ElapsedMilliseconds": 0.9738
+      "ElapsedMilliseconds": 0.9306
     },
     {
       "Id": "oracle-029-08-standard-8-r270",
@@ -2408,7 +2408,7 @@
         "EntityId": 0,
         "OwnerId": 0
       },
-      "ElapsedMilliseconds": 0.976
+      "ElapsedMilliseconds": 0.9327
     },
     {
       "Id": "oracle-029-09-standard-1-r0",
@@ -2458,7 +2458,7 @@
         "EntityId": 0,
         "OwnerId": 0
       },
-      "ElapsedMilliseconds": 0.764
+      "ElapsedMilliseconds": 0.746
     },
     {
       "Id": "oracle-029-10-standard-2-r0",
@@ -2508,7 +2508,7 @@
         "EntityId": 0,
         "OwnerId": 0
       },
-      "ElapsedMilliseconds": 0.7242
+      "ElapsedMilliseconds": 0.7163
     },
     {
       "Id": "oracle-029-11-standard-3-r0",
@@ -2558,7 +2558,7 @@
         "EntityId": 0,
         "OwnerId": 0
       },
-      "ElapsedMilliseconds": 0.6265
+      "ElapsedMilliseconds": 0.6081
     },
     {
       "Id": "oracle-029-12-standard-4-r0",
@@ -2608,7 +2608,7 @@
         "EntityId": 0,
         "OwnerId": 0
       },
-      "ElapsedMilliseconds": 0.8055
+      "ElapsedMilliseconds": 0.8
     },
     {
       "Id": "oracle-029-13-standard-5-r0",
@@ -2658,7 +2658,7 @@
         "EntityId": 0,
         "OwnerId": 0
       },
-      "ElapsedMilliseconds": 5.9413
+      "ElapsedMilliseconds": 5.6481
     },
     {
       "Id": "oracle-029-14-standard-6-r0",
@@ -2708,7 +2708,7 @@
         "EntityId": 0,
         "OwnerId": 0
       },
-      "ElapsedMilliseconds": 1.2245
+      "ElapsedMilliseconds": 1.0338
     },
     {
       "Id": "oracle-029-15-standard-7-r0",
@@ -2758,7 +2758,7 @@
         "EntityId": 0,
         "OwnerId": 0
       },
-      "ElapsedMilliseconds": 0.9279
+      "ElapsedMilliseconds": 0.8981
     },
     {
       "Id": "oracle-029-16-standard-8-r0",
@@ -2808,7 +2808,7 @@
         "EntityId": 0,
         "OwnerId": 0
       },
-      "ElapsedMilliseconds": 0.9391
+      "ElapsedMilliseconds": 0.9164
     },
     {
       "Id": "oracle-029-17-standard-1-r90",
@@ -2858,7 +2858,7 @@
         "EntityId": 0,
         "OwnerId": 0
       },
-      "ElapsedMilliseconds": 0.7385
+      "ElapsedMilliseconds": 0.7222
     },
     {
       "Id": "oracle-029-18-standard-2-r90",
@@ -2891,7 +2891,7 @@
       "Classification": "ExactMatch",
       "FirstDifference": "",
       "FirstIssue": null,
-      "ElapsedMilliseconds": 0.7257
+      "ElapsedMilliseconds": 0.6972
     }
   ]
 }

@@ -53,7 +53,10 @@ internal static class Program
             OracleCorpus corpus = ReadJson<OracleCorpus>(options.ManifestPath);
             ValidateCorpus(corpus);
             IReadOnlyList<OracleCase> selectedCases = SelectCases(corpus, options);
-            ComparisonReport report = RunCorpus(corpus, selectedCases);
+            ComparisonReport report = RunCorpus(
+                corpus,
+                selectedCases,
+                options.DiagnosticOutputPath is not null);
 
             if (options.OutputPath is not null)
             {
@@ -61,6 +64,17 @@ internal static class Program
                 Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
                 WriteTextCrlf(outputPath, JsonSerializer.Serialize(report, OutputOptions));
                 Log("INFO", $"Wrote comparison report: {outputPath}");
+            }
+
+            if (options.DiagnosticOutputPath is not null)
+            {
+                CaseComparison diagnosticCase = report.Cases.Single();
+                string diagnosticPath = Path.GetFullPath(options.DiagnosticOutputPath);
+                Directory.CreateDirectory(Path.GetDirectoryName(diagnosticPath)!);
+                WriteTextCrlf(
+                    diagnosticPath,
+                    JsonSerializer.Serialize(diagnosticCase, OutputOptions));
+                Log("INFO", $"Wrote opt-in cell diagnostic: {diagnosticPath}");
             }
 
             PrintSummary(report);
@@ -75,7 +89,8 @@ internal static class Program
 
     private static ComparisonReport RunCorpus(
         OracleCorpus corpus,
-        IReadOnlyList<OracleCase> cases)
+        IReadOnlyList<OracleCase> cases,
+        bool includeDiagnostic)
     {
         var total = Stopwatch.StartNew();
         string mapPath = Path.GetFullPath(corpus.Map.Path);
@@ -97,7 +112,12 @@ internal static class Program
         {
             OracleCase oracleCase = cases[index];
             Stopwatch caseTimer = Stopwatch.StartNew();
-            CaseComparison result = CompareCase(preplacementMap, anchors, corpus, oracleCase);
+            CaseComparison result = CompareCase(
+                preplacementMap,
+                anchors,
+                corpus,
+                oracleCase,
+                includeDiagnostic);
             caseTimer.Stop();
             result.ElapsedMilliseconds = caseTimer.Elapsed.TotalMilliseconds;
             results.Add(result);
@@ -131,7 +151,8 @@ internal static class Program
         AivPreplacementMapState? map,
         MapKeepAnchors anchors,
         OracleCorpus corpus,
-        OracleCase oracleCase)
+        OracleCase oracleCase,
+        bool includeDiagnostic)
     {
         try
         {
@@ -189,7 +210,10 @@ internal static class Program
                 Offline = ToOfflineResult(offline),
                 Classification = classification,
                 FirstDifference = DescribeFirstDifference(offline, oracleCase.Native),
-                FirstIssue = ToIssue(SelectFirstIssue(offline))
+                FirstIssue = ToIssue(SelectFirstIssue(offline)),
+                Diagnostic = includeDiagnostic
+                    ? OfflineCaseDiagnosticBuilder.Build(map, offline)
+                    : null
             };
         }
         catch (Exception ex)
@@ -640,11 +664,21 @@ internal static class Program
                 case "--output" when index + 1 < args.Length:
                     options.OutputPath = args[++index];
                     break;
+                case "--diagnostic-output" when index + 1 < args.Length:
+                    options.DiagnosticOutputPath = args[++index];
+                    break;
                 default:
                     Log("ERROR", $"Invalid option '{args[index]}'.");
                     PrintUsage();
                     return false;
             }
+        }
+
+        if (options.DiagnosticOutputPath is not null && options.CaseId is null)
+        {
+            Log("ERROR", "--diagnostic-output requires an explicit --case selection.");
+            PrintUsage();
+            return false;
         }
 
         return true;
@@ -653,7 +687,8 @@ internal static class Program
     private static void PrintUsage() => Console.WriteLine(
         "Usage:\n" +
         "  AIVPlacement.OracleComparison <corpus.json> " +
-        "[--case <id>] [--limit <count>] [--output <report.json>]\n" +
+        "[--case <id>] [--limit <count>] [--output <report.json>] " +
+        "[--diagnostic-output <diagnostic.json>]\n" +
         "  AIVPlacement.OracleComparison import-log <LogOutput.log> <output-directory>");
 
     private static void PrintSummary(ComparisonReport report) => Log(
@@ -671,6 +706,7 @@ internal static class Program
         public string? CaseId { get; set; }
         public int? Limit { get; set; }
         public string? OutputPath { get; set; }
+        public string? DiagnosticOutputPath { get; set; }
     }
 }
 
@@ -749,6 +785,8 @@ internal sealed class CaseComparison
     public ComparisonClassification Classification { get; set; }
     public string FirstDifference { get; set; } = string.Empty;
     public IssueEvidence? FirstIssue { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public OfflineCaseDiagnostic? Diagnostic { get; set; }
     public double ElapsedMilliseconds { get; set; }
 }
 

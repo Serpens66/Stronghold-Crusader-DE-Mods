@@ -3,7 +3,7 @@
 This document fixes the evidence boundary established in Chat 7 of
 `AIV_PLACEMENT_ROADMAP.md` and records the offline implementation completed in
 Chat 8. It inventories the rejection families used by the native AIV fit path,
-assigns stable reason codes and identifies the one remaining live-data gap.
+assigns stable reason codes and records the Skirmish-specific organism bypass.
 
 ## Binary and entry points
 
@@ -15,6 +15,7 @@ assigns stable reason codes and identifies the one remaining live-data gap.
 - native footprint-offset lookup: RVA `0x68AC0`
 - mapper-to-profile lookup: RVA `0xC69D0`
 - shared building placement validator: RVA `0x7A2D0`, size `0x4B6`
+- Skirmish initialization: RVA `0x854E0`; game-mode store at RVA `0x855E7`
 
 The AIV evaluator calls the validator at RVA `0x56489` as:
 
@@ -42,7 +43,7 @@ rejecting branch.
 | `InvalidMapTile` | The coordinate is in the rectangular domain but absent from the native validity mask/playable diamond. Directly proven before Tile-ID translation. |
 | `HeightMismatch` | The Height byte exceeds the native mapper limit. The AIV call prepares a one-cell footprint; all AIVParser mapper profiles resolve to a maximum of `200`. |
 | `TerrainBlocked` | One of the proven Logic-bit/mask branches rejects the mapper. Exact masks are listed below. This code must not turn an unknown bit into a guessed terrain name. |
-| `OrganismOccupied` | Reserved for a future offline tree/rock-record source. A raw ID alone cannot prove the live organism class, so Chat 8 emits `UnresolvedNativeRule` for the record-dependent branch. |
+| `OrganismOccupied` | Reserved for validator modes outside the Skirmish AIV path. Skirmish mode and player ID `0` bypass organism-class rejection, so this reason is not emitted here. |
 | `BuildingOccupied` | The Building/Structure grid is nonzero. The validator immediately returns native result `2`. |
 | `EntityOccupied` | Reserved for other validator modes. `EvaluateCandidateFit` passes player ID `0`, so the entity-record loop is not entered in this AIV path. |
 | `OwnerConflict` | Existing `IsWall` terrain is rejected in the AIV path. The stored owner becomes `1..8`, which can never equal the passed player ID `0`. |
@@ -64,28 +65,33 @@ and element widths agree with the canonical Script Extender
 
 | Offline field | Logical Section | Native offset | Native use in AIV validator | Reason families |
 | --- | ---: | ---: | --- | --- |
-| `TerrainFlags` | 1003 Logic | `0x898400`, `int32` | Multiple exact bit/mask branches | `TerrainBlocked`, `OwnerConflict`, `UnresolvedNativeRule` |
+| `TerrainFlags` | 1003 Logic | `0x898400`, `int32` | Multiple exact bit/mask branches | `TerrainBlocked`, `OwnerConflict` |
 | `SecondaryLogic` | 1037 Logic2 | `0x9D2500`, `byte` | No direct read in RVA `0x7A2D0` for this AIV call | None currently; retained as evidence |
 | `Height` | 1005 Height | `0xD7E5A0`, `byte` | Compared with the mapper limit and the one-cell footprint minimum | `HeightMismatch` |
 | `DefaultHeight` | 1045 DefaultHeight | `0xDCCAC0`, `byte` | Only substituted for a wall owned by the passed player; impossible with AIV player ID `0` | None in this AIV path; retained as evidence |
-| `OrganismId` | 1004 Organism | `0xA6F260`, `uint16` | Resolves a live organism record and class switch unavailable in the snapshot | `UnresolvedNativeRule` in the current evaluator |
+| `OrganismId` | 1004 Organism | `0xA6F260`, `uint16` | Enters a class switch, but Skirmish mode plus AIV player ID `0` accepts its default path | None in this AIV path; retained as evidence |
 | `BuildingId` | 1012 Building | `0xB0BCA0`, `uint16` | Nonzero returns native result `2` immediately | `BuildingOccupied` |
 | `EntityId` | 1026 Entity | `0xBF6C00`, `uint16` | Read, but the record walk requires a nonzero player ID and is skipped here | None in this AIV path; retained as evidence |
 | `OwnerId` | 1043 WallOwner | `0xE1AFE0`, `byte` | Low three bits become owner `1..8`; no value can match AIV player ID `0` | `OwnerConflict` |
 
 The native mapper profiles are now ported for every AIVParser mapper used by the
-offline evaluator. The remaining missing live input is an organism record when
-tree flags reference an ID in `1..3999`; that branch returns
-`UnresolvedNativeRule`. Entity records are not missing input for this specific
-AIV path because player ID `0` bypasses their loop.
+offline evaluator. Entity and organism records are not missing input for this
+specific AIV path because its fixed player ID and Skirmish mode bypass their
+rejecting subpaths.
 
-This organism branch is not a blanket occupancy rejection. The native
-validator accepts record classes `5..14` and `16..19` directly; other classes
-remain dependent on a global game-mode value and, outside this AIV call, player
-state. Sections 1014 (trees) and 1038 (rocks) are the candidate serialized
-record sources, but their current-DE layouts and the relevant class field have
-not yet been ported into `MapPlacementSnapshot`. Trees and rocks therefore must
-not be treated as uniformly blocked or uniformly removable offline.
+This organism branch is not a blanket occupancy rejection. Section 1014 is
+4000 records of `0x9C` bytes, and the validator reads its class field at record
+offset `0x46`; classes `5..14` and `16..19` are accepted directly. The global
+mode value at VA `0x188571B80` controls the remaining classes.
+
+`DLL_PreInitMap_Multiplayer` sets that value to `1` or `99` at RVA `0x855E7`.
+Both are nonzero. In the default class path, a nonzero mode proceeds to player
+handling; the AIV call's player ID is `0`, so it reaches acceptance without a
+record-dependent rejection. Section 1038 is a separate 4000-by-`0x20` rock
+array and is not read by this branch. Quarry resource stones likewise do not
+create an organism rejection. The offline Skirmish evaluator therefore accepts
+trees, tree proximity and these rock records without decoding either object
+section.
 
 ## Proven Logic tests, names and unknowns
 
@@ -154,16 +160,15 @@ neighboring tiles.
 `AivPlacementRuleEvaluator` applies the proven rules independently per
 projected tile and returns immutable `AivElementPlacementResult` values:
 
-- `Placeable`: no proven issue and no unresolved native branch;
+- `Placeable`: no proven issue;
 - `Blocked`: at least one deterministic reason applies;
-- `NotEvaluable`: no deterministic rejection exists, but the organism-record
-  branch lacks its live class record.
+- `NotEvaluable`: a different required native rule or projection input is
+  genuinely unavailable.
 
-If a tile is both deterministically blocked and unresolved, `Blocked` wins and
-both reason flags remain in its issue. `EvaluateElements` additionally tracks
-tile claims in original build order and reports `InternalOverlap` against the
-first earlier element. Core footprints and associated blocked areas retain
-their separate tile kinds throughout evaluation.
+`EvaluateElements` additionally tracks tile claims in original build order and
+reports `InternalOverlap` against the first earlier element. Core footprints
+and associated blocked areas retain their separate tile kinds throughout
+evaluation.
 
 ## Implemented and deferred boundary
 
@@ -172,13 +177,10 @@ height limit, wall ownership, proven Logic masks and mapper-profile exceptions,
 plus sequential AIV overlap. The rules stay separated by reason family and do
 not infer unsupported meanings from raw values.
 
-`SecondaryLogic`, `DefaultHeight` and `EntityId` are retained only as evidence:
-the first is not read by this validator, the second is unreachable for player
-ID `0`, and the third record loop is bypassed for that player ID. The only
-deferred decision is a tree-flagged `OrganismId` in `1..3999`, because its
-record class is not yet resolved by the map snapshot. A later Section-1014/1038
-record source may resolve that branch without changing the current
-deterministic rules.
+`SecondaryLogic`, `DefaultHeight`, `OrganismId` and `EntityId` are retained only
+as evidence: the first is not read by this validator, the second is unreachable
+for player ID `0`, the organism rejection is bypassed by Skirmish mode plus that
+player ID, and the entity record loop is bypassed for the same player ID.
 
 ## Pre-placement map state used by the Oracle comparison
 

@@ -10,5 +10,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\AIVPlacement.Core\AIVPlacement.Core.csproj" />
+    <ProjectReference Include="..\AIVPlacement.OracleComparison\AIVPlacement.OracleComparison.csproj" />
   </ItemGroup>
 </Project>

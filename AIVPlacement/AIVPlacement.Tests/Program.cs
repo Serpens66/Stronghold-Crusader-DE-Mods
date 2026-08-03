@@ -1,5 +1,6 @@
 using AIVParser.Core;
 using AIVPlacement.Core;
+using AIVPlacement.OracleComparison;
 using MapParser.Core;
 
 internal static class Program
@@ -27,11 +28,12 @@ internal static class Program
             ("Apply the native mapper height limit", TestHeightRule),
             ("Report the exact blocked tile in a multi-tile building", TestBuildingRule),
             ("Apply proven logic masks and mapper profiles", TestTerrainRules),
-            ("Keep unresolved organism records not evaluable", TestUnresolvedOrganismRule),
+            ("Allow organisms in native Skirmish mode", TestSkirmishOrganismRule),
             ("Reject existing walls as owner conflicts", TestOwnerRule),
             ("Detect internal overlaps in build order", TestInternalOverlapRule),
             ("Evaluate associated areas separately from core footprints", TestAssociatedAreaRule),
             ("Produce deterministic element results", TestDeterministicEvaluation),
+            ("Build opt-in per-cell Oracle diagnostics", TestOfflineCaseDiagnostic),
             ("Aggregate complete, partial and impossible candidates", TestCandidateStatuses),
             ("Keep unresolved candidates not evaluable", TestCandidateNotEvaluable),
             ("Select the first complete rotation in native order", TestCompleteRotationSelection),
@@ -291,6 +293,13 @@ internal static class Program
         AssertEqual((ushort)29, other.BuildingId);
         AssertEqual(1, normalized.NormalizedStartBuildingIds.Count);
         AssertEqual((ushort)28, normalized.NormalizedStartBuildingIds[0]);
+        AivPlacementTileEvidence originalKeep = normalized.GetOriginalTileEvidence(
+            normalized.Geometry.GetTileId(keepTile.X, keepTile.Y));
+        AssertEqual((ushort)28, originalKeep.BuildingId);
+        AivStartBuildingAdjacency adjacency = normalized.GetStartBuildingAdjacency(
+            normalized.Geometry.GetTileId(adjacentWallTile.X, adjacentWallTile.Y));
+        AssertEqual(1, adjacency.OrthogonalNeighborCount);
+        AssertEqual(0, adjacency.DiagonalNeighborCount);
     }
 
     private static void TestReasonlessPlacementIssue()
@@ -393,18 +402,17 @@ internal static class Program
         AssertTerrainAccepted(105, 0x40000000);
     }
 
-    private static void TestUnresolvedOrganismRule()
+    private static void TestSkirmishOrganismRule()
     {
         MapCoordinate coordinate = new(400, 400);
-        var unresolvedMap = new SparsePlacementMap();
-        unresolvedMap.Set(coordinate, Evidence(
+        var organismMap = new SparsePlacementMap();
+        organismMap.Set(coordinate, Evidence(
             terrainFlags: 0x00001000,
             organismId: 12));
-        AivElementPlacementResult unresolved = RuleEvaluator.EvaluateElement(
-            unresolvedMap,
+        AivElementPlacementResult organism = RuleEvaluator.EvaluateElement(
+            organismMap,
             ElementAt(25, coordinate));
-        AssertOnlyIssue(unresolved, AivElementPlacementStatus.NotEvaluable,
-            AivPlacementIssueKind.UnresolvedNativeRule);
+        AssertEqual(AivElementPlacementStatus.Placeable, organism.Status);
 
         var noRecordMap = new SparsePlacementMap();
         noRecordMap.Set(coordinate, Evidence(terrainFlags: 0x00001000));
@@ -438,8 +446,6 @@ internal static class Program
             deterministicallyBlockedMap,
             ElementAt(25, coordinate));
         AssertEqual(AivElementPlacementStatus.Blocked, blocked.Status);
-        Assert(blocked.Issues[0].Kind.HasFlag(AivPlacementIssueKind.UnresolvedNativeRule),
-            "The unresolved organism reason was lost beside a proven block.");
         Assert(blocked.Issues[0].Kind.HasFlag(AivPlacementIssueKind.BuildingOccupied),
             "The proven building block was lost.");
     }
@@ -516,6 +522,50 @@ internal static class Program
         }
     }
 
+    private static void TestOfflineCaseDiagnostic()
+    {
+        MapCoordinate keep = new(400, 400);
+        AivBlueprint blueprint = Blueprint(Frame(7, 50, false, Point(50, 50)));
+        AivProjectedElement projected = Projector.Project(
+            blueprint,
+            keep,
+            AivRotation.Degrees90).Elements[0];
+        AivProjectedTile blockedTile = projected.OccupiedTiles[0];
+        var map = new SparsePlacementMap();
+        map.Set(blockedTile.MapCoordinate, Evidence(
+            terrainFlags: 0x00000010,
+            secondaryLogic: 3,
+            height: 9,
+            defaultHeight: 8,
+            buildingId: 42));
+
+        AivPlacementResult result = PlacementEvaluator.Evaluate(
+            map,
+            blueprint,
+            keep,
+            AivRotation.Degrees90);
+        OfflineCaseDiagnostic diagnostic = OfflineCaseDiagnosticBuilder.Build(map, result);
+
+        AssertEqual(result.Score.EvaluatedTileCount, diagnostic.EvaluatedCellCount);
+        AssertEqual(result.Score.BlockedTileCount, diagnostic.BlockedCellCount);
+        AssertEqual(1, diagnostic.Elements.Count);
+        OfflineElementDiagnostic element = diagnostic.Elements[0];
+        AssertEqual(7, element.BuildIndex);
+        AssertEqual(50, element.MapperValue);
+        AssertEqual(AivRotation.Degrees90, element.Rotation);
+        AssertEqual(result.Score.BlockedTileCount, element.BlockedCellCount);
+        OfflineCellDiagnostic cell = element.Cells.Single(item => item.Blocked);
+        AssertEqual(blockedTile.SourceAivCoordinate.Row, cell.SourceAivRow);
+        AssertEqual(blockedTile.SourceAivCoordinate.Column, cell.SourceAivColumn);
+        AssertEqual(blockedTile.MapCoordinate.X, cell.MapX);
+        AssertEqual(blockedTile.MapCoordinate.Y, cell.MapY);
+        AssertEqual((ushort?)42, cell.BuildingId);
+        Assert(cell.IssueKind.HasFlag(AivPlacementIssueKind.BuildingOccupied),
+            "The per-cell diagnostic lost the blocking reason.");
+        Assert(!cell.WasPreplacementNormalized,
+            "An unchanged synthetic cell was reported as normalized.");
+    }
+
     private static void TestCandidateStatuses()
     {
         AivBlueprint blueprint = Blueprint(
@@ -588,9 +638,8 @@ internal static class Program
             organismBlueprint,
             keep,
             AivRotation.Degrees0);
-        AssertEqual(AivPlacementStatus.NotEvaluable, organism.Status);
-        AssertEqual(-1, organism.Score.SequentialBuildScore);
-        AssertEqual(1, organism.NotEvaluableElementCount);
+        AssertEqual(AivPlacementStatus.Complete, organism.Status);
+        AssertEqual(0, organism.NotEvaluableElementCount);
 
         AivBlueprint unknownFootprint = Blueprint(
             Frame(0, 999, false, Point(45, 55)));

@@ -3,8 +3,8 @@
   "MapName": "testmap.map",
   "MapSha256": "E9B22012A24007232AF519BAEBB7F4A11D4FBF5E96C205D1E5B3A7F7171A4659",
   "WorldSize": 800,
-  "StartedAtLocal": "2026-08-03T01:54:41.5431946+02:00",
-  "ElapsedMilliseconds": 126.8289,
+  "StartedAtLocal": "2026-08-03T02:56:01.1966788+02:00",
+  "ElapsedMilliseconds": 122.9402,
   "ExactMatchCount": 4,
   "NotEvaluableCount": 0,
   "MismatchCount": 0,
@@ -41,7 +41,7 @@
       "Classification": "ExactMatch",
       "FirstDifference": "",
       "FirstIssue": null,
-      "ElapsedMilliseconds": 27.8992
+      "ElapsedMilliseconds": 27.756
     },
     {
       "Id": "oracle-002-01-standard-8-r90",
@@ -74,7 +74,7 @@
       "Classification": "ExactMatch",
       "FirstDifference": "",
       "FirstIssue": null,
-      "ElapsedMilliseconds": 1.3244
+      "ElapsedMilliseconds": 1.2467
     },
     {
       "Id": "oracle-003-01-wolf-r90",
@@ -107,7 +107,7 @@
       "Classification": "ExactMatch",
       "FirstDifference": "",
       "FirstIssue": null,
-      "ElapsedMilliseconds": 8.1215
+      "ElapsedMilliseconds": 7.5046
     },
     {
       "Id": "oracle-004-01-wolf-r270",
@@ -140,7 +140,7 @@
       "Classification": "ExactMatch",
       "FirstDifference": "",
       "FirstIssue": null,
-      "ElapsedMilliseconds": 26.2604
+      "ElapsedMilliseconds": 24.8324
     }
   ]
 }

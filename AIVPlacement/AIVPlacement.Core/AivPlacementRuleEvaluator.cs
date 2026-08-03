@@ -17,7 +17,6 @@ namespace AIVPlacement.Core
         private const int ImpassableEdge = 0x00000080;
         private const int IsWall = 0x00000100;
         private const int IsBuildingOrElevated = 0x10000400;
-        private const int TreeFlags = 0x00003000;
         private const int River = 0x00100000;
         private const int Ford = 0x00200000;
         private const int FarmTypeFlags = 0x0F000000;
@@ -172,13 +171,8 @@ namespace AIVPlacement.Core
             if (IsTerrainBlocked(mapperValue, flags))
                 reasons |= AivPlacementIssueKind.TerrainBlocked;
 
-            // Organism class records are live state and are not serialized in the snapshot.
-            if ((flags & TreeFlags) != 0 &&
-                evidence.OrganismId != 0 &&
-                evidence.OrganismId < 4000)
-            {
-                reasons |= AivPlacementIssueKind.UnresolvedNativeRule;
-            }
+            // Skirmish initialization sets the native game mode to 1 or 99. With the
+            // validator's player zero, that mode accepts every serialized organism class.
 
             return reasons;
         }

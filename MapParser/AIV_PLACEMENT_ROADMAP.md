@@ -539,10 +539,11 @@ Map-Koordinate und die für die Entscheidung relevanten Rohwerte.
 
 **Status:** Abgeschlossen. Der paketfreie Offline-Evaluator prüft die belegten
 Geometrie-, Layer-, Height-, Logic-, Eigentümer- und Überlappungsregeln pro
-Element, erhält die vollständige Tile-Evidenz und markiert die fehlende lebende
-Organismusklasse explizit als nicht auswertbar. Die synthetische Testmatrix
-deckt positive und negative Fälle einschließlich Multi-Tile- und Sonderflächen
-ab.
+Element und erhält die vollständige Tile-Evidenz. Der zunächst offene
+Organismuszweig ist inzwischen aufgelöst: Die Skirmish-Initialisierung setzt
+den nativen Modus auf `1` oder `99`, wodurch der AIV-Aufruf mit Spieler `0`
+sämtliche Organismusklassen akzeptiert. Die synthetische Testmatrix deckt
+positive und negative Fälle einschließlich Multi-Tile- und Sonderflächen ab.
 
 ### Ziel
 
@@ -653,15 +654,18 @@ partielle Kandidaten vergleicht.
 
 ## Chat 10: Offline-Ergebnis systematisch gegen den nativen Oracle vergleichen
 
-**Status:** Abgeschlossen. Die hashgebundene Matrix umfasst 144 Fälle auf
+**Status:** Nächster Schritt. Die hashgebundene Matrix umfasst 144 Fälle auf
 World Sizes 160/200/300/400/800, Vanilla-Kopien und zwei mit dem aktuellen
 Editor erzeugte Custom-Maps, mehrere Keeps, kleine bis große AIVs, alle
-Rotationen und native Zustände 0/1/2. Alle 67 offline auswertbaren Fälle stimmen
-exakt; 77 sind ausschließlich wegen noch nicht in den Offline-Snapshot
-aufgelöster Baum-/Felsdatensätze als `NotEvaluable` klassifiziert. Es gibt 0
-Mismatches und 0 Fehler. Section 4013, World Size 800 und der feste native Rotationsursprung
-sind durch die neuen Läufe abgedeckt. Ergebnisse und Quote stehen in
-`Docs/AIV_PLACEMENT_ORACLE_COMPARISON.md`.
+Rotationen und native Zustände 0/1/2. Die Organismusprüfung ist vollständig
+aufgelöst und erzeugt kein `NotEvaluable`: 97 Fälle stimmen exakt, 47 zuvor
+verdeckte Fälle sind echte Mismatches und müssen vor Chat 11 nach AIV-/Mapper-
+und Regelursache klassifiziert werden. Es gibt 0 Fehler. Section 4013, World
+Size 800 und der feste native Rotationsursprung sind durch die Läufe abgedeckt.
+Ergebnisse und Quote stehen in `Docs/AIV_PLACEMENT_ORACLE_COMPARISON.md`.
+Die genaue, für einen neuen Chat ausführbare Arbeitsreihenfolge einschließlich
+der beiden minimalen Reproduktionsfälle, Diagnoseanforderungen, Befehle und
+Abnahmekriterien steht in `Docs/CHAT10_ORACLE_MISMATCH_HANDOFF.md`.
 
 **Nachtrag:** Ein Read-only-Scan aller 238 installierten offiziellen Karten
 belegt zusätzlich die World Sizes 500, 600 und 700. Die Offline-Geometrie und
@@ -714,16 +718,21 @@ erst gestartet, wenn die geschätzte Laufzeit zumutbar ist.
 
 ### Startprompt
 
-> Bearbeite Chat 10 aus `MapParser/AIV_PLACEMENT_ROADMAP.md`: Vergleiche den
-> Offline-Analyzer schrittweise gegen den nativen Oracle. Beginne mit genau einem
-> Fall, miss die Laufzeit und verwende bei größeren Stichproben sichtbaren
-> Fortschritt und ETA.
+> Setze Chat 10 aus `MapParser/AIV_PLACEMENT_ROADMAP.md` fort. Lies zuerst
+> `MapParser/Docs/CHAT10_ORACLE_MISMATCH_HANDOFF.md` vollständig und halte dich
+> an die dortige Reihenfolge. Reproduziere zunächst
+> `oracle-005-01-wolf-r0` auf Bow Ridge und danach unabhängig
+> `oracle-019-03-testlord-serpcastle1-r180` auf A Friend Indeed. Ergänze zuerst
+> gezielte Diagnoseevidenz, ändere keine Regeln auf Verdacht und starte Chat 11
+> erst, wenn der vollständige 144-Fälle-Lauf keine ungeklärten Mismatches oder
+> Fehler mehr enthält.
 
 ---
 
 ## Chat 11: Lobby-Datenfluss ohne UI anbinden
 
-**Status:** Nächster Schritt.
+**Status:** Ausstehend. Chat 10 wurde nach Auflösung des Organismuszweigs wegen
+47 nun sichtbarer Oracle-Mismatches wieder geöffnet.
 
 ### Ziel
 
@@ -881,6 +890,6 @@ Stopppunkte sind:
 4. Vor Chat 13: Nutzerentscheidung einholen, ob die Lobby nur informiert,
    filtert oder ungültige AIV-Auswahlen blockiert.
 
-Der nächste auszuführende Schritt ist "Chat 11".
+Der nächste auszuführende Schritt ist "Chat 10".
 
 

@@ -105,6 +105,42 @@ namespace AIVPlacement.Core
                 0);
         }
 
+        public AivPlacementTileEvidence GetOriginalTileEvidence(int tileId)
+        {
+            // Oracle diagnostics need to distinguish a native rule mismatch from
+            // state deliberately removed by the pre-placement normalization.
+            return source.GetTileEvidence(tileId);
+        }
+
+        public AivStartBuildingAdjacency GetStartBuildingAdjacency(int tileId)
+        {
+            if (!Geometry.TryGetCoordinate(tileId, out MapCoordinate coordinate))
+                throw new ArgumentOutOfRangeException(nameof(tileId));
+
+            int orthogonal = 0;
+            int diagonal = 0;
+            for (int y = coordinate.Y - 1; y <= coordinate.Y + 1; y++)
+            {
+                for (int x = coordinate.X - 1; x <= coordinate.X + 1; x++)
+                {
+                    if ((x == coordinate.X && y == coordinate.Y) ||
+                        !Geometry.TryGetTileId(x, y, out int neighborTileId) ||
+                        !startBuildingIds.Contains(
+                            source.GetTileEvidence(neighborTileId).BuildingId))
+                    {
+                        continue;
+                    }
+
+                    if (x == coordinate.X || y == coordinate.Y)
+                        orthogonal++;
+                    else
+                        diagonal++;
+                }
+            }
+
+            return new AivStartBuildingAdjacency(orthogonal, diagonal);
+        }
+
         private bool IsAdjacentStartWall(int tileId, AivPlacementTileEvidence evidence)
         {
             if ((evidence.TerrainFlags & IsWall) == 0 ||
@@ -113,25 +149,9 @@ namespace AIVPlacement.Core
                 return false;
             }
 
-            for (int y = coordinate.Y - 1; y <= coordinate.Y + 1; y++)
-            {
-                for (int x = coordinate.X - 1; x <= coordinate.X + 1; x++)
-                {
-                    if ((x == coordinate.X && y == coordinate.Y) ||
-                        !Geometry.TryGetTileId(x, y, out int neighborTileId))
-                    {
-                        continue;
-                    }
-
-                    if (startBuildingIds.Contains(
-                        source.GetTileEvidence(neighborTileId).BuildingId))
-                    {
-                        return true;
-                    }
-                }
-            }
-
-            return false;
+            AivStartBuildingAdjacency adjacency = GetStartBuildingAdjacency(tileId);
+            return adjacency.OrthogonalNeighborCount != 0 ||
+                adjacency.DiagonalNeighborCount != 0;
         }
 
         private static ushort ReadUInt16(byte[] data, int offset) =>
@@ -151,5 +171,20 @@ namespace AIVPlacement.Core
             public AivPlacementTileEvidence GetTileEvidence(int tileId) =>
                 new AivPlacementTileEvidence(snapshot.GetTile(tileId));
         }
+    }
+
+
+    public readonly struct AivStartBuildingAdjacency
+    {
+        public AivStartBuildingAdjacency(
+            int orthogonalNeighborCount,
+            int diagonalNeighborCount)
+        {
+            OrthogonalNeighborCount = orthogonalNeighborCount;
+            DiagonalNeighborCount = diagonalNeighborCount;
+        }
+
+        public int OrthogonalNeighborCount { get; }
+        public int DiagonalNeighborCount { get; }
     }
 }
