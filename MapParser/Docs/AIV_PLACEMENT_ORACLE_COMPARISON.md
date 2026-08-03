@@ -15,8 +15,9 @@ aktuellen DE-Version erzeugte Custom-Maps.
 Alle 67 offline auswertbaren Fälle stimmen in Status, sequenziellem Score,
 Fit-Prozent, ausgewerteten Zellen und blockierten Zellen exakt mit dem nativen
 Oracle überein. Die 77 übrigen Fälle werden nicht als Match gezählt. Sie sind
-ausschließlich wegen der bereits dokumentierten, nicht in der Map
-serialisierten lebenden Organismusklasse `NotEvaluable`.
+ausschließlich wegen der bereits dokumentierten, noch nicht aus den
+Baum-/Felsdatensätzen in den Offline-Snapshot aufgelösten Organismusklasse
+`NotEvaluable`.
 
 ## Reproduzierbarkeit
 
@@ -101,9 +102,12 @@ die in der Lobby ausgewählte Position explizit erfassen.
 
 Pfad und Hash der geladenen Karte, exakte Keep-Anker aus 1013/4013,
 Lord-/AIV-Listen und AIV-Hashes sind vorhanden. Der Offline-Kern unterstützt
-die belegten World Sizes bis einschließlich 800 und liefert bei der einzigen
-verbleibenden nicht serialisierten Regel sicher `NotEvaluable`. Es bestehen
-keine ungeklärten Mismatches mehr, die eine Lobbyentscheidung verfälschen.
+alle acht im installierten offiziellen Kartenbestand belegten World Sizes 160,
+200, 300, 400, 500, 600, 700 und 800. Die native Oracle-Matrix dieses Chats
+enthält davon 160, 200, 300, 400 und 800. Bei der einzigen verbleibenden, noch
+nicht offline aufgelösten datensatzabhängigen Regel liefert der Kern sicher
+`NotEvaluable`. Es bestehen keine ungeklärten Mismatches mehr, die eine
+Lobbyentscheidung verfälschen.
 
 Auf Thasos erfasste der Oracle alle sechs KI-Auswahlen, aber nur fünf erreichten
 den späteren `PrepareLayout`-Callback. Chat 11 muss Prüfaufträge daher für alle

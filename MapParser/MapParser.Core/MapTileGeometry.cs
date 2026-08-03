@@ -9,7 +9,7 @@ namespace MapParser.Core
         public const int FixedTileCount = 320800;
 
         private static readonly IReadOnlyList<int> KnownWorldSizes =
-            Array.AsReadOnly(new[] { 160, 200, 300, 400, 800 });
+            Array.AsReadOnly(new[] { 160, 200, 300, 400, 500, 600, 700, 800 });
 
         public MapTileGeometry(int tileCount, int worldSize)
         {
@@ -21,7 +21,7 @@ namespace MapParser.Core
             if (!IsSupportedWorldSize(worldSize))
             {
                 throw new MapUnsupportedGeometryException(
-                    $"Unsupported world size {worldSize}; supported sizes are 160, 200, 300, 400 and 800.");
+                    $"Unsupported world size {worldSize}; supported sizes are 160, 200, 300, 400, 500, 600, 700 and 800.");
             }
 
             TileCount = tileCount;
@@ -39,7 +39,8 @@ namespace MapParser.Core
 
         public static bool IsSupportedWorldSize(int worldSize) =>
             worldSize == 160 || worldSize == 200 || worldSize == 300 ||
-            worldSize == 400 || worldSize == 800;
+            worldSize == 400 || worldSize == 500 || worldSize == 600 ||
+            worldSize == 700 || worldSize == 800;
 
         public bool IsValidCoordinate(int x, int y)
         {

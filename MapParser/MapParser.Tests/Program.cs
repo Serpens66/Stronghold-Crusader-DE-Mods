@@ -329,6 +329,11 @@ internal static class Program
         JsonElement root = vectors.RootElement;
         int tileCount = root.GetProperty("geometry").GetProperty("tileCount").GetInt32();
 
+        int[] expectedWorldSizes = { 160, 200, 300, 400, 500, 600, 700, 800 };
+        AssertEqual(expectedWorldSizes.Length, MapTileGeometry.SupportedWorldSizes.Count);
+        for (int index = 0; index < expectedWorldSizes.Length; index++)
+            AssertEqual(expectedWorldSizes[index], MapTileGeometry.SupportedWorldSizes[index]);
+
         foreach (JsonElement vector in root.GetProperty("worldSizeBoundaryVectors").EnumerateArray())
         {
             int worldSize = vector.GetProperty("worldSize").GetInt32();

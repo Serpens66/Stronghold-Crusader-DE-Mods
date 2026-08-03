@@ -42,7 +42,7 @@ rejecting branch.
 | `InvalidMapTile` | The coordinate is in the rectangular domain but absent from the native validity mask/playable diamond. Directly proven before Tile-ID translation. |
 | `HeightMismatch` | The Height byte exceeds the native mapper limit. The AIV call prepares a one-cell footprint; all AIVParser mapper profiles resolve to a maximum of `200`. |
 | `TerrainBlocked` | One of the proven Logic-bit/mask branches rejects the mapper. Exact masks are listed below. This code must not turn an unknown bit into a guessed terrain name. |
-| `OrganismOccupied` | Reserved for a future offline organism-record source. A raw ID alone cannot prove the live organism class, so Chat 8 emits `UnresolvedNativeRule` for the record-dependent branch. |
+| `OrganismOccupied` | Reserved for a future offline tree/rock-record source. A raw ID alone cannot prove the live organism class, so Chat 8 emits `UnresolvedNativeRule` for the record-dependent branch. |
 | `BuildingOccupied` | The Building/Structure grid is nonzero. The validator immediately returns native result `2`. |
 | `EntityOccupied` | Reserved for other validator modes. `EvaluateCandidateFit` passes player ID `0`, so the entity-record loop is not entered in this AIV path. |
 | `OwnerConflict` | Existing `IsWall` terrain is rejected in the AIV path. The stored owner becomes `1..8`, which can never equal the passed player ID `0`. |
@@ -78,6 +78,14 @@ offline evaluator. The remaining missing live input is an organism record when
 tree flags reference an ID in `1..3999`; that branch returns
 `UnresolvedNativeRule`. Entity records are not missing input for this specific
 AIV path because player ID `0` bypasses their loop.
+
+This organism branch is not a blanket occupancy rejection. The native
+validator accepts record classes `5..14` and `16..19` directly; other classes
+remain dependent on a global game-mode value and, outside this AIV call, player
+state. Sections 1014 (trees) and 1038 (rocks) are the candidate serialized
+record sources, but their current-DE layouts and the relevant class field have
+not yet been ported into `MapPlacementSnapshot`. Trees and rocks therefore must
+not be treated as uniformly blocked or uniformly removable offline.
 
 ## Proven Logic tests, names and unknowns
 
@@ -167,9 +175,10 @@ not infer unsupported meanings from raw values.
 `SecondaryLogic`, `DefaultHeight` and `EntityId` are retained only as evidence:
 the first is not read by this validator, the second is unreachable for player
 ID `0`, and the third record loop is bypassed for that player ID. The only
-deferred decision is a tree-flagged `OrganismId` in `1..3999`, because its live
-record class is not serialized in the map snapshot. A later record source may
-resolve that branch without changing the current deterministic rules.
+deferred decision is a tree-flagged `OrganismId` in `1..3999`, because its
+record class is not yet resolved by the map snapshot. A later Section-1014/1038
+record source may resolve that branch without changing the current
+deterministic rules.
 
 ## Pre-placement map state used by the Oracle comparison
 

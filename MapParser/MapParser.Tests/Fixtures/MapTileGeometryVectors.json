@@ -35,6 +35,12 @@
     { "worldSize": 300, "border": 250, "localX": 150, "localY": 0, "nativeX": 400, "nativeY": 250, "tileId": 63001 },
     { "worldSize": 400, "border": 200, "localX": 199, "localY": 0, "nativeX": 399, "nativeY": 200, "tileId": 40400 },
     { "worldSize": 400, "border": 200, "localX": 200, "localY": 0, "nativeX": 400, "nativeY": 200, "tileId": 40401 },
+    { "worldSize": 500, "border": 150, "localX": 249, "localY": 0, "nativeX": 399, "nativeY": 150, "tileId": 22800 },
+    { "worldSize": 500, "border": 150, "localX": 250, "localY": 0, "nativeX": 400, "nativeY": 150, "tileId": 22801 },
+    { "worldSize": 600, "border": 100, "localX": 299, "localY": 0, "nativeX": 399, "nativeY": 100, "tileId": 10200 },
+    { "worldSize": 600, "border": 100, "localX": 300, "localY": 0, "nativeX": 400, "nativeY": 100, "tileId": 10201 },
+    { "worldSize": 700, "border": 50, "localX": 349, "localY": 0, "nativeX": 399, "nativeY": 50, "tileId": 2600 },
+    { "worldSize": 700, "border": 50, "localX": 350, "localY": 0, "nativeX": 400, "nativeY": 50, "tileId": 2601 },
     { "worldSize": 800, "border": 0, "localX": 399, "localY": 0, "nativeX": 399, "nativeY": 0, "tileId": 0 },
     { "worldSize": 800, "border": 0, "localX": 400, "localY": 0, "nativeX": 400, "nativeY": 0, "tileId": 1 }
   ],

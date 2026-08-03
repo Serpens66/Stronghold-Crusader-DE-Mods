@@ -657,11 +657,18 @@ partielle Kandidaten vergleicht.
 World Sizes 160/200/300/400/800, Vanilla-Kopien und zwei mit dem aktuellen
 Editor erzeugte Custom-Maps, mehrere Keeps, kleine bis große AIVs, alle
 Rotationen und native Zustände 0/1/2. Alle 67 offline auswertbaren Fälle stimmen
-exakt; 77 sind ausschließlich wegen nicht serialisierter lebender
-Organismusklassen als `NotEvaluable` klassifiziert. Es gibt 0 Mismatches und
-0 Fehler. Section 4013, World Size 800 und der feste native Rotationsursprung
+exakt; 77 sind ausschließlich wegen noch nicht in den Offline-Snapshot
+aufgelöster Baum-/Felsdatensätze als `NotEvaluable` klassifiziert. Es gibt 0
+Mismatches und 0 Fehler. Section 4013, World Size 800 und der feste native Rotationsursprung
 sind durch die neuen Läufe abgedeckt. Ergebnisse und Quote stehen in
 `Docs/AIV_PLACEMENT_ORACLE_COMPARISON.md`.
+
+**Nachtrag:** Ein Read-only-Scan aller 238 installierten offiziellen Karten
+belegt zusätzlich die World Sizes 500, 600 und 700. Die Offline-Geometrie und
+ihre Grenztests unterstützen damit alle acht offiziellen Größen 160, 200, 300,
+400, 500, 600, 700 und 800. Die Chat-10-Laufzeitmatrix selbst bleibt auf die
+oben genannten fünf Größen begrenzt; nicht belegte Sondergrößen werden bewusst
+abgelehnt.
 
 ### Ziel
 

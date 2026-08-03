@@ -102,6 +102,8 @@ sind Kopien. Die typisierten Placement-Layer sind schreibgeschützte Listen:
 werden; der Snapshot interpretiert dabei bewusst noch keine Flagbits. Fehlende,
 nicht verfügbare oder längeninkonsistente Layer liefern eine
 `MapPlacementSnapshotException` mit einem maschinenlesbaren `FailureKind`.
+Unterstützt werden die acht offiziellen World Sizes 160, 200, 300, 400, 500,
+600, 700 und 800; nicht belegte Sondergrößen bleiben bewusst abgelehnt.
 
 `ReadKeepAnchors()` liest den exakten nativen Keep-Anker jedes auswählbaren
 Slots aus der älteren Section 1013 oder der erweiterten aktuellen Section 4013.

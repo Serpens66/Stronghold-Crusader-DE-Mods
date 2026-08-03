@@ -94,8 +94,9 @@ native Rückabbildung ist daher:
 
 ## World Size und Kartenrand
 
-Die untersuchten realen Karten der Größen 160, 200, 300, 400 und 800 besitzen für
-jeden vollständigen Placement-Layer ebenfalls 320800 Einträge. Die native
+Der Read-only-Scan aller 238 installierten offiziellen Karten belegt die acht
+World Sizes 160, 200, 300, 400, 500, 600, 700 und 800. Vollständige
+Placement-Layer verwenden unabhängig davon 320800 Einträge. Die native
 Grenzfunktion berechnet:
 
     border = (800 - worldSize) / 2
@@ -207,7 +208,7 @@ Die maschinenlesbaren Vektoren stehen in
 - erste und letzte gültige Position früher, mittlerer und später Zeilen;
 - alle vier Randbereiche und die vier mittleren Tiles;
 - Zeilenübergänge und inverse Roundtrips;
-- World-Size-Ränder für 160, 200, 300, 400 und 800;
+- World-Size-Ränder für alle acht offiziellen Größen 160 bis 800;
 - negative, quadratisch gültig aussehende, aber außerhalb der Raute liegende
   Koordinaten sowie ungültige Tile-IDs;
 - reale U4-Radarbeispiele für 160, 200, 300, 400 und 800, ausdrücklich ohne
