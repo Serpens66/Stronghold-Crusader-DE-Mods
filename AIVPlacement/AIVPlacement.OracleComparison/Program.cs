@@ -114,9 +114,8 @@ internal static class Program
             .Where(item => item.Status == MapKeepAnchorStatus.Exact)
             .Select(item => item.SlotIndex)
             .ToArray();
-        var mapsByCaseId = new Dictionary<string, IAivPlacementTileSource?>(StringComparer.Ordinal);
+        var contextsByCaseId = new Dictionary<string, CaseEvaluationContext>(StringComparer.Ordinal);
         IReadOnlyList<OracleSelectionSession> sessions = BuildSelectionSessions(corpus.Cases);
-        var placementEvaluator = new AivPlacementEvaluator();
         foreach (OracleSelectionSession session in sessions)
         {
             int preBuildSetting = ResolveSessionPreBuildSetting(session);
@@ -127,9 +126,9 @@ internal static class Program
             int[] humanStartSlots = exactStartSlots.Length == session.Groups.Count + 1
                 ? exactStartSlots.Where(slot => !aiStartSlots.Contains(slot)).ToArray()
                 : Array.Empty<int>();
-            var priorPrebuiltPlacements = new List<AivProjectedPrebuildPlacement>();
             var priorStartSlots = new HashSet<int>(humanStartSlots);
             var rebuiltStartRotationsBySlot = new Dictionary<int, AivRotation>();
+            bool hasExecutedPriorAivPrebuild = false;
             foreach (OracleSelectionGroup group in orderedGroups)
             {
                 IAivPlacementTileSource? sequentialMap = null;
@@ -139,32 +138,24 @@ internal static class Program
                         document,
                         priorStartSlots,
                         rebuiltStartRotationsBySlot);
-                    if (preBuildSetting == 1 && priorPrebuiltPlacements.Count != 0)
-                    {
-                        sequentialMap = new AivProjectedPrebuildMapState(
-                            sequentialMap,
-                            priorPrebuiltPlacements);
-                    }
                 }
 
+                string? unavailableReason = RequiresObservedPrebuildState(
+                        preBuildSetting,
+                        hasExecutedPriorAivPrebuild)
+                    ? "A prior player's native AIV prebuild has already executed; " +
+                        "its resulting live tile state cannot be reconstructed exactly from the AIV plan."
+                    : null;
                 foreach (OracleCase oracleCase in group.Cases)
-                    mapsByCaseId.Add(oracleCase.Id, sequentialMap);
+                {
+                    contextsByCaseId.Add(
+                        oracleCase.Id,
+                        new CaseEvaluationContext(sequentialMap, unavailableReason));
+                }
 
                 OracleCase? selected = SelectNativePlacement(group.Cases);
-                if (selected != null && sequentialMap != null && preBuildSetting == 1)
-                {
-                    AivBlueprint selectedBlueprint = LoadBlueprint(
-                        Path.GetFullPath(selected.AivPath));
-                    AivPlacementResult selectedPlacement = placementEvaluator.Evaluate(
-                        sequentialMap,
-                        selectedBlueprint,
-                        new MapCoordinate(selected.KeepX, selected.KeepY),
-                        ParseRotation(selected.Rotation));
-                    priorPrebuiltPlacements.Add(new AivProjectedPrebuildPlacement(
-                        session.SessionId,
-                        selected.PlayerId,
-                        selectedPlacement));
-                }
+                if (selected != null && preBuildSetting == 1)
+                    hasExecutedPriorAivPrebuild = true;
 
                 AddSelectedStartRotation(
                     anchors,
@@ -183,7 +174,7 @@ internal static class Program
             OracleCase oracleCase = cases[index];
             Stopwatch caseTimer = Stopwatch.StartNew();
             CaseComparison result = CompareCase(
-                mapsByCaseId[oracleCase.Id],
+                contextsByCaseId[oracleCase.Id],
                 anchors,
                 corpus,
                 oracleCase,
@@ -218,7 +209,7 @@ internal static class Program
     }
 
     private static CaseComparison CompareCase(
-        IAivPlacementTileSource? map,
+        CaseEvaluationContext context,
         MapKeepAnchors anchors,
         OracleCorpus corpus,
         OracleCase oracleCase,
@@ -258,7 +249,7 @@ internal static class Program
                 };
             }
 
-            if (map is null)
+            if (context.UnavailableReason is not null || context.Map is null)
             {
                 return new CaseComparison
                 {
@@ -277,10 +268,12 @@ internal static class Program
                     Rotation = oracleCase.Rotation,
                     Native = oracleCase.Native,
                     Classification = ComparisonClassification.NotEvaluable,
-                    FirstDifference = "The session has no captured advopt_pre_build value."
+                    FirstDifference = context.UnavailableReason ??
+                        "The map state required for offline evaluation is unavailable."
                 };
             }
 
+            IAivPlacementTileSource map = context.Map;
             AivBlueprint blueprint = LoadBlueprint(aivPath);
             AivPlacementResult offline = new AivPlacementEvaluator().Evaluate(
                 map,
@@ -355,6 +348,12 @@ internal static class Program
         // A rejected native selection deliberately has no selected attempt.
         return attempts.SingleOrDefault(item => item.SelectedForPlacement == true);
     }
+
+    internal static bool RequiresObservedPrebuildState(
+        int preBuildSetting,
+        bool hasExecutedPriorAivPrebuild) =>
+        // A plan cannot predict which mapper-specific native spawn calls succeed.
+        preBuildSetting == 1 && hasExecutedPriorAivPrebuild;
 
     private static AivTileOccupancyKind ResolveCandidateOccupancyKind(OracleCase oracleCase) =>
         oracleCase.SelectedForPlacement == true && oracleCase.PreBuildSetting == 1
@@ -1124,6 +1123,10 @@ internal static class Program
     private sealed record OracleSelectionSession(
         string SessionId,
         IReadOnlyList<OracleSelectionGroup> Groups);
+
+    private sealed record CaseEvaluationContext(
+        IAivPlacementTileSource? Map,
+        string? UnavailableReason);
 }
 
 internal enum ComparisonClassification

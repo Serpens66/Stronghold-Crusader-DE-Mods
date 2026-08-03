@@ -45,13 +45,17 @@ rejecting branch.
 | `TerrainBlocked` | One of the proven Logic-bit/mask branches rejects the mapper. Exact masks are listed below. This code must not turn an unknown bit into a guessed terrain name. |
 | `OrganismOccupied` | Reserved for validator modes outside the Skirmish AIV path. Skirmish mode and player ID `0` bypass organism-class rejection, so this reason is not emitted here. |
 | `BuildingOccupied` | The Building/Structure grid is nonzero. The validator immediately returns native result `2`. |
-| `ProjectedPriorAivPrebuildOccupied` | A prior player's AIV was executed because `advopt_pre_build=1`, but this cell is inferred from the plan rather than observed live. It never invents a `BuildingId`. |
 | `PriorAivPrebuiltOccupied` | A prior player's Sofortspawn occupancy was observed in live runtime evidence. Planned AIV elements never emit this reason. |
 | `EntityOccupied` | Reserved for other validator modes. `EvaluateCandidateFit` passes player ID `0`, so the entity-record loop is not entered in this AIV path. |
 | `OwnerConflict` | Existing `IsWall` terrain is rejected in the AIV path. The stored owner becomes `1..8`, which can never equal the passed player ID `0`. |
 | `InternalOverlap` | Two projected AIV elements claim the same tile. This remains trace evidence, but native candidate fit flattens the AIV first and lets the later loaded frame overwrite the earlier cell; it is not a live-map blocker by itself. |
 | `BuildingRuleFailed` | Reserved for a future prerequisite that cannot be expressed by a more specific reason. The currently ported mapper exceptions are reported as terrain, height or owner reasons. |
 | `UnresolvedNativeRule` | Native control flow proves that a branch can affect acceptance, but required live record data is absent from the snapshot. This yields `NotEvaluable` when no deterministic rejection also applies, never a permissive pass or a guessed rejection. |
+
+A prior AIV plan is never converted into blocking occupancy. The native
+`ExecuteBuildStep` result depends on mapper-specific creation paths and may
+differ from the preceding fit result. Without observed post-build tile state,
+later players in a Sofortspawn session are therefore `NotEvaluable`.
 
 Every `AivPlacementIssue` records the projected element index, build index,
 mapper value, core/associated tile kind, absolute coordinate, optional Tile-ID,

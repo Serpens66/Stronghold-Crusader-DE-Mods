@@ -188,11 +188,6 @@ namespace AIVPlacement.Core
                 {
                     reasons |= AivPlacementIssueKind.PriorAivPrebuiltOccupied;
                 }
-                else if (occupancy.Kind == AivTileOccupancyKind.ProjectedPrebuiltAivBuilding ||
-                    occupancy.Kind == AivTileOccupancyKind.ProjectedPrebuiltAivTile)
-                {
-                    reasons |= AivPlacementIssueKind.ProjectedPriorAivPrebuildOccupied;
-                }
                 else if (evidence.BuildingId == 0)
                 {
                     reasons |= AivPlacementIssueKind.BuildingOccupied;

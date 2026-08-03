@@ -95,9 +95,48 @@ Reihenfolge ausgeführt.
 Enthält er mehrere Positionen, werden diese in der Reihenfolge des
 vorbereiteten Positionsarrays von Index `0` aufwärts verarbeitet. Der
 Sofortspawn-Aufruf verwendet `restrictedMode=0` und `freeOrForced=true`; dies
-umgeht unter anderem die Ressourcenbegrenzung. Mapperfamilien besitzen
-unterschiedliche native Ausführungszweige, weshalb „geplant“ nicht automatisch
-„als Gebäude-ID erfolgreich erzeugt“ bedeutet.
+umgeht den Ressourcen-/Verfügbarkeitsaufruf bei RVA `0xCB630`, aber nicht den
+gesamten übrigen Ablauf. Mapperabhängige Vorbedingungen, der
+Drawbridge-Nachbarschaftstest, die Erzeugbarkeitsprüfung und der jeweilige
+Gebäudekonstruktor bleiben aktiv.
+
+Für normale Gebäude löst RVA `0x69400` den Mapper zum internen Strukturtyp
+auf. Anschließend ruft `ExecuteBuildStep` RVA `0x5C000` für den Kernfootprint
+und bei bestimmten Mappern für zusätzliche Flächen auf. Diese Hilfsfunktion
+prüft den zu diesem Frame bereits veränderten Live-Zustand mit dem gemeinsamen
+Validator RVA `0x7A2D0`, diesmal mit der echten Spieler-ID und `mode=1`. Nur
+wenn alle Zellen diese Prüfung bestehen, kann sie passende vorhandene
+Laufzeitdatensätze entfernen. Ihr Rückgabewert wird von `ExecuteBuildStep`
+jedoch nicht ausgewertet. Eine fehlgeschlagene Footprint-Prüfung verhindert im
+Sofortspawn-Pfad daher den nachfolgenden Bau nicht.
+
+Danach entscheidet RVA `0xC2E00`, ob der aufgelöste Strukturtyp grundsätzlich
+erzeugt werden darf. Bei Erfolg ruft RVA `0x6C7F0` den typspezifischen
+Konstruktor auf und reicht `freeOrForced=true` weiter. Erst dessen globale
+Fehleranzeige bestimmt, ob der Build-Schritt als erfolgreich zurückkehrt.
+„Geplant“ bedeutet deshalb weder automatisch „erzeugt“ noch „nur bei
+bestandener Fit-Prüfung erzeugt“.
+
+Für die im Thasos-Lauf auffälligen Mapper sind folgende Zweige belegt:
+
+- Mapper 89 wird zu `STRUCT_TUNNELLERS_GUILD` aufgelöst. Konstruktor RVA
+  `0x76670` erzeugt das Hauptgebäude und zusätzlich einen zweiten Datensatz vom
+  Strukturtyp `59` für den 5×5-Hof. Beide Footprints schreiben reale
+  `BuildingId`-Zellen. Dies erklärt exakt die zwei beobachteten Gebäude-IDs und
+  50 Zellen trotz zuvor blockierter Kandidaten-Fit-Prüfung.
+- Mapper 88 verwendet analog Konstruktor RVA `0x72E20`; das zweite 5×5-Gebäude
+  hat dort Strukturtyp `53`.
+- Mapper 105 durchläuft vor dem allgemeinen Pfad RVA `0x793E0`. Der Resolver
+  sucht in vier Richtungen nach einem passenden lebenden Tor und wertet dessen
+  Orientierung aus. Ohne passende Nachbarschaft bricht der Build-Schritt ab.
+  Bei Erfolg schreibt der Drawbridge-Konstruktor RVA `0x72C30` selbst reale
+  `BuildingId`-Zellen und verändert zusätzlich Tile-Zustand.
+- Mapper 52 wird zu `STRUCT_GOODS_YARD` aufgelöst. Konstruktor RVA `0x760F0`
+  erzeugt vier Gebäudedatensätze, stempelt deren Kernzellen in das
+  `BuildingId`-Grid und setzt neun zusätzliche Verbindungstiles. Das Fehlen
+  der 25 früher projizierten Zellen an der geplanten Position im konkreten
+  Trace darf deshalb nicht als allgemeine Aussage „Stockpiles erzeugen keine
+  BuildingId“ interpretiert werden.
 
 ## Verbindliche Zustands- und Blockerbegriffe
 
@@ -111,19 +150,14 @@ unterschiedliche native Ausführungszweige, weshalb „geplant“ nicht automati
 | `PlayerStartBuilding` | ja, sobald früherer Start erzeugt ist | sonstiger Teil des Startkomplexes |
 | `PlannedAivElement` | nein | Element des gerade untersuchten AIV-Plans |
 | `ScheduledAivPrebuild` | noch nicht | Element, das bei aktivem Sofortspawn anschließend ausgeführt werden soll |
-| `ProjectedPrebuiltAivBuilding` | als Näherung | aus Plan und erfolgreicher Fit-Prüfung abgeleitetes Gebäude eines bereits ausgeführten Sofortspawns; noch nicht live beobachtet |
-| `ProjectedPrebuiltAivTile` | als Näherung | entsprechend abgeleitete Mauer-, Graben-, Fallen- oder andere Tile-Belegung |
 | `PrebuiltAivBuilding` | ja | durch einen früheren Sofortspawn live beobachtetes AIV-Gebäude |
 | `PrebuiltAivTile` | ja | durch einen früheren Sofortspawn live beobachtete sonstige Tile-Belegung |
 | `RuntimeBuildingUnknown` | ja | echtes Laufzeitgebäude, dessen genauere Herkunft in der Aufnahme fehlt |
 
-`BuildingId` bleibt ausschließlich rohe reale Map-/Laufzeitevidenz. Eine
-Offline-Projektion darf keine künstliche Gebäude-ID erfinden. Simulierte
-Sofortspawn-Belegung trägt stattdessen ihre explizite Herkunft. Eine nur aus
-dem Plan abgeleitete Belegung erzeugt
-`ProjectedPriorAivPrebuildOccupied`; eine live bestätigte Belegung erzeugt
-`PriorAivPrebuiltOccupied`. Geplante oder nur zur Ausführung vorgemerkte
-Elemente erzeugen keinen dieser Blockergründe.
+`BuildingId` bleibt ausschließlich rohe reale Map-/Laufzeitevidenz. Eine live
+bestätigte Belegung erzeugt `PriorAivPrebuiltOccupied`. Aus einem AIV-Plan wird
+keine blockierende Sofortspawn-Belegung abgeleitet. Geplante oder nur zur
+Ausführung vorgemerkte Elemente erzeugen diesen Blockergrund nicht.
 
 Diese Herkunftstypen ersetzen nicht die übrigen nativen Ausschlussgründe.
 Terrain-/Logic-Flags, Höhe, Entity-Belegung, Owner-/Mauerzustand,
@@ -145,16 +179,27 @@ bezeichnet dabei weiterhin Natur und keinen KI-Spieler.
 - Ein akzeptierter früherer KI-Start wird nicht an seiner serialisierten Lage
   behalten, sondern mit der nativ ausgewählten AIV-Rotation rekonstruiert. Ein
   abgelehnter Start bleibt unverändert serialisiert.
-- Frühere AIV-Projektionen werden ausschließlich bei Wert `1` als bereits
-  ausgeführte PreBuild-Belegung weitergetragen. Bei Wert `0` werden sie nicht
-  als Blocker übernommen. Ein fehlender oder unbekannter Wert macht den Korpus
-  ungültig und wird bereits beim Import oder vor der Auswertung abgewiesen.
+- Bei Wert `0` werden frühere AIV-Pläne nicht als Blocker übernommen. Bei Wert
+  `1` bleibt der erste KI-Spieler offline auswertbar. Sobald eine ausgewählte
+  AIV nativ ausgeführt wurde, benötigen alle späteren Spieler den beobachteten
+  Live-Zustand; ohne ihn ist die sitzungsabhängige Auswertung `NotEvaluable`.
+- Ein fehlender oder unbekannter Wert macht den Korpus ungültig und wird
+  bereits beim Import oder vor der Auswertung abgewiesen.
 
-Die als `ProjectedPrebuiltAiv*` bezeichnete Offline-Belegung ist eine
-deterministische Annäherung an die erfolgreiche native Ausführung. Wo exakte
-Gebäude-IDs oder Mapper-Sondereffekte entscheidend sind, bleibt ein vor der
-nächsten Spielerprüfung aufgenommener Live-Grid-Snapshot die maßgebliche
-Evidenz.
+Der frühere Versuch, alle als `Placeable` bewerteten Kernfootprints als
+erfolgreich ausgeführte PreBuild-Belegung zu behandeln, ist durch den
+ActiveAIVDetector-0.9.2-Lauf widerlegt und vollständig entfernt. Bei Spieler 2
+ergaben Plan und Live-Grid zwar jeweils 757 Gebäudezellen, aber nur 707 waren
+identisch. Je 25 geplante Zellen von Mapper 52 (Stockpile) und Mapper 105
+(Drawbridge) waren an ihren früher projizierten Footprints nicht live belegt.
+Stattdessen existierten 50 Zellen von Mapper 89 (Tunnelers Guild einschließlich
+Hof), obwohl dessen Fit-Prüfung blockiert war. Für Spieler 3 erklärte reale
+Building-Belegung alle zwölf `nativeOnly`-Zellen des ersten Traces.
+
+Damit ist ein Live-Grid-Snapshot maßgebliche Evidenz für eine konkrete Sitzung,
+aber kein allgemeiner Ersatz für die vollständige sequenzielle Ausführung. Die
+relevanten Konstruktoren erklären, warum aus einem statischen Plan weder die
+erzeugten Gebäude-IDs noch deren Footprints exakt abgeleitet werden können.
 
 ## Reproduzierbare Audit-Artefakte
 
@@ -163,3 +208,9 @@ Evidenz.
 - stderr: `.native-analysis/chat10-prebuild-order.stderr.log`
 - Candidate Loader: `.native-analysis/chat10-candidate-loader.stdout.log`
 - Fit-Prüfung: `.native-analysis/chat10-evaluate-fit.stdout.log`
+- ExecuteBuildStep-Zweige:
+  `.native-analysis/chat10-execute-build-step-branches.stdout.log`
+- Gebäudekonstruktoren:
+  `.native-analysis/chat10-prebuild-constructors.stdout.log`
+- gemeinsame Vorprüfungen:
+  `.native-analysis/chat10-prebuild-common-checks.stdout.log`

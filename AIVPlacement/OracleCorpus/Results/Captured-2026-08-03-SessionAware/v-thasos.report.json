@@ -3,8 +3,8 @@
   "MapName": "v_Thasos.map",
   "MapSha256": "84DCF2A480A4334DFC0C4BAE54DA49BACFE1D7B31F1D9AD2E171CF1F3B60275C",
   "WorldSize": 300,
-  "StartedAtLocal": "2026-08-03T16:20:47.9809989+02:00",
-  "ElapsedMilliseconds": 600.2025,
+  "StartedAtLocal": "2026-08-03T17:31:50.3756804+02:00",
+  "ElapsedMilliseconds": 586.1395,
   "ExactMatchCount": 24,
   "NotEvaluableCount": 0,
   "MismatchCount": 0,
@@ -63,7 +63,7 @@
         "OwnerId": 0,
         "Occupancies": []
       },
-      "ElapsedMilliseconds": 48.0168
+      "ElapsedMilliseconds": 47.7963
     },
     {
       "Id": "oracle-001-02-testlord-serpcastle1-r90",
@@ -118,7 +118,7 @@
         "OwnerId": 0,
         "Occupancies": []
       },
-      "ElapsedMilliseconds": 12.8123
+      "ElapsedMilliseconds": 12.3242
     },
     {
       "Id": "oracle-001-03-testlord-serpcastle1-r180",
@@ -173,7 +173,7 @@
         "OwnerId": 0,
         "Occupancies": []
       },
-      "ElapsedMilliseconds": 12.3819
+      "ElapsedMilliseconds": 12.5772
     },
     {
       "Id": "oracle-001-04-testlord-serpcastle1-r270",
@@ -228,7 +228,7 @@
         "OwnerId": 0,
         "Occupancies": []
       },
-      "ElapsedMilliseconds": 12.1639
+      "ElapsedMilliseconds": 12.2577
     },
     {
       "Id": "oracle-002-01-testlord-serpcastle1-r270",
@@ -283,7 +283,7 @@
         "OwnerId": 0,
         "Occupancies": []
       },
-      "ElapsedMilliseconds": 25.705
+      "ElapsedMilliseconds": 21.2409
     },
     {
       "Id": "oracle-002-02-testlord-serpcastle1-r0",
@@ -338,7 +338,7 @@
         "OwnerId": 0,
         "Occupancies": []
       },
-      "ElapsedMilliseconds": 12.3458
+      "ElapsedMilliseconds": 12.4886
     },
     {
       "Id": "oracle-002-03-testlord-serpcastle1-r90",
@@ -393,7 +393,7 @@
         "OwnerId": 0,
         "Occupancies": []
       },
-      "ElapsedMilliseconds": 12.8993
+      "ElapsedMilliseconds": 12.1004
     },
     {
       "Id": "oracle-002-04-testlord-serpcastle1-r180",
@@ -448,7 +448,7 @@
         "OwnerId": 0,
         "Occupancies": []
       },
-      "ElapsedMilliseconds": 12.8594
+      "ElapsedMilliseconds": 16.3876
     },
     {
       "Id": "oracle-003-01-testlord-serpcastle1-r0",
@@ -516,7 +516,7 @@
           }
         ]
       },
-      "ElapsedMilliseconds": 13.1888
+      "ElapsedMilliseconds": 13.0314
     },
     {
       "Id": "oracle-003-02-testlord-serpcastle1-r90",
@@ -571,7 +571,7 @@
         "OwnerId": 0,
         "Occupancies": []
       },
-      "ElapsedMilliseconds": 16.1617
+      "ElapsedMilliseconds": 15.2896
     },
     {
       "Id": "oracle-003-03-testlord-serpcastle1-r180",
@@ -626,7 +626,7 @@
         "OwnerId": 0,
         "Occupancies": []
       },
-      "ElapsedMilliseconds": 12.0009
+      "ElapsedMilliseconds": 12.0545
     },
     {
       "Id": "oracle-003-04-testlord-serpcastle1-r270",
@@ -681,7 +681,7 @@
         "OwnerId": 0,
         "Occupancies": []
       },
-      "ElapsedMilliseconds": 12.0715
+      "ElapsedMilliseconds": 12.0765
     },
     {
       "Id": "oracle-004-01-testlord-serpcastle1-r90",
@@ -736,7 +736,7 @@
         "OwnerId": 0,
         "Occupancies": []
       },
-      "ElapsedMilliseconds": 12.3737
+      "ElapsedMilliseconds": 12.0663
     },
     {
       "Id": "oracle-004-02-testlord-serpcastle1-r180",
@@ -791,7 +791,7 @@
         "OwnerId": 0,
         "Occupancies": []
       },
-      "ElapsedMilliseconds": 12.1107
+      "ElapsedMilliseconds": 11.9496
     },
     {
       "Id": "oracle-004-03-testlord-serpcastle1-r270",
@@ -846,7 +846,7 @@
         "OwnerId": 0,
         "Occupancies": []
       },
-      "ElapsedMilliseconds": 12.0246
+      "ElapsedMilliseconds": 12.3736
     },
     {
       "Id": "oracle-004-04-testlord-serpcastle1-r0",
@@ -901,7 +901,7 @@
         "OwnerId": 0,
         "Occupancies": []
       },
-      "ElapsedMilliseconds": 12.2045
+      "ElapsedMilliseconds": 11.8391
     },
     {
       "Id": "oracle-005-01-testlord-serpcastle1-r90",
@@ -1011,7 +1011,7 @@
         "OwnerId": 0,
         "Occupancies": []
       },
-      "ElapsedMilliseconds": 11.8679
+      "ElapsedMilliseconds": 12.1938
     },
     {
       "Id": "oracle-005-03-testlord-serpcastle1-r270",
@@ -1066,7 +1066,7 @@
         "OwnerId": 0,
         "Occupancies": []
       },
-      "ElapsedMilliseconds": 12.1347
+      "ElapsedMilliseconds": 13.9211
     },
     {
       "Id": "oracle-005-04-testlord-serpcastle1-r0",
@@ -1121,7 +1121,7 @@
         "OwnerId": 0,
         "Occupancies": []
       },
-      "ElapsedMilliseconds": 13.1905
+      "ElapsedMilliseconds": 11.8867
     },
     {
       "Id": "oracle-006-01-testlord-serpcastle1-r180",
@@ -1176,7 +1176,7 @@
         "OwnerId": 0,
         "Occupancies": []
       },
-      "ElapsedMilliseconds": 10.8637
+      "ElapsedMilliseconds": 11.8343
     },
     {
       "Id": "oracle-006-02-testlord-serpcastle1-r270",
@@ -1231,7 +1231,7 @@
         "OwnerId": 0,
         "Occupancies": []
       },
-      "ElapsedMilliseconds": 9.2516
+      "ElapsedMilliseconds": 11.6297
     },
     {
       "Id": "oracle-006-03-testlord-serpcastle1-r0",
@@ -1286,7 +1286,7 @@
         "OwnerId": 0,
         "Occupancies": []
       },
-      "ElapsedMilliseconds": 9.8866
+      "ElapsedMilliseconds": 11.7552
     },
     {
       "Id": "oracle-006-04-testlord-serpcastle1-r90",
@@ -1341,7 +1341,7 @@
         "OwnerId": 0,
         "Occupancies": []
       },
-      "ElapsedMilliseconds": 9.4007
+      "ElapsedMilliseconds": 11.8098
     }
   ]
 }

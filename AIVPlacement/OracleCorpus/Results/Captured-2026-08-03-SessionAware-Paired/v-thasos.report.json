@@ -3,11 +3,11 @@
   "MapName": "v_Thasos.map",
   "MapSha256": "84DCF2A480A4334DFC0C4BAE54DA49BACFE1D7B31F1D9AD2E171CF1F3B60275C",
   "WorldSize": 300,
-  "StartedAtLocal": "2026-08-03T16:23:30.7417725+02:00",
-  "ElapsedMilliseconds": 1123.9804,
-  "ExactMatchCount": 30,
-  "NotEvaluableCount": 0,
-  "MismatchCount": 18,
+  "StartedAtLocal": "2026-08-03T17:32:00.0111837+02:00",
+  "ElapsedMilliseconds": 781.7652,
+  "ExactMatchCount": 28,
+  "NotEvaluableCount": 20,
+  "MismatchCount": 0,
   "FailedCaseCount": 0,
   "Cases": [
     {
@@ -63,7 +63,7 @@
         "OwnerId": 0,
         "Occupancies": []
       },
-      "ElapsedMilliseconds": 22.7498
+      "ElapsedMilliseconds": 44.2134
     },
     {
       "Id": "oracle-001-02-testlord-serpcastle1-r90",
@@ -118,7 +118,7 @@
         "OwnerId": 0,
         "Occupancies": []
       },
-      "ElapsedMilliseconds": 12.4876
+      "ElapsedMilliseconds": 12.781
     },
     {
       "Id": "oracle-001-03-testlord-serpcastle1-r180",
@@ -173,7 +173,7 @@
         "OwnerId": 0,
         "Occupancies": []
       },
-      "ElapsedMilliseconds": 12.2087
+      "ElapsedMilliseconds": 12.1187
     },
     {
       "Id": "oracle-001-04-testlord-serpcastle1-r270",
@@ -228,7 +228,7 @@
         "OwnerId": 0,
         "Occupancies": []
       },
-      "ElapsedMilliseconds": 12.585
+      "ElapsedMilliseconds": 12.0365
     },
     {
       "Id": "oracle-002-01-testlord-serpcastle1-r90",
@@ -251,52 +251,11 @@
         "EvaluatedCells": 1817,
         "BlockedCells": 618
       },
-      "Offline": {
-        "Status": "Partial",
-        "SequentialBuildScore": 1,
-        "FitPercentage": 65,
-        "EvaluatedCells": 1817,
-        "BlockedCells": 622,
-        "TotalElements": 162,
-        "BlockedElements": 54,
-        "NotEvaluableElements": 0,
-        "IssueCount": 622
-      },
-      "Classification": "Mismatch",
-      "FirstDifference": "Blocked cells: native=618, offline=622.",
-      "FirstIssue": {
-        "Kind": "ProjectedPriorAivPrebuildOccupied",
-        "ElementIndex": 3,
-        "BuildIndex": 1,
-        "MapperValue": 25,
-        "TileKind": "CoreFootprint",
-        "X": 441,
-        "Y": 455,
-        "TileId": 201816,
-        "TerrainFlags": 32768,
-        "SecondaryLogic": 2,
-        "Height": 8,
-        "DefaultHeight": 8,
-        "OrganismId": 0,
-        "BuildingId": 0,
-        "EntityId": 0,
-        "OwnerId": 0,
-        "Occupancies": [
-          {
-            "Kind": "ProjectedPrebuiltAivBuilding",
-            "SessionId": "map-load-001",
-            "PlayerId": 2,
-            "BuildingId": 0,
-            "BuildingType": 0,
-            "MapperValue": 96,
-            "Category": "Building",
-            "ElementIndex": 141,
-            "BuildIndex": 55,
-            "BlocksPlacement": true
-          }
-        ]
-      },
-      "ElapsedMilliseconds": 13.7474
+      "Offline": null,
+      "Classification": "NotEvaluable",
+      "FirstDifference": "A prior player\u0027s native AIV prebuild has already executed; its resulting live tile state cannot be reconstructed exactly from the AIV plan.",
+      "FirstIssue": null,
+      "ElapsedMilliseconds": 0.156
     },
     {
       "Id": "oracle-002-02-testlord-serpcastle1-r180",
@@ -319,39 +278,11 @@
         "EvaluatedCells": 1817,
         "BlockedCells": 685
       },
-      "Offline": {
-        "Status": "Partial",
-        "SequentialBuildScore": 15,
-        "FitPercentage": 64,
-        "EvaluatedCells": 1817,
-        "BlockedCells": 645,
-        "TotalElements": 162,
-        "BlockedElements": 40,
-        "NotEvaluableElements": 0,
-        "IssueCount": 645
-      },
-      "Classification": "Mismatch",
-      "FirstDifference": "Fit percentage: native=62, offline=64.",
-      "FirstIssue": {
-        "Kind": "TerrainBlocked",
-        "ElementIndex": 59,
-        "BuildIndex": 15,
-        "MapperValue": 110,
-        "TileKind": "CoreFootprint",
-        "X": 497,
-        "Y": 491,
-        "TileId": 225416,
-        "TerrainFlags": 16,
-        "SecondaryLogic": 0,
-        "Height": 8,
-        "DefaultHeight": 8,
-        "OrganismId": 0,
-        "BuildingId": 0,
-        "EntityId": 0,
-        "OwnerId": 0,
-        "Occupancies": []
-      },
-      "ElapsedMilliseconds": 15.9913
+      "Offline": null,
+      "Classification": "NotEvaluable",
+      "FirstDifference": "A prior player\u0027s native AIV prebuild has already executed; its resulting live tile state cannot be reconstructed exactly from the AIV plan.",
+      "FirstIssue": null,
+      "ElapsedMilliseconds": 0.0682
     },
     {
       "Id": "oracle-002-03-testlord-serpcastle1-r270",
@@ -374,39 +305,11 @@
         "EvaluatedCells": 1817,
         "BlockedCells": 692
       },
-      "Offline": {
-        "Status": "Partial",
-        "SequentialBuildScore": 16,
-        "FitPercentage": 62,
-        "EvaluatedCells": 1817,
-        "BlockedCells": 681,
-        "TotalElements": 162,
-        "BlockedElements": 72,
-        "NotEvaluableElements": 0,
-        "IssueCount": 681
-      },
-      "Classification": "Mismatch",
-      "FirstDifference": "Fit percentage: native=61, offline=62.",
-      "FirstIssue": {
-        "Kind": "TerrainBlocked",
-        "ElementIndex": 60,
-        "BuildIndex": 16,
-        "MapperValue": 111,
-        "TileKind": "CoreFootprint",
-        "X": 495,
-        "Y": 418,
-        "TileId": 174971,
-        "TerrainFlags": 1,
-        "SecondaryLogic": 0,
-        "Height": 0,
-        "DefaultHeight": 0,
-        "OrganismId": 0,
-        "BuildingId": 0,
-        "EntityId": 0,
-        "OwnerId": 0,
-        "Occupancies": []
-      },
-      "ElapsedMilliseconds": 12.8677
+      "Offline": null,
+      "Classification": "NotEvaluable",
+      "FirstDifference": "A prior player\u0027s native AIV prebuild has already executed; its resulting live tile state cannot be reconstructed exactly from the AIV plan.",
+      "FirstIssue": null,
+      "ElapsedMilliseconds": 0.0664
     },
     {
       "Id": "oracle-002-04-testlord-serpcastle1-r0",
@@ -429,52 +332,11 @@
         "EvaluatedCells": 1817,
         "BlockedCells": 722
       },
-      "Offline": {
-        "Status": "Partial",
-        "SequentialBuildScore": 15,
-        "FitPercentage": 64,
-        "EvaluatedCells": 1817,
-        "BlockedCells": 644,
-        "TotalElements": 162,
-        "BlockedElements": 70,
-        "NotEvaluableElements": 0,
-        "IssueCount": 644
-      },
-      "Classification": "Mismatch",
-      "FirstDifference": "Fit percentage: native=60, offline=64.",
-      "FirstIssue": {
-        "Kind": "ProjectedPriorAivPrebuildOccupied",
-        "ElementIndex": 59,
-        "BuildIndex": 15,
-        "MapperValue": 110,
-        "TileKind": "CoreFootprint",
-        "X": 410,
-        "Y": 406,
-        "TileId": 165574,
-        "TerrainFlags": 32768,
-        "SecondaryLogic": 16,
-        "Height": 8,
-        "DefaultHeight": 8,
-        "OrganismId": 0,
-        "BuildingId": 0,
-        "EntityId": 0,
-        "OwnerId": 0,
-        "Occupancies": [
-          {
-            "Kind": "ProjectedPrebuiltAivBuilding",
-            "SessionId": "map-load-001",
-            "PlayerId": 2,
-            "BuildingId": 0,
-            "BuildingType": 0,
-            "MapperValue": 147,
-            "Category": "Building",
-            "ElementIndex": 70,
-            "BuildIndex": 26,
-            "BlocksPlacement": true
-          }
-        ]
-      },
-      "ElapsedMilliseconds": 12.7918
+      "Offline": null,
+      "Classification": "NotEvaluable",
+      "FirstDifference": "A prior player\u0027s native AIV prebuild has already executed; its resulting live tile state cannot be reconstructed exactly from the AIV plan.",
+      "FirstIssue": null,
+      "ElapsedMilliseconds": 0.073
     },
     {
       "Id": "oracle-003-01-testlord-serpcastle1-r90",
@@ -497,39 +359,11 @@
         "EvaluatedCells": 1817,
         "BlockedCells": 633
       },
-      "Offline": {
-        "Status": "Impossible",
-        "SequentialBuildScore": 0,
-        "FitPercentage": 65,
-        "EvaluatedCells": 1817,
-        "BlockedCells": 633,
-        "TotalElements": 162,
-        "BlockedElements": 76,
-        "NotEvaluableElements": 0,
-        "IssueCount": 633
-      },
-      "Classification": "ExactMatch",
-      "FirstDifference": "",
-      "FirstIssue": {
-        "Kind": "TerrainBlocked",
-        "ElementIndex": 0,
-        "BuildIndex": 0,
-        "MapperValue": 61,
-        "TileKind": "CoreFootprint",
-        "X": 482,
-        "Y": 376,
-        "TileId": 142211,
-        "TerrainFlags": 128,
-        "SecondaryLogic": 0,
-        "Height": 20,
-        "DefaultHeight": 20,
-        "OrganismId": 0,
-        "BuildingId": 0,
-        "EntityId": 0,
-        "OwnerId": 0,
-        "Occupancies": []
-      },
-      "ElapsedMilliseconds": 12.8034
+      "Offline": null,
+      "Classification": "NotEvaluable",
+      "FirstDifference": "A prior player\u0027s native AIV prebuild has already executed; its resulting live tile state cannot be reconstructed exactly from the AIV plan.",
+      "FirstIssue": null,
+      "ElapsedMilliseconds": 0.0638
     },
     {
       "Id": "oracle-003-02-testlord-serpcastle1-r180",
@@ -552,39 +386,11 @@
         "EvaluatedCells": 1817,
         "BlockedCells": 457
       },
-      "Offline": {
-        "Status": "Impossible",
-        "SequentialBuildScore": 0,
-        "FitPercentage": 74,
-        "EvaluatedCells": 1817,
-        "BlockedCells": 457,
-        "TotalElements": 162,
-        "BlockedElements": 38,
-        "NotEvaluableElements": 0,
-        "IssueCount": 457
-      },
-      "Classification": "ExactMatch",
-      "FirstDifference": "",
-      "FirstIssue": {
-        "Kind": "TerrainBlocked",
-        "ElementIndex": 0,
-        "BuildIndex": 0,
-        "MapperValue": 61,
-        "TileKind": "AssociatedBlockedArea",
-        "X": 482,
-        "Y": 376,
-        "TileId": 142211,
-        "TerrainFlags": 128,
-        "SecondaryLogic": 0,
-        "Height": 20,
-        "DefaultHeight": 20,
-        "OrganismId": 0,
-        "BuildingId": 0,
-        "EntityId": 0,
-        "OwnerId": 0,
-        "Occupancies": []
-      },
-      "ElapsedMilliseconds": 12.9353
+      "Offline": null,
+      "Classification": "NotEvaluable",
+      "FirstDifference": "A prior player\u0027s native AIV prebuild has already executed; its resulting live tile state cannot be reconstructed exactly from the AIV plan.",
+      "FirstIssue": null,
+      "ElapsedMilliseconds": 0.0643
     },
     {
       "Id": "oracle-003-03-testlord-serpcastle1-r270",
@@ -607,39 +413,11 @@
         "EvaluatedCells": 1817,
         "BlockedCells": 539
       },
-      "Offline": {
-        "Status": "Impossible",
-        "SequentialBuildScore": 0,
-        "FitPercentage": 69,
-        "EvaluatedCells": 1817,
-        "BlockedCells": 551,
-        "TotalElements": 162,
-        "BlockedElements": 71,
-        "NotEvaluableElements": 0,
-        "IssueCount": 551
-      },
-      "Classification": "Mismatch",
-      "FirstDifference": "Fit percentage: native=70, offline=69.",
-      "FirstIssue": {
-        "Kind": "TerrainBlocked",
-        "ElementIndex": 0,
-        "BuildIndex": 0,
-        "MapperValue": 61,
-        "TileKind": "AssociatedBlockedArea",
-        "X": 482,
-        "Y": 376,
-        "TileId": 142211,
-        "TerrainFlags": 128,
-        "SecondaryLogic": 0,
-        "Height": 20,
-        "DefaultHeight": 20,
-        "OrganismId": 0,
-        "BuildingId": 0,
-        "EntityId": 0,
-        "OwnerId": 0,
-        "Occupancies": []
-      },
-      "ElapsedMilliseconds": 13.0933
+      "Offline": null,
+      "Classification": "NotEvaluable",
+      "FirstDifference": "A prior player\u0027s native AIV prebuild has already executed; its resulting live tile state cannot be reconstructed exactly from the AIV plan.",
+      "FirstIssue": null,
+      "ElapsedMilliseconds": 0.0606
     },
     {
       "Id": "oracle-003-04-testlord-serpcastle1-r0",
@@ -662,39 +440,11 @@
         "EvaluatedCells": 1817,
         "BlockedCells": 571
       },
-      "Offline": {
-        "Status": "Impossible",
-        "SequentialBuildScore": 0,
-        "FitPercentage": 68,
-        "EvaluatedCells": 1817,
-        "BlockedCells": 577,
-        "TotalElements": 162,
-        "BlockedElements": 56,
-        "NotEvaluableElements": 0,
-        "IssueCount": 577
-      },
-      "Classification": "Mismatch",
-      "FirstDifference": "Blocked cells: native=571, offline=577.",
-      "FirstIssue": {
-        "Kind": "TerrainBlocked",
-        "ElementIndex": 0,
-        "BuildIndex": 0,
-        "MapperValue": 61,
-        "TileKind": "CoreFootprint",
-        "X": 482,
-        "Y": 376,
-        "TileId": 142211,
-        "TerrainFlags": 128,
-        "SecondaryLogic": 0,
-        "Height": 20,
-        "DefaultHeight": 20,
-        "OrganismId": 0,
-        "BuildingId": 0,
-        "EntityId": 0,
-        "OwnerId": 0,
-        "Occupancies": []
-      },
-      "ElapsedMilliseconds": 12.7419
+      "Offline": null,
+      "Classification": "NotEvaluable",
+      "FirstDifference": "A prior player\u0027s native AIV prebuild has already executed; its resulting live tile state cannot be reconstructed exactly from the AIV plan.",
+      "FirstIssue": null,
+      "ElapsedMilliseconds": 0.0601
     },
     {
       "Id": "oracle-004-01-testlord-serpcastle1-r270",
@@ -717,52 +467,11 @@
         "EvaluatedCells": 1817,
         "BlockedCells": 638
       },
-      "Offline": {
-        "Status": "Impossible",
-        "SequentialBuildScore": 0,
-        "FitPercentage": 68,
-        "EvaluatedCells": 1817,
-        "BlockedCells": 574,
-        "TotalElements": 162,
-        "BlockedElements": 75,
-        "NotEvaluableElements": 0,
-        "IssueCount": 574
-      },
-      "Classification": "Mismatch",
-      "FirstDifference": "Fit percentage: native=64, offline=68.",
-      "FirstIssue": {
-        "Kind": "ProjectedPriorAivPrebuildOccupied",
-        "ElementIndex": 0,
-        "BuildIndex": 0,
-        "MapperValue": 61,
-        "TileKind": "CoreFootprint",
-        "X": 350,
-        "Y": 420,
-        "TileId": 176350,
-        "TerrainFlags": 32768,
-        "SecondaryLogic": 2,
-        "Height": 8,
-        "DefaultHeight": 8,
-        "OrganismId": 0,
-        "BuildingId": 0,
-        "EntityId": 0,
-        "OwnerId": 0,
-        "Occupancies": [
-          {
-            "Kind": "ProjectedPrebuiltAivBuilding",
-            "SessionId": "map-load-001",
-            "PlayerId": 2,
-            "BuildingId": 0,
-            "BuildingType": 0,
-            "MapperValue": 87,
-            "Category": "Building",
-            "ElementIndex": 81,
-            "BuildIndex": 37,
-            "BlocksPlacement": true
-          }
-        ]
-      },
-      "ElapsedMilliseconds": 13.5077
+      "Offline": null,
+      "Classification": "NotEvaluable",
+      "FirstDifference": "A prior player\u0027s native AIV prebuild has already executed; its resulting live tile state cannot be reconstructed exactly from the AIV plan.",
+      "FirstIssue": null,
+      "ElapsedMilliseconds": 0.0598
     },
     {
       "Id": "oracle-004-02-testlord-serpcastle1-r0",
@@ -785,52 +494,11 @@
         "EvaluatedCells": 1817,
         "BlockedCells": 350
       },
-      "Offline": {
-        "Status": "Impossible",
-        "SequentialBuildScore": 0,
-        "FitPercentage": 81,
-        "EvaluatedCells": 1817,
-        "BlockedCells": 333,
-        "TotalElements": 162,
-        "BlockedElements": 35,
-        "NotEvaluableElements": 0,
-        "IssueCount": 333
-      },
-      "Classification": "Mismatch",
-      "FirstDifference": "Fit percentage: native=80, offline=81.",
-      "FirstIssue": {
-        "Kind": "ProjectedPriorAivPrebuildOccupied",
-        "ElementIndex": 0,
-        "BuildIndex": 0,
-        "MapperValue": 61,
-        "TileKind": "AssociatedBlockedArea",
-        "X": 350,
-        "Y": 424,
-        "TileId": 179374,
-        "TerrainFlags": 32768,
-        "SecondaryLogic": 1,
-        "Height": 8,
-        "DefaultHeight": 8,
-        "OrganismId": 0,
-        "BuildingId": 0,
-        "EntityId": 0,
-        "OwnerId": 0,
-        "Occupancies": [
-          {
-            "Kind": "ProjectedPrebuiltAivBuilding",
-            "SessionId": "map-load-001",
-            "PlayerId": 2,
-            "BuildingId": 0,
-            "BuildingType": 0,
-            "MapperValue": 87,
-            "Category": "Building",
-            "ElementIndex": 81,
-            "BuildIndex": 37,
-            "BlocksPlacement": true
-          }
-        ]
-      },
-      "ElapsedMilliseconds": 12.6605
+      "Offline": null,
+      "Classification": "NotEvaluable",
+      "FirstDifference": "A prior player\u0027s native AIV prebuild has already executed; its resulting live tile state cannot be reconstructed exactly from the AIV plan.",
+      "FirstIssue": null,
+      "ElapsedMilliseconds": 0.0606
     },
     {
       "Id": "oracle-004-03-testlord-serpcastle1-r90",
@@ -853,39 +521,11 @@
         "EvaluatedCells": 1817,
         "BlockedCells": 551
       },
-      "Offline": {
-        "Status": "Partial",
-        "SequentialBuildScore": 15,
-        "FitPercentage": 71,
-        "EvaluatedCells": 1817,
-        "BlockedCells": 515,
-        "TotalElements": 162,
-        "BlockedElements": 30,
-        "NotEvaluableElements": 0,
-        "IssueCount": 515
-      },
-      "Classification": "Mismatch",
-      "FirstDifference": "Status: native=Impossible, offline=Partial.",
-      "FirstIssue": {
-        "Kind": "TerrainBlocked",
-        "ElementIndex": 59,
-        "BuildIndex": 15,
-        "MapperValue": 110,
-        "TileKind": "CoreFootprint",
-        "X": 302,
-        "Y": 469,
-        "TileId": 211141,
-        "TerrainFlags": 16,
-        "SecondaryLogic": 0,
-        "Height": 8,
-        "DefaultHeight": 8,
-        "OrganismId": 0,
-        "BuildingId": 0,
-        "EntityId": 0,
-        "OwnerId": 0,
-        "Occupancies": []
-      },
-      "ElapsedMilliseconds": 13.0226
+      "Offline": null,
+      "Classification": "NotEvaluable",
+      "FirstDifference": "A prior player\u0027s native AIV prebuild has already executed; its resulting live tile state cannot be reconstructed exactly from the AIV plan.",
+      "FirstIssue": null,
+      "ElapsedMilliseconds": 0.0671
     },
     {
       "Id": "oracle-004-04-testlord-serpcastle1-r180",
@@ -908,52 +548,11 @@
         "EvaluatedCells": 1817,
         "BlockedCells": 487
       },
-      "Offline": {
-        "Status": "Impossible",
-        "SequentialBuildScore": 0,
-        "FitPercentage": 74,
-        "EvaluatedCells": 1817,
-        "BlockedCells": 462,
-        "TotalElements": 162,
-        "BlockedElements": 34,
-        "NotEvaluableElements": 0,
-        "IssueCount": 462
-      },
-      "Classification": "Mismatch",
-      "FirstDifference": "Fit percentage: native=73, offline=74.",
-      "FirstIssue": {
-        "Kind": "ProjectedPriorAivPrebuildOccupied",
-        "ElementIndex": 0,
-        "BuildIndex": 0,
-        "MapperValue": 61,
-        "TileKind": "AssociatedBlockedArea",
-        "X": 350,
-        "Y": 420,
-        "TileId": 176350,
-        "TerrainFlags": 32768,
-        "SecondaryLogic": 2,
-        "Height": 8,
-        "DefaultHeight": 8,
-        "OrganismId": 0,
-        "BuildingId": 0,
-        "EntityId": 0,
-        "OwnerId": 0,
-        "Occupancies": [
-          {
-            "Kind": "ProjectedPrebuiltAivBuilding",
-            "SessionId": "map-load-001",
-            "PlayerId": 2,
-            "BuildingId": 0,
-            "BuildingType": 0,
-            "MapperValue": 87,
-            "Category": "Building",
-            "ElementIndex": 81,
-            "BuildIndex": 37,
-            "BlocksPlacement": true
-          }
-        ]
-      },
-      "ElapsedMilliseconds": 12.741
+      "Offline": null,
+      "Classification": "NotEvaluable",
+      "FirstDifference": "A prior player\u0027s native AIV prebuild has already executed; its resulting live tile state cannot be reconstructed exactly from the AIV plan.",
+      "FirstIssue": null,
+      "ElapsedMilliseconds": 0.0598
     },
     {
       "Id": "oracle-005-01-testlord-serpcastle1-r0",
@@ -976,52 +575,11 @@
         "EvaluatedCells": 1817,
         "BlockedCells": 519
       },
-      "Offline": {
-        "Status": "Impossible",
-        "SequentialBuildScore": 0,
-        "FitPercentage": 70,
-        "EvaluatedCells": 1817,
-        "BlockedCells": 531,
-        "TotalElements": 162,
-        "BlockedElements": 83,
-        "NotEvaluableElements": 0,
-        "IssueCount": 531
-      },
-      "Classification": "Mismatch",
-      "FirstDifference": "Status: native=Partial, offline=Impossible.",
-      "FirstIssue": {
-        "Kind": "ProjectedPriorAivPrebuildOccupied",
-        "ElementIndex": 0,
-        "BuildIndex": 0,
-        "MapperValue": 61,
-        "TileKind": "CoreFootprint",
-        "X": 387,
-        "Y": 473,
-        "TileId": 213858,
-        "TerrainFlags": 32768,
-        "SecondaryLogic": 2,
-        "Height": 8,
-        "DefaultHeight": 8,
-        "OrganismId": 0,
-        "BuildingId": 0,
-        "EntityId": 0,
-        "OwnerId": 0,
-        "Occupancies": [
-          {
-            "Kind": "ProjectedPrebuiltAivBuilding",
-            "SessionId": "map-load-001",
-            "PlayerId": 2,
-            "BuildingId": 0,
-            "BuildingType": 0,
-            "MapperValue": 305,
-            "Category": "Building",
-            "ElementIndex": 156,
-            "BuildIndex": 70,
-            "BlocksPlacement": true
-          }
-        ]
-      },
-      "ElapsedMilliseconds": 12.9847
+      "Offline": null,
+      "Classification": "NotEvaluable",
+      "FirstDifference": "A prior player\u0027s native AIV prebuild has already executed; its resulting live tile state cannot be reconstructed exactly from the AIV plan.",
+      "FirstIssue": null,
+      "ElapsedMilliseconds": 0.0586
     },
     {
       "Id": "oracle-005-02-testlord-serpcastle1-r90",
@@ -1044,52 +602,11 @@
         "EvaluatedCells": 1817,
         "BlockedCells": 357
       },
-      "Offline": {
-        "Status": "Impossible",
-        "SequentialBuildScore": 0,
-        "FitPercentage": 75,
-        "EvaluatedCells": 1817,
-        "BlockedCells": 441,
-        "TotalElements": 162,
-        "BlockedElements": 65,
-        "NotEvaluableElements": 0,
-        "IssueCount": 441
-      },
-      "Classification": "Mismatch",
-      "FirstDifference": "Status: native=Partial, offline=Impossible.",
-      "FirstIssue": {
-        "Kind": "ProjectedPriorAivPrebuildOccupied",
-        "ElementIndex": 0,
-        "BuildIndex": 0,
-        "MapperValue": 61,
-        "TileKind": "CoreFootprint",
-        "X": 389,
-        "Y": 473,
-        "TileId": 213860,
-        "TerrainFlags": 32768,
-        "SecondaryLogic": 2,
-        "Height": 8,
-        "DefaultHeight": 8,
-        "OrganismId": 0,
-        "BuildingId": 0,
-        "EntityId": 0,
-        "OwnerId": 0,
-        "Occupancies": [
-          {
-            "Kind": "ProjectedPrebuiltAivBuilding",
-            "SessionId": "map-load-001",
-            "PlayerId": 2,
-            "BuildingId": 0,
-            "BuildingType": 0,
-            "MapperValue": 305,
-            "Category": "Building",
-            "ElementIndex": 156,
-            "BuildIndex": 70,
-            "BlocksPlacement": true
-          }
-        ]
-      },
-      "ElapsedMilliseconds": 13.1047
+      "Offline": null,
+      "Classification": "NotEvaluable",
+      "FirstDifference": "A prior player\u0027s native AIV prebuild has already executed; its resulting live tile state cannot be reconstructed exactly from the AIV plan.",
+      "FirstIssue": null,
+      "ElapsedMilliseconds": 0.0591
     },
     {
       "Id": "oracle-005-03-testlord-serpcastle1-r180",
@@ -1112,52 +629,11 @@
         "EvaluatedCells": 1817,
         "BlockedCells": 416
       },
-      "Offline": {
-        "Status": "Impossible",
-        "SequentialBuildScore": 0,
-        "FitPercentage": 74,
-        "EvaluatedCells": 1817,
-        "BlockedCells": 467,
-        "TotalElements": 162,
-        "BlockedElements": 72,
-        "NotEvaluableElements": 0,
-        "IssueCount": 467
-      },
-      "Classification": "Mismatch",
-      "FirstDifference": "Status: native=Partial, offline=Impossible.",
-      "FirstIssue": {
-        "Kind": "ProjectedPriorAivPrebuildOccupied",
-        "ElementIndex": 0,
-        "BuildIndex": 0,
-        "MapperValue": 61,
-        "TileKind": "AssociatedBlockedArea",
-        "X": 389,
-        "Y": 473,
-        "TileId": 213860,
-        "TerrainFlags": 32768,
-        "SecondaryLogic": 2,
-        "Height": 8,
-        "DefaultHeight": 8,
-        "OrganismId": 0,
-        "BuildingId": 0,
-        "EntityId": 0,
-        "OwnerId": 0,
-        "Occupancies": [
-          {
-            "Kind": "ProjectedPrebuiltAivBuilding",
-            "SessionId": "map-load-001",
-            "PlayerId": 2,
-            "BuildingId": 0,
-            "BuildingType": 0,
-            "MapperValue": 305,
-            "Category": "Building",
-            "ElementIndex": 156,
-            "BuildIndex": 70,
-            "BlocksPlacement": true
-          }
-        ]
-      },
-      "ElapsedMilliseconds": 17.3652
+      "Offline": null,
+      "Classification": "NotEvaluable",
+      "FirstDifference": "A prior player\u0027s native AIV prebuild has already executed; its resulting live tile state cannot be reconstructed exactly from the AIV plan.",
+      "FirstIssue": null,
+      "ElapsedMilliseconds": 0.0566
     },
     {
       "Id": "oracle-005-04-testlord-serpcastle1-r270",
@@ -1180,52 +656,11 @@
         "EvaluatedCells": 1817,
         "BlockedCells": 436
       },
-      "Offline": {
-        "Status": "Impossible",
-        "SequentialBuildScore": 0,
-        "FitPercentage": 74,
-        "EvaluatedCells": 1817,
-        "BlockedCells": 464,
-        "TotalElements": 162,
-        "BlockedElements": 47,
-        "NotEvaluableElements": 0,
-        "IssueCount": 464
-      },
-      "Classification": "Mismatch",
-      "FirstDifference": "Status: native=Partial, offline=Impossible.",
-      "FirstIssue": {
-        "Kind": "ProjectedPriorAivPrebuildOccupied",
-        "ElementIndex": 0,
-        "BuildIndex": 0,
-        "MapperValue": 61,
-        "TileKind": "AssociatedBlockedArea",
-        "X": 387,
-        "Y": 471,
-        "TileId": 212546,
-        "TerrainFlags": 32768,
-        "SecondaryLogic": 2,
-        "Height": 8,
-        "DefaultHeight": 8,
-        "OrganismId": 0,
-        "BuildingId": 0,
-        "EntityId": 0,
-        "OwnerId": 0,
-        "Occupancies": [
-          {
-            "Kind": "ProjectedPrebuiltAivBuilding",
-            "SessionId": "map-load-001",
-            "PlayerId": 2,
-            "BuildingId": 0,
-            "BuildingType": 0,
-            "MapperValue": 305,
-            "Category": "Building",
-            "ElementIndex": 156,
-            "BuildIndex": 70,
-            "BlocksPlacement": true
-          }
-        ]
-      },
-      "ElapsedMilliseconds": 13.2403
+      "Offline": null,
+      "Classification": "NotEvaluable",
+      "FirstDifference": "A prior player\u0027s native AIV prebuild has already executed; its resulting live tile state cannot be reconstructed exactly from the AIV plan.",
+      "FirstIssue": null,
+      "ElapsedMilliseconds": 0.0632
     },
     {
       "Id": "oracle-006-01-testlord-serpcastle1-r180",
@@ -1248,52 +683,11 @@
         "EvaluatedCells": 1817,
         "BlockedCells": 194
       },
-      "Offline": {
-        "Status": "Partial",
-        "SequentialBuildScore": 6,
-        "FitPercentage": 89,
-        "EvaluatedCells": 1817,
-        "BlockedCells": 191,
-        "TotalElements": 162,
-        "BlockedElements": 25,
-        "NotEvaluableElements": 0,
-        "IssueCount": 191
-      },
-      "Classification": "Mismatch",
-      "FirstDifference": "Blocked cells: native=194, offline=191.",
-      "FirstIssue": {
-        "Kind": "ProjectedPriorAivPrebuildOccupied",
-        "ElementIndex": 50,
-        "BuildIndex": 6,
-        "MapperValue": 184,
-        "TileKind": "CoreFootprint",
-        "X": 433,
-        "Y": 392,
-        "TileId": 154482,
-        "TerrainFlags": 32768,
-        "SecondaryLogic": 2,
-        "Height": 8,
-        "DefaultHeight": 8,
-        "OrganismId": 0,
-        "BuildingId": 0,
-        "EntityId": 0,
-        "OwnerId": 0,
-        "Occupancies": [
-          {
-            "Kind": "ProjectedPrebuiltAivBuilding",
-            "SessionId": "map-load-001",
-            "PlayerId": 2,
-            "BuildingId": 0,
-            "BuildingType": 0,
-            "MapperValue": 180,
-            "Category": "Building",
-            "ElementIndex": 64,
-            "BuildIndex": 20,
-            "BlocksPlacement": true
-          }
-        ]
-      },
-      "ElapsedMilliseconds": 13.4008
+      "Offline": null,
+      "Classification": "NotEvaluable",
+      "FirstDifference": "A prior player\u0027s native AIV prebuild has already executed; its resulting live tile state cannot be reconstructed exactly from the AIV plan.",
+      "FirstIssue": null,
+      "ElapsedMilliseconds": 0.0567
     },
     {
       "Id": "oracle-006-02-testlord-serpcastle1-r270",
@@ -1316,39 +710,11 @@
         "EvaluatedCells": 1817,
         "BlockedCells": 272
       },
-      "Offline": {
-        "Status": "Partial",
-        "SequentialBuildScore": 15,
-        "FitPercentage": 85,
-        "EvaluatedCells": 1817,
-        "BlockedCells": 266,
-        "TotalElements": 162,
-        "BlockedElements": 41,
-        "NotEvaluableElements": 0,
-        "IssueCount": 266
-      },
-      "Classification": "Mismatch",
-      "FirstDifference": "Blocked cells: native=272, offline=266.",
-      "FirstIssue": {
-        "Kind": "TerrainBlocked",
-        "ElementIndex": 59,
-        "BuildIndex": 15,
-        "MapperValue": 110,
-        "TileKind": "CoreFootprint",
-        "X": 482,
-        "Y": 336,
-        "TileId": 113651,
-        "TerrainFlags": 1,
-        "SecondaryLogic": 0,
-        "Height": 0,
-        "DefaultHeight": 0,
-        "OrganismId": 0,
-        "BuildingId": 0,
-        "EntityId": 0,
-        "OwnerId": 0,
-        "Occupancies": []
-      },
-      "ElapsedMilliseconds": 13.2819
+      "Offline": null,
+      "Classification": "NotEvaluable",
+      "FirstDifference": "A prior player\u0027s native AIV prebuild has already executed; its resulting live tile state cannot be reconstructed exactly from the AIV plan.",
+      "FirstIssue": null,
+      "ElapsedMilliseconds": 0.0562
     },
     {
       "Id": "oracle-006-03-testlord-serpcastle1-r0",
@@ -1371,39 +737,11 @@
         "EvaluatedCells": 1817,
         "BlockedCells": 142
       },
-      "Offline": {
-        "Status": "Partial",
-        "SequentialBuildScore": 19,
-        "FitPercentage": 92,
-        "EvaluatedCells": 1817,
-        "BlockedCells": 143,
-        "TotalElements": 162,
-        "BlockedElements": 15,
-        "NotEvaluableElements": 0,
-        "IssueCount": 143
-      },
-      "Classification": "Mismatch",
-      "FirstDifference": "Blocked cells: native=142, offline=143.",
-      "FirstIssue": {
-        "Kind": "TerrainBlocked",
-        "ElementIndex": 63,
-        "BuildIndex": 19,
-        "MapperValue": 114,
-        "TileKind": "CoreFootprint",
-        "X": 458,
-        "Y": 339,
-        "TileId": 115658,
-        "TerrainFlags": 128,
-        "SecondaryLogic": 0,
-        "Height": 0,
-        "DefaultHeight": 0,
-        "OrganismId": 4842,
-        "BuildingId": 0,
-        "EntityId": 0,
-        "OwnerId": 0,
-        "Occupancies": []
-      },
-      "ElapsedMilliseconds": 12.6978
+      "Offline": null,
+      "Classification": "NotEvaluable",
+      "FirstDifference": "A prior player\u0027s native AIV prebuild has already executed; its resulting live tile state cannot be reconstructed exactly from the AIV plan.",
+      "FirstIssue": null,
+      "ElapsedMilliseconds": 0.0575
     },
     {
       "Id": "oracle-006-04-testlord-serpcastle1-r90",
@@ -1426,52 +764,11 @@
         "EvaluatedCells": 1817,
         "BlockedCells": 211
       },
-      "Offline": {
-        "Status": "Partial",
-        "SequentialBuildScore": 15,
-        "FitPercentage": 88,
-        "EvaluatedCells": 1817,
-        "BlockedCells": 201,
-        "TotalElements": 162,
-        "BlockedElements": 16,
-        "NotEvaluableElements": 0,
-        "IssueCount": 201
-      },
-      "Classification": "Mismatch",
-      "FirstDifference": "Blocked cells: native=211, offline=201.",
-      "FirstIssue": {
-        "Kind": "ProjectedPriorAivPrebuildOccupied",
-        "ElementIndex": 59,
-        "BuildIndex": 15,
-        "MapperValue": 110,
-        "TileKind": "CoreFootprint",
-        "X": 397,
-        "Y": 422,
-        "TileId": 177913,
-        "TerrainFlags": 32768,
-        "SecondaryLogic": 2,
-        "Height": 8,
-        "DefaultHeight": 8,
-        "OrganismId": 0,
-        "BuildingId": 0,
-        "EntityId": 0,
-        "OwnerId": 0,
-        "Occupancies": [
-          {
-            "Kind": "ProjectedPrebuiltAivTile",
-            "SessionId": "map-load-001",
-            "PlayerId": 2,
-            "BuildingId": 0,
-            "BuildingType": 0,
-            "MapperValue": 25,
-            "Category": "HighWallPath",
-            "ElementIndex": 12,
-            "BuildIndex": 1,
-            "BlocksPlacement": true
-          }
-        ]
-      },
-      "ElapsedMilliseconds": 12.6422
+      "Offline": null,
+      "Classification": "NotEvaluable",
+      "FirstDifference": "A prior player\u0027s native AIV prebuild has already executed; its resulting live tile state cannot be reconstructed exactly from the AIV plan.",
+      "FirstIssue": null,
+      "ElapsedMilliseconds": 0.0637
     },
     {
       "Id": "oracle-007-01-testlord-serpcastle1-r0",
@@ -1526,7 +823,7 @@
         "OwnerId": 0,
         "Occupancies": []
       },
-      "ElapsedMilliseconds": 12.3026
+      "ElapsedMilliseconds": 20.3926
     },
     {
       "Id": "oracle-007-02-testlord-serpcastle1-r90",
@@ -1581,7 +878,7 @@
         "OwnerId": 0,
         "Occupancies": []
       },
-      "ElapsedMilliseconds": 13.1978
+      "ElapsedMilliseconds": 12.2976
     },
     {
       "Id": "oracle-007-03-testlord-serpcastle1-r180",
@@ -1636,7 +933,7 @@
         "OwnerId": 0,
         "Occupancies": []
       },
-      "ElapsedMilliseconds": 11.7542
+      "ElapsedMilliseconds": 12.2347
     },
     {
       "Id": "oracle-007-04-testlord-serpcastle1-r270",
@@ -1691,7 +988,7 @@
         "OwnerId": 0,
         "Occupancies": []
       },
-      "ElapsedMilliseconds": 12.0202
+      "ElapsedMilliseconds": 12.291
     },
     {
       "Id": "oracle-008-01-testlord-serpcastle1-r90",
@@ -1746,7 +1043,7 @@
         "OwnerId": 0,
         "Occupancies": []
       },
-      "ElapsedMilliseconds": 12.2572
+      "ElapsedMilliseconds": 12.3134
     },
     {
       "Id": "oracle-008-02-testlord-serpcastle1-r180",
@@ -1801,7 +1098,7 @@
         "OwnerId": 0,
         "Occupancies": []
       },
-      "ElapsedMilliseconds": 12.0376
+      "ElapsedMilliseconds": 15.9489
     },
     {
       "Id": "oracle-008-03-testlord-serpcastle1-r270",
@@ -1856,7 +1153,7 @@
         "OwnerId": 0,
         "Occupancies": []
       },
-      "ElapsedMilliseconds": 12.0416
+      "ElapsedMilliseconds": 12.4289
     },
     {
       "Id": "oracle-008-04-testlord-serpcastle1-r0",
@@ -1911,7 +1208,7 @@
         "OwnerId": 0,
         "Occupancies": []
       },
-      "ElapsedMilliseconds": 12.1281
+      "ElapsedMilliseconds": 12.4431
     },
     {
       "Id": "oracle-009-01-testlord-serpcastle1-r90",
@@ -1966,7 +1263,7 @@
         "OwnerId": 0,
         "Occupancies": []
       },
-      "ElapsedMilliseconds": 13.7695
+      "ElapsedMilliseconds": 13.1352
     },
     {
       "Id": "oracle-009-02-testlord-serpcastle1-r180",
@@ -2021,7 +1318,7 @@
         "OwnerId": 0,
         "Occupancies": []
       },
-      "ElapsedMilliseconds": 11.8791
+      "ElapsedMilliseconds": 12.6284
     },
     {
       "Id": "oracle-009-03-testlord-serpcastle1-r270",
@@ -2076,7 +1373,7 @@
         "OwnerId": 0,
         "Occupancies": []
       },
-      "ElapsedMilliseconds": 12.2892
+      "ElapsedMilliseconds": 12.4334
     },
     {
       "Id": "oracle-009-04-testlord-serpcastle1-r0",
@@ -2131,7 +1428,7 @@
         "OwnerId": 0,
         "Occupancies": []
       },
-      "ElapsedMilliseconds": 11.9216
+      "ElapsedMilliseconds": 12.2181
     },
     {
       "Id": "oracle-010-01-testlord-serpcastle1-r270",
@@ -2186,7 +1483,7 @@
         "OwnerId": 0,
         "Occupancies": []
       },
-      "ElapsedMilliseconds": 12.0912
+      "ElapsedMilliseconds": 13.9731
     },
     {
       "Id": "oracle-010-02-testlord-serpcastle1-r0",
@@ -2241,7 +1538,7 @@
         "OwnerId": 0,
         "Occupancies": []
       },
-      "ElapsedMilliseconds": 11.9623
+      "ElapsedMilliseconds": 12.2632
     },
     {
       "Id": "oracle-010-03-testlord-serpcastle1-r90",
@@ -2296,7 +1593,7 @@
         "OwnerId": 0,
         "Occupancies": []
       },
-      "ElapsedMilliseconds": 11.7379
+      "ElapsedMilliseconds": 12.1952
     },
     {
       "Id": "oracle-010-04-testlord-serpcastle1-r180",
@@ -2351,7 +1648,7 @@
         "OwnerId": 0,
         "Occupancies": []
       },
-      "ElapsedMilliseconds": 11.845
+      "ElapsedMilliseconds": 12.2127
     },
     {
       "Id": "oracle-011-01-testlord-serpcastle1-r0",
@@ -2419,7 +1716,7 @@
           }
         ]
       },
-      "ElapsedMilliseconds": 11.7445
+      "ElapsedMilliseconds": 13.1056
     },
     {
       "Id": "oracle-011-02-testlord-serpcastle1-r90",
@@ -2474,7 +1771,7 @@
         "OwnerId": 0,
         "Occupancies": []
       },
-      "ElapsedMilliseconds": 11.6799
+      "ElapsedMilliseconds": 12.0343
     },
     {
       "Id": "oracle-011-03-testlord-serpcastle1-r180",
@@ -2529,7 +1826,7 @@
         "OwnerId": 0,
         "Occupancies": []
       },
-      "ElapsedMilliseconds": 11.8958
+      "ElapsedMilliseconds": 12.3838
     },
     {
       "Id": "oracle-011-04-testlord-serpcastle1-r270",
@@ -2584,7 +1881,7 @@
         "OwnerId": 0,
         "Occupancies": []
       },
-      "ElapsedMilliseconds": 12.0657
+      "ElapsedMilliseconds": 12.335
     },
     {
       "Id": "oracle-012-01-testlord-serpcastle1-r180",
@@ -2639,7 +1936,7 @@
         "OwnerId": 0,
         "Occupancies": []
       },
-      "ElapsedMilliseconds": 12.8365
+      "ElapsedMilliseconds": 12.2668
     },
     {
       "Id": "oracle-012-02-testlord-serpcastle1-r270",
@@ -2694,7 +1991,7 @@
         "OwnerId": 0,
         "Occupancies": []
       },
-      "ElapsedMilliseconds": 11.8709
+      "ElapsedMilliseconds": 12.5093
     },
     {
       "Id": "oracle-012-03-testlord-serpcastle1-r0",
@@ -2749,7 +2046,7 @@
         "OwnerId": 0,
         "Occupancies": []
       },
-      "ElapsedMilliseconds": 11.8658
+      "ElapsedMilliseconds": 12.8295
     },
     {
       "Id": "oracle-012-04-testlord-serpcastle1-r90",
@@ -2804,7 +2101,7 @@
         "OwnerId": 0,
         "Occupancies": []
       },
-      "ElapsedMilliseconds": 11.9973
+      "ElapsedMilliseconds": 12.3711
     }
   ]
 }

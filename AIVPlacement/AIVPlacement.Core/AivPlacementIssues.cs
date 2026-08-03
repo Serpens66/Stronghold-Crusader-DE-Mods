@@ -21,8 +21,7 @@ namespace AIVPlacement.Core
         InternalOverlap = 1 << 8,
         BuildingRuleFailed = 1 << 9,
         UnresolvedNativeRule = 1 << 10,
-        PriorAivPrebuiltOccupied = 1 << 11,
-        ProjectedPriorAivPrebuildOccupied = 1 << 12
+        PriorAivPrebuiltOccupied = 1 << 11
     }
 
     public enum AivTileOccupancyKind
@@ -33,8 +32,6 @@ namespace AIVPlacement.Core
         PlayerStartBuilding,
         PlannedAivElement,
         ScheduledAivPrebuild,
-        ProjectedPrebuiltAivBuilding,
-        ProjectedPrebuiltAivTile,
         PrebuiltAivBuilding,
         PrebuiltAivTile,
         RuntimeBuildingUnknown

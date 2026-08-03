@@ -665,17 +665,31 @@ ihre Logs weder verlässliche Kartenstart-IDs noch den jeweiligen Wert von
 Sofortspawn umfasst 24 hashgebundene Fälle und ist nach Rekonstruktion der
 rotierten Startkomplexe einschließlich gekoppelter Wall-Flags mit 24/24 exakt.
 Ein frisch aus einem expliziten Moduspaar importierter 48-Fall-Korpus bestätigt
-ebenfalls 24/24 ohne Sofortspawn; mit Sofortspawn sind 6/24 exakt und 18/24
-Mismatches. Es gibt 0 Fehler und 0 `NotEvaluable`. Für die verbleibende
-PreBuild-Ursache wird als nächstes in genau einem Lauf der reale Tile- und
-Gebäudezustand vor den Spielern 2 bis 7 erfasst. Ergebnisse, Hashes und
-Arbeitsreihenfolge stehen in `Docs/AIV_PLACEMENT_ORACLE_COMPARISON.md` und
+ebenfalls 24/24 ohne Sofortspawn. Der ausgewertete ActiveAIVDetector-0.9.2-
+Lauf belegt, dass der reale Sofortspawn nicht aus dem Placement-Ergebnis
+projiziert werden kann: Die früher projizierten Footprints von Mapper 52 und
+105 waren an diesen Positionen nicht live belegt, während Mapper 89 trotz
+blockierter Fit-Prüfung 50 Zellen belegte.
+Die widerlegte Projektionslogik ist entfernt. Der Paarkorpus liefert nun 28
+exakte Fälle, 20 technisch begründete `NotEvaluable`, 0 Mismatches und 0
+Fehler. Ergebnisse und Hashes stehen in
+`Docs/AIV_PLACEMENT_ORACLE_COMPARISON.md` und
 `Docs/CHAT10_ORACLE_MISMATCH_HANDOFF.md`.
 
-**Trace-Nachtrag:** Der erste Wildcard-Lauf erfasste wegen eines
-Diagnosezählers Rotationen statt Spieler. ActiveAIVDetector 0.9.2 begrenzt den
-Wildcard-Trace nun auf einen Versuch und ein vollständiges Grid pro Spieler;
-der Sofortspawn-Lauf muss deshalb einmal wiederholt werden.
+**Trace-Nachtrag:** Der wiederholte Wildcard-Lauf mit ActiveAIVDetector 0.9.2
+lieferte je einen Versuch und ein vollständiges Grid für Spieler 2 bis 7. Die
+sechs Zwischenzustände sind valide und vollständig ausgewertet.
+
+**Native Ausführungsanalyse:** `ExecuteBuildStep` umgeht bei
+`freeOrForced=true` nur die Ressourcen-/Verfügbarkeitsprüfung. Der erneut gegen
+den Live-Zustand ausgeführte Footprint-Helfer kann Objekte bereinigen, sein
+Fehlschlag blockiert den nachfolgenden Konstruktor jedoch nicht. Der
+Tunnelers-Guild-Konstruktor erzeugt Hauptgebäude und separaten 5×5-Hof und
+erklärt damit die 50 erzwungenen Zellen vollständig. Drawbridges benötigen
+zuvor ein passendes lebendes Tor samt Orientierung; der Goods-Yard-Konstruktor
+erzeugt vier reale Gebäudedatensätze und neun Verbindungstiles. Für die exakte
+Entscheidung des konkreten Mapper-52-Frames bleibt ein schmaler
+`ExecuteBuildStep`-Laufzeittrace sinnvoll.
 
 **Geometrienachtrag:** Ein Read-only-Scan aller 238 installierten offiziellen Karten
 belegt zusätzlich die World Sizes 500, 600 und 700. Die Offline-Geometrie und
@@ -690,11 +704,10 @@ Kartenstart eine explizite `SessionId` und den vor Spielstart gelesenen Wert
 verarbeitet. Ohne Sofortspawn werden frühere AIV-Pläne nicht als Blocker
 weitergereicht; mit Sofortspawn sieht der nächste Spieler die bereits
 ausgeführten Gebäude und Tile-Änderungen. Frühere Startkomplexe sind in beiden
-Modi real. Die Herkunft steht getrennt in `AivTileOccupancyKind`; simulierte
-projizierte PreBuild-Belegung verwendet
-`ProjectedPriorAivPrebuildOccupied`, live bestätigte Belegung
-`PriorAivPrebuiltOccupied`; beide erfinden niemals eine `BuildingId`. Das
-vollständige Verfahren und seine RVAs stehen in
+Modi real. Die Herkunft steht getrennt in `AivTileOccupancyKind`; nur live
+bestätigte Belegung verwendet `PriorAivPrebuiltOccupied`. Ein AIV-Plan wird
+nicht in scheinbar reale Blocker umgedeutet und erfindet niemals eine
+`BuildingId`. Das vollständige Verfahren und seine RVAs stehen in
 `Docs/AIV_PREBUILD_AND_OVERLAP_ORDER.md`.
 
 ### Ziel
@@ -747,17 +760,20 @@ erst gestartet, wenn die geschätzte Laufzeit zumutbar ist.
 
 > Setze Chat 10 aus `MapParser/AIV_PLACEMENT_ROADMAP.md` fort. Lies zuerst
 > `MapParser/Docs/CHAT10_ORACLE_MISMATCH_HANDOFF.md` vollständig. Werte den dort
-> vorbereiteten Thasos-Sofortspawn-Trace für Spieler 2 bis 7 aus, ersetze die
-> Planprojektion nur mit Laufzeitevidenz und starte Chat 11 erst, wenn der neue
-> sitzungs- und modusgebundene Corpus keine ungeklärten Mismatches oder Fehler
-> mehr enthält.
+> ausgewerteten Thasos-Sofortspawn-Trace für Spieler 2 bis 7 als Evidenz.
+> Verwende die dokumentierte native Rekonstruktion der auffälligen
+> `ExecuteBuildStep`-Zweige und erfasse als Nächstes pro ausgeführtem Frame
+> Mapper, Rückgabewert und Building-Grid-Differenz, um insbesondere die
+> konkrete Mapper-52-Entscheidung zu belegen. Verwende bis zur vollständigen
+> sequenziellen Rekonstruktion für spätere PreBuild-Spieler `NotEvaluable` und
+> beginne Chat 11 noch nicht.
 
 ---
 
 ## Chat 11: Lobby-Datenfluss ohne UI anbinden
 
-**Status:** Ausstehend. Chat 10 bleibt wegen 18 reproduzierbarer
-Sofortspawn-Mismatches geöffnet.
+**Status:** Ausstehend. Chat 10 bleibt für die native Rekonstruktion der
+mapperabhängigen Sofortspawn-Ausführung geöffnet.
 
 ### Ziel
 

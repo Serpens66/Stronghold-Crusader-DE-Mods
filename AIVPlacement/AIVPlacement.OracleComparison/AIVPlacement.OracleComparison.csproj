@@ -11,4 +11,7 @@
   <ItemGroup>
     <ProjectReference Include="..\AIVPlacement.Core\AIVPlacement.Core.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="AIVPlacement.Tests" />
+  </ItemGroup>
 </Project>

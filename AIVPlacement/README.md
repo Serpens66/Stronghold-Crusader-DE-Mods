@@ -95,7 +95,7 @@ Use `--case <id>` for one reproducible case and `--output <report.json>` for a
 machine-readable report. Corpus runs log progress, elapsed time and ETA with
 millisecond timestamps.
 
-Current ActiveAIVDetector 0.9.1 Oracle logs can be imported without copying
+Current ActiveAIVDetector 0.9.2 Oracle logs can be imported without copying
 proprietary map or AIV files:
 
     dotnet run --project AIVPlacement.OracleComparison -c Release -- \
@@ -111,3 +111,7 @@ being interpreted heuristically. A comparison returns a nonzero exit code for
 errors or mismatches. If no exact building-object Keep exists, the native case is
 retained as `NotEvaluable` with the concrete anchor failure instead of being
 reported as an error or evaluated from the runtime-only Keep coordinate.
+When `advopt_pre_build=1`, the first AI remains evaluable because no earlier AI
+castle has executed yet. Every later AI after a selected native prebuild is
+`NotEvaluable` unless its resulting live tile state was captured: mapper-specific
+spawn branches cannot be reconstructed from the preceding fit result alone.

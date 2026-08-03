@@ -23,10 +23,12 @@ Der aktuelle Stand auf `v_Thasos.map` ist:
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | `Captured-2026-08-03-SessionAware` | `0` | 24 | 24 | 0 | 0 | 0 |
 | `Captured-2026-08-03-SessionAware-Paired` | `0` | 24 | 24 | 0 | 0 | 0 |
-| `Captured-2026-08-03-SessionAware-Paired` | `1` | 24 | 6 | 18 | 0 | 0 |
+| `Captured-2026-08-03-SessionAware-Paired` | `1` | 24 | 4 | 0 | 20 | 0 |
 
-Chat 10 bleibt wegen der 18 Sofortspawn-Mismatches geöffnet. Chat 11 darf noch
-nicht beginnen.
+Der gesamte Paarkorpus enthält damit 28 exakte Fälle, 20 technisch begründete
+`NotEvaluable`, 0 Mismatches und 0 Fehler. Chat 10 bleibt für die gezielte
+Rekonstruktion der mapperabhängigen nativen Spawnregeln geöffnet; Chat 11 hat
+noch nicht begonnen.
 
 ## Reproduzierbarkeit
 
@@ -54,6 +56,13 @@ gepaarte 0.9.0-Log bleibt unter
 Oracle-Aggregate und Optionswerte gültig sind. Sein Live-Grid ist ausdrücklich
 ungültig: Version 0.9.0 las dafür `session.AivStateAddress` statt des vom
 Validator verwendeten Placement-State-Zeigers.
+
+Der gültige ActiveAIVDetector-0.9.2-Sofortspawn-Lauf liegt unter
+`.native-analysis/chat10-next/thasos-prebuild-20260803-165341/`. Sein Log hat
+SHA-256
+`D10604EC3BE35D39EF2CC72CEA9BD1F6F68F3EF8B56205DBE55EED585F23357F`.
+Er enthält je einen Trace und ein vollständiges Building-Grid für Spieler 2
+bis 7, explizit `advopt_pre_build=1` und keine Pointer-Warnung.
 
 ## Bestätigte Korrekturen
 
@@ -92,12 +101,15 @@ Frühere reale Startkomplexe sind in beiden Modi vorhanden. Frühere AIV-Pläne
 blockieren ohne Sofortspawn nicht. Bei `advopt_pre_build=1` sieht der nächste
 Spieler dagegen die tatsächlich ausgeführten Gebäude und Tile-Änderungen.
 
-Die bisherige Offline-Projektion des ausgewählten AIV-Plans ist dafür noch zu
-grob: Der gültige Paarkorpus erreicht im Modus `1` nur 6/24 exakte Fälle. Diese
-18 Mismatches werden nicht durch angepasste Sollwerte oder eine
-`NotEvaluable`-Umetikettierung verdeckt.
+Die frühere Offline-Projektion des ausgewählten AIV-Plans war dafür nicht nur
+zu grob, sondern sachlich falsch. Der 0.9.2-Lauf zeigt, dass der tatsächliche
+Spawn weder der Menge der `Placeable`-Elemente noch ausschließlich deren
+Kernfootprints entspricht. Die Projektionsklasse und ihre exklusiven
+Herkunftstypen wurden deshalb entfernt. Nach einem ausgeführten früheren
+Prebuild wird ohne beobachteten Live-Zustand jetzt ausdrücklich
+`NotEvaluable` geliefert.
 
-## Nächste Laufzeitevidenz
+## Ausgewertete Laufzeitevidenz
 
 Ein erster Lauf mit Version 0.9.1 bestätigte erneut `advopt_pre_build=1` und
 alle 24 nativen Fälle, deckte aber einen Fehler im Diagnosefilter auf:
@@ -109,8 +121,7 @@ Log-Hash
 `90DFAAB2CE9C4E474A68B02B4E540F81BA4B185963D99A5A2D3B67CDC6997E46`
 gesichert. ActiveAIVDetector 0.9.2 korrigiert beide Diagnoseprobleme.
 
-Die installierte Trace-Konfiguration wird für genau einen Thasos-Lauf mit
-Sofortspawn auf folgende Filter gesetzt:
+Der erfolgreiche Thasos-Lauf verwendete folgende Filter:
 
     PlayerId = -1
     CandidateId = 0
@@ -119,11 +130,38 @@ Sofortspawn auf folgende Filter gesetzt:
     KeepY = -1
     MaximumCaptureCount = 6
 
-Damit wird seit Version 0.9.2 jeweils der erste Kandidatenversuch der Spieler
-2 bis 7 erfasst.
+Damit wurde jeweils der erste Kandidatenversuch der Spieler 2 bis 7 erfasst.
 Jeder Dump enthält das reale vollständige Building-Grid vor diesem Spieler.
-Ein einziger Start mit allen sechs KI-Slots reicht deshalb aus, um die
-PreBuild-Zustandsübergänge zu bestimmen.
+Die Zustandsfolge belegt zugleich, dass frühere Ausführung vorhandene Zellen
+ersetzen oder entfernen kann und deshalb keine monotone Planvereinigung ist.
+
+Beim ersten akzeptierten Prebuild von Spieler 2 entstanden 757 AIV-
+Gebäudezellen. Gegen die frühere Projektion waren 707 identisch, 50 nur
+projiziert und 50 nur live vorhanden. Die nur projizierten Zellen gehörten zu
+den geplanten Footprints von Stockpile und Drawbridge; die nur live vorhandenen
+Zellen zum zuvor als blockiert bewerteten Tunnelers Guild samt 5×5-Hof. Beim
+ersten Versuch von Spieler 3 waren alle zwölf Differenzen zusätzliche reale
+Gebäudezellen.
+
+## Native Erklärung der auffälligen Spawnzweige
+
+Der Read-only-Audit von `ExecuteBuildStep` (RVA `0x509F0`) zeigt, dass
+`freeOrForced=true` nur den Ressourcen-/Verfügbarkeitsaufruf bei RVA `0xCB630`
+umgeht. Der Footprint-Helfer RVA `0x5C000` prüft zwar den sequenziell bereits
+veränderten Live-Zustand mit echter Spieler-ID und Validator-Modus `1`; sein
+Rückgabewert wird danach aber ignoriert. Deshalb kann ein Konstruktor auch nach
+fehlgeschlagener Footprint-Prüfung ausgeführt werden.
+
+Für Mapper 89 erzeugt Konstruktor RVA `0x76670` neben dem Hauptgebäude einen
+zweiten 5×5-Datensatz vom Strukturtyp `59`. Dies entspricht genau den zwei
+Gebäude-IDs und 50 zusätzlichen Zellen des Traces. Mapper 105 besitzt dagegen
+mit RVA `0x793E0` einen vorgeschalteten Resolver für ein passendes lebendes Tor
+und dessen Orientierung. Mapper 52 ist ebenfalls kein „Tile-only“-Sonderfall:
+Sein Konstruktor RVA `0x760F0` erzeugt vier Gebäudedatensätze und zusätzliche
+Verbindungstiles. Die konkreten 25 Stockpile-Zellen fehlten nur an der früher
+projizierten Position dieses Laufs; die genaue Abbruch- oder
+Koordinatenentscheidung dieses einzelnen Frames erfordert einen
+`ExecuteBuildStep`-Laufzeittrace.
 
 ## Abnahmekriterien
 
@@ -131,7 +169,7 @@ Chat 10 ist erst abgeschlossen, wenn
 
 - der neue Sofortspawn-Lauf valide Placement-State-Pointer und sechs Grids
   liefert;
-- die 18 verbleibenden Fälle erklärt und korrigiert oder technisch zwingend
+- die 20 abhängigen PreBuild-Fälle erklärt und korrigiert oder technisch zwingend
   als `NotEvaluable` belegt sind;
 - alle neuen sitzungs- und modusgebundenen Fälle 0 ungeklärte Mismatches und
   0 Fehler liefern;

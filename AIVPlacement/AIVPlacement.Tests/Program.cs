@@ -26,7 +26,7 @@ internal static class Program
             ("Normalize serialized player start occupancy", TestPreplacementMapState),
             ("Rotate rebuilt player start occupancy", TestRebuiltStartRotations),
             ("Reconstruct native rock footprints", TestRockFootprintReconstruction),
-            ("Propagate only placed prior AIV elements", TestPriorCastleMapState),
+            ("Require observed state after an executed AIV prebuild", TestPriorPrebuildStateRequirement),
             ("Reject reasonless placement issues", TestReasonlessPlacementIssue),
             ("Distinguish native-domain and diamond failures", TestGeometryRules),
             ("Apply the native mapper height limit", TestHeightRule),
@@ -397,54 +397,16 @@ internal static class Program
             "The reconstructed rock cell was not rejected as native impassable terrain.");
     }
 
-    private static void TestPriorCastleMapState()
+    private static void TestPriorPrebuildStateRequirement()
     {
-        AivBlueprint blueprint = Blueprint(
-            Frame(0, 61, false, Point(56, 43)),
-            Frame(1, 50, false, Point(56, 60)),
-            Frame(2, 105, false, Point(56, 70)),
-            Frame(3, 50, false, Point(56, 80)));
-        var evaluationMap = new SparsePlacementMap();
-        evaluationMap.Set(new MapCoordinate(417, 400), Evidence(buildingId: 77));
-        AivPlacementResult prior = PlacementEvaluator.Evaluate(
-            evaluationMap,
-            blueprint,
-            new MapCoordinate(400, 400),
-            AivRotation.Degrees0);
-        var map = new AivProjectedPrebuildMapState(
-            new SparsePlacementMap(),
-            new[] { new AivProjectedPrebuildPlacement("test-session", 2, prior) });
-
-        int blockedElementTileId = map.Geometry.GetTileId(420, 403);
-        int drawbridgeTileId = map.Geometry.GetTileId(427, 400);
-        int occupiedTileId = map.Geometry.GetTileId(437, 400);
-        AssertEqual((ushort)0, map.GetTileEvidence(blockedElementTileId).BuildingId);
-        AivPlacementTileEvidence drawbridge = map.GetTileEvidence(drawbridgeTileId);
-        AssertEqual((ushort)0, drawbridge.BuildingId);
-        AssertEqual(AivTileOccupancyKind.ProjectedPrebuiltAivBuilding, drawbridge.Occupancies[0].Kind);
-        AivPlacementTileEvidence prebuilt = map.GetTileEvidence(occupiedTileId);
-        AssertEqual((ushort)0, prebuilt.BuildingId);
-        AssertEqual(1, prebuilt.Occupancies.Count);
-        AssertEqual("test-session", prebuilt.Occupancies[0].SessionId);
-        AssertEqual(2, prebuilt.Occupancies[0].PlayerId);
-        AssertEqual(50, prebuilt.Occupancies[0].MapperValue);
-        AssertEqual(AivTileOccupancyKind.ProjectedPrebuiltAivBuilding, prebuilt.Occupancies[0].Kind);
-
-        AivElementPlacementResult blockedByPlan = RuleEvaluator.EvaluateElement(
-            map,
-            ElementAt(50, new MapCoordinate(437, 400)));
-        Assert(blockedByPlan.Issues.Any(issue =>
-                issue.Kind.HasFlag(AivPlacementIssueKind.ProjectedPriorAivPrebuildOccupied) &&
-                !issue.Kind.HasFlag(AivPlacementIssueKind.BuildingOccupied)),
-            "A prior prebuilt AIV cell was reported as a serialized map building.");
-
-        AssertThrows<ArgumentException>(() => new AivProjectedPrebuildMapState(
-            new SparsePlacementMap(),
-            new[]
-            {
-                new AivProjectedPrebuildPlacement("session-a", 2, prior),
-                new AivProjectedPrebuildPlacement("session-b", 3, prior)
-            }));
+        Assert(!AIVPlacement.OracleComparison.Program.RequiresObservedPrebuildState(0, false),
+            "No-PreBuild must remain evaluable without runtime state.");
+        Assert(!AIVPlacement.OracleComparison.Program.RequiresObservedPrebuildState(0, true),
+            "A prior selected AIV is not executed when PreBuild is disabled.");
+        Assert(!AIVPlacement.OracleComparison.Program.RequiresObservedPrebuildState(1, false),
+            "The first AI has no prior AIV prebuild state.");
+        Assert(AIVPlacement.OracleComparison.Program.RequiresObservedPrebuildState(1, true),
+            "A later AI requires the observed result of the prior native prebuild.");
     }
 
     private static void TestReasonlessPlacementIssue()
