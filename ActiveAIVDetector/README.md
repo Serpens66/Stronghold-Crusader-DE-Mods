@@ -72,9 +72,9 @@ Extender already detours that export. The game's `StartSkirmishGame` code import
 custom AIVs in the exact order of the captured list, so the native candidate ID
 can be mapped without adding a second detour to the same export.
 
-## Opt-in native cell trace
+## Opt-in native traces
 
-Version 0.9.2 can copy the native mapper, score, and result grids immediately
+The cell trace can copy the native mapper, score, and result grids immediately
 after filtered `EvaluateCandidateFit` calls. During only each active fit window
 it also records the generic validator's tile ID, mapper, arguments, unchanged
 return value, and the live native tile inputs used by that call.
@@ -90,10 +90,13 @@ timestamped capture and output summaries only.
 
 For the current Chat 10 Thasos PreBuild run, `build.bat /trace` installs the
 explicitly enabled profile from the historically named
-`Diagnostics/Chat10-Bow-Ridge-Trace.cfg`. Its current filters select candidate
-zero for every AI player and orientation, accept every Keep coordinate, and
-stop after six different players. A negative player filter captures at most
-one attempt and one full live-building-grid snapshot per player, so rotations
-cannot consume the remaining player slots. A normal `build.bat` does not
-install or enable that profile. The profile filename is intentionally left
-unchanged because existing build automation refers to it.
+`Diagnostics/Chat10-Bow-Ridge-Trace.cfg`. Version 0.9.3 disables the completed
+cell-trace profile there and enables `[Oracle prebuild trace]` for player 2 and
+one capture. This diagnostic hooks `ExecuteBuildStep` only while explicitly
+enabled, records every frame synchronously around its single trampoline call,
+and writes the unchanged return value plus all real `BuildingId` additions,
+removals, and replacements under `PrebuildTraces/`. The placement-state pointer
+must match the pointer observed during the filtered native validator calls.
+Frames for mappers 52, 89, and 105 are marked and summarized explicitly. A
+normal `build.bat` does not install or enable the profile. Its historical
+filename remains unchanged because existing build automation refers to it.

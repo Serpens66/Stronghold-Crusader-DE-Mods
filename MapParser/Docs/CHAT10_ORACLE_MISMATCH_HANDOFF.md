@@ -8,9 +8,10 @@ Sofortspawn-Wert zuverlässig erfassten. Sie darf nicht wiederhergestellt oder
 als Regression verwendet werden.
 
 Die neue No-PreBuild-Baseline ist vollständig exakt. Der Sofortspawn-Lauf ist
-ausgewertet und die auffälligen nativen Ausführungszweige sind statisch
-rekonstruiert. Offen ist ein schmaler Laufzeittrace der einzelnen
-`ExecuteBuildStep`-Frames, nicht mehr ein ungeklärter Oracle-Mismatch.
+ausgewertet, die auffälligen nativen Ausführungszweige sind statisch
+rekonstruiert und der schmale Laufzeittrace der einzelnen
+`ExecuteBuildStep`-Frames ist inzwischen vollständig abgenommen. Es besteht
+kein ungeklärter Oracle-Mismatch; Chat 11 bleibt weiterhin unbegonnen.
 
 ## Zuerst lesen
 
@@ -24,7 +25,9 @@ rekonstruiert. Offen ist ein schmaler Laufzeittrace der einzelnen
 
 ## Gesicherter Stand
 
-- ActiveAIVDetector 0.9.2 ist gebaut und installiert.
+- ActiveAIVDetector 0.9.3 ist gebaut und installiert. Der diagnostische
+  `ExecuteBuildStep`-Hook ist standardmäßig deaktiviert und wurde nur über das
+  explizite `/trace`-Profil für den abgeschlossenen Lauf aktiviert.
 - `advopt_pre_build` wird vor `StartSkirmishGame` erfasst und pro Map-Load-
   Sitzung in jede Oracle-Zeile übernommen.
 - Das Live-Grid verwendet seit 0.9.1 den vom Validator beobachteten
@@ -85,7 +88,7 @@ Er enthält sechs Per-Cell-Traces und sechs vollständige Live-Building-Grids,
 jeweils für den ersten Kandidatenversuch der Spieler 2 bis 7. Der Log bestätigt
 ActiveAIVDetector 0.9.2 und `advopt_pre_build=1`; es gibt keine Pointer-Warnung.
 
-## Ergebnis und nächste Analyse
+## Ergebnisse der statischen und dynamischen Analyse
 
 1. Spieler 2 erzeugte 757 AIV-Gebäudezellen. Gegen die frühere Projektion waren
    707 identisch, 50 nur projiziert und 50 nur live vorhanden.
@@ -111,11 +114,17 @@ ActiveAIVDetector 0.9.2 und `advopt_pre_build=1`; es gibt keine Pointer-Warnung.
    Goods Yard (RVA `0x760F0`) erzeugt vier Gebäudedatensätze plus neun
    Verbindungstiles; das konkrete Fehlen am früher projizierten Footprint ist
    daher keine allgemeine Tile-only-Regel.
-7. Als Nächstes einen schmalen Laufzeittrace um `ExecuteBuildStep` ergänzen,
-   der pro Frame Mapper, Rückgabewert und Building-Grid-Differenz protokolliert.
-   Damit ist insbesondere zu entscheiden, ob der konkrete Mapper-52-Schritt
-   abbrach oder mit nativer Koordinaten-/Mehrkomponentenlogik an anderer Stelle
-   wirkte.
+7. Als nächster Schritt war ein schmaler Laufzeittrace um `ExecuteBuildStep`
+   vorgesehen, der pro Frame Mapper, Rückgabewert und Building-Grid-Differenz
+   protokolliert und insbesondere den konkreten Mapper-52-Schritt entscheidet.
+8. Dieser Laufzeittrace ist mit ActiveAIVDetector 0.9.3 abgeschlossen. Er
+   enthält für Spieler 2 lückenlos 77 Frames `0..76`, genau einen konsistenten
+   Placement-State-Zeiger, 0 Pointerprobleme, 0 Capturefehler und 0
+   Hookwarnungen. Mapper 105 gab in Frame 28 `0` zurück und änderte keine
+   Building-ID. Mapper 89 gab in Frame 36 `1` zurück und erzeugte zwei IDs mit
+   je 25 Zellen. Mapper 52 gab in Frame 41 `0` zurück und änderte das
+   Building-Grid an keiner Stelle. Die Evidenz liegt hashgebunden unter
+   `.native-analysis/chat10-next/thasos-execute-build-step-20260803-182959/`.
 
 Die zugehörigen Read-only-Audits liegen in:
 
@@ -126,10 +135,11 @@ Die zugehörigen Read-only-Audits liegen in:
 ## Arbeitsbaum bei der Übergabe
 
 Der fachliche Code-/Corpusstand ist im lokalen Git-Commit `4fa22c0` (`163`)
-gesichert. Bei Erstellung dieses Handoffs unterscheiden sich davon nur dieses
-Dokument und die Roadmap; ein automatischer Workspace-Checkpoint kann diese
-beiden Dokumentationsänderungen noch in einen Folgecommit übernehmen. Keine
-Chat-10-Änderung darf durch ältere Dateien ersetzt werden. Insbesondere ist
+gesichert. Der aktuelle Arbeitsbaum enthält zusätzlich die
+ActiveAIVDetector-0.9.3-Implementierung samt Buildausgabe, Diagnoseprofil und
+aktualisierter Chat-10-Dokumentation. Die hashgebundene Laufzeitevidenz liegt
+unter `.native-analysis/chat10-next/thasos-execute-build-step-20260803-182959/`.
+Keine Chat-10-Änderung darf durch ältere Dateien ersetzt werden. Insbesondere ist
 `AIVPlacement/AIVPlacement.Core/AivProjectedPrebuildMapState.cs` bewusst aus
 dem Repository gelöscht; die zugehörigen projizierten Occupancy-/Issue-Typen
 und Tests wurden ebenfalls entfernt. `AIVPlacement.OracleComparison`
@@ -137,16 +147,17 @@ klassifiziert abhängige PreBuild-Spieler stattdessen als `NotEvaluable`.
 
 Die beiden kanonischen Reports wurden mit diesem Stand neu erzeugt. Der letzte
 erhöhte Aufruf von `AIVPlacement/build.bat` war erfolgreich: 0 Warnungen,
-0 Fehler und 29/29 Tests. Alle geänderten Textdateien wurden anschließend mit
+0 Fehler und 29/29 Tests. Der erhöhte Aufruf von
+`ActiveAIVDetector/build.bat /nopause /trace` war ebenfalls mit 0 Warnungen und
+0 Fehlern erfolgreich. Alle geänderten Textdateien wurden anschließend mit
 ordinaler Rücklesekontrolle auf CRLF geprüft.
 
-## Konkreter nächster Implementierungsschritt
+## Abgeschlossener Implementierungsschritt
 
-ActiveAIVDetector 0.9.2 besitzt noch keinen `ExecuteBuildStep`-Hook. Der nächste
-Chat soll eine rein diagnostische, standardmäßig deaktivierte
-`Oracle prebuild trace`-Option ergänzen und die Modversion auf 0.9.3 erhöhen.
-Vorhandene Lifecycle- und Zell-Trace-Funktionalität darf dadurch nicht verändert
-werden.
+ActiveAIVDetector 0.9.3 besitzt jetzt die rein diagnostische, standardmäßig
+deaktivierte `Oracle prebuild trace`-Option. Vorhandene Lifecycle- und
+Zell-Trace-Funktionalität blieb unverändert. Die folgenden Signatur-, Layout-
+und Aufnahmevorgaben dokumentieren die implementierte Grundlage.
 
 Die belegte native Signatur von `ExecuteBuildStep` lautet:
 
@@ -160,8 +171,9 @@ Die belegte native Signatur von `ExecuteBuildStep` lautet:
 Die Funktion liegt für die gebundene DLL bei RVA `0x509F0`. Ein möglicher
 Signaturanfang ist
 `40 53 55 56 57 41 54 41 55 41 56 41 57 48 83 EC 78 4C 63 F2`; dessen
-Eindeutigkeit ist vor Verwendung gegen genau diese DLL zu prüfen. Der
-Sofortspawn-Aufrufer übergibt `restrictedMode=0` und `freeOrForced=1`.
+Eindeutigkeit wurde gegen genau diese DLL geprüft: ein Treffer bei RVA
+`0x509F0`. Der Sofortspawn-Aufrufer übergibt `restrictedMode=0` und
+`freeOrForced=1`.
 
 Der vorbereitete Frame-Eintrag lässt sich ohne Heuristik lesen:
 
@@ -173,9 +185,9 @@ Der vorbereitete Frame-Eintrag lässt sich ohne Heuristik lesen:
    `int16` bei `+2`, Positionsanzahl als `int16` bei `+4` und erster
    Positionsindex als `int32` bei `+8`.
 
-Der Hook soll nur bei explizit aktivierter Diagnose und passendem Spielerfilter
-arbeiten. Für jeden passenden Frame sind vor und nach dem Trampoline mindestens
-zu erfassen:
+Der Hook arbeitet nur bei explizit aktivierter Diagnose und passendem
+Spielerfilter. Für jeden passenden Frame werden vor und nach dem Trampoline
+mindestens erfasst:
 
 - Zeitstempel mit Millisekunden, Session-/Mapbezug, Spieler-ID und Frameindex;
 - Mapper, Status, Positionsanzahl, `restrictedMode`, `freeOrForced` und
@@ -187,54 +199,53 @@ zu erfassen:
   beim bestehenden Zelltrace ausdrücklich melden; nicht blind eine neue
   Strukturadresse annehmen.
 
-Die Vorher-/Nachher-Aufnahme muss synchron um genau den Trampoline-Aufruf
-liegen. Reentranz ist abzuweisen oder eindeutig zu verschachteln. Diagnosecode
-darf weder Rückgabewert noch nativen Zustand verändern. Mapper 52, 89 und 105
-sind in der Auswertung hervorzuheben; dennoch müssen alle Frames des gefilterten
-Spielers erhalten bleiben, damit die Sequenz belegbar ist.
+Die Vorher-/Nachher-Aufnahme liegt synchron um genau den Trampoline-Aufruf.
+Reentranz wird abgewiesen. Der Diagnosecode verändert weder Rückgabewert noch
+nativen Zustand. Mapper 52, 89 und 105 werden in der Auswertung hervorgehoben;
+alle Frames des gefilterten Spielers bleiben erhalten.
 
-Empfohlenes erstes Profil für die neue Sektion:
+Das verwendete Profil der neuen Sektion lautet:
 
     [Oracle prebuild trace]
     Enabled = true
     PlayerId = 2
     MaximumCaptureCount = 1
 
-Der bisherige Abschnitt `[Oracle cell trace]` steht im installierten Profil noch
-auf dem abgeschlossenen Wildcard-Lauf (`PlayerId=-1`,
-`MaximumCaptureCount=6`). Er ist für den neuen Zweck getrennt zu behandeln und
-kann in der neuen Diagnosevorlage deaktiviert werden. Das Buildskript installiert
-eine Diagnosekonfiguration nur mit `/trace`; die Vorlage
-`ActiveAIVDetector/Diagnostics/Chat10-Bow-Ridge-Trace.cfg` muss daher zusammen
-mit den neuen Optionen angepasst werden.
+Der bisherige Abschnitt `[Oracle cell trace]` behält die Werte des
+abgeschlossenen Wildcard-Laufs, ist im installierten Profil aber deaktiviert.
+Das Buildskript installiert die Diagnosekonfiguration weiterhin nur mit
+`/trace`; die Vorlage
+`ActiveAIVDetector/Diagnostics/Chat10-Bow-Ridge-Trace.cfg` enthält beide
+Sektionen getrennt.
 
-Nach Implementierung: alle geänderten Textdateien auf CRLF prüfen, dann
-`ActiveAIVDetector/build.bat /nopause /trace` direkt erhöht ausführen. Das
-Skript baut, installiert Plugin und explizite Trace-Konfiguration; nicht von
-Hand kopieren.
+Die geänderten Textdateien wurden vor dem erhöhten Aufruf von
+`ActiveAIVDetector/build.bat /nopause /trace` ordinal auf CRLF geprüft. Der
+Build war mit 0 Warnungen und 0 Fehlern erfolgreich und installierte Plugin
+sowie explizite Trace-Konfiguration.
 
-## Nächster Spielstart und Abnahme
+## Abgeschlossener Spielstart und Abnahme
 
-Erst nach erfolgreichem Build den Benutzer um genau einen Spielstart bitten:
+Der Benutzer führte nach dem erfolgreichen Build genau den verlangten
+Spielstart aus:
 
 - `v_Thasos.map`;
 - alle sechs KI-Slots mit `testlord_serpcastle1`;
 - Sofortspawn/„Completed enemy castles“ aktiviert.
 
-Spieler 2 wird automatisch vergeben; seine zufällige Keep-Position muss nicht
-manuell gewählt werden. Kein Editorstart und kein zusätzlicher No-PreBuild-Lauf
-sind nötig. Nach „fertig“ Log und Traceartefakte in einen neuen
-`.native-analysis/chat10-next/...`-Ordner kopieren, mit SHA-256 binden und zuerst
-prüfen, dass ActiveAIVDetector 0.9.3, `advopt_pre_build=1`, genau ein vollständiger
-Spieler-2-Prebuild-Trace und keine Pointer-/Hookwarnung vorliegen.
+Spieler 2 wurde automatisch vergeben; kein Editorstart und kein zusätzlicher
+No-PreBuild-Lauf waren nötig. Log, installierte Konfiguration, `info.json` und
+Trace liegen unter
+`.native-analysis/chat10-next/thasos-execute-build-step-20260803-182959/` und
+sind in `SHA256SUMS.txt` gebunden. Bestätigt sind ActiveAIVDetector 0.9.3,
+`advopt_pre_build=1`, genau ein vollständiger Spieler-2-Prebuild-Trace und
+keine Pointer-, Capture- oder Hookwarnung.
 
 Abnahme dieses Schritts:
 
-- für Mapper 52 ist belegt, ob der Frame vor dem Konstruktor abbrach oder reale
-  Building-Grid-Änderungen an anderen Koordinaten erzeugte;
-- Mapper 89 zeigt die erwarteten zwei IDs/50 Zellen im passenden Frame;
-- Mapper 105 lässt sich mit seinem Rückgabewert und der beobachteten
-  Grid-Differenz zum Drawbridge-Resolver einordnen;
+- Mapper 52 brach mit Rückgabewert `0` ohne Building-Grid-Änderung ab;
+- Mapper 89 zeigt mit Rückgabewert `1` die erwarteten zwei IDs und 50 Zellen;
+- Mapper 105 brach mit Rückgabewert `0` ohne Building-Grid-Änderung im
+  Drawbridge-Vorbedingungspfad ab;
 - die Dokumentation und gegebenenfalls das Offline-Modell werden nur aus dieser
   Evidenz angepasst; `NotEvaluable` bleibt bis zu einer tatsächlich exakten
   sequenziellen Rekonstruktion bestehen;
@@ -255,9 +266,8 @@ Abnahme dieses Schritts:
 ## Kopierbarer Startprompt
 
 > Setze Chat 10 aus `MapParser/AIV_PLACEMENT_ROADMAP.md` fort und lies zuerst
-> `MapParser/Docs/CHAT10_ORACLE_MISMATCH_HANDOFF.md` vollständig. Implementiere
-> anschließend den dort spezifizierten diagnostischen `ExecuteBuildStep`-
-> Laufzeittrace in ActiveAIVDetector 0.9.3, baue und installiere ihn mit der
-> vorbereiteten Spieler-2-Konfiguration. Bitte mich danach um genau einen
-> Thasos-Sofortspawn-Spielstart. Behalte für abhängige Spieler bis zur exakten
-> sequenziellen Rekonstruktion `NotEvaluable` bei und beginne Chat 11 nicht.
+> `MapParser/Docs/CHAT10_ORACLE_MISMATCH_HANDOFF.md` vollständig. Der
+> ActiveAIVDetector-0.9.3-`ExecuteBuildStep`-Lauf ist bereits hashgebunden
+> ausgewertet und entscheidet Mapper 52, 89 und 105. Verwende diese Evidenz,
+> behalte für abhängige Spieler bis zur exakten sequenziellen Rekonstruktion
+> `NotEvaluable` bei und beginne Chat 11 nicht.

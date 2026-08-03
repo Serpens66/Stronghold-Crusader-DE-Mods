@@ -141,10 +141,10 @@ if "%BUILD_EXIT_CODE%"=="0" (
       echo !CHAT10_TRACE_CONFIG!
       goto copy_failed
     )
-    echo Installiere explizit aktivierte Chat-10-Zell-Trace-Konfiguration...
+    echo Installiere explizit aktivierte Chat-10-Prebuild-Trace-Konfiguration...
     copy /Y "!CHAT10_TRACE_CONFIG!" "%GAME_DIR%\BepInEx\config\ActiveAIVDetector_Serp.cfg" >nul
     if errorlevel 1 goto copy_failed
-    echo Chat-10-Zell-Trace aktiviert.
+    echo Chat-10-Prebuild-Trace aktiviert.
   )
 ) else (
   echo Build fehlgeschlagen. Exit Code: %BUILD_EXIT_CODE%

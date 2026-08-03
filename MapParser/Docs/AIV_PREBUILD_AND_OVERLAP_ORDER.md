@@ -138,6 +138,36 @@ Für die im Thasos-Lauf auffälligen Mapper sind folgende Zweige belegt:
   Trace darf deshalb nicht als allgemeine Aussage „Stockpiles erzeugen keine
   BuildingId“ interpretiert werden.
 
+## Gezielte Laufzeitabnahme der drei auffälligen Mapper
+
+ActiveAIVDetector 0.9.3 erfasste auf `v_Thasos.map` synchron um jeden
+`ExecuteBuildStep`-Trampoline-Aufruf das vollständige reale
+320800-Zellen-`BuildingId`-Grid. Der Lauf ist unter
+`.native-analysis/chat10-next/thasos-execute-build-step-20260803-182959/`
+gesichert und in `SHA256SUMS.txt` gebunden. Er enthält für Spieler 2 genau 77
+lückenlose Frames `0..76`, überall `restrictedMode=0`, `freeOrForced=1` und
+denselben vom Validator beobachteten Placement-State-Zeiger. Es gab keine
+Pointer-, Capture- oder Hookfehler.
+
+- Mapper 105 wurde in Frame 28 mit Status `1` und einer Position aufgerufen,
+  gab `0` zurück und änderte keine `BuildingId`. Der konkrete Drawbridge-
+  Resolver fand daher keine zulässige Gate-/Orientierungskombination; der
+  Konstruktor erzeugte nichts.
+- Mapper 89 wurde in Frame 36 mit Status `1` und einer Position aufgerufen,
+  gab `1` zurück und fügte exakt 50 Zellen hinzu. Gebäude-ID 33 und 34 belegen
+  je 25 Zellen und sind die erwarteten getrennten Datensätze für Hauptgebäude
+  und Hof.
+- Mapper 52 wurde in Frame 41 mit Status `1` und einer Position aufgerufen,
+  gab `0` zurück und änderte keine `BuildingId`. Der konkrete Goods-Yard-
+  Schritt brach vor erfolgreicher Konstruktion ab und wirkte auch nicht mit
+  einer abweichenden nativen Koordinate auf das Building-Grid.
+
+Über den gesamten ersten Spieler entstanden 757 neue Gebäudezellen, aber keine
+entfernten oder ersetzten. Später im Spiel sichtbare Abrisse können daher nur
+aus nachfolgenden Spielern oder späterer Spiellogik stammen; sie passen zur
+sequenziellen Bereinigungsmöglichkeit, sind in diesem Spieler-2-Fenster aber
+nicht positionsgenau erfasst.
+
 ## Verbindliche Zustands- und Blockerbegriffe
 
 `AivTileOccupancyKind` trennt Ursache und Zeitpunkt:
@@ -214,3 +244,5 @@ erzeugten Gebäude-IDs noch deren Footprints exakt abgeleitet werden können.
   `.native-analysis/chat10-prebuild-constructors.stdout.log`
 - gemeinsame Vorprüfungen:
   `.native-analysis/chat10-prebuild-common-checks.stdout.log`
+- Spieler-2-`ExecuteBuildStep`-Laufzeittrace und Hashmanifest:
+  `.native-analysis/chat10-next/thasos-execute-build-step-20260803-182959/`

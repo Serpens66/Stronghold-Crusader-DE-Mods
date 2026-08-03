@@ -27,8 +27,9 @@ Der aktuelle Stand auf `v_Thasos.map` ist:
 
 Der gesamte Paarkorpus enthält damit 28 exakte Fälle, 20 technisch begründete
 `NotEvaluable`, 0 Mismatches und 0 Fehler. Chat 10 bleibt für die gezielte
-Rekonstruktion der mapperabhängigen nativen Spawnregeln geöffnet; Chat 11 hat
-noch nicht begonnen.
+Rekonstruktion der mapperabhängigen nativen Spawnregeln geöffnet. Der
+`ExecuteBuildStep`-Trace für Spieler 2 ist inzwischen vollständig abgenommen;
+Chat 11 hat noch nicht begonnen.
 
 ## Reproduzierbarkeit
 
@@ -41,6 +42,10 @@ noch nicht begonnen.
   `E67137A68765E4F1A573108CCCE2FF7E592E67BB8E2281B571648C257E037540`
 - gepaarter Log mit explizitem `advopt_pre_build=1` und `0`: SHA-256
   `713F781F4D806CB07C5F4515ABD25903D6D9FB3B57CF743CFC3BD370D4E928DD`
+- ActiveAIVDetector-0.9.3-`ExecuteBuildStep`-Log: SHA-256
+  `AB1DA48994AB1AEABD6C099478E4568035BC5E9F6CE405930E2DDDF4628BA13E`
+- Spieler-2-Prebuild-Trace: SHA-256
+  `66835ECAF440A17A19881439DAD1C5B10E9B2E19A1B041DD2071F83DD2D9E234`
 
 Die Manifeste und Berichte liegen ausschließlich unter:
 
@@ -63,6 +68,14 @@ SHA-256
 `D10604EC3BE35D39EF2CC72CEA9BD1F6F68F3EF8B56205DBE55EED585F23357F`.
 Er enthält je einen Trace und ein vollständiges Building-Grid für Spieler 2
 bis 7, explizit `advopt_pre_build=1` und keine Pointer-Warnung.
+
+Der gezielte ActiveAIVDetector-0.9.3-Lauf liegt unter
+`.native-analysis/chat10-next/thasos-execute-build-step-20260803-182959/`.
+`SHA256SUMS.txt` bindet Log, Konfiguration, `info.json` und den vollständigen
+77-Frame-Trace. Der Lauf verwendete `advopt_pre_build=1`, Spieler 2,
+`restrictedMode=0` und `freeOrForced=1`. Alle Frames verwendeten denselben vom
+Validator beobachteten Placement-State-Zeiger; es gab 0 Pointerprobleme,
+0 Capturefehler und keine Hookwarnung.
 
 ## Bestätigte Korrekturen
 
@@ -163,12 +176,44 @@ projizierten Position dieses Laufs; die genaue Abbruch- oder
 Koordinatenentscheidung dieses einzelnen Frames erfordert einen
 `ExecuteBuildStep`-Laufzeittrace.
 
+## Gezielter `ExecuteBuildStep`-Laufzeittrace
+
+Der 0.9.3-Trace erfasste lückenlos die Frames `0..76` des ersten
+Spieler-2-Sofortspawns. Insgesamt änderten die Frames 757 zuvor freie
+`BuildingId`-Zellen; innerhalb dieses ersten Spielers gab es keine entfernten
+oder ersetzten IDs. Die drei zuvor offenen Mapper sind damit direkt belegt:
+
+- Mapper 105, Frame 28: Status `1`, eine Position, Rückgabewert `0`, keine
+  `BuildingId`-Änderung. Der vorbereitete Drawbridge-Schritt wurde aufgerufen,
+  scheiterte aber vor einem erfolgreichen Konstruktor; das entspricht dem
+  fehlgeschlagenen Gate-/Orientierungsresolver.
+- Mapper 89, Frame 36: Status `1`, eine Position, Rückgabewert `1`, exakt 50
+  hinzugefügte Zellen. Gebäude-ID 33 und 34 belegen jeweils 25 Zellen und
+  bestätigen Hauptgebäude plus separaten 5×5-Hof.
+- Mapper 52, Frame 41: Status `1`, eine Position, Rückgabewert `0`, keine
+  `BuildingId`-Änderung. Der konkrete Goods-Yard-Schritt brach somit ab; er
+  erzeugte weder den früher projizierten Footprint noch Gebäudedatensätze an
+  einer anderen Stelle.
+
+Die vom Benutzer später im Spiel beobachteten Gebäudeabrisse stammen nicht aus
+dem erfassten Spieler-2-Fenster (`removed=0`, `replaced=0`). Sie sind mit den
+anschließend ausgeführten Spielern und der bereits belegten sequenziellen
+Bereinigungslogik vereinbar, bilden aber ohne deren eigenen Frame-Trace keine
+zusätzliche positionsgenaue Evidenz.
+
+Diese Ergebnisse erklären die drei auffälligen Frames, liefern jedoch noch
+keine vollständige mapperabhängige Offline-Ausführung für alle späteren
+Spieler. Die 20 abhängigen Sofortspawn-Fälle bleiben deshalb bewusst
+`NotEvaluable`; es werden keine Planfootprints als Live-Belegung projiziert.
+
 ## Abnahmekriterien
 
 Chat 10 ist erst abgeschlossen, wenn
 
 - der neue Sofortspawn-Lauf valide Placement-State-Pointer und sechs Grids
   liefert;
+- der gezielte Spieler-2-Trace alle `ExecuteBuildStep`-Frames ohne Pointer-,
+  Capture- oder Hookfehler bindet und Mapper 52, 89 und 105 entscheidet;
 - die 20 abhängigen PreBuild-Fälle erklärt und korrigiert oder technisch zwingend
   als `NotEvaluable` belegt sind;
 - alle neuen sitzungs- und modusgebundenen Fälle 0 ungeklärte Mismatches und

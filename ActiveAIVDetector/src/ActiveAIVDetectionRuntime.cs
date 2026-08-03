@@ -42,6 +42,7 @@ namespace ActiveAIVDetector
 
         private readonly ManualLogSource log;
         private readonly OracleCellTraceOptions cellTraceOptions;
+        private readonly OraclePrebuildTraceOptions prebuildTraceOptions;
         private readonly string vanillaAicDirectory;
         private readonly string vanillaAivDirectory;
         private readonly bool bundledVanillaAicMatchesInstalledGame;
@@ -51,6 +52,8 @@ namespace ActiveAIVDetector
             new Dictionary<int, LobbyAivSnapshot>();
         private readonly List<OracleSelectionSnapshot> pendingOracleSelections =
             new List<OracleSelectionSnapshot>();
+        private readonly List<OraclePrebuildFrameTraceSnapshot> pendingPrebuildFrames =
+            new List<OraclePrebuildFrameTraceSnapshot>();
         private readonly HashSet<int> reportedPlayers = new HashSet<int>();
         private readonly HashSet<long> reportedOracleSelections = new HashSet<long>();
         private readonly List<IDisposable> lifecycleSubscriptions = new List<IDisposable>();
@@ -71,17 +74,21 @@ namespace ActiveAIVDetector
         private bool preBuildCapturePending;
         private bool preBuildSettingAppliesToCurrentMap;
         private int capturedPreBuildSetting = -1;
+        private int mapLoadSequence;
         private string currentMapFileName = "<unknown>";
         private string currentMapName = "<unknown>";
         private string currentMapFileSha256 = "<not-available>";
 
         public ActiveAIVDetectionRuntime(
             ManualLogSource log,
-            OracleCellTraceOptions cellTraceOptions)
+            OracleCellTraceOptions cellTraceOptions,
+            OraclePrebuildTraceOptions prebuildTraceOptions)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.cellTraceOptions = cellTraceOptions ??
                 throw new ArgumentNullException(nameof(cellTraceOptions));
+            this.prebuildTraceOptions = prebuildTraceOptions ??
+                throw new ArgumentNullException(nameof(prebuildTraceOptions));
             string pluginDirectory = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
             vanillaAicDirectory = Path.Combine(pluginDirectory, "VanillaAIC");
             // The game uses embedded AIV bytes; these editor files make that selection inspectable.
@@ -103,6 +110,11 @@ namespace ActiveAIVDetector
                 $"orientation={cellTraceOptions.Orientation}, " +
                 $"keep=({cellTraceOptions.KeepX},{cellTraceOptions.KeepY}), " +
                 $"maximumCaptures={cellTraceOptions.MaximumCaptureCount}.");
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"Oracle prebuild trace configuration: enabled={prebuildTraceOptions.Enabled}, " +
+                $"playerId={prebuildTraceOptions.PlayerId}, " +
+                $"maximumCaptures={prebuildTraceOptions.MaximumCaptureCount}.");
         }
 
         public void Install(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
@@ -127,6 +139,8 @@ namespace ActiveAIVDetector
                 log,
                 OnOracleSelectionCompleted,
                 cellTraceOptions,
+                OnPrebuildFrameCaptured,
+                prebuildTraceOptions,
                 unchecked((ulong)libraryHandle.ToInt64()));
             placementOracle.RegisterHooks(transaction);
 
@@ -358,6 +372,7 @@ namespace ActiveAIVDetector
             mapStartCompleted = false;
             pendingSelections.Clear();
             pendingOracleSelections.Clear();
+            pendingPrebuildFrames.Clear();
             reportedPlayers.Clear();
             reportedOracleSelections.Clear();
             callbackFailureLogged = false;
@@ -384,6 +399,7 @@ namespace ActiveAIVDetector
         private void OnMapLoadStarted(MapLoadEventArgs args)
         {
             ResetForMapTransition("map load");
+            mapLoadSequence++;
             currentMapFileName = string.IsNullOrEmpty(args.FileName)
                 ? "<unknown>"
                 : args.FileName;
@@ -401,6 +417,12 @@ namespace ActiveAIVDetector
                 ReportOracleSelection(snapshot, "native callback after OnStartMap(Post)");
         }
 
+        private void OnPrebuildFrameCaptured(OraclePrebuildFrameTraceSnapshot snapshot)
+        {
+            // ExecuteBuildStep runs inside map start; defer file I/O until Vanilla returns.
+            pendingPrebuildFrames.Add(snapshot);
+        }
+
         private void OnMapStarted()
         {
             // OnStartMap(Post) runs after the game's complete native map-start routine.
@@ -415,6 +437,8 @@ namespace ActiveAIVDetector
                 preBuildSettingAppliesToCurrentMap = true;
                 preBuildCapturePending = false;
             }
+
+            WritePendingOraclePrebuildTraces();
 
             pendingOracleSelections.Sort((left, right) => left.Sequence.CompareTo(right.Sequence));
             foreach (OracleSelectionSnapshot oracleSelection in pendingOracleSelections)
@@ -713,6 +737,189 @@ namespace ActiveAIVDetector
                     log,
                     $"Writing the opt-in live building grid failed: {ex}");
             }
+        }
+
+        private void WritePendingOraclePrebuildTraces()
+        {
+            if (pendingPrebuildFrames.Count == 0)
+                return;
+
+            var framesByCapture = new Dictionary<int, List<OraclePrebuildFrameTraceSnapshot>>();
+            foreach (OraclePrebuildFrameTraceSnapshot frame in pendingPrebuildFrames)
+            {
+                if (!framesByCapture.TryGetValue(
+                        frame.CaptureSequence,
+                        out List<OraclePrebuildFrameTraceSnapshot> frames))
+                {
+                    frames = new List<OraclePrebuildFrameTraceSnapshot>();
+                    framesByCapture.Add(frame.CaptureSequence, frames);
+                }
+                frames.Add(frame);
+            }
+
+            var captureSequences = new List<int>(framesByCapture.Keys);
+            captureSequences.Sort();
+            foreach (int captureSequence in captureSequences)
+            {
+                List<OraclePrebuildFrameTraceSnapshot> frames =
+                    framesByCapture[captureSequence];
+                frames.Sort((left, right) =>
+                    left.CaptureFrameNumber.CompareTo(right.CaptureFrameNumber));
+                WriteOraclePrebuildTrace(captureSequence, frames);
+            }
+        }
+
+        private void WriteOraclePrebuildTrace(
+            int captureSequence,
+            IReadOnlyList<OraclePrebuildFrameTraceSnapshot> frames)
+        {
+            try
+            {
+                if (frames.Count == 0)
+                    return;
+
+                OraclePrebuildFrameTraceSnapshot first = frames[0];
+                Directory.CreateDirectory(prebuildTraceOptions.OutputDirectory);
+                string fileName = string.Format(
+                    CultureInfo.InvariantCulture,
+                    "oracle-prebuild-trace-{0}-session{1:D3}-p{2}-capture{3:D2}.tsv",
+                    first.StartedAtLocal.ToString(
+                        "yyyyMMdd-HHmmss-fff",
+                        CultureInfo.InvariantCulture),
+                    mapLoadSequence,
+                    first.PlayerId,
+                    captureSequence);
+                string path = Path.Combine(prebuildTraceOptions.OutputDirectory, fileName);
+
+                int totalAdded = 0;
+                int totalRemoved = 0;
+                int totalReplaced = 0;
+                int pointerProblemFrames = 0;
+                int errorFrames = 0;
+                int highlightedFrames = 0;
+                foreach (OraclePrebuildFrameTraceSnapshot frame in frames)
+                {
+                    totalAdded += frame.AddedCount;
+                    totalRemoved += frame.RemovedCount;
+                    totalReplaced += frame.ReplacedCount;
+                    if (!frame.PlacementStatePointerConsistent)
+                        pointerProblemFrames++;
+                    if (!string.IsNullOrEmpty(frame.CaptureError))
+                        errorFrames++;
+                    if (frame.IsHighlightedMapper)
+                        highlightedFrames++;
+                }
+
+                using (var writer = new StreamWriter(path, false, new UTF8Encoding(false)))
+                {
+                    writer.NewLine = "\r\n";
+                    writer.WriteLine($"# capturedAtLocal={first.StartedAtLocal:O}");
+                    writer.WriteLine($"# mapLoadSequence={mapLoadSequence}");
+                    writer.WriteLine($"# mapName={currentMapName}");
+                    writer.WriteLine($"# mapFile={currentMapFileName}");
+                    writer.WriteLine($"# mapFileSha256={currentMapFileSha256}");
+                    writer.WriteLine($"# preBuildSetting={CurrentPreBuildSetting}");
+                    writer.WriteLine($"# captureSequence={captureSequence}");
+                    writer.WriteLine($"# playerId={first.PlayerId}");
+                    writer.WriteLine($"# frameCount={frames.Count}");
+                    writer.WriteLine($"# pointerProblemFrames={pointerProblemFrames}");
+                    writer.WriteLine($"# captureErrorFrames={errorFrames}");
+                    writer.WriteLine($"# highlightedMapperFrames={highlightedFrames}");
+                    writer.WriteLine(
+                        "captureFrameNumber\tstartedAtLocal\tcompletedAtLocal\t" +
+                        "selectionSequence\tframeIndex\tactiveLayoutIndex\tmapper\t" +
+                        "highlightedMapper\tstatus\thelper\tpositionCount\t" +
+                        "firstPositionIndex\trestrictedMode\tfreeOrForced\treturnValue\t" +
+                        "placementStateAddress\tpointerConsistent\tadded\tremoved\t" +
+                        "replaced\tchanged\tcaptureError");
+
+                    foreach (OraclePrebuildFrameTraceSnapshot frame in frames)
+                    {
+                        writer.WriteLine(string.Format(
+                            CultureInfo.InvariantCulture,
+                            "{0}\t{1:O}\t{2:O}\t{3}\t{4}\t{5}\t{6}\t{7}\t{8}\t{9}\t" +
+                            "{10}\t{11}\t{12}\t{13}\t{14}\t0x{15:X}\t{16}\t{17}\t" +
+                            "{18}\t{19}\t{20}\t{21}",
+                            frame.CaptureFrameNumber,
+                            frame.StartedAtLocal,
+                            frame.CompletedAtLocal,
+                            frame.SelectionSequence,
+                            frame.FrameIndex,
+                            frame.ActiveLayoutIndex,
+                            frame.Mapper,
+                            frame.IsHighlightedMapper,
+                            frame.Status,
+                            frame.Helper,
+                            frame.PositionCount,
+                            frame.FirstPositionIndex,
+                            frame.RestrictedMode,
+                            frame.FreeOrForced,
+                            frame.ReturnValue,
+                            frame.PlacementStateAddress,
+                            frame.PlacementStatePointerConsistent,
+                            frame.AddedCount,
+                            frame.RemovedCount,
+                            frame.ReplacedCount,
+                            frame.Changes.Count,
+                            SanitizeTsv(frame.CaptureError)));
+                    }
+
+                    writer.WriteLine();
+                    writer.WriteLine("# synchronous BuildingId-grid changes per ExecuteBuildStep frame");
+                    writer.WriteLine(
+                        "captureFrameNumber\tframeIndex\tmapper\ttileId\tbeforeId\tafterId\tchangeKind");
+                    foreach (OraclePrebuildFrameTraceSnapshot frame in frames)
+                    {
+                        foreach (OraclePrebuildBuildingGridChange change in frame.Changes)
+                        {
+                            writer.WriteLine(string.Format(
+                                CultureInfo.InvariantCulture,
+                                "{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}",
+                                frame.CaptureFrameNumber,
+                                frame.FrameIndex,
+                                frame.Mapper,
+                                change.TileId,
+                                change.BeforeId,
+                                change.AfterId,
+                                change.Kind));
+                        }
+                    }
+                }
+
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    $"Wrote opt-in Oracle prebuild trace: path={path}, " +
+                    $"mapLoadSequence={mapLoadSequence}, playerId={first.PlayerId}, " +
+                    $"frames={frames.Count}, added={totalAdded}, removed={totalRemoved}, " +
+                    $"replaced={totalReplaced}, pointerProblemFrames={pointerProblemFrames}, " +
+                    $"captureErrorFrames={errorFrames}.");
+                foreach (OraclePrebuildFrameTraceSnapshot frame in frames)
+                {
+                    if (!frame.IsHighlightedMapper)
+                        continue;
+                    Shared.DebugLogHelper.LogInfo(
+                        log,
+                        $"Oracle prebuild highlighted mapper frame: playerId={frame.PlayerId}, " +
+                        $"frameIndex={frame.FrameIndex}, mapper={frame.Mapper}, " +
+                        $"returnValue={frame.ReturnValue}, added={frame.AddedCount}, " +
+                        $"removed={frame.RemovedCount}, replaced={frame.ReplacedCount}, " +
+                        $"pointerConsistent={frame.PlacementStatePointerConsistent}.");
+                }
+            }
+            catch (Exception ex)
+            {
+                // File output is deferred, but it remains diagnostic-only.
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Writing the opt-in Oracle prebuild trace failed: {ex}");
+            }
+        }
+
+        private static string SanitizeTsv(string value)
+        {
+            return string.IsNullOrEmpty(value)
+                ? string.Empty
+                : value.Replace('\t', ' ').Replace('\r', ' ').Replace('\n', ' ');
         }
 
         private ResolvedAivSource ResolveOracleSource(

@@ -13,7 +13,7 @@ namespace ActiveAIVDetector
 
         public const string PluginGuid = "ActiveAIVDetector_Serp";
         public const string PluginName = "Active AIV Detector";
-        public const string PluginVersion = "0.9.2";
+        public const string PluginVersion = "0.9.3";
 
         // The plugin component is destroyed during startup, so process-lifetime state stays static.
         private static ActiveAIVDetectionRuntime runtime;
@@ -37,7 +37,19 @@ namespace ActiveAIVDetector
                 Config.Bind("Oracle cell trace", "KeepY", 428).Value,
                 Config.Bind("Oracle cell trace", "MaximumCaptureCount", 1).Value,
                 Path.Combine(Paths.PluginPath, PluginGuid, "CellTraces"));
-            runtime = new ActiveAIVDetectionRuntime(Logger, cellTraceOptions);
+            var prebuildTraceOptions = new OraclePrebuildTraceOptions(
+                Config.Bind(
+                    "Oracle prebuild trace",
+                    "Enabled",
+                    false,
+                    "Trace synchronous ExecuteBuildStep building-grid changes without altering Vanilla behavior.").Value,
+                Config.Bind("Oracle prebuild trace", "PlayerId", 2).Value,
+                Config.Bind("Oracle prebuild trace", "MaximumCaptureCount", 1).Value,
+                Path.Combine(Paths.PluginPath, PluginGuid, "PrebuildTraces"));
+            runtime = new ActiveAIVDetectionRuntime(
+                Logger,
+                cellTraceOptions,
+                prebuildTraceOptions);
             CrusaderLibrary.Instance.LibraryLoaded += OnCrusaderLibraryLoaded;
             Shared.DebugLogHelper.LogInfo(Logger, $"{PluginName} {PluginVersion} loaded.");
         }

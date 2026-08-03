@@ -678,7 +678,10 @@ Fehler. Ergebnisse und Hashes stehen in
 
 **Trace-Nachtrag:** Der wiederholte Wildcard-Lauf mit ActiveAIVDetector 0.9.2
 lieferte je einen Versuch und ein vollständiges Grid für Spieler 2 bis 7. Die
-sechs Zwischenzustände sind valide und vollständig ausgewertet.
+sechs Zwischenzustände sind valide und vollständig ausgewertet. Der ergänzende
+ActiveAIVDetector-0.9.3-Lauf erfasste außerdem alle 77 `ExecuteBuildStep`-
+Frames des ersten Spieler-2-Sofortspawns mit einem konsistenten Placement-
+State-Zeiger, 0 Capturefehlern und 0 Hookwarnungen.
 
 **Native Ausführungsanalyse:** `ExecuteBuildStep` umgeht bei
 `freeOrForced=true` nur die Ressourcen-/Verfügbarkeitsprüfung. Der erneut gegen
@@ -687,9 +690,12 @@ Fehlschlag blockiert den nachfolgenden Konstruktor jedoch nicht. Der
 Tunnelers-Guild-Konstruktor erzeugt Hauptgebäude und separaten 5×5-Hof und
 erklärt damit die 50 erzwungenen Zellen vollständig. Drawbridges benötigen
 zuvor ein passendes lebendes Tor samt Orientierung; der Goods-Yard-Konstruktor
-erzeugt vier reale Gebäudedatensätze und neun Verbindungstiles. Für die exakte
-Entscheidung des konkreten Mapper-52-Frames bleibt ein schmaler
-`ExecuteBuildStep`-Laufzeittrace sinnvoll.
+erzeugt vier reale Gebäudedatensätze und neun Verbindungstiles. Der gezielte
+Laufzeittrace entscheidet die konkreten Frames: Mapper 105 gab `0` zurück und
+änderte keine Building-ID, Mapper 89 gab `1` zurück und erzeugte zwei IDs mit
+je 25 Zellen, Mapper 52 gab `0` zurück und änderte das Building-Grid an keiner
+Stelle. Die 20 abhängigen Sofortspawn-Fälle bleiben bis zu einer vollständigen
+sequenziellen Offline-Ausführung technisch begründet `NotEvaluable`.
 
 **Geometrienachtrag:** Ein Read-only-Scan aller 238 installierten offiziellen Karten
 belegt zusätzlich die World Sizes 500, 600 und 700. Die Offline-Geometrie und
