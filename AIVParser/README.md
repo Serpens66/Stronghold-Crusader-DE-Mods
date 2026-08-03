@@ -235,10 +235,14 @@ laufen invertiert zur Welt-Y-Richtung. Der Parser selbst bleibt absichtlich
 spielunabhängig und gibt weiterhin nur AIV-Punkte und Ankerdifferenzen zurück; die
 obige Abbildung gehört in den Spieladapter des jeweiligen Mods.
 
-Wenn bereits ein Keep des Zielspielers existiert, kann dessen Platzierung als
-Weltanker verwendet und der Keep-Frame der AIV übersprungen werden. Soll eine
-vollständig neue Burg entstehen, wird auch der Keep-Frame am gewählten Weltanker
-erzeugt.
+Die gewählte Rotation gilt immer gemeinsam für AIV und realen Startkomplex. Dazu
+gehören der Keep, das 5×5-Vorratslager und weitere an den Spielerstart gekoppelte
+Gebäude. Ein bereits vorhandener Keep darf deshalb nur dann als Weltanker dienen
+und im AIV-Frame übersprungen werden, wenn der vorhandene Startkomplex bereits
+dieselbe Orientierung besitzt. Bei abweichender Orientierung muss der
+Startkomplex passend rekonstruiert werden; eine vom Keep unabhängige AIV-Rotation
+entspricht nicht dem nativen Kartenstart. Bei einer vollständig neuen Burg wird
+der Keep-Frame am gewählten Weltanker mit derselben Rotation erzeugt.
 
 ### Normale Gebäude erzeugen
 

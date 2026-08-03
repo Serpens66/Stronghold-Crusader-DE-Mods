@@ -13,6 +13,10 @@ Kanonisch sind nur neu importierte Fälle mit
 - unverändertem Map- und AIV-Hash und
 - einem unveränderten nativen Sollwert.
 
+Der Importer und der Vergleich besitzen dafür keinen Legacy-Modus mehr:
+sitzungslose Fälle, unbekannte Sofortspawn-Werte, fehlende native
+Selection-Zeilen und manuelle Modus-Overrides werden abgewiesen.
+
 Der aktuelle Stand auf `v_Thasos.map` ist:
 
 | Corpus | Modus | Fälle | Exakt | Mismatch | `NotEvaluable` | Fehler |
@@ -69,6 +73,11 @@ bereits verarbeiteten KI-Slot
 - die gewählte Rotation `0`, `90`, `180` oder `270` und
 - die eindeutig gekoppelten Wall-Flags der Nachbarzellen.
 
+Diese Rotation ist dieselbe Auswahl, die für die AIV gilt. AIV, Keep,
+Vorratslager und weitere gekoppelte Startgebäude werden nie unabhängig
+voneinander gedreht. Der feste Ursprung der rotierten 100×100-Fit-Grids ist nur
+eine Koordinatenregel und hebt diese Kopplung nicht auf.
+
 Ein abgelehnter KI-Start bleibt dagegen unverändert serialisiert. Die
 Transformationen sind durch den nativen Startloop bei RVA `0x935A0`, den
 Building-Aufruf bei RVA `0x6C7F0` und das gültige 0.9.1-Live-Grid belegt. Damit
@@ -90,6 +99,16 @@ grob: Der gültige Paarkorpus erreicht im Modus `1` nur 6/24 exakte Fälle. Dies
 
 ## Nächste Laufzeitevidenz
 
+Ein erster Lauf mit Version 0.9.1 bestätigte erneut `advopt_pre_build=1` und
+alle 24 nativen Fälle, deckte aber einen Fehler im Diagnosefilter auf:
+`MaximumCaptureCount` zählte Rotationen statt Spieler und das vollständige
+Grid wurde pro Prozess nur einmal geschrieben. Dadurch entstanden vier Dumps
+für Spieler 2, zwei für Spieler 3 und nur ein vollständiges Grid. Der Lauf ist
+unter `.native-analysis/chat10-next/thasos-prebuild-20260803-164639/` mit dem
+Log-Hash
+`90DFAAB2CE9C4E474A68B02B4E540F81BA4B185963D99A5A2D3B67CDC6997E46`
+gesichert. ActiveAIVDetector 0.9.2 korrigiert beide Diagnoseprobleme.
+
 Die installierte Trace-Konfiguration wird für genau einen Thasos-Lauf mit
 Sofortspawn auf folgende Filter gesetzt:
 
@@ -100,7 +119,8 @@ Sofortspawn auf folgende Filter gesetzt:
     KeepY = -1
     MaximumCaptureCount = 6
 
-Damit wird jeweils der erste Kandidatenversuch der Spieler 2 bis 7 erfasst.
+Damit wird seit Version 0.9.2 jeweils der erste Kandidatenversuch der Spieler
+2 bis 7 erfasst.
 Jeder Dump enthält das reale vollständige Building-Grid vor diesem Spieler.
 Ein einziger Start mit allen sechs KI-Slots reicht deshalb aus, um die
 PreBuild-Zustandsübergänge zu bestimmen.

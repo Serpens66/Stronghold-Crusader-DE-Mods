@@ -46,6 +46,11 @@ gehören nicht nur Gebäudezellen, sondern auch eindeutig angrenzende Wall-Flags
 Ein abgelehnter Start bleibt unverändert. Die Offline-Rekonstruktion bildet
 dies nun ab; dadurch sind alle 24 No-PreBuild-Fälle exakt.
 
+Verbindliche Rotationsregel: AIV und realer Startkomplex werden immer gemeinsam
+gedreht. Keep, 5×5-Vorratslager und weitere gekoppelte Startgebäude verwenden
+dieselbe ausgewählte Orientierung; eine unabhängige AIV-Rotation ist kein
+gültiges Modell des nativen Kartenstarts.
+
 Die Transformationsbasis relativ zum serialisierten Keep-Anker lautet:
 
 | Rotation | Zielrelativkoordinate aus `(x,y)` |
@@ -56,6 +61,19 @@ Die Transformationsbasis relativ zum serialisierten Keep-Anker lautet:
 | 270 | `(12 - y, x + 1)` |
 
 ## Vorbereiteter nächster Lauf
+
+Der erste Wildcard-Lauf vom 2026-08-03 um 16:46 Uhr ist als Evidenz gesichert,
+aber nicht die benötigte Sechserfolge: Version 0.9.1 zählte sechs
+Kandidatenversuche und erfasste dadurch vier Rotationen von Spieler 2 sowie
+zwei von Spieler 3. Außerdem schrieb sie nur für den ersten Capture ein
+vollständiges Live-Building-Grid. Der Log selbst ist gültig und reproduziert
+den 24-Fall-Sofortspawn-Stand mit 6 exakten Fällen und 18 Mismatches. Die beiden
+Spieler-3-Traces belegen jeweils 39 bereits vor dem gemeinsamen Validator
+blockierte Zellen, reichen aber nicht für alle Spielerübergänge.
+
+ActiveAIVDetector 0.9.2 begrenzt einen negativen Spielerfilter deshalb auf
+höchstens einen Capture pro Spieler und schreibt für jeden Capture ein eigenes
+Live-Building-Grid.
 
 Die Trace-Vorlage und die installierte Konfiguration müssen auf folgendem
 Profil stehen:
@@ -81,7 +99,7 @@ weiterer Editorstart und kein zweiter No-PreBuild-Lauf sind nötig.
 
 1. `LogOutput.log`, alle sechs Trace-Dateien und alle sechs Grids in einen neuen
    Evidenzordner kopieren und mit SHA-256 binden.
-2. Prüfen, dass der Log ActiveAIVDetector 0.9.1 und
+2. Prüfen, dass der Log ActiveAIVDetector 0.9.2 und
    `advopt_pre_build=1` nennt.
 3. Für jeden Dump prüfen, dass der Placement-State-Zeiger aus Validatorcalls
    stammt und keine Pointer-Warnung vorliegt.

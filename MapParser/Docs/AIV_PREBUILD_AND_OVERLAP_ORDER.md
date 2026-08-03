@@ -31,6 +31,11 @@ bevor die Schleife die Spieler-ID erhöht:
 4. bei aktivem `advopt_pre_build` die vorbereitete AIV zu `100 %` ausführen;
 5. erst danach zur nächsten Spieler-ID wechseln.
 
+Die in Schritt 1 ausgewählte Orientierung ist eine gemeinsame Eigenschaft von
+AIV und Spielerstart. Der in Schritt 3 erzeugte Keep, das 5×5-Vorratslager und
+weitere gekoppelte Startgebäude werden mit genau derselben Rotation neu
+aufgebaut. Eine AIV-Rotation unabhängig vom Keep gibt es in diesem Ablauf nicht.
+
 Der entscheidende native Abschnitt liegt im Kartenstartpfad um RVA
 `0x95180`. Der Sofortspawn-Test liest die globale Option an VA
 `0x1887EB2E8`. Bei aktivem Modus setzt RVA `0x9523E` das Spielerbit, lädt an
@@ -137,10 +142,13 @@ bezeichnet dabei weiterhin Natur und keinen KI-Spieler.
 - Sitzungen werden in offizieller Spieler-ID-Reihenfolge ausgewertet. Für
   Spieler `N` werden nur die Startkomplexe früherer Spieler behalten; der
   eigene Start ist während seiner Kandidatenprüfung noch nicht vorhanden.
+- Ein akzeptierter früherer KI-Start wird nicht an seiner serialisierten Lage
+  behalten, sondern mit der nativ ausgewählten AIV-Rotation rekonstruiert. Ein
+  abgelehnter Start bleibt unverändert serialisiert.
 - Frühere AIV-Projektionen werden ausschließlich bei Wert `1` als bereits
   ausgeführte PreBuild-Belegung weitergetragen. Bei Wert `0` werden sie nicht
-  als Blocker übernommen. Ein fehlender oder unbekannter Wert führt bei
-  sitzungsabhängigen Fällen zu `NotEvaluable`.
+  als Blocker übernommen. Ein fehlender oder unbekannter Wert macht den Korpus
+  ungültig und wird bereits beim Import oder vor der Auswertung abgewiesen.
 
 Die als `ProjectedPrebuiltAiv*` bezeichnete Offline-Belegung ist eine
 deterministische Annäherung an die erfolgreiche native Ausführung. Wo exakte

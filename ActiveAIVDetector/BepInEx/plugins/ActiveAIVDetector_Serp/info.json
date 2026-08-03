@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Active AIV Detector",
   "Description": "Diagnostic mod that logs the lord and AIVJSON selected by the native castle placement engine.",
-  "Version": "0.9.1",
+  "Version": "0.9.2",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "0.9.2",
+      "Changes": [
+        "Capture at most one wildcard trace per player and write a separate live-building-grid snapshot for every captured player."
+      ]
+    },
     {
       "Version": "0.9.1",
       "Changes": [

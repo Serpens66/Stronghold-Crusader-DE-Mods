@@ -196,6 +196,12 @@ native Weltkoordinaten lautet anschließend:
     worldX = keepTileX + deltaColumn
     worldY = keepTileY - deltaRow
 
+Diese Grid-Rechnung beschreibt keinen unabhängig drehbaren AIV-Plan. Die
+ausgewählte Orientierung wird vom Spiel zugleich auf den realen Keep und den
+gekoppelten Startkomplex einschließlich Vorratslager angewandt. AIV und
+Startkomplex dürfen bei einer Vanilla-äquivalenten Prüfung nie unterschiedliche
+Rotationen erhalten.
+
 Diese Projektion benötigt ausdrücklich einen echten nativen Keep-Tile-Anker.
 Sie darf nicht mit einer U4-Radarposition aufgerufen werden. Footprint- und
 Placement-Semantik sind nicht Teil dieses Schritts.

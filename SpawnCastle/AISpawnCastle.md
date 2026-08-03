@@ -574,8 +574,8 @@ The corrected sequence used since version `0.2.5` is:
 5. at that point, Vanilla has initialized native AIV state but has not yet
    occupied the Keep footprint;
 6. allocate an AIV spec for the local player;
-7. use the intercepted Keep coordinates and orientation zero as the initial
-   placement;
+7. use the intercepted Keep coordinates and orientation zero only as the
+   initial search seed;
 8. run the best-fit function with rotation search enabled and require placement
    state 1 or 2;
 9. prepare the selected layout and write its spec index into the local player's
@@ -591,6 +591,11 @@ The corrected sequence used since version `0.2.5` is:
 14. while that synchronous execution is active, rewrite only Hovel
     `OnBuildStructure(Pre)` argument `a7` from the AIV sentinel `15` to a
     deterministic `0..6` cycle.
+
+The selected best-fit orientation is one shared castle orientation. It drives
+both the AIV layout and the intercepted real Keep/start-complex creation,
+including the stockpile and other coupled start buildings. Orientation zero in
+step 7 is not an independently fixed Keep orientation.
 
 This matches the relevant native AI ordering at RVAs `0x950DE` through
 `0x9511A`: `PrepareAIV` is called first, then the game reads the prepared global

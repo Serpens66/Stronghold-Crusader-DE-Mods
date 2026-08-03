@@ -114,99 +114,63 @@ internal static class Program
             .Where(item => item.Status == MapKeepAnchorStatus.Exact)
             .Select(item => item.SlotIndex)
             .ToArray();
-        IReadOnlyList<OracleSelectionGroup> selectionGroups = BuildSelectionGroups(corpus.Cases);
         var mapsByCaseId = new Dictionary<string, IAivPlacementTileSource?>(StringComparer.Ordinal);
-        if (corpus.Cases.Any(item => !string.IsNullOrWhiteSpace(item.SessionId)))
+        IReadOnlyList<OracleSelectionSession> sessions = BuildSelectionSessions(corpus.Cases);
+        var placementEvaluator = new AivPlacementEvaluator();
+        foreach (OracleSelectionSession session in sessions)
         {
-            IReadOnlyList<OracleSelectionSession> sessions = BuildSelectionSessions(corpus.Cases);
-            var placementEvaluator = new AivPlacementEvaluator();
-            foreach (OracleSelectionSession session in sessions)
-            {
-                int? preBuildSetting = ResolveSessionPreBuildSetting(session);
-                OracleSelectionGroup[] orderedGroups = session.Groups
-                    .OrderBy(item => item.PlayerId)
-                    .ToArray();
-                HashSet<int> aiStartSlots = ResolveStartSlots(anchors, session.Groups);
-                int[] humanStartSlots = exactStartSlots.Length == session.Groups.Count + 1
-                    ? exactStartSlots.Where(slot => !aiStartSlots.Contains(slot)).ToArray()
-                    : Array.Empty<int>();
-                var priorPrebuiltPlacements = new List<AivProjectedPrebuildPlacement>();
-                var priorStartSlots = new HashSet<int>(humanStartSlots);
-                var rebuiltStartRotationsBySlot = new Dictionary<int, AivRotation>();
-                foreach (OracleSelectionGroup group in orderedGroups)
-                {
-                    IAivPlacementTileSource? sequentialMap = null;
-                    if (hasExactAnchors && preBuildSetting.HasValue)
-                    {
-                        sequentialMap = AivPreplacementMapState.Create(
-                            document,
-                            priorStartSlots,
-                            rebuiltStartRotationsBySlot);
-                        if (preBuildSetting.Value == 1 && priorPrebuiltPlacements.Count != 0)
-                        {
-                            sequentialMap = new AivProjectedPrebuildMapState(
-                                sequentialMap,
-                                priorPrebuiltPlacements);
-                        }
-                    }
-
-                    foreach (OracleCase oracleCase in group.Cases)
-                        mapsByCaseId.Add(oracleCase.Id, sequentialMap);
-
-                    OracleCase? selected = SelectNativePlacement(group.Cases);
-                    if (selected != null && sequentialMap != null && preBuildSetting == 1)
-                    {
-                        AivBlueprint selectedBlueprint = LoadBlueprint(
-                            Path.GetFullPath(selected.AivPath));
-                        AivPlacementResult selectedPlacement = placementEvaluator.Evaluate(
-                            sequentialMap,
-                            selectedBlueprint,
-                            new MapCoordinate(selected.KeepX, selected.KeepY),
-                            ParseRotation(selected.Rotation));
-                        priorPrebuiltPlacements.Add(new AivProjectedPrebuildPlacement(
-                            session.SessionId,
-                            selected.PlayerId,
-                            selectedPlacement));
-                    }
-
-                    AddSelectedStartRotation(
-                        anchors,
-                        selected,
-                        rebuiltStartRotationsBySlot);
-                    AddResolvedStartSlot(anchors, group, priorStartSlots);
-                }
-            }
-        }
-        else
-        {
-            // Historical corpora predate session capture. They are valid cell oracles,
-            // but their selections must not be chained on player-ID ordering alone.
-            HashSet<int> corpusAiStartSlots = ResolveStartSlots(anchors, selectionGroups);
-            int[] corpusHumanStartSlots = exactStartSlots.Length == selectionGroups.Count + 1
-                ? exactStartSlots.Where(slot => !corpusAiStartSlots.Contains(slot)).ToArray()
+            int preBuildSetting = ResolveSessionPreBuildSetting(session);
+            OracleSelectionGroup[] orderedGroups = session.Groups
+                .OrderBy(item => item.PlayerId)
+                .ToArray();
+            HashSet<int> aiStartSlots = ResolveStartSlots(anchors, session.Groups);
+            int[] humanStartSlots = exactStartSlots.Length == session.Groups.Count + 1
+                ? exactStartSlots.Where(slot => !aiStartSlots.Contains(slot)).ToArray()
                 : Array.Empty<int>();
-            Log(
-                "INFO",
-                $"Historical corpus start context: exactSlots={exactStartSlots.Length}, " +
-                $"selectionGroups={selectionGroups.Count}, resolvedAiSlots={corpusAiStartSlots.Count}, " +
-                $"retainedHumanSlots=[{string.Join(",", corpusHumanStartSlots)}].");
-            foreach (OracleSelectionGroup group in selectionGroups)
+            var priorPrebuiltPlacements = new List<AivProjectedPrebuildPlacement>();
+            var priorStartSlots = new HashSet<int>(humanStartSlots);
+            var rebuiltStartRotationsBySlot = new Dictionary<int, AivRotation>();
+            foreach (OracleSelectionGroup group in orderedGroups)
             {
-                int[] humanStartSlots = corpusHumanStartSlots;
-                HashSet<int> groupStartSlots = ResolveStartSlots(anchors, new[] { group });
-                if (humanStartSlots.Length == 0 &&
-                    exactStartSlots.Length == groupStartSlots.Count + 1)
+                IAivPlacementTileSource? sequentialMap = null;
+                if (hasExactAnchors)
                 {
-                    humanStartSlots = exactStartSlots
-                        .Where(slot => !groupStartSlots.Contains(slot))
-                        .ToArray();
+                    sequentialMap = AivPreplacementMapState.Create(
+                        document,
+                        priorStartSlots,
+                        rebuiltStartRotationsBySlot);
+                    if (preBuildSetting == 1 && priorPrebuiltPlacements.Count != 0)
+                    {
+                        sequentialMap = new AivProjectedPrebuildMapState(
+                            sequentialMap,
+                            priorPrebuiltPlacements);
+                    }
                 }
 
-                IAivPlacementTileSource? independentMap = hasExactAnchors
-                    ? AivPreplacementMapState.Create(document, humanStartSlots)
-                    : null;
                 foreach (OracleCase oracleCase in group.Cases)
-                    mapsByCaseId.Add(oracleCase.Id, independentMap);
+                    mapsByCaseId.Add(oracleCase.Id, sequentialMap);
+
+                OracleCase? selected = SelectNativePlacement(group.Cases);
+                if (selected != null && sequentialMap != null && preBuildSetting == 1)
+                {
+                    AivBlueprint selectedBlueprint = LoadBlueprint(
+                        Path.GetFullPath(selected.AivPath));
+                    AivPlacementResult selectedPlacement = placementEvaluator.Evaluate(
+                        sequentialMap,
+                        selectedBlueprint,
+                        new MapCoordinate(selected.KeepX, selected.KeepY),
+                        ParseRotation(selected.Rotation));
+                    priorPrebuiltPlacements.Add(new AivProjectedPrebuildPlacement(
+                        session.SessionId,
+                        selected.PlayerId,
+                        selectedPlacement));
+                }
+
+                AddSelectedStartRotation(
+                    anchors,
+                    selected,
+                    rebuiltStartRotationsBySlot);
+                AddResolvedStartSlot(anchors, group, priorStartSlots);
             }
         }
         parse.Stop();
@@ -388,39 +352,8 @@ internal static class Program
         if (attempts == null || attempts.Count == 0)
             return null;
 
-        // New captures carry Vanilla's explicit selection record. A rejected
-        // selection deliberately has no selected attempt and must stay empty.
-        if (attempts.Any(item => item.SelectedForPlacement.HasValue))
-            return attempts.SingleOrDefault(item => item.SelectedForPlacement == true);
-
-        // Candidate selection prefers the first complete fit across all attempts.
-        OracleCase? complete = attempts.FirstOrDefault(item =>
-            item.Native.PlacementState == 2);
-        if (complete != null)
-            return complete;
-
-        OracleCase initial = attempts[0];
-        if (initial.Native.PlacementState == 1)
-            return initial;
-
-        OracleCase? bestAlternative = null;
-        for (int index = 1; index < attempts.Count; index++)
-        {
-            OracleCase candidate = attempts[index];
-            if (candidate.Native.PlacementState != 1 ||
-                candidate.Native.FitPercentage < 86)
-            {
-                continue;
-            }
-
-            if (bestAlternative == null ||
-                candidate.Native.FitPercentage > bestAlternative.Native.FitPercentage)
-            {
-                bestAlternative = candidate;
-            }
-        }
-
-        return bestAlternative;
+        // A rejected native selection deliberately has no selected attempt.
+        return attempts.SingleOrDefault(item => item.SelectedForPlacement == true);
     }
 
     private static AivTileOccupancyKind ResolveCandidateOccupancyKind(OracleCase oracleCase) =>
@@ -455,7 +388,7 @@ internal static class Program
         if (cases.Any(item => string.IsNullOrWhiteSpace(item.SessionId)))
         {
             throw new InvalidDataException(
-                "A corpus must not mix cases with and without explicit session IDs.");
+                "Every Oracle case must carry an explicit session ID.");
         }
 
         var sessions = new List<OracleSelectionSession>();
@@ -470,7 +403,7 @@ internal static class Program
         return sessions;
     }
 
-    private static int? ResolveSessionPreBuildSetting(OracleSelectionSession session)
+    private static int ResolveSessionPreBuildSetting(OracleSelectionSession session)
     {
         int?[] settings = session.Groups
             .SelectMany(group => group.Cases)
@@ -484,7 +417,10 @@ internal static class Program
                 "advopt_pre_build values.");
         }
 
-        return settings[0] is 0 or 1 ? settings[0] : null;
+        return settings[0] is 0 or 1
+            ? settings[0]!.Value
+            : throw new InvalidDataException(
+                $"Oracle session '{session.SessionId}' has no explicit advopt_pre_build value.");
     }
 
     private static void AddResolvedStartSlot(
@@ -521,7 +457,7 @@ internal static class Program
                 out MapKeepAnchorResult? anchor,
                 out _))
         {
-            // Vanilla rebuilds an accepted AI start with the selected castle rotation.
+            // Vanilla applies one shared rotation to the AIV and rebuilt AI start.
             rebuiltStartRotationsBySlot.Add(
                 anchor!.SlotIndex,
                 ParseRotation(selected.Rotation));
@@ -557,14 +493,13 @@ internal static class Program
             oracleCase.Id,
             @"^(oracle-\d+)-",
             RegexOptions.CultureInvariant);
-        if (imported.Success)
-            return imported.Groups[1].Value;
+        if (!imported.Success)
+        {
+            throw new InvalidDataException(
+                $"Oracle case '{oracleCase.Id}' has no canonical imported selection ID.");
+        }
 
-        return Regex.Replace(
-            oracleCase.Id,
-            @"-rotation(?:0|90|180|270)$",
-            string.Empty,
-            RegexOptions.CultureInvariant);
+        return imported.Groups[1].Value;
     }
 
     private static bool TryResolveKeepAnchor(
@@ -802,14 +737,46 @@ internal static class Program
             throw new InvalidDataException("Every Oracle case needs an ID.");
         if (corpus.Cases.GroupBy(item => item.Id, StringComparer.Ordinal).Any(group => group.Count() != 1))
             throw new InvalidDataException("Oracle case IDs must be unique.");
-        if (corpus.Cases.Any(item =>
-                item.PreBuildSetting.HasValue &&
-                item.PreBuildSetting.Value != -1 &&
-                item.PreBuildSetting.Value != 0 &&
-                item.PreBuildSetting.Value != 1))
+        if (corpus.Cases.Any(item => string.IsNullOrWhiteSpace(item.SessionId)))
+            throw new InvalidDataException("Every Oracle case needs an explicit session ID.");
+        if (corpus.Cases.Any(item => item.PreBuildSetting is not (0 or 1)))
         {
             throw new InvalidDataException(
-                "advopt_pre_build must be -1 (unknown), 0 (disabled), or 1 (enabled).");
+                "Every Oracle case needs advopt_pre_build 0 (disabled) or 1 (enabled).");
+        }
+        if (corpus.Cases.Any(item =>
+                !item.SelectedForPlacement.HasValue ||
+                item.SelectionPlacementState is not (0 or 1 or 2)))
+        {
+            throw new InvalidDataException(
+                "Every Oracle case needs its native selection result.");
+        }
+
+        foreach (OracleSelectionSession session in BuildSelectionSessions(corpus.Cases))
+        {
+            ResolveSessionPreBuildSetting(session);
+            foreach (OracleSelectionGroup group in session.Groups)
+            {
+                int[] selectionStates = group.Cases
+                    .Select(item => item.SelectionPlacementState!.Value)
+                    .Distinct()
+                    .ToArray();
+                if (selectionStates.Length != 1)
+                {
+                    throw new InvalidDataException(
+                        $"Oracle session '{session.SessionId}', player {group.PlayerId} " +
+                        "contains inconsistent native selection states.");
+                }
+
+                int selectedCount = group.Cases.Count(item => item.SelectedForPlacement == true);
+                int expectedSelectedCount = selectionStates[0] > 0 ? 1 : 0;
+                if (selectedCount != expectedSelectedCount)
+                {
+                    throw new InvalidDataException(
+                        $"Oracle session '{session.SessionId}', player {group.PlayerId} " +
+                        $"contains {selectedCount} selected attempts; expected {expectedSelectedCount}.");
+                }
+            }
         }
     }
 
@@ -841,11 +808,7 @@ internal static class Program
 
     private static int ImportOracleLog(string[] args)
     {
-        if (args.Length != 3 &&
-            (args.Length != 5 || !string.Equals(
-                args[3],
-                "--session-prebuild",
-                StringComparison.Ordinal)))
+        if (args.Length != 3)
         {
             PrintUsage();
             return 2;
@@ -853,9 +816,6 @@ internal static class Program
 
         string logPath = Path.GetFullPath(args[1]);
         string outputDirectory = Path.GetFullPath(args[2]);
-        IReadOnlyDictionary<string, int> sessionOverrides = args.Length == 5
-            ? ParseSessionPreBuildOverrides(args[4])
-            : new Dictionary<string, int>(StringComparer.Ordinal);
         if (!File.Exists(logPath))
             throw new FileNotFoundException("The BepInEx log does not exist.", logPath);
 
@@ -951,13 +911,24 @@ internal static class Program
                     $"{attempt.SessionId}\n{attempt.Sequence}",
                     out ImportedOracleSelection? selection))
             {
-                continue;
+                throw new InvalidDataException(
+                    $"Oracle attempt #{attempt.Sequence} in session '{attempt.SessionId}' " +
+                    "has no native selection row.");
             }
 
             if (selection.PlayerId != attempt.PlayerId)
             {
                 throw new InvalidDataException(
                     $"Selection #{selection.Sequence} and its attempts disagree on player ID.");
+            }
+
+            if (attempt.PreBuildSetting.HasValue &&
+                selection.PreBuildSetting.HasValue &&
+                attempt.PreBuildSetting.Value != selection.PreBuildSetting.Value)
+            {
+                throw new InvalidDataException(
+                    $"Selection #{selection.Sequence} and its attempts disagree on " +
+                    "advopt_pre_build.");
             }
 
             attempt.PreBuildSetting ??= selection.PreBuildSetting;
@@ -967,18 +938,15 @@ internal static class Program
                 attempt.Rotation == selection.Rotation;
         }
 
-        foreach (ImportedOracleAttempt attempt in attempts)
+        if (attempts.Any(item => string.IsNullOrWhiteSpace(item.SessionId)))
         {
-            if (!sessionOverrides.TryGetValue(attempt.SessionId, out int overrideValue))
-                continue;
-            if (attempt.PreBuildSetting.HasValue &&
-                attempt.PreBuildSetting.Value != overrideValue)
-            {
-                throw new InvalidDataException(
-                    $"Captured advopt_pre_build={attempt.PreBuildSetting.Value} conflicts " +
-                    $"with the explicit override {overrideValue} for '{attempt.SessionId}'.");
-            }
-            attempt.PreBuildSetting = overrideValue;
+            throw new InvalidDataException(
+                "Oracle rows before the first map-load marker cannot form a canonical corpus.");
+        }
+        if (attempts.Any(item => item.PreBuildSetting is not (0 or 1)))
+        {
+            throw new InvalidDataException(
+                "Every imported session needs a runtime-captured advopt_pre_build value of 0 or 1.");
         }
 
         string sourceLogSha256 = Convert.ToHexString(SHA256.HashData(logBytes));
@@ -1019,6 +987,7 @@ internal static class Program
                     })
                     .ToList()
             };
+            ValidateCorpus(corpus);
 
             string outputPath = Path.Combine(
                 outputDirectory,
@@ -1031,28 +1000,6 @@ internal static class Program
         Log("INFO", $"Import summary: corpora={corpusCount}, attempts={attempts.Count}, " +
             $"sourceLogSha256={sourceLogSha256}.");
         return 0;
-    }
-
-    private static IReadOnlyDictionary<string, int> ParseSessionPreBuildOverrides(string value)
-    {
-        var result = new Dictionary<string, int>(StringComparer.Ordinal);
-        foreach (string entry in value.Split(',', StringSplitOptions.RemoveEmptyEntries))
-        {
-            string[] parts = entry.Split('=', 2);
-            if (parts.Length != 2 ||
-                string.IsNullOrWhiteSpace(parts[0]) ||
-                !int.TryParse(parts[1], out int setting) ||
-                setting is not (0 or 1) ||
-                !result.TryAdd(parts[0], setting))
-            {
-                throw new ArgumentException(
-                    "--session-prebuild expects unique entries like " +
-                    "map-load-001=0,map-load-002=1.");
-            }
-        }
-        if (result.Count == 0)
-            throw new ArgumentException("--session-prebuild must not be empty.");
-        return result;
     }
 
     private static int NativeOrientationToDegrees(int orientation) => orientation switch
@@ -1150,8 +1097,7 @@ internal static class Program
         "  AIVPlacement.OracleComparison <corpus.json> " +
         "[--case <id>] [--limit <count>] [--output <report.json>] " +
         "[--diagnostic-output <diagnostic.json>]\n" +
-        "  AIVPlacement.OracleComparison import-log <LogOutput.log> <output-directory> " +
-        "[--session-prebuild <session-id=0|1,...>]");
+        "  AIVPlacement.OracleComparison import-log <LogOutput.log> <output-directory>");
 
     private static void PrintSummary(ComparisonReport report) => Log(
         "INFO",

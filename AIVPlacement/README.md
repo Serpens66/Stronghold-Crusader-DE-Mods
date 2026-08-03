@@ -62,6 +62,9 @@ documented in `../MapParser/Docs/AIV_PLACEMENT_RULES.md`.
 - Vanilla rotates the complete 100x100 fit grids while retaining the world
   origin established for orientation zero. Rotated fits therefore do not rotate
   around the AIV keep marker.
+- That fixed fit-grid origin is only a coordinate rule. The selected rotation is
+  shared by the AIV and the real Keep/start complex, including the stockpile and
+  other coupled start buildings; they must never be rotated independently.
 - The stored AIV building point and its square footprint semantics come from
   `AIVParser.Core`.
 - Core and associated blocked tiles remain separately identified.
@@ -92,8 +95,8 @@ Use `--case <id>` for one reproducible case and `--output <report.json>` for a
 machine-readable report. Corpus runs log progress, elapsed time and ETA with
 millisecond timestamps.
 
-Version 0.7 Oracle logs can be imported without copying proprietary map or AIV
-files:
+Current ActiveAIVDetector 0.9.1 Oracle logs can be imported without copying
+proprietary map or AIV files:
 
     dotnet run --project AIVPlacement.OracleComparison -c Release -- \
       import-log "<BepInEx LogOutput.log>" OracleCorpus/Captured-YYYY-MM-DD
@@ -102,7 +105,9 @@ The importer takes a shared-read snapshot because BepInEx can keep the log
 open, rejects a snapshot that changes during reading, and binds every generated
 corpus to the source-log SHA-256. Canonical multi-player corpora require an
 explicit map-load session ID and one unambiguous `advopt_pre_build` value per
-session. A comparison returns a nonzero exit code for
+session as well as the native selection row. Session-less legacy logs, unknown
+PreBuild values and manually supplied mode overrides are rejected instead of
+being interpreted heuristically. A comparison returns a nonzero exit code for
 errors or mismatches. If no exact building-object Keep exists, the native case is
 retained as `NotEvaluable` with the concrete anchor failure instead of being
 reported as an error or evaluated from the runtime-only Keep coordinate.

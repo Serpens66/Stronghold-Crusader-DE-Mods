@@ -112,7 +112,7 @@ namespace ActiveAIVDetector
         private ValidatorTraceContext activeValidatorTrace;
         private long nextSequence;
         private int cellTraceCaptureCount;
-        private bool liveBuildingGridCaptured;
+        private readonly HashSet<int> cellTraceCapturedPlayerIds = new HashSet<int>();
         private bool callbackFailureLogged;
 
         public AivPlacementOracle(
@@ -460,13 +460,11 @@ namespace ActiveAIVDetector
 
             IReadOnlyList<OracleLiveBuildingTileEntry> liveBuildingTiles =
                 Array.Empty<OracleLiveBuildingTileEntry>();
-            if (!liveBuildingGridCaptured &&
-                validatorTrace != null &&
+            if (validatorTrace != null &&
                 validatorTrace.TryGetPlacementStateAddress(out ulong placementStateAddress))
             {
-                // One full snapshot avoids inferring rotated start footprints from the
-                // small subset of cells touched by a particular AIV candidate. Its base
-                // must be the pointer observed at the shared placement validator.
+                // Every wildcard-player capture needs its own pre-player snapshot;
+                // one process-wide grid would hide later PreBuild state transitions.
                 byte* placementState = (byte*)placementStateAddress;
                 var occupied = new List<OracleLiveBuildingTileEntry>();
                 for (int tileId = 0; tileId < FixedMapTileCount; tileId++)
@@ -483,9 +481,8 @@ namespace ActiveAIVDetector
                         *(int*)(placementState + TerrainFlagsOffset + tileId * 4)));
                 }
                 liveBuildingTiles = occupied.AsReadOnly();
-                liveBuildingGridCaptured = true;
             }
-            else if (!liveBuildingGridCaptured)
+            else
             {
                 Shared.DebugLogHelper.LogWarning(
                     log,
@@ -494,6 +491,7 @@ namespace ActiveAIVDetector
             }
 
             cellTraceCaptureCount++;
+            cellTraceCapturedPlayerIds.Add(session.PlayerId);
             OracleCellTraceSnapshot trace = new OracleCellTraceSnapshot(
                 DateTimeOffset.Now,
                 evaluatedCells,
@@ -532,6 +530,9 @@ namespace ActiveAIVDetector
                 // A negative diagnostic player ID follows a randomly assigned Keep.
                 (cellTraceOptions.PlayerId < 0 ||
                     session.PlayerId == cellTraceOptions.PlayerId) &&
+                // Wildcard runs capture one state transition per player, not rotations.
+                (cellTraceOptions.PlayerId >= 0 ||
+                    !cellTraceCapturedPlayerIds.Contains(session.PlayerId)) &&
                 session.CurrentCandidateId == cellTraceOptions.CandidateId &&
                 (cellTraceOptions.Orientation < 0 ||
                     session.CurrentOrientation == cellTraceOptions.Orientation) &&

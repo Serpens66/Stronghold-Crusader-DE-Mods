@@ -11,6 +11,11 @@ Langfristig soll bereits in der Skirmish-Lobby für jede Kombination aus
 
 bestimmt werden, ob die geplante Burg vollständig auf die Karte passt.
 
+Projektweite Rotationsinvariante: Die ausgewählte AIV-Rotation gilt zugleich
+für den realen Keep und den daran gekoppelten Startkomplex einschließlich des
+5×5-Vorratslagers. Der feste Ursprung der nativen 100×100-Fit-Grids ist nur eine
+Koordinatenregel. Er erlaubt keine vom Keep unabhängige AIV-Rotation.
+
 Die Offline-Prüfung soll möglichst dieselben Ergebnisse wie die native
 Spielprüfung liefern, darf dafür aber keine bereits geladene Karte voraussetzen.
 Die Lobby soll mindestens zwischen folgenden Ergebnissen unterscheiden können:
@@ -666,6 +671,11 @@ PreBuild-Ursache wird als nächstes in genau einem Lauf der reale Tile- und
 Gebäudezustand vor den Spielern 2 bis 7 erfasst. Ergebnisse, Hashes und
 Arbeitsreihenfolge stehen in `Docs/AIV_PLACEMENT_ORACLE_COMPARISON.md` und
 `Docs/CHAT10_ORACLE_MISMATCH_HANDOFF.md`.
+
+**Trace-Nachtrag:** Der erste Wildcard-Lauf erfasste wegen eines
+Diagnosezählers Rotationen statt Spieler. ActiveAIVDetector 0.9.2 begrenzt den
+Wildcard-Trace nun auf einen Versuch und ein vollständiges Grid pro Spieler;
+der Sofortspawn-Lauf muss deshalb einmal wiederholt werden.
 
 **Geometrienachtrag:** Ein Read-only-Scan aller 238 installierten offiziellen Karten
 belegt zusätzlich die World Sizes 500, 600 und 700. Die Offline-Geometrie und
