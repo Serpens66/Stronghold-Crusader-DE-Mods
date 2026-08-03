@@ -17,6 +17,41 @@ liefert. Der aktuelle Corpus besitzt alle benötigten Eingabedaten und erzeugt
 0 `NotEvaluable`; eine Abweichung darf deshalb nicht ohne neuen technischen
 Nachweis in `NotEvaluable` umetikettiert werden.
 
+## Aktueller Sitzungs- und Belegungsnachtrag
+
+Die ursprünglichen 144 Manifeste entstanden vor der Erfassung einer
+Kartenstart-ID. Mehrere Auswahlgruppen derselben Karte dürfen deshalb nicht
+allein wegen steigender Spieler-IDs als ein gemeinsamer Spielstart verkettet
+werden. Der aktuelle Log-Importer schreibt für neue Daten in jeden Fall ein
+explizites `SessionId` wie `map-load-001`, abgeleitet vom zugehörigen
+`c_game_dll_loadmaptoplay_hook_impl`-Ereignis. Nur Fälle mit derselben
+nichtleeren `SessionId` dürfen temporären Zustand vorheriger KI-Spieler teilen;
+ein Manifest darf Fälle mit und ohne Sitzungs-ID nicht mischen.
+
+Reale und temporär geplante Belegung sind im Offline-Modell getrennt:
+
+- `BuildingId != 0` bezeichnet ausschließlich ein wirklich in der Map-
+  beziehungsweise Laufzeitbelegung vorhandenes Gebäude;
+- `PlannedOccupancies` bezeichnet den temporären nativen AIV-Prüfzustand und
+  enthält `SessionId`, Spieler-ID, Mapper, Kategorie, Element- und Bauindex;
+- eine solche Zelle erhält `PriorAivPlannedOccupied`, nicht
+  `BuildingOccupied`; es wird keine künstliche Gebäude-ID als Ersatz erzeugt;
+- blockierte AIV-Elemente und zugehörige Reservierungsflächen werden nicht als
+  geplante Kernbelegung weitergereicht; Mapper 105 (Zugbrücke) ist durch den
+  Spieler-3-Trace ebenfalls ausgenommen.
+
+Der gesicherte Thasos-Mehrspielerlauf mit expliziter Sitzung umfasst 24 Fälle.
+Spieler 2 und alle vier Rotationen von Spieler 3 stimmen exakt. Ab Spieler 4
+muss noch geklärt werden, welche Mapper-Typen aus zwei vorherigen temporären
+AIV-Zuständen wie native Gebäude-, Wall-, Trap- oder Terrainwerte wirken. Der
+nächste kleinste Lauf ist deshalb der bereits installierte Vier-Rotationen-
+Zelltrace für Spieler 4.
+
+Der lokale `.native-analysis/TraceOverlapAnalyzer` erwartet als viertes
+Argument immer Gradwerte `0`, `90`, `180` oder `270`, nicht die nativen Codes
+`0`, `2`, `4`, `6`. Details und Beispiel stehen in
+`.native-analysis/TraceOverlapAnalyzer/README.md`.
+
 ## Zuerst lesen
 
 Diese Dateien in der angegebenen Reihenfolge lesen:
@@ -32,6 +67,7 @@ Diese Dateien in der angegebenen Reihenfolge lesen:
 9. `AIVPlacement/AIVPlacement.Core/AivPlacementRuleEvaluator.cs`;
 10. `AIVPlacement/AIVPlacement.Core/AivPreplacementMapState.cs`;
 11. `ActiveAIVDetector/src/AivPlacementOracle.cs`.
+12. `.native-analysis/TraceOverlapAnalyzer/README.md`.
 
 ## Verbindliche Ausgangslage
 

@@ -1,6 +1,7 @@
 using BepInEx;
 using SHCDESE.API.LowLevel;
 using System;
+using System.IO;
 
 namespace ActiveAIVDetector
 {
@@ -12,7 +13,7 @@ namespace ActiveAIVDetector
 
         public const string PluginGuid = "ActiveAIVDetector_Serp";
         public const string PluginName = "Active AIV Detector";
-        public const string PluginVersion = "0.7.0";
+        public const string PluginVersion = "0.8.0";
 
         // The plugin component is destroyed during startup, so process-lifetime state stays static.
         private static ActiveAIVDetectionRuntime runtime;
@@ -23,7 +24,20 @@ namespace ActiveAIVDetector
             if (runtime != null)
                 return;
 
-            runtime = new ActiveAIVDetectionRuntime(Logger);
+            var cellTraceOptions = new OracleCellTraceOptions(
+                Config.Bind(
+                    "Oracle cell trace",
+                    "Enabled",
+                    false,
+                    "Capture one filtered native 100x100 fit grid without changing Vanilla behavior.").Value,
+                Config.Bind("Oracle cell trace", "PlayerId", 2).Value,
+                Config.Bind("Oracle cell trace", "CandidateId", 0).Value,
+                Config.Bind("Oracle cell trace", "Orientation", 0).Value,
+                Config.Bind("Oracle cell trace", "KeepX", 363).Value,
+                Config.Bind("Oracle cell trace", "KeepY", 428).Value,
+                Config.Bind("Oracle cell trace", "MaximumCaptureCount", 1).Value,
+                Path.Combine(Paths.PluginPath, PluginGuid, "CellTraces"));
+            runtime = new ActiveAIVDetectionRuntime(Logger, cellTraceOptions);
             CrusaderLibrary.Instance.LibraryLoaded += OnCrusaderLibraryLoaded;
             Shared.DebugLogHelper.LogInfo(Logger, $"{PluginName} {PluginVersion} loaded.");
         }

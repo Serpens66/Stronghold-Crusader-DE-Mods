@@ -10,9 +10,14 @@ set "LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT=%LOCAL_SCRIPT_EXTENDER_ROOT%\src\SHCDESE
 set "GAME_SCRIPT_EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
 set "VANILLA_EXPORT_ROOT=%PROJECT_DIR%..\VanillaAICExporter\Exports"
 set "EDITOR_VANILLA_AIV_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition - Castle & CPU Lord Editor\CrusaderCastleEditorUnity_Data\StreamingAssets\Villages"
+set "CHAT10_TRACE_CONFIG=%PROJECT_DIR%Diagnostics\Chat10-Bow-Ridge-Trace.cfg"
 set "EXTENDER_DIR="
 set "NO_PAUSE=0"
-if /I "%~1"=="/nopause" set "NO_PAUSE=1"
+set "INSTALL_CHAT10_TRACE=0"
+for %%A in (%*) do (
+  if /I "%%~A"=="/nopause" set "NO_PAUSE=1"
+  if /I "%%~A"=="/trace" set "INSTALL_CHAT10_TRACE=1"
+)
 
 if not exist "%MSBUILD%" (
   echo MSBuild wurde nicht gefunden:
@@ -129,6 +134,18 @@ if "%BUILD_EXIT_CODE%"=="0" (
   xcopy "!LOCAL_PLUGIN_DIR!" "!GAME_PLUGIN_DIR!\" /E /I /Q /Y
   if errorlevel 1 goto copy_failed
   echo Plugin kopiert.
+
+  if "!INSTALL_CHAT10_TRACE!"=="1" (
+    if not exist "!CHAT10_TRACE_CONFIG!" (
+      echo Chat-10-Trace-Konfiguration wurde nicht gefunden:
+      echo !CHAT10_TRACE_CONFIG!
+      goto copy_failed
+    )
+    echo Installiere explizit aktivierte Chat-10-Zell-Trace-Konfiguration...
+    copy /Y "!CHAT10_TRACE_CONFIG!" "%GAME_DIR%\BepInEx\config\ActiveAIVDetector_Serp.cfg" >nul
+    if errorlevel 1 goto copy_failed
+    echo Chat-10-Zell-Trace aktiviert.
+  )
 ) else (
   echo Build fehlgeschlagen. Exit Code: %BUILD_EXIT_CODE%
 )

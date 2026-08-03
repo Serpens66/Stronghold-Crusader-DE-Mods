@@ -21,6 +21,7 @@ internal static class Program
             ("Parse 200-slot directory", () => TestDirectoryCapacity(200)),
             ("Normalize old and new tile IDs", TestLogicalSectionIds),
             ("Read typed placement layers", TestPlacementLayers),
+            ("Read typed rock records", TestRockRecords),
             ("Create immutable placement snapshot", TestPlacementSnapshot),
             ("Create snapshot from old and new tile IDs", TestPlacementSnapshotSectionIds),
             ("Reject snapshot without map sections", TestPlacementSnapshotSectionsUnavailable),
@@ -160,6 +161,44 @@ internal static class Program
         AssertEqual((ushort)202, layers.BuildingOccupancy[2]);
         AssertEqual((ushort)302, layers.EntityOccupancy[2]);
         AssertEqual((byte)42, layers.OwnerOccupancy[2]);
+    }
+
+    private static void TestRockRecords()
+    {
+        byte[] content = new byte[MapRockRecords.RecordCount * MapRockRecords.RecordSize];
+        int offset = 27 * MapRockRecords.RecordSize;
+        BinaryPrimitives.WriteInt32LittleEndian(content.AsSpan(offset), 257);
+        BinaryPrimitives.WriteUInt32LittleEndian(content.AsSpan(offset + 4), 161598);
+        BinaryPrimitives.WriteInt32LittleEndian(content.AsSpan(offset + 8), 2750);
+        BinaryPrimitives.WriteInt16LittleEndian(content.AsSpan(offset + 12), 1);
+        BinaryPrimitives.WriteInt16LittleEndian(content.AsSpan(offset + 14), 56);
+        BinaryPrimitives.WriteInt16LittleEndian(content.AsSpan(offset + 16), 16);
+        BinaryPrimitives.WriteUInt16LittleEndian(content.AsSpan(offset + 18), 399);
+        BinaryPrimitives.WriteUInt16LittleEndian(content.AsSpan(offset + 20), 401);
+        BinaryPrimitives.WriteInt16LittleEndian(content.AsSpan(offset + 22), 4);
+        BinaryPrimitives.WriteInt16LittleEndian(content.AsSpan(offset + 24), 2);
+
+        MapRockRecords rocks = MapFileReader.Parse(
+            FixtureBuilder.Build(
+                100,
+                new[] { new SectionSpec(MapSectionCatalog.Rocks, content) }).Bytes)
+            .ReadRockRecords();
+        MapRockRecord rock = rocks.Records[27];
+
+        AssertEqual(MapRockRecords.RecordCount, rocks.Records.Count);
+        AssertEqual(27, rock.RecordIndex);
+        AssertEqual(257, rock.Gfx);
+        AssertEqual((uint)161598, rock.TileId);
+        AssertEqual(2750, rock.Uid);
+        AssertEqual((short)1, rock.Marker);
+        AssertEqual((short)56, rock.UnknownGmid);
+        AssertEqual((short)16, rock.Type);
+        AssertEqual((ushort)399, rock.X);
+        AssertEqual((ushort)401, rock.Y);
+        AssertEqual((short)4, rock.Size);
+        AssertEqual((short)2, rock.Orientation);
+        AssertTrue(rock.IsActive);
+        AssertTrue(!rocks.Records[0].IsActive);
     }
 
     private static void TestPlacementSnapshot()

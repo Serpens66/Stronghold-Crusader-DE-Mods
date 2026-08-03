@@ -1,4 +1,7 @@
 using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using AIVParser.Core;
 using MapParser.Core;
 
 namespace AIVPlacement.Core
@@ -17,7 +20,43 @@ namespace AIVPlacement.Core
         OwnerConflict = 1 << 7,
         InternalOverlap = 1 << 8,
         BuildingRuleFailed = 1 << 9,
-        UnresolvedNativeRule = 1 << 10
+        UnresolvedNativeRule = 1 << 10,
+        PriorAivPlannedOccupied = 1 << 11
+    }
+
+    public readonly struct AivPlannedTileOccupancy
+    {
+        public AivPlannedTileOccupancy(
+            string sessionId,
+            int playerId,
+            int mapperValue,
+            AivItemCategory category,
+            int elementIndex,
+            int buildIndex)
+        {
+            if (string.IsNullOrWhiteSpace(sessionId))
+                throw new ArgumentException("A planned AIV claim needs a session ID.", nameof(sessionId));
+            if (playerId <= 0)
+                throw new ArgumentOutOfRangeException(nameof(playerId));
+            if (elementIndex < 0)
+                throw new ArgumentOutOfRangeException(nameof(elementIndex));
+            if (buildIndex < 0)
+                throw new ArgumentOutOfRangeException(nameof(buildIndex));
+
+            SessionId = sessionId;
+            PlayerId = playerId;
+            MapperValue = mapperValue;
+            Category = category;
+            ElementIndex = elementIndex;
+            BuildIndex = buildIndex;
+        }
+
+        public string SessionId { get; }
+        public int PlayerId { get; }
+        public int MapperValue { get; }
+        public AivItemCategory Category { get; }
+        public int ElementIndex { get; }
+        public int BuildIndex { get; }
     }
 
     public readonly struct AivPlacementTileEvidence
@@ -31,7 +70,8 @@ namespace AIVPlacement.Core
                 tile.OrganismId,
                 tile.BuildingId,
                 tile.EntityId,
-                tile.OwnerId)
+                tile.OwnerId,
+                null)
         {
         }
 
@@ -43,7 +83,8 @@ namespace AIVPlacement.Core
             ushort organismId,
             ushort buildingId,
             ushort entityId,
-            byte ownerId)
+            byte ownerId,
+            IReadOnlyList<AivPlannedTileOccupancy> plannedOccupancies = null)
         {
             TerrainFlags = terrainFlags;
             SecondaryLogic = secondaryLogic;
@@ -53,6 +94,10 @@ namespace AIVPlacement.Core
             BuildingId = buildingId;
             EntityId = entityId;
             OwnerId = ownerId;
+            PlannedOccupancies = plannedOccupancies == null || plannedOccupancies.Count == 0
+                ? Array.Empty<AivPlannedTileOccupancy>()
+                : new ReadOnlyCollection<AivPlannedTileOccupancy>(
+                    new List<AivPlannedTileOccupancy>(plannedOccupancies));
         }
 
         // Keep every raw snapshot value so later Oracle mismatches remain reproducible.
@@ -64,6 +109,8 @@ namespace AIVPlacement.Core
         public ushort BuildingId { get; }
         public ushort EntityId { get; }
         public byte OwnerId { get; }
+        // Native map buildings retain BuildingId; temporary prior-AIV claims live here.
+        public IReadOnlyList<AivPlannedTileOccupancy> PlannedOccupancies { get; }
     }
 
     public sealed class AivPlacementIssue

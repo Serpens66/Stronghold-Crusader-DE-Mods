@@ -91,6 +91,7 @@ public static class OfflineCaseDiagnosticBuilder
                     BuildingId = evidence?.BuildingId,
                     EntityId = evidence?.EntityId,
                     OwnerId = evidence?.OwnerId,
+                    PlannedOccupancies = ToPlannedOccupancies(evidence),
                     WasPreplacementNormalized = EvidenceDiffers(evidence, originalEvidence),
                     OriginalTerrainFlags = originalEvidence?.TerrainFlags,
                     OriginalSecondaryLogic = originalEvidence?.SecondaryLogic,
@@ -100,6 +101,7 @@ public static class OfflineCaseDiagnosticBuilder
                     OriginalBuildingId = originalEvidence?.BuildingId,
                     OriginalEntityId = originalEvidence?.EntityId,
                     OriginalOwnerId = originalEvidence?.OwnerId,
+                    OriginalPlannedOccupancies = ToPlannedOccupancies(originalEvidence),
                     OrthogonalStartBuildingNeighborCount =
                         startAdjacency?.OrthogonalNeighborCount,
                     DiagonalStartBuildingNeighborCount =
@@ -169,6 +171,10 @@ public static class OfflineCaseDiagnosticBuilder
 
         AivPlacementTileEvidence left = effective.Value;
         AivPlacementTileEvidence right = original.Value;
+        IReadOnlyList<AivPlannedTileOccupancy> leftPlans =
+            left.PlannedOccupancies ?? Array.Empty<AivPlannedTileOccupancy>();
+        IReadOnlyList<AivPlannedTileOccupancy> rightPlans =
+            right.PlannedOccupancies ?? Array.Empty<AivPlannedTileOccupancy>();
         return left.TerrainFlags != right.TerrainFlags ||
             left.SecondaryLogic != right.SecondaryLogic ||
             left.Height != right.Height ||
@@ -176,7 +182,27 @@ public static class OfflineCaseDiagnosticBuilder
             left.OrganismId != right.OrganismId ||
             left.BuildingId != right.BuildingId ||
             left.EntityId != right.EntityId ||
-            left.OwnerId != right.OwnerId;
+            left.OwnerId != right.OwnerId ||
+            !leftPlans.SequenceEqual(rightPlans);
+    }
+
+    private static List<OfflinePlannedOccupancyDiagnostic> ToPlannedOccupancies(
+        AivPlacementTileEvidence? evidence)
+    {
+        if (!evidence.HasValue || evidence.Value.PlannedOccupancies == null)
+            return new List<OfflinePlannedOccupancyDiagnostic>();
+
+        return evidence.Value.PlannedOccupancies
+            .Select(item => new OfflinePlannedOccupancyDiagnostic
+            {
+                SessionId = item.SessionId,
+                PlayerId = item.PlayerId,
+                MapperValue = item.MapperValue,
+                Category = item.Category,
+                ElementIndex = item.ElementIndex,
+                BuildIndex = item.BuildIndex
+            })
+            .ToList();
     }
 }
 
@@ -242,6 +268,7 @@ public sealed class OfflineCellDiagnostic
     public ushort? BuildingId { get; set; }
     public ushort? EntityId { get; set; }
     public byte? OwnerId { get; set; }
+    public List<OfflinePlannedOccupancyDiagnostic> PlannedOccupancies { get; set; } = new();
     public bool WasPreplacementNormalized { get; set; }
     public int? OriginalTerrainFlags { get; set; }
     public byte? OriginalSecondaryLogic { get; set; }
@@ -251,6 +278,17 @@ public sealed class OfflineCellDiagnostic
     public ushort? OriginalBuildingId { get; set; }
     public ushort? OriginalEntityId { get; set; }
     public byte? OriginalOwnerId { get; set; }
+    public List<OfflinePlannedOccupancyDiagnostic> OriginalPlannedOccupancies { get; set; } = new();
     public int? OrthogonalStartBuildingNeighborCount { get; set; }
     public int? DiagonalStartBuildingNeighborCount { get; set; }
+}
+
+public sealed class OfflinePlannedOccupancyDiagnostic
+{
+    public string SessionId { get; set; } = string.Empty;
+    public int PlayerId { get; set; }
+    public int MapperValue { get; set; }
+    public AivItemCategory Category { get; set; }
+    public int ElementIndex { get; set; }
+    public int BuildIndex { get; set; }
 }

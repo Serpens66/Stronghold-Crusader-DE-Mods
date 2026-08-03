@@ -12,6 +12,7 @@ namespace MapParser.Core
         public const int ExtendedBuildingObjects = 4013;
         public const int Entity = 1026;
         public const int Logic2 = 1037;
+        public const int Rocks = 1038;
         public const int WallOwner = 1043;
         public const int DefaultHeight = 1045;
 
@@ -61,6 +62,7 @@ namespace MapParser.Core
                 case BuildingObjects: return "BuildingObjects";
                 case Entity: return "Entity";
                 case Logic2: return "Logic2";
+                case Rocks: return "Rocks";
                 case WallOwner: return "WallOwner";
                 case DefaultHeight: return "DefaultHeight";
                 default: return "Section";

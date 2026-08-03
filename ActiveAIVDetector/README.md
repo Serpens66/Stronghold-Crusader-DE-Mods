@@ -68,3 +68,25 @@ This prototype intentionally does not hook `DLL_ImportAIV`, because the Script
 Extender already detours that export. The game's `StartSkirmishGame` code imports
 custom AIVs in the exact order of the captured list, so the native candidate ID
 can be mapped without adding a second detour to the same export.
+
+## Opt-in native cell trace
+
+Version 0.8.0 can copy the native mapper, score, and result grids immediately
+after one exactly filtered `EvaluateCandidateFit` call. During only that active
+fit window it also records the generic validator's tile ID, mapper, arguments,
+unchanged return value, and the live native tile inputs used by that call.
+These include terrain flags, heights, occupancy IDs, owner, organism class,
+and game mode. Every trampoline is called exactly once; the trace does not
+invoke or alter any placement function.
+
+The trace is disabled by default. Enable `[Oracle cell trace] Enabled = true` in
+`BepInEx/config/ActiveAIVDetector_Serp.cfg`. The default filters target the Chat
+10 Bow Ridge reproduction: player `2`, candidate `0`, orientation `0`, Keep
+reference `(363,428)`, and one capture per process. Matching cells are written
+as a CRLF TSV file under
+`BepInEx/plugins/ActiveAIVDetector_Serp/CellTraces/`; the normal log receives
+timestamped capture and output summaries only.
+
+For this exact reproduction, `build.bat /trace` installs the explicitly enabled
+profile from `Diagnostics/Chat10-Bow-Ridge-Trace.cfg`. A normal `build.bat` does
+not install or enable that profile.

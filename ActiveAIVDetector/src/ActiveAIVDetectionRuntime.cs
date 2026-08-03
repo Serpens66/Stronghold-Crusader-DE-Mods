@@ -8,10 +8,12 @@ using SHCDESE.EventAPI.MapLoader;
 using SHCDESE.Interop;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
+using System.Text;
 using System.Text.RegularExpressions;
 using Zhuqiaomon.Hooks;
 using Zhuqiaomon.Hooks.Transaction;
@@ -39,6 +41,7 @@ namespace ActiveAIVDetector
             HUD_IngameMenu.RestartSkirmishMapInfo restartInfo);
 
         private readonly ManualLogSource log;
+        private readonly OracleCellTraceOptions cellTraceOptions;
         private readonly string vanillaAicDirectory;
         private readonly string vanillaAivDirectory;
         private readonly bool bundledVanillaAicMatchesInstalledGame;
@@ -69,9 +72,13 @@ namespace ActiveAIVDetector
         private string currentMapName = "<unknown>";
         private string currentMapFileSha256 = "<not-available>";
 
-        public ActiveAIVDetectionRuntime(ManualLogSource log)
+        public ActiveAIVDetectionRuntime(
+            ManualLogSource log,
+            OracleCellTraceOptions cellTraceOptions)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
+            this.cellTraceOptions = cellTraceOptions ??
+                throw new ArgumentNullException(nameof(cellTraceOptions));
             string pluginDirectory = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
             vanillaAicDirectory = Path.Combine(pluginDirectory, "VanillaAIC");
             // The game uses embedded AIV bytes; these editor files make that selection inspectable.
@@ -86,6 +93,13 @@ namespace ActiveAIVDetector
                 log,
                 $"Bundled vanilla AIV inventory: files={CountBundledVanillaAivFiles()}, " +
                 $"directory={vanillaAivDirectory}.");
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"Oracle cell trace configuration: enabled={cellTraceOptions.Enabled}, " +
+                $"playerId={cellTraceOptions.PlayerId}, candidateId={cellTraceOptions.CandidateId}, " +
+                $"orientation={cellTraceOptions.Orientation}, " +
+                $"keep=({cellTraceOptions.KeepX},{cellTraceOptions.KeepY}), " +
+                $"maximumCaptures={cellTraceOptions.MaximumCaptureCount}.");
         }
 
         public void Install(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
@@ -106,7 +120,11 @@ namespace ActiveAIVDetector
                 PrepareLayoutPattern,
                 PrepareLayout);
 
-            placementOracle = new AivPlacementOracle(log, OnOracleSelectionCompleted);
+            placementOracle = new AivPlacementOracle(
+                log,
+                OnOracleSelectionCompleted,
+                cellTraceOptions,
+                unchecked((ulong)libraryHandle.ToInt64()));
             placementOracle.RegisterHooks(transaction);
 
             transaction.Commit();
@@ -430,6 +448,140 @@ namespace ActiveAIVDetector
                     $"blockedCells={attempt.BlockedCells}, " +
                     $"origin=({attempt.OriginX},{attempt.OriginY}), " +
                     $"keepReference=({attempt.KeepX},{attempt.KeepY}).");
+
+                if (attempt.CellTrace != null)
+                    WriteOracleCellTrace(snapshot, attempt, source);
+            }
+        }
+
+        private void WriteOracleCellTrace(
+            OracleSelectionSnapshot selection,
+            OracleAttemptSnapshot attempt,
+            ResolvedAivSource source)
+        {
+            try
+            {
+                OracleCellTraceSnapshot trace = attempt.CellTrace;
+                Directory.CreateDirectory(cellTraceOptions.OutputDirectory);
+                string fileName = string.Format(
+                    CultureInfo.InvariantCulture,
+                    "oracle-cell-trace-{0}-p{1}-c{2}-r{3}-keep{4}-{5}.tsv",
+                    trace.CapturedAtLocal.ToString("yyyyMMdd-HHmmss-fff", CultureInfo.InvariantCulture),
+                    selection.PlayerId,
+                    attempt.CandidateId,
+                    attempt.Orientation,
+                    attempt.KeepX,
+                    attempt.KeepY);
+                string path = Path.Combine(cellTraceOptions.OutputDirectory, fileName);
+
+                using (var writer = new StreamWriter(path, false, new UTF8Encoding(false)))
+                {
+                    writer.NewLine = "\r\n";
+                    writer.WriteLine($"# capturedAtLocal={trace.CapturedAtLocal:O}");
+                    writer.WriteLine($"# mapName={currentMapName}");
+                    writer.WriteLine($"# mapFile={currentMapFileName}");
+                    writer.WriteLine($"# mapFileSha256={currentMapFileSha256}");
+                    writer.WriteLine($"# playerId={selection.PlayerId}");
+                    writer.WriteLine($"# candidateId={attempt.CandidateId}");
+                    writer.WriteLine($"# aivName={source.Name}");
+                    writer.WriteLine($"# aivJson={source.JsonPath}");
+                    writer.WriteLine($"# aivJsonSha256={ComputeFileSha256(source.JsonPath)}");
+                    writer.WriteLine($"# orientation={attempt.Orientation}");
+                    writer.WriteLine($"# originX={attempt.OriginX}");
+                    writer.WriteLine($"# originY={attempt.OriginY}");
+                    writer.WriteLine($"# keepX={attempt.KeepX}");
+                    writer.WriteLine($"# keepY={attempt.KeepY}");
+                    writer.WriteLine($"# evaluatedCells={trace.EvaluatedCells}");
+                    writer.WriteLine($"# nativeBlockedCells={trace.NativeBlockedCells}");
+                    writer.WriteLine($"# resultGridBlockedCells={trace.ResultGridBlockedCells}");
+                    int validatorBlockedCells = 0;
+                    foreach (OracleValidatorCallEntry call in trace.ValidatorCalls)
+                    {
+                        if (call.Result != 0)
+                            validatorBlockedCells++;
+                    }
+                    writer.WriteLine($"# validatorCalls={trace.ValidatorCalls.Count}");
+                    writer.WriteLine($"# validatorBlockedCells={validatorBlockedCells}");
+                    writer.WriteLine(
+                        "gridRow\tgridColumn\tworldX\tworldY\trawMapper\t" +
+                        "effectiveMapper\tscoreGridValue\tresultGridValue\tblocked");
+
+                    foreach (OracleCellTraceEntry cell in trace.Cells)
+                    {
+                        writer.WriteLine(string.Format(
+                            CultureInfo.InvariantCulture,
+                            "{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}\t{8}",
+                            cell.GridRow,
+                            cell.GridColumn,
+                            cell.WorldX,
+                            cell.WorldY,
+                            cell.RawMapper,
+                            cell.EffectiveMapper,
+                            cell.ScoreGridValue,
+                            cell.ResultGridValue,
+                            cell.Blocked));
+                    }
+
+                    writer.WriteLine();
+                    writer.WriteLine("# validator calls captured only inside the filtered fit window");
+                    writer.WriteLine(
+                        "validatorCallIndex\ttileId\tplayerId\tmapperValue\tmode\tresult\tblocked\t" +
+                        "nativeTerrainFlags\tnativeHeight\tnativeDefaultHeight\t" +
+                        "nativeOrganismId\tnativeOrganismClass\tnativeBuildingId\t" +
+                        "nativeEntityId\tnativeOwnerId\tnativeGameMode");
+                    foreach (OracleValidatorCallEntry call in trace.ValidatorCalls)
+                    {
+                        writer.WriteLine(string.Format(
+                            CultureInfo.InvariantCulture,
+                            "{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}\t{8}\t{9}\t" +
+                            "{10}\t{11}\t{12}\t{13}\t{14}\t{15}",
+                            call.CallIndex,
+                            call.TileId,
+                            call.PlayerId,
+                            call.MapperValue,
+                            call.Mode,
+                            call.Result,
+                            call.Result != 0,
+                            call.NativeTerrainFlags,
+                            call.NativeHeight,
+                            call.NativeDefaultHeight,
+                            call.NativeOrganismId,
+                            call.NativeOrganismClass,
+                            call.NativeBuildingId,
+                            call.NativeEntityId,
+                            call.NativeOwnerId,
+                            call.NativeGameMode));
+                    }
+                }
+
+                int tracedValidatorBlockedCells = 0;
+                foreach (OracleValidatorCallEntry call in trace.ValidatorCalls)
+                {
+                    if (call.Result != 0)
+                        tracedValidatorBlockedCells++;
+                }
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    $"Wrote opt-in AIV cell trace: path={path}, " +
+                    $"rows={trace.Cells.Count}, nativeBlocked={trace.NativeBlockedCells}, " +
+                    $"resultGridBlocked={trace.ResultGridBlockedCells}, " +
+                    $"validatorCalls={trace.ValidatorCalls.Count}, " +
+                    $"validatorBlocked={tracedValidatorBlockedCells}.");
+                if (trace.Cells.Count != trace.EvaluatedCells ||
+                    tracedValidatorBlockedCells != trace.NativeBlockedCells)
+                {
+                    Shared.DebugLogHelper.LogWarning(
+                        log,
+                        $"AIV cell trace grid validation differs from native counters: " +
+                        $"rows={trace.Cells.Count}/{trace.EvaluatedCells}, " +
+                        $"validatorBlocked={tracedValidatorBlockedCells}/" +
+                        $"{trace.NativeBlockedCells}.");
+                }
+            }
+            catch (Exception ex)
+            {
+                // Diagnostics must never disturb Vanilla's already completed candidate test.
+                Shared.DebugLogHelper.LogError(log, $"Writing the opt-in AIV cell trace failed: {ex}");
             }
         }
 

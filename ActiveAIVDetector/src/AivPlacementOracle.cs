@@ -25,6 +25,9 @@ namespace ActiveAIVDetector
         private const string EvaluateCandidateFitPattern =
             "89 54 24 10 53 55 56 57 41 54 41 55 41 56 41 57 " +
             "48 83 EC 48 45 33 C9 48 8D 81 44 98 1B 00";
+        private const string BuildingPlacementValidatorPattern =
+            "40 53 55 56 57 41 56 48 83 EC 40 33 C0 49 63 E8 " +
+            "83 BC 24 90 00 00 00 02";
 
         private const int AivSpecStride = 0x6D98;
         private const int PlayerIdOffset = 0x04;
@@ -35,9 +38,24 @@ namespace ActiveAIVDetector
         private const int OriginYOffset = 0x2C;
         private const int KeepXOffset = 0x30;
         private const int KeepYOffset = 0x34;
+        private const int MapperGridOffset = 0x3DA6C;
+        private const int ScoreGridOffset = 0x4288C;
+        private const int CellResultGridOffset = 0x1B9844;
         private const int EvaluatedCellCountOffset = 0x5B4F8;
         private const int BlockedCellCountOffset = 0x5B4FC;
         private const int CompleteFitScore = 999999;
+        private const int AivGridSize = 100;
+        private const int NativeGameModeRva = 0x8571B80;
+        private const int OrganismRecordTableRva = 0x32DC3F4;
+        private const int OrganismRecordStride = 0x9C;
+        private const int OrganismClassOffset = 0x46;
+        private const int TerrainFlagsOffset = 0x898400;
+        private const int HeightOffset = 0xD7E5A0;
+        private const int DefaultHeightOffset = 0xDCCAC0;
+        private const int OrganismGridOffset = 0xA6F260;
+        private const int BuildingGridOffset = 0xB0BCA0;
+        private const int EntityGridOffset = 0xBF6C00;
+        private const int OwnerGridOffset = 0xE1AFE0;
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate void SelectBestFitDelegate(
@@ -63,8 +81,18 @@ namespace ActiveAIVDetector
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate int EvaluateCandidateFitDelegate(ulong aivStateAddress, int aivSpecIndex);
 
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate int BuildingPlacementValidatorDelegate(
+            ulong placementStateAddress,
+            int tileId,
+            int playerId,
+            int mapperValue,
+            int mode);
+
         private readonly ManualLogSource log;
         private readonly Action<OracleSelectionSnapshot> onSelectionCompleted;
+        private readonly OracleCellTraceOptions cellTraceOptions;
+        private readonly ulong nativeLibraryBaseAddress;
         private HookRef<X64ManagedFunctionDetourAOB<SelectBestFitDelegate>> selectBestFitHook =
             new HookRef<X64ManagedFunctionDetourAOB<SelectBestFitDelegate>>();
         private HookRef<X64ManagedFunctionDetourAOB<TestSpecificCandidateDelegate>> testSpecificCandidateHook =
@@ -75,18 +103,28 @@ namespace ActiveAIVDetector
             new HookRef<X64ManagedFunctionDetourAOB<ApplyRotationDelegate>>();
         private HookRef<X64ManagedFunctionDetourAOB<EvaluateCandidateFitDelegate>> evaluateCandidateFitHook =
             new HookRef<X64ManagedFunctionDetourAOB<EvaluateCandidateFitDelegate>>();
+        private HookRef<X64ManagedFunctionDetourAOB<BuildingPlacementValidatorDelegate>>
+            buildingPlacementValidatorHook =
+                new HookRef<X64ManagedFunctionDetourAOB<BuildingPlacementValidatorDelegate>>();
 
         private OracleSelectionSession activeSession;
+        private ValidatorTraceContext activeValidatorTrace;
         private long nextSequence;
+        private int cellTraceCaptureCount;
         private bool callbackFailureLogged;
 
         public AivPlacementOracle(
             ManualLogSource log,
-            Action<OracleSelectionSnapshot> onSelectionCompleted)
+            Action<OracleSelectionSnapshot> onSelectionCompleted,
+            OracleCellTraceOptions cellTraceOptions,
+            ulong nativeLibraryBaseAddress)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.onSelectionCompleted = onSelectionCompleted ??
                 throw new ArgumentNullException(nameof(onSelectionCompleted));
+            this.cellTraceOptions = cellTraceOptions ??
+                throw new ArgumentNullException(nameof(cellTraceOptions));
+            this.nativeLibraryBaseAddress = nativeLibraryBaseAddress;
         }
 
         public void RegisterHooks(HookTransaction transaction)
@@ -105,6 +143,10 @@ namespace ActiveAIVDetector
                 ref evaluateCandidateFitHook,
                 EvaluateCandidateFitPattern,
                 EvaluateCandidateFit);
+            transaction.AddDetour(
+                ref buildingPlacementValidatorHook,
+                BuildingPlacementValidatorPattern,
+                BuildingPlacementValidator);
         }
 
         public void ValidateHooks()
@@ -115,6 +157,10 @@ namespace ActiveAIVDetector
             AddMissing(missing, loadCandidateHook.Success, "c_game_aiv_load_candidate");
             AddMissing(missing, applyRotationHook.Success, "c_game_aiv_apply_rotation");
             AddMissing(missing, evaluateCandidateFitHook.Success, "c_game_aiv_evaluate_candidate_fit");
+            AddMissing(
+                missing,
+                buildingPlacementValidatorHook.Success,
+                "c_game_building_placement_validator");
 
             if (missing.Count != 0)
             {
@@ -202,13 +248,29 @@ namespace ActiveAIVDetector
 
         private int EvaluateCandidateFit(ulong aivStateAddress, int aivSpecIndex)
         {
-            int rawFitScore = evaluateCandidateFitHook.Value.Hook.Trampoline(
+            OracleSelectionSession session = activeSession;
+            ValidatorTraceContext validatorTrace = TryBeginValidatorTrace(
+                session,
                 aivStateAddress,
                 aivSpecIndex);
+            if (validatorTrace != null)
+                activeValidatorTrace = validatorTrace;
+
+            int rawFitScore;
+            try
+            {
+                rawFitScore = evaluateCandidateFitHook.Value.Hook.Trampoline(
+                    aivStateAddress,
+                    aivSpecIndex);
+            }
+            finally
+            {
+                if (ReferenceEquals(activeValidatorTrace, validatorTrace))
+                    activeValidatorTrace = null;
+            }
 
             try
             {
-                OracleSelectionSession session = activeSession;
                 if (session == null ||
                     session.AivStateAddress != aivStateAddress ||
                     session.AivSpecIndex != aivSpecIndex)
@@ -222,6 +284,12 @@ namespace ActiveAIVDetector
                     ? 100
                     : ((evaluatedCells - blockedCells) * 100) / evaluatedCells;
                 byte* spec = GetSpec(aivStateAddress, aivSpecIndex);
+                OracleCellTraceSnapshot cellTrace = TryCaptureCellTrace(
+                    session,
+                    spec,
+                    evaluatedCells,
+                    blockedCells,
+                    validatorTrace);
 
                 session.Attempts.Add(new OracleAttemptSnapshot(
                     session.Attempts.Count + 1,
@@ -234,7 +302,8 @@ namespace ActiveAIVDetector
                     *(int*)(spec + OriginXOffset),
                     *(int*)(spec + OriginYOffset),
                     *(int*)(spec + KeepXOffset),
-                    *(int*)(spec + KeepYOffset)));
+                    *(int*)(spec + KeepYOffset),
+                    cellTrace));
             }
             catch (Exception ex)
             {
@@ -243,6 +312,192 @@ namespace ActiveAIVDetector
 
             // The oracle observes Vanilla's return value without changing it.
             return rawFitScore;
+        }
+
+        private int BuildingPlacementValidator(
+            ulong placementStateAddress,
+            int tileId,
+            int playerId,
+            int mapperValue,
+            int mode)
+        {
+            ValidatorTraceContext trace = activeValidatorTrace;
+            int nativeTerrainFlags = 0;
+            int nativeHeight = 0;
+            int nativeDefaultHeight = 0;
+            int nativeOrganismId = 0;
+            int nativeOrganismClass = -1;
+            int nativeBuildingId = 0;
+            int nativeEntityId = 0;
+            int nativeOwnerId = 0;
+            int nativeGameMode = 0;
+            if (trace != null)
+            {
+                // Read the exact live validator inputs before Vanilla evaluates the tile.
+                byte* placementState = (byte*)placementStateAddress;
+                nativeTerrainFlags = *(int*)(placementState + TerrainFlagsOffset + tileId * 4);
+                nativeHeight = *(byte*)(placementState + HeightOffset + tileId);
+                nativeDefaultHeight = *(byte*)(placementState + DefaultHeightOffset + tileId);
+                nativeOrganismId = *(short*)(placementState + OrganismGridOffset + tileId * 2);
+                nativeBuildingId = *(ushort*)(placementState + BuildingGridOffset + tileId * 2);
+                nativeEntityId = *(ushort*)(placementState + EntityGridOffset + tileId * 2);
+                nativeOwnerId = *(byte*)(placementState + OwnerGridOffset + tileId);
+                nativeGameMode = *(int*)(nativeLibraryBaseAddress + NativeGameModeRva);
+                if (nativeOrganismId > 0 && nativeOrganismId < 4000)
+                {
+                    nativeOrganismClass = *(short*)(
+                        nativeLibraryBaseAddress + OrganismRecordTableRva +
+                        (ulong)(nativeOrganismId * OrganismRecordStride + OrganismClassOffset));
+                }
+            }
+
+            int result = buildingPlacementValidatorHook.Value.Hook.Trampoline(
+                placementStateAddress,
+                tileId,
+                playerId,
+                mapperValue,
+                mode);
+
+            try
+            {
+                if (trace != null)
+                {
+                    trace.Calls.Add(new OracleValidatorCallEntry(
+                        trace.Calls.Count,
+                        tileId,
+                        playerId,
+                        mapperValue,
+                        mode,
+                        result,
+                        nativeTerrainFlags,
+                        nativeHeight,
+                        nativeDefaultHeight,
+                        nativeOrganismId,
+                        nativeOrganismClass,
+                        nativeBuildingId,
+                        nativeEntityId,
+                        nativeOwnerId,
+                        nativeGameMode));
+                }
+            }
+            catch (Exception ex)
+            {
+                LogCallbackFailure("validator result capture", ex);
+            }
+
+            // The trace always returns the single unchanged Vanilla result.
+            return result;
+        }
+
+        private ValidatorTraceContext TryBeginValidatorTrace(
+            OracleSelectionSession session,
+            ulong aivStateAddress,
+            int aivSpecIndex)
+        {
+            if (session == null ||
+                session.AivStateAddress != aivStateAddress ||
+                session.AivSpecIndex != aivSpecIndex)
+            {
+                return null;
+            }
+
+            byte* spec = GetSpec(aivStateAddress, aivSpecIndex);
+            return MatchesCellTraceFilter(session, spec)
+                ? new ValidatorTraceContext()
+                : null;
+        }
+
+        private OracleCellTraceSnapshot TryCaptureCellTrace(
+            OracleSelectionSession session,
+            byte* spec,
+            int evaluatedCells,
+            int blockedCells,
+            ValidatorTraceContext validatorTrace)
+        {
+            if (!MatchesCellTraceFilter(session, spec))
+                return null;
+
+            // EvaluateCandidateFit leaves the rotated mapper, score and result grids intact.
+            // Copy them before Vanilla can load or rotate the next candidate.
+            short* mapperGrid = (short*)((byte*)session.AivStateAddress + MapperGridOffset);
+            int* scoreGrid = (int*)((byte*)session.AivStateAddress + ScoreGridOffset);
+            byte* resultGrid = (byte*)session.AivStateAddress + CellResultGridOffset;
+            int originX = *(int*)(spec + OriginXOffset);
+            int originY = *(int*)(spec + OriginYOffset);
+            var cells = new List<OracleCellTraceEntry>(evaluatedCells);
+            int resultGridBlockedCells = 0;
+
+            for (int row = 0; row < AivGridSize; row++)
+            {
+                for (int column = 0; column < AivGridSize; column++)
+                {
+                    int index = row * AivGridSize + column;
+                    short rawMapper = mapperGrid[index];
+                    if (rawMapper == 0 || rawMapper == 1)
+                        continue;
+
+                    byte result = resultGrid[index];
+                    if (result != 0)
+                        resultGridBlockedCells++;
+
+                    cells.Add(new OracleCellTraceEntry(
+                        row,
+                        column,
+                        originX + column,
+                        originY + row,
+                        rawMapper,
+                        rawMapper < 0 ? 86 : rawMapper,
+                        scoreGrid[index],
+                        result));
+                }
+            }
+
+            cellTraceCaptureCount++;
+            OracleCellTraceSnapshot trace = new OracleCellTraceSnapshot(
+                DateTimeOffset.Now,
+                evaluatedCells,
+                blockedCells,
+                resultGridBlockedCells,
+                cells,
+                validatorTrace == null
+                    ? Array.Empty<OracleValidatorCallEntry>()
+                    : validatorTrace.Calls);
+            int validatorBlockedCells = 0;
+            foreach (OracleValidatorCallEntry call in trace.ValidatorCalls)
+            {
+                if (call.Result != 0)
+                    validatorBlockedCells++;
+            }
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"Captured opt-in AIV cell trace {cellTraceCaptureCount}/" +
+                $"{cellTraceOptions.MaximumCaptureCount}: playerId={session.PlayerId}, " +
+                $"candidateId={session.CurrentCandidateId}, orientation={session.CurrentOrientation}, " +
+                $"keep=({*(int*)(spec + KeepXOffset)},{*(int*)(spec + KeepYOffset)}), " +
+                $"evaluated={evaluatedCells}, nativeBlocked={blockedCells}, " +
+                $"resultGridBlocked={resultGridBlockedCells}, " +
+                $"validatorCalls={trace.ValidatorCalls.Count}, " +
+                $"validatorBlocked={validatorBlockedCells}.");
+            return trace;
+        }
+
+        private bool MatchesCellTraceFilter(
+            OracleSelectionSession session,
+            byte* spec)
+        {
+            return cellTraceOptions.Enabled &&
+                cellTraceCaptureCount < cellTraceOptions.MaximumCaptureCount &&
+                // A negative diagnostic player ID follows a randomly assigned Keep.
+                (cellTraceOptions.PlayerId < 0 ||
+                    session.PlayerId == cellTraceOptions.PlayerId) &&
+                session.CurrentCandidateId == cellTraceOptions.CandidateId &&
+                (cellTraceOptions.Orientation < 0 ||
+                    session.CurrentOrientation == cellTraceOptions.Orientation) &&
+                // Negative coordinates let one player trace survive randomized starts.
+                (cellTraceOptions.KeepX < 0 ||
+                    *(int*)(spec + KeepXOffset) == cellTraceOptions.KeepX) &&
+                (cellTraceOptions.KeepY < 0 ||
+                    *(int*)(spec + KeepYOffset) == cellTraceOptions.KeepY);
         }
 
         private OracleSelectionSession TryBeginSession(
@@ -377,6 +632,16 @@ namespace ActiveAIVDetector
             public int CurrentOrientation { get; set; }
             public List<OracleAttemptSnapshot> Attempts { get; }
         }
+
+        private sealed class ValidatorTraceContext
+        {
+            public ValidatorTraceContext()
+            {
+                Calls = new List<OracleValidatorCallEntry>();
+            }
+
+            public List<OracleValidatorCallEntry> Calls { get; }
+        }
     }
 
     internal sealed class OracleSelectionSnapshot
@@ -430,7 +695,8 @@ namespace ActiveAIVDetector
             int originX,
             int originY,
             int keepX,
-            int keepY)
+            int keepY,
+            OracleCellTraceSnapshot cellTrace)
         {
             AttemptNumber = attemptNumber;
             CandidateId = candidateId;
@@ -443,6 +709,7 @@ namespace ActiveAIVDetector
             OriginY = originY;
             KeepX = keepX;
             KeepY = keepY;
+            CellTrace = cellTrace;
         }
 
         public int AttemptNumber { get; }
@@ -456,11 +723,156 @@ namespace ActiveAIVDetector
         public int OriginY { get; }
         public int KeepX { get; }
         public int KeepY { get; }
+        public OracleCellTraceSnapshot CellTrace { get; }
 
         public string ResultKind => RawFitScore == 999999
             ? "Complete"
             : RawFitScore > 0
                 ? "Partial"
                 : "Rejected";
+    }
+
+    internal sealed class OracleCellTraceOptions
+    {
+        public OracleCellTraceOptions(
+            bool enabled,
+            int playerId,
+            int candidateId,
+            int orientation,
+            int keepX,
+            int keepY,
+            int maximumCaptureCount,
+            string outputDirectory)
+        {
+            Enabled = enabled;
+            PlayerId = playerId;
+            CandidateId = candidateId;
+            Orientation = orientation;
+            KeepX = keepX;
+            KeepY = keepY;
+            MaximumCaptureCount = maximumCaptureCount;
+            OutputDirectory = outputDirectory ?? throw new ArgumentNullException(nameof(outputDirectory));
+        }
+
+        public bool Enabled { get; }
+        public int PlayerId { get; }
+        public int CandidateId { get; }
+        public int Orientation { get; }
+        public int KeepX { get; }
+        public int KeepY { get; }
+        public int MaximumCaptureCount { get; }
+        public string OutputDirectory { get; }
+    }
+
+    internal sealed class OracleCellTraceSnapshot
+    {
+        public OracleCellTraceSnapshot(
+            DateTimeOffset capturedAtLocal,
+            int evaluatedCells,
+            int nativeBlockedCells,
+            int resultGridBlockedCells,
+            IList<OracleCellTraceEntry> cells,
+            IList<OracleValidatorCallEntry> validatorCalls)
+        {
+            CapturedAtLocal = capturedAtLocal;
+            EvaluatedCells = evaluatedCells;
+            NativeBlockedCells = nativeBlockedCells;
+            ResultGridBlockedCells = resultGridBlockedCells;
+            Cells = new List<OracleCellTraceEntry>(cells).AsReadOnly();
+            ValidatorCalls = new List<OracleValidatorCallEntry>(validatorCalls).AsReadOnly();
+        }
+
+        public DateTimeOffset CapturedAtLocal { get; }
+        public int EvaluatedCells { get; }
+        public int NativeBlockedCells { get; }
+        public int ResultGridBlockedCells { get; }
+        public IReadOnlyList<OracleCellTraceEntry> Cells { get; }
+        public IReadOnlyList<OracleValidatorCallEntry> ValidatorCalls { get; }
+    }
+
+    internal readonly struct OracleCellTraceEntry
+    {
+        public OracleCellTraceEntry(
+            int gridRow,
+            int gridColumn,
+            int worldX,
+            int worldY,
+            int rawMapper,
+            int effectiveMapper,
+            int scoreGridValue,
+            byte resultGridValue)
+        {
+            GridRow = gridRow;
+            GridColumn = gridColumn;
+            WorldX = worldX;
+            WorldY = worldY;
+            RawMapper = rawMapper;
+            EffectiveMapper = effectiveMapper;
+            ScoreGridValue = scoreGridValue;
+            ResultGridValue = resultGridValue;
+        }
+
+        public int GridRow { get; }
+        public int GridColumn { get; }
+        public int WorldX { get; }
+        public int WorldY { get; }
+        public int RawMapper { get; }
+        public int EffectiveMapper { get; }
+        public int ScoreGridValue { get; }
+        public byte ResultGridValue { get; }
+        public bool Blocked => ResultGridValue != 0;
+    }
+
+    internal readonly struct OracleValidatorCallEntry
+    {
+        public OracleValidatorCallEntry(
+            int callIndex,
+            int tileId,
+            int playerId,
+            int mapperValue,
+            int mode,
+            int result,
+            int nativeTerrainFlags,
+            int nativeHeight,
+            int nativeDefaultHeight,
+            int nativeOrganismId,
+            int nativeOrganismClass,
+            int nativeBuildingId,
+            int nativeEntityId,
+            int nativeOwnerId,
+            int nativeGameMode)
+        {
+            CallIndex = callIndex;
+            TileId = tileId;
+            PlayerId = playerId;
+            MapperValue = mapperValue;
+            Mode = mode;
+            Result = result;
+            NativeTerrainFlags = nativeTerrainFlags;
+            NativeHeight = nativeHeight;
+            NativeDefaultHeight = nativeDefaultHeight;
+            NativeOrganismId = nativeOrganismId;
+            NativeOrganismClass = nativeOrganismClass;
+            NativeBuildingId = nativeBuildingId;
+            NativeEntityId = nativeEntityId;
+            NativeOwnerId = nativeOwnerId;
+            NativeGameMode = nativeGameMode;
+        }
+
+        public int CallIndex { get; }
+        public int TileId { get; }
+        public int PlayerId { get; }
+        public int MapperValue { get; }
+        public int Mode { get; }
+        public int Result { get; }
+        public int NativeTerrainFlags { get; }
+        public int NativeHeight { get; }
+        public int NativeDefaultHeight { get; }
+        public int NativeOrganismId { get; }
+        public int NativeOrganismClass { get; }
+        public int NativeBuildingId { get; }
+        public int NativeEntityId { get; }
+        public int NativeOwnerId { get; }
+        public int NativeGameMode { get; }
     }
 }

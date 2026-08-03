@@ -14,6 +14,7 @@ internal static class Program
         (string Name, Action Test)[] tests =
         {
             ("Project all four rotations", TestRotations),
+            ("Use the native fixed keep reference", TestFixedNativeKeepReference),
             ("Project asymmetric building footprints", TestAsymmetricFootprints),
             ("Retain coordinates beyond the map edge", TestNearMapEdge),
             ("Project gates, drawbridges and stairs", TestSpecialElements),
@@ -23,6 +24,8 @@ internal static class Program
             ("Require an exact AIV keep anchor", TestMissingKeep),
             ("Retain placement issue evidence", TestPlacementIssueEvidence),
             ("Normalize serialized player start occupancy", TestPreplacementMapState),
+            ("Reconstruct native rock footprints", TestRockFootprintReconstruction),
+            ("Propagate only placed prior AIV elements", TestPriorCastleMapState),
             ("Reject reasonless placement issues", TestReasonlessPlacementIssue),
             ("Distinguish native-domain and diamond failures", TestGeometryRules),
             ("Apply the native mapper height limit", TestHeightRule),
@@ -62,20 +65,45 @@ internal static class Program
     private static void TestRotations()
     {
         AivBlueprint blueprint = Blueprint(
-            Frame(0, 61, false, Point(50, 50)),
-            Frame(1, 25, false, Point(47, 54)));
+            Frame(0, 61, false, Point(56, 43)),
+            Frame(1, 25, false, Point(53, 47)));
 
         AssertCoordinate(Element(blueprint, AivRotation.Degrees0, 1).MapCoordinate, 404, 403);
-        AssertCoordinate(Element(blueprint, AivRotation.Degrees90, 1).MapCoordinate, 402, 396);
-        AssertCoordinate(Element(blueprint, AivRotation.Degrees180, 1).MapCoordinate, 395, 398);
-        AssertCoordinate(Element(blueprint, AivRotation.Degrees270, 1).MapCoordinate, 397, 405);
+        AssertCoordinate(Element(blueprint, AivRotation.Degrees90, 1).MapCoordinate, 403, 409);
+        AssertCoordinate(Element(blueprint, AivRotation.Degrees180, 1).MapCoordinate, 409, 410);
+        AssertCoordinate(Element(blueprint, AivRotation.Degrees270, 1).MapCoordinate, 410, 404);
+    }
+
+    private static void TestFixedNativeKeepReference()
+    {
+        var frames = new[]
+        {
+            Frame(0, 61, false, Point(55, 44)),
+            Frame(15, 110, false, Point(94, 6))
+        };
+        var blueprint = new AivBlueprint(
+            "synthetic-shifted-keep",
+            5,
+            frames,
+            Array.Empty<AivMiscPlacement>(),
+            Point(55, 44));
+
+        AivProjectedElement pitchRig = Projector.Project(
+            blueprint,
+            new MapCoordinate(369, 528),
+            AivRotation.Degrees180).Elements[1];
+
+        AssertCoordinate(pitchRig.MapCoordinate, 419, 579);
+        Assert(pitchRig.OccupiedTiles.Any(tile =>
+            tile.MapCoordinate.Equals(new MapCoordinate(419, 579))),
+            "The native first-blocking Testlord cell was not projected.");
     }
 
     private static void TestAsymmetricFootprints()
     {
         AivBlueprint blueprint = Blueprint(
-            Frame(0, 61, false, Point(50, 50)),
-            Frame(1, 50, false, Point(50, 52)));
+            Frame(0, 61, false, Point(56, 43)),
+            Frame(1, 50, false, Point(56, 45)));
 
         AivProjectedElement zero = Element(blueprint, AivRotation.Degrees0, 1);
         AssertEqual(16, zero.OccupiedTiles.Count);
@@ -83,14 +111,14 @@ internal static class Program
 
         AivProjectedElement ninety = Element(blueprint, AivRotation.Degrees90, 1);
         AssertEqual(16, ninety.OccupiedTiles.Count);
-        AssertBounds(ninety.OccupiedTiles, 399, 402, 395, 398);
+        AssertBounds(ninety.OccupiedTiles, 400, 403, 408, 411);
     }
 
     private static void TestNearMapEdge()
     {
         AivBlueprint blueprint = Blueprint(
-            Frame(0, 61, false, Point(50, 50)),
-            Frame(1, 25, false, Point(60, 40)));
+            Frame(0, 61, false, Point(56, 43)),
+            Frame(1, 25, false, Point(66, 33)));
         AivProjectedCastle projected = Projector.Project(
             blueprint,
             new MapCoordinate(1, 1),
@@ -253,6 +281,7 @@ internal static class Program
     {
         MapCoordinate keepTile = new(400, 400);
         MapCoordinate adjacentWallTile = new(401, 400);
+        MapCoordinate diagonalWallTile = new(401, 401);
         MapCoordinate otherTile = new(405, 400);
         var raw = new SparsePlacementMap();
         raw.Set(keepTile, Evidence(
@@ -267,17 +296,26 @@ internal static class Program
         raw.Set(adjacentWallTile, Evidence(
             terrainFlags: 0x00008100,
             ownerId: 5));
+        raw.Set(diagonalWallTile, Evidence(
+            terrainFlags: 0x00008100,
+            ownerId: 5));
         raw.Set(otherTile, Evidence(
             terrainFlags: unchecked((int)0x10000400),
             buildingId: 29));
 
-        var normalized = new AivPreplacementMapState(raw, new ushort[] { 28 });
+        var normalized = new AivPreplacementMapState(
+            raw,
+            new ushort[] { 28 },
+            Array.Empty<ushort>(),
+            Array.Empty<MapRockRecord>());
         AivPlacementTileEvidence keep = normalized.GetTileEvidence(
             normalized.Geometry.GetTileId(keepTile.X, keepTile.Y));
         AivPlacementTileEvidence other = normalized.GetTileEvidence(
             normalized.Geometry.GetTileId(otherTile.X, otherTile.Y));
         AivPlacementTileEvidence adjacentWall = normalized.GetTileEvidence(
             normalized.Geometry.GetTileId(adjacentWallTile.X, adjacentWallTile.Y));
+        AivPlacementTileEvidence diagonalWall = normalized.GetTileEvidence(
+            normalized.Geometry.GetTileId(diagonalWallTile.X, diagonalWallTile.Y));
 
         AssertEqual(0x00008000, keep.TerrainFlags);
         AssertEqual((ushort)0, keep.BuildingId);
@@ -289,10 +327,13 @@ internal static class Program
         AssertEqual((byte)0, keep.OwnerId);
         AssertEqual(0x00008000, adjacentWall.TerrainFlags);
         AssertEqual((byte)0, adjacentWall.OwnerId);
+        AssertEqual(0x00008000, diagonalWall.TerrainFlags);
+        AssertEqual((byte)0, diagonalWall.OwnerId);
         AssertEqual(unchecked((int)0x10000400), other.TerrainFlags);
         AssertEqual((ushort)29, other.BuildingId);
         AssertEqual(1, normalized.NormalizedStartBuildingIds.Count);
         AssertEqual((ushort)28, normalized.NormalizedStartBuildingIds[0]);
+        AssertEqual(0, normalized.RetainedStartBuildingIds.Count);
         AivPlacementTileEvidence originalKeep = normalized.GetOriginalTileEvidence(
             normalized.Geometry.GetTileId(keepTile.X, keepTile.Y));
         AssertEqual((ushort)28, originalKeep.BuildingId);
@@ -300,6 +341,100 @@ internal static class Program
             normalized.Geometry.GetTileId(adjacentWallTile.X, adjacentWallTile.Y));
         AssertEqual(1, adjacency.OrthogonalNeighborCount);
         AssertEqual(0, adjacency.DiagonalNeighborCount);
+
+        var retained = new AivPreplacementMapState(
+            raw,
+            new ushort[] { 28 },
+            new ushort[] { 28 },
+            Array.Empty<MapRockRecord>());
+        AssertEqual((ushort)28, retained.GetTileEvidence(
+            retained.Geometry.GetTileId(keepTile.X, keepTile.Y)).BuildingId);
+        AssertEqual(0x00008100, retained.GetTileEvidence(
+            retained.Geometry.GetTileId(adjacentWallTile.X, adjacentWallTile.Y)).TerrainFlags);
+        AssertEqual((byte)5, retained.GetTileEvidence(
+            retained.Geometry.GetTileId(adjacentWallTile.X, adjacentWallTile.Y)).OwnerId);
+        AssertEqual(0, retained.NormalizedStartBuildingIds.Count);
+        AssertEqual((ushort)28, retained.RetainedStartBuildingIds[0]);
+    }
+
+    private static void TestRockFootprintReconstruction()
+    {
+        MapCoordinate coordinate = new(399, 403);
+        var raw = new SparsePlacementMap();
+        raw.Set(coordinate, Evidence(
+            terrainFlags: 0x00001000,
+            height: 78,
+            defaultHeight: 78,
+            organismId: 208));
+        var rock = new MapRockRecord(
+            27, 257, 161598, 2750, 1, 56, 16, 399, 401, 4, 2);
+        var normalized = new AivPreplacementMapState(
+            raw,
+            Array.Empty<ushort>(),
+            Array.Empty<ushort>(),
+            new[] { rock });
+        int tileId = normalized.Geometry.GetTileId(coordinate.X, coordinate.Y);
+
+        AivPlacementTileEvidence evidence = normalized.GetTileEvidence(tileId);
+        AssertEqual(0x00001080, evidence.TerrainFlags);
+        AssertEqual((ushort)4027, evidence.OrganismId);
+        AssertEqual((byte)78, evidence.Height);
+        AssertEqual((ushort)208, normalized.GetOriginalTileEvidence(tileId).OrganismId);
+
+        AivElementPlacementResult result = RuleEvaluator.EvaluateElement(
+            normalized,
+            ElementAt(106, coordinate));
+        Assert(result.Issues.Any(issue =>
+                issue.MapCoordinate.Equals(coordinate) &&
+                issue.Kind.HasFlag(AivPlacementIssueKind.TerrainBlocked)),
+            "The reconstructed rock cell was not rejected as native impassable terrain.");
+    }
+
+    private static void TestPriorCastleMapState()
+    {
+        AivBlueprint blueprint = Blueprint(
+            Frame(0, 61, false, Point(56, 43)),
+            Frame(1, 50, false, Point(56, 60)),
+            Frame(2, 105, false, Point(56, 70)),
+            Frame(3, 50, false, Point(56, 80)));
+        var evaluationMap = new SparsePlacementMap();
+        evaluationMap.Set(new MapCoordinate(417, 400), Evidence(buildingId: 77));
+        AivPlacementResult prior = PlacementEvaluator.Evaluate(
+            evaluationMap,
+            blueprint,
+            new MapCoordinate(400, 400),
+            AivRotation.Degrees0);
+        var map = new AivPriorCastleMapState(
+            new SparsePlacementMap(),
+            new[] { new AivPriorPlacement("test-session", 2, prior) });
+
+        int blockedElementTileId = map.Geometry.GetTileId(420, 403);
+        int drawbridgeTileId = map.Geometry.GetTileId(427, 400);
+        int occupiedTileId = map.Geometry.GetTileId(437, 400);
+        AssertEqual((ushort)0, map.GetTileEvidence(blockedElementTileId).BuildingId);
+        AssertEqual((ushort)0, map.GetTileEvidence(drawbridgeTileId).BuildingId);
+        AivPlacementTileEvidence planned = map.GetTileEvidence(occupiedTileId);
+        AssertEqual((ushort)0, planned.BuildingId);
+        AssertEqual(1, planned.PlannedOccupancies.Count);
+        AssertEqual("test-session", planned.PlannedOccupancies[0].SessionId);
+        AssertEqual(2, planned.PlannedOccupancies[0].PlayerId);
+        AssertEqual(50, planned.PlannedOccupancies[0].MapperValue);
+
+        AivElementPlacementResult blockedByPlan = RuleEvaluator.EvaluateElement(
+            map,
+            ElementAt(50, new MapCoordinate(437, 400)));
+        Assert(blockedByPlan.Issues.Any(issue =>
+                issue.Kind.HasFlag(AivPlacementIssueKind.PriorAivPlannedOccupied) &&
+                !issue.Kind.HasFlag(AivPlacementIssueKind.BuildingOccupied)),
+            "Temporary prior-AIV occupancy was reported as a persistent building.");
+
+        AssertThrows<ArgumentException>(() => new AivPriorCastleMapState(
+            new SparsePlacementMap(),
+            new[]
+            {
+                new AivPriorPlacement("session-a", 2, prior),
+                new AivPriorPlacement("session-b", 3, prior)
+            }));
     }
 
     private static void TestReasonlessPlacementIssue()
@@ -338,6 +473,7 @@ internal static class Program
             ElementAt(25, new MapCoordinate(400, 400)));
         AssertEqual(AivElementPlacementStatus.Placeable, valid.Status);
         AssertEqual(0, valid.Issues.Count);
+
     }
 
     private static void TestHeightRule()
@@ -397,7 +533,8 @@ internal static class Program
 
         AssertTerrainAccepted(50, 0x00000008);
         AssertTerrainAccepted(195, 0x00000001 | 0x00100000);
-        AssertTerrainAccepted(51, 0x00000080);
+        AssertTerrainBlocked(51, 0x00000080);
+        AssertTerrainBlocked(113, 0x00000080);
         AssertTerrainAccepted(91, 0x20000000);
         AssertTerrainAccepted(105, 0x40000000);
     }
@@ -812,7 +949,7 @@ internal static class Program
         int mapperValue,
         MapCoordinate coordinate)
     {
-        AivGridPoint anchor = Point(50, 50);
+        AivGridPoint anchor = Point(56, 43);
         AivBuildFrame frame;
         AivMapperInfo mapper = AivMapperCatalog.Resolve(mapperValue);
         if (!mapper.FootprintSize.HasValue)

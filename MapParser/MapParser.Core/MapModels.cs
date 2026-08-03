@@ -267,6 +267,8 @@ namespace MapParser.Core
 
         public MapKeepAnchors ReadKeepAnchors() => MapKeepAnchors.Create(this);
 
+        public MapRockRecords ReadRockRecords() => MapRockRecords.Create(this);
+
         public byte[] ReadOpaqueTail()
         {
             if (OpaqueTailLength <= 0)

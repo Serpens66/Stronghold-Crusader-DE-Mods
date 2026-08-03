@@ -23,12 +23,6 @@ namespace AIVPlacement.Core
         private const int IsSwamp = 0x20000000;
         private const int IsMoat = 0x40000000;
 
-        private static readonly HashSet<int> ImpassableEdgeMappers = new HashSet<int>
-        {
-            51, 55, 56, 77, 86, 87, 88, 89, 90, 92, 93,
-            110, 111, 112, 113, 114, 180, 330
-        };
-
         public AivElementPlacementResult EvaluateElement(
             MapPlacementSnapshot map,
             AivProjectedElement element)
@@ -163,6 +157,12 @@ namespace AIVPlacement.Core
                 reasons |= AivPlacementIssueKind.HeightMismatch;
             if (evidence.BuildingId != 0)
                 reasons |= AivPlacementIssueKind.BuildingOccupied;
+            if (evidence.PlannedOccupancies != null && evidence.PlannedOccupancies.Count != 0)
+            {
+                // Prior AIVs occupy the native temporary fit state, not the map's
+                // persistent building table. Preserve that distinction in diagnostics.
+                reasons |= AivPlacementIssueKind.PriorAivPlannedOccupied;
+            }
 
             // TestSpecificCandidate passes player zero, so every existing wall fails ownership.
             if ((flags & IsWall) != 0)
@@ -199,7 +199,9 @@ namespace AIVPlacement.Core
 
             bool bareImpassableEdge =
                 (flags & (ImpassableEdge | IsWall)) == ImpassableEdge;
-            if (bareImpassableEdge && !ImpassableEdgeMappers.Contains(mapperValue))
+            // Skirmish/player-state initialization clears the general mapper
+            // profile exception before the AIV validator checks this bit.
+            if (bareImpassableEdge)
                 return true;
             if ((flags & IsSwamp) != 0 && mapperValue != 91)
                 return true;

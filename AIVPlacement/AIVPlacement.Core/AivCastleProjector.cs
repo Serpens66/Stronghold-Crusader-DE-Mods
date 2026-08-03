@@ -7,6 +7,9 @@ namespace AIVPlacement.Core
 {
     public sealed class AivCastleProjector
     {
+        private const int NativeKeepReferenceRow = 56;
+        private const int NativeKeepReferenceColumn = 43;
+
         public AivProjectedCastle Project(
             AivBlueprint blueprint,
             MapCoordinate mapKeepAnchor,
@@ -51,7 +54,6 @@ namespace AIVPlacement.Core
                             elementIndex,
                             sourceAnchor,
                             frame.Mapper.FootprintSize.Value,
-                            aivKeepAnchor,
                             mapKeepAnchor,
                             rotation,
                             AivProjectedTileKind.CoreFootprint,
@@ -71,7 +73,6 @@ namespace AIVPlacement.Core
                                 elementIndex,
                                 blockedArea.Footprint.RawAnchor,
                                 blockedArea.Footprint.Size,
-                                aivKeepAnchor,
                                 mapKeepAnchor,
                                 rotation,
                                 AivProjectedTileKind.AssociatedBlockedArea,
@@ -83,7 +84,6 @@ namespace AIVPlacement.Core
 
                     AivWorldTile projectedAnchor = ProjectNativeFitTile(
                         sourceAnchor,
-                        aivKeepAnchor,
                         mapKeepAnchor.X,
                         mapKeepAnchor.Y,
                         rotation);
@@ -130,7 +130,6 @@ namespace AIVPlacement.Core
             int elementIndex,
             AivGridPoint rawAnchor,
             int size,
-            AivGridPoint aivKeepAnchor,
             MapCoordinate mapKeepAnchor,
             AivRotation rotation,
             AivProjectedTileKind kind,
@@ -148,7 +147,6 @@ namespace AIVPlacement.Core
                     var sourcePoint = new AivGridPoint(row, column);
                     AivWorldTile projected = ProjectNativeFitTile(
                         sourcePoint,
-                        aivKeepAnchor,
                         mapKeepAnchor.X,
                         mapKeepAnchor.Y,
                         rotation);
@@ -167,17 +165,17 @@ namespace AIVPlacement.Core
 
         private static AivWorldTile ProjectNativeFitTile(
             AivGridPoint point,
-            AivGridPoint keepAnchor,
             int keepWorldX,
             int keepWorldY,
             AivRotation rotation)
         {
             AivGridPoint rotatedPoint = AivGridTransform.Rotate(point, rotation);
 
-            // Vanilla rotates the 100x100 grids but retains the origin set for orientation zero.
+            // Native fit evaluation keeps a fixed grid origin even when a custom AIV stores
+            // its Keep elsewhere; row 56/column 43 is the corresponding world-axis reference.
             return new AivWorldTile(
-                keepWorldX + rotatedPoint.Column - keepAnchor.Column,
-                keepWorldY - rotatedPoint.Row + keepAnchor.Row);
+                keepWorldX + rotatedPoint.Column - NativeKeepReferenceColumn,
+                keepWorldY - rotatedPoint.Row + NativeKeepReferenceRow);
         }
 
         private static void ValidateRotation(AivRotation rotation)

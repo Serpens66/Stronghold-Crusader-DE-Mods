@@ -674,6 +674,18 @@ ihre Grenztests unterstützen damit alle acht offiziellen Größen 160, 200, 300
 oben genannten fünf Größen begrenzt; nicht belegte Sondergrößen werden bewusst
 abgelehnt.
 
+**Sitzungsnachtrag:** Neue Oracle-Importe erhalten pro tatsächlichem Kartenstart
+eine explizite `SessionId`. Temporäre Zustände vorheriger KI-Burgen dürfen nur
+innerhalb derselben Session weitergegeben werden; ältere Manifeste ohne diese
+Angabe werden nicht aus Spieler-IDs zu einer vermeintlichen Sitzung
+zusammengebaut. Reale Kartenbelegung (`BuildingId`) und temporär geplante
+AIV-Belegung (`PlannedOccupancies` mit Session, Spieler, Mapper, Kategorie,
+Element und Build-Schritt) sind getrennte Evidenz. Geplante Belegung erzeugt
+den eigenen Reason-Code `PriorAivPlannedOccupied` und niemals eine erfundene
+reale Gebäude-ID. Der Spieler-3-Trace bestätigt dieses Modell für eine vorherige
+Burg; der installierte Spieler-4-Trace soll die Kombination zweier vorheriger
+Burgen und die Mapper-abhängigen temporären Werte klären.
+
 ### Ziel
 
 Die Regelparität nicht nur an Einzelfällen, sondern an einer kontrollierten
@@ -696,12 +708,14 @@ Für jeden Fall mindestens:
 
 - Map-Identität beziehungsweise Hash, ohne die Karte zu kopieren
 - AIV-Identität beziehungsweise Hash
+- explizite Kartenstart-/Session-ID für zusammengehörige Mehrspielerfälle
 - Keep-Slot und Keep-Koordinate
 - Rotation
 - Offline-Status und Score
 - nativer `placementState` und gegebenenfalls nativer Score
 - erste abweichende Regel
 - relevante Tile-Rohwerte
+- reale Gebäude-ID getrennt von temporären geplanten AIV-Belegungsquellen
 
 ### Fortschrittsanforderung
 
