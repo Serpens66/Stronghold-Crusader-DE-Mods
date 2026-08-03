@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
 using AIVParser.Core;
 using MapParser.Core;
 
@@ -90,14 +91,14 @@ namespace AIVPlacement.Core
             int placeableElements = 0;
             int blockedElements = 0;
             int notEvaluableElements = 0;
-            int evaluatedTiles = 0;
-            int blockedTiles = 0;
+            var evaluatedCoordinates = new HashSet<MapCoordinate>(
+                castle.OccupiedTiles.Select(tile => tile.MapCoordinate));
+            var blockedCoordinates = new HashSet<MapCoordinate>();
             int? firstBlockingBuildStep = null;
             bool unresolved = false;
 
             foreach (AivElementPlacementResult elementResult in elementResults)
             {
-                evaluatedTiles += elementResult.Element.OccupiedTiles.Count;
                 switch (elementResult.Status)
                 {
                     case AivElementPlacementStatus.Placeable:
@@ -116,24 +117,19 @@ namespace AIVPlacement.Core
                         break;
                 }
 
-                var blockedCoordinates = new HashSet<MapCoordinate>();
                 foreach (AivPlacementIssue issue in elementResult.Issues)
                 {
                     issues.Add(issue);
                     if ((issue.Kind & AivPlacementIssueKind.UnresolvedNativeRule) != 0)
                         unresolved = true;
-                    if ((issue.Kind & ~AivPlacementIssueKind.UnresolvedNativeRule) != 0)
+                    if ((issue.Kind & ~(AivPlacementIssueKind.UnresolvedNativeRule |
+                            AivPlacementIssueKind.InternalOverlap)) != 0)
                         blockedCoordinates.Add(issue.MapCoordinate);
-                }
-
-                // Count tile claims, while collapsing multiple reasons for the same claim.
-                foreach (AivProjectedTile tile in elementResult.Element.OccupiedTiles)
-                {
-                    if (blockedCoordinates.Contains(tile.MapCoordinate))
-                        blockedTiles++;
                 }
             }
 
+            int evaluatedTiles = evaluatedCoordinates.Count;
+            int blockedTiles = blockedCoordinates.Count;
             int fitPercentage = evaluatedTiles == 0
                 ? 100
                 : (evaluatedTiles - blockedTiles) * 100 / evaluatedTiles;

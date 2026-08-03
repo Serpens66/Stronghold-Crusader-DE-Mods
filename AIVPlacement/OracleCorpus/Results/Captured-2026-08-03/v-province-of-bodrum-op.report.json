@@ -3,15 +3,19 @@
   "MapName": "v_Province of Bodrum OP.map",
   "MapSha256": "9D36431208D24D65EC407B6857823F834624C3E9D97CED0429A9ABD15345D80C",
   "WorldSize": 400,
-  "StartedAtLocal": "2026-08-03T02:56:00.5548095+02:00",
-  "ElapsedMilliseconds": 206.415,
-  "ExactMatchCount": 8,
+  "StartedAtLocal": "2026-08-03T15:12:12.9367736+02:00",
+  "ElapsedMilliseconds": 1025.7329,
+  "ExactMatchCount": 20,
   "NotEvaluableCount": 0,
-  "MismatchCount": 12,
+  "MismatchCount": 0,
   "FailedCaseCount": 0,
   "Cases": [
     {
       "Id": "oracle-020-01-wolf-r180",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "9D36431208D24D65EC407B6857823F834624C3E9D97CED0429A9ABD15345D80C",
       "AivName": "wolf\u002B.aivjson",
       "AivSha256": "6587DD3958A4F213101D64D9871AD4D17BB249FF266F19CB447283F21E889187",
@@ -56,12 +60,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 41.573
+      "ElapsedMilliseconds": 246.2478
     },
     {
       "Id": "oracle-020-02-wolf-r270",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "9D36431208D24D65EC407B6857823F834624C3E9D97CED0429A9ABD15345D80C",
       "AivName": "wolf\u002B.aivjson",
       "AivSha256": "6587DD3958A4F213101D64D9871AD4D17BB249FF266F19CB447283F21E889187",
@@ -82,14 +91,14 @@
         "SequentialBuildScore": 39,
         "FitPercentage": 86,
         "EvaluatedCells": 5711,
-        "BlockedCells": 779,
+        "BlockedCells": 780,
         "TotalElements": 3138,
         "BlockedElements": 744,
         "NotEvaluableElements": 0,
-        "IssueCount": 779
+        "IssueCount": 780
       },
-      "Classification": "Mismatch",
-      "FirstDifference": "Blocked cells: native=780, offline=779.",
+      "Classification": "ExactMatch",
+      "FirstDifference": "",
       "FirstIssue": {
         "Kind": "TerrainBlocked",
         "ElementIndex": 39,
@@ -106,12 +115,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 21.0558
+      "ElapsedMilliseconds": 77.3522
     },
     {
       "Id": "oracle-020-03-wolf-r0",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "9D36431208D24D65EC407B6857823F834624C3E9D97CED0429A9ABD15345D80C",
       "AivName": "wolf\u002B.aivjson",
       "AivSha256": "6587DD3958A4F213101D64D9871AD4D17BB249FF266F19CB447283F21E889187",
@@ -132,14 +146,14 @@
         "SequentialBuildScore": 46,
         "FitPercentage": 88,
         "EvaluatedCells": 5711,
-        "BlockedCells": 642,
+        "BlockedCells": 643,
         "TotalElements": 3138,
         "BlockedElements": 579,
         "NotEvaluableElements": 0,
-        "IssueCount": 642
+        "IssueCount": 643
       },
-      "Classification": "Mismatch",
-      "FirstDifference": "Blocked cells: native=643, offline=642.",
+      "Classification": "ExactMatch",
+      "FirstDifference": "",
       "FirstIssue": {
         "Kind": "TerrainBlocked",
         "ElementIndex": 46,
@@ -156,12 +170,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 16.657
+      "ElapsedMilliseconds": 71.3487
     },
     {
       "Id": "oracle-020-04-wolf-r90",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "9D36431208D24D65EC407B6857823F834624C3E9D97CED0429A9ABD15345D80C",
       "AivName": "wolf\u002B.aivjson",
       "AivSha256": "6587DD3958A4F213101D64D9871AD4D17BB249FF266F19CB447283F21E889187",
@@ -182,14 +201,14 @@
         "SequentialBuildScore": 41,
         "FitPercentage": 90,
         "EvaluatedCells": 5711,
-        "BlockedCells": 516,
+        "BlockedCells": 520,
         "TotalElements": 3138,
         "BlockedElements": 464,
         "NotEvaluableElements": 0,
-        "IssueCount": 516
+        "IssueCount": 520
       },
-      "Classification": "Mismatch",
-      "FirstDifference": "Blocked cells: native=520, offline=516.",
+      "Classification": "ExactMatch",
+      "FirstDifference": "",
       "FirstIssue": {
         "Kind": "TerrainBlocked",
         "ElementIndex": 41,
@@ -206,12 +225,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 7.61
+      "ElapsedMilliseconds": 56.2756
     },
     {
       "Id": "oracle-021-01-wolf-r270",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "9D36431208D24D65EC407B6857823F834624C3E9D97CED0429A9ABD15345D80C",
       "AivName": "wolf\u002B.aivjson",
       "AivSha256": "6587DD3958A4F213101D64D9871AD4D17BB249FF266F19CB447283F21E889187",
@@ -256,12 +280,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 6.9055
+      "ElapsedMilliseconds": 56.1327
     },
     {
       "Id": "oracle-021-02-wolf-r0",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "9D36431208D24D65EC407B6857823F834624C3E9D97CED0429A9ABD15345D80C",
       "AivName": "wolf\u002B.aivjson",
       "AivSha256": "6587DD3958A4F213101D64D9871AD4D17BB249FF266F19CB447283F21E889187",
@@ -306,12 +335,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 5.8867
+      "ElapsedMilliseconds": 61.4696
     },
     {
       "Id": "oracle-021-03-wolf-r90",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "9D36431208D24D65EC407B6857823F834624C3E9D97CED0429A9ABD15345D80C",
       "AivName": "wolf\u002B.aivjson",
       "AivSha256": "6587DD3958A4F213101D64D9871AD4D17BB249FF266F19CB447283F21E889187",
@@ -329,39 +363,44 @@
       },
       "Offline": {
         "Status": "Partial",
-        "SequentialBuildScore": 55,
+        "SequentialBuildScore": 49,
         "FitPercentage": 97,
         "EvaluatedCells": 5711,
-        "BlockedCells": 165,
+        "BlockedCells": 169,
         "TotalElements": 3138,
-        "BlockedElements": 145,
+        "BlockedElements": 146,
         "NotEvaluableElements": 0,
-        "IssueCount": 165
+        "IssueCount": 169
       },
-      "Classification": "Mismatch",
-      "FirstDifference": "Sequential score: native=49, offline=55.",
+      "Classification": "ExactMatch",
+      "FirstDifference": "",
       "FirstIssue": {
         "Kind": "TerrainBlocked",
-        "ElementIndex": 274,
-        "BuildIndex": 55,
-        "MapperValue": 106,
+        "ElementIndex": 49,
+        "BuildIndex": 49,
+        "MapperValue": 113,
         "TileKind": "CoreFootprint",
-        "X": 341,
-        "Y": 395,
-        "TileId": 156757,
-        "TerrainFlags": 41088,
+        "X": 350,
+        "Y": 393,
+        "TileId": 155186,
+        "TerrainFlags": 32896,
         "SecondaryLogic": 0,
         "Height": 8,
         "DefaultHeight": 8,
-        "OrganismId": 4106,
+        "OrganismId": 4118,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 5.7679
+      "ElapsedMilliseconds": 56.4163
     },
     {
       "Id": "oracle-021-04-wolf-r180",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "9D36431208D24D65EC407B6857823F834624C3E9D97CED0429A9ABD15345D80C",
       "AivName": "wolf\u002B.aivjson",
       "AivSha256": "6587DD3958A4F213101D64D9871AD4D17BB249FF266F19CB447283F21E889187",
@@ -382,14 +421,14 @@
         "SequentialBuildScore": 47,
         "FitPercentage": 92,
         "EvaluatedCells": 5711,
-        "BlockedCells": 423,
+        "BlockedCells": 424,
         "TotalElements": 3138,
         "BlockedElements": 273,
         "NotEvaluableElements": 0,
-        "IssueCount": 423
+        "IssueCount": 424
       },
-      "Classification": "Mismatch",
-      "FirstDifference": "Blocked cells: native=424, offline=423.",
+      "Classification": "ExactMatch",
+      "FirstDifference": "",
       "FirstIssue": {
         "Kind": "TerrainBlocked",
         "ElementIndex": 47,
@@ -406,12 +445,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 6.2295
+      "ElapsedMilliseconds": 56.6732
     },
     {
       "Id": "oracle-022-01-standard-4-r0",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "9D36431208D24D65EC407B6857823F834624C3E9D97CED0429A9ABD15345D80C",
       "AivName": "rat4.aivjson",
       "AivSha256": "88ED1D9ACD7B422E7A2DD488F4D0B7050AEBA9CA43DF1414425B0AD249C2985B",
@@ -456,12 +500,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 1.3013
+      "ElapsedMilliseconds": 10.1106
     },
     {
       "Id": "oracle-022-02-standard-5-r0",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "9D36431208D24D65EC407B6857823F834624C3E9D97CED0429A9ABD15345D80C",
       "AivName": "rat5.aivjson",
       "AivSha256": "8DC0E1FF4D95F08A969930472B957BC960C7BBB3A5E0D180D373C5B1851243DC",
@@ -506,12 +555,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 0.9003
+      "ElapsedMilliseconds": 7.8688
     },
     {
       "Id": "oracle-022-03-standard-6-r0",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "9D36431208D24D65EC407B6857823F834624C3E9D97CED0429A9ABD15345D80C",
       "AivName": "rat6.aivjson",
       "AivSha256": "7240F21893E20D3646D873DE1A40DC2DA767D2E91C4580120F6D48662F68FDEB",
@@ -541,10 +595,14 @@
       "Classification": "ExactMatch",
       "FirstDifference": "",
       "FirstIssue": null,
-      "ElapsedMilliseconds": 1.16
+      "ElapsedMilliseconds": 7.4968
     },
     {
       "Id": "oracle-023-01-standard-2-r270",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "9D36431208D24D65EC407B6857823F834624C3E9D97CED0429A9ABD15345D80C",
       "AivName": "rat2.aivjson",
       "AivSha256": "AE421D2DA8AF9E50FA5B2FEFEB3BFBF6F6FB0E7E6F95E5A3E8C49204C42E427A",
@@ -574,10 +632,14 @@
       "Classification": "ExactMatch",
       "FirstDifference": "",
       "FirstIssue": null,
-      "ElapsedMilliseconds": 0.8604
+      "ElapsedMilliseconds": 1.0608
     },
     {
       "Id": "oracle-024-01-testlord-serpcastle1-r180",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "9D36431208D24D65EC407B6857823F834624C3E9D97CED0429A9ABD15345D80C",
       "AivName": "testlord_serpcastle1.aivjson",
       "AivSha256": "0F4003B3B43B9F96C3E4C8C50B5E0EB54615184F1F8A28EEEDFFE3E63567BA28",
@@ -596,25 +658,25 @@
       "Offline": {
         "Status": "Partial",
         "SequentialBuildScore": 15,
-        "FitPercentage": 71,
+        "FitPercentage": 70,
         "EvaluatedCells": 1817,
-        "BlockedCells": 519,
+        "BlockedCells": 535,
         "TotalElements": 162,
-        "BlockedElements": 36,
+        "BlockedElements": 35,
         "NotEvaluableElements": 0,
-        "IssueCount": 519
+        "IssueCount": 535
       },
-      "Classification": "Mismatch",
-      "FirstDifference": "Fit percentage: native=70, offline=71.",
+      "Classification": "ExactMatch",
+      "FirstDifference": "",
       "FirstIssue": {
         "Kind": "TerrainBlocked",
         "ElementIndex": 59,
         "BuildIndex": 15,
         "MapperValue": 110,
         "TileKind": "CoreFootprint",
-        "X": 498,
-        "Y": 342,
-        "TileId": 117747,
+        "X": 499,
+        "Y": 343,
+        "TileId": 118435,
         "TerrainFlags": 1048576,
         "SecondaryLogic": 0,
         "Height": 0,
@@ -622,12 +684,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 1.725
+      "ElapsedMilliseconds": 1.8784
     },
     {
       "Id": "oracle-024-02-testlord-serpcastle1-r270",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "9D36431208D24D65EC407B6857823F834624C3E9D97CED0429A9ABD15345D80C",
       "AivName": "testlord_serpcastle1.aivjson",
       "AivSha256": "0F4003B3B43B9F96C3E4C8C50B5E0EB54615184F1F8A28EEEDFFE3E63567BA28",
@@ -646,25 +713,25 @@
       "Offline": {
         "Status": "Partial",
         "SequentialBuildScore": 15,
-        "FitPercentage": 74,
+        "FitPercentage": 72,
         "EvaluatedCells": 1817,
-        "BlockedCells": 459,
+        "BlockedCells": 492,
         "TotalElements": 162,
-        "BlockedElements": 28,
+        "BlockedElements": 36,
         "NotEvaluableElements": 0,
-        "IssueCount": 459
+        "IssueCount": 492
       },
-      "Classification": "Mismatch",
-      "FirstDifference": "Fit percentage: native=72, offline=74.",
+      "Classification": "ExactMatch",
+      "FirstDifference": "",
       "FirstIssue": {
         "Kind": "TerrainBlocked",
         "ElementIndex": 59,
         "BuildIndex": 15,
         "MapperValue": 110,
         "TileKind": "CoreFootprint",
-        "X": 497,
-        "Y": 256,
-        "TileId": 66146,
+        "X": 498,
+        "Y": 257,
+        "TileId": 66662,
         "TerrainFlags": 16,
         "SecondaryLogic": 0,
         "Height": 8,
@@ -672,12 +739,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 1.5551
+      "ElapsedMilliseconds": 1.7766
     },
     {
       "Id": "oracle-024-03-testlord-serpcastle1-r0",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "9D36431208D24D65EC407B6857823F834624C3E9D97CED0429A9ABD15345D80C",
       "AivName": "testlord_serpcastle1.aivjson",
       "AivSha256": "0F4003B3B43B9F96C3E4C8C50B5E0EB54615184F1F8A28EEEDFFE3E63567BA28",
@@ -698,23 +770,23 @@
         "SequentialBuildScore": 15,
         "FitPercentage": 64,
         "EvaluatedCells": 1817,
-        "BlockedCells": 646,
+        "BlockedCells": 649,
         "TotalElements": 162,
-        "BlockedElements": 34,
+        "BlockedElements": 36,
         "NotEvaluableElements": 0,
-        "IssueCount": 646
+        "IssueCount": 649
       },
-      "Classification": "Mismatch",
-      "FirstDifference": "Blocked cells: native=649, offline=646.",
+      "Classification": "ExactMatch",
+      "FirstDifference": "",
       "FirstIssue": {
         "Kind": "TerrainBlocked",
         "ElementIndex": 59,
         "BuildIndex": 15,
         "MapperValue": 110,
         "TileKind": "CoreFootprint",
-        "X": 411,
-        "Y": 257,
-        "TileId": 66575,
+        "X": 412,
+        "Y": 258,
+        "TileId": 67093,
         "TerrainFlags": 1048576,
         "SecondaryLogic": 0,
         "Height": 0,
@@ -722,12 +794,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 1.5086
+      "ElapsedMilliseconds": 1.7505
     },
     {
       "Id": "oracle-024-04-testlord-serpcastle1-r90",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "9D36431208D24D65EC407B6857823F834624C3E9D97CED0429A9ABD15345D80C",
       "AivName": "testlord_serpcastle1.aivjson",
       "AivSha256": "0F4003B3B43B9F96C3E4C8C50B5E0EB54615184F1F8A28EEEDFFE3E63567BA28",
@@ -748,14 +825,14 @@
         "SequentialBuildScore": 18,
         "FitPercentage": 68,
         "EvaluatedCells": 1817,
-        "BlockedCells": 577,
+        "BlockedCells": 576,
         "TotalElements": 162,
-        "BlockedElements": 33,
+        "BlockedElements": 36,
         "NotEvaluableElements": 0,
-        "IssueCount": 577
+        "IssueCount": 576
       },
-      "Classification": "Mismatch",
-      "FirstDifference": "Blocked cells: native=576, offline=577.",
+      "Classification": "ExactMatch",
+      "FirstDifference": "",
       "FirstIssue": {
         "Kind": "TerrainBlocked",
         "ElementIndex": 62,
@@ -772,12 +849,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 1.5687
+      "ElapsedMilliseconds": 1.8366
     },
     {
       "Id": "oracle-025-01-wolf-r0",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "9D36431208D24D65EC407B6857823F834624C3E9D97CED0429A9ABD15345D80C",
       "AivName": "wolf\u002B.aivjson",
       "AivSha256": "6587DD3958A4F213101D64D9871AD4D17BB249FF266F19CB447283F21E889187",
@@ -822,12 +904,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 5.6733
+      "ElapsedMilliseconds": 55.0583
     },
     {
       "Id": "oracle-025-02-wolf-r90",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "9D36431208D24D65EC407B6857823F834624C3E9D97CED0429A9ABD15345D80C",
       "AivName": "wolf\u002B.aivjson",
       "AivSha256": "6587DD3958A4F213101D64D9871AD4D17BB249FF266F19CB447283F21E889187",
@@ -848,14 +935,14 @@
         "SequentialBuildScore": 38,
         "FitPercentage": 83,
         "EvaluatedCells": 5711,
-        "BlockedCells": 935,
+        "BlockedCells": 941,
         "TotalElements": 3138,
         "BlockedElements": 697,
         "NotEvaluableElements": 0,
-        "IssueCount": 935
+        "IssueCount": 941
       },
-      "Classification": "Mismatch",
-      "FirstDifference": "Blocked cells: native=941, offline=935.",
+      "Classification": "ExactMatch",
+      "FirstDifference": "",
       "FirstIssue": {
         "Kind": "TerrainBlocked",
         "ElementIndex": 38,
@@ -872,12 +959,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 7.7955
+      "ElapsedMilliseconds": 55.1392
     },
     {
       "Id": "oracle-025-03-wolf-r180",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "9D36431208D24D65EC407B6857823F834624C3E9D97CED0429A9ABD15345D80C",
       "AivName": "wolf\u002B.aivjson",
       "AivSha256": "6587DD3958A4F213101D64D9871AD4D17BB249FF266F19CB447283F21E889187",
@@ -898,14 +990,14 @@
         "SequentialBuildScore": 47,
         "FitPercentage": 81,
         "EvaluatedCells": 5711,
-        "BlockedCells": 1045,
+        "BlockedCells": 1046,
         "TotalElements": 3138,
         "BlockedElements": 884,
         "NotEvaluableElements": 0,
-        "IssueCount": 1045
+        "IssueCount": 1046
       },
-      "Classification": "Mismatch",
-      "FirstDifference": "Blocked cells: native=1046, offline=1045.",
+      "Classification": "ExactMatch",
+      "FirstDifference": "",
       "FirstIssue": {
         "Kind": "TerrainBlocked",
         "ElementIndex": 47,
@@ -922,12 +1014,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 7.9798
+      "ElapsedMilliseconds": 55.8288
     },
     {
       "Id": "oracle-025-04-wolf-r270",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "9D36431208D24D65EC407B6857823F834624C3E9D97CED0429A9ABD15345D80C",
       "AivName": "wolf\u002B.aivjson",
       "AivSha256": "6587DD3958A4F213101D64D9871AD4D17BB249FF266F19CB447283F21E889187",
@@ -948,14 +1045,14 @@
         "SequentialBuildScore": 15,
         "FitPercentage": 86,
         "EvaluatedCells": 5711,
-        "BlockedCells": 774,
+        "BlockedCells": 775,
         "TotalElements": 3138,
-        "BlockedElements": 728,
+        "BlockedElements": 729,
         "NotEvaluableElements": 0,
-        "IssueCount": 774
+        "IssueCount": 775
       },
-      "Classification": "Mismatch",
-      "FirstDifference": "Blocked cells: native=775, offline=774.",
+      "Classification": "ExactMatch",
+      "FirstDifference": "",
       "FirstIssue": {
         "Kind": "TerrainBlocked",
         "ElementIndex": 15,
@@ -972,9 +1069,10 @@
         "OrganismId": 4012,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 4.8092
+      "ElapsedMilliseconds": 55.2327
     }
   ]
 }

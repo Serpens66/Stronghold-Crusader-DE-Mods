@@ -168,7 +168,7 @@ to Chat 7 and are intentionally not assigned speculative names here.
 
 ## Passive runtime Oracle
 
-`ActiveAIVDetector` version `0.7.0` detours the five AIV functions above and
+`ActiveAIVDetector` version `0.9.0` detours the five AIV functions above and
 calls each original trampoline exactly once. It never initiates a candidate
 test and returns every native result unchanged. The existing process-lifetime
 runtime owns the detours, so destruction of the temporary BepInEx component
@@ -177,11 +177,16 @@ during startup does not remove them.
 After `OnStartMap(Post)`, the mod emits:
 
 - one `AIV placement oracle selection` record with map path, map SHA-256, player slot,
-  native selection method, final candidate, final rotation, state, and direct
-  return value where applicable;
+  the captured `advopt_pre_build` value, native selection method, final
+  candidate, final rotation, state, and direct return value where applicable;
 - one `AIV placement oracle attempt` record for every candidate/rotation test,
-  including AIV path/hash when resolvable, raw score, percentage, counters,
-  absolute origin, and Keep reference.
+  including the same `advopt_pre_build` value, AIV path/hash when resolvable,
+  raw score, percentage, counters, absolute origin, and Keep reference.
+
+The option is captured directly from `FRONT_Multiplayer.MPsetupData` before
+`StartSkirmishGame` transfers the setup to native code. It is then bound to the
+specific map-load session. A session without a captured value is not valid for
+mode-dependent sequential comparison.
 
 Every record receives a local timestamp with millisecond precision through
 `Shared.DebugLogHelper`.
@@ -203,8 +208,16 @@ One regular-skirmish start on 2026-08-02 provided a deliberately broad batch:
 `testlord_serpcastle1` selection, and one default Rat selection. Vanilla's
 instant-complete-castles option was enabled. Candidate selection finished by
 `22:49:18.524`; all seven final records were confirmed by `22:49:18.531`.
-Subsequent map-start/castle handling began at `22:49:18.546`, so prebuilding did
-not contaminate the fit inputs.
+Those managed timestamps are emitted only after the native map-start loop has
+returned and therefore do not prove that all fits preceded prebuilding. The
+targeted native audit subsequently established the opposite: for each player,
+selection and preparation are followed immediately by that player's complete
+prebuild before the loop advances to the next player. With Sofortspawn enabled,
+the already realized castle of an earlier player is consequently part of the
+live-map input for every later player's fit.
+
+The exact loop, frame, flattening, and blocker semantics are documented in
+`AIV_PREBUILD_AND_OVERLAP_ORDER.md`.
 
 | Case | Observation | Evidence status |
 | --- | --- | --- |

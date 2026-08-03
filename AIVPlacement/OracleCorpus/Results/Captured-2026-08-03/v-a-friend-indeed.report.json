@@ -3,15 +3,19 @@
   "MapName": "v_A Friend Indeed.map",
   "MapSha256": "B344814997D4EE77EE65AC09D89B3FAC5E2198F9AA78F3CFB12448B70CD8E645",
   "WorldSize": 400,
-  "StartedAtLocal": "2026-08-03T02:55:59.6546727+02:00",
-  "ElapsedMilliseconds": 181.4831,
-  "ExactMatchCount": 12,
+  "StartedAtLocal": "2026-08-03T15:12:36.3650297+02:00",
+  "ElapsedMilliseconds": 788.5001,
+  "ExactMatchCount": 14,
   "NotEvaluableCount": 0,
-  "MismatchCount": 2,
+  "MismatchCount": 0,
   "FailedCaseCount": 0,
   "Cases": [
     {
       "Id": "oracle-015-01-wolf-r270",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "B344814997D4EE77EE65AC09D89B3FAC5E2198F9AA78F3CFB12448B70CD8E645",
       "AivName": "wolf\u002B.aivjson",
       "AivSha256": "6587DD3958A4F213101D64D9871AD4D17BB249FF266F19CB447283F21E889187",
@@ -56,12 +60,17 @@
         "OrganismId": 4154,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 34.8441
+      "ElapsedMilliseconds": 256.2189
     },
     {
       "Id": "oracle-015-02-wolf-r0",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "B344814997D4EE77EE65AC09D89B3FAC5E2198F9AA78F3CFB12448B70CD8E645",
       "AivName": "wolf\u002B.aivjson",
       "AivSha256": "6587DD3958A4F213101D64D9871AD4D17BB249FF266F19CB447283F21E889187",
@@ -106,12 +115,17 @@
         "OrganismId": 4151,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 25.9295
+      "ElapsedMilliseconds": 76.1605
     },
     {
       "Id": "oracle-015-03-wolf-r90",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "B344814997D4EE77EE65AC09D89B3FAC5E2198F9AA78F3CFB12448B70CD8E645",
       "AivName": "wolf\u002B.aivjson",
       "AivSha256": "6587DD3958A4F213101D64D9871AD4D17BB249FF266F19CB447283F21E889187",
@@ -156,12 +170,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 22.7931
+      "ElapsedMilliseconds": 72.5825
     },
     {
       "Id": "oracle-015-04-wolf-r180",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "B344814997D4EE77EE65AC09D89B3FAC5E2198F9AA78F3CFB12448B70CD8E645",
       "AivName": "wolf\u002B.aivjson",
       "AivSha256": "6587DD3958A4F213101D64D9871AD4D17BB249FF266F19CB447283F21E889187",
@@ -206,12 +225,17 @@
         "OrganismId": 4153,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 7.5947
+      "ElapsedMilliseconds": 60.7558
     },
     {
       "Id": "oracle-016-01-wolf-r180",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "B344814997D4EE77EE65AC09D89B3FAC5E2198F9AA78F3CFB12448B70CD8E645",
       "AivName": "wolf\u002B.aivjson",
       "AivSha256": "6587DD3958A4F213101D64D9871AD4D17BB249FF266F19CB447283F21E889187",
@@ -256,12 +280,17 @@
         "OrganismId": 4079,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 6.0136
+      "ElapsedMilliseconds": 56.0115
     },
     {
       "Id": "oracle-016-02-wolf-r270",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "B344814997D4EE77EE65AC09D89B3FAC5E2198F9AA78F3CFB12448B70CD8E645",
       "AivName": "wolf\u002B.aivjson",
       "AivSha256": "6587DD3958A4F213101D64D9871AD4D17BB249FF266F19CB447283F21E889187",
@@ -306,12 +335,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 5.9209
+      "ElapsedMilliseconds": 56.4479
     },
     {
       "Id": "oracle-016-03-wolf-r0",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "B344814997D4EE77EE65AC09D89B3FAC5E2198F9AA78F3CFB12448B70CD8E645",
       "AivName": "wolf\u002B.aivjson",
       "AivSha256": "6587DD3958A4F213101D64D9871AD4D17BB249FF266F19CB447283F21E889187",
@@ -356,12 +390,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 5.4661
+      "ElapsedMilliseconds": 59.5604
     },
     {
       "Id": "oracle-016-04-wolf-r90",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "B344814997D4EE77EE65AC09D89B3FAC5E2198F9AA78F3CFB12448B70CD8E645",
       "AivName": "wolf\u002B.aivjson",
       "AivSha256": "6587DD3958A4F213101D64D9871AD4D17BB249FF266F19CB447283F21E889187",
@@ -406,12 +445,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 5.8763
+      "ElapsedMilliseconds": 56.7048
     },
     {
       "Id": "oracle-017-01-standard-6-r0",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "B344814997D4EE77EE65AC09D89B3FAC5E2198F9AA78F3CFB12448B70CD8E645",
       "AivName": "rat6.aivjson",
       "AivSha256": "7240F21893E20D3646D873DE1A40DC2DA767D2E91C4580120F6D48662F68FDEB",
@@ -441,10 +485,14 @@
       "Classification": "ExactMatch",
       "FirstDifference": "",
       "FirstIssue": null,
-      "ElapsedMilliseconds": 1.2662
+      "ElapsedMilliseconds": 2.1231
     },
     {
       "Id": "oracle-018-01-standard-3-r180",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "B344814997D4EE77EE65AC09D89B3FAC5E2198F9AA78F3CFB12448B70CD8E645",
       "AivName": "rat3.aivjson",
       "AivSha256": "7E4B9FA88D119C3A24D8168B666C4A30A549A4E7F806ADF6AC064A16F93EEDB9",
@@ -474,10 +522,14 @@
       "Classification": "ExactMatch",
       "FirstDifference": "",
       "FirstIssue": null,
-      "ElapsedMilliseconds": 0.7348
+      "ElapsedMilliseconds": 1.0884
     },
     {
       "Id": "oracle-019-01-testlord-serpcastle1-r0",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "B344814997D4EE77EE65AC09D89B3FAC5E2198F9AA78F3CFB12448B70CD8E645",
       "AivName": "testlord_serpcastle1.aivjson",
       "AivSha256": "0F4003B3B43B9F96C3E4C8C50B5E0EB54615184F1F8A28EEEDFFE3E63567BA28",
@@ -495,39 +547,44 @@
       },
       "Offline": {
         "Status": "Partial",
-        "SequentialBuildScore": 41,
+        "SequentialBuildScore": 37,
         "FitPercentage": 91,
         "EvaluatedCells": 1817,
-        "BlockedCells": 154,
+        "BlockedCells": 158,
         "TotalElements": 162,
-        "BlockedElements": 14,
+        "BlockedElements": 16,
         "NotEvaluableElements": 0,
-        "IssueCount": 154
+        "IssueCount": 158
       },
-      "Classification": "Mismatch",
-      "FirstDifference": "Sequential score: native=37, offline=41.",
+      "Classification": "ExactMatch",
+      "FirstDifference": "",
       "FirstIssue": {
         "Kind": "TerrainBlocked",
-        "ElementIndex": 85,
-        "BuildIndex": 41,
-        "MapperValue": 51,
-        "TileKind": "CoreFootprint",
-        "X": 331,
-        "Y": 536,
-        "TileId": 251035,
-        "TerrainFlags": 16,
+        "ElementIndex": 81,
+        "BuildIndex": 37,
+        "MapperValue": 87,
+        "TileKind": "AssociatedBlockedArea",
+        "X": 334,
+        "Y": 529,
+        "TileId": 247293,
+        "TerrainFlags": 32896,
         "SecondaryLogic": 0,
         "Height": 8,
-        "DefaultHeight": 0,
-        "OrganismId": 0,
+        "DefaultHeight": 8,
+        "OrganismId": 4146,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 1.4704
+      "ElapsedMilliseconds": 2.0811
     },
     {
       "Id": "oracle-019-02-testlord-serpcastle1-r90",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "B344814997D4EE77EE65AC09D89B3FAC5E2198F9AA78F3CFB12448B70CD8E645",
       "AivName": "testlord_serpcastle1.aivjson",
       "AivSha256": "0F4003B3B43B9F96C3E4C8C50B5E0EB54615184F1F8A28EEEDFFE3E63567BA28",
@@ -562,9 +619,9 @@
         "BuildIndex": 15,
         "MapperValue": 110,
         "TileKind": "CoreFootprint",
-        "X": 332,
-        "Y": 577,
-        "TileId": 271003,
+        "X": 333,
+        "Y": 578,
+        "TileId": 271449,
         "TerrainFlags": 16,
         "SecondaryLogic": 0,
         "Height": 8,
@@ -572,12 +629,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 1.5113
+      "ElapsedMilliseconds": 2.6788
     },
     {
       "Id": "oracle-019-03-testlord-serpcastle1-r180",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "B344814997D4EE77EE65AC09D89B3FAC5E2198F9AA78F3CFB12448B70CD8E645",
       "AivName": "testlord_serpcastle1.aivjson",
       "AivSha256": "0F4003B3B43B9F96C3E4C8C50B5E0EB54615184F1F8A28EEEDFFE3E63567BA28",
@@ -595,7 +657,7 @@
       },
       "Offline": {
         "Status": "Partial",
-        "SequentialBuildScore": 18,
+        "SequentialBuildScore": 15,
         "FitPercentage": 83,
         "EvaluatedCells": 1817,
         "BlockedCells": 291,
@@ -604,30 +666,35 @@
         "NotEvaluableElements": 0,
         "IssueCount": 291
       },
-      "Classification": "Mismatch",
-      "FirstDifference": "Sequential score: native=15, offline=18.",
+      "Classification": "ExactMatch",
+      "FirstDifference": "",
       "FirstIssue": {
         "Kind": "TerrainBlocked",
-        "ElementIndex": 62,
-        "BuildIndex": 18,
-        "MapperValue": 113,
+        "ElementIndex": 59,
+        "BuildIndex": 15,
+        "MapperValue": 110,
         "TileKind": "CoreFootprint",
-        "X": 374,
-        "Y": 573,
-        "TileId": 269245,
+        "X": 419,
+        "Y": 579,
+        "TileId": 271978,
         "TerrainFlags": 32,
-        "SecondaryLogic": 2,
+        "SecondaryLogic": 0,
         "Height": 8,
         "DefaultHeight": 8,
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 1.4981
+      "ElapsedMilliseconds": 1.8312
     },
     {
       "Id": "oracle-019-04-testlord-serpcastle1-r270",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "B344814997D4EE77EE65AC09D89B3FAC5E2198F9AA78F3CFB12448B70CD8E645",
       "AivName": "testlord_serpcastle1.aivjson",
       "AivSha256": "0F4003B3B43B9F96C3E4C8C50B5E0EB54615184F1F8A28EEEDFFE3E63567BA28",
@@ -662,9 +729,9 @@
         "BuildIndex": 44,
         "MapperValue": 106,
         "TileKind": "CoreFootprint",
-        "X": 372,
-        "Y": 571,
-        "TileId": 268331,
+        "X": 373,
+        "Y": 572,
+        "TileId": 268789,
         "TerrainFlags": 32,
         "SecondaryLogic": 2,
         "Height": 8,
@@ -672,9 +739,10 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 1.5056
+      "ElapsedMilliseconds": 1.8258
     }
   ]
 }

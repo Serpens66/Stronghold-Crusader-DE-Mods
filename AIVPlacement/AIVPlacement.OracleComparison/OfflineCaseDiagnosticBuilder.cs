@@ -13,6 +13,21 @@ public static class OfflineCaseDiagnosticBuilder
         ArgumentNullException.ThrowIfNull(map);
         ArgumentNullException.ThrowIfNull(result);
 
+        var effectiveCells = new Dictionary<
+            MapCoordinate,
+            (AivElementPlacementResult ElementResult, int CellIndex)>();
+        foreach (AivElementPlacementResult elementResult in result.ElementResults)
+        {
+            for (int cellIndex = 0;
+                 cellIndex < elementResult.Element.OccupiedTiles.Count;
+                 cellIndex++)
+            {
+                // The native loader keeps only the last write to each grid cell.
+                effectiveCells[elementResult.Element.OccupiedTiles[cellIndex].MapCoordinate] =
+                    (elementResult, cellIndex);
+            }
+        }
+
         var elements = new List<OfflineElementDiagnostic>(result.ElementResults.Count);
         foreach (AivElementPlacementResult elementResult in result.ElementResults)
         {
@@ -31,11 +46,18 @@ public static class OfflineCaseDiagnosticBuilder
             for (int cellIndex = 0; cellIndex < element.OccupiedTiles.Count; cellIndex++)
             {
                 AivProjectedTile tile = element.OccupiedTiles[cellIndex];
+                if (!effectiveCells.TryGetValue(tile.MapCoordinate, out var effectiveCell) ||
+                    !ReferenceEquals(effectiveCell.ElementResult, elementResult) ||
+                    effectiveCell.CellIndex != cellIndex)
+                {
+                    continue;
+                }
                 issueKindsByCoordinate.TryGetValue(
                     tile.MapCoordinate,
                     out AivPlacementIssueKind issueKind);
                 bool blocked =
-                    (issueKind & ~AivPlacementIssueKind.UnresolvedNativeRule) != 0;
+                    (issueKind & ~(AivPlacementIssueKind.UnresolvedNativeRule |
+                        AivPlacementIssueKind.InternalOverlap)) != 0;
 
                 int? tileId = null;
                 AivPlacementTileEvidence? evidence = null;
@@ -91,7 +113,7 @@ public static class OfflineCaseDiagnosticBuilder
                     BuildingId = evidence?.BuildingId,
                     EntityId = evidence?.EntityId,
                     OwnerId = evidence?.OwnerId,
-                    PlannedOccupancies = ToPlannedOccupancies(evidence),
+                    Occupancies = ToOccupancies(evidence),
                     WasPreplacementNormalized = EvidenceDiffers(evidence, originalEvidence),
                     OriginalTerrainFlags = originalEvidence?.TerrainFlags,
                     OriginalSecondaryLogic = originalEvidence?.SecondaryLogic,
@@ -101,7 +123,7 @@ public static class OfflineCaseDiagnosticBuilder
                     OriginalBuildingId = originalEvidence?.BuildingId,
                     OriginalEntityId = originalEvidence?.EntityId,
                     OriginalOwnerId = originalEvidence?.OwnerId,
-                    OriginalPlannedOccupancies = ToPlannedOccupancies(originalEvidence),
+                    OriginalOccupancies = ToOccupancies(originalEvidence),
                     OrthogonalStartBuildingNeighborCount =
                         startAdjacency?.OrthogonalNeighborCount,
                     DiagonalStartBuildingNeighborCount =
@@ -171,10 +193,10 @@ public static class OfflineCaseDiagnosticBuilder
 
         AivPlacementTileEvidence left = effective.Value;
         AivPlacementTileEvidence right = original.Value;
-        IReadOnlyList<AivPlannedTileOccupancy> leftPlans =
-            left.PlannedOccupancies ?? Array.Empty<AivPlannedTileOccupancy>();
-        IReadOnlyList<AivPlannedTileOccupancy> rightPlans =
-            right.PlannedOccupancies ?? Array.Empty<AivPlannedTileOccupancy>();
+        IReadOnlyList<AivTileOccupancy> leftPlans =
+            left.Occupancies ?? Array.Empty<AivTileOccupancy>();
+        IReadOnlyList<AivTileOccupancy> rightPlans =
+            right.Occupancies ?? Array.Empty<AivTileOccupancy>();
         return left.TerrainFlags != right.TerrainFlags ||
             left.SecondaryLogic != right.SecondaryLogic ||
             left.Height != right.Height ||
@@ -186,21 +208,25 @@ public static class OfflineCaseDiagnosticBuilder
             !leftPlans.SequenceEqual(rightPlans);
     }
 
-    private static List<OfflinePlannedOccupancyDiagnostic> ToPlannedOccupancies(
+    private static List<OfflineOccupancyDiagnostic> ToOccupancies(
         AivPlacementTileEvidence? evidence)
     {
-        if (!evidence.HasValue || evidence.Value.PlannedOccupancies == null)
-            return new List<OfflinePlannedOccupancyDiagnostic>();
+        if (!evidence.HasValue || evidence.Value.Occupancies == null)
+            return new List<OfflineOccupancyDiagnostic>();
 
-        return evidence.Value.PlannedOccupancies
-            .Select(item => new OfflinePlannedOccupancyDiagnostic
+        return evidence.Value.Occupancies
+            .Select(item => new OfflineOccupancyDiagnostic
             {
+                Kind = item.Kind,
                 SessionId = item.SessionId,
                 PlayerId = item.PlayerId,
+                BuildingId = item.BuildingId,
+                BuildingType = item.BuildingType,
                 MapperValue = item.MapperValue,
                 Category = item.Category,
                 ElementIndex = item.ElementIndex,
-                BuildIndex = item.BuildIndex
+                BuildIndex = item.BuildIndex,
+                BlocksPlacement = item.BlocksPlacement
             })
             .ToList();
     }
@@ -268,7 +294,7 @@ public sealed class OfflineCellDiagnostic
     public ushort? BuildingId { get; set; }
     public ushort? EntityId { get; set; }
     public byte? OwnerId { get; set; }
-    public List<OfflinePlannedOccupancyDiagnostic> PlannedOccupancies { get; set; } = new();
+    public List<OfflineOccupancyDiagnostic> Occupancies { get; set; } = new();
     public bool WasPreplacementNormalized { get; set; }
     public int? OriginalTerrainFlags { get; set; }
     public byte? OriginalSecondaryLogic { get; set; }
@@ -278,17 +304,21 @@ public sealed class OfflineCellDiagnostic
     public ushort? OriginalBuildingId { get; set; }
     public ushort? OriginalEntityId { get; set; }
     public byte? OriginalOwnerId { get; set; }
-    public List<OfflinePlannedOccupancyDiagnostic> OriginalPlannedOccupancies { get; set; } = new();
+    public List<OfflineOccupancyDiagnostic> OriginalOccupancies { get; set; } = new();
     public int? OrthogonalStartBuildingNeighborCount { get; set; }
     public int? DiagonalStartBuildingNeighborCount { get; set; }
 }
 
-public sealed class OfflinePlannedOccupancyDiagnostic
+public sealed class OfflineOccupancyDiagnostic
 {
+    public AivTileOccupancyKind Kind { get; set; }
     public string SessionId { get; set; } = string.Empty;
     public int PlayerId { get; set; }
+    public ushort BuildingId { get; set; }
+    public ushort BuildingType { get; set; }
     public int MapperValue { get; set; }
     public AivItemCategory Category { get; set; }
     public int ElementIndex { get; set; }
     public int BuildIndex { get; set; }
+    public bool BlocksPlacement { get; set; }
 }

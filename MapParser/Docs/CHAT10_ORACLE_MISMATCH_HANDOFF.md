@@ -1,9 +1,9 @@
-# Übergabe: Chat 10 und die 47 Oracle-Mismatches
+# Übergabe: Chat 10 und die 8 verbleibenden Oracle-Mismatches
 
 ## Auftrag und Stopplinie
 
 Der nächste Chat setzt **Chat 10** aus `MapParser/AIV_PLACEMENT_ROADMAP.md`
-fort. Er darf Chat 11 noch nicht beginnen. Ziel ist, die 47 reproduzierbaren
+fort. Er darf Chat 11 noch nicht beginnen. Ziel ist, die acht reproduzierbaren
 Abweichungen zwischen dem nativen AIV-Oracle und dem Offline-Analyzer nach ihrer
 Ursache zu erklären und den Offline-Kern entsprechend zu korrigieren.
 
@@ -28,24 +28,39 @@ explizites `SessionId` wie `map-load-001`, abgeleitet vom zugehörigen
 nichtleeren `SessionId` dürfen temporären Zustand vorheriger KI-Spieler teilen;
 ein Manifest darf Fälle mit und ohne Sitzungs-ID nicht mischen.
 
-Reale und temporär geplante Belegung sind im Offline-Modell getrennt:
+Der frühere Nachtrag über einen „temporären geplanten Blocker“ ist durch die
+gepaarten Sofortspawn-Läufe und den nativen Spielerloop ersetzt. Maßgeblich ist
+`AIV_PREBUILD_AND_OVERLAP_ORDER.md`:
 
 - `BuildingId != 0` bezeichnet ausschließlich ein wirklich in der Map-
   beziehungsweise Laufzeitbelegung vorhandenes Gebäude;
-- `PlannedOccupancies` bezeichnet den temporären nativen AIV-Prüfzustand und
-  enthält `SessionId`, Spieler-ID, Mapper, Kategorie, Element- und Bauindex;
-- eine solche Zelle erhält `PriorAivPlannedOccupied`, nicht
-  `BuildingOccupied`; es wird keine künstliche Gebäude-ID als Ersatz erzeugt;
-- blockierte AIV-Elemente und zugehörige Reservierungsflächen werden nicht als
-  geplante Kernbelegung weitergereicht; Mapper 105 (Zugbrücke) ist durch den
-  Spieler-3-Trace ebenfalls ausgenommen.
+- `advopt_pre_build` wird pro Kartenstart erfasst und darf innerhalb einer
+  `SessionId` nicht wechseln;
+- Spieler werden nativ vollständig in ID-Reihenfolge `1..8` verarbeitet;
+- ohne Sofortspawn blockieren frühere AIV-Pläne nicht, wohl aber deren bereits
+  erzeugte Startkomplexe;
+- mit Sofortspawn blockieren die tatsächlich zuvor ausgeführten AIV-Gebäude
+  und Tile-Änderungen den nächsten Spieler;
+- `Occupancies` bewahrt die Herkunft als Mapgebäude, Start-Keep,
+  Start-Vorratslager, sonstiges Startgebäude, geplant, zur PreBuild-Ausführung
+  vorgesehen, bereits prebuilt oder unbekanntes Laufzeitgebäude;
+- simulierte frühere PreBuild-Belegung erzeugt
+  `ProjectedPriorAivPrebuildOccupied`, live bestätigte Belegung
+  `PriorAivPrebuiltOccupied`; beide erfinden niemals eine reale Gebäude-ID.
 
-Der gesicherte Thasos-Mehrspielerlauf mit expliziter Sitzung umfasst 24 Fälle.
-Spieler 2 und alle vier Rotationen von Spieler 3 stimmen exakt. Ab Spieler 4
-muss noch geklärt werden, welche Mapper-Typen aus zwei vorherigen temporären
-AIV-Zuständen wie native Gebäude-, Wall-, Trap- oder Terrainwerte wirken. Der
-nächste kleinste Lauf ist deshalb der bereits installierte Vier-Rotationen-
-Zelltrace für Spieler 4.
+Ein gesichertes Thasos-Paar umfasst je 24 Fälle mit identischem Setup: einmal
+ohne und einmal mit Sofortspawn. Beim Spieler-5-Trace entstehen mit Sofortspawn
+je nach Rotation 69 bis 124 zusätzliche blockierte Zellen. Der installierte
+Live-Building-Grid-Trace soll als Nächstes die Offline-Annäherung an tatsächlich
+erfolgreiche PreBuild-Ausführung weiter präzisieren.
+
+Der neu importierte, modusbewusste Vergleich dieses Paars steht bei 27/48
+exakten Fällen statt zuvor 16/48. Ohne Sofortspawn sind 17/24 exakt, mit
+Sofortspawn 10/24; insgesamt bleiben 21 Mismatches bei 0 Fehlern und
+0 `NotEvaluable`. Projizierte und live bestätigte PreBuild-Belegung besitzen
+bewusst getrennte Herkunfts- und Reason-Codes. Der nächste Präzisierungsschritt
+ist daher kein weiteres Raten aus AIV-Plänen, sondern ein Live-Zwischenzustand
+zwischen den nativen Spieleriterationen.
 
 Der lokale `.native-analysis/TraceOverlapAnalyzer` erwartet als viertes
 Argument immer Gradwerte `0`, `90`, `180` oder `270`, nicht die nativen Codes
@@ -71,18 +86,13 @@ Diese Dateien in der angegebenen Reihenfolge lesen:
 
 ## Verbindliche Ausgangslage
 
-Die kanonische Baseline umfasst 144 Fälle: 97 exakt, 47 Mismatches,
+Die kanonische Baseline umfasst 144 Fälle: 136 exakt, 8 Mismatches,
 0 `NotEvaluable`, 0 Fehler. Die Kartenaufschlüsselung steht im
-Oracle-Vergleichsdokument. Sämtliche Rat-AIV-Fälle stimmen exakt. Abweichungen
-treten nur bei folgenden AIVs auf:
-
-- `wolf+.aivjson`: 55 Fälle, davon 23 exakt und 32 Mismatches;
-- `testlord_serpcastle1.aivjson`: 17 Fälle, davon 2 exakt und 15 Mismatches.
-
-Bei den Wolf-Abweichungen liegt `OfflineBlocked - NativeBlocked` immer zwischen
-`-149` und `-1`: Der Offline-Analyzer blockiert also stets zu wenige Zellen.
-Beim Testlord liegt die Spanne zwischen `-150` und `+1`; dort existieren
-zusätzlich eigenständige Score-Abweichungen.
+Oracle-Vergleichsdokument. Sämtliche Rat- und Wolf-AIV-Fälle stimmen exakt.
+Abweichungen treten nur noch bei `testlord_serpcastle1.aivjson` auf: sieben auf
+Thasos und eine in der älteren Marshy-Mayhem-Stichprobe. Die Last-Writer-Wins-
+Korrektur machte Height Advantage, Bow Ridge, A Friend Indeed, Province of
+Bodrum OP, `unittest` und `testmap` vollständig exakt.
 
 Folgende Punkte sind bereits belegt und werden nicht erneut als offene
 Hypothese behandelt, solange keine widersprechende Evidenz entsteht:
@@ -108,34 +118,37 @@ Vorhandene native Sollwerte und Hashes im Corpus dürfen nicht geändert werden.
 
 ### Spur A: kleinste Blocked-Cell-Abweichung
 
-`oracle-005-01-wolf-r0` auf `v-bow-ridge.json` ist der erste Fall:
+`oracle-014-03-testlord-serpcastle1-r0` auf `v-thasos.json` ist der erste Fall:
 
-- nativer Score 20, Offline-Score 20;
-- native Blocked Cells 1215, Offline Blocked Cells 1214;
-- Differenz genau eine fehlende Offline-Blockierung;
-- erster gemeldeter Offline-Grund: `TerrainBlocked`, Mapper 76.
+- nativer und Offline-Score jeweils 19;
+- native Blocked Cells 105, Offline Blocked Cells 100;
+- nativer und Offline-Fit jeweils 94 Prozent;
+- damit sind fünf fehlende Offline-Blockierungen isoliert, ohne Score- oder
+  Prozentabweichung.
 
 Reproduktion:
 
-    dotnet run --project AIVPlacement\AIVPlacement.OracleComparison\AIVPlacement.OracleComparison.csproj -c Release --no-build -- AIVPlacement\OracleCorpus\Captured-2026-08-03\v-bow-ridge.json --case oracle-005-01-wolf-r0 --output .native-analysis\chat10-next\bow-ridge-wolf-r0.report.json
+    dotnet run --project AIVPlacement\AIVPlacement.OracleComparison\AIVPlacement.OracleComparison.csproj -c Release --no-build -- AIVPlacement\OracleCorpus\Captured-2026-08-03\v-thasos.json --case oracle-014-03-testlord-serpcastle1-r0 --output .native-analysis\chat10-next\thasos-testlord-r0.report.json
 
 Exitcode 1 ist bei einem erfolgreich reproduzierten Mismatch erwartet.
 Exitcode 2 bedeutet dagegen Konfigurations-, Parse- oder Laufzeitfehler.
 
-### Spur B: Score-Abweichung bei gleicher Blocked-Cell-Zahl
+### Spur B: große Score- und Belegungsabweichung
 
-`oracle-019-03-testlord-serpcastle1-r180` auf `v-a-friend-indeed.json` isoliert
-die sequenzielle Score-/Build-Step-Semantik:
+`testlord-player7-rotation270` auf `MarshyMayhem-2026-08-02.json` isoliert die
+noch offene sequenzielle Score-/Build-Step-Semantik:
 
-- nativer Score 15, Offline-Score 18;
-- native und Offline Blocked Cells jeweils 291.
+- nativer Score 15, Offline-Score 47;
+- native Blocked Cells 226, Offline Blocked Cells 67;
+- nativer Fit 87 Prozent, Offline-Fit 96 Prozent.
 
 Reproduktion:
 
-    dotnet run --project AIVPlacement\AIVPlacement.OracleComparison\AIVPlacement.OracleComparison.csproj -c Release --no-build -- AIVPlacement\OracleCorpus\Captured-2026-08-03\v-a-friend-indeed.json --case oracle-019-03-testlord-serpcastle1-r180 --output .native-analysis\chat10-next\friend-testlord-r180.report.json
+    dotnet run --project AIVPlacement\AIVPlacement.OracleComparison\AIVPlacement.OracleComparison.csproj -c Release --no-build -- AIVPlacement\OracleCorpus\MarshyMayhem-2026-08-02.json --case testlord-player7-rotation270 --output .native-analysis\chat10-next\marshy-testlord-r270.report.json
 
-Dieser Fall darf nicht durch eine pauschale Terrainregel „repariert“ werden,
-weil die aggregierte Blocked-Cell-Zahl bereits exakt ist.
+Dieser ältere Einzelfall besitzt keine `SessionId` und keinen erfassten
+Sofortspawn-Modus. Er bleibt deshalb eine unabhängige historische Zell- und
+Score-Regression und darf nicht mit anderen Spielerfällen verkettet werden.
 
 ## Genaue Arbeitsreihenfolge
 
@@ -191,10 +204,10 @@ verwenden und zunächst nur die relevante Funktion dekompilieren.
 
 ### 3. Spur A vollständig erklären und beheben
 
-Für `oracle-005-01-wolf-r0` zuerst bestätigen, dass auch die Zahl der
-ausgewerteten Zellen nativ und offline identisch ist. Danach die Offline-Zellen
-nach Element, Mapper und Fläche gruppieren und die eine fehlende native
-Ablehnung lokalisieren.
+Für `oracle-014-03-testlord-serpcastle1-r0` zuerst bestätigen, dass auch die
+Zahl der ausgewerteten Zellen nativ und offline identisch ist. Danach die
+Offline-Zellen nach Element, Mapper und Fläche gruppieren und die fünf
+fehlenden nativen Ablehnungen lokalisieren.
 
 Die Ursache in dieser Reihenfolge prüfen:
 
@@ -204,21 +217,21 @@ Die Ursache in dieser Reihenfolge prüfen:
 3. zu weit gehende Normalisierung in `AivPreplacementMapState`;
 4. fehlende Mapper-/Terrain-/Height-Sonderregel in
    `AivPlacementRuleEvaluator`;
-5. abweichende native Behandlung interner Überlappungen.
+5. Mapper-spezifische Semantik, die nach dem bereits belegten
+   Last-Writer-Wins-Raster noch fehlt.
 
 Keine Regel allein aus dem Mappernamen oder aus einem einzelnen Gesamtwert
 erraten. Die Korrektur muss durch nativen Kontrollfluss oder einen gefilterten
 Per-Cell-Lauf belegt und durch einen synthetischen Regressionstest abgesichert
 sein.
 
-Nach der Korrektur zuerst die vier Bow-Ridge-Wolf-Rotationen ausführen. Danach
-alle Wolf-Fälle auf Height Advantage, Bow Ridge, Thasos und Province of Bodrum
-OP. Bereits exakte Wolf-Fälle dürfen nicht regressieren.
+Nach der Korrektur zuerst die drei erfassten Testlord-Rotationen für Spieler 7
+auf Thasos ausführen. Danach alle sieben verbleibenden Thasos-Fälle. Die bereits
+exakten Rat- und Wolf-Fälle dürfen nicht regressieren.
 
 ### 4. Spur B unabhängig erklären und beheben
 
-Für `oracle-019-03-testlord-serpcastle1-r180` die gleiche Blocked-Cell-Zahl als
-Kontrollbedingung bewahren. Den nativen Score-Aufbau in
+Für `testlord-player7-rotation270` den nativen Score-Aufbau in
 `EvaluateCandidateFit` und der Kandidatenauswahl mit der Offline-Berechnung von
 `FirstBlockingBuildStep` vergleichen. Insbesondere prüfen:
 
@@ -231,7 +244,8 @@ Kontrollbedingung bewahren. Den nativen Score-Aufbau in
 
 Die Definition des nativen Scores nicht an die aktuell gewünschte
 `Complete`/`Partial`-Anzeige anpassen; sie muss den vorhandenen Oracle-Wert
-reproduzieren. Danach alle 17 Testlord-Fälle laufen lassen.
+reproduzieren. Danach die Marshy-Stichprobe und alle Testlord-Fälle laufen
+lassen.
 
 ### 5. Regression stufenweise ausweiten
 
@@ -239,7 +253,7 @@ Nach jeder belegten Korrektur in dieser Reihenfolge testen:
 
 1. der konkrete Einzelfall;
 2. alle Fälle derselben AIV auf derselben Karte;
-3. alle Wolf- beziehungsweise alle Testlord-Fälle;
+3. alle Testlord-Fälle;
 4. alle 144 Fälle aus sämtlichen Manifesten.
 
 Die kanonischen Manifeste liegen hier:
@@ -259,9 +273,11 @@ Ist ein gefilterter nativer Per-Cell-Trace unvermeidbar, zuerst den Diagnosemod
 fertigstellen und bauen. Danach den Benutzer nur um den kleinsten notwendigen
 Start bitten:
 
-1. Bow Ridge mit Wolf, Rotation 0, für die fehlende Einzelzelle;
-2. optional A Friend Indeed mit `testlord_serpcastle1`, Rotation 180, falls die
-   Score-Semantik nicht allein aus dem nativen Kontrollfluss folgt.
+1. Thasos mit `testlord_serpcastle1` für Spieler 7, Rotation 0, für die fünf
+   fehlenden Zellablehnungen;
+2. optional Marshy Mayhem mit `testlord_serpcastle1`, Spieler 7 und Rotation
+   270, falls die Score-Semantik nicht allein aus dem nativen Kontrollfluss
+   folgt.
 
 Keine breite neue Kartenmatrix anfordern, solange diese beiden Fälle genügen.
 
@@ -299,8 +315,8 @@ auf `Nächster Schritt` gestellt werden, wenn
 > Setze Chat 10 aus `MapParser/AIV_PLACEMENT_ROADMAP.md` fort. Lies zuerst
 > `MapParser/Docs/CHAT10_ORACLE_MISMATCH_HANDOFF.md` vollständig und halte dich
 > an die dortige Reihenfolge. Reproduziere zunächst
-> `oracle-005-01-wolf-r0` auf Bow Ridge und danach unabhängig
-> `oracle-019-03-testlord-serpcastle1-r180` auf A Friend Indeed. Ergänze zuerst
+> `oracle-014-03-testlord-serpcastle1-r0` auf Thasos und danach unabhängig
+> `testlord-player7-rotation270` auf Marshy Mayhem. Ergänze zuerst
 > gezielte Diagnoseevidenz, ändere keine Regeln auf Verdacht und starte Chat 11
 > erst, wenn der vollständige 144-Fälle-Lauf keine ungeklärten Mismatches oder
 > Fehler mehr enthält.

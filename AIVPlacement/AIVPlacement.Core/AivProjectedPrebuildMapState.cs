@@ -6,24 +6,22 @@ using MapParser.Core;
 
 namespace AIVPlacement.Core
 {
-    public sealed class AivPriorCastleMapState : IAivPlacementTileSource
+    public sealed class AivProjectedPrebuildMapState : IAivPlacementTileSource
     {
-        private const int DrawbridgeMapper = 105;
-
         private readonly IAivPlacementTileSource source;
-        private readonly Dictionary<int, IReadOnlyList<AivPlannedTileOccupancy>> plannedClaimsByTileId;
+        private readonly Dictionary<int, IReadOnlyList<AivTileOccupancy>> occupanciesByTileId;
 
-        public AivPriorCastleMapState(
+        public AivProjectedPrebuildMapState(
             IAivPlacementTileSource source,
-            IEnumerable<AivPriorPlacement> priorPlacements)
+            IEnumerable<AivProjectedPrebuildPlacement> priorPlacements)
         {
             this.source = source ?? throw new ArgumentNullException(nameof(source));
             if (priorPlacements == null)
                 throw new ArgumentNullException(nameof(priorPlacements));
 
-            var mutableClaims = new Dictionary<int, List<AivPlannedTileOccupancy>>();
+            var mutableClaims = new Dictionary<int, List<AivTileOccupancy>>();
             string sessionId = null;
-            foreach (AivPriorPlacement priorPlacement in priorPlacements)
+            foreach (AivProjectedPrebuildPlacement priorPlacement in priorPlacements)
             {
                 if (priorPlacement == null || priorPlacement.Placement == null)
                     continue;
@@ -44,10 +42,9 @@ namespace AIVPlacement.Core
                 foreach (AivElementPlacementResult elementResult in priorPlacement.Placement.ElementResults)
                 {
                     AivProjectedElement element = elementResult.Element;
-                    // A blocked element is omitted as a whole from the temporary
-                    // native AIV state used to test the next AI.
+                    // PreBuild executes only the prepared, placeable part of a partial castle.
                     if (elementResult.Status != AivElementPlacementStatus.Placeable ||
-                        element.Mapper.Value == DrawbridgeMapper)
+                        element.Mapper.Category == AivItemCategory.Keep)
                     {
                         continue;
                     }
@@ -66,29 +63,36 @@ namespace AIVPlacement.Core
 
                         if (!mutableClaims.TryGetValue(
                                 tileId,
-                                out List<AivPlannedTileOccupancy> claims))
+                                out List<AivTileOccupancy> claims))
                         {
-                            claims = new List<AivPlannedTileOccupancy>();
+                            claims = new List<AivTileOccupancy>();
                             mutableClaims.Add(tileId, claims);
                         }
 
-                        claims.Add(new AivPlannedTileOccupancy(
+                        bool isBuilding = element.Mapper.Category == AivItemCategory.Building;
+                        claims.Add(new AivTileOccupancy(
+                            isBuilding
+                                ? AivTileOccupancyKind.ProjectedPrebuiltAivBuilding
+                                : AivTileOccupancyKind.ProjectedPrebuiltAivTile,
                             priorPlacement.SessionId,
                             priorPlacement.PlayerId,
+                            0,
+                            0,
                             element.Mapper.Value,
                             element.Mapper.Category,
                             element.OriginalIndex,
-                            element.BuildIndex));
+                            element.BuildIndex,
+                            true));
                     }
                 }
             }
 
-            plannedClaimsByTileId = new Dictionary<int, IReadOnlyList<AivPlannedTileOccupancy>>();
-            foreach (KeyValuePair<int, List<AivPlannedTileOccupancy>> pair in mutableClaims)
+            occupanciesByTileId = new Dictionary<int, IReadOnlyList<AivTileOccupancy>>();
+            foreach (KeyValuePair<int, List<AivTileOccupancy>> pair in mutableClaims)
             {
-                plannedClaimsByTileId.Add(
+                occupanciesByTileId.Add(
                     pair.Key,
-                    new ReadOnlyCollection<AivPlannedTileOccupancy>(pair.Value.ToArray()));
+                    new ReadOnlyCollection<AivTileOccupancy>(pair.Value.ToArray()));
             }
             SessionId = sessionId ?? string.Empty;
         }
@@ -99,19 +103,19 @@ namespace AIVPlacement.Core
         public AivPlacementTileEvidence GetTileEvidence(int tileId)
         {
             AivPlacementTileEvidence evidence = source.GetTileEvidence(tileId);
-            if (!plannedClaimsByTileId.TryGetValue(
+            if (!occupanciesByTileId.TryGetValue(
                     tileId,
-                    out IReadOnlyList<AivPlannedTileOccupancy> localClaims))
+                    out IReadOnlyList<AivTileOccupancy> localClaims))
             {
                 return evidence;
             }
 
-            var combinedClaims = new List<AivPlannedTileOccupancy>();
-            if (evidence.PlannedOccupancies != null)
-                combinedClaims.AddRange(evidence.PlannedOccupancies);
+            var combinedClaims = new List<AivTileOccupancy>();
+            if (evidence.Occupancies != null)
+                combinedClaims.AddRange(evidence.Occupancies);
             combinedClaims.AddRange(localClaims);
 
-            // Do not invent a persistent BuildingId for native temporary AIV state.
+            // The provenance is explicit; never invent a map BuildingId for simulated runtime state.
             return new AivPlacementTileEvidence(
                 evidence.TerrainFlags,
                 evidence.SecondaryLogic,
@@ -125,15 +129,15 @@ namespace AIVPlacement.Core
         }
     }
 
-    public sealed class AivPriorPlacement
+    public sealed class AivProjectedPrebuildPlacement
     {
-        public AivPriorPlacement(
+        public AivProjectedPrebuildPlacement(
             string sessionId,
             int playerId,
             AivPlacementResult placement)
         {
             if (string.IsNullOrWhiteSpace(sessionId))
-                throw new ArgumentException("A prior placement needs a session ID.", nameof(sessionId));
+                throw new ArgumentException("A projected prebuild needs a session ID.", nameof(sessionId));
             if (playerId <= 0)
                 throw new ArgumentOutOfRangeException(nameof(playerId));
 

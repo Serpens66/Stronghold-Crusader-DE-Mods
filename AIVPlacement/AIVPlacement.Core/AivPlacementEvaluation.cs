@@ -39,10 +39,12 @@ namespace AIVPlacement.Core
             foreach (AivPlacementIssue issue in issues)
             {
                 AivPlacementIssueKind resolvedReasons =
-                    issue.Kind & ~AivPlacementIssueKind.UnresolvedNativeRule;
+                    issue.Kind & ~(AivPlacementIssueKind.UnresolvedNativeRule |
+                        AivPlacementIssueKind.InternalOverlap);
                 if (resolvedReasons != AivPlacementIssueKind.None)
                     return AivElementPlacementStatus.Blocked;
-                unresolved = true;
+                if (issue.Kind.HasFlag(AivPlacementIssueKind.UnresolvedNativeRule))
+                    unresolved = true;
             }
 
             return unresolved

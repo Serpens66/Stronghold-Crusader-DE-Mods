@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
 using MapParser.Core;
 
 namespace AIVPlacement.Core
@@ -71,10 +72,24 @@ namespace AIVPlacement.Core
                 throw new ArgumentNullException(nameof(castle));
 
             var results = new List<AivElementPlacementResult>(castle.Elements.Count);
+            var lastClaimantByCoordinate = new Dictionary<MapCoordinate, int>();
+            foreach (AivProjectedElement element in castle.Elements)
+            {
+                foreach (AivProjectedTile tile in element.OccupiedTiles)
+                    lastClaimantByCoordinate[tile.MapCoordinate] = element.OriginalIndex;
+            }
+
             var firstClaimants = new Dictionary<MapCoordinate, int>();
             foreach (AivProjectedElement element in castle.Elements)
             {
-                List<AivPlacementIssue> issues = EvaluateMapRules(map, element);
+                var effectiveCoordinates = new HashSet<MapCoordinate>(
+                    lastClaimantByCoordinate
+                        .Where(pair => pair.Value == element.OriginalIndex)
+                        .Select(pair => pair.Key));
+                List<AivPlacementIssue> issues = EvaluateMapRules(
+                    map,
+                    element,
+                    effectiveCoordinates);
                 AddInternalOverlapIssues(map, element, firstClaimants, issues);
                 results.Add(new AivElementPlacementResult(element, issues));
             }
@@ -84,7 +99,8 @@ namespace AIVPlacement.Core
 
         private static List<AivPlacementIssue> EvaluateMapRules(
             IAivPlacementTileSource map,
-            AivProjectedElement element)
+            AivProjectedElement element,
+            ISet<MapCoordinate> effectiveCoordinates = null)
         {
             var issues = new List<AivPlacementIssue>();
             if (element.Kind == AivProjectedElementKind.AnchorOnly)
@@ -105,6 +121,9 @@ namespace AIVPlacement.Core
             foreach (AivProjectedTile tile in element.OccupiedTiles)
             {
                 MapCoordinate coordinate = tile.MapCoordinate;
+                // Native candidate loading is last-writer-wins before the fit scan.
+                if (effectiveCoordinates != null && !effectiveCoordinates.Contains(coordinate))
+                    continue;
                 if (coordinate.X < 0 || coordinate.X > NativeCoordinateMaximum ||
                     coordinate.Y < 0 || coordinate.Y > NativeCoordinateMaximum)
                 {
@@ -157,11 +176,27 @@ namespace AIVPlacement.Core
                 reasons |= AivPlacementIssueKind.HeightMismatch;
             if (evidence.BuildingId != 0)
                 reasons |= AivPlacementIssueKind.BuildingOccupied;
-            if (evidence.PlannedOccupancies != null && evidence.PlannedOccupancies.Count != 0)
+            IReadOnlyList<AivTileOccupancy> occupancies =
+                evidence.Occupancies ?? Array.Empty<AivTileOccupancy>();
+            foreach (AivTileOccupancy occupancy in occupancies)
             {
-                // Prior AIVs occupy the native temporary fit state, not the map's
-                // persistent building table. Preserve that distinction in diagnostics.
-                reasons |= AivPlacementIssueKind.PriorAivPlannedOccupied;
+                if (!occupancy.BlocksPlacement)
+                    continue;
+
+                if (occupancy.Kind == AivTileOccupancyKind.PrebuiltAivBuilding ||
+                    occupancy.Kind == AivTileOccupancyKind.PrebuiltAivTile)
+                {
+                    reasons |= AivPlacementIssueKind.PriorAivPrebuiltOccupied;
+                }
+                else if (occupancy.Kind == AivTileOccupancyKind.ProjectedPrebuiltAivBuilding ||
+                    occupancy.Kind == AivTileOccupancyKind.ProjectedPrebuiltAivTile)
+                {
+                    reasons |= AivPlacementIssueKind.ProjectedPriorAivPrebuildOccupied;
+                }
+                else if (evidence.BuildingId == 0)
+                {
+                    reasons |= AivPlacementIssueKind.BuildingOccupied;
+                }
             }
 
             // TestSpecificCandidate passes player zero, so every existing wall fails ownership.

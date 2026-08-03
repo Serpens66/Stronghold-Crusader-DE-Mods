@@ -68,6 +68,9 @@ namespace ActiveAIVDetector
         private bool callbackFailureLogged;
         private bool lobbyCapturePending;
         private bool lobbySnapshotAppliesToCurrentMap;
+        private bool preBuildCapturePending;
+        private bool preBuildSettingAppliesToCurrentMap;
+        private int capturedPreBuildSetting = -1;
         private string currentMapFileName = "<unknown>";
         private string currentMapName = "<unknown>";
         private string currentMapFileSha256 = "<not-available>";
@@ -165,6 +168,20 @@ namespace ActiveAIVDetector
         {
             try
             {
+                CaptureSkirmishOptions(self);
+            }
+            catch (Exception ex)
+            {
+                capturedPreBuildSetting = -1;
+                preBuildCapturePending = false;
+                preBuildSettingAppliesToCurrentMap = false;
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Could not capture advopt_pre_build before game start: {ex}");
+            }
+
+            try
+            {
                 CaptureLobbyAivMetadata(self);
             }
             catch (Exception ex)
@@ -177,6 +194,41 @@ namespace ActiveAIVDetector
             }
 
             startSkirmishGameTrampoline(self, restartInfo);
+        }
+
+        private void CaptureSkirmishOptions(FRONT_Multiplayer frontend)
+        {
+            if (ReferenceEquals(frontend, null))
+                throw new ArgumentNullException(nameof(frontend));
+
+            // Reflection avoids a compile-time dependency on the Noesis base type
+            // of FRONT_Multiplayer while still reading Vanilla's real setup object.
+            FieldInfo setupField = typeof(FRONT_Multiplayer).GetField(
+                "MPsetupData",
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (setupField == null)
+                throw new MissingFieldException(typeof(FRONT_Multiplayer).FullName, "MPsetupData");
+            object setup = setupField.GetValue(frontend);
+            if (setup == null)
+                throw new InvalidOperationException("MPsetupData is null before StartSkirmishGame.");
+            FieldInfo preBuildField = setup.GetType().GetField(
+                "advopt_pre_build",
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (preBuildField == null)
+                throw new MissingFieldException(setup.GetType().FullName, "advopt_pre_build");
+
+            capturedPreBuildSetting = Convert.ToInt32(
+                preBuildField.GetValue(setup),
+                CultureInfo.InvariantCulture);
+            preBuildCapturePending = capturedPreBuildSetting >= 0;
+            preBuildSettingAppliesToCurrentMap = false;
+
+            // Capture before Vanilla transfers the lobby structure into the native globals.
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"Captured skirmish option before StartSkirmishGame: " +
+                $"advopt_pre_build={capturedPreBuildSetting}, " +
+                $"mode={DescribePreBuildSetting(capturedPreBuildSetting)}.");
         }
 
         private void CaptureLobbyAivMetadata(FRONT_Multiplayer frontend)
@@ -316,11 +368,17 @@ namespace ActiveAIVDetector
                 lobbyAivSnapshots.Clear();
                 lobbySnapshotAppliesToCurrentMap = false;
             }
+            if (!preBuildCapturePending)
+            {
+                capturedPreBuildSetting = -1;
+                preBuildSettingAppliesToCurrentMap = false;
+            }
 
             Shared.DebugLogHelper.LogInfo(
                 log,
                 $"Active AIV detector reset for {reason}; waiting for finalized AI selections. " +
-                $"retainedPendingLobbyMetadata={lobbyCapturePending}.");
+                $"retainedPendingLobbyMetadata={lobbyCapturePending}, " +
+                $"retainedPendingPreBuildSetting={preBuildCapturePending}.");
         }
 
         private void OnMapLoadStarted(MapLoadEventArgs args)
@@ -351,6 +409,11 @@ namespace ActiveAIVDetector
             {
                 lobbySnapshotAppliesToCurrentMap = true;
                 lobbyCapturePending = false;
+            }
+            if (preBuildCapturePending)
+            {
+                preBuildSettingAppliesToCurrentMap = true;
+                preBuildCapturePending = false;
             }
 
             pendingOracleSelections.Sort((left, right) => left.Sequence.CompareTo(right.Sequence));
@@ -414,6 +477,7 @@ namespace ActiveAIVDetector
                 $"AIV placement oracle selection #{snapshot.Sequence}: " +
                 $"mapName={currentMapName}, mapFile={currentMapFileName}, " +
                 $"mapFileSha256={currentMapFileSha256}, " +
+                $"preBuildSetting={CurrentPreBuildSetting}, " +
                 $"playerId={snapshot.PlayerId}, method={snapshot.Method}, " +
                 $"tryOtherRotations={snapshot.TryOtherRotations}, " +
                 $"aivSpecIndex={snapshot.AivSpecIndex}, attempts={snapshot.Attempts.Count}, " +
@@ -437,6 +501,7 @@ namespace ActiveAIVDetector
                     $"AIV placement oracle attempt #{snapshot.Sequence}.{attempt.AttemptNumber}: " +
                     $"mapName={currentMapName}, mapFile={currentMapFileName}, " +
                     $"mapFileSha256={currentMapFileSha256}, " +
+                    $"preBuildSetting={CurrentPreBuildSetting}, " +
                     $"playerId={snapshot.PlayerId}, method={snapshot.Method}, " +
                     $"candidateId={attempt.CandidateId}, aivName={source.Name}, " +
                     $"aivJson={source.JsonPath}, " +
@@ -450,7 +515,11 @@ namespace ActiveAIVDetector
                     $"keepReference=({attempt.KeepX},{attempt.KeepY}).");
 
                 if (attempt.CellTrace != null)
+                {
                     WriteOracleCellTrace(snapshot, attempt, source);
+                    if (attempt.CellTrace.LiveBuildingTiles.Count != 0)
+                        WriteOracleLiveBuildingGrid(snapshot, attempt);
+                }
             }
         }
 
@@ -481,6 +550,7 @@ namespace ActiveAIVDetector
                     writer.WriteLine($"# mapName={currentMapName}");
                     writer.WriteLine($"# mapFile={currentMapFileName}");
                     writer.WriteLine($"# mapFileSha256={currentMapFileSha256}");
+                    writer.WriteLine($"# preBuildSetting={CurrentPreBuildSetting}");
                     writer.WriteLine($"# playerId={selection.PlayerId}");
                     writer.WriteLine($"# candidateId={attempt.CandidateId}");
                     writer.WriteLine($"# aivName={source.Name}");
@@ -582,6 +652,66 @@ namespace ActiveAIVDetector
             {
                 // Diagnostics must never disturb Vanilla's already completed candidate test.
                 Shared.DebugLogHelper.LogError(log, $"Writing the opt-in AIV cell trace failed: {ex}");
+            }
+        }
+
+        private void WriteOracleLiveBuildingGrid(
+            OracleSelectionSnapshot selection,
+            OracleAttemptSnapshot attempt)
+        {
+            try
+            {
+                OracleCellTraceSnapshot trace = attempt.CellTrace;
+                Directory.CreateDirectory(cellTraceOptions.OutputDirectory);
+                string fileName = string.Format(
+                    CultureInfo.InvariantCulture,
+                    "oracle-live-building-grid-{0}-p{1}-r{2}-keep{3}-{4}.tsv",
+                    trace.CapturedAtLocal.ToString(
+                        "yyyyMMdd-HHmmss-fff",
+                        CultureInfo.InvariantCulture),
+                    selection.PlayerId,
+                    attempt.Orientation,
+                    attempt.KeepX,
+                    attempt.KeepY);
+                string path = Path.Combine(cellTraceOptions.OutputDirectory, fileName);
+
+                using (var writer = new StreamWriter(path, false, new UTF8Encoding(false)))
+                {
+                    writer.NewLine = "\r\n";
+                    writer.WriteLine($"# capturedAtLocal={trace.CapturedAtLocal:O}");
+                    writer.WriteLine($"# mapName={currentMapName}");
+                    writer.WriteLine($"# mapFile={currentMapFileName}");
+                    writer.WriteLine($"# mapFileSha256={currentMapFileSha256}");
+                    writer.WriteLine($"# preBuildSetting={CurrentPreBuildSetting}");
+                    writer.WriteLine($"# playerId={selection.PlayerId}");
+                    writer.WriteLine($"# orientation={attempt.Orientation}");
+                    writer.WriteLine($"# keepX={attempt.KeepX}");
+                    writer.WriteLine($"# keepY={attempt.KeepY}");
+                    writer.WriteLine($"# occupiedCells={trace.LiveBuildingTiles.Count}");
+                    writer.WriteLine("tileId\tbuildingId\townerId\tterrainFlags");
+                    foreach (OracleLiveBuildingTileEntry tile in trace.LiveBuildingTiles)
+                    {
+                        writer.WriteLine(string.Format(
+                            CultureInfo.InvariantCulture,
+                            "{0}\t{1}\t{2}\t{3}",
+                            tile.TileId,
+                            tile.BuildingId,
+                            tile.OwnerId,
+                            tile.TerrainFlags));
+                    }
+                }
+
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    $"Wrote opt-in live building grid: path={path}, " +
+                    $"occupiedCells={trace.LiveBuildingTiles.Count}.");
+            }
+            catch (Exception ex)
+            {
+                // The snapshot is diagnostic only and must not affect Vanilla selection.
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Writing the opt-in live building grid failed: {ex}");
             }
         }
 
@@ -985,6 +1115,22 @@ namespace ActiveAIVDetector
                    orientation == 2 ||
                    orientation == 4 ||
                    orientation == 6;
+        }
+
+        private int CurrentPreBuildSetting =>
+            preBuildSettingAppliesToCurrentMap ? capturedPreBuildSetting : -1;
+
+        private static string DescribePreBuildSetting(int setting)
+        {
+            switch (setting)
+            {
+                case 0:
+                    return "disabled";
+                case 1:
+                    return "enabled";
+                default:
+                    return "unknown";
+            }
         }
 
         private static string DescribeOrientation(int orientation)

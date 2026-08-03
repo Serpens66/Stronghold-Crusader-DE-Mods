@@ -346,9 +346,15 @@ internal static class Program
             raw,
             new ushort[] { 28 },
             new ushort[] { 28 },
-            Array.Empty<MapRockRecord>());
-        AssertEqual((ushort)28, retained.GetTileEvidence(
-            retained.Geometry.GetTileId(keepTile.X, keepTile.Y)).BuildingId);
+            Array.Empty<MapRockRecord>(),
+            new Dictionary<ushort, AivTileOccupancyKind>
+            {
+                [28] = AivTileOccupancyKind.PlayerStartKeep
+            });
+        AivPlacementTileEvidence retainedKeep = retained.GetTileEvidence(
+            retained.Geometry.GetTileId(keepTile.X, keepTile.Y));
+        AssertEqual((ushort)28, retainedKeep.BuildingId);
+        AssertEqual(AivTileOccupancyKind.PlayerStartKeep, retainedKeep.Occupancies[0].Kind);
         AssertEqual(0x00008100, retained.GetTileEvidence(
             retained.Geometry.GetTileId(adjacentWallTile.X, adjacentWallTile.Y)).TerrainFlags);
         AssertEqual((byte)5, retained.GetTileEvidence(
@@ -404,36 +410,39 @@ internal static class Program
             blueprint,
             new MapCoordinate(400, 400),
             AivRotation.Degrees0);
-        var map = new AivPriorCastleMapState(
+        var map = new AivProjectedPrebuildMapState(
             new SparsePlacementMap(),
-            new[] { new AivPriorPlacement("test-session", 2, prior) });
+            new[] { new AivProjectedPrebuildPlacement("test-session", 2, prior) });
 
         int blockedElementTileId = map.Geometry.GetTileId(420, 403);
         int drawbridgeTileId = map.Geometry.GetTileId(427, 400);
         int occupiedTileId = map.Geometry.GetTileId(437, 400);
         AssertEqual((ushort)0, map.GetTileEvidence(blockedElementTileId).BuildingId);
-        AssertEqual((ushort)0, map.GetTileEvidence(drawbridgeTileId).BuildingId);
-        AivPlacementTileEvidence planned = map.GetTileEvidence(occupiedTileId);
-        AssertEqual((ushort)0, planned.BuildingId);
-        AssertEqual(1, planned.PlannedOccupancies.Count);
-        AssertEqual("test-session", planned.PlannedOccupancies[0].SessionId);
-        AssertEqual(2, planned.PlannedOccupancies[0].PlayerId);
-        AssertEqual(50, planned.PlannedOccupancies[0].MapperValue);
+        AivPlacementTileEvidence drawbridge = map.GetTileEvidence(drawbridgeTileId);
+        AssertEqual((ushort)0, drawbridge.BuildingId);
+        AssertEqual(AivTileOccupancyKind.ProjectedPrebuiltAivBuilding, drawbridge.Occupancies[0].Kind);
+        AivPlacementTileEvidence prebuilt = map.GetTileEvidence(occupiedTileId);
+        AssertEqual((ushort)0, prebuilt.BuildingId);
+        AssertEqual(1, prebuilt.Occupancies.Count);
+        AssertEqual("test-session", prebuilt.Occupancies[0].SessionId);
+        AssertEqual(2, prebuilt.Occupancies[0].PlayerId);
+        AssertEqual(50, prebuilt.Occupancies[0].MapperValue);
+        AssertEqual(AivTileOccupancyKind.ProjectedPrebuiltAivBuilding, prebuilt.Occupancies[0].Kind);
 
         AivElementPlacementResult blockedByPlan = RuleEvaluator.EvaluateElement(
             map,
             ElementAt(50, new MapCoordinate(437, 400)));
         Assert(blockedByPlan.Issues.Any(issue =>
-                issue.Kind.HasFlag(AivPlacementIssueKind.PriorAivPlannedOccupied) &&
+                issue.Kind.HasFlag(AivPlacementIssueKind.ProjectedPriorAivPrebuildOccupied) &&
                 !issue.Kind.HasFlag(AivPlacementIssueKind.BuildingOccupied)),
-            "Temporary prior-AIV occupancy was reported as a persistent building.");
+            "A prior prebuilt AIV cell was reported as a serialized map building.");
 
-        AssertThrows<ArgumentException>(() => new AivPriorCastleMapState(
+        AssertThrows<ArgumentException>(() => new AivProjectedPrebuildMapState(
             new SparsePlacementMap(),
             new[]
             {
-                new AivPriorPlacement("session-a", 2, prior),
-                new AivPriorPlacement("session-b", 3, prior)
+                new AivProjectedPrebuildPlacement("session-a", 2, prior),
+                new AivProjectedPrebuildPlacement("session-b", 3, prior)
             }));
     }
 
@@ -615,10 +624,28 @@ internal static class Program
         IReadOnlyList<AivElementPlacementResult> results =
             RuleEvaluator.EvaluateElements(new SparsePlacementMap(), castle);
         AssertEqual(AivElementPlacementStatus.Placeable, results[0].Status);
-        AssertOnlyIssue(results[1], AivElementPlacementStatus.Blocked,
+        AssertOnlyIssue(results[1], AivElementPlacementStatus.Placeable,
             AivPlacementIssueKind.InternalOverlap);
         AssertEqual((int?)0, results[1].Issues[0].ConflictingElementIndex);
         AssertEqual(1, results[1].Issues[0].ElementIndex);
+
+        AivPlacementResult placement = PlacementEvaluator.Evaluate(
+            new SparsePlacementMap(),
+            blueprint,
+            new MapCoordinate(400, 400),
+            AivRotation.Degrees0);
+        AssertEqual(AivPlacementStatus.Complete, placement.Status);
+        AssertEqual(1, placement.Score.EvaluatedTileCount);
+        AssertEqual(0, placement.Score.BlockedTileCount);
+        OfflineCaseDiagnostic diagnostic = OfflineCaseDiagnosticBuilder.Build(
+            new SparsePlacementMap(),
+            placement);
+        AssertEqual(1, diagnostic.EvaluatedCellCount);
+        AssertEqual(0, diagnostic.BlockedCellCount);
+        AssertEqual(1, diagnostic.Elements.Sum(item => item.Cells.Count));
+        AssertEqual(
+            1,
+            diagnostic.Elements.Single(item => item.Cells.Count == 1).ElementIndex);
     }
 
     private static void TestAssociatedAreaRule()

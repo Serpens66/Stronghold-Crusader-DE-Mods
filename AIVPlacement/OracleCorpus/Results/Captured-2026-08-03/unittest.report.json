@@ -3,8 +3,8 @@
   "MapName": "unittest.map",
   "MapSha256": "046F7DE98BC56000CFA80D880275D424970135F68CE84E2586A6BAD5E3E65594",
   "WorldSize": 160,
-  "StartedAtLocal": "2026-08-03T02:55:59.2988816+02:00",
-  "ElapsedMilliseconds": 234.2361,
+  "StartedAtLocal": "2026-08-03T15:12:30.3558922+02:00",
+  "ElapsedMilliseconds": 848.202,
   "ExactMatchCount": 58,
   "NotEvaluableCount": 0,
   "MismatchCount": 0,
@@ -12,6 +12,10 @@
   "Cases": [
     {
       "Id": "oracle-026-01-wolf-r270",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "046F7DE98BC56000CFA80D880275D424970135F68CE84E2586A6BAD5E3E65594",
       "AivName": "wolf\u002B.aivjson",
       "AivSha256": "6587DD3958A4F213101D64D9871AD4D17BB249FF266F19CB447283F21E889187",
@@ -56,12 +60,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 35.6925
+      "ElapsedMilliseconds": 248.5529
     },
     {
       "Id": "oracle-026-02-wolf-r0",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "046F7DE98BC56000CFA80D880275D424970135F68CE84E2586A6BAD5E3E65594",
       "AivName": "wolf\u002B.aivjson",
       "AivSha256": "6587DD3958A4F213101D64D9871AD4D17BB249FF266F19CB447283F21E889187",
@@ -106,12 +115,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 25.9077
+      "ElapsedMilliseconds": 80.5857
     },
     {
       "Id": "oracle-026-03-wolf-r90",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "046F7DE98BC56000CFA80D880275D424970135F68CE84E2586A6BAD5E3E65594",
       "AivName": "wolf\u002B.aivjson",
       "AivSha256": "6587DD3958A4F213101D64D9871AD4D17BB249FF266F19CB447283F21E889187",
@@ -156,12 +170,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 17.5568
+      "ElapsedMilliseconds": 72.7089
     },
     {
       "Id": "oracle-026-04-wolf-r180",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "046F7DE98BC56000CFA80D880275D424970135F68CE84E2586A6BAD5E3E65594",
       "AivName": "wolf\u002B.aivjson",
       "AivSha256": "6587DD3958A4F213101D64D9871AD4D17BB249FF266F19CB447283F21E889187",
@@ -206,12 +225,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 8.1668
+      "ElapsedMilliseconds": 56.5722
     },
     {
       "Id": "oracle-027-01-wolf-r90",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "046F7DE98BC56000CFA80D880275D424970135F68CE84E2586A6BAD5E3E65594",
       "AivName": "wolf\u002B.aivjson",
       "AivSha256": "6587DD3958A4F213101D64D9871AD4D17BB249FF266F19CB447283F21E889187",
@@ -256,12 +280,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 6.4912
+      "ElapsedMilliseconds": 56.6908
     },
     {
       "Id": "oracle-027-02-wolf-r180",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "046F7DE98BC56000CFA80D880275D424970135F68CE84E2586A6BAD5E3E65594",
       "AivName": "wolf\u002B.aivjson",
       "AivSha256": "6587DD3958A4F213101D64D9871AD4D17BB249FF266F19CB447283F21E889187",
@@ -306,12 +335,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 6.9693
+      "ElapsedMilliseconds": 57.1763
     },
     {
       "Id": "oracle-027-03-wolf-r270",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "046F7DE98BC56000CFA80D880275D424970135F68CE84E2586A6BAD5E3E65594",
       "AivName": "wolf\u002B.aivjson",
       "AivSha256": "6587DD3958A4F213101D64D9871AD4D17BB249FF266F19CB447283F21E889187",
@@ -356,12 +390,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 6.8223
+      "ElapsedMilliseconds": 56.9426
     },
     {
       "Id": "oracle-027-04-wolf-r0",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "046F7DE98BC56000CFA80D880275D424970135F68CE84E2586A6BAD5E3E65594",
       "AivName": "wolf\u002B.aivjson",
       "AivSha256": "6587DD3958A4F213101D64D9871AD4D17BB249FF266F19CB447283F21E889187",
@@ -406,12 +445,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 6.3837
+      "ElapsedMilliseconds": 62.3366
     },
     {
       "Id": "oracle-028-01-standard-8-r90",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "046F7DE98BC56000CFA80D880275D424970135F68CE84E2586A6BAD5E3E65594",
       "AivName": "rat8.aivjson",
       "AivSha256": "15A31C350B198268B23BF3BBCFA3087B20D852F265384471ED65C0A0D13ADCA8",
@@ -456,12 +500,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 1.2771
+      "ElapsedMilliseconds": 1.8632
     },
     {
       "Id": "oracle-028-02-standard-1-r90",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "046F7DE98BC56000CFA80D880275D424970135F68CE84E2586A6BAD5E3E65594",
       "AivName": "rat1.aivjson",
       "AivSha256": "764E2AF45FD0C5A30D8889103F31E344DDAA8F96E86B1246B08BEB79A6250DCA",
@@ -506,12 +555,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 6.0257
+      "ElapsedMilliseconds": 1.0908
     },
     {
       "Id": "oracle-028-03-standard-2-r90",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "046F7DE98BC56000CFA80D880275D424970135F68CE84E2586A6BAD5E3E65594",
       "AivName": "rat2.aivjson",
       "AivSha256": "AE421D2DA8AF9E50FA5B2FEFEB3BFBF6F6FB0E7E6F95E5A3E8C49204C42E427A",
@@ -556,12 +610,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 0.9557
+      "ElapsedMilliseconds": 1.0538
     },
     {
       "Id": "oracle-028-04-standard-3-r90",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "046F7DE98BC56000CFA80D880275D424970135F68CE84E2586A6BAD5E3E65594",
       "AivName": "rat3.aivjson",
       "AivSha256": "7E4B9FA88D119C3A24D8168B666C4A30A549A4E7F806ADF6AC064A16F93EEDB9",
@@ -606,12 +665,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 0.7711
+      "ElapsedMilliseconds": 0.9648
     },
     {
       "Id": "oracle-028-05-standard-4-r90",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "046F7DE98BC56000CFA80D880275D424970135F68CE84E2586A6BAD5E3E65594",
       "AivName": "rat4.aivjson",
       "AivSha256": "88ED1D9ACD7B422E7A2DD488F4D0B7050AEBA9CA43DF1414425B0AD249C2985B",
@@ -656,12 +720,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 1.0221
+      "ElapsedMilliseconds": 1.2154
     },
     {
       "Id": "oracle-028-06-standard-5-r90",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "046F7DE98BC56000CFA80D880275D424970135F68CE84E2586A6BAD5E3E65594",
       "AivName": "rat5.aivjson",
       "AivSha256": "8DC0E1FF4D95F08A969930472B957BC960C7BBB3A5E0D180D373C5B1851243DC",
@@ -706,12 +775,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 1.0045
+      "ElapsedMilliseconds": 1.1385
     },
     {
       "Id": "oracle-028-07-standard-6-r90",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "046F7DE98BC56000CFA80D880275D424970135F68CE84E2586A6BAD5E3E65594",
       "AivName": "rat6.aivjson",
       "AivSha256": "7240F21893E20D3646D873DE1A40DC2DA767D2E91C4580120F6D48662F68FDEB",
@@ -756,12 +830,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 1.2475
+      "ElapsedMilliseconds": 1.7764
     },
     {
       "Id": "oracle-028-08-standard-7-r90",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "046F7DE98BC56000CFA80D880275D424970135F68CE84E2586A6BAD5E3E65594",
       "AivName": "rat7.aivjson",
       "AivSha256": "A3FAF8226FE775CDEC5017F1744E51212835BF0D10F82EEE44F745D595079E29",
@@ -806,12 +885,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 1.1458
+      "ElapsedMilliseconds": 1.6091
     },
     {
       "Id": "oracle-028-09-standard-8-r180",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "046F7DE98BC56000CFA80D880275D424970135F68CE84E2586A6BAD5E3E65594",
       "AivName": "rat8.aivjson",
       "AivSha256": "15A31C350B198268B23BF3BBCFA3087B20D852F265384471ED65C0A0D13ADCA8",
@@ -856,12 +940,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 1.2073
+      "ElapsedMilliseconds": 1.6422
     },
     {
       "Id": "oracle-028-10-standard-1-r180",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "046F7DE98BC56000CFA80D880275D424970135F68CE84E2586A6BAD5E3E65594",
       "AivName": "rat1.aivjson",
       "AivSha256": "764E2AF45FD0C5A30D8889103F31E344DDAA8F96E86B1246B08BEB79A6250DCA",
@@ -906,12 +995,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 0.9173
+      "ElapsedMilliseconds": 1.0839
     },
     {
       "Id": "oracle-028-11-standard-2-r180",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "046F7DE98BC56000CFA80D880275D424970135F68CE84E2586A6BAD5E3E65594",
       "AivName": "rat2.aivjson",
       "AivSha256": "AE421D2DA8AF9E50FA5B2FEFEB3BFBF6F6FB0E7E6F95E5A3E8C49204C42E427A",
@@ -956,12 +1050,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 0.9617
+      "ElapsedMilliseconds": 1.0533
     },
     {
       "Id": "oracle-028-12-standard-3-r180",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "046F7DE98BC56000CFA80D880275D424970135F68CE84E2586A6BAD5E3E65594",
       "AivName": "rat3.aivjson",
       "AivSha256": "7E4B9FA88D119C3A24D8168B666C4A30A549A4E7F806ADF6AC064A16F93EEDB9",
@@ -1006,12 +1105,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 0.9153
+      "ElapsedMilliseconds": 0.9899
     },
     {
       "Id": "oracle-028-13-standard-4-r180",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "046F7DE98BC56000CFA80D880275D424970135F68CE84E2586A6BAD5E3E65594",
       "AivName": "rat4.aivjson",
       "AivSha256": "88ED1D9ACD7B422E7A2DD488F4D0B7050AEBA9CA43DF1414425B0AD249C2985B",
@@ -1056,12 +1160,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 1.1239
+      "ElapsedMilliseconds": 1.2351
     },
     {
       "Id": "oracle-028-14-standard-5-r180",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "046F7DE98BC56000CFA80D880275D424970135F68CE84E2586A6BAD5E3E65594",
       "AivName": "rat5.aivjson",
       "AivSha256": "8DC0E1FF4D95F08A969930472B957BC960C7BBB3A5E0D180D373C5B1851243DC",
@@ -1106,12 +1215,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 0.933
+      "ElapsedMilliseconds": 1.1428
     },
     {
       "Id": "oracle-028-15-standard-6-r180",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "046F7DE98BC56000CFA80D880275D424970135F68CE84E2586A6BAD5E3E65594",
       "AivName": "rat6.aivjson",
       "AivSha256": "7240F21893E20D3646D873DE1A40DC2DA767D2E91C4580120F6D48662F68FDEB",
@@ -1156,12 +1270,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 1.2271
+      "ElapsedMilliseconds": 1.8199
     },
     {
       "Id": "oracle-028-16-standard-7-r180",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "046F7DE98BC56000CFA80D880275D424970135F68CE84E2586A6BAD5E3E65594",
       "AivName": "rat7.aivjson",
       "AivSha256": "A3FAF8226FE775CDEC5017F1744E51212835BF0D10F82EEE44F745D595079E29",
@@ -1206,12 +1325,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 1.1065
+      "ElapsedMilliseconds": 1.5858
     },
     {
       "Id": "oracle-028-17-standard-8-r270",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "046F7DE98BC56000CFA80D880275D424970135F68CE84E2586A6BAD5E3E65594",
       "AivName": "rat8.aivjson",
       "AivSha256": "15A31C350B198268B23BF3BBCFA3087B20D852F265384471ED65C0A0D13ADCA8",
@@ -1256,12 +1380,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 1.073
+      "ElapsedMilliseconds": 1.6363
     },
     {
       "Id": "oracle-028-18-standard-1-r270",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "046F7DE98BC56000CFA80D880275D424970135F68CE84E2586A6BAD5E3E65594",
       "AivName": "rat1.aivjson",
       "AivSha256": "764E2AF45FD0C5A30D8889103F31E344DDAA8F96E86B1246B08BEB79A6250DCA",
@@ -1306,12 +1435,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 0.8529
+      "ElapsedMilliseconds": 1.0624
     },
     {
       "Id": "oracle-028-19-standard-2-r270",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "046F7DE98BC56000CFA80D880275D424970135F68CE84E2586A6BAD5E3E65594",
       "AivName": "rat2.aivjson",
       "AivSha256": "AE421D2DA8AF9E50FA5B2FEFEB3BFBF6F6FB0E7E6F95E5A3E8C49204C42E427A",
@@ -1356,12 +1490,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 0.806
+      "ElapsedMilliseconds": 1.077
     },
     {
       "Id": "oracle-028-20-standard-3-r270",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "046F7DE98BC56000CFA80D880275D424970135F68CE84E2586A6BAD5E3E65594",
       "AivName": "rat3.aivjson",
       "AivSha256": "7E4B9FA88D119C3A24D8168B666C4A30A549A4E7F806ADF6AC064A16F93EEDB9",
@@ -1406,12 +1545,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 0.7247
+      "ElapsedMilliseconds": 1.0133
     },
     {
       "Id": "oracle-028-21-standard-4-r270",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "046F7DE98BC56000CFA80D880275D424970135F68CE84E2586A6BAD5E3E65594",
       "AivName": "rat4.aivjson",
       "AivSha256": "88ED1D9ACD7B422E7A2DD488F4D0B7050AEBA9CA43DF1414425B0AD249C2985B",
@@ -1456,12 +1600,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 1.5227
+      "ElapsedMilliseconds": 1.2467
     },
     {
       "Id": "oracle-028-22-standard-5-r270",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "046F7DE98BC56000CFA80D880275D424970135F68CE84E2586A6BAD5E3E65594",
       "AivName": "rat5.aivjson",
       "AivSha256": "8DC0E1FF4D95F08A969930472B957BC960C7BBB3A5E0D180D373C5B1851243DC",
@@ -1506,12 +1655,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 0.8173
+      "ElapsedMilliseconds": 1.1939
     },
     {
       "Id": "oracle-028-23-standard-6-r270",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "046F7DE98BC56000CFA80D880275D424970135F68CE84E2586A6BAD5E3E65594",
       "AivName": "rat6.aivjson",
       "AivSha256": "7240F21893E20D3646D873DE1A40DC2DA767D2E91C4580120F6D48662F68FDEB",
@@ -1556,12 +1710,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 1.1027
+      "ElapsedMilliseconds": 1.884
     },
     {
       "Id": "oracle-028-24-standard-7-r270",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "046F7DE98BC56000CFA80D880275D424970135F68CE84E2586A6BAD5E3E65594",
       "AivName": "rat7.aivjson",
       "AivSha256": "A3FAF8226FE775CDEC5017F1744E51212835BF0D10F82EEE44F745D595079E29",
@@ -1606,12 +1765,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 1.3304
+      "ElapsedMilliseconds": 1.5823
     },
     {
       "Id": "oracle-028-25-standard-8-r0",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "046F7DE98BC56000CFA80D880275D424970135F68CE84E2586A6BAD5E3E65594",
       "AivName": "rat8.aivjson",
       "AivSha256": "15A31C350B198268B23BF3BBCFA3087B20D852F265384471ED65C0A0D13ADCA8",
@@ -1656,12 +1820,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 1.2614
+      "ElapsedMilliseconds": 1.6306
     },
     {
       "Id": "oracle-028-26-standard-1-r0",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "046F7DE98BC56000CFA80D880275D424970135F68CE84E2586A6BAD5E3E65594",
       "AivName": "rat1.aivjson",
       "AivSha256": "764E2AF45FD0C5A30D8889103F31E344DDAA8F96E86B1246B08BEB79A6250DCA",
@@ -1706,12 +1875,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 1.1616
+      "ElapsedMilliseconds": 1.0955
     },
     {
       "Id": "oracle-028-27-standard-2-r0",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "046F7DE98BC56000CFA80D880275D424970135F68CE84E2586A6BAD5E3E65594",
       "AivName": "rat2.aivjson",
       "AivSha256": "AE421D2DA8AF9E50FA5B2FEFEB3BFBF6F6FB0E7E6F95E5A3E8C49204C42E427A",
@@ -1756,12 +1930,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 1.0553
+      "ElapsedMilliseconds": 1.0581
     },
     {
       "Id": "oracle-028-28-standard-3-r0",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "046F7DE98BC56000CFA80D880275D424970135F68CE84E2586A6BAD5E3E65594",
       "AivName": "rat3.aivjson",
       "AivSha256": "7E4B9FA88D119C3A24D8168B666C4A30A549A4E7F806ADF6AC064A16F93EEDB9",
@@ -1806,12 +1985,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 0.6703
+      "ElapsedMilliseconds": 0.9762
     },
     {
       "Id": "oracle-028-29-standard-4-r0",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "046F7DE98BC56000CFA80D880275D424970135F68CE84E2586A6BAD5E3E65594",
       "AivName": "rat4.aivjson",
       "AivSha256": "88ED1D9ACD7B422E7A2DD488F4D0B7050AEBA9CA43DF1414425B0AD249C2985B",
@@ -1856,12 +2040,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 0.8346
+      "ElapsedMilliseconds": 1.2182
     },
     {
       "Id": "oracle-028-30-standard-5-r0",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "046F7DE98BC56000CFA80D880275D424970135F68CE84E2586A6BAD5E3E65594",
       "AivName": "rat5.aivjson",
       "AivSha256": "8DC0E1FF4D95F08A969930472B957BC960C7BBB3A5E0D180D373C5B1851243DC",
@@ -1906,12 +2095,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 0.7993
+      "ElapsedMilliseconds": 1.1658
     },
     {
       "Id": "oracle-028-31-standard-6-r0",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "046F7DE98BC56000CFA80D880275D424970135F68CE84E2586A6BAD5E3E65594",
       "AivName": "rat6.aivjson",
       "AivSha256": "7240F21893E20D3646D873DE1A40DC2DA767D2E91C4580120F6D48662F68FDEB",
@@ -1956,12 +2150,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 1.0353
+      "ElapsedMilliseconds": 1.8393
     },
     {
       "Id": "oracle-028-32-standard-7-r0",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "046F7DE98BC56000CFA80D880275D424970135F68CE84E2586A6BAD5E3E65594",
       "AivName": "rat7.aivjson",
       "AivSha256": "A3FAF8226FE775CDEC5017F1744E51212835BF0D10F82EEE44F745D595079E29",
@@ -2006,12 +2205,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 0.9444
+      "ElapsedMilliseconds": 1.6256
     },
     {
       "Id": "oracle-029-01-standard-1-r270",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "046F7DE98BC56000CFA80D880275D424970135F68CE84E2586A6BAD5E3E65594",
       "AivName": "rat1.aivjson",
       "AivSha256": "764E2AF45FD0C5A30D8889103F31E344DDAA8F96E86B1246B08BEB79A6250DCA",
@@ -2056,12 +2260,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 0.796
+      "ElapsedMilliseconds": 1.1025
     },
     {
       "Id": "oracle-029-02-standard-2-r270",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "046F7DE98BC56000CFA80D880275D424970135F68CE84E2586A6BAD5E3E65594",
       "AivName": "rat2.aivjson",
       "AivSha256": "AE421D2DA8AF9E50FA5B2FEFEB3BFBF6F6FB0E7E6F95E5A3E8C49204C42E427A",
@@ -2106,12 +2315,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 0.7548
+      "ElapsedMilliseconds": 1.0608
     },
     {
       "Id": "oracle-029-03-standard-3-r270",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "046F7DE98BC56000CFA80D880275D424970135F68CE84E2586A6BAD5E3E65594",
       "AivName": "rat3.aivjson",
       "AivSha256": "7E4B9FA88D119C3A24D8168B666C4A30A549A4E7F806ADF6AC064A16F93EEDB9",
@@ -2156,12 +2370,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 0.6446
+      "ElapsedMilliseconds": 0.9633
     },
     {
       "Id": "oracle-029-04-standard-4-r270",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "046F7DE98BC56000CFA80D880275D424970135F68CE84E2586A6BAD5E3E65594",
       "AivName": "rat4.aivjson",
       "AivSha256": "88ED1D9ACD7B422E7A2DD488F4D0B7050AEBA9CA43DF1414425B0AD249C2985B",
@@ -2206,12 +2425,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 0.8305
+      "ElapsedMilliseconds": 1.2165
     },
     {
       "Id": "oracle-029-05-standard-5-r270",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "046F7DE98BC56000CFA80D880275D424970135F68CE84E2586A6BAD5E3E65594",
       "AivName": "rat5.aivjson",
       "AivSha256": "8DC0E1FF4D95F08A969930472B957BC960C7BBB3A5E0D180D373C5B1851243DC",
@@ -2256,12 +2480,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 0.7932
+      "ElapsedMilliseconds": 1.1389
     },
     {
       "Id": "oracle-029-06-standard-6-r270",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "046F7DE98BC56000CFA80D880275D424970135F68CE84E2586A6BAD5E3E65594",
       "AivName": "rat6.aivjson",
       "AivSha256": "7240F21893E20D3646D873DE1A40DC2DA767D2E91C4580120F6D48662F68FDEB",
@@ -2306,12 +2535,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 1.0286
+      "ElapsedMilliseconds": 1.7892
     },
     {
       "Id": "oracle-029-07-standard-7-r270",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "046F7DE98BC56000CFA80D880275D424970135F68CE84E2586A6BAD5E3E65594",
       "AivName": "rat7.aivjson",
       "AivSha256": "A3FAF8226FE775CDEC5017F1744E51212835BF0D10F82EEE44F745D595079E29",
@@ -2356,12 +2590,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 0.9306
+      "ElapsedMilliseconds": 1.5619
     },
     {
       "Id": "oracle-029-08-standard-8-r270",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "046F7DE98BC56000CFA80D880275D424970135F68CE84E2586A6BAD5E3E65594",
       "AivName": "rat8.aivjson",
       "AivSha256": "15A31C350B198268B23BF3BBCFA3087B20D852F265384471ED65C0A0D13ADCA8",
@@ -2406,12 +2645,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 0.9327
+      "ElapsedMilliseconds": 1.6424
     },
     {
       "Id": "oracle-029-09-standard-1-r0",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "046F7DE98BC56000CFA80D880275D424970135F68CE84E2586A6BAD5E3E65594",
       "AivName": "rat1.aivjson",
       "AivSha256": "764E2AF45FD0C5A30D8889103F31E344DDAA8F96E86B1246B08BEB79A6250DCA",
@@ -2456,12 +2700,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 0.746
+      "ElapsedMilliseconds": 1.074
     },
     {
       "Id": "oracle-029-10-standard-2-r0",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "046F7DE98BC56000CFA80D880275D424970135F68CE84E2586A6BAD5E3E65594",
       "AivName": "rat2.aivjson",
       "AivSha256": "AE421D2DA8AF9E50FA5B2FEFEB3BFBF6F6FB0E7E6F95E5A3E8C49204C42E427A",
@@ -2506,12 +2755,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 0.7163
+      "ElapsedMilliseconds": 1.0621
     },
     {
       "Id": "oracle-029-11-standard-3-r0",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "046F7DE98BC56000CFA80D880275D424970135F68CE84E2586A6BAD5E3E65594",
       "AivName": "rat3.aivjson",
       "AivSha256": "7E4B9FA88D119C3A24D8168B666C4A30A549A4E7F806ADF6AC064A16F93EEDB9",
@@ -2556,12 +2810,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 0.6081
+      "ElapsedMilliseconds": 6.8775
     },
     {
       "Id": "oracle-029-12-standard-4-r0",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "046F7DE98BC56000CFA80D880275D424970135F68CE84E2586A6BAD5E3E65594",
       "AivName": "rat4.aivjson",
       "AivSha256": "88ED1D9ACD7B422E7A2DD488F4D0B7050AEBA9CA43DF1414425B0AD249C2985B",
@@ -2606,12 +2865,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 0.8
+      "ElapsedMilliseconds": 1.3071
     },
     {
       "Id": "oracle-029-13-standard-5-r0",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "046F7DE98BC56000CFA80D880275D424970135F68CE84E2586A6BAD5E3E65594",
       "AivName": "rat5.aivjson",
       "AivSha256": "8DC0E1FF4D95F08A969930472B957BC960C7BBB3A5E0D180D373C5B1851243DC",
@@ -2656,12 +2920,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 5.6481
+      "ElapsedMilliseconds": 1.1818
     },
     {
       "Id": "oracle-029-14-standard-6-r0",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "046F7DE98BC56000CFA80D880275D424970135F68CE84E2586A6BAD5E3E65594",
       "AivName": "rat6.aivjson",
       "AivSha256": "7240F21893E20D3646D873DE1A40DC2DA767D2E91C4580120F6D48662F68FDEB",
@@ -2706,12 +2975,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 1.0338
+      "ElapsedMilliseconds": 1.7801
     },
     {
       "Id": "oracle-029-15-standard-7-r0",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "046F7DE98BC56000CFA80D880275D424970135F68CE84E2586A6BAD5E3E65594",
       "AivName": "rat7.aivjson",
       "AivSha256": "A3FAF8226FE775CDEC5017F1744E51212835BF0D10F82EEE44F745D595079E29",
@@ -2756,12 +3030,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 0.8981
+      "ElapsedMilliseconds": 1.5566
     },
     {
       "Id": "oracle-029-16-standard-8-r0",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "046F7DE98BC56000CFA80D880275D424970135F68CE84E2586A6BAD5E3E65594",
       "AivName": "rat8.aivjson",
       "AivSha256": "15A31C350B198268B23BF3BBCFA3087B20D852F265384471ED65C0A0D13ADCA8",
@@ -2806,12 +3085,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 0.9164
+      "ElapsedMilliseconds": 1.6473
     },
     {
       "Id": "oracle-029-17-standard-1-r90",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "046F7DE98BC56000CFA80D880275D424970135F68CE84E2586A6BAD5E3E65594",
       "AivName": "rat1.aivjson",
       "AivSha256": "764E2AF45FD0C5A30D8889103F31E344DDAA8F96E86B1246B08BEB79A6250DCA",
@@ -2856,12 +3140,17 @@
         "OrganismId": 0,
         "BuildingId": 0,
         "EntityId": 0,
-        "OwnerId": 0
+        "OwnerId": 0,
+        "Occupancies": []
       },
-      "ElapsedMilliseconds": 0.7222
+      "ElapsedMilliseconds": 1.0638
     },
     {
       "Id": "oracle-029-18-standard-2-r90",
+      "SessionId": "",
+      "PreBuildSetting": null,
+      "SelectedForPlacement": null,
+      "CandidateOccupancyKind": "PlannedAivElement",
       "MapSha256": "046F7DE98BC56000CFA80D880275D424970135F68CE84E2586A6BAD5E3E65594",
       "AivName": "rat2.aivjson",
       "AivSha256": "AE421D2DA8AF9E50FA5B2FEFEB3BFBF6F6FB0E7E6F95E5A3E8C49204C42E427A",
@@ -2891,7 +3180,7 @@
       "Classification": "ExactMatch",
       "FirstDifference": "",
       "FirstIssue": null,
-      "ElapsedMilliseconds": 0.6972
+      "ElapsedMilliseconds": 1.0279
     }
   ]
 }

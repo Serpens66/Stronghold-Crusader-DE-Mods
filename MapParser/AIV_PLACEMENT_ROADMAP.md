@@ -658,9 +658,10 @@ partielle Kandidaten vergleicht.
 World Sizes 160/200/300/400/800, Vanilla-Kopien und zwei mit dem aktuellen
 Editor erzeugte Custom-Maps, mehrere Keeps, kleine bis große AIVs, alle
 Rotationen und native Zustände 0/1/2. Die Organismusprüfung ist vollständig
-aufgelöst und erzeugt kein `NotEvaluable`: 97 Fälle stimmen exakt, 47 zuvor
-verdeckte Fälle sind echte Mismatches und müssen vor Chat 11 nach AIV-/Mapper-
-und Regelursache klassifiziert werden. Es gibt 0 Fehler. Section 4013, World
+aufgelöst und erzeugt kein `NotEvaluable`. Die native
+Last-Writer-Wins-Flattening-Regel ist jetzt berücksichtigt: 136 Fälle stimmen
+exakt, acht Testlord-Fälle bleiben echte Mismatches und müssen vor Chat 11 nach
+AIV-/Mapper- und Regelursache klassifiziert werden. Es gibt 0 Fehler. Section 4013, World
 Size 800 und der feste native Rotationsursprung sind durch die Läufe abgedeckt.
 Ergebnisse und Quote stehen in `Docs/AIV_PLACEMENT_ORACLE_COMPARISON.md`.
 Die genaue, für einen neuen Chat ausführbare Arbeitsreihenfolge einschließlich
@@ -674,17 +675,18 @@ ihre Grenztests unterstützen damit alle acht offiziellen Größen 160, 200, 300
 oben genannten fünf Größen begrenzt; nicht belegte Sondergrößen werden bewusst
 abgelehnt.
 
-**Sitzungsnachtrag:** Neue Oracle-Importe erhalten pro tatsächlichem Kartenstart
-eine explizite `SessionId`. Temporäre Zustände vorheriger KI-Burgen dürfen nur
-innerhalb derselben Session weitergegeben werden; ältere Manifeste ohne diese
-Angabe werden nicht aus Spieler-IDs zu einer vermeintlichen Sitzung
-zusammengebaut. Reale Kartenbelegung (`BuildingId`) und temporär geplante
-AIV-Belegung (`PlannedOccupancies` mit Session, Spieler, Mapper, Kategorie,
-Element und Build-Schritt) sind getrennte Evidenz. Geplante Belegung erzeugt
-den eigenen Reason-Code `PriorAivPlannedOccupied` und niemals eine erfundene
-reale Gebäude-ID. Der Spieler-3-Trace bestätigt dieses Modell für eine vorherige
-Burg; der installierte Spieler-4-Trace soll die Kombination zweier vorheriger
-Burgen und die Mapper-abhängigen temporären Werte klären.
+**Sofortspawn-/Sitzungsnachtrag:** Neue Oracle-Importe erhalten pro tatsächlichem
+Kartenstart eine explizite `SessionId` und den vor Spielstart gelesenen Wert
+`advopt_pre_build`. Spieler werden nativ vollständig in ID-Reihenfolge `1..8`
+verarbeitet. Ohne Sofortspawn werden frühere AIV-Pläne nicht als Blocker
+weitergereicht; mit Sofortspawn sieht der nächste Spieler die bereits
+ausgeführten Gebäude und Tile-Änderungen. Frühere Startkomplexe sind in beiden
+Modi real. Die Herkunft steht getrennt in `AivTileOccupancyKind`; simulierte
+projizierte PreBuild-Belegung verwendet
+`ProjectedPriorAivPrebuildOccupied`, live bestätigte Belegung
+`PriorAivPrebuiltOccupied`; beide erfinden niemals eine `BuildingId`. Das
+vollständige Verfahren und seine RVAs stehen in
+`Docs/AIV_PREBUILD_AND_OVERLAP_ORDER.md`.
 
 ### Ziel
 
@@ -709,13 +711,15 @@ Für jeden Fall mindestens:
 - Map-Identität beziehungsweise Hash, ohne die Karte zu kopieren
 - AIV-Identität beziehungsweise Hash
 - explizite Kartenstart-/Session-ID für zusammengehörige Mehrspielerfälle
+- explizite aktuelle Einstellung `advopt_pre_build`
 - Keep-Slot und Keep-Koordinate
 - Rotation
 - Offline-Status und Score
 - nativer `placementState` und gegebenenfalls nativer Score
 - erste abweichende Regel
 - relevante Tile-Rohwerte
-- reale Gebäude-ID getrennt von temporären geplanten AIV-Belegungsquellen
+- reale Gebäude-ID getrennt von Map-, Start-, Plan-, Scheduled- und
+  PreBuild-Belegungsherkunft
 
 ### Fortschrittsanforderung
 
@@ -735,8 +739,8 @@ erst gestartet, wenn die geschätzte Laufzeit zumutbar ist.
 > Setze Chat 10 aus `MapParser/AIV_PLACEMENT_ROADMAP.md` fort. Lies zuerst
 > `MapParser/Docs/CHAT10_ORACLE_MISMATCH_HANDOFF.md` vollständig und halte dich
 > an die dortige Reihenfolge. Reproduziere zunächst
-> `oracle-005-01-wolf-r0` auf Bow Ridge und danach unabhängig
-> `oracle-019-03-testlord-serpcastle1-r180` auf A Friend Indeed. Ergänze zuerst
+> `oracle-014-03-testlord-serpcastle1-r0` auf Thasos und danach unabhängig
+> `testlord-player7-rotation270` auf Marshy Mayhem. Ergänze zuerst
 > gezielte Diagnoseevidenz, ändere keine Regeln auf Verdacht und starte Chat 11
 > erst, wenn der vollständige 144-Fälle-Lauf keine ungeklärten Mismatches oder
 > Fehler mehr enthält.
@@ -745,8 +749,8 @@ erst gestartet, wenn die geschätzte Laufzeit zumutbar ist.
 
 ## Chat 11: Lobby-Datenfluss ohne UI anbinden
 
-**Status:** Ausstehend. Chat 10 wurde nach Auflösung des Organismuszweigs wegen
-47 nun sichtbarer Oracle-Mismatches wieder geöffnet.
+**Status:** Ausstehend. Chat 10 bleibt wegen acht reproduzierbarer
+Testlord-Mismatches geöffnet.
 
 ### Ziel
 

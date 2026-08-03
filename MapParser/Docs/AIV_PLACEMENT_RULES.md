@@ -45,9 +45,11 @@ rejecting branch.
 | `TerrainBlocked` | One of the proven Logic-bit/mask branches rejects the mapper. Exact masks are listed below. This code must not turn an unknown bit into a guessed terrain name. |
 | `OrganismOccupied` | Reserved for validator modes outside the Skirmish AIV path. Skirmish mode and player ID `0` bypass organism-class rejection, so this reason is not emitted here. |
 | `BuildingOccupied` | The Building/Structure grid is nonzero. The validator immediately returns native result `2`. |
+| `ProjectedPriorAivPrebuildOccupied` | A prior player's AIV was executed because `advopt_pre_build=1`, but this cell is inferred from the plan rather than observed live. It never invents a `BuildingId`. |
+| `PriorAivPrebuiltOccupied` | A prior player's Sofortspawn occupancy was observed in live runtime evidence. Planned AIV elements never emit this reason. |
 | `EntityOccupied` | Reserved for other validator modes. `EvaluateCandidateFit` passes player ID `0`, so the entity-record loop is not entered in this AIV path. |
 | `OwnerConflict` | Existing `IsWall` terrain is rejected in the AIV path. The stored owner becomes `1..8`, which can never equal the passed player ID `0`. |
-| `InternalOverlap` | Two projected AIV elements claim the same tile. This is an offline sequential-castle reason, not a direct map-layer read by the native single-cell validator. The issue records the second element index. |
+| `InternalOverlap` | Two projected AIV elements claim the same tile. This remains trace evidence, but native candidate fit flattens the AIV first and lets the later loaded frame overwrite the earlier cell; it is not a live-map blocker by itself. |
 | `BuildingRuleFailed` | Reserved for a future prerequisite that cannot be expressed by a more specific reason. The currently ported mapper exceptions are reported as terrain, height or owner reasons. |
 | `UnresolvedNativeRule` | Native control flow proves that a branch can affect acceptance, but required live record data is absent from the snapshot. This yields `NotEvaluable` when no deterministic rejection also applies, never a permissive pass or a guessed rejection. |
 
@@ -166,9 +168,10 @@ projected tile and returns immutable `AivElementPlacementResult` values:
   genuinely unavailable.
 
 `EvaluateElements` additionally tracks tile claims in original build order and
-reports `InternalOverlap` against the first earlier element. Core footprints
-and associated blocked areas retain their separate tile kinds throughout
-evaluation.
+reports `InternalOverlap` against the first earlier element for diagnostics.
+The official fit result must ultimately use the flattened last-writer-wins
+100×100 candidate grid described in `AIV_PREBUILD_AND_OVERLAP_ORDER.md`;
+`InternalOverlap` must not be interpreted as another live building.
 
 ## Implemented and deferred boundary
 

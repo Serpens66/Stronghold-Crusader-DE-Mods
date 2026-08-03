@@ -51,7 +51,8 @@ The lobby option does not spawn buildings through managed Unity code or through
 
 During `DLL_StartMultiplayerGame(false)`, the native engine selects an AIV
 candidate, tests its rotations and map fit, prepares all AIV build entries, and
-then executes the normal AI castle construction routine at 100 percent. The
+then executes the normal AI castle construction routine at 100 percent before
+moving to the next player. The
 same low-level construction code is used for normal buildings, walls, moats,
 pitch ditches, and other special AIV entries.
 
@@ -219,6 +220,21 @@ Any additional AIV import for `SpawnCastle` must occur after
 
 During native map start, the engine loops through player IDs 1 through 8. The
 important part begins near virtual address `0x180094D35`.
+
+This is a complete per-player loop, not a global frame merge across all AIVs.
+After the fit and the player's start-complex creation, the branch tests the
+native `advopt_pre_build` global at `0x1887EB2E8`. If enabled, it calls
+`ExecuteToPercentage` at RVA `0x551C0` with player ID and 100 percent. Only
+after that call returns does `inc esi` at RVA `0x95296` advance to the next
+player. `ExecuteToPercentage` calls the build-step routine at RVA `0x509F0`
+for frames `0` through the computed last frame, inclusive and ascending.
+
+Consequently, an earlier player's successfully prebuilt castle is already live
+map state when a later player's candidate is evaluated. Without Sofortspawn,
+the earlier AIV remains merely planned and does not itself block that fit;
+separately created start-complex objects can still block. The fit-side
+flattening and exact blocker taxonomy are maintained in
+`..\MapParser\Docs\AIV_PREBUILD_AND_OVERLAP_ORDER.md`.
 
 Native player registration data selects one of two paths:
 

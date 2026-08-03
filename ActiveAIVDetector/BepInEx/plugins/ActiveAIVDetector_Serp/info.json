@@ -3,10 +3,17 @@
   "Author": "Serpens66",
   "Name": "Active AIV Detector",
   "Description": "Diagnostic mod that logs the lord and AIVJSON selected by the native castle placement engine.",
-  "Version": "0.8.0",
+  "Version": "0.9.0",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "0.9.0",
+      "Changes": [
+        "Capture advopt_pre_build before the skirmish starts and include the session-bound value in every Oracle record and trace.",
+        "Add an opt-in full live-building-grid snapshot for distinguishing map, start-complex, and realized Sofortspawn occupancy."
+      ]
+    },
     {
       "Version": "0.8.0",
       "Changes": [

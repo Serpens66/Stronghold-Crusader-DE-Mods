@@ -45,6 +45,7 @@ namespace ActiveAIVDetector
         private const int BlockedCellCountOffset = 0x5B4FC;
         private const int CompleteFitScore = 999999;
         private const int AivGridSize = 100;
+        private const int FixedMapTileCount = 320800;
         private const int NativeGameModeRva = 0x8571B80;
         private const int OrganismRecordTableRva = 0x32DC3F4;
         private const int OrganismRecordStride = 0x9C;
@@ -111,6 +112,7 @@ namespace ActiveAIVDetector
         private ValidatorTraceContext activeValidatorTrace;
         private long nextSequence;
         private int cellTraceCaptureCount;
+        private bool liveBuildingGridCaptured;
         private bool callbackFailureLogged;
 
         public AivPlacementOracle(
@@ -452,6 +454,31 @@ namespace ActiveAIVDetector
                 }
             }
 
+            IReadOnlyList<OracleLiveBuildingTileEntry> liveBuildingTiles =
+                Array.Empty<OracleLiveBuildingTileEntry>();
+            if (!liveBuildingGridCaptured)
+            {
+                // One full snapshot avoids inferring rotated start footprints from the
+                // small subset of cells touched by a particular AIV candidate.
+                byte* placementState = (byte*)session.AivStateAddress;
+                var occupied = new List<OracleLiveBuildingTileEntry>();
+                for (int tileId = 0; tileId < FixedMapTileCount; tileId++)
+                {
+                    int buildingId = *(ushort*)(
+                        placementState + BuildingGridOffset + tileId * 2);
+                    if (buildingId == 0)
+                        continue;
+
+                    occupied.Add(new OracleLiveBuildingTileEntry(
+                        tileId,
+                        buildingId,
+                        *(byte*)(placementState + OwnerGridOffset + tileId),
+                        *(int*)(placementState + TerrainFlagsOffset + tileId * 4)));
+                }
+                liveBuildingTiles = occupied.AsReadOnly();
+                liveBuildingGridCaptured = true;
+            }
+
             cellTraceCaptureCount++;
             OracleCellTraceSnapshot trace = new OracleCellTraceSnapshot(
                 DateTimeOffset.Now,
@@ -461,7 +488,8 @@ namespace ActiveAIVDetector
                 cells,
                 validatorTrace == null
                     ? Array.Empty<OracleValidatorCallEntry>()
-                    : validatorTrace.Calls);
+                    : validatorTrace.Calls,
+                liveBuildingTiles);
             int validatorBlockedCells = 0;
             foreach (OracleValidatorCallEntry call in trace.ValidatorCalls)
             {
@@ -772,7 +800,8 @@ namespace ActiveAIVDetector
             int nativeBlockedCells,
             int resultGridBlockedCells,
             IList<OracleCellTraceEntry> cells,
-            IList<OracleValidatorCallEntry> validatorCalls)
+            IList<OracleValidatorCallEntry> validatorCalls,
+            IReadOnlyList<OracleLiveBuildingTileEntry> liveBuildingTiles)
         {
             CapturedAtLocal = capturedAtLocal;
             EvaluatedCells = evaluatedCells;
@@ -780,6 +809,8 @@ namespace ActiveAIVDetector
             ResultGridBlockedCells = resultGridBlockedCells;
             Cells = new List<OracleCellTraceEntry>(cells).AsReadOnly();
             ValidatorCalls = new List<OracleValidatorCallEntry>(validatorCalls).AsReadOnly();
+            LiveBuildingTiles = liveBuildingTiles ??
+                throw new ArgumentNullException(nameof(liveBuildingTiles));
         }
 
         public DateTimeOffset CapturedAtLocal { get; }
@@ -788,6 +819,7 @@ namespace ActiveAIVDetector
         public int ResultGridBlockedCells { get; }
         public IReadOnlyList<OracleCellTraceEntry> Cells { get; }
         public IReadOnlyList<OracleValidatorCallEntry> ValidatorCalls { get; }
+        public IReadOnlyList<OracleLiveBuildingTileEntry> LiveBuildingTiles { get; }
     }
 
     internal readonly struct OracleCellTraceEntry
@@ -874,5 +906,25 @@ namespace ActiveAIVDetector
         public int NativeEntityId { get; }
         public int NativeOwnerId { get; }
         public int NativeGameMode { get; }
+    }
+
+    internal readonly struct OracleLiveBuildingTileEntry
+    {
+        public OracleLiveBuildingTileEntry(
+            int tileId,
+            int buildingId,
+            int ownerId,
+            int terrainFlags)
+        {
+            TileId = tileId;
+            BuildingId = buildingId;
+            OwnerId = ownerId;
+            TerrainFlags = terrainFlags;
+        }
+
+        public int TileId { get; }
+        public int BuildingId { get; }
+        public int OwnerId { get; }
+        public int TerrainFlags { get; }
     }
 }

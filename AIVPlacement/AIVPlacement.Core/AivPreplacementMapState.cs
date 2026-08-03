@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
+using AIVParser.Core;
 using MapParser.Core;
 
 namespace AIVPlacement.Core
@@ -20,6 +22,7 @@ namespace AIVPlacement.Core
         private readonly HashSet<ushort> startBuildingIds;
         private readonly HashSet<ushort> retainedStartBuildingIds;
         private readonly HashSet<ushort> removedStartBuildingIds;
+        private readonly Dictionary<ushort, AivTileOccupancyKind> startKindsByBuildingId;
         private readonly Dictionary<int, ushort> reconstructedRockIdsByTileId;
         private readonly IReadOnlyList<ushort> normalizedStartBuildingIds;
         private readonly IReadOnlyList<ushort> retainedStartBuildingIdList;
@@ -28,7 +31,8 @@ namespace AIVPlacement.Core
             IAivPlacementTileSource source,
             IEnumerable<ushort> startBuildingIds,
             IEnumerable<ushort> retainedStartBuildingIds,
-            IEnumerable<MapRockRecord> rockRecords)
+            IEnumerable<MapRockRecord> rockRecords,
+            IReadOnlyDictionary<ushort, AivTileOccupancyKind> startKindsByBuildingId = null)
         {
             this.source = source ?? throw new ArgumentNullException(nameof(source));
             if (source.Geometry == null)
@@ -51,6 +55,12 @@ namespace AIVPlacement.Core
 
             removedStartBuildingIds = new HashSet<ushort>(this.startBuildingIds);
             removedStartBuildingIds.ExceptWith(this.retainedStartBuildingIds);
+            this.startKindsByBuildingId = new Dictionary<ushort, AivTileOccupancyKind>();
+            if (startKindsByBuildingId != null)
+            {
+                foreach (KeyValuePair<ushort, AivTileOccupancyKind> pair in startKindsByBuildingId)
+                    this.startKindsByBuildingId.Add(pair.Key, pair.Value);
+            }
             reconstructedRockIdsByTileId = ReconstructRockFootprints(rockRecords);
             var ordered = new List<ushort>(removedStartBuildingIds);
             ordered.Sort();
@@ -101,16 +111,19 @@ namespace AIVPlacement.Core
             byte[] records = recordsSection.ReadContent();
             var buildingIds = new List<ushort>();
             var retainedBuildingIds = new List<ushort>();
+            var startKinds = new Dictionary<ushort, AivTileOccupancyKind>();
             for (int recordIndex = 1; recordIndex < buildingRecordCount; recordIndex++)
             {
                 int offset = recordIndex * BuildingRecordSize;
                 ushort aliveState = ReadUInt16(records, offset + AliveStateOffset);
+                ushort buildingType = ReadUInt16(records, offset + 0xD2);
                 ushort owner = ReadUInt16(records, offset + OwnerOffset);
                 if (aliveState != AliveStateIsAlive || owner < 1 || owner > 8)
                     continue;
 
                 // Section 1012 stores the nonzero object-record index directly in both formats.
                 buildingIds.Add((ushort)recordIndex);
+                startKinds[(ushort)recordIndex] = ClassifyStartBuilding(buildingType);
                 if (retainedSlots.Contains(owner - 1))
                     retainedBuildingIds.Add((ushort)recordIndex);
             }
@@ -119,7 +132,8 @@ namespace AIVPlacement.Core
                 new SnapshotTileSource(snapshot),
                 buildingIds,
                 retainedBuildingIds,
-                document.ReadRockRecords().Records);
+                document.ReadRockRecords().Records,
+                startKinds);
         }
 
         public AivPlacementTileEvidence GetTileEvidence(int tileId)
@@ -138,11 +152,44 @@ namespace AIVPlacement.Core
                     evidence.BuildingId,
                     evidence.EntityId,
                     evidence.OwnerId,
-                    evidence.PlannedOccupancies);
+                    evidence.Occupancies);
             }
 
             if (retainedStartBuildingIds.Contains(evidence.BuildingId))
-                return evidence;
+            {
+                var occupancies = new List<AivTileOccupancy>();
+                foreach (AivTileOccupancy occupancy in evidence.Occupancies)
+                {
+                    if (occupancy.Kind != AivTileOccupancyKind.MapPreplacedBuilding)
+                        occupancies.Add(occupancy);
+                }
+                AivTileOccupancyKind kind = startKindsByBuildingId.TryGetValue(
+                    evidence.BuildingId,
+                    out AivTileOccupancyKind knownKind)
+                    ? knownKind
+                    : AivTileOccupancyKind.PlayerStartBuilding;
+                occupancies.Add(new AivTileOccupancy(
+                    kind,
+                    string.Empty,
+                    evidence.OwnerId,
+                    evidence.BuildingId,
+                    0,
+                    -1,
+                    AivItemCategory.Unknown,
+                    -1,
+                    -1,
+                    true));
+                return new AivPlacementTileEvidence(
+                    evidence.TerrainFlags,
+                    evidence.SecondaryLogic,
+                    evidence.Height,
+                    evidence.DefaultHeight,
+                    evidence.OrganismId,
+                    evidence.BuildingId,
+                    evidence.EntityId,
+                    evidence.OwnerId,
+                    occupancies);
+            }
 
             if (!removedStartBuildingIds.Contains(evidence.BuildingId))
             {
@@ -158,7 +205,7 @@ namespace AIVPlacement.Core
                     evidence.BuildingId,
                     evidence.EntityId,
                     0,
-                    evidence.PlannedOccupancies);
+                    evidence.Occupancies);
             }
 
             // Native places starts in player order, so only current and later starts are absent.
@@ -171,7 +218,8 @@ namespace AIVPlacement.Core
                 0,
                 evidence.EntityId,
                 0,
-                evidence.PlannedOccupancies);
+                evidence.Occupancies.Where(item =>
+                    item.Kind != AivTileOccupancyKind.MapPreplacedBuilding).ToArray());
         }
 
         public AivPlacementTileEvidence GetOriginalTileEvidence(int tileId)
@@ -271,6 +319,15 @@ namespace AIVPlacement.Core
 
         private static ushort ReadUInt16(byte[] data, int offset) =>
             (ushort)(data[offset] | (data[offset + 1] << 8));
+
+        private static AivTileOccupancyKind ClassifyStartBuilding(ushort buildingType)
+        {
+            if (buildingType >= 40 && buildingType <= 44)
+                return AivTileOccupancyKind.PlayerStartKeep;
+            if (buildingType == 10)
+                return AivTileOccupancyKind.PlayerStartStockpile;
+            return AivTileOccupancyKind.PlayerStartBuilding;
+        }
 
         private sealed class SnapshotTileSource : IAivPlacementTileSource
         {
