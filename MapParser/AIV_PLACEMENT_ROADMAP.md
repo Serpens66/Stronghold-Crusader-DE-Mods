@@ -760,13 +760,12 @@ erst gestartet, wenn die geschätzte Laufzeit zumutbar ist.
 
 > Setze Chat 10 aus `MapParser/AIV_PLACEMENT_ROADMAP.md` fort. Lies zuerst
 > `MapParser/Docs/CHAT10_ORACLE_MISMATCH_HANDOFF.md` vollständig. Werte den dort
-> ausgewerteten Thasos-Sofortspawn-Trace für Spieler 2 bis 7 als Evidenz.
-> Verwende die dokumentierte native Rekonstruktion der auffälligen
-> `ExecuteBuildStep`-Zweige und erfasse als Nächstes pro ausgeführtem Frame
-> Mapper, Rückgabewert und Building-Grid-Differenz, um insbesondere die
-> konkrete Mapper-52-Entscheidung zu belegen. Verwende bis zur vollständigen
-> sequenziellen Rekonstruktion für spätere PreBuild-Spieler `NotEvaluable` und
-> beginne Chat 11 noch nicht.
+> Implementiere anschließend den dort vollständig spezifizierten diagnostischen
+> `ExecuteBuildStep`-Laufzeittrace in ActiveAIVDetector 0.9.3, baue und
+> installiere ihn mit der vorbereiteten Spieler-2-Konfiguration und bitte mich
+> dann um genau einen Thasos-Sofortspawn-Spielstart. Verwende bis zur
+> vollständigen sequenziellen Rekonstruktion für spätere PreBuild-Spieler
+> `NotEvaluable` und beginne Chat 11 noch nicht.
 
 ---
 
