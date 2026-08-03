@@ -6,6 +6,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AIVPlacement.Core", "AIVPla
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AIVPlacement.Tests", "AIVPlacement.Tests\AIVPlacement.Tests.csproj", "{AA62D5AB-90B9-476E-92F4-79AD28FC47E4}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AIVPlacement.OracleComparison", "AIVPlacement.OracleComparison\AIVPlacement.OracleComparison.csproj", "{EC835D3C-8F6F-40BE-8B7C-935037B02E41}"
+EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AIVParser.Core", "..\AIVParser\AIVParser.Core\AIVParser.Core.csproj", "{613C733B-21B8-48FD-BE84-B966E7E661B8}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MapParser.Core", "..\MapParser\MapParser.Core\MapParser.Core.csproj", "{C77B2E73-53A2-41B7-B989-FE40AD09DF42}"
@@ -24,6 +26,10 @@ Global
 		{AA62D5AB-90B9-476E-92F4-79AD28FC47E4}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{AA62D5AB-90B9-476E-92F4-79AD28FC47E4}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{AA62D5AB-90B9-476E-92F4-79AD28FC47E4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EC835D3C-8F6F-40BE-8B7C-935037B02E41}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EC835D3C-8F6F-40BE-8B7C-935037B02E41}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EC835D3C-8F6F-40BE-8B7C-935037B02E41}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EC835D3C-8F6F-40BE-8B7C-935037B02E41}.Release|Any CPU.Build.0 = Release|Any CPU
 		{613C733B-21B8-48FD-BE84-B966E7E661B8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{613C733B-21B8-48FD-BE84-B966E7E661B8}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{613C733B-21B8-48FD-BE84-B966E7E661B8}.Release|Any CPU.ActiveCfg = Release|Any CPU

@@ -1275,15 +1275,21 @@ internal static class Program
                 AivMapperCatalog.Resolve(61),
                 new AivGridPoint(50, 44),
                 AivRotation.Degrees0);
-        AssertEqual(1, keepAreas.Count);
+        AssertEqual(5, keepAreas.Count);
         AssertEqual(AivBlockedAreaKind.Campfire, keepAreas[0].Kind);
-        AssertPoint(keepAreas[0].Footprint.RawAnchor, 43, 45, 4345);
+        AssertEqual(AivBlockedAreaSource.DefinitiveEditionNativeTable, keepAreas[0].Source);
+        AssertPoint(keepAreas[0].Footprint.RawAnchor, 48, 51, 4851);
         AssertFootprint(
             keepAreas[0].Footprint,
-            39,
-            45,
-            43,
-            49);
+            44,
+            51,
+            48,
+            55);
+        AssertPoint(keepAreas[1].Footprint.RawAnchor, 42, 44, 4244);
+        AssertFootprint(keepAreas[1].Footprint, 36, 44, 42, 50);
+        AssertPoint(keepAreas[2].Footprint.RawAnchor, 43, 46, 4346);
+        AssertPoint(keepAreas[3].Footprint.RawAnchor, 43, 47, 4347);
+        AssertPoint(keepAreas[4].Footprint.RawAnchor, 43, 48, 4348);
 
         IReadOnlyList<AivBlockedArea> rotatedKeepAreas =
             AivBlockedAreaCatalog.Resolve(
@@ -1292,10 +1298,10 @@ internal static class Program
                 AivRotation.Degrees90);
         AssertFootprint(
             rotatedKeepAreas[0].Footprint,
-            45,
-            56,
-            49,
-            60);
+            51,
+            51,
+            55,
+            55);
 
         IReadOnlyList<AivBlockedArea> barracksAreas =
             AivBlockedAreaCatalog.Resolve(
@@ -1308,9 +1314,22 @@ internal static class Program
         AssertPoint(barracksAreas[2].Footprint.RawAnchor, 38, 56, 3856);
 
         AssertEqual(
+            3,
+            AivBlockedAreaCatalog.Resolve(
+                AivMapperCatalog.Resolve(79),
+                new AivGridPoint(43, 51),
+                AivRotation.Degrees0).Count);
+
+        AssertEqual(
             1,
             AivBlockedAreaCatalog.Resolve(
                 AivMapperCatalog.Resolve(88),
+                new AivGridPoint(46, 15),
+                AivRotation.Degrees0).Count);
+        AssertEqual(
+            1,
+            AivBlockedAreaCatalog.Resolve(
+                AivMapperCatalog.Resolve(89),
                 new AivGridPoint(46, 15),
                 AivRotation.Degrees0).Count);
         AssertEqual(
@@ -1541,7 +1560,7 @@ internal static class Program
                     out _),
                 "Center delta should not be exported.");
             AssertEqual(
-                1,
+                5,
                 firstPosition.GetProperty("additionalBlockedAreas")
                     .GetArrayLength());
 
@@ -1556,7 +1575,7 @@ internal static class Program
             AssertEqual("56", (string?)keepRect.Attribute("height"));
             AssertEqual("7", (string?)keepRect.Attribute("data-footprint-size"));
             AssertEqual(
-                1,
+                5,
                 svg.Descendants(ns + "g")
                     .Single(element =>
                         (string?)element.Attribute("id") ==

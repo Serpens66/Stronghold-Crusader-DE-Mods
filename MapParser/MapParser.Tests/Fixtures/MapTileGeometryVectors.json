@@ -34,7 +34,9 @@
     { "worldSize": 300, "border": 250, "localX": 149, "localY": 0, "nativeX": 399, "nativeY": 250, "tileId": 63000 },
     { "worldSize": 300, "border": 250, "localX": 150, "localY": 0, "nativeX": 400, "nativeY": 250, "tileId": 63001 },
     { "worldSize": 400, "border": 200, "localX": 199, "localY": 0, "nativeX": 399, "nativeY": 200, "tileId": 40400 },
-    { "worldSize": 400, "border": 200, "localX": 200, "localY": 0, "nativeX": 400, "nativeY": 200, "tileId": 40401 }
+    { "worldSize": 400, "border": 200, "localX": 200, "localY": 0, "nativeX": 400, "nativeY": 200, "tileId": 40401 },
+    { "worldSize": 800, "border": 0, "localX": 399, "localY": 0, "nativeX": 399, "nativeY": 0, "tileId": 0 },
+    { "worldSize": 800, "border": 0, "localX": 400, "localY": 0, "nativeX": 400, "nativeY": 0, "tileId": 1 }
   ],
   "invalidCoordinateVectors": [
     { "label": "negative x", "x": -1, "y": 399 },
@@ -50,6 +52,7 @@
     { "worldSize": 200, "sourceMap": "Bow Ridge.map", "radarPositions": [[156, 91], [32, 91]], "tileIds": null },
     { "worldSize": 300, "sourceMap": "A Layered Approach.map", "radarPositions": [[147, 142], [135, 53]], "tileIds": null },
     { "worldSize": 400, "sourceMap": "A Friend Indeed.map", "radarPositions": [[29, 54], [67, 26]], "tileIds": null },
+    { "worldSize": 800, "sourceMap": "testmap.map", "radarPositions": [[70, 74], [147, 145]], "tileIds": null },
     { "worldSize": 200, "sourceMap": "unset slot sentinel", "radarPositions": [[-1, -1]], "tileIds": null }
   ]
 }

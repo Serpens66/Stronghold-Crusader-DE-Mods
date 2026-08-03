@@ -258,8 +258,20 @@
     <line class="grid-major" x1="60" y1="880" x2="860" y2="880" />
   </g>
   <g id="additional-blocked-areas">
-    <rect class="blocked-area" data-blocked-area="Keep campfire" data-owner-frame="0" data-owner-item-type="61" data-source="EditorDerivedKeepCampfire" x="420" y="528" width="40" height="40">
-      <title>Keep campfire; owner frame 0; MAPPER_KEEP2; raw anchor 43,45; size 5x5; source EditorDerivedKeepCampfire</title>
+    <rect class="blocked-area" data-blocked-area="Keep native area 5x5" data-owner-frame="0" data-owner-item-type="61" data-source="DefinitiveEditionNativeTable" x="468" y="488" width="40" height="40">
+      <title>Keep native area 5x5; owner frame 0; MAPPER_KEEP2; raw anchor 48,51; size 5x5; source DefinitiveEditionNativeTable</title>
+    </rect>
+    <rect class="blocked-area" data-blocked-area="Keep native area 7x7" data-owner-frame="0" data-owner-item-type="61" data-source="DefinitiveEditionNativeTable" x="412" y="536" width="56" height="56">
+      <title>Keep native area 7x7; owner frame 0; MAPPER_KEEP2; raw anchor 42,44; size 7x7; source DefinitiveEditionNativeTable</title>
+    </rect>
+    <rect class="blocked-area" data-blocked-area="Keep native connector 1" data-owner-frame="0" data-owner-item-type="61" data-source="DefinitiveEditionNativeTable" x="428" y="528" width="8" height="8">
+      <title>Keep native connector 1; owner frame 0; MAPPER_KEEP2; raw anchor 43,46; size 1x1; source DefinitiveEditionNativeTable</title>
+    </rect>
+    <rect class="blocked-area" data-blocked-area="Keep native connector 2" data-owner-frame="0" data-owner-item-type="61" data-source="DefinitiveEditionNativeTable" x="436" y="528" width="8" height="8">
+      <title>Keep native connector 2; owner frame 0; MAPPER_KEEP2; raw anchor 43,47; size 1x1; source DefinitiveEditionNativeTable</title>
+    </rect>
+    <rect class="blocked-area" data-blocked-area="Keep native connector 3" data-owner-frame="0" data-owner-item-type="61" data-source="DefinitiveEditionNativeTable" x="444" y="528" width="8" height="8">
+      <title>Keep native connector 3; owner frame 0; MAPPER_KEEP2; raw anchor 43,48; size 1x1; source DefinitiveEditionNativeTable</title>
     </rect>
     <rect class="blocked-area" data-blocked-area="Barracks yard below" data-owner-frame="28" data-owner-item-type="87" data-source="DefinitiveEditionNativeTable" x="468" y="568" width="40" height="40">
       <title>Barracks yard below; owner frame 28; MAPPER_BARRACKS_STONE; raw anchor 38,51; size 5x5; source DefinitiveEditionNativeTable</title>

@@ -21,8 +21,9 @@ namespace AIVParser.Core
                 case 60:
                 case 61:
                 case 62:
-                    AddKeepCampfire(result, mapper, buildingAnchor, rotation);
+                    AddNativeKeepAreas(result, mapper, buildingAnchor, rotation);
                     break;
+                case 79:
                 case 86:
                 case 87:
                     // Native X grows opposite to the exported JSON Row axis.
@@ -32,6 +33,7 @@ namespace AIVParser.Core
                     Add(result, "Barracks yard below-right", -5, 5, 5, buildingAnchor, rotation);
                     break;
                 case 88:
+                case 89:
                     Add(result, "Engineers Guild yard", -5, 0, 5, buildingAnchor, rotation);
                     break;
                 case 180:
@@ -42,7 +44,7 @@ namespace AIVParser.Core
             return result;
         }
 
-        private static void AddKeepCampfire(
+        private static void AddNativeKeepAreas(
             ICollection<AivBlockedArea> result,
             AivMapperInfo mapper,
             AivGridPoint buildingAnchor,
@@ -53,21 +55,13 @@ namespace AIVParser.Core
                 return;
             }
 
-            int keepSize = mapper.FootprintSize.Value;
-            int campfireSize = Math.Min(5, keepSize);
-            int centeredColumnOffset = (keepSize - campfireSize) / 2;
-            var rawAnchor = new AivGridPoint(
-                buildingAnchor.Row - keepSize,
-                buildingAnchor.Column + centeredColumnOffset);
-            var footprint = AivGridTransform.GetFootprint(
-                rawAnchor,
-                campfireSize,
-                rotation);
-            result.Add(new AivBlockedArea(
-                "Keep campfire",
-                AivBlockedAreaKind.Campfire,
-                AivBlockedAreaSource.EditorDerivedKeepCampfire,
-                footprint));
+            // RVA 0x54590 stamps these offsets after the normal Keep footprint.
+            Add(result, "Keep native area 5x5", -2, 7, 5, buildingAnchor, rotation,
+                AivBlockedAreaKind.Campfire);
+            Add(result, "Keep native area 7x7", -8, 0, 7, buildingAnchor, rotation);
+            Add(result, "Keep native connector 1", -7, 2, 1, buildingAnchor, rotation);
+            Add(result, "Keep native connector 2", -7, 3, 1, buildingAnchor, rotation);
+            Add(result, "Keep native connector 3", -7, 4, 1, buildingAnchor, rotation);
         }
 
         private static void Add(
@@ -77,14 +71,15 @@ namespace AIVParser.Core
             int columnOffset,
             int size,
             AivGridPoint buildingAnchor,
-            AivRotation rotation)
+            AivRotation rotation,
+            AivBlockedAreaKind kind = AivBlockedAreaKind.PlacementReserve)
         {
             var rawAnchor = new AivGridPoint(
                 buildingAnchor.Row + rowOffset,
                 buildingAnchor.Column + columnOffset);
             result.Add(new AivBlockedArea(
                 name,
-                AivBlockedAreaKind.PlacementReserve,
+                kind,
                 AivBlockedAreaSource.DefinitiveEditionNativeTable,
                 AivGridTransform.GetFootprint(rawAnchor, size, rotation)));
         }

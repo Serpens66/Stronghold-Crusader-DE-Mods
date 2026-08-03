@@ -56,8 +56,7 @@ namespace AIVParser.Core
 
     public enum AivBlockedAreaSource
     {
-        DefinitiveEditionNativeTable,
-        EditorDerivedKeepCampfire
+        DefinitiveEditionNativeTable
     }
 
     public sealed class AivDiagnostic

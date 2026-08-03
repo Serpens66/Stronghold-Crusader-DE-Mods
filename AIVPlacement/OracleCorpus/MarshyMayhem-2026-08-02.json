@@ -1,0 +1,73 @@
+{
+  "name": "Marshy Mayhem passive Oracle sample 2026-08-02",
+  "map": {
+    "path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\Stronghold Crusader Definitive Edition_Data\\StreamingAssets\\Maps\\Marshy Mayhem.map",
+    "sha256": "73B708819229C7FA2D03B7927A55DD1285435E6209CC02391DC7637C95E23FC3"
+  },
+  "cases": [
+    {
+      "id": "rat2-player8-rotation90",
+      "aivPath": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\ActiveAIVDetector_Serp\\VanillaAIV\\rat2.aivjson",
+      "aivSha256": "AE421D2DA8AF9E50FA5B2FEFEB3BFBF6F6FB0E7E6F95E5A3E8C49204C42E427A",
+      "playerId": 8,
+      "keepX": 427,
+      "keepY": 521,
+      "rotation": 90,
+      "native": {
+        "placementState": 2,
+        "rawFitScore": 999999,
+        "fitPercentage": 100,
+        "evaluatedCells": 612,
+        "blockedCells": 0
+      }
+    },
+    {
+      "id": "rat2-player8-rotation0",
+      "aivPath": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\ActiveAIVDetector_Serp\\VanillaAIV\\rat2.aivjson",
+      "aivSha256": "AE421D2DA8AF9E50FA5B2FEFEB3BFBF6F6FB0E7E6F95E5A3E8C49204C42E427A",
+      "playerId": 8,
+      "keepX": 427,
+      "keepY": 521,
+      "rotation": 0,
+      "native": {
+        "placementState": 1,
+        "rawFitScore": 14,
+        "fitPercentage": 99,
+        "evaluatedCells": 612,
+        "blockedCells": 6
+      }
+    },
+    {
+      "id": "testlord-player7-rotation270",
+      "aivPath": "C:\\Users\\Serpens66\\AppData\\LocalLow\\Firefly Studios\\Stronghold Crusader Definitive Edition\\CustomLords\\testlord_serp\\testlord_serpcastle1.aivjson",
+      "aivSha256": "0F4003B3B43B9F96C3E4C8C50B5E0EB54615184F1F8A28EEEDFFE3E63567BA28",
+      "playerId": 7,
+      "keepX": 283,
+      "keepY": 364,
+      "rotation": 270,
+      "native": {
+        "placementState": 1,
+        "rawFitScore": 15,
+        "fitPercentage": 87,
+        "evaluatedCells": 1817,
+        "blockedCells": 226
+      }
+    },
+    {
+      "id": "wolf-player6-rotation270",
+      "aivPath": "C:\\Users\\Serpens66\\AppData\\LocalLow\\Firefly Studios\\Stronghold Crusader Definitive Edition\\ExtendedLords\\wolf\\wolf+.aivjson",
+      "aivSha256": "6587DD3958A4F213101D64D9871AD4D17BB249FF266F19CB447283F21E889187",
+      "playerId": 6,
+      "keepX": 372,
+      "keepY": 536,
+      "rotation": 270,
+      "native": {
+        "placementState": 1,
+        "rawFitScore": 31,
+        "fitPercentage": 87,
+        "evaluatedCells": 5711,
+        "blockedCells": 733
+      }
+    }
+  ]
+}

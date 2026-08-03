@@ -81,7 +81,7 @@ namespace AIVPlacement.Core
                         }
                     }
 
-                    AivWorldTile projectedAnchor = AivWorldTransform.Project(
+                    AivWorldTile projectedAnchor = ProjectNativeFitTile(
                         sourceAnchor,
                         aivKeepAnchor,
                         mapKeepAnchor.X,
@@ -146,7 +146,7 @@ namespace AIVPlacement.Core
                 for (int column = rawAnchor.Column; column <= lastColumn; column++)
                 {
                     var sourcePoint = new AivGridPoint(row, column);
-                    AivWorldTile projected = AivWorldTransform.Project(
+                    AivWorldTile projected = ProjectNativeFitTile(
                         sourcePoint,
                         aivKeepAnchor,
                         mapKeepAnchor.X,
@@ -163,6 +163,21 @@ namespace AIVPlacement.Core
                         associatedAreaSource));
                 }
             }
+        }
+
+        private static AivWorldTile ProjectNativeFitTile(
+            AivGridPoint point,
+            AivGridPoint keepAnchor,
+            int keepWorldX,
+            int keepWorldY,
+            AivRotation rotation)
+        {
+            AivGridPoint rotatedPoint = AivGridTransform.Rotate(point, rotation);
+
+            // Vanilla rotates the 100x100 grids but retains the origin set for orientation zero.
+            return new AivWorldTile(
+                keepWorldX + rotatedPoint.Column - keepAnchor.Column,
+                keepWorldY - rotatedPoint.Row + keepAnchor.Row);
         }
 
         private static void ValidateRotation(AivRotation rotation)

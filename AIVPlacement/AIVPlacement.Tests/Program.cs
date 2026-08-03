@@ -21,6 +21,7 @@ internal static class Program
             ("Project associated blocked areas separately", TestBlockedAreas),
             ("Require an exact AIV keep anchor", TestMissingKeep),
             ("Retain placement issue evidence", TestPlacementIssueEvidence),
+            ("Normalize serialized player start occupancy", TestPreplacementMapState),
             ("Reject reasonless placement issues", TestReasonlessPlacementIssue),
             ("Distinguish native-domain and diamond failures", TestGeometryRules),
             ("Apply the native mapper height limit", TestHeightRule),
@@ -63,9 +64,9 @@ internal static class Program
             Frame(1, 25, false, Point(47, 54)));
 
         AssertCoordinate(Element(blueprint, AivRotation.Degrees0, 1).MapCoordinate, 404, 403);
-        AssertCoordinate(Element(blueprint, AivRotation.Degrees90, 1).MapCoordinate, 403, 396);
-        AssertCoordinate(Element(blueprint, AivRotation.Degrees180, 1).MapCoordinate, 396, 397);
-        AssertCoordinate(Element(blueprint, AivRotation.Degrees270, 1).MapCoordinate, 397, 404);
+        AssertCoordinate(Element(blueprint, AivRotation.Degrees90, 1).MapCoordinate, 402, 396);
+        AssertCoordinate(Element(blueprint, AivRotation.Degrees180, 1).MapCoordinate, 395, 398);
+        AssertCoordinate(Element(blueprint, AivRotation.Degrees270, 1).MapCoordinate, 397, 405);
     }
 
     private static void TestAsymmetricFootprints()
@@ -80,7 +81,7 @@ internal static class Program
 
         AivProjectedElement ninety = Element(blueprint, AivRotation.Degrees90, 1);
         AssertEqual(16, ninety.OccupiedTiles.Count);
-        AssertBounds(ninety.OccupiedTiles, 400, 403, 395, 398);
+        AssertBounds(ninety.OccupiedTiles, 399, 402, 395, 398);
     }
 
     private static void TestNearMapEdge()
@@ -177,7 +178,11 @@ internal static class Program
             Frame(0, 61, false, Point(50, 50)),
             Frame(1, 87, false, Point(48, 52)));
         AivProjectedElement barracks = Element(blueprint, AivRotation.Degrees90, 1);
+        AivProjectedElement keep = Element(blueprint, AivRotation.Degrees0, 0);
 
+        AssertEqual(126, keep.OccupiedTiles.Count);
+        AssertEqual(77, keep.OccupiedTiles.Count(tile =>
+            tile.Kind == AivProjectedTileKind.AssociatedBlockedArea));
         AssertEqual(100, barracks.OccupiedTiles.Count);
         AssertEqual(25, barracks.OccupiedTiles.Count(tile =>
             tile.Kind == AivProjectedTileKind.CoreFootprint));
@@ -240,6 +245,52 @@ internal static class Program
         AssertEqual(unchecked((int)0xA0018400), issue.TileEvidence!.Value.TerrainFlags);
         AssertEqual((ushort)302, issue.TileEvidence.Value.EntityId);
         AssertEqual((byte)4, issue.TileEvidence.Value.OwnerId);
+    }
+
+    private static void TestPreplacementMapState()
+    {
+        MapCoordinate keepTile = new(400, 400);
+        MapCoordinate adjacentWallTile = new(401, 400);
+        MapCoordinate otherTile = new(405, 400);
+        var raw = new SparsePlacementMap();
+        raw.Set(keepTile, Evidence(
+            terrainFlags: unchecked((int)0x10008500),
+            secondaryLogic: 2,
+            height: 8,
+            defaultHeight: 7,
+            organismId: 3,
+            buildingId: 28,
+            entityId: 4,
+            ownerId: 5));
+        raw.Set(adjacentWallTile, Evidence(
+            terrainFlags: 0x00008100,
+            ownerId: 5));
+        raw.Set(otherTile, Evidence(
+            terrainFlags: unchecked((int)0x10000400),
+            buildingId: 29));
+
+        var normalized = new AivPreplacementMapState(raw, new ushort[] { 28 });
+        AivPlacementTileEvidence keep = normalized.GetTileEvidence(
+            normalized.Geometry.GetTileId(keepTile.X, keepTile.Y));
+        AivPlacementTileEvidence other = normalized.GetTileEvidence(
+            normalized.Geometry.GetTileId(otherTile.X, otherTile.Y));
+        AivPlacementTileEvidence adjacentWall = normalized.GetTileEvidence(
+            normalized.Geometry.GetTileId(adjacentWallTile.X, adjacentWallTile.Y));
+
+        AssertEqual(0x00008000, keep.TerrainFlags);
+        AssertEqual((ushort)0, keep.BuildingId);
+        AssertEqual((byte)2, keep.SecondaryLogic);
+        AssertEqual((byte)8, keep.Height);
+        AssertEqual((byte)7, keep.DefaultHeight);
+        AssertEqual((ushort)3, keep.OrganismId);
+        AssertEqual((ushort)4, keep.EntityId);
+        AssertEqual((byte)0, keep.OwnerId);
+        AssertEqual(0x00008000, adjacentWall.TerrainFlags);
+        AssertEqual((byte)0, adjacentWall.OwnerId);
+        AssertEqual(unchecked((int)0x10000400), other.TerrainFlags);
+        AssertEqual((ushort)29, other.BuildingId);
+        AssertEqual(1, normalized.NormalizedStartBuildingIds.Count);
+        AssertEqual((ushort)28, normalized.NormalizedStartBuildingIds[0]);
     }
 
     private static void TestReasonlessPlacementIssue()

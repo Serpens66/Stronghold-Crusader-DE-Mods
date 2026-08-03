@@ -36,6 +36,27 @@ The AIV spec has stride `0x6D98`. Fields relevant to the Oracle are:
 | `0x28`, `0x2C` | absolute origin X/Y |
 | `0x30`, `0x34` | Keep/reference X/Y |
 
+## Rotationsursprung
+
+Der gezielte Chat-10-Nachtest von `ApplyRotation` bei RVA `0x558E0` belegt,
+dass Vanilla die Mapper- und Score-Grids für Orientierung `2`, `4` und `6`
+rotiert, den in der AIV-Spezifikation gespeicherten absoluten Ursprung aber
+nicht anpasst. Für die getesteten AIVs liegt der Roh-Keep bei `(row 56,
+column 43)`; die Oracle-Zeilen zeigen entsprechend für jede Orientierung:
+
+    originX = keepReferenceX - 43
+    originY = keepReferenceY - 43
+
+Die Weltprojektion eines bereits rotierten Gridpunkts lautet damit:
+
+    worldX = originX + rotatedColumn
+    worldY = originY + 99 - rotatedRow
+
+Der native Fit rotiert folglich das vollständige 100×100-Grid um den festen
+Orientierung-0-Ursprung. Er rotiert nicht relativ um den AIV-Keep-Marker. Die
+randnahe `unittest`-Matrix bestätigt diese Formel für alle vier Orientierungen
+mit 58 von 58 exakten Status-, Score- und Zellzählervergleichen.
+
 ## Meaning of the fit result
 
 `EvaluateCandidateFit` iterates the expanded 100x100 mapper grid. Empty cells
@@ -147,7 +168,7 @@ to Chat 7 and are intentionally not assigned speculative names here.
 
 ## Passive runtime Oracle
 
-`ActiveAIVDetector` version `0.6.0` detours the five AIV functions above and
+`ActiveAIVDetector` version `0.7.0` detours the five AIV functions above and
 calls each original trampoline exactly once. It never initiates a candidate
 test and returns every native result unchanged. The existing process-lifetime
 runtime owns the detours, so destruction of the temporary BepInEx component
@@ -155,7 +176,7 @@ during startup does not remove them.
 
 After `OnStartMap(Post)`, the mod emits:
 
-- one `AIV placement oracle selection` record with map identity, player slot,
+- one `AIV placement oracle selection` record with map path, map SHA-256, player slot,
   native selection method, final candidate, final rotation, state, and direct
   return value where applicable;
 - one `AIV placement oracle attempt` record for every candidate/rotation test,
@@ -164,6 +185,16 @@ After `OnStartMap(Post)`, the mod emits:
 
 Every record receives a local timestamp with millisecond precision through
 `Shared.DebugLogHelper`.
+
+Chat 10's targeted audit of `LoadCandidate` at RVA `0x54590` additionally
+proved the native associated areas used by the temporary 100x100 grid. Keep
+mappers `60..64` add a 5x5 area, a 7x7 area, and three connector cells. Mappers
+`79`, `86`, and `87` add three footprint-sized yard areas; mappers `88` and
+`89` add one. These cells are evaluated even though they do not represent a
+separate core building. The offline catalog now models all of them explicitly.
+
+The structured offline comparison, measured sample, and remaining coverage gap
+are documented in `AIV_PLACEMENT_ORACLE_COMPARISON.md`.
 
 ## Controlled runtime matrix
 

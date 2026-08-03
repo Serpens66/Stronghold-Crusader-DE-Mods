@@ -2,9 +2,16 @@
 
 ## Ergebnis
 
-Der exakte native Keep-Anker eines auswählbaren Skirmish-Slots steht in
-Map-Section `1013`. Diese Section enthält 2000 serialisierte Gebäudedatensätze
-zu je `0x32C` Byte. Für einen aktiven Keep-Datensatz gelten:
+Der exakte native Keep-Anker eines auswählbaren Skirmish-Slots steht in einer
+Gebäudeobjekt-Section. Zwei strikt unterscheidbare Varianten sind belegt:
+
+| Section | Datensätze | Datensatzgröße | Verwendung |
+|---:|---:|---:|---|
+| `1013` | 2000 | `0x32C` | ältere Karten |
+| `4013` | 4000 | `0x32C` | aktuelle Editor-Karten und aktualisierte Vanilla-Karten |
+
+Section `4013` verdoppelt nur die Kapazität; das Datensatzlayout bleibt
+unverändert. Für einen aktiven Keep-Datensatz gelten:
 
 | Feld | Offset | Bedeutung |
 |---|---:|---|
@@ -73,16 +80,23 @@ Runtime-Keep-Aufruf übergebene Paar.
 | A Friend Indeed | 400 | 3 | `(163,114)` | `(478,348)` | 121879 |
 | A Friend Indeed | 400 | 4 | `(19,149)` | `(369,528)` | 246785 |
 | A Friend Indeed | 400 | 5 | `(50,171)` | `(422,519)` | 241861 |
+| unittest | 160 | 0 | `(36,35)` | `(337,398)` | 159138 |
+| unittest | 160 | 1 | `(166,152)` | `(460,392)` | 154509 |
+| testmap | 800 | 0 | `(70,74)` | `(289,401)` | 161488 |
+| testmap | 800 | 1 | `(147,145)` | `(584,393)` | 155420 |
 
 Die maschinenlesbaren Beobachtungen stehen in
 `MapParser.Tests/Fixtures/MapKeepAnchorVectors.json`. Die Tests erzeugen daraus
-synthetische Section-1013-Datensätze und prüfen alle vier World Sizes.
+synthetische Gebäudeobjekt-Datensätze und prüfen beide Sectionvarianten sowie
+alle fünf belegten World Sizes.
 
-Ein zusätzlicher read-only Corpus-Scan erfasste 238 installierte Karten. Unter
-den neun als Skirmish gekennzeichneten Dateien waren sieben über Section 1013
-eindeutig auswertbar; alle 27 gefundenen Startmarker hatten Typ 41.
-`Conquest.map` und `TheJordanValley.map` besitzen keine Section 1013 und werden
-deshalb bewusst als `NotEvaluable/BuildingSectionMissing` gemeldet.
+Ein zusätzlicher früher read-only Corpus-Scan erfasste 238 installierte Karten.
+Unter den neun damals als Skirmish gekennzeichneten Dateien waren sieben über
+Section 1013 eindeutig auswertbar; alle 27 gefundenen Startmarker hatten Typ
+41. Karten ohne 1013 oder 4013 werden weiterhin bewusst als
+`NotEvaluable/BuildingSectionMissing` gemeldet. Die aktuellen Editor-Karten
+`unittest` und `testmap` sowie die getestete `Thasos`-Version besitzen 4013 und
+werden exakt ausgewertet.
 
 ## Offline-API
 

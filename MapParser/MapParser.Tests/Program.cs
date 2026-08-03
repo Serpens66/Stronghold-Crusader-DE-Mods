@@ -33,6 +33,7 @@ internal static class Program
             ("Separate fixed geometry from world-size bounds", TestMapTileWorldBounds),
             ("Reject invalid map-tile geometry inputs", TestInvalidMapTileGeometry),
             ("Resolve exact Keep anchors for real-map vectors", TestKeepAnchorVectors),
+            ("Resolve current-format 800 Keep anchors", TestExtendedKeepAnchorVectors),
             ("Report explicit Keep-anchor failure reasons", TestKeepAnchorFailureReasons),
             ("Decode PKWARE-DCL and verify CRC32", TestCompressedSection),
             ("Reject truncated preamble", TestTruncatedPreamble),
@@ -136,9 +137,13 @@ internal static class Program
             FixtureBuilder.Build(100, new[] { new SectionSpec(1003, Int32Bytes(7)) }).Bytes);
         MapDocument newMap = MapFileReader.Parse(
             FixtureBuilder.Build(200, new[] { new SectionSpec(3003, Int32Bytes(8)) }).Bytes);
+        MapDocument extendedObjects = MapFileReader.Parse(
+            FixtureBuilder.Build(200, new[] { new SectionSpec(4013, new byte[4000 * 0x32C]) }).Bytes);
         AssertEqual(1003, oldMap.Sections[0].LogicalSectionId);
         AssertEqual(1003, newMap.Sections[0].LogicalSectionId);
         AssertEqual(3003, newMap.GetLogicalSection(1003).SectionId);
+        AssertEqual(MapSectionCatalog.BuildingObjects, extendedObjects.Sections[0].LogicalSectionId);
+        AssertEqual(4013, extendedObjects.GetLogicalSection(MapSectionCatalog.BuildingObjects).SectionId);
     }
 
     private static void TestPlacementLayers()
@@ -356,7 +361,7 @@ internal static class Program
 
             // A fixed-geometry tile remains addressable even when outside this map's playable world.
             AssertTrue(geometry.IsValidCoordinate(399, 0));
-            AssertTrue(!geometry.IsWithinWorldBounds(399, 0));
+            AssertEqual(worldSize == 800, geometry.IsWithinWorldBounds(399, 0));
             AssertEqual(0, geometry.GetTileId(399, 0));
         }
     }
@@ -371,7 +376,34 @@ internal static class Program
         AssertThrows<MapUnsupportedGeometryException>(() =>
             new MapTileGeometry(MapTileGeometry.FixedTileCount, 0));
         AssertThrows<MapUnsupportedGeometryException>(() =>
-            new MapTileGeometry(MapTileGeometry.FixedTileCount, 800));
+            new MapTileGeometry(MapTileGeometry.FixedTileCount, 799));
+    }
+
+    private static void TestExtendedKeepAnchorVectors()
+    {
+        MapCoordinate[] radar = Enumerable.Repeat(
+            new MapCoordinate(-1, -1),
+            MapKeepAnchors.SlotCount).ToArray();
+        radar[0] = new MapCoordinate(70, 74);
+        radar[1] = new MapCoordinate(147, 145);
+
+        byte[] buildings = EmptyBuildingObjectSection(MapSectionCatalog.ExtendedBuildingObjects);
+        WriteKeepRecord(buildings, 1, 1, 289, 401);
+        WriteKeepRecord(buildings, 19, 2, 584, 393);
+        MapDocument map = MapFileReader.Parse(
+            FixtureBuilder.Build(
+                200,
+                new[] { new SectionSpec(MapSectionCatalog.ExtendedBuildingObjects, buildings) },
+                keepLocations: radar,
+                worldSize: 800).Bytes);
+
+        MapKeepAnchors anchors = map.ReadKeepAnchors();
+        AssertEqual(new MapCoordinate(289, 401), anchors.GetSlot(0).Coordinate!.Value);
+        AssertEqual(161488, anchors.GetSlot(0).TileId!.Value);
+        AssertEqual(1, anchors.GetSlot(0).BuildingRecordIndex!.Value);
+        AssertEqual(new MapCoordinate(584, 393), anchors.GetSlot(1).Coordinate!.Value);
+        AssertEqual(155420, anchors.GetSlot(1).TileId!.Value);
+        AssertEqual(19, anchors.GetSlot(1).BuildingRecordIndex!.Value);
     }
 
     private static void TestKeepAnchorVectors()
@@ -532,7 +564,12 @@ internal static class Program
         return coordinates;
     }
 
-    private static byte[] EmptyBuildingObjectSection() => new byte[2000 * 0x32C];
+    private static byte[] EmptyBuildingObjectSection(
+        int sectionId = MapSectionCatalog.BuildingObjects)
+    {
+        AssertTrue(MapSectionCatalog.TryGetBuildingObjectRecordCount(sectionId, out int recordCount));
+        return new byte[recordCount * 0x32C];
+    }
 
     private static void WriteKeepRecord(byte[] data, int recordIndex, int owner, int x, int y)
     {

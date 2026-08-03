@@ -121,8 +121,9 @@ current directory. Use `-o <directory>` to choose another output folder. The SVG
 self-contained and every placement has a tooltip with its frame, type, source offset,
 grid coordinates, footprint, stored anchor, and pause flag. Building colors retain the
 official editor's broad visual groups while traps and path types remain distinct.
-Green cross-hatching marks associated blocked areas such as the keep campfire,
-barracks yard, Engineers Guild yard, and Oil Smelter yard.
+Green cross-hatching marks associated blocked areas from the native AIV loader,
+including all five Keep reservations, the mapper-79/86/87 yards, the mapper-88/89
+yard, and the Oil Smelter yard.
 
 ## Verwendung in einem BepInEx-Mod
 

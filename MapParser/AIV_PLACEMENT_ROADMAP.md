@@ -108,7 +108,7 @@ werden. Es darf keine unbestätigte Formel wie `y * width + x` verwendet werden.
    - Kartenmittelpunkt
    - erste und letzte gültige Position mehrerer Zeilen
    - vier Randbereiche
-   - Keep-Positionen aus realen 160-/200-/300-/400-Karten
+   - Keep-Positionen aus realen 160-/200-/300-/400-/800-Karten
    - negative und außerhalb liegende Koordinaten
 
 ### Ergebnisartefakte
@@ -267,8 +267,9 @@ Ungefähr:
 ## Chat 4: Keep-Tile-Anker offline belegen
 
 **Status:** Abgeschlossen. Der exakte Anker stammt aus dem lebenden
-Keep-Gebäudedatensatz in Section 1013. Native Herkunft, Feldlayout,
-Offline-/Runtime-Identität und Realmap-Vektoren für 160/200/300/400 stehen in
+Keep-Gebäudedatensatz in Section 1013 oder der aktuellen erweiterten Section
+4013. Native Herkunft, Feldlayout, Offline-/Runtime-Identität und
+Realmap-Vektoren für 160/200/300/400/800 stehen in
 `Docs/MAP_KEEP_TILE_ANCHORS.md`; die paketfreie API liefert pro Slot `Exact`
 oder einen expliziten `NotEvaluable`-Grund.
 
@@ -290,7 +291,7 @@ offline nicht möglich ist.
   `GamePlayerResources.r_KeepTilePositionX/Y` verfolgen.
 - Prüfen, ob der Anker aus einer Map-Section, einem Marker, einer Struktur oder
   einer deterministischen nativen Transformation stammt.
-- Reale 160-/200-/300-/400-Karten nach Mapstart kontrolliert vergleichen:
+- Reale 160-/200-/300-/400-/800-Karten nach Mapstart kontrolliert vergleichen:
   U4-Radarposition, ermittelter Offline-Anker und Runtime-Keep-Tile.
 - Synthetische Fixtures für die belegte Offline-Datenquelle ergänzen.
 - Keine Näherung aus Radar-Pixeln als exakten Tile-Anker ausgeben.
@@ -316,8 +317,10 @@ offline nicht möglich ist.
 
 **Status:** Abgeschlossen. Der paketfreie `AIVPlacement`-Kern projiziert
 Build-Schritte, alle vier Rotationen, Footprints und bekannte Zusatzflächen
-deterministisch auf absolute Map-Koordinaten; der Release-Build und alle
-synthetischen Tests sind erfolgreich.
+deterministisch auf absolute Map-Koordinaten. Der native Fit rotiert das
+100×100-Grid um seinen festen Orientierung-0-Ursprung, nicht um den AIV-Keep;
+diese Semantik stimmt auf einer randnahen Karte in allen vier Rotationen exakt.
+Der Release-Build und alle synthetischen Tests sind erfolgreich.
 
 ### Ziel
 
@@ -650,7 +653,15 @@ partielle Kandidaten vergleicht.
 
 ## Chat 10: Offline-Ergebnis systematisch gegen den nativen Oracle vergleichen
 
-**Status:** Nächster Schritt.
+**Status:** Abgeschlossen. Die hashgebundene Matrix umfasst 144 Fälle auf
+World Sizes 160/200/300/400/800, Vanilla-Kopien und zwei mit dem aktuellen
+Editor erzeugte Custom-Maps, mehrere Keeps, kleine bis große AIVs, alle
+Rotationen und native Zustände 0/1/2. Alle 67 offline auswertbaren Fälle stimmen
+exakt; 77 sind ausschließlich wegen nicht serialisierter lebender
+Organismusklassen als `NotEvaluable` klassifiziert. Es gibt 0 Mismatches und
+0 Fehler. Section 4013, World Size 800 und der feste native Rotationsursprung
+sind durch die neuen Läufe abgedeckt. Ergebnisse und Quote stehen in
+`Docs/AIV_PLACEMENT_ORACLE_COMPARISON.md`.
 
 ### Ziel
 
@@ -705,7 +716,7 @@ erst gestartet, wenn die geschätzte Laufzeit zumutbar ist.
 
 ## Chat 11: Lobby-Datenfluss ohne UI anbinden
 
-**Status:** Ausstehend.
+**Status:** Nächster Schritt.
 
 ### Ziel
 
@@ -863,6 +874,6 @@ Stopppunkte sind:
 4. Vor Chat 13: Nutzerentscheidung einholen, ob die Lobby nur informiert,
    filtert oder ungültige AIV-Auswahlen blockiert.
 
-Der nächste auszuführende Schritt ist "Chat 10".
+Der nächste auszuführende Schritt ist "Chat 11".
 
 

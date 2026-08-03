@@ -15,7 +15,8 @@ rotation tests. It never invokes a placement function itself and returns every
 native result unchanged. Each `AIV placement oracle selection` line is followed
 by one `AIV placement oracle attempt` line per tested candidate/rotation with the
 raw fit score, fit percentage, evaluated and blocked cell counts, map identity,
-origin, and Keep reference.
+map SHA-256, origin, and Keep reference. The map hash is calculated once per
+map load so every row in one selection refers to the same file identity.
 
 ## Test
 

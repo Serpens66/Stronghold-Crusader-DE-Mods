@@ -55,9 +55,13 @@ documented in `../MapParser/Docs/AIV_PLACEMENT_RULES.md`.
 ## Coordinate contract
 
 - The map keep anchor is the exact Section-1013 keep coordinate supplied by
-  `MapParser.Core`, not a U4 radar coordinate.
+  `MapParser.Core`, or its extended Section-4013 equivalent, not a U4 radar
+  coordinate.
 - The AIV keep anchor is the single keep placement parsed by `AIVParser.Core`.
 - AIV columns follow map X; AIV rows run opposite to map Y.
+- Vanilla rotates the complete 100x100 fit grids while retaining the world
+  origin established for orientation zero. Rotated fits therefore do not rotate
+  around the AIV keep marker.
 - The stored AIV building point and its square footprint semantics come from
   `AIVParser.Core`.
 - Core and associated blocked tiles remain separately identified.
@@ -74,3 +78,29 @@ Run `build.bat`. It builds the Release solution and executes the synthetic tests
 The tests cover projection plus positive and negative rule cases, multi-tile
 evidence, mapper exceptions, unresolved organism records, deterministic overlap
 ordering, and associated blocked areas.
+
+`AIVPlacement.OracleComparison` remains a separate diagnostic executable. It
+checks map/AIV SHA-256 values, resolves the Section-1013/4013 Keep anchor by its exact
+coordinate without assuming a lobby player-to-slot mapping, evaluates
+captured native cases and writes status, both score dimensions, the first issue
+and all available raw tile evidence. For example:
+
+    dotnet run --project AIVPlacement.OracleComparison -c Release -- \
+      OracleCorpus/MarshyMayhem-2026-08-02.json --limit 1
+
+Use `--case <id>` for one reproducible case and `--output <report.json>` for a
+machine-readable report. Corpus runs log progress, elapsed time and ETA with
+millisecond timestamps.
+
+Version 0.7 Oracle logs can be imported without copying proprietary map or AIV
+files:
+
+    dotnet run --project AIVPlacement.OracleComparison -c Release -- \
+      import-log "<BepInEx LogOutput.log>" OracleCorpus/Captured-YYYY-MM-DD
+
+The importer takes a shared-read snapshot because BepInEx can keep the log
+open, rejects a snapshot that changes during reading, and binds every generated
+corpus to the source-log SHA-256. A comparison returns a nonzero exit code for
+errors or mismatches. If no exact building-object Keep exists, the native case is
+retained as `NotEvaluable` with the concrete anchor failure instead of being
+reported as an error or evaluated from the runtime-only Keep coordinate.

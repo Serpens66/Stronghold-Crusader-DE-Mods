@@ -94,7 +94,7 @@ native Rückabbildung ist daher:
 
 ## World Size und Kartenrand
 
-Die untersuchten realen Karten der Größen 160, 200, 300 und 400 besitzen für
+Die untersuchten realen Karten der Größen 160, 200, 300, 400 und 800 besitzen für
 jeden vollständigen Placement-Layer ebenfalls 320800 Einträge. Die native
 Grenzfunktion berechnet:
 
@@ -168,7 +168,7 @@ MapParser ausgegebenen Integer-Metadaten als Gegenbeispiele festgehalten.
 
 Der tatsächliche Runtime-Keep-Anker ist ein anderer Wert. Chat 4 hat inzwischen
 belegt, dass er vor dem Mapstart exakt aus dem aktiven Keep-Gebäudedatensatz in
-Section 1013 gelesen werden kann. Details, Feldlayout und Realmap-Vektoren
+Section 1013 oder 4013 gelesen werden kann. Details, Feldlayout und Realmap-Vektoren
 stehen in `MAP_KEEP_TILE_ANCHORS.md`. U4 bleibt davon unabhängig und darf nicht
 als Ersatzkoordinate verwendet werden.
 
@@ -207,10 +207,10 @@ Die maschinenlesbaren Vektoren stehen in
 - erste und letzte gültige Position früher, mittlerer und später Zeilen;
 - alle vier Randbereiche und die vier mittleren Tiles;
 - Zeilenübergänge und inverse Roundtrips;
-- World-Size-Ränder für 160, 200, 300 und 400;
+- World-Size-Ränder für 160, 200, 300, 400 und 800;
 - negative, quadratisch gültig aussehende, aber außerhalb der Raute liegende
   Koordinaten sowie ungültige Tile-IDs;
-- reale U4-Radarbeispiele für 160, 200, 300 und 400, ausdrücklich ohne
+- reale U4-Radarbeispiele für 160, 200, 300, 400 und 800, ausdrücklich ohne
   erfundene Tile-ID.
 
 ## Folgerung für die Roadmap

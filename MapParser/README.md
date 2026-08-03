@@ -104,13 +104,15 @@ nicht verfügbare oder längeninkonsistente Layer liefern eine
 `MapPlacementSnapshotException` mit einem maschinenlesbaren `FailureKind`.
 
 `ReadKeepAnchors()` liest den exakten nativen Keep-Anker jedes auswählbaren
-Slots aus Section 1013. Unsichere Fälle liefern `NotEvaluable` mit einem
+Slots aus der älteren Section 1013 oder der erweiterten aktuellen Section 4013.
+Unsichere Fälle liefern `NotEvaluable` mit einem
 maschinenlesbaren `MapKeepAnchorFailureKind`; U4-Radarwerte werden nie als
 Tile-Näherung ausgegeben. Der native Nachweis steht in
 `Docs/MAP_KEEP_TILE_ANCHORS.md`.
 
-Alte Tile-IDs wie `1003` und neue IDs wie `3003` werden über
-`LogicalSectionId` zusammengeführt; `SectionId` bewahrt die Original-ID.
+Alte Tile-IDs wie `1003` und neue IDs wie `3003` sowie die Gebäudeobjekt-IDs
+`1013` und `4013` werden über `LogicalSectionId` zusammengeführt; `SectionId`
+bewahrt die Original-ID.
 
 ## Varianten und strikte Validierung
 

@@ -9,6 +9,7 @@ namespace MapParser.Core
         public const int Height = 1005;
         public const int Building = 1012;
         public const int BuildingObjects = 1013;
+        public const int ExtendedBuildingObjects = 4013;
         public const int Entity = 1026;
         public const int Logic2 = 1037;
         public const int WallOwner = 1043;
@@ -23,9 +24,30 @@ namespace MapParser.Core
 
         public static int GetLogicalSectionId(int sectionId)
         {
+            // Current editor maps double the object capacity while preserving the record layout.
+            if (sectionId == ExtendedBuildingObjects)
+                return BuildingObjects;
+
             // SCDE moved the enlarged tile layers from 1xxx to 3xxx.
             int candidate = sectionId - 2000;
             return KnownTileSectionIds.Contains(candidate) ? candidate : sectionId;
+        }
+
+        public static bool TryGetBuildingObjectRecordCount(int sectionId, out int recordCount)
+        {
+            if (sectionId == BuildingObjects)
+            {
+                recordCount = 2000;
+                return true;
+            }
+            if (sectionId == ExtendedBuildingObjects)
+            {
+                recordCount = 4000;
+                return true;
+            }
+
+            recordCount = 0;
+            return false;
         }
 
         public static string GetName(int logicalSectionId)

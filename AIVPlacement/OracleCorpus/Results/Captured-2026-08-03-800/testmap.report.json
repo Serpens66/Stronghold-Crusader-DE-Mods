@@ -1,0 +1,146 @@
+{
+  "CorpusName": "Passive Oracle capture LogOutput.log - testmap.map",
+  "MapName": "testmap.map",
+  "MapSha256": "E9B22012A24007232AF519BAEBB7F4A11D4FBF5E96C205D1E5B3A7F7171A4659",
+  "WorldSize": 800,
+  "StartedAtLocal": "2026-08-03T01:54:41.5431946+02:00",
+  "ElapsedMilliseconds": 126.8289,
+  "ExactMatchCount": 4,
+  "NotEvaluableCount": 0,
+  "MismatchCount": 0,
+  "FailedCaseCount": 0,
+  "Cases": [
+    {
+      "Id": "oracle-001-01-standard-4-r270",
+      "MapSha256": "E9B22012A24007232AF519BAEBB7F4A11D4FBF5E96C205D1E5B3A7F7171A4659",
+      "AivName": "rat4.aivjson",
+      "AivSha256": "88ED1D9ACD7B422E7A2DD488F4D0B7050AEBA9CA43DF1414425B0AD249C2985B",
+      "PlayerId": 2,
+      "MapKeepSlot": 0,
+      "KeepX": 289,
+      "KeepY": 401,
+      "Rotation": 270,
+      "Native": {
+        "PlacementState": 2,
+        "RawFitScore": 999999,
+        "FitPercentage": 100,
+        "EvaluatedCells": 675,
+        "BlockedCells": 0
+      },
+      "Offline": {
+        "Status": "Complete",
+        "SequentialBuildScore": 999999,
+        "FitPercentage": 100,
+        "EvaluatedCells": 675,
+        "BlockedCells": 0,
+        "TotalElements": 253,
+        "BlockedElements": 0,
+        "NotEvaluableElements": 0,
+        "IssueCount": 0
+      },
+      "Classification": "ExactMatch",
+      "FirstDifference": "",
+      "FirstIssue": null,
+      "ElapsedMilliseconds": 27.8992
+    },
+    {
+      "Id": "oracle-002-01-standard-8-r90",
+      "MapSha256": "E9B22012A24007232AF519BAEBB7F4A11D4FBF5E96C205D1E5B3A7F7171A4659",
+      "AivName": "rat8.aivjson",
+      "AivSha256": "15A31C350B198268B23BF3BBCFA3087B20D852F265384471ED65C0A0D13ADCA8",
+      "PlayerId": 2,
+      "MapKeepSlot": 1,
+      "KeepX": 584,
+      "KeepY": 393,
+      "Rotation": 90,
+      "Native": {
+        "PlacementState": 2,
+        "RawFitScore": 999999,
+        "FitPercentage": 100,
+        "EvaluatedCells": 778,
+        "BlockedCells": 0
+      },
+      "Offline": {
+        "Status": "Complete",
+        "SequentialBuildScore": 999999,
+        "FitPercentage": 100,
+        "EvaluatedCells": 778,
+        "BlockedCells": 0,
+        "TotalElements": 371,
+        "BlockedElements": 0,
+        "NotEvaluableElements": 0,
+        "IssueCount": 0
+      },
+      "Classification": "ExactMatch",
+      "FirstDifference": "",
+      "FirstIssue": null,
+      "ElapsedMilliseconds": 1.3244
+    },
+    {
+      "Id": "oracle-003-01-wolf-r90",
+      "MapSha256": "E9B22012A24007232AF519BAEBB7F4A11D4FBF5E96C205D1E5B3A7F7171A4659",
+      "AivName": "wolf\u002B.aivjson",
+      "AivSha256": "6587DD3958A4F213101D64D9871AD4D17BB249FF266F19CB447283F21E889187",
+      "PlayerId": 2,
+      "MapKeepSlot": 1,
+      "KeepX": 584,
+      "KeepY": 393,
+      "Rotation": 90,
+      "Native": {
+        "PlacementState": 2,
+        "RawFitScore": 999999,
+        "FitPercentage": 100,
+        "EvaluatedCells": 5711,
+        "BlockedCells": 0
+      },
+      "Offline": {
+        "Status": "Complete",
+        "SequentialBuildScore": 999999,
+        "FitPercentage": 100,
+        "EvaluatedCells": 5711,
+        "BlockedCells": 0,
+        "TotalElements": 3138,
+        "BlockedElements": 0,
+        "NotEvaluableElements": 0,
+        "IssueCount": 0
+      },
+      "Classification": "ExactMatch",
+      "FirstDifference": "",
+      "FirstIssue": null,
+      "ElapsedMilliseconds": 8.1215
+    },
+    {
+      "Id": "oracle-004-01-wolf-r270",
+      "MapSha256": "E9B22012A24007232AF519BAEBB7F4A11D4FBF5E96C205D1E5B3A7F7171A4659",
+      "AivName": "wolf\u002B.aivjson",
+      "AivSha256": "6587DD3958A4F213101D64D9871AD4D17BB249FF266F19CB447283F21E889187",
+      "PlayerId": 2,
+      "MapKeepSlot": 0,
+      "KeepX": 289,
+      "KeepY": 401,
+      "Rotation": 270,
+      "Native": {
+        "PlacementState": 2,
+        "RawFitScore": 999999,
+        "FitPercentage": 100,
+        "EvaluatedCells": 5711,
+        "BlockedCells": 0
+      },
+      "Offline": {
+        "Status": "Complete",
+        "SequentialBuildScore": 999999,
+        "FitPercentage": 100,
+        "EvaluatedCells": 5711,
+        "BlockedCells": 0,
+        "TotalElements": 3138,
+        "BlockedElements": 0,
+        "NotEvaluableElements": 0,
+        "IssueCount": 0
+      },
+      "Classification": "ExactMatch",
+      "FirstDifference": "",
+      "FirstIssue": null,
+      "ElapsedMilliseconds": 26.2604
+    }
+  ]
+}

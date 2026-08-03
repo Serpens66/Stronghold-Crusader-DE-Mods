@@ -38,23 +38,103 @@
     },
     "additionalBlockedAreas": [
       {
-        "name": "Keep campfire",
+        "name": "Keep native area 5x5",
         "kind": "Campfire",
-        "source": "EditorDerivedKeepCampfire",
+        "source": "DefinitiveEditionNativeTable",
         "size": 5,
         "rawAnchor": {
+          "row": 48,
+          "column": 51
+        },
+        "rotatedAnchor": {
+          "row": 48,
+          "column": 51
+        },
+        "bounds": {
+          "minRow": 44,
+          "minColumn": 51,
+          "maxRow": 48,
+          "maxColumn": 55
+        }
+      },
+      {
+        "name": "Keep native area 7x7",
+        "kind": "PlacementReserve",
+        "source": "DefinitiveEditionNativeTable",
+        "size": 7,
+        "rawAnchor": {
+          "row": 42,
+          "column": 44
+        },
+        "rotatedAnchor": {
+          "row": 42,
+          "column": 44
+        },
+        "bounds": {
+          "minRow": 36,
+          "minColumn": 44,
+          "maxRow": 42,
+          "maxColumn": 50
+        }
+      },
+      {
+        "name": "Keep native connector 1",
+        "kind": "PlacementReserve",
+        "source": "DefinitiveEditionNativeTable",
+        "size": 1,
+        "rawAnchor": {
           "row": 43,
-          "column": 45
+          "column": 46
         },
         "rotatedAnchor": {
           "row": 43,
-          "column": 45
+          "column": 46
         },
         "bounds": {
-          "minRow": 39,
-          "minColumn": 45,
+          "minRow": 43,
+          "minColumn": 46,
           "maxRow": 43,
-          "maxColumn": 49
+          "maxColumn": 46
+        }
+      },
+      {
+        "name": "Keep native connector 2",
+        "kind": "PlacementReserve",
+        "source": "DefinitiveEditionNativeTable",
+        "size": 1,
+        "rawAnchor": {
+          "row": 43,
+          "column": 47
+        },
+        "rotatedAnchor": {
+          "row": 43,
+          "column": 47
+        },
+        "bounds": {
+          "minRow": 43,
+          "minColumn": 47,
+          "maxRow": 43,
+          "maxColumn": 47
+        }
+      },
+      {
+        "name": "Keep native connector 3",
+        "kind": "PlacementReserve",
+        "source": "DefinitiveEditionNativeTable",
+        "size": 1,
+        "rawAnchor": {
+          "row": 43,
+          "column": 48
+        },
+        "rotatedAnchor": {
+          "row": 43,
+          "column": 48
+        },
+        "bounds": {
+          "minRow": 43,
+          "minColumn": 48,
+          "maxRow": 43,
+          "maxColumn": 48
         }
       }
     ]
@@ -100,23 +180,103 @@
           },
           "additionalBlockedAreas": [
             {
-              "name": "Keep campfire",
+              "name": "Keep native area 5x5",
               "kind": "Campfire",
-              "source": "EditorDerivedKeepCampfire",
+              "source": "DefinitiveEditionNativeTable",
               "size": 5,
               "rawAnchor": {
+                "row": 48,
+                "column": 51
+              },
+              "rotatedAnchor": {
+                "row": 48,
+                "column": 51
+              },
+              "bounds": {
+                "minRow": 44,
+                "minColumn": 51,
+                "maxRow": 48,
+                "maxColumn": 55
+              }
+            },
+            {
+              "name": "Keep native area 7x7",
+              "kind": "PlacementReserve",
+              "source": "DefinitiveEditionNativeTable",
+              "size": 7,
+              "rawAnchor": {
+                "row": 42,
+                "column": 44
+              },
+              "rotatedAnchor": {
+                "row": 42,
+                "column": 44
+              },
+              "bounds": {
+                "minRow": 36,
+                "minColumn": 44,
+                "maxRow": 42,
+                "maxColumn": 50
+              }
+            },
+            {
+              "name": "Keep native connector 1",
+              "kind": "PlacementReserve",
+              "source": "DefinitiveEditionNativeTable",
+              "size": 1,
+              "rawAnchor": {
                 "row": 43,
-                "column": 45
+                "column": 46
               },
               "rotatedAnchor": {
                 "row": 43,
-                "column": 45
+                "column": 46
               },
               "bounds": {
-                "minRow": 39,
-                "minColumn": 45,
+                "minRow": 43,
+                "minColumn": 46,
                 "maxRow": 43,
-                "maxColumn": 49
+                "maxColumn": 46
+              }
+            },
+            {
+              "name": "Keep native connector 2",
+              "kind": "PlacementReserve",
+              "source": "DefinitiveEditionNativeTable",
+              "size": 1,
+              "rawAnchor": {
+                "row": 43,
+                "column": 47
+              },
+              "rotatedAnchor": {
+                "row": 43,
+                "column": 47
+              },
+              "bounds": {
+                "minRow": 43,
+                "minColumn": 47,
+                "maxRow": 43,
+                "maxColumn": 47
+              }
+            },
+            {
+              "name": "Keep native connector 3",
+              "kind": "PlacementReserve",
+              "source": "DefinitiveEditionNativeTable",
+              "size": 1,
+              "rawAnchor": {
+                "row": 43,
+                "column": 48
+              },
+              "rotatedAnchor": {
+                "row": 43,
+                "column": 48
+              },
+              "bounds": {
+                "minRow": 43,
+                "minColumn": 48,
+                "maxRow": 43,
+                "maxColumn": 48
               }
             }
           ]

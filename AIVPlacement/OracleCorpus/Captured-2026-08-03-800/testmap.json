@@ -1,0 +1,78 @@
+{
+  "Name": "Passive Oracle capture LogOutput.log - testmap.map",
+  "SourceLogSha256": "7E83B9625C944426C9ABC61212F748CE2E02A5EB14FD97187D38CCE875F8C984",
+  "Map": {
+    "Path": "C:\\Users\\Serpens66\\AppData\\LocalLow\\Firefly Studios\\Stronghold Crusader Definitive Edition\\Maps\\testmap.map",
+    "Sha256": "E9B22012A24007232AF519BAEBB7F4A11D4FBF5E96C205D1E5B3A7F7171A4659"
+  },
+  "Cases": [
+    {
+      "Id": "oracle-001-01-standard-4-r270",
+      "AivPath": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\ActiveAIVDetector_Serp\\VanillaAIV\\rat4.aivjson",
+      "AivSha256": "88ED1D9ACD7B422E7A2DD488F4D0B7050AEBA9CA43DF1414425B0AD249C2985B",
+      "PlayerId": 2,
+      "MapKeepSlot": null,
+      "KeepX": 289,
+      "KeepY": 401,
+      "Rotation": 270,
+      "Native": {
+        "PlacementState": 2,
+        "RawFitScore": 999999,
+        "FitPercentage": 100,
+        "EvaluatedCells": 675,
+        "BlockedCells": 0
+      }
+    },
+    {
+      "Id": "oracle-002-01-standard-8-r90",
+      "AivPath": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\ActiveAIVDetector_Serp\\VanillaAIV\\rat8.aivjson",
+      "AivSha256": "15A31C350B198268B23BF3BBCFA3087B20D852F265384471ED65C0A0D13ADCA8",
+      "PlayerId": 2,
+      "MapKeepSlot": null,
+      "KeepX": 584,
+      "KeepY": 393,
+      "Rotation": 90,
+      "Native": {
+        "PlacementState": 2,
+        "RawFitScore": 999999,
+        "FitPercentage": 100,
+        "EvaluatedCells": 778,
+        "BlockedCells": 0
+      }
+    },
+    {
+      "Id": "oracle-003-01-wolf-r90",
+      "AivPath": "c:\\users\\serpens66\\appdata\\locallow\\firefly studios\\stronghold crusader definitive edition\\extendedlords\\wolf\\wolf\u002B.aivjson",
+      "AivSha256": "6587DD3958A4F213101D64D9871AD4D17BB249FF266F19CB447283F21E889187",
+      "PlayerId": 2,
+      "MapKeepSlot": null,
+      "KeepX": 584,
+      "KeepY": 393,
+      "Rotation": 90,
+      "Native": {
+        "PlacementState": 2,
+        "RawFitScore": 999999,
+        "FitPercentage": 100,
+        "EvaluatedCells": 5711,
+        "BlockedCells": 0
+      }
+    },
+    {
+      "Id": "oracle-004-01-wolf-r270",
+      "AivPath": "c:\\users\\serpens66\\appdata\\locallow\\firefly studios\\stronghold crusader definitive edition\\extendedlords\\wolf\\wolf\u002B.aivjson",
+      "AivSha256": "6587DD3958A4F213101D64D9871AD4D17BB249FF266F19CB447283F21E889187",
+      "PlayerId": 2,
+      "MapKeepSlot": null,
+      "KeepX": 289,
+      "KeepY": 401,
+      "Rotation": 270,
+      "Native": {
+        "PlacementState": 2,
+        "RawFitScore": 999999,
+        "FitPercentage": 100,
+        "EvaluatedCells": 5711,
+        "BlockedCells": 0
+      }
+    }
+  ]
+}

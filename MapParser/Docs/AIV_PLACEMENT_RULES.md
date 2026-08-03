@@ -170,3 +170,26 @@ ID `0`, and the third record loop is bypassed for that player ID. The only
 deferred decision is a tree-flagged `OrganismId` in `1..3999`, because its live
 record class is not serialized in the map snapshot. A later record source may
 resolve that branch without changing the current deterministic rules.
+
+## Pre-placement map state used by the Oracle comparison
+
+The serialized `.map` already contains the player start buildings in Section
+1013 and their occupancy effects in the placement layers. The passive native
+Oracle runs before those start buildings affect its candidate test. Evaluating
+the unmodified snapshot therefore double-counts Keeps and nearby wall state.
+
+`AivPreplacementMapState` wraps an immutable `MapPlacementSnapshot` and clears
+only state attributable to living Section-1013 or Section-4013 start buildings
+owned by players `1..8`:
+
+- a nonzero Section-1012 value is the building-object record index itself;
+- tiles referencing those records clear `IsBuilding`, `IsElevated`, `IsWall`,
+  `BuildingId`, and `OwnerId`;
+- an owner-marked wall tile with no building ID is normalized only when one of
+  its eight neighbors references such a start-building record.
+
+The narrow adjacency rule is intentional: it removes the three observed Keep
+edge cells without erasing unrelated serialized walls. Synthetic tests cover
+direct occupancy, adjacent edge cells, isolated walls, dead/non-player records,
+and preservation of all unrelated layer values. The original snapshot remains
+available unchanged for diagnostics.

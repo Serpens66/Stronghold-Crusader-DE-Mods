@@ -1,0 +1,47 @@
+{
+  "CorpusName": "Marshy Mayhem passive Oracle sample 2026-08-02",
+  "MapName": "Marshy Mayhem.map",
+  "MapSha256": "73B708819229C7FA2D03B7927A55DD1285435E6209CC02391DC7637C95E23FC3",
+  "WorldSize": 400,
+  "StartedAtLocal": "2026-08-03T00:45:30.8843424+02:00",
+  "ElapsedMilliseconds": 150.07,
+  "ExactMatchCount": 1,
+  "NotEvaluableCount": 0,
+  "MismatchCount": 0,
+  "FailedCaseCount": 0,
+  "Cases": [
+    {
+      "Id": "rat2-player8-rotation90",
+      "MapSha256": "73B708819229C7FA2D03B7927A55DD1285435E6209CC02391DC7637C95E23FC3",
+      "AivName": "rat2.aivjson",
+      "AivSha256": "AE421D2DA8AF9E50FA5B2FEFEB3BFBF6F6FB0E7E6F95E5A3E8C49204C42E427A",
+      "PlayerId": 8,
+      "MapKeepSlot": 5,
+      "KeepX": 427,
+      "KeepY": 521,
+      "Rotation": 90,
+      "Native": {
+        "PlacementState": 2,
+        "RawFitScore": 999999,
+        "FitPercentage": 100,
+        "EvaluatedCells": 612,
+        "BlockedCells": 0
+      },
+      "Offline": {
+        "Status": "Complete",
+        "SequentialBuildScore": 999999,
+        "FitPercentage": 100,
+        "EvaluatedCells": 612,
+        "BlockedCells": 0,
+        "TotalElements": 220,
+        "BlockedElements": 0,
+        "NotEvaluableElements": 0,
+        "IssueCount": 0
+      },
+      "Classification": "ExactMatch",
+      "FirstDifference": "",
+      "FirstIssue": null,
+      "ElapsedMilliseconds": 97.267
+    }
+  ]
+}

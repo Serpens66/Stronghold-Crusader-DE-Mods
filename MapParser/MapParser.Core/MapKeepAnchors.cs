@@ -63,7 +63,6 @@ namespace MapParser.Core
         public const int SlotCount = 8;
 
         private const int BuildingRecordSize = 0x32C;
-        private const int BuildingRecordCount = 2000;
         private const int AliveStateOffset = 0xD0;
         private const int BuildingTypeOffset = 0xD2;
         private const int OwnerOffset = 0xD6;
@@ -140,7 +139,10 @@ namespace MapParser.Core
                 SetFailure(results, evaluableSlots, document, MapKeepAnchorFailureKind.BuildingSectionUnavailable);
                 return new MapKeepAnchors(results);
             }
-            if (section.UncompressedSize != BuildingRecordSize * BuildingRecordCount)
+            if (!MapSectionCatalog.TryGetBuildingObjectRecordCount(
+                    section.SectionId,
+                    out int buildingRecordCount) ||
+                section.UncompressedSize != BuildingRecordSize * buildingRecordCount)
             {
                 SetFailure(results, evaluableSlots, document, MapKeepAnchorFailureKind.InvalidBuildingSectionLength);
                 return new MapKeepAnchors(results);
@@ -159,7 +161,7 @@ namespace MapParser.Core
 
             byte[] records = section.GetOrReadContent();
             var recordsBySlot = new List<KeepRecord>[SlotCount];
-            for (int index = 0; index < BuildingRecordCount; index++)
+            for (int index = 0; index < buildingRecordCount; index++)
             {
                 int offset = index * BuildingRecordSize;
                 short aliveState = LittleEndian.ReadInt16(records, offset + AliveStateOffset);

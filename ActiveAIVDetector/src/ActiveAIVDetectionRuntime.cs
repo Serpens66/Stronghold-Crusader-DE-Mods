@@ -67,6 +67,7 @@ namespace ActiveAIVDetector
         private bool lobbySnapshotAppliesToCurrentMap;
         private string currentMapFileName = "<unknown>";
         private string currentMapName = "<unknown>";
+        private string currentMapFileSha256 = "<not-available>";
 
         public ActiveAIVDetectionRuntime(ManualLogSource log)
         {
@@ -313,6 +314,8 @@ namespace ActiveAIVDetector
             currentMapName = string.IsNullOrEmpty(args.MapName)
                 ? "<unknown>"
                 : args.MapName;
+            // Hash once per load so every Oracle row identifies the exact same map bytes.
+            currentMapFileSha256 = ComputeFileSha256(currentMapFileName);
         }
 
         private void OnOracleSelectionCompleted(OracleSelectionSnapshot snapshot)
@@ -392,6 +395,7 @@ namespace ActiveAIVDetector
                 log,
                 $"AIV placement oracle selection #{snapshot.Sequence}: " +
                 $"mapName={currentMapName}, mapFile={currentMapFileName}, " +
+                $"mapFileSha256={currentMapFileSha256}, " +
                 $"playerId={snapshot.PlayerId}, method={snapshot.Method}, " +
                 $"tryOtherRotations={snapshot.TryOtherRotations}, " +
                 $"aivSpecIndex={snapshot.AivSpecIndex}, attempts={snapshot.Attempts.Count}, " +
@@ -414,6 +418,7 @@ namespace ActiveAIVDetector
                     log,
                     $"AIV placement oracle attempt #{snapshot.Sequence}.{attempt.AttemptNumber}: " +
                     $"mapName={currentMapName}, mapFile={currentMapFileName}, " +
+                    $"mapFileSha256={currentMapFileSha256}, " +
                     $"playerId={snapshot.PlayerId}, method={snapshot.Method}, " +
                     $"candidateId={attempt.CandidateId}, aivName={source.Name}, " +
                     $"aivJson={source.JsonPath}, " +
