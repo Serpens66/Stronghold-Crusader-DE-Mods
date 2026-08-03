@@ -24,6 +24,7 @@ internal static class Program
             ("Require an exact AIV keep anchor", TestMissingKeep),
             ("Retain placement issue evidence", TestPlacementIssueEvidence),
             ("Normalize serialized player start occupancy", TestPreplacementMapState),
+            ("Rotate rebuilt player start occupancy", TestRebuiltStartRotations),
             ("Reconstruct native rock footprints", TestRockFootprintReconstruction),
             ("Propagate only placed prior AIV elements", TestPriorCastleMapState),
             ("Reject reasonless placement issues", TestReasonlessPlacementIssue),
@@ -728,6 +729,41 @@ internal static class Program
             "The per-cell diagnostic lost the blocking reason.");
         Assert(!cell.WasPreplacementNormalized,
             "An unchanged synthetic cell was reported as normalized.");
+    }
+
+    private static void TestRebuiltStartRotations()
+    {
+        var keep = new MapCoordinate(400, 400);
+        var source = new MapCoordinate(402, 414);
+
+        AssertCoordinate(
+            AivPreplacementMapState.TransformRebuiltStartCoordinate(
+                source,
+                keep,
+                AivRotation.Degrees0),
+            403,
+            415);
+        AssertCoordinate(
+            AivPreplacementMapState.TransformRebuiltStartCoordinate(
+                source,
+                keep,
+                AivRotation.Degrees90),
+            415,
+            410);
+        AssertCoordinate(
+            AivPreplacementMapState.TransformRebuiltStartCoordinate(
+                source,
+                keep,
+                AivRotation.Degrees180),
+            410,
+            398);
+        AssertCoordinate(
+            AivPreplacementMapState.TransformRebuiltStartCoordinate(
+                source,
+                keep,
+                AivRotation.Degrees270),
+            398,
+            403);
     }
 
     private static void TestCandidateStatuses()

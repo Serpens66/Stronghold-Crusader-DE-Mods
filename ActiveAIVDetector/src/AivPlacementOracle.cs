@@ -333,8 +333,12 @@ namespace ActiveAIVDetector
             int nativeEntityId = 0;
             int nativeOwnerId = 0;
             int nativeGameMode = 0;
-            if (trace != null)
+            if (trace != null && placementStateAddress != 0)
             {
+                // The validator owns the TileManager-style placement-state pointer. Keep
+                // that address separate from the unrelated AIV state used by the fit grids.
+                trace.ObservePlacementStateAddress(placementStateAddress);
+
                 // Read the exact live validator inputs before Vanilla evaluates the tile.
                 byte* placementState = (byte*)placementStateAddress;
                 nativeTerrainFlags = *(int*)(placementState + TerrainFlagsOffset + tileId * 4);
@@ -456,11 +460,14 @@ namespace ActiveAIVDetector
 
             IReadOnlyList<OracleLiveBuildingTileEntry> liveBuildingTiles =
                 Array.Empty<OracleLiveBuildingTileEntry>();
-            if (!liveBuildingGridCaptured)
+            if (!liveBuildingGridCaptured &&
+                validatorTrace != null &&
+                validatorTrace.TryGetPlacementStateAddress(out ulong placementStateAddress))
             {
                 // One full snapshot avoids inferring rotated start footprints from the
-                // small subset of cells touched by a particular AIV candidate.
-                byte* placementState = (byte*)session.AivStateAddress;
+                // small subset of cells touched by a particular AIV candidate. Its base
+                // must be the pointer observed at the shared placement validator.
+                byte* placementState = (byte*)placementStateAddress;
                 var occupied = new List<OracleLiveBuildingTileEntry>();
                 for (int tileId = 0; tileId < FixedMapTileCount; tileId++)
                 {
@@ -477,6 +484,13 @@ namespace ActiveAIVDetector
                 }
                 liveBuildingTiles = occupied.AsReadOnly();
                 liveBuildingGridCaptured = true;
+            }
+            else if (!liveBuildingGridCaptured)
+            {
+                Shared.DebugLogHelper.LogWarning(
+                    log,
+                    "Skipped the live building-grid snapshot because the filtered validator " +
+                    "did not expose one consistent placement-state pointer.");
             }
 
             cellTraceCaptureCount++;
@@ -663,12 +677,33 @@ namespace ActiveAIVDetector
 
         private sealed class ValidatorTraceContext
         {
+            private ulong placementStateAddress;
+            private bool placementStateAddressMismatch;
+
             public ValidatorTraceContext()
             {
                 Calls = new List<OracleValidatorCallEntry>();
             }
 
             public List<OracleValidatorCallEntry> Calls { get; }
+
+            public void ObservePlacementStateAddress(ulong address)
+            {
+                if (placementStateAddress == 0)
+                {
+                    placementStateAddress = address;
+                    return;
+                }
+
+                if (placementStateAddress != address)
+                    placementStateAddressMismatch = true;
+            }
+
+            public bool TryGetPlacementStateAddress(out ulong address)
+            {
+                address = placementStateAddress;
+                return address != 0 && !placementStateAddressMismatch;
+            }
         }
     }
 

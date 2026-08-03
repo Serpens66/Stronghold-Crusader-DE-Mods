@@ -654,26 +654,25 @@ partielle Kandidaten vergleicht.
 
 ## Chat 10: Offline-Ergebnis systematisch gegen den nativen Oracle vergleichen
 
-**Status:** Nächster Schritt. Die hashgebundene Matrix umfasst 144 Fälle auf
-World Sizes 160/200/300/400/800, Vanilla-Kopien und zwei mit dem aktuellen
-Editor erzeugte Custom-Maps, mehrere Keeps, kleine bis große AIVs, alle
-Rotationen und native Zustände 0/1/2. Die Organismusprüfung ist vollständig
-aufgelöst und erzeugt kein `NotEvaluable`. Die native
-Last-Writer-Wins-Flattening-Regel ist jetzt berücksichtigt: 136 Fälle stimmen
-exakt, acht Testlord-Fälle bleiben echte Mismatches und müssen vor Chat 11 nach
-AIV-/Mapper- und Regelursache klassifiziert werden. Es gibt 0 Fehler. Section 4013, World
-Size 800 und der feste native Rotationsursprung sind durch die Läufe abgedeckt.
-Ergebnisse und Quote stehen in `Docs/AIV_PLACEMENT_ORACLE_COMPARISON.md`.
-Die genaue, für einen neuen Chat ausführbare Arbeitsreihenfolge einschließlich
-der beiden minimalen Reproduktionsfälle, Diagnoseanforderungen, Befehle und
-Abnahmekriterien steht in `Docs/CHAT10_ORACLE_MISMATCH_HANDOFF.md`.
+**Status:** In Arbeit. Die alten 144 Fälle wurden vollständig entfernt, weil
+ihre Logs weder verlässliche Kartenstart-IDs noch den jeweiligen Wert von
+`advopt_pre_build` enthielten. Die neue kanonische Thasos-Sitzung ohne
+Sofortspawn umfasst 24 hashgebundene Fälle und ist nach Rekonstruktion der
+rotierten Startkomplexe einschließlich gekoppelter Wall-Flags mit 24/24 exakt.
+Ein frisch aus einem expliziten Moduspaar importierter 48-Fall-Korpus bestätigt
+ebenfalls 24/24 ohne Sofortspawn; mit Sofortspawn sind 6/24 exakt und 18/24
+Mismatches. Es gibt 0 Fehler und 0 `NotEvaluable`. Für die verbleibende
+PreBuild-Ursache wird als nächstes in genau einem Lauf der reale Tile- und
+Gebäudezustand vor den Spielern 2 bis 7 erfasst. Ergebnisse, Hashes und
+Arbeitsreihenfolge stehen in `Docs/AIV_PLACEMENT_ORACLE_COMPARISON.md` und
+`Docs/CHAT10_ORACLE_MISMATCH_HANDOFF.md`.
 
-**Nachtrag:** Ein Read-only-Scan aller 238 installierten offiziellen Karten
+**Geometrienachtrag:** Ein Read-only-Scan aller 238 installierten offiziellen Karten
 belegt zusätzlich die World Sizes 500, 600 und 700. Die Offline-Geometrie und
 ihre Grenztests unterstützen damit alle acht offiziellen Größen 160, 200, 300,
-400, 500, 600, 700 und 800. Die Chat-10-Laufzeitmatrix selbst bleibt auf die
-oben genannten fünf Größen begrenzt; nicht belegte Sondergrößen werden bewusst
-abgelehnt.
+400, 500, 600, 700 und 800. Die gelöschte historische Laufzeitmatrix ist dafür
+kein Abnahmebeleg mehr; nicht unterstützte Sondergrößen werden weiterhin
+bewusst abgelehnt.
 
 **Sofortspawn-/Sitzungsnachtrag:** Neue Oracle-Importe erhalten pro tatsächlichem
 Kartenstart eine explizite `SessionId` und den vor Spielstart gelesenen Wert
@@ -737,20 +736,18 @@ erst gestartet, wenn die geschätzte Laufzeit zumutbar ist.
 ### Startprompt
 
 > Setze Chat 10 aus `MapParser/AIV_PLACEMENT_ROADMAP.md` fort. Lies zuerst
-> `MapParser/Docs/CHAT10_ORACLE_MISMATCH_HANDOFF.md` vollständig und halte dich
-> an die dortige Reihenfolge. Reproduziere zunächst
-> `oracle-014-03-testlord-serpcastle1-r0` auf Thasos und danach unabhängig
-> `testlord-player7-rotation270` auf Marshy Mayhem. Ergänze zuerst
-> gezielte Diagnoseevidenz, ändere keine Regeln auf Verdacht und starte Chat 11
-> erst, wenn der vollständige 144-Fälle-Lauf keine ungeklärten Mismatches oder
-> Fehler mehr enthält.
+> `MapParser/Docs/CHAT10_ORACLE_MISMATCH_HANDOFF.md` vollständig. Werte den dort
+> vorbereiteten Thasos-Sofortspawn-Trace für Spieler 2 bis 7 aus, ersetze die
+> Planprojektion nur mit Laufzeitevidenz und starte Chat 11 erst, wenn der neue
+> sitzungs- und modusgebundene Corpus keine ungeklärten Mismatches oder Fehler
+> mehr enthält.
 
 ---
 
 ## Chat 11: Lobby-Datenfluss ohne UI anbinden
 
-**Status:** Ausstehend. Chat 10 bleibt wegen acht reproduzierbarer
-Testlord-Mismatches geöffnet.
+**Status:** Ausstehend. Chat 10 bleibt wegen 18 reproduzierbarer
+Sofortspawn-Mismatches geöffnet.
 
 ### Ziel
 

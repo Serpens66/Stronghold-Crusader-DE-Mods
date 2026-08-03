@@ -132,6 +132,7 @@ internal static class Program
                     : Array.Empty<int>();
                 var priorPrebuiltPlacements = new List<AivProjectedPrebuildPlacement>();
                 var priorStartSlots = new HashSet<int>(humanStartSlots);
+                var rebuiltStartRotationsBySlot = new Dictionary<int, AivRotation>();
                 foreach (OracleSelectionGroup group in orderedGroups)
                 {
                     IAivPlacementTileSource? sequentialMap = null;
@@ -139,7 +140,8 @@ internal static class Program
                     {
                         sequentialMap = AivPreplacementMapState.Create(
                             document,
-                            priorStartSlots);
+                            priorStartSlots,
+                            rebuiltStartRotationsBySlot);
                         if (preBuildSetting.Value == 1 && priorPrebuiltPlacements.Count != 0)
                         {
                             sequentialMap = new AivProjectedPrebuildMapState(
@@ -167,6 +169,10 @@ internal static class Program
                             selectedPlacement));
                     }
 
+                    AddSelectedStartRotation(
+                        anchors,
+                        selected,
+                        rebuiltStartRotationsBySlot);
                     AddResolvedStartSlot(anchors, group, priorStartSlots);
                 }
             }
@@ -496,6 +502,29 @@ internal static class Program
                 out _))
         {
             retainedStartSlots.Add(anchor!.SlotIndex);
+        }
+    }
+
+    private static void AddSelectedStartRotation(
+        MapKeepAnchors anchors,
+        OracleCase? selected,
+        IDictionary<int, AivRotation> rebuiltStartRotationsBySlot)
+    {
+        if (selected == null)
+            return;
+
+        var keep = new MapCoordinate(selected.KeepX, selected.KeepY);
+        if (TryResolveKeepAnchor(
+                anchors,
+                selected,
+                keep,
+                out MapKeepAnchorResult? anchor,
+                out _))
+        {
+            // Vanilla rebuilds an accepted AI start with the selected castle rotation.
+            rebuiltStartRotationsBySlot.Add(
+                anchor!.SlotIndex,
+                ParseRotation(selected.Rotation));
         }
     }
 

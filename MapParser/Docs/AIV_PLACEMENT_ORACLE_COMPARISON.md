@@ -1,190 +1,118 @@
 # Chat 10: Offline-/Oracle-Vergleich
 
-Die konkrete Übergabe für die Fortsetzung in einem neuen Chat steht in
-`CHAT10_ORACLE_MISMATCH_HANDOFF.md`. Sie enthält die beiden priorisierten
-Einzelfälle, direkt ausführbare Befehle, die Diagnose- und Evidenzanforderungen,
-die Regressionsreihenfolge und die Stopplinie vor Chat 11.
+## Aktueller Abnahmestand
 
-## Ergebnis
+Die frühere 144-Fall-Matrix wurde am 2026-08-03 vollständig entfernt. Ihre
+Logs enthielten weder verlässliche Kartenstart-IDs noch einen pro Sitzung
+erfassten Wert von `advopt_pre_build`; sie ist deshalb keine Regression mehr.
 
-> Hinweis zur Vergleichsbasis: Die unten stehende 144-Fall-Matrix entstand,
-> bevor `advopt_pre_build` und eine Map-Load-Sitzung in jeder Oracle-Zeile
-> erfasst wurden. Sie bleibt als historische Zell-Regression erhalten, darf
-> aber nicht als Beleg für eine spielerübergreifende Sofortspawn-Simulation
-> verwendet werden. Neue Sitzungs-Corpora werden ohne eindeutigen Wert `0` oder
-> `1` bewusst als `NotEvaluable` behandelt.
+Kanonisch sind nur neu importierte Fälle mit
 
-Chat 10 ist nach der Organismusprüfung wieder geöffnet. Die hashgebundene Matrix enthält 144 native
-Einzelversuche auf World Sizes 160, 200, 300, 400 und 800. Sie umfasst
-Vanilla-Karten, für den Editor angelegte Vanilla-Kopien und zwei mit der
-aktuellen DE-Version erzeugte Custom-Maps.
+- nichtleerer `SessionId`,
+- eindeutigem `PreBuildSetting` `0` oder `1`,
+- unverändertem Map- und AIV-Hash und
+- einem unveränderten nativen Sollwert.
 
-- 136 `ExactMatch`;
-- 0 `NotEvaluable`;
-- 8 Mismatches;
-- 0 Fehler.
+Der aktuelle Stand auf `v_Thasos.map` ist:
 
-Die frühere Annahme eines fehlenden Organismusdatensatzes war zu konservativ.
-Die native Skirmish-Initialisierung setzt den relevanten Modus auf `1` oder
-`99`; zusammen mit dem festen AIV-Spielerwert `0` akzeptiert der Validator alle
-Organismusklassen. Dadurch verschwanden sämtliche 77 `NotEvaluable`-Fälle.
-Die anschließend nativ belegte Last-Writer-Wins-Flattening-Regel des
-100×100-Kandidatenrasters erhöhte die Gesamtquote von 97 auf 136 exakte Fälle.
-Die verbleibenden acht Abweichungen betreffen ausschließlich
-`testlord_serpcastle1`; Chat 11 darf erst beginnen, wenn sie klassifiziert und
-behoben oder eng begründet sind.
+| Corpus | Modus | Fälle | Exakt | Mismatch | `NotEvaluable` | Fehler |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `Captured-2026-08-03-SessionAware` | `0` | 24 | 24 | 0 | 0 | 0 |
+| `Captured-2026-08-03-SessionAware-Paired` | `0` | 24 | 24 | 0 | 0 | 0 |
+| `Captured-2026-08-03-SessionAware-Paired` | `1` | 24 | 6 | 18 | 0 | 0 |
+
+Chat 10 bleibt wegen der 18 Sofortspawn-Mismatches geöffnet. Chat 11 darf noch
+nicht beginnen.
 
 ## Reproduzierbarkeit
-
-Binärbindung:
 
 - `CrusaderDE.dll`: SHA-256
   `17F8DD4A92FF6125BD6A3A70ABC80C727682E489696C218D146A7EA6D2F88BF4`
 - bevorzugte Image Base: `0x180000000`
+- `v_Thasos.map`: SHA-256
+  `84DCF2A480A4334DFC0C4BAE54DA49BACFE1D7B31F1D9AD2E171CF1F3B60275C`
+- gültiger ActiveAIVDetector-0.9.1-No-PreBuild-Log: SHA-256
+  `E67137A68765E4F1A573108CCCE2FF7E592E67BB8E2281B571648C257E037540`
+- gepaarter Log mit explizitem `advopt_pre_build=1` und `0`: SHA-256
+  `713F781F4D806CB07C5F4515ABD25903D6D9FB3B57CF743CFC3BD370D4E928DD`
 
-Die Sechser-Matrix vom 2026-08-03 ist an den Quelllog-Hash
-`779E0C83F5C5FBF82DAB0CEBE524E308CB0CE54581ED6FCB9D726F9FC816DE48`
-gebunden. Der zusätzliche 800er-Lauf ist an
-`7E83B9625C944426C9ABC61212F748CE2E02A5EB14FD97187D38CCE875F8C984`
-gebunden; `testmap.map` besitzt den SHA-256
-`E9B22012A24007232AF519BAEBB7F4A11D4FBF5E96C205D1E5B3A7F7171A4659`.
+Die Manifeste und Berichte liegen ausschließlich unter:
 
-`AIVPlacement.OracleComparison` prüft Map- und AIV-Hashes vor jeder
-Auswertung. Es ordnet den Keep über die exakte Gebäudeobjekt-Koordinate zu und
-nimmt ausdrücklich nicht `playerId - 1` als Map-Slot an. Corpusläufe melden
-Fallzahl, Fortschritt, verstrichene Zeit und ETA mit Millisekunden-Zeitstempel.
-Ein Mismatch oder Fehler führt zu einem Exitcode ungleich null.
+- `AIVPlacement/OracleCorpus/Captured-2026-08-03-SessionAware/`;
+- `AIVPlacement/OracleCorpus/Captured-2026-08-03-SessionAware-Paired/`;
+- den gleichnamigen Unterordnern von
+  `AIVPlacement/OracleCorpus/Results/`.
 
-## Durch den Vergleich gefundene Korrekturen
+Die 0.9.1-Laufzeitevidenz liegt unter
+`.native-analysis/chat10-next/thasos-player7-no-prebuild-fixed-grid/`. Der
+gepaarte 0.9.0-Log bleibt unter
+`.native-analysis/chat10-next/thasos-player7-prebuild-capture/`, weil seine
+Oracle-Aggregate und Optionswerte gültig sind. Sein Live-Grid ist ausdrücklich
+ungültig: Version 0.9.0 las dafür `session.AivStateAddress` statt des vom
+Validator verwendeten Placement-State-Zeigers.
 
-Der Oracle-Vergleich deckte vier systematische Modelllücken auf:
+## Bestätigte Korrekturen
 
-1. `LoadCandidate` an RVA `0x54590` erzeugt für Keep-Mapper `60..64` eine
-   5×5-, eine 7×7- und drei einzelne Verbindungsflächen. Die vorherige einzelne
-   5×5-Editorfläche war unvollständig.
-2. Derselbe Loader erzeugt zusätzliche Yard-Flächen für Mapper `79`, `86`,
-   `87`, `88` und `89`.
-3. Aktuelle Karten speichern Gebäudeobjekte in Section `4013` als 4000
-   Datensätze zu `0x32C` Byte. Das Feldlayout ist identisch zu den 2000
-   Datensätzen der älteren Section `1013`. Dadurch sind unter anderem
-   `unittest`, `testmap` und alle sieben Thasos-Slots exakt auflösbar.
-4. `ApplyRotation` an RVA `0x558E0` rotiert die beiden temporären 100×100-Grids,
-   lässt den für Orientierung 0 gesetzten Weltursprung aber unverändert. Der
-   Fit rotiert daher nicht um den AIV-Keep-Marker. Diese Korrektur machte auf
-   der randnahen `unittest`-Karte alle 58 Fälle über sämtliche Rotationen exakt.
+ActiveAIVDetector 0.9.1 erfasst den Placement-State-Zeiger direkt aus den
+Validator-Aufrufen, prüft seine Konsistenz und erzeugt daraus das vollständige
+Live-Building-Grid. Der installierte Lauf bestätigte
+`advopt_pre_build=0`, Spieler 7, Keep `(433,373)`, Rotation 0 sowie 1817
+ausgewertete und 105 blockierte Zellen. Offline und nativ stimmen für alle
+1817 Zellen dieses Falls überein.
 
-Die serialisierte Map enthält außerdem bereits die Spieler-Startgebäude und
-ihre Occupancy-Wirkung. `AivPreplacementMapState` blendet deshalb ausschließlich
-lebende Spieler-Startgebäude aus Section 1013 oder 4013 und die eindeutig
-angrenzenden Wall-Owner-Randzellen aus. Der ursprüngliche Snapshot bleibt für
-Diagnosen unverändert.
+Der native Kartenstart baut einen akzeptierten KI-Startkomplex nach der
+Rotationsauswahl neu auf. Er behält nicht den serialisierten Footprint an der
+ursprünglichen Lage. `AivPreplacementMapState` rekonstruiert deshalb für jeden
+bereits verarbeiteten KI-Slot
 
-## Offizielle Reihenfolge und Sitzungsmodell
+- alle Gebäudezellen des Startkomplexes,
+- die gewählte Rotation `0`, `90`, `180` oder `270` und
+- die eindeutig gekoppelten Wall-Flags der Nachbarzellen.
 
-Der native Map-Start verarbeitet die Spieler-IDs `1` bis `8` vollständig
-nacheinander. Für einen KI-Spieler werden Kandidaten und Rotationen geprüft,
-die endgültige Burg vorbereitet, der eigene Startkomplex erzeugt und bei
-`advopt_pre_build == 1` die Burg bis 100 Prozent ausgeführt. Erst danach wird
-die Spieler-ID erhöht. Die 100-Prozent-Ausführung läuft ihrerseits in
-aufsteigender AIV-Frame-Reihenfolge; Positionen eines Frames werden in ihrer
-Quellreihenfolge abgearbeitet.
+Ein abgelehnter KI-Start bleibt dagegen unverändert serialisiert. Die
+Transformationen sind durch den nativen Startloop bei RVA `0x935A0`, den
+Building-Aufruf bei RVA `0x6C7F0` und das gültige 0.9.1-Live-Grid belegt. Damit
+stieg der neue No-PreBuild-Corpus zuerst von 17/24 auf 20/24 und nach Mitnahme
+der Wall-Flags auf 24/24 exakte Fälle. Der Build enthält 29 erfolgreiche
+synthetische Tests.
 
-Die offizielle Fit-Prüfung vergleicht dagegen keine zwei AIVJSON-Dateien als
-abstrakte Pläne. Sie lädt den aktuellen Kandidaten in ein temporäres
-100×100-Raster. Spätere Frames beziehungsweise Positionen überschreiben dort
-frühere Zellen. Anschließend wird dieses Endraster zeilenweise gegen den zu
-diesem Zeitpunkt realen nativen Tile-/Building-Zustand geprüft. Deshalb gilt:
+## Sitzungs- und Sofortspawn-Modell
 
-- ohne Sofortspawn blockieren frühere bloße AIV-Pläne nicht;
-- mit Sofortspawn können erfolgreich realisierte Teile früherer Spieler den
-  Fit späterer Spieler blockieren;
-- interne Überlappungen eines Kandidaten sind Last-Writer-Wins-Evidenz und kein
-  zusätzlicher Live-Gebäude-Blocker;
-- Keep, Vorratslager und weitere Startgebäude sind von AIV-Frames getrennte
-  reale Startobjekte.
+Der native Start verarbeitet Spieler vollständig in ID-Reihenfolge `1..8`.
+Frühere reale Startkomplexe sind in beiden Modi vorhanden. Frühere AIV-Pläne
+blockieren ohne Sofortspawn nicht. Bei `advopt_pre_build=1` sieht der nächste
+Spieler dagegen die tatsächlich ausgeführten Gebäude und Tile-Änderungen.
 
-Der Importer übernimmt nun den expliziten nativen `selection`-Datensatz. Ein
-Prüfversuch bleibt `PlannedAivElement`; nur der tatsächlich ausgewählte Versuch
-wird bei aktivem Sofortspawn als `ScheduledAivPrebuild` geführt. Nach der
-Ausführung wird er für den nächsten Spieler zunächst ausdrücklich nur als
-`ProjectedPrebuiltAivBuilding` oder `ProjectedPrebuiltAivTile` fortgeschrieben.
-Erst Laufzeitevidenz darf daraus `PrebuiltAivBuilding` oder `PrebuiltAivTile`
-machen. Details und RVAs stehen in
-`AIV_PREBUILD_AND_OVERLAP_ORDER.md`.
+Die bisherige Offline-Projektion des ausgewählten AIV-Plans ist dafür noch zu
+grob: Der gültige Paarkorpus erreicht im Modus `1` nur 6/24 exakte Fälle. Diese
+18 Mismatches werden nicht durch angepasste Sollwerte oder eine
+`NotEvaluable`-Umetikettierung verdeckt.
 
-Historische Logs ohne Optionsfeld dürfen nur mit einer ausdrücklich bekannten
-Zuordnung importiert werden, zum Beispiel:
+## Nächste Laufzeitevidenz
 
-    AIVPlacement.OracleComparison import-log LogOutput.log corpus --session-prebuild map-load-001=0,map-load-002=1
+Die installierte Trace-Konfiguration wird für genau einen Thasos-Lauf mit
+Sofortspawn auf folgende Filter gesetzt:
 
-Der Override widerspricht einem bereits im Log erfassten Wert niemals still:
-Bei einem Konflikt bricht der Import ab. Ohne erfassten Wert oder expliziten
-Override bleibt eine sitzungsabhängige Auswertung `NotEvaluable`.
+    PlayerId = -1
+    CandidateId = 0
+    Orientation = -1
+    KeepX = -1
+    KeepY = -1
+    MaximumCaptureCount = 6
 
-Der gepaarte Thasos-Corpus vom 2026-08-03 enthält 48 Fälle, gleichmäßig auf
-`map-load-001` mit Wert `0` und `map-load-002` mit Wert `1` verteilt. Der
-modusbewusste Lauf liefert 27 exakte Fälle, 21 Mismatches, 0 `NotEvaluable`
-und 0 Fehler. Getrennt nach Modus sind es:
+Damit wird jeweils der erste Kandidatenversuch der Spieler 2 bis 7 erfasst.
+Jeder Dump enthält das reale vollständige Building-Grid vor diesem Spieler.
+Ein einziger Start mit allen sechs KI-Slots reicht deshalb aus, um die
+PreBuild-Zustandsübergänge zu bestimmen.
 
-| `advopt_pre_build` | Exakt | Mismatch |
-| ---: | ---: | ---: |
-| `0` | 17 | 7 |
-| `1` | 10 | 14 |
+## Abnahmekriterien
 
-Das vorherige, nicht sitzungsweise verkettete Modell erreichte auf demselben
-Paar nur 16 exakte Fälle bei 32 Mismatches. Die offizielle Reihenfolge erklärt
-damit elf weitere Fälle. Die verbleibenden Sofortspawn-Abweichungen markieren
-die Grenze der reinen Planprojektion: Ohne Live-Zwischenzustand ist nicht für
-jeden Mapper belegt, welche geplanten Zellen die Ausführung tatsächlich als
-Gebäude oder Tile-Zustand realisiert hat. Der Bericht liegt unter
-`.native-analysis/chat10-next/thasos-player5-spawn-mode-paired/comparison-prebuild-aware.json`.
+Chat 10 ist erst abgeschlossen, wenn
 
-## Abnahmematrix
-
-Die `v_`-Dateien sind unveränderte Vanilla-Karten, die der Benutzer in den
-Custom-Ordner kopiert hat, um sie im Editor laden zu können.
-
-| Karte | Art / World Size | Fälle | Exakt | `NotEvaluable` | Mismatch / Fehler | Zeit |
-| --- | --- | ---: | ---: | ---: | ---: | ---: |
-| `Height Advantage` | Vanilla-Kopie / 160 | 10 | 10 | 0 | 0 / 0 | 974,6 ms |
-| `Bow Ridge` | Vanilla-Kopie / 200 | 12 | 12 | 0 | 0 / 0 | 788,0 ms |
-| `Thasos` | Vanilla-Kopie, Section-1190-Anomalie / 300 | 22 | 15 | 0 | 7 / 0 | 817,5 ms |
-| `A Friend Indeed` | Vanilla-Kopie / 400 | 14 | 14 | 0 | 0 / 0 | 788,5 ms |
-| `Province of Bodrum OP` | Vanilla-Kopie / 400 | 20 | 20 | 0 | 0 / 0 | 1.025,7 ms |
-| `unittest` | aktuelle Custom-Map / 160 | 58 | 58 | 0 | 0 / 0 | 848,2 ms |
-| `testmap` | aktuelle Custom-Map / 800 | 4 | 4 | 0 | 0 / 0 | 440,7 ms |
-| `Marshy Mayhem` | ältere Kontrollstichprobe / 400 | 4 | 3 | 0 | 1 / 0 | 333,4 ms |
-
-Die Matrix deckt mehrere Keep-Slots, kleine bis große AIVs, alle vier
-Rotationen und die nativen Zustände `Complete`, `Partial` und `Rejected` ab.
-`unittest` ist absichtlich klein und randnah; `testmap` ist leer, 800×800 groß
-und besitzt zwei frei platzierte Starts. Zusammen belegen sie sowohl den
-maximalen Größenfall als auch empfindliche Rand- und Rotationsfälle.
-
-Die maschinenlesbaren Quellen und Berichte liegen unter:
-
-- `AIVPlacement/OracleCorpus/MarshyMayhem-2026-08-02.json`
-- `AIVPlacement/OracleCorpus/Captured-2026-08-03/`
-- `AIVPlacement/OracleCorpus/Captured-2026-08-03-800/`
-- `AIVPlacement/OracleCorpus/Results/`
-
-## Sperre vor Chat 11
-
-Die Laufzeitmatrix bestätigt, dass `playerId - 1` kein verlässlicher
-Map-Keep-Slot ist. Derselbe `playerId=2` wurde durch Positionswechsel auf
-mehreren Karten unterschiedlichen Keep-Slots zugeordnet. Chat 11 muss deshalb
-die in der Lobby ausgewählte Position explizit erfassen.
-
-Pfad und Hash der geladenen Karte, exakte Keep-Anker aus 1013/4013,
-Lord-/AIV-Listen und AIV-Hashes sind vorhanden. Der Offline-Kern unterstützt
-alle acht im installierten offiziellen Kartenbestand belegten World Sizes 160,
-200, 300, 400, 500, 600, 700 und 800. Die native Oracle-Matrix dieses Chats
-enthält davon 160, 200, 300, 400 und 800. Die Organismusdaten sind für den
-Skirmish-AIV-Aufruf vollständig geklärt und werden nicht benötigt. Die acht
-verbleibenden Testlord-Mismatches können jedoch eine Lobbyentscheidung verfälschen; deshalb
-bleibt Chat 10 der nächste Schritt.
-
-Auf Thasos erfasste der Oracle alle sechs KI-Auswahlen, aber nur fünf erreichten
-den späteren `PrepareLayout`-Callback. Chat 11 muss Prüfaufträge daher für alle
-belegten KI-Slots aus den Lobbydaten erzeugen und darf ihre Existenz nicht von
-einem erfolgreichen Layout-Callback abhängig machen.
+- der neue Sofortspawn-Lauf valide Placement-State-Pointer und sechs Grids
+  liefert;
+- die 18 verbleibenden Fälle erklärt und korrigiert oder technisch zwingend
+  als `NotEvaluable` belegt sind;
+- alle neuen sitzungs- und modusgebundenen Fälle 0 ungeklärte Mismatches und
+  0 Fehler liefern;
+- `AIVPlacement/build.bat` weiterhin vollständig erfolgreich ist.
