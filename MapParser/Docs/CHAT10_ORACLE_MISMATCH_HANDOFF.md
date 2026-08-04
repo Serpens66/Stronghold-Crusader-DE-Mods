@@ -2,16 +2,19 @@
 
 ## Auftrag und Stopplinie
 
-Chat 10 bleibt geöffnet. Chat 11 darf noch nicht beginnen. Die alte
-144-Fall-Baseline ist gelöscht, weil ihre Daten weder Kartenstart-IDs noch den
-Sofortspawn-Wert zuverlässig erfassten. Sie darf nicht wiederhergestellt oder
-als Regression verwendet werden.
+Chat 10 ist für die erste Ausbaustufe mit deaktiviertem Sofortspawn
+abgeschlossen; Chat 11 ist der nächste Schritt. Die alte 144-Fall-Baseline ist
+gelöscht, weil ihre Daten weder Kartenstart-IDs noch den Sofortspawn-Wert
+zuverlässig erfassten. Sie darf nicht wiederhergestellt oder als Regression
+verwendet werden.
 
 Die neue No-PreBuild-Baseline ist vollständig exakt. Der Sofortspawn-Lauf ist
 ausgewertet, die auffälligen nativen Ausführungszweige sind statisch
 rekonstruiert und der schmale Laufzeittrace der einzelnen
 `ExecuteBuildStep`-Frames ist inzwischen vollständig abgenommen. Es besteht
-kein ungeklärter Oracle-Mismatch; Chat 11 bleibt weiterhin unbegonnen.
+kein ungeklärter Oracle-Mismatch. Die sequenzielle Sofortspawn-Erweiterung ist
+bewusst auf Chats 14 bis 16 verschoben, nachdem Chats 11 bis 13 zuerst das
+No-PreBuild-System einschließlich Lobby fertigstellen.
 
 ## Zuerst lesen
 
@@ -249,7 +252,9 @@ Abnahme dieses Schritts:
 - die Dokumentation und gegebenenfalls das Offline-Modell werden nur aus dieser
   Evidenz angepasst; `NotEvaluable` bleibt bis zu einer tatsächlich exakten
   sequenziellen Rekonstruktion bestehen;
-- Chat 11 beginnt weiterhin nicht.
+- Chat 11 darf jetzt mit dem ausdrücklich auf `advopt_pre_build=0` begrenzten
+  Lobby-Datenfluss beginnen. Die Sofortspawn-Erweiterung beginnt erst in
+  Chat 14.
 
 ## Evidenz- und Änderungsregeln
 
@@ -261,13 +266,12 @@ Abnahme dieses Schritts:
   aus einem Plan keine projizierte PreBuild-Belegung erzeugen.
 - Proprietäre Map- oder AIV-Dateien nicht in das Repository kopieren.
 - Geänderte Textdateien vor Builds auf CRLF prüfen.
-- Chat 11 erst nach 0 ungeklärten Mismatches und 0 Fehlern beginnen.
+- Chats 11 bis 13 bleiben produktiv auf `advopt_pre_build=0` begrenzt; Modus
+  `1` liefert bis zur späteren Erweiterung ausdrücklich `NotEvaluable`.
 
 ## Kopierbarer Startprompt
 
-> Setze Chat 10 aus `MapParser/AIV_PLACEMENT_ROADMAP.md` fort und lies zuerst
-> `MapParser/Docs/CHAT10_ORACLE_MISMATCH_HANDOFF.md` vollständig. Der
-> ActiveAIVDetector-0.9.3-`ExecuteBuildStep`-Lauf ist bereits hashgebunden
-> ausgewertet und entscheidet Mapper 52, 89 und 105. Verwende diese Evidenz,
-> behalte für abhängige Spieler bis zur exakten sequenziellen Rekonstruktion
-> `NotEvaluable` bei und beginne Chat 11 nicht.
+> Chat 10 ist für deaktivierten Sofortspawn abgeschlossen. Bearbeite als
+> Nächstes Chat 11 aus `MapParser/AIV_PLACEMENT_ROADMAP.md` und binde nur den
+> No-PreBuild-Lobby-Datenfluss an. Behandle `advopt_pre_build=1` bis zu den
+> späteren Sofortspawn-Chats 14 bis 16 ausdrücklich als `NotEvaluable`.

@@ -26,10 +26,12 @@ Der aktuelle Stand auf `v_Thasos.map` ist:
 | `Captured-2026-08-03-SessionAware-Paired` | `1` | 24 | 4 | 0 | 20 | 0 |
 
 Der gesamte Paarkorpus enthält damit 28 exakte Fälle, 20 technisch begründete
-`NotEvaluable`, 0 Mismatches und 0 Fehler. Chat 10 bleibt für die gezielte
-Rekonstruktion der mapperabhängigen nativen Spawnregeln geöffnet. Der
-`ExecuteBuildStep`-Trace für Spieler 2 ist inzwischen vollständig abgenommen;
-Chat 11 hat noch nicht begonnen.
+`NotEvaluable`, 0 Mismatches und 0 Fehler. Chat 10 ist damit für die erste
+Ausbaustufe mit `advopt_pre_build=0` abgeschlossen. Der
+`ExecuteBuildStep`-Trace für Spieler 2 ist als Vorarbeit für die spätere
+Sofortspawn-Phase vollständig abgenommen. Chats 11 bis 13 stellen zuerst den
+No-PreBuild-Lobbypfad fertig; die sequenzielle Erweiterung folgt in Chats 14
+bis 16.
 
 ## Reproduzierbarkeit
 
@@ -206,9 +208,9 @@ keine vollständige mapperabhängige Offline-Ausführung für alle späteren
 Spieler. Die 20 abhängigen Sofortspawn-Fälle bleiben deshalb bewusst
 `NotEvaluable`; es werden keine Planfootprints als Live-Belegung projiziert.
 
-## Abnahmekriterien
+## Abnahme der No-PreBuild-Stufe
 
-Chat 10 ist erst abgeschlossen, wenn
+Chat 10 ist für `advopt_pre_build=0` abgeschlossen, weil
 
 - der neue Sofortspawn-Lauf valide Placement-State-Pointer und sechs Grids
   liefert;
@@ -219,3 +221,8 @@ Chat 10 ist erst abgeschlossen, wenn
 - alle neuen sitzungs- und modusgebundenen Fälle 0 ungeklärte Mismatches und
   0 Fehler liefern;
 - `AIVPlacement/build.bat` weiterhin vollständig erfolgreich ist.
+
+Die 20 abhängigen Fälle mit aktiviertem Sofortspawn bleiben bis zu Chats 14 bis
+16 ausdrücklich `NotEvaluable`. Sie sind keine Abweichung der abgeschlossenen
+No-PreBuild-Stufe und dürfen in Chats 11 bis 13 nicht durch ein Modus-0-Ergebnis
+ersetzt werden.

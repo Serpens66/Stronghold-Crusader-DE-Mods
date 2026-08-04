@@ -31,6 +31,15 @@ Diese Statusnamen sind zunächst unser eigenes Modell. Ob sie exakt den nativen
 Werten `placementState = 2/1/0` entsprechen, wird erst durch den späteren
 Oracle-Vergleich festgelegt.
 
+Verbindliche Phasengrenze: Die erste produktive Ausbaustufe wird vollständig
+für deaktivierten Sofortspawn (`advopt_pre_build=0`) fertiggestellt. Dazu
+gehören Offline-Kern, Lobby-Datenfluss, Cache und sichtbare UI. Bei aktiviertem
+Sofortspawn darf diese Stufe keine scheinbar exakten Ergebnisse für abhängige
+Spieler erfinden; sie liefert dort ausdrücklich `NotEvaluable` mit verständlicher
+Begründung. Erst nachdem die No-PreBuild-Ausbaustufe abgeschlossen ist, wird das
+System in einer eigenen späteren Phase um die sequenzielle native
+Sofortspawn-Ausführung erweitert.
+
 ## Bereits vorhandene Grundlage
 
 Der derzeitige Workspace enthält:
@@ -657,26 +666,29 @@ partielle Kandidaten vergleicht.
 
 ---
 
-## Chat 10: Offline-Ergebnis systematisch gegen den nativen Oracle vergleichen
+## Chat 10: No-PreBuild-Ergebnis systematisch gegen den nativen Oracle vergleichen
 
-**Status:** In Arbeit. Die alten 144 Fälle wurden vollständig entfernt, weil
-ihre Logs weder verlässliche Kartenstart-IDs noch den jeweiligen Wert von
-`advopt_pre_build` enthielten. Die neue kanonische Thasos-Sitzung ohne
-Sofortspawn umfasst 24 hashgebundene Fälle und ist nach Rekonstruktion der
-rotierten Startkomplexe einschließlich gekoppelter Wall-Flags mit 24/24 exakt.
-Ein frisch aus einem expliziten Moduspaar importierter 48-Fall-Korpus bestätigt
-ebenfalls 24/24 ohne Sofortspawn. Der ausgewertete ActiveAIVDetector-0.9.2-
-Lauf belegt, dass der reale Sofortspawn nicht aus dem Placement-Ergebnis
-projiziert werden kann: Die früher projizierten Footprints von Mapper 52 und
-105 waren an diesen Positionen nicht live belegt, während Mapper 89 trotz
-blockierter Fit-Prüfung 50 Zellen belegte.
-Die widerlegte Projektionslogik ist entfernt. Der Paarkorpus liefert nun 28
-exakte Fälle, 20 technisch begründete `NotEvaluable`, 0 Mismatches und 0
-Fehler. Ergebnisse und Hashes stehen in
+**Status:** Abgeschlossen. Dieser Chat nimmt verbindlich nur die erste
+Ausbaustufe mit deaktiviertem Sofortspawn (`advopt_pre_build=0`) ab. Die alte
+144-Fall-Matrix wurde vollständig entfernt, weil ihre Logs weder verlässliche
+Kartenstart-IDs noch den jeweiligen Optionswert enthielten. Die neue
+kanonische Thasos-Sitzung ohne Sofortspawn umfasst 24 hashgebundene Fälle und
+ist nach Rekonstruktion der gemeinsam rotierten Startkomplexe einschließlich
+gekoppelter Wall-Flags mit 24/24 exakt. Der explizite 48-Fall-Paarkorpus
+bestätigt ebenfalls 24/24 im Modus `0`. Damit besitzt die No-PreBuild-Stufe
+0 Mismatches, 0 Fehler und keine stillschweigend akzeptierte Abweichung.
+
+Die 24 Fälle mit `advopt_pre_build=1` gehören nicht zur Abnahme dieser ersten
+Stufe. Vier Fälle des jeweils ersten KI-Spielers sind exakt; 20 abhängige Fälle
+bleiben technisch begründet `NotEvaluable`, weil eine statische AIV-Projektion
+den real ausgeführten sequenziellen Zustand nicht reproduziert. Diese Grenze
+ist beabsichtigt und wird erst in den späteren Sofortspawn-Chats 14 bis 16
+aufgehoben. Ergebnisse und Hashes stehen in
 `Docs/AIV_PLACEMENT_ORACLE_COMPARISON.md` und
 `Docs/CHAT10_ORACLE_MISMATCH_HANDOFF.md`.
 
-**Trace-Nachtrag:** Der wiederholte Wildcard-Lauf mit ActiveAIVDetector 0.9.2
+**Vorarbeit für die spätere Sofortspawn-Phase:** Der wiederholte Wildcard-Lauf
+mit ActiveAIVDetector 0.9.2
 lieferte je einen Versuch und ein vollständiges Grid für Spieler 2 bis 7. Die
 sechs Zwischenzustände sind valide und vollständig ausgewertet. Der ergänzende
 ActiveAIVDetector-0.9.3-Lauf erfasste außerdem alle 77 `ExecuteBuildStep`-
@@ -694,8 +706,10 @@ erzeugt vier reale Gebäudedatensätze und neun Verbindungstiles. Der gezielte
 Laufzeittrace entscheidet die konkreten Frames: Mapper 105 gab `0` zurück und
 änderte keine Building-ID, Mapper 89 gab `1` zurück und erzeugte zwei IDs mit
 je 25 Zellen, Mapper 52 gab `0` zurück und änderte das Building-Grid an keiner
-Stelle. Die 20 abhängigen Sofortspawn-Fälle bleiben bis zu einer vollständigen
-sequenziellen Offline-Ausführung technisch begründet `NotEvaluable`.
+Stelle. Diese Evidenz bleibt als Ausgangspunkt für Chat 14 erhalten. Bis zur
+vollständigen sequenziellen Offline-Ausführung bleiben die 20 abhängigen
+Sofortspawn-Fälle technisch begründet `NotEvaluable`; sie blockieren den
+Abschluss der No-PreBuild-Stufe und die Chats 11 bis 13 nicht.
 
 **Geometrienachtrag:** Ein Read-only-Scan aller 238 installierten offiziellen Karten
 belegt zusätzlich die World Sizes 500, 600 und 700. Die Offline-Geometrie und
@@ -718,19 +732,24 @@ nicht in scheinbar reale Blocker umgedeutet und erfindet niemals eine
 
 ### Ziel
 
-Die Regelparität nicht nur an Einzelfällen, sondern an einer kontrollierten
-Matrix messen und verbleibende Abweichungen klassifizieren.
+Die Regelparität der No-PreBuild-Ausbaustufe an einem kanonischen,
+sitzungsgebundenen Corpus messen und jede verbleibende Abweichung
+klassifizieren. Sofortspawn-Effekte dürfen dabei weder in den No-PreBuild-
+Erfolg eingerechnet noch aus geplanten Footprints vorgetäuscht werden.
 
-### Vergleichsmatrix
+### Abgedeckte No-PreBuild-Matrix
 
-- mehrere Kartengrößen
-- eingebaute und benutzerdefinierte reguläre Karten
-- mehrere Keep-Slots pro Karte
-- kleine, mittlere und große AIVs
-- alle relevanten Rotationen
-- freie, teilweise blockierte und offensichtlich unmögliche Positionen
-- Karten mit Section-1190-Anomalie, da ihre Placement-Layer trotzdem verfügbar
-  sind
+- explizite Map-Load-Session mit `advopt_pre_build=0`
+- sechs KI-Spieler beziehungsweise Keep-Slots auf `v_Thasos.map`
+- vier native Rotationen pro ausgewähltem Spielerfall
+- freie und blockierte Zellen einschließlich realer gedrehter Startkomplexe
+- 24 hashgebundene Oracle-Fälle mit exakten Status- und Scorewerten
+- zusätzliche synthetische Regeln und Geometrieabdeckung für alle acht
+  offiziellen World Sizes
+
+Eine breitere Mehrkarten-/Mehr-AIV-Matrix bleibt für die spätere
+Sofortspawn-Regression sinnvoll, ist aber keine nachträgliche Voraussetzung für
+die bereits exakte No-PreBuild-Basis.
 
 ### Vergleichsdatensatz
 
@@ -739,7 +758,7 @@ Für jeden Fall mindestens:
 - Map-Identität beziehungsweise Hash, ohne die Karte zu kopieren
 - AIV-Identität beziehungsweise Hash
 - explizite Kartenstart-/Session-ID für zusammengehörige Mehrspielerfälle
-- explizite aktuelle Einstellung `advopt_pre_build`
+- explizite aktuelle Einstellung `advopt_pre_build=0`
 - Keep-Slot und Keep-Koordinate
 - Rotation
 - Offline-Status und Score
@@ -757,33 +776,41 @@ erst gestartet, wenn die geschätzte Laufzeit zumutbar ist.
 
 ### Abnahme
 
-- Übereinstimmungsquote und verbleibende Abweichungen sind dokumentiert.
-- Keine bekannte Abweichung wird stillschweigend als Erfolg gezählt.
-- Abweichungen besitzen reproduzierbare Einzeltests oder eine begründete
-  `NotEvaluable`-Klassifikation.
+- Der kanonische No-PreBuild-Corpus ist 24/24 exakt.
+- No-PreBuild besitzt 0 ungeklärte Mismatches und 0 Fehler.
+- Sofortspawn-Abweichungen werden nicht als No-PreBuild-Erfolg gezählt, sondern
+  bis zur späteren Erweiterungsphase ausdrücklich `NotEvaluable`.
+- Ergebnisse, Hashes und reproduzierbare Einzeltests sind dokumentiert.
 
 ### Startprompt
 
-> Setze Chat 10 aus `MapParser/AIV_PLACEMENT_ROADMAP.md` fort. Lies zuerst
-> `MapParser/Docs/CHAT10_ORACLE_MISMATCH_HANDOFF.md` vollständig. Werte den dort
-> Implementiere anschließend den dort vollständig spezifizierten diagnostischen
-> `ExecuteBuildStep`-Laufzeittrace in ActiveAIVDetector 0.9.3, baue und
-> installiere ihn mit der vorbereiteten Spieler-2-Konfiguration und bitte mich
-> dann um genau einen Thasos-Sofortspawn-Spielstart. Verwende bis zur
-> vollständigen sequenziellen Rekonstruktion für spätere PreBuild-Spieler
-> `NotEvaluable` und beginne Chat 11 noch nicht.
+> Chat 10 ist für `advopt_pre_build=0` abgeschlossen. Bewahre die
+> ActiveAIVDetector-0.9.2/0.9.3-Evidenz als Vorarbeit für die späteren
+> Sofortspawn-Chats 14 bis 16 auf, behandle abhängige Sofortspawn-Spieler bis
+> dahin als `NotEvaluable` und fahre mit dem markierten nächsten Schritt fort.
 
 ---
 
-## Chat 11: Lobby-Datenfluss ohne UI anbinden
+## Chat 11: No-PreBuild-Lobby-Datenfluss ohne UI anbinden
 
-**Status:** Ausstehend. Chat 10 bleibt für die native Rekonstruktion der
-mapperabhängigen Sofortspawn-Ausführung geöffnet.
+**Status:** Nächster Schritt. Die produktive Ausbaustufe bleibt bis
+einschließlich Chat 13 ausdrücklich auf deaktivierten Sofortspawn begrenzt.
 
 ### Ziel
 
 Vor der sichtbaren UI sicher bestimmen, welche Mapdatei und Keep-Position zu
-jedem Lobby-Slot gehören und welche AIV-Kandidaten geprüft werden müssen.
+jedem Lobby-Slot gehören und welche AIV-Kandidaten bei
+`advopt_pre_build=0` geprüft werden müssen.
+
+### Phasengrenze
+
+- Den aktuellen Lobbywert von `advopt_pre_build` zuverlässig erfassen.
+- Bei Wert `0` den normalen No-PreBuild-Prüfauftrag erzeugen.
+- Bei Wert `1` noch keine sequenzielle Belegung simulieren. Das Ergebnis muss
+  mit einem eindeutigen Grund `NotEvaluable` sein, bis Chats 14 bis 16 die
+  Sofortspawn-Unterstützung ergänzen.
+- Die vorhandene 0.9.2/0.9.3-Evidenz nicht vorzeitig in produktive
+  Projektionslogik umdeuten.
 
 ### Zu klärende Datenquellen
 
@@ -807,7 +834,10 @@ jedem Lobby-Slot gehören und welche AIV-Kandidaten geprüft werden müssen.
 ### Abnahme
 
 - Für jeden belegten KI-Slot wird die korrekte Kombination aus Map, Keep und AIV
-  protokolliert.
+  sowie der aktuelle Sofortspawn-Wert protokolliert.
+- Bei deaktiviertem Sofortspawn wird ein vollständiger Prüfauftrag erzeugt.
+- Bei aktiviertem Sofortspawn wird nachvollziehbar `NotEvaluable` geliefert,
+  niemals ein No-PreBuild-Ergebnis als scheinbar exakter Ersatz.
 - Schneller Karten-/Slotwechsel kann kein Ergebnis der vorherigen Auswahl
   anzeigen.
 - Fehlerhafte oder nicht unterstützte Dateien führen zu `NotEvaluable`, nicht
@@ -816,19 +846,22 @@ jedem Lobby-Slot gehören und welche AIV-Kandidaten geprüft werden müssen.
 ### Startprompt
 
 > Bearbeite Chat 11 aus `MapParser/AIV_PLACEMENT_ROADMAP.md`: Binde zunächst nur
-> den Lobby-Datenfluss an. Ermittle zuverlässig Mapdatei, KI-Slot, Keep-Position
-> und AIV-Kandidaten, aber ändere die sichtbare Lobby-UI noch nicht.
+> den No-PreBuild-Lobby-Datenfluss an. Ermittle zuverlässig Mapdatei, KI-Slot,
+> Keep-Position, AIV-Kandidaten und `advopt_pre_build`. Werte nur Modus `0`
+> produktiv aus und liefere für Modus `1` bis Chat 14 ausdrücklich
+> `NotEvaluable`; ändere die sichtbare Lobby-UI noch nicht.
 
 ---
 
-## Chat 12: Cache und asynchrone Auswertung implementieren
+## Chat 12: No-PreBuild-Cache und asynchrone Auswertung implementieren
 
 **Status:** Ausstehend.
 
 ### Ziel
 
 Die Offline-Prüfung schnell genug für Karten-, Slot- und AIV-Wechsel in der
-Lobby machen.
+Lobby machen. Produktive Platzierungsergebnisse bleiben in dieser Phase auf
+`advopt_pre_build=0` begrenzt.
 
 ### Empfohlene Cache-Schlüssel
 
@@ -846,6 +879,8 @@ AIV-Ergebnis-Cache:
 - Keep-Position beziehungsweise Slot
 - Rotation
 - Analyzer-/Regelversion
+- `advopt_pre_build`, damit `NotEvaluable` im Modus `1` niemals mit einem
+  No-PreBuild-Ergebnis kollidiert
 
 ### Anforderungen
 
@@ -866,19 +901,21 @@ AIV-Ergebnis-Cache:
 
 > Bearbeite Chat 12 aus `MapParser/AIV_PLACEMENT_ROADMAP.md`: Implementiere einen
 > begrenzten, invalidierbaren Cache und die sichere asynchrone Auswertung für
-> Map/AIV/Keep/Rotation-Kombinationen. Verwende keine Unity-Objekte im
+> Map/AIV/Keep/Rotation-Kombinationen der No-PreBuild-Stufe. Führe den
+> Sofortspawn-Wert im Schlüssel und verwende keine Unity-Objekte im
 > Hintergrundthread.
 
 ---
 
-## Chat 13: Lobby-UI und Multiplayer-Verhalten fertigstellen
+## Chat 13: No-PreBuild-Lobby-UI und Multiplayer-Verhalten fertigstellen
 
 **Status:** Ausstehend.
 
 ### Ziel
 
 Die geprüften Ergebnisse verständlich in der Skirmish-Lobby anzeigen und bei
-Host/Client konsistent behandeln.
+Host/Client konsistent behandeln. Damit wird die erste produktive Ausbaustufe
+für deaktivierten Sofortspawn abgeschlossen.
 
 ### Mögliche UI-Darstellung
 
@@ -892,6 +929,10 @@ Host/Client konsistent behandeln.
 
 Farben dürfen nicht das einzige Unterscheidungsmerkmal sein; Text oder Symbol
 muss den Zustand ebenfalls ausdrücken.
+
+Bei aktiviertem Sofortspawn muss die UI bis zum Abschluss von Chat 16 klar
+anzeigen, dass die sequenzielle Prüfung noch nicht unterstützt wird. Sie darf
+dafür kein Ergebnis aus Modus `0` wiederverwenden.
 
 ### Multiplayer-Fragen
 
@@ -912,30 +953,179 @@ festgelegt werden.
 - Host und Clients erhalten ein definiertes, dokumentiertes Verhalten.
 - Die tatsächliche Spielauswahl wird nicht ohne ausdrückliche Entscheidung des
   Nutzers automatisch verändert.
+- Der komplette Lobbypfad für `advopt_pre_build=0` ist damit produktiv
+  abgeschlossen; Modus `1` bleibt sichtbar und begründet `NotEvaluable`.
 
 ### Startprompt
 
 > Bearbeite Chat 13 aus `MapParser/AIV_PLACEMENT_ROADMAP.md`: Ergänze die
-> Skirmish-Lobby um verständliche Complete/Partial/Impossible/NotEvaluable-
-> Anzeigen und kläre mit mir vorab, ob nur gewarnt, gefiltert oder eine Auswahl
-> blockiert werden soll sowie welches Host-/Client-Verhalten gewünscht ist.
+> Skirmish-Lobby für die No-PreBuild-Stufe um verständliche
+> Complete/Partial/Impossible/NotEvaluable-Anzeigen und kläre mit mir vorab, ob
+> nur gewarnt, gefiltert oder eine Auswahl blockiert werden soll sowie welches
+> Host-/Client-Verhalten gewünscht ist. Kennzeichne aktivierten Sofortspawn bis
+> Chat 16 ausdrücklich als noch nicht sequenziell auswertbar.
+
+---
+
+## Chat 14: Sequenzielles Sofortspawn-Zustandsmodell entwickeln
+
+**Status:** Ausstehend. Erst beginnen, nachdem die No-PreBuild-Ausbaustufe in
+Chat 13 vollständig abgenommen ist.
+
+### Ziel
+
+Die echte native Ausführung früherer KI-Burgen so rekonstruieren, dass der
+Offline-Zustand vor jedem nachfolgenden Spieler exakt bekannt ist. Eine
+statische Vereinigung platzierbarer AIV-Footprints bleibt ausdrücklich
+unzulässig.
+
+### Vorhandene Grundlage
+
+- sechs valide Zwischenzustände aus ActiveAIVDetector 0.9.2;
+- der vollständige 77-Frame-Spieler-2-Trace aus ActiveAIVDetector 0.9.3;
+- entschiedene Zweige für Mapper 52, 89 und 105;
+- statische native Audits der gemeinsamen Vorprüfungen und Konstruktoren;
+- die dokumentierte Spielerreihenfolge `1..8` und gemeinsame Rotation von AIV
+  und Startkomplex.
+
+### Vorgehen
+
+- Den Diagnose-Trace kontrolliert auf spätere Spieler erweitern, insbesondere
+  auf Frames mit entfernten oder ersetzten Gebäuden.
+- Neben `BuildingId` alle für nachfolgende Fit-Prüfungen relevanten Tile-
+  Änderungen, tatsächlichen Positionen und Mehrkomponentenobjekte erfassen.
+- Mapperregeln als deterministische sequenzielle Zustandsübergänge im
+  paketfreien Offline-Kern modellieren.
+- Nicht belegte Mapper oder Seiteneffekte bleiben `NotEvaluable`; keine
+  Heuristik darf als reale PreBuild-Belegung ausgegeben werden.
+- Laufzeittraces zunächst an einem Spieler, dann an einer kleinen
+  Mehrspielerprobe validieren, bevor ein größerer Lauf gestartet wird.
+
+### Abnahme
+
+- Für jeden modellierten Frame stimmen Rückgabewert und alle relevanten
+  Zustandsänderungen mit dem nativen Trace überein.
+- Gebäudeabrisse, Ersetzungen, Mehrkomponentengebäude und Tile-only-Effekte
+  besitzen reproduzierbare Tests.
+- Der Offline-Kern kann den exakten Zustand vor mindestens dem nächsten
+  Spieler erzeugen, ohne beobachtete Live-Daten als Eingabe zu benötigen.
+- Ungeklärte Zweige werden weiterhin ausdrücklich `NotEvaluable`.
+
+### Startprompt
+
+> Bearbeite Chat 14 aus `MapParser/AIV_PLACEMENT_ROADMAP.md`: Erweitere nach
+> Abschluss der No-PreBuild-Lobby den diagnostischen Sofortspawn-Trace auf die
+> notwendigen späteren Spieler und implementiere daraus ein sequenzielles,
+> paketfreies Zustandsmodell. Verwende keine statische Footprint-Vereinigung.
+
+---
+
+## Chat 15: Sofortspawn-Modell gegen den nativen Oracle validieren
+
+**Status:** Ausstehend.
+
+### Ziel
+
+Das sequenzielle Modell aus Chat 14 mit explizit aktiviertem
+`advopt_pre_build=1` gegen native, sitzungsgebundene Mehrspielerläufe prüfen.
+
+### Vergleichsmatrix
+
+- mehrere Karten und Kartengrößen;
+- mehrere Keep-Zuordnungen und Spielerreihenfolgen;
+- kleine, mittlere und große AIVs;
+- alle relevanten Rotationen;
+- erfolgreiche und abgebrochene mapperabhängige Konstruktoren;
+- Zustände mit hinzugefügten, entfernten und ersetzten Gebäuden sowie
+  sonstigen blockierenden Tile-Änderungen.
+
+### Anforderungen
+
+- Jeder Fall besitzt eine nichtleere `SessionId`, den expliziten Wert `1` und
+  unveränderte Map-/AIV-/Log-Hashes.
+- Zuerst ein Fall und eine kleine Stichprobe mit Fortschritt und ETA; größere
+  Corpora erst nach plausibler Laufzeitschätzung.
+- Native Sollwerte werden niemals an das Offline-Ergebnis angepasst.
+- Verbleibende Lücken sind reproduzierbar und ausdrücklich `NotEvaluable`,
+  nicht stillschweigend erfolgreich.
+
+### Abnahme
+
+- Alle unterstützten Sofortspawn-Fälle besitzen 0 ungeklärte Mismatches und
+  0 Fehler.
+- Spätere KI-Spieler werden aus dem rekonstruierten sequenziellen Zustand
+  exakt bewertet.
+- Die unterstützten und weiterhin `NotEvaluable` bleibenden Mappergrenzen sind
+  dokumentiert und getestet.
+
+### Startprompt
+
+> Bearbeite Chat 15 aus `MapParser/AIV_PLACEMENT_ROADMAP.md`: Validiere das
+> sequenzielle Sofortspawn-Modell mit modus- und sitzungsgebundenen nativen
+> Oracle-Läufen. Starte klein, protokolliere Fortschritt und akzeptiere keine
+> ungeklärte Abweichung als Erfolg.
+
+---
+
+## Chat 16: Sofortspawn in Lobby, Cache und UI integrieren
+
+**Status:** Ausstehend.
+
+### Ziel
+
+Die in Chats 14 und 15 abgenommene sequenzielle Auswertung in das bereits
+fertige No-PreBuild-System einfügen, ohne dessen exakten Modus-0-Pfad zu
+regressieren.
+
+### Umsetzung
+
+- `advopt_pre_build` bleibt Teil von Prüfauftrag und Cache-Schlüssel.
+- Modus `0` verwendet unverändert den abgeschlossenen No-PreBuild-Pfad.
+- Modus `1` wertet Spieler strikt in nativer Reihenfolge aus und reicht den
+  rekonstruierten Zustand nur an nachfolgende Spieler weiter.
+- UI und Multiplayer-Datenfluss zeigen unterstützte Ergebnisse sowie
+  verbleibende `NotEvaluable`-Grenzen eindeutig an.
+- Cacheeinträge und asynchrone Generationen der beiden Modi dürfen niemals
+  verwechselt werden.
+
+### Abnahme
+
+- Die bestehenden No-PreBuild-Tests und Oracle-Corpora bleiben vollständig
+  exakt.
+- Unterstützte Sofortspawn-Sitzungen liefern in Lobby und Offline-Vergleich
+  dieselben Ergebnisse wie der native Oracle.
+- Schnelle Options-, Karten-, Slot- und AIV-Wechsel zeigen keine veralteten
+  Ergebnisse des jeweils anderen Modus.
+- Nicht unterstützte Sofortspawn-Zweige bleiben sichtbar `NotEvaluable` und
+  verursachen keinen Lobby-Absturz.
+
+### Startprompt
+
+> Bearbeite Chat 16 aus `MapParser/AIV_PLACEMENT_ROADMAP.md`: Integriere das in
+> Chats 14 und 15 validierte sequenzielle Sofortspawn-Modell in Prüfauftrag,
+> Cache und Lobby-UI. Bewahre den exakten No-PreBuild-Pfad unverändert und
+> trenne beide Modi in allen Cache- und Generation-Schlüsseln.
 
 ---
 
 ## Empfohlene Reihenfolge und Stopppunkte
 
-Die Chats werden in der Reihenfolge 1 bis 13 bearbeitet. Besonders wichtige
+Die Chats werden in der Reihenfolge 1 bis 16 bearbeitet. Besonders wichtige
 Stopppunkte sind:
 
 1. Nach Chat 1: Keine Geometrie implementieren, solange die native Zuordnung
    nicht belegt ist.
 2. Nach Chat 6: Keine Gesamtstatus-Semantik festschreiben, solange 0/1/2 nicht
    eindeutig verstanden sind.
-3. Nach Chat 10: Keine Lobbyentscheidung auf Basis ungeklärter Abweichungen
-   erzwingen.
+3. Nach Chat 10: Chats 11 bis 13 nur für deaktivierten Sofortspawn umsetzen;
+   Modus `1` bleibt bis zur Erweiterungsphase ausdrücklich `NotEvaluable`.
 4. Vor Chat 13: Nutzerentscheidung einholen, ob die Lobby nur informiert,
    filtert oder ungültige AIV-Auswahlen blockiert.
+5. Vor Chat 14: Die komplette No-PreBuild-Ausbaustufe einschließlich Lobby-UI
+   abnehmen; Sofortspawn-Forschung nicht als Voraussetzung zurückziehen.
+6. Vor Chat 16: Keine produktive Sofortspawn-Auswertung anbinden, solange das
+   sequenzielle Modell nicht gegen den nativen Oracle abgenommen ist.
 
-Der nächste auszuführende Schritt ist "Chat 10".
+Der nächste auszuführende Schritt ist "Chat 11".
 
 
