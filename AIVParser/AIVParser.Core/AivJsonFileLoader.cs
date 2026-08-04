@@ -58,9 +58,7 @@ namespace AIVParser.Core
                 string text = File.ReadAllText(
                     path,
                     new UTF8Encoding(false, true));
-                JsonValue root = new PackageFreeJsonParser(text).Parse();
-                AivJsonDocument document = ReadDocument(root, diagnostics);
-                return new AivJsonLoadResult(document, diagnostics);
+                return ParseText(text, diagnostics);
             }
             catch (JsonInputException ex)
             {
@@ -92,6 +90,39 @@ namespace AIVParser.Core
             }
 
             return new AivJsonLoadResult(null, diagnostics);
+        }
+
+        public static AivJsonLoadResult LoadText(string text, string sourceName = null)
+        {
+            if (text == null)
+                throw new ArgumentNullException(nameof(text));
+
+            var diagnostics = new List<AivDiagnostic>();
+            try
+            {
+                return ParseText(text, diagnostics);
+            }
+            catch (JsonInputException ex)
+            {
+                diagnostics.Add(Error(
+                    "JSON002",
+                    $"Invalid JSON: {ex.Message}",
+                    string.IsNullOrEmpty(sourceName) ? "$" : sourceName));
+            }
+
+            return new AivJsonLoadResult(null, diagnostics);
+        }
+
+        private static AivJsonLoadResult ParseText(
+            string text,
+            ICollection<AivDiagnostic> diagnostics)
+        {
+            JsonValue root = new PackageFreeJsonParser(text).Parse();
+            AivJsonDocument document = ReadDocument(root, diagnostics);
+            return new AivJsonLoadResult(
+                document,
+                diagnostics as IReadOnlyList<AivDiagnostic> ??
+                    new List<AivDiagnostic>(diagnostics));
         }
 
         private static AivJsonDocument ReadDocument(

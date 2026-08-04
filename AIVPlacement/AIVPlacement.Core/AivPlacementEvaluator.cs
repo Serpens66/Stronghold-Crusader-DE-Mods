@@ -43,6 +43,19 @@ namespace AIVPlacement.Core
         }
 
         public AivPlacementResult Evaluate(
+            MapPlacementSnapshot map,
+            AivProjectedCastle castle)
+        {
+            if (map == null)
+                throw new ArgumentNullException(nameof(map));
+            if (castle == null)
+                throw new ArgumentNullException(nameof(castle));
+
+            // Keeping projection separate lets offline callers time both expensive phases.
+            return BuildResult(castle, ruleEvaluator.EvaluateElements(map, castle));
+        }
+
+        public AivPlacementResult Evaluate(
             IAivPlacementTileSource map,
             AivBlueprint aiv,
             MapCoordinate keepPosition,
@@ -181,6 +194,39 @@ namespace AIVPlacement.Core
                 variants.Add(evaluate(rotation));
                 rotation = NextRotation(rotation);
             }
+
+            return SelectRotationResultsCore(variants, initialRotation);
+        }
+
+        public AivPlacementRotationSelection SelectRotationResults(
+            IReadOnlyList<AivPlacementResult> variants,
+            AivRotation initialRotation)
+        {
+            if (variants == null)
+                throw new ArgumentNullException(nameof(variants));
+            if (variants.Count != 4)
+                throw new ArgumentException("Exactly four rotation results are required.", nameof(variants));
+
+            ValidateRotation(initialRotation);
+            AivRotation expected = initialRotation;
+            for (int index = 0; index < variants.Count; index++)
+            {
+                if (variants[index] == null || variants[index].Rotation != expected)
+                {
+                    throw new ArgumentException(
+                        "Rotation results must follow native order from the initial rotation.",
+                        nameof(variants));
+                }
+                expected = NextRotation(expected);
+            }
+
+            return SelectRotationResultsCore(variants, initialRotation);
+        }
+
+        private static AivPlacementRotationSelection SelectRotationResultsCore(
+            IReadOnlyList<AivPlacementResult> variants,
+            AivRotation initialRotation)
+        {
 
             // Native SelectBestFit checks rotations in this order and stops at a complete fit.
             foreach (AivPlacementResult variant in variants)

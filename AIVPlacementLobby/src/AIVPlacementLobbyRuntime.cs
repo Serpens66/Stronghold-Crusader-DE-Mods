@@ -1,8 +1,11 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Threading.Tasks;
 using AIVPlacementLobby.Core;
 using BepInEx.Logging;
 using CrusaderDE;
@@ -26,14 +29,20 @@ namespace AIVPlacementLobby
         private readonly ManualLogSource log;
         private readonly LobbyRequestBuilder requestBuilder = new LobbyRequestBuilder();
         private readonly LobbyRequestGenerationGate generations = new LobbyRequestGenerationGate();
-        private readonly Dictionary<string, bool> assetOverrideCache =
-            new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+        private readonly AivPlacementEvaluationService evaluationService =
+            new AivPlacementEvaluationService();
+        private readonly ConcurrentQueue<CompletedEvaluation> completedEvaluations =
+            new ConcurrentQueue<CompletedEvaluation>();
+        private readonly Dictionary<string, string> assetOverrideCache =
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         private readonly string vanillaAivDirectory;
         private Hook updateHook;
         private Hook startHook;
         private UpdateDelegate updateTrampoline;
         private StartSkirmishGameDelegate startTrampoline;
         private string lastFingerprint = string.Empty;
+        private string lastSourceFingerprint = string.Empty;
+        private long nextSourcePollTimestamp;
         private bool captureFailureLogged;
 
         public AIVPlacementLobbyRuntime(ManualLogSource log)
@@ -63,6 +72,7 @@ namespace AIVPlacementLobby
         {
             updateTrampoline(self);
             CaptureIfChanged(self, false, "lobby update");
+            PublishCompletedEvaluations();
         }
 
         private void StartSkirmishGameHook(
@@ -80,16 +90,40 @@ namespace AIVPlacementLobby
             {
                 LobbyStateCapture capture = Capture(frontend);
                 string fingerprint = LobbyRequestBuilder.BuildFingerprint(capture);
-                if (!force && string.Equals(fingerprint, lastFingerprint, StringComparison.Ordinal))
+                bool stateChanged = !string.Equals(
+                    fingerprint,
+                    lastFingerprint,
+                    StringComparison.Ordinal);
+                long now = Stopwatch.GetTimestamp();
+                if (!force && !stateChanged && now < nextSourcePollTimestamp)
                     return;
 
+                nextSourcePollTimestamp = now + Stopwatch.Frequency / 2;
+                AivPlacementRequestBatch provisional = requestBuilder.Build(
+                    1,
+                    capture,
+                    vanillaAivDirectory);
+                IReadOnlyDictionary<string, string> assets = CaptureAssetSnapshot(provisional);
+                string sourceFingerprint = AivPlacementEvaluationService.BuildSourceFingerprint(
+                    provisional,
+                    assets);
+                if (!force && !stateChanged && string.Equals(
+                        sourceFingerprint,
+                        lastSourceFingerprint,
+                        StringComparison.Ordinal))
+                {
+                    return;
+                }
+
                 lastFingerprint = fingerprint;
+                lastSourceFingerprint = sourceFingerprint;
                 long generation = generations.Advance();
                 AivPlacementRequestBatch batch = requestBuilder.Build(
                     generation,
                     capture,
                     vanillaAivDirectory);
                 LogBatch(batch, reason);
+                QueueEvaluations(batch, assets);
             }
             catch (Exception ex)
             {
@@ -180,21 +214,108 @@ namespace AIVPlacementLobby
             for (int index = 0; index < count; index++)
             {
                 string asset = $"AIV/{lordEnumName}_{index}.aivjson";
-                if (!assetOverrideCache.TryGetValue(asset, out bool available))
+                if (!assetOverrideCache.TryGetValue(asset, out string content))
                 {
                     try
                     {
-                        available = GameAssetManagerAPI.Instance != null &&
-                            GameAssetManagerAPI.Instance.GetModifiedFileTextContent(asset, out _);
+                        if (GameAssetManagerAPI.Instance == null ||
+                            !GameAssetManagerAPI.Instance.GetModifiedFileTextContent(asset, out content))
+                        {
+                            content = null;
+                        }
                     }
                     catch
                     {
-                        available = false;
+                        content = null;
                     }
-                    assetOverrideCache[asset] = available;
+                    assetOverrideCache[asset] = content;
                 }
-                if (available)
+                if (content != null)
                     assets.Add(asset);
+            }
+        }
+
+        private IReadOnlyDictionary<string, string> CaptureAssetSnapshot(
+            AivPlacementRequestBatch batch)
+        {
+            var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (AivPlacementCandidateRequest candidate in batch.Requests
+                .SelectMany(request => request.Candidates))
+            {
+                if (candidate.SourceKind == LobbyCandidateSourceKind.ScriptExtenderAsset &&
+                    assetOverrideCache.TryGetValue(candidate.Source, out string content) &&
+                    content != null)
+                {
+                    // Unity-backed asset access ends here; workers receive only immutable text.
+                    result[candidate.Source] = content;
+                }
+            }
+            return result;
+        }
+
+        private void QueueEvaluations(
+            AivPlacementRequestBatch batch,
+            IReadOnlyDictionary<string, string> assets)
+        {
+            foreach (AivPlacementCheckRequest request in batch.Requests)
+            {
+                Task<AivPlacementCheckResult> task = evaluationService.EvaluateAsync(request, assets);
+                task.ContinueWith(
+                    completed =>
+                    {
+                        completedEvaluations.Enqueue(completed.Status == TaskStatus.RanToCompletion
+                            ? new CompletedEvaluation(completed.Result, null)
+                            : new CompletedEvaluation(null, completed.Exception));
+                    },
+                    TaskScheduler.Default);
+            }
+        }
+
+        private void PublishCompletedEvaluations()
+        {
+            while (completedEvaluations.TryDequeue(out CompletedEvaluation completed))
+            {
+                if (completed.Error != null)
+                {
+                    Shared.DebugLogHelper.LogError(
+                        log,
+                        $"Asynchronous lobby placement evaluation failed: {completed.Error}");
+                    continue;
+                }
+
+                AivPlacementCheckResult result = completed.Result;
+                if (!generations.IsCurrent(result.Generation))
+                {
+                    Shared.DebugLogHelper.LogInfo(
+                        log,
+                        $"Discarded stale lobby placement result generation={result.Generation}, " +
+                        $"currentGeneration={generations.Current}, playerId={result.PlayerId}.");
+                    continue;
+                }
+
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    $"Lobby placement result generation={result.Generation}, playerId={result.PlayerId}, " +
+                    $"keepIndex={result.KeepSlotIndex}, advopt_pre_build={result.PreBuildSetting}, " +
+                    $"status={result.Status}, reason={result.FailureKind}, " +
+                    $"selectedCandidateId={result.SelectedCandidate?.CandidateId.ToString() ?? "none"}, " +
+                    $"selectedRotation={result.SelectedVariant?.Rotation.ToString() ?? "none"}, " +
+                    $"elapsedMs={result.Elapsed.TotalMilliseconds:F3}.");
+                foreach (AivPlacementCandidateEvaluation candidate in result.Candidates)
+                {
+                    LobbyPlacementPhaseTimings timings = candidate.Timings;
+                    Shared.DebugLogHelper.LogInfo(
+                        log,
+                        $"Lobby placement timing generation={result.Generation}, playerId={result.PlayerId}, " +
+                        $"candidateId={candidate.CandidateId}, status={candidate.Status}, " +
+                        $"cache={candidate.CacheDisposition}, mapCacheHit={timings.MapCacheHit}, " +
+                        $"mapLoadShared={timings.MapLoadShared}, mapParseMs={timings.MapParse.TotalMilliseconds:F3}, " +
+                        $"snapshotMs={timings.Snapshot.TotalMilliseconds:F3}, " +
+                        $"aivParseMs={timings.AivParse.TotalMilliseconds:F3}, " +
+                        $"projectionMs={timings.Projection.TotalMilliseconds:F3}, " +
+                        $"ruleMs={timings.RuleEvaluation.TotalMilliseconds:F3}, " +
+                        $"reason={candidate.FailureKind}.");
+                }
             }
         }
 
@@ -275,6 +396,18 @@ namespace AIVPlacementLobby
                 name,
                 BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
             return field ?? throw new MissingFieldException(type.FullName, name);
+        }
+
+        private sealed class CompletedEvaluation
+        {
+            public CompletedEvaluation(AivPlacementCheckResult result, Exception error)
+            {
+                Result = result;
+                Error = error;
+            }
+
+            public AivPlacementCheckResult Result { get; }
+            public Exception Error { get; }
         }
     }
 }

@@ -1,6 +1,7 @@
 # AIV Placement Lobby
 
-This BepInEx adapter implements Chat 11 of `MapParser/AIV_PLACEMENT_ROADMAP.md`.
+This BepInEx adapter implements Chats 11 and 12 of
+`MapParser/AIV_PLACEMENT_ROADMAP.md`.
 It observes the current skirmish lobby through persistent managed detours and
 builds immutable placement requests containing the selected map, AI player ID,
 keep-slot assignment, AIV candidate list, initial rotation, host/client role and
@@ -22,5 +23,24 @@ sequential model. Missing map or AIV files also remain explicit `NotEvaluable`
 inputs instead of crashing the lobby.
 
 Every changed lobby snapshot receives a monotonically increasing generation.
-`LobbyRequestGenerationGate` is the hand-off point for Chat 12: asynchronous
-results may only be published while their generation is still current.
+Asynchronous results are published from the lobby's main-thread update hook only
+while `LobbyRequestGenerationGate` still accepts their generation.
+
+The package-free evaluation service runs map/AIV file access, parsing, projection
+and rule evaluation on background workers. It evaluates the complete ordered AIV
+candidate list and applies the documented native multi-candidate thresholds and
+tie order. Script Extender assets are captured as plain text on the main thread;
+background code never touches Unity or Script Extender objects.
+
+Map snapshots and placement results use separate bounded LRU caches. Result keys
+contain map and AIV file identity, keep slot, initial rotation, analyzer version
+and `advopt_pre_build`. Concurrent identical requests share one computation.
+File size or UTC modification-time changes create a new identity, so cached
+success and `NotEvaluable` results are both invalidated. Logs report cache state
+and separate map-parse, snapshot, AIV-parse, projection and rule timings.
+
+The test executable normally runs synthetic repository tests. A read-only local
+production-worker check can additionally be run as:
+
+    dotnet run --project AIVPlacementLobby.Tests -c Release -- \
+      --integration "<map path>" "<aivjson path>"

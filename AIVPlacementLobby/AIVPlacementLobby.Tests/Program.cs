@@ -1,11 +1,16 @@
 using AIVParser.Core;
 using AIVPlacement.Core;
 using AIVPlacementLobby.Core;
+using MapParser.Core;
+using System.Collections.Concurrent;
 
 internal static class Program
 {
-    private static int Main()
+    private static int Main(string[] args)
     {
+        if (args.Length == 3 && string.Equals(args[0], "--integration", StringComparison.Ordinal))
+            return RunLocalIntegration(args[1], args[2]);
+
         var tests = new (string Name, Action Run)[]
         {
             ("maps player to keep slot", MapsPlayerToKeepSlot),
@@ -18,8 +23,18 @@ internal static class Program
             ("resolves embedded custom candidate", ResolvesEmbeddedCustomCandidate),
             ("uses Script Extender override", UsesAssetOverride),
             ("loads AIVJSON from the shared core", LoadsAivJsonFromSharedCore),
+            ("loads in-memory AIVJSON from the shared core", LoadsInMemoryAivJsonFromSharedCore),
             ("copies mutable inputs", CopiesInputs),
-            ("rejects stale generation", RejectsStaleGeneration)
+            ("rejects stale generation", RejectsStaleGeneration),
+            ("caches not-evaluable placement results", CachesNotEvaluableResults),
+            ("coalesces concurrent placement requests", CoalescesConcurrentRequests),
+            ("invalidates cache after AIV and map changes", InvalidatesChangedFiles),
+            ("bounds the placement result cache", BoundsResultCache),
+            ("fingerprints source file changes", FingerprintsSourceChanges),
+            ("keeps prebuild out of the worker", KeepsPrebuildOutOfWorker),
+            ("aggregates every candidate in import order", AggregatesEveryCandidate),
+            ("preserves import order for complete ties", PreservesCompleteTieOrder),
+            ("selects the best sequential partial", SelectsBestSequentialPartial)
         };
 
         int failures = 0;
@@ -38,6 +53,69 @@ internal static class Program
         }
         Console.WriteLine($"{tests.Length - failures}/{tests.Length} tests passed.");
         return failures == 0 ? 0 : 1;
+    }
+
+    private static int RunLocalIntegration(string mapPath, string aivPath)
+    {
+        try
+        {
+            MapDocument document = MapFileReader.Parse(mapPath);
+            MapKeepAnchorResult keep = MapKeepAnchors.Create(document).Slots.First(
+                value => value.Status == MapKeepAnchorStatus.Exact);
+            int[] keepOrder = Enumerable.Repeat(-1, MapKeepAnchors.SlotCount).ToArray();
+            keepOrder[keep.SlotIndex] = 1;
+            var capture = new LobbyStateCapture(
+                mapPath,
+                Path.GetFileNameWithoutExtension(mapPath),
+                "LocalIntegration",
+                true,
+                0,
+                keepOrder,
+                [new LobbyAiSlotInput(
+                    2,
+                    0,
+                    "SK_RAT",
+                    string.Empty,
+                    LobbyAivMode.Custom,
+                    0,
+                    [new LobbyAivCandidateInput(
+                        Path.GetFileNameWithoutExtension(aivPath),
+                        Path.GetDirectoryName(aivPath),
+                        0,
+                        false,
+                        "SK_RAT")])],
+                Array.Empty<string>());
+            AivPlacementCheckRequest request = new LobbyRequestBuilder()
+                .Build(1, capture, Path.GetDirectoryName(aivPath))
+                .Requests.Single();
+            var service = new AivPlacementEvaluationService();
+            AivPlacementCheckResult first = service.EvaluateAsync(request).GetAwaiter().GetResult();
+            AivPlacementCheckResult second = service.EvaluateAsync(request).GetAwaiter().GetResult();
+            Console.WriteLine(
+                $"INTEGRATION status={first.Status}, candidate={first.SelectedCandidate?.CandidateId}, " +
+                $"rotation={first.SelectedVariant?.Rotation}, elapsedMs={first.Elapsed.TotalMilliseconds:F3}");
+            foreach (AivPlacementCandidateEvaluation candidate in first.Candidates)
+            {
+                Console.WriteLine(
+                    $"PHASE candidate={candidate.CandidateId}, cache={candidate.CacheDisposition}, " +
+                    $"mapParseMs={candidate.Timings.MapParse.TotalMilliseconds:F3}, " +
+                    $"snapshotMs={candidate.Timings.Snapshot.TotalMilliseconds:F3}, " +
+                    $"aivParseMs={candidate.Timings.AivParse.TotalMilliseconds:F3}, " +
+                    $"projectionMs={candidate.Timings.Projection.TotalMilliseconds:F3}, " +
+                    $"ruleMs={candidate.Timings.RuleEvaluation.TotalMilliseconds:F3}");
+            }
+            Assert(first.Status != AivPlacementStatus.NotEvaluable,
+                $"production worker returned {first.FailureKind}: {first.FailureMessage}");
+            Equal(LobbyEvaluationCacheDisposition.ResultCacheHit,
+                second.Candidates[0].CacheDisposition);
+            Console.WriteLine("PASS local production-worker integration and result-cache hit");
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"FAIL local integration: {ex}");
+            return 1;
+        }
     }
 
     private static void MapsPlayerToKeepSlot()
@@ -155,6 +233,19 @@ internal static class Program
         Equal(5044, loaded.Document.frames[0].tilePositionOfsets[0]);
     }
 
+    private static void LoadsInMemoryAivJsonFromSharedCore()
+    {
+        AivJsonLoadResult loaded = AivJsonFileLoader.LoadText(
+            "{/*asset*/\"pauseDelayAmount\":100,\"frames\":[" +
+            "{\"itemType\":61,\"tilePositionOfsets\":[5044,],\"shouldPause\":false,}," +
+            "],\"miscItems\":[],}",
+            "AIV/SK_RAT_0.aivjson");
+
+        Assert(loaded.Document != null, "in-memory Core loader returned no document");
+        Equal(0, loaded.Diagnostics.Count);
+        Equal(5044, loaded.Document.frames[0].tilePositionOfsets[0]);
+    }
+
     private static void CopiesInputs()
     {
         using Fixture fixture = new();
@@ -175,6 +266,171 @@ internal static class Program
         long second = gate.Advance();
         Assert(!gate.IsCurrent(first), "old generation accepted");
         Assert(gate.IsCurrent(second), "current generation rejected");
+    }
+
+    private static void CachesNotEvaluableResults()
+    {
+        using Fixture fixture = new();
+        AivPlacementCheckRequest request = fixture.BuildSingleCustom("cached");
+        var worker = new CountingWorker();
+        var service = new AivPlacementEvaluationService(worker, 16, 1);
+
+        AivPlacementCheckResult first = service.EvaluateAsync(request).GetAwaiter().GetResult();
+        AivPlacementCheckResult second = service.EvaluateAsync(request).GetAwaiter().GetResult();
+
+        Equal(1, worker.CallCount);
+        Equal(AivPlacementStatus.NotEvaluable, first.Status);
+        Equal(LobbyEvaluationCacheDisposition.Computed, first.Candidates[0].CacheDisposition);
+        Equal(LobbyEvaluationCacheDisposition.ResultCacheHit, second.Candidates[0].CacheDisposition);
+        Assert(worker.ThreadIds.All(value => value != Environment.CurrentManagedThreadId),
+            "worker ran on the calling thread");
+    }
+
+    private static void CoalescesConcurrentRequests()
+    {
+        using Fixture fixture = new();
+        AivPlacementCheckRequest request = fixture.BuildSingleCustom("shared");
+        var worker = new CountingWorker(150);
+        var service = new AivPlacementEvaluationService(worker, 16, 2);
+
+        Task<AivPlacementCheckResult> first = service.EvaluateAsync(request);
+        Task<AivPlacementCheckResult> second = service.EvaluateAsync(request);
+        Assert(worker.Started.Wait(TimeSpan.FromSeconds(2)), "worker did not start");
+        Assert(!first.IsCompleted || !second.IsCompleted,
+            "both asynchronous requests completed before the delayed worker was released");
+        Task.WaitAll(first, second);
+
+        Equal(1, worker.CallCount);
+        var dispositions = new[]
+        {
+            first.Result.Candidates[0].CacheDisposition,
+            second.Result.Candidates[0].CacheDisposition
+        };
+        Assert(dispositions.Contains(LobbyEvaluationCacheDisposition.Computed),
+            "no request owned the computation");
+        Assert(dispositions.Contains(LobbyEvaluationCacheDisposition.SharedInFlight),
+            "duplicate request did not share the in-flight computation");
+    }
+
+    private static void InvalidatesChangedFiles()
+    {
+        using Fixture fixture = new();
+        AivPlacementCheckRequest request = fixture.BuildSingleCustom("changed");
+        var worker = new CountingWorker();
+        var service = new AivPlacementEvaluationService(worker, 16, 1);
+
+        service.EvaluateAsync(request).GetAwaiter().GetResult();
+        File.AppendAllText(request.Candidates[0].Source, "a");
+        service.EvaluateAsync(request).GetAwaiter().GetResult();
+        File.AppendAllText(request.MapPath, "m");
+        service.EvaluateAsync(request).GetAwaiter().GetResult();
+
+        Equal(3, worker.CallCount);
+    }
+
+    private static void BoundsResultCache()
+    {
+        using Fixture fixture = new();
+        var worker = new CountingWorker();
+        var service = new AivPlacementEvaluationService(worker, 2, 1);
+        AivPlacementCheckRequest first = fixture.BuildSingleCustom("one");
+        AivPlacementCheckRequest second = fixture.BuildSingleCustom("two");
+        AivPlacementCheckRequest third = fixture.BuildSingleCustom("three");
+
+        service.EvaluateAsync(first).GetAwaiter().GetResult();
+        service.EvaluateAsync(second).GetAwaiter().GetResult();
+        service.EvaluateAsync(third).GetAwaiter().GetResult();
+        service.EvaluateAsync(first).GetAwaiter().GetResult();
+
+        Equal(4, worker.CallCount);
+    }
+
+    private static void FingerprintsSourceChanges()
+    {
+        using Fixture fixture = new();
+        AivPlacementCheckRequest request = fixture.BuildSingleCustom("fingerprint");
+        AivPlacementRequestBatch batch = new LobbyRequestBuilder().Build(
+            1,
+            fixture.Capture(slots: [Slot(
+                LobbyAivMode.Custom,
+                [new LobbyAivCandidateInput(
+                    "fingerprint",
+                    fixture.CustomDirectory,
+                    0,
+                    false,
+                    "SK_RAT")])]),
+            fixture.VanillaDirectory);
+        string first = AivPlacementEvaluationService.BuildSourceFingerprint(batch);
+        File.AppendAllText(request.Candidates[0].Source, "a");
+        string second = AivPlacementEvaluationService.BuildSourceFingerprint(batch);
+        File.AppendAllText(request.MapPath, "m");
+        string third = AivPlacementEvaluationService.BuildSourceFingerprint(batch);
+
+        Assert(!string.Equals(first, second, StringComparison.Ordinal),
+            "AIV modification did not change the source fingerprint");
+        Assert(!string.Equals(second, third, StringComparison.Ordinal),
+            "map modification did not change the source fingerprint");
+    }
+
+    private static void KeepsPrebuildOutOfWorker()
+    {
+        using Fixture fixture = new();
+        AivPlacementCheckRequest request = fixture.Build(preBuild: 1);
+        var worker = new CountingWorker();
+        var service = new AivPlacementEvaluationService(worker, 16, 1);
+
+        AivPlacementCheckResult result = service.EvaluateAsync(request).GetAwaiter().GetResult();
+
+        Equal(0, worker.CallCount);
+        Equal(AivPlacementStatus.NotEvaluable, result.Status);
+        Equal(LobbyEvaluationFailureKind.RequestNotReady, result.FailureKind);
+    }
+
+    private static void AggregatesEveryCandidate()
+    {
+        using Fixture fixture = new();
+        AivPlacementCheckRequest request = fixture.BuildCustomList(
+            "impossible",
+            "partial",
+            "complete");
+        var worker = new SelectionWorker();
+        var service = new AivPlacementEvaluationService(worker, 16, 2);
+
+        AivPlacementCheckResult result = service.EvaluateAsync(request).GetAwaiter().GetResult();
+
+        Equal(3, worker.CallCount);
+        Equal(AivPlacementStatus.Complete, result.Status);
+        Equal(2, result.SelectedCandidate.CandidateId);
+        Equal(3, result.Candidates.Count);
+    }
+
+    private static void PreservesCompleteTieOrder()
+    {
+        using Fixture fixture = new();
+        AivPlacementCheckRequest request = fixture.BuildCustomList(
+            "complete-first",
+            "complete-second");
+        var service = new AivPlacementEvaluationService(new SelectionWorker(), 16, 2);
+
+        AivPlacementCheckResult result = service.EvaluateAsync(request).GetAwaiter().GetResult();
+
+        Equal(AivPlacementStatus.Complete, result.Status);
+        Equal(0, result.SelectedCandidate.CandidateId);
+    }
+
+    private static void SelectsBestSequentialPartial()
+    {
+        using Fixture fixture = new();
+        AivPlacementCheckRequest request = fixture.BuildCustomList(
+            "partial-low",
+            "partial-high");
+        var service = new AivPlacementEvaluationService(new SelectionWorker(), 16, 2);
+
+        AivPlacementCheckResult result = service.EvaluateAsync(request).GetAwaiter().GetResult();
+
+        Equal(AivPlacementStatus.Partial, result.Status);
+        Equal(1, result.SelectedCandidate.CandidateId);
+        Equal(8, result.SelectedVariant.Score.SequentialBuildScore);
     }
 
     private static LobbyAiSlotInput Slot(
@@ -200,6 +456,7 @@ internal static class Program
         {
             Root = Path.Combine(Path.GetTempPath(), "AIVPlacementLobbyTests", Guid.NewGuid().ToString("N"));
             VanillaDirectory = Directory.CreateDirectory(Path.Combine(Root, "VanillaAIV")).FullName;
+            CustomDirectory = Directory.CreateDirectory(Path.Combine(Root, "CustomAIV")).FullName;
             MapPath = Path.Combine(Root, "test.map");
             File.WriteAllText(MapPath, "synthetic");
             for (int index = 1; index <= 8; index++)
@@ -208,6 +465,7 @@ internal static class Program
 
         public string Root { get; }
         public string VanillaDirectory { get; }
+        public string CustomDirectory { get; }
         public string MapPath { get; }
 
         public LobbyStateCapture Capture(
@@ -237,10 +495,153 @@ internal static class Program
                     new List<LobbyAiSlotInput> { slot ?? Slot() }, assets), VanillaDirectory)
                 .Requests.Single();
 
+        public AivPlacementCheckRequest BuildSingleCustom(string name)
+        {
+            File.WriteAllText(Path.Combine(CustomDirectory, name + ".aivjson"), "{}");
+            return Build(slot: Slot(
+                LobbyAivMode.Custom,
+                [new LobbyAivCandidateInput(name, CustomDirectory, 0, false, "SK_RAT")]));
+        }
+
+        public AivPlacementCheckRequest BuildCustomList(params string[] names)
+        {
+            var candidates = new List<LobbyAivCandidateInput>();
+            foreach (string name in names)
+            {
+                File.WriteAllText(Path.Combine(CustomDirectory, name + ".aivjson"), "{}");
+                candidates.Add(new LobbyAivCandidateInput(
+                    name,
+                    CustomDirectory,
+                    0,
+                    false,
+                    "SK_RAT"));
+            }
+            return Build(slot: Slot(LobbyAivMode.Custom, candidates));
+        }
+
         public void Dispose()
         {
             if (Directory.Exists(Root))
                 Directory.Delete(Root, true);
+        }
+    }
+
+    private sealed class CountingWorker : ILobbyPlacementCandidateWorker
+    {
+        private readonly int delayMilliseconds;
+        private int callCount;
+
+        public CountingWorker(int delayMilliseconds = 0)
+        {
+            this.delayMilliseconds = delayMilliseconds;
+        }
+
+        public int CallCount => Volatile.Read(ref callCount);
+        public ConcurrentBag<int> ThreadIds { get; } = new();
+        public ManualResetEventSlim Started { get; } = new(false);
+
+        public LobbyPlacementWorkerResult Evaluate(AivPlacementCandidateWorkItem workItem)
+        {
+            Interlocked.Increment(ref callCount);
+            ThreadIds.Add(Environment.CurrentManagedThreadId);
+            Started.Set();
+            if (delayMilliseconds > 0)
+                Thread.Sleep(delayMilliseconds);
+            return LobbyPlacementWorkerResult.NotEvaluable(
+                LobbyEvaluationFailureKind.AivParseFailed,
+                "synthetic worker result");
+        }
+    }
+
+    private sealed class SelectionWorker : ILobbyPlacementCandidateWorker
+    {
+        private int callCount;
+
+        public int CallCount => Volatile.Read(ref callCount);
+
+        public LobbyPlacementWorkerResult Evaluate(AivPlacementCandidateWorkItem workItem)
+        {
+            Interlocked.Increment(ref callCount);
+            bool partial = workItem.Candidate.Name.StartsWith(
+                "partial",
+                StringComparison.Ordinal);
+            bool impossible = workItem.Candidate.Name.StartsWith(
+                "impossible",
+                StringComparison.Ordinal);
+            int frameCount = partial ? 10 : 1;
+            var frames = new List<AivBuildFrame>();
+            for (int index = 0; index < frameCount; index++)
+            {
+                frames.Add(new AivBuildFrame(
+                    index,
+                    25,
+                    AivMapperCatalog.Resolve(25),
+                    false,
+                    [new AivGridPoint(40, 60 + index)]));
+            }
+
+            var blueprint = new AivBlueprint(
+                workItem.Candidate.Name,
+                5,
+                frames,
+                Array.Empty<AivMiscPlacement>(),
+                new AivGridPoint(50, 50));
+            var map = new SparsePlacementMap();
+            if (partial || impossible)
+            {
+                var projector = new AivCastleProjector();
+                foreach (AivRotation rotation in new[]
+                {
+                    AivRotation.Degrees0,
+                    AivRotation.Degrees90,
+                    AivRotation.Degrees180,
+                    AivRotation.Degrees270
+                })
+                {
+                    AivProjectedCastle castle = projector.Project(
+                        blueprint,
+                        new MapCoordinate(400, 400),
+                        rotation);
+                    int blockedIndex = impossible
+                        ? 0
+                        : workItem.Candidate.Name.EndsWith("high", StringComparison.Ordinal)
+                            ? 8
+                            : 2;
+                    map.Set(
+                        castle.Elements[blockedIndex].MapCoordinate,
+                        new AivPlacementTileEvidence(0, 0, 0, 0, 0, 1, 0, 0));
+                }
+            }
+
+            AivPlacementRotationSelection selection = new AivPlacementEvaluator()
+                .EvaluateAllRotations(
+                    map,
+                    blueprint,
+                    new MapCoordinate(400, 400),
+                    AivRotation.Degrees90);
+            return new LobbyPlacementWorkerResult(
+                selection,
+                LobbyEvaluationFailureKind.None,
+                string.Empty,
+                LobbyPlacementPhaseTimings.Empty);
+        }
+    }
+
+    private sealed class SparsePlacementMap : IAivPlacementTileSource
+    {
+        private readonly Dictionary<int, AivPlacementTileEvidence> evidence = new();
+
+        public MapTileGeometry Geometry { get; } =
+            new(MapTileGeometry.FixedTileCount, 400);
+
+        public AivPlacementTileEvidence GetTileEvidence(int tileId) =>
+            evidence.TryGetValue(tileId, out AivPlacementTileEvidence value)
+                ? value
+                : default;
+
+        public void Set(MapCoordinate coordinate, AivPlacementTileEvidence value)
+        {
+            evidence[Geometry.GetTileId(coordinate.X, coordinate.Y)] = value;
         }
     }
 }

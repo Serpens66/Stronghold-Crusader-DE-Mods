@@ -2,11 +2,19 @@
   "GUID": "AIVPlacementLobby_Serp",
   "Author": "Serpens66",
   "Name": "AIV Placement Lobby",
-  "Description": "Builds immutable offline AIV placement requests from the current skirmish lobby without changing the visible UI.",
-  "Version": "0.1.0",
+  "Description": "Asynchronously evaluates and caches offline AIV placement requests from the current skirmish lobby without changing the visible UI.",
+  "Version": "0.2.0",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "0.2.0",
+      "Changes": [
+        "Evaluate every selected AIV candidate asynchronously in native import order and aggregate the deterministic best fit.",
+        "Cache map snapshots and placement results with bounded, file-invalidated keys including advopt_pre_build and the analyzer version.",
+        "Log cache behavior and separate parse, snapshot, projection and rule timings while discarding stale generations on the main thread."
+      ]
+    },
     {
       "Version": "0.1.0",
       "Changes": [

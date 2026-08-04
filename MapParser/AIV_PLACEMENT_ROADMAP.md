@@ -870,7 +870,19 @@ jedem Lobby-Slot gehören und welche AIV-Kandidaten bei
 
 ## Chat 12: No-PreBuild-Cache und asynchrone Auswertung implementieren
 
-**Status:** Nächster Schritt.
+**Status:** Abgeschlossen. Der paketfreie `AivPlacementEvaluationService`
+wertet alle ausgewählten Kandidaten außerhalb des Unity-Main-Threads aus,
+führt identische gleichzeitige Prüfungen zusammen und aggregiert Status,
+Kandidat sowie Rotation deterministisch nach dem dokumentierten nativen
+Mehrkandidatenvertrag. Getrennte begrenzte LRU-Caches halten Map-Snapshots und
+AIV-Ergebnisse; ihre Schlüssel enthalten Dateiidentitäten, Keep-Slot,
+Anfangsrotation, Analyzer-Version und `advopt_pre_build`. Dateiänderungen
+invalidieren passende Erfolge und `NotEvaluable`-Resultate. Script-Extender-
+Assets werden auf dem Main Thread als Text kopiert, Ergebnisse dort nur bei
+aktueller Generation veröffentlicht. Parse-, Snapshot-, AIV-Parse-, Projektions-
+und Regelzeiten werden mit Millisekunden-Zeitstempel protokolliert. 22/22
+synthetische Tests sowie ein read-only Produktionstest mit `Thasos.map` und der
+offiziellen `rat1.aivjson` einschließlich Cache-Hit sind erfolgreich.
 
 ### Ziel
 
@@ -931,7 +943,7 @@ AIV-Ergebnis-Cache:
 
 ## Chat 13: No-PreBuild-Lobby-UI und Multiplayer-Verhalten fertigstellen
 
-**Status:** Ausstehend.
+**Status:** Nächster Schritt.
 
 ### Ziel
 
@@ -941,38 +953,31 @@ für deaktivierten Sofortspawn abgeschlossen.
 
 ### Mögliche UI-Darstellung
 
+Kennzeichnung in dem aivjson Auswahl UI:
 - grünes Kennzeichen: vollständig passend
 - gelbes Kennzeichen: teilweise passend
 - rotes Kennzeichen: nicht passend
-- graues Kennzeichen: nicht prüfbar oder Prüfung läuft
-- optional kurze Zusammenfassung wie „3 Gebäude blockiert“
-- optional Filter „nur vollständig passende AIVs“
-- Details/Tooltip mit erstem Fehlergrund, ohne die Lobby zu überladen
-
-Farben dürfen nicht das einzige Unterscheidungsmerkmal sein; Text oder Symbol
-muss den Zustand ebenfalls ausdrücken.
+- graues Kennzeichen: nicht prüfbar
+- kein Kennzeichen: prüfung läuft
+- Hover Tooltip über Kennzeichen mit kurzem Titeltext
+- Nicht passende AIVs werden nur entsprechend gekennzeichnet, nicht verhindert
 
 Bei aktiviertem Sofortspawn muss die UI bis zum Abschluss von Chat 16 klar
 anzeigen, dass die sequenzielle Prüfung noch nicht unterstützt wird. Sie darf
-dafür kein Ergebnis aus Modus `0` wiederverwenden.
+dafür kein Ergebnis aus Modus `0` wiederverwenden. Daher graues Kennzeichen.
 
-### Multiplayer-Fragen
+### Multiplayer
 
-- Entscheidet ausschließlich der Host oder rechnen alle Clients lokal?
-- Müssen Ergebnis, gewählte AIV und Rotation synchronisiert werden?
-- Wie wird mit unterschiedlichen lokalen Custom-/Extended-Lord-Dateien
-  umgegangen?
-- Darf eine nicht passende AIV nur gewarnt oder vollständig blockiert werden?
+- nur der Host bestimmt Slots, KI und AIV, daher braucht nur der Host diese Prüfungen durchführen.
+- Im Multiplayer wird nur ein AIV unterstützt. Im Somesettings Mod sorgen wir bereits dafür, dass mehr ausgewählt werden können, aber beim Start des Spiels wird dann nur ein zufälliges gewählt und an die anderen Spieler gesendet. Übernimm den relevanten Code aus Somesettings Mod und entferne ihn aus dem SomeSettings Mod (damit thematisch zu AIV alles in unserem neuen Mod ist)
+- Bei dieser zufälligen Auswahl eines aiv im Multiplayer aus der Liste wird geprüft welche passend sind. Wenn es mindestens ein 100% fit gibt, wird zwischen allen die vollständig passen ein zufälliges gewählt. Wenn das bestmögliche von allen optionen ein teilweiser fit ist, dann entsprechend von diesen, usw. Also immer von dem bestmöglichen Fits ein zufälliges auswählen.
 
-Diese Produktentscheidungen müssen vor der endgültigen UI-Logik mit dem Nutzer
-festgelegt werden.
 
 ### Abnahme
 
 - Karten-, Slot- und AIV-Wechsel aktualisieren den Status korrekt.
 - Laufende Prüfungen und Fehlerzustände sind sichtbar.
 - Kein veraltetes Ergebnis wird einem neuen Lobbyzustand zugeordnet.
-- Host und Clients erhalten ein definiertes, dokumentiertes Verhalten.
 - Die tatsächliche Spielauswahl wird nicht ohne ausdrückliche Entscheidung des
   Nutzers automatisch verändert.
 - Der komplette Lobbypfad für `advopt_pre_build=0` ist damit produktiv
@@ -1148,6 +1153,6 @@ Stopppunkte sind:
 6. Vor Chat 16: Keine produktive Sofortspawn-Auswertung anbinden, solange das
    sequenzielle Modell nicht gegen den nativen Oracle abgenommen ist.
 
-Der nächste auszuführende Schritt ist "Chat 12".
+Der nächste auszuführende Schritt ist "Chat 13".
 
 
