@@ -19,7 +19,7 @@ namespace SomeSettings
 
         public const string PluginGuid = "SomeSettings_Serp";
         public const string PluginName = "Some Settings";
-        public const string PluginVersion = "1.0.9";
+        public const string PluginVersion = "1.0.10";
 
         private SomeSettingsRuntime runtime;
         private bool runtimeDisposed;
@@ -69,10 +69,6 @@ namespace SomeSettings
                 GameXAMLManagerAPI.Instance.RegisterBinding(
                     "SomeSettingsQuarryPileRelocationButtonHost",
                     runtime.QuarryPileRelocationButton);
-
-                GameXAMLManagerAPI.Instance.RegisterBinding(
-                    "SomeSettingsAivSelectionListHost",
-                    runtime.AiAivSelectionList);
 
                 runtime.InstallKnightMountNativeFunctions(libraryHandle, memory);
                 runtime.InstallQuarryPileNativeFunctions(libraryHandle, memory);

@@ -111,13 +111,19 @@ namespace AIVPlacementLobby.Core
             AivPlacementCandidateRequest candidate,
             LobbyFileStamp mapStamp,
             LobbyAivSourceStamp aivStamp,
-            string assetText)
+            string assetText,
+            IReadOnlyDictionary<int, AivRotation> rebuiltStartRotationsBySlot)
         {
             Request = request;
             Candidate = candidate;
             MapStamp = mapStamp;
             AivStamp = aivStamp;
             AssetText = assetText;
+            var rotations = new Dictionary<int, AivRotation>();
+            foreach (KeyValuePair<int, AivRotation> pair in rebuiltStartRotationsBySlot)
+                rotations.Add(pair.Key, pair.Value);
+            RebuiltStartRotationsBySlot = new ReadOnlyDictionary<int, AivRotation>(
+                rotations);
         }
 
         public AivPlacementCheckRequest Request { get; }
@@ -125,6 +131,7 @@ namespace AIVPlacementLobby.Core
         public LobbyFileStamp MapStamp { get; }
         public LobbyAivSourceStamp AivStamp { get; }
         public string AssetText { get; }
+        public IReadOnlyDictionary<int, AivRotation> RebuiltStartRotationsBySlot { get; }
     }
 
     public interface ILobbyPlacementCandidateWorker
@@ -202,6 +209,22 @@ namespace AIVPlacementLobby.Core
         public LobbyEvaluationFailureKind FailureKind { get; }
         public string FailureMessage { get; }
         public TimeSpan Elapsed { get; }
+    }
+
+    public sealed class AivPlacementBatchResult
+    {
+        internal AivPlacementBatchResult(
+            IEnumerable<AivPlacementCheckResult> results,
+            IDictionary<int, int> selectedCandidateIdsByPlayer)
+        {
+            Results = new ReadOnlyCollection<AivPlacementCheckResult>(
+                new List<AivPlacementCheckResult>(results));
+            SelectedCandidateIdsByPlayer = new ReadOnlyDictionary<int, int>(
+                new Dictionary<int, int>(selectedCandidateIdsByPlayer));
+        }
+
+        public IReadOnlyList<AivPlacementCheckResult> Results { get; }
+        public IReadOnlyDictionary<int, int> SelectedCandidateIdsByPlayer { get; }
     }
 
     public readonly struct LobbyFileStamp : IEquatable<LobbyFileStamp>
@@ -318,7 +341,7 @@ namespace AIVPlacementLobby.Core
 
     public sealed class AivPlacementEvaluationService
     {
-        public const string AnalyzerVersion = "chat12-noprebuild-v1";
+        public const string AnalyzerVersion = "chat13-noprebuild-normalized-v3";
 
         private readonly object sync = new object();
         private readonly ILobbyPlacementCandidateWorker worker;
@@ -369,7 +392,32 @@ namespace AIVPlacementLobby.Core
             }
 
             // File metadata and every parse/evaluation phase stay off Unity's main thread.
-            return Task.Run(() => EvaluateRequestCoreAsync(request, assets));
+            return Task.Run(() => EvaluateRequestCoreAsync(
+                request,
+                assets,
+                new Dictionary<int, AivRotation>()));
+        }
+
+        public Task<AivPlacementBatchResult> EvaluateBatchAsync(
+            AivPlacementRequestBatch batch,
+            IReadOnlyDictionary<string, string> scriptExtenderAssets = null,
+            Func<AivPlacementCheckResult, int?> selectCandidateId = null)
+        {
+            if (batch == null)
+                throw new ArgumentNullException(nameof(batch));
+
+            var assets = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            if (scriptExtenderAssets != null)
+            {
+                foreach (KeyValuePair<string, string> pair in scriptExtenderAssets)
+                    assets[pair.Key] = pair.Value;
+            }
+
+            // Players are evaluated in the same order in which Vanilla rebuilds their starts.
+            return Task.Run(() => EvaluateBatchCoreAsync(
+                batch,
+                assets,
+                selectCandidateId));
         }
 
         public static string BuildSourceFingerprint(
@@ -385,6 +433,8 @@ namespace AIVPlacementLobby.Core
                 text.Append(LobbyFileStamp.Capture(request.MapPath)).Append('|')
                     .Append(request.PreBuildSetting).Append('|')
                     .Append(request.KeepSlotIndex).Append('|')
+                    .Append(request.RetainedStartSlotMask).Append('|')
+                    .Append(request.UsesMapFacingRotation ? 'M' : 'F').Append('|')
                     .Append((int)request.InitialRotation).Append('|');
                 foreach (AivPlacementCandidateRequest candidate in request.Candidates)
                 {
@@ -409,7 +459,8 @@ namespace AIVPlacementLobby.Core
 
         private async Task<AivPlacementCheckResult> EvaluateRequestCoreAsync(
             AivPlacementCheckRequest request,
-            IReadOnlyDictionary<string, string> assets)
+            IReadOnlyDictionary<string, string> assets,
+            IReadOnlyDictionary<int, AivRotation> rebuiltStartRotationsBySlot)
         {
             var elapsed = Stopwatch.StartNew();
             if (!request.IsReady)
@@ -426,6 +477,7 @@ namespace AIVPlacementLobby.Core
             }
 
             LobbyFileStamp mapStamp = LobbyFileStamp.Capture(request.MapPath);
+            int rebuiltStartState = BuildRebuiltStartState(rebuiltStartRotationsBySlot);
             var pending = new List<Task<CandidateFetch>>(request.Candidates.Count);
             foreach (AivPlacementCandidateRequest candidate in request.Candidates)
             {
@@ -438,6 +490,9 @@ namespace AIVPlacementLobby.Core
                     mapStamp,
                     aivStamp,
                     request.KeepSlotIndex,
+                    request.RetainedStartSlotMask,
+                    rebuiltStartState,
+                    request.UsesMapFacingRotation,
                     request.InitialRotation,
                     request.PreBuildSetting,
                     AnalyzerVersion);
@@ -446,7 +501,8 @@ namespace AIVPlacementLobby.Core
                     candidate,
                     mapStamp,
                     aivStamp,
-                    assetText);
+                    assetText,
+                    rebuiltStartRotationsBySlot);
                 pending.Add(GetOrEvaluateAsync(key, item));
             }
 
@@ -462,6 +518,61 @@ namespace AIVPlacementLobby.Core
 
             elapsed.Stop();
             return Aggregate(request, candidates, elapsed.Elapsed);
+        }
+
+        private async Task<AivPlacementBatchResult> EvaluateBatchCoreAsync(
+            AivPlacementRequestBatch batch,
+            IReadOnlyDictionary<string, string> assets,
+            Func<AivPlacementCheckResult, int?> selectCandidateId)
+        {
+            var results = new List<AivPlacementCheckResult>(batch.Requests.Count);
+            var selectedCandidateIds = new Dictionary<int, int>();
+            var rebuiltStartRotationsBySlot = new Dictionary<int, AivRotation>();
+            foreach (AivPlacementCheckRequest request in batch.Requests.OrderBy(value => value.PlayerId))
+            {
+                AivPlacementCheckResult result = await EvaluateRequestCoreAsync(
+                    request,
+                    assets,
+                    rebuiltStartRotationsBySlot).ConfigureAwait(false);
+                results.Add(result);
+                AivPlacementResult rebuiltVariant = result.SelectedVariant;
+                int? selectedCandidateId = selectCandidateId?.Invoke(result);
+                if (selectedCandidateId.HasValue)
+                {
+                    AivPlacementCandidateEvaluation selectedCandidate = result.Candidates
+                        .FirstOrDefault(candidate => candidate.CandidateId == selectedCandidateId.Value);
+                    if (selectedCandidate == null)
+                    {
+                        throw new InvalidOperationException(
+                            $"Selected candidate {selectedCandidateId.Value} does not exist for player {request.PlayerId}.");
+                    }
+
+                    selectedCandidateIds.Add(request.PlayerId, selectedCandidateId.Value);
+                    // Later AI starts must see the same narrowed candidate Vanilla will start.
+                    rebuiltVariant = selectedCandidate.Selection?.BestVariant;
+                }
+
+                if (rebuiltVariant != null)
+                {
+                    rebuiltStartRotationsBySlot[request.KeepSlotIndex] =
+                        rebuiltVariant.Rotation;
+                }
+            }
+            return new AivPlacementBatchResult(results, selectedCandidateIds);
+        }
+
+        private static int BuildRebuiltStartState(
+            IReadOnlyDictionary<int, AivRotation> rotationsBySlot)
+        {
+            int state = 0;
+            foreach (KeyValuePair<int, AivRotation> pair in rotationsBySlot)
+            {
+                if (pair.Key < 0 || pair.Key >= MapKeepAnchors.SlotCount)
+                    throw new ArgumentOutOfRangeException(nameof(rotationsBySlot));
+                int encodedRotation = ((int)pair.Value / 90) + 1;
+                state |= encodedRotation << (pair.Key * 3);
+            }
+            return state;
         }
 
         private Task<CandidateFetch> GetOrEvaluateAsync(
@@ -823,6 +934,27 @@ namespace AIVPlacementLobby.Core
                     TimeSpan.Zero);
             }
 
+            IAivPlacementTileSource placementMap;
+            TimeSpan normalizedSnapshotElapsed;
+            try
+            {
+                placementMap = mapLookup.Map.GetPlacementMap(
+                    workItem.Request.RetainedStartSlotMask,
+                    workItem.Request.RetainedStartSlotIndexes,
+                    workItem.RebuiltStartRotationsBySlot,
+                    out normalizedSnapshotElapsed);
+            }
+            catch (Exception ex)
+            {
+                return Failure(
+                    LobbyEvaluationFailureKind.MapSnapshotUnavailable,
+                    ex.Message,
+                    mapLookup,
+                    TimeSpan.Zero,
+                    TimeSpan.Zero,
+                    TimeSpan.Zero);
+            }
+
             var aivTimer = Stopwatch.StartNew();
             AivJsonLoadResult loaded;
             if (workItem.Candidate.SourceKind == LobbyCandidateSourceKind.File)
@@ -890,7 +1022,10 @@ namespace AIVPlacementLobby.Core
                 TimeSpan projectionElapsed = TimeSpan.Zero;
                 TimeSpan ruleElapsed = TimeSpan.Zero;
                 var variants = new List<AivPlacementResult>(4);
-                AivRotation rotation = workItem.Request.InitialRotation;
+                AivRotation initialRotation = workItem.Request.UsesMapFacingRotation
+                    ? AivInitialRotationResolver.ResolveMapFacing(keep.Coordinate.Value)
+                    : workItem.Request.InitialRotation;
+                AivRotation rotation = initialRotation;
                 for (int index = 0; index < 4; index++)
                 {
                     var projectionTimer = Stopwatch.StartNew();
@@ -902,7 +1037,7 @@ namespace AIVPlacementLobby.Core
                     projectionElapsed += projectionTimer.Elapsed;
 
                     var ruleTimer = Stopwatch.StartNew();
-                    variants.Add(evaluator.Evaluate(mapLookup.Map.Snapshot, castle));
+                    variants.Add(evaluator.Evaluate(placementMap, castle));
                     ruleTimer.Stop();
                     ruleElapsed += ruleTimer.Elapsed;
                     rotation = NextRotation(rotation);
@@ -910,14 +1045,14 @@ namespace AIVPlacementLobby.Core
 
                 AivPlacementRotationSelection selection = evaluator.SelectRotationResults(
                     variants,
-                    workItem.Request.InitialRotation);
+                    initialRotation);
                 return new LobbyPlacementWorkerResult(
                     selection,
                     LobbyEvaluationFailureKind.None,
                     string.Empty,
                     new LobbyPlacementPhaseTimings(
                         mapLookup.MapParse,
-                        mapLookup.Snapshot,
+                        mapLookup.Snapshot + normalizedSnapshotElapsed,
                         aivTimer.Elapsed,
                         projectionElapsed,
                         ruleElapsed,
@@ -989,15 +1124,12 @@ namespace AIVPlacementLobby.Core
                         TimeSpan.Zero);
                 }
 
-                var snapshotTimer = Stopwatch.StartNew();
-                MapPlacementSnapshot snapshot = MapPlacementSnapshot.Create(document);
                 MapKeepAnchors anchors = MapKeepAnchors.Create(document);
-                snapshotTimer.Stop();
                 return PreparedMap.Success(
-                    snapshot,
+                    document,
                     anchors,
                     parseTimer.Elapsed,
-                    snapshotTimer.Elapsed);
+                    TimeSpan.Zero);
             }
             catch (Exception ex)
             {
@@ -1034,15 +1166,19 @@ namespace AIVPlacementLobby.Core
 
         private sealed class PreparedMap
         {
+            private readonly object placementMapSync = new object();
+            private readonly Dictionary<long, IAivPlacementTileSource> placementMaps =
+                new Dictionary<long, IAivPlacementTileSource>();
+
             private PreparedMap(
-                MapPlacementSnapshot snapshot,
+                MapDocument document,
                 MapKeepAnchors anchors,
                 LobbyEvaluationFailureKind failureKind,
                 string failureMessage,
                 TimeSpan mapParse,
                 TimeSpan snapshotElapsed)
             {
-                Snapshot = snapshot;
+                Document = document;
                 Anchors = anchors;
                 FailureKind = failureKind;
                 FailureMessage = failureMessage ?? string.Empty;
@@ -1050,7 +1186,7 @@ namespace AIVPlacementLobby.Core
                 SnapshotElapsed = snapshotElapsed;
             }
 
-            public MapPlacementSnapshot Snapshot { get; }
+            public MapDocument Document { get; }
             public MapKeepAnchors Anchors { get; }
             public LobbyEvaluationFailureKind FailureKind { get; }
             public string FailureMessage { get; }
@@ -1058,13 +1194,55 @@ namespace AIVPlacementLobby.Core
             public TimeSpan SnapshotElapsed { get; }
             public bool IsReady => FailureKind == LobbyEvaluationFailureKind.None;
 
+            public IAivPlacementTileSource GetPlacementMap(
+                int retainedStartSlotMask,
+                IReadOnlyList<int> retainedStartSlotIndexes,
+                IReadOnlyDictionary<int, AivRotation> rebuiltStartRotationsBySlot,
+                out TimeSpan elapsed)
+            {
+                int rebuiltStartState = EncodeRebuiltStartState(rebuiltStartRotationsBySlot);
+                long stateKey = ((long)retainedStartSlotMask << 32) |
+                    (uint)rebuiltStartState;
+                lock (placementMapSync)
+                {
+                    if (placementMaps.TryGetValue(stateKey, out IAivPlacementTileSource cached))
+                    {
+                        elapsed = TimeSpan.Zero;
+                        return cached;
+                    }
+
+                    var timer = Stopwatch.StartNew();
+                    // Serialized start buildings are placeholders; retain only starts already active natively.
+                    IAivPlacementTileSource created = AivPreplacementMapState.Create(
+                        Document,
+                        retainedStartSlotIndexes,
+                        rebuiltStartRotationsBySlot);
+                    timer.Stop();
+                    placementMaps.Add(stateKey, created);
+                    elapsed = timer.Elapsed;
+                    return created;
+                }
+            }
+
+            private static int EncodeRebuiltStartState(
+                IReadOnlyDictionary<int, AivRotation> rotationsBySlot)
+            {
+                int state = 0;
+                foreach (KeyValuePair<int, AivRotation> pair in rotationsBySlot)
+                {
+                    int encodedRotation = ((int)pair.Value / 90) + 1;
+                    state |= encodedRotation << (pair.Key * 3);
+                }
+                return state;
+            }
+
             public static PreparedMap Success(
-                MapPlacementSnapshot snapshot,
+                MapDocument document,
                 MapKeepAnchors anchors,
                 TimeSpan mapParse,
                 TimeSpan snapshotElapsed) =>
                 new PreparedMap(
-                    snapshot,
+                    document,
                     anchors,
                     LobbyEvaluationFailureKind.None,
                     string.Empty,
@@ -1102,6 +1280,9 @@ namespace AIVPlacementLobby.Core
             LobbyFileStamp map,
             LobbyAivSourceStamp aiv,
             int keepSlot,
+            int retainedStartSlotMask,
+            int rebuiltStartState,
+            bool usesMapFacingRotation,
             AivRotation rotation,
             int preBuildSetting,
             string analyzerVersion)
@@ -1109,6 +1290,9 @@ namespace AIVPlacementLobby.Core
             Map = map;
             Aiv = aiv;
             KeepSlot = keepSlot;
+            RetainedStartSlotMask = retainedStartSlotMask;
+            RebuiltStartState = rebuiltStartState;
+            UsesMapFacingRotation = usesMapFacingRotation;
             Rotation = rotation;
             PreBuildSetting = preBuildSetting;
             AnalyzerVersion = analyzerVersion;
@@ -1117,6 +1301,9 @@ namespace AIVPlacementLobby.Core
         public LobbyFileStamp Map { get; }
         public LobbyAivSourceStamp Aiv { get; }
         public int KeepSlot { get; }
+        public int RetainedStartSlotMask { get; }
+        public int RebuiltStartState { get; }
+        public bool UsesMapFacingRotation { get; }
         public AivRotation Rotation { get; }
         public int PreBuildSetting { get; }
         public string AnalyzerVersion { get; }
@@ -1125,6 +1312,9 @@ namespace AIVPlacementLobby.Core
             Map.Equals(other.Map) &&
             Aiv.Equals(other.Aiv) &&
             KeepSlot == other.KeepSlot &&
+            RetainedStartSlotMask == other.RetainedStartSlotMask &&
+            RebuiltStartState == other.RebuiltStartState &&
+            UsesMapFacingRotation == other.UsesMapFacingRotation &&
             Rotation == other.Rotation &&
             PreBuildSetting == other.PreBuildSetting &&
             string.Equals(AnalyzerVersion, other.AnalyzerVersion, StringComparison.Ordinal);
@@ -1139,6 +1329,9 @@ namespace AIVPlacementLobby.Core
                 int hash = Map.GetHashCode();
                 hash = hash * 397 ^ Aiv.GetHashCode();
                 hash = hash * 397 ^ KeepSlot;
+                hash = hash * 397 ^ RetainedStartSlotMask;
+                hash = hash * 397 ^ RebuiltStartState;
+                hash = hash * 397 ^ UsesMapFacingRotation.GetHashCode();
                 hash = hash * 397 ^ (int)Rotation;
                 hash = hash * 397 ^ PreBuildSetting;
                 return hash * 397 ^ (AnalyzerVersion?.GetHashCode() ?? 0);

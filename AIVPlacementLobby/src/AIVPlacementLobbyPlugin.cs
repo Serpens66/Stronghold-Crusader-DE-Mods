@@ -1,5 +1,6 @@
 using System;
 using BepInEx;
+using SHCDESE.API;
 using SHCDESE.API.LowLevel;
 
 namespace AIVPlacementLobby
@@ -10,7 +11,7 @@ namespace AIVPlacementLobby
     {
         public const string PluginGuid = "AIVPlacementLobby_Serp";
         public const string PluginName = "AIV Placement Lobby";
-        public const string PluginVersion = "0.2.0";
+        public const string PluginVersion = "0.3.3";
 
         private static AIVPlacementLobbyRuntime processLifetimeRuntime;
 
@@ -28,6 +29,9 @@ namespace AIVPlacementLobby
                 if (processLifetimeRuntime != null)
                     return;
                 processLifetimeRuntime = new AIVPlacementLobbyRuntime(Logger);
+                GameXAMLManagerAPI.Instance.RegisterBinding(
+                    "AIVPlacementLobbyAivSelectionListHost",
+                    processLifetimeRuntime.SelectionList);
                 processLifetimeRuntime.Install();
             }
             catch (Exception ex)

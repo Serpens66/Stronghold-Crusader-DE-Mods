@@ -95,6 +95,13 @@ public static class SerpLocalization
     public const string PreventEmergencyDemolitionHelp = "SomeSettings.PreventEmergencyDemolitionHelp";
     public const string PreventHovelDeletion = "SomeSettings.PreventHovelDeletion";
     public const string PreventHovelDeletionHelp = "SomeSettings.PreventHovelDeletionHelp";
+    public const string AivPlacementComplete = "AIVPlacementLobby.Complete";
+    public const string AivPlacementPartial = "AIVPlacementLobby.Partial";
+    public const string AivPlacementImpossible = "AIVPlacementLobby.Impossible";
+    public const string AivPlacementNotEvaluable = "AIVPlacementLobby.NotEvaluable";
+    public const string AivPlacementPreBuildUnsupported = "AIVPlacementLobby.PreBuildUnsupported";
+    public const string AivPlacementHostOnly = "AIVPlacementLobby.HostOnly";
+    public const string AivPlacementChecking = "AIVPlacementLobby.Checking";
 
     private const string DefaultLocale = "en-US";
     private static Dictionary<string, string> loadedTexts;
@@ -190,7 +197,14 @@ public static class SerpLocalization
         { PreventEmergencyDemolition, "Prevent AI panic demolition" },
         { PreventEmergencyDemolitionHelp, "Skips the AI emergency resource-recovery demolition block, which can otherwise remove useful buildings under pressure." },
         { PreventHovelDeletion, "Prevent AI hovel deletion" },
-        { PreventHovelDeletionHelp, "Blocks direct deletes of living AI-owned hovels while still allowing normal destruction by damage." }
+        { PreventHovelDeletionHelp, "Blocks direct deletes of living AI-owned hovels while still allowing normal destruction by damage." },
+        { AivPlacementComplete, "Complete fit" },
+        { AivPlacementPartial, "Partial fit: {FitPercentage}%, sequential score {SequentialBuildScore}" },
+        { AivPlacementImpossible, "Does not fit" },
+        { AivPlacementNotEvaluable, "Not evaluable: {Reason}" },
+        { AivPlacementPreBuildUnsupported, "Sequential pre-build placement is not supported yet." },
+        { AivPlacementHostOnly, "Only the host evaluates AI castle placement." },
+        { AivPlacementChecking, "The best AI castle is still being checked." }
     };
 
     public static string Get(string key)

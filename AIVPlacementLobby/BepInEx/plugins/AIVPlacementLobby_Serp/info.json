@@ -2,11 +2,41 @@
   "GUID": "AIVPlacementLobby_Serp",
   "Author": "Serpens66",
   "Name": "AIV Placement Lobby",
-  "Description": "Asynchronously evaluates and caches offline AIV placement requests from the current skirmish lobby without changing the visible UI.",
-  "Version": "0.2.0",
+  "Description": "Shows offline AIV placement fits in the skirmish lobby and selects a random best-scoring AIV for multiplayer hosts.",
+  "Version": "0.3.3",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "0.3.3",
+      "Changes": [
+        "Render placement tooltips on a fully opaque high-contrast background.",
+        "Enlarge status markers and add a dark outline so yellow partial-fit markers remain visible on the lobby background."
+      ]
+    },
+    {
+      "Version": "0.3.2",
+      "Changes": [
+        "Build the no-prebuild lobby snapshot with Vanilla's normalized keep-start state instead of treating serialized starts as blocking buildings.",
+        "Resolve NoRot from each keep's map-facing direction and rebuild earlier AI starts sequentially before checking later players.",
+        "Reuse the multiplayer best-score tie choice for both sequential checks and the actual game start."
+      ]
+    },
+    {
+      "Version": "0.3.1",
+      "Changes": [
+        "Scale placement-status tooltips with the game's frontend resolution and UI-scale formula.",
+        "Log every evaluated AIV rotation with score, fit percentage and first blocking issue for native-result diagnosis."
+      ]
+    },
+    {
+      "Version": "0.3.0",
+      "Changes": [
+        "Show Complete, Partial, Impossible and NotEvaluable markers with localized tooltips in the AIV selection list.",
+        "Own the extended AIV/AIC selection UI and allow up to 999 selected AIVs in both single-player and multiplayer.",
+        "Block the multiplayer host ready/start actions while current checks are pending and randomly choose only among exact best-fit ties at game start."
+      ]
+    },
     {
       "Version": "0.2.0",
       "Changes": [

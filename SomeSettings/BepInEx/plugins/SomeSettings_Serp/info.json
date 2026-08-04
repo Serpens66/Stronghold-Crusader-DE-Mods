@@ -3,10 +3,17 @@
   "Author": "Serpens66",
   "Name": "Some Settings",
   "Description": "Adds small gameplay/QoL settings for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.9",
+  "Version": "1.0.10",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.10",
+      "Changes": [
+        "Moved the extended AIV/AIC selection UI, multi-AIV list handling, and multiplayer start selection to AIV Placement Lobby.",
+        "Kept only the optional per-lord AIV/AIC selection memory and restore behavior in Some Settings."
+      ]
+    },
     {
       "Version": "1.0.1",
       "Changes": [

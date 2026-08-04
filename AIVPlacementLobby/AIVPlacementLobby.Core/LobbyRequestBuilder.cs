@@ -26,6 +26,19 @@ namespace AIVPlacementLobby.Core
                 capture.ScriptExtenderAivAssets,
                 StringComparer.OrdinalIgnoreCase);
             var requests = new List<AivPlacementCheckRequest>(capture.AiSlots.Count);
+            var retainedStartSlots = new HashSet<int>();
+            LobbyRequestFailureKind retainedStateFailure = LobbyRequestFailureKind.None;
+            foreach (int humanPlayerId in capture.HumanPlayerIds)
+            {
+                int humanKeepSlot = FindKeepSlot(
+                    capture.KeepToPlayerOrder,
+                    humanPlayerId,
+                    out LobbyRequestFailureKind humanKeepFailure);
+                if (humanKeepFailure == LobbyRequestFailureKind.None)
+                    retainedStartSlots.Add(humanKeepSlot);
+                else if (retainedStateFailure == LobbyRequestFailureKind.None)
+                    retainedStateFailure = humanKeepFailure;
+            }
 
             foreach (LobbyAiSlotInput slot in capture.AiSlots.OrderBy(value => value.PlayerId))
             {
@@ -33,7 +46,10 @@ namespace AIVPlacementLobby.Core
                     capture.KeepToPlayerOrder,
                     slot.PlayerId,
                     out LobbyRequestFailureKind keepFailure);
-                AivRotation rotation = ToRotation(slot.RotationIndex, out bool validRotation);
+                AivRotation rotation = ToRotation(
+                    slot.RotationIndex,
+                    out bool usesMapFacingRotation,
+                    out bool validRotation);
                 IReadOnlyList<AivPlacementCandidateRequest> candidates = ResolveCandidates(
                     slot,
                     vanillaAivDirectory,
@@ -42,12 +58,18 @@ namespace AIVPlacementLobby.Core
                 LobbyRequestFailureKind failure = mapFailure;
                 if (failure == LobbyRequestFailureKind.None)
                     failure = keepFailure;
+                if (failure == LobbyRequestFailureKind.None)
+                    failure = retainedStateFailure;
                 if (failure == LobbyRequestFailureKind.None && !validRotation)
                     failure = LobbyRequestFailureKind.InvalidRotation;
                 if (failure == LobbyRequestFailureKind.None && candidates.Count == 0)
                     failure = LobbyRequestFailureKind.AivCandidatesUnavailable;
                 if (failure == LobbyRequestFailureKind.None && candidates.Any(value => !value.IsAvailable))
                     failure = LobbyRequestFailureKind.AivFileUnavailable;
+
+                // Only the host owns lobby setup and the multiplayer start payload.
+                if (!capture.IsHost)
+                    failure = LobbyRequestFailureKind.ClientEvaluationNotRequired;
 
                 // Sequential prebuild state is intentionally deferred to Chats 14-16.
                 if (capture.PreBuildSetting == 1)
@@ -71,8 +93,16 @@ namespace AIVPlacementLobby.Core
                     lordName,
                     slot.Mode,
                     rotation,
+                    usesMapFacingRotation,
+                    retainedStartSlots,
                     candidates,
                     failure));
+
+                // Native scans AI players in ID order; completed prior starts remain on the map.
+                if (keepFailure == LobbyRequestFailureKind.None)
+                    retainedStartSlots.Add(keepSlotIndex);
+                else if (retainedStateFailure == LobbyRequestFailureKind.None)
+                    retainedStateFailure = keepFailure;
             }
 
             return new AivPlacementRequestBatch(generation, requests);
@@ -91,6 +121,9 @@ namespace AIVPlacementLobby.Core
             result.Append(capture.PreBuildSetting).Append('|');
             foreach (int value in capture.KeepToPlayerOrder)
                 result.Append(value).Append(',');
+            result.Append('|');
+            foreach (int playerId in capture.HumanPlayerIds.OrderBy(value => value))
+                result.Append(playerId).Append(',');
             result.Append('|');
             foreach (LobbyAiSlotInput slot in capture.AiSlots.OrderBy(value => value.PlayerId))
             {
@@ -254,10 +287,17 @@ namespace AIVPlacementLobby.Core
                 : LobbyRequestFailureKind.MapUnavailable;
         }
 
-        private static AivRotation ToRotation(int rotationIndex, out bool valid)
+        private static AivRotation ToRotation(
+            int rotationIndex,
+            out bool usesMapFacingRotation,
+            out bool valid)
         {
-            valid = rotationIndex >= 0 && rotationIndex <= 3;
-            return valid ? (AivRotation)(rotationIndex * 90) : AivRotation.Degrees0;
+            valid = rotationIndex >= 0 && rotationIndex <= 4;
+            usesMapFacingRotation = rotationIndex == 0;
+            // UI values 1..4 become native orientations 0, 2, 4 and 6.
+            return valid && rotationIndex > 0
+                ? (AivRotation)((rotationIndex - 1) * 90)
+                : AivRotation.Degrees0;
         }
 
         private static bool TryDecodeBuiltInChecksum(

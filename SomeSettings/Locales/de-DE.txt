@@ -31,7 +31,7 @@ SomeSettings.MarketBuyPriceMultiplierHelp=Multiplikator fuer alle Markt-Kaufprei
 SomeSettings.MarketSellPriceMultiplier=Verkaufspreise
 SomeSettings.MarketSellPriceMultiplierHelp=Multiplikator fuer alle Markt-Verkaufspreise. 1.0 = unveraendert, 0.0 = kein Gold durch Verkauf, 5.0 = fuenffacher Vanilla-Preis.
 SomeSettings.RememberAiAivSettings=Gemeinsame AIV-/AIC-Auswahl merken
-SomeSettings.RememberAiAivSettingsHelp=Wenn aktiviert, werden die zuletzt gewaehlte AIV-Liste, Drehung und benutzerdefinierten AIC-Einstellungen jedes KI-Lords gemeinsam fuer Singleplayer- und Multiplayer-Lobbys gespeichert. Im Multiplayer waehlt der Host beim Spielstart zufaellig eine AIV aus der Liste aus und uebertraegt sie.
+SomeSettings.RememberAiAivSettingsHelp=Wenn aktiviert, werden die zuletzt gewaehlte AIV-Liste, Drehung und benutzerdefinierten AIC-Einstellungen jedes KI-Lords gemeinsam fuer Singleplayer- und Multiplayer-Lobbys gespeichert.
 
 SomeSettings.AIEconomyProtectionTitle=AI Economy Protection
 SomeSettings.PreventAIPause=KI-Gebaeudepausen verhindern

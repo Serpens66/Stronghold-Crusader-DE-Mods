@@ -110,8 +110,22 @@
     <Compile Include="..\Shared\DebugLogHelper.cs">
       <Link>Shared\DebugLogHelper.cs</Link>
     </Compile>
+    <Compile Include="..\Shared\SerpLocalization.cs">
+      <Link>Shared\SerpLocalization.cs</Link>
+    </Compile>
+    <Compile Include="src\AivSelectionDialogRuntime.cs" />
+    <Compile Include="src\AivSelectionListViewModel.cs" />
     <Compile Include="src\AIVPlacementLobbyPlugin.cs" />
     <Compile Include="src\AIVPlacementLobbyRuntime.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Locales\*.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Patches\**\*.xaml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

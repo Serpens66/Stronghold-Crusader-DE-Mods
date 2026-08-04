@@ -28,7 +28,6 @@ namespace SomeSettings
         private readonly HashSet<string> resourceAddReentryGuards = new HashSet<string>();
         private readonly Dictionary<string, ResourceEventCountGuard> marketBuyResourceGuards = new Dictionary<string, ResourceEventCountGuard>();
         private readonly Dictionary<string, ResourceEventCountGuard> refundResourceGuards = new Dictionary<string, ResourceEventCountGuard>();
-        private readonly AiAivSelectionListViewModel aiAivSelectionListViewModel;
         private PendingStockpileRefund pendingStockpileRefund;
         private MinimapPlacementClickHook minimapPlacementClickHook;
         private CoopTrailCustomizeHook coopTrailCustomizeHook;
@@ -61,7 +60,6 @@ namespace SomeSettings
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
-            aiAivSelectionListViewModel = new AiAivSelectionListViewModel();
             knightDismountRuntime = new KnightDismountRuntime(log, settings);
             quarryPileRelocationRuntime = new QuarryPileRelocationRuntime(log, settings);
             troopMovementFixRuntime =
@@ -69,7 +67,6 @@ namespace SomeSettings
             SubscribeSettingsChanges();
         }
 
-        public object AiAivSelectionList => aiAivSelectionListViewModel;
         public object KnightDismountButton => knightDismountRuntime.ButtonViewModel;
         public object QuarryPileRelocationButton => quarryPileRelocationRuntime.ButtonViewModel;
 
@@ -220,7 +217,7 @@ namespace SomeSettings
                 return;
 
             skirmishAiSelectionMemoryHook =
-                new SkirmishAiSelectionMemoryHook(log, settings, aiAivSelectionListViewModel);
+                new SkirmishAiSelectionMemoryHook(log, settings);
         }
 
         private void InstallAutoTradeSellZeroHook()

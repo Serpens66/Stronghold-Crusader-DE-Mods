@@ -1,0 +1,7 @@
+AIVPlacementLobby.Complete=Passt vollständig
+AIVPlacementLobby.Partial=Passt teilweise: {FitPercentage} %, sequenzieller Wert {SequentialBuildScore}
+AIVPlacementLobby.Impossible=Passt nicht
+AIVPlacementLobby.NotEvaluable=Nicht prüfbar: {Reason}
+AIVPlacementLobby.PreBuildUnsupported=Die sequenzielle Sofortspawn-Platzierung wird noch nicht unterstützt.
+AIVPlacementLobby.HostOnly=Nur der Host prüft die Platzierung der KI-Burg.
+AIVPlacementLobby.Checking=Die beste KI-Burg wird noch geprüft.

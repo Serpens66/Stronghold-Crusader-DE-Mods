@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using AIVParser.Core;
 using AIVPlacement.Core;
+using MapParser.Core;
 
 namespace AIVPlacementLobby.Core
 {
@@ -35,6 +36,7 @@ namespace AIVPlacementLobby.Core
         InvalidRotation,
         AivCandidatesUnavailable,
         AivFileUnavailable,
+        ClientEvaluationNotRequired,
         PreBuildSequenceUnsupported
     }
 
@@ -101,7 +103,8 @@ namespace AIVPlacementLobby.Core
             int preBuildSetting,
             IEnumerable<int> keepToPlayerOrder,
             IEnumerable<LobbyAiSlotInput> aiSlots,
-            IEnumerable<string> scriptExtenderAivAssets)
+            IEnumerable<string> scriptExtenderAivAssets,
+            IEnumerable<int> humanPlayerIds = null)
         {
             MapPath = mapPath ?? string.Empty;
             MapName = mapName ?? string.Empty;
@@ -114,6 +117,8 @@ namespace AIVPlacementLobby.Core
                 new List<LobbyAiSlotInput>(aiSlots ?? Array.Empty<LobbyAiSlotInput>()));
             ScriptExtenderAivAssets = new ReadOnlyCollection<string>(
                 new List<string>(scriptExtenderAivAssets ?? Array.Empty<string>()));
+            HumanPlayerIds = new ReadOnlyCollection<int>(
+                new List<int>(humanPlayerIds ?? Array.Empty<int>()));
         }
 
         public string MapPath { get; }
@@ -124,6 +129,7 @@ namespace AIVPlacementLobby.Core
         public IReadOnlyList<int> KeepToPlayerOrder { get; }
         public IReadOnlyList<LobbyAiSlotInput> AiSlots { get; }
         public IReadOnlyList<string> ScriptExtenderAivAssets { get; }
+        public IReadOnlyList<int> HumanPlayerIds { get; }
     }
 
     public sealed class AivPlacementCandidateRequest
@@ -168,6 +174,8 @@ namespace AIVPlacementLobby.Core
             string lordName,
             LobbyAivMode aivMode,
             AivRotation initialRotation,
+            bool usesMapFacingRotation,
+            IEnumerable<int> retainedStartSlotIndexes,
             IEnumerable<AivPlacementCandidateRequest> candidates,
             LobbyRequestFailureKind failureKind)
         {
@@ -183,6 +191,19 @@ namespace AIVPlacementLobby.Core
             LordName = lordName ?? string.Empty;
             AivMode = aivMode;
             InitialRotation = initialRotation;
+            UsesMapFacingRotation = usesMapFacingRotation;
+            var retainedSlots = new List<int>(
+                retainedStartSlotIndexes ?? Array.Empty<int>());
+            retainedSlots.Sort();
+            RetainedStartSlotIndexes = new ReadOnlyCollection<int>(retainedSlots);
+            int retainedMask = 0;
+            foreach (int slotIndex in retainedSlots)
+            {
+                if (slotIndex < 0 || slotIndex >= MapKeepAnchors.SlotCount)
+                    throw new ArgumentOutOfRangeException(nameof(retainedStartSlotIndexes));
+                retainedMask |= 1 << slotIndex;
+            }
+            RetainedStartSlotMask = retainedMask;
             CandidateSelectionPolicy = LobbyCandidateSelectionPolicy.NativeBestFit;
             Candidates = new ReadOnlyCollection<AivPlacementCandidateRequest>(
                 new List<AivPlacementCandidateRequest>(candidates));
@@ -204,6 +225,9 @@ namespace AIVPlacementLobby.Core
         public string LordName { get; }
         public LobbyAivMode AivMode { get; }
         public AivRotation InitialRotation { get; }
+        public bool UsesMapFacingRotation { get; }
+        public IReadOnlyList<int> RetainedStartSlotIndexes { get; }
+        public int RetainedStartSlotMask { get; }
         public LobbyCandidateSelectionPolicy CandidateSelectionPolicy { get; }
         // Candidate IDs preserve the import order consumed by Vanilla's native fit scan.
         public IReadOnlyList<AivPlacementCandidateRequest> Candidates { get; }

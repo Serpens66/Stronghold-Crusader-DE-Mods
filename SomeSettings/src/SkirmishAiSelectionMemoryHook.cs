@@ -2,32 +2,20 @@ using BepInEx.Logging;
 using CrusaderDE;
 using MonoMod.RuntimeDetour;
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using System.Text;
-using Button = Noesis.Button;
-using ListView = Noesis.ListView;
-using Visibility = Noesis.Visibility;
 
 namespace SomeSettings
 {
     internal sealed class SkirmishAiSelectionMemoryHook : IDisposable
     {
+        internal const int MaxStoredAivEntriesPerLord = 999;
+
         private delegate void MultiplayerButtonClickedDelegate(FRONT_Multiplayer self, string param);
-        private delegate void AiSettingsInitDelegate(
-            FRONT_Multiplayer_AISettings self,
-            FRONT_Multiplayer.MPAIVInfo aivInfo,
-            bool mpMode);
-        private delegate void AiSettingsPopulateListDelegate(
-            FRONT_Multiplayer_AISettings self,
-            FRONT_Multiplayer.MPAIVInfo aivInfo,
-            bool doPopulate);
         private delegate void AiSettingsButtonClickedDelegate(FRONT_Multiplayer_AISettings self, string param);
         private delegate void AiSettingsAddSelectedDelegate(FRONT_Multiplayer_AISettings self);
-
-        public const int MaxCustomAivsPerLord = 999;
 
         private const long MaxStoreFileBytes = 256L * 1024L * 1024L;
         private const string BuiltInPrefix = "builtin:";
@@ -36,53 +24,31 @@ namespace SomeSettings
 
         private static readonly FieldInfo AiSettingsAivInfoField =
             FindField(typeof(FRONT_Multiplayer_AISettings), "AIVInfo");
-        private static readonly FieldInfo AiSettingsAivListField =
-            FindField(typeof(FRONT_Multiplayer_AISettings), "aivList");
-        private static readonly FieldInfo AiSettingsFileListField =
-            FindField(typeof(FRONT_Multiplayer_AISettings), "RefFileLists");
-        private static readonly FieldInfo AiSettingsMpModeField =
-            FindField(typeof(FRONT_Multiplayer_AISettings), "MPMode");
-        private static readonly MethodInfo AiSettingsPopulateListMethod =
-            FindMethod(
-                typeof(FRONT_Multiplayer_AISettings),
-                "populateList",
-                typeof(FRONT_Multiplayer.MPAIVInfo),
-                typeof(bool));
         private static readonly MethodInfo MultiplayerUpdateHostInfoMethod =
             FindMethod(typeof(FRONT_Multiplayer), "UpdateHostInfo", typeof(bool));
 
         private readonly ManualLogSource log;
         private readonly SomeSettingsViewModel settings;
-        private readonly AiAivSelectionListViewModel selectionList;
         private readonly Dictionary<string, string> storedSelections =
             new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        private readonly Dictionary<FRONT_Multiplayer_AISettings, bool> actualDialogMpModes =
-            new Dictionary<FRONT_Multiplayer_AISettings, bool>();
-        private readonly Random random = new Random();
         private readonly string storePath;
 
         private readonly Hook multiplayerButtonClickedHook;
         private readonly Hook skirmishAiAddClickHook;
-        private readonly Hook aiSettingsInitHook;
-        private readonly Hook aiSettingsPopulateListHook;
         private readonly Hook aiSettingsButtonClickedHook;
         private readonly Hook aiSettingsAddSelectedHook;
         private readonly MultiplayerButtonClickedDelegate multiplayerButtonClickedTrampoline;
         private readonly MultiplayerButtonClickedDelegate skirmishAiAddClickTrampoline;
-        private readonly AiSettingsInitDelegate aiSettingsInitTrampoline;
-        private readonly AiSettingsPopulateListDelegate aiSettingsPopulateListTrampoline;
         private readonly AiSettingsButtonClickedDelegate aiSettingsButtonClickedTrampoline;
         private readonly AiSettingsAddSelectedDelegate aiSettingsAddSelectedTrampoline;
         private bool disposed;
 
         public SkirmishAiSelectionMemoryHook(
             ManualLogSource log,
-            SomeSettingsViewModel settings,
-            AiAivSelectionListViewModel selectionList)
+            SomeSettingsViewModel settings)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
-            this.selectionList = selectionList ?? throw new ArgumentNullException(nameof(selectionList));
             storePath = Path.Combine(GetPluginDirectory(), "LobbyModSettings", StoreFileName);
             LoadStore();
 
@@ -90,12 +56,6 @@ namespace SomeSettings
                 FindMethod(typeof(FRONT_Multiplayer), "ButtonClicked", typeof(string));
             MethodInfo skirmishAiAddClickMethod =
                 FindMethod(typeof(FRONT_Multiplayer), "SkirmishAIAddClick", typeof(string));
-            MethodInfo aiSettingsInitMethod =
-                FindMethod(
-                    typeof(FRONT_Multiplayer_AISettings),
-                    "Init",
-                    typeof(FRONT_Multiplayer.MPAIVInfo),
-                    typeof(bool));
             MethodInfo aiSettingsButtonClickedMethod =
                 FindMethod(typeof(FRONT_Multiplayer_AISettings), "ButtonClicked", typeof(string));
             MethodInfo aiSettingsAddSelectedMethod =
@@ -103,8 +63,6 @@ namespace SomeSettings
 
             Hook multiplayerButtonClicked = null;
             Hook skirmishAiAddClick = null;
-            Hook aiSettingsInit = null;
-            Hook aiSettingsPopulateList = null;
             Hook aiSettingsButtonClicked = null;
             Hook aiSettingsAddSelected = null;
             try
@@ -118,15 +76,6 @@ namespace SomeSettings
                     new Hook(skirmishAiAddClickMethod, (MultiplayerButtonClickedDelegate)SkirmishAiAddClickHook);
                 MultiplayerButtonClickedDelegate skirmishAiAddClickOriginal =
                     skirmishAiAddClick.GenerateTrampoline<MultiplayerButtonClickedDelegate>();
-
-                aiSettingsInit = new Hook(aiSettingsInitMethod, (AiSettingsInitDelegate)AiSettingsInitHook);
-                AiSettingsInitDelegate aiSettingsInitOriginal =
-                    aiSettingsInit.GenerateTrampoline<AiSettingsInitDelegate>();
-
-                aiSettingsPopulateList =
-                    new Hook(AiSettingsPopulateListMethod, (AiSettingsPopulateListDelegate)AiSettingsPopulateListHook);
-                AiSettingsPopulateListDelegate aiSettingsPopulateListOriginal =
-                    aiSettingsPopulateList.GenerateTrampoline<AiSettingsPopulateListDelegate>();
 
                 aiSettingsButtonClicked =
                     new Hook(aiSettingsButtonClickedMethod, (AiSettingsButtonClickedDelegate)AiSettingsButtonClickedHook);
@@ -142,22 +91,15 @@ namespace SomeSettings
                 multiplayerButtonClickedTrampoline = multiplayerButtonClickedOriginal;
                 skirmishAiAddClickHook = skirmishAiAddClick;
                 skirmishAiAddClickTrampoline = skirmishAiAddClickOriginal;
-                aiSettingsInitHook = aiSettingsInit;
-                aiSettingsInitTrampoline = aiSettingsInitOriginal;
-                aiSettingsPopulateListHook = aiSettingsPopulateList;
-                aiSettingsPopulateListTrampoline = aiSettingsPopulateListOriginal;
                 aiSettingsButtonClickedHook = aiSettingsButtonClicked;
                 aiSettingsButtonClickedTrampoline = aiSettingsButtonClickedOriginal;
                 aiSettingsAddSelectedHook = aiSettingsAddSelected;
                 aiSettingsAddSelectedTrampoline = aiSettingsAddSelectedOriginal;
-                selectionList.RemoveRequested += OnRemoveRequested;
             }
             catch
             {
                 aiSettingsAddSelected?.Dispose();
                 aiSettingsButtonClicked?.Dispose();
-                aiSettingsPopulateList?.Dispose();
-                aiSettingsInit?.Dispose();
                 skirmishAiAddClick?.Dispose();
                 multiplayerButtonClicked?.Dispose();
                 throw;
@@ -166,8 +108,8 @@ namespace SomeSettings
             Shared.DebugLogHelper.LogDebug(
                 log,
                 () =>
-                    $"SomeSettings AI selection hooks installed. extensionEnabled={IsDialogExtensionActive()}, " +
-                    $"memoryEnabled={IsMemoryActive()}, maximumAivs={MaxCustomAivsPerLord}, storePath={storePath}");
+                    $"SomeSettings AI selection memory hooks installed. memoryEnabled={IsMemoryActive()}, " +
+                    $"storePath={storePath}");
         }
 
         public void Dispose()
@@ -176,21 +118,15 @@ namespace SomeSettings
                 return;
 
             disposed = true;
-            selectionList.RemoveRequested -= OnRemoveRequested;
             multiplayerButtonClickedHook?.Undo();
             skirmishAiAddClickHook?.Undo();
-            aiSettingsInitHook?.Undo();
-            aiSettingsPopulateListHook?.Undo();
             aiSettingsButtonClickedHook?.Undo();
             aiSettingsAddSelectedHook?.Undo();
             multiplayerButtonClickedHook?.Dispose();
             skirmishAiAddClickHook?.Dispose();
-            aiSettingsInitHook?.Dispose();
-            aiSettingsPopulateListHook?.Dispose();
             aiSettingsButtonClickedHook?.Dispose();
             aiSettingsAddSelectedHook?.Dispose();
-            actualDialogMpModes.Clear();
-            Shared.DebugLogHelper.LogDebug(log, "SomeSettings AI selection hooks disposed.");
+            Shared.DebugLogHelper.LogDebug(log, "SomeSettings AI selection memory hooks disposed.");
         }
 
         private void MultiplayerButtonClickedHook(FRONT_Multiplayer self, string param)
@@ -203,25 +139,10 @@ namespace SomeSettings
             if (memoryActiveBefore && string.Equals(param, "CancelAISettings", StringComparison.Ordinal))
                 SaveActiveAiSettings();
 
-            List<NetworkAivSnapshot> networkSnapshots = null;
-            if (IsDialogExtensionActive() && string.Equals(param, "Play", StringComparison.Ordinal))
-            {
-                EnforceAllRuntimeLimits(self);
-                if (IsMemoryActive())
-                    SaveAllAiSettings(self);
+            if (IsMemoryActive() && string.Equals(param, "Play", StringComparison.Ordinal))
+                SaveAllAiSettings(self);
 
-                if (IsNetworkHost(self))
-                    networkSnapshots = SelectNetworkStartAivs(self);
-            }
-
-            try
-            {
-                multiplayerButtonClickedTrampoline(self, param);
-            }
-            finally
-            {
-                RestoreNetworkStartAivs(networkSnapshots);
-            }
+            multiplayerButtonClickedTrampoline(self, param);
 
             bool memoryActiveAfter = IsMemoryActive();
             if (!memoryActiveAfter || !mayAddAi)
@@ -264,56 +185,8 @@ namespace SomeSettings
             }
         }
 
-        private void AiSettingsInitHook(
-            FRONT_Multiplayer_AISettings self,
-            FRONT_Multiplayer.MPAIVInfo aivInfo,
-            bool mpMode)
-        {
-            actualDialogMpModes[self] = mpMode;
-            bool extensionEnabled = IsDialogExtensionActive();
-            if (extensionEnabled)
-                EnforceRuntimeLimit(aivInfo, "dialog initialization");
-
-            aiSettingsInitTrampoline(self, aivInfo, extensionEnabled ? false : mpMode);
-            bool addButtonVisible = UpdateAddButtonVisibility(self);
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                () =>
-                    $"SomeSettings AI settings dialog opened: extensionEnabled={extensionEnabled}, " +
-                    $"memoryEnabled={IsMemoryActive()}, actualMultiplayerMode={mpMode}, " +
-                    $"aivCount={aivInfo?.aivs?.Count ?? 0}, maximumAivs={MaxCustomAivsPerLord}, " +
-                    $"addButtonVisible={addButtonVisible}.");
-        }
-
-        private void AiSettingsPopulateListHook(
-            FRONT_Multiplayer_AISettings self,
-            FRONT_Multiplayer.MPAIVInfo aivInfo,
-            bool doPopulate)
-        {
-            SetEffectiveDialogMode(self);
-            aiSettingsPopulateListTrampoline(self, aivInfo, doPopulate);
-            RefreshSelectionList(self);
-        }
-
-        private bool UpdateAddButtonVisibility(FRONT_Multiplayer_AISettings instance)
-        {
-            Button addButton = instance?.FindName("MP_Add") as Button;
-            if (addButton == null)
-            {
-                Shared.DebugLogHelper.LogWarning(
-                    log,
-                    "SomeSettings could not find the AIV Add button named MP_Add.");
-                return false;
-            }
-
-            bool visible = IsDialogExtensionActive() || !GetActualDialogMpMode(instance);
-            addButton.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
-            return visible;
-        }
-
         private void AiSettingsButtonClickedHook(FRONT_Multiplayer_AISettings self, string param)
         {
-            SetEffectiveDialogMode(self);
             aiSettingsButtonClickedTrampoline(self, param);
 
             if (!IsMemoryActive() || !IsAiSettingsMutation(param))
@@ -333,231 +206,13 @@ namespace SomeSettings
 
         private void AiSettingsAddSelectedHook(FRONT_Multiplayer_AISettings self)
         {
-            SetEffectiveDialogMode(self);
-            if (!IsDialogExtensionActive())
-            {
-                aiSettingsAddSelectedTrampoline(self);
-                return;
-            }
-
-            try
-            {
-                AddSelectedAivs(self);
-                RefreshSelectionList(self);
-                SaveAiSettings(GetAivInfo(self));
-            }
-            catch (Exception ex)
-            {
-                Shared.DebugLogHelper.LogError(log, $"SomeSettings extended AIV add failed: {ex}");
-            }
-        }
-
-        private void AddSelectedAivs(FRONT_Multiplayer_AISettings self)
-        {
-            FRONT_Multiplayer.MPAIVInfo info = GetAivInfo(self);
-            List<CustomisationFileManager.CustomAIV> availableAivs = GetAvailableAivs(self);
-            ListView fileList = GetFileList(self);
-            if (info?.aivs == null || availableAivs == null || fileList == null || fileList.SelectedItem == null)
-                return;
-
-            List<int> selectedIndexes = new List<int>();
-            if (fileList.SelectedItems != null && fileList.SelectedItems.Count > 1)
-            {
-                foreach (object selectedItem in (IEnumerable)fileList.SelectedItems)
-                {
-                    int selectedIndex = fileList.Items.IndexOf(selectedItem);
-                    if (selectedIndex >= 0)
-                        selectedIndexes.Add(selectedIndex);
-                }
-            }
-            else if (fileList.SelectedIndex >= 0)
-            {
-                selectedIndexes.Add(fileList.SelectedIndex);
-            }
-
-            bool limitReached = false;
-            HashSet<ulong> checksums = new HashSet<ulong>();
-            foreach (CustomisationFileManager.CustomAIV existing in info.aivs)
-            {
-                if (existing != null)
-                    checksums.Add(existing.checksum);
-            }
-
-            foreach (int selectedIndex in selectedIndexes)
-            {
-                if (selectedIndex < 0 || selectedIndex >= availableAivs.Count)
-                    continue;
-
-                CustomisationFileManager.CustomAIV candidate = availableAivs[selectedIndex];
-                if (candidate == null || checksums.Contains(candidate.checksum))
-                    continue;
-
-                if (info.aivs.Count >= MaxCustomAivsPerLord)
-                {
-                    limitReached = true;
-                    break;
-                }
-
-                info.aivs.Add(candidate);
-                checksums.Add(candidate.checksum);
-            }
-
-            if (limitReached)
-            {
-                Shared.DebugLogHelper.LogWarning(
-                    log,
-                    $"SomeSettings AIV list limit reached for {BuildLordKey(info)}: " +
-                    $"{info.aivs.Count}/{MaxCustomAivsPerLord}. Additional selections were ignored.");
-            }
-        }
-
-        private void OnRemoveRequested(CustomisationFileManager.CustomAIV requestedAiv)
-        {
-            if (requestedAiv == null)
-                return;
-
-            try
-            {
-                FRONT_Multiplayer_AISettings instance = FRONT_Multiplayer_AISettings.Instance;
-                if (!IsDialogExtensionActive() && GetActualDialogMpMode(instance))
-                    return;
-
-                FRONT_Multiplayer.MPAIVInfo info = GetAivInfo(instance);
-                if (info?.aivs == null || !IsCustomAivMode(info))
-                    return;
-
-                int index = info.aivs.IndexOf(requestedAiv);
-                if (index < 0)
-                    index = info.aivs.FindIndex(aiv => aiv != null && aiv.checksum == requestedAiv.checksum);
-                if (index < 0)
-                    return;
-
-                info.aivs.RemoveAt(index);
-                RefreshSelectionList(instance);
-                SaveAiSettings(info);
-            }
-            catch (Exception ex)
-            {
-                Shared.DebugLogHelper.LogError(log, $"SomeSettings AIV row removal failed: {ex}");
-            }
-        }
-
-        private void RefreshSelectionList(FRONT_Multiplayer_AISettings instance)
-        {
-            FRONT_Multiplayer.MPAIVInfo info = GetAivInfo(instance);
-            bool actualMpMode = GetActualDialogMpMode(instance);
-            bool allowRemoval =
-                IsCustomAivMode(info) && (IsDialogExtensionActive() || !actualMpMode);
-            selectionList.Refresh(info, allowRemoval);
-        }
-
-        private void SetEffectiveDialogMode(FRONT_Multiplayer_AISettings instance)
-        {
-            if (instance == null)
-                return;
-
-            bool effectiveMpMode =
-                IsDialogExtensionActive() ? false : GetActualDialogMpMode(instance);
-            AiSettingsMpModeField.SetValue(instance, effectiveMpMode);
-        }
-
-        private bool GetActualDialogMpMode(FRONT_Multiplayer_AISettings instance)
-        {
-            return instance != null &&
-                   actualDialogMpModes.TryGetValue(instance, out bool mpMode) &&
-                   mpMode;
-        }
-
-        private bool IsDialogExtensionActive()
-        {
-            return settings.EnableMod;
+            aiSettingsAddSelectedTrampoline(self);
+            SaveAiSettings(GetAivInfo(self));
         }
 
         private bool IsMemoryActive()
         {
             return settings.EnableMod && settings.RememberAiAivSettings;
-        }
-
-        private static bool IsCustomAivMode(FRONT_Multiplayer.MPAIVInfo info)
-        {
-            return info != null && !info.builtIn && !info.community && !info.historical;
-        }
-
-        private static bool IsNetworkHost(FRONT_Multiplayer parent)
-        {
-            return !FRONT_Multiplayer.skirmishGame &&
-                   parent?.currentLobby != null &&
-                   parent.currentLobby.isHost;
-        }
-
-        private List<NetworkAivSnapshot> SelectNetworkStartAivs(FRONT_Multiplayer parent)
-        {
-            List<NetworkAivSnapshot> snapshots = new List<NetworkAivSnapshot>();
-            if (parent?.currentLobby?.members == null || parent.AIVs == null)
-                return snapshots;
-
-            foreach (Platform_Multiplayer.MPLobbyMember member in parent.currentLobby.members)
-            {
-                if (!TryGetAiSlotInfo(parent, member, out int playerId, out string key))
-                    continue;
-                if (playerId < 1 || playerId > parent.AIVs.Length)
-                    continue;
-
-                FRONT_Multiplayer.MPAIVInfo info = parent.AIVs[playerId - 1];
-                if (!IsCustomAivMode(info) || info.aivs == null || info.aivs.Count <= 1)
-                    continue;
-
-                List<CustomisationFileManager.CustomAIV> fullList =
-                    new List<CustomisationFileManager.CustomAIV>(info.aivs);
-                int selectedIndex = random.Next(fullList.Count);
-                CustomisationFileManager.CustomAIV selected = fullList[selectedIndex];
-                snapshots.Add(new NetworkAivSnapshot(info, fullList));
-                info.aivs.Clear();
-                info.aivs.Add(selected);
-
-                Shared.DebugLogHelper.LogDebug(
-                    log,
-                    () =>
-                        $"SomeSettings selected network-start AIV: lord={key}, player={playerId}, " +
-                        $"candidateCount={fullList.Count}, selectedIndex={selectedIndex}, " +
-                        $"selectedName={selected.AIVName}, selectedChecksum={selected.checksum}.");
-            }
-
-            return snapshots;
-        }
-
-        private static void RestoreNetworkStartAivs(List<NetworkAivSnapshot> snapshots)
-        {
-            if (snapshots == null)
-                return;
-
-            foreach (NetworkAivSnapshot snapshot in snapshots)
-            {
-                snapshot.Info.aivs.Clear();
-                snapshot.Info.aivs.AddRange(snapshot.FullList);
-            }
-        }
-
-        private void EnforceAllRuntimeLimits(FRONT_Multiplayer parent)
-        {
-            if (parent?.AIVs == null)
-                return;
-
-            for (int i = 0; i < parent.AIVs.Length; i++)
-                EnforceRuntimeLimit(parent.AIVs[i], $"player slot {i + 1} before game start");
-        }
-
-        private void EnforceRuntimeLimit(FRONT_Multiplayer.MPAIVInfo info, string reason)
-        {
-            if (info?.aivs == null || info.aivs.Count <= MaxCustomAivsPerLord)
-                return;
-
-            int removed = info.aivs.Count - MaxCustomAivsPerLord;
-            info.aivs.RemoveRange(MaxCustomAivsPerLord, removed);
-            Shared.DebugLogHelper.LogWarning(
-                log,
-                $"SomeSettings trimmed an unsafe AIV list: lord={BuildLordKey(info)}, reason={reason}, " +
-                $"removed={removed}, maximum={MaxCustomAivsPerLord}.");
         }
 
         private void SaveActiveAiSettings()
@@ -600,7 +255,6 @@ namespace SomeSettings
             if (string.IsNullOrEmpty(key))
                 return;
 
-            EnforceRuntimeLimit(info, "saving selection");
             string encoded = AiAivSelectionCodec.Encode(info);
             bool hadExisting = storedSelections.TryGetValue(key, out string existing);
             if (hadExisting && string.Equals(existing, encoded, StringComparison.Ordinal))
@@ -691,6 +345,8 @@ namespace SomeSettings
         {
             if (string.IsNullOrEmpty(param))
                 return false;
+            if (param.StartsWith("AIVPlacementLobby_", StringComparison.Ordinal))
+                return true;
             if (param.StartsWith("Kick_", StringComparison.Ordinal))
                 return true;
 
@@ -745,19 +401,6 @@ namespace SomeSettings
             return instance == null
                 ? null
                 : AiSettingsAivInfoField.GetValue(instance) as FRONT_Multiplayer.MPAIVInfo;
-        }
-
-        private static List<CustomisationFileManager.CustomAIV> GetAvailableAivs(
-            FRONT_Multiplayer_AISettings instance)
-        {
-            return instance == null
-                ? null
-                : AiSettingsAivListField.GetValue(instance) as List<CustomisationFileManager.CustomAIV>;
-        }
-
-        private static ListView GetFileList(FRONT_Multiplayer_AISettings instance)
-        {
-            return instance == null ? null : AiSettingsFileListField.GetValue(instance) as ListView;
         }
 
         private static void UpdateHostInfo(FRONT_Multiplayer parent)
@@ -1044,18 +687,5 @@ namespace SomeSettings
             index++;
         }
 
-        private sealed class NetworkAivSnapshot
-        {
-            public NetworkAivSnapshot(
-                FRONT_Multiplayer.MPAIVInfo info,
-                List<CustomisationFileManager.CustomAIV> fullList)
-            {
-                Info = info;
-                FullList = fullList;
-            }
-
-            public FRONT_Multiplayer.MPAIVInfo Info { get; }
-            public List<CustomisationFileManager.CustomAIV> FullList { get; }
-        }
     }
 }

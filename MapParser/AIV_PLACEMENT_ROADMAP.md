@@ -948,6 +948,27 @@ AIV-Ergebnis-Cache:
 
 **Status:** Nächster Schritt.
 
+**Implementierungsstand (2026-08-04):** Die UI-Kennzeichen, skalierenden Tooltips,
+Mehrfachauswahl, hostseitige Auswertung, Ready-Sperre und die zufällige
+Multiplayer-Auswahl unter allen Kandidaten mit dem höchsten Roh-Score sind in
+`AIVPlacementLobby` implementiert. Die zugehörige AIV/AIC-UI- und
+Multiplayer-Startlogik wurde aus `SomeSettings` entfernt; dort verbleibt nur
+das Speichern und Wiederherstellen der zuletzt gewählten AIV/AIC je KI. Beide
+Mods bauen und installieren fehlerfrei. Ein Singleplayer-Livetest deckte eine
+fehlerhafte Lobby-Zustandsaufbereitung auf: serialisierte Startgebäude wurden
+als Kollisionen behandelt und alle Rat-AIVs dadurch rot markiert. Der Worker
+verwendet nun den normalisierten No-PreBuild-Zustand, Vanillas kartenabhängige
+`NoRot`-Anfangsrichtung und rekonstruiert frühere KI-Starts sequenziell. Der
+aktuelle Thasos-Oracle-Vergleich stimmt in 13/13 Versuchen exakt mit Vanilla
+überein; der produktive Lobby-Worker bestätigt `rat5` am ersten Keep als
+`Complete` bei 270 Grad. Die Lobby-Kerntests bestehen 31/31. Die erneute
+Singleplayer-Live-Abnahme bestätigte anschließend korrekte grüne Rat-Ergebnisse
+und ein `Partial`-Ergebnis für `wolf+`; dessen gelber Marker war auf dem hellen
+Hintergrund jedoch kaum erkennbar. Die Marker sind deshalb nun größer und dunkel
+umrandet, die skalierten Tooltips vollständig deckend. Ein erneuter UI-Test sowie
+ein Host/Client-Spielstart stehen noch aus; bis dahin bleibt Chat 13 der nächste
+Schritt und Chat 14 gesperrt.
+
 ### Ziel
 
 Die geprüften Ergebnisse verständlich in der Skirmish-Lobby anzeigen und bei

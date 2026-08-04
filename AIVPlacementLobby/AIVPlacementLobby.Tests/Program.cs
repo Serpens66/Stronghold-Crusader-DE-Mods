@@ -14,8 +14,14 @@ internal static class Program
         var tests = new (string Name, Action Run)[]
         {
             ("maps player to keep slot", MapsPlayerToKeepSlot),
+            ("maps lobby rotation values to native degrees", MapsLobbyRotationValues),
+            ("resolves Vanilla map-facing start rotations", ResolvesMapFacingRotations),
+            ("tracks retained starts in native player order", TracksRetainedStartsInNativePlayerOrder),
+            ("evaluates AI starts sequentially", EvaluatesAiStartsSequentially),
+            ("reuses multiplayer tie choice for sequential starts", ReusesTieChoiceForSequentialStarts),
             ("creates eight default candidates", CreatesDefaultCandidates),
             ("marks prebuild as not evaluable", MarksPrebuildNotEvaluable),
+            ("keeps client evaluation host-only", KeepsClientEvaluationHostOnly),
             ("rejects missing map", RejectsMissingMap),
             ("rejects ambiguous keep", RejectsAmbiguousKeep),
             ("resolves custom AIV", ResolvesCustomAiv),
@@ -29,12 +35,15 @@ internal static class Program
             ("caches not-evaluable placement results", CachesNotEvaluableResults),
             ("coalesces concurrent placement requests", CoalescesConcurrentRequests),
             ("invalidates cache after AIV and map changes", InvalidatesChangedFiles),
+            ("invalidates cache after retained starts change", InvalidatesRetainedStarts),
             ("bounds the placement result cache", BoundsResultCache),
             ("fingerprints source file changes", FingerprintsSourceChanges),
             ("keeps prebuild out of the worker", KeepsPrebuildOutOfWorker),
             ("aggregates every candidate in import order", AggregatesEveryCandidate),
             ("preserves import order for complete ties", PreservesCompleteTieOrder),
-            ("selects the best sequential partial", SelectsBestSequentialPartial)
+            ("selects the best sequential partial", SelectsBestSequentialPartial),
+            ("randomizes every complete tie", FindsEveryCompleteTie),
+            ("randomizes every highest partial score tie", FindsEveryHighestPartialScoreTie)
         };
 
         int failures = 0;
@@ -123,8 +132,119 @@ internal static class Program
         using Fixture fixture = new();
         AivPlacementCheckRequest request = fixture.Build(keepOrder: [-1, -1, 1, -1, -1, -1, -1, -1]);
         Equal(2, request.KeepSlotIndex);
-        Equal(AivRotation.Degrees90, request.InitialRotation);
+        Equal(AivRotation.Degrees0, request.InitialRotation);
+        Assert(!request.UsesMapFacingRotation, "explicit South rotation treated as map-facing");
         Assert(request.IsReady, request.FailureKind.ToString());
+    }
+
+    private static void MapsLobbyRotationValues()
+    {
+        using Fixture fixture = new();
+        AivPlacementCheckRequest mapFacing = fixture.Build(slot: Slot(rotationIndex: 0));
+        Assert(mapFacing.UsesMapFacingRotation, "NoRot was not preserved as map-facing");
+        Equal(AivRotation.Degrees0, fixture.Build(slot: Slot(rotationIndex: 1)).InitialRotation);
+        Equal(AivRotation.Degrees90, fixture.Build(slot: Slot(rotationIndex: 2)).InitialRotation);
+        Equal(AivRotation.Degrees180, fixture.Build(slot: Slot(rotationIndex: 3)).InitialRotation);
+        Equal(AivRotation.Degrees270, fixture.Build(slot: Slot(rotationIndex: 4)).InitialRotation);
+    }
+
+    private static void ResolvesMapFacingRotations()
+    {
+        Equal(AivRotation.Degrees270,
+            AivInitialRotationResolver.ResolveMapFacing(new MapCoordinate(338, 419)));
+        Equal(AivRotation.Degrees180,
+            AivInitialRotationResolver.ResolveMapFacing(new MapCoordinate(433, 373)));
+        Equal(AivRotation.Degrees0,
+            AivInitialRotationResolver.ResolveMapFacing(new MapCoordinate(386, 467)));
+        Equal(AivRotation.Degrees90,
+            AivInitialRotationResolver.ResolveMapFacing(new MapCoordinate(481, 369)));
+    }
+
+    private static void TracksRetainedStartsInNativePlayerOrder()
+    {
+        using Fixture fixture = new();
+        LobbyStateCapture capture = fixture.Capture(
+            keepOrder: [1, 0, 2, -1, -1, -1, -1, -1],
+            slots: [Slot(playerId: 2), Slot(playerId: 3)],
+            humanPlayerIds: [1]);
+
+        AivPlacementRequestBatch batch = new LobbyRequestBuilder()
+            .Build(1, capture, fixture.VanillaDirectory);
+
+        Equal(2, batch.Requests.Count);
+        Equal(1, batch.Requests[0].RetainedStartSlotIndexes.Count);
+        Equal(1, batch.Requests[0].RetainedStartSlotIndexes[0]);
+        Equal(1 << 1, batch.Requests[0].RetainedStartSlotMask);
+        Equal(2, batch.Requests[1].RetainedStartSlotIndexes.Count);
+        Equal(0, batch.Requests[1].RetainedStartSlotIndexes[0]);
+        Equal(1, batch.Requests[1].RetainedStartSlotIndexes[1]);
+        Equal((1 << 0) | (1 << 1), batch.Requests[1].RetainedStartSlotMask);
+    }
+
+    private static void EvaluatesAiStartsSequentially()
+    {
+        using Fixture fixture = new();
+        File.WriteAllText(Path.Combine(fixture.CustomDirectory, "first.aivjson"), "{}");
+        File.WriteAllText(Path.Combine(fixture.CustomDirectory, "second.aivjson"), "{}");
+        LobbyStateCapture capture = fixture.Capture(
+            keepOrder: [1, 2, -1, -1, -1, -1, -1, -1],
+            slots:
+            [
+                Slot(LobbyAivMode.Custom,
+                    [new LobbyAivCandidateInput("first", fixture.CustomDirectory, 0, false, "SK_RAT")],
+                    playerId: 2),
+                Slot(LobbyAivMode.Custom,
+                    [new LobbyAivCandidateInput("second", fixture.CustomDirectory, 0, false, "SK_RAT")],
+                    playerId: 3)
+            ]);
+        AivPlacementRequestBatch batch = new LobbyRequestBuilder()
+            .Build(1, capture, fixture.VanillaDirectory);
+        var worker = new SequentialStateWorker();
+        var service = new AivPlacementEvaluationService(worker, 32, 2);
+
+        AivPlacementBatchResult batchResult = service
+            .EvaluateBatchAsync(batch)
+            .GetAwaiter()
+            .GetResult();
+        IReadOnlyList<AivPlacementCheckResult> results = batchResult.Results;
+
+        Equal(2, results.Count);
+        Equal(0, worker.RebuiltStates[0].Count);
+        Equal(1, worker.RebuiltStates[1].Count);
+        Equal(AivRotation.Degrees0, worker.RebuiltStates[1][0]);
+    }
+
+    private static void ReusesTieChoiceForSequentialStarts()
+    {
+        using Fixture fixture = new();
+        foreach (string name in new[] { "first", "rotated", "second" })
+            File.WriteAllText(Path.Combine(fixture.CustomDirectory, name + ".aivjson"), "{}");
+        LobbyStateCapture capture = fixture.Capture(
+            keepOrder: [1, 2, -1, -1, -1, -1, -1, -1],
+            slots:
+            [
+                Slot(LobbyAivMode.Custom,
+                    [
+                        new LobbyAivCandidateInput("first", fixture.CustomDirectory, 0, false, "SK_RAT"),
+                        new LobbyAivCandidateInput("rotated", fixture.CustomDirectory, 0, false, "SK_RAT")
+                    ],
+                    playerId: 2),
+                Slot(LobbyAivMode.Custom,
+                    [new LobbyAivCandidateInput("second", fixture.CustomDirectory, 0, false, "SK_RAT")],
+                    playerId: 3)
+            ]);
+        AivPlacementRequestBatch batch = new LobbyRequestBuilder()
+            .Build(1, capture, fixture.VanillaDirectory);
+        var worker = new SequentialStateWorker();
+        var service = new AivPlacementEvaluationService(worker, 32, 2);
+
+        AivPlacementBatchResult result = service
+            .EvaluateBatchAsync(batch, null, check => check.PlayerId == 2 ? 1 : null)
+            .GetAwaiter()
+            .GetResult();
+
+        Equal(1, result.SelectedCandidateIdsByPlayer[2]);
+        Equal(AivRotation.Degrees90, worker.StatesByCandidate["second"][0]);
     }
 
     private static void CreatesDefaultCandidates()
@@ -328,6 +448,39 @@ internal static class Program
         Equal(3, worker.CallCount);
     }
 
+    private static void InvalidatesRetainedStarts()
+    {
+        using Fixture fixture = new();
+        File.WriteAllText(Path.Combine(fixture.CustomDirectory, "retained.aivjson"), "{}");
+        LobbyAiSlotInput slot = Slot(
+            LobbyAivMode.Custom,
+            [new LobbyAivCandidateInput(
+                "retained",
+                fixture.CustomDirectory,
+                0,
+                false,
+                "SK_RAT")]);
+        int[] keepOrder = [-1, 0, 1, -1, -1, -1, -1, -1];
+        LobbyStateCapture withoutHuman = fixture.Capture(
+            keepOrder: keepOrder,
+            slots: [slot]);
+        LobbyStateCapture withHuman = fixture.Capture(
+            keepOrder: keepOrder,
+            slots: [slot],
+            humanPlayerIds: [1]);
+        AivPlacementCheckRequest first = new LobbyRequestBuilder()
+            .Build(1, withoutHuman, fixture.VanillaDirectory).Requests.Single();
+        AivPlacementCheckRequest second = new LobbyRequestBuilder()
+            .Build(2, withHuman, fixture.VanillaDirectory).Requests.Single();
+        var worker = new CountingWorker();
+        var service = new AivPlacementEvaluationService(worker, 16, 1);
+
+        service.EvaluateAsync(first).GetAwaiter().GetResult();
+        service.EvaluateAsync(second).GetAwaiter().GetResult();
+
+        Equal(2, worker.CallCount);
+    }
+
     private static void BoundsResultCache()
     {
         using Fixture fixture = new();
@@ -386,6 +539,17 @@ internal static class Program
         Equal(LobbyEvaluationFailureKind.RequestNotReady, result.FailureKind);
     }
 
+    private static void KeepsClientEvaluationHostOnly()
+    {
+        using Fixture fixture = new();
+        LobbyStateCapture capture = fixture.Capture(isHost: false);
+        AivPlacementCheckRequest request = new LobbyRequestBuilder()
+            .Build(1, capture, fixture.VanillaDirectory).Requests.Single();
+
+        Equal(LobbyRequestFailureKind.ClientEvaluationNotRequired, request.FailureKind);
+        Equal(AivPlacementStatus.NotEvaluable, request.ImmediateResultStatus);
+    }
+
     private static void AggregatesEveryCandidate()
     {
         using Fixture fixture = new();
@@ -433,10 +597,47 @@ internal static class Program
         Equal(8, result.SelectedVariant.Score.SequentialBuildScore);
     }
 
+    private static void FindsEveryCompleteTie()
+    {
+        using Fixture fixture = new();
+        AivPlacementCheckRequest request = fixture.BuildCustomList(
+            "complete-first",
+            "complete-second");
+        var service = new AivPlacementEvaluationService(new SelectionWorker(), 16, 2);
+
+        AivPlacementCheckResult result = service.EvaluateAsync(request).GetAwaiter().GetResult();
+        IReadOnlyList<int> eligible = BestFitCandidateSelector.GetEligibleCandidateIds(result);
+
+        Equal(2, eligible.Count);
+        Equal(0, eligible[0]);
+        Equal(1, eligible[1]);
+    }
+
+    private static void FindsEveryHighestPartialScoreTie()
+    {
+        using Fixture fixture = new();
+        AivPlacementCheckRequest request = fixture.BuildCustomList(
+            "partial-low",
+            "partial-high",
+            "partial-copy-high",
+            "partial-high-long");
+        var service = new AivPlacementEvaluationService(new SelectionWorker(), 16, 2);
+
+        AivPlacementCheckResult result = service.EvaluateAsync(request).GetAwaiter().GetResult();
+        IReadOnlyList<int> eligible = BestFitCandidateSelector.GetEligibleCandidateIds(result);
+
+        Equal(3, eligible.Count);
+        Equal(1, eligible[0]);
+        Equal(2, eligible[1]);
+        Equal(3, eligible[2]);
+    }
+
     private static LobbyAiSlotInput Slot(
         LobbyAivMode mode = LobbyAivMode.Default,
-        IEnumerable<LobbyAivCandidateInput> candidates = null) =>
-        new(2, 0, "SK_RAT", "", mode, 1, candidates ?? []);
+        IEnumerable<LobbyAivCandidateInput> candidates = null,
+        int playerId = 2,
+        int rotationIndex = 1) =>
+        new(playerId, 0, "SK_RAT", "", mode, rotationIndex, candidates ?? []);
 
     private static void Equal<T>(T expected, T actual)
     {
@@ -470,19 +671,22 @@ internal static class Program
 
         public LobbyStateCapture Capture(
             int preBuild = 0,
+            bool isHost = true,
             string mapPath = null,
             int[] keepOrder = null,
             IList<LobbyAiSlotInput> slots = null,
-            IEnumerable<string> assets = null) =>
+            IEnumerable<string> assets = null,
+            IEnumerable<int> humanPlayerIds = null) =>
             new(
                 mapPath ?? MapPath,
                 "Synthetic",
                 "Synthetic",
-                true,
+                isHost,
                 preBuild,
                 keepOrder ?? [-1, -1, 1, -1, -1, -1, -1, -1],
                 slots ?? [Slot()],
-                assets ?? []);
+                assets ?? [],
+                humanPlayerIds ?? []);
 
         public AivPlacementCheckRequest Build(
             int preBuild = 0,
@@ -491,7 +695,7 @@ internal static class Program
             LobbyAiSlotInput slot = null,
             IEnumerable<string> assets = null) =>
             new LobbyRequestBuilder()
-                .Build(1, Capture(preBuild, mapPath, keepOrder,
+                .Build(1, Capture(preBuild, true, mapPath, keepOrder,
                     new List<LobbyAiSlotInput> { slot ?? Slot() }, assets), VanillaDirectory)
                 .Requests.Single();
 
@@ -568,7 +772,11 @@ internal static class Program
             bool impossible = workItem.Candidate.Name.StartsWith(
                 "impossible",
                 StringComparison.Ordinal);
-            int frameCount = partial ? 10 : 1;
+            int frameCount = partial && workItem.Candidate.Name.EndsWith(
+                "long",
+                StringComparison.Ordinal)
+                    ? 20
+                    : partial ? 10 : 1;
             var frames = new List<AivBuildFrame>();
             for (int index = 0; index < frameCount; index++)
             {
@@ -604,7 +812,7 @@ internal static class Program
                         rotation);
                     int blockedIndex = impossible
                         ? 0
-                        : workItem.Candidate.Name.EndsWith("high", StringComparison.Ordinal)
+                        : workItem.Candidate.Name.Contains("high", StringComparison.Ordinal)
                             ? 8
                             : 2;
                     map.Set(
@@ -619,6 +827,50 @@ internal static class Program
                     blueprint,
                     new MapCoordinate(400, 400),
                     AivRotation.Degrees90);
+            return new LobbyPlacementWorkerResult(
+                selection,
+                LobbyEvaluationFailureKind.None,
+                string.Empty,
+                LobbyPlacementPhaseTimings.Empty);
+        }
+    }
+
+    private sealed class SequentialStateWorker : ILobbyPlacementCandidateWorker
+    {
+        private readonly object sync = new();
+
+        public List<Dictionary<int, AivRotation>> RebuiltStates { get; } = new();
+        public Dictionary<string, Dictionary<int, AivRotation>> StatesByCandidate { get; } = new();
+
+        public LobbyPlacementWorkerResult Evaluate(AivPlacementCandidateWorkItem workItem)
+        {
+            lock (sync)
+            {
+                var state = new Dictionary<int, AivRotation>(
+                    workItem.RebuiltStartRotationsBySlot);
+                RebuiltStates.Add(state);
+                StatesByCandidate[workItem.Candidate.Name] = state;
+            }
+
+            var blueprint = new AivBlueprint(
+                workItem.Candidate.Name,
+                5,
+                [new AivBuildFrame(
+                    0,
+                    25,
+                    AivMapperCatalog.Resolve(25),
+                    false,
+                    [new AivGridPoint(50, 50)])],
+                Array.Empty<AivMiscPlacement>(),
+                new AivGridPoint(50, 50));
+            AivPlacementRotationSelection selection = new AivPlacementEvaluator()
+                .EvaluateAllRotations(
+                    new SparsePlacementMap(),
+                    blueprint,
+                    new MapCoordinate(400, 400),
+                    workItem.Candidate.Name == "rotated"
+                        ? AivRotation.Degrees90
+                        : AivRotation.Degrees0);
             return new LobbyPlacementWorkerResult(
                 selection,
                 LobbyEvaluationFailureKind.None,

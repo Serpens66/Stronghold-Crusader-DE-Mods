@@ -22,9 +22,9 @@ namespace SomeSettings
                 throw new ArgumentNullException(nameof(info));
 
             int aivCount = info.aivs?.Count ?? 0;
-            if (aivCount > SkirmishAiSelectionMemoryHook.MaxCustomAivsPerLord)
+            if (aivCount > SkirmishAiSelectionMemoryHook.MaxStoredAivEntriesPerLord)
                 throw new InvalidDataException(
-                    $"AIV selection contains {aivCount} entries; maximum is {SkirmishAiSelectionMemoryHook.MaxCustomAivsPerLord}.");
+                    $"AIV selection contains {aivCount} entries; maximum is {SkirmishAiSelectionMemoryHook.MaxStoredAivEntriesPerLord}.");
 
             // Vanilla also treats an empty custom selection as the default AIV mode.
             bool storeAsBuiltIn = !info.builtIn && !info.community && !info.historical && aivCount == 0;
@@ -120,7 +120,7 @@ namespace SomeSettings
                     decoded.image = LoadLordImage(decoded.imageData);
 
                     int aivCount = reader.ReadInt32();
-                    if (aivCount < 0 || aivCount > SkirmishAiSelectionMemoryHook.MaxCustomAivsPerLord)
+                    if (aivCount < 0 || aivCount > SkirmishAiSelectionMemoryHook.MaxStoredAivEntriesPerLord)
                         throw new InvalidDataException($"Invalid AIV count {aivCount}.");
 
                     decoded.aivs = new List<CustomisationFileManager.CustomAIV>(aivCount);

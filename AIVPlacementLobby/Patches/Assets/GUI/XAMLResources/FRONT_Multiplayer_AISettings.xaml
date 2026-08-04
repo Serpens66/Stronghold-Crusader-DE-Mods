@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Patch xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+       xmlns:local="clr-namespace:CrusaderDE">
+  <Operation Type="Replace"
+             XPath="//n:Button[@Name='Player1_Kick']/parent::n:Grid/parent::n:StackPanel">
+    <Content>
+      <Grid x:Name="AIVPlacementLobbyAivSelectionListHost" Margin="0">
+        <Grid.RowDefinitions>
+          <RowDefinition Height="20"/>
+          <RowDefinition Height="260"/>
+        </Grid.RowDefinitions>
+        <TextBlock Text="{Binding CountText}"
+                   Grid.Row="0"
+                   Margin="0,1,30,0"
+                   HorizontalAlignment="Right"
+                   VerticalAlignment="Top"
+                   Foreground="Black"
+                   FontSize="16"/>
+        <ScrollViewer Grid.Row="1"
+                      Margin="0"
+                      HorizontalScrollBarVisibility="Disabled"
+                      VerticalScrollBarVisibility="Auto">
+          <ItemsControl ItemsSource="{Binding Entries}"
+                        Width="330"
+                        HorizontalAlignment="Left">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <Grid Height="30" Width="330" Margin="0,0,0,2">
+                  <Image HorizontalAlignment="Left"
+                         VerticalAlignment="Top"
+                         Width="30"
+                         Margin="5,0,0,0"
+                         Source="{Binding Icon}"/>
+                  <TextBlock Margin="40,5,54,0"
+                             HorizontalAlignment="Stretch"
+                             Foreground="Black"
+                             FlowDirection="{Binding GlobalTextFlowAL2R}"
+                             TextTrimming="CharacterEllipsis"
+                             FontSize="16"
+                             Text="{Binding Name}"/>
+                  <Grid Width="16"
+                        Height="16"
+                        Margin="0,6,35,0"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Top">
+                    <Grid.ToolTip>
+                      <ToolTip Placement="Top"
+                               ToolTipService.ShowDuration="10000"
+                               ToolTipService.InitialShowDelay="300">
+                        <ToolTip.RenderTransform>
+                          <ScaleTransform ScaleX="{Binding ToolTipScale}"
+                                          ScaleY="{Binding ToolTipScale}"/>
+                        </ToolTip.RenderTransform>
+                        <!-- Keep scaled text readable over every lobby background. -->
+                        <Border Background="#FF1D1710"
+                                BorderBrush="#FFF2D48A"
+                                BorderThickness="1"
+                                CornerRadius="2"
+                                Padding="8,5">
+                          <TextBlock Text="{Binding StatusToolTip}"
+                                     Foreground="White"
+                                     FontSize="16"/>
+                        </Border>
+                      </ToolTip>
+                    </Grid.ToolTip>
+                    <Border Background="#FF35A853"
+                            BorderBrush="#FF382A18"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Visibility="{Binding CompleteVisibility}"/>
+                    <Border Background="#FFF2C94C"
+                            BorderBrush="#FF382A18"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Visibility="{Binding PartialVisibility}"/>
+                    <Border Background="#FFD64545"
+                            BorderBrush="#FF382A18"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Visibility="{Binding ImpossibleVisibility}"/>
+                    <Border Background="#FF8B8B8B"
+                            BorderBrush="#FF382A18"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Visibility="{Binding NotEvaluableVisibility}"/>
+                  </Grid>
+                  <Button Width="29"
+                          Margin="0,2,2,0"
+                          HorizontalAlignment="Right"
+                          VerticalAlignment="Top"
+                          local:PropEx.Sprite1="{StaticResource UI-Buttons L009}"
+                          local:PropEx.Sprite2="{StaticResource UI-Buttons L010}"
+                          Command="{Binding RemoveCommand}"
+                          Style="{StaticResource BTN_Building}"
+                          Visibility="{Binding RemoveVisibility}"/>
+                </Grid>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+      </Grid>
+    </Content>
+  </Operation>
+</Patch>

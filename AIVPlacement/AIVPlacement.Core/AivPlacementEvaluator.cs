@@ -68,6 +68,19 @@ namespace AIVPlacement.Core
             return BuildResult(castle, ruleEvaluator.EvaluateElements(map, castle));
         }
 
+        public AivPlacementResult Evaluate(
+            IAivPlacementTileSource map,
+            AivProjectedCastle castle)
+        {
+            if (map == null)
+                throw new ArgumentNullException(nameof(map));
+            if (castle == null)
+                throw new ArgumentNullException(nameof(castle));
+
+            // Lobby workers time projection and native-rule evaluation separately.
+            return BuildResult(castle, ruleEvaluator.EvaluateElements(map, castle));
+        }
+
         public AivPlacementRotationSelection EvaluateAllRotations(
             MapPlacementSnapshot map,
             AivBlueprint aiv,

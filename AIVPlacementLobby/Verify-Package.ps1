@@ -54,12 +54,12 @@ try {
     }
 
     $rootDirectories = @([System.IO.Directory]::GetDirectories($packagePath, '*', [System.IO.SearchOption]::TopDirectoryOnly))
-    if ($rootDirectories.Count -ne 1 -or
-        ![string]::Equals(
-            [System.IO.Path]::GetFileName($rootDirectories[0]),
-            'VanillaAIV',
-            [System.StringComparison]::Ordinal)) {
-        throw 'Die Paketwurzel muss genau den Unterordner VanillaAIV enthalten.'
+    $actualRootDirectoryNames = @($rootDirectories | ForEach-Object { [System.IO.Path]::GetFileName($_) })
+    $expectedRootDirectoryNames = @('Locales', 'Patches', 'VanillaAIV')
+    $missingRootDirectories = @($expectedRootDirectoryNames | Where-Object { $_ -notin $actualRootDirectoryNames })
+    $unexpectedRootDirectories = @($actualRootDirectoryNames | Where-Object { $_ -notin $expectedRootDirectoryNames })
+    if ($missingRootDirectories.Count -ne 0 -or $unexpectedRootDirectories.Count -ne 0) {
+        throw "Ungueltige Paketordner. Fehlend=[$($missingRootDirectories -join ', ')], unerwartet=[$($unexpectedRootDirectories -join ', ')]."
     }
 
     $vanillaPath = [System.IO.Path]::Combine($packagePath, 'VanillaAIV')
@@ -74,9 +74,34 @@ try {
         throw "VanillaAIV muss genau 360 .aivjson-Dateien enthalten; gefunden=$($vanillaFiles.Count)."
     }
 
+    $localePath = [System.IO.Path]::Combine($packagePath, 'Locales')
+    $localeFiles = @([System.IO.Directory]::GetFiles($localePath, '*.txt', [System.IO.SearchOption]::TopDirectoryOnly))
+    if ($localeFiles.Count -ne 21) {
+        throw "Locales muss genau 21 Sprachdateien enthalten; gefunden=$($localeFiles.Count)."
+    }
+
+    $patchPath = [System.IO.Path]::Combine(
+        $packagePath,
+        'Patches\Assets\GUI\XAMLResources\FRONT_Multiplayer_AISettings.xaml')
+    if (![System.IO.File]::Exists($patchPath)) {
+        throw "AIV-Auswahl-Patch fehlt: $patchPath"
+    }
+    $patchContent = [System.IO.File]::ReadAllText($patchPath)
+    $requiredPatchFragments = @(
+        'Background="#FF1D1710"',
+        'BorderBrush="#FFF2D48A"',
+        'Text="{Binding StatusToolTip}"',
+        'BorderBrush="#FF382A18"'
+    )
+    foreach ($fragment in $requiredPatchFragments) {
+        if (!$patchContent.Contains($fragment)) {
+            throw "AIV-Auswahl-Patch enthaelt die erwartete deckende Tooltip-/Marker-Darstellung nicht: $fragment"
+        }
+    }
+
     $packageFiles = @([System.IO.Directory]::GetFiles($packagePath, '*', [System.IO.SearchOption]::AllDirectories))
-    if ($packageFiles.Count -ne 371) {
-        throw "Das vollstaendige Paket muss 371 Dateien enthalten; gefunden=$($packageFiles.Count)."
+    if ($packageFiles.Count -ne 393) {
+        throw "Das vollstaendige Paket muss 393 Dateien enthalten; gefunden=$($packageFiles.Count)."
     }
 
     if (![string]::IsNullOrWhiteSpace($InstalledRoot)) {
@@ -106,7 +131,7 @@ try {
         }
     }
 
-    Write-Output "Paketpruefung erfolgreich: 371 Dateien, davon 360 Vanilla-AIVJSON-Dateien."
+    Write-Output "Paketpruefung erfolgreich: 393 Dateien, davon 360 Vanilla-AIVJSON-Dateien und 21 Locales."
     exit 0
 }
 catch {
