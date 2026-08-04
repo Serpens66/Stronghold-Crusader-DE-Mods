@@ -22,9 +22,11 @@ The equivalent developer commands are:
     dotnet build AIVParser.sln -c Release
     dotnet run --project AIVParser.Tests/AIVParser.Tests.csproj -c Release --no-build
 
-All projects are package-free. `AIVParser.Core` targets `netstandard2.0` so a future
-net481 BepInEx plugin can reference it. Its DTOs use public fields with the game's
-original spellings and can be populated by Unity `JsonUtility`.
+All projects are package-free. `AIVParser.Core` targets `netstandard2.0` and is
+referenced by the net481 `AIVPlacementLobby` BepInEx plugin. Its package-free
+`AivJsonFileLoader` accepts the same comments and trailing commas as the former
+net10 CLI loader, so neither `System.Text.Json` nor another JSON assembly is needed
+in the game. Its DTOs retain the game's original public-field spellings.
 
 ## Schnellstart für Nicht-Programmierer
 
@@ -128,9 +130,10 @@ yard, and the Oil Smelter yard.
 ## Verwendung in einem BepInEx-Mod
 
 `AIVParser.Core` wurde absichtlich getrennt von der `net10.0`-Kommandozeilenanwendung
-gehalten. Die Core-Bibliothek zielt auf `netstandard2.0` und kann deshalb von einem
-`net481`-BepInEx-Mod referenziert werden. Die CLI und `System.Text.Json` werden im
-Spiel nicht benötigt.
+gehalten. Die Core-Bibliothek zielt auf `netstandard2.0` und wird deshalb direkt vom
+`net481`-Mod `AIVPlacementLobby` referenziert. Der Core-eigene
+`AivJsonFileLoader` besitzt keine externen Paketabhängigkeiten; die CLI und
+`System.Text.Json` werden im Spiel nicht benötigt.
 
 Dieser Abschnitt beschreibt den voraussichtlichen Ablauf für einen späteren
 Burg-Spawner. Der Parser liefert bereits Baufolge, Mapper, AIV-Koordinaten,

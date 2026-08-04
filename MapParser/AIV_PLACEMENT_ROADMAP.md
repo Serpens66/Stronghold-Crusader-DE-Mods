@@ -793,7 +793,22 @@ erst gestartet, wenn die geschätzte Laufzeit zumutbar ist.
 
 ## Chat 11: No-PreBuild-Lobby-Datenfluss ohne UI anbinden
 
-**Status:** Nächster Schritt. Die produktive Ausbaustufe bleibt bis
+**Status:** Abgeschlossen. Der neue Mod `AIVPlacementLobby` erfasst über
+prozesslang gehaltene Managed-Detours jede geänderte Skirmish-Lobbygeneration
+und erzeugt daraus paketfreie, immutable Prüfaufträge. Mapdatei und Herkunft,
+Spieler-ID, Keep-Index, Lord, AIV-Modus und -Kandidaten, Anfangsrotation,
+Host-/Client-Rolle sowie `advopt_pre_build` werden mit Millisekunden-Zeitstempel
+protokolliert. Ein Live-Lobby-Test mit bis zu vier ausgewählten AIVs und zwei
+gleichzeitigen KI-Slots bestätigte diesen Datenfluss. Die dekompilierte
+`StartSkirmishGame`-Methode importiert alle ausgewählten AIVs in Listenreihenfolge;
+der native Fit-Scan bewertet Kandidaten und Rotationen und wählt den bestpassenden
+finalen Kandidaten. Es findet keine zufällige Vorauswahl aus der Liste statt.
+Fehlende Eingaben liefern explizite `NotEvaluable`-Gründe;
+Modus `1` liefert ausschließlich `PreBuildSequenceUnsupported`. Eine
+monotonische Generation und `LobbyRequestGenerationGate` verhindern die
+Annahme veralteter Ergebnisse. Der klassische .NET-Framework-4.8.1-Build,
+12/12 synthetische Lobby-Tests und die Installation mit 360 offiziellen
+Vanilla-AIVJSON-Dateien sind erfolgreich. Die produktive Ausbaustufe bleibt bis
 einschließlich Chat 13 ausdrücklich auf deaktivierten Sofortspawn begrenzt.
 
 ### Ziel
@@ -855,13 +870,17 @@ jedem Lobby-Slot gehören und welche AIV-Kandidaten bei
 
 ## Chat 12: No-PreBuild-Cache und asynchrone Auswertung implementieren
 
-**Status:** Ausstehend.
+**Status:** Nächster Schritt.
 
 ### Ziel
 
 Die Offline-Prüfung schnell genug für Karten-, Slot- und AIV-Wechsel in der
 Lobby machen. Produktive Platzierungsergebnisse bleiben in dieser Phase auf
 `advopt_pre_build=0` begrenzt.
+
+Der dafür benötigte paketfreie `AivJsonFileLoader` liegt bereits in
+`AIVParser.Core`, wird von CLI und net481-Mod gemeinsam genutzt und wurde gegen
+360 offizielle sowie 115 lokale ExtendedLords-AIVJSON-Dateien validiert.
 
 ### Empfohlene Cache-Schlüssel
 
@@ -886,6 +905,9 @@ AIV-Ergebnis-Cache:
 
 - Begrenzte Cachegröße oder gezielte Invalidierung.
 - Keine Unity-Objekte im Hintergrundthread verwenden.
+- Für jeden Lobby-Slot alle ausgewählten AIV-Kandidaten in ihrer nativen
+  Importreihenfolge auswerten und den bestpassenden Kandidaten deterministisch
+  aggregieren; niemals vorab einen zufälligen Listeneintrag auswählen.
 - Doppelte gleichzeitige Prüfaufträge zusammenführen.
 - `NotEvaluable` mit Ursache cachen, aber nach Dateiänderung neu prüfen.
 - Messbare Zeiten für Parse, Snapshot, Projektion und Regelprüfung protokollieren.
@@ -1126,6 +1148,6 @@ Stopppunkte sind:
 6. Vor Chat 16: Keine produktive Sofortspawn-Auswertung anbinden, solange das
    sequenzielle Modell nicht gegen den nativen Oracle abgenommen ist.
 
-Der nächste auszuführende Schritt ist "Chat 11".
+Der nächste auszuführende Schritt ist "Chat 12".
 
 

@@ -18,6 +18,13 @@ raw fit score, fit percentage, evaluated and blocked cell counts, map identity,
 map SHA-256, origin, and Keep reference. The map hash is calculated once per
 map load so every row in one selection refers to the same file identity.
 
+Multiple entries in the lobby are not a random-choice pool. The managed
+`StartSkirmishGame` path imports every selected custom AIV in its captured list
+order. The native placement scan then evaluates candidate/rotation fits and emits
+one finalized best-fit candidate ID (`placementState=1` partial or `2` complete).
+Offline consumers must consequently evaluate the full ordered list instead of
+preselecting one entry randomly.
+
 ## Test
 
 1. Close the game and run `build.bat`.

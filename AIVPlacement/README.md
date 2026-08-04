@@ -28,6 +28,12 @@ Vanilla's 85-percent boundary. Complete and partial variants are also exposed as
 separate deterministic sorted lists. An unresolved earlier variant yields
 `NotEvaluable` instead of being treated as a failed fit.
 
+This method evaluates the rotations of one AIV. When a lobby slot contains several
+AIVs, Vanilla imports all of them in list order and its native outer scan selects
+the best-fitting candidate; it does not choose one randomly. The lobby/cache layer
+must therefore call this core for every candidate and retain candidate ID/order
+when aggregating the final result.
+
 The per-rotation statuses are defined as follows:
 
 - `Complete`: at least one tile was evaluated and no tile is blocked or
