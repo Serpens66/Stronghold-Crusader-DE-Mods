@@ -44,3 +44,12 @@ production-worker check can additionally be run as:
 
     dotnet run --project AIVPlacementLobby.Tests -c Release -- \
       --integration "<map path>" "<aivjson path>"
+
+`build.bat` recreates the complete local package on every run instead of relying
+on files from an earlier build. It copies the canonical `info.json`, all freshly
+built assemblies and exactly 360 official Vanilla AIVJSON files, validates the
+371-file package, stages the game installation and compares every installed file
+by SHA-256 through `System.Security.Cryptography.SHA256`, without depending on
+PowerShell module auto-loading. Deleting the installed
+`AIVPlacementLobby_Serp` directory therefore
+requires no manual recovery; running `build.bat` restores the complete mod.

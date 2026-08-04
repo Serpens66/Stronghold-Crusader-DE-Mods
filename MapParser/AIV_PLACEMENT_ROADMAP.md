@@ -882,7 +882,10 @@ Assets werden auf dem Main Thread als Text kopiert, Ergebnisse dort nur bei
 aktueller Generation veröffentlicht. Parse-, Snapshot-, AIV-Parse-, Projektions-
 und Regelzeiten werden mit Millisekunden-Zeitstempel protokolliert. 22/22
 synthetische Tests sowie ein read-only Produktionstest mit `Thasos.map` und der
-offiziellen `rat1.aivjson` einschließlich Cache-Hit sind erfolgreich.
+offiziellen `rat1.aivjson` einschließlich Cache-Hit sind erfolgreich. Die
+`build.bat` erzeugt und validiert das vollständige 371-Dateien-Paket bei jedem
+Lauf neu und stellt auch einen vollständig gelöschten Installationsordner ohne
+manuelle Kopierschritte wieder her.
 
 ### Ziel
 

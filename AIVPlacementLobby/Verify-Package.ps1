@@ -1,0 +1,115 @@
+param(
+    [Parameter(Mandatory = $true)]
+    [string]$PackageRoot,
+
+    [string]$InstalledRoot
+)
+
+$ErrorActionPreference = 'Stop'
+
+function Get-DotNetSha256([string]$Path) {
+    $stream = $null
+    $sha256 = $null
+    try {
+        $stream = [System.IO.File]::OpenRead($Path)
+        $sha256 = [System.Security.Cryptography.SHA256]::Create()
+        $hash = $sha256.ComputeHash($stream)
+        return [System.BitConverter]::ToString($hash).Replace('-', '')
+    }
+    finally {
+        if ($null -ne $sha256) {
+            $sha256.Dispose()
+        }
+        if ($null -ne $stream) {
+            $stream.Dispose()
+        }
+    }
+}
+
+try {
+    $packagePath = [System.IO.Path]::GetFullPath($PackageRoot).TrimEnd('\', '/')
+    if (![System.IO.Directory]::Exists($packagePath)) {
+        throw "Paketordner fehlt: $packagePath"
+    }
+
+    $expectedRootFiles = @(
+        'AIVParser.Core.dll',
+        'AIVParser.Core.pdb',
+        'AIVPlacement.Core.dll',
+        'AIVPlacement.Core.pdb',
+        'AIVPlacementLobby.Core.dll',
+        'AIVPlacementLobby.Core.pdb',
+        'AIVPlacementLobby.dll',
+        'AIVPlacementLobby.pdb',
+        'MapParser.Core.dll',
+        'MapParser.Core.pdb',
+        'info.json'
+    )
+    $rootFiles = @([System.IO.Directory]::GetFiles($packagePath, '*', [System.IO.SearchOption]::TopDirectoryOnly))
+    $actualRootNames = @($rootFiles | ForEach-Object { [System.IO.Path]::GetFileName($_) })
+    $missingRootFiles = @($expectedRootFiles | Where-Object { $_ -notin $actualRootNames })
+    $unexpectedRootFiles = @($actualRootNames | Where-Object { $_ -notin $expectedRootFiles })
+    if ($missingRootFiles.Count -ne 0 -or $unexpectedRootFiles.Count -ne 0) {
+        throw "Ungueltige Paketwurzel. Fehlend=[$($missingRootFiles -join ', ')], unerwartet=[$($unexpectedRootFiles -join ', ')]."
+    }
+
+    $rootDirectories = @([System.IO.Directory]::GetDirectories($packagePath, '*', [System.IO.SearchOption]::TopDirectoryOnly))
+    if ($rootDirectories.Count -ne 1 -or
+        ![string]::Equals(
+            [System.IO.Path]::GetFileName($rootDirectories[0]),
+            'VanillaAIV',
+            [System.StringComparison]::Ordinal)) {
+        throw 'Die Paketwurzel muss genau den Unterordner VanillaAIV enthalten.'
+    }
+
+    $vanillaPath = [System.IO.Path]::Combine($packagePath, 'VanillaAIV')
+    $vanillaFiles = @([System.IO.Directory]::GetFiles($vanillaPath, '*', [System.IO.SearchOption]::TopDirectoryOnly))
+    $unexpectedAivFiles = @($vanillaFiles | Where-Object {
+        ![string]::Equals(
+            [System.IO.Path]::GetExtension($_),
+            '.aivjson',
+            [System.StringComparison]::OrdinalIgnoreCase)
+    })
+    if ($vanillaFiles.Count -ne 360 -or $unexpectedAivFiles.Count -ne 0) {
+        throw "VanillaAIV muss genau 360 .aivjson-Dateien enthalten; gefunden=$($vanillaFiles.Count)."
+    }
+
+    $packageFiles = @([System.IO.Directory]::GetFiles($packagePath, '*', [System.IO.SearchOption]::AllDirectories))
+    if ($packageFiles.Count -ne 371) {
+        throw "Das vollstaendige Paket muss 371 Dateien enthalten; gefunden=$($packageFiles.Count)."
+    }
+
+    if (![string]::IsNullOrWhiteSpace($InstalledRoot)) {
+        $installedPath = [System.IO.Path]::GetFullPath($InstalledRoot).TrimEnd('\', '/')
+        if (![System.IO.Directory]::Exists($installedPath)) {
+            throw "Installationsordner fehlt: $installedPath"
+        }
+
+        $installedFiles = @([System.IO.Directory]::GetFiles($installedPath, '*', [System.IO.SearchOption]::AllDirectories))
+        if ($installedFiles.Count -ne $packageFiles.Count) {
+            throw "Installierte Dateianzahl stimmt nicht: Paket=$($packageFiles.Count), Installation=$($installedFiles.Count)."
+        }
+
+        foreach ($packageFile in $packageFiles) {
+            $relativePath = $packageFile.Substring($packagePath.Length).TrimStart('\', '/')
+            $installedFile = [System.IO.Path]::Combine($installedPath, $relativePath)
+            if (![System.IO.File]::Exists($installedFile)) {
+                throw "Installierte Datei fehlt: $relativePath"
+            }
+
+            # Direct .NET hashing avoids dependence on PowerShell module auto-loading.
+            $packageHash = Get-DotNetSha256 $packageFile
+            $installedHash = Get-DotNetSha256 $installedFile
+            if (![string]::Equals($packageHash, $installedHash, [System.StringComparison]::Ordinal)) {
+                throw "Installierte Datei weicht vom Paket ab: $relativePath"
+            }
+        }
+    }
+
+    Write-Output "Paketpruefung erfolgreich: 371 Dateien, davon 360 Vanilla-AIVJSON-Dateien."
+    exit 0
+}
+catch {
+    Write-Error $_
+    exit 1
+}
