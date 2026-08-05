@@ -7,7 +7,6 @@ using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
-using UnityEngine;
 
 namespace SomeSettings
 {
@@ -41,7 +40,6 @@ namespace SomeSettings
         private IntPtr libraryHandle;
         private int libraryLength;
         private bool nativeLibraryAvailable;
-        private bool inputFailureLogged;
 
         public TroopMovementFix3Runtime(
             ManualLogSource log,
@@ -168,8 +166,7 @@ namespace SomeSettings
                 "use the slowest member's Vanilla maximum speed and a " +
                 "matching shared cadence; " +
                 "Spearmen use the Archer walk/run decision instead of the " +
-                "Improved-Spearman movement override; Ctrl enables Vanilla " +
-                "free-unit-speeds.");
+                "Improved-Spearman movement override.");
         }
 
         private void Disable()
@@ -221,12 +218,6 @@ namespace SomeSettings
 
             activeMoveOrderTribeIds.Add(args.TribeId);
             RemoveSynchronization(args.TribeId, restoreSpeed: true);
-
-            if (ReadCtrlModifier())
-            {
-                TryEnableVanillaFreeUnitSpeeds(args.TribeId);
-                return;
-            }
 
             if (args.MoveType != TribeMoveType.DefaultInSync)
                 return;
@@ -379,23 +370,6 @@ namespace SomeSettings
             return true;
         }
 
-        private bool TryEnableVanillaFreeUnitSpeeds(int tribeId)
-        {
-            if (!TryGetTribe(tribeId, out GameTribe* tribe))
-            {
-                TroopMovementFix3ModLog.Warning(
-                    log,
-                    $"Ctrl movement could not enable Vanilla free-unit-speeds: " +
-                    $"tribeId={tribeId} was not available.");
-                return false;
-            }
-
-            ushort* freeUnitSpeeds =
-                (ushort*)((byte*)tribe + TribeFreeUnitSpeedsOffset);
-            *freeUnitSpeeds = 1;
-            return true;
-        }
-
         private bool TryGetCadence(
             int tribeId,
             out SynchronizedMovementCadence cadence,
@@ -460,28 +434,6 @@ namespace SomeSettings
                        tribeId,
                        out tribe) &&
                    tribe != null;
-        }
-
-        private bool ReadCtrlModifier()
-        {
-            try
-            {
-                return Input.GetKey(KeyCode.LeftControl) ||
-                       Input.GetKey(KeyCode.RightControl);
-            }
-            catch (Exception ex)
-            {
-                if (!inputFailureLogged)
-                {
-                    inputFailureLogged = true;
-                    TroopMovementFix3ModLog.Error(
-                        log,
-                        $"Could not read the Ctrl movement modifier; " +
-                        $"this order remains completely Vanilla: {ex}");
-                }
-
-                return false;
-            }
         }
 
         private readonly struct UnitTypeMovementInfo

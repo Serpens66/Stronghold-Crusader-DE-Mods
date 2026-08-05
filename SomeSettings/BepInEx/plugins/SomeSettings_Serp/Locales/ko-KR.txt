@@ -1,7 +1,7 @@
 # Serp mod localization
 # Format: key=value
-SomeSettings.EnableTroopMovementFix=Troop Speed Fix and Ctrl+Click=Run
-SomeSettings.EnableTroopMovementFixHelp=With Ctrl+Click, all units move at their maximum speed. Normal movement is also fixed: With a normal click, all units move at the speed of the slowest unit in the group.
+SomeSettings.EnableTroopMovementFix=Troop Speed Fix
+SomeSettings.EnableTroopMovementFixHelp=Fixes synchronized movement for mixed troop groups: with a normal movement command, all units move at the speed of the slowest unit in the group.
 Common.ResetToDefault=Reset to Default
 Common.Ai=AI
 Common.Human=Human

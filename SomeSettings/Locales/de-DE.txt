@@ -1,7 +1,7 @@
 # Serp mod localization
 # Format: key=value
-SomeSettings.EnableTroopMovementFix=Truppen Speed Fix und Strg+Klick=Run
-SomeSettings.EnableTroopMovementFixHelp=Mit Strg+Klick laufen alle Einheiten in ihrer maximalen Geschwindigkeit. Außerdem wird die normale Bewegung gefixt: Alle Einheiten laufen bei normalem Klick in der Geschwindigkeit der langsamsten Einheit der Gruppe.
+SomeSettings.EnableTroopMovementFix=Truppen Speed Fix
+SomeSettings.EnableTroopMovementFixHelp=Korrigiert die synchronisierte Bewegung gemischter Truppengruppen: Bei einem normalen Bewegungsbefehl laufen alle Einheiten in der Geschwindigkeit der langsamsten Einheit der Gruppe.
 Common.ResetToDefault=Zurücksetzen
 Common.Ai=KI
 Common.Human=Mensch

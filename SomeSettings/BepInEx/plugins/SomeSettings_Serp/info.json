@@ -78,7 +78,7 @@
     {
       "Version": "1.0.9",
       "Changes": [
-        "Troop Speed Fix (all units now move at the speed of slowest unit of the group, like intended) and Ctrl+Click=Run"
+        "Troop Speed Fix (mixed groups now move at the speed of the slowest unit of the group, like intended)"
       ]
     }
   ]
