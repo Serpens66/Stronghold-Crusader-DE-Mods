@@ -15,7 +15,8 @@ namespace StartConditions
     public sealed partial class StartConditionsRuntime : IDisposable
     {
         private readonly ManualLogSource log;
-        private readonly StartConditionsLobbyViewModel settings;
+        private readonly IStartConditionsSettings settings;
+        private IStartConditionsSettings activeSettings;
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
         private bool handledCurrentMap;
         private bool settingsChangedSubscribed;
@@ -57,15 +58,18 @@ namespace StartConditions
             eChimps.CHIMP_TYPE_BEDOUIN_DEMOLISHER,
         };
 
-        public StartConditionsRuntime(ManualLogSource log, StartConditionsLobbyViewModel settings)
+        public StartConditionsRuntime(ManualLogSource log, IStartConditionsSettings settings)
         {
             this.log = log;
             this.settings = settings;
+            activeSettings = settings;
         }
+
+        private IStartConditionsSettings EffectiveSettings => activeSettings ?? settings;
 
         public void SubscribeHooks()
         {
-            if (!settings.EnableMod)
+            if (!settings.EnableMod && !StartConditionsIntegration.HasMissionOverride)
                 return;
 
             if (hooksSubscribed)
@@ -106,6 +110,7 @@ namespace StartConditions
             if (settingsChangedSubscribed)
             {
                 settings.SettingChanged -= OnSettingChanged;
+                StartConditionsIntegration.MissionOverrideChanged -= OnMissionOverrideChanged;
                 settingsChangedSubscribed = false;
             }
         }
@@ -116,15 +121,25 @@ namespace StartConditions
                 return;
 
             settings.SettingChanged += OnSettingChanged;
+            StartConditionsIntegration.MissionOverrideChanged += OnMissionOverrideChanged;
             settingsChangedSubscribed = true;
         }
 
         private void OnSettingChanged(string propertyName)
         {
-            if (propertyName != nameof(StartConditionsLobbyViewModel.EnableMod))
+            if (propertyName != nameof(IStartConditionsSettings.EnableMod))
                 return;
 
-            if (settings.EnableMod)
+            if (settings.EnableMod || StartConditionsIntegration.HasMissionOverride)
+                SubscribeHooks();
+            else
+                UnsubscribeHooks();
+        }
+
+        private void OnMissionOverrideChanged()
+        {
+            // A mission must work even when the user's persistent StartConditions toggle is off.
+            if (StartConditionsIntegration.HasMissionOverride || settings.EnableMod)
                 SubscribeHooks();
             else
                 UnsubscribeHooks();

@@ -11,7 +11,7 @@ using System.Text;
 
 namespace StartConditions
 {
-    public sealed class StartConditionsLobbyViewModel : LobbyModSettingsBaseViewModel
+    public sealed class StartConditionsLobbyViewModel : LobbyModSettingsBaseViewModel, IStartConditionsSettings
     {
         public event Action<string> SettingChanged;
 

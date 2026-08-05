@@ -22,11 +22,12 @@ namespace StartConditions
         {
             try
             {
+                IStartConditionsSettings current = EffectiveSettings;
                 CancelPendingStartTroopProcessing();
-                LogDebug("Raw AI AddStartTroops:", settings.AddStartTroopsAI);
-                LogDebug("Raw Human AddStartTroops:", settings.AddStartTroopsHuman);
-                Dictionary<eChimps, int> aiTroops = ParseEnumAmounts<eChimps>(settings.AddStartTroopsAI);
-                Dictionary<eChimps, int> humanTroops = ParseEnumAmounts<eChimps>(settings.AddStartTroopsHuman);
+                LogDebug("Raw AI AddStartTroops:", current.AddStartTroopsAI);
+                LogDebug("Raw Human AddStartTroops:", current.AddStartTroopsHuman);
+                Dictionary<eChimps, int> aiTroops = ParseEnumAmounts<eChimps>(current.AddStartTroopsAI);
+                Dictionary<eChimps, int> humanTroops = ParseEnumAmounts<eChimps>(current.AddStartTroopsHuman);
                 LogConfiguredTroops("AI AddStartTroops", aiTroops);
                 LogConfiguredTroops("Human AddStartTroops", humanTroops);
 
@@ -34,7 +35,7 @@ namespace StartConditions
                 ForEachActivePlayer(playerId =>
                 {
                     bool isAI = GamePlayerManagerAPI.Instance.IsAIPlayer(playerId);
-                    int multiplier = isAI ? settings.MultiplyStartTroopsAI : settings.MultiplyStartTroopsHuman;
+                    int multiplier = isAI ? current.MultiplyStartTroopsAI : current.MultiplyStartTroopsHuman;
 
                     if (multiplier == 0 || multiplier > 1)
                     {

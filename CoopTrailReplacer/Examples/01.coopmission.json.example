@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "displayName": "Meine Coop-Mission",
+  "description": "Host und Gast verteidigen gemeinsam die Oase.",
+  "map": {
+    "source": "bundled",
+    "file": "MeineMission/map.map"
+  },
+  "settings": {
+    "fairness": 3,
+    "startingGoodsLevel": 4,
+    "allowBarracksHost": true,
+    "allowMercenaryPostHost": true,
+    "allowStockadeHost": true,
+    "allowBarracksGuest": true,
+    "allowMercenaryPostGuest": true,
+    "allowStockadeGuest": true
+  },
+  "players": [
+    {
+      "active": true,
+      "team": 1,
+      "colour": 0,
+      "keepPosition": 1
+    },
+    {
+      "active": true,
+      "team": 7,
+      "colour": 1,
+      "keepPosition": 2
+    },
+    {
+      "active": true,
+      "team": 2,
+      "colour": 2,
+      "keepPosition": 3,
+      "lord": {
+        "source": "bundled",
+        "name": "Custom Rat",
+        "file": "MeineMission/lords/custom-rat.lordjson",
+        "baseLordId": 0
+      },
+      "aivs": [
+        {
+          "source": "bundled",
+          "file": "MeineMission/aivs/castle-1.aivjson",
+          "rotation": 90
+        },
+        {
+          "source": "installed",
+          "name": "castle-2",
+          "lordName": "Custom Rat",
+          "rotation": 90
+        }
+      ],
+      "preferredAiv": -1
+    }
+  ],
+  "startConditions": {
+    "setStartGoldAI": -1,
+    "setStartGoldHuman": 500,
+    "addStartGoldAI": 0,
+    "addStartGoldHuman": 0,
+    "multiplyStartTroopsAI": 1,
+    "multiplyStartTroopsHuman": 1,
+    "startGoodsAI": {
+      "STORED_WOOD_PLANKS": 100
+    },
+    "startGoodsHuman": {
+      "STORED_WOOD_PLANKS": 100,
+      "STORED_STONE_BLOCKS": 50
+    },
+    "addStartTroopsAI": {
+      "CHIMP_TYPE_ARCHER": 10
+    },
+    "addStartTroopsHuman": {
+      "CHIMP_TYPE_SPEARMAN": 5
+    }
+  }
+}

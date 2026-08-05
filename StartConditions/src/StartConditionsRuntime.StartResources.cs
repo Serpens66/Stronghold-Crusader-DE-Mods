@@ -20,9 +20,10 @@ namespace StartConditions
 
         private void ApplyStartGold(int playerId)
         {
+            IStartConditionsSettings current = EffectiveSettings;
             bool isAI = GamePlayerManagerAPI.Instance.IsAIPlayer(playerId);
-            int setGold = isAI ? settings.SetStartGoldAI : settings.SetStartGoldHuman;
-            int addGold = isAI ? settings.AddStartGoldAI : settings.AddStartGoldHuman;
+            int setGold = isAI ? current.SetStartGoldAI : current.SetStartGoldHuman;
+            int addGold = isAI ? current.AddStartGoldAI : current.AddStartGoldHuman;
 
             if (setGold >= 0)
             {
@@ -45,8 +46,9 @@ namespace StartConditions
 
         private void ReplaceStartGoods(int playerId)
         {
-            Dictionary<eGoods, int> aiGoods = ParseEnumAmounts<eGoods>(settings.StartGoodsAI);
-            Dictionary<eGoods, int> humanGoods = ParseEnumAmounts<eGoods>(settings.StartGoodsHuman);
+            IStartConditionsSettings current = EffectiveSettings;
+            Dictionary<eGoods, int> aiGoods = ParseEnumAmounts<eGoods>(current.StartGoodsAI);
+            Dictionary<eGoods, int> humanGoods = ParseEnumAmounts<eGoods>(current.StartGoodsHuman);
 
             bool isAI = GamePlayerManagerAPI.Instance.IsAIPlayer(playerId);
             Dictionary<eGoods, int> goods = isAI ? aiGoods : humanGoods;

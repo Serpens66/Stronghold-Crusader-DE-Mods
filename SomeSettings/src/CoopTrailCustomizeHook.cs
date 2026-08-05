@@ -75,6 +75,8 @@ namespace SomeSettings
             }
 
             self.CoopMissionChanged(GetCoopTrailId(currentTrail), currentMission);
+            // Mark after CoopMissionChanged so another normal selection can clear stale state first.
+            CoopTrailLaunchContext.MarkCustomized(GetCoopTrailId(currentTrail), currentMission);
             if (self.singlePlayerCoop)
             {
                 SwitchAiCoopToSinglePlayerSkirmishSetup(self, currentTrail);

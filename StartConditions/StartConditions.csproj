@@ -104,6 +104,8 @@
       <Link>Shared\SerpLocalization.cs</Link>
     </Compile>
     <Compile Include="src\StartConditionsPlugin.cs" />
+    <Compile Include="src\IStartConditionsSettings.cs" />
+    <Compile Include="src\StartConditionsIntegration.cs" />
     <Compile Include="src\StartConditionsLobbyViewModel.cs" />
     <Compile Include="src\StartConditionsRuntime.cs" />
     <Compile Include="src\StartConditionsRuntime.StartTroops.cs" />

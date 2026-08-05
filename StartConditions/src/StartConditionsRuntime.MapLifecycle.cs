@@ -45,10 +45,13 @@ namespace StartConditions
             LogDebug("OnUnloadMap");
             CancelPendingStartTroopProcessing();
             handledCurrentMap = false;
+            activeSettings = settings;
         }
 
         private void CodeOnNewGame()
         {
+            // Capture once so delayed troop processing uses the same mission settings.
+            activeSettings = StartConditionsIntegration.GetEffectiveSettings(settings);
             ApplyStartResources();
             AddStartTroops();
         }

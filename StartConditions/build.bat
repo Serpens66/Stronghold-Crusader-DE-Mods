@@ -9,12 +9,14 @@ set "LOCAL_SCRIPT_EXTENDER_MOD_OUTPUT=%LOCAL_SCRIPT_EXTENDER_ROOT%\mod_output\00
 set "LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT=%LOCAL_SCRIPT_EXTENDER_ROOT%\src\SHCDESE.BepInEx\bin\net481"
 set "GAME_SCRIPT_EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
 set "EXTENDER_DIR="
+set "NO_PAUSE=0"
+for %%A in (%*) do if /I "%%~A"=="/nopause" set "NO_PAUSE=1"
 
 if not exist "%MSBUILD%" (
   echo MSBuild wurde nicht gefunden:
   echo !MSBUILD!
   echo.
-  pause
+  if "!NO_PAUSE!"=="0" pause
   exit /b 1
 )
 
@@ -22,7 +24,7 @@ if not exist "%GAME_DIR%\BepInEx\core\BepInEx.dll" (
   echo BepInEx.dll wurde im Spielordner nicht gefunden:
   echo !GAME_DIR!\BepInEx\core\BepInEx.dll
   echo.
-  pause
+  if "!NO_PAUSE!"=="0" pause
   exit /b 1
 )
 
@@ -39,7 +41,7 @@ if exist "%LOCAL_SCRIPT_EXTENDER_ROOT%\" (
     echo Baue zuerst ..\shcde-script-extender\build.bat oder entferne den Nebenordner,
     echo wenn gegen die installierte Spiel-DLL kompiliert werden soll.
     echo.
-    pause
+    if "!NO_PAUSE!"=="0" pause
     exit /b 1
   )
 ) else (
@@ -50,7 +52,7 @@ if not exist "%EXTENDER_DIR%\SHCDESE.dll" (
   echo SHCDESE.dll wurde nicht gefunden:
   echo !EXTENDER_DIR!\SHCDESE.dll
   echo.
-  pause
+  if "!NO_PAUSE!"=="0" pause
   exit /b 1
 )
 
@@ -106,7 +108,7 @@ if "%BUILD_EXIT_CODE%"=="0" (
   echo Build fehlgeschlagen. Exit Code: %BUILD_EXIT_CODE%
 )
 echo.
-pause
+if "!NO_PAUSE!"=="0" pause
 exit /b %BUILD_EXIT_CODE%
 
 :copy_failed
@@ -114,7 +116,7 @@ echo.
 echo Kopieren fehlgeschlagen. Ist das Spiel noch gestartet?
 echo Beende Stronghold Crusader Definitive Edition und starte build.bat erneut.
 echo.
-pause
+if "!NO_PAUSE!"=="0" pause
 exit /b 1
 
 
