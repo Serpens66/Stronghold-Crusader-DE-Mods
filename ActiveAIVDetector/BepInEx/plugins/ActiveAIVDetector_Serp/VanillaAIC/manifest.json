@@ -1,11 +1,11 @@
 {
   "exporterVersion": "0.1.0",
-  "exportedAtLocal": "2026-07-29 22:29:46.251 \u002B02:00",
-  "steamBuildId": "23201833",
+  "exportedAtLocal": "2026-08-05 22:56:10.402 \u002B02:00",
+  "steamBuildId": "24530188",
   "gameExecutableVersion": "2021.3.45.8976527",
   "nativeLibraryPath": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\Stronghold Crusader Definitive Edition_Data\\Plugins\\x86_64\\CrusaderDE.dll",
   "nativeLibraryFileVersion": "",
-  "nativeLibrarySha256": "17f8dd4a92ff6125bd6a3a70abc80c727682e489696c218d146a7ea6d2f88bf4",
+  "nativeLibrarySha256": "1e6d4c2e10cc35a7b8082a7e2bcd8bb20680ebeda803d9b943257b948145cb2b",
   "exportedLords": [
     "Rat",
     "Snake",
@@ -33,11 +33,10 @@
     "Lioness",
     "Crocodile",
     "Baldwin",
-    "Bullseye"
+    "Bullseye",
+    "Surgeon",
+    "Baibars"
   ],
-  "skippedEmptyOfficialSlots": [
-    "DLC4A",
-    "DLC4B"
-  ],
+  "skippedEmptyOfficialSlots": [],
   "note": "SK_X1 through SK_X8 and SK_TEMP are runtime/custom slots and are intentionally excluded."
 }
