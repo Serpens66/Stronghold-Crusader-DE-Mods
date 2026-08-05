@@ -3,82 +3,43 @@
   "Author": "Serpens66",
   "Name": "Some Settings",
   "Description": "Adds small gameplay/QoL settings for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.14",
+  "Version": "1.0.15",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
     {
-      "Version": "1.0.14",
-      "Changes": [
-        "Cleaned up fast recruit rally diagnostics by removing logging-only tracking state and moving normal movement messages from Info to Debug."
-      ]
-    },
-    {
-      "Version": "1.0.13",
-      "Changes": [
-        "Fixed fast recruit rally movement by replacing the incorrect global State 109 detection with direct native recruitment markers for mercenary posts and European barracks.",
-        "Improved timestamped Info diagnostics to report native recruit marking, actual rally-path start, applied run animation and cadence, and path completion."
-      ]
-    },
-    {
-      "Version": "1.0.12",
-      "Changes": [
-        "Added timestamped Info diagnostics for the fast recruit rally movement hook, State 109 detection, native run-data resolution, applied cadence values, and rally-state completion."
-      ]
-    },
-    {
-      "Version": "1.0.11",
-      "Changes": [
-        "Added a host-synchronized option that makes newly recruited player and AI units use their Vanilla Fast cadence and animation while moving to rally points, while retaining terrain and state modifiers.",
-        "Corrected obsolete Ctrl+Click wording for the Troop Speed Fix."
-      ]
-    },
-    {
-      "Version": "1.0.10",
-      "Changes": [
-        "Moved the extended AIV/AIC selection UI, multi-AIV list handling, and multiplayer start selection to AIV Placement Lobby.",
-        "Kept only the optional per-lord AIV/AIC selection memory and restore behavior in Some Settings."
-      ]
-    },
-    {
-      "Version": "1.0.1",
-      "Changes": [
-        "Minimap dragging now follows the mouse cursor directly."
-      ]
-    },
-    {
-      "Version": "1.0.2",
+      "Version": "1.0.02",
       "Changes": [
         "Add Slider for Market Buy/Sell Prices",
         "Added checkbox to remember the last used AIV/AIC setting for the AI"
       ]
     },
     {
-      "Version": "1.0.3",
+      "Version": "1.0.03",
       "Changes": [
         "Allow auto-sell in market if amount is bigger than 0 (so no longer at least 1 in storage)"
       ]
     },
     {
-      "Version": "1.0.4",
+      "Version": "1.0.04",
       "Changes": [
         "Integrated AI Economy Protection with separate settings for AI building pauses, AI panic demolition, and AI hovel deletion."
       ]
     },
     {
-      "Version": "1.0.5",
+      "Version": "1.0.05",
       "Changes": [
         "Fixed custom building refund percentages above the vanilla 50 percent value."
       ]
     },
     {
-      "Version": "1.0.6",
+      "Version": "1.0.06",
       "Changes": [
         "Added a synchronized knight dismount command button that turns selected own mounted knights into swordsmen with matching health ratio."
       ]
     },
     {
-      "Version": "1.0.7",
+      "Version": "1.0.07",
       "Changes": [
         "Added an optional synchronized quarry button for relocating its linked stone pile after placing a replacement nearby.",
         "Added detailed Info-level diagnostics for every quarry-pile relocation stage.",
@@ -94,7 +55,7 @@
       ]
     },
     {
-      "Version": "1.0.8",
+      "Version": "1.0.08",
       "Changes": [
         "Shared the last AIV/AIC selection for each AI lord between singleplayer and multiplayer skirmish lobbies.",
         "Added scrollable custom AIV lists with add, replace, and remove controls for up to 999 unique entries in both lobby types.",
@@ -102,9 +63,54 @@
       ]
     },
     {
-      "Version": "1.0.9",
+      "Version": "1.0.09",
       "Changes": [
         "Troop Speed Fix (mixed groups now move at the speed of the slowest unit of the group, like intended)"
+      ]
+    },
+    {
+      "Version": "1.0.10",
+      "Changes": [
+        "Moved the extended AIV/AIC selection UI, multi-AIV list handling, and multiplayer start selection to AIV Placement Lobby.",
+        "Kept only the optional per-lord AIV/AIC selection memory and restore behavior in Some Settings."
+      ]
+    },
+    {
+      "Version": "1.0.11",
+      "Changes": [
+        "Added a host-synchronized option that makes newly recruited player and AI units use their Vanilla Fast cadence and animation while moving to rally points, while retaining terrain and state modifiers.",
+        "Corrected obsolete Ctrl+Click wording for the Troop Speed Fix."
+      ]
+    },
+    {
+      "Version": "1.0.01",
+      "Changes": [
+        "Minimap dragging now follows the mouse cursor directly."
+      ]
+    },
+    {
+      "Version": "1.0.12",
+      "Changes": [
+        "Added timestamped Info diagnostics for the fast recruit rally movement hook, State 109 detection, native run-data resolution, applied cadence values, and rally-state completion."
+      ]
+    },
+    {
+      "Version": "1.0.13",
+      "Changes": [
+        "Fixed fast recruit rally movement by replacing the incorrect global State 109 detection with direct native recruitment markers for mercenary posts and European barracks.",
+        "Improved timestamped Info diagnostics to report native recruit marking, actual rally-path start, applied run animation and cadence, and path completion."
+      ]
+    },
+    {
+      "Version": "1.0.14",
+      "Changes": [
+        "Cleaned up fast recruit rally diagnostics by removing logging-only tracking state and moving normal movement messages from Info to Debug."
+      ]
+    },
+    {
+      "Version": "1.0.15",
+      "Changes": [
+        "Added an enabled-by-default option that lets stone churches use two priests and cathedrals use three priests."
       ]
     }
   ]

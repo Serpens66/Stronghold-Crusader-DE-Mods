@@ -88,6 +88,8 @@ public static class SerpLocalization
     public const string KnightMountTooltipBody = "SomeSettings.KnightMountTooltipBody";
     public const string EnableQuarryPileRelocation = "SomeSettings.EnableQuarryPileRelocation";
     public const string EnableQuarryPileRelocationHelp = "SomeSettings.EnableQuarryPileRelocationHelp";
+    public const string EnableExtraChurchPriests = "SomeSettings.EnableExtraChurchPriests";
+    public const string EnableExtraChurchPriestsHelp = "SomeSettings.EnableExtraChurchPriestsHelp";
     public const string QuarryPileRelocationTooltip = "SomeSettings.QuarryPileRelocationTooltip";
     public const string QuarryPileRelocationTooltipBody = "SomeSettings.QuarryPileRelocationTooltipBody";
     public const string AiEconomyProtectionTitle = "SomeSettings.AIEconomyProtectionTitle";
@@ -193,6 +195,8 @@ public static class SerpLocalization
         { KnightMountTooltipBody, "Turns selected swordsmen into mounted knights. Requires available horses in a stable." },
         { EnableQuarryPileRelocation, "Enable quarry pile rotation button" },
         { EnableQuarryPileRelocationHelp, "Adds a button to selected quarries that rotates their linked stone pile clockwise to the next valid position. The existing pile is kept if no valid replacement can be created." },
+        { EnableExtraChurchPriests, "Enable extra priests for churches" },
+        { EnableExtraChurchPriestsHelp, "When enabled, churches require two priests and cathedrals require three priests." },
         { QuarryPileRelocationTooltip, "Move stone pile" },
         { QuarryPileRelocationTooltipBody, "Moves the linked stone pile clockwise to the next valid position around this quarry." },
         { AiEconomyProtectionTitle, "AI Economy Protection" },

@@ -55,6 +55,12 @@
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding EnableQuarryPileRelocationText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox>
+      <CheckBox IsChecked="{Binding EnableExtraChurchPriests, Mode=TwoWay}"
+                Foreground="White"
+                ToolTip="{Binding EnableExtraChurchPriestsHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding EnableExtraChurchPriestsText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox>
 
       <Separator Background="#444466" Margin="0,10"/>
       <TextBlock Text="{Binding AiEconomyProtectionTitleText}" Foreground="#77AAFF" FontWeight="Bold" Margin="0,0,0,8"/>

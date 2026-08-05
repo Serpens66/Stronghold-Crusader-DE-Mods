@@ -38,6 +38,7 @@ namespace SomeSettings
         private readonly KnightDismountRuntime knightDismountRuntime;
         private readonly QuarryPileRelocationRuntime quarryPileRelocationRuntime;
         private readonly TroopMovementFix3Runtime troopMovementFixRuntime;
+        private readonly ChurchPriestCountRuntime churchPriestCountRuntime;
         private AIEconomyProtectionHook aiEconomyProtectionHook;
 
         private bool hooksSubscribed;
@@ -64,6 +65,7 @@ namespace SomeSettings
             quarryPileRelocationRuntime = new QuarryPileRelocationRuntime(log, settings);
             troopMovementFixRuntime =
                 new TroopMovementFix3Runtime(log, settings);
+            churchPriestCountRuntime = new ChurchPriestCountRuntime(log, settings);
             SubscribeSettingsChanges();
         }
 
@@ -98,6 +100,18 @@ namespace SomeSettings
             }
         }
 
+        public void InstallChurchPriestCountNativeData(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
+        {
+            try
+            {
+                churchPriestCountRuntime.InitializeNative(libraryHandle, memory);
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(log, $"SomeSettings church priest counts could not be initialized: {ex}");
+            }
+        }
+
         public void SubscribeHooks()
         {
             if (!settings.EnableMod)
@@ -113,12 +127,13 @@ namespace SomeSettings
                 subscriptions.Add(BuildingR3EventHooks.OnGoodsyardAddGood.Observable.Subscribe(OnGoodsyardAddGood));
                 subscriptions.Add(PlayerR3EventHooks.OnPlayerMarketInteraction.Observable.Subscribe(OnPlayerMarketInteraction));
                 subscriptions.Add(InputR3EventHooks.OnKeyDown.Observable.Subscribe(OnKeyDown));
+                subscriptions.Add(BuildingR3EventHooks.OnBuildingSpawn.Observable.Subscribe(churchPriestCountRuntime.ApplySpawnedBuilding));
                 subscriptions.Add(MapLoaderR3EventHooks.OnLoadMap.Observable
                     .Where(args => args.Phase == EventHookPhase.Post)
-                    .Subscribe(_ => ApplyMarketPriceMultipliers()));
+                    .Subscribe(_ => ApplyMapLoadedSettings()));
                 subscriptions.Add(MapLoaderR3EventHooks.OnLoadSave.Observable
                     .Where(args => args.Phase == EventHookPhase.Post)
-                    .Subscribe(_ => ApplyMarketPriceMultipliers()));
+                    .Subscribe(_ => ApplyMapLoadedSettings()));
                 subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
                     .Where(args => args.Phase == EventHookPhase.Post)
                     .Subscribe(OnUnloadMap));
@@ -155,6 +170,7 @@ namespace SomeSettings
             ApplyRefundPercent(buildingApi.PitchRefundMultiplier, settings.PitchRefundPercent, "pitch");
             ApplyRefundPercent(buildingApi.GoldRefundMultiplier, settings.GoldRefundPercent, "gold");
             ApplyMarketPriceMultipliers();
+            churchPriestCountRuntime.ApplySetting();
         }
 
         public void InstallAIEconomyProtectionHook(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
@@ -309,6 +325,12 @@ namespace SomeSettings
                 return;
             }
 
+            if (propertyName == nameof(SomeSettingsViewModel.EnableExtraChurchPriests))
+            {
+                churchPriestCountRuntime.ApplySetting();
+                return;
+            }
+
             if (propertyName == nameof(SomeSettingsViewModel.EnableTroopMovementFix) ||
                 propertyName == nameof(SomeSettingsViewModel.EnableFastRecruitRallyMovement))
             {
@@ -339,6 +361,13 @@ namespace SomeSettings
             buildingApi.PitchRefundMultiplier.SetValue(0.5f);
             buildingApi.GoldRefundMultiplier.SetValue(0.5f);
             RestoreTradeBasePrices();
+            churchPriestCountRuntime.ApplySetting();
+        }
+
+        private void ApplyMapLoadedSettings()
+        {
+            ApplyMarketPriceMultipliers();
+            churchPriestCountRuntime.ApplySetting();
         }
 
         private void ApplyMarketPriceMultipliers()

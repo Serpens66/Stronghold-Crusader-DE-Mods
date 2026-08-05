@@ -19,7 +19,7 @@ namespace SomeSettings
 
         public const string PluginGuid = "SomeSettings_Serp";
         public const string PluginName = "Some Settings";
-        public const string PluginVersion = "1.0.14";
+        public const string PluginVersion = "1.0.15";
 
         private SomeSettingsRuntime runtime;
         private bool runtimeDisposed;
@@ -73,6 +73,7 @@ namespace SomeSettings
                 runtime.InstallKnightMountNativeFunctions(libraryHandle, memory);
                 runtime.InstallQuarryPileNativeFunctions(libraryHandle, memory);
                 runtime.InstallTroopMovementFixNativeFunctions(libraryHandle, memory);
+                runtime.InstallChurchPriestCountNativeData(libraryHandle, memory);
                 runtime.ApplySettings();
                 runtime.InstallAIEconomyProtectionHook(libraryHandle, memory);
                 Shared.DebugLogHelper.LogDebug(Logger, "Crusader library loaded; SomeSettings UI registered.");
