@@ -18,8 +18,12 @@ namespace MapParser.Core
         {
             if (path == null)
                 throw new ArgumentNullException(nameof(path));
-            if (!string.Equals(Path.GetExtension(path), ".map", StringComparison.OrdinalIgnoreCase))
-                throw new MapUnsupportedFormatException("Only SCDE .map files are supported.");
+            string extension = Path.GetExtension(path);
+            if (!string.Equals(extension, ".map", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(extension, ".trail", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new MapUnsupportedFormatException("Only SCDE .map and .trail files are supported.");
+            }
             return ParseOwned(File.ReadAllBytes(path), Path.GetFullPath(path));
         }
 
@@ -62,18 +66,37 @@ namespace MapParser.Core
             Block u3 = cursor.ReadBlock("U3");
             Block u4 = cursor.ReadBlock("U4");
 
+            int restartSizeFieldOffset = -1;
+            int restartPayloadOffset = -1;
+            uint restartSize = 0;
+            int restartTerminatorOffset = -1;
             if (u4.Size != 0)
             {
-                uint restartSize = cursor.ReadUInt32("restart-info size");
+                restartSizeFieldOffset = cursor.Position;
+                restartSize = cursor.ReadUInt32("restart-info size");
+                restartPayloadOffset = cursor.Position;
                 cursor.SkipChecked(restartSize, "restart-info payload");
                 if (restartSize != 0)
+                {
+                    restartTerminatorOffset = cursor.Position;
                     cursor.ReadUInt32("restart-info terminator");
+                }
             }
 
             int directoryTagOffset = cursor.Position;
             uint directoryTag = cursor.ReadUInt32("directory tag");
             var preamble = new MapPreambleInfo(
-                radar.Size, description.Size, u1.Size, u2.Size, u3.Size, u4.Size, directoryTagOffset);
+                radar.Size,
+                description.Size,
+                u1.Size,
+                u2.Size,
+                u3.Size,
+                u4.Size,
+                restartSizeFieldOffset,
+                restartPayloadOffset,
+                restartSize,
+                restartTerminatorOffset,
+                directoryTagOffset);
             MapMetadata metadata = ReadMetadata(data, magic, radar, u2, u3, u4);
 
             if (SpecialDirectoryTags.Contains(directoryTag))

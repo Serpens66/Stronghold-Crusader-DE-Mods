@@ -64,12 +64,13 @@ vorhanden ist.
 ## Öffentliche Core-API
 
 `MapFileReader.Parse(...)` besitzt Überladungen für Dateipfad, `Stream` und
-`byte[]`. Der Pfad-Overload akzeptiert ausschließlich `.map`; `.sav` und `.msv`
-sind absichtlich nicht unterstützt.
+`byte[]`. Der Pfad-Overload akzeptiert `.map` und die strukturell identischen
+`.trail`-Container; `.sav` und `.msv` sind absichtlich nicht unterstützt.
 
     MapDocument map = MapFileReader.Parse(path);
     Console.WriteLine(map.Metadata.WorldSize);
     Console.WriteLine(map.Directory?.Capacity);
+    Console.WriteLine(map.Preamble.RestartInfoSize);
 
     if (map.HasPlacementLayers)
     {

@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\MapParser\MapParser.Core\MapParser.Core.csproj" />
+    <ProjectReference Include="..\..\shcde-script-extender\src\SHCDESE.AIVDecoder\src\SHCDESE.AIVDecoder\SHCDESE.AIVDecoder.csproj" />
+    <ProjectReference Include="..\..\shcde-script-extender\src\SHCDESE.AICDecoder\src\SHCDESE.AICDecoder\SHCDESE.AICDecoder.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,30 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TrailEditor.Core", "TrailEditor.Core\TrailEditor.Core.csproj", "{5EAD6735-293E-4B65-A4DE-EB7D73296631}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TrailEditor.Cli", "TrailEditor.Cli\TrailEditor.Cli.csproj", "{35FDCC30-D4D8-41F9-B71A-EA608F6A7E6C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TrailEditor.Tests", "TrailEditor.Tests\TrailEditor.Tests.csproj", "{254DB6FB-A72C-46EA-885D-A2CE980F131D}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{5EAD6735-293E-4B65-A4DE-EB7D73296631}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5EAD6735-293E-4B65-A4DE-EB7D73296631}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5EAD6735-293E-4B65-A4DE-EB7D73296631}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5EAD6735-293E-4B65-A4DE-EB7D73296631}.Release|Any CPU.Build.0 = Release|Any CPU
+		{35FDCC30-D4D8-41F9-B71A-EA608F6A7E6C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{35FDCC30-D4D8-41F9-B71A-EA608F6A7E6C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{35FDCC30-D4D8-41F9-B71A-EA608F6A7E6C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{35FDCC30-D4D8-41F9-B71A-EA608F6A7E6C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{254DB6FB-A72C-46EA-885D-A2CE980F131D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{254DB6FB-A72C-46EA-885D-A2CE980F131D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{254DB6FB-A72C-46EA-885D-A2CE980F131D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{254DB6FB-A72C-46EA-885D-A2CE980F131D}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

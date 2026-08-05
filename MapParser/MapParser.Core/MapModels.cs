@@ -84,6 +84,10 @@ namespace MapParser.Core
             uint u2BlockSize,
             uint u3BlockSize,
             uint u4BlockSize,
+            int restartSizeFieldOffset,
+            int restartPayloadOffset,
+            uint restartInfoSize,
+            int restartTerminatorOffset,
             int directoryTagOffset)
         {
             RadarBlockSize = radarBlockSize;
@@ -92,6 +96,10 @@ namespace MapParser.Core
             U2BlockSize = u2BlockSize;
             U3BlockSize = u3BlockSize;
             U4BlockSize = u4BlockSize;
+            RestartSizeFieldOffset = restartSizeFieldOffset;
+            RestartPayloadOffset = restartPayloadOffset;
+            RestartInfoSize = restartInfoSize;
+            RestartTerminatorOffset = restartTerminatorOffset;
             DirectoryTagOffset = directoryTagOffset;
         }
 
@@ -101,6 +109,10 @@ namespace MapParser.Core
         public uint U2BlockSize { get; }
         public uint U3BlockSize { get; }
         public uint U4BlockSize { get; }
+        public int RestartSizeFieldOffset { get; }
+        public int RestartPayloadOffset { get; }
+        public uint RestartInfoSize { get; }
+        public int RestartTerminatorOffset { get; }
         public int DirectoryTagOffset { get; }
     }
 
