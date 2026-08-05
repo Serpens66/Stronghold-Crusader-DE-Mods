@@ -55,7 +55,8 @@ namespace AIVParser.Core
                 return;
             }
 
-            // RVA 0x54590 stamps these offsets after the normal Keep footprint.
+            // Historical evidence: RVA 0x54590 in CrusaderDE.dll SHA-256 17F8DD4A...
+            // stamps these offsets. The values are data semantics, not a runtime RVA dependency.
             Add(result, "Keep native area 5x5", -2, 7, 5, buildingAnchor, rotation,
                 AivBlockedAreaKind.Campfire);
             Add(result, "Keep native area 7x7", -8, 0, 7, buildingAnchor, rotation);

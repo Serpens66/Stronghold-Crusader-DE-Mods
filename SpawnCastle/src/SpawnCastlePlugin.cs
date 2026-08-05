@@ -49,6 +49,11 @@ namespace SpawnCastle
 
             try
             {
+                bool currentNativeLayout =
+                    Shared.DebugLogHelper.ReportNativeLibraryVersion(
+                        Logger,
+                        PluginName,
+                        requireCurrentVersion: true);
                 Shared.DebugLogHelper.LogInfo(
                     Logger,
                     $"Registering local SpawnCastle settings: " +
@@ -74,7 +79,10 @@ namespace SpawnCastle
 
                 try
                 {
-                    runtime.Install(libraryHandle, memory);
+                    // Blueprint mode is managed; only the native Spawn path depends on
+                    // the currently audited AIV structure layout.
+                    if (currentNativeLayout)
+                        runtime.Install(libraryHandle, memory);
                 }
                 catch (Exception ex)
                 {

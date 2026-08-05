@@ -1,12 +1,17 @@
 using BepInEx.Logging;
 using System;
 using System.Globalization;
+using System.IO;
 using System.Reflection;
+using System.Security.Cryptography;
 
 namespace Shared
 {
     internal static class DebugLogHelper
     {
+        public const string CurrentNativeSha256 =
+            "1E6D4C2E10CC35A7B8082A7E2BCD8BB20680EBEDA803D9B943257B948145CB2B";
+
         private static readonly TimeSpan CacheDuration = TimeSpan.FromSeconds(1);
         private static DateTime debugEnabledCacheExpiresAtUtc;
         private static bool debugEnabledCache;
@@ -51,6 +56,70 @@ namespace Shared
         public static void LogError(ManualLogSource log, string message)
         {
             log?.LogError(WithTimestamp(message));
+        }
+
+        public static bool ReportNativeLibraryVersion(
+            ManualLogSource log,
+            string componentName,
+            bool requireCurrentVersion = false)
+        {
+            string label = string.IsNullOrWhiteSpace(componentName)
+                ? "Mod"
+                : componentName;
+
+            try
+            {
+                string path = Path.Combine(
+                    BepInEx.Paths.GameRootPath,
+                    "Stronghold Crusader Definitive Edition_Data",
+                    "Plugins",
+                    "x86_64",
+                    "CrusaderDE.dll");
+                if (!File.Exists(path))
+                {
+                    LogError(log, $"{label} cannot verify CrusaderDE.dll because the installed file was not found: path={path}.");
+                    return false;
+                }
+
+                string actualHash;
+                using (FileStream stream = File.OpenRead(path))
+                using (SHA256 sha256 = SHA256.Create())
+                {
+                    actualHash = BitConverter.ToString(sha256.ComputeHash(stream))
+                        .Replace("-", string.Empty);
+                }
+
+                long fileSize = new FileInfo(path).Length;
+                if (string.Equals(actualHash, CurrentNativeSha256, StringComparison.OrdinalIgnoreCase))
+                {
+                    LogInfo(
+                        log,
+                        $"{label} verified the installed CrusaderDE.dll: sha256={actualHash}, size={fileSize}, path={path}.");
+                    return true;
+                }
+
+                string message =
+                    $"{label} detected a changed CrusaderDE.dll: expectedSha256={CurrentNativeSha256}, " +
+                    $"actualSha256={actualHash}, size={fileSize}, path={path}.";
+                if (requireCurrentVersion)
+                {
+                    LogError(log, message + " Version-sensitive native code remains inactive.");
+                }
+                else
+                {
+                    LogWarning(
+                        log,
+                        message +
+                        " Signature-validated code may continue; any failed validation is logged and the affected feature remains inactive.");
+                }
+
+                return false;
+            }
+            catch (Exception ex)
+            {
+                LogError(log, $"{label} could not verify the installed CrusaderDE.dll; version-sensitive native code must remain inactive: {ex}");
+                return false;
+            }
         }
 
         private static string WithTimestamp(string message)

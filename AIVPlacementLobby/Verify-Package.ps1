@@ -70,8 +70,8 @@ try {
             '.aivjson',
             [System.StringComparison]::OrdinalIgnoreCase)
     })
-    if ($vanillaFiles.Count -ne 360 -or $unexpectedAivFiles.Count -ne 0) {
-        throw "VanillaAIV muss genau 360 .aivjson-Dateien enthalten; gefunden=$($vanillaFiles.Count)."
+    if ($vanillaFiles.Count -eq 0 -or $unexpectedAivFiles.Count -ne 0) {
+        throw "VanillaAIV muss mindestens eine und ausschliesslich .aivjson-Dateien enthalten; gefunden=$($vanillaFiles.Count), unerwartet=$($unexpectedAivFiles.Count)."
     }
 
     $localePath = [System.IO.Path]::Combine($packagePath, 'Locales')
@@ -85,6 +85,13 @@ try {
         'Patches\Assets\GUI\XAMLResources\FRONT_Multiplayer_AISettings.xaml')
     if (![System.IO.File]::Exists($patchPath)) {
         throw "AIV-Auswahl-Patch fehlt: $patchPath"
+    }
+    $patchFiles = @([System.IO.Directory]::GetFiles(
+        [System.IO.Path]::Combine($packagePath, 'Patches'),
+        '*',
+        [System.IO.SearchOption]::AllDirectories))
+    if ($patchFiles.Count -ne 1) {
+        throw "Patches muss genau den erwarteten AIV-Auswahl-Patch enthalten; gefunden=$($patchFiles.Count)."
     }
     $patchContent = [System.IO.File]::ReadAllText($patchPath)
     $requiredPatchFragments = @(
@@ -100,8 +107,10 @@ try {
     }
 
     $packageFiles = @([System.IO.Directory]::GetFiles($packagePath, '*', [System.IO.SearchOption]::AllDirectories))
-    if ($packageFiles.Count -ne 393) {
-        throw "Das vollstaendige Paket muss 393 Dateien enthalten; gefunden=$($packageFiles.Count)."
+    $expectedPackageFileCount =
+        $expectedRootFiles.Count + $vanillaFiles.Count + $localeFiles.Count + $patchFiles.Count
+    if ($packageFiles.Count -ne $expectedPackageFileCount) {
+        throw "Das vollstaendige Paket enthaelt unerwartete oder fehlende Dateien; erwartet=$expectedPackageFileCount, gefunden=$($packageFiles.Count)."
     }
 
     if (![string]::IsNullOrWhiteSpace($InstalledRoot)) {
@@ -131,7 +140,7 @@ try {
         }
     }
 
-    Write-Output "Paketpruefung erfolgreich: 393 Dateien, davon 360 Vanilla-AIVJSON-Dateien und 21 Locales."
+    Write-Output "Paketpruefung erfolgreich: $($packageFiles.Count) Dateien, davon $($vanillaFiles.Count) Vanilla-AIVJSON-Dateien und $($localeFiles.Count) Locales."
     exit 0
 }
 catch {

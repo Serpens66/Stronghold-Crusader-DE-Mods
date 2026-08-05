@@ -1,7 +1,10 @@
 using BepInEx.Logging;
+using SHCDESE.API;
 using SHCDESE.Interop;
+using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Runtime.InteropServices;
 using Zhuqiaomon.Hooks;
 using Zhuqiaomon.Hooks.Transaction;
@@ -17,10 +20,10 @@ namespace ActiveAIVDetector
             "48 89 7C 24 20 41 56 48 83 EC 20 41 8B F0 48 63 EA " +
             "48 8B F9 4C 8D 89 44 98 1B 00";
         private const string LoadCandidatePattern =
-            "40 53 56 57 41 55 48 83 EC 38 8B 05 C0 AC 27 00 " +
-            "48 8D 0D C5 13 49 03 41 8B D8 48 63 FA 85 C0";
+            "40 53 56 57 41 55 48 83 EC 38 8B 05 ?? ?? ?? ?? " +
+            "48 8D 0D ?? ?? ?? ?? 41 8B D8 48 63 FA 85 C0";
         private const string ApplyRotationPattern =
-            "85 D2 0F 84 01 0A 00 00 53 48 83 EC 20 48 89 74 24 30 " +
+            "85 D2 0F 84 ?? ?? ?? ?? 53 48 83 EC 20 48 89 74 24 30 " +
             "48 8B D9 48 89 7C 24 38 83 FA 06";
         private const string EvaluateCandidateFitPattern =
             "89 54 24 10 53 55 56 57 41 54 41 55 41 56 41 57 " +
@@ -30,6 +33,10 @@ namespace ActiveAIVDetector
             "83 BC 24 90 00 00 00 02";
         private const string ExecuteBuildStepPattern =
             "40 53 55 56 57 41 54 41 55 41 56 41 57 48 83 EC 78 4C 63 F2";
+        private const string OrganismRecordTableReferencePattern =
+            "48 8D 05 ?? ?? ?? ?? 41 B8 9C 00 00 00 48 03 D0";
+        private const string ActiveLayoutIndexReferencePattern =
+            "48 63 F2 48 8D 05 ?? ?? ?? ?? 4C 69 CE 3C 58 00 00";
 
         private const int AivSpecStride = 0x6D98;
         private const int PlayerIdOffset = 0x04;
@@ -48,8 +55,6 @@ namespace ActiveAIVDetector
         private const int CompleteFitScore = 999999;
         private const int AivGridSize = 100;
         private const int FixedMapTileCount = 320800;
-        private const int NativeGameModeRva = 0x8571B80;
-        private const int OrganismRecordTableRva = 0x32DC3F4;
         private const int OrganismRecordStride = 0x9C;
         private const int OrganismClassOffset = 0x46;
         private const int TerrainFlagsOffset = 0x898400;
@@ -59,7 +64,6 @@ namespace ActiveAIVDetector
         private const int BuildingGridOffset = 0xB0BCA0;
         private const int EntityGridOffset = 0xBF6C00;
         private const int OwnerGridOffset = 0xE1AFE0;
-        private const int ActiveLayoutIndexRva = 0x379B05C;
         private const int PlayerRuntimeStateStride = 0x583C;
         private const int PreparedLayoutFrameCount = 0x922;
         private const int PreparedEntryBaseOffset = 0x38;
@@ -110,7 +114,8 @@ namespace ActiveAIVDetector
         private readonly Action<OraclePrebuildFrameTraceSnapshot> onPrebuildFrameCaptured;
         private readonly OracleCellTraceOptions cellTraceOptions;
         private readonly OraclePrebuildTraceOptions prebuildTraceOptions;
-        private readonly ulong nativeLibraryBaseAddress;
+        private readonly ulong organismRecordTableAddress;
+        private readonly ulong activeLayoutIndexBaseAddress;
         private HookRef<X64ManagedFunctionDetourAOB<SelectBestFitDelegate>> selectBestFitHook =
             new HookRef<X64ManagedFunctionDetourAOB<SelectBestFitDelegate>>();
         private HookRef<X64ManagedFunctionDetourAOB<TestSpecificCandidateDelegate>> testSpecificCandidateHook =
@@ -155,7 +160,8 @@ namespace ActiveAIVDetector
             OracleCellTraceOptions cellTraceOptions,
             Action<OraclePrebuildFrameTraceSnapshot> onPrebuildFrameCaptured,
             OraclePrebuildTraceOptions prebuildTraceOptions,
-            ulong nativeLibraryBaseAddress)
+            IntPtr nativeLibraryHandle,
+            ReadOnlySpan<byte> nativeLibraryMemory)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.onSelectionCompleted = onSelectionCompleted ??
@@ -166,7 +172,26 @@ namespace ActiveAIVDetector
                 throw new ArgumentNullException(nameof(onPrebuildFrameCaptured));
             this.prebuildTraceOptions = prebuildTraceOptions ??
                 throw new ArgumentNullException(nameof(prebuildTraceOptions));
-            this.nativeLibraryBaseAddress = nativeLibraryBaseAddress;
+            organismRecordTableAddress = ResolveUniqueRipRelativeAddress(
+                nativeLibraryHandle,
+                nativeLibraryMemory,
+                "organism record table",
+                OrganismRecordTableReferencePattern,
+                instructionOffset: 0,
+                requiredBytes: 4000 * OrganismRecordStride);
+            activeLayoutIndexBaseAddress = ResolveUniqueRipRelativeAddress(
+                nativeLibraryHandle,
+                nativeLibraryMemory,
+                "active AIV layout index table",
+                ActiveLayoutIndexReferencePattern,
+                instructionOffset: 3,
+                requiredBytes: 9 * PlayerRuntimeStateStride);
+
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"Active AIV native globals resolved from unique RIP-relative signatures: " +
+                $"organismRecordTable=0x{organismRecordTableAddress:X}, " +
+                $"activeLayoutIndexBase=0x{activeLayoutIndexBaseAddress:X}.");
         }
 
         public void RegisterHooks(HookTransaction transaction)
@@ -412,11 +437,11 @@ namespace ActiveAIVDetector
                 nativeBuildingId = *(ushort*)(placementState + BuildingGridOffset + tileId * 2);
                 nativeEntityId = *(ushort*)(placementState + EntityGridOffset + tileId * 2);
                 nativeOwnerId = *(byte*)(placementState + OwnerGridOffset + tileId);
-                nativeGameMode = *(int*)(nativeLibraryBaseAddress + NativeGameModeRva);
+                nativeGameMode = (int)GamePlayerManagerAPI.Instance.GetCurrentSkirmishGameMode();
                 if (nativeOrganismId > 0 && nativeOrganismId < 4000)
                 {
                     nativeOrganismClass = *(short*)(
-                        nativeLibraryBaseAddress + OrganismRecordTableRva +
+                        organismRecordTableAddress +
                         (ulong)(nativeOrganismId * OrganismRecordStride + OrganismClassOffset));
                 }
             }
@@ -691,11 +716,11 @@ namespace ActiveAIVDetector
                 throw new ArgumentOutOfRangeException(nameof(frameIndex));
 
             activeLayoutIndex = *(int*)(
-                nativeLibraryBaseAddress + ActiveLayoutIndexRva +
+                activeLayoutIndexBaseAddress +
                 (ulong)(playerId * PlayerRuntimeStateStride));
             long entryIndex = checked(
                 (long)activeLayoutIndex * PreparedLayoutFrameCount + frameIndex);
-            if (activeLayoutIndex < 0 || entryIndex < 0)
+            if (activeLayoutIndex < 0 || activeLayoutIndex >= 8 || entryIndex < 0)
                 throw new InvalidOperationException($"Invalid active layout index {activeLayoutIndex}.");
 
             byte* entry = (byte*)aivStateAddress + PreparedEntryBaseOffset +
@@ -988,6 +1013,90 @@ namespace ActiveAIVDetector
         private static int ReadInt32(ulong address, int offset)
         {
             return *(int*)((byte*)address + offset);
+        }
+
+        private static ulong ResolveUniqueRipRelativeAddress(
+            IntPtr libraryHandle,
+            ReadOnlySpan<byte> memory,
+            string name,
+            string pattern,
+            int instructionOffset,
+            int requiredBytes)
+        {
+            PatternByte[] bytes = ParsePattern(pattern);
+            int match = -1;
+            int matches = 0;
+            for (int offset = 0; offset <= memory.Length - bytes.Length; offset++)
+            {
+                bool matched = true;
+                for (int index = 0; index < bytes.Length; index++)
+                {
+                    if (!bytes[index].Wildcard && memory[offset + index] != bytes[index].Value)
+                    {
+                        matched = false;
+                        break;
+                    }
+                }
+
+                if (!matched)
+                    continue;
+
+                match = offset;
+                matches++;
+                if (matches > 1)
+                    break;
+            }
+
+            if (matches != 1)
+            {
+                throw new InvalidOperationException(
+                    $"Native {name} signature expected one match but found {matches}.");
+            }
+
+            IntPtr instruction = IntPtr.Add(libraryHandle, match + instructionOffset);
+            int displacement = Marshal.ReadInt32(instruction, 3);
+            long target = checked(instruction.ToInt64() + 7L + displacement);
+            long imageStart = libraryHandle.ToInt64();
+            long imageEnd = checked(imageStart + memory.Length);
+            if (target < imageStart || target > imageEnd - requiredBytes)
+            {
+                throw new InvalidOperationException(
+                    $"Native {name} signature resolved outside the loaded image: " +
+                    $"target=0x{target:X}, image=0x{imageStart:X}-0x{imageEnd:X}.");
+            }
+
+            return unchecked((ulong)target);
+        }
+
+        private static PatternByte[] ParsePattern(string pattern)
+        {
+            string[] tokens = pattern.Split(
+                new[] { ' ' },
+                StringSplitOptions.RemoveEmptyEntries);
+            var bytes = new PatternByte[tokens.Length];
+            for (int index = 0; index < tokens.Length; index++)
+            {
+                string token = tokens[index];
+                bytes[index] = token == "?" || token == "??"
+                    ? new PatternByte(0, true)
+                    : new PatternByte(
+                        byte.Parse(token, NumberStyles.HexNumber, CultureInfo.InvariantCulture),
+                        false);
+            }
+
+            return bytes;
+        }
+
+        private readonly struct PatternByte
+        {
+            public PatternByte(byte value, bool wildcard)
+            {
+                Value = value;
+                Wildcard = wildcard;
+            }
+
+            public byte Value { get; }
+            public bool Wildcard { get; }
         }
 
         private static void AddMissing(List<string> missing, bool success, string name)

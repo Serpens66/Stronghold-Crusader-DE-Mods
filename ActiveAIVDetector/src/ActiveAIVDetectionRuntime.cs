@@ -141,7 +141,8 @@ namespace ActiveAIVDetector
                 cellTraceOptions,
                 OnPrebuildFrameCaptured,
                 prebuildTraceOptions,
-                unchecked((ulong)libraryHandle.ToInt64()));
+                libraryHandle,
+                memory);
             placementOracle.RegisterHooks(transaction);
 
             transaction.Commit();

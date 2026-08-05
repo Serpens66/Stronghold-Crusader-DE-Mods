@@ -62,6 +62,14 @@ namespace ImprovedHunters
         {
             try
             {
+                if (!Shared.DebugLogHelper.ReportNativeLibraryVersion(
+                        Logger,
+                        PluginName,
+                        requireCurrentVersion: true))
+                {
+                    return;
+                }
+
                 GameXAMLManagerAPI.Instance.RegisterLobbyModSettings(
                     this,
                     PluginGuid,

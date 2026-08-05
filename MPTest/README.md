@@ -11,11 +11,15 @@ Singleplayer keeps the previous woodcutter swordsman action.
 The native integration is enabled only for this exact game DLL:
 
     SHA-256:
-    17F8DD4A92FF6125BD6A3A70ABC80C727682E489696C218D146A7EA6D2F88BF4
+    1E6D4C2E10CC35A7B8082A7E2BCD8BB20680EBEDA803D9B943257B948145CB2B
 
 The runtime also validates the original opcode-111 handler pointer and bytes, the handler table's
 memory protection, and the prologues of the native enqueue and field-copy functions. A failed check
 leaves the handler table untouched and hides the multiplayer button.
+
+The longer native-analysis documents still identify SHA-256 `17F8DD4A...`
+explicitly because they are historical evidence for that older DLL, not runtime
+compatibility documentation for the current probe.
 
 ## Probe flow
 

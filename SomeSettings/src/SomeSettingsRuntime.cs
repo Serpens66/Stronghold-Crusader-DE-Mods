@@ -44,6 +44,7 @@ namespace SomeSettings
         private IntPtr libraryHandle;
         private int libraryLength;
         private bool nativeLibraryAvailable;
+        private bool currentNativeLayout;
 
         private bool hooksSubscribed;
         private bool settingsSubscribed;
@@ -76,13 +77,34 @@ namespace SomeSettings
         public object KnightDismountButton => knightDismountRuntime.ButtonViewModel;
         public object QuarryPileRelocationButton => quarryPileRelocationRuntime.ButtonViewModel;
 
+        public void SetCurrentNativeLayout(bool isCurrent)
+        {
+            currentNativeLayout = isCurrent;
+        }
+
         public void InstallKnightMountNativeFunctions(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
         {
+            if (!currentNativeLayout)
+            {
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    "SomeSettings knight dismount remains inactive because its native unit-field layout is not validated for this CrusaderDE.dll.");
+                return;
+            }
+
             knightDismountRuntime.InstallNativeFunctions(libraryHandle, memory);
         }
 
         public void InstallQuarryPileNativeFunctions(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
         {
+            if (!currentNativeLayout)
+            {
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    "SomeSettings quarry-pile relocation remains inactive because its native building-manager field layout is not validated for this CrusaderDE.dll.");
+                return;
+            }
+
             quarryPileRelocationRuntime.InstallNativeFunctions(libraryHandle, memory);
         }
 
@@ -90,6 +112,14 @@ namespace SomeSettings
             IntPtr libraryHandle,
             ReadOnlySpan<byte> memory)
         {
+            if (!currentNativeLayout)
+            {
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    "SomeSettings troop movement fixes remain inactive because their native unit/tribe layouts are not validated for this CrusaderDE.dll.");
+                return;
+            }
+
             try
             {
                 troopMovementFixRuntime.InitializeNative(
@@ -272,6 +302,15 @@ namespace SomeSettings
 
         private void InstallEnemyProximityBulldozeCursorHook()
         {
+            if (!currentNativeLayout)
+            {
+                // This feature reads one ChoreManager field that cannot yet be derived safely.
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    "SomeSettings enemy-proximity bulldoze cursor hook remains inactive because its ChoreManager field offset is not validated for this CrusaderDE.dll.");
+                return;
+            }
+
             try
             {
                 enemyProximityBulldozeCursorHook = new EnemyProximityBulldozeCursorHook(log, settings);

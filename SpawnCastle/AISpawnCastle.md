@@ -25,7 +25,8 @@ singleplayer skirmish from an active lobby containing only `SkirmishMember`
 entries, at least one `SkirmishHumanMember`, no Steam-backed human game member,
 and a nonnegative `GameData.SkirmishGameType`.
 
-The analysis applies to the following native library:
+This is historical analysis for the following native library; its RVAs must not
+be treated as addresses for the currently installed game DLL:
 
 - File: `x86_64/CrusaderDE.dll`
 - Product version: `2.7.0.1`

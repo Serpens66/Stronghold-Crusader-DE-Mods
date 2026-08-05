@@ -57,6 +57,7 @@ namespace UnitCosts
         {
             try
             {
+                Shared.DebugLogHelper.ReportNativeLibraryVersion(Logger, PluginName);
                 runtime.InitializeAfterLibraryLoaded();
                 Settings.RefreshLocalizedNames();
                 GameXAMLManagerAPI.Instance.RegisterLobbyModSettings(

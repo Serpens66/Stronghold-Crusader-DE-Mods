@@ -1,5 +1,11 @@
 # Investigation Handoff: SHCDE Multiplayer Chore System
 
+> **Historical DLL scope:** Native addresses and layouts in this handoff belong
+> to `CrusaderDE.dll` SHA-256
+> `17F8DD4A92FF6125BD6A3A70ABC80C727682E489696C218D146A7EA6D2F88BF4`.
+> They are evidence only and must not be used for the currently installed DLL
+> without a new hash-specific validation.
+
 > **Status update 2026-07-28:** The native investigation requested by this handoff has now been
 > completed to the point where the packet header, pending-slot model, three handler modes, dynamic
 > scheduling and the host command-ID barrier are understood. The detailed results and a proposed

@@ -196,7 +196,11 @@ namespace AIDefense
             }
             catch (Exception ex)
             {
-                LogInfo($"Defense scan failed: tick={tick}, exception={ex}");
+                // Stop repeated raw-structure reads after the first incompatible layout symptom.
+                mapActive = false;
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"AI Defense scan failed and remains inactive for this map: tick={tick}, exception={ex}");
             }
         }
 

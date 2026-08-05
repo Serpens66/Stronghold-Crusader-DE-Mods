@@ -57,6 +57,7 @@ namespace BuildingCosts
         {
             try
             {
+                Shared.DebugLogHelper.ReportNativeLibraryVersion(Logger, PluginName);
                 Settings.RefreshLocalizedNames();
                 GameXAMLManagerAPI.Instance.RegisterLobbyModSettings(
                     this,

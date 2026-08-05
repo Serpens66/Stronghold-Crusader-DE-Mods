@@ -1,4 +1,3 @@
-using BepInEx;
 using BepInEx.Logging;
 using R3;
 using SHCDESE.API;
@@ -13,15 +12,11 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Runtime.InteropServices;
-using System.Security.Cryptography;
 
 namespace SpawnCastle
 {
     internal sealed unsafe class SpawnCastleRuntime
     {
-        private const string SupportedNativeSha256 =
-            "17F8DD4A92FF6125BD6A3A70ABC80C727682E489696C218D146A7EA6D2F88BF4";
-
         private const int AivSpecStride = 0x6D98;
         private const int PlayerAivStateStride = 0x583C;
         private const int ImportedCandidatesPerPlayer = 1000;
@@ -51,8 +46,7 @@ namespace SpawnCastle
             "48 83 EC 30 48 63 F2 48 8D 05 ?? ?? ?? ?? " +
             "4C 69 CE 3C 58 00 00";
         private const string AivStateReferencePattern =
-            "48 89 1D ?? ?? ?? ?? 41 89 4E 04 48 8D 0D ?? ?? ?? ?? " +
-            "89 1D ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 83 BD B0 00 00 00 00";
+            "41 89 4E 04 48 8D 0D ?? ?? ?? ??";
         private const string PrebuiltPlayersReferencePattern =
             "8B 0D ?? ?? ?? ?? 8D 46 FF 0F AB C1 41 B8 64 00 00 00 " +
             "89 0D ?? ?? ?? ?? 8B D6 49 8B CD E8 ?? ?? ?? ??";
@@ -137,7 +131,6 @@ namespace SpawnCastle
             if (installed)
                 return;
 
-            VerifyNativeLibrary();
             BindNativeFunctions(libraryHandle, memory);
 
             subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable
@@ -666,7 +659,7 @@ namespace SpawnCastle
                 AivStateReferencePattern);
             IntPtr stateReferenceInstruction = IntPtr.Add(
                 libraryHandle,
-                stateReferenceOffset + 11);
+                stateReferenceOffset + 4);
             aivState = ResolveRipRelativeAddress(
                 stateReferenceInstruction,
                 displacementOffset: 3,
@@ -1284,38 +1277,5 @@ namespace SpawnCastle
             public int OwnedBuildingsAtPreparation { get; }
         }
 
-        private void VerifyNativeLibrary()
-        {
-            string nativePath = Path.Combine(
-                Paths.GameRootPath,
-                "Stronghold Crusader Definitive Edition_Data",
-                "Plugins",
-                "x86_64",
-                "CrusaderDE.dll");
-            if (!File.Exists(nativePath))
-                throw new FileNotFoundException("CrusaderDE.dll was not found.", nativePath);
-
-            string actualHash;
-            using (FileStream stream = File.OpenRead(nativePath))
-            using (SHA256 sha256 = SHA256.Create())
-            {
-                actualHash = BitConverter.ToString(sha256.ComputeHash(stream))
-                    .Replace("-", string.Empty);
-            }
-
-            if (!string.Equals(
-                    actualHash,
-                    SupportedNativeSha256,
-                    StringComparison.OrdinalIgnoreCase))
-            {
-                throw new NotSupportedException(
-                    $"Unsupported CrusaderDE.dll: expected SHA-256 " +
-                    $"{SupportedNativeSha256}, actual {actualHash}.");
-            }
-
-            Shared.DebugLogHelper.LogInfo(
-                log,
-                $"Native library verified: path={nativePath}, sha256={actualHash}.");
-        }
     }
 }

@@ -28,6 +28,7 @@ namespace AIVPlacementLobby
             {
                 if (processLifetimeRuntime != null)
                     return;
+                Shared.DebugLogHelper.ReportNativeLibraryVersion(Logger, PluginName);
                 processLifetimeRuntime = new AIVPlacementLobbyRuntime(Logger);
                 GameXAMLManagerAPI.Instance.RegisterBinding(
                     "AIVPlacementLobbyAivSelectionListHost",

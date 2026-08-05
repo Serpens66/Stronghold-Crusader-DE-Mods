@@ -22,7 +22,8 @@ namespace SomeSettings
         private const int DeleteNotAllowedCursor = 3;
 
         // c_game_repairs_allowed reads this ChoreManager flag to select one of its two range constants.
-        // The offset belongs to the current CrusaderDE.dll layout; backwards compatibility is not required.
+        // Verified for CrusaderDE.dll SHA-256 1E6D4C2E... only. The caller disables
+        // this hook on every other DLL because this field has no signature-derived address yet.
         private const int ProximityModeFlagOffset = 0x870;
         private const int DefaultProximityRange = 30;
         private const int DefaultReducedProximityRange = 15;

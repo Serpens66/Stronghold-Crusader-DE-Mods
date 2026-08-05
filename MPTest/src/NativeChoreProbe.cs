@@ -1,6 +1,7 @@
 using BepInEx.Logging;
 using MonoMod.RuntimeDetour;
 using SHCDESE.API;
+using SHCDESE.GameGlobals;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -28,20 +29,21 @@ namespace MPTest
         private const int MaximumPendingSlots = 500;
         private const int PendingSlotSize = 0x500;
 
-        private const long QueueLocalChoreRva = 0x23960;
-        private const long CopyChoreFieldRva = 0x1F5C0;
-        private const long HandlerTableRva = 0x2C5A30;
+        // These RVAs are validated below against CrusaderDE.dll SHA-256 1E6D4C2E...
+        // before any pointer is called or modified.
+        private const long QueueLocalChoreRva = 0x23990;
+        private const long CopyChoreFieldRva = 0x1F5F0;
+        private const long HandlerTableRva = 0x2C6A30;
         private const long OriginalProbeHandlerRva = 0xFC30;
-        private const long ChoreManagerRva = 0x8571310;
 
         private const long CurrentSlotIndexOffset = 0x84CC8;
         private const long HandlerModeOffset = 0x84CCC;
         private const long HandlerPayloadSizeOffset = 0x84CD4;
         private const long PendingSlotsOffset = 0xB0BF8;
 
-        private const long ExpectedCrusaderFileSize = 3446784;
+        private const long ExpectedCrusaderFileSize = 3450880;
         private const string ExpectedCrusaderSha256 =
-            "17F8DD4A92FF6125BD6A3A70ABC80C727682E489696C218D146A7EA6D2F88BF4";
+            "1E6D4C2E10CC35A7B8082A7E2BCD8BB20680EBEDA803D9B943257B948145CB2B";
 
         private static readonly byte[] ExpectedOriginalProbeHandler =
         {
@@ -993,7 +995,10 @@ namespace MPTest
                 return $"crusader-sha256-mismatch(expected={ExpectedCrusaderSha256},actual={actualHash})";
 
             moduleBase = crusaderModuleBase;
-            choreManager = Add(moduleBase, ChoreManagerRva);
+            ulong choreManagerAddress = GameGlobalsManager.Instance.ChoreManagerVA;
+            if (choreManagerAddress == 0 || choreManagerAddress > long.MaxValue)
+                return "script-extender-chore-manager-address-is-invalid";
+            choreManager = new IntPtr(unchecked((long)choreManagerAddress));
             handlerTableEntry = Add(moduleBase, HandlerTableRva + ProbeOpcode * IntPtr.Size);
             originalHandler = Add(moduleBase, OriginalProbeHandlerRva);
 

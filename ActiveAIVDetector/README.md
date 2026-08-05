@@ -3,6 +3,13 @@
 Temporary diagnostic BepInEx mod for validating the native active-AIV selection
 before moving the capability into the Script Extender.
 
+The native oracle is enabled only for the currently audited `CrusaderDE.dll`
+SHA-256 `1E6D4C2E10CC35A7B8082A7E2BCD8BB20680EBEDA803D9B943257B948145CB2B`.
+Functions and globals are also resolved by unique signatures, but the captured
+AIV structures contain fixed field offsets which signatures cannot validate on
+their own. An unknown DLL therefore leaves the detector inactive and logs an
+error.
+
 The mod does not alter AIV selection or castle construction. It captures each
 AI slot's lord and AIV source list immediately before the skirmish starts, hooks
 the final native layout preparation, keeps only the last finalized candidate

@@ -188,15 +188,18 @@ The failure log also reads Vanilla's native candidate pointer table directly.
 For a placement result of `-2`, it therefore distinguishes a missing candidate
 from a candidate that is still present but rejected by the map-fit test.
 
-The implementation is version-gated to the analyzed `CrusaderDE.dll`:
+The original reverse engineering was performed on `CrusaderDE.dll` SHA-256
+`17F8DD4A92FF6125BD6A3A70ABC80C727682E489696C218D146A7EA6D2F88BF4`.
+That DLL is historical evidence only and is no longer a supported runtime.
 
-- product version `2.7.0.1`
-- SHA-256
-  `17F8DD4A92FF6125BD6A3A70ABC80C727682E489696C218D146A7EA6D2F88BF4`
-
-Every private function and native global is resolved with an AOB signature and
-must match exactly once. A hash or signature mismatch disables initialization
-instead of calling unknown native code.
+Every private function and native global is resolved from an AOB or RIP-relative
+signature and must match exactly once. Native Spawn additionally remains gated
+to the currently audited `CrusaderDE.dll` SHA-256
+`1E6D4C2E10CC35A7B8082A7E2BCD8BB20680EBEDA803D9B943257B948145CB2B`, because
+its AIV structures still contain fixed field offsets which a matching function
+signature alone cannot validate. A changed hash or a missing, ambiguous, or
+structurally invalid signature disables native Spawn instead of calling unknown
+code; managed Blueprint mode remains available.
 
 Native Spawn mode permits local singleplayer skirmishes and blocks real
 multiplayer sessions because invoking the pipeline on only one client would

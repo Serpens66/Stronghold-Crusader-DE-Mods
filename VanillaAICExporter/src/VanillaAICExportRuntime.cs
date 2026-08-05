@@ -48,8 +48,10 @@ namespace VanillaAICExporter
             new LordDefinition(AILordSlot.SK_CROCODILE, "Crocodile"),
             new LordDefinition(AILordSlot.SK_BALDWIN, "Baldwin"),
             new LordDefinition(AILordSlot.SK_BULLSEYE, "Bullseye"),
-            new LordDefinition(AILordSlot.SK_DLC4A, "DLC4A"),
-            new LordDefinition(AILordSlot.SK_DLC4B, "DLC4B")
+            // The current game names the two formerly reserved numeric slots Surgeon and Baibars;
+            // the local Script Extender enum still exposes their stable values as DLC4A/DLC4B.
+            new LordDefinition(AILordSlot.SK_DLC4A, "Surgeon"),
+            new LordDefinition(AILordSlot.SK_DLC4B, "Baibars")
         };
 
         private readonly ManualLogSource log;

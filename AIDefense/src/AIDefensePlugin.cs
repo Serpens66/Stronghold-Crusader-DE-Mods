@@ -59,12 +59,20 @@ namespace AIDefense
         {
             try
             {
+                if (!Shared.DebugLogHelper.ReportNativeLibraryVersion(
+                        Logger,
+                        PluginName,
+                        requireCurrentVersion: true))
+                {
+                    return;
+                }
+
                 persistentRuntime?.Apply();
                 Shared.DebugLogHelper.LogInfo(Logger, "Crusader library loaded; AI Defense runtime initialized.");
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogInfo(Logger, $"AI Defense initialization failed: {ex}");
+                Shared.DebugLogHelper.LogError(Logger, $"AI Defense initialization failed: {ex}");
             }
         }
 

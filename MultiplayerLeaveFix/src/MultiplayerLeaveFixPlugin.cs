@@ -17,7 +17,8 @@ namespace MultiplayerLeaveFix
 
         private void Awake()
         {
-            Logger.LogDebug($"{PluginName} {PluginVersion} loaded.");
+            Shared.DebugLogHelper.LogDebug(Logger, $"{PluginName} {PluginVersion} loaded.");
+            Shared.DebugLogHelper.ReportNativeLibraryVersion(Logger, PluginName);
             runtime = new MultiplayerLeaveFixRuntime(Logger);
             runtime.Apply();
         }

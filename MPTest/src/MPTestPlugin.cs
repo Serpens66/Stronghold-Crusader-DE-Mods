@@ -79,6 +79,14 @@ namespace MPTest
 
             try
             {
+                if (!Shared.DebugLogHelper.ReportNativeLibraryVersion(
+                        Logger,
+                        PluginName,
+                        requireCurrentVersion: true))
+                {
+                    return;
+                }
+
                 GameXAMLManagerAPI.Instance.RegisterBinding(
                     "MPTestWoodcutterSpawnButtonHost",
                     runtime.ButtonViewModel);

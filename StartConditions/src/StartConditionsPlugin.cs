@@ -55,6 +55,7 @@ namespace StartConditions
         {
             try
             {
+                Shared.DebugLogHelper.ReportNativeLibraryVersion(Logger, PluginName);
                 Settings.RefreshLocalizedNames(message => Shared.DebugLogHelper.LogDebug(Logger, message));
                 GameXAMLManagerAPI.Instance.RegisterLobbyModSettings(
                     this,

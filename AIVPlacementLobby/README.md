@@ -65,8 +65,9 @@ production-worker check can additionally be run as:
 
 `build.bat` recreates the complete local package on every run instead of relying
 on files from an earlier build. It copies the canonical `info.json`, all freshly
-built assemblies and exactly 360 official Vanilla AIVJSON files, validates the
-393-file package, stages the game installation and compares every installed file
+the built assemblies and all official Vanilla AIVJSON files currently supplied
+by the editor, validates the package structure without assuming a fixed lord or
+AIV count, stages the game installation and compares every installed file
 by SHA-256 through `System.Security.Cryptography.SHA256`, without depending on
 PowerShell module auto-loading. Deleting the installed
 `AIVPlacementLobby_Serp` directory therefore

@@ -68,6 +68,14 @@ namespace ActiveAIVDetector
 
             try
             {
+                if (!Shared.DebugLogHelper.ReportNativeLibraryVersion(
+                        Logger,
+                        PluginName,
+                        requireCurrentVersion: true))
+                {
+                    return;
+                }
+
                 runtime.Install(libraryHandle, memory);
                 libraryLoadedHandled = true;
             }

@@ -94,6 +94,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="..\Shared\DebugLogHelper.cs">
+      <Link>Shared\DebugLogHelper.cs</Link>
+    </Compile>
     <Compile Include="src\MultiplayerLeaveFixPlugin.cs" />
     <Compile Include="src\MultiplayerLeaveFixRuntime.cs" />
     <Compile Include="src\MultiplayerLeavePacketHook.cs" />

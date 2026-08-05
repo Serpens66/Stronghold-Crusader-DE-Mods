@@ -10,9 +10,9 @@ using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using Zhuqiaomon.Assembly.Stateful;
 using Zhuqiaomon.Memory;
-using Zhuqiaomon.Memory.Scanners;
 
 namespace ImprovedHunters
 {
@@ -235,7 +235,7 @@ namespace ImprovedHunters
                 if (nativeScanFailureLogged)
                     return;
 
-                log.LogWarning($"Improved Hunters native scan failed: {exception}");
+                Shared.DebugLogHelper.LogError(log, $"Improved Hunters native scan failed; native scan remains inactive after this error: {exception}");
                 nativeScanFailureLogged = true;
             }
         }
@@ -1751,8 +1751,16 @@ namespace ImprovedHunters
             if (extraDespawnTicksInitialized)
                 return;
 
-            camelDespawnTickTime = FindExtraDespawnImmediate(memory, imageBase, CamelDespawnTickTimePattern);
-            chickenDespawnTickTime = FindExtraDespawnImmediate(memory, imageBase, ChickenDespawnTickTimePattern);
+            camelDespawnTickTime = FindExtraDespawnImmediate(
+                memory,
+                imageBase,
+                "camel despawn immediate",
+                CamelDespawnTickTimePattern);
+            chickenDespawnTickTime = FindExtraDespawnImmediate(
+                memory,
+                imageBase,
+                "chicken despawn immediate",
+                ChickenDespawnTickTimePattern);
 
             if (camelDespawnTickTime != null)
                 originalCamelDespawnTicks = camelDespawnTickTime.GetValue();
@@ -1766,13 +1774,12 @@ namespace ImprovedHunters
         private ManagedAssemblyImmediate<short> FindExtraDespawnImmediate(
             ReadOnlySpan<byte> memory,
             ulong imageBase,
+            string name,
             string pattern)
         {
             try
             {
-                long offset = PatternScanner.FindPattern(memory, pattern);
-                if (offset < 0)
-                    return null;
+                long offset = FindUniquePattern(memory, name, pattern);
 
                 return new ManagedAssemblyImmediate<short>(
                     new IntPtr(unchecked((long)(imageBase + (ulong)offset + ExtraDespawnPatternImmediateOffset))),
@@ -1782,9 +1789,65 @@ namespace ImprovedHunters
             }
             catch (Exception exception)
             {
-                log.LogWarning($"Failed to initialize animal despawn patch: {exception}");
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Improved Hunters failed to initialize {name}; this native patch remains inactive: {exception}");
                 return null;
             }
+        }
+
+        private static long FindUniquePattern(
+            ReadOnlySpan<byte> memory,
+            string name,
+            string pattern)
+        {
+            string[] tokens = pattern.Split(
+                new[] { ' ' },
+                StringSplitOptions.RemoveEmptyEntries);
+            var values = new byte[tokens.Length];
+            var wildcards = new bool[tokens.Length];
+            for (int index = 0; index < tokens.Length; index++)
+            {
+                wildcards[index] = tokens[index] == "?" || tokens[index] == "??";
+                if (!wildcards[index])
+                {
+                    values[index] = byte.Parse(
+                        tokens[index],
+                        NumberStyles.HexNumber,
+                        CultureInfo.InvariantCulture);
+                }
+            }
+
+            long match = -1;
+            int matchCount = 0;
+            for (int offset = 0; offset <= memory.Length - values.Length; offset++)
+            {
+                bool matched = true;
+                for (int index = 0; index < values.Length; index++)
+                {
+                    if (!wildcards[index] && memory[offset + index] != values[index])
+                    {
+                        matched = false;
+                        break;
+                    }
+                }
+
+                if (!matched)
+                    continue;
+
+                match = offset;
+                matchCount++;
+                if (matchCount > 1)
+                    break;
+            }
+
+            if (matchCount != 1)
+            {
+                throw new InvalidOperationException(
+                    $"Native {name} signature expected one match but found {matchCount}.");
+            }
+
+            return match;
         }
 
         private void ApplyDespawnPatches()
@@ -1809,7 +1872,9 @@ namespace ImprovedHunters
             }
             catch (Exception exception)
             {
-                log.LogWarning($"Failed to apply animal despawn patch: {exception}");
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Improved Hunters failed to apply an animal despawn patch; the affected patch remains inactive: {exception}");
             }
         }
 
@@ -1882,7 +1947,9 @@ namespace ImprovedHunters
             }
             catch (Exception exception)
             {
-                log.LogWarning($"Failed to apply camel health patch: {exception}");
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Improved Hunters failed to apply the camel health patch; that patch remains inactive: {exception}");
             }
         }
 

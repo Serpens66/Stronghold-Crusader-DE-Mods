@@ -56,6 +56,9 @@ namespace SomeSettings
         {
             try
             {
+                bool currentNativeLayout =
+                    Shared.DebugLogHelper.ReportNativeLibraryVersion(Logger, PluginName);
+                runtime.SetCurrentNativeLayout(currentNativeLayout);
                 GameXAMLManagerAPI.Instance.RegisterLobbyModSettings(
                     this,
                     "SomeSettings_Serp",
