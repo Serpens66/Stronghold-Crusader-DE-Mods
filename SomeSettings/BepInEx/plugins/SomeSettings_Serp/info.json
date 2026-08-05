@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Some Settings",
   "Description": "Adds small gameplay/QoL settings for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.15",
+  "Version": "1.0.13",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.01",
+      "Changes": [
+        "Minimap dragging now follows the mouse cursor directly."
+      ]
+    },
     {
       "Version": "1.0.02",
       "Changes": [
@@ -83,34 +89,15 @@
       ]
     },
     {
-      "Version": "1.0.01",
-      "Changes": [
-        "Minimap dragging now follows the mouse cursor directly."
-      ]
-    },
-    {
       "Version": "1.0.12",
       "Changes": [
-        "Added timestamped Info diagnostics for the fast recruit rally movement hook, State 109 detection, native run-data resolution, applied cadence values, and rally-state completion."
+        "Added an enabled-by-default option that lets churches use two priests and cathedrals use three priests."
       ]
     },
     {
       "Version": "1.0.13",
       "Changes": [
-        "Fixed fast recruit rally movement by replacing the incorrect global State 109 detection with direct native recruitment markers for mercenary posts and European barracks.",
-        "Improved timestamped Info diagnostics to report native recruit marking, actual rally-path start, applied run animation and cadence, and path completion."
-      ]
-    },
-    {
-      "Version": "1.0.14",
-      "Changes": [
-        "Cleaned up fast recruit rally diagnostics by removing logging-only tracking state and moving normal movement messages from Info to Debug."
-      ]
-    },
-    {
-      "Version": "1.0.15",
-      "Changes": [
-        "Added an enabled-by-default option that lets stone churches use two priests and cathedrals use three priests."
+        "Allowed barracks and keep rally points to be placed even when the native reachability check rejects the target."
       ]
     }
   ]

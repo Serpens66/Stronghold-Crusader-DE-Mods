@@ -39,7 +39,11 @@ namespace SomeSettings
         private readonly QuarryPileRelocationRuntime quarryPileRelocationRuntime;
         private readonly TroopMovementFix3Runtime troopMovementFixRuntime;
         private readonly ChurchPriestCountRuntime churchPriestCountRuntime;
+        private AssemblyPointPlacementPatch assemblyPointPlacementPatch;
         private AIEconomyProtectionHook aiEconomyProtectionHook;
+        private IntPtr libraryHandle;
+        private int libraryLength;
+        private bool nativeLibraryAvailable;
 
         private bool hooksSubscribed;
         private bool settingsSubscribed;
@@ -110,6 +114,20 @@ namespace SomeSettings
             {
                 Shared.DebugLogHelper.LogError(log, $"SomeSettings church priest counts could not be initialized: {ex}");
             }
+        }
+
+        public void InitializeAssemblyPointPlacementPatch(IntPtr newLibraryHandle, ReadOnlySpan<byte> memory)
+        {
+            if (nativeLibraryAvailable)
+                return;
+
+            if (newLibraryHandle == IntPtr.Zero || memory.Length == 0)
+                throw new ArgumentException("The Crusader library is unavailable.");
+
+            libraryHandle = newLibraryHandle;
+            libraryLength = memory.Length;
+            nativeLibraryAvailable = true;
+            ApplyAssemblyPointPlacementPatchSetting();
         }
 
         public void SubscribeHooks()
@@ -196,6 +214,10 @@ namespace SomeSettings
             skirmishAiSelectionMemoryHook = null;
             aiEconomyProtectionHook?.Dispose();
             aiEconomyProtectionHook = null;
+            DisableAssemblyPointPlacementPatch();
+            nativeLibraryAvailable = false;
+            libraryHandle = IntPtr.Zero;
+            libraryLength = 0;
             troopMovementFixRuntime.Dispose();
             if (settingsSubscribed)
             {
@@ -274,6 +296,57 @@ namespace SomeSettings
             }
         }
 
+        private void ApplyAssemblyPointPlacementPatchSetting()
+        {
+            if (!nativeLibraryAvailable)
+                return;
+
+            if (settings.EnableMod)
+            {
+                InstallAssemblyPointPlacementPatch();
+                return;
+            }
+
+            DisableAssemblyPointPlacementPatch();
+        }
+
+        private unsafe ReadOnlySpan<byte> GetNativeLibraryMemory()
+        {
+            // The game DLL remains loaded for the process lifetime.
+            return new ReadOnlySpan<byte>(
+                libraryHandle.ToPointer(),
+                libraryLength);
+        }
+
+        private void InstallAssemblyPointPlacementPatch()
+        {
+            if (assemblyPointPlacementPatch != null)
+                return;
+
+            try
+            {
+                assemblyPointPlacementPatch = new AssemblyPointPlacementPatch(
+                    log,
+                    GetNativeLibraryMemory(),
+                    unchecked((ulong)libraryHandle.ToInt64()));
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"SomeSettings assembly-point placement patch could not be installed: {ex}");
+            }
+        }
+
+        private void DisableAssemblyPointPlacementPatch()
+        {
+            if (assemblyPointPlacementPatch == null)
+                return;
+
+            assemblyPointPlacementPatch?.Dispose();
+            assemblyPointPlacementPatch = null;
+        }
+
         private void SubscribeSettingsChanges()
         {
             if (settingsSubscribed)
@@ -289,6 +362,7 @@ namespace SomeSettings
             {
                 // Native movement patches must follow the global switch too.
                 troopMovementFixRuntime.ApplySetting();
+                ApplyAssemblyPointPlacementPatchSetting();
 
                 if (settings.EnableMod)
                 {

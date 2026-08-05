@@ -130,6 +130,7 @@
     </Compile>
     <Compile Include="src\AiAivSelectionCodec.cs" />
     <Compile Include="src\AIEconomyProtectionHook.cs" />
+    <Compile Include="src\AssemblyPointPlacementPatch.cs" />
     <Compile Include="src\AutoTradeSellZeroHook.cs" />
     <Compile Include="src\ChurchPriestCountRuntime.cs" />
     <Compile Include="src\CoopTrailCustomizeHook.cs" />
