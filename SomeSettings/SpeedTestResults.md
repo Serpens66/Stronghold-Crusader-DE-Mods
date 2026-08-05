@@ -1,5 +1,9 @@
 # Forschungsübergabe: Geschwindigkeitssteuerung von Truppen
 
+> **Historischer Hinweis (August 2026):** Der frühere Ctrl+Click-Code wurde
+> entfernt. Alle Ctrl+Click-Abschnitte in diesem Dokument beschreiben nur
+> frühere Versuche und nicht das aktuelle Verhalten von SomeSettings.
+
 Letzter Erkenntnisstand: 29.07.2026
 
 ## Zweck dieses Dokuments

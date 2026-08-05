@@ -11,6 +11,11 @@ namespace SomeSettings
             log?.LogDebug(WithTimestamp(message));
         }
 
+        public static void Info(ManualLogSource log, string message)
+        {
+            log?.LogInfo(WithTimestamp(message));
+        }
+
         public static void Warning(ManualLogSource log, string message)
         {
             log?.LogWarning(WithTimestamp(message));

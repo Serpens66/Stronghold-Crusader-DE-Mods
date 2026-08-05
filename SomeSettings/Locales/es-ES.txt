@@ -2,6 +2,8 @@
 # Format: key=value
 SomeSettings.EnableTroopMovementFix=Troop Speed Fix
 SomeSettings.EnableTroopMovementFixHelp=Fixes synchronized movement for mixed troop groups: with a normal movement command, all units move at the speed of the slowest unit in the group.
+SomeSettings.EnableFastRecruitRallyMovement=Recruits Run to Rally Points
+SomeSettings.EnableFastRecruitRallyMovementHelp=Newly recruited player and AI units move to their rally points using their own Vanilla Fast pace and animation while keeping terrain and state modifiers.
 Common.ResetToDefault=Reset to Default
 Common.Ai=AI
 Common.Human=Human

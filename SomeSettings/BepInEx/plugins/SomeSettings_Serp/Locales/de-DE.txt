@@ -2,6 +2,8 @@
 # Format: key=value
 SomeSettings.EnableTroopMovementFix=Truppen Speed Fix
 SomeSettings.EnableTroopMovementFixHelp=Korrigiert die synchronisierte Bewegung gemischter Truppengruppen: Bei einem normalen Bewegungsbefehl laufen alle Einheiten in der Geschwindigkeit der langsamsten Einheit der Gruppe.
+SomeSettings.EnableFastRecruitRallyMovement=Rekruten laufen zu Sammelpunkten
+SomeSettings.EnableFastRecruitRallyMovementHelp=Neu rekrutierte Spieler- und KI-Einheiten laufen mit ihrem eigenen maximalen Vanilla-Tempo und passender Animation zu ihrem Sammelpunkt; Gelände- und Zustandsmodifikatoren bleiben erhalten.
 Common.ResetToDefault=Zurücksetzen
 Common.Ai=KI
 Common.Human=Mensch

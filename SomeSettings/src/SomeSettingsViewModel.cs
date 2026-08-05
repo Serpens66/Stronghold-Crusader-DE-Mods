@@ -28,6 +28,7 @@ namespace SomeSettings
         private bool keepStorageContent;
         private bool rememberAiAivSettings = true;
         private bool enableTroopMovementFix = true;
+        private bool enableFastRecruitRallyMovement = true;
         private bool enableKnightDismount = true;
         private bool enableQuarryPileRelocation = true;
         private bool preventAIPause = true;
@@ -61,6 +62,8 @@ namespace SomeSettings
         public string RememberAiAivSettingsHelpText => SerpLocalization.Get(SerpLocalization.RememberAiAivSettingsHelp);
         public string EnableTroopMovementFixText => SerpLocalization.Get(SerpLocalization.EnableTroopMovementFix);
         public string EnableTroopMovementFixHelpText => SerpLocalization.Get(SerpLocalization.EnableTroopMovementFixHelp);
+        public string EnableFastRecruitRallyMovementText => SerpLocalization.Get(SerpLocalization.EnableFastRecruitRallyMovement);
+        public string EnableFastRecruitRallyMovementHelpText => SerpLocalization.Get(SerpLocalization.EnableFastRecruitRallyMovementHelp);
         public string EnableKnightDismountText => SerpLocalization.Get(SerpLocalization.EnableKnightDismount);
         public string EnableKnightDismountHelpText => SerpLocalization.Get(SerpLocalization.EnableKnightDismountHelp);
         public string EnableQuarryPileRelocationText => SerpLocalization.Get(SerpLocalization.EnableQuarryPileRelocation);
@@ -184,6 +187,7 @@ namespace SomeSettings
         [SyncHostOnly] public double MarketSellPriceMultiplier { get => marketSellPriceMultiplier; set => SetDoubleSetting(ref marketSellPriceMultiplier, value, nameof(MarketSellPriceMultiplier), nameof(MarketSellPriceMultiplierValueText)); }
         [SyncHostOnly] public bool RememberAiAivSettings { get => rememberAiAivSettings; set => SetSetting(ref rememberAiAivSettings, value, nameof(RememberAiAivSettings)); }
         [SyncHostOnly] public bool EnableTroopMovementFix { get => enableTroopMovementFix; set => SetSetting(ref enableTroopMovementFix, value, nameof(EnableTroopMovementFix)); }
+        [SyncHostOnly] public bool EnableFastRecruitRallyMovement { get => enableFastRecruitRallyMovement; set => SetSetting(ref enableFastRecruitRallyMovement, value, nameof(EnableFastRecruitRallyMovement)); }
         [SyncHostOnly] public bool EnableKnightDismount { get => enableKnightDismount; set => SetSetting(ref enableKnightDismount, value, nameof(EnableKnightDismount)); }
         [SyncHostOnly] public bool EnableQuarryPileRelocation { get => enableQuarryPileRelocation; set => SetSetting(ref enableQuarryPileRelocation, value, nameof(EnableQuarryPileRelocation)); }
         [SyncHostOnly] public bool PreventAIPause { get => preventAIPause; set => SetSetting(ref preventAIPause, value, nameof(PreventAIPause)); }
@@ -213,6 +217,7 @@ namespace SomeSettings
             MarketSellPriceMultiplier = 1.0;
             RememberAiAivSettings = true;
             EnableTroopMovementFix = true;
+            EnableFastRecruitRallyMovement = true;
             EnableKnightDismount = true;
             EnableQuarryPileRelocation = true;
             PreventAIPause = true;

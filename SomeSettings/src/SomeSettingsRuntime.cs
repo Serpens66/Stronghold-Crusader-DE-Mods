@@ -309,7 +309,8 @@ namespace SomeSettings
                 return;
             }
 
-            if (propertyName == nameof(SomeSettingsViewModel.EnableTroopMovementFix))
+            if (propertyName == nameof(SomeSettingsViewModel.EnableTroopMovementFix) ||
+                propertyName == nameof(SomeSettingsViewModel.EnableFastRecruitRallyMovement))
             {
                 troopMovementFixRuntime.ApplySetting();
                 return;

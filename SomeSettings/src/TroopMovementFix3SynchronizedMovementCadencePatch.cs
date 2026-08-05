@@ -21,12 +21,23 @@ namespace SomeSettings
 
     /// <summary>
     /// Corrects only the walk/run cadence selected by the native unit-type
-    /// handlers. Effective movement speed remains entirely controlled by
+    /// handlers, including freshly recruited units on their way to a rally
+    /// point. Effective movement speed remains entirely controlled by
     /// Vanilla's tribe MovementSpeed and per-unit terrain/state calculation.
     /// </summary>
     internal sealed unsafe class SynchronizedMovementCadencePatch : IDisposable
     {
         private const int MaximumUnitTypeHandlerLength = 0x5000;
+        private const ushort UnitInitializationAiState = 109;
+        private const ushort ActivePathPlanState = 2;
+        private const ulong UnitRecordOffset = 0x65CUL;
+
+        // These anchors sit after Script Extender's transition hooks. They
+        // mark only the native mercenary-post and European-barracks paths.
+        private const string MercenaryRecruitMarkerPattern =
+            "33 C9 C7 86 18 09 00 00 6D 00 00 00 66 89 8E E0 09 00 00 B8 01 00 00 00";
+        private const string EuropeanRecruitMarkerPattern =
+            "66 89 8B 24 09 00 00 C7 83 18 09 00 00 6D 00 00 00 66 C7 83 86 09 00 00 00 01";
 
         // updateUnits pass 4:
         // call qword ptr [moduleBase + unitType * 8 + dispatchTableOffset]
@@ -42,13 +53,21 @@ namespace SomeSettings
 
         private readonly ManualLogSource log;
         private readonly TryGetCadenceDelegate tryGetCadence;
+        private readonly Func<bool> isFastRecruitRallyMovementEnabled;
         private readonly HookTransaction transaction;
         private readonly Dictionary<eChimps, AnimationTransitions>
             animationTransitionsByType =
                 new Dictionary<eChimps, AnimationTransitions>(
                     (int)eChimps.CHIMP_NUM_TYPES);
+        private readonly Dictionary<ulong, RecruitRallyTracking>
+            recruitRallyByUnitAddress =
+                new Dictionary<ulong, RecruitRallyTracking>();
 
         private HookRef<X64InlineHook> movementCadenceHook =
+            new HookRef<X64InlineHook>();
+        private HookRef<X64InlineHook> mercenaryRecruitMarkerHook =
+            new HookRef<X64InlineHook>();
+        private HookRef<X64InlineHook> europeanRecruitMarkerHook =
             new HookRef<X64InlineHook>();
         private bool callbackFailureLogged;
         private bool disposed;
@@ -62,11 +81,16 @@ namespace SomeSettings
             ManualLogSource log,
             ReadOnlySpan<byte> memory,
             ulong libraryBase,
-            TryGetCadenceDelegate tryGetCadence)
+            TryGetCadenceDelegate tryGetCadence,
+            Func<bool> isFastRecruitRallyMovementEnabled)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.tryGetCadence =
                 tryGetCadence ?? throw new ArgumentNullException(nameof(tryGetCadence));
+            this.isFastRecruitRallyMovementEnabled =
+                isFastRecruitRallyMovementEnabled ??
+                throw new ArgumentNullException(
+                    nameof(isFastRecruitRallyMovementEnabled));
 
             DiscoverRunningAnimationTransitions(memory, libraryBase);
 
@@ -75,6 +99,27 @@ namespace SomeSettings
                 libraryBase,
                 loggerFactory: null,
                 failureMode: TransactionFailureMode.RollbackAndThrow);
+
+            transaction.AddContextHook(
+                ref mercenaryRecruitMarkerHook,
+                MercenaryRecruitMarkerPattern,
+                MarkMercenaryRecruit,
+                regs: X64SmartCPUContextRegs.Volatile |
+                      X64SmartCPUContextRegs.RBP |
+                      X64SmartCPUContextRegs.RDI |
+                      X64SmartCPUContextRegs.RSI,
+                errorMode: CallbackErrorMode.LogAndContinue,
+                placement: OverwrittenInstructionPlacement.AfterCallback);
+
+            transaction.AddContextHook(
+                ref europeanRecruitMarkerHook,
+                EuropeanRecruitMarkerPattern,
+                MarkEuropeanRecruit,
+                regs: X64SmartCPUContextRegs.Volatile |
+                      X64SmartCPUContextRegs.RBX |
+                      X64SmartCPUContextRegs.RDI,
+                errorMode: CallbackErrorMode.LogAndContinue,
+                placement: OverwrittenInstructionPlacement.AfterCallback);
 
             transaction.AddContextHook(
                 ref movementCadenceHook,
@@ -86,16 +131,20 @@ namespace SomeSettings
 
             transaction.Commit();
 
-            if (!movementCadenceHook.Success)
+            if (!movementCadenceHook.Success ||
+                !mercenaryRecruitMarkerHook.Success ||
+                !europeanRecruitMarkerHook.Success)
             {
                 throw new InvalidOperationException(
-                    "The native movement cadence calculation was not found.");
+                    "A native recruit marker or the movement cadence " +
+                    "calculation was not found.");
             }
 
             TroopMovementFix3ModLog.Debug(
                 log,
-                $"Native synchronized-cadence hook installed; " +
-                $"runCapableUnitTypes={animationTransitionsByType.Count}.");
+                $"Native movement-cadence hook installed; " +
+                $"runCapableUnitTypes={animationTransitionsByType.Count}, " +
+                $"nativeRecruitMarkers=2.");
         }
 
         public bool SupportsSynchronizedRunning(eChimps unitType)
@@ -107,8 +156,28 @@ namespace SomeSettings
             eChimps unitType,
             bool improvedSpearmen)
         {
+            return TryGetNativeRunningSpeedBonus(
+                unitType,
+                improvedSpearmen,
+                out ushort runningSpeedBonus)
+                    ? runningSpeedBonus
+                    : (ushort)0;
+        }
+
+        private bool TryGetNativeRunningSpeedBonus(
+            eChimps unitType,
+            bool improvedSpearmen,
+            out ushort runningSpeedBonus)
+        {
+            runningSpeedBonus = 0;
             if (unitType == eChimps.CHIMP_TYPE_SPEARMAN)
-                return improvedSpearmen ? (ushort)1 : (ushort)0;
+            {
+                if (!improvedSpearmen)
+                    return false;
+
+                runningSpeedBonus = 1;
+                return true;
+            }
 
             switch (unitType)
             {
@@ -116,8 +185,9 @@ namespace SomeSettings
                 case eChimps.CHIMP_TYPE_ARAB_HORSEMAN:
                 case eChimps.CHIMP_TYPE_BEDOUIN_CAMEL_LANCER:
                 case eChimps.CHIMP_TYPE_BEDOUIN_HEAVY_CAMEL:
-                    return GameUnitManagerAPI.Instance
+                    runningSpeedBonus = GameUnitManagerAPI.Instance
                         .GetDefaultCavalryRunSpeedBonus(unitType);
+                    return true;
             }
 
             if (animationTransitionsByType.TryGetValue(
@@ -125,12 +195,12 @@ namespace SomeSettings
                     out AnimationTransitions animationTransitions) &&
                 animationTransitions.NativeRunningSpeedBonus.HasValue)
             {
-                return animationTransitions.NativeRunningSpeedBonus.Value;
+                runningSpeedBonus =
+                    animationTransitions.NativeRunningSpeedBonus.Value;
+                return true;
             }
 
-            // An unknown positive value could make a unit exceed its native
-            // maximum. Zero is therefore the safe fallback.
-            return 0;
+            return false;
         }
 
         public void Dispose()
@@ -140,8 +210,71 @@ namespace SomeSettings
 
             disposed = true;
             animationTransitionsByType.Clear();
+            recruitRallyByUnitAddress.Clear();
             transaction.Unload();
             transaction.Dispose();
+        }
+
+        private void MarkMercenaryRecruit(
+            NativePointer<X64SmartCPUContext> context)
+        {
+            X64SmartCPUContext* registers = context.Pointer;
+            GameUnit* unit =
+                (GameUnit*)(registers->RSI + UnitRecordOffset);
+            eChimps expectedUnitType =
+                (eChimps)unchecked((ushort)registers->RDI);
+            TrackNativeRecruit(
+                unit,
+                expectedUnitType);
+
+            if (unit != null && isFastRecruitRallyMovementEnabled())
+            {
+                TroopMovementFix3ModLog.Debug(
+                    log,
+                    $"Fast recruit rally candidate marked by native " +
+                    $"MercenaryOutpost: " +
+                    $"unitId={unchecked((int)registers->RBP)}, " +
+                    $"globalId={unit->r_GlobalId}, " +
+                    $"expectedUnitType={expectedUnitType}.");
+            }
+        }
+
+        private void MarkEuropeanRecruit(
+            NativePointer<X64SmartCPUContext> context)
+        {
+            X64SmartCPUContext* registers = context.Pointer;
+            GameUnit* unit =
+                (GameUnit*)(registers->RBX + UnitRecordOffset);
+            eChimps expectedUnitType =
+                (eChimps)unchecked((ushort)registers->R9);
+            TrackNativeRecruit(
+                unit,
+                expectedUnitType);
+
+            if (unit != null && isFastRecruitRallyMovementEnabled())
+            {
+                TroopMovementFix3ModLog.Debug(
+                    log,
+                    $"Fast recruit rally candidate marked by native " +
+                    $"EuropeanBarracks: " +
+                    $"unitId={unchecked((int)registers->RDI)}, " +
+                    $"globalId={unit->r_GlobalId}, " +
+                    $"expectedUnitType={expectedUnitType}.");
+            }
+        }
+
+        private void TrackNativeRecruit(
+            GameUnit* unit,
+            eChimps expectedUnitType)
+        {
+            if (!isFastRecruitRallyMovementEnabled() || unit == null)
+                return;
+
+            ulong unitAddress = unchecked((ulong)unit);
+            RecruitRallyTracking tracking = new RecruitRallyTracking(
+                unit->r_GlobalId,
+                expectedUnitType);
+            recruitRallyByUnitAddress[unitAddress] = tracking;
         }
 
         private void SynchronizeMovementCadence(
@@ -150,10 +283,18 @@ namespace SomeSettings
             try
             {
                 X64SmartCPUContext* registers = context.Pointer;
-                GameUnit* unit = (GameUnit*)(registers->R8 + 0x65CUL);
+                GameUnit* unit =
+                    (GameUnit*)(registers->R8 + UnitRecordOffset);
                 if (unit == null ||
-                    unit->r_AliveState != AliveState.IsAlive ||
-                    unit->r_TribeId == 0 ||
+                    unit->r_AliveState != AliveState.IsAlive)
+                {
+                    return;
+                }
+
+                if (TryApplyFastRecruitRallyCadence(unit))
+                    return;
+
+                if (unit->r_TribeId == 0 ||
                     !tryGetCadence(
                         unit->r_TribeId,
                         out SynchronizedMovementCadence cadence,
@@ -204,9 +345,134 @@ namespace SomeSettings
                 callbackFailureLogged = true;
                 TroopMovementFix3ModLog.Error(
                     log,
-                    $"The synchronized-cadence callback failed; affected " +
+                    $"The movement-cadence callback failed; affected " +
                     $"units keep Vanilla cadence: {ex}");
             }
+        }
+
+        private bool TryApplyFastRecruitRallyCadence(GameUnit* unit)
+        {
+            if (!isFastRecruitRallyMovementEnabled())
+            {
+                if (recruitRallyByUnitAddress.Count != 0)
+                    recruitRallyByUnitAddress.Clear();
+
+                return false;
+            }
+
+            ulong unitAddress = unchecked((ulong)unit);
+            if (!recruitRallyByUnitAddress.TryGetValue(
+                    unitAddress,
+                    out RecruitRallyTracking tracking))
+            {
+                return false;
+            }
+
+            if (tracking.GlobalId != 0 &&
+                unit->r_GlobalId != tracking.GlobalId)
+            {
+                recruitRallyByUnitAddress.Remove(unitAddress);
+                return false;
+            }
+
+            if (unit->r_UnitChimp != tracking.ExpectedUnitType)
+            {
+                // The marker runs while Vanilla still transforms the pooled
+                // peasant. State 109 is initialization, not rally movement.
+                if (unit->r_AIState == UnitInitializationAiState ||
+                    unit->r_TransformIntoUnitOfType ==
+                        tracking.ExpectedUnitType)
+                {
+                    return true;
+                }
+
+                TroopMovementFix3ModLog.Debug(
+                    log,
+                    $"Fast recruit rally tracking cancelled: " +
+                    $"globalId={unit->r_GlobalId}, " +
+                    $"unitType={unit->r_UnitChimp}, " +
+                    $"expectedUnitType={tracking.ExpectedUnitType}.");
+                recruitRallyByUnitAddress.Remove(unitAddress);
+                return false;
+            }
+
+            bool hasActivePath =
+                (unit->r_PathPlanStateBitFlags & ActivePathPlanState) != 0;
+            if (!tracking.Started)
+            {
+                if (!hasActivePath)
+                    return true;
+
+                tracking.Started = true;
+                tracking.GlobalId = unit->r_GlobalId;
+                tracking.TargetTileX = unit->r_TargetTilePositionX;
+                tracking.TargetTileY = unit->r_TargetTilePositionY;
+
+                TroopMovementFix3ModLog.Debug(
+                    log,
+                    $"Fast recruit rally movement started: " +
+                    $"globalId={unit->r_GlobalId}, " +
+                    $"unitType={unit->r_UnitChimp}, " +
+                    $"currentTile={unit->r_CurrentTilePositionX}," +
+                    $"{unit->r_CurrentTilePositionY}, " +
+                    $"targetTile={tracking.TargetTileX}," +
+                    $"{tracking.TargetTileY}, " +
+                    $"speedBonus={unit->r_SpeedBonus}, " +
+                    $"animation=0x{unit->N000000F4:X}.");
+            }
+            else if (!hasActivePath ||
+                     unit->r_TargetTilePositionX != tracking.TargetTileX ||
+                     unit->r_TargetTilePositionY != tracking.TargetTileY ||
+                     (unit->r_CurrentTilePositionX == tracking.TargetTileX &&
+                      unit->r_CurrentTilePositionY == tracking.TargetTileY))
+            {
+                TroopMovementFix3ModLog.Debug(
+                    log,
+                    $"Fast recruit rally tracking ended: " +
+                    $"globalId={unit->r_GlobalId}, " +
+                    $"unitType={unit->r_UnitChimp}, " +
+                    $"currentTile={unit->r_CurrentTilePositionX}," +
+                    $"{unit->r_CurrentTilePositionY}, " +
+                    $"targetTile={unit->r_TargetTilePositionX}," +
+                    $"{unit->r_TargetTilePositionY}, " +
+                    $"pathFlags=0x{unit->r_PathPlanStateBitFlags:X}.");
+                recruitRallyByUnitAddress.Remove(unitAddress);
+                return false;
+            }
+
+            // Only proven native run data is applied; unknown types retain
+            // their normal maximum and animation.
+            if (!animationTransitionsByType.TryGetValue(
+                    unit->r_UnitChimp,
+                    out AnimationTransitions animationTransitions))
+            {
+                return true;
+            }
+
+            bool improvedSpearmen =
+                unit->r_UnitChimp == eChimps.CHIMP_TYPE_SPEARMAN &&
+                GamePlayerManagerAPI.Instance.IsImprovedSpearman();
+            if (!TryGetNativeRunningSpeedBonus(
+                    unit->r_UnitChimp,
+                    improvedSpearmen,
+                    out ushort runningSpeedBonus))
+            {
+                return true;
+            }
+
+            if (unit->r_SpeedBonus != runningSpeedBonus)
+                unit->r_SpeedBonus = runningSpeedBonus;
+
+            uint animationState = unit->N000000F4;
+            if (animationTransitions.TryGetRunningState(
+                    animationState,
+                    out uint runningState) &&
+                runningState != animationState)
+            {
+                unit->N000000F4 = runningState;
+            }
+
+            return true;
         }
 
         private void DiscoverRunningAnimationTransitions(
@@ -641,6 +907,23 @@ namespace SomeSettings
                 default:
                     return register;
             }
+        }
+
+        private sealed class RecruitRallyTracking
+        {
+            public RecruitRallyTracking(
+                uint globalId,
+                eChimps expectedUnitType)
+            {
+                GlobalId = globalId;
+                ExpectedUnitType = expectedUnitType;
+            }
+
+            public uint GlobalId { get; set; }
+            public eChimps ExpectedUnitType { get; }
+            public bool Started { get; set; }
+            public ushort TargetTileX { get; set; }
+            public ushort TargetTileY { get; set; }
         }
 
         private sealed class AnimationTransitions

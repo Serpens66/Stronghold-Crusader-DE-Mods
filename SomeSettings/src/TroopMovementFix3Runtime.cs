@@ -71,16 +71,50 @@ namespace SomeSettings
             if (!nativeLibraryAvailable)
                 return;
 
-            bool shouldBeActive =
+            bool shouldEnableTroopMovementFix =
                 settings.EnableMod &&
                 settings.EnableTroopMovementFix;
-            if (shouldBeActive == IsActive)
-                return;
+            bool shouldEnableCadencePatch =
+                settings.EnableMod &&
+                (settings.EnableTroopMovementFix ||
+                 settings.EnableFastRecruitRallyMovement);
 
-            if (shouldBeActive)
-                Enable();
-            else
-                Disable();
+            if (shouldEnableCadencePatch && cadencePatch == null)
+                EnableCadencePatch();
+
+            try
+            {
+                if (shouldEnableTroopMovementFix &&
+                    !AreTroopMovementFixComponentsActive)
+                {
+                    EnableTroopMovementFixComponents();
+                }
+                else if (!shouldEnableTroopMovementFix &&
+                         AreTroopMovementFixComponentsActive)
+                {
+                    DisableTroopMovementFixComponents();
+                }
+            }
+            catch
+            {
+                if (!settings.EnableFastRecruitRallyMovement)
+                    DisableCadencePatch();
+
+                throw;
+            }
+
+            if (!shouldEnableCadencePatch)
+                DisableCadencePatch();
+
+            TroopMovementFix3ModLog.Debug(
+                log,
+                $"Movement options reconciled: " +
+                $"troopSpeedFixRequested={shouldEnableTroopMovementFix}, " +
+                $"fastRecruitRallyRequested=" +
+                $"{settings.EnableMod && settings.EnableFastRecruitRallyMovement}, " +
+                $"cadenceHookActive={cadencePatch != null}, " +
+                $"troopFixComponentsActive=" +
+                $"{AreTroopMovementFixComponentsActive}.");
         }
 
         public void Dispose()
@@ -91,27 +125,50 @@ namespace SomeSettings
             libraryLength = 0;
         }
 
-        private bool IsActive =>
+        private bool AreTroopMovementFixComponentsActive =>
             spearmanMovementPatch != null &&
-            cadencePatch != null &&
             subscriptions.Count != 0;
 
         private bool IsFeatureEnabled =>
             settings.EnableMod &&
             settings.EnableTroopMovementFix &&
-            IsActive;
+            cadencePatch != null &&
+            AreTroopMovementFixComponentsActive;
 
-        private void Enable()
+        private bool IsFastRecruitRallyMovementEnabled()
         {
-            // The module stays loaded for the process lifetime, so recreating
-            // this span lets a setting change reinstall the native patches.
+            return settings.EnableMod &&
+                   settings.EnableFastRecruitRallyMovement &&
+                   cadencePatch != null;
+        }
+
+        private ReadOnlySpan<byte> GetNativeLibraryMemory()
+        {
+            // The module stays loaded for the process lifetime, so this span
+            // remains valid when an option installs a native patch later.
+            return new ReadOnlySpan<byte>(
+                libraryHandle.ToPointer(),
+                libraryLength);
+        }
+
+        private void EnableCadencePatch()
+        {
+            SynchronizedMovementCadencePatch newCadencePatch =
+                new SynchronizedMovementCadencePatch(
+                    log,
+                    GetNativeLibraryMemory(),
+                    unchecked((ulong)libraryHandle.ToInt64()),
+                    TryGetCadence,
+                    IsFastRecruitRallyMovementEnabled);
+            cadencePatch = newCadencePatch;
+        }
+
+        private void EnableTroopMovementFixComponents()
+        {
             ReadOnlySpan<byte> memory =
-                new ReadOnlySpan<byte>(
-                    libraryHandle.ToPointer(),
-                    libraryLength);
+                GetNativeLibraryMemory();
 
             SpearmanMovementPatch newSpearmanMovementPatch = null;
-            SynchronizedMovementCadencePatch newCadencePatch = null;
             List<IDisposable> newSubscriptions =
                 new List<IDisposable>(4);
 
@@ -121,13 +178,6 @@ namespace SomeSettings
                     log,
                     memory,
                     unchecked((ulong)libraryHandle.ToInt64()));
-
-                newCadencePatch =
-                    new SynchronizedMovementCadencePatch(
-                        log,
-                        memory,
-                        unchecked((ulong)libraryHandle.ToInt64()),
-                        TryGetCadence);
 
                 newSubscriptions.Add(
                     TribeR3EventHooks.OnTribeIssueOrderMoveHere.Observable
@@ -147,7 +197,6 @@ namespace SomeSettings
                         }));
 
                 spearmanMovementPatch = newSpearmanMovementPatch;
-                cadencePatch = newCadencePatch;
                 subscriptions.AddRange(newSubscriptions);
             }
             catch
@@ -155,7 +204,6 @@ namespace SomeSettings
                 foreach (IDisposable subscription in newSubscriptions)
                     subscription.Dispose();
 
-                newCadencePatch?.Dispose();
                 newSpearmanMovementPatch?.Dispose();
                 throw;
             }
@@ -169,15 +217,15 @@ namespace SomeSettings
                 "Improved-Spearman movement override.");
         }
 
-        private void Disable()
+        private void DisableTroopMovementFixComponents()
         {
             foreach (IDisposable subscription in subscriptions)
                 subscription.Dispose();
 
             subscriptions.Clear();
 
-            // Restore only values still owned by this feature before removing
-            // the cadence hook and all remembered synchronization state.
+            // Restore only values still owned by the troop fix before its
+            // dedicated hooks and remembered state are removed.
             foreach (int tribeId in
                      new List<int>(synchronizationByTribeId.Keys))
             {
@@ -185,14 +233,29 @@ namespace SomeSettings
             }
 
             ClearSynchronization();
-            cadencePatch?.Dispose();
-            cadencePatch = null;
             spearmanMovementPatch?.Dispose();
             spearmanMovementPatch = null;
 
             TroopMovementFix3ModLog.Debug(
                 log,
-                "Troop Movement Fix 3 inactive; native patches and event subscriptions removed.");
+                "Troop Movement Fix 3 inactive; its Spearman patch and event subscriptions were removed.");
+        }
+
+        private void DisableCadencePatch()
+        {
+            cadencePatch?.Dispose();
+            cadencePatch = null;
+        }
+
+        private void Disable()
+        {
+            if (AreTroopMovementFixComponentsActive ||
+                synchronizationByTribeId.Count != 0)
+            {
+                DisableTroopMovementFixComponents();
+            }
+
+            DisableCadencePatch();
         }
 
         private void OnTribeIssueOrderMoveHere(
