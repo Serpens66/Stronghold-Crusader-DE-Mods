@@ -175,11 +175,16 @@ namespace SpawnCastle
             if (!initialized)
                 return;
 
-            CrusaderDE.MainViewModel mainViewModel =
-                CrusaderDE.MainViewModel.Instance;
-            Hud?.UpdateViewportSize(
-                CrusaderDE.MainViewModel.iUIScaleValueWidth,
-                CrusaderDE.MainViewModel.iUIScaleValueHeight);
+            CrusaderDE.MainViewModel mainViewModel = null;
+            if (CrusaderDE.MainViewModel.viewModelLoaded)
+            {
+                // The Instance getter constructs the vanilla view model when
+                // called too early, while its own startup dependencies are null.
+                mainViewModel = CrusaderDE.MainViewModel.Instance;
+                Hud?.UpdateViewportSize(
+                    CrusaderDE.MainViewModel.iUIScaleValueWidth,
+                    CrusaderDE.MainViewModel.iUIScaleValueHeight);
+            }
             Hud?.UpdateVanillaButtonSlot(
                 mainViewModel != null &&
                 (mainViewModel.Show_HUD_Extras_Button_Objectves ||
