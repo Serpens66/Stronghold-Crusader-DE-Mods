@@ -2,7 +2,9 @@ using BepInEx.Logging;
 using R3;
 using SHCDESE.API;
 using SHCDESE.EventAPI;
+using SHCDESE.EventAPI.MapLoader;
 using SHCDESE.EventAPI.Tribes;
+using SHCDESE.EventAPI.Units;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
@@ -32,14 +34,16 @@ namespace SomeSettings
             unitTypeMovementInfoByType =
                 new Dictionary<eChimps, UnitTypeMovementInfo>(
                     (int)eChimps.CHIMP_NUM_TYPES);
-        private readonly List<IDisposable> subscriptions =
+        private readonly List<IDisposable> troopSubscriptions =
             new List<IDisposable>(4);
 
         private SpearmanMovementPatch spearmanMovementPatch;
         private SynchronizedMovementCadencePatch cadencePatch;
+        private FastRecruitRallyMovementRuntime fastRecruitRallyMovement;
         private IntPtr libraryHandle;
         private int libraryLength;
         private bool nativeLibraryAvailable;
+        private bool nativeLayoutValidated;
 
         public TroopMovementFix3Runtime(
             ManualLogSource log,
@@ -52,7 +56,8 @@ namespace SomeSettings
 
         public void InitializeNative(
             IntPtr newLibraryHandle,
-            ReadOnlySpan<byte> memory)
+            ReadOnlySpan<byte> memory,
+            bool isNativeLayoutValidated)
         {
             if (nativeLibraryAvailable)
                 return;
@@ -62,6 +67,7 @@ namespace SomeSettings
 
             libraryHandle = newLibraryHandle;
             libraryLength = memory.Length;
+            nativeLayoutValidated = isNativeLayoutValidated;
             nativeLibraryAvailable = true;
             ApplySetting();
         }
@@ -72,15 +78,31 @@ namespace SomeSettings
                 return;
 
             bool shouldEnableTroopMovementFix =
+                nativeLayoutValidated &&
                 settings.EnableMod &&
                 settings.EnableTroopMovementFix;
             bool shouldEnableCadencePatch =
                 settings.EnableMod &&
-                (settings.EnableTroopMovementFix ||
+                ((nativeLayoutValidated &&
+                  settings.EnableTroopMovementFix) ||
                  settings.EnableFastRecruitRallyMovement);
 
             if (shouldEnableCadencePatch && cadencePatch == null)
                 EnableCadencePatch();
+
+            bool shouldEnableFastRecruitRallyMovement =
+                settings.EnableMod &&
+                settings.EnableFastRecruitRallyMovement &&
+                cadencePatch != null;
+            if (shouldEnableFastRecruitRallyMovement &&
+                fastRecruitRallyMovement == null)
+            {
+                EnableFastRecruitRallyMovement();
+            }
+            else if (!shouldEnableFastRecruitRallyMovement)
+            {
+                DisableFastRecruitRallyMovement();
+            }
 
             try
             {
@@ -97,7 +119,7 @@ namespace SomeSettings
             }
             catch
             {
-                if (!settings.EnableFastRecruitRallyMovement)
+                if (fastRecruitRallyMovement == null)
                     DisableCadencePatch();
 
                 throw;
@@ -121,26 +143,20 @@ namespace SomeSettings
         {
             Disable();
             nativeLibraryAvailable = false;
+            nativeLayoutValidated = false;
             libraryHandle = IntPtr.Zero;
             libraryLength = 0;
         }
 
         private bool AreTroopMovementFixComponentsActive =>
             spearmanMovementPatch != null &&
-            subscriptions.Count != 0;
+            troopSubscriptions.Count != 0;
 
         private bool IsFeatureEnabled =>
             settings.EnableMod &&
             settings.EnableTroopMovementFix &&
             cadencePatch != null &&
             AreTroopMovementFixComponentsActive;
-
-        private bool IsFastRecruitRallyMovementEnabled()
-        {
-            return settings.EnableMod &&
-                   settings.EnableFastRecruitRallyMovement &&
-                   cadencePatch != null;
-        }
 
         private ReadOnlySpan<byte> GetNativeLibraryMemory()
         {
@@ -153,14 +169,32 @@ namespace SomeSettings
 
         private void EnableCadencePatch()
         {
-            SynchronizedMovementCadencePatch newCadencePatch =
-                new SynchronizedMovementCadencePatch(
-                    log,
-                    GetNativeLibraryMemory(),
-                    unchecked((ulong)libraryHandle.ToInt64()),
-                    TryGetCadence,
-                    IsFastRecruitRallyMovementEnabled);
-            cadencePatch = newCadencePatch;
+            SynchronizedMovementCadencePatch newCadencePatch = null;
+
+            try
+            {
+                newCadencePatch =
+                    new SynchronizedMovementCadencePatch(
+                        log,
+                        GetNativeLibraryMemory(),
+                        unchecked((ulong)libraryHandle.ToInt64()),
+                        TryGetCadence,
+                        ApplyFastRecruitRallyMaximumSpeed,
+                        TryApplyFastRecruitRallyCadence);
+
+                cadencePatch = newCadencePatch;
+            }
+            catch
+            {
+                newCadencePatch?.Dispose();
+                throw;
+            }
+        }
+
+        private void EnableFastRecruitRallyMovement()
+        {
+            fastRecruitRallyMovement =
+                new FastRecruitRallyMovementRuntime(log, cadencePatch);
         }
 
         private void EnableTroopMovementFixComponents()
@@ -180,24 +214,20 @@ namespace SomeSettings
                     unchecked((ulong)libraryHandle.ToInt64()));
 
                 newSubscriptions.Add(
+                    TribeR3EventHooks.OnTribeAssignUnit.Observable
+                        .Subscribe(OnTribeAssignUnit));
+                newSubscriptions.Add(
                     TribeR3EventHooks.OnTribeIssueOrderMoveHere.Observable
                         .Subscribe(OnTribeIssueOrderMoveHere));
                 newSubscriptions.Add(
                     TribeR3EventHooks.OnTribeIssueOrderWithTarget.Observable
                         .Subscribe(OnTribeIssueOrderWithTarget));
                 newSubscriptions.Add(
-                    TribeR3EventHooks.OnTribeAssignUnit.Observable
-                        .Subscribe(OnTribeAssignUnit));
-                newSubscriptions.Add(
                     MapLoaderR3EventHooks.OnUnloadMap.Observable
-                        .Subscribe(args =>
-                        {
-                            if (args.Phase == EventHookPhase.Post)
-                                ClearSynchronization();
-                        }));
+                        .Subscribe(OnUnloadMap));
 
                 spearmanMovementPatch = newSpearmanMovementPatch;
-                subscriptions.AddRange(newSubscriptions);
+                troopSubscriptions.AddRange(newSubscriptions);
             }
             catch
             {
@@ -219,10 +249,10 @@ namespace SomeSettings
 
         private void DisableTroopMovementFixComponents()
         {
-            foreach (IDisposable subscription in subscriptions)
+            foreach (IDisposable subscription in troopSubscriptions)
                 subscription.Dispose();
 
-            subscriptions.Clear();
+            troopSubscriptions.Clear();
 
             // Restore only values still owned by the troop fix before its
             // dedicated hooks and remembered state are removed.
@@ -243,8 +273,15 @@ namespace SomeSettings
 
         private void DisableCadencePatch()
         {
+            DisableFastRecruitRallyMovement();
             cadencePatch?.Dispose();
             cadencePatch = null;
+        }
+
+        private void DisableFastRecruitRallyMovement()
+        {
+            fastRecruitRallyMovement?.Dispose();
+            fastRecruitRallyMovement = null;
         }
 
         private void Disable()
@@ -288,12 +325,30 @@ namespace SomeSettings
             TryApplyMixedGroupSynchronization(args.TribeId);
         }
 
+        private void OnUnloadMap(MapUnloadEventArgs args)
+        {
+            if (args.Phase != EventHookPhase.Post)
+                return;
+
+            ClearSynchronization();
+        }
+
         private void OnTribeIssueOrderWithTarget(
             TribeIssueOrderWithTargetEventArgs args)
         {
-            if (IsFeatureEnabled &&
-                args.Phase == EventHookPhase.Pre)
+            if (IsFeatureEnabled && args.Phase == EventHookPhase.Pre)
                 RemoveSynchronization(args.TribeId, restoreSpeed: true);
+        }
+
+        private void ApplyFastRecruitRallyMaximumSpeed(int unitId)
+        {
+            fastRecruitRallyMovement?.ApplyMaximumSpeed(unitId);
+        }
+
+        private bool TryApplyFastRecruitRallyCadence(GameUnit* unit)
+        {
+            return fastRecruitRallyMovement != null &&
+                   fastRecruitRallyMovement.TryApplyRunningCadence(unit);
         }
 
         private void OnTribeAssignUnit(TribeAssignUnitEventArgs args)

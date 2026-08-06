@@ -5,6 +5,7 @@ using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using Zhuqiaomon.Assembly;
 using Zhuqiaomon.Hooks;
 using Zhuqiaomon.Hooks.Transaction;
@@ -20,24 +21,26 @@ namespace SomeSettings
     }
 
     /// <summary>
-    /// Corrects only the walk/run cadence selected by the native unit-type
-    /// handlers, including freshly recruited units on their way to a rally
-    /// point. Effective movement speed remains entirely controlled by
-    /// Vanilla's tribe MovementSpeed and per-unit terrain/state calculation.
+    /// Provides the native speed and cadence hooks shared by recruit rally
+    /// movement and mixed-group synchronization.
     /// </summary>
     internal sealed unsafe class SynchronizedMovementCadencePatch : IDisposable
     {
         private const int MaximumUnitTypeHandlerLength = 0x5000;
-        private const ushort UnitInitializationAiState = 109;
-        private const ushort ActivePathPlanState = 2;
         private const ulong UnitRecordOffset = 0x65CUL;
 
-        // These anchors sit after Script Extender's transition hooks. They
-        // mark only the native mercenary-post and European-barracks paths.
-        private const string MercenaryRecruitMarkerPattern =
-            "33 C9 C7 86 18 09 00 00 6D 00 00 00 66 89 8E E0 09 00 00 B8 01 00 00 00";
-        private const string EuropeanRecruitMarkerPattern =
-            "66 89 8B 24 09 00 00 C7 83 18 09 00 00 6D 00 00 00 66 C7 83 86 09 00 00 00 01";
+        private const ushort IndividualFastMovementAiState = 101;
+        private const int UnitAnimationStateOffset = 0x660;
+        private const int UnitSpeedBonusOffset = 0x916;
+        private const int MaximumCadenceCaseLength = 0x240;
+        private const int MaximumCadencePairDistance = 20;
+        private const int DirectCadencePairDistance = 4;
+
+        // c_game_unit_calculate_movement_speed. Vanilla runs first; the
+        // detour then restores only tracked rally units to their own maximum.
+        private const string CalculateMovementSpeedPattern =
+            "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 41 56 41 57 48 83 EC 20 " +
+            "4C 8D 35 ?? ?? ?? ?? 48 63 C2 48 69 D8 90 04 00 00";
 
         // updateUnits pass 4:
         // call qword ptr [moduleBase + unitType * 8 + dispatchTableOffset]
@@ -53,44 +56,66 @@ namespace SomeSettings
 
         private readonly ManualLogSource log;
         private readonly TryGetCadenceDelegate tryGetCadence;
-        private readonly Func<bool> isFastRecruitRallyMovementEnabled;
+        private readonly Action<int> applyFastRecruitRallyMaximumSpeed;
+        private readonly TryApplyRallyCadenceDelegate
+            tryApplyFastRecruitRallyCadence;
         private readonly HookTransaction transaction;
         private readonly Dictionary<eChimps, AnimationTransitions>
             animationTransitionsByType =
                 new Dictionary<eChimps, AnimationTransitions>(
                     (int)eChimps.CHIMP_NUM_TYPES);
-        private readonly Dictionary<ulong, RecruitRallyTracking>
-            recruitRallyByUnitAddress =
-                new Dictionary<ulong, RecruitRallyTracking>();
-
+        private readonly GameUnit* unitArray;
+        private HookRef<X64ManagedFunctionDetourAOB<
+            CalculateMovementSpeedDelegate>> movementSpeedHook =
+                new HookRef<X64ManagedFunctionDetourAOB<
+                    CalculateMovementSpeedDelegate>>();
         private HookRef<X64InlineHook> movementCadenceHook =
             new HookRef<X64InlineHook>();
-        private HookRef<X64InlineHook> mercenaryRecruitMarkerHook =
-            new HookRef<X64InlineHook>();
-        private HookRef<X64InlineHook> europeanRecruitMarkerHook =
-            new HookRef<X64InlineHook>();
-        private bool callbackFailureLogged;
+        private bool movementSpeedCallbackFailureLogged;
+        private bool cadenceCallbackFailureLogged;
         private bool disposed;
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate void CalculateMovementSpeedDelegate(
+            NativePointer<GameUnitManager> unitManager,
+            int unitId,
+            byte preserveCurrentHeight);
 
         internal delegate bool TryGetCadenceDelegate(
             int tribeId,
             out SynchronizedMovementCadence cadence,
             out ushort runningSpeedBonus);
 
+        internal delegate bool TryApplyRallyCadenceDelegate(GameUnit* unit);
+
         public SynchronizedMovementCadencePatch(
             ManualLogSource log,
             ReadOnlySpan<byte> memory,
             ulong libraryBase,
             TryGetCadenceDelegate tryGetCadence,
-            Func<bool> isFastRecruitRallyMovementEnabled)
+            Action<int> applyFastRecruitRallyMaximumSpeed,
+            TryApplyRallyCadenceDelegate tryApplyFastRecruitRallyCadence)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.tryGetCadence =
                 tryGetCadence ?? throw new ArgumentNullException(nameof(tryGetCadence));
-            this.isFastRecruitRallyMovementEnabled =
-                isFastRecruitRallyMovementEnabled ??
+            this.applyFastRecruitRallyMaximumSpeed =
+                applyFastRecruitRallyMaximumSpeed ??
                 throw new ArgumentNullException(
-                    nameof(isFastRecruitRallyMovementEnabled));
+                    nameof(applyFastRecruitRallyMaximumSpeed));
+            this.tryApplyFastRecruitRallyCadence =
+                tryApplyFastRecruitRallyCadence ??
+                throw new ArgumentNullException(
+                    nameof(tryApplyFastRecruitRallyCadence));
+
+            // The semantic decoder needs the manager-relative address used by
+            // native unit handlers; rally tracking itself lives elsewhere.
+            unitArray = GameUnitManagerAPI.Instance.GetUnitArray()._array;
+            if (unitArray == null)
+            {
+                throw new InvalidOperationException(
+                    "The native unit array is unavailable.");
+            }
 
             DiscoverRunningAnimationTransitions(memory, libraryBase);
 
@@ -100,26 +125,10 @@ namespace SomeSettings
                 loggerFactory: null,
                 failureMode: TransactionFailureMode.RollbackAndThrow);
 
-            transaction.AddContextHook(
-                ref mercenaryRecruitMarkerHook,
-                MercenaryRecruitMarkerPattern,
-                MarkMercenaryRecruit,
-                regs: X64SmartCPUContextRegs.Volatile |
-                      X64SmartCPUContextRegs.RBP |
-                      X64SmartCPUContextRegs.RDI |
-                      X64SmartCPUContextRegs.RSI,
-                errorMode: CallbackErrorMode.LogAndContinue,
-                placement: OverwrittenInstructionPlacement.AfterCallback);
-
-            transaction.AddContextHook(
-                ref europeanRecruitMarkerHook,
-                EuropeanRecruitMarkerPattern,
-                MarkEuropeanRecruit,
-                regs: X64SmartCPUContextRegs.Volatile |
-                      X64SmartCPUContextRegs.RBX |
-                      X64SmartCPUContextRegs.RDI,
-                errorMode: CallbackErrorMode.LogAndContinue,
-                placement: OverwrittenInstructionPlacement.AfterCallback);
+            transaction.AddDetour(
+                ref movementSpeedHook,
+                CalculateMovementSpeedPattern,
+                CalculateMovementSpeed);
 
             transaction.AddContextHook(
                 ref movementCadenceHook,
@@ -131,20 +140,20 @@ namespace SomeSettings
 
             transaction.Commit();
 
-            if (!movementCadenceHook.Success ||
-                !mercenaryRecruitMarkerHook.Success ||
-                !europeanRecruitMarkerHook.Success)
+            if (!movementSpeedHook.Success ||
+                !movementCadenceHook.Success)
             {
+                transaction.Unload();
+                transaction.Dispose();
                 throw new InvalidOperationException(
-                    "A native recruit marker or the movement cadence " +
-                    "calculation was not found.");
+                    "The native movement-speed calculation or movement " +
+                    "cadence was not found.");
             }
 
             TroopMovementFix3ModLog.Debug(
                 log,
-                $"Native movement-cadence hook installed; " +
-                $"runCapableUnitTypes={animationTransitionsByType.Count}, " +
-                $"nativeRecruitMarkers=2.");
+                $"Native movement-speed and cadence hooks installed; " +
+                $"runCapableUnitTypes={animationTransitionsByType.Count}.");
         }
 
         public bool SupportsSynchronizedRunning(eChimps unitType)
@@ -164,7 +173,7 @@ namespace SomeSettings
                     : (ushort)0;
         }
 
-        private bool TryGetNativeRunningSpeedBonus(
+        internal bool TryGetNativeRunningSpeedBonus(
             eChimps unitType,
             bool improvedSpearmen,
             out ushort runningSpeedBonus)
@@ -174,9 +183,6 @@ namespace SomeSettings
             {
                 if (!improvedSpearmen)
                     return false;
-
-                runningSpeedBonus = 1;
-                return true;
             }
 
             switch (unitType)
@@ -203,6 +209,20 @@ namespace SomeSettings
             return false;
         }
 
+        internal bool TryGetNativeRunningState(
+            eChimps unitType,
+            uint currentState,
+            out uint runningState)
+        {
+            runningState = currentState;
+            return animationTransitionsByType.TryGetValue(
+                       unitType,
+                       out AnimationTransitions animationTransitions) &&
+                   animationTransitions.TryGetRunningState(
+                       currentState,
+                       out runningState);
+        }
+
         public void Dispose()
         {
             if (disposed)
@@ -210,71 +230,35 @@ namespace SomeSettings
 
             disposed = true;
             animationTransitionsByType.Clear();
-            recruitRallyByUnitAddress.Clear();
             transaction.Unload();
             transaction.Dispose();
         }
 
-        private void MarkMercenaryRecruit(
-            NativePointer<X64SmartCPUContext> context)
+        private void CalculateMovementSpeed(
+            NativePointer<GameUnitManager> unitManager,
+            int unitId,
+            byte preserveCurrentHeight)
         {
-            X64SmartCPUContext* registers = context.Pointer;
-            GameUnit* unit =
-                (GameUnit*)(registers->RSI + UnitRecordOffset);
-            eChimps expectedUnitType =
-                (eChimps)unchecked((ushort)registers->RDI);
-            TrackNativeRecruit(
-                unit,
-                expectedUnitType);
+            movementSpeedHook.Value.Hook.Trampoline(
+                unitManager,
+                unitId,
+                preserveCurrentHeight);
 
-            if (unit != null && isFastRecruitRallyMovementEnabled())
+            try
             {
-                TroopMovementFix3ModLog.Debug(
-                    log,
-                    $"Fast recruit rally candidate marked by native " +
-                    $"MercenaryOutpost: " +
-                    $"unitId={unchecked((int)registers->RBP)}, " +
-                    $"globalId={unit->r_GlobalId}, " +
-                    $"expectedUnitType={expectedUnitType}.");
+                applyFastRecruitRallyMaximumSpeed(unitId);
             }
-        }
-
-        private void MarkEuropeanRecruit(
-            NativePointer<X64SmartCPUContext> context)
-        {
-            X64SmartCPUContext* registers = context.Pointer;
-            GameUnit* unit =
-                (GameUnit*)(registers->RBX + UnitRecordOffset);
-            eChimps expectedUnitType =
-                (eChimps)unchecked((ushort)registers->R9);
-            TrackNativeRecruit(
-                unit,
-                expectedUnitType);
-
-            if (unit != null && isFastRecruitRallyMovementEnabled())
+            catch (Exception ex)
             {
-                TroopMovementFix3ModLog.Debug(
+                if (movementSpeedCallbackFailureLogged)
+                    return;
+
+                movementSpeedCallbackFailureLogged = true;
+                TroopMovementFix3ModLog.Error(
                     log,
-                    $"Fast recruit rally candidate marked by native " +
-                    $"EuropeanBarracks: " +
-                    $"unitId={unchecked((int)registers->RDI)}, " +
-                    $"globalId={unit->r_GlobalId}, " +
-                    $"expectedUnitType={expectedUnitType}.");
+                    $"The recruit rally movement-speed callback failed; " +
+                    $"affected units keep Vanilla speed: {ex}");
             }
-        }
-
-        private void TrackNativeRecruit(
-            GameUnit* unit,
-            eChimps expectedUnitType)
-        {
-            if (!isFastRecruitRallyMovementEnabled() || unit == null)
-                return;
-
-            ulong unitAddress = unchecked((ulong)unit);
-            RecruitRallyTracking tracking = new RecruitRallyTracking(
-                unit->r_GlobalId,
-                expectedUnitType);
-            recruitRallyByUnitAddress[unitAddress] = tracking;
         }
 
         private void SynchronizeMovementCadence(
@@ -291,7 +275,7 @@ namespace SomeSettings
                     return;
                 }
 
-                if (TryApplyFastRecruitRallyCadence(unit))
+                if (tryApplyFastRecruitRallyCadence(unit))
                     return;
 
                 if (unit->r_TribeId == 0 ||
@@ -339,140 +323,15 @@ namespace SomeSettings
             }
             catch (Exception ex)
             {
-                if (callbackFailureLogged)
+                if (cadenceCallbackFailureLogged)
                     return;
 
-                callbackFailureLogged = true;
+                cadenceCallbackFailureLogged = true;
                 TroopMovementFix3ModLog.Error(
                     log,
                     $"The movement-cadence callback failed; affected " +
                     $"units keep Vanilla cadence: {ex}");
             }
-        }
-
-        private bool TryApplyFastRecruitRallyCadence(GameUnit* unit)
-        {
-            if (!isFastRecruitRallyMovementEnabled())
-            {
-                if (recruitRallyByUnitAddress.Count != 0)
-                    recruitRallyByUnitAddress.Clear();
-
-                return false;
-            }
-
-            ulong unitAddress = unchecked((ulong)unit);
-            if (!recruitRallyByUnitAddress.TryGetValue(
-                    unitAddress,
-                    out RecruitRallyTracking tracking))
-            {
-                return false;
-            }
-
-            if (tracking.GlobalId != 0 &&
-                unit->r_GlobalId != tracking.GlobalId)
-            {
-                recruitRallyByUnitAddress.Remove(unitAddress);
-                return false;
-            }
-
-            if (unit->r_UnitChimp != tracking.ExpectedUnitType)
-            {
-                // The marker runs while Vanilla still transforms the pooled
-                // peasant. State 109 is initialization, not rally movement.
-                if (unit->r_AIState == UnitInitializationAiState ||
-                    unit->r_TransformIntoUnitOfType ==
-                        tracking.ExpectedUnitType)
-                {
-                    return true;
-                }
-
-                TroopMovementFix3ModLog.Debug(
-                    log,
-                    $"Fast recruit rally tracking cancelled: " +
-                    $"globalId={unit->r_GlobalId}, " +
-                    $"unitType={unit->r_UnitChimp}, " +
-                    $"expectedUnitType={tracking.ExpectedUnitType}.");
-                recruitRallyByUnitAddress.Remove(unitAddress);
-                return false;
-            }
-
-            bool hasActivePath =
-                (unit->r_PathPlanStateBitFlags & ActivePathPlanState) != 0;
-            if (!tracking.Started)
-            {
-                if (!hasActivePath)
-                    return true;
-
-                tracking.Started = true;
-                tracking.GlobalId = unit->r_GlobalId;
-                tracking.TargetTileX = unit->r_TargetTilePositionX;
-                tracking.TargetTileY = unit->r_TargetTilePositionY;
-
-                TroopMovementFix3ModLog.Debug(
-                    log,
-                    $"Fast recruit rally movement started: " +
-                    $"globalId={unit->r_GlobalId}, " +
-                    $"unitType={unit->r_UnitChimp}, " +
-                    $"currentTile={unit->r_CurrentTilePositionX}," +
-                    $"{unit->r_CurrentTilePositionY}, " +
-                    $"targetTile={tracking.TargetTileX}," +
-                    $"{tracking.TargetTileY}, " +
-                    $"speedBonus={unit->r_SpeedBonus}, " +
-                    $"animation=0x{unit->N000000F4:X}.");
-            }
-            else if (!hasActivePath ||
-                     unit->r_TargetTilePositionX != tracking.TargetTileX ||
-                     unit->r_TargetTilePositionY != tracking.TargetTileY ||
-                     (unit->r_CurrentTilePositionX == tracking.TargetTileX &&
-                      unit->r_CurrentTilePositionY == tracking.TargetTileY))
-            {
-                TroopMovementFix3ModLog.Debug(
-                    log,
-                    $"Fast recruit rally tracking ended: " +
-                    $"globalId={unit->r_GlobalId}, " +
-                    $"unitType={unit->r_UnitChimp}, " +
-                    $"currentTile={unit->r_CurrentTilePositionX}," +
-                    $"{unit->r_CurrentTilePositionY}, " +
-                    $"targetTile={unit->r_TargetTilePositionX}," +
-                    $"{unit->r_TargetTilePositionY}, " +
-                    $"pathFlags=0x{unit->r_PathPlanStateBitFlags:X}.");
-                recruitRallyByUnitAddress.Remove(unitAddress);
-                return false;
-            }
-
-            // Only proven native run data is applied; unknown types retain
-            // their normal maximum and animation.
-            if (!animationTransitionsByType.TryGetValue(
-                    unit->r_UnitChimp,
-                    out AnimationTransitions animationTransitions))
-            {
-                return true;
-            }
-
-            bool improvedSpearmen =
-                unit->r_UnitChimp == eChimps.CHIMP_TYPE_SPEARMAN &&
-                GamePlayerManagerAPI.Instance.IsImprovedSpearman();
-            if (!TryGetNativeRunningSpeedBonus(
-                    unit->r_UnitChimp,
-                    improvedSpearmen,
-                    out ushort runningSpeedBonus))
-            {
-                return true;
-            }
-
-            if (unit->r_SpeedBonus != runningSpeedBonus)
-                unit->r_SpeedBonus = runningSpeedBonus;
-
-            uint animationState = unit->N000000F4;
-            if (animationTransitions.TryGetRunningState(
-                    animationState,
-                    out uint runningState) &&
-                runningState != animationState)
-            {
-                unit->N000000F4 = runningState;
-            }
-
-            return true;
         }
 
         private void DiscoverRunningAnimationTransitions(
@@ -560,26 +419,12 @@ namespace SomeSettings
 
                     int handlerLength =
                         checked((int)(handlerEnd - handlerStart));
-                    Dictionary<uint, uint> transitions =
-                        FindRunningAnimationTransitions(
-                            (byte*)handlerStart,
-                            handlerLength);
-
-                    if (transitions.Count != 0)
-                    {
-                        ushort? nativeRunningSpeedBonus =
-                            TryFindNativeRunningSpeedBonus(
-                                (byte*)handlerStart,
-                                handlerLength,
-                                out ushort discoveredRunningSpeedBonus)
-                                ? discoveredRunningSpeedBonus
-                                : (ushort?)null;
-
-                        animationTransitions =
-                            new AnimationTransitions(
-                                transitions,
-                                nativeRunningSpeedBonus);
-                    }
+                    animationTransitions =
+                        TryExtractIndividualFastMovementCadence(
+                            handlerStart,
+                            handlerLength,
+                            libraryBase,
+                            moduleEnd);
 
                     animationTransitionsByHandler.Add(
                         handlerStart,
@@ -594,200 +439,381 @@ namespace SomeSettings
                 }
             }
 
-            if (animationTransitionsByType.Count == 0)
+            // These types exercise direct, register, branched and conditional
+            // stores used by both European and mercenary handlers.
+            // Missing one means the semantic decoder no longer understands
+            // the installed DLL, so no partial native hook is committed.
+            eChimps[] requiredTypes =
             {
-                throw new InvalidOperationException(
-                    "No native walking-to-running animation transitions " +
-                    "were found.");
+                eChimps.CHIMP_TYPE_ARAB_BOW,
+                eChimps.CHIMP_TYPE_ARAB_SLAVE,
+                eChimps.CHIMP_TYPE_SPEARMAN,
+                eChimps.CHIMP_TYPE_MACEMAN,
+                eChimps.CHIMP_TYPE_BEDOUIN_HEALER,
+                eChimps.CHIMP_TYPE_BEDOUIN_SKIRMISHER,
+                eChimps.CHIMP_TYPE_BEDOUIN_HEAVY_CAMEL,
+                eChimps.CHIMP_TYPE_BEDOUIN_SAPPER
+            };
+            foreach (eChimps requiredType in requiredTypes)
+            {
+                if (!animationTransitionsByType.ContainsKey(requiredType))
+                {
+                    throw new InvalidOperationException(
+                        $"Native AIState 101 cadence could not be " +
+                        $"extracted for {requiredType}.");
+                }
             }
         }
 
-        private static Dictionary<uint, uint>
-            FindRunningAnimationTransitions(byte* code, int length)
+        private AnimationTransitions TryExtractIndividualFastMovementCadence(
+            ulong handlerStart,
+            int handlerLength,
+            ulong libraryBase,
+            ulong moduleEnd)
         {
-            Dictionary<uint, uint> transitions =
-                new Dictionary<uint, uint>();
+            byte[] codeBytes = new ReadOnlySpan<byte>(
+                (byte*)handlerStart,
+                handlerLength).ToArray();
+            Decoder decoder = Decoder.Create(
+                64,
+                new ByteArrayCodeReader(codeBytes));
+            decoder.IP = handlerStart;
+            List<Instruction> instructions = new List<Instruction>(2048);
+            Dictionary<ulong, int> instructionIndexByIp =
+                new Dictionary<ulong, int>();
 
-            // Native form:
-            // C7 /0 [manager + unitOffset + 0x660], immediateAnimationState
-            for (int index = 3; index + 8 <= length; index++)
-            {
-                if (code[index - 3] != 0xC7 ||
-                    code[index] != 0x60 ||
-                    code[index + 1] != 0x06 ||
-                    code[index + 2] != 0x00 ||
-                    code[index + 3] != 0x00)
-                {
-                    continue;
-                }
-
-                uint runningState =
-                    code[index + 4] |
-                    ((uint)code[index + 5] << 8) |
-                    ((uint)code[index + 6] << 16) |
-                    ((uint)code[index + 7] << 24);
-
-                if ((runningState & 0xFF) != 0x81 ||
-                    runningState > 0x1000)
-                {
-                    continue;
-                }
-
-                transitions[runningState & ~0x80u] = runningState;
-            }
-
-            return transitions;
-        }
-
-        private static bool TryFindNativeRunningSpeedBonus(
-            byte* code,
-            int length,
-            out ushort runningSpeedBonus)
-        {
-            runningSpeedBonus = 0;
-            byte[] codeBytes =
-                new ReadOnlySpan<byte>(code, length).ToArray();
-            Decoder decoder =
-                Decoder.Create(64, new ByteArrayCodeReader(codeBytes));
-            List<Instruction> instructions =
-                new List<Instruction>(2048);
-
-            while (decoder.IP < unchecked((ulong)length) &&
+            while (decoder.IP < handlerStart + unchecked((ulong)handlerLength) &&
                    instructions.Count < 10000)
             {
                 Instruction instruction = decoder.Decode();
+                instructionIndexByIp[instruction.IP] = instructions.Count;
                 instructions.Add(instruction);
-                if (instruction.Mnemonic == Mnemonic.Ret)
-                    break;
             }
 
-            bool found = false;
-            for (int runningIndex = 0;
-                 runningIndex < instructions.Count;
-                 runningIndex++)
+            // The public array begins at unit ID 1; native handlers address
+            // that record as manager + 0x65C + one 0x490 unit stride.
+            ulong unitManagerBase =
+                unchecked((ulong)unitArray) -
+                UnitRecordOffset -
+                unchecked((ulong)sizeof(GameUnit));
+            if (!TryResolveAiStateCaseTarget(
+                    instructions,
+                    libraryBase,
+                    moduleEnd,
+                    unitManagerBase,
+                    IndividualFastMovementAiState,
+                    out ulong caseTarget,
+                    out int stateLoadIndex) ||
+                !instructionIndexByIp.TryGetValue(
+                    caseTarget,
+                    out int caseStartIndex))
             {
-                Instruction runningInstruction =
-                    instructions[runningIndex];
-                if (runningInstruction.Mnemonic != Mnemonic.Mov ||
-                    runningInstruction.Op0Kind != OpKind.Memory ||
-                    runningInstruction.MemoryDisplacement64 != 0x660 ||
-                    runningInstruction.Op1Kind != OpKind.Immediate32)
+                return null;
+            }
+
+            ulong caseEnd = Math.Min(
+                caseTarget + MaximumCadenceCaseLength,
+                handlerStart + unchecked((ulong)handlerLength));
+            List<CadenceFieldWrite> animationWrites =
+                new List<CadenceFieldWrite>();
+            List<CadenceFieldWrite> speedBonusWrites =
+                new List<CadenceFieldWrite>();
+            Dictionary<Register, HashSet<long>> preSwitchConstants =
+                FindPreSwitchConstants(instructions, stateLoadIndex);
+            DiscoverReachableCadenceWrites(
+                instructions,
+                instructionIndexByIp,
+                caseStartIndex,
+                caseEnd,
+                unitManagerBase,
+                preSwitchConstants,
+                animationWrites,
+                speedBonusWrites);
+
+            short fastestBonus = 0;
+            foreach (CadenceFieldWrite write in speedBonusWrites)
+            {
+                foreach (long value in write.Values)
                 {
-                    continue;
+                    short candidate = unchecked((short)(ushort)value);
+                    if (candidate > fastestBonus && candidate <= 32)
+                        fastestBonus = candidate;
                 }
+            }
 
-                uint animationState =
-                    unchecked((uint)runningInstruction.GetImmediate(1));
-                if ((animationState & 0xFF) != 0x81 ||
-                    animationState > 0x1000)
-                {
+            if (fastestBonus <= 0)
+                return null;
+
+            var runningStateDistances = new Dictionary<uint, int>();
+            foreach (CadenceFieldWrite bonusWrite in speedBonusWrites)
+            {
+                if (!bonusWrite.ContainsSigned16(fastestBonus))
                     continue;
-                }
 
-                bool cadenceResolvedForState = false;
-                for (int distance = 1;
-                     distance <= 12 && !cadenceResolvedForState;
-                     distance++)
+                int closestDistance = int.MaxValue;
+                HashSet<uint> closestRunningStates =
+                    new HashSet<uint>();
+                foreach (CadenceFieldWrite animationWrite in animationWrites)
                 {
-                    int precedingIndex = runningIndex - distance;
-                    int followingIndex = runningIndex + distance;
+                    int distance = Math.Abs(
+                        animationWrite.InstructionIndex -
+                        bonusWrite.InstructionIndex);
+                    if (distance > MaximumCadencePairDistance ||
+                        distance > closestDistance)
+                        continue;
 
-                    if (precedingIndex >= 0 &&
-                        TryResolveNearbySpeedBonus(
-                            instructions,
-                            precedingIndex,
-                            out ushort precedingSpeedBonus))
+                    if (distance < closestDistance)
                     {
-                        if (found &&
-                            runningSpeedBonus != precedingSpeedBonus)
-                        {
-                            return false;
-                        }
+                        closestRunningStates.Clear();
+                        closestDistance = distance;
+                    }
 
-                        runningSpeedBonus = precedingSpeedBonus;
-                        found = true;
-                        cadenceResolvedForState = true;
+                    foreach (long value in animationWrite.Values)
+                    {
+                        uint state = unchecked((uint)value);
+                        if (state <= 0x10000)
+                            closestRunningStates.Add(state);
+                    }
+                }
+
+                foreach (uint state in closestRunningStates)
+                {
+                    if (!runningStateDistances.TryGetValue(
+                            state,
+                            out int previousDistance) ||
+                        closestDistance < previousDistance)
+                    {
+                        runningStateDistances[state] = closestDistance;
+                    }
+                }
+            }
+
+            // Compilers often initialize the bonus before a later walking
+            // branch. Prefer animation/bonus writes from the same small block
+            // whenever such a direct native pair exists.
+            bool hasDirectPair = false;
+            foreach (int distance in runningStateDistances.Values)
+            {
+                if (distance <= DirectCadencePairDistance)
+                {
+                    hasDirectPair = true;
+                    break;
+                }
+            }
+
+            HashSet<uint> runningStates = new HashSet<uint>();
+            foreach (KeyValuePair<uint, int> candidate in
+                     runningStateDistances)
+            {
+                if (!hasDirectPair ||
+                    candidate.Value <= DirectCadencePairDistance)
+                {
+                    runningStates.Add(candidate.Key);
+                }
+            }
+
+            return runningStates.Count == 0
+                ? null
+                : new AnimationTransitions(
+                    runningStates,
+                    unchecked((ushort)fastestBonus));
+        }
+
+        private static bool TryResolveAiStateCaseTarget(
+            List<Instruction> instructions,
+            ulong libraryBase,
+            ulong moduleEnd,
+            ulong unitManagerBase,
+            ushort aiState,
+            out ulong caseTarget,
+            out int stateLoadIndex)
+        {
+            caseTarget = 0;
+            stateLoadIndex = -1;
+            for (int candidateStateLoadIndex = 0;
+                 candidateStateLoadIndex < instructions.Count;
+                 candidateStateLoadIndex++)
+            {
+                Instruction stateLoad =
+                    instructions[candidateStateLoadIndex];
+                if ((stateLoad.Mnemonic != Mnemonic.Mov &&
+                     stateLoad.Mnemonic != Mnemonic.Movzx &&
+                     stateLoad.Mnemonic != Mnemonic.Movsx &&
+                     stateLoad.Mnemonic != Mnemonic.Movsxd) ||
+                    stateLoad.Op0Kind != OpKind.Register ||
+                    stateLoad.Op1Kind != OpKind.Memory ||
+                    !IsUnitFieldMemoryOperand(
+                        instructions,
+                        candidateStateLoadIndex,
+                        0x918,
+                        unitManagerBase))
+                {
+                    continue;
+                }
+
+                Register stateRegister = NormalizeRegister(
+                    stateLoad.Op0Register);
+                int searchEnd = Math.Min(
+                    candidateStateLoadIndex + 80,
+                    instructions.Count);
+                for (int mapIndex = candidateStateLoadIndex + 1;
+                     mapIndex < searchEnd;
+                     mapIndex++)
+                {
+                    Instruction mapLoad = instructions[mapIndex];
+                    if (mapLoad.Mnemonic != Mnemonic.Movzx ||
+                        mapLoad.Op0Kind != OpKind.Register ||
+                        mapLoad.Op1Kind != OpKind.Memory ||
+                        NormalizeRegister(mapLoad.MemoryIndex) !=
+                            stateRegister ||
+                        !TryResolveMemoryTableAddress(
+                            instructions,
+                            mapIndex,
+                            mapLoad,
+                            out ulong stateMapAddress) ||
+                        !IsModuleRange(
+                            stateMapAddress + aiState,
+                            1,
+                            libraryBase,
+                            moduleEnd))
+                    {
                         continue;
                     }
 
-                    if (followingIndex < instructions.Count &&
-                        TryResolveNearbySpeedBonus(
-                            instructions,
-                            followingIndex,
-                            out ushort followingSpeedBonus))
+                    byte compressedCase =
+                        *((byte*)stateMapAddress + aiState);
+                    Register compressedRegister = NormalizeRegister(
+                        mapLoad.Op0Register);
+                    int tableSearchEnd = Math.Min(
+                        mapIndex + 12,
+                        instructions.Count);
+                    for (int tableIndex = mapIndex + 1;
+                         tableIndex < tableSearchEnd;
+                         tableIndex++)
                     {
-                        if (found &&
-                            runningSpeedBonus != followingSpeedBonus)
+                        Instruction tableLoad = instructions[tableIndex];
+                        if ((tableLoad.Mnemonic != Mnemonic.Mov &&
+                             tableLoad.Mnemonic != Mnemonic.Movsxd) ||
+                            tableLoad.Op0Kind != OpKind.Register ||
+                            tableLoad.Op1Kind != OpKind.Memory ||
+                            NormalizeRegister(tableLoad.MemoryIndex) !=
+                                compressedRegister ||
+                            tableLoad.MemoryIndexScale != 4 ||
+                            !TryResolveMemoryTableAddress(
+                                instructions,
+                                tableIndex,
+                                tableLoad,
+                                out ulong jumpTableAddress) ||
+                            !IsModuleRange(
+                                jumpTableAddress +
+                                    unchecked((ulong)compressedCase * 4),
+                                4,
+                                libraryBase,
+                                moduleEnd))
                         {
-                            return false;
+                            continue;
                         }
 
-                        runningSpeedBonus = followingSpeedBonus;
-                        found = true;
-                        cadenceResolvedForState = true;
+                        uint targetRva = *(uint*)(
+                            jumpTableAddress +
+                            unchecked((ulong)compressedCase * 4));
+                        ulong target = libraryBase + targetRva;
+                        if (target >= libraryBase && target < moduleEnd)
+                        {
+                            caseTarget = target;
+                            stateLoadIndex = candidateStateLoadIndex;
+                            return true;
+                        }
                     }
                 }
             }
 
-            return found;
+            return false;
         }
 
-        private static bool TryResolveNearbySpeedBonus(
+        private static Dictionary<Register, HashSet<long>> FindPreSwitchConstants(
             List<Instruction> instructions,
-            int storeIndex,
-            out ushort speedBonus)
+            int stateLoadIndex)
         {
-            speedBonus = 0;
-            Instruction storeInstruction = instructions[storeIndex];
-            if (storeInstruction.Mnemonic != Mnemonic.Mov ||
-                storeInstruction.Op0Kind != OpKind.Memory ||
-                storeInstruction.MemoryDisplacement64 != 0x916)
+            Dictionary<Register, HashSet<long>> constants =
+                new Dictionary<Register, HashSet<long>>();
+            for (int index = 0;
+                 index < stateLoadIndex;
+                 index++)
             {
-                return false;
+                Instruction instruction = instructions[index];
+                ApplyConstantTransfer(instruction, constants);
+                if (instruction.FlowControl == FlowControl.Call ||
+                    instruction.FlowControl == FlowControl.IndirectCall)
+                {
+                    RemoveVolatileRegisterConstants(constants);
+                }
             }
 
-            if (IsImmediate(storeInstruction.Op1Kind))
+            return constants;
+        }
+
+        private static bool TryResolveMemoryTableAddress(
+            List<Instruction> instructions,
+            int instructionIndex,
+            Instruction memoryInstruction,
+            out ulong address)
+        {
+            address = memoryInstruction.MemoryDisplacement64;
+            if (memoryInstruction.IsIPRelativeMemoryOperand)
             {
-                speedBonus =
-                    unchecked(
-                        (ushort)storeInstruction.GetImmediate(1));
+                address = memoryInstruction.IPRelativeMemoryAddress;
                 return true;
             }
 
-            if (storeInstruction.Op1Kind != OpKind.Register)
-                return false;
+            Register baseRegister = NormalizeRegister(
+                memoryInstruction.MemoryBase);
+            if (baseRegister == Register.None)
+                return address != 0;
 
-            Register sourceRegister =
-                NormalizeRegister(storeInstruction.Op1Register);
-            for (int instructionIndex = storeIndex - 1;
-                 instructionIndex >= 0;
-                 instructionIndex--)
+            if (!TryResolveRegisterAddress(
+                    instructions,
+                    instructionIndex - 1,
+                    baseRegister,
+                    out ulong baseAddress))
             {
-                Instruction instruction =
-                    instructions[instructionIndex];
+                return false;
+            }
+
+            address = baseAddress + memoryInstruction.MemoryDisplacement64;
+            return true;
+        }
+
+        private static bool TryResolveRegisterAddress(
+            List<Instruction> instructions,
+            int startIndex,
+            Register register,
+            out ulong address)
+        {
+            address = 0;
+            register = NormalizeRegister(register);
+            for (int index = startIndex;
+                 index >= 0 && startIndex - index <= 80;
+                 index--)
+            {
+                Instruction instruction = instructions[index];
                 if (instruction.Op0Kind != OpKind.Register ||
-                    NormalizeRegister(instruction.Op0Register) !=
-                        sourceRegister)
+                    NormalizeRegister(instruction.Op0Register) != register)
                 {
                     continue;
+                }
+
+                if (instruction.Mnemonic == Mnemonic.Lea &&
+                    instruction.IsIPRelativeMemoryOperand)
+                {
+                    address = instruction.IPRelativeMemoryAddress;
+                    return true;
                 }
 
                 if (instruction.Mnemonic == Mnemonic.Mov &&
                     IsImmediate(instruction.Op1Kind))
                 {
-                    speedBonus =
-                        unchecked(
-                            (ushort)instruction.GetImmediate(1));
-                    return true;
-                }
-
-                if ((instruction.Mnemonic == Mnemonic.Xor ||
-                     instruction.Mnemonic == Mnemonic.Sub) &&
-                    instruction.Op1Kind == OpKind.Register &&
-                    NormalizeRegister(instruction.Op1Register) ==
-                        sourceRegister)
-                {
-                    speedBonus = 0;
+                    address = instruction.GetImmediate(1);
                     return true;
                 }
 
@@ -795,6 +821,588 @@ namespace SomeSettings
             }
 
             return false;
+        }
+
+        private static bool IsModuleRange(
+            ulong address,
+            int length,
+            ulong moduleStart,
+            ulong moduleEnd)
+        {
+            return address >= moduleStart &&
+                   address <= moduleEnd - unchecked((ulong)length);
+        }
+
+        private static bool IsUnitFieldStore(
+            List<Instruction> instructions,
+            int instructionIndex,
+            int fieldOffset,
+            ulong unitManagerBase)
+        {
+            return IsUnitFieldMemoryOperand(
+                instructions,
+                instructionIndex,
+                fieldOffset,
+                unitManagerBase);
+        }
+
+        private static bool IsUnitFieldMemoryOperand(
+            List<Instruction> instructions,
+            int instructionIndex,
+            int fieldOffset,
+            ulong unitManagerBase)
+        {
+            Instruction memoryInstruction = instructions[instructionIndex];
+            if (memoryInstruction.MemoryDisplacement64 ==
+                unchecked((ulong)fieldOffset))
+                return true;
+
+            Register baseRegister = NormalizeRegister(
+                memoryInstruction.MemoryBase);
+            var additiveRegisters = new HashSet<Register>();
+            for (int index = instructionIndex - 1;
+                 index >= 0 && instructionIndex - index <= 80;
+                 index--)
+            {
+                Instruction instruction = instructions[index];
+                if (instruction.Op0Kind != OpKind.Register ||
+                    NormalizeRegister(instruction.Op0Register) != baseRegister)
+                {
+                    continue;
+                }
+
+                if ((instruction.Mnemonic == Mnemonic.Add ||
+                      instruction.Mnemonic == Mnemonic.Sub) &&
+                    instruction.Op1Kind == OpKind.Register)
+                {
+                    additiveRegisters.Add(NormalizeRegister(
+                        instruction.Op1Register));
+                    continue;
+                }
+
+                if (instruction.Mnemonic != Mnemonic.Lea)
+                    return false;
+
+                ulong fieldAddress;
+                if (instruction.IsIPRelativeMemoryOperand)
+                {
+                    fieldAddress = instruction.IPRelativeMemoryAddress;
+                }
+                else if (instruction.MemoryIndex == Register.None &&
+                         TryResolveRegisterAddress(
+                             instructions,
+                             index - 1,
+                             NormalizeRegister(instruction.MemoryBase),
+                             out ulong leaBaseAddress))
+                {
+                    fieldAddress =
+                        leaBaseAddress + instruction.MemoryDisplacement64;
+                }
+                else if (instruction.MemoryDisplacement64 ==
+                         unchecked((ulong)fieldOffset))
+                {
+                    // Unit handlers build aliases in both orders:
+                    // manager + (unitIndex + field) and the commuted form.
+                    additiveRegisters.Add(NormalizeRegister(
+                        instruction.MemoryBase));
+                    if (instruction.MemoryIndex != Register.None)
+                    {
+                        additiveRegisters.Add(NormalizeRegister(
+                            instruction.MemoryIndex));
+                    }
+
+                    foreach (Register component in additiveRegisters)
+                    {
+                        if (TryResolveRegisterAddress(
+                                instructions,
+                                index - 1,
+                                component,
+                                out ulong componentAddress) &&
+                            componentAddress == unitManagerBase)
+                        {
+                            return true;
+                        }
+                    }
+
+                    return false;
+                }
+                else
+                {
+                    return false;
+                }
+
+                return fieldAddress ==
+                       unitManagerBase + unchecked((ulong)fieldOffset);
+            }
+
+            return false;
+        }
+
+        private static void DiscoverReachableCadenceWrites(
+            List<Instruction> instructions,
+            Dictionary<ulong, int> instructionIndexByIp,
+            int caseStartIndex,
+            ulong caseEnd,
+            ulong unitManagerBase,
+            Dictionary<Register, HashSet<long>> preSwitchConstants,
+            List<CadenceFieldWrite> animationWrites,
+            List<CadenceFieldWrite> speedBonusWrites)
+        {
+            var inputConstantsByIndex =
+                new Dictionary<int, Dictionary<Register, HashSet<long>>>();
+            var pending = new Queue<int>();
+            var animationWritesByIndex =
+                new Dictionary<int, CadenceFieldWrite>();
+            var speedBonusWritesByIndex =
+                new Dictionary<int, CadenceFieldWrite>();
+
+            inputConstantsByIndex[caseStartIndex] =
+                CloneConstantState(preSwitchConstants);
+            pending.Enqueue(caseStartIndex);
+
+            while (pending.Count != 0)
+            {
+                int index = pending.Dequeue();
+                Instruction instruction = instructions[index];
+                Dictionary<Register, HashSet<long>> constants =
+                    CloneConstantState(inputConstantsByIndex[index]);
+
+                if (instruction.Mnemonic == Mnemonic.Mov &&
+                    instruction.Op0Kind == OpKind.Memory &&
+                    TryGetOperandConstants(
+                        instruction,
+                        1,
+                        constants,
+                        out HashSet<long> storedValues))
+                {
+                    if (IsUnitFieldStore(
+                            instructions,
+                            index,
+                            UnitAnimationStateOffset,
+                            unitManagerBase))
+                    {
+                        RecordCadenceFieldWrite(
+                            animationWritesByIndex,
+                            index,
+                            instruction.IP,
+                            storedValues);
+                    }
+                    else if (IsUnitFieldStore(
+                                 instructions,
+                                 index,
+                                 UnitSpeedBonusOffset,
+                                 unitManagerBase))
+                    {
+                        RecordCadenceFieldWrite(
+                            speedBonusWritesByIndex,
+                            index,
+                            instruction.IP,
+                            storedValues);
+                    }
+                }
+
+                ApplyConstantTransfer(instruction, constants);
+                if (instruction.FlowControl == FlowControl.Call ||
+                    instruction.FlowControl == FlowControl.IndirectCall)
+                {
+                    // Windows x64 calls may replace volatile scratch values;
+                    // nonvolatile unit-handler constants remain valid.
+                    RemoveVolatileRegisterConstants(constants);
+                }
+
+                if (instruction.FlowControl == FlowControl.ConditionalBranch)
+                {
+                    EnqueueCadenceSuccessor(
+                        index + 1,
+                        instructions,
+                        caseStartIndex,
+                        caseEnd,
+                        constants,
+                        inputConstantsByIndex,
+                        pending);
+                    if (instructionIndexByIp.TryGetValue(
+                            instruction.NearBranchTarget,
+                            out int branchIndex))
+                    {
+                        EnqueueCadenceSuccessor(
+                            branchIndex,
+                            instructions,
+                            caseStartIndex,
+                            caseEnd,
+                            constants,
+                            inputConstantsByIndex,
+                            pending);
+                    }
+
+                    continue;
+                }
+
+                if (instruction.FlowControl == FlowControl.UnconditionalBranch)
+                {
+                    if (instructionIndexByIp.TryGetValue(
+                            instruction.NearBranchTarget,
+                            out int branchIndex))
+                    {
+                        EnqueueCadenceSuccessor(
+                            branchIndex,
+                            instructions,
+                            caseStartIndex,
+                            caseEnd,
+                            constants,
+                            inputConstantsByIndex,
+                            pending);
+                    }
+
+                    continue;
+                }
+
+                if (instruction.FlowControl == FlowControl.Return ||
+                    instruction.FlowControl == FlowControl.IndirectBranch ||
+                    instruction.FlowControl == FlowControl.Interrupt)
+                {
+                    continue;
+                }
+
+                EnqueueCadenceSuccessor(
+                    index + 1,
+                    instructions,
+                    caseStartIndex,
+                    caseEnd,
+                    constants,
+                    inputConstantsByIndex,
+                    pending);
+            }
+
+            animationWrites.AddRange(animationWritesByIndex.Values);
+            speedBonusWrites.AddRange(speedBonusWritesByIndex.Values);
+        }
+
+        private static void EnqueueCadenceSuccessor(
+            int successorIndex,
+            List<Instruction> instructions,
+            int caseStartIndex,
+            ulong caseEnd,
+            Dictionary<Register, HashSet<long>> constants,
+            Dictionary<int, Dictionary<Register, HashSet<long>>>
+                inputConstantsByIndex,
+            Queue<int> pending)
+        {
+            if (successorIndex < caseStartIndex ||
+                successorIndex >= instructions.Count ||
+                instructions[successorIndex].IP >= caseEnd)
+            {
+                return;
+            }
+
+            if (!inputConstantsByIndex.TryGetValue(
+                    successorIndex,
+                    out Dictionary<Register, HashSet<long>> existing))
+            {
+                inputConstantsByIndex[successorIndex] =
+                    CloneConstantState(constants);
+                pending.Enqueue(successorIndex);
+                return;
+            }
+
+            if (MergeConstantStates(existing, constants))
+                pending.Enqueue(successorIndex);
+        }
+
+        private static bool MergeConstantStates(
+            Dictionary<Register, HashSet<long>> existing,
+            Dictionary<Register, HashSet<long>> incoming)
+        {
+            bool changed = false;
+            var knownRegisters = new List<Register>(existing.Keys);
+            foreach (Register register in knownRegisters)
+            {
+                if (!incoming.TryGetValue(
+                        register,
+                        out HashSet<long> incomingValues))
+                {
+                    existing.Remove(register);
+                    changed = true;
+                    continue;
+                }
+
+                int previousCount = existing[register].Count;
+                existing[register].UnionWith(incomingValues);
+                if (existing[register].Count > 32)
+                {
+                    existing.Remove(register);
+                    changed = true;
+                }
+                else if (existing[register].Count != previousCount)
+                {
+                    changed = true;
+                }
+            }
+
+            return changed;
+        }
+
+        private static Dictionary<Register, HashSet<long>> CloneConstantState(
+            Dictionary<Register, HashSet<long>> source)
+        {
+            var clone = new Dictionary<Register, HashSet<long>>(source.Count);
+            foreach (KeyValuePair<Register, HashSet<long>> entry in source)
+                clone[entry.Key] = new HashSet<long>(entry.Value);
+            return clone;
+        }
+
+        private static void RecordCadenceFieldWrite(
+            Dictionary<int, CadenceFieldWrite> writesByIndex,
+            int instructionIndex,
+            ulong instructionPointer,
+            HashSet<long> values)
+        {
+            if (writesByIndex.TryGetValue(
+                    instructionIndex,
+                    out CadenceFieldWrite existing))
+            {
+                existing.Values.UnionWith(values);
+                return;
+            }
+
+            writesByIndex[instructionIndex] = new CadenceFieldWrite(
+                instructionIndex,
+                instructionPointer,
+                new HashSet<long>(values));
+        }
+
+        private static void ApplyConstantTransfer(
+            Instruction instruction,
+            Dictionary<Register, HashSet<long>> constants)
+        {
+            if (instruction.Op0Kind != OpKind.Register)
+                return;
+
+            Register destination = NormalizeRegister(
+                instruction.Op0Register);
+            if (instruction.Mnemonic == Mnemonic.Cmp ||
+                instruction.Mnemonic == Mnemonic.Test)
+            {
+                // Comparisons read operand zero but do not replace it.
+                return;
+            }
+
+            if (instruction.Mnemonic.ToString().StartsWith(
+                    "Cmov",
+                    StringComparison.Ordinal))
+            {
+                if (constants.TryGetValue(
+                        destination,
+                        out HashSet<long> previousValues) &&
+                    TryGetOperandConstants(
+                        instruction,
+                        1,
+                        constants,
+                        out HashSet<long> selectedValues))
+                {
+                    var combined = new HashSet<long>(previousValues);
+                    combined.UnionWith(selectedValues);
+                    SetRegisterConstants(constants, destination, combined);
+                }
+                else
+                {
+                    constants.Remove(destination);
+                }
+
+                return;
+            }
+
+            if (instruction.Mnemonic == Mnemonic.Lea)
+            {
+                if (TryEvaluateLeaConstants(
+                        instruction,
+                        constants,
+                        out HashSet<long> addressValues))
+                {
+                    SetRegisterConstants(
+                        constants,
+                        destination,
+                        addressValues);
+                }
+                else
+                {
+                    constants.Remove(destination);
+                }
+
+                return;
+            }
+
+            if (instruction.Mnemonic == Mnemonic.Mov ||
+                instruction.Mnemonic == Mnemonic.Movzx ||
+                instruction.Mnemonic == Mnemonic.Movsx ||
+                instruction.Mnemonic == Mnemonic.Movsxd)
+            {
+                if (TryGetOperandConstants(
+                        instruction,
+                        1,
+                        constants,
+                        out HashSet<long> movedValues))
+                {
+                    SetRegisterConstants(constants, destination, movedValues);
+                }
+                else
+                {
+                    constants.Remove(destination);
+                }
+
+                return;
+            }
+
+            if ((instruction.Mnemonic == Mnemonic.Xor ||
+                 instruction.Mnemonic == Mnemonic.Sub) &&
+                instruction.Op1Kind == OpKind.Register &&
+                NormalizeRegister(instruction.Op1Register) == destination)
+            {
+                constants[destination] = new HashSet<long> { 0 };
+                return;
+            }
+
+            if ((instruction.Mnemonic == Mnemonic.Add ||
+                 instruction.Mnemonic == Mnemonic.Sub) &&
+                constants.TryGetValue(
+                    destination,
+                    out HashSet<long> destinationValues) &&
+                TryGetOperandConstants(
+                    instruction,
+                    1,
+                    constants,
+                    out HashSet<long> operandValues))
+            {
+                var results = new HashSet<long>();
+                foreach (long left in destinationValues)
+                {
+                    foreach (long right in operandValues)
+                    {
+                        results.Add(instruction.Mnemonic == Mnemonic.Add
+                            ? unchecked(left + right)
+                            : unchecked(left - right));
+                    }
+                }
+
+                SetRegisterConstants(constants, destination, results);
+                return;
+            }
+
+            constants.Remove(destination);
+        }
+
+        private static bool TryEvaluateLeaConstants(
+            Instruction instruction,
+            Dictionary<Register, HashSet<long>> constants,
+            out HashSet<long> values)
+        {
+            values = new HashSet<long>
+            {
+                unchecked((long)instruction.MemoryDisplacement64)
+            };
+
+            Register baseRegister = NormalizeRegister(
+                instruction.MemoryBase);
+            if (baseRegister != Register.None)
+            {
+                if (!constants.TryGetValue(
+                        baseRegister,
+                        out HashSet<long> baseValues))
+                {
+                    values = null;
+                    return false;
+                }
+
+                values = AddConstantProducts(values, baseValues, 1);
+            }
+
+            Register indexRegister = NormalizeRegister(
+                instruction.MemoryIndex);
+            if (indexRegister != Register.None)
+            {
+                if (!constants.TryGetValue(
+                        indexRegister,
+                        out HashSet<long> indexValues))
+                {
+                    values = null;
+                    return false;
+                }
+
+                values = AddConstantProducts(
+                    values,
+                    indexValues,
+                    instruction.MemoryIndexScale);
+            }
+
+            return values.Count != 0 && values.Count <= 32;
+        }
+
+        private static HashSet<long> AddConstantProducts(
+            HashSet<long> leftValues,
+            HashSet<long> rightValues,
+            int multiplier)
+        {
+            var results = new HashSet<long>();
+            foreach (long left in leftValues)
+            {
+                foreach (long right in rightValues)
+                {
+                    results.Add(unchecked(left + right * multiplier));
+                }
+            }
+
+            return results;
+        }
+
+        private static bool TryGetOperandConstants(
+            Instruction instruction,
+            int operand,
+            Dictionary<Register, HashSet<long>> constants,
+            out HashSet<long> values)
+        {
+            OpKind kind = instruction.GetOpKind(operand);
+            if (IsImmediate(kind))
+            {
+                values = new HashSet<long>
+                {
+                    unchecked((long)instruction.GetImmediate(operand))
+                };
+                return true;
+            }
+
+            if (kind == OpKind.Register &&
+                constants.TryGetValue(
+                    NormalizeRegister(instruction.GetOpRegister(operand)),
+                    out HashSet<long> registerValues))
+            {
+                values = new HashSet<long>(registerValues);
+                return true;
+            }
+
+            values = null;
+            return false;
+        }
+
+        private static void SetRegisterConstants(
+            Dictionary<Register, HashSet<long>> constants,
+            Register register,
+            HashSet<long> values)
+        {
+            if (values.Count == 0 || values.Count > 32)
+                constants.Remove(register);
+            else
+                constants[register] = new HashSet<long>(values);
+        }
+
+        private static void RemoveVolatileRegisterConstants(
+            Dictionary<Register, HashSet<long>> constants)
+        {
+            constants.Remove(Register.RAX);
+            constants.Remove(Register.RCX);
+            constants.Remove(Register.RDX);
+            constants.Remove(Register.R8);
+            constants.Remove(Register.R9);
+            constants.Remove(Register.R10);
+            constants.Remove(Register.R11);
         }
 
         private static bool IsImmediate(OpKind operandKind)
@@ -909,44 +1517,71 @@ namespace SomeSettings
             }
         }
 
-        private sealed class RecruitRallyTracking
+        private sealed class CadenceFieldWrite
         {
-            public RecruitRallyTracking(
-                uint globalId,
-                eChimps expectedUnitType)
+            public CadenceFieldWrite(
+                int instructionIndex,
+                ulong instructionPointer,
+                HashSet<long> values)
             {
-                GlobalId = globalId;
-                ExpectedUnitType = expectedUnitType;
+                InstructionIndex = instructionIndex;
+                InstructionPointer = instructionPointer;
+                Values = values;
             }
 
-            public uint GlobalId { get; set; }
-            public eChimps ExpectedUnitType { get; }
-            public bool Started { get; set; }
-            public ushort TargetTileX { get; set; }
-            public ushort TargetTileY { get; set; }
+            public int InstructionIndex { get; }
+            public ulong InstructionPointer { get; }
+            public HashSet<long> Values { get; }
+
+            public bool ContainsSigned16(short value)
+            {
+                foreach (long candidate in Values)
+                {
+                    if (unchecked((short)(ushort)candidate) == value)
+                        return true;
+                }
+
+                return false;
+            }
         }
 
         private sealed class AnimationTransitions
         {
             private readonly Dictionary<uint, uint> walkingToRunning;
             private readonly Dictionary<uint, uint> runningToWalking;
+            private readonly List<uint> runningStates;
 
             public AnimationTransitions(
-                Dictionary<uint, uint> walkingToRunning,
-                ushort? nativeRunningSpeedBonus)
+                HashSet<uint> extractedRunningStates,
+                ushort nativeRunningSpeedBonus)
             {
-                this.walkingToRunning =
-                    walkingToRunning ??
+                if (extractedRunningStates == null ||
+                    extractedRunningStates.Count == 0)
+                {
                     throw new ArgumentNullException(
-                        nameof(walkingToRunning));
+                        nameof(extractedRunningStates));
+                }
+
+                runningStates = new List<uint>(extractedRunningStates);
+                runningStates.Sort();
+                walkingToRunning =
+                    new Dictionary<uint, uint>(runningStates.Count);
                 NativeRunningSpeedBonus = nativeRunningSpeedBonus;
                 runningToWalking =
-                    new Dictionary<uint, uint>(walkingToRunning.Count);
+                    new Dictionary<uint, uint>(runningStates.Count);
 
-                foreach (KeyValuePair<uint, uint> transition
-                         in walkingToRunning)
+                foreach (uint runningState in runningStates)
                 {
-                    runningToWalking[transition.Value] = transition.Key;
+                    uint walkingState = InferWalkingState(
+                        runningState,
+                        runningStates.Count);
+                    if (!walkingToRunning.ContainsKey(walkingState) ||
+                        (walkingToRunning[walkingState] == walkingState &&
+                         runningState != walkingState))
+                    {
+                        walkingToRunning[walkingState] = runningState;
+                    }
+                    runningToWalking[runningState] = walkingState;
                 }
             }
 
@@ -966,6 +1601,29 @@ namespace SomeSettings
                 if (runningToWalking.ContainsKey(currentState))
                 {
                     runningState = currentState;
+                    return true;
+                }
+
+                uint matchingState = 0;
+                int matchingCount = 0;
+                foreach (uint candidate in runningStates)
+                {
+                    if ((candidate & 0xFF) != (currentState & 0xFF))
+                        continue;
+
+                    matchingState = candidate;
+                    matchingCount++;
+                }
+
+                if (matchingCount == 1)
+                {
+                    runningState = matchingState;
+                    return true;
+                }
+
+                if (runningStates.Count == 1)
+                {
+                    runningState = runningStates[0];
                     return true;
                 }
 
@@ -992,6 +1650,28 @@ namespace SomeSettings
 
                 walkingState = currentState;
                 return false;
+            }
+
+            private static uint InferWalkingState(
+                uint runningState,
+                int candidateCount)
+            {
+                if (runningState <= 0xFF &&
+                    (runningState & 0x80) != 0)
+                {
+                    return runningState & ~0x80u;
+                }
+
+                if (runningState > 0xFF &&
+                    ((runningState & 0xFF) == 0x01 ||
+                     (runningState & 0xFF) == 0x81))
+                {
+                    return runningState - 0x100u;
+                }
+
+                // A single conditional fast state (for example the healer's
+                // 0x5C1) is selected from the ordinary movement state 1.
+                return candidateCount == 1 ? 1u : runningState;
             }
         }
     }

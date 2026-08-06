@@ -114,17 +114,21 @@ namespace SomeSettings
         {
             if (!currentNativeLayout)
             {
-                Shared.DebugLogHelper.LogError(
+                // This runtime validates its signatures and AIState-101
+                // semantics before committing any hook, so minor code shifts
+                // can be probed safely without weakening other native fixes.
+                TroopMovementFix3ModLog.Debug(
                     log,
-                    "SomeSettings troop movement fixes remain inactive because their native unit/tribe layouts are not validated for this CrusaderDE.dll.");
-                return;
+                    "Unknown CrusaderDE.dll hash; probing troop movement " +
+                    "signatures and native cadence semantics.");
             }
 
             try
             {
                 troopMovementFixRuntime.InitializeNative(
                     libraryHandle,
-                    memory);
+                    memory,
+                    currentNativeLayout);
             }
             catch (Exception ex)
             {
