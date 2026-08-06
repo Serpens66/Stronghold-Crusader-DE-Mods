@@ -54,3 +54,5 @@ SomeSettings.EnableExtraChurchPriests=Enable extra priests for churches
 SomeSettings.EnableExtraChurchPriestsHelp=When enabled, churches require two priests and cathedrals require three priests.
 SomeSettings.QuarryPileRelocationTooltip=Flytta stenhögen
 SomeSettings.QuarryPileRelocationTooltipBody=Moves the linked stone pile clockwise to the next valid position around this quarry.
+SomeSettings.EnableCtrlSingleMarketTrade=Ctrl trades one market unit
+SomeSettings.EnableCtrlSingleMarketTradeHelp=Hold Ctrl while buying or selling to trade exactly one unit. Ctrl+Shift uses the normal five-unit amount.

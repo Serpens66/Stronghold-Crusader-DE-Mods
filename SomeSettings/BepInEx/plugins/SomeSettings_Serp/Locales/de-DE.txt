@@ -54,3 +54,5 @@ SomeSettings.EnableExtraChurchPriests=Mehr Priester fuer Kirchen aktivieren
 SomeSettings.EnableExtraChurchPriestsHelp=Wenn aktiviert, benoetigen Kirchen zwei Priester und Kathedralen drei Priester.
 SomeSettings.QuarryPileRelocationTooltip=Steinhaufen verschieben
 SomeSettings.QuarryPileRelocationTooltipBody=Verschiebt den verknuepften Steinhaufen zur naechsten gueltigen Position im Uhrzeigersinn um diesen Steinbruch.
+SomeSettings.EnableCtrlSingleMarketTrade=Mit Strg eine Markteinheit handeln
+SomeSettings.EnableCtrlSingleMarketTradeHelp=Halte beim Kaufen oder Verkaufen Strg gedrueckt, um genau eine Einheit zu handeln. Strg+Umschalt verwendet die normale Menge von fuenf Einheiten.

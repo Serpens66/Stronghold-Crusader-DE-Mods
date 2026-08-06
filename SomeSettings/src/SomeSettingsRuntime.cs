@@ -33,6 +33,7 @@ namespace SomeSettings
         private CoopTrailCustomizeHook coopTrailCustomizeHook;
         private SkirmishAiSelectionMemoryHook skirmishAiSelectionMemoryHook;
         private AutoTradeSellZeroHook autoTradeSellZeroHook;
+        private CtrlMarketTradeHook ctrlMarketTradeHook;
         private EnemyProximityBulldozeCursorHook enemyProximityBulldozeCursorHook;
         private SingleBuildingPauseHook singleBuildingPauseHook;
         private readonly KnightDismountRuntime knightDismountRuntime;
@@ -143,6 +144,9 @@ namespace SomeSettings
             libraryHandle = newLibraryHandle;
             libraryLength = memory.Length;
             nativeLibraryAvailable = true;
+            // Lobby-setting restoration can subscribe hooks before the native bootstrap finishes.
+            if (settings.EnableMod && hooksSubscribed)
+                InstallCtrlMarketTradeHook();
             ApplyAssemblyPointPlacementPatchSetting();
         }
 
@@ -174,6 +178,7 @@ namespace SomeSettings
                 minimapPlacementClickHook = new MinimapPlacementClickHook(log, settings);
                 coopTrailCustomizeHook = new CoopTrailCustomizeHook(log);
                 InstallAutoTradeSellZeroHook();
+                InstallCtrlMarketTradeHook();
                 InstallSingleBuildingPauseHook();
                 hooksSubscribed = true;
                 ReconcileFixedLayoutFeatures();
@@ -254,6 +259,8 @@ namespace SomeSettings
             quarryPileRelocationRuntime.Dispose();
             autoTradeSellZeroHook?.Dispose();
             autoTradeSellZeroHook = null;
+            ctrlMarketTradeHook?.Dispose();
+            ctrlMarketTradeHook = null;
             enemyProximityBulldozeCursorHook?.Dispose();
             enemyProximityBulldozeCursorHook = null;
             singleBuildingPauseHook?.Dispose();
@@ -281,6 +288,39 @@ namespace SomeSettings
             catch (Exception ex)
             {
                 Shared.DebugLogHelper.LogError(log, $"SomeSettings auto-trade sell zero hook could not be installed: {ex}");
+            }
+        }
+
+        private void InstallCtrlMarketTradeHook()
+        {
+            if (ctrlMarketTradeHook != null)
+                return;
+
+            if (!nativeLibraryAvailable)
+            {
+                return;
+            }
+
+            try
+            {
+                ctrlMarketTradeHook = new CtrlMarketTradeHook(
+                    log,
+                    settings,
+                    libraryHandle,
+                    GetNativeLibraryMemory());
+
+                if (!fixedLayoutHashValidated)
+                {
+                    Shared.DebugLogHelper.LogWarning(
+                        log,
+                        "SomeSettings Ctrl single-unit market hooks are running on an unknown CrusaderDE.dll because all required native instruction patterns were validated.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"SomeSettings Ctrl single-unit market hooks could not be installed and only this feature was disabled: {ex}");
             }
         }
 
@@ -882,6 +922,37 @@ namespace SomeSettings
                 "skipOriginal", args.SkipOriginalFunction,
                 "key", key);
 
+            if (args.ShiftModifier == CtrlMarketTradeHook.SingleTradeMode)
+            {
+                // Mode 2 belongs to SomeSettings. Never let unmodified Vanilla interpret it as Shift.
+                args.SkipOriginalFunction = true;
+                if (args.Phase != EventHookPhase.Pre)
+                    return;
+
+                if (args.Selling)
+                {
+                    ctrlMarketTradeHook?.ExecuteSingleMarketTrade(args);
+                    return;
+                }
+
+                PruneExpiredMarketBuyResourceGuards();
+                marketBuyResourceGuards[key] = new ResourceEventCountGuard
+                {
+                    RemainingAmount = 1,
+                    ExpiresAt = DateTime.UtcNow + MarketBuyGuardLifetime
+                };
+                try
+                {
+                    ctrlMarketTradeHook?.ExecuteSingleMarketTrade(args);
+                }
+                finally
+                {
+                    marketBuyResourceGuards.Remove(key);
+                }
+
+                return;
+            }
+
             if (args.Selling)
                 return;
 
@@ -1074,6 +1145,9 @@ namespace SomeSettings
 
         private static int GetMarketInteractionAmount(PlayerMarketInteractionEventArgs args)
         {
+            if (args.ShiftModifier == CtrlMarketTradeHook.SingleTradeMode)
+                return 1;
+
             return args.ShiftModifier != 0 ? MarketBuyShiftAmount : MarketBuyAmount;
         }
 

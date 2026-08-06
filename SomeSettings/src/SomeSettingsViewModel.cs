@@ -27,6 +27,7 @@ namespace SomeSettings
         private double marketSellPriceMultiplier = 1.0;
         private bool keepStorageContent;
         private bool rememberAiAivSettings = true;
+        private bool enableCtrlSingleMarketTrade = true;
         private bool enableTroopMovementFix = true;
         private bool enableFastRecruitRallyMovement = true;
         private bool enableKnightDismount = true;
@@ -61,6 +62,8 @@ namespace SomeSettings
         public string AllowMinimapWhilePlacingBuildingHelpText => SerpLocalization.Get(SerpLocalization.AllowMinimapWhilePlacingBuildingHelp);
         public string RememberAiAivSettingsText => SerpLocalization.Get(SerpLocalization.RememberAiAivSettings);
         public string RememberAiAivSettingsHelpText => SerpLocalization.Get(SerpLocalization.RememberAiAivSettingsHelp);
+        public string EnableCtrlSingleMarketTradeText => SerpLocalization.Get(SerpLocalization.EnableCtrlSingleMarketTrade);
+        public string EnableCtrlSingleMarketTradeHelpText => SerpLocalization.Get(SerpLocalization.EnableCtrlSingleMarketTradeHelp);
         public string EnableTroopMovementFixText => SerpLocalization.Get(SerpLocalization.EnableTroopMovementFix);
         public string EnableTroopMovementFixHelpText => SerpLocalization.Get(SerpLocalization.EnableTroopMovementFixHelp);
         public string EnableFastRecruitRallyMovementText => SerpLocalization.Get(SerpLocalization.EnableFastRecruitRallyMovement);
@@ -189,6 +192,7 @@ namespace SomeSettings
         [SyncHostOnly] public double MarketBuyPriceMultiplier { get => marketBuyPriceMultiplier; set => SetDoubleSetting(ref marketBuyPriceMultiplier, value, nameof(MarketBuyPriceMultiplier), nameof(MarketBuyPriceMultiplierValueText)); }
         [SyncHostOnly] public double MarketSellPriceMultiplier { get => marketSellPriceMultiplier; set => SetDoubleSetting(ref marketSellPriceMultiplier, value, nameof(MarketSellPriceMultiplier), nameof(MarketSellPriceMultiplierValueText)); }
         [SyncHostOnly] public bool RememberAiAivSettings { get => rememberAiAivSettings; set => SetSetting(ref rememberAiAivSettings, value, nameof(RememberAiAivSettings)); }
+        [SyncHostOnly] public bool EnableCtrlSingleMarketTrade { get => enableCtrlSingleMarketTrade; set => SetSetting(ref enableCtrlSingleMarketTrade, value, nameof(EnableCtrlSingleMarketTrade)); }
         [SyncHostOnly] public bool EnableTroopMovementFix { get => enableTroopMovementFix; set => SetSetting(ref enableTroopMovementFix, value, nameof(EnableTroopMovementFix)); }
         [SyncHostOnly] public bool EnableFastRecruitRallyMovement { get => enableFastRecruitRallyMovement; set => SetSetting(ref enableFastRecruitRallyMovement, value, nameof(EnableFastRecruitRallyMovement)); }
         [SyncHostOnly] public bool EnableKnightDismount { get => enableKnightDismount; set => SetSetting(ref enableKnightDismount, value, nameof(EnableKnightDismount)); }
@@ -220,6 +224,7 @@ namespace SomeSettings
             MarketBuyPriceMultiplier = 1.0;
             MarketSellPriceMultiplier = 1.0;
             RememberAiAivSettings = true;
+            EnableCtrlSingleMarketTrade = true;
             EnableTroopMovementFix = true;
             EnableFastRecruitRallyMovement = true;
             EnableKnightDismount = true;

@@ -31,6 +31,12 @@
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding RememberAiAivSettingsText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox>
+      <CheckBox IsChecked="{Binding EnableCtrlSingleMarketTrade, Mode=TwoWay}"
+                Foreground="White"
+                ToolTip="{Binding EnableCtrlSingleMarketTradeHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding EnableCtrlSingleMarketTradeText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox>
       <CheckBox IsChecked="{Binding EnableTroopMovementFix, Mode=TwoWay}"
                 Foreground="White"
                 ToolTip="{Binding EnableTroopMovementFixHelpText}"

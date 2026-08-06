@@ -135,6 +135,7 @@
     <Compile Include="src\ChurchPriestCountRuntime.cs" />
     <Compile Include="src\CoopTrailCustomizeHook.cs" />
     <Compile Include="src\CoopTrailLaunchContext.cs" />
+    <Compile Include="src\CtrlMarketTradeHook.cs" />
     <Compile Include="src\EnemyProximityBulldozeCursorHook.cs" />
     <Compile Include="src\FastRecruitRallyMovementRuntime.cs" />
     <Compile Include="src\KnightDismountRuntime.cs" />

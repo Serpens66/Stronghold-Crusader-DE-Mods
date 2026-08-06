@@ -76,6 +76,8 @@ public static class SerpLocalization
     public const string MarketSellPriceMultiplierHelp = "SomeSettings.MarketSellPriceMultiplierHelp";
     public const string RememberAiAivSettings = "SomeSettings.RememberAiAivSettings";
     public const string RememberAiAivSettingsHelp = "SomeSettings.RememberAiAivSettingsHelp";
+    public const string EnableCtrlSingleMarketTrade = "SomeSettings.EnableCtrlSingleMarketTrade";
+    public const string EnableCtrlSingleMarketTradeHelp = "SomeSettings.EnableCtrlSingleMarketTradeHelp";
     public const string EnableTroopMovementFix = "SomeSettings.EnableTroopMovementFix";
     public const string EnableTroopMovementFixHelp = "SomeSettings.EnableTroopMovementFixHelp";
     public const string EnableFastRecruitRallyMovement = "SomeSettings.EnableFastRecruitRallyMovement";
@@ -183,6 +185,8 @@ public static class SerpLocalization
         { MarketSellPriceMultiplierHelp, "Multiplier for all market sell prices. 1.0 = unchanged, 0.0 = no gold from selling, 5.0 = five times the vanilla price." },
         { RememberAiAivSettings, "Remember AI castle/settings selection" },
         { RememberAiAivSettingsHelp, "When enabled, the last AIV, rotation, and custom lord settings selected for each AI lord are applied automatically when that AI is added to a skirmish lobby." },
+        { EnableCtrlSingleMarketTrade, "Ctrl trades one market unit" },
+        { EnableCtrlSingleMarketTradeHelp, "Hold Ctrl while buying or selling to trade exactly one unit. Ctrl+Shift uses the normal five-unit amount." },
         { EnableTroopMovementFix, "Troop Speed Fix" },
         { EnableTroopMovementFixHelp, "Fixes synchronized movement for mixed troop groups: with a normal movement command, all units move at the speed of the slowest unit in the group." },
         { EnableFastRecruitRallyMovement, "Recruits Run to Rally Points" },

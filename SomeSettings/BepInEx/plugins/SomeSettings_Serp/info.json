@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Some Settings",
   "Description": "Adds small gameplay/QoL settings for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.15",
+  "Version": "1.0.16",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
@@ -104,6 +104,12 @@
       "Version": "1.0.15",
       "Changes": [
         "Added an explicit runtime context so Coop Trail Replacer can distinguish direct mission starts from customized lobbies."
+      ]
+    },
+    {
+      "Version": "1.0.16",
+      "Changes": [
+        "Added synchronized Ctrl buying and selling of exactly one market unit with live amount, price, and availability UI updates."
       ]
     }
   ]
