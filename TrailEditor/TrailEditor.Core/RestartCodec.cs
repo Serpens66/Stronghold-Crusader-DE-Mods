@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using System.Runtime.InteropServices;
 using System.Text;
 using SHCDESE.AICDecoder;
@@ -8,6 +9,23 @@ public static class RestartCodec
 {
     public const int CurrentVersion = 60;
     public const int SetupVersion = -12;
+
+    private const int LordConfigVersion1 = 1;
+    private const int LordConfigVersion2 = 2;
+    private const int LordConfigSharedPayloadSize = 0x450;
+    private const int LordConfigVersion2TailSize = 12;
+    private const int LordConfigVersion1Size = 4 + LordConfigSharedPayloadSize;
+    private const int LordConfigVersion2Size = LordConfigVersion1Size + LordConfigVersion2TailSize;
+    private const int InternalAicSiegeTailOffset = 0x454;
+
+    static RestartCodec()
+    {
+        // Trail transfer data omits extendedLordParent, unlike the native InternalAIC layout.
+        RequireInternalAicOffset(nameof(InternalAIC.extendedLordParent), 0x450);
+        RequireInternalAicOffset(nameof(InternalAIC.siege_max_troops), InternalAicSiegeTailOffset);
+        RequireInternalAicOffset(nameof(InternalAIC.siege_normal_wave_multiplier), 0x458);
+        RequireInternalAicOffset(nameof(InternalAIC.siege_high_gold_wave_multiplier), 0x45C);
+    }
 
     public static TrailData Decode(byte[] bytes)
     {
@@ -262,11 +280,7 @@ public static class RestartCodec
         int configLength = cursor.ReadLength("custom lord config size", 4 * 1024 * 1024);
         byte[] configBytes = cursor.ReadBytes(configLength, "custom lord config");
         cursor.RequireEnd();
-        if (configBytes.Length != 4 + Marshal.SizeOf<InternalAIC>())
-            throw new InvalidDataException($"Custom lord config is {configBytes.Length} bytes; expected {4 + Marshal.SizeOf<InternalAIC>()}.");
-        int configVersion = BitConverter.ToInt32(configBytes, 0);
-        if (configVersion != 2)
-            throw new InvalidDataException($"Unsupported custom lord config version {configVersion}.");
+        (int configVersion, InternalAIC config) = DecodeLordConfig(configBytes);
         return new CustomLordData
         {
             FormatVersion = version,
@@ -274,7 +288,7 @@ public static class RestartCodec
             Checksum = checksum,
             Name = name,
             ConfigVersion = configVersion,
-            Config = MemoryMarshal.Read<InternalAIC>(configBytes.AsSpan(4))
+            Config = config
         };
     }
 
@@ -296,10 +310,59 @@ public static class RestartCodec
 
     internal static byte[] EncodeLordConfig(InternalAIC config, int version = 2)
     {
-        byte[] bytes = new byte[4 + Marshal.SizeOf<InternalAIC>()];
-        BitConverter.GetBytes(version).CopyTo(bytes, 0);
-        MemoryMarshal.AsBytes(MemoryMarshal.CreateReadOnlySpan(ref config, 1)).CopyTo(bytes.AsSpan(4));
+        int size = GetLordConfigSize(version);
+        byte[] bytes = new byte[size];
+        BinaryPrimitives.WriteInt32LittleEndian(bytes, version);
+        ReadOnlySpan<byte> internalBytes = MemoryMarshal.AsBytes(MemoryMarshal.CreateReadOnlySpan(ref config, 1));
+        internalBytes[..LordConfigSharedPayloadSize].CopyTo(bytes.AsSpan(4));
+        if (version == LordConfigVersion2)
+        {
+            // Skip extendedLordParent, which exists only in the native runtime structure.
+            internalBytes.Slice(InternalAicSiegeTailOffset, LordConfigVersion2TailSize)
+                .CopyTo(bytes.AsSpan(LordConfigVersion1Size));
+        }
         return bytes;
+    }
+
+    private static (int Version, InternalAIC Config) DecodeLordConfig(byte[] bytes)
+    {
+        if (bytes.Length < 4)
+            throw new InvalidDataException($"Custom lord config is {bytes.Length} bytes; expected at least 4.");
+        int version = BinaryPrimitives.ReadInt32LittleEndian(bytes);
+        int expectedSize = GetLordConfigSize(version);
+        if (bytes.Length != expectedSize)
+            throw new InvalidDataException($"Custom lord config version {version} is {bytes.Length} bytes; expected {expectedSize}.");
+
+        var config = new InternalAIC();
+        Span<byte> internalBytes = MemoryMarshal.AsBytes(MemoryMarshal.CreateSpan(ref config, 1));
+        bytes.AsSpan(4, LordConfigSharedPayloadSize).CopyTo(internalBytes);
+        if (version == LordConfigVersion2)
+        {
+            bytes.AsSpan(LordConfigVersion1Size, LordConfigVersion2TailSize)
+                .CopyTo(internalBytes.Slice(InternalAicSiegeTailOffset, LordConfigVersion2TailSize));
+        }
+        else
+        {
+            // These are the defaults used by the game's decoder for version 1 payloads.
+            config.siege_max_troops = 200;
+            config.siege_normal_wave_multiplier = 5;
+            config.siege_high_gold_wave_multiplier = 7;
+        }
+        return (version, config);
+    }
+
+    private static int GetLordConfigSize(int version) => version switch
+    {
+        LordConfigVersion1 => LordConfigVersion1Size,
+        LordConfigVersion2 => LordConfigVersion2Size,
+        _ => throw new InvalidDataException($"Unsupported custom lord config version {version}.")
+    };
+
+    private static void RequireInternalAicOffset(string field, int expected)
+    {
+        int actual = Marshal.OffsetOf<InternalAIC>(field).ToInt32();
+        if (actual != expected)
+            throw new InvalidOperationException($"InternalAIC.{field} moved to 0x{actual:X}; expected 0x{expected:X}.");
     }
 
     private static void Validate(TrailData data)

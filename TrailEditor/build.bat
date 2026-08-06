@@ -56,6 +56,10 @@ if not exist "%PROJECT_DIR%sources\Trail_Mission_1.trail" (
     echo [%date% %time%] FEHLER: Die Testdatei fehlt: "%PROJECT_DIR%sources\Trail_Mission_1.trail"
     goto :configurationFailed
 )
+if not exist "%PROJECT_DIR%sample\Trail_Mission_2.trail" (
+    echo [%date% %time%] FEHLER: Die Custom-Lord-Testdatei fehlt: "%PROJECT_DIR%sample\Trail_Mission_2.trail"
+    goto :configurationFailed
+)
 
 pushd "%PROJECT_DIR%" || exit /b 1
 

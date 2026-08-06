@@ -1,4 +1,3 @@
-using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -239,40 +238,26 @@ public sealed class BundleService
 
     private static AicInternals ReadInternals(InternalAIC config)
     {
-        object boxed = config;
-        var result = new AicInternals();
-        foreach (string name in GetInternalOnlyFieldNames())
-            result.Fields.Add(name, (int)typeof(InternalAIC).GetField(name)!.GetValue(boxed)!);
-        return result;
+        // PublicAIC deliberately omits this field, but the trail transfer format preserves it.
+        return new AicInternals
+        {
+            Fields = new Dictionary<string, int>(StringComparer.Ordinal)
+            {
+                [nameof(InternalAIC.opponent_type_for_speech)] = config.opponent_type_for_speech
+            }
+        };
     }
 
     private static InternalAIC ApplyInternals(InternalAIC config, AicInternals internals)
     {
-        string[] expected = GetInternalOnlyFieldNames();
-        if (internals.Fields == null || internals.Fields.Count != expected.Length ||
-            expected.Any(name => !internals.Fields.ContainsKey(name)))
+        const string expected = nameof(InternalAIC.opponent_type_for_speech);
+        if (internals.Fields == null || internals.Fields.Count != 1 ||
+            !internals.Fields.TryGetValue(expected, out int opponentTypeForSpeech))
         {
-            throw new InvalidDataException($"AIC internals must contain exactly these {expected.Length} fields: {string.Join(", ", expected)}.");
+            throw new InvalidDataException($"AIC internals must contain exactly this field: {expected}.");
         }
-        object boxed = config;
-        foreach (string name in expected)
-            typeof(InternalAIC).GetField(name)!.SetValue(boxed, internals.Fields[name]);
-        return (InternalAIC)boxed;
-    }
-
-    private static string[] GetInternalOnlyFieldNames()
-    {
-        FieldInfo[] fields = typeof(InternalAIC).GetFields(BindingFlags.Instance | BindingFlags.Public);
-        object markerBox = new InternalAIC();
-        for (int i = 0; i < fields.Length; i++)
-            fields[i].SetValue(markerBox, i + 1001);
-        InternalAIC marker = (InternalAIC)markerBox;
-        InternalAIC roundTrip = PublicAIC.FromInternal(marker).ToInternal();
-        object roundTripBox = roundTrip;
-        return fields
-            .Where(field => !Equals(field.GetValue(markerBox), field.GetValue(roundTripBox)))
-            .Select(field => field.Name)
-            .ToArray();
+        config.opponent_type_for_speech = opponentTypeForSpeech;
+        return config;
     }
 
     public static string ResolveBundlePath(string bundle, string relativePath)

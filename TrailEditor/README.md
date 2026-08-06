@@ -20,7 +20,7 @@ The locations can be changed without editing a project file. Set `TrailEditorDep
 
 TrailEditor links only the required platform-neutral AIC/AIV codec source files. It deliberately does not reference the upstream decoder executable projects, because executable project references can introduce conflicting runtime identifiers during cross-platform publishing. The upstream decoder programs themselves are not modified.
 
-Run `build.bat` after configuring the paths. It checks for `dotnet`, builds the solution, runs the tests using the repository-local `sources\Trail_Mission_1.trail` fixture, and leaves the development CLI at `TrailEditor.Cli\bin\Release\net10.0\TrailEditor.exe`. Missing SDKs, source projects, or test data cause an explicit build error.
+Run `build.bat` after configuring the paths. It checks for `dotnet`, builds the solution, runs the tests using the repository-local Vanilla and custom-lord trail fixtures, and leaves the development CLI at `TrailEditor.Cli\bin\Release\net10.0\TrailEditor.exe`. Missing SDKs, source projects, or test data cause an explicit build error.
 
 ## Portable Windows-x64 release
 
@@ -184,7 +184,7 @@ Do not reorder these arrays. Their indices are the serialization contract, not a
 | `rotation` | AIV rotation: `0`, `1`, `2`, `3` correspond to 0°, 90°, 180°, 270°. |
 | `aivs` | References to exported `.aivjson` assets. Empty means the built-in selection is used. |
 | `builtInLord` | `true` uses the built-in AIC; `false` requires the referenced exported custom lord data. |
-| `lordConfig` | Custom `.lordjson` plus the internals JSON needed for a lossless 377-field AIC roundtrip. |
+| `lordConfig` | Custom `.lordjson` plus an internals JSON preserving `opponent_type_for_speech`, which public Lord JSON deliberately omits. Trail lord-config version 1 uses 1108 bytes; the current version 2 uses 1120 bytes. |
 | `lordName` | Custom lord identity/name used by the game. |
 | `imageFile` | Relative path to the optional 144x144 lord image. |
 | `originalImageSha256` | Provenance hash of the exported image. |
