@@ -11,12 +11,14 @@ The source tree requires the .NET 10 SDK and source checkouts of these additiona
 
 By default, `MapParser`, `shcde-script-extender`, and `TrailEditor` are expected to be sibling directories below one common dependency root. No user-profile, drive-letter, Steam, or game-installation path is required.
 
-The locations can be changed without editing a project file. Set `TrailEditorDependencyRoot` to a directory containing both dependency repositories, or set all three project variables individually:
+The locations can be changed without editing a project file. Set `TrailEditorDependencyRoot` to a directory containing both dependency repositories, or set the MapParser project and the two decoder source roots individually:
 
     set "TrailEditorDependencyRoot=X:\path\to\dependency-root"
     set "TrailEditorMapParserProject=X:\other\MapParser.Core.csproj"
-    set "TrailEditorAivDecoderProject=X:\other\SHCDESE.AIVDecoder.csproj"
-    set "TrailEditorAicDecoderProject=X:\other\SHCDESE.AICDecoder.csproj"
+    set "TrailEditorAivDecoderSourceRoot=X:\other\SHCDESE.AIVDecoder"
+    set "TrailEditorAicDecoderSourceRoot=X:\other\SHCDESE.AICDecoder"
+
+TrailEditor links only the required platform-neutral AIC/AIV codec source files. It deliberately does not reference the upstream decoder executable projects, because executable project references can introduce conflicting runtime identifiers during cross-platform publishing. The upstream decoder programs themselves are not modified.
 
 Run `build.bat` after configuring the paths. It checks for `dotnet`, builds the solution, runs the tests using the repository-local `sources\Trail_Mission_1.trail` fixture, and leaves the development CLI at `TrailEditor.Cli\bin\Release\net10.0\TrailEditor.exe`. Missing SDKs, source projects, or test data cause an explicit build error.
 
@@ -25,6 +27,35 @@ Run `build.bat` after configuring the paths. It checks for `dotnet`, builds the 
 Run `publish-win-x64.bat` to build, test, and publish a self-contained single-file release under `dist\win-x64`. This directory is deliberately separate from the development output and is the directory intended for distribution.
 
 The generated package includes `TrailEditor.exe`, the two end-user BAT files, a release README, and the `sources`, `unpacked`, and `repacked` directories. Recipients do not need .NET, the SDK, the dependency source trees, or a particular installation path. The end-user BAT files never attempt to compile source code; if the executable, inputs, or paths are missing, they display a specific error and remain open.
+
+## Self-contained Linux-x64 build
+
+Linux users must build the program from the complete source tree. The build machine needs Git, the .NET 10 SDK, and internet access for the initial NuGet restore. The finished self-contained executable does not require an installed .NET runtime.
+
+Clone this repository and the Script Extender dependency into the expected sibling layout:
+
+    git clone https://github.com/Serpens66/Stronghold-Crusader-DE-Mods.git
+    cd Stronghold-Crusader-DE-Mods
+    git clone https://gitlab.com/rawra-stronghold-crusader/shcde-script-extender.git shcde-script-extender
+    git -C shcde-script-extender checkout 368124119be230306f3f2593efa2a270b0e3dfb1
+
+`MapParser` is already included in the main repository. Build the solution and run all tests from the repository root:
+
+    dotnet build TrailEditor/TrailEditor.sln -c Release
+    dotnet run --project TrailEditor/TrailEditor.Tests/TrailEditor.Tests.csproj -c Release --no-build
+
+Publish the self-contained 64-bit Linux executable as a single file:
+
+    dotnet publish TrailEditor/TrailEditor.Cli/TrailEditor.Cli.csproj -c Release -r linux-x64 --self-contained true -o TrailEditor/dist/linux-x64 -p:PublishSingleFile=true -p:DebugType=None -p:DebugSymbols=false
+    mkdir -p TrailEditor/dist/linux-x64/sources TrailEditor/dist/linux-x64/unpacked TrailEditor/dist/linux-x64/repacked
+
+The executable is `TrailEditor/dist/linux-x64/TrailEditor`. Use the CLI directly because the Windows BAT files do not run on Linux:
+
+    cd TrailEditor/dist/linux-x64
+    ./TrailEditor export-all sources unpacked
+    ./TrailEditor build-all unpacked repacked
+
+If the executable bit was lost while copying or extracting the file, restore it once with `chmod +x TrailEditor`. Existing outputs are not overwritten.
 
 ## Batch usage
 

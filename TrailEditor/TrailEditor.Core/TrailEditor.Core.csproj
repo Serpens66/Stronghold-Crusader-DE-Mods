@@ -6,17 +6,22 @@
     <!-- Dependency locations can be overridden without changing this project file. -->
     <TrailEditorDependencyRoot Condition="'$(TrailEditorDependencyRoot)' == ''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..\'))</TrailEditorDependencyRoot>
     <TrailEditorMapParserProject Condition="'$(TrailEditorMapParserProject)' == ''">$(TrailEditorDependencyRoot)\MapParser\MapParser.Core\MapParser.Core.csproj</TrailEditorMapParserProject>
-    <TrailEditorAivDecoderProject Condition="'$(TrailEditorAivDecoderProject)' == ''">$(TrailEditorDependencyRoot)\shcde-script-extender\src\SHCDESE.AIVDecoder\src\SHCDESE.AIVDecoder\SHCDESE.AIVDecoder.csproj</TrailEditorAivDecoderProject>
-    <TrailEditorAicDecoderProject Condition="'$(TrailEditorAicDecoderProject)' == ''">$(TrailEditorDependencyRoot)\shcde-script-extender\src\SHCDESE.AICDecoder\src\SHCDESE.AICDecoder\SHCDESE.AICDecoder.csproj</TrailEditorAicDecoderProject>
+    <TrailEditorAivDecoderSourceRoot Condition="'$(TrailEditorAivDecoderSourceRoot)' == ''">$(TrailEditorDependencyRoot)\shcde-script-extender\src\SHCDESE.AIVDecoder\src\SHCDESE.AIVDecoder</TrailEditorAivDecoderSourceRoot>
+    <TrailEditorAicDecoderSourceRoot Condition="'$(TrailEditorAicDecoderSourceRoot)' == ''">$(TrailEditorDependencyRoot)\shcde-script-extender\src\SHCDESE.AICDecoder\src\SHCDESE.AICDecoder</TrailEditorAicDecoderSourceRoot>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="$(TrailEditorMapParserProject)" />
-    <ProjectReference Include="$(TrailEditorAivDecoderProject)" />
-    <ProjectReference Include="$(TrailEditorAicDecoderProject)" />
+    <!-- Link only the platform-neutral codec sources; the upstream projects are executable CLIs. -->
+    <Compile Include="$(TrailEditorAivDecoderSourceRoot)\Models\SaveData.cs" Link="ExternalCode\AIVDecoder\SaveData.cs" />
+    <Compile Include="$(TrailEditorAivDecoderSourceRoot)\AIVDecoder.cs" Link="ExternalCode\AIVDecoder\AIVDecoder.cs" />
+    <Compile Include="$(TrailEditorAivDecoderSourceRoot)\AIVEncoder.cs" Link="ExternalCode\AIVDecoder\AIVEncoder.cs" />
+    <Compile Include="$(TrailEditorAicDecoderSourceRoot)\InternalAIC.cs" Link="ExternalCode\AICDecoder\InternalAIC.cs" />
+    <Compile Include="$(TrailEditorAicDecoderSourceRoot)\PublicAIC.cs" Link="ExternalCode\AICDecoder\PublicAIC.cs" />
+    <PackageReference Include="Serilog" Version="4.3.1" />
   </ItemGroup>
   <Target Name="ValidateTrailEditorDependencies" BeforeTargets="PrepareForBuild">
     <Error Condition="!Exists('$(TrailEditorMapParserProject)')" Text="TrailEditor dependency missing: MapParser.Core project was not found at '$(TrailEditorMapParserProject)'. Set TrailEditorDependencyRoot or TrailEditorMapParserProject. See README.md." />
-    <Error Condition="!Exists('$(TrailEditorAivDecoderProject)')" Text="TrailEditor dependency missing: SHCDESE.AIVDecoder project was not found at '$(TrailEditorAivDecoderProject)'. Set TrailEditorDependencyRoot or TrailEditorAivDecoderProject. See README.md." />
-    <Error Condition="!Exists('$(TrailEditorAicDecoderProject)')" Text="TrailEditor dependency missing: SHCDESE.AICDecoder project was not found at '$(TrailEditorAicDecoderProject)'. Set TrailEditorDependencyRoot or TrailEditorAicDecoderProject. See README.md." />
+    <Error Condition="!Exists('$(TrailEditorAivDecoderSourceRoot)\Models\SaveData.cs') Or !Exists('$(TrailEditorAivDecoderSourceRoot)\AIVDecoder.cs') Or !Exists('$(TrailEditorAivDecoderSourceRoot)\AIVEncoder.cs')" Text="TrailEditor dependency missing: required SHCDESE.AIVDecoder sources were not found below '$(TrailEditorAivDecoderSourceRoot)'. Set TrailEditorDependencyRoot or TrailEditorAivDecoderSourceRoot. See README.md." />
+    <Error Condition="!Exists('$(TrailEditorAicDecoderSourceRoot)\InternalAIC.cs') Or !Exists('$(TrailEditorAicDecoderSourceRoot)\PublicAIC.cs')" Text="TrailEditor dependency missing: required SHCDESE.AICDecoder sources were not found below '$(TrailEditorAicDecoderSourceRoot)'. Set TrailEditorDependencyRoot or TrailEditorAicDecoderSourceRoot. See README.md." />
   </Target>
 </Project>

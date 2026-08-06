@@ -9,8 +9,8 @@ if not defined TrailEditorDependencyRoot (
     for %%I in ("%PROJECT_DIR%..") do set "TrailEditorDependencyRoot=%%~fI"
 )
 if not defined TrailEditorMapParserProject set "TrailEditorMapParserProject=%TrailEditorDependencyRoot%\MapParser\MapParser.Core\MapParser.Core.csproj"
-if not defined TrailEditorAivDecoderProject set "TrailEditorAivDecoderProject=%TrailEditorDependencyRoot%\shcde-script-extender\src\SHCDESE.AIVDecoder\src\SHCDESE.AIVDecoder\SHCDESE.AIVDecoder.csproj"
-if not defined TrailEditorAicDecoderProject set "TrailEditorAicDecoderProject=%TrailEditorDependencyRoot%\shcde-script-extender\src\SHCDESE.AICDecoder\src\SHCDESE.AICDecoder\SHCDESE.AICDecoder.csproj"
+if not defined TrailEditorAivDecoderSourceRoot set "TrailEditorAivDecoderSourceRoot=%TrailEditorDependencyRoot%\shcde-script-extender\src\SHCDESE.AIVDecoder\src\SHCDESE.AIVDecoder"
+if not defined TrailEditorAicDecoderSourceRoot set "TrailEditorAicDecoderSourceRoot=%TrailEditorDependencyRoot%\shcde-script-extender\src\SHCDESE.AICDecoder\src\SHCDESE.AICDecoder"
 
 where dotnet >nul 2>&1
 if errorlevel 1 (
@@ -30,16 +30,28 @@ if not exist "%TrailEditorMapParserProject%" (
     echo [%date% %time%] Setze TrailEditorDependencyRoot oder TrailEditorMapParserProject. Details stehen in README.md.
     goto :configurationFailed
 )
-if not exist "%TrailEditorAivDecoderProject%" (
-    echo [%date% %time%] FEHLER: SHCDESE.AIVDecoder wurde nicht gefunden: "%TrailEditorAivDecoderProject%"
-    echo [%date% %time%] Setze TrailEditorDependencyRoot oder TrailEditorAivDecoderProject. Details stehen in README.md.
+if not exist "%TrailEditorAivDecoderSourceRoot%\Models\SaveData.cs" (
+    echo [%date% %time%] FEHLER: SHCDESE.AIVDecoder-Quellen wurden nicht gefunden: "%TrailEditorAivDecoderSourceRoot%"
+    echo [%date% %time%] Setze TrailEditorDependencyRoot oder TrailEditorAivDecoderSourceRoot. Details stehen in README.md.
     goto :configurationFailed
 )
-if not exist "%TrailEditorAicDecoderProject%" (
-    echo [%date% %time%] FEHLER: SHCDESE.AICDecoder wurde nicht gefunden: "%TrailEditorAicDecoderProject%"
-    echo [%date% %time%] Setze TrailEditorDependencyRoot oder TrailEditorAicDecoderProject. Details stehen in README.md.
+if not exist "%TrailEditorAivDecoderSourceRoot%\AIVDecoder.cs" goto :missingAivSources
+if not exist "%TrailEditorAivDecoderSourceRoot%\AIVEncoder.cs" goto :missingAivSources
+if not exist "%TrailEditorAicDecoderSourceRoot%\InternalAIC.cs" goto :missingAicSources
+if not exist "%TrailEditorAicDecoderSourceRoot%\PublicAIC.cs" goto :missingAicSources
+goto :dependenciesFound
+
+:missingAivSources
+    echo [%date% %time%] FEHLER: SHCDESE.AIVDecoder-Quellen sind unvollstaendig: "%TrailEditorAivDecoderSourceRoot%"
+    echo [%date% %time%] Setze TrailEditorDependencyRoot oder TrailEditorAivDecoderSourceRoot. Details stehen in README.md.
     goto :configurationFailed
-)
+
+:missingAicSources
+    echo [%date% %time%] FEHLER: SHCDESE.AICDecoder-Quellen sind unvollstaendig: "%TrailEditorAicDecoderSourceRoot%"
+    echo [%date% %time%] Setze TrailEditorDependencyRoot oder TrailEditorAicDecoderSourceRoot. Details stehen in README.md.
+    goto :configurationFailed
+
+:dependenciesFound
 if not exist "%PROJECT_DIR%sources\Trail_Mission_1.trail" (
     echo [%date% %time%] FEHLER: Die Testdatei fehlt: "%PROJECT_DIR%sources\Trail_Mission_1.trail"
     goto :configurationFailed

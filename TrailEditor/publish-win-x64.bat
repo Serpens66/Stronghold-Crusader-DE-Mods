@@ -13,10 +13,6 @@ echo [%date% %time%] Erzeuge selbstenthaltenden Windows-x64-Release ...
 dotnet publish "%CLI_PROJECT%" -c Release -r win-x64 --self-contained true -o "%DIST_DIR%" -p:PublishSingleFile=true -p:DebugType=None -p:DebugSymbols=false
 if errorlevel 1 goto :failed
 
-rem Executable project references emit runtime configs that the single-file TrailEditor does not use.
-if exist "%DIST_DIR%\SHCDESE.AICDecoder.runtimeconfig.json" del /q "%DIST_DIR%\SHCDESE.AICDecoder.runtimeconfig.json" || goto :failed
-if exist "%DIST_DIR%\SHCDESE.AIVDecoder.runtimeconfig.json" del /q "%DIST_DIR%\SHCDESE.AIVDecoder.runtimeconfig.json" || goto :failed
-
 copy /y "%PROJECT_DIR%unpack-all-trails.bat" "%DIST_DIR%\unpack-all-trails.bat" >nul || goto :failed
 copy /y "%PROJECT_DIR%repack-all-trails.bat" "%DIST_DIR%\repack-all-trails.bat" >nul || goto :failed
 copy /y "%PROJECT_DIR%packaging\win-x64\README.md" "%DIST_DIR%\README.md" >nul || goto :failed
