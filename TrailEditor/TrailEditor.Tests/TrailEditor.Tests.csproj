@@ -8,4 +8,8 @@
   <ItemGroup>
     <ProjectReference Include="..\TrailEditor.Core\TrailEditor.Core.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- Keep the real-file tests independent from the current Windows user profile. -->
+    <None Include="..\sources\Trail_Mission_1.trail" Link="TestData\Trail_Mission_1.trail" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

@@ -1,7 +1,13 @@
 using System.Reflection;
 using TrailEditor.Core;
 
-const string RealTrail = @"C:\Users\Serpens66\AppData\LocalLow\Firefly Studios\Stronghold Crusader Definitive Edition\TrailMaker\Trail_Mission_1.trail";
+string realTrail = RealTrailPath();
+
+if (!File.Exists(realTrail))
+{
+    Console.Error.WriteLine($"Test fixture is missing: {realTrail}");
+    return 1;
+}
 
 var tests = new List<(string Name, Action Body)>
 {
@@ -71,7 +77,7 @@ static void TestHiddenSetupSemantics()
 
 static void TestRealContainerRoundTrip()
 {
-    TrailContainerDocument original = TrailContainerCodec.ReadTrail(RealTrail);
+    TrailContainerDocument original = TrailContainerCodec.ReadTrail(RealTrailPath());
     TrailData decoded = RestartCodec.Decode(original.RestartData);
     Assert(decoded.FormatVersion == 60, "restart version");
     Assert(decoded.Map.FileName == "Target Zone", "map name");
@@ -90,9 +96,9 @@ static void TestRealBundleRoundTrip()
     {
         string bundle = Path.Combine(root, "mission");
         var service = new BundleService();
-        service.Export(RealTrail, bundle);
+        service.Export(RealTrailPath(), bundle);
         byte[] rebuilt = service.Build(Path.Combine(bundle, "trail.json"));
-        byte[] original = File.ReadAllBytes(RealTrail);
+        byte[] original = File.ReadAllBytes(RealTrailPath());
         Assert(rebuilt.SequenceEqual(original), "bundle round-trip is not byte-identical");
         Assert(File.ReadAllText(Path.Combine(bundle, "trail.json")).Contains("\r\n"), "JSON is not CRLF");
     }
@@ -104,7 +110,7 @@ static void TestRealBundleRoundTrip()
 
 static void TestCustomDataRoundTrip()
 {
-    TrailContainerDocument original = TrailContainerCodec.ReadTrail(RealTrail);
+    TrailContainerDocument original = TrailContainerCodec.ReadTrail(RealTrailPath());
     TrailData data = RestartCodec.Decode(original.RestartData);
     TrailAiSlot slot = data.AiSlots[0];
     slot.Aivs.Add(new CustomAivData
@@ -160,7 +166,7 @@ static void TestCustomDataRoundTrip()
 
 static void TestValidationFailures()
 {
-    byte[] restart = TrailContainerCodec.ReadTrail(RealTrail).RestartData;
+    byte[] restart = TrailContainerCodec.ReadTrail(RealTrailPath()).RestartData;
     restart[0] = 59;
     AssertThrows(() => RestartCodec.Decode(restart), "unknown restart version was accepted");
     string root = NewTempDirectory();
@@ -174,7 +180,9 @@ static void TestValidationFailures()
     }
 }
 
-static TrailData LoadReal() => RestartCodec.Decode(TrailContainerCodec.ReadTrail(RealTrail).RestartData);
+static TrailData LoadReal() => RestartCodec.Decode(TrailContainerCodec.ReadTrail(RealTrailPath()).RestartData);
+
+static string RealTrailPath() => Path.Combine(AppContext.BaseDirectory, "TestData", "Trail_Mission_1.trail");
 
 static string NewTempDirectory()
 {

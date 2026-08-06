@@ -2,9 +2,29 @@
 
 Offline editor and lossless unpacker/repacker for Stronghold Crusader Definitive Edition `.trail` files.
 
-## Build
+## Development build
 
-Run `build.bat` in this directory. It creates a local Release build, runs the tests, and leaves the CLI at `TrailEditor.Cli\bin\Release\net10.0\TrailEditor.exe`.
+The source tree requires the .NET 10 SDK and source checkouts of these additional projects:
+
+- `MapParser`, containing `MapParser.Core\MapParser.Core.csproj`;
+- `shcde-script-extender`, containing the `SHCDESE.AIVDecoder` and `SHCDESE.AICDecoder` projects.
+
+By default, `MapParser`, `shcde-script-extender`, and `TrailEditor` are expected to be sibling directories below one common dependency root. No user-profile, drive-letter, Steam, or game-installation path is required.
+
+The locations can be changed without editing a project file. Set `TrailEditorDependencyRoot` to a directory containing both dependency repositories, or set all three project variables individually:
+
+    set "TrailEditorDependencyRoot=X:\path\to\dependency-root"
+    set "TrailEditorMapParserProject=X:\other\MapParser.Core.csproj"
+    set "TrailEditorAivDecoderProject=X:\other\SHCDESE.AIVDecoder.csproj"
+    set "TrailEditorAicDecoderProject=X:\other\SHCDESE.AICDecoder.csproj"
+
+Run `build.bat` after configuring the paths. It checks for `dotnet`, builds the solution, runs the tests using the repository-local `sources\Trail_Mission_1.trail` fixture, and leaves the development CLI at `TrailEditor.Cli\bin\Release\net10.0\TrailEditor.exe`. Missing SDKs, source projects, or test data cause an explicit build error.
+
+## Portable Windows-x64 release
+
+Run `publish-win-x64.bat` to build, test, and publish a self-contained single-file release under `dist\win-x64`. This directory is deliberately separate from the development output and is the directory intended for distribution.
+
+The generated package includes `TrailEditor.exe`, the two end-user BAT files, a release README, and the `sources`, `unpacked`, and `repacked` directories. Recipients do not need .NET, the SDK, the dependency source trees, or a particular installation path. The end-user BAT files never attempt to compile source code; if the executable, inputs, or paths are missing, they display a specific error and remain open.
 
 ## Batch usage
 

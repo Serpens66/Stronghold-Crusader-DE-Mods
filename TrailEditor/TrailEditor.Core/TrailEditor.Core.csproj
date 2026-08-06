@@ -3,10 +3,20 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <!-- Dependency locations can be overridden without changing this project file. -->
+    <TrailEditorDependencyRoot Condition="'$(TrailEditorDependencyRoot)' == ''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..\'))</TrailEditorDependencyRoot>
+    <TrailEditorMapParserProject Condition="'$(TrailEditorMapParserProject)' == ''">$(TrailEditorDependencyRoot)\MapParser\MapParser.Core\MapParser.Core.csproj</TrailEditorMapParserProject>
+    <TrailEditorAivDecoderProject Condition="'$(TrailEditorAivDecoderProject)' == ''">$(TrailEditorDependencyRoot)\shcde-script-extender\src\SHCDESE.AIVDecoder\src\SHCDESE.AIVDecoder\SHCDESE.AIVDecoder.csproj</TrailEditorAivDecoderProject>
+    <TrailEditorAicDecoderProject Condition="'$(TrailEditorAicDecoderProject)' == ''">$(TrailEditorDependencyRoot)\shcde-script-extender\src\SHCDESE.AICDecoder\src\SHCDESE.AICDecoder\SHCDESE.AICDecoder.csproj</TrailEditorAicDecoderProject>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\MapParser\MapParser.Core\MapParser.Core.csproj" />
-    <ProjectReference Include="..\..\shcde-script-extender\src\SHCDESE.AIVDecoder\src\SHCDESE.AIVDecoder\SHCDESE.AIVDecoder.csproj" />
-    <ProjectReference Include="..\..\shcde-script-extender\src\SHCDESE.AICDecoder\src\SHCDESE.AICDecoder\SHCDESE.AICDecoder.csproj" />
+    <ProjectReference Include="$(TrailEditorMapParserProject)" />
+    <ProjectReference Include="$(TrailEditorAivDecoderProject)" />
+    <ProjectReference Include="$(TrailEditorAicDecoderProject)" />
   </ItemGroup>
+  <Target Name="ValidateTrailEditorDependencies" BeforeTargets="PrepareForBuild">
+    <Error Condition="!Exists('$(TrailEditorMapParserProject)')" Text="TrailEditor dependency missing: MapParser.Core project was not found at '$(TrailEditorMapParserProject)'. Set TrailEditorDependencyRoot or TrailEditorMapParserProject. See README.md." />
+    <Error Condition="!Exists('$(TrailEditorAivDecoderProject)')" Text="TrailEditor dependency missing: SHCDESE.AIVDecoder project was not found at '$(TrailEditorAivDecoderProject)'. Set TrailEditorDependencyRoot or TrailEditorAivDecoderProject. See README.md." />
+    <Error Condition="!Exists('$(TrailEditorAicDecoderProject)')" Text="TrailEditor dependency missing: SHCDESE.AICDecoder project was not found at '$(TrailEditorAicDecoderProject)'. Set TrailEditorDependencyRoot or TrailEditorAicDecoderProject. See README.md." />
+  </Target>
 </Project>
