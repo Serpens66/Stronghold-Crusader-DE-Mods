@@ -122,6 +122,37 @@ namespace Shared
             }
         }
 
+        public static bool IsCurrentNativeLibraryVersion()
+        {
+            try
+            {
+                string path = Path.Combine(
+                    BepInEx.Paths.GameRootPath,
+                    "Stronghold Crusader Definitive Edition_Data",
+                    "Plugins",
+                    "x86_64",
+                    "CrusaderDE.dll");
+                if (!File.Exists(path))
+                    return false;
+
+                using (FileStream stream = File.OpenRead(path))
+                using (SHA256 sha256 = SHA256.Create())
+                {
+                    string actualHash = BitConverter.ToString(sha256.ComputeHash(stream))
+                        .Replace("-", string.Empty);
+                    return string.Equals(
+                        actualHash,
+                        CurrentNativeSha256,
+                        StringComparison.OrdinalIgnoreCase);
+                }
+            }
+            catch
+            {
+                // Callers use false to keep only fixed-layout native code inactive.
+                return false;
+            }
+        }
+
         private static string WithTimestamp(string message)
         {
             return $"[{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture)}] {message ?? string.Empty}";

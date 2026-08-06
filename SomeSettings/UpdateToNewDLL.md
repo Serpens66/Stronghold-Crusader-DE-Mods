@@ -6,9 +6,9 @@
 - DLL size: `3450880` bytes
 - SHA-256: `1E6D4C2E10CC35A7B8082A7E2BCD8BB20680EBEDA803D9B943257B948145CB2B`
 
-The plugin reports every changed hash. Features with unprovable raw layouts
-write timestamped Errors and remain inactive; independently signature-validated
-features may continue.
+The plugin checks the hash silently. Only enabled features with unprovable raw
+layouts write one timestamped Error and remain inactive. Independently
+signature- and byte-validated features continue without a known hash.
 
 ## Hash-gated layouts
 
@@ -36,7 +36,8 @@ Revalidate these before approving a new hash:
 5. Test every setting both enabled and disabled, map reload, multiplayer packet
    formatters, knight mount/dismount, quarry relocation, and process-lifetime
    hook rooting.
-6. Update the shared current hash only after the hash-gated layouts pass.
+6. Update the shared current hash only after every fixed layout listed above
+   passes. Do not gate independently validated features on that hash.
 
 Missing or ambiguous signatures and failed byte validation must continue to log
 Errors and leave the corresponding feature inactive.

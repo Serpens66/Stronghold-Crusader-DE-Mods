@@ -44,7 +44,10 @@ namespace SomeSettings
         private IntPtr libraryHandle;
         private int libraryLength;
         private bool nativeLibraryAvailable;
-        private bool currentNativeLayout;
+        private bool fixedLayoutHashValidated;
+        private bool knightFixedLayoutErrorLogged;
+        private bool quarryFixedLayoutErrorLogged;
+        private bool enemyProximityFixedLayoutErrorLogged;
 
         private bool hooksSubscribed;
         private bool settingsSubscribed;
@@ -77,33 +80,23 @@ namespace SomeSettings
         public object KnightDismountButton => knightDismountRuntime.ButtonViewModel;
         public object QuarryPileRelocationButton => quarryPileRelocationRuntime.ButtonViewModel;
 
-        public void SetCurrentNativeLayout(bool isCurrent)
+        public void SetFixedLayoutHashValidated(bool isValidated)
         {
-            currentNativeLayout = isCurrent;
+            fixedLayoutHashValidated = isValidated;
         }
 
         public void InstallKnightMountNativeFunctions(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
         {
-            if (!currentNativeLayout)
-            {
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    "SomeSettings knight dismount remains inactive because its native unit-field layout is not validated for this CrusaderDE.dll.");
+            if (!fixedLayoutHashValidated)
                 return;
-            }
 
             knightDismountRuntime.InstallNativeFunctions(libraryHandle, memory);
         }
 
         public void InstallQuarryPileNativeFunctions(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
         {
-            if (!currentNativeLayout)
-            {
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    "SomeSettings quarry-pile relocation remains inactive because its native building-manager field layout is not validated for this CrusaderDE.dll.");
+            if (!fixedLayoutHashValidated)
                 return;
-            }
 
             quarryPileRelocationRuntime.InstallNativeFunctions(libraryHandle, memory);
         }
@@ -112,23 +105,12 @@ namespace SomeSettings
             IntPtr libraryHandle,
             ReadOnlySpan<byte> memory)
         {
-            if (!currentNativeLayout)
-            {
-                // This runtime validates its signatures and AIState-101
-                // semantics before committing any hook, so minor code shifts
-                // can be probed safely without weakening other native fixes.
-                TroopMovementFix3ModLog.Debug(
-                    log,
-                    "Unknown CrusaderDE.dll hash; probing troop movement " +
-                    "signatures and native cadence semantics.");
-            }
-
             try
             {
                 troopMovementFixRuntime.InitializeNative(
                     libraryHandle,
                     memory,
-                    currentNativeLayout);
+                    fixedLayoutHashValidated);
             }
             catch (Exception ex)
             {
@@ -191,12 +173,10 @@ namespace SomeSettings
                     .Subscribe(OnUnloadMap));
                 minimapPlacementClickHook = new MinimapPlacementClickHook(log, settings);
                 coopTrailCustomizeHook = new CoopTrailCustomizeHook(log);
-                knightDismountRuntime.Initialize();
-                quarryPileRelocationRuntime.Initialize();
                 InstallAutoTradeSellZeroHook();
-                InstallEnemyProximityBulldozeCursorHook();
                 InstallSingleBuildingPauseHook();
                 hooksSubscribed = true;
+                ReconcileFixedLayoutFeatures();
                 Shared.DebugLogHelper.LogDebug(log, "SomeSettings hooks subscribed.");
             }
             catch
@@ -306,14 +286,8 @@ namespace SomeSettings
 
         private void InstallEnemyProximityBulldozeCursorHook()
         {
-            if (!currentNativeLayout)
-            {
-                // This feature reads one ChoreManager field that cannot yet be derived safely.
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    "SomeSettings enemy-proximity bulldoze cursor hook remains inactive because its ChoreManager field offset is not validated for this CrusaderDE.dll.");
+            if (enemyProximityBulldozeCursorHook != null)
                 return;
-            }
 
             try
             {
@@ -323,6 +297,46 @@ namespace SomeSettings
             {
                 Shared.DebugLogHelper.LogError(log, $"SomeSettings enemy-proximity bulldoze cursor hook could not be installed: {ex}");
             }
+        }
+
+        private void ReconcileFixedLayoutFeatures()
+        {
+            // Registration can raise setting changes before the native bootstrap is complete.
+            if (!nativeLibraryAvailable || !settings.EnableMod)
+                return;
+
+            if (!fixedLayoutHashValidated)
+            {
+                if (settings.EnableKnightDismount && !knightFixedLayoutErrorLogged)
+                {
+                    knightFixedLayoutErrorLogged = true;
+                    Shared.DebugLogHelper.LogError(
+                        log,
+                        "SomeSettings knight mount/dismount remains inactive because its fixed native unit and stable field layout is not validated for this CrusaderDE.dll.");
+                }
+
+                if (settings.EnableQuarryPileRelocation && !quarryFixedLayoutErrorLogged)
+                {
+                    quarryFixedLayoutErrorLogged = true;
+                    Shared.DebugLogHelper.LogError(
+                        log,
+                        "SomeSettings quarry-pile relocation remains inactive because its fixed native building-manager field layout is not validated for this CrusaderDE.dll.");
+                }
+
+                if (!enemyProximityFixedLayoutErrorLogged)
+                {
+                    enemyProximityFixedLayoutErrorLogged = true;
+                    Shared.DebugLogHelper.LogError(
+                        log,
+                        "SomeSettings enemy-proximity bulldoze cursor hook remains inactive because its fixed ChoreManager field offset is not validated for this CrusaderDE.dll.");
+                }
+
+                return;
+            }
+
+            knightDismountRuntime.Initialize();
+            quarryPileRelocationRuntime.Initialize();
+            InstallEnemyProximityBulldozeCursorHook();
         }
 
         private void InstallSingleBuildingPauseHook()
@@ -410,6 +424,7 @@ namespace SomeSettings
                 if (settings.EnableMod)
                 {
                     SubscribeHooks();
+                    ReconcileFixedLayoutFeatures();
                     ApplySettings();
                 }
                 else
@@ -432,12 +447,14 @@ namespace SomeSettings
 
             if (propertyName == nameof(SomeSettingsViewModel.EnableKnightDismount))
             {
+                ReconcileFixedLayoutFeatures();
                 knightDismountRuntime?.RefreshButtonVisibility();
                 return;
             }
 
             if (propertyName == nameof(SomeSettingsViewModel.EnableQuarryPileRelocation))
             {
+                ReconcileFixedLayoutFeatures();
                 quarryPileRelocationRuntime?.ApplySetting();
                 return;
             }

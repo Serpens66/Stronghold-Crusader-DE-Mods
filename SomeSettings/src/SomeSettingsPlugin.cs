@@ -19,7 +19,7 @@ namespace SomeSettings
 
         public const string PluginGuid = "SomeSettings_Serp";
         public const string PluginName = "Some Settings";
-        public const string PluginVersion = "1.0.14";
+        public const string PluginVersion = "1.0.15";
 
         private SomeSettingsRuntime runtime;
         private bool runtimeDisposed;
@@ -56,9 +56,9 @@ namespace SomeSettings
         {
             try
             {
-                bool currentNativeLayout =
-                    Shared.DebugLogHelper.ReportNativeLibraryVersion(Logger, PluginName);
-                runtime.SetCurrentNativeLayout(currentNativeLayout);
+                bool fixedLayoutHashValidated =
+                    Shared.DebugLogHelper.IsCurrentNativeLibraryVersion();
+                runtime.SetFixedLayoutHashValidated(fixedLayoutHashValidated);
                 GameXAMLManagerAPI.Instance.RegisterLobbyModSettings(
                     this,
                     "SomeSettings_Serp",

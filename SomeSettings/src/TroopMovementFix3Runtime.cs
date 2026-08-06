@@ -43,7 +43,8 @@ namespace SomeSettings
         private IntPtr libraryHandle;
         private int libraryLength;
         private bool nativeLibraryAvailable;
-        private bool nativeLayoutValidated;
+        private bool fixedLayoutHashValidated;
+        private bool fixedLayoutErrorLogged;
 
         public TroopMovementFix3Runtime(
             ManualLogSource log,
@@ -57,7 +58,7 @@ namespace SomeSettings
         public void InitializeNative(
             IntPtr newLibraryHandle,
             ReadOnlySpan<byte> memory,
-            bool isNativeLayoutValidated)
+            bool isFixedLayoutHashValidated)
         {
             if (nativeLibraryAvailable)
                 return;
@@ -67,7 +68,7 @@ namespace SomeSettings
 
             libraryHandle = newLibraryHandle;
             libraryLength = memory.Length;
-            nativeLayoutValidated = isNativeLayoutValidated;
+            fixedLayoutHashValidated = isFixedLayoutHashValidated;
             nativeLibraryAvailable = true;
             ApplySetting();
         }
@@ -78,14 +79,25 @@ namespace SomeSettings
                 return;
 
             bool shouldEnableTroopMovementFix =
-                nativeLayoutValidated &&
+                fixedLayoutHashValidated &&
                 settings.EnableMod &&
                 settings.EnableTroopMovementFix;
             bool shouldEnableCadencePatch =
                 settings.EnableMod &&
-                ((nativeLayoutValidated &&
+                ((fixedLayoutHashValidated &&
                   settings.EnableTroopMovementFix) ||
                  settings.EnableFastRecruitRallyMovement);
+
+            if (settings.EnableMod &&
+                settings.EnableTroopMovementFix &&
+                !fixedLayoutHashValidated &&
+                !fixedLayoutErrorLogged)
+            {
+                fixedLayoutErrorLogged = true;
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    "SomeSettings Troop Movement Fix remains inactive because its fixed native tribe and unit field layouts are not validated for this CrusaderDE.dll. Fast Recruit Rally Movement may continue after its independent signature validation.");
+            }
 
             if (shouldEnableCadencePatch && cadencePatch == null)
                 EnableCadencePatch();
@@ -143,7 +155,7 @@ namespace SomeSettings
         {
             Disable();
             nativeLibraryAvailable = false;
-            nativeLayoutValidated = false;
+            fixedLayoutHashValidated = false;
             libraryHandle = IntPtr.Zero;
             libraryLength = 0;
         }
