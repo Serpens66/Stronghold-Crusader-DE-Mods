@@ -193,7 +193,7 @@ Do not reorder these arrays. Their indices are the serialization contract, not a
 
 | Field | Meaning |
 | --- | --- |
-| `customisedExtremeTrail` | Applies the Extreme-trail x3 starting-gold multiplier. This is independent from enabling Extreme troops/powers. |
+| `customisedExtremeTrail` | Applies the Extreme-trail x3 starting-gold multiplier. This is independent from enabling Extreme troops/powers. (is ignored by the game, so does nothing!) |
 | `customTestMission` | Internal Trail Maker test/restart mode. It is not a Coop flag. Normally leave `false` in a published mission. |
 | `customTrail` | Runtime bookkeeping flag. The game sets it when loading a mission from a custom trail. |
 | `customTrailLevel` | Runtime mission index used for restart/progression; `-1` in a freshly produced mission. |
