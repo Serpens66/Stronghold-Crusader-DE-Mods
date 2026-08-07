@@ -94,17 +94,17 @@ namespace CoopTrailReplacer
         }
     }
 
-    internal sealed class SomeSettingsBridge : IDisposable
+    internal sealed class ExtraFeaturesBridge : IDisposable
     {
         private readonly Type contextType;
         private readonly EventInfo customizedEvent;
         private readonly Action customizedHandler;
 
-        public SomeSettingsBridge(Action onCustomized)
+        public ExtraFeaturesBridge(Action onCustomized)
         {
-            if (!Chainloader.PluginInfos.TryGetValue("SomeSettings_Serp", out var pluginInfo))
+            if (!Chainloader.PluginInfos.TryGetValue("ExtraFeatures_Serp", out var pluginInfo))
                 return;
-            contextType = pluginInfo.Instance.GetType().Assembly.GetType("SomeSettings.CoopTrailLaunchContext", false);
+            contextType = pluginInfo.Instance.GetType().Assembly.GetType("ExtraFeatures.CoopTrailLaunchContext", false);
             customizedEvent = contextType?.GetEvent("Customized", BindingFlags.Public | BindingFlags.Static);
             if (customizedEvent != null)
             {

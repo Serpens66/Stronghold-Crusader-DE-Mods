@@ -1,0 +1,18 @@
+{
+  "GUID": "ExtraFeatures_Serp",
+  "Author": "Serpens66",
+  "Name": "Extra Features",
+  "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
+  "Version": "1.0.0",
+  "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
+  "Manifest": 1,
+  "SerpChangelog": [
+    {
+      "Version": "1.0.0",
+      "Changes": [
+        "Split optional gameplay and economy features from Some Settings into a dedicated mod.",
+        "Fast Recruit Rally Movement now uses the optional shared movement hook from Bugfixes and QoL and disables only itself when that mod is missing."
+      ]
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+# Serp mod localization
+# Format: key=value
+Common.ResetToDefault=Zurücksetzen
+SomeSettings.EnableFastRecruitRallyMovement=Rekruten laufen zu Sammelpunkten
+SomeSettings.EnableFastRecruitRallyMovementHelp=Neu rekrutierte Spieler- und KI-Einheiten laufen mit ihrem eigenen maximalen Vanilla-Tempo und passender Animation zu ihrem Sammelpunkt; Gelände- und Zustandsmodifikatoren bleiben erhalten.
+Common.Ai=KI
+Common.Human=Mensch
+SomeSettings.BulldozeTitle=ABREISSEN
+SomeSettings.BulldozeHelp=-1 = unverändert. Erstattungswerte sind Prozentwerte von 0 bis 100.
+SomeSettings.WoodRefund=Holz-Erstattung %
+SomeSettings.StoneRefund=Stein-Erstattung %
+SomeSettings.IronRefund=Eisen-Erstattung %
+SomeSettings.PitchRefund=Pech-Erstattung %
+SomeSettings.GoldRefund=Gold-Erstattung %
+SomeSettings.VanillaValue50=Vanilla-Wert: 50%.
+SomeSettings.KeepStorageContent=Lagerinhalt behalten
+SomeSettings.KeepStorageContentHelp=Wenn aktiviert, bleiben beim Abreissen von Kornspeicher, Waffenkammer oder Vorratslager die enthaltenen Gueter erhalten und werden als eingehende Gueter wieder hinzugefuegt.\nIf Granary was built for free can't credit goods back (happens when building it while no wood is on stock)
+SomeSettings.EconomyBuffsTitle=Wirtschafts-Buffs
+SomeSettings.MultiplyGoodsGain=Guetergewinn multiplizieren
+SomeSettings.MultiplyGoodsGainHelp=Multiplikator für erhaltene Gueter. 1 = unverändert, 2 = doppelt, 3 = dreifach. Werte 1 oder kleiner fuegen nichts hinzu.
+SomeSettings.MultiplyGoodsAsMoney=Gueter als Geld multiplizieren
+SomeSettings.MultiplyGoodsAsMoneyHelp=Extra-Goldzahlungen basierend auf dem Verkaufswert erhaltener Gueter. 0 = unverändert, 1 = eine Verkaufswert-Zahlung, 2 = zwei Zahlungen.
+SomeSettings.MarketPriceMultipliersTitle=Marktpreis-Multiplikatoren
+SomeSettings.MarketBuyPriceMultiplier=Kaufpreise
+SomeSettings.MarketBuyPriceMultiplierHelp=Multiplikator fuer alle Markt-Kaufpreise. 1.0 = unveraendert, 0.0 = kostenlos, 5.0 = fuenffacher Vanilla-Preis.
+SomeSettings.MarketSellPriceMultiplier=Verkaufspreise
+SomeSettings.MarketSellPriceMultiplierHelp=Multiplikator fuer alle Markt-Verkaufspreise. 1.0 = unveraendert, 0.0 = kein Gold durch Verkauf, 5.0 = fuenffacher Vanilla-Preis.
+SomeSettings.AIEconomyProtectionTitle=AI Economy Protection
+SomeSettings.PreventAIPause=KI-Gebaeudepausen verhindern
+SomeSettings.PreventAIPauseHelp=Verhindert, dass KI-Spieler ihre eigenen Produktionsgebaeude schlafen legen.
+SomeSettings.PreventEmergencyDemolition=KI-Panikabriss verhindern
+SomeSettings.PreventEmergencyDemolitionHelp=Ueberspringt den KI-Notfallabriss zur Rohstoffrueckgewinnung, der sonst nuetzliche Gebaeude entfernen kann.
+SomeSettings.PreventHovelDeletion=KI-Huettenabriss verhindern
+SomeSettings.PreventHovelDeletionHelp=Blockiert direktes Loeschen lebender KI-eigener Huetten, erlaubt aber weiterhin normale Zerstoerung durch Schaden.
+SomeSettings.EnableKnightDismount=Ritter auf- und absitzen aktivieren
+SomeSettings.EnableKnightDismountHelp=Fuegt Befehlsbuttons zum Aufsatteln von Schwertkaempfern und Absteigen berittener Ritter hinzu.
+SomeSettings.KnightDismountTooltip=Absteigen
+SomeSettings.KnightDismountTooltipBody=Wandelt ausgewaehlte berittene Ritter an derselben Position in Schwertkaempfer um.
+SomeSettings.KnightMountTooltip=Aufsatteln
+SomeSettings.KnightMountTooltipBody=Wandelt ausgewaehlte Schwertkaempfer in berittene Ritter um. Benoetigt verfuegbare Pferde in einem Stall.
+SomeSettings.EnableQuarryPileRelocation=Steinhaufen-Rotation aktivieren
+SomeSettings.EnableQuarryPileRelocationHelp=Fuegt ausgewaehlten Steinbruechen einen Button hinzu, der ihren verknuepften Steinhaufen im Uhrzeigersinn zur naechsten gueltigen Position verschiebt. Wenn kein gueltiger Ersatz erzeugt werden kann, bleibt der vorhandene Haufen unveraendert.
+SomeSettings.EnableExtraChurchPriests=Mehr Priester fuer Kirchen aktivieren
+SomeSettings.EnableExtraChurchPriestsHelp=Wenn aktiviert, benoetigen Kirchen zwei Priester und Kathedralen drei Priester.
+SomeSettings.QuarryPileRelocationTooltip=Steinhaufen verschieben
+SomeSettings.QuarryPileRelocationTooltipBody=Verschiebt den verknuepften Steinhaufen zur naechsten gueltigen Position im Uhrzeigersinn um diesen Steinbruch.
+SomeSettings.EnableCtrlSingleMarketTrade=Mit Strg eine Markteinheit handeln
+SomeSettings.EnableCtrlSingleMarketTradeHelp=Halte beim Kaufen oder Verkaufen Strg gedrueckt, um genau eine Einheit zu handeln. Strg+Umschalt verwendet die normale Menge von fuenf Einheiten.

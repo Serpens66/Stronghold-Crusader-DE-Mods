@@ -1,0 +1,12 @@
+# Serp mod localization
+# Format: key=value
+SomeSettings.EnableTroopMovementFix=Troop Speed Fix
+SomeSettings.EnableTroopMovementFixHelp=Fixes synchronized movement for mixed troop groups: with a normal movement command, all units move at the speed of the slowest unit in the group.
+Common.ResetToDefault=Reset to Default
+SomeSettings.AlwaysActiveTitle=Always active (if mod enabled)
+SomeSettings.AlwaysActiveHelp=Minimap dragging follows the mouse cursor directly. Pressing the market keybind while the market is selected returns the menu to the main trade menu. Market autotrade can sell goods with a sell threshold greater than zero. The bulldoze icon changes when the cursor is near enemies.
+SomeSettings.MarketKeyMainTradeMenuHelp=Pressing the market keybind while the market is already selected returns the menu to the main trade menu.
+SomeSettings.AllowMinimapWhilePlacingBuilding=Allow minimap while placing buildings
+SomeSettings.AllowMinimapWhilePlacingBuildingHelp=When enabled, left-clicking the minimap moves the camera even while a building is selected for placement. This is a per-player setting.
+SomeSettings.RememberAiAivSettings=Remember shared AI castle/settings selection
+SomeSettings.RememberAiAivSettingsHelp=When enabled, each AI lord's last AIV list, rotation, and custom AIC settings are shared between single-player and multiplayer lobbies.

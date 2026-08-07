@@ -178,7 +178,7 @@ Unterstützte Truppenschlüssel:
     CHIMP_TYPE_BEDOUIN_SKIRMISHER, CHIMP_TYPE_BEDOUIN_HEAVY_CAMEL,
     CHIMP_TYPE_BEDOUIN_SAPPER, CHIMP_TYPE_BEDOUIN_DEMOLISHER
 
-Bei installiertem `StartConditions` erhält dieser nur einen temporären Missions-Override; gespeicherte Lobbysettings werden nicht geändert. Fehlt das Plugin, verwendet `CoopTrailReplacer` denselben verlinkten Kern selbst. Wird die Mission über die von `SomeSettings` angebotene anpassbare Skirmish-/MP-Lobby geöffnet, wird der Missions-Override gelöscht und nur die vom Host gewählte StartConditions-Konfiguration angewendet. Der Kontext wird beim Missionswechsel und Mapende zurückgesetzt.
+Bei installiertem `StartConditions` erhält dieser nur einen temporären Missions-Override; gespeicherte Lobbysettings werden nicht geändert. Fehlt das Plugin, verwendet `CoopTrailReplacer` denselben verlinkten Kern selbst. Wird die Mission über die von `Extra Features` angebotene anpassbare Skirmish-/MP-Lobby geöffnet, wird der Missions-Override gelöscht und nur die vom Host gewählte StartConditions-Konfiguration angewendet. Der Kontext wird beim Missionswechsel und Mapende zurückgesetzt.
 
 ## Multiplayer-Prüfung
 

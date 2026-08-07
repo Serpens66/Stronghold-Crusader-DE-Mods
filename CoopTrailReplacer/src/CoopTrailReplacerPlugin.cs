@@ -7,7 +7,7 @@ namespace CoopTrailReplacer
 {
     [BepInDependency("000shcdese", BepInDependency.DependencyFlags.HardDependency)]
     [BepInDependency("StartConditions_Serp", BepInDependency.DependencyFlags.SoftDependency)]
-    [BepInDependency("SomeSettings_Serp", BepInDependency.DependencyFlags.SoftDependency)]
+    [BepInDependency("ExtraFeatures_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class CoopTrailReplacerPlugin : BaseUnityPlugin
     {

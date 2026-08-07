@@ -183,7 +183,7 @@
     "extremePowers": false,
     "extremePowersAroundLord": false,
     "allowOutposts": true,
-    "customisedExtremeTrail": true,
+    "customisedExtremeTrail": false,
     "aiSlots": [
       {
         "lordType": 0,

@@ -39,7 +39,7 @@ namespace CoopTrailReplacer
         private CoopMissionChangedDelegate missionTrampoline;
         private ButtonClickedDelegate buttonTrampoline;
         private StartConditionsBridge startConditions;
-        private SomeSettingsBridge someSettings;
+        private ExtraFeaturesBridge extraFeatures;
         private short packetId;
         private ResolvedMission selected;
         private int selectedTrailId = -1;
@@ -56,7 +56,7 @@ namespace CoopTrailReplacer
         public void Initialize()
         {
             startConditions = new StartConditionsBridge(log);
-            someSettings = new SomeSettingsBridge(OnCustomizedLobby);
+            extraFeatures = new ExtraFeaturesBridge(OnCustomizedLobby);
 
             var packetHook = GameNetworkAPI.Instance.GetPacketEventFor<MissionHashPacket>();
             packetId = packetHook.GetPacketId();
@@ -86,7 +86,7 @@ namespace CoopTrailReplacer
             initHook?.Dispose();
             missionHook?.Dispose();
             buttonHook?.Dispose();
-            someSettings?.Dispose();
+            extraFeatures?.Dispose();
             startConditions?.Dispose();
         }
 
@@ -105,7 +105,7 @@ namespace CoopTrailReplacer
 
         private void CoopMissionChangedHook(FRONT_Multiplayer self, int trailId, int missionId, bool resetOrderSwapped)
         {
-            someSettings?.Clear();
+            extraFeatures?.Clear();
             missionTrampoline(self, trailId, missionId, resetOrderSwapped);
             selectedTrailId = trailId;
             selectedMissionId = missionId;
@@ -271,13 +271,13 @@ namespace CoopTrailReplacer
         private void OnCustomizedLobby()
         {
             startConditions?.Clear();
-            LogInfo("SomeSettings customized Coop lobby detected; user-selected StartConditions remain active.");
+            LogInfo("Extra Features customized Coop lobby detected; user-selected StartConditions remain active.");
         }
 
         private void ClearLaunchState()
         {
             startConditions?.Clear();
-            someSettings?.Clear();
+            extraFeatures?.Clear();
             selected = null;
             selectedTrailId = -1;
             selectedMissionId = -1;

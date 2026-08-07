@@ -1,0 +1,38 @@
+<Grid xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <ScrollViewer VerticalScrollBarVisibility="Auto">
+    <StackPanel Margin="10">
+      <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+        <Button Content="{Binding ResetToDefaultText}"
+                Command="{Binding ResetToDefaultCommand}"
+                HorizontalAlignment="Left"
+                Padding="10,3"/>
+        <CheckBox IsChecked="{Binding EnableMod, Mode=TwoWay}"
+                  Content="{Binding EnableModText}"
+                  Foreground="White"
+                  VerticalAlignment="Center"
+                  Margin="14,0,0,0"/>
+      </StackPanel>
+      <TextBlock Text="{Binding AlwaysActiveTitleText}" Foreground="#77AAFF" FontWeight="Bold" Margin="0,0,0,4"/>
+      <TextBlock Text="{Binding AlwaysActiveHelpText}" Foreground="#CCCCCC" TextWrapping="Wrap" Margin="0,0,0,10"/>
+      <CheckBox IsChecked="{Binding AllowMinimapWhilePlacingBuilding, Mode=TwoWay}"
+                Foreground="White"
+                ToolTip="{Binding AllowMinimapWhilePlacingBuildingHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding AllowMinimapWhilePlacingBuildingText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox>
+      <CheckBox IsChecked="{Binding RememberAiAivSettings, Mode=TwoWay}"
+                Foreground="White"
+                ToolTip="{Binding RememberAiAivSettingsHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding RememberAiAivSettingsText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox>
+      <CheckBox IsChecked="{Binding EnableTroopMovementFix, Mode=TwoWay}"
+                Foreground="White"
+                ToolTip="{Binding EnableTroopMovementFixHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding EnableTroopMovementFixText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox>
+    </StackPanel>
+  </ScrollViewer>
+</Grid>

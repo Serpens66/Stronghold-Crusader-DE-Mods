@@ -1,0 +1,18 @@
+{
+  "GUID": "BugfixesAndQoL_Serp",
+  "Author": "Serpens66",
+  "Name": "Bugfixes and QoL",
+  "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
+  "Version": "1.0.0",
+  "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
+  "Manifest": 1,
+  "SerpChangelog": [
+    {
+      "Version": "1.0.0",
+      "Changes": [
+        "Split the bug fixes and quality-of-life options from Some Settings into a dedicated mod.",
+        "Added an optional movement-cadence integration used by Extra Features without duplicating native hooks."
+      ]
+    }
+  ]
+}
