@@ -139,7 +139,7 @@ The game contains a fourth starting-goods level which is not offered by the norm
 | 3 | 40000/3000 | 20000/7000 | 10000/10000 | 7000/20000 | 3000/40000 |
 | 4 (hidden) | 4000/500 | 2000/500 | 500/500 | 500/2000 | 500/4000 |
 
-Every cell is `human/CPU` gold. `trail.customisedExtremeTrail: true` multiplies both values by three. `setup.noGold: 1` forces the human value to zero while the CPU continues to use its table value.
+Every cell is `human/CPU` gold. `trail.customisedExtremeTrail: true` multiplies both values by three (is ignored by the game, so does nothing!). `setup.noGold: 1` forces the human value to zero while the CPU continues to use its table value.
 
 For an even match with 500 gold per side, use `startingGoodsLevel: 4` and `fairness: 3`. This is still a preset table entry; the `.trail` restart format has no independent arbitrary-gold field per player.
 
