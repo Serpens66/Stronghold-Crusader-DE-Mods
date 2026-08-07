@@ -21,6 +21,12 @@
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding AllowMinimapWhilePlacingBuildingText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox>
+      <CheckBox IsChecked="{Binding AllowCameraMovementWithModifiers, Mode=TwoWay}"
+                Foreground="White"
+                ToolTip="{Binding AllowCameraMovementWithModifiersHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding AllowCameraMovementWithModifiersText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox>
       <CheckBox IsChecked="{Binding RememberAiAivSettings, Mode=TwoWay}"
                 Foreground="White"
                 ToolTip="{Binding RememberAiAivSettingsHelpText}"

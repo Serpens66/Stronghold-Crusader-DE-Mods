@@ -54,6 +54,8 @@ public static class SerpLocalization
     public const string MarketKeyMainTradeMenuHelp = "SomeSettings.MarketKeyMainTradeMenuHelp";
     public const string AllowMinimapWhilePlacingBuilding = "SomeSettings.AllowMinimapWhilePlacingBuilding";
     public const string AllowMinimapWhilePlacingBuildingHelp = "SomeSettings.AllowMinimapWhilePlacingBuildingHelp";
+    public const string AllowCameraMovementWithModifiers = "SomeSettings.AllowCameraMovementWithModifiers";
+    public const string AllowCameraMovementWithModifiersHelp = "SomeSettings.AllowCameraMovementWithModifiersHelp";
     public const string BulldozeTitle = "SomeSettings.BulldozeTitle";
     public const string BulldozeHelp = "SomeSettings.BulldozeHelp";
     public const string WoodRefund = "SomeSettings.WoodRefund";
@@ -163,6 +165,8 @@ public static class SerpLocalization
         { MarketKeyMainTradeMenuHelp, "Pressing the market keybind while the market is already selected returns the menu to the main trade menu." },
         { AllowMinimapWhilePlacingBuilding, "Allow minimap while placing buildings" },
         { AllowMinimapWhilePlacingBuildingHelp, "When enabled, left-clicking the minimap moves the camera even while a building is selected for placement. This is a per-player setting." },
+        { AllowCameraMovementWithModifiers, "Allow camera movement while holding Ctrl or Alt" },
+        { AllowCameraMovementWithModifiersHelp, "When enabled, keyboard and edge scrolling continue to move the camera while Ctrl or Alt is held. This is a per-player setting." },
         { BulldozeTitle, "BULLDOZE" },
         { BulldozeHelp, "-1 = unchanged. Refund values are percentages from 0 to 100." },
         { WoodRefund, "Wood refund %" },

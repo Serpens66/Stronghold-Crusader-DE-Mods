@@ -15,10 +15,12 @@ namespace BugfixesAndQoL
         private bool rememberAiAivSettings = true;
         private bool enableTroopMovementFix = true;
         private readonly bool[] allowMinimapWhilePlacingBuildingData = new bool[9];
+        private readonly bool[] allowCameraMovementWithModifiersData = new bool[9];
 
         public BugfixesAndQoLViewModel()
         {
             SetAllowMinimapDefaults();
+            SetAllowCameraMovementWithModifiersDefaults();
             ResetToDefaultCommand = new RelayCommand(ResetToDefault);
         }
 
@@ -33,8 +35,11 @@ namespace BugfixesAndQoL
         public string RememberAiAivSettingsHelpText => SerpLocalization.Get(SerpLocalization.RememberAiAivSettingsHelp);
         public string EnableTroopMovementFixText => SerpLocalization.Get(SerpLocalization.EnableTroopMovementFix);
         public string EnableTroopMovementFixHelpText => SerpLocalization.Get(SerpLocalization.EnableTroopMovementFixHelp);
+        public string AllowCameraMovementWithModifiersText => SerpLocalization.Get(SerpLocalization.AllowCameraMovementWithModifiers);
+        public string AllowCameraMovementWithModifiersHelpText => SerpLocalization.Get(SerpLocalization.AllowCameraMovementWithModifiersHelp);
 
         public bool[] AllowMinimapWhilePlacingBuildingData => allowMinimapWhilePlacingBuildingData;
+        public bool[] AllowCameraMovementWithModifiersData => allowCameraMovementWithModifiersData;
 
         [SyncHostOnly]
         public bool EnableMod
@@ -59,6 +64,22 @@ namespace BugfixesAndQoL
             }
         }
 
+        [SyncPerPlayer]
+        public bool AllowCameraMovementWithModifiers
+        {
+            get => allowCameraMovementWithModifiersData[LocalPlayerIdOrOne];
+            set
+            {
+                int playerId = LocalPlayerIdOrOne;
+                if (allowCameraMovementWithModifiersData[playerId] == value)
+                    return;
+
+                allowCameraMovementWithModifiersData[playerId] = value;
+                SettingChanged?.Invoke(nameof(AllowCameraMovementWithModifiers));
+                OnPropertyChanged(nameof(AllowCameraMovementWithModifiers));
+            }
+        }
+
         [SyncHostOnly]
         public bool RememberAiAivSettings
         {
@@ -78,8 +99,11 @@ namespace BugfixesAndQoL
             RememberAiAivSettings = true;
             EnableTroopMovementFix = true;
             SetAllowMinimapDefaults();
+            SetAllowCameraMovementWithModifiersDefaults();
             SettingChanged?.Invoke(nameof(AllowMinimapWhilePlacingBuilding));
             OnPropertyChanged(nameof(AllowMinimapWhilePlacingBuilding));
+            SettingChanged?.Invoke(nameof(AllowCameraMovementWithModifiers));
+            OnPropertyChanged(nameof(AllowCameraMovementWithModifiers));
         }
 
         private void SetSetting<T>(ref T field, T value, string propertyName)
@@ -98,6 +122,12 @@ namespace BugfixesAndQoL
         {
             for (int i = 1; i < allowMinimapWhilePlacingBuildingData.Length; i++)
                 allowMinimapWhilePlacingBuildingData[i] = true;
+        }
+
+        private void SetAllowCameraMovementWithModifiersDefaults()
+        {
+            for (int i = 1; i < allowCameraMovementWithModifiersData.Length; i++)
+                allowCameraMovementWithModifiersData[i] = true;
         }
     }
 }

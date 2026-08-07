@@ -10,3 +10,5 @@ SomeSettings.AllowMinimapWhilePlacingBuilding=Minimap beim Platzieren von Gebaeu
 SomeSettings.AllowMinimapWhilePlacingBuildingHelp=Wenn aktiviert, bewegt ein Linksklick auf die Minimap die Kamera auch dann, wenn ein Gebaeude zum Platzieren ausgewaehlt ist. Diese Einstellung gilt pro Spieler.
 SomeSettings.RememberAiAivSettings=Gemeinsame AIV-/AIC-Auswahl merken
 SomeSettings.RememberAiAivSettingsHelp=Wenn aktiviert, werden die zuletzt gewaehlte AIV-Liste, Drehung und benutzerdefinierten AIC-Einstellungen jedes KI-Lords gemeinsam fuer Singleplayer- und Multiplayer-Lobbys gespeichert.
+SomeSettings.AllowCameraMovementWithModifiers=Kamerabewegung bei gedrueckter Strg- oder Alt-Taste erlauben
+SomeSettings.AllowCameraMovementWithModifiersHelp=Wenn aktiviert, bewegen Tastatur- und Randscrollen die Kamera auch weiter, waehrend Strg oder Alt gedrueckt wird. Diese Einstellung gilt pro Spieler.
