@@ -173,6 +173,57 @@ For an even match with 500 gold per side, use `startingGoodsLevel: 4` and `fairn
 
 Do not reorder these arrays. Their indices are the serialization contract, not arbitrary list positions.
 
+"buildingsAvailable": [  
+  1, - Barracks  
+  1, - Arabs  
+  1, - Bedouin  
+  1, - Dairy  
+  1, - Apple  
+  1, - Wheat  
+  1, - Hops  
+  1, - Market  
+  1, - Tower Ballista  
+  1, - Tower Mangonel  
+  1, - Pitch Rig  
+  1, - Religion  
+  1 - Moat  
+],  
+"troopsAvailable": [  
+  1, - EuArcher  
+  1, - Crossbowman  
+  1, - Spearman  
+  1, - Pikeman  
+  1, - Maceman  
+  1, - Swordsman  
+  1, - Knight  
+  1, - Ladderman  
+  1, - Engineer  
+  1, - Catapult  
+  1, - Trebuchet  
+  1, - Battering Ram  
+  1, - Siege Tower  
+  1, - Portable Shield  
+  1, - Monk  
+  1, - Tunneler  
+  1, - ArabArcher  
+  1, - Slave  
+  1, - Slinger  
+  1, - Assassin  
+  1, - Horse Archer  
+  1, - ArabSword  
+  1, - Firethrower  
+  1, - FBal  
+  1, - Lancers  
+  1, - Healers  
+  1, - Eunuch  
+  1, - Ambusher  
+  1, - Skirmisher  
+  1, - Heavy Camel  
+  1, - Sappers  
+  1 - Demolisher  
+],   
+
+
 ### AI, AIV, AIC and images
 
 `trail.aiSlots` also contains exactly eight positional entries.
@@ -193,7 +244,7 @@ Do not reorder these arrays. Their indices are the serialization contract, not a
 
 | Field | Meaning |
 | --- | --- |
-| `customisedExtremeTrail` | Applies the Extreme-trail x3 starting-gold multiplier. This is independent from enabling Extreme troops/powers. (is ignored by the game, so does nothing!) |
+| `customisedExtremeTrail` | Applies the Extreme-trail x3 starting-gold multiplier. This is independent from enabling Extreme troops/powers. (bugged: is ignored by the game when starting the game, but not when loading a mission in editor...!) |
 | `customTestMission` | Internal Trail Maker test/restart mode. It is not a Coop flag. Normally leave `false` in a published mission. |
 | `customTrail` | Runtime bookkeeping flag. The game sets it when loading a mission from a custom trail. |
 | `customTrailLevel` | Runtime mission index used for restart/progression; `-1` in a freshly produced mission. |
