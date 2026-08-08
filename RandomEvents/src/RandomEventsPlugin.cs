@@ -12,7 +12,7 @@ namespace RandomEvents
         private const string ScriptExtenderGuid = "000shcdese";
         public const string PluginGuid = "RandomEvents_Serp";
         public const string PluginName = "Random Events";
-        public const string PluginVersion = "1.0.11";
+        public const string PluginVersion = "1.0.12";
 
         private RandomEventsRuntime runtime;
         private bool disposed;
@@ -39,7 +39,7 @@ namespace RandomEvents
 
                 bool referenceHashMatches = Shared.DebugLogHelper.ReportNativeLibraryVersion(
                     Logger,
-                    "Random Events signpost registry",
+                    "Random Events native integration",
                     requireCurrentVersion: false);
                 runtime.InitializeNative(libraryHandle, memory, referenceHashMatches);
                 runtime.Initialize();

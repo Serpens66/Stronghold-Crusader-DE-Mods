@@ -13,19 +13,12 @@
 - Anschließend erzeugt er direkt 10 bis 50 neutrale Hasen auf zufälligen begehbaren, unbebauten Tiles in einem Radius von 12 Tiles um die Farm.
 - Auswahl, Anzahl und Positionen verwenden den gespeicherten PRNG-Zustand des Mods.
 
-## Timeline-Lifecycle
+## Direkte Vanilla-Handler
 
 - `GameTimeManagerAPI.OnTick` wird aus einem nativen Pre-Tick-Kontext vor der Zeit-/Datumsverarbeitung aufgerufen. Timeline-Vektoren dort zu verändern führte reproduzierbar zu einem nativen Zugriffsfehler beim Kartenstart.
 - Ein eigenes, früh erzeugtes `DontDestroyOnLoad`-Objekt erhielt keine `LateUpdate()`-Callbacks. Auch der Script-Extender-`UnityMainThreadDispatcher` akzeptierte die Coroutine, führte aber in RandomEvents und SpawnCastle nie deren ersten Callback aus. Der gemeinsame Dispatcher und der davon abhängige Timeline-Pfad wurden deshalb entfernt.
-- Bis ein sicherer direkter Ausführungspfad geklärt ist, werden die Aktionen `12`, `13`, `14`, `19` und `29` nicht vorbereitet und erzeugen keine Timeline-Einträge. Ihre Action-IDs bleiben in `RandomEventDefinitions` als Analysezuordnung erhalten.
-
-## Übergabe für die direkte Timeline-Analyse
-
-- Timeline-Prozessor: RVA `0xF8260`, VA `0x1800F8260`; Aufruf aus der Simulationsroutine um RVA `0xCDE10`.
-- Einträge sind `0xE4` Byte groß; Anzahl am Szenario-Manager bei `+0x660`, Vektor ab `+0x664`.
-- Zu verfolgen sind die Switch-Cases `12` (Getreidebefall), `13` (Hopfenkäfer), `14` (Obstfäule), `19` (wahnsinnige Rinder) und `29` (Kornspeicherdiebstahl).
-- Case `29` prüft den Kornspeicherzustand und ruft anschließend den möglichen Direkthandler RVA `0xC5F20` mit Spieler-ID und `action_data` auf.
-- Case `19` verwendet unter anderem die Funktionen bei RVA `0xB8D00`, `0x194BA0` und `0xC6040`; deren einzelne Zuständigkeiten und ABI sind noch zu klären.
-- Relevante Exporte: `CreateScenarioAction` RVA `0x81320`, `ApplyScenarioEvent` RVA `0x81010`, `GameAction` RVA `0x81820`.
-- Der FreeBuild-Ereignisdispatcher ab RVA `0x104550` besitzt keine Cases für diese fünf Text-IDs. `GameAction(FreeBuild_Event, ...)` ist für sie daher kein Ersatz.
-- Bei einer Fortsetzung jeden einzelnen Action-Case bis zu separat aufrufbaren Handlern verfolgen und nur Funktionen mit vollständig geklärter ABI sowie eindeutiger semantischer Signatur nutzen; RVAs bleiben reine Referenzwerte für den oben genannten DLL-Hash.
+- Die fünf Aktionen werden ohne Timeline-Eintrag über die Handler aus dem Vanilla-Switch ausgelöst. Vor jedem Effekt läuft dieselbe Vanilla-Voraussetzung: Farmtyp `30`, `31`, `32` oder `33` muss für den Zielspieler existieren; Kornspeicherdiebstahl verlangt eine gesetzte erste Kornspeicher-ID.
+- Getreidebefall: Voraussetzung RVA `0xB8D00`, Effekt RVA `0xC30E0`. Hopfenkäfer: Voraussetzung RVA `0xB8D00`, Effekt RVA `0xC2DE0`. Obstfäule: Voraussetzung RVA `0xB8D00`, Effekt RVA `0xC2BE0`.
+- Wahnsinnige Rinder führt nach RVA `0xB8D00` zuerst den Einheitenhandler RVA `0x194BA0` und danach den Gebäudehandler RVA `0xC6040` aus. Kornspeicherdiebstahl nutzt RVA `0xC5F20` mit Spieler-ID und Prozentstärke.
+- Nach erfolgreichem Effekt wird Vanillas Nachrichtenhandler RVA `0x103110` verwendet. Videos und Sprachdateien entsprechen den Timeline-Cases; bei wahnsinnigen Rindern bleiben Vanillas getrennte Audio- und Videoeinträge erhalten.
+- Alle Funktionen werden über semantische Signaturen validiert. Auf dem oben genannten Referenz-Build werden zusätzlich die erwarteten RVAs geprüft. Ein Fehler deaktiviert die fünf nativen Ereignisse sicher, während die übrigen Ereignisse aktiv bleiben.

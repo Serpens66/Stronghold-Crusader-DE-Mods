@@ -33,6 +33,13 @@ namespace RandomEvents
         Fire
     }
 
+    internal enum RandomEventDispatchKind
+    {
+        GameAction,
+        ManagedRabbit,
+        NativeVanilla
+    }
+
     public enum MultiplayerEventMode
     {
         SharedEvents = 0,
@@ -45,7 +52,7 @@ namespace RandomEvents
             RandomEventKind kind,
             string name,
             int textId,
-            bool direct,
+            RandomEventDispatchKind dispatchKind,
             int actionId,
             RandomEventStrengthKind strengthKind,
             bool requiresSignpost)
@@ -53,8 +60,8 @@ namespace RandomEvents
             Kind = kind;
             Name = name;
             TextId = textId;
-            IsDirect = direct;
-            TimelineActionId = actionId;
+            DispatchKind = dispatchKind;
+            VanillaActionId = actionId;
             StrengthKind = strengthKind;
             RequiresSignpost = requiresSignpost;
         }
@@ -62,8 +69,8 @@ namespace RandomEvents
         public RandomEventKind Kind { get; }
         public string Name { get; }
         public int TextId { get; }
-        public bool IsDirect { get; }
-        public int TimelineActionId { get; }
+        public RandomEventDispatchKind DispatchKind { get; }
+        public int VanillaActionId { get; }
         public RandomEventStrengthKind StrengthKind { get; }
         public bool RequiresSignpost { get; }
     }
@@ -72,25 +79,23 @@ namespace RandomEvents
     {
         public static readonly RandomEventDefinition[] All =
         {
-            new RandomEventDefinition(RandomEventKind.Fair, "Fair", 133, true, 5, RandomEventStrengthKind.None, false),
-            new RandomEventDefinition(RandomEventKind.Plague, "Plague", 139, true, 11, RandomEventStrengthKind.Plague, false),
-            new RandomEventDefinition(RandomEventKind.WheatInfestation, "Wheat infestation", 140, false, 12, RandomEventStrengthKind.None, false),
-            new RandomEventDefinition(RandomEventKind.HopsBeetles, "Hops beetles", 141, false, 13, RandomEventStrengthKind.None, false),
-            new RandomEventDefinition(RandomEventKind.AppleBlight, "Apple blight", 142, false, 14, RandomEventStrengthKind.None, false),
-            new RandomEventDefinition(RandomEventKind.TreeBlight, "Tree blight", 143, true, 15, RandomEventStrengthKind.None, false),
+            new RandomEventDefinition(RandomEventKind.Fair, "Fair", 133, RandomEventDispatchKind.GameAction, 5, RandomEventStrengthKind.None, false),
+            new RandomEventDefinition(RandomEventKind.Plague, "Plague", 139, RandomEventDispatchKind.GameAction, 11, RandomEventStrengthKind.Plague, false),
+            new RandomEventDefinition(RandomEventKind.WheatInfestation, "Wheat infestation", 140, RandomEventDispatchKind.NativeVanilla, 12, RandomEventStrengthKind.None, false),
+            new RandomEventDefinition(RandomEventKind.HopsBeetles, "Hops beetles", 141, RandomEventDispatchKind.NativeVanilla, 13, RandomEventStrengthKind.None, false),
+            new RandomEventDefinition(RandomEventKind.AppleBlight, "Apple blight", 142, RandomEventDispatchKind.NativeVanilla, 14, RandomEventStrengthKind.None, false),
+            new RandomEventDefinition(RandomEventKind.TreeBlight, "Tree blight", 143, RandomEventDispatchKind.GameAction, 15, RandomEventStrengthKind.None, false),
             // Rabbit infestation is implemented as a direct managed spawn and has no Vanilla event ID dependency.
-            new RandomEventDefinition(RandomEventKind.Rabbits, "Rabbit infestation", 0, true, 16, RandomEventStrengthKind.None, false),
-            new RandomEventDefinition(RandomEventKind.LionAttack, "Lion attack", 145, true, 17, RandomEventStrengthKind.LionAttack, true),
-            new RandomEventDefinition(RandomEventKind.Bandits, "Bandits", 146, true, 18, RandomEventStrengthKind.Bandits, true),
-            new RandomEventDefinition(RandomEventKind.MadCows, "Mad cows", 147, false, 19, RandomEventStrengthKind.None, false),
-            new RandomEventDefinition(RandomEventKind.Archers, "Archers", 148, true, 20, RandomEventStrengthKind.Archers, true),
-            new RandomEventDefinition(RandomEventKind.Marriage, "Marriage", 149, true, 21, RandomEventStrengthKind.None, false),
-            new RandomEventDefinition(RandomEventKind.Bard, "Bard", 150, true, 22, RandomEventStrengthKind.None, false),
-            new RandomEventDefinition(RandomEventKind.GranaryTheft, "Granary theft", 178, false, 29, RandomEventStrengthKind.GranaryTheft, false),
-            new RandomEventDefinition(RandomEventKind.Fire, "Fire", 179, true, 30, RandomEventStrengthKind.Fire, false)
+            new RandomEventDefinition(RandomEventKind.Rabbits, "Rabbit infestation", 0, RandomEventDispatchKind.ManagedRabbit, 16, RandomEventStrengthKind.None, false),
+            new RandomEventDefinition(RandomEventKind.LionAttack, "Lion attack", 145, RandomEventDispatchKind.GameAction, 17, RandomEventStrengthKind.LionAttack, true),
+            new RandomEventDefinition(RandomEventKind.Bandits, "Bandits", 146, RandomEventDispatchKind.GameAction, 18, RandomEventStrengthKind.Bandits, true),
+            new RandomEventDefinition(RandomEventKind.MadCows, "Mad cows", 147, RandomEventDispatchKind.NativeVanilla, 19, RandomEventStrengthKind.None, false),
+            new RandomEventDefinition(RandomEventKind.Archers, "Archers", 148, RandomEventDispatchKind.GameAction, 20, RandomEventStrengthKind.Archers, true),
+            new RandomEventDefinition(RandomEventKind.Marriage, "Marriage", 149, RandomEventDispatchKind.GameAction, 21, RandomEventStrengthKind.None, false),
+            new RandomEventDefinition(RandomEventKind.Bard, "Bard", 150, RandomEventDispatchKind.GameAction, 22, RandomEventStrengthKind.None, false),
+            new RandomEventDefinition(RandomEventKind.GranaryTheft, "Granary theft", 178, RandomEventDispatchKind.NativeVanilla, 29, RandomEventStrengthKind.GranaryTheft, false),
+            new RandomEventDefinition(RandomEventKind.Fire, "Fire", 179, RandomEventDispatchKind.GameAction, 30, RandomEventStrengthKind.Fire, false)
         };
-
-        public static readonly RandomEventDefinition[] TimelineOnly = Array.FindAll(All, definition => !definition.IsDirect);
 
         public static RandomEventDefinition Get(RandomEventKind kind) => All[(int)kind];
 

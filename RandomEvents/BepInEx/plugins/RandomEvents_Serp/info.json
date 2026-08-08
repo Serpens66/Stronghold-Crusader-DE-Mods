@@ -3,10 +3,17 @@
   "Author": "Serpens66",
   "Name": "Random Events",
   "Description": "Runs configurable Vanilla scenario events in singleplayer skirmishes and Trail missions.",
-  "Version": "1.0.11",
+  "Version": "1.0.12",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.12",
+      "Changes": [
+        "Restored wheat infestation, hops beetles, apple blight, mad cows, and granary theft through their validated native Vanilla effect handlers and original prerequisites without creating Timeline entries.",
+        "Queued the original Vanilla video and voice presentation after each successfully applied native event."
+      ]
+    },
     {
       "Version": "1.0.11",
       "Changes": [

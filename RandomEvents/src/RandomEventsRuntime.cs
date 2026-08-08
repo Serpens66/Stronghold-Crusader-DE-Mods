@@ -30,6 +30,7 @@ namespace RandomEvents
         private readonly RandomEventsSettingsViewModel settings;
         private readonly ScenarioSignpostRegistry signpostRegistry;
         private readonly SignpostPlacementService signpostPlacement;
+        private readonly NativeVanillaEventDispatcher nativeEventDispatcher;
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
         private bool initialized;
         private bool disposed;
@@ -38,7 +39,6 @@ namespace RandomEvents
         private bool loadedStateAvailable;
         private bool multiplayerDisableLogged;
         private bool mapStartedFromMultiplayerSave;
-        private bool timelineUnavailableLogged;
         private int lastSignpostAttemptTick = int.MinValue;
         private int lastLoggedAbsoluteMonth = int.MinValue;
         private long lastClockLogTimestamp;
@@ -51,10 +51,14 @@ namespace RandomEvents
             this.settings = settings;
             signpostRegistry = new ScenarioSignpostRegistry(log);
             signpostPlacement = new SignpostPlacementService(log, signpostRegistry);
+            nativeEventDispatcher = new NativeVanillaEventDispatcher(log);
         }
 
-        public void InitializeNative(IntPtr libraryHandle, ReadOnlySpan<byte> memory, bool referenceHashMatches) =>
+        public void InitializeNative(IntPtr libraryHandle, ReadOnlySpan<byte> memory, bool referenceHashMatches)
+        {
             signpostRegistry.InitializeNative(libraryHandle, memory, referenceHashMatches);
+            nativeEventDispatcher.InitializeNative(libraryHandle, memory, referenceHashMatches);
+        }
 
         public void Initialize()
         {
@@ -100,7 +104,6 @@ namespace RandomEvents
             mapActive = false;
             multiplayerDisableLogged = false;
             mapStartedFromMultiplayerSave = args.bMultiplayerSave != 0;
-            timelineUnavailableLogged = false;
             lastSignpostAttemptTick = int.MinValue;
             lastLoggedAbsoluteMonth = int.MinValue;
             lastClockLogTimestamp = 0;
@@ -123,7 +126,6 @@ namespace RandomEvents
             loadedStateAvailable = false;
             multiplayerDisableLogged = false;
             mapStartedFromMultiplayerSave = false;
-            timelineUnavailableLogged = false;
             lastLoggedAbsoluteMonth = int.MinValue;
             lastClockLogTimestamp = 0;
             calendarApiFallbackLogged = false;
@@ -209,7 +211,6 @@ namespace RandomEvents
                     $"Restored Random Events state: enabled={state.EffectiveEnabled}, interval={state.IntervalMonths}, " +
                     $"nextDueAbsoluteMonth={state.NextDueAbsoluteMonth}, batchPrepared={state.BatchPrepared}, " +
                     $"signpostsInitialized={state.SignpostsInitialized}.");
-                LogTimelineEventsUnavailableOnce();
                 return;
             }
 
@@ -223,7 +224,6 @@ namespace RandomEvents
 
             state = CreateFreshState();
             mapActive = true;
-            LogTimelineEventsUnavailableOnce();
             PrepareBatch();
             LogInfo(
                 $"Fresh Random Events state initialized: interval={state.IntervalMonths}, " +
@@ -268,11 +268,6 @@ namespace RandomEvents
 
             foreach (RandomEventDefinition definition in RandomEventDefinitions.All)
             {
-                // These five actions have no FreeBuild_Event case. Keep their IDs for
-                // native analysis, but do not consume rolls for a path known to be inert.
-                if (!definition.IsDirect)
-                    continue;
-
                 int chance = state.Chances[(int)definition.Kind];
                 int roll = prng.Next(100);
                 bool success = roll < chance;
@@ -298,7 +293,7 @@ namespace RandomEvents
             state.BatchPrepared = true;
             LogInfo(
                 $"Event batch prepared: dueAbsoluteMonth={state.NextDueAbsoluteMonth}, " +
-                $"directHits={directKinds.Count}, timelineEventsDisabled={RandomEventDefinitions.TimelineOnly.Length}.");
+                $"preparedHits={directKinds.Count}.");
         }
 
         private int RollStrength(RandomEventStrengthKind kind, ref SavedPrng prng)
@@ -400,30 +395,6 @@ namespace RandomEvents
             return valid;
         }
 
-        private void LogTimelineEventsUnavailableOnce()
-        {
-            if (timelineUnavailableLogged || !mapActive || state?.Chances == null)
-                return;
-
-            List<string> activeEvents = new List<string>();
-            foreach (RandomEventDefinition definition in RandomEventDefinitions.TimelineOnly)
-            {
-                int chance = state.Chances[(int)definition.Kind];
-                if (chance > 0)
-                    activeEvents.Add($"{definition.Name}(action={definition.TimelineActionId}, chance={chance}%)");
-            }
-
-            if (activeEvents.Count == 0)
-                return;
-
-            timelineUnavailableLogged = true;
-            LogError(
-                "Timeline-only events are temporarily disabled because the removed Script Extender coroutine " +
-                "dispatcher started without ever invoking its callbacks. " +
-                $"Active settings affected: [{string.Join(", ", activeEvents)}]. " +
-                "Direct Vanilla events remain active; no scenario Timeline entries will be created or changed.");
-        }
-
         private void DispatchDirectEvent(
             RandomEventDefinition definition,
             int strength,
@@ -437,9 +408,46 @@ namespace RandomEvents
                 return;
             }
 
-            if (definition.Kind == RandomEventKind.Rabbits)
+            if (definition.DispatchKind == RandomEventDispatchKind.ManagedRabbit)
             {
                 SpawnRabbitInfestation(targetPlayerId);
+                return;
+            }
+
+            if (definition.DispatchKind == RandomEventDispatchKind.NativeVanilla)
+            {
+                try
+                {
+                    NativeEventDispatchStatus status = nativeEventDispatcher.Dispatch(
+                        definition.Kind,
+                        strength,
+                        targetPlayerId,
+                        out string detail);
+                    if (status == NativeEventDispatchStatus.Applied)
+                    {
+                        LogInfo(
+                            $"Native Vanilla event dispatched: event={definition.Name}, actionId={definition.VanillaActionId}, " +
+                            $"strength={strength}, targetPlayerId={targetPlayerId}, detail={detail}");
+                    }
+                    else if (status == NativeEventDispatchStatus.PrerequisiteNotMet)
+                    {
+                        LogInfo(
+                            $"Native Vanilla event had no effect: event={definition.Name}, actionId={definition.VanillaActionId}, " +
+                            $"targetPlayerId={targetPlayerId}, detail={detail}");
+                    }
+                    else
+                    {
+                        LogError(
+                            $"Native Vanilla event skipped: event={definition.Name}, actionId={definition.VanillaActionId}, " +
+                            $"targetPlayerId={targetPlayerId}, reason={detail}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    LogError(
+                        $"Native Vanilla event failed: event={definition.Name}, actionId={definition.VanillaActionId}, " +
+                        $"targetPlayerId={targetPlayerId}, error={ex}");
+                }
                 return;
             }
 
