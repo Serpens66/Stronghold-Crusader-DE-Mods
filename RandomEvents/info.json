@@ -1,0 +1,38 @@
+{
+  "GUID": "RandomEvents_Serp",
+  "Author": "Serpens66",
+  "Name": "Random Events",
+  "Description": "Runs configurable Vanilla scenario events in singleplayer skirmishes and Trail missions.",
+  "Version": "1.0.3",
+  "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
+  "Manifest": 1,
+  "SerpChangelog": [
+    {
+      "Version": "1.0.3",
+      "Changes": [
+        "Moved real multiplayer and singleplayer skirmish/Trail detection into the shared GameModeHelper."
+      ]
+    },
+    {
+      "Version": "1.0.2",
+      "Changes": [
+        "Fixed local skirmishes being mistaken for network games, which prevented all random events.",
+        "Reduced spacing in the strength controls and added horizontal scrolling for narrow settings views."
+      ]
+    },
+    {
+      "Version": "1.0.1",
+      "Changes": [
+        "Made native signpost resolution tolerant of compatible game DLL updates by validating AOB and structural fallbacks.",
+        "If native validation fails, only automatic edge signposts are disabled and a detailed error is logged at Info-visible levels."
+      ]
+    },
+    {
+      "Version": "1.0.0",
+      "Changes": [
+        "Added all 15 Vanilla random events for offline skirmishes and Trail missions.",
+        "Added saved deterministic scheduling and safe edge signposts for events that require them."
+      ]
+    }
+  ]
+}

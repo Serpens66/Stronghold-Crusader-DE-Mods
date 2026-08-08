@@ -227,6 +227,7 @@ namespace SpawnCastle
                 Shared.DebugLogHelper.LogInfo(
                     log,
                     $"Game-mode guard accepted local singleplayer skirmish: " +
+                    $"sharedSingleplayerSkirmish={gameMode.SharedSingleplayerSkirmish}, " +
                     $"gameDataSkirmishGameType={gameMode.GameDataSkirmishGameType}, " +
                     $"lobbySkirmishMembers={gameMode.LobbySkirmishMemberCount}, " +
                     $"lobbySkirmishHumans={gameMode.LobbySkirmishHumanCount}, " +
@@ -884,14 +885,15 @@ namespace SpawnCastle
 
         private static GameModeSnapshot CaptureGameMode(MapStartEventArgs args)
         {
+            Shared.GameModeSnapshot sharedMode =
+                Shared.GameModeHelper.Capture(args.bMultiplayerSave != 0);
             Director director = Director.instance;
+            GameData gameData = GameData.Instance;
             Platform_Multiplayer platform = Platform_Multiplayer.Instance;
             Platform_Multiplayer.MPLobby lobby = platform?.activeLobby;
 
-            int lobbyMemberCount = lobby?.members?.Count ?? -1;
             int lobbySkirmishMemberCount = 0;
             int lobbySkirmishHumanCount = 0;
-            int lobbyNetworkHumanCount = 0;
             if (lobby?.members != null)
             {
                 foreach (Platform_Multiplayer.MPLobbyMember member in lobby.members)
@@ -902,27 +904,14 @@ namespace SpawnCastle
                         if (member.SkirmishHumanMember)
                             lobbySkirmishHumanCount++;
                     }
-                    else
-                    {
-                        // Real multiplayer humans are the only lobby members not marked as skirmish.
-                        lobbyNetworkHumanCount++;
-                    }
                 }
             }
 
-            int gameMemberCount = platform?.gameMembers?.Count ?? -1;
-            int realNetworkGameMemberCount = 0;
             var gameMemberDetails = new List<string>();
             if (platform?.gameMembers != null)
             {
                 foreach (Platform_Multiplayer.MPGameMember member in platform.gameMembers)
                 {
-                    bool realNetworkMember =
-                        !member.skirmishAI &&
-                        member.steamID > 1000;
-                    if (realNetworkMember)
-                        realNetworkGameMemberCount++;
-
                     gameMemberDetails.Add(
                         $"{member.playerID}:self={member.isSelf}," +
                         $"host={member.isHost},ai={member.skirmishAI}," +
@@ -938,8 +927,7 @@ namespace SpawnCastle
                     $"{id}:ai={GamePlayerManagerAPI.Instance.IsAIPlayer(id)}");
             }
 
-            bool networkedEnvironment = GameNetworkAPI.IsNetworkedEnvironment();
-            int networkActivePlayers = networkedEnvironment
+            int networkActivePlayers = sharedMode.LowLevelNetworked
                 ? GameNetworkAPI.GetNumActivePlayers()
                 : -1;
 
@@ -949,30 +937,33 @@ namespace SpawnCastle
                 MultiplayerSave = args.bMultiplayerSave,
                 Unknown1 = args.Unknown1,
                 Unknown3 = args.Unknown3,
-                DirectorAvailable = director != null,
-                DirectorMultiplayerGame = director != null && director.MultiplayerGame,
-                DirectorSkirmishModeGame = director != null && director.SkirmishModeGame,
+                SharedRealMultiplayer = sharedMode.IsRealMultiplayer,
+                SharedSingleplayerSkirmish = sharedMode.IsSingleplayerSkirmish,
+                SharedModeDetails = sharedMode.ToDiagnosticString(),
+                DirectorAvailable = sharedMode.DirectorAvailable,
+                DirectorMultiplayerGame = sharedMode.DirectorMultiplayer,
+                DirectorSkirmishModeGame = sharedMode.DirectorSkirmish,
                 DirectorSimRunning = director != null && director.SimRunning,
-                NetworkedEnvironment = networkedEnvironment,
+                NetworkedEnvironment = sharedMode.LowLevelNetworked,
                 NetworkActivePlayers = networkActivePlayers,
                 NetworkLocalPlayerId = GameNetworkAPI.GetLocalPlayerId(),
                 NativeLocalPlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId(),
                 PlatformAvailable = platform != null,
-                PlatformMpGameActive = Platform_Multiplayer.MPGameActive,
+                PlatformMpGameActive = sharedMode.PlatformMultiplayer,
                 PlatformIsHost = platform != null && platform.IsHost,
                 ActiveLobbyAvailable = lobby != null,
                 LobbyReportedMemberCount = lobby?.numLobbyMembers ?? -1,
-                LobbyMemberCount = lobbyMemberCount,
+                LobbyMemberCount = sharedMode.LobbyMembers,
                 LobbySkirmishMemberCount = lobbySkirmishMemberCount,
                 LobbySkirmishHumanCount = lobbySkirmishHumanCount,
-                LobbyNetworkHumanCount = lobbyNetworkHumanCount,
-                GameMemberCount = gameMemberCount,
-                RealNetworkGameMemberCount = realNetworkGameMemberCount,
+                LobbyNetworkHumanCount = sharedMode.RealLobbyMembers,
+                GameMemberCount = sharedMode.GameMembers,
+                RealNetworkGameMemberCount = sharedMode.RealNetworkGameMembers,
                 GameMemberDetails = string.Join(" | ", gameMemberDetails),
                 ActivePlayerDetails = string.Join(" | ", activePlayerDetails),
-                GameDataMultiplayerMap = GameData.Instance.multiplayerMap,
-                GameDataSkirmishGameType = GameData.Instance.SkirmishGameType,
-                GameDataGameType = GameData.Instance.game_type
+                GameDataMultiplayerMap = gameData != null && gameData.multiplayerMap,
+                GameDataSkirmishGameType = sharedMode.SkirmishGameType,
+                GameDataGameType = sharedMode.GameType
             };
         }
 
@@ -983,6 +974,8 @@ namespace SpawnCastle
                 $"Game-mode diagnostics: campaignMapId={mode.CampaignMapId}, " +
                 $"bMultiplayerSave={mode.MultiplayerSave}, " +
                 $"unknown1=0x{mode.Unknown1.ToInt64():X}, unknown3={mode.Unknown3}, " +
+                $"sharedRealMultiplayer={mode.SharedRealMultiplayer}, " +
+                $"sharedSingleplayerSkirmish={mode.SharedSingleplayerSkirmish}, " +
                 $"directorAvailable={mode.DirectorAvailable}, " +
                 $"directorMultiplayerGame={mode.DirectorMultiplayerGame}, " +
                 $"directorSkirmishModeGame={mode.DirectorSkirmishModeGame}, " +
@@ -1008,6 +1001,10 @@ namespace SpawnCastle
 
             Shared.DebugLogHelper.LogInfo(
                 log,
+                $"Shared game-mode diagnostics: {mode.SharedModeDetails}.");
+
+            Shared.DebugLogHelper.LogInfo(
+                log,
                 $"Game-member diagnostics: [{mode.GameMemberDetails}].");
             Shared.DebugLogHelper.LogInfo(
                 log,
@@ -1023,38 +1020,18 @@ namespace SpawnCastle
                     "Director is unavailable during the map-start callback; game mode cannot be verified.");
             }
 
-            // IsNetworkedEnvironment is true in local skirmish because Vanilla creates
-            // a local gameMembers list. Real network humans are identified separately.
-            bool realMultiplayer =
-                mode.DirectorMultiplayerGame ||
-                mode.LobbyNetworkHumanCount > 0 ||
-                mode.RealNetworkGameMemberCount > 0;
-            if (realMultiplayer)
+            if (mode.SharedRealMultiplayer)
             {
                 throw new NotSupportedException(
                     $"Native SpawnCastle is disabled for real multiplayer: " +
-                    $"directorMultiplayerGame={mode.DirectorMultiplayerGame}, " +
-                    $"lobbyNetworkHumans={mode.LobbyNetworkHumanCount}, " +
-                    $"realNetworkGameMembers={mode.RealNetworkGameMemberCount}.");
+                    $"{mode.SharedModeDetails}.");
             }
 
-            bool localSkirmishLobby =
-                mode.ActiveLobbyAvailable &&
-                mode.LobbyMemberCount > 0 &&
-                mode.LobbySkirmishMemberCount == mode.LobbyMemberCount &&
-                mode.LobbySkirmishHumanCount >= 1 &&
-                mode.LobbyNetworkHumanCount == 0 &&
-                mode.RealNetworkGameMemberCount == 0;
-            if (!localSkirmishLobby || mode.GameDataSkirmishGameType < 0)
+            if (!mode.SharedSingleplayerSkirmish)
             {
                 throw new NotSupportedException(
                     $"Native SpawnCastle requires a singleplayer skirmish: " +
-                    $"localSkirmishLobby={localSkirmishLobby}, " +
-                    $"directorSkirmishModeGame={mode.DirectorSkirmishModeGame}, " +
-                    $"gameDataSkirmishGameType={mode.GameDataSkirmishGameType}, " +
-                    $"lobbyMembers={mode.LobbyMemberCount}, " +
-                    $"lobbySkirmishMembers={mode.LobbySkirmishMemberCount}, " +
-                    $"lobbySkirmishHumans={mode.LobbySkirmishHumanCount}.");
+                    $"{mode.SharedModeDetails}.");
             }
         }
 
@@ -1193,6 +1170,9 @@ namespace SpawnCastle
             public byte MultiplayerSave { get; set; }
             public IntPtr Unknown1 { get; set; }
             public ulong Unknown3 { get; set; }
+            public bool SharedRealMultiplayer { get; set; }
+            public bool SharedSingleplayerSkirmish { get; set; }
+            public string SharedModeDetails { get; set; }
             public bool DirectorAvailable { get; set; }
             public bool DirectorMultiplayerGame { get; set; }
             public bool DirectorSkirmishModeGame { get; set; }

@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Spawn Castle",
   "Description": "Displays a local visual AIVJSON castle blueprint or spawns it through the game's native AIV pipeline.",
-  "Version": "0.3.39",
+  "Version": "0.3.40",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
@@ -415,6 +415,12 @@
         "Moved the Blueprint controls from MainHUD's short bottom strip into the full-screen IngameUIScreens viewport.",
         "Based drag limits on Vanilla's current UI-scaled viewport dimensions so the complete visible area remains usable at every resolution.",
         "Removed the superseded deployed MainHUD patch during builds to prevent duplicate Blueprint controls after upgrading."
+      ]
+    },
+    {
+      "Version": "0.3.40",
+      "Changes": [
+        "Replaced SpawnCastle's duplicate multiplayer and skirmish classification with the shared GameModeHelper."
       ]
     }
   ]

@@ -117,7 +117,17 @@ namespace Shared
             }
             catch (Exception ex)
             {
-                LogError(log, $"{label} could not verify the installed CrusaderDE.dll; version-sensitive native code must remain inactive: {ex}");
+                if (requireCurrentVersion)
+                {
+                    LogError(log, $"{label} could not verify the installed CrusaderDE.dll; version-sensitive native code must remain inactive: {ex}");
+                }
+                else
+                {
+                    LogWarning(
+                        log,
+                        $"{label} could not verify the installed CrusaderDE.dll hash. " +
+                        $"Signature-validated code may continue; any failed validation is logged and the affected feature remains inactive. Reason: {ex}");
+                }
                 return false;
             }
         }

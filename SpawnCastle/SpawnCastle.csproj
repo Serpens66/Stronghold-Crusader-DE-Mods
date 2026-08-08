@@ -112,6 +112,9 @@
     <Compile Include="..\Shared\DebugLogHelper.cs">
       <Link>Shared\DebugLogHelper.cs</Link>
     </Compile>
+    <Compile Include="..\Shared\GameModeHelper.cs">
+      <Link>Shared\GameModeHelper.cs</Link>
+    </Compile>
     <Compile Include="..\AIVParser\AIVParser.Core\AivModels.cs">
       <Link>AIVParser.Core\AivModels.cs</Link>
     </Compile>
