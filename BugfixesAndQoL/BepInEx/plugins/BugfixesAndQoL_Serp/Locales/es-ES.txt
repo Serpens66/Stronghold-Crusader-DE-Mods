@@ -1,5 +1,7 @@
 # Serp mod localization
 # Format: key=value
+SomeSettings.HdMarketView=HD Marketview
+SomeSettings.HdMarketViewHelp=Sorts the market the same way like in HD game
 SomeSettings.EnableTroopMovementFix=Troop Speed Fix
 SomeSettings.EnableTroopMovementFixHelp=Fixes synchronized movement for mixed troop groups: with a normal movement command, all units move at the speed of the slowest unit in the group.
 Common.ResetToDefault=Reset to Default

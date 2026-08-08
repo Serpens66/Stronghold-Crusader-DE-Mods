@@ -14,6 +14,7 @@ namespace BugfixesAndQoL
         private AutoTradeSellZeroHook autoTradeSellZeroHook;
         private EnemyProximityBulldozeCursorHook enemyProximityBulldozeCursorHook;
         private MarketKeyMainTradeMenuHook marketKeyMainTradeMenuHook;
+        private HdMarketViewHook hdMarketViewHook;
         private CameraMovementModifierHook cameraMovementModifierHook;
         private AssemblyPointPlacementPatch assemblyPointPlacementPatch;
         private IntPtr libraryHandle;
@@ -89,6 +90,7 @@ namespace BugfixesAndQoL
                 minimapPlacementClickHook = new MinimapPlacementClickHook(log, settings);
                 autoTradeSellZeroHook = new AutoTradeSellZeroHook(log);
                 marketKeyMainTradeMenuHook = new MarketKeyMainTradeMenuHook(log, settings);
+                hdMarketViewHook = new HdMarketViewHook(log, settings);
                 cameraMovementModifierHook = new CameraMovementModifierHook(log, settings);
 
                 if (fixedLayoutHashValidated)
@@ -123,6 +125,8 @@ namespace BugfixesAndQoL
             enemyProximityBulldozeCursorHook = null;
             marketKeyMainTradeMenuHook?.Dispose();
             marketKeyMainTradeMenuHook = null;
+            hdMarketViewHook?.Dispose();
+            hdMarketViewHook = null;
             cameraMovementModifierHook?.Dispose();
             cameraMovementModifierHook = null;
             hooksSubscribed = false;

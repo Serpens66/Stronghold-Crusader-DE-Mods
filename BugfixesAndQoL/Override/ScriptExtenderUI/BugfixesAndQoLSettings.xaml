@@ -27,6 +27,12 @@
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding AllowCameraMovementWithModifiersText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox>
+      <CheckBox IsChecked="{Binding HdMarketView, Mode=TwoWay}"
+                Foreground="White"
+                ToolTip="{Binding HdMarketViewHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding HdMarketViewText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox>
       <CheckBox IsChecked="{Binding RememberAiAivSettings, Mode=TwoWay}"
                 Foreground="White"
                 ToolTip="{Binding RememberAiAivSettingsHelpText}"

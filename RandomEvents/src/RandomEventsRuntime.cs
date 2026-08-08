@@ -206,6 +206,8 @@ namespace RandomEvents
             if (loadedStateAvailable && ValidateLoadedState(state))
             {
                 mapActive = state.EffectiveEnabled;
+                // Native path components can change with the restored map, so signposts must be revalidated.
+                state.SignpostsInitialized = !RandomEventDefinitions.RequiresSignposts(state.Chances);
                 LogInfo(
                     $"Restored Random Events state: enabled={state.EffectiveEnabled}, interval={state.IntervalMonths}, " +
                     $"nextDueAbsoluteMonth={state.NextDueAbsoluteMonth}, batchPrepared={state.BatchPrepared}, " +
@@ -496,14 +498,6 @@ namespace RandomEvents
                         "reason=Vanilla tribe attack orders were disabled after an earlier compatibility failure.");
                     return;
                 }
-
-                if (!TryPrepareBanditAttack(targetPlayerId, out banditPlan, out string preparationFailure))
-                {
-                    LogInfo(
-                        $"Bandit event had no effect: targetPlayerId={targetPlayerId}, " +
-                        $"reason={preparationFailure}");
-                    return;
-                }
             }
 
             if (definition.RequiresSignpost &&
@@ -525,6 +519,19 @@ namespace RandomEvents
             bool playerChanged = targetPlayerId != originalLocalPlayerId;
             try
             {
+                if (definition.Kind == RandomEventKind.Bandits &&
+                    !TryPrepareBanditAttack(
+                        targetPlayerId,
+                        signpostBuildingId,
+                        out banditPlan,
+                        out string preparationFailure))
+                {
+                    LogInfo(
+                        $"Bandit event had no effect: targetPlayerId={targetPlayerId}, " +
+                        $"reason={preparationFailure}");
+                    return;
+                }
+
                 if (playerChanged)
                 {
                     if (localPlayerAddress == IntPtr.Zero)
@@ -588,8 +595,9 @@ namespace RandomEvents
             }
         }
 
-        private bool TryPrepareBanditAttack(
+        private unsafe bool TryPrepareBanditAttack(
             int targetPlayerId,
+            int signpostBuildingId,
             out BanditAttackPlan plan,
             out string failure)
         {
@@ -597,6 +605,29 @@ namespace RandomEvents
             failure = string.Empty;
             try
             {
+                if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(
+                        signpostBuildingId,
+                        out GameBuilding* signpost) ||
+                    signpost == null ||
+                    signpost->r_AliveState != AliveState.IsAlive)
+                {
+                    failure = $"selected signpost building {signpostBuildingId} is unavailable.";
+                    return false;
+                }
+
+                HashSet<ushort> sourceComponents = new HashSet<ushort>();
+                AddWalkableApproachComponents(
+                    signpost->r_TilePositionXBegin,
+                    signpost->r_TilePositionYBegin,
+                    signpost->r_TilePositionXEnd,
+                    signpost->r_TilePositionYEnd,
+                    sourceComponents);
+                if (sourceComponents.Count == 0)
+                {
+                    failure = $"selected signpost building {signpostBuildingId} has no walkable Vanilla path component.";
+                    return false;
+                }
+
                 List<int> targetBuildingIds = new List<int>();
                 Span<GameBuilding> buildings = GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
                 for (int buildingIndex = 0; buildingIndex < buildings.Length; buildingIndex++)
@@ -604,25 +635,42 @@ namespace RandomEvents
                     ref GameBuilding building = ref buildings[buildingIndex];
                     if (building.r_PlayerIdOwner == targetPlayerId &&
                         building.r_AliveState == AliveState.IsAlive &&
-                        building.r_GlobalId != 0)
+                        building.r_GlobalId != 0 &&
+                        HasReachableApproach(in building, sourceComponents))
                     {
                         // Building APIs use one-based IDs while their exposed Span is zero-based.
                         targetBuildingIds.Add(buildingIndex + 1);
                     }
                 }
 
-                if (targetBuildingIds.Count == 0)
-                {
-                    failure = "the target player owns no living building that can receive a Vanilla attack order.";
-                    return false;
-                }
-
                 SavedPrng prng = new SavedPrng(state.PrngState0, state.PrngState1);
-                int targetBuildingId = targetBuildingIds[prng.Next(targetBuildingIds.Count)];
+                int targetBuildingId = -1;
+                int targetWallTileId = -1;
+                uint targetBuildingGlobalId = 0;
+                eStructs targetBuildingType = default;
+                int eligibleTargets;
+                if (targetBuildingIds.Count > 0)
+                {
+                    targetBuildingId = targetBuildingIds[prng.Next(targetBuildingIds.Count)];
+                    ref GameBuilding target = ref buildings[targetBuildingId - 1];
+                    targetBuildingGlobalId = target.r_GlobalId;
+                    targetBuildingType = target.r_BuildingType;
+                    eligibleTargets = targetBuildingIds.Count;
+                }
+                else
+                {
+                    List<int> reachableWalls = FindReachableOwnedWallTiles(targetPlayerId, sourceComponents);
+                    if (reachableWalls.Count == 0)
+                    {
+                        failure = "no living building or owned wall of the target player is reachable from the selected signpost.";
+                        return false;
+                    }
+                    targetWallTileId = reachableWalls[prng.Next(reachableWalls.Count)];
+                    eligibleTargets = reachableWalls.Count;
+                }
                 state.PrngState0 = prng.State0;
                 state.PrngState1 = prng.State1;
 
-                ref GameBuilding target = ref buildings[targetBuildingId - 1];
                 Span<GameTribe> tribes = GameTribeManagerAPI.Instance.GetTribeAsSpan();
                 uint[] previousTribeGlobalIds = new uint[tribes.Length];
                 for (int index = 0; index < tribes.Length; index++)
@@ -635,10 +683,11 @@ namespace RandomEvents
                 plan = new BanditAttackPlan(
                     targetPlayerId,
                     targetBuildingId,
-                    target.r_GlobalId,
-                    target.r_BuildingType,
+                    targetBuildingGlobalId,
+                    targetBuildingType,
+                    targetWallTileId,
                     previousTribeGlobalIds,
-                    targetBuildingIds.Count);
+                    eligibleTargets);
                 return true;
             }
             catch (Exception ex)
@@ -696,31 +745,61 @@ namespace RandomEvents
                     return false;
                 }
 
-                if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(
-                        plan.TargetBuildingId,
-                        out GameBuilding* target) ||
-                    target == null ||
-                    target->r_PlayerIdOwner != plan.TargetPlayerId ||
-                    target->r_AliveState != AliveState.IsAlive ||
-                    target->r_GlobalId != plan.TargetBuildingGlobalId)
-                {
-                    detail = $"selected target building {plan.TargetBuildingId} ceased to be a living building of player {plan.TargetPlayerId}.";
-                    return false;
-                }
-
-                // This calls Vanilla's tribe order handler, so normal pathfinding and combat AI remain in charge.
-                if (!GameTribeManagerAPI.Instance.AttackBuildingEx(
-                        spawnedTribeId,
-                        plan.TargetBuildingId,
-                        unchecked((int)plan.TargetBuildingGlobalId)))
+                GameTribeManagerAPI tribeApi = GameTribeManagerAPI.Instance;
+                if (!tribeApi.SetStance(spawnedTribeId, TribeStance.Aggressive))
                 {
                     compatibilityFailure = true;
-                    detail = $"Vanilla AttackBuilding rejected tribe {spawnedTribeId} and building {plan.TargetBuildingId}.";
+                    detail = $"Vanilla rejected the aggressive stance for bandit tribe {spawnedTribeId}.";
                     return false;
                 }
 
-                detail = $"banditTribeId={spawnedTribeId}, targetBuildingId={plan.TargetBuildingId}, " +
-                    $"targetBuildingType={plan.TargetBuildingType}, eligibleTargetBuildings={plan.EligibleTargetBuildingCount}.";
+                string targetDetail;
+                bool orderAccepted;
+                if (plan.TargetBuildingId > 0)
+                {
+                    if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(
+                            plan.TargetBuildingId,
+                            out GameBuilding* target) ||
+                        target == null ||
+                        target->r_PlayerIdOwner != plan.TargetPlayerId ||
+                        target->r_AliveState != AliveState.IsAlive ||
+                        target->r_GlobalId != plan.TargetBuildingGlobalId)
+                    {
+                        detail = $"selected target building {plan.TargetBuildingId} ceased to be a living building of player {plan.TargetPlayerId}.";
+                        return false;
+                    }
+
+                    // Nature-owned event troops ignore the normal player order despite its success return.
+                    // Vanilla's forced variant drives the same pathfinding/combat state without that ownership gate.
+                    orderAccepted = tribeApi.ForceAttackBuildingEx(
+                        spawnedTribeId,
+                        plan.TargetBuildingId,
+                        unchecked((int)plan.TargetBuildingGlobalId));
+                    targetDetail = $"targetBuildingId={plan.TargetBuildingId}, targetBuildingType={plan.TargetBuildingType}";
+                }
+                else
+                {
+                    GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
+                    if (plan.TargetWallTileId < 0 ||
+                        tiles.GetTilePlayerOwnerId(plan.TargetWallTileId) != plan.TargetPlayerId ||
+                        (tiles.GetTilePropertyFlag(plan.TargetWallTileId) & TilePropertyFlag.IsWall) == 0)
+                    {
+                        detail = $"selected wall tile {plan.TargetWallTileId} ceased to be an owned wall of player {plan.TargetPlayerId}.";
+                        return false;
+                    }
+                    orderAccepted = tribeApi.AttackWall(spawnedTribeId, plan.TargetWallTileId);
+                    targetDetail = $"targetWallTileId={plan.TargetWallTileId}";
+                }
+
+                if (!orderAccepted)
+                {
+                    compatibilityFailure = true;
+                    detail = $"Vanilla forced attack order rejected tribe {spawnedTribeId}; {targetDetail}.";
+                    return false;
+                }
+
+                detail = $"banditTribeId={spawnedTribeId}, stance={TribeStance.Aggressive}, {targetDetail}, " +
+                    $"eligibleReachableTargets={plan.EligibleTargetCount}.";
                 return true;
             }
             catch (Exception ex)
@@ -734,6 +813,98 @@ namespace RandomEvents
 
         private static bool IsActiveTribe(in GameTribe tribe) =>
             tribe.r_AliveState == AliveState.NeedsInit || tribe.r_AliveState == AliveState.IsAlive;
+
+        private static bool HasReachableApproach(
+            in GameBuilding building,
+            HashSet<ushort> sourceComponents) =>
+            HasReachableApproach(
+                building.r_TilePositionXBegin,
+                building.r_TilePositionYBegin,
+                building.r_TilePositionXEnd,
+                building.r_TilePositionYEnd,
+                sourceComponents);
+
+        private static bool HasReachableApproach(
+            int beginX,
+            int beginY,
+            int endX,
+            int endY,
+            HashSet<ushort> sourceComponents)
+        {
+            GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
+            Span<ushort> pathConnections = tiles.TileManager.PathConnectionGrid;
+            for (int y = beginY - 1; y <= endY + 1; y++)
+            {
+                for (int x = beginX - 1; x <= endX + 1; x++)
+                {
+                    if ((x >= beginX && x <= endX && y >= beginY && y <= endY) ||
+                        !tiles.IsTileInsideMapBounds(x, y))
+                    {
+                        continue;
+                    }
+                    int tileId = tiles.GetTileId(x, y);
+                    if (tiles.IsTileWalkableAndUnoccupied(tileId) &&
+                        sourceComponents.Contains(pathConnections[tileId]))
+                    {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        private static void AddWalkableApproachComponents(
+            int beginX,
+            int beginY,
+            int endX,
+            int endY,
+            HashSet<ushort> components)
+        {
+            GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
+            Span<ushort> pathConnections = tiles.TileManager.PathConnectionGrid;
+            for (int y = beginY - 1; y <= endY + 1; y++)
+            {
+                for (int x = beginX - 1; x <= endX + 1; x++)
+                {
+                    if ((x >= beginX && x <= endX && y >= beginY && y <= endY) ||
+                        !tiles.IsTileInsideMapBounds(x, y))
+                    {
+                        continue;
+                    }
+                    int tileId = tiles.GetTileId(x, y);
+                    if (!tiles.IsTileWalkableAndUnoccupied(tileId))
+                        continue;
+                    ushort component = pathConnections[tileId];
+                    if (component != 0)
+                        components.Add(component);
+                }
+            }
+        }
+
+        private static List<int> FindReachableOwnedWallTiles(
+            int targetPlayerId,
+            HashSet<ushort> sourceComponents)
+        {
+            const int gridSize = 800;
+            List<int> result = new List<int>();
+            GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
+            for (int y = 0; y < gridSize; y++)
+            {
+                for (int x = 0; x < gridSize; x++)
+                {
+                    if (!tiles.IsTileInsideMapBounds(x, y))
+                        continue;
+                    int tileId = tiles.GetTileId(x, y);
+                    if (tiles.GetTilePlayerOwnerId(tileId) == targetPlayerId &&
+                        (tiles.GetTilePropertyFlag(tileId) & TilePropertyFlag.IsWall) != 0 &&
+                        HasReachableApproach(x, y, x, y, sourceComponents))
+                    {
+                        result.Add(tileId);
+                    }
+                }
+            }
+            return result;
+        }
 
         private int[] GetLivingHumanPlayerIds()
         {
@@ -1020,23 +1191,26 @@ namespace RandomEvents
                 int targetBuildingId,
                 uint targetBuildingGlobalId,
                 eStructs targetBuildingType,
+                int targetWallTileId,
                 uint[] previousTribeGlobalIds,
-                int eligibleTargetBuildingCount)
+                int eligibleTargetCount)
             {
                 TargetPlayerId = targetPlayerId;
                 TargetBuildingId = targetBuildingId;
                 TargetBuildingGlobalId = targetBuildingGlobalId;
                 TargetBuildingType = targetBuildingType;
+                TargetWallTileId = targetWallTileId;
                 PreviousTribeGlobalIds = previousTribeGlobalIds;
-                EligibleTargetBuildingCount = eligibleTargetBuildingCount;
+                EligibleTargetCount = eligibleTargetCount;
             }
 
             public int TargetPlayerId { get; }
             public int TargetBuildingId { get; }
             public uint TargetBuildingGlobalId { get; }
             public eStructs TargetBuildingType { get; }
+            public int TargetWallTileId { get; }
             public uint[] PreviousTribeGlobalIds { get; }
-            public int EligibleTargetBuildingCount { get; }
+            public int EligibleTargetCount { get; }
         }
 
         private readonly struct RabbitFarm

@@ -27,6 +27,8 @@ namespace RandomEvents
         private readonly ManualLogSource log;
         private IntPtr slotsAddress;
         private IntPtr attackPointsAddress;
+        private readonly HashSet<int> eligibleBuildingIds = new HashSet<int>();
+        private bool eligibilityConfigured;
         private string unavailableReason = "native compatibility resolution has not run.";
         private string targetingUnavailableReason = "native event targeting compatibility resolution has not run.";
 
@@ -37,6 +39,25 @@ namespace RandomEvents
 
         public bool IsAvailable => slotsAddress != IntPtr.Zero;
         public string UnavailableReason => unavailableReason;
+
+        public void ResetMapState()
+        {
+            eligibleBuildingIds.Clear();
+            eligibilityConfigured = false;
+        }
+
+        public void SetEligibleSignposts(IEnumerable<int> buildingIds)
+        {
+            eligibleBuildingIds.Clear();
+            eligibilityConfigured = true;
+            if (buildingIds == null)
+                return;
+            foreach (int buildingId in buildingIds)
+            {
+                if (buildingId > 0)
+                    eligibleBuildingIds.Add(buildingId);
+            }
+        }
 
         public void InitializeNative(IntPtr libraryHandle, ReadOnlySpan<byte> memory, bool referenceHashMatches)
         {
@@ -91,7 +112,7 @@ namespace RandomEvents
         {
             foreach (int buildingId in ReadRegisteredBuildingIds())
             {
-                if (TryGetUsableSignpost(buildingId, out _))
+                if (IsEligible(buildingId) && TryGetUsableSignpost(buildingId, out _))
                     return true;
             }
             return false;
@@ -131,7 +152,8 @@ namespace RandomEvents
             HashSet<int> seen = new HashSet<int>();
             foreach (int buildingId in originalSlots)
             {
-                if (!seen.Add(buildingId) || !TryGetUsableSignpost(buildingId, out GameBuilding* signpost))
+                if (!IsEligible(buildingId) || !seen.Add(buildingId) ||
+                    !TryGetUsableSignpost(buildingId, out GameBuilding* signpost))
                     continue;
 
                 double x = (signpost->r_TilePositionXBegin + signpost->r_TilePositionXEnd) / 2.0;
@@ -217,7 +239,8 @@ namespace RandomEvents
             HashSet<int> seen = new HashSet<int>();
             foreach (int buildingId in ReadRegisteredBuildingIds())
             {
-                if (!seen.Add(buildingId) || !TryGetUsableSignpost(buildingId, out GameBuilding* signpost))
+                if (!IsEligible(buildingId) || !seen.Add(buildingId) ||
+                    !TryGetUsableSignpost(buildingId, out GameBuilding* signpost))
                     continue;
 
                 double x = (signpost->r_TilePositionXBegin + signpost->r_TilePositionXEnd) / 2.0;
@@ -311,6 +334,28 @@ namespace RandomEvents
             LogWarning($"Native signpost registration no-op: buildingId={buildingId}, reason=all eight Vanilla slots occupied.");
             return false;
         }
+
+        public bool TryUnregister(int buildingId)
+        {
+            if (!IsAvailable || buildingId <= 0)
+                return false;
+
+            bool removed = false;
+            for (int slot = 0; slot < SlotCount; slot++)
+            {
+                IntPtr slotAddress = IntPtr.Add(slotsAddress, slot * sizeof(int));
+                if (Marshal.ReadInt32(slotAddress) != buildingId)
+                    continue;
+                Marshal.WriteInt32(slotAddress, 0);
+                removed |= Marshal.ReadInt32(slotAddress) == 0;
+            }
+            if (removed)
+                LogInfo($"Removed unreachable Vanilla signpost from native event slots: buildingId={buildingId}.");
+            return removed;
+        }
+
+        private bool IsEligible(int buildingId) =>
+            !eligibilityConfigured || eligibleBuildingIds.Contains(buildingId);
 
         private void InitializeTargetingFields(int signpostIdsOffset, ulong playerManager)
         {

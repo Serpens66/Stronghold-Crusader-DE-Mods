@@ -56,6 +56,8 @@ public static class SerpLocalization
     public const string AllowMinimapWhilePlacingBuildingHelp = "SomeSettings.AllowMinimapWhilePlacingBuildingHelp";
     public const string AllowCameraMovementWithModifiers = "SomeSettings.AllowCameraMovementWithModifiers";
     public const string AllowCameraMovementWithModifiersHelp = "SomeSettings.AllowCameraMovementWithModifiersHelp";
+    public const string HdMarketView = "SomeSettings.HdMarketView";
+    public const string HdMarketViewHelp = "SomeSettings.HdMarketViewHelp";
     public const string BulldozeTitle = "SomeSettings.BulldozeTitle";
     public const string BulldozeHelp = "SomeSettings.BulldozeHelp";
     public const string WoodRefund = "SomeSettings.WoodRefund";
@@ -167,6 +169,8 @@ public static class SerpLocalization
         { AllowMinimapWhilePlacingBuildingHelp, "When enabled, left-clicking the minimap moves the camera even while a building is selected for placement. This is a per-player setting." },
         { AllowCameraMovementWithModifiers, "Allow camera movement while holding Ctrl or Alt" },
         { AllowCameraMovementWithModifiersHelp, "When enabled, keyboard and edge scrolling continue to move the camera while Ctrl or Alt is held. This is a per-player setting." },
+        { HdMarketView, "HD Marketview" },
+        { HdMarketViewHelp, "Sorts the market the same way like in HD game" },
         { BulldozeTitle, "BULLDOZE" },
         { BulldozeHelp, "-1 = unchanged. Refund values are percentages from 0 to 100." },
         { WoodRefund, "Wood refund %" },

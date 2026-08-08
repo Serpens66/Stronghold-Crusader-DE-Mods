@@ -3,10 +3,18 @@
   "Author": "Serpens66",
   "Name": "Random Events",
   "Description": "Runs configurable Vanilla scenario events in singleplayer skirmishes and Trail missions.",
-  "Version": "1.0.19",
+  "Version": "1.0.20",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.20",
+      "Changes": [
+        "Uses Vanilla path-connection regions to place or reuse signposts only when every active human player has at least one reachable living building or owned wall approach.",
+        "Removes unreachable or stale signposts from Vanilla's native event slots without deleting their map objects and restricts event targeting to the validated signpost set.",
+        "Targets only buildings reachable from the selected signpost and activates Nature-owned bandits with Vanilla's aggressive stance and forced building attack order; reachable owned walls are used when a closed castle exposes no building approach."
+      ]
+    },
     {
       "Version": "1.0.19",
       "Changes": [

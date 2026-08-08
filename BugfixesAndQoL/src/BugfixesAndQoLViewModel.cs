@@ -16,11 +16,13 @@ namespace BugfixesAndQoL
         private bool enableTroopMovementFix = true;
         private readonly bool[] allowMinimapWhilePlacingBuildingData = new bool[9];
         private readonly bool[] allowCameraMovementWithModifiersData = new bool[9];
+        private readonly bool[] hdMarketViewData = new bool[9];
 
         public BugfixesAndQoLViewModel()
         {
             SetAllowMinimapDefaults();
             SetAllowCameraMovementWithModifiersDefaults();
+            SetHdMarketViewDefaults();
             ResetToDefaultCommand = new RelayCommand(ResetToDefault);
         }
 
@@ -37,9 +39,12 @@ namespace BugfixesAndQoL
         public string EnableTroopMovementFixHelpText => SerpLocalization.Get(SerpLocalization.EnableTroopMovementFixHelp);
         public string AllowCameraMovementWithModifiersText => SerpLocalization.Get(SerpLocalization.AllowCameraMovementWithModifiers);
         public string AllowCameraMovementWithModifiersHelpText => SerpLocalization.Get(SerpLocalization.AllowCameraMovementWithModifiersHelp);
+        public string HdMarketViewText => SerpLocalization.Get(SerpLocalization.HdMarketView);
+        public string HdMarketViewHelpText => SerpLocalization.Get(SerpLocalization.HdMarketViewHelp);
 
         public bool[] AllowMinimapWhilePlacingBuildingData => allowMinimapWhilePlacingBuildingData;
         public bool[] AllowCameraMovementWithModifiersData => allowCameraMovementWithModifiersData;
+        public bool[] HdMarketViewData => hdMarketViewData;
 
         [SyncHostOnly]
         public bool EnableMod
@@ -80,6 +85,22 @@ namespace BugfixesAndQoL
             }
         }
 
+        [SyncPerPlayer]
+        public bool HdMarketView
+        {
+            get => hdMarketViewData[LocalPlayerIdOrOne];
+            set
+            {
+                int playerId = LocalPlayerIdOrOne;
+                if (hdMarketViewData[playerId] == value)
+                    return;
+
+                hdMarketViewData[playerId] = value;
+                SettingChanged?.Invoke(nameof(HdMarketView));
+                OnPropertyChanged(nameof(HdMarketView));
+            }
+        }
+
         [SyncHostOnly]
         public bool RememberAiAivSettings
         {
@@ -100,10 +121,13 @@ namespace BugfixesAndQoL
             EnableTroopMovementFix = true;
             SetAllowMinimapDefaults();
             SetAllowCameraMovementWithModifiersDefaults();
+            SetHdMarketViewDefaults();
             SettingChanged?.Invoke(nameof(AllowMinimapWhilePlacingBuilding));
             OnPropertyChanged(nameof(AllowMinimapWhilePlacingBuilding));
             SettingChanged?.Invoke(nameof(AllowCameraMovementWithModifiers));
             OnPropertyChanged(nameof(AllowCameraMovementWithModifiers));
+            SettingChanged?.Invoke(nameof(HdMarketView));
+            OnPropertyChanged(nameof(HdMarketView));
         }
 
         private void SetSetting<T>(ref T field, T value, string propertyName)
@@ -128,6 +152,12 @@ namespace BugfixesAndQoL
         {
             for (int i = 1; i < allowCameraMovementWithModifiersData.Length; i++)
                 allowCameraMovementWithModifiersData[i] = true;
+        }
+
+        private void SetHdMarketViewDefaults()
+        {
+            for (int i = 1; i < hdMarketViewData.Length; i++)
+                hdMarketViewData[i] = true;
         }
     }
 }
