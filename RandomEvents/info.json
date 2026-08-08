@@ -3,10 +3,25 @@
   "Author": "Serpens66",
   "Name": "Random Events",
   "Description": "Runs configurable Vanilla scenario events in singleplayer skirmishes and Trail missions.",
-  "Version": "1.0.3",
+  "Version": "1.0.5",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.5",
+      "Changes": [
+        "Added one emergency signpost search within 50 tiles of the map center when no usable edge signpost exists.",
+        "Skipped signpost-dependent events with an error when no registered signpost is available.",
+        "Prioritized the registered signpost nearest to the explicit target player's keep and prepared direct events for synchronized target player IDs."
+      ]
+    },
+    {
+      "Version": "1.0.4",
+      "Changes": [
+        "Randomized new edge signposts between 2 and 12 tiles from the map edge and within 100 tiles of the safest candidate.",
+        "Preserved saved LobbyModSettings across development builds."
+      ]
+    },
     {
       "Version": "1.0.3",
       "Changes": [

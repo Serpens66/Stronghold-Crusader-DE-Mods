@@ -6,8 +6,10 @@ using SHCDESE.API;
 using SHCDESE.API.Components.SaveData;
 using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.MapLoader;
+using SHCDESE.GameGlobals;
 using System;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 
 namespace RandomEvents
@@ -252,6 +254,7 @@ namespace RandomEvents
             SavedPrng prng = new SavedPrng(state.PrngState0, state.PrngState1);
             List<int> directKinds = new List<int>();
             List<int> directStrengths = new List<int>();
+            List<int> directTargetPlayerIds = new List<int>();
             List<int> timelineKinds = new List<int>();
             List<int> timelineStrengths = new List<int>();
 
@@ -271,6 +274,9 @@ namespace RandomEvents
                 {
                     directKinds.Add((int)definition.Kind);
                     directStrengths.Add(strength);
+                    // Singleplayer currently targets its human explicitly. A future synchronized
+                    // multiplayer packet can carry another stable player ID through the same path.
+                    directTargetPlayerIds.Add(GamePlayerManagerAPI.Instance.GetLocalPlayerId());
                 }
                 else
                 {
@@ -283,6 +289,7 @@ namespace RandomEvents
             state.PrngState1 = prng.State1;
             state.PreparedDirectKinds = directKinds.ToArray();
             state.PreparedDirectStrengths = directStrengths.ToArray();
+            state.PreparedDirectTargetPlayerIds = directTargetPlayerIds.ToArray();
             state.PreparedTimelineKinds = timelineKinds.ToArray();
             state.PreparedTimelineStrengths = timelineStrengths.ToArray();
             state.BatchPrepared = true;
@@ -305,11 +312,13 @@ namespace RandomEvents
             int due = state.NextDueAbsoluteMonth;
             int[] directKinds = state.PreparedDirectKinds ?? Array.Empty<int>();
             int[] strengths = state.PreparedDirectStrengths ?? Array.Empty<int>();
+            int[] targetPlayerIds = state.PreparedDirectTargetPlayerIds ?? Array.Empty<int>();
 
             // Clear first so a save callback during a Vanilla action cannot persist an executable duplicate.
             state.BatchPrepared = false;
             state.PreparedDirectKinds = Array.Empty<int>();
             state.PreparedDirectStrengths = Array.Empty<int>();
+            state.PreparedDirectTargetPlayerIds = Array.Empty<int>();
             state.PreparedTimelineKinds = Array.Empty<int>();
             state.PreparedTimelineStrengths = Array.Empty<int>();
 
@@ -318,10 +327,10 @@ namespace RandomEvents
             {
                 RandomEventDefinition definition = RandomEventDefinitions.Get((RandomEventKind)directKinds[index]);
                 int strength = index < strengths.Length ? strengths[index] : 0;
-                EngineInterface.GameAction(Enums.GameActionCommand.FreeBuild_Event, definition.TextId, strength);
-                LogInfo(
-                    $"Vanilla direct event dispatched: event={definition.Name}, textId={definition.TextId}, strength={strength}. " +
-                    "The managed wrapper cannot distinguish a successful native effect from a prerequisite-driven native no-op.");
+                int targetPlayerId = index < targetPlayerIds.Length
+                    ? targetPlayerIds[index]
+                    : GamePlayerManagerAPI.Instance.GetLocalPlayerId();
+                DispatchDirectEvent(definition, strength, targetPlayerId);
             }
 
             LogInfo("Prepared Timeline events reached their Vanilla execution date; missing native prerequisites are handled as native no-ops without replacement logic.");
@@ -501,12 +510,86 @@ namespace RandomEvents
                 loaded.StrengthMinimums?.Length == 6 && loaded.StrengthMaximums?.Length == 6 &&
                 loaded.PreparedDirectKinds != null && loaded.PreparedDirectStrengths != null &&
                 loaded.PreparedDirectKinds.Length == loaded.PreparedDirectStrengths.Length &&
+                loaded.PreparedDirectTargetPlayerIds != null &&
+                loaded.PreparedDirectKinds.Length == loaded.PreparedDirectTargetPlayerIds.Length &&
                 loaded.PreparedTimelineKinds != null && loaded.PreparedTimelineStrengths != null &&
                 loaded.PreparedTimelineKinds.Length == loaded.PreparedTimelineStrengths.Length &&
                 (loaded.PrngState0 | loaded.PrngState1) != 0;
             if (!valid)
                 LogWarning("Loaded Random Events V1 state failed validation and will not be used.");
             return valid;
+        }
+
+        private void DispatchDirectEvent(
+            RandomEventDefinition definition,
+            int strength,
+            int targetPlayerId)
+        {
+            if (!GamePlayerManagerAPI.Instance.IsPlayerIdValid(targetPlayerId))
+            {
+                LogError(
+                    $"Vanilla direct event skipped: event={definition.Name}, targetPlayerId={targetPlayerId}, " +
+                    "reason=invalid target player.");
+                return;
+            }
+
+            IDisposable signpostScope = null;
+            int signpostBuildingId = -1;
+            double signpostDistance = 0;
+            if (definition.RequiresSignpost &&
+                !signpostRegistry.TryBeginTargetedEvent(
+                    targetPlayerId,
+                    out signpostScope,
+                    out signpostBuildingId,
+                    out signpostDistance,
+                    out string signpostFailure))
+            {
+                LogError(
+                    $"Vanilla direct event skipped: event={definition.Name}, targetPlayerId={targetPlayerId}, " +
+                    $"reason=required signpost unavailable or could not be prioritized ({signpostFailure}).");
+                return;
+            }
+
+            int originalLocalPlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
+            IntPtr localPlayerAddress = new IntPtr(unchecked((long)GameGlobalsManager.Instance.LocalPlayerIdVA));
+            bool playerChanged = targetPlayerId != originalLocalPlayerId;
+            try
+            {
+                if (playerChanged)
+                {
+                    if (localPlayerAddress == IntPtr.Zero)
+                    {
+                        LogError(
+                            $"Vanilla direct event skipped: event={definition.Name}, targetPlayerId={targetPlayerId}, " +
+                            "reason=native local-player address unavailable for explicit targeting.");
+                        return;
+                    }
+
+                    Marshal.WriteInt32(localPlayerAddress, targetPlayerId);
+                    if (Marshal.ReadInt32(localPlayerAddress) != targetPlayerId)
+                    {
+                        LogError(
+                            $"Vanilla direct event skipped: event={definition.Name}, targetPlayerId={targetPlayerId}, " +
+                            "reason=native target-player switch verification failed.");
+                        return;
+                    }
+                }
+
+                EngineInterface.GameAction(Enums.GameActionCommand.FreeBuild_Event, definition.TextId, strength);
+                LogInfo(
+                    $"Vanilla direct event dispatched: event={definition.Name}, textId={definition.TextId}, " +
+                    $"strength={strength}, targetPlayerId={targetPlayerId}, signpostBuildingId={signpostBuildingId}, " +
+                    $"signpostDistanceToTargetKeep={signpostDistance:0.00}. " +
+                    "Vanilla assigns its own event-specific movement, attack, or aggression behavior; " +
+                    "the managed wrapper cannot distinguish a visible effect " +
+                    "from a prerequisite-driven native no-op.");
+            }
+            finally
+            {
+                if (playerChanged && localPlayerAddress != IntPtr.Zero)
+                    Marshal.WriteInt32(localPlayerAddress, originalLocalPlayerId);
+                signpostScope?.Dispose();
+            }
         }
 
         private int GetCurrentAbsoluteMonth()

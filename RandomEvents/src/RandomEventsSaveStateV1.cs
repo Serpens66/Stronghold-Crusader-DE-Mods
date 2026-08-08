@@ -28,11 +28,12 @@ namespace RandomEvents
         [Key(15)] public int[] SignpostBuildingIds = new[] { -1, -1, -1, -1 };
         [Key(16)] public bool BatchPrepared;
         [Key(17)] public int[] PreparedTimelineStrengths = Array.Empty<int>();
+        [Key(18)] public int[] PreparedDirectTargetPlayerIds = Array.Empty<int>();
     }
 
     public sealed class RandomEventsSaveStateV1Formatter : IMessagePackFormatter<RandomEventsSaveStateV1>
     {
-        private const int FieldCount = 18;
+        private const int FieldCount = 19;
 
         public void Serialize(ref MessagePackWriter writer, RandomEventsSaveStateV1 value, MessagePackSerializerOptions options)
         {
@@ -61,6 +62,7 @@ namespace RandomEvents
             WriteIntArray(ref writer, value.SignpostBuildingIds);
             writer.Write(value.BatchPrepared);
             WriteIntArray(ref writer, value.PreparedTimelineStrengths);
+            WriteIntArray(ref writer, value.PreparedDirectTargetPlayerIds);
         }
 
         public RandomEventsSaveStateV1 Deserialize(ref MessagePackReader reader, MessagePackSerializerOptions options)
@@ -92,6 +94,7 @@ namespace RandomEvents
                     case 15: value.SignpostBuildingIds = ReadIntArray(ref reader); break;
                     case 16: value.BatchPrepared = reader.ReadBoolean(); break;
                     case 17: value.PreparedTimelineStrengths = ReadIntArray(ref reader); break;
+                    case 18: value.PreparedDirectTargetPlayerIds = ReadIntArray(ref reader); break;
                     default: reader.Skip(); break;
                 }
             }

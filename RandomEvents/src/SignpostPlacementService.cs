@@ -15,8 +15,11 @@ namespace RandomEvents
     {
         private const int MapCenter = 400;
         private const int GridSize = 800;
-        private const int MaximumEdgeDepth = 10;
+        private const int MinimumEdgeDepth = 2;
+        private const int MaximumEdgeDepth = 12;
         private const double MinimumKeepDistance = 100.0;
+        private const double MaximumRandomOffset = 100.0;
+        private const int CenterFallbackRadius = 50;
 
         private readonly ManualLogSource log;
         private readonly ScenarioSignpostRegistry registry;
@@ -44,7 +47,8 @@ namespace RandomEvents
             {
                 LogError(
                     "Automatic edge-signpost initialization is disabled for this match because the native registry is unavailable. " +
-                    $"Random events remain active. Reason: {registry.UnavailableReason}");
+                    "Events that require a signpost will be skipped. " +
+                    $"Reason: {registry.UnavailableReason}");
                 state.SignpostsInitialized = true;
                 return true;
             }
@@ -55,6 +59,12 @@ namespace RandomEvents
             int[] selected = new[] { -1, -1, -1, -1 };
             HashSet<int> used = new HashSet<int>();
             int[] registered = registry.ReadRegisteredBuildingIds();
+            int placementSeed = GetPlacementSeed(state);
+            Random placementRandom = new Random(placementSeed);
+            LogInfo(
+                $"Randomized signpost placement initialized: seed={placementSeed}, " +
+                $"edgeDepth={MinimumEdgeDepth}-{MaximumEdgeDepth}, randomOffsetRadius={MaximumRandomOffset:0}, " +
+                $"minimumKeepDistance={MinimumKeepDistance:0}.");
 
             for (int sideIndex = 0; sideIndex < 4; sideIndex++)
             {
@@ -83,15 +93,44 @@ namespace RandomEvents
                     continue;
                 }
 
-                if (TryPlaceForSide(side, localPlayerId, keeps, out int buildingId))
+                if (TryPlaceForSide(side, localPlayerId, keeps, placementRandom, out int buildingId))
                     selected[sideIndex] = buildingId;
                 else
-                    LogWarning($"Signpost side skipped: side={side}, reason=no valid candidate within {MaximumEdgeDepth} tiles of the edge.");
+                    LogWarning(
+                        $"Signpost side skipped: side={side}, reason=no valid candidate between " +
+                        $"{MinimumEdgeDepth} and {MaximumEdgeDepth} tiles of the edge.");
+            }
+
+            if (!registry.HasUsableRegisteredSignpost())
+            {
+                LogWarning(
+                    $"No usable registered signpost was found at the map edges; trying one center fallback " +
+                    $"within radius {CenterFallbackRadius}.");
+                if (registry.HasFreeSlot() &&
+                    TryPlaceCenterFallback(localPlayerId, keeps, placementRandom, out int fallbackBuildingId))
+                {
+                    // The save field remains four-wide; index zero also records the single emergency signpost.
+                    selected[0] = fallbackBuildingId;
+                }
+                else if (!registry.HasFreeSlot())
+                {
+                    LogError(
+                        "Emergency center signpost placement skipped because all eight Vanilla signpost slots are occupied.");
+                }
             }
 
             state.SignpostBuildingIds = selected;
             state.SignpostsInitialized = true;
-            LogInfo($"Signpost initialization completed once: ids=[{string.Join(",", selected)}].");
+            if (registry.HasUsableRegisteredSignpost())
+            {
+                LogInfo($"Signpost initialization completed once: ids=[{string.Join(",", selected)}].");
+            }
+            else
+            {
+                LogError(
+                    "Signpost initialization completed without any usable registered signpost. " +
+                    "Rabbit, lion, bandit, and archer events will not be dispatched in this match.");
+            }
             return true;
         }
 
@@ -100,10 +139,20 @@ namespace RandomEvents
             spawnSubscription?.Dispose();
         }
 
-        private bool TryPlaceForSide(MapEdge side, int localPlayerId, List<MapPoint> keeps, out int buildingId)
+        private bool TryPlaceForSide(
+            MapEdge side,
+            int localPlayerId,
+            List<MapPoint> keeps,
+            Random random,
+            out int buildingId)
         {
             buildingId = -1;
-            for (int depth = 0; depth <= MaximumEdgeDepth; depth++)
+            List<int> depths = Enumerable.Range(
+                MinimumEdgeDepth,
+                MaximumEdgeDepth - MinimumEdgeDepth + 1).ToList();
+            Shuffle(depths, random);
+
+            foreach (int depth in depths)
             {
                 List<PlacementCandidate> candidates = GetCandidates(side, depth, keeps);
                 candidates.Sort((left, right) =>
@@ -113,8 +162,21 @@ namespace RandomEvents
                     int x = left.X.CompareTo(right.X);
                     return x != 0 ? x : left.Y.CompareTo(right.Y);
                 });
+                if (candidates.Count == 0)
+                    continue;
 
-                foreach (PlacementCandidate candidate in candidates)
+                PlacementCandidate best = candidates[0];
+                List<PlacementCandidate> randomizedCandidates = candidates
+                    .Where(candidate => CandidateDistance(candidate, best) <= MaximumRandomOffset + 0.0001)
+                    .ToList();
+                Shuffle(randomizedCandidates, random);
+                LogInfo(
+                    $"Randomized signpost candidate set: side={side}, depth={depth}, " +
+                    $"validCandidates={candidates.Count}, randomPool={randomizedCandidates.Count}, " +
+                    $"bestTile=({best.X},{best.Y}), bestMinimumKeepDistance={best.MinimumKeepDistance:0.00}.");
+
+                int failedPlacements = 0;
+                foreach (PlacementCandidate candidate in randomizedCandidates)
                 {
                     if (!registry.HasFreeSlot())
                         return false;
@@ -122,7 +184,7 @@ namespace RandomEvents
                     int spawnedId = SpawnSignpost(localPlayerId, candidate.X, candidate.Y);
                     if (spawnedId <= 0)
                     {
-                        LogInfo($"Vanilla signpost placement failed; trying next candidate: side={side}, depth={depth}, tile=({candidate.X},{candidate.Y}).");
+                        failedPlacements++;
                         continue;
                     }
 
@@ -131,7 +193,8 @@ namespace RandomEvents
                         buildingId = spawnedId;
                         LogInfo(
                             $"Placed Vanilla signpost: side={side}, depth={depth}, tile=({candidate.X},{candidate.Y}), " +
-                            $"buildingId={spawnedId}, slot={slot}, minimumKeepDistance={candidate.MinimumKeepDistance:0.00}.");
+                            $"buildingId={spawnedId}, slot={slot}, minimumKeepDistance={candidate.MinimumKeepDistance:0.00}, " +
+                            $"randomOffsetFromBest={CandidateDistance(candidate, best):0.00}.");
                         return true;
                     }
 
@@ -140,9 +203,104 @@ namespace RandomEvents
                     LogWarning($"Removed unregistered signpost after native registration failed: buildingId={spawnedId}.");
                 }
 
-                // If Vanilla rejects every candidate at this depth, continue farther inward.
+                if (failedPlacements > 0)
+                {
+                    LogInfo(
+                        $"Vanilla rejected randomized signpost candidates at depth; trying another random depth: " +
+                        $"side={side}, depth={depth}, failedPlacements={failedPlacements}.");
+                }
             }
             return false;
+        }
+
+        private bool TryPlaceCenterFallback(
+            int localPlayerId,
+            List<MapPoint> keeps,
+            Random random,
+            out int buildingId)
+        {
+            buildingId = -1;
+            List<PlacementCandidate> candidates = new List<PlacementCandidate>();
+            for (int x = MapCenter - CenterFallbackRadius; x <= MapCenter + CenterFallbackRadius; x++)
+            {
+                for (int y = MapCenter - CenterFallbackRadius; y <= MapCenter + CenterFallbackRadius; y++)
+                {
+                    double deltaX = x + 0.5 - MapCenter;
+                    double deltaY = y + 0.5 - MapCenter;
+                    if (deltaX * deltaX + deltaY * deltaY > CenterFallbackRadius * CenterFallbackRadius ||
+                        !IsFreeWalkableFootprint(x, y))
+                    {
+                        continue;
+                    }
+
+                    double keepDistance = MinimumDistance(x + 0.5, y + 0.5, keeps);
+                    if (keepDistance + 0.0001 >= MinimumKeepDistance)
+                        candidates.Add(new PlacementCandidate(x, y, keepDistance));
+                }
+            }
+
+            Shuffle(candidates, random);
+            int failedPlacements = 0;
+            foreach (PlacementCandidate candidate in candidates)
+            {
+                int spawnedId = SpawnSignpost(localPlayerId, candidate.X, candidate.Y);
+                if (spawnedId <= 0)
+                {
+                    failedPlacements++;
+                    continue;
+                }
+
+                if (registry.TryRegister(spawnedId, out int slot))
+                {
+                    buildingId = spawnedId;
+                    double deltaX = candidate.X + 0.5 - MapCenter;
+                    double deltaY = candidate.Y + 0.5 - MapCenter;
+                    LogInfo(
+                        $"Placed emergency center Vanilla signpost: tile=({candidate.X},{candidate.Y}), " +
+                        $"buildingId={spawnedId}, slot={slot}, minimumKeepDistance={candidate.MinimumKeepDistance:0.00}, " +
+                        $"centerDistance={Math.Sqrt(deltaX * deltaX + deltaY * deltaY):0.00}.");
+                    return true;
+                }
+
+                GameBuildingManagerAPI.Instance.DeleteBuildingSafe(spawnedId);
+                LogWarning($"Removed unregistered center fallback signpost: buildingId={spawnedId}.");
+            }
+
+            LogError(
+                $"Emergency center signpost placement failed: radius={CenterFallbackRadius}, " +
+                $"validCandidates={candidates.Count}, VanillaRejected={failedPlacements}.");
+            return false;
+        }
+
+        private static int GetPlacementSeed(RandomEventsSaveStateV1 state)
+        {
+            // Derive a stable side-placement stream without consuming the saved event-roll PRNG.
+            ulong value = state.PrngState0 ^ (state.PrngState1 + 0x9E3779B97F4A7C15UL);
+            value ^= (ulong)GameTileManagerAPI.Instance.GetCurrentMapSize() * 0xBF58476D1CE4E5B9UL;
+            value ^= value >> 30;
+            value *= 0xBF58476D1CE4E5B9UL;
+            value ^= value >> 27;
+            value *= 0x94D049BB133111EBUL;
+            value ^= value >> 31;
+            return unchecked((int)(value ^ (value >> 32)));
+        }
+
+        private static double CandidateDistance(PlacementCandidate left, PlacementCandidate right)
+        {
+            double deltaX = left.X - right.X;
+            double deltaY = left.Y - right.Y;
+            return Math.Sqrt(deltaX * deltaX + deltaY * deltaY);
+        }
+
+        private static void Shuffle<T>(IList<T> values, Random random)
+        {
+            for (int index = values.Count - 1; index > 0; index--)
+            {
+                int swapIndex = random.Next(index + 1);
+                T temporary = values[index];
+                values[index] = values[swapIndex];
+                values[swapIndex] = temporary;
+            }
         }
 
         private int SpawnSignpost(int playerId, int x, int y)
@@ -242,7 +400,7 @@ namespace RandomEvents
                 double x = (building->r_TilePositionXBegin + building->r_TilePositionXEnd) / 2.0;
                 double y = (building->r_TilePositionYBegin + building->r_TilePositionYEnd) / 2.0;
                 double edgeDepth = DistanceFromEdge(side, x, y);
-                if (edgeDepth > MaximumEdgeDepth + 0.0001)
+                if (edgeDepth + 0.0001 < MinimumEdgeDepth || edgeDepth > MaximumEdgeDepth + 0.0001)
                     continue;
                 double keepDistance = MinimumDistance(x, y, keeps);
                 if (keepDistance + 0.0001 < MinimumKeepDistance)

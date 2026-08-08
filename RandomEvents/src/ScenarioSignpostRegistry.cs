@@ -16,6 +16,9 @@ namespace RandomEvents
         private const int ReferenceSignpostIdsOffset = 0x18388C;
         private const int ExpectedLookupFunctionRva = 0xCB7B0;
         private const int CandidateValidationWindow = 0x240;
+        private const int AttackPointDeltaFromSlots = 0x1B2C;
+        private const int RabbitPointDeltaFromSlots = 0x19C;
+        private const int ScenarioPointCount = 4;
 
         // CrusaderDE.dll SHA-256 1E6D4C2E10CC35A7B8082A7E2BCD8BB20680EBEDA803D9B943257B948145CB2B.
         // RVA 0xCB7B0 reads eight building IDs at gPlayerManager+0x18388C and accepts STRUCT_SIGNPOST (52).
@@ -26,7 +29,10 @@ namespace RandomEvents
 
         private readonly ManualLogSource log;
         private IntPtr slotsAddress;
+        private IntPtr attackPointsAddress;
+        private IntPtr rabbitPointsAddress;
         private string unavailableReason = "native compatibility resolution has not run.";
+        private string targetingUnavailableReason = "native event targeting compatibility resolution has not run.";
 
         public ScenarioSignpostRegistry(ManualLogSource log)
         {
@@ -39,7 +45,10 @@ namespace RandomEvents
         public void InitializeNative(IntPtr libraryHandle, ReadOnlySpan<byte> memory, bool referenceHashMatches)
         {
             slotsAddress = IntPtr.Zero;
+            attackPointsAddress = IntPtr.Zero;
+            rabbitPointsAddress = IntPtr.Zero;
             unavailableReason = "native compatibility resolution failed.";
+            targetingUnavailableReason = "native event targeting compatibility resolution failed.";
 
             try
             {
@@ -68,16 +77,120 @@ namespace RandomEvents
                         $"referenceRva=0x{ExpectedLookupFunctionRva:X}, actualRva=0x{resolution.FunctionRva:X}, " +
                         $"referenceSlotOffset=0x{ReferenceSignpostIdsOffset:X}, actualSlotOffset=0x{resolution.SignpostIdsOffset:X}.");
                 }
+
+                InitializeTargetingFields(resolution.SignpostIdsOffset, playerManager);
             }
             catch (Exception ex)
             {
                 slotsAddress = IntPtr.Zero;
+                attackPointsAddress = IntPtr.Zero;
+                rabbitPointsAddress = IntPtr.Zero;
                 unavailableReason = ex.Message;
                 LogError(
                     "Native signpost compatibility validation failed. Automatic edge-signpost discovery, placement, and " +
                     "registration are disabled; random-event scheduling, direct Vanilla events, and timeline events remain active. " +
                     $"Vanilla can still use signposts already registered by the loaded scenario. Reason: {ex}");
             }
+        }
+
+        public bool HasUsableRegisteredSignpost()
+        {
+            foreach (int buildingId in ReadRegisteredBuildingIds())
+            {
+                if (TryGetUsableSignpost(buildingId, out _))
+                    return true;
+            }
+            return false;
+        }
+
+        public bool TryBeginTargetedEvent(
+            int targetPlayerId,
+            out IDisposable scope,
+            out int signpostBuildingId,
+            out double signpostDistance,
+            out string failure)
+        {
+            scope = null;
+            signpostBuildingId = -1;
+            signpostDistance = double.MaxValue;
+            failure = string.Empty;
+
+            if (!IsAvailable || attackPointsAddress == IntPtr.Zero || rabbitPointsAddress == IntPtr.Zero)
+            {
+                failure = string.IsNullOrEmpty(targetingUnavailableReason) ? unavailableReason : targetingUnavailableReason;
+                return false;
+            }
+
+            int keepId = GamePlayerManagerAPI.Instance.GetPlayerKeepId(targetPlayerId);
+            if (keepId <= 0 ||
+                !GameBuildingManagerAPI.Instance.TryGetBuildingById(keepId, out GameBuilding* keep) ||
+                (keep->r_AliveState != AliveState.NeedsInit && keep->r_AliveState != AliveState.IsAlive))
+            {
+                failure = $"target player {targetPlayerId} has no usable keep.";
+                return false;
+            }
+
+            double keepX = (keep->r_TilePositionXBegin + keep->r_TilePositionXEnd) / 2.0;
+            double keepY = (keep->r_TilePositionYBegin + keep->r_TilePositionYEnd) / 2.0;
+            int[] originalSlots = ReadRegisteredBuildingIds();
+            List<SignpostDistance> usable = new List<SignpostDistance>();
+            HashSet<int> seen = new HashSet<int>();
+            foreach (int buildingId in originalSlots)
+            {
+                if (!seen.Add(buildingId) || !TryGetUsableSignpost(buildingId, out GameBuilding* signpost))
+                    continue;
+
+                double x = (signpost->r_TilePositionXBegin + signpost->r_TilePositionXEnd) / 2.0;
+                double y = (signpost->r_TilePositionYBegin + signpost->r_TilePositionYEnd) / 2.0;
+                double deltaX = x - keepX;
+                double deltaY = y - keepY;
+                usable.Add(new SignpostDistance(buildingId, Math.Sqrt(deltaX * deltaX + deltaY * deltaY)));
+            }
+
+            if (usable.Count == 0)
+            {
+                failure = "no alive registered Vanilla signpost exists.";
+                return false;
+            }
+
+            usable.Sort((left, right) => left.Distance.CompareTo(right.Distance));
+            short[] originalAttackPoints = ReadScenarioPoints(attackPointsAddress);
+            short[] originalRabbitPoints = ReadScenarioPoints(rabbitPointsAddress);
+
+            // Vanilla prefers four scenario point coordinates over its eight signpost slots.
+            // Temporarily clearing them forces all four spawn events through the prioritized signpost list.
+            try
+            {
+                WriteScenarioPoints(attackPointsAddress, CreateDisabledScenarioPoints());
+                WriteScenarioPoints(rabbitPointsAddress, CreateDisabledScenarioPoints());
+                for (int slot = 0; slot < SlotCount; slot++)
+                {
+                    int buildingId = slot < usable.Count ? usable[slot].BuildingId : 0;
+                    Marshal.WriteInt32(slotsAddress, slot * sizeof(int), buildingId);
+                }
+            }
+            catch (Exception ex)
+            {
+                // Never leave Vanilla's scenario sources partially reordered after a failed native write.
+                RestoreTargetingFields(originalSlots, originalAttackPoints, originalRabbitPoints);
+                failure = $"temporary native source prioritization failed: {ex.Message}";
+                LogError($"Native event targeting failed safely: {failure}");
+                return false;
+            }
+
+            signpostBuildingId = usable[0].BuildingId;
+            signpostDistance = usable[0].Distance;
+            scope = new TargetingScope(
+                slotsAddress,
+                attackPointsAddress,
+                rabbitPointsAddress,
+                originalSlots,
+                originalAttackPoints,
+                originalRabbitPoints);
+            LogInfo(
+                $"Vanilla spawn source prioritized for target: targetPlayerId={targetPlayerId}, " +
+                $"signpostBuildingId={signpostBuildingId}, distanceToKeep={signpostDistance:0.00}, usableSignposts={usable.Count}.");
+            return true;
         }
 
         public int[] ReadRegisteredBuildingIds()
@@ -147,6 +260,89 @@ namespace RandomEvents
 
             LogWarning($"Native signpost registration no-op: buildingId={buildingId}, reason=all eight Vanilla slots occupied.");
             return false;
+        }
+
+        private void InitializeTargetingFields(int signpostIdsOffset, ulong playerManager)
+        {
+            int attackPointsOffset = signpostIdsOffset - AttackPointDeltaFromSlots;
+            int rabbitPointsOffset = signpostIdsOffset - RabbitPointDeltaFromSlots;
+            if (attackPointsOffset < 0x10000 || rabbitPointsOffset < 0x10000)
+            {
+                targetingUnavailableReason = "derived scenario-point offsets are outside the guarded manager range.";
+                LogError($"Native event targeting disabled: {targetingUnavailableReason}");
+                return;
+            }
+
+            IntPtr attackCandidate = new IntPtr(checked((long)playerManager + attackPointsOffset));
+            IntPtr rabbitCandidate = new IntPtr(checked((long)playerManager + rabbitPointsOffset));
+            if (!AreScenarioPointsPlausible(attackCandidate) || !AreScenarioPointsPlausible(rabbitCandidate))
+            {
+                targetingUnavailableReason = "derived scenario-point arrays failed coordinate validation.";
+                LogError($"Native event targeting disabled: {targetingUnavailableReason}");
+                return;
+            }
+
+            attackPointsAddress = attackCandidate;
+            rabbitPointsAddress = rabbitCandidate;
+            targetingUnavailableReason = string.Empty;
+            LogInfo(
+                $"Native event signpost targeting ready: strategy=validated-relative-manager-layout, " +
+                $"attackPointsOffset=0x{attackPointsOffset:X}, rabbitPointsOffset=0x{rabbitPointsOffset:X}. " +
+                "Reference handlers: attack-source RVA 0x11A420, rabbit-source RVA 0x123A20.");
+        }
+
+        private static bool TryGetUsableSignpost(int buildingId, out GameBuilding* building)
+        {
+            building = null;
+            return buildingId > 0 &&
+                GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out building) &&
+                building->r_BuildingType == eStructs.STRUCT_SIGNPOST &&
+                (building->r_AliveState == AliveState.NeedsInit || building->r_AliveState == AliveState.IsAlive);
+        }
+
+        private static bool AreScenarioPointsPlausible(IntPtr address)
+        {
+            for (int index = 0; index < ScenarioPointCount * 2; index++)
+            {
+                short value = Marshal.ReadInt16(address, index * sizeof(short));
+                // -1 is Vanilla's unused-coordinate sentinel; non-negative values are map tiles.
+                if (value < -1 || value >= 800)
+                    return false;
+            }
+            return true;
+        }
+
+        private void RestoreTargetingFields(
+            int[] originalSlots,
+            short[] originalAttackPoints,
+            short[] originalRabbitPoints)
+        {
+            for (int slot = 0; slot < SlotCount; slot++)
+                Marshal.WriteInt32(slotsAddress, slot * sizeof(int), originalSlots[slot]);
+            WriteScenarioPoints(attackPointsAddress, originalAttackPoints);
+            WriteScenarioPoints(rabbitPointsAddress, originalRabbitPoints);
+        }
+
+        private static short[] ReadScenarioPoints(IntPtr address)
+        {
+            short[] result = new short[ScenarioPointCount * 2];
+            for (int index = 0; index < result.Length; index++)
+                result[index] = Marshal.ReadInt16(address, index * sizeof(short));
+            return result;
+        }
+
+        private static short[] CreateDisabledScenarioPoints()
+        {
+            short[] result = new short[ScenarioPointCount * 2];
+            for (int index = 0; index < result.Length; index++)
+                result[index] = -1;
+            return result;
+        }
+
+        private static void WriteScenarioPoints(IntPtr address, short[] values)
+        {
+            for (int index = 0; index < ScenarioPointCount * 2; index++)
+                Marshal.WriteInt16(address, index * sizeof(short), values[index]);
         }
 
         private static NativeLookupResolution ResolveLookup(ReadOnlySpan<byte> memory, bool referenceHashMatches)
@@ -351,6 +547,56 @@ namespace RandomEvents
             public int FunctionRva { get; }
             public int SignpostIdsOffset { get; }
             public string Strategy { get; }
+        }
+
+        private readonly struct SignpostDistance
+        {
+            public SignpostDistance(int buildingId, double distance)
+            {
+                BuildingId = buildingId;
+                Distance = distance;
+            }
+
+            public int BuildingId { get; }
+            public double Distance { get; }
+        }
+
+        private sealed class TargetingScope : IDisposable
+        {
+            private readonly IntPtr slots;
+            private readonly IntPtr attackPoints;
+            private readonly IntPtr rabbitPoints;
+            private readonly int[] originalSlots;
+            private readonly short[] originalAttackPoints;
+            private readonly short[] originalRabbitPoints;
+            private bool disposed;
+
+            public TargetingScope(
+                IntPtr slots,
+                IntPtr attackPoints,
+                IntPtr rabbitPoints,
+                int[] originalSlots,
+                short[] originalAttackPoints,
+                short[] originalRabbitPoints)
+            {
+                this.slots = slots;
+                this.attackPoints = attackPoints;
+                this.rabbitPoints = rabbitPoints;
+                this.originalSlots = originalSlots;
+                this.originalAttackPoints = originalAttackPoints;
+                this.originalRabbitPoints = originalRabbitPoints;
+            }
+
+            public void Dispose()
+            {
+                if (disposed)
+                    return;
+                for (int slot = 0; slot < SlotCount; slot++)
+                    Marshal.WriteInt32(slots, slot * sizeof(int), originalSlots[slot]);
+                WriteScenarioPoints(attackPoints, originalAttackPoints);
+                WriteScenarioPoints(rabbitPoints, originalRabbitPoints);
+                disposed = true;
+            }
         }
     }
 }
