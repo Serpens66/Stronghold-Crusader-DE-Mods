@@ -36,7 +36,7 @@ namespace RandomEvents
     internal enum RandomEventDispatchKind
     {
         GameAction,
-        ManagedRabbit,
+        NativeWildlife,
         NativeVanilla
     }
 
@@ -85,9 +85,8 @@ namespace RandomEvents
             new RandomEventDefinition(RandomEventKind.HopsBeetles, "Hops beetles", 141, RandomEventDispatchKind.NativeVanilla, 13, RandomEventStrengthKind.None, false),
             new RandomEventDefinition(RandomEventKind.AppleBlight, "Apple blight", 142, RandomEventDispatchKind.NativeVanilla, 14, RandomEventStrengthKind.None, false),
             new RandomEventDefinition(RandomEventKind.TreeBlight, "Tree blight", 143, RandomEventDispatchKind.GameAction, 15, RandomEventStrengthKind.None, false),
-            // Rabbit infestation is implemented as a direct managed spawn and has no Vanilla event ID dependency.
-            new RandomEventDefinition(RandomEventKind.Rabbits, "Rabbit infestation", 0, RandomEventDispatchKind.ManagedRabbit, 16, RandomEventStrengthKind.None, false),
-            new RandomEventDefinition(RandomEventKind.LionAttack, "Lion attack", 145, RandomEventDispatchKind.GameAction, 17, RandomEventStrengthKind.LionAttack, true),
+            new RandomEventDefinition(RandomEventKind.Rabbits, "Rabbit infestation", 144, RandomEventDispatchKind.NativeWildlife, 16, RandomEventStrengthKind.None, false),
+            new RandomEventDefinition(RandomEventKind.LionAttack, "Lion attack", 145, RandomEventDispatchKind.NativeWildlife, 17, RandomEventStrengthKind.LionAttack, true),
             new RandomEventDefinition(RandomEventKind.Bandits, "Bandits", 146, RandomEventDispatchKind.GameAction, 18, RandomEventStrengthKind.Bandits, true),
             new RandomEventDefinition(RandomEventKind.MadCows, "Mad cows", 147, RandomEventDispatchKind.NativeVanilla, 19, RandomEventStrengthKind.None, false),
             new RandomEventDefinition(RandomEventKind.Archers, "Archers", 148, RandomEventDispatchKind.GameAction, 20, RandomEventStrengthKind.Archers, true),

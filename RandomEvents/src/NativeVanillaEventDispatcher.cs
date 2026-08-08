@@ -17,7 +17,6 @@ namespace RandomEvents
 
     internal sealed unsafe class NativeVanillaEventDispatcher
     {
-        private const int CodeScanLength = 0x20A000;
         private const int HasBuildingRva = 0xB8D00;
         private const int WheatHandlerRva = 0xC30E0;
         private const int HopsHandlerRva = 0xC2DE0;
@@ -63,79 +62,81 @@ namespace RandomEvents
         private BuildingEventDelegate madCowBuildingHandler;
         private GranaryTheftDelegate granaryTheftHandler;
         private PresentationDelegate presentationHandler;
-        private string unavailableReason = "native compatibility resolution has not run.";
 
         public NativeVanillaEventDispatcher(ManualLogSource log)
         {
             this.log = log;
         }
 
-        public bool IsAvailable =>
-            hasBuilding != null && wheatHandler != null && hopsHandler != null && appleHandler != null &&
-            madCowUnitHandler != null && madCowBuildingHandler != null && granaryTheftHandler != null &&
-            presentationHandler != null && presentationManager != IntPtr.Zero;
+        public bool IsPresentationAvailable => presentationHandler != null && presentationManager != IntPtr.Zero;
 
-        public void InitializeNative(IntPtr libraryHandle, ReadOnlySpan<byte> memory, bool referenceHashMatches)
+        public bool TryQueuePresentation(
+            int messageId,
+            int presentationId,
+            string video,
+            string audio,
+            out string failure)
         {
-            Reset("native compatibility resolution failed.");
+            failure = string.Empty;
+            if (!IsPresentationAvailable)
+            {
+                failure = "native Vanilla presentation queue is unavailable.";
+                return false;
+            }
 
             try
             {
-                LogInfo(
-                    $"Native timeline-event handler scan started: referenceHashMatch={referenceHashMatches}, " +
-                    "strategy=validated reference RVA or unique semantic AOB.");
-
-                int hasBuildingResolved = ResolveFunction(memory, HasBuildingPattern, HasBuildingRva, referenceHashMatches, "building prerequisite");
-                int wheatResolved = ResolveFunction(memory, WheatPattern, WheatHandlerRva, referenceHashMatches, "wheat infestation");
-                int hopsResolved = ResolveFunction(memory, HopsPattern, HopsHandlerRva, referenceHashMatches, "hops beetles");
-                int appleResolved = ResolveFunction(memory, ApplePattern, AppleHandlerRva, referenceHashMatches, "apple blight");
-                int madCowUnitResolved = ResolveFunction(memory, MadCowUnitPattern, MadCowUnitHandlerRva, referenceHashMatches, "mad-cow unit effect");
-                int madCowBuildingResolved = ResolveFunction(memory, MadCowBuildingPattern, MadCowBuildingHandlerRva, referenceHashMatches, "mad-cow building effect");
-                int theftResolved = ResolveFunction(memory, GranaryTheftPattern, GranaryTheftHandlerRva, referenceHashMatches, "granary theft");
-                int presentationCallsite = ResolveFunction(
-                    memory,
-                    PresentationCallsitePattern,
-                    PresentationCallsiteRva,
-                    referenceHashMatches,
-                    "event presentation callsite");
-
-                int managerRva = ResolveRelativeTarget(memory, presentationCallsite + 13, presentationCallsite + 17);
-                int handlerRva = ResolveRelativeTarget(memory, presentationCallsite + 18, presentationCallsite + 22);
-                if (!MatchesPatternAt(memory, handlerRva, ParsePattern(PresentationHandlerPattern)))
-                    throw new InvalidOperationException($"presentation handler RVA 0x{handlerRva:X} failed semantic validation.");
-                if (referenceHashMatches &&
-                    (managerRva != PresentationManagerRva || handlerRva != PresentationHandlerRva))
-                {
-                    throw new InvalidOperationException(
-                        $"reference presentation targets differ: manager=0x{managerRva:X}, handler=0x{handlerRva:X}.");
-                }
-
-                hasBuilding = Marshal.GetDelegateForFunctionPointer<HasBuildingDelegate>(AtRva(libraryHandle, hasBuildingResolved));
-                wheatHandler = Marshal.GetDelegateForFunctionPointer<BuildingEventDelegate>(AtRva(libraryHandle, wheatResolved));
-                hopsHandler = Marshal.GetDelegateForFunctionPointer<BuildingEventDelegate>(AtRva(libraryHandle, hopsResolved));
-                appleHandler = Marshal.GetDelegateForFunctionPointer<BuildingEventDelegate>(AtRva(libraryHandle, appleResolved));
-                madCowUnitHandler = Marshal.GetDelegateForFunctionPointer<UnitEventDelegate>(AtRva(libraryHandle, madCowUnitResolved));
-                madCowBuildingHandler = Marshal.GetDelegateForFunctionPointer<BuildingEventDelegate>(AtRva(libraryHandle, madCowBuildingResolved));
-                granaryTheftHandler = Marshal.GetDelegateForFunctionPointer<GranaryTheftDelegate>(AtRva(libraryHandle, theftResolved));
-                presentationHandler = Marshal.GetDelegateForFunctionPointer<PresentationDelegate>(AtRva(libraryHandle, handlerRva));
-                presentationManager = AtRva(libraryHandle, managerRva);
-                unavailableReason = string.Empty;
-
-                LogInfo(
-                    "Native timeline-event handlers ready: " +
-                    $"hasBuildingRva=0x{hasBuildingResolved:X}, wheatRva=0x{wheatResolved:X}, " +
-                    $"hopsRva=0x{hopsResolved:X}, appleRva=0x{appleResolved:X}, " +
-                    $"madCowUnitRva=0x{madCowUnitResolved:X}, madCowBuildingRva=0x{madCowBuildingResolved:X}, " +
-                    $"granaryTheftRva=0x{theftResolved:X}, presentationRva=0x{handlerRva:X}, " +
-                    $"presentationManagerRva=0x{managerRva:X}.");
+                QueuePresentation(messageId, presentationId, video, audio);
+                return true;
             }
             catch (Exception ex)
             {
-                Reset(ex.Message);
-                LogError(
-                    "Native timeline-event handler validation failed. Wheat infestation, hops beetles, apple blight, " +
-                    $"mad cows, and granary theft remain inactive; no Timeline data will be changed. Reason: {ex}");
+                failure = ex.Message;
+                return false;
             }
+        }
+
+        public void InitializeNative(IntPtr libraryHandle, ReadOnlySpan<byte> memory, bool referenceHashMatches)
+        {
+            Reset();
+            LogInfo(
+                $"Native event-handler resolution started: referenceHashMatch={referenceHashMatches}, " +
+                "strategy=validated reference RVA or executable-section AOB.");
+
+            List<string> resolved = new List<string>();
+            hasBuilding = TryResolveDelegate<HasBuildingDelegate>(
+                libraryHandle, memory, HasBuildingPattern, HasBuildingRva, referenceHashMatches, "building prerequisite", resolved);
+            wheatHandler = TryResolveDelegate<BuildingEventDelegate>(
+                libraryHandle, memory, WheatPattern, WheatHandlerRva, referenceHashMatches, "wheat infestation", resolved);
+            hopsHandler = TryResolveDelegate<BuildingEventDelegate>(
+                libraryHandle, memory, HopsPattern, HopsHandlerRva, referenceHashMatches, "hops beetles", resolved);
+            appleHandler = TryResolveDelegate<BuildingEventDelegate>(
+                libraryHandle, memory, ApplePattern, AppleHandlerRva, referenceHashMatches, "apple blight", resolved);
+            madCowUnitHandler = TryResolveDelegate<UnitEventDelegate>(
+                libraryHandle, memory, MadCowUnitPattern, MadCowUnitHandlerRva, referenceHashMatches, "mad-cow unit effect", resolved);
+            madCowBuildingHandler = TryResolveDelegate<BuildingEventDelegate>(
+                libraryHandle, memory, MadCowBuildingPattern, MadCowBuildingHandlerRva, referenceHashMatches, "mad-cow building effect", resolved);
+            granaryTheftHandler = TryResolveDelegate<GranaryTheftDelegate>(
+                libraryHandle, memory, GranaryTheftPattern, GranaryTheftHandlerRva, referenceHashMatches, "granary theft", resolved);
+            ResolvePresentation(libraryHandle, memory, referenceHashMatches, resolved);
+
+            List<string> availableEvents = new List<string>();
+            foreach (RandomEventKind kind in new[]
+            {
+                RandomEventKind.WheatInfestation,
+                RandomEventKind.HopsBeetles,
+                RandomEventKind.AppleBlight,
+                RandomEventKind.MadCows,
+                RandomEventKind.GranaryTheft
+            })
+            {
+                if (TryGetEventAvailability(kind, out _))
+                    availableEvents.Add(kind.ToString());
+            }
+
+            LogInfo(
+                $"Native event-handler resolution finished: available={availableEvents.Count}/5 " +
+                $"[{string.Join(", ", availableEvents)}], resolved=[{string.Join(", ", resolved)}].");
         }
 
         public NativeEventDispatchStatus Dispatch(
@@ -144,9 +145,8 @@ namespace RandomEvents
             int targetPlayerId,
             out string detail)
         {
-            if (!IsAvailable)
+            if (!TryGetEventAvailability(kind, out detail))
             {
-                detail = unavailableReason;
                 return NativeEventDispatchStatus.Unavailable;
             }
 
@@ -278,7 +278,123 @@ namespace RandomEvents
             }
         }
 
-        private void Reset(string reason)
+        private TDelegate TryResolveDelegate<TDelegate>(
+            IntPtr libraryHandle,
+            ReadOnlySpan<byte> memory,
+            string pattern,
+            int referenceRva,
+            bool referenceHashMatches,
+            string name,
+            List<string> resolved)
+            where TDelegate : class
+        {
+            try
+            {
+                NativeResolution resolution = NativePatternResolver.ResolveUnique(
+                    memory,
+                    pattern,
+                    referenceRva,
+                    referenceHashMatches,
+                    name);
+                TDelegate handler = Marshal.GetDelegateForFunctionPointer(
+                    AtRva(libraryHandle, resolution.Rva),
+                    typeof(TDelegate)) as TDelegate;
+                if (handler == null)
+                    throw new InvalidOperationException($"{name} could not be converted to {typeof(TDelegate).Name}.");
+                resolved.Add($"{name}=0x{resolution.Rva:X}/{resolution.Strategy}");
+                return handler;
+            }
+            catch (Exception ex)
+            {
+                LogWarning($"Native handler unavailable: component={name}, reason={ex.Message}");
+                return null;
+            }
+        }
+
+        private void ResolvePresentation(
+            IntPtr libraryHandle,
+            ReadOnlySpan<byte> memory,
+            bool referenceHashMatches,
+            List<string> resolved)
+        {
+            try
+            {
+                NativeResolution callsite = NativePatternResolver.ResolveUnique(
+                    memory,
+                    PresentationCallsitePattern,
+                    PresentationCallsiteRva,
+                    referenceHashMatches,
+                    "event presentation callsite");
+                int managerRva = NativePatternResolver.ResolveRelativeTarget(
+                    memory,
+                    callsite.Rva + 13,
+                    callsite.Rva + 17);
+                int handlerRva = NativePatternResolver.ResolveRelativeTarget(
+                    memory,
+                    callsite.Rva + 18,
+                    callsite.Rva + 22);
+                if (!NativePatternResolver.MatchesPatternAt(memory, handlerRva, PresentationHandlerPattern))
+                    throw new InvalidOperationException($"presentation handler RVA 0x{handlerRva:X} failed semantic validation.");
+                if (managerRva <= 0 || managerRva >= memory.Length)
+                    throw new InvalidOperationException($"presentation manager RVA 0x{managerRva:X} is outside the module image.");
+                if (referenceHashMatches &&
+                    (managerRva != PresentationManagerRva || handlerRva != PresentationHandlerRva))
+                {
+                    throw new InvalidOperationException(
+                        $"reference presentation targets differ: manager=0x{managerRva:X}, handler=0x{handlerRva:X}.");
+                }
+
+                presentationHandler = Marshal.GetDelegateForFunctionPointer<PresentationDelegate>(AtRva(libraryHandle, handlerRva));
+                presentationManager = AtRva(libraryHandle, managerRva);
+                resolved.Add(
+                    $"presentation=0x{handlerRva:X},manager=0x{managerRva:X}/{callsite.Strategy}");
+            }
+            catch (Exception ex)
+            {
+                presentationHandler = null;
+                presentationManager = IntPtr.Zero;
+                LogWarning($"Native handler unavailable: component=event presentation, reason={ex.Message}");
+            }
+        }
+
+        private bool TryGetEventAvailability(RandomEventKind kind, out string reason)
+        {
+            if (presentationHandler == null || presentationManager == IntPtr.Zero)
+            {
+                reason = "native Vanilla presentation queue is unavailable.";
+                return false;
+            }
+
+            bool available;
+            switch (kind)
+            {
+                case RandomEventKind.WheatInfestation:
+                    available = hasBuilding != null && wheatHandler != null;
+                    break;
+                case RandomEventKind.HopsBeetles:
+                    available = hasBuilding != null && hopsHandler != null;
+                    break;
+                case RandomEventKind.AppleBlight:
+                    available = hasBuilding != null && appleHandler != null;
+                    break;
+                case RandomEventKind.MadCows:
+                    available = hasBuilding != null && madCowUnitHandler != null && madCowBuildingHandler != null;
+                    break;
+                case RandomEventKind.GranaryTheft:
+                    available = granaryTheftHandler != null;
+                    break;
+                default:
+                    reason = $"event kind {kind} has no native event handler.";
+                    return false;
+            }
+
+            reason = available
+                ? string.Empty
+                : $"one or more validated native handlers for {kind} are unavailable.";
+            return available;
+        }
+
+        private void Reset()
         {
             presentationManager = IntPtr.Zero;
             hasBuilding = null;
@@ -289,83 +405,13 @@ namespace RandomEvents
             madCowBuildingHandler = null;
             granaryTheftHandler = null;
             presentationHandler = null;
-            unavailableReason = reason;
-        }
-
-        private static int ResolveFunction(
-            ReadOnlySpan<byte> memory,
-            string patternText,
-            int referenceRva,
-            bool referenceHashMatches,
-            string name)
-        {
-            PatternByte[] pattern = ParsePattern(patternText);
-            if (referenceHashMatches && MatchesPatternAt(memory, referenceRva, pattern))
-                return referenceRva;
-
-            int scanLength = Math.Min(memory.Length, CodeScanLength);
-            int match = FindUniquePattern(memory.Slice(0, scanLength), pattern);
-            if (match < 0)
-                throw new InvalidOperationException($"{name} semantic AOB was not found uniquely in the native code range.");
-            return match;
-        }
-
-        private static int FindUniquePattern(ReadOnlySpan<byte> memory, PatternByte[] pattern)
-        {
-            int match = -1;
-            for (int offset = 0; offset <= memory.Length - pattern.Length; offset++)
-            {
-                if (!MatchesPatternAt(memory, offset, pattern))
-                    continue;
-                if (match >= 0)
-                    return -1;
-                match = offset;
-            }
-            return match;
-        }
-
-        private static bool MatchesPatternAt(ReadOnlySpan<byte> memory, int offset, PatternByte[] pattern)
-        {
-            if (offset < 0 || offset > memory.Length - pattern.Length)
-                return false;
-            for (int index = 0; index < pattern.Length; index++)
-            {
-                if (!pattern[index].Wildcard && memory[offset + index] != pattern[index].Value)
-                    return false;
-            }
-            return true;
-        }
-
-        private static PatternByte[] ParsePattern(string pattern)
-        {
-            string[] tokens = pattern.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-            List<PatternByte> result = new List<PatternByte>(tokens.Length);
-            foreach (string token in tokens)
-            {
-                if (token == "??")
-                    result.Add(new PatternByte(0, true));
-                else
-                    result.Add(new PatternByte(Convert.ToByte(token, 16), false));
-            }
-            return result.ToArray();
-        }
-
-        private static int ResolveRelativeTarget(ReadOnlySpan<byte> memory, int displacementRva, int nextInstructionRva)
-        {
-            if (displacementRva < 0 || displacementRva > memory.Length - sizeof(int))
-                throw new InvalidOperationException("relative native target displacement is outside the module image.");
-            int displacement = memory[displacementRva] |
-                (memory[displacementRva + 1] << 8) |
-                (memory[displacementRva + 2] << 16) |
-                (memory[displacementRva + 3] << 24);
-            return checked(nextInstructionRva + displacement);
         }
 
         private static IntPtr AtRva(IntPtr libraryHandle, int rva) =>
             new IntPtr(checked(libraryHandle.ToInt64() + rva));
 
         private void LogInfo(string message) => Shared.DebugLogHelper.LogInfo(log, message);
-        private void LogError(string message) => Shared.DebugLogHelper.LogError(log, message);
+        private void LogWarning(string message) => Shared.DebugLogHelper.LogWarning(log, message);
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate int HasBuildingDelegate(IntPtr buildingManager, int playerId, int buildingType);
@@ -387,16 +433,5 @@ namespace RandomEvents
             IntPtr video,
             IntPtr audio);
 
-        private readonly struct PatternByte
-        {
-            public PatternByte(byte value, bool wildcard)
-            {
-                Value = value;
-                Wildcard = wildcard;
-            }
-
-            public byte Value { get; }
-            public bool Wildcard { get; }
-        }
     }
 }

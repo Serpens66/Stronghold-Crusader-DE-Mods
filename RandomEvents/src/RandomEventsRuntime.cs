@@ -11,7 +11,6 @@ using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 
@@ -22,15 +21,14 @@ namespace RandomEvents
         private const string SaveDataIdentifier = "serp-randomevents-state-v2";
         private const int VanillaMonthsPerYear = 12;
         private const int RabbitSpawnRadius = 12;
-        private const int MinimumRabbitCount = 10;
-        private const int MaximumRabbitCount = 50;
-        private const int NeutralPlayerId = 0;
+        private const int LionSpawnRadius = 12;
 
         private readonly ManualLogSource log;
         private readonly RandomEventsSettingsViewModel settings;
         private readonly ScenarioSignpostRegistry signpostRegistry;
         private readonly SignpostPlacementService signpostPlacement;
         private readonly NativeVanillaEventDispatcher nativeEventDispatcher;
+        private readonly NativeWildlifeEventDispatcher nativeWildlifeDispatcher;
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
         private bool initialized;
         private bool disposed;
@@ -40,9 +38,7 @@ namespace RandomEvents
         private bool multiplayerDisableLogged;
         private bool mapStartedFromMultiplayerSave;
         private int lastSignpostAttemptTick = int.MinValue;
-        private int lastLoggedAbsoluteMonth = int.MinValue;
-        private long lastClockLogTimestamp;
-        private bool calendarApiFallbackLogged;
+        private bool calendarApiChecked;
         private RandomEventsSaveStateV2 state;
 
         public RandomEventsRuntime(ManualLogSource log, RandomEventsSettingsViewModel settings)
@@ -52,12 +48,14 @@ namespace RandomEvents
             signpostRegistry = new ScenarioSignpostRegistry(log);
             signpostPlacement = new SignpostPlacementService(log, signpostRegistry);
             nativeEventDispatcher = new NativeVanillaEventDispatcher(log);
+            nativeWildlifeDispatcher = new NativeWildlifeEventDispatcher(log, nativeEventDispatcher);
         }
 
         public void InitializeNative(IntPtr libraryHandle, ReadOnlySpan<byte> memory, bool referenceHashMatches)
         {
             signpostRegistry.InitializeNative(libraryHandle, memory, referenceHashMatches);
             nativeEventDispatcher.InitializeNative(libraryHandle, memory, referenceHashMatches);
+            nativeWildlifeDispatcher.InitializeNative(libraryHandle, memory, referenceHashMatches);
         }
 
         public void Initialize()
@@ -105,9 +103,7 @@ namespace RandomEvents
             multiplayerDisableLogged = false;
             mapStartedFromMultiplayerSave = args.bMultiplayerSave != 0;
             lastSignpostAttemptTick = int.MinValue;
-            lastLoggedAbsoluteMonth = int.MinValue;
-            lastClockLogTimestamp = 0;
-            calendarApiFallbackLogged = false;
+            calendarApiChecked = false;
             LogInfo(
                 $"Map start received; initialization deferred to persistent game tick: " +
                 $"loadedState={loadedStateAvailable}, multiplayerSave={mapStartedFromMultiplayerSave}.");
@@ -126,9 +122,7 @@ namespace RandomEvents
             loadedStateAvailable = false;
             multiplayerDisableLogged = false;
             mapStartedFromMultiplayerSave = false;
-            lastLoggedAbsoluteMonth = int.MinValue;
-            lastClockLogTimestamp = 0;
-            calendarApiFallbackLogged = false;
+            calendarApiChecked = false;
             state = null;
         }
 
@@ -154,7 +148,6 @@ namespace RandomEvents
                 }
 
                 int currentAbsoluteMonth = GetCurrentAbsoluteMonth();
-                LogClockHeartbeat(tick, currentAbsoluteMonth);
                 if (state.BatchPrepared && currentAbsoluteMonth >= state.NextDueAbsoluteMonth)
                 {
                     ExecuteDueBatch(currentAbsoluteMonth);
@@ -244,18 +237,19 @@ namespace RandomEvents
             }
 
             int interval = Math.Max(1, Math.Min(90, settings.IntervalMonths));
+            int[] chances = settings.SnapshotChances();
             return new RandomEventsSaveStateV2
             {
                 EffectiveEnabled = true,
                 IntervalMonths = interval,
                 MultiplayerMode = Math.Max(0, Math.Min(1, settings.MultiplayerEventModeIndex)),
-                Chances = settings.SnapshotChances(),
+                Chances = chances,
                 StrengthMinimums = minimums,
                 StrengthMaximums = maximums,
                 PrngState0 = BitConverter.ToUInt64(seed, 0),
                 PrngState1 = BitConverter.ToUInt64(seed, 8),
                 NextDueAbsoluteMonth = checked(GetCurrentAbsoluteMonth() + interval),
-                SignpostsInitialized = !RandomEventDefinitions.RequiresSignposts(settings.SnapshotChances())
+                SignpostsInitialized = !RandomEventDefinitions.RequiresSignposts(chances)
             };
         }
 
@@ -272,7 +266,7 @@ namespace RandomEvents
                 int roll = prng.Next(100);
                 bool success = roll < chance;
                 int strength = success ? RollStrength(definition.StrengthKind, ref prng) : 0;
-                LogInfo(
+                LogDebug(
                     $"Event roll: event={definition.Name}, kind={definition.Kind}, roll={roll}, chance={chance}, " +
                     $"success={success}, strength={strength}, dueAbsoluteMonth={state.NextDueAbsoluteMonth}.");
 
@@ -310,9 +304,6 @@ namespace RandomEvents
             int[] directKinds = state.PreparedDirectKinds ?? Array.Empty<int>();
             int[] strengths = state.PreparedDirectStrengths ?? Array.Empty<int>();
             int[] targetPlayerIds = state.PreparedDirectTargetPlayerIds ?? Array.Empty<int>();
-            int snapshotTargetPlayerId = GetBatchTargetPlayerId(targetPlayerIds);
-
-            LogInfo($"Prerequisite snapshot before due batch: dueAbsoluteMonth={due}, {CapturePrerequisiteSnapshot(snapshotTargetPlayerId)}.");
 
             // Clear first so a save callback during a Vanilla action cannot persist an executable duplicate.
             state.BatchPrepared = false;
@@ -331,7 +322,6 @@ namespace RandomEvents
                 DispatchDirectEvent(definition, strength, targetPlayerId);
             }
 
-            LogInfo($"Prerequisite snapshot after direct batch: dueAbsoluteMonth={due}, {CapturePrerequisiteSnapshot(snapshotTargetPlayerId)}.");
             state.NextDueAbsoluteMonth = checked(due + state.IntervalMonths);
             LogInfo($"Next event batch will be prepared on the following game tick: nextDueAbsoluteMonth={state.NextDueAbsoluteMonth}.");
         }
@@ -408,9 +398,22 @@ namespace RandomEvents
                 return;
             }
 
-            if (definition.DispatchKind == RandomEventDispatchKind.ManagedRabbit)
+            if (!TryGetLivingLord(targetPlayerId, out string lordFailure))
             {
-                SpawnRabbitInfestation(targetPlayerId);
+                LogInfo(
+                    $"Random event skipped: event={definition.Name}, targetPlayerId={targetPlayerId}, " +
+                    $"reason=target player has no living Lord ({lordFailure}).");
+                return;
+            }
+
+            if (definition.DispatchKind == RandomEventDispatchKind.NativeWildlife)
+            {
+                if (definition.Kind == RandomEventKind.Rabbits)
+                    SpawnRabbitInfestation(targetPlayerId);
+                else if (definition.Kind == RandomEventKind.LionAttack)
+                    SpawnLionAttack(targetPlayerId, strength);
+                else
+                    LogError($"Native wildlife event skipped: unsupported event kind {definition.Kind}.");
                 return;
             }
 
@@ -512,6 +515,14 @@ namespace RandomEvents
 
         private void SpawnRabbitInfestation(int targetPlayerId)
         {
+            if (!nativeWildlifeDispatcher.TryGetRabbitTileMask(out uint rabbitTileMask, out string compatibilityFailure))
+            {
+                LogError(
+                    $"Native rabbit event skipped: targetPlayerId={targetPlayerId}, " +
+                    $"reason={compatibilityFailure}");
+                return;
+            }
+
             List<RabbitFarm> farms = new List<RabbitFarm>();
             Span<GameBuilding> buildings = GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
             for (int buildingId = 0; buildingId < buildings.Length; buildingId++)
@@ -542,7 +553,11 @@ namespace RandomEvents
 
             SavedPrng prng = new SavedPrng(state.PrngState0, state.PrngState1);
             RabbitFarm farm = farms[prng.Next(farms.Count)];
-            List<RabbitSpawnTile> spawnTiles = FindRabbitSpawnTiles(farm.TileX, farm.TileY);
+            List<RabbitSpawnTile> spawnTiles = FindWildlifeSpawnTiles(
+                farm.TileX,
+                farm.TileY,
+                RabbitSpawnRadius,
+                rabbitTileMask);
             if (spawnTiles.Count == 0)
             {
                 state.PrngState0 = prng.State0;
@@ -550,45 +565,91 @@ namespace RandomEvents
                 LogWarning(
                     $"Rabbit infestation skipped: targetPlayerId={targetPlayerId}, farmBuildingId={farm.BuildingId}, " +
                     $"farmType={farm.BuildingType}, farmTile=({farm.TileX},{farm.TileY}), " +
-                    $"reason=no walkable and unoccupied tile exists within radius {RabbitSpawnRadius}.");
+                    $"reason=no Vanilla-compatible tile exists within radius {RabbitSpawnRadius}.");
                 return;
             }
 
-            int requestedCount = prng.NextInclusive(MinimumRabbitCount, MaximumRabbitCount);
-            int createdCount = 0;
-            for (int index = 0; index < requestedCount; index++)
-            {
-                RabbitSpawnTile tile = spawnTiles[prng.Next(spawnTiles.Count)];
-                // Wildlife uses the neutral player so hunters treat the spawned rabbits like map animals.
-                long unitId = GameUnitManagerAPI.Instance.CreateUnitLocal(
-                    NeutralPlayerId,
-                    NeutralPlayerId,
-                    tile.X,
-                    tile.Y,
-                    tile.Height,
-                    eChimps.CHIMP_TYPE_RABBIT);
-                if (unitId > 0)
-                    createdCount++;
-            }
-
-            // Consume and persist every spawn choice so save/load keeps the event stream deterministic.
+            RabbitSpawnTile spawnTile = spawnTiles[prng.Next(spawnTiles.Count)];
             state.PrngState0 = prng.State0;
             state.PrngState1 = prng.State1;
-            LogInfo(
-                $"Rabbit infestation spawned directly: targetPlayerId={targetPlayerId}, " +
+            NativeEventDispatchStatus status = nativeWildlifeDispatcher.DispatchRabbits(
+                spawnTile.X, spawnTile.Y, spawnTile.Height, out string detail);
+            LogWildlifeDispatchResult(
+                "Rabbit infestation",
+                status,
+                targetPlayerId,
                 $"farmBuildingId={farm.BuildingId}, farmType={farm.BuildingType}, " +
                 $"farmTile=({farm.TileX},{farm.TileY}), radius={RabbitSpawnRadius}, " +
-                $"candidateTiles={spawnTiles.Count}, requestedRabbits={requestedCount}, createdRabbits={createdCount}.");
+                $"spawnTile=({spawnTile.X},{spawnTile.Y}), candidateTiles={spawnTiles.Count}, detail={detail}");
         }
 
-        private static List<RabbitSpawnTile> FindRabbitSpawnTiles(int centerX, int centerY)
+        private void SpawnLionAttack(int targetPlayerId, int strength)
+        {
+            if (!nativeWildlifeDispatcher.TryGetLionTileMask(out uint lionTileMask, out string compatibilityFailure))
+            {
+                LogError(
+                    $"Native lion event skipped: targetPlayerId={targetPlayerId}, " +
+                    $"reason={compatibilityFailure}");
+                return;
+            }
+
+            if (!signpostRegistry.TryGetClosestSignpostToPlayer(
+                    targetPlayerId,
+                    out int signpostBuildingId,
+                    out int signpostX,
+                    out int signpostY,
+                    out double signpostDistance,
+                    out string distanceReference,
+                    out string signpostFailure))
+            {
+                LogError(
+                    $"Native lion event skipped: targetPlayerId={targetPlayerId}, " +
+                    $"reason=closest registered signpost unavailable ({signpostFailure}).");
+                return;
+            }
+
+            List<RabbitSpawnTile> spawnTiles = FindWildlifeSpawnTiles(
+                signpostX,
+                signpostY,
+                LionSpawnRadius,
+                lionTileMask);
+            if (spawnTiles.Count == 0)
+            {
+                LogError(
+                    $"Native lion event skipped: targetPlayerId={targetPlayerId}, signpostBuildingId={signpostBuildingId}, " +
+                    $"signpostTile=({signpostX},{signpostY}), reason=no Vanilla-compatible tile exists within radius {LionSpawnRadius}.");
+                return;
+            }
+
+            // The first candidate is the nearest valid tile to the selected signpost.
+            RabbitSpawnTile spawnTile = spawnTiles[0];
+            NativeEventDispatchStatus status = nativeWildlifeDispatcher.DispatchLions(
+                spawnTile.X, spawnTile.Y, spawnTile.Height, strength, out string detail);
+            LogWildlifeDispatchResult(
+                "Lion attack",
+                status,
+                targetPlayerId,
+                $"strength={strength}, signpostBuildingId={signpostBuildingId}, " +
+                $"signpostTile=({signpostX},{signpostY}), distanceReference={distanceReference}, " +
+                $"signpostDistance={signpostDistance:0.00}, " +
+                $"spawnTile=({spawnTile.X},{spawnTile.Y}), spawnRadius={LionSpawnRadius}, detail={detail}");
+        }
+
+        private static List<RabbitSpawnTile> FindWildlifeSpawnTiles(
+            int centerX,
+            int centerY,
+            int radius,
+            uint rejectedTileMask)
         {
             List<RabbitSpawnTile> result = new List<RabbitSpawnTile>();
             GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
-            int radiusSquared = RabbitSpawnRadius * RabbitSpawnRadius;
-            for (int y = centerY - RabbitSpawnRadius; y <= centerY + RabbitSpawnRadius; y++)
+            if (rejectedTileMask == 0)
+                return result;
+
+            int radiusSquared = radius * radius;
+            for (int y = centerY - radius; y <= centerY + radius; y++)
             {
-                for (int x = centerX - RabbitSpawnRadius; x <= centerX + RabbitSpawnRadius; x++)
+                for (int x = centerX - radius; x <= centerX + radius; x++)
                 {
                     int deltaX = x - centerX;
                     int deltaY = y - centerY;
@@ -599,11 +660,69 @@ namespace RandomEvents
                     }
 
                     int tileId = tiles.GetTileId(x, y);
-                    if (tiles.IsTileWalkableAndUnoccupied(tileId))
-                        result.Add(new RabbitSpawnTile(x, y, tiles.GetTileHeight(tileId)));
+                    uint flags = unchecked((uint)tiles.GetTilePropertyFlag(tileId));
+                    if ((flags & rejectedTileMask) == 0)
+                        result.Add(new RabbitSpawnTile(x, y, tiles.GetTileHeight(tileId), deltaX * deltaX + deltaY * deltaY));
                 }
             }
+            result.Sort((left, right) => left.DistanceSquared.CompareTo(right.DistanceSquared));
             return result;
+        }
+
+        private void LogWildlifeDispatchResult(
+            string eventName,
+            NativeEventDispatchStatus status,
+            int targetPlayerId,
+            string details)
+        {
+            if (status == NativeEventDispatchStatus.Applied)
+            {
+                LogInfo($"Native Vanilla wildlife event dispatched: event={eventName}, targetPlayerId={targetPlayerId}, {details}.");
+                return;
+            }
+            if (status == NativeEventDispatchStatus.PrerequisiteNotMet)
+            {
+                LogInfo($"Native Vanilla wildlife event had no effect: event={eventName}, targetPlayerId={targetPlayerId}, {details}.");
+                return;
+            }
+            LogError($"Native Vanilla wildlife event disabled or failed: event={eventName}, targetPlayerId={targetPlayerId}, {details}.");
+        }
+
+        private static unsafe bool TryGetLivingLord(int playerId, out string failure)
+        {
+            failure = string.Empty;
+            if (!GamePlayerManagerAPI.Instance.TryGetPlayerResourcesById(
+                    playerId,
+                    out GamePlayerResources* resources) ||
+                resources == null)
+            {
+                failure = "player resources unavailable";
+                return false;
+            }
+
+            uint lordUnitId = resources->r_LordUnitId;
+            if (lordUnitId == 0 || lordUnitId > int.MaxValue)
+            {
+                failure = "no valid Lord unit is registered";
+                return false;
+            }
+            if (!GameUnitManagerAPI.Instance.TryGetUnitById((int)lordUnitId, out GameUnit* lord) || lord == null)
+            {
+                failure = "registered Lord unit cannot be resolved";
+                return false;
+            }
+            if (lord->r_AliveState != AliveState.IsAlive)
+            {
+                failure = $"registered Lord unit state is {lord->r_AliveState}";
+                return false;
+            }
+            if (lord->r_UnitChimp != eChimps.CHIMP_TYPE_LORD || lord->r_ControllableForPlayerId != playerId)
+            {
+                failure = "registered unit is not the target player's Lord";
+                return false;
+            }
+
+            return true;
         }
 
         private int GetCurrentAbsoluteMonth()
@@ -614,136 +733,8 @@ namespace RandomEvents
             return checked(currentYear * VanillaMonthsPerYear + currentMonth);
         }
 
-        private void LogClockHeartbeat(int tick, int currentAbsoluteMonth)
-        {
-            long now = Stopwatch.GetTimestamp();
-            bool monthChanged = currentAbsoluteMonth != lastLoggedAbsoluteMonth;
-            // Periodic output distinguishes a frozen calendar API from a stopped persistent tick hook.
-            bool periodic = lastClockLogTimestamp == 0 ||
-                (now - lastClockLogTimestamp) >= Stopwatch.Frequency * 30L;
-            if (!monthChanged && !periodic)
-                return;
-
-            int currentYear = GameTimeManagerAPI.Instance.GetCurrentYear();
-            int currentMonth = GameTimeManagerAPI.Instance.GetCurrentMonth();
-            int apiMonthsPerYear = GameTimeManagerAPI.Instance.GetMonthsInYear();
-            LogInfo(
-                $"Game-time heartbeat: reason={(monthChanged ? "month-changed" : "periodic")}, tick={tick}, " +
-                $"year={currentYear}, month={currentMonth}, apiMonthsPerYear={apiMonthsPerYear}, " +
-                $"effectiveMonthsPerYear={VanillaMonthsPerYear}, " +
-                $"absoluteMonth={currentAbsoluteMonth}, nextDueAbsoluteMonth={state.NextDueAbsoluteMonth}, " +
-                $"batchPrepared={state.BatchPrepared}.");
-            lastLoggedAbsoluteMonth = currentAbsoluteMonth;
-            lastClockLogTimestamp = now;
-        }
-
-        private int GetBatchTargetPlayerId(int[] targetPlayerIds)
-        {
-            if (targetPlayerIds != null)
-            {
-                foreach (int playerId in targetPlayerIds)
-                {
-                    if (GamePlayerManagerAPI.Instance.IsPlayerIdValid(playerId))
-                        return playerId;
-                }
-            }
-
-            return GamePlayerManagerAPI.Instance.GetLocalPlayerId();
-        }
-
-        private unsafe string CapturePrerequisiteSnapshot(int targetPlayerId)
-        {
-            int wheatAlive = 0;
-            int hopsAlive = 0;
-            int appleAlive = 0;
-            int cattleAlive = 0;
-            int granaryAlive = 0;
-            int relevantNeedsInit = 0;
-
-            Span<GameBuilding> buildings = GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
-            for (int index = 0; index < buildings.Length; index++)
-            {
-                ref GameBuilding building = ref buildings[index];
-                if (building.r_PlayerIdOwner != targetPlayerId)
-                    continue;
-
-                bool relevant = building.r_BuildingType == eStructs.STRUCT_WHEATFARM ||
-                    building.r_BuildingType == eStructs.STRUCT_HOPSFARM ||
-                    building.r_BuildingType == eStructs.STRUCT_APPLEFARM ||
-                    building.r_BuildingType == eStructs.STRUCT_CATTLEFARM ||
-                    building.r_BuildingType == eStructs.STRUCT_GRANARY;
-                if (!relevant)
-                    continue;
-                if (building.r_AliveState == AliveState.NeedsInit)
-                {
-                    relevantNeedsInit++;
-                    continue;
-                }
-                // Vanilla's event prerequisite searches only accept fully alive structures.
-                if (building.r_AliveState != AliveState.IsAlive)
-                    continue;
-
-                switch (building.r_BuildingType)
-                {
-                    case eStructs.STRUCT_WHEATFARM: wheatAlive++; break;
-                    case eStructs.STRUCT_HOPSFARM: hopsAlive++; break;
-                    case eStructs.STRUCT_APPLEFARM: appleAlive++; break;
-                    case eStructs.STRUCT_CATTLEFARM: cattleAlive++; break;
-                    case eStructs.STRUCT_GRANARY: granaryAlive++; break;
-                }
-            }
-
-            CountRabbitUnits(out int rabbitsAlive, out int rabbitsNeedsInit);
-
-            int registeredSignposts = 0;
-            foreach (int buildingId in signpostRegistry.ReadRegisteredBuildingIds())
-            {
-                if (buildingId > 0)
-                    registeredSignposts++;
-            }
-
-            if (!GamePlayerManagerAPI.Instance.TryGetPlayerResourcesById(targetPlayerId, out GamePlayerResources* resources) ||
-                resources == null)
-            {
-                return
-                    $"targetPlayerId={targetPlayerId}, playerResources=unavailable, " +
-                    $"farmsAlive[wheat={wheatAlive},hops={hopsAlive},apple={appleAlive},cattle={cattleAlive}], " +
-                    $"granariesAlive={granaryAlive}, relevantBuildingsNeedsInit={relevantNeedsInit}, " +
-                    $"rabbitsAlive={rabbitsAlive}, rabbitsNeedsInit={rabbitsNeedsInit}, " +
-                    $"registeredSignposts={registeredSignposts}";
-            }
-
-            return
-                $"targetPlayerId={targetPlayerId}, population={resources->r_TotalPopulation}, " +
-                $"plagueEligibilityField0x02B8={resources->N00003A4E}, firstGranaryId={resources->r_FirstGranaryId}, " +
-                $"food[bread={resources->r_FoodStockBread},cheese={resources->r_FoodStockCheese}," +
-                $"meat={resources->r_FoodStockMeat},fruit={resources->r_FoodStockFruit},total={resources->r_FoodStockTotal}], " +
-                $"farmsAlive[wheat={wheatAlive},hops={hopsAlive},apple={appleAlive},cattle={cattleAlive}], " +
-                $"granariesAlive={granaryAlive}, relevantBuildingsNeedsInit={relevantNeedsInit}, " +
-                $"rabbitsAlive={rabbitsAlive}, rabbitsNeedsInit={rabbitsNeedsInit}, " +
-                $"registeredSignposts={registeredSignposts}";
-        }
-
-        private static void CountRabbitUnits(out int alive, out int needsInit)
-        {
-            alive = 0;
-            needsInit = 0;
-            Span<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitsAsSpan();
-            for (int index = 0; index < units.Length; index++)
-            {
-                ref GameUnit unit = ref units[index];
-                if (unit.r_UnitChimp != eChimps.CHIMP_TYPE_RABBIT)
-                    continue;
-                if (unit.r_AliveState == AliveState.IsAlive)
-                    alive++;
-                else if (unit.r_AliveState == AliveState.NeedsInit)
-                    needsInit++;
-            }
-        }
-
         private void ValidateCalendarApi(int currentYear, int currentMonth)
         {
-            int apiMonthsPerYear = GameTimeManagerAPI.Instance.GetMonthsInYear();
             if (currentYear < 0 || currentMonth < 0 || currentMonth >= VanillaMonthsPerYear)
             {
                 mapActive = false;
@@ -753,11 +744,15 @@ namespace RandomEvents
                     "Random Events was disabled for this map to prevent incorrectly dated events.");
             }
 
-            if (apiMonthsPerYear == VanillaMonthsPerYear || calendarApiFallbackLogged)
+            if (calendarApiChecked)
                 return;
 
-            calendarApiFallbackLogged = true;
-            LogWarning(
+            calendarApiChecked = true;
+            int apiMonthsPerYear = GameTimeManagerAPI.Instance.GetMonthsInYear();
+            if (apiMonthsPerYear == VanillaMonthsPerYear)
+                return;
+
+            LogInfo(
                 $"GameTimeManagerAPI.GetMonthsInYear() returned {apiMonthsPerYear}; " +
                 $"Random Events uses the validated Vanilla calendar constant {VanillaMonthsPerYear} instead.");
         }
@@ -774,6 +769,7 @@ namespace RandomEvents
                 $"Network details: {details}.");
         }
 
+        private void LogDebug(string message) => Shared.DebugLogHelper.LogDebug(log, message);
         private void LogInfo(string message) => Shared.DebugLogHelper.LogInfo(log, message);
         private void LogWarning(string message) => Shared.DebugLogHelper.LogWarning(log, message);
         private void LogError(string message) => Shared.DebugLogHelper.LogError(log, message);
@@ -796,16 +792,18 @@ namespace RandomEvents
 
         private readonly struct RabbitSpawnTile
         {
-            public RabbitSpawnTile(int x, int y, int height)
+            public RabbitSpawnTile(int x, int y, int height, int distanceSquared)
             {
                 X = x;
                 Y = y;
                 Height = height;
+                DistanceSquared = distanceSquared;
             }
 
             public int X { get; }
             public int Y { get; }
             public int Height { get; }
+            public int DistanceSquared { get; }
         }
     }
 }

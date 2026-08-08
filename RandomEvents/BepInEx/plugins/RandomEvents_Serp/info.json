@@ -3,10 +3,35 @@
   "Author": "Serpens66",
   "Name": "Random Events",
   "Description": "Runs configurable Vanilla scenario events in singleplayer skirmishes and Trail missions.",
-  "Version": "1.0.12",
+  "Version": "1.0.15",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.15",
+      "Changes": [
+        "Replaced the Lord-ID-only gate with a resolved Lord unit check that requires IsAlive, the Lord unit type, and ownership by the target player; removed periodic Lord-ID diagnostics.",
+        "Lion attacks now use Vanilla's native wildlife handler at the registered signpost closest to the target player's keep or living Lord and arm each created tribe with Vanilla's attack state.",
+        "Rabbit infestations now create a proper Vanilla rabbit tribe at one selected point within 12 tiles of an eligible farm, restoring Vanilla spreading and feeding behavior.",
+        "Resolves wildlife handlers, prerequisites, tile masks, and lion tribe layout semantically after game updates; only the incompatible rabbit or lion feature is disabled with an Error log."
+      ]
+    },
+    {
+      "Version": "1.0.14",
+      "Changes": [
+        "Restored the 12-tile rabbit search radius and now spawns the complete rabbit group on one randomly selected valid tile so Vanilla movement spreads it naturally.",
+        "Skips every random event when the target player's r_LordUnitId is zero or player resources are unavailable.",
+        "Logs r_LordUnitId for all eight player slots at Info level every ten seconds while Random Events is active."
+      ]
+    },
+    {
+      "Version": "1.0.13",
+      "Changes": [
+        "Reduced the rabbit infestation radius from 12 to 5 tiles so spawned rabbits form a much tighter group around the selected farm.",
+        "Centralized native signature validation around executable PE sections, added a fast validated path for the reference DLL, and isolated handler failures so compatible events remain available after small game updates.",
+        "Removed obsolete per-tick heartbeat and full-map prerequisite diagnostics from normal gameplay."
+      ]
+    },
     {
       "Version": "1.0.12",
       "Changes": [
