@@ -5,6 +5,7 @@ RandomEvents.Interval=Intervall (Vanilla-Monate)
 RandomEvents.IntervalHelp=Der erste Wurf erfolgt nach einem vollständigen Intervall. Jedes Ereignis würfelt unabhängig.
 RandomEvents.ChancesTitle=EREIGNISCHANCEN (%)
 RandomEvents.StrengthTitle=EREIGNISSTÄRKE
+RandomEvents.ScaledStrengthHelp=Banditen und Bogenschützen: Einheiten pro 3 vergangene Spielmonate (eine Spielminute). Der gewürfelte Faktor wird mit der vergangenen Zeit multipliziert.
 RandomEvents.Minimum=Min
 RandomEvents.Maximum=Max
 RandomEvents.MultiplayerMode=Reservierter Mehrspielermodus

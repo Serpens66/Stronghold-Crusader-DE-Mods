@@ -12,8 +12,8 @@ namespace RandomEvents
         private readonly int[] chances = new int[15];
         private int plagueMin = 1, plagueMax = 10;
         private int lionMin = 1, lionMax = 10;
-        private int banditMin = 1, banditMax = 50;
-        private int archerMin = 1, archerMax = 50;
+        private double banditMin = 0.1, banditMax = 5.0;
+        private double archerMin = 0.1, archerMax = 5.0;
         private int theftMin = 1, theftMax = 100;
         private int fireMin = 1, fireMax = 10;
         private int multiplayerEventMode;
@@ -34,6 +34,7 @@ namespace RandomEvents
         public string IntervalHelpText => RandomEventsLocalization.Get("RandomEvents.IntervalHelp");
         public string ChancesTitleText => RandomEventsLocalization.Get("RandomEvents.ChancesTitle");
         public string StrengthTitleText => RandomEventsLocalization.Get("RandomEvents.StrengthTitle");
+        public string ScaledStrengthHelpText => RandomEventsLocalization.Get("RandomEvents.ScaledStrengthHelp");
         public string MinimumText => RandomEventsLocalization.Get("RandomEvents.Minimum");
         public string MaximumText => RandomEventsLocalization.Get("RandomEvents.Maximum");
         public string MultiplayerModeText => RandomEventsLocalization.Get("RandomEvents.MultiplayerMode");
@@ -84,10 +85,10 @@ namespace RandomEvents
         [SyncHostOnly] public int PlagueMax { get => plagueMax; set => SetMaximum(ref plagueMin, ref plagueMax, value, 10, nameof(PlagueMin), nameof(PlagueMax)); }
         [SyncHostOnly] public int LionMin { get => lionMin; set => SetMinimum(ref lionMin, ref lionMax, value, 10, nameof(LionMin), nameof(LionMax)); }
         [SyncHostOnly] public int LionMax { get => lionMax; set => SetMaximum(ref lionMin, ref lionMax, value, 10, nameof(LionMin), nameof(LionMax)); }
-        [SyncHostOnly] public int BanditMin { get => banditMin; set => SetMinimum(ref banditMin, ref banditMax, value, 50, nameof(BanditMin), nameof(BanditMax)); }
-        [SyncHostOnly] public int BanditMax { get => banditMax; set => SetMaximum(ref banditMin, ref banditMax, value, 50, nameof(BanditMin), nameof(BanditMax)); }
-        [SyncHostOnly] public int ArcherMin { get => archerMin; set => SetMinimum(ref archerMin, ref archerMax, value, 50, nameof(ArcherMin), nameof(ArcherMax)); }
-        [SyncHostOnly] public int ArcherMax { get => archerMax; set => SetMaximum(ref archerMin, ref archerMax, value, 50, nameof(ArcherMin), nameof(ArcherMax)); }
+        [SyncHostOnly] public double BanditMin { get => banditMin; set => SetScaledMinimum(ref banditMin, ref banditMax, value, nameof(BanditMin), nameof(BanditMax)); }
+        [SyncHostOnly] public double BanditMax { get => banditMax; set => SetScaledMaximum(ref banditMin, ref banditMax, value, nameof(BanditMin), nameof(BanditMax)); }
+        [SyncHostOnly] public double ArcherMin { get => archerMin; set => SetScaledMinimum(ref archerMin, ref archerMax, value, nameof(ArcherMin), nameof(ArcherMax)); }
+        [SyncHostOnly] public double ArcherMax { get => archerMax; set => SetScaledMaximum(ref archerMin, ref archerMax, value, nameof(ArcherMin), nameof(ArcherMax)); }
         [SyncHostOnly] public int TheftMin { get => theftMin; set => SetMinimum(ref theftMin, ref theftMax, value, 100, nameof(TheftMin), nameof(TheftMax)); }
         [SyncHostOnly] public int TheftMax { get => theftMax; set => SetMaximum(ref theftMin, ref theftMax, value, 100, nameof(TheftMin), nameof(TheftMax)); }
         [SyncHostOnly] public int FireMin { get => fireMin; set => SetMinimum(ref fireMin, ref fireMax, value, 10, nameof(FireMin), nameof(FireMax)); }
@@ -101,8 +102,8 @@ namespace RandomEvents
             {
                 case RandomEventStrengthKind.Plague: minimum = PlagueMin; maximum = PlagueMax; break;
                 case RandomEventStrengthKind.LionAttack: minimum = LionMin; maximum = LionMax; break;
-                case RandomEventStrengthKind.Bandits: minimum = BanditMin; maximum = BanditMax; break;
-                case RandomEventStrengthKind.Archers: minimum = ArcherMin; maximum = ArcherMax; break;
+                case RandomEventStrengthKind.Bandits: minimum = EncodeScaledStrength(BanditMin); maximum = EncodeScaledStrength(BanditMax); break;
+                case RandomEventStrengthKind.Archers: minimum = EncodeScaledStrength(ArcherMin); maximum = EncodeScaledStrength(ArcherMax); break;
                 case RandomEventStrengthKind.GranaryTheft: minimum = TheftMin; maximum = TheftMax; break;
                 case RandomEventStrengthKind.Fire: minimum = FireMin; maximum = FireMax; break;
                 default: minimum = 0; maximum = 0; break;
@@ -133,8 +134,8 @@ namespace RandomEvents
             }
             PlagueMin = 1; PlagueMax = 10;
             LionMin = 1; LionMax = 10;
-            BanditMin = 1; BanditMax = 50;
-            ArcherMin = 1; ArcherMax = 50;
+            BanditMin = 0.1; BanditMax = 5.0;
+            ArcherMin = 0.1; ArcherMax = 5.0;
             TheftMin = 1; TheftMax = 100;
             FireMin = 1; FireMax = 10;
         }
@@ -163,6 +164,30 @@ namespace RandomEvents
             if (minChanged) Changed(minName);
         }
 
+        private void SetScaledMinimum(ref double minimum, ref double maximum, double value, string minName, string maxName)
+        {
+            double normalized = NormalizeScaledStrength(value);
+            bool minChanged = minimum != normalized;
+            minimum = normalized;
+            bool maxChanged = maximum < minimum;
+            if (maxChanged)
+                maximum = minimum;
+            if (minChanged) Changed(minName);
+            if (maxChanged) Changed(maxName);
+        }
+
+        private void SetScaledMaximum(ref double minimum, ref double maximum, double value, string minName, string maxName)
+        {
+            double normalized = NormalizeScaledStrength(value);
+            bool maxChanged = maximum != normalized;
+            maximum = normalized;
+            bool minChanged = minimum > maximum;
+            if (minChanged)
+                minimum = maximum;
+            if (maxChanged) Changed(maxName);
+            if (minChanged) Changed(minName);
+        }
+
         private void Set<T>(ref T field, T value, string propertyName)
         {
             if (Equals(field, value)) return;
@@ -180,6 +205,10 @@ namespace RandomEvents
         }
 
         private static int Clamp(int value, int minimum, int maximum) => Math.Max(minimum, Math.Min(maximum, value));
+        private static double NormalizeScaledStrength(double value) =>
+            Math.Round(Math.Max(0.1, Math.Min(5.0, value)), 1, MidpointRounding.AwayFromZero);
+        private static int EncodeScaledStrength(double value) =>
+            (int)Math.Round(NormalizeScaledStrength(value) * 10.0, MidpointRounding.AwayFromZero);
         private static string EventText(string suffix) => RandomEventsLocalization.Get("RandomEvents.Event." + suffix);
 
         private static string GetChancePropertyName(RandomEventKind kind) =>

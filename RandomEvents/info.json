@@ -3,10 +3,65 @@
   "Author": "Serpens66",
   "Name": "Random Events",
   "Description": "Runs configurable Vanilla scenario events in singleplayer skirmishes and Trail missions.",
-  "Version": "1.0.28",
+  "Version": "1.0.35",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.35",
+      "Changes": [
+        "Changes bandit and archer strength settings to decimal factors from 0.1 to 5.0 units per three elapsed game months and rolls them in 0.1 steps.",
+        "Persists the map-start absolute month and passes floor(elapsed months multiplied by the rolled factor divided by three) as the total unit count to both events.",
+        "Distributes manually spawned bandits across at most five groups and excludes keeps from their random building targets."
+      ]
+    },
+    {
+      "Version": "1.0.34",
+      "Changes": [
+        "Works around reversed owner and sprite-color parameter labels in SHCDE-SE unit spawning by passing the reserved bandit owner first and Nature color zero second.",
+        "Logs and validates both r_ControllableForPlayerId and r_SpritePlayerColorId immediately after every bandit spawn."
+      ]
+    },
+    {
+      "Version": "1.0.33",
+      "Changes": [
+        "Uses the first inactive regular player slot whose r_LordUnitId is zero as the owner of spawned bandits; skips the event without spawning if no slot is free.",
+        "Assigns the reserved slot a team distinct from every active human player while retaining Nature sprite color 0 for the macemen.",
+        "Creates delayed groups of at most five macemen, sets every tribe to Aggressive, and sends it with IssueMoveHereCommand to a random reachable target building."
+      ]
+    },
+    {
+      "Version": "1.0.32",
+      "Changes": [
+        "Removes the complete delayed per-unit MoveToTile experiment, including its queue, target selection, guards, and logs.",
+        "Leaves each Nature-owned maceman untouched after CreateUnitLocal; only read-only Info diagnostics inspect its initial native state.",
+        "Retains the event presentation, minimap ActionPoint, and target-player popularity penalty without mutating spawned units."
+      ]
+    },
+    {
+      "Version": "1.0.31",
+      "Changes": [
+        "Schedules one individual MoveToTile command per tribe-less bandit 0.5 seconds after native unit creation.",
+        "Selects a deterministic random living building of the human target player and moves each maceman to a free connected perimeter tile.",
+        "Skips the command if a unit acquires a tribe during initialization and logs scheduling plus execution while applying no stance change."
+      ]
+    },
+    {
+      "Version": "1.0.30",
+      "Changes": [
+        "Removes the explicit Nature tribe creation and all tribe assignment from manually spawned bandit macemen.",
+        "Leaves every maceman unmodified after CreateUnitLocal while retaining an Info-level diagnostic of its native tribe, leader, owner, and AI state.",
+        "Confirms from runtime diagnostics that native bandit spawns initially have tribe ID 0 even while an AI player is active."
+      ]
+    },
+    {
+      "Version": "1.0.29",
+      "Changes": [
+        "Creates exactly one Nature-owned tribe per bandit event and assigns every maceman from that spawn to the same tribe as an isolated grouping test.",
+        "Applies no stance, movement, attack, target, delayed action, or later runtime modification to the spawned macemen.",
+        "Logs the shared tribe ID and identifies tribe assignment as the only post-spawn action."
+      ]
+    },
     {
       "Version": "1.0.28",
       "Changes": [

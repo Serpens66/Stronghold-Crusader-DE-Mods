@@ -8,7 +8,7 @@ namespace RandomEvents
     [MessagePackFormatter(typeof(RandomEventsSaveStateV2Formatter))]
     public sealed class RandomEventsSaveStateV2
     {
-        public const int CurrentVersion = 2;
+        public const int CurrentVersion = 3;
 
         [Key(0)] public int Version = CurrentVersion;
         [Key(1)] public bool EffectiveEnabled;
@@ -26,11 +26,12 @@ namespace RandomEvents
         [Key(13)] public int[] SignpostBuildingIds = new[] { -1, -1, -1, -1 };
         [Key(14)] public bool BatchPrepared;
         [Key(15)] public int[] PreparedDirectTargetPlayerIds = Array.Empty<int>();
+        [Key(16)] public int StartAbsoluteMonth;
     }
 
     public sealed class RandomEventsSaveStateV2Formatter : IMessagePackFormatter<RandomEventsSaveStateV2>
     {
-        private const int FieldCount = 16;
+        private const int FieldCount = 17;
 
         public void Serialize(ref MessagePackWriter writer, RandomEventsSaveStateV2 value, MessagePackSerializerOptions options)
         {
@@ -57,6 +58,7 @@ namespace RandomEvents
             WriteIntArray(ref writer, value.SignpostBuildingIds);
             writer.Write(value.BatchPrepared);
             WriteIntArray(ref writer, value.PreparedDirectTargetPlayerIds);
+            writer.Write(value.StartAbsoluteMonth);
         }
 
         public RandomEventsSaveStateV2 Deserialize(ref MessagePackReader reader, MessagePackSerializerOptions options)
@@ -86,6 +88,7 @@ namespace RandomEvents
                     case 13: value.SignpostBuildingIds = ReadIntArray(ref reader); break;
                     case 14: value.BatchPrepared = reader.ReadBoolean(); break;
                     case 15: value.PreparedDirectTargetPlayerIds = ReadIntArray(ref reader); break;
+                    case 16: value.StartAbsoluteMonth = reader.ReadInt32(); break;
                     default: reader.Skip(); break;
                 }
             }

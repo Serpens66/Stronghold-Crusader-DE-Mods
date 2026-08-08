@@ -20,6 +20,7 @@ namespace RandomEvents
             { "RandomEvents.IntervalHelp", "The first roll happens after one complete interval. Every event rolls independently." },
             { "RandomEvents.ChancesTitle", "EVENT CHANCES (%)" },
             { "RandomEvents.StrengthTitle", "EVENT STRENGTH" },
+            { "RandomEvents.ScaledStrengthHelp", "Bandits and archers: units per 3 elapsed game months (one game minute). The rolled factor is multiplied by elapsed time." },
             { "RandomEvents.Minimum", "Min" },
             { "RandomEvents.Maximum", "Max" },
             { "RandomEvents.MultiplayerMode", "Reserved multiplayer mode" },

@@ -11,6 +11,7 @@ using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 
@@ -22,7 +23,11 @@ namespace RandomEvents
         private const int VanillaMonthsPerYear = 12;
         private const int RabbitSpawnRadius = 12;
         private const int LionSpawnRadius = 12;
-        private const int BanditOwnerPlayerId = 0;
+        private const int BanditVisualPlayerId = 0;
+        private const int MaximumBanditGroups = 5;
+        private const int ScaledStrengthTenthsPerUnit = 10;
+        private const int ScaledStrengthMonthsPerPeriod = 3;
+        private const double BanditGroupActivationDelaySeconds = 0.5;
 
         private readonly ManualLogSource log;
         private readonly RandomEventsSettingsViewModel settings;
@@ -32,6 +37,7 @@ namespace RandomEvents
         private readonly NativeWildlifeEventDispatcher nativeWildlifeDispatcher;
         private readonly NativeBanditEventSupport nativeBanditSupport;
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
+        private readonly List<PendingBanditGroup> pendingBanditGroups = new List<PendingBanditGroup>();
         private bool initialized;
         private bool disposed;
         private bool mapStartPending;
@@ -132,6 +138,7 @@ namespace RandomEvents
             calendarApiChecked = false;
             waitingForLivingHumanTargetLogged = false;
             banditEventsEnabled = true;
+            pendingBanditGroups.Clear();
             signpostPlacement.ResetMapState();
             state = null;
         }
@@ -156,6 +163,8 @@ namespace RandomEvents
                     DisableForNetwork("real network game became active during the match", networkMode.ToDiagnosticString());
                     return;
                 }
+
+                ProcessPendingBanditGroups();
 
                 int currentAbsoluteMonth = GetCurrentAbsoluteMonth();
                 if (state.BatchPrepared && currentAbsoluteMonth >= state.NextDueAbsoluteMonth)
@@ -215,7 +224,8 @@ namespace RandomEvents
                 LogInfo(
                     $"Restored Random Events state: enabled={state.EffectiveEnabled}, interval={state.IntervalMonths}, " +
                     $"nextDueAbsoluteMonth={state.NextDueAbsoluteMonth}, batchPrepared={state.BatchPrepared}, " +
-                    $"signpostsInitialized={state.SignpostsInitialized}.");
+                    $"startAbsoluteMonth={state.StartAbsoluteMonth}, " +
+                    $"elapsedMonths={GetElapsedMonthsSinceStart()}, signpostsInitialized={state.SignpostsInitialized}.");
                 return;
             }
 
@@ -232,7 +242,8 @@ namespace RandomEvents
             PrepareBatch();
             LogInfo(
                 $"Fresh Random Events state initialized: interval={state.IntervalMonths}, " +
-                $"firstDueAbsoluteMonth={state.NextDueAbsoluteMonth}, multiplayerMode={(MultiplayerEventMode)state.MultiplayerMode} (reserved)." );
+                $"startAbsoluteMonth={state.StartAbsoluteMonth}, firstDueAbsoluteMonth={state.NextDueAbsoluteMonth}, " +
+                $"multiplayerMode={(MultiplayerEventMode)state.MultiplayerMode} (reserved)." );
         }
 
         private RandomEventsSaveStateV2 CreateFreshState()
@@ -250,6 +261,8 @@ namespace RandomEvents
 
             int interval = Math.Max(1, Math.Min(90, settings.IntervalMonths));
             int[] chances = settings.SnapshotChances();
+            // The native calendar has no elapsed-month counter, so persist this absolute baseline with the map.
+            int startAbsoluteMonth = GetCurrentAbsoluteMonth();
             return new RandomEventsSaveStateV2
             {
                 EffectiveEnabled = true,
@@ -260,7 +273,8 @@ namespace RandomEvents
                 StrengthMaximums = maximums,
                 PrngState0 = BitConverter.ToUInt64(seed, 0),
                 PrngState1 = BitConverter.ToUInt64(seed, 8),
-                NextDueAbsoluteMonth = checked(GetCurrentAbsoluteMonth() + interval),
+                NextDueAbsoluteMonth = checked(startAbsoluteMonth + interval),
+                StartAbsoluteMonth = startAbsoluteMonth,
                 SignpostsInitialized = !RandomEventDefinitions.RequiresSignposts(chances)
             };
         }
@@ -294,7 +308,8 @@ namespace RandomEvents
                 int strength = success ? RollStrength(definition.StrengthKind, ref prng) : 0;
                 LogDebug(
                     $"Event roll: event={definition.Name}, kind={definition.Kind}, roll={roll}, chance={chance}, " +
-                    $"success={success}, strength={strength}, dueAbsoluteMonth={state.NextDueAbsoluteMonth}.");
+                    $"success={success}, strength={FormatRolledStrength(definition.StrengthKind, strength)}, " +
+                    $"dueAbsoluteMonth={state.NextDueAbsoluteMonth}.");
 
                 if (!success)
                     continue;
@@ -397,18 +412,21 @@ namespace RandomEvents
             {
                 int currentAbsoluteMonth = GetCurrentAbsoluteMonth();
                 // Reject states written with an incompatible calendar basis instead of waiting centuries.
-                valid = loaded.NextDueAbsoluteMonth >= currentAbsoluteMonth &&
+                valid = loaded.StartAbsoluteMonth >= 0 &&
+                    loaded.StartAbsoluteMonth <= currentAbsoluteMonth &&
+                    loaded.NextDueAbsoluteMonth >= currentAbsoluteMonth &&
                     loaded.NextDueAbsoluteMonth <= checked(currentAbsoluteMonth + loaded.IntervalMonths);
                 if (!valid)
                 {
                     LogWarning(
                         $"Loaded Random Events state uses an implausible event date and will be initialized fresh: " +
-                        $"currentAbsoluteMonth={currentAbsoluteMonth}, loadedNextDueAbsoluteMonth={loaded.NextDueAbsoluteMonth}, " +
+                        $"currentAbsoluteMonth={currentAbsoluteMonth}, startAbsoluteMonth={loaded.StartAbsoluteMonth}, " +
+                        $"loadedNextDueAbsoluteMonth={loaded.NextDueAbsoluteMonth}, " +
                         $"interval={loaded.IntervalMonths}, effectiveMonthsPerYear={VanillaMonthsPerYear}.");
                 }
             }
             if (!valid)
-                LogWarning("Loaded Random Events V2 state failed validation and will not be used.");
+                LogWarning("Loaded Random Events state failed validation and will not be used.");
             return valid;
         }
 
@@ -439,6 +457,23 @@ namespace RandomEvents
                     $"Random event skipped: event={definition.Name}, targetPlayerId={targetPlayerId}, " +
                     $"reason=target player has no living Lord ({lordFailure}).");
                 return;
+            }
+
+            if (definition.Kind == RandomEventKind.Bandits || definition.Kind == RandomEventKind.Archers)
+            {
+                int factorTenths = strength;
+                int elapsedMonths = GetElapsedMonthsSinceStart();
+                strength = CalculateElapsedScaledUnitCount(elapsedMonths, factorTenths);
+                LogInfo(
+                    $"Elapsed-time strength calculated: event={definition.Name}, elapsedMonths={elapsedMonths}, " +
+                    $"rolledUnitsPerThreeMonths={factorTenths / 10.0:0.0}, totalUnits={strength}.");
+                if (strength == 0)
+                {
+                    LogInfo(
+                        $"Random event had no effect: event={definition.Name}, targetPlayerId={targetPlayerId}, " +
+                        "reason=elapsed-time strength rounded down to zero units.");
+                    return;
+                }
             }
 
             if (definition.DispatchKind == RandomEventDispatchKind.NativeWildlife)
@@ -561,12 +596,25 @@ namespace RandomEvents
             {
                 LogError(
                     $"Bandit event skipped: targetPlayerId={targetPlayerId}, " +
-                    "reason=manual neutral-bandit support was disabled after an earlier compatibility failure.");
+                    "reason=manual bandit support was disabled after an earlier compatibility failure.");
                 return;
             }
 
             try
             {
+                if (!TryReserveBanditPlayerSlot(
+                        targetPlayerId,
+                        out int banditOwnerPlayerId,
+                        out int banditTeam,
+                        out int[] humanPlayerIds,
+                        out string slotFailure))
+                {
+                    LogInfo(
+                        $"Bandit event ignored without spawning units: targetPlayerId={targetPlayerId}, " +
+                        $"reason={slotFailure}.");
+                    return;
+                }
+
                 if (!signpostRegistry.TryGetClosestSignpostToPlayer(
                         targetPlayerId,
                         out int signpostBuildingId,
@@ -590,7 +638,7 @@ namespace RandomEvents
                         out spawnTileX,
                         out spawnTileY,
                         out int spawnTileId,
-                        out _,
+                        out ushort sourcePathComponent,
                         out string spawnFailure))
                 {
                     LogError(
@@ -602,15 +650,27 @@ namespace RandomEvents
                 GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
 
                 GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
-                int requestedUnits = Math.Max(1, strength);
+                GameTribeManagerAPI tribeApi = GameTribeManagerAPI.Instance;
+                int requestedUnits = strength;
                 int createdUnits = 0;
                 int spawnHeight = tiles.GetTileHeight(spawnTileId);
+                List<BanditMoveTarget> moveTargets = FindBanditMoveTargets(targetPlayerId, sourcePathComponent);
+                if (moveTargets.Count == 0)
+                {
+                    LogInfo(
+                        $"Bandit event ignored without spawning units: targetPlayerId={targetPlayerId}, " +
+                        $"reason=no living target building has a free approach tile in path component {sourcePathComponent}.");
+                    return;
+                }
+
+                List<BanditUnitReference> spawnedUnits = new List<BanditUnitReference>(requestedUnits);
 
                 for (int index = 0; index < requestedUnits; index++)
                 {
+                    // SHCDE-SE currently labels these two arguments in reverse: native expects owner, then sprite color.
                     int unitId = checked((int)unitApi.CreateUnitLocal(
-                        BanditOwnerPlayerId,
-                        BanditOwnerPlayerId,
+                        banditOwnerPlayerId,
+                        BanditVisualPlayerId,
                         spawnTileX,
                         spawnTileY,
                         spawnHeight,
@@ -621,10 +681,48 @@ namespace RandomEvents
                         unit->r_GlobalId == 0)
                     {
                         LogWarning(
-                            $"Nature maceman creation stopped without modifying the returned unit: " +
+                            $"Bandit maceman creation stopped without modifying the returned unit: " +
                             $"unitId={unitId}, createdUnits={createdUnits}/{requestedUnits}.");
                         break;
                     }
+
+                    // Read membership from this unit directly so concurrently created AI tribes cannot affect the diagnosis.
+                    int initialTribeId = unit->r_TribeId;
+                    string initialTribeDetails = "not-assigned";
+                    if (initialTribeId > 0)
+                    {
+                        if (tribeApi.TryGetTribeById(initialTribeId, out GameTribe* initialTribe) &&
+                            initialTribe != null)
+                        {
+                            initialTribeDetails =
+                                $"ownerPlayerId={initialTribe->r_PlayerIdOwner}, " +
+                                $"globalId={initialTribe->r_GlobalId}, aliveState={initialTribe->r_AliveState}";
+                        }
+                        else
+                        {
+                            initialTribeDetails = "referenced-tribe-unavailable";
+                        }
+                    }
+
+                    LogInfo(
+                        $"Bandit unit immediately after native spawn: unitIndex={index + 1}/{requestedUnits}, " +
+                        $"unitId={unitId}, unitGlobalId={unit->r_GlobalId}, unitOwnerPlayerId={unit->r_ControllableForPlayerId}, " +
+                        $"unitSpritePlayerColorId={unit->r_SpritePlayerColorId}, " +
+                        $"initialTribeId={initialTribeId}, initialTribeLeaderUnitId={unit->r_TribeLeaderUnitId}, " +
+                        $"initialAiState={unit->r_AIState}, initialTribeDetails=({initialTribeDetails}).");
+
+                    if (unit->r_ControllableForPlayerId != banditOwnerPlayerId)
+                    {
+                        throw new InvalidOperationException(
+                            $"Native bandit spawn returned owner {unit->r_ControllableForPlayerId} instead of reserved player {banditOwnerPlayerId}.");
+                    }
+                    if (unit->r_SpritePlayerColorId != BanditVisualPlayerId)
+                    {
+                        throw new InvalidOperationException(
+                            $"Native bandit spawn returned sprite color {unit->r_SpritePlayerColorId} instead of {BanditVisualPlayerId}.");
+                    }
+
+                    spawnedUnits.Add(new BanditUnitReference(unitId, unit->r_GlobalId));
                     createdUnits++;
                 }
 
@@ -632,9 +730,42 @@ namespace RandomEvents
                 {
                     LogInfo(
                         $"Bandit event had no effect: targetPlayerId={targetPlayerId}, " +
-                        "reason=no Nature-owned maceman could be created.");
+                        "reason=no reserved-player-owned maceman could be created.");
                     return;
                 }
+
+                SavedPrng movePrng = new SavedPrng(state.PrngState0, state.PrngState1);
+                long executeAfterTimestamp = checked(
+                    Stopwatch.GetTimestamp() +
+                    (long)(Stopwatch.Frequency * BanditGroupActivationDelaySeconds));
+                int scheduledGroups = Math.Min(MaximumBanditGroups, spawnedUnits.Count);
+                // Spread the total as evenly as possible while never creating more than five independent orders.
+                int baseGroupSize = spawnedUnits.Count / scheduledGroups;
+                int largerGroups = spawnedUnits.Count % scheduledGroups;
+                int unitOffset = 0;
+                for (int groupIndex = 0; groupIndex < scheduledGroups; groupIndex++)
+                {
+                    int groupCount = baseGroupSize + (groupIndex < largerGroups ? 1 : 0);
+                    BanditUnitReference[] groupUnits = new BanditUnitReference[groupCount];
+                    spawnedUnits.CopyTo(unitOffset, groupUnits, 0, groupCount);
+                    unitOffset += groupCount;
+                    BanditMoveTarget target = moveTargets[movePrng.Next(moveTargets.Count)];
+                    pendingBanditGroups.Add(new PendingBanditGroup(
+                        banditOwnerPlayerId,
+                        banditTeam,
+                        humanPlayerIds,
+                        targetPlayerId,
+                        groupUnits,
+                        target,
+                        executeAfterTimestamp));
+                    LogInfo(
+                        $"Bandit group activation scheduled: group={groupIndex + 1}/{scheduledGroups}, units={groupCount}, " +
+                        $"ownerPlayerId={banditOwnerPlayerId}, team={banditTeam}, targetPlayerId={targetPlayerId}, " +
+                        $"targetBuildingId={target.BuildingId}, targetBuildingType={target.BuildingType}, " +
+                        $"targetTile=({target.TileX},{target.TileY}), delaySeconds={BanditGroupActivationDelaySeconds:0.0}.");
+                }
+                state.PrngState0 = movePrng.State0;
+                state.PrngState1 = movePrng.State1;
 
                 if (!nativeWildlifeDispatcher.TryQueueActionPoint(
                         spawnTileX,
@@ -670,8 +801,10 @@ namespace RandomEvents
                 }
 
                 LogInfo(
-                    $"Manual neutral bandit event spawned: requestedUnits={requestedUnits}, createdUnits={createdUnits}, " +
-                    $"ownerPlayerId={BanditOwnerPlayerId}, targetPlayerId={targetPlayerId}, postSpawnActions=none, " +
+                    $"Manual bandit event spawned: requestedUnits={requestedUnits}, createdUnits={createdUnits}, " +
+                    $"visualPlayerId={BanditVisualPlayerId}, ownerPlayerId={banditOwnerPlayerId}, team={banditTeam}, " +
+                    $"humanEnemies=[{string.Join(",", humanPlayerIds)}], targetPlayerId={targetPlayerId}, " +
+                    $"scheduledGroups={scheduledGroups}, maximumGroups={MaximumBanditGroups}, " +
                     $"signpostBuildingId={signpostBuildingId}, sourceTile=({spawnTileX},{spawnTileY}), " +
                     $"distanceTo{distanceReference}={signpostDistance:0.00}.");
             }
@@ -679,11 +812,334 @@ namespace RandomEvents
             {
                 banditEventsEnabled = false;
                 LogError(
-                    "Manual neutral-bandit spawning failed and further bandit events are disabled for this map; " +
+                    "Manual bandit spawning failed and further bandit events are disabled for this map; " +
                     $"unrelated events remain active: {ex}");
             }
         }
 
+
+        private unsafe bool TryReserveBanditPlayerSlot(
+            int targetPlayerId,
+            out int banditPlayerId,
+            out int banditTeam,
+            out int[] humanPlayerIds,
+            out string failure)
+        {
+            banditPlayerId = -1;
+            banditTeam = -1;
+            failure = string.Empty;
+            GamePlayerManagerAPI players = GamePlayerManagerAPI.Instance;
+            int[] activePlayerIds = Shared.ActivePlayerHelper.GetActivePlayerIds();
+            HashSet<int> activePlayers = new HashSet<int>(activePlayerIds);
+            List<int> humans = new List<int>();
+            foreach (int playerId in activePlayerIds)
+            {
+                if (players.IsPlayerIdValid(playerId) && !players.IsAIPlayer(playerId))
+                    humans.Add(playerId);
+            }
+            if (!humans.Contains(targetPlayerId))
+                humans.Add(targetPlayerId);
+            humans.Sort();
+            humanPlayerIds = humans.ToArray();
+
+            for (int playerId = 1; playerId <= GamePlayerManagerAPI.MAX_PLAYERS; playerId++)
+            {
+                if (activePlayers.Contains(playerId) ||
+                    !players.TryGetPlayerResourcesById(playerId, out GamePlayerResources* resources) ||
+                    resources == null ||
+                    resources->r_LordUnitId != 0)
+                {
+                    continue;
+                }
+
+                banditPlayerId = playerId;
+                break;
+            }
+
+            if (banditPlayerId < 1)
+            {
+                failure =
+                    $"no unused regular player slot has r_LordUnitId=0; activePlayers=[{string.Join(",", activePlayerIds)}]";
+                return false;
+            }
+
+            bool[] humanTeams = new bool[GamePlayerManagerAPI.MAX_PLAYERS + 1];
+            foreach (int humanPlayerId in humanPlayerIds)
+            {
+                int team = players.GetPlayerTeam(humanPlayerId);
+                if (team >= 0 && team < humanTeams.Length)
+                    humanTeams[team] = true;
+            }
+            for (int team = 0; team <= GamePlayerManagerAPI.MAX_PLAYERS; team++)
+            {
+                if (!humanTeams[team])
+                {
+                    banditTeam = team;
+                    break;
+                }
+            }
+            if (banditTeam < 0)
+            {
+                failure = $"no team number remains distinct from human players [{string.Join(",", humanPlayerIds)}]";
+                return false;
+            }
+
+            players.SetPlayerTeam(banditPlayerId, banditTeam);
+            if (players.GetPlayerTeam(banditPlayerId) != banditTeam)
+            {
+                failure = $"team assignment for reserved player {banditPlayerId} did not persist";
+                return false;
+            }
+            foreach (int humanPlayerId in humanPlayerIds)
+            {
+                if (players.IsPlayerAlliedTo(banditPlayerId, humanPlayerId))
+                {
+                    failure =
+                        $"reserved player {banditPlayerId} remains allied to human player {humanPlayerId} on team {banditTeam}";
+                    return false;
+                }
+            }
+
+            LogInfo(
+                $"Bandit player slot reserved: playerId={banditPlayerId}, r_LordUnitId=0, team={banditTeam}, " +
+                $"humanEnemies=[{string.Join(",", humanPlayerIds)}], activePlayers=[{string.Join(",", activePlayerIds)}].");
+            return true;
+        }
+
+        private unsafe void ProcessPendingBanditGroups()
+        {
+            if (pendingBanditGroups.Count == 0)
+                return;
+
+            long now = Stopwatch.GetTimestamp();
+            for (int index = pendingBanditGroups.Count - 1; index >= 0; index--)
+            {
+                PendingBanditGroup pending = pendingBanditGroups[index];
+                if (now < pending.ExecuteAfterTimestamp)
+                    continue;
+
+                // Remove first so a rejected native order cannot be repeated on every persistent tick.
+                pendingBanditGroups.RemoveAt(index);
+                try
+                {
+                    ActivatePendingBanditGroup(pending);
+                }
+                catch (Exception ex)
+                {
+                    banditEventsEnabled = false;
+                    pendingBanditGroups.Clear();
+                    LogError(
+                        "Bandit group activation failed; remaining queued groups and future bandit events " +
+                        $"are disabled for this map while unrelated events remain active: {ex}");
+                    return;
+                }
+            }
+        }
+
+        private unsafe void ActivatePendingBanditGroup(PendingBanditGroup pending)
+        {
+            GamePlayerManagerAPI players = GamePlayerManagerAPI.Instance;
+            if (!players.TryGetPlayerResourcesById(pending.OwnerPlayerId, out GamePlayerResources* resources) ||
+                resources == null ||
+                resources->r_LordUnitId != 0)
+            {
+                throw new InvalidOperationException(
+                    $"Reserved bandit player {pending.OwnerPlayerId} is no longer unused.");
+            }
+            if (players.GetPlayerTeam(pending.OwnerPlayerId) != pending.Team)
+            {
+                throw new InvalidOperationException(
+                    $"Reserved bandit player {pending.OwnerPlayerId} changed from team {pending.Team}.");
+            }
+            foreach (int humanPlayerId in pending.HumanPlayerIds)
+            {
+                if (players.IsPlayerAlliedTo(pending.OwnerPlayerId, humanPlayerId))
+                {
+                    throw new InvalidOperationException(
+                        $"Reserved bandit player {pending.OwnerPlayerId} became allied to human player {humanPlayerId}.");
+                }
+            }
+
+            BanditMoveTarget target = pending.Target;
+            GameBuildingManagerAPI buildings = GameBuildingManagerAPI.Instance;
+            if (!buildings.TryGetBuildingById(target.BuildingId, out GameBuilding* building) ||
+                building == null ||
+                building->r_GlobalId != target.BuildingGlobalId ||
+                building->r_AliveState != AliveState.IsAlive ||
+                building->r_PlayerIdOwner != pending.TargetPlayerId ||
+                IsKeepType(building->r_BuildingType))
+            {
+                LogWarning(
+                    $"Bandit group activation skipped: ownerPlayerId={pending.OwnerPlayerId}, " +
+                    $"targetBuildingId={target.BuildingId}, reason=target building is no longer valid.");
+                return;
+            }
+
+            GameUnitManagerAPI units = GameUnitManagerAPI.Instance;
+            List<int> livingUnitIds = new List<int>(pending.Units.Length);
+            foreach (BanditUnitReference unitReference in pending.Units)
+            {
+                if (!units.TryGetUnitById(unitReference.UnitId, out GameUnit* unit) ||
+                    unit == null ||
+                    unit->r_GlobalId != unitReference.GlobalId ||
+                    unit->r_AliveState != AliveState.IsAlive)
+                {
+                    LogWarning(
+                        $"Bandit omitted from delayed group activation: unitId={unitReference.UnitId}, " +
+                        $"expectedGlobalId={unitReference.GlobalId}, reason=unit is no longer the expected living spawn.");
+                    continue;
+                }
+                if (unit->r_ControllableForPlayerId != pending.OwnerPlayerId ||
+                    unit->r_TribeId != 0 ||
+                    unit->r_TribeLeaderUnitId != 0)
+                {
+                    throw new InvalidOperationException(
+                        $"Bandit unit {unitReference.UnitId} changed owner or acquired a tribe before activation: " +
+                        $"owner={unit->r_ControllableForPlayerId}, tribeId={unit->r_TribeId}, " +
+                        $"tribeLeaderUnitId={unit->r_TribeLeaderUnitId}.");
+                }
+                livingUnitIds.Add(unitReference.UnitId);
+            }
+            if (livingUnitIds.Count == 0)
+            {
+                LogWarning(
+                    $"Bandit group activation had no effect: ownerPlayerId={pending.OwnerPlayerId}, " +
+                    "reason=no scheduled unit remained alive.");
+                return;
+            }
+
+            GameTribeManagerAPI tribes = GameTribeManagerAPI.Instance;
+            int tribeId = checked((int)tribes.Create(pending.OwnerPlayerId));
+            if (tribeId <= 0 ||
+                !tribes.TryGetTribeById(tribeId, out GameTribe* tribe) ||
+                tribe == null ||
+                tribe->r_GlobalId == 0 ||
+                tribe->r_PlayerIdOwner != pending.OwnerPlayerId)
+            {
+                throw new InvalidOperationException(
+                    $"Vanilla could not create a tribe for reserved bandit player {pending.OwnerPlayerId}.");
+            }
+
+            foreach (int unitId in livingUnitIds)
+            {
+                if (!tribes.AssignUnit(tribeId, unitId) ||
+                    !units.TryGetUnitById(unitId, out GameUnit* assignedUnit) ||
+                    assignedUnit == null ||
+                    assignedUnit->r_TribeId != tribeId)
+                {
+                    throw new InvalidOperationException(
+                        $"Vanilla could not assign bandit unit {unitId} to tribe {tribeId}.");
+                }
+            }
+
+            if (!tribes.SetStance(tribeId, TribeStance.Aggressive) ||
+                tribe->r_TribeStance != TribeStance.Aggressive)
+            {
+                throw new InvalidOperationException(
+                    $"Vanilla could not set bandit tribe {tribeId} to Aggressive.");
+            }
+            if (!tribes.IssueMoveHereCommand(
+                    tribeId,
+                    target.TileX,
+                    target.TileY,
+                    isPatrolPath: false,
+                    bIsNewOrder: 1,
+                    tribeMoveType: TribeMoveType.DefaultInSync))
+            {
+                throw new InvalidOperationException(
+                    $"Vanilla rejected MoveHere for bandit tribe {tribeId}.");
+            }
+
+            LogInfo(
+                $"Bandit group activated: tribeId={tribeId}, ownerPlayerId={pending.OwnerPlayerId}, " +
+                $"team={pending.Team}, units={livingUnitIds.Count}, stance={tribe->r_TribeStance}, " +
+                $"targetPlayerId={pending.TargetPlayerId}, targetBuildingId={target.BuildingId}, " +
+                $"targetBuildingType={target.BuildingType}, targetTile=({target.TileX},{target.TileY}), " +
+                "command=IssueMoveHereCommand.");
+        }
+
+        private static unsafe List<BanditMoveTarget> FindBanditMoveTargets(
+            int targetPlayerId,
+            ushort sourcePathComponent)
+        {
+            List<BanditMoveTarget> targets = new List<BanditMoveTarget>();
+            Span<GameBuilding> buildings = GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
+            for (int buildingIndex = 0; buildingIndex < buildings.Length; buildingIndex++)
+            {
+                ref GameBuilding building = ref buildings[buildingIndex];
+                if (building.r_PlayerIdOwner != targetPlayerId ||
+                    building.r_AliveState != AliveState.IsAlive ||
+                    building.r_GlobalId == 0 ||
+                    IsKeepType(building.r_BuildingType) ||
+                    !TryFindBanditApproachTile(in building, sourcePathComponent, out int tileX, out int tileY))
+                {
+                    continue;
+                }
+
+                // Script Extender entity IDs are one-based while spans are indexed from zero.
+                targets.Add(new BanditMoveTarget(
+                    buildingIndex + 1,
+                    building.r_GlobalId,
+                    building.r_BuildingType,
+                    tileX,
+                    tileY));
+            }
+            return targets;
+        }
+
+        private static bool IsKeepType(eStructs buildingType) =>
+            buildingType == eStructs.STRUCT_KEEP_ONE ||
+            buildingType == eStructs.STRUCT_KEEP_TWO ||
+            buildingType == eStructs.STRUCT_KEEP_THREE ||
+            buildingType == eStructs.STRUCT_KEEP_FOUR ||
+            buildingType == eStructs.STRUCT_KEEP_FIVE;
+
+        private static bool TryFindBanditApproachTile(
+            in GameBuilding building,
+            ushort sourcePathComponent,
+            out int targetTileX,
+            out int targetTileY)
+        {
+            targetTileX = 0;
+            targetTileY = 0;
+            GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
+            Span<ushort> pathConnections = tiles.TileManager.PathConnectionGrid;
+            long bestDistanceSquared = long.MaxValue;
+            int centerX = (building.r_TilePositionXBegin + building.r_TilePositionXEnd) / 2;
+            int centerY = (building.r_TilePositionYBegin + building.r_TilePositionYEnd) / 2;
+
+            for (int y = building.r_TilePositionYBegin - 1; y <= building.r_TilePositionYEnd + 1; y++)
+            {
+                for (int x = building.r_TilePositionXBegin - 1; x <= building.r_TilePositionXEnd + 1; x++)
+                {
+                    if ((x >= building.r_TilePositionXBegin && x <= building.r_TilePositionXEnd &&
+                         y >= building.r_TilePositionYBegin && y <= building.r_TilePositionYEnd) ||
+                        !tiles.IsTileInsideMapBounds(x, y))
+                    {
+                        continue;
+                    }
+
+                    int tileId = tiles.GetTileId(x, y);
+                    if (!tiles.IsTileWalkableAndUnoccupied(tileId) ||
+                        pathConnections[tileId] != sourcePathComponent)
+                    {
+                        continue;
+                    }
+
+                    long deltaX = x - centerX;
+                    long deltaY = y - centerY;
+                    long distanceSquared = deltaX * deltaX + deltaY * deltaY;
+                    if (distanceSquared >= bestDistanceSquared)
+                        continue;
+
+                    bestDistanceSquared = distanceSquared;
+                    targetTileX = x;
+                    targetTileY = y;
+                }
+            }
+
+            return bestDistanceSquared != long.MaxValue;
+        }
 
         private static bool HasReachableBanditApproach(
             in GameBuilding building,
@@ -1091,6 +1547,21 @@ namespace RandomEvents
             return checked(currentYear * VanillaMonthsPerYear + currentMonth);
         }
 
+        private int GetElapsedMonthsSinceStart() =>
+            Math.Max(0, checked(GetCurrentAbsoluteMonth() - state.StartAbsoluteMonth));
+
+        private static int CalculateElapsedScaledUnitCount(int elapsedMonths, int factorTenths)
+        {
+            // Fixed-point tenths keep rolls and save data deterministic; integer division intentionally floors.
+            long numerator = checked((long)elapsedMonths * factorTenths);
+            return checked((int)(numerator / (ScaledStrengthMonthsPerPeriod * ScaledStrengthTenthsPerUnit)));
+        }
+
+        private static string FormatRolledStrength(RandomEventStrengthKind kind, int strength) =>
+            kind == RandomEventStrengthKind.Bandits || kind == RandomEventStrengthKind.Archers
+                ? $"{strength / 10.0:0.0} units/3-months"
+                : strength.ToString();
+
         private void ValidateCalendarApi(int currentYear, int currentMonth)
         {
             if (currentYear < 0 || currentMonth < 0 || currentMonth >= VanillaMonthsPerYear)
@@ -1119,6 +1590,7 @@ namespace RandomEvents
         {
             mapStartPending = false;
             mapActive = false;
+            pendingBanditGroups.Clear();
             state = null;
             if (multiplayerDisableLogged) return;
             multiplayerDisableLogged = true;
@@ -1132,6 +1604,70 @@ namespace RandomEvents
         private void LogWarning(string message) => Shared.DebugLogHelper.LogWarning(log, message);
         private void LogError(string message) => Shared.DebugLogHelper.LogError(log, message);
 
+
+        private readonly struct BanditUnitReference
+        {
+            public BanditUnitReference(int unitId, uint globalId)
+            {
+                UnitId = unitId;
+                GlobalId = globalId;
+            }
+
+            public int UnitId { get; }
+            public uint GlobalId { get; }
+        }
+
+        private readonly struct PendingBanditGroup
+        {
+            public PendingBanditGroup(
+                int ownerPlayerId,
+                int team,
+                int[] humanPlayerIds,
+                int targetPlayerId,
+                BanditUnitReference[] units,
+                BanditMoveTarget target,
+                long executeAfterTimestamp)
+            {
+                OwnerPlayerId = ownerPlayerId;
+                Team = team;
+                HumanPlayerIds = humanPlayerIds;
+                TargetPlayerId = targetPlayerId;
+                Units = units;
+                Target = target;
+                ExecuteAfterTimestamp = executeAfterTimestamp;
+            }
+
+            public int OwnerPlayerId { get; }
+            public int Team { get; }
+            public int[] HumanPlayerIds { get; }
+            public int TargetPlayerId { get; }
+            public BanditUnitReference[] Units { get; }
+            public BanditMoveTarget Target { get; }
+            public long ExecuteAfterTimestamp { get; }
+        }
+
+        private readonly struct BanditMoveTarget
+        {
+            public BanditMoveTarget(
+                int buildingId,
+                uint buildingGlobalId,
+                eStructs buildingType,
+                int tileX,
+                int tileY)
+            {
+                BuildingId = buildingId;
+                BuildingGlobalId = buildingGlobalId;
+                BuildingType = buildingType;
+                TileX = tileX;
+                TileY = tileY;
+            }
+
+            public int BuildingId { get; }
+            public uint BuildingGlobalId { get; }
+            public eStructs BuildingType { get; }
+            public int TileX { get; }
+            public int TileY { get; }
+        }
 
         private readonly struct RabbitFarm
         {
