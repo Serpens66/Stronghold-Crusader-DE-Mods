@@ -3,10 +3,17 @@
   "Author": "Serpens66",
   "Name": "Random Events",
   "Description": "Runs configurable Vanilla scenario events in singleplayer skirmishes and Trail missions.",
-  "Version": "1.0.18",
+  "Version": "1.0.19",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.19",
+      "Changes": [
+        "Orders each newly spawned Vanilla bandit tribe to attack a deterministic random living building of the selected human player through Vanilla's native tribe AttackBuilding command.",
+        "Disables only further bandit events with a timestamped Error if a game update makes tribe detection or the native attack-order API incompatible."
+      ]
+    },
     {
       "Version": "1.0.18",
       "Changes": [

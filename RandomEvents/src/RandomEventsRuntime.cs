@@ -40,6 +40,7 @@ namespace RandomEvents
         private int lastSignpostAttemptTick = int.MinValue;
         private bool calendarApiChecked;
         private bool waitingForLivingHumanTargetLogged;
+        private bool banditAttackOrdersEnabled = true;
         private RandomEventsSaveStateV2 state;
 
         public RandomEventsRuntime(ManualLogSource log, RandomEventsSettingsViewModel settings)
@@ -126,6 +127,7 @@ namespace RandomEvents
             mapStartedFromMultiplayerSave = false;
             calendarApiChecked = false;
             waitingForLivingHumanTargetLogged = false;
+            banditAttackOrdersEnabled = true;
             signpostPlacement.ResetMapState();
             state = null;
         }
@@ -484,6 +486,26 @@ namespace RandomEvents
             IDisposable signpostScope = null;
             int signpostBuildingId = -1;
             double signpostDistance = 0;
+            BanditAttackPlan banditPlan = null;
+            if (definition.Kind == RandomEventKind.Bandits)
+            {
+                if (!banditAttackOrdersEnabled)
+                {
+                    LogError(
+                        $"Bandit event skipped: targetPlayerId={targetPlayerId}, " +
+                        "reason=Vanilla tribe attack orders were disabled after an earlier compatibility failure.");
+                    return;
+                }
+
+                if (!TryPrepareBanditAttack(targetPlayerId, out banditPlan, out string preparationFailure))
+                {
+                    LogInfo(
+                        $"Bandit event had no effect: targetPlayerId={targetPlayerId}, " +
+                        $"reason={preparationFailure}");
+                    return;
+                }
+            }
+
             if (definition.RequiresSignpost &&
                 !signpostRegistry.TryBeginTargetedEvent(
                     targetPlayerId,
@@ -524,6 +546,32 @@ namespace RandomEvents
                 }
 
                 EngineInterface.GameAction(Enums.GameActionCommand.FreeBuild_Event, definition.TextId, strength);
+                if (banditPlan != null)
+                {
+                    if (!TryOrderBanditsToAttack(banditPlan, out string banditDetail, out bool compatibilityFailure))
+                    {
+                        if (compatibilityFailure)
+                        {
+                            banditAttackOrdersEnabled = false;
+                            LogError(
+                                $"Bandit attack activation failed and further bandit events are disabled for this map; " +
+                                $"unrelated events remain active: targetPlayerId={targetPlayerId}, reason={banditDetail}");
+                        }
+                        else
+                        {
+                            LogInfo(
+                                $"Bandit event had no effect: targetPlayerId={targetPlayerId}, reason={banditDetail}");
+                        }
+                        return;
+                    }
+
+                    LogInfo(
+                        $"Vanilla bandit event dispatched and ordered to attack: textId={definition.TextId}, " +
+                        $"strength={strength}, targetPlayerId={targetPlayerId}, signpostBuildingId={signpostBuildingId}, " +
+                        $"signpostDistanceToTargetKeep={signpostDistance:0.00}, {banditDetail}");
+                    return;
+                }
+
                 LogInfo(
                     $"Vanilla direct event dispatched: event={definition.Name}, textId={definition.TextId}, " +
                     $"strength={strength}, targetPlayerId={targetPlayerId}, signpostBuildingId={signpostBuildingId}, " +
@@ -539,6 +587,153 @@ namespace RandomEvents
                 signpostScope?.Dispose();
             }
         }
+
+        private bool TryPrepareBanditAttack(
+            int targetPlayerId,
+            out BanditAttackPlan plan,
+            out string failure)
+        {
+            plan = null;
+            failure = string.Empty;
+            try
+            {
+                List<int> targetBuildingIds = new List<int>();
+                Span<GameBuilding> buildings = GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
+                for (int buildingIndex = 0; buildingIndex < buildings.Length; buildingIndex++)
+                {
+                    ref GameBuilding building = ref buildings[buildingIndex];
+                    if (building.r_PlayerIdOwner == targetPlayerId &&
+                        building.r_AliveState == AliveState.IsAlive &&
+                        building.r_GlobalId != 0)
+                    {
+                        // Building APIs use one-based IDs while their exposed Span is zero-based.
+                        targetBuildingIds.Add(buildingIndex + 1);
+                    }
+                }
+
+                if (targetBuildingIds.Count == 0)
+                {
+                    failure = "the target player owns no living building that can receive a Vanilla attack order.";
+                    return false;
+                }
+
+                SavedPrng prng = new SavedPrng(state.PrngState0, state.PrngState1);
+                int targetBuildingId = targetBuildingIds[prng.Next(targetBuildingIds.Count)];
+                state.PrngState0 = prng.State0;
+                state.PrngState1 = prng.State1;
+
+                ref GameBuilding target = ref buildings[targetBuildingId - 1];
+                Span<GameTribe> tribes = GameTribeManagerAPI.Instance.GetTribeAsSpan();
+                uint[] previousTribeGlobalIds = new uint[tribes.Length];
+                for (int index = 0; index < tribes.Length; index++)
+                {
+                    ref GameTribe tribe = ref tribes[index];
+                    if (IsActiveTribe(in tribe))
+                        previousTribeGlobalIds[index] = tribe.r_GlobalId;
+                }
+
+                plan = new BanditAttackPlan(
+                    targetPlayerId,
+                    targetBuildingId,
+                    target.r_GlobalId,
+                    target.r_BuildingType,
+                    previousTribeGlobalIds,
+                    targetBuildingIds.Count);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                banditAttackOrdersEnabled = false;
+                failure = $"tribe/building API compatibility check failed ({ex.Message}); further bandit events are disabled for this map.";
+                LogError($"Bandit attack preparation failed while unrelated events remain active: {ex}");
+                return false;
+            }
+        }
+
+        private unsafe bool TryOrderBanditsToAttack(
+            BanditAttackPlan plan,
+            out string detail,
+            out bool compatibilityFailure)
+        {
+            detail = string.Empty;
+            compatibilityFailure = false;
+            try
+            {
+                Span<GameTribe> tribes = GameTribeManagerAPI.Instance.GetTribeAsSpan();
+                if (tribes.Length != plan.PreviousTribeGlobalIds.Length)
+                {
+                    compatibilityFailure = true;
+                    detail = $"tribe array length changed during dispatch ({plan.PreviousTribeGlobalIds.Length} -> {tribes.Length}).";
+                    return false;
+                }
+
+                int spawnedTribeId = -1;
+                int spawnedTribeCount = 0;
+                for (int index = 0; index < tribes.Length; index++)
+                {
+                    ref GameTribe tribe = ref tribes[index];
+                    if (!IsActiveTribe(in tribe) ||
+                        tribe.r_GlobalId == plan.PreviousTribeGlobalIds[index] ||
+                        tribe.r_UnitsInGroup == 0)
+                    {
+                        continue;
+                    }
+
+                    spawnedTribeId = index + 1;
+                    spawnedTribeCount++;
+                }
+
+                if (spawnedTribeCount == 0)
+                {
+                    detail = "Vanilla created no new active bandit tribe (its spawn prerequisite or tribe capacity rejected the event).";
+                    return false;
+                }
+
+                if (spawnedTribeCount != 1)
+                {
+                    compatibilityFailure = true;
+                    detail = $"Vanilla created {spawnedTribeCount} new tribes; the bandit tribe cannot be identified unambiguously.";
+                    return false;
+                }
+
+                if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(
+                        plan.TargetBuildingId,
+                        out GameBuilding* target) ||
+                    target == null ||
+                    target->r_PlayerIdOwner != plan.TargetPlayerId ||
+                    target->r_AliveState != AliveState.IsAlive ||
+                    target->r_GlobalId != plan.TargetBuildingGlobalId)
+                {
+                    detail = $"selected target building {plan.TargetBuildingId} ceased to be a living building of player {plan.TargetPlayerId}.";
+                    return false;
+                }
+
+                // This calls Vanilla's tribe order handler, so normal pathfinding and combat AI remain in charge.
+                if (!GameTribeManagerAPI.Instance.AttackBuildingEx(
+                        spawnedTribeId,
+                        plan.TargetBuildingId,
+                        unchecked((int)plan.TargetBuildingGlobalId)))
+                {
+                    compatibilityFailure = true;
+                    detail = $"Vanilla AttackBuilding rejected tribe {spawnedTribeId} and building {plan.TargetBuildingId}.";
+                    return false;
+                }
+
+                detail = $"banditTribeId={spawnedTribeId}, targetBuildingId={plan.TargetBuildingId}, " +
+                    $"targetBuildingType={plan.TargetBuildingType}, eligibleTargetBuildings={plan.EligibleTargetBuildingCount}.";
+                return true;
+            }
+            catch (Exception ex)
+            {
+                compatibilityFailure = true;
+                detail = $"Vanilla tribe attack API failed ({ex.Message}).";
+                LogError($"Bandit AttackBuilding invocation failed: {ex}");
+                return false;
+            }
+        }
+
+        private static bool IsActiveTribe(in GameTribe tribe) =>
+            tribe.r_AliveState == AliveState.NeedsInit || tribe.r_AliveState == AliveState.IsAlive;
 
         private int[] GetLivingHumanPlayerIds()
         {
@@ -817,6 +1012,32 @@ namespace RandomEvents
         private void LogInfo(string message) => Shared.DebugLogHelper.LogInfo(log, message);
         private void LogWarning(string message) => Shared.DebugLogHelper.LogWarning(log, message);
         private void LogError(string message) => Shared.DebugLogHelper.LogError(log, message);
+
+        private sealed class BanditAttackPlan
+        {
+            public BanditAttackPlan(
+                int targetPlayerId,
+                int targetBuildingId,
+                uint targetBuildingGlobalId,
+                eStructs targetBuildingType,
+                uint[] previousTribeGlobalIds,
+                int eligibleTargetBuildingCount)
+            {
+                TargetPlayerId = targetPlayerId;
+                TargetBuildingId = targetBuildingId;
+                TargetBuildingGlobalId = targetBuildingGlobalId;
+                TargetBuildingType = targetBuildingType;
+                PreviousTribeGlobalIds = previousTribeGlobalIds;
+                EligibleTargetBuildingCount = eligibleTargetBuildingCount;
+            }
+
+            public int TargetPlayerId { get; }
+            public int TargetBuildingId { get; }
+            public uint TargetBuildingGlobalId { get; }
+            public eStructs TargetBuildingType { get; }
+            public uint[] PreviousTribeGlobalIds { get; }
+            public int EligibleTargetBuildingCount { get; }
+        }
 
         private readonly struct RabbitFarm
         {
