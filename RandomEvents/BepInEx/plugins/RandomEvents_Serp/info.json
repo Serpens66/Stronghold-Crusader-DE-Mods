@@ -3,10 +3,33 @@
   "Author": "Serpens66",
   "Name": "Random Events",
   "Description": "Runs configurable Vanilla scenario events in singleplayer skirmishes and Trail missions.",
-  "Version": "1.0.5",
+  "Version": "1.0.8",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.8",
+      "Changes": [
+        "Fixed a native map-start crash by moving Timeline creation and mutation out of the Script Extender's inline pre-tick hook into a persistent LateUpdate queue.",
+        "Added queued, executed, stale, and failed Timeline synchronization diagnostics."
+      ]
+    },
+    {
+      "Version": "1.0.7",
+      "Changes": [
+        "Fixed event scheduling by using Vanilla's twelve-month calendar when the Script Extender reports zero months per year.",
+        "Fixed dynamically registered signposts as rabbit sources by supplying their positions through Vanilla's scenario-coordinate path.",
+        "Added delayed rabbit-unit outcome diagnostics and rejected saved schedules created with an incompatible calendar basis."
+      ]
+    },
+    {
+      "Version": "1.0.6",
+      "Changes": [
+        "Added monthly and periodic game-time heartbeats to expose stalled or divergent Vanilla calendar readings.",
+        "Added before/after prerequisite snapshots for population, farms, granaries, food, rabbits, and registered signposts.",
+        "Added Timeline done-flag audits at the due tick and following tick before reusable event records are changed."
+      ]
+    },
     {
       "Version": "1.0.5",
       "Changes": [

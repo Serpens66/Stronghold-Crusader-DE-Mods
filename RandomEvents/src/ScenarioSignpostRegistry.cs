@@ -105,6 +105,7 @@ namespace RandomEvents
 
         public bool TryBeginTargetedEvent(
             int targetPlayerId,
+            bool rabbitEvent,
             out IDisposable scope,
             out int signpostBuildingId,
             out double signpostDistance,
@@ -144,7 +145,11 @@ namespace RandomEvents
                 double y = (signpost->r_TilePositionYBegin + signpost->r_TilePositionYEnd) / 2.0;
                 double deltaX = x - keepX;
                 double deltaY = y - keepY;
-                usable.Add(new SignpostDistance(buildingId, Math.Sqrt(deltaX * deltaX + deltaY * deltaY)));
+                usable.Add(new SignpostDistance(
+                    buildingId,
+                    Math.Sqrt(deltaX * deltaX + deltaY * deltaY),
+                    (short)Math.Round(x),
+                    (short)Math.Round(y)));
             }
 
             if (usable.Count == 0)
@@ -157,16 +162,25 @@ namespace RandomEvents
             short[] originalAttackPoints = ReadScenarioPoints(attackPointsAddress);
             short[] originalRabbitPoints = ReadScenarioPoints(rabbitPointsAddress);
 
-            // Vanilla prefers four scenario point coordinates over its eight signpost slots.
-            // Temporarily clearing them forces all four spawn events through the prioritized signpost list.
+            // Vanilla rabbits read cached source coordinates that are not initialized by dynamic ID registration.
+            // Feed their native scenario-coordinate path with points taken directly from the selected signpost.
             try
             {
                 WriteScenarioPoints(attackPointsAddress, CreateDisabledScenarioPoints());
-                WriteScenarioPoints(rabbitPointsAddress, CreateDisabledScenarioPoints());
-                for (int slot = 0; slot < SlotCount; slot++)
+                if (rabbitEvent)
                 {
-                    int buildingId = slot < usable.Count ? usable[slot].BuildingId : 0;
-                    Marshal.WriteInt32(slotsAddress, slot * sizeof(int), buildingId);
+                    WriteScenarioPoints(rabbitPointsAddress, CreateRabbitScenarioPoints(usable[0]));
+                    for (int slot = 0; slot < SlotCount; slot++)
+                        Marshal.WriteInt32(slotsAddress, slot * sizeof(int), 0);
+                }
+                else
+                {
+                    WriteScenarioPoints(rabbitPointsAddress, CreateDisabledScenarioPoints());
+                    for (int slot = 0; slot < SlotCount; slot++)
+                    {
+                        int buildingId = slot < usable.Count ? usable[slot].BuildingId : 0;
+                        Marshal.WriteInt32(slotsAddress, slot * sizeof(int), buildingId);
+                    }
                 }
             }
             catch (Exception ex)
@@ -189,7 +203,9 @@ namespace RandomEvents
                 originalRabbitPoints);
             LogInfo(
                 $"Vanilla spawn source prioritized for target: targetPlayerId={targetPlayerId}, " +
-                $"signpostBuildingId={signpostBuildingId}, distanceToKeep={signpostDistance:0.00}, usableSignposts={usable.Count}.");
+                $"signpostBuildingId={signpostBuildingId}, distanceToKeep={signpostDistance:0.00}, " +
+                $"usableSignposts={usable.Count}, sourceMode={(rabbitEvent ? "rabbit-scenario-coordinates" : "registered-signpost-slots")}, " +
+                $"sourceTile=({usable[0].TileX},{usable[0].TileY}).");
             return true;
         }
 
@@ -336,6 +352,21 @@ namespace RandomEvents
             short[] result = new short[ScenarioPointCount * 2];
             for (int index = 0; index < result.Length; index++)
                 result[index] = -1;
+            return result;
+        }
+
+        private static short[] CreateRabbitScenarioPoints(SignpostDistance signpost)
+        {
+            short[] result = CreateDisabledScenarioPoints();
+            // Four nearby Vanilla points tolerate a blocked center tile while keeping the spawn at the signpost.
+            result[0] = signpost.TileX;
+            result[1] = signpost.TileY;
+            result[2] = (short)Math.Max(0, signpost.TileX - 1);
+            result[3] = signpost.TileY;
+            result[4] = signpost.TileX;
+            result[5] = (short)Math.Max(0, signpost.TileY - 1);
+            result[6] = (short)Math.Min(799, signpost.TileX + 1);
+            result[7] = (short)Math.Min(799, signpost.TileY + 1);
             return result;
         }
 
@@ -551,14 +582,18 @@ namespace RandomEvents
 
         private readonly struct SignpostDistance
         {
-            public SignpostDistance(int buildingId, double distance)
+            public SignpostDistance(int buildingId, double distance, short tileX, short tileY)
             {
                 BuildingId = buildingId;
                 Distance = distance;
+                TileX = tileX;
+                TileY = tileY;
             }
 
             public int BuildingId { get; }
             public double Distance { get; }
+            public short TileX { get; }
+            public short TileY { get; }
         }
 
         private sealed class TargetingScope : IDisposable
