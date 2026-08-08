@@ -31,7 +31,6 @@ namespace RandomEvents
         private int captureX;
         private int captureY;
         private int capturedBuildingId = -1;
-        private bool reachabilityDeferredLogged;
 
         public SignpostPlacementService(ManualLogSource log, ScenarioSignpostRegistry registry)
         {
@@ -70,16 +69,8 @@ namespace RandomEvents
             List<PlayerReachability> humanReachability;
             try
             {
-                if (!TryBuildHumanReachability(out humanReachability, out string reachabilityFailure))
-                {
-                    if (!reachabilityDeferredLogged)
-                    {
-                        reachabilityDeferredLogged = true;
-                        LogInfo($"Signpost placement deferred: {reachabilityFailure}");
-                    }
+                if (!TryBuildHumanReachability(out humanReachability, out _))
                     return false;
-                }
-                reachabilityDeferredLogged = false;
             }
             catch (Exception ex)
             {
@@ -113,11 +104,6 @@ namespace RandomEvents
             registered = registry.ReadRegisteredBuildingIds();
             int placementSeed = GetPlacementSeed(state);
             Random placementRandom = new Random(placementSeed);
-            LogInfo(
-                $"Randomized signpost placement initialized: seed={placementSeed}, " +
-                $"edgeDepth={MinimumEdgeDepth}-{MaximumEdgeDepth}, randomOffsetRadius={MaximumRandomOffset:0}, " +
-                $"minimumKeepDistance={MinimumKeepDistance:0}.");
-
             for (int sideIndex = 0; sideIndex < 4; sideIndex++)
             {
                 MapEdge side = (MapEdge)sideIndex;
@@ -127,9 +113,6 @@ namespace RandomEvents
 
                 selected[sideIndex] = best.BuildingId;
                 used.Add(best.BuildingId);
-                LogInfo(
-                    $"Reusing registered Vanilla signpost: side={side}, buildingId={best.BuildingId}, " +
-                    $"edgeDepth={best.EdgeDepth:0.00}, minimumKeepDistance={best.MinimumKeepDistance:0.00}.");
             }
 
             for (int sideIndex = 0; sideIndex < 4; sideIndex++)
@@ -174,11 +157,7 @@ namespace RandomEvents
             TrackProtectedSignposts(selected);
             registry.SetEligibleSignposts(selected);
             state.SignpostsInitialized = true;
-            if (registry.HasUsableRegisteredSignpost())
-            {
-                LogInfo($"Signpost initialization completed once: ids=[{string.Join(",", selected)}].");
-            }
-            else
+            if (!registry.HasUsableRegisteredSignpost())
             {
                 LogError(
                     "Signpost initialization completed without any usable registered signpost. " +
@@ -196,7 +175,6 @@ namespace RandomEvents
         public void ResetMapState()
         {
             protectedSignpostIds.Clear();
-            reachabilityDeferredLogged = false;
             registry.ResetMapState();
         }
 
@@ -236,12 +214,6 @@ namespace RandomEvents
                 Shuffle(preferredCandidates, random);
                 Shuffle(fallbackCandidates, random);
                 preferredCandidates.AddRange(fallbackCandidates);
-                LogInfo(
-                    $"Randomized signpost candidate set: side={side}, depth={depth}, " +
-                    $"prefilteredCandidates={candidates.Count}, preferredPool={candidates.Count - fallbackCandidates.Count}, " +
-                    $"bestTile=({best.X},{best.Y}), bestMinimumKeepDistance={best.MinimumKeepDistance:0.00}.");
-
-                int failedPlacements = 0;
                 foreach (PlacementCandidate candidate in preferredCandidates)
                 {
                     if (!registry.HasFreeSlot())
@@ -249,31 +221,17 @@ namespace RandomEvents
 
                     int spawnedId = SpawnSignpost(candidate.X, candidate.Y);
                     if (spawnedId <= 0)
-                    {
-                        failedPlacements++;
                         continue;
-                    }
 
-                    if (registry.TryRegister(spawnedId, out int slot))
+                    if (registry.TryRegister(spawnedId, out _))
                     {
                         buildingId = spawnedId;
-                        LogInfo(
-                            $"Placed Vanilla signpost: side={side}, depth={depth}, tile=({candidate.X},{candidate.Y}), " +
-                            $"buildingId={spawnedId}, slot={slot}, minimumKeepDistance={candidate.MinimumKeepDistance:0.00}, " +
-                            $"randomOffsetFromBest={CandidateDistance(candidate, best):0.00}, owner=Nature, damageProtected=true.");
                         return true;
                     }
 
                     // A prefab created for this attempt must not remain as an unregistered scenery object.
                     GameBuildingManagerAPI.Instance.DeleteBuildingSafe(spawnedId);
                     LogWarning($"Removed unregistered signpost after native registration failed: buildingId={spawnedId}.");
-                }
-
-                if (failedPlacements > 0)
-                {
-                    LogInfo(
-                        $"Vanilla rejected randomized signpost candidates at depth; trying another random depth: " +
-                        $"side={side}, depth={depth}, failedPlacements={failedPlacements}.");
                 }
             }
             return false;
@@ -317,16 +275,9 @@ namespace RandomEvents
                     continue;
                 }
 
-                if (registry.TryRegister(spawnedId, out int slot))
+                if (registry.TryRegister(spawnedId, out _))
                 {
                     buildingId = spawnedId;
-                    double deltaX = candidate.X + 0.5 - MapCenter;
-                    double deltaY = candidate.Y + 0.5 - MapCenter;
-                    LogInfo(
-                        $"Placed emergency center Vanilla signpost: tile=({candidate.X},{candidate.Y}), " +
-                        $"buildingId={spawnedId}, slot={slot}, minimumKeepDistance={candidate.MinimumKeepDistance:0.00}, " +
-                        $"centerDistance={Math.Sqrt(deltaX * deltaX + deltaY * deltaY):0.00}, " +
-                        "owner=Nature, damageProtected=true.");
                     return true;
                 }
 
@@ -730,7 +681,6 @@ namespace RandomEvents
             return minimum;
         }
 
-        private void LogInfo(string message) => Shared.DebugLogHelper.LogInfo(log, message);
         private void LogWarning(string message) => Shared.DebugLogHelper.LogWarning(log, message);
         private void LogError(string message) => Shared.DebugLogHelper.LogError(log, message);
 

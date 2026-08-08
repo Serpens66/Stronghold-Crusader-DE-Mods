@@ -25,7 +25,6 @@ namespace RandomEvents
             ResetToDefaultCommand = new RelayCommand(ResetToDefault);
         }
 
-        public event Action<string> SettingChanged;
         public RelayCommand ResetToDefaultCommand { get; }
 
         public string ResetToDefaultText => RandomEventsLocalization.Get("Common.ResetToDefault");
@@ -200,7 +199,6 @@ namespace RandomEvents
 
         private void Changed(string propertyName)
         {
-            SettingChanged?.Invoke(propertyName);
             OnPropertyChanged(propertyName);
         }
 

@@ -12,7 +12,7 @@ namespace RandomEvents
         private const string ScriptExtenderGuid = "000shcdese";
         public const string PluginGuid = "RandomEvents_Serp";
         public const string PluginName = "Random Events";
-        public const string PluginVersion = "1.0.35";
+        public const string PluginVersion = "1.0.0";
 
         private RandomEventsRuntime runtime;
         private bool disposed;
@@ -21,7 +21,6 @@ namespace RandomEvents
 
         private void Awake()
         {
-            Shared.DebugLogHelper.LogInfo(Logger, $"{PluginName} {PluginVersion} loaded.");
             Settings = new RandomEventsSettingsViewModel();
             runtime = new RandomEventsRuntime(Logger, Settings);
             CrusaderLibrary.Instance.LibraryLoaded += OnCrusaderLibraryLoaded;
@@ -43,7 +42,7 @@ namespace RandomEvents
                     requireCurrentVersion: false);
                 runtime.InitializeNative(libraryHandle, memory, referenceHashMatches);
                 runtime.Initialize();
-                Shared.DebugLogHelper.LogInfo(Logger, "Crusader library loaded; Random Events initialized.");
+                Shared.DebugLogHelper.LogDebug(Logger, "Crusader library loaded; Random Events initialized.");
             }
             catch (Exception ex)
             {

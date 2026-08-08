@@ -47,10 +47,6 @@ namespace RandomEvents
                 }
 
                 penaltyAvailable = true;
-                LogInfo(
-                    $"Vanilla bandit popularity penalty ready: strategy={write.Strategy}, " +
-                    $"writeRva=0x{write.Rva:X}, playerStride=0x{playerStride:X}, " +
-                    $"stateBaseOffset=0x{penaltyStateBaseOffset:X}, state={VanillaBanditPenaltyState}.");
             }
             catch (Exception ex)
             {
@@ -126,7 +122,6 @@ namespace RandomEvents
             }
         }
 
-        private void LogInfo(string message) => Shared.DebugLogHelper.LogInfo(log, message);
         private void LogError(string message) => Shared.DebugLogHelper.LogError(log, message);
     }
 }

@@ -3,7 +3,6 @@ using SHCDESE.API;
 using SHCDESE.GameGlobals;
 using SHCDESE.Interop;
 using System;
-using System.Collections.Generic;
 using System.Runtime.InteropServices;
 
 namespace RandomEvents
@@ -99,44 +98,21 @@ namespace RandomEvents
         public void InitializeNative(IntPtr libraryHandle, ReadOnlySpan<byte> memory, bool referenceHashMatches)
         {
             Reset();
-            LogInfo(
-                $"Native event-handler resolution started: referenceHashMatch={referenceHashMatches}, " +
-                "strategy=validated reference RVA or executable-section AOB.");
-
-            List<string> resolved = new List<string>();
             hasBuilding = TryResolveDelegate<HasBuildingDelegate>(
-                libraryHandle, memory, HasBuildingPattern, HasBuildingRva, referenceHashMatches, "building prerequisite", resolved);
+                libraryHandle, memory, HasBuildingPattern, HasBuildingRva, referenceHashMatches, "building prerequisite");
             wheatHandler = TryResolveDelegate<BuildingEventDelegate>(
-                libraryHandle, memory, WheatPattern, WheatHandlerRva, referenceHashMatches, "wheat infestation", resolved);
+                libraryHandle, memory, WheatPattern, WheatHandlerRva, referenceHashMatches, "wheat infestation");
             hopsHandler = TryResolveDelegate<BuildingEventDelegate>(
-                libraryHandle, memory, HopsPattern, HopsHandlerRva, referenceHashMatches, "hops beetles", resolved);
+                libraryHandle, memory, HopsPattern, HopsHandlerRva, referenceHashMatches, "hops beetles");
             appleHandler = TryResolveDelegate<BuildingEventDelegate>(
-                libraryHandle, memory, ApplePattern, AppleHandlerRva, referenceHashMatches, "apple blight", resolved);
+                libraryHandle, memory, ApplePattern, AppleHandlerRva, referenceHashMatches, "apple blight");
             madCowUnitHandler = TryResolveDelegate<UnitEventDelegate>(
-                libraryHandle, memory, MadCowUnitPattern, MadCowUnitHandlerRva, referenceHashMatches, "mad-cow unit effect", resolved);
+                libraryHandle, memory, MadCowUnitPattern, MadCowUnitHandlerRva, referenceHashMatches, "mad-cow unit effect");
             madCowBuildingHandler = TryResolveDelegate<BuildingEventDelegate>(
-                libraryHandle, memory, MadCowBuildingPattern, MadCowBuildingHandlerRva, referenceHashMatches, "mad-cow building effect", resolved);
+                libraryHandle, memory, MadCowBuildingPattern, MadCowBuildingHandlerRva, referenceHashMatches, "mad-cow building effect");
             granaryTheftHandler = TryResolveDelegate<GranaryTheftDelegate>(
-                libraryHandle, memory, GranaryTheftPattern, GranaryTheftHandlerRva, referenceHashMatches, "granary theft", resolved);
-            ResolvePresentation(libraryHandle, memory, referenceHashMatches, resolved);
-
-            List<string> availableEvents = new List<string>();
-            foreach (RandomEventKind kind in new[]
-            {
-                RandomEventKind.WheatInfestation,
-                RandomEventKind.HopsBeetles,
-                RandomEventKind.AppleBlight,
-                RandomEventKind.MadCows,
-                RandomEventKind.GranaryTheft
-            })
-            {
-                if (TryGetEventAvailability(kind, out _))
-                    availableEvents.Add(kind.ToString());
-            }
-
-            LogInfo(
-                $"Native event-handler resolution finished: available={availableEvents.Count}/5 " +
-                $"[{string.Join(", ", availableEvents)}], resolved=[{string.Join(", ", resolved)}].");
+                libraryHandle, memory, GranaryTheftPattern, GranaryTheftHandlerRva, referenceHashMatches, "granary theft");
+            ResolvePresentation(libraryHandle, memory, referenceHashMatches);
         }
 
         public NativeEventDispatchStatus Dispatch(
@@ -284,8 +260,7 @@ namespace RandomEvents
             string pattern,
             int referenceRva,
             bool referenceHashMatches,
-            string name,
-            List<string> resolved)
+            string name)
             where TDelegate : class
         {
             try
@@ -301,7 +276,6 @@ namespace RandomEvents
                     typeof(TDelegate)) as TDelegate;
                 if (handler == null)
                     throw new InvalidOperationException($"{name} could not be converted to {typeof(TDelegate).Name}.");
-                resolved.Add($"{name}=0x{resolution.Rva:X}/{resolution.Strategy}");
                 return handler;
             }
             catch (Exception ex)
@@ -314,8 +288,7 @@ namespace RandomEvents
         private void ResolvePresentation(
             IntPtr libraryHandle,
             ReadOnlySpan<byte> memory,
-            bool referenceHashMatches,
-            List<string> resolved)
+            bool referenceHashMatches)
         {
             try
             {
@@ -346,8 +319,6 @@ namespace RandomEvents
 
                 presentationHandler = Marshal.GetDelegateForFunctionPointer<PresentationDelegate>(AtRva(libraryHandle, handlerRva));
                 presentationManager = AtRva(libraryHandle, managerRva);
-                resolved.Add(
-                    $"presentation=0x{handlerRva:X},manager=0x{managerRva:X}/{callsite.Strategy}");
             }
             catch (Exception ex)
             {
@@ -410,7 +381,6 @@ namespace RandomEvents
         private static IntPtr AtRva(IntPtr libraryHandle, int rva) =>
             new IntPtr(checked(libraryHandle.ToInt64() + rva));
 
-        private void LogInfo(string message) => Shared.DebugLogHelper.LogInfo(log, message);
         private void LogWarning(string message) => Shared.DebugLogHelper.LogWarning(log, message);
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]

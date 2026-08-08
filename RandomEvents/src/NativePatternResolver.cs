@@ -17,10 +17,10 @@ namespace RandomEvents
         {
             PatternByte[] bytes = ParsePattern(pattern);
             if (referenceHashMatches && MatchesPatternAt(memory, referenceRva, bytes))
-                return new NativeResolution(referenceRva, "validated-reference-rva");
+                return new NativeResolution(referenceRva);
 
             int match = FindUniquePattern(memory, bytes, name);
-            return new NativeResolution(match, "semantic-aob");
+            return new NativeResolution(match);
         }
 
         public static int FindUniquePattern(ReadOnlySpan<byte> memory, string pattern, string name) =>
@@ -174,14 +174,12 @@ namespace RandomEvents
 
     internal readonly struct NativeResolution
     {
-        public NativeResolution(int rva, string strategy)
+        public NativeResolution(int rva)
         {
             Rva = rva;
-            Strategy = strategy;
         }
 
         public int Rva { get; }
-        public string Strategy { get; }
     }
 
     internal readonly struct NativeCodeRange

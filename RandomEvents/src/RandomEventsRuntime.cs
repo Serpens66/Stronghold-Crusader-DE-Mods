@@ -43,11 +43,8 @@ namespace RandomEvents
         private bool mapStartPending;
         private bool mapActive;
         private bool loadedStateAvailable;
-        private bool multiplayerDisableLogged;
         private bool mapStartedFromMultiplayerSave;
         private int lastSignpostAttemptTick = int.MinValue;
-        private bool calendarApiChecked;
-        private bool waitingForLivingHumanTargetLogged;
         private bool banditEventsEnabled = true;
         private RandomEventsSaveStateV2 state;
 
@@ -93,7 +90,6 @@ namespace RandomEvents
             }
 
             initialized = true;
-            LogInfo("Runtime hooks and versioned save-data handler registered.");
         }
 
         public void Dispose()
@@ -112,19 +108,12 @@ namespace RandomEvents
         {
             mapStartPending = true;
             mapActive = false;
-            multiplayerDisableLogged = false;
             mapStartedFromMultiplayerSave = args.bMultiplayerSave != 0;
             lastSignpostAttemptTick = int.MinValue;
-            calendarApiChecked = false;
-            waitingForLivingHumanTargetLogged = false;
-            LogInfo(
-                $"Map start received; initialization deferred to persistent game tick: " +
-                $"loadedState={loadedStateAvailable}, multiplayerSave={mapStartedFromMultiplayerSave}.");
         }
 
         private void OnUnloadMap(MapUnloadEventArgs args)
         {
-            LogInfo("Map unload received; in-memory Random Events state cleared.");
             ResetMapState();
         }
 
@@ -133,10 +122,7 @@ namespace RandomEvents
             mapStartPending = false;
             mapActive = false;
             loadedStateAvailable = false;
-            multiplayerDisableLogged = false;
             mapStartedFromMultiplayerSave = false;
-            calendarApiChecked = false;
-            waitingForLivingHumanTargetLogged = false;
             banditEventsEnabled = true;
             pendingBanditGroups.Clear();
             signpostPlacement.ResetMapState();
@@ -169,7 +155,7 @@ namespace RandomEvents
                 int currentAbsoluteMonth = GetCurrentAbsoluteMonth();
                 if (state.BatchPrepared && currentAbsoluteMonth >= state.NextDueAbsoluteMonth)
                 {
-                    ExecuteDueBatch(currentAbsoluteMonth);
+                    ExecuteDueBatch();
                     return;
                 }
 
@@ -195,7 +181,6 @@ namespace RandomEvents
 
             Shared.GameModeSnapshot gameMode = Shared.GameModeHelper.Capture(mapStartedFromMultiplayerSave);
             string gameModeDetails = gameMode.ToDiagnosticString();
-            LogInfo($"Game-mode diagnostics: {gameModeDetails}.");
             if (gameMode.IsRealMultiplayer)
             {
                 DisableForNetwork("map started as a real network game", gameModeDetails);
@@ -204,14 +189,14 @@ namespace RandomEvents
 
             if (gameMode.IsMapEditor)
             {
-                LogInfo("Random Events disabled for map editor session.");
+                LogDebug("Random Events disabled for map editor session.");
                 state = null;
                 return;
             }
 
             if (!gameMode.IsSingleplayerSkirmishMode)
             {
-                LogInfo("Random Events disabled because the map is neither a singleplayer skirmish nor a singleplayer Trail mission.");
+                LogDebug("Random Events disabled because the map is neither a singleplayer skirmish nor a singleplayer Trail mission.");
                 state = null;
                 return;
             }
@@ -221,18 +206,13 @@ namespace RandomEvents
                 mapActive = state.EffectiveEnabled;
                 // Native path components can change with the restored map, so signposts must be revalidated.
                 state.SignpostsInitialized = !RandomEventDefinitions.RequiresSignposts(state.Chances);
-                LogInfo(
-                    $"Restored Random Events state: enabled={state.EffectiveEnabled}, interval={state.IntervalMonths}, " +
-                    $"nextDueAbsoluteMonth={state.NextDueAbsoluteMonth}, batchPrepared={state.BatchPrepared}, " +
-                    $"startAbsoluteMonth={state.StartAbsoluteMonth}, " +
-                    $"elapsedMonths={GetElapsedMonthsSinceStart()}, signpostsInitialized={state.SignpostsInitialized}.");
                 return;
             }
 
             loadedStateAvailable = false;
             if (!settings.EnableMod)
             {
-                LogInfo("Random Events disabled by the effective map setting.");
+                LogDebug("Random Events disabled by the effective map setting.");
                 state = null;
                 return;
             }
@@ -240,10 +220,6 @@ namespace RandomEvents
             state = CreateFreshState();
             mapActive = true;
             PrepareBatch();
-            LogInfo(
-                $"Fresh Random Events state initialized: interval={state.IntervalMonths}, " +
-                $"startAbsoluteMonth={state.StartAbsoluteMonth}, firstDueAbsoluteMonth={state.NextDueAbsoluteMonth}, " +
-                $"multiplayerMode={(MultiplayerEventMode)state.MultiplayerMode} (reserved)." );
         }
 
         private RandomEventsSaveStateV2 CreateFreshState()
@@ -283,18 +259,8 @@ namespace RandomEvents
         {
             int[] humanTargetPlayerIds = GetLivingHumanPlayerIds();
             if (humanTargetPlayerIds.Length == 0)
-            {
-                if (!waitingForLivingHumanTargetLogged)
-                {
-                    waitingForLivingHumanTargetLogged = true;
-                    LogInfo(
-                        $"Event batch preparation deferred: dueAbsoluteMonth={state.NextDueAbsoluteMonth}, " +
-                        "reason=no active human player has a living Lord yet. The configured first interval remains unchanged.");
-                }
                 return false;
-            }
 
-            waitingForLivingHumanTargetLogged = false;
             SavedPrng prng = new SavedPrng(state.PrngState0, state.PrngState1);
             List<int> directKinds = new List<int>();
             List<int> directStrengths = new List<int>();
@@ -306,11 +272,6 @@ namespace RandomEvents
                 int roll = prng.Next(100);
                 bool success = roll < chance;
                 int strength = success ? RollStrength(definition.StrengthKind, ref prng) : 0;
-                LogDebug(
-                    $"Event roll: event={definition.Name}, kind={definition.Kind}, roll={roll}, chance={chance}, " +
-                    $"success={success}, strength={FormatRolledStrength(definition.StrengthKind, strength)}, " +
-                    $"dueAbsoluteMonth={state.NextDueAbsoluteMonth}.");
-
                 if (!success)
                     continue;
                 directKinds.Add((int)definition.Kind);
@@ -326,9 +287,6 @@ namespace RandomEvents
             state.PreparedDirectStrengths = directStrengths.ToArray();
             state.PreparedDirectTargetPlayerIds = directTargetPlayerIds.ToArray();
             state.BatchPrepared = true;
-            LogInfo(
-                $"Event batch prepared: dueAbsoluteMonth={state.NextDueAbsoluteMonth}, " +
-                $"preparedHits={directKinds.Count}, livingHumanTargets=[{string.Join(",", humanTargetPlayerIds)}].");
             return true;
         }
 
@@ -340,7 +298,7 @@ namespace RandomEvents
             return prng.NextInclusive(state.StrengthMinimums[index], state.StrengthMaximums[index]);
         }
 
-        private void ExecuteDueBatch(int currentAbsoluteMonth)
+        private void ExecuteDueBatch()
         {
             int due = state.NextDueAbsoluteMonth;
             int[] directKinds = state.PreparedDirectKinds ?? Array.Empty<int>();
@@ -353,7 +311,6 @@ namespace RandomEvents
             state.PreparedDirectStrengths = Array.Empty<int>();
             state.PreparedDirectTargetPlayerIds = Array.Empty<int>();
 
-            LogInfo($"Event date reached: dueAbsoluteMonth={due}, currentAbsoluteMonth={currentAbsoluteMonth}, directCount={directKinds.Length}.");
             for (int index = 0; index < directKinds.Length; index++)
             {
                 RandomEventDefinition definition = RandomEventDefinitions.Get((RandomEventKind)directKinds[index]);
@@ -365,7 +322,6 @@ namespace RandomEvents
             }
 
             state.NextDueAbsoluteMonth = checked(due + state.IntervalMonths);
-            LogInfo($"Next event batch will be prepared on the following game tick: nextDueAbsoluteMonth={state.NextDueAbsoluteMonth}.");
         }
 
         private byte[] SaveState(SaveContext context)
@@ -373,9 +329,7 @@ namespace RandomEvents
             if (!context.IsSaveFile || !mapActive || state == null ||
                 Shared.GameModeHelper.IsRealMultiplayer(mapStartedFromMultiplayerSave))
                 return null;
-            byte[] bytes = MessagePackSerializer.Serialize(state);
-            LogInfo($"Saved Random Events state: bytes={bytes.Length}, nextDueAbsoluteMonth={state.NextDueAbsoluteMonth}, batchPrepared={state.BatchPrepared}.");
-            return bytes;
+            return MessagePackSerializer.Serialize(state);
         }
 
         private void LoadState(byte[] bytes, LoadContext context)
@@ -387,7 +341,6 @@ namespace RandomEvents
                 state = MessagePackSerializer.Deserialize<RandomEventsSaveStateV2>(bytes);
                 loadedStateAvailable = state != null;
                 mapStartPending = true;
-                LogInfo($"Loaded Random Events state bytes: bytes={bytes.Length}, version={state?.Version}.");
             }
             catch (Exception ex)
             {
@@ -445,7 +398,7 @@ namespace RandomEvents
 
             if (GamePlayerManagerAPI.Instance.IsAIPlayer(targetPlayerId))
             {
-                LogInfo(
+                LogDebug(
                     $"Random event skipped: event={definition.Name}, targetPlayerId={targetPlayerId}, " +
                     "reason=target player is controlled by AI.");
                 return;
@@ -453,7 +406,7 @@ namespace RandomEvents
 
             if (!TryGetLivingLord(targetPlayerId, out string lordFailure))
             {
-                LogInfo(
+                LogDebug(
                     $"Random event skipped: event={definition.Name}, targetPlayerId={targetPlayerId}, " +
                     $"reason=target player has no living Lord ({lordFailure}).");
                 return;
@@ -464,12 +417,12 @@ namespace RandomEvents
                 int factorTenths = strength;
                 int elapsedMonths = GetElapsedMonthsSinceStart();
                 strength = CalculateElapsedScaledUnitCount(elapsedMonths, factorTenths);
-                LogInfo(
+                LogDebug(
                     $"Elapsed-time strength calculated: event={definition.Name}, elapsedMonths={elapsedMonths}, " +
                     $"rolledUnitsPerThreeMonths={factorTenths / 10.0:0.0}, totalUnits={strength}.");
                 if (strength == 0)
                 {
-                    LogInfo(
+                    LogDebug(
                         $"Random event had no effect: event={definition.Name}, targetPlayerId={targetPlayerId}, " +
                         "reason=elapsed-time strength rounded down to zero units.");
                     return;
@@ -498,13 +451,13 @@ namespace RandomEvents
                         out string detail);
                     if (status == NativeEventDispatchStatus.Applied)
                     {
-                        LogInfo(
+                        LogDebug(
                             $"Native Vanilla event dispatched: event={definition.Name}, actionId={definition.VanillaActionId}, " +
                             $"strength={strength}, targetPlayerId={targetPlayerId}, detail={detail}");
                     }
                     else if (status == NativeEventDispatchStatus.PrerequisiteNotMet)
                     {
-                        LogInfo(
+                        LogDebug(
                             $"Native Vanilla event had no effect: event={definition.Name}, actionId={definition.VanillaActionId}, " +
                             $"targetPlayerId={targetPlayerId}, detail={detail}");
                     }
@@ -532,14 +485,13 @@ namespace RandomEvents
 
             IDisposable signpostScope = null;
             int signpostBuildingId = -1;
-            double signpostDistance = 0;
 
             if (definition.RequiresSignpost &&
                 !signpostRegistry.TryBeginTargetedEvent(
                     targetPlayerId,
                     out signpostScope,
                     out signpostBuildingId,
-                    out signpostDistance,
+                    out _,
                     out string signpostFailure))
             {
                 LogError(
@@ -574,13 +526,9 @@ namespace RandomEvents
                 }
 
                 EngineInterface.GameAction(Enums.GameActionCommand.FreeBuild_Event, definition.TextId, strength);
-                LogInfo(
+                LogDebug(
                     $"Vanilla direct event dispatched: event={definition.Name}, textId={definition.TextId}, " +
-                    $"strength={strength}, targetPlayerId={targetPlayerId}, signpostBuildingId={signpostBuildingId}, " +
-                    $"signpostDistanceToTargetKeep={signpostDistance:0.00}. " +
-                    "Vanilla assigns its own event-specific movement, attack, or aggression behavior; " +
-                    "the managed wrapper cannot distinguish a visible effect " +
-                    "from a prerequisite-driven native no-op.");
+                    $"strength={strength}, targetPlayerId={targetPlayerId}, signpostBuildingId={signpostBuildingId}.");
             }
             finally
             {
@@ -609,7 +557,7 @@ namespace RandomEvents
                         out int[] humanPlayerIds,
                         out string slotFailure))
                 {
-                    LogInfo(
+                    LogDebug(
                         $"Bandit event ignored without spawning units: targetPlayerId={targetPlayerId}, " +
                         $"reason={slotFailure}.");
                     return;
@@ -620,8 +568,8 @@ namespace RandomEvents
                         out int signpostBuildingId,
                         out int spawnTileX,
                         out int spawnTileY,
-                        out double signpostDistance,
-                        out string distanceReference,
+                        out _,
+                        out _,
                         out string signpostFailure))
                 {
                     LogError(
@@ -650,14 +598,12 @@ namespace RandomEvents
                 GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
 
                 GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
-                GameTribeManagerAPI tribeApi = GameTribeManagerAPI.Instance;
                 int requestedUnits = strength;
-                int createdUnits = 0;
                 int spawnHeight = tiles.GetTileHeight(spawnTileId);
                 List<BanditMoveTarget> moveTargets = FindBanditMoveTargets(targetPlayerId, sourcePathComponent);
                 if (moveTargets.Count == 0)
                 {
-                    LogInfo(
+                    LogDebug(
                         $"Bandit event ignored without spawning units: targetPlayerId={targetPlayerId}, " +
                         $"reason=no living target building has a free approach tile in path component {sourcePathComponent}.");
                     return;
@@ -682,34 +628,9 @@ namespace RandomEvents
                     {
                         LogWarning(
                             $"Bandit maceman creation stopped without modifying the returned unit: " +
-                            $"unitId={unitId}, createdUnits={createdUnits}/{requestedUnits}.");
+                            $"unitId={unitId}, createdUnits={spawnedUnits.Count}/{requestedUnits}.");
                         break;
                     }
-
-                    // Read membership from this unit directly so concurrently created AI tribes cannot affect the diagnosis.
-                    int initialTribeId = unit->r_TribeId;
-                    string initialTribeDetails = "not-assigned";
-                    if (initialTribeId > 0)
-                    {
-                        if (tribeApi.TryGetTribeById(initialTribeId, out GameTribe* initialTribe) &&
-                            initialTribe != null)
-                        {
-                            initialTribeDetails =
-                                $"ownerPlayerId={initialTribe->r_PlayerIdOwner}, " +
-                                $"globalId={initialTribe->r_GlobalId}, aliveState={initialTribe->r_AliveState}";
-                        }
-                        else
-                        {
-                            initialTribeDetails = "referenced-tribe-unavailable";
-                        }
-                    }
-
-                    LogInfo(
-                        $"Bandit unit immediately after native spawn: unitIndex={index + 1}/{requestedUnits}, " +
-                        $"unitId={unitId}, unitGlobalId={unit->r_GlobalId}, unitOwnerPlayerId={unit->r_ControllableForPlayerId}, " +
-                        $"unitSpritePlayerColorId={unit->r_SpritePlayerColorId}, " +
-                        $"initialTribeId={initialTribeId}, initialTribeLeaderUnitId={unit->r_TribeLeaderUnitId}, " +
-                        $"initialAiState={unit->r_AIState}, initialTribeDetails=({initialTribeDetails}).");
 
                     if (unit->r_ControllableForPlayerId != banditOwnerPlayerId)
                     {
@@ -723,12 +644,11 @@ namespace RandomEvents
                     }
 
                     spawnedUnits.Add(new BanditUnitReference(unitId, unit->r_GlobalId));
-                    createdUnits++;
                 }
 
-                if (createdUnits == 0)
+                if (spawnedUnits.Count == 0)
                 {
-                    LogInfo(
+                    LogDebug(
                         $"Bandit event had no effect: targetPlayerId={targetPlayerId}, " +
                         "reason=no reserved-player-owned maceman could be created.");
                     return;
@@ -758,11 +678,6 @@ namespace RandomEvents
                         groupUnits,
                         target,
                         executeAfterTimestamp));
-                    LogInfo(
-                        $"Bandit group activation scheduled: group={groupIndex + 1}/{scheduledGroups}, units={groupCount}, " +
-                        $"ownerPlayerId={banditOwnerPlayerId}, team={banditTeam}, targetPlayerId={targetPlayerId}, " +
-                        $"targetBuildingId={target.BuildingId}, targetBuildingType={target.BuildingType}, " +
-                        $"targetTile=({target.TileX},{target.TileY}), delaySeconds={BanditGroupActivationDelaySeconds:0.0}.");
                 }
                 state.PrngState0 = movePrng.State0;
                 state.PrngState1 = movePrng.State1;
@@ -789,24 +704,17 @@ namespace RandomEvents
                         presentationFailure);
                 }
 
-                if (nativeBanditSupport.TryApplyPopularityPenalty(targetPlayerId, out string penaltyDetail))
-                {
-                    LogInfo($"Vanilla bandit popularity penalty activated: {penaltyDetail}");
-                }
-                else
+                if (!nativeBanditSupport.TryApplyPopularityPenalty(targetPlayerId, out string penaltyDetail))
                 {
                     LogError(
                         "Bandit popularity penalty could not be activated; spawned bandits remain active: " +
                         penaltyDetail);
                 }
 
-                LogInfo(
-                    $"Manual bandit event spawned: requestedUnits={requestedUnits}, createdUnits={createdUnits}, " +
-                    $"visualPlayerId={BanditVisualPlayerId}, ownerPlayerId={banditOwnerPlayerId}, team={banditTeam}, " +
-                    $"humanEnemies=[{string.Join(",", humanPlayerIds)}], targetPlayerId={targetPlayerId}, " +
-                    $"scheduledGroups={scheduledGroups}, maximumGroups={MaximumBanditGroups}, " +
-                    $"signpostBuildingId={signpostBuildingId}, sourceTile=({spawnTileX},{spawnTileY}), " +
-                    $"distanceTo{distanceReference}={signpostDistance:0.00}.");
+                LogDebug(
+                    $"Manual bandit event spawned: requestedUnits={requestedUnits}, createdUnits={spawnedUnits.Count}, " +
+                    $"ownerPlayerId={banditOwnerPlayerId}, targetPlayerId={targetPlayerId}, " +
+                    $"groups={scheduledGroups}, signpostBuildingId={signpostBuildingId}.");
             }
             catch (Exception ex)
             {
@@ -900,9 +808,6 @@ namespace RandomEvents
                 }
             }
 
-            LogInfo(
-                $"Bandit player slot reserved: playerId={banditPlayerId}, r_LordUnitId=0, team={banditTeam}, " +
-                $"humanEnemies=[{string.Join(",", humanPlayerIds)}], activePlayers=[{string.Join(",", activePlayerIds)}].");
             return true;
         }
 
@@ -1050,12 +955,6 @@ namespace RandomEvents
                     $"Vanilla rejected MoveHere for bandit tribe {tribeId}.");
             }
 
-            LogInfo(
-                $"Bandit group activated: tribeId={tribeId}, ownerPlayerId={pending.OwnerPlayerId}, " +
-                $"team={pending.Team}, units={livingUnitIds.Count}, stance={tribe->r_TribeStance}, " +
-                $"targetPlayerId={pending.TargetPlayerId}, targetBuildingId={target.BuildingId}, " +
-                $"targetBuildingType={target.BuildingType}, targetTile=({target.TileX},{target.TileY}), " +
-                "command=IssueMoveHereCommand.");
         }
 
         private static unsafe List<BanditMoveTarget> FindBanditMoveTargets(
@@ -1080,7 +979,6 @@ namespace RandomEvents
                 targets.Add(new BanditMoveTarget(
                     buildingIndex + 1,
                     building.r_GlobalId,
-                    building.r_BuildingType,
                     tileX,
                     tileY));
             }
@@ -1143,28 +1041,16 @@ namespace RandomEvents
 
         private static bool HasReachableBanditApproach(
             in GameBuilding building,
-            ushort sourcePathComponent) =>
-            HasReachableBanditApproach(
-                building.r_TilePositionXBegin,
-                building.r_TilePositionYBegin,
-                building.r_TilePositionXEnd,
-                building.r_TilePositionYEnd,
-                sourcePathComponent);
-
-        private static bool HasReachableBanditApproach(
-            int beginX,
-            int beginY,
-            int endX,
-            int endY,
             ushort sourcePathComponent)
         {
             GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
             Span<ushort> pathConnections = tiles.TileManager.PathConnectionGrid;
-            for (int y = beginY - 1; y <= endY + 1; y++)
+            for (int y = building.r_TilePositionYBegin - 1; y <= building.r_TilePositionYEnd + 1; y++)
             {
-                for (int x = beginX - 1; x <= endX + 1; x++)
+                for (int x = building.r_TilePositionXBegin - 1; x <= building.r_TilePositionXEnd + 1; x++)
                 {
-                    if ((x >= beginX && x <= endX && y >= beginY && y <= endY) ||
+                    if ((x >= building.r_TilePositionXBegin && x <= building.r_TilePositionXEnd &&
+                         y >= building.r_TilePositionYBegin && y <= building.r_TilePositionYEnd) ||
                         !tiles.IsTileInsideMapBounds(x, y))
                     {
                         continue;
@@ -1284,27 +1170,10 @@ namespace RandomEvents
                 if (building.r_PlayerIdOwner == targetPlayerId &&
                     building.r_AliveState == AliveState.IsAlive &&
                     building.r_GlobalId != 0 &&
+                    !IsKeepType(building.r_BuildingType) &&
                     HasReachableBanditApproach(in building, sourcePathComponent))
                 {
                     return true;
-                }
-            }
-
-            GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
-            const int gridSize = 800;
-            for (int y = 0; y < gridSize; y++)
-            {
-                for (int x = 0; x < gridSize; x++)
-                {
-                    if (!tiles.IsTileInsideMapBounds(x, y))
-                        continue;
-                    int tileId = tiles.GetTileId(x, y);
-                    if (tiles.GetTilePlayerOwnerId(tileId) == targetPlayerId &&
-                        (tiles.GetTilePropertyFlag(tileId) & TilePropertyFlag.IsWall) != 0 &&
-                        HasReachableBanditApproach(x, y, x, y, sourcePathComponent))
-                    {
-                        return true;
-                    }
                 }
             }
             return false;
@@ -1359,7 +1228,7 @@ namespace RandomEvents
 
             if (farms.Count == 0)
             {
-                LogInfo(
+                LogDebug(
                     $"Rabbit infestation skipped: targetPlayerId={targetPlayerId}, " +
                     "reason=no alive wheat or hops farm owned by the target player.");
                 return;
@@ -1491,12 +1360,12 @@ namespace RandomEvents
         {
             if (status == NativeEventDispatchStatus.Applied)
             {
-                LogInfo($"Native Vanilla wildlife event dispatched: event={eventName}, targetPlayerId={targetPlayerId}, {details}.");
+                LogDebug($"Native Vanilla wildlife event dispatched: event={eventName}, targetPlayerId={targetPlayerId}, {details}.");
                 return;
             }
             if (status == NativeEventDispatchStatus.PrerequisiteNotMet)
             {
-                LogInfo($"Native Vanilla wildlife event had no effect: event={eventName}, targetPlayerId={targetPlayerId}, {details}.");
+                LogDebug($"Native Vanilla wildlife event had no effect: event={eventName}, targetPlayerId={targetPlayerId}, {details}.");
                 return;
             }
             LogError($"Native Vanilla wildlife event disabled or failed: event={eventName}, targetPlayerId={targetPlayerId}, {details}.");
@@ -1557,11 +1426,6 @@ namespace RandomEvents
             return checked((int)(numerator / (ScaledStrengthMonthsPerPeriod * ScaledStrengthTenthsPerUnit)));
         }
 
-        private static string FormatRolledStrength(RandomEventStrengthKind kind, int strength) =>
-            kind == RandomEventStrengthKind.Bandits || kind == RandomEventStrengthKind.Archers
-                ? $"{strength / 10.0:0.0} units/3-months"
-                : strength.ToString();
-
         private void ValidateCalendarApi(int currentYear, int currentMonth)
         {
             if (currentYear < 0 || currentMonth < 0 || currentMonth >= VanillaMonthsPerYear)
@@ -1573,17 +1437,6 @@ namespace RandomEvents
                     "Random Events was disabled for this map to prevent incorrectly dated events.");
             }
 
-            if (calendarApiChecked)
-                return;
-
-            calendarApiChecked = true;
-            int apiMonthsPerYear = GameTimeManagerAPI.Instance.GetMonthsInYear();
-            if (apiMonthsPerYear == VanillaMonthsPerYear)
-                return;
-
-            LogInfo(
-                $"GameTimeManagerAPI.GetMonthsInYear() returned {apiMonthsPerYear}; " +
-                $"Random Events uses the validated Vanilla calendar constant {VanillaMonthsPerYear} instead.");
         }
 
         private void DisableForNetwork(string reason, string details)
@@ -1592,15 +1445,12 @@ namespace RandomEvents
             mapActive = false;
             pendingBanditGroups.Clear();
             state = null;
-            if (multiplayerDisableLogged) return;
-            multiplayerDisableLogged = true;
-            LogInfo(
+            LogDebug(
                 $"Random Events fully disabled: {reason}; no rolls, events, save data, or signposts will be created. " +
                 $"Network details: {details}.");
         }
 
         private void LogDebug(string message) => Shared.DebugLogHelper.LogDebug(log, message);
-        private void LogInfo(string message) => Shared.DebugLogHelper.LogInfo(log, message);
         private void LogWarning(string message) => Shared.DebugLogHelper.LogWarning(log, message);
         private void LogError(string message) => Shared.DebugLogHelper.LogError(log, message);
 
@@ -1651,20 +1501,17 @@ namespace RandomEvents
             public BanditMoveTarget(
                 int buildingId,
                 uint buildingGlobalId,
-                eStructs buildingType,
                 int tileX,
                 int tileY)
             {
                 BuildingId = buildingId;
                 BuildingGlobalId = buildingGlobalId;
-                BuildingType = buildingType;
                 TileX = tileX;
                 TileY = tileY;
             }
 
             public int BuildingId { get; }
             public uint BuildingGlobalId { get; }
-            public eStructs BuildingType { get; }
             public int TileX { get; }
             public int TileY { get; }
         }

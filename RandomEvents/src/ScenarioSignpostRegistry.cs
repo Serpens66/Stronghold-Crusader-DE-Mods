@@ -68,9 +68,6 @@ namespace RandomEvents
 
             try
             {
-                LogInfo(
-                    $"Native signpost compatibility scan started: referenceHashMatch={referenceHashMatches}, " +
-                    "strategies=semantic AOB/reference RVA/structural scan.");
                 NativeLookupResolution resolution = ResolveLookup(memory, referenceHashMatches);
 
                 ulong playerManager = GameGlobalsManager.Instance.GamePlayerManagerVA;
@@ -79,21 +76,6 @@ namespace RandomEvents
 
                 slotsAddress = new IntPtr(checked((long)playerManager + resolution.SignpostIdsOffset));
                 unavailableReason = string.Empty;
-                LogInfo(
-                    $"Native signpost registry ready: strategy={resolution.Strategy}, " +
-                    $"lookupRva=0x{resolution.FunctionRva:X}, lookupVa=0x{libraryHandle.ToInt64() + resolution.FunctionRva:X16}, " +
-                    $"slotOffset=0x{resolution.SignpostIdsOffset:X}, slots=0x{slotsAddress.ToInt64():X16}, count={SlotCount}.");
-
-                if (!referenceHashMatches ||
-                    resolution.FunctionRva != ExpectedLookupFunctionRva ||
-                    resolution.SignpostIdsOffset != ReferenceSignpostIdsOffset)
-                {
-                    LogInfo(
-                        "Native signpost compatibility fallback accepted a structurally compatible DLL: " +
-                        $"referenceRva=0x{ExpectedLookupFunctionRva:X}, actualRva=0x{resolution.FunctionRva:X}, " +
-                        $"referenceSlotOffset=0x{ReferenceSignpostIdsOffset:X}, actualSlotOffset=0x{resolution.SignpostIdsOffset:X}.");
-                }
-
                 InitializeTargetingFields(resolution.SignpostIdsOffset, playerManager);
             }
             catch (Exception ex)
@@ -200,11 +182,6 @@ namespace RandomEvents
                 attackPointsAddress,
                 originalSlots,
                 originalAttackPoints);
-            LogInfo(
-                $"Vanilla spawn source prioritized for target: targetPlayerId={targetPlayerId}, " +
-                $"signpostBuildingId={signpostBuildingId}, distanceToKeep={signpostDistance:0.00}, " +
-                $"usableSignposts={usable.Count}, sourceMode=registered-signpost-slots, " +
-                $"sourceTile=({usable[0].TileX},{usable[0].TileY}).");
             return true;
         }
 
@@ -326,7 +303,6 @@ namespace RandomEvents
                 if (Marshal.ReadInt32(slotAddress) == buildingId)
                 {
                     registeredSlot = slot;
-                    LogInfo($"Registered Vanilla scenario signpost: buildingId={buildingId}, slot={slot}.");
                     return true;
                 }
             }
@@ -349,8 +325,6 @@ namespace RandomEvents
                 Marshal.WriteInt32(slotAddress, 0);
                 removed |= Marshal.ReadInt32(slotAddress) == 0;
             }
-            if (removed)
-                LogInfo($"Removed unreachable Vanilla signpost from native event slots: buildingId={buildingId}.");
             return removed;
         }
 
@@ -377,9 +351,6 @@ namespace RandomEvents
 
             attackPointsAddress = attackCandidate;
             targetingUnavailableReason = string.Empty;
-            LogInfo(
-                $"Native event signpost targeting ready: strategy=validated-relative-manager-layout, " +
-                $"attackPointsOffset=0x{attackPointsOffset:X}. Reference attack-source RVA 0x11A420.");
         }
 
         private static bool TryGetUsableSignpost(int buildingId, out GameBuilding* building)
@@ -478,7 +449,7 @@ namespace RandomEvents
             if (referenceHashMatches)
             {
                 if (TryValidateLookupCandidate(memory, ExpectedLookupFunctionRva, out int slotOffset, out string validationFailure))
-                    return new NativeLookupResolution(ExpectedLookupFunctionRva, slotOffset, "validated-reference-rva");
+                    return new NativeLookupResolution(slotOffset);
                 failures.Add($"reference RVA 0x{ExpectedLookupFunctionRva:X}: {validationFailure}");
             }
 
@@ -486,7 +457,7 @@ namespace RandomEvents
             {
                 int match = NativePatternResolver.FindUniquePattern(memory, LookupPattern, "signpost lookup");
                 if (TryValidateLookupCandidate(memory, match, out int slotOffset, out string validationFailure))
-                    return new NativeLookupResolution(match, slotOffset, "semantic-aob");
+                    return new NativeLookupResolution(slotOffset);
                 failures.Add($"semantic AOB candidate 0x{match:X} failed validation: {validationFailure}");
             }
             catch (Exception ex)
@@ -495,7 +466,7 @@ namespace RandomEvents
             }
 
             if (TryFindUniqueStructuralCandidate(memory, out int structuralRva, out int structuralSlotOffset, out int candidateCount))
-                return new NativeLookupResolution(structuralRva, structuralSlotOffset, "structural-module-scan");
+                return new NativeLookupResolution(structuralSlotOffset);
             failures.Add($"structural module scan found {candidateCount} validated candidates instead of one");
 
             throw new InvalidOperationException(string.Join(" | ", failures));
@@ -606,22 +577,17 @@ namespace RandomEvents
             return false;
         }
 
-        private void LogInfo(string message) => Shared.DebugLogHelper.LogInfo(log, message);
         private void LogWarning(string message) => Shared.DebugLogHelper.LogWarning(log, message);
         private void LogError(string message) => Shared.DebugLogHelper.LogError(log, message);
 
         private readonly struct NativeLookupResolution
         {
-            public NativeLookupResolution(int functionRva, int signpostIdsOffset, string strategy)
+            public NativeLookupResolution(int signpostIdsOffset)
             {
-                FunctionRva = functionRva;
                 SignpostIdsOffset = signpostIdsOffset;
-                Strategy = strategy;
             }
 
-            public int FunctionRva { get; }
             public int SignpostIdsOffset { get; }
-            public string Strategy { get; }
         }
 
         private readonly struct SignpostDistance

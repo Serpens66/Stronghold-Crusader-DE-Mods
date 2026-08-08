@@ -120,9 +120,6 @@ namespace RandomEvents
                 wildlifeHandler = Marshal.GetDelegateForFunctionPointer<WildlifeHandlerDelegate>(
                     AtRva(libraryHandle, handler.Rva));
                 wildlifeHandlerRva = handler.Rva;
-                LogInfo(
-                    $"Native wildlife handler ready: handlerRva=0x{handler.Rva:X}/{handler.Strategy}, " +
-                    $"branchRva=0x{branches.Rva:X}/{branches.Strategy}.");
             }
             catch (Exception ex)
             {
@@ -337,10 +334,6 @@ namespace RandomEvents
                 }
 
                 rabbitUnavailableReason = string.Empty;
-                LogInfo(
-                    $"Native rabbit event ready: predicateRva=0x{predicate.Rva:X}/{predicate.Strategy}, " +
-                    $"spawnerRva=0x{spawner.Rva:X}/{spawner.Strategy}, wrapperRva=0x{wrapper.Rva:X}/{wrapper.Strategy}, " +
-                    $"rejectedTileMask=0x{rabbitRejectedTileMask:X8}, sourceOffsets=0x{rabbitSourceXOffset:X}/0x{rabbitSourceYOffset:X}.");
             }
             catch (Exception ex)
             {
@@ -386,12 +379,6 @@ namespace RandomEvents
                 }
 
                 lionUnavailableReason = string.Empty;
-                LogInfo(
-                    $"Native lion event ready: caseRva=0x{lionCase.Rva:X}/{lionCase.Strategy}, " +
-                    $"activationRva=0x{activation.Rva:X}/{activation.Strategy}, " +
-                    $"rejectedTileMask=0x{lionRejectedTileMask:X8}, tribeStride=0x{tribeStride:X}, " +
-                    $"activationOffset=0x{lionActivationOffset:X}.");
-
             }
             catch (Exception ex)
             {
@@ -433,9 +420,6 @@ namespace RandomEvents
                     libraryHandle, memory, wrapper.Rva + 8, 3, 7);
                 actionPointHandler = Marshal.GetDelegateForFunctionPointer<ActionPointHandlerDelegate>(
                     AtRva(libraryHandle, handler.Rva));
-                LogInfo(
-                    $"Wildlife minimap action points ready: wrapperRva=0x{wrapper.Rva:X}/{wrapper.Strategy}, " +
-                    $"handlerRva=0x{handler.Rva:X}/{handler.Strategy}.");
             }
             catch (Exception ex)
             {
@@ -505,7 +489,6 @@ namespace RandomEvents
         private static IntPtr AtRva(IntPtr libraryHandle, int rva) =>
             new IntPtr(checked(libraryHandle.ToInt64() + rva));
 
-        private void LogInfo(string message) => Shared.DebugLogHelper.LogInfo(log, message);
         private void LogError(string message) => Shared.DebugLogHelper.LogError(log, message);
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
