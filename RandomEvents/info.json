@@ -3,10 +3,18 @@
   "Author": "Serpens66",
   "Name": "Random Events",
   "Description": "Runs configurable Vanilla scenario events in singleplayer skirmishes and Trail missions.",
-  "Version": "1.0.17",
+  "Version": "1.0.18",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.18",
+      "Changes": [
+        "Adds Vanilla's clickable ActionPoint marker to the selected rabbit infestation source while keeping rabbit spawning independent if marker compatibility fails.",
+        "Defers initial event rolls until a human player has a living Lord, preventing an empty startup batch from delaying the first event by one full interval.",
+        "Confirms automatic signposts through Vanilla's full CreatePrefab placement rules and now exhausts alternative prefiltered positions when Vanilla rejects a preferred candidate."
+      ]
+    },
     {
       "Version": "1.0.17",
       "Changes": [

@@ -132,7 +132,8 @@ namespace RandomEvents
             }
 
             InitializeRabbitCompatibility(libraryHandle, memory, referenceHashMatches, commonFailure);
-            InitializeLionCompatibility(libraryHandle, memory, referenceHashMatches, commonFailure);
+            InitializeLionCompatibility(memory, referenceHashMatches, commonFailure);
+            InitializeActionPointCompatibility(libraryHandle, memory, referenceHashMatches);
         }
 
         public NativeEventDispatchStatus DispatchRabbits(int tileX, int tileY, int height, out string detail)
@@ -173,6 +174,14 @@ namespace RandomEvents
             Marshal.WriteInt32(IntPtr.Add(tribeManager, rabbitSourceXOffset), tileX);
             Marshal.WriteInt32(IntPtr.Add(tribeManager, rabbitSourceYOffset), tileY);
 
+            // Rabbits do not receive this marker in our direct handler path, so add Vanilla's clickable location cue.
+            bool actionPointQueued = false;
+            if (actionPointHandler != null && actionPointManager != IntPtr.Zero)
+            {
+                actionPointHandler(actionPointManager, tileX, tileY);
+                actionPointQueued = true;
+            }
+
             if (!presentationDispatcher.TryQueuePresentation(
                     201, 7, "action_rabbits.bik", "Random_Events7.wav", out string presentationFailure))
             {
@@ -180,7 +189,8 @@ namespace RandomEvents
                 return NativeEventDispatchStatus.Unavailable;
             }
 
-            detail = $"Vanilla rabbit tribe created: tribeId={tribeId}, sourceTile=({tileX},{tileY}); original presentation queued.";
+            detail = $"Vanilla rabbit tribe created: tribeId={tribeId}, sourceTile=({tileX},{tileY}), " +
+                $"actionPoint={(actionPointQueued ? "queued" : "disabled")}; original presentation queued.";
             return NativeEventDispatchStatus.Applied;
         }
 
@@ -324,7 +334,6 @@ namespace RandomEvents
         }
 
         private void InitializeLionCompatibility(
-            IntPtr libraryHandle,
             ReadOnlySpan<byte> memory,
             bool referenceHashMatches,
             string commonFailure)
@@ -362,8 +371,6 @@ namespace RandomEvents
                     $"rejectedTileMask=0x{lionRejectedTileMask:X8}, tribeStride=0x{tribeStride:X}, " +
                     $"activationOffset=0x{lionActivationOffset:X}.");
 
-                InitializeLionActionPointCompatibility(
-                    libraryHandle, memory, referenceHashMatches, activation.Rva);
             }
             catch (Exception ex)
             {
@@ -377,11 +384,10 @@ namespace RandomEvents
             }
         }
 
-        private void InitializeLionActionPointCompatibility(
+        private void InitializeActionPointCompatibility(
             IntPtr libraryHandle,
             ReadOnlySpan<byte> memory,
-            bool referenceHashMatches,
-            int activationRva)
+            bool referenceHashMatches)
         {
             try
             {
@@ -402,15 +408,12 @@ namespace RandomEvents
                     memory, wrapper.Rva + 26, wrapper.Rva + 30);
                 if (wrapperHandlerTarget != handler.Rva)
                     throw new InvalidOperationException("lion wrapper does not call the validated action-point handler.");
-                if (wrapper.Rva > activationRva || activationRva - wrapper.Rva > 0x40)
-                    throw new InvalidOperationException("lion action-point wrapper is not adjacent to the activation write.");
-
                 actionPointManager = ResolveRipRelativeAddress(
                     libraryHandle, memory, wrapper.Rva + 8, 3, 7);
                 actionPointHandler = Marshal.GetDelegateForFunctionPointer<ActionPointHandlerDelegate>(
                     AtRva(libraryHandle, handler.Rva));
                 LogInfo(
-                    $"Lion minimap action points ready: wrapperRva=0x{wrapper.Rva:X}/{wrapper.Strategy}, " +
+                    $"Wildlife minimap action points ready: wrapperRva=0x{wrapper.Rva:X}/{wrapper.Strategy}, " +
                     $"handlerRva=0x{handler.Rva:X}/{handler.Strategy}.");
             }
             catch (Exception ex)
@@ -418,7 +421,7 @@ namespace RandomEvents
                 actionPointHandler = null;
                 actionPointManager = IntPtr.Zero;
                 LogError(
-                    "Lion minimap action points are disabled while lion spawning remains active: " +
+                    "Rabbit and lion minimap action points are disabled while wildlife spawning remains active: " +
                     $"native compatibility validation failed: {ex.Message}");
             }
         }

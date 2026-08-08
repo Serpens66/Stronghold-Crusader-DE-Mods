@@ -9,7 +9,7 @@
 ## Hasenplage
 
 - Der Mod wählt eine zufällige lebende Getreide- oder Hopfenfarm des Zielspielers und innerhalb von 12 Tiles genau einen Vanilla-kompatiblen Quellpunkt.
-- Statt roher Einzel-Units ruft er den gemeinsamen nativen Wildtierhandler mit Aktion `222` auf. Dieser erzeugt wie das Originalereignis einen richtigen Hasenstamm mit 14 bis 21 Tieren und registriert dessen Quelle; dadurch greifen Vanillas Verteilung und Farmfraß.
+- Statt roher Einzel-Units ruft er den gemeinsamen nativen Wildtierhandler mit Aktion `222` auf. Dieser erzeugt wie das Originalereignis einen richtigen Hasenstamm mit 14 bis 21 Tieren und registriert dessen Quelle; dadurch greifen Vanillas Verteilung und Farmfraß. Am gewählten Quellpunkt wird außerdem Vanillas ActionPoint eingereiht, damit das anklickbare Ausrufungszeichen dorthin springt.
 - Vorher wird Vanillas Limit von 160 Hasen geprüft. Der originale 1200-Tick-Zustand und die Quellkoordinaten im Tribe-Manager werden wie im Vanilla-Wrapper gesetzt; anschließend werden die originale Video- und Sprachnachricht eingereiht.
 - Handler RVA `0x11E0B0`, Prädikat RVA `0x117700` und Spawner RVA `0x123A20` gelten nur für die Referenz-DLL; Tile-Maske und Adressen werden aus semantisch validierten Codepfaden abgeleitet.
 
@@ -24,6 +24,16 @@
 - Auf dem nächstgelegenen Vanilla-kompatiblen Tile innerhalb von 12 Tiles um diesen Wegweiser wird der gemeinsame Wildtierhandler mit Aktion `221` einmal je Stärkepunkt aufgerufen.
 - Für jeden erzeugten Stamm wird Vanillas ActionPoint-Handler mit dem Spawnpunkt aufgerufen; dadurch erscheint wieder das anklickbare Ausrufungszeichen und verwendet den originalen Kamera-Sprung. Danach erhält der Stamm denselben Aktivierungswert `0x10000`, den Vanillas Ereigniswrapper setzt. Die originale Sprachnachricht `Random_Events14.wav` wird ohne Video eingereiht, da die Installation kein Löwen-Ereignisvideo enthält.
 - Stamm-Stride, Aktivierungsfeld, Tile-Maske und ActionPoint-Pfad werden über getrennte semantische Signaturen aufgelöst. Scheitert nach einem Update nur die ActionPoint-Auflösung, bleiben Löwenangriff und Nachricht aktiv und ausschließlich das Ausrufungszeichen wird mit einem Error deaktiviert.
+
+## Erster Ereignistermin
+
+- Der erste Termin bleibt Kartenstart plus das konfigurierte Monatsintervall. Ereigniswürfe werden jedoch erst vorbereitet, sobald mindestens ein aktiver menschlicher Spieler einen auflösbaren lebenden Lord hat.
+- Damit kann die frühe Karteninitialisierung keinen leeren ersten Batch mehr erzeugen. Bei zwei Monaten Intervall wird der erste vorbereitete Batch nach zwei statt erst nach vier Monaten ausgeführt.
+
+## Automatische Wegweiser
+
+- Kandidaten werden zunächst auf eine freie, begehbare 2x2-Fläche gefiltert. `CreatePrefab(..., bypassPlacementRules: false)` führt danach Vanillas maßgebliche Gebäude-, Gelände- und Footprint-Prüfung aus.
+- Verwirft Vanilla eine Position, wird der nächste bevorzugte Kandidat, danach jeder weitere vorgefilterte Kandidat und schließlich eine andere Randtiefe versucht. Ein unvollständig erzeugter neutraler Wegweiser wird sicher entfernt.
 
 ## Direkte Vanilla-Handler
 

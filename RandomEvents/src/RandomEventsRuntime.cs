@@ -39,6 +39,7 @@ namespace RandomEvents
         private bool mapStartedFromMultiplayerSave;
         private int lastSignpostAttemptTick = int.MinValue;
         private bool calendarApiChecked;
+        private bool waitingForLivingHumanTargetLogged;
         private RandomEventsSaveStateV2 state;
 
         public RandomEventsRuntime(ManualLogSource log, RandomEventsSettingsViewModel settings)
@@ -104,6 +105,7 @@ namespace RandomEvents
             mapStartedFromMultiplayerSave = args.bMultiplayerSave != 0;
             lastSignpostAttemptTick = int.MinValue;
             calendarApiChecked = false;
+            waitingForLivingHumanTargetLogged = false;
             LogInfo(
                 $"Map start received; initialization deferred to persistent game tick: " +
                 $"loadedState={loadedStateAvailable}, multiplayerSave={mapStartedFromMultiplayerSave}.");
@@ -123,6 +125,7 @@ namespace RandomEvents
             multiplayerDisableLogged = false;
             mapStartedFromMultiplayerSave = false;
             calendarApiChecked = false;
+            waitingForLivingHumanTargetLogged = false;
             signpostPlacement.ResetMapState();
             state = null;
         }
@@ -254,13 +257,26 @@ namespace RandomEvents
             };
         }
 
-        private void PrepareBatch()
+        private bool PrepareBatch()
         {
+            int[] humanTargetPlayerIds = GetLivingHumanPlayerIds();
+            if (humanTargetPlayerIds.Length == 0)
+            {
+                if (!waitingForLivingHumanTargetLogged)
+                {
+                    waitingForLivingHumanTargetLogged = true;
+                    LogInfo(
+                        $"Event batch preparation deferred: dueAbsoluteMonth={state.NextDueAbsoluteMonth}, " +
+                        "reason=no active human player has a living Lord yet. The configured first interval remains unchanged.");
+                }
+                return false;
+            }
+
+            waitingForLivingHumanTargetLogged = false;
             SavedPrng prng = new SavedPrng(state.PrngState0, state.PrngState1);
             List<int> directKinds = new List<int>();
             List<int> directStrengths = new List<int>();
             List<int> directTargetPlayerIds = new List<int>();
-            int[] humanTargetPlayerIds = GetLivingHumanPlayerIds();
 
             foreach (RandomEventDefinition definition in RandomEventDefinitions.All)
             {
@@ -274,13 +290,6 @@ namespace RandomEvents
 
                 if (!success)
                     continue;
-                if (humanTargetPlayerIds.Length == 0)
-                {
-                    LogInfo(
-                        $"Random event was not prepared: event={definition.Name}, " +
-                        "reason=no active human player has a living Lord.");
-                    continue;
-                }
                 directKinds.Add((int)definition.Kind);
                 directStrengths.Add(strength);
                 // Store an explicit non-AI target so the saved schedule remains deterministic
@@ -297,6 +306,7 @@ namespace RandomEvents
             LogInfo(
                 $"Event batch prepared: dueAbsoluteMonth={state.NextDueAbsoluteMonth}, " +
                 $"preparedHits={directKinds.Count}, livingHumanTargets=[{string.Join(",", humanTargetPlayerIds)}].");
+            return true;
         }
 
         private int RollStrength(RandomEventStrengthKind kind, ref SavedPrng prng)

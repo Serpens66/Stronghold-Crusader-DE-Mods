@@ -180,17 +180,22 @@ namespace RandomEvents
                     continue;
 
                 PlacementCandidate best = candidates[0];
-                List<PlacementCandidate> randomizedCandidates = candidates
+                List<PlacementCandidate> preferredCandidates = candidates
                     .Where(candidate => CandidateDistance(candidate, best) <= MaximumRandomOffset + 0.0001)
                     .ToList();
-                Shuffle(randomizedCandidates, random);
+                List<PlacementCandidate> fallbackCandidates = candidates
+                    .Where(candidate => CandidateDistance(candidate, best) > MaximumRandomOffset + 0.0001)
+                    .ToList();
+                Shuffle(preferredCandidates, random);
+                Shuffle(fallbackCandidates, random);
+                preferredCandidates.AddRange(fallbackCandidates);
                 LogInfo(
                     $"Randomized signpost candidate set: side={side}, depth={depth}, " +
-                    $"validCandidates={candidates.Count}, randomPool={randomizedCandidates.Count}, " +
+                    $"prefilteredCandidates={candidates.Count}, preferredPool={candidates.Count - fallbackCandidates.Count}, " +
                     $"bestTile=({best.X},{best.Y}), bestMinimumKeepDistance={best.MinimumKeepDistance:0.00}.");
 
                 int failedPlacements = 0;
-                foreach (PlacementCandidate candidate in randomizedCandidates)
+                foreach (PlacementCandidate candidate in preferredCandidates)
                 {
                     if (!registry.HasFreeSlot())
                         return false;
@@ -326,6 +331,8 @@ namespace RandomEvents
             long result;
             try
             {
+                // Keep bypass=false: Vanilla performs the authoritative footprint and terrain validation.
+                // A rejected candidate creates no usable building, and the caller continues with the next position.
                 result = GameBuildingManagerAPI.Instance.CreatePrefab(
                     NaturePlayerId, x, y, eMappers.MAPPER_SIGNPOST, 2, 0, true, false);
             }
@@ -336,12 +343,22 @@ namespace RandomEvents
 
             int candidateId = capturedBuildingId > 0 ? capturedBuildingId : unchecked((int)result);
             if (candidateId <= 0 ||
-                !GameBuildingManagerAPI.Instance.TryGetBuildingById(candidateId, out GameBuilding* building) ||
-                building->r_BuildingType != eStructs.STRUCT_SIGNPOST ||
+                !GameBuildingManagerAPI.Instance.TryGetBuildingById(candidateId, out GameBuilding* building))
+            {
+                return -1;
+            }
+
+            if (building->r_BuildingType != eStructs.STRUCT_SIGNPOST ||
                 building->r_PlayerIdOwner != NaturePlayerId ||
                 (building->r_AliveState != AliveState.NeedsInit && building->r_AliveState != AliveState.IsAlive) ||
                 building->r_TilePositionXBegin != x || building->r_TilePositionYBegin != y)
             {
+                // Do not leave a malformed prefab behind when Vanilla or another placement hook altered the attempt.
+                if (building->r_BuildingType == eStructs.STRUCT_SIGNPOST &&
+                    building->r_PlayerIdOwner == NaturePlayerId)
+                {
+                    GameBuildingManagerAPI.Instance.DeleteBuildingSafe(candidateId);
+                }
                 return -1;
             }
             return candidateId;
