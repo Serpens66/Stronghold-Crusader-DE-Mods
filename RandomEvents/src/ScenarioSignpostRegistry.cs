@@ -19,6 +19,11 @@ namespace RandomEvents
         private const int AttackPointDeltaFromSlots = 0x1B2C;
         private const int RabbitPointDeltaFromSlots = 0x19C;
         private const int ScenarioPointCount = 4;
+        private const int ExpectedRabbitHandlerRva = 0x10487A;
+        private const int ExpectedRabbitPredicateRva = 0x117700;
+        private const int ExpectedRabbitSpawnerRva = 0x123A20;
+        private const uint RabbitRejectedTileMask = 0x50501581;
+        private const int RabbitSourceSearchRadius = 12;
 
         // CrusaderDE.dll SHA-256 1E6D4C2E10CC35A7B8082A7E2BCD8BB20680EBEDA803D9B943257B948145CB2B.
         // RVA 0xCB7B0 reads eight building IDs at gPlayerManager+0x18388C and accepts STRUCT_SIGNPOST (52).
@@ -26,11 +31,24 @@ namespace RandomEvents
         private const string LookupPattern =
             "48 63 81 ?? ?? ?? ?? 4C 8D 1D ?? ?? ?? ?? 45 33 D2 4C 8B C9 45 8B C2 85 C0 7E ?? " +
             "48 69 D0 2C 03 00 00 B8 01 00 00 00 66 42 83 BC 1A 2E 01 00 00 34";
+        private const string RabbitHandlerPattern =
+            "48 8D 1D ?? ?? ?? ?? 48 8B CB E8 ?? ?? ?? ?? 85 C0 0F 84 ?? ?? ?? ?? " +
+            "8B 15 ?? ?? ?? ?? 48 8D 3D ?? ?? ?? ?? 48 8B CF 41 B8 1F 00 00 00 E8 ?? ?? ?? ??";
+        private const string RabbitPredicatePattern =
+            "83 3D ?? ?? ?? ?? 00 75 ?? 81 3D ?? ?? ?? ?? A0 00 00 00 7D ?? 33 C0 " +
+            "4C 8D 0D ?? ?? ?? ?? 41 BA 1F 03 00 00 48 83 F8 04 7D ?? 4D 0F BF 84 81 ?? ?? ?? ??";
+        private const string RabbitSpawnerPattern =
+            "48 8B C4 41 57 48 83 EC 50 83 3D ?? ?? ?? ?? 00 4C 8B F9 0F 85 ?? ?? ?? ?? " +
+            "81 3D ?? ?? ?? ?? A0 00 00 00";
+        private const string RabbitTileMaskPattern =
+            "43 8B 84 B4 ?? ?? ?? ?? A9 81 15 50 50 74 ?? 0F BA E0 0C";
 
         private readonly ManualLogSource log;
         private IntPtr slotsAddress;
         private IntPtr attackPointsAddress;
         private IntPtr rabbitPointsAddress;
+        private IntPtr rabbitGlobalGateAddress;
+        private IntPtr rabbitCountAddress;
         private string unavailableReason = "native compatibility resolution has not run.";
         private string targetingUnavailableReason = "native event targeting compatibility resolution has not run.";
 
@@ -47,6 +65,8 @@ namespace RandomEvents
             slotsAddress = IntPtr.Zero;
             attackPointsAddress = IntPtr.Zero;
             rabbitPointsAddress = IntPtr.Zero;
+            rabbitGlobalGateAddress = IntPtr.Zero;
+            rabbitCountAddress = IntPtr.Zero;
             unavailableReason = "native compatibility resolution failed.";
             targetingUnavailableReason = "native event targeting compatibility resolution failed.";
 
@@ -79,12 +99,15 @@ namespace RandomEvents
                 }
 
                 InitializeTargetingFields(resolution.SignpostIdsOffset, playerManager);
+                InitializeRabbitCompatibility(libraryHandle, memory, referenceHashMatches);
             }
             catch (Exception ex)
             {
                 slotsAddress = IntPtr.Zero;
                 attackPointsAddress = IntPtr.Zero;
                 rabbitPointsAddress = IntPtr.Zero;
+                rabbitGlobalGateAddress = IntPtr.Zero;
+                rabbitCountAddress = IntPtr.Zero;
                 unavailableReason = ex.Message;
                 LogError(
                     "Native signpost compatibility validation failed. Automatic edge-signpost discovery, placement, and " +
@@ -116,7 +139,11 @@ namespace RandomEvents
             signpostDistance = double.MaxValue;
             failure = string.Empty;
 
-            if (!IsAvailable || attackPointsAddress == IntPtr.Zero || rabbitPointsAddress == IntPtr.Zero)
+            if (!IsAvailable || attackPointsAddress == IntPtr.Zero ||
+                (rabbitEvent &&
+                    (rabbitPointsAddress == IntPtr.Zero ||
+                     rabbitGlobalGateAddress == IntPtr.Zero ||
+                     rabbitCountAddress == IntPtr.Zero)))
             {
                 failure = string.IsNullOrEmpty(targetingUnavailableReason) ? unavailableReason : targetingUnavailableReason;
                 return false;
@@ -160,7 +187,18 @@ namespace RandomEvents
 
             usable.Sort((left, right) => left.Distance.CompareTo(right.Distance));
             short[] originalAttackPoints = ReadScenarioPoints(attackPointsAddress);
-            short[] originalRabbitPoints = ReadScenarioPoints(rabbitPointsAddress);
+            short[] originalRabbitPoints = rabbitPointsAddress != IntPtr.Zero
+                ? ReadScenarioPoints(rabbitPointsAddress)
+                : null;
+            short[] rabbitScenarioPoints = null;
+            if (rabbitEvent &&
+                !TryCreateRabbitScenarioPoints(usable[0], out rabbitScenarioPoints, out failure))
+            {
+                LogError(
+                    $"Rabbit event source selection failed safely: signpostBuildingId={usable[0].BuildingId}, " +
+                    $"reason={failure}");
+                return false;
+            }
 
             // Vanilla rabbits read cached source coordinates that are not initialized by dynamic ID registration.
             // Feed their native scenario-coordinate path with points taken directly from the selected signpost.
@@ -169,13 +207,14 @@ namespace RandomEvents
                 WriteScenarioPoints(attackPointsAddress, CreateDisabledScenarioPoints());
                 if (rabbitEvent)
                 {
-                    WriteScenarioPoints(rabbitPointsAddress, CreateRabbitScenarioPoints(usable[0]));
+                    WriteScenarioPoints(rabbitPointsAddress, rabbitScenarioPoints);
                     for (int slot = 0; slot < SlotCount; slot++)
                         Marshal.WriteInt32(slotsAddress, slot * sizeof(int), 0);
                 }
                 else
                 {
-                    WriteScenarioPoints(rabbitPointsAddress, CreateDisabledScenarioPoints());
+                    if (rabbitPointsAddress != IntPtr.Zero)
+                        WriteScenarioPoints(rabbitPointsAddress, CreateDisabledScenarioPoints());
                     for (int slot = 0; slot < SlotCount; slot++)
                     {
                         int buildingId = slot < usable.Count ? usable[slot].BuildingId : 0;
@@ -207,6 +246,32 @@ namespace RandomEvents
                 $"usableSignposts={usable.Count}, sourceMode={(rabbitEvent ? "rabbit-scenario-coordinates" : "registered-signpost-slots")}, " +
                 $"sourceTile=({usable[0].TileX},{usable[0].TileY}).");
             return true;
+        }
+
+        public bool TryGetRabbitNativeState(out int globalGate, out int rabbitCount, out string failure)
+        {
+            globalGate = 0;
+            rabbitCount = 0;
+            failure = string.Empty;
+            if (rabbitGlobalGateAddress == IntPtr.Zero || rabbitCountAddress == IntPtr.Zero)
+            {
+                failure = string.IsNullOrEmpty(targetingUnavailableReason)
+                    ? "native rabbit compatibility is unavailable."
+                    : targetingUnavailableReason;
+                return false;
+            }
+
+            try
+            {
+                globalGate = Marshal.ReadInt32(rabbitGlobalGateAddress);
+                rabbitCount = Marshal.ReadInt32(rabbitCountAddress);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                failure = $"native rabbit state read failed: {ex.Message}";
+                return false;
+            }
         }
 
         public int[] ReadRegisteredBuildingIds()
@@ -290,21 +355,93 @@ namespace RandomEvents
             }
 
             IntPtr attackCandidate = new IntPtr(checked((long)playerManager + attackPointsOffset));
-            IntPtr rabbitCandidate = new IntPtr(checked((long)playerManager + rabbitPointsOffset));
-            if (!AreScenarioPointsPlausible(attackCandidate) || !AreScenarioPointsPlausible(rabbitCandidate))
+            if (!AreScenarioPointsPlausible(attackCandidate))
             {
-                targetingUnavailableReason = "derived scenario-point arrays failed coordinate validation.";
+                targetingUnavailableReason = "derived attack scenario-point array failed coordinate validation.";
                 LogError($"Native event targeting disabled: {targetingUnavailableReason}");
                 return;
             }
 
             attackPointsAddress = attackCandidate;
-            rabbitPointsAddress = rabbitCandidate;
             targetingUnavailableReason = string.Empty;
             LogInfo(
                 $"Native event signpost targeting ready: strategy=validated-relative-manager-layout, " +
-                $"attackPointsOffset=0x{attackPointsOffset:X}, rabbitPointsOffset=0x{rabbitPointsOffset:X}. " +
-                "Reference handlers: attack-source RVA 0x11A420, rabbit-source RVA 0x123A20.");
+                $"attackPointsOffset=0x{attackPointsOffset:X}, referenceRabbitPointsOffset=0x{rabbitPointsOffset:X}. " +
+                "Reference attack-source RVA 0x11A420; rabbit fields require their separate semantic validation.");
+        }
+
+        private void InitializeRabbitCompatibility(
+            IntPtr libraryHandle,
+            ReadOnlySpan<byte> memory,
+            bool referenceHashMatches)
+        {
+            rabbitPointsAddress = IntPtr.Zero;
+            rabbitGlobalGateAddress = IntPtr.Zero;
+            rabbitCountAddress = IntPtr.Zero;
+
+            try
+            {
+                int handlerRva = FindUniquePattern(memory, RabbitHandlerPattern);
+                int predicateRva = FindUniquePattern(memory, RabbitPredicatePattern);
+                int spawnerRva = FindUniquePattern(memory, RabbitSpawnerPattern);
+                int tileMaskRva = FindUniquePattern(memory, RabbitTileMaskPattern);
+
+                if (referenceHashMatches &&
+                    (handlerRva != ExpectedRabbitHandlerRva ||
+                     predicateRva != ExpectedRabbitPredicateRva ||
+                     spawnerRva != ExpectedRabbitSpawnerRva))
+                {
+                    throw new InvalidOperationException(
+                        $"reference DLL rabbit RVAs diverged: handler=0x{handlerRva:X}, " +
+                        $"predicate=0x{predicateRva:X}, spawner=0x{spawnerRva:X}.");
+                }
+
+                int predicateCallTarget = ResolveRelativeCallTarget(memory, handlerRva + 10);
+                if (predicateCallTarget != predicateRva ||
+                    !ContainsRelativeCallTo(memory, handlerRva, handlerRva + 0x80, spawnerRva))
+                {
+                    throw new InvalidOperationException(
+                        "rabbit handler does not call the validated predicate and spawner.");
+                }
+                if (tileMaskRva < spawnerRva || tileMaskRva > spawnerRva + 0x180)
+                    throw new InvalidOperationException("rabbit tile-mask validation is outside the resolved spawner.");
+
+                rabbitGlobalGateAddress = ResolveRipRelativeAddress(
+                    libraryHandle,
+                    memory,
+                    predicateRva,
+                    displacementOffset: 2,
+                    instructionLength: 7);
+                rabbitCountAddress = ResolveRipRelativeAddress(
+                    libraryHandle,
+                    memory,
+                    predicateRva + 9,
+                    displacementOffset: 2,
+                    instructionLength: 10);
+
+                int rabbitPointsRva = ReadInt32(memory, predicateRva + 47);
+                if (rabbitPointsRva < 0x10000 || rabbitPointsRva > 0x10000000)
+                    throw new InvalidOperationException($"rabbit source RVA 0x{rabbitPointsRva:X} is implausible.");
+                rabbitPointsAddress = IntPtr.Add(libraryHandle, rabbitPointsRva);
+                if (!AreScenarioPointsPlausible(rabbitPointsAddress))
+                    throw new InvalidOperationException("resolved rabbit source array failed coordinate validation.");
+
+                targetingUnavailableReason = string.Empty;
+                LogInfo(
+                    $"Native rabbit compatibility ready: strategy=semantic-aob, handlerRva=0x{handlerRva:X}, " +
+                    $"predicateRva=0x{predicateRva:X}, spawnerRva=0x{spawnerRva:X}, " +
+                    $"rabbitPointsRva=0x{rabbitPointsRva:X}, rejectedTileMask=0x{RabbitRejectedTileMask:X8}, " +
+                    $"globalGate=0x{rabbitGlobalGateAddress.ToInt64():X16}, rabbitCount=0x{rabbitCountAddress.ToInt64():X16}.");
+            }
+            catch (Exception ex)
+            {
+                rabbitPointsAddress = IntPtr.Zero;
+                rabbitGlobalGateAddress = IntPtr.Zero;
+                rabbitCountAddress = IntPtr.Zero;
+                targetingUnavailableReason = $"native rabbit compatibility validation failed: {ex.Message}";
+                LogError(
+                    $"Rabbit events are disabled while other signpost events remain active: {targetingUnavailableReason}");
+            }
         }
 
         private static bool TryGetUsableSignpost(int buildingId, out GameBuilding* building)
@@ -336,7 +473,8 @@ namespace RandomEvents
             for (int slot = 0; slot < SlotCount; slot++)
                 Marshal.WriteInt32(slotsAddress, slot * sizeof(int), originalSlots[slot]);
             WriteScenarioPoints(attackPointsAddress, originalAttackPoints);
-            WriteScenarioPoints(rabbitPointsAddress, originalRabbitPoints);
+            if (rabbitPointsAddress != IntPtr.Zero && originalRabbitPoints != null)
+                WriteScenarioPoints(rabbitPointsAddress, originalRabbitPoints);
         }
 
         private static short[] ReadScenarioPoints(IntPtr address)
@@ -355,19 +493,107 @@ namespace RandomEvents
             return result;
         }
 
-        private static short[] CreateRabbitScenarioPoints(SignpostDistance signpost)
+        private bool TryCreateRabbitScenarioPoints(
+            SignpostDistance signpost,
+            out short[] result,
+            out string failure)
         {
-            short[] result = CreateDisabledScenarioPoints();
-            // Four nearby Vanilla points tolerate a blocked center tile while keeping the spawn at the signpost.
-            result[0] = signpost.TileX;
-            result[1] = signpost.TileY;
-            result[2] = (short)Math.Max(0, signpost.TileX - 1);
-            result[3] = signpost.TileY;
-            result[4] = signpost.TileX;
-            result[5] = (short)Math.Max(0, signpost.TileY - 1);
-            result[6] = (short)Math.Min(799, signpost.TileX + 1);
-            result[7] = (short)Math.Min(799, signpost.TileY + 1);
-            return result;
+            result = null;
+            failure = string.Empty;
+            List<RabbitSourceCandidate> candidates = new List<RabbitSourceCandidate>();
+            GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
+            for (int y = signpost.TileY - RabbitSourceSearchRadius;
+                 y <= signpost.TileY + RabbitSourceSearchRadius;
+                 y++)
+            {
+                for (int x = signpost.TileX - RabbitSourceSearchRadius;
+                     x <= signpost.TileX + RabbitSourceSearchRadius;
+                     x++)
+                {
+                    int deltaX = x - signpost.TileX;
+                    int deltaY = y - signpost.TileY;
+                    int distanceSquared = deltaX * deltaX + deltaY * deltaY;
+                    if (distanceSquared < 4 ||
+                        distanceSquared > RabbitSourceSearchRadius * RabbitSourceSearchRadius ||
+                        !tiles.IsTileInsideMapBounds(x, y))
+                    {
+                        continue;
+                    }
+
+                    int tileId = tiles.GetTileId(x, y);
+                    if (!tiles.IsTileWalkableAndUnoccupied(tileId))
+                        continue;
+
+                    uint flags = (uint)tiles.GetTilePropertyFlag(tileId);
+                    if ((flags & RabbitRejectedTileMask) != 0)
+                        continue;
+
+                    candidates.Add(new RabbitSourceCandidate(x, y, distanceSquared, flags));
+                }
+            }
+
+            candidates.Sort((left, right) =>
+            {
+                int comparison = left.DistanceSquared.CompareTo(right.DistanceSquared);
+                if (comparison != 0) return comparison;
+                comparison = left.Y.CompareTo(right.Y);
+                return comparison != 0 ? comparison : left.X.CompareTo(right.X);
+            });
+            if (candidates.Count == 0)
+            {
+                failure =
+                    $"no Vanilla-compatible tile was found within radius {RabbitSourceSearchRadius} " +
+                    $"of signpost {signpost.BuildingId}; requiredMaskResult=0.";
+                return false;
+            }
+
+            result = new short[ScenarioPointCount * 2];
+            for (int index = 0; index < ScenarioPointCount; index++)
+            {
+                RabbitSourceCandidate candidate = candidates[index % candidates.Count];
+                result[index * 2] = (short)candidate.X;
+                result[index * 2 + 1] = (short)candidate.Y;
+                LogInfo(
+                    $"Rabbit source accepted: slot={index}, tile=({candidate.X},{candidate.Y}), " +
+                    $"distanceToSignpost={Math.Sqrt(candidate.DistanceSquared):0.00}, " +
+                    $"tileFlags=0x{candidate.Flags:X8}, rejectedMaskResult=0x{candidate.Flags & RabbitRejectedTileMask:X8}.");
+            }
+            return true;
+        }
+
+        private static IntPtr ResolveRipRelativeAddress(
+            IntPtr libraryHandle,
+            ReadOnlySpan<byte> memory,
+            int instructionRva,
+            int displacementOffset,
+            int instructionLength)
+        {
+            int displacement = ReadInt32(memory, instructionRva + displacementOffset);
+            long address = checked(
+                libraryHandle.ToInt64() + instructionRva + instructionLength + displacement);
+            return new IntPtr(address);
+        }
+
+        private static int ResolveRelativeCallTarget(ReadOnlySpan<byte> memory, int callRva)
+        {
+            if (callRva < 0 || callRva > memory.Length - 5 || memory[callRva] != 0xE8)
+                return -1;
+            return checked(callRva + 5 + ReadInt32(memory, callRva + 1));
+        }
+
+        private static bool ContainsRelativeCallTo(
+            ReadOnlySpan<byte> memory,
+            int start,
+            int end,
+            int targetRva)
+        {
+            int guardedEnd = Math.Min(end, memory.Length - 5);
+            for (int offset = Math.Max(0, start); offset <= guardedEnd; offset++)
+            {
+                if (memory[offset] == 0xE8 && ResolveRelativeCallTarget(memory, offset) == targetRva)
+                    return true;
+            }
+            return false;
         }
 
         private static void WriteScenarioPoints(IntPtr address, short[] values)
@@ -596,6 +822,22 @@ namespace RandomEvents
             public short TileY { get; }
         }
 
+        private readonly struct RabbitSourceCandidate
+        {
+            public RabbitSourceCandidate(int x, int y, int distanceSquared, uint flags)
+            {
+                X = x;
+                Y = y;
+                DistanceSquared = distanceSquared;
+                Flags = flags;
+            }
+
+            public int X { get; }
+            public int Y { get; }
+            public int DistanceSquared { get; }
+            public uint Flags { get; }
+        }
+
         private sealed class TargetingScope : IDisposable
         {
             private readonly IntPtr slots;
@@ -629,7 +871,8 @@ namespace RandomEvents
                 for (int slot = 0; slot < SlotCount; slot++)
                     Marshal.WriteInt32(slots, slot * sizeof(int), originalSlots[slot]);
                 WriteScenarioPoints(attackPoints, originalAttackPoints);
-                WriteScenarioPoints(rabbitPoints, originalRabbitPoints);
+                if (rabbitPoints != IntPtr.Zero && originalRabbitPoints != null)
+                    WriteScenarioPoints(rabbitPoints, originalRabbitPoints);
                 disposed = true;
             }
         }

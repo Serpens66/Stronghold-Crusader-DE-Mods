@@ -3,10 +3,18 @@
   "Author": "Serpens66",
   "Name": "Random Events",
   "Description": "Runs configurable Vanilla scenario events in singleplayer skirmishes and Trail missions.",
-  "Version": "1.0.8",
+  "Version": "1.0.9",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.9",
+      "Changes": [
+        "Moved Timeline mutation to the shared persistent Script Extender dispatcher so all five Timeline-only events can be installed outside the native pre-tick hook.",
+        "Resolved and validated Vanilla's rabbit predicate, source array, global gate, count limit, spawner, and rejected-tile mask through semantic signatures.",
+        "Rabbit events now select four Vanilla-compatible source tiles near the target player's closest registered signpost and log every native gate decision at Info level."
+      ]
+    },
     {
       "Version": "1.0.8",
       "Changes": [

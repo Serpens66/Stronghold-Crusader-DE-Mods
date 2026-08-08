@@ -19,18 +19,13 @@ namespace RandomEvents
 {
     internal sealed class RandomEventsRuntime : IDisposable
     {
-        private const string SaveDataIdentifier = "serp-randomevents-state-v1";
-        private const short TagMagic = unchecked((short)0x5245);
-        private const short TagVersion = 1;
-        private const short TagGuard = unchecked((short)0x6E7A);
-        private const int TagStartIndex = 36;
+        private const string SaveDataIdentifier = "serp-randomevents-state-v2";
         private const int VanillaMonthsPerYear = 12;
 
         private readonly ManualLogSource log;
         private readonly RandomEventsSettingsViewModel settings;
         private readonly ScenarioSignpostRegistry signpostRegistry;
         private readonly SignpostPlacementService signpostPlacement;
-        private readonly RandomEventsMainThreadPump mainThreadPump;
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
         private bool initialized;
         private bool disposed;
@@ -39,21 +34,17 @@ namespace RandomEvents
         private bool loadedStateAvailable;
         private bool multiplayerDisableLogged;
         private bool mapStartedFromMultiplayerSave;
-        private bool timelineRestoredForLoadedState;
+        private bool timelineUnavailableLogged;
         private int lastSignpostAttemptTick = int.MinValue;
         private int lastLoggedAbsoluteMonth = int.MinValue;
         private long lastClockLogTimestamp;
-        private int pendingTimelineAuditDue = int.MinValue;
-        private int[] pendingTimelineAuditKinds = Array.Empty<int>();
         private int pendingRabbitAuditTick = int.MinValue;
         private int pendingRabbitAuditTargetPlayerId = -1;
         private int pendingRabbitAuditSignpostBuildingId = -1;
         private int pendingRabbitAuditBaselineCount;
         private bool calendarApiFallbackLogged;
         private int lastObservedGameTick;
-        private int mapGeneration;
-        private int timelineSynchronizationSerial;
-        private RandomEventsSaveStateV1 state;
+        private RandomEventsSaveStateV2 state;
 
         public RandomEventsRuntime(ManualLogSource log, RandomEventsSettingsViewModel settings)
         {
@@ -61,7 +52,6 @@ namespace RandomEvents
             this.settings = settings;
             signpostRegistry = new ScenarioSignpostRegistry(log);
             signpostPlacement = new SignpostPlacementService(log, signpostRegistry);
-            mainThreadPump = RandomEventsMainThreadPump.Create();
         }
 
         public void InitializeNative(IntPtr libraryHandle, ReadOnlySpan<byte> memory, bool referenceHashMatches) =>
@@ -107,18 +97,14 @@ namespace RandomEvents
 
         private void OnStartMap(MapStartEventArgs args)
         {
-            mapGeneration++;
-            timelineSynchronizationSerial++;
             mapStartPending = true;
             mapActive = false;
             multiplayerDisableLogged = false;
             mapStartedFromMultiplayerSave = args.bMultiplayerSave != 0;
-            timelineRestoredForLoadedState = false;
+            timelineUnavailableLogged = false;
             lastSignpostAttemptTick = int.MinValue;
             lastLoggedAbsoluteMonth = int.MinValue;
             lastClockLogTimestamp = 0;
-            pendingTimelineAuditDue = int.MinValue;
-            pendingTimelineAuditKinds = Array.Empty<int>();
             pendingRabbitAuditTick = int.MinValue;
             pendingRabbitAuditTargetPlayerId = -1;
             pendingRabbitAuditSignpostBuildingId = -1;
@@ -137,18 +123,14 @@ namespace RandomEvents
 
         private void ResetMapState()
         {
-            mapGeneration++;
-            timelineSynchronizationSerial++;
             mapStartPending = false;
             mapActive = false;
             loadedStateAvailable = false;
             multiplayerDisableLogged = false;
             mapStartedFromMultiplayerSave = false;
-            timelineRestoredForLoadedState = false;
+            timelineUnavailableLogged = false;
             lastLoggedAbsoluteMonth = int.MinValue;
             lastClockLogTimestamp = 0;
-            pendingTimelineAuditDue = int.MinValue;
-            pendingTimelineAuditKinds = Array.Empty<int>();
             pendingRabbitAuditTick = int.MinValue;
             pendingRabbitAuditTargetPlayerId = -1;
             pendingRabbitAuditSignpostBuildingId = -1;
@@ -182,17 +164,10 @@ namespace RandomEvents
                 int currentAbsoluteMonth = GetCurrentAbsoluteMonth();
                 LogClockHeartbeat(tick, currentAbsoluteMonth);
                 AuditPendingRabbitOutcome(tick);
-                AuditPendingTimelineEntries(currentAbsoluteMonth);
-                if (!timelineRestoredForLoadedState && loadedStateAvailable && currentAbsoluteMonth < state.NextDueAbsoluteMonth)
-                {
-                    RequestTimelineSynchronization(state.PreparedTimelineKinds);
-                    timelineRestoredForLoadedState = true;
-                }
-
                 if (state.BatchPrepared && currentAbsoluteMonth >= state.NextDueAbsoluteMonth)
                 {
                     ExecuteDueBatch(currentAbsoluteMonth);
-                    return; // Give Vanilla one complete tick to consume the due Timeline records before reuse.
+                    return;
                 }
 
                 if (!state.BatchPrepared)
@@ -245,6 +220,7 @@ namespace RandomEvents
                     $"Restored Random Events state: enabled={state.EffectiveEnabled}, interval={state.IntervalMonths}, " +
                     $"nextDueAbsoluteMonth={state.NextDueAbsoluteMonth}, batchPrepared={state.BatchPrepared}, " +
                     $"signpostsInitialized={state.SignpostsInitialized}.");
+                LogTimelineEventsUnavailableOnce();
                 return;
             }
 
@@ -258,13 +234,14 @@ namespace RandomEvents
 
             state = CreateFreshState();
             mapActive = true;
+            LogTimelineEventsUnavailableOnce();
             PrepareBatch();
             LogInfo(
                 $"Fresh Random Events state initialized: interval={state.IntervalMonths}, " +
                 $"firstDueAbsoluteMonth={state.NextDueAbsoluteMonth}, multiplayerMode={(MultiplayerEventMode)state.MultiplayerMode} (reserved)." );
         }
 
-        private RandomEventsSaveStateV1 CreateFreshState()
+        private RandomEventsSaveStateV2 CreateFreshState()
         {
             byte[] seed = new byte[16];
             using (RandomNumberGenerator generator = RandomNumberGenerator.Create())
@@ -278,7 +255,7 @@ namespace RandomEvents
             }
 
             int interval = Math.Max(1, Math.Min(90, settings.IntervalMonths));
-            return new RandomEventsSaveStateV1
+            return new RandomEventsSaveStateV2
             {
                 EffectiveEnabled = true,
                 IntervalMonths = interval,
@@ -299,11 +276,14 @@ namespace RandomEvents
             List<int> directKinds = new List<int>();
             List<int> directStrengths = new List<int>();
             List<int> directTargetPlayerIds = new List<int>();
-            List<int> timelineKinds = new List<int>();
-            List<int> timelineStrengths = new List<int>();
 
             foreach (RandomEventDefinition definition in RandomEventDefinitions.All)
             {
+                // These five actions have no FreeBuild_Event case. Keep their IDs for
+                // native analysis, but do not consume rolls for a path known to be inert.
+                if (!definition.IsDirect)
+                    continue;
+
                 int chance = state.Chances[(int)definition.Kind];
                 int roll = prng.Next(100);
                 bool success = roll < chance;
@@ -314,19 +294,11 @@ namespace RandomEvents
 
                 if (!success)
                     continue;
-                if (definition.IsDirect)
-                {
-                    directKinds.Add((int)definition.Kind);
-                    directStrengths.Add(strength);
-                    // Singleplayer currently targets its human explicitly. A future synchronized
-                    // multiplayer packet can carry another stable player ID through the same path.
-                    directTargetPlayerIds.Add(GamePlayerManagerAPI.Instance.GetLocalPlayerId());
-                }
-                else
-                {
-                    timelineKinds.Add((int)definition.Kind);
-                    timelineStrengths.Add(strength);
-                }
+                directKinds.Add((int)definition.Kind);
+                directStrengths.Add(strength);
+                // Singleplayer currently targets its human explicitly. A future synchronized
+                // multiplayer packet can carry another stable player ID through the same path.
+                directTargetPlayerIds.Add(GamePlayerManagerAPI.Instance.GetLocalPlayerId());
             }
 
             state.PrngState0 = prng.State0;
@@ -334,13 +306,10 @@ namespace RandomEvents
             state.PreparedDirectKinds = directKinds.ToArray();
             state.PreparedDirectStrengths = directStrengths.ToArray();
             state.PreparedDirectTargetPlayerIds = directTargetPlayerIds.ToArray();
-            state.PreparedTimelineKinds = timelineKinds.ToArray();
-            state.PreparedTimelineStrengths = timelineStrengths.ToArray();
             state.BatchPrepared = true;
-            RequestTimelineSynchronization(state.PreparedTimelineKinds);
             LogInfo(
                 $"Event batch prepared: dueAbsoluteMonth={state.NextDueAbsoluteMonth}, " +
-                $"directHits={directKinds.Count}, timelineHits={timelineKinds.Count}.");
+                $"directHits={directKinds.Count}, timelineEventsDisabled={RandomEventDefinitions.TimelineOnly.Length}.");
         }
 
         private int RollStrength(RandomEventStrengthKind kind, ref SavedPrng prng)
@@ -357,19 +326,15 @@ namespace RandomEvents
             int[] directKinds = state.PreparedDirectKinds ?? Array.Empty<int>();
             int[] strengths = state.PreparedDirectStrengths ?? Array.Empty<int>();
             int[] targetPlayerIds = state.PreparedDirectTargetPlayerIds ?? Array.Empty<int>();
-            int[] timelineKinds = state.PreparedTimelineKinds ?? Array.Empty<int>();
             int snapshotTargetPlayerId = GetBatchTargetPlayerId(targetPlayerIds);
 
             LogInfo($"Prerequisite snapshot before due batch: dueAbsoluteMonth={due}, {CapturePrerequisiteSnapshot(snapshotTargetPlayerId)}.");
-            AuditTimelineEntries("at-due", due, currentAbsoluteMonth, timelineKinds);
 
             // Clear first so a save callback during a Vanilla action cannot persist an executable duplicate.
             state.BatchPrepared = false;
             state.PreparedDirectKinds = Array.Empty<int>();
             state.PreparedDirectStrengths = Array.Empty<int>();
             state.PreparedDirectTargetPlayerIds = Array.Empty<int>();
-            state.PreparedTimelineKinds = Array.Empty<int>();
-            state.PreparedTimelineStrengths = Array.Empty<int>();
 
             LogInfo($"Event date reached: dueAbsoluteMonth={due}, currentAbsoluteMonth={currentAbsoluteMonth}, directCount={directKinds.Length}.");
             for (int index = 0; index < directKinds.Length; index++)
@@ -383,246 +348,8 @@ namespace RandomEvents
             }
 
             LogInfo($"Prerequisite snapshot after direct batch: dueAbsoluteMonth={due}, {CapturePrerequisiteSnapshot(snapshotTargetPlayerId)}.");
-            pendingTimelineAuditDue = due;
-            pendingTimelineAuditKinds = timelineKinds;
-            LogInfo("Prepared Timeline events reached their Vanilla execution date; their done flags will be audited on the following game tick before the reusable records are changed.");
             state.NextDueAbsoluteMonth = checked(due + state.IntervalMonths);
             LogInfo($"Next event batch will be prepared on the following game tick: nextDueAbsoluteMonth={state.NextDueAbsoluteMonth}.");
-        }
-
-        private void RequestTimelineSynchronization(int[] successfulKinds)
-        {
-            int[] kinds = (int[])(successfulKinds ?? Array.Empty<int>()).Clone();
-            int[] strengths = (int[])(state.PreparedTimelineStrengths ?? Array.Empty<int>()).Clone();
-            int dueAbsoluteMonth = state.NextDueAbsoluteMonth;
-            int requestMapGeneration = mapGeneration;
-            int requestSerial = ++timelineSynchronizationSerial;
-            LogInfo(
-                $"Timeline synchronization queued for safe LateUpdate: dueAbsoluteMonth={dueAbsoluteMonth}, " +
-                $"activeKinds={kinds.Length}, mapGeneration={requestMapGeneration}, requestSerial={requestSerial}.");
-
-            mainThreadPump.Enqueue(() =>
-            {
-                if (!mapActive || state == null || requestMapGeneration != mapGeneration ||
-                    requestSerial != timelineSynchronizationSerial)
-                {
-                    LogInfo(
-                        $"Queued Timeline synchronization discarded as stale: mapGeneration={requestMapGeneration}, " +
-                        $"requestSerial={requestSerial}, currentMapGeneration={mapGeneration}, " +
-                        $"currentRequestSerial={timelineSynchronizationSerial}.");
-                    return;
-                }
-
-                try
-                {
-                    LogInfo(
-                        $"Timeline synchronization executing in safe LateUpdate: dueAbsoluteMonth={dueAbsoluteMonth}, " +
-                        $"activeKinds={kinds.Length}, requestSerial={requestSerial}.");
-                    SynchronizeTimelineEntries(kinds, strengths, dueAbsoluteMonth);
-                }
-                catch (Exception ex)
-                {
-                    LogError(
-                        "Timeline synchronization failed outside the native pre-tick hook; " +
-                        $"Timeline-only events are disabled for this prepared batch: {ex}");
-                }
-            });
-        }
-
-        private void SynchronizeTimelineEntries(int[] successfulKinds, int[] successfulStrengths, int dueAbsoluteMonth)
-        {
-            HashSet<int> successes = new HashSet<int>(successfulKinds ?? Array.Empty<int>());
-            foreach (RandomEventDefinition definition in RandomEventDefinitions.TimelineOnly)
-            {
-                bool active = successes.Contains((int)definition.Kind);
-                int eventId = FindOwnedTimelineEntry(definition.Kind);
-                if (eventId < 0 && !active)
-                    continue;
-
-                EngineInterface.tl_event timelineEvent;
-                if (eventId < 0)
-                {
-                    timelineEvent = EngineInterface.CreateNewScenarioEvent(ref eventId);
-                    if (timelineEvent == null || eventId < 0)
-                    {
-                        LogWarning($"Timeline event creation failed: event={definition.Name}, action={definition.TimelineActionId}.");
-                        continue;
-                    }
-                    LogInfo($"Created reusable Random Events timeline entry: event={definition.Name}, initialId={eventId}.");
-                }
-                else
-                {
-                    timelineEvent = EngineInterface.GetScenarioEvent(eventId);
-                }
-
-                ConfigureTimelineEvent(
-                    timelineEvent,
-                    definition,
-                    active,
-                    dueAbsoluteMonth,
-                    successfulKinds,
-                    successfulStrengths);
-                EngineInterface.ApplyScenarioEvent(eventId, timelineEvent);
-                int sortedId = FindOwnedTimelineEntry(definition.Kind);
-                LogInfo(
-                    $"Timeline event synchronized: event={definition.Name}, action={definition.TimelineActionId}, " +
-                    $"active={active}, dueAbsoluteMonth={dueAbsoluteMonth}, sortedId={sortedId}.");
-            }
-            RefreshTimelineIds();
-        }
-
-        private void ConfigureTimelineEvent(
-            EngineInterface.tl_event timelineEvent,
-            RandomEventDefinition definition,
-            bool active,
-            int dueAbsoluteMonth,
-            int[] successfulKinds,
-            int[] successfulStrengths)
-        {
-            ToDate(dueAbsoluteMonth, out int year, out int month);
-            timelineEvent.month = month;
-            timelineEvent.year = year;
-            timelineEvent.tl_type = 3;
-            timelineEvent.done = active ? (short)0 : (short)1;
-            timelineEvent.pre_done = 0;
-            timelineEvent.action = definition.TimelineActionId;
-            timelineEvent.action_data = definition.StrengthKind == RandomEventStrengthKind.GranaryTheft && active
-                ? GetPreparedTimelineStrength(definition.Kind, successfulKinds, successfulStrengths)
-                : 0;
-            timelineEvent.and_or = 0;
-            timelineEvent.repeat = 0;
-            timelineEvent.repeat_count = 0;
-            EnsureConditions(timelineEvent);
-            SetTag(timelineEvent, definition.Kind);
-        }
-
-        private static int GetPreparedTimelineStrength(RandomEventKind kind, int[] kinds, int[] strengths)
-        {
-            for (int index = 0; index < kinds.Length; index++)
-            {
-                if (kinds[index] == (int)kind)
-                    return index < strengths.Length ? strengths[index] : 0;
-            }
-            return 0;
-        }
-
-        private int FindOwnedTimelineEntry(RandomEventKind kind)
-        {
-            EngineInterface.ScenarioOverview overview = EngineInterface.GetScenarioOverview();
-            if (overview?.entries == null)
-                return -1;
-            for (int eventId = 0; eventId < overview.entries.Count; eventId++)
-            {
-                if (overview.entries[eventId].entryType != 3)
-                    continue;
-                try
-                {
-                    EngineInterface.tl_event timelineEvent = EngineInterface.GetScenarioEvent(eventId);
-                    if (HasTag(timelineEvent, kind))
-                        return eventId;
-                }
-                catch (Exception ex)
-                {
-                    LogWarning($"Timeline entry scan skipped unreadable eventId={eventId}: {ex.Message}");
-                }
-            }
-            return -1;
-        }
-
-        private void AuditPendingTimelineEntries(int currentAbsoluteMonth)
-        {
-            if (pendingTimelineAuditDue == int.MinValue)
-                return;
-
-            // Read Vanilla's result before PrepareBatch reuses and resets these five records.
-            AuditTimelineEntries(
-                "following-tick",
-                pendingTimelineAuditDue,
-                currentAbsoluteMonth,
-                pendingTimelineAuditKinds);
-            pendingTimelineAuditDue = int.MinValue;
-            pendingTimelineAuditKinds = Array.Empty<int>();
-        }
-
-        private void AuditTimelineEntries(string phase, int due, int currentAbsoluteMonth, int[] kinds)
-        {
-            foreach (int kindValue in kinds ?? Array.Empty<int>())
-            {
-                RandomEventKind kind = (RandomEventKind)kindValue;
-                RandomEventDefinition definition = RandomEventDefinitions.Get(kind);
-                int eventId = FindOwnedTimelineEntry(kind);
-                if (eventId < 0)
-                {
-                    LogInfo(
-                        $"Timeline execution audit: phase={phase}, event={definition.Name}, dueAbsoluteMonth={due}, " +
-                        $"currentAbsoluteMonth={currentAbsoluteMonth}, status=missing-owned-entry.");
-                    continue;
-                }
-
-                try
-                {
-                    EngineInterface.tl_event timelineEvent = EngineInterface.GetScenarioEvent(eventId);
-                    string status = timelineEvent.done != 0 ? "consumed-by-vanilla" : "not-consumed";
-                    LogInfo(
-                        $"Timeline execution audit: phase={phase}, event={definition.Name}, eventId={eventId}, " +
-                        $"dueAbsoluteMonth={due}, currentAbsoluteMonth={currentAbsoluteMonth}, status={status}, " +
-                        $"done={timelineEvent.done}, preDone={timelineEvent.pre_done}, type={timelineEvent.tl_type}, " +
-                        $"action={timelineEvent.action}, actionData={timelineEvent.action_data}, " +
-                        $"eventDate={timelineEvent.year}/{timelineEvent.month}.");
-                }
-                catch (Exception ex)
-                {
-                    LogInfo(
-                        $"Timeline execution audit: phase={phase}, event={definition.Name}, eventId={eventId}, " +
-                        $"dueAbsoluteMonth={due}, currentAbsoluteMonth={currentAbsoluteMonth}, " +
-                        $"status=unreadable, reason={ex.Message}.");
-                }
-            }
-        }
-
-        private void RefreshTimelineIds()
-        {
-            int[] ids = new int[RandomEventDefinitions.TimelineOnly.Length];
-            for (int index = 0; index < ids.Length; index++)
-                ids[index] = FindOwnedTimelineEntry(RandomEventDefinitions.TimelineOnly[index].Kind);
-            state.TimelineEntryIds = ids;
-        }
-
-        private static void EnsureConditions(EngineInterface.tl_event timelineEvent)
-        {
-            if (timelineEvent.event_value == null || timelineEvent.event_value.Length != 40)
-                timelineEvent.event_value = new EngineInterface.ev[40];
-            for (int index = 0; index < timelineEvent.event_value.Length; index++)
-            {
-                if (timelineEvent.event_value[index] == null)
-                    timelineEvent.event_value[index] = new EngineInterface.ev();
-            }
-        }
-
-        private static void SetTag(EngineInterface.tl_event timelineEvent, RandomEventKind kind)
-        {
-            short[] values = { TagMagic, TagVersion, (short)((int)kind + 1), TagGuard };
-            for (int offset = 0; offset < values.Length; offset++)
-            {
-                EngineInterface.ev condition = timelineEvent.event_value[TagStartIndex + offset];
-                condition.value = values[offset];
-                condition.type = 0;
-                condition.onoff = 0; // Vanilla skips type/value completely while onoff is zero.
-            }
-        }
-
-        private static bool HasTag(EngineInterface.tl_event timelineEvent, RandomEventKind kind)
-        {
-            if (timelineEvent?.event_value == null || timelineEvent.event_value.Length < 40)
-                return false;
-            short[] values = { TagMagic, TagVersion, (short)((int)kind + 1), TagGuard };
-            for (int offset = 0; offset < values.Length; offset++)
-            {
-                EngineInterface.ev condition = timelineEvent.event_value[TagStartIndex + offset];
-                if (condition == null || condition.onoff != 0 || condition.value != values[offset])
-                    return false;
-            }
-            return true;
         }
 
         private byte[] SaveState(SaveContext context)
@@ -641,7 +368,7 @@ namespace RandomEvents
                 return;
             try
             {
-                state = MessagePackSerializer.Deserialize<RandomEventsSaveStateV1>(bytes);
+                state = MessagePackSerializer.Deserialize<RandomEventsSaveStateV2>(bytes);
                 loadedStateAvailable = state != null;
                 mapStartPending = true;
                 LogInfo($"Loaded Random Events state bytes: bytes={bytes.Length}, version={state?.Version}.");
@@ -654,9 +381,9 @@ namespace RandomEvents
             }
         }
 
-        private bool ValidateLoadedState(RandomEventsSaveStateV1 loaded)
+        private bool ValidateLoadedState(RandomEventsSaveStateV2 loaded)
         {
-            bool valid = loaded != null && loaded.Version == RandomEventsSaveStateV1.CurrentVersion &&
+            bool valid = loaded != null && loaded.Version == RandomEventsSaveStateV2.CurrentVersion &&
                 loaded.IntervalMonths >= 1 && loaded.IntervalMonths <= 90 &&
                 loaded.Chances?.Length == RandomEventDefinitions.All.Length &&
                 loaded.StrengthMinimums?.Length == 6 && loaded.StrengthMaximums?.Length == 6 &&
@@ -664,8 +391,6 @@ namespace RandomEvents
                 loaded.PreparedDirectKinds.Length == loaded.PreparedDirectStrengths.Length &&
                 loaded.PreparedDirectTargetPlayerIds != null &&
                 loaded.PreparedDirectKinds.Length == loaded.PreparedDirectTargetPlayerIds.Length &&
-                loaded.PreparedTimelineKinds != null && loaded.PreparedTimelineStrengths != null &&
-                loaded.PreparedTimelineKinds.Length == loaded.PreparedTimelineStrengths.Length &&
                 (loaded.PrngState0 | loaded.PrngState1) != 0;
             if (valid)
             {
@@ -682,8 +407,32 @@ namespace RandomEvents
                 }
             }
             if (!valid)
-                LogWarning("Loaded Random Events V1 state failed validation and will not be used.");
+                LogWarning("Loaded Random Events V2 state failed validation and will not be used.");
             return valid;
+        }
+
+        private void LogTimelineEventsUnavailableOnce()
+        {
+            if (timelineUnavailableLogged || !mapActive || state?.Chances == null)
+                return;
+
+            List<string> activeEvents = new List<string>();
+            foreach (RandomEventDefinition definition in RandomEventDefinitions.TimelineOnly)
+            {
+                int chance = state.Chances[(int)definition.Kind];
+                if (chance > 0)
+                    activeEvents.Add($"{definition.Name}(action={definition.TimelineActionId}, chance={chance}%)");
+            }
+
+            if (activeEvents.Count == 0)
+                return;
+
+            timelineUnavailableLogged = true;
+            LogError(
+                "Timeline-only events are temporarily disabled because the removed Script Extender coroutine " +
+                "dispatcher started without ever invoking its callbacks. " +
+                $"Active settings affected: [{string.Join(", ", activeEvents)}]. " +
+                "Direct Vanilla events remain active; no scenario Timeline entries will be created or changed.");
         }
 
         private void DispatchDirectEvent(
@@ -745,7 +494,33 @@ namespace RandomEvents
                 }
 
                 if (definition.Kind == RandomEventKind.Rabbits)
+                {
+                    if (!signpostRegistry.TryGetRabbitNativeState(
+                            out int nativeRabbitGate,
+                            out int nativeRabbitCount,
+                            out string rabbitStateFailure))
+                    {
+                        LogError(
+                            $"Vanilla rabbit event skipped: targetPlayerId={targetPlayerId}, " +
+                            $"reason={rabbitStateFailure}");
+                        return;
+                    }
+
+                    LogInfo(
+                        $"Rabbit Vanilla gate snapshot before dispatch: targetPlayerId={targetPlayerId}, " +
+                        $"nativeGlobalGate={nativeRabbitGate}, nativeRabbitCount={nativeRabbitCount}, " +
+                        $"nativeRabbitLimit=160, {CapturePrerequisiteSnapshot(targetPlayerId)}.");
+                    if (nativeRabbitGate != 0 || nativeRabbitCount >= 160)
+                    {
+                        LogInfo(
+                            $"Vanilla rabbit event no-op confirmed before dispatch: targetPlayerId={targetPlayerId}, " +
+                            $"nativeGlobalGate={nativeRabbitGate}, nativeRabbitCount={nativeRabbitCount}, " +
+                            "reason=Vanilla rabbit predicate rejected the event.");
+                        return;
+                    }
+
                     CountRabbitUnits(out rabbitsAliveBefore, out rabbitsNeedsInitBefore);
+                }
 
                 EngineInterface.GameAction(Enums.GameActionCommand.FreeBuild_Event, definition.TextId, strength);
                 if (definition.Kind == RandomEventKind.Rabbits)
@@ -962,12 +737,6 @@ namespace RandomEvents
                 $"Random Events uses the validated Vanilla calendar constant {VanillaMonthsPerYear} instead.");
         }
 
-        private static void ToDate(int absoluteMonth, out int year, out int month)
-        {
-            year = absoluteMonth / VanillaMonthsPerYear;
-            month = absoluteMonth % VanillaMonthsPerYear;
-        }
-
         private void DisableForNetwork(string reason, string details)
         {
             mapStartPending = false;
@@ -976,7 +745,7 @@ namespace RandomEvents
             if (multiplayerDisableLogged) return;
             multiplayerDisableLogged = true;
             LogInfo(
-                $"Random Events fully disabled: {reason}; no rolls, timeline entries, save data, or signposts will be created. " +
+                $"Random Events fully disabled: {reason}; no rolls, events, save data, or signposts will be created. " +
                 $"Network details: {details}.");
         }
 

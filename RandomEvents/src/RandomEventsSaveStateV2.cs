@@ -5,10 +5,10 @@ using System;
 namespace RandomEvents
 {
     [MessagePackObject]
-    [MessagePackFormatter(typeof(RandomEventsSaveStateV1Formatter))]
-    public sealed class RandomEventsSaveStateV1
+    [MessagePackFormatter(typeof(RandomEventsSaveStateV2Formatter))]
+    public sealed class RandomEventsSaveStateV2
     {
-        public const int CurrentVersion = 1;
+        public const int CurrentVersion = 2;
 
         [Key(0)] public int Version = CurrentVersion;
         [Key(1)] public bool EffectiveEnabled;
@@ -22,20 +22,17 @@ namespace RandomEvents
         [Key(9)] public int NextDueAbsoluteMonth;
         [Key(10)] public int[] PreparedDirectKinds = Array.Empty<int>();
         [Key(11)] public int[] PreparedDirectStrengths = Array.Empty<int>();
-        [Key(12)] public int[] PreparedTimelineKinds = Array.Empty<int>();
-        [Key(13)] public int[] TimelineEntryIds = new[] { -1, -1, -1, -1, -1 };
-        [Key(14)] public bool SignpostsInitialized;
-        [Key(15)] public int[] SignpostBuildingIds = new[] { -1, -1, -1, -1 };
-        [Key(16)] public bool BatchPrepared;
-        [Key(17)] public int[] PreparedTimelineStrengths = Array.Empty<int>();
-        [Key(18)] public int[] PreparedDirectTargetPlayerIds = Array.Empty<int>();
+        [Key(12)] public bool SignpostsInitialized;
+        [Key(13)] public int[] SignpostBuildingIds = new[] { -1, -1, -1, -1 };
+        [Key(14)] public bool BatchPrepared;
+        [Key(15)] public int[] PreparedDirectTargetPlayerIds = Array.Empty<int>();
     }
 
-    public sealed class RandomEventsSaveStateV1Formatter : IMessagePackFormatter<RandomEventsSaveStateV1>
+    public sealed class RandomEventsSaveStateV2Formatter : IMessagePackFormatter<RandomEventsSaveStateV2>
     {
-        private const int FieldCount = 19;
+        private const int FieldCount = 16;
 
-        public void Serialize(ref MessagePackWriter writer, RandomEventsSaveStateV1 value, MessagePackSerializerOptions options)
+        public void Serialize(ref MessagePackWriter writer, RandomEventsSaveStateV2 value, MessagePackSerializerOptions options)
         {
             if (value == null)
             {
@@ -56,22 +53,19 @@ namespace RandomEvents
             writer.Write(value.NextDueAbsoluteMonth);
             WriteIntArray(ref writer, value.PreparedDirectKinds);
             WriteIntArray(ref writer, value.PreparedDirectStrengths);
-            WriteIntArray(ref writer, value.PreparedTimelineKinds);
-            WriteIntArray(ref writer, value.TimelineEntryIds);
             writer.Write(value.SignpostsInitialized);
             WriteIntArray(ref writer, value.SignpostBuildingIds);
             writer.Write(value.BatchPrepared);
-            WriteIntArray(ref writer, value.PreparedTimelineStrengths);
             WriteIntArray(ref writer, value.PreparedDirectTargetPlayerIds);
         }
 
-        public RandomEventsSaveStateV1 Deserialize(ref MessagePackReader reader, MessagePackSerializerOptions options)
+        public RandomEventsSaveStateV2 Deserialize(ref MessagePackReader reader, MessagePackSerializerOptions options)
         {
             if (reader.TryReadNil())
                 return null;
 
             int count = reader.ReadArrayHeader();
-            RandomEventsSaveStateV1 value = new RandomEventsSaveStateV1();
+            RandomEventsSaveStateV2 value = new RandomEventsSaveStateV2();
             for (int index = 0; index < count; index++)
             {
                 switch (index)
@@ -88,13 +82,10 @@ namespace RandomEvents
                     case 9: value.NextDueAbsoluteMonth = reader.ReadInt32(); break;
                     case 10: value.PreparedDirectKinds = ReadIntArray(ref reader); break;
                     case 11: value.PreparedDirectStrengths = ReadIntArray(ref reader); break;
-                    case 12: value.PreparedTimelineKinds = ReadIntArray(ref reader); break;
-                    case 13: value.TimelineEntryIds = ReadIntArray(ref reader); break;
-                    case 14: value.SignpostsInitialized = reader.ReadBoolean(); break;
-                    case 15: value.SignpostBuildingIds = ReadIntArray(ref reader); break;
-                    case 16: value.BatchPrepared = reader.ReadBoolean(); break;
-                    case 17: value.PreparedTimelineStrengths = ReadIntArray(ref reader); break;
-                    case 18: value.PreparedDirectTargetPlayerIds = ReadIntArray(ref reader); break;
+                    case 12: value.SignpostsInitialized = reader.ReadBoolean(); break;
+                    case 13: value.SignpostBuildingIds = ReadIntArray(ref reader); break;
+                    case 14: value.BatchPrepared = reader.ReadBoolean(); break;
+                    case 15: value.PreparedDirectTargetPlayerIds = ReadIntArray(ref reader); break;
                     default: reader.Skip(); break;
                 }
             }
