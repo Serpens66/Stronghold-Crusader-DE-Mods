@@ -32,6 +32,7 @@
     <Compile Include="..\Shared\GameModeHelper.cs"><Link>Shared\GameModeHelper.cs</Link></Compile>
     <Compile Include="src\RandomEventDefinitions.cs" />
     <Compile Include="src\NativePatternResolver.cs" />
+    <Compile Include="src\NativeBanditEventSupport.cs" />
     <Compile Include="src\NativeVanillaEventDispatcher.cs" />
     <Compile Include="src\NativeWildlifeEventDispatcher.cs" />
     <Compile Include="src\RandomEventsLocalization.cs" />

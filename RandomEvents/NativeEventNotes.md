@@ -35,6 +35,15 @@
 - Kandidaten werden zunächst auf eine freie, begehbare 2x2-Fläche gefiltert. `CreatePrefab(..., bypassPlacementRules: false)` führt danach Vanillas maßgebliche Gebäude-, Gelände- und Footprint-Prüfung aus.
 - Verwirft Vanilla eine Position, wird der nächste bevorzugte Kandidat, danach jeder weitere vorgefilterte Kandidat und schließlich eine andere Randtiefe versucht. Ein unvollständig erzeugter neutraler Wegweiser wird sicher entfernt.
 
+## Manuelle Banditen
+
+- Teststand 1.0.28 erzeugt ausschließlich rohe Streitkolbenkämpfer mit Spielerfarbe und Owner `0` über `CreateUnitLocal`. Danach erfolgen keine Tribe-Erzeugung oder -Zuweisung, keine Haltungsänderung, kein Bewegungs- oder Angriffsbefehl, keine Zielzuweisung und keine spätere Überwachung oder Änderung. Damit isoliert der Test das Vanilla-Verhalten der Naturzugehörigkeit.
+- Der Mittelpunkt eines Wegweiser-Footprints besitzt nicht zwingend eine native Pfadkomponente. Der tatsächliche Banditen-Spawn wird deshalb auf das nächstgelegene freie, begehbare Randtile mit einer Pfadkomponente ungleich `0` gelegt; dieselbe Komponente begrenzt anschließend die erreichbaren Ziele.
+- Der native Stammesbefehl-Dispatcher liegt in der Referenz-DLL bei RVA `0x11E8C0`. Der vom Script Extender als `ForceAttackBuilding` bezeichnete Befehl `36` validiert seinen Zielwert im Zweig um RVA `0x11F0B6` mit dem Einheiten-Stride `0x490`; eine Gebäude-ID wird deshalb ohne Fehler, aber auch ohne Einheitenbefehl verworfen.
+- Befehl `9` ist zwar ein Gebäudeangriff, sein Einheiten-Switch verwirft Streitkolbenkämpfer bei normalen Gebäudetypen. Auch Befehl `5` (`Attack Here`) lieferte zwar einen erfolgreichen API-Rückgabewert, setzte bei neutralen Streitkolbenkämpfern aber nachweislich keinen Bewegungs- oder Angriffskontext. Der einzelne Unit-`MoveHere`-Handler bewegte sie ohne Laufanimation. RandomEvents verwendet deshalb den vollständigen Tribe-`IssueMoveHereCommand` und schickt jede Gruppe auf ein freies, verbundenes Tile direkt neben ihrem zufälligen Ziel.
+- Vanillas FreeBuild-Case `146` setzt vor dem Spawn für den lokalen Spieler einen 16-Bit-Ereignisstatus auf `16` (Write bei RVA `0x104C32`). Dieser Status erzeugt und beendet den zeitweiligen Popularitätsmalus über die normale Simulation. RandomEvents löst das Feld über eine semantische Signatur auf und setzt es stattdessen für die explizite menschliche Zielspieler-ID.
+- Schlägt diese Prüfung nach Wiederholungen fehl, werden nur weitere Banditenereignisse für die laufende Karte deaktiviert. Die übrigen Zufallsereignisse und ihre Timer bleiben aktiv.
+
 ## Direkte Vanilla-Handler
 
 - `GameTimeManagerAPI.OnTick` wird aus einem nativen Pre-Tick-Kontext vor der Zeit-/Datumsverarbeitung aufgerufen. Timeline-Vektoren dort zu verändern führte reproduzierbar zu einem nativen Zugriffsfehler beim Kartenstart.

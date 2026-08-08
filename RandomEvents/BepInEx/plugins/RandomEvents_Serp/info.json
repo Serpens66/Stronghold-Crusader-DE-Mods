@@ -3,10 +3,74 @@
   "Author": "Serpens66",
   "Name": "Random Events",
   "Description": "Runs configurable Vanilla scenario events in singleplayer skirmishes and Trail missions.",
-  "Version": "1.0.20",
+  "Version": "1.0.28",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.28",
+      "Changes": [
+        "Restores manually spawned maceman sprite color and ownership to Nature (player 0) for an isolated ownership test.",
+        "Removes all post-spawn tribe creation, tribe assignment, stance changes, movement and attack orders, target assignment, retries, and runtime monitoring for spawned macemen.",
+        "Leaves each successfully created maceman completely untouched after CreateUnitLocal while retaining the event message, minimap ActionPoint, and Vanilla popularity penalty."
+      ]
+    },
+    {
+      "Version": "1.0.27",
+      "Changes": [
+        "Temporarily assigns manually spawned bandit tribes, maceman ownership, and sprite color to player 8 for an explicit hostility test.",
+        "Verifies after Vanilla initialization that every spawned maceman is actually controlled by player 8; mismatches disable only further bandit events with a timestamped Error.",
+        "Keeps event targeting restricted to living human players despite the temporary bandit owner change."
+      ]
+    },
+    {
+      "Version": "1.0.26",
+      "Changes": [
+        "Uses Vanilla's complete tribe MoveHere command so neutral macemen receive the normal movement AI and walking animation instead of sliding in their standing animation.",
+        "Keeps each bandit group in Hold stance while travelling and enables Aggressive only after at least half the living group reaches its destination beside the target building.",
+        "Assigns distinct target buildings to groups from the same event whenever available, reducing neutral-on-neutral target selection after arrival."
+      ]
+    },
+    {
+      "Version": "1.0.25",
+      "Changes": [
+        "Places every neutral maceman spawned by one bandit event in a single Nature tribe, preventing aggressive Nature tribes from attacking each other.",
+        "Replaces the ineffective Attack Here tribe order with Vanilla's normal per-unit MoveHere order for logical groups of at most five macemen.",
+        "Moves each group to a free, walkable path tile beside its independently selected random target building or wall, then lets the shared aggressive tribe engage nearby enemies."
+      ]
+    },
+    {
+      "Version": "1.0.24",
+      "Changes": [
+        "Fixes bandit events being skipped when the registered signpost center has no Vanilla path component.",
+        "Spawns neutral macemen on the nearest free, walkable perimeter tile of the selected signpost and uses that tile's nonzero Vanilla path component for reachable target selection.",
+        "Keeps compatibility failures isolated to bandit events and reports a timestamped Error when no valid signpost perimeter tile is available."
+      ]
+    },
+    {
+      "Version": "1.0.23",
+      "Changes": [
+        "Replaces the normal building order, which Vanilla excludes for macemen, with Vanilla's melee-compatible Attack Here command 5 aimed at each group's random target building.",
+        "Activates Vanilla's original temporary bandit popularity penalty state 16 for the explicit human target player.",
+        "Resolves and validates the popularity-state write semantically after game DLL updates; incompatibility disables only the penalty while manual bandits and unrelated events remain active."
+      ]
+    },
+    {
+      "Version": "1.0.22",
+      "Changes": [
+        "Replaces the ineffective force command 36 with an explicitly verified building-target command 9.",
+        "Exposes that Vanilla also rejects command 9 for neutral macemen, allowing the remaining unit-type restriction to be diagnosed instead of reporting a false activation.",
+        "Keeps later bandit events protected by disabling only this feature after a verified native command failure."
+      ]
+    },
+    {
+      "Version": "1.0.21",
+      "Changes": [
+        "Replaces Vanilla's player-slot-8 bandit group completely with manually spawned neutral macemen owned by Nature (player 0).",
+        "Spawns the configured number at the closest validated signpost, splits them into groups of at most five, waits for Vanilla initialization, sets every group aggressive, and sends the groups to independently selected random living buildings of the target human player.",
+        "Keeps Vanilla's bandit text, Random_Events9.wav, action_bandits.bik, and clickable minimap ActionPoint while disabling only future bandit events if the managed tribe or unit APIs become incompatible."
+      ]
+    },
     {
       "Version": "1.0.20",
       "Changes": [

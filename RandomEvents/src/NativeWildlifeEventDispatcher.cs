@@ -263,6 +263,27 @@ namespace RandomEvents
             return NativeEventDispatchStatus.Applied;
         }
 
+        public bool TryQueueActionPoint(int tileX, int tileY, out string failure)
+        {
+            failure = string.Empty;
+            if (actionPointHandler == null || actionPointManager == IntPtr.Zero)
+            {
+                failure = "native Vanilla action-point queue is unavailable.";
+                return false;
+            }
+
+            try
+            {
+                actionPointHandler(actionPointManager, tileX, tileY);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                failure = ex.Message;
+                return false;
+            }
+        }
+
         private void InitializeRabbitCompatibility(
             IntPtr libraryHandle,
             ReadOnlySpan<byte> memory,

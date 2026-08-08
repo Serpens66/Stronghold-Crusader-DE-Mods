@@ -22,6 +22,7 @@ namespace RandomEvents
         private const int VanillaMonthsPerYear = 12;
         private const int RabbitSpawnRadius = 12;
         private const int LionSpawnRadius = 12;
+        private const int BanditOwnerPlayerId = 0;
 
         private readonly ManualLogSource log;
         private readonly RandomEventsSettingsViewModel settings;
@@ -29,6 +30,7 @@ namespace RandomEvents
         private readonly SignpostPlacementService signpostPlacement;
         private readonly NativeVanillaEventDispatcher nativeEventDispatcher;
         private readonly NativeWildlifeEventDispatcher nativeWildlifeDispatcher;
+        private readonly NativeBanditEventSupport nativeBanditSupport;
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
         private bool initialized;
         private bool disposed;
@@ -40,7 +42,7 @@ namespace RandomEvents
         private int lastSignpostAttemptTick = int.MinValue;
         private bool calendarApiChecked;
         private bool waitingForLivingHumanTargetLogged;
-        private bool banditAttackOrdersEnabled = true;
+        private bool banditEventsEnabled = true;
         private RandomEventsSaveStateV2 state;
 
         public RandomEventsRuntime(ManualLogSource log, RandomEventsSettingsViewModel settings)
@@ -51,6 +53,7 @@ namespace RandomEvents
             signpostPlacement = new SignpostPlacementService(log, signpostRegistry);
             nativeEventDispatcher = new NativeVanillaEventDispatcher(log);
             nativeWildlifeDispatcher = new NativeWildlifeEventDispatcher(log, nativeEventDispatcher);
+            nativeBanditSupport = new NativeBanditEventSupport(log);
         }
 
         public void InitializeNative(IntPtr libraryHandle, ReadOnlySpan<byte> memory, bool referenceHashMatches)
@@ -58,6 +61,7 @@ namespace RandomEvents
             signpostRegistry.InitializeNative(libraryHandle, memory, referenceHashMatches);
             nativeEventDispatcher.InitializeNative(libraryHandle, memory, referenceHashMatches);
             nativeWildlifeDispatcher.InitializeNative(libraryHandle, memory, referenceHashMatches);
+            nativeBanditSupport.InitializeNative(memory, referenceHashMatches);
         }
 
         public void Initialize()
@@ -127,7 +131,7 @@ namespace RandomEvents
             mapStartedFromMultiplayerSave = false;
             calendarApiChecked = false;
             waitingForLivingHumanTargetLogged = false;
-            banditAttackOrdersEnabled = true;
+            banditEventsEnabled = true;
             signpostPlacement.ResetMapState();
             state = null;
         }
@@ -485,20 +489,15 @@ namespace RandomEvents
                 return;
             }
 
+            if (definition.DispatchKind == RandomEventDispatchKind.ManualBandits)
+            {
+                SpawnBanditAttack(targetPlayerId, strength);
+                return;
+            }
+
             IDisposable signpostScope = null;
             int signpostBuildingId = -1;
             double signpostDistance = 0;
-            BanditAttackPlan banditPlan = null;
-            if (definition.Kind == RandomEventKind.Bandits)
-            {
-                if (!banditAttackOrdersEnabled)
-                {
-                    LogError(
-                        $"Bandit event skipped: targetPlayerId={targetPlayerId}, " +
-                        "reason=Vanilla tribe attack orders were disabled after an earlier compatibility failure.");
-                    return;
-                }
-            }
 
             if (definition.RequiresSignpost &&
                 !signpostRegistry.TryBeginTargetedEvent(
@@ -519,19 +518,6 @@ namespace RandomEvents
             bool playerChanged = targetPlayerId != originalLocalPlayerId;
             try
             {
-                if (definition.Kind == RandomEventKind.Bandits &&
-                    !TryPrepareBanditAttack(
-                        targetPlayerId,
-                        signpostBuildingId,
-                        out banditPlan,
-                        out string preparationFailure))
-                {
-                    LogInfo(
-                        $"Bandit event had no effect: targetPlayerId={targetPlayerId}, " +
-                        $"reason={preparationFailure}");
-                    return;
-                }
-
                 if (playerChanged)
                 {
                     if (localPlayerAddress == IntPtr.Zero)
@@ -553,32 +539,6 @@ namespace RandomEvents
                 }
 
                 EngineInterface.GameAction(Enums.GameActionCommand.FreeBuild_Event, definition.TextId, strength);
-                if (banditPlan != null)
-                {
-                    if (!TryOrderBanditsToAttack(banditPlan, out string banditDetail, out bool compatibilityFailure))
-                    {
-                        if (compatibilityFailure)
-                        {
-                            banditAttackOrdersEnabled = false;
-                            LogError(
-                                $"Bandit attack activation failed and further bandit events are disabled for this map; " +
-                                $"unrelated events remain active: targetPlayerId={targetPlayerId}, reason={banditDetail}");
-                        }
-                        else
-                        {
-                            LogInfo(
-                                $"Bandit event had no effect: targetPlayerId={targetPlayerId}, reason={banditDetail}");
-                        }
-                        return;
-                    }
-
-                    LogInfo(
-                        $"Vanilla bandit event dispatched and ordered to attack: textId={definition.TextId}, " +
-                        $"strength={strength}, targetPlayerId={targetPlayerId}, signpostBuildingId={signpostBuildingId}, " +
-                        $"signpostDistanceToTargetKeep={signpostDistance:0.00}, {banditDetail}");
-                    return;
-                }
-
                 LogInfo(
                     $"Vanilla direct event dispatched: event={definition.Name}, textId={definition.TextId}, " +
                     $"strength={strength}, targetPlayerId={targetPlayerId}, signpostBuildingId={signpostBuildingId}, " +
@@ -595,241 +555,152 @@ namespace RandomEvents
             }
         }
 
-        private unsafe bool TryPrepareBanditAttack(
-            int targetPlayerId,
-            int signpostBuildingId,
-            out BanditAttackPlan plan,
-            out string failure)
+        private unsafe void SpawnBanditAttack(int targetPlayerId, int strength)
         {
-            plan = null;
-            failure = string.Empty;
+            if (!banditEventsEnabled)
+            {
+                LogError(
+                    $"Bandit event skipped: targetPlayerId={targetPlayerId}, " +
+                    "reason=manual neutral-bandit support was disabled after an earlier compatibility failure.");
+                return;
+            }
+
             try
             {
-                if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(
+                if (!signpostRegistry.TryGetClosestSignpostToPlayer(
+                        targetPlayerId,
+                        out int signpostBuildingId,
+                        out int spawnTileX,
+                        out int spawnTileY,
+                        out double signpostDistance,
+                        out string distanceReference,
+                        out string signpostFailure))
+                {
+                    LogError(
+                        $"Bandit event skipped: targetPlayerId={targetPlayerId}, " +
+                        $"reason=no usable targeted signpost ({signpostFailure}).");
+                    return;
+                }
+
+                if (!TryResolveBanditSpawnTile(
                         signpostBuildingId,
-                        out GameBuilding* signpost) ||
-                    signpost == null ||
-                    signpost->r_AliveState != AliveState.IsAlive)
+                        targetPlayerId,
+                        spawnTileX,
+                        spawnTileY,
+                        out spawnTileX,
+                        out spawnTileY,
+                        out int spawnTileId,
+                        out _,
+                        out string spawnFailure))
                 {
-                    failure = $"selected signpost building {signpostBuildingId} is unavailable.";
-                    return false;
+                    LogError(
+                        $"Bandit event skipped: targetPlayerId={targetPlayerId}, " +
+                        $"reason=no usable tile adjacent to signpost {signpostBuildingId} ({spawnFailure}).");
+                    return;
                 }
 
-                HashSet<ushort> sourceComponents = new HashSet<ushort>();
-                AddWalkableApproachComponents(
-                    signpost->r_TilePositionXBegin,
-                    signpost->r_TilePositionYBegin,
-                    signpost->r_TilePositionXEnd,
-                    signpost->r_TilePositionYEnd,
-                    sourceComponents);
-                if (sourceComponents.Count == 0)
-                {
-                    failure = $"selected signpost building {signpostBuildingId} has no walkable Vanilla path component.";
-                    return false;
-                }
+                GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
 
-                List<int> targetBuildingIds = new List<int>();
-                Span<GameBuilding> buildings = GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
-                for (int buildingIndex = 0; buildingIndex < buildings.Length; buildingIndex++)
+                GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
+                int requestedUnits = Math.Max(1, strength);
+                int createdUnits = 0;
+                int spawnHeight = tiles.GetTileHeight(spawnTileId);
+
+                for (int index = 0; index < requestedUnits; index++)
                 {
-                    ref GameBuilding building = ref buildings[buildingIndex];
-                    if (building.r_PlayerIdOwner == targetPlayerId &&
-                        building.r_AliveState == AliveState.IsAlive &&
-                        building.r_GlobalId != 0 &&
-                        HasReachableApproach(in building, sourceComponents))
+                    int unitId = checked((int)unitApi.CreateUnitLocal(
+                        BanditOwnerPlayerId,
+                        BanditOwnerPlayerId,
+                        spawnTileX,
+                        spawnTileY,
+                        spawnHeight,
+                        eChimps.CHIMP_TYPE_MACEMAN));
+                    if (unitId <= 0 ||
+                        !unitApi.TryGetUnitById(unitId, out GameUnit* unit) ||
+                        unit == null ||
+                        unit->r_GlobalId == 0)
                     {
-                        // Building APIs use one-based IDs while their exposed Span is zero-based.
-                        targetBuildingIds.Add(buildingIndex + 1);
+                        LogWarning(
+                            $"Nature maceman creation stopped without modifying the returned unit: " +
+                            $"unitId={unitId}, createdUnits={createdUnits}/{requestedUnits}.");
+                        break;
                     }
+                    createdUnits++;
                 }
 
-                SavedPrng prng = new SavedPrng(state.PrngState0, state.PrngState1);
-                int targetBuildingId = -1;
-                int targetWallTileId = -1;
-                uint targetBuildingGlobalId = 0;
-                eStructs targetBuildingType = default;
-                int eligibleTargets;
-                if (targetBuildingIds.Count > 0)
+                if (createdUnits == 0)
                 {
-                    targetBuildingId = targetBuildingIds[prng.Next(targetBuildingIds.Count)];
-                    ref GameBuilding target = ref buildings[targetBuildingId - 1];
-                    targetBuildingGlobalId = target.r_GlobalId;
-                    targetBuildingType = target.r_BuildingType;
-                    eligibleTargets = targetBuildingIds.Count;
+                    LogInfo(
+                        $"Bandit event had no effect: targetPlayerId={targetPlayerId}, " +
+                        "reason=no Nature-owned maceman could be created.");
+                    return;
+                }
+
+                if (!nativeWildlifeDispatcher.TryQueueActionPoint(
+                        spawnTileX,
+                        spawnTileY,
+                        out string actionPointFailure))
+                {
+                    LogError(
+                        "Bandit minimap action point is disabled while spawned bandits remain active: " +
+                        actionPointFailure);
+                }
+
+                if (!nativeEventDispatcher.TryQueuePresentation(
+                        201,
+                        9,
+                        "action_bandits.bik",
+                        "Random_Events9.wav",
+                        out string presentationFailure))
+                {
+                    LogError(
+                        "Bandit presentation is disabled while spawned bandits remain active: " +
+                        presentationFailure);
+                }
+
+                if (nativeBanditSupport.TryApplyPopularityPenalty(targetPlayerId, out string penaltyDetail))
+                {
+                    LogInfo($"Vanilla bandit popularity penalty activated: {penaltyDetail}");
                 }
                 else
                 {
-                    List<int> reachableWalls = FindReachableOwnedWallTiles(targetPlayerId, sourceComponents);
-                    if (reachableWalls.Count == 0)
-                    {
-                        failure = "no living building or owned wall of the target player is reachable from the selected signpost.";
-                        return false;
-                    }
-                    targetWallTileId = reachableWalls[prng.Next(reachableWalls.Count)];
-                    eligibleTargets = reachableWalls.Count;
-                }
-                state.PrngState0 = prng.State0;
-                state.PrngState1 = prng.State1;
-
-                Span<GameTribe> tribes = GameTribeManagerAPI.Instance.GetTribeAsSpan();
-                uint[] previousTribeGlobalIds = new uint[tribes.Length];
-                for (int index = 0; index < tribes.Length; index++)
-                {
-                    ref GameTribe tribe = ref tribes[index];
-                    if (IsActiveTribe(in tribe))
-                        previousTribeGlobalIds[index] = tribe.r_GlobalId;
+                    LogError(
+                        "Bandit popularity penalty could not be activated; spawned bandits remain active: " +
+                        penaltyDetail);
                 }
 
-                plan = new BanditAttackPlan(
-                    targetPlayerId,
-                    targetBuildingId,
-                    targetBuildingGlobalId,
-                    targetBuildingType,
-                    targetWallTileId,
-                    previousTribeGlobalIds,
-                    eligibleTargets);
-                return true;
+                LogInfo(
+                    $"Manual neutral bandit event spawned: requestedUnits={requestedUnits}, createdUnits={createdUnits}, " +
+                    $"ownerPlayerId={BanditOwnerPlayerId}, targetPlayerId={targetPlayerId}, postSpawnActions=none, " +
+                    $"signpostBuildingId={signpostBuildingId}, sourceTile=({spawnTileX},{spawnTileY}), " +
+                    $"distanceTo{distanceReference}={signpostDistance:0.00}.");
             }
             catch (Exception ex)
             {
-                banditAttackOrdersEnabled = false;
-                failure = $"tribe/building API compatibility check failed ({ex.Message}); further bandit events are disabled for this map.";
-                LogError($"Bandit attack preparation failed while unrelated events remain active: {ex}");
-                return false;
+                banditEventsEnabled = false;
+                LogError(
+                    "Manual neutral-bandit spawning failed and further bandit events are disabled for this map; " +
+                    $"unrelated events remain active: {ex}");
             }
         }
 
-        private unsafe bool TryOrderBanditsToAttack(
-            BanditAttackPlan plan,
-            out string detail,
-            out bool compatibilityFailure)
-        {
-            detail = string.Empty;
-            compatibilityFailure = false;
-            try
-            {
-                Span<GameTribe> tribes = GameTribeManagerAPI.Instance.GetTribeAsSpan();
-                if (tribes.Length != plan.PreviousTribeGlobalIds.Length)
-                {
-                    compatibilityFailure = true;
-                    detail = $"tribe array length changed during dispatch ({plan.PreviousTribeGlobalIds.Length} -> {tribes.Length}).";
-                    return false;
-                }
 
-                int spawnedTribeId = -1;
-                int spawnedTribeCount = 0;
-                for (int index = 0; index < tribes.Length; index++)
-                {
-                    ref GameTribe tribe = ref tribes[index];
-                    if (!IsActiveTribe(in tribe) ||
-                        tribe.r_GlobalId == plan.PreviousTribeGlobalIds[index] ||
-                        tribe.r_UnitsInGroup == 0)
-                    {
-                        continue;
-                    }
-
-                    spawnedTribeId = index + 1;
-                    spawnedTribeCount++;
-                }
-
-                if (spawnedTribeCount == 0)
-                {
-                    detail = "Vanilla created no new active bandit tribe (its spawn prerequisite or tribe capacity rejected the event).";
-                    return false;
-                }
-
-                if (spawnedTribeCount != 1)
-                {
-                    compatibilityFailure = true;
-                    detail = $"Vanilla created {spawnedTribeCount} new tribes; the bandit tribe cannot be identified unambiguously.";
-                    return false;
-                }
-
-                GameTribeManagerAPI tribeApi = GameTribeManagerAPI.Instance;
-                if (!tribeApi.SetStance(spawnedTribeId, TribeStance.Aggressive))
-                {
-                    compatibilityFailure = true;
-                    detail = $"Vanilla rejected the aggressive stance for bandit tribe {spawnedTribeId}.";
-                    return false;
-                }
-
-                string targetDetail;
-                bool orderAccepted;
-                if (plan.TargetBuildingId > 0)
-                {
-                    if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(
-                            plan.TargetBuildingId,
-                            out GameBuilding* target) ||
-                        target == null ||
-                        target->r_PlayerIdOwner != plan.TargetPlayerId ||
-                        target->r_AliveState != AliveState.IsAlive ||
-                        target->r_GlobalId != plan.TargetBuildingGlobalId)
-                    {
-                        detail = $"selected target building {plan.TargetBuildingId} ceased to be a living building of player {plan.TargetPlayerId}.";
-                        return false;
-                    }
-
-                    // Nature-owned event troops ignore the normal player order despite its success return.
-                    // Vanilla's forced variant drives the same pathfinding/combat state without that ownership gate.
-                    orderAccepted = tribeApi.ForceAttackBuildingEx(
-                        spawnedTribeId,
-                        plan.TargetBuildingId,
-                        unchecked((int)plan.TargetBuildingGlobalId));
-                    targetDetail = $"targetBuildingId={plan.TargetBuildingId}, targetBuildingType={plan.TargetBuildingType}";
-                }
-                else
-                {
-                    GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
-                    if (plan.TargetWallTileId < 0 ||
-                        tiles.GetTilePlayerOwnerId(plan.TargetWallTileId) != plan.TargetPlayerId ||
-                        (tiles.GetTilePropertyFlag(plan.TargetWallTileId) & TilePropertyFlag.IsWall) == 0)
-                    {
-                        detail = $"selected wall tile {plan.TargetWallTileId} ceased to be an owned wall of player {plan.TargetPlayerId}.";
-                        return false;
-                    }
-                    orderAccepted = tribeApi.AttackWall(spawnedTribeId, plan.TargetWallTileId);
-                    targetDetail = $"targetWallTileId={plan.TargetWallTileId}";
-                }
-
-                if (!orderAccepted)
-                {
-                    compatibilityFailure = true;
-                    detail = $"Vanilla forced attack order rejected tribe {spawnedTribeId}; {targetDetail}.";
-                    return false;
-                }
-
-                detail = $"banditTribeId={spawnedTribeId}, stance={TribeStance.Aggressive}, {targetDetail}, " +
-                    $"eligibleReachableTargets={plan.EligibleTargetCount}.";
-                return true;
-            }
-            catch (Exception ex)
-            {
-                compatibilityFailure = true;
-                detail = $"Vanilla tribe attack API failed ({ex.Message}).";
-                LogError($"Bandit AttackBuilding invocation failed: {ex}");
-                return false;
-            }
-        }
-
-        private static bool IsActiveTribe(in GameTribe tribe) =>
-            tribe.r_AliveState == AliveState.NeedsInit || tribe.r_AliveState == AliveState.IsAlive;
-
-        private static bool HasReachableApproach(
+        private static bool HasReachableBanditApproach(
             in GameBuilding building,
-            HashSet<ushort> sourceComponents) =>
-            HasReachableApproach(
+            ushort sourcePathComponent) =>
+            HasReachableBanditApproach(
                 building.r_TilePositionXBegin,
                 building.r_TilePositionYBegin,
                 building.r_TilePositionXEnd,
                 building.r_TilePositionYEnd,
-                sourceComponents);
+                sourcePathComponent);
 
-        private static bool HasReachableApproach(
+        private static bool HasReachableBanditApproach(
             int beginX,
             int beginY,
             int endX,
             int endY,
-            HashSet<ushort> sourceComponents)
+            ushort sourcePathComponent)
         {
             GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
             Span<ushort> pathConnections = tiles.TileManager.PathConnectionGrid;
@@ -842,9 +713,10 @@ namespace RandomEvents
                     {
                         continue;
                     }
+
                     int tileId = tiles.GetTileId(x, y);
                     if (tiles.IsTileWalkableAndUnoccupied(tileId) &&
-                        sourceComponents.Contains(pathConnections[tileId]))
+                        pathConnections[tileId] == sourcePathComponent)
                     {
                         return true;
                     }
@@ -853,41 +725,117 @@ namespace RandomEvents
             return false;
         }
 
-        private static void AddWalkableApproachComponents(
-            int beginX,
-            int beginY,
-            int endX,
-            int endY,
-            HashSet<ushort> components)
+
+        private unsafe bool TryResolveBanditSpawnTile(
+            int signpostBuildingId,
+            int targetPlayerId,
+            int preferredTileX,
+            int preferredTileY,
+            out int spawnTileX,
+            out int spawnTileY,
+            out int spawnTileId,
+            out ushort sourcePathComponent,
+            out string failure)
         {
+            spawnTileX = 0;
+            spawnTileY = 0;
+            spawnTileId = -1;
+            sourcePathComponent = 0;
+            failure = string.Empty;
+
+            if (signpostBuildingId <= 0 ||
+                !GameBuildingManagerAPI.Instance.TryGetBuildingById(signpostBuildingId, out GameBuilding* signpost) ||
+                signpost == null ||
+                signpost->r_GlobalId == 0 ||
+                signpost->r_AliveState != AliveState.IsAlive ||
+                signpost->r_BuildingType != eStructs.STRUCT_SIGNPOST)
+            {
+                failure = "registered signpost is no longer a living STRUCT_SIGNPOST.";
+                return false;
+            }
+
             GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
             Span<ushort> pathConnections = tiles.TileManager.PathConnectionGrid;
-            for (int y = beginY - 1; y <= endY + 1; y++)
+            Dictionary<ushort, bool> reachableComponents = new Dictionary<ushort, bool>();
+            long bestDistanceSquared = long.MaxValue;
+
+            // The registry returns the building center, whose path component may be zero.
+            // Spawn on the nearest free perimeter tile so Vanilla can initialize movement normally.
+            for (int y = signpost->r_TilePositionYBegin - 1; y <= signpost->r_TilePositionYEnd + 1; y++)
             {
-                for (int x = beginX - 1; x <= endX + 1; x++)
+                for (int x = signpost->r_TilePositionXBegin - 1; x <= signpost->r_TilePositionXEnd + 1; x++)
                 {
-                    if ((x >= beginX && x <= endX && y >= beginY && y <= endY) ||
-                        !tiles.IsTileInsideMapBounds(x, y))
+                    bool insideFootprint =
+                        x >= signpost->r_TilePositionXBegin && x <= signpost->r_TilePositionXEnd &&
+                        y >= signpost->r_TilePositionYBegin && y <= signpost->r_TilePositionYEnd;
+                    if (insideFootprint || !tiles.IsTileInsideMapBounds(x, y))
+                        continue;
+
+                    int candidateTileId = tiles.GetTileId(x, y);
+                    if (!tiles.IsValidTileId(candidateTileId) ||
+                        !tiles.IsTileWalkableAndUnoccupied(candidateTileId))
                     {
                         continue;
                     }
-                    int tileId = tiles.GetTileId(x, y);
-                    if (!tiles.IsTileWalkableAndUnoccupied(tileId))
+
+                    ushort candidateComponent = pathConnections[candidateTileId];
+                    if (candidateComponent == 0)
                         continue;
-                    ushort component = pathConnections[tileId];
-                    if (component != 0)
-                        components.Add(component);
+
+                    if (!reachableComponents.TryGetValue(candidateComponent, out bool reachesTarget))
+                    {
+                        reachesTarget = HasAnyBanditTargetInComponent(targetPlayerId, candidateComponent);
+                        reachableComponents.Add(candidateComponent, reachesTarget);
+                    }
+                    if (!reachesTarget)
+                        continue;
+
+                    long deltaX = x - preferredTileX;
+                    long deltaY = y - preferredTileY;
+                    long distanceSquared = deltaX * deltaX + deltaY * deltaY;
+                    if (distanceSquared > bestDistanceSquared ||
+                        (distanceSquared == bestDistanceSquared && candidateTileId >= spawnTileId))
+                    {
+                        continue;
+                    }
+
+                    bestDistanceSquared = distanceSquared;
+                    spawnTileX = x;
+                    spawnTileY = y;
+                    spawnTileId = candidateTileId;
+                    sourcePathComponent = candidateComponent;
                 }
             }
+
+            if (spawnTileId < 0)
+            {
+                failure =
+                    $"footprint=({signpost->r_TilePositionXBegin},{signpost->r_TilePositionYBegin})-" +
+                    $"({signpost->r_TilePositionXEnd},{signpost->r_TilePositionYEnd}) has no free, " +
+                    $"walkable perimeter tile connected to a living building or owned wall of player {targetPlayerId}";
+                return false;
+            }
+
+            return true;
         }
 
-        private static List<int> FindReachableOwnedWallTiles(
-            int targetPlayerId,
-            HashSet<ushort> sourceComponents)
+        private unsafe bool HasAnyBanditTargetInComponent(int targetPlayerId, ushort sourcePathComponent)
         {
-            const int gridSize = 800;
-            List<int> result = new List<int>();
+            Span<GameBuilding> buildings = GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
+            for (int index = 0; index < buildings.Length; index++)
+            {
+                ref GameBuilding building = ref buildings[index];
+                if (building.r_PlayerIdOwner == targetPlayerId &&
+                    building.r_AliveState == AliveState.IsAlive &&
+                    building.r_GlobalId != 0 &&
+                    HasReachableBanditApproach(in building, sourcePathComponent))
+                {
+                    return true;
+                }
+            }
+
             GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
+            const int gridSize = 800;
             for (int y = 0; y < gridSize; y++)
             {
                 for (int x = 0; x < gridSize; x++)
@@ -897,13 +845,13 @@ namespace RandomEvents
                     int tileId = tiles.GetTileId(x, y);
                     if (tiles.GetTilePlayerOwnerId(tileId) == targetPlayerId &&
                         (tiles.GetTilePropertyFlag(tileId) & TilePropertyFlag.IsWall) != 0 &&
-                        HasReachableApproach(x, y, x, y, sourceComponents))
+                        HasReachableBanditApproach(x, y, x, y, sourcePathComponent))
                     {
-                        result.Add(tileId);
+                        return true;
                     }
                 }
             }
-            return result;
+            return false;
         }
 
         private int[] GetLivingHumanPlayerIds()
@@ -1184,34 +1132,6 @@ namespace RandomEvents
         private void LogWarning(string message) => Shared.DebugLogHelper.LogWarning(log, message);
         private void LogError(string message) => Shared.DebugLogHelper.LogError(log, message);
 
-        private sealed class BanditAttackPlan
-        {
-            public BanditAttackPlan(
-                int targetPlayerId,
-                int targetBuildingId,
-                uint targetBuildingGlobalId,
-                eStructs targetBuildingType,
-                int targetWallTileId,
-                uint[] previousTribeGlobalIds,
-                int eligibleTargetCount)
-            {
-                TargetPlayerId = targetPlayerId;
-                TargetBuildingId = targetBuildingId;
-                TargetBuildingGlobalId = targetBuildingGlobalId;
-                TargetBuildingType = targetBuildingType;
-                TargetWallTileId = targetWallTileId;
-                PreviousTribeGlobalIds = previousTribeGlobalIds;
-                EligibleTargetCount = eligibleTargetCount;
-            }
-
-            public int TargetPlayerId { get; }
-            public int TargetBuildingId { get; }
-            public uint TargetBuildingGlobalId { get; }
-            public eStructs TargetBuildingType { get; }
-            public int TargetWallTileId { get; }
-            public uint[] PreviousTribeGlobalIds { get; }
-            public int EligibleTargetCount { get; }
-        }
 
         private readonly struct RabbitFarm
         {
