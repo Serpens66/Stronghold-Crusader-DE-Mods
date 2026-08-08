@@ -3,10 +3,26 @@
   "Author": "Serpens66",
   "Name": "Random Events",
   "Description": "Runs configurable Vanilla scenario events in singleplayer skirmishes and Trail missions.",
-  "Version": "1.0.15",
+  "Version": "1.0.17",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.17",
+      "Changes": [
+        "Uses the correct Vanilla lion warning voice Random_Events14.wav and removes the obsolete Harmony-based Random_Events8.wav whitelist workaround.",
+        "Restores Vanilla's clickable minimap exclamation marker at each lion spawn by resolving and calling the native ActionPoint handler; only the marker is disabled with an Error if a game update breaks its compatibility validation."
+      ]
+    },
+    {
+      "Version": "1.0.16",
+      "Changes": [
+        "Restricts prepared and executed events to active non-AI players with a living Lord while retaining explicit target IDs for future multiplayer synchronization.",
+        "Creates automatic signposts for Nature and protects the registered neutral signposts from indirect building-tile damage.",
+        "Fixes Vanilla rabbit tribes being blocked by a misidentified shared state value while preserving the native 160-rabbit limit and farm conditions.",
+        "Registers Vanilla's omitted Random_Events8.wav Scribe mapping so lion notifications play their existing voice line; only voice playback is disabled if managed compatibility validation fails."
+      ]
+    },
     {
       "Version": "1.0.15",
       "Changes": [

@@ -16,9 +16,12 @@ namespace RandomEvents
         private const int RabbitSourceWriteRva = 0x123B33;
         private const int LionCaseRva = 0x11E1C1;
         private const int LionActivationRva = 0x104BC4;
+        private const int LionActionPointWrapperRva = 0x104BA6;
+        private const int ActionPointHandlerRva = 0xF4CF0;
         private const int LionAction = 221;
         private const int RabbitAction = 222;
         private const int VanillaRabbitLimit = 160;
+        private const string LionAudioFileName = "Random_Events14.wav";
 
         private const string WildlifeHandlerPattern =
             "44 89 4C 24 20 44 89 44 24 18 89 54 24 10 53 55 56 57 41 54 41 55 41 57 " +
@@ -42,12 +45,18 @@ namespace RandomEvents
             "81 FE DD 00 00 00 75 ?? 48 63 C1 41 F7 84 81 ?? ?? ?? ?? ?? ?? ?? ??";
         private const string LionActivationPattern =
             "48 69 CF ?? ?? ?? ?? FF C6 3B 35 ?? ?? ?? ?? C7 84 19 ?? ?? ?? ?? 00 00 01 00";
+        private const string LionActionPointWrapperPattern =
+            "44 8B 84 24 ?? ?? ?? ?? 48 8D 0D ?? ?? ?? ?? 8B 94 24 ?? ?? ?? ?? " +
+            "48 63 F8 E8 ?? ?? ?? ?? 48 69 CF ?? ?? ?? ??";
+        private const string ActionPointHandlerPattern =
+            "40 53 48 83 EC 20 48 63 81 28 3A 01 00 48 8B D9 83 F8 14 7D ?? " +
+            "89 94 81 38 39 01 00 48 63 81 28 3A 01 00 44 89 84 81 88 39 01 00 " +
+            "FF 15 ?? ?? ?? ?? 48 63";
 
         private readonly ManualLogSource log;
         private readonly NativeVanillaEventDispatcher presentationDispatcher;
         private WildlifeHandlerDelegate wildlifeHandler;
         private int wildlifeHandlerRva;
-        private IntPtr rabbitGlobalGateAddress;
         private IntPtr rabbitCountAddress;
         private IntPtr rabbitTimerAddress;
         private int rabbitSourceXOffset;
@@ -56,6 +65,8 @@ namespace RandomEvents
         private uint lionRejectedTileMask;
         private int tribeStride;
         private int lionActivationOffset;
+        private ActionPointHandlerDelegate actionPointHandler;
+        private IntPtr actionPointManager;
         private string rabbitUnavailableReason = "native wildlife resolution has not run.";
         private string lionUnavailableReason = "native wildlife resolution has not run.";
 
@@ -71,8 +82,8 @@ namespace RandomEvents
         {
             mask = rabbitRejectedTileMask;
             failure = rabbitUnavailableReason;
-            return wildlifeHandler != null && rabbitGlobalGateAddress != IntPtr.Zero &&
-                rabbitCountAddress != IntPtr.Zero && rabbitTimerAddress != IntPtr.Zero &&
+            return wildlifeHandler != null && rabbitCountAddress != IntPtr.Zero &&
+                rabbitTimerAddress != IntPtr.Zero &&
                 rabbitSourceXOffset > 0 && rabbitSourceYOffset > 0 && mask != 0 &&
                 presentationDispatcher.IsPresentationAvailable;
         }
@@ -121,12 +132,12 @@ namespace RandomEvents
             }
 
             InitializeRabbitCompatibility(libraryHandle, memory, referenceHashMatches, commonFailure);
-            InitializeLionCompatibility(memory, referenceHashMatches, commonFailure);
+            InitializeLionCompatibility(libraryHandle, memory, referenceHashMatches, commonFailure);
         }
 
         public NativeEventDispatchStatus DispatchRabbits(int tileX, int tileY, int height, out string detail)
         {
-            if (wildlifeHandler == null || rabbitGlobalGateAddress == IntPtr.Zero || rabbitCountAddress == IntPtr.Zero ||
+            if (wildlifeHandler == null || rabbitCountAddress == IntPtr.Zero ||
                 rabbitTimerAddress == IntPtr.Zero || rabbitSourceXOffset <= 0 || rabbitSourceYOffset <= 0 ||
                 !presentationDispatcher.IsPresentationAvailable)
             {
@@ -134,11 +145,10 @@ namespace RandomEvents
                 return NativeEventDispatchStatus.Unavailable;
             }
 
-            int globalGate = Marshal.ReadInt32(rabbitGlobalGateAddress);
             int rabbitCount = Marshal.ReadInt32(rabbitCountAddress);
-            if (globalGate != 0 || rabbitCount >= VanillaRabbitLimit)
+            if (rabbitCount >= VanillaRabbitLimit)
             {
-                detail = $"Vanilla prerequisite failed: globalGate={globalGate}, rabbitCount={rabbitCount}, limit={VanillaRabbitLimit}.";
+                detail = $"Vanilla prerequisite failed: rabbitCount={rabbitCount}, limit={VanillaRabbitLimit}.";
                 return NativeEventDispatchStatus.PrerequisiteNotMet;
             }
 
@@ -197,13 +207,21 @@ namespace RandomEvents
 
             int requestedGroups = Math.Max(1, strength);
             int createdGroups = 0;
+            int actionPointsQueued = 0;
             for (int group = 0; group < requestedGroups; group++)
             {
                 int tribeId = wildlifeHandler(tribeManager, LionAction, tileX, tileY, height);
                 if (tribeId <= 0)
                     break;
 
-                // Vanilla's event wrapper arms every freshly created lion tribe after the shared spawn handler returns.
+                // Vanilla adds one clickable minimap action point after every spawned lion tribe.
+                if (actionPointHandler != null && actionPointManager != IntPtr.Zero)
+                {
+                    actionPointHandler(actionPointManager, tileX, tileY);
+                    actionPointsQueued++;
+                }
+
+                // Vanilla's event wrapper then arms every freshly created lion tribe.
                 long activationAddress = checked(
                     tribeManager.ToInt64() + (long)tribeId * tribeStride + lionActivationOffset);
                 Marshal.WriteInt32(new IntPtr(activationAddress), 0x10000);
@@ -217,13 +235,21 @@ namespace RandomEvents
             }
 
             if (!presentationDispatcher.TryQueuePresentation(
-                    201, 8, string.Empty, "Random_Events8.wav", out string presentationFailure))
+                    201,
+                    8,
+                    string.Empty,
+                    LionAudioFileName,
+                    out string presentationFailure))
             {
                 detail = $"{createdGroups} lion tribes were created, but Vanilla presentation failed: {presentationFailure}";
                 return NativeEventDispatchStatus.Unavailable;
             }
 
-            detail = $"Vanilla lion tribes created and armed: groups={createdGroups}/{requestedGroups}, sourceTile=({tileX},{tileY}); original presentation queued.";
+            string actionPointDetail = actionPointHandler != null
+                ? $"actionPoints={actionPointsQueued}"
+                : "actionPoints=disabled";
+            detail = $"Vanilla lion tribes created and armed: groups={createdGroups}/{requestedGroups}, " +
+                $"sourceTile=({tileX},{tileY}), {actionPointDetail}; original presentation queued.";
             return NativeEventDispatchStatus.Applied;
         }
 
@@ -264,7 +290,8 @@ namespace RandomEvents
                     throw new InvalidOperationException("rabbit wrapper, spawner, and wildlife handler call chain is inconsistent.");
                 }
 
-                rabbitGlobalGateAddress = ResolveRipRelativeAddress(libraryHandle, memory, predicate.Rva, 2, 7);
+                // The first predicate field is unrelated shared state (99 in a normal match).
+                // Calling the validated wildlife handler directly must only preserve the rabbit limit.
                 rabbitCountAddress = ResolveRipRelativeAddress(libraryHandle, memory, predicate.Rva + 9, 2, 10);
                 rabbitTimerAddress = ResolveRipRelativeAddress(libraryHandle, memory, wrapper.Rva + 8, 3, 7);
                 rabbitSourceXOffset = NativePatternResolver.ReadInt32(memory, sourceWrite.Rva + 16);
@@ -286,7 +313,6 @@ namespace RandomEvents
             }
             catch (Exception ex)
             {
-                rabbitGlobalGateAddress = IntPtr.Zero;
                 rabbitCountAddress = IntPtr.Zero;
                 rabbitTimerAddress = IntPtr.Zero;
                 rabbitSourceXOffset = 0;
@@ -298,6 +324,7 @@ namespace RandomEvents
         }
 
         private void InitializeLionCompatibility(
+            IntPtr libraryHandle,
             ReadOnlySpan<byte> memory,
             bool referenceHashMatches,
             string commonFailure)
@@ -334,14 +361,65 @@ namespace RandomEvents
                     $"activationRva=0x{activation.Rva:X}/{activation.Strategy}, " +
                     $"rejectedTileMask=0x{lionRejectedTileMask:X8}, tribeStride=0x{tribeStride:X}, " +
                     $"activationOffset=0x{lionActivationOffset:X}.");
+
+                InitializeLionActionPointCompatibility(
+                    libraryHandle, memory, referenceHashMatches, activation.Rva);
             }
             catch (Exception ex)
             {
                 lionRejectedTileMask = 0;
                 tribeStride = 0;
                 lionActivationOffset = 0;
+                actionPointHandler = null;
+                actionPointManager = IntPtr.Zero;
                 lionUnavailableReason = $"native lion compatibility validation failed: {ex.Message}";
                 LogError($"Lion events are disabled while unrelated events remain active: {lionUnavailableReason}");
+            }
+        }
+
+        private void InitializeLionActionPointCompatibility(
+            IntPtr libraryHandle,
+            ReadOnlySpan<byte> memory,
+            bool referenceHashMatches,
+            int activationRva)
+        {
+            try
+            {
+                NativeResolution wrapper = NativePatternResolver.ResolveUnique(
+                    memory,
+                    LionActionPointWrapperPattern,
+                    LionActionPointWrapperRva,
+                    referenceHashMatches,
+                    "Vanilla lion action-point wrapper");
+                NativeResolution handler = NativePatternResolver.ResolveUnique(
+                    memory,
+                    ActionPointHandlerPattern,
+                    ActionPointHandlerRva,
+                    referenceHashMatches,
+                    "Vanilla action-point handler");
+
+                int wrapperHandlerTarget = NativePatternResolver.ResolveRelativeTarget(
+                    memory, wrapper.Rva + 26, wrapper.Rva + 30);
+                if (wrapperHandlerTarget != handler.Rva)
+                    throw new InvalidOperationException("lion wrapper does not call the validated action-point handler.");
+                if (wrapper.Rva > activationRva || activationRva - wrapper.Rva > 0x40)
+                    throw new InvalidOperationException("lion action-point wrapper is not adjacent to the activation write.");
+
+                actionPointManager = ResolveRipRelativeAddress(
+                    libraryHandle, memory, wrapper.Rva + 8, 3, 7);
+                actionPointHandler = Marshal.GetDelegateForFunctionPointer<ActionPointHandlerDelegate>(
+                    AtRva(libraryHandle, handler.Rva));
+                LogInfo(
+                    $"Lion minimap action points ready: wrapperRva=0x{wrapper.Rva:X}/{wrapper.Strategy}, " +
+                    $"handlerRva=0x{handler.Rva:X}/{handler.Strategy}.");
+            }
+            catch (Exception ex)
+            {
+                actionPointHandler = null;
+                actionPointManager = IntPtr.Zero;
+                LogError(
+                    "Lion minimap action points are disabled while lion spawning remains active: " +
+                    $"native compatibility validation failed: {ex.Message}");
             }
         }
 
@@ -386,7 +464,6 @@ namespace RandomEvents
         {
             wildlifeHandler = null;
             wildlifeHandlerRva = 0;
-            rabbitGlobalGateAddress = IntPtr.Zero;
             rabbitCountAddress = IntPtr.Zero;
             rabbitTimerAddress = IntPtr.Zero;
             rabbitSourceXOffset = 0;
@@ -395,6 +472,8 @@ namespace RandomEvents
             lionRejectedTileMask = 0;
             tribeStride = 0;
             lionActivationOffset = 0;
+            actionPointHandler = null;
+            actionPointManager = IntPtr.Zero;
             rabbitUnavailableReason = "native rabbit compatibility resolution has not run.";
             lionUnavailableReason = "native lion compatibility resolution has not run.";
         }
@@ -412,5 +491,11 @@ namespace RandomEvents
             int tileX,
             int tileY,
             int height);
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate void ActionPointHandlerDelegate(
+            IntPtr actionPointManager,
+            int tileX,
+            int tileY);
     }
 }

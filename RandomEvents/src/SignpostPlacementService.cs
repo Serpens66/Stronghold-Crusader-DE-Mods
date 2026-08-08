@@ -20,10 +20,13 @@ namespace RandomEvents
         private const double MinimumKeepDistance = 100.0;
         private const double MaximumRandomOffset = 100.0;
         private const int CenterFallbackRadius = 50;
+        private const int NaturePlayerId = 0;
 
         private readonly ManualLogSource log;
         private readonly ScenarioSignpostRegistry registry;
         private readonly IDisposable spawnSubscription;
+        private readonly IDisposable damageSubscription;
+        private readonly HashSet<int> protectedSignpostIds = new HashSet<int>();
         private bool captureSpawn;
         private int captureX;
         private int captureY;
@@ -36,12 +39,18 @@ namespace RandomEvents
             spawnSubscription = BuildingR3EventHooks.OnBuildingSpawn.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
                 .Subscribe(OnBuildingSpawn);
+            damageSubscription = BuildingR3EventHooks.OnBuildingTileTakeDamage.Observable
+                .Where(args => args.Phase == EventHookPhase.Pre)
+                .Subscribe(OnBuildingTileTakeDamage);
         }
 
         public bool TryInitialize(RandomEventsSaveStateV2 state)
         {
             if (state.SignpostsInitialized)
+            {
+                TrackProtectedSignposts(state.SignpostBuildingIds);
                 return true;
+            }
 
             if (!registry.IsAvailable)
             {
@@ -80,7 +89,6 @@ namespace RandomEvents
                     $"edgeDepth={best.EdgeDepth:0.00}, minimumKeepDistance={best.MinimumKeepDistance:0.00}.");
             }
 
-            int localPlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
             for (int sideIndex = 0; sideIndex < 4; sideIndex++)
             {
                 if (selected[sideIndex] > 0)
@@ -93,7 +101,7 @@ namespace RandomEvents
                     continue;
                 }
 
-                if (TryPlaceForSide(side, localPlayerId, keeps, placementRandom, out int buildingId))
+                if (TryPlaceForSide(side, keeps, placementRandom, out int buildingId))
                     selected[sideIndex] = buildingId;
                 else
                     LogWarning(
@@ -107,7 +115,7 @@ namespace RandomEvents
                     $"No usable registered signpost was found at the map edges; trying one center fallback " +
                     $"within radius {CenterFallbackRadius}.");
                 if (registry.HasFreeSlot() &&
-                    TryPlaceCenterFallback(localPlayerId, keeps, placementRandom, out int fallbackBuildingId))
+                    TryPlaceCenterFallback(keeps, placementRandom, out int fallbackBuildingId))
                 {
                     // The save field remains four-wide; index zero also records the single emergency signpost.
                     selected[0] = fallbackBuildingId;
@@ -120,6 +128,7 @@ namespace RandomEvents
             }
 
             state.SignpostBuildingIds = selected;
+            TrackProtectedSignposts(selected);
             state.SignpostsInitialized = true;
             if (registry.HasUsableRegisteredSignpost())
             {
@@ -137,11 +146,16 @@ namespace RandomEvents
         public void Dispose()
         {
             spawnSubscription?.Dispose();
+            damageSubscription?.Dispose();
+        }
+
+        public void ResetMapState()
+        {
+            protectedSignpostIds.Clear();
         }
 
         private bool TryPlaceForSide(
             MapEdge side,
-            int localPlayerId,
             List<MapPoint> keeps,
             Random random,
             out int buildingId)
@@ -181,7 +195,7 @@ namespace RandomEvents
                     if (!registry.HasFreeSlot())
                         return false;
 
-                    int spawnedId = SpawnSignpost(localPlayerId, candidate.X, candidate.Y);
+                    int spawnedId = SpawnSignpost(candidate.X, candidate.Y);
                     if (spawnedId <= 0)
                     {
                         failedPlacements++;
@@ -194,7 +208,7 @@ namespace RandomEvents
                         LogInfo(
                             $"Placed Vanilla signpost: side={side}, depth={depth}, tile=({candidate.X},{candidate.Y}), " +
                             $"buildingId={spawnedId}, slot={slot}, minimumKeepDistance={candidate.MinimumKeepDistance:0.00}, " +
-                            $"randomOffsetFromBest={CandidateDistance(candidate, best):0.00}.");
+                            $"randomOffsetFromBest={CandidateDistance(candidate, best):0.00}, owner=Nature, damageProtected=true.");
                         return true;
                     }
 
@@ -214,7 +228,6 @@ namespace RandomEvents
         }
 
         private bool TryPlaceCenterFallback(
-            int localPlayerId,
             List<MapPoint> keeps,
             Random random,
             out int buildingId)
@@ -243,7 +256,7 @@ namespace RandomEvents
             int failedPlacements = 0;
             foreach (PlacementCandidate candidate in candidates)
             {
-                int spawnedId = SpawnSignpost(localPlayerId, candidate.X, candidate.Y);
+                int spawnedId = SpawnSignpost(candidate.X, candidate.Y);
                 if (spawnedId <= 0)
                 {
                     failedPlacements++;
@@ -258,7 +271,8 @@ namespace RandomEvents
                     LogInfo(
                         $"Placed emergency center Vanilla signpost: tile=({candidate.X},{candidate.Y}), " +
                         $"buildingId={spawnedId}, slot={slot}, minimumKeepDistance={candidate.MinimumKeepDistance:0.00}, " +
-                        $"centerDistance={Math.Sqrt(deltaX * deltaX + deltaY * deltaY):0.00}.");
+                        $"centerDistance={Math.Sqrt(deltaX * deltaX + deltaY * deltaY):0.00}, " +
+                        "owner=Nature, damageProtected=true.");
                     return true;
                 }
 
@@ -303,7 +317,7 @@ namespace RandomEvents
             }
         }
 
-        private int SpawnSignpost(int playerId, int x, int y)
+        private int SpawnSignpost(int x, int y)
         {
             captureSpawn = true;
             captureX = x;
@@ -313,7 +327,7 @@ namespace RandomEvents
             try
             {
                 result = GameBuildingManagerAPI.Instance.CreatePrefab(
-                    playerId, x, y, eMappers.MAPPER_SIGNPOST, 2, 0, true, false);
+                    NaturePlayerId, x, y, eMappers.MAPPER_SIGNPOST, 2, 0, true, false);
             }
             finally
             {
@@ -324,12 +338,46 @@ namespace RandomEvents
             if (candidateId <= 0 ||
                 !GameBuildingManagerAPI.Instance.TryGetBuildingById(candidateId, out GameBuilding* building) ||
                 building->r_BuildingType != eStructs.STRUCT_SIGNPOST ||
+                building->r_PlayerIdOwner != NaturePlayerId ||
                 (building->r_AliveState != AliveState.NeedsInit && building->r_AliveState != AliveState.IsAlive) ||
                 building->r_TilePositionXBegin != x || building->r_TilePositionYBegin != y)
             {
                 return -1;
             }
             return candidateId;
+        }
+
+        private void TrackProtectedSignposts(IEnumerable<int> buildingIds)
+        {
+            if (buildingIds == null)
+                return;
+
+            foreach (int buildingId in buildingIds)
+            {
+                if (buildingId <= 0 ||
+                    !GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building) ||
+                    building->r_BuildingType != eStructs.STRUCT_SIGNPOST ||
+                    building->r_PlayerIdOwner != NaturePlayerId)
+                {
+                    continue;
+                }
+                protectedSignpostIds.Add(buildingId);
+            }
+        }
+
+        private void OnBuildingTileTakeDamage(BuildingTileTakeDamageEventArgs args)
+        {
+            int buildingId = GameTileManagerAPI.Instance.GetTileBuildingId(args.TileId);
+            if (!protectedSignpostIds.Contains(buildingId) ||
+                !GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building) ||
+                building->r_BuildingType != eStructs.STRUCT_SIGNPOST ||
+                building->r_PlayerIdOwner != NaturePlayerId)
+            {
+                return;
+            }
+
+            // Neutral ownership prevents normal targeting; zero damage also guards indirect hits.
+            args.Damage = 0;
         }
 
         private void OnBuildingSpawn(BuildingSpawnEventArgs args)

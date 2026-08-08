@@ -123,6 +123,7 @@ namespace RandomEvents
             multiplayerDisableLogged = false;
             mapStartedFromMultiplayerSave = false;
             calendarApiChecked = false;
+            signpostPlacement.ResetMapState();
             state = null;
         }
 
@@ -259,6 +260,7 @@ namespace RandomEvents
             List<int> directKinds = new List<int>();
             List<int> directStrengths = new List<int>();
             List<int> directTargetPlayerIds = new List<int>();
+            int[] humanTargetPlayerIds = GetLivingHumanPlayerIds();
 
             foreach (RandomEventDefinition definition in RandomEventDefinitions.All)
             {
@@ -272,11 +274,18 @@ namespace RandomEvents
 
                 if (!success)
                     continue;
+                if (humanTargetPlayerIds.Length == 0)
+                {
+                    LogInfo(
+                        $"Random event was not prepared: event={definition.Name}, " +
+                        "reason=no active human player has a living Lord.");
+                    continue;
+                }
                 directKinds.Add((int)definition.Kind);
                 directStrengths.Add(strength);
-                // Singleplayer currently targets its human explicitly. A future synchronized
-                // multiplayer packet can carry another stable player ID through the same path.
-                directTargetPlayerIds.Add(GamePlayerManagerAPI.Instance.GetLocalPlayerId());
+                // Store an explicit non-AI target so the saved schedule remains deterministic
+                // when synchronized multiplayer support is enabled later.
+                directTargetPlayerIds.Add(humanTargetPlayerIds[prng.Next(humanTargetPlayerIds.Length)]);
             }
 
             state.PrngState0 = prng.State0;
@@ -287,7 +296,7 @@ namespace RandomEvents
             state.BatchPrepared = true;
             LogInfo(
                 $"Event batch prepared: dueAbsoluteMonth={state.NextDueAbsoluteMonth}, " +
-                $"preparedHits={directKinds.Count}.");
+                $"preparedHits={directKinds.Count}, livingHumanTargets=[{string.Join(",", humanTargetPlayerIds)}].");
         }
 
         private int RollStrength(RandomEventStrengthKind kind, ref SavedPrng prng)
@@ -318,7 +327,7 @@ namespace RandomEvents
                 int strength = index < strengths.Length ? strengths[index] : 0;
                 int targetPlayerId = index < targetPlayerIds.Length
                     ? targetPlayerIds[index]
-                    : GamePlayerManagerAPI.Instance.GetLocalPlayerId();
+                    : -1;
                 DispatchDirectEvent(definition, strength, targetPlayerId);
             }
 
@@ -395,6 +404,14 @@ namespace RandomEvents
                 LogError(
                     $"Vanilla direct event skipped: event={definition.Name}, targetPlayerId={targetPlayerId}, " +
                     "reason=invalid target player.");
+                return;
+            }
+
+            if (GamePlayerManagerAPI.Instance.IsAIPlayer(targetPlayerId))
+            {
+                LogInfo(
+                    $"Random event skipped: event={definition.Name}, targetPlayerId={targetPlayerId}, " +
+                    "reason=target player is controlled by AI.");
                 return;
             }
 
@@ -511,6 +528,23 @@ namespace RandomEvents
                     Marshal.WriteInt32(localPlayerAddress, originalLocalPlayerId);
                 signpostScope?.Dispose();
             }
+        }
+
+        private int[] GetLivingHumanPlayerIds()
+        {
+            List<int> result = new List<int>();
+            GamePlayerManagerAPI playerApi = GamePlayerManagerAPI.Instance;
+            foreach (int playerId in Shared.ActivePlayerHelper.GetActivePlayerIds())
+            {
+                if (!playerApi.IsPlayerIdValid(playerId) ||
+                    playerApi.IsAIPlayer(playerId) ||
+                    !TryGetLivingLord(playerId, out _))
+                {
+                    continue;
+                }
+                result.Add(playerId);
+            }
+            return result.ToArray();
         }
 
         private void SpawnRabbitInfestation(int targetPlayerId)
