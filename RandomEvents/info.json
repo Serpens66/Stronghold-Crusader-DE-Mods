@@ -3,10 +3,17 @@
   "Author": "Serpens66",
   "Name": "Random Events",
   "Description": "Runs configurable Vanilla scenario events in singleplayer skirmishes and Trail missions.",
-  "Version": "1.0.10",
+  "Version": "1.0.11",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.11",
+      "Changes": [
+        "Replaced the non-working Vanilla rabbit event with a direct spawn of 10 to 50 neutral rabbits within 12 tiles of a random alive wheat or hops farm owned by the target player.",
+        "Removed the native rabbit signatures, gates, source-coordinate manipulation, signpost dependency, and delayed outcome audit."
+      ]
+    },
     {
       "Version": "1.0.10",
       "Changes": [

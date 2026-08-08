@@ -129,7 +129,7 @@ namespace RandomEvents
             {
                 LogError(
                     "Signpost initialization completed without any usable registered signpost. " +
-                    "Rabbit, lion, bandit, and archer events will not be dispatched in this match.");
+                    "Lion, bandit, and archer events will not be dispatched in this match.");
             }
             return true;
         }

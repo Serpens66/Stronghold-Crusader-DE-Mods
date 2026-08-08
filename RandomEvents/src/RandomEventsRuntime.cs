@@ -21,6 +21,10 @@ namespace RandomEvents
     {
         private const string SaveDataIdentifier = "serp-randomevents-state-v2";
         private const int VanillaMonthsPerYear = 12;
+        private const int RabbitSpawnRadius = 12;
+        private const int MinimumRabbitCount = 10;
+        private const int MaximumRabbitCount = 50;
+        private const int NeutralPlayerId = 0;
 
         private readonly ManualLogSource log;
         private readonly RandomEventsSettingsViewModel settings;
@@ -38,12 +42,7 @@ namespace RandomEvents
         private int lastSignpostAttemptTick = int.MinValue;
         private int lastLoggedAbsoluteMonth = int.MinValue;
         private long lastClockLogTimestamp;
-        private int pendingRabbitAuditTick = int.MinValue;
-        private int pendingRabbitAuditTargetPlayerId = -1;
-        private int pendingRabbitAuditSignpostBuildingId = -1;
-        private int pendingRabbitAuditBaselineCount;
         private bool calendarApiFallbackLogged;
-        private int lastObservedGameTick;
         private RandomEventsSaveStateV2 state;
 
         public RandomEventsRuntime(ManualLogSource log, RandomEventsSettingsViewModel settings)
@@ -105,10 +104,6 @@ namespace RandomEvents
             lastSignpostAttemptTick = int.MinValue;
             lastLoggedAbsoluteMonth = int.MinValue;
             lastClockLogTimestamp = 0;
-            pendingRabbitAuditTick = int.MinValue;
-            pendingRabbitAuditTargetPlayerId = -1;
-            pendingRabbitAuditSignpostBuildingId = -1;
-            pendingRabbitAuditBaselineCount = 0;
             calendarApiFallbackLogged = false;
             LogInfo(
                 $"Map start received; initialization deferred to persistent game tick: " +
@@ -131,10 +126,6 @@ namespace RandomEvents
             timelineUnavailableLogged = false;
             lastLoggedAbsoluteMonth = int.MinValue;
             lastClockLogTimestamp = 0;
-            pendingRabbitAuditTick = int.MinValue;
-            pendingRabbitAuditTargetPlayerId = -1;
-            pendingRabbitAuditSignpostBuildingId = -1;
-            pendingRabbitAuditBaselineCount = 0;
             calendarApiFallbackLogged = false;
             state = null;
         }
@@ -143,7 +134,6 @@ namespace RandomEvents
         {
             try
             {
-                lastObservedGameTick = tick;
                 if (mapStartPending)
                 {
                     if (GameTimeManagerAPI.Instance.GetElapsedMapTicks() <= 0)
@@ -163,7 +153,6 @@ namespace RandomEvents
 
                 int currentAbsoluteMonth = GetCurrentAbsoluteMonth();
                 LogClockHeartbeat(tick, currentAbsoluteMonth);
-                AuditPendingRabbitOutcome(tick);
                 if (state.BatchPrepared && currentAbsoluteMonth >= state.NextDueAbsoluteMonth)
                 {
                     ExecuteDueBatch(currentAbsoluteMonth);
@@ -448,13 +437,18 @@ namespace RandomEvents
                 return;
             }
 
+            if (definition.Kind == RandomEventKind.Rabbits)
+            {
+                SpawnRabbitInfestation(targetPlayerId);
+                return;
+            }
+
             IDisposable signpostScope = null;
             int signpostBuildingId = -1;
             double signpostDistance = 0;
             if (definition.RequiresSignpost &&
                 !signpostRegistry.TryBeginTargetedEvent(
                     targetPlayerId,
-                    definition.Kind == RandomEventKind.Rabbits,
                     out signpostScope,
                     out signpostBuildingId,
                     out signpostDistance,
@@ -469,8 +463,6 @@ namespace RandomEvents
             int originalLocalPlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
             IntPtr localPlayerAddress = new IntPtr(unchecked((long)GameGlobalsManager.Instance.LocalPlayerIdVA));
             bool playerChanged = targetPlayerId != originalLocalPlayerId;
-            int rabbitsAliveBefore = 0;
-            int rabbitsNeedsInitBefore = 0;
             try
             {
                 if (playerChanged)
@@ -493,47 +485,7 @@ namespace RandomEvents
                     }
                 }
 
-                if (definition.Kind == RandomEventKind.Rabbits)
-                {
-                    if (!signpostRegistry.TryGetRabbitNativeState(
-                            out int nativeRabbitGate,
-                            out int nativeRabbitCount,
-                            out string rabbitStateFailure))
-                    {
-                        LogError(
-                            $"Vanilla rabbit event skipped: targetPlayerId={targetPlayerId}, " +
-                            $"reason={rabbitStateFailure}");
-                        return;
-                    }
-
-                    LogInfo(
-                        $"Rabbit Vanilla gate snapshot before dispatch: targetPlayerId={targetPlayerId}, " +
-                        $"nativeGlobalGate={nativeRabbitGate}, nativeRabbitCount={nativeRabbitCount}, " +
-                        $"nativeRabbitLimit=160, {CapturePrerequisiteSnapshot(targetPlayerId)}.");
-                    if (nativeRabbitGate != 0 || nativeRabbitCount >= 160)
-                    {
-                        LogInfo(
-                            $"Vanilla rabbit event no-op confirmed before dispatch: targetPlayerId={targetPlayerId}, " +
-                            $"nativeGlobalGate={nativeRabbitGate}, nativeRabbitCount={nativeRabbitCount}, " +
-                            "reason=Vanilla rabbit predicate rejected the event.");
-                        return;
-                    }
-
-                    CountRabbitUnits(out rabbitsAliveBefore, out rabbitsNeedsInitBefore);
-                }
-
                 EngineInterface.GameAction(Enums.GameActionCommand.FreeBuild_Event, definition.TextId, strength);
-                if (definition.Kind == RandomEventKind.Rabbits)
-                {
-                    pendingRabbitAuditTick = checked(lastObservedGameTick + 30);
-                    pendingRabbitAuditTargetPlayerId = targetPlayerId;
-                    pendingRabbitAuditSignpostBuildingId = signpostBuildingId;
-                    pendingRabbitAuditBaselineCount = rabbitsAliveBefore + rabbitsNeedsInitBefore;
-                    LogInfo(
-                        $"Rabbit outcome audit scheduled: auditTick={pendingRabbitAuditTick}, " +
-                        $"targetPlayerId={targetPlayerId}, signpostBuildingId={signpostBuildingId}, " +
-                        $"baselineRabbitsAlive={rabbitsAliveBefore}, baselineRabbitsNeedsInit={rabbitsNeedsInitBefore}.");
-                }
                 LogInfo(
                     $"Vanilla direct event dispatched: event={definition.Name}, textId={definition.TextId}, " +
                     $"strength={strength}, targetPlayerId={targetPlayerId}, signpostBuildingId={signpostBuildingId}, " +
@@ -548,6 +500,102 @@ namespace RandomEvents
                     Marshal.WriteInt32(localPlayerAddress, originalLocalPlayerId);
                 signpostScope?.Dispose();
             }
+        }
+
+        private void SpawnRabbitInfestation(int targetPlayerId)
+        {
+            List<RabbitFarm> farms = new List<RabbitFarm>();
+            Span<GameBuilding> buildings = GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
+            for (int buildingId = 0; buildingId < buildings.Length; buildingId++)
+            {
+                ref GameBuilding building = ref buildings[buildingId];
+                if (building.r_PlayerIdOwner != targetPlayerId ||
+                    building.r_AliveState != AliveState.IsAlive ||
+                    (building.r_BuildingType != eStructs.STRUCT_WHEATFARM &&
+                     building.r_BuildingType != eStructs.STRUCT_HOPSFARM))
+                {
+                    continue;
+                }
+
+                farms.Add(new RabbitFarm(
+                    buildingId,
+                    building.r_BuildingType,
+                    (building.r_TilePositionXBegin + building.r_TilePositionXEnd) / 2,
+                    (building.r_TilePositionYBegin + building.r_TilePositionYEnd) / 2));
+            }
+
+            if (farms.Count == 0)
+            {
+                LogInfo(
+                    $"Rabbit infestation skipped: targetPlayerId={targetPlayerId}, " +
+                    "reason=no alive wheat or hops farm owned by the target player.");
+                return;
+            }
+
+            SavedPrng prng = new SavedPrng(state.PrngState0, state.PrngState1);
+            RabbitFarm farm = farms[prng.Next(farms.Count)];
+            List<RabbitSpawnTile> spawnTiles = FindRabbitSpawnTiles(farm.TileX, farm.TileY);
+            if (spawnTiles.Count == 0)
+            {
+                state.PrngState0 = prng.State0;
+                state.PrngState1 = prng.State1;
+                LogWarning(
+                    $"Rabbit infestation skipped: targetPlayerId={targetPlayerId}, farmBuildingId={farm.BuildingId}, " +
+                    $"farmType={farm.BuildingType}, farmTile=({farm.TileX},{farm.TileY}), " +
+                    $"reason=no walkable and unoccupied tile exists within radius {RabbitSpawnRadius}.");
+                return;
+            }
+
+            int requestedCount = prng.NextInclusive(MinimumRabbitCount, MaximumRabbitCount);
+            int createdCount = 0;
+            for (int index = 0; index < requestedCount; index++)
+            {
+                RabbitSpawnTile tile = spawnTiles[prng.Next(spawnTiles.Count)];
+                // Wildlife uses the neutral player so hunters treat the spawned rabbits like map animals.
+                long unitId = GameUnitManagerAPI.Instance.CreateUnitLocal(
+                    NeutralPlayerId,
+                    NeutralPlayerId,
+                    tile.X,
+                    tile.Y,
+                    tile.Height,
+                    eChimps.CHIMP_TYPE_RABBIT);
+                if (unitId > 0)
+                    createdCount++;
+            }
+
+            // Consume and persist every spawn choice so save/load keeps the event stream deterministic.
+            state.PrngState0 = prng.State0;
+            state.PrngState1 = prng.State1;
+            LogInfo(
+                $"Rabbit infestation spawned directly: targetPlayerId={targetPlayerId}, " +
+                $"farmBuildingId={farm.BuildingId}, farmType={farm.BuildingType}, " +
+                $"farmTile=({farm.TileX},{farm.TileY}), radius={RabbitSpawnRadius}, " +
+                $"candidateTiles={spawnTiles.Count}, requestedRabbits={requestedCount}, createdRabbits={createdCount}.");
+        }
+
+        private static List<RabbitSpawnTile> FindRabbitSpawnTiles(int centerX, int centerY)
+        {
+            List<RabbitSpawnTile> result = new List<RabbitSpawnTile>();
+            GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
+            int radiusSquared = RabbitSpawnRadius * RabbitSpawnRadius;
+            for (int y = centerY - RabbitSpawnRadius; y <= centerY + RabbitSpawnRadius; y++)
+            {
+                for (int x = centerX - RabbitSpawnRadius; x <= centerX + RabbitSpawnRadius; x++)
+                {
+                    int deltaX = x - centerX;
+                    int deltaY = y - centerY;
+                    if (deltaX * deltaX + deltaY * deltaY > radiusSquared ||
+                        !tiles.IsTileInsideMapBounds(x, y))
+                    {
+                        continue;
+                    }
+
+                    int tileId = tiles.GetTileId(x, y);
+                    if (tiles.IsTileWalkableAndUnoccupied(tileId))
+                        result.Add(new RabbitSpawnTile(x, y, tiles.GetTileHeight(tileId)));
+                }
+            }
+            return result;
         }
 
         private int GetCurrentAbsoluteMonth()
@@ -654,8 +702,7 @@ namespace RandomEvents
                     $"farmsAlive[wheat={wheatAlive},hops={hopsAlive},apple={appleAlive},cattle={cattleAlive}], " +
                     $"granariesAlive={granaryAlive}, relevantBuildingsNeedsInit={relevantNeedsInit}, " +
                     $"rabbitsAlive={rabbitsAlive}, rabbitsNeedsInit={rabbitsNeedsInit}, " +
-                    $"registeredSignposts={registeredSignposts}, " +
-                    "nativeRabbitActiveState=not-exposed-by-stable-api";
+                    $"registeredSignposts={registeredSignposts}";
             }
 
             return
@@ -666,37 +713,7 @@ namespace RandomEvents
                 $"farmsAlive[wheat={wheatAlive},hops={hopsAlive},apple={appleAlive},cattle={cattleAlive}], " +
                 $"granariesAlive={granaryAlive}, relevantBuildingsNeedsInit={relevantNeedsInit}, " +
                 $"rabbitsAlive={rabbitsAlive}, rabbitsNeedsInit={rabbitsNeedsInit}, " +
-                $"registeredSignposts={registeredSignposts}, " +
-                "nativeRabbitActiveState=not-exposed-by-stable-api";
-        }
-
-        private void AuditPendingRabbitOutcome(int tick)
-        {
-            if (pendingRabbitAuditTick == int.MinValue || tick < pendingRabbitAuditTick)
-                return;
-
-            int targetPlayerId = pendingRabbitAuditTargetPlayerId;
-            int signpostBuildingId = pendingRabbitAuditSignpostBuildingId;
-            int baselineCount = pendingRabbitAuditBaselineCount;
-            pendingRabbitAuditTick = int.MinValue;
-            pendingRabbitAuditTargetPlayerId = -1;
-            pendingRabbitAuditSignpostBuildingId = -1;
-            pendingRabbitAuditBaselineCount = 0;
-
-            CountRabbitUnits(out int alive, out int needsInit);
-            string details =
-                $"targetPlayerId={targetPlayerId}, signpostBuildingId={signpostBuildingId}, " +
-                $"baselineRabbitCount={baselineCount}, rabbitsAlive={alive}, rabbitsNeedsInit={needsInit}, " +
-                $"rabbitCountDelta={alive + needsInit - baselineCount}";
-            if (alive + needsInit <= baselineCount)
-            {
-                LogError(
-                    $"Rabbit outcome audit found no spawned rabbit units after the Vanilla event call: {details}. " +
-                    "Check the preceding prerequisite snapshot and native source-prioritization log.");
-                return;
-            }
-
-            LogInfo($"Rabbit outcome audit confirmed Vanilla rabbit units: {details}.");
+                $"registeredSignposts={registeredSignposts}";
         }
 
         private static void CountRabbitUnits(out int alive, out int needsInit)
@@ -752,5 +769,35 @@ namespace RandomEvents
         private void LogInfo(string message) => Shared.DebugLogHelper.LogInfo(log, message);
         private void LogWarning(string message) => Shared.DebugLogHelper.LogWarning(log, message);
         private void LogError(string message) => Shared.DebugLogHelper.LogError(log, message);
+
+        private readonly struct RabbitFarm
+        {
+            public RabbitFarm(int buildingId, eStructs buildingType, int tileX, int tileY)
+            {
+                BuildingId = buildingId;
+                BuildingType = buildingType;
+                TileX = tileX;
+                TileY = tileY;
+            }
+
+            public int BuildingId { get; }
+            public eStructs BuildingType { get; }
+            public int TileX { get; }
+            public int TileY { get; }
+        }
+
+        private readonly struct RabbitSpawnTile
+        {
+            public RabbitSpawnTile(int x, int y, int height)
+            {
+                X = x;
+                Y = y;
+                Height = height;
+            }
+
+            public int X { get; }
+            public int Y { get; }
+            public int Height { get; }
+        }
     }
 }

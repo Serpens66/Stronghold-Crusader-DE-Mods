@@ -78,7 +78,8 @@ namespace RandomEvents
             new RandomEventDefinition(RandomEventKind.HopsBeetles, "Hops beetles", 141, false, 13, RandomEventStrengthKind.None, false),
             new RandomEventDefinition(RandomEventKind.AppleBlight, "Apple blight", 142, false, 14, RandomEventStrengthKind.None, false),
             new RandomEventDefinition(RandomEventKind.TreeBlight, "Tree blight", 143, true, 15, RandomEventStrengthKind.None, false),
-            new RandomEventDefinition(RandomEventKind.Rabbits, "Rabbit infestation", 144, true, 16, RandomEventStrengthKind.None, true),
+            // Rabbit infestation is implemented as a direct managed spawn and has no Vanilla event ID dependency.
+            new RandomEventDefinition(RandomEventKind.Rabbits, "Rabbit infestation", 0, true, 16, RandomEventStrengthKind.None, false),
             new RandomEventDefinition(RandomEventKind.LionAttack, "Lion attack", 145, true, 17, RandomEventStrengthKind.LionAttack, true),
             new RandomEventDefinition(RandomEventKind.Bandits, "Bandits", 146, true, 18, RandomEventStrengthKind.Bandits, true),
             new RandomEventDefinition(RandomEventKind.MadCows, "Mad cows", 147, false, 19, RandomEventStrengthKind.None, false),

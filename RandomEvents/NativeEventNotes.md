@@ -8,13 +8,10 @@
 
 ## Hasenplage
 
-- Ereignis-Handler: RVA `0x10487A`
-- Quellpunkt-Prädikat: RVA `0x117700`
-- Hasen-Spawner: RVA `0x123A20`
-- Vanilla-Einheitenerzeugung: RVA `0x11E0B0`, Einheitstyp `222`
-- Das Prädikat verwirft das Ereignis bei einem globalen Sperrwert ungleich null, ab `160` nativen Hasen oder wenn keiner der Szenario-Quellpunkte gültig ist.
-- Der Spawner prüft zusätzlich die Tile-Flags mit der Maske `0x50501581`. Ein Maskenergebnis von null nimmt den direkten gültigen Pfad; der alternative Baum-/Sonderpfad besitzt weitere Vanilla-Bedingungen und wird vom Mod bewusst nicht nachgebildet.
-- Dynamisch registrierte Wegweiser initialisieren Vanillas separates Hasen-Quellpunktarray nicht. RandomEvents setzt deshalb während des Vanilla-`GameAction(FreeBuild_Event, 144, ...)` vier temporäre, validierte Punkte nahe dem ausgewählten Wegweiser und stellt anschließend alle nativen Felder wieder her.
+- Die Vanilla-Aktion wird nicht mehr verwendet, weil sie trotz validierter Quellpunkte keine Hasen erzeugte.
+- Der Mod wählt stattdessen eine zufällige lebende Getreide- oder Hopfenfarm des Zielspielers.
+- Anschließend erzeugt er direkt 10 bis 50 neutrale Hasen auf zufälligen begehbaren, unbebauten Tiles in einem Radius von 12 Tiles um die Farm.
+- Auswahl, Anzahl und Positionen verwenden den gespeicherten PRNG-Zustand des Mods.
 
 ## Timeline-Lifecycle
 
