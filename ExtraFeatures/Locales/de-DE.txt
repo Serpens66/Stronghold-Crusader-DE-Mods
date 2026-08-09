@@ -47,3 +47,5 @@ SomeSettings.QuarryPileRelocationTooltip=Steinhaufen verschieben
 SomeSettings.QuarryPileRelocationTooltipBody=Verschiebt den verknuepften Steinhaufen zur naechsten gueltigen Position im Uhrzeigersinn um diesen Steinbruch.
 SomeSettings.EnableCtrlSingleMarketTrade=Mit Strg eine Markteinheit handeln
 SomeSettings.EnableCtrlSingleMarketTradeHelp=Halte beim Kaufen oder Verkaufen Strg gedrueckt, um genau eine Einheit zu handeln. Strg+Umschalt verwendet die normale Menge von fuenf Einheiten.
+SomeSettings.PlagueDurationMultiplier=Pestwolken-Dauer
+SomeSettings.PlagueDurationMultiplierHelp=Multiplikator fuer die aktive Lebensdauer aller Pestwolken. 1,0x behaelt die Vanilla-Dauer bei; hoehere Werte verlaengern auch, wie lange Wolken Schaden verursachen koennen.

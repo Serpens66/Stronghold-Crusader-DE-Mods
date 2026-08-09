@@ -47,3 +47,5 @@ SomeSettings.QuarryPileRelocationTooltip=돌무더기 이동
 SomeSettings.QuarryPileRelocationTooltipBody=Moves the linked stone pile clockwise to the next valid position around this quarry.
 SomeSettings.EnableCtrlSingleMarketTrade=Ctrl trades one market unit
 SomeSettings.EnableCtrlSingleMarketTradeHelp=Hold Ctrl while buying or selling to trade exactly one unit. Ctrl+Shift uses the normal five-unit amount.
+SomeSettings.PlagueDurationMultiplier=Plague cloud duration
+SomeSettings.PlagueDurationMultiplierHelp=Multiplier for the active lifetime of all plague clouds. 1.0x keeps the Vanilla duration; higher values also extend how long clouds can cause damage.

@@ -26,6 +26,7 @@ namespace ExtraFeatures
         private double multiplyGoodsGainInMoneyHuman;
         private double marketBuyPriceMultiplier = 1.0;
         private double marketSellPriceMultiplier = 1.0;
+        private double plagueDurationMultiplier = 1.0;
         private bool keepStorageContent;
         private bool enableCtrlSingleMarketTrade = true;
         private bool enableFastRecruitRallyMovement = true;
@@ -65,6 +66,8 @@ namespace ExtraFeatures
         public string EnableQuarryPileRelocationHelpText => SerpLocalization.Get(SerpLocalization.EnableQuarryPileRelocationHelp);
         public string EnableExtraChurchPriestsText => SerpLocalization.Get(SerpLocalization.EnableExtraChurchPriests);
         public string EnableExtraChurchPriestsHelpText => SerpLocalization.Get(SerpLocalization.EnableExtraChurchPriestsHelp);
+        public string PlagueDurationMultiplierText => SerpLocalization.Get(SerpLocalization.PlagueDurationMultiplier);
+        public string PlagueDurationMultiplierHelpText => SerpLocalization.Get(SerpLocalization.PlagueDurationMultiplierHelp);
         public string BulldozeTitleText => SerpLocalization.Get(SerpLocalization.BulldozeTitle);
         public string BulldozeHelpText => SerpLocalization.Get(SerpLocalization.BulldozeHelp);
         public string WoodRefundText => SerpLocalization.Get(SerpLocalization.WoodRefund);
@@ -113,8 +116,9 @@ namespace ExtraFeatures
         [SyncHostOnly] public double MultiplyGoodsGainHuman { get => multiplyGoodsGainHuman; set => SetDecimalMultiplierSetting(ref multiplyGoodsGainHuman, value, nameof(MultiplyGoodsGainHuman), nameof(MultiplyGoodsGainHumanText)); }
         [SyncHostOnly] public double MultiplyGoodsGainInMoneyAI { get => multiplyGoodsGainInMoneyAI; set => SetDecimalMultiplierSetting(ref multiplyGoodsGainInMoneyAI, value, nameof(MultiplyGoodsGainInMoneyAI), nameof(MultiplyGoodsGainInMoneyAIText)); }
         [SyncHostOnly] public double MultiplyGoodsGainInMoneyHuman { get => multiplyGoodsGainInMoneyHuman; set => SetDecimalMultiplierSetting(ref multiplyGoodsGainInMoneyHuman, value, nameof(MultiplyGoodsGainInMoneyHuman), nameof(MultiplyGoodsGainInMoneyHumanText)); }
-        [SyncHostOnly] public double MarketBuyPriceMultiplier { get => marketBuyPriceMultiplier; set => SetDoubleSetting(ref marketBuyPriceMultiplier, value, nameof(MarketBuyPriceMultiplier), nameof(MarketBuyPriceMultiplierValueText)); }
-        [SyncHostOnly] public double MarketSellPriceMultiplier { get => marketSellPriceMultiplier; set => SetDoubleSetting(ref marketSellPriceMultiplier, value, nameof(MarketSellPriceMultiplier), nameof(MarketSellPriceMultiplierValueText)); }
+        [SyncHostOnly] public double MarketBuyPriceMultiplier { get => marketBuyPriceMultiplier; set => SetDoubleSetting(ref marketBuyPriceMultiplier, value, 0.0, 5.0, nameof(MarketBuyPriceMultiplier), nameof(MarketBuyPriceMultiplierValueText)); }
+        [SyncHostOnly] public double MarketSellPriceMultiplier { get => marketSellPriceMultiplier; set => SetDoubleSetting(ref marketSellPriceMultiplier, value, 0.0, 5.0, nameof(MarketSellPriceMultiplier), nameof(MarketSellPriceMultiplierValueText)); }
+        [SyncHostOnly] public double PlagueDurationMultiplier { get => plagueDurationMultiplier; set => SetDoubleSetting(ref plagueDurationMultiplier, value, PlagueDurationPatch.MinimumMultiplier, PlagueDurationPatch.MaximumMultiplier, nameof(PlagueDurationMultiplier), nameof(PlagueDurationMultiplierValueText)); }
         [SyncHostOnly] public bool EnableCtrlSingleMarketTrade { get => enableCtrlSingleMarketTrade; set => SetSetting(ref enableCtrlSingleMarketTrade, value, nameof(EnableCtrlSingleMarketTrade)); }
         [SyncHostOnly] public bool EnableFastRecruitRallyMovement { get => enableFastRecruitRallyMovement; set => SetSetting(ref enableFastRecruitRallyMovement, value, nameof(EnableFastRecruitRallyMovement)); }
         [SyncHostOnly] public bool EnableKnightDismount { get => enableKnightDismount; set => SetSetting(ref enableKnightDismount, value, nameof(EnableKnightDismount)); }
@@ -130,6 +134,7 @@ namespace ExtraFeatures
         public string MultiplyGoodsGainInMoneyHumanText { get => FormatDecimalMultiplier(MultiplyGoodsGainInMoneyHuman); set => SetDecimalMultiplierText(value, parsed => MultiplyGoodsGainInMoneyHuman = parsed, nameof(MultiplyGoodsGainInMoneyHumanText)); }
         public string MarketBuyPriceMultiplierValueText => MarketBuyPriceMultiplier.ToString("0.0");
         public string MarketSellPriceMultiplierValueText => MarketSellPriceMultiplier.ToString("0.0");
+        public string PlagueDurationMultiplierValueText => PlagueDurationMultiplier.ToString("0.0", CultureInfo.InvariantCulture) + "x";
 
         private void ResetToDefault()
         {
@@ -145,6 +150,7 @@ namespace ExtraFeatures
             MultiplyGoodsGainInMoneyHuman = 0;
             MarketBuyPriceMultiplier = 1.0;
             MarketSellPriceMultiplier = 1.0;
+            PlagueDurationMultiplier = 1.0;
             EnableCtrlSingleMarketTrade = true;
             EnableFastRecruitRallyMovement = true;
             EnableKnightDismount = true;
@@ -174,9 +180,15 @@ namespace ExtraFeatures
             OnPropertyChanged(propertyName);
         }
 
-        private void SetDoubleSetting(ref double field, double value, string propertyName, string textPropertyName)
+        private void SetDoubleSetting(
+            ref double field,
+            double value,
+            double minimum,
+            double maximum,
+            string propertyName,
+            string textPropertyName)
         {
-            double clamped = ClampMultiplier(value);
+            double clamped = ClampMultiplier(value, minimum, maximum);
             if (Math.Abs(field - clamped) < 0.0001)
                 return;
             field = clamped;
@@ -215,11 +227,11 @@ namespace ExtraFeatures
             return Math.Min(100, parsed);
         }
 
-        private static double ClampMultiplier(double value)
+        private static double ClampMultiplier(double value, double minimum, double maximum)
         {
             if (double.IsNaN(value) || double.IsInfinity(value))
                 return 1.0;
-            return Math.Max(0.0, Math.Min(5.0, Math.Round(value, 1, MidpointRounding.AwayFromZero)));
+            return Math.Max(minimum, Math.Min(maximum, Math.Round(value, 1, MidpointRounding.AwayFromZero)));
         }
 
         private static double NormalizeDecimalMultiplier(double value)

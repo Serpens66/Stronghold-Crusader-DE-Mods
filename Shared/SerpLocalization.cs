@@ -99,6 +99,8 @@ public static class SerpLocalization
     public const string EnableQuarryPileRelocationHelp = "SomeSettings.EnableQuarryPileRelocationHelp";
     public const string EnableExtraChurchPriests = "SomeSettings.EnableExtraChurchPriests";
     public const string EnableExtraChurchPriestsHelp = "SomeSettings.EnableExtraChurchPriestsHelp";
+    public const string PlagueDurationMultiplier = "SomeSettings.PlagueDurationMultiplier";
+    public const string PlagueDurationMultiplierHelp = "SomeSettings.PlagueDurationMultiplierHelp";
     public const string QuarryPileRelocationTooltip = "SomeSettings.QuarryPileRelocationTooltip";
     public const string QuarryPileRelocationTooltipBody = "SomeSettings.QuarryPileRelocationTooltipBody";
     public const string AiEconomyProtectionTitle = "SomeSettings.AIEconomyProtectionTitle";
@@ -215,6 +217,8 @@ public static class SerpLocalization
         { EnableQuarryPileRelocationHelp, "Adds a button to selected quarries that rotates their linked stone pile clockwise to the next valid position. The existing pile is kept if no valid replacement can be created." },
         { EnableExtraChurchPriests, "Enable extra priests for churches" },
         { EnableExtraChurchPriestsHelp, "When enabled, churches require two priests and cathedrals require three priests." },
+        { PlagueDurationMultiplier, "Plague cloud duration" },
+        { PlagueDurationMultiplierHelp, "Multiplier for the active lifetime of all plague clouds. 1.0x keeps the Vanilla duration; higher values also extend how long clouds can cause damage." },
         { QuarryPileRelocationTooltip, "Move stone pile" },
         { QuarryPileRelocationTooltipBody, "Moves the linked stone pile clockwise to the next valid position around this quarry." },
         { AiEconomyProtectionTitle, "AI Economy Protection" },

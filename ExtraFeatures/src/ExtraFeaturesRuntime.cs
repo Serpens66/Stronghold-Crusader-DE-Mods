@@ -37,6 +37,7 @@ namespace ExtraFeatures
         private SingleBuildingPauseHook singleBuildingPauseHook;
         private AIEconomyProtectionHook aiEconomyProtectionHook;
         private FastRecruitMovementBridge fastRecruitMovementBridge;
+        private PlagueDurationPatch plagueDurationPatch;
         private IntPtr libraryHandle;
         private int libraryLength;
         private bool nativeLibraryAvailable;
@@ -47,6 +48,7 @@ namespace ExtraFeatures
         private bool hooksSubscribed;
         private bool settingsSubscribed;
         private bool ctrlMarketTradeHookUnavailable;
+        private bool plagueDurationPatchUnavailable;
 
         public ExtraFeaturesRuntime(ManualLogSource log, ExtraFeaturesViewModel settings)
         {
@@ -104,6 +106,8 @@ namespace ExtraFeatures
                 LogFeatureFailure("church priest counts", ex);
             }
 
+            InitializePlagueDurationPatch(newLibraryHandle, memory);
+
             InstallCtrlMarketTradeHook();
             TryRunFeature("fast recruit rally movement", ApplyFastRecruitRallyMovementSetting);
         }
@@ -117,6 +121,7 @@ namespace ExtraFeatures
             TryRunFeature("bulldoze refunds", ApplyRefundSettings);
             TryRunFeature("market price multipliers", ApplyMarketPriceMultipliers);
             TryRunFeature("church priest counts", churchPriestCountRuntime.ApplySetting);
+            ApplyPlagueDurationSetting();
             TryRunFeature("fast recruit rally movement", ApplyFastRecruitRallyMovementSetting);
         }
 
@@ -143,6 +148,8 @@ namespace ExtraFeatures
             aiEconomyProtectionHook = null;
             fastRecruitMovementBridge?.Dispose();
             fastRecruitMovementBridge = null;
+            plagueDurationPatch?.Dispose();
+            plagueDurationPatch = null;
             nativeLibraryAvailable = false;
             libraryHandle = IntPtr.Zero;
             libraryLength = 0;
@@ -343,6 +350,11 @@ namespace ExtraFeatures
                 TryRunFeature("fast recruit rally movement", ApplyFastRecruitRallyMovementSetting);
                 return;
             }
+            if (propertyName == nameof(ExtraFeaturesViewModel.PlagueDurationMultiplier))
+            {
+                ApplyPlagueDurationSetting();
+                return;
+            }
 
             ApplySettings();
         }
@@ -351,6 +363,77 @@ namespace ExtraFeatures
         {
             TryRunFeature("market price multipliers", ApplyMarketPriceMultipliers);
             TryRunFeature("church priest counts", churchPriestCountRuntime.ApplySetting);
+            ApplyPlagueDurationSetting();
+        }
+
+        private void InitializePlagueDurationPatch(IntPtr nativeLibraryHandle, ReadOnlySpan<byte> memory)
+        {
+            if (plagueDurationPatch != null || plagueDurationPatchUnavailable)
+                return;
+
+            try
+            {
+                plagueDurationPatch = new PlagueDurationPatch(nativeLibraryHandle, memory);
+                ApplyPlagueDurationSetting();
+                if (plagueDurationPatchUnavailable)
+                    return;
+
+                if (!fixedLayoutHashValidated)
+                {
+                    Shared.DebugLogHelper.LogWarning(
+                        log,
+                        "Extra Features plague duration is running on an unknown CrusaderDE.dll because its native instruction signature and Vanilla lifetime were validated.");
+                }
+            }
+            catch (Exception ex)
+            {
+                DisablePlagueDurationPatch(ex);
+            }
+        }
+
+        private void ApplyPlagueDurationSetting()
+        {
+            if (plagueDurationPatch == null || plagueDurationPatchUnavailable)
+                return;
+
+            try
+            {
+                plagueDurationPatch.Apply(
+                    settings.PlagueDurationMultiplier,
+                    settings.EnableMod);
+            }
+            catch (Exception ex)
+            {
+                DisablePlagueDurationPatch(ex);
+            }
+        }
+
+        private void DisablePlagueDurationPatch(Exception failure)
+        {
+            if (plagueDurationPatchUnavailable)
+                return;
+
+            plagueDurationPatchUnavailable = true;
+            Exception restoreFailure = null;
+            if (plagueDurationPatch != null)
+            {
+                try
+                {
+                    plagueDurationPatch.RestoreVanilla();
+                }
+                catch (Exception ex)
+                {
+                    restoreFailure = ex;
+                }
+            }
+
+            plagueDurationPatch = null;
+            string restoreDetails = restoreFailure == null
+                ? string.Empty
+                : $" Vanilla restoration also failed: {restoreFailure}";
+            Shared.DebugLogHelper.LogError(
+                log,
+                $"Extra Features plague duration multiplier is disabled for this process; all other features remain available: {failure}.{restoreDetails}");
         }
 
         private void RestoreDefaultSettings()
@@ -363,6 +446,7 @@ namespace ExtraFeatures
             buildingApi.GoldRefundMultiplier.SetValue(VanillaRefundMultiplier);
             RestoreTradeBasePrices();
             churchPriestCountRuntime.ApplySetting();
+            ApplyPlagueDurationSetting();
         }
 
         private void ApplyFastRecruitRallyMovementSetting()
