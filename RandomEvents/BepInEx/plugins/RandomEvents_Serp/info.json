@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Random Events",
   "Description": "Runs configurable Vanilla scenario events in singleplayer skirmishes and Trail missions.",
-  "Version": "1.0.3",
+  "Version": "1.0.4",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.4",
+      "Changes": [
+        "Added a configurable per-event cooldown with shared and player-specific state."
+      ]
+    },
     {
       "Version": "1.0.3",
       "Changes": [

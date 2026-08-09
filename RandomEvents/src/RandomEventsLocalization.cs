@@ -18,6 +18,8 @@ namespace RandomEvents
             { "Common.EnableMod", "Enable Mod" },
             { "RandomEvents.Interval", "Interval (Vanilla months)" },
             { "RandomEvents.IntervalHelp", "The first roll happens after one complete interval. Every event rolls independently." },
+            { "RandomEvents.Cooldown", "Cooldown of an event (months)" },
+            { "RandomEvents.CooldownHelp", "After a specific event has triggered, it will not trigger again for this many months." },
             { "RandomEvents.ChancesTitle", "EVENT CHANCES (%)" },
             { "RandomEvents.StrengthTitle", "EVENT STRENGTH" },
             { "RandomEvents.ScaledStrengthHelp", "Bandits and archers: units per 3 elapsed game months (one game minute). The rolled factor is multiplied by elapsed time." },
@@ -76,7 +78,7 @@ namespace RandomEvents
                 if (line.Length == 0 || line.StartsWith("#", StringComparison.Ordinal)) continue;
                 int separator = line.IndexOf('=');
                 if (separator <= 0) continue;
-                target[line.Substring(0, separator).Trim()] = line.Substring(separator + 1).Trim().Replace("\\n", Environment.NewLine);
+                target[line.Substring(0, separator).Trim()] = line.Substring(separator + 1).Trim().Replace("\\r\n", Environment.NewLine);
             }
         }
 

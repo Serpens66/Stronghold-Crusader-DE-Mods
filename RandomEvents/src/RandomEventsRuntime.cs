@@ -27,6 +27,7 @@ namespace RandomEvents
         private const int MaximumBanditGroups = 5;
         private const int ScaledStrengthTenthsPerUnit = 10;
         private const int ScaledStrengthMonthsPerPeriod = 3;
+        private const int EventKindCount = 15;
         private const double BanditGroupActivationDelaySeconds = 0.5;
 
         private readonly ManualLogSource log;
@@ -236,6 +237,7 @@ namespace RandomEvents
             }
 
             int interval = Math.Max(1, Math.Min(90, settings.IntervalMonths));
+            int cooldown = Math.Max(0, Math.Min(90, settings.CooldownMonths));
             int[] chances = settings.SnapshotChances();
             // The native calendar has no elapsed-month counter, so persist this absolute baseline with the map.
             int startAbsoluteMonth = GetCurrentAbsoluteMonth();
@@ -243,6 +245,7 @@ namespace RandomEvents
             {
                 EffectiveEnabled = true,
                 IntervalMonths = interval,
+                CooldownMonths = cooldown,
                 MultiplayerMode = Math.Max(0, Math.Min(1, settings.MultiplayerEventModeIndex)),
                 Chances = chances,
                 StrengthMinimums = minimums,
@@ -251,6 +254,8 @@ namespace RandomEvents
                 PrngState1 = BitConverter.ToUInt64(seed, 8),
                 NextDueAbsoluteMonth = checked(startAbsoluteMonth + interval),
                 StartAbsoluteMonth = startAbsoluteMonth,
+                SharedCooldownUntilAbsoluteMonths = new int[EventKindCount],
+                IndividualCooldownUntilAbsoluteMonths = new int[(GamePlayerManagerAPI.MAX_PLAYERS + 1) * EventKindCount],
                 SignpostsInitialized = !RandomEventDefinitions.RequiresSignposts(chances)
             };
         }
@@ -268,6 +273,16 @@ namespace RandomEvents
 
             foreach (RandomEventDefinition definition in RandomEventDefinitions.All)
             {
+                int targetPlayerId = -1;
+                if (state.MultiplayerMode == (int)MultiplayerEventMode.IndividualRolls)
+                {
+                    // The future independent-roll path can reuse the same player-scoped cooldown lookup.
+                    targetPlayerId = humanTargetPlayerIds[prng.Next(humanTargetPlayerIds.Length)];
+                }
+
+                if (!IsEventOffCooldown(definition.Kind, targetPlayerId, state.NextDueAbsoluteMonth))
+                    continue;
+
                 int chance = state.Chances[(int)definition.Kind];
                 int roll = prng.Next(100);
                 bool success = roll < chance;
@@ -278,7 +293,9 @@ namespace RandomEvents
                 directStrengths.Add(strength);
                 // Store an explicit non-AI target so the saved schedule remains deterministic
                 // when synchronized multiplayer support is enabled later.
-                directTargetPlayerIds.Add(humanTargetPlayerIds[prng.Next(humanTargetPlayerIds.Length)]);
+                if (targetPlayerId < 0)
+                    targetPlayerId = humanTargetPlayerIds[prng.Next(humanTargetPlayerIds.Length)];
+                directTargetPlayerIds.Add(targetPlayerId);
             }
 
             state.PrngState0 = prng.State0;
@@ -318,10 +335,71 @@ namespace RandomEvents
                 int targetPlayerId = index < targetPlayerIds.Length
                     ? targetPlayerIds[index]
                     : -1;
-                DispatchDirectEvent(definition, strength, targetPlayerId);
+                // GameAction has no result signal, so its successful roll is the inexpensive success boundary.
+                bool cooldownStartedFromRoll = definition.DispatchKind == RandomEventDispatchKind.GameAction;
+                if (cooldownStartedFromRoll)
+                    StartEventCooldown(definition.Kind, targetPlayerId, due);
+
+                bool effectApplied = DispatchDirectEvent(definition, strength, targetPlayerId);
+                if (!cooldownStartedFromRoll && effectApplied)
+                    StartEventCooldown(definition.Kind, targetPlayerId, due);
             }
 
             state.NextDueAbsoluteMonth = checked(due + state.IntervalMonths);
+        }
+
+        private bool IsEventOffCooldown(
+            RandomEventKind kind,
+            int targetPlayerId,
+            int scheduledAbsoluteMonth)
+        {
+            if (state.CooldownMonths == 0)
+                return true;
+
+            int kindIndex = (int)kind;
+            if (state.MultiplayerMode == (int)MultiplayerEventMode.SharedEvents)
+                return scheduledAbsoluteMonth >= state.SharedCooldownUntilAbsoluteMonths[kindIndex];
+
+            if (targetPlayerId < 1 || targetPlayerId > GamePlayerManagerAPI.MAX_PLAYERS)
+                return false;
+
+            int playerEventIndex = targetPlayerId * EventKindCount + kindIndex;
+            return scheduledAbsoluteMonth >= state.IndividualCooldownUntilAbsoluteMonths[playerEventIndex];
+        }
+
+        private void StartEventCooldown(
+            RandomEventKind kind,
+            int targetPlayerId,
+            int triggeredAbsoluteMonth)
+        {
+            if (state.CooldownMonths == 0)
+                return;
+
+            int cooldownUntil = checked(triggeredAbsoluteMonth + state.CooldownMonths);
+            int kindIndex = (int)kind;
+            if (state.MultiplayerMode == (int)MultiplayerEventMode.SharedEvents)
+            {
+                state.SharedCooldownUntilAbsoluteMonths[kindIndex] = cooldownUntil;
+                LogDebug(
+                    $"Shared event cooldown started: event={kind}, triggeredAbsoluteMonth={triggeredAbsoluteMonth}, " +
+                    $"cooldownMonths={state.CooldownMonths}, eligibleAbsoluteMonth={cooldownUntil}.");
+                return;
+            }
+
+            if (targetPlayerId < 1 || targetPlayerId > GamePlayerManagerAPI.MAX_PLAYERS)
+            {
+                LogError(
+                    $"Individual event cooldown could not start: event={kind}, targetPlayerId={targetPlayerId}, " +
+                    "reason=invalid target player.");
+                return;
+            }
+
+            int playerEventIndex = targetPlayerId * EventKindCount + kindIndex;
+            state.IndividualCooldownUntilAbsoluteMonths[playerEventIndex] = cooldownUntil;
+            LogDebug(
+                $"Individual event cooldown started: event={kind}, targetPlayerId={targetPlayerId}, " +
+                $"triggeredAbsoluteMonth={triggeredAbsoluteMonth}, cooldownMonths={state.CooldownMonths}, " +
+                $"eligibleAbsoluteMonth={cooldownUntil}.");
         }
 
         private byte[] SaveState(SaveContext context)
@@ -354,12 +432,20 @@ namespace RandomEvents
         {
             bool valid = loaded != null && loaded.Version == RandomEventsSaveStateV2.CurrentVersion &&
                 loaded.IntervalMonths >= 1 && loaded.IntervalMonths <= 90 &&
+                loaded.CooldownMonths >= 0 && loaded.CooldownMonths <= 90 &&
+                loaded.MultiplayerMode >= (int)MultiplayerEventMode.SharedEvents &&
+                loaded.MultiplayerMode <= (int)MultiplayerEventMode.IndividualRolls &&
                 loaded.Chances?.Length == RandomEventDefinitions.All.Length &&
                 loaded.StrengthMinimums?.Length == 6 && loaded.StrengthMaximums?.Length == 6 &&
                 loaded.PreparedDirectKinds != null && loaded.PreparedDirectStrengths != null &&
                 loaded.PreparedDirectKinds.Length == loaded.PreparedDirectStrengths.Length &&
                 loaded.PreparedDirectTargetPlayerIds != null &&
                 loaded.PreparedDirectKinds.Length == loaded.PreparedDirectTargetPlayerIds.Length &&
+                loaded.SharedCooldownUntilAbsoluteMonths?.Length == EventKindCount &&
+                loaded.IndividualCooldownUntilAbsoluteMonths?.Length ==
+                    (GamePlayerManagerAPI.MAX_PLAYERS + 1) * EventKindCount &&
+                Array.TrueForAll(loaded.SharedCooldownUntilAbsoluteMonths, month => month >= 0) &&
+                Array.TrueForAll(loaded.IndividualCooldownUntilAbsoluteMonths, month => month >= 0) &&
                 (loaded.PrngState0 | loaded.PrngState1) != 0;
             if (valid)
             {
@@ -383,7 +469,7 @@ namespace RandomEvents
             return valid;
         }
 
-        private void DispatchDirectEvent(
+        private bool DispatchDirectEvent(
             RandomEventDefinition definition,
             int strength,
             int targetPlayerId)
@@ -393,7 +479,7 @@ namespace RandomEvents
                 LogError(
                     $"Vanilla direct event skipped: event={definition.Name}, targetPlayerId={targetPlayerId}, " +
                     "reason=invalid target player.");
-                return;
+                return false;
             }
 
             if (GamePlayerManagerAPI.Instance.IsAIPlayer(targetPlayerId))
@@ -401,7 +487,7 @@ namespace RandomEvents
                 LogDebug(
                     $"Random event skipped: event={definition.Name}, targetPlayerId={targetPlayerId}, " +
                     "reason=target player is controlled by AI.");
-                return;
+                return false;
             }
 
             if (!TryGetLivingLord(targetPlayerId, out string lordFailure))
@@ -409,7 +495,7 @@ namespace RandomEvents
                 LogDebug(
                     $"Random event skipped: event={definition.Name}, targetPlayerId={targetPlayerId}, " +
                     $"reason=target player has no living Lord ({lordFailure}).");
-                return;
+                return false;
             }
 
             if (definition.Kind == RandomEventKind.Bandits || definition.Kind == RandomEventKind.Archers)
@@ -425,19 +511,19 @@ namespace RandomEvents
                     LogDebug(
                         $"Random event had no effect: event={definition.Name}, targetPlayerId={targetPlayerId}, " +
                         "reason=elapsed-time strength rounded down to zero units.");
-                    return;
+                    return false;
                 }
             }
 
             if (definition.DispatchKind == RandomEventDispatchKind.NativeWildlife)
             {
                 if (definition.Kind == RandomEventKind.Rabbits)
-                    SpawnRabbitInfestation(targetPlayerId);
-                else if (definition.Kind == RandomEventKind.LionAttack)
-                    SpawnLionAttack(targetPlayerId, strength);
-                else
-                    LogError($"Native wildlife event skipped: unsupported event kind {definition.Kind}.");
-                return;
+                    return SpawnRabbitInfestation(targetPlayerId);
+                if (definition.Kind == RandomEventKind.LionAttack)
+                    return SpawnLionAttack(targetPlayerId, strength);
+
+                LogError($"Native wildlife event skipped: unsupported event kind {definition.Kind}.");
+                return false;
             }
 
             if (definition.DispatchKind == RandomEventDispatchKind.NativeVanilla)
@@ -467,21 +553,19 @@ namespace RandomEvents
                             $"Native Vanilla event skipped: event={definition.Name}, actionId={definition.VanillaActionId}, " +
                             $"targetPlayerId={targetPlayerId}, reason={detail}");
                     }
+                    return status == NativeEventDispatchStatus.Applied;
                 }
                 catch (Exception ex)
                 {
                     LogError(
                         $"Native Vanilla event failed: event={definition.Name}, actionId={definition.VanillaActionId}, " +
                         $"targetPlayerId={targetPlayerId}, error={ex}");
+                    return false;
                 }
-                return;
             }
 
             if (definition.DispatchKind == RandomEventDispatchKind.ManualBandits)
-            {
-                SpawnBanditAttack(targetPlayerId, strength);
-                return;
-            }
+                return SpawnBanditAttack(targetPlayerId, strength);
 
             IDisposable signpostScope = null;
             int signpostBuildingId = -1;
@@ -497,7 +581,7 @@ namespace RandomEvents
                 LogError(
                     $"Vanilla direct event skipped: event={definition.Name}, targetPlayerId={targetPlayerId}, " +
                     $"reason=required signpost unavailable or could not be prioritized ({signpostFailure}).");
-                return;
+                return false;
             }
 
             int originalLocalPlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
@@ -512,7 +596,7 @@ namespace RandomEvents
                         LogError(
                             $"Vanilla direct event skipped: event={definition.Name}, targetPlayerId={targetPlayerId}, " +
                             "reason=native local-player address unavailable for explicit targeting.");
-                        return;
+                        return false;
                     }
 
                     Marshal.WriteInt32(localPlayerAddress, targetPlayerId);
@@ -521,7 +605,7 @@ namespace RandomEvents
                         LogError(
                             $"Vanilla direct event skipped: event={definition.Name}, targetPlayerId={targetPlayerId}, " +
                             "reason=native target-player switch verification failed.");
-                        return;
+                        return false;
                     }
                 }
 
@@ -536,16 +620,17 @@ namespace RandomEvents
                     Marshal.WriteInt32(localPlayerAddress, originalLocalPlayerId);
                 signpostScope?.Dispose();
             }
+            return true;
         }
 
-        private unsafe void SpawnBanditAttack(int targetPlayerId, int strength)
+        private unsafe bool SpawnBanditAttack(int targetPlayerId, int strength)
         {
             if (!banditEventsEnabled)
             {
                 LogError(
                     $"Bandit event skipped: targetPlayerId={targetPlayerId}, " +
                     "reason=manual bandit support was disabled after an earlier compatibility failure.");
-                return;
+                return false;
             }
 
             try
@@ -560,7 +645,7 @@ namespace RandomEvents
                     LogDebug(
                         $"Bandit event ignored without spawning units: targetPlayerId={targetPlayerId}, " +
                         $"reason={slotFailure}.");
-                    return;
+                    return false;
                 }
 
                 if (!signpostRegistry.TryGetClosestSignpostToPlayer(
@@ -575,7 +660,7 @@ namespace RandomEvents
                     LogError(
                         $"Bandit event skipped: targetPlayerId={targetPlayerId}, " +
                         $"reason=no usable targeted signpost ({signpostFailure}).");
-                    return;
+                    return false;
                 }
 
                 if (!TryResolveBanditSpawnTile(
@@ -592,7 +677,7 @@ namespace RandomEvents
                     LogError(
                         $"Bandit event skipped: targetPlayerId={targetPlayerId}, " +
                         $"reason=no usable tile adjacent to signpost {signpostBuildingId} ({spawnFailure}).");
-                    return;
+                    return false;
                 }
 
                 GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
@@ -606,7 +691,7 @@ namespace RandomEvents
                     LogDebug(
                         $"Bandit event ignored without spawning units: targetPlayerId={targetPlayerId}, " +
                         $"reason=no living target building has a free approach tile in path component {sourcePathComponent}.");
-                    return;
+                    return false;
                 }
 
                 List<BanditUnitReference> spawnedUnits = new List<BanditUnitReference>(requestedUnits);
@@ -651,7 +736,7 @@ namespace RandomEvents
                     LogDebug(
                         $"Bandit event had no effect: targetPlayerId={targetPlayerId}, " +
                         "reason=no reserved-player-owned maceman could be created.");
-                    return;
+                    return false;
                 }
 
                 SavedPrng movePrng = new SavedPrng(state.PrngState0, state.PrngState1);
@@ -715,6 +800,7 @@ namespace RandomEvents
                     $"Manual bandit event spawned: requestedUnits={requestedUnits}, createdUnits={spawnedUnits.Count}, " +
                     $"ownerPlayerId={banditOwnerPlayerId}, targetPlayerId={targetPlayerId}, " +
                     $"groups={scheduledGroups}, signpostBuildingId={signpostBuildingId}.");
+                return true;
             }
             catch (Exception ex)
             {
@@ -722,6 +808,7 @@ namespace RandomEvents
                 LogError(
                     "Manual bandit spawning failed and further bandit events are disabled for this map; " +
                     $"unrelated events remain active: {ex}");
+                return false;
             }
         }
 
@@ -1196,14 +1283,14 @@ namespace RandomEvents
             return result.ToArray();
         }
 
-        private void SpawnRabbitInfestation(int targetPlayerId)
+        private bool SpawnRabbitInfestation(int targetPlayerId)
         {
             if (!nativeWildlifeDispatcher.TryGetRabbitTileMask(out uint rabbitTileMask, out string compatibilityFailure))
             {
                 LogError(
                     $"Native rabbit event skipped: targetPlayerId={targetPlayerId}, " +
                     $"reason={compatibilityFailure}");
-                return;
+                return false;
             }
 
             List<RabbitFarm> farms = new List<RabbitFarm>();
@@ -1231,7 +1318,7 @@ namespace RandomEvents
                 LogDebug(
                     $"Rabbit infestation skipped: targetPlayerId={targetPlayerId}, " +
                     "reason=no alive wheat or hops farm owned by the target player.");
-                return;
+                return false;
             }
 
             SavedPrng prng = new SavedPrng(state.PrngState0, state.PrngState1);
@@ -1249,7 +1336,7 @@ namespace RandomEvents
                     $"Rabbit infestation skipped: targetPlayerId={targetPlayerId}, farmBuildingId={farm.BuildingId}, " +
                     $"farmType={farm.BuildingType}, farmTile=({farm.TileX},{farm.TileY}), " +
                     $"reason=no Vanilla-compatible tile exists within radius {RabbitSpawnRadius}.");
-                return;
+                return false;
             }
 
             RabbitSpawnTile spawnTile = spawnTiles[prng.Next(spawnTiles.Count)];
@@ -1264,16 +1351,17 @@ namespace RandomEvents
                 $"farmBuildingId={farm.BuildingId}, farmType={farm.BuildingType}, " +
                 $"farmTile=({farm.TileX},{farm.TileY}), radius={RabbitSpawnRadius}, " +
                 $"spawnTile=({spawnTile.X},{spawnTile.Y}), candidateTiles={spawnTiles.Count}, detail={detail}");
+            return status == NativeEventDispatchStatus.Applied;
         }
 
-        private void SpawnLionAttack(int targetPlayerId, int strength)
+        private bool SpawnLionAttack(int targetPlayerId, int strength)
         {
             if (!nativeWildlifeDispatcher.TryGetLionTileMask(out uint lionTileMask, out string compatibilityFailure))
             {
                 LogError(
                     $"Native lion event skipped: targetPlayerId={targetPlayerId}, " +
                     $"reason={compatibilityFailure}");
-                return;
+                return false;
             }
 
             if (!signpostRegistry.TryGetClosestSignpostToPlayer(
@@ -1288,7 +1376,7 @@ namespace RandomEvents
                 LogError(
                     $"Native lion event skipped: targetPlayerId={targetPlayerId}, " +
                     $"reason=closest registered signpost unavailable ({signpostFailure}).");
-                return;
+                return false;
             }
 
             List<RabbitSpawnTile> spawnTiles = FindWildlifeSpawnTiles(
@@ -1301,7 +1389,7 @@ namespace RandomEvents
                 LogError(
                     $"Native lion event skipped: targetPlayerId={targetPlayerId}, signpostBuildingId={signpostBuildingId}, " +
                     $"signpostTile=({signpostX},{signpostY}), reason=no Vanilla-compatible tile exists within radius {LionSpawnRadius}.");
-                return;
+                return false;
             }
 
             // The first candidate is the nearest valid tile to the selected signpost.
@@ -1316,6 +1404,7 @@ namespace RandomEvents
                 $"signpostTile=({signpostX},{signpostY}), distanceReference={distanceReference}, " +
                 $"signpostDistance={signpostDistance:0.00}, " +
                 $"spawnTile=({spawnTile.X},{spawnTile.Y}), spawnRadius={LionSpawnRadius}, detail={detail}");
+            return status == NativeEventDispatchStatus.Applied;
         }
 
         private static List<RabbitSpawnTile> FindWildlifeSpawnTiles(

@@ -9,6 +9,7 @@ namespace RandomEvents
     {
         private bool enableMod = true;
         private int intervalMonths = 3;
+        private int cooldownMonths;
         private readonly int[] chances = new int[15];
         private int plagueMin = 1, plagueMax = 10;
         private int lionMin = 1, lionMax = 10;
@@ -31,6 +32,8 @@ namespace RandomEvents
         public string EnableModText => RandomEventsLocalization.Get("Common.EnableMod");
         public string IntervalText => RandomEventsLocalization.Get("RandomEvents.Interval");
         public string IntervalHelpText => RandomEventsLocalization.Get("RandomEvents.IntervalHelp");
+        public string CooldownText => RandomEventsLocalization.Get("RandomEvents.Cooldown");
+        public string CooldownHelpText => RandomEventsLocalization.Get("RandomEvents.CooldownHelp");
         public string ChancesTitleText => RandomEventsLocalization.Get("RandomEvents.ChancesTitle");
         public string StrengthTitleText => RandomEventsLocalization.Get("RandomEvents.StrengthTitle");
         public string ScaledStrengthHelpText => RandomEventsLocalization.Get("RandomEvents.ScaledStrengthHelp");
@@ -62,6 +65,7 @@ namespace RandomEvents
 
         [SyncHostOnly] public bool EnableMod { get => enableMod; set => Set(ref enableMod, value, nameof(EnableMod)); }
         [SyncHostOnly] public int IntervalMonths { get => intervalMonths; set => SetClamped(ref intervalMonths, value, 1, 90, nameof(IntervalMonths)); }
+        [SyncHostOnly] public int CooldownMonths { get => cooldownMonths; set => SetClamped(ref cooldownMonths, value, 0, 90, nameof(CooldownMonths)); }
         [SyncHostOnly] public int MultiplayerEventModeIndex { get => multiplayerEventMode; set => SetClamped(ref multiplayerEventMode, value, 0, 1, nameof(MultiplayerEventModeIndex)); }
 
         [SyncHostOnly] public int FairChance { get => Chance(RandomEventKind.Fair); set => SetChance(RandomEventKind.Fair, value, nameof(FairChance)); }
@@ -125,6 +129,7 @@ namespace RandomEvents
         {
             EnableMod = true;
             IntervalMonths = 3;
+            CooldownMonths = 0;
             MultiplayerEventModeIndex = (int)MultiplayerEventMode.SharedEvents;
             for (int index = 0; index < chances.Length; index++)
             {

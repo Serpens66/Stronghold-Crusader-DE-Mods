@@ -8,7 +8,7 @@ namespace RandomEvents
     [MessagePackFormatter(typeof(RandomEventsSaveStateV2Formatter))]
     public sealed class RandomEventsSaveStateV2
     {
-        public const int CurrentVersion = 3;
+        public const int CurrentVersion = 4;
 
         [Key(0)] public int Version = CurrentVersion;
         [Key(1)] public bool EffectiveEnabled;
@@ -27,11 +27,14 @@ namespace RandomEvents
         [Key(14)] public bool BatchPrepared;
         [Key(15)] public int[] PreparedDirectTargetPlayerIds = Array.Empty<int>();
         [Key(16)] public int StartAbsoluteMonth;
+        [Key(17)] public int CooldownMonths;
+        [Key(18)] public int[] SharedCooldownUntilAbsoluteMonths = Array.Empty<int>();
+        [Key(19)] public int[] IndividualCooldownUntilAbsoluteMonths = Array.Empty<int>();
     }
 
     public sealed class RandomEventsSaveStateV2Formatter : IMessagePackFormatter<RandomEventsSaveStateV2>
     {
-        private const int FieldCount = 17;
+        private const int FieldCount = 20;
 
         public void Serialize(ref MessagePackWriter writer, RandomEventsSaveStateV2 value, MessagePackSerializerOptions options)
         {
@@ -59,6 +62,9 @@ namespace RandomEvents
             writer.Write(value.BatchPrepared);
             WriteIntArray(ref writer, value.PreparedDirectTargetPlayerIds);
             writer.Write(value.StartAbsoluteMonth);
+            writer.Write(value.CooldownMonths);
+            WriteIntArray(ref writer, value.SharedCooldownUntilAbsoluteMonths);
+            WriteIntArray(ref writer, value.IndividualCooldownUntilAbsoluteMonths);
         }
 
         public RandomEventsSaveStateV2 Deserialize(ref MessagePackReader reader, MessagePackSerializerOptions options)
@@ -89,6 +95,9 @@ namespace RandomEvents
                     case 14: value.BatchPrepared = reader.ReadBoolean(); break;
                     case 15: value.PreparedDirectTargetPlayerIds = ReadIntArray(ref reader); break;
                     case 16: value.StartAbsoluteMonth = reader.ReadInt32(); break;
+                    case 17: value.CooldownMonths = reader.ReadInt32(); break;
+                    case 18: value.SharedCooldownUntilAbsoluteMonths = ReadIntArray(ref reader); break;
+                    case 19: value.IndividualCooldownUntilAbsoluteMonths = ReadIntArray(ref reader); break;
                     default: reader.Skip(); break;
                 }
             }
