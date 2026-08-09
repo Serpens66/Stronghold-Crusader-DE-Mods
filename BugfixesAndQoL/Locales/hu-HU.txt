@@ -15,3 +15,5 @@ SomeSettings.RememberAiAivSettings=Remember shared AI castle/settings selection
 SomeSettings.RememberAiAivSettingsHelp=When enabled, each AI lord's last AIV list, rotation, and custom AIC settings are shared between single-player and multiplayer lobbies.
 SomeSettings.AllowCameraMovementWithModifiers=Allow camera movement while holding Ctrl or Alt
 SomeSettings.AllowCameraMovementWithModifiersHelp=When enabled, keyboard and edge scrolling continue to move the camera while Ctrl or Alt is held. This is a per-player setting.
+SomeSettings.EnablePlaguePopularityFix=Plague Popularity Fix
+SomeSettings.EnablePlaguePopularityFixHelp=Applies exactly -1 popularity for each active plague outbreak and removes it once all associated plague clouds have expired naturally or been removed by an apothecary.

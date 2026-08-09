@@ -56,6 +56,12 @@
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding EnableTroopMovementFixText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox>
+      <CheckBox IsChecked="{Binding EnablePlaguePopularityFix, Mode=TwoWay}"
+                Foreground="White"
+                ToolTip="{Binding EnablePlaguePopularityFixHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding EnablePlaguePopularityFixText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox>
     </StackPanel>
   </ScrollViewer>
 </Grid>

@@ -17,6 +17,7 @@ namespace BugfixesAndQoL
         private HdMarketViewHook hdMarketViewHook;
         private CameraMovementModifierHook cameraMovementModifierHook;
         private AssemblyPointPlacementPatch assemblyPointPlacementPatch;
+        private PlaguePopularityFix plaguePopularityFix;
         private IntPtr libraryHandle;
         private int libraryLength;
         private bool nativeLibraryAvailable;
@@ -25,6 +26,7 @@ namespace BugfixesAndQoL
         private bool settingsSubscribed;
         private bool enemyProximityFixedLayoutErrorLogged;
         private bool assemblyPointPlacementPatchUnavailable;
+        private bool plaguePopularityFixUnavailable;
 
         public BugfixesAndQoLRuntime(ManualLogSource log, BugfixesAndQoLViewModel settings)
         {
@@ -48,6 +50,7 @@ namespace BugfixesAndQoL
             fixedLayoutHashValidated = isFixedLayoutHashValidated;
             nativeLibraryAvailable = true;
             troopMovementFixRuntime.InitializeNative(newLibraryHandle, memory, isFixedLayoutHashValidated);
+            EnsurePlaguePopularityFix();
             ApplyAssemblyPointPlacementPatchSetting();
         }
 
@@ -69,6 +72,8 @@ namespace BugfixesAndQoL
             skirmishAiSelectionMemoryHook?.Dispose();
             skirmishAiSelectionMemoryHook = null;
             DisableAssemblyPointPlacementPatch();
+            plaguePopularityFix?.Dispose();
+            plaguePopularityFix = null;
             troopMovementFixRuntime.Dispose();
             nativeLibraryAvailable = false;
             libraryHandle = IntPtr.Zero;
@@ -177,6 +182,30 @@ namespace BugfixesAndQoL
         {
             // The game DLL stays loaded for the process lifetime.
             return new ReadOnlySpan<byte>(libraryHandle.ToPointer(), libraryLength);
+        }
+
+        private void EnsurePlaguePopularityFix()
+        {
+            if (!nativeLibraryAvailable || plaguePopularityFix != null || plaguePopularityFixUnavailable)
+                return;
+
+            try
+            {
+                // This hook remains installed while disabled so an in-progress herd can
+                // still be identified if the host enables the setting later.
+                plaguePopularityFix = new PlaguePopularityFix(
+                    log,
+                    settings,
+                    GetNativeLibraryMemory(),
+                    unchecked((ulong)libraryHandle.ToInt64()));
+            }
+            catch (Exception ex)
+            {
+                plaguePopularityFixUnavailable = true;
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Bugfixes and QoL plague popularity fix could not be installed; Vanilla behavior remains active: {ex}");
+            }
         }
 
         private void InstallAssemblyPointPlacementPatch()

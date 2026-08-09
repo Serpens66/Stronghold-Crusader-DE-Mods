@@ -15,6 +15,7 @@ namespace BugfixesAndQoL
         private bool enableMod = true;
         private bool rememberAiAivSettings = true;
         private bool enableTroopMovementFix = true;
+        private bool enablePlaguePopularityFix = true;
         private readonly bool[] allowMinimapWhilePlacingBuildingData = new bool[9];
         private readonly bool[] allowCameraMovementWithModifiersData = new bool[9];
         private readonly bool[] hdMarketViewData = new bool[9];
@@ -41,6 +42,8 @@ namespace BugfixesAndQoL
         public string RememberAiAivSettingsHelpText => SerpLocalization.Get(SerpLocalization.RememberAiAivSettingsHelp);
         public string EnableTroopMovementFixText => SerpLocalization.Get(SerpLocalization.EnableTroopMovementFix);
         public string EnableTroopMovementFixHelpText => SerpLocalization.Get(SerpLocalization.EnableTroopMovementFixHelp);
+        public string EnablePlaguePopularityFixText => SerpLocalization.Get(SerpLocalization.EnablePlaguePopularityFix);
+        public string EnablePlaguePopularityFixHelpText => SerpLocalization.Get(SerpLocalization.EnablePlaguePopularityFixHelp);
         public string AllowCameraMovementWithModifiersText => SerpLocalization.Get(SerpLocalization.AllowCameraMovementWithModifiers);
         public string AllowCameraMovementWithModifiersHelpText => SerpLocalization.Get(SerpLocalization.AllowCameraMovementWithModifiersHelp);
         public string HdMarketViewText => SerpLocalization.Get(SerpLocalization.HdMarketView);
@@ -119,10 +122,18 @@ namespace BugfixesAndQoL
             set => SetSetting(ref enableTroopMovementFix, value, nameof(EnableTroopMovementFix));
         }
 
+        [SyncHostOnly]
+        public bool EnablePlaguePopularityFix
+        {
+            get => enablePlaguePopularityFix;
+            set => SetSetting(ref enablePlaguePopularityFix, value, nameof(EnablePlaguePopularityFix));
+        }
+
         private void ResetToDefault()
         {
             RememberAiAivSettings = true;
             EnableTroopMovementFix = true;
+            EnablePlaguePopularityFix = true;
             SetAllowMinimapDefaults();
             SetAllowCameraMovementWithModifiersDefaults();
             SetHdMarketViewDefaults();

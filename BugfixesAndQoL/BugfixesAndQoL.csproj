@@ -58,6 +58,8 @@
     <Compile Include="src\MinimapCursorFollowFeature.cs" />
     <Compile Include="src\MinimapPlacementClickHook.cs" />
     <Compile Include="src\MovementCadenceIntegration.cs" />
+    <Compile Include="src\PlaguePopularityFix.cs" />
+    <Compile Include="src\PlaguePopularitySaveState.cs" />
     <Compile Include="src\SkirmishAiSelectionMemoryHook.cs" />
     <Compile Include="src\TroopMovementFix3ModLog.cs" />
     <Compile Include="src\TroopMovementFix3Runtime.cs" />

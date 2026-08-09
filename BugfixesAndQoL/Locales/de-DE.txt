@@ -15,3 +15,5 @@ SomeSettings.RememberAiAivSettings=Gemeinsame AIV-/AIC-Auswahl merken
 SomeSettings.RememberAiAivSettingsHelp=Wenn aktiviert, werden die zuletzt gewaehlte AIV-Liste, Drehung und benutzerdefinierten AIC-Einstellungen jedes KI-Lords gemeinsam fuer Singleplayer- und Multiplayer-Lobbys gespeichert.
 SomeSettings.AllowCameraMovementWithModifiers=Kamerabewegung bei gedrueckter Strg- oder Alt-Taste erlauben
 SomeSettings.AllowCameraMovementWithModifiersHelp=Wenn aktiviert, bewegen Tastatur- und Randscrollen die Kamera auch weiter, waehrend Strg oder Alt gedrueckt wird. Diese Einstellung gilt pro Spieler.
+SomeSettings.EnablePlaguePopularityFix=Pest-Beliebtheitsfix
+SomeSettings.EnablePlaguePopularityFixHelp=Gibt fuer jeden aktiven Pestherd genau -1 Beliebtheit und entfernt den Malus, sobald alle zugehoerigen Pestwolken natuerlich oder durch einen Apotheker verschwunden sind.

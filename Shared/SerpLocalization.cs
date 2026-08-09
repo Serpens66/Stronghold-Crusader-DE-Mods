@@ -85,6 +85,8 @@ public static class SerpLocalization
     public const string EnableCtrlSingleMarketTradeHelp = "SomeSettings.EnableCtrlSingleMarketTradeHelp";
     public const string EnableTroopMovementFix = "SomeSettings.EnableTroopMovementFix";
     public const string EnableTroopMovementFixHelp = "SomeSettings.EnableTroopMovementFixHelp";
+    public const string EnablePlaguePopularityFix = "SomeSettings.EnablePlaguePopularityFix";
+    public const string EnablePlaguePopularityFixHelp = "SomeSettings.EnablePlaguePopularityFixHelp";
     public const string EnableFastRecruitRallyMovement = "SomeSettings.EnableFastRecruitRallyMovement";
     public const string EnableFastRecruitRallyMovementHelp = "SomeSettings.EnableFastRecruitRallyMovementHelp";
     public const string EnableKnightDismount = "SomeSettings.EnableKnightDismount";
@@ -199,6 +201,8 @@ public static class SerpLocalization
         { EnableCtrlSingleMarketTradeHelp, "Hold Ctrl while buying or selling to trade exactly one unit. Ctrl+Shift uses the normal five-unit amount." },
         { EnableTroopMovementFix, "Troop Speed Fix" },
         { EnableTroopMovementFixHelp, "Fixes synchronized movement for mixed troop groups: with a normal movement command, all units move at the speed of the slowest unit in the group." },
+        { EnablePlaguePopularityFix, "Plague Popularity Fix" },
+        { EnablePlaguePopularityFixHelp, "Applies exactly -1 popularity for each active plague outbreak and removes it once all associated plague clouds have expired naturally or been removed by an apothecary." },
         { EnableFastRecruitRallyMovement, "Recruits Run to Rally Points" },
         { EnableFastRecruitRallyMovementHelp, "Newly recruited player and AI units move to their rally points using their own Vanilla Fast pace and animation while keeping terrain and state modifiers." },
         { EnableKnightDismount, "Enable knight mount/dismount buttons" },
