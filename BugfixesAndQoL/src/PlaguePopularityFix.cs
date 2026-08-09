@@ -27,6 +27,7 @@ namespace BugfixesAndQoL
         private const int MinimumProjectilesPerHerd = 6;
         private const int MaximumProjectilesPerHerd = 10;
         private const int PopularityPointsPerHerd = 25;
+        private const ulong PopularityAccumulatorOffset = 0x12EC20UL;
 
         // c_game_disease_create_one_herd, reference RVA 0xD1780.
         private const string CreateHerdPattern =
@@ -52,7 +53,6 @@ namespace BugfixesAndQoL
         private HerdCapture currentCapture;
         private bool saveHandlerRegistered;
         private bool mapActive;
-        private bool loadedValidationPending;
         private bool correctionAvailable = true;
         private bool callbackFailureLogged;
         private bool disposed;
@@ -69,8 +69,8 @@ namespace BugfixesAndQoL
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
 
-            int createHerdOffset = RequireUniquePattern(memory, CreateHerdPattern, "plague herd creation");
-            int popularityExitOffset = RequireUniquePattern(memory, PopularityExitPattern, "plague popularity exit") + 32;
+            ValidateUniquePattern(memory, CreateHerdPattern, "plague herd creation");
+            ValidateUniquePattern(memory, PopularityExitPattern, "plague popularity exit");
 
             try
             {
@@ -84,7 +84,8 @@ namespace BugfixesAndQoL
                     ref popularityExitHook,
                     PopularityExitPattern,
                     CorrectPlaguePopularity,
-                    regs: X64SmartCPUContextRegs.Volatile | X64SmartCPUContextRegs.R14,
+                    regs: X64SmartCPUContextRegs.Volatile | X64SmartCPUContextRegs.RBP |
+                        X64SmartCPUContextRegs.R12 | X64SmartCPUContextRegs.R14,
                     patternOffset: 32,
                     errorMode: CallbackErrorMode.LogAndContinue,
                     placement: OverwrittenInstructionPlacement.AfterCallback);
@@ -113,11 +114,6 @@ namespace BugfixesAndQoL
                     throw new InvalidOperationException("Plague popularity save-data handler registration failed.");
                 }
                 saveHandlerRegistered = true;
-
-                Shared.DebugLogHelper.LogInfo(
-                    log,
-                    $"Plague popularity fix installed: createHerdRva=0x{createHerdOffset:X}, " +
-                    $"popularityExitRva=0x{popularityExitOffset:X}.");
             }
             catch
             {
@@ -178,19 +174,17 @@ namespace BugfixesAndQoL
 
             HerdCapture previousCapture = currentCapture;
             currentCapture = capture;
-            bool completed = false;
             try
             {
                 // Vanilla remains authoritative for all projectile creation.
                 createHerdHook.Value.Hook.Trampoline(diseaseManager, buildingId);
-                completed = true;
             }
             finally
             {
                 currentCapture = previousCapture;
             }
 
-            if (!completed || capture == null || !correctionAvailable)
+            if (capture == null || !correctionAvailable)
                 return;
 
             try
@@ -205,10 +199,6 @@ namespace BugfixesAndQoL
 
                 herds.Add(new TrackedPlagueHerd(capture.PlayerId, capture.Members));
                 managedPlayerIds.Add(capture.PlayerId);
-                Shared.DebugLogHelper.LogDebug(
-                    log,
-                    $"Tracked plague herd: playerId={capture.PlayerId}, " +
-                    $"projectileCount={capture.Members.Count}, activeHerds={CountHerds(capture.PlayerId)}.");
             }
             catch (Exception ex)
             {
@@ -247,7 +237,7 @@ namespace BugfixesAndQoL
 
         private void OnProjectileDelete(ProjectileDeleteEventArgs args)
         {
-            if (!correctionAvailable)
+            if (!correctionAvailable || herds.Count == 0)
                 return;
 
             try
@@ -260,27 +250,19 @@ namespace BugfixesAndQoL
             }
         }
 
-        private void OnStartMap(MapStartEventArgs args)
+        private void OnStartMap(MapStartEventArgs _)
         {
             mapActive = true;
         }
 
-        private void OnGameTick(int tick)
+        private void OnGameTick(int _)
         {
-            if (!mapActive || !correctionAvailable)
+            if (!mapActive || !correctionAvailable || herds.Count == 0)
                 return;
 
             try
             {
                 PruneInvalidProjectiles();
-                if (loadedValidationPending)
-                {
-                    loadedValidationPending = false;
-                    Shared.DebugLogHelper.LogInfo(
-                        log,
-                        $"Validated loaded plague state: managedPlayers={managedPlayerIds.Count}, " +
-                        $"activeHerds={herds.Count}.");
-                }
             }
             catch (Exception ex)
             {
@@ -311,11 +293,18 @@ namespace BugfixesAndQoL
                 int vanillaModifier = (short)(ushort)registers->RAX;
                 int currentPopularity = unchecked((int)(uint)registers->RDX);
                 int correctedPopularity = checked(currentPopularity - vanillaModifier + desiredModifier);
+                if (registers->R12 == 0)
+                    throw new InvalidOperationException("The native player-resource base register is null.");
+                int* popularityAccumulator =
+                    (int*)(registers->R12 + registers->RBP + PopularityAccumulatorOffset);
 
                 registers->RDX = unchecked((uint)correctedPopularity);
                 registers->RAX =
                     (registers->RAX & ~0xFFFFUL) |
                     unchecked((ushort)(short)desiredModifier);
+                // Vanilla stores each plague branch before the shared report write.
+                // Keep the authoritative accumulator aligned with the corrected register.
+                *popularityAccumulator = correctedPopularity;
             }
             catch (Exception ex)
             {
@@ -373,15 +362,11 @@ namespace BugfixesAndQoL
                     herds.Add(herd);
                     managedPlayerIds.Add(herd.PlayerId);
                 }
-
-                // Native projectile arrays are authoritative only after map data has loaded.
-                loadedValidationPending = true;
             }
             catch (Exception ex)
             {
                 herds.Clear();
                 managedPlayerIds.Clear();
-                loadedValidationPending = false;
                 Shared.DebugLogHelper.LogError(
                     log,
                     $"Plague popularity state was rejected; this save keeps Vanilla plague behavior: {ex}");
@@ -391,7 +376,6 @@ namespace BugfixesAndQoL
         private void ResetMapState()
         {
             mapActive = false;
-            loadedValidationPending = false;
             currentCapture = null;
             herds.Clear();
             managedPlayerIds.Clear();
@@ -427,14 +411,18 @@ namespace BugfixesAndQoL
         {
             for (int herdIndex = herds.Count - 1; herdIndex >= 0; herdIndex--)
             {
-                List<ProjectileIdentity> members = herds[herdIndex].Members;
+                TrackedPlagueHerd herd = herds[herdIndex];
+                List<ProjectileIdentity> members = herd.Members;
                 for (int memberIndex = members.Count - 1; memberIndex >= 0; memberIndex--)
                 {
                     if (members[memberIndex].SlotId == projectileId)
+                    {
                         members.RemoveAt(memberIndex);
+                        if (members.Count == 0)
+                            herds.RemoveAt(herdIndex);
+                        return;
+                    }
                 }
-                if (members.Count == 0)
-                    herds.RemoveAt(herdIndex);
             }
         }
 
@@ -443,7 +431,7 @@ namespace BugfixesAndQoL
             int count = 0;
             for (int index = 0; index < herds.Count; index++)
             {
-                if (herds[index].PlayerId == playerId && herds[index].Members.Count > 0)
+                if (herds[index].PlayerId == playerId)
                     count++;
             }
             return count;
@@ -501,7 +489,7 @@ namespace BugfixesAndQoL
 
         private static bool IsValidPlayerId(int playerId) => playerId >= 1 && playerId <= MaximumPlayerId;
 
-        private static int RequireUniquePattern(ReadOnlySpan<byte> memory, string pattern, string name)
+        private static void ValidateUniquePattern(ReadOnlySpan<byte> memory, string pattern, string name)
         {
             string[] tokens = pattern.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
             int[] expected = new int[tokens.Length];
@@ -519,7 +507,6 @@ namespace BugfixesAndQoL
             }
 
             int matchCount = 0;
-            int matchOffset = -1;
             for (int offset = 0; offset <= memory.Length - expected.Length; offset++)
             {
                 bool matches = true;
@@ -534,7 +521,6 @@ namespace BugfixesAndQoL
 
                 if (!matches)
                     continue;
-                matchOffset = offset;
                 matchCount++;
                 if (matchCount > 1)
                     break;
@@ -542,7 +528,6 @@ namespace BugfixesAndQoL
 
             if (matchCount != 1)
                 throw new InvalidOperationException($"The {name} signature matched {matchCount} times instead of exactly once.");
-            return matchOffset;
         }
 
         private sealed class HerdCapture
@@ -571,7 +556,7 @@ namespace BugfixesAndQoL
             public TrackedPlagueHerd(int playerId, List<ProjectileIdentity> members)
             {
                 PlayerId = playerId;
-                Members = new List<ProjectileIdentity>(members);
+                Members = members ?? throw new ArgumentNullException(nameof(members));
             }
 
             public int PlayerId { get; }

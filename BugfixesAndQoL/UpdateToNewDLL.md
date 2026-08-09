@@ -27,8 +27,10 @@ signature- and byte-validated features continue without a known hash.
 - All Vanilla plague branches converge at RVA `0xCB52C`. Before the overwritten
   report write, `AX` holds Vanilla's signed plague component, `EDX` holds the
   running popularity result after that component, and `R14D` holds the player
-  ID. The fix removes only that component and replaces it with `-25` per active
-  herd; subsequent Vanilla factors and clamping remain unchanged.
+  ID. Each nonzero Vanilla branch has already stored `EDX` at player-resource
+  offset `+0x12EC20`, so the fix must update both `EDX` and that authoritative
+  accumulator after replacing the component with `-25` per active herd.
+  Subsequent Vanilla factors and clamping remain unchanged.
 
 ## Hash-gated layouts
 
