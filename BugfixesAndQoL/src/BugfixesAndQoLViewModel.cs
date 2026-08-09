@@ -4,6 +4,7 @@ using SHCDESE.API.Components.Network;
 using SHCDESE.NoesisUtil;
 using SHCDESE.ViewModels;
 using System;
+using Noesis;
 
 namespace BugfixesAndQoL
 {
@@ -18,8 +19,9 @@ namespace BugfixesAndQoL
         private readonly bool[] allowCameraMovementWithModifiersData = new bool[9];
         private readonly bool[] hdMarketViewData = new bool[9];
 
-        public BugfixesAndQoLViewModel()
+        public BugfixesAndQoLViewModel(bool legacySomeSettingsLoaded)
         {
+            LegacyModWarningVisibility = legacySomeSettingsLoaded ? Visibility.Visible : Visibility.Collapsed;
             SetAllowMinimapDefaults();
             SetAllowCameraMovementWithModifiersDefaults();
             SetHdMarketViewDefaults();
@@ -27,6 +29,8 @@ namespace BugfixesAndQoL
         }
 
         public RelayCommand ResetToDefaultCommand { get; }
+        public Visibility LegacyModWarningVisibility { get; }
+        public string LegacyModWarningText => SerpLocalization.Get(SerpLocalization.LegacySomeSettingsWarning);
         public string EnableModText => SerpLocalization.Get(SerpLocalization.EnableMod);
         public string ResetToDefaultText => SerpLocalization.Get(SerpLocalization.ResetToDefault);
         public string AlwaysActiveTitleText => SerpLocalization.Get(SerpLocalization.AlwaysActiveTitle);

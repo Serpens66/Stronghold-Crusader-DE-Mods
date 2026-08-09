@@ -45,6 +45,7 @@ namespace BugfixesAndQoL
         private bool nativeLibraryAvailable;
         private bool fixedLayoutHashValidated;
         private bool fixedLayoutErrorLogged;
+        private bool initializationFailed;
 
         public TroopMovementFix3Runtime(
             ManualLogSource log,
@@ -71,12 +72,25 @@ namespace BugfixesAndQoL
             fixedLayoutHashValidated = isFixedLayoutHashValidated;
             nativeLibraryAvailable = true;
             MovementCadenceIntegration.RegistrationChanged += ApplySetting;
-            ApplySetting();
+            try
+            {
+                ApplySetting();
+            }
+            catch (Exception ex)
+            {
+                // A conflicting native hook must disable only the movement feature.
+                initializationFailed = true;
+                MovementCadenceIntegration.RegistrationChanged -= ApplySetting;
+                Disable();
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Bugfixes and QoL Troop Movement Fix could not be initialized and remains inactive: {ex}");
+            }
         }
 
         public void ApplySetting()
         {
-            if (!nativeLibraryAvailable)
+            if (!nativeLibraryAvailable || initializationFailed)
                 return;
 
             bool shouldEnableTroopMovementFix =

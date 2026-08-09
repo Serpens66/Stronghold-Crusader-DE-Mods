@@ -24,6 +24,7 @@ namespace BugfixesAndQoL
         private bool hooksSubscribed;
         private bool settingsSubscribed;
         private bool enemyProximityFixedLayoutErrorLogged;
+        private bool assemblyPointPlacementPatchUnavailable;
 
         public BugfixesAndQoLRuntime(ManualLogSource log, BugfixesAndQoLViewModel settings)
         {
@@ -52,7 +53,7 @@ namespace BugfixesAndQoL
 
         public void ApplySettings()
         {
-            EnsureAiSelectionHook();
+            TryInitializeFeature("AI castle/settings selection memory", EnsureAiSelectionHook);
             troopMovementFixRuntime.ApplySetting();
             ApplyAssemblyPointPlacementPatchSetting();
 
@@ -85,34 +86,32 @@ namespace BugfixesAndQoL
             if (hooksSubscribed || !settings.EnableMod)
                 return;
 
-            try
-            {
-                minimapPlacementClickHook = new MinimapPlacementClickHook(log, settings);
-                autoTradeSellZeroHook = new AutoTradeSellZeroHook(log);
-                marketKeyMainTradeMenuHook = new MarketKeyMainTradeMenuHook(log, settings);
-                hdMarketViewHook = new HdMarketViewHook(log, settings);
-                cameraMovementModifierHook = new CameraMovementModifierHook(log, settings);
+            TryInitializeFeature("minimap placement", () =>
+                minimapPlacementClickHook = new MinimapPlacementClickHook(log, settings));
+            TryInitializeFeature("market autotrade sell threshold", () =>
+                autoTradeSellZeroHook = new AutoTradeSellZeroHook(log));
+            TryInitializeFeature("market key main-menu return", () =>
+                marketKeyMainTradeMenuHook = new MarketKeyMainTradeMenuHook(log, settings));
+            TryInitializeFeature("HD market view", () =>
+                hdMarketViewHook = new HdMarketViewHook(log, settings));
+            TryInitializeFeature("camera movement modifier", () =>
+                cameraMovementModifierHook = new CameraMovementModifierHook(log, settings));
 
-                if (fixedLayoutHashValidated)
-                {
-                    enemyProximityBulldozeCursorHook = new EnemyProximityBulldozeCursorHook(log, settings);
-                }
-                else if (!enemyProximityFixedLayoutErrorLogged)
-                {
-                    enemyProximityFixedLayoutErrorLogged = true;
-                    Shared.DebugLogHelper.LogError(
-                        log,
-                        "Bugfixes and QoL enemy-proximity bulldoze cursor remains inactive because its fixed native layout is not validated for this CrusaderDE.dll.");
-                }
-
-                hooksSubscribed = true;
-                Shared.DebugLogHelper.LogDebug(log, "Bugfixes and QoL hooks subscribed.");
-            }
-            catch
+            if (fixedLayoutHashValidated)
             {
-                UnsubscribeHooks();
-                throw;
+                TryInitializeFeature("enemy-proximity bulldoze cursor", () =>
+                    enemyProximityBulldozeCursorHook = new EnemyProximityBulldozeCursorHook(log, settings));
             }
+            else if (!enemyProximityFixedLayoutErrorLogged)
+            {
+                enemyProximityFixedLayoutErrorLogged = true;
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    "Bugfixes and QoL enemy-proximity bulldoze cursor remains inactive because its fixed native layout is not validated for this CrusaderDE.dll.");
+            }
+
+            hooksSubscribed = true;
+            Shared.DebugLogHelper.LogDebug(log, "Bugfixes and QoL feature hooks reconciled.");
         }
 
         private void UnsubscribeHooks()
@@ -136,6 +135,20 @@ namespace BugfixesAndQoL
         {
             if (skirmishAiSelectionMemoryHook == null)
                 skirmishAiSelectionMemoryHook = new SkirmishAiSelectionMemoryHook(log, settings);
+        }
+
+        private void TryInitializeFeature(string featureName, Action initialize)
+        {
+            try
+            {
+                initialize();
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Bugfixes and QoL feature '{featureName}' could not be initialized and remains inactive: {ex}");
+            }
         }
 
         private void OnSettingChanged(string propertyName)
@@ -168,7 +181,7 @@ namespace BugfixesAndQoL
 
         private void InstallAssemblyPointPlacementPatch()
         {
-            if (assemblyPointPlacementPatch != null)
+            if (assemblyPointPlacementPatch != null || assemblyPointPlacementPatchUnavailable)
                 return;
 
             try
@@ -180,6 +193,8 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
+                // A changed or already hooked signature cannot become valid later in this process.
+                assemblyPointPlacementPatchUnavailable = true;
                 Shared.DebugLogHelper.LogError(log, $"Bugfixes and QoL assembly-point placement patch could not be installed: {ex}");
             }
         }

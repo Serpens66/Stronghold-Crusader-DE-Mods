@@ -11,7 +11,6 @@ set "GAME_SCRIPT_EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
 set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\CustomCustomTrail_Serp"
 set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\CustomCustomTrail_Serp"
 set "STAGED_GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\.CustomCustomTrail_Serp.build"
-set "LEGACY_GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\CoopTrailReplacer_Serp"
 set "EXTENDER_DIR="
 set "NO_PAUSE=0"
 for %%A in (%*) do if /I "%%~A"=="/nopause" set "NO_PAUSE=1"
@@ -87,10 +86,6 @@ if exist "%GAME_PLUGIN_DIR%\" rmdir /S /Q "%GAME_PLUGIN_DIR%"
 if errorlevel 1 goto copy_failed
 move /Y "%STAGED_GAME_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%" >nul
 if errorlevel 1 goto copy_failed
-rem Remove the former installation so BepInEx cannot load both plugin identities.
-if exist "%LEGACY_GAME_PLUGIN_DIR%\" rmdir /S /Q "%LEGACY_GAME_PLUGIN_DIR%"
-if errorlevel 1 goto copy_failed
-
 echo.
 echo Build, Tests und Installation erfolgreich.
 if "%NO_PAUSE%"=="0" pause

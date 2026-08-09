@@ -36,12 +36,15 @@ namespace ExtraFeatures
         private bool preventEmergencyDemolition = true;
         private bool preventHovelDeletion = true;
 
-        public ExtraFeaturesViewModel()
+        public ExtraFeaturesViewModel(bool legacySomeSettingsLoaded)
         {
+            LegacyModWarningVisibility = legacySomeSettingsLoaded ? Visibility.Visible : Visibility.Collapsed;
             ResetToDefaultCommand = new RelayCommand(ResetToDefault);
         }
 
         public RelayCommand ResetToDefaultCommand { get; }
+        public Visibility LegacyModWarningVisibility { get; }
+        public string LegacyModWarningText => SerpLocalization.Get(SerpLocalization.LegacySomeSettingsWarning);
         public string EnableModText => SerpLocalization.Get(SerpLocalization.EnableMod);
         public string ResetToDefaultText => SerpLocalization.Get(SerpLocalization.ResetToDefault);
         public ImageSource WoodRefundIcon => GetGoodIconImage(eGoods.STORED_WOOD_PLANKS);

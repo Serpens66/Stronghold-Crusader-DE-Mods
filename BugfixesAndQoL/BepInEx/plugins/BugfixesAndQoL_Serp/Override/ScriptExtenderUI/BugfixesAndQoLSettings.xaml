@@ -2,6 +2,12 @@
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <ScrollViewer VerticalScrollBarVisibility="Auto">
     <StackPanel Margin="10">
+      <TextBlock Text="{Binding LegacyModWarningText}"
+                 Visibility="{Binding LegacyModWarningVisibility}"
+                 Foreground="#FF6666"
+                 FontWeight="Bold"
+                 TextWrapping="Wrap"
+                 Margin="0,0,0,10"/>
       <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
         <Button Content="{Binding ResetToDefaultText}"
                 Command="{Binding ResetToDefaultCommand}"

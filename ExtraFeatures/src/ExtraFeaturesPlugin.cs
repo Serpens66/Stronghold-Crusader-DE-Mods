@@ -1,5 +1,6 @@
 // Feature: Plugin bootstrap for the Extra Features mod.
 using BepInEx;
+using BepInEx.Bootstrap;
 using SHCDESE.API;
 using SHCDESE.API.LowLevel;
 using System;
@@ -8,11 +9,13 @@ namespace ExtraFeatures
 {
     [BepInDependency(ScriptExtenderGuid, BepInDependency.DependencyFlags.HardDependency)]
     [BepInDependency(BugfixesAndQoLGuid, BepInDependency.DependencyFlags.SoftDependency)]
+    [BepInDependency(LegacySomeSettingsGuid, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class ExtraFeaturesPlugin : BaseUnityPlugin
     {
         private const string ScriptExtenderGuid = "000shcdese";
         private const string BugfixesAndQoLGuid = "BugfixesAndQoL_Serp";
+        private const string LegacySomeSettingsGuid = "SomeSettings_Serp";
 
         public const string PluginGuid = "ExtraFeatures_Serp";
         public const string PluginName = "Extra Features";
@@ -26,7 +29,17 @@ namespace ExtraFeatures
         private void Awake()
         {
             Shared.DebugLogHelper.LogDebug(Logger, $"{PluginName} {PluginVersion} loaded.");
-            Settings = new ExtraFeaturesViewModel();
+            bool legacySomeSettingsLoaded = Chainloader.PluginInfos.ContainsKey(LegacySomeSettingsGuid);
+            if (legacySomeSettingsLoaded)
+            {
+                Shared.DebugLogHelper.LogError(
+                    Logger,
+                    $"The obsolete mod '{LegacySomeSettingsGuid}' is loaded together with {PluginName}. " +
+                    "Uninstall it to avoid duplicate or conflicting features.");
+            }
+
+            // Pass the startup result into the view model so the warning occupies no UI space otherwise.
+            Settings = new ExtraFeaturesViewModel(legacySomeSettingsLoaded);
             runtime = new ExtraFeaturesRuntime(Logger, Settings);
             CrusaderLibrary.Instance.LibraryLoaded += OnCrusaderLibraryLoaded;
         }
@@ -57,26 +70,65 @@ namespace ExtraFeatures
                     PluginGuid,
                     Settings,
                     "ScriptExtenderUI/ExtraFeaturesSettings.xaml");
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(Logger, $"Extra Features settings UI registration failed: {ex}");
+            }
 
+            try
+            {
                 GameXAMLManagerAPI.Instance.RegisterBinding(
                     "ExtraFeaturesKnightDismountButtonHost",
                     runtime.KnightDismountButton);
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(Logger, $"Extra Features knight button binding failed: {ex}");
+            }
+
+            try
+            {
                 GameXAMLManagerAPI.Instance.RegisterBinding(
                     "ExtraFeaturesQuarryPileRelocationButtonHost",
                     runtime.QuarryPileRelocationButton);
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(Logger, $"Extra Features quarry button binding failed: {ex}");
+            }
 
+            try
+            {
                 runtime.InitializeNative(
                     libraryHandle,
                     memory,
                     Shared.DebugLogHelper.IsCurrentNativeLibraryVersion());
-                runtime.ApplySettings();
-                runtime.InstallAIEconomyProtectionHook(libraryHandle, memory);
-                Shared.DebugLogHelper.LogDebug(Logger, "Crusader library loaded; Extra Features initialized.");
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogError(Logger, $"Error while initializing Extra Features after library load: {ex}");
+                Shared.DebugLogHelper.LogError(Logger, $"Extra Features native runtime initialization failed; unaffected features may continue: {ex}");
             }
+
+            try
+            {
+                runtime.ApplySettings();
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(Logger, $"Extra Features settings reconciliation failed; already initialized features remain active: {ex}");
+            }
+
+            try
+            {
+                runtime.InstallAIEconomyProtectionHook(libraryHandle, memory);
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(Logger, $"Extra Features AI economy protection initialization failed: {ex}");
+            }
+
+            Shared.DebugLogHelper.LogDebug(Logger, "Crusader library loaded; Extra Features initialization stages completed.");
         }
     }
 }

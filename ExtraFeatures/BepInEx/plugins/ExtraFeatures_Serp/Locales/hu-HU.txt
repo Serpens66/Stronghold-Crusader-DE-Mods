@@ -1,5 +1,6 @@
 # Serp mod localization
 # Format: key=value
+Common.LegacySomeSettingsWarning=ERROR: The obsolete mod SomeSettings_Serp is also loaded. Please uninstall SomeSettings_Serp to avoid duplicate or conflicting features.
 Common.ResetToDefault=Reset to Default
 SomeSettings.EnableFastRecruitRallyMovement=Recruits Run to Rally Points
 SomeSettings.EnableFastRecruitRallyMovementHelp=Newly recruited player and AI units move to their rally points using their own Vanilla Fast pace and animation while keeping terrain and state modifiers.

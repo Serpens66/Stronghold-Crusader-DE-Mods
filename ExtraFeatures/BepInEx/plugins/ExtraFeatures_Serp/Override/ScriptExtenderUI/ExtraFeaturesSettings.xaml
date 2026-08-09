@@ -3,6 +3,12 @@
       xmlns:ui="clr-namespace:SHCDESE.UI;assembly=SHCDESE">
   <ScrollViewer VerticalScrollBarVisibility="Auto">
     <StackPanel Margin="10">
+      <TextBlock Text="{Binding LegacyModWarningText}"
+                 Visibility="{Binding LegacyModWarningVisibility}"
+                 Foreground="#FF6666"
+                 FontWeight="Bold"
+                 TextWrapping="Wrap"
+                 Margin="0,0,0,10"/>
       <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
         <Button IsEnabled="{Binding AreSettingsEditable}" Content="{Binding ResetToDefaultText}" Command="{Binding ResetToDefaultCommand}" HorizontalAlignment="Left" Padding="10,3"/>
         <CheckBox IsEnabled="{Binding AreSettingsEditable}" IsChecked="{Binding EnableMod, Mode=TwoWay}" Content="{Binding EnableModText}" Foreground="White" VerticalAlignment="Center" Margin="14,0,0,0"/>

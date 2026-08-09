@@ -1,5 +1,6 @@
 # Serp mod localization
 # Format: key=value
+Common.LegacySomeSettingsWarning=FEHLER: Der veraltete Mod SomeSettings_Serp ist ebenfalls geladen. Bitte deinstalliere SomeSettings_Serp, um doppelte oder widerspruechliche Funktionen zu vermeiden.
 Common.ResetToDefault=Zurücksetzen
 SomeSettings.EnableFastRecruitRallyMovement=Rekruten laufen zu Sammelpunkten
 SomeSettings.EnableFastRecruitRallyMovementHelp=Neu rekrutierte Spieler- und KI-Einheiten laufen mit ihrem eigenen maximalen Vanilla-Tempo und passender Animation zu ihrem Sammelpunkt; Gelände- und Zustandsmodifikatoren bleiben erhalten.

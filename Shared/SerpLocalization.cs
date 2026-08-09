@@ -10,6 +10,7 @@ public static class SerpLocalization
     public const string EnableMod = "Common.EnableMod";
     public const string Ai = "Common.Ai";
     public const string Human = "Common.Human";
+    public const string LegacySomeSettingsWarning = "Common.LegacySomeSettingsWarning";
     public const string Limit = "Common.Limit";
     public const string Max = "Common.Max";
     public const string UnitLimitsTitle = "UnitLimit.Title";
@@ -123,6 +124,7 @@ public static class SerpLocalization
         { EnableMod, "Enable Mod" },
         { Ai, "AI" },
         { Human, "Human" },
+        { LegacySomeSettingsWarning, "ERROR: The obsolete mod SomeSettings_Serp is also loaded. Please uninstall SomeSettings_Serp to avoid duplicate or conflicting features." },
         { Limit, "Limit" },
         { Max, "Max" },
         { UnitLimitsTitle, "UNIT LIMITS (Human)" },

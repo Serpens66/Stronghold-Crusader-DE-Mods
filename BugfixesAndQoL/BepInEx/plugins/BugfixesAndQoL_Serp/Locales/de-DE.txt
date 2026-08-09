@@ -1,5 +1,6 @@
 # Serp mod localization
 # Format: key=value
+Common.LegacySomeSettingsWarning=FEHLER: Der veraltete Mod SomeSettings_Serp ist ebenfalls geladen. Bitte deinstalliere SomeSettings_Serp, um doppelte oder widerspruechliche Funktionen zu vermeiden.
 SomeSettings.HdMarketView=HD Marketview
 SomeSettings.HdMarketViewHelp=Sorts the market the same way like in HD game
 SomeSettings.EnableTroopMovementFix=Truppen Speed Fix

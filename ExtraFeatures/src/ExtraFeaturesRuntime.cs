@@ -46,6 +46,7 @@ namespace ExtraFeatures
         private bool fastRecruitInitializationAttempted;
         private bool hooksSubscribed;
         private bool settingsSubscribed;
+        private bool ctrlMarketTradeHookUnavailable;
 
         public ExtraFeaturesRuntime(ManualLogSource log, ExtraFeaturesViewModel settings)
         {
@@ -75,8 +76,23 @@ namespace ExtraFeatures
 
             if (fixedLayoutHashValidated)
             {
-                knightDismountRuntime.InstallNativeFunctions(newLibraryHandle, memory);
-                quarryPileRelocationRuntime.InstallNativeFunctions(newLibraryHandle, memory);
+                try
+                {
+                    knightDismountRuntime.InstallNativeFunctions(newLibraryHandle, memory);
+                }
+                catch (Exception ex)
+                {
+                    LogFeatureFailure("knight mount/dismount native functions", ex);
+                }
+
+                try
+                {
+                    quarryPileRelocationRuntime.InstallNativeFunctions(newLibraryHandle, memory);
+                }
+                catch (Exception ex)
+                {
+                    LogFeatureFailure("quarry-pile relocation native functions", ex);
+                }
             }
 
             try
@@ -85,11 +101,11 @@ namespace ExtraFeatures
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogError(log, $"Extra Features church priest counts could not be initialized: {ex}");
+                LogFeatureFailure("church priest counts", ex);
             }
 
             InstallCtrlMarketTradeHook();
-            ApplyFastRecruitRallyMovementSetting();
+            TryRunFeature("fast recruit rally movement", ApplyFastRecruitRallyMovementSetting);
         }
 
         public void ApplySettings()
@@ -97,11 +113,11 @@ namespace ExtraFeatures
             if (!settings.EnableMod)
                 return;
 
-            SubscribeHooks();
-            ApplyRefundSettings();
-            ApplyMarketPriceMultipliers();
-            churchPriestCountRuntime.ApplySetting();
-            ApplyFastRecruitRallyMovementSetting();
+            TryRunFeature("shared event hooks", SubscribeHooks);
+            TryRunFeature("bulldoze refunds", ApplyRefundSettings);
+            TryRunFeature("market price multipliers", ApplyMarketPriceMultipliers);
+            TryRunFeature("church priest counts", churchPriestCountRuntime.ApplySetting);
+            TryRunFeature("fast recruit rally movement", ApplyFastRecruitRallyMovementSetting);
         }
 
         public void InstallAIEconomyProtectionHook(IntPtr nativeLibraryHandle, ReadOnlySpan<byte> memory)
@@ -143,33 +159,33 @@ namespace ExtraFeatures
             if (!settings.EnableMod || hooksSubscribed)
                 return;
 
-            try
-            {
-                subscriptions.Add(BuildingR3EventHooks.OnBuildingBulldoze.Observable.Subscribe(OnBuildingBulldoze));
-                subscriptions.Add(BuildingR3EventHooks.OnBuildingRefund.Observable.Subscribe(OnBuildingRefund));
-                subscriptions.Add(BuildingR3EventHooks.OnGoodsyardAddGood.Observable.Subscribe(OnGoodsyardAddGood));
-                subscriptions.Add(PlayerR3EventHooks.OnPlayerMarketInteraction.Observable.Subscribe(OnPlayerMarketInteraction));
-                subscriptions.Add(BuildingR3EventHooks.OnBuildingSpawn.Observable.Subscribe(churchPriestCountRuntime.ApplySpawnedBuilding));
-                subscriptions.Add(MapLoaderR3EventHooks.OnLoadMap.Observable
+            TrySubscribeFeature("bulldoze tracking", () =>
+                BuildingR3EventHooks.OnBuildingBulldoze.Observable.Subscribe(OnBuildingBulldoze));
+            TrySubscribeFeature("refund tracking", () =>
+                BuildingR3EventHooks.OnBuildingRefund.Observable.Subscribe(OnBuildingRefund));
+            TrySubscribeFeature("goods gain tracking", () =>
+                BuildingR3EventHooks.OnGoodsyardAddGood.Observable.Subscribe(OnGoodsyardAddGood));
+            TrySubscribeFeature("market trade tracking", () =>
+                PlayerR3EventHooks.OnPlayerMarketInteraction.Observable.Subscribe(OnPlayerMarketInteraction));
+            TrySubscribeFeature("church priest spawn handling", () =>
+                BuildingR3EventHooks.OnBuildingSpawn.Observable.Subscribe(churchPriestCountRuntime.ApplySpawnedBuilding));
+            TrySubscribeFeature("map-load settings", () =>
+                MapLoaderR3EventHooks.OnLoadMap.Observable
                     .Where(args => args.Phase == EventHookPhase.Post)
                     .Subscribe(_ => ApplyMapLoadedSettings()));
-                subscriptions.Add(MapLoaderR3EventHooks.OnLoadSave.Observable
+            TrySubscribeFeature("save-load settings", () =>
+                MapLoaderR3EventHooks.OnLoadSave.Observable
                     .Where(args => args.Phase == EventHookPhase.Post)
                     .Subscribe(_ => ApplyMapLoadedSettings()));
-                subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
+            TrySubscribeFeature("map-unload cleanup", () =>
+                MapLoaderR3EventHooks.OnUnloadMap.Observable
                     .Where(args => args.Phase == EventHookPhase.Post)
                     .Subscribe(OnUnloadMap));
-                InstallCtrlMarketTradeHook();
-                InstallSingleBuildingPauseHook();
-                hooksSubscribed = true;
-                ReconcileFixedLayoutFeatures();
-                Shared.DebugLogHelper.LogDebug(log, "Extra Features hooks subscribed.");
-            }
-            catch
-            {
-                UnsubscribeHooks();
-                throw;
-            }
+            InstallCtrlMarketTradeHook();
+            InstallSingleBuildingPauseHook();
+            hooksSubscribed = true;
+            ReconcileFixedLayoutFeatures();
+            Shared.DebugLogHelper.LogDebug(log, "Extra Features feature hooks reconciled.");
         }
 
         private void UnsubscribeHooks()
@@ -190,7 +206,7 @@ namespace ExtraFeatures
 
         private void InstallCtrlMarketTradeHook()
         {
-            if (ctrlMarketTradeHook != null || !nativeLibraryAvailable)
+            if (ctrlMarketTradeHook != null || ctrlMarketTradeHookUnavailable || !nativeLibraryAvailable)
                 return;
 
             try
@@ -205,6 +221,8 @@ namespace ExtraFeatures
             }
             catch (Exception ex)
             {
+                // Native signatures stay unchanged for the process lifetime, so do not retry noisily.
+                ctrlMarketTradeHookUnavailable = true;
                 Shared.DebugLogHelper.LogError(log, $"Extra Features Ctrl single-unit market hooks could not be installed: {ex}");
             }
         }
@@ -221,6 +239,39 @@ namespace ExtraFeatures
             {
                 Shared.DebugLogHelper.LogError(log, $"Extra Features single-building pause hook could not be installed: {ex}");
             }
+        }
+
+        private void TryRunFeature(string featureName, Action action)
+        {
+            try
+            {
+                action();
+            }
+            catch (Exception ex)
+            {
+                LogFeatureFailure(featureName, ex);
+            }
+        }
+
+        private void TrySubscribeFeature(string featureName, Func<IDisposable> subscribe)
+        {
+            try
+            {
+                IDisposable subscription = subscribe();
+                if (subscription != null)
+                    subscriptions.Add(subscription);
+            }
+            catch (Exception ex)
+            {
+                LogFeatureFailure(featureName, ex);
+            }
+        }
+
+        private void LogFeatureFailure(string featureName, Exception ex)
+        {
+            Shared.DebugLogHelper.LogError(
+                log,
+                $"Extra Features feature '{featureName}' failed and remains inactive: {ex}");
         }
 
         private void ReconcileFixedLayoutFeatures()
@@ -243,8 +294,8 @@ namespace ExtraFeatures
                 return;
             }
 
-            knightDismountRuntime.Initialize();
-            quarryPileRelocationRuntime.Initialize();
+            TryRunFeature("knight mount/dismount", knightDismountRuntime.Initialize);
+            TryRunFeature("quarry-pile relocation", quarryPileRelocationRuntime.Initialize);
         }
 
         private void OnSettingChanged(string propertyName)
@@ -273,23 +324,23 @@ namespace ExtraFeatures
             if (propertyName == nameof(ExtraFeaturesViewModel.EnableKnightDismount))
             {
                 ReconcileFixedLayoutFeatures();
-                knightDismountRuntime.RefreshButtonVisibility();
+                TryRunFeature("knight mount/dismount visibility", knightDismountRuntime.RefreshButtonVisibility);
                 return;
             }
             if (propertyName == nameof(ExtraFeaturesViewModel.EnableQuarryPileRelocation))
             {
                 ReconcileFixedLayoutFeatures();
-                quarryPileRelocationRuntime.ApplySetting();
+                TryRunFeature("quarry-pile relocation", quarryPileRelocationRuntime.ApplySetting);
                 return;
             }
             if (propertyName == nameof(ExtraFeaturesViewModel.EnableExtraChurchPriests))
             {
-                churchPriestCountRuntime.ApplySetting();
+                TryRunFeature("church priest counts", churchPriestCountRuntime.ApplySetting);
                 return;
             }
             if (propertyName == nameof(ExtraFeaturesViewModel.EnableFastRecruitRallyMovement))
             {
-                ApplyFastRecruitRallyMovementSetting();
+                TryRunFeature("fast recruit rally movement", ApplyFastRecruitRallyMovementSetting);
                 return;
             }
 
@@ -298,8 +349,8 @@ namespace ExtraFeatures
 
         private void ApplyMapLoadedSettings()
         {
-            ApplyMarketPriceMultipliers();
-            churchPriestCountRuntime.ApplySetting();
+            TryRunFeature("market price multipliers", ApplyMarketPriceMultipliers);
+            TryRunFeature("church priest counts", churchPriestCountRuntime.ApplySetting);
         }
 
         private void RestoreDefaultSettings()

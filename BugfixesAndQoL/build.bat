@@ -11,7 +11,6 @@ set "GAME_SCRIPT_EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
 set "PLUGIN_NAME=BugfixesAndQoL_Serp"
 set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\%PLUGIN_NAME%"
 set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\%PLUGIN_NAME%"
-set "OLD_GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\SomeSettings_Serp"
 set "EXTENDER_DIR="
 set "NO_PAUSE=0"
 for %%A in (%*) do if /I "%%~A"=="/nopause" set "NO_PAUSE=1"
@@ -39,9 +38,6 @@ if not exist "%LOCAL_PLUGIN_DIR%\info.json" goto package_failed
 if exist "%GAME_PLUGIN_DIR%\" rmdir /S /Q "%GAME_PLUGIN_DIR%"
 xcopy "%LOCAL_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%\" /E /I /Q /Y >nul
 if errorlevel 1 goto copy_failed
-if exist "%OLD_GAME_PLUGIN_DIR%\" rmdir /S /Q "%OLD_GAME_PLUGIN_DIR%"
-if errorlevel 1 goto copy_failed
-
 echo Build und Installation von Bugfixes and QoL erfolgreich.
 if "%NO_PAUSE%"=="0" pause
 exit /b 0
