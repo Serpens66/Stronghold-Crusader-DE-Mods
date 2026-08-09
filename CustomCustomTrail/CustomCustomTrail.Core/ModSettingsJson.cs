@@ -5,52 +5,13 @@ using System.IO;
 using System.Linq;
 using System.Text;
 
-namespace Shared
+namespace CustomCustomTrail.Core
 {
-    public static class TrailModSettingsRegistry
+    public static class ModSettingsJson
     {
-        public static readonly string[] TargetModIds =
-        {
-            "BuildingCosts_Serp",
-            "BuildingLimit_Serp",
-            "ExtraFeatures_Serp",
-            "RandomEvents_Serp",
-            "StartConditions_Serp",
-            "UnitCosts_Serp",
-            "UnitLimit_Serp",
-        };
+        public static ModSettingsDefinition Read(string path) => ParseObject(File.ReadAllText(path, Encoding.UTF8));
 
-        public static string ElectLeader(IEnumerable<string> loadedIds) =>
-            (loadedIds ?? Enumerable.Empty<string>())
-                .Where(id => TargetModIds.Contains(id, StringComparer.Ordinal))
-                .OrderBy(id => id, StringComparer.Ordinal)
-                .FirstOrDefault();
-    }
-
-    public sealed class TrailSettingsDocument
-    {
-        public Dictionary<string, TrailModEntry> Mods { get; set; } = new Dictionary<string, TrailModEntry>(StringComparer.Ordinal);
-
-        public static TrailSettingsDocument CreateDisabled()
-        {
-            var document = new TrailSettingsDocument();
-            foreach (string id in TrailModSettingsRegistry.TargetModIds)
-                document.Mods[id] = new TrailModEntry();
-            return document;
-        }
-    }
-
-    public sealed class TrailModEntry
-    {
-        public bool Enabled { get; set; }
-        public Dictionary<string, object> Settings { get; set; } = new Dictionary<string, object>(StringComparer.Ordinal);
-    }
-
-    public static class TrailSettingsJson
-    {
-        public static TrailSettingsDocument Read(string path) => ParseObject(File.ReadAllText(path, Encoding.UTF8));
-
-        public static TrailSettingsDocument ParseObject(string json)
+        public static ModSettingsDefinition ParseObject(string json)
         {
             object rootObject = new JsonParser(json ?? string.Empty).Parse();
             if (!(rootObject is Dictionary<string, object> root))
@@ -60,12 +21,12 @@ namespace Shared
             if (!root.TryGetValue("mods", out object modsObject) || !(modsObject is Dictionary<string, object> mods))
                 throw new InvalidDataException("Trail mod-settings JSON requires a mods object.");
 
-            TrailSettingsDocument document = TrailSettingsDocument.CreateDisabled();
+            ModSettingsDefinition document = ModSettingsDefinition.CreateDisabled();
             foreach (KeyValuePair<string, object> mod in mods)
             {
                 if (!(mod.Value is Dictionary<string, object> rawEntry))
                     throw new InvalidDataException($"Mod entry [{mod.Key}] must be an object.");
-                var entry = new TrailModEntry();
+                var entry = new ModSettingsEntry();
                 if (rawEntry.TryGetValue("enabled", out object enabled))
                 {
                     if (!(enabled is bool enabledValue))
@@ -87,17 +48,45 @@ namespace Shared
                     entry.Settings.Clear();
                 document.Mods[mod.Key] = entry;
             }
-            return document;
+            return NormalizeAndValidate(document, "Trail mod-settings");
         }
 
-        public static string Serialize(TrailSettingsDocument document)
+        public static ModSettingsDefinition NormalizeAndValidate(ModSettingsDefinition settings, string path)
+        {
+            settings = settings ?? ModSettingsDefinition.CreateDisabled();
+            if (settings.SchemaVersion != 1)
+                throw new InvalidDataException((path ?? "modSettings") + ".schemaVersion must be 1.");
+            settings.Mods = settings.Mods ?? new Dictionary<string, ModSettingsEntry>(StringComparer.Ordinal);
+            var normalized = new Dictionary<string, ModSettingsEntry>(StringComparer.Ordinal);
+            foreach (string id in ModSettingsDefinition.TargetModIds)
+            {
+                if (!settings.Mods.TryGetValue(id, out ModSettingsEntry entry) || entry == null)
+                    entry = new ModSettingsEntry();
+                entry.Settings = entry.Settings ?? new Dictionary<string, object>(StringComparer.Ordinal);
+                if (!entry.Enabled)
+                    entry.Settings.Clear();
+                foreach (KeyValuePair<string, object> value in entry.Settings)
+                {
+                    if (string.IsNullOrWhiteSpace(value.Key) || !IsNativeValue(value.Value))
+                        throw new InvalidDataException((path ?? "modSettings") + "." + id + ".settings contains an unsupported value for " + value.Key + ".");
+                }
+                entry.Settings = entry.Settings
+                    .OrderBy(value => value.Key, StringComparer.Ordinal)
+                    .ToDictionary(value => value.Key, value => value.Value, StringComparer.Ordinal);
+                normalized[id] = entry;
+            }
+            settings.Mods = normalized;
+            return settings;
+        }
+
+        public static string Serialize(ModSettingsDefinition document)
         {
             var output = new StringBuilder(4096);
             output.Append("{\r\n  \"schemaVersion\": 1,\r\n  \"mods\": {\r\n");
-            for (int modIndex = 0; modIndex < TrailModSettingsRegistry.TargetModIds.Length; modIndex++)
+            for (int modIndex = 0; modIndex < ModSettingsDefinition.TargetModIds.Length; modIndex++)
             {
-                string id = TrailModSettingsRegistry.TargetModIds[modIndex];
-                TrailModEntry entry = document?.Mods != null && document.Mods.TryGetValue(id, out TrailModEntry found) ? found : new TrailModEntry();
+                string id = ModSettingsDefinition.TargetModIds[modIndex];
+                ModSettingsEntry entry = document?.Mods != null && document.Mods.TryGetValue(id, out ModSettingsEntry found) ? found : new ModSettingsEntry();
                 output.Append("    ");
                 AppendString(output, id);
                 output.Append(": {\r\n      \"enabled\": ").Append(entry.Enabled ? "true" : "false");
@@ -118,13 +107,13 @@ namespace Shared
                     output.Append("      ");
                 }
                 output.Append("}\r\n    }");
-                if (modIndex + 1 < TrailModSettingsRegistry.TargetModIds.Length) output.Append(',');
+                if (modIndex + 1 < ModSettingsDefinition.TargetModIds.Length) output.Append(',');
                 output.Append("\r\n");
             }
             return output.Append("  }\r\n}\r\n").ToString();
         }
 
-        public static void WriteAtomic(string path, TrailSettingsDocument document)
+        public static void WriteAtomic(string path, ModSettingsDefinition document)
         {
             string fullPath = Path.GetFullPath(path);
             Directory.CreateDirectory(Path.GetDirectoryName(fullPath));

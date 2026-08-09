@@ -2,11 +2,40 @@
   "GUID": "CustomCustomTrail_Serp",
   "Author": "Serpens66",
   "Name": "Custom Custom Trail",
-  "Description": "Replaces vanilla Coop Trail missions with validated JSON missions and bundled or installed maps, lords and AIVs.",
-  "Version": "1.1.0",
+  "Description": "Coordinates Custom Trail sidecars, mission presets and customization, and replaces Coop Trail missions from editable JSON bundles.",
+  "Version": "1.2.3",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.2.3",
+      "Changes": [
+        "Suppressed transient Custom Trail selection callbacks while opening the Customize lobby so they cannot replace the selected mission preset.",
+        "Added sidecar path, existence and enabled-mod diagnostics to Trail load logs."
+      ]
+    },
+    {
+      "Version": "1.2.2",
+      "Changes": [
+        "Captured the currently visible Trail settings synchronously for each individual save instead of carrying an unload snapshot into the next save.",
+        "Added an enabled-mod summary to each Trail sidecar capture log entry."
+      ]
+    },
+    {
+      "Version": "1.2.1",
+      "Changes": [
+        "Preserved editable Trail mod settings before the Trail Maker unloads its map during saving.",
+        "Prevented capture failures from overwriting sidecars with an all-disabled fallback."
+      ]
+    },
+    {
+      "Version": "1.2.0",
+      "Changes": [
+        "Centralized all Custom Trail sidecar, mission-preset and customization hooks in CustomCustomTrail.",
+        "Removed per-settings-mod hook leaders and the Coop reflection bridge.",
+        "Added the shared Customize button to all four Coop lobby pages."
+      ]
+    },
     {
       "Version": "1.1.0",
       "Changes": [

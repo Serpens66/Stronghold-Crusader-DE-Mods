@@ -47,8 +47,6 @@
   <ItemGroup><Content Include="Locales\*.txt"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content></ItemGroup>
   <ItemGroup>
     <Compile Include="..\Shared\PresetLobbyModSettingsViewModel.cs"><Link>Shared\PresetLobbyModSettingsViewModel.cs</Link></Compile>
-    <Compile Include="..\Shared\TrailModSettings.cs"><Link>Shared\TrailModSettings.cs</Link></Compile>
-    <Compile Include="..\Shared\TrailModSettingsDocument.cs"><Link>Shared\TrailModSettingsDocument.cs</Link></Compile>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Target Name="ValidateScriptExtenderReference" BeforeTargets="BeforeBuild"><Error Condition="!Exists('$(ExtenderDir)\SHCDESE.dll')" Text="SHCDESE.dll was not found: $(ExtenderDir)" /></Target>

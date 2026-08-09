@@ -37,7 +37,7 @@ namespace CustomCustomTrail
         private InitCoopMissionsDelegate initTrampoline;
         private CoopMissionChangedDelegate missionTrampoline;
         private ButtonClickedDelegate buttonTrampoline;
-        private TrailModSettingsBridge trailModSettings;
+        private TrailMissionSettingsCoordinator missionSettingsCoordinator;
         private string[] missingMods = Array.Empty<string>();
         private ResolvedMission selected;
 
@@ -49,7 +49,8 @@ namespace CustomCustomTrail
 
         public void Initialize()
         {
-            trailModSettings = new TrailModSettingsBridge();
+            missionSettingsCoordinator = new TrailMissionSettingsCoordinator(log);
+            missionSettingsCoordinator.Initialize();
             subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
                 .Subscribe(_ => ClearLaunchState()));
@@ -64,7 +65,7 @@ namespace CustomCustomTrail
             buttonHook = new Hook(buttonMethod, (ButtonClickedDelegate)ButtonClickedHook);
             buttonTrampoline = buttonHook.GenerateTrampoline<ButtonClickedDelegate>();
 
-            LogInfo("Runtime initialized; mission identity uses TrailN/NN.coopmission.json, trailModSettings=" + trailModSettings.IsAvailable + ".");
+            LogInfo("Runtime initialized; mission identity uses TrailN/NN.coopmission.json and centralized Trail settings.");
         }
 
         public void Dispose()
@@ -75,12 +76,14 @@ namespace CustomCustomTrail
             initHook?.Dispose();
             missionHook?.Dispose();
             buttonHook?.Dispose();
-            trailModSettings?.Exit();
+            missionSettingsCoordinator?.ExitContext(force: true);
+            missionSettingsCoordinator?.Dispose();
         }
 
         private void InitCoopMissionsHook(FRONT_Multiplayer self)
         {
             initTrampoline(self);
+            missionSettingsCoordinator.EnsureCoopCustomizeButtons();
             try
             {
                 ReloadAndReplace();
@@ -94,24 +97,28 @@ namespace CustomCustomTrail
         private void CoopMissionChangedHook(FRONT_Multiplayer self, int trailId, int missionId, bool resetOrderSwapped)
         {
             missionTrampoline(self, trailId, missionId, resetOrderSwapped);
+            missionSettingsCoordinator.EnsureCoopCustomizeButtons();
             resolved.TryGetValue(MissionCatalog.ToKey(trailId + 1, missionId), out selected);
             if (selected == null)
             {
                 missingMods = Array.Empty<string>();
-                trailModSettings.Exit();
+                missionSettingsCoordinator.ExitContext();
                 return;
             }
 
             try
             {
                 ApplySelectedMission(self, true);
-                missingMods = trailModSettings.Enter(selected.Loaded.Definition.ModSettings, editable: false);
+                missingMods = missionSettingsCoordinator.Enter(
+                    selected.Loaded.Definition.ModSettings,
+                    editable: false,
+                    source: "custom Coop mission");
             }
             catch (Exception ex)
             {
                 selected = null;
                 missingMods = Array.Empty<string>();
-                trailModSettings.Exit();
+                missionSettingsCoordinator.ExitContext();
                 LogError("Could not activate replacement Trail" + (trailId + 1) + "/" + missionId.ToString("00") + ": " + ex);
             }
         }
@@ -191,7 +198,7 @@ namespace CustomCustomTrail
 
         private void ClearLaunchState()
         {
-            trailModSettings?.Exit();
+            missionSettingsCoordinator?.ExitContext(force: true);
             selected = null;
             missingMods = Array.Empty<string>();
         }

@@ -1,10 +1,11 @@
-using BepInEx;
 using BepInEx.Bootstrap;
 using BepInEx.Logging;
+using CustomCustomTrail.Core;
 using CrusaderDE;
 using MessagePack;
 using MonoMod.RuntimeDetour;
 using Noesis;
+using Shared;
 using SHCDESE.API;
 using SHCDESE.API.Components.Network;
 using System;
@@ -15,47 +16,13 @@ using System.Linq;
 using System.Reflection;
 using IOPath = System.IO.Path;
 
-namespace Shared
+namespace CustomCustomTrail
 {
-    /// <summary>
-    /// Process-wide Trail integration. Every participating mod embeds this type, but only
-    /// the lexicographically first loaded participant installs hooks and writes sidecars.
-    /// </summary>
-    public static class TrailModSettingsRuntime
+    /// <summary>Owns the process-wide Custom Trail settings and customization integration.</summary>
+    internal sealed class TrailMissionSettingsCoordinator : IDisposable
     {
-        public static readonly string[] TargetModIds = TrailModSettingsRegistry.TargetModIds;
         private static readonly HashSet<string> TargetModIdSet =
-            new HashSet<string>(TargetModIds, StringComparer.Ordinal);
-
-        private static LeaderRuntime leader;
-
-        public static void RegisterParticipant(
-            BaseUnityPlugin plugin,
-            ManualLogSource log,
-            string modId)
-        {
-            if (plugin == null || !TargetModIdSet.Contains(modId))
-                return;
-
-            string elected = TrailModSettingsRegistry.ElectLeader(Chainloader.PluginInfos.Keys);
-            if (!string.Equals(elected, modId, StringComparison.Ordinal) || leader != null)
-                return;
-
-            leader = new LeaderRuntime(log, modId);
-            leader.Initialize();
-        }
-
-        // Neutral reflection API used by CustomCustomTrail without a hard assembly reference.
-        public static string[] System_EnterCoopTrailJson(string modSettingsJson, bool editable) =>
-            leader?.EnterJson(modSettingsJson, editable, "custom Coop mission") ?? Array.Empty<string>();
-
-        public static void System_ExitTrailContext()
-        {
-            leader?.ExitContext();
-        }
-
-        private sealed class LeaderRuntime
-        {
+            new HashSet<string>(ModSettingsDefinition.TargetModIds, StringComparer.Ordinal);
             private delegate void SaveCustomTrailMapDelegate(
                 EditorDirector self,
                 string mapPath,
@@ -81,13 +48,11 @@ namespace Shared
             private delegate void StartSkirmishGameDelegate(
                 FRONT_Multiplayer self,
                 HUD_IngameMenu.RestartSkirmishMapInfo customTrailRestartInfo);
-            private delegate void CoopMissionChangedDelegate(FRONT_Multiplayer self, int trailId, int missionId, bool resetOrderSwapped);
             private delegate void FrontendOpenCustomTrailDelegate(FrontendMenus self, string trailName, int level);
             private delegate void FrontendButtonDelegate(FrontendMenus self, string command);
             private delegate void TrailSelectionDelegate(FrontendMenus self, int missionId, bool fromRealClick);
 
             private readonly ManualLogSource log;
-            private readonly string ownerModId;
             private readonly List<IDisposable> hooks = new List<IDisposable>();
             private readonly Dictionary<Type, Dictionary<string, PropertyInfo>> persistedPropertiesByType =
                 new Dictionary<Type, Dictionary<string, PropertyInfo>>();
@@ -101,7 +66,6 @@ namespace Shared
             private StartCustomTrailDelegate startCustomTrailOriginal;
             private MultiplayerOpenDelegate multiplayerOpenOriginal;
             private StartSkirmishGameDelegate startSkirmishGameOriginal;
-            private CoopMissionChangedDelegate coopMissionChangedOriginal;
             private FrontendOpenCustomTrailDelegate frontendOpenCustomTrailOriginal;
             private FrontendButtonDelegate frontendButtonOriginal;
             private TrailSelectionDelegate trailSelectionOriginal;
@@ -109,6 +73,7 @@ namespace Shared
             private bool preserveContextForLaunch;
             private bool customTrailLaunchActive;
             private bool cleanupDeferralLogged;
+            private bool openingCustomTrailSetup;
             private HUD_IngameMenu.RestartSkirmishMapInfo customTrailSetupRestartInfo;
             private FileHeader customTrailSetupHeader;
             private string activeSidecarPath;
@@ -116,10 +81,9 @@ namespace Shared
             private long activeSidecarWriteTicks;
             private bool activeSidecarEditable;
 
-            public LeaderRuntime(ManualLogSource log, string ownerModId)
+            public TrailMissionSettingsCoordinator(ManualLogSource log)
             {
                 this.log = log;
-                this.ownerModId = ownerModId;
             }
 
             public void Initialize()
@@ -160,11 +124,6 @@ namespace Shared
                         new[] { typeof(HUD_IngameMenu.RestartSkirmishMapInfo) },
                         null),
                     (StartSkirmishGameDelegate)StartSkirmishGameHook);
-                coopMissionChangedOriginal = InstallHook(
-                    typeof(FRONT_Multiplayer).GetMethod(
-                        nameof(FRONT_Multiplayer.CoopMissionChanged),
-                        new[] { typeof(int), typeof(int), typeof(bool) }),
-                    (CoopMissionChangedDelegate)CoopMissionChangedHook);
                 frontendOpenCustomTrailOriginal = InstallHook(
                     typeof(FrontendMenus).GetMethod(nameof(FrontendMenus.OpenCustomTrail), new[] { typeof(string), typeof(int) }),
                     (FrontendOpenCustomTrailDelegate)FrontendOpenCustomTrailHook);
@@ -177,16 +136,22 @@ namespace Shared
                         new[] { typeof(int), typeof(bool) }),
                     (TrailSelectionDelegate)TrailSelectionHook);
 
-                InjectCoopCustomizeButtons();
-
-                DebugLogHelper.LogInfo(log, $"Trail mod-settings leader [{ownerModId}] initialized.");
+                EnsureCoopCustomizeButtons();
+                DebugLogHelper.LogInfo(log, "Trail mission-settings coordinator initialized.");
             }
 
-            public string[] EnterJson(string json, bool editable, string source)
+            public void Dispose()
+            {
+                foreach (IDisposable hook in hooks)
+                    hook.Dispose();
+                hooks.Clear();
+            }
+
+            public string[] Enter(ModSettingsDefinition document, bool editable, string source)
             {
                 try
                 {
-                    TrailSettingsDocument document = TrailSettingsJson.ParseObject(json);
+                    document = ModSettingsJson.NormalizeAndValidate(document, source + ".modSettings");
                     ApplyDocument(document, editable);
                     DebugLogHelper.LogInfo(log, $"Loaded {source} mod settings; editable={editable}.");
                     return GetMissingEnabledMods(document);
@@ -194,12 +159,12 @@ namespace Shared
                 catch (Exception exception)
                 {
                     DebugLogHelper.LogError(log, $"Could not load {source} mod settings; all Trail mods are disabled: {exception}");
-                    ApplyDocument(TrailSettingsDocument.CreateDisabled(), editable);
+                    ApplyDocument(ModSettingsDefinition.CreateDisabled(), editable);
                     return Array.Empty<string>();
                 }
             }
 
-            private static string[] GetMissingEnabledMods(TrailSettingsDocument document) =>
+            private static string[] GetMissingEnabledMods(ModSettingsDefinition document) =>
                 document.Mods
                     .Where(entry => entry.Value != null && entry.Value.Enabled)
                     .Select(entry => entry.Key)
@@ -230,7 +195,7 @@ namespace Shared
                 }
 
                 foreach (object viewModel in FindTargetViewModels().Values)
-                    Invoke(viewModel, "System_ExitTrailPreset");
+                    Invoke(viewModel, "System_ExitMissionPreset");
                 trailContext = false;
                 preserveContextForLaunch = false;
                 customTrailLaunchActive = false;
@@ -248,28 +213,36 @@ namespace Shared
                 string trailPath,
                 HUD_IngameMenu.RestartSkirmishMapInfo restartInfo)
             {
-                TrailSettingsDocument document;
+                ModSettingsDefinition document = null;
                 try
                 {
-                    // Vanilla rebuilds the editor while saving and can restore the local preset.
-                    // Capture the values that were visible when the player pressed Save first.
-                    document = CaptureDocument();
+                    // Vanilla unloads and rebuilds the editor inside the original save call.
+                    // Capture synchronously before invoking it so every save uses its own visible values.
+                    document = CaptureDocument(requireLoadedEndpoints: true);
+                    string[] enabledMods = document.Mods
+                        .Where(entry => entry.Value.Enabled)
+                        .Select(entry => entry.Key)
+                        .ToArray();
+                    DebugLogHelper.LogInfo(
+                        log,
+                        "Captured Trail mod settings before save; enabled=[" + string.Join(", ", enabledMods) + "].");
                 }
                 catch (Exception exception)
                 {
                     DebugLogHelper.LogError(
                         log,
-                        $"Could not capture Trail mod settings before saving [{trailPath}]; all Trail mods will be disabled: {exception}");
-                    document = TrailSettingsDocument.CreateDisabled();
+                        $"Could not capture Trail mod settings before saving [{trailPath}]; its sidecar will not be changed: {exception}");
                 }
 
                 saveCustomTrailMapOriginal(self, mapPath, mapName, trailPath, restartInfo);
+                if (document == null)
+                    return;
                 string sidecar = IOPath.GetFullPath(IOPath.ChangeExtension(trailPath, ".modjson"));
                 try
                 {
                     if (!File.Exists(trailPath))
                         throw new FileNotFoundException("The game did not create the expected Trail mission.", trailPath);
-                    TrailSettingsJson.WriteAtomic(sidecar, document);
+                    ModSettingsJson.WriteAtomic(sidecar, document);
                     DebugLogHelper.LogInfo(log, $"Saved Trail mod settings beside [{trailPath}].");
                 }
                 catch (Exception exception)
@@ -326,12 +299,12 @@ namespace Shared
                         if (loadedHeader != null)
                             EnterSidecar(loadedHeader.filePath, editable: true);
                         else
-                            ApplyDocument(TrailSettingsDocument.CreateDisabled(), editable: true);
+                            ApplyDocument(ModSettingsDefinition.CreateDisabled(), editable: true);
                     }
                     catch (Exception exception)
                     {
                         DebugLogHelper.LogError(log, $"Could not activate editable Trail mod settings: {exception}");
-                        ApplyDocument(TrailSettingsDocument.CreateDisabled(), editable: true);
+                        ApplyDocument(ModSettingsDefinition.CreateDisabled(), editable: true);
                     }
                 }
             }
@@ -407,7 +380,7 @@ namespace Shared
                     catch (Exception exception)
                     {
                         DebugLogHelper.LogError(log, $"Could not prepare Custom Trail mod settings: {exception}");
-                        ApplyDocument(TrailSettingsDocument.CreateDisabled(), editable: false);
+                        ApplyDocument(ModSettingsDefinition.CreateDisabled(), editable: false);
                     }
                 }
                 preserveContextForLaunch = false;
@@ -471,12 +444,6 @@ namespace Shared
                 customTrailSetupHeader = null;
             }
 
-            private void CoopMissionChangedHook(FRONT_Multiplayer self, int trailId, int missionId, bool resetOrderSwapped)
-            {
-                coopMissionChangedOriginal(self, trailId, missionId, resetOrderSwapped);
-                InjectCoopCustomizeButtons();
-            }
-
             private void FrontendOpenCustomTrailHook(FrontendMenus self, string trailName, int level)
             {
                 frontendOpenCustomTrailOriginal(self, trailName, level);
@@ -486,7 +453,8 @@ namespace Shared
             private void TrailSelectionHook(FrontendMenus self, int missionId, bool fromRealClick)
             {
                 trailSelectionOriginal(self, missionId, fromRealClick);
-                if (FrontendMenus.CurrentSelectedTrail >= 90 && FrontendMenus.CurrentSelectedTrail <= 92)
+                if (!openingCustomTrailSetup &&
+                    FrontendMenus.CurrentSelectedTrail >= 90 && FrontendMenus.CurrentSelectedTrail <= 92)
                     EnterSelectedCustomTrail(self);
             }
 
@@ -531,7 +499,7 @@ namespace Shared
                 catch (Exception exception)
                 {
                     DebugLogHelper.LogError(log, $"Could not select Custom Trail mod settings: {exception}");
-                    ApplyDocument(TrailSettingsDocument.CreateDisabled(), editable: false);
+                    ApplyDocument(ModSettingsDefinition.CreateDisabled(), editable: false);
                 }
             }
 
@@ -572,18 +540,26 @@ namespace Shared
                 customTrailSetupRestartInfo = restartInfo;
                 customTrailSetupHeader = header;
 
-                // Match Vanilla's Customize transition so the setup replaces the Trail page
-                // instead of appearing as a smaller panel over it.
-                FrontendMenus.ClearUIPanels(frontEndState: true, logo: false);
-                MainViewModel.Instance.Show_FrontMenus_Background_Main = false;
-                preserveContextForLaunch = true;
-                FRONT_Multiplayer.Open(
-                    skirmishSetup: true,
-                    restartInfo: restartInfo,
-                    coopSetup: false,
-                    trailMaker: false,
-                    customiseTrailType: -1,
-                    customiseTrailID: -1);
+                openingCustomTrailSetup = true;
+                try
+                {
+                    // Match Vanilla's Customize transition so the setup replaces the Trail page.
+                    // Ignore selection callbacks raised by doOpen; they refer to transient UI state.
+                    FrontendMenus.ClearUIPanels(frontEndState: true, logo: false);
+                    MainViewModel.Instance.Show_FrontMenus_Background_Main = false;
+                    preserveContextForLaunch = true;
+                    FRONT_Multiplayer.Open(
+                        skirmishSetup: true,
+                        restartInfo: restartInfo,
+                        coopSetup: false,
+                        trailMaker: false,
+                        customiseTrailType: -1,
+                        customiseTrailID: -1);
+                }
+                finally
+                {
+                    openingCustomTrailSetup = false;
+                }
                 // doOpen can trigger unrelated context cleanup; apply the selected mission again
                 // after all lobby view models exist so Trail is visible and selected immediately.
                 EnterSidecar(header.filePath, editable: false);
@@ -603,11 +579,12 @@ namespace Shared
                     FRONT_ManageTrail.GetMakerFileName(mission - 1));
             }
 
-            private void InjectCoopCustomizeButtons()
+            internal void EnsureCoopCustomizeButtons()
             {
                 InjectCoopCustomizeButton(FRONT_CoopTrail1.Instance);
                 InjectCoopCustomizeButton(FRONT_CoopTrail2.Instance);
                 InjectCoopCustomizeButton(FRONT_CoopTrail3.Instance);
+                InjectCoopCustomizeButton(FRONT_CoopTrail4.Instance);
             }
 
             private readonly HashSet<UserControl> injectedCoopPages = new HashSet<UserControl>();
@@ -722,27 +699,48 @@ namespace Shared
                     return;
                 }
 
-                TrailSettingsDocument document = exists
-                    ? TrailSettingsJson.Read(sidecar)
-                    : TrailSettingsDocument.CreateDisabled();
+                ModSettingsDefinition document = exists
+                    ? ModSettingsJson.Read(sidecar)
+                    : ModSettingsDefinition.CreateDisabled();
                 ApplyDocument(document, editable);
+                string[] enabledMods = document.Mods
+                    .Where(entry => entry.Value.Enabled)
+                    .Select(entry => entry.Key)
+                    .ToArray();
+                DebugLogHelper.LogInfo(
+                    log,
+                    $"Loaded Trail sidecar [{sidecar}]; exists={exists}, editable={editable}, " +
+                    "enabled=[" + string.Join(", ", enabledMods) + "].");
                 activeSidecarPath = sidecar;
                 activeSidecarLength = length;
                 activeSidecarWriteTicks = writeTicks;
                 activeSidecarEditable = editable;
             }
 
-            private TrailSettingsDocument CaptureDocument()
+            private ModSettingsDefinition CaptureDocument(bool requireLoadedEndpoints = false)
             {
-                TrailSettingsDocument document = TrailSettingsDocument.CreateDisabled();
-                foreach (KeyValuePair<string, object> participant in FindTargetViewModels())
+                ModSettingsDefinition document = ModSettingsDefinition.CreateDisabled();
+                Dictionary<string, object> participants = FindTargetViewModels();
+                if (requireLoadedEndpoints)
+                {
+                    string[] missingEndpoints = ModSettingsDefinition.TargetModIds
+                        .Where(id => Chainloader.PluginInfos.ContainsKey(id) && !participants.ContainsKey(id))
+                        .ToArray();
+                    if (missingEndpoints.Length != 0)
+                    {
+                        throw new InvalidOperationException(
+                            "Loaded settings mods have no registered ViewModel endpoint: " + string.Join(", ", missingEndpoints));
+                    }
+                }
+
+                foreach (KeyValuePair<string, object> participant in participants)
                 {
                     object viewModel = participant.Value;
                     Dictionary<string, PropertyInfo> properties = GetPersistedProperties(viewModel);
                     bool enabled = properties.TryGetValue("EnableMod", out PropertyInfo enableProperty) &&
                         enableProperty.PropertyType == typeof(bool) &&
                         (bool)enableProperty.GetValue(viewModel);
-                    TrailModEntry target = document.Mods[participant.Key];
+                    ModSettingsEntry target = document.Mods[participant.Key];
                     target.Enabled = enabled;
                     if (!enabled)
                         continue;
@@ -753,18 +751,18 @@ namespace Shared
                 return document;
             }
 
-            private void ApplyDocument(TrailSettingsDocument document, bool editable)
+            private void ApplyDocument(ModSettingsDefinition document, bool editable)
             {
                 ClearActiveSidecar();
                 Dictionary<string, object> participants = FindTargetViewModels();
                 var prepared = new List<KeyValuePair<object, Dictionary<string, byte[]>>>(participants.Count);
                 foreach (KeyValuePair<string, object> participant in participants)
                 {
-                    TrailModEntry entry = document.Mods.TryGetValue(participant.Key, out TrailModEntry stored)
+                    ModSettingsEntry entry = document.Mods.TryGetValue(participant.Key, out ModSettingsEntry stored)
                         ? stored
-                        : new TrailModEntry();
+                        : new ModSettingsEntry();
                     Dictionary<string, byte[]> snapshot =
-                        (Dictionary<string, byte[]>)Invoke(participant.Value, "System_CreateDisabledTrailSnapshot");
+                        (Dictionary<string, byte[]>)Invoke(participant.Value, "System_CreateDisabledMissionPresetSnapshot");
                     if (entry.Enabled)
                     {
                         snapshot["EnableMod"] = MessagePackSerializer.Serialize(true);
@@ -781,7 +779,7 @@ namespace Shared
                 }
 
                 foreach (KeyValuePair<object, Dictionary<string, byte[]>> item in prepared)
-                    Invoke(item.Key, "System_EnterTrailPreset", item.Value, editable);
+                    Invoke(item.Key, "System_EnterMissionPreset", item.Value, "Trail", editable);
                 trailContext = true;
             }
 
@@ -815,7 +813,7 @@ namespace Shared
                 Dictionary<string, object> participants = FindTargetViewModels();
                 return participants.Count > 0 && participants.Values.All(viewModel =>
                 {
-                    PropertyInfo property = viewModel.GetType().GetProperty("IsTrailPresetActive", BindingFlags.Instance | BindingFlags.Public);
+                    PropertyInfo property = viewModel.GetType().GetProperty("IsMissionPresetActive", BindingFlags.Instance | BindingFlags.Public);
                     return property != null && property.PropertyType == typeof(bool) && (bool)property.GetValue(viewModel);
                 });
             }
@@ -898,6 +896,4 @@ namespace Shared
                 return found.Invoke(target, arguments);
             }
         }
-    }
-
 }

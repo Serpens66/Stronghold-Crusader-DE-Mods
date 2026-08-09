@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.Serialization.Json;
-using System.Text;
 
 namespace CustomCustomTrail.Core
 {
@@ -55,15 +54,6 @@ namespace CustomCustomTrail.Core
             if (!File.Exists(result))
                 throw new FileNotFoundException("Bundled asset was not found.", result);
             return result;
-        }
-
-        public static string SerializeModSettings(ModSettingsDefinition settings)
-        {
-            using (var stream = new MemoryStream())
-            {
-                CreateModSettingsSerializer().WriteObject(stream, settings ?? ModSettingsDefinition.CreateDisabled());
-                return Encoding.UTF8.GetString(stream.ToArray());
-            }
         }
 
         private static void Validate(CoopMissionDefinition mission)
@@ -149,34 +139,8 @@ namespace CustomCustomTrail.Core
 
         private static void NormalizeAndValidateModSettings(CoopMissionDefinition mission)
         {
-            ModSettingsDefinition settings = mission.ModSettings ?? ModSettingsDefinition.CreateDisabled();
-            if (settings.SchemaVersion != 1)
-                throw new InvalidDataException("modSettings.schemaVersion must be 1.");
-            settings.Mods = settings.Mods ?? new Dictionary<string, ModSettingsEntry>(StringComparer.Ordinal);
-            var normalizedMods = new Dictionary<string, ModSettingsEntry>(StringComparer.Ordinal);
-            foreach (string id in ModSettingsDefinition.TargetModIds)
-            {
-                if (!settings.Mods.TryGetValue(id, out ModSettingsEntry entry) || entry == null)
-                    entry = new ModSettingsEntry();
-                entry.Settings = entry.Settings ?? new Dictionary<string, object>(StringComparer.Ordinal);
-                if (!entry.Enabled)
-                    entry.Settings.Clear();
-                foreach (KeyValuePair<string, object> value in entry.Settings)
-                {
-                    if (string.IsNullOrWhiteSpace(value.Key) || !IsSupportedSettingValue(value.Value))
-                        throw new InvalidDataException("modSettings." + id + ".settings contains an unsupported value for " + value.Key + ".");
-                }
-                entry.Settings = entry.Settings
-                    .OrderBy(value => value.Key, StringComparer.Ordinal)
-                    .ToDictionary(value => value.Key, value => value.Value, StringComparer.Ordinal);
-                normalizedMods[id] = entry;
-            }
-            settings.Mods = normalizedMods;
-            mission.ModSettings = settings;
+            mission.ModSettings = ModSettingsJson.NormalizeAndValidate(mission.ModSettings, "modSettings");
         }
-
-        private static bool IsSupportedSettingValue(object value) =>
-            value is bool || value is string || value is int || value is long || value is double || value is decimal;
 
         private static List<string> ResolveBundledFiles(CoopMissionDefinition mission, string root)
         {
@@ -203,11 +167,6 @@ namespace CustomCustomTrail.Core
                 UseSimpleDictionaryFormat = true,
             });
 
-        private static DataContractJsonSerializer CreateModSettingsSerializer() =>
-            new DataContractJsonSerializer(typeof(ModSettingsDefinition), new DataContractJsonSerializerSettings
-            {
-                UseSimpleDictionaryFormat = true,
-            });
     }
 
 }

@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.2",
+  "Version": "1.0.3",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.3",
+      "Changes": [
+        "Delegated optional mission-preset coordination to CustomCustomTrail; local presets remain standalone."
+      ]
+    },
     {
       "Version": "1.0.2",
       "Changes": [

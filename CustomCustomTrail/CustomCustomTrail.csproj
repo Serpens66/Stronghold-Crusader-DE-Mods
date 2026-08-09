@@ -52,8 +52,8 @@
     <Compile Include="..\Shared\DebugLogHelper.cs"><Link>Shared\DebugLogHelper.cs</Link></Compile>
     <Compile Include="src\CustomCustomTrailPlugin.cs" />
     <Compile Include="src\CustomCustomTrailRuntime.cs" />
+    <Compile Include="src\TrailMissionSettingsCoordinator.cs" />
     <Compile Include="src\MissionAssetResolver.cs" />
-    <Compile Include="src\OptionalModBridges.cs" />
     <Compile Include="src\ResolvedMission.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

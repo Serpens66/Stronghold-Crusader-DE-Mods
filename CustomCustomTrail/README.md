@@ -1,8 +1,16 @@
 # Custom Custom Trail
 
-`CustomCustomTrail` ersetzt einzelne Missionen der eingebauten Coop-Trails durch lokale `*.coopmission.json`-Bundles. Zur Laufzeit werden keine `.trail`-Dateien benötigt. Map, Lord-Konfigurationen (`.lordjson`) und Burgen (`.aivjson`) dürfen aus der Spielinstallation stammen oder direkt mit einer Mission geliefert werden.
+`CustomCustomTrail` ist der zentrale Koordinator für benutzerdefinierte Trails. Er speichert die Einstellungen unterstützter Mods neben normalen Custom-Trail-Missionen als gleichnamige `.modjson`, lädt sie als Missionspreset `Trail` und stellt die gemeinsamen `Anpassen`-Übergänge für Custom- und Coop-Trails bereit. Außerdem ersetzt er einzelne Missionen der eingebauten Coop-Trails durch lokale `*.coopmission.json`-Bundles. Map, Lord-Konfigurationen (`.lordjson`) und Burgen (`.aivjson`) dürfen aus der Spielinstallation stammen oder direkt mit einer Mission geliefert werden.
 
 Der Mod ist für SHCDE V2.8 gebaut und benötigt BepInEx sowie den SHCDE Script Extender. In echtem Coop laden Host und Gast ihre jeweilige lokale Mission desselben Trail-/Missionsplatzes. Der Mod vergleicht diese Dateien nicht; kompatible Inhalte liegen daher in der Verantwortung der Spieler.
+
+Die unterstützten Settings-Mods besitzen keine Abhängigkeit auf `CustomCustomTrail`. Ohne diesen Koordinator funktionieren ihre lokalen Voreinstellungen 1/2 normal weiter; `Trail` bleibt unsichtbar, vorhandene `.modjson` werden ignoriert und neue Custom-Trail-Speicherungen erzeugen keine Sidecars.
+
+## Normale Custom Trails
+
+Zu `Trail_Mission_1.trail` gehört ausschließlich über denselben Basisnamen `Trail_Mission_1.modjson`. Beim Speichern erfasst der Koordinator die aktuell wirksamen Einstellungen vor dem Vanilla-Speichervorgang, schreibt das Sidecar atomar und aktiviert den gespeicherten Stand anschließend wieder editierbar als `Trail`. Import, Export, Backup, Renummerierung und Löschen spiegeln die Sidecars.
+
+Beim normalen Missionsstart ist `Trail` schreibgeschützt und standardmäßig aktiv. Über `Anpassen` wird die vollständige Skirmish-Lobby mit der richtigen Trail-Map geöffnet. Lokale Voreinstellungen 1/2 bleiben auswählbar und speichern Änderungen weiterhin normal; ein Wechsel zurück auf `Trail` stellt den unveränderten Missionsstand wieder her.
 
 ## Installation und Platzzuordnung
 
@@ -166,4 +174,4 @@ Ein einzelner Platz wird verworfen und bleibt Vanilla, wenn unter anderem:
 
 ## Entwicklung und Tests
 
-`build.bat` führt die Core-Tests aus, baut das Plugin, erzeugt das lokale Paket unter `BepInEx\plugins\CustomCustomTrail_Serp` und installiert es atomar über einen temporären Ordner in die Spielinstallation. Die Runtime verwendet die installierte SHCDE-V2.8-`Assembly-CSharp.dll` und den lokalen Script-Extender-Fork als Referenz.
+`build.bat` führt die zusammengeführten Core-, Sidecar- und Strukturtests aus, baut das Plugin, erzeugt das lokale Paket unter `BepInEx\plugins\CustomCustomTrail_Serp` und installiert es atomar über einen temporären Ordner in die Spielinstallation. Die Runtime verwendet die installierte SHCDE-V2.8-`Assembly-CSharp.dll` und den lokalen Script-Extender-Fork als Referenz.

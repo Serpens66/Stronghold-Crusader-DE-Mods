@@ -11,7 +11,7 @@ namespace CustomCustomTrail
     {
         public const string PluginGuid = "CustomCustomTrail_Serp";
         public const string PluginName = "Custom Custom Trail";
-        public const string PluginVersion = "1.1.0";
+        public const string PluginVersion = "1.2.3";
 
         private static CustomCustomTrailRuntime runtime;
 
@@ -33,6 +33,15 @@ namespace CustomCustomTrail
             }
             catch (Exception ex)
             {
+                try
+                {
+                    runtime?.Dispose();
+                }
+                catch (Exception cleanupException)
+                {
+                    Shared.DebugLogHelper.LogWarning(Logger, "CustomCustomTrail partial initialization cleanup failed: " + cleanupException);
+                }
+                runtime = null;
                 Shared.DebugLogHelper.LogError(Logger, "CustomCustomTrail initialization failed: " + ex);
             }
         }

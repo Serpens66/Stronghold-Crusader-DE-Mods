@@ -24,14 +24,14 @@ namespace Shared
         private ComboBoxItem[] presetOptions = Array.Empty<ComboBoxItem>();
         private PresetController presetController;
         private int selectedPreset;
-        private bool trailContext;
-        private bool trailEditable;
+        private bool missionPresetContext;
+        private bool missionPresetEditable;
 
         public ComboBoxItem[] PresetOptions => presetOptions;
 
-        public bool AreSettingsEditable => !trailContext || selectedPreset != 2 || trailEditable;
+        public bool AreSettingsEditable => !missionPresetContext || selectedPreset != 2 || missionPresetEditable;
 
-        public bool IsTrailPresetActive => trailContext && selectedPreset == 2;
+        public bool IsMissionPresetActive => missionPresetContext && selectedPreset == 2;
 
         // Zero-based because Noesis binds this value directly to ComboBox.SelectedIndex.
         public int SelectedPreset
@@ -39,7 +39,7 @@ namespace Shared
             get => selectedPreset;
             set
             {
-                int normalized = trailContext && value == 2 ? 2 : (value == 1 ? 1 : 0);
+                int normalized = missionPresetContext && value == 2 ? 2 : (value == 1 ? 1 : 0);
                 if (selectedPreset == normalized)
                     return;
 
@@ -66,7 +66,7 @@ namespace Shared
             {
                 new ComboBoxItem { Content = GetVanillaText(log, "TEXT_NEW_TEXT2_210", "Preset 1") },
                 new ComboBoxItem { Content = GetVanillaText(log, "TEXT_NEW_TEXT2_211", "Preset 2") },
-                new ComboBoxItem { Content = "Trail", Visibility = Visibility.Collapsed },
+                new ComboBoxItem { Content = string.Empty, Visibility = Visibility.Collapsed },
             };
 
             presetController = new PresetController(
@@ -85,36 +85,38 @@ namespace Shared
             presetController.Activate();
         }
 
-        // Public reflection boundary used by the elected Shared runtime in another mod assembly.
-        public Dictionary<string, byte[]> System_CreateDisabledTrailSnapshot() =>
+        // Neutral reflection boundary used by optional mission coordinators.
+        public Dictionary<string, byte[]> System_CreateDisabledMissionPresetSnapshot() =>
             presetController?.CreateDisabledSnapshot() ?? new Dictionary<string, byte[]>(StringComparer.Ordinal);
 
-        public void System_EnterTrailPreset(Dictionary<string, byte[]> snapshot, bool editable)
+        public void System_EnterMissionPreset(Dictionary<string, byte[]> snapshot, string label, bool editable)
         {
             if (presetController == null)
                 return;
 
-            trailContext = true;
-            trailEditable = editable;
+            missionPresetContext = true;
+            missionPresetEditable = editable;
             // The items exist when Noesis first materializes the binding. Only the third
             // container's visibility changes, avoiding unsupported ItemsSource refreshes.
+            presetOptions[2].Content = label ?? string.Empty;
             presetOptions[2].Visibility = Visibility.Visible;
-            presetController.EnterTrail(snapshot, editable);
+            presetController.EnterMissionPreset(snapshot, editable);
             base.OnPropertyChanged(nameof(AreSettingsEditable));
-            base.OnPropertyChanged(nameof(IsTrailPresetActive));
+            base.OnPropertyChanged(nameof(IsMissionPresetActive));
         }
 
-        public void System_ExitTrailPreset()
+        public void System_ExitMissionPreset()
         {
-            if (!trailContext || presetController == null)
+            if (!missionPresetContext || presetController == null)
                 return;
 
-            trailContext = false;
-            trailEditable = false;
-            presetController.ExitTrail();
+            missionPresetContext = false;
+            missionPresetEditable = false;
+            presetController.ExitMissionPreset();
             presetOptions[2].Visibility = Visibility.Collapsed;
+            presetOptions[2].Content = string.Empty;
             base.OnPropertyChanged(nameof(AreSettingsEditable));
-            base.OnPropertyChanged(nameof(IsTrailPresetActive));
+            base.OnPropertyChanged(nameof(IsMissionPresetActive));
         }
 
         // The Script Extender's event handler runs synchronously inside the base call.
@@ -139,7 +141,7 @@ namespace Shared
             selectedPreset = value;
             OnPropertyChanged(nameof(SelectedPreset));
             base.OnPropertyChanged(nameof(AreSettingsEditable));
-            base.OnPropertyChanged(nameof(IsTrailPresetActive));
+            base.OnPropertyChanged(nameof(IsMissionPresetActive));
         }
 
         private static string GetVanillaText(
@@ -187,7 +189,7 @@ namespace Shared
             private Dictionary<string, byte[]> defaults;
             private Dictionary<string, byte[]> preset1;
             private Dictionary<string, byte[]> preset2;
-            private Dictionary<string, byte[]> trail;
+            private Dictionary<string, byte[]> missionPreset;
             private bool active;
             private bool applying;
             private int localSelectedPreset;
@@ -287,21 +289,21 @@ namespace Shared
 
             public void SwitchTo(int selected)
             {
-                selected = owner.trailContext && selected == 2 ? 2 : NormalizePreset(selected);
+                selected = owner.missionPresetContext && selected == 2 ? 2 : NormalizePreset(selected);
                 if (!active || owner.selectedPreset == selected)
                     return;
 
-                if (owner.trailContext)
+                if (owner.missionPresetContext)
                 {
                     if (selected == 2)
                     {
-                        // Trail is mission-owned and must never enter the local preset file.
-                        ApplySnapshot(trail ?? CreateDisabledSnapshot(), selected, writeLocalStorage: false);
+                        // Mission presets are externally owned and must never enter local storage.
+                        ApplySnapshot(missionPreset ?? CreateDisabledSnapshot(), selected, writeLocalStorage: false);
                         return;
                     }
 
                     // Presets 1/2 keep their normal persistence semantics even while a
-                    // mission-specific Trail preset is available in the same dialog.
+                    // mission-specific preset is available in the same dialog.
                     localSelectedPreset = selected;
                     ApplyPreset(selected);
                     return;
@@ -325,18 +327,18 @@ namespace Shared
                 return snapshot;
             }
 
-            public void EnterTrail(Dictionary<string, byte[]> snapshot, bool editable)
+            public void EnterMissionPreset(Dictionary<string, byte[]> snapshot, bool editable)
             {
-                trail = snapshot == null ? CreateDisabledSnapshot() : Clone(snapshot);
-                ApplySnapshot(trail, 2, writeLocalStorage: false);
-                DebugLogHelper.LogInfo(log, $"[{modName}] Entered {(editable ? "editable" : "read-only")} Trail preset.");
+                missionPreset = snapshot == null ? CreateDisabledSnapshot() : Clone(snapshot);
+                ApplySnapshot(missionPreset, 2, writeLocalStorage: false);
+                DebugLogHelper.LogInfo(log, $"[{modName}] Entered {(editable ? "editable" : "read-only")} mission preset.");
             }
 
-            public void ExitTrail()
+            public void ExitMissionPreset()
             {
-                trail = null;
+                missionPreset = null;
                 ApplyPreset(localSelectedPreset);
-                DebugLogHelper.LogInfo(log, $"[{modName}] Left Trail preset and restored preset {localSelectedPreset + 1}.");
+                DebugLogHelper.LogInfo(log, $"[{modName}] Left mission preset and restored preset {localSelectedPreset + 1}.");
             }
 
             public void AfterPropertyChanged(string propertyName)
@@ -344,10 +346,10 @@ namespace Shared
                 if (!active || applying || string.IsNullOrEmpty(propertyName))
                     return;
 
-                if (owner.trailContext && owner.selectedPreset == 2)
+                if (owner.missionPresetContext && owner.selectedPreset == 2)
                 {
-                    if (owner.trailEditable && persistedPropertiesByName.TryGetValue(propertyName, out PropertyInfo trailProperty))
-                        StoreProperty(trail, trailProperty);
+                    if (owner.missionPresetEditable && persistedPropertiesByName.TryGetValue(propertyName, out PropertyInfo missionProperty))
+                        StoreProperty(missionPreset, missionProperty);
                     return;
                 }
 
@@ -640,7 +642,6 @@ namespace Shared
             }
 
             viewModel.ActivatePresets();
-            TrailModSettingsRuntime.RegisterParticipant(plugin, log, modName);
         }
     }
 }

@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Building Costs",
   "Description": "Lets you change construction costs for buildings in Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.4",
+  "Version": "1.0.5",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.5",
+      "Changes": [
+        "Delegated optional mission-preset coordination to CustomCustomTrail; local presets remain standalone."
+      ]
+    },
     {
       "Version": "1.0.4",
       "Changes": [

@@ -14,6 +14,12 @@ var tests = new (string Name, Action Run)[]
     ("first two active players become allied humans", TestHumanProjection),
     ("preferred AIV permits differing rotations", TestPreferredAiv),
     ("fourth trail tenth slot is addressable", TestLastCatalogSlot),
+    ("native mod-settings JSON roundtrip", TestNativeModSettingsRoundtrip),
+    ("mod-settings registry has seven entries", TestModSettingsRegistry),
+    ("missing mod entry becomes disabled", TestMissingModEntry),
+    ("invalid mod-settings documents are rejected", TestInvalidModSettingsDocuments),
+    ("atomic sidecar write replaces existing file", TestAtomicSidecarWrite),
+    ("Trail coordinator ownership is centralized", TestCoordinatorOwnership),
 };
 
 int failed = 0;
@@ -40,6 +46,131 @@ static void TestBundledMission()
     LoadedMission loaded = new MissionLoader().Load(fixture.JsonPath, 1, 1);
     Assert(loaded.BundledFiles.Count == 3, "expected map, lord and AIV bundle files");
     Assert(loaded.Definition.Players.Where(player => player.Active).Take(2).Count() == 2, "human slots missing");
+}
+
+static void TestNativeModSettingsRoundtrip()
+{
+    ModSettingsDefinition document = ModSettingsDefinition.CreateDisabled();
+    document.Mods["StartConditions_Serp"] = new ModSettingsEntry
+    {
+        Enabled = true,
+        Settings = new Dictionary<string, object>
+        {
+            ["Bool"] = true,
+            ["Int"] = 42,
+            ["Double"] = 1.25,
+            ["String"] = "Wood=10\r\nStone=-1",
+        },
+    };
+    string json = ModSettingsJson.Serialize(document);
+    Assert(json.Contains("\r\n"), "serialized JSON has no CRLF");
+    Assert(!json.Replace("\r\n", string.Empty).Contains('\n'), "serialized JSON contains naked LF");
+    ModSettingsEntry entry = ModSettingsJson.ParseObject(json).Mods["StartConditions_Serp"];
+    Assert(entry.Enabled && (bool)entry.Settings["Bool"], "bool changed");
+    Assert(Convert.ToInt32(entry.Settings["Int"]) == 42, "int changed");
+    Assert(Math.Abs(Convert.ToDouble(entry.Settings["Double"]) - 1.25) < 0.0001, "double changed");
+    Assert((string)entry.Settings["String"] == "Wood=10\r\nStone=-1", "complex string changed");
+}
+
+static void TestModSettingsRegistry()
+{
+    string[] expected =
+    {
+        "BuildingCosts_Serp", "BuildingLimit_Serp", "ExtraFeatures_Serp",
+        "RandomEvents_Serp", "StartConditions_Serp", "UnitCosts_Serp", "UnitLimit_Serp",
+    };
+    Assert(ModSettingsDefinition.TargetModIds.SequenceEqual(expected), "central target-mod registry changed");
+}
+
+static void TestMissingModEntry()
+{
+    ModSettingsDefinition parsed = ModSettingsJson.ParseObject("{\"schemaVersion\":1,\"mods\":{}}");
+    Assert(parsed.Mods.Count == 7 && parsed.Mods.Values.All(entry => !entry.Enabled), "missing entries were not disabled");
+}
+
+static void TestInvalidModSettingsDocuments()
+{
+    ExpectFailure(() => ModSettingsJson.ParseObject("broken"), "corrupt JSON was accepted");
+    ExpectFailure(() => ModSettingsJson.ParseObject("{\"schemaVersion\":2,\"mods\":{}}"), "schema 2 sidecar was accepted");
+    ExpectFailure(
+        () => ModSettingsJson.ParseObject("{\"schemaVersion\":1,\"mods\":{\"UnitLimit_Serp\":{\"enabled\":true,\"settings\":{\"Limit\":{\"bad\":1}}}}}"),
+        "object setting was accepted");
+}
+
+static void TestAtomicSidecarWrite()
+{
+    string root = Path.Combine(Path.GetTempPath(), "CustomCustomTrailSidecarTests", Guid.NewGuid().ToString("N"));
+    Directory.CreateDirectory(root);
+    try
+    {
+        string path = Path.Combine(root, "Trail_Mission_1.modjson");
+        File.WriteAllText(path, "old");
+        ModSettingsDefinition document = ModSettingsDefinition.CreateDisabled();
+        document.Mods["UnitLimit_Serp"].Enabled = true;
+        ModSettingsJson.WriteAtomic(path, document);
+        Assert(ModSettingsJson.Read(path).Mods["UnitLimit_Serp"].Enabled, "replacement was not readable");
+        Assert(!Directory.GetFiles(root, "*.tmp-*").Any(), "temporary file remained");
+    }
+    finally
+    {
+        Directory.Delete(root, true);
+    }
+}
+
+static void TestCoordinatorOwnership()
+{
+    string projectRoot = FindProjectRoot();
+    string workspaceRoot = Directory.GetParent(projectRoot)?.FullName ?? throw new InvalidOperationException("workspace root missing");
+    string[] mods = { "BuildingCosts", "BuildingLimit", "ExtraFeatures", "RandomEvents", "StartConditions", "UnitCosts", "UnitLimit" };
+    foreach (string mod in mods)
+    {
+        string project = File.ReadAllText(Path.Combine(workspaceRoot, mod, mod + ".csproj"));
+        Assert(!project.Contains("TrailModSettings") && !project.Contains("ModSettingsJson"), mod + " still compiles Trail runtime code");
+    }
+
+    string coordinator = File.ReadAllText(Path.Combine(projectRoot, "src", "TrailMissionSettingsCoordinator.cs"));
+    for (int trail = 1; trail <= 4; trail++)
+        Assert(CountOccurrences(coordinator, "FRONT_CoopTrail" + trail + ".Instance") == 1, "Coop Trail " + trail + " button registration is not singular");
+    string runtime = File.ReadAllText(Path.Combine(projectRoot, "src", "CustomCustomTrailRuntime.cs"));
+    string obsoleteBridgeName = "TrailModSettings" + "Bridge";
+    Assert(!runtime.Contains("SerializeModSettings") && !runtime.Contains(obsoleteBridgeName), "Coop settings still use the old bridge roundtrip");
+    Assert(runtime.Contains("missionSettingsCoordinator?.ExitContext(force: true)"), "map unload does not leave the mission preset context");
+    Assert(coordinator.Contains("CaptureDocument(requireLoadedEndpoints: true)"),
+        "Trail saves do not validate their synchronous pre-save settings capture");
+    Assert(!coordinator.Contains("pendingTrailMakerSaveDocument"),
+        "Trail saves still retain a snapshot for the next save operation");
+    Assert(coordinator.Contains("!openingCustomTrailSetup") &&
+        coordinator.Contains("openingCustomTrailSetup = true") &&
+        coordinator.Contains("openingCustomTrailSetup = false"),
+        "Custom Trail setup does not suppress transient selection-sidecar loads");
+    Assert(!coordinator.Contains("all Trail mods will be disabled"),
+        "capture failures can still overwrite a sidecar with an all-disabled fallback");
+}
+
+static string FindProjectRoot()
+{
+    foreach (string seed in new[] { Directory.GetCurrentDirectory(), AppContext.BaseDirectory })
+    {
+        DirectoryInfo directory = new DirectoryInfo(seed);
+        while (directory != null)
+        {
+            if (File.Exists(Path.Combine(directory.FullName, "CustomCustomTrail.csproj")))
+                return directory.FullName;
+            string child = Path.Combine(directory.FullName, "CustomCustomTrail", "CustomCustomTrail.csproj");
+            if (File.Exists(child))
+                return Path.GetDirectoryName(child)!;
+            directory = directory.Parent;
+        }
+    }
+    throw new DirectoryNotFoundException("CustomCustomTrail project root was not found.");
+}
+
+static int CountOccurrences(string text, string value)
+{
+    int count = 0;
+    for (int index = 0; (index = text.IndexOf(value, index, StringComparison.Ordinal)) >= 0; index += value.Length)
+        count++;
+    return count;
 }
 
 static void TestPathEscape()
