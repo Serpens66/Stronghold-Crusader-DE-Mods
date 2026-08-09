@@ -6,7 +6,6 @@ using R3;
 using SHCDESE.API;
 using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.MapLoader;
-using SHCDESE.EventAPI.Network;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -40,12 +39,9 @@ namespace CoopTrailReplacer
         private ButtonClickedDelegate buttonTrampoline;
         private TrailModSettingsBridge trailModSettings;
         private string[] missingMods = Array.Empty<string>();
-        private short packetId;
         private ResolvedMission selected;
         private int selectedTrailId = -1;
         private int selectedMissionId = -1;
-        private bool remoteAcknowledged;
-        private bool hashMismatch;
 
         public CoopTrailReplacerRuntime(ManualLogSource log, string pluginRoot)
         {
@@ -56,10 +52,6 @@ namespace CoopTrailReplacer
         public void Initialize()
         {
             trailModSettings = new TrailModSettingsBridge();
-
-            var packetHook = GameNetworkAPI.Instance.GetPacketEventFor<MissionHashPacket>();
-            packetId = packetHook.GetPacketId();
-            subscriptions.Add(packetHook.GetBaseHook().Observable.Subscribe(OnHashPacket));
             subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
                 .Subscribe(_ => ClearLaunchState()));
@@ -74,7 +66,7 @@ namespace CoopTrailReplacer
             buttonHook = new Hook(buttonMethod, (ButtonClickedDelegate)ButtonClickedHook);
             buttonTrampoline = buttonHook.GenerateTrampoline<ButtonClickedDelegate>();
 
-            LogInfo("Runtime initialized; packetId=" + packetId + ", trailModSettings=" + trailModSettings.IsAvailable + ".");
+            LogInfo("Runtime initialized; mission identity uses TrailN/NN.coopmission.json, trailModSettings=" + trailModSettings.IsAvailable + ".");
         }
 
         public void Dispose()
@@ -119,7 +111,6 @@ namespace CoopTrailReplacer
                 ApplySelectedMission(self, true);
                 trailModSettings.Enter(selected.Loaded.Definition.ModSettings, editable: false);
                 missingMods = trailModSettings.GetMissingEnabledMods(selected.Loaded.Definition.ModSettings);
-                BeginHashVerification(self);
             }
             catch (Exception ex)
             {
@@ -132,16 +123,6 @@ namespace CoopTrailReplacer
 
         private void ButtonClickedHook(FRONT_Multiplayer self, string command)
         {
-            bool launchCommand = string.Equals(command, "Ready", StringComparison.Ordinal) ||
-                string.Equals(command, "ReadyLock", StringComparison.Ordinal) ||
-                string.Equals(command, "Play", StringComparison.Ordinal);
-            if (selected != null && launchCommand && !IsVerificationComplete(self))
-            {
-                LogError("Blocked '" + command + "': replacement mission assets are not confirmed by the Coop partner.");
-                UpdateMissionText();
-                return;
-            }
-
             if (selected != null && string.Equals(command, "Play", StringComparison.Ordinal))
                 ApplySelectedMission(self, false);
             buttonTrampoline(self, command);
@@ -167,7 +148,7 @@ namespace CoopTrailReplacer
                     resolved[entry.Key] = mission;
                     FRONT_Multiplayer.CoopMissionSetupData[] trail = GetTrail(entry.Value.TrailNumber);
                     trail[entry.Value.MissionNumber - 1] = mission.CoopData;
-                    LogInfo("Replaced Trail" + entry.Value.TrailNumber + "/" + entry.Value.MissionNumber.ToString("00") + " hash=" + mission.RuntimeHash + ".");
+                    LogInfo("Replaced Trail" + entry.Value.TrailNumber + "/" + entry.Value.MissionNumber.ToString("00") + " from [" + Path.GetFileName(entry.Value.JsonPath) + "].");
                 }
                 catch (Exception ex)
                 {
@@ -204,72 +185,6 @@ namespace CoopTrailReplacer
                 UpdateHostInfoMethod?.Invoke(self, null);
         }
 
-        private void BeginHashVerification(FRONT_Multiplayer self)
-        {
-            hashMismatch = false;
-            remoteAcknowledged = CountRemoteHumans(self) == 0;
-            SendHashPacket(true);
-            UpdateMissionText();
-        }
-
-        private void OnHashPacket(ReceiveCustomPacketEventArgs<MissionHashPacket> args)
-        {
-            MissionHashPacket packet = args?.Packet;
-            if (packet == null || selected == null || packet.TrailId != selectedTrailId || packet.MissionId != selectedMissionId)
-                return;
-            bool matches = packet.SchemaVersion == MissionLoader.CurrentSchemaVersion &&
-                string.Equals(packet.Hash, selected.RuntimeHash, StringComparison.OrdinalIgnoreCase);
-            if (matches)
-                remoteAcknowledged = true;
-            else
-                hashMismatch = true;
-            LogInfo("Partner hash " + (matches ? "confirmed" : "mismatch") + " for Trail" + (selectedTrailId + 1) + "/" + selectedMissionId.ToString("00") + ".");
-            if (packet.RequestReply)
-                SendHashPacket(false);
-            UpdateMissionText();
-        }
-
-        private void SendHashPacket(bool requestReply)
-        {
-            if (selected == null)
-                return;
-            var packet = new MissionHashPacket
-            {
-                SchemaVersion = MissionLoader.CurrentSchemaVersion,
-                TrailId = selectedTrailId,
-                MissionId = selectedMissionId,
-                Hash = selected.RuntimeHash,
-                RequestReply = requestReply,
-            };
-            byte[] bytes = GameNetworkAPI.Serialize(packet);
-            GameNetworkAPI.SendPacketToAllLobby(new Platform_Multiplayer.MPData
-            {
-                data = bytes,
-                dataLength = bytes.Length,
-                dataOffset = 0,
-                packetType = packetId,
-            });
-        }
-
-        private bool IsVerificationComplete(FRONT_Multiplayer self) =>
-            !hashMismatch && (remoteAcknowledged || CountRemoteHumans(self) == 0);
-
-        private static int CountRemoteHumans(FRONT_Multiplayer self)
-        {
-            if (self?.currentLobby?.members == null)
-                return 0;
-            return self.currentLobby.members.Count(member => !member.IsSelf() && !member.SkirmishMember);
-        }
-
-        private void UpdateMissionText()
-        {
-            if (selected == null)
-                return;
-            string suffix = hashMismatch ? " [asset mismatch]" : (remoteAcknowledged ? string.Empty : " [checking files]");
-            MainViewModel.Instance.CoopMissionTitle = selected.Loaded.Definition.DisplayName + suffix;
-            MainViewModel.Instance.StandaloneMissionText = BuildMissionDescription();
-        }
-
         private string BuildMissionDescription()
         {
             string description = selected?.Loaded.Definition.Description ?? string.Empty;
@@ -285,8 +200,6 @@ namespace CoopTrailReplacer
             selected = null;
             selectedTrailId = -1;
             selectedMissionId = -1;
-            remoteAcknowledged = false;
-            hashMismatch = false;
             missingMods = Array.Empty<string>();
         }
 

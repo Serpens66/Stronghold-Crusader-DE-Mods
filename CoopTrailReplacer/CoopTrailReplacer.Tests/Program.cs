@@ -4,16 +4,14 @@ using System.Text;
 
 var tests = new (string Name, Action Run)[]
 {
-    ("bundled mission load and stable hash", TestBundledMission),
+    ("bundled mission loads", TestBundledMission),
     ("path escape rejected", TestPathEscape),
     ("invalid rotation rejected", TestInvalidRotation),
     ("catalog keeps valid slots and ignores invalid slots", TestCatalogIsolation),
     ("schema 1 is rejected", TestSchemaOneRejected),
-    ("mod settings affect canonical hash", TestModSettingsHash),
-    ("mod settings hash is canonical", TestCanonicalModSettingsHash),
+    ("locally edited mission JSON reloads from the same slot", TestEditedMissionReload),
     ("invalid mod settings disable transaction", TestInvalidModSettings),
     ("first two active players become allied humans", TestHumanProjection),
-    ("asset bytes affect the mission hash", TestAssetHash),
     ("preferred AIV permits differing rotations", TestPreferredAiv),
     ("fourth trail tenth slot is addressable", TestLastCatalogSlot),
 };
@@ -39,11 +37,9 @@ return failed == 0 ? 0 : 1;
 static void TestBundledMission()
 {
     using Fixture fixture = Fixture.Create();
-    LoadedMission first = new MissionLoader().Load(fixture.JsonPath, 1, 1);
-    LoadedMission second = new MissionLoader().Load(fixture.JsonPath, 1, 1);
-    Assert(first.Hash == second.Hash, "hash changed between identical loads");
-    Assert(first.BundledFiles.Count == 3, "expected map, lord and AIV bundle files");
-    Assert(first.Definition.Players.Where(player => player.Active).Take(2).Count() == 2, "human slots missing");
+    LoadedMission loaded = new MissionLoader().Load(fixture.JsonPath, 1, 1);
+    Assert(loaded.BundledFiles.Count == 3, "expected map, lord and AIV bundle files");
+    Assert(loaded.Definition.Players.Where(player => player.Active).Take(2).Count() == 2, "human slots missing");
 }
 
 static void TestPathEscape()
@@ -91,12 +87,16 @@ static void TestSchemaOneRejected()
     ExpectFailure(() => new MissionLoader().Load(fixture.JsonPath, 1, 1), "schema 1 was accepted");
 }
 
-static void TestModSettingsHash()
+static void TestEditedMissionReload()
 {
-    using Fixture first = Fixture.Create(startGold: 500);
-    using Fixture second = Fixture.Create(startGold: 750);
-    Assert(new MissionLoader().Load(first.JsonPath, 1, 1).Hash != new MissionLoader().Load(second.JsonPath, 1, 1).Hash,
-        "modSettings did not affect the canonical mission hash");
+    using Fixture fixture = Fixture.Create();
+    string json = File.ReadAllText(fixture.JsonPath);
+    string edited = json.Replace("\"displayName\":\"Test\"", "\"displayName\":\"Edited locally\"");
+    Assert(!string.Equals(json, edited, StringComparison.Ordinal), "test fixture displayName was not found");
+    File.WriteAllText(fixture.JsonPath, edited, new UTF8Encoding(false));
+    LoadedMission loaded = new MissionLoader().Load(fixture.JsonPath, 1, 1);
+    Assert(loaded.Definition.DisplayName == "Edited locally", "text-editor change was not reloaded");
+    Assert(Path.GetFileName(loaded.JsonPath) == "01.coopmission.json", "mission slot filename changed");
 }
 
 static void TestInvalidModSettings()
@@ -109,27 +109,6 @@ static void TestInvalidModSettings()
     Assert(loaded.Definition.ModSettings.Mods.Values.All(entry => !entry.Enabled), "invalid block was partially retained");
 }
 
-static void TestCanonicalModSettingsHash()
-{
-    using Fixture first = Fixture.Create();
-    using Fixture second = Fixture.Create();
-    var firstSettings = new Dictionary<string, object> { ["Z"] = true, ["A"] = 5 };
-    var secondSettings = new Dictionary<string, object> { ["A"] = 5, ["Z"] = true };
-    RewriteStartConditionsSettings(first.JsonPath, firstSettings);
-    RewriteStartConditionsSettings(second.JsonPath, secondSettings);
-    Assert(new MissionLoader().Load(first.JsonPath, 1, 1).Hash == new MissionLoader().Load(second.JsonPath, 1, 1).Hash,
-        "dictionary insertion order changed the hash");
-}
-
-static void RewriteStartConditionsSettings(string path, Dictionary<string, object> values)
-{
-    var serializer = new DataContractJsonSerializer(typeof(CoopMissionDefinition), new DataContractJsonSerializerSettings { UseSimpleDictionaryFormat = true });
-    CoopMissionDefinition mission;
-    using (FileStream input = File.OpenRead(path)) mission = (CoopMissionDefinition)serializer.ReadObject(input);
-    mission.ModSettings.Mods["StartConditions_Serp"].Settings = values;
-    using (FileStream output = File.Create(path)) serializer.WriteObject(output, mission);
-}
-
 static void TestHumanProjection()
 {
     using Fixture fixture = Fixture.Create();
@@ -138,14 +117,6 @@ static void TestHumanProjection()
     Assert(projection.Teams[0] == 1 && projection.Teams[1] == 1, "guest was not moved to host team");
     Assert(projection.Teams[2] == 2, "AI team changed");
     Assert(projection.KeepOrder.Take(3).SequenceEqual(new[] { 1, 2, 3 }), "keep order changed");
-}
-
-static void TestAssetHash()
-{
-    byte[] json = Encoding.UTF8.GetBytes("{}");
-    string first = MissionHash.Compute(json, new[] { new MissionAsset("map", new byte[] { 1 }) });
-    string second = MissionHash.Compute(json, new[] { new MissionAsset("map", new byte[] { 2 }) });
-    Assert(first != second, "asset mismatch did not change the mission hash");
 }
 
 static void TestPreferredAiv()

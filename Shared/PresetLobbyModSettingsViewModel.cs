@@ -188,8 +188,6 @@ namespace Shared
             private Dictionary<string, byte[]> preset1;
             private Dictionary<string, byte[]> preset2;
             private Dictionary<string, byte[]> trail;
-            private Dictionary<string, byte[]> trailSessionPreset1;
-            private Dictionary<string, byte[]> trailSessionPreset2;
             private bool active;
             private bool applying;
             private int localSelectedPreset;
@@ -295,10 +293,17 @@ namespace Shared
 
                 if (owner.trailContext)
                 {
-                    Dictionary<string, byte[]> snapshot = selected == 2
-                        ? trail ?? CreateDisabledSnapshot()
-                        : selected == 1 ? trailSessionPreset2 : trailSessionPreset1;
-                    ApplySnapshot(snapshot, selected, writeLocalStorage: false);
+                    if (selected == 2)
+                    {
+                        // Trail is mission-owned and must never enter the local preset file.
+                        ApplySnapshot(trail ?? CreateDisabledSnapshot(), selected, writeLocalStorage: false);
+                        return;
+                    }
+
+                    // Presets 1/2 keep their normal persistence semantics even while a
+                    // mission-specific Trail preset is available in the same dialog.
+                    localSelectedPreset = selected;
+                    ApplyPreset(selected);
                     return;
                 }
 
@@ -325,9 +330,6 @@ namespace Shared
             public void EnterTrail(Dictionary<string, byte[]> snapshot, bool editable)
             {
                 trail = snapshot == null ? CreateDisabledSnapshot() : Clone(snapshot);
-                // Local presets become session copies in a Trail context so lobby edits cannot leak to disk.
-                trailSessionPreset1 = Clone(preset1 ?? defaults);
-                trailSessionPreset2 = Clone(preset2 ?? defaults);
                 ApplySnapshot(trail, 2, writeLocalStorage: false);
                 DebugLogHelper.LogInfo(log, $"[{modName}] Entered {(editable ? "editable" : "read-only")} Trail preset.");
             }
@@ -335,8 +337,6 @@ namespace Shared
             public void ExitTrail()
             {
                 trail = null;
-                trailSessionPreset1 = null;
-                trailSessionPreset2 = null;
                 ApplyPreset(localSelectedPreset);
                 DebugLogHelper.LogInfo(log, $"[{modName}] Left Trail preset and restored preset {localSelectedPreset + 1}.");
             }
@@ -350,13 +350,6 @@ namespace Shared
                 {
                     if (owner.trailEditable && persistedPropertiesByName.TryGetValue(propertyName, out PropertyInfo trailProperty))
                         StoreProperty(trail, trailProperty);
-                    return;
-                }
-
-                if (owner.trailContext)
-                {
-                    if (persistedPropertiesByName.TryGetValue(propertyName, out PropertyInfo sessionProperty))
-                        StoreProperty(owner.selectedPreset == 1 ? trailSessionPreset2 : trailSessionPreset1, sessionProperty);
                     return;
                 }
 

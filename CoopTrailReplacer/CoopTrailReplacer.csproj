@@ -53,7 +53,6 @@
     <Compile Include="src\CoopTrailReplacerPlugin.cs" />
     <Compile Include="src\CoopTrailReplacerRuntime.cs" />
     <Compile Include="src\MissionAssetResolver.cs" />
-    <Compile Include="src\MissionHashPacket.cs" />
     <Compile Include="src\OptionalModBridges.cs" />
     <Compile Include="src\ResolvedMission.cs" />
   </ItemGroup>

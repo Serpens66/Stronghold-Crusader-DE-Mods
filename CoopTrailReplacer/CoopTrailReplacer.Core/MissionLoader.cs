@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.Serialization.Json;
-using System.Security.Cryptography;
 using System.Text;
 
 namespace CoopTrailReplacer.Core
@@ -28,9 +27,6 @@ namespace CoopTrailReplacer.Core
 
             Validate(definition);
             List<string> bundledFiles = ResolveBundledFiles(definition, missionRoot);
-            byte[] canonicalJson = SerializeCanonical(definition);
-            string hash = MissionHash.Compute(canonicalJson, bundledFiles.Select(path =>
-                new MissionAsset(GetMissionRelativeIdentity(missionRoot, path), File.ReadAllBytes(path))));
             return new LoadedMission
             {
                 TrailNumber = trailNumber,
@@ -38,9 +34,7 @@ namespace CoopTrailReplacer.Core
                 JsonPath = fullJsonPath,
                 MissionRoot = missionRoot,
                 Definition = definition,
-                CanonicalJson = canonicalJson,
                 BundledFiles = bundledFiles,
-                Hash = hash,
             };
         }
 
@@ -61,15 +55,6 @@ namespace CoopTrailReplacer.Core
             if (!File.Exists(result))
                 throw new FileNotFoundException("Bundled asset was not found.", result);
             return result;
-        }
-
-        private static string GetMissionRelativeIdentity(string missionRoot, string path)
-        {
-            string root = Path.GetFullPath(missionRoot).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
-            string fullPath = Path.GetFullPath(path);
-            if (!fullPath.StartsWith(root, StringComparison.OrdinalIgnoreCase))
-                throw new InvalidDataException("Bundled asset path is outside the mission directory.");
-            return fullPath.Substring(root.Length).Replace('\\', '/');
         }
 
         public static string SerializeModSettings(ModSettingsDefinition settings)
@@ -212,15 +197,6 @@ namespace CoopTrailReplacer.Core
                 files.Add(ResolveBundledPath(root, asset.File, extension));
         }
 
-        private static byte[] SerializeCanonical(CoopMissionDefinition mission)
-        {
-            using (var stream = new MemoryStream())
-            {
-                CreateSerializer().WriteObject(stream, mission);
-                return stream.ToArray();
-            }
-        }
-
         private static DataContractJsonSerializer CreateSerializer() =>
             new DataContractJsonSerializer(typeof(CoopMissionDefinition), new DataContractJsonSerializerSettings
             {
@@ -234,43 +210,4 @@ namespace CoopTrailReplacer.Core
             });
     }
 
-    public sealed class MissionAsset
-    {
-        public MissionAsset(string identity, byte[] bytes)
-        {
-            Identity = identity ?? string.Empty;
-            Bytes = bytes ?? Array.Empty<byte>();
-        }
-
-        public string Identity { get; }
-        public byte[] Bytes { get; }
-    }
-
-    public static class MissionHash
-    {
-        public static string Compute(byte[] canonicalJson, IEnumerable<MissionAsset> assets)
-        {
-            using (SHA256 sha = SHA256.Create())
-            using (var stream = new MemoryStream())
-            {
-                WritePart(stream, "mission.json", canonicalJson ?? Array.Empty<byte>());
-                foreach (MissionAsset asset in (assets ?? Enumerable.Empty<MissionAsset>()).OrderBy(item => item.Identity, StringComparer.OrdinalIgnoreCase))
-                    WritePart(stream, asset.Identity.Replace('\\', '/').ToLowerInvariant(), asset.Bytes);
-                stream.Position = 0;
-                return BitConverter.ToString(sha.ComputeHash(stream)).Replace("-", string.Empty);
-            }
-        }
-
-        private static void WritePart(Stream stream, string identity, byte[] bytes)
-        {
-            // Length-prefix every part so different name/data boundaries cannot hash alike.
-            byte[] name = Encoding.UTF8.GetBytes(identity);
-            byte[] nameLength = BitConverter.GetBytes(name.Length);
-            byte[] dataLength = BitConverter.GetBytes(bytes.Length);
-            stream.Write(nameLength, 0, nameLength.Length);
-            stream.Write(name, 0, name.Length);
-            stream.Write(dataLength, 0, dataLength.Length);
-            stream.Write(bytes, 0, bytes.Length);
-        }
-    }
 }

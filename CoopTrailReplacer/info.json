@@ -11,7 +11,8 @@
       "Version": "1.1.0",
       "Changes": [
         "Changed missions to schema 2 with canonical seven-mod modSettings and neutral Shared Trail-preset integration.",
-        "Removed the top-level startConditions bridge and built-in fallback runtime."
+        "Removed the top-level startConditions bridge and built-in fallback runtime.",
+        "Removed lobby hash verification; missions are mapped only by TrailN/NN.coopmission.json and remain directly editable."
       ]
     },
     {

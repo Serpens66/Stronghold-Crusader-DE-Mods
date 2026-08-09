@@ -2,7 +2,7 @@
 
 `CoopTrailReplacer` ersetzt einzelne Missionen der eingebauten Coop-Trails durch lokale `*.coopmission.json`-Bundles. Zur Laufzeit werden keine `.trail`-Dateien benötigt. Map, Lord-Konfigurationen (`.lordjson`) und Burgen (`.aivjson`) dürfen aus der Spielinstallation stammen oder direkt mit einer Mission geliefert werden.
 
-Der Mod ist für SHCDE V2.8 gebaut und benötigt BepInEx sowie den SHCDE Script Extender. Host und Gast müssen den Mod und exakt dieselben verwendeten Dateien besitzen.
+Der Mod ist für SHCDE V2.8 gebaut und benötigt BepInEx sowie den SHCDE Script Extender. In echtem Coop laden Host und Gast ihre jeweilige lokale Mission desselben Trail-/Missionsplatzes. Der Mod vergleicht diese Dateien nicht; kompatible Inhalte liegen daher in der Verantwortung der Spieler.
 
 ## Installation und Platzzuordnung
 
@@ -20,7 +20,7 @@ Die installierte Struktur lautet:
         Trail3\
         Trail4\
 
-`01.coopmission.json` ersetzt Platz 1, `10.coopmission.json` Platz 10. Fehlende oder ungültige Dateien ändern den jeweiligen Vanilla-Platz nicht. Unterordner sind erlaubt; der Wurzelordner einer Mission ist immer der Ordner, in dem ihre `*.coopmission.json` liegt.
+`01.coopmission.json` ersetzt Platz 1, `10.coopmission.json` Platz 10. Trailordner plus zweistelliger Dateiname sind die einzige Zuordnung; es gibt keine Hashbindung. Die JSON-Datei darf lokal in einem Texteditor geändert werden und wird beim nächsten Initialisieren des Coop-Missionskatalogs neu eingelesen. Fehlende oder ungültige Dateien ändern den jeweiligen Vanilla-Platz nicht. Der Wurzelordner einer Mission ist immer der Ordner, in dem ihre `*.coopmission.json` liegt.
 
 Wichtige V2.8-Einschränkung: Die installierte Assembly besitzt nur die echten Missionsarrays `CoopTrail1`, `CoopTrail2` und `CoopTrail3`. Die irreführend benannte Klasse `FRONT_CoopTrail4` ist die Custom-Game-Lobby und kein vierter Vanilla-Missionstrail. `Trail4` bleibt deshalb für eine mögliche spätere Spielversion reserviert; Dateien darin werden in V2.8 mit einer verständlichen Logmeldung ignoriert.
 
@@ -147,20 +147,11 @@ Beliebiges Startgold, etwa exakt 500 nur für Menschen, wird anschließend über
 
 `modSettings` verwendet Schema 1 und enthält immer Einträge für `BuildingCosts_Serp`, `BuildingLimit_Serp`, `ExtraFeatures_Serp`, `RandomEvents_Serp`, `StartConditions_Serp`, `UnitCosts_Serp` und `UnitLimit_Serp`. Ein Eintrag besitzt `enabled` sowie bei Aktivierung ein `settings`-Objekt mit den Propertynamen aus dem jeweiligen Mod-Menü. Bool-, Ganzzahl-, Kommazahl- und Stringwerte werden als native JSON-Typen geschrieben; mehrzeilige Listen wie die Startgüter bleiben Strings mit `\r\n`.
 
-Beim Auswählen einer Ersatzmission wird dieser Stand als schreibgeschütztes Preset `Trail` aktiviert. Das Dropdown kann jederzeit auf die lokalen Presets 1/2 wechseln; deren Werte gelten dann nur für die Lobby/Partie und verändern weder Missionsdatei noch lokale Presetdateien. Lokal fehlende, laut Mission aktivierte Mods werden in der Missionsbeschreibung genannt, blockieren Ready/Play aber nicht. Fehlt `modSettings`, sind alle sieben Trail-Mods deaktiviert. Ein beschädigter oder typfehlerhafter Block deaktiviert transaktional den gesamten Trail-Stand.
+Beim Auswählen einer Ersatzmission wird dieser Stand als schreibgeschütztes Preset `Trail` aktiviert. Das Dropdown kann jederzeit auf die lokalen Presets 1/2 wechseln. Diese verhalten sich auch im Missionsdialog wie gewohnt: Änderungen werden in den lokalen Presetdateien gespeichert und gelten für die Lobby/Partie. Das Missionspreset `Trail` selbst wird nie in die lokalen Presetdateien geschrieben. Lokal fehlende, laut Mission aktivierte Mods werden in der Missionsbeschreibung genannt, blockieren Ready/Play aber nicht. Fehlt `modSettings`, sind alle sieben Trail-Mods deaktiviert. Ein beschädigter oder typfehlerhafter Block deaktiviert transaktional den gesamten Trail-Stand.
 
-## Multiplayer-Prüfung
+## Multiplayer-Zuordnung
 
-Aus kanonischem JSON und den tatsächlich verwendeten Map-, Lord- und AIV-Bytes wird SHA-256 berechnet. Host und Gast senden Schema-Version, Trail, Platz und Hash über ein explizit formatiertes Script-Extender-Paket. `Ready`, `ReadyLock` und `Play` werden blockiert, bis der Partner denselben Hash bestätigt hat.
-
-Lobbyanzeige:
-
-| Suffix | Bedeutung |
-| --- | --- |
-| `[checking files]` | Noch keine passende Bestätigung vom Partner. Der Partner hat den Mod eventuell nicht. |
-| `[asset mismatch]` | JSON oder mindestens eine tatsächlich verwendete Datei unterscheidet sich. |
-
-Es findet absichtlich keine automatische Dateiübertragung statt. Die genaue Ursache eines ungültigen Platzes oder einer Auflösungs-/Hashabweichung steht mit Millisekunden-Zeitstempel in `BepInEx\LogOutput.log`.
+Eine Ersatzmission wird ausschließlich durch ihren Platz `CoopTrails\TrailN\NN.coopmission.json` ausgewählt. Es werden weder JSON noch Map-, Lord- oder AIV-Dateien zwischen Host und Gast gehasht oder übertragen. `Ready`, `ReadyLock` und `Play` werden deshalb nicht durch eine Dateiprüfung blockiert. Lade- und Validierungsfehler der jeweils lokalen Datei stehen mit Millisekunden-Zeitstempel in `BepInEx\LogOutput.log`.
 
 ## Validierungsfehler
 

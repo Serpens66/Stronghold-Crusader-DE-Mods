@@ -26,15 +26,13 @@ namespace CoopTrailReplacer
                 throw new InvalidDataException("Map supports only " + header.maxPlayers + " players, mission needs " + players.Count + ".");
 
             var resolved = new ResolvedMission { Loaded = loaded, Header = header };
-            var runtimeAssets = new List<MissionAsset>();
-            AddFileAsset(runtimeAssets, "map", header.filePath);
 
             var aiIds = new List<int>();
             var preferredAivs = new List<int>();
             for (int index = 2; index < players.Count; index++)
             {
                 PlayerDefinition player = players[index];
-                FRONT_Multiplayer.MPAIVInfo info = ResolveAi(loaded, player, runtimeAssets);
+                FRONT_Multiplayer.MPAIVInfo info = ResolveAi(loaded, player);
                 resolved.AiInfoByPlayerIndex[index] = info;
                 aiIds.Add(MissionProjection.GetBaseLordId(player) + 1);
                 int rotation = player.PreferredAiv >= 0
@@ -61,7 +59,6 @@ namespace CoopTrailReplacer
                 allowMercPostPlayer2 = settings.AllowMercenaryPostGuest ? 1 : 0,
                 allowStockadePlayer2 = settings.AllowStockadeGuest ? 1 : 0,
             };
-            resolved.RuntimeHash = MissionHash.Compute(loaded.CanonicalJson, runtimeAssets);
             return resolved;
         }
 
@@ -75,7 +72,7 @@ namespace CoopTrailReplacer
             return MapFileManager.Instance.GetHeaderFromFileNameMP(map.Name ?? map.Id?.ToString());
         }
 
-        private static FRONT_Multiplayer.MPAIVInfo ResolveAi(LoadedMission loaded, PlayerDefinition player, List<MissionAsset> runtimeAssets)
+        private static FRONT_Multiplayer.MPAIVInfo ResolveAi(LoadedMission loaded, PlayerDefinition player)
         {
             LordReference lord = player.Lord;
             int baseLordId = MissionProjection.GetBaseLordId(player);
@@ -86,14 +83,14 @@ namespace CoopTrailReplacer
             if (lord.Source != "builtIn")
             {
                 info.builtInLord = false;
-                info.lordConfig = ResolveLordConfig(loaded, lord, baseLordId, runtimeAssets);
+                info.lordConfig = ResolveLordConfig(loaded, lord, baseLordId);
                 if (info.lordConfig == null)
                     throw new InvalidDataException("Lord configuration could not be resolved.");
             }
 
             var aivs = new List<CustomisationFileManager.CustomAIV>();
             foreach (AivReference reference in player.Aivs)
-                aivs.Add(ResolveAiv(loaded, lord, baseLordId, reference, runtimeAssets));
+                aivs.Add(ResolveAiv(loaded, lord, baseLordId, reference));
             if (player.PreferredAiv >= 0)
                 aivs = new List<CustomisationFileManager.CustomAIV> { aivs[player.PreferredAiv] };
 
@@ -110,13 +107,12 @@ namespace CoopTrailReplacer
             return info;
         }
 
-        private static CustomisationFileManager.CustomLordConfig ResolveLordConfig(LoadedMission loaded, LordReference reference, int baseLordId, List<MissionAsset> assets)
+        private static CustomisationFileManager.CustomLordConfig ResolveLordConfig(LoadedMission loaded, LordReference reference, int baseLordId)
         {
             if (reference.Source == "bundled")
             {
                 string path = MissionLoader.ResolveBundledPath(loaded.MissionRoot, reference.File, ".lordjson");
                 CustomisationFileManager.CustomLord holder = ParseBundled(baseLordId, reference.Name, path);
-                AddFileAsset(assets, "lord/" + Path.GetFileName(path), path);
                 return holder.configs.SingleOrDefault();
             }
 
@@ -126,18 +122,15 @@ namespace CoopTrailReplacer
             CustomisationFileManager.CustomLordConfig config = string.IsNullOrWhiteSpace(reference.Configuration)
                 ? configs.FirstOrDefault()
                 : configs.FirstOrDefault(item => string.Equals(item.name, reference.Configuration, StringComparison.OrdinalIgnoreCase));
-            if (config != null)
-                AddFileAsset(assets, "lord/" + reference.Name + "/" + config.name, Path.Combine(config.path, config.name + ".lordjson"));
             return config;
         }
 
-        private static CustomisationFileManager.CustomAIV ResolveAiv(LoadedMission loaded, LordReference lord, int baseLordId, AivReference reference, List<MissionAsset> assets)
+        private static CustomisationFileManager.CustomAIV ResolveAiv(LoadedMission loaded, LordReference lord, int baseLordId, AivReference reference)
         {
             if (reference.Source == "bundled")
             {
                 string path = MissionLoader.ResolveBundledPath(loaded.MissionRoot, reference.File, ".aivjson");
                 CustomisationFileManager.CustomLord holder = ParseBundled(baseLordId, lord.Name, path);
-                AddFileAsset(assets, "aiv/" + Path.GetFileName(path), path);
                 return holder.aivs.Single();
             }
 
@@ -152,8 +145,6 @@ namespace CoopTrailReplacer
                 : list.FirstOrDefault(item => string.Equals(item.AIVName, reference.Name, StringComparison.OrdinalIgnoreCase));
             if (aiv == null)
                 throw new InvalidDataException("AIV was not found: " + (reference.Name ?? reference.Id?.ToString()) + ".");
-            if (!aiv.builtIn)
-                AddFileAsset(assets, "aiv/" + installedLordName + "/" + aiv.AIVName, Path.Combine(aiv.path, aiv.AIVName + ".aivjson"));
             return aiv;
         }
 
@@ -171,12 +162,6 @@ namespace CoopTrailReplacer
             };
             ProcessLordFileMethod.Invoke(CustomisationFileManager.Instance, new object[] { path.ToLowerInvariant(), path, holder, false });
             return holder;
-        }
-
-        private static void AddFileAsset(List<MissionAsset> assets, string identity, string path)
-        {
-            if (!string.IsNullOrWhiteSpace(path) && File.Exists(path))
-                assets.Add(new MissionAsset(identity, File.ReadAllBytes(path)));
         }
     }
 }

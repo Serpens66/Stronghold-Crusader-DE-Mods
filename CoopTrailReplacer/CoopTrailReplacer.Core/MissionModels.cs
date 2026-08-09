@@ -110,8 +110,6 @@ namespace CoopTrailReplacer.Core
         public string JsonPath { get; set; }
         public string MissionRoot { get; set; }
         public CoopMissionDefinition Definition { get; set; }
-        public byte[] CanonicalJson { get; set; }
         public IReadOnlyList<string> BundledFiles { get; set; }
-        public string Hash { get; set; }
     }
 }
