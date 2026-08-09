@@ -1,8 +1,8 @@
-using CoopTrailReplacer.Core;
+using CustomCustomTrail.Core;
 using CrusaderDE;
 using System.Collections.Generic;
 
-namespace CoopTrailReplacer
+namespace CustomCustomTrail
 {
     internal sealed class ResolvedMission
     {

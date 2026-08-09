@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.Serialization;
 
-namespace CoopTrailReplacer.Core
+namespace CustomCustomTrail.Core
 {
     [DataContract]
     public sealed class CoopMissionDefinition

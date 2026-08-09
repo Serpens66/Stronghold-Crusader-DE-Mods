@@ -1,4 +1,4 @@
-using CoopTrailReplacer.Core;
+using CustomCustomTrail.Core;
 using CrusaderDE;
 using System;
 using System.Collections.Generic;
@@ -6,7 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 
-namespace CoopTrailReplacer
+namespace CustomCustomTrail
 {
     internal sealed class MissionAssetResolver
     {

@@ -8,9 +8,10 @@ set "LOCAL_SCRIPT_EXTENDER_ROOT=%PROJECT_DIR%..\shcde-script-extender"
 set "LOCAL_SCRIPT_EXTENDER_MOD_OUTPUT=%LOCAL_SCRIPT_EXTENDER_ROOT%\mod_output\000shcdese"
 set "LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT=%LOCAL_SCRIPT_EXTENDER_ROOT%\src\SHCDESE.BepInEx\bin\net481"
 set "GAME_SCRIPT_EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
-set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\CoopTrailReplacer_Serp"
-set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\CoopTrailReplacer_Serp"
-set "STAGED_GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\.CoopTrailReplacer_Serp.build"
+set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\CustomCustomTrail_Serp"
+set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\CustomCustomTrail_Serp"
+set "STAGED_GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\.CustomCustomTrail_Serp.build"
+set "LEGACY_GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\CoopTrailReplacer_Serp"
 set "EXTENDER_DIR="
 set "NO_PAUSE=0"
 for %%A in (%*) do if /I "%%~A"=="/nopause" set "NO_PAUSE=1"
@@ -44,7 +45,7 @@ echo !EXTENDER_DIR!
 echo.
 
 pushd "%PROJECT_DIR%"
-dotnet run --project CoopTrailReplacer.Tests -c Release
+dotnet run --project CustomCustomTrail.Tests -c Release
 if errorlevel 1 goto build_failed_popd
 dotnet run --project ..\Shared.Tests -c Release
 if errorlevel 1 goto build_failed_popd
@@ -53,7 +54,7 @@ rem Recreate the exact package so removed assets cannot survive an update.
 if exist "%LOCAL_PLUGIN_DIR%\" rmdir /S /Q "%LOCAL_PLUGIN_DIR%"
 if errorlevel 1 goto package_failed_popd
 
-"%MSBUILD%" CoopTrailReplacer.csproj /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
+"%MSBUILD%" CustomCustomTrail.csproj /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
 if errorlevel 1 goto build_failed_popd
 popd
 
@@ -66,7 +67,7 @@ if errorlevel 1 goto package_failed
 xcopy "%PROJECT_DIR%Examples" "%LOCAL_PLUGIN_DIR%\Examples\" /E /I /Q /Y
 if errorlevel 1 goto package_failed
 
-for %%F in (CoopTrailReplacer.dll CoopTrailReplacer.Core.dll info.json README.md) do (
+for %%F in (CustomCustomTrail.dll CustomCustomTrail.Core.dll info.json README.md) do (
   if not exist "%LOCAL_PLUGIN_DIR%\%%F" (
     echo Paketdatei fehlt: %%F
     goto package_failed
@@ -87,6 +88,9 @@ if errorlevel 1 goto copy_failed
 if exist "%GAME_PLUGIN_DIR%\" rmdir /S /Q "%GAME_PLUGIN_DIR%"
 if errorlevel 1 goto copy_failed
 move /Y "%STAGED_GAME_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%" >nul
+if errorlevel 1 goto copy_failed
+rem Remove the former installation so BepInEx cannot load both plugin identities.
+if exist "%LEGACY_GAME_PLUGIN_DIR%\" rmdir /S /Q "%LEGACY_GAME_PLUGIN_DIR%"
 if errorlevel 1 goto copy_failed
 
 echo.

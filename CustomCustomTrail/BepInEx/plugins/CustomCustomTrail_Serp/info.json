@@ -1,7 +1,7 @@
 {
-  "GUID": "CoopTrailReplacer_Serp",
+  "GUID": "CustomCustomTrail_Serp",
   "Author": "Serpens66",
-  "Name": "Coop Trail Replacer",
+  "Name": "Custom Custom Trail",
   "Description": "Replaces vanilla Coop Trail missions with validated JSON missions and bundled or installed maps, lords and AIVs.",
   "Version": "1.1.0",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",

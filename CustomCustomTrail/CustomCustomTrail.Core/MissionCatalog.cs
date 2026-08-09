@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 
-namespace CoopTrailReplacer.Core
+namespace CustomCustomTrail.Core
 {
     public sealed class MissionCatalog
     {

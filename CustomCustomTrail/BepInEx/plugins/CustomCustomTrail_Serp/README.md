@@ -1,6 +1,6 @@
-# Coop Trail Replacer
+# Custom Custom Trail
 
-`CoopTrailReplacer` ersetzt einzelne Missionen der eingebauten Coop-Trails durch lokale `*.coopmission.json`-Bundles. Zur Laufzeit werden keine `.trail`-Dateien benötigt. Map, Lord-Konfigurationen (`.lordjson`) und Burgen (`.aivjson`) dürfen aus der Spielinstallation stammen oder direkt mit einer Mission geliefert werden.
+`CustomCustomTrail` ersetzt einzelne Missionen der eingebauten Coop-Trails durch lokale `*.coopmission.json`-Bundles. Zur Laufzeit werden keine `.trail`-Dateien benötigt. Map, Lord-Konfigurationen (`.lordjson`) und Burgen (`.aivjson`) dürfen aus der Spielinstallation stammen oder direkt mit einer Mission geliefert werden.
 
 Der Mod ist für SHCDE V2.8 gebaut und benötigt BepInEx sowie den SHCDE Script Extender. In echtem Coop laden Host und Gast ihre jeweilige lokale Mission desselben Trail-/Missionsplatzes. Der Mod vergleicht diese Dateien nicht; kompatible Inhalte liegen daher in der Verantwortung der Spieler.
 
@@ -8,9 +8,9 @@ Der Mod ist für SHCDE V2.8 gebaut und benötigt BepInEx sowie den SHCDE Script 
 
 Die installierte Struktur lautet:
 
-    BepInEx\plugins\CoopTrailReplacer_Serp\
-      CoopTrailReplacer.dll
-      CoopTrailReplacer.Core.dll
+    BepInEx\plugins\CustomCustomTrail_Serp\
+      CustomCustomTrail.dll
+      CustomCustomTrail.Core.dll
       CoopTrails\
         Trail1\
           01.coopmission.json
@@ -166,4 +166,4 @@ Ein einzelner Platz wird verworfen und bleibt Vanilla, wenn unter anderem:
 
 ## Entwicklung und Tests
 
-`build.bat` führt die Core-Tests aus, baut das Plugin, erzeugt das lokale Paket unter `BepInEx\plugins\CoopTrailReplacer_Serp` und installiert es atomar über einen temporären Ordner in die Spielinstallation. Die Runtime verwendet die installierte SHCDE-V2.8-`Assembly-CSharp.dll` und den lokalen Script-Extender-Fork als Referenz.
+`build.bat` führt die Core-Tests aus, baut das Plugin, erzeugt das lokale Paket unter `BepInEx\plugins\CustomCustomTrail_Serp` und installiert es atomar über einen temporären Ordner in die Spielinstallation. Die Runtime verwendet die installierte SHCDE-V2.8-`Assembly-CSharp.dll` und den lokalen Script-Extender-Fork als Referenz.

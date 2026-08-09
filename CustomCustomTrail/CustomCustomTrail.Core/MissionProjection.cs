@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 
-namespace CoopTrailReplacer.Core
+namespace CustomCustomTrail.Core
 {
     public sealed class MissionProjection
     {

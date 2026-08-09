@@ -3,17 +3,17 @@ using SHCDESE.API.LowLevel;
 using System;
 using System.IO;
 
-namespace CoopTrailReplacer
+namespace CustomCustomTrail
 {
     [BepInDependency("000shcdese", BepInDependency.DependencyFlags.HardDependency)]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
-    public sealed class CoopTrailReplacerPlugin : BaseUnityPlugin
+    public sealed class CustomCustomTrailPlugin : BaseUnityPlugin
     {
-        public const string PluginGuid = "CoopTrailReplacer_Serp";
-        public const string PluginName = "Coop Trail Replacer";
+        public const string PluginGuid = "CustomCustomTrail_Serp";
+        public const string PluginName = "Custom Custom Trail";
         public const string PluginVersion = "1.1.0";
 
-        private static CoopTrailReplacerRuntime runtime;
+        private static CustomCustomTrailRuntime runtime;
 
         private void Awake()
         {
@@ -28,19 +28,19 @@ namespace CoopTrailReplacer
                 CrusaderLibrary.Instance.LibraryLoaded -= OnLibraryLoaded;
                 Shared.DebugLogHelper.ReportNativeLibraryVersion(Logger, PluginName);
                 string pluginRoot = Path.GetDirectoryName(Info.Location);
-                runtime = new CoopTrailReplacerRuntime(Logger, pluginRoot);
+                runtime = new CustomCustomTrailRuntime(Logger, pluginRoot);
                 runtime.Initialize();
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogError(Logger, "CoopTrailReplacer initialization failed: " + ex);
+                Shared.DebugLogHelper.LogError(Logger, "CustomCustomTrail initialization failed: " + ex);
             }
         }
 
         private void OnDestroy()
         {
             // The BepInEx manager object is destroyed during startup; runtime hooks must survive it.
-            Shared.DebugLogHelper.LogDebug(Logger, "CoopTrailReplacer OnDestroy called; keeping process-lifetime runtime active.");
+            Shared.DebugLogHelper.LogDebug(Logger, "CustomCustomTrail OnDestroy called; keeping process-lifetime runtime active.");
         }
 
         private void OnApplicationQuit()

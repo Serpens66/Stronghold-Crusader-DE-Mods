@@ -1,13 +1,13 @@
 using BepInEx.Bootstrap;
-using CoopTrailReplacer.Core;
+using CustomCustomTrail.Core;
 using System;
 using System.Linq;
 using System.Reflection;
 
-namespace CoopTrailReplacer
+namespace CustomCustomTrail
 {
     /// <summary>
-    /// Neutral reflection boundary: CoopTrailReplacer does not depend on any one
+    /// Neutral reflection boundary: CustomCustomTrail does not depend on any one
     /// settings mod and talks only to the elected Shared runtime.
     /// </summary>
     internal sealed class TrailModSettingsBridge

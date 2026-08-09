@@ -1,4 +1,4 @@
-using CoopTrailReplacer.Core;
+using CustomCustomTrail.Core;
 using System.Runtime.Serialization.Json;
 using System.Text;
 
@@ -167,7 +167,7 @@ sealed class Fixture : IDisposable
 
     public static Fixture Create(int aivRotation = 90, int? secondAivRotation = null, int preferredAiv = -1, int schemaVersion = 2, int startGold = 500)
     {
-        string root = Path.Combine(Path.GetTempPath(), "CoopTrailReplacerTests", Guid.NewGuid().ToString("N"));
+        string root = Path.Combine(Path.GetTempPath(), "CustomCustomTrailTests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
         File.WriteAllBytes(Path.Combine(root, "map.map"), new byte[] { 1, 2, 3 });
         File.WriteAllText(Path.Combine(root, "lord.lordjson"), "{\"lord\":{}}", new UTF8Encoding(false));

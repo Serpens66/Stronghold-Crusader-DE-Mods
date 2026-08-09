@@ -10,7 +10,7 @@
     {
       "Version": "1.0.6",
       "Changes": [
-        "Added mission-bound Trail presets from .modjson and CoopTrailReplacer schema-2 missions, including shared customization UI."
+        "Added mission-bound Trail presets from .modjson and CustomCustomTrail schema-2 missions, including shared customization UI."
       ]
     },
     {
@@ -29,7 +29,7 @@
     {
       "Version": "1.0.4",
       "Changes": [
-        "Added a temporary mission-override API shared with Coop Trail Replacer without changing saved user settings."
+        "Added a temporary mission-override API shared with Custom Custom Trail without changing saved user settings."
       ]
     }
   ]

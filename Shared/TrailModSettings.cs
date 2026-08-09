@@ -45,7 +45,7 @@ namespace Shared
             leader.Initialize();
         }
 
-        // Neutral reflection API used by CoopTrailReplacer without a hard assembly reference.
+        // Neutral reflection API used by CustomCustomTrail without a hard assembly reference.
         public static string[] System_EnterCoopTrailJson(string modSettingsJson, bool editable) =>
             leader?.EnterJson(modSettingsJson, editable, "custom Coop mission") ?? Array.Empty<string>();
 

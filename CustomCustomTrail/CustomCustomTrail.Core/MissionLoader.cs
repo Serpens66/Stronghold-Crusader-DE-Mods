@@ -5,7 +5,7 @@ using System.Linq;
 using System.Runtime.Serialization.Json;
 using System.Text;
 
-namespace CoopTrailReplacer.Core
+namespace CustomCustomTrail.Core
 {
     public sealed class MissionLoader
     {

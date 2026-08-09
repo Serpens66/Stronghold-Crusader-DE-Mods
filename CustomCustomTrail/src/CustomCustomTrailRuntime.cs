@@ -1,5 +1,5 @@
 using BepInEx.Logging;
-using CoopTrailReplacer.Core;
+using CustomCustomTrail.Core;
 using CrusaderDE;
 using MonoMod.RuntimeDetour;
 using R3;
@@ -12,9 +12,9 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 
-namespace CoopTrailReplacer
+namespace CustomCustomTrail
 {
-    internal sealed class CoopTrailReplacerRuntime : IDisposable
+    internal sealed class CustomCustomTrailRuntime : IDisposable
     {
         private delegate void InitCoopMissionsDelegate(FRONT_Multiplayer self);
         private delegate void CoopMissionChangedDelegate(FRONT_Multiplayer self, int trailId, int missionId, bool resetOrderSwapped);
@@ -41,7 +41,7 @@ namespace CoopTrailReplacer
         private string[] missingMods = Array.Empty<string>();
         private ResolvedMission selected;
 
-        public CoopTrailReplacerRuntime(ManualLogSource log, string pluginRoot)
+        public CustomCustomTrailRuntime(ManualLogSource log, string pluginRoot)
         {
             this.log = log;
             coopTrailsRoot = Path.Combine(pluginRoot, "CoopTrails");
