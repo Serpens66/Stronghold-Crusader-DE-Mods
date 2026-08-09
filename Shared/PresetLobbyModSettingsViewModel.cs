@@ -57,8 +57,8 @@ namespace Shared
                 throw new InvalidOperationException($"Preset storage for [{modName}] was already prepared.");
 
             presetOptions.Clear();
-            presetOptions.Add(GetVanillaText(log, "TEXT_NEW_TEXT2_203", "Preset 1"));
-            presetOptions.Add(GetVanillaText(log, "TEXT_NEW_TEXT2_204", "Preset 2"));
+            presetOptions.Add(GetVanillaText(log, "TEXT_NEW_TEXT2_210", "Preset 1"));
+            presetOptions.Add(GetVanillaText(log, "TEXT_NEW_TEXT2_211", "Preset 2"));
 
             presetController = new PresetController(
                 this,
