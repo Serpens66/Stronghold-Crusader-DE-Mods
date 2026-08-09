@@ -13,7 +13,8 @@ namespace CoopTrailReplacer.Core
         [DataMember(Name = "map", Order = 4, IsRequired = true)] public MapReference Map { get; set; }
         [DataMember(Name = "settings", Order = 5)] public CoopSettings Settings { get; set; } = new CoopSettings();
         [DataMember(Name = "players", Order = 6, IsRequired = true)] public List<PlayerDefinition> Players { get; set; } = new List<PlayerDefinition>();
-        [DataMember(Name = "startConditions", Order = 7)] public StartConditionsDefinition StartConditions { get; set; } = new StartConditionsDefinition();
+        [DataMember(Name = "modSettings", Order = 7)] public ModSettingsDefinition ModSettings { get; set; } = ModSettingsDefinition.CreateDisabled();
+        [IgnoreDataMember] public string ModSettingsError { get; set; }
     }
 
     [DataContract]
@@ -70,18 +71,36 @@ namespace CoopTrailReplacer.Core
     }
 
     [DataContract]
-    public sealed class StartConditionsDefinition
+    public sealed class ModSettingsDefinition
     {
-        [DataMember(Name = "setStartGoldAI", Order = 1)] public int SetStartGoldAI { get; set; } = -1;
-        [DataMember(Name = "setStartGoldHuman", Order = 2)] public int SetStartGoldHuman { get; set; } = -1;
-        [DataMember(Name = "addStartGoldAI", Order = 3)] public int AddStartGoldAI { get; set; }
-        [DataMember(Name = "addStartGoldHuman", Order = 4)] public int AddStartGoldHuman { get; set; }
-        [DataMember(Name = "multiplyStartTroopsAI", Order = 5)] public int MultiplyStartTroopsAI { get; set; } = 1;
-        [DataMember(Name = "multiplyStartTroopsHuman", Order = 6)] public int MultiplyStartTroopsHuman { get; set; } = 1;
-        [DataMember(Name = "startGoodsAI", Order = 7)] public Dictionary<string, int> StartGoodsAI { get; set; } = new Dictionary<string, int>();
-        [DataMember(Name = "startGoodsHuman", Order = 8)] public Dictionary<string, int> StartGoodsHuman { get; set; } = new Dictionary<string, int>();
-        [DataMember(Name = "addStartTroopsAI", Order = 9)] public Dictionary<string, int> AddStartTroopsAI { get; set; } = new Dictionary<string, int>();
-        [DataMember(Name = "addStartTroopsHuman", Order = 10)] public Dictionary<string, int> AddStartTroopsHuman { get; set; } = new Dictionary<string, int>();
+        public static readonly string[] TargetModIds =
+        {
+            "BuildingCosts_Serp",
+            "BuildingLimit_Serp",
+            "ExtraFeatures_Serp",
+            "RandomEvents_Serp",
+            "StartConditions_Serp",
+            "UnitCosts_Serp",
+            "UnitLimit_Serp",
+        };
+
+        [DataMember(Name = "schemaVersion", Order = 1)] public int SchemaVersion { get; set; } = 1;
+        [DataMember(Name = "mods", Order = 2)] public Dictionary<string, ModSettingsEntry> Mods { get; set; } = new Dictionary<string, ModSettingsEntry>(StringComparer.Ordinal);
+
+        public static ModSettingsDefinition CreateDisabled()
+        {
+            var result = new ModSettingsDefinition();
+            foreach (string id in TargetModIds)
+                result.Mods[id] = new ModSettingsEntry();
+            return result;
+        }
+    }
+
+    [DataContract]
+    public sealed class ModSettingsEntry
+    {
+        [DataMember(Name = "enabled", Order = 1)] public bool Enabled { get; set; }
+        [DataMember(Name = "settings", Order = 2)] public Dictionary<string, object> Settings { get; set; } = new Dictionary<string, object>(StringComparer.Ordinal);
     }
 
     public sealed class LoadedMission

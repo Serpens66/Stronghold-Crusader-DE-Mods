@@ -3,10 +3,17 @@
   "Author": "Serpens66",
   "Name": "Coop Trail Replacer",
   "Description": "Replaces vanilla Coop Trail missions with validated JSON missions and bundled or installed maps, lords and AIVs.",
-  "Version": "1.0.0",
+  "Version": "1.1.0",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.1.0",
+      "Changes": [
+        "Changed missions to schema 2 with canonical seven-mod modSettings and neutral Shared Trail-preset integration.",
+        "Removed the top-level startConditions bridge and built-in fallback runtime."
+      ]
+    },
     {
       "Version": "1.0.0",
       "Changes": [

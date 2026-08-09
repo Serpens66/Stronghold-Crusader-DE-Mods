@@ -33,7 +33,6 @@ namespace ExtraFeatures
         private readonly ChurchPriestCountRuntime churchPriestCountRuntime;
 
         private PendingStockpileRefund pendingStockpileRefund;
-        private CoopTrailCustomizeHook coopTrailCustomizeHook;
         private CtrlMarketTradeHook ctrlMarketTradeHook;
         private SingleBuildingPauseHook singleBuildingPauseHook;
         private AIEconomyProtectionHook aiEconomyProtectionHook;
@@ -160,7 +159,6 @@ namespace ExtraFeatures
                 subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
                     .Where(args => args.Phase == EventHookPhase.Post)
                     .Subscribe(OnUnloadMap));
-                coopTrailCustomizeHook = new CoopTrailCustomizeHook(log);
                 InstallCtrlMarketTradeHook();
                 InstallSingleBuildingPauseHook();
                 hooksSubscribed = true;
@@ -179,8 +177,6 @@ namespace ExtraFeatures
             foreach (IDisposable subscription in subscriptions)
                 subscription.Dispose();
             subscriptions.Clear();
-            coopTrailCustomizeHook?.Dispose();
-            coopTrailCustomizeHook = null;
             knightDismountRuntime.Dispose();
             quarryPileRelocationRuntime.Dispose();
             ctrlMarketTradeHook?.Dispose();

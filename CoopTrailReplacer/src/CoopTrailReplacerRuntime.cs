@@ -38,8 +38,8 @@ namespace CoopTrailReplacer
         private InitCoopMissionsDelegate initTrampoline;
         private CoopMissionChangedDelegate missionTrampoline;
         private ButtonClickedDelegate buttonTrampoline;
-        private StartConditionsBridge startConditions;
-        private ExtraFeaturesBridge extraFeatures;
+        private TrailModSettingsBridge trailModSettings;
+        private string[] missingMods = Array.Empty<string>();
         private short packetId;
         private ResolvedMission selected;
         private int selectedTrailId = -1;
@@ -55,8 +55,7 @@ namespace CoopTrailReplacer
 
         public void Initialize()
         {
-            startConditions = new StartConditionsBridge(log);
-            extraFeatures = new ExtraFeaturesBridge(OnCustomizedLobby);
+            trailModSettings = new TrailModSettingsBridge();
 
             var packetHook = GameNetworkAPI.Instance.GetPacketEventFor<MissionHashPacket>();
             packetId = packetHook.GetPacketId();
@@ -75,7 +74,7 @@ namespace CoopTrailReplacer
             buttonHook = new Hook(buttonMethod, (ButtonClickedDelegate)ButtonClickedHook);
             buttonTrampoline = buttonHook.GenerateTrampoline<ButtonClickedDelegate>();
 
-            LogInfo("Runtime initialized; packetId=" + packetId + ", installedStartConditions=" + startConditions.UsesInstalledPlugin + ".");
+            LogInfo("Runtime initialized; packetId=" + packetId + ", trailModSettings=" + trailModSettings.IsAvailable + ".");
         }
 
         public void Dispose()
@@ -86,8 +85,7 @@ namespace CoopTrailReplacer
             initHook?.Dispose();
             missionHook?.Dispose();
             buttonHook?.Dispose();
-            extraFeatures?.Dispose();
-            startConditions?.Dispose();
+            trailModSettings?.Exit();
         }
 
         private void InitCoopMissionsHook(FRONT_Multiplayer self)
@@ -105,27 +103,29 @@ namespace CoopTrailReplacer
 
         private void CoopMissionChangedHook(FRONT_Multiplayer self, int trailId, int missionId, bool resetOrderSwapped)
         {
-            extraFeatures?.Clear();
             missionTrampoline(self, trailId, missionId, resetOrderSwapped);
             selectedTrailId = trailId;
             selectedMissionId = missionId;
             resolved.TryGetValue(MissionCatalog.ToKey(trailId + 1, missionId), out selected);
             if (selected == null)
             {
-                startConditions.Clear();
+                missingMods = Array.Empty<string>();
+                trailModSettings.Exit();
                 return;
             }
 
             try
             {
                 ApplySelectedMission(self, true);
-                startConditions.Apply(selected.Loaded.Definition.StartConditions);
+                trailModSettings.Enter(selected.Loaded.Definition.ModSettings, editable: false);
+                missingMods = trailModSettings.GetMissingEnabledMods(selected.Loaded.Definition.ModSettings);
                 BeginHashVerification(self);
             }
             catch (Exception ex)
             {
                 selected = null;
-                startConditions.Clear();
+                missingMods = Array.Empty<string>();
+                trailModSettings.Exit();
                 LogError("Could not activate replacement Trail" + (trailId + 1) + "/" + missionId.ToString("00") + ": " + ex);
             }
         }
@@ -162,6 +162,8 @@ namespace CoopTrailReplacer
                         continue;
                     }
                     ResolvedMission mission = resolver.Resolve(entry.Value);
+                    if (!string.IsNullOrWhiteSpace(entry.Value.Definition.ModSettingsError))
+                        LogError("Trail" + entry.Value.TrailNumber + "/" + entry.Value.MissionNumber.ToString("00") + " disabled all modSettings: " + entry.Value.Definition.ModSettingsError);
                     resolved[entry.Key] = mission;
                     FRONT_Multiplayer.CoopMissionSetupData[] trail = GetTrail(entry.Value.TrailNumber);
                     trail[entry.Value.MissionNumber - 1] = mission.CoopData;
@@ -197,7 +199,7 @@ namespace CoopTrailReplacer
             }
 
             MainViewModel.Instance.CoopMissionTitle = selected.Loaded.Definition.DisplayName;
-            MainViewModel.Instance.StandaloneMissionText = selected.Loaded.Definition.Description ?? string.Empty;
+            MainViewModel.Instance.StandaloneMissionText = BuildMissionDescription();
             if (updateHost && self.currentLobby != null && self.currentLobby.isHost)
                 UpdateHostInfoMethod?.Invoke(self, null);
         }
@@ -265,24 +267,27 @@ namespace CoopTrailReplacer
                 return;
             string suffix = hashMismatch ? " [asset mismatch]" : (remoteAcknowledged ? string.Empty : " [checking files]");
             MainViewModel.Instance.CoopMissionTitle = selected.Loaded.Definition.DisplayName + suffix;
-            MainViewModel.Instance.StandaloneMissionText = selected.Loaded.Definition.Description ?? string.Empty;
+            MainViewModel.Instance.StandaloneMissionText = BuildMissionDescription();
         }
 
-        private void OnCustomizedLobby()
+        private string BuildMissionDescription()
         {
-            startConditions?.Clear();
-            LogInfo("Extra Features customized Coop lobby detected; user-selected StartConditions remain active.");
+            string description = selected?.Loaded.Definition.Description ?? string.Empty;
+            if (missingMods == null || missingMods.Length == 0)
+                return description;
+            string warning = "Required mission mods not installed: " + string.Join(", ", missingMods) + ".";
+            return string.IsNullOrWhiteSpace(description) ? warning : description + "\r\n\r\n" + warning;
         }
 
         private void ClearLaunchState()
         {
-            startConditions?.Clear();
-            extraFeatures?.Clear();
+            trailModSettings?.Exit();
             selected = null;
             selectedTrailId = -1;
             selectedMissionId = -1;
             remoteAcknowledged = false;
             hashMismatch = false;
+            missingMods = Array.Empty<string>();
         }
 
         private static FRONT_Multiplayer.CoopMissionSetupData[] GetTrail(int trailNumber)

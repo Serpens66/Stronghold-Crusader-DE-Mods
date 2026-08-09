@@ -24,8 +24,14 @@ namespace Shared
             new ObservableCollection<string>();
         private PresetController presetController;
         private int selectedPreset;
+        private bool trailContext;
+        private bool trailEditable;
 
         public ObservableCollection<string> PresetOptions => presetOptions;
+
+        public bool AreSettingsEditable => !trailContext || selectedPreset != 2 || trailEditable;
+
+        public bool IsTrailPresetActive => trailContext && selectedPreset == 2;
 
         // Zero-based because Noesis binds this value directly to ComboBox.SelectedIndex.
         public int SelectedPreset
@@ -33,7 +39,7 @@ namespace Shared
             get => selectedPreset;
             set
             {
-                int normalized = value == 1 ? 1 : 0;
+                int normalized = trailContext && value == 2 ? 2 : (value == 1 ? 1 : 0);
                 if (selectedPreset == normalized)
                     return;
 
@@ -76,6 +82,41 @@ namespace Shared
             presetController.Activate();
         }
 
+        // Public reflection boundary used by the elected Shared runtime in another mod assembly.
+        public Dictionary<string, byte[]> System_CaptureTrailSnapshot() =>
+            presetController?.CaptureCurrent() ?? new Dictionary<string, byte[]>(StringComparer.Ordinal);
+
+        public Dictionary<string, byte[]> System_CreateDisabledTrailSnapshot() =>
+            presetController?.CreateDisabledSnapshot() ?? new Dictionary<string, byte[]>(StringComparer.Ordinal);
+
+        public void System_EnterTrailPreset(Dictionary<string, byte[]> snapshot, bool editable)
+        {
+            if (presetController == null)
+                return;
+
+            trailContext = true;
+            trailEditable = editable;
+            if (presetOptions.Count < 3)
+                presetOptions.Add("Trail");
+            presetController.EnterTrail(snapshot, editable);
+            base.OnPropertyChanged(nameof(AreSettingsEditable));
+            base.OnPropertyChanged(nameof(IsTrailPresetActive));
+        }
+
+        public void System_ExitTrailPreset()
+        {
+            if (!trailContext || presetController == null)
+                return;
+
+            trailContext = false;
+            trailEditable = false;
+            presetController.ExitTrail();
+            if (presetOptions.Count > 2)
+                presetOptions.RemoveAt(2);
+            base.OnPropertyChanged(nameof(AreSettingsEditable));
+            base.OnPropertyChanged(nameof(IsTrailPresetActive));
+        }
+
         // The Script Extender's event handler runs synchronously inside the base call.
         // Reattach our reserved keys only after its normal persistence has completed.
         protected new void OnPropertyChanged(string name)
@@ -97,6 +138,8 @@ namespace Shared
 
             selectedPreset = value;
             OnPropertyChanged(nameof(SelectedPreset));
+            base.OnPropertyChanged(nameof(AreSettingsEditable));
+            base.OnPropertyChanged(nameof(IsTrailPresetActive));
         }
 
         private static string GetVanillaText(
@@ -144,8 +187,12 @@ namespace Shared
             private Dictionary<string, byte[]> defaults;
             private Dictionary<string, byte[]> preset1;
             private Dictionary<string, byte[]> preset2;
+            private Dictionary<string, byte[]> trail;
+            private Dictionary<string, byte[]> trailSessionPreset1;
+            private Dictionary<string, byte[]> trailSessionPreset2;
             private bool active;
             private bool applying;
+            private int localSelectedPreset;
 
             public PresetController(
                 PresetLobbyModSettingsViewModel owner,
@@ -236,25 +283,82 @@ namespace Shared
                 }
 
                 active = true;
+                localSelectedPreset = selected;
                 ApplyPreset(selected);
             }
 
             public void SwitchTo(int selected)
             {
-                selected = NormalizePreset(selected);
+                selected = owner.trailContext && selected == 2 ? 2 : NormalizePreset(selected);
                 if (!active || owner.selectedPreset == selected)
                     return;
 
+                if (owner.trailContext)
+                {
+                    Dictionary<string, byte[]> snapshot = selected == 2
+                        ? trail ?? CreateDisabledSnapshot()
+                        : selected == 1 ? trailSessionPreset2 : trailSessionPreset1;
+                    ApplySnapshot(snapshot, selected, writeLocalStorage: false);
+                    return;
+                }
+
+                localSelectedPreset = selected;
                 ApplyPreset(selected);
                 DebugLogHelper.LogInfo(
                     log,
                     $"[{modName}] Switched to preset {selected + 1}; saved={GetPreset(selected) != null}.");
             }
 
+            public Dictionary<string, byte[]> CaptureCurrent() => CaptureCurrentSettings();
+
+            public Dictionary<string, byte[]> CreateDisabledSnapshot()
+            {
+                Dictionary<string, byte[]> snapshot = Clone(defaults);
+                if (persistedPropertiesByName.TryGetValue("EnableMod", out PropertyInfo enableProperty) &&
+                    enableProperty.PropertyType == typeof(bool))
+                {
+                    snapshot[enableProperty.Name] = MessagePackSerializer.Serialize(false);
+                }
+                return snapshot;
+            }
+
+            public void EnterTrail(Dictionary<string, byte[]> snapshot, bool editable)
+            {
+                trail = snapshot == null ? CreateDisabledSnapshot() : Clone(snapshot);
+                // Local presets become session copies in a Trail context so lobby edits cannot leak to disk.
+                trailSessionPreset1 = Clone(preset1 ?? defaults);
+                trailSessionPreset2 = Clone(preset2 ?? defaults);
+                ApplySnapshot(trail, 2, writeLocalStorage: false);
+                DebugLogHelper.LogInfo(log, $"[{modName}] Entered {(editable ? "editable" : "read-only")} Trail preset.");
+            }
+
+            public void ExitTrail()
+            {
+                trail = null;
+                trailSessionPreset1 = null;
+                trailSessionPreset2 = null;
+                ApplyPreset(localSelectedPreset);
+                DebugLogHelper.LogInfo(log, $"[{modName}] Left Trail preset and restored preset {localSelectedPreset + 1}.");
+            }
+
             public void AfterPropertyChanged(string propertyName)
             {
                 if (!active || applying || string.IsNullOrEmpty(propertyName))
                     return;
+
+                if (owner.trailContext && owner.selectedPreset == 2)
+                {
+                    if (owner.trailEditable && persistedPropertiesByName.TryGetValue(propertyName, out PropertyInfo trailProperty))
+                        StoreProperty(trail, trailProperty);
+                    return;
+                }
+
+                if (owner.trailContext)
+                {
+                    if (persistedPropertiesByName.TryGetValue(propertyName, out PropertyInfo sessionProperty))
+                        StoreProperty(owner.selectedPreset == 1 ? trailSessionPreset2 : trailSessionPreset1, sessionProperty);
+                    return;
+                }
 
                 Dictionary<string, byte[]> diskPayload;
                 if (TryReadPayload(out diskPayload) &&
@@ -283,6 +387,14 @@ namespace Shared
             private void ApplyPreset(int selected)
             {
                 Dictionary<string, byte[]> stored = GetPreset(selected);
+                ApplySnapshot(stored, selected, writeLocalStorage: true);
+            }
+
+            private void ApplySnapshot(
+                Dictionary<string, byte[]> stored,
+                int selected,
+                bool writeLocalStorage)
+            {
                 applying = true;
                 try
                 {
@@ -311,7 +423,8 @@ namespace Shared
                     applying = false;
                 }
 
-                WriteCombinedPayload();
+                if (writeLocalStorage)
+                    WriteCombinedPayload();
             }
 
             private bool TryApplyProperty(PropertyInfo property, byte[] bytes)
@@ -374,7 +487,7 @@ namespace Shared
             {
                 Dictionary<string, byte[]> payload = CaptureCurrentSettings();
                 payload[SchemaVersionKey] = MessagePackSerializer.Serialize(SchemaVersion);
-                payload[ActivePresetKey] = MessagePackSerializer.Serialize(owner.selectedPreset);
+                payload[ActivePresetKey] = MessagePackSerializer.Serialize(localSelectedPreset);
                 payload[Preset1Key] = MessagePackSerializer.Serialize(preset1 ?? Clone(defaults));
                 if (preset2 != null)
                     payload[Preset2Key] = MessagePackSerializer.Serialize(preset2);
@@ -536,6 +649,7 @@ namespace Shared
             }
 
             viewModel.ActivatePresets();
+            TrailModSettingsRuntime.RegisterParticipant(plugin, log, modName);
         }
     }
 }

@@ -49,16 +49,7 @@
     <Reference Include="CoopTrailReplacer.Core"><HintPath>$(CoreOutput)\CoopTrailReplacer.Core.dll</HintPath><Private>true</Private></Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="..\Shared\ActivePlayerHelper.cs"><Link>Shared\ActivePlayerHelper.cs</Link></Compile>
     <Compile Include="..\Shared\DebugLogHelper.cs"><Link>Shared\DebugLogHelper.cs</Link></Compile>
-    <Compile Include="..\StartConditions\src\IStartConditionsSettings.cs"><Link>StartConditions\IStartConditionsSettings.cs</Link></Compile>
-    <Compile Include="..\StartConditions\src\StartConditionsIntegration.cs"><Link>StartConditions\StartConditionsIntegration.cs</Link></Compile>
-    <Compile Include="..\StartConditions\src\StartConditionsRuntime.cs"><Link>StartConditions\StartConditionsRuntime.cs</Link></Compile>
-    <Compile Include="..\StartConditions\src\StartConditionsRuntime.StartTroops.cs"><Link>StartConditions\StartConditionsRuntime.StartTroops.cs</Link></Compile>
-    <Compile Include="..\StartConditions\src\StartConditionsRuntime.StartResources.cs"><Link>StartConditions\StartConditionsRuntime.StartResources.cs</Link></Compile>
-    <Compile Include="..\StartConditions\src\StartConditionsRuntime.MapLifecycle.cs"><Link>StartConditions\StartConditionsRuntime.MapLifecycle.cs</Link></Compile>
-    <Compile Include="..\StartConditions\src\StartConditionsRuntime.Helpers.cs"><Link>StartConditions\StartConditionsRuntime.Helpers.cs</Link></Compile>
-    <Compile Include="..\StartConditions\src\StartConditionsRuntime.Localization.cs"><Link>StartConditions\StartConditionsRuntime.Localization.cs</Link></Compile>
     <Compile Include="src\CoopTrailReplacerPlugin.cs" />
     <Compile Include="src\CoopTrailReplacerRuntime.cs" />
     <Compile Include="src\MissionAssetResolver.cs" />

@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "displayName": "Meine Coop-Mission",
   "description": "Host und Gast verteidigen gemeinsam die Oase.",
   "map": {
@@ -56,25 +56,26 @@
       "preferredAiv": -1
     }
   ],
-  "startConditions": {
-    "setStartGoldAI": -1,
-    "setStartGoldHuman": 500,
-    "addStartGoldAI": 0,
-    "addStartGoldHuman": 0,
-    "multiplyStartTroopsAI": 1,
-    "multiplyStartTroopsHuman": 1,
-    "startGoodsAI": {
-      "STORED_WOOD_PLANKS": 100
-    },
-    "startGoodsHuman": {
-      "STORED_WOOD_PLANKS": 100,
-      "STORED_STONE_BLOCKS": 50
-    },
-    "addStartTroopsAI": {
-      "CHIMP_TYPE_ARCHER": 10
-    },
-    "addStartTroopsHuman": {
-      "CHIMP_TYPE_SPEARMAN": 5
+  "modSettings": {
+    "schemaVersion": 1,
+    "mods": {
+      "BuildingCosts_Serp": { "enabled": false, "settings": {} },
+      "BuildingLimit_Serp": { "enabled": false, "settings": {} },
+      "ExtraFeatures_Serp": { "enabled": false, "settings": {} },
+      "RandomEvents_Serp": { "enabled": false, "settings": {} },
+      "StartConditions_Serp": {
+        "enabled": true,
+        "settings": {
+          "SetStartGoldAI": -1,
+          "SetStartGoldHuman": 500,
+          "StartGoodsAI": "STORED_WOOD_PLANKS=100",
+          "StartGoodsHuman": "STORED_WOOD_PLANKS=100\r\nSTORED_STONE_BLOCKS=50",
+          "AddStartTroopsAI": "CHIMP_TYPE_ARCHER=10",
+          "AddStartTroopsHuman": "CHIMP_TYPE_SPEARMAN=5"
+        }
+      },
+      "UnitCosts_Serp": { "enabled": false, "settings": {} },
+      "UnitLimit_Serp": { "enabled": false, "settings": {} }
     }
   }
 }

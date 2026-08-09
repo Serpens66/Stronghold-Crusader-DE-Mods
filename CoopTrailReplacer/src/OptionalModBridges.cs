@@ -1,124 +1,54 @@
 using BepInEx.Bootstrap;
 using CoopTrailReplacer.Core;
 using System;
+using System.Linq;
 using System.Reflection;
 
 namespace CoopTrailReplacer
 {
-    internal sealed class StartConditionsBridge
+    /// <summary>
+    /// Neutral reflection boundary: CoopTrailReplacer does not depend on any one
+    /// settings mod and talks only to the elected Shared runtime.
+    /// </summary>
+    internal sealed class TrailModSettingsBridge
     {
-        public const string Owner = "CoopTrailReplacer_Serp";
-        private readonly Type integrationType;
-        private readonly Type overrideType;
-        private readonly MethodInfo setMethod;
-        private readonly MethodInfo clearMethod;
-        private readonly StartConditions.StartConditionsOverrideSettings fallbackSettings;
-        private readonly StartConditions.StartConditionsRuntime fallbackRuntime;
+        private readonly MethodInfo enterMethod;
+        private readonly MethodInfo exitMethod;
+        private readonly MethodInfo missingMethod;
 
-        public StartConditionsBridge(BepInEx.Logging.ManualLogSource log)
+        public TrailModSettingsBridge()
         {
-            if (Chainloader.PluginInfos.TryGetValue("StartConditions_Serp", out var pluginInfo))
-            {
-                Assembly assembly = pluginInfo.Instance.GetType().Assembly;
-                integrationType = assembly.GetType("StartConditions.StartConditionsIntegration", true);
-                overrideType = assembly.GetType("StartConditions.StartConditionsOverrideSettings", true);
-                setMethod = integrationType.GetMethod("SetMissionOverride", BindingFlags.Public | BindingFlags.Static);
-                clearMethod = integrationType.GetMethod("ClearMissionOverride", BindingFlags.Public | BindingFlags.Static);
+            string leaderId = ModSettingsDefinition.TargetModIds
+                .Where(id => Chainloader.PluginInfos.ContainsKey(id))
+                .OrderBy(id => id, StringComparer.Ordinal)
+                .FirstOrDefault();
+            if (leaderId == null)
                 return;
-            }
 
-            fallbackSettings = new StartConditions.StartConditionsOverrideSettings();
-            fallbackRuntime = new StartConditions.StartConditionsRuntime(log, fallbackSettings);
-            fallbackRuntime.InitializeAfterLibraryLoaded();
+            Assembly assembly = Chainloader.PluginInfos[leaderId].Instance.GetType().Assembly;
+            Type runtime = assembly.GetType("Shared.TrailModSettingsRuntime", false);
+            enterMethod = runtime?.GetMethod("System_EnterCoopTrailJson", BindingFlags.Public | BindingFlags.Static);
+            exitMethod = runtime?.GetMethod("System_ExitTrailContext", BindingFlags.Public | BindingFlags.Static);
+            missingMethod = runtime?.GetMethod("System_GetMissingEnabledMods", BindingFlags.Public | BindingFlags.Static);
         }
 
-        public bool UsesInstalledPlugin => integrationType != null;
+        public bool IsAvailable => enterMethod != null;
 
-        public void Apply(StartConditionsDefinition definition)
+        public void Enter(ModSettingsDefinition settings, bool editable)
         {
-            if (definition == null)
-                definition = new StartConditionsDefinition();
-
-            if (UsesInstalledPlugin)
-            {
-                object settings = Activator.CreateInstance(overrideType);
-                Set(settings, "EnableMod", true);
-                Set(settings, "SetStartGoldAI", definition.SetStartGoldAI);
-                Set(settings, "SetStartGoldHuman", definition.SetStartGoldHuman);
-                Set(settings, "AddStartGoldAI", definition.AddStartGoldAI);
-                Set(settings, "AddStartGoldHuman", definition.AddStartGoldHuman);
-                Set(settings, "MultiplyStartTroopsAI", definition.MultiplyStartTroopsAI);
-                Set(settings, "MultiplyStartTroopsHuman", definition.MultiplyStartTroopsHuman);
-                Set(settings, "StartGoodsAI", MissionLoader.SerializeAmounts(definition.StartGoodsAI));
-                Set(settings, "StartGoodsHuman", MissionLoader.SerializeAmounts(definition.StartGoodsHuman));
-                Set(settings, "AddStartTroopsAI", MissionLoader.SerializeAmounts(definition.AddStartTroopsAI));
-                Set(settings, "AddStartTroopsHuman", MissionLoader.SerializeAmounts(definition.AddStartTroopsHuman));
-                setMethod.Invoke(null, new[] { Owner, settings });
-                return;
-            }
-
-            CopyToFallback(definition);
-            StartConditions.StartConditionsIntegration.SetMissionOverride(Owner, fallbackSettings);
+            enterMethod?.Invoke(null, new object[] { MissionLoader.SerializeModSettings(settings), editable });
         }
 
-        public void Clear()
+        public void Exit()
         {
-            if (UsesInstalledPlugin)
-                clearMethod.Invoke(null, new object[] { Owner });
-            else
-                StartConditions.StartConditionsIntegration.ClearMissionOverride(Owner);
+            exitMethod?.Invoke(null, null);
         }
 
-        public void Dispose()
+        public string[] GetMissingEnabledMods(ModSettingsDefinition settings)
         {
-            Clear();
-            fallbackRuntime?.Dispose();
-        }
-
-        private static void Set(object target, string property, object value) =>
-            target.GetType().GetProperty(property, BindingFlags.Instance | BindingFlags.Public).SetValue(target, value);
-
-        private void CopyToFallback(StartConditionsDefinition definition)
-        {
-            fallbackSettings.EnableMod = true;
-            fallbackSettings.SetStartGoldAI = definition.SetStartGoldAI;
-            fallbackSettings.SetStartGoldHuman = definition.SetStartGoldHuman;
-            fallbackSettings.AddStartGoldAI = definition.AddStartGoldAI;
-            fallbackSettings.AddStartGoldHuman = definition.AddStartGoldHuman;
-            fallbackSettings.MultiplyStartTroopsAI = definition.MultiplyStartTroopsAI;
-            fallbackSettings.MultiplyStartTroopsHuman = definition.MultiplyStartTroopsHuman;
-            fallbackSettings.StartGoodsAI = MissionLoader.SerializeAmounts(definition.StartGoodsAI);
-            fallbackSettings.StartGoodsHuman = MissionLoader.SerializeAmounts(definition.StartGoodsHuman);
-            fallbackSettings.AddStartTroopsAI = MissionLoader.SerializeAmounts(definition.AddStartTroopsAI);
-            fallbackSettings.AddStartTroopsHuman = MissionLoader.SerializeAmounts(definition.AddStartTroopsHuman);
-        }
-    }
-
-    internal sealed class ExtraFeaturesBridge : IDisposable
-    {
-        private readonly Type contextType;
-        private readonly EventInfo customizedEvent;
-        private readonly Action customizedHandler;
-
-        public ExtraFeaturesBridge(Action onCustomized)
-        {
-            if (!Chainloader.PluginInfos.TryGetValue("ExtraFeatures_Serp", out var pluginInfo))
-                return;
-            contextType = pluginInfo.Instance.GetType().Assembly.GetType("ExtraFeatures.CoopTrailLaunchContext", false);
-            customizedEvent = contextType?.GetEvent("Customized", BindingFlags.Public | BindingFlags.Static);
-            if (customizedEvent != null)
-            {
-                customizedHandler = onCustomized;
-                customizedEvent.AddEventHandler(null, customizedHandler);
-            }
-        }
-
-        public void Clear() => contextType?.GetMethod("Clear", BindingFlags.Public | BindingFlags.Static)?.Invoke(null, null);
-
-        public void Dispose()
-        {
-            if (customizedEvent != null && customizedHandler != null)
-                customizedEvent.RemoveEventHandler(null, customizedHandler);
+            if (missingMethod == null)
+                return Array.Empty<string>();
+            return (string[])missingMethod.Invoke(null, new object[] { MissionLoader.SerializeModSettings(settings) });
         }
     }
 }

@@ -1281,21 +1281,6 @@
                                 Command="{Binding MultiplayerMenuCommand}"
                                 CommandParameter="CoopKick"
                                 Style="{StaticResource BTN_SH_GlowL}" />
-                            <Button
-                                Name="ExtraFeaturesCoopCustomize"
-                                Width="200"
-                                Margin="0,0,0,78"
-                                HorizontalAlignment="Center"
-                                VerticalAlignment="Bottom"
-                                local:PropEx.TextCentre="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_CUSTOMISATION_071]}"
-                                local:PropEx.TextLeft=""
-                                local:PropEx.TextRight=""
-                                local:PropEx.GlowButtonTextHeight="28"
-                                Command="{Binding MultiplayerMenuCommand}"
-                                CommandParameter="ExtraFeaturesCustomizeCoopTrail"
-                                MouseEnter="CommonRedButtonEnter"
-                                Style="{StaticResource BTN_SH_GlowL}" />
-
                             <!-- Options Button -->
                             <Button
                                 Name="OptionsButton"

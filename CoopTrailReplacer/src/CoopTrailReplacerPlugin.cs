@@ -6,14 +6,12 @@ using System.IO;
 namespace CoopTrailReplacer
 {
     [BepInDependency("000shcdese", BepInDependency.DependencyFlags.HardDependency)]
-    [BepInDependency("StartConditions_Serp", BepInDependency.DependencyFlags.SoftDependency)]
-    [BepInDependency("ExtraFeatures_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class CoopTrailReplacerPlugin : BaseUnityPlugin
     {
         public const string PluginGuid = "CoopTrailReplacer_Serp";
         public const string PluginName = "Coop Trail Replacer";
-        public const string PluginVersion = "1.0.0";
+        public const string PluginVersion = "1.1.0";
 
         private static CoopTrailReplacerRuntime runtime;
 

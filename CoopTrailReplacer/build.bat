@@ -46,6 +46,8 @@ echo.
 pushd "%PROJECT_DIR%"
 dotnet run --project CoopTrailReplacer.Tests -c Release
 if errorlevel 1 goto build_failed_popd
+dotnet run --project ..\Shared.Tests -c Release
+if errorlevel 1 goto build_failed_popd
 
 rem Recreate the exact package so removed assets cannot survive an update.
 if exist "%LOCAL_PLUGIN_DIR%\" rmdir /S /Q "%LOCAL_PLUGIN_DIR%"

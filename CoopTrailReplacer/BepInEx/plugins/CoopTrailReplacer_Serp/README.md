@@ -34,13 +34,13 @@ Siehe `Examples\01.coopmission.json.example`. Die Dateiendung `.example` verhind
 
 | Feld | Werte und Wirkung |
 | --- | --- |
-| `schemaVersion` | Muss in dieser Version `1` sein. Andere Versionen werden abgelehnt. |
+| `schemaVersion` | Muss in dieser Version `2` sein. Schema 1 und andere Versionen werden verständlich abgelehnt. |
 | `displayName` | Eigener Missionsname in der Coop-Lobby. Darf nicht leer sein. |
 | `description` | Eigene Missionsbeschreibung. Optional. |
 | `map` | Mapreferenz nach dem unten beschriebenen Quellformat. |
 | `settings` | Vanilla-Coop-Startpreset und Gebäudefreigaben. Fehlend bedeutet die unten genannten Standardwerte. |
 | `players` | Zwei bis acht aktive Plätze. Die Reihenfolge bestimmt Mensch/Mensch/KIs. |
-| `startConditions` | Exakte Ressourcen- und Truppenänderungen für Menschen und KIs. |
+| `modSettings` | Optionaler Trail-Presetstand für die sieben unterstützten Settings-Mods. Fehlend bedeutet sieben deaktivierte Einträge. |
 
 Unbekannte absolute Pfade werden nicht unterstützt. Bei `bundled` werden außerdem `..`-Pfadfluchten aus dem Missionsordner abgelehnt.
 
@@ -141,44 +141,13 @@ Goldtabelle (`Mensch/KI`):
 | 3 | 40000/3000 | 20000/7000 | 10000/10000 | 7000/20000 | 3000/40000 |
 | 4 | 4000/500 | 2000/500 | 500/500 | 500/2000 | 500/4000 |
 
-Beliebiges Startgold, etwa exakt 500 nur für Menschen, wird anschließend über `startConditions.setStartGoldHuman` festgelegt.
+Beliebiges Startgold, etwa exakt 500 nur für Menschen, wird anschließend über `modSettings.mods.StartConditions_Serp.settings.SetStartGoldHuman` festgelegt.
 
-## Startbedingungen
+## Modsettings
 
-`startConditions` verwendet denselben Kern wie der Mod `StartConditions`:
+`modSettings` verwendet Schema 1 und enthält immer Einträge für `BuildingCosts_Serp`, `BuildingLimit_Serp`, `ExtraFeatures_Serp`, `RandomEvents_Serp`, `StartConditions_Serp`, `UnitCosts_Serp` und `UnitLimit_Serp`. Ein Eintrag besitzt `enabled` sowie bei Aktivierung ein `settings`-Objekt mit den Propertynamen aus dem jeweiligen Mod-Menü. Bool-, Ganzzahl-, Kommazahl- und Stringwerte werden als native JSON-Typen geschrieben; mehrzeilige Listen wie die Startgüter bleiben Strings mit `\r\n`.
 
-| Feld | Werte und Wirkung |
-| --- | --- |
-| `setStartGoldAI`, `setStartGoldHuman` | `-1` lässt Vanilla-Gold unverändert; `0..100000` setzt es exakt. |
-| `addStartGoldAI`, `addStartGoldHuman` | `-100000..100000`, wird nach dem Setzen addiert. Negative Werte ziehen Gold ab. |
-| `multiplyStartTroopsAI`, `multiplyStartTroopsHuman` | `0..100`; `0` entfernt vorhandene Starttruppen, `1` lässt sie unverändert, höhere Werte vervielfachen sie. |
-| `startGoodsAI`, `startGoodsHuman` | Objekt `Schlüssel: Menge`; `-1` lässt dieses Gut unverändert, `0..100000` setzt es exakt. Nicht genannte Güter bleiben unverändert. |
-| `addStartTroopsAI`, `addStartTroopsHuman` | Objekt `Truppenschlüssel: Anzahl`; `0..100000` zusätzliche Einheiten nach der Multiplikation. |
-
-Unterstützte Güterschlüssel:
-
-    STORED_WOOD_PLANKS, STORED_RAW_HOPS, STORED_STONE_BLOCKS,
-    STORED_IRON_INGOTS, STORED_PITCH_RAW, STORED_RAW_WHEAT,
-    STORED_FOOD_BREAD, STORED_FOOD_CHEESE, STORED_FOOD_MEAT,
-    STORED_FOOD_FRUIT, STORED_FOOD_ALE, STORED_FLOUR, STORED_BOWS,
-    STORED_CROSSBOWS, STORED_SPEARS, STORED_PIKES, STORED_MACES,
-    STORED_SWORDS, STORED_LEATHER_ARMOUR, STORED_METAL_ARMOUR
-
-Unterstützte Truppenschlüssel:
-
-    CHIMP_TYPE_ARCHER, CHIMP_TYPE_SPEARMAN, CHIMP_TYPE_MACEMAN,
-    CHIMP_TYPE_XBOWMAN, CHIMP_TYPE_PIKEMAN, CHIMP_TYPE_SWORDSMAN,
-    CHIMP_TYPE_KNIGHT, CHIMP_TYPE_ENGINEER, CHIMP_TYPE_MONK,
-    CHIMP_TYPE_LADDERMAN, CHIMP_TYPE_TUNNELER, CHIMP_TYPE_ARAB_BOW,
-    CHIMP_TYPE_ARAB_SLAVE, CHIMP_TYPE_ARAB_SLINGER,
-    CHIMP_TYPE_ARAB_ASSASIN, CHIMP_TYPE_ARAB_HORSEMAN,
-    CHIMP_TYPE_ARAB_SWORDSMAN, CHIMP_TYPE_ARAB_GRENADIER,
-    CHIMP_TYPE_BEDOUIN_CAMEL_LANCER, CHIMP_TYPE_BEDOUIN_HEALER,
-    CHIMP_TYPE_BEDOUIN_EUNUCH, CHIMP_TYPE_BEDOUIN_AMBUSHER,
-    CHIMP_TYPE_BEDOUIN_SKIRMISHER, CHIMP_TYPE_BEDOUIN_HEAVY_CAMEL,
-    CHIMP_TYPE_BEDOUIN_SAPPER, CHIMP_TYPE_BEDOUIN_DEMOLISHER
-
-Bei installiertem `StartConditions` erhält dieser nur einen temporären Missions-Override; gespeicherte Lobbysettings werden nicht geändert. Fehlt das Plugin, verwendet `CoopTrailReplacer` denselben verlinkten Kern selbst. Wird die Mission über die von `Extra Features` angebotene anpassbare Skirmish-/MP-Lobby geöffnet, wird der Missions-Override gelöscht und nur die vom Host gewählte StartConditions-Konfiguration angewendet. Der Kontext wird beim Missionswechsel und Mapende zurückgesetzt.
+Beim Auswählen einer Ersatzmission wird dieser Stand als schreibgeschütztes Preset `Trail` aktiviert. Das Dropdown kann jederzeit auf die lokalen Presets 1/2 wechseln; deren Werte gelten dann nur für die Lobby/Partie und verändern weder Missionsdatei noch lokale Presetdateien. Lokal fehlende, laut Mission aktivierte Mods werden in der Missionsbeschreibung genannt, blockieren Ready/Play aber nicht. Fehlt `modSettings`, sind alle sieben Trail-Mods deaktiviert. Ein beschädigter oder typfehlerhafter Block deaktiviert transaktional den gesamten Trail-Stand.
 
 ## Multiplayer-Prüfung
 

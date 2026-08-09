@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Start Conditions",
   "Description": "Configures start resources and start troops in Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.5",
+  "Version": "1.0.6",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.6",
+      "Changes": [
+        "Added mission-bound Trail presets from .modjson and CoopTrailReplacer schema-2 missions, including shared customization UI."
+      ]
+    },
     {
       "Version": "1.0.5",
       "Changes": [

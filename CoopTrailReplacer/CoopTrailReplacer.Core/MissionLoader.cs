@@ -10,7 +10,7 @@ namespace CoopTrailReplacer.Core
 {
     public sealed class MissionLoader
     {
-        public const int CurrentSchemaVersion = 1;
+        public const int CurrentSchemaVersion = 2;
         private static readonly HashSet<int> Rotations = new HashSet<int> { 0, 90, 180, 270 };
 
         public LoadedMission Load(string jsonPath, int trailNumber, int missionNumber)
@@ -29,7 +29,8 @@ namespace CoopTrailReplacer.Core
             Validate(definition);
             List<string> bundledFiles = ResolveBundledFiles(definition, missionRoot);
             byte[] canonicalJson = SerializeCanonical(definition);
-            string hash = MissionHash.Compute(canonicalJson, bundledFiles.Select(path => new MissionAsset(path, File.ReadAllBytes(path))));
+            string hash = MissionHash.Compute(canonicalJson, bundledFiles.Select(path =>
+                new MissionAsset(GetMissionRelativeIdentity(missionRoot, path), File.ReadAllBytes(path))));
             return new LoadedMission
             {
                 TrailNumber = trailNumber,
@@ -62,12 +63,22 @@ namespace CoopTrailReplacer.Core
             return result;
         }
 
-        public static string SerializeAmounts(IDictionary<string, int> values)
+        private static string GetMissionRelativeIdentity(string missionRoot, string path)
         {
-            if (values == null || values.Count == 0)
-                return string.Empty;
-            return string.Join("\r\n", values.OrderBy(entry => entry.Key, StringComparer.Ordinal)
-                .Select(entry => entry.Key + "=" + entry.Value));
+            string root = Path.GetFullPath(missionRoot).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+            string fullPath = Path.GetFullPath(path);
+            if (!fullPath.StartsWith(root, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException("Bundled asset path is outside the mission directory.");
+            return fullPath.Substring(root.Length).Replace('\\', '/');
+        }
+
+        public static string SerializeModSettings(ModSettingsDefinition settings)
+        {
+            using (var stream = new MemoryStream())
+            {
+                CreateModSettingsSerializer().WriteObject(stream, settings ?? ModSettingsDefinition.CreateDisabled());
+                return Encoding.UTF8.GetString(stream.ToArray());
+            }
         }
 
         private static void Validate(CoopMissionDefinition mission)
@@ -122,7 +133,16 @@ namespace CoopTrailReplacer.Core
                     throw new InvalidDataException("All selectable AIVs need the same rotation unless preferredAiv selects one explicitly.");
             }
 
-            ValidateStartConditions(mission.StartConditions ?? (mission.StartConditions = new StartConditionsDefinition()));
+            try
+            {
+                NormalizeAndValidateModSettings(mission);
+            }
+            catch (Exception exception)
+            {
+                // Mission assets remain usable; only the transactionally invalid Trail preset is discarded.
+                mission.ModSettingsError = exception.Message;
+                mission.ModSettings = ModSettingsDefinition.CreateDisabled();
+            }
         }
 
         private static void ValidateAsset(AssetReference asset, string label, string extension)
@@ -142,30 +162,36 @@ namespace CoopTrailReplacer.Core
                 throw new InvalidDataException(label + " bundled reference requires a " + extension + " file.");
         }
 
-        private static void ValidateStartConditions(StartConditionsDefinition settings)
+        private static void NormalizeAndValidateModSettings(CoopMissionDefinition mission)
         {
-            if (settings.SetStartGoldAI < -1 || settings.SetStartGoldAI > 100000 || settings.SetStartGoldHuman < -1 || settings.SetStartGoldHuman > 100000)
-                throw new InvalidDataException("Set-start-gold values must be -1 through 100000.");
-            if (settings.AddStartGoldAI < -100000 || settings.AddStartGoldAI > 100000 || settings.AddStartGoldHuman < -100000 || settings.AddStartGoldHuman > 100000)
-                throw new InvalidDataException("Add-start-gold values must be -100000 through 100000.");
-            if (settings.MultiplyStartTroopsAI < 0 || settings.MultiplyStartTroopsAI > 100 || settings.MultiplyStartTroopsHuman < 0 || settings.MultiplyStartTroopsHuman > 100)
-                throw new InvalidDataException("Start-troop multipliers must be 0 through 100.");
-            ValidateAmounts(settings.StartGoodsAI, -1, 100000, "startGoodsAI");
-            ValidateAmounts(settings.StartGoodsHuman, -1, 100000, "startGoodsHuman");
-            ValidateAmounts(settings.AddStartTroopsAI, 0, 100000, "addStartTroopsAI");
-            ValidateAmounts(settings.AddStartTroopsHuman, 0, 100000, "addStartTroopsHuman");
+            ModSettingsDefinition settings = mission.ModSettings ?? ModSettingsDefinition.CreateDisabled();
+            if (settings.SchemaVersion != 1)
+                throw new InvalidDataException("modSettings.schemaVersion must be 1.");
+            settings.Mods = settings.Mods ?? new Dictionary<string, ModSettingsEntry>(StringComparer.Ordinal);
+            var normalizedMods = new Dictionary<string, ModSettingsEntry>(StringComparer.Ordinal);
+            foreach (string id in ModSettingsDefinition.TargetModIds)
+            {
+                if (!settings.Mods.TryGetValue(id, out ModSettingsEntry entry) || entry == null)
+                    entry = new ModSettingsEntry();
+                entry.Settings = entry.Settings ?? new Dictionary<string, object>(StringComparer.Ordinal);
+                if (!entry.Enabled)
+                    entry.Settings.Clear();
+                foreach (KeyValuePair<string, object> value in entry.Settings)
+                {
+                    if (string.IsNullOrWhiteSpace(value.Key) || !IsSupportedSettingValue(value.Value))
+                        throw new InvalidDataException("modSettings." + id + ".settings contains an unsupported value for " + value.Key + ".");
+                }
+                entry.Settings = entry.Settings
+                    .OrderBy(value => value.Key, StringComparer.Ordinal)
+                    .ToDictionary(value => value.Key, value => value.Value, StringComparer.Ordinal);
+                normalizedMods[id] = entry;
+            }
+            settings.Mods = normalizedMods;
+            mission.ModSettings = settings;
         }
 
-        private static void ValidateAmounts(Dictionary<string, int> values, int minimum, int maximum, string label)
-        {
-            if (values == null)
-                return;
-            foreach (KeyValuePair<string, int> entry in values)
-            {
-                if (string.IsNullOrWhiteSpace(entry.Key) || entry.Value < minimum || entry.Value > maximum)
-                    throw new InvalidDataException(label + " contains an invalid name or amount.");
-            }
-        }
+        private static bool IsSupportedSettingValue(object value) =>
+            value is bool || value is string || value is int || value is long || value is double || value is decimal;
 
         private static List<string> ResolveBundledFiles(CoopMissionDefinition mission, string root)
         {
@@ -197,6 +223,12 @@ namespace CoopTrailReplacer.Core
 
         private static DataContractJsonSerializer CreateSerializer() =>
             new DataContractJsonSerializer(typeof(CoopMissionDefinition), new DataContractJsonSerializerSettings
+            {
+                UseSimpleDictionaryFormat = true,
+            });
+
+        private static DataContractJsonSerializer CreateModSettingsSerializer() =>
+            new DataContractJsonSerializer(typeof(ModSettingsDefinition), new DataContractJsonSerializerSettings
             {
                 UseSimpleDictionaryFormat = true,
             });

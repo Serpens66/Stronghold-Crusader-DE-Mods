@@ -8,7 +8,10 @@ var tests = new (string Name, Action Run)[]
     ("path escape rejected", TestPathEscape),
     ("invalid rotation rejected", TestInvalidRotation),
     ("catalog keeps valid slots and ignores invalid slots", TestCatalogIsolation),
-    ("amount serialization is deterministic", TestAmountSerialization),
+    ("schema 1 is rejected", TestSchemaOneRejected),
+    ("mod settings affect canonical hash", TestModSettingsHash),
+    ("mod settings hash is canonical", TestCanonicalModSettingsHash),
+    ("invalid mod settings disable transaction", TestInvalidModSettings),
     ("first two active players become allied humans", TestHumanProjection),
     ("asset bytes affect the mission hash", TestAssetHash),
     ("preferred AIV permits differing rotations", TestPreferredAiv),
@@ -82,14 +85,49 @@ static void TestCatalogIsolation()
     Assert(errors.Count == 1, "invalid slot error not isolated");
 }
 
-static void TestAmountSerialization()
+static void TestSchemaOneRejected()
 {
-    string value = MissionLoader.SerializeAmounts(new Dictionary<string, int>
-    {
-        ["B"] = 2,
-        ["A"] = 1,
-    });
-    Assert(value == "A=1\r\nB=2", value);
+    using Fixture fixture = Fixture.Create(schemaVersion: 1);
+    ExpectFailure(() => new MissionLoader().Load(fixture.JsonPath, 1, 1), "schema 1 was accepted");
+}
+
+static void TestModSettingsHash()
+{
+    using Fixture first = Fixture.Create(startGold: 500);
+    using Fixture second = Fixture.Create(startGold: 750);
+    Assert(new MissionLoader().Load(first.JsonPath, 1, 1).Hash != new MissionLoader().Load(second.JsonPath, 1, 1).Hash,
+        "modSettings did not affect the canonical mission hash");
+}
+
+static void TestInvalidModSettings()
+{
+    using Fixture fixture = Fixture.Create();
+    string json = File.ReadAllText(fixture.JsonPath).Replace("\"schemaVersion\":1,\"mods\"", "\"schemaVersion\":99,\"mods\"");
+    File.WriteAllText(fixture.JsonPath, json, new UTF8Encoding(false));
+    LoadedMission loaded = new MissionLoader().Load(fixture.JsonPath, 1, 1);
+    Assert(!string.IsNullOrWhiteSpace(loaded.Definition.ModSettingsError), "invalid block was not reported");
+    Assert(loaded.Definition.ModSettings.Mods.Values.All(entry => !entry.Enabled), "invalid block was partially retained");
+}
+
+static void TestCanonicalModSettingsHash()
+{
+    using Fixture first = Fixture.Create();
+    using Fixture second = Fixture.Create();
+    var firstSettings = new Dictionary<string, object> { ["Z"] = true, ["A"] = 5 };
+    var secondSettings = new Dictionary<string, object> { ["A"] = 5, ["Z"] = true };
+    RewriteStartConditionsSettings(first.JsonPath, firstSettings);
+    RewriteStartConditionsSettings(second.JsonPath, secondSettings);
+    Assert(new MissionLoader().Load(first.JsonPath, 1, 1).Hash == new MissionLoader().Load(second.JsonPath, 1, 1).Hash,
+        "dictionary insertion order changed the hash");
+}
+
+static void RewriteStartConditionsSettings(string path, Dictionary<string, object> values)
+{
+    var serializer = new DataContractJsonSerializer(typeof(CoopMissionDefinition), new DataContractJsonSerializerSettings { UseSimpleDictionaryFormat = true });
+    CoopMissionDefinition mission;
+    using (FileStream input = File.OpenRead(path)) mission = (CoopMissionDefinition)serializer.ReadObject(input);
+    mission.ModSettings.Mods["StartConditions_Serp"].Settings = values;
+    using (FileStream output = File.Create(path)) serializer.WriteObject(output, mission);
 }
 
 static void TestHumanProjection()
@@ -156,7 +194,7 @@ sealed class Fixture : IDisposable
     public string Root { get; private set; }
     public string JsonPath { get; private set; }
 
-    public static Fixture Create(int aivRotation = 90, int? secondAivRotation = null, int preferredAiv = -1)
+    public static Fixture Create(int aivRotation = 90, int? secondAivRotation = null, int preferredAiv = -1, int schemaVersion = 2, int startGold = 500)
     {
         string root = Path.Combine(Path.GetTempPath(), "CoopTrailReplacerTests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
@@ -166,7 +204,7 @@ sealed class Fixture : IDisposable
 
         var definition = new CoopMissionDefinition
         {
-            SchemaVersion = 1,
+            SchemaVersion = schemaVersion,
             DisplayName = "Test",
             Map = new MapReference { Source = "bundled", File = "map.map" },
             Players = new List<PlayerDefinition>
@@ -186,6 +224,12 @@ sealed class Fixture : IDisposable
                     PreferredAiv = preferredAiv,
                 },
             },
+            ModSettings = ModSettingsDefinition.CreateDisabled(),
+        };
+        definition.ModSettings.Mods["StartConditions_Serp"] = new ModSettingsEntry
+        {
+            Enabled = true,
+            Settings = new Dictionary<string, object> { ["SetStartGoldHuman"] = startGold },
         };
         if (secondAivRotation.HasValue)
             definition.Players[2].Aivs.Add(new AivReference { Source = "bundled", File = "castle.aivjson", Rotation = secondAivRotation.Value });
