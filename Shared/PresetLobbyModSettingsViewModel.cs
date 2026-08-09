@@ -7,10 +7,11 @@ using SHCDESE.API.Components.Network;
 using SHCDESE.ViewModels;
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using ComboBoxItem = Noesis.ComboBoxItem;
+using Visibility = Noesis.Visibility;
 
 namespace Shared
 {
@@ -20,14 +21,13 @@ namespace Shared
     /// </summary>
     public abstract class PresetLobbyModSettingsViewModel : LobbyModSettingsBaseViewModel
     {
-        private readonly ObservableCollection<string> presetOptions =
-            new ObservableCollection<string>();
+        private ComboBoxItem[] presetOptions = Array.Empty<ComboBoxItem>();
         private PresetController presetController;
         private int selectedPreset;
         private bool trailContext;
         private bool trailEditable;
 
-        public ObservableCollection<string> PresetOptions => presetOptions;
+        public ComboBoxItem[] PresetOptions => presetOptions;
 
         public bool AreSettingsEditable => !trailContext || selectedPreset != 2 || trailEditable;
 
@@ -62,9 +62,12 @@ namespace Shared
             if (presetController != null)
                 throw new InvalidOperationException($"Preset storage for [{modName}] was already prepared.");
 
-            presetOptions.Clear();
-            presetOptions.Add(GetVanillaText(log, "TEXT_NEW_TEXT2_210", "Preset 1"));
-            presetOptions.Add(GetVanillaText(log, "TEXT_NEW_TEXT2_211", "Preset 2"));
+            presetOptions = new[]
+            {
+                new ComboBoxItem { Content = GetVanillaText(log, "TEXT_NEW_TEXT2_210", "Preset 1") },
+                new ComboBoxItem { Content = GetVanillaText(log, "TEXT_NEW_TEXT2_211", "Preset 2") },
+                new ComboBoxItem { Content = "Trail", Visibility = Visibility.Collapsed },
+            };
 
             presetController = new PresetController(
                 this,
@@ -96,8 +99,9 @@ namespace Shared
 
             trailContext = true;
             trailEditable = editable;
-            if (presetOptions.Count < 3)
-                presetOptions.Add("Trail");
+            // The items exist when Noesis first materializes the binding. Only the third
+            // container's visibility changes, avoiding unsupported ItemsSource refreshes.
+            presetOptions[2].Visibility = Visibility.Visible;
             presetController.EnterTrail(snapshot, editable);
             base.OnPropertyChanged(nameof(AreSettingsEditable));
             base.OnPropertyChanged(nameof(IsTrailPresetActive));
@@ -111,8 +115,7 @@ namespace Shared
             trailContext = false;
             trailEditable = false;
             presetController.ExitTrail();
-            if (presetOptions.Count > 2)
-                presetOptions.RemoveAt(2);
+            presetOptions[2].Visibility = Visibility.Collapsed;
             base.OnPropertyChanged(nameof(AreSettingsEditable));
             base.OnPropertyChanged(nameof(IsTrailPresetActive));
         }

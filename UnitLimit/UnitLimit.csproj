@@ -54,7 +54,6 @@
 
   <ItemGroup>
     <Reference Include="System" />
-    <Reference Include="System.Web.Extensions" />
     <Reference Include="System.Core" />
     <Reference Include="BepInEx">
       <HintPath>$(GameDir)\BepInEx\core\BepInEx.dll</HintPath>

@@ -86,10 +86,13 @@ namespace Shared
                 bool trailMaker,
                 int customiseTrailType,
                 int customiseTrailId);
+            private delegate void StartSkirmishGameDelegate(
+                FRONT_Multiplayer self,
+                HUD_IngameMenu.RestartSkirmishMapInfo customTrailRestartInfo);
             private delegate void CoopMissionChangedDelegate(FRONT_Multiplayer self, int trailId, int missionId, bool resetOrderSwapped);
             private delegate void FrontendOpenCustomTrailDelegate(FrontendMenus self, string trailName, int level);
             private delegate void FrontendButtonDelegate(FrontendMenus self, string command);
-            private delegate void TrailSelectionDelegate(FrontendMenus self, int missionId);
+            private delegate void TrailSelectionDelegate(FrontendMenus self, int missionId, bool fromRealClick);
 
             private readonly ManualLogSource log;
             private readonly string ownerModId;
@@ -103,12 +106,16 @@ namespace Shared
             private NoArgumentDelegate clearMakerOriginal;
             private StartCustomTrailDelegate startCustomTrailOriginal;
             private MultiplayerOpenDelegate multiplayerOpenOriginal;
+            private StartSkirmishGameDelegate startSkirmishGameOriginal;
             private CoopMissionChangedDelegate coopMissionChangedOriginal;
             private FrontendOpenCustomTrailDelegate frontendOpenCustomTrailOriginal;
             private FrontendButtonDelegate frontendButtonOriginal;
             private TrailSelectionDelegate trailSelectionOriginal;
             private bool trailContext;
             private bool preserveContextForLaunch;
+            private bool customTrailLaunchActive;
+            private HUD_IngameMenu.RestartSkirmishMapInfo customTrailSetupRestartInfo;
+            private FileHeader customTrailSetupHeader;
 
             public LeaderRuntime(ManualLogSource log, string ownerModId)
             {
@@ -146,6 +153,14 @@ namespace Shared
                         },
                         null),
                     (MultiplayerOpenDelegate)MultiplayerOpenHook);
+                startSkirmishGameOriginal = InstallHook(
+                    typeof(FRONT_Multiplayer).GetMethod(
+                        "StartSkirmishGame",
+                        BindingFlags.Instance | BindingFlags.NonPublic,
+                        null,
+                        new[] { typeof(HUD_IngameMenu.RestartSkirmishMapInfo) },
+                        null),
+                    (StartSkirmishGameDelegate)StartSkirmishGameHook);
                 coopMissionChangedOriginal = InstallHook(
                     typeof(FRONT_Multiplayer).GetMethod(
                         nameof(FRONT_Multiplayer.CoopMissionChanged),
@@ -158,7 +173,9 @@ namespace Shared
                     typeof(FrontendMenus).GetMethod("ButtonClicked", new[] { typeof(string) }),
                     (FrontendButtonDelegate)FrontendButtonHook);
                 trailSelectionOriginal = InstallHook(
-                    typeof(FrontendMenus).GetMethod(nameof(FrontendMenus.ButtonTrailCampaignClicked), new[] { typeof(int) }),
+                    typeof(FrontendMenus).GetMethod(
+                        nameof(FrontendMenus.ButtonTrailCampaignClicked),
+                        new[] { typeof(int), typeof(bool) }),
                     (TrailSelectionDelegate)TrailSelectionHook);
 
                 InjectCoopCustomizeButtons();
@@ -201,15 +218,29 @@ namespace Shared
                     .ToArray();
             }
 
-            public void ExitContext()
+            public void ExitContext(bool force = false)
             {
-                if (!trailContext)
+                if (!force && (preserveContextForLaunch || customTrailLaunchActive))
+                {
+                    DebugLogHelper.LogInfo(log, "Deferred Trail mod-settings cleanup while Custom Trail setup/mission is active.");
                     return;
+                }
+                if (!trailContext)
+                {
+                    if (force)
+                        customTrailLaunchActive = false;
+                    customTrailSetupRestartInfo = null;
+                    customTrailSetupHeader = null;
+                    return;
+                }
 
                 foreach (object viewModel in FindTargetViewModels().Values)
                     Invoke(viewModel, "System_ExitTrailPreset");
                 trailContext = false;
                 preserveContextForLaunch = false;
+                customTrailLaunchActive = false;
+                customTrailSetupRestartInfo = null;
+                customTrailSetupHeader = null;
                 DebugLogHelper.LogInfo(log, "Left Trail mod-settings context.");
             }
 
@@ -236,6 +267,7 @@ namespace Shared
 
             private void ManageTrailButtonHook(FRONT_ManageTrail self, string command)
             {
+                FileHeader loadedHeader = null;
                 if (string.Equals(command, "Load", StringComparison.Ordinal))
                 {
                     try
@@ -243,19 +275,34 @@ namespace Shared
                         int selected = (int)typeof(FRONT_ManageTrail)
                             .GetField("SelectedMission", BindingFlags.Instance | BindingFlags.NonPublic)
                             .GetValue(self);
-                        FileHeader header = MapFileManager.Instance.GetHeaderFromTrailMaker(
+                        loadedHeader = MapFileManager.Instance.GetHeaderFromTrailMaker(
                             FRONT_ManageTrail.GetMakerFileName(selected));
-                        if (header != null)
-                            EnterSidecar(header.filePath, editable: true);
                     }
                     catch (Exception exception)
                     {
                         DebugLogHelper.LogError(log, $"Could not load editable Trail mod settings: {exception}");
-                        ApplyDocument(TrailSettingsDocument.CreateDisabled(), editable: true);
                     }
                 }
 
                 manageTrailButtonOriginal(self, command);
+
+                // Vanilla rebuilds the setup UI while loading. Apply the Trail snapshot only
+                // afterwards so that cleanup cannot immediately restore the local preset.
+                if (string.Equals(command, "Load", StringComparison.Ordinal))
+                {
+                    try
+                    {
+                        if (loadedHeader != null)
+                            EnterSidecar(loadedHeader.filePath, editable: true);
+                        else
+                            ApplyDocument(TrailSettingsDocument.CreateDisabled(), editable: true);
+                    }
+                    catch (Exception exception)
+                    {
+                        DebugLogHelper.LogError(log, $"Could not activate editable Trail mod settings: {exception}");
+                        ApplyDocument(TrailSettingsDocument.CreateDisabled(), editable: true);
+                    }
+                }
             }
 
             private void ManageTrailInitHook(FRONT_ManageTrail self, bool preserveSelection)
@@ -333,6 +380,7 @@ namespace Shared
                     }
                 }
                 preserveContextForLaunch = false;
+                customTrailLaunchActive = true;
                 startCustomTrailOriginal(self, trailName, missionId, difficulty);
             }
 
@@ -348,7 +396,7 @@ namespace Shared
             {
                 bool preserve = preserveContextForLaunch;
                 if (!trailMaker && !preserve)
-                    ExitContext();
+                    ExitContext(force: true);
                 multiplayerOpenOriginal(
                     self,
                     skirmishSetup,
@@ -360,6 +408,36 @@ namespace Shared
                     customiseTrailId);
                 if (preserve)
                     preserveContextForLaunch = false;
+            }
+
+            private void StartSkirmishGameHook(
+                FRONT_Multiplayer self,
+                HUD_IngameMenu.RestartSkirmishMapInfo customTrailRestartInfo)
+            {
+                if (customTrailRestartInfo == null && customTrailSetupRestartInfo != null)
+                {
+                    // Rebuild the embedded restart data from the edited lobby while retaining
+                    // the Custom Trail identity needed by the native mission loader and restart flow.
+                    customTrailRestartInfo = customTrailSetupRestartInfo;
+                    customTrailRestartInfo.MPsetupData = (EngineInterface.MultiplayerSetupData)typeof(FRONT_Multiplayer)
+                        .GetField("MPsetupData", BindingFlags.Instance | BindingFlags.NonPublic)
+                        .GetValue(self);
+                    customTrailRestartInfo.importMembers(self.currentLobby);
+                    customTrailRestartInfo.importAIVs(self.AIVs);
+                    // The lobby uses the original map header, while Vanilla's Custom Trail
+                    // launch path requires the .trail container header in the restart payload.
+                    customTrailRestartInfo.selectedHeader = customTrailSetupHeader;
+                    DebugLogHelper.LogInfo(
+                        log,
+                        $"Starting customized Custom Trail [{customTrailRestartInfo.customTrailName}] " +
+                        $"mission {customTrailRestartInfo.customTrailLevel}.");
+                }
+
+                if (customTrailRestartInfo != null && customTrailRestartInfo.customTrail)
+                    customTrailLaunchActive = true;
+                startSkirmishGameOriginal(self, customTrailRestartInfo);
+                customTrailSetupRestartInfo = null;
+                customTrailSetupHeader = null;
             }
 
             private void CoopMissionChangedHook(FRONT_Multiplayer self, int trailId, int missionId, bool resetOrderSwapped)
@@ -375,9 +453,9 @@ namespace Shared
                 EnterSelectedCustomTrail(self);
             }
 
-            private void TrailSelectionHook(FrontendMenus self, int missionId)
+            private void TrailSelectionHook(FrontendMenus self, int missionId, bool fromRealClick)
             {
-                trailSelectionOriginal(self, missionId);
+                trailSelectionOriginal(self, missionId, fromRealClick);
                 if (FrontendMenus.CurrentSelectedTrail >= 90 && FrontendMenus.CurrentSelectedTrail <= 92)
                     EnterSelectedCustomTrail(self);
             }
@@ -398,13 +476,17 @@ namespace Shared
                     }
                     return;
                 }
+                bool preserveTrailMakerMapEditor = string.Equals(command, "MapEditor", StringComparison.Ordinal) &&
+                    MainViewModel.Instance.FRONTMultiplayer.trailMakerMode;
                 frontendButtonOriginal(self, command);
+                bool leavesTrailMaker = string.Equals(command, "MapEditor", StringComparison.Ordinal) &&
+                    !preserveTrailMakerMapEditor;
                 if (string.Equals(command, "Skirmish", StringComparison.Ordinal) ||
-                    string.Equals(command, "MapEditor", StringComparison.Ordinal) ||
+                    leavesTrailMaker ||
                     string.Equals(command, "BackMain", StringComparison.Ordinal) ||
                     string.Equals(command, "Coops", StringComparison.Ordinal))
                 {
-                    ExitContext();
+                    ExitContext(force: true);
                 }
             }
 
@@ -425,22 +507,59 @@ namespace Shared
 
             private void OpenSelectedCustomTrailSetup(FrontendMenus menus)
             {
-                FileHeader header = GetSelectedCustomTrailHeader(menus)
-                    ?? throw new InvalidDataException("The selected Custom Trail mission has no file header.");
-                HUD_IngameMenu.RestartSkirmishMapInfo restart = header.restartSkirmishInfo
-                    ?? throw new InvalidDataException("The selected Custom Trail mission has no skirmish setup data.");
-                restart.selectedHeader = header;
-                restart.customTrail = true;
-                restart.customTestMission = false;
-                restart.customTrailName = menus.CustomTrailName;
-                restart.customTrailLevel = FrontendMenus.CurrentSelectedCustomTrailMission;
-                FieldInfo difficulty = typeof(FrontendMenus).GetField("currentDifficultySetting", BindingFlags.Instance | BindingFlags.NonPublic);
-                if (difficulty != null)
-                    restart.customTrailDifficulty = (int)difficulty.GetValue(menus);
+                int missionId = FrontendMenus.CurrentSelectedCustomTrailMission;
+                int trailId = FrontendMenus.CurrentSelectedTrail;
+                if (missionId <= 0 || trailId < 90 || trailId > 92 || string.IsNullOrWhiteSpace(menus.CustomTrailName))
+                    throw new InvalidDataException("The selected Custom Trail mission is invalid.");
 
+                FileHeader header = GetSelectedCustomTrailHeader(menus);
+                if (header == null || !header.hasRestartSkirmishInfo)
+                    throw new InvalidDataException("The selected Custom Trail mission has no skirmish setup data.");
+
+                // Vanilla stores the complete lobby setup inside every .trail. Reading the full
+                // header is the Custom Trail equivalent of getTrailMissionInfo for built-in Trails.
+                FileHeader fullHeader = MapFileManager.Instance.GetFileInfoFromFileName(
+                    header.filePath,
+                    header.filePath,
+                    4,
+                    loadRestartInfo: true);
+                HUD_IngameMenu.RestartSkirmishMapInfo restartInfo = fullHeader?.restartSkirmishInfo;
+                if (restartInfo == null)
+                    throw new InvalidDataException("The selected Custom Trail mission setup could not be decoded.");
+
+                int difficulty = (int)typeof(FrontendMenus)
+                    .GetField("currentDifficultySetting", BindingFlags.Instance | BindingFlags.NonPublic)
+                    .GetValue(menus);
+                FileHeader lobbyMapHeader = restartInfo.selectedHeader;
+                if (lobbyMapHeader == null)
+                    throw new InvalidDataException("The original Custom Trail map is not available in the local map catalog.");
+                restartInfo.customTrail = true;
+                restartInfo.customTrailName = menus.CustomTrailName;
+                restartInfo.customTrailLevel = missionId;
+                restartInfo.customTrailDifficulty = difficulty;
+                customTrailLaunchActive = false;
+                customTrailSetupRestartInfo = restartInfo;
+                customTrailSetupHeader = header;
+
+                // Match Vanilla's Customize transition so the setup replaces the Trail page
+                // instead of appearing as a smaller panel over it.
+                FrontendMenus.ClearUIPanels(frontEndState: true, logo: false);
+                MainViewModel.Instance.Show_FrontMenus_Background_Main = false;
                 preserveContextForLaunch = true;
-                FRONT_Multiplayer.Open(skirmishSetup: true, restart, coopSetup: false, trailMaker: false);
-                DebugLogHelper.LogInfo(log, $"Opened Custom Trail setup [{menus.CustomTrailName}] mission {restart.customTrailLevel}.");
+                FRONT_Multiplayer.Open(
+                    skirmishSetup: true,
+                    restartInfo: restartInfo,
+                    coopSetup: false,
+                    trailMaker: false,
+                    customiseTrailType: -1,
+                    customiseTrailID: -1);
+                // doOpen can trigger unrelated context cleanup; apply the selected mission again
+                // after all lobby view models exist so Trail is visible and selected immediately.
+                EnterSidecar(header.filePath, editable: false);
+                DebugLogHelper.LogInfo(
+                    log,
+                    $"Opened Custom Trail setup [{menus.CustomTrailName}] mission {missionId}; " +
+                    $"map=[{lobbyMapHeader.display_filename}], path=[{lobbyMapHeader.filePath}].");
             }
 
             private static FileHeader GetSelectedCustomTrailHeader(FrontendMenus menus)

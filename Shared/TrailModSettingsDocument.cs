@@ -4,7 +4,6 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Web.Script.Serialization;
 
 namespace Shared
 {
@@ -50,20 +49,14 @@ namespace Shared
 
     public static class TrailSettingsJson
     {
-        private static readonly JavaScriptSerializer Serializer = new JavaScriptSerializer
-        {
-            MaxJsonLength = 16 * 1024 * 1024,
-            RecursionLimit = 128,
-        };
-
         public static TrailSettingsDocument Read(string path) => ParseObject(File.ReadAllText(path, Encoding.UTF8));
 
         public static TrailSettingsDocument ParseObject(string json)
         {
-            object rootObject = Serializer.DeserializeObject(json ?? string.Empty);
+            object rootObject = new JsonParser(json ?? string.Empty).Parse();
             if (!(rootObject is Dictionary<string, object> root))
                 throw new InvalidDataException("Trail mod-settings JSON root must be an object.");
-            if (!root.TryGetValue("schemaVersion", out object schema) || Convert.ToInt32(schema, CultureInfo.InvariantCulture) != 1)
+            if (!root.TryGetValue("schemaVersion", out object schema) || !(schema is int schemaVersion) || schemaVersion != 1)
                 throw new InvalidDataException("Unsupported Trail mod-settings schemaVersion.");
             if (!root.TryGetValue("mods", out object modsObject) || !(modsObject is Dictionary<string, object> mods))
                 throw new InvalidDataException("Trail mod-settings JSON requires a mods object.");
@@ -75,7 +68,11 @@ namespace Shared
                     throw new InvalidDataException($"Mod entry [{mod.Key}] must be an object.");
                 var entry = new TrailModEntry();
                 if (rawEntry.TryGetValue("enabled", out object enabled))
-                    entry.Enabled = Convert.ToBoolean(enabled, CultureInfo.InvariantCulture);
+                {
+                    if (!(enabled is bool enabledValue))
+                        throw new InvalidDataException($"Mod entry [{mod.Key}].enabled must be a boolean.");
+                    entry.Enabled = enabledValue;
+                }
                 if (rawEntry.TryGetValue("settings", out object settingsObject))
                 {
                     if (!(settingsObject is Dictionary<string, object> settings))
@@ -96,21 +93,36 @@ namespace Shared
 
         public static string Serialize(TrailSettingsDocument document)
         {
-            var mods = new Dictionary<string, object>(StringComparer.Ordinal);
-            foreach (string id in TrailModSettingsRegistry.TargetModIds)
+            var output = new StringBuilder(4096);
+            output.Append("{\r\n  \"schemaVersion\": 1,\r\n  \"mods\": {\r\n");
+            for (int modIndex = 0; modIndex < TrailModSettingsRegistry.TargetModIds.Length; modIndex++)
             {
+                string id = TrailModSettingsRegistry.TargetModIds[modIndex];
                 TrailModEntry entry = document?.Mods != null && document.Mods.TryGetValue(id, out TrailModEntry found) ? found : new TrailModEntry();
-                mods[id] = new Dictionary<string, object>(StringComparer.Ordinal)
+                output.Append("    ");
+                AppendString(output, id);
+                output.Append(": {\r\n      \"enabled\": ").Append(entry.Enabled ? "true" : "false");
+                output.Append(",\r\n      \"settings\": {");
+                if (entry.Enabled && entry.Settings != null && entry.Settings.Count > 0)
                 {
-                    ["enabled"] = entry.Enabled,
-                    ["settings"] = entry.Enabled ? (object)entry.Settings : new Dictionary<string, object>(),
-                };
+                    KeyValuePair<string, object>[] settings = entry.Settings.OrderBy(item => item.Key, StringComparer.Ordinal).ToArray();
+                    output.Append("\r\n");
+                    for (int settingIndex = 0; settingIndex < settings.Length; settingIndex++)
+                    {
+                        output.Append("        ");
+                        AppendString(output, settings[settingIndex].Key);
+                        output.Append(": ");
+                        AppendValue(output, settings[settingIndex].Value);
+                        if (settingIndex + 1 < settings.Length) output.Append(',');
+                        output.Append("\r\n");
+                    }
+                    output.Append("      ");
+                }
+                output.Append("}\r\n    }");
+                if (modIndex + 1 < TrailModSettingsRegistry.TargetModIds.Length) output.Append(',');
+                output.Append("\r\n");
             }
-            return PrettyPrint(Serializer.Serialize(new Dictionary<string, object>(StringComparer.Ordinal)
-            {
-                ["schemaVersion"] = 1,
-                ["mods"] = mods,
-            }));
+            return output.Append("  }\r\n}\r\n").ToString();
         }
 
         public static void WriteAtomic(string path, TrailSettingsDocument document)
@@ -133,37 +145,215 @@ namespace Shared
         private static bool IsNativeValue(object value) =>
             value is bool || value is string || value is int || value is long || value is decimal || value is double;
 
-        private static string PrettyPrint(string json)
+        private static void AppendValue(StringBuilder output, object value)
         {
-            var output = new StringBuilder(json.Length + 256);
-            bool quoted = false;
-            bool escaped = false;
-            int indent = 0;
-            foreach (char character in json)
+            if (value is string text) AppendString(output, text);
+            else if (value is bool boolean) output.Append(boolean ? "true" : "false");
+            else if (value is byte || value is sbyte || value is short || value is ushort || value is int || value is uint || value is long || value is ulong || value is decimal)
+                output.Append(Convert.ToString(value, CultureInfo.InvariantCulture));
+            else if (value is double number)
             {
-                if (quoted)
-                {
-                    output.Append(character);
-                    if (escaped) escaped = false;
-                    else if (character == '\\') escaped = true;
-                    else if (character == '"') quoted = false;
-                    continue;
-                }
-                switch (character)
-                {
-                    case '"': quoted = true; output.Append(character); break;
-                    case '{':
-                    case '[': output.Append(character).Append("\r\n"); indent++; AppendIndent(output, indent); break;
-                    case '}':
-                    case ']': output.Append("\r\n"); indent--; AppendIndent(output, indent); output.Append(character); break;
-                    case ',': output.Append(character).Append("\r\n"); AppendIndent(output, indent); break;
-                    case ':': output.Append(": "); break;
-                    default: if (!char.IsWhiteSpace(character)) output.Append(character); break;
-                }
+                if (double.IsNaN(number) || double.IsInfinity(number))
+                    throw new InvalidDataException("Trail mod-settings JSON cannot contain a non-finite number.");
+                output.Append(number.ToString("R", CultureInfo.InvariantCulture));
             }
-            return output.Append("\r\n").ToString();
+            else throw new InvalidDataException($"Unsupported Trail mod-settings JSON value [{value?.GetType().FullName ?? "null"}].");
         }
 
-        private static void AppendIndent(StringBuilder output, int indent) => output.Append(' ', Math.Max(0, indent) * 2);
+        private static void AppendString(StringBuilder output, string value)
+        {
+            output.Append('"');
+            foreach (char character in value ?? string.Empty)
+            {
+                switch (character)
+                {
+                    case '"': output.Append("\\\""); break;
+                    case '\\': output.Append("\\\\"); break;
+                    case '\b': output.Append("\\b"); break;
+                    case '\f': output.Append("\\f"); break;
+                    case '\n': output.Append("\\n"); break;
+                    case '\r': output.Append("\\r"); break;
+                    case '\t': output.Append("\\t"); break;
+                    default:
+                        if (character < 0x20) output.Append("\\u").Append(((int)character).ToString("x4", CultureInfo.InvariantCulture));
+                        else output.Append(character);
+                        break;
+                }
+            }
+            output.Append('"');
+        }
+
+        // Kept internal so the seven embedded copies need no JSON assembly that Unity may not load.
+        private sealed class JsonParser
+        {
+            private readonly string json;
+            private int position;
+
+            public JsonParser(string json) => this.json = json;
+
+            public object Parse()
+            {
+                object value = ParseValue();
+                SkipWhitespace();
+                if (position != json.Length) Fail("Unexpected trailing content");
+                return value;
+            }
+
+            private object ParseValue()
+            {
+                SkipWhitespace();
+                if (position >= json.Length) Fail("Unexpected end of JSON");
+                switch (json[position])
+                {
+                    case '{': return ParseDictionary();
+                    case '[': return ParseArray();
+                    case '"': return ParseString();
+                    case 't': ReadLiteral("true"); return true;
+                    case 'f': ReadLiteral("false"); return false;
+                    case 'n': ReadLiteral("null"); return null;
+                    default: return ParseNumber();
+                }
+            }
+
+            private Dictionary<string, object> ParseDictionary()
+            {
+                position++;
+                var result = new Dictionary<string, object>(StringComparer.Ordinal);
+                SkipWhitespace();
+                if (Consume('}')) return result;
+                while (true)
+                {
+                    SkipWhitespace();
+                    if (position >= json.Length || json[position] != '"') Fail("Expected an object property name");
+                    string key = ParseString();
+                    SkipWhitespace();
+                    if (!Consume(':')) Fail("Expected ':' after an object property name");
+                    if (result.ContainsKey(key)) Fail($"Duplicate object property [{key}]");
+                    result[key] = ParseValue();
+                    SkipWhitespace();
+                    if (Consume('}')) return result;
+                    if (!Consume(',')) Fail("Expected ',' or '}' in object");
+                }
+            }
+
+            private List<object> ParseArray()
+            {
+                position++;
+                var result = new List<object>();
+                SkipWhitespace();
+                if (Consume(']')) return result;
+                while (true)
+                {
+                    result.Add(ParseValue());
+                    SkipWhitespace();
+                    if (Consume(']')) return result;
+                    if (!Consume(',')) Fail("Expected ',' or ']' in array");
+                }
+            }
+
+            private string ParseString()
+            {
+                position++;
+                var result = new StringBuilder();
+                while (position < json.Length)
+                {
+                    char character = json[position++];
+                    if (character == '"') return result.ToString();
+                    if (character < 0x20) Fail("Unescaped control character in string");
+                    if (character != '\\')
+                    {
+                        result.Append(character);
+                        continue;
+                    }
+                    if (position >= json.Length) Fail("Incomplete string escape");
+                    switch (json[position++])
+                    {
+                        case '"': result.Append('"'); break;
+                        case '\\': result.Append('\\'); break;
+                        case '/': result.Append('/'); break;
+                        case 'b': result.Append('\b'); break;
+                        case 'f': result.Append('\f'); break;
+                        case 'n': result.Append('\n'); break;
+                        case 'r': result.Append('\r'); break;
+                        case 't': result.Append('\t'); break;
+                        case 'u': result.Append(ParseUnicodeEscape()); break;
+                        default: Fail("Invalid string escape"); break;
+                    }
+                }
+                Fail("Unterminated string");
+                return null;
+            }
+
+            private char ParseUnicodeEscape()
+            {
+                if (position + 4 > json.Length) Fail("Incomplete Unicode escape");
+                string digits = json.Substring(position, 4);
+                if (!ushort.TryParse(digits, NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture, out ushort value))
+                    Fail("Invalid Unicode escape");
+                position += 4;
+                return (char)value;
+            }
+
+            private object ParseNumber()
+            {
+                int start = position;
+                if (Consume('-') && position >= json.Length) Fail("Incomplete number");
+                if (Consume('0'))
+                {
+                    if (position < json.Length && char.IsDigit(json[position])) Fail("Leading zero in number");
+                }
+                else
+                {
+                    if (position >= json.Length || json[position] < '1' || json[position] > '9') Fail("Invalid JSON value");
+                    while (position < json.Length && char.IsDigit(json[position])) position++;
+                }
+                bool fractional = false;
+                if (Consume('.'))
+                {
+                    fractional = true;
+                    if (position >= json.Length || !char.IsDigit(json[position])) Fail("Invalid number fraction");
+                    while (position < json.Length && char.IsDigit(json[position])) position++;
+                }
+                if (position < json.Length && (json[position] == 'e' || json[position] == 'E'))
+                {
+                    fractional = true;
+                    position++;
+                    if (position < json.Length && (json[position] == '+' || json[position] == '-')) position++;
+                    if (position >= json.Length || !char.IsDigit(json[position])) Fail("Invalid number exponent");
+                    while (position < json.Length && char.IsDigit(json[position])) position++;
+                }
+                string token = json.Substring(start, position - start);
+                if (fractional)
+                {
+                    if (!double.TryParse(token, NumberStyles.Float, CultureInfo.InvariantCulture, out double real) || double.IsNaN(real) || double.IsInfinity(real))
+                        Fail("Invalid floating-point number");
+                    return real;
+                }
+                if (!long.TryParse(token, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out long integer))
+                    Fail("Integer is outside the supported range");
+                return integer >= int.MinValue && integer <= int.MaxValue ? (object)(int)integer : integer;
+            }
+
+            private void ReadLiteral(string literal)
+            {
+                if (position + literal.Length > json.Length || string.CompareOrdinal(json, position, literal, 0, literal.Length) != 0)
+                    Fail($"Invalid JSON literal [{literal}]");
+                position += literal.Length;
+            }
+
+            private bool Consume(char character)
+            {
+                if (position >= json.Length || json[position] != character) return false;
+                position++;
+                return true;
+            }
+
+            private void SkipWhitespace()
+            {
+                while (position < json.Length && (json[position] == ' ' || json[position] == '\t' || json[position] == '\r' || json[position] == '\n')) position++;
+            }
+
+            private void Fail(string message) => throw new InvalidDataException($"{message} at JSON position {position}.");
+        }
     }
 }
