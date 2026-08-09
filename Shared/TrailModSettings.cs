@@ -248,17 +248,51 @@ namespace Shared
                 string trailPath,
                 HUD_IngameMenu.RestartSkirmishMapInfo restartInfo)
             {
+                TrailSettingsDocument document;
+                try
+                {
+                    // Vanilla rebuilds the editor while saving and can restore the local preset.
+                    // Capture the values that were visible when the player pressed Save first.
+                    document = CaptureDocument();
+                }
+                catch (Exception exception)
+                {
+                    DebugLogHelper.LogError(
+                        log,
+                        $"Could not capture Trail mod settings before saving [{trailPath}]; all Trail mods will be disabled: {exception}");
+                    document = TrailSettingsDocument.CreateDisabled();
+                }
+
                 saveCustomTrailMapOriginal(self, mapPath, mapName, trailPath, restartInfo);
+                string sidecar = IOPath.GetFullPath(IOPath.ChangeExtension(trailPath, ".modjson"));
                 try
                 {
                     if (!File.Exists(trailPath))
                         throw new FileNotFoundException("The game did not create the expected Trail mission.", trailPath);
-                    TrailSettingsJson.WriteAtomic(IOPath.ChangeExtension(trailPath, ".modjson"), CaptureDocument());
+                    TrailSettingsJson.WriteAtomic(sidecar, document);
                     DebugLogHelper.LogInfo(log, $"Saved Trail mod settings beside [{trailPath}].");
                 }
                 catch (Exception exception)
                 {
                     DebugLogHelper.LogError(log, $"Could not save Trail mod settings for [{trailPath}]: {exception}");
+                    return;
+                }
+
+                try
+                {
+                    // Keep the just-saved mission editable even if Vanilla rebuilt the UI.
+                    ApplyDocument(document, editable: true);
+                    var info = new FileInfo(sidecar);
+                    activeSidecarPath = sidecar;
+                    activeSidecarLength = info.Length;
+                    activeSidecarWriteTicks = info.LastWriteTimeUtc.Ticks;
+                    activeSidecarEditable = true;
+                }
+                catch (Exception exception)
+                {
+                    DebugLogHelper.LogError(
+                        log,
+                        $"Saved Trail mod settings for [{trailPath}], but could not reactivate the editable Trail preset: {exception}");
                 }
             }
 
