@@ -12,7 +12,7 @@ using System.Text;
 
 namespace BuildingCosts
 {
-    public sealed class BuildingCostsLobbyViewModel : LobbyModSettingsBaseViewModel
+    public sealed class BuildingCostsLobbyViewModel : Shared.PresetLobbyModSettingsViewModel
     {
         public event Action<string> SettingChanged;
 

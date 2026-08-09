@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Unit Costs",
   "Description": "Configure recruit costs in Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.5",
+  "Version": "1.0.6",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.6",
+      "Changes": [
+        "Added two automatically saved lobby-settings presets with migration of existing settings to preset 1."
+      ]
+    },
     {
       "Version": "1.0.1",
       "Changes": [

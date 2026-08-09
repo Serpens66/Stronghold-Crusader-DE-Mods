@@ -10,7 +10,7 @@ using System.Globalization;
 
 namespace ExtraFeatures
 {
-    public sealed class ExtraFeaturesViewModel : LobbyModSettingsBaseViewModel
+    public sealed class ExtraFeaturesViewModel : Shared.PresetLobbyModSettingsViewModel
     {
         public event Action<string> SettingChanged;
 

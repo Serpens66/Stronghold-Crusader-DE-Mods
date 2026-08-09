@@ -1,4 +1,4 @@
-﻿<Grid xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+<Grid xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
       xmlns:ui="clr-namespace:SHCDESE.UI;assembly=SHCDESE">
   <ScrollViewer VerticalScrollBarVisibility="Auto">
@@ -11,6 +11,11 @@
         <CheckBox IsChecked="{Binding EnableMod, Mode=TwoWay}"
                   Content="{Binding EnableModText}"
                   Foreground="White"
+                  VerticalAlignment="Center"
+                  Margin="14,0,0,0"/>
+        <ComboBox ItemsSource="{Binding PresetOptions}"
+                  SelectedIndex="{Binding SelectedPreset, Mode=TwoWay}"
+                  Width="170"
                   VerticalAlignment="Center"
                   Margin="14,0,0,0"/>
         <CheckBox IsChecked="{Binding ImprovedPathfinding, Mode=TwoWay}"

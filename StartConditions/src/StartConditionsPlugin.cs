@@ -13,7 +13,7 @@ namespace StartConditions
 
         public const string PluginGuid = "StartConditions_Serp";
         public const string PluginName = "Start Conditions";
-        public const string PluginVersion = "1.0.4";
+        public const string PluginVersion = "1.0.5";
 
         private StartConditionsRuntime runtime;
         private bool runtimeDisposed;
@@ -57,8 +57,9 @@ namespace StartConditions
             {
                 Shared.DebugLogHelper.ReportNativeLibraryVersion(Logger, PluginName);
                 Settings.RefreshLocalizedNames(message => Shared.DebugLogHelper.LogDebug(Logger, message));
-                GameXAMLManagerAPI.Instance.RegisterLobbyModSettings(
+                Shared.LobbyModSettingsPresetRegistration.Register(
                     this,
+                    Logger,
                     "StartConditions_Serp",
                     Settings,
                     "ScriptExtenderUI/StartConditionsSettings.xaml");

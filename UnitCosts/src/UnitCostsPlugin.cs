@@ -15,7 +15,7 @@ namespace UnitCosts
 
         public const string PluginGuid = "UnitCosts_Serp";
         public const string PluginName = "Unit Costs";
-        public const string PluginVersion = "1.0.5";
+        public const string PluginVersion = "1.0.6";
 
         private UnitCostsRuntime runtime;
         private bool runtimeDisposed;
@@ -60,8 +60,9 @@ namespace UnitCosts
                 Shared.DebugLogHelper.ReportNativeLibraryVersion(Logger, PluginName);
                 runtime.InitializeAfterLibraryLoaded();
                 Settings.RefreshLocalizedNames();
-                GameXAMLManagerAPI.Instance.RegisterLobbyModSettings(
+                Shared.LobbyModSettingsPresetRegistration.Register(
                     this,
+                    Logger,
                     "UnitCosts_Serp",
                     Settings,
                     "ScriptExtenderUI/UnitCostsSettings.xaml");

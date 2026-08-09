@@ -13,7 +13,7 @@ namespace BuildingCosts
 
         public const string PluginGuid = "BuildingCosts_Serp";
         public const string PluginName = "Building Costs";
-        public const string PluginVersion = "1.0.2";
+        public const string PluginVersion = "1.0.3";
 
         internal static readonly BuildingCostTooltipViewModel BuildingCostTooltipViewModel = new BuildingCostTooltipViewModel();
 
@@ -59,8 +59,9 @@ namespace BuildingCosts
             {
                 Shared.DebugLogHelper.ReportNativeLibraryVersion(Logger, PluginName);
                 Settings.RefreshLocalizedNames();
-                GameXAMLManagerAPI.Instance.RegisterLobbyModSettings(
+                Shared.LobbyModSettingsPresetRegistration.Register(
                     this,
+                    Logger,
                     "BuildingCosts_Serp",
                     Settings,
                     "ScriptExtenderUI/BuildingCostsSettings.xaml");

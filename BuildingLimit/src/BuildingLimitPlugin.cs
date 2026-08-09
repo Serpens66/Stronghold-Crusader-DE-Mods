@@ -13,7 +13,7 @@ namespace BuildingLimit
 
         public const string PluginGuid = "BuildingLimit_Serp";
         public const string PluginName = "Building Limit";
-        public const string PluginVersion = "1.0.1";
+        public const string PluginVersion = "1.0.2";
 
         private BuildingLimitRuntime runtime;
         private bool runtimeDisposed;
@@ -57,8 +57,9 @@ namespace BuildingLimit
             {
                 Shared.DebugLogHelper.ReportNativeLibraryVersion(Logger, PluginName);
                 Settings.RefreshLocalizedNames();
-                GameXAMLManagerAPI.Instance.RegisterLobbyModSettings(
+                Shared.LobbyModSettingsPresetRegistration.Register(
                     this,
+                    Logger,
                     "BuildingLimit_Serp",
                     Settings,
                     "ScriptExtenderUI/BuildingLimitSettings.xaml");

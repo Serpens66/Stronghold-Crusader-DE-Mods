@@ -13,7 +13,7 @@ namespace ImprovedHunters
 
         public const string PluginGuid = "ImprovedHunters_Serp";
         public const string PluginName = "Improved Hunters";
-        public const string PluginVersion = "1.1.15";
+        public const string PluginVersion = "1.1.16";
 
         private static ImprovedHuntersRuntime persistentRuntime;
         private static ImprovedHuntersViewModel persistentSettings;
@@ -70,8 +70,9 @@ namespace ImprovedHunters
                     return;
                 }
 
-                GameXAMLManagerAPI.Instance.RegisterLobbyModSettings(
+                Shared.LobbyModSettingsPresetRegistration.Register(
                     this,
+                    Logger,
                     PluginGuid,
                     persistentSettings,
                     "ScriptExtenderUI/ImprovedHuntersSettings.xaml");

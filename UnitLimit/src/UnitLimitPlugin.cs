@@ -13,7 +13,7 @@ namespace UnitLimit
 
         public const string PluginGuid = "UnitLimit_Serp";
         public const string PluginName = "Unit Limit";
-        public const string PluginVersion = "1.0.2";
+        public const string PluginVersion = "1.0.3";
 
         private UnitLimitRuntime runtime;
         private bool runtimeDisposed;
@@ -57,8 +57,9 @@ namespace UnitLimit
             {
                 Shared.DebugLogHelper.ReportNativeLibraryVersion(Logger, PluginName);
                 Settings.RefreshLocalizedNames();
-                GameXAMLManagerAPI.Instance.RegisterLobbyModSettings(
+                Shared.LobbyModSettingsPresetRegistration.Register(
                     this,
+                    Logger,
                     "UnitLimit_Serp",
                     Settings,
                     "ScriptExtenderUI/UnitLimitSettings.xaml");

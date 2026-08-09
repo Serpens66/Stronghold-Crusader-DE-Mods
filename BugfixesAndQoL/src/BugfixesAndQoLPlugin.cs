@@ -20,7 +20,7 @@ namespace BugfixesAndQoL
 
         public const string PluginGuid = "BugfixesAndQoL_Serp";
         public const string PluginName = "Bugfixes and QoL";
-        public const string PluginVersion = "1.0.1";
+        public const string PluginVersion = "1.0.2";
 
         private BugfixesAndQoLRuntime runtime;
         private bool runtimeDisposed;
@@ -55,8 +55,9 @@ namespace BugfixesAndQoL
         {
             try
             {
-                GameXAMLManagerAPI.Instance.RegisterLobbyModSettings(
+                Shared.LobbyModSettingsPresetRegistration.Register(
                     this,
+                    Logger,
                     PluginGuid,
                     Settings,
                     "ScriptExtenderUI/BugfixesAndQoLSettings.xaml");

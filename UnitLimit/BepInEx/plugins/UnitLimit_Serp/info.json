@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Unit Limit",
   "Description": "Limits the number of active soldier units per type for human players in Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.2",
+  "Version": "1.0.3",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.3",
+      "Changes": [
+        "Added two automatically saved lobby-settings presets with migration of existing settings to preset 1."
+      ]
+    },
     {
       "Version": "1.0.1",
       "Changes": [

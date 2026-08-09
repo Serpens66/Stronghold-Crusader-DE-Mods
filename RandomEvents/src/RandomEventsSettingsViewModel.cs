@@ -5,7 +5,7 @@ using System;
 
 namespace RandomEvents
 {
-    public sealed class RandomEventsSettingsViewModel : LobbyModSettingsBaseViewModel
+    public sealed class RandomEventsSettingsViewModel : Shared.PresetLobbyModSettingsViewModel
     {
         private bool enableMod = true;
         private int intervalMonths = 3;

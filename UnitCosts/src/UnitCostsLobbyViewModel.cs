@@ -13,7 +13,7 @@ using System.Text;
 
 namespace UnitCosts
 {
-    public sealed class UnitCostsLobbyViewModel : LobbyModSettingsBaseViewModel
+    public sealed class UnitCostsLobbyViewModel : Shared.PresetLobbyModSettingsViewModel
     {
         public event Action<string> SettingChanged;
 

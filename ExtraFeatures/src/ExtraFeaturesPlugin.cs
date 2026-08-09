@@ -16,7 +16,7 @@ namespace ExtraFeatures
 
         public const string PluginGuid = "ExtraFeatures_Serp";
         public const string PluginName = "Extra Features";
-        public const string PluginVersion = "1.0.0";
+        public const string PluginVersion = "1.0.1";
 
         private ExtraFeaturesRuntime runtime;
         private bool runtimeDisposed;
@@ -51,8 +51,9 @@ namespace ExtraFeatures
         {
             try
             {
-                GameXAMLManagerAPI.Instance.RegisterLobbyModSettings(
+                Shared.LobbyModSettingsPresetRegistration.Register(
                     this,
+                    Logger,
                     PluginGuid,
                     Settings,
                     "ScriptExtenderUI/ExtraFeaturesSettings.xaml");

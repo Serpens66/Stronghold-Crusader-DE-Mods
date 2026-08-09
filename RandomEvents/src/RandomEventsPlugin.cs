@@ -12,7 +12,7 @@ namespace RandomEvents
         private const string ScriptExtenderGuid = "000shcdese";
         public const string PluginGuid = "RandomEvents_Serp";
         public const string PluginName = "Random Events";
-        public const string PluginVersion = "1.0.0";
+        public const string PluginVersion = "1.0.1";
 
         private RandomEventsRuntime runtime;
         private bool disposed;
@@ -30,8 +30,9 @@ namespace RandomEvents
         {
             try
             {
-                GameXAMLManagerAPI.Instance.RegisterLobbyModSettings(
+                Shared.LobbyModSettingsPresetRegistration.Register(
                     this,
+                    Logger,
                     PluginGuid,
                     Settings,
                     "ScriptExtenderUI/RandomEventsSettings.xaml");

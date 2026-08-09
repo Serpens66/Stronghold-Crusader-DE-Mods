@@ -7,7 +7,7 @@ using System;
 
 namespace BugfixesAndQoL
 {
-    public sealed class BugfixesAndQoLViewModel : LobbyModSettingsBaseViewModel
+    public sealed class BugfixesAndQoLViewModel : Shared.PresetLobbyModSettingsViewModel
     {
         public event Action<string> SettingChanged;
 

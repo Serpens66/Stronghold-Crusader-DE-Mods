@@ -11,7 +11,7 @@ using System.Text;
 
 namespace BuildingLimit
 {
-    public sealed class BuildingLimitLobbyViewModel : LobbyModSettingsBaseViewModel
+    public sealed class BuildingLimitLobbyViewModel : Shared.PresetLobbyModSettingsViewModel
     {
         public event Action<string> SettingChanged;
 
