@@ -86,9 +86,6 @@ namespace Shared
         }
 
         // Public reflection boundary used by the elected Shared runtime in another mod assembly.
-        public Dictionary<string, byte[]> System_CaptureTrailSnapshot() =>
-            presetController?.CaptureCurrent() ?? new Dictionary<string, byte[]>(StringComparer.Ordinal);
-
         public Dictionary<string, byte[]> System_CreateDisabledTrailSnapshot() =>
             presetController?.CreateDisabledSnapshot() ?? new Dictionary<string, byte[]>(StringComparer.Ordinal);
 
@@ -316,8 +313,6 @@ namespace Shared
                     log,
                     $"[{modName}] Switched to preset {selected + 1}; saved={GetPreset(selected) != null}.");
             }
-
-            public Dictionary<string, byte[]> CaptureCurrent() => CaptureCurrentSettings();
 
             public Dictionary<string, byte[]> CreateDisabledSnapshot()
             {

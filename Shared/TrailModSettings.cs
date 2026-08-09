@@ -8,7 +8,6 @@ using Noesis;
 using SHCDESE.API;
 using SHCDESE.API.Components.Network;
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -25,6 +24,8 @@ namespace Shared
     public static class TrailModSettingsRuntime
     {
         public static readonly string[] TargetModIds = TrailModSettingsRegistry.TargetModIds;
+        private static readonly HashSet<string> TargetModIdSet =
+            new HashSet<string>(TargetModIds, StringComparer.Ordinal);
 
         private static LeaderRuntime leader;
 
@@ -33,7 +34,7 @@ namespace Shared
             ManualLogSource log,
             string modId)
         {
-            if (plugin == null || !TargetModIds.Contains(modId, StringComparer.Ordinal))
+            if (plugin == null || !TargetModIdSet.Contains(modId))
                 return;
 
             string elected = TrailModSettingsRegistry.ElectLeader(Chainloader.PluginInfos.Keys);
@@ -45,21 +46,12 @@ namespace Shared
         }
 
         // Neutral reflection API used by CoopTrailReplacer without a hard assembly reference.
-        public static void System_EnterCoopTrailJson(string modSettingsJson, bool editable)
-        {
-            leader?.EnterJson(modSettingsJson, editable, "custom Coop mission");
-        }
+        public static string[] System_EnterCoopTrailJson(string modSettingsJson, bool editable) =>
+            leader?.EnterJson(modSettingsJson, editable, "custom Coop mission") ?? Array.Empty<string>();
 
         public static void System_ExitTrailContext()
         {
             leader?.ExitContext();
-        }
-
-        public static string[] System_GetMissingEnabledMods(string modSettingsJson)
-        {
-            if (leader == null)
-                return Array.Empty<string>();
-            return leader.GetMissingEnabledMods(modSettingsJson);
         }
 
         private sealed class LeaderRuntime
@@ -97,6 +89,8 @@ namespace Shared
             private readonly ManualLogSource log;
             private readonly string ownerModId;
             private readonly List<IDisposable> hooks = new List<IDisposable>();
+            private readonly Dictionary<Type, Dictionary<string, PropertyInfo>> persistedPropertiesByType =
+                new Dictionary<Type, Dictionary<string, PropertyInfo>>();
             private SaveCustomTrailMapDelegate saveCustomTrailMapOriginal;
             private ManageTrailButtonDelegate manageTrailButtonOriginal;
             private ManageTrailInitDelegate manageTrailInitOriginal;
@@ -114,8 +108,13 @@ namespace Shared
             private bool trailContext;
             private bool preserveContextForLaunch;
             private bool customTrailLaunchActive;
+            private bool cleanupDeferralLogged;
             private HUD_IngameMenu.RestartSkirmishMapInfo customTrailSetupRestartInfo;
             private FileHeader customTrailSetupHeader;
+            private string activeSidecarPath;
+            private long activeSidecarLength = -1;
+            private long activeSidecarWriteTicks;
+            private bool activeSidecarEditable;
 
             public LeaderRuntime(ManualLogSource log, string ownerModId)
             {
@@ -183,54 +182,50 @@ namespace Shared
                 DebugLogHelper.LogInfo(log, $"Trail mod-settings leader [{ownerModId}] initialized.");
             }
 
-            public void EnterJson(string json, bool editable, string source)
+            public string[] EnterJson(string json, bool editable, string source)
             {
                 try
                 {
                     TrailSettingsDocument document = TrailSettingsJson.ParseObject(json);
                     ApplyDocument(document, editable);
                     DebugLogHelper.LogInfo(log, $"Loaded {source} mod settings; editable={editable}.");
+                    return GetMissingEnabledMods(document);
                 }
                 catch (Exception exception)
                 {
                     DebugLogHelper.LogError(log, $"Could not load {source} mod settings; all Trail mods are disabled: {exception}");
                     ApplyDocument(TrailSettingsDocument.CreateDisabled(), editable);
+                    return Array.Empty<string>();
                 }
             }
 
-            public string[] GetMissingEnabledMods(string json)
-            {
-                TrailSettingsDocument document;
-                try
-                {
-                    document = TrailSettingsJson.ParseObject(json);
-                }
-                catch
-                {
-                    return Array.Empty<string>();
-                }
-
-                return document.Mods
+            private static string[] GetMissingEnabledMods(TrailSettingsDocument document) =>
+                document.Mods
                     .Where(entry => entry.Value != null && entry.Value.Enabled)
                     .Select(entry => entry.Key)
                     .Where(id => !Chainloader.PluginInfos.ContainsKey(id))
                     .OrderBy(id => id, StringComparer.Ordinal)
                     .ToArray();
-            }
 
             public void ExitContext(bool force = false)
             {
                 if (!force && (preserveContextForLaunch || customTrailLaunchActive))
                 {
-                    DebugLogHelper.LogInfo(log, "Deferred Trail mod-settings cleanup while Custom Trail setup/mission is active.");
+                    if (!cleanupDeferralLogged)
+                    {
+                        cleanupDeferralLogged = true;
+                        DebugLogHelper.LogInfo(log, "Deferred Trail mod-settings cleanup while Custom Trail setup/mission is active.");
+                    }
                     return;
                 }
                 if (!trailContext)
                 {
-                    if (force)
-                        customTrailLaunchActive = false;
+                    preserveContextForLaunch = false;
+                    customTrailLaunchActive = false;
                     customTrailSetupRestartInfo = null;
                     customTrailSetupHeader = null;
+                    cleanupDeferralLogged = false;
+                    ClearActiveSidecar();
                     return;
                 }
 
@@ -241,6 +236,8 @@ namespace Shared
                 customTrailLaunchActive = false;
                 customTrailSetupRestartInfo = null;
                 customTrailSetupHeader = null;
+                cleanupDeferralLogged = false;
+                ClearActiveSidecar();
                 DebugLogHelper.LogInfo(log, "Left Trail mod-settings context.");
             }
 
@@ -450,7 +447,6 @@ namespace Shared
             {
                 frontendOpenCustomTrailOriginal(self, trailName, level);
                 MainViewModel.Instance.Show_TrailCustomisationButtons = true;
-                EnterSelectedCustomTrail(self);
             }
 
             private void TrailSelectionHook(FrontendMenus self, int missionId, bool fromRealClick)
@@ -538,6 +534,7 @@ namespace Shared
                 restartInfo.customTrailLevel = missionId;
                 restartInfo.customTrailDifficulty = difficulty;
                 customTrailLaunchActive = false;
+                cleanupDeferralLogged = false;
                 customTrailSetupRestartInfo = restartInfo;
                 customTrailSetupHeader = header;
 
@@ -672,11 +669,33 @@ namespace Shared
 
             private void EnterSidecar(string trailPath, bool editable)
             {
-                string sidecar = IOPath.ChangeExtension(trailPath, ".modjson");
-                TrailSettingsDocument document = File.Exists(sidecar)
+                string sidecar = IOPath.GetFullPath(IOPath.ChangeExtension(trailPath, ".modjson"));
+                bool exists = File.Exists(sidecar);
+                long length = -1;
+                long writeTicks = 0;
+                if (exists)
+                {
+                    var info = new FileInfo(sidecar);
+                    length = info.Length;
+                    writeTicks = info.LastWriteTimeUtc.Ticks;
+                }
+
+                if (trailContext && activeSidecarEditable == editable &&
+                    string.Equals(activeSidecarPath, sidecar, StringComparison.OrdinalIgnoreCase) &&
+                    activeSidecarLength == length && activeSidecarWriteTicks == writeTicks &&
+                    AreAllTrailPresetsActive())
+                {
+                    return;
+                }
+
+                TrailSettingsDocument document = exists
                     ? TrailSettingsJson.Read(sidecar)
                     : TrailSettingsDocument.CreateDisabled();
                 ApplyDocument(document, editable);
+                activeSidecarPath = sidecar;
+                activeSidecarLength = length;
+                activeSidecarWriteTicks = writeTicks;
+                activeSidecarEditable = editable;
             }
 
             private TrailSettingsDocument CaptureDocument()
@@ -685,15 +704,16 @@ namespace Shared
                 foreach (KeyValuePair<string, object> participant in FindTargetViewModels())
                 {
                     object viewModel = participant.Value;
-                    PropertyInfo enableProperty = viewModel.GetType().GetProperty("EnableMod");
-                    bool enabled = enableProperty != null && enableProperty.PropertyType == typeof(bool) &&
+                    Dictionary<string, PropertyInfo> properties = GetPersistedProperties(viewModel);
+                    bool enabled = properties.TryGetValue("EnableMod", out PropertyInfo enableProperty) &&
+                        enableProperty.PropertyType == typeof(bool) &&
                         (bool)enableProperty.GetValue(viewModel);
                     TrailModEntry target = document.Mods[participant.Key];
                     target.Enabled = enabled;
                     if (!enabled)
                         continue;
 
-                    foreach (PropertyInfo property in GetPersistedProperties(viewModel).Where(p => p.Name != "EnableMod"))
+                    foreach (PropertyInfo property in properties.Values.Where(property => property.Name != "EnableMod"))
                         target.Settings[property.Name] = property.GetValue(viewModel);
                 }
                 return document;
@@ -701,8 +721,9 @@ namespace Shared
 
             private void ApplyDocument(TrailSettingsDocument document, bool editable)
             {
+                ClearActiveSidecar();
                 Dictionary<string, object> participants = FindTargetViewModels();
-                var prepared = new List<KeyValuePair<object, Dictionary<string, byte[]>>>();
+                var prepared = new List<KeyValuePair<object, Dictionary<string, byte[]>>>(participants.Count);
                 foreach (KeyValuePair<string, object> participant in participants)
                 {
                     TrailModEntry entry = document.Mods.TryGetValue(participant.Key, out TrailModEntry stored)
@@ -713,8 +734,7 @@ namespace Shared
                     if (entry.Enabled)
                     {
                         snapshot["EnableMod"] = MessagePackSerializer.Serialize(true);
-                        Dictionary<string, PropertyInfo> properties = GetPersistedProperties(participant.Value)
-                            .ToDictionary(property => property.Name, StringComparer.Ordinal);
+                        Dictionary<string, PropertyInfo> properties = GetPersistedProperties(participant.Value);
                         foreach (KeyValuePair<string, object> setting in entry.Settings)
                         {
                             if (!properties.TryGetValue(setting.Key, out PropertyInfo property) || property.Name == "EnableMod")
@@ -733,18 +753,45 @@ namespace Shared
 
             private Dictionary<string, object> FindTargetViewModels()
             {
-                return GameXAMLManagerAPI.Instance.RegisteredModSettings
-                    .Where(entry => TargetModIds.Contains(entry.Name, StringComparer.Ordinal))
-                    .GroupBy(entry => entry.Name, StringComparer.Ordinal)
-                    .ToDictionary(group => group.Key, group => group.Last().ViewModel, StringComparer.Ordinal);
+                var result = new Dictionary<string, object>(StringComparer.Ordinal);
+                foreach (var entry in GameXAMLManagerAPI.Instance.RegisteredModSettings)
+                {
+                    if (TargetModIdSet.Contains(entry.Name))
+                        result[entry.Name] = entry.ViewModel;
+                }
+                return result;
             }
 
-            private static IEnumerable<PropertyInfo> GetPersistedProperties(object viewModel)
+            private Dictionary<string, PropertyInfo> GetPersistedProperties(object viewModel)
             {
-                return viewModel.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                Type type = viewModel.GetType();
+                if (persistedPropertiesByType.TryGetValue(type, out Dictionary<string, PropertyInfo> cached))
+                    return cached;
+                cached = type.GetProperties(BindingFlags.Public | BindingFlags.Instance)
                     .Where(property => property.CanRead && property.CanWrite && property.GetCustomAttributes(false)
                         .Any(attribute => attribute.GetType().Name == "SyncPerPlayerAttribute" ||
-                            attribute.GetType().Name == "SyncHostOnlyAttribute"));
+                            attribute.GetType().Name == "SyncHostOnlyAttribute"))
+                    .ToDictionary(property => property.Name, StringComparer.Ordinal);
+                persistedPropertiesByType[type] = cached;
+                return cached;
+            }
+
+            private bool AreAllTrailPresetsActive()
+            {
+                Dictionary<string, object> participants = FindTargetViewModels();
+                return participants.Count > 0 && participants.Values.All(viewModel =>
+                {
+                    PropertyInfo property = viewModel.GetType().GetProperty("IsTrailPresetActive", BindingFlags.Instance | BindingFlags.Public);
+                    return property != null && property.PropertyType == typeof(bool) && (bool)property.GetValue(viewModel);
+                });
+            }
+
+            private void ClearActiveSidecar()
+            {
+                activeSidecarPath = null;
+                activeSidecarLength = -1;
+                activeSidecarWriteTicks = 0;
+                activeSidecarEditable = false;
             }
 
             private static object ConvertJsonValue(object value, Type targetType)
@@ -754,17 +801,6 @@ namespace Shared
                 Type effectiveType = Nullable.GetUnderlyingType(targetType) ?? targetType;
                 if (effectiveType.IsInstanceOfType(value))
                     return value;
-                if (effectiveType.IsEnum)
-                    return Enum.Parse(effectiveType, Convert.ToString(value, CultureInfo.InvariantCulture), true);
-                if (effectiveType.IsArray && value is IEnumerable enumerable)
-                {
-                    Type elementType = effectiveType.GetElementType();
-                    List<object> items = enumerable.Cast<object>().ToList();
-                    Array array = Array.CreateInstance(elementType, items.Count);
-                    for (int index = 0; index < items.Count; index++)
-                        array.SetValue(ConvertJsonValue(items[index], elementType), index);
-                    return array;
-                }
                 return Convert.ChangeType(value, effectiveType, CultureInfo.InvariantCulture);
             }
 

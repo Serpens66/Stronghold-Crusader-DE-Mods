@@ -14,7 +14,6 @@ namespace CoopTrailReplacer
     {
         private readonly MethodInfo enterMethod;
         private readonly MethodInfo exitMethod;
-        private readonly MethodInfo missingMethod;
 
         public TrailModSettingsBridge()
         {
@@ -29,14 +28,17 @@ namespace CoopTrailReplacer
             Type runtime = assembly.GetType("Shared.TrailModSettingsRuntime", false);
             enterMethod = runtime?.GetMethod("System_EnterCoopTrailJson", BindingFlags.Public | BindingFlags.Static);
             exitMethod = runtime?.GetMethod("System_ExitTrailContext", BindingFlags.Public | BindingFlags.Static);
-            missingMethod = runtime?.GetMethod("System_GetMissingEnabledMods", BindingFlags.Public | BindingFlags.Static);
         }
 
         public bool IsAvailable => enterMethod != null;
 
-        public void Enter(ModSettingsDefinition settings, bool editable)
+        public string[] Enter(ModSettingsDefinition settings, bool editable)
         {
-            enterMethod?.Invoke(null, new object[] { MissionLoader.SerializeModSettings(settings), editable });
+            if (enterMethod == null)
+                return Array.Empty<string>();
+            return (string[])enterMethod.Invoke(
+                null,
+                new object[] { MissionLoader.SerializeModSettings(settings), editable });
         }
 
         public void Exit()
@@ -44,11 +46,5 @@ namespace CoopTrailReplacer
             exitMethod?.Invoke(null, null);
         }
 
-        public string[] GetMissingEnabledMods(ModSettingsDefinition settings)
-        {
-            if (missingMethod == null)
-                return Array.Empty<string>();
-            return (string[])missingMethod.Invoke(null, new object[] { MissionLoader.SerializeModSettings(settings) });
-        }
     }
 }

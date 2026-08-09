@@ -29,7 +29,6 @@ namespace Shared
 
     public sealed class TrailSettingsDocument
     {
-        public int SchemaVersion { get; set; } = 1;
         public Dictionary<string, TrailModEntry> Mods { get; set; } = new Dictionary<string, TrailModEntry>(StringComparer.Ordinal);
 
         public static TrailSettingsDocument CreateDisabled()

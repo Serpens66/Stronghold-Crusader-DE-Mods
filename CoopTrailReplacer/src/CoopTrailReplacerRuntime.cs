@@ -40,8 +40,6 @@ namespace CoopTrailReplacer
         private TrailModSettingsBridge trailModSettings;
         private string[] missingMods = Array.Empty<string>();
         private ResolvedMission selected;
-        private int selectedTrailId = -1;
-        private int selectedMissionId = -1;
 
         public CoopTrailReplacerRuntime(ManualLogSource log, string pluginRoot)
         {
@@ -96,8 +94,6 @@ namespace CoopTrailReplacer
         private void CoopMissionChangedHook(FRONT_Multiplayer self, int trailId, int missionId, bool resetOrderSwapped)
         {
             missionTrampoline(self, trailId, missionId, resetOrderSwapped);
-            selectedTrailId = trailId;
-            selectedMissionId = missionId;
             resolved.TryGetValue(MissionCatalog.ToKey(trailId + 1, missionId), out selected);
             if (selected == null)
             {
@@ -109,8 +105,7 @@ namespace CoopTrailReplacer
             try
             {
                 ApplySelectedMission(self, true);
-                trailModSettings.Enter(selected.Loaded.Definition.ModSettings, editable: false);
-                missingMods = trailModSettings.GetMissingEnabledMods(selected.Loaded.Definition.ModSettings);
+                missingMods = trailModSettings.Enter(selected.Loaded.Definition.ModSettings, editable: false);
             }
             catch (Exception ex)
             {
@@ -198,8 +193,6 @@ namespace CoopTrailReplacer
         {
             trailModSettings?.Exit();
             selected = null;
-            selectedTrailId = -1;
-            selectedMissionId = -1;
             missingMods = Array.Empty<string>();
         }
 
