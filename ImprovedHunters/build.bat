@@ -80,8 +80,19 @@ if "%BUILD_EXIT_CODE%"=="0" (
   )
 
   if exist "!GAME_PLUGIN_DIR!\" (
-    rmdir /S /Q "!GAME_PLUGIN_DIR!"
-    if errorlevel 1 goto copy_failed
+    rem Keep player-created lobby settings while replacing all packaged files.
+    for /D %%D in ("!GAME_PLUGIN_DIR!\*") do (
+      if /I not "%%~nxD"=="LobbyModSettings" (
+        rmdir /S /Q "%%~fD"
+        if errorlevel 1 goto copy_failed
+      )
+    )
+    for %%F in ("!GAME_PLUGIN_DIR!\*") do (
+      if exist "%%~fF" if not exist "%%~fF\" (
+        del /F /Q "%%~fF"
+        if errorlevel 1 goto copy_failed
+      )
+    )
   )
 
   if exist "!OLD_GAME_PLUGIN_DIR!\" (

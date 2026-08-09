@@ -82,6 +82,11 @@ if exist "%STAGED_GAME_PLUGIN_DIR%\" rmdir /S /Q "%STAGED_GAME_PLUGIN_DIR%"
 if errorlevel 1 goto copy_failed
 xcopy "%LOCAL_PLUGIN_DIR%" "%STAGED_GAME_PLUGIN_DIR%\" /E /I /Q /Y
 if errorlevel 1 goto copy_failed
+rem Carry player-created lobby settings into the staged replacement package.
+if exist "%GAME_PLUGIN_DIR%\LobbyModSettings\" (
+  xcopy "%GAME_PLUGIN_DIR%\LobbyModSettings" "%STAGED_GAME_PLUGIN_DIR%\LobbyModSettings\" /E /I /Q /Y
+  if errorlevel 1 goto copy_failed
+)
 if exist "%GAME_PLUGIN_DIR%\" rmdir /S /Q "%GAME_PLUGIN_DIR%"
 if errorlevel 1 goto copy_failed
 move /Y "%STAGED_GAME_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%" >nul

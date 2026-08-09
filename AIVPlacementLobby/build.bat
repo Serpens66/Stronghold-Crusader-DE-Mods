@@ -104,6 +104,11 @@ if errorlevel 1 goto copy_failed
 "%POWERSHELL%" -NoProfile -ExecutionPolicy Bypass -File "%PACKAGE_VERIFIER%" -PackageRoot "%LOCAL_PLUGIN_DIR%" -InstalledRoot "%STAGED_GAME_PLUGIN_DIR%"
 if errorlevel 1 goto copy_failed
 
+rem Carry player-created lobby settings into the verified replacement package.
+if exist "%GAME_PLUGIN_DIR%\LobbyModSettings\" (
+  xcopy "%GAME_PLUGIN_DIR%\LobbyModSettings" "%STAGED_GAME_PLUGIN_DIR%\LobbyModSettings\" /E /I /Q /Y
+  if errorlevel 1 goto copy_failed
+)
 if exist "%GAME_PLUGIN_DIR%\" rmdir /S /Q "%GAME_PLUGIN_DIR%"
 if errorlevel 1 goto copy_failed
 move /Y "%STAGED_GAME_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%" >nul
