@@ -55,9 +55,10 @@
       <TextBlock Text="{Binding CastleText}"
                  Foreground="#DDDDDD"
                  Margin="0,0,0,3"/>
-      <ComboBox ItemsSource="{Binding CastleOptions}"
+      <ComboBox x:Name="SpawnCastleSelectionComboBox"
+                ItemsSource="{Binding CastleOptions}"
                 SelectedItem="{Binding SelectedCastle, Mode=TwoWay}"
-                MaxDropDownHeight="420"
+                MaxDropDownHeight="120"
                 ToolTipService.ShowDuration="60000"
                 ToolTip="{Binding CastleHelpText}"
                 Margin="0,0,0,8"/>

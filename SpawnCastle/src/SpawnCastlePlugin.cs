@@ -18,6 +18,7 @@ namespace SpawnCastle
         // The BepInEx component is destroyed during startup, so runtime state remains static.
         private static SpawnCastleRuntime runtime;
         private static BlueprintRuntimeController blueprintRuntime;
+        private static CastleDropDownHeightController castleDropDownHeightController;
         private static bool libraryLoadedHandled;
 
         public SpawnCastleSettingsViewModel Settings { get; private set; }
@@ -66,6 +67,8 @@ namespace SpawnCastle
                     PluginGuid,
                     Settings,
                     "ScriptExtenderUI/SpawnCastleSettings.xaml");
+                castleDropDownHeightController =
+                    CastleDropDownHeightController.Attach(Logger, Settings);
                 blueprintRuntime =
                     BlueprintRuntimeController.Create(Logger, Settings);
                 GameXAMLManagerAPI.Instance.RegisterBinding(
