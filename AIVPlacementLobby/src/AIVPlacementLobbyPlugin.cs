@@ -11,7 +11,7 @@ namespace AIVPlacementLobby
     {
         public const string PluginGuid = "AIVPlacementLobby_Serp";
         public const string PluginName = "AIV Placement Lobby";
-        public const string PluginVersion = "0.3.3";
+        public const string PluginVersion = "0.3.4";
 
         private static AIVPlacementLobbyRuntime processLifetimeRuntime;
 

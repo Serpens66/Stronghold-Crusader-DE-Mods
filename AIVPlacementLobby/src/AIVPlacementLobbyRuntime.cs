@@ -62,6 +62,10 @@ namespace AIVPlacementLobby
         private string lastSourceFingerprint = string.Empty;
         private long nextSourcePollTimestamp;
         private bool captureFailureLogged;
+        private bool lobbyContextActive;
+        private Button blockedReadyButton;
+        private bool blockedReadyButtonWasEnabled;
+        private object blockedReadyButtonToolTip;
 
         public AIVPlacementLobbyRuntime(ManualLogSource log)
         {
@@ -99,6 +103,13 @@ namespace AIVPlacementLobby
         private void UpdateHook(FRONT_Multiplayer self)
         {
             updateTrampoline(self);
+            if (!IsLobbySetupVisible())
+            {
+                LeaveLobbyContext();
+                return;
+            }
+
+            lobbyContextActive = true;
             CaptureIfChanged(self, false, "lobby update");
             PublishCompletedEvaluations();
             selectionList.UpdateToolTipScale(CalculateFrontendToolTipScale());
@@ -107,6 +118,12 @@ namespace AIVPlacementLobby
 
         private void ButtonClickedHook(FRONT_Multiplayer self, string param)
         {
+            if (!IsLobbySetupVisible())
+            {
+                buttonClickedTrampoline(self, param);
+                return;
+            }
+
             bool networkHost = IsNetworkHost(self);
             if (networkHost && pendingPlayerIds.Count > 0 &&
                 (string.Equals(param, "Ready", StringComparison.Ordinal) ||
@@ -138,6 +155,12 @@ namespace AIVPlacementLobby
             FRONT_Multiplayer self,
             HUD_IngameMenu.RestartSkirmishMapInfo restartInfo)
         {
+            if (!IsLobbySetupVisible())
+            {
+                startTrampoline(self, restartInfo);
+                return;
+            }
+
             // Capture before Vanilla rewrites preferredAIVs and transfers setup into native state.
             CaptureIfChanged(self, true, "before StartSkirmishGame");
             startTrampoline(self, restartInfo);
@@ -604,14 +627,63 @@ namespace AIVPlacementLobby
                 ? null
                 : MultiplayerReadyButtonField.GetValue(frontend) as Button;
             if (!IsNetworkHost(frontend) || readyButton == null)
+            {
+                RestoreBlockedReadyButton();
                 return;
+            }
 
             bool pending = pendingPlayerIds.Count > 0;
-            readyButton.IsEnabled = !pending;
-            readyButton.ToolTip = pending
-                ? SerpLocalization.Get(SerpLocalization.AivPlacementChecking)
-                : null;
+            if (!pending)
+            {
+                RestoreBlockedReadyButton();
+                return;
+            }
+
+            if (!ReferenceEquals(blockedReadyButton, readyButton))
+            {
+                RestoreBlockedReadyButton();
+                blockedReadyButton = readyButton;
+                blockedReadyButtonWasEnabled = readyButton.IsEnabled;
+                blockedReadyButtonToolTip = readyButton.ToolTip;
+            }
+
+            readyButton.IsEnabled = false;
+            readyButton.ToolTip = SerpLocalization.Get(SerpLocalization.AivPlacementChecking);
             ToolTipService.SetShowOnDisabled(readyButton, true);
+        }
+
+        private void LeaveLobbyContext()
+        {
+            if (!lobbyContextActive)
+                return;
+
+            lobbyContextActive = false;
+            // Invalidate workers and UI state so a completed lobby check cannot leak into Trail selection.
+            generations.Advance();
+            while (completedEvaluations.TryDequeue(out _))
+            {
+            }
+            currentResults.Clear();
+            selectedNetworkCandidateIds.Clear();
+            pendingPlayerIds.Clear();
+            lastFingerprint = string.Empty;
+            lastSourceFingerprint = string.Empty;
+            nextSourcePollTimestamp = 0;
+            selectionDialog.Reset();
+            RestoreBlockedReadyButton();
+            Shared.DebugLogHelper.LogInfo(log, "AIV placement lobby context left; runtime state reset.");
+        }
+
+        private void RestoreBlockedReadyButton()
+        {
+            if (blockedReadyButton == null)
+                return;
+
+            // Restore Vanilla's exact prior state instead of assuming that the button should be enabled.
+            blockedReadyButton.IsEnabled = blockedReadyButtonWasEnabled;
+            blockedReadyButton.ToolTip = blockedReadyButtonToolTip;
+            blockedReadyButton = null;
+            blockedReadyButtonToolTip = null;
         }
 
         private List<NetworkAivSnapshot> SelectNetworkStartAivs(FRONT_Multiplayer frontend)
@@ -684,6 +756,9 @@ namespace AIVPlacementLobby
             !FRONT_Multiplayer.skirmishGame &&
             frontend?.currentLobby != null &&
             frontend.currentLobby.isHost;
+
+        private static bool IsLobbySetupVisible() =>
+            MainViewModel.Instance?.Show_MultiplayerSetup == true;
 
         private sealed class CompletedEvaluation
         {

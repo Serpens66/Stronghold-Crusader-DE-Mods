@@ -56,6 +56,7 @@ namespace AIVPlacementLobby
         private AiSettingsInitDelegate initTrampoline;
         private AiSettingsPopulateListDelegate populateTrampoline;
         private AiSettingsButtonClickedDelegate buttonTrampoline;
+        private AiSettingsAddSelectedDelegate addTrampoline;
         private FRONT_Multiplayer.MPAIVInfo activeInfo;
 
         public AivSelectionDialogRuntime(ManualLogSource log, AivSelectionListViewModel selectionList)
@@ -84,6 +85,7 @@ namespace AIVPlacementLobby
             buttonHook = new Hook(button, (AiSettingsButtonClickedDelegate)ButtonClickedHook);
             buttonTrampoline = buttonHook.GenerateTrampoline<AiSettingsButtonClickedDelegate>();
             addHook = new Hook(add, (AiSettingsAddSelectedDelegate)AddSelectedHook);
+            addTrampoline = addHook.GenerateTrampoline<AiSettingsAddSelectedDelegate>();
             selectionList.RemoveRequested += OnRemoveRequested;
 
             Shared.DebugLogHelper.LogInfo(
@@ -162,11 +164,25 @@ namespace AIVPlacementLobby
             RefreshSelectionList(FRONT_Multiplayer_AISettings.Instance);
         }
 
+        public void Reset()
+        {
+            playerIdsByInfo.Clear();
+            statesByPlayer.Clear();
+            activeInfo = null;
+            selectionList.Refresh(null, false, null);
+        }
+
         private void InitHook(
             FRONT_Multiplayer_AISettings self,
             FRONT_Multiplayer.MPAIVInfo aivInfo,
             bool mpMode)
         {
+            if (!IsLobbySetupVisible())
+            {
+                initTrampoline(self, aivInfo, mpMode);
+                return;
+            }
+
             activeInfo = aivInfo;
             EnforceRuntimeLimit(aivInfo);
 
@@ -182,6 +198,12 @@ namespace AIVPlacementLobby
             FRONT_Multiplayer.MPAIVInfo aivInfo,
             bool doPopulate)
         {
+            if (!IsLobbySetupVisible())
+            {
+                populateTrampoline(self, aivInfo, doPopulate);
+                return;
+            }
+
             SetEffectiveDialogMode(self);
             populateTrampoline(self, aivInfo, doPopulate);
             RefreshSelectionList(self);
@@ -189,6 +211,12 @@ namespace AIVPlacementLobby
 
         private void ButtonClickedHook(FRONT_Multiplayer_AISettings self, string param)
         {
+            if (!IsLobbySetupVisible())
+            {
+                buttonTrampoline(self, param);
+                return;
+            }
+
             SetEffectiveDialogMode(self);
             buttonTrampoline(self, param);
             RefreshSelectionList(self);
@@ -196,6 +224,12 @@ namespace AIVPlacementLobby
 
         private void AddSelectedHook(FRONT_Multiplayer_AISettings self)
         {
+            if (!IsLobbySetupVisible())
+            {
+                addTrampoline(self);
+                return;
+            }
+
             SetEffectiveDialogMode(self);
             try
             {
@@ -257,7 +291,7 @@ namespace AIVPlacementLobby
 
         private void OnRemoveRequested(CustomisationFileManager.CustomAIV requestedAiv)
         {
-            if (requestedAiv == null)
+            if (!IsLobbySetupVisible() || requestedAiv == null)
                 return;
 
             FRONT_Multiplayer_AISettings instance = FRONT_Multiplayer_AISettings.Instance;
@@ -348,6 +382,9 @@ namespace AIVPlacementLobby
 
         private static bool IsCustomAivMode(FRONT_Multiplayer.MPAIVInfo info) =>
             info != null && !info.builtIn && !info.community && !info.historical;
+
+        private static bool IsLobbySetupVisible() =>
+            MainViewModel.Instance?.Show_MultiplayerSetup == true;
 
         private static FRONT_Multiplayer.MPAIVInfo GetAivInfo(FRONT_Multiplayer_AISettings instance) =>
             instance == null ? null : AiSettingsAivInfoField.GetValue(instance) as FRONT_Multiplayer.MPAIVInfo;
