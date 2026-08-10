@@ -147,6 +147,10 @@ namespace ExtraFeatures
 
         private void ResetToDefault()
         {
+            if (!CanEditHostSettings)
+                return;
+
+            EnableMod = true;
             WoodRefundPercentText = "-1";
             StoneRefundPercentText = "-1";
             IronRefundPercentText = "-1";

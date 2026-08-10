@@ -170,6 +170,7 @@ namespace BugfixesAndQoL
         {
             if (CanEditHostSettings)
             {
+                EnableMod = true;
                 RememberAiAivSettings = true;
                 EnableTroopMovementFix = true;
                 EnablePlaguePopularityFix = true;

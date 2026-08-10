@@ -8,6 +8,7 @@ using SHCDESE.BepInEx.Bootstrap;
 using SHCDESE.ViewModels;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -31,6 +32,11 @@ namespace Shared
     /// </summary>
     public abstract class PresetLobbyModSettingsViewModel : LobbyModSettingsBaseViewModel
     {
+        private static readonly FieldInfo NetworkSyncInProgressField =
+            typeof(GameXAMLManagerAPI).GetField(
+                "_isProcessingNetworkSync",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+
         private ComboBoxItem[] presetOptions = Array.Empty<ComboBoxItem>();
         private PresetController presetController;
         private int selectedPreset;
@@ -189,8 +195,9 @@ namespace Shared
             }
             catch
             {
-                // Registration happens before the network singleton is always available.
-                currentIsHost = true;
+                // Registration can precede the network singleton. Preserve the last
+                // confirmed role so a transient failure never unlocks a client.
+                return;
             }
 
             if (isLocalHost == currentIsHost)
@@ -450,6 +457,11 @@ namespace Shared
                 if (!active || applying || string.IsNullOrEmpty(propertyName))
                     return;
 
+                // A host setter may also notify derived display properties. Suppress
+                // the whole notification chain while the Extender applies a packet.
+                if (IsNetworkSyncInProgress())
+                    return;
+
                 persistedPropertiesByName.TryGetValue(
                     propertyName,
                     out PropertyInfo property);
@@ -486,8 +498,10 @@ namespace Shared
                 // Incoming host values are runtime-only on clients.
                 if (IsHostProperty(property) && !owner.isLocalHost)
                 {
-                    // The Script Extender suppresses its own storage handler while it
-                    // applies network data. Do not turn that receive into a local write.
+                    // Network-originated changes returned above. This is therefore a
+                    // local/programmatic client edit; restore locally owned host data
+                    // after the Extender's generic storage pass.
+                    WriteCombinedPayload();
                     return;
                 }
 
@@ -765,8 +779,32 @@ namespace Shared
                 property.GetCustomAttribute<SyncHostOnlyAttribute>() != null;
 
             private static bool IsClientProperty(PropertyInfo property) =>
-                property.GetCustomAttribute<SyncPerPlayerAttribute>() != null ||
-                property.GetCustomAttribute<PresetLocalAttribute>() != null;
+                property.GetCustomAttribute<SyncHostOnlyAttribute>() == null &&
+                (property.GetCustomAttribute<SyncPerPlayerAttribute>() != null ||
+                    property.GetCustomAttribute<PresetLocalAttribute>() != null);
+
+            private static bool IsNetworkSyncInProgress()
+            {
+                try
+                {
+                    if (NetworkSyncInProgressField != null)
+                    {
+                        return (bool)NetworkSyncInProgressField.GetValue(
+                            GameXAMLManagerAPI.Instance);
+                    }
+
+                    // Retain safe behavior if a later Extender only renames the field.
+                    return new StackTrace().GetFrames()?.Any(frame =>
+                        frame.GetMethod()?.DeclaringType == typeof(GameXAMLManagerAPI) &&
+                        (frame.GetMethod().Name == "ReceiveSettingsUpdate" ||
+                            frame.GetMethod().Name == "ApplyHostOnlyUpdate" ||
+                            frame.GetMethod().Name == "ApplyPerPlayerUpdate")) == true;
+                }
+                catch
+                {
+                    return false;
+                }
+            }
 
             private static Dictionary<string, byte[]> CopyProperties(
                 Dictionary<string, byte[]> source,

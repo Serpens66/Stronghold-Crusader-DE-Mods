@@ -143,6 +143,9 @@ namespace ImprovedHunters
 
         private void ResetToDefault()
         {
+            if (!CanEditHostSettings)
+                return;
+
             EnableMod = true;
             ImprovedPathfinding = true;
             HuntDeer = true;

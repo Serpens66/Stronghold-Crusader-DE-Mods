@@ -140,6 +140,10 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=-1";
 
         private void ResetToDefault()
         {
+            if (!CanEditHostSettings)
+                return;
+
+            EnableMod = true;
             UnitLimits = DefaultUnitLimits;
             CampfirePeasantsLimit = -1;
             OnPropertyChanged(nameof(CampfirePeasantsLimitText));

@@ -152,6 +152,10 @@ namespace UnitCosts
 
         private void ResetToDefault()
         {
+            if (!CanEditHostSettings)
+                return;
+
+            EnableMod = true;
             UnitCosts = CreateDefaultUnitCosts();
             HumanExtraUnitCosts = CreateDefaultHumanExtraUnitCosts();
         }

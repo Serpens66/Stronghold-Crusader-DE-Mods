@@ -147,6 +147,10 @@ namespace BuildingCosts
 
         private void ResetToDefault()
         {
+            if (!CanEditHostSettings)
+                return;
+
+            EnableMod = true;
             BuildingCosts = CreateDefaultBuildingCosts();
         }
 

@@ -313,6 +313,10 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
 
         private void ResetToDefault()
         {
+            if (!CanEditHostSettings)
+                return;
+
+            EnableMod = true;
             SetStartGoldAI = -1;
             SetStartGoldHuman = -1;
             AddStartGoldAI = 0;

@@ -137,6 +137,9 @@ namespace RandomEvents
 
         private void ResetToDefault()
         {
+            if (!CanEditHostSettings)
+                return;
+
             EnableMod = true;
             IntervalMonths = 3;
             CooldownMonths = 0;

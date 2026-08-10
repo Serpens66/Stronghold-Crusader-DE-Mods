@@ -136,6 +136,10 @@ MAPPER_POND1=-1";
 
         private void ResetToDefault()
         {
+            if (!CanEditHostSettings)
+                return;
+
+            EnableMod = true;
             BuildingLimits = DefaultBuildingLimits;
         }
 
