@@ -26,7 +26,7 @@ namespace ActiveAIVDetector
         // This routine is called after the engine has selected the best-fitting AIV candidate.
         private const string PrepareLayoutPattern =
             "44 89 44 24 18 53 55 56 57 41 54 41 55 41 56 41 57 48 83 EC 68";
-        private const int PrepareLayoutRva = 0x53CB0;
+        private const int PrepareLayoutRva = 0x53D00;
 
         private const int AivSpecStride = 0x6D98;
         private const int MaxAivSpecIndex = 8;

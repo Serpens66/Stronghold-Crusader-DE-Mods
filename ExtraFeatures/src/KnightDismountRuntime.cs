@@ -308,7 +308,7 @@ namespace ExtraFeatures
         // Vanilla uses this helper for horse cleanup during knight disband/death.
         private const string ReleaseStableHorsePattern =
             "48 89 5C 24 08 48 89 74 24 10 57 48 63 DA 48 8D 35 ?? ?? ?? ?? 4C 69 DB 96 01 00 00 33 FF 4C 8B C9 4C 8B D3";
-        private const int ReleaseStableHorseRva = 0xC40C0;
+        private const int ReleaseStableHorseRva = 0xC4110;
         private const int StableHorseSlotCount = 4;
         private const int KnightStableBuildingIdOffset = 0x3D2;
         private const int KnightStableBuildingGlobalIdOffset = 0x3DC;

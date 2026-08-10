@@ -28,13 +28,13 @@ namespace BugfixesAndQoL
         private const string BedouinPlacementRejectPattern =
             "85 C9 0F 84 ?? ?? ?? ?? 8B 05 ?? ?? ?? ?? 05 AB FE FF FF";
 
-        private const int ConstructingFailureStatusRva = 0x9124E;
-        private const int EuropeanPlacementRejectRva = 0x92983;
-        private const int MercenaryPlacementRejectRva = 0x92890;
-        private const int EngineerPlacementRejectRva = 0x926AA;
-        private const int TunnelerPlacementRejectRva = 0x91290;
-        private const int KnightPlacementRejectRva = 0x9137F;
-        private const int BedouinPlacementRejectRva = 0x9279D;
+        private const int ConstructingFailureStatusRva = 0x9129E;
+        private const int EuropeanPlacementRejectRva = 0x929D3;
+        private const int MercenaryPlacementRejectRva = 0x928E0;
+        private const int EngineerPlacementRejectRva = 0x926FA;
+        private const int TunnelerPlacementRejectRva = 0x912E0;
+        private const int KnightPlacementRejectRva = 0x913CF;
+        private const int BedouinPlacementRejectRva = 0x927ED;
 
         private static readonly byte[] ThreeNops = { 0x90, 0x90, 0x90 };
         private static readonly byte[] SixNops =

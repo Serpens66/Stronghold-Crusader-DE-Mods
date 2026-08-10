@@ -14,13 +14,13 @@ namespace RandomEvents
     {
         private const int SlotCount = 8;
         private const int ReferenceSignpostIdsOffset = 0x18388C;
-        private const int ExpectedLookupFunctionRva = 0xCB7B0;
+        private const int ExpectedLookupFunctionRva = 0xCB800;
         private const int CandidateValidationWindow = 0x240;
         private const int AttackPointDeltaFromSlots = 0x1B2C;
         private const int ScenarioPointCount = 4;
 
-        // CrusaderDE.dll SHA-256 1E6D4C2E10CC35A7B8082A7E2BCD8BB20680EBEDA803D9B943257B948145CB2B.
-        // RVA 0xCB7B0 reads eight building IDs at gPlayerManager+0x18388C and accepts STRUCT_SIGNPOST (52).
+        // CrusaderDE.dll SHA-256 33AA33457F7DFAAA6D316D1D5E4C5AB97094F2C73B68D349990ABF9D0EF3B469.
+        // RVA 0xCB800 reads eight building IDs at gPlayerManager+0x18388C and accepts STRUCT_SIGNPOST (52).
         // Mutable displacements and branch lengths are wildcarded so compatible game updates can still resolve it.
         private const string LookupPattern =
             "48 63 81 ?? ?? ?? ?? 4C 8D 1D ?? ?? ?? ?? 45 33 D2 4C 8B C9 45 8B C2 85 C0 7E ?? " +

@@ -2,9 +2,9 @@
 
 ## Audited baseline
 
-- Steam build ID: `24530188`
+- Steam build ID: `24651686`
 - DLL size: `3450880` bytes
-- SHA-256: `1E6D4C2E10CC35A7B8082A7E2BCD8BB20680EBEDA803D9B943257B948145CB2B`
+- SHA-256: `33AA33457F7DFAAA6D316D1D5E4C5AB97094F2C73B68D349990ABF9D0EF3B469`
 
 Native Spawn is strictly hash-gated. The supported hash uses direct RVAs after
 local pattern validation and never performs a full DLL scan. On another DLL,
@@ -14,15 +14,15 @@ native Spawn remains inactive while managed Blueprint mode stays available.
 
 | Source pattern | Reference RVA | Use |
 | --- | ---: | --- |
-| `AllocateSpecPattern` | `0x50630` | `AllocateSpecDelegate` |
-| `SetPlacementPattern` | `0x54E70` | `SetPlacementDelegate` |
-| `SelectBestFitPattern` | `0x54F10` | `SelectBestFitDelegate` |
-| `TestSpecificCandidatePattern` | `0x54D90` | `TestSpecificCandidateDelegate` |
-| `PrepareLayoutPattern` | `0x53CB0` | `PrepareLayoutDelegate` |
-| `ExecuteToPercentagePattern` | `0x55F00` | `ExecuteToPercentageDelegate` |
-| `AivStateReferencePattern` | `0x95C4F` | RIP-relative AIV state (`LEA` at `+4`) |
-| `PrebuiltPlayersReferencePattern` | `0x95FA8` | RIP-relative bit field |
-| `PreparedKeepCoordinatesReferencePattern` | `0x95E53` | RIP-relative Keep X/Y references |
+| `AllocateSpecPattern` | `0x50680` | `AllocateSpecDelegate` |
+| `SetPlacementPattern` | `0x54EC0` | `SetPlacementDelegate` |
+| `SelectBestFitPattern` | `0x54F60` | `SelectBestFitDelegate` |
+| `TestSpecificCandidatePattern` | `0x54DE0` | `TestSpecificCandidateDelegate` |
+| `PrepareLayoutPattern` | `0x53D00` | `PrepareLayoutDelegate` |
+| `ExecuteToPercentagePattern` | `0x55F50` | `ExecuteToPercentageDelegate` |
+| `AivStateReferencePattern` | `0x95C9F` | RIP-relative AIV state (`LEA` at `+4`) |
+| `PrebuiltPlayersReferencePattern` | `0x95FF8` | RIP-relative bit field |
+| `PreparedKeepCoordinatesReferencePattern` | `0x95EA3` | RIP-relative Keep X/Y references |
 
 The named source constants contain the complete authoritative byte patterns.
 
@@ -41,3 +41,11 @@ The named source constants contain the complete authoritative byte patterns.
 
 Historical RVAs in `AISpawnCastle.md` belong to an older DLL and are not a
 source for the current table without a new audit.
+
+## Audit for Steam build 24651686
+
+All nine patterns match exactly once. Targeted disassembly reconfirmed every
+delegate ABI, AIV stride `0x6D98`, player stride `0x583C`, the spec fields,
+prebuilt bit field, prepared Keep references and the unchanged
+`AllocateSpec +0x5F` LEA contract. Native spawning and multiplayer blocking
+remain post-build game smoke tests.

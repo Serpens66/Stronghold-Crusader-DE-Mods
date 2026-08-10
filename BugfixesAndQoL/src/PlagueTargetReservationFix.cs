@@ -29,21 +29,21 @@ namespace BugfixesAndQoL
         private const ushort TransitionState = 109;
         private const int MaximumDetailedLogs = 200;
 
-        // c_game_projectile_disease_find_nearest_for_healer, reference RVA 0x9F6B0.
+        // c_game_projectile_disease_find_nearest_for_healer, reference RVA 0x9F700.
         private const string DiseaseSearchPattern =
             "48 89 6C 24 10 48 89 74 24 18 57 41 54 41 55 41 56 41 57 " +
             "48 83 EC 30 4C 63 E2 45 33 C0 4D 69 EC 90 04 00 00 " +
             "48 8D 15 ?? ?? ?? ?? BF 01 00 00 00";
 
-        // Common c_game_unit_healer_update epilogue, reference RVA 0x150107.
+        // Common c_game_unit_healer_update epilogue, reference RVA 0x150157.
         // The following padding and next prologue make this otherwise generic epilogue unique.
         private const string HealerUpdateExitPattern =
             "48 8B 5C 24 60 48 8B 6C 24 68 48 8B 74 24 70 48 83 C4 30 " +
             "41 5F 41 5E 41 5D 41 5C 5F C3 " +
             "CC CC CC CC CC CC CC CC CC CC CC CC " +
             "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 41 56 41 57 48 83 EC 30";
-        private const int DiseaseSearchRva = 0x9F6B0;
-        private const int HealerUpdateExitRva = 0x150107;
+        private const int DiseaseSearchRva = 0x9F700;
+        private const int HealerUpdateExitRva = 0x150157;
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate int DiseaseSearchDelegate(IntPtr projectileManager, int nativeUnitId);

@@ -28,19 +28,19 @@ namespace BugfixesAndQoL
         private const int PopularityPointsPerHerd = 25;
         private const ulong PopularityAccumulatorOffset = 0x12EC20UL;
 
-        // c_game_disease_create_one_herd, reference RVA 0xD1780.
+        // c_game_disease_create_one_herd, reference RVA 0xD17D0.
         private const string CreateHerdPattern =
             "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 41 54 41 55 41 56 41 57 " +
             "48 83 EC 60 4C 8D 2D ?? ?? ?? ?? 48 63 C2 48 69 C8 2C 03 00 00";
 
         // Common exit of Vanilla's plague-popularity block. The hook starts at
-        // the report-field write at reference RVA 0xCB52C (pattern + 32).
+        // the report-field write at reference RVA 0xCB57C (pattern + 32).
         private const string PopularityExitPattern =
             "B9 E7 FF FF FF 0F 4E C1 03 D0 41 89 94 2C 20 EC 12 00 EB 0C " +
             "45 89 AC 2C 84 0E 13 00 41 0F B7 C5 " +
             "66 41 89 84 2C 78 0E 13 00 41 0F B7 84 2C 6E 0E 13 00";
-        private const int CreateHerdRva = 0xD1780;
-        private const int PopularityExitPatternRva = 0xCB50C;
+        private const int CreateHerdRva = 0xD17D0;
+        private const int PopularityExitPatternRva = 0xCB55C;
         private const int PopularityExitHookOffset = 32;
 
         private readonly ManualLogSource log;

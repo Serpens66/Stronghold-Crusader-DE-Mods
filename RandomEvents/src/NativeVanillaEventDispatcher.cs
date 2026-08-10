@@ -17,15 +17,15 @@ namespace RandomEvents
 
     internal sealed unsafe class NativeVanillaEventDispatcher
     {
-        private const int HasBuildingRva = 0xB8D00;
-        private const int WheatHandlerRva = 0xC30E0;
-        private const int HopsHandlerRva = 0xC2DE0;
-        private const int AppleHandlerRva = 0xC2BE0;
-        private const int MadCowUnitHandlerRva = 0x194BA0;
-        private const int MadCowBuildingHandlerRva = 0xC6040;
-        private const int GranaryTheftHandlerRva = 0xC5F20;
-        private const int PresentationCallsiteRva = 0xF9AD4;
-        private const int PresentationHandlerRva = 0x103110;
+        private const int HasBuildingRva = 0xB8D50;
+        private const int WheatHandlerRva = 0xC3130;
+        private const int HopsHandlerRva = 0xC2E30;
+        private const int AppleHandlerRva = 0xC2C30;
+        private const int MadCowUnitHandlerRva = 0x194BF0;
+        private const int MadCowBuildingHandlerRva = 0xC6090;
+        private const int GranaryTheftHandlerRva = 0xC5F70;
+        private const int PresentationCallsiteRva = 0xF9B24;
+        private const int PresentationHandlerRva = 0x103160;
         private const int PresentationManagerRva = 0x1B61EE0;
 
         private const int WheatFarmType = 30;

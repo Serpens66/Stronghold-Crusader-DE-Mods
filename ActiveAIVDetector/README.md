@@ -4,7 +4,7 @@ Temporary diagnostic BepInEx mod for validating the native active-AIV selection
 before moving the capability into the Script Extender.
 
 The native oracle is enabled only for the currently audited `CrusaderDE.dll`
-SHA-256 `1E6D4C2E10CC35A7B8082A7E2BCD8BB20680EBEDA803D9B943257B948145CB2B`.
+SHA-256 `33AA33457F7DFAAA6D316D1D5E4C5AB97094F2C73B68D349990ABF9D0EF3B469`.
 Functions and globals are also resolved by unique signatures, but the captured
 AIV structures contain fixed field offsets which signatures cannot validate on
 their own. An unknown DLL therefore leaves the detector inactive and logs an

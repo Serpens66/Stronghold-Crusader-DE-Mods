@@ -53,9 +53,9 @@ namespace BugfixesAndQoL
         // mov r10d, dword ptr [r8+9A8h]
         private const string MovementCadencePattern =
             "41 0F BF 80 16 09 00 00 41 0F BF 88 A2 09 00 00 45 8B 90 A8 09 00 00";
-        private const int CalculateMovementSpeedRva = 0x19B1C0;
-        private const int UnitTypeUpdateDispatchRva = 0x18406C;
-        private const int MovementCadenceRva = 0x184163;
+        private const int CalculateMovementSpeedRva = 0x19B210;
+        private const int UnitTypeUpdateDispatchRva = 0x1840BC;
+        private const int MovementCadenceRva = 0x1841B3;
 
         private readonly ManualLogSource log;
         private readonly TryGetCadenceDelegate tryGetCadence;

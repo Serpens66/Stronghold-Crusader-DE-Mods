@@ -2,9 +2,9 @@
 
 ## Audited baseline
 
-- Steam build ID: `24530188`
+- Steam build ID: `24651686`
 - DLL size: `3450880` bytes
-- SHA-256: `1E6D4C2E10CC35A7B8082A7E2BCD8BB20680EBEDA803D9B943257B948145CB2B`
+- SHA-256: `33AA33457F7DFAAA6D316D1D5E4C5AB97094F2C73B68D349990ABF9D0EF3B469`
 
 The exporter writes a timestamped Error and performs no export for every other
 DLL.
@@ -27,3 +27,12 @@ DLL.
 6. Generate a new manifest carrying the new DLL hash; do not reuse bundled
    exports whose manifest belongs to an older DLL.
 7. Only then update the shared current hash.
+
+## Audit for Steam build 24651686
+
+The updated game initialized `GameAIManagerAPI` and its AIC array without a
+signature or layout error. The local Script-Extender decoder, `InternalAIC`,
+`PublicAIC` conversion and `AILords` enum are unchanged; no new official lord
+slot appeared in the updated managed assembly. A full export/editor round trip
+remains a live tool smoke test. The exporter is not installed by the normal
+update build set, so no stale manifest is generated or deployed here.

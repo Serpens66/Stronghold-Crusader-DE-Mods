@@ -11,7 +11,7 @@ Singleplayer keeps the previous woodcutter swordsman action.
 The native integration is enabled only for this exact game DLL:
 
     SHA-256:
-    1E6D4C2E10CC35A7B8082A7E2BCD8BB20680EBEDA803D9B943257B948145CB2B
+    33AA33457F7DFAAA6D316D1D5E4C5AB97094F2C73B68D349990ABF9D0EF3B469
 
 The runtime also validates the original opcode-111 handler pointer and bytes, the handler table's
 memory protection, and the prologues of the native enqueue and field-copy functions. A failed check

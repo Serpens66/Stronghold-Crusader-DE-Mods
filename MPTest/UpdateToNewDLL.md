@@ -2,9 +2,9 @@
 
 ## Audited baseline
 
-- Steam build ID: `24530188`
+- Steam build ID: `24651686`
 - DLL size: `3450880` bytes
-- SHA-256: `1E6D4C2E10CC35A7B8082A7E2BCD8BB20680EBEDA803D9B943257B948145CB2B`
+- SHA-256: `33AA33457F7DFAAA6D316D1D5E4C5AB97094F2C73B68D349990ABF9D0EF3B469`
 
 MPTest writes a timestamped Error and returns before registering its UI or
 native probe for every other DLL.
@@ -27,3 +27,12 @@ native probe for every other DLL.
 
 The runtime additionally validates bytes and pointers before modifying the
 handler table; failure leaves the table untouched.
+
+## Audit for Steam build 24651686
+
+`QueueLocalChore`, `CopyChoreField`, the handler table and the harmless opcode
+111 handler remain at `0x23990`, `0x1F5F0`, `0x2C6A30` and `0xFC30`. Their
+expected bytes still match, opcode 111 still points to the `C2 00 00` handler,
+and the Script Extender resolved ChoreManager at the same manager contract.
+The fixed fields and host/client scheduling require the usual live MP smoke
+test before using this diagnostic mod.

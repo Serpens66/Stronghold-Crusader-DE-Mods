@@ -54,15 +54,15 @@ namespace SpawnCastle
             "44 8B 0D ?? ?? ?? ?? 8B D6 44 8B 05 ?? ?? ?? ?? " +
             "C6 44 24 38 00 89 44 24 30 B8 3D 00 00 00";
 
-        private const int AllocateSpecRva = 0x50630;
-        private const int SetPlacementRva = 0x54E70;
-        private const int SelectBestFitRva = 0x54F10;
-        private const int TestSpecificCandidateRva = 0x54D90;
-        private const int PrepareLayoutRva = 0x53CB0;
-        private const int ExecuteToPercentageRva = 0x55F00;
-        private const int AivStateReferenceRva = 0x95C4F;
-        private const int PrebuiltPlayersReferenceRva = 0x95FA8;
-        private const int PreparedKeepCoordinatesReferenceRva = 0x95E53;
+        private const int AllocateSpecRva = 0x50680;
+        private const int SetPlacementRva = 0x54EC0;
+        private const int SelectBestFitRva = 0x54F60;
+        private const int TestSpecificCandidateRva = 0x54DE0;
+        private const int PrepareLayoutRva = 0x53D00;
+        private const int ExecuteToPercentageRva = 0x55F50;
+        private const int AivStateReferenceRva = 0x95C9F;
+        private const int PrebuiltPlayersReferenceRva = 0x95FF8;
+        private const int PreparedKeepCoordinatesReferenceRva = 0x95EA3;
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate int AllocateSpecDelegate(IntPtr aivState, int playerId);

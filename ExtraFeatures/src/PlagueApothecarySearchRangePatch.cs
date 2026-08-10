@@ -19,13 +19,13 @@ namespace ExtraFeatures
         private const int CompareDisplacementOffset = 2;
         private const int CompareInstructionLength = 7;
 
-        // c_game_projectile_disease_find_nearest_for_healer, reference RVA 0x9F81B.
+        // c_game_projectile_disease_find_nearest_for_healer, reference RVA 0x9F86B.
         // This is the comparison immediately after Vanilla calculates Manhattan
         // distance from the healer's assigned building to a disease projectile.
         private const string BuildingDistanceComparisonPattern =
             "83 3D ?? ?? ?? ?? 1E 7F ?? 0F BF 4B 1C 48 8D 15 ?? ?? ?? ?? " +
             "44 0F BF 4B 1A 49 69 C4 90 04 00 00";
-        private const int BuildingDistanceComparisonRva = 0x9F81B;
+        private const int BuildingDistanceComparisonRva = 0x9F86B;
 
         private readonly ManualLogSource log;
         private readonly ExtraFeaturesViewModel settings;

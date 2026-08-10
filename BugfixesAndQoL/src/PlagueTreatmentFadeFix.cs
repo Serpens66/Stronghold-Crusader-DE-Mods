@@ -19,14 +19,14 @@ namespace BugfixesAndQoL
         private const int HealerTargetSlotOffset = 0x39A;
         private const int HealerTargetGlobalIdOffset = 0x39C;
 
-        // c_game_projectile_disease_treat_near_healer, reference RVA 0xA0420.
+        // c_game_projectile_disease_treat_near_healer, reference RVA 0xA0470.
         // Wildcards cover addresses and branch distances which commonly move after updates.
         private const string AreaTreatmentPattern =
             "40 55 56 57 48 83 EC 30 BF 01 00 00 00 48 63 EA 48 8B F1 " +
             "39 79 04 0F 8E ?? ?? ?? ?? 48 89 5C 24 50 48 8D 99 26 01 00 00 " +
             "4C 89 64 24 58 4C 8D 25 ?? ?? ?? ?? 4C 89 74 24 60 " +
             "41 BE E8 03 00 00 4C 89 7C 24 68 45 8D 7E 10";
-        private const int AreaTreatmentRva = 0xA0420;
+        private const int AreaTreatmentRva = 0xA0470;
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate void AreaTreatmentDelegate(IntPtr projectileManager, int nativeUnitId);

@@ -23,7 +23,7 @@ namespace BugfixesAndQoL
         private const int DeleteNotAllowedCursor = 3;
 
         // c_game_repairs_allowed reads this ChoreManager flag to select one of its two range constants.
-        // Verified for CrusaderDE.dll SHA-256 1E6D4C2E... only. The caller disables
+        // Verified for CrusaderDE.dll SHA-256 33AA3345... only. The caller disables
         // this hook on every other DLL because this field has no signature-derived address yet.
         private const int ProximityModeFlagOffset = 0x870;
         private const int DefaultProximityRange = 30;

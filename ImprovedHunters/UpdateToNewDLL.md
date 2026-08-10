@@ -2,9 +2,9 @@
 
 ## Audited baseline
 
-- Steam build ID: `24530188`
+- Steam build ID: `24651686`
 - DLL size: `3450880` bytes
-- SHA-256: `1E6D4C2E10CC35A7B8082A7E2BCD8BB20680EBEDA803D9B943257B948145CB2B`
+- SHA-256: `33AA33457F7DFAAA6D316D1D5E4C5AB97094F2C73B68D349990ABF9D0EF3B469`
 
 The mod is strictly hash-gated because it uses raw unit layouts. On the audited
 hash, it validates each pattern only at its direct RVA and does not scan the
@@ -14,8 +14,8 @@ DLL. Every other DLL leaves the complete runtime inactive.
 
 | Source pattern | Reference RVA | Use / offset |
 | --- | ---: | --- |
-| `CamelDespawnTickTimePattern` | `0x158418` | signed immediate at `+13` |
-| `ChickenDespawnTickTimePattern` | `0x1633C5` | signed immediate at `+13` |
+| `CamelDespawnTickTimePattern` | `0x158468` | signed immediate at `+13` |
+| `ChickenDespawnTickTimePattern` | `0x163415` | signed immediate at `+13` |
 
 The source constants contain the complete wildcard patterns.
 
@@ -31,3 +31,12 @@ The source constants contain the complete wildcard patterns.
 4. Test hunter retargeting, projectile compensation, corpse cleanup, camel
    health and chicken neutralization on fresh and loaded maps.
 5. Update both RVAs before approving the new shared hash.
+
+## Audit for Steam build 24651686
+
+Both complete patterns match exactly once. Their signed 16-bit immediate still
+starts at pattern offset `13`; the surrounding animal state remains `0x6E` and
+the death-timer field remains `+0x986` in the native manager-relative form.
+The Script Extender initialized the same `0x490`-byte unit records, and targeted
+native accesses reconfirmed the raw field map used by the runtime. Fresh/load
+map behavior remains a post-build game smoke test.

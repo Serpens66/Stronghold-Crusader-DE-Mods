@@ -14,11 +14,11 @@ namespace ExtraFeatures
 
         private const int VanillaLifetime = 800;
         private const int LifetimeImmediateOffset = 9;
-        private const int LifetimePatternRva = 0x9A114;
+        private const int LifetimePatternRva = 0x9A164;
 
-        // Disease update signature at reference RVA 0x9A114; the lifetime opcode
-        // starts at RVA 0x9A11C and its immediate at RVA 0x9A11D for CrusaderDE.dll SHA-256
-        // 1E6D4C2E10CC35A7B8082A7E2BCD8BB20680EBEDA803D9B943257B948145CB2B.
+        // Disease update signature at reference RVA 0x9A164; the lifetime opcode
+        // starts at RVA 0x9A16C and its immediate at RVA 0x9A16D for CrusaderDE.dll SHA-256
+        // 33AA33457F7DFAAA6D316D1D5E4C5AB97094F2C73B68D349990ABF9D0EF3B469.
         // The lifetime immediate is wildcarded so a moved function can still be found,
         // while the surrounding age comparison and fade transition remain validated.
         private const string LifetimePattern =

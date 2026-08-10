@@ -29,7 +29,7 @@ namespace MPTest
         private const int MaximumPendingSlots = 500;
         private const int PendingSlotSize = 0x500;
 
-        // These RVAs are validated below against CrusaderDE.dll SHA-256 1E6D4C2E...
+        // These RVAs are validated below against CrusaderDE.dll SHA-256 33AA3345...
         // before any pointer is called or modified.
         private const long QueueLocalChoreRva = 0x23990;
         private const long CopyChoreFieldRva = 0x1F5F0;
@@ -43,7 +43,7 @@ namespace MPTest
 
         private const long ExpectedCrusaderFileSize = 3450880;
         private const string ExpectedCrusaderSha256 =
-            "1E6D4C2E10CC35A7B8082A7E2BCD8BB20680EBEDA803D9B943257B948145CB2B";
+            "33AA33457F7DFAAA6D316D1D5E4C5AB97094F2C73B68D349990ABF9D0EF3B469";
 
         private static readonly byte[] ExpectedOriginalProbeHandler =
         {

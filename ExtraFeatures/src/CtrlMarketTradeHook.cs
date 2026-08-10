@@ -31,10 +31,10 @@ namespace ExtraFeatures
             "44 8B C1 48 8D 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? 8B C8 83 F8 FF 0F 85";
         private const string AutoMarketSellStatisticPattern =
             "43 01 94 8A ?? ?? ?? ?? 45 8B C8 43 01 94 14 ?? ?? ?? ?? 44 8B C6";
-        private const int MarketValidatorRva = 0xD7030;
-        private const int MarketPacketTailRva = 0xD72D4;
-        private const int MarketStorageCallRva = 0xD70C9;
-        private const int AutoMarketSellStatisticRva = 0xD0434;
+        private const int MarketValidatorRva = 0xD7080;
+        private const int MarketPacketTailRva = 0xD7324;
+        private const int MarketStorageCallRva = 0xD7119;
+        private const int AutoMarketSellStatisticRva = 0xD0484;
 
         private delegate int GameActionDelegate(Enums.GameActionCommand command, int structureId, int state, int value2);
         private delegate void NoesisGuiUpdateDelegate(FatControler self);

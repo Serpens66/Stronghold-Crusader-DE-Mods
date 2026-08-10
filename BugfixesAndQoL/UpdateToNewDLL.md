@@ -2,9 +2,9 @@
 
 ## Audited baseline
 
-- Steam build ID: `24530188`
+- Steam build ID: `24651686`
 - DLL size: `3450880` bytes
-- SHA-256: `1E6D4C2E10CC35A7B8082A7E2BCD8BB20680EBEDA803D9B943257B948145CB2B`
+- SHA-256: `33AA33457F7DFAAA6D316D1D5E4C5AB97094F2C73B68D349990ABF9D0EF3B469`
 
 For this exact hash the mod validates each pattern only at its audited RVA and
 then registers or patches the direct address. A full scan must never run on this
@@ -16,24 +16,24 @@ inactive until a new DLL has been audited.
 
 | Source pattern | Reference RVA | Use / offset |
 | --- | ---: | --- |
-| `ConstructingFailureStatusPattern` | `0x9124E` | preview patch at `+22` |
-| `EuropeanPlacementRejectPattern` | `0x92983` | rejection patch at `+2` |
-| `MercenaryPlacementRejectPattern` | `0x92890` | rejection patch at `+2` |
-| `EngineerPlacementRejectPattern` | `0x926AA` | rejection patch at `+2` |
-| `TunnelerPlacementRejectPattern` | `0x91290` | rejection patch at `+2` |
-| `KnightPlacementRejectPattern` | `0x9137F` | rejection patch at `+2` |
-| `BedouinPlacementRejectPattern` | `0x9279D` | rejection patch at `+2` |
-| `CreateHerdPattern` | `0xD1780` | plague-herd function detour |
-| `PopularityExitPattern` | `0xCB50C` | popularity hook at `+32` (`0xCB52C`) |
-| `AreaTreatmentPattern` | `0xA0420` | plague area-treatment detour |
-| `DiseaseSearchPattern` | `0x9F6B0` | nearest-disease detour |
-| `HealerUpdateExitPattern` | `0x150107` | healer common-exit context hook |
-| `PeriodicDiseaseFoundPattern` | `0x14F82C` | state-transition context hook |
-| `WorkingBuildingExitReferencePattern` | `0x14F6C8` | semantic reference only |
-| `SpearmanMovementDecisionPattern` | `0x143B39` | inline movement-decision hook |
-| `CalculateMovementSpeedPattern` | `0x19B1C0` | movement-speed detour |
-| `UnitTypeUpdateDispatchPattern` | `0x18406C` | dispatch-table reference |
-| `MovementCadencePattern` | `0x184163` | cadence context hook |
+| `ConstructingFailureStatusPattern` | `0x9129E` | preview patch at `+22` |
+| `EuropeanPlacementRejectPattern` | `0x929D3` | rejection patch at `+2` |
+| `MercenaryPlacementRejectPattern` | `0x928E0` | rejection patch at `+2` |
+| `EngineerPlacementRejectPattern` | `0x926FA` | rejection patch at `+2` |
+| `TunnelerPlacementRejectPattern` | `0x912E0` | rejection patch at `+2` |
+| `KnightPlacementRejectPattern` | `0x913CF` | rejection patch at `+2` |
+| `BedouinPlacementRejectPattern` | `0x927ED` | rejection patch at `+2` |
+| `CreateHerdPattern` | `0xD17D0` | plague-herd function detour |
+| `PopularityExitPattern` | `0xCB55C` | popularity hook at `+32` (`0xCB57C`) |
+| `AreaTreatmentPattern` | `0xA0470` | plague area-treatment detour |
+| `DiseaseSearchPattern` | `0x9F700` | nearest-disease detour |
+| `HealerUpdateExitPattern` | `0x150157` | healer common-exit context hook |
+| `PeriodicDiseaseFoundPattern` | `0x14F87C` | state-transition context hook |
+| `WorkingBuildingExitReferencePattern` | `0x14F718` | semantic reference only |
+| `SpearmanMovementDecisionPattern` | `0x143B89` | inline movement-decision hook |
+| `CalculateMovementSpeedPattern` | `0x19B210` | movement-speed detour |
+| `UnitTypeUpdateDispatchPattern` | `0x1840BC` | dispatch-table reference |
+| `MovementCadencePattern` | `0x1841B3` | cadence context hook |
 
 The named constants in `src` contain the complete authoritative wildcard byte
 patterns. Every reference above was checked as one match in the baseline DLL.
@@ -57,3 +57,14 @@ patterns. Every reference above was checked as one match in the baseline DLL.
 
 Missing, ambiguous or locally mismatching signatures must log a timestamped
 Error and leave only the affected feature inactive.
+
+## Audit for Steam build 24651686
+
+Every table signature matched exactly once. The original assembly-point bytes,
+plague hook boundaries and movement ABIs were checked at the new RVAs. Native
+unit access still uses manager header `0x65C`, unit stride `0x490` and all fixed
+movement fields listed above. The tribe free-speed fields still map from the
+native tribe record to Script-Extender offsets `+0x542/+0x54E`. The enemy
+proximity caller still reads `ChoreManager +0x870` and selects Vanilla ranges
+`30`/`15`. Functional enabled/disabled and reload testing remains a post-build
+game smoke test.

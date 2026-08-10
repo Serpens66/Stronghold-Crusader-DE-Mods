@@ -10,7 +10,7 @@ namespace Shared
     internal static class DebugLogHelper
     {
         public const string CurrentNativeSha256 =
-            "1E6D4C2E10CC35A7B8082A7E2BCD8BB20680EBEDA803D9B943257B948145CB2B";
+            "33AA33457F7DFAAA6D316D1D5E4C5AB97094F2C73B68D349990ABF9D0EF3B469";
 
         private static readonly TimeSpan CacheDuration = TimeSpan.FromSeconds(1);
         private static DateTime debugEnabledCacheExpiresAtUtc;

@@ -195,7 +195,7 @@ That DLL is historical evidence only and is no longer a supported runtime.
 Every private function and native global is resolved from an AOB or RIP-relative
 signature and must match exactly once. Native Spawn additionally remains gated
 to the currently audited `CrusaderDE.dll` SHA-256
-`1E6D4C2E10CC35A7B8082A7E2BCD8BB20680EBEDA803D9B943257B948145CB2B`, because
+`33AA33457F7DFAAA6D316D1D5E4C5AB97094F2C73B68D349990ABF9D0EF3B469`, because
 its AIV structures still contain fixed field offsets which a matching function
 signature alone cannot validate. A changed hash or a missing, ambiguous, or
 structurally invalid signature disables native Spawn instead of calling unknown

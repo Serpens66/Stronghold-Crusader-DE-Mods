@@ -139,7 +139,7 @@ namespace ExtraFeatures
             "48 89 5C 24 08 8D 42 FF 41 8B D8 44 8B DA 4C 8B D1 83 F8 0C 0F 87 ?? ?? ?? ?? " +
             "48 98 48 8D 15 ?? ?? ?? ?? 8B 84 82 ?? ?? ?? ?? 48 03 C2 FF E0 49 63 C1 " +
             "8B 8C C2 ?? ?? ?? ?? 41 89 8A D0 B7 31 00";
-        private const int SetupBuildingEntrancesOffsetRva = 0xC0220;
+        private const int SetupBuildingEntrancesOffsetRva = 0xC0270;
 
         private delegate void SetUpInbuildingDelegate(MainViewModel self, int overridePanel, int overrideType);
 

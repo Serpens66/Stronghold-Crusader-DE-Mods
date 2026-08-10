@@ -37,10 +37,10 @@ namespace ExtraFeatures
         // This catches non-UI AI demolition paths which do not call c_game_building_bulldoze.
         private const string BuildingDeletePattern =
             "48 89 5C 24 ?? 48 89 6C 24 ?? 48 89 74 24 ?? 48 89 7C 24 ?? 41 56 48 83 EC ?? 41 BE";
-        private const int SleepStateComparisonRva = 0xC7D7B;
-        private const int SleepStateSynchronizationFunctionRva = 0xC7D00;
+        private const int SleepStateComparisonRva = 0xC7DCB;
+        private const int SleepStateSynchronizationFunctionRva = 0xC7D50;
         private const int EmergencyDemolitionComparisonRva = 0x2F454;
-        private const int BuildingDeleteRva = 0xC4240;
+        private const int BuildingDeleteRva = 0xC4290;
 
         private const byte ActiveState = 0;
         private const byte SleepingState = 1;

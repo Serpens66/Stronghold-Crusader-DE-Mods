@@ -37,15 +37,15 @@ namespace ActiveAIVDetector
         private const string ActiveLayoutIndexReferencePattern =
             "48 63 F2 48 8D 05 ?? ?? ?? ?? 4C 69 CE 3C 58 00 00";
 
-        private const int SelectBestFitRva = 0x54F10;
-        private const int TestSpecificCandidateRva = 0x54D90;
-        private const int LoadCandidateRva = 0x552D0;
-        private const int ApplyRotationRva = 0x56620;
-        private const int EvaluateCandidateFitRva = 0x57030;
-        private const int BuildingPlacementValidatorRva = 0x7B010;
-        private const int ExecuteBuildStepRva = 0x51740;
+        private const int SelectBestFitRva = 0x54F60;
+        private const int TestSpecificCandidateRva = 0x54DE0;
+        private const int LoadCandidateRva = 0x55320;
+        private const int ApplyRotationRva = 0x56670;
+        private const int EvaluateCandidateFitRva = 0x57080;
+        private const int BuildingPlacementValidatorRva = 0x7B060;
+        private const int ExecuteBuildStepRva = 0x51790;
         private const int OrganismRecordTableReferenceRva = 0x15A27;
-        private const int ActiveLayoutIndexReferenceRva = 0x55F14;
+        private const int ActiveLayoutIndexReferenceRva = 0x55F64;
 
         private const int AivSpecStride = 0x6D98;
         private const int PlayerIdOffset = 0x04;

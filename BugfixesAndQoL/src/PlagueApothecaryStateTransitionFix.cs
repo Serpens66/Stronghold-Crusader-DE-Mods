@@ -19,19 +19,19 @@ namespace BugfixesAndQoL
         private const ushort LeavingBuildingTransition = 0xFE20;
 
         // c_game_unit_healer_update, successful ten-tick search in state 2,
-        // reference RVA 0x14F82C. The hook runs only after the preceding search
+        // reference RVA 0x14F87C. The hook runs only after the preceding search
         // returned a disease object and before Vanilla writes next-state 5.
         private const string PeriodicDiseaseFoundPattern =
             "48 63 15 ?? ?? ?? ?? 41 BF 05 00 00 00 4C 69 C2 90 04 00 00 " +
             "41 BE 14 00 00 00 41 BC F0 D8 FF FF 66 47 89 BC 28 1A 09 00 00";
 
         // c_game_unit_healer_update, regular state-2 timeout exit, reference RVA
-        // 0x14F6C8. This is the Vanilla model for the omitted transition writes.
+        // 0x14F718. This is the Vanilla model for the omitted transition writes.
         private const string WorkingBuildingExitReferencePattern =
             "B8 6D 00 00 00 66 42 89 84 2B 18 09 00 00 8B D5 " +
             "66 42 C7 84 2B 86 09 00 00 20 FE";
-        private const int PeriodicDiseaseFoundRva = 0x14F82C;
-        private const int WorkingBuildingExitReferenceRva = 0x14F6C8;
+        private const int PeriodicDiseaseFoundRva = 0x14F87C;
+        private const int WorkingBuildingExitReferenceRva = 0x14F718;
 
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
