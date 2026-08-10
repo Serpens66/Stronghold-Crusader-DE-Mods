@@ -3,10 +3,24 @@
   "Author": "Serpens66",
   "Name": "AIV Placement Lobby",
   "Description": "Shows offline AIV placement fits in the skirmish lobby and selects a random best-scoring AIV for multiplayer hosts.",
-  "Version": "0.3.4",
+  "Version": "0.3.6",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "0.3.6",
+      "Changes": [
+        "Use Vanilla's positive game-creation setup state instead of excluding individual Trail page flags.",
+        "Keep direct Coop Trails inactive while allowing the explicit Skirmish-style setup opened through Customize."
+      ]
+    },
+    {
+      "Version": "0.3.5",
+      "Changes": [
+        "Exclude all four visible Coop Trail selection pages even when the hidden multiplayer setup flag remains enabled.",
+        "Log lobby-context transitions with Coop Trail flags, game modes, host state and ready-button state for bounded diagnosis."
+      ]
+    },
     {
       "Version": "0.3.4",
       "Changes": [

@@ -66,6 +66,7 @@ namespace AIVPlacementLobby
         private Button blockedReadyButton;
         private bool blockedReadyButtonWasEnabled;
         private object blockedReadyButtonToolTip;
+        private string lastContextDiagnosticFingerprint = string.Empty;
 
         public AIVPlacementLobbyRuntime(ManualLogSource log)
         {
@@ -103,7 +104,9 @@ namespace AIVPlacementLobby
         private void UpdateHook(FRONT_Multiplayer self)
         {
             updateTrampoline(self);
-            if (!IsLobbySetupVisible())
+            bool lobbySetupActive = IsLobbySetupActive();
+            LogContextIfChanged(self, lobbySetupActive);
+            if (!lobbySetupActive)
             {
                 LeaveLobbyContext();
                 return;
@@ -118,7 +121,7 @@ namespace AIVPlacementLobby
 
         private void ButtonClickedHook(FRONT_Multiplayer self, string param)
         {
-            if (!IsLobbySetupVisible())
+            if (!IsLobbySetupActive())
             {
                 buttonClickedTrampoline(self, param);
                 return;
@@ -155,7 +158,7 @@ namespace AIVPlacementLobby
             FRONT_Multiplayer self,
             HUD_IngameMenu.RestartSkirmishMapInfo restartInfo)
         {
-            if (!IsLobbySetupVisible())
+            if (!IsLobbySetupActive())
             {
                 startTrampoline(self, restartInfo);
                 return;
@@ -686,6 +689,41 @@ namespace AIVPlacementLobby
             blockedReadyButtonToolTip = null;
         }
 
+        private void LogContextIfChanged(FRONT_Multiplayer frontend, bool active)
+        {
+            MainViewModel viewModel = MainViewModel.Instance;
+            Button readyButton = frontend == null
+                ? null
+                : MultiplayerReadyButtonField.GetValue(frontend) as Button;
+            string fingerprint = string.Join(
+                "|",
+                active,
+                viewModel?.Show_MultiplayerSetup == true,
+                viewModel?.Show_MPGameCreation == true,
+                viewModel?.SkirmishSetupMode == true,
+                viewModel?.MultiplayerSetupMode == true,
+                FRONT_Multiplayer.skirmishGame,
+                FRONT_Multiplayer.coopGame,
+                frontend?.singlePlayerCoop == true,
+                frontend?.currentLobby?.isHost == true,
+                readyButton?.Name ?? "none",
+                readyButton?.IsEnabled == true);
+            if (string.Equals(fingerprint, lastContextDiagnosticFingerprint, StringComparison.Ordinal))
+                return;
+
+            lastContextDiagnosticFingerprint = fingerprint;
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"AIV lobby context active={active}, multiplayerSetup={viewModel?.Show_MultiplayerSetup == true}, " +
+                $"gameCreation={viewModel?.Show_MPGameCreation == true}, " +
+                $"skirmishSetupMode={viewModel?.SkirmishSetupMode == true}, " +
+                $"multiplayerSetupMode={viewModel?.MultiplayerSetupMode == true}, " +
+                $"skirmishGame={FRONT_Multiplayer.skirmishGame}, coopGame={FRONT_Multiplayer.coopGame}, " +
+                $"singlePlayerCoop={frontend?.singlePlayerCoop == true}, lobbyHost={frontend?.currentLobby?.isHost == true}, " +
+                $"readyButton={readyButton?.Name ?? "none"}, readyEnabled={readyButton?.IsEnabled == true}, " +
+                $"pendingPlacementChecks={pendingPlayerIds.Count}.");
+        }
+
         private List<NetworkAivSnapshot> SelectNetworkStartAivs(FRONT_Multiplayer frontend)
         {
             var snapshots = new List<NetworkAivSnapshot>();
@@ -757,8 +795,15 @@ namespace AIVPlacementLobby
             frontend?.currentLobby != null &&
             frontend.currentLobby.isHost;
 
-        private static bool IsLobbySetupVisible() =>
-            MainViewModel.Instance?.Show_MultiplayerSetup == true;
+        private static bool IsLobbySetupActive()
+        {
+            MainViewModel viewModel = MainViewModel.Instance;
+            // Vanilla's setup panel is the positive lobby signal. Coop Trail pages also prepare
+            // it in the background; only an explicit Skirmish-style customization may opt in.
+            return viewModel?.Show_MultiplayerSetup == true &&
+                viewModel.Show_MPGameCreation == true &&
+                (!FRONT_Multiplayer.coopGame || FRONT_Multiplayer.skirmishGame);
+        }
 
         private sealed class CompletedEvaluation
         {

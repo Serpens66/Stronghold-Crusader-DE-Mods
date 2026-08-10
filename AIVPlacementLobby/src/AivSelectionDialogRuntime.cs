@@ -177,7 +177,7 @@ namespace AIVPlacementLobby
             FRONT_Multiplayer.MPAIVInfo aivInfo,
             bool mpMode)
         {
-            if (!IsLobbySetupVisible())
+            if (!IsLobbySetupActive())
             {
                 initTrampoline(self, aivInfo, mpMode);
                 return;
@@ -198,7 +198,7 @@ namespace AIVPlacementLobby
             FRONT_Multiplayer.MPAIVInfo aivInfo,
             bool doPopulate)
         {
-            if (!IsLobbySetupVisible())
+            if (!IsLobbySetupActive())
             {
                 populateTrampoline(self, aivInfo, doPopulate);
                 return;
@@ -211,7 +211,7 @@ namespace AIVPlacementLobby
 
         private void ButtonClickedHook(FRONT_Multiplayer_AISettings self, string param)
         {
-            if (!IsLobbySetupVisible())
+            if (!IsLobbySetupActive())
             {
                 buttonTrampoline(self, param);
                 return;
@@ -224,7 +224,7 @@ namespace AIVPlacementLobby
 
         private void AddSelectedHook(FRONT_Multiplayer_AISettings self)
         {
-            if (!IsLobbySetupVisible())
+            if (!IsLobbySetupActive())
             {
                 addTrampoline(self);
                 return;
@@ -291,7 +291,7 @@ namespace AIVPlacementLobby
 
         private void OnRemoveRequested(CustomisationFileManager.CustomAIV requestedAiv)
         {
-            if (!IsLobbySetupVisible() || requestedAiv == null)
+            if (!IsLobbySetupActive() || requestedAiv == null)
                 return;
 
             FRONT_Multiplayer_AISettings instance = FRONT_Multiplayer_AISettings.Instance;
@@ -383,8 +383,13 @@ namespace AIVPlacementLobby
         private static bool IsCustomAivMode(FRONT_Multiplayer.MPAIVInfo info) =>
             info != null && !info.builtIn && !info.community && !info.historical;
 
-        private static bool IsLobbySetupVisible() =>
-            MainViewModel.Instance?.Show_MultiplayerSetup == true;
+        private static bool IsLobbySetupActive()
+        {
+            MainViewModel viewModel = MainViewModel.Instance;
+            return viewModel?.Show_MultiplayerSetup == true &&
+                viewModel.Show_MPGameCreation == true &&
+                (!FRONT_Multiplayer.coopGame || FRONT_Multiplayer.skirmishGame);
+        }
 
         private static FRONT_Multiplayer.MPAIVInfo GetAivInfo(FRONT_Multiplayer_AISettings instance) =>
             instance == null ? null : AiSettingsAivInfoField.GetValue(instance) as FRONT_Multiplayer.MPAIVInfo;
