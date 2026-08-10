@@ -4,31 +4,39 @@
   <ScrollViewer VerticalScrollBarVisibility="Auto">
     <StackPanel Margin="10">
       <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-        <Button Content="{Binding ResetToDefaultText}"
+        <Button IsEnabled="{Binding CanResetSettings}" Content="{Binding ResetToDefaultText}"
                 Command="{Binding ResetToDefaultCommand}"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding ResetToDefaultHelpText}"
                 HorizontalAlignment="Left"
                 Padding="10,3"/>
-        <CheckBox IsChecked="{Binding EnableMod, Mode=TwoWay}"
+        <CheckBox IsEnabled="{Binding CanEditHostSettings}" IsChecked="{Binding EnableMod, Mode=TwoWay}"
                   Content="{Binding EnableModText}"
+                  ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableModHelpText}"
                   Foreground="White"
                   VerticalAlignment="Center"
                   Margin="14,0,0,0"/>
-        <ComboBox ItemsSource="{Binding PresetOptions}"
+        <ComboBox IsEnabled="{Binding CanChangePreset}" Visibility="{Binding PresetVisibility}"
+                  ItemsSource="{Binding PresetOptions}"
                   SelectedIndex="{Binding SelectedPreset, Mode=TwoWay}"
+                  ToolTipService.ShowDuration="60000" ToolTip="{Binding PresetHelpText}"
                   Width="170"
                   VerticalAlignment="Center"
                   Margin="14,0,0,0"/>
-        <CheckBox IsChecked="{Binding ImprovedPathfinding, Mode=TwoWay}"
-                  Content="{Binding ImprovedPathfindingText}"
-                  Foreground="White"
-                  VerticalAlignment="Center"
-                  Margin="14,0,0,0"
-                  ToolTipService.ShowDuration="60000" ToolTip="{Binding ImprovedPathfindingHelpText}"/>
       </StackPanel>
 
+      <TextBlock Text="{Binding HostReadOnlyNoticeText}" Visibility="{Binding HostReadOnlyNoticeVisibility}" Foreground="#FFCC66" FontWeight="Bold" Margin="0,0,0,8"/>
+      <TextBlock Text="{Binding HostOptionsText}" Foreground="#77AAFF" FontWeight="Bold" Margin="0,2,0,6"/>
+      <StackPanel IsEnabled="{Binding CanEditHostSettings}">
+      <TextBlock Text="{Binding BehaviorTitleText}" Foreground="#CCCCCC" FontWeight="Bold" Margin="0,0,0,4"/>
+      <CheckBox IsChecked="{Binding ImprovedPathfinding, Mode=TwoWay}"
+                Content="{Binding ImprovedPathfindingText}"
+                Foreground="White"
+                Margin="0,0,14,8"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding ImprovedPathfindingHelpText}"/>
       <TextBlock Text="{Binding TitleText}" Foreground="#77AAFF" FontWeight="Bold" Margin="0,0,0,4"/>
       <TextBlock Text="{Binding HelpText}" Foreground="#CCCCCC" TextWrapping="Wrap" Margin="0,0,0,10"/>
 
+      <TextBlock Text="{Binding TargetsYieldTitleText}" Foreground="#CCCCCC" FontWeight="Bold" Margin="0,4,0,4"/>
       <Grid>
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="180"/>
@@ -72,6 +80,7 @@
         <CheckBox Grid.Row="6" Grid.Column="1" IsChecked="{Binding HuntCow, Mode=TwoWay}" HorizontalAlignment="Center" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding CowHelpText}"/>
         <TextBox Grid.Row="6" Grid.Column="2" Text="{Binding CowMeatText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" HorizontalContentAlignment="Right" MaxLength="3" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding CowHelpText}" ui:KeyboardCaptureBinding.Enabled="True"/>
       </Grid>
+      </StackPanel>
     </StackPanel>
   </ScrollViewer>
 </Grid>

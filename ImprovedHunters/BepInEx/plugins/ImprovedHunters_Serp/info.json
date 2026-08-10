@@ -3,12 +3,12 @@
   "Author": "Serpens66",
   "Name": "Improved Hunters",
   "Description": "Adds configurable hunter prey and meat yield for deer, goats, rabbits, camels, chickens and cows.",
-  "Version": "1.1.17",
+  "Version": "1.1.18",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
     {
-      "Version": "1.1.17",
+      "Version": "1.1.18",
       "Changes": [
         "Use locally validated reference RVAs for camel and chicken despawn patches on the supported DLL."
       ]

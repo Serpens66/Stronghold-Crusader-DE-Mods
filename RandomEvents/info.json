@@ -3,12 +3,12 @@
   "Author": "Serpens66",
   "Name": "Random Events",
   "Description": "Runs configurable Vanilla scenario events in singleplayer skirmishes and Trail missions.",
-  "Version": "1.0.5",
+  "Version": "1.0.6",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
     {
-      "Version": "1.0.5",
+      "Version": "1.0.6",
       "Changes": [
         "Use audited RVAs directly for the known CrusaderDE.dll and scan signatures only as an unknown-DLL fallback."
       ]

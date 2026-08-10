@@ -1,7 +1,7 @@
 # Spawn Castle localization
 Common.ResetToDefault=Zurücksetzen
 Common.EnableMod=Mod aktivieren
-Common.PresetHelp=Wählt das lokale Einstellungspreset aus.
+Common.PresetHelp=Wählt ein gespeichertes Preset. Clients ändern damit nur ihre persönlichen Einstellungen.
 Common.Clear=Entfernen
 SpawnCastle.Title=MENSCHLICHE BURG
 SpawnCastle.Help=Zeigt die ausgewählte AIVJSON-Burg als lokale Blaupause an oder erzeugt sie in einem neuen Einzelspiel. Alle Optionen dieses Mods bleiben im Mehrspielermodus lokal.
@@ -26,3 +26,9 @@ SpawnCastle.Hud.Unavailable=Blaupause: nicht verfügbar
 SpawnCastle.Hud.Loading=Blaupause: wird geladen {0}/{1}
 SpawnCastle.Hud.On=Blaupause: an
 SpawnCastle.Hud.Off=Blaupause: aus
+
+Common.HostOptions=HOST-OPTIONEN
+Common.ClientOptions=LOKALE CLIENT-OPTIONEN
+Common.HostReadOnly=Werte vom Host – schreibgeschützt
+Common.ResetToDefaultHelp=Setzt die Einstellungen zurück, die du im aktuellen Kontext ändern kannst.
+Common.EnableModHelp=Aktiviert oder deaktiviert diese Mod für die Partie.

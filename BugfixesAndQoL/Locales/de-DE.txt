@@ -24,3 +24,15 @@ SomeSettings.EnableStuckApothecaryFix=Fix für feststeckende Apotheker
 SomeSettings.EnableStuckApothecaryFixHelp=Vervollständigt Vanillas Gebäudeausgangs-Übergang, wenn ein Apotheker ein Pestziel findet, damit er nicht am Gebäude stehen bleibt.
 SomeSettings.EnablePlagueTargetReservationFix=Apotheker-Zielreservierungsfix
 SomeSettings.EnablePlagueTargetReservationFixHelp=Verhindert, dass verschiedene Apotheker Pestwolken auswählen, die von derselben erwarteten Flächenbehandlung erfasst werden.
+
+Common.HostOptions=HOST-OPTIONEN
+Common.ClientOptions=LOKALE CLIENT-OPTIONEN
+Common.HostReadOnly=Werte vom Host – schreibgeschützt
+Common.ResetToDefaultHelp=Setzt die Einstellungen zurück, die du im aktuellen Kontext ändern kannst.
+Common.EnableModHelp=Aktiviert oder deaktiviert diese Mod für die Partie.
+Common.PresetHelp=Wählt ein gespeichertes Preset. Clients ändern damit nur ihre persönlichen Einstellungen.
+
+BugfixesAndQoL.ClientInterfaceTitle=OBERFLÄCHE UND STEUERUNG
+BugfixesAndQoL.AiAivTitle=KI UND AIV
+BugfixesAndQoL.TroopMovementTitle=TRUPPENBEWEGUNG
+BugfixesAndQoL.PlagueTitle=PEST

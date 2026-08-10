@@ -3,12 +3,12 @@
   "Author": "Serpens66",
   "Name": "Custom Custom Trail",
   "Description": "Coordinates Custom Trail sidecars, mission presets and customization, and replaces Coop Trail missions from editable JSON bundles.",
-  "Version": "1.2.3",
+  "Version": "1.2.4",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
     {
-      "Version": "1.2.3",
+      "Version": "1.2.4",
       "Changes": [
         "Suppressed transient Custom Trail selection callbacks while opening the Customize lobby so they cannot replace the selected mission preset.",
         "Added sidecar path, existence and enabled-mod diagnostics to Trail load logs."

@@ -4,6 +4,7 @@ using MessagePack;
 using SHCDESE.API;
 using SHCDESE.API.Components.ModManager;
 using SHCDESE.API.Components.Network;
+using SHCDESE.BepInEx.Bootstrap;
 using SHCDESE.ViewModels;
 using System;
 using System.Collections.Generic;
@@ -35,12 +36,63 @@ namespace Shared
         private int selectedPreset;
         private bool missionPresetContext;
         private bool missionPresetEditable;
+        private bool isLocalHost = true;
 
         public ComboBoxItem[] PresetOptions => presetOptions;
 
-        public bool AreSettingsEditable => !missionPresetContext || selectedPreset != 2 || missionPresetEditable;
+        public bool HasHostSettings => presetController?.HasHostSettings ?? false;
 
-        public bool IsMissionPresetActive => missionPresetContext && selectedPreset == 2;
+        public bool HasClientSettings => presetController?.HasClientSettings ?? false;
+
+        public bool IsLocalSettingsHost => isLocalHost;
+
+        public bool MissionPresetEditable => missionPresetEditable;
+
+        public bool CanEditHostSettings =>
+            isLocalHost && (!missionPresetContext || missionPresetEditable);
+
+        public bool CanEditClientSettings => true;
+
+        public bool CanChangePreset =>
+            !missionPresetContext && (isLocalHost || HasClientSettings);
+
+        public bool CanResetSettings => CanEditHostSettings || HasClientSettings;
+
+        public Visibility PresetVisibility =>
+            missionPresetContext || isLocalHost || HasClientSettings
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+
+        public Visibility HostReadOnlyNoticeVisibility =>
+            HasHostSettings && !CanEditHostSettings
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+
+        public string HostOptionsText =>
+            ResolveSettingsUiText("Common.HostOptions", "HOST OPTIONS");
+
+        public string ClientOptionsText =>
+            ResolveSettingsUiText("Common.ClientOptions", "LOCAL CLIENT OPTIONS");
+
+        public string HostReadOnlyNoticeText =>
+            ResolveSettingsUiText("Common.HostReadOnly", "Values from host - read-only");
+
+        public string ResetToDefaultHelpText =>
+            ResolveSettingsUiText("Common.ResetToDefaultHelp", "Resets the settings you can control in the current context.");
+
+        public string EnableModHelpText =>
+            ResolveSettingsUiText("Common.EnableModHelp", "Enables or disables this mod for the match.");
+
+        public string PresetHelpText =>
+            ResolveSettingsUiText("Common.PresetHelp", "Selects a saved preset. Clients change only their personal settings.");
+
+        // Compatibility alias for older views. New XAML binds host and client
+        // sections separately so multiplayer and Trail locks remain independent.
+        public bool AreSettingsEditable => CanEditHostSettings;
+
+        public bool IsMissionPresetActive => missionPresetContext;
+
+        protected virtual string ResolveSettingsUiText(string key, string fallback) => fallback;
 
         // Zero-based because Noesis binds this value directly to ComboBox.SelectedIndex.
         public int SelectedPreset
@@ -48,7 +100,7 @@ namespace Shared
             get => selectedPreset;
             set
             {
-                int normalized = missionPresetContext && value == 2 ? 2 : (value == 1 ? 1 : 0);
+                int normalized = missionPresetContext ? 2 : (value == 1 ? 1 : 0);
                 if (selectedPreset == normalized)
                     return;
 
@@ -84,6 +136,8 @@ namespace Shared
                 pluginAssemblyLocation,
                 modName);
             presetController.CaptureDefaults();
+            PropertyChanged += (_, __) => System_RefreshSettingsAccess();
+            System_RefreshSettingsAccess();
         }
 
         internal void ActivatePresets()
@@ -110,8 +164,7 @@ namespace Shared
             presetOptions[2].Content = label ?? string.Empty;
             presetOptions[2].Visibility = Visibility.Visible;
             presetController.EnterMissionPreset(snapshot, editable);
-            base.OnPropertyChanged(nameof(AreSettingsEditable));
-            base.OnPropertyChanged(nameof(IsMissionPresetActive));
+            RaiseAccessProperties();
         }
 
         public void System_ExitMissionPreset()
@@ -124,8 +177,27 @@ namespace Shared
             presetController.ExitMissionPreset();
             presetOptions[2].Visibility = Visibility.Collapsed;
             presetOptions[2].Content = string.Empty;
-            base.OnPropertyChanged(nameof(AreSettingsEditable));
-            base.OnPropertyChanged(nameof(IsMissionPresetActive));
+            RaiseAccessProperties();
+        }
+
+        public void System_RefreshSettingsAccess()
+        {
+            bool currentIsHost;
+            try
+            {
+                currentIsHost = GameNetworkAPI.IsLocalHost();
+            }
+            catch
+            {
+                // Registration happens before the network singleton is always available.
+                currentIsHost = true;
+            }
+
+            if (isLocalHost == currentIsHost)
+                return;
+
+            isLocalHost = currentIsHost;
+            RaiseAccessProperties();
         }
 
         // The Script Extender's event handler runs synchronously inside the base call.
@@ -139,6 +211,7 @@ namespace Shared
             finally
             {
                 presetController?.AfterPropertyChanged(name);
+                System_RefreshSettingsAccess();
             }
         }
 
@@ -149,8 +222,26 @@ namespace Shared
 
             selectedPreset = value;
             OnPropertyChanged(nameof(SelectedPreset));
+            RaiseAccessProperties();
+        }
+
+        private void RaiseAccessProperties()
+        {
+            base.OnPropertyChanged(nameof(IsLocalSettingsHost));
+            base.OnPropertyChanged(nameof(HasHostSettings));
+            base.OnPropertyChanged(nameof(HasClientSettings));
+            base.OnPropertyChanged(nameof(MissionPresetEditable));
+            base.OnPropertyChanged(nameof(CanEditHostSettings));
+            base.OnPropertyChanged(nameof(CanEditClientSettings));
+            base.OnPropertyChanged(nameof(CanChangePreset));
+            base.OnPropertyChanged(nameof(CanResetSettings));
+            base.OnPropertyChanged(nameof(PresetVisibility));
+            base.OnPropertyChanged(nameof(HostReadOnlyNoticeVisibility));
             base.OnPropertyChanged(nameof(AreSettingsEditable));
             base.OnPropertyChanged(nameof(IsMissionPresetActive));
+            // The Extender persists on every PropertyChanged event, including UI-only
+            // access properties. Re-sanitize so remote/Trail host values never remain.
+            presetController?.SanitizeStorage();
         }
 
         private static string GetVanillaText(
@@ -193,6 +284,8 @@ namespace Shared
             private readonly string modName;
             private readonly string filePath;
             private readonly PropertyInfo[] persistedProperties;
+            private readonly PropertyInfo[] hostProperties;
+            private readonly PropertyInfo[] clientProperties;
             private readonly Dictionary<string, PropertyInfo> persistedPropertiesByName;
 
             private Dictionary<string, byte[]> defaults;
@@ -229,6 +322,18 @@ namespace Shared
                     .ToArray();
                 persistedPropertiesByName = persistedProperties
                     .ToDictionary(property => property.Name, StringComparer.Ordinal);
+                hostProperties = persistedProperties.Where(IsHostProperty).ToArray();
+                clientProperties = persistedProperties.Where(IsClientProperty).ToArray();
+            }
+
+            public bool HasHostSettings => hostProperties.Length != 0;
+
+            public bool HasClientSettings => clientProperties.Length != 0;
+
+            public void SanitizeStorage()
+            {
+                if (active && !applying)
+                    WriteCombinedPayload();
             }
 
             public void CaptureDefaults()
@@ -298,25 +403,12 @@ namespace Shared
 
             public void SwitchTo(int selected)
             {
-                selected = owner.missionPresetContext && selected == 2 ? 2 : NormalizePreset(selected);
+                selected = owner.missionPresetContext ? 2 : NormalizePreset(selected);
                 if (!active || owner.selectedPreset == selected)
                     return;
 
                 if (owner.missionPresetContext)
-                {
-                    if (selected == 2)
-                    {
-                        // Mission presets are externally owned and must never enter local storage.
-                        ApplySnapshot(missionPreset ?? CreateDisabledSnapshot(), selected, writeLocalStorage: false);
-                        return;
-                    }
-
-                    // Presets 1/2 keep their normal persistence semantics even while a
-                    // mission-specific preset is available in the same dialog.
-                    localSelectedPreset = selected;
-                    ApplyPreset(selected);
                     return;
-                }
 
                 localSelectedPreset = selected;
                 ApplyPreset(selected);
@@ -327,7 +419,7 @@ namespace Shared
 
             public Dictionary<string, byte[]> CreateDisabledSnapshot()
             {
-                Dictionary<string, byte[]> snapshot = Clone(defaults);
+                Dictionary<string, byte[]> snapshot = CopyProperties(defaults, hostProperties);
                 if (persistedPropertiesByName.TryGetValue("EnableMod", out PropertyInfo enableProperty) &&
                     enableProperty.PropertyType == typeof(bool))
                 {
@@ -340,6 +432,9 @@ namespace Shared
             {
                 missionPreset = snapshot == null ? CreateDisabledSnapshot() : Clone(snapshot);
                 ApplySnapshot(missionPreset, 2, writeLocalStorage: false);
+                // Property setters invoked by the Trail can make the Extender write its
+                // normal storage file. Replace that transient file with locally owned data.
+                WriteCombinedPayload();
                 DebugLogHelper.LogInfo(log, $"[{modName}] Entered {(editable ? "editable" : "read-only")} mission preset.");
             }
 
@@ -359,37 +454,59 @@ namespace Shared
                     propertyName,
                     out PropertyInfo property);
 
-                if (owner.missionPresetContext && owner.selectedPreset == 2)
+                if (property == null)
                 {
-                    if (owner.missionPresetEditable && property != null)
-                        StoreProperty(missionPreset, property);
+                    // The Extender also saves for UI-only PropertyChanged notifications.
+                    // Restore preset metadata and the safe host/client composition.
+                    WriteCombinedPayload();
                     return;
                 }
 
-                Dictionary<string, byte[]> diskPayload;
-                if (TryReadPayload(out diskPayload) &&
-                    diskPayload.ContainsKey(SchemaVersionKey) &&
-                    property?.GetCustomAttribute<PresetLocalAttribute>() == null)
+                if (owner.missionPresetContext)
                 {
-                    // Incoming network updates do not invoke the Extender's storage.Save.
-                    // The marker therefore remains present and synced presets must stay untouched.
-                    // PresetLocal properties intentionally keep the marker and still write locally.
-                    return;
-                }
-
-                if (property != null)
-                {
-                    Dictionary<string, byte[]> currentPreset = GetPreset(owner.selectedPreset);
-                    if (currentPreset == null)
+                    if (IsHostProperty(property))
                     {
-                        currentPreset = Clone(defaults);
-                        SetPreset(owner.selectedPreset, currentPreset);
+                        if (owner.missionPresetEditable && owner.isLocalHost)
+                            StoreProperty(missionPreset, property);
+                        // Never leave an externally owned Trail value in local msgpack.
+                        WriteCombinedPayload();
+                        return;
                     }
 
-                    StoreProperty(currentPreset, property);
+                    // Trail owns only host settings. Personal settings remain editable
+                    // and persistent without copying Trail values into local msgpack.
+                    if (IsClientProperty(property))
+                    {
+                        StoreProperty(EnsurePreset(localSelectedPreset), property);
+                        WriteCombinedPayload();
+                    }
+                    return;
                 }
 
-                WriteCombinedPayload();
+                // Incoming host values are runtime-only on clients.
+                if (IsHostProperty(property) && !owner.isLocalHost)
+                {
+                    // The Script Extender suppresses its own storage handler while it
+                    // applies network data. Do not turn that receive into a local write.
+                    return;
+                }
+
+                if (owner.isLocalHost || IsClientProperty(property))
+                {
+                    StoreProperty(EnsurePreset(localSelectedPreset), property);
+                    WriteCombinedPayload();
+                }
+            }
+
+            private Dictionary<string, byte[]> EnsurePreset(int selected)
+            {
+                Dictionary<string, byte[]> preset = GetPreset(selected);
+                if (preset == null)
+                {
+                    preset = Clone(defaults);
+                    SetPreset(selected, preset);
+                }
+                return preset;
             }
 
             private void ApplyPreset(int selected)
@@ -408,6 +525,12 @@ namespace Shared
                 {
                     foreach (PropertyInfo property in persistedProperties)
                     {
+                        bool include = selected == 2
+                            ? IsHostProperty(property)
+                            : owner.isLocalHost || IsClientProperty(property);
+                        if (!include)
+                            continue;
+
                         byte[] bytes = null;
                         if (stored != null)
                             stored.TryGetValue(property.Name, out bytes);
@@ -493,7 +616,7 @@ namespace Shared
 
             private void WriteCombinedPayload()
             {
-                Dictionary<string, byte[]> payload = CaptureCurrentSettings();
+                Dictionary<string, byte[]> payload = ComposeSafeTopLevelSnapshot();
                 payload[SchemaVersionKey] = MessagePackSerializer.Serialize(SchemaVersion);
                 payload[ActivePresetKey] = MessagePackSerializer.Serialize(localSelectedPreset);
                 payload[Preset1Key] = MessagePackSerializer.Serialize(preset1 ?? Clone(defaults));
@@ -531,6 +654,33 @@ namespace Shared
                             $"[{modName}] Could not remove temporary preset file [{temporaryPath}]: {exception.Message}");
                     }
                 }
+            }
+
+            private Dictionary<string, byte[]> ComposeSafeTopLevelSnapshot()
+            {
+                Dictionary<string, byte[]> snapshot =
+                    new Dictionary<string, byte[]>(StringComparer.Ordinal);
+                Dictionary<string, byte[]> ownedPreset = GetPreset(localSelectedPreset) ?? defaults;
+
+                foreach (PropertyInfo property in persistedProperties)
+                {
+                    bool mayCaptureLive = IsClientProperty(property) ||
+                        (owner.isLocalHost && !owner.missionPresetContext);
+                    if (mayCaptureLive)
+                    {
+                        StoreProperty(snapshot, property);
+                        continue;
+                    }
+
+                    // Preserve the user's own host preset instead of serializing a
+                    // remote host value or an externally owned Trail value.
+                    if (ownedPreset.TryGetValue(property.Name, out byte[] bytes))
+                        snapshot[property.Name] = bytes == null ? null : (byte[])bytes.Clone();
+                    else if (defaults.TryGetValue(property.Name, out bytes))
+                        snapshot[property.Name] = bytes == null ? null : (byte[])bytes.Clone();
+                }
+
+                return snapshot;
             }
 
             private bool TryReadPayload(out Dictionary<string, byte[]> payload)
@@ -611,6 +761,30 @@ namespace Shared
                     property.GetCustomAttribute<PresetLocalAttribute>() != null;
             }
 
+            private static bool IsHostProperty(PropertyInfo property) =>
+                property.GetCustomAttribute<SyncHostOnlyAttribute>() != null;
+
+            private static bool IsClientProperty(PropertyInfo property) =>
+                property.GetCustomAttribute<SyncPerPlayerAttribute>() != null ||
+                property.GetCustomAttribute<PresetLocalAttribute>() != null;
+
+            private static Dictionary<string, byte[]> CopyProperties(
+                Dictionary<string, byte[]> source,
+                IEnumerable<PropertyInfo> properties)
+            {
+                Dictionary<string, byte[]> result =
+                    new Dictionary<string, byte[]>(StringComparer.Ordinal);
+                if (source == null)
+                    return result;
+
+                foreach (PropertyInfo property in properties)
+                {
+                    if (source.TryGetValue(property.Name, out byte[] bytes))
+                        result[property.Name] = bytes == null ? null : (byte[])bytes.Clone();
+                }
+                return result;
+            }
+
             private static Dictionary<string, byte[]> Clone(
                 Dictionary<string, byte[]> source)
             {
@@ -658,6 +832,11 @@ namespace Shared
             }
 
             viewModel.ActivatePresets();
+
+            // Views are created before a lobby exists. Refresh the cached role whenever
+            // the persistent settings hub opens or changes its selected tab.
+            Plugin.ModSettingsHubViewModel.PropertyChanged += (_, __) =>
+                viewModel.System_RefreshSettingsAccess();
         }
     }
 }

@@ -142,6 +142,9 @@ CHIMP_TYPE_BEDOUIN_HEAVY_CAMEL=0
 CHIMP_TYPE_BEDOUIN_SAPPER=0
 CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
 
+        protected override string ResolveSettingsUiText(string key, string fallback) =>
+            SerpLocalization.Get(key);
+
         public StartConditionsLobbyViewModel()
         {
             StartGoodEntries = CreateGoodEntriesWithCallback(DefaultStartGoodsAI, DefaultStartGoodsHuman);

@@ -15,3 +15,13 @@ ImprovedHunters.Chicken=Huhn
 ImprovedHunters.ChickenHelp=Jaeger koennen Huehner unabhaengig von ihrem Besitzer als Ziel waehlen.
 ImprovedHunters.Cow=Kuh
 ImprovedHunters.CowHelp=Jaeger koennen Kuehe unabhaengig von ihrem Besitzer als Ziel waehlen. Standardmaessig deaktiviert.
+
+Common.HostOptions=HOST-OPTIONEN
+Common.ClientOptions=LOKALE CLIENT-OPTIONEN
+Common.HostReadOnly=Werte vom Host – schreibgeschützt
+Common.ResetToDefaultHelp=Setzt die Einstellungen zurück, die du im aktuellen Kontext ändern kannst.
+Common.EnableModHelp=Aktiviert oder deaktiviert diese Mod für die Partie.
+Common.PresetHelp=Wählt ein gespeichertes Preset. Clients ändern damit nur ihre persönlichen Einstellungen.
+
+ImprovedHunters.BehaviorTitle=VERHALTEN
+ImprovedHunters.TargetsYieldTitle=ZIELE UND FLEISCHERTRAG

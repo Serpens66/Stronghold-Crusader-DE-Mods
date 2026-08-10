@@ -81,6 +81,9 @@ MAPPER_SHRINE1=-1
 MAPPER_DANCING_BEAR=-1
 MAPPER_POND1=-1";
 
+        protected override string ResolveSettingsUiText(string key, string fallback) =>
+            SerpLocalization.Get(key);
+
         public BuildingLimitLobbyViewModel()
         {
             LimitEntries = CreateLimitEntriesWithCallback(DefaultBuildingLimits);

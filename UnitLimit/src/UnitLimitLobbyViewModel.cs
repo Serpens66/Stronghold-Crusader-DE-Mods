@@ -54,6 +54,9 @@ CHIMP_TYPE_BEDOUIN_HEAVY_CAMEL=-1
 CHIMP_TYPE_BEDOUIN_SAPPER=-1
 CHIMP_TYPE_BEDOUIN_DEMOLISHER=-1";
 
+        protected override string ResolveSettingsUiText(string key, string fallback) =>
+            SerpLocalization.Get(key);
+
         public UnitLimitLobbyViewModel()
         {
             LimitEntries = CreateLimitEntriesWithCallback(DefaultUnitLimits);

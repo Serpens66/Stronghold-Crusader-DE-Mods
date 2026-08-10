@@ -9,21 +9,34 @@
                  TextWrapping="Wrap"
                  Margin="0,0,0,10"/>
       <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-        <Button Content="{Binding ResetToDefaultText}"
+        <Button IsEnabled="{Binding CanResetSettings}"
+                Content="{Binding ResetToDefaultText}"
                 Command="{Binding ResetToDefaultCommand}"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding ResetToDefaultHelpText}"
                 HorizontalAlignment="Left"
                 Padding="10,3"/>
-        <CheckBox IsChecked="{Binding EnableMod, Mode=TwoWay}"
+        <CheckBox IsEnabled="{Binding CanEditHostSettings}"
+                  IsChecked="{Binding EnableMod, Mode=TwoWay}"
                   Content="{Binding EnableModText}"
+                  ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableModHelpText}"
                   Foreground="White"
                   VerticalAlignment="Center"
                   Margin="14,0,0,0"/>
-        <ComboBox ItemsSource="{Binding PresetOptions}"
+        <ComboBox IsEnabled="{Binding CanChangePreset}"
+                  Visibility="{Binding PresetVisibility}"
+                  ItemsSource="{Binding PresetOptions}"
                   SelectedIndex="{Binding SelectedPreset, Mode=TwoWay}"
+                  ToolTipService.ShowDuration="60000" ToolTip="{Binding PresetHelpText}"
                   Width="170"
                   VerticalAlignment="Center"
                   Margin="14,0,0,0"/>
       </StackPanel>
+      <TextBlock Text="{Binding HostReadOnlyNoticeText}"
+                 Visibility="{Binding HostReadOnlyNoticeVisibility}"
+                 Foreground="#FFCC66" FontWeight="Bold" Margin="0,0,0,8"/>
+      <TextBlock Text="{Binding ClientOptionsText}" Foreground="#66CC99" FontWeight="Bold" Margin="0,4,0,4"/>
+      <StackPanel IsEnabled="{Binding CanEditClientSettings}">
+      <TextBlock Text="{Binding ClientInterfaceTitleText}" Foreground="#CCCCCC" FontWeight="Bold" Margin="0,0,0,4"/>
       <TextBlock Text="{Binding AlwaysActiveTitleText}" Foreground="#77AAFF" FontWeight="Bold" Margin="0,0,0,4"/>
       <TextBlock Text="{Binding AlwaysActiveHelpText}" Foreground="#CCCCCC" TextWrapping="Wrap" Margin="0,0,0,10"/>
       <CheckBox IsChecked="{Binding AllowMinimapWhilePlacingBuilding, Mode=TwoWay}"
@@ -44,18 +57,25 @@
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding HdMarketViewText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox>
+      </StackPanel>
+      <Separator Background="#444466" Margin="0,8"/>
+      <TextBlock Text="{Binding HostOptionsText}" Foreground="#77AAFF" FontWeight="Bold" Margin="0,0,0,6"/>
+      <StackPanel IsEnabled="{Binding CanEditHostSettings}">
+      <TextBlock Text="{Binding AiAivTitleText}" Foreground="#CCCCCC" FontWeight="Bold" Margin="0,0,0,4"/>
       <CheckBox IsChecked="{Binding RememberAiAivSettings, Mode=TwoWay}"
                 Foreground="White"
                 ToolTipService.ShowDuration="60000" ToolTip="{Binding RememberAiAivSettingsHelpText}"
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding RememberAiAivSettingsText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox>
+      <TextBlock Text="{Binding TroopMovementTitleText}" Foreground="#CCCCCC" FontWeight="Bold" Margin="0,4,0,4"/>
       <CheckBox IsChecked="{Binding EnableTroopMovementFix, Mode=TwoWay}"
                 Foreground="White"
                 ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableTroopMovementFixHelpText}"
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding EnableTroopMovementFixText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox>
+      <TextBlock Text="{Binding PlagueTitleText}" Foreground="#CCCCCC" FontWeight="Bold" Margin="0,4,0,4"/>
       <CheckBox IsChecked="{Binding EnablePlaguePopularityFix, Mode=TwoWay}"
                 Foreground="White"
                 ToolTipService.ShowDuration="60000" ToolTip="{Binding EnablePlaguePopularityFixHelpText}"
@@ -80,6 +100,7 @@
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding EnablePlagueTargetReservationFixText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox>
+      </StackPanel>
     </StackPanel>
   </ScrollViewer>
 </Grid>

@@ -801,8 +801,9 @@ namespace CustomCustomTrail
                     return cached;
                 cached = type.GetProperties(BindingFlags.Public | BindingFlags.Instance)
                     .Where(property => property.CanRead && property.CanWrite && property.GetCustomAttributes(false)
-                        .Any(attribute => attribute.GetType().Name == "SyncPerPlayerAttribute" ||
-                            attribute.GetType().Name == "SyncHostOnlyAttribute"))
+                        // Trail sidecars define the shared match rules. Personal settings
+                        // remain owned by each participant and must never enter .modjson.
+                        .Any(attribute => attribute.GetType().Name == "SyncHostOnlyAttribute"))
                     .ToDictionary(property => property.Name, StringComparer.Ordinal);
                 persistedPropertiesByType[type] = cached;
                 return cached;

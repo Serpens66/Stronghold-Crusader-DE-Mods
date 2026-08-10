@@ -17,6 +17,11 @@ namespace SpawnCastle
             {
                 { "Common.ResetToDefault", "Reset to Default" },
                 { "Common.EnableMod", "Enable Mod" },
+                { "Common.HostOptions", "HOST OPTIONS" },
+                { "Common.ClientOptions", "LOCAL CLIENT OPTIONS" },
+                { "Common.HostReadOnly", "Values from host - read-only" },
+                { "Common.ResetToDefaultHelp", "Resets the settings you can control in the current context." },
+                { "Common.EnableModHelp", "Enables or disables this local mod." },
                 { "Common.PresetHelp", "Selects the local settings preset." },
                 { "Common.Clear", "Clear" },
                 { "SpawnCastle.Title", "HUMAN CASTLE" },

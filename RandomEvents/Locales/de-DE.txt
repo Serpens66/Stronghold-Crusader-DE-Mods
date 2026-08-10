@@ -6,9 +6,9 @@ RandomEvents.IntervalHelp=Der erste Wurf erfolgt nach einem vollständigen Inter
 RandomEvents.Cooldown=Abklingzeit eines Ereignisses (Monate)
 RandomEvents.CooldownHelp=Nachdem ein bestimmtes Ereignis ausgelöst wurde, kann es für diese Anzahl Monate nicht erneut ausgelöst werden.
 RandomEvents.ChancesTitle=EREIGNISCHANCEN (%)
-RandomEvents.ChanceHelp=Jeder Regler ist die unabhängige prozentuale Chance, dass dieses Ereignis nach Ablauf eines Intervalls ausgelöst wird.
+RandomEvents.ChanceHelp=Jedes Ereignis würfelt nach jedem abgeschlossenen Intervall unabhängig: Ein Zufallswert von 0 bis 99 muss kleiner als dieser Prozentwert sein und die Abklingzeit muss abgelaufen sein. Mehrere Ereignisse können im selben Intervall eintreten.
 RandomEvents.StrengthTitle=EREIGNISSTÄRKE
-RandomEvents.ScaledStrengthHelp=Bei Banditen und Bogenschützen ist X die Einheitenzahl pro 3 vergangene Spielmonate. Einheiten = Abrunden(vergangene Monate × X ÷ 3). Beim Auslösen wird ein Faktor zwischen Minimum und Maximum ausgewürfelt.
+RandomEvents.ScaledStrengthHelp=Beim Auslösen von Banditen oder Bogenschützen wird ein Faktor zwischen dem gewählten Minimum und Maximum in 0,1-Schritten ausgewürfelt. Einheitenzahl = Abrunden(vergangene Spielmonate seit Kartenstart × Faktor ÷ 3). Ein Ergebnis von 0 erzeugt keine Einheiten.
 RandomEvents.PlagueStrengthHelp=Legt die minimale und maximale Peststärke fest. Beim Auslösen wird ein Wert aus diesem Bereich ausgewürfelt.
 RandomEvents.LionStrengthHelp=Legt die minimale und maximale Anzahl der Löwengruppen fest. Beim Auslösen wird ein Wert aus diesem Bereich ausgewürfelt.
 RandomEvents.TheftStrengthHelp=Legt den minimalen und maximalen Prozentsatz der gestohlenen Kornspeichernahrung fest. Beim Auslösen wird ein Wert aus diesem Bereich ausgewürfelt.
@@ -34,3 +34,13 @@ RandomEvents.Event.Marriage=Vermählung
 RandomEvents.Event.Bard=Barde
 RandomEvents.Event.GranaryTheft=Kornspeicherdiebstahl
 RandomEvents.Event.Fire=Feuer
+
+Common.HostOptions=HOST-OPTIONEN
+Common.ClientOptions=LOKALE CLIENT-OPTIONEN
+Common.HostReadOnly=Werte vom Host – schreibgeschützt
+Common.ResetToDefaultHelp=Setzt die Einstellungen zurück, die du im aktuellen Kontext ändern kannst.
+Common.EnableModHelp=Aktiviert oder deaktiviert diese Mod für die Partie.
+Common.PresetHelp=Wählt ein gespeichertes Preset. Clients ändern damit nur ihre persönlichen Einstellungen.
+
+RandomEvents.ScheduleTitle=ZEITPLAN
+RandomEvents.MultiplayerTitle=MEHRSPIELER

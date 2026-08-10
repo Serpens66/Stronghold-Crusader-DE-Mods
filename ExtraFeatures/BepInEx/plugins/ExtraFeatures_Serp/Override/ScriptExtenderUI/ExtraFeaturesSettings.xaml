@@ -10,12 +10,15 @@
                  TextWrapping="Wrap"
                  Margin="0,0,0,10"/>
       <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-        <Button IsEnabled="{Binding AreSettingsEditable}" Content="{Binding ResetToDefaultText}" Command="{Binding ResetToDefaultCommand}" HorizontalAlignment="Left" Padding="10,3"/>
-        <CheckBox IsEnabled="{Binding AreSettingsEditable}" IsChecked="{Binding EnableMod, Mode=TwoWay}" Content="{Binding EnableModText}" Foreground="White" VerticalAlignment="Center" Margin="14,0,0,0"/>
-        <ComboBox ItemsSource="{Binding PresetOptions}" SelectedIndex="{Binding SelectedPreset, Mode=TwoWay}" Width="170" VerticalAlignment="Center" Margin="14,0,0,0"/>
+        <Button IsEnabled="{Binding CanResetSettings}" Content="{Binding ResetToDefaultText}" Command="{Binding ResetToDefaultCommand}" ToolTipService.ShowDuration="60000" ToolTip="{Binding ResetToDefaultHelpText}" HorizontalAlignment="Left" Padding="10,3"/>
+        <CheckBox IsEnabled="{Binding CanEditHostSettings}" IsChecked="{Binding EnableMod, Mode=TwoWay}" Content="{Binding EnableModText}" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableModHelpText}" Foreground="White" VerticalAlignment="Center" Margin="14,0,0,0"/>
+        <ComboBox IsEnabled="{Binding CanChangePreset}" Visibility="{Binding PresetVisibility}" ItemsSource="{Binding PresetOptions}" ToolTipService.ShowDuration="60000" ToolTip="{Binding PresetHelpText}" SelectedIndex="{Binding SelectedPreset, Mode=TwoWay}" Width="170" VerticalAlignment="Center" Margin="14,0,0,0"/>
       </StackPanel>
-      <StackPanel IsEnabled="{Binding AreSettingsEditable}">
+      <TextBlock Text="{Binding HostReadOnlyNoticeText}" Visibility="{Binding HostReadOnlyNoticeVisibility}" Foreground="#FFCC66" FontWeight="Bold" Margin="0,0,0,8"/>
+      <TextBlock Text="{Binding HostOptionsText}" Foreground="#77AAFF" FontWeight="Bold" Margin="0,2,0,6"/>
+      <StackPanel IsEnabled="{Binding CanEditHostSettings}">
 
+      <TextBlock Text="{Binding ComfortTitleText}" Foreground="#77AAFF" FontWeight="Bold" Margin="0,0,0,8"/>
       <CheckBox IsChecked="{Binding EnableCtrlSingleMarketTrade, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableCtrlSingleMarketTradeHelpText}" Margin="0,0,14,8">
         <TextBlock Text="{Binding EnableCtrlSingleMarketTradeText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox>
@@ -31,16 +34,17 @@
       <CheckBox IsChecked="{Binding EnableExtraChurchPriests, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableExtraChurchPriestsHelpText}" Margin="0,0,14,8">
         <TextBlock Text="{Binding EnableExtraChurchPriestsText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox>
+      <TextBlock Text="{Binding PlagueTitleText}" Foreground="#77AAFF" FontWeight="Bold" Margin="0,4,0,8"/>
       <Grid ToolTipService.ShowDuration="60000" ToolTip="{Binding PlagueDurationMultiplierHelpText}" Margin="0,0,0,8">
         <Grid.ColumnDefinitions><ColumnDefinition Width="170"/><ColumnDefinition Width="220"/><ColumnDefinition Width="45"/></Grid.ColumnDefinitions>
         <TextBlock Grid.Column="0" Text="{Binding PlagueDurationMultiplierText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center"/>
-        <Slider Grid.Column="1" Minimum="0.5" Maximum="20" Value="{Binding PlagueDurationMultiplier, Mode=TwoWay}" TickFrequency="0.5" IsSnapToTickEnabled="True" Margin="3"/>
+        <Slider Grid.Column="1" Minimum="0.5" Maximum="20" Value="{Binding PlagueDurationMultiplier, Mode=TwoWay}" TickFrequency="0.5" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding PlagueDurationMultiplierHelpText}"/>
         <TextBlock Grid.Column="2" Text="{Binding PlagueDurationMultiplierValueText}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center"/>
       </Grid>
       <Grid ToolTipService.ShowDuration="60000" ToolTip="{Binding ApothecaryPlagueSearchDistanceHelpText}" Margin="0,0,0,8">
         <Grid.ColumnDefinitions><ColumnDefinition Width="170"/><ColumnDefinition Width="220"/><ColumnDefinition Width="45"/></Grid.ColumnDefinitions>
         <TextBlock Grid.Column="0" Text="{Binding ApothecaryPlagueSearchDistanceText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center"/>
-        <Slider Grid.Column="1" Minimum="20" Maximum="200" Value="{Binding ApothecaryPlagueSearchDistance, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="3"/>
+        <Slider Grid.Column="1" Minimum="20" Maximum="200" Value="{Binding ApothecaryPlagueSearchDistance, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding ApothecaryPlagueSearchDistanceHelpText}"/>
         <TextBlock Grid.Column="2" Text="{Binding ApothecaryPlagueSearchDistance}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center"/>
       </Grid>
 
@@ -63,15 +67,15 @@
         <Grid.ColumnDefinitions><ColumnDefinition Width="170"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions>
         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
         <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" Margin="0,3,8,3"><Image Source="{Binding WoodRefundIcon}" Width="18" Height="18" Margin="0,0,6,0"/><TextBlock Text="{Binding WoodRefundText}" Foreground="White"/></StackPanel>
-        <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding WoodRefundPercentText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" MaxLength="4" HorizontalContentAlignment="Right" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+        <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding WoodRefundPercentText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" MaxLength="4" HorizontalContentAlignment="Right" Margin="3" ui:KeyboardCaptureBinding.Enabled="True" ToolTipService.ShowDuration="60000" ToolTip="{Binding BulldozeHelpText}"/>
         <StackPanel Grid.Row="1" Grid.Column="0" Orientation="Horizontal" Margin="0,3,8,3"><Image Source="{Binding StoneRefundIcon}" Width="18" Height="18" Margin="0,0,6,0"/><TextBlock Text="{Binding StoneRefundText}" Foreground="White"/></StackPanel>
-        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding StoneRefundPercentText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" MaxLength="4" HorizontalContentAlignment="Right" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding StoneRefundPercentText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" MaxLength="4" HorizontalContentAlignment="Right" Margin="3" ui:KeyboardCaptureBinding.Enabled="True" ToolTipService.ShowDuration="60000" ToolTip="{Binding BulldozeHelpText}"/>
         <StackPanel Grid.Row="2" Grid.Column="0" Orientation="Horizontal" Margin="0,3,8,3"><Image Source="{Binding IronRefundIcon}" Width="18" Height="18" Margin="0,0,6,0"/><TextBlock Text="{Binding IronRefundText}" Foreground="White"/></StackPanel>
-        <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding IronRefundPercentText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" MaxLength="4" HorizontalContentAlignment="Right" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+        <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding IronRefundPercentText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" MaxLength="4" HorizontalContentAlignment="Right" Margin="3" ui:KeyboardCaptureBinding.Enabled="True" ToolTipService.ShowDuration="60000" ToolTip="{Binding BulldozeHelpText}"/>
         <StackPanel Grid.Row="3" Grid.Column="0" Orientation="Horizontal" Margin="0,3,8,3"><Image Source="{Binding PitchRefundIcon}" Width="18" Height="18" Margin="0,0,6,0"/><TextBlock Text="{Binding PitchRefundText}" Foreground="White"/></StackPanel>
-        <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding PitchRefundPercentText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" MaxLength="4" HorizontalContentAlignment="Right" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+        <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding PitchRefundPercentText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" MaxLength="4" HorizontalContentAlignment="Right" Margin="3" ui:KeyboardCaptureBinding.Enabled="True" ToolTipService.ShowDuration="60000" ToolTip="{Binding BulldozeHelpText}"/>
         <StackPanel Grid.Row="4" Grid.Column="0" Orientation="Horizontal" Margin="0,3,8,3"><Image Source="{Binding GoldRefundIcon}" Width="18" Height="18" Margin="0,0,6,0"/><TextBlock Text="{Binding GoldRefundText}" Foreground="White"/></StackPanel>
-        <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding GoldRefundPercentText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" MaxLength="4" HorizontalContentAlignment="Right" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+        <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding GoldRefundPercentText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" MaxLength="4" HorizontalContentAlignment="Right" Margin="3" ui:KeyboardCaptureBinding.Enabled="True" ToolTipService.ShowDuration="60000" ToolTip="{Binding BulldozeHelpText}"/>
       </Grid>
       <CheckBox IsChecked="{Binding KeepStorageContent, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding KeepStorageContentHelpText}" Margin="0,4,14,4">
         <StackPanel Orientation="Horizontal"><TextBlock Text="{Binding KeepStorageContentText}" Foreground="White"/><Image Source="{Binding KeepStorageFruitIcon}" Width="18" Height="18" Margin="8,0,0,0"/><Image Source="{Binding KeepStorageWoodIcon}" Width="18" Height="18" Margin="4,0,0,0"/><Image Source="{Binding KeepStorageBowsIcon}" Width="18" Height="18" Margin="4,0,0,0"/></StackPanel>

@@ -83,6 +83,9 @@ namespace UnitCosts
             "CHIMP_TYPE_BEDOUIN_DEMOLISHER"
         };
 
+        protected override string ResolveSettingsUiText(string key, string fallback) =>
+            SerpLocalization.Get(key);
+
         public UnitCostsLobbyViewModel()
         {
             CostEntries = CreateCostEntriesWithCallback(unitCosts);

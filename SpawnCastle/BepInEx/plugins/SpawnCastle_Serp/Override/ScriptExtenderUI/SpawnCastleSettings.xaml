@@ -17,22 +17,24 @@
   </b:Interaction.Triggers>
   <StackPanel Margin="10">
     <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-      <Button IsEnabled="{Binding AreSettingsEditable}"
+      <Button IsEnabled="{Binding CanResetSettings}"
               Content="{Binding ResetToDefaultText}"
               Command="{Binding ResetToDefaultCommand}"
               ToolTipService.ShowDuration="60000"
-              ToolTip="{Binding ResetToDefaultText}"
+              ToolTip="{Binding ResetToDefaultHelpText}"
               HorizontalAlignment="Left"
               Padding="10,3"/>
-      <CheckBox IsEnabled="{Binding AreSettingsEditable}"
+      <CheckBox IsEnabled="{Binding CanEditClientSettings}"
                 IsChecked="{Binding EnableMod, Mode=TwoWay}"
                 Content="{Binding EnableModText}"
                 ToolTipService.ShowDuration="60000"
-                ToolTip="{Binding EnableModText}"
+                ToolTip="{Binding EnableModHelpText}"
                 Foreground="White"
                 VerticalAlignment="Center"
                 Margin="14,0,0,0"/>
-      <ComboBox ItemsSource="{Binding PresetOptions}"
+      <ComboBox IsEnabled="{Binding CanChangePreset}"
+                Visibility="{Binding PresetVisibility}"
+                ItemsSource="{Binding PresetOptions}"
                 SelectedIndex="{Binding SelectedPreset, Mode=TwoWay}"
                 ToolTipService.ShowDuration="60000"
                 ToolTip="{Binding PresetHelpText}"
@@ -40,7 +42,7 @@
                 VerticalAlignment="Center"
                 Margin="14,0,0,0"/>
     </StackPanel>
-    <StackPanel IsEnabled="{Binding AreSettingsEditable}">
+    <StackPanel IsEnabled="{Binding CanEditClientSettings}">
       <TextBlock Text="{Binding TitleText}"
                  Foreground="#77AAFF"
                  FontWeight="Bold"

@@ -35,6 +35,9 @@ namespace SpawnCastle
         private double blueprintIconAlpha;
         private bool isCapturingHotkey;
 
+        protected override string ResolveSettingsUiText(string key, string fallback) =>
+            SpawnCastleLocalization.Get(key);
+
         public SpawnCastleSettingsViewModel(
             ManualLogSource log,
             string pluginAssemblyLocation)
@@ -95,7 +98,6 @@ namespace SpawnCastle
 
         public string ResetToDefaultText => SpawnCastleLocalization.Get("Common.ResetToDefault");
         public string EnableModText => SpawnCastleLocalization.Get("Common.EnableMod");
-        public string PresetHelpText => SpawnCastleLocalization.Get("Common.PresetHelp");
         public string TitleText => SpawnCastleLocalization.Get("SpawnCastle.Title");
         public string HelpText => SpawnCastleLocalization.Get("SpawnCastle.Help");
         public string CastleText => SpawnCastleLocalization.Get("SpawnCastle.Castle");

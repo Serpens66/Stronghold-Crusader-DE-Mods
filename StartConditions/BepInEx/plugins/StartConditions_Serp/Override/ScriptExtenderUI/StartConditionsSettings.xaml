@@ -4,24 +4,26 @@
   <ScrollViewer VerticalScrollBarVisibility="Auto">
     <StackPanel Margin="10">
       <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-        <Button IsEnabled="{Binding AreSettingsEditable}"
+        <Button IsEnabled="{Binding CanResetSettings}"
                 Content="{Binding ResetToDefaultText}"
-                Command="{Binding ResetToDefaultCommand}"
+                Command="{Binding ResetToDefaultCommand}" ToolTipService.ShowDuration="60000" ToolTip="{Binding ResetToDefaultHelpText}"
                 HorizontalAlignment="Left"
                 Padding="10,3"/>
-        <CheckBox IsEnabled="{Binding AreSettingsEditable}"
+        <CheckBox IsEnabled="{Binding CanEditHostSettings}"
                   IsChecked="{Binding EnableMod, Mode=TwoWay}"
-                  Content="{Binding EnableModText}"
+                  Content="{Binding EnableModText}" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableModHelpText}"
                   Foreground="White"
                   VerticalAlignment="Center"
                   Margin="14,0,0,0"/>
-        <ComboBox ItemsSource="{Binding PresetOptions}"
+        <ComboBox IsEnabled="{Binding CanChangePreset}" Visibility="{Binding PresetVisibility}" ItemsSource="{Binding PresetOptions}" ToolTipService.ShowDuration="60000" ToolTip="{Binding PresetHelpText}"
                   SelectedIndex="{Binding SelectedPreset, Mode=TwoWay}"
                   Width="170"
                   VerticalAlignment="Center"
                   Margin="14,0,0,0"/>
       </StackPanel>
-      <StackPanel IsEnabled="{Binding AreSettingsEditable}">
+      <TextBlock Text="{Binding HostReadOnlyNoticeText}" Visibility="{Binding HostReadOnlyNoticeVisibility}" Foreground="#FFCC66" FontWeight="Bold" Margin="0,0,0,8"/>
+      <TextBlock Text="{Binding HostOptionsText}" Foreground="#77AAFF" FontWeight="Bold" Margin="0,2,0,6"/>
+      <StackPanel IsEnabled="{Binding CanEditHostSettings}">
       <TextBlock Text="{Binding StartGoldTitleText}" Foreground="#77AAFF" FontWeight="Bold" Margin="0,0,0,8"/>
 
       <Grid>

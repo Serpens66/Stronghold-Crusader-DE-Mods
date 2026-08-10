@@ -92,6 +92,9 @@ namespace BuildingCosts
             "MAPPER_BEDOUIN_STOCKADE"
         };
 
+        protected override string ResolveSettingsUiText(string key, string fallback) =>
+            SerpLocalization.Get(key);
+
         public BuildingCostsLobbyViewModel()
         {
             CostEntries = CreateCostEntriesWithCallback(buildingCosts);

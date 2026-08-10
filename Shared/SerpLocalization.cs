@@ -8,6 +8,12 @@ public static class SerpLocalization
 {
     public const string ResetToDefault = "Common.ResetToDefault";
     public const string EnableMod = "Common.EnableMod";
+    public const string HostOptions = "Common.HostOptions";
+    public const string ClientOptions = "Common.ClientOptions";
+    public const string HostReadOnly = "Common.HostReadOnly";
+    public const string ResetToDefaultHelp = "Common.ResetToDefaultHelp";
+    public const string EnableModHelp = "Common.EnableModHelp";
+    public const string PresetHelp = "Common.PresetHelp";
     public const string Ai = "Common.Ai";
     public const string Human = "Common.Human";
     public const string LegacySomeSettingsWarning = "Common.LegacySomeSettingsWarning";
@@ -134,6 +140,20 @@ public static class SerpLocalization
     {
         { ResetToDefault, "Reset to Default" },
         { EnableMod, "Enable Mod" },
+        { HostOptions, "HOST OPTIONS" },
+        { ClientOptions, "LOCAL CLIENT OPTIONS" },
+        { HostReadOnly, "Values from host - read-only" },
+        { ResetToDefaultHelp, "Resets the settings you can control in the current context." },
+        { EnableModHelp, "Enables or disables this mod for the match." },
+        { PresetHelp, "Selects a saved preset. Clients change only their personal settings." },
+        { "BugfixesAndQoL.ClientInterfaceTitle", "INTERFACE AND CONTROLS" },
+        { "BugfixesAndQoL.AiAivTitle", "AI AND AIV" },
+        { "BugfixesAndQoL.TroopMovementTitle", "TROOP MOVEMENT" },
+        { "BugfixesAndQoL.PlagueTitle", "PLAGUE" },
+        { "SomeSettings.ComfortTitle", "CONVENIENCE FEATURES" },
+        { "SomeSettings.PlagueTitle", "PLAGUE" },
+        { "ImprovedHunters.BehaviorTitle", "BEHAVIOR" },
+        { "ImprovedHunters.TargetsYieldTitle", "TARGETS AND MEAT YIELD" },
         { Ai, "AI" },
         { Human, "Human" },
         { LegacySomeSettingsWarning, "ERROR: The obsolete mod SomeSettings_Serp is also loaded. Please uninstall SomeSettings_Serp to avoid duplicate or conflicting features." },

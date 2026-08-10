@@ -33,6 +33,9 @@ namespace ImprovedHunters
 
         public event Action<string> SettingChanged;
 
+        protected override string ResolveSettingsUiText(string key, string fallback) =>
+            SerpLocalization.Get(key);
+
         public ImprovedHuntersViewModel()
         {
             ResetToDefaultCommand = new RelayCommand(ResetToDefault);
@@ -43,6 +46,8 @@ namespace ImprovedHunters
         public string ResetToDefaultText => SerpLocalization.Get("Common.ResetToDefault");
         public string EnableModText => SerpLocalization.Get("Common.EnableMod");
         public string TitleText => SerpLocalization.Get("ImprovedHunters.Title");
+        public string BehaviorTitleText => SerpLocalization.Get("ImprovedHunters.BehaviorTitle");
+        public string TargetsYieldTitleText => SerpLocalization.Get("ImprovedHunters.TargetsYieldTitle");
         public string HelpText => SerpLocalization.Get("ImprovedHunters.Help");
         public string HuntText => SerpLocalization.Get("ImprovedHunters.Hunt");
         public string MeatText => SerpLocalization.Get("ImprovedHunters.Meat");

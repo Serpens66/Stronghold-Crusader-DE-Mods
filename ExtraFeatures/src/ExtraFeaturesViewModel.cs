@@ -38,6 +38,9 @@ namespace ExtraFeatures
         private bool preventEmergencyDemolition = true;
         private bool preventHovelDeletion = true;
 
+        protected override string ResolveSettingsUiText(string key, string fallback) =>
+            SerpLocalization.Get(key);
+
         public ExtraFeaturesViewModel(bool legacySomeSettingsLoaded)
         {
             LegacyModWarningVisibility = legacySomeSettingsLoaded ? Visibility.Visible : Visibility.Collapsed;
@@ -72,6 +75,8 @@ namespace ExtraFeatures
         public string ApothecaryPlagueSearchDistanceText => SerpLocalization.Get(SerpLocalization.ApothecaryPlagueSearchDistance);
         public string ApothecaryPlagueSearchDistanceHelpText => SerpLocalization.Get(SerpLocalization.ApothecaryPlagueSearchDistanceHelp);
         public string BulldozeTitleText => SerpLocalization.Get(SerpLocalization.BulldozeTitle);
+        public string ComfortTitleText => SerpLocalization.Get("SomeSettings.ComfortTitle");
+        public string PlagueTitleText => SerpLocalization.Get("SomeSettings.PlagueTitle");
         public string BulldozeHelpText => SerpLocalization.Get(SerpLocalization.BulldozeHelp);
         public string WoodRefundText => SerpLocalization.Get(SerpLocalization.WoodRefund);
         public string StoneRefundText => SerpLocalization.Get(SerpLocalization.StoneRefund);

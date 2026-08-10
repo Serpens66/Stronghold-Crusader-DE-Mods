@@ -23,6 +23,9 @@ namespace BugfixesAndQoL
         private readonly bool[] allowCameraMovementWithModifiersData = new bool[9];
         private readonly bool[] hdMarketViewData = new bool[9];
 
+        protected override string ResolveSettingsUiText(string key, string fallback) =>
+            SerpLocalization.Get(key);
+
         public BugfixesAndQoLViewModel(bool legacySomeSettingsLoaded)
         {
             LegacyModWarningVisibility = legacySomeSettingsLoaded ? Visibility.Visible : Visibility.Collapsed;
@@ -38,6 +41,10 @@ namespace BugfixesAndQoL
         public string EnableModText => SerpLocalization.Get(SerpLocalization.EnableMod);
         public string ResetToDefaultText => SerpLocalization.Get(SerpLocalization.ResetToDefault);
         public string AlwaysActiveTitleText => SerpLocalization.Get(SerpLocalization.AlwaysActiveTitle);
+        public string ClientInterfaceTitleText => SerpLocalization.Get("BugfixesAndQoL.ClientInterfaceTitle");
+        public string AiAivTitleText => SerpLocalization.Get("BugfixesAndQoL.AiAivTitle");
+        public string TroopMovementTitleText => SerpLocalization.Get("BugfixesAndQoL.TroopMovementTitle");
+        public string PlagueTitleText => SerpLocalization.Get("BugfixesAndQoL.PlagueTitle");
         public string AlwaysActiveHelpText => SerpLocalization.Get(SerpLocalization.AlwaysActiveHelp);
         public string AllowMinimapWhilePlacingBuildingText => SerpLocalization.Get(SerpLocalization.AllowMinimapWhilePlacingBuilding);
         public string AllowMinimapWhilePlacingBuildingHelpText => SerpLocalization.Get(SerpLocalization.AllowMinimapWhilePlacingBuildingHelp);
@@ -161,21 +168,20 @@ namespace BugfixesAndQoL
 
         private void ResetToDefault()
         {
-            RememberAiAivSettings = true;
-            EnableTroopMovementFix = true;
-            EnablePlaguePopularityFix = true;
-            EnablePlagueCloudRemovalFix = true;
-            EnableStuckApothecaryFix = true;
-            EnablePlagueTargetReservationFix = true;
-            SetAllowMinimapDefaults();
-            SetAllowCameraMovementWithModifiersDefaults();
-            SetHdMarketViewDefaults();
-            SettingChanged?.Invoke(nameof(AllowMinimapWhilePlacingBuilding));
-            OnPropertyChanged(nameof(AllowMinimapWhilePlacingBuilding));
-            SettingChanged?.Invoke(nameof(AllowCameraMovementWithModifiers));
-            OnPropertyChanged(nameof(AllowCameraMovementWithModifiers));
-            SettingChanged?.Invoke(nameof(HdMarketView));
-            OnPropertyChanged(nameof(HdMarketView));
+            if (CanEditHostSettings)
+            {
+                RememberAiAivSettings = true;
+                EnableTroopMovementFix = true;
+                EnablePlaguePopularityFix = true;
+                EnablePlagueCloudRemovalFix = true;
+                EnableStuckApothecaryFix = true;
+                EnablePlagueTargetReservationFix = true;
+            }
+
+            // Every participant resets only their own per-player preferences.
+            AllowMinimapWhilePlacingBuilding = true;
+            AllowCameraMovementWithModifiers = true;
+            HdMarketView = true;
         }
 
         private void SetSetting<T>(ref T field, T value, string propertyName)

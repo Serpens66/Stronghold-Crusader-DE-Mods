@@ -1,7 +1,7 @@
 # Spawn Castle localization
 Common.ResetToDefault=Reset to Default
 Common.EnableMod=Enable Mod
-Common.PresetHelp=Selects the local settings preset.
+Common.PresetHelp=Selects a saved preset. Clients change only their personal settings.
 Common.Clear=Clear
 SpawnCastle.Title=HUMAN CASTLE
 SpawnCastle.Help=Displays the selected AIVJSON as a local blueprint or spawns it in a new singleplayer game. All options in this mod remain local in multiplayer.
@@ -26,3 +26,9 @@ SpawnCastle.Hud.Unavailable=Blueprint: unavailable
 SpawnCastle.Hud.Loading=Blueprint: loading {0}/{1}
 SpawnCastle.Hud.On=Blueprint: on
 SpawnCastle.Hud.Off=Blueprint: off
+
+Common.HostOptions=HOST OPTIONS
+Common.ClientOptions=LOCAL CLIENT OPTIONS
+Common.HostReadOnly=Values from host - read-only
+Common.ResetToDefaultHelp=Resets the settings you can control in the current context.
+Common.EnableModHelp=Enables or disables this mod for the match.

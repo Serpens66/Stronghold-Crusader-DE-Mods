@@ -19,6 +19,9 @@ namespace RandomEvents
         private int fireMin = 1, fireMax = 10;
         private int multiplayerEventMode;
 
+        protected override string ResolveSettingsUiText(string key, string fallback) =>
+            RandomEventsLocalization.Get(key);
+
         public RandomEventsSettingsViewModel()
         {
             for (int index = 0; index < chances.Length; index++)
@@ -35,6 +38,8 @@ namespace RandomEvents
         public string CooldownText => RandomEventsLocalization.Get("RandomEvents.Cooldown");
         public string CooldownHelpText => RandomEventsLocalization.Get("RandomEvents.CooldownHelp");
         public string ChancesTitleText => RandomEventsLocalization.Get("RandomEvents.ChancesTitle");
+        public string ScheduleTitleText => RandomEventsLocalization.Get("RandomEvents.ScheduleTitle");
+        public string MultiplayerTitleText => RandomEventsLocalization.Get("RandomEvents.MultiplayerTitle");
         public string ChanceHelpText => RandomEventsLocalization.Get("RandomEvents.ChanceHelp");
         public string StrengthTitleText => RandomEventsLocalization.Get("RandomEvents.StrengthTitle");
         public string ScaledStrengthHelpText => RandomEventsLocalization.Get("RandomEvents.ScaledStrengthHelp");
