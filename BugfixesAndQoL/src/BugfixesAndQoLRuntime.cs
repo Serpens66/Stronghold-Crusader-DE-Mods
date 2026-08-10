@@ -18,6 +18,8 @@ namespace BugfixesAndQoL
         private CameraMovementModifierHook cameraMovementModifierHook;
         private AssemblyPointPlacementPatch assemblyPointPlacementPatch;
         private PlaguePopularityFix plaguePopularityFix;
+        private PlagueTreatmentFadeFix plagueTreatmentFadeFix;
+        private PlagueApothecaryStateTransitionFix plagueApothecaryStateTransitionFix;
         private IntPtr libraryHandle;
         private int libraryLength;
         private bool nativeLibraryAvailable;
@@ -27,6 +29,8 @@ namespace BugfixesAndQoL
         private bool enemyProximityFixedLayoutErrorLogged;
         private bool assemblyPointPlacementPatchUnavailable;
         private bool plaguePopularityFixUnavailable;
+        private bool plagueTreatmentFadeFixUnavailable;
+        private bool plagueApothecaryStateTransitionFixUnavailable;
 
         public BugfixesAndQoLRuntime(ManualLogSource log, BugfixesAndQoLViewModel settings)
         {
@@ -51,6 +55,8 @@ namespace BugfixesAndQoL
             nativeLibraryAvailable = true;
             troopMovementFixRuntime.InitializeNative(newLibraryHandle, memory, isFixedLayoutHashValidated);
             EnsurePlaguePopularityFix();
+            EnsurePlagueTreatmentFadeFix();
+            EnsurePlagueApothecaryStateTransitionFix();
             ApplyAssemblyPointPlacementPatchSetting();
         }
 
@@ -74,6 +80,10 @@ namespace BugfixesAndQoL
             DisableAssemblyPointPlacementPatch();
             plaguePopularityFix?.Dispose();
             plaguePopularityFix = null;
+            plagueTreatmentFadeFix?.Dispose();
+            plagueTreatmentFadeFix = null;
+            plagueApothecaryStateTransitionFix?.Dispose();
+            plagueApothecaryStateTransitionFix = null;
             troopMovementFixRuntime.Dispose();
             nativeLibraryAvailable = false;
             libraryHandle = IntPtr.Zero;
@@ -205,6 +215,56 @@ namespace BugfixesAndQoL
                 Shared.DebugLogHelper.LogError(
                     log,
                     $"Bugfixes and QoL plague popularity fix could not be installed; Vanilla behavior remains active: {ex}");
+            }
+        }
+
+        private void EnsurePlagueTreatmentFadeFix()
+        {
+            if (!nativeLibraryAvailable || plagueTreatmentFadeFix != null || plagueTreatmentFadeFixUnavailable)
+                return;
+
+            try
+            {
+                plagueTreatmentFadeFix = new PlagueTreatmentFadeFix(
+                    log,
+                    settings,
+                    GetNativeLibraryMemory(),
+                    unchecked((ulong)libraryHandle.ToInt64()));
+            }
+            catch (Exception ex)
+            {
+                plagueTreatmentFadeFixUnavailable = true;
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Bugfixes and QoL plague-cloud removal fix could not be installed; " +
+                    $"only this fix remains inactive and Vanilla treatment remains active: {ex}");
+            }
+        }
+
+        private void EnsurePlagueApothecaryStateTransitionFix()
+        {
+            if (!nativeLibraryAvailable ||
+                plagueApothecaryStateTransitionFix != null ||
+                plagueApothecaryStateTransitionFixUnavailable)
+            {
+                return;
+            }
+
+            try
+            {
+                plagueApothecaryStateTransitionFix = new PlagueApothecaryStateTransitionFix(
+                    log,
+                    settings,
+                    GetNativeLibraryMemory(),
+                    unchecked((ulong)libraryHandle.ToInt64()));
+            }
+            catch (Exception ex)
+            {
+                plagueApothecaryStateTransitionFixUnavailable = true;
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Bugfixes and QoL stuck-apothecary fix could not be installed; " +
+                    $"only this fix remains inactive and Vanilla behavior remains active: {ex}");
             }
         }
 
