@@ -42,6 +42,8 @@ namespace BugfixesAndQoL
             "41 5F 41 5E 41 5D 41 5C 5F C3 " +
             "CC CC CC CC CC CC CC CC CC CC CC CC " +
             "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 41 56 41 57 48 83 EC 30";
+        private const int DiseaseSearchRva = 0x9F6B0;
+        private const int HealerUpdateExitRva = 0x150107;
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate int DiseaseSearchDelegate(IntPtr projectileManager, int nativeUnitId);
@@ -72,17 +74,24 @@ namespace BugfixesAndQoL
             ManualLogSource log,
             BugfixesAndQoLViewModel settings,
             ReadOnlySpan<byte> memory,
-            ulong libraryBase)
+            ulong libraryBase,
+            bool referenceHashMatches)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
-            PlagueNativePatternValidator.ValidateUnique(
+            int diseaseSearchRva = PlagueNativePatternValidator.Resolve(
+                log,
                 memory,
                 DiseaseSearchPattern,
+                DiseaseSearchRva,
+                referenceHashMatches,
                 "apothecary nearest-disease search function");
-            PlagueNativePatternValidator.ValidateUnique(
+            int healerUpdateExitRva = PlagueNativePatternValidator.Resolve(
+                log,
                 memory,
                 HealerUpdateExitPattern,
+                HealerUpdateExitRva,
+                referenceHashMatches,
                 "apothecary update common exit");
 
             try
@@ -94,11 +103,11 @@ namespace BugfixesAndQoL
                     failureMode: TransactionFailureMode.RollbackAndThrow);
                 transaction.AddDetour(
                     ref diseaseSearchHook,
-                    DiseaseSearchPattern,
+                    libraryBase + unchecked((ulong)diseaseSearchRva),
                     FindNearestUnreservedDisease);
                 transaction.AddContextHook(
                     ref healerExitHook,
-                    HealerUpdateExitPattern,
+                    libraryBase + unchecked((ulong)healerUpdateExitRva),
                     ObserveCompletedHealerUpdate,
                     regs: X64SmartCPUContextRegs.Volatile | X64SmartCPUContextRegs.RBP,
                     errorMode: CallbackErrorMode.LogAndContinue,

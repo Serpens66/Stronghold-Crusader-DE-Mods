@@ -4,7 +4,6 @@ using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Runtime.InteropServices;
 using Zhuqiaomon.Hooks;
 using Zhuqiaomon.Hooks.Transaction;
@@ -37,6 +36,16 @@ namespace ActiveAIVDetector
             "48 8D 05 ?? ?? ?? ?? 41 B8 9C 00 00 00 48 03 D0";
         private const string ActiveLayoutIndexReferencePattern =
             "48 63 F2 48 8D 05 ?? ?? ?? ?? 4C 69 CE 3C 58 00 00";
+
+        private const int SelectBestFitRva = 0x54F10;
+        private const int TestSpecificCandidateRva = 0x54D90;
+        private const int LoadCandidateRva = 0x552D0;
+        private const int ApplyRotationRva = 0x56620;
+        private const int EvaluateCandidateFitRva = 0x57030;
+        private const int BuildingPlacementValidatorRva = 0x7B010;
+        private const int ExecuteBuildStepRva = 0x51740;
+        private const int OrganismRecordTableReferenceRva = 0x15A27;
+        private const int ActiveLayoutIndexReferenceRva = 0x55F14;
 
         private const int AivSpecStride = 0x6D98;
         private const int PlayerIdOffset = 0x04;
@@ -116,6 +125,7 @@ namespace ActiveAIVDetector
         private readonly OraclePrebuildTraceOptions prebuildTraceOptions;
         private readonly ulong organismRecordTableAddress;
         private readonly ulong activeLayoutIndexBaseAddress;
+        private readonly ulong nativeLibraryBase;
         private HookRef<X64ManagedFunctionDetourAOB<SelectBestFitDelegate>> selectBestFitHook =
             new HookRef<X64ManagedFunctionDetourAOB<SelectBestFitDelegate>>();
         private HookRef<X64ManagedFunctionDetourAOB<TestSpecificCandidateDelegate>> testSpecificCandidateHook =
@@ -172,11 +182,21 @@ namespace ActiveAIVDetector
                 throw new ArgumentNullException(nameof(onPrebuildFrameCaptured));
             this.prebuildTraceOptions = prebuildTraceOptions ??
                 throw new ArgumentNullException(nameof(prebuildTraceOptions));
+            nativeLibraryBase = unchecked((ulong)nativeLibraryHandle.ToInt64());
+            ValidateReference(nativeLibraryMemory, SelectBestFitPattern, SelectBestFitRva, "select best fit");
+            ValidateReference(nativeLibraryMemory, TestSpecificCandidatePattern, TestSpecificCandidateRva, "test specific candidate");
+            ValidateReference(nativeLibraryMemory, LoadCandidatePattern, LoadCandidateRva, "load candidate");
+            ValidateReference(nativeLibraryMemory, ApplyRotationPattern, ApplyRotationRva, "apply rotation");
+            ValidateReference(nativeLibraryMemory, EvaluateCandidateFitPattern, EvaluateCandidateFitRva, "evaluate candidate fit");
+            ValidateReference(nativeLibraryMemory, BuildingPlacementValidatorPattern, BuildingPlacementValidatorRva, "building placement validator");
+            if (prebuildTraceOptions.Enabled)
+                ValidateReference(nativeLibraryMemory, ExecuteBuildStepPattern, ExecuteBuildStepRva, "execute build step");
             organismRecordTableAddress = ResolveUniqueRipRelativeAddress(
                 nativeLibraryHandle,
                 nativeLibraryMemory,
                 "organism record table",
                 OrganismRecordTableReferencePattern,
+                OrganismRecordTableReferenceRva,
                 instructionOffset: 0,
                 requiredBytes: 4000 * OrganismRecordStride);
             activeLayoutIndexBaseAddress = ResolveUniqueRipRelativeAddress(
@@ -184,6 +204,7 @@ namespace ActiveAIVDetector
                 nativeLibraryMemory,
                 "active AIV layout index table",
                 ActiveLayoutIndexReferencePattern,
+                ActiveLayoutIndexReferenceRva,
                 instructionOffset: 3,
                 requiredBytes: 9 * PlayerRuntimeStateStride);
 
@@ -199,27 +220,27 @@ namespace ActiveAIVDetector
             if (transaction == null)
                 throw new ArgumentNullException(nameof(transaction));
 
-            transaction.AddDetour(ref selectBestFitHook, SelectBestFitPattern, SelectBestFit);
+            transaction.AddDetour(ref selectBestFitHook, nativeLibraryBase + SelectBestFitRva, SelectBestFit);
             transaction.AddDetour(
                 ref testSpecificCandidateHook,
-                TestSpecificCandidatePattern,
+                nativeLibraryBase + TestSpecificCandidateRva,
                 TestSpecificCandidate);
-            transaction.AddDetour(ref loadCandidateHook, LoadCandidatePattern, LoadCandidate);
-            transaction.AddDetour(ref applyRotationHook, ApplyRotationPattern, ApplyRotation);
+            transaction.AddDetour(ref loadCandidateHook, nativeLibraryBase + LoadCandidateRva, LoadCandidate);
+            transaction.AddDetour(ref applyRotationHook, nativeLibraryBase + ApplyRotationRva, ApplyRotation);
             transaction.AddDetour(
                 ref evaluateCandidateFitHook,
-                EvaluateCandidateFitPattern,
+                nativeLibraryBase + EvaluateCandidateFitRva,
                 EvaluateCandidateFit);
             transaction.AddDetour(
                 ref buildingPlacementValidatorHook,
-                BuildingPlacementValidatorPattern,
+                nativeLibraryBase + BuildingPlacementValidatorRva,
                 BuildingPlacementValidator);
             if (prebuildTraceOptions.Enabled)
             {
                 // Keep the extra native detour absent unless this one-run diagnostic is explicit.
                 transaction.AddDetour(
                     ref executeBuildStepHook,
-                    ExecuteBuildStepPattern,
+                    nativeLibraryBase + ExecuteBuildStepRva,
                     ExecuteBuildStep);
             }
         }
@@ -1015,43 +1036,16 @@ namespace ActiveAIVDetector
             return *(int*)((byte*)address + offset);
         }
 
-        private static ulong ResolveUniqueRipRelativeAddress(
+        private ulong ResolveUniqueRipRelativeAddress(
             IntPtr libraryHandle,
             ReadOnlySpan<byte> memory,
             string name,
             string pattern,
+            int referenceRva,
             int instructionOffset,
             int requiredBytes)
         {
-            PatternByte[] bytes = ParsePattern(pattern);
-            int match = -1;
-            int matches = 0;
-            for (int offset = 0; offset <= memory.Length - bytes.Length; offset++)
-            {
-                bool matched = true;
-                for (int index = 0; index < bytes.Length; index++)
-                {
-                    if (!bytes[index].Wildcard && memory[offset + index] != bytes[index].Value)
-                    {
-                        matched = false;
-                        break;
-                    }
-                }
-
-                if (!matched)
-                    continue;
-
-                match = offset;
-                matches++;
-                if (matches > 1)
-                    break;
-            }
-
-            if (matches != 1)
-            {
-                throw new InvalidOperationException(
-                    $"Native {name} signature expected one match but found {matches}.");
-            }
+            int match = ValidateReference(memory, pattern, referenceRva, name);
 
             IntPtr instruction = IntPtr.Add(libraryHandle, match + instructionOffset);
             int displacement = Marshal.ReadInt32(instruction, 3);
@@ -1068,35 +1062,19 @@ namespace ActiveAIVDetector
             return unchecked((ulong)target);
         }
 
-        private static PatternByte[] ParsePattern(string pattern)
+        private int ValidateReference(
+            ReadOnlySpan<byte> memory,
+            string pattern,
+            int referenceRva,
+            string name)
         {
-            string[] tokens = pattern.Split(
-                new[] { ' ' },
-                StringSplitOptions.RemoveEmptyEntries);
-            var bytes = new PatternByte[tokens.Length];
-            for (int index = 0; index < tokens.Length; index++)
-            {
-                string token = tokens[index];
-                bytes[index] = token == "?" || token == "??"
-                    ? new PatternByte(0, true)
-                    : new PatternByte(
-                        byte.Parse(token, NumberStyles.HexNumber, CultureInfo.InvariantCulture),
-                        false);
-            }
-
-            return bytes;
-        }
-
-        private readonly struct PatternByte
-        {
-            public PatternByte(byte value, bool wildcard)
-            {
-                Value = value;
-                Wildcard = wildcard;
-            }
-
-            public byte Value { get; }
-            public bool Wildcard { get; }
+            return Shared.NativePatternResolver.ResolveUnique(
+                memory,
+                pattern,
+                referenceRva,
+                referenceHashMatches: true,
+                name,
+                log).Rva;
         }
 
         private static void AddMissing(List<string> missing, bool success, string name)

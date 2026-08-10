@@ -101,6 +101,9 @@
     <Compile Include="..\Shared\DebugLogHelper.cs">
       <Link>Shared\DebugLogHelper.cs</Link>
     </Compile>
+    <Compile Include="..\Shared\NativePatternResolver.cs">
+      <Link>Shared\NativePatternResolver.cs</Link>
+    </Compile>
     <Compile Include="..\Shared\SerpLocalization.cs">
       <Link>Shared\SerpLocalization.cs</Link>
     </Compile>

@@ -1,7 +1,7 @@
 // Feature: Scale the native lifetime of all plague-cloud projectiles.
 using System;
 using System.Diagnostics;
-using System.Globalization;
+using BepInEx.Logging;
 using System.Runtime.InteropServices;
 using Zhuqiaomon.Windows;
 
@@ -14,6 +14,7 @@ namespace ExtraFeatures
 
         private const int VanillaLifetime = 800;
         private const int LifetimeImmediateOffset = 9;
+        private const int LifetimePatternRva = 0x9A114;
 
         // Disease update signature at reference RVA 0x9A114; the lifetime opcode
         // starts at RVA 0x9A11C and its immediate at RVA 0x9A11D for CrusaderDE.dll SHA-256
@@ -29,12 +30,22 @@ namespace ExtraFeatures
         private int expectedLifetime = VanillaLifetime;
         private bool disposed;
 
-        public PlagueDurationPatch(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
+        public PlagueDurationPatch(
+            ManualLogSource log,
+            IntPtr libraryHandle,
+            ReadOnlySpan<byte> memory,
+            bool referenceHashMatches)
         {
             if (libraryHandle == IntPtr.Zero || memory.Length == 0)
                 throw new ArgumentException("The Crusader library is unavailable.");
 
-            int matchOffset = FindUniquePattern(memory, LifetimePattern);
+            int matchOffset = Shared.NativePatternResolver.ResolveUnique(
+                memory,
+                LifetimePattern,
+                LifetimePatternRva,
+                referenceHashMatches,
+                "plague lifetime instruction",
+                log).Rva;
             int immediateOffset = checked(matchOffset + LifetimeImmediateOffset);
             if (immediateOffset < 0 || immediateOffset + sizeof(int) > memory.Length)
                 throw new InvalidOperationException("The plague lifetime immediate lies outside the game module.");
@@ -118,55 +129,6 @@ namespace ExtraFeatures
                 throw new InvalidOperationException(
                     $"The plague lifetime patch verification failed: expected={desiredLifetime}, actual={verifiedLifetime}.");
             }
-        }
-
-        private static int FindUniquePattern(ReadOnlySpan<byte> memory, string pattern)
-        {
-            string[] tokens = pattern.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-            int[] expected = new int[tokens.Length];
-            for (int index = 0; index < tokens.Length; index++)
-            {
-                if (tokens[index] == "??")
-                {
-                    expected[index] = -1;
-                    continue;
-                }
-
-                if (!byte.TryParse(tokens[index], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out byte value))
-                    throw new InvalidOperationException($"Invalid plague lifetime AOB token '{tokens[index]}'.");
-                expected[index] = value;
-            }
-
-            int matchOffset = -1;
-            int matchCount = 0;
-            for (int offset = 0; offset <= memory.Length - expected.Length; offset++)
-            {
-                bool matches = true;
-                for (int index = 0; index < expected.Length; index++)
-                {
-                    if (expected[index] >= 0 && memory[offset + index] != expected[index])
-                    {
-                        matches = false;
-                        break;
-                    }
-                }
-
-                if (!matches)
-                    continue;
-
-                matchOffset = offset;
-                matchCount++;
-                if (matchCount > 1)
-                    break;
-            }
-
-            if (matchCount != 1)
-            {
-                throw new InvalidOperationException(
-                    $"The plague lifetime signature matched {matchCount} times instead of exactly once.");
-            }
-
-            return matchOffset;
         }
 
         private static double ClampMultiplier(double value)

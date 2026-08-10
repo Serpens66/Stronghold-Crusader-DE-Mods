@@ -30,6 +30,8 @@ namespace BugfixesAndQoL
         private const string WorkingBuildingExitReferencePattern =
             "B8 6D 00 00 00 66 42 89 84 2B 18 09 00 00 8B D5 " +
             "66 42 C7 84 2B 86 09 00 00 20 FE";
+        private const int PeriodicDiseaseFoundRva = 0x14F82C;
+        private const int WorkingBuildingExitReferenceRva = 0x14F6C8;
 
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
@@ -42,17 +44,24 @@ namespace BugfixesAndQoL
             ManualLogSource log,
             BugfixesAndQoLViewModel settings,
             ReadOnlySpan<byte> memory,
-            ulong libraryBase)
+            ulong libraryBase,
+            bool referenceHashMatches)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
-            PlagueNativePatternValidator.ValidateUnique(
+            int periodicDiseaseFoundRva = PlagueNativePatternValidator.Resolve(
+                log,
                 memory,
                 PeriodicDiseaseFoundPattern,
+                PeriodicDiseaseFoundRva,
+                referenceHashMatches,
                 "apothecary state-2 disease-found branch");
-            PlagueNativePatternValidator.ValidateUnique(
+            PlagueNativePatternValidator.Resolve(
+                log,
                 memory,
                 WorkingBuildingExitReferencePattern,
+                WorkingBuildingExitReferenceRva,
+                referenceHashMatches,
                 "apothecary working state-2 building-exit reference");
 
             try
@@ -64,7 +73,7 @@ namespace BugfixesAndQoL
                     failureMode: TransactionFailureMode.RollbackAndThrow);
                 transaction.AddContextHook(
                     ref transitionHook,
-                    PeriodicDiseaseFoundPattern,
+                    libraryBase + unchecked((ulong)periodicDiseaseFoundRva),
                     CompleteVanillaStateTransition,
                     regs: X64SmartCPUContextRegs.Volatile | X64SmartCPUContextRegs.RBP,
                     errorMode: CallbackErrorMode.LogAndContinue,

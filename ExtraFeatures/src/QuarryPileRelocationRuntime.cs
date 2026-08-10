@@ -21,7 +21,6 @@ using System.Collections.Generic;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using Zhuqiaomon.Memory;
-using Zhuqiaomon.Memory.Scanners;
 
 namespace ExtraFeatures
 {
@@ -140,6 +139,7 @@ namespace ExtraFeatures
             "48 89 5C 24 08 8D 42 FF 41 8B D8 44 8B DA 4C 8B D1 83 F8 0C 0F 87 ?? ?? ?? ?? " +
             "48 98 48 8D 15 ?? ?? ?? ?? 8B 84 82 ?? ?? ?? ?? 48 03 C2 FF E0 49 63 C1 " +
             "8B 8C C2 ?? ?? ?? ?? 41 89 8A D0 B7 31 00";
+        private const int SetupBuildingEntrancesOffsetRva = 0xC0220;
 
         private delegate void SetUpInbuildingDelegate(MainViewModel self, int overridePanel, int overrideType);
 
@@ -179,22 +179,31 @@ namespace ExtraFeatures
 
         public QuarryPileRelocationButtonViewModel ButtonViewModel => buttonViewModel;
 
-        public void InstallNativeFunctions(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
+        public void InstallNativeFunctions(
+            IntPtr libraryHandle,
+            ReadOnlySpan<byte> memory,
+            bool referenceHashMatches)
         {
-            DataScanner scanner = DataScanner.Create(memory, unchecked((ulong)libraryHandle.ToInt64()));
-            scanner.Scan(SetupBuildingEntrancesOffsetPattern);
-            if (scanner.CurrentAddress == 0)
+            try
+            {
+                int rva = Shared.NativePatternResolver.ResolveUnique(
+                    memory,
+                    SetupBuildingEntrancesOffsetPattern,
+                    SetupBuildingEntrancesOffsetRva,
+                    referenceHashMatches,
+                    "quarry-pile Vanilla candidate helper",
+                    log).Rva;
+                setupBuildingEntrancesOffset = System.Runtime.InteropServices.Marshal.GetDelegateForFunctionPointer<SetupBuildingEntrancesOffsetDelegate>(
+                    IntPtr.Add(libraryHandle, rva));
+                LogInfo($"Vanilla candidate helper installed: rva=0x{rva:X}, candidatesPerTry={VanillaCandidateCount}, placementTries={VanillaMinimumPlacementTry}-{VanillaMaximumPlacementTry}.");
+            }
+            catch (Exception ex)
             {
                 setupBuildingEntrancesOffset = null;
                 Shared.DebugLogHelper.LogError(
                     log,
-                    "Extra Features quarry-pile Vanilla candidate helper was not found; relocation remains disabled.");
-                return;
+                    $"Extra Features quarry-pile Vanilla candidate helper was not resolved; relocation remains disabled: {ex}");
             }
-
-            setupBuildingEntrancesOffset = System.Runtime.InteropServices.Marshal.GetDelegateForFunctionPointer<SetupBuildingEntrancesOffsetDelegate>(
-                (IntPtr)scanner.CurrentAddress);
-            LogInfo($"Vanilla candidate helper installed: address=0x{scanner.CurrentAddress:X16}, candidatesPerTry={VanillaCandidateCount}, placementTries={VanillaMinimumPlacementTry}-{VanillaMaximumPlacementTry}.");
         }
 
         public void Initialize()

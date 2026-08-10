@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Spawn Castle",
   "Description": "Displays a local visual AIVJSON castle blueprint or spawns it through the game's native AIV pipeline.",
-  "Version": "0.3.40",
+  "Version": "0.3.41",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "0.3.41",
+      "Changes": [
+        "Use locally validated reference RVAs instead of full native signature scans on the supported DLL."
+      ]
+    },
     {
       "Version": "0.1.0",
       "Changes": [

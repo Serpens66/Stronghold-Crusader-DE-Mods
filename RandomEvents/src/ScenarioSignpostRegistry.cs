@@ -3,6 +3,7 @@ using SHCDESE.API;
 using SHCDESE.GameGlobals;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
+using Shared;
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
@@ -441,7 +442,7 @@ namespace RandomEvents
                 Marshal.WriteInt16(address, index * sizeof(short), values[index]);
         }
 
-        private static NativeLookupResolution ResolveLookup(ReadOnlySpan<byte> memory, bool referenceHashMatches)
+        private NativeLookupResolution ResolveLookup(ReadOnlySpan<byte> memory, bool referenceHashMatches)
         {
             List<string> failures = new List<string>();
 
@@ -449,15 +450,27 @@ namespace RandomEvents
             if (referenceHashMatches)
             {
                 if (TryValidateLookupCandidate(memory, ExpectedLookupFunctionRva, out int slotOffset, out string validationFailure))
+                {
+                    Shared.DebugLogHelper.LogInfo(
+                        log,
+                        $"Native address resolved: name=signpost lookup, method=reference-rva, rva=0x{ExpectedLookupFunctionRva:X}.");
                     return new NativeLookupResolution(slotOffset);
-                failures.Add($"reference RVA 0x{ExpectedLookupFunctionRva:X}: {validationFailure}");
+                }
+
+                throw new InvalidOperationException(
+                    $"reference RVA 0x{ExpectedLookupFunctionRva:X} failed local semantic validation: {validationFailure}");
             }
 
             try
             {
                 int match = NativePatternResolver.FindUniquePattern(memory, LookupPattern, "signpost lookup");
                 if (TryValidateLookupCandidate(memory, match, out int slotOffset, out string validationFailure))
+                {
+                    Shared.DebugLogHelper.LogInfo(
+                        log,
+                        $"Native address resolved: name=signpost lookup, method=signature-fallback, rva=0x{match:X}.");
                     return new NativeLookupResolution(slotOffset);
+                }
                 failures.Add($"semantic AOB candidate 0x{match:X} failed validation: {validationFailure}");
             }
             catch (Exception ex)
@@ -466,7 +479,12 @@ namespace RandomEvents
             }
 
             if (TryFindUniqueStructuralCandidate(memory, out int structuralRva, out int structuralSlotOffset, out int candidateCount))
+            {
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    $"Native address resolved: name=signpost lookup, method=structural-fallback, rva=0x{structuralRva:X}.");
                 return new NativeLookupResolution(structuralSlotOffset);
+            }
             failures.Add($"structural module scan found {candidateCount} validated candidates instead of one");
 
             throw new InvalidOperationException(string.Join(" | ", failures));

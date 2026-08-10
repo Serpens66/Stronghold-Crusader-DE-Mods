@@ -1,5 +1,6 @@
 using BepInEx.Logging;
 using SHCDESE.GameGlobals;
+using Shared;
 using System;
 using System.Runtime.InteropServices;
 
@@ -107,13 +108,15 @@ namespace RandomEvents
                     WildlifeHandlerPattern,
                     WildlifeHandlerRva,
                     referenceHashMatches,
-                    "Vanilla wildlife handler");
+                    "Vanilla wildlife handler",
+                    log);
                 NativeResolution branches = NativePatternResolver.ResolveUnique(
                     memory,
                     WildlifeBranchPattern,
                     WildlifeBranchRva,
                     referenceHashMatches,
-                    "Vanilla lion/rabbit source branches");
+                    "Vanilla lion/rabbit source branches",
+                    log);
                 if (branches.Rva < handler.Rva || branches.Rva > handler.Rva + 0x800)
                     throw new InvalidOperationException("validated lion/rabbit branches are outside the wildlife handler.");
 
@@ -295,15 +298,15 @@ namespace RandomEvents
                     throw new InvalidOperationException("native Vanilla presentation queue is unavailable.");
 
                 NativeResolution predicate = NativePatternResolver.ResolveUnique(
-                    memory, RabbitPredicatePattern, RabbitPredicateRva, referenceHashMatches, "Vanilla rabbit predicate");
+                    memory, RabbitPredicatePattern, RabbitPredicateRva, referenceHashMatches, "Vanilla rabbit predicate", log);
                 NativeResolution spawner = NativePatternResolver.ResolveUnique(
-                    memory, RabbitSpawnerPattern, RabbitSpawnerRva, referenceHashMatches, "Vanilla rabbit spawner");
+                    memory, RabbitSpawnerPattern, RabbitSpawnerRva, referenceHashMatches, "Vanilla rabbit spawner", log);
                 NativeResolution tileMask = NativePatternResolver.ResolveUnique(
-                    memory, RabbitTileMaskPattern, RabbitTileMaskRva, referenceHashMatches, "Vanilla rabbit tile mask");
+                    memory, RabbitTileMaskPattern, RabbitTileMaskRva, referenceHashMatches, "Vanilla rabbit tile mask", log);
                 NativeResolution wrapper = NativePatternResolver.ResolveUnique(
-                    memory, RabbitWrapperPattern, RabbitWrapperRva, referenceHashMatches, "Vanilla rabbit event wrapper");
+                    memory, RabbitWrapperPattern, RabbitWrapperRva, referenceHashMatches, "Vanilla rabbit event wrapper", log);
                 NativeResolution sourceWrite = NativePatternResolver.ResolveUnique(
-                    memory, RabbitSourceWritePattern, RabbitSourceWriteRva, referenceHashMatches, "Vanilla rabbit source write");
+                    memory, RabbitSourceWritePattern, RabbitSourceWriteRva, referenceHashMatches, "Vanilla rabbit source write", log);
                 if (tileMask.Rva < spawner.Rva || tileMask.Rva > spawner.Rva + 0x180)
                     throw new InvalidOperationException("validated rabbit tile mask is outside the rabbit spawner.");
                 if (!ContainsRelativeCallTo(memory, spawner.Rva, spawner.Rva + 0x180, wildlifeHandlerRva))
@@ -360,9 +363,9 @@ namespace RandomEvents
                     throw new InvalidOperationException("native Vanilla presentation queue is unavailable.");
 
                 NativeResolution lionCase = NativePatternResolver.ResolveUnique(
-                    memory, LionCasePattern, LionCaseRva, referenceHashMatches, "Vanilla lion spawn case");
+                    memory, LionCasePattern, LionCaseRva, referenceHashMatches, "Vanilla lion spawn case", log);
                 NativeResolution activation = NativePatternResolver.ResolveUnique(
-                    memory, LionActivationPattern, LionActivationRva, referenceHashMatches, "Vanilla lion activation write");
+                    memory, LionActivationPattern, LionActivationRva, referenceHashMatches, "Vanilla lion activation write", log);
                 if (lionCase.Rva < wildlifeHandlerRva || lionCase.Rva > wildlifeHandlerRva + 0x800)
                     throw new InvalidOperationException("validated lion case is outside the wildlife handler.");
                 if (!ContainsRelativeCallTo(memory, activation.Rva - 0x60, activation.Rva, wildlifeHandlerRva))
@@ -404,13 +407,15 @@ namespace RandomEvents
                     LionActionPointWrapperPattern,
                     LionActionPointWrapperRva,
                     referenceHashMatches,
-                    "Vanilla lion action-point wrapper");
+                    "Vanilla lion action-point wrapper",
+                    log);
                 NativeResolution handler = NativePatternResolver.ResolveUnique(
                     memory,
                     ActionPointHandlerPattern,
                     ActionPointHandlerRva,
                     referenceHashMatches,
-                    "Vanilla action-point handler");
+                    "Vanilla action-point handler",
+                    log);
 
                 int wrapperHandlerTarget = NativePatternResolver.ResolveRelativeTarget(
                     memory, wrapper.Rva + 26, wrapper.Rva + 30);

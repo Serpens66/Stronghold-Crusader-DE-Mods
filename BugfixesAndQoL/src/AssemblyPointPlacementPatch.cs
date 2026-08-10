@@ -4,7 +4,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
-using Zhuqiaomon.Memory.Scanners;
 using Zhuqiaomon.Windows;
 
 namespace BugfixesAndQoL
@@ -29,6 +28,14 @@ namespace BugfixesAndQoL
         private const string BedouinPlacementRejectPattern =
             "85 C9 0F 84 ?? ?? ?? ?? 8B 05 ?? ?? ?? ?? 05 AB FE FF FF";
 
+        private const int ConstructingFailureStatusRva = 0x9124E;
+        private const int EuropeanPlacementRejectRva = 0x92983;
+        private const int MercenaryPlacementRejectRva = 0x92890;
+        private const int EngineerPlacementRejectRva = 0x926AA;
+        private const int TunnelerPlacementRejectRva = 0x91290;
+        private const int KnightPlacementRejectRva = 0x9137F;
+        private const int BedouinPlacementRejectRva = 0x9279D;
+
         private static readonly byte[] ThreeNops = { 0x90, 0x90, 0x90 };
         private static readonly byte[] SixNops =
             { 0x90, 0x90, 0x90, 0x90, 0x90, 0x90 };
@@ -41,7 +48,8 @@ namespace BugfixesAndQoL
         public AssemblyPointPlacementPatch(
             ManualLogSource log,
             ReadOnlySpan<byte> memory,
-            ulong libraryBase)
+            ulong libraryBase,
+            bool referenceHashMatches)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
 
@@ -50,6 +58,8 @@ namespace BugfixesAndQoL
                 memory,
                 libraryBase,
                 ConstructingFailureStatusPattern,
+                ConstructingFailureStatusRva,
+                referenceHashMatches,
                 patternOffset: 22,
                 expectedOpcode: new byte[] { 0x0F, 0x44, 0xD8 },
                 replacement: ThreeNops,
@@ -58,31 +68,43 @@ namespace BugfixesAndQoL
                 memory,
                 libraryBase,
                 EuropeanPlacementRejectPattern,
+                EuropeanPlacementRejectRva,
+                referenceHashMatches,
                 "European troop placement rejection");
             AddPlacementPatch(
                 memory,
                 libraryBase,
                 MercenaryPlacementRejectPattern,
+                MercenaryPlacementRejectRva,
+                referenceHashMatches,
                 "mercenary troop placement rejection");
             AddPlacementPatch(
                 memory,
                 libraryBase,
                 EngineerPlacementRejectPattern,
+                EngineerPlacementRejectRva,
+                referenceHashMatches,
                 "engineer placement rejection");
             AddPlacementPatch(
                 memory,
                 libraryBase,
                 TunnelerPlacementRejectPattern,
+                TunnelerPlacementRejectRva,
+                referenceHashMatches,
                 "tunneler placement rejection");
             AddPlacementPatch(
                 memory,
                 libraryBase,
                 KnightPlacementRejectPattern,
+                KnightPlacementRejectRva,
+                referenceHashMatches,
                 "knight placement rejection");
             AddPlacementPatch(
                 memory,
                 libraryBase,
                 BedouinPlacementRejectPattern,
+                BedouinPlacementRejectRva,
+                referenceHashMatches,
                 "Bedouin troop placement rejection");
 
             int appliedCount = 0;
@@ -130,12 +152,16 @@ namespace BugfixesAndQoL
             ReadOnlySpan<byte> memory,
             ulong libraryBase,
             string pattern,
+            int referenceRva,
+            bool referenceHashMatches,
             string label)
         {
             patches.Add(CreatePatch(
                 memory,
                 libraryBase,
                 pattern,
+                referenceRva,
+                referenceHashMatches,
                 patternOffset: 2,
                 expectedOpcode: new byte[] { 0x0F, 0x84 },
                 replacement: SixNops,
@@ -156,24 +182,25 @@ namespace BugfixesAndQoL
                 $"replacement={ToHex(patch.ReplacementBytes)}.");
         }
 
-        private static NativeCodePatch CreatePatch(
+        private NativeCodePatch CreatePatch(
             ReadOnlySpan<byte> memory,
             ulong libraryBase,
             string pattern,
+            int referenceRva,
+            bool referenceHashMatches,
             int patternOffset,
             byte[] expectedOpcode,
             byte[] replacement,
             string label)
         {
-            DataScanner scanner = DataScanner.Create(memory, libraryBase);
-            scanner.Scan(pattern);
-            if (scanner.CurrentAddress == 0)
-            {
-                throw new InvalidOperationException(
-                    "The native " + label + " signature was not found.");
-            }
-
-            ulong address = scanner.CurrentAddress + unchecked((ulong)patternOffset);
+            int resolvedRva = Shared.NativePatternResolver.ResolveUnique(
+                memory,
+                pattern,
+                referenceRva,
+                referenceHashMatches,
+                label,
+                log).Rva;
+            ulong address = libraryBase + unchecked((ulong)(resolvedRva + patternOffset));
             int memoryOffset = checked((int)(address - libraryBase));
             if (memoryOffset < 0 ||
                 memoryOffset + replacement.Length > memory.Length)

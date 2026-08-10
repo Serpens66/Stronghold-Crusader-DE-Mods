@@ -1,9 +1,16 @@
+using BepInEx.Logging;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
 
-namespace RandomEvents
+namespace Shared
 {
+    internal enum NativePatternSearchScope
+    {
+        ExecutableSections,
+        EntireImage
+    }
+
     internal static class NativePatternResolver
     {
         private const uint ImageScnMemExecute = 0x20000000;
@@ -13,18 +20,77 @@ namespace RandomEvents
             string pattern,
             int referenceRva,
             bool referenceHashMatches,
-            string name)
+            string name,
+            ManualLogSource log = null,
+            NativePatternSearchScope searchScope = NativePatternSearchScope.ExecutableSections)
         {
             PatternByte[] bytes = ParsePattern(pattern);
-            if (referenceHashMatches && MatchesPatternAt(memory, referenceRva, bytes))
-                return new NativeResolution(referenceRva);
+            int rva;
+            string method;
 
-            int match = FindUniquePattern(memory, bytes, name);
-            return new NativeResolution(match);
+            if (referenceHashMatches)
+            {
+                // A matching SHA-256 makes the audited RVA authoritative; only verify its local bytes.
+                if (!MatchesPatternAt(memory, referenceRva, bytes))
+                {
+                    throw new InvalidOperationException(
+                        $"{name} reference RVA 0x{referenceRva:X} failed local byte validation on the audited DLL.");
+                }
+
+                rva = referenceRva;
+                method = "reference-rva";
+            }
+            else
+            {
+                rva = FindUniquePattern(memory, bytes, name, searchScope);
+                method = "signature-fallback";
+            }
+
+            DebugLogHelper.LogInfo(log, $"Native address resolved: name={name}, method={method}, rva=0x{rva:X}.");
+            return new NativeResolution(rva, method);
         }
 
-        public static int FindUniquePattern(ReadOnlySpan<byte> memory, string pattern, string name) =>
-            FindUniquePattern(memory, ParsePattern(pattern), name);
+        public static NativeResolution ResolveUnique(
+            ReadOnlySpan<byte> memory,
+            byte[] pattern,
+            int referenceRva,
+            bool referenceHashMatches,
+            string name,
+            ManualLogSource log = null,
+            NativePatternSearchScope searchScope = NativePatternSearchScope.EntireImage)
+        {
+            if (pattern == null || pattern.Length == 0)
+                throw new ArgumentException("Native byte pattern is empty.", nameof(pattern));
+
+            int rva;
+            string method;
+            if (referenceHashMatches)
+            {
+                if (!MatchesBytesAt(memory, referenceRva, pattern))
+                {
+                    throw new InvalidOperationException(
+                        $"{name} reference RVA 0x{referenceRva:X} failed local byte validation on the audited DLL.");
+                }
+
+                rva = referenceRva;
+                method = "reference-rva";
+            }
+            else
+            {
+                rva = FindUniqueBytes(memory, pattern, name, searchScope);
+                method = "signature-fallback";
+            }
+
+            DebugLogHelper.LogInfo(log, $"Native address resolved: name={name}, method={method}, rva=0x{rva:X}.");
+            return new NativeResolution(rva, method);
+        }
+
+        public static int FindUniquePattern(
+            ReadOnlySpan<byte> memory,
+            string pattern,
+            string name,
+            NativePatternSearchScope searchScope = NativePatternSearchScope.ExecutableSections) =>
+            FindUniquePattern(memory, ParsePattern(pattern), name, searchScope);
 
         public static bool MatchesPatternAt(ReadOnlySpan<byte> memory, int offset, string pattern) =>
             MatchesPatternAt(memory, offset, ParsePattern(pattern));
@@ -66,8 +132,7 @@ namespace RandomEvents
                 if (virtualAddress < 0 || virtualAddress >= memory.Length || length <= 0)
                     continue;
 
-                length = Math.Min(length, memory.Length - virtualAddress);
-                ranges.Add(new NativeCodeRange(virtualAddress, length));
+                ranges.Add(new NativeCodeRange(virtualAddress, Math.Min(length, memory.Length - virtualAddress)));
             }
 
             if (ranges.Count == 0)
@@ -75,10 +140,7 @@ namespace RandomEvents
             return ranges.ToArray();
         }
 
-        public static int ResolveRelativeTarget(
-            ReadOnlySpan<byte> memory,
-            int displacementRva,
-            int nextInstructionRva)
+        public static int ResolveRelativeTarget(ReadOnlySpan<byte> memory, int displacementRva, int nextInstructionRva)
         {
             if (displacementRva < 0 || displacementRva > memory.Length - sizeof(int))
                 throw new InvalidOperationException("relative native target displacement is outside the module image.");
@@ -98,12 +160,12 @@ namespace RandomEvents
         private static int FindUniquePattern(
             ReadOnlySpan<byte> memory,
             PatternByte[] pattern,
-            string name)
+            string name,
+            NativePatternSearchScope searchScope)
         {
             int match = -1;
             int count = 0;
-            // The loaded DLL has very large data ranges; update fallbacks only need executable PE sections.
-            foreach (NativeCodeRange range in GetExecutableCodeRanges(memory))
+            foreach (NativeCodeRange range in GetSearchRanges(memory, searchScope))
             {
                 int end = range.Offset + range.Length - pattern.Length;
                 for (int offset = range.Offset; offset <= end; offset++)
@@ -112,25 +174,67 @@ namespace RandomEvents
                         continue;
                     match = offset;
                     if (++count > 1)
-                        throw new InvalidOperationException($"{name} semantic AOB matched more than once in executable sections.");
+                        throw new InvalidOperationException($"{name} semantic AOB matched more than once.");
                 }
             }
 
             if (count != 1)
-                throw new InvalidOperationException($"{name} semantic AOB was not found in executable sections.");
+                throw new InvalidOperationException($"{name} semantic AOB was not found.");
             return match;
         }
 
-        private static bool MatchesPatternAt(
+        private static int FindUniqueBytes(
             ReadOnlySpan<byte> memory,
-            int offset,
-            PatternByte[] pattern)
+            byte[] pattern,
+            string name,
+            NativePatternSearchScope searchScope)
+        {
+            int match = -1;
+            int count = 0;
+            foreach (NativeCodeRange range in GetSearchRanges(memory, searchScope))
+            {
+                int end = range.Offset + range.Length - pattern.Length;
+                for (int offset = range.Offset; offset <= end; offset++)
+                {
+                    if (!MatchesBytesAt(memory, offset, pattern))
+                        continue;
+                    match = offset;
+                    if (++count > 1)
+                        throw new InvalidOperationException($"{name} byte pattern matched more than once.");
+                }
+            }
+
+            if (count != 1)
+                throw new InvalidOperationException($"{name} byte pattern was not found.");
+            return match;
+        }
+
+        private static NativeCodeRange[] GetSearchRanges(
+            ReadOnlySpan<byte> memory,
+            NativePatternSearchScope searchScope) =>
+            searchScope == NativePatternSearchScope.ExecutableSections
+                ? GetExecutableCodeRanges(memory)
+                : new[] { new NativeCodeRange(0, memory.Length) };
+
+        private static bool MatchesPatternAt(ReadOnlySpan<byte> memory, int offset, PatternByte[] pattern)
         {
             if (offset < 0 || offset > memory.Length - pattern.Length)
                 return false;
             for (int index = 0; index < pattern.Length; index++)
             {
                 if (!pattern[index].Wildcard && memory[offset + index] != pattern[index].Value)
+                    return false;
+            }
+            return true;
+        }
+
+        private static bool MatchesBytesAt(ReadOnlySpan<byte> memory, int offset, byte[] pattern)
+        {
+            if (offset < 0 || offset > memory.Length - pattern.Length)
+                return false;
+            for (int index = 0; index < pattern.Length; index++)
+            {
+                if (memory[offset + index] != pattern[index])
                     return false;
             }
             return true;
@@ -174,12 +278,14 @@ namespace RandomEvents
 
     internal readonly struct NativeResolution
     {
-        public NativeResolution(int rva)
+        public NativeResolution(int rva, string method)
         {
             Rva = rva;
+            Method = method;
         }
 
         public int Rva { get; }
+        public string Method { get; }
     }
 
     internal readonly struct NativeCodeRange

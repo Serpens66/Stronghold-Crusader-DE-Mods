@@ -2,6 +2,7 @@ using BepInEx.Logging;
 using SHCDESE.API;
 using SHCDESE.GameGlobals;
 using SHCDESE.Interop;
+using Shared;
 using System;
 using System.Runtime.InteropServices;
 
@@ -270,7 +271,8 @@ namespace RandomEvents
                     pattern,
                     referenceRva,
                     referenceHashMatches,
-                    name);
+                    name,
+                    log);
                 TDelegate handler = Marshal.GetDelegateForFunctionPointer(
                     AtRva(libraryHandle, resolution.Rva),
                     typeof(TDelegate)) as TDelegate;
@@ -297,7 +299,8 @@ namespace RandomEvents
                     PresentationCallsitePattern,
                     PresentationCallsiteRva,
                     referenceHashMatches,
-                    "event presentation callsite");
+                    "event presentation callsite",
+                    log);
                 int managerRva = NativePatternResolver.ResolveRelativeTarget(
                     memory,
                     callsite.Rva + 13,

@@ -1,4 +1,4 @@
-# Updating Bugfixes and QoL / Extra Features for a new CrusaderDE.dll
+# Updating Bugfixes and QoL for a new CrusaderDE.dll
 
 ## Audited baseline
 
@@ -6,66 +6,54 @@
 - DLL size: `3450880` bytes
 - SHA-256: `1E6D4C2E10CC35A7B8082A7E2BCD8BB20680EBEDA803D9B943257B948145CB2B`
 
-The plugin checks the hash silently. Only enabled features with unprovable raw
-layouts write one timestamped Error and remain inactive. Independently
-signature- and byte-validated features continue without a known hash.
+For this exact hash the mod validates each pattern only at its audited RVA and
+then registers or patches the direct address. A full scan must never run on this
+path. On another hash, independently validated features search executable PE
+sections for exactly one semantic pattern match. Fixed tribe/unit layouts remain
+inactive until a new DLL has been audited.
 
-## Plague audit
+## Native address map
 
-- The direct event handler sets the player's plague timer at resource offset
-  `+0x22AC` to 24, but does not reset the independent healing progress at
-  `+0x22C4`. Regular scenario events and RandomEvents both reach this Vanilla
-  path.
-- Vanilla popularity begins at `-150` internal points (`-6` in the UI) and
-  changes only in 25-point steps according to that healing progress. An
-  apothecary cure increments the progress, while natural `Disease` projectile
-  expiry does not. This explains both the permanent penalty and later events
-  inheriting completed healing progress.
-- One invocation of the herd function at RVA `0xD1780` selects one player-owned
-  building and creates 6-10 `Disease` projectiles. The fix records their slot
-  and global IDs as one herd and keeps it active until none remain alive.
-- All Vanilla plague branches converge at RVA `0xCB52C`. Before the overwritten
-  report write, `AX` holds Vanilla's signed plague component, `EDX` holds the
-  running popularity result after that component, and `R14D` holds the player
-  ID. Each nonzero Vanilla branch has already stored `EDX` at player-resource
-  offset `+0x12EC20`, so the fix must update both `EDX` and that authoritative
-  accumulator after replacing the component with `-25` per active herd.
-  Subsequent Vanilla factors and clamping remain unchanged.
+| Source pattern | Reference RVA | Use / offset |
+| --- | ---: | --- |
+| `ConstructingFailureStatusPattern` | `0x9124E` | preview patch at `+22` |
+| `EuropeanPlacementRejectPattern` | `0x92983` | rejection patch at `+2` |
+| `MercenaryPlacementRejectPattern` | `0x92890` | rejection patch at `+2` |
+| `EngineerPlacementRejectPattern` | `0x926AA` | rejection patch at `+2` |
+| `TunnelerPlacementRejectPattern` | `0x91290` | rejection patch at `+2` |
+| `KnightPlacementRejectPattern` | `0x9137F` | rejection patch at `+2` |
+| `BedouinPlacementRejectPattern` | `0x9279D` | rejection patch at `+2` |
+| `CreateHerdPattern` | `0xD1780` | plague-herd function detour |
+| `PopularityExitPattern` | `0xCB50C` | popularity hook at `+32` (`0xCB52C`) |
+| `AreaTreatmentPattern` | `0xA0420` | plague area-treatment detour |
+| `DiseaseSearchPattern` | `0x9F6B0` | nearest-disease detour |
+| `HealerUpdateExitPattern` | `0x150107` | healer common-exit context hook |
+| `PeriodicDiseaseFoundPattern` | `0x14F82C` | state-transition context hook |
+| `WorkingBuildingExitReferencePattern` | `0x14F6C8` | semantic reference only |
+| `SpearmanMovementDecisionPattern` | `0x143B39` | inline movement-decision hook |
+| `CalculateMovementSpeedPattern` | `0x19B1C0` | movement-speed detour |
+| `UnitTypeUpdateDispatchPattern` | `0x18406C` | dispatch-table reference |
+| `MovementCadencePattern` | `0x184163` | cadence context hook |
 
-## Hash-gated layouts
+The named constants in `src` contain the complete authoritative wildcard byte
+patterns. Every reference above was checked as one match in the baseline DLL.
 
-Revalidate these before approving a new hash:
+## Required update audit
 
-- knight stable fields `GameUnit +0x3D2/+0x3DC` and the stable-horse-release AOB;
-- tribe speed fields `GameTribe +0x542/+0x54E` and the native record relation
-  documented as public pointer `+0x2A` / complete record `+0x56C`;
-- troop movement detour fields including `+0x582`, `+0x65C`, `+0x660`, `+0x688`,
-  `+0x914`, `+0x916`, `+0x930`, `+0x99E`, and `+0xA64`;
-- quarry candidate fields `GameBuildingManager +0x31B7D0/+0x31B7D4` and the
-  `setupBuildingEntrancesOffset` AOB/ABI;
-- enemy-proximity ChoreManager flag `+0x870` and the cursor/range hook ABI.
+1. Hash the canonical installed DLL and record its Steam build ID and size.
+2. Resolve every table entry with `.tools/find_pe_pattern.py`; require exactly
+   one match and confirm the function, instruction boundary, ABI, registers and
+   pattern offset in the disassembly.
+3. Revalidate every original opcode before assembly-point writes and confirm
+   restoration remains safe.
+4. Revalidate plague manager/player/projectile fields and the popularity
+   accumulator at `+0x12EC20`.
+5. Revalidate fixed tribe and unit layouts, including tribe `+0x542/+0x54E` and
+   movement fields `+0x582`, `+0x65C`, `+0x660`, `+0x688`, `+0x914`, `+0x916`,
+   `+0x930`, `+0x99E` and `+0xA64`, before approving a new shared hash.
+6. Test each setting enabled and disabled, patch restoration, map reloads,
+   plague treatment/popularity, assembly points and synchronized movement.
+7. Update the RVAs first and the shared SHA-256 only after all fixed layouts pass.
 
-## Independently validated native code
-
-1. Revalidate the plague herd-creation detour at RVA `0xD1780` and the common
-   plague-popularity exit at RVA `0xCB52C`. On the audited DLL the herd function
-   creates one group of 6-10 `Disease` projectiles around the Vanilla-selected
-   building. At the popularity exit, `AX` contains Vanilla's signed plague
-   modifier, `EDX` contains popularity after that modifier, and `R14D` contains
-   the player ID. Both AOBs must match exactly once.
-2. Require exactly one semantic match for all AI-economy, troop movement,
-   quarry, knight, and assembly-point AOBs.
-3. For assembly-point patches, verify every original opcode byte before writing
-   and verify restoration behavior.
-4. For church worker counts, require one table match and verify the complete
-   Vanilla default table before changing it.
-5. Revalidate stack/register assumptions in AI-economy and movement detours,
-   even when their AOB still matches.
-6. Test every setting both enabled and disabled, map reload, multiplayer packet
-   formatters, knight mount/dismount, quarry relocation, and process-lifetime
-   hook rooting.
-7. Update the shared current hash only after every fixed layout listed above
-   passes. Do not gate independently validated features on that hash.
-
-Missing or ambiguous signatures and failed byte validation must continue to log
-Errors and leave the corresponding feature inactive.
+Missing, ambiguous or locally mismatching signatures must log a timestamped
+Error and leave only the affected feature inactive.

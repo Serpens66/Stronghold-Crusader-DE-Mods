@@ -6,7 +6,6 @@ using System.Runtime.InteropServices;
 using Zhuqiaomon.Extensions;
 using Zhuqiaomon.Hooks;
 using Zhuqiaomon.Hooks.Transaction;
-using Zhuqiaomon.Memory.Scanners;
 using static Iced.Intel.AssemblerRegisters;
 
 namespace BugfixesAndQoL
@@ -34,6 +33,7 @@ namespace BugfixesAndQoL
             "66 42 39 BC 3B 9E 09 00 00 " +
             "0F 85 ?? ?? ?? ?? 39 3D ?? ?? ?? ?? " +
             "74 16 41 83 FE 63";
+        private const int SpearmanMovementDecisionRva = 0x143B39;
 
         // The 20-byte hook ends immediately before the original conditional
         // jump to the Improved-Spearman running block.
@@ -51,15 +51,24 @@ namespace BugfixesAndQoL
         public SpearmanMovementPatch(
             ManualLogSource log,
             ReadOnlySpan<byte> memory,
-            ulong libraryBase)
+            ulong libraryBase,
+            bool referenceHashMatches)
         {
             if (log == null)
                 throw new ArgumentNullException(nameof(log));
 
-            ulong improvedSpearmanFlagAddress =
-                ResolveImprovedSpearmanFlagAddress(
-                    memory,
-                    libraryBase);
+            int decisionRva = Shared.NativePatternResolver.ResolveUnique(
+                memory,
+                SpearmanMovementDecisionPattern,
+                SpearmanMovementDecisionRva,
+                referenceHashMatches,
+                "Spearman movement decision",
+                log).Rva;
+            ulong decisionAddress = libraryBase + unchecked((ulong)decisionRva);
+            ulong improvedSpearmanFlagAddress = ResolveImprovedSpearmanFlagAddress(
+                memory,
+                libraryBase,
+                decisionAddress);
 
             transaction = new HookTransaction(
                 memory,
@@ -69,7 +78,7 @@ namespace BugfixesAndQoL
 
             transaction.AddInline(
                 ref movementDecisionHook,
-                SpearmanMovementDecisionPattern,
+                decisionAddress,
                 (assembler, instructions, returnAddress) =>
                     GenerateMovementDecision(
                         assembler,
@@ -106,17 +115,9 @@ namespace BugfixesAndQoL
 
         private static ulong ResolveImprovedSpearmanFlagAddress(
             ReadOnlySpan<byte> memory,
-            ulong libraryBase)
+            ulong libraryBase,
+            ulong decisionAddress)
         {
-            DataScanner scanner = DataScanner.Create(memory, libraryBase);
-            scanner.Scan(SpearmanMovementDecisionPattern);
-            if (scanner.CurrentAddress == 0)
-            {
-                throw new InvalidOperationException(
-                    "The native Spearman movement decision was not found.");
-            }
-
-            ulong decisionAddress = scanner.CurrentAddress;
             int displacement = Marshal.ReadInt32(
                 new IntPtr(unchecked((long)(
                     decisionAddress +

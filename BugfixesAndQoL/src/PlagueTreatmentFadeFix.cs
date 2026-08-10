@@ -26,6 +26,7 @@ namespace BugfixesAndQoL
             "39 79 04 0F 8E ?? ?? ?? ?? 48 89 5C 24 50 48 8D 99 26 01 00 00 " +
             "4C 89 64 24 58 4C 8D 25 ?? ?? ?? ?? 4C 89 74 24 60 " +
             "41 BE E8 03 00 00 4C 89 7C 24 68 45 8D 7E 10";
+        private const int AreaTreatmentRva = 0xA0420;
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate void AreaTreatmentDelegate(IntPtr projectileManager, int nativeUnitId);
@@ -43,13 +44,17 @@ namespace BugfixesAndQoL
             ManualLogSource log,
             BugfixesAndQoLViewModel settings,
             ReadOnlySpan<byte> memory,
-            ulong libraryBase)
+            ulong libraryBase,
+            bool referenceHashMatches)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
-            PlagueNativePatternValidator.ValidateUnique(
+            int areaTreatmentRva = PlagueNativePatternValidator.Resolve(
+                log,
                 memory,
                 AreaTreatmentPattern,
+                AreaTreatmentRva,
+                referenceHashMatches,
                 "plague area-treatment function");
 
             try
@@ -61,7 +66,7 @@ namespace BugfixesAndQoL
                     failureMode: TransactionFailureMode.RollbackAndThrow);
                 transaction.AddDetour(
                     ref areaTreatmentHook,
-                    AreaTreatmentPattern,
+                    libraryBase + unchecked((ulong)areaTreatmentRva),
                     TreatNearHealer);
                 transaction.Commit();
 

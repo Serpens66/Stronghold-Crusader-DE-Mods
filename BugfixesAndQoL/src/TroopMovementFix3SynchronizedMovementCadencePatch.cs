@@ -11,7 +11,6 @@ using Zhuqiaomon.Assembly;
 using Zhuqiaomon.Hooks;
 using Zhuqiaomon.Hooks.Transaction;
 using Zhuqiaomon.Memory;
-using Zhuqiaomon.Memory.Scanners;
 
 namespace BugfixesAndQoL
 {
@@ -54,6 +53,9 @@ namespace BugfixesAndQoL
         // mov r10d, dword ptr [r8+9A8h]
         private const string MovementCadencePattern =
             "41 0F BF 80 16 09 00 00 41 0F BF 88 A2 09 00 00 45 8B 90 A8 09 00 00";
+        private const int CalculateMovementSpeedRva = 0x19B1C0;
+        private const int UnitTypeUpdateDispatchRva = 0x18406C;
+        private const int MovementCadenceRva = 0x184163;
 
         private readonly ManualLogSource log;
         private readonly TryGetCadenceDelegate tryGetCadence;
@@ -95,7 +97,8 @@ namespace BugfixesAndQoL
             ulong libraryBase,
             TryGetCadenceDelegate tryGetCadence,
             Action<int> applyFastRecruitRallyMaximumSpeed,
-            TryApplyRallyCadenceDelegate tryApplyFastRecruitRallyCadence)
+            TryApplyRallyCadenceDelegate tryApplyFastRecruitRallyCadence,
+            bool referenceHashMatches)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.tryGetCadence =
@@ -118,7 +121,32 @@ namespace BugfixesAndQoL
                     "The native unit array is unavailable.");
             }
 
-            DiscoverRunningAnimationTransitions(memory, libraryBase);
+            int movementSpeedRva = Shared.NativePatternResolver.ResolveUnique(
+                memory,
+                CalculateMovementSpeedPattern,
+                CalculateMovementSpeedRva,
+                referenceHashMatches,
+                "movement-speed calculation",
+                log).Rva;
+            int dispatchRva = Shared.NativePatternResolver.ResolveUnique(
+                memory,
+                UnitTypeUpdateDispatchPattern,
+                UnitTypeUpdateDispatchRva,
+                referenceHashMatches,
+                "unit-type update dispatch",
+                log).Rva;
+            int cadenceRva = Shared.NativePatternResolver.ResolveUnique(
+                memory,
+                MovementCadencePattern,
+                MovementCadenceRva,
+                referenceHashMatches,
+                "movement cadence",
+                log).Rva;
+
+            DiscoverRunningAnimationTransitions(
+                memory,
+                libraryBase,
+                libraryBase + unchecked((ulong)dispatchRva));
 
             transaction = new HookTransaction(
                 memory,
@@ -128,12 +156,12 @@ namespace BugfixesAndQoL
 
             transaction.AddDetour(
                 ref movementSpeedHook,
-                CalculateMovementSpeedPattern,
+                libraryBase + unchecked((ulong)movementSpeedRva),
                 CalculateMovementSpeed);
 
             transaction.AddContextHook(
                 ref movementCadenceHook,
-                MovementCadencePattern,
+                libraryBase + unchecked((ulong)cadenceRva),
                 SynchronizeMovementCadence,
                 regs: X64SmartCPUContextRegs.Volatile,
                 errorMode: CallbackErrorMode.LogAndContinue,
@@ -337,17 +365,10 @@ namespace BugfixesAndQoL
 
         private void DiscoverRunningAnimationTransitions(
             ReadOnlySpan<byte> memory,
-            ulong libraryBase)
+            ulong libraryBase,
+            ulong dispatchInstructionAddress)
         {
-            DataScanner scanner = DataScanner.Create(memory, libraryBase);
-            scanner.Scan(UnitTypeUpdateDispatchPattern);
-            if (scanner.CurrentAddress == 0)
-            {
-                throw new InvalidOperationException(
-                    "The native unit-type update dispatch table was not found.");
-            }
-
-            int dispatchTableOffset = *(int*)(scanner.CurrentAddress + 4);
+            int dispatchTableOffset = *(int*)(dispatchInstructionAddress + 4);
             ulong dispatchTableAddress =
                 libraryBase + unchecked((uint)dispatchTableOffset);
             ulong moduleEnd =

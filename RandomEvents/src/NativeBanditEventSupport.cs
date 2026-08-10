@@ -1,6 +1,7 @@
 using BepInEx.Logging;
 using SHCDESE.API;
 using SHCDESE.Interop;
+using Shared;
 using System;
 using System.Runtime.InteropServices;
 
@@ -33,7 +34,8 @@ namespace RandomEvents
                     PenaltyWritePattern,
                     ReferencePenaltyWriteRva,
                     referenceHashMatches,
-                    "Vanilla bandit popularity-state write");
+                    "Vanilla bandit popularity-state write",
+                    log);
 
                 playerStride = NativePatternResolver.ReadInt32(memory, write.Rva + 3);
                 penaltyStateBaseOffset = NativePatternResolver.ReadInt32(memory, write.Rva + 29);

@@ -214,7 +214,8 @@ namespace BugfixesAndQoL
                     log,
                     settings,
                     GetNativeLibraryMemory(),
-                    unchecked((ulong)libraryHandle.ToInt64()));
+                    unchecked((ulong)libraryHandle.ToInt64()),
+                    fixedLayoutHashValidated);
             }
             catch (Exception ex)
             {
@@ -236,7 +237,8 @@ namespace BugfixesAndQoL
                     log,
                     settings,
                     GetNativeLibraryMemory(),
-                    unchecked((ulong)libraryHandle.ToInt64()));
+                    unchecked((ulong)libraryHandle.ToInt64()),
+                    fixedLayoutHashValidated);
             }
             catch (Exception ex)
             {
@@ -263,7 +265,8 @@ namespace BugfixesAndQoL
                     log,
                     settings,
                     GetNativeLibraryMemory(),
-                    unchecked((ulong)libraryHandle.ToInt64()));
+                    unchecked((ulong)libraryHandle.ToInt64()),
+                    fixedLayoutHashValidated);
             }
             catch (Exception ex)
             {
@@ -300,7 +303,8 @@ namespace BugfixesAndQoL
                     log,
                     settings,
                     GetNativeLibraryMemory(),
-                    unchecked((ulong)libraryHandle.ToInt64()));
+                    unchecked((ulong)libraryHandle.ToInt64()),
+                    fixedLayoutHashValidated);
                 plagueTreatmentFadeFix.SetTreatmentCompletedObserver(
                     plagueTargetReservationFix.OnTreatmentCompleted);
                 plagueTargetReservationFix.ApplySetting();
@@ -327,7 +331,8 @@ namespace BugfixesAndQoL
                 assemblyPointPlacementPatch = new AssemblyPointPlacementPatch(
                     log,
                     GetNativeLibraryMemory(),
-                    unchecked((ulong)libraryHandle.ToInt64()));
+                    unchecked((ulong)libraryHandle.ToInt64()),
+                    fixedLayoutHashValidated);
             }
             catch (Exception ex)
             {

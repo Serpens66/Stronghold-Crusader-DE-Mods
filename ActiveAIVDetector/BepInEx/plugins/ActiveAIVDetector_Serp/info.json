@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Active AIV Detector",
   "Description": "Diagnostic mod that logs the lord and AIVJSON selected by the native castle placement engine.",
-  "Version": "0.9.3",
+  "Version": "0.9.4",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "0.9.4",
+      "Changes": [
+        "Use locally validated reference RVAs instead of full native signature scans on the supported DLL."
+      ]
+    },
     {
       "Version": "0.9.3",
       "Changes": [

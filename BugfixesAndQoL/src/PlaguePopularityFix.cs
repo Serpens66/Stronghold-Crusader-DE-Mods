@@ -11,7 +11,6 @@ using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Runtime.InteropServices;
 using Zhuqiaomon.Assembly;
 using Zhuqiaomon.Hooks;
@@ -40,6 +39,9 @@ namespace BugfixesAndQoL
             "B9 E7 FF FF FF 0F 4E C1 03 D0 41 89 94 2C 20 EC 12 00 EB 0C " +
             "45 89 AC 2C 84 0E 13 00 41 0F B7 C5 " +
             "66 41 89 84 2C 78 0E 13 00 41 0F B7 84 2C 6E 0E 13 00";
+        private const int CreateHerdRva = 0xD1780;
+        private const int PopularityExitPatternRva = 0xCB50C;
+        private const int PopularityExitHookOffset = 32;
 
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
@@ -64,13 +66,16 @@ namespace BugfixesAndQoL
             ManualLogSource log,
             BugfixesAndQoLViewModel settings,
             ReadOnlySpan<byte> memory,
-            ulong libraryBase)
+            ulong libraryBase,
+            bool referenceHashMatches)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
 
-            ValidateUniquePattern(memory, CreateHerdPattern, "plague herd creation");
-            ValidateUniquePattern(memory, PopularityExitPattern, "plague popularity exit");
+            int createHerdRva = PlagueNativePatternValidator.Resolve(
+                log, memory, CreateHerdPattern, CreateHerdRva, referenceHashMatches, "plague herd creation");
+            int popularityExitPatternRva = PlagueNativePatternValidator.Resolve(
+                log, memory, PopularityExitPattern, PopularityExitPatternRva, referenceHashMatches, "plague popularity exit");
 
             try
             {
@@ -79,14 +84,16 @@ namespace BugfixesAndQoL
                     libraryBase,
                     loggerFactory: null,
                     failureMode: TransactionFailureMode.RollbackAndThrow);
-                transaction.AddDetour(ref createHerdHook, CreateHerdPattern, CreatePlagueHerd);
+                transaction.AddDetour(
+                    ref createHerdHook,
+                    libraryBase + unchecked((ulong)createHerdRva),
+                    CreatePlagueHerd);
                 transaction.AddContextHook(
                     ref popularityExitHook,
-                    PopularityExitPattern,
+                    libraryBase + unchecked((ulong)(popularityExitPatternRva + PopularityExitHookOffset)),
                     CorrectPlaguePopularity,
                     regs: X64SmartCPUContextRegs.Volatile | X64SmartCPUContextRegs.RBP |
                         X64SmartCPUContextRegs.R12 | X64SmartCPUContextRegs.R14,
-                    patternOffset: 32,
                     errorMode: CallbackErrorMode.LogAndContinue,
                     placement: OverwrittenInstructionPlacement.AfterCallback);
                 transaction.Commit();
@@ -488,47 +495,6 @@ namespace BugfixesAndQoL
         }
 
         private static bool IsValidPlayerId(int playerId) => playerId >= 1 && playerId <= MaximumPlayerId;
-
-        private static void ValidateUniquePattern(ReadOnlySpan<byte> memory, string pattern, string name)
-        {
-            string[] tokens = pattern.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-            int[] expected = new int[tokens.Length];
-            for (int index = 0; index < tokens.Length; index++)
-            {
-                if (tokens[index] == "??")
-                {
-                    expected[index] = -1;
-                    continue;
-                }
-
-                if (!byte.TryParse(tokens[index], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out byte value))
-                    throw new InvalidOperationException($"Invalid AOB token '{tokens[index]}' in {name}.");
-                expected[index] = value;
-            }
-
-            int matchCount = 0;
-            for (int offset = 0; offset <= memory.Length - expected.Length; offset++)
-            {
-                bool matches = true;
-                for (int index = 0; index < expected.Length; index++)
-                {
-                    if (expected[index] >= 0 && memory[offset + index] != expected[index])
-                    {
-                        matches = false;
-                        break;
-                    }
-                }
-
-                if (!matches)
-                    continue;
-                matchCount++;
-                if (matchCount > 1)
-                    break;
-            }
-
-            if (matchCount != 1)
-                throw new InvalidOperationException($"The {name} signature matched {matchCount} times instead of exactly once.");
-        }
 
         private sealed class HerdCapture
         {

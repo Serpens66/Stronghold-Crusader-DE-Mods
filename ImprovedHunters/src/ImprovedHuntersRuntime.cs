@@ -10,7 +10,6 @@ using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Globalization;
 using Zhuqiaomon.Assembly.Stateful;
 using Zhuqiaomon.Memory;
 
@@ -44,6 +43,8 @@ namespace ImprovedHunters
         private const string CamelDespawnTickTimePattern = "66 83 FE 6E 75 4D FE 84 2B 86 09 00 00 B9 ? ? ? ? 38 8C 2B 86 09 00 00";
         private const string ChickenDespawnTickTimePattern = "66 83 FF 6E 75 55 FE 84 2B 86 09 00 00 B9 ? ? ? ? 66 FF 84 2B 20 09 00 00";
         private const int ExtraDespawnPatternImmediateOffset = 13;
+        private const int CamelDespawnTickTimeRva = 0x158418;
+        private const int ChickenDespawnTickTimeRva = 0x1633C5;
 
         // The BepInEx plugin component is short-lived in SHCDE, so all repeating
         // work is driven from persistent Script Extender events and Stopwatch.
@@ -1755,12 +1756,14 @@ namespace ImprovedHunters
                 memory,
                 imageBase,
                 "camel despawn immediate",
-                CamelDespawnTickTimePattern);
+                CamelDespawnTickTimePattern,
+                CamelDespawnTickTimeRva);
             chickenDespawnTickTime = FindExtraDespawnImmediate(
                 memory,
                 imageBase,
                 "chicken despawn immediate",
-                ChickenDespawnTickTimePattern);
+                ChickenDespawnTickTimePattern,
+                ChickenDespawnTickTimeRva);
 
             if (camelDespawnTickTime != null)
                 originalCamelDespawnTicks = camelDespawnTickTime.GetValue();
@@ -1775,11 +1778,18 @@ namespace ImprovedHunters
             ReadOnlySpan<byte> memory,
             ulong imageBase,
             string name,
-            string pattern)
+            string pattern,
+            int referenceRva)
         {
             try
             {
-                long offset = FindUniquePattern(memory, name, pattern);
+                int offset = Shared.NativePatternResolver.ResolveUnique(
+                    memory,
+                    pattern,
+                    referenceRva,
+                    referenceHashMatches: true,
+                    name,
+                    log).Rva;
 
                 return new ManagedAssemblyImmediate<short>(
                     new IntPtr(unchecked((long)(imageBase + (ulong)offset + ExtraDespawnPatternImmediateOffset))),
@@ -1794,60 +1804,6 @@ namespace ImprovedHunters
                     $"Improved Hunters failed to initialize {name}; this native patch remains inactive: {exception}");
                 return null;
             }
-        }
-
-        private static long FindUniquePattern(
-            ReadOnlySpan<byte> memory,
-            string name,
-            string pattern)
-        {
-            string[] tokens = pattern.Split(
-                new[] { ' ' },
-                StringSplitOptions.RemoveEmptyEntries);
-            var values = new byte[tokens.Length];
-            var wildcards = new bool[tokens.Length];
-            for (int index = 0; index < tokens.Length; index++)
-            {
-                wildcards[index] = tokens[index] == "?" || tokens[index] == "??";
-                if (!wildcards[index])
-                {
-                    values[index] = byte.Parse(
-                        tokens[index],
-                        NumberStyles.HexNumber,
-                        CultureInfo.InvariantCulture);
-                }
-            }
-
-            long match = -1;
-            int matchCount = 0;
-            for (int offset = 0; offset <= memory.Length - values.Length; offset++)
-            {
-                bool matched = true;
-                for (int index = 0; index < values.Length; index++)
-                {
-                    if (!wildcards[index] && memory[offset + index] != values[index])
-                    {
-                        matched = false;
-                        break;
-                    }
-                }
-
-                if (!matched)
-                    continue;
-
-                match = offset;
-                matchCount++;
-                if (matchCount > 1)
-                    break;
-            }
-
-            if (matchCount != 1)
-            {
-                throw new InvalidOperationException(
-                    $"Native {name} signature expected one match but found {matchCount}.");
-            }
-
-            return match;
         }
 
         private void ApplyDespawnPatches()

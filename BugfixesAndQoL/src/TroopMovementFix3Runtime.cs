@@ -194,7 +194,8 @@ namespace BugfixesAndQoL
                         unchecked((ulong)libraryHandle.ToInt64()),
                         TryGetCadence,
                         MovementCadenceIntegration.ApplyFastRecruitMaximumSpeed,
-                        MovementCadenceIntegration.TryApplyFastRecruitCadence);
+                        MovementCadenceIntegration.TryApplyFastRecruitCadence,
+                        fixedLayoutHashValidated);
 
                 cadencePatch = newCadencePatch;
                 MovementCadenceIntegration.SetCadencePatch(newCadencePatch);
@@ -220,7 +221,8 @@ namespace BugfixesAndQoL
                 newSpearmanMovementPatch = new SpearmanMovementPatch(
                     log,
                     memory,
-                    unchecked((ulong)libraryHandle.ToInt64()));
+                    unchecked((ulong)libraryHandle.ToInt64()),
+                    fixedLayoutHashValidated);
 
                 newSubscriptions.Add(
                     TribeR3EventHooks.OnTribeAssignUnit.Observable

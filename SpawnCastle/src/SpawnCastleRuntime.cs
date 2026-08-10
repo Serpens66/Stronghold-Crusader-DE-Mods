@@ -9,7 +9,6 @@ using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.IO;
 using System.Runtime.InteropServices;
 
@@ -54,6 +53,16 @@ namespace SpawnCastle
             "42 8B 44 2F 0C 48 8D 0D ?? ?? ?? ?? " +
             "44 8B 0D ?? ?? ?? ?? 8B D6 44 8B 05 ?? ?? ?? ?? " +
             "C6 44 24 38 00 89 44 24 30 B8 3D 00 00 00";
+
+        private const int AllocateSpecRva = 0x50630;
+        private const int SetPlacementRva = 0x54E70;
+        private const int SelectBestFitRva = 0x54F10;
+        private const int TestSpecificCandidateRva = 0x54D90;
+        private const int PrepareLayoutRva = 0x53CB0;
+        private const int ExecuteToPercentageRva = 0x55F00;
+        private const int AivStateReferenceRva = 0x95C4F;
+        private const int PrebuiltPlayersReferenceRva = 0x95FA8;
+        private const int PreparedKeepCoordinatesReferenceRva = 0x95E53;
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate int AllocateSpecDelegate(IntPtr aivState, int playerId);
@@ -630,34 +639,41 @@ namespace SpawnCastle
                 libraryHandle,
                 memory,
                 nameof(AllocateSpecDelegate),
-                AllocateSpecPattern);
+                AllocateSpecPattern,
+                AllocateSpecRva);
             allocateSpec = Marshal.GetDelegateForFunctionPointer<AllocateSpecDelegate>(
                 allocateAddress);
             setPlacement = Bind<SetPlacementDelegate>(
                 libraryHandle,
                 memory,
-                SetPlacementPattern);
+                SetPlacementPattern,
+                SetPlacementRva);
             selectBestFit = Bind<SelectBestFitDelegate>(
                 libraryHandle,
                 memory,
-                SelectBestFitPattern);
+                SelectBestFitPattern,
+                SelectBestFitRva);
             testSpecificCandidate = Bind<TestSpecificCandidateDelegate>(
                 libraryHandle,
                 memory,
-                TestSpecificCandidatePattern);
+                TestSpecificCandidatePattern,
+                TestSpecificCandidateRva);
             prepareLayout = Bind<PrepareLayoutDelegate>(
                 libraryHandle,
                 memory,
-                PrepareLayoutPattern);
+                PrepareLayoutPattern,
+                PrepareLayoutRva);
             executeToPercentage = Bind<ExecuteToPercentageDelegate>(
                 libraryHandle,
                 memory,
-                ExecuteToPercentagePattern);
+                ExecuteToPercentagePattern,
+                ExecuteToPercentageRva);
 
-            int stateReferenceOffset = FindUniquePattern(
+            int stateReferenceOffset = ResolveReferenceRva(
                 memory,
                 nameof(aivState),
-                AivStateReferencePattern);
+                AivStateReferencePattern,
+                AivStateReferenceRva);
             IntPtr stateReferenceInstruction = IntPtr.Add(
                 libraryHandle,
                 stateReferenceOffset + 4);
@@ -681,10 +697,11 @@ namespace SpawnCastle
                     instructionLength: 7),
                 4);
 
-            int prebuiltReferenceOffset = FindUniquePattern(
+            int prebuiltReferenceOffset = ResolveReferenceRva(
                 memory,
                 nameof(prebuiltPlayersBitField),
-                PrebuiltPlayersReferencePattern);
+                PrebuiltPlayersReferencePattern,
+                PrebuiltPlayersReferenceRva);
             IntPtr prebuiltReferenceInstruction = IntPtr.Add(
                 libraryHandle,
                 prebuiltReferenceOffset);
@@ -693,10 +710,11 @@ namespace SpawnCastle
                 displacementOffset: 2,
                 instructionLength: 6);
 
-            int preparedKeepReferenceOffset = FindUniquePattern(
+            int preparedKeepReferenceOffset = ResolveReferenceRva(
                 memory,
                 "prepared Keep coordinates",
-                PreparedKeepCoordinatesReferencePattern);
+                PreparedKeepCoordinatesReferencePattern,
+                PreparedKeepCoordinatesReferenceRva);
             IntPtr preparedKeepReference = IntPtr.Add(
                 libraryHandle,
                 preparedKeepReferenceOffset);
@@ -722,84 +740,44 @@ namespace SpawnCastle
         private T Bind<T>(
             IntPtr libraryHandle,
             ReadOnlySpan<byte> memory,
-            string pattern)
+            string pattern,
+            int referenceRva)
             where T : Delegate
         {
             IntPtr address = ResolveUniqueAddress(
                 libraryHandle,
                 memory,
                 typeof(T).Name,
-                pattern);
+                pattern,
+                referenceRva);
             return Marshal.GetDelegateForFunctionPointer<T>(address);
         }
 
-        private static IntPtr ResolveUniqueAddress(
+        private IntPtr ResolveUniqueAddress(
             IntPtr libraryHandle,
             ReadOnlySpan<byte> memory,
             string name,
-            string pattern)
+            string pattern,
+            int referenceRva)
         {
             return IntPtr.Add(
                 libraryHandle,
-                FindUniquePattern(memory, name, pattern));
+                ResolveReferenceRva(memory, name, pattern, referenceRva));
         }
 
-        private static int FindUniquePattern(
+        private int ResolveReferenceRva(
             ReadOnlySpan<byte> memory,
             string name,
-            string pattern)
+            string pattern,
+            int referenceRva)
         {
-            PatternByte[] bytes = ParsePattern(pattern);
-            int match = -1;
-            int matchCount = 0;
-            for (int offset = 0; offset <= memory.Length - bytes.Length; offset++)
-            {
-                bool matches = true;
-                for (int index = 0; index < bytes.Length; index++)
-                {
-                    if (!bytes[index].Wildcard &&
-                        memory[offset + index] != bytes[index].Value)
-                    {
-                        matches = false;
-                        break;
-                    }
-                }
-
-                if (!matches)
-                    continue;
-
-                match = offset;
-                matchCount++;
-                if (matchCount > 1)
-                    break;
-            }
-
-            if (matchCount != 1)
-            {
-                throw new InvalidOperationException(
-                    $"Native signature '{name}' expected one match but found {matchCount}.");
-            }
-
-            return match;
-        }
-
-        private static PatternByte[] ParsePattern(string pattern)
-        {
-            string[] tokens = pattern.Split(
-                new[] { ' ' },
-                StringSplitOptions.RemoveEmptyEntries);
-            var result = new PatternByte[tokens.Length];
-            for (int index = 0; index < tokens.Length; index++)
-            {
-                string token = tokens[index];
-                result[index] = token == "?" || token == "??"
-                    ? new PatternByte(0, true)
-                    : new PatternByte(
-                        byte.Parse(token, NumberStyles.HexNumber, CultureInfo.InvariantCulture),
-                        false);
-            }
-
-            return result;
+            return Shared.NativePatternResolver.ResolveUnique(
+                memory,
+                pattern,
+                referenceRva,
+                referenceHashMatches: true,
+                name,
+                log).Rva;
         }
 
         private static IntPtr ResolveRipRelativeAddress(
@@ -1152,17 +1130,6 @@ namespace SpawnCastle
             public int Count { get; }
         }
 
-        private readonly struct PatternByte
-        {
-            public PatternByte(byte value, bool wildcard)
-            {
-                Value = value;
-                Wildcard = wildcard;
-            }
-
-            public byte Value { get; }
-            public bool Wildcard { get; }
-        }
 
         private sealed class GameModeSnapshot
         {

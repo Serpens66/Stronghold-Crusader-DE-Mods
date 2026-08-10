@@ -2,7 +2,6 @@
 using BepInEx.Logging;
 using SHCDESE.Interop;
 using System;
-using System.Globalization;
 using System.Runtime.InteropServices;
 using Zhuqiaomon.Assembly;
 using Zhuqiaomon.Hooks;
@@ -26,6 +25,7 @@ namespace ExtraFeatures
         private const string BuildingDistanceComparisonPattern =
             "83 3D ?? ?? ?? ?? 1E 7F ?? 0F BF 4B 1C 48 8D 15 ?? ?? ?? ?? " +
             "44 0F BF 4B 1A 49 69 C4 90 04 00 00";
+        private const int BuildingDistanceComparisonRva = 0x9F81B;
 
         private readonly ManualLogSource log;
         private readonly ExtraFeaturesViewModel settings;
@@ -39,14 +39,21 @@ namespace ExtraFeatures
             ManualLogSource log,
             ExtraFeaturesViewModel settings,
             IntPtr libraryHandle,
-            ReadOnlySpan<byte> memory)
+            ReadOnlySpan<byte> memory,
+            bool referenceHashMatches)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
             if (libraryHandle == IntPtr.Zero || memory.Length == 0)
                 throw new ArgumentException("The Crusader library is unavailable.");
 
-            int matchOffset = FindUniquePattern(memory, BuildingDistanceComparisonPattern);
+            int matchOffset = Shared.NativePatternResolver.ResolveUnique(
+                memory,
+                BuildingDistanceComparisonPattern,
+                BuildingDistanceComparisonRva,
+                referenceHashMatches,
+                "apothecary plague-search range comparison",
+                log).Rva;
             long moduleBase = libraryHandle.ToInt64();
             int displacement = ReadInt32LittleEndian(
                 memory,
@@ -142,55 +149,6 @@ namespace ExtraFeatures
                 log,
                 $"Extra Features apothecary plague-search range is disabled for this process; " +
                 $"Vanilla distance 30 and all other features remain active: {failure}");
-        }
-
-        private static int FindUniquePattern(ReadOnlySpan<byte> memory, string pattern)
-        {
-            string[] tokens = pattern.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-            int[] expected = new int[tokens.Length];
-            for (int index = 0; index < tokens.Length; index++)
-            {
-                if (tokens[index] == "??")
-                {
-                    expected[index] = -1;
-                    continue;
-                }
-
-                if (!byte.TryParse(tokens[index], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out byte value))
-                    throw new InvalidOperationException($"Invalid apothecary range AOB token '{tokens[index]}'.");
-                expected[index] = value;
-            }
-
-            int matchOffset = -1;
-            int matchCount = 0;
-            for (int offset = 0; offset <= memory.Length - expected.Length; offset++)
-            {
-                bool matches = true;
-                for (int index = 0; index < expected.Length; index++)
-                {
-                    if (expected[index] >= 0 && memory[offset + index] != expected[index])
-                    {
-                        matches = false;
-                        break;
-                    }
-                }
-
-                if (!matches)
-                    continue;
-
-                matchOffset = offset;
-                matchCount++;
-                if (matchCount > 1)
-                    break;
-            }
-
-            if (matchCount != 1)
-            {
-                throw new InvalidOperationException(
-                    $"The apothecary plague-search range signature matched {matchCount} times instead of exactly once.");
-            }
-
-            return matchOffset;
         }
 
         private static int ReadInt32LittleEndian(ReadOnlySpan<byte> bytes, int offset)

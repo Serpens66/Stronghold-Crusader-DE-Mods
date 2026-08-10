@@ -109,6 +109,9 @@
     <Compile Include="..\Shared\DebugLogHelper.cs">
       <Link>Shared\DebugLogHelper.cs</Link>
     </Compile>
+    <Compile Include="..\Shared\NativePatternResolver.cs">
+      <Link>Shared\NativePatternResolver.cs</Link>
+    </Compile>
     <Compile Include="src\AivPlacementOracle.cs" />
     <Compile Include="src\ActiveAIVDetectionRuntime.cs" />
     <Compile Include="src\ActiveAIVDetectorPlugin.cs" />

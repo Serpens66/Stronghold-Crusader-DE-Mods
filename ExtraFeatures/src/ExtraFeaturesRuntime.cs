@@ -82,7 +82,7 @@ namespace ExtraFeatures
             {
                 try
                 {
-                    knightDismountRuntime.InstallNativeFunctions(newLibraryHandle, memory);
+                    knightDismountRuntime.InstallNativeFunctions(newLibraryHandle, memory, referenceHashMatches: true);
                 }
                 catch (Exception ex)
                 {
@@ -91,7 +91,7 @@ namespace ExtraFeatures
 
                 try
                 {
-                    quarryPileRelocationRuntime.InstallNativeFunctions(newLibraryHandle, memory);
+                    quarryPileRelocationRuntime.InstallNativeFunctions(newLibraryHandle, memory, referenceHashMatches: true);
                 }
                 catch (Exception ex)
                 {
@@ -101,7 +101,7 @@ namespace ExtraFeatures
 
             try
             {
-                churchPriestCountRuntime.InitializeNative(newLibraryHandle, memory);
+                churchPriestCountRuntime.InitializeNative(newLibraryHandle, memory, fixedLayoutHashValidated);
             }
             catch (Exception ex)
             {
@@ -135,7 +135,8 @@ namespace ExtraFeatures
 
             try
             {
-                aiEconomyProtectionHook = new AIEconomyProtectionHook(log, settings, nativeLibraryHandle, memory);
+                aiEconomyProtectionHook = new AIEconomyProtectionHook(
+                    log, settings, nativeLibraryHandle, memory, fixedLayoutHashValidated);
                 singleBuildingPauseHook?.SetSleepStateSynchronizer(aiEconomyProtectionHook.SynchronizeSleepStatesNow);
             }
             catch (Exception ex)
@@ -223,7 +224,8 @@ namespace ExtraFeatures
 
             try
             {
-                ctrlMarketTradeHook = new CtrlMarketTradeHook(log, settings, libraryHandle, GetNativeLibraryMemory());
+                ctrlMarketTradeHook = new CtrlMarketTradeHook(
+                    log, settings, libraryHandle, GetNativeLibraryMemory(), fixedLayoutHashValidated);
                 if (!fixedLayoutHashValidated)
                 {
                     Shared.DebugLogHelper.LogWarning(
@@ -386,7 +388,8 @@ namespace ExtraFeatures
 
             try
             {
-                plagueDurationPatch = new PlagueDurationPatch(nativeLibraryHandle, memory);
+                plagueDurationPatch = new PlagueDurationPatch(
+                    log, nativeLibraryHandle, memory, fixedLayoutHashValidated);
                 ApplyPlagueDurationSetting();
                 if (plagueDurationPatchUnavailable)
                     return;
@@ -417,7 +420,8 @@ namespace ExtraFeatures
                     log,
                     settings,
                     nativeLibraryHandle,
-                    memory);
+                    memory,
+                    fixedLayoutHashValidated);
                 if (!fixedLayoutHashValidated)
                 {
                     Shared.DebugLogHelper.LogWarning(

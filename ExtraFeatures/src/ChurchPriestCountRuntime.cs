@@ -20,6 +20,7 @@ namespace ExtraFeatures
         private const int Church2ModdedWorkerCount = 2;
         private const int Church3ModdedWorkerCount = 3;
         private const int PatternTableStartIndex = 30;
+        private const int WorkerTablePatternRva = 0x2E4E58;
 
         private static readonly byte[] WorkerTablePattern = BuildWorkerTablePattern();
 
@@ -34,12 +35,18 @@ namespace ExtraFeatures
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
         }
 
-        public void InitializeNative(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
+        public void InitializeNative(
+            IntPtr libraryHandle,
+            ReadOnlySpan<byte> memory,
+            bool referenceHashMatches)
         {
             if (initialized)
                 return;
 
-            workerCountTable = FindWorkerCountTable(libraryHandle, memory);
+            workerCountTable = FindWorkerCountTable(
+                libraryHandle,
+                memory,
+                referenceHashMatches);
             ValidateWorkerCounts();
             initialized = true;
             LogInfo($"church worker table found at {unchecked((ulong)workerCountTable.ToInt64()).ToString("X16", CultureInfo.InvariantCulture)}.");
@@ -178,37 +185,21 @@ namespace ExtraFeatures
             }
         }
 
-        private static IntPtr FindWorkerCountTable(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
+        private IntPtr FindWorkerCountTable(
+            IntPtr libraryHandle,
+            ReadOnlySpan<byte> memory,
+            bool referenceHashMatches)
         {
-            int matchOffset = -1;
-            int matchCount = 0;
-
-            for (int i = 0; i <= memory.Length - WorkerTablePattern.Length; i++)
-            {
-                if (!Matches(memory, i, WorkerTablePattern))
-                    continue;
-
-                matchOffset = i;
-                matchCount++;
-                if (matchCount > 1)
-                    break;
-            }
-
-            if (matchCount != 1)
-                throw new InvalidOperationException($"The default worker-count table signature matched {matchCount} times.");
+            int matchOffset = Shared.NativePatternResolver.ResolveUnique(
+                memory,
+                WorkerTablePattern,
+                WorkerTablePatternRva,
+                referenceHashMatches,
+                "default worker-count table",
+                log,
+                Shared.NativePatternSearchScope.EntireImage).Rva;
 
             return IntPtr.Add(libraryHandle, matchOffset - PatternTableStartIndex * sizeof(int));
-        }
-
-        private static bool Matches(ReadOnlySpan<byte> memory, int offset, byte[] pattern)
-        {
-            for (int i = 0; i < pattern.Length; i++)
-            {
-                if (memory[offset + i] != pattern[i])
-                    return false;
-            }
-
-            return true;
         }
 
         private static byte[] BuildWorkerTablePattern()

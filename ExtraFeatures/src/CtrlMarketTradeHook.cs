@@ -13,7 +13,6 @@ using System.Text.RegularExpressions;
 using Zhuqiaomon.Hooks;
 using Zhuqiaomon.Hooks.Transaction;
 using Zhuqiaomon.Memory;
-using Zhuqiaomon.Memory.Scanners;
 
 namespace ExtraFeatures
 {
@@ -32,6 +31,10 @@ namespace ExtraFeatures
             "44 8B C1 48 8D 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? 8B C8 83 F8 FF 0F 85";
         private const string AutoMarketSellStatisticPattern =
             "43 01 94 8A ?? ?? ?? ?? 45 8B C8 43 01 94 14 ?? ?? ?? ?? 44 8B C6";
+        private const int MarketValidatorRva = 0xD7030;
+        private const int MarketPacketTailRva = 0xD72D4;
+        private const int MarketStorageCallRva = 0xD70C9;
+        private const int AutoMarketSellStatisticRva = 0xD0434;
 
         private delegate int GameActionDelegate(Enums.GameActionCommand command, int structureId, int state, int value2);
         private delegate void NoesisGuiUpdateDelegate(FatControler self);
@@ -53,6 +56,7 @@ namespace ExtraFeatures
         private readonly ManualLogSource log;
         private readonly ExtraFeaturesViewModel settings;
         private readonly ulong imageBase;
+        private readonly bool referenceHashMatches;
         private HookTransaction nativeTransaction;
         private HookRef<X64ManagedFunctionDetourAOB<MarketValidatorDelegate>> marketValidatorHook =
             new HookRef<X64ManagedFunctionDetourAOB<MarketValidatorDelegate>>();
@@ -74,7 +78,8 @@ namespace ExtraFeatures
             ManualLogSource log,
             ExtraFeaturesViewModel settings,
             IntPtr libraryHandle,
-            ReadOnlySpan<byte> memory)
+            ReadOnlySpan<byte> memory,
+            bool referenceHashMatches)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
@@ -82,6 +87,7 @@ namespace ExtraFeatures
                 throw new ArgumentException("The Crusader native library is unavailable.");
 
             imageBase = unchecked((ulong)libraryHandle.ToInt64());
+            this.referenceHashMatches = referenceHashMatches;
 
             try
             {
@@ -182,7 +188,7 @@ namespace ExtraFeatures
 
         private void InstallNativeValidator(ReadOnlySpan<byte> memory)
         {
-            ResolveNativeDependencies(memory);
+            ulong validator = ResolveNativeDependencies(memory);
 
             nativeTransaction = new HookTransaction(
                 memory,
@@ -191,7 +197,7 @@ namespace ExtraFeatures
                 failureMode: TransactionFailureMode.RollbackAndThrow);
             nativeTransaction.AddDetour(
                 ref marketValidatorHook,
-                MarketValidatorPattern,
+                validator,
                 MarketValidatorHook);
             nativeTransaction.Commit();
 
@@ -199,10 +205,12 @@ namespace ExtraFeatures
                 throw new InvalidOperationException("The Vanilla market validator signature was not found.");
         }
 
-        private void ResolveNativeDependencies(ReadOnlySpan<byte> memory)
+        private ulong ResolveNativeDependencies(ReadOnlySpan<byte> memory)
         {
-            ulong validator = FindRequiredPattern(memory, MarketValidatorPattern, "market validator");
-            ulong tail = FindRequiredPattern(memory, MarketPacketTailPattern, "market packet tail");
+            ulong validator = FindRequiredPattern(
+                memory, MarketValidatorPattern, MarketValidatorRva, "market validator");
+            ulong tail = FindRequiredPattern(
+                memory, MarketPacketTailPattern, MarketPacketTailRva, "market packet tail");
             EnsureInsideValidator(validator, tail, "market packet tail");
             marketActionSelling = (int*)ResolveRipRelativeTarget(memory, tail, 2, 6, sizeof(int), "market selling field");
             marketActionMode = (int*)ResolveRipRelativeTarget(memory, tail + 6, 2, 6, sizeof(int), "market mode field");
@@ -210,7 +218,8 @@ namespace ExtraFeatures
             marketActionGood = (int*)ResolveRipRelativeTarget(memory, tail + 26, 2, 6, sizeof(int), "market good field");
             ulong sender = ResolveRipRelativeTarget(memory, tail + 32, 1, 5, 1, "market packet sender");
 
-            ulong storageCall = FindRequiredPattern(memory, MarketStorageCallPattern, "market storage call");
+            ulong storageCall = FindRequiredPattern(
+                memory, MarketStorageCallPattern, MarketStorageCallRva, "market storage call");
             EnsureInsideValidator(validator, storageCall, "market storage call");
             ulong storageFunction = ResolveRipRelativeTarget(
                 memory,
@@ -228,6 +237,7 @@ namespace ExtraFeatures
             ulong statisticInstruction = FindRequiredPattern(
                 memory,
                 AutoMarketSellStatisticPattern,
+                AutoMarketSellStatisticRva,
                 "AutoMarket sell statistic update");
             uint statisticRva = *(uint*)(statisticInstruction + 4);
             marketSellGoldStatistic = (int*)ValidateModuleTarget(
@@ -242,6 +252,7 @@ namespace ExtraFeatures
                 $"validatorRva=0x{validator - imageBase:X}, packetTailRva=0x{tail - imageBase:X}, " +
                 $"storageFunctionRva=0x{storageFunction - imageBase:X}, senderRva=0x{sender - imageBase:X}, " +
                 $"sellStatisticRva=0x{statisticRva:X}.");
+            return validator;
         }
 
         private static void EnsureInsideValidator(ulong validator, ulong instruction, string label)
@@ -250,14 +261,20 @@ namespace ExtraFeatures
                 throw new InvalidOperationException($"The native {label} does not belong to the resolved market validator.");
         }
 
-        private ulong FindRequiredPattern(ReadOnlySpan<byte> memory, string pattern, string label)
+        private ulong FindRequiredPattern(
+            ReadOnlySpan<byte> memory,
+            string pattern,
+            int referenceRva,
+            string label)
         {
-            DataScanner scanner = DataScanner.Create(memory, imageBase);
-            scanner.Scan(pattern);
-            if (scanner.CurrentAddress == 0)
-                throw new InvalidOperationException($"The native {label} instruction pattern was not found.");
-
-            return scanner.CurrentAddress;
+            int rva = Shared.NativePatternResolver.ResolveUnique(
+                memory,
+                pattern,
+                referenceRva,
+                referenceHashMatches,
+                label,
+                log).Rva;
+            return imageBase + unchecked((ulong)rva);
         }
 
         private ulong ResolveRipRelativeTarget(

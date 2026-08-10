@@ -11,7 +11,6 @@ using Zhuqiaomon.Extensions;
 using Zhuqiaomon.Hooks;
 using Zhuqiaomon.Hooks.Transaction;
 using Zhuqiaomon.Memory;
-using Zhuqiaomon.Memory.Scanners;
 
 namespace ExtraFeatures
 {
@@ -38,6 +37,10 @@ namespace ExtraFeatures
         // This catches non-UI AI demolition paths which do not call c_game_building_bulldoze.
         private const string BuildingDeletePattern =
             "48 89 5C 24 ?? 48 89 6C 24 ?? 48 89 74 24 ?? 48 89 7C 24 ?? 41 56 48 83 EC ?? 41 BE";
+        private const int SleepStateComparisonRva = 0xC7D7B;
+        private const int SleepStateSynchronizationFunctionRva = 0xC7D00;
+        private const int EmergencyDemolitionComparisonRva = 0x2F454;
+        private const int BuildingDeleteRva = 0xC4240;
 
         private const byte ActiveState = 0;
         private const byte SleepingState = 1;
@@ -64,17 +67,32 @@ namespace ExtraFeatures
         private bool deleteCallbackFailureLogged;
         private bool disposed;
 
-        public AIEconomyProtectionHook(ManualLogSource log, ExtraFeaturesViewModel settings, IntPtr libraryHandle, ReadOnlySpan<byte> memory)
+        public AIEconomyProtectionHook(
+            ManualLogSource log,
+            ExtraFeaturesViewModel settings,
+            IntPtr libraryHandle,
+            ReadOnlySpan<byte> memory,
+            bool referenceHashMatches)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
 
-            DataScanner scanner = DataScanner.Create(memory, unchecked((ulong)libraryHandle.ToInt64()));
-            scanner.Scan(SleepStateSynchronizationFunctionPattern);
-            if (scanner.CurrentAddress == 0)
-                throw new InvalidOperationException("The building sleep-state synchronization function was not found.");
+            ulong libraryBase = unchecked((ulong)libraryHandle.ToInt64());
+            int synchronizationRva = Resolve(
+                memory, SleepStateSynchronizationFunctionPattern, SleepStateSynchronizationFunctionRva,
+                referenceHashMatches, "building sleep-state synchronization function");
+            int sleepComparisonRva = Resolve(
+                memory, SleepStateComparisonPattern, SleepStateComparisonRva,
+                referenceHashMatches, "building sleep-state comparison");
+            int emergencyRva = Resolve(
+                memory, EmergencyDemolitionComparisonPattern, EmergencyDemolitionComparisonRva,
+                referenceHashMatches, "AI emergency-demolition comparison");
+            int buildingDeleteRva = Resolve(
+                memory, BuildingDeletePattern, BuildingDeleteRva,
+                referenceHashMatches, "building delete function");
 
-            synchronizeSleepStates = Marshal.GetDelegateForFunctionPointer<SynchronizeSleepStatesDelegate>((IntPtr)scanner.CurrentAddress);
+            synchronizeSleepStates = Marshal.GetDelegateForFunctionPointer<SynchronizeSleepStatesDelegate>(
+                unchecked((IntPtr)(long)(libraryBase + (ulong)synchronizationRva)));
 
             transaction = new HookTransaction(
                 memory,
@@ -84,7 +102,7 @@ namespace ExtraFeatures
 
             transaction.AddContextHook(
                 ref sleepStateHook,
-                SleepStateComparisonPattern,
+                libraryBase + unchecked((ulong)sleepComparisonRva),
                 PreventAIPause,
                 regs: X64SmartCPUContextRegs.Volatile,
                 errorMode: CallbackErrorMode.LogAndContinue,
@@ -92,7 +110,7 @@ namespace ExtraFeatures
 
             transaction.AddContextHook(
                 ref emergencyDemolitionHook,
-                EmergencyDemolitionComparisonPattern,
+                libraryBase + unchecked((ulong)emergencyRva),
                 PreventEmergencyDemolition,
                 regs: X64SmartCPUContextRegs.Volatile,
                 errorMode: CallbackErrorMode.LogAndContinue,
@@ -100,7 +118,7 @@ namespace ExtraFeatures
 
             transaction.AddDetour(
                 ref buildingDeleteHook,
-                BuildingDeletePattern,
+                libraryBase + unchecked((ulong)buildingDeleteRva),
                 PreventLiveAIHovelDelete);
 
             transaction.Commit();
@@ -111,6 +129,17 @@ namespace ExtraFeatures
                 throw new InvalidOperationException("The AI emergency-demolition AOB signature was not found.");
             if (!buildingDeleteHook.Success)
                 throw new InvalidOperationException("The building delete AOB signature was not found.");
+        }
+
+        private int Resolve(
+            ReadOnlySpan<byte> memory,
+            string pattern,
+            int referenceRva,
+            bool referenceHashMatches,
+            string name)
+        {
+            return Shared.NativePatternResolver.ResolveUnique(
+                memory, pattern, referenceRva, referenceHashMatches, name, log).Rva;
         }
 
         internal void SynchronizeSleepStatesNow()
