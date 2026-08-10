@@ -17,6 +17,8 @@ var tests = new (string Name, Action Run)[]
     ("native mod-settings JSON roundtrip", TestNativeModSettingsRoundtrip),
     ("mod-settings registry has seven entries", TestModSettingsRegistry),
     ("missing mod entry becomes disabled", TestMissingModEntry),
+    ("sidecar schema evolution keeps only current settings", TestSidecarSettingsSchemaEvolution),
+    ("coop mission schema evolution keeps only current settings", TestCoopSettingsSchemaEvolution),
     ("invalid mod-settings documents are rejected", TestInvalidModSettingsDocuments),
     ("atomic sidecar write replaces existing file", TestAtomicSidecarWrite),
     ("Trail coordinator ownership is centralized", TestCoordinatorOwnership),
@@ -88,6 +90,37 @@ static void TestMissingModEntry()
     Assert(parsed.Mods.Count == 7 && parsed.Mods.Values.All(entry => !entry.Enabled), "missing entries were not disabled");
 }
 
+static void TestSidecarSettingsSchemaEvolution()
+{
+    ModSettingsDefinition parsed = ModSettingsJson.ParseObject(
+        "{\"schemaVersion\":1,\"mods\":{\"ExtraFeatures_Serp\":{\"enabled\":true,\"settings\":{\"CurrentSetting\":7,\"RemovedSetting\":99}}}}");
+    string[] removed = ModSettingsJson.RemoveUnknownSettings(
+        parsed,
+        "ExtraFeatures_Serp",
+        new[] { "CurrentSetting", "NewSetting" });
+
+    Assert(removed.SequenceEqual(new[] { "RemovedSetting" }), "obsolete sidecar setting was not identified");
+    Assert(parsed.Mods["ExtraFeatures_Serp"].Settings.ContainsKey("CurrentSetting"), "current sidecar setting was removed");
+    Assert(!parsed.Mods["ExtraFeatures_Serp"].Settings.ContainsKey("NewSetting"), "missing new setting was fabricated instead of using the ViewModel default");
+    string serialized = ModSettingsJson.Serialize(parsed);
+    Assert(!serialized.Contains("RemovedSetting", StringComparison.Ordinal), "obsolete sidecar setting was written again");
+}
+
+static void TestCoopSettingsSchemaEvolution()
+{
+    using Fixture fixture = Fixture.Create(includeLegacyModSetting: true);
+    LoadedMission loaded = new MissionLoader().Load(fixture.JsonPath, 1, 1);
+    string[] removed = ModSettingsJson.RemoveUnknownSettings(
+        loaded.Definition.ModSettings,
+        "StartConditions_Serp",
+        new[] { "SetStartGoldHuman", "NewSetting" });
+
+    ModSettingsEntry entry = loaded.Definition.ModSettings.Mods["StartConditions_Serp"];
+    Assert(removed.SequenceEqual(new[] { "RemovedSetting" }), "obsolete coop mission setting was not identified");
+    Assert(Convert.ToInt32(entry.Settings["SetStartGoldHuman"]) == 500, "current coop mission setting changed");
+    Assert(!entry.Settings.ContainsKey("NewSetting"), "missing coop mission setting was fabricated instead of using the ViewModel default");
+}
+
 static void TestInvalidModSettingsDocuments()
 {
     ExpectFailure(() => ModSettingsJson.ParseObject("broken"), "corrupt JSON was accepted");
@@ -129,6 +162,7 @@ static void TestCoordinatorOwnership()
     }
 
     string coordinator = File.ReadAllText(Path.Combine(projectRoot, "src", "TrailMissionSettingsCoordinator.cs"));
+    string sharedPresetSystem = File.ReadAllText(Path.Combine(workspaceRoot, "Shared", "PresetLobbyModSettingsViewModel.cs"));
     for (int trail = 1; trail <= 4; trail++)
         Assert(CountOccurrences(coordinator, "FRONT_CoopTrail" + trail + ".Instance") == 1, "Coop Trail " + trail + " button registration is not singular");
     string runtime = File.ReadAllText(Path.Combine(projectRoot, "src", "CustomCustomTrailRuntime.cs"));
@@ -137,6 +171,12 @@ static void TestCoordinatorOwnership()
     Assert(runtime.Contains("missionSettingsCoordinator?.ExitContext(force: true)"), "map unload does not leave the mission preset context");
     Assert(coordinator.Contains("CaptureDocument(requireLoadedEndpoints: true)"),
         "Trail saves do not validate their synchronous pre-save settings capture");
+    Assert(coordinator.Contains("System_CreateDisabledMissionPresetSnapshot") &&
+        coordinator.Contains("RemoveUnknownSettings"),
+        "Trail loading does not combine current defaults with schema cleanup");
+    Assert(sharedPresetSystem.Contains("CopyProperties(defaults, hostProperties)") &&
+        sharedPresetSystem.Contains("defaults.TryGetValue(property.Name, out bytes)"),
+        "the shared mission preset no longer supplies defaults for missing current host settings");
     Assert(!coordinator.Contains("pendingTrailMakerSaveDocument"),
         "Trail saves still retain a snapshot for the next save operation");
     Assert(coordinator.Contains("!openingCustomTrailSetup") &&
@@ -296,7 +336,7 @@ sealed class Fixture : IDisposable
     public string Root { get; private set; }
     public string JsonPath { get; private set; }
 
-    public static Fixture Create(int aivRotation = 90, int? secondAivRotation = null, int preferredAiv = -1, int schemaVersion = 2, int startGold = 500)
+    public static Fixture Create(int aivRotation = 90, int? secondAivRotation = null, int preferredAiv = -1, int schemaVersion = 2, int startGold = 500, bool includeLegacyModSetting = false)
     {
         string root = Path.Combine(Path.GetTempPath(), "CustomCustomTrailTests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
@@ -333,6 +373,8 @@ sealed class Fixture : IDisposable
             Enabled = true,
             Settings = new Dictionary<string, object> { ["SetStartGoldHuman"] = startGold },
         };
+        if (includeLegacyModSetting)
+            definition.ModSettings.Mods["StartConditions_Serp"].Settings["RemovedSetting"] = 99;
         if (secondAivRotation.HasValue)
             definition.Players[2].Aivs.Add(new AivReference { Source = "bundled", File = "castle.aivjson", Rotation = secondAivRotation.Value });
         string jsonPath = Path.Combine(root, "01.coopmission.json");

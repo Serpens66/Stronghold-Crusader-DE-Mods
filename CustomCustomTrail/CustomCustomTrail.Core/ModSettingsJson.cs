@@ -79,6 +79,27 @@ namespace CustomCustomTrail.Core
             return settings;
         }
 
+        public static string[] RemoveUnknownSettings(
+            ModSettingsDefinition document,
+            string modId,
+            IEnumerable<string> currentSettingNames)
+        {
+            if (document?.Mods == null || string.IsNullOrEmpty(modId) ||
+                !document.Mods.TryGetValue(modId, out ModSettingsEntry entry) || entry?.Settings == null)
+            {
+                return Array.Empty<string>();
+            }
+
+            var currentNames = new HashSet<string>(currentSettingNames ?? Enumerable.Empty<string>(), StringComparer.Ordinal);
+            string[] removed = entry.Settings.Keys
+                .Where(name => !currentNames.Contains(name))
+                .OrderBy(name => name, StringComparer.Ordinal)
+                .ToArray();
+            foreach (string name in removed)
+                entry.Settings.Remove(name);
+            return removed;
+        }
+
         public static string Serialize(ModSettingsDefinition document)
         {
             var output = new StringBuilder(4096);

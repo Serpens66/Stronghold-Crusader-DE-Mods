@@ -758,15 +758,29 @@ namespace CustomCustomTrail
                 var prepared = new List<KeyValuePair<object, Dictionary<string, byte[]>>>(participants.Count);
                 foreach (KeyValuePair<string, object> participant in participants)
                 {
+                    Dictionary<string, PropertyInfo> properties = GetPersistedProperties(participant.Value);
+                    string[] removedSettings = ModSettingsJson.RemoveUnknownSettings(
+                        document,
+                        participant.Key,
+                        properties.Keys.Where(name => name != "EnableMod"));
+                    if (removedSettings.Length != 0)
+                    {
+                        DebugLogHelper.LogInfo(
+                            log,
+                            $"Ignored obsolete Trail settings for [{participant.Key}]: " +
+                            string.Join(", ", removedSettings) + ". They will be omitted on the next save.");
+                    }
+
                     ModSettingsEntry entry = document.Mods.TryGetValue(participant.Key, out ModSettingsEntry stored)
                         ? stored
                         : new ModSettingsEntry();
+                    // Begin with every current host default. Sparse old Trail files therefore
+                    // gain newly introduced settings without affecting personal client options.
                     Dictionary<string, byte[]> snapshot =
                         (Dictionary<string, byte[]>)Invoke(participant.Value, "System_CreateDisabledMissionPresetSnapshot");
                     if (entry.Enabled)
                     {
                         snapshot["EnableMod"] = MessagePackSerializer.Serialize(true);
-                        Dictionary<string, PropertyInfo> properties = GetPersistedProperties(participant.Value);
                         foreach (KeyValuePair<string, object> setting in entry.Settings)
                         {
                             if (!properties.TryGetValue(setting.Key, out PropertyInfo property) || property.Name == "EnableMod")

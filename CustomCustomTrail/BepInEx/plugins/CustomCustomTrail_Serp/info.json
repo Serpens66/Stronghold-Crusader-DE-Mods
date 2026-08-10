@@ -3,10 +3,17 @@
   "Author": "Serpens66",
   "Name": "Custom Custom Trail",
   "Description": "Coordinates Custom Trail sidecars, mission presets and customization, and replaces Coop Trail missions from editable JSON bundles.",
-  "Version": "1.2.4",
+  "Version": "1.2.5",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.2.5",
+      "Changes": [
+        "Added schema migration for Trail mod settings: missing current settings use their ViewModel defaults, while removed settings are ignored and omitted on the next sidecar save.",
+        "Applied the same schema cleanup when loading embedded coopmission.json modSettings blocks."
+      ]
+    },
     {
       "Version": "1.2.4",
       "Changes": [
