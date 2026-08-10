@@ -57,8 +57,30 @@
       <TextBlock Text="{Binding ClientOptionsText}" Style="{StaticResource ClientRoleHeader}" Margin="0,4,0,4"/>
       <StackPanel IsEnabled="{Binding CanEditClientSettings}">
       <TextBlock Text="{Binding ClientInterfaceTitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,4"/>
-      <TextBlock Text="{Binding AlwaysActiveTitleText}" Foreground="#77AAFF" FontWeight="Bold" Margin="0,0,0,4"/>
-      <TextBlock Text="{Binding AlwaysActiveHelpText}" Foreground="#CCCCCC" TextWrapping="Wrap" Margin="0,0,0,10"/>
+      <CheckBox IsChecked="{Binding EnableMinimapCursorFollowFix, Mode=TwoWay}"
+                Foreground="White"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableMinimapCursorFollowFixHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding EnableMinimapCursorFollowFixText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox>
+      <CheckBox IsChecked="{Binding EnableMarketKeyMainMenuFix, Mode=TwoWay}"
+                Foreground="White"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableMarketKeyMainMenuFixHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding EnableMarketKeyMainMenuFixText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox>
+      <CheckBox IsChecked="{Binding EnableAutoTradeSellZeroFix, Mode=TwoWay}"
+                Foreground="White"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableAutoTradeSellZeroFixHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding EnableAutoTradeSellZeroFixText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox>
+      <CheckBox IsChecked="{Binding EnableEnemyProximityBulldozeCursorFix, Mode=TwoWay}"
+                Foreground="White"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableEnemyProximityBulldozeCursorFixHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding EnableEnemyProximityBulldozeCursorFixText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox>
       <CheckBox IsChecked="{Binding AllowMinimapWhilePlacingBuilding, Mode=TwoWay}"
                 Foreground="White"
                 ToolTipService.ShowDuration="60000" ToolTip="{Binding AllowMinimapWhilePlacingBuildingHelpText}"
@@ -92,6 +114,13 @@
         </Border>
       </Grid>
       <StackPanel IsEnabled="{Binding CanEditHostSettings}">
+      <TextBlock Text="{Binding GameplayTitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,4"/>
+      <CheckBox IsChecked="{Binding EnableAssemblyPointPlacementFix, Mode=TwoWay}"
+                Foreground="White"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableAssemblyPointPlacementFixHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding EnableAssemblyPointPlacementFixText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox>
       <TextBlock Text="{Binding AiAivTitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,4"/>
       <CheckBox IsChecked="{Binding RememberAiAivSettings, Mode=TwoWay}"
                 Foreground="White"

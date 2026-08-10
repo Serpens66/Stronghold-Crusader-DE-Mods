@@ -19,7 +19,12 @@ namespace BugfixesAndQoL
         private bool enablePlagueCloudRemovalFix = true;
         private bool enableStuckApothecaryFix = true;
         private bool enablePlagueTargetReservationFix = true;
+        private bool enableAssemblyPointPlacementFix = true;
         private readonly bool[] enableClientFeaturesData = new bool[9];
+        private readonly bool[] enableMinimapCursorFollowFixData = new bool[9];
+        private readonly bool[] enableMarketKeyMainMenuFixData = new bool[9];
+        private readonly bool[] enableAutoTradeSellZeroFixData = new bool[9];
+        private readonly bool[] enableEnemyProximityBulldozeCursorFixData = new bool[9];
         private readonly bool[] allowMinimapWhilePlacingBuildingData = new bool[9];
         private readonly bool[] allowCameraMovementWithModifiersData = new bool[9];
         private readonly bool[] hdMarketViewData = new bool[9];
@@ -31,6 +36,7 @@ namespace BugfixesAndQoL
         {
             LegacyModWarningVisibility = legacySomeSettingsLoaded ? Visibility.Visible : Visibility.Collapsed;
             SetClientFeatureDefaults();
+            SetClientBugfixDefaults();
             SetAllowMinimapDefaults();
             SetAllowCameraMovementWithModifiersDefaults();
             SetHdMarketViewDefaults();
@@ -46,12 +52,21 @@ namespace BugfixesAndQoL
         public string EnableHostFeaturesText => SerpLocalization.Get("BugfixesAndQoL.EnableHostFeatures");
         public string EnableHostFeaturesHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableHostFeaturesHelp");
         public string ResetToDefaultText => SerpLocalization.Get(SerpLocalization.ResetToDefault);
-        public string AlwaysActiveTitleText => SerpLocalization.Get(SerpLocalization.AlwaysActiveTitle);
         public string ClientInterfaceTitleText => SerpLocalization.Get("BugfixesAndQoL.ClientInterfaceTitle");
         public string AiAivTitleText => SerpLocalization.Get("BugfixesAndQoL.AiAivTitle");
         public string TroopMovementTitleText => SerpLocalization.Get("BugfixesAndQoL.TroopMovementTitle");
         public string PlagueTitleText => SerpLocalization.Get("BugfixesAndQoL.PlagueTitle");
-        public string AlwaysActiveHelpText => SerpLocalization.Get(SerpLocalization.AlwaysActiveHelp);
+        public string GameplayTitleText => SerpLocalization.Get("BugfixesAndQoL.GameplayTitle");
+        public string EnableMinimapCursorFollowFixText => SerpLocalization.Get("BugfixesAndQoL.EnableMinimapCursorFollowFix");
+        public string EnableMinimapCursorFollowFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableMinimapCursorFollowFixHelp");
+        public string EnableMarketKeyMainMenuFixText => SerpLocalization.Get("BugfixesAndQoL.EnableMarketKeyMainMenuFix");
+        public string EnableMarketKeyMainMenuFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableMarketKeyMainMenuFixHelp");
+        public string EnableAutoTradeSellZeroFixText => SerpLocalization.Get("BugfixesAndQoL.EnableAutoTradeSellZeroFix");
+        public string EnableAutoTradeSellZeroFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableAutoTradeSellZeroFixHelp");
+        public string EnableEnemyProximityBulldozeCursorFixText => SerpLocalization.Get("BugfixesAndQoL.EnableEnemyProximityBulldozeCursorFix");
+        public string EnableEnemyProximityBulldozeCursorFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableEnemyProximityBulldozeCursorFixHelp");
+        public string EnableAssemblyPointPlacementFixText => SerpLocalization.Get("BugfixesAndQoL.EnableAssemblyPointPlacementFix");
+        public string EnableAssemblyPointPlacementFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableAssemblyPointPlacementFixHelp");
         public string AllowMinimapWhilePlacingBuildingText => SerpLocalization.Get(SerpLocalization.AllowMinimapWhilePlacingBuilding);
         public string AllowMinimapWhilePlacingBuildingHelpText => SerpLocalization.Get(SerpLocalization.AllowMinimapWhilePlacingBuildingHelp);
         public string RememberAiAivSettingsText => SerpLocalization.Get(SerpLocalization.RememberAiAivSettings);
@@ -74,6 +89,34 @@ namespace BugfixesAndQoL
         public bool[] AllowMinimapWhilePlacingBuildingData => allowMinimapWhilePlacingBuildingData;
         public bool[] AllowCameraMovementWithModifiersData => allowCameraMovementWithModifiersData;
         public bool[] HdMarketViewData => hdMarketViewData;
+
+        [SyncPerPlayer]
+        public bool EnableMinimapCursorFollowFix
+        {
+            get => enableMinimapCursorFollowFixData[LocalPlayerIdOrOne];
+            set => SetPlayerSetting(enableMinimapCursorFollowFixData, value, nameof(EnableMinimapCursorFollowFix));
+        }
+
+        [SyncPerPlayer]
+        public bool EnableMarketKeyMainMenuFix
+        {
+            get => enableMarketKeyMainMenuFixData[LocalPlayerIdOrOne];
+            set => SetPlayerSetting(enableMarketKeyMainMenuFixData, value, nameof(EnableMarketKeyMainMenuFix));
+        }
+
+        [SyncPerPlayer]
+        public bool EnableAutoTradeSellZeroFix
+        {
+            get => enableAutoTradeSellZeroFixData[LocalPlayerIdOrOne];
+            set => SetPlayerSetting(enableAutoTradeSellZeroFixData, value, nameof(EnableAutoTradeSellZeroFix));
+        }
+
+        [SyncPerPlayer]
+        public bool EnableEnemyProximityBulldozeCursorFix
+        {
+            get => enableEnemyProximityBulldozeCursorFixData[LocalPlayerIdOrOne];
+            set => SetPlayerSetting(enableEnemyProximityBulldozeCursorFixData, value, nameof(EnableEnemyProximityBulldozeCursorFix));
+        }
 
         [SyncPerPlayer]
         public bool EnableClientFeatures
@@ -188,6 +231,13 @@ namespace BugfixesAndQoL
             set => SetSetting(ref enablePlagueTargetReservationFix, value, nameof(EnablePlagueTargetReservationFix));
         }
 
+        [SyncHostOnly]
+        public bool EnableAssemblyPointPlacementFix
+        {
+            get => enableAssemblyPointPlacementFix;
+            set => SetSetting(ref enableAssemblyPointPlacementFix, value, nameof(EnableAssemblyPointPlacementFix));
+        }
+
         private void ResetToDefault()
         {
             if (CanEditHostSettings)
@@ -199,6 +249,7 @@ namespace BugfixesAndQoL
                 EnablePlagueCloudRemovalFix = true;
                 EnableStuckApothecaryFix = true;
                 EnablePlagueTargetReservationFix = true;
+                EnableAssemblyPointPlacementFix = true;
             }
 
             // Every participant resets only their own per-player preferences.
@@ -206,6 +257,10 @@ namespace BugfixesAndQoL
             AllowMinimapWhilePlacingBuilding = true;
             AllowCameraMovementWithModifiers = true;
             HdMarketView = true;
+            EnableMinimapCursorFollowFix = true;
+            EnableMarketKeyMainMenuFix = true;
+            EnableAutoTradeSellZeroFix = true;
+            EnableEnemyProximityBulldozeCursorFix = true;
         }
 
         private void SetSetting<T>(ref T field, T value, string propertyName)
@@ -218,12 +273,34 @@ namespace BugfixesAndQoL
             OnPropertyChanged(propertyName);
         }
 
+        private void SetPlayerSetting(bool[] values, bool value, string propertyName)
+        {
+            int playerId = LocalPlayerIdOrOne;
+            if (values[playerId] == value)
+                return;
+
+            values[playerId] = value;
+            SettingChanged?.Invoke(propertyName);
+            OnPropertyChanged(propertyName);
+        }
+
         private static int LocalPlayerIdOrOne => Math.Max(1, GameNetworkAPI.GetLocalPlayerId());
 
         private void SetClientFeatureDefaults()
         {
             for (int i = 1; i < enableClientFeaturesData.Length; i++)
                 enableClientFeaturesData[i] = true;
+        }
+
+        private void SetClientBugfixDefaults()
+        {
+            for (int i = 1; i < enableMinimapCursorFollowFixData.Length; i++)
+            {
+                enableMinimapCursorFollowFixData[i] = true;
+                enableMarketKeyMainMenuFixData[i] = true;
+                enableAutoTradeSellZeroFixData[i] = true;
+                enableEnemyProximityBulldozeCursorFixData[i] = true;
+            }
         }
 
         private void SetAllowMinimapDefaults()

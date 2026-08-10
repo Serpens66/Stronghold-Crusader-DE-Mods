@@ -110,7 +110,7 @@ namespace BugfixesAndQoL
             TryInitializeFeature("minimap placement", () =>
                 minimapPlacementClickHook = new MinimapPlacementClickHook(log, settings));
             TryInitializeFeature("market autotrade sell threshold", () =>
-                autoTradeSellZeroHook = new AutoTradeSellZeroHook(log));
+                autoTradeSellZeroHook = new AutoTradeSellZeroHook(log, settings));
             TryInitializeFeature("market key main-menu return", () =>
                 marketKeyMainTradeMenuHook = new MarketKeyMainTradeMenuHook(log, settings));
             TryInitializeFeature("HD market view", () =>
@@ -189,7 +189,7 @@ namespace BugfixesAndQoL
             if (!nativeLibraryAvailable)
                 return;
 
-            if (settings.EnableMod)
+            if (settings.EnableMod && settings.EnableAssemblyPointPlacementFix)
                 InstallAssemblyPointPlacementPatch();
             else
                 DisableAssemblyPointPlacementPatch();

@@ -42,7 +42,8 @@ namespace BugfixesAndQoL
         {
             try
             {
-                if (!settings.EnableClientFeatures || args.Phase != EventHookPhase.Post)
+                if (!settings.EnableClientFeatures || !settings.EnableMarketKeyMainMenuFix ||
+                    args.Phase != EventHookPhase.Post)
                     return;
 
                 KeyManager keyManager = KeyManager.instance;

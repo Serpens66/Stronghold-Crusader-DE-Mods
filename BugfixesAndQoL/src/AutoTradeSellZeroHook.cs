@@ -18,13 +18,15 @@ namespace BugfixesAndQoL
         private static readonly MethodInfo ToggleAutoTradeMethod = FindMethod("toggleAutoTrade");
 
         private readonly ManualLogSource log;
+        private readonly BugfixesAndQoLViewModel settings;
         private readonly Hook hook;
         private readonly AutoTradeSellSliderValueChangedDelegate trampoline;
         private bool disposed;
 
-        public AutoTradeSellZeroHook(ManualLogSource log)
+        public AutoTradeSellZeroHook(ManualLogSource log, BugfixesAndQoLViewModel settings)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
+            this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
 
             hook = new Hook(FindSellSliderValueChangedMethod(), (AutoTradeSellSliderValueChangedDelegate)SellSliderValueChangedHook);
             trampoline = hook.GenerateTrampoline<AutoTradeSellSliderValueChangedDelegate>();
@@ -83,6 +85,12 @@ namespace BugfixesAndQoL
 
         private void SellSliderValueChangedHook(HUD_Buildings self, object sender, RoutedPropertyChangedEventArgs<float> e)
         {
+            if (!settings.EnableClientFeatures || !settings.EnableAutoTradeSellZeroFix)
+            {
+                trampoline(self, sender, e);
+                return;
+            }
+
             RangeBase slider = self?.RefAutotrade_Sell_Slider ?? sender as RangeBase;
             int sliderValue = slider == null ? 0 : (int)slider.Value;
 

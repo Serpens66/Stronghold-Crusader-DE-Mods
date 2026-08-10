@@ -158,7 +158,8 @@ namespace BugfixesAndQoL
 
         private bool ShouldOverrideDeleteCursor(Director self)
         {
-            if (!settings.EnableClientFeatures || self == null || GetWaitCursorSet(self))
+            if (!settings.EnableClientFeatures || !settings.EnableEnemyProximityBulldozeCursorFix ||
+                self == null || GetWaitCursorSet(self))
                 return false;
 
             if (FatControler.currentScene != Enums.SceneIDS.ActualMainGame)
