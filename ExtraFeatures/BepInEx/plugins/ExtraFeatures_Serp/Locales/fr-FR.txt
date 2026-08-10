@@ -49,3 +49,5 @@ SomeSettings.EnableCtrlSingleMarketTrade=Ctrl trades one market unit
 SomeSettings.EnableCtrlSingleMarketTradeHelp=Hold Ctrl while buying or selling to trade exactly one unit. Ctrl+Shift uses the normal five-unit amount.
 SomeSettings.PlagueDurationMultiplier=Plague cloud duration
 SomeSettings.PlagueDurationMultiplierHelp=Multiplier for the active lifetime of all plague clouds. 1.0x keeps the Vanilla duration; higher values also extend how long clouds can cause damage.
+SomeSettings.ApothecaryPlagueSearchDistance=Apothecary plague-search range
+SomeSettings.ApothecaryPlagueSearchDistanceHelp=Maximum Manhattan distance from an apothecary's assigned building to a plague cloud. 30 keeps the Vanilla range.

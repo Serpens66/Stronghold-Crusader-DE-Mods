@@ -37,6 +37,12 @@
         <Slider Grid.Column="1" Minimum="0.5" Maximum="20" Value="{Binding PlagueDurationMultiplier, Mode=TwoWay}" TickFrequency="0.5" IsSnapToTickEnabled="True" Margin="3"/>
         <TextBlock Grid.Column="2" Text="{Binding PlagueDurationMultiplierValueText}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center"/>
       </Grid>
+      <Grid ToolTip="{Binding ApothecaryPlagueSearchDistanceHelpText}" Margin="0,0,0,8">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="170"/><ColumnDefinition Width="220"/><ColumnDefinition Width="45"/></Grid.ColumnDefinitions>
+        <TextBlock Grid.Column="0" Text="{Binding ApothecaryPlagueSearchDistanceText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center"/>
+        <Slider Grid.Column="1" Minimum="20" Maximum="200" Value="{Binding ApothecaryPlagueSearchDistance, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="3"/>
+        <TextBlock Grid.Column="2" Text="{Binding ApothecaryPlagueSearchDistance}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+      </Grid>
 
       <Separator Background="#444466" Margin="0,10"/>
       <TextBlock Text="{Binding AiEconomyProtectionTitleText}" Foreground="#77AAFF" FontWeight="Bold" Margin="0,0,0,8"/>

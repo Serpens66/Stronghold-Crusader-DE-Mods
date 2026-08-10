@@ -3,10 +3,22 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.4",
+  "Version": "1.0.6",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.6",
+      "Changes": [
+        "Changed the default plague-cloud duration multiplier to 2.0x and the default apothecary plague-search range to 50."
+      ]
+    },
+    {
+      "Version": "1.0.5",
+      "Changes": [
+        "Added a synchronized 20-200 slider for the apothecary plague-search range; 30 keeps Vanilla behavior."
+      ]
+    },
     {
       "Version": "1.0.4",
       "Changes": [

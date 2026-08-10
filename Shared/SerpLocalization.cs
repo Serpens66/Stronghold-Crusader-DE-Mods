@@ -107,6 +107,8 @@ public static class SerpLocalization
     public const string EnableExtraChurchPriestsHelp = "SomeSettings.EnableExtraChurchPriestsHelp";
     public const string PlagueDurationMultiplier = "SomeSettings.PlagueDurationMultiplier";
     public const string PlagueDurationMultiplierHelp = "SomeSettings.PlagueDurationMultiplierHelp";
+    public const string ApothecaryPlagueSearchDistance = "SomeSettings.ApothecaryPlagueSearchDistance";
+    public const string ApothecaryPlagueSearchDistanceHelp = "SomeSettings.ApothecaryPlagueSearchDistanceHelp";
     public const string QuarryPileRelocationTooltip = "SomeSettings.QuarryPileRelocationTooltip";
     public const string QuarryPileRelocationTooltipBody = "SomeSettings.QuarryPileRelocationTooltipBody";
     public const string AiEconomyProtectionTitle = "SomeSettings.AIEconomyProtectionTitle";
@@ -231,6 +233,8 @@ public static class SerpLocalization
         { EnableExtraChurchPriestsHelp, "When enabled, churches require two priests and cathedrals require three priests." },
         { PlagueDurationMultiplier, "Plague cloud duration" },
         { PlagueDurationMultiplierHelp, "Multiplier for the active lifetime of all plague clouds. 1.0x keeps the Vanilla duration; higher values also extend how long clouds can cause damage." },
+        { ApothecaryPlagueSearchDistance, "Apothecary plague-search range" },
+        { ApothecaryPlagueSearchDistanceHelp, "Maximum Manhattan distance from an apothecary's assigned building to a plague cloud. 30 keeps the Vanilla range." },
         { QuarryPileRelocationTooltip, "Move stone pile" },
         { QuarryPileRelocationTooltipBody, "Moves the linked stone pile clockwise to the next valid position around this quarry." },
         { AiEconomyProtectionTitle, "AI Economy Protection" },

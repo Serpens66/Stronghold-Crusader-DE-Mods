@@ -26,7 +26,8 @@ namespace ExtraFeatures
         private double multiplyGoodsGainInMoneyHuman;
         private double marketBuyPriceMultiplier = 1.0;
         private double marketSellPriceMultiplier = 1.0;
-        private double plagueDurationMultiplier = 1.0;
+        private double plagueDurationMultiplier = 2.0;
+        private int apothecaryPlagueSearchDistance = 50;
         private bool keepStorageContent;
         private bool enableCtrlSingleMarketTrade = true;
         private bool enableFastRecruitRallyMovement = true;
@@ -68,6 +69,8 @@ namespace ExtraFeatures
         public string EnableExtraChurchPriestsHelpText => SerpLocalization.Get(SerpLocalization.EnableExtraChurchPriestsHelp);
         public string PlagueDurationMultiplierText => SerpLocalization.Get(SerpLocalization.PlagueDurationMultiplier);
         public string PlagueDurationMultiplierHelpText => SerpLocalization.Get(SerpLocalization.PlagueDurationMultiplierHelp);
+        public string ApothecaryPlagueSearchDistanceText => SerpLocalization.Get(SerpLocalization.ApothecaryPlagueSearchDistance);
+        public string ApothecaryPlagueSearchDistanceHelpText => SerpLocalization.Get(SerpLocalization.ApothecaryPlagueSearchDistanceHelp);
         public string BulldozeTitleText => SerpLocalization.Get(SerpLocalization.BulldozeTitle);
         public string BulldozeHelpText => SerpLocalization.Get(SerpLocalization.BulldozeHelp);
         public string WoodRefundText => SerpLocalization.Get(SerpLocalization.WoodRefund);
@@ -119,6 +122,7 @@ namespace ExtraFeatures
         [SyncHostOnly] public double MarketBuyPriceMultiplier { get => marketBuyPriceMultiplier; set => SetDoubleSetting(ref marketBuyPriceMultiplier, value, 0.0, 5.0, nameof(MarketBuyPriceMultiplier), nameof(MarketBuyPriceMultiplierValueText)); }
         [SyncHostOnly] public double MarketSellPriceMultiplier { get => marketSellPriceMultiplier; set => SetDoubleSetting(ref marketSellPriceMultiplier, value, 0.0, 5.0, nameof(MarketSellPriceMultiplier), nameof(MarketSellPriceMultiplierValueText)); }
         [SyncHostOnly] public double PlagueDurationMultiplier { get => plagueDurationMultiplier; set => SetDoubleSetting(ref plagueDurationMultiplier, value, PlagueDurationPatch.MinimumMultiplier, PlagueDurationPatch.MaximumMultiplier, nameof(PlagueDurationMultiplier), nameof(PlagueDurationMultiplierValueText)); }
+        [SyncHostOnly] public int ApothecaryPlagueSearchDistance { get => apothecaryPlagueSearchDistance; set => SetIntSetting(ref apothecaryPlagueSearchDistance, value, PlagueApothecarySearchRangePatch.MinimumDistance, PlagueApothecarySearchRangePatch.MaximumDistance, nameof(ApothecaryPlagueSearchDistance)); }
         [SyncHostOnly] public bool EnableCtrlSingleMarketTrade { get => enableCtrlSingleMarketTrade; set => SetSetting(ref enableCtrlSingleMarketTrade, value, nameof(EnableCtrlSingleMarketTrade)); }
         [SyncHostOnly] public bool EnableFastRecruitRallyMovement { get => enableFastRecruitRallyMovement; set => SetSetting(ref enableFastRecruitRallyMovement, value, nameof(EnableFastRecruitRallyMovement)); }
         [SyncHostOnly] public bool EnableKnightDismount { get => enableKnightDismount; set => SetSetting(ref enableKnightDismount, value, nameof(EnableKnightDismount)); }
@@ -150,7 +154,8 @@ namespace ExtraFeatures
             MultiplyGoodsGainInMoneyHuman = 0;
             MarketBuyPriceMultiplier = 1.0;
             MarketSellPriceMultiplier = 1.0;
-            PlagueDurationMultiplier = 1.0;
+            PlagueDurationMultiplier = 2.0;
+            ApothecaryPlagueSearchDistance = 50;
             EnableCtrlSingleMarketTrade = true;
             EnableFastRecruitRallyMovement = true;
             EnableKnightDismount = true;
@@ -195,6 +200,16 @@ namespace ExtraFeatures
             SettingChanged?.Invoke(propertyName);
             OnPropertyChanged(propertyName);
             OnPropertyChanged(textPropertyName);
+        }
+
+        private void SetIntSetting(ref int field, int value, int minimum, int maximum, string propertyName)
+        {
+            int clamped = Math.Max(minimum, Math.Min(maximum, value));
+            if (field == clamped)
+                return;
+            field = clamped;
+            SettingChanged?.Invoke(propertyName);
+            OnPropertyChanged(propertyName);
         }
 
         private void SetDecimalMultiplierSetting(ref double field, double value, string propertyName, string textPropertyName)

@@ -38,6 +38,7 @@ namespace ExtraFeatures
         private AIEconomyProtectionHook aiEconomyProtectionHook;
         private FastRecruitMovementBridge fastRecruitMovementBridge;
         private PlagueDurationPatch plagueDurationPatch;
+        private PlagueApothecarySearchRangePatch plagueApothecarySearchRangePatch;
         private IntPtr libraryHandle;
         private int libraryLength;
         private bool nativeLibraryAvailable;
@@ -49,6 +50,7 @@ namespace ExtraFeatures
         private bool settingsSubscribed;
         private bool ctrlMarketTradeHookUnavailable;
         private bool plagueDurationPatchUnavailable;
+        private bool plagueApothecarySearchRangePatchUnavailable;
 
         public ExtraFeaturesRuntime(ManualLogSource log, ExtraFeaturesViewModel settings)
         {
@@ -107,6 +109,7 @@ namespace ExtraFeatures
             }
 
             InitializePlagueDurationPatch(newLibraryHandle, memory);
+            InitializePlagueApothecarySearchRangePatch(newLibraryHandle, memory);
 
             InstallCtrlMarketTradeHook();
             TryRunFeature("fast recruit rally movement", ApplyFastRecruitRallyMovementSetting);
@@ -150,6 +153,8 @@ namespace ExtraFeatures
             fastRecruitMovementBridge = null;
             plagueDurationPatch?.Dispose();
             plagueDurationPatch = null;
+            plagueApothecarySearchRangePatch?.Dispose();
+            plagueApothecarySearchRangePatch = null;
             nativeLibraryAvailable = false;
             libraryHandle = IntPtr.Zero;
             libraryLength = 0;
@@ -355,6 +360,14 @@ namespace ExtraFeatures
                 ApplyPlagueDurationSetting();
                 return;
             }
+            if (propertyName == nameof(ExtraFeaturesViewModel.ApothecaryPlagueSearchDistance))
+            {
+                Shared.DebugLogHelper.LogDebug(
+                    log,
+                    $"Extra Features apothecary plague-search distance changed to " +
+                    $"{settings.ApothecaryPlagueSearchDistance}.");
+                return;
+            }
 
             ApplySettings();
         }
@@ -388,6 +401,40 @@ namespace ExtraFeatures
             catch (Exception ex)
             {
                 DisablePlagueDurationPatch(ex);
+            }
+        }
+
+        private void InitializePlagueApothecarySearchRangePatch(
+            IntPtr nativeLibraryHandle,
+            ReadOnlySpan<byte> memory)
+        {
+            if (plagueApothecarySearchRangePatch != null || plagueApothecarySearchRangePatchUnavailable)
+                return;
+
+            try
+            {
+                plagueApothecarySearchRangePatch = new PlagueApothecarySearchRangePatch(
+                    log,
+                    settings,
+                    nativeLibraryHandle,
+                    memory);
+                if (!fixedLayoutHashValidated)
+                {
+                    Shared.DebugLogHelper.LogWarning(
+                        log,
+                        "Extra Features apothecary plague-search range is running on an unknown " +
+                        "CrusaderDE.dll because its native instruction signature was validated.");
+                }
+            }
+            catch (Exception ex)
+            {
+                plagueApothecarySearchRangePatchUnavailable = true;
+                plagueApothecarySearchRangePatch?.Dispose();
+                plagueApothecarySearchRangePatch = null;
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Extra Features apothecary plague-search range is disabled for this process; " +
+                    $"Vanilla distance 30 and all other features remain active: {ex}");
             }
         }
 
