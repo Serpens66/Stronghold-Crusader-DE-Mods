@@ -19,6 +19,7 @@ namespace BugfixesAndQoL
         private AssemblyPointPlacementPatch assemblyPointPlacementPatch;
         private PlaguePopularityFix plaguePopularityFix;
         private PlagueTreatmentFadeFix plagueTreatmentFadeFix;
+        private PlagueTargetReservationFix plagueTargetReservationFix;
         private PlagueApothecaryStateTransitionFix plagueApothecaryStateTransitionFix;
         private IntPtr libraryHandle;
         private int libraryLength;
@@ -30,6 +31,7 @@ namespace BugfixesAndQoL
         private bool assemblyPointPlacementPatchUnavailable;
         private bool plaguePopularityFixUnavailable;
         private bool plagueTreatmentFadeFixUnavailable;
+        private bool plagueTargetReservationFixUnavailable;
         private bool plagueApothecaryStateTransitionFixUnavailable;
 
         public BugfixesAndQoLRuntime(ManualLogSource log, BugfixesAndQoLViewModel settings)
@@ -56,6 +58,7 @@ namespace BugfixesAndQoL
             troopMovementFixRuntime.InitializeNative(newLibraryHandle, memory, isFixedLayoutHashValidated);
             EnsurePlaguePopularityFix();
             EnsurePlagueTreatmentFadeFix();
+            EnsurePlagueTargetReservationFix();
             EnsurePlagueApothecaryStateTransitionFix();
             ApplyAssemblyPointPlacementPatchSetting();
         }
@@ -80,6 +83,9 @@ namespace BugfixesAndQoL
             DisableAssemblyPointPlacementPatch();
             plaguePopularityFix?.Dispose();
             plaguePopularityFix = null;
+            plagueTreatmentFadeFix?.SetTreatmentCompletedObserver(null);
+            plagueTargetReservationFix?.Dispose();
+            plagueTargetReservationFix = null;
             plagueTreatmentFadeFix?.Dispose();
             plagueTreatmentFadeFix = null;
             plagueApothecaryStateTransitionFix?.Dispose();
@@ -168,6 +174,7 @@ namespace BugfixesAndQoL
 
         private void OnSettingChanged(string propertyName)
         {
+            plagueTargetReservationFix?.ApplySetting();
             if (propertyName == nameof(BugfixesAndQoLViewModel.EnableTroopMovementFix))
             {
                 troopMovementFixRuntime.ApplySetting();
@@ -265,6 +272,48 @@ namespace BugfixesAndQoL
                     log,
                     $"Bugfixes and QoL stuck-apothecary fix could not be installed; " +
                     $"only this fix remains inactive and Vanilla behavior remains active: {ex}");
+            }
+        }
+
+        private void EnsurePlagueTargetReservationFix()
+        {
+            if (!nativeLibraryAvailable ||
+                plagueTargetReservationFix != null ||
+                plagueTargetReservationFixUnavailable)
+            {
+                return;
+            }
+
+            if (plagueTreatmentFadeFix == null)
+            {
+                plagueTargetReservationFixUnavailable = true;
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    "Bugfixes and QoL plague target-reservation fix remains inactive because " +
+                    "the treatment-completion hook is unavailable; other plague fixes remain independent.");
+                return;
+            }
+
+            try
+            {
+                plagueTargetReservationFix = new PlagueTargetReservationFix(
+                    log,
+                    settings,
+                    GetNativeLibraryMemory(),
+                    unchecked((ulong)libraryHandle.ToInt64()));
+                plagueTreatmentFadeFix.SetTreatmentCompletedObserver(
+                    plagueTargetReservationFix.OnTreatmentCompleted);
+                plagueTargetReservationFix.ApplySetting();
+            }
+            catch (Exception ex)
+            {
+                plagueTargetReservationFix?.Dispose();
+                plagueTargetReservationFix = null;
+                plagueTargetReservationFixUnavailable = true;
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Bugfixes and QoL plague target-reservation fix could not be installed; " +
+                    $"only this fix remains inactive and Vanilla target selection remains active: {ex}");
             }
         }
 

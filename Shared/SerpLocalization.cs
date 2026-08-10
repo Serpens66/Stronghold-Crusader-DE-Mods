@@ -87,6 +87,12 @@ public static class SerpLocalization
     public const string EnableTroopMovementFixHelp = "SomeSettings.EnableTroopMovementFixHelp";
     public const string EnablePlaguePopularityFix = "SomeSettings.EnablePlaguePopularityFix";
     public const string EnablePlaguePopularityFixHelp = "SomeSettings.EnablePlaguePopularityFixHelp";
+    public const string EnablePlagueCloudRemovalFix = "SomeSettings.EnablePlagueCloudRemovalFix";
+    public const string EnablePlagueCloudRemovalFixHelp = "SomeSettings.EnablePlagueCloudRemovalFixHelp";
+    public const string EnableStuckApothecaryFix = "SomeSettings.EnableStuckApothecaryFix";
+    public const string EnableStuckApothecaryFixHelp = "SomeSettings.EnableStuckApothecaryFixHelp";
+    public const string EnablePlagueTargetReservationFix = "SomeSettings.EnablePlagueTargetReservationFix";
+    public const string EnablePlagueTargetReservationFixHelp = "SomeSettings.EnablePlagueTargetReservationFixHelp";
     public const string EnableFastRecruitRallyMovement = "SomeSettings.EnableFastRecruitRallyMovement";
     public const string EnableFastRecruitRallyMovementHelp = "SomeSettings.EnableFastRecruitRallyMovementHelp";
     public const string EnableKnightDismount = "SomeSettings.EnableKnightDismount";
@@ -205,6 +211,12 @@ public static class SerpLocalization
         { EnableTroopMovementFixHelp, "Fixes synchronized movement for mixed troop groups: with a normal movement command, all units move at the speed of the slowest unit in the group." },
         { EnablePlaguePopularityFix, "Plague Popularity Fix" },
         { EnablePlaguePopularityFixHelp, "Applies exactly -1 popularity for each active plague outbreak and removes it once all associated plague clouds have expired naturally or been removed by an apothecary." },
+        { EnablePlagueCloudRemovalFix, "Plague Cloud Removal Fix" },
+        { EnablePlagueCloudRemovalFixHelp, "Ensures every plague cloud affected by an apothecary treatment enters Vanilla's fade-out phase instead of becoming active again." },
+        { EnableStuckApothecaryFix, "Stuck Apothecary Fix" },
+        { EnableStuckApothecaryFixHelp, "Completes Vanilla's building-exit transition when an apothecary finds a plague target, preventing it from remaining stuck at the building." },
+        { EnablePlagueTargetReservationFix, "Apothecary Target Reservation Fix" },
+        { EnablePlagueTargetReservationFixHelp, "Prevents different apothecaries from selecting plague clouds covered by the same expected area treatment." },
         { EnableFastRecruitRallyMovement, "Recruits Run to Rally Points" },
         { EnableFastRecruitRallyMovementHelp, "Newly recruited player and AI units move to their rally points using their own Vanilla Fast pace and animation while keeping terrain and state modifiers." },
         { EnableKnightDismount, "Enable knight mount/dismount buttons" },

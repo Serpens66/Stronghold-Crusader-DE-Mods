@@ -3,10 +3,30 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.5",
+  "Version": "1.0.8",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.8",
+      "Changes": [
+        "Moved confirmed apothecary-fix runtime messages to debug logging and removed temporary diagnostic overhead."
+      ]
+    },
+    {
+      "Version": "1.0.7",
+      "Changes": [
+        "Added separate host settings for plague-cloud removal, stuck-apothecary, and apothecary target-reservation fixes.",
+        "Separated the three apothecary fixes into dedicated source files."
+      ]
+    },
+    {
+      "Version": "1.0.6",
+      "Changes": [
+        "Prevented different apothecaries from selecting plague clouds covered by the same reserved area treatment.",
+        "Added deterministic cleanup for completed, abandoned, deleted, dead, and stalled apothecary reservations."
+      ]
+    },
     {
       "Version": "1.0.5",
       "Changes": [

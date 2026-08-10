@@ -16,6 +16,9 @@ namespace BugfixesAndQoL
         private bool rememberAiAivSettings = true;
         private bool enableTroopMovementFix = true;
         private bool enablePlaguePopularityFix = true;
+        private bool enablePlagueCloudRemovalFix = true;
+        private bool enableStuckApothecaryFix = true;
+        private bool enablePlagueTargetReservationFix = true;
         private readonly bool[] allowMinimapWhilePlacingBuildingData = new bool[9];
         private readonly bool[] allowCameraMovementWithModifiersData = new bool[9];
         private readonly bool[] hdMarketViewData = new bool[9];
@@ -44,6 +47,12 @@ namespace BugfixesAndQoL
         public string EnableTroopMovementFixHelpText => SerpLocalization.Get(SerpLocalization.EnableTroopMovementFixHelp);
         public string EnablePlaguePopularityFixText => SerpLocalization.Get(SerpLocalization.EnablePlaguePopularityFix);
         public string EnablePlaguePopularityFixHelpText => SerpLocalization.Get(SerpLocalization.EnablePlaguePopularityFixHelp);
+        public string EnablePlagueCloudRemovalFixText => SerpLocalization.Get(SerpLocalization.EnablePlagueCloudRemovalFix);
+        public string EnablePlagueCloudRemovalFixHelpText => SerpLocalization.Get(SerpLocalization.EnablePlagueCloudRemovalFixHelp);
+        public string EnableStuckApothecaryFixText => SerpLocalization.Get(SerpLocalization.EnableStuckApothecaryFix);
+        public string EnableStuckApothecaryFixHelpText => SerpLocalization.Get(SerpLocalization.EnableStuckApothecaryFixHelp);
+        public string EnablePlagueTargetReservationFixText => SerpLocalization.Get(SerpLocalization.EnablePlagueTargetReservationFix);
+        public string EnablePlagueTargetReservationFixHelpText => SerpLocalization.Get(SerpLocalization.EnablePlagueTargetReservationFixHelp);
         public string AllowCameraMovementWithModifiersText => SerpLocalization.Get(SerpLocalization.AllowCameraMovementWithModifiers);
         public string AllowCameraMovementWithModifiersHelpText => SerpLocalization.Get(SerpLocalization.AllowCameraMovementWithModifiersHelp);
         public string HdMarketViewText => SerpLocalization.Get(SerpLocalization.HdMarketView);
@@ -129,11 +138,35 @@ namespace BugfixesAndQoL
             set => SetSetting(ref enablePlaguePopularityFix, value, nameof(EnablePlaguePopularityFix));
         }
 
+        [SyncHostOnly]
+        public bool EnablePlagueCloudRemovalFix
+        {
+            get => enablePlagueCloudRemovalFix;
+            set => SetSetting(ref enablePlagueCloudRemovalFix, value, nameof(EnablePlagueCloudRemovalFix));
+        }
+
+        [SyncHostOnly]
+        public bool EnableStuckApothecaryFix
+        {
+            get => enableStuckApothecaryFix;
+            set => SetSetting(ref enableStuckApothecaryFix, value, nameof(EnableStuckApothecaryFix));
+        }
+
+        [SyncHostOnly]
+        public bool EnablePlagueTargetReservationFix
+        {
+            get => enablePlagueTargetReservationFix;
+            set => SetSetting(ref enablePlagueTargetReservationFix, value, nameof(EnablePlagueTargetReservationFix));
+        }
+
         private void ResetToDefault()
         {
             RememberAiAivSettings = true;
             EnableTroopMovementFix = true;
             EnablePlaguePopularityFix = true;
+            EnablePlagueCloudRemovalFix = true;
+            EnableStuckApothecaryFix = true;
+            EnablePlagueTargetReservationFix = true;
             SetAllowMinimapDefaults();
             SetAllowCameraMovementWithModifiersDefaults();
             SetHdMarketViewDefaults();
