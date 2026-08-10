@@ -35,8 +35,13 @@ namespace RandomEvents
         public string CooldownText => RandomEventsLocalization.Get("RandomEvents.Cooldown");
         public string CooldownHelpText => RandomEventsLocalization.Get("RandomEvents.CooldownHelp");
         public string ChancesTitleText => RandomEventsLocalization.Get("RandomEvents.ChancesTitle");
+        public string ChanceHelpText => RandomEventsLocalization.Get("RandomEvents.ChanceHelp");
         public string StrengthTitleText => RandomEventsLocalization.Get("RandomEvents.StrengthTitle");
         public string ScaledStrengthHelpText => RandomEventsLocalization.Get("RandomEvents.ScaledStrengthHelp");
+        public string PlagueStrengthHelpText => RandomEventsLocalization.Get("RandomEvents.PlagueStrengthHelp");
+        public string LionStrengthHelpText => RandomEventsLocalization.Get("RandomEvents.LionStrengthHelp");
+        public string TheftStrengthHelpText => RandomEventsLocalization.Get("RandomEvents.TheftStrengthHelp");
+        public string FireStrengthHelpText => RandomEventsLocalization.Get("RandomEvents.FireStrengthHelp");
         public string MinimumText => RandomEventsLocalization.Get("RandomEvents.Minimum");
         public string MaximumText => RandomEventsLocalization.Get("RandomEvents.Maximum");
         public string MultiplayerModeText => RandomEventsLocalization.Get("RandomEvents.MultiplayerMode");

@@ -6,8 +6,13 @@ RandomEvents.IntervalHelp=Der erste Wurf erfolgt nach einem vollständigen Inter
 RandomEvents.Cooldown=Cooldown eines Events (Monate)
 RandomEvents.CooldownHelp=Nachdem ein bestimmtes Event ausgelöst wurde, wird es so viele Monate nicht erneut auslösen
 RandomEvents.ChancesTitle=EREIGNISCHANCEN (%)
+RandomEvents.ChanceHelp=Jeder Regler ist die unabhängige prozentuale Chance, dass dieses Ereignis nach Ablauf eines Intervalls ausgelöst wird.
 RandomEvents.StrengthTitle=EREIGNISSTÄRKE
-RandomEvents.ScaledStrengthHelp=Banditen und Bogenschützen: Einheiten pro 3 vergangene Spielmonate (eine Spielminute). Der gewürfelte Faktor wird mit der vergangenen Zeit multipliziert.
+RandomEvents.ScaledStrengthHelp=Bei Banditen und Bogenschützen ist X die Einheitenzahl pro 3 vergangene Spielmonate. Einheiten = Abrunden(vergangene Monate × X ÷ 3). Beim Auslösen wird ein Faktor zwischen Minimum und Maximum ausgewürfelt.
+RandomEvents.PlagueStrengthHelp=Legt die minimale und maximale Peststärke fest. Beim Auslösen wird ein Wert aus diesem Bereich ausgewürfelt.
+RandomEvents.LionStrengthHelp=Legt die minimale und maximale Anzahl der Löwengruppen fest. Beim Auslösen wird ein Wert aus diesem Bereich ausgewürfelt.
+RandomEvents.TheftStrengthHelp=Legt den minimalen und maximalen Prozentsatz der gestohlenen Kornspeichernahrung fest. Beim Auslösen wird ein Wert aus diesem Bereich ausgewürfelt.
+RandomEvents.FireStrengthHelp=Legt die minimale und maximale Stärke des Feuerereignisses fest. Beim Auslösen wird ein Wert aus diesem Bereich ausgewürfelt.
 RandomEvents.Minimum=Min
 RandomEvents.Maximum=Max
 RandomEvents.MultiplayerMode=Reservierter Mehrspielermodus

@@ -27,6 +27,8 @@
     <ComboBox ItemsSource="{Binding CastleOptions}"
               SelectedItem="{Binding SelectedCastle, Mode=TwoWay}"
               MaxDropDownHeight="420"
+              ToolTipService.ShowDuration="60000"
+              ToolTip="Selects the AIVJSON castle used for the local blueprint or singleplayer spawn."
               Margin="0,0,0,8"/>
     <TextBlock Text="{Binding InventoryText}"
                Foreground="#999999"
@@ -37,6 +39,8 @@
                Margin="0,0,0,3"/>
     <ComboBox ItemsSource="{Binding ModeOptions}"
               SelectedItem="{Binding Mode, Mode=TwoWay}"
+              ToolTipService.ShowDuration="60000"
+              ToolTip="Disables the mod, shows the selected castle as a local blueprint, or spawns it in a new singleplayer game."
               Margin="0,0,0,8"/>
     <TextBlock Text="Blueprint toggle key"
                Foreground="#DDDDDD"
@@ -54,10 +58,14 @@
       </Border>
       <Button Content="{Binding HotkeyCaptureButtonText}"
               Command="{Binding AssignHotkeyCommand}"
+              ToolTipService.ShowDuration="60000"
+              ToolTip="Assigns the key or mouse button that toggles the blueprint display."
               MinWidth="115"
               Margin="0,0,6,0"/>
       <Button Content="Clear"
               Command="{Binding ClearHotkeyCommand}"
+              ToolTipService.ShowDuration="60000"
+              ToolTip="Removes the assigned blueprint toggle key."
               MinWidth="60"/>
     </StackPanel>
     <TextBlock Text="The blueprint starts hidden on every map. Each multiplayer client uses only its own local selection."

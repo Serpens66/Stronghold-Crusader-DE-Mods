@@ -6,8 +6,13 @@ RandomEvents.IntervalHelp=The first roll happens after one complete interval. Ev
 RandomEvents.Cooldown=Cooldown of an event (months)
 RandomEvents.CooldownHelp=After a specific event has triggered, it will not trigger again for this many months.
 RandomEvents.ChancesTitle=EVENT CHANCES (%)
+RandomEvents.ChanceHelp=Each slider is the independent percentage chance that this event triggers whenever an interval completes.
 RandomEvents.StrengthTitle=EVENT STRENGTH
-RandomEvents.ScaledStrengthHelp=Bandits and archers: units per 3 elapsed game months (one game minute). The rolled factor is multiplied by elapsed time.
+RandomEvents.ScaledStrengthHelp=Bandits and archers: X is the unit count per 3 elapsed game months. Units = floor(elapsed months × X ÷ 3). A factor between the selected minimum and maximum is rolled when the event triggers.
+RandomEvents.PlagueStrengthHelp=Sets the minimum and maximum plague strength. A value in this range is rolled when the event triggers.
+RandomEvents.LionStrengthHelp=Sets the minimum and maximum number of lion groups. A value in this range is rolled when the event triggers.
+RandomEvents.TheftStrengthHelp=Sets the minimum and maximum percentage of granary food stolen. A value in this range is rolled when the event triggers.
+RandomEvents.FireStrengthHelp=Sets the minimum and maximum fire-event strength. A value in this range is rolled when the event triggers.
 RandomEvents.Minimum=Min
 RandomEvents.Maximum=Max
 RandomEvents.MultiplayerMode=Reserved multiplayer mode
