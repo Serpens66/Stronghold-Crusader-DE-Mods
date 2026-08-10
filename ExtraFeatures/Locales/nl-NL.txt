@@ -68,3 +68,5 @@ Common.ActionsScopeClient=Preset and reset affect only your local client setting
 SomeSettings.BuildingsProductionTitle=Buildings and Production
 SomeSettings.CampfirePeasants=Peasants waiting at the campfire
 SomeSettings.CampfirePeasantsHelp=-1 = unchanged. Allowed range: -1 to 500. Sets the maximum peasants waiting at the campfire.
+SomeSettings.NewFeaturesTitle=New Gameplay Features
+SomeSettings.TilesValueFormat={0} tiles

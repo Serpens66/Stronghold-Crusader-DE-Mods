@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.9",
+  "Version": "1.0.10",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.10",
+      "Changes": [
+        "Moved the knight mount/dismount option into a dedicated new-gameplay-features section, added Slider units, highlighted activation, and enlarged tooltips."
+      ]
+    },
     {
       "Version": "1.0.9",
       "Changes": [

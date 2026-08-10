@@ -49,3 +49,5 @@ Common.ActionsScopeHost=Preset and reset affect host settings and your local cli
 Common.ActionsScopeClient=Preset and reset affect only your local client settings.
 RandomEvents.PositiveEventsTitle=Positive Events
 RandomEvents.NegativeEventsTitle=Negative Events
+RandomEvents.MonthsValueFormat={0} months
+RandomEvents.GroupsValueFormat={0} groups

@@ -162,6 +162,8 @@ public static class SerpLocalization
         { "BugfixesAndQoL.EnableHostFeatures", "Enable host features" },
         { "BugfixesAndQoL.EnableHostFeaturesHelp", "Enables or disables the host-controlled fixes for the match." },
         { "SomeSettings.ComfortTitle", "Convenience Features" },
+        { "SomeSettings.NewFeaturesTitle", "New Gameplay Features" },
+        { "SomeSettings.TilesValueFormat", "{0} tiles" },
         { "SomeSettings.PlagueTitle", "Plague" },
         { "ImprovedHunters.BehaviorTitle", "Behavior" },
         { "ImprovedHunters.TargetsYieldTitle", "Targets and Meat Yield" },

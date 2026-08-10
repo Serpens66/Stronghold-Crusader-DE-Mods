@@ -79,6 +79,7 @@ namespace ExtraFeatures
         public string ApothecaryPlagueSearchDistanceHelpText => SerpLocalization.Get(SerpLocalization.ApothecaryPlagueSearchDistanceHelp);
         public string BulldozeTitleText => SerpLocalization.Get(SerpLocalization.BulldozeTitle);
         public string ComfortTitleText => SerpLocalization.Get("SomeSettings.ComfortTitle");
+        public string NewFeaturesTitleText => SerpLocalization.Get("SomeSettings.NewFeaturesTitle");
         public string BuildingsProductionTitleText => SerpLocalization.Get(SerpLocalization.BuildingsProductionTitle);
         public string PlagueTitleText => SerpLocalization.Get("SomeSettings.PlagueTitle");
         public string BulldozeHelpText => SerpLocalization.Get(SerpLocalization.BulldozeHelp);
@@ -131,7 +132,7 @@ namespace ExtraFeatures
         [SyncHostOnly] public double MarketBuyPriceMultiplier { get => marketBuyPriceMultiplier; set => SetDoubleSetting(ref marketBuyPriceMultiplier, value, 0.0, 5.0, nameof(MarketBuyPriceMultiplier), nameof(MarketBuyPriceMultiplierValueText)); }
         [SyncHostOnly] public double MarketSellPriceMultiplier { get => marketSellPriceMultiplier; set => SetDoubleSetting(ref marketSellPriceMultiplier, value, 0.0, 5.0, nameof(MarketSellPriceMultiplier), nameof(MarketSellPriceMultiplierValueText)); }
         [SyncHostOnly] public double PlagueDurationMultiplier { get => plagueDurationMultiplier; set => SetDoubleSetting(ref plagueDurationMultiplier, value, PlagueDurationPatch.MinimumMultiplier, PlagueDurationPatch.MaximumMultiplier, nameof(PlagueDurationMultiplier), nameof(PlagueDurationMultiplierValueText)); }
-        [SyncHostOnly] public int ApothecaryPlagueSearchDistance { get => apothecaryPlagueSearchDistance; set => SetIntSetting(ref apothecaryPlagueSearchDistance, value, PlagueApothecarySearchRangePatch.MinimumDistance, PlagueApothecarySearchRangePatch.MaximumDistance, nameof(ApothecaryPlagueSearchDistance)); }
+        [SyncHostOnly] public int ApothecaryPlagueSearchDistance { get => apothecaryPlagueSearchDistance; set => SetIntSetting(ref apothecaryPlagueSearchDistance, value, PlagueApothecarySearchRangePatch.MinimumDistance, PlagueApothecarySearchRangePatch.MaximumDistance, nameof(ApothecaryPlagueSearchDistance), nameof(ApothecaryPlagueSearchDistanceValueText)); }
         [SyncHostOnly] public int CampfirePeasantsLimit { get => campfirePeasantsLimit; set => SetIntSetting(ref campfirePeasantsLimit, value, -1, 500, nameof(CampfirePeasantsLimit), nameof(CampfirePeasantsLimitText)); }
         [SyncHostOnly] public bool EnableCtrlSingleMarketTrade { get => enableCtrlSingleMarketTrade; set => SetSetting(ref enableCtrlSingleMarketTrade, value, nameof(EnableCtrlSingleMarketTrade)); }
         [SyncHostOnly] public bool EnableFastRecruitRallyMovement { get => enableFastRecruitRallyMovement; set => SetSetting(ref enableFastRecruitRallyMovement, value, nameof(EnableFastRecruitRallyMovement)); }
@@ -146,9 +147,13 @@ namespace ExtraFeatures
         public string MultiplyGoodsGainHumanText { get => FormatDecimalMultiplier(MultiplyGoodsGainHuman); set => SetDecimalMultiplierText(value, parsed => MultiplyGoodsGainHuman = parsed, nameof(MultiplyGoodsGainHumanText)); }
         public string MultiplyGoodsGainInMoneyAIText { get => FormatDecimalMultiplier(MultiplyGoodsGainInMoneyAI); set => SetDecimalMultiplierText(value, parsed => MultiplyGoodsGainInMoneyAI = parsed, nameof(MultiplyGoodsGainInMoneyAIText)); }
         public string MultiplyGoodsGainInMoneyHumanText { get => FormatDecimalMultiplier(MultiplyGoodsGainInMoneyHuman); set => SetDecimalMultiplierText(value, parsed => MultiplyGoodsGainInMoneyHuman = parsed, nameof(MultiplyGoodsGainInMoneyHumanText)); }
-        public string MarketBuyPriceMultiplierValueText => MarketBuyPriceMultiplier.ToString("0.0");
-        public string MarketSellPriceMultiplierValueText => MarketSellPriceMultiplier.ToString("0.0");
+        public string MarketBuyPriceMultiplierValueText => MarketBuyPriceMultiplier.ToString("0.0", CultureInfo.InvariantCulture) + "x";
+        public string MarketSellPriceMultiplierValueText => MarketSellPriceMultiplier.ToString("0.0", CultureInfo.InvariantCulture) + "x";
         public string PlagueDurationMultiplierValueText => PlagueDurationMultiplier.ToString("0.0", CultureInfo.InvariantCulture) + "x";
+        public string ApothecaryPlagueSearchDistanceValueText => string.Format(
+            CultureInfo.CurrentCulture,
+            SerpLocalization.Get("SomeSettings.TilesValueFormat"),
+            ApothecaryPlagueSearchDistance);
         public string CampfirePeasantsLimitText
         {
             get => CampfirePeasantsLimit.ToString(CultureInfo.InvariantCulture);

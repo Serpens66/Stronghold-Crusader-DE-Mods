@@ -13,7 +13,7 @@ namespace ImprovedHunters
 
         public const string PluginGuid = "ImprovedHunters_Serp";
         public const string PluginName = "Improved Hunters";
-        public const string PluginVersion = "1.1.19";
+        public const string PluginVersion = "1.1.20";
 
         private static ImprovedHuntersRuntime persistentRuntime;
         private static ImprovedHuntersViewModel persistentSettings;

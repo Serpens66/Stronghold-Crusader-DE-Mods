@@ -2,6 +2,7 @@ using SHCDESE.API.Components.Network;
 using SHCDESE.NoesisUtil;
 using SHCDESE.ViewModels;
 using System;
+using System.Globalization;
 
 namespace RandomEvents
 {
@@ -74,6 +75,32 @@ namespace RandomEvents
         public string BardText => EventText("Bard");
         public string GranaryTheftText => EventText("GranaryTheft");
         public string FireText => EventText("Fire");
+
+        public string IntervalMonthsValueText => FormatLocalizedValue("RandomEvents.MonthsValueFormat", IntervalMonths);
+        public string CooldownMonthsValueText => FormatLocalizedValue("RandomEvents.MonthsValueFormat", CooldownMonths);
+        public string FairChanceValueText => FormatPercent(FairChance);
+        public string PlagueChanceValueText => FormatPercent(PlagueChance);
+        public string WheatInfestationChanceValueText => FormatPercent(WheatInfestationChance);
+        public string HopsBeetlesChanceValueText => FormatPercent(HopsBeetlesChance);
+        public string AppleBlightChanceValueText => FormatPercent(AppleBlightChance);
+        public string TreeBlightChanceValueText => FormatPercent(TreeBlightChance);
+        public string RabbitsChanceValueText => FormatPercent(RabbitsChance);
+        public string LionAttackChanceValueText => FormatPercent(LionAttackChance);
+        public string BanditsChanceValueText => FormatPercent(BanditsChance);
+        public string MadCowsChanceValueText => FormatPercent(MadCowsChance);
+        public string ArchersChanceValueText => FormatPercent(ArchersChance);
+        public string MarriageChanceValueText => FormatPercent(MarriageChance);
+        public string BardChanceValueText => FormatPercent(BardChance);
+        public string GranaryTheftChanceValueText => FormatPercent(GranaryTheftChance);
+        public string FireChanceValueText => FormatPercent(FireChance);
+        public string LionMinValueText => FormatLocalizedValue("RandomEvents.GroupsValueFormat", LionMin);
+        public string LionMaxValueText => FormatLocalizedValue("RandomEvents.GroupsValueFormat", LionMax);
+        public string BanditMinValueText => FormatFactor(BanditMin);
+        public string BanditMaxValueText => FormatFactor(BanditMax);
+        public string ArcherMinValueText => FormatFactor(ArcherMin);
+        public string ArcherMaxValueText => FormatFactor(ArcherMax);
+        public string TheftMinValueText => FormatPercent(TheftMin);
+        public string TheftMaxValueText => FormatPercent(TheftMax);
 
         [SyncHostOnly] public bool EnableMod { get => enableMod; set => Set(ref enableMod, value, nameof(EnableMod)); }
         [SyncHostOnly] public int IntervalMonths { get => intervalMonths; set => SetClamped(ref intervalMonths, value, 1, 90, nameof(IntervalMonths)); }
@@ -220,7 +247,40 @@ namespace RandomEvents
         private void Changed(string propertyName)
         {
             OnPropertyChanged(propertyName);
+            string valueTextProperty = GetValueTextPropertyName(propertyName);
+            if (valueTextProperty != null)
+                OnPropertyChanged(valueTextProperty);
         }
+
+        private static string GetValueTextPropertyName(string propertyName)
+        {
+            if (propertyName.EndsWith("Chance", StringComparison.Ordinal))
+                return propertyName + "ValueText";
+
+            switch (propertyName)
+            {
+                case nameof(IntervalMonths): return nameof(IntervalMonthsValueText);
+                case nameof(CooldownMonths): return nameof(CooldownMonthsValueText);
+                case nameof(LionMin): return nameof(LionMinValueText);
+                case nameof(LionMax): return nameof(LionMaxValueText);
+                case nameof(BanditMin): return nameof(BanditMinValueText);
+                case nameof(BanditMax): return nameof(BanditMaxValueText);
+                case nameof(ArcherMin): return nameof(ArcherMinValueText);
+                case nameof(ArcherMax): return nameof(ArcherMaxValueText);
+                case nameof(TheftMin): return nameof(TheftMinValueText);
+                case nameof(TheftMax): return nameof(TheftMaxValueText);
+                default: return null;
+            }
+        }
+
+        private static string FormatLocalizedValue(string key, int value) =>
+            string.Format(CultureInfo.CurrentCulture, RandomEventsLocalization.Get(key), value);
+
+        private static string FormatPercent(int value) =>
+            value.ToString(CultureInfo.InvariantCulture) + "%";
+
+        private static string FormatFactor(double value) =>
+            value.ToString("0.0", CultureInfo.InvariantCulture) + "x";
 
         private static int Clamp(int value, int minimum, int maximum) => Math.Max(minimum, Math.Min(maximum, value));
         private static double NormalizeScaledStrength(double value) =>

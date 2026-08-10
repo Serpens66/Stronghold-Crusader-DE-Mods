@@ -9,7 +9,7 @@ StartConditions.StartGoodsTitle=Startwaren
 StartConditions.StartTroopsTitle=Starttruppen
 StartConditions.UnchangedRangeHelp=-1 = unverändert. Erlaubter Bereich: -1 bis 100000.
 StartConditions.NormalCrusade=Normal/Kreuzzug
-StartConditions.Deathmatch=Todeskampf
+StartConditions.Deathmatch=Deathmatch
 StartConditions.SetStartGold=Startgold setzen (-1 = unverändert)
 StartConditions.SetStartGoldHelp=Setzt die anfängliche Goldmenge für jeden Spieler. -1 bedeutet unverändert.
 StartConditions.AddStartGold=Startgold hinzufügen

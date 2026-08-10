@@ -49,3 +49,5 @@ Common.ActionsScopeHost=Preset und Zurücksetzen betreffen Host-Einstellungen un
 Common.ActionsScopeClient=Preset und Zurücksetzen betreffen nur deine lokalen Client-Optionen.
 RandomEvents.PositiveEventsTitle=Positive Ereignisse
 RandomEvents.NegativeEventsTitle=Negative Ereignisse
+RandomEvents.MonthsValueFormat={0} Monate
+RandomEvents.GroupsValueFormat={0} Gruppen
