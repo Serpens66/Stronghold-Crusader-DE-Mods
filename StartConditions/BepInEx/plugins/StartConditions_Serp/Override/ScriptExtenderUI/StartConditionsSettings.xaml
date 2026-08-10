@@ -39,19 +39,19 @@
         <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding AiText}" Foreground="White" FontWeight="Bold"/>
         <TextBlock Grid.Row="0" Grid.Column="2" Text="{Binding HumanText}" Foreground="White" FontWeight="Bold"/>
 
-        <StackPanel Grid.Row="1" Grid.Column="0" Orientation="Horizontal" Margin="0,4" ToolTip="{Binding SetStartGoldHelpText}">
+        <StackPanel Grid.Row="1" Grid.Column="0" Orientation="Horizontal" Margin="0,4" ToolTipService.ShowDuration="60000" ToolTip="{Binding SetStartGoldHelpText}">
           <Image Source="{Binding GoldIcon}" Width="18" Height="18" Stretch="Uniform" Margin="0,0,6,0"/>
           <TextBlock Text="{Binding SetStartGoldText}" Foreground="White" VerticalAlignment="Center"/>
         </StackPanel>
-        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding SetStartGoldAIText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="{Binding SetStartGoldAiToolTipText}" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
-        <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding SetStartGoldHumanText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="{Binding SetStartGoldHumanToolTipText}" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding SetStartGoldAIText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTipService.ShowDuration="60000" ToolTip="{Binding SetStartGoldAiToolTipText}" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+        <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding SetStartGoldHumanText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTipService.ShowDuration="60000" ToolTip="{Binding SetStartGoldHumanToolTipText}" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
 
-        <StackPanel Grid.Row="2" Grid.Column="0" Orientation="Horizontal" Margin="0,4" ToolTip="{Binding AddStartGoldHelpText}">
+        <StackPanel Grid.Row="2" Grid.Column="0" Orientation="Horizontal" Margin="0,4" ToolTipService.ShowDuration="60000" ToolTip="{Binding AddStartGoldHelpText}">
           <Image Source="{Binding GoldIcon}" Width="18" Height="18" Stretch="Uniform" Margin="0,0,6,0"/>
           <TextBlock Text="{Binding AddStartGoldText}" Foreground="White" VerticalAlignment="Center"/>
         </StackPanel>
-        <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding AddStartGoldAIText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="{Binding AddStartGoldAiToolTipText}" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
-        <TextBox Grid.Row="2" Grid.Column="2" Text="{Binding AddStartGoldHumanText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="{Binding AddStartGoldHumanToolTipText}" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+        <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding AddStartGoldAIText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTipService.ShowDuration="60000" ToolTip="{Binding AddStartGoldAiToolTipText}" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+        <TextBox Grid.Row="2" Grid.Column="2" Text="{Binding AddStartGoldHumanText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTipService.ShowDuration="60000" ToolTip="{Binding AddStartGoldHumanToolTipText}" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
       </Grid>
 
       <Separator Background="#444466" Margin="0,10"/>
@@ -83,7 +83,7 @@
               </Grid.ColumnDefinitions>
               <StackPanel Grid.Column="0"
                           Orientation="Horizontal"
-                          ToolTip="{Binding Key}"
+                          ToolTipService.ShowDuration="60000" ToolTip="{Binding Key}"
                           VerticalAlignment="Center"
                           Margin="0,2,8,2">
                 <Image Source="{Binding IconImage}"
@@ -97,28 +97,28 @@
               </StackPanel>
               <TextBox Grid.Column="1"
                        Text="{Binding AIAmountText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}"
-                       ToolTip="{Binding AIAmountToolTip}"
+                       ToolTipService.ShowDuration="60000" ToolTip="{Binding AIAmountToolTip}"
                        MaxLength="7"
                        HorizontalContentAlignment="Right"
                        Margin="3"
                        ui:KeyboardCaptureBinding.Enabled="True"/>
               <TextBox Grid.Column="2"
                        Text="{Binding HumanAmountText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}"
-                       ToolTip="{Binding HumanAmountToolTip}"
+                       ToolTipService.ShowDuration="60000" ToolTip="{Binding HumanAmountToolTip}"
                        MaxLength="7"
                        HorizontalContentAlignment="Right"
                        Margin="3"
                        ui:KeyboardCaptureBinding.Enabled="True"/>
               <TextBlock Grid.Column="3"
                          Text="{Binding NormalCrusaderAmountText}"
-                         ToolTip="{Binding NormalCrusaderAmountToolTip}"
+                         ToolTipService.ShowDuration="60000" ToolTip="{Binding NormalCrusaderAmountToolTip}"
                          Foreground="#CCCCCC"
                          HorizontalAlignment="Right"
                          VerticalAlignment="Center"
                          Margin="3"/>
               <TextBlock Grid.Column="4"
                          Text="{Binding DeathmatchAmountText}"
-                         ToolTip="{Binding DeathmatchAmountToolTip}"
+                         ToolTipService.ShowDuration="60000" ToolTip="{Binding DeathmatchAmountToolTip}"
                          Foreground="#CCCCCC"
                          HorizontalAlignment="Right"
                          VerticalAlignment="Center"
@@ -142,9 +142,9 @@
         </Grid.RowDefinitions>
         <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding AiText}" Foreground="White" FontWeight="Bold"/>
         <TextBlock Grid.Row="0" Grid.Column="2" Text="{Binding HumanText}" Foreground="White" FontWeight="Bold"/>
-        <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding MultiplyStartTroopsText}" Foreground="White" Margin="0,4" ToolTip="{Binding StartTroopsMultiplierHelpText}"/>
-        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding MultiplyStartTroopsAIText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="{Binding StartTroopsMultiplierAiToolTipText}" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
-        <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding MultiplyStartTroopsHumanText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTip="{Binding StartTroopsMultiplierHumanToolTipText}" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+        <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding MultiplyStartTroopsText}" Foreground="White" Margin="0,4" ToolTipService.ShowDuration="60000" ToolTip="{Binding StartTroopsMultiplierHelpText}"/>
+        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding MultiplyStartTroopsAIText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTipService.ShowDuration="60000" ToolTip="{Binding StartTroopsMultiplierAiToolTipText}" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
+        <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding MultiplyStartTroopsHumanText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" ToolTipService.ShowDuration="60000" ToolTip="{Binding StartTroopsMultiplierHumanToolTipText}" Margin="3" ui:KeyboardCaptureBinding.Enabled="True"/>
       </Grid>
 
       <TextBlock Text="{Binding StartTroopsMultiplierHelpText}" Foreground="#CCCCCC" TextWrapping="Wrap" Margin="0,8,0,6"/>
@@ -169,7 +169,7 @@
               </Grid.ColumnDefinitions>
               <StackPanel Grid.Column="0"
                           Orientation="Horizontal"
-                          ToolTip="{Binding Key}"
+                          ToolTipService.ShowDuration="60000" ToolTip="{Binding Key}"
                           VerticalAlignment="Center"
                           Margin="0,2,8,2">
                 <Image Source="{Binding IconImage}"
@@ -183,14 +183,14 @@
               </StackPanel>
               <TextBox Grid.Column="1"
                        Text="{Binding AIAmountText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}"
-                       ToolTip="{Binding AIAmountToolTip}"
+                       ToolTipService.ShowDuration="60000" ToolTip="{Binding AIAmountToolTip}"
                        MaxLength="7"
                        HorizontalContentAlignment="Right"
                        Margin="3"
                        ui:KeyboardCaptureBinding.Enabled="True"/>
               <TextBox Grid.Column="2"
                        Text="{Binding HumanAmountText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}"
-                       ToolTip="{Binding HumanAmountToolTip}"
+                       ToolTipService.ShowDuration="60000" ToolTip="{Binding HumanAmountToolTip}"
                        MaxLength="7"
                        HorizontalContentAlignment="Right"
                        Margin="3"

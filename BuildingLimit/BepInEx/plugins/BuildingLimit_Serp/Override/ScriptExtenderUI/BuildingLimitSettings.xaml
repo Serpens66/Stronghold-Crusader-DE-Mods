@@ -35,7 +35,7 @@
               </Grid.ColumnDefinitions>
               <StackPanel Grid.Column="0"
                           Orientation="Horizontal"
-                          ToolTip="{Binding Key}"
+                          ToolTipService.ShowDuration="60000" ToolTip="{Binding Key}"
                           VerticalAlignment="Center"
                           Margin="0,2,8,2">
                 <Image Source="{Binding IconImage}"
@@ -49,7 +49,7 @@
               </StackPanel>
               <TextBox Grid.Column="1"
                        Text="{Binding LimitText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}"
-                       ToolTip="{Binding LimitToolTip}"
+                       ToolTipService.ShowDuration="60000" ToolTip="{Binding LimitToolTip}"
                        MaxLength="6"
                        HorizontalContentAlignment="Right"
                        Margin="3"

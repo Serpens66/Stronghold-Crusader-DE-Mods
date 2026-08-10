@@ -51,7 +51,7 @@
               </Grid.ColumnDefinitions>
               <StackPanel Grid.Column="0"
                           Orientation="Horizontal"
-                          ToolTip="{Binding ToolTip}"
+                          ToolTipService.ShowDuration="60000" ToolTip="{Binding ToolTip}"
                           VerticalAlignment="Center"
                           Margin="0,2,8,2">
                 <Image Source="{Binding IconImage}"
@@ -65,7 +65,7 @@
               </StackPanel>
               <TextBox Grid.Column="1"
                        Text="{Binding GoldText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}"
-                       ToolTip="{Binding GoldToolTip}"
+                       ToolTipService.ShowDuration="60000" ToolTip="{Binding GoldToolTip}"
                        MaxLength="4"
                        HorizontalContentAlignment="Right"
                        Margin="3"
@@ -115,7 +115,7 @@
           <DataTemplate>
             <StackPanel Orientation="Horizontal" Margin="0,1">
               <StackPanel Orientation="Horizontal"
-                          ToolTip="{Binding ToolTip}"
+                          ToolTipService.ShowDuration="60000" ToolTip="{Binding ToolTip}"
                           Width="230"
                           VerticalAlignment="Center"
                           Margin="0,2,8,2">
@@ -137,7 +137,7 @@
                 <ItemsControl.ItemTemplate>
                   <DataTemplate>
                     <TextBox Text="{Binding AmountText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}"
-                             ToolTip="{Binding ToolTip}"
+                             ToolTipService.ShowDuration="60000" ToolTip="{Binding ToolTip}"
                              MaxLength="4"
                              Width="74"
                              HorizontalContentAlignment="Right"

@@ -28,55 +28,55 @@
       <TextBlock Text="{Binding AlwaysActiveHelpText}" Foreground="#CCCCCC" TextWrapping="Wrap" Margin="0,0,0,10"/>
       <CheckBox IsChecked="{Binding AllowMinimapWhilePlacingBuilding, Mode=TwoWay}"
                 Foreground="White"
-                ToolTip="{Binding AllowMinimapWhilePlacingBuildingHelpText}"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding AllowMinimapWhilePlacingBuildingHelpText}"
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding AllowMinimapWhilePlacingBuildingText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox>
       <CheckBox IsChecked="{Binding AllowCameraMovementWithModifiers, Mode=TwoWay}"
                 Foreground="White"
-                ToolTip="{Binding AllowCameraMovementWithModifiersHelpText}"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding AllowCameraMovementWithModifiersHelpText}"
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding AllowCameraMovementWithModifiersText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox>
       <CheckBox IsChecked="{Binding HdMarketView, Mode=TwoWay}"
                 Foreground="White"
-                ToolTip="{Binding HdMarketViewHelpText}"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding HdMarketViewHelpText}"
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding HdMarketViewText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox>
       <CheckBox IsChecked="{Binding RememberAiAivSettings, Mode=TwoWay}"
                 Foreground="White"
-                ToolTip="{Binding RememberAiAivSettingsHelpText}"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding RememberAiAivSettingsHelpText}"
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding RememberAiAivSettingsText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox>
       <CheckBox IsChecked="{Binding EnableTroopMovementFix, Mode=TwoWay}"
                 Foreground="White"
-                ToolTip="{Binding EnableTroopMovementFixHelpText}"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableTroopMovementFixHelpText}"
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding EnableTroopMovementFixText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox>
       <CheckBox IsChecked="{Binding EnablePlaguePopularityFix, Mode=TwoWay}"
                 Foreground="White"
-                ToolTip="{Binding EnablePlaguePopularityFixHelpText}"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding EnablePlaguePopularityFixHelpText}"
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding EnablePlaguePopularityFixText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox>
       <CheckBox IsChecked="{Binding EnablePlagueCloudRemovalFix, Mode=TwoWay}"
                 Foreground="White"
-                ToolTip="{Binding EnablePlagueCloudRemovalFixHelpText}"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding EnablePlagueCloudRemovalFixHelpText}"
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding EnablePlagueCloudRemovalFixText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox>
       <CheckBox IsChecked="{Binding EnableStuckApothecaryFix, Mode=TwoWay}"
                 Foreground="White"
-                ToolTip="{Binding EnableStuckApothecaryFixHelpText}"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableStuckApothecaryFixHelpText}"
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding EnableStuckApothecaryFixText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox>
       <CheckBox IsChecked="{Binding EnablePlagueTargetReservationFix, Mode=TwoWay}"
                 Foreground="White"
-                ToolTip="{Binding EnablePlagueTargetReservationFixHelpText}"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding EnablePlagueTargetReservationFixHelpText}"
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding EnablePlagueTargetReservationFixText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox>

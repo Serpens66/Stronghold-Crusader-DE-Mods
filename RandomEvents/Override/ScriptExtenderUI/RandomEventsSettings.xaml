@@ -16,7 +16,7 @@
         <Slider Grid.Column="1" Minimum="1" Maximum="90" Value="{Binding IntervalMonths, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="3"/>
         <TextBlock Grid.Column="2" Text="{Binding IntervalMonths}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center"/>
       </Grid>
-      <Grid Margin="0,0,0,8" ToolTip="{Binding CooldownHelpText}">
+      <Grid Margin="0,0,0,8" ToolTipService.ShowDuration="60000" ToolTip="{Binding CooldownHelpText}">
         <Grid.ColumnDefinitions><ColumnDefinition Width="210"/><ColumnDefinition Width="250"/><ColumnDefinition Width="45"/></Grid.ColumnDefinitions>
         <TextBlock Grid.Column="0" Text="{Binding CooldownText}" Foreground="White" VerticalAlignment="Center"/>
         <Slider Grid.Column="1" Minimum="0" Maximum="90" Value="{Binding CooldownMonths, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="3"/>
