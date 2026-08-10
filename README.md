@@ -26,7 +26,7 @@ They all have a build.bat file. You need to adjust them to your paths though and
 - https://github.com/richardbinder/Stronghold-Crusader-DE-AI-Buff/releases
 
 ## Attention:
-Script Extender itself and also Mods using it **may contain malicious code**, so only download from the official source and from modders you trust. See this repo for my source code. See here for the script extender official release: https://gitlab.com/rawra-stronghold-crusader/shcde-script-extender/-/releases  
+Script Extender itself and also Mods using it **may in theory contain malicious code**, so only download from the official source and from modders you trust. See this repo for my source code. See here for the script extender official release: https://gitlab.com/rawra-stronghold-crusader/shcde-script-extender/-/releases  
 
 ## Disclaimer:
 I don't know C#, only lua/python. So most code here was created by ChatGPT 5.6 Sol in the Visual Studio Code Codex extension. I provided several open source projects of Stronghold Crusader as information source to Chatgpt. So besides ideas and prompts/instructions and ingame testing for the mods, I did not contribute any code myself.  
