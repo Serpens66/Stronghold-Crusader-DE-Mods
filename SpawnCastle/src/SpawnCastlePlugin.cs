@@ -13,7 +13,7 @@ namespace SpawnCastle
 
         public const string PluginGuid = "SpawnCastle_Serp";
         public const string PluginName = "Spawn Castle";
-        public const string PluginVersion = "0.3.41";
+        public const string PluginVersion = "0.4.0";
 
         // The BepInEx component is destroyed during startup, so runtime state remains static.
         private static SpawnCastleRuntime runtime;
@@ -56,12 +56,13 @@ namespace SpawnCastle
                         requireCurrentVersion: true);
                 Shared.DebugLogHelper.LogInfo(
                     Logger,
-                    $"Registering local SpawnCastle settings: " +
-                    $"storage=LobbyModSettings/{PluginGuid}.msgpack, mode={Settings.Mode}, " +
-                    $"selection='{Settings.SelectedCastle}'.");
+                    $"Registering local SpawnCastle presets: " +
+                    $"storage=LobbyModSettings/{PluginGuid}.msgpack, enabled={Settings.EnableMod}, " +
+                    $"mode={Settings.Mode}, selection='{Settings.SelectedCastle}'.");
 
-                GameXAMLManagerAPI.Instance.RegisterLobbyModSettings(
+                Shared.LobbyModSettingsPresetRegistration.Register(
                     this,
+                    Logger,
                     PluginGuid,
                     Settings,
                     "ScriptExtenderUI/SpawnCastleSettings.xaml");
@@ -73,7 +74,7 @@ namespace SpawnCastle
                 Shared.DebugLogHelper.LogInfo(
                     Logger,
                     $"SpawnCastle settings registration completed: " +
-                    $"mode={Settings.Mode}, " +
+                    $"enabled={Settings.EnableMod}, mode={Settings.Mode}, " +
                     $"selection='{Settings.SelectedCastle}', " +
                     $"hotkey={Settings.HotkeyDisplayText}.");
 

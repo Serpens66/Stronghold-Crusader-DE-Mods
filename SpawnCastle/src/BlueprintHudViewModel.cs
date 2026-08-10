@@ -88,6 +88,15 @@ namespace SpawnCastle
         public string BlueprintIconAlphaText =>
             settings.BlueprintIconAlphaText;
 
+        public string SettingsTitleText =>
+            SpawnCastleLocalization.Get("SpawnCastle.Hud.Settings");
+
+        public string IconScaleText =>
+            SpawnCastleLocalization.Get("SpawnCastle.Hud.IconScale");
+
+        public string IconAlphaText =>
+            SpawnCastleLocalization.Get("SpawnCastle.Hud.IconAlpha");
+
         public bool HudVisible
         {
             get => hudVisible;
@@ -158,12 +167,15 @@ namespace SpawnCastle
 
         public string StatusText =>
             !CanToggle
-                ? "Blueprint: unavailable"
+                ? SpawnCastleLocalization.Get("SpawnCastle.Hud.Unavailable")
                 : BlueprintVisible && completedDepthCaptures < requestedDepthCaptures
-                    ? $"Blueprint: loading {completedDepthCaptures}/{requestedDepthCaptures}"
+                    ? string.Format(
+                        SpawnCastleLocalization.Get("SpawnCastle.Hud.Loading"),
+                        completedDepthCaptures,
+                        requestedDepthCaptures)
                 : BlueprintVisible
-                    ? "Blueprint: on"
-                    : "Blueprint: off";
+                    ? SpawnCastleLocalization.Get("SpawnCastle.Hud.On")
+                    : SpawnCastleLocalization.Get("SpawnCastle.Hud.Off");
 
         public void Update(
             bool isBlueprintMode,

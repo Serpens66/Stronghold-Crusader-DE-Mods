@@ -40,7 +40,7 @@
                     BorderBrush="#8877AAFF"
                     BorderThickness="0,0,0,1"
                     Tag="Ignore">
-              <TextBlock Text="Blueprint settings"
+              <TextBlock Text="{Binding SettingsTitleText}"
                          FontSize="16"
                          FontWeight="Bold"
                          Foreground="#FFE8F2FF"
@@ -74,7 +74,7 @@
                 <ColumnDefinition Width="42"/>
               </Grid.ColumnDefinitions>
               <TextBlock Grid.Column="0"
-                         Text="Icon scale"
+                         Text="{Binding IconScaleText}"
                          Foreground="#FFE8F2FF"
                          VerticalAlignment="Center"/>
               <Slider Grid.Column="1"
@@ -98,7 +98,7 @@
                 <ColumnDefinition Width="42"/>
               </Grid.ColumnDefinitions>
               <TextBlock Grid.Column="0"
-                         Text="Icon alpha"
+                         Text="{Binding IconAlphaText}"
                          Foreground="#FFE8F2FF"
                          VerticalAlignment="Center"/>
               <Slider Grid.Column="1"

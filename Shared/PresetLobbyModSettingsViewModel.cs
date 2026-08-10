@@ -16,6 +16,15 @@ using Visibility = Noesis.Visibility;
 namespace Shared
 {
     /// <summary>
+    /// Persists a setting in the shared local preset file without exposing it to
+    /// the Script Extender's multiplayer synchronization layer.
+    /// </summary>
+    [AttributeUsage(AttributeTargets.Property)]
+    public sealed class PresetLocalAttribute : Attribute
+    {
+    }
+
+    /// <summary>
     /// Adds two local presets to a Script Extender lobby-settings ViewModel while
     /// keeping the outer MessagePack dictionary readable by the Script Extender.
     /// </summary>
@@ -346,23 +355,29 @@ namespace Shared
                 if (!active || applying || string.IsNullOrEmpty(propertyName))
                     return;
 
+                persistedPropertiesByName.TryGetValue(
+                    propertyName,
+                    out PropertyInfo property);
+
                 if (owner.missionPresetContext && owner.selectedPreset == 2)
                 {
-                    if (owner.missionPresetEditable && persistedPropertiesByName.TryGetValue(propertyName, out PropertyInfo missionProperty))
-                        StoreProperty(missionPreset, missionProperty);
+                    if (owner.missionPresetEditable && property != null)
+                        StoreProperty(missionPreset, property);
                     return;
                 }
 
                 Dictionary<string, byte[]> diskPayload;
                 if (TryReadPayload(out diskPayload) &&
-                    diskPayload.ContainsKey(SchemaVersionKey))
+                    diskPayload.ContainsKey(SchemaVersionKey) &&
+                    property?.GetCustomAttribute<PresetLocalAttribute>() == null)
                 {
                     // Incoming network updates do not invoke the Extender's storage.Save.
-                    // The marker therefore remains present and the local preset must stay untouched.
+                    // The marker therefore remains present and synced presets must stay untouched.
+                    // PresetLocal properties intentionally keep the marker and still write locally.
                     return;
                 }
 
-                if (persistedPropertiesByName.TryGetValue(propertyName, out PropertyInfo property))
+                if (property != null)
                 {
                     Dictionary<string, byte[]> currentPreset = GetPreset(owner.selectedPreset);
                     if (currentPreset == null)
@@ -592,7 +607,8 @@ namespace Shared
             private static bool IsPersistedProperty(PropertyInfo property)
             {
                 return property.GetCustomAttribute<SyncPerPlayerAttribute>() != null ||
-                    property.GetCustomAttribute<SyncHostOnlyAttribute>() != null;
+                    property.GetCustomAttribute<SyncHostOnlyAttribute>() != null ||
+                    property.GetCustomAttribute<PresetLocalAttribute>() != null;
             }
 
             private static Dictionary<string, byte[]> Clone(

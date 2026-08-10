@@ -1,30 +1,34 @@
 using BepInEx.Logging;
+using MessagePack;
 using SHCDESE.API.Components.ModManager;
 using SHCDESE.API.Components.Network;
 using SHCDESE.NoesisUtil;
-using SHCDESE.ViewModels;
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Windows.Input;
 using UnityEngine;
+using ComboBoxItem = Noesis.ComboBoxItem;
 
 namespace SpawnCastle
 {
     public enum SpawnCastleMode
     {
-        Disabled,
         Blueprint,
         Spawn
     }
 
-    public sealed class SpawnCastleSettingsViewModel : LobbyModSettingsBaseViewModel
+    public sealed class SpawnCastleSettingsViewModel : Shared.PresetLobbyModSettingsViewModel
     {
         private readonly ManualLogSource log;
         private readonly AivFileCatalog catalog = new AivFileCatalog();
-        private readonly LobbyModSettingsStorage storage;
-        private readonly PersistedSettings persistedSettings =
-            new PersistedSettings();
-        private SpawnCastleMode mode;
+        private readonly LobbyModSettingsStorage runtimeStorage;
+        private readonly RuntimePersistedState runtimeState =
+            new RuntimePersistedState();
+        private readonly string defaultCastle;
+        private bool enableMod;
+        private SpawnCastleMode mode = SpawnCastleMode.Blueprint;
         private string selectedCastle;
         private KeyCode blueprintHotkey;
         private double blueprintIconScale;
@@ -43,38 +47,30 @@ namespace SpawnCastle
                     nameof(pluginAssemblyLocation));
             }
 
-            foreach (SpawnCastleMode option in Enum.GetValues(typeof(SpawnCastleMode)))
-                ModeOptions.Add(option);
+            ModeOptions = new[]
+            {
+                new ComboBoxItem { Content = SpawnCastleLocalization.Get("SpawnCastle.Mode.Blueprint") },
+                new ComboBoxItem { Content = SpawnCastleLocalization.Get("SpawnCastle.Mode.Spawn") }
+            };
             foreach (string option in catalog.Discover())
                 CastleOptions.Add(option);
 
-            string defaultCastle = CastleOptions.Count > 0
+            defaultCastle = CastleOptions.Count > 0
                 ? CastleOptions[0]
                 : string.Empty;
-            storage = new LobbyModSettingsStorage(
+            selectedCastle = defaultCastle;
+            blueprintHotkey = KeyCode.None;
+            blueprintIconScale = 1.0;
+            blueprintIconAlpha = 0.3;
+
+            runtimeStorage = new LobbyModSettingsStorage(
                 pluginAssemblyLocation,
-                SpawnCastlePlugin.PluginGuid);
-            storage.Load(persistedSettings);
+                SpawnCastlePlugin.PluginGuid + ".Runtime");
+            runtimeStorage.Load(runtimeState);
+            NormalizeRuntimeState();
+            TryMigrateLegacySettings(pluginAssemblyLocation);
 
-            mode = NormalizeMode(persistedSettings.Mode);
-            selectedCastle = NormalizeCastle(
-                persistedSettings.SelectedCastle,
-                defaultCastle);
-            blueprintHotkey = NormalizeKeyCode(
-                persistedSettings.BlueprintHotkey);
-            blueprintIconScale = NormalizeIconScale(
-                persistedSettings.BlueprintIconScale);
-            blueprintIconAlpha = NormalizeIconAlpha(
-                persistedSettings.BlueprintIconAlpha);
-            if (persistedSettings.HasBlueprintHudPosition)
-            {
-                persistedSettings.BlueprintHudPositionX = NormalizeUnitValue(
-                    persistedSettings.BlueprintHudPositionX);
-                persistedSettings.BlueprintHudPositionY = NormalizeUnitValue(
-                    persistedSettings.BlueprintHudPositionY);
-            }
-            PersistCurrentValues();
-
+            ResetToDefaultCommand = new RelayCommand(ResetToDefault);
             AssignHotkeyCommand = new RelayCommand(BeginHotkeyCapture);
             ClearHotkeyCommand = new RelayCommand(ClearHotkey);
             HotkeyInputCommand =
@@ -85,8 +81,7 @@ namespace SpawnCastle
         internal event Action BlueprintVisualSettingsChanged;
         internal event Action HotkeyCaptureRequested;
 
-        public ObservableCollection<SpawnCastleMode> ModeOptions { get; } =
-            new ObservableCollection<SpawnCastleMode>();
+        public ComboBoxItem[] ModeOptions { get; }
 
         public ObservableCollection<string> CastleOptions { get; } =
             new ObservableCollection<string>();
@@ -94,13 +89,46 @@ namespace SpawnCastle
         public ICommand AssignHotkeyCommand { get; }
         public ICommand ClearHotkeyCommand { get; }
         public ICommand HotkeyInputCommand { get; }
+        public RelayCommand ResetToDefaultCommand { get; }
 
         public int AvailableFileCount => CastleOptions.Count;
 
-        public string InventoryText =>
-            $"{AvailableFileCount} local AIVJSON files found. " +
-            "Blueprint settings stay local in multiplayer.";
+        public string ResetToDefaultText => SpawnCastleLocalization.Get("Common.ResetToDefault");
+        public string EnableModText => SpawnCastleLocalization.Get("Common.EnableMod");
+        public string PresetHelpText => SpawnCastleLocalization.Get("Common.PresetHelp");
+        public string TitleText => SpawnCastleLocalization.Get("SpawnCastle.Title");
+        public string HelpText => SpawnCastleLocalization.Get("SpawnCastle.Help");
+        public string CastleText => SpawnCastleLocalization.Get("SpawnCastle.Castle");
+        public string CastleHelpText => SpawnCastleLocalization.Get("SpawnCastle.CastleHelp");
+        public string ModeText => SpawnCastleLocalization.Get("SpawnCastle.Mode");
+        public string ModeHelpText => SpawnCastleLocalization.Get("SpawnCastle.ModeHelp");
+        public string HotkeyText => SpawnCastleLocalization.Get("SpawnCastle.Hotkey");
+        public string HotkeyHelpText => SpawnCastleLocalization.Get("SpawnCastle.HotkeyHelp");
+        public string ClearText => SpawnCastleLocalization.Get("Common.Clear");
+        public string ClearHelpText => SpawnCastleLocalization.Get("SpawnCastle.ClearHelp");
+        public string LocalOptionsText => SpawnCastleLocalization.Get("SpawnCastle.LocalOptions");
+        public string InventoryText => string.Format(
+            SpawnCastleLocalization.Get("SpawnCastle.Inventory"),
+            AvailableFileCount);
 
+        [Shared.PresetLocal]
+        public bool EnableMod
+        {
+            get => enableMod;
+            set
+            {
+                if (enableMod == value)
+                    return;
+
+                enableMod = value;
+                OnPropertyChanged(nameof(EnableMod));
+                OnPropertyChanged(nameof(IsBlueprintMode));
+                OnPropertyChanged(nameof(IsSpawnMode));
+                SettingsChanged?.Invoke();
+            }
+        }
+
+        [Shared.PresetLocal]
         public SpawnCastleMode Mode
         {
             get => mode;
@@ -111,8 +139,8 @@ namespace SpawnCastle
                     return;
 
                 mode = normalized;
-                PersistCurrentValues();
                 OnPropertyChanged(nameof(Mode));
+                OnPropertyChanged(nameof(ModeIndex));
                 OnPropertyChanged(nameof(IsBlueprintMode));
                 OnPropertyChanged(nameof(IsSpawnMode));
                 Shared.DebugLogHelper.LogInfo(log, $"SpawnCastle mode changed to '{mode}'.");
@@ -120,6 +148,13 @@ namespace SpawnCastle
             }
         }
 
+        public int ModeIndex
+        {
+            get => mode == SpawnCastleMode.Spawn ? 1 : 0;
+            set => Mode = value == 1 ? SpawnCastleMode.Spawn : SpawnCastleMode.Blueprint;
+        }
+
+        [Shared.PresetLocal]
         public string SelectedCastle
         {
             get => selectedCastle;
@@ -130,7 +165,6 @@ namespace SpawnCastle
                     return;
 
                 selectedCastle = normalized;
-                PersistCurrentValues();
                 OnPropertyChanged(nameof(SelectedCastle));
                 Shared.DebugLogHelper.LogInfo(
                     log,
@@ -139,12 +173,14 @@ namespace SpawnCastle
             }
         }
 
+        [Shared.PresetLocal]
         public int BlueprintHotkey
         {
             get => (int)blueprintHotkey;
             set => SetHotkey(NormalizeKeyCode(value));
         }
 
+        [Shared.PresetLocal]
         public double BlueprintIconScale
         {
             get => blueprintIconScale;
@@ -155,13 +191,13 @@ namespace SpawnCastle
                     return;
 
                 blueprintIconScale = normalized;
-                PersistCurrentValues();
                 OnPropertyChanged(nameof(BlueprintIconScale));
                 OnPropertyChanged(nameof(BlueprintIconScaleText));
                 BlueprintVisualSettingsChanged?.Invoke();
             }
         }
 
+        [Shared.PresetLocal]
         public double BlueprintIconAlpha
         {
             get => blueprintIconAlpha;
@@ -172,7 +208,6 @@ namespace SpawnCastle
                     return;
 
                 blueprintIconAlpha = normalized;
-                PersistCurrentValues();
                 OnPropertyChanged(nameof(BlueprintIconAlpha));
                 OnPropertyChanged(nameof(BlueprintIconAlphaText));
                 BlueprintVisualSettingsChanged?.Invoke();
@@ -187,15 +222,17 @@ namespace SpawnCastle
 
         public string HotkeyDisplayText =>
             blueprintHotkey == KeyCode.None
-                ? "Not assigned"
+                ? SpawnCastleLocalization.Get("SpawnCastle.NotAssigned")
                 : GetKeyDisplayName(blueprintHotkey);
 
         public string HotkeyCaptureButtonText =>
-            isCapturingHotkey ? "Press any key..." : "Assign key";
+            isCapturingHotkey
+                ? SpawnCastleLocalization.Get("SpawnCastle.PressAnyKey")
+                : SpawnCastleLocalization.Get("SpawnCastle.AssignKey");
 
         public bool IsCapturingHotkey => isCapturingHotkey;
-        public bool IsBlueprintMode => mode == SpawnCastleMode.Blueprint;
-        public bool IsSpawnMode => mode == SpawnCastleMode.Spawn;
+        public bool IsBlueprintMode => enableMod && mode == SpawnCastleMode.Blueprint;
+        public bool IsSpawnMode => enableMod && mode == SpawnCastleMode.Spawn;
         internal KeyCode BlueprintHotkeyCode => blueprintHotkey;
         internal float BlueprintIconScaleValue => (float)blueprintIconScale;
         internal float BlueprintIconAlphaValue => (float)blueprintIconAlpha;
@@ -205,27 +242,27 @@ namespace SpawnCastle
             out double normalizedY)
         {
             normalizedX = NormalizeUnitValue(
-                persistedSettings.BlueprintHudPositionX);
+                runtimeState.BlueprintHudPositionX);
             normalizedY = NormalizeUnitValue(
-                persistedSettings.BlueprintHudPositionY);
-            return persistedSettings.HasBlueprintHudPosition;
+                runtimeState.BlueprintHudPositionY);
+            return runtimeState.HasBlueprintHudPosition;
         }
 
         internal void SaveBlueprintHudPosition(
             double normalizedX,
             double normalizedY)
         {
-            persistedSettings.HasBlueprintHudPosition = true;
-            persistedSettings.BlueprintHudPositionX =
+            runtimeState.HasBlueprintHudPosition = true;
+            runtimeState.BlueprintHudPositionX =
                 NormalizeUnitValue(normalizedX);
-            persistedSettings.BlueprintHudPositionY =
+            runtimeState.BlueprintHudPositionY =
                 NormalizeUnitValue(normalizedY);
-            PersistCurrentValues();
+            runtimeStorage.Save(runtimeState);
             Shared.DebugLogHelper.LogInfo(
                 log,
                 $"Blueprint HUD position saved: " +
-                $"x={persistedSettings.BlueprintHudPositionX:0.000}, " +
-                $"y={persistedSettings.BlueprintHudPositionY:0.000}.");
+                $"x={runtimeState.BlueprintHudPositionX:0.000}, " +
+                $"y={runtimeState.BlueprintHudPositionY:0.000}.");
         }
 
         internal void LogBlueprintHudMessage(string message)
@@ -450,7 +487,6 @@ namespace SpawnCastle
                 return;
 
             blueprintHotkey = key;
-            PersistCurrentValues();
             OnPropertyChanged(nameof(BlueprintHotkey));
             OnPropertyChanged(nameof(HotkeyDisplayText));
             Shared.DebugLogHelper.LogInfo(
@@ -479,9 +515,9 @@ namespace SpawnCastle
 
         private static SpawnCastleMode NormalizeMode(SpawnCastleMode value)
         {
-            return Enum.IsDefined(typeof(SpawnCastleMode), value)
-                ? value
-                : SpawnCastleMode.Disabled;
+            return value == SpawnCastleMode.Spawn
+                ? SpawnCastleMode.Spawn
+                : SpawnCastleMode.Blueprint;
         }
 
         private static KeyCode NormalizeKeyCode(int value)
@@ -522,14 +558,81 @@ namespace SpawnCastle
             return Math.Max(0.0, Math.Min(1.0, value));
         }
 
-        private void PersistCurrentValues()
+        private void ResetToDefault()
         {
-            persistedSettings.Mode = mode;
-            persistedSettings.SelectedCastle = selectedCastle;
-            persistedSettings.BlueprintHotkey = (int)blueprintHotkey;
-            persistedSettings.BlueprintIconScale = blueprintIconScale;
-            persistedSettings.BlueprintIconAlpha = blueprintIconAlpha;
-            storage.Save(persistedSettings);
+            EnableMod = false;
+            Mode = SpawnCastleMode.Blueprint;
+            SelectedCastle = defaultCastle;
+            BlueprintHotkey = (int)KeyCode.None;
+            BlueprintIconScale = 1.0;
+            BlueprintIconAlpha = 0.3;
+        }
+
+        private void NormalizeRuntimeState()
+        {
+            runtimeState.BlueprintHudPositionX = NormalizeUnitValue(
+                runtimeState.BlueprintHudPositionX);
+            runtimeState.BlueprintHudPositionY = NormalizeUnitValue(
+                runtimeState.BlueprintHudPositionY);
+        }
+
+        private void TryMigrateLegacySettings(string pluginAssemblyLocation)
+        {
+            string pluginDirectory = Path.GetDirectoryName(pluginAssemblyLocation);
+            if (string.IsNullOrEmpty(pluginDirectory))
+                return;
+
+            string legacyPath = Path.Combine(
+                pluginDirectory,
+                LobbyModSettingsStorage.STORAGE_FOLDER_NAME,
+                SpawnCastlePlugin.PluginGuid + LobbyModSettingsStorage.FILE_EXTENSION);
+            if (!File.Exists(legacyPath) || IsSharedPresetPayload(legacyPath))
+                return;
+
+            LegacyPersistedSettings legacy = new LegacyPersistedSettings();
+            new LobbyModSettingsStorage(
+                pluginAssemblyLocation,
+                SpawnCastlePlugin.PluginGuid).Load(legacy);
+
+            enableMod = legacy.Mode != LegacySpawnCastleMode.Disabled;
+            mode = legacy.Mode == LegacySpawnCastleMode.Spawn
+                ? SpawnCastleMode.Spawn
+                : SpawnCastleMode.Blueprint;
+            selectedCastle = NormalizeCastle(legacy.SelectedCastle, defaultCastle);
+            blueprintHotkey = NormalizeKeyCode(legacy.BlueprintHotkey);
+            blueprintIconScale = NormalizeIconScale(legacy.BlueprintIconScale);
+            blueprintIconAlpha = NormalizeIconAlpha(legacy.BlueprintIconAlpha);
+
+            if (legacy.HasBlueprintHudPosition)
+            {
+                runtimeState.HasBlueprintHudPosition = true;
+                runtimeState.BlueprintHudPositionX = NormalizeUnitValue(
+                    legacy.BlueprintHudPositionX);
+                runtimeState.BlueprintHudPositionY = NormalizeUnitValue(
+                    legacy.BlueprintHudPositionY);
+                runtimeStorage.Save(runtimeState);
+            }
+
+            // Preset activation rewrites the legacy file in the shared format.
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"Legacy SpawnCastle settings prepared for preset migration: " +
+                $"enabled={enableMod}, mode={mode}, selection='{selectedCastle}'.");
+        }
+
+        private static bool IsSharedPresetPayload(string path)
+        {
+            try
+            {
+                Dictionary<string, byte[]> payload =
+                    MessagePackSerializer.Deserialize<Dictionary<string, byte[]>>(
+                        File.ReadAllBytes(path));
+                return payload != null && payload.ContainsKey("__SerpPresetSchemaVersion");
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         private static string GetKeyDisplayName(KeyCode key)
@@ -572,13 +675,18 @@ namespace SpawnCastle
             }
         }
 
-        private sealed class PersistedSettings
+        private enum LegacySpawnCastleMode
         {
-            // These attributes are storage markers only. This private model is
-            // never registered for lobby sync, so all options remain local.
+            Disabled,
+            Blueprint,
+            Spawn
+        }
+
+        private sealed class LegacyPersistedSettings
+        {
             [SyncPerPlayer]
-            public SpawnCastleMode Mode { get; set; } =
-                SpawnCastleMode.Disabled;
+            public LegacySpawnCastleMode Mode { get; set; } =
+                LegacySpawnCastleMode.Disabled;
 
             [SyncPerPlayer]
             public string SelectedCastle { get; set; } = string.Empty;
@@ -592,6 +700,19 @@ namespace SpawnCastle
             [SyncPerPlayer]
             public double BlueprintIconAlpha { get; set; } = 0.3;
 
+            [SyncPerPlayer]
+            public bool HasBlueprintHudPosition { get; set; }
+
+            [SyncPerPlayer]
+            public double BlueprintHudPositionX { get; set; }
+
+            [SyncPerPlayer]
+            public double BlueprintHudPositionY { get; set; }
+        }
+
+        private sealed class RuntimePersistedState
+        {
+            // Window position remains independent from the selected settings preset.
             [SyncPerPlayer]
             public bool HasBlueprintHudPosition { get; set; }
 

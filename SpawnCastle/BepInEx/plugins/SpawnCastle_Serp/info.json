@@ -3,10 +3,19 @@
   "Author": "Serpens66",
   "Name": "Spawn Castle",
   "Description": "Displays a local visual AIVJSON castle blueprint or spawns it through the game's native AIV pipeline.",
-  "Version": "0.3.41",
+  "Version": "0.4.0",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "0.4.0",
+      "Changes": [
+        "Added the shared Enable Mod, local presets, and Reset to Default controls to SpawnCastle settings.",
+        "Replaced the redundant Disabled mode with a separately persisted enable setting and Blueprint or Spawn modes.",
+        "Migrated legacy local settings once into the shared preset format while keeping the Blueprint window position in independent runtime storage.",
+        "Localized SpawnCastle lobby and in-game Blueprint settings, including complete German labels and help texts."
+      ]
+    },
     {
       "Version": "0.3.41",
       "Changes": [

@@ -1,13 +1,14 @@
 # Serp mod localization
 # Format: key=value
 Common.LegacySomeSettingsWarning=FEHLER: Der veraltete Mod SomeSettings_Serp ist ebenfalls geladen. Bitte deinstalliere SomeSettings_Serp, um doppelte oder widerspruechliche Funktionen zu vermeiden.
-SomeSettings.HdMarketView=HD Marketview
-SomeSettings.HdMarketViewHelp=Sorts the market the same way like in HD game
-SomeSettings.EnableTroopMovementFix=Truppen Speed Fix
+SomeSettings.HdMarketView=HD-Marktansicht
+SomeSettings.HdMarketViewHelp=Sortiert den Markt wie in Stronghold Crusader HD.
+SomeSettings.EnableTroopMovementFix=Truppen-Geschwindigkeitskorrektur
 SomeSettings.EnableTroopMovementFixHelp=Korrigiert die synchronisierte Bewegung gemischter Truppengruppen: Bei einem normalen Bewegungsbefehl laufen alle Einheiten in der Geschwindigkeit der langsamsten Einheit der Gruppe.
 Common.ResetToDefault=Zurücksetzen
+Common.EnableMod=Mod aktivieren
 SomeSettings.AlwaysActiveTitle=Immer aktiv (wenn Mod aktiviert)
-SomeSettings.AlwaysActiveHelp=Minimap dragging follows the mouse cursor directly. Pressing the market keybind while the market is selected returns the menu to the main trade menu. Market autotrade can sell goods with a sell threshold greater than zero. The bulldoze icon changes when the cursor is near enemies. Rallypoint flag can be placed everywhere.
+SomeSettings.AlwaysActiveHelp=Beim Ziehen auf der Minimap folgt die Kamera direkt dem Mauszeiger. Wird bei geöffnetem Markt die Markt-Tastenbelegung gedrückt, kehrt das Menü zum Haupthandelsmenü zurück. Der automatische Markthandel kann Waren mit einem Verkaufsschwellenwert größer als null verkaufen. Das Abreißsymbol ändert sich, wenn sich der Mauszeiger in der Nähe von Feinden befindet. Sammelpunktflaggen können überall platziert werden.
 SomeSettings.MarketKeyMainTradeMenuHelp=Beim Drücken der Markt Tastenbelegung während der Markt schon angewählt ist, springt das Menü wieder auf das Haupt-Handelsmenü.
 SomeSettings.AllowMinimapWhilePlacingBuilding=Minimap beim Platzieren von Gebaeuden erlauben
 SomeSettings.AllowMinimapWhilePlacingBuildingHelp=Wenn aktiviert, bewegt ein Linksklick auf die Minimap die Kamera auch dann, wenn ein Gebaeude zum Platzieren ausgewaehlt ist. Diese Einstellung gilt pro Spieler.

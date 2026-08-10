@@ -16,61 +16,90 @@
     </b:EventTrigger>
   </b:Interaction.Triggers>
   <StackPanel Margin="10">
-    <TextBlock Text="Human castle blueprint"
-               Foreground="#77AAFF"
-               FontWeight="Bold"
-               Margin="0,0,0,8"/>
-    <TextBlock Text="Choose whether to disable the mod, display a local visual blueprint, or spawn the selected AIVJSON in a new singleplayer game."
-               Foreground="#CCCCCC"
-               TextWrapping="Wrap"
-               Margin="0,0,0,8"/>
-    <ComboBox ItemsSource="{Binding CastleOptions}"
-              SelectedItem="{Binding SelectedCastle, Mode=TwoWay}"
-              MaxDropDownHeight="420"
+    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+      <Button IsEnabled="{Binding AreSettingsEditable}"
+              Content="{Binding ResetToDefaultText}"
+              Command="{Binding ResetToDefaultCommand}"
               ToolTipService.ShowDuration="60000"
-              ToolTip="Selects the AIVJSON castle used for the local blueprint or singleplayer spawn."
-              Margin="0,0,0,8"/>
-    <TextBlock Text="{Binding InventoryText}"
-               Foreground="#999999"
-               TextWrapping="Wrap"
-               Margin="0,0,0,10"/>
-    <TextBlock Text="Mode"
-               Foreground="#DDDDDD"
-               Margin="0,0,0,3"/>
-    <ComboBox ItemsSource="{Binding ModeOptions}"
-              SelectedItem="{Binding Mode, Mode=TwoWay}"
-              ToolTipService.ShowDuration="60000"
-              ToolTip="Disables the mod, shows the selected castle as a local blueprint, or spawns it in a new singleplayer game."
-              Margin="0,0,0,8"/>
-    <TextBlock Text="Blueprint toggle key"
-               Foreground="#DDDDDD"
-               Margin="0,0,0,3"/>
-    <StackPanel Orientation="Horizontal">
-      <Border Background="#33000000"
-              BorderBrush="#6677AAFF"
-              BorderThickness="1"
-              MinWidth="150"
-              Padding="8,4"
-              Margin="0,0,8,0">
-        <TextBlock Text="{Binding HotkeyDisplayText}"
-                   Foreground="#EEEEEE"
-                   VerticalAlignment="Center"/>
-      </Border>
-      <Button Content="{Binding HotkeyCaptureButtonText}"
-              Command="{Binding AssignHotkeyCommand}"
-              ToolTipService.ShowDuration="60000"
-              ToolTip="Assigns the key or mouse button that toggles the blueprint display."
-              MinWidth="115"
-              Margin="0,0,6,0"/>
-      <Button Content="Clear"
-              Command="{Binding ClearHotkeyCommand}"
-              ToolTipService.ShowDuration="60000"
-              ToolTip="Removes the assigned blueprint toggle key."
-              MinWidth="60"/>
+              ToolTip="{Binding ResetToDefaultText}"
+              HorizontalAlignment="Left"
+              Padding="10,3"/>
+      <CheckBox IsEnabled="{Binding AreSettingsEditable}"
+                IsChecked="{Binding EnableMod, Mode=TwoWay}"
+                Content="{Binding EnableModText}"
+                ToolTipService.ShowDuration="60000"
+                ToolTip="{Binding EnableModText}"
+                Foreground="White"
+                VerticalAlignment="Center"
+                Margin="14,0,0,0"/>
+      <ComboBox ItemsSource="{Binding PresetOptions}"
+                SelectedIndex="{Binding SelectedPreset, Mode=TwoWay}"
+                ToolTipService.ShowDuration="60000"
+                ToolTip="{Binding PresetHelpText}"
+                Width="170"
+                VerticalAlignment="Center"
+                Margin="14,0,0,0"/>
     </StackPanel>
-    <TextBlock Text="The blueprint starts hidden on every map. Each multiplayer client uses only its own local selection."
-               Foreground="#999999"
-               TextWrapping="Wrap"
-               Margin="0,8,0,0"/>
+    <StackPanel IsEnabled="{Binding AreSettingsEditable}">
+      <TextBlock Text="{Binding TitleText}"
+                 Foreground="#77AAFF"
+                 FontWeight="Bold"
+                 Margin="0,0,0,4"/>
+      <TextBlock Text="{Binding HelpText}"
+                 Foreground="#CCCCCC"
+                 TextWrapping="Wrap"
+                 Margin="0,0,0,10"/>
+      <TextBlock Text="{Binding LocalOptionsText}"
+                 Foreground="#77AAFF"
+                 FontWeight="Bold"
+                 Margin="0,4,0,6"/>
+      <TextBlock Text="{Binding CastleText}"
+                 Foreground="#DDDDDD"
+                 Margin="0,0,0,3"/>
+      <ComboBox ItemsSource="{Binding CastleOptions}"
+                SelectedItem="{Binding SelectedCastle, Mode=TwoWay}"
+                MaxDropDownHeight="420"
+                ToolTipService.ShowDuration="60000"
+                ToolTip="{Binding CastleHelpText}"
+                Margin="0,0,0,8"/>
+      <TextBlock Text="{Binding InventoryText}"
+                 Foreground="#999999"
+                 TextWrapping="Wrap"
+                 Margin="0,0,0,10"/>
+      <TextBlock Text="{Binding ModeText}"
+                 Foreground="#DDDDDD"
+                 Margin="0,0,0,3"/>
+      <ComboBox ItemsSource="{Binding ModeOptions}"
+                SelectedIndex="{Binding ModeIndex, Mode=TwoWay}"
+                ToolTipService.ShowDuration="60000"
+                ToolTip="{Binding ModeHelpText}"
+                Margin="0,0,0,8"/>
+      <TextBlock Text="{Binding HotkeyText}"
+                 Foreground="#DDDDDD"
+                 Margin="0,0,0,3"/>
+      <StackPanel Orientation="Horizontal">
+        <Border Background="#33000000"
+                BorderBrush="#6677AAFF"
+                BorderThickness="1"
+                MinWidth="150"
+                Padding="8,4"
+                Margin="0,0,8,0">
+          <TextBlock Text="{Binding HotkeyDisplayText}"
+                     Foreground="#EEEEEE"
+                     VerticalAlignment="Center"/>
+        </Border>
+        <Button Content="{Binding HotkeyCaptureButtonText}"
+                Command="{Binding AssignHotkeyCommand}"
+                ToolTipService.ShowDuration="60000"
+                ToolTip="{Binding HotkeyHelpText}"
+                MinWidth="115"
+                Margin="0,0,6,0"/>
+        <Button Content="{Binding ClearText}"
+                Command="{Binding ClearHotkeyCommand}"
+                ToolTipService.ShowDuration="60000"
+                ToolTip="{Binding ClearHelpText}"
+                MinWidth="60"/>
+      </StackPanel>
+    </StackPanel>
   </StackPanel>
 </Grid>

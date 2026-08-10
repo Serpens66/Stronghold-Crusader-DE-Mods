@@ -1,15 +1,16 @@
 # Serp mod localization
 # Format: key=value
 Common.ResetToDefault=Zurücksetzen
+Common.EnableMod=Mod aktivieren
 UnitCosts.Title=EINHEITENKOSTEN (Mensch und KI)
 UnitCosts.Help=Hier können nur native Goldkosten geändert werden. Materialkosten werden über die Zusatzkosten für menschliche Spieler hinzugefügt.
 UnitCosts.ExtraTitle=ZUSATZKOSTEN (nur Mensch)
 UnitCosts.ExtraHelp=0 = keine Zusatzkosten. Positive Werte werden zusätzlich abgezogen; negatives Gold wird bis maximal zu den aktuellen Goldkosten erstattet. KI-Spieler ignorieren diese Tabelle.
 UnitCosts.UnitHeader=Einheit
-UnitCosts.Slot1Header=Slot 1
-UnitCosts.Slot2Header=Slot 2
-UnitCosts.Slot3Header=Slot 3
-UnitCosts.Slot4HorseHeader=Slot 4 / Pferd
+UnitCosts.Slot1Header=Platz 1
+UnitCosts.Slot2Header=Platz 2
+UnitCosts.Slot3Header=Platz 3
+UnitCosts.Slot4HorseHeader=Platz 4 / Pferd
 UnitCosts.None=keine
 UnitCosts.Horse=Pferd
 UnitCosts.ResourcesMissing=Material fehlt

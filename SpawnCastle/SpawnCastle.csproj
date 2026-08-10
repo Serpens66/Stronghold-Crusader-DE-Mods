@@ -99,6 +99,14 @@
       <HintPath>$(ExtenderDir)\R3.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="MessagePack">
+      <HintPath>$(ExtenderDir)\MessagePack.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="MessagePack.Annotations">
+      <HintPath>$(ExtenderDir)\MessagePack.Annotations.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="System.Memory">
       <HintPath>$(ExtenderDir)\System.Memory.dll</HintPath>
       <Private>false</Private>
@@ -117,6 +125,9 @@
     </Compile>
     <Compile Include="..\Shared\GameModeHelper.cs">
       <Link>Shared\GameModeHelper.cs</Link>
+    </Compile>
+    <Compile Include="..\Shared\PresetLobbyModSettingsViewModel.cs">
+      <Link>Shared\PresetLobbyModSettingsViewModel.cs</Link>
     </Compile>
     <Compile Include="..\AIVParser\AIVParser.Core\AivModels.cs">
       <Link>AIVParser.Core\AivModels.cs</Link>
@@ -146,6 +157,7 @@
     <Compile Include="src\BlueprintSortingPolicy.cs" />
     <Compile Include="src\BlueprintRuntimeController.cs" />
     <Compile Include="src\SpawnCastlePlugin.cs" />
+    <Compile Include="src\SpawnCastleLocalization.cs" />
     <Compile Include="src\SpawnCastleRuntime.cs" />
     <Compile Include="src\SpawnCastleSettingsViewModel.cs" />
   </ItemGroup>

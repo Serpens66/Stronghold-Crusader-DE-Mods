@@ -2,6 +2,7 @@
 # Format: key=value
 Common.LegacySomeSettingsWarning=FEHLER: Der veraltete Mod SomeSettings_Serp ist ebenfalls geladen. Bitte deinstalliere SomeSettings_Serp, um doppelte oder widerspruechliche Funktionen zu vermeiden.
 Common.ResetToDefault=Zurücksetzen
+Common.EnableMod=Mod aktivieren
 SomeSettings.EnableFastRecruitRallyMovement=Rekruten laufen zu Sammelpunkten
 SomeSettings.EnableFastRecruitRallyMovementHelp=Neu rekrutierte Spieler- und KI-Einheiten laufen mit ihrem eigenen maximalen Vanilla-Tempo und passender Animation zu ihrem Sammelpunkt; Gelände- und Zustandsmodifikatoren bleiben erhalten.
 Common.Ai=KI
@@ -15,7 +16,7 @@ SomeSettings.PitchRefund=Pech-Erstattung %
 SomeSettings.GoldRefund=Gold-Erstattung %
 SomeSettings.VanillaValue50=Vanilla-Wert: 50%.
 SomeSettings.KeepStorageContent=Lagerinhalt behalten
-SomeSettings.KeepStorageContentHelp=Wenn aktiviert, bleiben beim Abreissen von Kornspeicher, Waffenkammer oder Vorratslager die enthaltenen Gueter erhalten und werden als eingehende Gueter wieder hinzugefuegt.\nIf Granary was built for free can't credit goods back (happens when building it while no wood is on stock)
+SomeSettings.KeepStorageContentHelp=Wenn aktiviert, bleiben beim Abreissen von Kornspeicher, Waffenkammer oder Vorratslager die enthaltenen Gueter erhalten und werden als eingehende Gueter wieder hinzugefuegt. Wurde der Kornspeicher kostenlos gebaut, koennen die Gueter nicht gutgeschrieben werden; dies kann geschehen, wenn beim Bau kein Holz im Lager liegt.
 SomeSettings.EconomyBuffsTitle=Wirtschafts-Buffs
 SomeSettings.MultiplyGoodsGain=Guetergewinn multiplizieren
 SomeSettings.MultiplyGoodsGainHelp=Multiplikator für erhaltene Gueter. 1 = unverändert, 2 = doppelt, 3 = dreifach. Werte 1 oder kleiner fuegen nichts hinzu.
@@ -26,7 +27,7 @@ SomeSettings.MarketBuyPriceMultiplier=Kaufpreise
 SomeSettings.MarketBuyPriceMultiplierHelp=Multiplikator fuer alle Markt-Kaufpreise. 1.0 = unveraendert, 0.0 = kostenlos, 5.0 = fuenffacher Vanilla-Preis.
 SomeSettings.MarketSellPriceMultiplier=Verkaufspreise
 SomeSettings.MarketSellPriceMultiplierHelp=Multiplikator fuer alle Markt-Verkaufspreise. 1.0 = unveraendert, 0.0 = kein Gold durch Verkauf, 5.0 = fuenffacher Vanilla-Preis.
-SomeSettings.AIEconomyProtectionTitle=AI Economy Protection
+SomeSettings.AIEconomyProtectionTitle=KI-Wirtschaftsschutz
 SomeSettings.PreventAIPause=KI-Gebaeudepausen verhindern
 SomeSettings.PreventAIPauseHelp=Verhindert, dass KI-Spieler ihre eigenen Produktionsgebaeude schlafen legen.
 SomeSettings.PreventEmergencyDemolition=KI-Panikabriss verhindern
