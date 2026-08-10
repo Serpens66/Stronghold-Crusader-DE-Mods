@@ -80,6 +80,21 @@ namespace Shared
         public string ClientOptionsText =>
             ResolveSettingsUiText("Common.ClientOptions", "LOCAL CLIENT OPTIONS");
 
+        public string PresetText =>
+            ResolveSettingsUiText("Common.Preset", "Preset");
+
+        public Visibility ActionsScopeNoticeVisibility =>
+            HasClientSettings ? Visibility.Visible : Visibility.Collapsed;
+
+        public string ActionsScopeNoticeText =>
+            HasHostSettings && isLocalHost
+                ? ResolveSettingsUiText(
+                    "Common.ActionsScopeHost",
+                    "Preset and reset affect host settings and your local client settings.")
+                : ResolveSettingsUiText(
+                    "Common.ActionsScopeClient",
+                    "Preset and reset affect only your local client settings.");
+
         public string HostReadOnlyNoticeText =>
             ResolveSettingsUiText("Common.HostReadOnly", "Values from host - read-only");
 
@@ -244,6 +259,8 @@ namespace Shared
             base.OnPropertyChanged(nameof(CanResetSettings));
             base.OnPropertyChanged(nameof(PresetVisibility));
             base.OnPropertyChanged(nameof(HostReadOnlyNoticeVisibility));
+            base.OnPropertyChanged(nameof(ActionsScopeNoticeVisibility));
+            base.OnPropertyChanged(nameof(ActionsScopeNoticeText));
             base.OnPropertyChanged(nameof(AreSettingsEditable));
             base.OnPropertyChanged(nameof(IsMissionPresetActive));
             // The Extender persists on every PropertyChanged event, including UI-only

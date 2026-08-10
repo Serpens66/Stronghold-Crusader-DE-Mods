@@ -14,6 +14,9 @@ public static class SerpLocalization
     public const string ResetToDefaultHelp = "Common.ResetToDefaultHelp";
     public const string EnableModHelp = "Common.EnableModHelp";
     public const string PresetHelp = "Common.PresetHelp";
+    public const string Preset = "Common.Preset";
+    public const string ActionsScopeHost = "Common.ActionsScopeHost";
+    public const string ActionsScopeClient = "Common.ActionsScopeClient";
     public const string Ai = "Common.Ai";
     public const string Human = "Common.Human";
     public const string LegacySomeSettingsWarning = "Common.LegacySomeSettingsWarning";
@@ -21,8 +24,9 @@ public static class SerpLocalization
     public const string Max = "Common.Max";
     public const string UnitLimitsTitle = "UnitLimit.Title";
     public const string UnitLimitsHelp = "UnitLimit.Help";
-    public const string UnitLimitsCampfirePeasants = "UnitLimit.CampfirePeasants";
-    public const string UnitLimitsCampfirePeasantsHelp = "UnitLimit.CampfirePeasantsHelp";
+    public const string BuildingsProductionTitle = "SomeSettings.BuildingsProductionTitle";
+    public const string CampfirePeasants = "SomeSettings.CampfirePeasants";
+    public const string CampfirePeasantsHelp = "SomeSettings.CampfirePeasantsHelp";
     public const string BuildingLimitsTitle = "BuildingLimit.Title";
     public const string BuildingLimitsHelp = "BuildingLimit.Help";
     public const string UnitCostsTitle = "UnitCosts.Title";
@@ -146,28 +150,38 @@ public static class SerpLocalization
         { ResetToDefaultHelp, "Resets the settings you can control in the current context." },
         { EnableModHelp, "Enables or disables this mod for the match." },
         { PresetHelp, "Selects a saved preset. Clients change only their personal settings." },
-        { "BugfixesAndQoL.ClientInterfaceTitle", "INTERFACE AND CONTROLS" },
-        { "BugfixesAndQoL.AiAivTitle", "AI AND AIV" },
-        { "BugfixesAndQoL.TroopMovementTitle", "TROOP MOVEMENT" },
-        { "BugfixesAndQoL.PlagueTitle", "PLAGUE" },
-        { "SomeSettings.ComfortTitle", "CONVENIENCE FEATURES" },
-        { "SomeSettings.PlagueTitle", "PLAGUE" },
-        { "ImprovedHunters.BehaviorTitle", "BEHAVIOR" },
-        { "ImprovedHunters.TargetsYieldTitle", "TARGETS AND MEAT YIELD" },
+        { Preset, "Preset" },
+        { ActionsScopeHost, "Preset and reset affect host settings and your local client settings." },
+        { ActionsScopeClient, "Preset and reset affect only your local client settings." },
+        { "BugfixesAndQoL.ClientInterfaceTitle", "Interface and Controls" },
+        { "BugfixesAndQoL.AiAivTitle", "AI and AIV" },
+        { "BugfixesAndQoL.TroopMovementTitle", "Troop Movement" },
+        { "BugfixesAndQoL.PlagueTitle", "Plague" },
+        { "BugfixesAndQoL.EnableClientFeatures", "Enable local client features" },
+        { "BugfixesAndQoL.EnableClientFeaturesHelp", "Enables or disables this mod's local interface and control features for you." },
+        { "BugfixesAndQoL.EnableHostFeatures", "Enable host features" },
+        { "BugfixesAndQoL.EnableHostFeaturesHelp", "Enables or disables the host-controlled fixes for the match." },
+        { "SomeSettings.ComfortTitle", "Convenience Features" },
+        { "SomeSettings.PlagueTitle", "Plague" },
+        { "ImprovedHunters.BehaviorTitle", "Behavior" },
+        { "ImprovedHunters.TargetsYieldTitle", "Targets and Meat Yield" },
+        { "StartConditions.StartTroopArmiesTitle", "Start-troop armies" },
+        { "StartConditions.ExtraStartUnitsTitle", "Additional start units" },
         { Ai, "AI" },
         { Human, "Human" },
         { LegacySomeSettingsWarning, "ERROR: The obsolete mod SomeSettings_Serp is also loaded. Please uninstall SomeSettings_Serp to avoid duplicate or conflicting features." },
         { Limit, "Limit" },
         { Max, "Max" },
-        { UnitLimitsTitle, "UNIT LIMITS (Human)" },
+        { UnitLimitsTitle, "Unit Limits (Human)" },
         { UnitLimitsHelp, "Only for Human! -1 = unlimited. Allowed range: -1 to 10000. Existing living units count against the limit." },
-        { UnitLimitsCampfirePeasants, "Campfire Peasants" },
-        { UnitLimitsCampfirePeasantsHelp, "-1 = unchanged. Allowed range: -1 to 500. Sets the maximum peasants waiting at the campfire." },
-        { BuildingLimitsTitle, "BUILDING LIMITS (Human)" },
+        { BuildingsProductionTitle, "Buildings and Production" },
+        { CampfirePeasants, "Peasants waiting at the campfire" },
+        { CampfirePeasantsHelp, "-1 = unchanged. Allowed range: -1 to 500. Sets the maximum peasants waiting at the campfire." },
+        { BuildingLimitsTitle, "Building Limits (Human)" },
         { BuildingLimitsHelp, "Only for Human! -1 = unlimited. Allowed range: -1 to 10000. Variants such as gardens, statues, shrines and ponds are counted together." },
-        { UnitCostsTitle, "UNIT COSTS (Human and AI)" },
+        { UnitCostsTitle, "Base Costs (Human and AI)" },
         { UnitCostsHelp, "Good slots apply to European units. unchanged keeps the vanilla slot; gold -1 stays unchanged." },
-        { UnitCostsExtraTitle, "EXTRA COSTS (only Human)" },
+        { UnitCostsExtraTitle, "Additional Costs (Human only)" },
         { UnitCostsExtraHelp, "0 = no extra cost. Positive values are charged in addition; negative gold refunds up to the current gold cost. AI players ignore this table." },
         { UnitHeader, "Unit" },
         { Slot1Header, "Slot 1" },
@@ -177,14 +191,14 @@ public static class SerpLocalization
         { None, "none" },
         { Horse, "Horse" },
         { ResourcesMissing, "Resources missing" },
-        { BuildingCostsTitle, "BUILDING COSTS" },
+        { BuildingCostsTitle, "Building Costs" },
         { BuildingCostsHelp, "-1 = unchanged. Values 0 to 1000 set the native construction cost for that material (Human and AI)." },
         { BuildingHeader, "Building" },
         { Vanilla, "Vanilla" },
         { VanillaNoCosts, "no costs" },
-        { StartGoldTitle, "START GOLD" },
-        { StartGoodsTitle, "START GOODS" },
-        { StartTroopsTitle, "START TROOPS" },
+        { StartGoldTitle, "Start Gold" },
+        { StartGoodsTitle, "Start Goods" },
+        { StartTroopsTitle, "Start Troops" },
         { UnchangedRangeHelp, "-1 = unchanged. Allowed range: -1 to 100000." },
         { NormalCrusade, "Normal/Crusade" },
         { Deathmatch, "Deathmatch" },
@@ -205,7 +219,7 @@ public static class SerpLocalization
         { AllowCameraMovementWithModifiersHelp, "When enabled, keyboard and edge scrolling continue to move the camera while Ctrl or Alt is held. This is a per-player setting." },
         { HdMarketView, "HD Marketview" },
         { HdMarketViewHelp, "Sorts the market the same way like in HD game" },
-        { BulldozeTitle, "BULLDOZE" },
+        { BulldozeTitle, "Building Demolition" },
         { BulldozeHelp, "-1 = unchanged. Refund values are percentages from 0 to 100." },
         { WoodRefund, "Wood refund %" },
         { StoneRefund, "Stone refund %" },
@@ -215,12 +229,12 @@ public static class SerpLocalization
         { VanillaValue50, "Vanilla value: 50%." },
         { KeepStorageContent, "Keep Storage Content" },
         { KeepStorageContentHelp, "When enabled, bulldozing a granary, armory, or stockpile keeps the goods stored inside by adding them back as incoming goods.\nIf Granary was built for free can't credit goods back (happens when building it while no wood is on stock)" },
-        { EconomyBuffsTitle, "Economy Buffs" },
+        { EconomyBuffsTitle, "Economy Bonuses" },
         { MultiplyGoodsGain, "Multiply goods gain" },
         { MultiplyGoodsGainHelp, "Multiplier for gained goods. 1 = unchanged, 2 = double, 3 = triple. Values 1 or lower add nothing." },
         { MultiplyGoodsAsMoney, "Multiply goods as money" },
         { MultiplyGoodsAsMoneyHelp, "Extra gold payouts based on sell value of gained goods. 0 = unchanged, 1 = one sell-value payout, 2 = two payouts." },
-        { MarketPriceMultipliersTitle, "Market Price Multipliers" },
+        { MarketPriceMultipliersTitle, "Market Prices" },
         { MarketBuyPriceMultiplier, "Buy prices" },
         { MarketBuyPriceMultiplierHelp, "Multiplier for all market buy prices. 1.0 = unchanged, 0.0 = free, 5.0 = five times the vanilla price." },
         { MarketSellPriceMultiplier, "Sell prices" },
@@ -250,7 +264,7 @@ public static class SerpLocalization
         { EnableQuarryPileRelocation, "Enable quarry pile rotation button" },
         { EnableQuarryPileRelocationHelp, "Adds a button to selected quarries that rotates their linked stone pile clockwise to the next valid position. The existing pile is kept if no valid replacement can be created." },
         { EnableExtraChurchPriests, "Enable extra priests for churches" },
-        { EnableExtraChurchPriestsHelp, "When enabled, churches require two priests and cathedrals require three priests." },
+        { EnableExtraChurchPriestsHelp, "When enabled, churches receive two priests and cathedrals receive three priests." },
         { PlagueDurationMultiplier, "Plague cloud duration" },
         { PlagueDurationMultiplierHelp, "Multiplier for the active lifetime of all plague clouds. 1.0x keeps the Vanilla duration; higher values also extend how long clouds can cause damage." },
         { ApothecaryPlagueSearchDistance, "Apothecary plague-search range" },

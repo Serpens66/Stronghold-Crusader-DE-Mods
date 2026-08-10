@@ -28,6 +28,7 @@ namespace ExtraFeatures
         private double marketSellPriceMultiplier = 1.0;
         private double plagueDurationMultiplier = 2.0;
         private int apothecaryPlagueSearchDistance = 50;
+        private int campfirePeasantsLimit = -1;
         private bool keepStorageContent;
         private bool enableCtrlSingleMarketTrade = true;
         private bool enableFastRecruitRallyMovement = true;
@@ -70,12 +71,15 @@ namespace ExtraFeatures
         public string EnableQuarryPileRelocationHelpText => SerpLocalization.Get(SerpLocalization.EnableQuarryPileRelocationHelp);
         public string EnableExtraChurchPriestsText => SerpLocalization.Get(SerpLocalization.EnableExtraChurchPriests);
         public string EnableExtraChurchPriestsHelpText => SerpLocalization.Get(SerpLocalization.EnableExtraChurchPriestsHelp);
+        public string CampfirePeasantsText => SerpLocalization.Get(SerpLocalization.CampfirePeasants);
+        public string CampfirePeasantsHelpText => SerpLocalization.Get(SerpLocalization.CampfirePeasantsHelp);
         public string PlagueDurationMultiplierText => SerpLocalization.Get(SerpLocalization.PlagueDurationMultiplier);
         public string PlagueDurationMultiplierHelpText => SerpLocalization.Get(SerpLocalization.PlagueDurationMultiplierHelp);
         public string ApothecaryPlagueSearchDistanceText => SerpLocalization.Get(SerpLocalization.ApothecaryPlagueSearchDistance);
         public string ApothecaryPlagueSearchDistanceHelpText => SerpLocalization.Get(SerpLocalization.ApothecaryPlagueSearchDistanceHelp);
         public string BulldozeTitleText => SerpLocalization.Get(SerpLocalization.BulldozeTitle);
         public string ComfortTitleText => SerpLocalization.Get("SomeSettings.ComfortTitle");
+        public string BuildingsProductionTitleText => SerpLocalization.Get(SerpLocalization.BuildingsProductionTitle);
         public string PlagueTitleText => SerpLocalization.Get("SomeSettings.PlagueTitle");
         public string BulldozeHelpText => SerpLocalization.Get(SerpLocalization.BulldozeHelp);
         public string WoodRefundText => SerpLocalization.Get(SerpLocalization.WoodRefund);
@@ -128,6 +132,7 @@ namespace ExtraFeatures
         [SyncHostOnly] public double MarketSellPriceMultiplier { get => marketSellPriceMultiplier; set => SetDoubleSetting(ref marketSellPriceMultiplier, value, 0.0, 5.0, nameof(MarketSellPriceMultiplier), nameof(MarketSellPriceMultiplierValueText)); }
         [SyncHostOnly] public double PlagueDurationMultiplier { get => plagueDurationMultiplier; set => SetDoubleSetting(ref plagueDurationMultiplier, value, PlagueDurationPatch.MinimumMultiplier, PlagueDurationPatch.MaximumMultiplier, nameof(PlagueDurationMultiplier), nameof(PlagueDurationMultiplierValueText)); }
         [SyncHostOnly] public int ApothecaryPlagueSearchDistance { get => apothecaryPlagueSearchDistance; set => SetIntSetting(ref apothecaryPlagueSearchDistance, value, PlagueApothecarySearchRangePatch.MinimumDistance, PlagueApothecarySearchRangePatch.MaximumDistance, nameof(ApothecaryPlagueSearchDistance)); }
+        [SyncHostOnly] public int CampfirePeasantsLimit { get => campfirePeasantsLimit; set => SetIntSetting(ref campfirePeasantsLimit, value, -1, 500, nameof(CampfirePeasantsLimit), nameof(CampfirePeasantsLimitText)); }
         [SyncHostOnly] public bool EnableCtrlSingleMarketTrade { get => enableCtrlSingleMarketTrade; set => SetSetting(ref enableCtrlSingleMarketTrade, value, nameof(EnableCtrlSingleMarketTrade)); }
         [SyncHostOnly] public bool EnableFastRecruitRallyMovement { get => enableFastRecruitRallyMovement; set => SetSetting(ref enableFastRecruitRallyMovement, value, nameof(EnableFastRecruitRallyMovement)); }
         [SyncHostOnly] public bool EnableKnightDismount { get => enableKnightDismount; set => SetSetting(ref enableKnightDismount, value, nameof(EnableKnightDismount)); }
@@ -144,6 +149,17 @@ namespace ExtraFeatures
         public string MarketBuyPriceMultiplierValueText => MarketBuyPriceMultiplier.ToString("0.0");
         public string MarketSellPriceMultiplierValueText => MarketSellPriceMultiplier.ToString("0.0");
         public string PlagueDurationMultiplierValueText => PlagueDurationMultiplier.ToString("0.0", CultureInfo.InvariantCulture) + "x";
+        public string CampfirePeasantsLimitText
+        {
+            get => CampfirePeasantsLimit.ToString(CultureInfo.InvariantCulture);
+            set
+            {
+                if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int parsed))
+                    CampfirePeasantsLimit = parsed;
+                else
+                    OnPropertyChanged(nameof(CampfirePeasantsLimitText));
+            }
+        }
 
         private void ResetToDefault()
         {
@@ -165,6 +181,7 @@ namespace ExtraFeatures
             MarketSellPriceMultiplier = 1.0;
             PlagueDurationMultiplier = 2.0;
             ApothecaryPlagueSearchDistance = 50;
+            CampfirePeasantsLimit = -1;
             EnableCtrlSingleMarketTrade = true;
             EnableFastRecruitRallyMovement = true;
             EnableKnightDismount = true;
@@ -211,7 +228,7 @@ namespace ExtraFeatures
             OnPropertyChanged(textPropertyName);
         }
 
-        private void SetIntSetting(ref int field, int value, int minimum, int maximum, string propertyName)
+        private void SetIntSetting(ref int field, int value, int minimum, int maximum, string propertyName, string textPropertyName = null)
         {
             int clamped = Math.Max(minimum, Math.Min(maximum, value));
             if (field == clamped)
@@ -219,6 +236,8 @@ namespace ExtraFeatures
             field = clamped;
             SettingChanged?.Invoke(propertyName);
             OnPropertyChanged(propertyName);
+            if (!string.IsNullOrEmpty(textPropertyName))
+                OnPropertyChanged(textPropertyName);
         }
 
         private void SetDecimalMultiplierSetting(ref double field, double value, string propertyName, string textPropertyName)

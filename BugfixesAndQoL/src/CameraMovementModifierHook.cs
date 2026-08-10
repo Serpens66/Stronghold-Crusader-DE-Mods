@@ -73,7 +73,7 @@ namespace BugfixesAndQoL
 
         private float HorizontalAxisHook(KeyManager self)
         {
-            if (!settings.EnableMod || !settings.AllowCameraMovementWithModifiers)
+            if (!settings.EnableClientFeatures || !settings.AllowCameraMovementWithModifiers)
                 return horizontalTrampoline(self);
 
             float radarHeldX = self.RadarHeldX;
@@ -108,7 +108,7 @@ namespace BugfixesAndQoL
 
         private float VerticalAxisHook(KeyManager self)
         {
-            if (!settings.EnableMod || !settings.AllowCameraMovementWithModifiers)
+            if (!settings.EnableClientFeatures || !settings.AllowCameraMovementWithModifiers)
                 return verticalTrampoline(self);
 
             float radarHeldY = self.RadarHeldY;

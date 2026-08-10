@@ -42,7 +42,7 @@ namespace BugfixesAndQoL
         {
             try
             {
-                if (!settings.EnableMod || args.Phase != EventHookPhase.Post)
+                if (!settings.EnableClientFeatures || args.Phase != EventHookPhase.Post)
                     return;
 
                 KeyManager keyManager = KeyManager.instance;

@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Random Events",
   "Description": "Runs configurable Vanilla scenario events in singleplayer skirmishes and Trail missions.",
-  "Version": "1.0.6",
+  "Version": "1.0.7",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.7",
+      "Changes": [
+        "Grouped event probabilities into positive and negative events and added opaque, automatically wrapping tooltips."
+      ]
+    },
     {
       "Version": "1.0.6",
       "Changes": [

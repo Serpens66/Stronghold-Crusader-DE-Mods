@@ -19,6 +19,7 @@ namespace BugfixesAndQoL
         private bool enablePlagueCloudRemovalFix = true;
         private bool enableStuckApothecaryFix = true;
         private bool enablePlagueTargetReservationFix = true;
+        private readonly bool[] enableClientFeaturesData = new bool[9];
         private readonly bool[] allowMinimapWhilePlacingBuildingData = new bool[9];
         private readonly bool[] allowCameraMovementWithModifiersData = new bool[9];
         private readonly bool[] hdMarketViewData = new bool[9];
@@ -29,6 +30,7 @@ namespace BugfixesAndQoL
         public BugfixesAndQoLViewModel(bool legacySomeSettingsLoaded)
         {
             LegacyModWarningVisibility = legacySomeSettingsLoaded ? Visibility.Visible : Visibility.Collapsed;
+            SetClientFeatureDefaults();
             SetAllowMinimapDefaults();
             SetAllowCameraMovementWithModifiersDefaults();
             SetHdMarketViewDefaults();
@@ -39,6 +41,10 @@ namespace BugfixesAndQoL
         public Visibility LegacyModWarningVisibility { get; }
         public string LegacyModWarningText => SerpLocalization.Get(SerpLocalization.LegacySomeSettingsWarning);
         public string EnableModText => SerpLocalization.Get(SerpLocalization.EnableMod);
+        public string EnableClientFeaturesText => SerpLocalization.Get("BugfixesAndQoL.EnableClientFeatures");
+        public string EnableClientFeaturesHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableClientFeaturesHelp");
+        public string EnableHostFeaturesText => SerpLocalization.Get("BugfixesAndQoL.EnableHostFeatures");
+        public string EnableHostFeaturesHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableHostFeaturesHelp");
         public string ResetToDefaultText => SerpLocalization.Get(SerpLocalization.ResetToDefault);
         public string AlwaysActiveTitleText => SerpLocalization.Get(SerpLocalization.AlwaysActiveTitle);
         public string ClientInterfaceTitleText => SerpLocalization.Get("BugfixesAndQoL.ClientInterfaceTitle");
@@ -68,6 +74,22 @@ namespace BugfixesAndQoL
         public bool[] AllowMinimapWhilePlacingBuildingData => allowMinimapWhilePlacingBuildingData;
         public bool[] AllowCameraMovementWithModifiersData => allowCameraMovementWithModifiersData;
         public bool[] HdMarketViewData => hdMarketViewData;
+
+        [SyncPerPlayer]
+        public bool EnableClientFeatures
+        {
+            get => enableClientFeaturesData[LocalPlayerIdOrOne];
+            set
+            {
+                int playerId = LocalPlayerIdOrOne;
+                if (enableClientFeaturesData[playerId] == value)
+                    return;
+
+                enableClientFeaturesData[playerId] = value;
+                SettingChanged?.Invoke(nameof(EnableClientFeatures));
+                OnPropertyChanged(nameof(EnableClientFeatures));
+            }
+        }
 
         [SyncHostOnly]
         public bool EnableMod
@@ -180,6 +202,7 @@ namespace BugfixesAndQoL
             }
 
             // Every participant resets only their own per-player preferences.
+            EnableClientFeatures = true;
             AllowMinimapWhilePlacingBuilding = true;
             AllowCameraMovementWithModifiers = true;
             HdMarketView = true;
@@ -196,6 +219,12 @@ namespace BugfixesAndQoL
         }
 
         private static int LocalPlayerIdOrOne => Math.Max(1, GameNetworkAPI.GetLocalPlayerId());
+
+        private void SetClientFeatureDefaults()
+        {
+            for (int i = 1; i < enableClientFeaturesData.Length; i++)
+                enableClientFeaturesData[i] = true;
+        }
 
         private void SetAllowMinimapDefaults()
         {

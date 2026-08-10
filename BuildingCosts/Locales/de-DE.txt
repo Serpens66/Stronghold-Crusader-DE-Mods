@@ -2,7 +2,7 @@
 # Format: key=value
 Common.ResetToDefault=Zurücksetzen
 Common.EnableMod=Mod aktivieren
-BuildingCosts.Title=BAUKOSTEN
+BuildingCosts.Title=Baukosten
 BuildingCosts.Help=-1 = unverändert. Werte von 0 bis 1000 setzen die nativen Baukosten für dieses Material (Mensch und KI).
 BuildingCosts.BuildingHeader=Gebaeude
 BuildingCosts.Vanilla=Standard
@@ -14,3 +14,6 @@ Common.HostReadOnly=Werte vom Host – schreibgeschützt
 Common.ResetToDefaultHelp=Setzt die Einstellungen zurück, die du im aktuellen Kontext ändern kannst.
 Common.EnableModHelp=Aktiviert oder deaktiviert diese Mod für die Partie.
 Common.PresetHelp=Wählt ein gespeichertes Preset. Clients ändern damit nur ihre persönlichen Einstellungen.
+Common.Preset=Preset
+Common.ActionsScopeHost=Preset und Zurücksetzen betreffen Host-Einstellungen und deine lokalen Client-Optionen.
+Common.ActionsScopeClient=Preset und Zurücksetzen betreffen nur deine lokalen Client-Optionen.

@@ -69,7 +69,7 @@ namespace BugfixesAndQoL
             troopMovementFixRuntime.ApplySetting();
             ApplyAssemblyPointPlacementPatchSetting();
 
-            if (settings.EnableMod)
+            if (settings.EnableClientFeatures)
                 SubscribeHooks();
             else
                 UnsubscribeHooks();
@@ -104,7 +104,7 @@ namespace BugfixesAndQoL
 
         private void SubscribeHooks()
         {
-            if (hooksSubscribed || !settings.EnableMod)
+            if (hooksSubscribed || !settings.EnableClientFeatures)
                 return;
 
             TryInitializeFeature("minimap placement", () =>

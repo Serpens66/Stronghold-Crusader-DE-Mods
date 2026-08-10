@@ -6,6 +6,7 @@ using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.Buildings;
 using SHCDESE.EventAPI.MapLoader;
 using SHCDESE.EventAPI.Player;
+using SHCDESE.GameGlobals;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
@@ -51,6 +52,8 @@ namespace ExtraFeatures
         private bool ctrlMarketTradeHookUnavailable;
         private bool plagueDurationPatchUnavailable;
         private bool plagueApothecarySearchRangePatchUnavailable;
+        private bool mapActive;
+        private ushort? originalCampPeasantsCap;
 
         public ExtraFeaturesRuntime(ManualLogSource log, ExtraFeaturesViewModel settings)
         {
@@ -124,6 +127,7 @@ namespace ExtraFeatures
             TryRunFeature("bulldoze refunds", ApplyRefundSettings);
             TryRunFeature("market price multipliers", ApplyMarketPriceMultipliers);
             TryRunFeature("church priest counts", churchPriestCountRuntime.ApplySetting);
+            TryRunFeature("campfire peasants", ApplyCampfirePeasantsLimit);
             ApplyPlagueDurationSetting();
             TryRunFeature("fast recruit rally movement", ApplyFastRecruitRallyMovementSetting);
         }
@@ -147,6 +151,7 @@ namespace ExtraFeatures
 
         public void Dispose()
         {
+            RestoreCampfirePeasantsCap();
             UnsubscribeHooks();
             aiEconomyProtectionHook?.Dispose();
             aiEconomyProtectionHook = null;
@@ -352,6 +357,11 @@ namespace ExtraFeatures
                 TryRunFeature("church priest counts", churchPriestCountRuntime.ApplySetting);
                 return;
             }
+            if (propertyName == nameof(ExtraFeaturesViewModel.CampfirePeasantsLimit))
+            {
+                TryRunFeature("campfire peasants", ApplyCampfirePeasantsLimit);
+                return;
+            }
             if (propertyName == nameof(ExtraFeaturesViewModel.EnableFastRecruitRallyMovement))
             {
                 TryRunFeature("fast recruit rally movement", ApplyFastRecruitRallyMovementSetting);
@@ -376,8 +386,10 @@ namespace ExtraFeatures
 
         private void ApplyMapLoadedSettings()
         {
+            mapActive = true;
             TryRunFeature("market price multipliers", ApplyMarketPriceMultipliers);
             TryRunFeature("church priest counts", churchPriestCountRuntime.ApplySetting);
+            TryRunFeature("campfire peasants", ApplyCampfirePeasantsLimit);
             ApplyPlagueDurationSetting();
         }
 
@@ -497,6 +509,7 @@ namespace ExtraFeatures
             buildingApi.GoldRefundMultiplier.SetValue(VanillaRefundMultiplier);
             RestoreTradeBasePrices();
             churchPriestCountRuntime.ApplySetting();
+            RestoreCampfirePeasantsCap();
             ApplyPlagueDurationSetting();
         }
 
@@ -532,8 +545,69 @@ namespace ExtraFeatures
 
         private void OnUnloadMap(MapUnloadEventArgs args)
         {
+            RestoreCampfirePeasantsCap();
+            mapActive = false;
             ClearResourceEventGuards();
             singleBuildingPauseHook?.ClearOverrides("map unload");
+        }
+
+        private void ApplyCampfirePeasantsLimit()
+        {
+            if (settings.CampfirePeasantsLimit < 0)
+            {
+                RestoreCampfirePeasantsCap();
+                return;
+            }
+
+            if (!IsMapActive())
+            {
+                Shared.DebugLogHelper.LogDebug(log, "Extra Features campfire peasants setting deferred until a map is active.");
+                return;
+            }
+
+            if (GameGlobalsManager.Instance.CampPeasantsCap == null)
+            {
+                Shared.DebugLogHelper.LogWarning(log, "Extra Features campfire peasants setting skipped: CampPeasantsCap global was not found.");
+                return;
+            }
+
+            if (!originalCampPeasantsCap.HasValue)
+                originalCampPeasantsCap = GameGlobalsManager.Instance.CampPeasantsCap.GetValue();
+
+            ushort value = (ushort)Math.Min(500, Math.Max(0, settings.CampfirePeasantsLimit));
+            GameGlobalsManager.Instance.CampPeasantsCap.SetValue(value);
+            Shared.DebugLogHelper.LogDebug(log, "Extra Features applied campfire peasants limit:", value);
+        }
+
+        private bool IsMapActive()
+        {
+            if (mapActive)
+                return true;
+
+            try
+            {
+                if (!string.IsNullOrEmpty(GamePlayerManagerAPI.Instance.GetCurrentMapName()))
+                {
+                    mapActive = true;
+                    return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogDebug(log, "Extra Features could not determine active map state:", ex.Message);
+            }
+
+            return false;
+        }
+
+        private void RestoreCampfirePeasantsCap()
+        {
+            if (!originalCampPeasantsCap.HasValue || GameGlobalsManager.Instance.CampPeasantsCap == null)
+                return;
+
+            GameGlobalsManager.Instance.CampPeasantsCap.SetValue(originalCampPeasantsCap.Value);
+            Shared.DebugLogHelper.LogDebug(log, "Extra Features restored campfire peasants limit:", originalCampPeasantsCap.Value);
+            originalCampPeasantsCap = null;
         }
 
         private static string BuildResourceEventKey(int playerId, eGoods good) => playerId + ":" + (int)good;

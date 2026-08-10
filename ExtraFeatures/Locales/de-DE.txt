@@ -7,7 +7,7 @@ SomeSettings.EnableFastRecruitRallyMovement=Rekruten laufen zu Sammelpunkten
 SomeSettings.EnableFastRecruitRallyMovementHelp=Neu rekrutierte Spieler- und KI-Einheiten laufen mit ihrem eigenen maximalen Vanilla-Tempo und passender Animation zu ihrem Sammelpunkt; Gelände- und Zustandsmodifikatoren bleiben erhalten.
 Common.Ai=KI
 Common.Human=Mensch
-SomeSettings.BulldozeTitle=ABREISSEN
+SomeSettings.BulldozeTitle=Gebäudeabriss
 SomeSettings.BulldozeHelp=-1 = unverändert. Erstattungswerte sind Prozentwerte von 0 bis 100.
 SomeSettings.WoodRefund=Holz-Erstattung %
 SomeSettings.StoneRefund=Stein-Erstattung %
@@ -17,12 +17,12 @@ SomeSettings.GoldRefund=Gold-Erstattung %
 SomeSettings.VanillaValue50=Vanilla-Wert: 50%.
 SomeSettings.KeepStorageContent=Lagerinhalt behalten
 SomeSettings.KeepStorageContentHelp=Wenn aktiviert, bleiben beim Abreissen von Kornspeicher, Waffenkammer oder Vorratslager die enthaltenen Gueter erhalten und werden als eingehende Gueter wieder hinzugefuegt. Wurde der Kornspeicher kostenlos gebaut, koennen die Gueter nicht gutgeschrieben werden; dies kann geschehen, wenn beim Bau kein Holz im Lager liegt.
-SomeSettings.EconomyBuffsTitle=Wirtschafts-Buffs
+SomeSettings.EconomyBuffsTitle=Wirtschaftsboni
 SomeSettings.MultiplyGoodsGain=Guetergewinn multiplizieren
 SomeSettings.MultiplyGoodsGainHelp=Multiplikator für erhaltene Gueter. 1 = unverändert, 2 = doppelt, 3 = dreifach. Werte 1 oder kleiner fuegen nichts hinzu.
 SomeSettings.MultiplyGoodsAsMoney=Gueter als Geld multiplizieren
 SomeSettings.MultiplyGoodsAsMoneyHelp=Extra-Goldzahlungen basierend auf dem Verkaufswert erhaltener Gueter. 0 = unverändert, 1 = eine Verkaufswert-Zahlung, 2 = zwei Zahlungen.
-SomeSettings.MarketPriceMultipliersTitle=Marktpreis-Multiplikatoren
+SomeSettings.MarketPriceMultipliersTitle=Marktpreise
 SomeSettings.MarketBuyPriceMultiplier=Kaufpreise
 SomeSettings.MarketBuyPriceMultiplierHelp=Multiplikator fuer alle Markt-Kaufpreise. 1.0 = unveraendert, 0.0 = kostenlos, 5.0 = fuenffacher Vanilla-Preis.
 SomeSettings.MarketSellPriceMultiplier=Verkaufspreise
@@ -43,7 +43,7 @@ SomeSettings.KnightMountTooltipBody=Wandelt ausgewaehlte Schwertkaempfer in beri
 SomeSettings.EnableQuarryPileRelocation=Steinhaufen-Rotation aktivieren
 SomeSettings.EnableQuarryPileRelocationHelp=Fuegt ausgewaehlten Steinbruechen einen Button hinzu, der ihren verknuepften Steinhaufen im Uhrzeigersinn zur naechsten gueltigen Position verschiebt. Wenn kein gueltiger Ersatz erzeugt werden kann, bleibt der vorhandene Haufen unveraendert.
 SomeSettings.EnableExtraChurchPriests=Mehr Priester fuer Kirchen aktivieren
-SomeSettings.EnableExtraChurchPriestsHelp=Wenn aktiviert, benoetigen Kirchen zwei Priester und Kathedralen drei Priester.
+SomeSettings.EnableExtraChurchPriestsHelp=Wenn aktiviert, erhalten Kirchen zwei Priester und Kathedralen drei Priester.
 SomeSettings.QuarryPileRelocationTooltip=Steinhaufen verschieben
 SomeSettings.QuarryPileRelocationTooltipBody=Verschiebt den verknuepften Steinhaufen zur naechsten gueltigen Position im Uhrzeigersinn um diesen Steinbruch.
 SomeSettings.EnableCtrlSingleMarketTrade=Mit Strg eine Markteinheit handeln
@@ -60,5 +60,11 @@ Common.ResetToDefaultHelp=Setzt die Einstellungen zurück, die du im aktuellen K
 Common.EnableModHelp=Aktiviert oder deaktiviert diese Mod für die Partie.
 Common.PresetHelp=Wählt ein gespeichertes Preset. Clients ändern damit nur ihre persönlichen Einstellungen.
 
-SomeSettings.ComfortTitle=KOMFORTFUNKTIONEN
-SomeSettings.PlagueTitle=PEST
+SomeSettings.ComfortTitle=Komfortfunktionen
+SomeSettings.PlagueTitle=Pest
+Common.Preset=Preset
+Common.ActionsScopeHost=Preset und Zurücksetzen betreffen Host-Einstellungen und deine lokalen Client-Optionen.
+Common.ActionsScopeClient=Preset und Zurücksetzen betreffen nur deine lokalen Client-Optionen.
+SomeSettings.BuildingsProductionTitle=Gebäude und Produktion
+SomeSettings.CampfirePeasants=Wartende Bauern am Burgfeuer
+SomeSettings.CampfirePeasantsHelp=-1 = unverändert. Erlaubter Bereich: -1 bis 500. Legt die maximale Anzahl Bauern fest, die am Burgfeuer warten.

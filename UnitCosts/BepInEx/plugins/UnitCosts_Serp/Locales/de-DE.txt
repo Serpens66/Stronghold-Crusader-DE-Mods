@@ -2,9 +2,9 @@
 # Format: key=value
 Common.ResetToDefault=Zurücksetzen
 Common.EnableMod=Mod aktivieren
-UnitCosts.Title=EINHEITENKOSTEN (Mensch und KI)
+UnitCosts.Title=Grundkosten (Mensch und KI)
 UnitCosts.Help=Hier können nur native Goldkosten geändert werden. Materialkosten werden über die Zusatzkosten für menschliche Spieler hinzugefügt.
-UnitCosts.ExtraTitle=ZUSATZKOSTEN (nur Mensch)
+UnitCosts.ExtraTitle=Zusatzkosten (nur Mensch)
 UnitCosts.ExtraHelp=0 = keine Zusatzkosten. Positive Werte werden zusätzlich abgezogen; negatives Gold wird bis maximal zu den aktuellen Goldkosten erstattet. KI-Spieler ignorieren diese Tabelle.
 UnitCosts.UnitHeader=Einheit
 UnitCosts.Slot1Header=Platz 1
@@ -21,3 +21,6 @@ Common.HostReadOnly=Werte vom Host – schreibgeschützt
 Common.ResetToDefaultHelp=Setzt die Einstellungen zurück, die du im aktuellen Kontext ändern kannst.
 Common.EnableModHelp=Aktiviert oder deaktiviert diese Mod für die Partie.
 Common.PresetHelp=Wählt ein gespeichertes Preset. Clients ändern damit nur ihre persönlichen Einstellungen.
+Common.Preset=Preset
+Common.ActionsScopeHost=Preset und Zurücksetzen betreffen Host-Einstellungen und deine lokalen Client-Optionen.
+Common.ActionsScopeClient=Preset und Zurücksetzen betreffen nur deine lokalen Client-Optionen.

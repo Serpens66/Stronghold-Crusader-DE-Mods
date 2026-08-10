@@ -3,10 +3,17 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.8",
+  "Version": "1.0.9",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.9",
+      "Changes": [
+        "Moved the campfire-peasant limit from UnitLimit into ExtraFeatures and reorganized the Host settings by topic.",
+        "Added opaque, automatically wrapping tooltips and clarified that churches receive additional priests."
+      ]
+    },
     {
       "Version": "1.0.8",
       "Changes": [

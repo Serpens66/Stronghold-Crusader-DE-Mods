@@ -5,9 +5,9 @@ RandomEvents.Interval=Intervall (Vanilla-Monate)
 RandomEvents.IntervalHelp=Der erste Wurf erfolgt nach einem vollständigen Intervall. Jedes Ereignis würfelt unabhängig.
 RandomEvents.Cooldown=Abklingzeit eines Ereignisses (Monate)
 RandomEvents.CooldownHelp=Nachdem ein bestimmtes Ereignis ausgelöst wurde, kann es für diese Anzahl Monate nicht erneut ausgelöst werden.
-RandomEvents.ChancesTitle=EREIGNISCHANCEN (%)
+RandomEvents.ChancesTitle=Ereigniswahrscheinlichkeiten (%)
 RandomEvents.ChanceHelp=Jedes Ereignis würfelt nach jedem abgeschlossenen Intervall unabhängig: Ein Zufallswert von 0 bis 99 muss kleiner als dieser Prozentwert sein und die Abklingzeit muss abgelaufen sein. Mehrere Ereignisse können im selben Intervall eintreten.
-RandomEvents.StrengthTitle=EREIGNISSTÄRKE
+RandomEvents.StrengthTitle=Ereignisstärken
 RandomEvents.ScaledStrengthHelp=Beim Auslösen von Banditen oder Bogenschützen wird ein Faktor zwischen dem gewählten Minimum und Maximum in 0,1-Schritten ausgewürfelt. Einheitenzahl = Abrunden(vergangene Spielmonate seit Kartenstart × Faktor ÷ 3). Ein Ergebnis von 0 erzeugt keine Einheiten.
 RandomEvents.PlagueStrengthHelp=Legt die minimale und maximale Peststärke fest. Beim Auslösen wird ein Wert aus diesem Bereich ausgewürfelt.
 RandomEvents.LionStrengthHelp=Legt die minimale und maximale Anzahl der Löwengruppen fest. Beim Auslösen wird ein Wert aus diesem Bereich ausgewürfelt.
@@ -42,5 +42,10 @@ Common.ResetToDefaultHelp=Setzt die Einstellungen zurück, die du im aktuellen K
 Common.EnableModHelp=Aktiviert oder deaktiviert diese Mod für die Partie.
 Common.PresetHelp=Wählt ein gespeichertes Preset. Clients ändern damit nur ihre persönlichen Einstellungen.
 
-RandomEvents.ScheduleTitle=ZEITPLAN
-RandomEvents.MultiplayerTitle=MEHRSPIELER
+RandomEvents.ScheduleTitle=Zeitplan
+RandomEvents.MultiplayerTitle=Mehrspieler
+Common.Preset=Preset
+Common.ActionsScopeHost=Preset und Zurücksetzen betreffen Host-Einstellungen und deine lokalen Client-Optionen.
+Common.ActionsScopeClient=Preset und Zurücksetzen betreffen nur deine lokalen Client-Optionen.
+RandomEvents.PositiveEventsTitle=Positive Ereignisse
+RandomEvents.NegativeEventsTitle=Negative Ereignisse

@@ -7,7 +7,7 @@ namespace BugfixesAndQoL
     {
         private void FollowMinimapCursor(FatControler self)
         {
-            if (!settings.EnableMod || self == null || KeyManager.instance == null)
+            if (!settings.EnableClientFeatures || self == null || KeyManager.instance == null)
                 return;
 
             if (!self.mouseIsDown || !GetBool(self, RadarScrollTriggeredField) || FatControler.MouseIsDownStroke)

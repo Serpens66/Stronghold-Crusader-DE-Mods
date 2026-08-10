@@ -4,7 +4,7 @@ Common.EnableMod=Enable Mod
 Common.ResetToDefault=Reset to Default
 Common.Limit=Limit
 Common.Max=Max
-BuildingLimit.Title=BUILDING LIMITS (Human)
+BuildingLimit.Title=Building Limits (Human)
 BuildingLimit.Help=Only for Human! -1 = unlimited. Allowed range: -1 to 10000. Variants such as gardens, statues, shrines and ponds are counted together.
 
 Common.HostOptions=HOST OPTIONS
@@ -13,3 +13,6 @@ Common.HostReadOnly=Values from host - read-only
 Common.ResetToDefaultHelp=Resets the settings you can control in the current context.
 Common.EnableModHelp=Enables or disables this mod for the match.
 Common.PresetHelp=Selects a saved preset. Clients change only their personal settings.
+Common.Preset=Preset
+Common.ActionsScopeHost=Preset and reset affect host settings and your local client settings.
+Common.ActionsScopeClient=Preset and reset affect only your local client settings.

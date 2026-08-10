@@ -8,7 +8,7 @@ namespace BugfixesAndQoL
     {
         private void TryHandlePlacementMinimap(FatControler self)
         {
-            if (!settings.EnableMod || !settings.AllowMinimapWhilePlacingBuilding)
+            if (!settings.EnableClientFeatures || !settings.AllowMinimapWhilePlacingBuilding)
                 return;
 
             if (self == null || MainControls.instance == null || MainControls.instance.CurrentAction != (int)Enums.editorActions.placingBuilding)

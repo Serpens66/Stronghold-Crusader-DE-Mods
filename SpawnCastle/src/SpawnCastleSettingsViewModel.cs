@@ -109,6 +109,8 @@ namespace SpawnCastle
         public string ClearText => SpawnCastleLocalization.Get("Common.Clear");
         public string ClearHelpText => SpawnCastleLocalization.Get("SpawnCastle.ClearHelp");
         public string LocalOptionsText => SpawnCastleLocalization.Get("SpawnCastle.LocalOptions");
+        public string CastleSectionTitleText => SpawnCastleLocalization.Get("SpawnCastle.CastleSectionTitle");
+        public string PlacementControlsTitleText => SpawnCastleLocalization.Get("SpawnCastle.PlacementControlsTitle");
         public string InventoryText => string.Format(
             SpawnCastleLocalization.Get("SpawnCastle.Inventory"),
             AvailableFileCount);

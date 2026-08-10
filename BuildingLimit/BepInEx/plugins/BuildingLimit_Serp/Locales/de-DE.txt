@@ -4,7 +4,7 @@ Common.ResetToDefault=Zurücksetzen
 Common.EnableMod=Mod aktivieren
 Common.Limit=Begrenzung
 Common.Max=Maximum
-BuildingLimit.Title=GEBAEUDELIMITS (Mensch)
+BuildingLimit.Title=Gebäudelimits (Mensch)
 BuildingLimit.Help=Nur für Menschen! -1 = unbegrenzt. Erlaubter Bereich: -1 bis 10000. Varianten wie Gaerten, Statuen, Schreine und Teiche werden zusammengezaehlt.
 
 Common.HostOptions=HOST-OPTIONEN
@@ -13,3 +13,6 @@ Common.HostReadOnly=Werte vom Host – schreibgeschützt
 Common.ResetToDefaultHelp=Setzt die Einstellungen zurück, die du im aktuellen Kontext ändern kannst.
 Common.EnableModHelp=Aktiviert oder deaktiviert diese Mod für die Partie.
 Common.PresetHelp=Wählt ein gespeichertes Preset. Clients ändern damit nur ihre persönlichen Einstellungen.
+Common.Preset=Preset
+Common.ActionsScopeHost=Preset und Zurücksetzen betreffen Host-Einstellungen und deine lokalen Client-Optionen.
+Common.ActionsScopeClient=Preset und Zurücksetzen betreffen nur deine lokalen Client-Optionen.

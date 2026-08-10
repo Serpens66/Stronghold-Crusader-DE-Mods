@@ -88,7 +88,7 @@ namespace BugfixesAndQoL
 
         private void CycleTradeGoodsHook(MainViewModel self, object parameter)
         {
-            if (!settings.EnableMod || !settings.HdMarketView)
+            if (!settings.EnableClientFeatures || !settings.HdMarketView)
             {
                 cycleTradeGoodsTrampoline(self, parameter);
                 return;
@@ -126,7 +126,7 @@ namespace BugfixesAndQoL
         {
             noesisGuiUpdateTrampoline(self);
 
-            if (!settings.EnableMod || !settings.HdMarketView)
+            if (!settings.EnableClientFeatures || !settings.HdMarketView)
                 return;
 
             try

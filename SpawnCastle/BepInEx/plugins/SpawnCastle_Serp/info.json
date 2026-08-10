@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Spawn Castle",
   "Description": "Displays a local visual AIVJSON castle blueprint or spawns it through the game's native AIV pipeline.",
-  "Version": "0.4.1",
+  "Version": "0.4.2",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "0.4.2",
+      "Changes": [
+        "Grouped local settings into castle-blueprint and placement-control sections and added opaque wrapping tooltips."
+      ]
+    },
     {
       "Version": "0.4.1",
       "Changes": [
