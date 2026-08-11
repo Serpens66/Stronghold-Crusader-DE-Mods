@@ -38,6 +38,7 @@ These archives are produced by the repository release scripts from the linked pu
 | BugfixesAndQoL | [1.0.13](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/releases/tag/BugfixesAndQoL/v1.0.13) | [2a690c1](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/commit/2a690c15c2eacca74ab2d7b5717f3e65927a648e) | `d2b2fc75a1c9878d3a609108b4012f8a5f1bb0625c6fbb54b828582e3e12ba9e` |
 | BuildingCosts | [1.0.8](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/releases/tag/BuildingCosts/v1.0.8) | [d295ae3](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/commit/d295ae3123f95f533888b4fc31f58647cd285cee) | `e954b5f81f336453fe3680fccc0582ecf606749c297d4194c24d1ee6f91f7a51` |
 | BuildingLimit | [1.0.7](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/releases/tag/BuildingLimit/v1.0.7) | [35f5fea](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/commit/35f5fea09f2c5e45e938f24ad17ae1e8b086dd16) | `7c3a7134b0a5138efb5fe7ad8ced076f11fbbcfc6b6b4930a6969a86185dea02` |
+| ExtraFeatures | [1.0.10](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/releases/tag/ExtraFeatures/v1.0.10) | [c109882](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/commit/c1098821de5f1a9c50f483cd22ec8f72ff59e495) | `46f764a3b495666647c48425fdb511cddfafc90c4da3e9a060e813bfab90b8bd` |
 
 Verify a downloaded archive with `Get-FileHash <archive.zip> -Algorithm SHA256` and compare it with the release asset and table above.
 <!-- RELEASE-INDEX:END -->
