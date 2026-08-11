@@ -43,6 +43,7 @@ These archives are produced by the repository release scripts from the linked pu
 | SpawnCastle | [0.4.3](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/releases/tag/SpawnCastle/v0.4.3) | [6d0eb03](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/commit/6d0eb037e460635a71bf1c2de185aa0518b795cb) | `cde627b18cfedf7e181f262884221732b48a4677496794a46be3f9eb4917bc7d` |
 | StartConditions | [1.0.10](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/releases/tag/StartConditions/v1.0.10) | [95d36a3](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/commit/95d36a387bbf5c57e896e37bd96f515d959b4dd9) | `18e6b6f47a8e07f2bc49fd8113dfb2fcc48ec48b5178d864901db6febb1c4c0a` |
 | UnitCosts | [1.0.11](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/releases/tag/UnitCosts/v1.0.11) | [d839591](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/commit/d83959131745162bbc23ec30fd79540b4a5cb15d) | `35acd59386fcc94913c9f358d8640a5dd04e7f993f50619a35e03286c5f9a9fd` |
+| UnitLimit | [1.0.8](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/releases/tag/UnitLimit/v1.0.8) | [bf0ce94](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/commit/bf0ce94056cc0b0eaadf41f41818461d1b71381c) | `5e16386cc9860833e2a28e2ae8abc98ca7eb185d6f03fa4ec0f7ba345229710f` |
 
 Verify a downloaded archive with `Get-FileHash <archive.zip> -Algorithm SHA256` and compare it with the release asset and table above.
 <!-- RELEASE-INDEX:END -->
