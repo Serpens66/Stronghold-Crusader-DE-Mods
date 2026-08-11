@@ -36,6 +36,7 @@ These archives are produced by the repository release scripts from the linked pu
 | Mod | Latest release | Source commit | ZIP SHA-256 |
 | --- | --- | --- | --- |
 | BugfixesAndQoL | [1.0.13](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/releases/tag/BugfixesAndQoL/v1.0.13) | [2a690c1](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/commit/2a690c15c2eacca74ab2d7b5717f3e65927a648e) | `d2b2fc75a1c9878d3a609108b4012f8a5f1bb0625c6fbb54b828582e3e12ba9e` |
+| BuildingCosts | [1.0.8](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/releases/tag/BuildingCosts/v1.0.8) | [d295ae3](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/commit/d295ae3123f95f533888b4fc31f58647cd285cee) | `e954b5f81f336453fe3680fccc0582ecf606749c297d4194c24d1ee6f91f7a51` |
 
 Verify a downloaded archive with `Get-FileHash <archive.zip> -Algorithm SHA256` and compare it with the release asset and table above.
 <!-- RELEASE-INDEX:END -->
