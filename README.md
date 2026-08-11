@@ -4,7 +4,7 @@
 - Releases: https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/releases (see this [table](#latest-mod-releases) for specific mods)   
 - Nexusmods: https://www.nexusmods.com/profile/Serpens66/mods?gameId=7959
 
-### Trail (Un-)packer and modded/vanilla Launcher bat files:
+#### Trail (Un-)packer and modded/vanilla Launcher bat files:
 - can be found here: https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/releases/tag/1.0.1  
 
 ## Installation:
