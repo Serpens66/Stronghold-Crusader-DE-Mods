@@ -1,7 +1,7 @@
 # Updateplan: SHCDE Script Extender 1.40.0 auf 1.41.0
 
 Stand: 11. August 2026  
-Status: Analyse abgeschlossen, Umsetzung noch nicht begonnen
+Status: Umsetzung läuft; gemeinsame Preset-/Hostautorisierung einschließlich Trail-Hostsync umgesetzt und statisch getestet, finale Multiplayer-Abnahme noch offen
 
 ## 1. Ziel und geprüfte Basis
 
@@ -80,6 +80,12 @@ Die Reihenfolge ist bindend, weil die gemeinsame Autorisierung und die ExtraFeat
 
 ### Schritt 1: Regressionsprüfungen zuerst erweitern
 
+**Umsetzungsstand 11. August 2026: abgeschlossen, ausgenommen der separate Legacy-Nachweis.** `HostClientPresetTests` deckt Clientablehnung vor der Mutation, autorisierten Hostempfang innerhalb und außerhalb des ausgewählten Trail-Presets, den Preset-Roundtrip zurück zum unveränderten autoritativen Trail-Snapshot, unveränderte lokale `.msgpack`-Daten, `[SyncPerPlayer]`, `[PresetLocal]`, Rollen-/Trail-Wechsel sowie atomare zusammengesetzte und verschachtelte Setter ab und ist grün. `CustomCustomTrail.Tests` ist mit 18/18 Tests grün; der XAML-/Tooltip-/Locale-/CRLF-Audit ist ebenfalls grün.
+
+Noch offen:
+
+- Der bestehende separate Legacy-Presettest validiert neun installierte MessagePack-Dateien, kann in der aktuellen Standalone-Testumgebung wegen der fehlenden nativen `Noesis.dll` aber nicht vollständig bis zum Ende laufen. Dies ist ein zusätzlicher Nachweis, kein derzeit festgestellter 1.41-Funktionsfehler.
+
 - `.inspect/HostClientPresetTests` um 1.41-Szenarien erweitern:
   - Ein Client kann eine `[SyncHostOnly]`-Property nicht lokal mutieren.
   - Eine autorisierte eingehende Host-Aktualisierung wird auf dem Client angewandt.
@@ -98,6 +104,12 @@ Die Reihenfolge ist bindend, weil die gemeinsame Autorisierung und die ExtraFeat
 Abnahme: Die neuen Tests müssen vor den Änderungen die relevanten Altpfade erkennen und nach den jeweiligen Schritten grün werden.
 
 ### Schritt 2: Gemeinsame Host-Autorisierung integrieren
+
+**Umsetzungsstand 11. August 2026: abgeschlossen, ausgenommen die reale Multiplayer-Abnahme.** Der gemeinsame Einstieg `CanMutateSetting(...)`, Revert-Benachrichtigungen ohne Sync/Persistenz, die sichere Presetzusammenführung und die Gates aller unten aufgeführten ViewModels einschließlich editierbarer Tabellenzeilen sind umgesetzt. Autorisierte Netzwerkupdates umgehen ausschließlich die lokale Trail-Schreibsperre, bleiben durch `CanEdit(propertyName)` abgesichert und aktualisieren den flüchtigen Trail-Snapshot ohne lokale Persistenz. Alle betroffenen Projekte kompilieren die gemeinsame Datei zusammen mit `Shared/GameModeHelper.cs` und verwenden die zentrale Presetregistrierung.
+
+Noch offen:
+
+- Danach einen realen Host-/Client-Lauf mit dem finalen Build durchführen und anhand des neuen BepInEx-Logsegments bestätigen, dass Hostwerte auf dem Client ankommen, Trail-Werte nicht lokal persistiert werden und keine Autorisierungs-/Revertfehler auftreten. Der bisher letzte Lauf endete vor dem finalen Shared-Fix und enthielt keinen echten Multiplayerkontext.
 
 - In `Shared/PresetLobbyModSettingsViewModel.cs` einen geschützten gemeinsamen Einstieg ergänzen, der vor einer Property-Mutation `LobbyModSettingsBaseViewModel.CanEdit(propertyName)` aufruft.
 - Die bestehende Erkennung eingehender Netzwerksynchronisation weiterhin nutzen, um Host-/Trail-Werte nicht in lokale Presets zu schreiben. Die neue Extender-Autorisierung ersetzt diese Persistenzgrenze nicht.

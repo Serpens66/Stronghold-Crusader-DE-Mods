@@ -137,6 +137,12 @@ namespace Shared
             if (presetController?.IsApplyingSnapshot == true)
                 return true;
 
+            // The Extender reaches the setter only after it has verified the packet's
+            // sender and opened its authorised-update scope. A read-only Trail locks
+            // local edits, but must not reject that authoritative host state.
+            if (PresetController.IsNetworkSyncInProgress())
+                return CanEdit(propertyName);
+
             System_RefreshSettingsAccess();
             if (IsMissionPresetSelected &&
                 !missionPresetEditable &&
@@ -563,14 +569,23 @@ namespace Shared
                 if (!active || applying || string.IsNullOrEmpty(propertyName))
                     return;
 
-                // A host setter may also notify derived display properties. Suppress
-                // the whole notification chain while the Extender applies a packet.
-                if (IsNetworkSyncInProgress())
-                    return;
-
                 persistedPropertiesByName.TryGetValue(
                     propertyName,
                     out PropertyInfo property);
+
+                // Keep verified host state in the transient Trail snapshot as well.
+                // Otherwise switching to a local preset and back would restore the
+                // client's stale local Trail value. Never write this branch to disk.
+                if (IsNetworkSyncInProgress())
+                {
+                    if (property != null &&
+                        owner.IsMissionPresetSelected &&
+                        IsHostProperty(property))
+                    {
+                        StoreProperty(missionPreset, property);
+                    }
+                    return;
+                }
 
                 if (property == null)
                 {
@@ -889,7 +904,7 @@ namespace Shared
                 (property.GetCustomAttribute<SyncPerPlayerAttribute>() != null ||
                     property.GetCustomAttribute<PresetLocalAttribute>() != null);
 
-            private static bool IsNetworkSyncInProgress()
+            public static bool IsNetworkSyncInProgress()
             {
                 try
                 {

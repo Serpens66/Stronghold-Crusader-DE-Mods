@@ -1,5 +1,0 @@
-test mit dem weg eigene hühner jagbar zu machen.
-hauptproblem ist dafür zu sorgen, dass der pfeil mit dem huhn interagiert obwohl selber owner.
-
-ist mir zu starker und komplizierter eingriff.
-nächster versuch ist die nachteile von neutralen hühnern zu reduzieren
