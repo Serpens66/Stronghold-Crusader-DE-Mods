@@ -135,6 +135,9 @@ namespace BuildingCosts
             get => buildingCosts;
             set
             {
+                if (!CanMutateSetting(nameof(BuildingCosts)))
+                    return;
+
                 if (Equals(buildingCosts, value))
                     return;
 
@@ -156,6 +159,9 @@ namespace BuildingCosts
 
         private void Set<T>(ref T field, T value, string propertyName)
         {
+            if (!CanMutateSetting(propertyName))
+                return;
+
             if (Equals(field, value))
                 return;
 
@@ -404,7 +410,13 @@ namespace BuildingCosts
                 if (!values.TryGetValue(key, out BuildingCostValues value))
                     value = new BuildingCostValues(-1, -1, -1, -1, -1);
 
-                entries.Add(new CostEntryViewModel(key, FormatDisplayName(key), null, value, OnEntryChanged));
+                entries.Add(new CostEntryViewModel(
+                    key,
+                    FormatDisplayName(key),
+                    null,
+                    value,
+                    () => CanMutateSetting(nameof(BuildingCosts)),
+                    OnEntryChanged));
             }
 
             return entries;
@@ -630,6 +642,7 @@ namespace BuildingCosts
 
         public sealed class CostEntryViewModel : INotifyPropertyChanged
         {
+            private readonly Func<bool> canEdit;
             private readonly Action changed;
             private string displayName;
             private string buildingToolTip;
@@ -646,11 +659,18 @@ namespace BuildingCosts
 
             public event PropertyChangedEventHandler PropertyChanged;
 
-            public CostEntryViewModel(string key, string displayName, ImageSource iconImage, BuildingCostValues values, Action changed = null)
+            public CostEntryViewModel(
+                string key,
+                string displayName,
+                ImageSource iconImage,
+                BuildingCostValues values,
+                Func<bool> canEdit = null,
+                Action changed = null)
             {
                 Key = key;
                 this.displayName = displayName;
                 buildingToolTip = key;
+                this.canEdit = canEdit;
                 this.changed = changed;
                 wood = values.Wood;
                 stone = values.Stone;
@@ -793,6 +813,12 @@ namespace BuildingCosts
 
             private void SetCost(ref int field, int value, string textPropertyName)
             {
+                if (canEdit != null && !canEdit())
+                {
+                    OnPropertyChanged(textPropertyName);
+                    return;
+                }
+
                 int clamped = BuildingCostValues.ClampCost(value);
                 if (field == clamped)
                     return;

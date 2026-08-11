@@ -123,6 +123,9 @@ namespace UnitCosts
             get => unitCosts;
             set
             {
+                if (!CanMutateSetting(nameof(UnitCosts)))
+                    return;
+
                 if (Equals(unitCosts, value))
                     return;
 
@@ -140,6 +143,9 @@ namespace UnitCosts
             get => humanExtraUnitCosts;
             set
             {
+                if (!CanMutateSetting(nameof(HumanExtraUnitCosts)))
+                    return;
+
                 if (Equals(humanExtraUnitCosts, value))
                     return;
 
@@ -162,6 +168,9 @@ namespace UnitCosts
 
         private void Set<T>(ref T field, T value, string propertyName)
         {
+            if (!CanMutateSetting(propertyName))
+                return;
+
             if (Equals(field, value))
                 return;
 
@@ -308,6 +317,7 @@ namespace UnitCosts
                     key,
                     FormatDisplayName(key),
                     value,
+                    () => CanMutateSetting(nameof(UnitCosts)),
                     OnEntryChanged));
             }
 
@@ -333,7 +343,14 @@ namespace UnitCosts
                     value = CreateEmptyExtraCosts();
 
                 eChimps unitType = Enum.TryParse(key, out eChimps parsedUnitType) ? parsedUnitType : eChimps.CHIMP_TYPE_NULL;
-                entries.Add(new ExtraCostEntryViewModel(key, FormatDisplayName(key), unitType, null, value, OnExtraEntryChanged));
+                entries.Add(new ExtraCostEntryViewModel(
+                    key,
+                    FormatDisplayName(key),
+                    unitType,
+                    null,
+                    value,
+                    () => CanMutateSetting(nameof(HumanExtraUnitCosts)),
+                    OnExtraEntryChanged));
             }
 
             return entries;
@@ -498,6 +515,9 @@ namespace UnitCosts
 
         internal void NormalizeExtraCostsAfterNativeGoldChange()
         {
+            if (!CanMutateSetting(nameof(HumanExtraUnitCosts)))
+                return;
+
             ApplySerializedExtraCostsToEntries(humanExtraUnitCosts);
             string normalized = BuildSerializedExtraCosts();
             if (humanExtraUnitCosts == normalized)
@@ -649,6 +669,7 @@ namespace UnitCosts
 
         public sealed class CostEntryViewModel : INotifyPropertyChanged
         {
+            private readonly Func<bool> canEdit;
             private readonly Action changed;
             private string displayName;
             private string toolTip;
@@ -661,11 +682,13 @@ namespace UnitCosts
                 string key,
                 string displayName,
                 UnitCostValues values,
+                Func<bool> canEdit = null,
                 Action changed = null)
             {
                 Key = key;
                 this.displayName = displayName;
                 toolTip = key;
+                this.canEdit = canEdit;
                 this.changed = changed;
 
                 gold = values.Gold;
@@ -735,6 +758,12 @@ namespace UnitCosts
 
             private void SetCost(ref int field, int value, string textPropertyName)
             {
+                if (canEdit != null && !canEdit())
+                {
+                    OnPropertyChanged(textPropertyName);
+                    return;
+                }
+
                 int clamped = UnitCostValues.ClampCost(value);
                 if (field == clamped)
                     return;
@@ -791,6 +820,7 @@ namespace UnitCosts
 
         public sealed class ExtraCostEntryViewModel : INotifyPropertyChanged
         {
+            private readonly Func<bool> canEdit;
             private readonly Action changed;
             private readonly eChimps unitType;
             private string displayName;
@@ -798,16 +828,29 @@ namespace UnitCosts
 
             public event PropertyChangedEventHandler PropertyChanged;
 
-            public ExtraCostEntryViewModel(string key, string displayName, eChimps unitType, ImageSource iconImage, UnitExtraCostValues values, Action changed = null)
+            public ExtraCostEntryViewModel(
+                string key,
+                string displayName,
+                eChimps unitType,
+                ImageSource iconImage,
+                UnitExtraCostValues values,
+                Func<bool> canEdit = null,
+                Action changed = null)
             {
                 Key = key;
                 this.unitType = unitType;
                 this.displayName = displayName;
                 toolTip = key;
+                this.canEdit = canEdit;
                 this.changed = changed;
                 CostCells = new ObservableCollection<ExtraCostCellViewModel>();
                 foreach (eGoods good in HumanExtraCostGoods)
-                    CostCells.Add(new ExtraCostCellViewModel(good, values.GetCost(good), () => GetMinCost(good), OnCellChanged));
+                    CostCells.Add(new ExtraCostCellViewModel(
+                        good,
+                        values.GetCost(good),
+                        () => GetMinCost(good),
+                        canEdit,
+                        OnCellChanged));
             }
 
             public string Key { get; }
@@ -867,6 +910,7 @@ namespace UnitCosts
 
         public sealed class ExtraCostCellViewModel : INotifyPropertyChanged
         {
+            private readonly Func<bool> canEdit;
             private readonly Action changed;
             private readonly Func<int> getMinAmount;
             private string toolTip;
@@ -874,10 +918,16 @@ namespace UnitCosts
 
             public event PropertyChangedEventHandler PropertyChanged;
 
-            public ExtraCostCellViewModel(eGoods good, int amount, Func<int> getMinAmount, Action changed = null)
+            public ExtraCostCellViewModel(
+                eGoods good,
+                int amount,
+                Func<int> getMinAmount,
+                Func<bool> canEdit = null,
+                Action changed = null)
             {
                 Good = good;
                 this.getMinAmount = getMinAmount;
+                this.canEdit = canEdit;
                 this.amount = ClampAmount(amount);
                 toolTip = GetGoodOptionDisplayName(good);
                 this.changed = changed;
@@ -918,6 +968,12 @@ namespace UnitCosts
 
             private void SetAmount(int value, bool notifyOwner)
             {
+                if (canEdit != null && !canEdit())
+                {
+                    OnPropertyChanged(nameof(AmountText));
+                    return;
+                }
+
                 int clamped = ClampAmount(value);
                 if (amount == clamped)
                     return;

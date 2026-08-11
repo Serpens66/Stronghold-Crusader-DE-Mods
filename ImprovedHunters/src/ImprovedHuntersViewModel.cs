@@ -164,6 +164,9 @@ namespace ImprovedHunters
 
         private void SetSetting<T>(ref T field, T value, string propertyName)
         {
+            if (!CanMutateSetting(propertyName))
+                return;
+
             if (Equals(field, value))
                 return;
 
@@ -174,6 +177,9 @@ namespace ImprovedHunters
 
         private void SetMeatSetting(ref int field, int value, string propertyName, string textPropertyName)
         {
+            if (!CanMutateSettingWithDependents(propertyName, textPropertyName))
+                return;
+
             int clamped = ClampMeat(value);
             if (field == clamped)
                 return;

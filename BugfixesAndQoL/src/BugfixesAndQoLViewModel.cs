@@ -265,6 +265,9 @@ namespace BugfixesAndQoL
 
         private void SetSetting<T>(ref T field, T value, string propertyName)
         {
+            if (!CanMutateSetting(propertyName))
+                return;
+
             if (Equals(field, value))
                 return;
 

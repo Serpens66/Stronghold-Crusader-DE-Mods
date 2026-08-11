@@ -12,6 +12,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using ComboBoxItem = Noesis.ComboBoxItem;
 using Visibility = Noesis.Visibility;
 
@@ -37,11 +38,17 @@ namespace Shared
                 "_isProcessingNetworkSync",
                 BindingFlags.Instance | BindingFlags.NonPublic);
 
+        private static readonly MethodInfo NotifyRevertMethod =
+            typeof(LobbyModSettingsBaseViewModel).GetMethod(
+                "NotifyRevert",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+
         private ComboBoxItem[] presetOptions = Array.Empty<ComboBoxItem>();
         private PresetController presetController;
         private int selectedPreset;
         private bool missionPresetContext;
         private bool missionPresetEditable;
+        private bool isRealMultiplayer;
         private bool isLocalHost = true;
 
         public ComboBoxItem[] PresetOptions => presetOptions;
@@ -52,15 +59,18 @@ namespace Shared
 
         public bool IsLocalSettingsHost => isLocalHost;
 
+        public bool IsRealMultiplayerContext => isRealMultiplayer;
+
         public bool MissionPresetEditable => missionPresetEditable;
 
+        public bool IsMissionPresetSelected => missionPresetContext && selectedPreset == 2;
+
         public bool CanEditHostSettings =>
-            isLocalHost && (!missionPresetContext || missionPresetEditable);
+            isLocalHost && (!IsMissionPresetSelected || missionPresetEditable);
 
         public bool CanEditClientSettings => true;
 
-        public bool CanChangePreset =>
-            !missionPresetContext && (isLocalHost || HasClientSettings);
+        public bool CanChangePreset => isLocalHost || HasClientSettings;
 
         public bool CanResetSettings => CanEditHostSettings || HasClientSettings;
 
@@ -70,7 +80,7 @@ namespace Shared
                 : Visibility.Collapsed;
 
         public Visibility HostReadOnlyNoticeVisibility =>
-            HasHostSettings && !CanEditHostSettings
+            HasHostSettings && isRealMultiplayer && !isLocalHost
                 ? Visibility.Visible
                 : Visibility.Collapsed;
 
@@ -84,7 +94,9 @@ namespace Shared
             ResolveSettingsUiText("Common.Preset", "Preset");
 
         public Visibility ActionsScopeNoticeVisibility =>
-            HasClientSettings ? Visibility.Visible : Visibility.Collapsed;
+            isRealMultiplayer && HasClientSettings
+                ? Visibility.Visible
+                : Visibility.Collapsed;
 
         public string ActionsScopeNoticeText =>
             HasHostSettings && isLocalHost
@@ -115,13 +127,76 @@ namespace Shared
 
         protected virtual string ResolveSettingsUiText(string key, string fallback) => fallback;
 
+        /// <summary>
+        /// Authorizes a settings mutation before any backing state is changed.
+        /// Preset and Trail snapshots are trusted internal applications; all other
+        /// writes use the Script Extender's 1.41 ownership gate.
+        /// </summary>
+        protected bool CanMutateSetting([CallerMemberName] string propertyName = null)
+        {
+            if (presetController?.IsApplyingSnapshot == true)
+                return true;
+
+            System_RefreshSettingsAccess();
+            if (IsMissionPresetSelected &&
+                !missionPresetEditable &&
+                presetController?.IsHostPropertyName(propertyName) == true)
+            {
+                NotifyRejectedProperty(propertyName);
+                return false;
+            }
+
+            // SHCDE creates a local gameMembers list for singleplayer Skirmish and
+            // Trail. The Extender's low-level network test can therefore reject an
+            // otherwise valid local edit; the shared game-mode helper is authoritative.
+            if (!isRealMultiplayer)
+                return true;
+
+            return CanEdit(propertyName);
+        }
+
+        /// <summary>
+        /// Also refreshes editable proxy properties after a rejected write. The
+        /// Extender's private revert path keeps these notifications out of sync
+        /// and storage just like the primary property notification.
+        /// </summary>
+        protected bool CanMutateSettingWithDependents(
+            string propertyName,
+            params string[] dependentPropertyNames)
+        {
+            if (CanMutateSetting(propertyName))
+                return true;
+
+            if (dependentPropertyNames == null)
+                return false;
+
+            foreach (string dependentPropertyName in dependentPropertyNames)
+            {
+                if (!string.IsNullOrEmpty(dependentPropertyName) &&
+                    !string.Equals(propertyName, dependentPropertyName, StringComparison.Ordinal))
+                {
+                    NotifyRejectedProperty(dependentPropertyName);
+                }
+            }
+
+            return false;
+        }
+
+        private void NotifyRejectedProperty(string propertyName)
+        {
+            if (NotifyRevertMethod != null && !string.IsNullOrEmpty(propertyName))
+                NotifyRevertMethod.Invoke(this, new object[] { propertyName });
+        }
+
         // Zero-based because Noesis binds this value directly to ComboBox.SelectedIndex.
         public int SelectedPreset
         {
             get => selectedPreset;
             set
             {
-                int normalized = missionPresetContext ? 2 : (value == 1 ? 1 : 0);
+                int normalized = missionPresetContext && value == 2
+                    ? 2
+                    : (value == 1 ? 1 : 0);
                 if (selectedPreset == normalized)
                     return;
 
@@ -203,10 +278,12 @@ namespace Shared
 
         public void System_RefreshSettingsAccess()
         {
+            bool currentIsRealMultiplayer;
             bool currentIsHost;
             try
             {
-                currentIsHost = GameNetworkAPI.IsLocalHost();
+                currentIsRealMultiplayer = GameModeHelper.IsRealMultiplayer();
+                currentIsHost = !currentIsRealMultiplayer || GameNetworkAPI.IsLocalHost();
             }
             catch
             {
@@ -215,10 +292,11 @@ namespace Shared
                 return;
             }
 
-            if (isLocalHost == currentIsHost)
+            if (isLocalHost == currentIsHost && isRealMultiplayer == currentIsRealMultiplayer)
                 return;
 
             isLocalHost = currentIsHost;
+            isRealMultiplayer = currentIsRealMultiplayer;
             RaiseAccessProperties();
         }
 
@@ -250,9 +328,11 @@ namespace Shared
         private void RaiseAccessProperties()
         {
             base.OnPropertyChanged(nameof(IsLocalSettingsHost));
+            base.OnPropertyChanged(nameof(IsRealMultiplayerContext));
             base.OnPropertyChanged(nameof(HasHostSettings));
             base.OnPropertyChanged(nameof(HasClientSettings));
             base.OnPropertyChanged(nameof(MissionPresetEditable));
+            base.OnPropertyChanged(nameof(IsMissionPresetSelected));
             base.OnPropertyChanged(nameof(CanEditHostSettings));
             base.OnPropertyChanged(nameof(CanEditClientSettings));
             base.OnPropertyChanged(nameof(CanChangePreset));
@@ -354,6 +434,13 @@ namespace Shared
 
             public bool HasClientSettings => clientProperties.Length != 0;
 
+            public bool IsApplyingSnapshot => applying;
+
+            public bool IsHostPropertyName(string propertyName) =>
+                !string.IsNullOrEmpty(propertyName) &&
+                persistedPropertiesByName.TryGetValue(propertyName, out PropertyInfo property) &&
+                IsHostProperty(property);
+
             public void SanitizeStorage()
             {
                 if (active && !applying)
@@ -427,12 +514,18 @@ namespace Shared
 
             public void SwitchTo(int selected)
             {
-                selected = owner.missionPresetContext ? 2 : NormalizePreset(selected);
+                selected = owner.missionPresetContext && selected == 2
+                    ? 2
+                    : NormalizePreset(selected);
                 if (!active || owner.selectedPreset == selected)
                     return;
 
-                if (owner.missionPresetContext)
+                if (owner.missionPresetContext && selected == 2)
+                {
+                    ApplySnapshot(missionPreset, 2, writeLocalStorage: false);
+                    DebugLogHelper.LogInfo(log, $"[{modName}] Restored the active mission preset.");
                     return;
+                }
 
                 localSelectedPreset = selected;
                 ApplyPreset(selected);
@@ -491,7 +584,7 @@ namespace Shared
                     return;
                 }
 
-                if (owner.missionPresetContext)
+                if (owner.IsMissionPresetSelected)
                 {
                     if (IsHostProperty(property))
                     {
@@ -696,7 +789,7 @@ namespace Shared
                 foreach (PropertyInfo property in persistedProperties)
                 {
                     bool mayCaptureLive = IsClientProperty(property) ||
-                        (owner.isLocalHost && !owner.missionPresetContext);
+                        (owner.isLocalHost && !owner.IsMissionPresetSelected);
                     if (mayCaptureLive)
                     {
                         StoreProperty(snapshot, property);

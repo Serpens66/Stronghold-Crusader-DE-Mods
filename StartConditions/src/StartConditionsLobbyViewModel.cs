@@ -255,6 +255,9 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
             get => startGoodsAI;
             set
             {
+                if (!CanMutateSetting(nameof(StartGoodsAI)))
+                    return;
+
                 if (Equals(startGoodsAI, value))
                     return;
 
@@ -271,6 +274,9 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
             get => startGoodsHuman;
             set
             {
+                if (!CanMutateSetting(nameof(StartGoodsHuman)))
+                    return;
+
                 if (Equals(startGoodsHuman, value))
                     return;
 
@@ -287,6 +293,9 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
             get => addStartTroopsAI;
             set
             {
+                if (!CanMutateSetting(nameof(AddStartTroopsAI)))
+                    return;
+
                 if (Equals(addStartTroopsAI, value))
                     return;
 
@@ -303,6 +312,9 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
             get => addStartTroopsHuman;
             set
             {
+                if (!CanMutateSetting(nameof(AddStartTroopsHuman)))
+                    return;
+
                 if (Equals(addStartTroopsHuman, value))
                     return;
 
@@ -532,6 +544,8 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
                     entry.HumanAmount,
                     entry.NormalCrusaderAmountText,
                     entry.DeathmatchAmountText,
+                    () => CanMutateSetting(nameof(StartGoodsAI)),
+                    () => CanMutateSetting(nameof(StartGoodsHuman)),
                     OnGoodsEntryChanged));
             return entries;
         }
@@ -548,12 +562,17 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
                     entry.HumanAmount,
                     entry.NormalCrusaderAmountText,
                     entry.DeathmatchAmountText,
+                    () => CanMutateSetting(nameof(AddStartTroopsAI)),
+                    () => CanMutateSetting(nameof(AddStartTroopsHuman)),
                     OnTroopsEntryChanged));
             return entries;
         }
 
         private void Set<T>(ref T field, T value, string propertyName)
         {
+            if (!CanMutateSetting(propertyName))
+                return;
+
             if (Equals(field, value))
                 return;
 
@@ -574,6 +593,9 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
 
         private void SetClampedInt(ref int field, int value, string propertyName, string textPropertyName)
         {
+            if (!CanMutateSettingWithDependents(propertyName, textPropertyName))
+                return;
+
             if (field == value)
                 return;
 
@@ -585,6 +607,9 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
 
         private void SetMultiplierInt(ref int field, int value, string propertyName, string textPropertyName)
         {
+            if (!CanMutateSettingWithDependents(propertyName, textPropertyName))
+                return;
+
             int clamped = ClampMultiplier(value);
             if (field == clamped)
             {
@@ -679,6 +704,8 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
 
         public sealed class AmountEntryViewModel : INotifyPropertyChanged
         {
+            private readonly Func<bool> canEditAI;
+            private readonly Func<bool> canEditHuman;
             private readonly Action changed;
             private string displayName;
             private int aiAmount;
@@ -694,12 +721,16 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
                 int humanAmount,
                 string normalCrusaderAmountText = "",
                 string deathmatchAmountText = "",
+                Func<bool> canEditAI = null,
+                Func<bool> canEditHuman = null,
                 Action changed = null)
             {
                 Key = key;
                 DisplayName = displayName;
                 NormalCrusaderAmountText = normalCrusaderAmountText;
                 DeathmatchAmountText = deathmatchAmountText;
+                this.canEditAI = canEditAI;
+                this.canEditHuman = canEditHuman;
                 this.changed = changed;
                 this.aiAmount = ClampAmount(aiAmount);
                 this.humanAmount = ClampAmount(humanAmount);
@@ -752,6 +783,12 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
                 get => aiAmount;
                 private set
                 {
+                    if (canEditAI != null && !canEditAI())
+                    {
+                        OnPropertyChanged(nameof(AIAmountText));
+                        return;
+                    }
+
                     int clamped = ClampAmount(value);
                     if (aiAmount == clamped)
                         return;
@@ -783,6 +820,12 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
                 get => humanAmount;
                 private set
                 {
+                    if (canEditHuman != null && !canEditHuman())
+                    {
+                        OnPropertyChanged(nameof(HumanAmountText));
+                        return;
+                    }
+
                     int clamped = ClampAmount(value);
                     if (humanAmount == clamped)
                         return;

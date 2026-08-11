@@ -199,6 +199,9 @@ namespace ExtraFeatures
 
         private void SetTextSetting(ref string field, string value, string propertyName)
         {
+            if (!CanMutateSetting(propertyName))
+                return;
+
             string normalized = NormalizePercentText(value);
             if (field == normalized)
                 return;
@@ -209,6 +212,9 @@ namespace ExtraFeatures
 
         private void SetSetting<T>(ref T field, T value, string propertyName)
         {
+            if (!CanMutateSetting(propertyName))
+                return;
+
             if (Equals(field, value))
                 return;
             field = value;
@@ -224,6 +230,9 @@ namespace ExtraFeatures
             string propertyName,
             string textPropertyName)
         {
+            if (!CanMutateSettingWithDependents(propertyName, textPropertyName))
+                return;
+
             double clamped = ClampMultiplier(value, minimum, maximum);
             if (Math.Abs(field - clamped) < 0.0001)
                 return;
@@ -235,6 +244,9 @@ namespace ExtraFeatures
 
         private void SetIntSetting(ref int field, int value, int minimum, int maximum, string propertyName, string textPropertyName = null)
         {
+            if (!CanMutateSettingWithDependents(propertyName, textPropertyName))
+                return;
+
             int clamped = Math.Max(minimum, Math.Min(maximum, value));
             if (field == clamped)
                 return;
@@ -247,6 +259,9 @@ namespace ExtraFeatures
 
         private void SetDecimalMultiplierSetting(ref double field, double value, string propertyName, string textPropertyName)
         {
+            if (!CanMutateSettingWithDependents(propertyName, textPropertyName))
+                return;
+
             double normalized = NormalizeDecimalMultiplier(value);
             if (Math.Abs(field - normalized) < 0.0001)
                 return;

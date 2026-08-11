@@ -124,6 +124,9 @@ MAPPER_POND1=-1";
             get => buildingLimits;
             set
             {
+                if (!CanMutateSetting(nameof(BuildingLimits)))
+                    return;
+
                 if (Equals(buildingLimits, value))
                     return;
 
@@ -252,6 +255,9 @@ MAPPER_POND1=-1";
 
         private void Set<T>(ref T field, T value, string propertyName)
         {
+            if (!CanMutateSetting(propertyName))
+                return;
+
             if (Equals(field, value))
                 return;
 
@@ -342,16 +348,24 @@ MAPPER_POND1=-1";
 
         public sealed class LimitEntryViewModel : INotifyPropertyChanged
         {
+            private readonly Func<bool> canEdit;
             private readonly Action changed;
             private string displayName;
             private int limit;
 
             public event PropertyChangedEventHandler PropertyChanged;
 
-            public LimitEntryViewModel(string key, string displayName, ImageSource iconImage, int limit, Action changed = null)
+            public LimitEntryViewModel(
+                string key,
+                string displayName,
+                ImageSource iconImage,
+                int limit,
+                Func<bool> canEdit = null,
+                Action changed = null)
             {
                 Key = key;
                 DisplayName = displayName;
+                this.canEdit = canEdit;
                 this.changed = changed;
                 this.limit = ClampLimit(limit);
             }
@@ -380,6 +394,12 @@ MAPPER_POND1=-1";
                 get => limit;
                 private set
                 {
+                    if (canEdit != null && !canEdit())
+                    {
+                        OnPropertyChanged(nameof(LimitText));
+                        return;
+                    }
+
                     int clamped = ClampLimit(value);
                     if (limit == clamped)
                         return;
@@ -421,7 +441,13 @@ MAPPER_POND1=-1";
         {
             List<LimitEntryViewModel> entries = new List<LimitEntryViewModel>();
             foreach (LimitEntryViewModel entry in CreateLimitEntries(serializedLimits))
-                entries.Add(new LimitEntryViewModel(entry.Key, entry.DisplayName, entry.IconImage, entry.Limit, OnEntryChanged));
+                entries.Add(new LimitEntryViewModel(
+                    entry.Key,
+                    entry.DisplayName,
+                    entry.IconImage,
+                    entry.Limit,
+                    () => CanMutateSetting(nameof(BuildingLimits)),
+                    OnEntryChanged));
             return entries;
         }
     }

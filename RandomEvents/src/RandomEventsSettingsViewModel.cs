@@ -156,6 +156,9 @@ namespace RandomEvents
 
         private void SetChance(RandomEventKind kind, int value, string propertyName)
         {
+            if (!CanMutateSetting(propertyName))
+                return;
+
             int normalized = Clamp(value, 0, 100);
             int index = (int)kind;
             if (chances[index] == normalized)
@@ -174,10 +177,7 @@ namespace RandomEvents
             CooldownMonths = 0;
             MultiplayerEventModeIndex = (int)MultiplayerEventMode.SharedEvents;
             for (int index = 0; index < chances.Length; index++)
-            {
-                chances[index] = 1;
-                Changed(GetChancePropertyName((RandomEventKind)index));
-            }
+                SetChance((RandomEventKind)index, 1, GetChancePropertyName((RandomEventKind)index));
             PlagueMin = 1; PlagueMax = 10;
             LionMin = 1; LionMax = 10;
             BanditMin = 0.1; BanditMax = 5.0;
@@ -188,6 +188,9 @@ namespace RandomEvents
 
         private void SetMinimum(ref int minimum, ref int maximum, int value, int limit, string minName, string maxName)
         {
+            if (!CanMutateSetting(minName))
+                return;
+
             int normalized = Clamp(value, 1, limit);
             bool minChanged = minimum != normalized;
             minimum = normalized;
@@ -200,6 +203,9 @@ namespace RandomEvents
 
         private void SetMaximum(ref int minimum, ref int maximum, int value, int limit, string minName, string maxName)
         {
+            if (!CanMutateSetting(maxName))
+                return;
+
             int normalized = Clamp(value, 1, limit);
             bool maxChanged = maximum != normalized;
             maximum = normalized;
@@ -212,6 +218,9 @@ namespace RandomEvents
 
         private void SetScaledMinimum(ref double minimum, ref double maximum, double value, string minName, string maxName)
         {
+            if (!CanMutateSetting(minName))
+                return;
+
             double normalized = NormalizeScaledStrength(value);
             bool minChanged = minimum != normalized;
             minimum = normalized;
@@ -224,6 +233,9 @@ namespace RandomEvents
 
         private void SetScaledMaximum(ref double minimum, ref double maximum, double value, string minName, string maxName)
         {
+            if (!CanMutateSetting(maxName))
+                return;
+
             double normalized = NormalizeScaledStrength(value);
             bool maxChanged = maximum != normalized;
             maximum = normalized;
@@ -236,6 +248,9 @@ namespace RandomEvents
 
         private void Set<T>(ref T field, T value, string propertyName)
         {
+            if (!CanMutateSetting(propertyName))
+                return;
+
             if (Equals(field, value)) return;
             field = value;
             Changed(propertyName);
