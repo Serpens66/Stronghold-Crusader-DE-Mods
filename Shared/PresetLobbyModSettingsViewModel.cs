@@ -146,12 +146,6 @@ namespace Shared
                 return false;
             }
 
-            // SHCDE creates a local gameMembers list for singleplayer Skirmish and
-            // Trail. The Extender's low-level network test can therefore reject an
-            // otherwise valid local edit; the shared game-mode helper is authoritative.
-            if (!isRealMultiplayer)
-                return true;
-
             return CanEdit(propertyName);
         }
 
@@ -283,7 +277,9 @@ namespace Shared
             try
             {
                 currentIsRealMultiplayer = GameModeHelper.IsRealMultiplayer();
-                currentIsHost = !currentIsRealMultiplayer || GameNetworkAPI.IsLocalHost();
+                // Authority and game-mode presentation are independent. The Extender
+                // correctly reports local Skirmish and Trail lobbies as local host.
+                currentIsHost = GameNetworkAPI.IsLocalHost();
             }
             catch
             {
