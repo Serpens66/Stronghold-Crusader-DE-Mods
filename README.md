@@ -6,6 +6,8 @@
 
 ## Installation:
 - Make sure you installed the script extender below.
+- - This is done by downloading the latest "Loader" from here first: https://gitlab.com/rawra-stronghold-crusader/shcde-bepinex/-/rel and copy pasting the content of it into your game install folder "Steam\steamapps\common\Stronghold Crusader Definitive Edition".  
+- - Then download the latest "SHCDESE_X.XX.X.zip" from : https://gitlab.com/rawra-stronghold-crusader/shcde-script-extender/-/releases and copy paste it also in your install folder, replace if sth. already exists.
 - Copy paste the mod folder into your "\Stronghold Crusader Definitive Edition\BepInEx\plugins" folder.
 
 ## Script Extender: 
