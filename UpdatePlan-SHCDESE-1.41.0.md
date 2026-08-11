@@ -141,7 +141,7 @@ Abnahme: Host kann Werte ändern und synchronisieren; Clientänderungen werden v
 
 ### Schritt 3: `ExtraFeatures` auf Query- und Spawnvertrag 1.41 umstellen
 
-**Umsetzungsstand 12. August 2026: abgeschlossen; Laufzeitregression noch offen.** Die Query-Ergebnisse werden direkt als Game-IDs verwendet, beide Konvertierungshelfer/Fallbacks sind entfernt und der Unit-Spawn verwendet benannte Owner-/Farbparameter.
+**Umsetzungsstand 12. August 2026: abgeschlossen.** Die Query-Ergebnisse werden direkt als Game-IDs verwendet, beide Konvertierungshelfer/Fallbacks sind entfernt und der Unit-Spawn verwendet benannte Owner-/Farbparameter. Die abschließende reale Host-/Client-Abnahme bleibt eine modübergreifende Prüfung aus Schritt 9 und kein offener Implementierungspunkt dieses Schritts.
 
 - In `KnightDismountRuntime.cs` die Ergebnisse der Building-Query direkt als Game-IDs verwenden und beide `+1`-Konvertierungen samt Hilfsmethode entfernen.
 - In `ChurchPriestCountRuntime.cs` den historischen `queryValue + 1`-Fallback entfernen; eine ungültige ID explizit diagnostizieren, statt sie still umzudeuten.
@@ -152,19 +152,20 @@ Abnahme: Jede Query-ID löst exakt denselben Datensatz via `TryGetById` auf; kei
 
 ### Schritt 4: `ExtraFeatures` auf offizielle Stall-Verknüpfung umstellen
 
-**Umsetzungsstand 12. August 2026: abgeschlossen und im Spiel verifiziert.** Zehn Mounts setzten Slot und Backlink korrekt und erhöhten `r_UsedHorses` jeweils um eins. Elf Dismounts leerten den Stallslot und reduzierten `r_TotalHorses` sowie `r_UsedHorses` jeweils um eins; anschließend wurde die alte Rittereinheit regulär gelöscht. Die dafür ergänzten temporären Info-Logs wurden nach erfolgreicher Abnahme wieder entfernt. Mount verwendet `SetStablesUnitIdLink(..., bidirectional: true)` und die benannten GameUnit-Felder. Der Vanilla-Freigabepfad bleibt für Dismount genau einmal erhalten, weil er zusätzlich die Pferdezähler fortschreibt.
+**Umsetzungsstand 12. August 2026: abgeschlossen und im Spiel verifiziert.** Zehn Mounts setzten Slot und Backlink korrekt. Elf Dismounts leerten den Stallslot und reduzierten `r_TotalHorses` sowie `r_UsedHorses` jeweils um eins; anschließend wurde die alte Rittereinheit regulär gelöscht. Die dafür ergänzten temporären Info-Logs wurden nach erfolgreicher Abnahme wieder entfernt. Mount verwendet `SetStablesUnitIdLink(..., bidirectional: true)` und die benannten GameUnit-Felder. Es gibt keine eigenen Writes auf `r_UsedHorses` oder `r_TotalHorses`: Vanillas reguläres Stall-Update leitet `r_UsedHorses` aus den vier gültigen Slot-Verknüpfungen ab, während `r_TotalHorses` vollständig spielverwaltet bleibt. Der Vanilla-Freigabepfad bleibt für Dismount genau einmal erhalten, weil er den Slot leert, `r_TotalHorses` reduziert und danach die native Neuzählung von `r_UsedHorses` ausführt. Nach `LibraryLoaded` wird die Aktivierung der fixed-layout UI-Hooks ausdrücklich erneut abgeglichen, damit vorab geladene aktive Modsettings Mount-/Dismount- und Quarry-Buttons nicht bis zu einem späteren Settingswechsel verborgen lassen.
 
 - `GameUnit.r_LinkedStableBuildingId` und `r_LinkedStableGlobalId` statt roher Offsets verwenden.
 - `SetStablesUnitIdLink(..., bidirectional: true)` statt `SetStablesUnitIdLinkFixed` verwenden.
-- Beim Trennen `UnlinkStablesUnitIdLink(..., bidirectional: true)` einsetzen, wenn genau diese Verknüpfung gelöst werden soll.
-- Den vorhandenen Vanilla-Freigabepfad nicht blind durch `Unlink` ersetzen: prüfen, ob er zusätzlich `r_TotalHorses`, Slotbelegung oder andere Zustände fortschreibt. Vanilla genau einmal ausführen.
+- `UnlinkStablesUnitIdLink(..., bidirectional: true)` nur als unmittelbaren Rollback einer unvollständigen neuen Verknüpfung verwenden; dabei darf keine Verbrauchsabrechnung stattfinden.
+- Beim echten Dismount den vorhandenen Vanilla-Freigabepfad genau einmal statt `Unlink` ausführen, weil nur Vanilla zusätzlich `r_TotalHorses` fortschreibt und die Slotbelegung vollständig bereinigt.
+- `r_UsedHorses` und `r_TotalHorses` niemals selbst erhöhen oder reduzieren. Die Verknüpfungen sind die Quelle für Vanillas Neuzählung von `r_UsedHorses`; die Gesamtpferdezahl bleibt Spielzustand.
 - Nach erfolgreicher Umstellung alte Offsets, Setter und Fallbacks vollständig entfernen; keine parallele Legacy-Implementierung behalten.
 
 Abnahme: Beim Mount sind `stable slot ID/global ID` und `unit linked stable ID/global ID` bidirektional konsistent. Beim Dismount leert Vanilla den Stallslot und aktualisiert beide Pferdezähler; der Backlink der alten Rittereinheit darf bis zu deren unmittelbar folgender regulärer Löschung bestehen bleiben.
 
 ### Schritt 5: `ExtraFeatures`-Pakete unter 1.41 deterministisch registrieren
 
-**Umsetzungsstand 12. August 2026: abgeschlossen; Multiplayer-Laufzeitregression noch offen.** `KnightDismountPacket`, `KnightMountPacket` und `QuarryPileRelocationPacket` werden in dieser festen Reihenfolge beim Erzeugen der Runtime im Pluginstart registriert und abonniert. Settings, Featureflags, DLL-Hash und native Hookverfügbarkeit beeinflussen die Registrierung nicht mehr. Eine Deaktivierung entfernt die Paketabonnements nicht.
+**Umsetzungsstand 12. August 2026: abgeschlossen.** `KnightDismountPacket`, `KnightMountPacket` und `QuarryPileRelocationPacket` werden in dieser festen Reihenfolge beim Erzeugen der Runtime im Pluginstart registriert und abonniert. Settings, Featureflags, DLL-Hash und native Hookverfügbarkeit beeinflussen die Registrierung nicht mehr. Eine Deaktivierung entfernt die Paketabonnements nicht. Die abschließende reale Host-/Client-Abnahme bleibt eine modübergreifende Prüfung aus Schritt 9 und kein offener Implementierungspunkt dieses Schritts.
 
 - `KnightDismountPacket`, `KnightMountPacket` und `QuarryPileRelocationPacket` am frühesten sicheren Extender-Netzwerk-Initialisierungspunkt genau einmal, unbedingt und in fester Reihenfolge registrieren.
 - Registrierung und Eventsubscription dürfen weder von `EnableMod`, einzelnen Featureflags, DLL-Hashvalidierung noch Verfügbarkeit nativer Hooks abhängen. Nur die Handlerwirkung wird durch Settings und Runtimefähigkeit begrenzt.

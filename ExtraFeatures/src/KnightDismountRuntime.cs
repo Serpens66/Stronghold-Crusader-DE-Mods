@@ -1416,6 +1416,9 @@ namespace ExtraFeatures
             if (GetAvailableStableHorseCount(stable) <= 0 || !IsStableHorseSlotFree(stable, allocation.Slot))
                 return false;
 
+            // Only establish the bidirectional ownership link here. Vanilla's regular stable update
+            // recounts r_UsedHorses from the four valid slot links; r_TotalHorses remains game-owned.
+            // Updating either counter ourselves would duplicate Vanilla accounting.
             GameBuildingManagerAPI.Instance.SetStablesUnitIdLink(
                 allocation.StableId,
                 allocation.Slot,
@@ -1430,6 +1433,8 @@ namespace ExtraFeatures
 
             if (!slotMatches || !backlinkMatches)
             {
+                // Only the just-written link must be rolled back; no accounting transition should
+                // survive. The full Vanilla release routine would additionally consume a horse.
                 GameBuildingManagerAPI.Instance.UnlinkStablesUnitIdLink(
                     allocation.StableId,
                     allocation.Slot,
@@ -1441,8 +1446,6 @@ namespace ExtraFeatures
                 return false;
             }
 
-            // The 1.41 link API updates both references but deliberately does not consume a horse.
-            stable->r_UsedHorses = (byte)Math.Min(StableHorseSlotCount, ClampStableHorseCount(stable->r_UsedHorses) + 1);
             return true;
         }
 
@@ -1554,8 +1557,9 @@ namespace ExtraFeatures
                 return false;
             }
 
-            // DeleteUnitSafe only removes stale slots. Calling Vanilla's release helper also consumes the
-            // returned horse from r_TotalHorses so the stable regenerates it normally.
+            // Use Vanilla exactly once instead of UnlinkStablesUnitIdLink: this dismount consumes
+            // the horse, so Vanilla must clear the slot and decrement r_TotalHorses. Its trailing
+            // stable recount derives r_UsedHorses from the remaining valid links automatically.
             releaseStableHorse(GameBuildingManagerAPI.Instance.GetBuildingManager(), stableId, unitId);
 
             if (TryFindStableHorseLink(unitId, unitGlobalId, out int remainingStableId, out int remainingSlot))

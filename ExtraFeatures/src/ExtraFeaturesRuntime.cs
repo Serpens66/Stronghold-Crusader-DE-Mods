@@ -119,6 +119,10 @@ namespace ExtraFeatures
 
             InstallCtrlMarketTradeHook();
             TryRunFeature("fast recruit rally movement", ApplyFastRecruitRallyMovementSetting);
+
+            // Settings may be restored before LibraryLoaded. Retry fixed-layout activation now that
+            // the native library and delegates exist instead of waiting for a later setting change.
+            ReconcileFixedLayoutFeatures();
         }
 
         public void ApplySettings()
