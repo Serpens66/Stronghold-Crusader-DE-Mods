@@ -64,8 +64,17 @@ function Invoke-CheckedCommand {
     )
     $resolvedFilePath = Resolve-ReleaseTool -Name $FilePath
     if ([string]::IsNullOrWhiteSpace($resolvedFilePath)) { throw "Required command not found: $FilePath" }
-    $output = @(& $resolvedFilePath @Arguments 2>&1)
-    $exitCode = $LASTEXITCODE
+    # Native tools such as git legitimately write progress information to stderr
+    # with exit code 0. Under the script-wide Stop preference PowerShell 5.1 would
+    # otherwise turn that informational stderr record into a terminating error.
+    $previousErrorActionPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'Continue'
+        $output = @(& $resolvedFilePath @Arguments 2>&1)
+        $exitCode = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
     if (-not $AllowFailure -and $exitCode -ne 0) {
         throw "Command failed ($exitCode): $resolvedFilePath $($Arguments -join ' ')`r`n$($output -join "`r`n")"
     }
