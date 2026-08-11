@@ -1,0 +1,22 @@
+{
+  "Repository": "Serpens66/Stronghold-Crusader-DE-Mods",
+  "Branch": "main",
+  "Projects": [
+    "ActiveAIVDetector",
+    "AIDefense",
+    "AIVPlacementLobby",
+    "BugfixesAndQoL",
+    "BuildingCosts",
+    "BuildingLimit",
+    "CustomCustomTrail",
+    "ExtraFeatures",
+    "ImprovedHunters",
+    "MultiplayerLeaveFix",
+    "RandomEvents",
+    "SpawnCastle",
+    "StartConditions",
+    "UnitCosts",
+    "UnitLimit",
+    "VanillaAICExporter"
+  ]
+}

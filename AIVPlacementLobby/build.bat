@@ -115,6 +115,8 @@ move /Y "%STAGED_GAME_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%" >nul
 if errorlevel 1 goto copy_failed
 "%POWERSHELL%" -NoProfile -ExecutionPolicy Bypass -File "%PACKAGE_VERIFIER%" -PackageRoot "%LOCAL_PLUGIN_DIR%" -InstalledRoot "%GAME_PLUGIN_DIR%"
 if errorlevel 1 goto copy_failed
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\Shared\Release\Write-LocalBuildManifest.ps1" -ModName AIVPlacementLobby
+if errorlevel 1 goto package_failed
 
 echo.
 echo Build, Tests und Installation erfolgreich.

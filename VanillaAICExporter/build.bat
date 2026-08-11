@@ -68,6 +68,8 @@ if exist "%GAME_PLUGIN_DIR%\" (
 )
 xcopy "%LOCAL_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%\" /E /I /Y
 if errorlevel 1 goto copy_failed
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\Shared\Release\Write-LocalBuildManifest.ps1" -ModName VanillaAICExporter
+if errorlevel 1 goto copy_failed
 
 echo.
 echo Build und Installation erfolgreich.

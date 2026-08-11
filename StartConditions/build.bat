@@ -103,6 +103,8 @@ if "%BUILD_EXIT_CODE%"=="0" (
     rmdir /S /Q "!OLD_GAME_PLUGIN_DIR!"
     if errorlevel 1 goto copy_failed
   )
+  powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\Shared\Release\Write-LocalBuildManifest.ps1" -ModName StartConditions
+  if errorlevel 1 goto copy_failed
   echo Plugin kopiert.
 ) else (
   echo Build fehlgeschlagen. Exit Code: %BUILD_EXIT_CODE%

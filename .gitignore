@@ -10,6 +10,8 @@
 # Build outputs
 **/bin/
 **/obj/
+/.release-output/
+/release.local.json
 
 # IDE and OS files
 .vs/

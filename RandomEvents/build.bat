@@ -38,6 +38,8 @@ if not exist "%LOCAL_PLUGIN_DIR%\info.json" goto package_failed
 rem Overlay plugin files so saved LobbyModSettings survive development builds.
 xcopy "%LOCAL_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%\" /E /I /Q /Y >nul
 if errorlevel 1 goto copy_failed
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\Shared\Release\Write-LocalBuildManifest.ps1" -ModName RandomEvents
+if errorlevel 1 goto package_failed
 
 echo Build und Installation von Random Events erfolgreich.
 if "%NO_PAUSE%"=="0" pause

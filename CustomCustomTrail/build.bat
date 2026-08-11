@@ -91,6 +91,8 @@ if exist "%GAME_PLUGIN_DIR%\" rmdir /S /Q "%GAME_PLUGIN_DIR%"
 if errorlevel 1 goto copy_failed
 move /Y "%STAGED_GAME_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%" >nul
 if errorlevel 1 goto copy_failed
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\Shared\Release\Write-LocalBuildManifest.ps1" -ModName CustomCustomTrail
+if errorlevel 1 goto package_failed
 echo.
 echo Build, Tests und Installation erfolgreich.
 if "%NO_PAUSE%"=="0" pause

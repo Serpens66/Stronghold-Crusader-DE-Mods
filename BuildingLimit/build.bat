@@ -9,6 +9,8 @@ set "LOCAL_SCRIPT_EXTENDER_MOD_OUTPUT=%LOCAL_SCRIPT_EXTENDER_ROOT%\mod_output\00
 set "LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT=%LOCAL_SCRIPT_EXTENDER_ROOT%\src\SHCDESE.BepInEx\bin\net481"
 set "GAME_SCRIPT_EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
 set "EXTENDER_DIR="
+set "NO_PAUSE=0"
+for %%A in (%*) do if /I "%%~A"=="/nopause" set "NO_PAUSE=1"
 
 if not exist "%MSBUILD%" (
   echo MSBuild wurde nicht gefunden:
@@ -101,12 +103,14 @@ if "%BUILD_EXIT_CODE%"=="0" (
     rmdir /S /Q "!OLD_GAME_PLUGIN_DIR!"
     if errorlevel 1 goto copy_failed
   )
+  powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\Shared\Release\Write-LocalBuildManifest.ps1" -ModName BuildingLimit
+  if errorlevel 1 goto copy_failed
   echo Plugin kopiert.
 ) else (
   echo Build fehlgeschlagen. Exit Code: %BUILD_EXIT_CODE%
 )
 echo.
-pause
+if "%NO_PAUSE%"=="0" pause
 exit /b %BUILD_EXIT_CODE%
 
 :copy_failed
@@ -114,6 +118,6 @@ echo.
 echo Kopieren fehlgeschlagen. Ist das Spiel noch gestartet?
 echo Beende Stronghold Crusader Definitive Edition und starte build.bat erneut.
 echo.
-pause
+if "%NO_PAUSE%"=="0" pause
 exit /b 1
 
