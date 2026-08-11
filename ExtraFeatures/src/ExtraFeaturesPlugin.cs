@@ -19,7 +19,7 @@ namespace ExtraFeatures
 
         public const string PluginGuid = "ExtraFeatures_Serp";
         public const string PluginName = "Extra Features";
-        public const string PluginVersion = "1.0.10";
+        public const string PluginVersion = "1.0.11";
 
         private ExtraFeaturesRuntime runtime;
         private bool runtimeDisposed;

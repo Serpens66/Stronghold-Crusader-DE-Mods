@@ -115,23 +115,18 @@ namespace ExtraFeatures
             }
         }
 
-        private bool TryResolveBuildingId(int queryValue, eStructs expectedStructure, out int buildingId)
+        private bool TryResolveBuildingId(int queryId, eStructs expectedStructure, out int buildingId)
         {
-            if (IsExpectedBuilding(queryValue, expectedStructure))
+            if (IsExpectedBuilding(queryId, expectedStructure))
             {
-                buildingId = queryValue;
-                return true;
-            }
-
-            // GameStructQuery currently returns zero-based indexes in this environment.
-            int oneBasedId = queryValue + 1;
-            if (IsExpectedBuilding(oneBasedId, expectedStructure))
-            {
-                buildingId = oneBasedId;
+                buildingId = queryId;
                 return true;
             }
 
             buildingId = 0;
+            LogError(
+                $"building query returned an invalid 1.41 game ID: queryId={queryId}, " +
+                $"expectedStructure={expectedStructure}.");
             return false;
         }
 

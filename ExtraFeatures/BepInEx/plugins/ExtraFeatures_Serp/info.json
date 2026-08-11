@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.10",
+  "Version": "1.0.11",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.11",
+      "Changes": [
+        "Updated query IDs, unit spawning, stable links, and deterministic packet registration for Script Extender 1.41.0."
+      ]
+    },
     {
       "Version": "1.0.10",
       "Changes": [

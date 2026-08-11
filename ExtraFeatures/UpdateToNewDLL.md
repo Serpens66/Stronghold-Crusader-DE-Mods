@@ -8,8 +8,8 @@
 
 The audited hash uses locally validated direct RVAs. On another hash, only the
 signature- and semantics-validated features use bounded unique scans. Knight
-dismount and quarry relocation remain inactive because their raw layouts are
-not proven by the function signatures alone.
+dismount and quarry relocation remain inactive because their fixed native
+layouts are not proven by the function signatures alone.
 
 ## Native address map
 
@@ -40,8 +40,9 @@ the loaded image and their surrounding native contract.
 2. Verify the complete Vanilla worker table and its table-start calculation.
 3. Revalidate market packet globals, sender/storage calls and statistic table.
 4. Revalidate plague lifetime value `800` and Vanilla distance comparison `30`.
-5. Before enabling fixed-layout features, revalidate knight stable fields
-   `GameUnit +0x3D2/+0x3DC`, quarry manager fields `+0x31B7D0/+0x31B7D4`,
+5. Before enabling fixed-layout features, revalidate the named knight stable
+   fields `GameUnit.r_LinkedStableBuildingId`/`r_LinkedStableGlobalId`
+   (`+0x3D2/+0x3DC`), quarry manager fields `+0x31B7D0/+0x31B7D4`,
    helper ABI and all candidate semantics.
 6. Test every setting enabled/disabled, restore paths, map reloads, market
    packets, church workers, plague behavior, AI protection, knights and quarry.
@@ -53,7 +54,8 @@ Every code signature has exactly one executable match; the worker-table pattern
 and table start remain `0x2E4E58`/`0x2E4DE0`. The market call chain, statistic
 target, plague constants (`800`, `30`) and all hook boundaries remain
 semantically unchanged. The Vanilla stable release still uses building stride
-`0x32C`, stable stride `0x196` and the knight backlinks `+0x3D2/+0x3DC`.
+`0x32C`, stable stride `0x196` and the named knight backlinks
+`r_LinkedStableBuildingId`/`r_LinkedStableGlobalId` at `+0x3D2/+0x3DC`.
 `setupBuildingEntrancesOffset` still writes the candidate pair at manager
 `+0x31B7D0/+0x31B7D4` with the same ABI and rotation cases. Functional setting,
 reload and multiplayer tests remain post-build game smoke tests.

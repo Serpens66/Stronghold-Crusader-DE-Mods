@@ -161,12 +161,14 @@ namespace ExtraFeatures
         private Hook setUpInbuildingHook;
         private SetUpInbuildingDelegate setUpInbuildingTrampoline;
         private R3PacketEventHook<QuarryPileRelocationPacket> packetHook;
+        private IDisposable packetSubscription;
         private Button hookedRelocationButton;
         private TextBlock hookedRelocationTooltip;
         private PrefabSpawnCapture activePrefabSpawnCapture;
         private SetupBuildingEntrancesOffsetDelegate setupBuildingEntrancesOffset;
         private int nextRequestId;
         private int linkedRemovalSuppressionDepth;
+        private bool networkPacketRegistered;
         private bool initialized;
         private string lastVisibilityLogState;
 
@@ -178,6 +180,17 @@ namespace ExtraFeatures
         }
 
         public QuarryPileRelocationButtonViewModel ButtonViewModel => buttonViewModel;
+
+        public void RegisterNetworkPacket()
+        {
+            if (networkPacketRegistered)
+                return;
+
+            packetHook = GameNetworkAPI.Instance.GetPacketEventFor<QuarryPileRelocationPacket>();
+            packetSubscription = packetHook.GetBaseHook().Observable.Subscribe(OnRelocationPacketReceived);
+            networkPacketRegistered = true;
+            LogInfo($"network packet registered unconditionally: relocationPacketId={packetHook.GetPacketId()}.");
+        }
 
         public void InstallNativeFunctions(
             IntPtr libraryHandle,
@@ -211,11 +224,12 @@ namespace ExtraFeatures
             if (initialized)
                 return;
 
+            if (!networkPacketRegistered || packetHook == null || packetSubscription == null)
+                throw new InvalidOperationException("Quarry relocation network packet must be registered during plugin startup.");
+
             Hook installedHook = null;
             try
             {
-                packetHook = GameNetworkAPI.Instance.GetPacketEventFor<QuarryPileRelocationPacket>();
-                subscriptions.Add(packetHook.GetBaseHook().Observable.Subscribe(OnRelocationPacketReceived));
                 subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
                     .Where(args => args.Phase == EventHookPhase.Pre)
                     .Subscribe(_ => ClearMapState()));
@@ -239,7 +253,6 @@ namespace ExtraFeatures
             {
                 installedHook?.Dispose();
                 DisposeSubscriptions();
-                packetHook = null;
                 throw;
             }
         }
@@ -259,7 +272,6 @@ namespace ExtraFeatures
             setUpInbuildingHook?.Dispose();
             setUpInbuildingHook = null;
             setUpInbuildingTrampoline = null;
-            packetHook = null;
             LogInfo("runtime dispose completed.");
         }
 

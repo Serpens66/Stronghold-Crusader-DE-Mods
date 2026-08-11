@@ -1,7 +1,7 @@
 # Updateplan: SHCDE Script Extender 1.40.0 auf 1.41.0
 
-Stand: 11. August 2026  
-Status: Umsetzung läuft; gemeinsame Preset-/Hostautorisierung einschließlich Trail-Hostsync umgesetzt und statisch getestet, finale Multiplayer-Abnahme noch offen
+Stand: 12. August 2026
+Status: Umsetzung läuft; gemeinsame Preset-/Hostautorisierung und die 1.41-Anpassungen von `ExtraFeatures` umgesetzt, geprüft, als 1.0.11 gebaut und installiert; Stall-Verknüpfung im Spiel verifiziert, finale Multiplayer-Abnahme noch offen
 
 ## 1. Ziel und geprüfte Basis
 
@@ -20,7 +20,7 @@ Dieser Plan beschreibt die notwendigen Workspace-Anpassungen für den Wechsel vo
 Direkte funktionale Anpassungen sind erforderlich in:
 
 1. `Shared/PresetLobbyModSettingsViewModel.cs` und allen ViewModels mit `[SyncHostOnly]`, weil 1.41.0 die Autorisierung nicht mehr nur beim Senden, sondern vor jeder Mutation verlangt.
-2. `ExtraFeatures`, wegen Query-IDs, korrigierter Spawnparameter, der neuen offiziellen Stall-Verknüpfung sowie der neuen verbindlichen Paketregistrierungs- und Chore-Transportregeln.
+2. `ExtraFeatures`, wegen Query-IDs, korrigierter Spawnparameter, der neuen offiziellen Stall-Verknüpfung sowie der neuen verbindlichen Paketregistrierungsregeln. Die Chore-Transportregeln werden erst für 1.50.0 eingeplant.
 3. `AIDefense`, weil die eigene Umrechnung von Query-Indizes zu IDs unter 1.41.0 alle IDs nochmals um eins erhöhen würde.
 4. `RandomEvents`, weil der bisherige Spawn-Workaround jetzt offizielles API-Verhalten ist und Kommentare/Dokumentation veraltet sind.
 
@@ -31,7 +31,7 @@ Zusätzliche Regressionstests sind für `StartConditions`, `CustomCustomTrail`, 
 | Bereich/Mod | Priorität | Befund | Geplante Folge |
 | --- | --- | --- | --- |
 | `Shared/PresetLobbyModSettingsViewModel.cs` | kritisch | Gemeinsame UI-Sperren und Persistenz sind vorhanden, aber die modseitigen Setter rufen die neue Basisklassenprüfung `CanEdit(propertyName)` nicht systematisch vor der Mutation auf. | Gemeinsamen Autorisierungshelfer ergänzen; alle mutierenden Setterpfade daran anbinden; empfangene Hostwerte weiterhin von lokalen `.msgpack`-Presets fernhalten. |
-| `ExtraFeatures` | kritisch | Mehrere Query-Werte werden noch als nullbasierte Indizes behandelt; ein Spawn übergibt Farbe vor Owner; Stallfelder und Slot-Schreibzugriff werden roh umgangen; drei Pakettypen werden bedingt registriert und verwenden den alten Steam-Sendepfad. | Alle vier Bereiche gemeinsam korrigieren und anschließend als ein zusammenhängendes Netzwerk-/Runtime-Paket testen. |
+| `ExtraFeatures` | kritisch | Mehrere Query-Werte wurden noch als nullbasierte Indizes behandelt; ein Spawn übergab Farbe vor Owner; Stallfelder und Slot-Schreibzugriff wurden roh umgangen; drei Pakettypen wurden bedingt registriert. | Query-, Spawn- und Stallpfade sind auf 1.41 umgestellt. Alle drei Pakettypen werden beim Pluginstart unbedingt in fester Reihenfolge registriert. Der bestehende Steam-Sendepfad bleibt bis zum dokumentierten Chore-Vertrag 1.50.0 unverändert. |
 | `AIDefense` | kritisch | `ConvertZeroBasedQueryIndicesToGameIds` erhöht die ab 1.41.0 bereits einbasierten IDs erneut. | Aufruf und nun obsolete Hilfsmethode entfernen; ID-/Global-ID-Invarianten testen. |
 | `RandomEvents` | hoch | Der Code übergibt bereits Owner und danach Farbe und bleibt funktional korrekt; Kommentar und `NativeEventNotes.md` beschreiben dies noch als Extender-Fehlerumgehung. Außerdem Hostsetter ohne neue Vorabprüfung. | Workaroundtext entfernen/aktualisieren und Hostsetter autorisieren; Spawndiagnose beibehalten. |
 | `BuildingCosts`, `BuildingLimit`, `BugfixesAndQoL`, `ImprovedHunters`, `ImprovedHunters_TEST`, `StartConditions`, `UnitCosts`, `UnitLimit` | hoch | `[SyncHostOnly]` ist klassifiziert, aber die jeweiligen Setterhelfer mutieren vor einer 1.41-Autorisierungsprüfung. Editierbare Tabellen-/Zeilenmodelle sind gesondert zu prüfen. | Setterhelfer und direkte/nestete Mutationen vorab über den gemeinsamen Autorisierungshelfer absichern. |
@@ -40,13 +40,13 @@ Zusätzliche Regressionstests sind für `StartConditions`, `CustomCustomTrail`, 
 | `SpawnCastle` | niedrig | Nur persönliche/lokale Settings; keine betroffene Query- oder Spawn-API gefunden. Die gemeinsame Presetbasis wird jedoch mitkompiliert und ComboBoxes erhalten automatisch den neuen Dropdown-Fix. | Kompilier-, Preset- und UI-Regression; keine Hostsetteränderung. |
 | `ImprovedHunters` Runtime und Testkopie | niedrig | `CreateUnitLocal` verwendet benannte Argumente; die neue Parameterreihenfolge ändert das Ergebnis nicht. | Nur Compile-/Spawnregression; Produktions- und Testkopie konsistent halten, ohne vorhandene Benutzerarbeit zu überschreiben. |
 | `ActiveAIVDetector`, `AIVPlacementLobby`, `MultiplayerLeaveFix`, `VanillaAICExporter`, `TestMod LUA` | keine direkte API-Anpassung | Keine Nutzung der brechenden APIs gefunden. Lobby-Hash und künftiges `NetworkMode` können Installation/Testumgebung beeinflussen. | Nur Metadatenklassifikation und Smoke-Test, falls diese Mods im gemeinsamen Testprofil geladen werden. |
-| `MPTest` | Entscheidung vor Änderung | Enthält einen eigenen nativen Chore-Probeaufbau. 1.41.0 liefert nun einen offiziellen Chore-Transport. | Vor einer Umsetzung entscheiden, ob der native Probe entfernt oder ausdrücklich als Vergleichsdiagnose behalten wird; nicht beide ungefragt dauerhaft parallel pflegen. |
+| `MPTest` | Entscheidung für 1.50.0 | Enthält einen eigenen nativen Chore-Probeaufbau; der 1.41-Quelltag enthält zwar die spätere Vorabimplementierung, aber noch keinen für 1.41 dokumentierten Chore-Vertrag. | Erst beim 1.50.0-Update entscheiden, ob der native Probe entfernt oder ausdrücklich als Vergleichsdiagnose behalten wird; unter 1.41 nichts parallel umstellen. |
 
 ## 4. Vollständige Commitprüfung
 
 | Commit | Änderung | Workspace-Auswirkung |
 | --- | --- | --- |
-| `bf45ef9` | Spielunterstützung auf 2.8.0.1 aktualisiert. | Kanonische DLL und aktive Workspace-Hashes entsprechen bereits 2.8.0.1; keine neue native Analyse. Beim Testen Hash im Initialisierungslog bestätigen. |
+| `bf45ef9` | Spielunterstützung auf 2.8.0.1 aktualisiert; im selben Commit wurden auch die später dokumentierten Chore-Implementierungsdateien erstmals angelegt. | Kanonische DLL und aktive Workspace-Hashes entsprechen bereits 2.8.0.1; keine neue native Analyse. Der physisch vorhandene Chore-Code wird nicht als 1.41-Vertrag behandelt, weil die spätere API-Dokumentation ihn ausdrücklich einer anderen Version zuordnet. |
 | `65bea75` | Veraltete Release-ZIP entfernt. | Keine. |
 | `067f0ac` | Veraltete Issue-Dateien entfernt. | Keine. |
 | `9058901` | Cursorpfade können durch Assets überschrieben werden. | Additiv; kein Workspace-Mod nutzt diese Pfade. |
@@ -64,7 +64,7 @@ Zusätzliche Regressionstests sind für `StartConditions`, `CustomCustomTrail`, 
 | `774c3bf` | Fehlende DLL in Extender-Buildskript ergänzt. | Nur Extender-Build; lokale Kopie wurde bereits gebaut. |
 | `d823e01` | XML-Dokumentationskorrekturen. | Keine Laufzeitänderung. |
 | `4192813` | Commit beansprucht, den xxHash nicht mehr zu kürzen. | Im getaggten 1.41.0-Quellstand wird `hash64` weiterhin nach `uint` gecastet und nur auf 16 Hexstellen aufgefüllt. Keine Modkorrektur; nicht von voller 64-Bit-Kollisionsstärke ausgehen und als Upstream-Auffälligkeit behandeln. |
-| `81548ac` | Bibliotheken aktualisiert, Chore-Testcode ins ExampleMod verschoben, Networking-Guide erweitert und ComboBox-Dropdown-Fix ergänzt. | `ExtraFeatures` auf den offiziellen Chore-Transport umstellen; alle Modsettings-ComboBoxes visuell testen. Keine manuelle ComboBox-Anpassung, solange kein konkreter Fehler auftritt. |
+| `81548ac` | Bibliotheken aktualisiert, Chore-Testcode ins ExampleMod verschoben, Networking-Guide erweitert und ComboBox-Dropdown-Fix ergänzt. | Die unbedingte, frühe Paketregistrierung gilt bereits für die in 1.41 verwendete automatische Paket-ID-Vergabe und wird in `ExtraFeatures` umgesetzt. Der Guide markiert Chore dagegen mehrfach mit „1.5.0“/„Added in 1.5.0“. Das echte `v1.5.0` stammt vom 15. Januar 2026, die Chore-Dateien erst vom 11. August 2026; die Versionsangabe kann daher nur ein fehlendes `0` und somit 1.50.0 meinen. Keine Chore-Migration im 1.41-Plan. ComboBoxes visuell testen. |
 | `9860a2e` | Veraltete Dateien entfernt. | Keine. |
 | `5e8eb47` | Extender-Loglevel korrigiert. | Keine Modänderung; Log-Smoketests dürfen sich nicht auf die früheren Level verlassen. |
 | `cd82f83` | Modoptions-Autorität und Sicherheitsprüfung überarbeitet; neue Guides und APIs (`CanEdit`, autorisierte Update-Scope, Sender-Steam-ID, Host-/Spielerauflösung). | Gemeinsame Presetbasis und alle `[SyncHostOnly]`-Setter anpassen; Host-, Client-, Trail- und Persistenztests erweitern. |
@@ -73,6 +73,16 @@ Zusätzliche Regressionstests sind für `StartConditions`, `CustomCustomTrail`, 
 | `322925f` | README-/Übersetzungs-/RE-Datenbankhinweise aktualisiert. | Keine Modänderung. |
 | `9527cad` | Lua-Referenz aktualisiert. | Keine betroffene Lua-Nutzung gefunden. |
 | `065184c` | Release 1.41.0 erstellt. | Abschluss-/Versionscommit ohne zusätzliche API-Änderung. |
+
+### Im Tag vorhanden, aber noch nicht als 1.41-Funktion live
+
+Die erneute Tag-, Ancestry-, Quellcode- und Dokumentationsprüfung trennt folgende vorgezogene beziehungsweise unvollständige Änderungen vom tatsächlich nutzbaren 1.41-Vertrag:
+
+- **Chore-Transport:** Implementierung, `SendPacketToAllEx2(..., viaChore: true)` und Beispielcode liegen physisch im Tag. Der gleichzeitig veröffentlichte Guide ordnet den Transport jedoch mehrfach „1.5.0“ zu. Da das echte `v1.5.0` sieben Monate älter ist als diese Dateien, wird dies als Schreibfehler für **1.50.0** behandelt. Bis zu diesem Release oder einer eindeutigen upstream Korrektur bleibt `ExtraFeatures` beim bisherigen Steam-Transport.
+- **`NetworkMode`:** Modell und Guide sind vorhanden, Commit `f3b3cba` nennt die Nutzung ausdrücklich zukünftig; der 1.41-Lobby-Hash wertet das Feld nicht aus.
+- **Voller 64-Bit-xxHash:** Commit `4192813` beansprucht die Korrektur, der getaggte Code castet den Hash weiterhin nach `uint`. Live ist somit nur der weiterhin gekürzte Wert.
+
+Die frühe und unbedingte Paketregistrierung ist hiervon nicht betroffen: Sie folgt direkt aus der bereits live genutzten, aufrufreihenfolgebasierten `GetPacketEventFor<T>()`-ID-Vergabe und ist deshalb Bestandteil der 1.41-Umsetzung.
 
 ## 5. Sequenzieller Umsetzungsplan
 
@@ -131,6 +141,8 @@ Abnahme: Host kann Werte ändern und synchronisieren; Clientänderungen werden v
 
 ### Schritt 3: `ExtraFeatures` auf Query- und Spawnvertrag 1.41 umstellen
 
+**Umsetzungsstand 12. August 2026: abgeschlossen; Laufzeitregression noch offen.** Die Query-Ergebnisse werden direkt als Game-IDs verwendet, beide Konvertierungshelfer/Fallbacks sind entfernt und der Unit-Spawn verwendet benannte Owner-/Farbparameter.
+
 - In `KnightDismountRuntime.cs` die Ergebnisse der Building-Query direkt als Game-IDs verwenden und beide `+1`-Konvertierungen samt Hilfsmethode entfernen.
 - In `ChurchPriestCountRuntime.cs` den historischen `queryValue + 1`-Fallback entfernen; eine ungültige ID explizit diagnostizieren, statt sie still umzudeuten.
 - Beim `CreateUnitLocal`-Aufruf Owner zuerst und Farbe danach übergeben; benannte Argumente verwenden, damit die Semantik nicht erneut von Positionsannahmen abhängt.
@@ -140,26 +152,29 @@ Abnahme: Jede Query-ID löst exakt denselben Datensatz via `TryGetById` auf; kei
 
 ### Schritt 4: `ExtraFeatures` auf offizielle Stall-Verknüpfung umstellen
 
+**Umsetzungsstand 12. August 2026: abgeschlossen und im Spiel verifiziert.** Zehn Mounts setzten Slot und Backlink korrekt und erhöhten `r_UsedHorses` jeweils um eins. Elf Dismounts leerten den Stallslot und reduzierten `r_TotalHorses` sowie `r_UsedHorses` jeweils um eins; anschließend wurde die alte Rittereinheit regulär gelöscht. Die dafür ergänzten temporären Info-Logs wurden nach erfolgreicher Abnahme wieder entfernt. Mount verwendet `SetStablesUnitIdLink(..., bidirectional: true)` und die benannten GameUnit-Felder. Der Vanilla-Freigabepfad bleibt für Dismount genau einmal erhalten, weil er zusätzlich die Pferdezähler fortschreibt.
+
 - `GameUnit.r_LinkedStableBuildingId` und `r_LinkedStableGlobalId` statt roher Offsets verwenden.
 - `SetStablesUnitIdLink(..., bidirectional: true)` statt `SetStablesUnitIdLinkFixed` verwenden.
 - Beim Trennen `UnlinkStablesUnitIdLink(..., bidirectional: true)` einsetzen, wenn genau diese Verknüpfung gelöst werden soll.
 - Den vorhandenen Vanilla-Freigabepfad nicht blind durch `Unlink` ersetzen: prüfen, ob er zusätzlich `r_TotalHorses`, Slotbelegung oder andere Zustände fortschreibt. Vanilla genau einmal ausführen.
 - Nach erfolgreicher Umstellung alte Offsets, Setter und Fallbacks vollständig entfernen; keine parallele Legacy-Implementierung behalten.
 
-Abnahme: `stable slot ID/global ID` und `unit linked stable ID/global ID` sind vor und nach Mount/Dismount bidirektional konsistent; Pferdezähler und Alive-State folgen Vanillas regulärem Pfad.
+Abnahme: Beim Mount sind `stable slot ID/global ID` und `unit linked stable ID/global ID` bidirektional konsistent. Beim Dismount leert Vanilla den Stallslot und aktualisiert beide Pferdezähler; der Backlink der alten Rittereinheit darf bis zu deren unmittelbar folgender regulärer Löschung bestehen bleiben.
 
-### Schritt 5: `ExtraFeatures`-Pakete deterministisch und desync-sicher machen
+### Schritt 5: `ExtraFeatures`-Pakete unter 1.41 deterministisch registrieren
+
+**Umsetzungsstand 12. August 2026: abgeschlossen; Multiplayer-Laufzeitregression noch offen.** `KnightDismountPacket`, `KnightMountPacket` und `QuarryPileRelocationPacket` werden in dieser festen Reihenfolge beim Erzeugen der Runtime im Pluginstart registriert und abonniert. Settings, Featureflags, DLL-Hash und native Hookverfügbarkeit beeinflussen die Registrierung nicht mehr. Eine Deaktivierung entfernt die Paketabonnements nicht.
 
 - `KnightDismountPacket`, `KnightMountPacket` und `QuarryPileRelocationPacket` am frühesten sicheren Extender-Netzwerk-Initialisierungspunkt genau einmal, unbedingt und in fester Reihenfolge registrieren.
 - Registrierung und Eventsubscription dürfen weder von `EnableMod`, einzelnen Featureflags, DLL-Hashvalidierung noch Verfügbarkeit nativer Hooks abhängen. Nur die Handlerwirkung wird durch Settings und Runtimefähigkeit begrenzt.
 - Die bestehenden expliziten Formatter und stabilen numerischen `[Key(...)]`-Werte beibehalten.
-- Zustandsändernde Multiplayeraktionen über `SendPacketToAllEx2(..., viaChore: true)` senden.
-- Da der Chore-Weg an den Sender selbst ausliefert, vor dem Senden nicht zusätzlich lokal anwenden. Im Singleplayer bleibt ein direkter lokaler Pfad.
-- Vor jeder Multiplayeraktion `ChoreNetworkTransport.IsAvailable` prüfen. Bei Nichtverfügbarkeit sicher abbrechen und mit Zeitstempel protokollieren; kein stiller Steam-Fallback für zustandsändernde Aktionen.
-- Paketgröße gegen das Chore-Limit von ungefähr 1200 Bytes absichern.
-- Sender-/Besitzprüfung überprüfen: Chore-Pakete liefern derzeit keine `SenderSteamId`; deshalb müssen Unit-/Building-Owner, Auswahlidentität, Global-ID, Phase und lokale Berechtigung aus dem Paket und dem aktuellen Spielzustand konsistent validiert werden.
+- Den bestehenden `SendPacketToAll`-Transport für 1.41 beibehalten. Keine halb unterstützte Chore-Nutzung nur aufgrund der bereits im Tag liegenden Vorabimplementierung einführen.
+- Sender-/Besitzprüfung weiterhin anhand von Unit-/Building-Owner, Auswahlidentität, Global-ID, Phase und lokalem Spielzustand durchführen.
 
-Abnahme: Host und Client registrieren identische Paket-IDs unabhängig von ihren gespeicherten Einstellungen; jede Aktion wird auf jedem Peer einschließlich Sender genau einmal angewandt; bei fehlendem Chore-Transport ändert sich kein Zustand.
+Abnahme: Host und Client registrieren identische Paket-IDs unabhängig von ihren gespeicherten Einstellungen. Der bestehende 1.41-Steam-Pfad verhält sich nach der Registrierungsänderung unverändert.
+
+Für das spätere Update auf 1.50.0 separat einplanen: `SendPacketToAllEx2(..., viaChore: true)`, Sender-Selbstauslieferung ohne lokale Doppelanwendung, `ChoreNetworkTransport.IsAvailable`, 1200-Byte-Grenze, kein Steam-Fallback für Simulationsmutationen und Chore-spezifische Sender-/Symmetrieprüfungen.
 
 ### Schritt 6: `AIDefense`-Query-IDs korrigieren
 
@@ -189,11 +204,13 @@ Abnahme: Alle Spawnstellen folgen dem Vertrag `playerOwnerId`, danach `playerCol
 - Die Upstream-Auffälligkeiten getrennt notieren:
   - `NetworkMode` wird trotz Guide/Modell noch nicht im Hash verwendet.
   - Der angeblich ungekürzte xxHash wird im Releasecode weiterhin nach `uint` gecastet.
-  - Der Chore-Guide nennt an einer Stelle „1.5.0“, obwohl die Funktion zum hier geprüften 1.41.0-Bereich gehört.
+  - Der Chore-Guide nennt mehrfach „1.5.0“. Weil `v1.5.0` vom 15. Januar 2026 stammt und die Chore-Dateien erst im August 2026 angelegt wurden, wird dies als 1.50.0 interpretiert; die physische Vorabimplementierung im 1.41-Tag begründet noch keine Nutzung durch Workspace-Mods.
 
 Abnahme: Host-/Client-Lobbysichtbarkeit ist mit identischem Satz reproduzierbar; abweichender Modsatz wird erwartungsgemäß gefiltert; kein ComboBox-Dropdown liegt außerhalb des sichtbaren Bereichs.
 
 ### Schritt 9: Gesamtaudit, Tests und genau ein Build je geändertem Mod
+
+**Teilstand `ExtraFeatures`, 12. August 2026:** HostClientPresetTests, XAML-/Tooltip-/Locale-Audit, JSON-, Legacy-, Registrierungs-, Diff- und CRLF-Prüfung sind grün. `ExtraFeatures` 1.0.11 wurde für den abgeschlossenen Implementierungsstand genau einmal über `build.bat` mit 0 Warnungen und 0 Fehlern gebaut und installiert. Nach der separaten Ingame-Abnahme der Stall-Verknüpfung wurden die temporären Info-Logs entfernt und dieser Bereinigungsstand ebenfalls genau einmal fehlerfrei gebaut und installiert. Lokale und installierte DLL sowie `info.json` sind jeweils SHA-256-identisch; offen bleiben insbesondere die Multiplayerläufe.
 
 Vor jedem Build:
 
@@ -235,8 +252,8 @@ Das Update ist abgeschlossen, wenn:
 - keine eigene `+1`-Korrektur mehr auf 1.41-Query-IDs angewandt wird;
 - alle Spawnstellen das Owner-/Farb-Vertragsmodell eindeutig verwenden;
 - `ExtraFeatures` ausschließlich die offiziellen Stall-Link-Felder und -Methoden nutzt;
-- alle eigenen Pakettypen unabhängig von Settings in deterministischer Reihenfolge registriert werden;
-- zustandsändernde Multiplayerpakete ohne asynchronen Steam-Fallback und exakt einmal verarbeitet werden;
+- alle eigenen Pakettypen unabhängig von Settings und nativer Runtimefähigkeit in fester Reihenfolge registriert werden;
+- die Chore-Migration samt Exakt-einmal-/Fallback-Regeln ausdrücklich auf 1.50.0 verschoben und unter 1.41 nicht teilweise aktiviert ist;
 - jede `[SyncHostOnly]`-Mutation vorab autorisiert ist, einschließlich verschachtelter Tabellenwerte;
 - empfangene Host-/Trail-Werte niemals in lokale Presetdateien gelangen;
 - HostClientPresetTests, XAML-/Locale-/CRLF-Audits und Runtime-Invarianten grün sind;
@@ -249,4 +266,5 @@ Das Update ist abgeschlossen, wenn:
 - Keine Modnutzung der neuen Cursor-, Mana-, Keep-, Pitch-, Tile- oder sonstigen additiven APIs ohne eigenen fachlichen Bedarf.
 - Kein eigener paralleler Preset-, Rollen-, Persistenz- oder Netzwerkvertrag neben den Shared-Komponenten und der 1.41-API.
 - Kein dauerhafter Legacy-Fallback für die ersetzten Query-, Spawn- oder Stall-Workarounds.
+- Keine Nutzung der im 1.41-Quelltag vorab enthaltenen Chore-Implementierung vor dem dokumentierten 1.50.0-Vertrag oder einer eindeutigen upstream Freigabe für 1.41.
 - Keine ungefragte Entfernung oder Übernahme des bestehenden unversionierten `ImprovedHunters_TEST/`-Ordners.

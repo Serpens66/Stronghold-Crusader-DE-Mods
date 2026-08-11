@@ -310,8 +310,6 @@ namespace ExtraFeatures
             "48 89 5C 24 08 48 89 74 24 10 57 48 63 DA 48 8D 35 ?? ?? ?? ?? 4C 69 DB 96 01 00 00 33 FF 4C 8B C9 4C 8B D3";
         private const int ReleaseStableHorseRva = 0xC4110;
         private const int StableHorseSlotCount = 4;
-        private const int KnightStableBuildingIdOffset = 0x3D2;
-        private const int KnightStableBuildingGlobalIdOffset = 0x3DC;
         private const string MissingWeaponsSpeechFileName = "Other_Warning6.wav";
         private static readonly string[] MountSpeechFileNames = { "Knight_m1.wav", "Knight_m2.wav", "Knight_m3.wav" };
         private static readonly string[] DismountSpeechFileNames = { "Sword_s4.wav", "Sword_s5.wav", "Sword_s6.wav" };
@@ -331,6 +329,7 @@ namespace ExtraFeatures
         private Button hookedMountButton;
         private static ReleaseStableHorseDelegate releaseStableHorse;
         private int nextRequestId;
+        private bool networkPacketsRegistered;
         private bool initialized;
         private bool disposed;
 
@@ -347,6 +346,19 @@ namespace ExtraFeatures
         }
 
         public KnightDismountButtonViewModel ButtonViewModel => buttonViewModel;
+
+        public void RegisterNetworkPackets()
+        {
+            if (networkPacketsRegistered)
+                return;
+
+            dismountPacketHook = GameNetworkAPI.Instance.GetPacketEventFor<KnightDismountPacket>();
+            mountPacketHook = GameNetworkAPI.Instance.GetPacketEventFor<KnightMountPacket>();
+            dismountPacketSubscription = dismountPacketHook.GetBaseHook().Observable.Subscribe(OnDismountPacketReceived);
+            mountPacketSubscription = mountPacketHook.GetBaseHook().Observable.Subscribe(OnMountPacketReceived);
+            networkPacketsRegistered = true;
+            LogInfo($"network packets registered unconditionally: dismountPacketId={dismountPacketHook.GetPacketId()}, mountPacketId={mountPacketHook.GetPacketId()}.");
+        }
 
         public void InstallNativeFunctions(
             IntPtr libraryHandle,
@@ -369,11 +381,11 @@ namespace ExtraFeatures
             if (initialized)
                 return;
 
+            if (!networkPacketsRegistered || dismountPacketHook == null || mountPacketHook == null ||
+                dismountPacketSubscription == null || mountPacketSubscription == null)
+                throw new InvalidOperationException("Knight network packets must be registered during plugin startup.");
+
             disposed = false;
-            dismountPacketHook = GameNetworkAPI.Instance.GetPacketEventFor<KnightDismountPacket>();
-            mountPacketHook = GameNetworkAPI.Instance.GetPacketEventFor<KnightMountPacket>();
-            dismountPacketSubscription = dismountPacketHook.GetBaseHook().Observable.Subscribe(OnDismountPacketReceived);
-            mountPacketSubscription = mountPacketHook.GetBaseHook().Observable.Subscribe(OnMountPacketReceived);
             setupTroopActionsHook = new Hook(FindSetuptroopActionsUIMethod(), (SetuptroopActionsUIDelegate)SetuptroopActionsUIHook);
             setupTroopActionsTrampoline = setupTroopActionsHook.GenerateTrampoline<SetuptroopActionsUIDelegate>();
             initialized = true;
@@ -390,16 +402,10 @@ namespace ExtraFeatures
             buttonViewModel.Hide();
             UnhookButtonEvents();
 
-            dismountPacketSubscription?.Dispose();
-            mountPacketSubscription?.Dispose();
-            dismountPacketSubscription = null;
-            mountPacketSubscription = null;
             setupTroopActionsHook?.Undo();
             setupTroopActionsHook?.Dispose();
             setupTroopActionsHook = null;
             setupTroopActionsTrampoline = null;
-            dismountPacketHook = null;
-            mountPacketHook = null;
             processedRequestIds.Clear();
         }
 
@@ -1254,12 +1260,12 @@ namespace ExtraFeatures
         private int CreateUnitFromSnapshot(UnitTransformSnapshot snapshot, eChimps unitType, string label, string reason)
         {
             long createdId = GameUnitManagerAPI.Instance.CreateUnitLocal(
-                snapshot.ColorPlayerId,
-                snapshot.OwnerPlayerId,
-                snapshot.TileX,
-                snapshot.TileY,
-                snapshot.Height,
-                unitType);
+                playerOwnerId: snapshot.OwnerPlayerId,
+                playerColorId: snapshot.ColorPlayerId,
+                localTileX: snapshot.TileX,
+                localTileY: snapshot.TileY,
+                heightElevation: snapshot.Height,
+                chimp: unitType);
 
             if (createdId <= 0 || createdId > int.MaxValue)
             {
@@ -1298,7 +1304,7 @@ namespace ExtraFeatures
                 return false;
             }
 
-            if (!TryConsumeStableHorse(allocation, knightUnitId, (int)knight->r_GlobalId))
+            if (!TryConsumeStableHorse(allocation, knightUnitId, (int)knight->r_GlobalId, reason))
             {
                 LogError($"Knight mount could not link stable horse: reason={reason}, knightUnitId={knightUnitId}, stableId={allocation.StableId}, slot={allocation.Slot}.");
                 GameUnitManagerAPI.Instance.DeleteUnit(knightUnitId);
@@ -1327,7 +1333,7 @@ namespace ExtraFeatures
 
             for (int i = 0; i < stableIds.Count && allocations.Count < maxCount; i++)
             {
-                int stableId = ConvertQueryBuildingIndexToId(stableIds[i]);
+                int stableId = stableIds[i];
                 if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(stableId, out GameBuilding* stable))
                     continue;
 
@@ -1384,7 +1390,7 @@ namespace ExtraFeatures
             return true;
         }
 
-        private bool TryConsumeStableHorse(HorseAllocation allocation, int unitId, int unitGlobalId)
+        private bool TryConsumeStableHorse(HorseAllocation allocation, int unitId, int unitGlobalId, string reason)
         {
             if (unitId <= 0 || unitId > ushort.MaxValue || unitGlobalId <= 0)
                 return false;
@@ -1410,8 +1416,32 @@ namespace ExtraFeatures
             if (GetAvailableStableHorseCount(stable) <= 0 || !IsStableHorseSlotFree(stable, allocation.Slot))
                 return false;
 
-            SetKnightStableBuildingLink(mountedUnit, allocation.StableId, allocation.StableGlobalId);
-            SetStablesUnitIdLinkFixed(stable, allocation.Slot, unitId, unitGlobalId);
+            GameBuildingManagerAPI.Instance.SetStablesUnitIdLink(
+                allocation.StableId,
+                allocation.Slot,
+                unitId,
+                unitGlobalId,
+                bidirectional: true);
+
+            bool slotMatches = GetStableHorseSlotUnitId(stable, allocation.Slot) == unitId &&
+                GetStableHorseSlotGlobalId(stable, allocation.Slot) == unitGlobalId;
+            bool backlinkMatches = mountedUnit->r_LinkedStableBuildingId == allocation.StableId &&
+                mountedUnit->r_LinkedStableGlobalId == (uint)allocation.StableGlobalId;
+
+            if (!slotMatches || !backlinkMatches)
+            {
+                GameBuildingManagerAPI.Instance.UnlinkStablesUnitIdLink(
+                    allocation.StableId,
+                    allocation.Slot,
+                    bidirectional: true);
+                LogError(
+                    $"Knight mount rolled back an incomplete bidirectional stable link: reason={reason}, " +
+                    $"stableId={allocation.StableId}, slot={allocation.Slot}, unitId={unitId}, " +
+                    $"slotMatches={slotMatches}, backlinkMatches={backlinkMatches}.");
+                return false;
+            }
+
+            // The 1.41 link API updates both references but deliberately does not consume a horse.
             stable->r_UsedHorses = (byte)Math.Min(StableHorseSlotCount, ClampStableHorseCount(stable->r_UsedHorses) + 1);
             return true;
         }
@@ -1479,32 +1509,14 @@ namespace ExtraFeatures
             }
         }
 
-        private static void SetStablesUnitIdLinkFixed(GameBuilding* stable, int slot, int unitId, int unitGlobalId)
-        {
-            // Script Extender bug: SetStablesUnitIdLink indexes the UInt16 unit-id fields through int*,
-            // which overlaps/skips slots. Replace this helper with the API once it uses ushort* correctly.
-            ushort* linksId = &stable->r_UsedHorse1UnitId;
-            uint* linksGlobalId = &stable->r_UsedHorse1GlobalId;
-            linksId[slot] = (ushort)unitId;
-            linksGlobalId[slot] = (uint)unitGlobalId;
-        }
-
         private static int GetKnightStableBuildingId(GameUnit* unit)
         {
-            return unit == null ? 0 : *(ushort*)((byte*)unit + KnightStableBuildingIdOffset);
+            return unit == null ? 0 : unit->r_LinkedStableBuildingId;
         }
 
         private static int GetKnightStableBuildingGlobalId(GameUnit* unit)
         {
-            return unit == null ? 0 : (int)*(uint*)((byte*)unit + KnightStableBuildingGlobalIdOffset);
-        }
-
-        private static void SetKnightStableBuildingLink(GameUnit* unit, int stableId, int stableGlobalId)
-        {
-            // These currently unnamed GameUnit fields are the stable backlink validated by Vanilla.
-            // Replace the raw offsets once the Script Extender exposes named fields or an equivalent API.
-            *(ushort*)((byte*)unit + KnightStableBuildingIdOffset) = (ushort)stableId;
-            *(uint*)((byte*)unit + KnightStableBuildingGlobalIdOffset) = (uint)stableGlobalId;
+            return unit == null ? 0 : (int)unit->r_LinkedStableGlobalId;
         }
 
         private bool TryReleaseKnightHorseWithVanilla(int unitId, GameUnit* unit, string reason)
@@ -1559,12 +1571,12 @@ namespace ExtraFeatures
         {
             stableId = 0;
             slot = -1;
-            List<int> stableIndexes = new List<int>();
-            GameBuildingManagerAPI.Instance.GetAllBuildings(stableIndexes, AliveState.IsAlive, eStructs.STRUCT_STABLES);
+            List<int> stableIds = new List<int>();
+            GameBuildingManagerAPI.Instance.GetAllBuildings(stableIds, AliveState.IsAlive, eStructs.STRUCT_STABLES);
 
-            for (int i = 0; i < stableIndexes.Count; i++)
+            for (int i = 0; i < stableIds.Count; i++)
             {
-                int candidateStableId = ConvertQueryBuildingIndexToId(stableIndexes[i]);
+                int candidateStableId = stableIds[i];
                 if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(candidateStableId, out GameBuilding* stable))
                     continue;
 
@@ -1582,13 +1594,6 @@ namespace ExtraFeatures
             }
 
             return false;
-        }
-
-        private static int ConvertQueryBuildingIndexToId(int queryIndex)
-        {
-            // Script Extender bug: GameStructQuery.ToIdList currently returns zero-based array indexes,
-            // while building APIs expect one-based IDs. Remove this +1 once ToIdList returns API IDs.
-            return queryIndex + 1;
         }
 
         private static string FormatStableState(int stableId, GameBuilding* stable, int slot)
@@ -1664,6 +1669,11 @@ namespace ExtraFeatures
         {
             int localPlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
             return localPlayerId > 0 ? localPlayerId : 1;
+        }
+
+        private void LogInfo(string message)
+        {
+            log.LogInfo($"[{TimestampNow()}] Extra Features {message}");
         }
 
         private void LogError(string message)

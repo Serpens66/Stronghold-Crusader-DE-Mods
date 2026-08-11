@@ -62,6 +62,9 @@ namespace ExtraFeatures
             knightDismountRuntime = new KnightDismountRuntime(log, settings);
             quarryPileRelocationRuntime = new QuarryPileRelocationRuntime(log, settings);
             churchPriestCountRuntime = new ChurchPriestCountRuntime(log, settings);
+            // Packet IDs are assigned by call order, so registration must never depend on settings or native layout checks.
+            knightDismountRuntime.RegisterNetworkPackets();
+            quarryPileRelocationRuntime.RegisterNetworkPacket();
             settings.SettingChanged += OnSettingChanged;
             settingsSubscribed = true;
         }
