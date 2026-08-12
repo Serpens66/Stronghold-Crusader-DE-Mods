@@ -20,7 +20,6 @@ namespace BuildingLimit
         private readonly BuildingLimitLobbyViewModel settings;
         private readonly Dictionary<eMappers, BuildingLimitRule> activeBuildingLimitRules = new Dictionary<eMappers, BuildingLimitRule>();
         private readonly Dictionary<eStructs, BuildingLimitRule> activeBuildingLimitRulesByStructure = new Dictionary<eStructs, BuildingLimitRule>();
-        // private readonly List<int> matchingBuildingIds = new List<int>();
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
         private readonly ActiveBuildingCache activeBuildingCache;
         private bool settingsPropertyChangedSubscribed;
@@ -164,7 +163,6 @@ namespace BuildingLimit
             HideBuildingLimitMessage();
             ClearBuildingLimitTooltip();
             ResetBuildingLimitTooltipCache();
-            // matchingBuildingIds.Clear();
         }
 
         private void InstallUpdateRolloverHook()

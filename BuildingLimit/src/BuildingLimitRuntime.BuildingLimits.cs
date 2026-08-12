@@ -96,25 +96,6 @@ namespace BuildingLimit
                 SerpLocalization.Get(SerpLocalization.Max) + " " + limit + " " + GetLocalizedBuildingName(definition));
         }
 
-        // This method is no longer used since we switched to using the active building cache for counting alive buildings, but it's kept here for reference in case we need to revert that change or want to compare results.
-        // private int CountAliveBuildings(int playerId, BuildingLimitDefinition definition)
-        // {
-        //     int count = 0;
-        //     foreach (eStructs structure in definition.Structures)
-        //     {
-        //         matchingBuildingIds.Clear();
-        //         GameBuildingManagerAPI.Instance.GetAllBuildings(
-        //             matchingBuildingIds,
-        //             AliveState.IsAlive,
-        //             structure,
-        //             PlayerRelationship.Self,
-        //             playerId);
-        //         count += matchingBuildingIds.Count;
-        //     }
-
-        //     return count;
-        // }
-
         private int CountAliveBuildings(int playerId, BuildingLimitDefinition definition)
         {
             int count = 0;

@@ -662,14 +662,6 @@ namespace BuildingCosts
             return MainViewModel.Instance.getSmallGoodsIcon((int)good);
         }
 
-        private static string GetMainViewModelString(string propertyName)
-        {
-            object viewModel = MainViewModel.Instance;
-            PropertyInfo property = viewModel.GetType().GetProperty(propertyName, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-            object value = property?.GetValue(viewModel, null);
-            return value?.ToString() ?? "";
-        }
-
         internal static string GetLocalizedBuildingName(BuildingCostDefinition definition)
         {
             string translationKey = GetBuildingNameTranslationKey(definition);

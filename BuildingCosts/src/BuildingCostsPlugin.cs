@@ -2,6 +2,7 @@ using BepInEx;
 using SHCDESE.API;
 using SHCDESE.API.LowLevel;
 using System;
+using System.Threading;
 
 namespace BuildingCosts
 {
@@ -13,12 +14,12 @@ namespace BuildingCosts
 
         public const string PluginGuid = "BuildingCosts_Serp";
         public const string PluginName = "Building Costs";
-        public const string PluginVersion = "1.0.8";
+        public const string PluginVersion = "1.0.9";
 
         internal static readonly BuildingCostTooltipViewModel BuildingCostTooltipViewModel = new BuildingCostTooltipViewModel();
 
         private BuildingCostsRuntime runtime;
-        private bool runtimeDisposed;
+        private int libraryInitializationStarted;
 
         public BuildingCostsLobbyViewModel Settings { get; private set; }
 
@@ -31,30 +32,14 @@ namespace BuildingCosts
             CrusaderLibrary.Instance.LibraryLoaded += OnCrusaderLibraryLoaded;
         }
 
-        private void OnDestroy()
+        private void OnCrusaderLibraryLoaded(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
         {
-            Shared.DebugLogHelper.LogDebug(Logger, "BuildingCostsPlugin OnDestroy called; keeping runtime active until application quit.");
-            CrusaderLibrary.Instance.LibraryLoaded -= OnCrusaderLibraryLoaded;
-        }
-
-        private void OnApplicationQuit()
-        {
-            Shared.DebugLogHelper.LogDebug(Logger, "BuildingCostsPlugin OnApplicationQuit called; disposing runtime.");
-            DisposeRuntime();
-        }
-
-        private void DisposeRuntime()
-        {
-            if (runtimeDisposed)
+            // A late subscription can race with the regular event raise; initialize only once.
+            if (Interlocked.Exchange(ref libraryInitializationStarted, 1) != 0)
                 return;
 
             CrusaderLibrary.Instance.LibraryLoaded -= OnCrusaderLibraryLoaded;
-            runtime?.Dispose();
-            runtimeDisposed = true;
-        }
 
-        private void OnCrusaderLibraryLoaded(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
-        {
             try
             {
                 Shared.DebugLogHelper.ReportNativeLibraryVersion(Logger, PluginName);

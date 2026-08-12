@@ -34,8 +34,8 @@ Für `fixes` und `LorrdyAISharesGold` wurde keine eindeutige Workspace-Quelle ge
 | --- | --- | --- | --- |
 | AIV Placement Lobby | kein Befund | die bestätigten Capture- und Worker-Probleme wurden behoben | [AIVPlacementLobby.md](AIVPlacementLobby.md) |
 | Bugfixes and QoL | niedrig | fehlendes Logo | [BugfixesAndQoL.md](BugfixesAndQoL.md) |
-| Building Costs | niedrig | nicht verwendete Reflection-Methode; widersprüchlicher Plugin-Lifecycle | [BuildingCosts.md](BuildingCosts.md) |
-| Building Limit | niedrig | veralteter auskommentierter Scanpfad; widersprüchlicher Plugin-Lifecycle | [BuildingLimit.md](BuildingLimit.md) |
+| Building Costs | kein Befund | Dead Code entfernt; Initialisierung und Lifecycle bereinigt | [BuildingCosts.md](BuildingCosts.md) |
+| Building Limit | kein Befund | alten Scanpfad entfernt; Initialisierung und Lifecycle bereinigt | [BuildingLimit.md](BuildingLimit.md) |
 | Custom Custom Trail | kein Befund | im geprüften Umfang kein umsetzbarer Fehler oder unnötiger Pfad gefunden | – |
 | Extra Features | mittel | falsches Multiplayer-Signal für Pakete; Knight-Deduplizierung wird nicht pro Karte begrenzt | [ExtraFeatures.md](ExtraFeatures.md) |
 | Random Events | mittel | GameMode wird pro Tick doppelt erfasst; parallele Lokalisierung; kleiner Dead Code | [RandomEvents.md](RandomEvents.md) |
@@ -51,7 +51,7 @@ Die mit AIV Placement installierten Workspace-Bibliotheken `AIVParser.Core`, `AI
 2. `ExtraFeatures`: Netzwerkmodus korrekt bestimmen und Request-Deduplizierung kartengebunden machen.
 3. `UnitCosts`, `BugfixesAndQoL`: Hot-Path-Allokationen beziehungsweise Warnungsflut beseitigen.
 4. `RandomEvents` und `SpawnCastle`: gemeinsame Lokalisierung verwenden; bei SpawnCastle die nachweislich toten Frame-Fallbacks entfernen.
-5. Gemeinsamen Plugin-Lifecycle und kleinen Dead Code in Costs/Limits/StartConditions bereinigen.
+5. Plugin-Lifecycle und kleinen Dead Code in StartConditions bereinigen.
 
 ## Bereits ausgeführte Prüfungen
 
