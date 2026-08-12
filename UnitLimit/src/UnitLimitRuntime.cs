@@ -22,7 +22,6 @@ namespace UnitLimit
         private readonly UnitLimitLobbyViewModel settings;
         private readonly Dictionary<eChimps, int> activeUnitLimits = new Dictionary<eChimps, int>();
         private readonly Dictionary<PendingRecruitmentKey, PendingRecruitmentQueue> pendingRecruitments = new Dictionary<PendingRecruitmentKey, PendingRecruitmentQueue>();
-        // private readonly List<int> matchingUnitIds = new List<int>();
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
         private readonly ActiveUnitCache activeUnitCache;
         private readonly ActiveSiegeTentCache activeSiegeTentCache;
@@ -208,7 +207,6 @@ namespace UnitLimit
             ClearPendingRecruitments("OnUnloadMap");
             HideLimitMessage();
             ClearUnitLimitTooltip();
-            // matchingUnitIds.Clear();
         }
 
         private void LogDebug(params object[] parts)

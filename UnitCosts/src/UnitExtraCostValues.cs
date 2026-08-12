@@ -30,6 +30,8 @@ namespace UnitCosts
 
         public IReadOnlyDictionary<eGoods, int> Costs => costs;
 
+        internal Dictionary<eGoods, int> CostEntries => costs;
+
         public static int ClampCost(eGoods good, int value, int currentGoldCost = 0)
         {
             if (good == eGoods.STORED_GOLD)

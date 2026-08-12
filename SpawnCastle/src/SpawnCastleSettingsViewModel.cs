@@ -36,7 +36,7 @@ namespace SpawnCastle
         private bool isCapturingHotkey;
 
         protected override string ResolveSettingsUiText(string key, string fallback) =>
-            SpawnCastleLocalization.Get(key);
+            SerpLocalization.Get(key);
 
         public SpawnCastleSettingsViewModel(
             ManualLogSource log,
@@ -52,8 +52,8 @@ namespace SpawnCastle
 
             ModeOptions = new[]
             {
-                new ComboBoxItem { Content = SpawnCastleLocalization.Get("SpawnCastle.Mode.Blueprint") },
-                new ComboBoxItem { Content = SpawnCastleLocalization.Get("SpawnCastle.Mode.Spawn") }
+                new ComboBoxItem { Content = SerpLocalization.Get("SpawnCastle.Mode.Blueprint") },
+                new ComboBoxItem { Content = SerpLocalization.Get("SpawnCastle.Mode.Spawn") }
             };
             foreach (string option in catalog.Discover())
                 CastleOptions.Add(option);
@@ -96,23 +96,23 @@ namespace SpawnCastle
 
         public int AvailableFileCount => CastleOptions.Count;
 
-        public string ResetToDefaultText => SpawnCastleLocalization.Get("Common.ResetToDefault");
-        public string EnableModText => SpawnCastleLocalization.Get("Common.EnableMod");
-        public string TitleText => SpawnCastleLocalization.Get("SpawnCastle.Title");
-        public string HelpText => SpawnCastleLocalization.Get("SpawnCastle.Help");
-        public string CastleText => SpawnCastleLocalization.Get("SpawnCastle.Castle");
-        public string CastleHelpText => SpawnCastleLocalization.Get("SpawnCastle.CastleHelp");
-        public string ModeText => SpawnCastleLocalization.Get("SpawnCastle.Mode");
-        public string ModeHelpText => SpawnCastleLocalization.Get("SpawnCastle.ModeHelp");
-        public string HotkeyText => SpawnCastleLocalization.Get("SpawnCastle.Hotkey");
-        public string HotkeyHelpText => SpawnCastleLocalization.Get("SpawnCastle.HotkeyHelp");
-        public string ClearText => SpawnCastleLocalization.Get("Common.Clear");
-        public string ClearHelpText => SpawnCastleLocalization.Get("SpawnCastle.ClearHelp");
-        public string LocalOptionsText => SpawnCastleLocalization.Get("SpawnCastle.LocalOptions");
-        public string CastleSectionTitleText => SpawnCastleLocalization.Get("SpawnCastle.CastleSectionTitle");
-        public string PlacementControlsTitleText => SpawnCastleLocalization.Get("SpawnCastle.PlacementControlsTitle");
+        public string ResetToDefaultText => SerpLocalization.Get("Common.ResetToDefault");
+        public string EnableModText => SerpLocalization.Get("Common.EnableMod");
+        public string TitleText => SerpLocalization.Get("SpawnCastle.Title");
+        public string HelpText => SerpLocalization.Get("SpawnCastle.Help");
+        public string CastleText => SerpLocalization.Get("SpawnCastle.Castle");
+        public string CastleHelpText => SerpLocalization.Get("SpawnCastle.CastleHelp");
+        public string ModeText => SerpLocalization.Get("SpawnCastle.Mode");
+        public string ModeHelpText => SerpLocalization.Get("SpawnCastle.ModeHelp");
+        public string HotkeyText => SerpLocalization.Get("SpawnCastle.Hotkey");
+        public string HotkeyHelpText => SerpLocalization.Get("SpawnCastle.HotkeyHelp");
+        public string ClearText => SerpLocalization.Get("Common.Clear");
+        public string ClearHelpText => SerpLocalization.Get("SpawnCastle.ClearHelp");
+        public string LocalOptionsText => SerpLocalization.Get("SpawnCastle.LocalOptions");
+        public string CastleSectionTitleText => SerpLocalization.Get("SpawnCastle.CastleSectionTitle");
+        public string PlacementControlsTitleText => SerpLocalization.Get("SpawnCastle.PlacementControlsTitle");
         public string InventoryText => string.Format(
-            SpawnCastleLocalization.Get("SpawnCastle.Inventory"),
+            SerpLocalization.Get("SpawnCastle.Inventory"),
             AvailableFileCount);
 
         [Shared.PresetLocal]
@@ -226,13 +226,13 @@ namespace SpawnCastle
 
         public string HotkeyDisplayText =>
             blueprintHotkey == KeyCode.None
-                ? SpawnCastleLocalization.Get("SpawnCastle.NotAssigned")
+                ? SerpLocalization.Get("SpawnCastle.NotAssigned")
                 : GetKeyDisplayName(blueprintHotkey);
 
         public string HotkeyCaptureButtonText =>
             isCapturingHotkey
-                ? SpawnCastleLocalization.Get("SpawnCastle.PressAnyKey")
-                : SpawnCastleLocalization.Get("SpawnCastle.AssignKey");
+                ? SerpLocalization.Get("SpawnCastle.PressAnyKey")
+                : SerpLocalization.Get("SpawnCastle.AssignKey");
 
         public bool IsCapturingHotkey => isCapturingHotkey;
         public bool IsBlueprintMode => enableMod && mode == SpawnCastleMode.Blueprint;

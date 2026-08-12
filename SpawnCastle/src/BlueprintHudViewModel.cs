@@ -89,13 +89,13 @@ namespace SpawnCastle
             settings.BlueprintIconAlphaText;
 
         public string SettingsTitleText =>
-            SpawnCastleLocalization.Get("SpawnCastle.Hud.Settings");
+            SerpLocalization.Get("SpawnCastle.Hud.Settings");
 
         public string IconScaleText =>
-            SpawnCastleLocalization.Get("SpawnCastle.Hud.IconScale");
+            SerpLocalization.Get("SpawnCastle.Hud.IconScale");
 
         public string IconAlphaText =>
-            SpawnCastleLocalization.Get("SpawnCastle.Hud.IconAlpha");
+            SerpLocalization.Get("SpawnCastle.Hud.IconAlpha");
 
         public bool HudVisible
         {
@@ -167,15 +167,15 @@ namespace SpawnCastle
 
         public string StatusText =>
             !CanToggle
-                ? SpawnCastleLocalization.Get("SpawnCastle.Hud.Unavailable")
+                ? SerpLocalization.Get("SpawnCastle.Hud.Unavailable")
                 : BlueprintVisible && completedDepthCaptures < requestedDepthCaptures
                     ? string.Format(
-                        SpawnCastleLocalization.Get("SpawnCastle.Hud.Loading"),
+                        SerpLocalization.Get("SpawnCastle.Hud.Loading"),
                         completedDepthCaptures,
                         requestedDepthCaptures)
                 : BlueprintVisible
-                    ? SpawnCastleLocalization.Get("SpawnCastle.Hud.On")
-                    : SpawnCastleLocalization.Get("SpawnCastle.Hud.Off");
+                    ? SerpLocalization.Get("SpawnCastle.Hud.On")
+                    : SerpLocalization.Get("SpawnCastle.Hud.Off");
 
         public void Update(
             bool isBlueprintMode,

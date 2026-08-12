@@ -165,18 +165,6 @@ namespace UnitLimit
             return MakeTroopGameActionDecision.BlockAction();
         }
 
-        // private int CountAliveUnits(int playerId, eChimps unitType)
-        // {
-        //     matchingUnitIds.Clear();
-        //     GameUnitManagerAPI.Instance.GetAllUnits(
-        //         matchingUnitIds,
-        //         AliveState.IsAlive,
-        //         unitType,
-        //         PlayerRelationship.Self,
-        //         playerId);
-        //     return matchingUnitIds.Count;
-        // }
-
         private int CountAliveUnits(int playerId, eChimps unitType)
         {
             if (IsEngineerSiegeUnit(unitType))

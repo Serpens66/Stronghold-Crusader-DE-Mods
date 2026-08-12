@@ -39,7 +39,7 @@ namespace StartConditions
 
                     if (multiplier == 0 || multiplier > 1)
                     {
-                        plan.PendingPlayers.Add(new PendingStartTroopPlayer(playerId, isAI, multiplier));
+                        plan.PendingPlayers.Add(new PendingStartTroopPlayer(playerId, multiplier));
                         LogDebug("Scheduling delayed start troop processing for player", playerId, "multiplier", multiplier);
                     }
                 });
@@ -283,13 +283,11 @@ namespace StartConditions
         private sealed class PendingStartTroopPlayer
         {
             public readonly int PlayerId;
-            public readonly bool IsAI;
             public readonly int Multiplier;
 
-            public PendingStartTroopPlayer(int playerId, bool isAI, int multiplier)
+            public PendingStartTroopPlayer(int playerId, int multiplier)
             {
                 PlayerId = playerId;
-                IsAI = isAI;
                 Multiplier = multiplier;
             }
         }

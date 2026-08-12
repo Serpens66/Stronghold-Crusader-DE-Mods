@@ -32,14 +32,6 @@ namespace StartConditions
             }
         }
 
-        private static bool TryParseNullableInt(string text, out int value)
-        {
-            value = 0;
-            if (string.IsNullOrWhiteSpace(text))
-                return false;
-            return int.TryParse(text.Trim(), out value);
-        }
-
         private Dictionary<TEnum, int> ParseEnumAmounts<TEnum>(string text) where TEnum : struct
         {
             Dictionary<TEnum, int> result = new Dictionary<TEnum, int>();

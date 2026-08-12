@@ -30,9 +30,9 @@ namespace UnitCosts
 
         public Visibility CostsVisibility => HasCosts ? Visibility.Visible : Visibility.Collapsed;
 
-        public void SetCosts(IEnumerable<UnitRecruitmentCostEntry> costs)
+        public void SetCosts(IReadOnlyList<UnitRecruitmentCostEntry> costs)
         {
-            List<UnitRecruitmentCostEntry> updatedCosts = new List<UnitRecruitmentCostEntry>(costs ?? Array.Empty<UnitRecruitmentCostEntry>());
+            IReadOnlyList<UnitRecruitmentCostEntry> updatedCosts = costs ?? Array.Empty<UnitRecruitmentCostEntry>();
             if (CostsMatch(updatedCosts))
                 return;
 
@@ -42,7 +42,6 @@ namespace UnitCosts
 
             OnPropertyChanged(nameof(Costs));
             HasCosts = Costs.Count > 0;
-            OnPropertyChanged(nameof(CostsVisibility));
         }
 
         private bool CostsMatch(IReadOnlyList<UnitRecruitmentCostEntry> updatedCosts)

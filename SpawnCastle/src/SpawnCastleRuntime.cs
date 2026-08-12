@@ -298,19 +298,12 @@ namespace SpawnCastle
                 }
 
                 int nativePlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
-                int networkPlayerId = GameNetworkAPI.GetLocalPlayerId();
                 if (!GamePlayerManagerAPI.Instance.IsPlayerIdValid(nativePlayerId) ||
                     GamePlayerManagerAPI.Instance.IsAIPlayer(nativePlayerId))
                 {
                     throw new InvalidOperationException(
                         $"No valid native local human player was found during pre-import; " +
-                        $"nativePlayerId={nativePlayerId}, networkPlayerId={networkPlayerId}.");
-                }
-                if (networkPlayerId > 0 && networkPlayerId != nativePlayerId)
-                {
-                    throw new InvalidOperationException(
-                        $"Local player IDs disagree during pre-import: " +
-                        $"nativePlayerId={nativePlayerId}, networkPlayerId={networkPlayerId}.");
+                        $"nativePlayerId={nativePlayerId}.");
                 }
 
                 string json = File.ReadAllText(filePath);
@@ -924,7 +917,6 @@ namespace SpawnCastle
                 DirectorSimRunning = director != null && director.SimRunning,
                 NetworkedEnvironment = sharedMode.LowLevelNetworked,
                 NetworkActivePlayers = networkActivePlayers,
-                NetworkLocalPlayerId = GameNetworkAPI.GetLocalPlayerId(),
                 NativeLocalPlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId(),
                 PlatformAvailable = platform != null,
                 PlatformMpGameActive = sharedMode.PlatformMultiplayer,
@@ -960,7 +952,6 @@ namespace SpawnCastle
                 $"directorSimRunning={mode.DirectorSimRunning}, " +
                 $"networkedEnvironment={mode.NetworkedEnvironment}, " +
                 $"networkActivePlayers={mode.NetworkActivePlayers}, " +
-                $"networkLocalPlayerId={mode.NetworkLocalPlayerId}, " +
                 $"nativeLocalPlayerId={mode.NativeLocalPlayerId}, " +
                 $"platformAvailable={mode.PlatformAvailable}, " +
                 $"platformMpGameActive={mode.PlatformMpGameActive}, " +
@@ -1146,7 +1137,6 @@ namespace SpawnCastle
             public bool DirectorSimRunning { get; set; }
             public bool NetworkedEnvironment { get; set; }
             public int NetworkActivePlayers { get; set; }
-            public int NetworkLocalPlayerId { get; set; }
             public int NativeLocalPlayerId { get; set; }
             public bool PlatformAvailable { get; set; }
             public bool PlatformMpGameActive { get; set; }

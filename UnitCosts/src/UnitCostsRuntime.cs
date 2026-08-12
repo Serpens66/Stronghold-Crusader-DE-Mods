@@ -32,6 +32,11 @@ namespace UnitCosts
         private int currentTooltipMultiplier = 1;
         private bool hasCurrentTooltipUnitType;
         private bool currentTooltipUsesRecruitAmount;
+        private readonly List<RecruitmentCostSnapshotEntry> recruitmentCostSnapshot = new List<RecruitmentCostSnapshotEntry>();
+        private int recruitmentCostSnapshotPlayerId;
+        private eChimps recruitmentCostSnapshotUnitType = eChimps.CHIMP_TYPE_NULL;
+        private int recruitmentCostSnapshotMultiplier;
+        private bool recruitmentCostSnapshotValid;
         private bool settingsChangedSubscribed;
         private const string GoodsTextSection = "TEXT_GOODS";
         private bool hooksSubscribed;
@@ -238,11 +243,7 @@ namespace UnitCosts
             }
 
             humanExtraCosts.Clear();
-            RecruitmentCostTooltip.Clear();
-            hasCurrentTooltipUnitType = false;
-            currentTooltipUnitType = eChimps.CHIMP_TYPE_NULL;
-            currentTooltipMultiplier = 1;
-            currentTooltipUsesRecruitAmount = false;
+            ClearRecruitmentCostTooltip();
             Shared.DebugLogHelper.LogDebug(log, "Restored vanilla unit cost values:", restoredValues);
         }
 
@@ -379,7 +380,7 @@ namespace UnitCosts
         {
             if (mainViewModel == null)
             {
-                RecruitmentCostTooltip.Clear();
+                ClearRecruitmentCostEntries();
                 return;
             }
 
@@ -392,7 +393,7 @@ namespace UnitCosts
         {
             if (!TryGetSiegeBuildHoverUnit(parameter, out eChimps unitType))
             {
-                RecruitmentCostTooltip.Clear();
+                ClearRecruitmentCostEntries();
                 return;
             }
 
@@ -419,9 +420,12 @@ namespace UnitCosts
             int playerId = GetLocalHumanPlayerId();
             if (playerId <= 0 || !TryGetHumanExtraCosts(currentTooltipUnitType, out UnitExtraCostValues costs))
             {
-                RecruitmentCostTooltip.Clear();
+                ClearRecruitmentCostEntries();
                 return;
             }
+
+            if (RecruitmentCostStateMatches(playerId, costs, currentTooltipMultiplier))
+                return;
 
             RecruitmentCostTooltip.SetCosts(CreateRecruitmentCostEntries(playerId, costs, currentTooltipMultiplier));
         }
@@ -435,7 +439,8 @@ namespace UnitCosts
         private List<UnitRecruitmentCostEntry> CreateRecruitmentCostEntries(int playerId, UnitExtraCostValues costs, int multiplier)
         {
             List<UnitRecruitmentCostEntry> entries = new List<UnitRecruitmentCostEntry>();
-            foreach (KeyValuePair<eGoods, int> entry in costs.Costs)
+            recruitmentCostSnapshot.Clear();
+            foreach (KeyValuePair<eGoods, int> entry in costs.CostEntries)
             {
                 int amount = entry.Value * multiplier;
                 if (entry.Key == eGoods.STORED_GOLD)
@@ -448,15 +453,56 @@ namespace UnitCosts
                     continue;
                 }
 
+                int availableAmount = GetAvailableGoodAmount(playerId, entry.Key);
+                recruitmentCostSnapshot.Add(new RecruitmentCostSnapshotEntry(entry.Key, entry.Value, availableAmount));
                 entries.Add(new UnitRecruitmentCostEntry
                 {
                     Amount = "   " + amount + " ",
-                    AmountAvailable = $"({GetAvailableGoodAmount(playerId, entry.Key)})",
+                    AmountAvailable = $"({availableAmount})",
                     Image = GetGoodImage(entry.Key)
                 });
             }
 
+            recruitmentCostSnapshotPlayerId = playerId;
+            recruitmentCostSnapshotUnitType = currentTooltipUnitType;
+            recruitmentCostSnapshotMultiplier = multiplier;
+            recruitmentCostSnapshotValid = true;
             return entries;
+        }
+
+        private bool RecruitmentCostStateMatches(int playerId, UnitExtraCostValues costs, int multiplier)
+        {
+            if (!recruitmentCostSnapshotValid ||
+                recruitmentCostSnapshotPlayerId != playerId ||
+                recruitmentCostSnapshotUnitType != currentTooltipUnitType ||
+                recruitmentCostSnapshotMultiplier != multiplier)
+            {
+                return false;
+            }
+
+            int snapshotIndex = 0;
+            foreach (KeyValuePair<eGoods, int> entry in costs.CostEntries)
+            {
+                int amount = entry.Value * multiplier;
+                if ((entry.Key == eGoods.STORED_GOLD && amount == 0) ||
+                    (entry.Key != eGoods.STORED_GOLD && amount <= 0))
+                {
+                    continue;
+                }
+
+                if (snapshotIndex >= recruitmentCostSnapshot.Count)
+                    return false;
+
+                RecruitmentCostSnapshotEntry snapshot = recruitmentCostSnapshot[snapshotIndex++];
+                if (snapshot.Good != entry.Key ||
+                    snapshot.AmountPerUnit != entry.Value ||
+                    snapshot.AvailableAmount != GetAvailableGoodAmount(playerId, entry.Key))
+                {
+                    return false;
+                }
+            }
+
+            return snapshotIndex == recruitmentCostSnapshot.Count;
         }
 
         private static int GetAvailableGoodAmount(int playerId, eGoods good)
@@ -591,7 +637,28 @@ namespace UnitCosts
             currentTooltipUnitType = eChimps.CHIMP_TYPE_NULL;
             currentTooltipMultiplier = 1;
             currentTooltipUsesRecruitAmount = false;
+            ClearRecruitmentCostEntries();
+        }
+
+        private void ClearRecruitmentCostEntries()
+        {
+            recruitmentCostSnapshot.Clear();
+            recruitmentCostSnapshotValid = false;
             RecruitmentCostTooltip.Clear();
+        }
+
+        private readonly struct RecruitmentCostSnapshotEntry
+        {
+            public RecruitmentCostSnapshotEntry(eGoods good, int amountPerUnit, int availableAmount)
+            {
+                Good = good;
+                AmountPerUnit = amountPerUnit;
+                AvailableAmount = availableAmount;
+            }
+
+            public eGoods Good { get; }
+            public int AmountPerUnit { get; }
+            public int AvailableAmount { get; }
         }
 
         private void OnUnitTransition(UnitTransitionEventArgs args)

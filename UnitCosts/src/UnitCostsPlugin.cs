@@ -2,6 +2,7 @@ using BepInEx;
 using SHCDESE.API;
 using SHCDESE.API.LowLevel;
 using System;
+using System.Threading;
 
 namespace UnitCosts
 {
@@ -18,7 +19,7 @@ namespace UnitCosts
         public const string PluginVersion = "1.0.11";
 
         private UnitCostsRuntime runtime;
-        private bool runtimeDisposed;
+        private int libraryInitializationStarted;
 
         public UnitCostsLobbyViewModel Settings { get; private set; }
 
@@ -31,30 +32,14 @@ namespace UnitCosts
             CrusaderLibrary.Instance.LibraryLoaded += OnCrusaderLibraryLoaded;
         }
 
-        private void OnDestroy()
+        private void OnCrusaderLibraryLoaded(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
         {
-            Shared.DebugLogHelper.LogDebug(Logger, "UnitCostsPlugin OnDestroy called; keeping runtime active until application quit.");
-            CrusaderLibrary.Instance.LibraryLoaded -= OnCrusaderLibraryLoaded;
-        }
-
-        private void OnApplicationQuit()
-        {
-            Shared.DebugLogHelper.LogDebug(Logger, "UnitCostsPlugin OnApplicationQuit called; disposing runtime.");
-            DisposeRuntime();
-        }
-
-        private void DisposeRuntime()
-        {
-            if (runtimeDisposed)
+            // A late subscription can race with the regular event raise; initialize only once.
+            if (Interlocked.Exchange(ref libraryInitializationStarted, 1) != 0)
                 return;
 
             CrusaderLibrary.Instance.LibraryLoaded -= OnCrusaderLibraryLoaded;
-            runtime?.Dispose();
-            runtimeDisposed = true;
-        }
 
-        private void OnCrusaderLibraryLoaded(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
-        {
             try
             {
                 Shared.DebugLogHelper.ReportNativeLibraryVersion(Logger, PluginName);

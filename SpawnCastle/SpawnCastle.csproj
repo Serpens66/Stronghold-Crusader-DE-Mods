@@ -129,6 +129,9 @@
     <Compile Include="..\Shared\PresetLobbyModSettingsViewModel.cs">
       <Link>Shared\PresetLobbyModSettingsViewModel.cs</Link>
     </Compile>
+    <Compile Include="..\Shared\SerpLocalization.cs">
+      <Link>Shared\SerpLocalization.cs</Link>
+    </Compile>
     <Compile Include="..\Shared\ToolTipPresentation.cs">
       <Link>Shared\ToolTipPresentation.cs</Link>
     </Compile>
@@ -161,7 +164,6 @@
     <Compile Include="src\BlueprintRuntimeController.cs" />
     <Compile Include="src\CastleDropDownHeightController.cs" />
     <Compile Include="src\SpawnCastlePlugin.cs" />
-    <Compile Include="src\SpawnCastleLocalization.cs" />
     <Compile Include="src\SpawnCastleRuntime.cs" />
     <Compile Include="src\SpawnCastleSettingsViewModel.cs" />
   </ItemGroup>
