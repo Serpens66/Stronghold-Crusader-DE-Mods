@@ -21,7 +21,7 @@ namespace RandomEvents
         private int multiplayerEventMode;
 
         protected override string ResolveSettingsUiText(string key, string fallback) =>
-            RandomEventsLocalization.Get(key);
+            SerpLocalization.Get(key);
 
         public RandomEventsSettingsViewModel()
         {
@@ -32,32 +32,32 @@ namespace RandomEvents
 
         public RelayCommand ResetToDefaultCommand { get; }
 
-        public string ResetToDefaultText => RandomEventsLocalization.Get("Common.ResetToDefault");
-        public string EnableModText => RandomEventsLocalization.Get("Common.EnableMod");
-        public string IntervalText => RandomEventsLocalization.Get("RandomEvents.Interval");
-        public string IntervalHelpText => RandomEventsLocalization.Get("RandomEvents.IntervalHelp");
-        public string CooldownText => RandomEventsLocalization.Get("RandomEvents.Cooldown");
-        public string CooldownHelpText => RandomEventsLocalization.Get("RandomEvents.CooldownHelp");
-        public string ChancesTitleText => RandomEventsLocalization.Get("RandomEvents.ChancesTitle");
-        public string PositiveEventsTitleText => RandomEventsLocalization.Get("RandomEvents.PositiveEventsTitle");
-        public string NegativeEventsTitleText => RandomEventsLocalization.Get("RandomEvents.NegativeEventsTitle");
-        public string ScheduleTitleText => RandomEventsLocalization.Get("RandomEvents.ScheduleTitle");
-        public string MultiplayerTitleText => RandomEventsLocalization.Get("RandomEvents.MultiplayerTitle");
-        public string ChanceHelpText => RandomEventsLocalization.Get("RandomEvents.ChanceHelp");
-        public string StrengthTitleText => RandomEventsLocalization.Get("RandomEvents.StrengthTitle");
-        public string ScaledStrengthHelpText => RandomEventsLocalization.Get("RandomEvents.ScaledStrengthHelp");
-        public string PlagueStrengthHelpText => RandomEventsLocalization.Get("RandomEvents.PlagueStrengthHelp");
-        public string LionStrengthHelpText => RandomEventsLocalization.Get("RandomEvents.LionStrengthHelp");
-        public string TheftStrengthHelpText => RandomEventsLocalization.Get("RandomEvents.TheftStrengthHelp");
-        public string FireStrengthHelpText => RandomEventsLocalization.Get("RandomEvents.FireStrengthHelp");
-        public string MinimumText => RandomEventsLocalization.Get("RandomEvents.Minimum");
-        public string MaximumText => RandomEventsLocalization.Get("RandomEvents.Maximum");
-        public string MultiplayerModeText => RandomEventsLocalization.Get("RandomEvents.MultiplayerMode");
-        public string MultiplayerModeHelpText => RandomEventsLocalization.Get("RandomEvents.MultiplayerModeHelp");
+        public string ResetToDefaultText => SerpLocalization.Get("Common.ResetToDefault");
+        public string EnableModText => SerpLocalization.Get("Common.EnableMod");
+        public string IntervalText => SerpLocalization.Get("RandomEvents.Interval");
+        public string IntervalHelpText => SerpLocalization.Get("RandomEvents.IntervalHelp");
+        public string CooldownText => SerpLocalization.Get("RandomEvents.Cooldown");
+        public string CooldownHelpText => SerpLocalization.Get("RandomEvents.CooldownHelp");
+        public string ChancesTitleText => SerpLocalization.Get("RandomEvents.ChancesTitle");
+        public string PositiveEventsTitleText => SerpLocalization.Get("RandomEvents.PositiveEventsTitle");
+        public string NegativeEventsTitleText => SerpLocalization.Get("RandomEvents.NegativeEventsTitle");
+        public string ScheduleTitleText => SerpLocalization.Get("RandomEvents.ScheduleTitle");
+        public string MultiplayerTitleText => SerpLocalization.Get("RandomEvents.MultiplayerTitle");
+        public string ChanceHelpText => SerpLocalization.Get("RandomEvents.ChanceHelp");
+        public string StrengthTitleText => SerpLocalization.Get("RandomEvents.StrengthTitle");
+        public string ScaledStrengthHelpText => SerpLocalization.Get("RandomEvents.ScaledStrengthHelp");
+        public string PlagueStrengthHelpText => SerpLocalization.Get("RandomEvents.PlagueStrengthHelp");
+        public string LionStrengthHelpText => SerpLocalization.Get("RandomEvents.LionStrengthHelp");
+        public string TheftStrengthHelpText => SerpLocalization.Get("RandomEvents.TheftStrengthHelp");
+        public string FireStrengthHelpText => SerpLocalization.Get("RandomEvents.FireStrengthHelp");
+        public string MinimumText => SerpLocalization.Get("RandomEvents.Minimum");
+        public string MaximumText => SerpLocalization.Get("RandomEvents.Maximum");
+        public string MultiplayerModeText => SerpLocalization.Get("RandomEvents.MultiplayerMode");
+        public string MultiplayerModeHelpText => SerpLocalization.Get("RandomEvents.MultiplayerModeHelp");
         public string[] MultiplayerModeOptions => new[]
         {
-            RandomEventsLocalization.Get("RandomEvents.MultiplayerShared"),
-            RandomEventsLocalization.Get("RandomEvents.MultiplayerIndividual")
+            SerpLocalization.Get("RandomEvents.MultiplayerShared"),
+            SerpLocalization.Get("RandomEvents.MultiplayerIndividual")
         };
 
         public string FairText => EventText("Fair");
@@ -289,7 +289,7 @@ namespace RandomEvents
         }
 
         private static string FormatLocalizedValue(string key, int value) =>
-            string.Format(CultureInfo.CurrentCulture, RandomEventsLocalization.Get(key), value);
+            string.Format(CultureInfo.CurrentCulture, SerpLocalization.Get(key), value);
 
         private static string FormatPercent(int value) =>
             value.ToString(CultureInfo.InvariantCulture) + "%";
@@ -302,7 +302,7 @@ namespace RandomEvents
             Math.Round(Math.Max(0.1, Math.Min(5.0, value)), 1, MidpointRounding.AwayFromZero);
         private static int EncodeScaledStrength(double value) =>
             (int)Math.Round(NormalizeScaledStrength(value) * 10.0, MidpointRounding.AwayFromZero);
-        private static string EventText(string suffix) => RandomEventsLocalization.Get("RandomEvents.Event." + suffix);
+        private static string EventText(string suffix) => SerpLocalization.Get("RandomEvents.Event." + suffix);
 
         private static string GetChancePropertyName(RandomEventKind kind) =>
             kind == RandomEventKind.WheatInfestation ? nameof(WheatInfestationChance) :

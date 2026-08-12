@@ -136,6 +136,8 @@ namespace RandomEvents
             {
                 if (mapStartPending)
                 {
+                    // OnStartMap(Post) can precede the running simulation. The first positive map tick is late
+                    // enough for native map/GameData setup, while still preceding all Random Events work.
                     if (GameTimeManagerAPI.Instance.GetElapsedMapTicks() <= 0)
                         return;
                     InitializeCurrentMap();
@@ -143,13 +145,6 @@ namespace RandomEvents
 
                 if (!mapActive || state == null)
                     return;
-
-                if (Shared.GameModeHelper.IsRealMultiplayer(mapStartedFromMultiplayerSave))
-                {
-                    Shared.GameModeSnapshot networkMode = Shared.GameModeHelper.Capture(mapStartedFromMultiplayerSave);
-                    DisableForNetwork("real network game became active during the match", networkMode.ToDiagnosticString());
-                    return;
-                }
 
                 ProcessPendingBanditGroups();
 

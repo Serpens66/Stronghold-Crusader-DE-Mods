@@ -451,6 +451,13 @@ namespace RandomEvents
             {
                 if (TryValidateLookupCandidate(memory, ExpectedLookupFunctionRva, out int slotOffset, out string validationFailure))
                 {
+                    if (slotOffset != ReferenceSignpostIdsOffset)
+                    {
+                        throw new InvalidOperationException(
+                            $"reference signpost-slot offset 0x{slotOffset:X} does not match audited offset " +
+                            $"0x{ReferenceSignpostIdsOffset:X}.");
+                    }
+
                     Shared.DebugLogHelper.LogInfo(
                         log,
                         $"Native address resolved: name=signpost lookup, method=reference-rva, rva=0x{ExpectedLookupFunctionRva:X}.");

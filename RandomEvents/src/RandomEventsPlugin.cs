@@ -15,7 +15,6 @@ namespace RandomEvents
         public const string PluginVersion = "1.0.9";
 
         private RandomEventsRuntime runtime;
-        private bool disposed;
 
         public RandomEventsSettingsViewModel Settings { get; private set; }
 
@@ -51,13 +50,5 @@ namespace RandomEvents
             }
         }
 
-        // The plugin component is destroyed during startup; process quit is the safe cleanup point.
-        private void OnApplicationQuit()
-        {
-            if (disposed) return;
-            CrusaderLibrary.Instance.LibraryLoaded -= OnCrusaderLibraryLoaded;
-            runtime?.Dispose();
-            disposed = true;
-        }
     }
 }

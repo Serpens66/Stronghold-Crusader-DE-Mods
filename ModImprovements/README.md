@@ -38,7 +38,7 @@ Für `fixes` und `LorrdyAISharesGold` wurde keine eindeutige Workspace-Quelle ge
 | Building Limit | kein Befund | alten Scanpfad entfernt; Initialisierung und Lifecycle bereinigt | [BuildingLimit.md](BuildingLimit.md) |
 | Custom Custom Trail | kein Befund | im geprüften Umfang kein umsetzbarer Fehler oder unnötiger Pfad gefunden | – |
 | Extra Features | kein Befund | eigene Multiplayer-Paketpfade entfernt; Chore-Synchronisierung für Script Extender 1.50.0 vorgemerkt | [ExtraFeatures.md](ExtraFeatures.md) |
-| Random Events | mittel | GameMode wird pro Tick doppelt erfasst; parallele Lokalisierung; kleiner Dead Code | [RandomEvents.md](RandomEvents.md) |
+| Random Events | kein Befund | die bestätigten GameMode-, Lokalisierungs-, Layoutvalidierungs- und Lifecycle-Probleme wurden behoben | [RandomEvents.md](RandomEvents.md) |
 | Spawn Castle | mittel | nachweislich nicht laufende Dispatcher-/`Update`-Fallbacks; parallele Lokalisierung | [SpawnCastle.md](SpawnCastle.md) |
 | Start Conditions | niedrig | zwei ungenutzte Codebestandteile; widersprüchlicher Plugin-Lifecycle | [StartConditions.md](StartConditions.md) |
 | Unit Costs | mittel | Tooltip erzeugt unverändert pro GUI-Frame mehrere Objekte und Strings | [UnitCosts.md](UnitCosts.md) |
@@ -49,7 +49,7 @@ Die mit AIV Placement installierten Workspace-Bibliotheken `AIVParser.Core`, `AI
 ## Empfohlene Fixreihenfolge
 
 1. `UnitCosts`, `BugfixesAndQoL`: Hot-Path-Allokationen beziehungsweise Warnungsflut beseitigen.
-2. `RandomEvents` und `SpawnCastle`: gemeinsame Lokalisierung verwenden; bei SpawnCastle die nachweislich toten Frame-Fallbacks entfernen.
+2. `SpawnCastle`: gemeinsame Lokalisierung verwenden und die nachweislich toten Frame-Fallbacks entfernen.
 3. Plugin-Lifecycle und kleinen Dead Code in StartConditions bereinigen.
 
 ## Bereits ausgeführte Prüfungen
