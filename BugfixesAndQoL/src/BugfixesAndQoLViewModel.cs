@@ -314,9 +314,18 @@ namespace BugfixesAndQoL
         {
             marketGoodsLog = log;
 
+            // MainViewModel.Instance constructs the game view model on first access. During
+            // plugin startup that constructor is not ready yet, so build text-only rows first.
+            foreach (int good in MarketGoodsOrderDefinition.CreateHdOrder())
+            {
+                marketGoodNames[good] = ((Enums.Goods)good).ToString();
+                marketGoodIcons[good] = null;
+            }
+
             while (MarketGoodsOrderItems.Count < MarketGoodsOrderDefinition.Count)
                 MarketGoodsOrderItems.Add(new MarketGoodOrderItemViewModel(MoveMarketGood));
 
+            RefreshMarketGoodsOrderItems();
             RefreshMarketGoodsOrderVisuals();
         }
 
@@ -324,6 +333,44 @@ namespace BugfixesAndQoL
         {
             if (marketGoodsVisualsResolved)
                 return;
+
+            // Never touch Instance before the game confirms that its view model is constructed.
+            // Its getter is a factory and can throw while the frontend is still initializing.
+            if (!MainViewModel.viewModelLoaded)
+            {
+                LogMarketGoodsVisualsDeferred(
+                    mainViewModelReady: false,
+                    spriteCount: 0,
+                    resolvedIconCount: 0,
+                    resolvedNameCount: 0);
+                return;
+            }
+
+            MainViewModel viewModel;
+            try
+            {
+                viewModel = MainViewModel.Instance;
+            }
+            catch (Exception ex)
+            {
+                LogMarketGoodsVisualsDeferred(
+                    mainViewModelReady: false,
+                    spriteCount: 0,
+                    resolvedIconCount: 0,
+                    resolvedNameCount: 0,
+                    detail: ex.GetType().Name);
+                return;
+            }
+
+            if (viewModel?.GameSprites == null)
+            {
+                LogMarketGoodsVisualsDeferred(
+                    mainViewModelReady: viewModel != null,
+                    spriteCount: 0,
+                    resolvedIconCount: 0,
+                    resolvedNameCount: 0);
+                return;
+            }
 
             int resolvedIconCount = 0;
             int resolvedNameCount = 0;
@@ -333,7 +380,7 @@ namespace BugfixesAndQoL
                     resolvedNameCount++;
                 marketGoodNames[good] = name;
 
-                if (TryResolveMarketGoodIcon(good, out ImageSource icon))
+                if (TryResolveMarketGoodIcon(viewModel, good, out ImageSource icon))
                     resolvedIconCount++;
                 marketGoodIcons[good] = icon;
             }
@@ -343,8 +390,7 @@ namespace BugfixesAndQoL
                 resolvedIconCount == MarketGoodsOrderDefinition.Count &&
                 resolvedNameCount == MarketGoodsOrderDefinition.Count;
 
-            MainViewModel viewModel = MainViewModel.Instance;
-            int spriteCount = viewModel?.GameSprites?.Count ?? 0;
+            int spriteCount = viewModel.GameSprites.Count;
             if (marketGoodsVisualsResolved)
             {
                 if (!marketGoodsVisualsResolvedLogged)
@@ -360,15 +406,31 @@ namespace BugfixesAndQoL
                 return;
             }
 
-            if (!marketGoodsVisualsDeferredLogged)
-            {
-                marketGoodsVisualsDeferredLogged = true;
-                Shared.DebugLogHelper.LogWarning(
-                    marketGoodsLog,
-                    $"Bugfixes and QoL deferred market-goods visuals until the game UI resources are ready: " +
-                    $"mainViewModel={viewModel != null}, gameSprites={spriteCount}, " +
-                    $"icons={resolvedIconCount}/{MarketGoodsOrderDefinition.Count}, localizedNames={resolvedNameCount}/{MarketGoodsOrderDefinition.Count}.");
-            }
+            LogMarketGoodsVisualsDeferred(
+                mainViewModelReady: true,
+                spriteCount,
+                resolvedIconCount,
+                resolvedNameCount);
+        }
+
+        private void LogMarketGoodsVisualsDeferred(
+            bool mainViewModelReady,
+            int spriteCount,
+            int resolvedIconCount,
+            int resolvedNameCount,
+            string detail = null)
+        {
+            if (marketGoodsVisualsDeferredLogged)
+                return;
+
+            marketGoodsVisualsDeferredLogged = true;
+            Shared.DebugLogHelper.LogWarning(
+                marketGoodsLog,
+                $"Bugfixes and QoL deferred market-goods visuals until the game UI resources are ready: " +
+                $"mainViewModelReady={mainViewModelReady}, gameSprites={spriteCount}, " +
+                $"icons={resolvedIconCount}/{MarketGoodsOrderDefinition.Count}, " +
+                $"localizedNames={resolvedNameCount}/{MarketGoodsOrderDefinition.Count}" +
+                (string.IsNullOrEmpty(detail) ? "." : $", detail={detail}."));
         }
 
         private void MoveMarketGood(int good, int direction)
@@ -425,12 +487,14 @@ namespace BugfixesAndQoL
             return false;
         }
 
-        private static bool TryResolveMarketGoodIcon(int good, out ImageSource icon)
+        private static bool TryResolveMarketGoodIcon(
+            MainViewModel viewModel,
+            int good,
+            out ImageSource icon)
         {
             icon = null;
             try
             {
-                MainViewModel viewModel = MainViewModel.Instance;
                 if (viewModel == null || viewModel.GameSprites == null)
                     return false;
 

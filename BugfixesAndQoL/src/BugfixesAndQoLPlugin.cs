@@ -25,12 +25,13 @@ namespace BugfixesAndQoL
 
         public const string PluginGuid = "BugfixesAndQoL_Serp";
         public const string PluginName = "Bugfixes and QoL";
-        public const string PluginVersion = "1.0.16";
+        public const string PluginVersion = "1.0.17";
 
         private BugfixesAndQoLRuntime runtime;
         private object observedLobby;
         private int observedLobbyMemberCount = -1;
         private bool lobbyPlayerResolutionAttempted;
+        private bool marketGoodsVisualRefreshFailureLogged;
 
         public BugfixesAndQoLViewModel Settings { get; private set; }
 
@@ -61,7 +62,21 @@ namespace BugfixesAndQoL
                     RefreshLobbyLocalPlayerId();
                     // The game fills MainViewModel.GameSprites after the script extender loads.
                     // A hub change, including opening the settings, is the safe point to retry visuals.
-                    Settings.RefreshMarketGoodsOrderVisuals();
+                    try
+                    {
+                        Settings.RefreshMarketGoodsOrderVisuals();
+                    }
+                    catch (Exception ex)
+                    {
+                        // A visual retry must never escape through PropertyChanged and abort tab registration.
+                        if (!marketGoodsVisualRefreshFailureLogged)
+                        {
+                            marketGoodsVisualRefreshFailureLogged = true;
+                            Shared.DebugLogHelper.LogError(
+                                Logger,
+                                $"Bugfixes and QoL market-goods visual refresh failed; text controls remain usable: {ex}");
+                        }
+                    }
                 };
             MapLoaderR3EventHooks.OnStartMap.Observable.Subscribe(args =>
             {
