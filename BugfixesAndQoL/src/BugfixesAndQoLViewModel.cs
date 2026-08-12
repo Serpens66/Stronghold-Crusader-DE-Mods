@@ -38,6 +38,9 @@ namespace BugfixesAndQoL
         private readonly Dictionary<int, string> marketGoodNames = new Dictionary<int, string>();
         private readonly Dictionary<int, ImageSource> marketGoodIcons = new Dictionary<int, ImageSource>();
         private ManualLogSource marketGoodsLog;
+        private bool marketGoodsVisualsResolved;
+        private bool marketGoodsVisualsDeferredLogged;
+        private bool marketGoodsVisualsResolvedLogged;
 
         protected override string ResolveSettingsUiText(string key, string fallback) =>
             SerpLocalization.Get(key);
@@ -310,29 +313,62 @@ namespace BugfixesAndQoL
         internal void InitializeMarketGoodsOrderEditor(ManualLogSource log)
         {
             marketGoodsLog = log;
-            marketGoodNames.Clear();
-            marketGoodIcons.Clear();
-
-            bool missingSprite = false;
-            foreach (int good in MarketGoodsOrderDefinition.CreateHdOrder())
-            {
-                marketGoodNames[good] = ResolveMarketGoodName(good);
-                ImageSource icon = ResolveMarketGoodIcon(good);
-                marketGoodIcons[good] = icon;
-                missingSprite |= icon == null;
-            }
-
-            if (missingSprite)
-            {
-                Shared.DebugLogHelper.LogWarning(
-                    log,
-                    "Bugfixes and QoL could not resolve every market-goods icon; text tooltips remain available.");
-            }
 
             while (MarketGoodsOrderItems.Count < MarketGoodsOrderDefinition.Count)
                 MarketGoodsOrderItems.Add(new MarketGoodOrderItemViewModel(MoveMarketGood));
 
+            RefreshMarketGoodsOrderVisuals();
+        }
+
+        internal void RefreshMarketGoodsOrderVisuals()
+        {
+            if (marketGoodsVisualsResolved)
+                return;
+
+            int resolvedIconCount = 0;
+            int resolvedNameCount = 0;
+            foreach (int good in MarketGoodsOrderDefinition.CreateHdOrder())
+            {
+                if (TryResolveMarketGoodName(good, out string name))
+                    resolvedNameCount++;
+                marketGoodNames[good] = name;
+
+                if (TryResolveMarketGoodIcon(good, out ImageSource icon))
+                    resolvedIconCount++;
+                marketGoodIcons[good] = icon;
+            }
+
             RefreshMarketGoodsOrderItems();
+            marketGoodsVisualsResolved =
+                resolvedIconCount == MarketGoodsOrderDefinition.Count &&
+                resolvedNameCount == MarketGoodsOrderDefinition.Count;
+
+            MainViewModel viewModel = MainViewModel.Instance;
+            int spriteCount = viewModel?.GameSprites?.Count ?? 0;
+            if (marketGoodsVisualsResolved)
+            {
+                if (!marketGoodsVisualsResolvedLogged)
+                {
+                    marketGoodsVisualsResolvedLogged = true;
+                    Shared.DebugLogHelper.LogDebug(
+                        marketGoodsLog,
+                        () =>
+                            $"Bugfixes and QoL market-goods visuals resolved: icons={resolvedIconCount}/{MarketGoodsOrderDefinition.Count}, " +
+                            $"localizedNames={resolvedNameCount}/{MarketGoodsOrderDefinition.Count}, gameSprites={spriteCount}.");
+                }
+
+                return;
+            }
+
+            if (!marketGoodsVisualsDeferredLogged)
+            {
+                marketGoodsVisualsDeferredLogged = true;
+                Shared.DebugLogHelper.LogWarning(
+                    marketGoodsLog,
+                    $"Bugfixes and QoL deferred market-goods visuals until the game UI resources are ready: " +
+                    $"mainViewModel={viewModel != null}, gameSprites={spriteCount}, " +
+                    $"icons={resolvedIconCount}/{MarketGoodsOrderDefinition.Count}, localizedNames={resolvedNameCount}/{MarketGoodsOrderDefinition.Count}.");
+            }
         }
 
         private void MoveMarketGood(int good, int direction)
@@ -373,37 +409,42 @@ namespace BugfixesAndQoL
             }
         }
 
-        private static string ResolveMarketGoodName(int good)
+        private static bool TryResolveMarketGoodName(int good, out string name)
         {
             try
             {
-                string name = Translate.Instance?.lookUpText(Enums.eTextSections.TEXT_GOODS, good);
+                name = Translate.Instance?.lookUpText(Enums.eTextSections.TEXT_GOODS, good);
                 if (!string.IsNullOrWhiteSpace(name))
-                    return name;
+                    return true;
             }
             catch
             {
             }
 
-            return ((Enums.Goods)good).ToString();
+            name = ((Enums.Goods)good).ToString();
+            return false;
         }
 
-        private static ImageSource ResolveMarketGoodIcon(int good)
+        private static bool TryResolveMarketGoodIcon(int good, out ImageSource icon)
         {
+            icon = null;
             try
             {
                 MainViewModel viewModel = MainViewModel.Instance;
                 if (viewModel == null || viewModel.GameSprites == null)
-                    return null;
+                    return false;
 
                 int spriteId = (int)viewModel.goodsSpriteEnumFromGoodsEnum((Enums.Goods)good);
-                return spriteId >= 0 && spriteId < viewModel.GameSprites.Count
-                    ? viewModel.GameSprites[spriteId]
-                    : null;
+                if (spriteId < 0 || spriteId >= viewModel.GameSprites.Count)
+                    return false;
+
+                icon = viewModel.GameSprites[spriteId];
+                return (BaseComponent)(object)icon != (BaseComponent)null;
             }
             catch
             {
-                return null;
+                icon = null;
+                return false;
             }
         }
 

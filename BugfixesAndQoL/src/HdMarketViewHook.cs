@@ -21,6 +21,7 @@ namespace BugfixesAndQoL
         private Hook noesisGuiUpdateHook;
         private CycleTradeGoodsDelegate cycleTradeGoodsTrampoline;
         private NoesisGuiUpdateDelegate noesisGuiUpdateTrampoline;
+        private bool missingMarketSpriteLogged;
         private bool disposed;
 
         public HdMarketViewHook(ManualLogSource log, BugfixesAndQoLViewModel settings)
@@ -139,9 +140,23 @@ namespace BugfixesAndQoL
                     return;
                 }
 
-                // Vanilla draws DE's neighbors, so replace both icons after its UI update.
-                SetNeighborIcon(viewModel, previousGood, isPrevious: true);
-                SetNeighborIcon(viewModel, nextGood, isPrevious: false);
+                if (!TryResolveNeighborIcon(viewModel, previousGood, out int previousSpriteId, out ImageSource previousIcon) ||
+                    !TryResolveNeighborIcon(viewModel, nextGood, out int nextSpriteId, out ImageSource nextIcon))
+                {
+                    if (!missingMarketSpriteLogged)
+                    {
+                        missingMarketSpriteLogged = true;
+                        Shared.DebugLogHelper.LogWarning(
+                            log,
+                            "Bugfixes and QoL kept Vanilla market-neighbor icons because a configured goods sprite was unavailable.");
+                    }
+
+                    return;
+                }
+
+                // Vanilla draws DE's neighbors, so replace both icons only after both resources are valid.
+                SetNeighborIcon(viewModel, previousSpriteId, previousIcon, isPrevious: true);
+                SetNeighborIcon(viewModel, nextSpriteId, nextIcon, isPrevious: false);
             }
             catch (Exception ex)
             {
@@ -168,19 +183,39 @@ namespace BugfixesAndQoL
                 tradeBuyAmounts[good] >= 0;
         }
 
-        private static void SetNeighborIcon(MainViewModel viewModel, int good, bool isPrevious)
+        private static bool TryResolveNeighborIcon(
+            MainViewModel viewModel,
+            int good,
+            out int spriteId,
+            out ImageSource icon)
         {
-            Enums.eUISprites sprite = viewModel.goodsSpriteEnumFromGoodsEnum((Enums.Goods)good);
-            int spriteId = (int)sprite;
+            spriteId = -1;
+            icon = null;
+            if (viewModel?.GameSprites == null)
+                return false;
 
+            spriteId = (int)viewModel.goodsSpriteEnumFromGoodsEnum((Enums.Goods)good);
+            if (spriteId < 0 || spriteId >= viewModel.GameSprites.Count)
+                return false;
+
+            icon = viewModel.GameSprites[spriteId];
+            return (BaseComponent)(object)icon != (BaseComponent)null;
+        }
+
+        private static void SetNeighborIcon(
+            MainViewModel viewModel,
+            int spriteId,
+            ImageSource icon,
+            bool isPrevious)
+        {
             if (isPrevious)
             {
-                viewModel.TradePrevGoodsImage = viewModel.GameSprites[spriteId];
+                viewModel.TradePrevGoodsImage = icon;
                 viewModel.SetSpriteWidth3(spriteId, 50);
             }
             else
             {
-                viewModel.TradeNextGoodsImage = viewModel.GameSprites[spriteId];
+                viewModel.TradeNextGoodsImage = icon;
                 viewModel.SetSpriteWidth4(spriteId, 50);
             }
         }

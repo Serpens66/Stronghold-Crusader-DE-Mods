@@ -85,7 +85,11 @@ namespace BugfixesAndQoL
 
         private void SellSliderValueChangedHook(HUD_Buildings self, object sender, RoutedPropertyChangedEventArgs<float> e)
         {
-            if (!settings.EnableClientFeatures || !settings.EnableAutoTradeSellZeroFix)
+            if (!settings.EnableClientFeatures ||
+                !settings.EnableAutoTradeSellZeroFix ||
+                self == null ||
+                MainViewModel.Instance == null ||
+                Translate.Instance == null)
             {
                 trampoline(self, sender, e);
                 return;

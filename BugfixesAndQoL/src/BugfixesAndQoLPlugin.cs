@@ -25,7 +25,7 @@ namespace BugfixesAndQoL
 
         public const string PluginGuid = "BugfixesAndQoL_Serp";
         public const string PluginName = "Bugfixes and QoL";
-        public const string PluginVersion = "1.0.15";
+        public const string PluginVersion = "1.0.16";
 
         private BugfixesAndQoLRuntime runtime;
         private object observedLobby;
@@ -56,7 +56,13 @@ namespace BugfixesAndQoL
         {
             // These publishers outlive the BepInEx component and retain the callbacks for the process lifetime.
             SHCDESE.BepInEx.Bootstrap.Plugin.ModSettingsHubViewModel.PropertyChanged +=
-                (_, __) => RefreshLobbyLocalPlayerId();
+                (_, __) =>
+                {
+                    RefreshLobbyLocalPlayerId();
+                    // The game fills MainViewModel.GameSprites after the script extender loads.
+                    // A hub change, including opening the settings, is the safe point to retry visuals.
+                    Settings.RefreshMarketGoodsOrderVisuals();
+                };
             MapLoaderR3EventHooks.OnStartMap.Observable.Subscribe(args =>
             {
                 if (args.Phase == EventHookPhase.Post)
@@ -92,6 +98,17 @@ namespace BugfixesAndQoL
 
         private void OnCrusaderLibraryLoaded(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
         {
+            // Construct the editor rows before subscribing to hub changes, so even an early
+            // settings event can only refresh an already complete 20-item collection.
+            try
+            {
+                Settings.InitializeMarketGoodsOrderEditor(Logger);
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(Logger, $"Bugfixes and QoL market-order editor initialization failed: {ex}");
+            }
+
             InitializeLocalPlayerTracking();
 
             // Keep UI registration independent so one native feature cannot hide the whole mod.
@@ -109,7 +126,6 @@ namespace BugfixesAndQoL
 
             try
             {
-                Settings.InitializeMarketGoodsOrderEditor(Logger);
                 Shared.LobbyModSettingsPresetRegistration.Register(
                     this,
                     Logger,

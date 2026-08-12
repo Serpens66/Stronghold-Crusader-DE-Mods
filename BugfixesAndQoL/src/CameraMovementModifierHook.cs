@@ -73,8 +73,15 @@ namespace BugfixesAndQoL
 
         private float HorizontalAxisHook(KeyManager self)
         {
-            if (!settings.EnableClientFeatures || !settings.AllowCameraMovementWithModifiers)
+            if (!settings.EnableClientFeatures ||
+                !settings.AllowCameraMovementWithModifiers ||
+                self == null ||
+                Director.instance == null ||
+                CameraControls2D.instance == null ||
+                MainViewModel.Instance == null)
+            {
                 return horizontalTrampoline(self);
+            }
 
             float radarHeldX = self.RadarHeldX;
             self.RadarHeldX = 0f;
@@ -108,8 +115,15 @@ namespace BugfixesAndQoL
 
         private float VerticalAxisHook(KeyManager self)
         {
-            if (!settings.EnableClientFeatures || !settings.AllowCameraMovementWithModifiers)
+            if (!settings.EnableClientFeatures ||
+                !settings.AllowCameraMovementWithModifiers ||
+                self == null ||
+                Director.instance == null ||
+                CameraControls2D.instance == null ||
+                MainViewModel.Instance == null)
+            {
                 return verticalTrampoline(self);
+            }
 
             float radarHeldY = self.RadarHeldY;
             self.RadarHeldY = 0f;
