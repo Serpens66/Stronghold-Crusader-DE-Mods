@@ -29,6 +29,7 @@ namespace ExtraFeatures
         private readonly HashSet<string> resourceAddReentryGuards = new HashSet<string>();
         private readonly Dictionary<string, ResourceEventCountGuard> marketBuyResourceGuards = new Dictionary<string, ResourceEventCountGuard>();
         private readonly Dictionary<string, ResourceEventCountGuard> refundResourceGuards = new Dictionary<string, ResourceEventCountGuard>();
+        private readonly MultiplayerFeatureGate multiplayerFeatureGate;
         private readonly KnightDismountRuntime knightDismountRuntime;
         private readonly QuarryPileRelocationRuntime quarryPileRelocationRuntime;
         private readonly ChurchPriestCountRuntime churchPriestCountRuntime;
@@ -58,8 +59,9 @@ namespace ExtraFeatures
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
-            knightDismountRuntime = new KnightDismountRuntime(log, settings);
-            quarryPileRelocationRuntime = new QuarryPileRelocationRuntime(log, settings);
+            multiplayerFeatureGate = new MultiplayerFeatureGate(log);
+            knightDismountRuntime = new KnightDismountRuntime(log, settings, multiplayerFeatureGate);
+            quarryPileRelocationRuntime = new QuarryPileRelocationRuntime(log, settings, multiplayerFeatureGate);
             churchPriestCountRuntime = new ChurchPriestCountRuntime(log, settings);
             settings.SettingChanged += OnSettingChanged;
             settingsSubscribed = true;
@@ -189,6 +191,10 @@ namespace ExtraFeatures
                 MapLoaderR3EventHooks.OnLoadSave.Observable
                     .Where(args => args.Phase == EventHookPhase.Post)
                     .Subscribe(_ => ApplyMapLoadedSettings()));
+            TrySubscribeFeature("map-start multiplayer feature gate", () =>
+                MapLoaderR3EventHooks.OnStartMap.Observable
+                    .Where(args => args.Phase == EventHookPhase.Post)
+                    .Subscribe(OnStartMap));
             TrySubscribeFeature("map-unload cleanup", () =>
                 MapLoaderR3EventHooks.OnUnloadMap.Observable
                     .Where(args => args.Phase == EventHookPhase.Post)
@@ -244,7 +250,7 @@ namespace ExtraFeatures
         {
             try
             {
-                singleBuildingPauseHook = new SingleBuildingPauseHook(log, settings);
+                singleBuildingPauseHook = new SingleBuildingPauseHook(log, settings, multiplayerFeatureGate);
                 if (aiEconomyProtectionHook != null)
                     singleBuildingPauseHook.SetSleepStateSynchronizer(aiEconomyProtectionHook.SynchronizeSleepStatesNow);
             }
@@ -344,6 +350,12 @@ namespace ExtraFeatures
                 TryRunFeature("quarry-pile relocation", quarryPileRelocationRuntime.ApplySetting);
                 return;
             }
+            if (propertyName == nameof(ExtraFeaturesViewModel.EnableSingleBuildingPause))
+            {
+                if (!settings.EnableSingleBuildingPause)
+                    singleBuildingPauseHook?.ClearOverrides("setting disabled");
+                return;
+            }
             if (propertyName == nameof(ExtraFeaturesViewModel.EnableExtraChurchPriests))
             {
                 TryRunFeature("church priest counts", churchPriestCountRuntime.ApplySetting);
@@ -383,6 +395,19 @@ namespace ExtraFeatures
             TryRunFeature("church priest counts", churchPriestCountRuntime.ApplySetting);
             TryRunFeature("campfire peasants", ApplyCampfirePeasantsLimit);
             ApplyPlagueDurationSetting();
+        }
+
+        private void OnStartMap(MapStartEventArgs args)
+        {
+            multiplayerFeatureGate.CaptureMapMode(args.bMultiplayerSave != 0);
+
+            // TODO: Remove this temporary multiplayer restriction after Script Extender 1.50.0
+            // provides the ordered Chore transport for these state-changing actions.
+            if (multiplayerFeatureGate.BlocksLocalStateChanges)
+                singleBuildingPauseHook?.ClearOverrides("real multiplayer map start");
+
+            TryRunFeature("knight mount/dismount visibility", knightDismountRuntime.RefreshButtonVisibility);
+            TryRunFeature("quarry-pile relocation visibility", quarryPileRelocationRuntime.RefreshButtonVisibility);
         }
 
         private void InitializePlagueDurationPatch(IntPtr nativeLibraryHandle, ReadOnlySpan<byte> memory)
@@ -541,6 +566,7 @@ namespace ExtraFeatures
             mapActive = false;
             ClearResourceEventGuards();
             singleBuildingPauseHook?.ClearOverrides("map unload");
+            multiplayerFeatureGate.Reset();
         }
 
         private void ApplyCampfirePeasantsLimit()

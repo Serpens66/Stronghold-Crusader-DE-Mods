@@ -99,6 +99,7 @@ namespace ExtraFeatures
 
         private readonly ManualLogSource log;
         private readonly ExtraFeaturesViewModel settings;
+        private readonly MultiplayerFeatureGate multiplayerFeatureGate;
         private readonly QuarryPileRelocationButtonViewModel buttonViewModel;
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
         private readonly Dictionary<int, FailedRotationTargets> failedRotationTargetsByQuarry = new Dictionary<int, FailedRotationTargets>();
@@ -114,10 +115,14 @@ namespace ExtraFeatures
         private bool initialized;
         private string lastVisibilityLogState;
 
-        public QuarryPileRelocationRuntime(ManualLogSource log, ExtraFeaturesViewModel settings)
+        public QuarryPileRelocationRuntime(
+            ManualLogSource log,
+            ExtraFeaturesViewModel settings,
+            MultiplayerFeatureGate multiplayerFeatureGate)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
+            this.multiplayerFeatureGate = multiplayerFeatureGate ?? throw new ArgumentNullException(nameof(multiplayerFeatureGate));
             buttonViewModel = new QuarryPileRelocationButtonViewModel(OnRelocateCommand);
         }
 
@@ -206,7 +211,7 @@ namespace ExtraFeatures
         public void ApplySetting()
         {
             LogInfo($"setting applied: EnableMod={settings.EnableMod}, EnableQuarryPileRelocation={settings.EnableQuarryPileRelocation}.");
-            if (settings.EnableMod && settings.EnableQuarryPileRelocation)
+            if (IsFeatureActive())
             {
                 RefreshButtonVisibility();
                 return;
@@ -220,7 +225,7 @@ namespace ExtraFeatures
         {
             try
             {
-                if (!settings.EnableMod || !settings.EnableQuarryPileRelocation)
+                if (!IsFeatureActive())
                 {
                     buttonViewModel.Hide();
                     HideRelocationTooltip();
@@ -360,7 +365,7 @@ namespace ExtraFeatures
             try
             {
                 LogInfo($"rotation command invoked: EnableMod={settings.EnableMod}, EnableQuarryPileRelocation={settings.EnableQuarryPileRelocation}.");
-                if (!settings.EnableMod || !settings.EnableQuarryPileRelocation)
+                if (!IsFeatureActive())
                 {
                     LogInfo("rotation command stopped: feature is disabled.");
                     return;
@@ -463,6 +468,9 @@ namespace ExtraFeatures
         {
             try
             {
+                if (!IsFeatureActive())
+                    return;
+
                 if (linkedRemovalSuppressionDepth > 0)
                 {
                     LogInfo($"linked demolition propagation suppressed for internal operation: source={source}, buildingId={buildingId}, suppressionDepth={linkedRemovalSuppressionDepth}.");
@@ -521,6 +529,15 @@ namespace ExtraFeatures
                     log,
                     $"Extra Features quarry-pile linked demolition handling failed: source={source}, buildingId={buildingId}, exception={ex}");
             }
+        }
+
+        private bool IsFeatureActive()
+        {
+            // TODO: Remove the multiplayer gate after Script Extender 1.50.0 Chores can
+            // synchronize pile relocation and linked demolition deterministically.
+            return settings.EnableMod &&
+                settings.EnableQuarryPileRelocation &&
+                !multiplayerFeatureGate.BlocksLocalStateChanges;
         }
 
         private bool TryApplyRotation(

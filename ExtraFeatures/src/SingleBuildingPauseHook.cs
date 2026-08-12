@@ -28,6 +28,7 @@ namespace ExtraFeatures
 
         private readonly ManualLogSource log;
         private readonly ExtraFeaturesViewModel settings;
+        private readonly MultiplayerFeatureGate multiplayerFeatureGate;
         private readonly Hook buttonHook;
         private readonly Hook guiUpdateHook;
         private readonly ButtonToggleZzzModeDelegate buttonTrampoline;
@@ -39,10 +40,12 @@ namespace ExtraFeatures
 
         public SingleBuildingPauseHook(
             ManualLogSource log,
-            ExtraFeaturesViewModel settings)
+            ExtraFeaturesViewModel settings,
+            MultiplayerFeatureGate multiplayerFeatureGate)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
+            this.multiplayerFeatureGate = multiplayerFeatureGate ?? throw new ArgumentNullException(nameof(multiplayerFeatureGate));
 
             MethodInfo buttonMethod = FindButtonToggleZzzModeMethod();
             MethodInfo guiUpdateMethod = FindNoesisGuiUpdateChecksInGameMethod();
@@ -170,7 +173,7 @@ namespace ExtraFeatures
             int selectedBuildingId = TryGetSelectedBuildingId();
             bool controlPressed = IsControlPressed();
 
-            if (!settings.EnableMod)
+            if (!IsFeatureActive())
             {
                 buttonTrampoline(self, parameter);
                 return;
@@ -199,7 +202,7 @@ namespace ExtraFeatures
         {
             guiUpdateTrampoline(self);
 
-            if (!settings.EnableMod)
+            if (!IsFeatureActive())
                 return;
 
             try
@@ -213,6 +216,15 @@ namespace ExtraFeatures
             {
                 LogError($"single-building pause update failed: {ex}");
             }
+        }
+
+        private bool IsFeatureActive()
+        {
+            // TODO: Remove the multiplayer gate after Script Extender 1.50.0 Chores can
+            // synchronize this per-building state transition deterministically.
+            return settings.EnableMod &&
+                settings.EnableSingleBuildingPause &&
+                !multiplayerFeatureGate.BlocksLocalStateChanges;
         }
 
         private unsafe void ToggleSelectedBuildingOnly(MainViewModel self)

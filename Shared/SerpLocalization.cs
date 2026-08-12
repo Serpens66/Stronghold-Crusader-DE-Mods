@@ -100,6 +100,8 @@ public static class SerpLocalization
     public const string RememberAiAivSettingsHelp = "SomeSettings.RememberAiAivSettingsHelp";
     public const string EnableCtrlSingleMarketTrade = "SomeSettings.EnableCtrlSingleMarketTrade";
     public const string EnableCtrlSingleMarketTradeHelp = "SomeSettings.EnableCtrlSingleMarketTradeHelp";
+    public const string EnableSingleBuildingPause = "SomeSettings.EnableSingleBuildingPause";
+    public const string EnableSingleBuildingPauseHelp = "SomeSettings.EnableSingleBuildingPauseHelp";
     public const string EnableTroopMovementFix = "SomeSettings.EnableTroopMovementFix";
     public const string EnableTroopMovementFixHelp = "SomeSettings.EnableTroopMovementFixHelp";
     public const string EnablePlaguePopularityFix = "SomeSettings.EnablePlaguePopularityFix";
@@ -324,6 +326,8 @@ public static class SerpLocalization
         { RememberAiAivSettingsHelp, "When enabled, the last AIV, rotation, and custom lord settings selected for each AI lord are applied automatically when that AI is added to a skirmish lobby." },
         { EnableCtrlSingleMarketTrade, "Ctrl trades one market unit" },
         { EnableCtrlSingleMarketTradeHelp, "Hold Ctrl while buying or selling to trade exactly one unit. Ctrl+Shift uses the normal five-unit amount." },
+        { EnableSingleBuildingPause, "Enable single-building pause" },
+        { EnableSingleBuildingPauseHelp, "Hold Ctrl while toggling a production building's pause state to affect only the selected building. This feature is temporarily unavailable in multiplayer until Script Extender 1.50.0 Chore support is adopted." },
         { EnableTroopMovementFix, "Troop Speed Fix" },
         { EnableTroopMovementFixHelp, "Fixes synchronized movement for mixed troop groups: with a normal movement command, all units move at the speed of the slowest unit in the group." },
         { EnablePlaguePopularityFix, "Plague Popularity Fix" },
@@ -337,13 +341,13 @@ public static class SerpLocalization
         { EnableFastRecruitRallyMovement, "Recruits Run to Rally Points" },
         { EnableFastRecruitRallyMovementHelp, "Newly recruited player and AI units move to their rally points using their own Vanilla Fast pace and animation while keeping terrain and state modifiers." },
         { EnableKnightDismount, "Enable knight mount/dismount buttons" },
-        { EnableKnightDismountHelp, "Adds command buttons to mount swordsmen and dismount mounted knights." },
+        { EnableKnightDismountHelp, "Adds command buttons to mount swordsmen and dismount mounted knights. This feature is temporarily unavailable in multiplayer until Script Extender 1.50.0 Chore support is adopted." },
         { KnightDismountTooltip, "Dismount" },
         { KnightDismountTooltipBody, "Turns selected mounted knights into swordsmen at the same position." },
         { KnightMountTooltip, "Mount" },
         { KnightMountTooltipBody, "Turns selected swordsmen into mounted knights. Requires available horses in a stable." },
         { EnableQuarryPileRelocation, "Enable quarry pile rotation button" },
-        { EnableQuarryPileRelocationHelp, "Adds a button to selected quarries that rotates their linked stone pile clockwise to the next valid position. The existing pile is kept if no valid replacement can be created." },
+        { EnableQuarryPileRelocationHelp, "Adds a button to selected quarries that rotates their linked stone pile clockwise to the next valid position. The existing pile is kept if no valid replacement can be created. This feature is temporarily unavailable in multiplayer until Script Extender 1.50.0 Chore support is adopted." },
         { EnableExtraChurchPriests, "Enable extra priests for churches" },
         { EnableExtraChurchPriestsHelp, "When enabled, churches receive two priests and cathedrals receive three priests." },
         { PlagueDurationMultiplier, "Plague cloud duration" },

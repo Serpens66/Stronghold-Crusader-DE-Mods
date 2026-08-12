@@ -151,6 +151,7 @@ namespace ExtraFeatures
 
         private readonly ManualLogSource log;
         private readonly ExtraFeaturesViewModel settings;
+        private readonly MultiplayerFeatureGate multiplayerFeatureGate;
         private readonly KnightDismountButtonViewModel buttonViewModel;
         private Hook setupTroopActionsHook;
         private SetuptroopActionsUIDelegate setupTroopActionsTrampoline;
@@ -159,10 +160,14 @@ namespace ExtraFeatures
         private bool initialized;
         private bool disposed;
 
-        public KnightDismountRuntime(ManualLogSource log, ExtraFeaturesViewModel settings)
+        public KnightDismountRuntime(
+            ManualLogSource log,
+            ExtraFeaturesViewModel settings,
+            MultiplayerFeatureGate multiplayerFeatureGate)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
+            this.multiplayerFeatureGate = multiplayerFeatureGate ?? throw new ArgumentNullException(nameof(multiplayerFeatureGate));
             buttonViewModel = new KnightDismountButtonViewModel(
                 OnDismountCommand,
                 OnMountCommand,
@@ -210,7 +215,7 @@ namespace ExtraFeatures
         {
             try
             {
-                if (!settings.EnableMod || !settings.EnableKnightDismount)
+                if (!IsFeatureActive())
                 {
                     buttonViewModel.Hide();
                     return;
@@ -485,7 +490,7 @@ namespace ExtraFeatures
         {
             try
             {
-                if (!settings.EnableMod || !settings.EnableKnightDismount)
+                if (!IsFeatureActive())
                     return;
 
                 int localPlayerId = GetLocalPlayerIdOrOne();
@@ -518,7 +523,7 @@ namespace ExtraFeatures
         {
             try
             {
-                if (!settings.EnableMod || !settings.EnableKnightDismount)
+                if (!IsFeatureActive())
                 {
                     return;
                 }
@@ -557,6 +562,15 @@ namespace ExtraFeatures
             {
                 LogError($"Knight mount click failed: {ex}");
             }
+        }
+
+        private bool IsFeatureActive()
+        {
+            // TODO: Remove the multiplayer gate after Script Extender 1.50.0 Chores can
+            // synchronize the complete mount/dismount transition deterministically.
+            return settings.EnableMod &&
+                settings.EnableKnightDismount &&
+                !multiplayerFeatureGate.BlocksLocalStateChanges;
         }
 
         private void PlayMissingWeaponsSpeech()
