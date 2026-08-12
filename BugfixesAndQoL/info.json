@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.13",
+  "Version": "1.0.14",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.14",
+      "Changes": [
+        "Fixed local per-player preferences being repeatedly resolved through an unavailable network player ID and added the missing synchronized companion arrays."
+      ]
+    },
     {
       "Version": "1.0.13",
       "Changes": [

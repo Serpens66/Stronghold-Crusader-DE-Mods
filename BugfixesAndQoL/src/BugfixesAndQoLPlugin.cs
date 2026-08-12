@@ -1,8 +1,10 @@
 // Feature: Plugin bootstrap for the Bugfixes and QoL mod.
 using BepInEx;
 using BepInEx.Bootstrap;
+using R3;
 using SHCDESE.API;
 using SHCDESE.API.LowLevel;
+using SHCDESE.EventAPI;
 using System;
 
 namespace BugfixesAndQoL
@@ -23,10 +25,12 @@ namespace BugfixesAndQoL
 
         public const string PluginGuid = "BugfixesAndQoL_Serp";
         public const string PluginName = "Bugfixes and QoL";
-        public const string PluginVersion = "1.0.13";
+        public const string PluginVersion = "1.0.14";
 
         private BugfixesAndQoLRuntime runtime;
-        private bool runtimeDisposed;
+        private object observedLobby;
+        private int observedLobbyMemberCount = -1;
+        private bool lobbyPlayerResolutionAttempted;
 
         public BugfixesAndQoLViewModel Settings { get; private set; }
 
@@ -48,24 +52,48 @@ namespace BugfixesAndQoL
             CrusaderLibrary.Instance.LibraryLoaded += OnCrusaderLibraryLoaded;
         }
 
-        // The BepInEx manager destroys this component during startup, so only process quit may clean up.
-        private void OnApplicationQuit()
+        private void InitializeLocalPlayerTracking()
         {
-            DisposeRuntime();
+            // These publishers outlive the BepInEx component and retain the callbacks for the process lifetime.
+            SHCDESE.BepInEx.Bootstrap.Plugin.ModSettingsHubViewModel.PropertyChanged +=
+                (_, __) => RefreshLobbyLocalPlayerId();
+            MapLoaderR3EventHooks.OnStartMap.Observable.Subscribe(args =>
+            {
+                if (args.Phase == EventHookPhase.Post)
+                    Settings.TrySetLocalPlayerId(GamePlayerManagerAPI.Instance.GetLocalPlayerId());
+            });
+            RefreshLobbyLocalPlayerId();
         }
 
-        private void DisposeRuntime()
+        private void RefreshLobbyLocalPlayerId()
         {
-            if (runtimeDisposed)
+            Platform_Multiplayer.MPLobby lobby = Platform_Multiplayer.Instance?.activeLobby;
+            if (lobby == null)
+            {
+                observedLobby = null;
+                observedLobbyMemberCount = -1;
+                lobbyPlayerResolutionAttempted = false;
                 return;
+            }
 
-            CrusaderLibrary.Instance.LibraryLoaded -= OnCrusaderLibraryLoaded;
-            runtime?.Dispose();
-            runtimeDisposed = true;
+            int memberCount = lobby.members?.Count ?? -1;
+            if (ReferenceEquals(observedLobby, lobby) &&
+                observedLobbyMemberCount == memberCount &&
+                lobbyPlayerResolutionAttempted)
+            {
+                return;
+            }
+
+            observedLobby = lobby;
+            observedLobbyMemberCount = memberCount;
+            lobbyPlayerResolutionAttempted = true;
+            Settings.TrySetLocalPlayerId(GameNetworkAPI.GetLocalPlayerId());
         }
 
         private void OnCrusaderLibraryLoaded(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
         {
+            InitializeLocalPlayerTracking();
+
             // Keep UI registration independent so one native feature cannot hide the whole mod.
             try
             {

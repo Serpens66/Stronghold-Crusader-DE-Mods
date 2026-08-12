@@ -58,6 +58,7 @@
     <Compile Include="src\MinimapBuildingPlacementFeature.cs" />
     <Compile Include="src\MinimapCursorFollowFeature.cs" />
     <Compile Include="src\MinimapPlacementClickHook.cs" />
+    <Compile Include="src\LocalPerPlayerSetting.cs" />
     <Compile Include="src\MovementCadenceIntegration.cs" />
     <Compile Include="src\PlaguePopularityFix.cs" />
     <Compile Include="src\PlagueTreatmentFadeFix.cs" />

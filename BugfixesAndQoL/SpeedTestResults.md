@@ -754,8 +754,8 @@ Das BepInEx-Manager-GameObject wird in dieser Spielumgebung bereits kurz nach
 dem Chainloader-Start zerstört. Deshalb bedeutet `OnDestroy()` nicht, dass der
 Mod wirklich entladen wurde.
 
-Der Runtime-Zustand muss statisch gehalten werden; native Hooks sowie
-Script-Extender-Abonnements bleiben bei diesem frühen `OnDestroy()` aktiv. Erst
-bei `OnApplicationQuit()` wird explizit disposed. Die Lösung darf nicht von
-`Update()`, Coroutines oder der Lebensdauer der kurzlebigen
+Native Hooks und Script-Extender-Abonnements werden von dauerhaften Publishern
+für die gesamte Prozesslaufzeit gehalten. Die früh zerstörte Plugin-Komponente
+besitzt deshalb bewusst keinen vermeintlichen Quit-Cleanup. Die Lösung darf
+nicht von `Update()`, Coroutines oder der Lebensdauer der kurzlebigen
 `BaseUnityPlugin`-Komponente abhängen.

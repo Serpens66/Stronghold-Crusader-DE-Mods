@@ -1,5 +1,4 @@
 // Feature: Lobby settings model for the Bugfixes and QoL features.
-using SHCDESE.API;
 using SHCDESE.API.Components.Network;
 using SHCDESE.NoesisUtil;
 using SHCDESE.ViewModels;
@@ -20,14 +19,14 @@ namespace BugfixesAndQoL
         private bool enableStuckApothecaryFix = true;
         private bool enablePlagueTargetReservationFix = true;
         private bool enableAssemblyPointPlacementFix = true;
-        private readonly bool[] enableClientFeaturesData = new bool[9];
-        private readonly bool[] enableMinimapCursorFollowFixData = new bool[9];
-        private readonly bool[] enableMarketKeyMainMenuFixData = new bool[9];
-        private readonly bool[] enableAutoTradeSellZeroFixData = new bool[9];
-        private readonly bool[] enableEnemyProximityBulldozeCursorFixData = new bool[9];
-        private readonly bool[] allowMinimapWhilePlacingBuildingData = new bool[9];
-        private readonly bool[] allowCameraMovementWithModifiersData = new bool[9];
-        private readonly bool[] hdMarketViewData = new bool[9];
+        private readonly LocalPerPlayerSetting<bool> enableClientFeatures = new LocalPerPlayerSetting<bool>(true);
+        private readonly LocalPerPlayerSetting<bool> enableMinimapCursorFollowFix = new LocalPerPlayerSetting<bool>(true);
+        private readonly LocalPerPlayerSetting<bool> enableMarketKeyMainMenuFix = new LocalPerPlayerSetting<bool>(true);
+        private readonly LocalPerPlayerSetting<bool> enableAutoTradeSellZeroFix = new LocalPerPlayerSetting<bool>(true);
+        private readonly LocalPerPlayerSetting<bool> enableEnemyProximityBulldozeCursorFix = new LocalPerPlayerSetting<bool>(true);
+        private readonly LocalPerPlayerSetting<bool> allowMinimapWhilePlacingBuilding = new LocalPerPlayerSetting<bool>(true);
+        private readonly LocalPerPlayerSetting<bool> allowCameraMovementWithModifiers = new LocalPerPlayerSetting<bool>(true);
+        private readonly LocalPerPlayerSetting<bool> hdMarketView = new LocalPerPlayerSetting<bool>(true);
 
         protected override string ResolveSettingsUiText(string key, string fallback) =>
             SerpLocalization.Get(key);
@@ -35,11 +34,6 @@ namespace BugfixesAndQoL
         public BugfixesAndQoLViewModel(bool legacySomeSettingsLoaded)
         {
             LegacyModWarningVisibility = legacySomeSettingsLoaded ? Visibility.Visible : Visibility.Collapsed;
-            SetClientFeatureDefaults();
-            SetClientBugfixDefaults();
-            SetAllowMinimapDefaults();
-            SetAllowCameraMovementWithModifiersDefaults();
-            SetHdMarketViewDefaults();
             ResetToDefaultCommand = new RelayCommand(ResetToDefault);
         }
 
@@ -86,52 +80,48 @@ namespace BugfixesAndQoL
         public string HdMarketViewText => SerpLocalization.Get(SerpLocalization.HdMarketView);
         public string HdMarketViewHelpText => SerpLocalization.Get(SerpLocalization.HdMarketViewHelp);
 
-        public bool[] AllowMinimapWhilePlacingBuildingData => allowMinimapWhilePlacingBuildingData;
-        public bool[] AllowCameraMovementWithModifiersData => allowCameraMovementWithModifiersData;
-        public bool[] HdMarketViewData => hdMarketViewData;
+        public bool[] EnableMinimapCursorFollowFixData => enableMinimapCursorFollowFix.Data;
+        public bool[] EnableMarketKeyMainMenuFixData => enableMarketKeyMainMenuFix.Data;
+        public bool[] EnableAutoTradeSellZeroFixData => enableAutoTradeSellZeroFix.Data;
+        public bool[] EnableEnemyProximityBulldozeCursorFixData => enableEnemyProximityBulldozeCursorFix.Data;
+        public bool[] EnableClientFeaturesData => enableClientFeatures.Data;
+        public bool[] AllowMinimapWhilePlacingBuildingData => allowMinimapWhilePlacingBuilding.Data;
+        public bool[] AllowCameraMovementWithModifiersData => allowCameraMovementWithModifiers.Data;
+        public bool[] HdMarketViewData => hdMarketView.Data;
 
         [SyncPerPlayer]
         public bool EnableMinimapCursorFollowFix
         {
-            get => enableMinimapCursorFollowFixData[LocalPlayerIdOrOne];
-            set => SetPlayerSetting(enableMinimapCursorFollowFixData, value, nameof(EnableMinimapCursorFollowFix));
+            get => enableMinimapCursorFollowFix.Value;
+            set => SetPlayerSetting(enableMinimapCursorFollowFix, value, nameof(EnableMinimapCursorFollowFix));
         }
 
         [SyncPerPlayer]
         public bool EnableMarketKeyMainMenuFix
         {
-            get => enableMarketKeyMainMenuFixData[LocalPlayerIdOrOne];
-            set => SetPlayerSetting(enableMarketKeyMainMenuFixData, value, nameof(EnableMarketKeyMainMenuFix));
+            get => enableMarketKeyMainMenuFix.Value;
+            set => SetPlayerSetting(enableMarketKeyMainMenuFix, value, nameof(EnableMarketKeyMainMenuFix));
         }
 
         [SyncPerPlayer]
         public bool EnableAutoTradeSellZeroFix
         {
-            get => enableAutoTradeSellZeroFixData[LocalPlayerIdOrOne];
-            set => SetPlayerSetting(enableAutoTradeSellZeroFixData, value, nameof(EnableAutoTradeSellZeroFix));
+            get => enableAutoTradeSellZeroFix.Value;
+            set => SetPlayerSetting(enableAutoTradeSellZeroFix, value, nameof(EnableAutoTradeSellZeroFix));
         }
 
         [SyncPerPlayer]
         public bool EnableEnemyProximityBulldozeCursorFix
         {
-            get => enableEnemyProximityBulldozeCursorFixData[LocalPlayerIdOrOne];
-            set => SetPlayerSetting(enableEnemyProximityBulldozeCursorFixData, value, nameof(EnableEnemyProximityBulldozeCursorFix));
+            get => enableEnemyProximityBulldozeCursorFix.Value;
+            set => SetPlayerSetting(enableEnemyProximityBulldozeCursorFix, value, nameof(EnableEnemyProximityBulldozeCursorFix));
         }
 
         [SyncPerPlayer]
         public bool EnableClientFeatures
         {
-            get => enableClientFeaturesData[LocalPlayerIdOrOne];
-            set
-            {
-                int playerId = LocalPlayerIdOrOne;
-                if (enableClientFeaturesData[playerId] == value)
-                    return;
-
-                enableClientFeaturesData[playerId] = value;
-                SettingChanged?.Invoke(nameof(EnableClientFeatures));
-                OnPropertyChanged(nameof(EnableClientFeatures));
-            }
+            get => enableClientFeatures.Value;
+            set => SetPlayerSetting(enableClientFeatures, value, nameof(EnableClientFeatures));
         }
 
         [SyncHostOnly]
@@ -144,49 +134,22 @@ namespace BugfixesAndQoL
         [SyncPerPlayer]
         public bool AllowMinimapWhilePlacingBuilding
         {
-            get => allowMinimapWhilePlacingBuildingData[LocalPlayerIdOrOne];
-            set
-            {
-                int playerId = LocalPlayerIdOrOne;
-                if (allowMinimapWhilePlacingBuildingData[playerId] == value)
-                    return;
-
-                allowMinimapWhilePlacingBuildingData[playerId] = value;
-                SettingChanged?.Invoke(nameof(AllowMinimapWhilePlacingBuilding));
-                OnPropertyChanged(nameof(AllowMinimapWhilePlacingBuilding));
-            }
+            get => allowMinimapWhilePlacingBuilding.Value;
+            set => SetPlayerSetting(allowMinimapWhilePlacingBuilding, value, nameof(AllowMinimapWhilePlacingBuilding));
         }
 
         [SyncPerPlayer]
         public bool AllowCameraMovementWithModifiers
         {
-            get => allowCameraMovementWithModifiersData[LocalPlayerIdOrOne];
-            set
-            {
-                int playerId = LocalPlayerIdOrOne;
-                if (allowCameraMovementWithModifiersData[playerId] == value)
-                    return;
-
-                allowCameraMovementWithModifiersData[playerId] = value;
-                SettingChanged?.Invoke(nameof(AllowCameraMovementWithModifiers));
-                OnPropertyChanged(nameof(AllowCameraMovementWithModifiers));
-            }
+            get => allowCameraMovementWithModifiers.Value;
+            set => SetPlayerSetting(allowCameraMovementWithModifiers, value, nameof(AllowCameraMovementWithModifiers));
         }
 
         [SyncPerPlayer]
         public bool HdMarketView
         {
-            get => hdMarketViewData[LocalPlayerIdOrOne];
-            set
-            {
-                int playerId = LocalPlayerIdOrOne;
-                if (hdMarketViewData[playerId] == value)
-                    return;
-
-                hdMarketViewData[playerId] = value;
-                SettingChanged?.Invoke(nameof(HdMarketView));
-                OnPropertyChanged(nameof(HdMarketView));
-            }
+            get => hdMarketView.Value;
+            set => SetPlayerSetting(hdMarketView, value, nameof(HdMarketView));
         }
 
         [SyncHostOnly]
@@ -276,52 +239,28 @@ namespace BugfixesAndQoL
             OnPropertyChanged(propertyName);
         }
 
-        private void SetPlayerSetting(bool[] values, bool value, string propertyName)
+        internal bool TrySetLocalPlayerId(int playerId)
         {
-            int playerId = LocalPlayerIdOrOne;
-            if (values[playerId] == value)
+            if (!enableClientFeatures.TrySetLocalPlayerId(playerId))
+                return false;
+
+            enableMinimapCursorFollowFix.TrySetLocalPlayerId(playerId);
+            enableMarketKeyMainMenuFix.TrySetLocalPlayerId(playerId);
+            enableAutoTradeSellZeroFix.TrySetLocalPlayerId(playerId);
+            enableEnemyProximityBulldozeCursorFix.TrySetLocalPlayerId(playerId);
+            allowMinimapWhilePlacingBuilding.TrySetLocalPlayerId(playerId);
+            allowCameraMovementWithModifiers.TrySetLocalPlayerId(playerId);
+            hdMarketView.TrySetLocalPlayerId(playerId);
+            return true;
+        }
+
+        private void SetPlayerSetting(LocalPerPlayerSetting<bool> setting, bool value, string propertyName)
+        {
+            if (!setting.SetValue(value))
                 return;
 
-            values[playerId] = value;
             SettingChanged?.Invoke(propertyName);
             OnPropertyChanged(propertyName);
-        }
-
-        private static int LocalPlayerIdOrOne => Math.Max(1, GameNetworkAPI.GetLocalPlayerId());
-
-        private void SetClientFeatureDefaults()
-        {
-            for (int i = 1; i < enableClientFeaturesData.Length; i++)
-                enableClientFeaturesData[i] = true;
-        }
-
-        private void SetClientBugfixDefaults()
-        {
-            for (int i = 1; i < enableMinimapCursorFollowFixData.Length; i++)
-            {
-                enableMinimapCursorFollowFixData[i] = true;
-                enableMarketKeyMainMenuFixData[i] = true;
-                enableAutoTradeSellZeroFixData[i] = true;
-                enableEnemyProximityBulldozeCursorFixData[i] = true;
-            }
-        }
-
-        private void SetAllowMinimapDefaults()
-        {
-            for (int i = 1; i < allowMinimapWhilePlacingBuildingData.Length; i++)
-                allowMinimapWhilePlacingBuildingData[i] = true;
-        }
-
-        private void SetAllowCameraMovementWithModifiersDefaults()
-        {
-            for (int i = 1; i < allowCameraMovementWithModifiersData.Length; i++)
-                allowCameraMovementWithModifiersData[i] = true;
-        }
-
-        private void SetHdMarketViewDefaults()
-        {
-            for (int i = 1; i < hdMarketViewData.Length; i++)
-                hdMarketViewData[i] = true;
         }
     }
 }

@@ -35,7 +35,7 @@ Für `fixes` und `LorrdyAISharesGold` wurde keine eindeutige Workspace-Quelle ge
 | --- | --- | --- | --- |
 | Script Extender | hoch | Dispatcher kann nach dem frühen Unity-Lifecycle keine Queue mehr abarbeiten; blockierender Aufruf hat kein Timeout | [000shcdese.md](000shcdese.md) |
 | AIV Placement Lobby | mittel | vollständige Lobby-Captures und Fingerprints in jedem Frontend-Frame; veraltete Worker laufen weiter | [AIVPlacementLobby.md](AIVPlacementLobby.md) |
-| Bugfixes and QoL | mittel | häufige, kontextfalsche Netzwerk-Spieler-ID-Abfragen; fehlendes Logo | [BugfixesAndQoL.md](BugfixesAndQoL.md) |
+| Bugfixes and QoL | niedrig | fehlendes Logo | [BugfixesAndQoL.md](BugfixesAndQoL.md) |
 | Building Costs | niedrig | nicht verwendete Reflection-Methode; widersprüchlicher Plugin-Lifecycle | [BuildingCosts.md](BuildingCosts.md) |
 | Building Limit | niedrig | veralteter auskommentierter Scanpfad; widersprüchlicher Plugin-Lifecycle | [BuildingLimit.md](BuildingLimit.md) |
 | Custom Custom Trail | kein Befund | im geprüften Umfang kein umsetzbarer Fehler oder unnötiger Pfad gefunden | – |
