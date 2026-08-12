@@ -1,0 +1,9 @@
+{
+  "GUID": "DispatcherLifecycleProbe",
+  "Author": "Serpens66",
+  "Name": "SHCDE Dispatcher Lifecycle Probe",
+  "Description": "Minimal standalone reproduction for the SHCDE-SE UnityMainThreadDispatcher startup lifecycle issue.",
+  "Version": "1.0.0",
+  "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
+  "Manifest": 1
+}
