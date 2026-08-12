@@ -11,14 +11,22 @@ namespace AIVPlacementLobby
     {
         public const string PluginGuid = "AIVPlacementLobby_Serp";
         public const string PluginName = "AIV Placement Lobby";
-        public const string PluginVersion = "0.3.6";
+        public const string PluginVersion = "0.3.7";
 
         private static AIVPlacementLobbyRuntime processLifetimeRuntime;
 
         private void Awake()
         {
-            Shared.DebugLogHelper.LogInfo(Logger, $"{PluginName} {PluginVersion} loaded.");
-            CrusaderLibrary.Instance.LibraryLoaded += OnLibraryLoaded;
+            try
+            {
+                CrusaderLibrary library = CrusaderLibrary.Instance ??
+                    throw new InvalidOperationException("CrusaderLibrary.Instance is unavailable.");
+                library.LibraryLoaded += OnLibraryLoaded;
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(Logger, $"AIV lobby startup failed: {ex}");
+            }
         }
 
         // The manager GameObject is destroyed during startup, so the runtime stays static.
@@ -28,7 +36,10 @@ namespace AIVPlacementLobby
             {
                 if (processLifetimeRuntime != null)
                     return;
-                Shared.DebugLogHelper.ReportNativeLibraryVersion(Logger, PluginName);
+                Shared.DebugLogHelper.ReportNativeLibraryVersion(
+                    Logger,
+                    PluginName,
+                    logSuccess: false);
                 processLifetimeRuntime = new AIVPlacementLobbyRuntime(Logger);
                 GameXAMLManagerAPI.Instance.RegisterBinding(
                     "AIVPlacementLobbyAivSelectionListHost",

@@ -12,7 +12,7 @@ Geprüft wurden die installierten Verzeichnisse unter `E:\ProgrammeE\Steam\steam
 
 | Installierter Mod | Workspace | SHA-256 der Haupt-DLL |
 | --- | --- | --- |
-| `AIVPlacementLobby_Serp` | `AIVPlacementLobby` | `06A1414CC5BB7647F36BC1C97187CF0AD9EDDB89D9DF52C3D5E5569BAB8A3ED4` |
+| `AIVPlacementLobby_Serp` | `AIVPlacementLobby` | `386EB63EAB6170B49469309F510238F2185F7F5C10956E362DADD29747C787D8` |
 | `BugfixesAndQoL_Serp` | `BugfixesAndQoL` | `C404023E8EC155C2AA0956585D4CA672950E10EA96450D099CC021DA23A3D0BA` |
 | `BuildingCosts_Serp` | `BuildingCosts` | `13D01F1AF7B0D9D93817A5AEFF64E61E8629A4F9DADC486A6EC6B212214F3A2D` |
 | `BuildingLimit_Serp` | `BuildingLimit` | `8EA0807CEDE35B1ECD93D6F08A295057A5C6E24677F6FCB02995A84ABDE28AAA` |
@@ -32,7 +32,7 @@ Für `fixes` und `LorrdyAISharesGold` wurde keine eindeutige Workspace-Quelle ge
 
 | Mod | Priorität | Kurzbefund | Detaildatei |
 | --- | --- | --- | --- |
-| AIV Placement Lobby | mittel | vollständige Lobby-Captures und Fingerprints in jedem Frontend-Frame; veraltete Worker laufen weiter | [AIVPlacementLobby.md](AIVPlacementLobby.md) |
+| AIV Placement Lobby | kein Befund | die bestätigten Capture- und Worker-Probleme wurden behoben | [AIVPlacementLobby.md](AIVPlacementLobby.md) |
 | Bugfixes and QoL | niedrig | fehlendes Logo | [BugfixesAndQoL.md](BugfixesAndQoL.md) |
 | Building Costs | niedrig | nicht verwendete Reflection-Methode; widersprüchlicher Plugin-Lifecycle | [BuildingCosts.md](BuildingCosts.md) |
 | Building Limit | niedrig | veralteter auskommentierter Scanpfad; widersprüchlicher Plugin-Lifecycle | [BuildingLimit.md](BuildingLimit.md) |
@@ -49,7 +49,7 @@ Die mit AIV Placement installierten Workspace-Bibliotheken `AIVParser.Core`, `AI
 ## Empfohlene Fixreihenfolge
 
 2. `ExtraFeatures`: Netzwerkmodus korrekt bestimmen und Request-Deduplizierung kartengebunden machen.
-3. `UnitCosts`, `AIVPlacementLobby`, `BugfixesAndQoL`: Hot-Path-Allokationen beziehungsweise Warnungsflut beseitigen.
+3. `UnitCosts`, `BugfixesAndQoL`: Hot-Path-Allokationen beziehungsweise Warnungsflut beseitigen.
 4. `RandomEvents` und `SpawnCastle`: gemeinsame Lokalisierung verwenden; bei SpawnCastle die nachweislich toten Frame-Fallbacks entfernen.
 5. Gemeinsamen Plugin-Lifecycle und kleinen Dead Code in Costs/Limits/StartConditions bereinigen.
 
@@ -58,13 +58,15 @@ Die mit AIV Placement installierten Workspace-Bibliotheken `AIVParser.Core`, `AI
 - `AIVParser.Tests`: 35/35 bestanden.
 - `AIVPlacement.Tests`: 29/29 bestanden.
 - `MapParser.Tests`: 36/36 bestanden.
-- `AIVPlacementLobby.Tests`: 31/31 bestanden.
+- `AIVPlacementLobby.Tests`: 34/34 bestanden.
 - `CustomCustomTrail.Tests`: 18/18 bestanden.
 - `.inspect/HostClientPresetTests/bin/HostClientPresetTests.exe`: bestanden.
 - `.inspect/AuditModSettings.ps1`: 10 XAML-Dateien bestanden, einschließlich Tooltips, gemeinsamer Styles, Locale-Key-Parität und CRLF.
 - Letzter BepInEx-Logabschnitt: kein Fehler der eindeutig zugeordneten eigenen Mod-DLLs. Auffällig waren das fehlende Bugfixes-Logo und 60 identische `GameNetworkAPI.GetLocalPlayerId`-Warnungen. Die Warnungen wurden bei der Nachprüfung als wiederholte Mod-Aufrufe außerhalb einer gültigen Lobby-/Ingame-Phase eingeordnet und deshalb nicht als Script-Extender-Bug übernommen.
 
-Es wurde kein neuer In-Game-Test gestartet. Die Prüfung kombiniert statische Analyse, vorhandene Regressionstests und den letzten vorhandenen BepInEx-Logabschnitt.
+Der Benutzer hat den Capture-Fix anschließend im Spiel erfolgreich getestet. Der zugehörige
+BepInEx-Logabschnitt zeigte vollständige Auswertungen ohne Fehler oder Warnungen der Mod; das
+dabei noch aktive ausführliche Diagnose-Logging wurde danach aus dem Produktionspfad entfernt.
 
 ## Regeln für den Fix-Chat
 

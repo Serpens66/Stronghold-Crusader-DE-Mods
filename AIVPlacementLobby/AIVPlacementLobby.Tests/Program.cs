@@ -32,6 +32,9 @@ internal static class Program
             ("loads in-memory AIVJSON from the shared core", LoadsInMemoryAivJsonFromSharedCore),
             ("copies mutable inputs", CopiesInputs),
             ("rejects stale generation", RejectsStaleGeneration),
+            ("throttles unchanged lobby captures", ThrottlesUnchangedLobbyCaptures),
+            ("cancels superseded generation work", CancelsSupersededGenerationWork),
+            ("classifies expected and unexpected evaluation logs", ClassifiesEvaluationLogs),
             ("caches not-evaluable placement results", CachesNotEvaluableResults),
             ("coalesces concurrent placement requests", CoalescesConcurrentRequests),
             ("invalidates cache after AIV and map changes", InvalidatesChangedFiles),
@@ -386,6 +389,93 @@ internal static class Program
         long second = gate.Advance();
         Assert(!gate.IsCurrent(first), "old generation accepted");
         Assert(gate.IsCurrent(second), "current generation rejected");
+    }
+
+    private static void ThrottlesUnchangedLobbyCaptures()
+    {
+        var gate = new LobbyCapturePollGate(10);
+
+        Assert(gate.ShouldCapture(100, false), "initial capture was throttled");
+        Assert(!gate.ShouldCapture(101, false), "unchanged frame was captured");
+        Assert(!gate.ShouldCapture(109, false), "poll interval ended too early");
+        Assert(gate.ShouldCapture(110, false), "safety poll did not run");
+        gate.Invalidate();
+        Assert(gate.ShouldCapture(111, false), "known lobby mutation was delayed");
+        Assert(gate.ShouldCapture(112, true), "forced start capture was throttled");
+    }
+
+    private static void CancelsSupersededGenerationWork()
+    {
+        using Fixture fixture = new();
+        LobbyStateCapture capture = fixture.Capture();
+        var builder = new LobbyRequestBuilder();
+        AivPlacementRequestBatch firstBatch = builder.Build(1, capture, fixture.VanillaDirectory);
+        AivPlacementRequestBatch secondBatch = builder.Build(2, capture, fixture.VanillaDirectory);
+        var worker = new GenerationCancellationWorker();
+        var service = new AivPlacementEvaluationService(worker, 16, 2);
+        using var firstCancellation = new CancellationTokenSource();
+        using var secondCancellation = new CancellationTokenSource();
+
+        Task<AivPlacementBatchResult> first = service.EvaluateBatchAsync(
+            firstBatch,
+            null,
+            null,
+            firstCancellation.Token);
+        Assert(worker.FirstGenerationStarted.Wait(TimeSpan.FromSeconds(2)),
+            "first generation did not start");
+        firstCancellation.Cancel();
+        AivPlacementBatchResult second = service.EvaluateBatchAsync(
+                secondBatch,
+                null,
+                null,
+                secondCancellation.Token)
+            .GetAwaiter()
+            .GetResult();
+
+        bool canceled = false;
+        try
+        {
+            first.GetAwaiter().GetResult();
+        }
+        catch (OperationCanceledException)
+        {
+            canceled = true;
+        }
+
+        Assert(canceled, "superseded generation completed instead of cancelling");
+        Equal(2L, second.Results.Single().Generation);
+        Assert(worker.FirstGenerationCallCount >= 1 && worker.FirstGenerationCallCount < 8,
+            "superseded generation did not stop queued candidate work");
+        Equal(8, worker.SecondGenerationCallCount);
+    }
+
+    private static void ClassifiesEvaluationLogs()
+    {
+        using Fixture fixture = new();
+        var service = new AivPlacementEvaluationService(new CountingWorker(), 16, 1);
+        AivPlacementCheckResult preBuild = service.EvaluateAsync(
+                fixture.Build(preBuild: 1))
+            .GetAwaiter()
+            .GetResult();
+        AivPlacementCheckResult incompleteLobby = service.EvaluateAsync(
+                fixture.Build(keepOrder: Enumerable.Repeat(-1, 8).ToArray()))
+            .GetAwaiter()
+            .GetResult();
+        AivPlacementCheckResult parseFailure = service.EvaluateAsync(
+                fixture.BuildSingleCustom("parse-failure"))
+            .GetAwaiter()
+            .GetResult();
+
+        Equal(LobbyEvaluationLogSeverity.None, LobbyEvaluationLogPolicy.Classify(preBuild));
+        Equal(LobbyEvaluationLogSeverity.None, LobbyEvaluationLogPolicy.Classify(incompleteLobby));
+        Equal(LobbyEvaluationLogSeverity.Warning, LobbyEvaluationLogPolicy.Classify(parseFailure));
+
+        AivPlacementCheckRequest request = fixture.BuildSingleCustom("throwing-worker");
+        var failingService = new AivPlacementEvaluationService(new ThrowingWorker(), 16, 1);
+        AivPlacementCheckResult workerFailure = failingService.EvaluateAsync(request)
+            .GetAwaiter()
+            .GetResult();
+        Equal(LobbyEvaluationLogSeverity.Error, LobbyEvaluationLogPolicy.Classify(workerFailure));
     }
 
     private static void CachesNotEvaluableResults()
@@ -744,7 +834,9 @@ internal static class Program
         public ConcurrentBag<int> ThreadIds { get; } = new();
         public ManualResetEventSlim Started { get; } = new(false);
 
-        public LobbyPlacementWorkerResult Evaluate(AivPlacementCandidateWorkItem workItem)
+        public LobbyPlacementWorkerResult Evaluate(
+            AivPlacementCandidateWorkItem workItem,
+            CancellationToken cancellationToken)
         {
             Interlocked.Increment(ref callCount);
             ThreadIds.Add(Environment.CurrentManagedThreadId);
@@ -763,7 +855,9 @@ internal static class Program
 
         public int CallCount => Volatile.Read(ref callCount);
 
-        public LobbyPlacementWorkerResult Evaluate(AivPlacementCandidateWorkItem workItem)
+        public LobbyPlacementWorkerResult Evaluate(
+            AivPlacementCandidateWorkItem workItem,
+            CancellationToken cancellationToken)
         {
             Interlocked.Increment(ref callCount);
             bool partial = workItem.Candidate.Name.StartsWith(
@@ -842,7 +936,9 @@ internal static class Program
         public List<Dictionary<int, AivRotation>> RebuiltStates { get; } = new();
         public Dictionary<string, Dictionary<int, AivRotation>> StatesByCandidate { get; } = new();
 
-        public LobbyPlacementWorkerResult Evaluate(AivPlacementCandidateWorkItem workItem)
+        public LobbyPlacementWorkerResult Evaluate(
+            AivPlacementCandidateWorkItem workItem,
+            CancellationToken cancellationToken)
         {
             lock (sync)
             {
@@ -877,6 +973,45 @@ internal static class Program
                 string.Empty,
                 LobbyPlacementPhaseTimings.Empty);
         }
+    }
+
+    private sealed class GenerationCancellationWorker : ILobbyPlacementCandidateWorker
+    {
+        private int firstGenerationCallCount;
+        private int secondGenerationCallCount;
+
+        public int FirstGenerationCallCount => Volatile.Read(ref firstGenerationCallCount);
+        public int SecondGenerationCallCount => Volatile.Read(ref secondGenerationCallCount);
+        public ManualResetEventSlim FirstGenerationStarted { get; } = new(false);
+
+        public LobbyPlacementWorkerResult Evaluate(
+            AivPlacementCandidateWorkItem workItem,
+            CancellationToken cancellationToken)
+        {
+            if (workItem.Request.Generation == 1)
+            {
+                Interlocked.Increment(ref firstGenerationCallCount);
+                FirstGenerationStarted.Set();
+                cancellationToken.WaitHandle.WaitOne();
+                cancellationToken.ThrowIfCancellationRequested();
+            }
+            else
+            {
+                Interlocked.Increment(ref secondGenerationCallCount);
+            }
+
+            return LobbyPlacementWorkerResult.NotEvaluable(
+                LobbyEvaluationFailureKind.AivParseFailed,
+                "synthetic current-generation result");
+        }
+    }
+
+    private sealed class ThrowingWorker : ILobbyPlacementCandidateWorker
+    {
+        public LobbyPlacementWorkerResult Evaluate(
+            AivPlacementCandidateWorkItem workItem,
+            CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("synthetic unexpected worker failure");
     }
 
     private sealed class SparsePlacementMap : IAivPlacementTileSource

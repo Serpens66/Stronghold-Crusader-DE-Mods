@@ -41,7 +41,11 @@ inputs instead of crashing the lobby.
 
 Every changed lobby snapshot receives a monotonically increasing generation.
 Asynchronous results are published from the lobby's main-thread update hook only
-while `LobbyRequestGenerationGate` still accepts their generation.
+while `LobbyRequestGenerationGate` still accepts their generation. Lobby state
+is captured at most every 100 ms during ordinary frontend updates, immediately
+after known lobby button mutations and once forcibly before the game starts.
+Starting a new generation or leaving the lobby cancels obsolete candidate and
+rotation work; cancellation is neither cached nor published as a UI failure.
 
 The package-free evaluation service runs map/AIV file access, parsing, projection
 and rule evaluation on background workers. It evaluates the complete ordered AIV
@@ -54,8 +58,10 @@ contain map and AIV file identity, keep slot, retained/rebuilt start state,
 initial rotation, analyzer version and `advopt_pre_build`. Concurrent identical
 requests share one computation.
 File size or UTC modification-time changes create a new identity, so cached
-success and `NotEvaluable` results are both invalidated. Logs report cache state
-and separate map-parse, snapshot, AIV-parse, projection and rule timings.
+success and `NotEvaluable` results are both invalidated. Normal lobby updates,
+cache activity, placement results and expected cancellation remain silent.
+Only unexpected input/runtime states and actual failures are logged, with
+identical warnings and errors suppressed after their first occurrence.
 
 The test executable normally runs synthetic repository tests. A read-only local
 production-worker check can additionally be run as:

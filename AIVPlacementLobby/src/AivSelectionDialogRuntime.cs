@@ -48,6 +48,8 @@ namespace AIVPlacementLobby
             new Dictionary<FRONT_Multiplayer.MPAIVInfo, int>();
         private readonly Dictionary<int, IReadOnlyDictionary<int, AivCandidateVisualState>> statesByPlayer =
             new Dictionary<int, IReadOnlyDictionary<int, AivCandidateVisualState>>();
+        private readonly HashSet<string> reportedWarnings = new HashSet<string>(StringComparer.Ordinal);
+        private readonly HashSet<string> reportedErrors = new HashSet<string>(StringComparer.Ordinal);
 
         private Hook initHook;
         private Hook populateHook;
@@ -87,10 +89,6 @@ namespace AIVPlacementLobby
             addHook = new Hook(add, (AiSettingsAddSelectedDelegate)AddSelectedHook);
             addTrampoline = addHook.GenerateTrampoline<AiSettingsAddSelectedDelegate>();
             selectionList.RemoveRequested += OnRemoveRequested;
-
-            Shared.DebugLogHelper.LogInfo(
-                log,
-                $"AIV/AIC selection UI installed; maximumAivs={MaxCustomAivsPerLord}.");
         }
 
         public void SetPlayerMappings(
@@ -177,20 +175,48 @@ namespace AIVPlacementLobby
             FRONT_Multiplayer.MPAIVInfo aivInfo,
             bool mpMode)
         {
-            if (!IsLobbySetupActive())
+            bool lobbySetupActive;
+            try
+            {
+                lobbySetupActive = IsLobbySetupActive();
+            }
+            catch (Exception ex)
+            {
+                LogErrorOnce("init-context", $"AIV selection dialog context check failed; Vanilla continues unchanged: {ex}");
+                initTrampoline(self, aivInfo, mpMode);
+                return;
+            }
+
+            if (!lobbySetupActive)
             {
                 initTrampoline(self, aivInfo, mpMode);
                 return;
             }
 
-            activeInfo = aivInfo;
-            EnforceRuntimeLimit(aivInfo);
+            try
+            {
+                activeInfo = aivInfo;
+                EnforceRuntimeLimit(aivInfo);
+            }
+            catch (Exception ex)
+            {
+                LogErrorOnce("init-preparation", $"AIV selection dialog preparation failed; Vanilla continues unchanged: {ex}");
+                initTrampoline(self, aivInfo, mpMode);
+                return;
+            }
 
             // The vanilla MP mode restricts the list to one AIV; the host reduces it only at start.
             initTrampoline(self, aivInfo, false);
-            SetEffectiveDialogMode(self);
-            UpdateAddButtonVisibility(self);
-            RefreshSelectionList(self);
+            try
+            {
+                SetEffectiveDialogMode(self);
+                UpdateAddButtonVisibility(self);
+                RefreshSelectionList(self);
+            }
+            catch (Exception ex)
+            {
+                LogErrorOnce("init-refresh", $"Refreshing the extended AIV selection dialog after initialization failed: {ex}");
+            }
         }
 
         private void PopulateHook(
@@ -198,39 +224,116 @@ namespace AIVPlacementLobby
             FRONT_Multiplayer.MPAIVInfo aivInfo,
             bool doPopulate)
         {
-            if (!IsLobbySetupActive())
+            bool lobbySetupActive;
+            try
+            {
+                lobbySetupActive = IsLobbySetupActive();
+            }
+            catch (Exception ex)
+            {
+                LogErrorOnce("populate-context", $"AIV selection list context check failed; Vanilla continues unchanged: {ex}");
+                populateTrampoline(self, aivInfo, doPopulate);
+                return;
+            }
+
+            if (!lobbySetupActive)
             {
                 populateTrampoline(self, aivInfo, doPopulate);
                 return;
             }
 
-            SetEffectiveDialogMode(self);
+            try
+            {
+                SetEffectiveDialogMode(self);
+            }
+            catch (Exception ex)
+            {
+                LogErrorOnce("populate-preparation", $"Preparing the extended AIV selection list failed; Vanilla continues unchanged: {ex}");
+                populateTrampoline(self, aivInfo, doPopulate);
+                return;
+            }
             populateTrampoline(self, aivInfo, doPopulate);
-            RefreshSelectionList(self);
+            try
+            {
+                RefreshSelectionList(self);
+            }
+            catch (Exception ex)
+            {
+                LogErrorOnce("populate-refresh", $"Refreshing the extended AIV selection list failed: {ex}");
+            }
         }
 
         private void ButtonClickedHook(FRONT_Multiplayer_AISettings self, string param)
         {
-            if (!IsLobbySetupActive())
+            bool lobbySetupActive;
+            try
+            {
+                lobbySetupActive = IsLobbySetupActive();
+            }
+            catch (Exception ex)
+            {
+                LogErrorOnce("dialog-button-context", $"AIV selection button context check failed; Vanilla continues unchanged: {ex}");
+                buttonTrampoline(self, param);
+                return;
+            }
+
+            if (!lobbySetupActive)
             {
                 buttonTrampoline(self, param);
                 return;
             }
 
-            SetEffectiveDialogMode(self);
+            try
+            {
+                SetEffectiveDialogMode(self);
+            }
+            catch (Exception ex)
+            {
+                LogErrorOnce("dialog-button-preparation", $"Preparing the extended AIV selection button action failed; Vanilla continues unchanged: {ex}");
+                buttonTrampoline(self, param);
+                return;
+            }
             buttonTrampoline(self, param);
-            RefreshSelectionList(self);
+            try
+            {
+                RefreshSelectionList(self);
+            }
+            catch (Exception ex)
+            {
+                LogErrorOnce("dialog-button-refresh", $"Refreshing the extended AIV selection after a button action failed: {ex}");
+            }
         }
 
         private void AddSelectedHook(FRONT_Multiplayer_AISettings self)
         {
-            if (!IsLobbySetupActive())
+            bool lobbySetupActive;
+            try
+            {
+                lobbySetupActive = IsLobbySetupActive();
+            }
+            catch (Exception ex)
+            {
+                LogErrorOnce("add-context", $"Extended AIV add context check failed; Vanilla continues unchanged: {ex}");
+                addTrampoline(self);
+                return;
+            }
+
+            if (!lobbySetupActive)
             {
                 addTrampoline(self);
                 return;
             }
 
-            SetEffectiveDialogMode(self);
+            try
+            {
+                SetEffectiveDialogMode(self);
+            }
+            catch (Exception ex)
+            {
+                LogErrorOnce("add-preparation", $"Preparing the extended AIV add action failed; Vanilla continues unchanged: {ex}");
+                addTrampoline(self);
+                return;
+            }
             try
             {
                 AddSelectedAivs(self);
@@ -240,7 +343,7 @@ namespace AIVPlacementLobby
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogError(log, $"Extended AIV add failed: {ex}");
+                LogErrorOnce("add-action", $"Extended AIV add failed: {ex}");
             }
         }
 
@@ -276,14 +379,27 @@ namespace AIVPlacementLobby
 
             foreach (int selectedIndex in selectedIndexes)
             {
-                if (selectedIndex < 0 || selectedIndex >= availableAivs.Count ||
-                    info.aivs.Count >= MaxCustomAivsPerLord)
+                if (selectedIndex < 0 || selectedIndex >= availableAivs.Count)
+                {
+                    LogWarningOnce(
+                        $"invalid-selected-index-{selectedIndex}",
+                        $"Ignored invalid AIV selection index={selectedIndex}; availableCount={availableAivs.Count}.");
+                    break;
+                }
+                if (info.aivs.Count >= MaxCustomAivsPerLord)
                 {
                     break;
                 }
 
                 CustomisationFileManager.CustomAIV candidate = availableAivs[selectedIndex];
-                if (candidate == null || !checksums.Add(candidate.checksum))
+                if (candidate == null)
+                {
+                    LogWarningOnce(
+                        $"null-selected-candidate-{selectedIndex}",
+                        $"Ignored a null AIV candidate at selection index={selectedIndex}.");
+                    continue;
+                }
+                if (!checksums.Add(candidate.checksum))
                     continue;
                 info.aivs.Add(candidate);
             }
@@ -291,23 +407,35 @@ namespace AIVPlacementLobby
 
         private void OnRemoveRequested(CustomisationFileManager.CustomAIV requestedAiv)
         {
-            if (!IsLobbySetupActive() || requestedAiv == null)
-                return;
+            try
+            {
+                if (!IsLobbySetupActive() || requestedAiv == null)
+                    return;
 
-            FRONT_Multiplayer_AISettings instance = FRONT_Multiplayer_AISettings.Instance;
-            FRONT_Multiplayer.MPAIVInfo info = GetAivInfo(instance);
-            if (info?.aivs == null || !IsCustomAivMode(info))
-                return;
+                FRONT_Multiplayer_AISettings instance = FRONT_Multiplayer_AISettings.Instance;
+                FRONT_Multiplayer.MPAIVInfo info = GetAivInfo(instance);
+                if (info?.aivs == null || !IsCustomAivMode(info))
+                    return;
 
-            int index = info.aivs.IndexOf(requestedAiv);
-            if (index < 0)
-                index = info.aivs.FindIndex(aiv => aiv != null && aiv.checksum == requestedAiv.checksum);
-            if (index < 0)
-                return;
+                int index = info.aivs.IndexOf(requestedAiv);
+                if (index < 0)
+                    index = info.aivs.FindIndex(aiv => aiv != null && aiv.checksum == requestedAiv.checksum);
+                if (index < 0)
+                {
+                    LogWarningOnce(
+                        $"remove-missing-{requestedAiv.checksum}",
+                        $"Ignored removal of an AIV that is no longer selected; checksum={requestedAiv.checksum}.");
+                    return;
+                }
 
-            info.aivs.RemoveAt(index);
-            RefreshSelectionList(instance);
-            instance.ButtonClicked(SelectionChangedCommand);
+                info.aivs.RemoveAt(index);
+                RefreshSelectionList(instance);
+                instance.ButtonClicked(SelectionChangedCommand);
+            }
+            catch (Exception ex)
+            {
+                LogErrorOnce("remove-action", $"Removing an extended AIV selection failed: {ex}");
+            }
         }
 
         private void RefreshSelectionList(FRONT_Multiplayer_AISettings instance)
@@ -360,11 +488,15 @@ namespace AIVPlacementLobby
                 "Reason", friendly);
         }
 
-        private static void EnforceRuntimeLimit(FRONT_Multiplayer.MPAIVInfo info)
+        private void EnforceRuntimeLimit(FRONT_Multiplayer.MPAIVInfo info)
         {
             if (info?.aivs == null || info.aivs.Count <= MaxCustomAivsPerLord)
                 return;
+            int removed = info.aivs.Count - MaxCustomAivsPerLord;
             info.aivs.RemoveRange(MaxCustomAivsPerLord, info.aivs.Count - MaxCustomAivsPerLord);
+            LogWarningOnce(
+                "runtime-limit-truncated",
+                $"Trimmed {removed} AIV selections that exceeded the runtime limit of {MaxCustomAivsPerLord}.");
         }
 
         private static void SetEffectiveDialogMode(FRONT_Multiplayer_AISettings instance)
@@ -376,8 +508,26 @@ namespace AIVPlacementLobby
         private void UpdateAddButtonVisibility(FRONT_Multiplayer_AISettings instance)
         {
             Button addButton = instance?.FindName("MP_Add") as Button;
-            if (addButton != null)
-                addButton.Visibility = Visibility.Visible;
+            if (addButton == null)
+            {
+                LogWarningOnce(
+                    "missing-add-button",
+                    "AIV selection dialog did not expose the expected MP_Add button; extended add remains unavailable.");
+                return;
+            }
+            addButton.Visibility = Visibility.Visible;
+        }
+
+        private void LogWarningOnce(string key, string message)
+        {
+            if (reportedWarnings.Add(key ?? string.Empty))
+                Shared.DebugLogHelper.LogWarning(log, message);
+        }
+
+        private void LogErrorOnce(string key, string message)
+        {
+            if (reportedErrors.Add(key ?? string.Empty))
+                Shared.DebugLogHelper.LogError(log, message);
         }
 
         private static bool IsCustomAivMode(FRONT_Multiplayer.MPAIVInfo info) =>

@@ -136,7 +136,9 @@ namespace AIVPlacementLobby.Core
 
     public interface ILobbyPlacementCandidateWorker
     {
-        LobbyPlacementWorkerResult Evaluate(AivPlacementCandidateWorkItem workItem);
+        LobbyPlacementWorkerResult Evaluate(
+            AivPlacementCandidateWorkItem workItem,
+            CancellationToken cancellationToken);
     }
 
     public sealed class AivPlacementCandidateEvaluation
@@ -347,8 +349,8 @@ namespace AIVPlacementLobby.Core
         private readonly ILobbyPlacementCandidateWorker worker;
         private readonly SemaphoreSlim concurrency;
         private readonly BoundedLruCache<AivPlacementEvaluationKey, LobbyPlacementWorkerResult> resultCache;
-        private readonly Dictionary<AivPlacementEvaluationKey, Task<LobbyPlacementWorkerResult>> inFlight =
-            new Dictionary<AivPlacementEvaluationKey, Task<LobbyPlacementWorkerResult>>();
+        private readonly Dictionary<InFlightKey, Task<LobbyPlacementWorkerResult>> inFlight =
+            new Dictionary<InFlightKey, Task<LobbyPlacementWorkerResult>>();
 
         public AivPlacementEvaluationService(
             int maximumResultEntries = 256,
@@ -379,7 +381,8 @@ namespace AIVPlacementLobby.Core
 
         public Task<AivPlacementCheckResult> EvaluateAsync(
             AivPlacementCheckRequest request,
-            IReadOnlyDictionary<string, string> scriptExtenderAssets = null)
+            IReadOnlyDictionary<string, string> scriptExtenderAssets = null,
+            CancellationToken cancellationToken = default)
         {
             if (request == null)
                 throw new ArgumentNullException(nameof(request));
@@ -395,13 +398,16 @@ namespace AIVPlacementLobby.Core
             return Task.Run(() => EvaluateRequestCoreAsync(
                 request,
                 assets,
-                new Dictionary<int, AivRotation>()));
+                new Dictionary<int, AivRotation>(),
+                cancellationToken),
+                cancellationToken);
         }
 
         public Task<AivPlacementBatchResult> EvaluateBatchAsync(
             AivPlacementRequestBatch batch,
             IReadOnlyDictionary<string, string> scriptExtenderAssets = null,
-            Func<AivPlacementCheckResult, int?> selectCandidateId = null)
+            Func<AivPlacementCheckResult, int?> selectCandidateId = null,
+            CancellationToken cancellationToken = default)
         {
             if (batch == null)
                 throw new ArgumentNullException(nameof(batch));
@@ -417,7 +423,9 @@ namespace AIVPlacementLobby.Core
             return Task.Run(() => EvaluateBatchCoreAsync(
                 batch,
                 assets,
-                selectCandidateId));
+                selectCandidateId,
+                cancellationToken),
+                cancellationToken);
         }
 
         public static string BuildSourceFingerprint(
@@ -460,8 +468,10 @@ namespace AIVPlacementLobby.Core
         private async Task<AivPlacementCheckResult> EvaluateRequestCoreAsync(
             AivPlacementCheckRequest request,
             IReadOnlyDictionary<string, string> assets,
-            IReadOnlyDictionary<int, AivRotation> rebuiltStartRotationsBySlot)
+            IReadOnlyDictionary<int, AivRotation> rebuiltStartRotationsBySlot,
+            CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var elapsed = Stopwatch.StartNew();
             if (!request.IsReady)
             {
@@ -481,6 +491,7 @@ namespace AIVPlacementLobby.Core
             var pending = new List<Task<CandidateFetch>>(request.Candidates.Count);
             foreach (AivPlacementCandidateRequest candidate in request.Candidates)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 string assetText = null;
                 if (candidate.SourceKind == LobbyCandidateSourceKind.ScriptExtenderAsset)
                     assets.TryGetValue(candidate.Source, out assetText);
@@ -503,10 +514,11 @@ namespace AIVPlacementLobby.Core
                     aivStamp,
                     assetText,
                     rebuiltStartRotationsBySlot);
-                pending.Add(GetOrEvaluateAsync(key, item));
+                pending.Add(GetOrEvaluateAsync(key, item, cancellationToken));
             }
 
             CandidateFetch[] fetched = await Task.WhenAll(pending).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
             var candidates = new List<AivPlacementCandidateEvaluation>(fetched.Length);
             for (int index = 0; index < fetched.Length; index++)
             {
@@ -523,17 +535,20 @@ namespace AIVPlacementLobby.Core
         private async Task<AivPlacementBatchResult> EvaluateBatchCoreAsync(
             AivPlacementRequestBatch batch,
             IReadOnlyDictionary<string, string> assets,
-            Func<AivPlacementCheckResult, int?> selectCandidateId)
+            Func<AivPlacementCheckResult, int?> selectCandidateId,
+            CancellationToken cancellationToken)
         {
             var results = new List<AivPlacementCheckResult>(batch.Requests.Count);
             var selectedCandidateIds = new Dictionary<int, int>();
             var rebuiltStartRotationsBySlot = new Dictionary<int, AivRotation>();
             foreach (AivPlacementCheckRequest request in batch.Requests.OrderBy(value => value.PlayerId))
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 AivPlacementCheckResult result = await EvaluateRequestCoreAsync(
                     request,
                     assets,
-                    rebuiltStartRotationsBySlot).ConfigureAwait(false);
+                    rebuiltStartRotationsBySlot,
+                    cancellationToken).ConfigureAwait(false);
                 results.Add(result);
                 AivPlacementResult rebuiltVariant = result.SelectedVariant;
                 int? selectedCandidateId = selectCandidateId?.Invoke(result);
@@ -577,8 +592,10 @@ namespace AIVPlacementLobby.Core
 
         private Task<CandidateFetch> GetOrEvaluateAsync(
             AivPlacementEvaluationKey key,
-            AivPlacementCandidateWorkItem item)
+            AivPlacementCandidateWorkItem item,
+            CancellationToken cancellationToken)
         {
+            var inFlightKey = new InFlightKey(key, cancellationToken);
             Task<LobbyPlacementWorkerResult> task;
             bool owner = false;
             lock (sync)
@@ -590,24 +607,31 @@ namespace AIVPlacementLobby.Core
                         LobbyEvaluationCacheDisposition.ResultCacheHit));
                 }
 
-                if (!inFlight.TryGetValue(key, out task))
+                if (!inFlight.TryGetValue(inFlightKey, out task))
                 {
-                    task = RunWorkerAsync(item);
-                    inFlight.Add(key, task);
+                    task = RunWorkerAsync(item, cancellationToken);
+                    inFlight.Add(inFlightKey, task);
                     owner = true;
                 }
             }
 
-            return FinishCandidateAsync(key, task, owner);
+            return FinishCandidateAsync(key, inFlightKey, task, owner);
         }
 
         private async Task<LobbyPlacementWorkerResult> RunWorkerAsync(
-            AivPlacementCandidateWorkItem item)
+            AivPlacementCandidateWorkItem item,
+            CancellationToken cancellationToken)
         {
-            await concurrency.WaitAsync().ConfigureAwait(false);
+            await concurrency.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {
-                return await Task.Run(() => worker.Evaluate(item)).ConfigureAwait(false);
+                return await Task.Run(
+                    () => worker.Evaluate(item, cancellationToken),
+                    cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
             }
             catch (Exception ex)
             {
@@ -623,25 +647,42 @@ namespace AIVPlacementLobby.Core
 
         private async Task<CandidateFetch> FinishCandidateAsync(
             AivPlacementEvaluationKey key,
+            InFlightKey inFlightKey,
             Task<LobbyPlacementWorkerResult> task,
             bool owner)
         {
-            LobbyPlacementWorkerResult result = await task.ConfigureAwait(false);
-            lock (sync)
+            try
             {
-                if (owner)
+                LobbyPlacementWorkerResult result = await task.ConfigureAwait(false);
+                lock (sync)
                 {
-                    inFlight.Remove(key);
-                    // Proven failures are cached too; a changed file creates a different key.
-                    resultCache.Set(key, result);
+                    if (owner && inFlight.TryGetValue(inFlightKey, out Task<LobbyPlacementWorkerResult> current) &&
+                        ReferenceEquals(current, task))
+                    {
+                        inFlight.Remove(inFlightKey);
+                        // Proven failures are cached too; cancellation never reaches this path.
+                        resultCache.Set(key, result);
+                    }
                 }
-            }
 
-            return new CandidateFetch(
-                result,
-                owner
-                    ? LobbyEvaluationCacheDisposition.Computed
-                    : LobbyEvaluationCacheDisposition.SharedInFlight);
+                return new CandidateFetch(
+                    result,
+                    owner
+                        ? LobbyEvaluationCacheDisposition.Computed
+                        : LobbyEvaluationCacheDisposition.SharedInFlight);
+            }
+            catch
+            {
+                lock (sync)
+                {
+                    if (owner && inFlight.TryGetValue(inFlightKey, out Task<LobbyPlacementWorkerResult> current) &&
+                        ReferenceEquals(current, task))
+                    {
+                        inFlight.Remove(inFlightKey);
+                    }
+                }
+                throw;
+            }
         }
 
         private static AivPlacementCheckResult Aggregate(
@@ -887,6 +928,34 @@ namespace AIVPlacementLobby.Core
             public LobbyPlacementWorkerResult Result { get; }
             public LobbyEvaluationCacheDisposition Disposition { get; }
         }
+
+        private readonly struct InFlightKey : IEquatable<InFlightKey>
+        {
+            public InFlightKey(
+                AivPlacementEvaluationKey evaluationKey,
+                CancellationToken cancellationToken)
+            {
+                EvaluationKey = evaluationKey;
+                CancellationToken = cancellationToken;
+            }
+
+            public AivPlacementEvaluationKey EvaluationKey { get; }
+            public CancellationToken CancellationToken { get; }
+
+            public bool Equals(InFlightKey other) =>
+                EvaluationKey.Equals(other.EvaluationKey) &&
+                CancellationToken.Equals(other.CancellationToken);
+
+            public override bool Equals(object obj) => obj is InFlightKey other && Equals(other);
+
+            public override int GetHashCode()
+            {
+                unchecked
+                {
+                    return EvaluationKey.GetHashCode() * 397 ^ CancellationToken.GetHashCode();
+                }
+            }
+        }
     }
 
     public sealed class OfflineLobbyPlacementCandidateWorker : ILobbyPlacementCandidateWorker
@@ -905,12 +974,16 @@ namespace AIVPlacementLobby.Core
             mapCache = new BoundedLruCache<LobbyFileStamp, PreparedMap>(maximumMapEntries);
         }
 
-        public LobbyPlacementWorkerResult Evaluate(AivPlacementCandidateWorkItem workItem)
+        public LobbyPlacementWorkerResult Evaluate(
+            AivPlacementCandidateWorkItem workItem,
+            CancellationToken cancellationToken)
         {
             if (workItem == null)
                 throw new ArgumentNullException(nameof(workItem));
+            cancellationToken.ThrowIfCancellationRequested();
 
             PreparedMapLookup mapLookup = GetPreparedMap(workItem.MapStamp);
+            cancellationToken.ThrowIfCancellationRequested();
             if (!mapLookup.Map.IsReady)
             {
                 return Failure(
@@ -943,6 +1016,11 @@ namespace AIVPlacementLobby.Core
                     workItem.Request.RetainedStartSlotIndexes,
                     workItem.RebuiltStartRotationsBySlot,
                     out normalizedSnapshotElapsed);
+                cancellationToken.ThrowIfCancellationRequested();
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
             }
             catch (Exception ex)
             {
@@ -970,6 +1048,7 @@ namespace AIVPlacementLobby.Core
                         TimeSpan.Zero);
                 }
                 loaded = AivJsonFileLoader.Load(workItem.Candidate.Source);
+                cancellationToken.ThrowIfCancellationRequested();
                 if (!LobbyFileStamp.Capture(workItem.Candidate.Source).Equals(
                         workItem.AivStamp.FileStamp))
                 {
@@ -997,12 +1076,14 @@ namespace AIVPlacementLobby.Core
                 loaded = AivJsonFileLoader.LoadText(
                     workItem.AssetText,
                     workItem.Candidate.Source);
+                cancellationToken.ThrowIfCancellationRequested();
             }
 
             AivParseResult parsed = new AivBlueprintParser().Parse(
                 loaded.Document,
                 workItem.Candidate.Source,
                 loaded.Diagnostics);
+            cancellationToken.ThrowIfCancellationRequested();
             aivTimer.Stop();
             AivDiagnostic firstError = parsed.Diagnostics.FirstOrDefault(
                 value => value.Severity == AivDiagnosticSeverity.Error);
@@ -1028,16 +1109,19 @@ namespace AIVPlacementLobby.Core
                 AivRotation rotation = initialRotation;
                 for (int index = 0; index < 4; index++)
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     var projectionTimer = Stopwatch.StartNew();
                     AivProjectedCastle castle = projector.Project(
                         parsed.Blueprint,
                         keep.Coordinate.Value,
                         rotation);
+                    cancellationToken.ThrowIfCancellationRequested();
                     projectionTimer.Stop();
                     projectionElapsed += projectionTimer.Elapsed;
 
                     var ruleTimer = Stopwatch.StartNew();
                     variants.Add(evaluator.Evaluate(placementMap, castle));
+                    cancellationToken.ThrowIfCancellationRequested();
                     ruleTimer.Stop();
                     ruleElapsed += ruleTimer.Elapsed;
                     rotation = NextRotation(rotation);
@@ -1058,6 +1142,10 @@ namespace AIVPlacementLobby.Core
                         ruleElapsed,
                         mapLookup.CacheHit,
                         mapLookup.Shared));
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
             }
             catch (Exception ex)
             {

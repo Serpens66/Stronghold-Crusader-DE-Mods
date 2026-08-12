@@ -3,10 +3,17 @@
   "Author": "Serpens66",
   "Name": "AIV Placement Lobby",
   "Description": "Shows offline AIV placement fits in the skirmish lobby and selects a random best-scoring AIV for multiplayer hosts.",
-  "Version": "0.3.6",
+  "Version": "0.3.7",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "0.3.7",
+      "Changes": [
+        "Remove high-volume diagnostic logging after live validation and keep normal lobby evaluation silent.",
+        "Report unexpected hook, capture, evaluation and selection failures once as warnings or errors."
+      ]
+    },
     {
       "Version": "0.3.6",
       "Changes": [

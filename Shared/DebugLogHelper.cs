@@ -61,7 +61,8 @@ namespace Shared
         public static bool ReportNativeLibraryVersion(
             ManualLogSource log,
             string componentName,
-            bool requireCurrentVersion = false)
+            bool requireCurrentVersion = false,
+            bool logSuccess = true)
         {
             string label = string.IsNullOrWhiteSpace(componentName)
                 ? "Mod"
@@ -92,9 +93,12 @@ namespace Shared
                 long fileSize = new FileInfo(path).Length;
                 if (string.Equals(actualHash, CurrentNativeSha256, StringComparison.OrdinalIgnoreCase))
                 {
-                    LogInfo(
-                        log,
-                        $"{label} verified the installed CrusaderDE.dll: sha256={actualHash}, size={fileSize}, path={path}.");
+                    if (logSuccess)
+                    {
+                        LogInfo(
+                            log,
+                            $"{label} verified the installed CrusaderDE.dll: sha256={actualHash}, size={fileSize}, path={path}.");
+                    }
                     return true;
                 }
 

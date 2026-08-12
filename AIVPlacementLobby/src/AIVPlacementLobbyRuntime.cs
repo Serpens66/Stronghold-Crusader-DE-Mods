@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
 using AIVPlacementLobby.Core;
 using BepInEx.Logging;
@@ -36,12 +37,18 @@ namespace AIVPlacementLobby
         private readonly ManualLogSource log;
         private readonly LobbyRequestBuilder requestBuilder = new LobbyRequestBuilder();
         private readonly LobbyRequestGenerationGate generations = new LobbyRequestGenerationGate();
+        private readonly LobbyCapturePollGate capturePoll =
+            new LobbyCapturePollGate(Stopwatch.Frequency / 10);
         private readonly AivPlacementEvaluationService evaluationService =
             new AivPlacementEvaluationService();
         private readonly AivSelectionListViewModel selectionList = new AivSelectionListViewModel();
         private readonly AivSelectionDialogRuntime selectionDialog;
         private readonly ConcurrentQueue<CompletedEvaluation> completedEvaluations =
             new ConcurrentQueue<CompletedEvaluation>();
+        private readonly ConcurrentDictionary<string, byte> reportedWarnings =
+            new ConcurrentDictionary<string, byte>(StringComparer.Ordinal);
+        private readonly ConcurrentDictionary<string, byte> reportedErrors =
+            new ConcurrentDictionary<string, byte>(StringComparer.Ordinal);
         private readonly Dictionary<string, string> assetOverrideCache =
             new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         private readonly string vanillaAivDirectory;
@@ -61,12 +68,11 @@ namespace AIVPlacementLobby
         private string lastFingerprint = string.Empty;
         private string lastSourceFingerprint = string.Empty;
         private long nextSourcePollTimestamp;
-        private bool captureFailureLogged;
+        private CancellationTokenSource evaluationCancellation;
         private bool lobbyContextActive;
         private Button blockedReadyButton;
         private bool blockedReadyButtonWasEnabled;
         private object blockedReadyButtonToolTip;
-        private string lastContextDiagnosticFingerprint = string.Empty;
 
         public AIVPlacementLobbyRuntime(ManualLogSource log)
         {
@@ -96,53 +102,85 @@ namespace AIVPlacementLobby
             buttonClickedHook = new Hook(buttonClicked, (ButtonClickedDelegate)ButtonClickedHook);
             buttonClickedTrampoline = buttonClickedHook.GenerateTrampoline<ButtonClickedDelegate>();
             selectionDialog.Install();
-            Shared.DebugLogHelper.LogInfo(
-                log,
-                $"AIV lobby data-flow hooks installed; vanillaAivDirectory={vanillaAivDirectory}.");
         }
 
         private void UpdateHook(FRONT_Multiplayer self)
         {
             updateTrampoline(self);
-            bool lobbySetupActive = IsLobbySetupActive();
-            LogContextIfChanged(self, lobbySetupActive);
-            if (!lobbySetupActive)
+            try
             {
-                LeaveLobbyContext();
-                return;
-            }
+                bool lobbySetupActive = IsLobbySetupActive();
+                if (!lobbySetupActive)
+                {
+                    LeaveLobbyContext();
+                    return;
+                }
 
-            lobbyContextActive = true;
-            CaptureIfChanged(self, false, "lobby update");
-            PublishCompletedEvaluations();
-            selectionList.UpdateToolTipScale(CalculateFrontendToolTipScale());
-            UpdateHostReadyButton(self);
+                lobbyContextActive = true;
+                CaptureIfChanged(self, false);
+                PublishCompletedEvaluations();
+                selectionList.UpdateToolTipScale(CalculateFrontendToolTipScale());
+                UpdateHostReadyButton(self);
+            }
+            catch (Exception ex)
+            {
+                LogErrorOnce("frontend-update", $"AIV lobby frontend update failed: {ex}");
+            }
         }
 
         private void ButtonClickedHook(FRONT_Multiplayer self, string param)
         {
-            if (!IsLobbySetupActive())
+            bool lobbySetupActive;
+            try
+            {
+                lobbySetupActive = IsLobbySetupActive();
+            }
+            catch (Exception ex)
+            {
+                LogErrorOnce("button-context", $"AIV lobby button context check failed: {ex}");
+                buttonClickedTrampoline(self, param);
+                return;
+            }
+
+            if (!lobbySetupActive)
             {
                 buttonClickedTrampoline(self, param);
                 return;
             }
 
-            bool networkHost = IsNetworkHost(self);
-            if (networkHost && pendingPlayerIds.Count > 0 &&
-                (string.Equals(param, "Ready", StringComparison.Ordinal) ||
-                 string.Equals(param, "Play", StringComparison.Ordinal)))
+            bool networkHost;
+            List<NetworkAivSnapshot> snapshots = null;
+            try
             {
-                Shared.DebugLogHelper.LogInfo(
-                    log,
-                    $"Blocked multiplayer host action {param}; " +
-                    $"pendingPlacementChecks={pendingPlayerIds.Count}.");
-                UpdateHostReadyButton(self);
+                networkHost = IsNetworkHost(self);
+                if (networkHost && pendingPlayerIds.Count > 0 &&
+                    (string.Equals(param, "Ready", StringComparison.Ordinal) ||
+                     string.Equals(param, "Play", StringComparison.Ordinal)))
+                {
+                    UpdateHostReadyButton(self);
+                    return;
+                }
+
+                if (networkHost && string.Equals(param, "Play", StringComparison.Ordinal))
+                    snapshots = SelectNetworkStartAivs(self);
+            }
+            catch (Exception ex)
+            {
+                try
+                {
+                    RestoreNetworkStartAivs(snapshots);
+                    snapshots = null;
+                }
+                catch (Exception restoreException)
+                {
+                    LogErrorOnce(
+                        "network-aiv-restore-after-preparation",
+                        $"Restoring the multiplayer AIV list after a preparation failure also failed: {restoreException}");
+                }
+                LogErrorOnce("button-preparation", $"AIV lobby button preparation failed; Vanilla continues: {ex}");
+                buttonClickedTrampoline(self, param);
                 return;
             }
-
-            List<NetworkAivSnapshot> snapshots = null;
-            if (networkHost && string.Equals(param, "Play", StringComparison.Ordinal))
-                snapshots = SelectNetworkStartAivs(self);
 
             try
             {
@@ -150,7 +188,15 @@ namespace AIVPlacementLobby
             }
             finally
             {
-                RestoreNetworkStartAivs(snapshots);
+                try
+                {
+                    RestoreNetworkStartAivs(snapshots);
+                }
+                catch (Exception ex)
+                {
+                    LogErrorOnce("network-aiv-restore", $"Restoring the multiplayer AIV list failed: {ex}");
+                }
+                capturePoll.Invalidate();
             }
         }
 
@@ -158,19 +204,35 @@ namespace AIVPlacementLobby
             FRONT_Multiplayer self,
             HUD_IngameMenu.RestartSkirmishMapInfo restartInfo)
         {
-            if (!IsLobbySetupActive())
+            bool lobbySetupActive;
+            try
+            {
+                lobbySetupActive = IsLobbySetupActive();
+            }
+            catch (Exception ex)
+            {
+                LogErrorOnce("start-context", $"AIV lobby start context check failed; Vanilla continues unchanged: {ex}");
+                startTrampoline(self, restartInfo);
+                return;
+            }
+
+            if (!lobbySetupActive)
             {
                 startTrampoline(self, restartInfo);
                 return;
             }
 
             // Capture before Vanilla rewrites preferredAIVs and transfers setup into native state.
-            CaptureIfChanged(self, true, "before StartSkirmishGame");
+            CaptureIfChanged(self, true);
             startTrampoline(self, restartInfo);
         }
 
-        private void CaptureIfChanged(FRONT_Multiplayer frontend, bool force, string reason)
+        private void CaptureIfChanged(FRONT_Multiplayer frontend, bool force)
         {
+            long now = Stopwatch.GetTimestamp();
+            if (!capturePoll.ShouldCapture(now, force))
+                return;
+
             try
             {
                 LobbyStateCapture capture = Capture(frontend);
@@ -179,7 +241,6 @@ namespace AIVPlacementLobby
                     fingerprint,
                     lastFingerprint,
                     StringComparison.Ordinal);
-                long now = Stopwatch.GetTimestamp();
                 if (!force && !stateChanged && now < nextSourcePollTimestamp)
                     return;
 
@@ -208,17 +269,15 @@ namespace AIVPlacementLobby
                     capture,
                     vanillaAivDirectory);
                 BeginGeneration(frontend, batch);
-                LogBatch(batch, reason);
-                QueueEvaluations(batch, assets, IsNetworkHost(frontend));
+                QueueEvaluations(
+                    batch,
+                    assets,
+                    IsNetworkHost(frontend),
+                    evaluationCancellation);
             }
             catch (Exception ex)
             {
-                if (captureFailureLogged)
-                    return;
-                captureFailureLogged = true;
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Lobby capture failed; Vanilla remains unchanged and further identical errors are suppressed: {ex}");
+                LogErrorOnce("lobby-capture", $"Lobby capture failed; Vanilla remains unchanged: {ex}");
             }
         }
 
@@ -245,7 +304,12 @@ namespace AIVPlacementLobby
                         continue;
                     int playerId = lobby.getThisPlayerFromSteamID(member.GetSteamID());
                     if (playerId < 1 || playerId > frontend.AIVs.Length)
+                    {
+                        LogWarningOnce(
+                            $"capture-player-id-{playerId}",
+                            $"Skipped an active lobby member with invalid playerId={playerId}; aivSlots={frontend.AIVs.Length}.");
                         continue;
+                    }
                     if (member.SkirmishHumanMember)
                     {
                         humanPlayerIds.Add(playerId);
@@ -253,8 +317,16 @@ namespace AIVPlacementLobby
                     }
 
                     FRONT_Multiplayer.MPAIVInfo info = frontend.AIVs[playerId - 1];
-                    if (info != null)
+                    if (info == null)
+                    {
+                        LogWarningOnce(
+                            $"capture-missing-aiv-info-{playerId}",
+                            $"AI lobby slot playerId={playerId} has no AIV state; placement remains not evaluable until Vanilla supplies it.");
+                    }
+                    else
+                    {
                         playerMappings[info] = playerId;
+                    }
                     int lordType = member.GetLordType();
                     string lordEnumName = ToLordEnumName(lordType);
                     var candidates = new List<LobbyAivCandidateInput>();
@@ -316,14 +388,24 @@ namespace AIVPlacementLobby
                 {
                     try
                     {
-                        if (GameAssetManagerAPI.Instance == null ||
-                            !GameAssetManagerAPI.Instance.GetModifiedFileTextContent(asset, out content))
+                        GameAssetManagerAPI assetManager = GameAssetManagerAPI.Instance;
+                        if (assetManager == null)
+                        {
+                            LogWarningOnce(
+                                "asset-manager-unavailable",
+                                "GameAssetManagerAPI.Instance is unavailable while capturing AIV overrides; embedded Vanilla AIV files are used.");
+                            content = null;
+                        }
+                        else if (!assetManager.GetModifiedFileTextContent(asset, out content))
                         {
                             content = null;
                         }
                     }
-                    catch
+                    catch (Exception ex)
                     {
+                        LogWarningOnce(
+                            $"asset-read-{asset}",
+                            $"Reading Script Extender AIV override {asset} failed; the embedded Vanilla AIV file is used: {ex}");
                         content = null;
                     }
                     assetOverrideCache[asset] = content;
@@ -354,7 +436,8 @@ namespace AIVPlacementLobby
         private void QueueEvaluations(
             AivPlacementRequestBatch batch,
             IReadOnlyDictionary<string, string> assets,
-            bool networkHost)
+            bool networkHost,
+            CancellationTokenSource cancellation)
         {
             var requestsByPlayer = batch.Requests.ToDictionary(request => request.PlayerId);
             Task<AivPlacementBatchResult> task = evaluationService.EvaluateBatchAsync(
@@ -363,40 +446,125 @@ namespace AIVPlacementLobby
                 result => SelectCandidateForSequentialNetworkState(
                     result,
                     requestsByPlayer,
-                    networkHost));
+                    networkHost),
+                cancellation.Token);
             task.ContinueWith(
-                completed =>
+                completed => HandleEvaluationCompletion(batch, completed),
+                TaskScheduler.Default);
+        }
+
+        private void HandleEvaluationCompletion(
+            AivPlacementRequestBatch batch,
+            Task<AivPlacementBatchResult> completed)
+        {
+            // Superseded generations are expected and must not become UI failures.
+            if (completed.IsCanceled)
+                return;
+
+            if (completed.Status != TaskStatus.RanToCompletion)
+            {
+                Exception error = completed.Exception;
+                if (error == null)
                 {
-                    if (completed.Status == TaskStatus.RanToCompletion)
+                    error = new InvalidOperationException(
+                        $"Evaluation task ended with unexpected status {completed.Status}.");
+                }
+                QueueBatchFailure(batch, error);
+                return;
+            }
+
+            try
+            {
+                AivPlacementBatchResult batchResult = completed.Result ??
+                    throw new InvalidOperationException("Evaluation task returned no batch result.");
+                var expectedPlayerIds = new HashSet<int>(
+                    batch.Requests.Select(request => request.PlayerId));
+                var returnedPlayerIds = new HashSet<int>();
+
+                foreach (AivPlacementCheckResult result in batchResult.Results)
+                {
+                    if (result == null)
                     {
-                        foreach (AivPlacementCheckResult result in completed.Result.Results)
-                        {
-                            completed.Result.SelectedCandidateIdsByPlayer.TryGetValue(
-                                result.PlayerId,
-                                out int selectedCandidateId);
-                            completedEvaluations.Enqueue(new CompletedEvaluation(
-                                result.Generation,
-                                result.PlayerId,
-                                result,
-                                null,
-                                completed.Result.SelectedCandidateIdsByPlayer.ContainsKey(result.PlayerId)
-                                    ? (int?)selectedCandidateId
-                                    : null));
-                        }
-                        return;
+                        LogErrorOnce(
+                            "null-evaluation-result",
+                            "Lobby placement evaluation returned a null player result.");
+                        continue;
+                    }
+                    if (!expectedPlayerIds.Contains(result.PlayerId))
+                    {
+                        LogErrorOnce(
+                            $"unexpected-result-player-{result.PlayerId}",
+                            $"Lobby placement evaluation returned unexpected playerId={result.PlayerId} for generation={batch.Generation}.");
+                        continue;
+                    }
+                    if (!returnedPlayerIds.Add(result.PlayerId))
+                    {
+                        LogErrorOnce(
+                            $"duplicate-result-player-{result.PlayerId}",
+                            $"Lobby placement evaluation returned duplicate playerId={result.PlayerId} for generation={batch.Generation}.");
+                        continue;
                     }
 
-                    foreach (AivPlacementCheckRequest request in batch.Requests)
+                    batchResult.SelectedCandidateIdsByPlayer.TryGetValue(
+                        result.PlayerId,
+                        out int selectedCandidateId);
+                    completedEvaluations.Enqueue(new CompletedEvaluation(
+                        result.Generation,
+                        result.PlayerId,
+                        result,
+                        null,
+                        batchResult.SelectedCandidateIdsByPlayer.ContainsKey(result.PlayerId)
+                            ? (int?)selectedCandidateId
+                            : null));
+                }
+
+                foreach (AivPlacementCheckRequest request in batch.Requests)
+                {
+                    if (returnedPlayerIds.Contains(request.PlayerId))
+                        continue;
+                    var error = new InvalidOperationException(
+                        $"Evaluation returned no result for generation={batch.Generation}, playerId={request.PlayerId}.");
+                    LogErrorOnce(
+                        $"missing-result-player-{request.PlayerId}",
+                        error.Message);
+                    completedEvaluations.Enqueue(new CompletedEvaluation(
+                        request.Generation,
+                        request.PlayerId,
+                        null,
+                        error,
+                        null));
+                }
+
+                foreach (int playerId in batchResult.SelectedCandidateIdsByPlayer.Keys)
+                {
+                    if (!expectedPlayerIds.Contains(playerId))
                     {
-                        completedEvaluations.Enqueue(new CompletedEvaluation(
-                            request.Generation,
-                            request.PlayerId,
-                            null,
-                            completed.Exception,
-                            null));
+                        LogWarningOnce(
+                            $"unexpected-selection-player-{playerId}",
+                            $"Ignored a selected AIV candidate for unexpected playerId={playerId}, generation={batch.Generation}.");
                     }
-                },
-                TaskScheduler.Default);
+                }
+            }
+            catch (Exception ex)
+            {
+                QueueBatchFailure(batch, ex);
+            }
+        }
+
+        private void QueueBatchFailure(AivPlacementRequestBatch batch, Exception error)
+        {
+            LogErrorOnce(
+                $"evaluation-{error.GetType().FullName}-{error.Message}",
+                $"Asynchronous lobby placement evaluation failed: {error}");
+            foreach (AivPlacementCheckRequest request in batch.Requests)
+            {
+                completedEvaluations.Enqueue(new CompletedEvaluation(
+                    request.Generation,
+                    request.PlayerId,
+                    null,
+                    error,
+                    null));
+            }
         }
 
         private int? SelectCandidateForSequentialNetworkState(
@@ -435,68 +603,31 @@ namespace AIVPlacementLobby
                             completed.PlayerId,
                             completed.Error.GetBaseException().Message);
                     }
-                    Shared.DebugLogHelper.LogError(
-                        log,
-                        $"Asynchronous lobby placement evaluation failed: {completed.Error}");
                     continue;
                 }
 
                 AivPlacementCheckResult result = completed.Result;
-                if (!generations.IsCurrent(result.Generation))
+                if (result == null)
                 {
-                    Shared.DebugLogHelper.LogInfo(
-                        log,
-                        $"Discarded stale lobby placement result generation={result.Generation}, " +
-                        $"currentGeneration={generations.Current}, playerId={result.PlayerId}.");
+                    LogErrorOnce(
+                        "queued-null-result",
+                        $"Queued lobby evaluation has neither result nor error for generation={completed.Generation}, playerId={completed.PlayerId}.");
                     continue;
                 }
+                if (!generations.IsCurrent(result.Generation))
+                    continue;
 
-                Shared.DebugLogHelper.LogInfo(
-                    log,
-                    $"Lobby placement result generation={result.Generation}, playerId={result.PlayerId}, " +
-                    $"keepIndex={result.KeepSlotIndex}, advopt_pre_build={result.PreBuildSetting}, " +
-                    $"status={result.Status}, reason={result.FailureKind}, " +
-                    $"selectedCandidateId={result.SelectedCandidate?.CandidateId.ToString() ?? "none"}, " +
-                    $"selectedRotation={result.SelectedVariant?.Rotation.ToString() ?? "none"}, " +
-                    $"elapsedMs={result.Elapsed.TotalMilliseconds:F3}.");
-                pendingPlayerIds.Remove(result.PlayerId);
+                LogUnexpectedEvaluationFailure(result);
+                if (!pendingPlayerIds.Remove(result.PlayerId))
+                {
+                    LogWarningOnce(
+                        $"result-not-pending-{result.PlayerId}",
+                        $"Received a current lobby placement result for non-pending playerId={result.PlayerId}, generation={result.Generation}.");
+                }
                 currentResults[result.PlayerId] = result;
                 if (completed.SelectedCandidateId.HasValue)
                     selectedNetworkCandidateIds[result.PlayerId] = completed.SelectedCandidateId.Value;
                 selectionDialog.Publish(result);
-                foreach (AivPlacementCandidateEvaluation candidate in result.Candidates)
-                {
-                    LobbyPlacementPhaseTimings timings = candidate.Timings;
-                    Shared.DebugLogHelper.LogInfo(
-                        log,
-                        $"Lobby placement timing generation={result.Generation}, playerId={result.PlayerId}, " +
-                        $"candidateId={candidate.CandidateId}, status={candidate.Status}, " +
-                        $"cache={candidate.CacheDisposition}, mapCacheHit={timings.MapCacheHit}, " +
-                        $"mapLoadShared={timings.MapLoadShared}, mapParseMs={timings.MapParse.TotalMilliseconds:F3}, " +
-                        $"snapshotMs={timings.Snapshot.TotalMilliseconds:F3}, " +
-                        $"aivParseMs={timings.AivParse.TotalMilliseconds:F3}, " +
-                        $"projectionMs={timings.Projection.TotalMilliseconds:F3}, " +
-                        $"ruleMs={timings.RuleEvaluation.TotalMilliseconds:F3}, " +
-                        $"reason={candidate.FailureKind}.");
-
-                    if (candidate.Selection == null)
-                        continue;
-                    foreach (var variant in candidate.Selection.Variants)
-                    {
-                        var firstIssue = variant.Issues.FirstOrDefault();
-                        Shared.DebugLogHelper.LogInfo(
-                            log,
-                            $"Lobby placement variant generation={result.Generation}, playerId={result.PlayerId}, " +
-                            $"candidateId={candidate.CandidateId}, rotation={(int)variant.Rotation}, " +
-                            $"status={variant.Status}, sequentialBuildScore={variant.Score.SequentialBuildScore}, " +
-                            $"fitPercentage={variant.Score.FitPercentage}, blockedElements={variant.BlockedElementCount}, " +
-                            $"issueCount={variant.Issues.Count}, " +
-                            $"firstBlockingBuildStep={variant.FirstBlockingBuildStep?.ToString() ?? "none"}, " +
-                            $"firstIssue={firstIssue?.Kind.ToString() ?? "none"}, " +
-                            $"firstIssueBuildIndex={firstIssue?.BuildIndex.ToString() ?? "none"}, " +
-                            $"firstIssueCoordinate={(firstIssue == null ? "none" : $"{firstIssue.MapCoordinate.X},{firstIssue.MapCoordinate.Y}")}.");
-                    }
-                }
             }
         }
 
@@ -518,37 +649,6 @@ namespace AIVPlacementLobby
             if (UnityEngine.Screen.width > 1366 && UnityEngine.Screen.height > 768)
                 scale = (1.6f - scale) * ConfigSettings.Settings_UIScale + scale;
             return scale;
-        }
-
-        private void LogBatch(AivPlacementRequestBatch batch, string reason)
-        {
-            Shared.DebugLogHelper.LogInfo(
-                log,
-                $"Lobby placement generation={batch.Generation}, reason={reason}, " +
-                $"aiRequests={batch.Requests.Count}.");
-            foreach (AivPlacementCheckRequest request in batch.Requests)
-            {
-                Shared.DebugLogHelper.LogInfo(
-                    log,
-                    $"Lobby placement request generation={request.Generation}, host={request.IsHost}, " +
-                    $"map={request.MapName}, mapPath={request.MapPath}, mapOrigin={request.MapOrigin}, " +
-                    $"playerId={request.PlayerId}, keepIndex={request.KeepSlotIndex}, lord={request.LordName}, " +
-                    $"retainedStartSlots={string.Join(",", request.RetainedStartSlotIndexes)}, " +
-                    $"aivMode={request.AivMode}, rotationMode=" +
-                    $"{(request.UsesMapFacingRotation ? "MapFacing" : "Fixed")}, " +
-                    $"initialRotation={(int)request.InitialRotation}, " +
-                    $"advopt_pre_build={request.PreBuildSetting}, status={(request.IsReady ? "Ready" : "NotEvaluable")}, " +
-                    $"reason={request.FailureKind}, candidates={request.Candidates.Count}.");
-                foreach (AivPlacementCandidateRequest candidate in request.Candidates)
-                {
-                    Shared.DebugLogHelper.LogInfo(
-                        log,
-                        $"Lobby AIV candidate generation={request.Generation}, playerId={request.PlayerId}, " +
-                        $"candidateId={candidate.CandidateId}, name={candidate.Name}, sourceKind={candidate.SourceKind}, " +
-                        $"source={candidate.Source}, checksum={candidate.Checksum}, " +
-                        $"status={(candidate.IsAvailable ? "Ready" : "NotEvaluable")}, reason={candidate.FailureKind}.");
-                }
-            }
         }
 
         private static LobbyAivMode GetMode(FRONT_Multiplayer.MPAIVInfo info)
@@ -606,6 +706,8 @@ namespace AIVPlacementLobby
             FRONT_Multiplayer frontend,
             AivPlacementRequestBatch batch)
         {
+            CancelEvaluation();
+            evaluationCancellation = new CancellationTokenSource();
             currentResults.Clear();
             selectedNetworkCandidateIds.Clear();
             pendingPlayerIds.Clear();
@@ -663,6 +765,7 @@ namespace AIVPlacementLobby
             lobbyContextActive = false;
             // Invalidate workers and UI state so a completed lobby check cannot leak into Trail selection.
             generations.Advance();
+            CancelEvaluation();
             while (completedEvaluations.TryDequeue(out _))
             {
             }
@@ -672,9 +775,19 @@ namespace AIVPlacementLobby
             lastFingerprint = string.Empty;
             lastSourceFingerprint = string.Empty;
             nextSourcePollTimestamp = 0;
+            capturePoll.Invalidate();
             selectionDialog.Reset();
             RestoreBlockedReadyButton();
-            Shared.DebugLogHelper.LogInfo(log, "AIV placement lobby context left; runtime state reset.");
+        }
+
+        private void CancelEvaluation()
+        {
+            CancellationTokenSource previous = evaluationCancellation;
+            evaluationCancellation = null;
+            if (previous == null)
+                return;
+
+            previous.Cancel();
         }
 
         private void RestoreBlockedReadyButton()
@@ -689,41 +802,6 @@ namespace AIVPlacementLobby
             blockedReadyButtonToolTip = null;
         }
 
-        private void LogContextIfChanged(FRONT_Multiplayer frontend, bool active)
-        {
-            MainViewModel viewModel = MainViewModel.Instance;
-            Button readyButton = frontend == null
-                ? null
-                : MultiplayerReadyButtonField.GetValue(frontend) as Button;
-            string fingerprint = string.Join(
-                "|",
-                active,
-                viewModel?.Show_MultiplayerSetup == true,
-                viewModel?.Show_MPGameCreation == true,
-                viewModel?.SkirmishSetupMode == true,
-                viewModel?.MultiplayerSetupMode == true,
-                FRONT_Multiplayer.skirmishGame,
-                FRONT_Multiplayer.coopGame,
-                frontend?.singlePlayerCoop == true,
-                frontend?.currentLobby?.isHost == true,
-                readyButton?.Name ?? "none",
-                readyButton?.IsEnabled == true);
-            if (string.Equals(fingerprint, lastContextDiagnosticFingerprint, StringComparison.Ordinal))
-                return;
-
-            lastContextDiagnosticFingerprint = fingerprint;
-            Shared.DebugLogHelper.LogInfo(
-                log,
-                $"AIV lobby context active={active}, multiplayerSetup={viewModel?.Show_MultiplayerSetup == true}, " +
-                $"gameCreation={viewModel?.Show_MPGameCreation == true}, " +
-                $"skirmishSetupMode={viewModel?.SkirmishSetupMode == true}, " +
-                $"multiplayerSetupMode={viewModel?.MultiplayerSetupMode == true}, " +
-                $"skirmishGame={FRONT_Multiplayer.skirmishGame}, coopGame={FRONT_Multiplayer.coopGame}, " +
-                $"singlePlayerCoop={frontend?.singlePlayerCoop == true}, lobbyHost={frontend?.currentLobby?.isHost == true}, " +
-                $"readyButton={readyButton?.Name ?? "none"}, readyEnabled={readyButton?.IsEnabled == true}, " +
-                $"pendingPlacementChecks={pendingPlayerIds.Count}.");
-        }
-
         private List<NetworkAivSnapshot> SelectNetworkStartAivs(FRONT_Multiplayer frontend)
         {
             var snapshots = new List<NetworkAivSnapshot>();
@@ -736,7 +814,12 @@ namespace AIVPlacementLobby
                     continue;
                 int playerId = frontend.currentLobby.getThisPlayerFromSteamID(member.GetSteamID());
                 if (playerId < 1 || playerId > frontend.AIVs.Length)
+                {
+                    LogWarningOnce(
+                        $"start-player-id-{playerId}",
+                        $"Skipped multiplayer AIV narrowing for invalid playerId={playerId}; aivSlots={frontend.AIVs.Length}.");
                     continue;
+                }
 
                 FRONT_Multiplayer.MPAIVInfo info = frontend.AIVs[playerId - 1];
                 if (GetMode(info) != LobbyAivMode.Custom || info?.aivs == null || info.aivs.Count <= 1)
@@ -753,9 +836,17 @@ namespace AIVPlacementLobby
                         eligibleIds.Add(candidateId);
                 }
 
-                eligibleIds.RemoveAll(candidateId => candidateId < 0 || candidateId >= fullList.Count);
+                eligibleIds.RemoveAll(candidateId =>
+                    candidateId < 0 ||
+                    candidateId >= fullList.Count ||
+                    fullList[candidateId] == null);
                 if (eligibleIds.Count == 0)
+                {
+                    LogWarningOnce(
+                        $"start-no-candidate-{playerId}",
+                        $"Could not narrow multiplayer AIVs for playerId={playerId} because no valid candidate remained; Vanilla receives the unchanged list.");
                     continue;
+                }
 
                 int selectedCandidateId;
                 if (!selectedNetworkCandidateIds.TryGetValue(playerId, out selectedCandidateId) ||
@@ -768,15 +859,36 @@ namespace AIVPlacementLobby
                 snapshots.Add(new NetworkAivSnapshot(info, fullList));
                 info.aivs.Clear();
                 info.aivs.Add(selected);
-
-                Shared.DebugLogHelper.LogInfo(
-                    log,
-                    $"Selected multiplayer-start AIV playerId={playerId}, " +
-                    $"status={result?.Status.ToString() ?? "NotEvaluable"}, " +
-                    $"eligibleTies={eligibleIds.Count}, candidateId={selectedCandidateId}, " +
-                    $"name={selected.AIVName}, checksum={selected.checksum}.");
             }
             return snapshots;
+        }
+
+        private void LogUnexpectedEvaluationFailure(AivPlacementCheckResult result)
+        {
+            LobbyEvaluationLogSeverity severity = LobbyEvaluationLogPolicy.Classify(result);
+            if (severity == LobbyEvaluationLogSeverity.None)
+                return;
+
+            string message =
+                $"Lobby placement is unexpectedly not evaluable: playerId={result.PlayerId}, " +
+                $"generation={result.Generation}, reason={result.FailureKind}, detail={result.FailureMessage}.";
+            string key = $"evaluation-result-{result.PlayerId}-{result.FailureKind}-{result.FailureMessage}";
+            if (severity == LobbyEvaluationLogSeverity.Error)
+                LogErrorOnce(key, message);
+            else
+                LogWarningOnce(key, message);
+        }
+
+        private void LogWarningOnce(string key, string message)
+        {
+            if (reportedWarnings.TryAdd(key ?? string.Empty, 0))
+                Shared.DebugLogHelper.LogWarning(log, message);
+        }
+
+        private void LogErrorOnce(string key, string message)
+        {
+            if (reportedErrors.TryAdd(key ?? string.Empty, 0))
+                Shared.DebugLogHelper.LogError(log, message);
         }
 
         private static void RestoreNetworkStartAivs(List<NetworkAivSnapshot> snapshots)
