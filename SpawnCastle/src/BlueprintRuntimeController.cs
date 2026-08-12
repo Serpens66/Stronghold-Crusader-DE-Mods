@@ -7,15 +7,13 @@ using SHCDESE.GameGlobals;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
-using Object = UnityEngine.Object;
 
 namespace SpawnCastle
 {
-    internal sealed class BlueprintRuntimeController : MonoBehaviour
+    internal sealed class BlueprintRuntimeController
     {
         private const float ViewSettleDelaySeconds = 0.5f;
         private static readonly KeyCode[] SupportedKeys = CreateSupportedKeys();
@@ -45,7 +43,6 @@ namespace SpawnCastle
         private bool suppressOverlayUntilViewSettled;
         private float nextRuntimeErrorLogTime;
         private int lastTickFrame = -1;
-        private bool componentUpdateObserved;
         private bool beforeRenderCallbackObserved;
 
         public BlueprintHudViewModel Hud { get; private set; }
@@ -54,10 +51,7 @@ namespace SpawnCastle
             ManualLogSource log,
             SpawnCastleSettingsViewModel settings)
         {
-            var host = new GameObject("SpawnCastle_BlueprintRuntime");
-            var controller =
-                host.AddComponent<BlueprintRuntimeController>();
-            Object.DontDestroyOnLoad(host);
+            var controller = new BlueprintRuntimeController();
             controller.Initialize(log, settings);
             return controller;
         }
@@ -98,15 +92,14 @@ namespace SpawnCastle
 
             initialized = true;
             RefreshHud();
-            // This static Unity callback survives destruction of the early
-            // BepInEx/boot scene objects and runs while input state is current.
+            // This verified callback survives destruction of SHCDE's early plugin objects.
+            // A fixed Script Extender dispatcher may offer a better frame host later:
+            // https://gitlab.com/rawra-stronghold-crusader/shcde-script-extender/-/work_items/128
             Application.onBeforeRender += OnBeforeRender;
-            // The Script Extender dispatcher is known to survive the early
-            // destruction of BepInEx plugin GameObjects and owns this frame loop.
-            UnityMainThreadDispatcher.Instance.StartCoroutine(RunFrameLoop());
             Shared.DebugLogHelper.LogInfo(
                 log,
-                "Persistent local blueprint runtime initialized; dispatcher frame loop started.");
+                "Persistent local blueprint runtime initialized; " +
+                "Application.onBeforeRender frame loop registered.");
         }
 
         private void OnBeforeRender()
@@ -119,45 +112,22 @@ namespace SpawnCastle
                     "Persistent Application.onBeforeRender blueprint callback is active.");
             }
 
-            HideStaleNormalProjectionBeforeRender();
-            TickOncePerFrame();
-        }
-
-        private IEnumerator RunFrameLoop()
-        {
-            while (true)
+            try
             {
-                try
-                {
-                    TickOncePerFrame();
-                }
-                catch (Exception ex)
-                {
-                    // Keep the process-lifetime loop alive after transient scene changes.
-                    if (Time.unscaledTime >= nextRuntimeErrorLogTime)
-                    {
-                        nextRuntimeErrorLogTime = Time.unscaledTime + 5f;
-                        Shared.DebugLogHelper.LogError(
-                            log,
-                            $"Blueprint frame loop recovered from an error: {ex}");
-                    }
-                }
-
-                yield return null;
+                HideStaleNormalProjectionBeforeRender();
+                TickOncePerFrame();
             }
-        }
-
-        private void Update()
-        {
-            if (!componentUpdateObserved)
+            catch (Exception ex)
             {
-                componentUpdateObserved = true;
-                Shared.DebugLogHelper.LogInfo(
-                    log,
-                    "Persistent BlueprintRuntimeController.Update is active.");
+                // Keep the process-lifetime callback alive after transient scene changes.
+                if (Time.unscaledTime >= nextRuntimeErrorLogTime)
+                {
+                    nextRuntimeErrorLogTime = Time.unscaledTime + 5f;
+                    Shared.DebugLogHelper.LogError(
+                        log,
+                        $"Blueprint frame loop recovered from an error: {ex}");
+                }
             }
-
-            TickOncePerFrame();
         }
 
         private void TickOncePerFrame()
