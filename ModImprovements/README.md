@@ -12,7 +12,6 @@ Geprüft wurden die installierten Verzeichnisse unter `E:\ProgrammeE\Steam\steam
 
 | Installierter Mod | Workspace | SHA-256 der Haupt-DLL |
 | --- | --- | --- |
-| `000shcdese` | `shcde-script-extender` | `71EF76EB1890A9F720D2385AAACCAC5E50CE4D58575917653A20C3517B0C2CC4` |
 | `AIVPlacementLobby_Serp` | `AIVPlacementLobby` | `06A1414CC5BB7647F36BC1C97187CF0AD9EDDB89D9DF52C3D5E5569BAB8A3ED4` |
 | `BugfixesAndQoL_Serp` | `BugfixesAndQoL` | `C404023E8EC155C2AA0956585D4CA672950E10EA96450D099CC021DA23A3D0BA` |
 | `BuildingCosts_Serp` | `BuildingCosts` | `13D01F1AF7B0D9D93817A5AEFF64E61E8629A4F9DADC486A6EC6B212214F3A2D` |
@@ -33,7 +32,6 @@ Für `fixes` und `LorrdyAISharesGold` wurde keine eindeutige Workspace-Quelle ge
 
 | Mod | Priorität | Kurzbefund | Detaildatei |
 | --- | --- | --- | --- |
-| Script Extender | hoch | Dispatcher kann nach dem frühen Unity-Lifecycle keine Queue mehr abarbeiten; blockierender Aufruf hat kein Timeout | [000shcdese.md](000shcdese.md) |
 | AIV Placement Lobby | mittel | vollständige Lobby-Captures und Fingerprints in jedem Frontend-Frame; veraltete Worker laufen weiter | [AIVPlacementLobby.md](AIVPlacementLobby.md) |
 | Bugfixes and QoL | niedrig | fehlendes Logo | [BugfixesAndQoL.md](BugfixesAndQoL.md) |
 | Building Costs | niedrig | nicht verwendete Reflection-Methode; widersprüchlicher Plugin-Lifecycle | [BuildingCosts.md](BuildingCosts.md) |
@@ -50,7 +48,6 @@ Die mit AIV Placement installierten Workspace-Bibliotheken `AIVParser.Core`, `AI
 
 ## Empfohlene Fixreihenfolge
 
-1. `000shcdese`: Dispatcher-Fortschritt sicherstellen und unendliches Warten ausschließen. Das ist Infrastruktur mit vielen Konsumenten.
 2. `ExtraFeatures`: Netzwerkmodus korrekt bestimmen und Request-Deduplizierung kartengebunden machen.
 3. `UnitCosts`, `AIVPlacementLobby`, `BugfixesAndQoL`: Hot-Path-Allokationen beziehungsweise Warnungsflut beseitigen.
 4. `RandomEvents` und `SpawnCastle`: gemeinsame Lokalisierung verwenden; bei SpawnCastle die nachweislich toten Frame-Fallbacks entfernen.
@@ -65,7 +62,7 @@ Die mit AIV Placement installierten Workspace-Bibliotheken `AIVParser.Core`, `AI
 - `CustomCustomTrail.Tests`: 18/18 bestanden.
 - `.inspect/HostClientPresetTests/bin/HostClientPresetTests.exe`: bestanden.
 - `.inspect/AuditModSettings.ps1`: 10 XAML-Dateien bestanden, einschließlich Tooltips, gemeinsamer Styles, Locale-Key-Parität und CRLF.
-- Letzter BepInEx-Logabschnitt: kein Fehler der eindeutig zugeordneten eigenen Mod-DLLs. Auffällig waren das fehlende Bugfixes-Logo und 60 identische `GameNetworkAPI.GetLocalPlayerId`-Warnungen.
+- Letzter BepInEx-Logabschnitt: kein Fehler der eindeutig zugeordneten eigenen Mod-DLLs. Auffällig waren das fehlende Bugfixes-Logo und 60 identische `GameNetworkAPI.GetLocalPlayerId`-Warnungen. Die Warnungen wurden bei der Nachprüfung als wiederholte Mod-Aufrufe außerhalb einer gültigen Lobby-/Ingame-Phase eingeordnet und deshalb nicht als Script-Extender-Bug übernommen.
 
 Es wurde kein neuer In-Game-Test gestartet. Die Prüfung kombiniert statische Analyse, vorhandene Regressionstests und den letzten vorhandenen BepInEx-Logabschnitt.
 
