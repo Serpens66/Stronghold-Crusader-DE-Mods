@@ -125,7 +125,7 @@ namespace AIDefense
             LogInfo(
                 $"AI Defense hooks subscribed: initialScanDelayTicks={InitialScanDelayTicks}, " +
                 $"scanIntervalTicks={ScanIntervalTicks}, summaryIntervalTicks={SummaryLogIntervalTicks}, defenderType={DefenderType}, " +
-                $"protectedAIBehaviourType={ProtectedAIBehaviourTypeValue}, queryIdsAdjustedToOneBased=true, " +
+                $"protectedAIBehaviourType={ProtectedAIBehaviourTypeValue}, queryResultsAreOneBasedIds=true, " +
                 $"towerLocalMovementAllowed=true.");
         }
 
@@ -365,7 +365,6 @@ namespace AIDefense
                 AliveState.IsAlive,
                 relationship: PlayerRelationship.Any,
                 povPlayerId: null);
-            ConvertZeroBasedQueryIndicesToGameIds(aliveUnitIds);
 
             HashSet<uint> occupiedUnitTileIds = new HashSet<uint>();
             Dictionary<uint, List<int>> rangedUnitsByTileId = new Dictionary<uint, List<int>>();
@@ -390,7 +389,7 @@ namespace AIDefense
                 rangedUnitIds.Add(unitId);
             }
 
-            int[] aliveBuildingIndices = buildingApi.GetAllAliveBuildings();
+            int[] aliveBuildingIds = buildingApi.GetAllAliveBuildings();
             HashSet<uint> liveAITowerGlobals = new HashSet<uint>();
 
             int towersFound = 0;
@@ -401,9 +400,8 @@ namespace AIDefense
             int spawnFailures = 0;
             bool newFailureLogged = false;
 
-            foreach (int buildingIndex in aliveBuildingIndices)
+            foreach (int buildingId in aliveBuildingIds)
             {
-                int buildingId = buildingIndex + 1;
                 if (!buildingApi.TryGetBuildingById(buildingId, out GameBuilding* tower) ||
                     tower == null ||
                     tower->r_AliveState != AliveState.IsAlive ||
@@ -823,12 +821,12 @@ namespace AIDefense
 
             int ownerPlayerId = tower->r_PlayerIdOwner;
             long createdId = GameUnitManagerAPI.Instance.CreateUnitLocal(
-                ownerPlayerId,
-                ownerPlayerId,
-                bestTileX,
-                bestTileY,
-                bestHeight,
-                DefenderType);
+                playerOwnerId: ownerPlayerId,
+                playerColorId: ownerPlayerId,
+                localTileX: bestTileX,
+                localTileY: bestTileY,
+                heightElevation: bestHeight,
+                chimp: DefenderType);
 
             if (createdId <= 0 || createdId > int.MaxValue)
             {
@@ -1335,12 +1333,6 @@ namespace AIDefense
         private static bool IsTribeActive(AliveState state)
         {
             return state == AliveState.NeedsInit || state == AliveState.IsAlive;
-        }
-
-        private static void ConvertZeroBasedQueryIndicesToGameIds(List<int> queryIndices)
-        {
-            for (int i = 0; i < queryIndices.Count; i++)
-                queryIndices[i]++;
         }
 
         private static bool ShouldLogBlockedOrder(int count)

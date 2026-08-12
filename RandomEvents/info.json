@@ -3,10 +3,17 @@
   "Author": "Serpens66",
   "Name": "Random Events",
   "Description": "Runs configurable Vanilla scenario events in singleplayer skirmishes and Trail missions.",
-  "Version": "1.0.8",
+  "Version": "1.0.9",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.9",
+      "Changes": [
+        "Use Script Extender 1.41's official owner-then-color unit-spawn contract with explicit named arguments.",
+        "Update the native event documentation now that the former spawn-parameter workaround is part of the official API."
+      ]
+    },
     {
       "Version": "1.0.8",
       "Changes": [

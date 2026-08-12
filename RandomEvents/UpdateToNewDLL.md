@@ -57,7 +57,8 @@ The named source constants contain the complete byte patterns.
 All 21 table signatures match exactly once. The presentation manager target
 remains `0x1B61EE0`; its handler moved to `0x103160`. Signpost slots/stride/type,
 bandit player state, all event prerequisites and wildlife masks/limits retain
-their previous semantics. The unit-spawn function is now `0x17FEA0` and still
-writes its first two managed arguments to `GameUnit +0x92/+0x0C` respectively.
+their previous semantics. The unit-spawn function is now `0x17FEA0`. Script
+Extender 1.41 names its first two managed arguments `playerOwnerId` and
+`playerColorId`; the native function writes them to `GameUnit +0x92/+0x0C`.
 Independent event, reload and multiplayer tests remain post-build game smoke
 tests.

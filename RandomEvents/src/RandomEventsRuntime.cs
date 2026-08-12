@@ -698,14 +698,14 @@ namespace RandomEvents
 
                 for (int index = 0; index < requestedUnits; index++)
                 {
-                    // SHCDE-SE currently labels these two arguments in reverse: native expects owner, then sprite color.
+                    // Script Extender 1.41 exposes the native owner/color order; names keep that contract explicit.
                     int unitId = checked((int)unitApi.CreateUnitLocal(
-                        banditOwnerPlayerId,
-                        BanditVisualPlayerId,
-                        spawnTileX,
-                        spawnTileY,
-                        spawnHeight,
-                        eChimps.CHIMP_TYPE_MACEMAN));
+                        playerOwnerId: banditOwnerPlayerId,
+                        playerColorId: BanditVisualPlayerId,
+                        localTileX: spawnTileX,
+                        localTileY: spawnTileY,
+                        heightElevation: spawnHeight,
+                        chimp: eChimps.CHIMP_TYPE_MACEMAN));
                     if (unitId <= 0 ||
                         !unitApi.TryGetUnitById(unitId, out GameUnit* unit) ||
                         unit == null ||

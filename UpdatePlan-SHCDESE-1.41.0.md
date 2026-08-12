@@ -1,7 +1,7 @@
 # Updateplan: SHCDE Script Extender 1.40.0 auf 1.41.0
 
 Stand: 12. August 2026
-Status: Umsetzung läuft; gemeinsame Preset-/Hostautorisierung und die 1.41-Anpassungen von `ExtraFeatures` umgesetzt, geprüft, als 1.0.11 gebaut und installiert; Stall-Verknüpfung im Spiel verifiziert, finale Multiplayer-Abnahme noch offen
+Status: Umsetzung läuft; gemeinsame Preset-/Hostautorisierung sowie die 1.41-Anpassungen von `ExtraFeatures`, `AIDefense` und `RandomEvents` umgesetzt, geprüft, gebaut und installiert; Stall-Verknüpfung im Spiel verifiziert, finale Singleplayer-/Multiplayer-Abnahme noch offen
 
 ## 1. Ziel und geprüfte Basis
 
@@ -179,6 +179,8 @@ Für das spätere Update auf 1.50.0 separat einplanen: `SendPacketToAllEx2(..., 
 
 ### Schritt 6: `AIDefense`-Query-IDs korrigieren
 
+**Umsetzungsstand 12. August 2026: abgeschlossen, ausgenommen die reale Ingame-Abnahme.** `GetAllUnits` und `GetAllAliveBuildings` werden nun direkt als einbasierte Game-IDs verarbeitet; sowohl der Unit-Konvertierungshelfer als auch die zusätzliche Building-`+1`-Umrechnung sind entfernt. Der Defender-Spawn verwendet benannte Owner-/Farbparameter. Dokumentation und Initialisierungsdiagnose beschreiben den 1.41-Vertrag, die Version wurde auf 1.2.4 angehoben und der Mod nach grünen Vorprüfungen mit 0 Warnungen und 0 Fehlern gebaut und installiert. Offen bleibt ein Spieltest mit erster, mittlerer und letzter gültiger ID sowie Lücken.
+
 - Den Aufruf `ConvertZeroBasedQueryIndicesToGameIds(aliveUnitIds)` entfernen.
 - Die Hilfsmethode vollständig entfernen.
 - Alle nachfolgenden Lookups und Logs sprachlich von „Index“ auf „ID“ korrigieren, soweit sie Query-Ergebnisse meinen.
@@ -187,6 +189,8 @@ Für das spätere Update auf 1.50.0 separat einplanen: `SendPacketToAllEx2(..., 
 Abnahme: `eligible == changed + remaining` beziehungsweise die vorhandenen Runtime-Invarianten bleiben erfüllt; Unit-ID `1` und die letzte gültige Unit werden nicht verschoben oder ausgelassen.
 
 ### Schritt 7: `RandomEvents` und übrige Spawnverwendungen bereinigen
+
+**Umsetzungsstand 12. August 2026: für `RandomEvents` abgeschlossen, ausgenommen die reale Ingame-Abnahme.** Der Banditenspawn verwendet den offiziellen 1.41-Vertrag mit benannten Argumenten `playerOwnerId` und `playerColorId`; der alte Workaround-Kommentar sowie die veraltete Aussage in `NativeEventNotes.md` sind ersetzt und `UpdateToNewDLL.md` dokumentiert die Feldsemantik weiterhin. Die Version wurde auf 1.0.9 angehoben und der Mod nach grünen Vorprüfungen mit 0 Warnungen und 0 Fehlern gebaut und installiert. Die übrigen vorhandenen Spawnstellen wurden geprüft; identische Owner-/Farbwerte bleiben funktional eindeutig. Offen bleibt die Spawnverifikation im Spiel.
 
 - In `RandomEventsRuntime.cs` den Owner-/Farb-Aufruf als reguläres 1.41-Verhalten dokumentieren, nicht mehr als Upstream-Workaround.
 - `RandomEvents/NativeEventNotes.md` entsprechend aktualisieren; die native Feldvalidierung bleibt als Diagnose wertvoll.
@@ -212,6 +216,8 @@ Abnahme: Host-/Client-Lobbysichtbarkeit ist mit identischem Satz reproduzierbar;
 ### Schritt 9: Gesamtaudit, Tests und genau ein Build je geändertem Mod
 
 **Teilstand `ExtraFeatures`, 12. August 2026:** HostClientPresetTests, XAML-/Tooltip-/Locale-Audit, JSON-, Legacy-, Registrierungs-, Diff- und CRLF-Prüfung sind grün. `ExtraFeatures` 1.0.11 wurde für den abgeschlossenen Implementierungsstand genau einmal über `build.bat` mit 0 Warnungen und 0 Fehlern gebaut und installiert. Nach der separaten Ingame-Abnahme der Stall-Verknüpfung wurden die temporären Info-Logs entfernt und dieser Bereinigungsstand ebenfalls genau einmal fehlerfrei gebaut und installiert. Lokale und installierte DLL sowie `info.json` sind jeweils SHA-256-identisch; offen bleiben insbesondere die Multiplayerläufe.
+
+**Teilstand `AIDefense` und `RandomEvents`, 12. August 2026:** HostClientPresetTests, XAML-/Tooltip-/Locale-/CRLF-Audit, CustomCustomTrail.Tests (18/18), JSON-, Versions-, Legacy-, Spawnvertrag- und Diff-Prüfung sind grün. Beide Mods wurden nach Abschluss der Prüfungen jeweils genau einmal über ihre `build.bat` mit 0 Warnungen und 0 Fehlern gebaut und installiert. Lokale und installierte DLL sowie `info.json` sind jeweils SHA-256-identisch. Offen sind die im Spiel auszuführenden Query-/Spawn-Smokes und die anschließende Auswertung eines neuen BepInEx-Logsegments.
 
 Vor jedem Build:
 

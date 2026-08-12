@@ -3,10 +3,17 @@
   "Author": "Serpens66",
   "Name": "AI Defense",
   "Description": "Keeps AI castle towers garrisoned with targetable ranged defenders held in private, neutral tribes outside normal AI command groups and troop categories.",
-  "Version": "1.2.3",
+  "Version": "1.2.4",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.2.4",
+      "Changes": [
+        "Use the one-based unit and building IDs returned by Script Extender 1.41 queries directly without applying a second offset.",
+        "Pass named owner and sprite-color arguments when spawning tower defenders."
+      ]
+    },
     {
       "Version": "1.2.3",
       "Changes": [
