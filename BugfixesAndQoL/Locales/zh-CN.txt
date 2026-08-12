@@ -2,8 +2,15 @@
 # Format: key=value
 Common.EnableMod=Enable Mod
 Common.LegacySomeSettingsWarning=ERROR: The obsolete mod SomeSettings_Serp is also loaded. Please uninstall SomeSettings_Serp to avoid duplicate or conflicting features.
-SomeSettings.HdMarketView=HD Marketview
-SomeSettings.HdMarketViewHelp=Sorts the market the same way like in HD game
+SomeSettings.HdMarketView=Use configured market-goods order
+SomeSettings.HdMarketViewHelp=Uses the configured order in the detailed market view. Disable this option to restore the Definitive Edition order. This is a per-player setting.
+BugfixesAndQoL.MarketGoodsOrderTitle=Market-goods order
+BugfixesAndQoL.MarketGoodsOrderHelp=The numbered icons show the circular market order. Use the arrow buttons to swap a good with its previous or next neighbor.
+BugfixesAndQoL.MarketGoodsOrderRestoreHd=Restore HD order
+BugfixesAndQoL.MarketGoodsOrderRestoreHdHelp=Restores only the market-goods order used by Stronghold Crusader HD.
+BugfixesAndQoL.MarketGoodsOrderMovePreviousHelp=Move {Good} one position earlier in the circular market order.
+BugfixesAndQoL.MarketGoodsOrderMoveNextHelp=Move {Good} one position later in the circular market order.
+BugfixesAndQoL.MarketGoodsOrderPositionHelp=Position {Position}: {Good}
 SomeSettings.EnableTroopMovementFix=Troop Speed Fix
 SomeSettings.EnableTroopMovementFixHelp=Fixes synchronized movement for mixed troop groups: with a normal movement command, all units move at the speed of the slowest unit in the group.
 Common.ResetToDefault=Reset to Default

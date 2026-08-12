@@ -93,12 +93,43 @@
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding AllowCameraMovementWithModifiersText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox>
+      <TextBlock Text="{Binding MarketGoodsOrderTitleText}" Style="{StaticResource SectionHeader}" Margin="0,4,0,4"/>
       <CheckBox IsChecked="{Binding HdMarketView, Mode=TwoWay}"
                 Foreground="White"
                 ToolTipService.ShowDuration="60000" ToolTip="{Binding HdMarketViewHelpText}"
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding HdMarketViewText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox>
+      <TextBlock Text="{Binding MarketGoodsOrderHelpText}" Foreground="#CCCCCC" TextWrapping="Wrap" Margin="0,0,14,8"/>
+      <ItemsControl ItemsSource="{Binding MarketGoodsOrderItems}" Width="600" HorizontalAlignment="Left">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <WrapPanel Width="600" ItemWidth="120" ItemHeight="82"/>
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate>
+            <Border Width="116" Height="78" Margin="2" Background="#33251D13" BorderBrush="#887B674B" BorderThickness="1" CornerRadius="3"
+                    ToolTipService.ShowDuration="60000" ToolTip="{Binding GoodToolTip}">
+              <Grid Margin="3">
+                <Grid.RowDefinitions><RowDefinition Height="48"/><RowDefinition Height="24"/></Grid.RowDefinitions>
+                <TextBlock Grid.Row="0" Text="{Binding PositionText}" Foreground="#FFF2D48A" FontWeight="Bold" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                <Image Grid.Row="0" Source="{Binding Icon}" Width="46" Height="46" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                <Grid Grid.Row="1">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="6"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                  <Button Grid.Column="0" Content="&lt;" Command="{Binding MovePreviousCommand}" Padding="6,0"
+                          ToolTipService.ShowDuration="60000" ToolTip="{Binding MovePreviousToolTip}"/>
+                  <Button Grid.Column="2" Content="&gt;" Command="{Binding MoveNextCommand}" Padding="6,0"
+                          ToolTipService.ShowDuration="60000" ToolTip="{Binding MoveNextToolTip}"/>
+                </Grid>
+              </Grid>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+      <Button IsEnabled="{Binding CanEditClientSettings}" Content="{Binding RestoreHdMarketOrderText}" Command="{Binding RestoreHdMarketOrderCommand}"
+              ToolTipService.ShowDuration="60000" ToolTip="{Binding RestoreHdMarketOrderHelpText}"
+              HorizontalAlignment="Left" Padding="10,3" Margin="0,8,0,4"/>
       </StackPanel>
       <Separator Background="#444466" Margin="0,8"/>
       <Grid Margin="0,0,0,6">

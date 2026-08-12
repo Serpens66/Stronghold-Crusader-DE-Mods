@@ -1,8 +1,15 @@
 # Serp mod localization
 # Format: key=value
 Common.LegacySomeSettingsWarning=FEHLER: Der veraltete Mod SomeSettings_Serp ist ebenfalls geladen. Bitte deinstalliere SomeSettings_Serp, um doppelte oder widerspruechliche Funktionen zu vermeiden.
-SomeSettings.HdMarketView=HD-Marktansicht
-SomeSettings.HdMarketViewHelp=Sortiert den Markt wie in Stronghold Crusader HD.
+SomeSettings.HdMarketView=Konfigurierte Marktwaren-Reihenfolge verwenden
+SomeSettings.HdMarketViewHelp=Verwendet die konfigurierte Reihenfolge in der detaillierten Marktansicht. Deaktiviere diese Option, um die Reihenfolge der Definitive Edition wiederherzustellen. Diese Einstellung gilt pro Spieler.
+BugfixesAndQoL.MarketGoodsOrderTitle=Marktwaren-Reihenfolge
+BugfixesAndQoL.MarketGoodsOrderHelp=Die nummerierten Symbole zeigen den kreisförmigen Marktpfad. Mit den Pfeiltasten wird eine Ware mit ihrem vorherigen oder nächsten Nachbarn getauscht.
+BugfixesAndQoL.MarketGoodsOrderRestoreHd=HD-Reihenfolge wiederherstellen
+BugfixesAndQoL.MarketGoodsOrderRestoreHdHelp=Stellt nur die in Stronghold Crusader HD verwendete Marktwaren-Reihenfolge wieder her.
+BugfixesAndQoL.MarketGoodsOrderMovePreviousHelp={Good} im kreisförmigen Marktpfad um eine Position nach vorne verschieben.
+BugfixesAndQoL.MarketGoodsOrderMoveNextHelp={Good} im kreisförmigen Marktpfad um eine Position nach hinten verschieben.
+BugfixesAndQoL.MarketGoodsOrderPositionHelp=Position {Position}: {Good}
 SomeSettings.EnableTroopMovementFix=Truppen-Geschwindigkeitskorrektur
 SomeSettings.EnableTroopMovementFixHelp=Korrigiert die synchronisierte Bewegung gemischter Truppengruppen: Bei einem normalen Bewegungsbefehl laufen alle Einheiten in der Geschwindigkeit der langsamsten Einheit der Gruppe.
 Common.ResetToDefault=Zurücksetzen

@@ -1,5 +1,6 @@
 // Feature: Keeps a local preference independent from its synchronized player slots.
 using System.Collections.Generic;
+using System;
 
 namespace BugfixesAndQoL
 {
@@ -9,14 +10,16 @@ namespace BugfixesAndQoL
         private const int LastPlayerId = 8;
 
         private readonly T[] data = new T[LastPlayerId + 1];
+        private readonly Func<T, T> copyValue;
         private T localValue;
         private int validatedLocalPlayerId;
 
-        public LocalPerPlayerSetting(T defaultValue)
+        public LocalPerPlayerSetting(T defaultValue, Func<T, T> copyValue = null)
         {
-            localValue = defaultValue;
+            this.copyValue = copyValue;
+            localValue = Copy(defaultValue);
             for (int playerId = FirstPlayerId; playerId <= LastPlayerId; playerId++)
-                data[playerId] = defaultValue;
+                data[playerId] = Copy(defaultValue);
         }
 
         public T Value => localValue;
@@ -28,9 +31,9 @@ namespace BugfixesAndQoL
             if (EqualityComparer<T>.Default.Equals(localValue, value))
                 return false;
 
-            localValue = value;
+            localValue = Copy(value);
             if (IsValidPlayerId(validatedLocalPlayerId))
-                data[validatedLocalPlayerId] = value;
+                data[validatedLocalPlayerId] = Copy(localValue);
             return true;
         }
 
@@ -40,9 +43,11 @@ namespace BugfixesAndQoL
                 return false;
 
             validatedLocalPlayerId = playerId;
-            data[playerId] = localValue;
+            data[playerId] = Copy(localValue);
             return true;
         }
+
+        private T Copy(T value) => copyValue == null ? value : copyValue(value);
 
         private static bool IsValidPlayerId(int playerId) =>
             playerId >= FirstPlayerId && playerId <= LastPlayerId;

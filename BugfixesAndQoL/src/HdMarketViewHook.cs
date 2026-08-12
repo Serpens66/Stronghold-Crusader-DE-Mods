@@ -15,13 +15,6 @@ namespace BugfixesAndQoL
         private delegate void CycleTradeGoodsDelegate(MainViewModel self, object parameter);
         private delegate void NoesisGuiUpdateDelegate(FatControler self);
 
-        // Verified against Stronghold Crusader HD's DAT_MarketResourceCycleArray.
-        private static readonly int[] HdGoodsCycle =
-        {
-            12, 11, 13, 10, 9, 16, 2, 4, 6, 8,
-            19, 17, 21, 18, 20, 22, 23, 24, 14, 3
-        };
-
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
         private Hook cycleTradeGoodsHook;
@@ -156,28 +149,14 @@ namespace BugfixesAndQoL
             }
         }
 
-        private static bool TryGetTradeableNeighbor(int currentGood, int direction, out int neighborGood)
+        private bool TryGetTradeableNeighbor(int currentGood, int direction, out int neighborGood)
         {
-            neighborGood = currentGood;
-            int currentIndex = Array.IndexOf(HdGoodsCycle, currentGood);
-            if (currentIndex < 0 || direction == 0)
-                return false;
-
-            for (int offset = 1; offset <= HdGoodsCycle.Length; offset++)
-            {
-                int index = (currentIndex + direction * offset) % HdGoodsCycle.Length;
-                if (index < 0)
-                    index += HdGoodsCycle.Length;
-
-                int candidate = HdGoodsCycle[index];
-                if (IsTradeable(candidate))
-                {
-                    neighborGood = candidate;
-                    return true;
-                }
-            }
-
-            return false;
+            return MarketGoodsOrderDefinition.TryGetTradeableNeighbor(
+                settings.MarketGoodsOrder,
+                currentGood,
+                direction,
+                IsTradeable,
+                out neighborGood);
         }
 
         private static bool IsTradeable(int good)

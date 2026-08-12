@@ -69,6 +69,13 @@ public static class SerpLocalization
     public const string AllowCameraMovementWithModifiersHelp = "SomeSettings.AllowCameraMovementWithModifiersHelp";
     public const string HdMarketView = "SomeSettings.HdMarketView";
     public const string HdMarketViewHelp = "SomeSettings.HdMarketViewHelp";
+    public const string MarketGoodsOrderTitle = "BugfixesAndQoL.MarketGoodsOrderTitle";
+    public const string MarketGoodsOrderHelp = "BugfixesAndQoL.MarketGoodsOrderHelp";
+    public const string MarketGoodsOrderRestoreHd = "BugfixesAndQoL.MarketGoodsOrderRestoreHd";
+    public const string MarketGoodsOrderRestoreHdHelp = "BugfixesAndQoL.MarketGoodsOrderRestoreHdHelp";
+    public const string MarketGoodsOrderMovePreviousHelp = "BugfixesAndQoL.MarketGoodsOrderMovePreviousHelp";
+    public const string MarketGoodsOrderMoveNextHelp = "BugfixesAndQoL.MarketGoodsOrderMoveNextHelp";
+    public const string MarketGoodsOrderPositionHelp = "BugfixesAndQoL.MarketGoodsOrderPositionHelp";
     public const string BulldozeTitle = "SomeSettings.BulldozeTitle";
     public const string BulldozeHelp = "SomeSettings.BulldozeHelp";
     public const string WoodRefund = "SomeSettings.WoodRefund";
@@ -284,8 +291,15 @@ public static class SerpLocalization
         { AllowMinimapWhilePlacingBuildingHelp, "When enabled, left-clicking the minimap moves the camera even while a building is selected for placement. This is a per-player setting." },
         { AllowCameraMovementWithModifiers, "Allow camera movement while holding Ctrl or Alt" },
         { AllowCameraMovementWithModifiersHelp, "When enabled, keyboard and edge scrolling continue to move the camera while Ctrl or Alt is held. This is a per-player setting." },
-        { HdMarketView, "HD Marketview" },
-        { HdMarketViewHelp, "Sorts the market the same way like in HD game" },
+        { HdMarketView, "Use configured market-goods order" },
+        { HdMarketViewHelp, "Uses the configured order in the detailed market view. Disable this option to restore the Definitive Edition order. This is a per-player setting." },
+        { MarketGoodsOrderTitle, "Market-goods order" },
+        { MarketGoodsOrderHelp, "The numbered icons show the circular market order. Use the arrow buttons to swap a good with its previous or next neighbor." },
+        { MarketGoodsOrderRestoreHd, "Restore HD order" },
+        { MarketGoodsOrderRestoreHdHelp, "Restores only the market-goods order used by Stronghold Crusader HD." },
+        { MarketGoodsOrderMovePreviousHelp, "Move {Good} one position earlier in the circular market order." },
+        { MarketGoodsOrderMoveNextHelp, "Move {Good} one position later in the circular market order." },
+        { MarketGoodsOrderPositionHelp, "Position {Position}: {Good}" },
         { BulldozeTitle, "Building Demolition" },
         { BulldozeHelp, "-1 = unchanged. Refund values are percentages from 0 to 100." },
         { WoodRefund, "Wood refund %" },

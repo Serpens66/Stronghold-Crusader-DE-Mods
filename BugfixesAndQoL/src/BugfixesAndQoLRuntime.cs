@@ -174,6 +174,10 @@ namespace BugfixesAndQoL
 
         private void OnSettingChanged(string propertyName)
         {
+            // The installed market hook reads this local order directly; no hooks need reconciliation.
+            if (propertyName == nameof(BugfixesAndQoLViewModel.MarketGoodsOrder))
+                return;
+
             plagueTargetReservationFix?.ApplySetting();
             if (propertyName == nameof(BugfixesAndQoLViewModel.EnableTroopMovementFix))
             {

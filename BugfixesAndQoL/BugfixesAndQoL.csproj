@@ -55,6 +55,8 @@
     <Compile Include="src\EnemyProximityBulldozeCursorHook.cs" />
     <Compile Include="src\HdMarketViewHook.cs" />
     <Compile Include="src\MarketKeyMainTradeMenuHook.cs" />
+    <Compile Include="src\MarketGoodOrderItemViewModel.cs" />
+    <Compile Include="src\MarketGoodsOrderDefinition.cs" />
     <Compile Include="src\MinimapBuildingPlacementFeature.cs" />
     <Compile Include="src\MinimapCursorFollowFeature.cs" />
     <Compile Include="src\MinimapPlacementClickHook.cs" />

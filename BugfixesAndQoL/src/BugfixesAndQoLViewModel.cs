@@ -2,7 +2,11 @@
 using SHCDESE.API.Components.Network;
 using SHCDESE.NoesisUtil;
 using SHCDESE.ViewModels;
+using CrusaderDE;
 using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using BepInEx.Logging;
 using Noesis;
 
 namespace BugfixesAndQoL
@@ -27,6 +31,13 @@ namespace BugfixesAndQoL
         private readonly LocalPerPlayerSetting<bool> allowMinimapWhilePlacingBuilding = new LocalPerPlayerSetting<bool>(true);
         private readonly LocalPerPlayerSetting<bool> allowCameraMovementWithModifiers = new LocalPerPlayerSetting<bool>(true);
         private readonly LocalPerPlayerSetting<bool> hdMarketView = new LocalPerPlayerSetting<bool>(true);
+        private readonly LocalPerPlayerSetting<int[]> marketGoodsOrder =
+            new LocalPerPlayerSetting<int[]>(
+                MarketGoodsOrderDefinition.CreateHdOrder(),
+                MarketGoodsOrderDefinition.CloneOrDefault);
+        private readonly Dictionary<int, string> marketGoodNames = new Dictionary<int, string>();
+        private readonly Dictionary<int, ImageSource> marketGoodIcons = new Dictionary<int, ImageSource>();
+        private ManualLogSource marketGoodsLog;
 
         protected override string ResolveSettingsUiText(string key, string fallback) =>
             SerpLocalization.Get(key);
@@ -35,9 +46,13 @@ namespace BugfixesAndQoL
         {
             LegacyModWarningVisibility = legacySomeSettingsLoaded ? Visibility.Visible : Visibility.Collapsed;
             ResetToDefaultCommand = new RelayCommand(ResetToDefault);
+            RestoreHdMarketOrderCommand = new RelayCommand(RestoreHdMarketOrder);
         }
 
         public RelayCommand ResetToDefaultCommand { get; }
+        public RelayCommand RestoreHdMarketOrderCommand { get; }
+        public ObservableCollection<MarketGoodOrderItemViewModel> MarketGoodsOrderItems { get; } =
+            new ObservableCollection<MarketGoodOrderItemViewModel>();
         public Visibility LegacyModWarningVisibility { get; }
         public string LegacyModWarningText => SerpLocalization.Get(SerpLocalization.LegacySomeSettingsWarning);
         public string EnableModText => SerpLocalization.Get(SerpLocalization.EnableMod);
@@ -79,6 +94,10 @@ namespace BugfixesAndQoL
         public string AllowCameraMovementWithModifiersHelpText => SerpLocalization.Get(SerpLocalization.AllowCameraMovementWithModifiersHelp);
         public string HdMarketViewText => SerpLocalization.Get(SerpLocalization.HdMarketView);
         public string HdMarketViewHelpText => SerpLocalization.Get(SerpLocalization.HdMarketViewHelp);
+        public string MarketGoodsOrderTitleText => SerpLocalization.Get(SerpLocalization.MarketGoodsOrderTitle);
+        public string MarketGoodsOrderHelpText => SerpLocalization.Get(SerpLocalization.MarketGoodsOrderHelp);
+        public string RestoreHdMarketOrderText => SerpLocalization.Get(SerpLocalization.MarketGoodsOrderRestoreHd);
+        public string RestoreHdMarketOrderHelpText => SerpLocalization.Get(SerpLocalization.MarketGoodsOrderRestoreHdHelp);
 
         public bool[] EnableMinimapCursorFollowFixData => enableMinimapCursorFollowFix.Data;
         public bool[] EnableMarketKeyMainMenuFixData => enableMarketKeyMainMenuFix.Data;
@@ -88,6 +107,7 @@ namespace BugfixesAndQoL
         public bool[] AllowMinimapWhilePlacingBuildingData => allowMinimapWhilePlacingBuilding.Data;
         public bool[] AllowCameraMovementWithModifiersData => allowCameraMovementWithModifiers.Data;
         public bool[] HdMarketViewData => hdMarketView.Data;
+        public int[][] MarketGoodsOrderData => marketGoodsOrder.Data;
 
         [SyncPerPlayer]
         public bool EnableMinimapCursorFollowFix
@@ -150,6 +170,37 @@ namespace BugfixesAndQoL
         {
             get => hdMarketView.Value;
             set => SetPlayerSetting(hdMarketView, value, nameof(HdMarketView));
+        }
+
+        [SyncPerPlayer]
+        public int[] MarketGoodsOrder
+        {
+            get => MarketGoodsOrderDefinition.CloneOrDefault(marketGoodsOrder.Value);
+            set
+            {
+                bool valid = MarketGoodsOrderDefinition.IsValid(value);
+                int[] normalized = MarketGoodsOrderDefinition.CloneOrDefault(value);
+                if (!CanMutateSetting(nameof(MarketGoodsOrder)))
+                    return;
+
+                if (!valid && value != null)
+                {
+                    Shared.DebugLogHelper.LogWarning(
+                        marketGoodsLog,
+                        "Bugfixes and QoL rejected an invalid market-goods order and restored the HD order.");
+                }
+
+                if (MarketGoodsOrderDefinition.AreEqual(marketGoodsOrder.Value, normalized))
+                {
+                    RefreshMarketGoodsOrderItems();
+                    return;
+                }
+
+                marketGoodsOrder.SetValue(normalized);
+                RefreshMarketGoodsOrderItems();
+                SettingChanged?.Invoke(nameof(MarketGoodsOrder));
+                OnPropertyChanged(nameof(MarketGoodsOrder));
+            }
         }
 
         [SyncHostOnly]
@@ -220,6 +271,7 @@ namespace BugfixesAndQoL
             AllowMinimapWhilePlacingBuilding = true;
             AllowCameraMovementWithModifiers = true;
             HdMarketView = true;
+            MarketGoodsOrder = MarketGoodsOrderDefinition.CreateHdOrder();
             EnableMinimapCursorFollowFix = true;
             EnableMarketKeyMainMenuFix = true;
             EnableAutoTradeSellZeroFix = true;
@@ -251,7 +303,108 @@ namespace BugfixesAndQoL
             allowMinimapWhilePlacingBuilding.TrySetLocalPlayerId(playerId);
             allowCameraMovementWithModifiers.TrySetLocalPlayerId(playerId);
             hdMarketView.TrySetLocalPlayerId(playerId);
+            marketGoodsOrder.TrySetLocalPlayerId(playerId);
             return true;
+        }
+
+        internal void InitializeMarketGoodsOrderEditor(ManualLogSource log)
+        {
+            marketGoodsLog = log;
+            marketGoodNames.Clear();
+            marketGoodIcons.Clear();
+
+            bool missingSprite = false;
+            foreach (int good in MarketGoodsOrderDefinition.CreateHdOrder())
+            {
+                marketGoodNames[good] = ResolveMarketGoodName(good);
+                ImageSource icon = ResolveMarketGoodIcon(good);
+                marketGoodIcons[good] = icon;
+                missingSprite |= icon == null;
+            }
+
+            if (missingSprite)
+            {
+                Shared.DebugLogHelper.LogWarning(
+                    log,
+                    "Bugfixes and QoL could not resolve every market-goods icon; text tooltips remain available.");
+            }
+
+            while (MarketGoodsOrderItems.Count < MarketGoodsOrderDefinition.Count)
+                MarketGoodsOrderItems.Add(new MarketGoodOrderItemViewModel(MoveMarketGood));
+
+            RefreshMarketGoodsOrderItems();
+        }
+
+        private void MoveMarketGood(int good, int direction)
+        {
+            if (!CanEditClientSettings || !CanMutateSetting(nameof(MarketGoodsOrder)))
+                return;
+
+            MarketGoodsOrder = MarketGoodsOrderDefinition.SwapGoodWithNeighbor(
+                marketGoodsOrder.Value,
+                good,
+                direction);
+        }
+
+        private void RestoreHdMarketOrder()
+        {
+            if (!CanEditClientSettings || !CanMutateSetting(nameof(MarketGoodsOrder)))
+                return;
+
+            MarketGoodsOrder = MarketGoodsOrderDefinition.CreateHdOrder();
+        }
+
+        private void RefreshMarketGoodsOrderItems()
+        {
+            if (MarketGoodsOrderItems.Count != MarketGoodsOrderDefinition.Count)
+                return;
+
+            int[] order = MarketGoodsOrderDefinition.CloneOrDefault(marketGoodsOrder.Value);
+            for (int index = 0; index < order.Length; index++)
+            {
+                int good = order[index];
+                marketGoodNames.TryGetValue(good, out string name);
+                marketGoodIcons.TryGetValue(good, out ImageSource icon);
+                MarketGoodsOrderItems[index].Update(
+                    index,
+                    good,
+                    string.IsNullOrWhiteSpace(name) ? ((Enums.Goods)good).ToString() : name,
+                    icon);
+            }
+        }
+
+        private static string ResolveMarketGoodName(int good)
+        {
+            try
+            {
+                string name = Translate.Instance?.lookUpText(Enums.eTextSections.TEXT_GOODS, good);
+                if (!string.IsNullOrWhiteSpace(name))
+                    return name;
+            }
+            catch
+            {
+            }
+
+            return ((Enums.Goods)good).ToString();
+        }
+
+        private static ImageSource ResolveMarketGoodIcon(int good)
+        {
+            try
+            {
+                MainViewModel viewModel = MainViewModel.Instance;
+                if (viewModel == null || viewModel.GameSprites == null)
+                    return null;
+
+                int spriteId = (int)viewModel.goodsSpriteEnumFromGoodsEnum((Enums.Goods)good);
+                return spriteId >= 0 && spriteId < viewModel.GameSprites.Count
+                    ? viewModel.GameSprites[spriteId]
+                    : null;
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         private void SetPlayerSetting(LocalPerPlayerSetting<bool> setting, bool value, string propertyName)
