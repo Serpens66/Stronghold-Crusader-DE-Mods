@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.11",
+  "Version": "1.0.12",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.12",
+      "Changes": [
+        "Removed the desync-prone custom multiplayer packet paths for knight transformations and quarry-pile relocation until Script Extender 1.50.0 Chore support is adopted."
+      ]
+    },
     {
       "Version": "1.0.11",
       "Changes": [

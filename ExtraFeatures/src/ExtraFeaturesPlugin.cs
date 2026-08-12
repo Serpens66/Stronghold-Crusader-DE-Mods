@@ -19,10 +19,9 @@ namespace ExtraFeatures
 
         public const string PluginGuid = "ExtraFeatures_Serp";
         public const string PluginName = "Extra Features";
-        public const string PluginVersion = "1.0.11";
+        public const string PluginVersion = "1.0.12";
 
         private ExtraFeaturesRuntime runtime;
-        private bool runtimeDisposed;
 
         public ExtraFeaturesViewModel Settings { get; private set; }
 
@@ -41,23 +40,9 @@ namespace ExtraFeatures
             // Pass the startup result into the view model so the warning occupies no UI space otherwise.
             Settings = new ExtraFeaturesViewModel(legacySomeSettingsLoaded);
             runtime = new ExtraFeaturesRuntime(Logger, Settings);
+            // This publisher roots the runtime after BepInEx destroys its manager component.
+            // Hooks intentionally remain active until process exit; no component cleanup is reachable here.
             CrusaderLibrary.Instance.LibraryLoaded += OnCrusaderLibraryLoaded;
-        }
-
-        // The BepInEx manager destroys this component during startup, so only process quit may clean up.
-        private void OnApplicationQuit()
-        {
-            DisposeRuntime();
-        }
-
-        private void DisposeRuntime()
-        {
-            if (runtimeDisposed)
-                return;
-
-            CrusaderLibrary.Instance.LibraryLoaded -= OnCrusaderLibraryLoaded;
-            runtime?.Dispose();
-            runtimeDisposed = true;
         }
 
         private void OnCrusaderLibraryLoaded(IntPtr libraryHandle, ReadOnlySpan<byte> memory)

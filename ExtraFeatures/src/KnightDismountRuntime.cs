@@ -1,14 +1,9 @@
-// Feature: Mount swordsmen and dismount mounted knights through synchronized commands.
+// Feature: Mount swordsmen and dismount mounted knights through local commands.
 using BepInEx.Logging;
 using CrusaderDE;
-using MessagePack;
-using MessagePack.Formatters;
 using MonoMod.RuntimeDetour;
 using Noesis;
-using R3;
 using SHCDESE.API;
-using SHCDESE.EventAPI;
-using SHCDESE.EventAPI.Network;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using SHCDESE.NoesisUtil;
@@ -21,159 +16,6 @@ using Zhuqiaomon.Memory;
 
 namespace ExtraFeatures
 {
-    [MessagePackObject]
-    [MessagePackFormatter(typeof(KnightDismountPacketFormatter))]
-    public sealed class KnightDismountPacket
-    {
-        [Key(0)] public int SourcePlayerId { get; set; }
-        [Key(1)] public int RequestId { get; set; }
-        [Key(2)] public int KnightGlobalId { get; set; }
-        [Key(3)] public int OwnerPlayerId { get; set; }
-        [Key(4)] public int ColorPlayerId { get; set; }
-        [Key(5)] public int TileX { get; set; }
-        [Key(6)] public int TileY { get; set; }
-        [Key(7)] public int Height { get; set; }
-        [Key(8)] public int CurrentHealth { get; set; }
-        [Key(9)] public int MaxHealth { get; set; }
-        [Key(10)] public int LinkedProductionBuildingId { get; set; }
-    }
-
-    public sealed class KnightDismountPacketFormatter : IMessagePackFormatter<KnightDismountPacket>
-    {
-        public void Serialize(ref MessagePackWriter writer, KnightDismountPacket value, MessagePackSerializerOptions options)
-        {
-            if (value == null)
-            {
-                writer.WriteNil();
-                return;
-            }
-
-            writer.WriteArrayHeader(11);
-            writer.Write(value.SourcePlayerId);
-            writer.Write(value.RequestId);
-            writer.Write(value.KnightGlobalId);
-            writer.Write(value.OwnerPlayerId);
-            writer.Write(value.ColorPlayerId);
-            writer.Write(value.TileX);
-            writer.Write(value.TileY);
-            writer.Write(value.Height);
-            writer.Write(value.CurrentHealth);
-            writer.Write(value.MaxHealth);
-            writer.Write(value.LinkedProductionBuildingId);
-        }
-
-        public KnightDismountPacket Deserialize(ref MessagePackReader reader, MessagePackSerializerOptions options)
-        {
-            if (reader.TryReadNil())
-                return null;
-
-            int count = reader.ReadArrayHeader();
-            KnightDismountPacket packet = new KnightDismountPacket();
-
-            for (int i = 0; i < count; i++)
-            {
-                switch (i)
-                {
-                    case 0: packet.SourcePlayerId = reader.ReadInt32(); break;
-                    case 1: packet.RequestId = reader.ReadInt32(); break;
-                    case 2: packet.KnightGlobalId = reader.ReadInt32(); break;
-                    case 3: packet.OwnerPlayerId = reader.ReadInt32(); break;
-                    case 4: packet.ColorPlayerId = reader.ReadInt32(); break;
-                    case 5: packet.TileX = reader.ReadInt32(); break;
-                    case 6: packet.TileY = reader.ReadInt32(); break;
-                    case 7: packet.Height = reader.ReadInt32(); break;
-                    case 8: packet.CurrentHealth = reader.ReadInt32(); break;
-                    case 9: packet.MaxHealth = reader.ReadInt32(); break;
-                    case 10: packet.LinkedProductionBuildingId = reader.ReadInt32(); break;
-                    default: reader.Skip(); break;
-                }
-            }
-
-            return packet;
-        }
-    }
-
-    [MessagePackObject]
-    [MessagePackFormatter(typeof(KnightMountPacketFormatter))]
-    public sealed class KnightMountPacket
-    {
-        [Key(0)] public int SourcePlayerId { get; set; }
-        [Key(1)] public int RequestId { get; set; }
-        [Key(2)] public int SwordsmanGlobalId { get; set; }
-        [Key(3)] public int OwnerPlayerId { get; set; }
-        [Key(4)] public int ColorPlayerId { get; set; }
-        [Key(5)] public int TileX { get; set; }
-        [Key(6)] public int TileY { get; set; }
-        [Key(7)] public int Height { get; set; }
-        [Key(8)] public int CurrentHealth { get; set; }
-        [Key(9)] public int MaxHealth { get; set; }
-        [Key(10)] public int StableId { get; set; }
-        [Key(11)] public int StableGlobalId { get; set; }
-        [Key(12)] public int StableSlot { get; set; }
-        [Key(13)] public int LinkedProductionBuildingId { get; set; }
-    }
-
-    public sealed class KnightMountPacketFormatter : IMessagePackFormatter<KnightMountPacket>
-    {
-        public void Serialize(ref MessagePackWriter writer, KnightMountPacket value, MessagePackSerializerOptions options)
-        {
-            if (value == null)
-            {
-                writer.WriteNil();
-                return;
-            }
-
-            writer.WriteArrayHeader(14);
-            writer.Write(value.SourcePlayerId);
-            writer.Write(value.RequestId);
-            writer.Write(value.SwordsmanGlobalId);
-            writer.Write(value.OwnerPlayerId);
-            writer.Write(value.ColorPlayerId);
-            writer.Write(value.TileX);
-            writer.Write(value.TileY);
-            writer.Write(value.Height);
-            writer.Write(value.CurrentHealth);
-            writer.Write(value.MaxHealth);
-            writer.Write(value.StableId);
-            writer.Write(value.StableGlobalId);
-            writer.Write(value.StableSlot);
-            writer.Write(value.LinkedProductionBuildingId);
-        }
-
-        public KnightMountPacket Deserialize(ref MessagePackReader reader, MessagePackSerializerOptions options)
-        {
-            if (reader.TryReadNil())
-                return null;
-
-            int count = reader.ReadArrayHeader();
-            KnightMountPacket packet = new KnightMountPacket();
-
-            for (int i = 0; i < count; i++)
-            {
-                switch (i)
-                {
-                    case 0: packet.SourcePlayerId = reader.ReadInt32(); break;
-                    case 1: packet.RequestId = reader.ReadInt32(); break;
-                    case 2: packet.SwordsmanGlobalId = reader.ReadInt32(); break;
-                    case 3: packet.OwnerPlayerId = reader.ReadInt32(); break;
-                    case 4: packet.ColorPlayerId = reader.ReadInt32(); break;
-                    case 5: packet.TileX = reader.ReadInt32(); break;
-                    case 6: packet.TileY = reader.ReadInt32(); break;
-                    case 7: packet.Height = reader.ReadInt32(); break;
-                    case 8: packet.CurrentHealth = reader.ReadInt32(); break;
-                    case 9: packet.MaxHealth = reader.ReadInt32(); break;
-                    case 10: packet.StableId = reader.ReadInt32(); break;
-                    case 11: packet.StableGlobalId = reader.ReadInt32(); break;
-                    case 12: packet.StableSlot = reader.ReadInt32(); break;
-                    case 13: packet.LinkedProductionBuildingId = reader.ReadInt32(); break;
-                    default: reader.Skip(); break;
-                }
-            }
-
-            return packet;
-        }
-    }
-
     internal sealed class KnightDismountButtonViewModel : LobbyModSettingsBaseViewModel
     {
         private static readonly Thickness DefaultButtonMargin = new Thickness(80, 40, 0, 3);
@@ -309,18 +151,11 @@ namespace ExtraFeatures
 
         private readonly ManualLogSource log;
         private readonly ExtraFeaturesViewModel settings;
-        private readonly Dictionary<int, HashSet<int>> processedRequestIds = new Dictionary<int, HashSet<int>>();
         private readonly KnightDismountButtonViewModel buttonViewModel;
         private Hook setupTroopActionsHook;
         private SetuptroopActionsUIDelegate setupTroopActionsTrampoline;
-        private R3PacketEventHook<KnightDismountPacket> dismountPacketHook;
-        private R3PacketEventHook<KnightMountPacket> mountPacketHook;
-        private IDisposable dismountPacketSubscription;
-        private IDisposable mountPacketSubscription;
         private Button hookedDismountButton;
         private Button hookedMountButton;
-        private int nextRequestId;
-        private bool networkPacketsRegistered;
         private bool initialized;
         private bool disposed;
 
@@ -338,27 +173,10 @@ namespace ExtraFeatures
 
         public KnightDismountButtonViewModel ButtonViewModel => buttonViewModel;
 
-        public void RegisterNetworkPackets()
-        {
-            if (networkPacketsRegistered)
-                return;
-
-            dismountPacketHook = GameNetworkAPI.Instance.GetPacketEventFor<KnightDismountPacket>();
-            mountPacketHook = GameNetworkAPI.Instance.GetPacketEventFor<KnightMountPacket>();
-            dismountPacketSubscription = dismountPacketHook.GetBaseHook().Observable.Subscribe(OnDismountPacketReceived);
-            mountPacketSubscription = mountPacketHook.GetBaseHook().Observable.Subscribe(OnMountPacketReceived);
-            networkPacketsRegistered = true;
-            LogInfo($"network packets registered unconditionally: dismountPacketId={dismountPacketHook.GetPacketId()}, mountPacketId={mountPacketHook.GetPacketId()}.");
-        }
-
         public void Initialize()
         {
             if (initialized)
                 return;
-
-            if (!networkPacketsRegistered || dismountPacketHook == null || mountPacketHook == null ||
-                dismountPacketSubscription == null || mountPacketSubscription == null)
-                throw new InvalidOperationException("Knight network packets must be registered during plugin startup.");
 
             disposed = false;
             setupTroopActionsHook = new Hook(FindSetuptroopActionsUIMethod(), (SetuptroopActionsUIDelegate)SetuptroopActionsUIHook);
@@ -381,7 +199,6 @@ namespace ExtraFeatures
             setupTroopActionsHook?.Dispose();
             setupTroopActionsHook = null;
             setupTroopActionsTrampoline = null;
-            processedRequestIds.Clear();
         }
 
         public void RefreshButtonVisibility()
@@ -685,11 +502,9 @@ namespace ExtraFeatures
                 if (appliedSnapshots.Count > 0)
                     PlayRandomLocalSpeech(DismountSpeechFileNames, "dismount");
 
-                for (int i = 0; i < appliedSnapshots.Count; i++)
-                {
-                    int requestId = ++nextRequestId;
-                    SendDismountPacket(localPlayerId, requestId, appliedSnapshots[i]);
-                }
+                // TODO: With Script Extender 1.50.0, execute this transformation through the
+                // ordered Chore transport instead of restoring the former custom-packet path.
+                // Do not restore request-ID deduplication unless the final Chore contract requires it.
 
                 RefreshButtonVisibility();
             }
@@ -732,11 +547,9 @@ namespace ExtraFeatures
                 if (appliedSnapshots.Count > 0)
                     PlayRandomLocalSpeech(MountSpeechFileNames, "mount");
 
-                for (int i = 0; i < appliedSnapshots.Count; i++)
-                {
-                    int requestId = ++nextRequestId;
-                    SendMountPacket(localPlayerId, requestId, appliedSnapshots[i].Snapshot, appliedSnapshots[i].Allocation);
-                }
+                // TODO: With Script Extender 1.50.0, execute this transformation through the
+                // ordered Chore transport instead of restoring the former custom-packet path.
+                // Do not restore request-ID deduplication unless the final Chore contract requires it.
 
                 RefreshButtonVisibility();
             }
@@ -845,194 +658,6 @@ namespace ExtraFeatures
                 MaxHealth = (int)unit->r_MaxHealth,
                 LinkedProductionBuildingId = unit->r_LinkedProductionBuildingId
             };
-        }
-
-        private void SendDismountPacket(int sourcePlayerId, int requestId, UnitTransformSnapshot snapshot)
-        {
-            if (!GameNetworkAPI.IsNetworkedEnvironment() || dismountPacketHook == null)
-                return;
-
-            try
-            {
-                KnightDismountPacket packet = new KnightDismountPacket
-                {
-                    SourcePlayerId = sourcePlayerId,
-                    RequestId = requestId,
-                    KnightGlobalId = snapshot.GlobalId,
-                    OwnerPlayerId = snapshot.OwnerPlayerId,
-                    ColorPlayerId = snapshot.ColorPlayerId,
-                    TileX = snapshot.TileX,
-                    TileY = snapshot.TileY,
-                    Height = snapshot.Height,
-                    CurrentHealth = snapshot.CurrentHealth,
-                    MaxHealth = snapshot.MaxHealth,
-                    LinkedProductionBuildingId = snapshot.LinkedProductionBuildingId
-                };
-
-                GameNetworkAPI.SendPacketToAll(packet, dismountPacketHook.GetPacketId());
-            }
-            catch (Exception ex)
-            {
-                LogError($"Knight dismount packet send failed: sourcePlayerId={sourcePlayerId}, requestId={requestId}, globalId={snapshot.GlobalId}, owner={snapshot.OwnerPlayerId}: {ex}");
-            }
-        }
-
-        private void SendMountPacket(int sourcePlayerId, int requestId, UnitTransformSnapshot snapshot, HorseAllocation allocation)
-        {
-            if (!GameNetworkAPI.IsNetworkedEnvironment() || mountPacketHook == null)
-                return;
-
-            try
-            {
-                KnightMountPacket packet = new KnightMountPacket
-                {
-                    SourcePlayerId = sourcePlayerId,
-                    RequestId = requestId,
-                    SwordsmanGlobalId = snapshot.GlobalId,
-                    OwnerPlayerId = snapshot.OwnerPlayerId,
-                    ColorPlayerId = snapshot.ColorPlayerId,
-                    TileX = snapshot.TileX,
-                    TileY = snapshot.TileY,
-                    Height = snapshot.Height,
-                    CurrentHealth = snapshot.CurrentHealth,
-                    MaxHealth = snapshot.MaxHealth,
-                    StableId = allocation.StableId,
-                    StableGlobalId = allocation.StableGlobalId,
-                    StableSlot = allocation.Slot,
-                    LinkedProductionBuildingId = snapshot.LinkedProductionBuildingId
-                };
-
-                GameNetworkAPI.SendPacketToAll(packet, mountPacketHook.GetPacketId());
-            }
-            catch (Exception ex)
-            {
-                LogError($"Knight mount packet send failed: sourcePlayerId={sourcePlayerId}, requestId={requestId}, globalId={snapshot.GlobalId}, owner={snapshot.OwnerPlayerId}, stableId={allocation.StableId}, slot={allocation.Slot}: {ex}");
-            }
-        }
-
-        private void OnDismountPacketReceived(ReceiveCustomPacketEventArgs<KnightDismountPacket> args)
-        {
-            try
-            {
-                if (!settings.EnableMod || !settings.EnableKnightDismount || args == null || args.Packet == null)
-                    return;
-
-                KnightDismountPacket packet = args.Packet;
-                if (!IsValidPacketIdentity(packet.SourcePlayerId, packet.OwnerPlayerId) ||
-                    packet.RequestId <= 0 ||
-                    packet.KnightGlobalId <= 0)
-                {
-                    return;
-                }
-
-                if (IsDuplicatePacket(packet.SourcePlayerId, packet.RequestId))
-                    return;
-
-                int unitId = FindAliveUnitIdByGlobalId(packet.KnightGlobalId);
-                if (unitId <= 0 || !GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit))
-                    return;
-
-                if (unit->r_AliveState != AliveState.IsAlive ||
-                    unit->r_UnitChimp != eChimps.CHIMP_TYPE_KNIGHT ||
-                    unit->r_ControllableForPlayerId != packet.OwnerPlayerId)
-                    return;
-
-                UnitTransformSnapshot snapshot = new UnitTransformSnapshot
-                {
-                    UnitId = unitId,
-                    GlobalId = packet.KnightGlobalId,
-                    OwnerPlayerId = packet.OwnerPlayerId,
-                    ColorPlayerId = packet.ColorPlayerId,
-                    TileX = packet.TileX,
-                    TileY = packet.TileY,
-                    Height = packet.Height,
-                    CurrentHealth = packet.CurrentHealth,
-                    MaxHealth = packet.MaxHealth,
-                    LinkedProductionBuildingId = packet.LinkedProductionBuildingId
-                };
-
-                ApplyDismount(snapshot, $"network:{packet.SourcePlayerId}:{packet.RequestId}");
-                RefreshButtonVisibility();
-            }
-            catch (Exception ex)
-            {
-                LogError($"Knight dismount packet handling failed: {ex}");
-            }
-        }
-
-        private void OnMountPacketReceived(ReceiveCustomPacketEventArgs<KnightMountPacket> args)
-        {
-            try
-            {
-                if (!settings.EnableMod || !settings.EnableKnightDismount || args == null || args.Packet == null)
-                    return;
-
-                KnightMountPacket packet = args.Packet;
-                if (!IsValidPacketIdentity(packet.SourcePlayerId, packet.OwnerPlayerId) ||
-                    packet.RequestId <= 0 ||
-                    packet.SwordsmanGlobalId <= 0)
-                {
-                    return;
-                }
-
-                if (IsDuplicatePacket(packet.SourcePlayerId, packet.RequestId))
-                    return;
-
-                int unitId = FindAliveUnitIdByGlobalId(packet.SwordsmanGlobalId);
-                if (unitId <= 0 || !GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit))
-                    return;
-
-                if (unit->r_AliveState != AliveState.IsAlive ||
-                    unit->r_UnitChimp != eChimps.CHIMP_TYPE_SWORDSMAN ||
-                    unit->r_ControllableForPlayerId != packet.OwnerPlayerId)
-                    return;
-
-                if (!TryResolveHorseAllocation(packet.OwnerPlayerId, packet.StableId, packet.StableGlobalId, packet.StableSlot, out HorseAllocation allocation))
-                    return;
-
-                UnitTransformSnapshot snapshot = new UnitTransformSnapshot
-                {
-                    UnitId = unitId,
-                    GlobalId = packet.SwordsmanGlobalId,
-                    OwnerPlayerId = packet.OwnerPlayerId,
-                    ColorPlayerId = packet.ColorPlayerId,
-                    TileX = packet.TileX,
-                    TileY = packet.TileY,
-                    Height = packet.Height,
-                    CurrentHealth = packet.CurrentHealth,
-                    MaxHealth = packet.MaxHealth,
-                    LinkedProductionBuildingId = packet.LinkedProductionBuildingId
-                };
-
-                ApplyMount(snapshot, allocation, $"network:{packet.SourcePlayerId}:{packet.RequestId}");
-                RefreshButtonVisibility();
-            }
-            catch (Exception ex)
-            {
-                LogError($"Knight mount packet handling failed: {ex}");
-            }
-        }
-
-        private bool IsDuplicatePacket(int sourcePlayerId, int requestId)
-        {
-            if (sourcePlayerId <= 0 || requestId <= 0)
-                return false;
-
-            if (!processedRequestIds.TryGetValue(sourcePlayerId, out HashSet<int> requestIds))
-            {
-                requestIds = new HashSet<int>();
-                processedRequestIds[sourcePlayerId] = requestIds;
-            }
-
-            return !requestIds.Add(requestId);
-        }
-
-        private static bool IsValidPacketIdentity(int sourcePlayerId, int ownerPlayerId)
-        {
-            return sourcePlayerId > 0 &&
-                sourcePlayerId == ownerPlayerId &&
-                GamePlayerManagerAPI.Instance.IsPlayerIdValid(ownerPlayerId) &&
-                !GamePlayerManagerAPI.Instance.IsAIPlayer(ownerPlayerId);
         }
 
         private void ApplyDismountBatch(List<UnitTransformSnapshot> snapshots, string reason, List<UnitTransformSnapshot> appliedSnapshots)
@@ -1337,34 +962,6 @@ namespace ExtraFeatures
             }
 
             return allocations;
-        }
-
-        private bool TryResolveHorseAllocation(int ownerPlayerId, int stableId, int stableGlobalId, int slot, out HorseAllocation allocation)
-        {
-            allocation = default;
-            if (stableId <= 0 || slot < 0 || slot >= StableHorseSlotCount)
-                return false;
-
-            if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(stableId, out GameBuilding* stable))
-                return false;
-
-            if (!IsUsableStable(stable, ownerPlayerId))
-                return false;
-
-            if (stableGlobalId > 0 && (int)stable->r_GlobalId != stableGlobalId)
-                return false;
-
-            if (GetAvailableStableHorseCount(stable) <= 0 || !IsStableHorseSlotFree(stable, slot))
-                return false;
-
-            allocation = new HorseAllocation
-            {
-                StableId = stableId,
-                StableGlobalId = (int)stable->r_GlobalId,
-                OwnerPlayerId = ownerPlayerId,
-                Slot = slot
-            };
-            return true;
         }
 
         private bool TryConsumeStableHorse(HorseAllocation allocation, int unitId, int unitGlobalId, string reason)

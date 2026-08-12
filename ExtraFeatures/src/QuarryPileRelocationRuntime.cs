@@ -1,8 +1,6 @@
 // Feature: Relocate a quarry's linked stone pile to the next valid position.
 using BepInEx.Logging;
 using CrusaderDE;
-using MessagePack;
-using MessagePack.Formatters;
 using MonoMod.RuntimeDetour;
 using Noesis;
 using R3;
@@ -11,7 +9,6 @@ using SHCDESE.Detours;
 using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.Buildings;
 using SHCDESE.EventAPI.MapLoader;
-using SHCDESE.EventAPI.Network;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using SHCDESE.NoesisUtil;
@@ -24,65 +21,14 @@ using Zhuqiaomon.Memory;
 
 namespace ExtraFeatures
 {
-    [MessagePackObject]
-    [MessagePackFormatter(typeof(QuarryPileRelocationPacketFormatter))]
-    public sealed class QuarryPileRelocationPacket
+    internal sealed class QuarryPileRelocationOperation
     {
-        [Key(0)] public int SourcePlayerId;
-        [Key(1)] public int RequestId;
-        [Key(2)] public int QuarryGlobalId;
-        [Key(3)] public int OldPileGlobalId;
-        [Key(4)] public int TargetTileX;
-        [Key(5)] public int TargetTileY;
-    }
-
-    public sealed class QuarryPileRelocationPacketFormatter : IMessagePackFormatter<QuarryPileRelocationPacket>
-    {
-        public void Serialize(
-            ref MessagePackWriter writer,
-            QuarryPileRelocationPacket value,
-            MessagePackSerializerOptions options)
-        {
-            if (value == null)
-            {
-                writer.WriteNil();
-                return;
-            }
-
-            writer.WriteArrayHeader(6);
-            writer.Write(value.SourcePlayerId);
-            writer.Write(value.RequestId);
-            writer.Write(value.QuarryGlobalId);
-            writer.Write(value.OldPileGlobalId);
-            writer.Write(value.TargetTileX);
-            writer.Write(value.TargetTileY);
-        }
-
-        public QuarryPileRelocationPacket Deserialize(
-            ref MessagePackReader reader,
-            MessagePackSerializerOptions options)
-        {
-            if (reader.TryReadNil())
-                return null;
-
-            int count = reader.ReadArrayHeader();
-            QuarryPileRelocationPacket packet = new QuarryPileRelocationPacket();
-            for (int index = 0; index < count; index++)
-            {
-                switch (index)
-                {
-                    case 0: packet.SourcePlayerId = reader.ReadInt32(); break;
-                    case 1: packet.RequestId = reader.ReadInt32(); break;
-                    case 2: packet.QuarryGlobalId = reader.ReadInt32(); break;
-                    case 3: packet.OldPileGlobalId = reader.ReadInt32(); break;
-                    case 4: packet.TargetTileX = reader.ReadInt32(); break;
-                    case 5: packet.TargetTileY = reader.ReadInt32(); break;
-                    default: reader.Skip(); break;
-                }
-            }
-
-            return packet;
-        }
+        public int PlayerId;
+        public int OperationId;
+        public int QuarryGlobalId;
+        public int OldPileGlobalId;
+        public int TargetTileX;
+        public int TargetTileY;
     }
 
     internal sealed class QuarryPileRelocationButtonViewModel : LobbyModSettingsBaseViewModel
@@ -155,20 +101,16 @@ namespace ExtraFeatures
         private readonly ExtraFeaturesViewModel settings;
         private readonly QuarryPileRelocationButtonViewModel buttonViewModel;
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
-        private readonly Dictionary<int, HashSet<int>> processedRequestIds = new Dictionary<int, HashSet<int>>();
         private readonly Dictionary<int, FailedRotationTargets> failedRotationTargetsByQuarry = new Dictionary<int, FailedRotationTargets>();
 
         private Hook setUpInbuildingHook;
         private SetUpInbuildingDelegate setUpInbuildingTrampoline;
-        private R3PacketEventHook<QuarryPileRelocationPacket> packetHook;
-        private IDisposable packetSubscription;
         private Button hookedRelocationButton;
         private TextBlock hookedRelocationTooltip;
         private PrefabSpawnCapture activePrefabSpawnCapture;
         private SetupBuildingEntrancesOffsetDelegate setupBuildingEntrancesOffset;
-        private int nextRequestId;
+        private int nextOperationId;
         private int linkedRemovalSuppressionDepth;
-        private bool networkPacketRegistered;
         private bool initialized;
         private string lastVisibilityLogState;
 
@@ -180,17 +122,6 @@ namespace ExtraFeatures
         }
 
         public QuarryPileRelocationButtonViewModel ButtonViewModel => buttonViewModel;
-
-        public void RegisterNetworkPacket()
-        {
-            if (networkPacketRegistered)
-                return;
-
-            packetHook = GameNetworkAPI.Instance.GetPacketEventFor<QuarryPileRelocationPacket>();
-            packetSubscription = packetHook.GetBaseHook().Observable.Subscribe(OnRelocationPacketReceived);
-            networkPacketRegistered = true;
-            LogInfo($"network packet registered unconditionally: relocationPacketId={packetHook.GetPacketId()}.");
-        }
 
         public void InstallNativeFunctions(
             IntPtr libraryHandle,
@@ -224,9 +155,6 @@ namespace ExtraFeatures
             if (initialized)
                 return;
 
-            if (!networkPacketRegistered || packetHook == null || packetSubscription == null)
-                throw new InvalidOperationException("Quarry relocation network packet must be registered during plugin startup.");
-
             Hook installedHook = null;
             try
             {
@@ -247,7 +175,7 @@ namespace ExtraFeatures
                 setUpInbuildingHook = installedHook;
                 initialized = true;
                 buttonViewModel.Hide();
-                LogInfo($"runtime initialized: mode=Vanilla-clockwise-prefab-spawn, nativeCandidateHelperAvailable={setupBuildingEntrancesOffset != null}, packetId={packetHook.GetPacketId()}, subscriptions={subscriptions.Count}, setUpInbuildingHookInstalled={setUpInbuildingHook != null}.");
+                LogInfo($"runtime initialized: mode=Vanilla-clockwise-prefab-spawn, nativeCandidateHelperAvailable={setupBuildingEntrancesOffset != null}, subscriptions={subscriptions.Count}, setUpInbuildingHookInstalled={setUpInbuildingHook != null}.");
             }
             catch
             {
@@ -286,7 +214,6 @@ namespace ExtraFeatures
 
             buttonViewModel.Hide();
             HideRelocationTooltip();
-            processedRequestIds.Clear();
         }
 
         public void RefreshButtonVisibility()
@@ -428,7 +355,7 @@ namespace ExtraFeatures
         {
             int localPlayerId = 0;
             int selectedBuildingId = 0;
-            QuarryPileRelocationPacket attemptedPacket = null;
+            QuarryPileRelocationOperation attemptedOperation = null;
 
             try
             {
@@ -450,100 +377,49 @@ namespace ExtraFeatures
                     return;
                 }
 
-                int requestId = NextRequestId();
-                LogInfo($"selected quarry validated: requestId={requestId}, quarryId={selectedBuildingId}, quarryGlobalId={quarry->r_GlobalId}, owner={quarry->r_PlayerIdOwner}, quarryTiles={quarry->r_TilePositionXBegin},{quarry->r_TilePositionYBegin}-{quarry->r_TilePositionXEnd},{quarry->r_TilePositionYEnd}, oldPileId={quarry->r_StoneQuarry_StockPileBuildingId}, oldPileGlobalId={oldPile->r_GlobalId}, oldPileTiles={oldPile->r_TilePositionXBegin},{oldPile->r_TilePositionYBegin}-{oldPile->r_TilePositionXEnd},{oldPile->r_TilePositionYEnd}, oldPileGridSize={oldPile->r_OccupyTileGridSize}.");
+                int operationId = NextOperationId();
+                LogInfo($"selected quarry validated: operationId={operationId}, quarryId={selectedBuildingId}, quarryGlobalId={quarry->r_GlobalId}, owner={quarry->r_PlayerIdOwner}, quarryTiles={quarry->r_TilePositionXBegin},{quarry->r_TilePositionYBegin}-{quarry->r_TilePositionXEnd},{quarry->r_TilePositionYEnd}, oldPileId={quarry->r_StoneQuarry_StockPileBuildingId}, oldPileGlobalId={oldPile->r_GlobalId}, oldPileTiles={oldPile->r_TilePositionXBegin},{oldPile->r_TilePositionYBegin}-{oldPile->r_TilePositionXEnd},{oldPile->r_TilePositionYEnd}, oldPileGridSize={oldPile->r_OccupyTileGridSize}.");
 
-                if (!TryFindNextRotationTarget(localPlayerId, quarry, oldPile, requestId, out PlacementPosition target))
+                if (!TryFindNextRotationTarget(localPlayerId, quarry, oldPile, operationId, out PlacementPosition target))
                 {
                     Shared.DebugLogHelper.LogWarning(
                         log,
-                        $"Extra Features quarry-pile rotation found no valid clockwise position: playerId={localPlayerId}, requestId={requestId}, quarryId={selectedBuildingId}, quarryGlobalId={quarry->r_GlobalId}, oldPileGlobalId={oldPile->r_GlobalId}.");
+                        $"Extra Features quarry-pile rotation found no valid clockwise position: playerId={localPlayerId}, operationId={operationId}, quarryId={selectedBuildingId}, quarryGlobalId={quarry->r_GlobalId}, oldPileGlobalId={oldPile->r_GlobalId}.");
                     return;
                 }
 
-                attemptedPacket = new QuarryPileRelocationPacket
+                attemptedOperation = new QuarryPileRelocationOperation
                 {
-                    SourcePlayerId = localPlayerId,
-                    RequestId = requestId,
+                    PlayerId = localPlayerId,
+                    OperationId = operationId,
                     QuarryGlobalId = (int)quarry->r_GlobalId,
                     OldPileGlobalId = (int)oldPile->r_GlobalId,
                     TargetTileX = target.X,
                     TargetTileY = target.Y
                 };
 
-                if (!TryApplyRotation(attemptedPacket, "local-click", targetAlreadyValidated: true))
+                if (!TryApplyRotation(attemptedOperation, "local-click", targetAlreadyValidated: true))
                 {
-                    RememberFailedRotationTarget(attemptedPacket, "replacement-transaction-failed");
-                    LogInfo($"rotation command stopped: replacement transaction failed, requestId={requestId}, target={target.X},{target.Y}.");
+                    RememberFailedRotationTarget(attemptedOperation, "replacement-transaction-failed");
+                    LogInfo($"rotation command stopped: replacement transaction failed, operationId={operationId}, target={target.X},{target.Y}.");
                     RefreshButtonVisibility();
                     return;
                 }
 
-                SendRelocationPacket(attemptedPacket);
+                // TODO: With Script Extender 1.50.0, execute this complete transaction through
+                // the ordered Chore transport instead of restoring the former custom-packet path.
+                // Do not restore request-ID deduplication unless the final Chore contract requires it.
                 RefreshButtonVisibility();
             }
             catch (Exception ex)
             {
-                if (attemptedPacket != null)
-                    RememberFailedRotationTarget(attemptedPacket, "rotation-command-exception");
+                if (attemptedOperation != null)
+                    RememberFailedRotationTarget(attemptedOperation, "rotation-command-exception");
 
                 Shared.DebugLogHelper.LogError(
                     log,
                     $"Extra Features quarry-pile rotation click failed: selectedBuildingId={selectedBuildingId}, playerId={localPlayerId}: {ex}");
                 RefreshButtonVisibility();
-            }
-        }
-
-        private void SendRelocationPacket(QuarryPileRelocationPacket packet)
-        {
-            bool networked = GameNetworkAPI.IsNetworkedEnvironment();
-            if (!networked || packetHook == null)
-            {
-                LogInfo($"network packet not required: networked={networked}, packetHookAvailable={packetHook != null}, playerId={packet.SourcePlayerId}, requestId={packet.RequestId}.");
-                return;
-            }
-
-            GameNetworkAPI.SendPacketToAll(packet, packetHook.GetPacketId(), true);
-            LogInfo($"network packet sent: packetId={packetHook.GetPacketId()}, instant=true, playerId={packet.SourcePlayerId}, requestId={packet.RequestId}, quarryGlobalId={packet.QuarryGlobalId}, oldPileGlobalId={packet.OldPileGlobalId}, target={packet.TargetTileX},{packet.TargetTileY}.");
-        }
-
-        private void OnRelocationPacketReceived(ReceiveCustomPacketEventArgs<QuarryPileRelocationPacket> args)
-        {
-            try
-            {
-                if (args?.Packet == null)
-                {
-                    LogInfo("network packet callback received without a packet payload.");
-                    return;
-                }
-
-                QuarryPileRelocationPacket packet = args.Packet;
-                LogInfo($"network packet received: phase={args.Phase}, playerId={packet.SourcePlayerId}, requestId={packet.RequestId}, quarryGlobalId={packet.QuarryGlobalId}, oldPileGlobalId={packet.OldPileGlobalId}, target={packet.TargetTileX},{packet.TargetTileY}, EnableMod={settings.EnableMod}, EnableQuarryPileRelocation={settings.EnableQuarryPileRelocation}.");
-                if (!settings.EnableMod || !settings.EnableQuarryPileRelocation)
-                {
-                    LogInfo("network packet ignored: feature is disabled.");
-                    return;
-                }
-
-                string packetFailure = GetPacketValidationFailure(packet);
-                if (packetFailure != null)
-                {
-                    LogInfo($"network packet rejected: reason={packetFailure}.");
-                    return;
-                }
-
-                if (IsDuplicatePacket(packet.SourcePlayerId, packet.RequestId))
-                {
-                    LogInfo($"network packet ignored as duplicate: playerId={packet.SourcePlayerId}, requestId={packet.RequestId}.");
-                    return;
-                }
-
-                bool applied = TryApplyRotation(packet, "network-packet");
-                LogInfo($"network packet application finished: playerId={packet.SourcePlayerId}, requestId={packet.RequestId}, applied={applied}.");
-            }
-            catch (Exception ex)
-            {
-                Shared.DebugLogHelper.LogError(log, $"Extra Features quarry-pile rotation packet handling failed: {ex}");
             }
         }
 
@@ -560,7 +436,7 @@ namespace ExtraFeatures
                     args.TileX == capture.TargetX &&
                     args.TileY == capture.TargetY;
                 LogInfo(
-                    $"prefab spawn event observed: requestId={capture.RequestId}, phase={args.Phase}, playerId={args.PlayerId}, " +
+                    $"prefab spawn event observed: operationId={capture.OperationId}, phase={args.Phase}, playerId={args.PlayerId}, " +
                     $"building={args.Building}, target={args.TileX},{args.TileY}, scale={args.BuildingScale}, returnValue={args.ReturnValue}, matchesExpectedInput={matchesExpectedInput}.");
 
                 if (args.Phase != EventHookPhase.Post || !matchesExpectedInput)
@@ -573,13 +449,13 @@ namespace ExtraFeatures
                 }
 
                 capture.RecordBuildingId((int)args.ReturnValue);
-                LogInfo($"prefab spawn id captured: requestId={capture.RequestId}, buildingId={args.ReturnValue}, capturedCount={capture.BuildingIds.Count}.");
+                LogInfo($"prefab spawn id captured: operationId={capture.OperationId}, buildingId={args.ReturnValue}, capturedCount={capture.BuildingIds.Count}.");
             }
             catch (Exception ex)
             {
                 Shared.DebugLogHelper.LogError(
                     log,
-                    $"Extra Features quarry-pile prefab spawn capture failed: requestId={capture.RequestId}, exception={ex}");
+                    $"Extra Features quarry-pile prefab spawn capture failed: operationId={capture.OperationId}, exception={ex}");
             }
         }
 
@@ -647,79 +523,49 @@ namespace ExtraFeatures
             }
         }
 
-        private static string GetPacketValidationFailure(QuarryPileRelocationPacket packet)
-        {
-            if (packet.SourcePlayerId <= 0)
-                return "source-player-id-not-positive";
-            if (packet.RequestId <= 0)
-                return "request-id-not-positive";
-            if (packet.QuarryGlobalId <= 0)
-                return "quarry-global-id-not-positive";
-            if (packet.OldPileGlobalId <= 0)
-                return "old-pile-global-id-not-positive";
-            if (!GamePlayerManagerAPI.Instance.IsPlayerIdValid(packet.SourcePlayerId))
-                return "source-player-id-invalid";
-            if (GamePlayerManagerAPI.Instance.IsAIPlayer(packet.SourcePlayerId))
-                return "source-player-is-ai";
-            if (!GameTileManagerAPI.Instance.IsTileInsideMapBounds(packet.TargetTileX, packet.TargetTileY))
-                return "target-tile-outside-map";
-            return null;
-        }
-
-        private bool IsDuplicatePacket(int sourcePlayerId, int requestId)
-        {
-            if (!processedRequestIds.TryGetValue(sourcePlayerId, out HashSet<int> requestIds))
-            {
-                requestIds = new HashSet<int>();
-                processedRequestIds[sourcePlayerId] = requestIds;
-            }
-
-            return !requestIds.Add(requestId);
-        }
-
         private bool TryApplyRotation(
-            QuarryPileRelocationPacket packet,
+            QuarryPileRelocationOperation operation,
             string reason,
             bool targetAlreadyValidated = false)
         {
-            LogInfo($"replacement transaction started: reason={reason}, playerId={packet.SourcePlayerId}, requestId={packet.RequestId}, quarryGlobalId={packet.QuarryGlobalId}, oldPileGlobalId={packet.OldPileGlobalId}, requestedTarget={packet.TargetTileX},{packet.TargetTileY}.");
+            LogInfo($"replacement transaction started: reason={reason}, playerId={operation.PlayerId}, operationId={operation.OperationId}, quarryGlobalId={operation.QuarryGlobalId}, oldPileGlobalId={operation.OldPileGlobalId}, requestedTarget={operation.TargetTileX},{operation.TargetTileY}.");
 
-            int quarryId = FindAliveBuildingIdByGlobalId(packet.QuarryGlobalId);
+            int quarryId = FindAliveBuildingIdByGlobalId(operation.QuarryGlobalId);
             if (quarryId <= 0 ||
                 !GameBuildingManagerAPI.Instance.TryGetBuildingById(quarryId, out GameBuilding* quarry) ||
-                !IsAliveBuilding(quarry, eStructs.STRUCT_QUARRY, packet.SourcePlayerId))
+                !IsAliveBuilding(quarry, eStructs.STRUCT_QUARRY, operation.PlayerId))
             {
-                LogInfo($"replacement transaction rejected: reason=quarry-not-found, requestId={packet.RequestId}.");
+                LogInfo($"replacement transaction rejected: reason=quarry-not-found, operationId={operation.OperationId}.");
                 return false;
             }
 
             int oldPileId = quarry->r_StoneQuarry_StockPileBuildingId;
             if (oldPileId <= 0 ||
                 !GameBuildingManagerAPI.Instance.TryGetBuildingById(oldPileId, out GameBuilding* oldPile) ||
-                !IsAliveBuilding(oldPile, eStructs.STRUCT_QUARRYPILE, packet.SourcePlayerId) ||
-                (int)oldPile->r_GlobalId != packet.OldPileGlobalId)
+                !IsAliveBuilding(oldPile, eStructs.STRUCT_QUARRYPILE, operation.PlayerId) ||
+                (int)oldPile->r_GlobalId != operation.OldPileGlobalId)
             {
-                LogInfo($"replacement transaction rejected: reason=old-pile-link-changed, quarryId={quarryId}, currentLinkedPileId={oldPileId}, requestId={packet.RequestId}.");
+                LogInfo($"replacement transaction rejected: reason=old-pile-link-changed, quarryId={quarryId}, currentLinkedPileId={oldPileId}, operationId={operation.OperationId}.");
                 return false;
             }
 
             PlacementPosition expectedTarget;
             if (targetAlreadyValidated)
             {
-                expectedTarget = new PlacementPosition(packet.TargetTileX, packet.TargetTileY);
-                LogInfo($"replacement transaction reuses synchronously validated local target: requestId={packet.RequestId}, target={expectedTarget.X},{expectedTarget.Y}.");
+                expectedTarget = new PlacementPosition(operation.TargetTileX, operation.TargetTileY);
+                LogInfo($"replacement transaction reuses synchronously validated local target: operationId={operation.OperationId}, target={expectedTarget.X},{expectedTarget.Y}.");
             }
             else
             {
-                expectedTarget = new PlacementPosition(packet.TargetTileX, packet.TargetTileY);
+                expectedTarget = new PlacementPosition(operation.TargetTileX, operation.TargetTileY);
                 if (!ValidateRequestedRotationTarget(
-                    packet.SourcePlayerId,
+                    operation.PlayerId,
                     quarry,
                     oldPile,
                     expectedTarget,
-                    packet.RequestId))
+                    operation.OperationId))
                 {
-                    LogInfo($"replacement transaction rejected: reason=requested-target-invalid, requestId={packet.RequestId}, target={expectedTarget.X},{expectedTarget.Y}.");
+                    LogInfo($"replacement transaction rejected: reason=requested-target-invalid, operationId={operation.OperationId}, target={expectedTarget.X},{expectedTarget.Y}.");
                     return false;
                 }
             }
@@ -728,13 +574,13 @@ namespace ExtraFeatures
             short previousCurrentHealth = oldPile->r_CurrentHealth;
             ushort previousMaxHealth = oldPile->r_MaxHealth;
             if (!TrySpawnReplacement(
-                packet.SourcePlayerId,
+                operation.PlayerId,
                 quarryId,
                 quarry,
                 oldPileId,
                 oldPile,
                 expectedTarget,
-                packet.RequestId,
+                operation.OperationId,
                 out int newPileId,
                 out GameBuilding* newPile))
             {
@@ -744,7 +590,7 @@ namespace ExtraFeatures
             if (newPileId > ushort.MaxValue)
             {
                 DeleteBuildingWithoutLinkedPropagation(newPileId, "rotation-new-id-overflow");
-                LogInfo($"replacement transaction rolled back: reason=new-pile-id-exceeds-link-field, requestId={packet.RequestId}, newPileId={newPileId}.");
+                LogInfo($"replacement transaction rolled back: reason=new-pile-id-exceeds-link-field, operationId={operation.OperationId}, newPileId={newPileId}.");
                 return false;
             }
 
@@ -752,7 +598,7 @@ namespace ExtraFeatures
             content.ApplyTo(newPile);
             newPile->r_CurrentHealth = previousCurrentHealth;
             newPile->r_MaxHealth = previousMaxHealth;
-            ClearPileContentBeforeDeletion(oldPileId, oldPile, packet.RequestId, "rotation-old-pile");
+            ClearPileContentBeforeDeletion(oldPileId, oldPile, operation.OperationId, "rotation-old-pile");
 
             quarry->r_StoneQuarry_StockPileBuildingId = checked((ushort)newPileId);
             bool oldPileMarkedForDeletion = oldPile->r_AliveState == AliveState.MarkedForDeletion ||
@@ -764,14 +610,14 @@ namespace ExtraFeatures
                 newPile->r_StoneBlocksAmount = 0;
                 newPile->r_CurrentGoodStackAmount = 0;
                 bool replacementMarkedForDeletion = DeleteBuildingWithoutLinkedPropagation(newPileId, "rotation-rollback-new-pile");
-                LogInfo($"replacement transaction rolled back: reason=old-pile-delete-failed, requestId={packet.RequestId}, oldPileId={oldPileId}, newPileId={newPileId}, replacementMarkedForDeletion={replacementMarkedForDeletion}.");
+                LogInfo($"replacement transaction rolled back: reason=old-pile-delete-failed, operationId={operation.OperationId}, oldPileId={oldPileId}, newPileId={newPileId}, replacementMarkedForDeletion={replacementMarkedForDeletion}.");
                 return false;
             }
 
-            ClearFailedRotationTargets(packet.QuarryGlobalId, "rotation-completed");
+            ClearFailedRotationTargets(operation.QuarryGlobalId, "rotation-completed");
             LogInfo(
-                $"rotation completed: reason={reason}, playerId={packet.SourcePlayerId}, requestId={packet.RequestId}, quarryId={quarryId}, " +
-                $"quarryGlobalId={packet.QuarryGlobalId}, oldPileId={oldPileId}, oldPileGlobalId={packet.OldPileGlobalId}, newPileId={newPileId}, " +
+                $"rotation completed: reason={reason}, playerId={operation.PlayerId}, operationId={operation.OperationId}, quarryId={quarryId}, " +
+                $"quarryGlobalId={operation.QuarryGlobalId}, oldPileId={oldPileId}, oldPileGlobalId={operation.OldPileGlobalId}, newPileId={newPileId}, " +
                 $"newPileGlobalId={newPileGlobalId}, newPileState={newPile->r_AliveState}, target={expectedTarget.X},{expectedTarget.Y}, " +
                 $"stoneBlocks={newPile->r_StoneBlocksAmount}, oldPileMarkedForDeletion={oldPileMarkedForDeletion}, visualLifecycle=prefab-managed.");
             return true;
@@ -781,13 +627,13 @@ namespace ExtraFeatures
             int playerId,
             GameBuilding* quarry,
             GameBuilding* oldPile,
-            int requestId,
+            int operationId,
             out PlacementPosition target)
         {
             target = default;
             if (setupBuildingEntrancesOffset == null)
             {
-                LogInfo($"rotation target search failed: requestId={requestId}, reason=Vanilla-candidate-helper-unavailable.");
+                LogInfo($"rotation target search failed: operationId={operationId}, reason=Vanilla-candidate-helper-unavailable.");
                 return false;
             }
 
@@ -796,7 +642,7 @@ namespace ExtraFeatures
             if (quarryScale != VanillaQuarryScale || buildingScale != VanillaPileScale)
             {
                 LogInfo(
-                    $"rotation target search failed: requestId={requestId}, reason=unexpected-Vanilla-scales, " +
+                    $"rotation target search failed: operationId={operationId}, reason=unexpected-Vanilla-scales, " +
                     $"quarryScale={quarryScale}, expectedQuarryScale={VanillaQuarryScale}, pileScale={buildingScale}, expectedPileScale={VanillaPileScale}.");
                 return false;
             }
@@ -813,7 +659,7 @@ namespace ExtraFeatures
                 out int currentPlacementTry,
                 out bool exactCurrentPosition))
             {
-                LogInfo($"rotation target search failed: requestId={requestId}, reason=Vanilla-cursor-resolution-failed.");
+                LogInfo($"rotation target search failed: operationId={operationId}, reason=Vanilla-cursor-resolution-failed.");
                 return false;
             }
 
@@ -822,7 +668,7 @@ namespace ExtraFeatures
             int candidateAttemptCount = 0;
 
             LogInfo(
-                $"rotation target search started: requestId={requestId}, playerId={playerId}, quarryGlobalId={quarryGlobalId}, " +
+                $"rotation target search started: operationId={operationId}, playerId={playerId}, quarryGlobalId={quarryGlobalId}, " +
                 $"oldPileGlobalId={oldPileGlobalId}, quarryAnchor={quarry->r_TilePositionXBegin},{quarry->r_TilePositionYBegin}, " +
                 $"oldAnchor={oldX},{oldY}, currentVanillaIndex={currentIndex}, currentVanillaTry={currentPlacementTry}, " +
                 $"exactCurrentPosition={exactCurrentPosition}, candidatesPerTry={VanillaCandidateCount}, " +
@@ -840,7 +686,7 @@ namespace ExtraFeatures
                     if (!TryGetVanillaCandidate(quarry, candidateIndex, placementTry, out PlacementPosition candidate))
                     {
                         LogInfo(
-                            $"rotation target search failed: requestId={requestId}, reason=Vanilla-candidate-generation-failed, " +
+                            $"rotation target search failed: operationId={operationId}, reason=Vanilla-candidate-generation-failed, " +
                             $"vanillaTry={placementTry}, candidateIndex={candidateIndex}.");
                         return false;
                     }
@@ -850,7 +696,7 @@ namespace ExtraFeatures
                     if (candidate.X == oldX && candidate.Y == oldY)
                     {
                         LogInfo(
-                            $"rotation candidate skipped: requestId={requestId}, vanillaTry={placementTry}, candidateIndex={candidateIndex}, " +
+                            $"rotation candidate skipped: operationId={operationId}, vanillaTry={placementTry}, candidateIndex={candidateIndex}, " +
                             $"target={candidate.X},{candidate.Y}, reason=current-pile-position.");
                         continue;
                     }
@@ -859,7 +705,7 @@ namespace ExtraFeatures
                     {
                         failedTargetSkipCount++;
                         LogInfo(
-                            $"rotation candidate skipped: requestId={requestId}, vanillaTry={placementTry}, candidateIndex={candidateIndex}, " +
+                            $"rotation candidate skipped: operationId={operationId}, vanillaTry={placementTry}, candidateIndex={candidateIndex}, " +
                             $"target={candidate.X},{candidate.Y}, reason=previous-spawn-failure.");
                         continue;
                     }
@@ -868,7 +714,7 @@ namespace ExtraFeatures
                         playerId,
                         candidate,
                         buildingScale,
-                        requestId,
+                        operationId,
                         candidateIndex,
                         placementTry))
                     {
@@ -877,7 +723,7 @@ namespace ExtraFeatures
 
                     target = candidate;
                     LogInfo(
-                        $"rotation target selected: requestId={requestId}, vanillaTry={placementTry}, candidateIndex={candidateIndex}, " +
+                        $"rotation target selected: operationId={operationId}, vanillaTry={placementTry}, candidateIndex={candidateIndex}, " +
                         $"target={target.X},{target.Y}, clockwiseOffset={clockwiseOffset}, totalCandidateAttempts={candidateAttemptCount}, " +
                         $"previousFailedTargetsSkipped={failedTargetSkipCount}.");
                     return true;
@@ -885,7 +731,7 @@ namespace ExtraFeatures
             }
 
             LogInfo(
-                $"rotation target search exhausted: requestId={requestId}, playerId={playerId}, totalCandidateAttempts={candidateAttemptCount}, " +
+                $"rotation target search exhausted: operationId={operationId}, playerId={playerId}, totalCandidateAttempts={candidateAttemptCount}, " +
                 $"previousFailedTargetsSkipped={failedTargetSkipCount}, maximumVanillaTry={VanillaMaximumPlacementTry}.");
 
             return false;
@@ -896,7 +742,7 @@ namespace ExtraFeatures
             GameBuilding* quarry,
             GameBuilding* oldPile,
             PlacementPosition target,
-            int requestId)
+            int operationId)
         {
             if (setupBuildingEntrancesOffset == null)
                 return false;
@@ -929,19 +775,19 @@ namespace ExtraFeatures
             if (targetPlacementTry < 0)
             {
                 LogInfo(
-                    $"requested rotation target rejected: requestId={requestId}, target={target.X},{target.Y}, " +
+                    $"requested rotation target rejected: operationId={operationId}, target={target.X},{target.Y}, " +
                     $"reason=not-a-Vanilla-quarry-pile-candidate.");
                 return false;
             }
 
             LogInfo(
-                $"requested rotation target matched Vanilla candidate: requestId={requestId}, target={target.X},{target.Y}, " +
+                $"requested rotation target matched Vanilla candidate: operationId={operationId}, target={target.X},{target.Y}, " +
                 $"vanillaTry={targetPlacementTry}, candidateIndex={targetCandidateIndex}.");
             return ValidateCandidateWithGame(
                 playerId,
                 target,
                 buildingScale,
-                requestId,
+                operationId,
                 targetCandidateIndex,
                 targetPlacementTry);
         }
@@ -1054,7 +900,7 @@ namespace ExtraFeatures
             int playerId,
             PlacementPosition candidate,
             int buildingScale,
-            int requestId,
+            int operationId,
             int candidateIndex,
             int placementTry)
         {
@@ -1072,14 +918,14 @@ namespace ExtraFeatures
                     buildingScale,
                     0);
                 bool blocked = tileApi.TileManager.IsPlacementBlocked;
-                LogInfo($"native placement validation returned: requestId={requestId}, vanillaTry={placementTry}, candidateIndex={candidateIndex}, target={candidate.X},{candidate.Y}, buildingScale={buildingScale}, returnValue={validatorResult}, blocked={blocked}.");
+                LogInfo($"native placement validation returned: operationId={operationId}, vanillaTry={placementTry}, candidateIndex={candidateIndex}, target={candidate.X},{candidate.Y}, buildingScale={buildingScale}, returnValue={validatorResult}, blocked={blocked}.");
                 return !blocked;
             }
             catch (Exception ex)
             {
                 Shared.DebugLogHelper.LogError(
                     log,
-                    $"Extra Features quarry-pile native placement validation failed: requestId={requestId}, vanillaTry={placementTry}, candidateIndex={candidateIndex}, target={candidate.X},{candidate.Y}: {ex}");
+                    $"Extra Features quarry-pile native placement validation failed: operationId={operationId}, vanillaTry={placementTry}, candidateIndex={candidateIndex}, target={candidate.X},{candidate.Y}: {ex}");
                 return false;
             }
             finally
@@ -1095,7 +941,7 @@ namespace ExtraFeatures
             int oldPileId,
             GameBuilding* oldPile,
             PlacementPosition target,
-            int requestId,
+            int operationId,
             out int newPileId,
             out GameBuilding* newPile)
         {
@@ -1104,7 +950,7 @@ namespace ExtraFeatures
             int buildingScale = GetBuildingScale(oldPile);
             if (buildingScale <= 0)
             {
-                LogInfo($"prefab replacement spawn rejected: requestId={requestId}, reason=invalid-pile-grid-size, gridSize={oldPile->r_OccupyTileGridSize}.");
+                LogInfo($"prefab replacement spawn rejected: operationId={operationId}, reason=invalid-pile-grid-size, gridSize={oldPile->r_OccupyTileGridSize}.");
                 return false;
             }
 
@@ -1112,17 +958,17 @@ namespace ExtraFeatures
             int targetTileId = tileApi.GetTileId(target.X, target.Y);
             ushort targetStructureBefore = tileApi.GetTileBuildingId(targetTileId);
             ushort quarryLinkBefore = quarry->r_StoneQuarry_StockPileBuildingId;
-            PrefabSpawnCapture capture = new PrefabSpawnCapture(requestId, playerId, target.X, target.Y);
+            PrefabSpawnCapture capture = new PrefabSpawnCapture(operationId, playerId, target.X, target.Y);
             if (activePrefabSpawnCapture != null)
             {
-                LogInfo($"prefab replacement spawn rejected: requestId={requestId}, reason=another-prefab-capture-active, activeRequestId={activePrefabSpawnCapture.RequestId}.");
+                LogInfo($"prefab replacement spawn rejected: operationId={operationId}, reason=another-prefab-capture-active, activeOperationId={activePrefabSpawnCapture.OperationId}.");
                 return false;
             }
 
             long result = 0;
             Exception prefabException = null;
             LogInfo(
-                $"prefab replacement spawn started: requestId={requestId}, playerId={playerId}, quarryId={quarryId}, oldPileId={oldPileId}, " +
+                $"prefab replacement spawn started: operationId={operationId}, playerId={playerId}, quarryId={quarryId}, oldPileId={oldPileId}, " +
                 $"target={target.X},{target.Y}, targetTileId={targetTileId}, targetStructureBefore={targetStructureBefore}, buildingScale={buildingScale}, " +
                 $"mapper={eMappers.MAPPER_QUARRYPILE}, isFree=True, bypassPlacementRules=True, quarryLinkBefore={quarryLinkBefore}.");
             activePrefabSpawnCapture = capture;
@@ -1158,17 +1004,17 @@ namespace ExtraFeatures
             ushort targetStructureAfter = tileApi.GetTileBuildingId(targetTileId);
             ushort quarryLinkAfter = quarry->r_StoneQuarry_StockPileBuildingId;
             LogInfo(
-                $"prefab replacement spawn returned: requestId={requestId}, returnValue={result}, capturedIds={capture.DescribeBuildingIds()}, " +
+                $"prefab replacement spawn returned: operationId={operationId}, returnValue={result}, capturedIds={capture.DescribeBuildingIds()}, " +
                 $"invalidPostEvents={capture.InvalidPostEventCount}, targetStructureAfter={targetStructureAfter}, quarryLinkAfter={quarryLinkAfter}, " +
                 $"oldPileStateAfter={oldPile->r_AliveState}, exception={(prefabException == null ? "none" : prefabException.GetType().FullName)}.");
 
             if (prefabException != null)
             {
                 int fallbackPileId = FindFreshPileAtTarget(oldPileId, playerId, target, out _);
-                CleanupFailedPrefabSpawns(capture, oldPileId, requestId, "prefab-exception", fallbackPileId);
+                CleanupFailedPrefabSpawns(capture, oldPileId, operationId, "prefab-exception", fallbackPileId);
                 Shared.DebugLogHelper.LogError(
                     log,
-                    $"Extra Features quarry-pile prefab replacement spawn failed: requestId={requestId}, fallbackPileId={fallbackPileId}, exception={prefabException}");
+                    $"Extra Features quarry-pile prefab replacement spawn failed: operationId={operationId}, fallbackPileId={fallbackPileId}, exception={prefabException}");
                 return false;
             }
 
@@ -1183,7 +1029,7 @@ namespace ExtraFeatures
             if (!capturedReplacementResolved)
             {
                 newPileId = FindFreshPileAtTarget(oldPileId, playerId, target, out newPile);
-                LogInfo($"prefab replacement fallback scan completed: requestId={requestId}, fallbackPileId={newPileId}, actual={DescribeBuilding(newPile)}.");
+                LogInfo($"prefab replacement fallback scan completed: operationId={operationId}, fallbackPileId={newPileId}, actual={DescribeBuilding(newPile)}.");
             }
 
             bool replacementVerified = newPileId > 0 &&
@@ -1193,17 +1039,17 @@ namespace ExtraFeatures
             if (!replacementVerified)
             {
                 LogInfo(
-                    $"prefab replacement spawn verification failed before cleanup: requestId={requestId}, returnValue={result}, newPileId={newPileId}, " +
+                    $"prefab replacement spawn verification failed before cleanup: operationId={operationId}, returnValue={result}, newPileId={newPileId}, " +
                     $"expectedType={eStructs.STRUCT_QUARRYPILE}, expectedOwner={playerId}, expectedAnchor={target.X},{target.Y}, expectedGridSize={oldPile->r_OccupyTileGridSize}, " +
                     $"capturedIds={capture.DescribeBuildingIds()}, actual={DescribeBuilding(newPile)}.");
-                CleanupFailedPrefabSpawns(capture, oldPileId, requestId, "verification-failed", newPileId);
+                CleanupFailedPrefabSpawns(capture, oldPileId, operationId, "verification-failed", newPileId);
                 newPile = null;
                 newPileId = 0;
                 return false;
             }
 
             LogInfo(
-                $"prefab replacement spawn verified: requestId={requestId}, newPileId={newPileId}, newPileGlobalId={newPile->r_GlobalId}, " +
+                $"prefab replacement spawn verified: operationId={operationId}, newPileId={newPileId}, newPileGlobalId={newPile->r_GlobalId}, " +
                 $"tiles={newPile->r_TilePositionXBegin},{newPile->r_TilePositionYBegin}-{newPile->r_TilePositionXEnd},{newPile->r_TilePositionYEnd}, " +
                 $"gridSize={newPile->r_OccupyTileGridSize}, tileRegistration={DescribeTileRegistration(newPileId, newPile)}, " +
                 $"quarryLinkAfterPrefab={quarry->r_StoneQuarry_StockPileBuildingId}, oldPileStateAfterPrefab={oldPile->r_AliveState}.");
@@ -1236,7 +1082,7 @@ namespace ExtraFeatures
                         candidate->r_TilePositionYBegin,
                         target) &&
                     candidate->r_OccupyTileGridSize == expectedGridSize;
-                LogInfo($"captured prefab candidate inspected: requestId={capture.RequestId}, candidateId={candidateId}, matchesTarget={matchesTarget}, actual={DescribeBuilding(candidate)}.");
+                LogInfo($"captured prefab candidate inspected: operationId={capture.OperationId}, candidateId={candidateId}, matchesTarget={matchesTarget}, actual={DescribeBuilding(candidate)}.");
                 if (!matchesTarget)
                     continue;
 
@@ -1289,7 +1135,7 @@ namespace ExtraFeatures
         private void CleanupFailedPrefabSpawns(
             PrefabSpawnCapture capture,
             int oldPileId,
-            int requestId,
+            int operationId,
             string reason,
             int additionalBuildingId = 0)
         {
@@ -1303,7 +1149,7 @@ namespace ExtraFeatures
                     continue;
 
                 bool markedForDeletion = DeleteBuildingWithoutLinkedPropagation(buildingId, "prefab-cleanup-" + reason);
-                LogInfo($"invalid prefab replacement cleanup completed: requestId={requestId}, reason={reason}, buildingId={buildingId}, markedForDeletion={markedForDeletion}.");
+                LogInfo($"invalid prefab replacement cleanup completed: operationId={operationId}, reason={reason}, buildingId={buildingId}, markedForDeletion={markedForDeletion}.");
             }
         }
 
@@ -1340,7 +1186,7 @@ namespace ExtraFeatures
         private void ClearPileContentBeforeDeletion(
             int pileId,
             GameBuilding* pile,
-            int requestId,
+            int operationId,
             string stage)
         {
             if (pile == null)
@@ -1354,7 +1200,7 @@ namespace ExtraFeatures
 
             // CreatePrefab/DeleteBuildingSafe own the tile and visual lifecycle. Only clear the transferred
             // resource state here; forcing the raw visual APIs is ineffective for these prefab instances.
-            LogInfo($"pile content cleared before prefab-managed deletion: stage={stage}, requestId={requestId}, pileId={pileId}, pileGlobalId={pileGlobalId}, aliveState={pile->r_AliveState}, previousStoneBlocks={previousStoneBlocks}, previousGoodStack={previousGoodStack}.");
+            LogInfo($"pile content cleared before prefab-managed deletion: stage={stage}, operationId={operationId}, pileId={pileId}, pileGlobalId={pileGlobalId}, aliveState={pile->r_AliveState}, previousStoneBlocks={previousStoneBlocks}, previousGoodStack={previousGoodStack}.");
         }
 
         private bool TryGetRelocatableQuarry(
@@ -1521,23 +1367,23 @@ namespace ExtraFeatures
             return null;
         }
 
-        private void RememberFailedRotationTarget(QuarryPileRelocationPacket packet, string reason)
+        private void RememberFailedRotationTarget(QuarryPileRelocationOperation operation, string reason)
         {
-            if (packet == null || packet.QuarryGlobalId <= 0 || packet.OldPileGlobalId <= 0)
+            if (operation == null || operation.QuarryGlobalId <= 0 || operation.OldPileGlobalId <= 0)
                 return;
 
-            if (!failedRotationTargetsByQuarry.TryGetValue(packet.QuarryGlobalId, out FailedRotationTargets state) ||
-                state.OldPileGlobalId != packet.OldPileGlobalId)
+            if (!failedRotationTargetsByQuarry.TryGetValue(operation.QuarryGlobalId, out FailedRotationTargets state) ||
+                state.OldPileGlobalId != operation.OldPileGlobalId)
             {
-                state = new FailedRotationTargets(packet.OldPileGlobalId);
-                failedRotationTargetsByQuarry[packet.QuarryGlobalId] = state;
+                state = new FailedRotationTargets(operation.OldPileGlobalId);
+                failedRotationTargetsByQuarry[operation.QuarryGlobalId] = state;
             }
 
-            PlacementPosition target = new PlacementPosition(packet.TargetTileX, packet.TargetTileY);
+            PlacementPosition target = new PlacementPosition(operation.TargetTileX, operation.TargetTileY);
             bool added = state.Targets.Add(GetPositionKey(target));
             LogInfo(
-                $"failed rotation target remembered: reason={reason}, quarryGlobalId={packet.QuarryGlobalId}, " +
-                $"oldPileGlobalId={packet.OldPileGlobalId}, target={target.X},{target.Y}, added={added}, failedTargetCount={state.Targets.Count}.");
+                $"failed rotation target remembered: reason={reason}, quarryGlobalId={operation.QuarryGlobalId}, " +
+                $"oldPileGlobalId={operation.OldPileGlobalId}, target={target.X},{target.Y}, added={added}, failedTargetCount={state.Targets.Count}.");
         }
 
         private void ClearFailedRotationTargets(int quarryGlobalId, string reason)
@@ -1556,14 +1402,12 @@ namespace ExtraFeatures
         private void ClearMapState()
         {
             LogInfo(
-                $"clearing rotation state: processedRequestPlayerCount={processedRequestIds.Count}, " +
-                $"failedTargetQuarryCount={failedRotationTargetsByQuarry.Count}, nextRequestId={nextRequestId}, " +
+                $"clearing rotation state: failedTargetQuarryCount={failedRotationTargetsByQuarry.Count}, nextOperationId={nextOperationId}, " +
                 $"prefabCaptureActive={activePrefabSpawnCapture != null}, linkedRemovalSuppressionDepth={linkedRemovalSuppressionDepth}.");
-            processedRequestIds.Clear();
             failedRotationTargetsByQuarry.Clear();
             activePrefabSpawnCapture = null;
             linkedRemovalSuppressionDepth = 0;
-            nextRequestId = 0;
+            nextOperationId = 0;
             lastVisibilityLogState = null;
             buttonViewModel.Hide();
         }
@@ -1589,11 +1433,11 @@ namespace ExtraFeatures
             subscriptions.Clear();
         }
 
-        private int NextRequestId()
+        private int NextOperationId()
         {
-            if (nextRequestId == int.MaxValue)
-                nextRequestId = 0;
-            return ++nextRequestId;
+            if (nextOperationId == int.MaxValue)
+                nextOperationId = 0;
+            return ++nextOperationId;
         }
 
         private static int GetLocalPlayerIdOrOne()
@@ -1615,15 +1459,15 @@ namespace ExtraFeatures
 
         private sealed class PrefabSpawnCapture
         {
-            public PrefabSpawnCapture(int requestId, int playerId, int targetX, int targetY)
+            public PrefabSpawnCapture(int operationId, int playerId, int targetX, int targetY)
             {
-                RequestId = requestId;
+                OperationId = operationId;
                 PlayerId = playerId;
                 TargetX = targetX;
                 TargetY = targetY;
             }
 
-            public int RequestId { get; }
+            public int OperationId { get; }
             public int PlayerId { get; }
             public int TargetX { get; }
             public int TargetY { get; }
