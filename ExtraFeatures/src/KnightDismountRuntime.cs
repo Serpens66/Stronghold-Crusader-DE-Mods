@@ -17,7 +17,6 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Reflection;
-using System.Runtime.InteropServices;
 using Zhuqiaomon.Memory;
 
 namespace ExtraFeatures
@@ -301,14 +300,7 @@ namespace ExtraFeatures
     {
         private delegate void SetuptroopActionsUIDelegate(HUD_Troops self, bool fromInitialOpening);
 
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        private delegate void ReleaseStableHorseDelegate(NativePointer<GameBuildingManager> buildingManager, int stableId, int unitId);
-
         private static readonly Thickness BottomRightSlotMargin = new Thickness(80, 40, 0, 3);
-        // Vanilla uses this helper for horse cleanup during knight disband/death.
-        private const string ReleaseStableHorsePattern =
-            "48 89 5C 24 08 48 89 74 24 10 57 48 63 DA 48 8D 35 ?? ?? ?? ?? 4C 69 DB 96 01 00 00 33 FF 4C 8B C9 4C 8B D3";
-        private const int ReleaseStableHorseRva = 0xC4110;
         private const int StableHorseSlotCount = 4;
         private const string MissingWeaponsSpeechFileName = "Other_Warning6.wav";
         private static readonly string[] MountSpeechFileNames = { "Knight_m1.wav", "Knight_m2.wav", "Knight_m3.wav" };
@@ -327,7 +319,6 @@ namespace ExtraFeatures
         private IDisposable mountPacketSubscription;
         private Button hookedDismountButton;
         private Button hookedMountButton;
-        private static ReleaseStableHorseDelegate releaseStableHorse;
         private int nextRequestId;
         private bool networkPacketsRegistered;
         private bool initialized;
@@ -358,22 +349,6 @@ namespace ExtraFeatures
             mountPacketSubscription = mountPacketHook.GetBaseHook().Observable.Subscribe(OnMountPacketReceived);
             networkPacketsRegistered = true;
             LogInfo($"network packets registered unconditionally: dismountPacketId={dismountPacketHook.GetPacketId()}, mountPacketId={mountPacketHook.GetPacketId()}.");
-        }
-
-        public void InstallNativeFunctions(
-            IntPtr libraryHandle,
-            ReadOnlySpan<byte> memory,
-            bool referenceHashMatches)
-        {
-            int rva = Shared.NativePatternResolver.ResolveUnique(
-                memory,
-                ReleaseStableHorsePattern,
-                ReleaseStableHorseRva,
-                referenceHashMatches,
-                "Vanilla stable horse release function",
-                log).Rva;
-            releaseStableHorse = System.Runtime.InteropServices.Marshal.GetDelegateForFunctionPointer<ReleaseStableHorseDelegate>(
-                IntPtr.Add(libraryHandle, rva));
         }
 
         public void Initialize()
@@ -1107,7 +1082,7 @@ namespace ExtraFeatures
                     continue;
                 }
 
-                if (!TryReleaseKnightHorseWithVanilla(currentKnightId, currentKnight, reason))
+                if (!TryConsumeLinkedStableHorse(currentKnightId, currentKnight, reason, out ConsumedStableHorse consumedHorse))
                 {
                     GameUnitManagerAPI.Instance.DeleteUnit(swordsmanUnitId);
                     continue;
@@ -1115,7 +1090,8 @@ namespace ExtraFeatures
 
                 if (!GameUnitManagerAPI.Instance.DeleteUnitSafe(currentKnightId))
                 {
-                    LogError($"Knight dismount could not mark the original knight for deletion after releasing its horse: reason={reason}, unitId={currentKnightId}, globalId={currentSnapshot.GlobalId}.");
+                    RollbackConsumedStableHorse(consumedHorse, reason);
+                    LogError($"Knight dismount could not mark the original knight for Vanilla deletion: reason={reason}, unitId={currentKnightId}, globalId={currentSnapshot.GlobalId}.");
                     GameUnitManagerAPI.Instance.DeleteUnit(swordsmanUnitId);
                     continue;
                 }
@@ -1145,7 +1121,7 @@ namespace ExtraFeatures
                 return false;
             }
 
-            if (!TryReleaseKnightHorseWithVanilla(currentKnightId, currentKnight, reason))
+            if (!TryConsumeLinkedStableHorse(currentKnightId, currentKnight, reason, out ConsumedStableHorse consumedHorse))
             {
                 GameUnitManagerAPI.Instance.DeleteUnit(swordsmanUnitId);
                 return false;
@@ -1153,7 +1129,8 @@ namespace ExtraFeatures
 
             if (!GameUnitManagerAPI.Instance.DeleteUnitSafe(currentKnightId))
             {
-                LogError($"Knight dismount could not mark the original knight for deletion after releasing its horse: reason={reason}, unitId={currentKnightId}, globalId={currentSnapshot.GlobalId}.");
+                RollbackConsumedStableHorse(consumedHorse, reason);
+                LogError($"Knight dismount could not mark the original knight for Vanilla deletion: reason={reason}, unitId={currentKnightId}, globalId={currentSnapshot.GlobalId}.");
                 GameUnitManagerAPI.Instance.DeleteUnit(swordsmanUnitId);
                 return false;
             }
@@ -1522,53 +1499,147 @@ namespace ExtraFeatures
             return unit == null ? 0 : (int)unit->r_LinkedStableGlobalId;
         }
 
-        private bool TryReleaseKnightHorseWithVanilla(int unitId, GameUnit* unit, string reason)
+        private bool TryConsumeLinkedStableHorse(
+            int unitId,
+            GameUnit* unit,
+            string reason,
+            out ConsumedStableHorse consumedHorse)
         {
-            int stableId = GetKnightStableBuildingId(unit);
-            int stableGlobalId = GetKnightStableBuildingGlobalId(unit);
+            consumedHorse = default;
+            if (unit == null || unitId <= 0 || unit->r_GlobalId == 0)
+                return false;
+
             int unitGlobalId = (int)unit->r_GlobalId;
+            int linkedStableId = GetKnightStableBuildingId(unit);
+            int linkedStableGlobalId = GetKnightStableBuildingGlobalId(unit);
             bool hasSlotLink = TryFindStableHorseLink(unitId, unitGlobalId, out int slotStableId, out int slot);
 
-            if (stableId <= 0 && !hasSlotLink)
+            // Imported or scripted knights can legitimately have no stable. Dismounting them must
+            // not invent accounting, but any partial or contradictory link is unsafe to consume.
+            if (linkedStableId <= 0 && linkedStableGlobalId <= 0 && !hasSlotLink)
                 return true;
 
-            if (stableId <= 0 || stableGlobalId <= 0 || !hasSlotLink || slotStableId != stableId)
-            {
-                LogError($"Knight dismount found an incomplete Vanilla horse link: reason={reason}, unitId={unitId}, unitGlobalId={unit->r_GlobalId}, horseStableId={stableId}, horseStableGlobalId={stableGlobalId}, slotStableId={slotStableId}, slot={slot}.");
-                return false;
-            }
-
-            if (releaseStableHorse == null)
-            {
-                LogError($"Knight dismount cannot use Vanilla horse release because the native function is unavailable: reason={reason}, unitId={unitId}, stableId={stableId}.");
-                return false;
-            }
-
-            if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(stableId, out GameBuilding* stable) ||
+            if (linkedStableId <= 0 || linkedStableGlobalId <= 0 || !hasSlotLink ||
+                slotStableId != linkedStableId || slot < 0 || slot >= StableHorseSlotCount ||
+                !GameBuildingManagerAPI.Instance.TryGetBuildingById(linkedStableId, out GameBuilding* stable) ||
                 stable->r_AliveState != AliveState.IsAlive ||
                 stable->r_BuildingType != eStructs.STRUCT_STABLES ||
-                (int)stable->r_GlobalId != stableGlobalId ||
-                stable->r_TotalHorses == 0 ||
-                stable->r_UsedHorses == 0 ||
+                (int)stable->r_GlobalId != linkedStableGlobalId ||
                 GetStableHorseSlotUnitId(stable, slot) != unitId ||
                 GetStableHorseSlotGlobalId(stable, slot) != unitGlobalId)
             {
-                LogError($"Knight dismount rejected an invalid Vanilla stable link: reason={reason}, unitId={unitId}, stableId={stableId}, expectedStableGlobalId={stableGlobalId}.");
+                LogError(
+                    $"Knight dismount refused an inconsistent stable link: reason={reason}, unitId={unitId}, " +
+                    $"unitGlobalId={unitGlobalId}, linkedStableId={linkedStableId}, " +
+                    $"linkedStableGlobalId={linkedStableGlobalId}, slotStableId={slotStableId}, slot={slot}.");
                 return false;
             }
 
-            // Use Vanilla exactly once instead of UnlinkStablesUnitIdLink: this dismount consumes
-            // the horse, so Vanilla must clear the slot and decrement r_TotalHorses. Its trailing
-            // stable recount derives r_UsedHorses from the remaining valid links automatically.
-            releaseStableHorse(GameBuildingManagerAPI.Instance.GetBuildingManager(), stableId, unitId);
-
-            if (TryFindStableHorseLink(unitId, unitGlobalId, out int remainingStableId, out int remainingSlot))
+            int totalBefore = stable->r_TotalHorses;
+            int usedBefore = stable->r_UsedHorses;
+            int rechargeBefore = stable->r_HorseRechargeTimer;
+            if (totalBefore <= 0 || totalBefore > StableHorseSlotCount ||
+                usedBefore <= 0 || usedBefore > StableHorseSlotCount || usedBefore > totalBefore)
             {
-                LogError($"Knight dismount Vanilla horse release left the slot reserved: reason={reason}, unitId={unitId}, stableId={remainingStableId}, slot={remainingSlot}, {FormatStableState(stableId, stable, slot)}.");
+                LogError(
+                    $"Knight dismount refused invalid stable accounting: reason={reason}, unitId={unitId}, " +
+                    $"unitGlobalId={unitGlobalId}, {FormatStableState(linkedStableId, stable, slot)}.");
                 return false;
             }
 
-            return true;
+            consumedHorse = new ConsumedStableHorse
+            {
+                IsActive = true,
+                StableId = linkedStableId,
+                StableGlobalId = linkedStableGlobalId,
+                Slot = slot,
+                UnitId = unitId,
+                UnitGlobalId = unitGlobalId,
+                TotalBefore = totalBefore,
+                UsedBefore = usedBefore,
+                RechargeBefore = rechargeBefore
+            };
+
+            // TODO(SHCDE-SE): Replace this managed Vanilla-equivalent accounting block when the
+            // Script Extender exposes a direct "consume linked stable horse" API. Unlink alone
+            // returns the horse immediately; decrementing TotalHorses makes the existing stable
+            // recharge it. Vanilla owns UsedHorses and HorseRechargeTimer, so never write them here.
+            stable->r_TotalHorses = (byte)(totalBefore - 1);
+            GameBuildingManagerAPI.Instance.UnlinkStablesUnitIdLink(linkedStableId, slot, bidirectional: true);
+
+            bool transitionMatches = IsStableHorseSlotFree(stable, slot) &&
+                unit->r_LinkedStableBuildingId == 0 && unit->r_LinkedStableGlobalId == 0 &&
+                stable->r_TotalHorses == totalBefore - 1 &&
+                stable->r_UsedHorses == usedBefore &&
+                stable->r_HorseRechargeTimer == rechargeBefore;
+            if (transitionMatches)
+                return true;
+
+            LogError(
+                $"Knight dismount stable transition was incomplete and will be rolled back: reason={reason}, " +
+                $"unitId={unitId}, unitGlobalId={unitGlobalId}, {FormatStableState(linkedStableId, stable, slot)}.");
+            RollbackConsumedStableHorse(consumedHorse, reason);
+            consumedHorse = default;
+            return false;
+        }
+
+        private void RollbackConsumedStableHorse(ConsumedStableHorse consumedHorse, string reason)
+        {
+            if (!consumedHorse.IsActive)
+                return;
+
+            if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(consumedHorse.StableId, out GameBuilding* stable) ||
+                stable->r_AliveState != AliveState.IsAlive ||
+                stable->r_BuildingType != eStructs.STRUCT_STABLES ||
+                (int)stable->r_GlobalId != consumedHorse.StableGlobalId ||
+                !GameUnitManagerAPI.Instance.TryGetUnitById(consumedHorse.UnitId, out GameUnit* unit) ||
+                (int)unit->r_GlobalId != consumedHorse.UnitGlobalId)
+            {
+                LogError(
+                    $"Knight dismount could not reacquire objects for stable rollback: reason={reason}, " +
+                    $"stableId={consumedHorse.StableId}, unitId={consumedHorse.UnitId}.");
+                return;
+            }
+
+            bool slotIsFree = IsStableHorseSlotFree(stable, consumedHorse.Slot);
+            bool slotAlreadyRestored = GetStableHorseSlotUnitId(stable, consumedHorse.Slot) == consumedHorse.UnitId &&
+                GetStableHorseSlotGlobalId(stable, consumedHorse.Slot) == consumedHorse.UnitGlobalId;
+            bool totalCanRestore = stable->r_TotalHorses == consumedHorse.TotalBefore - 1 ||
+                stable->r_TotalHorses == consumedHorse.TotalBefore;
+            if ((!slotIsFree && !slotAlreadyRestored) || !totalCanRestore)
+            {
+                LogError(
+                    $"Knight dismount skipped an unsafe stable rollback: reason={reason}, unitId={consumedHorse.UnitId}, " +
+                    $"expectedTotal={consumedHorse.TotalBefore - 1}/{consumedHorse.TotalBefore}, " +
+                    $"{FormatStableState(consumedHorse.StableId, stable, consumedHorse.Slot)}.");
+                return;
+            }
+
+            stable->r_TotalHorses = (byte)consumedHorse.TotalBefore;
+            if (slotIsFree)
+            {
+                GameBuildingManagerAPI.Instance.SetStablesUnitIdLink(
+                    consumedHorse.StableId,
+                    consumedHorse.Slot,
+                    consumedHorse.UnitId,
+                    consumedHorse.UnitGlobalId,
+                    bidirectional: true);
+            }
+
+            bool rollbackMatches =
+                GetStableHorseSlotUnitId(stable, consumedHorse.Slot) == consumedHorse.UnitId &&
+                GetStableHorseSlotGlobalId(stable, consumedHorse.Slot) == consumedHorse.UnitGlobalId &&
+                unit->r_LinkedStableBuildingId == consumedHorse.StableId &&
+                unit->r_LinkedStableGlobalId == (uint)consumedHorse.StableGlobalId &&
+                stable->r_TotalHorses == consumedHorse.TotalBefore &&
+                stable->r_UsedHorses == consumedHorse.UsedBefore &&
+                stable->r_HorseRechargeTimer == consumedHorse.RechargeBefore;
+            if (!rollbackMatches)
+            {
+                LogError(
+                    $"Knight dismount stable rollback was incomplete: reason={reason}, unitId={consumedHorse.UnitId}, " +
+                    $"unitGlobalId={consumedHorse.UnitGlobalId}, {FormatStableState(consumedHorse.StableId, stable, consumedHorse.Slot)}.");
+            }
         }
 
         private static bool TryFindStableHorseLink(int unitId, int unitGlobalId, out int stableId, out int slot)
@@ -1710,6 +1781,19 @@ namespace ExtraFeatures
             public int StableGlobalId;
             public int OwnerPlayerId;
             public int Slot;
+        }
+
+        private struct ConsumedStableHorse
+        {
+            public bool IsActive;
+            public int StableId;
+            public int StableGlobalId;
+            public int Slot;
+            public int UnitId;
+            public int UnitGlobalId;
+            public int TotalBefore;
+            public int UsedBefore;
+            public int RechargeBefore;
         }
 
         private struct ResolvedTransformSnapshot

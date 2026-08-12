@@ -7,9 +7,10 @@
 - SHA-256: `33AA33457F7DFAAA6D316D1D5E4C5AB97094F2C73B68D349990ABF9D0EF3B469`
 
 The audited hash uses locally validated direct RVAs. On another hash, only the
-signature- and semantics-validated features use bounded unique scans. Knight
-dismount and quarry relocation remain inactive because their fixed native
-layouts are not proven by the function signatures alone.
+signature- and semantics-validated features use bounded unique scans. Quarry
+relocation remains inactive because its fixed native layout is not proven by
+the function signature alone. Knight mount/dismount uses only public Script
+Extender fields and the bidirectional stable-link API, so it has no private RVA.
 
 ## Native address map
 
@@ -26,7 +27,6 @@ layouts are not proven by the function signatures alone.
 | `LifetimePattern` | `0x9A164` | scan; lifetime immediate at `+9` |
 | `BuildingDistanceComparisonPattern` | `0x9F86B` | scan; distance context hook |
 | worker-table byte pattern | `0x2E4E58` | full-image data scan; table begins `0x2E4DE0` |
-| `ReleaseStableHorsePattern` | `0xC4110` | fixed unit/stable layout |
 | `SetupBuildingEntrancesOffsetPattern` | `0xC0270` | fixed manager/candidate layout |
 
 The named source constants and `WorkerTablePattern` contain the complete
@@ -40,10 +40,8 @@ the loaded image and their surrounding native contract.
 2. Verify the complete Vanilla worker table and its table-start calculation.
 3. Revalidate market packet globals, sender/storage calls and statistic table.
 4. Revalidate plague lifetime value `800` and Vanilla distance comparison `30`.
-5. Before enabling fixed-layout features, revalidate the named knight stable
-   fields `GameUnit.r_LinkedStableBuildingId`/`r_LinkedStableGlobalId`
-   (`+0x3D2/+0x3DC`), quarry manager fields `+0x31B7D0/+0x31B7D4`,
-   helper ABI and all candidate semantics.
+5. Before enabling quarry relocation, revalidate the quarry manager fields
+   `+0x31B7D0/+0x31B7D4`, helper ABI and all candidate semantics.
 6. Test every setting enabled/disabled, restore paths, map reloads, market
    packets, church workers, plague behavior, AI protection, knights and quarry.
 7. Update every RVA and only then approve the shared hash.
@@ -53,9 +51,10 @@ the loaded image and their surrounding native contract.
 Every code signature has exactly one executable match; the worker-table pattern
 and table start remain `0x2E4E58`/`0x2E4DE0`. The market call chain, statistic
 target, plague constants (`800`, `30`) and all hook boundaries remain
-semantically unchanged. The Vanilla stable release still uses building stride
-`0x32C`, stable stride `0x196` and the named knight backlinks
-`r_LinkedStableBuildingId`/`r_LinkedStableGlobalId` at `+0x3D2/+0x3DC`.
-`setupBuildingEntrancesOffset` still writes the candidate pair at manager
+semantically unchanged. Vanilla stable release was also verified to decrement
+`r_TotalHorses`, clear the horse slot and then recount `r_UsedHorses`; the mod
+reproduces that state transition through public Script Extender access and has
+no stable-release RVA or pattern to update. `setupBuildingEntrancesOffset`
+still writes the candidate pair at manager
 `+0x31B7D0/+0x31B7D4` with the same ABI and rotation cases. Functional setting,
 reload and multiplayer tests remain post-build game smoke tests.

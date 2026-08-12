@@ -44,7 +44,6 @@ namespace ExtraFeatures
         private int libraryLength;
         private bool nativeLibraryAvailable;
         private bool fixedLayoutHashValidated;
-        private bool knightFixedLayoutErrorLogged;
         private bool quarryFixedLayoutErrorLogged;
         private bool fastRecruitInitializationAttempted;
         private bool hooksSubscribed;
@@ -88,15 +87,6 @@ namespace ExtraFeatures
             {
                 try
                 {
-                    knightDismountRuntime.InstallNativeFunctions(newLibraryHandle, memory, referenceHashMatches: true);
-                }
-                catch (Exception ex)
-                {
-                    LogFeatureFailure("knight mount/dismount native functions", ex);
-                }
-
-                try
-                {
                     quarryPileRelocationRuntime.InstallNativeFunctions(newLibraryHandle, memory, referenceHashMatches: true);
                 }
                 catch (Exception ex)
@@ -120,8 +110,8 @@ namespace ExtraFeatures
             InstallCtrlMarketTradeHook();
             TryRunFeature("fast recruit rally movement", ApplyFastRecruitRallyMovementSetting);
 
-            // Settings may be restored before LibraryLoaded. Retry fixed-layout activation now that
-            // the native library and delegates exist instead of waiting for a later setting change.
+            // Settings may be restored before LibraryLoaded. Retry activation now that the native
+            // library is available instead of waiting for a later setting change.
             ReconcileFixedLayoutFeatures();
         }
 
@@ -305,13 +295,12 @@ namespace ExtraFeatures
             if (!nativeLibraryAvailable || !settings.EnableMod)
                 return;
 
+            // Knight mount/dismount uses the public bidirectional link API plus a managed,
+            // Vanilla-equivalent TotalHorses transition; neither requires a hash-bound delegate.
+            TryRunFeature("knight mount/dismount", knightDismountRuntime.Initialize);
+
             if (!fixedLayoutHashValidated)
             {
-                if (settings.EnableKnightDismount && !knightFixedLayoutErrorLogged)
-                {
-                    knightFixedLayoutErrorLogged = true;
-                    Shared.DebugLogHelper.LogError(log, "Extra Features knight mount/dismount remains inactive because its fixed native layout is not validated for this CrusaderDE.dll.");
-                }
                 if (settings.EnableQuarryPileRelocation && !quarryFixedLayoutErrorLogged)
                 {
                     quarryFixedLayoutErrorLogged = true;
@@ -320,7 +309,6 @@ namespace ExtraFeatures
                 return;
             }
 
-            TryRunFeature("knight mount/dismount", knightDismountRuntime.Initialize);
             TryRunFeature("quarry-pile relocation", quarryPileRelocationRuntime.Initialize);
         }
 
