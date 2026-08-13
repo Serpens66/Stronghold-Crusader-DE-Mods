@@ -3,10 +3,18 @@
   "Author": "Serpens66",
   "Name": "Improved Hunters",
   "Description": "Adds configurable hunter prey and meat yield for deer, goats, rabbits, camels, chickens and cows.",
-  "Version": "1.1.24",
+  "Version": "1.1.25",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.1.25",
+      "Changes": [
+        "Add an isolated, behavior-neutral Hunter visibility diagnostic for native order-helper rejection and the following state-6 transition.",
+        "Correlate rejected orders and successful projectile spawns with Hunter/chicken identities, positions, elevations, look-at coordinates, straight-line terrain heights and intersected building types without bypassing building visibility.",
+        "Confirm matching native Hunter actor captures and retain direct-RVA resolution on the audited DLL with unique semantic pattern fallback on changed hashes."
+      ]
+    },
     {
       "Version": "1.1.24",
       "Changes": [

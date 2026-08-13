@@ -24,6 +24,8 @@ fields still require an in-game smoke test after a game update.
 | `ManualAttackTargetAssignmentPattern` | `0x18ED46` | explicit target assignment before automatic dispatch |
 | `ComparisonSequencePattern` | `0xD2AB4` | granary chicken target comparison hook at `+11` (`0xD2ABF`) |
 | `HunterQueryCandidateLoopPattern` | `0x18AF70` | temporary Script Extender issue-123 actor capture |
+| `HunterOrderHelperFailurePattern` | `0x18EE14` | temporary behavior-neutral visibility/order rejection diagnostic |
+| `HunterState6TransitionPattern` | `0x130171` | temporary behavior-neutral Hunter state-6 diagnostic |
 
 The source constants contain the complete wildcard patterns.
 
@@ -95,6 +97,37 @@ this workaround once the minimum supported Script Extender fixes work item 123.
    formula, `ESI` candidate ID and callback ordering before the public Extender
    event. Check whether upstream work item 123 is fixed and remove the temporary
    workaround when it is no longer needed.
+9. Revalidate the temporary visibility diagnostic basic blocks at `0x18EE14`
+   and `0x130171`. The first must still begin with the 10-byte Hunter-type
+   comparison followed by its 6-byte `je`; its decoded branch destination must
+   remain inside the executable image and, on the reference hash, equal the
+   Hunter zero-return block at `0x18F928`. The second must still overwrite only
+   `imul rcx,rdx,0x490`, `mov r15d,20` and `mov eax,6` (18 bytes total).
+
+## Temporary Hunter visibility diagnostic
+
+Version 1.1.25 keeps the visibility investigation in the removable
+`HunterVisibilityDiagnostic.cs` file. It changes no branch result. The hook at
+`0x18EE14` runs only after the internal order/geometry helper at `0xA06F0`
+returned `<= 0`, records exact Hunter/chicken pointers and IDs, then reproduces
+Vanilla's Hunter comparison and zero-return branch. The hook at `0x130171`
+observes the subsequent state-6 path and exactly replays its three overwritten
+instructions. The previously removed hook at `0x12FF53` remains forbidden
+because direct side entries target its former overwrite window.
+
+Both hooks use the reference RVA directly on the audited hash. On a changed
+hash, each complete pattern must resolve uniquely in executable sections; a
+missing, ambiguous or semantically invalid result disables only this diagnostic.
+An unmanaged feature byte prevents managed callbacks while the mod or chicken
+hunting is disabled. Runtime logs correlate native, recently assigned and
+recently accepted targets by unit slot plus global ID. They include unit tile
+and world positions, elevation and look-at coordinates, Hunter path/order
+fields, the straight tile line's terrain-height range, and each building ID,
+type, owner, footprint and occupied-line-tile count. `GameUnit` fields used are
+`+0x88`, `+0x8A`, `+0x92`, `+0x94`, `+0xB2..+0xBE`, `+0xC0/+0xC2`, `+0xF2`,
+`+0xF4`, `+0x2BC`, `+0x398`, `+0x39A`, `+0x39C`, `+0x3FE` and `+0x448`.
+The existing projectile-spawn event emits the same line context for successful
+attack paths, providing a behavior-neutral comparison against Hunter huts.
 
 ## Audit for Steam build 24651686
 

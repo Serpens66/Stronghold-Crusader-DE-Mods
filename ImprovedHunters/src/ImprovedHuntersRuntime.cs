@@ -135,6 +135,7 @@ namespace ImprovedHunters
         private AutomaticChickenTargetPatch automaticChickenTargetPatch;
         private GranaryChickenLimitPatch granaryChickenLimitPatch;
         private HunterQueryActorWorkaround hunterQueryActorWorkaround;
+        private HunterVisibilityDiagnostic hunterVisibilityDiagnostic;
         private bool referenceHashMatches;
         private bool loadedChickenReconstructionPending;
         private long nextGranaryChickenCleanupTimestamp;
@@ -160,6 +161,7 @@ namespace ImprovedHunters
                 InitializeAutomaticChickenTargetPatch(memory, imageBase, referenceHashMatches);
                 InitializeGranaryChickenLimitPatch(memory, imageBase, referenceHashMatches);
                 InitializeHunterQueryActorWorkaround(memory, imageBase, referenceHashMatches);
+                InitializeHunterVisibilityDiagnostic(memory, imageBase, referenceHashMatches);
 
                 subscriptions.Add(UnitR3EventHooks.OnUnitHunterQueryTarget.Observable
                     .Where(args => args.Phase == EventHookPhase.Pre)
@@ -202,6 +204,7 @@ namespace ImprovedHunters
                     $"automaticChickenTargetApplied={automaticChickenTargetPatch?.IsApplied == true}, " +
                     $"granaryChickenLimitAvailable={granaryChickenLimitPatch?.IsAvailable == true}, " +
                     $"hunterQueryActorWorkaroundAvailable={hunterQueryActorWorkaround?.IsAvailable == true}, " +
+                    $"hunterVisibilityDiagnosticAvailable={hunterVisibilityDiagnostic?.IsAvailable == true}, " +
                     $"referenceHashMatches={referenceHashMatches}.");
             }
             catch
@@ -374,6 +377,8 @@ namespace ImprovedHunters
                     continue;
 
                 hunterPreyTypes[hunterId] = target->r_UnitChimp;
+                if (target->r_UnitChimp == eChimps.CHIMP_TYPE_CHICKEN)
+                    hunterVisibilityDiagnostic?.RecordAssignedChickenTarget(hunterId, targetUnitId, targetGlobalId);
 
                 byte* targetBytes = (byte*)target;
                 if (*(ushort*)(hunterBytes + 0x2BC) != 0x02 ||
@@ -527,6 +532,7 @@ namespace ImprovedHunters
             pendingGranaryChickenSpawns.Clear();
             loadedChickenReconstructionPending = true;
             ClearTargetSelectionCaches();
+            hunterVisibilityDiagnostic?.ResetForMap();
             nativeScanFailureLogged = false;
             RunNativeScan(force: true);
         }
@@ -580,6 +586,17 @@ namespace ImprovedHunters
             {
                 hunterTargetAcceptedEvents++;
                 hunterPreyTypes[hunterUnitId] = queryType;
+                if (queryType == eChimps.CHIMP_TYPE_CHICKEN)
+                {
+                    int queryGlobalId = unitApi.GetGlobalId(args.QueryUnitId);
+                    if (queryGlobalId > 0)
+                    {
+                        hunterVisibilityDiagnostic?.RecordAcceptedChickenTarget(
+                            hunterUnitId,
+                            args.QueryUnitId,
+                            unchecked((uint)queryGlobalId));
+                    }
+                }
             }
             else
             {
@@ -603,6 +620,11 @@ namespace ImprovedHunters
             bool captured = hunterQueryActorWorkaround?.TryConsumeHunterUnitId(
                 args.QueryUnitId,
                 out capturedHunterUnitId) == true;
+            hunterVisibilityDiagnostic?.RecordActorResolution(
+                args.HunterUnitId,
+                capturedHunterUnitId,
+                args.QueryUnitId,
+                captured);
 
             if (captured && IsLiveHunter(unitApi, capturedHunterUnitId))
             {
@@ -1814,6 +1836,15 @@ namespace ImprovedHunters
                 out string hunterSource);
             if (!hasHunterContext)
                 hunterSource = "animal-arrow-fallback";
+            else if (eligibility.Type == eChimps.CHIMP_TYPE_CHICKEN)
+            {
+                hunterVisibilityDiagnostic?.RecordProjectileSpawn(
+                    hunterUnitId,
+                    args.AttackedUnitId,
+                    eligibility.GlobalId,
+                    args.ReturnValue,
+                    hunterSource);
+            }
 
             QueuePendingHunterShotIntent(
                 hunterUnitId,
@@ -2675,6 +2706,31 @@ namespace ImprovedHunters
             }
         }
 
+        private void InitializeHunterVisibilityDiagnostic(
+            ReadOnlySpan<byte> memory,
+            ulong imageBase,
+            bool referenceHashMatches)
+        {
+            try
+            {
+                hunterVisibilityDiagnostic = new HunterVisibilityDiagnostic(
+                    log,
+                    settings,
+                    memory,
+                    imageBase,
+                    referenceHashMatches);
+            }
+            catch (Exception exception)
+            {
+                hunterVisibilityDiagnostic?.Dispose();
+                hunterVisibilityDiagnostic = null;
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Improved Hunters temporary visibility diagnostic is unavailable; " +
+                    $"Hunter behavior remains unchanged: {exception}");
+            }
+        }
+
         private void ApplyAutomaticChickenTargetPatch()
         {
             bool requestedEnabled = settings.EnableMod && settings.HuntChicken;
@@ -3197,6 +3253,8 @@ namespace ImprovedHunters
             nativeScanFailureLogged = false;
             nextNativeScanTimestamp = 0;
 
+            hunterVisibilityDiagnostic?.Dispose();
+            hunterVisibilityDiagnostic = null;
             hunterQueryActorWorkaround?.Dispose();
             hunterQueryActorWorkaround = null;
             granaryChickenLimitPatch?.Dispose();
