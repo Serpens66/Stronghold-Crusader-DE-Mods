@@ -13,6 +13,10 @@ ImprovedHunters.Rabbit=Hase
 ImprovedHunters.Camel=Kamel
 ImprovedHunters.Chicken=Huhn
 ImprovedHunters.ChickenHelp=Jaeger koennen Huehner unabhaengig von ihrem Besitzer als Ziel waehlen.
+ImprovedHunters.ChickenPopulationTitle=Kornspeicherhühner
+ImprovedHunters.MaxNeutralChickensPerPlayer=Limit neutraler Hühner
+ImprovedHunters.MaxNeutralChickensPerPlayerHelp=Maximale Anzahl lebender neutraler Kornspeicherhühner, die jedem Spieler zugeordnet sind. Null verhindert neue Kornspeicherhühner, ohne vorhandene Hühner zu löschen.
+ImprovedHunters.MaxNeutralChickensPerPlayerValueFormat={0} Hühner pro Spieler
 ImprovedHunters.Cow=Kuh
 ImprovedHunters.CowHelp=Jaeger koennen Kuehe unabhaengig von ihrem Besitzer als Ziel waehlen. Standardmaessig deaktiviert.
 

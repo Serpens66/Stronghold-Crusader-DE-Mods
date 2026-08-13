@@ -4,6 +4,7 @@ using SHCDESE.Interop;
 using SHCDESE.NoesisUtil;
 using SHCDESE.ViewModels;
 using System;
+using System.Globalization;
 
 namespace ImprovedHunters
 {
@@ -30,6 +31,7 @@ namespace ImprovedHunters
         private int camelMeat = DefaultCamelMeat;
         private int chickenMeat = DefaultChickenMeat;
         private int cowMeat = DefaultCowMeat;
+        private int maxNeutralChickensPerPlayer = GranaryChickenSpawnPolicy.DefaultMaximumPerPlayer;
 
         public event Action<string> SettingChanged;
 
@@ -60,6 +62,13 @@ namespace ImprovedHunters
         public string CamelText => SerpLocalization.Get("ImprovedHunters.Camel");
         public string ChickenText => SerpLocalization.Get("ImprovedHunters.Chicken");
         public string ChickenHelpText => SerpLocalization.Get("ImprovedHunters.ChickenHelp");
+        public string ChickenPopulationTitleText => SerpLocalization.Get("ImprovedHunters.ChickenPopulationTitle");
+        public string MaxNeutralChickensPerPlayerText => SerpLocalization.Get("ImprovedHunters.MaxNeutralChickensPerPlayer");
+        public string MaxNeutralChickensPerPlayerHelpText => SerpLocalization.Get("ImprovedHunters.MaxNeutralChickensPerPlayerHelp");
+        public string MaxNeutralChickensPerPlayerValueText => string.Format(
+            CultureInfo.CurrentCulture,
+            SerpLocalization.Get("ImprovedHunters.MaxNeutralChickensPerPlayerValueFormat"),
+            MaxNeutralChickensPerPlayer);
         public string CowText => SerpLocalization.Get("ImprovedHunters.Cow");
         public string CowHelpText => SerpLocalization.Get("ImprovedHunters.CowHelp");
 
@@ -71,6 +80,17 @@ namespace ImprovedHunters
         [SyncHostOnly] public bool HuntCamel { get => huntCamel; set => SetSetting(ref huntCamel, value, nameof(HuntCamel)); }
         [SyncHostOnly] public bool HuntChicken { get => huntChicken; set => SetSetting(ref huntChicken, value, nameof(HuntChicken)); }
         [SyncHostOnly] public bool HuntCow { get => huntCow; set => SetSetting(ref huntCow, value, nameof(HuntCow)); }
+        [SyncHostOnly] public int MaxNeutralChickensPerPlayer
+        {
+            get => maxNeutralChickensPerPlayer;
+            set => SetBoundedIntSetting(
+                ref maxNeutralChickensPerPlayer,
+                value,
+                GranaryChickenSpawnPolicy.MinimumMaximumPerPlayer,
+                GranaryChickenSpawnPolicy.MaximumMaximumPerPlayer,
+                nameof(MaxNeutralChickensPerPlayer),
+                nameof(MaxNeutralChickensPerPlayerValueText));
+        }
 
         [SyncHostOnly] public int DeerMeat { get => deerMeat; set => SetMeatSetting(ref deerMeat, value, nameof(DeerMeat), nameof(DeerMeatText)); }
         [SyncHostOnly] public int GoatMeat { get => goatMeat; set => SetMeatSetting(ref goatMeat, value, nameof(GoatMeat), nameof(GoatMeatText)); }
@@ -154,6 +174,7 @@ namespace ImprovedHunters
             HuntCamel = true;
             HuntChicken = true;
             HuntCow = false;
+            MaxNeutralChickensPerPlayer = GranaryChickenSpawnPolicy.DefaultMaximumPerPlayer;
             DeerMeat = DefaultDeerMeat;
             GoatMeat = DefaultGoatMeat;
             RabbitMeat = DefaultRabbitMeat;
@@ -188,6 +209,27 @@ namespace ImprovedHunters
             SettingChanged?.Invoke(propertyName);
             OnPropertyChanged(propertyName);
             OnPropertyChanged(textPropertyName);
+        }
+
+        private void SetBoundedIntSetting(
+            ref int field,
+            int value,
+            int minimum,
+            int maximum,
+            string propertyName,
+            string dependentPropertyName)
+        {
+            if (!CanMutateSettingWithDependents(propertyName, dependentPropertyName))
+                return;
+
+            int clamped = Math.Max(minimum, Math.Min(maximum, value));
+            if (field == clamped)
+                return;
+
+            field = clamped;
+            SettingChanged?.Invoke(propertyName);
+            OnPropertyChanged(propertyName);
+            OnPropertyChanged(dependentPropertyName);
         }
 
         private void SetMeatText(string text, Action<int> setValue, string textPropertyName)

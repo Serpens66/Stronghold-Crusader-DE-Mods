@@ -24,7 +24,8 @@
                              PassEventArgsToCommand="True"/>
     </b:EventTrigger>
   </b:Interaction.Triggers>
-  <ScrollViewer VerticalScrollBarVisibility="Auto">
+  <ScrollViewer VerticalScrollBarVisibility="{x:Static shared:ToolTipPresentation.AutomaticScrollBarVisibility}"
+                HorizontalScrollBarVisibility="{x:Static shared:ToolTipPresentation.AutomaticScrollBarVisibility}">
   <StackPanel Margin="10">
     <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
       <Border Style="{StaticResource ClientActivationBorder}"><CheckBox IsEnabled="{Binding CanEditClientSettings}"

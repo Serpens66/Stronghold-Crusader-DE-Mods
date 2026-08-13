@@ -83,6 +83,10 @@
       <HintPath>$(ExtenderDir)\R3.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="Iced">
+      <HintPath>$(ExtenderDir)\Iced.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="Zhuqiaomon">
       <HintPath>$(ExtenderDir)\Zhuqiaomon.dll</HintPath>
       <Private>false</Private>
@@ -109,6 +113,8 @@
     </Compile>
     <Compile Include="src\ImprovedHuntersPlugin.cs" />
     <Compile Include="src\AutomaticChickenTargetPatch.cs" />
+    <Compile Include="src\GranaryChickenLimitPatch.cs" />
+    <Compile Include="src\GranaryChickenSpawnPolicy.cs" />
     <Compile Include="src\ImprovedHuntersRuntime.cs" />
     <Compile Include="src\ImprovedHuntersViewModel.cs" />
   </ItemGroup>

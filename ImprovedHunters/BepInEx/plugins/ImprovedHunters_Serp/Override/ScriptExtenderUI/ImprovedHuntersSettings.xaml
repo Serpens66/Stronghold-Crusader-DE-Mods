@@ -10,7 +10,8 @@
     <Style x:Key="HostActivationBorder" TargetType="{x:Type Border}"><Setter Property="Background" Value="#443B6EA5"/><Setter Property="BorderBrush" Value="#FF77AAFF"/><Setter Property="BorderThickness" Value="1"/><Setter Property="CornerRadius" Value="3"/><Setter Property="Padding" Value="8,4"/></Style>
     <Style x:Key="ClientActivationBorder" TargetType="{x:Type Border}"><Setter Property="Background" Value="#44306950"/><Setter Property="BorderBrush" Value="#FF66CC99"/><Setter Property="BorderThickness" Value="1"/><Setter Property="CornerRadius" Value="3"/><Setter Property="Padding" Value="8,4"/></Style>
   </Grid.Resources>
-  <ScrollViewer VerticalScrollBarVisibility="Auto">
+  <ScrollViewer VerticalScrollBarVisibility="{x:Static shared:ToolTipPresentation.AutomaticScrollBarVisibility}"
+                HorizontalScrollBarVisibility="{x:Static shared:ToolTipPresentation.AutomaticScrollBarVisibility}">
     <StackPanel Margin="10">
       <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
         <Border Style="{StaticResource HostActivationBorder}"><CheckBox IsEnabled="{Binding CanEditHostSettings}" IsChecked="{Binding EnableMod, Mode=TwoWay}"
@@ -41,6 +42,17 @@
                 Foreground="White"
                 Margin="0,0,14,8"
                 ToolTipService.ShowDuration="60000" ToolTip="{Binding ImprovedPathfindingHelpText}"/>
+      <TextBlock Text="{Binding ChickenPopulationTitleText}" Style="{StaticResource SectionHeader}" Margin="0,4,0,4"/>
+      <Grid Margin="0,0,0,8">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="220"/>
+          <ColumnDefinition Width="220"/>
+          <ColumnDefinition Width="180"/>
+        </Grid.ColumnDefinitions>
+        <TextBlock Grid.Column="0" Text="{Binding MaxNeutralChickensPerPlayerText}" Foreground="White" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding MaxNeutralChickensPerPlayerHelpText}"/>
+        <Slider Grid.Column="1" Minimum="0" Maximum="100" Value="{Binding MaxNeutralChickensPerPlayer, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding MaxNeutralChickensPerPlayerHelpText}"/>
+        <TextBlock Grid.Column="2" Text="{Binding MaxNeutralChickensPerPlayerValueText}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding MaxNeutralChickensPerPlayerHelpText}"/>
+      </Grid>
       <TextBlock Text="{Binding TargetsYieldTitleText}" Style="{StaticResource SectionHeader}" Margin="0,4,0,4"/>
       <Grid>
         <Grid.ColumnDefinitions>

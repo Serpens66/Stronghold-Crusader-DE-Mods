@@ -13,6 +13,10 @@ ImprovedHunters.Rabbit=Rabbit
 ImprovedHunters.Camel=Camel
 ImprovedHunters.Chicken=Chicken
 ImprovedHunters.ChickenHelp=Hunters can target chickens regardless of owner.
+ImprovedHunters.ChickenPopulationTitle=Granary Chickens
+ImprovedHunters.MaxNeutralChickensPerPlayer=Neutral chicken limit
+ImprovedHunters.MaxNeutralChickensPerPlayerHelp=Maximum number of living neutral granary chickens assigned to each player. Zero prevents new granary chicken spawns without deleting existing chickens.
+ImprovedHunters.MaxNeutralChickensPerPlayerValueFormat={0} chickens per player
 ImprovedHunters.Cow=Cow
 ImprovedHunters.CowHelp=Hunters can target cows regardless of owner. Disabled by default.
 
