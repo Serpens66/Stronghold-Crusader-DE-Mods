@@ -46,6 +46,13 @@ try {
         $tagCheck = Invoke-CheckedCommand -FilePath 'git' -Arguments @('-C', $config.Root, 'rev-parse', '-q', '--verify', "refs/tags/$($metadata.Tag)") -AllowFailure
         if ($tagCheck.ExitCode -eq 0) { throw "Tag already exists without a resumable draft: $($metadata.Tag)" }
     }
+    $previousReleaseVersion = Get-PreviousPublishedReleaseVersion -Metadata $metadata
+    $releaseChangeLines = @(Get-ReleaseChangeLines -Metadata $metadata -PreviousVersion $previousReleaseVersion)
+    if ([string]::IsNullOrWhiteSpace($previousReleaseVersion)) {
+        Write-Host 'No previous release found; release notes will say "inital release".' -ForegroundColor Yellow
+    } else {
+        Write-Host "Release notes include changelogs after v$previousReleaseVersion through v$($metadata.Version)." -ForegroundColor Cyan
+    }
 
     if (-not $NoPrompt) {
         $confirmation = Read-Host "Type RELEASE to build and publish $($metadata.Manifest.Name) v$($metadata.Version)"
@@ -133,7 +140,7 @@ try {
         '',
         '## Changes',
         ''
-    ) + @($metadata.Changelog.Changes | ForEach-Object { "- $_" }) + @(
+    ) + $releaseChangeLines + @(
         '',
         '## Source and verification',
         '',

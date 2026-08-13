@@ -116,6 +116,8 @@ public static class SerpLocalization
     public const string EnableFastRecruitRallyMovementHelp = "SomeSettings.EnableFastRecruitRallyMovementHelp";
     public const string EnableKnightDismount = "SomeSettings.EnableKnightDismount";
     public const string EnableKnightDismountHelp = "SomeSettings.EnableKnightDismountHelp";
+    public const string InstantHorse = "SomeSettings.InstantHorse";
+    public const string InstantHorseHelp = "SomeSettings.InstantHorseHelp";
     public const string KnightDismountTooltip = "SomeSettings.KnightDismountTooltip";
     public const string KnightDismountTooltipBody = "SomeSettings.KnightDismountTooltipBody";
     public const string KnightMountTooltip = "SomeSettings.KnightMountTooltip";
@@ -346,6 +348,8 @@ public static class SerpLocalization
         { EnableFastRecruitRallyMovementHelp, "Newly recruited player and AI units move to their rally points using their own Vanilla Fast pace and animation while keeping terrain and state modifiers." },
         { EnableKnightDismount, "Enable knight mount/dismount buttons" },
         { EnableKnightDismountHelp, "Adds command buttons to mount swordsmen and dismount mounted knights. This feature is temporarily unavailable in multiplayer until Script Extender 1.50.0 Chore support is adopted." },
+        { InstantHorse, "Instant Horse" },
+        { InstantHorseHelp, "Makes a horse immediately available again after a mounted knight dismounts, instead of requiring the stable to replenish it first." },
         { KnightDismountTooltip, "Dismount" },
         { KnightDismountTooltipBody, "Turns selected mounted knights into swordsmen at the same position." },
         { KnightMountTooltip, "Mount" },

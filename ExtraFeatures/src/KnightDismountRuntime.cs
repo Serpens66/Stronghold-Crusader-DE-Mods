@@ -1173,14 +1173,16 @@ namespace ExtraFeatures
 
             // TODO(SHCDE-SE): Replace this managed Vanilla-equivalent accounting block when the
             // Script Extender exposes a direct "consume linked stable horse" API. Unlink alone
-            // returns the horse immediately; decrementing TotalHorses makes the existing stable
-            // recharge it. Vanilla owns UsedHorses and HorseRechargeTimer, so never write them here.
-            stable->r_TotalHorses = (byte)(totalBefore - 1);
+            // returns the horse immediately. Unless Instant Horse is enabled, decrementing
+            // TotalHorses makes the existing stable recharge it. Vanilla owns UsedHorses and
+            // HorseRechargeTimer, so never write them here.
+            int totalAfter = settings.InstantHorse ? totalBefore : totalBefore - 1;
+            stable->r_TotalHorses = (byte)totalAfter;
             GameBuildingManagerAPI.Instance.UnlinkStablesUnitIdLink(linkedStableId, slot, bidirectional: true);
 
             bool transitionMatches = IsStableHorseSlotFree(stable, slot) &&
                 unit->r_LinkedStableBuildingId == 0 && unit->r_LinkedStableGlobalId == 0 &&
-                stable->r_TotalHorses == totalBefore - 1 &&
+                stable->r_TotalHorses == totalAfter &&
                 stable->r_UsedHorses == usedBefore &&
                 stable->r_HorseRechargeTimer == rechargeBefore;
             if (transitionMatches)

@@ -137,6 +137,112 @@ function Get-PluginMetadata {
     }
 }
 
+function Compare-SemanticVersion {
+    param(
+        [Parameter(Mandatory)][string]$Left,
+        [Parameter(Mandatory)][string]$Right
+    )
+    $pattern = '^(\d+)\.(\d+)\.(\d+)(?:-([^+]+))?(?:\+.*)?$'
+    $leftMatch = [regex]::Match($Left, $pattern)
+    $rightMatch = [regex]::Match($Right, $pattern)
+    if (-not $leftMatch.Success -or -not $rightMatch.Success) {
+        throw "Cannot compare invalid semantic versions '$Left' and '$Right'."
+    }
+    for ($index = 1; $index -le 3; $index++) {
+        $leftNumber = [uint64]$leftMatch.Groups[$index].Value
+        $rightNumber = [uint64]$rightMatch.Groups[$index].Value
+        if ($leftNumber -lt $rightNumber) { return -1 }
+        if ($leftNumber -gt $rightNumber) { return 1 }
+    }
+
+    $leftPreRelease = $leftMatch.Groups[4].Value
+    $rightPreRelease = $rightMatch.Groups[4].Value
+    if ([string]::IsNullOrEmpty($leftPreRelease)) {
+        return $(if ([string]::IsNullOrEmpty($rightPreRelease)) { 0 } else { 1 })
+    }
+    if ([string]::IsNullOrEmpty($rightPreRelease)) { return -1 }
+
+    $leftParts = @($leftPreRelease.Split('.'))
+    $rightParts = @($rightPreRelease.Split('.'))
+    $partCount = [Math]::Max($leftParts.Count, $rightParts.Count)
+    for ($index = 0; $index -lt $partCount; $index++) {
+        if ($index -ge $leftParts.Count) { return -1 }
+        if ($index -ge $rightParts.Count) { return 1 }
+        $leftNumber = 0L
+        $rightNumber = 0L
+        $leftIsNumber = [long]::TryParse($leftParts[$index], [ref]$leftNumber)
+        $rightIsNumber = [long]::TryParse($rightParts[$index], [ref]$rightNumber)
+        if ($leftIsNumber -and $rightIsNumber) {
+            if ($leftNumber -lt $rightNumber) { return -1 }
+            if ($leftNumber -gt $rightNumber) { return 1 }
+        } elseif ($leftIsNumber) {
+            return -1
+        } elseif ($rightIsNumber) {
+            return 1
+        } else {
+            $comparison = [string]::CompareOrdinal($leftParts[$index], $rightParts[$index])
+            if ($comparison -lt 0) { return -1 }
+            if ($comparison -gt 0) { return 1 }
+        }
+    }
+    return 0
+}
+
+function Get-PreviousPublishedReleaseVersion {
+    param([Parameter(Mandatory)]$Metadata)
+    $result = Invoke-CheckedCommand -FilePath 'gh' -Arguments @(
+        'release', 'list', '--repo', $Metadata.Config.Repository,
+        '--limit', '1000', '--json', 'tagName,isDraft,publishedAt'
+    )
+    $releases = @(($result.Output -join "`n") | ConvertFrom-Json)
+    $tagPrefix = "$($Metadata.ModName)/v"
+    $matchingReleases = @($releases | Where-Object {
+        -not $_.isDraft -and
+        ([string]$_.tagName).StartsWith($tagPrefix, [StringComparison]::Ordinal) -and
+        [string]$_.tagName -ne $Metadata.Tag
+    } | Sort-Object { [DateTimeOffset]$_.publishedAt } -Descending)
+    if ($matchingReleases.Count -eq 0) { return $null }
+
+    $version = ([string]$matchingReleases[0].tagName).Substring($tagPrefix.Length)
+    if ($version -notmatch '^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$') {
+        throw "The previous published release has an invalid version tag: $($matchingReleases[0].tagName)"
+    }
+    return $version
+}
+
+function Get-ReleaseChangeLines {
+    param(
+        [Parameter(Mandatory)]$Metadata,
+        [AllowNull()][string]$PreviousVersion
+    )
+    if ([string]::IsNullOrWhiteSpace($PreviousVersion)) {
+        return @('inital release')
+    }
+    if ((Compare-SemanticVersion -Left $Metadata.Version -Right $PreviousVersion) -le 0) {
+        throw "New version $($Metadata.Version) must be newer than the previous published version $PreviousVersion."
+    }
+
+    $entries = @($Metadata.Manifest.SerpChangelog | Where-Object {
+        $entryVersion = [string]$_.Version
+        (Compare-SemanticVersion -Left $entryVersion -Right $PreviousVersion) -gt 0 -and
+        (Compare-SemanticVersion -Left $entryVersion -Right $Metadata.Version) -le 0
+    })
+    if ($entries.Count -eq 0) {
+        throw "No changelog entries found after v$PreviousVersion through v$($Metadata.Version)."
+    }
+
+    $lines = [System.Collections.Generic.List[string]]::new()
+    foreach ($entry in $entries) {
+        if ($lines.Count -gt 0) { $lines.Add('') }
+        $lines.Add("### v$([string]$entry.Version)")
+        $lines.Add('')
+        foreach ($change in @($entry.Changes)) {
+            $lines.Add("- $change")
+        }
+    }
+    return @($lines)
+}
+
 function Get-ExtenderDirectory {
     param([Parameter(Mandatory)]$Metadata)
     $localRoot = Join-Path $Metadata.Config.Root 'shcde-script-extender'

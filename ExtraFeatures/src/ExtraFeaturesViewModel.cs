@@ -34,6 +34,7 @@ namespace ExtraFeatures
         private bool enableSingleBuildingPause = true;
         private bool enableFastRecruitRallyMovement = true;
         private bool enableKnightDismount = true;
+        private bool instantHorse;
         private bool enableQuarryPileRelocation = true;
         private bool enableExtraChurchPriests = true;
         private bool preventAIPause = true;
@@ -70,6 +71,8 @@ namespace ExtraFeatures
         public string EnableFastRecruitRallyMovementHelpText => SerpLocalization.Get(SerpLocalization.EnableFastRecruitRallyMovementHelp);
         public string EnableKnightDismountText => SerpLocalization.Get(SerpLocalization.EnableKnightDismount);
         public string EnableKnightDismountHelpText => SerpLocalization.Get(SerpLocalization.EnableKnightDismountHelp);
+        public string InstantHorseText => SerpLocalization.Get(SerpLocalization.InstantHorse);
+        public string InstantHorseHelpText => SerpLocalization.Get(SerpLocalization.InstantHorseHelp);
         public string EnableQuarryPileRelocationText => SerpLocalization.Get(SerpLocalization.EnableQuarryPileRelocation);
         public string EnableQuarryPileRelocationHelpText => SerpLocalization.Get(SerpLocalization.EnableQuarryPileRelocationHelp);
         public string EnableExtraChurchPriestsText => SerpLocalization.Get(SerpLocalization.EnableExtraChurchPriests);
@@ -141,6 +144,7 @@ namespace ExtraFeatures
         [SyncHostOnly] public bool EnableSingleBuildingPause { get => enableSingleBuildingPause; set => SetSetting(ref enableSingleBuildingPause, value, nameof(EnableSingleBuildingPause)); }
         [SyncHostOnly] public bool EnableFastRecruitRallyMovement { get => enableFastRecruitRallyMovement; set => SetSetting(ref enableFastRecruitRallyMovement, value, nameof(EnableFastRecruitRallyMovement)); }
         [SyncHostOnly] public bool EnableKnightDismount { get => enableKnightDismount; set => SetSetting(ref enableKnightDismount, value, nameof(EnableKnightDismount)); }
+        [SyncHostOnly] public bool InstantHorse { get => instantHorse; set => SetSetting(ref instantHorse, value, nameof(InstantHorse)); }
         [SyncHostOnly] public bool EnableQuarryPileRelocation { get => enableQuarryPileRelocation; set => SetSetting(ref enableQuarryPileRelocation, value, nameof(EnableQuarryPileRelocation)); }
         [SyncHostOnly] public bool EnableExtraChurchPriests { get => enableExtraChurchPriests; set => SetSetting(ref enableExtraChurchPriests, value, nameof(EnableExtraChurchPriests)); }
         [SyncHostOnly] public bool PreventAIPause { get => preventAIPause; set => SetSetting(ref preventAIPause, value, nameof(PreventAIPause)); }
@@ -195,6 +199,7 @@ namespace ExtraFeatures
             EnableSingleBuildingPause = true;
             EnableFastRecruitRallyMovement = true;
             EnableKnightDismount = true;
+            InstantHorse = false;
             EnableQuarryPileRelocation = true;
             EnableExtraChurchPriests = true;
             PreventAIPause = true;
