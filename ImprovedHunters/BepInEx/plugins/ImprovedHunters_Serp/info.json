@@ -3,10 +3,24 @@
   "Author": "Serpens66",
   "Name": "Improved Hunters",
   "Description": "Adds configurable hunter prey and meat yield for deer, goats, rabbits, camels, chickens and cows.",
-  "Version": "1.1.20",
+  "Version": "1.1.22",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.1.22",
+      "Changes": [
+        "Release stale prey reservations immediately when a hunter cancels or changes its target, while retaining the periodic cleanup as an independent fallback.",
+        "Validate hunter meat event unit IDs before native lookups and log reservation outcomes with millisecond timestamps and readback values."
+      ]
+    },
+    {
+      "Version": "1.1.21",
+      "Changes": [
+        "Prevent non-hunter ranged and siege units from automatically targeting neutralized chickens while preserving explicit attack orders.",
+        "Keep hunters on Vanilla's hunter-only automatic animal target path and restore the native dispatch entry when chicken hunting is disabled."
+      ]
+    },
     {
       "Version": "1.1.20",
       "Changes": [

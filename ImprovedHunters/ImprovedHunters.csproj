@@ -108,6 +108,7 @@
       <Link>Shared\SerpLocalization.cs</Link>
     </Compile>
     <Compile Include="src\ImprovedHuntersPlugin.cs" />
+    <Compile Include="src\AutomaticChickenTargetPatch.cs" />
     <Compile Include="src\ImprovedHuntersRuntime.cs" />
     <Compile Include="src\ImprovedHuntersViewModel.cs" />
   </ItemGroup>

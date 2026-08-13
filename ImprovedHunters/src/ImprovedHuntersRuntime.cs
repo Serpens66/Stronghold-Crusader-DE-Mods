@@ -29,6 +29,9 @@ namespace ImprovedHunters
         private const int MaxPreyCacheDiagnosticLogs = 120;
         private const int MaxHunterTargetDiagnosticLogs = 160;
         private const int MaxHunterProjectileDiagnosticLogs = 160;
+        private const int MaxChickenOwnershipDiagnosticLogs = 160;
+        private const int MaxReservationDiagnosticLogs = 80;
+        private const int MaxInvalidHunterEventLogs = 20;
 
         // Native animal AI states observed for hunter corpses. 0x6E is the normal
         // pickupable corpse state; 0x6F is used when we have to finalize a corpse
@@ -116,6 +119,10 @@ namespace ImprovedHunters
         private int pathCacheMisses;
         private int hunterProjectileDiagnosticLogs;
         private int shortLivedCorpsePreserveLogs;
+        private int chickenOwnershipDiagnosticLogs;
+        private int reservationDiagnosticLogs;
+        private int invalidHunterEventLogs;
+        private AutomaticChickenTargetPatch automaticChickenTargetPatch;
         private bool applied;
 
         public ImprovedHuntersRuntime(ManualLogSource log, ImprovedHuntersViewModel settings)
@@ -129,40 +136,55 @@ namespace ImprovedHunters
             if (applied)
                 return;
 
-            subscriptions.Add(UnitR3EventHooks.OnUnitHunterQueryTarget.Observable
-                .Where(args => args.Phase == EventHookPhase.Pre)
-                .Subscribe(OnHunterQueryTarget));
-            subscriptions.Add(UnitR3EventHooks.OnCalculateBonusYield.Observable
-                .Where(args => args.Phase == EventHookPhase.Pre)
-                .Subscribe(OnCalculateBonusYield));
-            subscriptions.Add(UnitR3EventHooks.OnUnitCreate.Observable
-                .Where(args => args.Phase == EventHookPhase.Pre)
-                .Subscribe(OnUnitCreate));
-            subscriptions.Add(UnitR3EventHooks.OnHunterPickUpMeat.Observable
-                .Where(args => args.Phase == EventHookPhase.Pre)
-                .Subscribe(OnHunterPickUpMeat));
-            subscriptions.Add(UnitR3EventHooks.OnHunterDropOffMeat.Observable
-                .Where(args => args.Phase == EventHookPhase.Pre)
-                .Subscribe(OnHunterDropOffMeat));
-            subscriptions.Add(ProjectileR3EventHooks.OnProjectileSpawn.Observable
-                .Where(args => args.Phase == EventHookPhase.Post)
-                .Subscribe(OnProjectileSpawn));
-            subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable
-                .Where(args => args.Phase == EventHookPhase.Post)
-                .Subscribe(_ => OnMapStarted()));
-            subscriptions.Add(UnitR3EventHooks.OnUnitMovement.Observable
-                .Subscribe(_ => RunNativeScan()));
-            subscriptions.Add(UnitR3EventHooks.OnUnitUnityVisualInterpolate.Observable
-                .Subscribe(_ => RunNativeScan()));
+            try
+            {
+                InitializeAutomaticChickenTargetPatch(memory, imageBase);
 
-            settings.SettingChanged += OnSettingChanged;
-            InitializeRabbitDespawnPatch();
-            InitializeExtraDespawnPatches(memory, imageBase);
-            ApplyDespawnPatches();
-            ApplyCamelHealthPatch();
+                subscriptions.Add(UnitR3EventHooks.OnUnitHunterQueryTarget.Observable
+                    .Where(args => args.Phase == EventHookPhase.Pre)
+                    .Subscribe(OnHunterQueryTarget));
+                subscriptions.Add(UnitR3EventHooks.OnCalculateBonusYield.Observable
+                    .Where(args => args.Phase == EventHookPhase.Pre)
+                    .Subscribe(OnCalculateBonusYield));
+                subscriptions.Add(UnitR3EventHooks.OnUnitCreate.Observable
+                    .Where(args => args.Phase == EventHookPhase.Pre)
+                    .Subscribe(OnUnitCreate));
+                subscriptions.Add(UnitR3EventHooks.OnHunterPickUpMeat.Observable
+                    .Where(args => args.Phase == EventHookPhase.Pre)
+                    .Subscribe(OnHunterPickUpMeat));
+                subscriptions.Add(UnitR3EventHooks.OnHunterDropOffMeat.Observable
+                    .Where(args => args.Phase == EventHookPhase.Pre)
+                    .Subscribe(OnHunterDropOffMeat));
+                subscriptions.Add(ProjectileR3EventHooks.OnProjectileSpawn.Observable
+                    .Where(args => args.Phase == EventHookPhase.Post)
+                    .Subscribe(OnProjectileSpawn));
+                subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable
+                    .Where(args => args.Phase == EventHookPhase.Post)
+                    .Subscribe(_ => OnMapStarted()));
+                subscriptions.Add(UnitR3EventHooks.OnUnitMovement.Observable
+                    .Subscribe(_ => RunNativeScan()));
+                subscriptions.Add(UnitR3EventHooks.OnUnitUnityVisualInterpolate.Observable
+                    .Subscribe(_ => RunNativeScan()));
 
-            applied = true;
-            log.LogInfo("Improved Hunters runtime enabled.");
+                settings.SettingChanged += OnSettingChanged;
+                InitializeRabbitDespawnPatch();
+                InitializeExtraDespawnPatches(memory, imageBase);
+                ApplyDespawnPatches();
+                ApplyCamelHealthPatch();
+
+                applied = true;
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    $"Improved Hunters runtime enabled: automaticChickenTargetAvailable=" +
+                    $"{automaticChickenTargetPatch?.IsAvailable == true}, " +
+                    $"automaticChickenTargetApplied={automaticChickenTargetPatch?.IsApplied == true}.");
+            }
+            catch
+            {
+                // Restore the native dispatch entry and remove partial subscriptions.
+                Dispose();
+                throw;
+            }
         }
 
         public unsafe void RunNativeScan(bool force = false)
@@ -185,6 +207,11 @@ namespace ImprovedHunters
                 if (units._array == null || units.Length == 0)
                     return;
 
+                // Keep stale reservation cleanup independent from future target
+                // queries. A blocked shot can leave an otherwise idle hunter with
+                // no reason to refresh the prey cache again.
+                ReleaseStalePreyReservationsIfNeeded(units, timestamp);
+
                 List<IntPtr> hunters = new List<IntPtr>();
                 List<IntPtr> eligiblePrey = new List<IntPtr>();
                 int adjustedLiveCamels = 0;
@@ -201,7 +228,7 @@ namespace ImprovedHunters
                     if (settings.EnableMod &&
                         unit->r_UnitChimp == eChimps.CHIMP_TYPE_CHICKEN)
                     {
-                        NeutralizePlayerOwnedChicken(unit);
+                        NeutralizePlayerOwnedChicken(unitId, unit);
                     }
 
                     if (settings.EnableMod &&
@@ -313,7 +340,7 @@ namespace ImprovedHunters
                 int hunterId = checked((int)(hunter - units._array) + 1);
                 ushort targetUnitId = *(ushort*)(hunterBytes + 0x39A);
                 uint targetGlobalId = *(uint*)(hunterBytes + 0x39C);
-                TrackHunterTargetState(hunterId, targetUnitId, targetGlobalId, timestamp);
+                TrackHunterTargetState(units, hunterId, targetUnitId, targetGlobalId, timestamp);
 
                 if (targetUnitId == 0 || targetUnitId > units.Length)
                     continue;
@@ -845,8 +872,6 @@ namespace ImprovedHunters
             if (units._array == null || units.Length == 0)
                 return;
 
-            ReleaseStalePreyReservationsIfNeeded(units, timestamp);
-
             int knownCount = 0;
             int skippedKnownCount = 0;
             int eligibleDeer = 0;
@@ -935,7 +960,9 @@ namespace ImprovedHunters
             }
 
             int reservedKnownPrey = 0;
+            int retainedReservations = 0;
             int releasedReservations = 0;
+            int failedReadbacks = 0;
             for (int index = 0; index < units.Length; index++)
             {
                 GameUnit* unit = units.GetValuePointer(index);
@@ -952,28 +979,40 @@ namespace ImprovedHunters
 
                 reservedKnownPrey++;
                 if (activeHunterTargetUnitIds.Contains(unitId))
+                {
+                    retainedReservations++;
                     continue;
+                }
 
                 byte* preyBytes = (byte*)unit;
                 *(ushort*)(preyBytes + 0x448) = 0;
-                releasedReservations++;
-
-                eligibility.Reservation = 0;
-                eligibility.Eligible =
-                    eligibility.OwnerAllowed &&
-                    eligibility.FlagsAllowed &&
-                    (eligibility.CorpseFlag == 0 || eligibility.AiState == HunterCorpsePickupAiState);
-
-                LogPreyCacheDiagnostic(unitId, eligibility, "released-stale-reservation=2");
+                ushort readback = *(ushort*)(preyBytes + 0x448);
+                eligibility.Reservation = readback;
+                if (readback == 0)
+                {
+                    releasedReservations++;
+                    LogReservationDiagnostic(
+                        $"Improved Hunters prey reservation: source=periodic-cleanup, outcome=released, " +
+                        $"target={unitId}/{eligibility.Type}, globalId={eligibility.GlobalId}, previous=2, readback={readback}.");
+                }
+                else
+                {
+                    failedReadbacks++;
+                    LogReservationDiagnostic(
+                        $"Improved Hunters prey reservation: source=periodic-cleanup, outcome=readback-failed, " +
+                        $"target={unitId}/{eligibility.Type}, globalId={eligibility.GlobalId}, previous=2, readback={readback}.",
+                        warning: true);
+                }
             }
 
-            if (releasedReservations > 0 && preyCacheDiagnosticLogs < MaxPreyCacheDiagnosticLogs)
+            if (releasedReservations > 0 || failedReadbacks > 0)
             {
-                preyCacheDiagnosticLogs++;
-                log.LogInfo(
+                Shared.DebugLogHelper.LogInfo(
+                    log,
                     $"Improved Hunters stale prey reservation cleanup: reservedKnownPrey={reservedKnownPrey}, " +
-                    $"activeHunterTargets={activeHunterTargetUnitIds.Count}, released={releasedReservations} " +
-                    $"({preyCacheDiagnosticLogs}/{MaxPreyCacheDiagnosticLogs}).");
+                    $"retained={retainedReservations}, released={releasedReservations}, failedReadbacks={failedReadbacks}, " +
+                    $"activeHunterTargets={activeHunterTargetUnitIds.Count}, " +
+                    $"invariant={reservedKnownPrey == retainedReservations + releasedReservations + failedReadbacks}.");
             }
         }
 
@@ -1222,6 +1261,12 @@ namespace ImprovedHunters
 
         private void OnHunterPickUpMeat(UnitHunterPickUpMeatEventArgs args)
         {
+            if (!IsValidUnitId(args.UnitId))
+            {
+                LogInvalidHunterEvent("pickup-meat", args.UnitId);
+                return;
+            }
+
             hunterMeatPickupTimestamps[args.UnitId] = Stopwatch.GetTimestamp();
             TryDeleteCollectedShortLivedCorpse(args.UnitId);
             activeHunterTargets.Remove(args.UnitId);
@@ -1230,6 +1275,12 @@ namespace ImprovedHunters
 
         private void OnHunterDropOffMeat(UnitHunterDropOffMeatEventArgs args)
         {
+            if (!IsValidUnitId(args.UnitId))
+            {
+                LogInvalidHunterEvent("dropoff-meat", args.UnitId);
+                return;
+            }
+
             if (!hunterMeatPickupTimestamps.TryGetValue(args.UnitId, out long pickupTimestamp))
                 return;
 
@@ -1306,30 +1357,169 @@ namespace ImprovedHunters
             return activeHunterTargets.TryGetValue(hunterUnitId, out target);
         }
 
-        private void TrackHunterTargetState(int hunterUnitId, ushort targetUnitId, uint targetGlobalId, long timestamp)
+        private unsafe void TrackHunterTargetState(
+            SimpleNativeArray<GameUnit> units,
+            int hunterUnitId,
+            ushort targetUnitId,
+            uint targetGlobalId,
+            long timestamp)
         {
             if (!settings.EnableMod || !settings.ImprovedPathfinding)
                 return;
 
-            if (targetUnitId != 0 && targetGlobalId != 0)
+            bool hasCurrentTarget = targetUnitId != 0 && targetGlobalId != 0;
+            if (!activeHunterTargets.TryGetValue(hunterUnitId, out HunterTargetSnapshot previousTarget))
             {
-                activeHunterTargets[hunterUnitId] = new HunterTargetSnapshot(targetUnitId, targetGlobalId);
+                if (hasCurrentTarget)
+                    activeHunterTargets[hunterUnitId] = new HunterTargetSnapshot(targetUnitId, targetGlobalId);
+
                 return;
             }
 
-            if (!activeHunterTargets.TryGetValue(hunterUnitId, out HunterTargetSnapshot previousTarget))
+            if (hasCurrentTarget &&
+                previousTarget.UnitId == targetUnitId &&
+                previousTarget.GlobalId == targetGlobalId)
+            {
                 return;
+            }
 
             activeHunterTargets.Remove(hunterUnitId);
             abortedTargetCooldowns[new HunterPreyCooldownKey(hunterUnitId, previousTarget.GlobalId)] = timestamp + AbortedTargetCooldownInterval;
             bestTargetCache.Remove(hunterUnitId);
+            TryReleaseAbortedPreyReservation(
+                units,
+                hunterUnitId,
+                previousTarget,
+                hasCurrentTarget ? "target-changed" : "target-cleared");
 
-            if (hunterTargetDiagnosticLogs < MaxHunterTargetDiagnosticLogs)
+            if (hasCurrentTarget)
+                activeHunterTargets[hunterUnitId] = new HunterTargetSnapshot(targetUnitId, targetGlobalId);
+        }
+
+        private unsafe void TryReleaseAbortedPreyReservation(
+            SimpleNativeArray<GameUnit> units,
+            int hunterUnitId,
+            HunterTargetSnapshot previousTarget,
+            string transition)
+        {
+            if (previousTarget.UnitId <= 0 || previousTarget.UnitId > units.Length)
             {
-                log.LogInfo(
-                    $"Improved Hunters target abort: hunter={hunterUnitId}, target={previousTarget.UnitId}, " +
-                    $"globalId={previousTarget.GlobalId}, cooldownSeconds={AbortedTargetCooldownInterval / Stopwatch.Frequency}.");
+                LogReservationDiagnostic(
+                    $"Improved Hunters prey reservation: source=target-abort, outcome=target-out-of-range, " +
+                    $"hunter={hunterUnitId}, transition={transition}, target={previousTarget.UnitId}, " +
+                    $"globalId={previousTarget.GlobalId}.",
+                    warning: true);
+                return;
             }
+
+            GameUnit* prey = units.GetValuePointer(previousTarget.UnitId - 1);
+            if (prey->r_GlobalId != previousTarget.GlobalId)
+            {
+                LogReservationDiagnostic(
+                    $"Improved Hunters prey reservation: source=target-abort, outcome=slot-reused, " +
+                    $"hunter={hunterUnitId}, transition={transition}, target={previousTarget.UnitId}, " +
+                    $"expectedGlobalId={previousTarget.GlobalId}, currentGlobalId={prey->r_GlobalId}.");
+                return;
+            }
+
+            TryGetPreyEligibility(previousTarget.UnitId, prey, out PreyEligibility eligibility);
+            if (!eligibility.KnownAnimal ||
+                eligibility.AliveState != (short)AliveState.IsAlive ||
+                eligibility.CorpseFlag != 0)
+            {
+                LogReservationDiagnostic(
+                    $"Improved Hunters prey reservation: source=target-abort, outcome=not-live-prey, " +
+                    $"hunter={hunterUnitId}, transition={transition}, target={previousTarget.UnitId}/{eligibility.Type}, " +
+                    $"globalId={previousTarget.GlobalId}, aliveState={eligibility.AliveState}, " +
+                    $"corpseFlag={eligibility.CorpseFlag}, reservation={eligibility.Reservation}.");
+                return;
+            }
+
+            if (eligibility.Reservation != 2)
+            {
+                LogReservationDiagnostic(
+                    $"Improved Hunters prey reservation: source=target-abort, outcome=no-stale-reservation, " +
+                    $"hunter={hunterUnitId}, transition={transition}, target={previousTarget.UnitId}/{eligibility.Type}, " +
+                    $"globalId={previousTarget.GlobalId}, reservation={eligibility.Reservation}, " +
+                    $"cooldownSeconds={AbortedTargetCooldownInterval / Stopwatch.Frequency}.");
+                return;
+            }
+
+            if (IsTargetedByAnyLiveHunter(units, previousTarget))
+            {
+                LogReservationDiagnostic(
+                    $"Improved Hunters prey reservation: source=target-abort, outcome=retained-other-hunter, " +
+                    $"hunter={hunterUnitId}, transition={transition}, target={previousTarget.UnitId}/{eligibility.Type}, " +
+                    $"globalId={previousTarget.GlobalId}, reservation={eligibility.Reservation}.");
+                return;
+            }
+
+            byte* preyBytes = (byte*)prey;
+            *(ushort*)(preyBytes + 0x448) = 0;
+            ushort readback = *(ushort*)(preyBytes + 0x448);
+            LogReservationDiagnostic(
+                $"Improved Hunters prey reservation: source=target-abort, " +
+                $"outcome={(readback == 0 ? "released" : "readback-failed")}, hunter={hunterUnitId}, " +
+                $"transition={transition}, target={previousTarget.UnitId}/{eligibility.Type}, " +
+                $"globalId={previousTarget.GlobalId}, previous=2, readback={readback}, " +
+                $"cooldownSeconds={AbortedTargetCooldownInterval / Stopwatch.Frequency}.",
+                warning: readback != 0);
+        }
+
+        private static unsafe bool IsTargetedByAnyLiveHunter(
+            SimpleNativeArray<GameUnit> units,
+            HunterTargetSnapshot target)
+        {
+            for (int index = 0; index < units.Length; index++)
+            {
+                GameUnit* hunter = units.GetValuePointer(index);
+                if (hunter->r_AliveState != AliveState.IsAlive ||
+                    hunter->r_UnitChimp != eChimps.CHIMP_TYPE_HUNTER)
+                {
+                    continue;
+                }
+
+                byte* hunterBytes = (byte*)hunter;
+                if (*(ushort*)(hunterBytes + 0x39A) == target.UnitId &&
+                    *(uint*)(hunterBytes + 0x39C) == target.GlobalId)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private void LogReservationDiagnostic(string message, bool warning = false)
+        {
+            if (reservationDiagnosticLogs >= MaxReservationDiagnosticLogs)
+                return;
+
+            reservationDiagnosticLogs++;
+            string countedMessage = $"{message} ({reservationDiagnosticLogs}/{MaxReservationDiagnosticLogs}).";
+            if (warning)
+                Shared.DebugLogHelper.LogWarning(log, countedMessage);
+            else
+                Shared.DebugLogHelper.LogInfo(log, countedMessage);
+
+            if (reservationDiagnosticLogs == MaxReservationDiagnosticLogs)
+            {
+                Shared.DebugLogHelper.LogWarning(
+                    log,
+                    "Improved Hunters prey reservation diagnostic limit reached; further repeated outcomes are suppressed.");
+            }
+        }
+
+        private void LogInvalidHunterEvent(string eventName, int unitId)
+        {
+            if (invalidHunterEventLogs >= MaxInvalidHunterEventLogs)
+                return;
+
+            invalidHunterEventLogs++;
+            Shared.DebugLogHelper.LogWarning(
+                log,
+                $"Improved Hunters ignored invalid hunter event: event={eventName}, unitId={unitId}, " +
+                $"outcome=skipped-before-unit-lookup ({invalidHunterEventLogs}/{MaxInvalidHunterEventLogs}).");
         }
 
         private bool IsTargetOnCooldown(int hunterUnitId, uint preyGlobalId, long timestamp)
@@ -1409,8 +1599,24 @@ namespace ImprovedHunters
                 return;
             }
 
+            if (automaticChickenTargetPatch == null || !automaticChickenTargetPatch.IsApplied)
+            {
+                LogChickenOwnershipDiagnostic(
+                    $"Improved Hunters chicken ownership change skipped: source=unit-create, " +
+                    $"outcome=automatic-target-guard-inactive, owner={args.PlayerOwnerId}, color={args.PlayerColorId}, " +
+                    $"position={args.WorldTileX},{args.WorldTileY}.",
+                    warning: true);
+                return;
+            }
+
+            int previousOwner = args.PlayerOwnerId;
+            int previousColor = args.PlayerColorId;
             args.PlayerOwnerId = 0;
             args.PlayerColorId = 0;
+            LogChickenOwnershipDiagnostic(
+                $"Improved Hunters chicken ownership changed: source=unit-create, outcome=neutralized, " +
+                $"owner={previousOwner}->0, color={previousColor}->0, " +
+                $"position={args.WorldTileX},{args.WorldTileY}.");
         }
 
         private unsafe void OnProjectileSpawn(ProjectileSpawnEventArgs args)
@@ -1720,6 +1926,12 @@ namespace ImprovedHunters
 
         private void OnSettingChanged(string propertyName)
         {
+            if (propertyName == nameof(ImprovedHuntersViewModel.EnableMod) ||
+                propertyName == nameof(ImprovedHuntersViewModel.HuntChicken))
+            {
+                ApplyAutomaticChickenTargetPatch();
+            }
+
             ClearTargetSelectionCaches();
 
             if (propertyName == nameof(ImprovedHuntersViewModel.EnableMod) ||
@@ -1956,18 +2168,84 @@ namespace ImprovedHunters
                 $"adjustedLiveCamels={adjustedLiveCamels}.");
         }
 
-        private unsafe void NeutralizePlayerOwnedChicken(GameUnit* chicken)
+        private unsafe void NeutralizePlayerOwnedChicken(int unitId, GameUnit* chicken)
         {
             if (!settings.EnableMod ||
                 !settings.HuntChicken ||
+                automaticChickenTargetPatch == null ||
+                !automaticChickenTargetPatch.IsApplied ||
                 chicken == null ||
                 chicken->r_UnitChimp != eChimps.CHIMP_TYPE_CHICKEN)
             {
                 return;
             }
 
+            byte previousOwner = chicken->r_ControllableForPlayerId;
+            uint previousColor = chicken->r_SpritePlayerColorId;
+            if (previousOwner == 0 && previousColor == 0)
+                return;
+
             chicken->r_ControllableForPlayerId = 0;
             chicken->r_SpritePlayerColorId = 0;
+            LogChickenOwnershipDiagnostic(
+                $"Improved Hunters chicken ownership changed: source=native-scan, outcome=neutralized, " +
+                $"unit={unitId}, globalId={chicken->r_GlobalId}, owner={previousOwner}->0, color={previousColor}->0, " +
+                $"tile={chicken->r_CurrentTilePositionX},{chicken->r_CurrentTilePositionY}.");
+        }
+
+        private void InitializeAutomaticChickenTargetPatch(ReadOnlySpan<byte> memory, ulong imageBase)
+        {
+            try
+            {
+                automaticChickenTargetPatch = new AutomaticChickenTargetPatch(log, memory, imageBase);
+                ApplyAutomaticChickenTargetPatch();
+            }
+            catch (Exception exception)
+            {
+                automaticChickenTargetPatch?.Dispose();
+                automaticChickenTargetPatch = null;
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Improved Hunters automatic chicken target protection is unavailable; " +
+                    $"other prey features remain active, but chicken ownership will not be neutralized: {exception}");
+            }
+        }
+
+        private void ApplyAutomaticChickenTargetPatch()
+        {
+            bool requestedEnabled = settings.EnableMod && settings.HuntChicken;
+            if (automaticChickenTargetPatch == null)
+            {
+                Shared.DebugLogHelper.LogWarning(
+                    log,
+                    $"Improved Hunters automatic chicken target state request skipped: " +
+                    $"requestedEnabled={requestedEnabled}, outcome=patch-not-initialized; " +
+                    "chicken ownership neutralization remains inactive.");
+                return;
+            }
+
+            automaticChickenTargetPatch.TrySetEnabled(requestedEnabled);
+        }
+
+        private void LogChickenOwnershipDiagnostic(string message, bool warning = false)
+        {
+            if (chickenOwnershipDiagnosticLogs >= MaxChickenOwnershipDiagnosticLogs)
+                return;
+
+            chickenOwnershipDiagnosticLogs++;
+            string countedMessage =
+                $"{message} ({chickenOwnershipDiagnosticLogs}/{MaxChickenOwnershipDiagnosticLogs}).";
+            if (warning)
+                Shared.DebugLogHelper.LogWarning(log, countedMessage);
+            else
+                Shared.DebugLogHelper.LogInfo(log, countedMessage);
+
+            if (chickenOwnershipDiagnosticLogs == MaxChickenOwnershipDiagnosticLogs)
+            {
+                Shared.DebugLogHelper.LogWarning(
+                    log,
+                    "Improved Hunters chicken ownership diagnostic limit reached; further repeated outcomes are suppressed.");
+            }
         }
 
         private static bool IsValidUnitId(int unitId)
@@ -2066,6 +2344,8 @@ namespace ImprovedHunters
             hunterTargetDiagnosticLogs = 0;
             preyCacheDiagnosticLogs = 0;
             hunterProjectileDiagnosticLogs = 0;
+            reservationDiagnosticLogs = 0;
+            invalidHunterEventLogs = 0;
             hunterTargetQueryEvents = 0;
             hunterTargetAcceptedEvents = 0;
             hunterTargetRejectedEvents = 0;
@@ -2389,6 +2669,9 @@ namespace ImprovedHunters
             ClearTargetSelectionCaches();
             nativeScanFailureLogged = false;
             nextNativeScanTimestamp = 0;
+
+            automaticChickenTargetPatch?.Dispose();
+            automaticChickenTargetPatch = null;
 
             if (rabbitDespawnTicksPatched && rabbitDespawnTickTime != null)
                 rabbitDespawnTickTime.SetValue(originalRabbitDespawnTicks);
