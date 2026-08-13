@@ -43,6 +43,7 @@ namespace ImprovedHunters
             "66 46 89 B4 26 9C 09 00 00 41 8B 8C 2C F0 06 00 00";
 
         private readonly ManualLogSource log;
+        private readonly int dispatchEntryRva;
         private readonly IntPtr dispatchEntryAddress;
         private bool available = true;
         private bool ownsPatch;
@@ -52,14 +53,15 @@ namespace ImprovedHunters
         public AutomaticChickenTargetPatch(
             ManualLogSource log,
             ReadOnlySpan<byte> memory,
-            ulong imageBase)
+            ulong imageBase,
+            bool referenceHashMatches)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             if (memory.Length == 0 || imageBase == 0)
                 throw new ArgumentException("The Crusader library is unavailable.");
 
-            ValidateNativeSemantics(memory);
-            dispatchEntryAddress = new IntPtr(checked((long)imageBase + ChickenDispatchEntryRva));
+            dispatchEntryRva = ValidateNativeSemantics(memory, referenceHashMatches);
+            dispatchEntryAddress = new IntPtr(checked((long)imageBase + dispatchEntryRva));
 
             byte currentValue = Marshal.ReadByte(dispatchEntryAddress);
             if (currentValue != GeneralAcceptanceDispatchIndex)
@@ -72,7 +74,7 @@ namespace ImprovedHunters
             Shared.DebugLogHelper.LogInfo(
                 log,
                 $"Improved Hunters automatic chicken target patch initialized: " +
-                $"rva=0x{ChickenDispatchEntryRva:X}, address=0x{dispatchEntryAddress.ToInt64():X}, " +
+                $"rva=0x{dispatchEntryRva:X}, address=0x{dispatchEntryAddress.ToInt64():X}, " +
                 $"original={GeneralAcceptanceDispatchIndex}, hunterOnly={HunterOnlyDispatchIndex}.");
         }
 
@@ -145,7 +147,7 @@ namespace ImprovedHunters
                 Shared.DebugLogHelper.LogInfo(
                     log,
                     $"Improved Hunters automatic chicken target patch {(enabled ? "applied" : "restored")}: " +
-                    $"rva=0x{ChickenDispatchEntryRva:X}, address=0x{dispatchEntryAddress.ToInt64():X}, " +
+                    $"rva=0x{dispatchEntryRva:X}, address=0x{dispatchEntryAddress.ToInt64():X}, " +
                     $"previous={expected}, current={desired}.");
                 return true;
             }
@@ -227,7 +229,7 @@ namespace ImprovedHunters
                         Shared.DebugLogHelper.LogInfo(
                             log,
                             $"Improved Hunters automatic chicken target patch restored during disposal: " +
-                            $"rva=0x{ChickenDispatchEntryRva:X}, current={GeneralAcceptanceDispatchIndex}.");
+                            $"rva=0x{dispatchEntryRva:X}, current={GeneralAcceptanceDispatchIndex}.");
                     }
                     catch (Exception exception)
                     {
@@ -282,7 +284,7 @@ namespace ImprovedHunters
             Shared.DebugLogHelper.LogError(
                 log,
                 $"Improved Hunters disabled its automatic chicken target patch because the native entry changed externally: " +
-                $"rva=0x{ChickenDispatchEntryRva:X}, expected={expected}, actual={actual}. " +
+                $"rva=0x{dispatchEntryRva:X}, expected={expected}, actual={actual}. " +
                 "The foreign value was not overwritten and chicken ownership neutralization remains inactive.");
         }
 
@@ -326,13 +328,15 @@ namespace ImprovedHunters
             }
         }
 
-        private void ValidateNativeSemantics(ReadOnlySpan<byte> memory)
+        private int ValidateNativeSemantics(
+            ReadOnlySpan<byte> memory,
+            bool referenceHashMatches)
         {
             int typeDispatchRva = Shared.NativePatternResolver.ResolveUnique(
                 memory,
                 TargetSelectionTypeDispatchPattern,
                 TargetSelectionTypeDispatchRva,
-                referenceHashMatches: true,
+                referenceHashMatches,
                 "automatic ranged target type dispatch",
                 log).Rva;
 
@@ -342,8 +346,9 @@ namespace ImprovedHunters
             int resolvedTargetTableRva = Shared.NativePatternResolver.ReadInt32(
                 memory,
                 typeDispatchRva + TargetTableDisplacementOffset);
-            if (resolvedTypeTableRva != TypeDispatchTableRva ||
-                resolvedTargetTableRva != DispatchTargetTableRva)
+            if (referenceHashMatches &&
+                (resolvedTypeTableRva != TypeDispatchTableRva ||
+                    resolvedTargetTableRva != DispatchTargetTableRva))
             {
                 throw new InvalidOperationException(
                     $"The ranged target dispatch tables changed: " +
@@ -351,27 +356,34 @@ namespace ImprovedHunters
                     $"expectedTargets=0x{DispatchTargetTableRva:X}, actualTargets=0x{resolvedTargetTableRva:X}.");
             }
 
-            ValidateRange(memory, DispatchTargetTableRva, (GeneralAcceptanceDispatchIndex + 1) * sizeof(int));
-            ValidateRange(memory, ChickenDispatchEntryRva, sizeof(byte));
+            int resolvedChickenDispatchEntryRva = checked(
+                resolvedTypeTableRva + ChickenType - DeerType);
+            ValidateRange(memory, resolvedTargetTableRva, (GeneralAcceptanceDispatchIndex + 1) * sizeof(int));
+            ValidateRange(memory, resolvedChickenDispatchEntryRva, sizeof(byte));
             int hunterOnlyTarget = Shared.NativePatternResolver.ReadInt32(
                 memory,
-                DispatchTargetTableRva + HunterOnlyDispatchIndex * sizeof(int));
+                resolvedTargetTableRva + HunterOnlyDispatchIndex * sizeof(int));
             int generalAcceptanceTarget = Shared.NativePatternResolver.ReadInt32(
                 memory,
-                DispatchTargetTableRva + GeneralAcceptanceDispatchIndex * sizeof(int));
-            byte chickenDispatch = memory[ChickenDispatchEntryRva];
-            if (hunterOnlyTarget != HunterOnlyCaseRva ||
-                generalAcceptanceTarget != CommonAcceptanceCaseRva ||
-                chickenDispatch != GeneralAcceptanceDispatchIndex)
+                resolvedTargetTableRva + GeneralAcceptanceDispatchIndex * sizeof(int));
+            byte chickenDispatch = memory[resolvedChickenDispatchEntryRva];
+            if (referenceHashMatches &&
+                (hunterOnlyTarget != HunterOnlyCaseRva ||
+                    generalAcceptanceTarget != CommonAcceptanceCaseRva ||
+                    resolvedChickenDispatchEntryRva != ChickenDispatchEntryRva))
             {
                 throw new InvalidOperationException(
                     $"The ranged target dispatch semantics changed: hunterOnlyTarget=0x{hunterOnlyTarget:X}, " +
-                    $"generalTarget=0x{generalAcceptanceTarget:X}, chickenDispatch={chickenDispatch}.");
+                    $"generalTarget=0x{generalAcceptanceTarget:X}, " +
+                    $"chickenEntry=0x{resolvedChickenDispatchEntryRva:X}.");
             }
+
+            if (chickenDispatch != GeneralAcceptanceDispatchIndex)
+                throw new InvalidOperationException($"The chicken target dispatch entry has unexpected value {chickenDispatch}.");
 
             if (!Shared.NativePatternResolver.MatchesPatternAt(
                     memory,
-                    HunterOnlyCaseRva,
+                    hunterOnlyTarget,
                     HunterOnlyCasePattern))
             {
                 throw new InvalidOperationException("The hunter-only target case failed byte validation.");
@@ -379,32 +391,42 @@ namespace ImprovedHunters
 
             int acceptanceTarget = Shared.NativePatternResolver.ResolveRelativeTarget(
                 memory,
-                HunterOnlyCaseRva + 12,
-                HunterOnlyCaseRva + 16);
+                hunterOnlyTarget + 12,
+                hunterOnlyTarget + 16);
             int rejectionTarget = Shared.NativePatternResolver.ResolveRelativeTarget(
                 memory,
-                HunterOnlyCaseRva + 17,
-                HunterOnlyCaseRva + 21);
-            if (acceptanceTarget != CommonAcceptanceCaseRva || rejectionTarget != CandidateRejectionCaseRva)
+                hunterOnlyTarget + 17,
+                hunterOnlyTarget + 21);
+            if (acceptanceTarget != generalAcceptanceTarget ||
+                (referenceHashMatches && rejectionTarget != CandidateRejectionCaseRva))
             {
                 throw new InvalidOperationException(
                     $"The hunter-only target branches changed: acceptance=0x{acceptanceTarget:X}, " +
                     $"rejection=0x{rejectionTarget:X}.");
             }
 
-            if (!Shared.NativePatternResolver.MatchesPatternAt(
-                    memory,
-                    ManualAttackCommandRva,
-                    ManualAttackCommandPattern) ||
-                !Shared.NativePatternResolver.MatchesPatternAt(
-                    memory,
-                    ManualAttackTargetAssignmentRva,
-                    ManualAttackTargetAssignmentPattern) ||
-                ManualAttackTargetAssignmentRva >= TargetSelectionTypeDispatchRva)
+            int manualAttackCommandRva = Shared.NativePatternResolver.ResolveUnique(
+                memory,
+                ManualAttackCommandPattern,
+                ManualAttackCommandRva,
+                referenceHashMatches,
+                "explicit AttackUnit command path",
+                log).Rva;
+            int manualAttackTargetAssignmentRva = Shared.NativePatternResolver.ResolveUnique(
+                memory,
+                ManualAttackTargetAssignmentPattern,
+                ManualAttackTargetAssignmentRva,
+                referenceHashMatches,
+                "explicit AttackUnit target assignment",
+                log).Rva;
+            if (manualAttackCommandRva >= manualAttackTargetAssignmentRva ||
+                manualAttackTargetAssignmentRva >= typeDispatchRva)
             {
                 throw new InvalidOperationException(
                     "The explicit AttackUnit path no longer precedes automatic target dispatch.");
             }
+
+            return resolvedChickenDispatchEntryRva;
         }
 
         private static void ValidateRange(ReadOnlySpan<byte> memory, int offset, int length)

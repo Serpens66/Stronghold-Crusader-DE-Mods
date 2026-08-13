@@ -6,9 +6,12 @@
 - DLL size: `3450880` bytes
 - SHA-256: `33AA33457F7DFAAA6D316D1D5E4C5AB97094F2C73B68D349990ABF9D0EF3B469`
 
-The mod is strictly hash-gated because it uses raw unit layouts. On the audited
-hash, it validates each pattern only at its direct RVA and does not scan the
-DLL. Every other DLL leaves the complete runtime inactive.
+On the audited hash, the mod uses each reference RVA directly and validates its
+local semantic pattern without scanning the DLL. On a changed hash, each native
+feature performs an executable-section-limited unique pattern search and then
+validates its derived branches, tables and operands. An absent, ambiguous or
+semantically inconsistent match disables only the affected feature. Raw unit
+fields still require an in-game smoke test after a game update.
 
 ## Native address map
 
@@ -17,7 +20,10 @@ DLL. Every other DLL leaves the complete runtime inactive.
 | `CamelDespawnTickTimePattern` | `0x158468` | signed immediate at `+13` |
 | `ChickenDespawnTickTimePattern` | `0x163415` | signed immediate at `+13` |
 | `TargetSelectionTypeDispatchPattern` | `0x18F262` | automatic target type dispatch |
+| `ManualAttackCommandPattern` | `0x18EAE6` | explicit `AttackUnit` command path |
+| `ManualAttackTargetAssignmentPattern` | `0x18ED46` | explicit target assignment before automatic dispatch |
 | `ComparisonSequencePattern` | `0xD2AB4` | granary chicken target comparison hook at `+11` (`0xD2ABF`) |
+| `HunterQueryCandidateLoopPattern` | `0x18AF70` | temporary Script Extender issue-123 actor capture |
 
 The source constants contain the complete wildcard patterns.
 
@@ -53,6 +59,17 @@ as deterministic tie-breakers. Relevant fields are unit type `+0x8A`, owner
 building alive/type/owner/global/tile fields in the publicized `GameBuilding`
 layout.
 
+The Script Extender versions through the locally inspected 1.41.0 can report
+the caller's saved `RBX` value instead of the native Hunter ID in
+`OnUnitHunterQueryTarget`; see upstream work item 123. Improved Hunters installs
+a temporary read-only context hook at the candidate-loop anchor `0x18AF70`.
+At this point `R13 = UnitManager + hunterId * 0x490`, `R14 = UnitManager` and
+`ESI` is the one-based candidate ID. The mod reconstructs and validates the
+Hunter ID from the exact divisible delta and consumes it only for the matching
+public query candidate on the same thread. If capture and the reported ID are
+both invalid, the callback leaves Vanilla's target decision unchanged. Remove
+this workaround once the minimum supported Script Extender fixes work item 123.
+
 ## Required update audit
 
 1. Require one semantic match for both despawn patterns and verify that operand 1 at
@@ -72,8 +89,12 @@ layout.
    sequence at `0xD2AB4`, hook instruction at `0xD2ABF`, signed `jle` target
    `0xD2BA7`, spawn event path `0xD2B4C`, `rbx` player identity and native
    count field `[rdi+0x2048]`.
-7. Update all four reference RVAs and the dispatch-table map before approving
+7. Update all reference RVAs and the dispatch-table map before approving
    the new shared hash.
+8. Revalidate the Hunter query candidate-loop signature, `R13`/`R14` slot
+   formula, `ESI` candidate ID and callback ordering before the public Extender
+   event. Check whether upstream work item 123 is fixed and remove the temporary
+   workaround when it is no longer needed.
 
 ## Audit for Steam build 24651686
 

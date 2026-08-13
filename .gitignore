@@ -4,6 +4,9 @@
 
 # Top-level local tool/config directories such as .agents, .codex, etc.
 /.*/
+!/.github/
+!/.github/workflows/
+!/.github/workflows/*.yml
 /AGENTS.md
 /info.txt
 

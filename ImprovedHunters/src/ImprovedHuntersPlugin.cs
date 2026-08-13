@@ -13,7 +13,7 @@ namespace ImprovedHunters
 
         public const string PluginGuid = "ImprovedHunters_Serp";
         public const string PluginName = "Improved Hunters";
-        public const string PluginVersion = "1.1.23";
+        public const string PluginVersion = "1.1.24";
 
         private static ImprovedHuntersRuntime persistentRuntime;
         private static ImprovedHuntersViewModel persistentSettings;
@@ -62,13 +62,10 @@ namespace ImprovedHunters
         {
             try
             {
-                if (!Shared.DebugLogHelper.ReportNativeLibraryVersion(
-                        Logger,
-                        PluginName,
-                        requireCurrentVersion: true))
-                {
-                    return;
-                }
+                bool referenceHashMatches = Shared.DebugLogHelper.ReportNativeLibraryVersion(
+                    Logger,
+                    PluginName,
+                    requireCurrentVersion: false);
 
                 Shared.LobbyModSettingsPresetRegistration.Register(
                     this,
@@ -77,7 +74,10 @@ namespace ImprovedHunters
                     persistentSettings,
                     "ScriptExtenderUI/ImprovedHuntersSettings.xaml");
 
-                persistentRuntime?.Apply(memory, (ulong)libraryHandle.ToInt64());
+                persistentRuntime?.Apply(
+                    memory,
+                    (ulong)libraryHandle.ToInt64(),
+                    referenceHashMatches);
                 Logger.LogInfo("Improved Hunters settings UI registered and runtime applied.");
             }
             catch (Exception exception)

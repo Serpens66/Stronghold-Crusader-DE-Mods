@@ -51,6 +51,7 @@ try {
     if ([string]::IsNullOrWhiteSpace($previousReleaseVersion)) {
         Write-Host 'No previous release found; release notes will say "inital release".' -ForegroundColor Yellow
     } else {
+        Write-Host "Previous published release: $ModName/v$previousReleaseVersion" -ForegroundColor Green
         Write-Host "Release notes include changelogs after v$previousReleaseVersion through v$($metadata.Version)." -ForegroundColor Cyan
     }
 

@@ -115,6 +115,8 @@
     <Compile Include="src\AutomaticChickenTargetPatch.cs" />
     <Compile Include="src\GranaryChickenLimitPatch.cs" />
     <Compile Include="src\GranaryChickenSpawnPolicy.cs" />
+    <Compile Include="src\HunterQueryActorPolicy.cs" />
+    <Compile Include="src\HunterQueryActorWorkaround.cs" />
     <Compile Include="src\ImprovedHuntersRuntime.cs" />
     <Compile Include="src\ImprovedHuntersViewModel.cs" />
   </ItemGroup>

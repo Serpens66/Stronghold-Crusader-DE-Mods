@@ -34,6 +34,7 @@ namespace ImprovedHunters
         private const int MaximumPlayerId = 8;
         private const int MaxReservationDiagnosticLogs = 80;
         private const int MaxInvalidHunterEventLogs = 20;
+        private const int MaxHunterQueryActorWorkaroundLogs = 20;
 
         // Native animal AI states observed for hunter corpses. 0x6E is the normal
         // pickupable corpse state; 0x6F is used when we have to finalize a corpse
@@ -130,8 +131,11 @@ namespace ImprovedHunters
         private int chickenOwnershipDiagnosticLogs;
         private int reservationDiagnosticLogs;
         private int invalidHunterEventLogs;
+        private int hunterQueryActorWorkaroundLogs;
         private AutomaticChickenTargetPatch automaticChickenTargetPatch;
         private GranaryChickenLimitPatch granaryChickenLimitPatch;
+        private HunterQueryActorWorkaround hunterQueryActorWorkaround;
+        private bool referenceHashMatches;
         private bool loadedChickenReconstructionPending;
         private long nextGranaryChickenCleanupTimestamp;
         private bool applied;
@@ -142,15 +146,20 @@ namespace ImprovedHunters
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
         }
 
-        public void Apply(ReadOnlySpan<byte> memory, ulong imageBase)
+        public void Apply(
+            ReadOnlySpan<byte> memory,
+            ulong imageBase,
+            bool referenceHashMatches)
         {
             if (applied)
                 return;
 
             try
             {
-                InitializeAutomaticChickenTargetPatch(memory, imageBase);
-                InitializeGranaryChickenLimitPatch(memory, imageBase);
+                this.referenceHashMatches = referenceHashMatches;
+                InitializeAutomaticChickenTargetPatch(memory, imageBase, referenceHashMatches);
+                InitializeGranaryChickenLimitPatch(memory, imageBase, referenceHashMatches);
+                InitializeHunterQueryActorWorkaround(memory, imageBase, referenceHashMatches);
 
                 subscriptions.Add(UnitR3EventHooks.OnUnitHunterQueryTarget.Observable
                     .Where(args => args.Phase == EventHookPhase.Pre)
@@ -191,7 +200,9 @@ namespace ImprovedHunters
                     $"Improved Hunters runtime enabled: automaticChickenTargetAvailable=" +
                     $"{automaticChickenTargetPatch?.IsAvailable == true}, " +
                     $"automaticChickenTargetApplied={automaticChickenTargetPatch?.IsApplied == true}, " +
-                    $"granaryChickenLimitAvailable={granaryChickenLimitPatch?.IsAvailable == true}.");
+                    $"granaryChickenLimitAvailable={granaryChickenLimitPatch?.IsAvailable == true}, " +
+                    $"hunterQueryActorWorkaroundAvailable={hunterQueryActorWorkaround?.IsAvailable == true}, " +
+                    $"referenceHashMatches={referenceHashMatches}.");
             }
             catch
             {
@@ -526,18 +537,20 @@ namespace ImprovedHunters
                 return;
 
             long timestamp = Stopwatch.GetTimestamp();
-            TrackHunterSearchQuery(args.HunterUnitId, timestamp);
-
             if (!IsValidUnitId(args.QueryUnitId))
                 return;
 
             GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
+            if (!TryResolveHunterQueryActor(unitApi, args, out int hunterUnitId))
+                return;
+
+            TrackHunterSearchQuery(hunterUnitId, timestamp);
+
             eChimps queryType = unitApi.GetType(args.QueryUnitId);
             if (!settings.IsKnownAnimal(queryType) || !IsRuntimeHuntingEnabled(queryType))
                 return;
 
-            if (IsValidUnitId(args.HunterUnitId) &&
-                !IsOwnerAllowed(unitApi.GetOwner(args.HunterUnitId), args.QueryUnitId, queryType))
+            if (!IsOwnerAllowed(unitApi.GetOwner(hunterUnitId), args.QueryUnitId, queryType))
             {
                 return;
             }
@@ -550,8 +563,7 @@ namespace ImprovedHunters
             {
                 usedFallback = false;
             }
-            else if (IsValidUnitId(args.HunterUnitId) &&
-                TryGetTargetSelectionForHunter(args.HunterUnitId, timestamp, out targetSelection))
+            else if (TryGetTargetSelectionForHunter(hunterUnitId, timestamp, out targetSelection))
             {
                 bestTarget = targetSelection.BestTarget;
                 isValidTarget = targetSelection.IsAllowed(args.QueryUnitId);
@@ -567,8 +579,7 @@ namespace ImprovedHunters
             if (isValidTarget)
             {
                 hunterTargetAcceptedEvents++;
-                if (IsValidUnitId(args.HunterUnitId))
-                    hunterPreyTypes[args.HunterUnitId] = queryType;
+                hunterPreyTypes[hunterUnitId] = queryType;
             }
             else
             {
@@ -578,8 +589,70 @@ namespace ImprovedHunters
             if (usedFallback)
                 hunterTargetFallbackEvents++;
 
-            LogHunterTargetQueryDiagnostic(args.HunterUnitId, args.QueryUnitId, queryType, isValidTarget, usedFallback, targetSelection);
+            LogHunterTargetQueryDiagnostic(hunterUnitId, args.QueryUnitId, queryType, isValidTarget, usedFallback, targetSelection);
             LogHunterTargetQuerySummary();
+        }
+
+        private unsafe bool TryResolveHunterQueryActor(
+            GameUnitManagerAPI unitApi,
+            UnitHunterQueryTargetEventArgs args,
+            out int hunterUnitId)
+        {
+            hunterUnitId = 0;
+            int capturedHunterUnitId = 0;
+            bool captured = hunterQueryActorWorkaround?.TryConsumeHunterUnitId(
+                args.QueryUnitId,
+                out capturedHunterUnitId) == true;
+
+            if (captured && IsLiveHunter(unitApi, capturedHunterUnitId))
+            {
+                hunterUnitId = capturedHunterUnitId;
+                if (capturedHunterUnitId != args.HunterUnitId)
+                {
+                    LogHunterQueryActorWorkaround(
+                        $"Improved Hunters corrected Script Extender issue-123 Hunter ID: " +
+                        $"reported={args.HunterUnitId}, reconstructed={capturedHunterUnitId}, " +
+                        $"query={args.QueryUnitId}.");
+                }
+
+                return true;
+            }
+
+            if (IsLiveHunter(unitApi, args.HunterUnitId))
+            {
+                hunterUnitId = args.HunterUnitId;
+                return true;
+            }
+
+            LogHunterQueryActorWorkaround(
+                $"Improved Hunters ignored Hunter target query with unresolved actor: " +
+                $"reported={args.HunterUnitId}, captured={capturedHunterUnitId}, " +
+                $"captureMatched={captured}, query={args.QueryUnitId}, outcome=leave-Vanilla-unchanged.",
+                warning: true);
+            return false;
+        }
+
+        private static unsafe bool IsLiveHunter(GameUnitManagerAPI unitApi, int unitId)
+        {
+            return IsValidUnitId(unitId) &&
+                unitApi.TryGetUnitById(unitId, out GameUnit* unit) &&
+                unit != null &&
+                unit->r_AliveState == AliveState.IsAlive &&
+                unit->r_UnitChimp == eChimps.CHIMP_TYPE_HUNTER;
+        }
+
+        private void LogHunterQueryActorWorkaround(string message, bool warning = false)
+        {
+            if (hunterQueryActorWorkaroundLogs >= MaxHunterQueryActorWorkaroundLogs)
+                return;
+
+            hunterQueryActorWorkaroundLogs++;
+            string boundedMessage =
+                $"{message} ({hunterQueryActorWorkaroundLogs}/{MaxHunterQueryActorWorkaroundLogs}).";
+            if (warning)
+                Shared.DebugLogHelper.LogWarning(log, boundedMessage);
+            else
+                Shared.DebugLogHelper.LogInfo(log, boundedMessage);
         }
 
         private unsafe bool TryGetTargetSelectionForHunter(int hunterUnitId, long timestamp, out TargetSelection targetSelection)
@@ -2111,7 +2184,7 @@ namespace ImprovedHunters
                     memory,
                     pattern,
                     referenceRva,
-                    referenceHashMatches: true,
+                    referenceHashMatches,
                     name,
                     log).Rva;
 
@@ -2523,11 +2596,18 @@ namespace ImprovedHunters
             }
         }
 
-        private void InitializeAutomaticChickenTargetPatch(ReadOnlySpan<byte> memory, ulong imageBase)
+        private void InitializeAutomaticChickenTargetPatch(
+            ReadOnlySpan<byte> memory,
+            ulong imageBase,
+            bool referenceHashMatches)
         {
             try
             {
-                automaticChickenTargetPatch = new AutomaticChickenTargetPatch(log, memory, imageBase);
+                automaticChickenTargetPatch = new AutomaticChickenTargetPatch(
+                    log,
+                    memory,
+                    imageBase,
+                    referenceHashMatches);
                 ApplyAutomaticChickenTargetPatch();
             }
             catch (Exception exception)
@@ -2541,7 +2621,10 @@ namespace ImprovedHunters
             }
         }
 
-        private void InitializeGranaryChickenLimitPatch(ReadOnlySpan<byte> memory, ulong imageBase)
+        private void InitializeGranaryChickenLimitPatch(
+            ReadOnlySpan<byte> memory,
+            ulong imageBase,
+            bool referenceHashMatches)
         {
             try
             {
@@ -2550,7 +2633,7 @@ namespace ImprovedHunters
                     settings,
                     memory,
                     imageBase,
-                    referenceHashMatches: true,
+                    referenceHashMatches,
                     getLiveChickenCount: GetLiveTrackedGranaryChickenCount,
                     canManageChickens: () =>
                         settings.EnableMod &&
@@ -2565,6 +2648,30 @@ namespace ImprovedHunters
                     log,
                     $"Improved Hunters granary chicken limit is unavailable; Vanilla spawning remains active " +
                     $"and no chickens will be neutralized: {exception}");
+            }
+        }
+
+        private void InitializeHunterQueryActorWorkaround(
+            ReadOnlySpan<byte> memory,
+            ulong imageBase,
+            bool referenceHashMatches)
+        {
+            try
+            {
+                hunterQueryActorWorkaround = new HunterQueryActorWorkaround(
+                    log,
+                    memory,
+                    imageBase,
+                    referenceHashMatches);
+            }
+            catch (Exception exception)
+            {
+                hunterQueryActorWorkaround?.Dispose();
+                hunterQueryActorWorkaround = null;
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Improved Hunters temporary Script Extender issue-123 workaround is unavailable; " +
+                    $"validated Hunter IDs may still be used, but unresolved query actors leave Vanilla unchanged: {exception}");
             }
         }
 
@@ -3090,6 +3197,8 @@ namespace ImprovedHunters
             nativeScanFailureLogged = false;
             nextNativeScanTimestamp = 0;
 
+            hunterQueryActorWorkaround?.Dispose();
+            hunterQueryActorWorkaround = null;
             granaryChickenLimitPatch?.Dispose();
             granaryChickenLimitPatch = null;
             automaticChickenTargetPatch?.Dispose();

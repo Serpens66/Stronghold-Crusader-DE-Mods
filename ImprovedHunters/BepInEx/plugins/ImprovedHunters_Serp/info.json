@@ -3,10 +3,17 @@
   "Author": "Serpens66",
   "Name": "Improved Hunters",
   "Description": "Adds configurable hunter prey and meat yield for deer, goats, rabbits, camels, chickens and cows.",
-  "Version": "1.1.23",
+  "Version": "1.1.24",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.1.24",
+      "Changes": [
+        "Reconstruct the native Hunter ID before target-query handling as a temporary workaround for Script Extender issue 123, and leave Vanilla unchanged when the actor cannot be validated.",
+        "Use direct validated RVAs for the audited CrusaderDE.dll and unique executable-section pattern resolution for changed DLL hashes; disable only native features whose semantic validation fails."
+      ]
+    },
     {
       "Version": "1.1.23",
       "Changes": [

@@ -201,13 +201,43 @@ function Get-PreviousPublishedReleaseVersion {
         ([string]$_.tagName).StartsWith($tagPrefix, [StringComparison]::Ordinal) -and
         [string]$_.tagName -ne $Metadata.Tag
     } | Sort-Object { [DateTimeOffset]$_.publishedAt } -Descending)
-    if ($matchingReleases.Count -eq 0) { return $null }
-
-    $version = ([string]$matchingReleases[0].tagName).Substring($tagPrefix.Length)
-    if ($version -notmatch '^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$') {
-        throw "The previous published release has an invalid version tag: $($matchingReleases[0].tagName)"
+    if ($matchingReleases.Count -gt 0) {
+        $version = ([string]$matchingReleases[0].tagName).Substring($tagPrefix.Length)
+        if ($version -notmatch '^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$') {
+            throw "The previous published release has an invalid version tag: $($matchingReleases[0].tagName)"
+        }
+        return $version
     }
-    return $version
+
+    # An exact lookup is a safety net if GitHub's release-list response is incomplete.
+    $remainingVersions = [System.Collections.Generic.List[string]]::new()
+    foreach ($entry in @($Metadata.Manifest.SerpChangelog)) {
+        $entryVersion = [string]$entry.Version
+        if ((Compare-SemanticVersion -Left $entryVersion -Right $Metadata.Version) -lt 0) {
+            $remainingVersions.Add($entryVersion)
+        }
+    }
+    while ($remainingVersions.Count -gt 0) {
+        $newestIndex = 0
+        for ($index = 1; $index -lt $remainingVersions.Count; $index++) {
+            if ((Compare-SemanticVersion -Left $remainingVersions[$index] -Right $remainingVersions[$newestIndex]) -gt 0) {
+                $newestIndex = $index
+            }
+        }
+        $candidateVersion = $remainingVersions[$newestIndex]
+        $remainingVersions.RemoveAt($newestIndex)
+        $candidateTag = "$tagPrefix$candidateVersion"
+        $candidateResult = Invoke-CheckedCommand -FilePath 'gh' -Arguments @(
+            'release', 'view', $candidateTag, '--repo', $Metadata.Config.Repository,
+            '--json', 'tagName,isDraft,publishedAt'
+        ) -AllowFailure
+        if ($candidateResult.ExitCode -ne 0) { continue }
+        $candidate = ($candidateResult.Output -join "`n") | ConvertFrom-Json
+        if (-not $candidate.isDraft -and [string]$candidate.tagName -ceq $candidateTag) {
+            return $candidateVersion
+        }
+    }
+    return $null
 }
 
 function Get-ReleaseChangeLines {

@@ -37,7 +37,11 @@ foreach ($project in $config.Projects) {
     if ($url) {
         $shortCommit = if ($commit.Length -ge 7) { $commit.Substring(0, 7) } else { $commit }
         $commitUrl = "https://github.com/$($config.Repository)/commit/$commit"
-        $rows.Add("| $project | [$version]($url) | [$shortCommit]($commitUrl) | ``$sha256`` |")
+        $badgeJsonUrl = "https://raw.githubusercontent.com/$($config.Repository)/release-status/badges/$project.json"
+        $badgeUrl = "https://img.shields.io/endpoint?url=$([Uri]::EscapeDataString($badgeJsonUrl))&cacheSeconds=300"
+        $reportUrl = "https://github.com/$($config.Repository)/blob/release-status/reports/$project.md"
+        $statusBadge = "[![release status]($badgeUrl)]($reportUrl)"
+        $rows.Add("| $project | [$version]($url) | $statusBadge | [$shortCommit]($commitUrl) | ``$sha256`` |")
     }
 }
 
@@ -52,8 +56,10 @@ $sectionLines = @(
     '',
     'These archives are produced by the repository release scripts from the linked public commit. The provenance file records the exact package, tool, and dependency hashes. This is a documented statement by the repository owner, not an independently executed build.',
     '',
-    '| Mod | Latest release | Source commit | ZIP SHA-256 |',
-    '| --- | --- | --- | --- |'
+    'The code-status badge compares each release with the current relevant mod sources on `main`. Click it to open the mod-specific filtered diff report.',
+    '',
+    '| Mod | Latest release | Code status | Source commit | ZIP SHA-256 |',
+    '| --- | --- | --- | --- | --- |'
 ) + @($rows) + @(
     '',
     'Verify a downloaded archive with `Get-FileHash <archive.zip> -Algorithm SHA256` and compare it with the release asset and table above.',
