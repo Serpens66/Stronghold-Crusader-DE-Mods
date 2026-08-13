@@ -3,10 +3,26 @@
   "Author": "Serpens66",
   "Name": "Improved Hunters",
   "Description": "Adds configurable hunter prey and meat yield for deer, goats, rabbits, camels, chickens and cows.",
-  "Version": "1.1.25",
+  "Version": "1.1.27",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.1.27",
+      "Changes": [
+        "Replace the fixed delayed KillUnit arrow workaround with validated Vanilla ranged damage while the matching Hunter projectile is still alive, preserving the normal pickupable corpse transition.",
+        "Track projectile slot and global identity, compensate only stalled, near-target or deleting arrows, and expire unresolved intents without creating synthetic 0x6F corpses.",
+        "Move Hunters to a nearby pathfinder-confirmed firing tile after three building-blocked pre-shot target aborts, while treating post-shot target changes as normal and retaining the Hunter-hut visibility exception."
+      ]
+    },
+    {
+      "Version": "1.1.26",
+      "Changes": [
+        "Remove the temporary native visibility hooks after the first blocked-order test exposed an unsafe callback context and caused a desktop crash.",
+        "Move blocked Hunter visibility and movement diagnostics to the existing safe 100-ms unit scan while retaining target identity, terrain, building and projectile correlation.",
+        "Throttle unchanged waiting-position observations to one entry every two seconds and keep the complete diagnostic isolated for later removal."
+      ]
+    },
     {
       "Version": "1.1.25",
       "Changes": [

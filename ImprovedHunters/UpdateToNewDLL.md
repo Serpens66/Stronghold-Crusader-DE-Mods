@@ -24,8 +24,6 @@ fields still require an in-game smoke test after a game update.
 | `ManualAttackTargetAssignmentPattern` | `0x18ED46` | explicit target assignment before automatic dispatch |
 | `ComparisonSequencePattern` | `0xD2AB4` | granary chicken target comparison hook at `+11` (`0xD2ABF`) |
 | `HunterQueryCandidateLoopPattern` | `0x18AF70` | temporary Script Extender issue-123 actor capture |
-| `HunterOrderHelperFailurePattern` | `0x18EE14` | temporary behavior-neutral visibility/order rejection diagnostic |
-| `HunterState6TransitionPattern` | `0x130171` | temporary behavior-neutral Hunter state-6 diagnostic |
 
 The source constants contain the complete wildcard patterns.
 
@@ -84,8 +82,9 @@ this workaround once the minimum supported Script Extender fixes work item 123.
    `+0x39A`, `+0x39C` and `+0x448`.
 4. Confirm hunter/prey states, corpse flag, death timer, reservations, target
    IDs, coordinates, camel health and visual health refresh behavior.
-5. Test automatic ranged rejection, explicit ranged `AttackUnit`, hunter
-   retargeting, projectile compensation, corpse cleanup, camel health and
+5. Test automatic ranged rejection, explicit ranged `AttackUnit`, Hunter
+   retargeting, stalled/blocked projectile compensation, resulting `0x6E` corpse
+   pickup, line-of-sight recovery movement, corpse cleanup, camel health and
    chicken neutralization on fresh and loaded maps.
 6. Revalidate the granary chicken function at `0xD29E0`, the comparison
    sequence at `0xD2AB4`, hook instruction at `0xD2ABF`, signed `jle` target
@@ -97,37 +96,66 @@ this workaround once the minimum supported Script Extender fixes work item 123.
    formula, `ESI` candidate ID and callback ordering before the public Extender
    event. Check whether upstream work item 123 is fixed and remove the temporary
    workaround when it is no longer needed.
-9. Revalidate the temporary visibility diagnostic basic blocks at `0x18EE14`
-   and `0x130171`. The first must still begin with the 10-byte Hunter-type
-   comparison followed by its 6-byte `je`; its decoded branch destination must
-   remain inside the executable image and, on the reference hash, equal the
-   Hunter zero-return block at `0x18F928`. The second must still overwrite only
-   `imul rcx,rdx,0x490`, `mov r15d,20` and `mov eax,6` (18 bytes total).
 
 ## Temporary Hunter visibility diagnostic
 
-Version 1.1.25 keeps the visibility investigation in the removable
-`HunterVisibilityDiagnostic.cs` file. It changes no branch result. The hook at
-`0x18EE14` runs only after the internal order/geometry helper at `0xA06F0`
-returned `<= 0`, records exact Hunter/chicken pointers and IDs, then reproduces
-Vanilla's Hunter comparison and zero-return branch. The hook at `0x130171`
-observes the subsequent state-6 path and exactly replays its three overwritten
-instructions. The previously removed hook at `0x12FF53` remains forbidden
-because direct side entries target its former overwrite window.
+Version 1.1.26 keeps the visibility investigation in the removable
+`HunterVisibilityDiagnostic.cs` file. It installs no native hook and changes no
+branch result or unit state. Version 1.1.25 briefly used behavior-neutral hooks
+at RVAs `0x18EE14` and `0x130171`; the first real blocked-order test ended in a
+native CTD before the hook's first confirmation marker. Those hooks and their
+patterns were therefore removed completely rather than retained as fallbacks.
 
-Both hooks use the reference RVA directly on the audited hash. On a changed
-hash, each complete pattern must resolve uniquely in executable sections; a
-missing, ambiguous or semantically invalid result disables only this diagnostic.
-An unmanaged feature byte prevents managed callbacks while the mod or chicken
-hunting is disabled. Runtime logs correlate native, recently assigned and
-recently accepted targets by unit slot plus global ID. They include unit tile
-and world positions, elevation and look-at coordinates, Hunter path/order
-fields, the straight tile line's terrain-height range, and each building ID,
-type, owner, footprint and occupied-line-tile count. `GameUnit` fields used are
-`+0x88`, `+0x8A`, `+0x92`, `+0x94`, `+0xB2..+0xBE`, `+0xC0/+0xC2`, `+0xF2`,
-`+0xF4`, `+0x2BC`, `+0x398`, `+0x39A`, `+0x39C`, `+0x3FE` and `+0x448`.
-The existing projectile-spawn event emits the same line context for successful
-attack paths, providing a behavior-neutral comparison against Hunter huts.
+The diagnostic now correlates the public Hunter-query event, targets observed
+by the existing 100-ms native unit scan and successful projectile-spawn events.
+When that safe scan observes a Hunter in AI state `6`, it resolves the current,
+recently assigned or recently accepted chicken by unit slot plus global ID. The
+bounded log records movement at most every two seconds while positions remain
+unchanged. It includes unit tile and world positions, elevation and look-at
+coordinates, Hunter path/order fields, matching-projectile age, the straight
+tile line's terrain-height range, and each building ID, type, owner, footprint
+and occupied-line-tile count. The existing projectile-spawn event emits the same
+line context for successful attack paths, providing a behavior-neutral control.
+
+The diagnostic reads the already documented `GameUnit` layout fields at
+`+0x88`, `+0x8A`, `+0x94`, `+0xC0/+0xC2`, `+0xF2`, `+0xF4`, `+0x2BC`,
+`+0x398`, `+0x39A`, `+0x39C`, `+0x3FE` and `+0x448`. Because it adds no native
+address, a future DLL update requires only the normal structure-layout audit.
+
+## Hunter blocked-shot and line-of-sight recovery
+
+Version 1.1.27 removes the one-second `KillUnit` compensation. That API enters
+the melee-death path and produced animal state `0x6F`, which the Hunter did not
+subsequently collect. A pending shot now stores Hunter, prey and projectile slot
+plus global IDs. While that exact `ArcherArrow` is still alive, the runtime calls
+the Script Extender's `GameUnitManagerAPI.DamageUnitRanged(victim, projectile)`
+only after the arrow has stopped moving for 300 ms, is within 32 world units of
+the target, or reaches its public projectile-delete pre-event. This re-enters
+Vanilla's ranged damage/death path and is limited to three attempts. An unresolved
+intent expires after five seconds without a synthetic kill. The validation also
+requires the live Hunter source, live configured prey, matching projectile source
+and target, owner/color-independent prey eligibility, and projectile source-player
+consistency.
+
+Pre-shot visibility recovery is isolated in `HunterLineOfSightRecovery.cs` and
+adds no native address or hook. A target abort is eligible only for a live chicken
+while the Hunter is in waiting state `6`, the straight tile line intersects an
+active non-Hunter-hut building, three such aborts occur within three seconds, and
+no matching Hunter projectile was created in the preceding two seconds. The
+recovery searches at most eight tiles around the Hunter for an unoccupied tile
+within a three-to-twenty-tile shot distance. Candidate firing lines must contain
+no building at all—including Hunter huts, because arrows can physically collide
+with them—and at most eight candidates are checked with the public Vanilla-aware
+pathfinder. Movement is issued through `GameUnitManagerAPI.MoveToTile`; it does
+not teleport the Hunter or bypass collision. The regular 30-second aborted-target
+cooldown is suppressed only when such a move was actually issued, allowing the
+Hunter to retry after arriving.
+
+Future Script Extender updates must revalidate the public ranged-damage,
+projectile-delete, pathfinding and move-order semantics. No new direct RVA or
+pattern is introduced by these two recoveries; the established exact-hash RVA
+and changed-hash unique-pattern strategy for the existing native features remains
+unchanged.
 
 ## Audit for Steam build 24651686
 

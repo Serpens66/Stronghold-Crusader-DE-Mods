@@ -36,12 +36,15 @@ namespace ImprovedHunters
         private const int MaxInvalidHunterEventLogs = 20;
         private const int MaxHunterQueryActorWorkaroundLogs = 20;
 
-        // Native animal AI states observed for hunter corpses. 0x6E is the normal
-        // pickupable corpse state; 0x6F is used when we have to finalize a corpse
-        // after compensating a hunter shot that was blocked by geometry.
+        // Native pickupable animal corpse state observed after regular Hunter
+        // ranged damage.
         private const ushort HunterCorpsePickupAiState = 0x6E;
+        // Retained only so corpses created by older KillUnit-based versions can
+        // expire cleanly after loading; new compensation never creates 0x6F.
         private const ushort HunterFreshCorpseAiState = 0x6F;
         private const long ExpiredShortLivedCorpsePreserve = long.MinValue;
+        private const int MaxHunterProjectileDamageAttempts = 3;
+        private const int HunterProjectileNearTargetDistance = 32;
 
         // Rabbit despawn is exposed by the Script Extender. Camel and chicken use
         // the same native logic, but their constants are not exposed, so we patch
@@ -63,7 +66,10 @@ namespace ImprovedHunters
         private static readonly long AbortedTargetCooldownInterval = Stopwatch.Frequency * 30;
         private static readonly long HunterTargetSummaryInterval = Stopwatch.Frequency * 5;
         private static readonly long HunterSearchDetectionGap = Stopwatch.Frequency / 4;
-        private static readonly long PendingHunterShotIntentDelay = Stopwatch.Frequency;
+        private static readonly long HunterProjectileMinimumFlightTime = Stopwatch.Frequency / 4;
+        private static readonly long HunterProjectileStallInterval = Stopwatch.Frequency * 3 / 10;
+        private static readonly long HunterProjectileRetryInterval = Stopwatch.Frequency / 10;
+        private static readonly long HunterProjectileIntentLifetime = Stopwatch.Frequency * 5;
         private static readonly long PendingGranaryChickenSpawnTimeout = Stopwatch.Frequency * 2;
         private static readonly long GranaryChickenCleanupInterval = Stopwatch.Frequency / 10;
         private const int ShortLivedCorpseVisiblePreserveMapTicksAtSpeed40 = 1800;
@@ -111,6 +117,8 @@ namespace ImprovedHunters
         private uint desiredCamelHealth;
         private uint lastLoggedDesiredCamelHealth;
         private bool nativeScanFailureLogged;
+        private bool hunterProjectileCompensationFailureLogged;
+        private bool hunterProjectileCleanupFailureLogged;
         private long nextNativeScanTimestamp;
         private long nextPreyCacheRefreshTimestamp;
         private long nextStaleReservationCleanupTimestamp;
@@ -135,6 +143,7 @@ namespace ImprovedHunters
         private AutomaticChickenTargetPatch automaticChickenTargetPatch;
         private GranaryChickenLimitPatch granaryChickenLimitPatch;
         private HunterQueryActorWorkaround hunterQueryActorWorkaround;
+        private HunterLineOfSightRecovery hunterLineOfSightRecovery;
         private HunterVisibilityDiagnostic hunterVisibilityDiagnostic;
         private bool referenceHashMatches;
         private bool loadedChickenReconstructionPending;
@@ -161,7 +170,8 @@ namespace ImprovedHunters
                 InitializeAutomaticChickenTargetPatch(memory, imageBase, referenceHashMatches);
                 InitializeGranaryChickenLimitPatch(memory, imageBase, referenceHashMatches);
                 InitializeHunterQueryActorWorkaround(memory, imageBase, referenceHashMatches);
-                InitializeHunterVisibilityDiagnostic(memory, imageBase, referenceHashMatches);
+                InitializeHunterLineOfSightRecovery();
+                InitializeHunterVisibilityDiagnostic();
 
                 subscriptions.Add(UnitR3EventHooks.OnUnitHunterQueryTarget.Observable
                     .Where(args => args.Phase == EventHookPhase.Pre)
@@ -182,6 +192,9 @@ namespace ImprovedHunters
                 subscriptions.Add(ProjectileR3EventHooks.OnProjectileSpawn.Observable
                     .Where(args => args.Phase == EventHookPhase.Post)
                     .Subscribe(OnProjectileSpawn));
+                subscriptions.Add(ProjectileR3EventHooks.OnProjectileDelete.Observable
+                    .Where(args => args.Phase == EventHookPhase.Pre)
+                    .Subscribe(OnProjectileDelete));
                 subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable
                     .Where(args => args.Phase == EventHookPhase.Post)
                     .Subscribe(_ => OnMapStarted()));
@@ -204,6 +217,7 @@ namespace ImprovedHunters
                     $"automaticChickenTargetApplied={automaticChickenTargetPatch?.IsApplied == true}, " +
                     $"granaryChickenLimitAvailable={granaryChickenLimitPatch?.IsAvailable == true}, " +
                     $"hunterQueryActorWorkaroundAvailable={hunterQueryActorWorkaround?.IsAvailable == true}, " +
+                    $"hunterLineOfSightRecoveryAvailable={hunterLineOfSightRecovery?.IsAvailable == true}, " +
                     $"hunterVisibilityDiagnosticAvailable={hunterVisibilityDiagnostic?.IsAvailable == true}, " +
                     $"referenceHashMatches={referenceHashMatches}.");
             }
@@ -229,7 +243,7 @@ namespace ImprovedHunters
                 // some game globals can be recreated around map transitions.
                 ApplyDespawnPatches();
                 ApplyCamelHealthPatch();
-                ResolvePendingHunterShotIntents(timestamp);
+                RunHunterProjectileCompensation(timestamp);
 
                 SimpleNativeArray<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitArray();
                 if (units._array == null || units.Length == 0)
@@ -283,6 +297,7 @@ namespace ImprovedHunters
 
                 CleanupShortLivedCorpsePreserveCache(units, timestamp);
                 TrackHunterPreyAndExpireCollectedCorpses(units, hunters, timestamp);
+                hunterVisibilityDiagnostic?.ProcessNativeScan(units, timestamp);
                 RequeryIdleHuntersNearPrey(units, hunters, eligiblePrey, timestamp);
             }
             catch (Exception exception)
@@ -532,8 +547,11 @@ namespace ImprovedHunters
             pendingGranaryChickenSpawns.Clear();
             loadedChickenReconstructionPending = true;
             ClearTargetSelectionCaches();
+            hunterLineOfSightRecovery?.ResetForMap();
             hunterVisibilityDiagnostic?.ResetForMap();
             nativeScanFailureLogged = false;
+            hunterProjectileCompensationFailureLogged = false;
+            hunterProjectileCleanupFailureLogged = false;
             RunNativeScan(force: true);
         }
 
@@ -1495,15 +1513,27 @@ namespace ImprovedHunters
             }
 
             activeHunterTargets.Remove(hunterUnitId);
-            abortedTargetCooldowns[new HunterPreyCooldownKey(hunterUnitId, previousTarget.GlobalId)] = timestamp + AbortedTargetCooldownInterval;
             bestTargetCache.Remove(hunterUnitId);
+            bool recoveryMoveIssued = hunterLineOfSightRecovery?.TryRecoverAfterTargetAbort(
+                units,
+                hunterUnitId,
+                previousTarget.UnitId,
+                previousTarget.GlobalId,
+                timestamp) == true;
+            HunterPreyCooldownKey cooldownKey = new HunterPreyCooldownKey(hunterUnitId, previousTarget.GlobalId);
+            if (recoveryMoveIssued)
+                abortedTargetCooldowns.Remove(cooldownKey);
+            else
+                abortedTargetCooldowns[cooldownKey] = timestamp + AbortedTargetCooldownInterval;
             TryReleaseAbortedPreyReservation(
                 units,
                 hunterUnitId,
                 previousTarget,
                 hasCurrentTarget ? "target-changed" : "target-cleared");
 
-            if (hasCurrentTarget)
+            // MoveToTile replaces the just-observed target order. Do not cache
+            // that stale target as active after a recovery move was issued.
+            if (hasCurrentTarget && !recoveryMoveIssued)
                 activeHunterTargets[hunterUnitId] = new HunterTargetSnapshot(targetUnitId, targetGlobalId);
         }
 
@@ -1838,12 +1868,26 @@ namespace ImprovedHunters
                 hunterSource = "animal-arrow-fallback";
             else if (eligibility.Type == eChimps.CHIMP_TYPE_CHICKEN)
             {
+                long timestamp = Stopwatch.GetTimestamp();
+                hunterLineOfSightRecovery?.RecordProjectileSpawn(hunterUnitId, timestamp);
                 hunterVisibilityDiagnostic?.RecordProjectileSpawn(
                     hunterUnitId,
                     args.AttackedUnitId,
                     eligibility.GlobalId,
                     args.ReturnValue,
                     hunterSource);
+            }
+
+            uint projectileGlobalId = 0;
+            if (args.ReturnValue > 0 &&
+                args.ReturnValue <= int.MaxValue &&
+                GameProjectileManagerAPI.Instance.TryGetProjectileById((int)args.ReturnValue, out GameProjectile* projectile) &&
+                projectile != null &&
+                projectile->r_AliveState != AliveState.None &&
+                projectile->r_ProjectileType == ProjectileType.ArcherArrow &&
+                projectile->r_TargetUnidId == args.AttackedUnitId)
+            {
+                projectileGlobalId = projectile->r_GlobalId;
             }
 
             QueuePendingHunterShotIntent(
@@ -1853,7 +1897,21 @@ namespace ImprovedHunters
                 eligibility.GlobalId,
                 eligibility.Type,
                 hunterSource,
-                args.ReturnValue);
+                args.ReturnValue,
+                projectileGlobalId);
+        }
+
+        private void OnProjectileDelete(ProjectileDeleteEventArgs args)
+        {
+            try
+            {
+                TryApplyHunterProjectileDamageOnDelete(args.ProjectileId);
+            }
+            catch (Exception exception)
+            {
+                LogHunterProjectileDiagnostic(
+                    $"Improved Hunters projectile-delete compensation failed; Vanilla deletion continues: {exception}");
+            }
         }
 
         private unsafe bool TryResolveHunterForProjectile(
@@ -1965,34 +2023,288 @@ namespace ImprovedHunters
             return IsCompensableHunterPrey(args.AttackedUnitId, target, out eligibility);
         }
 
-        private void QueuePendingHunterShotIntent(
+        private unsafe void QueuePendingHunterShotIntent(
             int hunterUnitId,
             uint hunterGlobalId,
             int targetUnitId,
             uint targetGlobalId,
             eChimps targetType,
             string hunterSource,
-            long spawnReturnValue)
+            long spawnReturnValue,
+            uint projectileGlobalId)
         {
             long timestamp = Stopwatch.GetTimestamp();
-            HunterShotIntentKey key = new HunterShotIntentKey(targetUnitId, targetGlobalId);
+            ushort projectileX = 0;
+            ushort projectileY = 0;
+            if (spawnReturnValue > 0 &&
+                spawnReturnValue <= int.MaxValue &&
+                GameProjectileManagerAPI.Instance.TryGetProjectileById((int)spawnReturnValue, out GameProjectile* projectile) &&
+                projectile != null &&
+                projectile->r_GlobalId == projectileGlobalId)
+            {
+                projectileX = projectile->r_CurrentTileX;
+                projectileY = projectile->r_CurrentTileY;
+            }
+
+            HunterShotIntentKey key = new HunterShotIntentKey(
+                targetUnitId,
+                targetGlobalId,
+                projectileGlobalId,
+                spawnReturnValue);
             PendingHunterShotIntent intent = new PendingHunterShotIntent(
                 hunterUnitId,
                 hunterGlobalId,
                 targetUnitId,
                 targetGlobalId,
                 targetType,
-                timestamp + PendingHunterShotIntentDelay,
+                timestamp,
+                timestamp + HunterProjectileIntentLifetime,
                 hunterSource,
-                spawnReturnValue);
+                spawnReturnValue,
+                projectileGlobalId,
+                projectileX,
+                projectileY,
+                timestamp);
 
             bool updatedExisting = pendingHunterShotIntents.ContainsKey(key);
             pendingHunterShotIntents[key] = intent;
 
             LogHunterProjectileDiagnostic(
                 $"Improved Hunters hunter shot intent queued: hunter={hunterUnitId}, target={targetUnitId}/{targetType}, " +
-                $"targetGlobalId={targetGlobalId}, delaySeconds={PendingHunterShotIntentDelay / Stopwatch.Frequency}, " +
-                $"hunterSource={hunterSource}, returnValue={spawnReturnValue}, updated={updatedExisting}.");
+                $"targetGlobalId={targetGlobalId}, lifetimeSeconds={HunterProjectileIntentLifetime / Stopwatch.Frequency}, " +
+                $"hunterSource={hunterSource}, projectile={spawnReturnValue}/{projectileGlobalId}, updated={updatedExisting}.");
+        }
+
+        private unsafe void TryApplyHunterProjectileDamageDuringFlight(long timestamp)
+        {
+            if (!settings.EnableMod || pendingHunterShotIntents.Count == 0)
+                return;
+
+            List<HunterShotIntentKey> keys = new List<HunterShotIntentKey>();
+            foreach (KeyValuePair<HunterShotIntentKey, PendingHunterShotIntent> pair in pendingHunterShotIntents)
+                keys.Add(pair.Key);
+
+            for (int index = 0; index < keys.Count; index++)
+            {
+                HunterShotIntentKey key = keys[index];
+                if (!pendingHunterShotIntents.TryGetValue(key, out PendingHunterShotIntent intent))
+                    continue;
+
+                if (!TryGetMatchingProjectile(intent, out GameProjectile* projectile) ||
+                    projectile->r_AliveState != AliveState.IsAlive)
+                {
+                    continue;
+                }
+
+                if (projectile->r_CurrentTileX != intent.LastProjectileX ||
+                    projectile->r_CurrentTileY != intent.LastProjectileY)
+                {
+                    intent = intent.WithProjectileObservation(
+                        projectile->r_CurrentTileX,
+                        projectile->r_CurrentTileY,
+                        timestamp);
+                    pendingHunterShotIntents[key] = intent;
+                }
+
+                if (intent.ActiveDamageAttempts >= MaxHunterProjectileDamageAttempts ||
+                    timestamp < intent.NextDamageAttemptAt ||
+                    timestamp - intent.CreatedAt < HunterProjectileMinimumFlightTime)
+                {
+                    continue;
+                }
+
+                GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
+                if (!unitApi.TryGetUnitById(intent.TargetUnitId, out GameUnit* target) ||
+                    target == null ||
+                    target->r_GlobalId != intent.TargetGlobalId ||
+                    target->r_CurrentHealth == 0)
+                {
+                    pendingHunterShotIntents.Remove(key);
+                    continue;
+                }
+
+                int distanceToTarget = Math.Max(
+                    Math.Abs((int)projectile->r_CurrentTileX - target->r_CurrentWorldPositionX),
+                    Math.Abs((int)projectile->r_CurrentTileY - target->r_CurrentWorldPositionY));
+                bool nearTarget = distanceToTarget <= HunterProjectileNearTargetDistance;
+                bool stalled = timestamp - intent.LastProjectileMovementAt >= HunterProjectileStallInterval;
+                if (!nearTarget && !stalled)
+                    continue;
+
+                TryApplyHunterProjectileDamage(
+                    key,
+                    intent,
+                    nearTarget ? "active-near-target" : "active-stalled",
+                    timestamp,
+                    allowRetry: true);
+            }
+        }
+
+        private void RunHunterProjectileCompensation(long timestamp)
+        {
+            try
+            {
+                TryApplyHunterProjectileDamageDuringFlight(timestamp);
+            }
+            catch (Exception exception)
+            {
+                if (!hunterProjectileCompensationFailureLogged)
+                {
+                    hunterProjectileCompensationFailureLogged = true;
+                    Shared.DebugLogHelper.LogError(
+                        log,
+                        $"Improved Hunters active-flight ranged compensation failed safely; " +
+                        $"the native scan and Vanilla continue: {exception}");
+                }
+            }
+
+            try
+            {
+                ResolvePendingHunterShotIntents(timestamp);
+            }
+            catch (Exception exception)
+            {
+                if (!hunterProjectileCleanupFailureLogged)
+                {
+                    hunterProjectileCleanupFailureLogged = true;
+                    Shared.DebugLogHelper.LogError(
+                        log,
+                        $"Improved Hunters projectile-intent cleanup failed safely; " +
+                        $"the native scan and Vanilla continue: {exception}");
+                }
+            }
+        }
+
+        private unsafe void TryApplyHunterProjectileDamageOnDelete(long projectileId)
+        {
+            if (!settings.EnableMod || projectileId <= 0 || pendingHunterShotIntents.Count == 0)
+                return;
+
+            HunterShotIntentKey matchedKey = default;
+            PendingHunterShotIntent matchedIntent = default;
+            bool found = false;
+            foreach (KeyValuePair<HunterShotIntentKey, PendingHunterShotIntent> pair in pendingHunterShotIntents)
+            {
+                if (pair.Value.SpawnReturnValue != projectileId)
+                    continue;
+
+                matchedKey = pair.Key;
+                matchedIntent = pair.Value;
+                found = true;
+                break;
+            }
+
+            if (!found)
+                return;
+
+            TryApplyHunterProjectileDamage(
+                matchedKey,
+                matchedIntent,
+                "projectile-delete",
+                Stopwatch.GetTimestamp(),
+                allowRetry: false);
+        }
+
+        private unsafe void TryApplyHunterProjectileDamage(
+            HunterShotIntentKey key,
+            PendingHunterShotIntent intent,
+            string trigger,
+            long timestamp,
+            bool allowRetry)
+        {
+            pendingHunterShotIntents.Remove(key);
+            GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
+            if (!unitApi.TryGetUnitById(intent.TargetUnitId, out GameUnit* target) ||
+                target == null ||
+                target->r_GlobalId != intent.TargetGlobalId ||
+                target->r_AliveState != AliveState.IsAlive ||
+                target->r_CurrentHealth == 0)
+            {
+                // The native hit already completed, or the slot was reused.
+                return;
+            }
+
+            if (intent.HunterUnitId <= 0 ||
+                !unitApi.TryGetUnitById(intent.HunterUnitId, out GameUnit* hunter) ||
+                hunter == null ||
+                hunter->r_GlobalId != intent.HunterGlobalId ||
+                hunter->r_UnitChimp != eChimps.CHIMP_TYPE_HUNTER ||
+                hunter->r_AliveState != AliveState.IsAlive ||
+                !IsCompensableHunterPrey(intent.TargetUnitId, target, out PreyEligibility eligibility) ||
+                !TryGetMatchingProjectile(intent, out GameProjectile* projectile) ||
+                projectile->r_PlayerSourceId != hunter->r_ControllableForPlayerId)
+            {
+                LogHunterProjectileDiagnostic(
+                    $"Improved Hunters ranged compensation skipped: trigger={trigger}, hunter={intent.HunterUnitId}/{intent.HunterGlobalId}, " +
+                    $"target={intent.TargetUnitId}/{intent.TargetGlobalId}/{intent.TargetType}, " +
+                    $"projectile={intent.SpawnReturnValue}/{intent.ProjectileGlobalId}, reason=identity-or-state-validation-failed.");
+                return;
+            }
+
+            // Remove before entering native code: ranged damage may synchronously
+            // dispatch projectile deletion and must never re-enter this intent.
+            int attempt = intent.ActiveDamageAttempts + 1;
+            short projectileAliveState = (short)projectile->r_AliveState;
+            ushort projectileX = projectile->r_CurrentTileX;
+            ushort projectileY = projectile->r_CurrentTileY;
+            bool damageApplied = unitApi.DamageUnitRanged(
+                intent.TargetUnitId,
+                (int)intent.SpawnReturnValue);
+            bool targetIdentityValidAfter =
+                unitApi.TryGetUnitById(intent.TargetUnitId, out GameUnit* targetAfter) &&
+                targetAfter != null &&
+                targetAfter->r_GlobalId == intent.TargetGlobalId;
+            uint currentHealth = targetIdentityValidAfter ? targetAfter->r_CurrentHealth : 0;
+            ushort aiState = targetIdentityValidAfter ? *(ushort*)((byte*)targetAfter + 0x2BC) : (ushort)0;
+            ushort corpseFlag = targetIdentityValidAfter ? *(ushort*)((byte*)targetAfter + 0x29C) : (ushort)0;
+            ushort reservation = targetIdentityValidAfter ? *(ushort*)((byte*)targetAfter + 0x448) : (ushort)0;
+            bool targetKilled = targetIdentityValidAfter && currentHealth == 0;
+
+            LogHunterProjectileDiagnostic(
+                $"Improved Hunters Vanilla ranged compensation: trigger={trigger}, " +
+                $"hunter={intent.HunterUnitId}/{intent.HunterGlobalId}, " +
+                $"target={intent.TargetUnitId}/{intent.TargetGlobalId}/{eligibility.Type}, " +
+                $"projectile={intent.SpawnReturnValue}/{intent.ProjectileGlobalId}, " +
+                $"projectileAliveState={projectileAliveState}, projectilePosition={projectileX},{projectileY}, " +
+                $"attempt={attempt}/{MaxHunterProjectileDamageAttempts}, damageApplied={damageApplied}, " +
+                $"targetIdentityValidAfter={targetIdentityValidAfter}, targetKilled={targetKilled}, " +
+                $"currentHealth={currentHealth}, aiState=0x{aiState:X}, corpseFlag={corpseFlag}, reservation={reservation}.");
+
+            if (!targetKilled &&
+                allowRetry &&
+                attempt < MaxHunterProjectileDamageAttempts &&
+                timestamp < intent.ExpiresAt &&
+                TryGetMatchingProjectile(intent, out projectile) &&
+                projectile->r_AliveState == AliveState.IsAlive)
+            {
+                pendingHunterShotIntents[key] = intent.WithDamageAttempt(
+                    attempt,
+                    timestamp + HunterProjectileRetryInterval);
+            }
+        }
+
+        private unsafe bool TryGetMatchingProjectile(
+            PendingHunterShotIntent intent,
+            out GameProjectile* projectile)
+        {
+            projectile = null;
+            if (intent.SpawnReturnValue <= 0 ||
+                intent.SpawnReturnValue > int.MaxValue ||
+                intent.ProjectileGlobalId == 0 ||
+                intent.HunterUnitId <= 0)
+            {
+                return false;
+            }
+
+            return GameProjectileManagerAPI.Instance.TryGetProjectileById(
+                    (int)intent.SpawnReturnValue,
+                    out projectile) &&
+                projectile != null &&
+                projectile->r_AliveState != AliveState.None &&
+                projectile->r_GlobalId == intent.ProjectileGlobalId &&
+                projectile->r_ProjectileType == ProjectileType.ArcherArrow &&
+                projectile->r_SourceUnitId == intent.HunterUnitId &&
+                projectile->r_TargetUnidId == intent.TargetUnitId;
         }
 
         private unsafe void ResolvePendingHunterShotIntents(long timestamp)
@@ -2000,126 +2312,42 @@ namespace ImprovedHunters
             if (pendingHunterShotIntents.Count == 0)
                 return;
 
-            List<HunterShotIntentKey> dueKeys = null;
+            List<HunterShotIntentKey> expiredKeys = null;
             foreach (KeyValuePair<HunterShotIntentKey, PendingHunterShotIntent> pair in pendingHunterShotIntents)
             {
-                if (timestamp < pair.Value.DueAt)
+                if (timestamp < pair.Value.ExpiresAt)
                     continue;
 
-                if (dueKeys == null)
-                    dueKeys = new List<HunterShotIntentKey>();
+                if (expiredKeys == null)
+                    expiredKeys = new List<HunterShotIntentKey>();
 
-                dueKeys.Add(pair.Key);
+                expiredKeys.Add(pair.Key);
             }
 
-            if (dueKeys == null)
+            if (expiredKeys == null)
                 return;
 
             GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
-            for (int index = 0; index < dueKeys.Count; index++)
+            for (int index = 0; index < expiredKeys.Count; index++)
             {
-                HunterShotIntentKey key = dueKeys[index];
+                HunterShotIntentKey key = expiredKeys[index];
                 if (!pendingHunterShotIntents.TryGetValue(key, out PendingHunterShotIntent intent))
                     continue;
 
                 pendingHunterShotIntents.Remove(key);
-                ResolvePendingHunterShotIntent(unitApi, intent);
-            }
-        }
-
-        private unsafe void ResolvePendingHunterShotIntent(GameUnitManagerAPI unitApi, PendingHunterShotIntent intent)
-        {
-            if (intent.HunterUnitId != 0 &&
-                (!unitApi.TryGetUnitById(intent.HunterUnitId, out GameUnit* hunter) ||
-                hunter == null ||
-                hunter->r_GlobalId != intent.HunterGlobalId ||
-                hunter->r_UnitChimp != eChimps.CHIMP_TYPE_HUNTER))
-            {
-                LogHunterProjectileDiagnostic(
-                    $"Improved Hunters hunter shot intent skipped: hunter={intent.HunterUnitId}, " +
-                    $"target={intent.TargetUnitId}/{intent.TargetType}, reason=hunter-invalid.");
-                return;
-            }
-
-            if (!unitApi.TryGetUnitById(intent.TargetUnitId, out GameUnit* target) ||
-                target == null ||
-                target->r_GlobalId != intent.TargetGlobalId)
-            {
-                LogHunterProjectileDiagnostic(
-                    $"Improved Hunters hunter shot intent skipped: hunter={intent.HunterUnitId}, " +
-                    $"target={intent.TargetUnitId}/{intent.TargetType}, reason=target-missing-or-reused.");
-                return;
-            }
-
-            if (!IsCompensableHunterPrey(intent.TargetUnitId, target, out PreyEligibility eligibility))
-            {
-                LogHunterProjectileDiagnostic(
-                    $"Improved Hunters hunter shot intent skipped: hunter={intent.HunterUnitId}, " +
-                    $"target={intent.TargetUnitId}/{intent.TargetType}, reason=target-invalid-or-already-dead, " +
-                    $"aliveState={(short)target->r_AliveState}, currentHealth={target->r_CurrentHealth}.");
-                return;
-            }
-
-            // If the animal is still alive after the shot delay, assume the arrow
-            // was blocked by terrain/buildings and complete the kill so the hunter
-            // can continue with the normal pickup workflow.
-            unitApi.KillUnit(intent.TargetUnitId);
-
-            bool corpseFinalized = false;
-            bool stillAlive =
-                unitApi.TryGetUnitById(intent.TargetUnitId, out target) &&
-                target != null &&
-                target->r_GlobalId == intent.TargetGlobalId;
-
-            ushort aiState = 0;
-            ushort corpseFlag = 0;
-            ushort reservation = 0;
-            uint currentHealth = 0;
-            if (stillAlive)
-            {
-                byte* targetBytes = (byte*)target;
-                if (target->r_CurrentHealth == 0)
-                    corpseFinalized = TryFinalizeShotIntentCorpse(target, intent.TargetType);
-
-                aiState = *(ushort*)(targetBytes + 0x2BC);
-                corpseFlag = *(ushort*)(targetBytes + 0x29C);
-                reservation = *(ushort*)(targetBytes + 0x448);
-                currentHealth = target->r_CurrentHealth;
-                stillAlive =
+                bool targetStillAlive =
+                    unitApi.TryGetUnitById(intent.TargetUnitId, out GameUnit* target) &&
+                    target != null &&
+                    target->r_GlobalId == intent.TargetGlobalId &&
                     target->r_AliveState == AliveState.IsAlive &&
-                    target->r_CurrentHealth > 0 &&
-                    corpseFlag == 0;
+                    target->r_CurrentHealth > 0;
+                LogHunterProjectileDiagnostic(
+                    $"Improved Hunters projectile intent expired without synthetic KillUnit: " +
+                    $"hunter={intent.HunterUnitId}/{intent.HunterGlobalId}, " +
+                    $"target={intent.TargetUnitId}/{intent.TargetGlobalId}/{intent.TargetType}, " +
+                    $"projectile={intent.SpawnReturnValue}/{intent.ProjectileGlobalId}, " +
+                    $"attempts={intent.ActiveDamageAttempts}, targetStillAlive={targetStillAlive}.");
             }
-
-            LogHunterProjectileDiagnostic(
-                $"Improved Hunters hunter shot intent kill: hunter={intent.HunterUnitId}, " +
-                $"target={intent.TargetUnitId}/{eligibility.Type}, targetGlobalId={intent.TargetGlobalId}, " +
-                $"hunterSource={intent.HunterSource}, returnValue={intent.SpawnReturnValue}, " +
-                $"corpseFinalized={corpseFinalized}, stillAlive={stillAlive}, currentHealth={currentHealth}, " +
-                $"aiState=0x{aiState:X}, corpseFlag={corpseFlag}, reservation={reservation}.");
-        }
-
-        private static unsafe bool TryFinalizeShotIntentCorpse(GameUnit* target, eChimps targetType)
-        {
-            if (target == null ||
-                target->r_UnitChimp != targetType ||
-                target->r_AliveState != AliveState.IsAlive)
-            {
-                return false;
-            }
-
-            byte* targetBytes = (byte*)target;
-            target->r_CurrentHealth = 0;
-            *(ushort*)(targetBytes + 0x29C) = 1;
-            *(ushort*)(targetBytes + 0x2BC) = HunterFreshCorpseAiState;
-
-            // Start at zero so the visible-corpse preserve can take over on the
-            // next native scan.
-            if (IsShortLivedPrey(targetType))
-                *(ushort*)(targetBytes + 0x2C4) = 0;
-
-            UpdateUnitHealthDisplay(target);
-            return true;
         }
 
         private void LogHunterProjectileDiagnostic(string message)
@@ -2136,6 +2364,9 @@ namespace ImprovedHunters
 
         private void OnSettingChanged(string propertyName)
         {
+            if (propertyName == nameof(ImprovedHuntersViewModel.EnableMod) && !settings.EnableMod)
+                pendingHunterShotIntents.Clear();
+
             if (propertyName == nameof(ImprovedHuntersViewModel.EnableMod) ||
                 propertyName == nameof(ImprovedHuntersViewModel.HuntChicken))
             {
@@ -2149,6 +2380,12 @@ namespace ImprovedHunters
             }
 
             ClearTargetSelectionCaches();
+            if (propertyName == nameof(ImprovedHuntersViewModel.EnableMod) ||
+                propertyName == nameof(ImprovedHuntersViewModel.HuntChicken) ||
+                propertyName == nameof(ImprovedHuntersViewModel.ImprovedPathfinding))
+            {
+                hunterLineOfSightRecovery?.ResetForMap();
+            }
 
             if (propertyName == nameof(ImprovedHuntersViewModel.EnableMod) ||
                 propertyName == nameof(ImprovedHuntersViewModel.HuntRabbit) ||
@@ -2706,19 +2943,13 @@ namespace ImprovedHunters
             }
         }
 
-        private void InitializeHunterVisibilityDiagnostic(
-            ReadOnlySpan<byte> memory,
-            ulong imageBase,
-            bool referenceHashMatches)
+        private void InitializeHunterVisibilityDiagnostic()
         {
             try
             {
                 hunterVisibilityDiagnostic = new HunterVisibilityDiagnostic(
                     log,
-                    settings,
-                    memory,
-                    imageBase,
-                    referenceHashMatches);
+                    settings);
             }
             catch (Exception exception)
             {
@@ -3112,17 +3343,27 @@ namespace ImprovedHunters
         {
             private readonly int targetUnitId;
             private readonly uint targetGlobalId;
+            private readonly uint projectileGlobalId;
+            private readonly long projectileId;
 
-            public HunterShotIntentKey(int targetUnitId, uint targetGlobalId)
+            public HunterShotIntentKey(
+                int targetUnitId,
+                uint targetGlobalId,
+                uint projectileGlobalId,
+                long projectileId)
             {
                 this.targetUnitId = targetUnitId;
                 this.targetGlobalId = targetGlobalId;
+                this.projectileGlobalId = projectileGlobalId;
+                this.projectileId = projectileId;
             }
 
             public bool Equals(HunterShotIntentKey other)
             {
                 return targetUnitId == other.targetUnitId &&
-                    targetGlobalId == other.targetGlobalId;
+                    targetGlobalId == other.targetGlobalId &&
+                    projectileGlobalId == other.projectileGlobalId &&
+                    projectileId == other.projectileId;
             }
 
             public override bool Equals(object obj)
@@ -3137,6 +3378,8 @@ namespace ImprovedHunters
                     int hash = 17;
                     hash = hash * 31 + targetUnitId;
                     hash = hash * 31 + targetGlobalId.GetHashCode();
+                    hash = hash * 31 + projectileGlobalId.GetHashCode();
+                    hash = hash * 31 + projectileId.GetHashCode();
                     return hash;
                 }
             }
@@ -3149,9 +3392,16 @@ namespace ImprovedHunters
             public readonly int TargetUnitId;
             public readonly uint TargetGlobalId;
             public readonly eChimps TargetType;
-            public readonly long DueAt;
+            public readonly long CreatedAt;
+            public readonly long ExpiresAt;
             public readonly string HunterSource;
             public readonly long SpawnReturnValue;
+            public readonly uint ProjectileGlobalId;
+            public readonly ushort LastProjectileX;
+            public readonly ushort LastProjectileY;
+            public readonly long LastProjectileMovementAt;
+            public readonly long NextDamageAttemptAt;
+            public readonly int ActiveDamageAttempts;
 
             public PendingHunterShotIntent(
                 int hunterUnitId,
@@ -3159,18 +3409,91 @@ namespace ImprovedHunters
                 int targetUnitId,
                 uint targetGlobalId,
                 eChimps targetType,
-                long dueAt,
+                long createdAt,
+                long expiresAt,
                 string hunterSource,
-                long spawnReturnValue)
+                long spawnReturnValue,
+                uint projectileGlobalId,
+                ushort lastProjectileX,
+                ushort lastProjectileY,
+                long lastProjectileMovementAt,
+                long nextDamageAttemptAt = 0,
+                int activeDamageAttempts = 0)
             {
                 HunterUnitId = hunterUnitId;
                 HunterGlobalId = hunterGlobalId;
                 TargetUnitId = targetUnitId;
                 TargetGlobalId = targetGlobalId;
                 TargetType = targetType;
-                DueAt = dueAt;
+                CreatedAt = createdAt;
+                ExpiresAt = expiresAt;
                 HunterSource = hunterSource;
                 SpawnReturnValue = spawnReturnValue;
+                ProjectileGlobalId = projectileGlobalId;
+                LastProjectileX = lastProjectileX;
+                LastProjectileY = lastProjectileY;
+                LastProjectileMovementAt = lastProjectileMovementAt;
+                NextDamageAttemptAt = nextDamageAttemptAt;
+                ActiveDamageAttempts = activeDamageAttempts;
+            }
+
+            public PendingHunterShotIntent WithProjectileObservation(ushort x, ushort y, long timestamp)
+            {
+                return new PendingHunterShotIntent(
+                    HunterUnitId,
+                    HunterGlobalId,
+                    TargetUnitId,
+                    TargetGlobalId,
+                    TargetType,
+                    CreatedAt,
+                    ExpiresAt,
+                    HunterSource,
+                    SpawnReturnValue,
+                    ProjectileGlobalId,
+                    x,
+                    y,
+                    timestamp,
+                    NextDamageAttemptAt,
+                    ActiveDamageAttempts);
+            }
+
+            public PendingHunterShotIntent WithDamageAttempt(int attempts, long nextAttemptAt)
+            {
+                return new PendingHunterShotIntent(
+                    HunterUnitId,
+                    HunterGlobalId,
+                    TargetUnitId,
+                    TargetGlobalId,
+                    TargetType,
+                    CreatedAt,
+                    ExpiresAt,
+                    HunterSource,
+                    SpawnReturnValue,
+                    ProjectileGlobalId,
+                    LastProjectileX,
+                    LastProjectileY,
+                    LastProjectileMovementAt,
+                    nextAttemptAt,
+                    attempts);
+            }
+        }
+
+        private void InitializeHunterLineOfSightRecovery()
+        {
+            try
+            {
+                hunterLineOfSightRecovery = new HunterLineOfSightRecovery(
+                    log,
+                    settings);
+            }
+            catch (Exception exception)
+            {
+                hunterLineOfSightRecovery?.Dispose();
+                hunterLineOfSightRecovery = null;
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Improved Hunters line-of-sight recovery is unavailable; " +
+                    $"Hunter movement remains Vanilla: {exception}");
             }
         }
 
@@ -3251,10 +3574,14 @@ namespace ImprovedHunters
             loadedChickenReconstructionPending = false;
             ClearTargetSelectionCaches();
             nativeScanFailureLogged = false;
+            hunterProjectileCompensationFailureLogged = false;
+            hunterProjectileCleanupFailureLogged = false;
             nextNativeScanTimestamp = 0;
 
             hunterVisibilityDiagnostic?.Dispose();
             hunterVisibilityDiagnostic = null;
+            hunterLineOfSightRecovery?.Dispose();
+            hunterLineOfSightRecovery = null;
             hunterQueryActorWorkaround?.Dispose();
             hunterQueryActorWorkaround = null;
             granaryChickenLimitPatch?.Dispose();

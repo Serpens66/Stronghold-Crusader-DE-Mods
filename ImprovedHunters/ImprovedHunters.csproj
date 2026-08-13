@@ -117,6 +117,7 @@
     <Compile Include="src\GranaryChickenSpawnPolicy.cs" />
     <Compile Include="src\HunterQueryActorPolicy.cs" />
     <Compile Include="src\HunterQueryActorWorkaround.cs" />
+    <Compile Include="src\HunterLineOfSightRecovery.cs" />
     <Compile Include="src\HunterVisibilityDiagnostic.cs" />
     <Compile Include="src\ImprovedHuntersRuntime.cs" />
     <Compile Include="src\ImprovedHuntersViewModel.cs" />
