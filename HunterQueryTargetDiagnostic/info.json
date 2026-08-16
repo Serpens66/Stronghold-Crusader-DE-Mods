@@ -1,0 +1,9 @@
+{
+  "GUID": "HunterQueryTargetDiagnostic_Serp",
+  "Author": "Serpens66",
+  "Name": "Hunter Query Target Diagnostic",
+  "Description": "Passive diagnostics for the Script Extender OnUnitHunterQueryTarget issue, including event-side Hunterpost identity and movement snapshots.",
+  "Version": "1.4.1",
+  "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
+  "Manifest": 1
+}
