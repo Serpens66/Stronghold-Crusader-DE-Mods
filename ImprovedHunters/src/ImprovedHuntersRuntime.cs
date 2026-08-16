@@ -141,6 +141,7 @@ namespace ImprovedHunters
         private int invalidHunterEventLogs;
         private int hunterQueryActorWorkaroundLogs;
         private AutomaticChickenTargetPatch automaticChickenTargetPatch;
+        private ManualChickenAttackPatch manualChickenAttackPatch;
         private GranaryChickenLimitPatch granaryChickenLimitPatch;
         private HunterQueryActorWorkaround hunterQueryActorWorkaround;
         private HunterLineOfSightRecovery hunterLineOfSightRecovery;
@@ -168,6 +169,7 @@ namespace ImprovedHunters
             {
                 this.referenceHashMatches = referenceHashMatches;
                 InitializeAutomaticChickenTargetPatch(memory, imageBase, referenceHashMatches);
+                InitializeManualChickenAttackPatch(memory, imageBase, referenceHashMatches);
                 InitializeGranaryChickenLimitPatch(memory, imageBase, referenceHashMatches);
                 InitializeHunterQueryActorWorkaround(memory, imageBase, referenceHashMatches);
                 InitializeHunterLineOfSightRecovery();
@@ -215,6 +217,7 @@ namespace ImprovedHunters
                     $"Improved Hunters runtime enabled: automaticChickenTargetAvailable=" +
                     $"{automaticChickenTargetPatch?.IsAvailable == true}, " +
                     $"automaticChickenTargetApplied={automaticChickenTargetPatch?.IsApplied == true}, " +
+                    $"manualChickenAttackAvailable={manualChickenAttackPatch?.IsAvailable == true}, " +
                     $"granaryChickenLimitAvailable={granaryChickenLimitPatch?.IsAvailable == true}, " +
                     $"hunterQueryActorWorkaroundAvailable={hunterQueryActorWorkaround?.IsAvailable == true}, " +
                     $"hunterLineOfSightRecoveryAvailable={hunterLineOfSightRecovery?.IsAvailable == true}, " +
@@ -2919,6 +2922,34 @@ namespace ImprovedHunters
             }
         }
 
+        private void InitializeManualChickenAttackPatch(
+            ReadOnlySpan<byte> memory,
+            ulong imageBase,
+            bool referenceHashMatches)
+        {
+            try
+            {
+                manualChickenAttackPatch = new ManualChickenAttackPatch(
+                    log,
+                    memory,
+                    imageBase,
+                    referenceHashMatches,
+                    canAllowManualChickenAttack: () =>
+                        settings.EnableMod &&
+                        settings.HuntChicken &&
+                        automaticChickenTargetPatch?.IsApplied == true);
+            }
+            catch (Exception exception)
+            {
+                manualChickenAttackPatch?.Dispose();
+                manualChickenAttackPatch = null;
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Improved Hunters manual chicken AttackUnit correction is unavailable; " +
+                    $"automatic target protection and other prey features remain active: {exception}");
+            }
+        }
+
         private void InitializeHunterQueryActorWorkaround(
             ReadOnlySpan<byte> memory,
             ulong imageBase,
@@ -3586,6 +3617,8 @@ namespace ImprovedHunters
             hunterQueryActorWorkaround = null;
             granaryChickenLimitPatch?.Dispose();
             granaryChickenLimitPatch = null;
+            manualChickenAttackPatch?.Dispose();
+            manualChickenAttackPatch = null;
             automaticChickenTargetPatch?.Dispose();
             automaticChickenTargetPatch = null;
 

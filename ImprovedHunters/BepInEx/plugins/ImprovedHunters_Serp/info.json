@@ -3,10 +3,28 @@
   "Author": "Serpens66",
   "Name": "Improved Hunters",
   "Description": "Adds configurable hunter prey and meat yield for deer, goats, rabbits, camels, chickens and cows.",
-  "Version": "1.1.27",
+  "Version": "1.1.30",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.1.30",
+      "Changes": [
+        "Limit explicit chicken AttackUnit compatibility overrides to projectile-capable ranged units, leaving Vanilla's rejection intact for melee and support units."
+      ]
+    },
+    {
+      "Version": "1.1.29",
+      "Changes": [
+        "Preserve all volatile CPU registers around the explicit chicken AttackUnit callback, preventing the post-callback native crash while retaining manual attacks and Hunter-only automatic targeting."
+      ]
+    },
+    {
+      "Version": "1.1.28",
+      "Changes": [
+        "Allow explicit AttackUnit orders against live chickens to pass Vanilla's separate non-Hunter compatibility rejection while retaining the Hunter-only automatic target dispatch."
+      ]
+    },
     {
       "Version": "1.1.27",
       "Changes": [

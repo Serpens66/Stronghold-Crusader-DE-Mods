@@ -22,6 +22,7 @@ fields still require an in-game smoke test after a game update.
 | `TargetSelectionTypeDispatchPattern` | `0x18F262` | automatic target type dispatch |
 | `ManualAttackCommandPattern` | `0x18EAE6` | explicit `AttackUnit` command path |
 | `ManualAttackTargetAssignmentPattern` | `0x18ED46` | explicit target assignment before automatic dispatch |
+| `ManualAttackDecisionSequencePattern` | `0x18EB98` | explicit `AttackUnit` compatibility decision; hook at `+0x2B` (`0x18EBC3`) |
 | `ComparisonSequencePattern` | `0xD2AB4` | granary chicken target comparison hook at `+11` (`0xD2ABF`) |
 | `HunterQueryCandidateLoopPattern` | `0x18AF70` | temporary Script Extender issue-123 actor capture |
 
@@ -30,6 +31,33 @@ The source constants contain the complete wildcard patterns.
 The automatic target selector starts at RVA `0x18E950`. A valid explicit
 `TribeAICommand.AttackUnit` is checked at RVA `0x18EAE6` and assigns its target
 at RVA `0x18ED46`, before the automatic candidate type dispatch.
+
+Non-Hunters in that explicit branch call Vanilla's unit compatibility function
+at RVA `0x186750`. On the audited DLL it returns `1` for chicken type `62`, and
+the `test eax,eax` at RVA `0x18EBC3` therefore rejects the otherwise valid
+manual order. Hunters bypass this call at RVA `0x18EB9C`. Improved Hunters hooks
+only the explicit branch's test instruction and changes the well-known boolean
+result from `1` to `0` when the target resolves to the same live chicken and the
+attacker resolves to a live, supported ranged unit. The explicit classification
+contains regular projectile attackers: archers, crossbowmen, the debug archer,
+catapult, trebuchet, mangonel, both ballista types, Arabian bowmen, slingers,
+horse archers and fire throwers, plus Bedouin ambushers, skirmishers and heavy
+camels. Hunters bypass the compatibility call in Vanilla. Melee and support
+units retain Vanilla's rejection instead of accepting an order their later
+combat path cannot complete. Vanilla has already validated command, target
+slot/global ID and alive state; its existing range and line-of-sight checks then
+run before the regular target assignment continues. The callback is inactive
+unless the mod, chicken hunting and the independent automatic-target patch are
+all active.
+
+The managed context callback must preserve `X64SmartCPUContextRegs.Volatile` in
+addition to `R14` and `R15`. Vanilla reloads the unit-manager pointer into `R8`
+at RVA `0x18EBB4` and dereferences it immediately after the accepted branch at
+RVA `0x18EBD2`. Version 1.1.28 captured only `RAX`, `R14` and `R15`; the managed
+call was therefore allowed to clobber live `R8`, causing a native CTD after the
+callback had logged its successful `1 -> 0` decision. Version 1.1.29 captures
+all Windows-x64 volatile registers, restores the callback's intentional `RAX`
+change and returns every other live volatile register unchanged.
 
 The dispatch target table is at RVA `0x18F9C4`, and the type-to-dispatch-index
 table is at RVA `0x18F9E0`. Chicken type `62` has table index `62 - 44 = 18`,
@@ -77,22 +105,27 @@ this workaround once the minimum supported Script Extender fixes work item 123.
 2. Revalidate both automatic target dispatch tables, the chicken entry, the
    hunter-only acceptance/rejection branches and that explicit `AttackUnit`
    target assignment still occurs before automatic candidate dispatch.
-3. Revalidate the Script Extender unit array and raw fields `+0x88`, `+0x92`,
+3. Revalidate the explicit `AttackUnit` decision sequence at `0x18EB98`, its
+   compatibility call target, Hunter bypass target, `R14` target ID, `R15D`
+   attacker ID and that forcing `EAX` from `1` to `0` at `0x18EBC3` still
+   reaches Vanilla's existing target assignment without bypassing its earlier
+   identity, alive-state, range or line-of-sight checks.
+4. Revalidate the Script Extender unit array and raw fields `+0x88`, `+0x92`,
    `+0x94`, `+0xC0`, `+0xC2`, `+0x29C`, `+0x2BC`, `+0x2C4`, `+0x370`,
    `+0x39A`, `+0x39C` and `+0x448`.
-4. Confirm hunter/prey states, corpse flag, death timer, reservations, target
+5. Confirm hunter/prey states, corpse flag, death timer, reservations, target
    IDs, coordinates, camel health and visual health refresh behavior.
-5. Test automatic ranged rejection, explicit ranged `AttackUnit`, Hunter
+6. Test automatic ranged rejection, explicit ranged `AttackUnit`, Hunter
    retargeting, stalled/blocked projectile compensation, resulting `0x6E` corpse
    pickup, line-of-sight recovery movement, corpse cleanup, camel health and
    chicken neutralization on fresh and loaded maps.
-6. Revalidate the granary chicken function at `0xD29E0`, the comparison
+7. Revalidate the granary chicken function at `0xD29E0`, the comparison
    sequence at `0xD2AB4`, hook instruction at `0xD2ABF`, signed `jle` target
    `0xD2BA7`, spawn event path `0xD2B4C`, `rbx` player identity and native
    count field `[rdi+0x2048]`.
-7. Update all reference RVAs and the dispatch-table map before approving
+8. Update all reference RVAs and the dispatch-table map before approving
    the new shared hash.
-8. Revalidate the Hunter query candidate-loop signature, `R13`/`R14` slot
+9. Revalidate the Hunter query candidate-loop signature, `R13`/`R14` slot
    formula, `ESI` candidate ID and callback ordering before the public Extender
    event. Check whether upstream work item 123 is fixed and remove the temporary
    workaround when it is no longer needed.
