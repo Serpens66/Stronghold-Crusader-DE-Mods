@@ -19,7 +19,7 @@ Extender fields and the bidirectional stable-link API, so it has no private RVA.
 | `SleepStateComparisonPattern` | `0xC7DCB` | scan; context hook |
 | `SleepStateSynchronizationFunctionPattern` | `0xC7D50` | scan; delegate |
 | `EmergencyDemolitionComparisonPattern` | `0x2F454` | scan; context hook |
-| `BuildingDeletePattern` | `0xC4290` | scan; detour |
+| `AIHovelDemolitionFunctionPattern` | `0x3B1D0` | scan; detour at the AI decision point |
 | `MarketValidatorPattern` | `0xD7080` | scan; detour |
 | `MarketPacketTailPattern` | `0xD7324` | scan; packet globals/sender |
 | `MarketStorageCallPattern` | `0xD7119` | scan; storage delegate |
@@ -40,11 +40,13 @@ the loaded image and their surrounding native contract.
 2. Verify the complete Vanilla worker table and its table-start calculation.
 3. Revalidate market packet globals, sender/storage calls and statistic table.
 4. Revalidate plague lifetime value `800` and Vanilla distance comparison `30`.
-5. Before enabling quarry relocation, revalidate the quarry manager fields
+5. Revalidate that the AI hovel-demolition function still selects structure
+   type `1`, applies the demolition refund, and is called only by the AI update.
+6. Before enabling quarry relocation, revalidate the quarry manager fields
    `+0x31B7D0/+0x31B7D4`, helper ABI and all candidate semantics.
-6. Test every setting enabled/disabled, restore paths, map reloads, market
+7. Test every setting enabled/disabled, restore paths, map reloads, market
    packets, church workers, plague behavior, AI protection, knights and quarry.
-7. Update every RVA and only then approve the shared hash.
+8. Update every RVA and only then approve the shared hash.
 
 ## Audit for Steam build 24651686
 
@@ -58,3 +60,9 @@ no stable-release RVA or pattern to update. `setupBuildingEntrancesOffset`
 still writes the candidate pair at manager
 `+0x31B7D0/+0x31B7D4` with the same ABI and rotation cases. Functional setting,
 reload and multiplayer tests remain post-build game smoke tests.
+
+The hovel protection now detours the AI-only function at `0x3B1D0`. Its single
+direct caller is the AI update at call-site RVA `0x53C33`; the routine requests
+`STRUCT_HOVEL` (`1`) before refunding and deleting the selected building. The
+owner-wide game cleanup path remains separate: `0xCD190` calls `0xC3F10`, which
+reaches `0xC4290`; none of these cleanup stages is intercepted.

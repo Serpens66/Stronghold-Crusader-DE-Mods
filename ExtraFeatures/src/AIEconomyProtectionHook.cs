@@ -2,7 +2,6 @@
 using BepInEx.Logging;
 using SHCDESE.API;
 using SHCDESE.Interop;
-using SHCDESE.Interop.Enums;
 using System;
 using System.Globalization;
 using System.Runtime.InteropServices;
@@ -33,14 +32,17 @@ namespace ExtraFeatures
         private const string EmergencyDemolitionComparisonPattern =
             "80 BC 24 80 00 00 00 00 0F 84 ?? ?? ?? ?? 4C 8D BD ?? ?? ?? ?? 8B D6 4D 03 FE";
 
-        // c_game_building_delete:
-        // This catches non-UI AI demolition paths which do not call c_game_building_bulldoze.
-        private const string BuildingDeletePattern =
-            "48 89 5C 24 ?? 48 89 6C 24 ?? 48 89 74 24 ?? 48 89 7C 24 ?? 41 56 48 83 EC ?? 41 BE";
+        // AI hovel-demolition routine:
+        // After checking the AI economy thresholds, it requests structure type 1
+        // (STRUCT_HOVEL), grants the demolition refund, and deletes that building.
+        // Hooking this decision point keeps defeat cleanup and every other game-side
+        // call to c_game_building_delete completely outside this setting.
+        private const string AIHovelDemolitionFunctionPattern =
+            "48 89 5C 24 08 57 48 83 EC 20 48 63 FA 48 8D 15 ?? ?? ?? ?? 48 69 CF 3C 58 00 00 83 BC 11 C0 0E 13 00 00 74 ?? 8B 84 11 40 0D 13 00 3B 84 11 34 EC 12 00";
         private const int SleepStateComparisonRva = 0xC7DCB;
         private const int SleepStateSynchronizationFunctionRva = 0xC7D50;
         private const int EmergencyDemolitionComparisonRva = 0x2F454;
-        private const int BuildingDeleteRva = 0xC4290;
+        private const int AIHovelDemolitionFunctionRva = 0x3B1D0;
 
         private const byte ActiveState = 0;
         private const byte SleepingState = 1;
@@ -48,7 +50,7 @@ namespace ExtraFeatures
         private static readonly ulong PlayerOwnerDistanceFromSleeping = GetPlayerOwnerDistanceFromSleeping();
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        private delegate long BuildingDeleteDelegate(NativePointer<GameBuildingManager> buildingManager, int buildingId);
+        private delegate int AIHovelDemolitionDelegate(IntPtr aiManager, int playerId);
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate void SynchronizeSleepStatesDelegate(NativePointer<GameBuildingManager> buildingManager);
@@ -58,13 +60,13 @@ namespace ExtraFeatures
         private readonly HookTransaction transaction;
         private HookRef<X64InlineHook> sleepStateHook = new HookRef<X64InlineHook>();
         private HookRef<X64InlineHook> emergencyDemolitionHook = new HookRef<X64InlineHook>();
-        private HookRef<X64ManagedFunctionDetourAOB<BuildingDeleteDelegate>> buildingDeleteHook =
-            new HookRef<X64ManagedFunctionDetourAOB<BuildingDeleteDelegate>>();
+        private HookRef<X64ManagedFunctionDetourAOB<AIHovelDemolitionDelegate>> aiHovelDemolitionHook =
+            new HookRef<X64ManagedFunctionDetourAOB<AIHovelDemolitionDelegate>>();
         private readonly SynchronizeSleepStatesDelegate synchronizeSleepStates;
         private bool pauseCallbackFailureLogged;
         private bool singleBuildingOverrideCallbackFailureLogged;
         private bool emergencyCallbackFailureLogged;
-        private bool deleteCallbackFailureLogged;
+        private bool hovelDemolitionCallbackFailureLogged;
         private bool disposed;
 
         public AIEconomyProtectionHook(
@@ -87,9 +89,9 @@ namespace ExtraFeatures
             int emergencyRva = Resolve(
                 memory, EmergencyDemolitionComparisonPattern, EmergencyDemolitionComparisonRva,
                 referenceHashMatches, "AI emergency-demolition comparison");
-            int buildingDeleteRva = Resolve(
-                memory, BuildingDeletePattern, BuildingDeleteRva,
-                referenceHashMatches, "building delete function");
+            int aiHovelDemolitionRva = Resolve(
+                memory, AIHovelDemolitionFunctionPattern, AIHovelDemolitionFunctionRva,
+                referenceHashMatches, "AI hovel-demolition function");
 
             synchronizeSleepStates = Marshal.GetDelegateForFunctionPointer<SynchronizeSleepStatesDelegate>(
                 unchecked((IntPtr)(long)(libraryBase + (ulong)synchronizationRva)));
@@ -117,9 +119,9 @@ namespace ExtraFeatures
                 placement: OverwrittenInstructionPlacement.AfterCallback);
 
             transaction.AddDetour(
-                ref buildingDeleteHook,
-                libraryBase + unchecked((ulong)buildingDeleteRva),
-                PreventLiveAIHovelDelete);
+                ref aiHovelDemolitionHook,
+                libraryBase + unchecked((ulong)aiHovelDemolitionRva),
+                PreventAIHovelDemolition);
 
             transaction.Commit();
 
@@ -127,8 +129,8 @@ namespace ExtraFeatures
                 throw new InvalidOperationException("The AI building sleep-state AOB signature was not found.");
             if (!emergencyDemolitionHook.Success)
                 throw new InvalidOperationException("The AI emergency-demolition AOB signature was not found.");
-            if (!buildingDeleteHook.Success)
-                throw new InvalidOperationException("The building delete AOB signature was not found.");
+            if (!aiHovelDemolitionHook.Success)
+                throw new InvalidOperationException("The AI hovel-demolition AOB signature was not found.");
         }
 
         private int Resolve(
@@ -252,49 +254,30 @@ namespace ExtraFeatures
             }
         }
 
-        private long PreventLiveAIHovelDelete(NativePointer<GameBuildingManager> buildingManager, int buildingId)
+        private int PreventAIHovelDemolition(IntPtr aiManager, int playerId)
         {
             try
             {
                 if (settings.EnableMod &&
                     settings.PreventHovelDeletion &&
-                    ShouldBlockLiveAIHovelDelete(buildingId, out _))
+                    GamePlayerManagerAPI.Instance.IsAIPlayer(playerId))
                 {
-                    // In the measured AI retry loop, the same hovel was targeted
-                    // around 22 times per minute. Blocking here is still cheap:
-                    // this detour runs only on actual delete attempts and returns
-                    // before the game mutates building state.
+                    // Returning false mirrors the routine's no-demolition result.
+                    // Its sole caller then continues the normal AI update without
+                    // issuing a refund or entering the global building delete path.
                     return 0;
                 }
             }
             catch (Exception ex)
             {
-                if (!deleteCallbackFailureLogged)
+                if (!hovelDemolitionCallbackFailureLogged)
                 {
-                    deleteCallbackFailureLogged = true;
-                    LogError($"AI live hovel deletion prevention failed; this delete uses vanilla behavior: {ex}");
+                    hovelDemolitionCallbackFailureLogged = true;
+                    LogError($"AI hovel-demolition prevention failed; this AI decision uses vanilla behavior: {ex}");
                 }
             }
 
-            return buildingDeleteHook.Value.Hook.Trampoline(buildingManager, buildingId);
-        }
-
-        private static bool ShouldBlockLiveAIHovelDelete(int buildingId, out ushort ownerId)
-        {
-            ownerId = 0;
-
-            if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building))
-                return false;
-
-            if (building->r_AliveState != AliveState.IsAlive ||
-                building->r_BuildingType != eStructs.STRUCT_HOVEL ||
-                building->r_CurrentHealth <= 0)
-            {
-                return false;
-            }
-
-            ownerId = building->r_PlayerIdOwner;
-            return GamePlayerManagerAPI.Instance.IsAIPlayer(ownerId);
+            return aiHovelDemolitionHook.Value.Hook.Trampoline(aiManager, playerId);
         }
 
         private static ulong GetPlayerOwnerDistanceFromSleeping()
