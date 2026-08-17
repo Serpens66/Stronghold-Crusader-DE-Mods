@@ -70,6 +70,7 @@ namespace ImprovedHunters
         private const ushort OwnHunterReservation = 2;
         private const uint MaximumPathSteps = 2000;
         private const int MaxDiagnosticLogs = 240;
+        private const int MaxProbeSampleLogs = 240;
 
         private static readonly long ProbeInterval = Stopwatch.Frequency;
         private static readonly long SnapshotLifetime = Stopwatch.Frequency * 2;
@@ -87,6 +88,7 @@ namespace ImprovedHunters
         private long mapGeneration = 1;
         private long nextPathGeneration;
         private int diagnosticLogs;
+        private int probeSampleLogs;
         private bool firstProbeConfirmed;
         private bool disposed;
 
@@ -109,6 +111,7 @@ namespace ImprovedHunters
                 "Improved Hunters active-target visibility snapshot initialized: " +
                 "probeSeconds=1, snapshotSeconds=2, pendingSeconds=2, trackerRetentionSeconds=2, " +
                 "identityBinding=hunter/prey/global/player/map/accepted-MoveHere-generation/path, " +
+                "explicitDirectionalDiagnosticsForWrapperZero=True, " +
                 "nativeCallInsideInlineHook=False, behaviorMutation=False.");
         }
 
@@ -340,6 +343,7 @@ namespace ImprovedHunters
             }
 
             diagnosticLogs = 0;
+            probeSampleLogs = 0;
             firstProbeConfirmed = false;
         }
 
@@ -377,7 +381,8 @@ namespace ImprovedHunters
                     before.PreyType,
                     out int wrapperResult,
                     out int hunterToPreyResult,
-                    out int preyToHunterResult);
+                    out int preyToHunterResult,
+                    out HunterNearVisibilityGeometry geometry);
                 string resultFailure = invoked ? string.Empty : "native-probe-unavailable";
                 if (!invoked || !TryClassify(
                         wrapperResult,
@@ -410,6 +415,27 @@ namespace ImprovedHunters
                         warning: true);
                     return;
                 }
+
+                LogProbeSample(
+                    "Improved Hunters active-target visibility probe sample: " +
+                    $"hunter={before.HunterUnitId}/{before.HunterGlobalId}, " +
+                    $"target={before.PreyUnitId}/{before.PreyGlobalId}/{before.PreyType}, " +
+                    $"player={before.PlayerId}, mapGeneration={before.MapGeneration}, " +
+                    $"path={before.PathState}/{before.PathFieldF4}/" +
+                    $"{before.PathProgress}/{before.PathLength}, reservation={before.Reservation}, " +
+                    $"pathGeneration={request.PathGeneration}, " +
+                    $"hunterTile={geometry.HunterTileX},{geometry.HunterTileY}, " +
+                    $"preyTile={geometry.PreyTileX},{geometry.PreyTileY}, " +
+                    $"tileManhattanDistance={geometry.TileManhattanDistance}, " +
+                    $"hunterWorld={geometry.HunterWorldX},{geometry.HunterWorldY},{geometry.HunterHeight}, " +
+                    $"preyWorld={geometry.PreyWorldX},{geometry.PreyWorldY},{geometry.PreyHeight}, " +
+                    $"worldChebyshevDistance={geometry.WorldChebyshevDistance}, " +
+                    $"wrapperResult={wrapperResult}, " +
+                    $"coreHunterToPreyResult={hunterToPreyResult}, " +
+                    $"corePreyToHunterResult={preyToHunterResult}, " +
+                    $"classification={classification}, behaviorMutation=False.",
+                    warning: wrapperResult == 0 &&
+                        (hunterToPreyResult > 0 || preyToHunterResult > 0));
 
                 if (!TryCaptureInputs(
                         before.HunterUnitId,
@@ -474,7 +500,10 @@ namespace ImprovedHunters
                         $"coreHunterToPreyResult={hunterToPreyResult}, " +
                         $"corePreyToHunterResult={preyToHunterResult}, " +
                         $"classification={classification}, nextProbeMs=1000, readableMs=2000.",
-                        warning: state == HunterActiveVisibilityState.Blocked && wrapperResult > 0);
+                        warning: state == HunterActiveVisibilityState.Blocked &&
+                            (wrapperResult > 0 ||
+                             hunterToPreyResult > 0 ||
+                             preyToHunterResult > 0));
                 }
             }
             catch (Exception exception)
@@ -795,6 +824,19 @@ namespace ImprovedHunters
 
             diagnosticLogs++;
             string bounded = $"{message} ({diagnosticLogs}/{MaxDiagnosticLogs}).";
+            if (warning)
+                Shared.DebugLogHelper.LogWarning(log, bounded);
+            else
+                Shared.DebugLogHelper.LogInfo(log, bounded);
+        }
+
+        private void LogProbeSample(string message, bool warning)
+        {
+            if (probeSampleLogs >= MaxProbeSampleLogs)
+                return;
+
+            probeSampleLogs++;
+            string bounded = $"{message} ({probeSampleLogs}/{MaxProbeSampleLogs}).";
             if (warning)
                 Shared.DebugLogHelper.LogWarning(log, bounded);
             else

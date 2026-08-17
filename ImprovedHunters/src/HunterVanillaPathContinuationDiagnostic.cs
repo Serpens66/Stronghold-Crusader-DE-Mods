@@ -498,6 +498,9 @@ namespace ImprovedHunters
             if (visibility.State == HunterActiveVisibilityState.Visible)
             {
                 StopAttempt(identity, "visible-attack-handoff", tileAttackDistance, pathFieldF4);
+                string visibleAction = pathFieldF4 == 0
+                    ? "release-distance-override-vanilla-attack-gate-ready"
+                    : "release-distance-override-vanilla-attack-gate-deferred";
                 LogTileDecision(
                     identity,
                     tileAttackDistance,
@@ -510,7 +513,7 @@ namespace ImprovedHunters
                     pclReachable,
                     pclSnapshotStatus,
                     pclSnapshotAgeMilliseconds,
-                    "allow-vanilla-attack",
+                    visibleAction,
                     force: false);
                 return;
             }

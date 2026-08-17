@@ -11,6 +11,50 @@ using Zhuqiaomon.Memory;
 
 namespace ImprovedHunters
 {
+    internal readonly struct HunterNearVisibilityGeometry
+    {
+        public readonly int HunterTileX;
+        public readonly int HunterTileY;
+        public readonly int PreyTileX;
+        public readonly int PreyTileY;
+        public readonly int HunterWorldX;
+        public readonly int HunterWorldY;
+        public readonly int HunterHeight;
+        public readonly int PreyWorldX;
+        public readonly int PreyWorldY;
+        public readonly int PreyHeight;
+
+        public HunterNearVisibilityGeometry(
+            int hunterTileX,
+            int hunterTileY,
+            int preyTileX,
+            int preyTileY,
+            int hunterWorldX,
+            int hunterWorldY,
+            int hunterHeight,
+            int preyWorldX,
+            int preyWorldY,
+            int preyHeight)
+        {
+            HunterTileX = hunterTileX;
+            HunterTileY = hunterTileY;
+            PreyTileX = preyTileX;
+            PreyTileY = preyTileY;
+            HunterWorldX = hunterWorldX;
+            HunterWorldY = hunterWorldY;
+            HunterHeight = hunterHeight;
+            PreyWorldX = preyWorldX;
+            PreyWorldY = preyWorldY;
+            PreyHeight = preyHeight;
+        }
+
+        public int TileManhattanDistance =>
+            Math.Abs(PreyTileX - HunterTileX) + Math.Abs(PreyTileY - HunterTileY);
+
+        public int WorldChebyshevDistance =>
+            Math.Max(Math.Abs(PreyWorldX - HunterWorldX), Math.Abs(PreyWorldY - HunterWorldY));
+    }
+
     /// <summary>
     /// Temporary, behavior-neutral runtime validation of Vanilla's native Hunter
     /// visibility helper. It installs no hook and mutates neither units nor orders.
@@ -169,11 +213,13 @@ namespace ImprovedHunters
             eChimps preyType,
             out int wrapperResult,
             out int hunterToPreyResult,
-            out int preyToHunterResult)
+            out int preyToHunterResult,
+            out HunterNearVisibilityGeometry geometry)
         {
             wrapperResult = 0;
             hunterToPreyResult = -1;
             preyToHunterResult = -1;
+            geometry = default;
             if (!IsAvailable ||
                 !settings.EnableMod ||
                 !settings.ImprovedPathfinding ||
@@ -206,7 +252,8 @@ namespace ImprovedHunters
                 prey,
                 out wrapperResult,
                 out hunterToPreyResult,
-                out preyToHunterResult);
+                out preyToHunterResult,
+                out geometry);
         }
 
         public void RecordQueryCandidate(
@@ -594,11 +641,13 @@ namespace ImprovedHunters
             GameUnit* prey,
             out int wrapperResult,
             out int hunterToPreyResult,
-            out int preyToHunterResult)
+            out int preyToHunterResult,
+            out HunterNearVisibilityGeometry geometry)
         {
             wrapperResult = 0;
             hunterToPreyResult = -1;
             preyToHunterResult = -1;
+            geometry = default;
             if (Interlocked.CompareExchange(ref probeInProgress, 1, 0) != 0)
             {
                 if (!reentrancyLogged)
@@ -620,6 +669,17 @@ namespace ImprovedHunters
                 int preyX = prey->r_CurrentWorldPositionX;
                 int preyY = prey->r_CurrentWorldPositionY;
                 int preyHeight = prey->r_HeightElevation + prey->N0000006A + 26;
+                geometry = new HunterNearVisibilityGeometry(
+                    hunter->r_CurrentTilePositionX,
+                    hunter->r_CurrentTilePositionY,
+                    prey->r_CurrentTilePositionX,
+                    prey->r_CurrentTilePositionY,
+                    hunterX,
+                    hunterY,
+                    hunterHeight,
+                    preyX,
+                    preyY,
+                    preyHeight);
 
                 if (!TryInvokeGuardedVisibility(
                         visibility,
@@ -636,11 +696,9 @@ namespace ImprovedHunters
                     return false;
                 }
 
-                // A zero wrapper result already includes its reverse core call.
-                // Extra calls are only paid for a potentially visible target.
-                if (wrapperResult <= 0)
-                    return true;
-
+                // The wrapper remains authoritative. Explicit directions are
+                // diagnostic even for zero so a geometry failure can be
+                // distinguished from wrapper/control-context disagreement.
                 if (!TryInvokeGuardedVisibility(
                         visibilityCore,
                         hunterX,

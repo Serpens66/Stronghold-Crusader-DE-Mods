@@ -3,10 +3,17 @@
   "Author": "Serpens66",
   "Name": "Improved Hunters",
   "Description": "Adds configurable hunter prey and meat yield for deer, goats, rabbits, camels, chickens and cows.",
-  "Version": "1.1.59",
+  "Version": "1.1.60",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.1.60",
+      "Changes": [
+        "Record the exact Hunter/prey tile, world and height geometry for every bounded active-target visibility probe, including both validated directional core results even when the authoritative wrapper returns zero.",
+        "Distinguish release of the distance override from Vanilla's later locomotion gate so delayed direct attacks can be separated from delayed or stale line-of-sight observations without changing movement, range, path or AI state."
+      ]
+    },
     {
       "Version": "1.1.59",
       "Changes": [

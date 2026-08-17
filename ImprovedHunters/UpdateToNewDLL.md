@@ -1021,6 +1021,34 @@ two-second expiry records absence and last-validation age. This change adds no
 RVA, hook, native call, field offset or behavior write. Movement, attack range,
 cooldown, path, animation, speed and AI state remain Vanilla-owned.
 
+### Geometry and locomotion-gate diagnostics in 1.1.60
+
+The `1.1.59` runtime log confirms bounded tracker retention but separates the
+remaining late-shot symptom into two native stages. Every observed positive
+snapshot released the distance override while public `GameUnit +0xF4` was
+still nonzero. Every later direct attack at RVA `0x13013D` occurred only after
+that field became zero, matching the audited comparisons at `0x130110` through
+`0x130124`. Separately, some visually clear approaches kept wrapper RVA
+`0xA06F0` at zero until short range. The former logs did not expose exact probe
+geometry or the two direct core results for a wrapper-zero sample.
+
+Version `1.1.60` does not change the authoritative wrapper classification,
+hook span, register mutation or any `GameUnit` field. Each existing once-per-
+second active-target probe captures the exact Hunter/prey tile coordinates,
+world endpoints and height arguments used for that call. It also invokes the
+already exact-hash-validated core delegate at RVA `0x9E350` in both directions
+when the wrapper is zero as well as when it is positive. These two additional
+bounded calls are diagnostic only; wrapper zero remains blocked. A disagreement
+is logged as a warning and cannot authorize an attack.
+
+The tile-decision marker now distinguishes distance-override release with a
+ready `+0xF4 == 0` Vanilla gate from release deferred by nonzero `+0xF4`. A
+future correction must first use these samples to decide between native
+visibility semantics and snapshot freshness. Any eventual bypass of the
+`0x130110` gate requires a new complete overwrite-span, inbound-target and
+relocation audit and must enter the unchanged direct-attack sequence exactly
+once; writing `+0xF4`, path state or AI state remains forbidden.
+
 Future Script Extender updates must revalidate the public ranged-damage,
 projectile-delete and move-order semantics. A bounded native reachability path
 must be identified and validated before pre-shot recovery is enabled again. The

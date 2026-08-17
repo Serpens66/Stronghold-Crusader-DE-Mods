@@ -1,23 +1,22 @@
 # ImprovedHunters: Übergabeplan für Jagd, Erreichbarkeit und Beuteauswahl
 
-Stand: `2026-08-17`
+Stand: `2026-08-18`
 
-Aktueller implementierter Quellstand: `1.1.59`. Zuletzt ingame geprüft ist
-`1.1.58`: Die explizite `MoveHere`-Generation blieb stabil, aber ein einzelner
-transient nicht vollständig erfassbarer 100-ms-Scan löschte den Sicht-Tracker
-weiterhin sofort. `1.1.59` erhält einen zuletzt vollständig validierten Tracker
-über eine begrenzte zweisekündige Scan-Lücke; Paket E ist bis zur erneuten
-Ingame-Abnahme ausdrücklich **nicht abgenommen**.
+Aktueller implementierter Quellstand: `1.1.60`. Zuletzt ingame geprüft ist
+`1.1.59`: Die begrenzte Tracker-Retention funktioniert, aber freie Sicht wird
+teilweise erst sehr nah positiv und eine positive Freigabe wird durch Vanillas
+nachgeschaltetes `+0xF4`-Bewegungstor weiter verzögert. `1.1.60` trennt beide
+Ursachen mit verhaltensneutralen Geometrie-, Kernrichtungs- und Gate-Logs;
+Paket E ist bis zur erneuten Ingame-Abnahme ausdrücklich **nicht abgenommen**.
 
 ## Übergabe in Kurzform
 
-Die Pakete A und B sind abgeschlossen. Paket E besitzt im Quellstand `1.1.59`
+Die Pakete A und B sind abgeschlossen. Paket E besitzt im Quellstand `1.1.60`
 die Teilbausteine für Restweg, Vanilla-Geschwindigkeitsstufen, PCL und den
 aktiven Sicht-Snapshot am Tile-Angriffspfad. Der `1.1.57`-Test bestätigte die
 frühe Freigabe bis Tile-Distanz `28`, widerlegte aber die verbliebene
 Fortschritts-Rücksprungheuristik. Ursache, Korrektur und Pflichttests stehen im
-Paket-E-Abschnitt ab „Begrenzte Tracker-Retention `1.1.59` nach dem
-`1.1.58`-Test“.
+Paket-E-Abschnitt ab „`1.1.60`-Diagnose nach dem `1.1.59`-Test“.
 
 Verbindliche Reihenfolge:
 
@@ -76,7 +75,7 @@ ist. Für Kühe besteht noch ein dokumentierter Widerspruch.
 | PCL-Vorfilter für unerreichbare Beute | Seit `1.1.44` produktiv und bestätigt | Keine eigene Detailpfadsuche ergänzen |
 | Neu unerreichbares aktives Ziel | Seit `1.1.45` implementiert und in den Logs bestätigt | Vanilla selbst neu suchen lassen |
 | Distanz-28-Pfadfortsetzung | `1.1.56` bestätigte ingame die Fortsetzung des gültigen Vanilla-Pfades ohne vorzeitigen State-6-Abbruch; Paket E insgesamt bleibt offen | Alle sieben Paket-E-Tests und die maschinelle Logabnahme durchführen; keine eigenen Moves oder AI-States |
-| Freie Sicht und echter Angriff | `1.1.58` bestätigte stabile `MoveHere`-Generationen, löschte den Tracker aber bei einzelnen transient ungültigen Scans; `1.1.59` erhält vollständig validierte Tracker über eine begrenzte zweisekündige Scan-Lücke | Übergang blockiert → sichtbar → wieder blockiert sowie freien Kontrollfall erneut ingame abnehmen |
+| Freie Sicht und echter Angriff | `1.1.59` bestätigt stabile Tracker-Retention; positiv sichtbare Ziele werden jedoch erst nach Vanillas `+0xF4`-Tor direkt angegriffen, während manche optisch freien Annäherungen bis in kurze Distanz Wrapper `0` liefern | Mit `1.1.60` Sichtgeometrie, beide Kernrichtungen und Gate-Aufschub getrennt messen; erst danach positionsgebundene Aktualisierung und gegebenenfalls validierten Gate-Handoff implementieren |
 | Jägerhütte als Sichtblocker | Seit `1.1.41` aktiv und ingame plausibel | In Paket D kurz regressieren |
 | Schuss, Kadaver, Pickup und Abgabe | Mehrfach vollständig beobachtet | Paket B abgeschlossen; kein Pickup-Fix |
 | Langsames Schleichen auf langem Umweg | Restweg und Vanilla-Geschwindigkeitswahl sind bestätigt; `1.1.50` belegt wiederholte `Query -> State 0 -> MoveHere`-Resets als Ursache der Sitz-/Warteanimation | Normale Vanilla-Locomotion erhalten; die noch offene State-1-Angriffslücke beheben und danach Geschwindigkeit plus Animation regressieren |
@@ -929,8 +928,9 @@ Drosselungssignaturen. `visibilityPathGeneration` erscheint in beiden
 Entscheidungslogs. Erwartet wird pro erfolgreichem `MoveHere` genau ein
 Generationswechsel und danach ohne weiteren `MoveHere` weder
 `new-path-generation-pending` noch mehr als ungefähr eine Sichtprobe pro
-Sekunde. Ein dauerhaft sichtbares Ziel muss wiederholt
-`allow-vanilla-attack` behalten, bis Vanillas positiver Angriff folgt.
+Sekunde. Ein dauerhaft sichtbares Ziel muss wiederholt die Freigabe des
+Distanz-Overrides behalten; seit `1.1.60` wird getrennt ausgewiesen, ob Vanillas
+nachgeschaltetes Angriffstor bereits bereit ist oder den Angriff noch vertagt.
 
 ### Begrenzte Tracker-Retention `1.1.59` nach dem `1.1.58`-Test
 
@@ -973,6 +973,49 @@ eine wirkliche Ablaufbereinigung nennt Abwesenheits- und Validierungsalter. Es
 gibt weiterhin keinen eigenen Move, keine Reichweiten-, Cooldown-, Pfad-,
 Animations-, Speed- oder AI-State-Schreiboperation. Pflichtschritt bleibt die
 erneute Ingame-Abnahme des bewegten Übergangs und des freien Kontrollfalls.
+
+### `1.1.60`-Diagnose nach dem `1.1.59`-Test
+
+Der `1.1.59`-Lauf ab Mod-Zeitstempel `2026-08-17 23:58:48` bestätigt die
+Retention: `new-tracker-pending` sank von 172 auf 2 und `visibility-pending`
+von 352 auf 13. Acht erste Scanlücken wurden begrenzt erhalten; alle nannten
+`prey-reservation-1`, während der maßgebliche Inline-Hook denselben Zielpfad
+mit Reservation `2` validierte. Der Rohwert ist damit phasenabhängig und darf
+nicht ungeprüft als neue stabile Identität oder als Schreibziel behandelt
+werden.
+
+Die Angriffsfolge zeigt zwei getrennte Verzögerungen. Alle sieben direkten
+Vanilla-Angriffsaufrufe fanden erst bei `+0xF4 == 0` statt. Jede vorherige
+positive Sichtfreigabe lag dagegen bei einem noch positiven `+0xF4`-Wert. Das
+bisherige Logwort `allow-vanilla-attack` bedeutete daher nur, dass der Mod den
+Distanzwert nicht mehr auf `29` anhob; es bewies keinen Angriff in demselben
+Update. Zusätzlich lieferten mehrere optisch als frei beobachtete Annäherungen
+über Sekunden Wrapper `0` und wurden erst bei sehr kurzer Tile-Distanz positiv.
+Die bisherigen Änderungslogs enthielten weder die exakten Probeendpunkte noch
+explizite Kernrichtungen im Wrapper-Nullfall, sodass Geometrie, Scanphase und
+tatsächliche Sichtsemantik nicht sicher getrennt werden konnten.
+
+`1.1.60` protokolliert deshalb jede höchstens einmal pro Sekunde ausgeführte
+aktive Probe separat und begrenzt auf 240 Einträge. Der Eintrag enthält Hunter-
+und Beute-Tile, Weltkoordinaten, native Höhenendpunkte, Manhattan-Tile-Distanz,
+Chebyshev-Weltdistanz, Wrapper, beide explizit aufgerufenen validierten
+Kernrichtungen, Pfad, Reservation und Generation. Der Wrapper bleibt für die
+Klassifikation autoritativ; die zusätzlichen Kernaufrufe ändern keinen
+Sichtwert. Das Tile-Log unterscheidet nun
+`release-distance-override-vanilla-attack-gate-ready` von
+`release-distance-override-vanilla-attack-gate-deferred`.
+
+Die fachlich beste Korrekturrichtung ist **kein** pauschales Verkürzen aller
+Timer und kein Schreiben von `+0xF4`. Wenn die neuen Daten zeigen, dass eine
+korrekte sichtbare Probe wegen Bewegung veraltet, muss der Snapshot an seine
+Probe-Tilepositionen gebunden und im Angriffsnahbereich begrenzt häufiger
+erneuert werden. Nur wenn danach eine frische, positionsgleiche positive Probe
+reproduzierbar an `+0xF4` hängen bleibt, darf ein eigener vollständig
+span-/kontrollflussvalidierter Handoff am nativen Gate untersucht werden, der
+in Vanillas unveränderte direkte Angriffssequenz führt. Liefert dagegen bereits
+der Wrapper samt beiden Kernen auf freier Geometrie reproduzierbar `0`, ist
+zuerst die native Höhen-/Sichtsemantik zu korrigieren; ein Gate-Bypass würde
+sonst nur Fehlschüsse und den belegten State-6-/Hüttenpfad beschleunigen.
 
 ### Paket F: Unreservierte Kadaver als Abholkandidaten
 
@@ -1163,7 +1206,7 @@ erzeugen.
 | `src/HunterPclReachability.cs` | Produktiver PCL-Vorfilter mit Ein-Sekunden-Auswahlcache sowie aktive State-1-Zielprüfung mit getrenntem Ein-Sekunden-Probe-/Zwei-Sekunden-Snapshot, Statistiken und Fail-open-Verhalten |
 | `src/HunterPclReachabilityDiagnostic.cs` | Temporäres Kalibrierungslogging; in Paket C entfernen |
 | `src/HunterNativeVisibilityProbe.cs` | Validierte native Wrapper-/Kernsichtprobe; wird vom aktiven Sicht-Snapshot außerhalb des Inline-Hooks aufgerufen |
-| `src/HunterActiveTargetVisibilitySnapshot.cs` | Seit `1.1.59` an explizite erfolgreiche-`MoveHere`-Generationen gebunden und über einzelne transiente Scanlücken hinweg begrenzt erhalten; Ein-Sekunden-Probe-/Zwei-Sekunden-Snapshot mit generationsgesichertem Probe-Commit und vollständiger Live-Validierung; erneute Ingame-Abnahme ausstehend |
+| `src/HunterActiveTargetVisibilitySnapshot.cs` | Seit `1.1.59` an explizite erfolgreiche-`MoveHere`-Generationen gebunden und über einzelne transiente Scanlücken hinweg begrenzt erhalten; `1.1.60` ergänzt pro Ein-Sekunden-Probe die exakte Geometrie und beide Kernrichtungen, ohne die Zwei-Sekunden-Klassifikation oder Verhalten zu ändern; erneute Ingame-Abnahme ausstehend |
 | `src/HunterHutVisibilityPatch.cs` | Produktive, validierte Ein-Byte-Korrektur der Jägerhüttenausnahme |
 | `src/HunterTargetSearchFallbackDiagnostic.cs` | Verhalten und Diagnose derzeit gemischt; in Paket C trennen und umbenennen |
 | `src/HunterVanillaPathContinuationDiagnostic.cs` | `1.1.56` entscheidet am Tile-Distanz-28-Hook anhand aktiver Sicht und PCL; keine Ticket-Abhängigkeit mehr, Ingame-Abnahme ausstehend |
@@ -1302,13 +1345,14 @@ Script Extender `1.50.0` erreicht.
    lesen; nicht mit der verworfenen eigenen State-Machine beginnen.
 2. Paket A und B als abgeschlossen behandeln. Nur konkrete Regressionen öffnen
    sie erneut.
-3. Mit dem Abschnitt „Begrenzte Tracker-Retention `1.1.59` nach dem
-   `1.1.58`-Test“ beginnen. Die Pfadfortsetzung und `MoveHere`-Generation sind
-   bestätigt; offen ist die Stabilität des erhaltenen sichtbaren Snapshots bis
-   zum positiven Vanilla-Angriff.
-4. Den in `1.1.59` begrenzt über transiente Scanlücken erhaltenen
-   Sicht-Snapshot und die Entscheidung am vorhandenen Hook `0x1300EA` nicht vor
-   der erneuten Ingame-Abnahme umstrukturieren.
+3. Mit dem Abschnitt „`1.1.60`-Diagnose nach dem `1.1.59`-Test“ beginnen. Die
+   Pfadfortsetzung, `MoveHere`-Generation und Tracker-Retention sind bestätigt;
+   offen ist die Trennung von nativer Sichtsemantik, Snapshot-Bewegungsalter
+   und dem nachgeschalteten Vanilla-`+0xF4`-Tor.
+4. Die `1.1.60`-Geometrie-, Kernrichtungs- und Gate-Marker zuerst ingame
+   auswerten. Den Sicht-Snapshot nicht ohne Positionsbindung beschleunigen und
+   das native Gate nicht ohne vollständige Span-/Kontrollflussvalidierung
+   übergehen.
 5. Alle sieben Paket-E-Tests durchführen und die Logs anhand der dokumentierten
    Marker, Identitäten, Altersgrenzen und Angriffsresultate maschinell prüfen.
 6. Paket E vollständig prüfen und dokumentieren, bevor Paket F begonnen wird.
