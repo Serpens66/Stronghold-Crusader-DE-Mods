@@ -45,8 +45,8 @@ fallback. A changed DLL therefore disables only these diagnostic paths.
 | Hunter distance helper | `0x79C0` | exact state-1 range result retained in `EDI` |
 | State-0 query handoff | `0x12FD67` | query return hook at `0x12FD89`; query callee `0x18AF00` |
 | State-0 `MoveHere` result | `0x12FE2A` | immediately after call to `0x196230` |
-| State-1 near-target refresh | `0x130019` / `0x130022` / `0x12FF2E` | safe compare hook, Vanilla actor load, single-use continuation ticket; query-result hook removed in `1.1.51` |
-| State-1 distance-28 compare | `0x1300EA` | bounded Vanilla-path continuation test; sequence begins at `0x1300D2` |
+| State-1 near-target refresh | `0x130019` / `0x130022` / `0x12FF2E` | safe compare hook and Vanilla actor load; since `1.1.56` the world refresh consumes the active visibility snapshot but creates no continuation ticket; query-result hook removed in `1.1.51` |
+| State-1 distance-28 compare | `0x1300EA` | since `1.1.56` the authoritative snapshot-based attack/continuation decision; sequence begins at `0x1300D2` |
 | State-1 direct-attack result | `0x130149` | observation-only `test eax,eax` after call to `0x18E950` |
 | Projectile spawn entry | `0x9B2B0` | Script Extender signature target; creates a live projectile and is not used for LOS preflight |
 | Projectile manager tick | `0x9F960` | iterates live projectiles before their type-specific update |
@@ -894,6 +894,74 @@ all runtime field, initialization, status, map-reset and disposal wiring. Deer
 movement is fully Vanilla again. LOS calibration must use repeated natural
 attempts and retain only runs where the same deer identity happens not to move
 during the relevant approach window.
+
+### Tile-distance attack decision and active visibility snapshot in 1.1.56
+
+The `1.1.55` runtime test disproved the remaining one-use-ticket assumption.
+The compare at RVA `0x130019` uses the maximum absolute delta of world
+coordinates `+0x70E/+0x710`, while the later compare at RVA `0x1300EA` uses the
+Manhattan distance of tile coordinates `+0x71C/+0x71E` retained in `EDI`.
+Consequently, `EDI<=28` can enter direct attack RVA `0x13013D` in an update that
+never passed through the world-distance preparation window. This is a metric
+and coverage mismatch, not a PCL-cache expiry.
+
+Version `1.1.56` installs no new native hook and does not change either decoded
+overwrite span. The existing exact-hash hook at `0x1300EA` is now authoritative.
+For `EDI<=28` it revalidates the same live Hunter/prey identity, state `1`, prey
+reservation `2`, active incomplete path and a positive active-target PCL
+snapshot. It then consumes an active visibility snapshot without making a
+native visibility or PCL call inside the hook. A blocked wrapper result, a
+directional disagreement or the bounded first-probe pending state changes only
+`RDI` to `29`. A fresh result with both core directions positive leaves `RDI`
+unchanged and hands control to Vanilla's direct attack. Missing, expired or
+invalid snapshots, PCL zero, identity changes and all errors remain fail-open.
+
+`HunterActiveTargetVisibilitySnapshot` runs from the existing approximately
+100-ms persistent scan. For each unchanged active target it invokes the already
+validated wrapper/core delegates no more than once per second and exposes the
+result for at most two seconds. Its identity includes Hunter slot/global ID,
+prey slot/global ID/type, controlling player, map generation, state, path state
+and path length, and reservation. A changed identity or relevant state creates
+an immediately due probe. Before that first probe, only a two-second
+`visibility-pending` interval can select Vanilla distance `29`; a permanent
+probe failure cannot extend this interval.
+
+The `0x130019` callback consumes the same snapshot solely to bypass Vanilla's
+destructive world-near target query. It no longer issues or authorizes a ticket
+for `0x1300EA`. To cover the first possible attack update before the next scan,
+the existing state-0 `MoveHere` result callback promotes a still-fresh positive
+target-selection PCL cache entry into the separately readable active snapshot.
+This promotion performs no native PCL call and is accepted only when current
+player, mode, source PCL, target PCL and both stable identities still match the
+cached inputs.
+
+The existing static requirements remain unchanged for future DLLs: validate
+the full hook spans and all inbound branch targets, the `EDI` tile-distance
+semantics, state/target/reservation/path offsets, the direct-attack call/result
+locations, and the wrapper/core ABI. The new snapshot mechanism is managed and
+adds no RVA, but it depends on those exact native semantics. Version `1.1.56`
+is pending the seven Package-E in-game scenarios and must not be treated as
+accepted based on build success alone.
+
+### Active visibility identity correction in 1.1.57
+
+The `1.1.56` runtime log exposed a managed identity error rather than a changed
+native layout. `GameUnit +0xF4` changed repeatedly while the same active path
+advanced. The first implementation included that live locomotion substep in
+`VisibilityInputs.Equals(...)` and `GetHashCode()`, replacing the tracker on
+nearly every 100-ms scan despite the configured one-second probe interval.
+Positive visibility results therefore frequently became
+`new-identity-pending` before the authoritative `0x1300EA` callback could read
+them.
+
+Version `1.1.57` removes `+0xF4` only from stable equality and hashing. It keeps
+the field in capture and diagnostics. Hunter/prey slots and global IDs, prey
+type, player, map generation, AI state, path state and length, and reservation
+remain identity-bound. Forward path progress remains observation-only; a
+backwards progress jump still replaces the tracker as the existing path-restart
+guard. No RVA, hook, native call, field offset, overwrite span or behavior write
+changes in this version. Future updates must retain this distinction between
+the live `+0xF4` locomotion value and validated stable path identity.
 
 Future Script Extender updates must revalidate the public ranged-damage,
 projectile-delete and move-order semantics. A bounded native reachability path

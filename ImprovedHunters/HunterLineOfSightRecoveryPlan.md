@@ -2,17 +2,20 @@
 
 Stand: `2026-08-17`
 
-Aktueller und zuletzt ingame geprüfter Quellstand: `1.1.55` (aktiver
-PCL-Snapshot funktioniert; Paket E wegen einer getrennten Distanzmetrik-Lücke
-im State-1-Angriffspfad ausdrücklich **nicht abgenommen**)
+Aktueller implementierter Quellstand: `1.1.57`. Zuletzt ingame geprüft ist
+`1.1.56`: Der Jäger brach den gültigen Pfad nicht mehr vorzeitig ab, aber ein
+wechselndes natives `GameUnit +0xF4`-Unterfeld setzte den Sicht-Tracker während
+desselben Pfades wiederholt zurück. `1.1.57` korrigiert diese Identitätsbindung;
+Paket E ist bis zur erneuten Ingame-Abnahme ausdrücklich **nicht abgenommen**.
 
 ## Übergabe in Kurzform
 
-Die Pakete A und B sind abgeschlossen. Paket E besitzt funktionierende
-Teilbausteine für Restweg, Vanilla-Geschwindigkeitsstufen, PCL und blockierte
-Nahbereichssicht, ist als Gesamtverhalten aber noch nicht funktional. Der
-aktuelle Fehler und die verbindliche nächste Implementierungsrichtung stehen im
-Paket-E-Abschnitt unter „Aktueller Übergabestand nach dem `1.1.55`-Test“.
+Die Pakete A und B sind abgeschlossen. Paket E besitzt im Quellstand `1.1.57`
+die Teilbausteine für Restweg, Vanilla-Geschwindigkeitsstufen, PCL und den
+aktiven Sicht-Snapshot am Tile-Angriffspfad. Der `1.1.56`-Test bestätigte die
+Pfadfortsetzung, widerlegte aber die Stabilität des Sicht-Trackers. Ursache,
+Korrektur und Pflichttests stehen im Paket-E-Abschnitt ab „Aktueller
+Korrekturstand `1.1.57` nach dem `1.1.56`-Test“.
 
 Verbindliche Reihenfolge:
 
@@ -70,8 +73,8 @@ ist. Für Kühe besteht noch ein dokumentierter Widerspruch.
 | Verborgene erreichbare Beute | Implementiert und ingame bestätigt | Als stabile Grundlage erhalten |
 | PCL-Vorfilter für unerreichbare Beute | Seit `1.1.44` produktiv und bestätigt | Keine eigene Detailpfadsuche ergänzen |
 | Neu unerreichbares aktives Ziel | Seit `1.1.45` implementiert und in den Logs bestätigt | Vanilla selbst neu suchen lassen |
-| Distanz-28-Pfadfortsetzung | Der vorhandene Hook und die Vanilla-Bewegungsstufe funktionieren, die einmalige Ticketfreigabe deckt aber nicht jeden Eintritt in den Angriffspfad ab | Den bestehenden Hook bei `0x1300EA` anhand eines aktiven Sicht-Snapshots zur maßgeblichen Angriffs-/Fortsetzungsentscheidung machen; keine eigenen Moves oder AI-States |
-| Freie Sicht und echter Angriff | `1.1.52` bestätigt die diagonale Mauer als gerichteten Vanilla-Fehler; `1.1.55` kann dennoch ohne unmittelbar vorherigen Welt-Nahbereichsrefresh einen fehlgeschlagenen Angriff und State `6` erreichen | Sicht höchstens einmal pro Sekunde außerhalb des Inline-Hooks aktualisieren; blockiert lässt Vanilla weiterlaufen, beidseitig sichtbar erlaubt Vanillas echten Angriff |
+| Distanz-28-Pfadfortsetzung | `1.1.56` bestätigte ingame die Fortsetzung des gültigen Vanilla-Pfades ohne vorzeitigen State-6-Abbruch; Paket E insgesamt bleibt offen | Alle sieben Paket-E-Tests und die maschinelle Logabnahme durchführen; keine eigenen Moves oder AI-States |
+| Freie Sicht und echter Angriff | `1.1.56` erkannte freie Sicht im Scan, verlor den Snapshot aber wegen wechselndem `+0xF4` vor dem Tile-Hook; `1.1.57` entfernt dieses laufende Unterfeld aus Gleichheit und Hash | Übergang blockiert → sichtbar → wieder blockiert sowie freien Kontrollfall erneut ingame abnehmen |
 | Jägerhütte als Sichtblocker | Seit `1.1.41` aktiv und ingame plausibel | In Paket D kurz regressieren |
 | Schuss, Kadaver, Pickup und Abgabe | Mehrfach vollständig beobachtet | Paket B abgeschlossen; kein Pickup-Fix |
 | Langsames Schleichen auf langem Umweg | Restweg und Vanilla-Geschwindigkeitswahl sind bestätigt; `1.1.50` belegt wiederholte `Query -> State 0 -> MoveHere`-Resets als Ursache der Sitz-/Warteanimation | Normale Vanilla-Locomotion erhalten; die noch offene State-1-Angriffslücke beheben und danach Geschwindigkeit plus Animation regressieren |
@@ -802,6 +805,82 @@ positives Vanilla-Angriffsergebnis vorliegen.
 Gate: Paket E bleibt offen. Erst wenn die Distanzmetrik-Lücke implementiert ist
 und alle obigen Abnahmepunkte bestehen, darf Paket F begonnen werden.
 
+### Implementierter Folgestand `1.1.56` – Ingame-Abnahme ausstehend
+
+`1.1.56` setzt die oben verbindlich festgelegte Richtung um, ist aber noch kein
+bestandener Paket-E-Stand:
+
+- `HunterActiveTargetVisibilitySnapshot.cs` erfasst pro Jäger genau eine an
+  Hunter-/Beute-Global-ID, Spieler, Kartengeneration, State, Reservation und
+  Pfadidentität gebundene aktive Sichtbeobachtung. Der persistente Native-Scan
+  prüft ein unverändertes Ziel höchstens einmal pro Sekunde; der Snapshot bleibt
+  höchstens zwei Sekunden lesbar.
+- Ein neues Ziel erhält bis zur ersten sofort angeforderten Scanprobe ein auf
+  zwei Sekunden begrenztes `visibility-pending`. Danach bleibt ein fehlender
+  oder fehlerhafter Snapshot fail-open; die Sondersteuerung wird nicht
+  unbegrenzt fortgesetzt.
+- Der Hook bei `0x1300EA` benötigt weiterhin State `1`, Reservation `2`, einen
+  aktiven unvollständigen Pfad und einen positiven aktiven PCL-Snapshot. Er
+  entscheidet nun ohne Welt-Refresh-Ticket: blockiert oder pending setzt nur
+  `RDI` auf `29`; ein frischer beidseitig positiver Snapshot lässt Vanillas
+  Angriff unverändert laufen.
+- Der Hook bei `0x130019` konsumiert denselben Snapshot nur noch für das
+  Überspringen der zerstörerischen Welt-Nahbereichsquery. Er ist nicht mehr die
+  Autorisierung des späteren Tile-Distanz-Zweigs.
+- Nach einem erfolgreichen Vanilla-`MoveHere` wird ein noch frischer positiver
+  PCL-Auswahlcache ohne neue native PCL-Abfrage in den aktiven Snapshot
+  überführt. Dadurch besitzt auch der erste Angriffstick vor dem nächsten
+  100-ms-Scan die vorgeschriebene positive PCL-Autorisierung.
+- Das begrenzte Log nennt Tile-Angriffsdistanz, letzten Welt-Refresh samt Alter,
+  Sicht- und PCL-Snapshotstatus/-alter, Wrapper und beide Kernrichtungen,
+  Reservation, Pfadstand sowie die eindeutige Aktion.
+
+Nächster Schritt ist ausschließlich die bereits oben definierte siebenstufige
+Ingame- und Logabnahme von Paket E. Paket F bleibt bis dahin gesperrt.
+
+### Aktueller Korrekturstand `1.1.57` nach dem `1.1.56`-Test
+
+Der `1.1.56`-Lauf ab eigenem Mod-Zeitstempel `2026-08-17 22:51:11.496`
+bestätigte den ersten Teil der Korrektur: Der Jäger setzte seinen gültigen
+Vanilla-Pfad fort und brach die Jagd nicht mehr am früheren Distanzübergang ab.
+Er lief jedoch bis zur bei `MoveHere` festgelegten alten Position der bewegten
+Beute, statt bei zwischenzeitlich freier Sicht Vanillas Angriff zu überlassen.
+
+Die Sichtprobe selbst erkannte den Übergang. Im Lauf entstanden 219 aktive
+Sicht-Snapshots, davon 51 `visible-attack-handoff` und 168
+`blocked-wrapper-both-directions`. Für Ziel `61/460` war die Sicht von
+`22:52:25.451` bis `22:52:26.573` beidseitig positiv und ab `22:52:26.674`
+wieder blockiert. Gleichzeitig wechselte `GameUnit +0xF4` während desselben
+Pfades unter anderem `4 -> 5 -> 7 -> 1 -> 4 -> 6`.
+
+`VisibilityInputs.Equals(...)` und `GetHashCode()` behandelten dieses laufende
+Locomotion-Unterfeld irrtümlich als Pfadidentität. Dadurch ersetzte nahezu jeder
+100-ms-Scan den Tracker, forderte sofort eine weitere Probe an und lieferte dem
+Tile-Hook zwischen Probe und Entscheidung erneut `new-identity-pending`. Bis
+zum gemeinsamen Diagnoselimit wurden 241 Tile-Entscheidungen erfasst: 233
+`visibility-pending`, acht `continue-vanilla-path` und kein
+`allow-vanilla-attack`. Das Limit `600/600` war bereits um `22:52:14.992`
+erreicht; die konkrete Tile-Entscheidung für Ziel `61/460` wurde daher nicht
+mehr geloggt, der identische Resetpfad ist aber im Code und in den vorherigen
+Entscheidungen direkt belegt. PCL war positiv; Callback- oder Scanfehler traten
+nicht auf.
+
+`1.1.57` behält `+0xF4` ausschließlich als Diagnosewert. Die stabile
+Sichtidentität umfasst weiterhin Hunter-/Beuteslot und Global-ID, Beutetyp,
+Spieler, Kartengeneration, AI-State, Pfadzustand, Pfadlänge und Reservation.
+Der vorwärts laufende Pfadfortschritt ersetzt den Tracker nicht; nur ein
+Rücksprung gegenüber dem zuletzt beobachteten Fortschritt erzwingt zusätzlich
+eine sofortige neue Probe als Pfadneustart. Damit bleiben Ein-Sekunden-Takt,
+Zwei-Sekunden-Lesefenster und der sichtbare Snapshot über normale
+Locomotion-Unterstufen hinweg erhalten.
+
+Paket E bleibt **offen**. Nächster Pflichtschritt ist ein erneuter Ingame-Lauf
+des bewegten Übergangsfalls. Erwartet werden höchstens ungefähr eine Sichtprobe
+pro Sekunde und unverändertem Ziel, mindestens ein `allow-vanilla-attack` mit
+frischem beidseitig positivem Snapshot sowie anschließend ein positives
+Vanilla-Angriffsergebnis. Danach bleiben die übrigen siebenstufigen Paket-E-
+Szenarien und die maschinelle Logabnahme erforderlich.
+
 ### Paket F: Unreservierte Kadaver als Abholkandidaten
 
 Paket F folgt auf E und wird ebenfalls separat entwickelt und abgenommen.
@@ -990,10 +1069,11 @@ erzeugen.
 | --- | --- |
 | `src/HunterPclReachability.cs` | Produktiver PCL-Vorfilter mit Ein-Sekunden-Auswahlcache sowie aktive State-1-Zielprüfung mit getrenntem Ein-Sekunden-Probe-/Zwei-Sekunden-Snapshot, Statistiken und Fail-open-Verhalten |
 | `src/HunterPclReachabilityDiagnostic.cs` | Temporäres Kalibrierungslogging; in Paket C entfernen |
-| `src/HunterNativeVisibilityProbe.cs` | Validierte native Wrapper-/Kernsichtprobe; der nächste Paket-E-Schritt benötigt darauf aufbauend einen höchstens einmal pro Sekunde erneuerten aktiven Sicht-Snapshot außerhalb des Inline-Hooks |
+| `src/HunterNativeVisibilityProbe.cs` | Validierte native Wrapper-/Kernsichtprobe; wird vom aktiven Sicht-Snapshot außerhalb des Inline-Hooks aufgerufen |
+| `src/HunterActiveTargetVisibilitySnapshot.cs` | Seit `1.1.57` stabil über wechselnde `+0xF4`-Locomotion-Unterstufen; identitätsgebundener Ein-Sekunden-Probe-/Zwei-Sekunden-Snapshot mit begrenztem Pending-Fenster; erneute Ingame-Abnahme ausstehend |
 | `src/HunterHutVisibilityPatch.cs` | Produktive, validierte Ein-Byte-Korrektur der Jägerhüttenausnahme |
 | `src/HunterTargetSearchFallbackDiagnostic.cs` | Verhalten und Diagnose derzeit gemischt; in Paket C trennen und umbenennen |
-| `src/HunterVanillaPathContinuationDiagnostic.cs` | Teilweise funktionierende Distanz-29-Fortsetzung; die Einzelticket-Abhängigkeit lässt derzeit den Tile-Distanz-28-Angriff ohne Welt-Nahbereichsrefresh ungeschützt und muss in Paket E durch die dokumentierte Snapshotentscheidung ersetzt werden |
+| `src/HunterVanillaPathContinuationDiagnostic.cs` | `1.1.56` entscheidet am Tile-Distanz-28-Hook anhand aktiver Sicht und PCL; keine Ticket-Abhängigkeit mehr, Ingame-Abnahme ausstehend |
 | `src/HunterVisibilityDiagnostic.cs` | Breite ältere Diagnose; in Paket C entfernen, falls nicht mehr benötigt |
 | `src/HunterLineOfSightRecovery.cs` | Stillgelegter Managed-A*-Adapter; in Paket C ohne parallelen Fallback entfernen |
 | `src/ImprovedHuntersRuntime.cs` | Events, Eligibility, Rangfolge, PCL-Gates, Handoff, Reservierungsbereinigung, Pfadfortsetzung und Projektilkompensation |
@@ -1129,15 +1209,15 @@ Script Extender `1.50.0` erreicht.
    lesen; nicht mit der verworfenen eigenen State-Machine beginnen.
 2. Paket A und B als abgeschlossen behandeln. Nur konkrete Regressionen öffnen
    sie erneut.
-3. Mit dem Abschnitt „Aktueller Übergabestand nach dem `1.1.55`-Test“ beginnen.
-   Ursache und kleinste Eingriffsstelle sind bestimmt: Die Welt-Distanz-20-
-   Refreshentscheidung deckt den getrennten Tile-Distanz-28-Angriff nicht ab.
-4. Den aktiven Sicht-Snapshot und die Entscheidung am bereits vorhandenen Hook
-   `0x1300EA` wie dort beschrieben implementieren. Keine neue eigene Bewegung,
-   keine Speed-/Animationsfelder und keinen AI-State schreiben.
-5. Neue Diagnose in einer eigenen Datei halten und die angegebenen Marker sowie
-   Identitäts-/Altersangaben ergänzen. Danach alle sieben Paket-E-Tests
-   durchführen und die Logs maschinell prüfen.
+3. Mit dem Abschnitt „Aktueller Korrekturstand `1.1.57` nach dem
+   `1.1.56`-Test“ beginnen. Die Pfadfortsetzung ist bestätigt; offen ist die
+   erneute Übergabe eines stabilen sichtbaren Snapshots an den
+   Tile-Distanz-28-Angriff.
+4. Den in `1.1.57` stabilisierten aktiven Sicht-Snapshot und die Entscheidung am
+   vorhandenen Hook `0x1300EA` nicht vor der erneuten Ingame-Abnahme
+   umstrukturieren.
+5. Alle sieben Paket-E-Tests durchführen und die Logs anhand der dokumentierten
+   Marker, Identitäten, Altersgrenzen und Angriffsresultate maschinell prüfen.
 6. Paket E vollständig prüfen und dokumentieren, bevor Paket F begonnen wird.
 7. Danach exakt der Reihenfolge `F → D → C` folgen.
 8. Den sichtbaren Jagdsprint nur optional nach Abschluss aller Pflichtpakete

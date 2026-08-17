@@ -3,10 +3,25 @@
   "Author": "Serpens66",
   "Name": "Improved Hunters",
   "Description": "Adds configurable hunter prey and meat yield for deer, goats, rabbits, camels, chickens and cows.",
-  "Version": "1.1.55",
+  "Version": "1.1.57",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.1.57",
+      "Changes": [
+        "Keep the active visibility tracker stable while the same Vanilla path advances through changing GameUnit +0xF4 locomotion substeps, so a visible snapshot can reach the authoritative tile-distance hook instead of repeatedly returning to first-probe pending.",
+        "Retain immediate reprobes for real Hunter, prey, player, map, state, reservation or path-identity changes and for a backwards path-progress jump, while preserving the one-second probe and two-second readable-snapshot bounds."
+      ]
+    },
+    {
+      "Version": "1.1.56",
+      "Changes": [
+        "Move the authoritative blocked-versus-visible decision to the existing tile-distance-28 hook, using an identity-, player-, map- and path-bound visibility snapshot refreshed outside inline hooks at most once per second.",
+        "Keep a newly accepted path in Vanilla locomotion during a bounded first-visibility pending window, require a positive active PCL snapshot, and promote the already validated selection PCL result after successful MoveHere so the first attack-range update is covered without another native PCL query.",
+        "Log tile attack distance, last world-refresh distance, visibility and PCL snapshot age, reservation, path progress and the exact continue, pending, attack or rejection action without issuing moves or writing speed, animation, path or AI state."
+      ]
+    },
     {
       "Version": "1.1.55",
       "Changes": [

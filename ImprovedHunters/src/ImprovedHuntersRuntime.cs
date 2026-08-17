@@ -143,6 +143,7 @@ namespace ImprovedHunters
         private HunterLineOfSightRecovery hunterLineOfSightRecovery;
         private HunterHutVisibilityPatch hunterHutVisibilityPatch;
         private HunterNativeVisibilityProbe hunterNativeVisibilityProbe;
+        private HunterActiveTargetVisibilitySnapshot hunterActiveTargetVisibilitySnapshot;
         private HunterPclReachability hunterPclReachability;
         private HunterPclReachabilityDiagnostic hunterPclReachabilityDiagnostic;
         private HunterRemainingPathSpeedRecovery hunterRemainingPathSpeedRecovery;
@@ -180,6 +181,7 @@ namespace ImprovedHunters
                 InitializeHunterHutVisibilityPatch(memory, imageBase, referenceHashMatches);
                 InitializeHunterPclReachability(referenceHashMatches);
                 InitializeHunterPclReachabilityDiagnostic(referenceHashMatches);
+                InitializeHunterActiveTargetVisibilitySnapshot();
                 InitializeHunterTargetSearchFallbackDiagnostic(memory, imageBase, referenceHashMatches);
                 InitializeHunterRemainingPathSpeedRecovery(memory, imageBase, referenceHashMatches);
                 InitializeHunterVanillaPathContinuationDiagnostic(memory, imageBase, referenceHashMatches);
@@ -235,6 +237,7 @@ namespace ImprovedHunters
                     $"hunterHutVisibilityAvailable={hunterHutVisibilityPatch?.IsAvailable == true}, " +
                     $"hunterHutVisibilityApplied={hunterHutVisibilityPatch?.IsApplied == true}, " +
                     $"hunterNativeVisibilityProbeAvailable={hunterNativeVisibilityProbe?.IsAvailable == true}, " +
+                    $"hunterActiveTargetVisibilityAvailable={hunterActiveTargetVisibilitySnapshot?.IsAvailable == true}, " +
                     $"hunterPclReachabilityAvailable={hunterPclReachability?.IsAvailable == true}, " +
                     $"hunterPclReachabilityDiagnosticAvailable={hunterPclReachabilityDiagnostic?.IsAvailable == true}, " +
                     $"hunterRemainingPathSpeedRecoveryAvailable={hunterRemainingPathSpeedRecovery?.IsAvailable == true}, " +
@@ -320,6 +323,7 @@ namespace ImprovedHunters
                 CleanupShortLivedCorpsePreserveCache(units, timestamp);
                 hunterVisibilityDiagnostic?.ProcessNativeScan(units, timestamp);
                 hunterNativeVisibilityProbe?.ProcessNativeScan(units, timestamp);
+                hunterActiveTargetVisibilitySnapshot?.ProcessNativeScan(units, timestamp);
                 RequeryHuntersWithUnreachableActivePrey(units, hunters, timestamp);
                 TrackHunterPreyAndExpireCollectedCorpses(units, hunters, timestamp);
                 RequeryIdleHuntersNearPrey(units, hunters, eligiblePrey, timestamp);
@@ -693,6 +697,7 @@ namespace ImprovedHunters
             ClearTargetSelectionCaches();
             hunterLineOfSightRecovery?.ResetForMap();
             hunterNativeVisibilityProbe?.ResetForMap();
+            hunterActiveTargetVisibilitySnapshot?.ResetForMap();
             hunterPclReachability?.ResetForMap();
             hunterPclReachabilityDiagnostic?.ResetForMap();
             hunterTargetSearchFallbackDiagnostic?.ResetForMap();
@@ -2566,6 +2571,14 @@ namespace ImprovedHunters
 
         private void OnSettingChanged(string propertyName)
         {
+            bool huntingTargetSettingChanged =
+                propertyName == nameof(ImprovedHuntersViewModel.HuntDeer) ||
+                propertyName == nameof(ImprovedHuntersViewModel.HuntGoat) ||
+                propertyName == nameof(ImprovedHuntersViewModel.HuntRabbit) ||
+                propertyName == nameof(ImprovedHuntersViewModel.HuntCamel) ||
+                propertyName == nameof(ImprovedHuntersViewModel.HuntChicken) ||
+                propertyName == nameof(ImprovedHuntersViewModel.HuntCow);
+
             if (propertyName == nameof(ImprovedHuntersViewModel.EnableMod) && !settings.EnableMod)
                 pendingHunterShotIntents.Clear();
 
@@ -2583,10 +2596,11 @@ namespace ImprovedHunters
 
             ClearTargetSelectionCaches();
             if (propertyName == nameof(ImprovedHuntersViewModel.EnableMod) ||
-                propertyName == nameof(ImprovedHuntersViewModel.HuntChicken) ||
+                huntingTargetSettingChanged ||
                 propertyName == nameof(ImprovedHuntersViewModel.ImprovedPathfinding))
             {
                 hunterLineOfSightRecovery?.ResetForMap();
+                hunterActiveTargetVisibilitySnapshot?.ResetForMap();
                 hunterPclReachability?.ResetForMap();
                 hunterPclReachabilityDiagnostic?.ResetForMap();
                 hunterTargetSearchFallbackDiagnostic?.ResetForMap();
@@ -3305,6 +3319,16 @@ namespace ImprovedHunters
             int moveHereResult,
             long timestamp)
         {
+            if (moveHereResult != 0)
+            {
+                hunterPclReachability?.TryPromoteSelectionResultToActiveTarget(
+                    hunterUnitId,
+                    preyUnitId,
+                    preyGlobalId,
+                    preyType,
+                    timestamp);
+            }
+
             hunterPclReachabilityDiagnostic?.RecordMoveHereResult(
                 hunterUnitId,
                 preyUnitId,
@@ -3312,6 +3336,28 @@ namespace ImprovedHunters
                 preyType,
                 moveHereResult,
                 timestamp);
+        }
+
+        private void InitializeHunterActiveTargetVisibilitySnapshot()
+        {
+            try
+            {
+                hunterActiveTargetVisibilitySnapshot =
+                    new HunterActiveTargetVisibilitySnapshot(
+                        log,
+                        settings,
+                        hunterNativeVisibilityProbe,
+                        CanRunHunterTargetSearchFallback);
+            }
+            catch (Exception exception)
+            {
+                hunterActiveTargetVisibilitySnapshot?.Dispose();
+                hunterActiveTargetVisibilitySnapshot = null;
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    "Improved Hunters active-target visibility snapshot is unavailable; " +
+                    $"Hunter behavior remains unchanged: {exception}");
+            }
         }
 
         private bool CanRunHunterTargetSearchFallback()
@@ -3384,7 +3430,7 @@ namespace ImprovedHunters
                     new HunterVanillaPathContinuationDiagnostic(
                         log,
                         settings,
-                        hunterNativeVisibilityProbe,
+                        hunterActiveTargetVisibilitySnapshot,
                         hunterPclReachability,
                         memory,
                         imageBase,
@@ -4002,6 +4048,8 @@ namespace ImprovedHunters
             hunterTargetSearchFallbackDiagnostic = null;
             hunterVanillaPathContinuationDiagnostic?.Dispose();
             hunterVanillaPathContinuationDiagnostic = null;
+            hunterActiveTargetVisibilitySnapshot?.Dispose();
+            hunterActiveTargetVisibilitySnapshot = null;
             hunterPclReachabilityDiagnostic?.Dispose();
             hunterPclReachabilityDiagnostic = null;
             hunterPclReachability?.Dispose();

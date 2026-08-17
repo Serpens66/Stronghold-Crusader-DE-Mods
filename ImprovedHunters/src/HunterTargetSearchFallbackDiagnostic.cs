@@ -326,7 +326,8 @@ namespace ImprovedHunters
                     $"currentHunterUnitIdRva=0x{StateOneCurrentHunterUnitIdRva:X}, " +
                     "stateOneRefreshOverride=world-distance-scratch-20-to-21-only, " +
                     "nearRefreshDecision=bidirectional-native-visibility, " +
-                    "continuationTicketRequiredWhenBlocked=True, ownReservationRequired=2, " +
+                    "continuationTicketRequiredWhenBlocked=False, " +
+                    "tileAttackDecision=active-visibility-snapshot, ownReservationRequired=2, " +
                     "foreignReservationAllowed=False, stateOneQueryResultMutation=False, " +
                     "stateOneDirectAttackObservationOnly=True.");
             }
@@ -617,7 +618,7 @@ namespace ImprovedHunters
                     $"{refreshCandidate.PreyGlobalId}/{refreshCandidate.PreyType}, " +
                     $"nativeWorldDistance={nativeWorldDistance}->{StateOneBypassDistance}, " +
                     $"branch=Vanilla-greater-than-20, querySkipped=True, action={action}, " +
-                    $"continuationTicket={action == HunterStateOneNearRefreshAction.ContinueExistingPath}, " +
+                    "continuationTicket=False, " +
                     "ownMovement=False, ownAiState=False, ownOrderWrite=False, " +
                     "speedWrite=False, animationWrite=False, compareScratchOnly=True, " +
                     $"{TryFormatMovementSnapshot(hunterUnitId)}.");

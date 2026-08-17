@@ -35,6 +35,7 @@ namespace ImprovedHunters
         private long reachableResults;
         private long unreachableResults;
         private long activeTargetNativeQueries;
+        private long activeTargetPromotions;
         private long activeTargetSnapshotHits;
         private long activeTargetSnapshotMisses;
         private long nextCacheCleanupAt;
@@ -134,6 +135,7 @@ namespace ImprovedHunters
                     cache[key] = new CachedResult(
                         inputs,
                         reachable,
+                        timestamp,
                         timestamp + CacheLifetime);
                 }
 
@@ -222,6 +224,7 @@ namespace ImprovedHunters
                     cache[key] = new CachedResult(
                         inputs,
                         reachable,
+                        timestamp,
                         timestamp + CacheLifetime);
                     activeTargetSnapshots[key] = new ActiveTargetSnapshot(
                         inputs,
@@ -253,6 +256,71 @@ namespace ImprovedHunters
                     $"target={preyUnitId}/{preyGlobalId}/{preyType}, error={exception}.");
                 return false;
             }
+        }
+
+        public bool TryPromoteSelectionResultToActiveTarget(
+            int hunterUnitId,
+            int preyUnitId,
+            uint preyGlobalId,
+            eChimps preyType,
+            long timestamp)
+        {
+            if (!IsAvailable || !canRun())
+                return false;
+
+            if (!TryCaptureInputs(
+                    hunterUnitId,
+                    preyUnitId,
+                    preyGlobalId,
+                    preyType,
+                    out ReachabilityInputs inputs,
+                    out _))
+            {
+                return false;
+            }
+
+            HunterPreyKey key = new HunterPreyKey(
+                hunterUnitId,
+                inputs.HunterGlobalId,
+                preyGlobalId);
+            bool logPromotion;
+            long observedAt;
+            lock (cacheLock)
+            {
+                if (!cache.TryGetValue(key, out CachedResult cached) ||
+                    !cached.Inputs.Equals(inputs) ||
+                    !cached.Reachable ||
+                    timestamp >= cached.ExpiresAt)
+                {
+                    return false;
+                }
+
+                observedAt = cached.ObservedAt;
+                logPromotion =
+                    !activeTargetSnapshots.TryGetValue(key, out ActiveTargetSnapshot previous) ||
+                    !previous.Inputs.Equals(inputs) ||
+                    !previous.Reachable;
+                activeTargetSnapshots[key] = new ActiveTargetSnapshot(
+                    inputs,
+                    true,
+                    cached.ObservedAt,
+                    cached.ObservedAt + ActiveTargetProbeInterval,
+                    cached.ObservedAt + ActiveTargetSnapshotLifetime);
+                activeTargetPromotions++;
+            }
+
+            if (logPromotion)
+            {
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    "Improved Hunters promoted positive selection PCL result to active-target snapshot: " +
+                    $"hunter={hunterUnitId}/{inputs.HunterGlobalId}, " +
+                    $"target={preyUnitId}/{preyGlobalId}/{preyType}, " +
+                    $"player={inputs.PlayerId}, mode={inputs.Mode}, " +
+                    $"sourcePcl={inputs.SourcePcl}, targetPcl={inputs.TargetPcl}, " +
+                    $"selectionAgeMs={Math.Max(0, timestamp - observedAt) * 1000 / Stopwatch.Frequency}.");
+            }
+            return true;
         }
 
         public bool TryGetActiveTargetReachability(
@@ -329,7 +397,8 @@ namespace ImprovedHunters
             {
                 return $"available={IsAvailable}, nativeQueries={nativeQueries}, cacheHits={cacheHits}, " +
                     $"reachable={reachableResults}, unreachable={unreachableResults}, cachedPairs={cache.Count}, " +
-                    $"activeNativeQueries={activeTargetNativeQueries}, activeSnapshotHits={activeTargetSnapshotHits}, " +
+                    $"activeNativeQueries={activeTargetNativeQueries}, activePromotions={activeTargetPromotions}, " +
+                    $"activeSnapshotHits={activeTargetSnapshotHits}, " +
                     $"activeSnapshotMisses={activeTargetSnapshotMisses}, activeSnapshots={activeTargetSnapshots.Count}";
             }
         }
@@ -345,6 +414,7 @@ namespace ImprovedHunters
                 reachableResults = 0;
                 unreachableResults = 0;
                 activeTargetNativeQueries = 0;
+                activeTargetPromotions = 0;
                 activeTargetSnapshotHits = 0;
                 activeTargetSnapshotMisses = 0;
                 nextCacheCleanupAt = 0;
@@ -598,12 +668,18 @@ namespace ImprovedHunters
         {
             public readonly ReachabilityInputs Inputs;
             public readonly bool Reachable;
+            public readonly long ObservedAt;
             public readonly long ExpiresAt;
 
-            public CachedResult(ReachabilityInputs inputs, bool reachable, long expiresAt)
+            public CachedResult(
+                ReachabilityInputs inputs,
+                bool reachable,
+                long observedAt,
+                long expiresAt)
             {
                 Inputs = inputs;
                 Reachable = reachable;
+                ObservedAt = observedAt;
                 ExpiresAt = expiresAt;
             }
         }
