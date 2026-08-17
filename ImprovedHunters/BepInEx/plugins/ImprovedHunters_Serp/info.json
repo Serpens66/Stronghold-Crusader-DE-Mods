@@ -3,10 +3,115 @@
   "Author": "Serpens66",
   "Name": "Improved Hunters",
   "Description": "Adds configurable hunter prey and meat yield for deer, goats, rabbits, camels, chickens and cows.",
-  "Version": "1.1.30",
+  "Version": "1.1.45",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.1.45",
+      "Changes": [
+        "Revalidate each active state-1 Hunter target through the existing persistent scan and the one-second PCL cache, so newly disconnected prey is rejected before the old path reaches a new wall.",
+        "Invalidate only the stale target identity and release its guarded reservation, then let HunterUpdate's own identity-failure branch stop the old order, run Vanilla target search and issue any replacement movement."
+      ]
+    },
+    {
+      "Version": "1.1.44",
+      "Changes": [
+        "Reject prey in disconnected Path Connection Layers before heuristic ranking and again at the concrete Vanilla candidate handoff, using the same player and mode inputs as MoveHere.",
+        "Cache unchanged connectivity for at most one second, recheck immediately when PCL inputs change, fail open on query errors, and leave positive results to Vanilla's detailed path creation."
+      ]
+    },
+    {
+      "Version": "1.1.43",
+      "Changes": [
+        "Add a separately removable, observation-only calibration of the native player-aware Path Connection Layer reachability query before Hunter target ranking.",
+        "Compare mode 0, mode 2 and the Hunter's exact MoveHere mode field, then correlate the stored result with Vanilla's immediate MoveHere return without issuing movement orders or changing target selection."
+      ]
+    },
+    {
+      "Version": "1.1.42",
+      "Changes": [
+        "Reject a prey candidate for the affected Hunter after Vanilla's native MoveHere proves it unreachable, even when every cached candidate is currently rejected and target selection would otherwise fall back to Vanilla.",
+        "Retry each unreachable Hunter/prey pair after five minutes, while keeping the result independent per Hunter and preventing later short target-abort cooldowns from shortening the reachability retry window."
+      ]
+    },
+    {
+      "Version": "1.1.41",
+      "Changes": [
+        "Route the Hunter's Hut through Vanilla's normal building-height visibility case so it blocks targeting like other buildings instead of allowing arrows that can collide with it.",
+        "Validate and restore the single native dispatch entry safely, and keep the correction disabled in real multiplayer and the map editor pending multiplayer synchronization support."
+      ]
+    },
+    {
+      "Version": "1.1.40",
+      "Changes": [
+        "Remove the temporary global two-identity-per-map limit so every Hunter can independently and repeatedly continue Vanilla paths for changing prey throughout the match.",
+        "Retain only per-Hunter progress and time safety bounds with a short retry cooldown, and log continuation starts plus real path progress instead of every native callback."
+      ]
+    },
+    {
+      "Version": "1.1.39",
+      "Changes": [
+        "Continue an already active Vanilla Hunter path through the blocked-line-of-sight distance-28 transition by selecting Vanilla's existing distance-29 stage, without issuing another movement order or writing target, path, order, or AI-state fields.",
+        "Require the validated native visibility result and live path progress, release immediately for clear sight, and bound the removable singleplayer diagnostic by path progress, time, callbacks, and target identities."
+      ]
+    },
+    {
+      "Version": "1.1.38",
+      "Changes": [
+        "Add a removable observation-only hook after Vanilla's state-1 direct attack call to correlate its exact native distance, result, target identity, and current path fields with the preceding accepted state-0 MoveHere.",
+        "Preserve correlations for long Vanilla approaches so the normal out-of-range obstacle navigation and the near-range blocked-line-of-sight abort can be measured without issuing movement or changing AI state."
+      ]
+    },
+    {
+      "Version": "1.1.37",
+      "Changes": [
+        "Correlate Vanilla's existing nonzero state-0 prey result with the same immediate MoveHere return that already guards injected hidden candidates, without changing accepted Vanilla movement.",
+        "Put Vanilla-selected but unreachable prey into the existing 30-second Hunter target cooldown and apply the same guarded target/reservation cleanup, while logging accepted paths for the remaining back-and-forth analysis."
+      ]
+    },
+    {
+      "Version": "1.1.36",
+      "Changes": [
+        "Add a removable singleplayer target-search fallback that supplies a fully validated hidden prey candidate only when Vanilla's complete Hunter query returns no target, then leaves reservation, movement, and AI-state progression to Vanilla's original state-0 path.",
+        "Observe Vanilla's immediate MoveHere result, cool down unreachable candidates, and clean only the rejected attempt's guarded target identity and reservation so enclosed prey cannot leave Hunters or other prey stuck."
+      ]
+    },
+    {
+      "Version": "1.1.35",
+      "Changes": [
+        "Remove the temporary behavior-changing MoveHere diagnostic after its query lock and isolated AI-state continuation caused stale-target movement, delayed reactions, and Hunter return loops.",
+        "Keep production line-of-sight recovery fail-closed and retain only behavior-neutral visibility and state diagnostics for the next native analysis step."
+      ]
+    },
+    {
+      "Version": "1.1.34",
+      "Changes": [
+        "Continue an accepted state-6 diagnostic approach through Vanilla's audited AI state 1 transition, including exact target-global and prey-reservation readback guards.",
+        "Observe moving prey and Hunter state changes for 30 seconds, keep only the current prey query eligible during the approach, and permit a bounded retry after Vanilla returns to state 6."
+      ]
+    },
+    {
+      "Version": "1.1.33",
+      "Changes": [
+        "Correlate the removable MoveHere diagnostic with Vanilla's debounced Hunter search cycles and test the current native target context after three unsuccessful searches in AI state 6.",
+        "Record the calibrated reachable-return-1 and fully-blocked-return-0 distinction while keeping the productive recovery fail-closed and free of managed path searches."
+      ]
+    },
+    {
+      "Version": "1.1.32",
+      "Changes": [
+        "Extend the removable MoveHere diagnostic to test one stable pre-shot Hunter state after two seconds without a projectile, covering blocked targets that never produce a second abort burst.",
+        "Log Hunter AI/context state and every subsequent hooked MoveHere event so native path acceptance can be separated from later Vanilla order replacement."
+      ]
+    },
+    {
+      "Version": "1.1.31",
+      "Changes": [
+        "Remove synchronous managed path searches from Hunter recovery and target ranking after an unreachable-prey case could freeze the game thread.",
+        "Add a removable singleplayer-only MoveHere diagnostic that correlates exact native acceptance with bounded Hunter path-state and movement progress observations."
+      ]
+    },
     {
       "Version": "1.1.30",
       "Changes": [

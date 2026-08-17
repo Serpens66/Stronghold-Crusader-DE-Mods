@@ -13,6 +13,12 @@ validates its derived branches, tables and operands. An absent, ambiguous or
 semantically inconsistent match disables only the affected feature. Raw unit
 fields still require an in-game smoke test after a game update.
 
+The temporary `HunterNativeVisibilityProbe`,
+`HunterTargetSearchFallbackDiagnostic`, and
+`HunterVanillaPathContinuationDiagnostic` are deliberately stricter: they are
+enabled only on the exact audited hash and never perform a changed-hash pattern
+fallback. A changed DLL therefore disables only these diagnostic paths.
+
 ## Native address map
 
 | Source pattern | Reference RVA | Use / offset |
@@ -25,6 +31,22 @@ fields still require an in-game smoke test after a game update.
 | `ManualAttackDecisionSequencePattern` | `0x18EB98` | explicit `AttackUnit` compatibility decision; hook at `+0x2B` (`0x18EBC3`) |
 | `ComparisonSequencePattern` | `0xD2AB4` | granary chicken target comparison hook at `+11` (`0xD2ABF`) |
 | `HunterQueryCandidateLoopPattern` | `0x18AF70` | temporary Script Extender issue-123 actor capture |
+| Native Hunter visibility wrapper | `0xA06F0` | behavior-neutral direct probe; seven arguments including context |
+| Native Hunter visibility core | `0x9E350` | called twice by the wrapper, forward and reversed |
+| Shared obstacle-height helper | `0x6B990` | reads tile flags, building identity/type and effective obstacle height |
+| Building-height type switch | `0x6B9F8` | dispatches building types `7..78` |
+| Building-height dispatch targets | `0x6BAB4` | entries `0..3`; entry `3` is the normal fixed-height case |
+| Building-type dispatch bytes | `0x6BAC4` | type `7`/Hunter's Hut is the first byte; Vanilla `0`, patched `3` |
+| Building blocker-height table | `0x2E7C60` | type `7` already has normal blocker height `40` |
+| Hunter query visibility call | `0x18B052` | must resolve to wrapper `0xA06F0` |
+| Hunter direct-order visibility call | `0x18ED1A` | must resolve to wrapper `0xA06F0` |
+| Unit-function table | `0x320CB0` | Hunter entry is index `6` at `+0x30` |
+| Native `HunterUpdate` | `0x12FC20` | state dispatch and Vanilla Hunter movement/order transitions |
+| Hunter distance helper | `0x79C0` | exact state-1 range result retained in `EDI` |
+| State-0 query handoff | `0x12FD67` | query return hook at `0x12FD89`; query callee `0x18AF00` |
+| State-0 `MoveHere` result | `0x12FE2A` | immediately after call to `0x196230` |
+| State-1 distance-28 compare | `0x1300EA` | bounded Vanilla-path continuation test; sequence begins at `0x1300D2` |
+| State-1 direct-attack result | `0x130149` | observation-only `test eax,eax` after call to `0x18E950` |
 
 The source constants contain the complete wildcard patterns.
 
@@ -98,6 +120,144 @@ public query candidate on the same thread. If capture and the reported ID are
 both invalid, the callback leaves Vanilla's target decision unchanged. Remove
 this workaround once the minimum supported Script Extender fixes work item 123.
 
+### Temporary native Hunter visibility probe
+
+`HunterNativeVisibilityProbe.cs` calls, but does not hook or patch, Vanilla's
+visibility wrapper at `0xA06F0`. On the audited hash it validates the wrapper
+entry, both core-call sequences, both relative core targets (`0x9E350`), and the
+query/direct-order callsites plus their relative targets before creating the
+delegate. Any mismatch disables the probe without changing Hunter behavior.
+
+The validated native signature is
+`int(context, startX, startY, startHeight, endX, endY, endHeight)`. Hunter input
+uses `GameUnit +0xB2/+0xB4` and `+0xB6 + signed(+0xB8) + 30`; prey input uses the
+same fields with height bias `+26`. The wrapper writes only `context +0xC`, so
+the test supplies a zero-initialized private 16-byte context surrounded by
+canaries. Any change outside `+0xC` disables the probe immediately. The native
+global context is never passed.
+
+Candidates are captured from the public Hunter query event and invoked later
+only on the same managed thread in the established 100-ms native scan. The log
+separates Manhattan query phases (`>20`, fallback `>5`, and the `>=54` early-LOS
+bypass), the query acceptance range `1..432`, and the later direct-order rule
+`>0`. Calls and logs are bounded; no target result, unit field, reservation,
+movement order, or native branch is changed.
+
+### Hunter's Hut visibility dispatch correction
+
+`HunterHutVisibilityPatch.cs` corrects the exception in the shared obstacle-
+height helper rather than implementing a second projectile-line model. When a
+tile has the relevant building flag, helper `0x6B990` resolves the building ID
+and reads its type at native `GameBuilding +0x12E`. The switch at `0x6B9F8`
+maps types `7..78` through the byte table at `0x6BAC4`. Type `7` is
+`STRUCT_HUNTERS_HUT`.
+
+Vanilla byte `0` sends that type to `0x6BA3D`. With the obstacle-aware mode
+used by visibility core `0x9E350`, this case skips the building contribution
+and returns only terrain height. Dispatch byte `3` instead enters the normal
+case at `0x6BA41`, which reads the type-dependent value at `0x2E7C60`; the
+existing type-7 value is `40`, equal to the Woodcutter's Hut blocker height.
+For the other helper mode, the old special case already fell through to this
+normal value, so the effective behavior change is limited to obstacle-aware
+Hunter's Hut queries.
+
+On the audited hash the patch validates helper, switch, both tables, dispatch
+targets, original byte and height value before writing exactly RVA `0x6BAC4`
+from `0` to `3`. A changed hash requires a unique executable-section match for
+the type-switch pattern and then re-derives and validates every table address
+and target. Conflicting runtime values are never overwritten. Disabling the
+mod or Improved Pathfinding restores the owned byte. The correction remains
+disabled in real multiplayer and the map editor pending the Script Extender
+`1.50.0` synchronization Chore.
+
+### Native PCL reachability precheck calibration
+
+The canonical Script Extender exposes
+`GamePlayerManagerAPI.GetNextReachablePCLToDestinationForPlayer`. It forwards
+the pathfinding context, player ID, target PCL, source PCL and an undocumented
+mode to native function RVA `0xE2610` on Steam build `24651686`, SHA-256
+`33AA33457F7DFAAA6D316D1D5E4C5AB97094F2C73B68D349990ABF9D0EF3B469`.
+The audited entry signature is `40 55 41 54 41 55 41 56 48 8D AC 24` and occurs
+exactly once in that DLL.
+
+The native function returns the target PCL immediately when source and target
+match, returns `0` when either input PCL is zero or no permitted PCL connection
+exists, and otherwise returns the next connected PCL toward the destination.
+Its traversal accounts for player/alliance-dependent gate connections. This is
+a bounded connectivity query rather than the Script Extender's unbounded
+managed A*.
+
+`c_game_unit_issueorder_movehere` at RVA `0x196230` calls this function at RVA
+`0x1964D3`. It passes public `GameUnit +0x92`
+(`r_ControllableForPlayerId`) as the player, target/source PCL in `R8D/R9D`,
+and public `GameUnit +0x35C` (`N000001CA`) as the fifth mode. The return is
+stored into the unit's path-connection field and a zero value branches directly
+to MoveHere's failure path. Therefore zero is suitable as a conservative hard
+pre-filter; a nonzero result must still leave Vanilla's detailed path creation
+authoritative.
+
+Version `1.1.43` adds the separately removable
+`HunterPclReachabilityDiagnostic.cs`. Before ranking, it records source/target
+PCL and compares mode `0`, mode `2`, and the Hunter's live `+0x35C` value. The
+existing exact state-0 MoveHere result hook correlates its return with the stored
+probe only when Hunter/prey identities, player, PCL inputs, mode, and a
+three-second time bound still match. The MoveHere hook does not invoke the PCL
+query again. The diagnostic neither filters candidates nor writes targets,
+orders, path fields, reservations, AI state, or hook registers.
+
+The `1.1.43` in-game calibration recorded `53` candidate probes and `10` exact
+MoveHere correlations. All four nonzero PCL results matched MoveHere return `1`;
+all six zero PCL results matched MoveHere return `0`. Every correlation retained
+identical player, mode and source/target PCL inputs within the three-second
+bound, with zero disagreements. The live Hunter mode was consistently `0`, and
+mode `0`, mode `2`, and the live-mode result agreed in every tested wall case.
+The first warm-up probe took `170 us`; the average across all probes was
+`4.43 us`, with normal subsequent calls generally `1..3 us`. No PCL callback
+error or visible search delay occurred.
+
+Version `1.1.44` promotes the validated query into
+`HunterPclReachability.cs`. A zero result removes the candidate before heuristic
+ranking and is checked independently again at the concrete public target-query
+handoff, so an empty ranking cannot re-enable disconnected prey through the
+generic fallback. Positive or unavailable results remain eligible and Vanilla
+still owns detailed path creation. Results are cached per Hunter/global-prey
+identity and exact player/mode/source-PCL/target-PCL input for at most one
+second. Changed PCL inputs bypass the cache immediately; unchanged gate state is
+therefore rechecked after at most one second. Expired identities are pruned
+periodically.
+
+The audited stale-target path in `HunterUpdate` state `1` first calls the order
+reset helper at RVA `0x12FEF6` (target RVA `0x193A20`). It compares the current
+target-slot global ID with the Hunter's stored target global ID at RVA
+`0x12FF1F`. A mismatch calls Vanilla's Hunter target query at RVA `0x12FF2E`
+(target RVA `0x18AF00`): a nonzero result writes state `0` at RVA `0x12FF45`;
+a zero result writes state `6` at RVA `0x12FF5F` and follows the native timer and
+return path at RVAs `0x12FF73` and `0x12FF7C`.
+
+Version `1.1.45` uses the existing persistent 100-ms native scan to recheck each
+live state-`1` target through `HunterPclReachability`. On a confirmed PCL zero it
+sets only the public Hunter target-global field at `GameUnit +0x39C` to zero and
+releases the prey reservation through the existing identity guard. The next
+`HunterUpdate` therefore enters the audited stale-identity branch and owns order
+reset, target search and any replacement movement. The scan does not write AI
+state or path/order fields and does not issue a move. Query errors remain
+fail-open.
+
+### Native-unreachable prey rejection lifetime
+
+Version `1.1.42` used the immediate state-0 `MoveHere` result as the only
+reachability authority for an exact Hunter/global-prey pair and retained zero
+for five minutes. Version `1.1.44` supersedes that delayed discovery: known PCL
+disconnections never receive a MoveHere order and are rechecked through the
+one-second connectivity cache. A rare positive-PCL candidate whose detailed
+MoveHere still returns zero now receives only the generic 30-second abort
+cooldown. No AI state, voice line or movement order is issued by the PCL filter.
+
+Future updates must revalidate that the PCL zero result remains a conservative
+MoveHere rejection, that the concrete query event still observes every Vanilla
+candidate, and that a complete set of PCL-rejected candidates reaches Vanilla's
+normal no-target progression.
+
 ## Required update audit
 
 1. Require one semantic match for both despawn patterns and verify that operand 1 at
@@ -129,6 +289,21 @@ this workaround once the minimum supported Script Extender fixes work item 123.
    formula, `ESI` candidate ID and callback ordering before the public Extender
    event. Check whether upstream work item 123 is fixed and remove the temporary
    workaround when it is no longer needed.
+10. Revalidate visibility wrapper `0xA06F0`, core `0x9E350`, query call
+    `0x18B052`, direct-order call `0x18ED1A`, the seven-argument ABI, both core
+    relative targets, context write boundary `+0xC`, world/height field
+    construction, and return thresholds. Keep the diagnostic fail-closed until
+    all control cases have been repeated in game.
+11. Revalidate height helper `0x6B990`, type switch `0x6B9F8`, dispatch target
+    table `0x6BAB4`, type table `0x6BAC4`, the Hunter's Hut mapping `7 -> 0`,
+    special/normal targets `0x6BA3D` and `0x6BA41`, and blocker-height table
+    `0x2E7C60` with type-7 value `40`. Confirm the patch still changes only the
+    first dispatch byte to `3` and restores it to `0`.
+12. Revalidate PCL reachability RVA `0xE2610`, its unique entry signature,
+    zero/nonzero return semantics, player-aware gate traversal, and the call at
+    MoveHere RVA `0x1964D3`. Confirm the caller still passes public unit fields
+    `+0x92` and `+0x35C`, target/source PCL in `R8D/R9D`, and branches to failure
+    on zero before enabling the production pre-filter.
 
 ## Temporary Hunter visibility diagnostic
 
@@ -171,24 +346,264 @@ and target, owner/color-independent prey eligibility, and projectile source-play
 consistency.
 
 Pre-shot visibility recovery is isolated in `HunterLineOfSightRecovery.cs` and
-adds no native address or hook. A target abort is eligible only for a live chicken
-while the Hunter is in waiting state `6`, the straight tile line intersects an
-active non-Hunter-hut building, three such aborts occur within three seconds, and
-no matching Hunter projectile was created in the preceding two seconds. The
-recovery searches at most eight tiles around the Hunter for an unoccupied tile
-within a three-to-twenty-tile shot distance. Candidate firing lines must contain
-no building at all—including Hunter huts, because arrows can physically collide
-with them—and at most eight candidates are checked with the public Vanilla-aware
-pathfinder. Movement is issued through `GameUnitManagerAPI.MoveToTile`; it does
-not teleport the Hunter or bypass collision. The regular 30-second aborted-target
-cooldown is suppressed only when such a move was actually issued, allowing the
-Hunter to retry after arriving.
+currently remains fail-closed: it reports unavailable, performs no path search,
+and issues no movement. The former implementation synchronously called the
+Script Extender's managed `GameTileManagerAPI.FindPath`. An in-game case with an
+unreachable destination showed that this unbounded managed A* can monopolize the
+game thread. All such calls were therefore removed from both recovery and target
+ranking. Target and granary costs temporarily use a bounded Chebyshev heuristic;
+the heuristic is not reachability proof and must not be documented as one.
+
+For Steam build `24651686`, native `c_game_unit_issueorder_movehere` is at RVA
+`0x196230`, has size `0x50D`, and returns `0` through its rejection/cleanup path.
+After a positive native path length it writes public `GameUnit` path fields
+`+0xF2/+0xF6/+0xF8`, sets path state `2`, and returns `1`. Its native
+manager-relative offsets are `+0x65C` higher because the native slot base is
+`0x65C` bytes before the Script Extender's public `GameUnit` pointer. The
+routine mutates order and target fields before path acceptance, so neither it
+nor `MoveToTile` is a behavior-neutral reachability query.
+
+The standard path helper at RVA `0xF4930` has size `0x315`. It mutates a large
+scratch object (including offsets through at least `+0x155F68`) and is invoked
+with the global scratch context at `imageBase + 0x60AC660`. It must not be called
+directly with a guessed private context. Any future update must revalidate both
+RVAs, function extents, the `0x65C` base adjustment, return branches and the
+mapped public path fields before enabling native movement diagnostics or
+recovery.
+
+`HunterNativeMoveDiagnostic.cs` was the temporary behavior-changing calibration
+for these findings. In non-editor singleplayer only, two rapid target aborts
+without a recent Hunter projectile may issue one `MoveToTile` order to the live
+prey's occupied tile. It correlates the synchronous public `OnUnitMoveHere`
+Pre/Post events, requires exact return value `1` for acceptance, and observes
+public fields `+0xF2/+0xF4/+0xF6/+0xF8` plus position progress. It is bounded to
+six attempts per map with cooldown and hard timeouts, suppresses target/idle
+requery only while an accepted diagnostic move is active, and must remain a
+separately removable diagnostic rather than becoming an undocumented fallback.
+It was fully removed in version `1.1.35` after completing the calibration and
+must not be restored as a production reachability test.
+
+The `1.1.31` calibration accepted the reachable wall-case destination with
+return `1`, path state `2` and path size `38`, but Vanilla replaced it within
+`100 ms` by a one-step path to the Hunter's current tile. No second abort burst
+occurred for the later fully enclosed state-7 target. Version `1.1.32` therefore
+also performs one bounded attempt after the same live target remains in Hunter
+AI state `7` for two seconds without a projectile. It logs the AI/context target
+fields and all subsequent public `OnUnitMoveHere` events for that Hunter; it
+still writes no AI state and never retries the same stable Hunter/target global
+identity.
+
+The `1.1.32` calibration then rejected the fully enclosed control destination
+with exact return `0` for Hunter `1/358`, prey `8/285`, and distance `19`, without
+a freeze or diagnostic exception. Taken together, the two ingame cases calibrate
+exact return `1` as an accepted native foot route and `0` as rejection for the
+tested unreachable destination. The preceding reachable wall phase remained in
+AI state `6` and generated repeated debounced searches but no abort or stable
+state-7 trigger. Version `1.1.33` therefore adds one earlier, still bounded
+diagnostic attempt after three search starts in four seconds when state `6`
+retains a live enabled context target. It uses that current native context rather
+than an old aborted target, retains the same singleplayer and identity gates,
+and still neither invokes the private helper nor writes an AI state.
+
+The `1.1.33` ingame run accepted two state-6 destinations with return `1`. The
+first produced a 43-node path and was still progressing at node `20` after the
+old eight-second observation timeout; the deer had moved away from the original
+destination before the Hunter arrived. The second produced a 15-node path, but
+only `10 ms` later Vanilla issued a successful `MoveHere` back to `396,350` and
+replaced it with a one-node path. There were no ImprovedHunters errors, freezes,
+or Hunter projectiles; the session reached 476 queries and 35 debounced search
+starts.
+
+The audited unit-function table is at RVA `0x320CB0`. Its Hunter entry (index
+`6`) points to `HunterUpdate` at RVA `0x12FC20`, size `0x17B2`. The initial
+acquisition path calls the target query at `0x12FD6C`, calls `MoveHere` at
+`0x12FE25`, and writes AI state `1` at `0x12FE45` only after a positive return.
+Before that call it stores target slot/global identity at `0x12FDD7/0x12FDEF`,
+the worker-target global ID at `0x12FDFF`, and prey reservation `2` at
+`0x12FE13`. The state-1 branch from `0x12FEE8` validates that live identity and
+continues processing the target's current coordinates while the movement engine
+advances the accepted path.
+
+The state-6 branch begins at `0x130C7D`. When manager-relative flag `+0x9CC` is
+set, it increments `+0x920` to 20 and, after its helper gates, passes stored
+coordinates `+0x992/+0x994` to `MoveHere` at `0x130D1A`; successful issuance
+clears `+0x9CC`. With the validated `0x65C` manager/public adjustment these map
+to public offsets `+0x370`, `+0x2C4`, and `+0x336/+0x338`. This is the exact
+return-to-hut writer observed in the second `1.1.33` attempt. The inspected
+state-7 branch from `0x130DBB` has no direct `MoveHere` call.
+
+Version `1.1.34` therefore extended only the removable singleplayer diagnostic:
+after exact `MoveHere` return `1`, original state `6`, unchanged context
+slot/global identity, and reservation `0` or `2`, it readback-guards the normal
+worker-target global ID, prey reservation `2`, and AI-state `1` continuation.
+The mutation is additionally gated by the audited reference DLL hash and rolls
+all three values back if any readback differs. It then observes moving
+prey, AI transitions, order changes, and projectile spawn for up to 30 seconds,
+keeps only the same global prey identity query-eligible, and releases the
+attempt identity for a bounded retry if Vanilla returns to state `0` or `6`.
+Future DLL audits must revalidate the table entry, function bounds, these state
+dispatch comparisons and call/return-dependent state transition before using
+them for recovery rather than diagnosis.
+
+The `1.1.34` ingame run rejected that isolated continuation. The first two
+regressive approaches did not apply state `1` at all: the 30-second observation
+still overrode every target query as invalid, so the Hunter followed stale prey
+tiles and ignored a deer that became visible. Later attempts passed all
+readback guards and changed state `6 -> 1`, but Vanilla returned to state `6`
+after about `1.7 s` and `100 ms` respectively and issued its hut-return move.
+Six accepted diagnostic moves produced no Hunter projectile. This proves that
+target identity, worker-target global ID, reservation `2`, and AI state `1` do
+not reconstruct the complete acquisition context. Version `1.1.35` removes the
+diagnostic source and every query, move, reservation, and AI-state integration;
+only behavior-neutral visibility/state diagnostics remain. Future recovery
+work must identify the missing native caller context or a safer native control
+point before issuing movement.
+
+A subsequent bounded audit refined the cause. In state `1`, RVA `0x130110`
+checks public auxiliary path field `+0xF4`. If it is zero, execution immediately
+reaches the direct attack order call at `0x13013D` (`0x18E950`). A failed line-
+of-sight result then reaches `0x130171`, which writes Hunter state `6`, timer
+`20`, and the hut-return flag. If the auxiliary field differs and path state
+`+0xF2` is `2`, the update exits without that abort. The out-of-band
+state write therefore raced ahead of Vanilla movement scheduling; copying more
+fields is not an acceptable fix.
+
+Version `1.1.36` implements the next removable diagnostic at the complete
+target-search return inside `HunterUpdate`. `EDX=EBX` passes the Hunter ID to
+the call at RVA `0x12FD6C`, and the returned prey slot remains in `EAX` until it
+is copied to `R8` at `0x12FD89`. A start hook at RVA `0x12FD67` arms only this
+state-0 invocation; candidate events from other calls cannot leak into it. The
+return hook changes only `EAX == 0`, and only to a live, unreserved, same-global-
+ID candidate already accepted by the existing runtime policy during that exact
+query. Vanilla then performs its target/global, worker-target, reservation,
+`MoveHere`, and state-1 sequence in the original update context. Direct
+movement and later AI-state writes remain forbidden.
+
+The audited state-0 failure path writes target slot/global at
+`0x12FDD7/0x12FDEF`, worker-target global at `0x12FDFF`, and prey reservation
+`2` at `0x12FE13` before calling `MoveHere` at `0x12FE25`. Return `0` jumps to
+the state-7 writer without undoing those values. The state-7 branch beginning
+at `0x130DBB` likewise contains no target/reservation cleanup. A third hook at
+RVA `0x12FE2A` therefore observes only the immediately preceding state-0
+`MoveHere`. Positive results are untouched. On zero it applies a 30-second
+Hunter/global-prey cooldown, clears the matching target identity and worker
+target, and releases reservation `2` only after slot/global validation and a
+scan proving that no other live Hunter targets the same identity. Readback and
+the cleanup invariant are logged. State `7` and all later transitions remain
+Vanilla.
+
+The three hook windows are hash-bound to Steam build `24651686`, SHA-256
+`33AA33457F7DFAAA6D316D1D5E4C5AB97094F2C73B68D349990ABF9D0EF3B469`.
+Their reference RVAs are `0x12FD67`, `0x12FD89`, and `0x12FE2A`; callees must
+still resolve to query RVA `0x18AF00` and `MoveHere` RVA `0x196230`. Any hash or
+byte/call-chain mismatch disables only this diagnostic. It is additionally
+fail-closed in real multiplayer and the map editor pending the Script Extender
+`1.50.0` multiplayer Chore.
+
+The first `1.1.36` ingame run confirmed all three hooks and the singleplayer
+gate, but did not inject a candidate: the first confirmed state-0 query already
+returned Vanilla slot `12` while the staged hidden preference was slot `6`.
+Across 31 debounced searches and 291 candidate events there were zero
+`supplied`, zero correlated accepted moves, and zero correlated rejected moves.
+The Hunter nevertheless cycled through multiple target identities in state `6`;
+the behavior-neutral native probe repeatedly returned `0` for several deer,
+and only deer that later approached into sight were attacked. The final deer
+were unreachable, but a nonzero Vanilla target meant the injection-only move
+correlation still did not observe their `MoveHere` result.
+
+Version `1.1.37` therefore retains a validated Vanilla nonzero slot/global
+identity until the same immediate state-0 `MoveHere` result at `0x12FE2A`.
+Positive returns are logged and left byte-for-byte on Vanilla's path. Return
+`0` registers the Hunter/global-prey pair in the runtime's existing 30-second
+aborted-target cooldown, invalidates its cached ranking, and runs the same
+guarded identity/reservation cleanup used for an injected fallback. This adds
+no new RVA, pattern, movement call, or AI-state write. Future audits must keep
+the invariant that the pending identity is created only at `0x12FD89` and
+consumed once at the immediately following `0x12FE2A`.
+
+The `1.1.37` ingame run recorded 71 accepted Vanilla state-0 `MoveHere`
+results, one rejected result, and no injected fallback. The first Hunter also
+followed a long obstacle-avoiding route, while fully unreachable prey left both
+Hunters waiting beside their huts without a "No game" voice line. Waiting alone
+does not prove that target searches have stopped, but the long route confirms
+that Vanilla movement already handles the out-of-range case.
+
+The state-1 branch explains this split. `HunterUpdate` calls the native distance
+helper at RVA `0x79C0` and retains its exact result in `EDI`. Values above 28
+select a distance-dependent movement/animation stage and exit, allowing the
+accepted path to progress. At 28 or below, public auxiliary field
+`GameUnit +0xF4` is checked at `0x130110`; a nonzero value together with path state `2` at
+public `+0xF2` also exits. Otherwise RVA `0x13013D` calls direct attack function
+`0x18E950`. Its zero result is tested at `0x130149` and leads to the state-6,
+timer-20, return-to-hut writer at `0x130171`.
+
+Version `1.1.38` adds a fourth, observation-only hook to the separately
+removable `HunterTargetSearchFallbackDiagnostic.cs`. The audited sequence begins
+at `0x13013D`, the hook is at offset `+0xC` (`0x130149`), and its relative call
+must resolve to `0x18E950`. It captures volatile registers plus `RDI`, correlates
+only a validated accepted state-0 move with the same live Hunter/target identity
+for at most 60 seconds, and logs the exact native distance, attack result and
+public path fields `+0xF2/+0xF4/+0xF6/+0xF8`. The callback changes no register,
+target, reservation, movement order or AI state. Any hash, pattern, relative-
+target, identity or state mismatch leaves behavior unchanged.
+
+The `1.1.38` test recorded 41 direct state-1 attack results: 40 failures and
+one Vanilla success. Every failure occurred at native distance 28 or below.
+The longest correlated approach had already run for 44.383 seconds and reached
+public path progress/length `+0xF6/+0xF8=59/61` when the blocked direct attack
+failed at exactly distance 28 and sent the Hunter back to its hut. This also
+corrects the earlier field interpretation: `+0xF6`, not `+0xF4`, is the
+observed advancing path index. The tail of `MoveHere` at RVA `0x196230` writes
+path state `+0xF2=2`, progress `+0xF6=0`, and length `+0xF8`; generic Vanilla
+unit movement advances `+0xF6`. Reissuing `MoveHere` would reset that progress.
+
+Version `1.1.39` adds the separately removable, exact-hash-only
+`HunterVanillaPathContinuationDiagnostic`. Its full distance-stage pattern
+starts at RVA `0x1300D2`; the hook validates `cmp edi,28`, its signed short
+branch target, and runs before the compare at RVA `0x1300EA`. For a live
+same-identity state-1 Hunter with path state `+0xF2=2`, remaining progress
+`+0xF6 < +0xF8`, and a zero result from the validated native visibility probe,
+the callback changes only `RDI` from the real value at or below 28 to 29. The
+relocated original compare then selects Vanilla's existing distance-29 stage;
+the mod issues no movement or order and writes no target, path, reservation, or
+AI-state field. A positive visibility result leaves the real distance intact so
+Vanilla can attack immediately. Version `1.1.39` released on path completion,
+three seconds without progress, 60 seconds total, 1200 callbacks, or its
+temporary per-map two-identity diagnostic bound, and remained fail-closed in
+real multiplayer.
+
+The `1.1.39` multi-Hunter run proved that the global identity bound was visible
+behavior rather than a harmless logging restriction. Six Hunters received
+accepted Vanilla paths, but later blocked pairs repeatedly reached failed
+direct attacks with active path state while continuation slots were already
+consumed. Version `1.1.40` removes both the permanent global identity set and
+the redundant callback-count bound. It keeps one active attempt per Hunter,
+allows unlimited sequential target identities over a map, and retains only the
+60-second continuous-near-range and three-second no-progress bounds. A bounded
+stop suspends only the same Hunter/global-prey identity for five seconds; a
+different identity or natural distance 29/30 clears that Hunter's stale state.
+A callback gap of more than one second starts a fresh bounded interval. Logging
+is limited to attempt starts, actual `+0xF6` progress changes, releases, and
+bounded stops so parallel Hunters do not exhaust the diagnostic budget during
+the first few seconds.
+
+The subsequent `1.1.40` in-game repeat confirmed the state separation: every
+simultaneously deployed Hunter continued its own blocked-visibility Vanilla
+path successfully. The apparent position-dependent failure from `1.1.39` did
+not recur and is attributed to the removed global diagnostic identity bound.
+
+Future DLL audits must revalidate the exact sequence at `0x1300D2`, compare and
+short-branch bytes at `0x1300EA`, the distance helper result remaining in
+`EDI`, the semantics of the `>28` stage-8 writer, and the `MoveHere` path field
+writes before enabling this diagnostic. A matching instruction pattern alone
+does not validate the raw `GameUnit` offsets.
 
 Future Script Extender updates must revalidate the public ranged-damage,
-projectile-delete, pathfinding and move-order semantics. No new direct RVA or
-pattern is introduced by these two recoveries; the established exact-hash RVA
-and changed-hash unique-pattern strategy for the existing native features remains
-unchanged.
+projectile-delete and move-order semantics. A bounded native reachability path
+must be identified and validated before pre-shot recovery is enabled again. The
+state-1 diagnostic remains exact-hash-only together with the target-search
+fallback; production features retain their established exact-hash RVA and
+changed-hash unique-pattern strategy.
 
 ## Audit for Steam build 24651686
 

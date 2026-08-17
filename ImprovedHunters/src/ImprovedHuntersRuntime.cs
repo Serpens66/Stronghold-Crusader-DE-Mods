@@ -23,7 +23,7 @@ namespace ImprovedHunters
         private const ushort CollectedCorpseDespawnTicks = 1801;
         private const int HunterSearchRadius = 20;
         private const int HunterTargetCandidateRadius = 54;
-        private const int MaxPathCandidatesPerHunter = 24;
+        private const int MaxHeuristicCandidatesPerHunter = 24;
         private const int HunterHutWorkCost = 600;
         private const int BestTargetToleranceCost = 80;
         private const int DefaultPreyHandlingCost = 100;
@@ -61,7 +61,6 @@ namespace ImprovedHunters
         private static readonly long IdleHunterRequeryInterval = Stopwatch.Frequency;
         private static readonly long PreyCacheRefreshInterval = Stopwatch.Frequency * 5;
         private static readonly long StaleReservationCleanupInterval = Stopwatch.Frequency * 10;
-        private static readonly long PathCostCacheInterval = Stopwatch.Frequency * 5;
         private static readonly long BestTargetCacheInterval = Stopwatch.Frequency / 2;
         private static readonly long AbortedTargetCooldownInterval = Stopwatch.Frequency * 30;
         private static readonly long HunterTargetSummaryInterval = Stopwatch.Frequency * 5;
@@ -82,7 +81,6 @@ namespace ImprovedHunters
         private readonly Dictionary<int, long> nextIdleHunterRequeryTimestamps = new Dictionary<int, long>();
         private readonly HashSet<uint> loggedCollectedCorpseGlobalIds = new HashSet<uint>();
         private readonly List<PreySnapshot> preyCache = new List<PreySnapshot>();
-        private readonly Dictionary<PathCostKey, CachedPathCost> pathCostCache = new Dictionary<PathCostKey, CachedPathCost>();
         private readonly Dictionary<int, CachedBestTarget> bestTargetCache = new Dictionary<int, CachedBestTarget>();
         private readonly Dictionary<int, HunterTargetSnapshot> activeHunterTargets = new Dictionary<int, HunterTargetSnapshot>();
         private readonly Dictionary<HunterPreyCooldownKey, long> abortedTargetCooldowns = new Dictionary<HunterPreyCooldownKey, long>();
@@ -132,8 +130,6 @@ namespace ImprovedHunters
         private int hunterTargetFallbackEvents;
         private int hunterTargetNoBestEvents;
         private int hunterTargetSearchStarts;
-        private int pathCacheHits;
-        private int pathCacheMisses;
         private int hunterProjectileDiagnosticLogs;
         private int shortLivedCorpsePreserveLogs;
         private int chickenOwnershipDiagnosticLogs;
@@ -145,8 +141,15 @@ namespace ImprovedHunters
         private GranaryChickenLimitPatch granaryChickenLimitPatch;
         private HunterQueryActorWorkaround hunterQueryActorWorkaround;
         private HunterLineOfSightRecovery hunterLineOfSightRecovery;
+        private HunterHutVisibilityPatch hunterHutVisibilityPatch;
+        private HunterNativeVisibilityProbe hunterNativeVisibilityProbe;
+        private HunterPclReachability hunterPclReachability;
+        private HunterPclReachabilityDiagnostic hunterPclReachabilityDiagnostic;
+        private HunterTargetSearchFallbackDiagnostic hunterTargetSearchFallbackDiagnostic;
+        private HunterVanillaPathContinuationDiagnostic hunterVanillaPathContinuationDiagnostic;
         private HunterVisibilityDiagnostic hunterVisibilityDiagnostic;
         private bool referenceHashMatches;
+        private bool targetSearchFallbackSingleplayerAllowed;
         private bool loadedChickenReconstructionPending;
         private long nextGranaryChickenCleanupTimestamp;
         private bool applied;
@@ -172,6 +175,12 @@ namespace ImprovedHunters
                 InitializeManualChickenAttackPatch(memory, imageBase, referenceHashMatches);
                 InitializeGranaryChickenLimitPatch(memory, imageBase, referenceHashMatches);
                 InitializeHunterQueryActorWorkaround(memory, imageBase, referenceHashMatches);
+                InitializeHunterNativeVisibilityProbe(memory, imageBase, referenceHashMatches);
+                InitializeHunterHutVisibilityPatch(memory, imageBase, referenceHashMatches);
+                InitializeHunterPclReachability(referenceHashMatches);
+                InitializeHunterPclReachabilityDiagnostic(referenceHashMatches);
+                InitializeHunterTargetSearchFallbackDiagnostic(memory, imageBase, referenceHashMatches);
+                InitializeHunterVanillaPathContinuationDiagnostic(memory, imageBase, referenceHashMatches);
                 InitializeHunterLineOfSightRecovery();
                 InitializeHunterVisibilityDiagnostic();
 
@@ -221,6 +230,13 @@ namespace ImprovedHunters
                     $"granaryChickenLimitAvailable={granaryChickenLimitPatch?.IsAvailable == true}, " +
                     $"hunterQueryActorWorkaroundAvailable={hunterQueryActorWorkaround?.IsAvailable == true}, " +
                     $"hunterLineOfSightRecoveryAvailable={hunterLineOfSightRecovery?.IsAvailable == true}, " +
+                    $"hunterHutVisibilityAvailable={hunterHutVisibilityPatch?.IsAvailable == true}, " +
+                    $"hunterHutVisibilityApplied={hunterHutVisibilityPatch?.IsApplied == true}, " +
+                    $"hunterNativeVisibilityProbeAvailable={hunterNativeVisibilityProbe?.IsAvailable == true}, " +
+                    $"hunterPclReachabilityAvailable={hunterPclReachability?.IsAvailable == true}, " +
+                    $"hunterPclReachabilityDiagnosticAvailable={hunterPclReachabilityDiagnostic?.IsAvailable == true}, " +
+                    $"hunterTargetSearchFallbackAvailable={hunterTargetSearchFallbackDiagnostic?.IsAvailable == true}, " +
+                    $"hunterVanillaPathContinuationAvailable={hunterVanillaPathContinuationDiagnostic?.IsAvailable == true}, " +
                     $"hunterVisibilityDiagnosticAvailable={hunterVisibilityDiagnostic?.IsAvailable == true}, " +
                     $"referenceHashMatches={referenceHashMatches}.");
             }
@@ -299,8 +315,10 @@ namespace ImprovedHunters
                     LogCamelHealthPatch(adjustedLiveCamels);
 
                 CleanupShortLivedCorpsePreserveCache(units, timestamp);
-                TrackHunterPreyAndExpireCollectedCorpses(units, hunters, timestamp);
                 hunterVisibilityDiagnostic?.ProcessNativeScan(units, timestamp);
+                hunterNativeVisibilityProbe?.ProcessNativeScan(units, timestamp);
+                RequeryHuntersWithUnreachableActivePrey(units, hunters, timestamp);
+                TrackHunterPreyAndExpireCollectedCorpses(units, hunters, timestamp);
                 RequeryIdleHuntersNearPrey(units, hunters, eligiblePrey, timestamp);
             }
             catch (Exception exception)
@@ -310,6 +328,125 @@ namespace ImprovedHunters
 
                 Shared.DebugLogHelper.LogError(log, $"Improved Hunters native scan failed; native scan remains inactive after this error: {exception}");
                 nativeScanFailureLogged = true;
+            }
+        }
+
+        private unsafe void RequeryHuntersWithUnreachableActivePrey(
+            SimpleNativeArray<GameUnit> units,
+            List<IntPtr> hunters,
+            long timestamp)
+        {
+            if (!CanRunHunterTargetSearchFallback() ||
+                hunterPclReachability?.IsAvailable != true)
+            {
+                return;
+            }
+
+            foreach (IntPtr hunterAddress in hunters)
+            {
+                GameUnit* hunter = (GameUnit*)hunterAddress.ToPointer();
+                if (hunter == null ||
+                    hunter->r_AliveState != AliveState.IsAlive ||
+                    hunter->r_CurrentHealth == 0 ||
+                    hunter->r_GlobalId == 0)
+                {
+                    continue;
+                }
+
+                byte* hunterBytes = (byte*)hunter;
+                ushort aiState = *(ushort*)(hunterBytes + 0x2BC);
+                ushort targetUnitId = *(ushort*)(hunterBytes + 0x39A);
+                uint targetGlobalId = *(uint*)(hunterBytes + 0x39C);
+                if (aiState != 1 ||
+                    targetUnitId == 0 ||
+                    targetUnitId > units.Length ||
+                    targetGlobalId == 0)
+                {
+                    continue;
+                }
+
+                GameUnit* prey = units.GetValuePointer(targetUnitId - 1);
+                if (prey == null ||
+                    prey->r_AliveState != AliveState.IsAlive ||
+                    prey->r_CurrentHealth == 0 ||
+                    prey->r_GlobalId != targetGlobalId ||
+                    !settings.IsKnownAnimal(prey->r_UnitChimp) ||
+                    !settings.IsHuntingEnabled(prey->r_UnitChimp))
+                {
+                    continue;
+                }
+
+                int hunterUnitId = checked((int)(hunter - units._array) + 1);
+                if (!hunterPclReachability.TryIsReachable(
+                        hunterUnitId,
+                        targetUnitId,
+                        targetGlobalId,
+                        prey->r_UnitChimp,
+                        timestamp,
+                        out bool reachable) ||
+                    reachable)
+                {
+                    continue;
+                }
+
+                // Revalidate after the native query. Invalidating only the stored
+                // global ID enters HunterUpdate's own state-1 identity-failure
+                // branch, which stops the old order and runs Vanilla's search.
+                if (hunter->r_AliveState != AliveState.IsAlive ||
+                    hunter->r_CurrentHealth == 0 ||
+                    *(ushort*)(hunterBytes + 0x2BC) != 1 ||
+                    *(ushort*)(hunterBytes + 0x39A) != targetUnitId ||
+                    *(uint*)(hunterBytes + 0x39C) != targetGlobalId ||
+                    prey->r_AliveState != AliveState.IsAlive ||
+                    prey->r_CurrentHealth == 0 ||
+                    prey->r_GlobalId != targetGlobalId)
+                {
+                    continue;
+                }
+
+                ushort pathState = *(ushort*)(hunterBytes + 0xF2);
+                ushort pathFieldF4 = *(ushort*)(hunterBytes + 0xF4);
+                ushort pathProgress = *(ushort*)(hunterBytes + 0xF6);
+                ushort pathLength = *(ushort*)(hunterBytes + 0xF8);
+                ushort reservationBefore = *(ushort*)((byte*)prey + 0x448);
+                uint orderTargetGlobalId = *(uint*)(hunterBytes + 0x3FE);
+
+                *(uint*)(hunterBytes + 0x39C) = 0;
+                uint targetGlobalIdAfter = *(uint*)(hunterBytes + 0x39C);
+                if (targetGlobalIdAfter != 0)
+                {
+                    hunterPclReachabilityDiagnostic?.RecordActiveTargetInvalidation(
+                        $"hunter={hunterUnitId}/{hunter->r_GlobalId}, " +
+                        $"target={targetUnitId}/{targetGlobalId}/{prey->r_UnitChimp}, " +
+                        $"outcome=target-global-readback-failed, readback={targetGlobalIdAfter}, " +
+                        $"path={pathState}/{pathFieldF4}/{pathProgress}/{pathLength}",
+                        warning: true);
+                    continue;
+                }
+
+                HunterTargetSnapshot invalidatedTarget =
+                    new HunterTargetSnapshot(targetUnitId, targetGlobalId);
+                activeHunterTargets.Remove(hunterUnitId);
+                bestTargetCache.Remove(hunterUnitId);
+                abortedTargetCooldowns.Remove(
+                    new HunterPreyCooldownKey(hunterUnitId, targetGlobalId));
+                TryReleaseAbortedPreyReservation(
+                    units,
+                    hunterUnitId,
+                    invalidatedTarget,
+                    "active-target-pcl-disconnected",
+                    cooldownApplied: false);
+
+                ushort reservationAfter = *(ushort*)((byte*)prey + 0x448);
+                hunterPclReachabilityDiagnostic?.RecordActiveTargetInvalidation(
+                    $"hunter={hunterUnitId}/{hunter->r_GlobalId}, " +
+                    $"target={targetUnitId}/{targetGlobalId}/{prey->r_UnitChimp}, " +
+                    $"outcome=vanilla-requery-armed, targetGlobal={targetGlobalId}->0, " +
+                    $"orderTargetGlobal={orderTargetGlobalId}, reservation={reservationBefore}->{reservationAfter}, " +
+                    $"path={pathState}/{pathFieldF4}/{pathProgress}/{pathLength}, " +
+                    "ownMovement=False, ownAiState=False, " +
+                    "followup=Vanilla-state1-identity-failure-search",
+                    warning: false);
             }
         }
 
@@ -334,6 +471,7 @@ namespace ImprovedHunters
                     continue;
 
                 int hunterId = checked((int)(hunter - units._array) + 1);
+
                 if (nextIdleHunterRequeryTimestamps.TryGetValue(hunterId, out long nextTimestamp) &&
                     timestamp < nextTimestamp)
                 {
@@ -551,7 +689,19 @@ namespace ImprovedHunters
             loadedChickenReconstructionPending = true;
             ClearTargetSelectionCaches();
             hunterLineOfSightRecovery?.ResetForMap();
+            hunterNativeVisibilityProbe?.ResetForMap();
+            hunterPclReachability?.ResetForMap();
+            hunterPclReachabilityDiagnostic?.ResetForMap();
+            hunterTargetSearchFallbackDiagnostic?.ResetForMap();
+            hunterVanillaPathContinuationDiagnostic?.ResetForMap();
             hunterVisibilityDiagnostic?.ResetForMap();
+            Shared.GameModeSnapshot gameMode = Shared.GameModeHelper.Capture();
+            targetSearchFallbackSingleplayerAllowed = !gameMode.IsRealMultiplayer && !gameMode.IsMapEditor;
+            ApplyHunterHutVisibilityPatch();
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                "Improved Hunters target-search fallback mode gate: " +
+                $"allowed={targetSearchFallbackSingleplayerAllowed}, {gameMode.ToDiagnosticString()}.");
             nativeScanFailureLogged = false;
             hunterProjectileCompensationFailureLogged = false;
             hunterProjectileCleanupFailureLogged = false;
@@ -571,10 +721,24 @@ namespace ImprovedHunters
             if (!TryResolveHunterQueryActor(unitApi, args, out int hunterUnitId))
                 return;
 
+            eChimps queryType = unitApi.GetType(args.QueryUnitId);
+            int queryGlobalId = unitApi.GetGlobalId(args.QueryUnitId);
+            if (settings.IsKnownAnimal(queryType) && queryGlobalId > 0)
+            {
+                hunterNativeVisibilityProbe?.RecordQueryCandidate(
+                    hunterUnitId,
+                    args.QueryUnitId,
+                    queryType,
+                    unchecked((uint)queryGlobalId),
+                    timestamp);
+            }
+
             TrackHunterSearchQuery(hunterUnitId, timestamp);
 
-            eChimps queryType = unitApi.GetType(args.QueryUnitId);
-            if (!settings.IsKnownAnimal(queryType) || !IsRuntimeHuntingEnabled(queryType))
+            if (!settings.IsKnownAnimal(queryType))
+                return;
+
+            if (!IsRuntimeHuntingEnabled(queryType))
                 return;
 
             if (!IsOwnerAllowed(unitApi.GetOwner(hunterUnitId), args.QueryUnitId, queryType))
@@ -582,13 +746,51 @@ namespace ImprovedHunters
                 return;
             }
 
-            bool isValidTarget = true;
-            bool usedFallback = true;
+            if (settings.ImprovedPathfinding && queryGlobalId > 0)
+            {
+                hunterPclReachabilityDiagnostic?.RecordCandidate(
+                    hunterUnitId,
+                    args.QueryUnitId,
+                    unchecked((uint)queryGlobalId),
+                    queryType,
+                    timestamp);
+            }
+
+            bool targetPclUnreachable = false;
+            if (settings.ImprovedPathfinding &&
+                queryGlobalId > 0 &&
+                hunterPclReachability != null &&
+                hunterPclReachability.TryIsReachable(
+                    hunterUnitId,
+                    args.QueryUnitId,
+                    unchecked((uint)queryGlobalId),
+                    queryType,
+                    timestamp,
+                    out bool targetPclReachable))
+            {
+                targetPclUnreachable = !targetPclReachable;
+            }
+            bool targetOnCooldown =
+                settings.ImprovedPathfinding &&
+                queryGlobalId > 0 &&
+                IsTargetOnCooldown(hunterUnitId, unchecked((uint)queryGlobalId), timestamp);
+            bool isValidTarget = !targetPclUnreachable && !targetOnCooldown;
+            bool usedFallback = false;
             TargetSelection targetSelection = default;
             BestTarget bestTarget = default;
             if (!settings.ImprovedPathfinding)
             {
-                usedFallback = false;
+                isValidTarget = true;
+            }
+            else if (targetPclUnreachable)
+            {
+                // A zero from the same player-aware PCL query used by MoveHere
+                // is sufficient to reject this candidate before any order.
+            }
+            else if (targetOnCooldown)
+            {
+                // A failed native MoveHere is authoritative for this Hunter/prey
+                // pair until its bounded retry window expires.
             }
             else if (TryGetTargetSelectionForHunter(hunterUnitId, timestamp, out targetSelection))
             {
@@ -599,9 +801,24 @@ namespace ImprovedHunters
             else
             {
                 hunterTargetNoBestEvents++;
+                isValidTarget = true;
+                usedFallback = true;
             }
 
             args.IsValidTarget = isValidTarget;
+            if (isValidTarget &&
+                settings.ImprovedPathfinding &&
+                targetSelection.HasTarget &&
+                queryGlobalId > 0)
+            {
+                hunterTargetSearchFallbackDiagnostic?.RecordCandidate(
+                    hunterUnitId,
+                    args.QueryUnitId,
+                    unchecked((uint)queryGlobalId),
+                    queryType,
+                    preferred: args.QueryUnitId == bestTarget.UnitId,
+                    timestamp: timestamp);
+            }
             hunterTargetQueryEvents++;
             if (isValidTarget)
             {
@@ -609,7 +826,6 @@ namespace ImprovedHunters
                 hunterPreyTypes[hunterUnitId] = queryType;
                 if (queryType == eChimps.CHIMP_TYPE_CHICKEN)
                 {
-                    int queryGlobalId = unitApi.GetGlobalId(args.QueryUnitId);
                     if (queryGlobalId > 0)
                     {
                         hunterVisibilityDiagnostic?.RecordAcceptedChickenTarget(
@@ -627,7 +843,15 @@ namespace ImprovedHunters
             if (usedFallback)
                 hunterTargetFallbackEvents++;
 
-            LogHunterTargetQueryDiagnostic(hunterUnitId, args.QueryUnitId, queryType, isValidTarget, usedFallback, targetSelection);
+            LogHunterTargetQueryDiagnostic(
+                hunterUnitId,
+                args.QueryUnitId,
+                queryType,
+                isValidTarget,
+                usedFallback,
+                targetPclUnreachable,
+                targetOnCooldown,
+                targetSelection);
             LogHunterTargetQuerySummary();
         }
 
@@ -720,7 +944,7 @@ namespace ImprovedHunters
             }
 
             int hunterOwner = unitApi.GetOwner(hunterUnitId);
-            if (!TryGetHunterOrigin(hunter, hunterOwner, timestamp, out int originTileX, out int originTileY, out int originTileId, out int granaryRoundTripCost))
+            if (!TryGetHunterOrigin(hunter, hunterOwner, out int originTileX, out int originTileY, out int granaryRoundTripHeuristicCost))
             {
                 CacheTargetSelection(hunterUnitId, default, timestamp);
                 return false;
@@ -743,14 +967,27 @@ namespace ImprovedHunters
                 if (!IsOwnerAllowed(hunterOwner, prey.UnitId, prey.Type))
                     continue;
 
-                if (IsTargetOnCooldown(hunterUnitId, prey.GlobalId, timestamp))
-                    continue;
-
                 int heuristicDistance = GetChebyshevDistance(originTileX, originTileY, prey.TileX, prey.TileY);
                 if (heuristicDistance > HunterTargetCandidateRadius)
                     continue;
 
-                int heuristicCycleCost = HunterHutWorkCost + GetPreyHandlingCost(prey.Type) + granaryRoundTripCost + (heuristicDistance * 10 * 2);
+                if (hunterPclReachability != null &&
+                    hunterPclReachability.TryIsReachable(
+                        hunterUnitId,
+                        prey.UnitId,
+                        prey.GlobalId,
+                        prey.Type,
+                        timestamp,
+                        out bool preyReachable) &&
+                    !preyReachable)
+                {
+                    continue;
+                }
+
+                if (IsTargetOnCooldown(hunterUnitId, prey.GlobalId, timestamp))
+                    continue;
+
+                int heuristicCycleCost = HunterHutWorkCost + GetPreyHandlingCost(prey.Type) + granaryRoundTripHeuristicCost + (heuristicDistance * 10 * 2);
                 candidates.Add(new PreyCandidate(prey, heuristicCycleCost));
             }
 
@@ -765,21 +1002,35 @@ namespace ImprovedHunters
             bool hasBest = false;
             BestTarget currentBest = default;
             List<BestTarget> evaluatedTargets = new List<BestTarget>();
-            int limit = Math.Min(candidates.Count, MaxPathCandidatesPerHunter);
+            int limit = Math.Min(candidates.Count, MaxHeuristicCandidatesPerHunter);
             for (int i = 0; i < limit; i++)
             {
                 PreySnapshot prey = candidates[i].Prey;
                 if (!TryGetLiveAvailablePreySnapshot(prey, out prey))
                     continue;
 
-                if (!TryGetPathCost(originTileX, originTileY, originTileId, prey, timestamp, out int pathCost))
-                    continue;
-
-                int cycleCost = HunterHutWorkCost + GetPreyHandlingCost(prey.Type) + granaryRoundTripCost + (pathCost * 2);
+                // The Script Extender's managed A* has no expansion budget and
+                // can monopolize the game thread for unreachable destinations.
+                // PCL connectivity has already rejected disconnected regions.
+                // This estimate ranks the remaining candidates while Vanilla's
+                // detailed MoveHere path creation stays authoritative.
+                int approachHeuristicCost = GetChebyshevDistance(
+                    originTileX,
+                    originTileY,
+                    prey.TileX,
+                    prey.TileY) * 10;
+                int cycleCost = HunterHutWorkCost + GetPreyHandlingCost(prey.Type) + granaryRoundTripHeuristicCost + (approachHeuristicCost * 2);
                 if (cycleCost <= 0)
                     cycleCost = 1;
 
-                BestTarget candidate = new BestTarget(prey.UnitId, prey.GlobalId, prey.Type, prey.MeatAmount, pathCost, granaryRoundTripCost, cycleCost);
+                BestTarget candidate = new BestTarget(
+                    prey.UnitId,
+                    prey.GlobalId,
+                    prey.Type,
+                    prey.MeatAmount,
+                    approachHeuristicCost,
+                    granaryRoundTripHeuristicCost,
+                    cycleCost);
                 evaluatedTargets.Add(candidate);
                 if (!hasBest || IsBetterTarget(candidate, currentBest))
                 {
@@ -841,16 +1092,13 @@ namespace ImprovedHunters
         private unsafe bool TryGetHunterOrigin(
             GameUnit* hunter,
             int hunterOwner,
-            long timestamp,
             out int originTileX,
             out int originTileY,
-            out int originTileId,
-            out int granaryRoundTripCost)
+            out int granaryRoundTripHeuristicCost)
         {
             originTileX = hunter->r_CurrentTilePositionX;
             originTileY = hunter->r_CurrentTilePositionY;
-            originTileId = 0;
-            granaryRoundTripCost = 0;
+            granaryRoundTripHeuristicCost = 0;
 
             ushort linkedBuildingId = hunter->r_LinkedProductionBuildingId;
             if (linkedBuildingId != 0 &&
@@ -867,7 +1115,7 @@ namespace ImprovedHunters
             if (!tileApi.IsTileInsideMapBounds(originTileX, originTileY))
                 return false;
 
-            originTileId = tileApi.GetTileId(originTileX, originTileY);
+            int originTileId = tileApi.GetTileId(originTileX, originTileY);
             if (!tileApi.IsValidTileId(originTileId))
                 return false;
 
@@ -885,27 +1133,26 @@ namespace ImprovedHunters
             if (!tileApi.IsValidTileId(originTileId))
                 return false;
 
-            if (TryGetNearestGranaryPathCost(hunterOwner, originTileX, originTileY, originTileId, timestamp, out int granaryPathCost))
-                granaryRoundTripCost = granaryPathCost * 2;
+            if (TryGetNearestGranaryHeuristicCost(hunterOwner, originTileX, originTileY, out int granaryHeuristicCost))
+                granaryRoundTripHeuristicCost = granaryHeuristicCost * 2;
 
             return true;
         }
 
-        private unsafe bool TryGetNearestGranaryPathCost(
+        private unsafe bool TryGetNearestGranaryHeuristicCost(
             int hunterOwner,
             int originTileX,
             int originTileY,
-            int originTileId,
-            long timestamp,
-            out int bestPathCost)
+            out int bestHeuristicCost)
         {
-            bestPathCost = 0;
+            bestHeuristicCost = 0;
             GameBuildingManagerAPI buildingApi = GameBuildingManagerAPI.Instance;
             SimpleNativeArray<GameBuilding> buildings = buildingApi.GetBuildingsArray();
             if (buildings._array == null || buildings.Length == 0)
                 return false;
 
-            List<GranaryCandidate> candidates = new List<GranaryCandidate>();
+            bool found = false;
+            int bestBuildingId = int.MaxValue;
             for (int index = 0; index < buildings.Length; index++)
             {
                 GameBuilding* building = buildings.GetValuePointer(index);
@@ -916,60 +1163,34 @@ namespace ImprovedHunters
                     continue;
                 }
 
-                int heuristicDistance = GetChebyshevDistance(
+                if (!TryGetWalkableTileNear(
+                        building->r_TilePositionXBegin,
+                        building->r_TilePositionYBegin,
+                        10,
+                        out int targetTileX,
+                        out int targetTileY,
+                        out _))
+                {
+                    continue;
+                }
+
+                int heuristicCost = GetChebyshevDistance(
                     originTileX,
                     originTileY,
-                    building->r_TilePositionXBegin,
-                    building->r_TilePositionYBegin);
-                candidates.Add(new GranaryCandidate(index + 1, building->r_GlobalId, building->r_TilePositionXBegin, building->r_TilePositionYBegin, heuristicDistance));
+                    targetTileX,
+                    targetTileY) * 10;
+                int buildingId = index + 1;
+                if (!found ||
+                    heuristicCost < bestHeuristicCost ||
+                    (heuristicCost == bestHeuristicCost && buildingId < bestBuildingId))
+                {
+                    bestHeuristicCost = heuristicCost;
+                    bestBuildingId = buildingId;
+                    found = true;
+                }
             }
 
-            if (candidates.Count == 0)
-                return false;
-
-            candidates.Sort(CompareGranaryCandidatesByHeuristic);
-            GameTileManagerAPI tileApi = GameTileManagerAPI.Instance;
-            for (int i = 0; i < candidates.Count; i++)
-            {
-                GranaryCandidate granary = candidates[i];
-                if (!TryGetWalkableTileNear(granary.TileX, granary.TileY, 10, out int targetTileX, out int targetTileY, out int targetTileId))
-                    continue;
-
-                PathCostKey key = new PathCostKey(originTileId, granary.GlobalId, targetTileId);
-                if (pathCostCache.TryGetValue(key, out CachedPathCost cachedPathCost) &&
-                    timestamp < cachedPathCost.ExpiresAt)
-                {
-                    pathCacheHits++;
-                    if (cachedPathCost.Cost < 0)
-                        continue;
-
-                    bestPathCost = cachedPathCost.Cost;
-                    return true;
-                }
-
-                pathCacheMisses++;
-                List<UnmanagedVector2<ushort>> path = tileApi.FindPath(originTileX, originTileY, targetTileX, targetTileY);
-                if (path == null || path.Count == 0)
-                {
-                    pathCostCache[key] = new CachedPathCost(-1, timestamp + PathCostCacheInterval);
-                    continue;
-                }
-
-                bestPathCost = CalculatePathCost(originTileX, originTileY, path);
-                pathCostCache[key] = new CachedPathCost(bestPathCost, timestamp + PathCostCacheInterval);
-                return true;
-            }
-
-            return false;
-        }
-
-        private static int CompareGranaryCandidatesByHeuristic(GranaryCandidate left, GranaryCandidate right)
-        {
-            int distanceCompare = left.HeuristicDistance.CompareTo(right.HeuristicDistance);
-            if (distanceCompare != 0)
-                return distanceCompare;
-
-            return left.BuildingId.CompareTo(right.BuildingId);
+            return found;
         }
 
         private bool TryGetWalkableTileNear(int tileX, int tileY, int maxRange, out int walkableTileX, out int walkableTileY, out int walkableTileId)
@@ -1244,72 +1465,6 @@ namespace ImprovedHunters
             }
         }
 
-        private bool TryGetPathCost(
-            int originTileX,
-            int originTileY,
-            int originTileId,
-            PreySnapshot prey,
-            long timestamp,
-            out int pathCost)
-        {
-            pathCost = 0;
-            GameTileManagerAPI tileApi = GameTileManagerAPI.Instance;
-            if (!tileApi.IsTileInsideMapBounds(prey.TileX, prey.TileY))
-                return false;
-
-            int targetTileId = tileApi.GetTileId(prey.TileX, prey.TileY);
-            if (!tileApi.IsValidTileId(targetTileId))
-                return false;
-
-            PathCostKey key = new PathCostKey(originTileId, prey.GlobalId, targetTileId);
-            if (pathCostCache.TryGetValue(key, out CachedPathCost cachedPathCost) &&
-                timestamp < cachedPathCost.ExpiresAt)
-            {
-                pathCacheHits++;
-                pathCost = cachedPathCost.Cost;
-                return pathCost >= 0;
-            }
-
-            pathCacheMisses++;
-            if (originTileX == prey.TileX && originTileY == prey.TileY)
-            {
-                pathCost = 0;
-            }
-            else
-            {
-                List<UnmanagedVector2<ushort>> path = tileApi.FindPath(originTileX, originTileY, prey.TileX, prey.TileY);
-                if (path == null || path.Count == 0)
-                {
-                    pathCostCache[key] = new CachedPathCost(-1, timestamp + PathCostCacheInterval);
-                    return false;
-                }
-
-                pathCost = CalculatePathCost(originTileX, originTileY, path);
-            }
-
-            pathCostCache[key] = new CachedPathCost(pathCost, timestamp + PathCostCacheInterval);
-            return true;
-        }
-
-        private static int CalculatePathCost(int startX, int startY, List<UnmanagedVector2<ushort>> path)
-        {
-            int cost = 0;
-            int previousX = startX;
-            int previousY = startY;
-            for (int i = 0; i < path.Count; i++)
-            {
-                int currentX = path[i].X;
-                int currentY = path[i].Y;
-                int dx = Math.Abs(currentX - previousX);
-                int dy = Math.Abs(currentY - previousY);
-                cost += dx != 0 && dy != 0 ? 14 : 10;
-                previousX = currentX;
-                previousY = currentY;
-            }
-
-            return cost;
-        }
-
         private static int ComparePreyCandidatesByHeuristic(PreyCandidate left, PreyCandidate right)
         {
             long leftScore = (long)left.Prey.MeatAmount * right.HeuristicCycleCost;
@@ -1328,8 +1483,11 @@ namespace ImprovedHunters
             if (candidateScore != currentScore)
                 return candidateScore > currentScore;
 
-            if (candidate.Type == currentBest.Type && candidate.PathCost != currentBest.PathCost)
-                return candidate.PathCost < currentBest.PathCost;
+            if (candidate.Type == currentBest.Type &&
+                candidate.ApproachHeuristicCost != currentBest.ApproachHeuristicCost)
+            {
+                return candidate.ApproachHeuristicCost < currentBest.ApproachHeuristicCost;
+            }
 
             if (candidate.MeatAmount != currentBest.MeatAmount)
                 return candidate.MeatAmount > currentBest.MeatAmount;
@@ -1388,7 +1546,12 @@ namespace ImprovedHunters
 
             hunterTargetSearchStarts++;
             if (hunterTargetDiagnosticLogs < MaxHunterTargetDiagnosticLogs)
-                log.LogInfo($"Improved Hunters target search start: hunter={hunterUnitId}, searchCount={hunterTargetSearchStarts}.");
+            {
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    $"Improved Hunters target search start: hunter={hunterUnitId}, " +
+                    $"searchCount={hunterTargetSearchStarts}.");
+            }
         }
 
         private void OnHunterPickUpMeat(UnitHunterPickUpMeatEventArgs args)
@@ -1518,16 +1681,16 @@ namespace ImprovedHunters
             activeHunterTargets.Remove(hunterUnitId);
             bestTargetCache.Remove(hunterUnitId);
             bool recoveryMoveIssued = hunterLineOfSightRecovery?.TryRecoverAfterTargetAbort(
-                units,
-                hunterUnitId,
-                previousTarget.UnitId,
-                previousTarget.GlobalId,
-                timestamp) == true;
+                    units,
+                    hunterUnitId,
+                    previousTarget.UnitId,
+                    previousTarget.GlobalId,
+                    timestamp) == true;
             HunterPreyCooldownKey cooldownKey = new HunterPreyCooldownKey(hunterUnitId, previousTarget.GlobalId);
             if (recoveryMoveIssued)
                 abortedTargetCooldowns.Remove(cooldownKey);
             else
-                abortedTargetCooldowns[cooldownKey] = timestamp + AbortedTargetCooldownInterval;
+                SetTargetCooldownUntil(cooldownKey, timestamp + AbortedTargetCooldownInterval);
             TryReleaseAbortedPreyReservation(
                 units,
                 hunterUnitId,
@@ -1544,8 +1707,13 @@ namespace ImprovedHunters
             SimpleNativeArray<GameUnit> units,
             int hunterUnitId,
             HunterTargetSnapshot previousTarget,
-            string transition)
+            string transition,
+            bool cooldownApplied = true)
         {
+            long cooldownSeconds = cooldownApplied
+                ? AbortedTargetCooldownInterval / Stopwatch.Frequency
+                : 0;
+
             if (previousTarget.UnitId <= 0 || previousTarget.UnitId > units.Length)
             {
                 LogReservationDiagnostic(
@@ -1585,7 +1753,7 @@ namespace ImprovedHunters
                     $"Improved Hunters prey reservation: source=target-abort, outcome=no-stale-reservation, " +
                     $"hunter={hunterUnitId}, transition={transition}, target={previousTarget.UnitId}/{eligibility.Type}, " +
                     $"globalId={previousTarget.GlobalId}, reservation={eligibility.Reservation}, " +
-                    $"cooldownSeconds={AbortedTargetCooldownInterval / Stopwatch.Frequency}.");
+                    $"cooldownSeconds={cooldownSeconds}.");
                 return;
             }
 
@@ -1606,7 +1774,7 @@ namespace ImprovedHunters
                 $"outcome={(readback == 0 ? "released" : "readback-failed")}, hunter={hunterUnitId}, " +
                 $"transition={transition}, target={previousTarget.UnitId}/{eligibility.Type}, " +
                 $"globalId={previousTarget.GlobalId}, previous=2, readback={readback}, " +
-                $"cooldownSeconds={AbortedTargetCooldownInterval / Stopwatch.Frequency}.",
+                $"cooldownSeconds={cooldownSeconds}.",
                 warning: readback != 0);
         }
 
@@ -1679,12 +1847,27 @@ namespace ImprovedHunters
             return false;
         }
 
+        private void SetTargetCooldownUntil(HunterPreyCooldownKey key, long expiresAt)
+        {
+            // Preserve the later expiry when two independent abort observations
+            // report the same Hunter/prey pair.
+            if (abortedTargetCooldowns.TryGetValue(key, out long currentExpiresAt) &&
+                currentExpiresAt >= expiresAt)
+            {
+                return;
+            }
+
+            abortedTargetCooldowns[key] = expiresAt;
+        }
+
         private void LogHunterTargetQueryDiagnostic(
             int hunterUnitId,
             int queryUnitId,
             eChimps queryType,
             bool isValidTarget,
             bool usedFallback,
+            bool targetPclUnreachable,
+            bool targetOnCooldown,
             TargetSelection targetSelection)
         {
             if (hunterTargetDiagnosticLogs >= MaxHunterTargetDiagnosticLogs)
@@ -1694,15 +1877,25 @@ namespace ImprovedHunters
             BestTarget bestTarget = targetSelection.BestTarget;
             string bestText = bestTarget.UnitId == 0
                 ? "none"
-                : $"{bestTarget.UnitId}/{bestTarget.Type}/meat={bestTarget.MeatAmount}/huntPath={bestTarget.PathCost}/granaryRoundTrip={bestTarget.GranaryRoundTripCost}/hutWork={HunterHutWorkCost}/cycle={bestTarget.CycleCost}/allowedNearBest={targetSelection.AllowedCount}";
+                : $"{bestTarget.UnitId}/{bestTarget.Type}/meat={bestTarget.MeatAmount}/" +
+                  $"approachHeuristic={bestTarget.ApproachHeuristicCost}/" +
+                  $"granaryRoundTripHeuristic={bestTarget.GranaryRoundTripHeuristicCost}/" +
+                  $"hutWork={HunterHutWorkCost}/cycleHeuristic={bestTarget.CycleCost}/" +
+                  $"allowedNearBest={targetSelection.AllowedCount}";
 
-            log.LogInfo(
+            Shared.DebugLogHelper.LogInfo(
+                log,
                 $"Improved Hunters target query: hunter={hunterUnitId}, candidate={queryUnitId}/{queryType}, " +
-                $"allowed={isValidTarget}, fallback={usedFallback}, best={bestText} " +
+                $"allowed={isValidTarget}, fallback={usedFallback}, pclUnreachable={targetPclUnreachable}, " +
+                $"cooldown={targetOnCooldown}, best={bestText} " +
                 $"({hunterTargetDiagnosticLogs}/{MaxHunterTargetDiagnosticLogs}).");
 
             if (hunterTargetDiagnosticLogs == MaxHunterTargetDiagnosticLogs)
-                log.LogInfo("Improved Hunters target query diagnostic limit reached; continuing with periodic summaries only.");
+            {
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    "Improved Hunters target query diagnostic limit reached; continuing with periodic summaries only.");
+            }
         }
 
         private void LogHunterTargetQuerySummary()
@@ -1712,10 +1905,12 @@ namespace ImprovedHunters
                 return;
 
             nextHunterTargetSummaryTimestamp = timestamp + HunterTargetSummaryInterval;
-            log.LogInfo(
+            Shared.DebugLogHelper.LogInfo(
+                log,
                 $"Improved Hunters target query summary: total={hunterTargetQueryEvents}, accepted={hunterTargetAcceptedEvents}, " +
                 $"rejected={hunterTargetRejectedEvents}, searches={hunterTargetSearchStarts}, fallback={hunterTargetFallbackEvents}, noBest={hunterTargetNoBestEvents}, " +
-                $"preyCache={preyCache.Count}, pathCache={pathCostCache.Count}, pathHits={pathCacheHits}, pathMisses={pathCacheMisses}.");
+                $"preyCache={preyCache.Count}, ranking=bounded-chebyshev-after-PCL, " +
+                $"nativeReachability=({hunterPclReachability?.GetDiagnosticSummary() ?? "unavailable"}).");
         }
 
         private void OnCalculateBonusYield(UnitCalculateBonusYieldEventArgs args)
@@ -2388,6 +2583,16 @@ namespace ImprovedHunters
                 propertyName == nameof(ImprovedHuntersViewModel.ImprovedPathfinding))
             {
                 hunterLineOfSightRecovery?.ResetForMap();
+                hunterPclReachability?.ResetForMap();
+                hunterPclReachabilityDiagnostic?.ResetForMap();
+                hunterTargetSearchFallbackDiagnostic?.ResetForMap();
+                hunterVanillaPathContinuationDiagnostic?.ResetForMap();
+            }
+
+            if (propertyName == nameof(ImprovedHuntersViewModel.EnableMod) ||
+                propertyName == nameof(ImprovedHuntersViewModel.ImprovedPathfinding))
+            {
+                ApplyHunterHutVisibilityPatch();
             }
 
             if (propertyName == nameof(ImprovedHuntersViewModel.EnableMod) ||
@@ -2993,6 +3198,198 @@ namespace ImprovedHunters
             }
         }
 
+        private void InitializeHunterNativeVisibilityProbe(
+            ReadOnlySpan<byte> memory,
+            ulong imageBase,
+            bool referenceHashMatches)
+        {
+            try
+            {
+                hunterNativeVisibilityProbe = new HunterNativeVisibilityProbe(
+                    log,
+                    settings,
+                    memory,
+                    imageBase,
+                    referenceHashMatches);
+            }
+            catch (Exception exception)
+            {
+                hunterNativeVisibilityProbe?.Dispose();
+                hunterNativeVisibilityProbe = null;
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Improved Hunters native visibility probe is unavailable; " +
+                    $"Hunter behavior remains unchanged: {exception}");
+            }
+        }
+
+        private void InitializeHunterTargetSearchFallbackDiagnostic(
+            ReadOnlySpan<byte> memory,
+            ulong imageBase,
+            bool referenceHashMatches)
+        {
+            try
+            {
+                hunterTargetSearchFallbackDiagnostic = new HunterTargetSearchFallbackDiagnostic(
+                    log,
+                    settings,
+                    memory,
+                    imageBase,
+                    referenceHashMatches,
+                    CanRunHunterTargetSearchFallback,
+                    RegisterRejectedHunterStateZeroMove,
+                    RecordHunterPclMoveHereResult);
+            }
+            catch (Exception exception)
+            {
+                hunterTargetSearchFallbackDiagnostic?.Dispose();
+                hunterTargetSearchFallbackDiagnostic = null;
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    "Improved Hunters target-search fallback diagnostic is unavailable; " +
+                    $"Hunter behavior remains unchanged: {exception}");
+            }
+        }
+
+        private void InitializeHunterPclReachabilityDiagnostic(bool referenceHashMatches)
+        {
+            try
+            {
+                hunterPclReachabilityDiagnostic = new HunterPclReachabilityDiagnostic(
+                    log,
+                    referenceHashMatches,
+                    CanRunHunterTargetSearchFallback);
+            }
+            catch (Exception exception)
+            {
+                hunterPclReachabilityDiagnostic?.Dispose();
+                hunterPclReachabilityDiagnostic = null;
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    "Improved Hunters PCL reachability diagnostic is unavailable; " +
+                    $"Hunter behavior remains unchanged: {exception}");
+            }
+        }
+
+        private void InitializeHunterPclReachability(bool referenceHashMatches)
+        {
+            try
+            {
+                hunterPclReachability = new HunterPclReachability(
+                    log,
+                    referenceHashMatches,
+                    CanRunHunterTargetSearchFallback);
+            }
+            catch (Exception exception)
+            {
+                hunterPclReachability?.Dispose();
+                hunterPclReachability = null;
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    "Improved Hunters native PCL reachability filter is unavailable; " +
+                    $"target selection remains unchanged: {exception}");
+            }
+        }
+
+        private void RecordHunterPclMoveHereResult(
+            int hunterUnitId,
+            int preyUnitId,
+            uint preyGlobalId,
+            eChimps preyType,
+            int moveHereResult,
+            long timestamp)
+        {
+            hunterPclReachabilityDiagnostic?.RecordMoveHereResult(
+                hunterUnitId,
+                preyUnitId,
+                preyGlobalId,
+                preyType,
+                moveHereResult,
+                timestamp);
+        }
+
+        private bool CanRunHunterTargetSearchFallback()
+        {
+            return settings.EnableMod &&
+                settings.ImprovedPathfinding &&
+                targetSearchFallbackSingleplayerAllowed;
+        }
+
+        private void InitializeHunterHutVisibilityPatch(
+            ReadOnlySpan<byte> memory,
+            ulong imageBase,
+            bool referenceHashMatches)
+        {
+            try
+            {
+                hunterHutVisibilityPatch = new HunterHutVisibilityPatch(
+                    log,
+                    memory,
+                    imageBase,
+                    referenceHashMatches);
+            }
+            catch (Exception exception)
+            {
+                hunterHutVisibilityPatch?.Dispose();
+                hunterHutVisibilityPatch = null;
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Improved Hunters Hunter's Hut visibility patch is unavailable; " +
+                    $"Vanilla's visibility exception remains unchanged: {exception}");
+            }
+        }
+
+        private void ApplyHunterHutVisibilityPatch()
+        {
+            bool requestedEnabled = CanRunHunterTargetSearchFallback();
+            if (hunterHutVisibilityPatch == null)
+                return;
+
+            hunterHutVisibilityPatch.TrySetEnabled(requestedEnabled);
+        }
+
+        private void InitializeHunterVanillaPathContinuationDiagnostic(
+            ReadOnlySpan<byte> memory,
+            ulong imageBase,
+            bool referenceHashMatches)
+        {
+            try
+            {
+                hunterVanillaPathContinuationDiagnostic =
+                    new HunterVanillaPathContinuationDiagnostic(
+                        log,
+                        settings,
+                        hunterNativeVisibilityProbe,
+                        memory,
+                        imageBase,
+                        referenceHashMatches,
+                        CanRunHunterTargetSearchFallback);
+            }
+            catch (Exception exception)
+            {
+                hunterVanillaPathContinuationDiagnostic?.Dispose();
+                hunterVanillaPathContinuationDiagnostic = null;
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    "Improved Hunters Vanilla-path continuation diagnostic is unavailable; " +
+                    $"Hunter behavior remains unchanged: {exception}");
+            }
+        }
+
+        private void RegisterRejectedHunterStateZeroMove(
+            int hunterUnitId,
+            uint preyGlobalId,
+            long timestamp)
+        {
+            if (hunterUnitId <= 0 || preyGlobalId == 0)
+                return;
+
+            bestTargetCache.Remove(hunterUnitId);
+            SetTargetCooldownUntil(
+                new HunterPreyCooldownKey(hunterUnitId, preyGlobalId),
+                timestamp + AbortedTargetCooldownInterval);
+        }
+
         private void ApplyAutomaticChickenTargetPatch()
         {
             bool requestedEnabled = settings.EnableMod && settings.HuntChicken;
@@ -3110,7 +3507,6 @@ namespace ImprovedHunters
         private void ClearTargetSelectionCaches()
         {
             preyCache.Clear();
-            pathCostCache.Clear();
             bestTargetCache.Clear();
             activeHunterTargets.Clear();
             abortedTargetCooldowns.Clear();
@@ -3134,8 +3530,6 @@ namespace ImprovedHunters
             hunterTargetFallbackEvents = 0;
             hunterTargetNoBestEvents = 0;
             hunterTargetSearchStarts = 0;
-            pathCacheHits = 0;
-            pathCacheMisses = 0;
         }
 
         private struct PreyEligibility
@@ -3188,42 +3582,31 @@ namespace ImprovedHunters
             }
         }
 
-        private struct GranaryCandidate
-        {
-            public readonly int BuildingId;
-            public readonly uint GlobalId;
-            public readonly int TileX;
-            public readonly int TileY;
-            public readonly int HeuristicDistance;
-
-            public GranaryCandidate(int buildingId, uint globalId, int tileX, int tileY, int heuristicDistance)
-            {
-                BuildingId = buildingId;
-                GlobalId = globalId;
-                TileX = tileX;
-                TileY = tileY;
-                HeuristicDistance = heuristicDistance;
-            }
-        }
-
         private struct BestTarget
         {
             public readonly int UnitId;
             public readonly uint GlobalId;
             public readonly eChimps Type;
             public readonly int MeatAmount;
-            public readonly int PathCost;
-            public readonly int GranaryRoundTripCost;
+            public readonly int ApproachHeuristicCost;
+            public readonly int GranaryRoundTripHeuristicCost;
             public readonly int CycleCost;
 
-            public BestTarget(int unitId, uint globalId, eChimps type, int meatAmount, int pathCost, int granaryRoundTripCost, int cycleCost)
+            public BestTarget(
+                int unitId,
+                uint globalId,
+                eChimps type,
+                int meatAmount,
+                int approachHeuristicCost,
+                int granaryRoundTripHeuristicCost,
+                int cycleCost)
             {
                 UnitId = unitId;
                 GlobalId = globalId;
                 Type = type;
                 MeatAmount = meatAmount;
-                PathCost = pathCost;
-                GranaryRoundTripCost = granaryRoundTripCost;
+                ApproachHeuristicCost = approachHeuristicCost;
+                GranaryRoundTripHeuristicCost = granaryRoundTripHeuristicCost;
                 CycleCost = cycleCost <= 0 ? 1 : cycleCost;
             }
         }
@@ -3271,56 +3654,6 @@ namespace ImprovedHunters
             {
                 Selection = selection;
                 ExpiresAt = expiresAt;
-            }
-        }
-
-        private struct CachedPathCost
-        {
-            public readonly int Cost;
-            public readonly long ExpiresAt;
-
-            public CachedPathCost(int cost, long expiresAt)
-            {
-                Cost = cost;
-                ExpiresAt = expiresAt;
-            }
-        }
-
-        private struct PathCostKey : IEquatable<PathCostKey>
-        {
-            private readonly int originTileId;
-            private readonly uint targetGlobalId;
-            private readonly int targetTileId;
-
-            public PathCostKey(int originTileId, uint targetGlobalId, int targetTileId)
-            {
-                this.originTileId = originTileId;
-                this.targetGlobalId = targetGlobalId;
-                this.targetTileId = targetTileId;
-            }
-
-            public bool Equals(PathCostKey other)
-            {
-                return originTileId == other.originTileId &&
-                    targetGlobalId == other.targetGlobalId &&
-                    targetTileId == other.targetTileId;
-            }
-
-            public override bool Equals(object obj)
-            {
-                return obj is PathCostKey other && Equals(other);
-            }
-
-            public override int GetHashCode()
-            {
-                unchecked
-                {
-                    int hash = 17;
-                    hash = hash * 31 + originTileId;
-                    hash = hash * 31 + targetGlobalId.GetHashCode();
-                    hash = hash * 31 + targetTileId;
-                    return hash;
-                }
             }
         }
 
@@ -3611,6 +3944,18 @@ namespace ImprovedHunters
 
             hunterVisibilityDiagnostic?.Dispose();
             hunterVisibilityDiagnostic = null;
+            hunterTargetSearchFallbackDiagnostic?.Dispose();
+            hunterTargetSearchFallbackDiagnostic = null;
+            hunterPclReachabilityDiagnostic?.Dispose();
+            hunterPclReachabilityDiagnostic = null;
+            hunterPclReachability?.Dispose();
+            hunterPclReachability = null;
+            hunterVanillaPathContinuationDiagnostic?.Dispose();
+            hunterVanillaPathContinuationDiagnostic = null;
+            hunterNativeVisibilityProbe?.Dispose();
+            hunterNativeVisibilityProbe = null;
+            hunterHutVisibilityPatch?.Dispose();
+            hunterHutVisibilityPatch = null;
             hunterLineOfSightRecovery?.Dispose();
             hunterLineOfSightRecovery = null;
             hunterQueryActorWorkaround?.Dispose();

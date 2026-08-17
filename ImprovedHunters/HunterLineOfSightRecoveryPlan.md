@@ -1,1073 +1,659 @@
-# Plan: Robuste Sichtlinien-Recovery für Jäger
+# ImprovedHunters: Sichtlinie, Erreichbarkeit und Vanilla-Pfadfortsetzung
 
-## Status und Abgrenzung
+Stand: `2026-08-17`
 
-Dieses Dokument beschreibt die geplante Korrektur für ein Vanilla-Problem:
-Jäger berücksichtigen fußläufig erreichbare Beute hinter Sichtblockern entweder
-gar nicht erst als Ziel oder brechen den Angriff noch vor dem Schuss ab, wenn
-Vanillas interne Sicht-/Geometrieprüfung keine gültige Schusslinie findet.
-Das Problem tritt unter anderem hinter Kornspeichern und Holzfällerhütten sowie
-auf bestimmten Höhenverläufen ohne Gebäude auf. Jägerhütten bilden in Vanillas
-Sichtprüfung eine Sonderbehandlung: Jäger können über sie hinweg schießen,
-obwohl ein Pfeil anschließend physisch an der Hütte hängen bleiben kann.
+Aktueller Quellstand: `1.1.45`; letzter ingame getesteter Stand: `1.1.44`
 
-Der Plan ändert deshalb weder allgemein die Sichtblockade von Gebäuden noch die
-Projektilkollision. Er ergänzt ausschließlich für automatisch jagende Jäger eine
-kontrollierte Bewegung zu einer erreichbaren Position, von der Vanillas eigene
-Sichtprüfung den Schuss akzeptiert und der reale Pfeilkorridor frei ist. Das
-gilt für jeden im Mod aktivierten Beutetyp: Reh, Ziege, Hase, Kamel, Huhn und
-Kuh. Die eigentliche Zielpräferenz, der Angriff, der Fernkampfschaden, der
-Kadaverzustand, das Einsammeln und die Fleischabgabe bleiben Vanilla
-beziehungsweise bei der bereits vorhandenen Improved-Pathfinding-Auswahl.
+## Zweck dieses Dokuments
 
-Die in diesem Dokument genannten nativen Adressen beziehen sich auf die
-kanonische installierte `CrusaderDE.dll`:
+Dieses Dokument ist die Übergabe- und Arbeitsgrundlage für einen neuen Chat.
+Es trennt bewusst:
+
+1. das fachliche Ziel,
+2. bestätigte Vanilla- und Native-Erkenntnisse,
+3. den bereits implementierten Stand,
+4. noch ausstehende Abnahmetests,
+5. danach zu bearbeitende Verbesserungen und
+6. verworfene Ansätze, die nicht erneut eingeführt werden dürfen.
+
+Die frühere Idee einer vollständig eigenen Recovery-State-Machine mit eigenen
+Bewegungsbefehlen ist **nicht mehr der aktuelle Lösungsweg**. Die Tests haben
+gezeigt, dass Vanilla bereits korrekt um Hindernisse navigiert, sobald es einen
+Pfad zur Beute angenommen hat. ImprovedHunters soll diesen Vanilla-Pfad
+erhalten, unerreichbare Beute früh aussortieren und Vanillas regulären Angriff
+wieder freigeben, sobald die Sichtlinie frei ist.
+
+## Fachliches Ziel
+
+Ein Jäger soll jede aktivierte Beuteart auch hinter Gebäuden, Mauern, Toren,
+Türmen oder Geländeanstiegen berücksichtigen, wenn ein gültiger Fußweg zur
+Beute besteht. Er soll Vanillas Weg um das Hindernis weiterlaufen, an der ersten
+geeigneten Position mit freier Sichtlinie angreifen und anschließend Vanillas
+normalen Kadaver-, Einsammel- und Fleischabgabeprozess verwenden.
+
+Vollständig unerreichbare Beute soll für den jeweiligen Jäger bereits vor der
+Distanzrangfolge verworfen werden. Sie darf näher liegende, aber erreichbare
+Beute nicht verdrängen. Die Erreichbarkeit muss regelmäßig erneut geprüft
+werden, damit ein geöffnetes Tor oder eine entfernte Mauer das Tier wieder
+zulässt.
+
+Die Jägerhütte soll keine Sichtlinienausnahme mehr besitzen. Sie soll wie andere
+Gebäude die Ziel- und Schussfreigabe blockieren, weil ein bereits gestarteter
+Pfeil sonst physisch in der Hütte hängen bleiben kann.
+
+Das Ziel gilt für Reh, Ziege, Hase, Kamel, Huhn und Kuh, soweit der betreffende
+`Hunt...`-Schalter aktiv und der Typ im Runtime-Eligibility-Pfad tatsächlich
+freigeschaltet ist.
+
+## Aktueller Status in Kurzform
+
+| Teilproblem | Stand | Nächster Schritt |
+| --- | --- | --- |
+| Verborgene Beute in Vanillas Zielsuche verfügbar machen | Implementiert; Vanilla erhält einen validierten Kandidaten, wenn seine vollständige Suche wegen Sicht `0` liefert | Regression nach PCL-Einbau |
+| Vanillas angenommenen Hindernispfad im Nahbereich weiterlaufen | Implementiert und mit einem sowie mehreren Jägern bestätigt | Endgültige Abnahme und Produktionsbereinigung |
+| Bei freier Sicht wieder Vanilla angreifen lassen | In den bisherigen Hindernistests bestätigt | Mit PCL-Filter erneut prüfen |
+| Jägerhütte als normalen Sichtblocker behandeln | Seit `1.1.41` implementiert; Ingame laut Beobachtung funktionsfähig | Gezielter Regressionstest |
+| Unerreichbare Beute früh verwerfen | Seit `1.1.44` produktiv über PCL-Vorfilter implementiert und im gemischten Test bestätigt | Kurzer Regressionstest mit `1.1.45` |
+| „Kein Wild“ bei ausschließlich unerreichbarer Beute | Im `1.1.44`-Test wie erwartet beobachtet | Kurzer Regressionstest mit `1.1.45` |
+| Geänderte Erreichbarkeit zeitnah erkennen | Öffnen eines Zugangs wurde mit Ein-Sekunden-Cache bestätigt | Kurzer Regressionstest mit `1.1.45` |
+| Während des Anmarschs neu unerreichbares Ziel verwerfen | Seit `1.1.45` über den persistenten Scan und Vanillas State-1-Identitätsfehlerpfad implementiert | Ausgewähltes Reh während des Anmarschs einschließen und Zielwechsel prüfen |
+| Mehrere Jäger | Nach Entfernung einer künstlichen globalen Diagnosegrenze bestätigt | Kurzer Regressionstest nach Kernabnahme |
+| Unpassend langsames Schleichen bei langem Umweg | Beobachtet, bewusst nachgelagert | Restpfadlänge und Vanilla-Bewegungsstufen analysieren |
+| Erfolgreicher Schuss ohne sichtbares Einsammeln bei bewegter Herde | Offen; nicht durch das PCL-Logging verursacht | Isolierter Ein-Reh-Test mit separatem Logging |
+| Alle sechs Beutearten | Architektur gemeinsam, aber noch nicht vollständig ingame abgenommen | Typmatrix nach Kernabnahme |
+| Multiplayer | Soll unterstützt werden, derzeit absichtlich fail-closed | Eigener Chore ab Script Extender `1.50.0` |
+
+## Aktuelle Lösungskette
+
+Der aktuelle Lösungsweg verwendet möglichst vollständig Vanillas eigene
+Ziel-, Pfad-, Bewegungs- und Angriffslogik:
+
+1. `OnHunterQueryTarget` validiert Jäger und Kandidat über stabile Slot- und
+   Global-IDs sowie Beutetyp, Besitzer, Alive-State und aktive Einstellungen.
+2. `HunterPclReachability` prüft bereits vor der kostenbasierten Rangfolge, ob
+   Jäger- und Beutetile in für diesen Spieler verbundenen Path Connection
+   Layers liegen.
+3. Nur ein belastbares PCL-Ergebnis `0` verwirft den Kandidaten. Ein positives
+   Ergebnis beweist noch keinen detaillierten Weg und lässt Vanilla deshalb
+   vollständig autoritativ.
+4. Dieselbe PCL-Prüfung läuft nochmals beim konkreten Vanilla-Kandidaten-
+   Handoff. Damit kann auch ein leerer oder veralteter Ranking-Cache keinen
+   bekannten unerreichbaren Kandidaten über einen allgemeinen Fallback wieder
+   zulassen.
+5. Liefert Vanillas vollständige State-0-Zielsuche trotz eines gültigen
+   verborgenen Kandidaten `0`, stellt der begrenzte Zielsuche-Fallback genau
+   diesen Kandidaten bereit. Vanilla schreibt danach selbst Zielidentität,
+   Reservierung, Pfad und AI-State und ruft selbst `MoveHere` auf.
+6. Ist `MoveHere` erfolgreich, folgt der Jäger Vanillas eigenem Hindernispfad.
+7. Während State `1` prüft der vorhandene persistente Scan das aktive Ziel über
+   denselben PCL-Cache erneut. Bei bestätigtem PCL-Ergebnis `0` macht er nur die
+   gespeicherte Ziel-Global-ID ungültig und gibt die Reservation
+   identitätsgesichert frei. Im nächsten Update stoppt und verwirft Vanilla den
+   alten Auftrag über seinen eigenen Identitätsfehlerpfad und sucht selbst neu.
+8. Sobald Vanilla bei nativer Distanz `<= 28` trotz noch aktivem Pfad wegen
+   blockierter Sicht vorzeitig angreifen würde, lässt die Pfadfortsetzung für
+   genau diesen Update-Aufruf Vanillas bereits vorhandene Distanz-29-Stufe
+   laufen. Der Mod gibt dabei keinen Move aus und schreibt weder Ziel-, Pfad-,
+   Order- noch AI-State-Felder.
+9. Sobald die native Sichtprobe positiv wird, endet dieser Eingriff sofort.
+   Vanilla greift regulär an.
+10. Nach einem echten Projektilspawn übernimmt ausschließlich die bestehende
+   identitätsgesicherte Projektilkompensation. Sie kann bei einem feststeckenden
+   Pfeil `DamageUnitRanged` verwenden; `KillUnit` bleibt ausgeschlossen.
+
+Diese Kette ist der gegenwärtig bevorzugte Produktionsansatz. Eine eigene Suche
+nach Schusstiles oder eigene Bewegungs-State-Machine ist nur wieder zu erwägen,
+wenn ein reproduzierbarer Fall trotz positiver PCL-Verbindung, angenommenem
+Vanilla-Pfad und funktionierender Pfadfortsetzung nicht lösbar ist.
+
+## Bestätigte Vanilla-Semantik
+
+### Zielsuche und Sicht
+
+- Die Hunter-Zielsuche läuft über Unit-Slots, Alive-State, Typ, Reservierung,
+  Distanz und danach Sicht.
+- Der öffentliche `OnUnitHunterQueryTarget`-Detour greift vor den späteren
+  Vanilla-Distanz- und Sichtprüfungen ein. Das Zulassen eines Tierstyps allein
+  überspringt die Sichtprüfung daher nicht.
+- Vanillas Zielsuche verwendet Manhattan-Distanz in zwei Pässen:
+  zunächst Kandidaten mit Distanz `> 20`, danach bei fehlendem Ziel Kandidaten
+  mit Distanz `> 5`.
+- Bei Distanz `< 54` muss der gemeinsame Sichtwrapper einen Wert `1..432`
+  liefern. `0` verwirft den Kandidaten.
+- Ab Distanz `54` kann die frühe Zielsuche die Sichtprüfung überspringen. Der
+  spätere direkte Hunter-Orderpfad prüft die Sicht dennoch erneut.
+- Der gemeinsame Sichtwrapper arbeitet mit Weltkoordinaten, Unit-Höhen,
+  Tileflags und Hindernishöhen. Eine Bresenham-Tilelinie oder reine
+  Gebäudeliste ist kein zuverlässiger Ersatz.
+
+### Vanillas Distanz-28-Fehler
+
+- Für native Distanz `> 28` lässt State `1` den bereits angenommenen
+  Vanilla-Pfad weiterlaufen. Dadurch kann Vanilla schon selbst lange Wege um
+  Mauern und Gebäude navigieren.
+- Bei nativer Distanz `<= 28` versucht Vanilla abhängig von seinen Pfadfeldern
+  den direkten Angriff. Ist die Sicht noch blockiert, führt der Fehlschlag zu
+  State `6`, Rückkehrtimer `20` und dem Rückweg zur Jägerhütte.
+- Im Lauf mit `1.1.38` wurden `41` direkte State-1-Angriffsresultate erfasst:
+  `40` Fehlschläge, alle bei Distanz `<= 28`, und ein erfolgreicher Angriff.
+- Im aussagekräftigsten Fall lief der Jäger `44,383 s` auf Vanillas eigenem
+  Pfad bis Fortschritt/Länge `59/61`. Exakt bei Distanz `28` und weiterhin
+  blockierter Sicht brach er ab und kehrte um.
+- `GameUnit +0xF6` ist der beobachtete Pfadfortschritt, `+0xF8` die Pfadlänge
+  und `+0xF2=2` der aktive Pfadstatus. Ein erneuter `MoveHere`-Aufruf setzt den
+  Fortschritt zurück und ist daher keine Fortsetzung.
+- Die aktuelle Lösung ändert im sicheren Hookfenster ausschließlich den
+  temporären Distanzregisterwert `RDI` von höchstens `28` auf `29`, wenn
+  State `1`, Zielidentität, aktiver unvollständiger Pfad und blockierte native
+  Sicht zusammenpassen.
+- Die Fortsetzung endet bei freier Sicht, Pfadende, Kontextwechsel, mehr als
+  `60 s` kontinuierlicher Fortsetzung oder `3 s` ohne Pfadfortschritt. Ein
+  echter Grenzabbruch erhält einen Retry-Cooldown von `5 s`.
+- Die frühere globale Grenze von zwei Zielidentitäten pro Karte war nur eine
+  Diagnosebegrenzung und verursachte das scheinbar positionsabhängige Versagen
+  weiterer Jäger. Seit `1.1.40` gibt es höchstens einen unabhängigen Zustand pro
+  Jäger und keine globale Identitätsgrenze. Danach funktionierten alle
+  gleichzeitig getesteten Jäger.
+
+### PCL-Erreichbarkeit
+
+- `GamePlayerManagerAPI.GetNextReachablePCLToDestinationForPlayer` verwendet
+  Vanillas spielerabhängige Path Connection Layers einschließlich dynamischer
+  Verbindungen wie Toren.
+- Vanillas `MoveHere` ruft dieselbe Funktion vor der detaillierten
+  Pfaderzeugung auf. Ein PCL-Rückgabewert `0` führt dort unmittelbar zum
+  Fehlschlag.
+- Der aktuelle Aufruf verwendet exakt die Eingaben des Jägers:
+  `r_ControllableForPlayerId`, den Modus aus `GameUnit +0x35C`, Quell-PCL des
+  aktuellen Jägertiles und Ziel-PCL des aktuellen Beutetiles.
+- Im Kalibrierungslauf `1.1.43` wurden `53` Kandidatenprobes und `10` exakte
+  PCL/`MoveHere`-Korrelationen erfasst. `4/4` positive PCL-Ergebnisse stimmten
+  mit `MoveHere=1` und `6/6` Nullergebnisse mit `MoveHere=0` überein. Es gab
+  keine Fehlkorrelation und keinen PCL-Fehler; Eingaben und Zeitfenster stimmten
+  in allen zehn vergleichbaren Fällen.
+- Der reale Jägermodus war in den Tests stets `0`. Die zusätzlich geprüften
+  Modi `0`, `2` und der live ausgelesene Modus lieferten in allen beobachteten
+  Fällen dasselbe Ergebnis. Produktiv wird trotzdem ausschließlich der reale
+  Modus verwendet.
+- Der erste Warm-up-Aufruf dauerte etwa `170 us`; normale Aufrufe lagen
+  überwiegend bei `1..3 us`, im Mittel bei ungefähr `4,43 us`. Ingame war keine
+  Suchverzögerung sichtbar.
+- Ein PCL-Ergebnis `0` ist eine zuverlässige konservative Ausschlussbedingung.
+  Ein positives Ergebnis beweist nur die grobe Verbindung; Vanillas
+  detaillierte `MoveHere`-Pfaderzeugung bleibt danach maßgeblich.
+- Version `1.1.44` cached nur identische Jäger-/Beuteidentitäten und identische
+  Spieler-, Modus-, Quell-PCL- und Ziel-PCL-Eingaben für höchstens eine
+  Sekunde. Geänderte Eingaben umgehen den Cache sofort. Unveränderte
+  Verbindungen werden spätestens nach einer Sekunde erneut nativ geprüft.
+- Seit `1.1.45` verwendet auch der vorhandene persistente 100-ms-Scan diese
+  Abfrage für das aktive Ziel eines State-1-Jägers. Ein bestätigtes Nullergebnis
+  löscht ausschließlich dessen gespeicherte Ziel-Global-ID. Dadurch gelangt
+  `HunterUpdate` in Vanillas eigenen Identitätsfehlerpfad, stoppt dort den alten
+  Auftrag und führt selbst die nächste Zielsuche aus. Der Mod schreibt dabei
+  weder AI-State noch Pfad-/Orderfelder und gibt keinen eigenen Move aus.
+- Eingabe-, API- oder Nativefehler sind fail-open: Der Kandidat bleibt für
+  Vanilla verfügbar. Ein technischer Fehler darf kein erreichbares Tier
+  fälschlich entfernen.
+
+### Jägerhütten-Ausnahme
+
+- Gebäudetyp `7` ist `STRUCT_HUNTERS_HUT`.
+- Der gemeinsame Höhenhelper leitete diesen Typ im hindernisbewussten Modus
+  über einen Sonderfall, der nur Geländehöhe zurückgab.
+- Vanillas normale Gebäudehöhentabelle enthält für Typ `7` bereits die
+  Blockerhöhe `40`, genau wie für die Holzfällerhütte.
+- `HunterHutVisibilityPatch` ändert am auditierten Dispatch genau einen Wert
+  von Sonderfall `0` auf normalen Gebäudehöhenfall `3` und stellt den
+  Originalwert konfliktgesichert wieder her.
+- Der Benutzer bestätigte ingame, dass die Jagdhütte danach offenbar normal
+  blockiert. Ein gezielter Regressionstest bleibt Teil der Endabnahme.
+- Eine allgemeine eigene Projektilbahnprüfung wird nicht parallel entwickelt.
+  Sie wird nur wieder geöffnet, wenn nach dem Patch eine positive native Sicht
+  reproduzierbar zu einer Kollision an einem anderen Gebäude führt.
+
+## Beobachtete Ingame-Ergebnisse
+
+Folgende Beobachtungen sind für die weitere Arbeit als bestätigt zu behandeln:
+
+- Außerhalb der nativen Distanz `28` läuft ein Jäger bereits in Vanilla einen
+  langen korrekten Weg um Hindernisse zur Beute.
+- Wird seine Sicht während dieses Anmarschs blockiert, kehrt er im Vanilla-
+  Fehlerfall beim Eintritt in den Nahbereich zur Hütte um.
+- Die Distanz-29-Fortsetzung ließ einen bereits innerhalb `28` gestarteten
+  Jäger ohne eigenen Mod-Move um mehrere Hindernisse laufen. Bei freier Sicht
+  schoss Vanilla erfolgreich.
+- Nach Entfernung der globalen Zwei-Identitäten-Grenze funktionierten alle im
+  Mehrjägertest eingesetzten Jäger unabhängig.
+- Bei ausschließlich unerreichbaren Rehen wartet der Jäger neben der Hütte.
+  Vor `1.1.44` meldete er dabei nicht „Kein Wild“ und nahe unerreichbare Rehe
+  wurden über mehrere Suchintervalle nacheinander verworfen.
+- Im `1.1.43`-Test begann die Suche im erreichbaren Fall unverzögert und der
+  Jäger lief korrekt los. Im unerreichbaren Fall blieb er wie zuvor an der
+  Hütte. Das bestätigt die Geschwindigkeit und Korrelation der PCL-Abfrage,
+  noch nicht die produktive Vorfilterung von `1.1.44`.
+- Im `1.1.44`-Abnahmetest wählte der Jäger trotz mehrerer näherer vollständig
+  eingeschlossener Rehe sofort das weiter entfernte erreichbare Reh. Nach dem
+  zusätzlichen Blockieren aller Tiere folgten „Kein Wild“ und nach Öffnen eines
+  Zugangs die erneute Suche innerhalb weniger Sekunden wie erwartet.
+- Wurde das bereits ausgewählte erreichbare Reh erst während des Anmarschs neu
+  eingeschlossen, lief der Jäger mit seinem alten Auftrag weiter bis zur neuen
+  Mauer und wurde beim Scheitern der unerreichbaren Zielposition aufgelöst. Der
+  Loglauf ordnete dies Jäger `1/370` und Reh `16/294` zu: Auswahl mit PCL `1`,
+  Pfadfortschritt bis `47/50`, danach Unit-Delete; ein neuer Jäger sah dasselbe
+  Reh anschließend mit Ziel-PCL `10` und PCL-Ergebnis `0`. Dieser Befund ist der
+  Anlass für die aktive State-1-Zielprüfung von `1.1.45`.
+- Rehe bewegten sich während mehrerer Tests. Ein Jäger kann dadurch zu einer
+  inzwischen veralteten Position laufen. Die heutige Vanilla-Pfadfortsetzung
+  hält kein eigenes statisches Schusstile und reagiert bei freier Sicht wieder
+  über Vanilla; dennoch bleibt bewegte Beute ein Regressionstest.
+- In einem Lauf schoss der Jäger erfolgreich auf Reh `10/287`, sammelte den
+  Kadaver sichtbar aber nicht ein und suchte ungefähr drei Sekunden später ein
+  anderes Reh. Beim Projectile-Delete hatte sich Zielidentität oder Zielzustand
+  bereits geändert, weshalb die identitätsgesicherte Kompensation nicht
+  eingriff. Da sich viele Rehe gleichzeitig bewegten, ist noch offen, ob dies
+  Vanilla, ein Kadaver-/Reservierungsübergang oder ein bestehender Modpfad ist.
+  Die PCL-Diagnose selbst änderte kein Ziel und ist nicht die Ursache.
+- Bei kurzer Luftlinie, aber langem notwendigen Umweg bewegt sich der Jäger
+  auffällig langsam. Vermutlich wählt Vanilla die Schleich-/Bewegungsstufe nach
+  Luftlinienentfernung statt nach tatsächlich verbleibender Pfadlänge.
+
+## Aktuelle Dateien und Verantwortlichkeiten
+
+| Datei | Aktueller Status |
+| --- | --- |
+| `src/HunterPclReachability.cs` | Produktiver konservativer PCL-Vorfilter und aktive State-1-Zielprüfung mit Ein-Sekunden-Cache, Statistiken und Fail-open-Verhalten. |
+| `src/HunterPclReachabilityDiagnostic.cs` | Separat entfernbares temporäres Kalibrierungslogging für Modi, PCL/`MoveHere`-Korrelation und die State-1-Zielinvalidierung von `1.1.45`. Nach deren Abnahme entfernen. |
+| `src/HunterNativeVisibilityProbe.cs` | Validierte native Sichtprobe ohne eigenen Inline-Hook; Voraussetzung der Pfadfortsetzung. |
+| `src/HunterHutVisibilityPatch.cs` | Produktive, validierte Ein-Byte-Korrektur der Jägerhütten-Ausnahme. |
+| `src/HunterTargetSearchFallbackDiagnostic.cs` | Enthält derzeit sowohl den verhaltensändernden State-0-Kandidaten-Handoff als auch temporäre Beobachtungslogs. Nach Kernabnahme Produktionslogik und entfernbares Logging sauber trennen und Datei passend umbenennen. |
+| `src/HunterVanillaPathContinuationDiagnostic.cs` | Enthält derzeit die funktionierende Distanz-29-Pfadfortsetzung samt begrenztem Diagnosezustand. Nach Kernabnahme produktiven Hook/Guards von entfernbaren Detailinformationen trennen und Datei passend umbenennen. |
+| `src/HunterVisibilityDiagnostic.cs` | Breite ältere Diagnose; nach Abschluss der gezielten Abnahme entfernen, sofern keine noch benötigten Marker darin verbleiben. |
+| `src/HunterLineOfSightRecovery.cs` | Stillgelegter fail-closed Adapter der verworfenen Managed-A*-Recovery. Nach erfolgreicher Produktionsbereinigung entfernen statt als parallelen Fallback behalten. |
+| `src/ImprovedHuntersRuntime.cs` | Eventverdrahtung, Eligibility, Zielrangfolge, PCL-Gates, Fallback-Handoff, Reservierungsbereinigung, Pfadfortsetzung und Projektilkompensation. |
+| `UpdateToNewDLL.md` | Maßgebliche Detailquelle für Hash, RVA, Bytepattern, Auflösungsstrategie und Updateaudit. |
+
+Wichtig: Der Benutzer verlangte, neues Ingame-Diagnoselogging in eigenen
+Dateien unter ImprovedHunters abzulegen, damit es danach leicht entfernt werden
+kann. Neue Diagnose für den Schuss-/Einsammelübergang muss diese Regel ebenfalls
+befolgen. Bei der Produktionsbereinigung dürfen notwendige Verhaltenshooks
+nicht zusammen mit temporärem Logging entfernt werden.
+
+## Sicherheitsgrenzen und nicht erneut zu verwendende Ansätze
+
+### Kein synchrones Managed-A*
+
+`GameTileManagerAPI.FindPath` ist ein verwalteter A*-Pathfinder über bis zu
+`800 x 800` Tiles. Seine Open-Set-Operationen sind linear und er besitzt kein
+hartes Expansions-, Zeit- oder Abbruchbudget. Beim ersten unerreichbaren
+Beutefall fror dadurch der Spielthread ein.
+
+Deshalb gilt dauerhaft:
+
+- kein synchroner `GameTileManagerAPI.FindPath`-Aufruf in Zielrangfolge,
+  Recovery oder Schusstilesuche,
+- die Chebyshev-Kosten bleiben nur Heuristik,
+- PCL `0` ist der schnelle Negativfilter,
+- PCL positiv bleibt Vanillas detaillierter Pfaderzeugung überlassen.
+
+### Keine eigene isolierte Move-/AI-State-Rekonstruktion
+
+Die Versuche `1.1.31` bis `1.1.35` zeigten:
+
+- Ein eigener `MoveHere` kann zwar `1` und einen gültigen Pfad liefern, wird
+  aber durch Vanillas Hunter-State-Writer unmittelbar überschrieben.
+- Das nachträgliche Schreiben von Ziel, Reservierung und AI-State `1` bildet
+  den atomaren Vanilla-State-0-Erfolgspfad nicht korrekt nach.
+- Eine längere Querysperre band den Jäger an veraltete Beutepositionen, führte
+  zu fehlender Rücklaufanimation und erneutem Hin-und-her.
+
+Darum keine eigene Move-Ausgabe, kein direktes Setzen von AI-State und kein
+ungeprüftes Leeren oder Setzen der Targetfelder als Recovery-Lösung.
+
+### Keine unsicheren Diagnosehooks
+
+- Frühere Inline-Hooks an ungeeigneten Fenstern beziehungsweise im gemeinsamen
+  Sichthelper verursachten CTD oder einen unsicheren Callbackkontext.
+- Die früheren Crashstellen `0x18EE14`, `0x130171` und `0x12FF53` dürfen nicht
+  erneut gehookt werden.
+- Neue Hooks benötigen semantische Bytevalidierung, sicheres Hookfenster,
+  Referenzhashbindung oder eindeutigen Resolver und einen getrennten
+  Fehlerpfad.
+
+### Kein KillUnit-Fallback
+
+Der alte `KillUnit`-Fallback erzeugte nach einem steckengebliebenen Pfeil den
+nicht einsammelbaren Zustand `0x6F`. Seit `1.1.27` wird ausschließlich Vanillas
+`DamageUnitRanged` mit echter Projektil- und Zielidentität verwendet. Das ist
+ein post-shot Sicherheitsnetz und keine pre-shot Sichtlinienlösung.
+
+## Nächste Arbeitspakete in verbindlicher Reihenfolge
+
+### Paket A: Version 1.1.45 – PCL-Vorfilter und aktives Ziel abnehmen
+
+Die Fälle A1 bis A3 liefen im `1.1.44`-Test wie erwartet. Mit `1.1.45` werden
+sie kurz als Regression wiederholt; der neue Kernfall ist A4. Vor weiteren
+Verhaltensänderungen müssen dessen Logs maschinell geprüft werden.
+
+#### A1: Gemischte Erreichbarkeit
+
+Aufbau:
+
+- ein Jäger,
+- mehrere nähere, vollständig eingeschlossene Rehe,
+- genau ein weiter entferntes, aber fußläufig erreichbares Reh,
+- alle Kandidaten möglichst innerhalb der normalen Zielsuche, insbesondere das
+  erreichbare Reh innerhalb von `54` Tiles,
+- die unerreichbaren Rehe näher als das erreichbare Reh.
+
+Hier müssen erreichbare und unerreichbare Tiere gleichzeitig existieren, weil
+genau die Priorisierung geprüft wird. Zufall wird reduziert, indem es nur ein
+erreichbares Tier gibt.
+
+Erwartung:
+
+- Der Suchbeginn ist unverzögert.
+- Alle PCL-getrennten Rehe werden bereits vor der Distanzrangfolge verworfen.
+- Der Jäger wählt sofort das weiter entfernte erreichbare Reh.
+- Es gibt keine mehrsekündige Kette echter `MoveHere=0`-Versuche für die
+  eingeschlossenen Tiere.
+- Der Jäger läuft Vanillas Weg um die Hindernisse und schießt bei freier Sicht.
+
+#### A2: Ausschließlich unerreichbare Beute
+
+Aufbau:
+
+- frischer Kartenstart oder sauberer Reload,
+- ein Jäger,
+- nur vollständig eingeschlossene Rehe.
+
+Erwartung:
+
+- Sämtliche Kandidaten werden in einer Suche als PCL-getrennt abgelehnt.
+- Es wird kein eigener Move ausgegeben und kein unerreichbarer Kandidat über
+  den Fallback wieder zugelassen.
+- Der Jäger erhält kein Ziel und gerät nicht ins Pendeln.
+- Optimal und als offenes Abnahmekriterium zu prüfen: Vanilla erreicht seinen
+  echten „Kein Wild“-Sprachpfad. Falls die Meldung trotz eindeutig leerer
+  Zielsuche ausbleibt, muss zunächst geklärt werden, ob sie an einen anderen
+  Vanilla-Zustand oder Timer gebunden ist; die Meldung nicht künstlich
+  abspielen, bevor dieser Pfad verstanden ist.
+
+#### A3: Zugang wird geöffnet
+
+Aufbau:
+
+- direkt nach A2 einen Zugang durch Toröffnung oder Mauerabriss schaffen,
+- keine anderen erreichbaren Tiere hinzufügen.
+
+Erwartung:
+
+- Die PCL-Verbindung wird spätestens nach Ablauf des Ein-Sekunden-Caches neu
+  geprüft. Der tatsächliche Suchbeginn kann durch Vanillas Suchrhythmus einige
+  Sekunden später liegen.
+- Der Jäger darf beim nächsten Suchlauf das nun erreichbare Reh wählen und
+  loslaufen.
+- Ein früheres Nullergebnis darf nicht als Fünf-Minuten-Sperre fortbestehen.
+
+#### A4: Aktives Ziel wird während des Anmarschs unerreichbar
+
+Aufbau:
+
+- ein Jäger,
+- mindestens zwei zunächst erreichbare Rehe,
+- das vom Jäger ausgewählte Reh erst nach Beginn seines Anmarschs vollständig
+  einschließen,
+- mindestens ein anderes Reh erreichbar lassen; den Fall ohne Alternative
+  anschließend getrennt wiederholen.
+
+Erwartung:
+
+- Der persistente Scan erkennt das aktive Ziel spätestens nach Ablauf des
+  Ein-Sekunden-Caches als PCL-getrennt.
+- Das Log enthält `active target PCL requery` mit
+  `outcome=vanilla-requery-armed`, den passenden stabilen Identitäten und einer
+  plausiblen Reservationsänderung.
+- Der Mod setzt nur die gespeicherte Ziel-Global-ID auf `0`; er schreibt keinen
+  AI-State, keinen Pfad oder Auftrag und gibt keinen eigenen Move aus.
+- `HunterUpdate` stoppt den alten Auftrag über Vanillas Identitätsfehlerpfad und
+  führt selbst die nächste Zielsuche aus.
+- Mit Alternative wechselt der Jäger zeitnah zum anderen erreichbaren Reh. Ohne
+  Alternative endet die Suche kontrolliert; der Jäger darf nicht an der neuen
+  Mauer aufgelöst werden.
+
+#### Log-Gate für Paket A
+
+Vor Interpretation müssen mindestens folgende Punkte geprüft werden:
+
+- Initialisierung von `HunterPclReachability` ohne Fehler,
+- relevante `pclUnreachable=True`-Kandidaten mit `allowed=False`,
+- kein konkreter Kandidaten-Handoff für bekannte PCL-Nullfälle,
+- keine PCL-/Callbackfehler,
+- Cachetreffer und native Queries plausibel,
+- nach Öffnung des Zugangs ein neues positives Ergebnis,
+- bei A4 genau eine erfolgreiche aktive Invalidierung je betroffener
+  Jäger-/Zielidentität und anschließend Vanillas reguläre neue Zielsuche,
+- keine unerklärten `MoveHere=0`-Ketten für bereits PCL-getrennte Tiere,
+- keine ImprovedHunters-Exception und kein Freeze.
+
+Gate: Erst wenn A1 bis A3 als Regression und A4 mit sowie ohne alternatives Ziel
+erfüllt sind, wird die PCL-Diagnosedatei entfernt und der vollständige
+Erreichbarkeitspfad als abgenommen betrachtet.
+
+### Paket B: Schuss-, Kadaver- und Einsammelübergang isolieren
+
+Erst nach Paket A. Der Test benötigt:
+
+- genau einen Jäger,
+- genau ein Reh,
+- keine weitere auswählbare Beute,
+- möglichst stationäre beziehungsweise kontrolliert begrenzte Beute,
+- zunächst einen normalen freien Schuss, danach bei Bedarf denselben Fall nach
+  einer Hindernisannäherung.
+
+Falls vorhandene Logs Angriff, Projektil, Zielzustand, Kadaver und Einsammeln
+nicht vollständig korrelieren, wird eine neue separat entfernbare Datei wie
+`HunterShotPickupDiagnostic.cs` angelegt. Sie soll nur beobachten und pro
+stabiler Jäger-/Beute-/Projektilidentität erfassen:
+
+1. State-1-Angriffsresultat,
+2. Projektilslot und Global-ID,
+3. Ziel-Alive-State, Gesundheit, AI-/Kadaverzustand und Reservation vor/nach
+   Treffer beziehungsweise Projectile-Delete,
+4. Grund, warum `PendingHunterShotIntent` kompensiert oder bewusst nicht
+   kompensiert,
+5. Zielwechsel des Jägers,
+6. Beginn und Abschluss der Kadaverabholung,
+7. Fleischereignis beziehungsweise Abgabe.
+
+Diagnosefehler dürfen Projektilkompensation, Vanilla-Schaden und Zielwahl nicht
+beeinflussen. Erst nach der Logauswertung wird entschieden, ob überhaupt ein
+Fix nötig ist.
+
+Gate: Ein einzelnes getötetes Reh wird entweder korrekt eingesammelt und
+abgeliefert oder der erste abweichende Vanilla-/Modzustand ist exakt belegt.
+
+### Paket C: Kernlösung in Produktionsstruktur überführen
+
+Nach erfolgreicher Verhaltensabnahme:
+
+1. Verhaltenslogik aus `HunterTargetSearchFallbackDiagnostic.cs` in eine
+   passend benannte Produktionsklasse verschieben; nur temporäre Marker in
+   einer separaten Diagnosedatei behalten.
+2. `HunterVanillaPathContinuationDiagnostic.cs` entsprechend in produktiven
+   Hook/Guards und leicht entfernbares Detail-Logging trennen.
+3. `HunterPclReachabilityDiagnostic.cs` entfernen.
+4. Die breite alte `HunterVisibilityDiagnostic.cs` entfernen, sofern Paket B
+   keinen konkreten Marker daraus benötigt.
+5. Den stillgelegten `HunterLineOfSightRecovery.cs`-Adapter und seine Runtime-
+   Anschlüsse entfernen; keinen alten Fallback parallel behalten.
+6. Namen, Logs und Initialisierungszusammenfassung von „diagnostic“ auf den
+   tatsächlichen Produktionsstatus korrigieren.
+7. `UpdateToNewDLL.md`, Changelog und Versionsnummer aktualisieren.
+
+Gate: Deaktivierter Mod, deaktiviertes `ImprovedPathfinding`, deaktivierter
+Beutetyp, Kartenwechsel und echter Multiplayer führen zu keinerlei
+verhaltensänderndem Hookpfad. Singleplayer-Skirmish und -Trail behalten die
+abgenommene Funktion.
+
+### Paket D: Beutetyp- und Mehrfachmatrix
+
+Die gemeinsame Infrastruktur anschließend jeweils für Reh, Ziege, Hase,
+Kamel, Huhn und Kuh prüfen:
+
+- sichtblockiert, aber erreichbar,
+- vollständig unerreichbar,
+- Zugang wird später geöffnet,
+- freier Kontrollfall,
+- echtes Projektil, korrekter Kadaver, Einsammeln und Fleischabgabe,
+- mehrere Jäger und mehrere Tiere ohne gemeinsame Reservierung oder
+  gegenseitiges Zielüberschreiben.
+
+Offener Codepunkt: `ImprovedHuntersViewModel` kennt `HuntCow`, aber
+`ImprovedHuntersRuntime.IsRuntimeHuntingEnabled` schließt
+`CHIMP_TYPE_COW` derzeit ausdrücklich aus. Dieser Widerspruch muss vor dem
+Kuh-Abnahmetest bewusst entschieden und beseitigt werden, wenn Kuhjagd zum
+unterstützten Ziel gehören soll.
+
+### Paket E: Bewegungsgeschwindigkeit nach tatsächlicher Reststrecke
+
+Erst bearbeiten, wenn Pakete A bis D stabil sind.
+
+Hypothese: Vanilla wählt die Lauf-/Schleichstufe anhand der Luftlinien-
+beziehungsweise Manhattan-Distanz in `EDI`. Bei kurzer Luftlinie, aber langem
+Hindernisweg schleicht der Jäger deshalb unangemessen lange.
+
+Analyseplan:
+
+1. Kalibrieren, ob `+0xF8 - +0xF6` die verbleibenden Pfadschritte ausreichend
+   repräsentiert.
+2. Falls nicht, Vanillas gespeicherte Wegsegmente identifizieren und deren
+   Restlänge ohne globale Scratchmutation bestimmen.
+3. Die vorhandenen Vanilla-Distanzstufen und ihre Animationen/Geschwindigkeiten
+   für Restweglängen beobachten.
+4. Nur die passende vorhandene Vanilla-Stufe auswählen; keine direkten Speed-
+   oder Animationsfelder schreiben.
+5. In der letzten Annäherung vor einer freien Schusslinie Vanillas beabsichtigte
+   Schleichbewegung erhalten.
+
+Gate: Ein langer Umweg wird zügig zurückgelegt, ohne Ruckeln, fehlende
+Animation, Pfadresets oder unnatürlich schnelles Verhalten im eigentlichen
+Schussnahbereich.
+
+## Multiplayer-Chore ab Script Extender 1.50.0
+
+Multiplayer-Unterstützung bleibt verbindliches Endziel, wird aber erst gebaut,
+wenn der kanonische Script Extender mindestens Version `1.50.0` erreicht hat.
+Bis dahin bleiben PCL-Filter, Kandidaten-Handoff, Jägerhüttenpatch und
+Pfadfortsetzung in echtem Multiplayer fail-closed, soweit sie
+simulationsrelevant sind.
+
+Der spätere Chore heißt **„Hunter-Recovery-Multiplayer-Synchronisation“** und
+umfasst:
+
+1. Mit `Shared/GameModeHelper.cs` echten Host, Client, Singleplayer-Skirmish,
+   Trail und Multiplayer-Save sicher unterscheiden. `IsNetworkedEnvironment()`
+   allein ist kein Multiplayerbeweis.
+2. Anhand der APIs von mindestens `1.50.0` bestimmen, ob Zielentscheidung und
+   Distanzstufenwahl von einer Autorität repliziert oder lockstep auf allen
+   Peers deterministisch ausgeführt werden müssen.
+3. Keine zweite Multiplayer-Zielwahl entwickeln. Die vorhandene Pipeline mit
+   stabilen Slot-/Global-IDs synchronisierbar machen.
+4. Bei eigener Nachricht einen expliziten `IMessagePackFormatter<T>` mit
+   stabilen numerischen Keys verwenden; keine Contractless-Serialisierung.
+5. Host-/Client-, Save/Load-, Reconnect-, Zielwechsel- und Desync-Tests mit
+   mehreren Jägern durchführen.
+
+Gate: Vor Abschluss dieses Chores bleibt echter Multiplayer deaktiviert.
+Danach gehören Host, Client und Multiplayer-Saves zum unterstützten
+Funktionsumfang und dürfen weder doppelte Moves noch abweichende Ziele erzeugen.
+
+## Native Referenzdaten
+
+Alle folgenden Werte beziehen sich auf die kanonische installierte DLL:
 
 - Steam Build ID: `24651686`
 - Dateigröße: `3.450.880` Byte
 - SHA-256: `33AA33457F7DFAAA6D316D1D5E4C5AB97094F2C73B68D349990ABF9D0EF3B469`
 
-## Ziele
-
-1. Ein fußläufig erreichbares, aktiviertes Beutetier auch dann berücksichtigen,
-   wenn Vanillas Sichtprüfung es bereits innerhalb der Zielsuche verwirft und
-   daher noch keine stabile native Zielzuweisung existiert.
-2. Einen Jäger nach einem nachweislich sichtblockbedingten Zielabbruch zu einer
-   sinnvollen, erreichbaren Schussposition bewegen.
-3. Den Bewegungsauftrag so lange kontrolliert verfolgen, dass Vanillas sofortige
-   neue Zielwahl ihn nicht wieder überschreibt.
-4. Nach der Bewegung Vanillas reguläre Zielabfrage und Schusslogik wieder
-   übernehmen lassen.
-5. Kornspeicher, Holzfällerhütten, Mauern, Tore, Türme, Geländeanstiege und
-   weitere Vanilla-Sichtblocker abdecken, ohne pauschal durch Gebäude zu
-   schießen.
-6. Für Reh, Ziege, Hase, Kamel, Huhn und Kuh dieselbe Recovery-Infrastruktur
-   und denselben zentralen Eligibility-Pfad verwenden; die jeweilige
-   `Hunt...`-Option bleibt die fachliche Freigabegrenze.
-7. Jägerhütten weiterhin korrekt als Vanilla-Sichtausnahme erkennen, für neue
-   Hunter-Angriffe aber wie jeden physischen Pfeilblocker behandeln: Der Jäger
-   bewegt sich vor dem Schuss zu einer freien Bahn. Die vorhandene
-   `DamageUnitRanged`-Kompensation bleibt nur Sicherheitsnetz für bereits
-   gestartete oder trotz Prüfung kollidierende Pfeile.
-8. Bei einer geänderten Spiel-DLL zuerst den bekannten RVA-Pfad und danach eine
-   eindeutige semantische Pattern-Auflösung verwenden. Nur die Recovery wird
-   deaktiviert, wenn beides nicht zuverlässig validiert werden kann.
-9. Keine unsicheren Inline-Diagnosehooks an den früheren Crashstellen
-   `0x18EE14`, `0x130171` oder `0x12FF53` erneut einführen.
-
-## Nichtziele
-
-- Keine globale Entfernung der Gebäudesichtblockade.
-- Kein Teleportieren des Jägers.
-- Kein künstlicher Schuss und kein `KillUnit` vor einem echten Projektilspawn.
-- Keine Änderung der allgemeinen Reichweite oder der normalen Tierzielwahl.
-- Keine künstliche Erhöhung der Beutereservierung und kein dauerhaftes
-  Festhalten eines Beutetiers während der Recovery.
-- Keine Änderung an manuellen `AttackUnit`-Befehlen anderer Fernkampfeinheiten.
-- Keine neue Lobbyoption; die Recovery bleibt an `EnableMod`,
-  `ImprovedPathfinding` und die zum jeweiligen Beutetyp gehörende
-  `Hunt...`-Option gebunden.
-
-## Analysierter Istzustand
-
-### Relevante Produktionsdateien
-
-| Datei / Stelle | Aktuelle Aufgabe | Festgestelltes Problem oder Anschlussstelle |
-| --- | --- | --- |
-| `ImprovedHuntersRuntime.RunNativeScan` | 100-ms-Takt für Unit-Zustände, Projektilkompensation, Reservierungsbereinigung und Idle-Requery | Geeigneter persistenter Takt für Recovery-Fortschritt; Reihenfolge muss so geändert werden, dass Recovery vor dem allgemeinen Idle-Requery läuft. |
-| `ImprovedHuntersRuntime.TrackHunterTargetState` | Erkennt Zielwechsel/-verlust, setzt 30-s-Cooldown und gibt Reservierung `2` frei | Startet derzeit nur einen einmaligen Move und verwirft anschließend den Recovery-Zustand. Ein im selben Scan bereits neu zugewiesenes Ziel bleibt aktiv. |
-| `ImprovedHuntersRuntime.OnHunterQueryTarget` | Filtert und priorisiert Vanilla-Kandidaten | Muss während einer aktiven Bewegung neue Tierzuweisungen für genau diesen Jäger unterdrücken und während der Wiederaufnahme nur das geplante Ziel zulassen. |
-| `ImprovedHuntersRuntime.TryGetTargetSelectionForHunter` / `TryGetPathCost` | Wählt aktivierte Beute bereits pfadbasiert aus | Muss auch den Vor-Zielzuweisungs-Trigger speisen. Der aktuelle Pfad wird von der Jägerhütte statt zwingend von der tatsächlichen Jägerposition bewertet und darf nicht ungeprüft als Recovery-Route wiederverwendet werden. |
-| `ImprovedHuntersRuntime.IsRuntimeHuntingEnabled` | Zentrale Runtime-Freigabe für Beutetypen | Schließt `CHIMP_TYPE_COW` derzeit trotz `HuntCow`, Tooltip und Fleischwert ausdrücklich aus. Dieser Widerspruch muss vor der Generalisierung beseitigt und mit einem gemeinsamen Eligibility-Test abgesichert werden. |
-| `ImprovedHuntersRuntime.RequeryIdleHuntersNearPrey` | Setzt wartende Jäger mit Ziel `0` von AI-State `6` auf `0` | Darf eine aktive Recovery nicht parallel zurücksetzen; soll nur in der Recovery-Phase `Reacquire` gezielt verwendet werden. |
-| `ImprovedHuntersRuntime.TryReleaseAbortedPreyReservation` | Entfernt verwaiste Reservierung `2` mit Slot-/Global-ID-Prüfung | Bleibt notwendig. Das Log meldet derzeit auch nach einem Recovery-Move pauschal `cooldownSeconds=30`; diese Aussage muss den wirklichen Recovery-Ausgang abbilden. |
-| `HunterLineOfSightRecovery.TryRecoverAfterTargetAbort` | Zählt drei gebäudeblockierte Hühnerabbrüche, sucht einen Kandidaten und ruft einmal `MoveToTile` auf | Ist hart auf `HuntChicken`/`CHIMP_TYPE_CHICKEN` begrenzt, startet erst nach einer Zielzuweisung, ignoriert Gelände, besitzt keine persistente Phase und verifiziert weder Move-Rückgabe noch Fortschritt oder Ankunft. |
-| `HunterLineOfSightRecovery.HasBuildingFreeFiringLine` | Bresenham-Linie ohne Gebäude | Ist nur ein physischer Sicherheitsfilter. Sie bildet Vanillas Sichtsemantik, Untertilekoordinaten, Höheninterpolation und Tileflags nicht nach. |
-| `HunterVisibilityDiagnostic` | Verhaltenneutrale Korrelation von Waiting-State, Terrain, Gebäuden und Projektilen | Für die Einführungsphase weiterverwenden; nach Abnahme durch eine kleinere separate Recovery-Diagnose ersetzen und anschließend entfernen. |
-| `HunterQueryActorWorkaround` | Rekonstruiert wegen Script-Extender-Issue 123 die echte Jäger-ID | Muss vor jeder Recovery-Queryentscheidung weiter ausgeführt werden. Bei nicht auflösbarem Actor bleibt Vanilla unverändert. |
-| Projektilpfad in `ImprovedHuntersRuntime` | Verfolgt echte Jägerpfeile und ruft bei Stillstand/Nähe/Delete-Pre `DamageUnitRanged` auf | Ist ein getrenntes Problem nach dem Schuss und bleibt bestehen. Er darf keine pre-shot Recovery auslösen oder ersetzen. |
-
-### Befunde aus dem letzten Lauf
-
-- Drei Recovery-Moves wurden ausgegeben, aber es entstanden null passende
-  Projektile und damit auch keine `Vanilla ranged compensation`-Aufrufe.
-- Es wurden sechzehn Zielabbrüche protokolliert. Der Fehler liegt somit vor dem
-  Schuss; die Projektilkompensation konnte in diesem Lauf nicht eingreifen.
-- Beim Move für Jäger `1` um `16:50:04.215` wurde eine Position für Huhn `98`
-  geplant. Noch im selben Zeitfenster zeigte der native Zielzustand bereits auf
-  Huhn `156`. Der Jäger blieb anschließend am Ausgangsort, während Vanilla Ziele
-  weiter wechselte.
-- Dasselbe Muster trat bei Jäger `100` um `16:50:14.824` auf: Der Move wurde für
-  Huhn `161` geplant, unmittelbar danach war Huhn `156` das native Ziel.
-- Zwölf Waiting-Beobachtungen lagen bereits innerhalb Distanz `20` und hatten
-  auf der einfachen Tilelinie kein Gebäude. Trotzdem wurde nicht geschossen.
-  Die Terrainbereiche lagen dabei beispielsweise bei `80-140` oder `80-170`,
-  während Jäger und Huhn jeweils Elevation `80` hatten.
-- Daraus folgen zwei getrennte Fehler im bisherigen Workaround:
-  1. Der einmalige Move wird durch Vanillas Ziel-/AI-Verarbeitung überholt.
-  2. „Kein Gebäude auf der Bresenham-Linie“ ist kein Beweis für eine freie
-     Vanilla-Schusslinie.
-
-### Historie des KillUnit-Fallbacks und des Test-Mods
-
-- Der frühere `KillUnit`-Fallback griff erst, nachdem ein echtes Projektil
-  erzeugt worden war. Er löste daher den heute reproduzierten pre-shot
-  Sichtabbruch nicht.
-- Bei Schüssen über Jägerhütten konnte Vanilla den Schuss zulassen, der Pfeil
-  aber physisch an der Hütte hängen bleiben. Der damalige Fallback tötete das
-  Huhn im nicht einsammelbaren Zustand `0x6F`; der Jäger wählte danach weitere
-  Beute.
-- Version `1.1.27` ersetzte dies korrekt durch den öffentlichen nativen
-  Fernkampfschadenspfad `DamageUnitRanged`. Dieser Pfad soll unverändert als
-  post-shot Absicherung bestehen bleiben.
-- Der Test-Mod bestätigte außerdem, dass der interne Helper bei RVA `0xA06F0`
-  sowohl aus der Hunter-Query als auch aus der späteren Ordererteilung genutzt
-  wird. Ein Ergebnis `<= 0` führt im Hunterpfad zur Ablehnung des Angriffs.
-- Frühere „verhaltenneutrale“ Inline-Hooks waren nicht sicher: Ein Hookfenster
-  hatte native Seiteneinstiege, ein späterer Helper-Hook führte beim ersten
-  echten Blockadefall zu einem CTD. Die neue Lösung darf diese Hookstrategie
-  nicht wiederverwenden.
-
-## Native Sicht- und Geometriesemantik
-
-### Bereits statisch bestätigt
-
-| RVA | Rolle |
+| RVA | Bedeutung |
 | ---: | --- |
+| `0x79C0` | Hunter-Manhattan-Distanz |
+| `0xE2610` | Native playerabhängige PCL-Erreichbarkeitsprüfung hinter der Script-Extender-API |
+| `0xA06F0` | Gemeinsamer Sichtwrapper |
+| `0x9E350` | Sicht-/Geometriekern |
+| `0x6B990` | Höhen-/Hindernishelper |
+| `0x6B9F8` | Gebäudetyp-Switch |
+| `0x6BAC4` | Dispatch-Tabelle; erster Eintrag ist die Jägerhütte |
+| `0x2E7C60` | Normale Gebäude-Blockerhöhen; Typ `7` besitzt Wert `40` |
 | `0x18AF00` | Vanilla-Hunter-Zielsuche |
-| `0x18AF96` | Kandidatentyp-Prüfung und Anker des öffentlichen `OnUnitHunterQueryTarget`-Detours; dieser kann nur die frühe Typentscheidung ersetzen. |
-| `0x18B052` | Aufruf des gemeinsamen Geometriehelpers innerhalb der Zielsuche |
-| `0x18B057..0x18B05E` | `dec eax; cmp eax, 0x1AF; ja reject`: Nur ursprüngliche Helperwerte `1..432` gelten in der Zielsuche als Sichttreffer. |
-| `0x18E950` | Allgemeine Unit-Orderroutine |
-| `0x18ED1A` | Aufruf desselben Geometriehelpers im direkten Hunter-Zielpfad |
-| `0x18ED1F` | Kopiert den Helper-Rückgabewert von `EAX` nach `EDX` |
-| `0x18ED23` | Verzweigt bei Ergebnis `<= 0` in den Ablehnungspfad |
-| `0x196230` | Native `c_game_unit_issueorder_movehere`-Routine hinter `MoveToTile`; validiert Koordinaten, Unit-/Tilezustand und stößt Vanillas eigentliche Bewegungs-/Pfadplanung an. |
-| `0x79C0` | Reine Distanzroutine der Hunter-Zielsuche; liefert `abs(x1-x2) + abs(y1-y2)` in Tilekoordinaten. |
-| `0xA06F0` | Wrapper für die native Linien-/Geometrieprüfung |
-| `0x9E350` | Kernroutine der Linien-/Geometrieprüfung |
-| `0x6B990` | Von der Kernroutine verwendete Höhen-/Hindernisabfrage; Semantik noch vollständig zu benennen |
-
-Der Wrapper `0xA06F0` ruft `0x9E350` zunächst in einer Orientierung auf und
-versucht bei Rückgabewert `0` die umgekehrte Orientierung. Die Kernroutine:
-
-- arbeitet mit Weltkoordinaten und nicht nur mit Tilekoordinaten,
-- verwendet die Unit-Höhen-/Bounds-Felder um `GameUnit + 0xB2..0xB8`,
-- liest native Tileflags, unter anderem Masken `0x400300` und `0x400200`,
-- fragt Hindernis-/Höhenwerte über `0x6B990` ab,
-- vergleicht Hindernishöhen gegen eine entlang der Linie interpolierte Höhe,
-- gibt `0` bei einer blockierten Linie und einen positiven Fortschritts-/
-  Längenwert bei einer akzeptierten Linie zurück.
-
-Damit ist erklärt, warum der aktuelle Gebäude-Bresenham-Test Geländeanstiege
-nicht erkennt und warum die optische Gebäudehöhe allein keine verlässliche
-Aussage liefert.
-
-### Neu bestätigte Reihenfolge der Zielsuche
-
-Die lokale Disassembly der kanonischen DLL und der Script-Extender-Detour
-bestätigen folgenden Ablauf:
-
-1. `0x18AF00` läuft über die Unit-Slots und prüft Alive-State, Typ,
-   Reservation und weitere Kandidatenfelder.
-2. Der öffentliche `OnUnitHunterQueryTarget`-Detour ist am Typ-Load bei
-   `0x18AF96` verankert. Er kann zusätzliche Tierarten zulassen, überspringt
-   aber nicht die danach folgenden Vanilla-Prüfungen.
-3. Vanilla prüft anschließend Distanz und bei `0x18B052` die native Sichtlinie.
-4. Ein Ergebnis außerhalb `1..432`, insbesondere `0`, verwirft den Kandidaten,
-   bevor `0x18AF00` ihn als bestes Ziel zurückgeben kann.
-5. Der spätere direkte Hunter-Orderpfad ruft denselben Wrapper bei `0x18ED1A`
-   erneut auf und lehnt dort Werte `<= 0` ab.
-
-Damit reicht eine reine Recovery nach `TrackHunterTargetState` nicht aus. Für
-den Benutzerfall „Kein Wild“ ist zusätzlich ein Vor-Zielzuweisungs-Trigger
-erforderlich: Ein wartender Jäger ohne natives Ziel muss aus der gemeinsamen
-Beutekandidatenmenge ein konkretes Tier wählen und zu einer freien
-Schussposition bewegt werden können, obwohl Vanilla dieses Tier wegen der
-Sichtprüfung nie als Ziel zurückgegeben hat.
-
-An beiden Hunter-Call-Sites ist außerdem bereits bytegenau belegt:
-
-- `RCX = 0x182F79680` ist der gemeinsame Sichtkontext.
-- `EDX/R8D/R9D` erhalten Hunter `+0xB2`, `+0xB4` und
-  `+0xB6 + signed(+0xB8) + 30`.
-- Die Stackargumente 5 bis 7 erhalten Beute `+0xB2`, `+0xB4` und
-  `+0xB6 + signed(+0xB8) + 26`.
-- Im direkten Orderpfad erscheinen dieselben Unitfelder wegen des
-  UnitManager-Headers `0x65C` als `+0x70E/+0x710/+0x712/+0x714`; die
-  zurückverfolgten Stackwerte ergeben exakt dieselben beiden Endpunkte.
-- `0xA06F0` reicht diese sechs Werte zunächst in derselben Orientierung an
-  `0x9E350` weiter, setzt dessen achtes Argument auf `0` und vertauscht die
-  Endpunkte nur beim ersten Rückgabewert `0`.
-
-Der Wrapper besitzt damit die native Signatur
-`int(context, startX, startY, startHeight, endX, endY, endHeight)`. Rizin/Ghidra
-erkennt wegen des Windows-x64-Shadow-Stacks fälschlich ein achtes
-Wrapperargument; die Instruktionen und beide Caller belegen nur sieben. Das
-achte Argument existiert ausschließlich am Core-Aufruf und wird vom Wrapper
-selbst auf `0` gesetzt.
-
-Die Kernroutine `0x9E350` rastert höchstens `1000` Schritte. Bei einem erkannten
-Hindernis liefert sie `0`, beim Erreichen des Endpunkts den positiven diskreten
-Schrittzähler; dies ist kein euklidischer Distanzwert. Der Wrapper gibt den
-ersten positiven Wert zurück oder versucht nach `0` die umgekehrte Richtung.
-
-Das erste Coreargument wird in der gesamten Routine nur geladen, um an
-`context + 0xC` zu schreiben. Es gibt keine Leseverwendung und keinen Zugriff
-auf ein anderes Feld dieses Objekts. Für die Recovery ist daher ein eigener
-nullinitialisierter, mindestens `16` Byte großer Probe-Kontext vorgesehen. So
-wird Vanillas globales Objekt bei `0x182F79680` nicht verändert. Dieser statische
-Befund muss noch durch eine verhaltenneutrale Game-Thread-A/B-Probe bestätigt
-werden; der globale Kontext darf produktiv nicht als Scratchpuffer dienen.
-
-### Neu bestätigte Distanzpässe der Zielsuche
-
-Die Zielsuche verwendet vor dem Sichthelper die reine Manhattan-Distanzroutine
-bei RVA `0x79C0` mit den aktuellen Tilepositionen von Jäger und Beute:
-
-1. Im ersten Durchlauf werden nur Kandidaten mit Distanz `> 20` betrachtet.
-2. Wird kein Ziel gefunden, folgt genau ein zweiter Durchlauf mit Distanz `> 5`.
-3. Bei Distanz `< 54` muss der Sichtwrapper einen Wert `1..432` liefern.
-4. Ab Distanz `54` überspringt diese frühe Zielsuche den Sichtwrapper und kann
-   den Kandidaten anhand der kleinsten Manhattan-Distanz auswählen. Die spätere
-   direkte Hunter-Order prüft die Sicht dennoch erneut und kann abbrechen.
-
-Die Grenze `432` entspricht `54 * 8` Raster-/Weltuntereinheiten und passt damit
-zur Distanzschwelle, ist aber nicht als eigentliche Schussreichweite zu
-interpretieren. Für `Discovering` muss die bestehende Mod-Priorisierung diese
-beiden Vanilla-Pässe und den später möglichen Orderabbruch berücksichtigen:
-Ein verborgenes Tier kann entweder schon in der Query ohne Zielzuweisung
-verworfen werden oder erst nach einer zunächst erlaubten Fernzielauswahl.
-
-### Neu bestätigte Pfad- und Move-Semantik
-
-`GameTileManagerAPI.FindPath` im kanonischen Script Extender ist kein Aufruf
-von Vanillas nativer Unit-Pfadplanung. Es handelt sich um einen verwalteten
-A*-Pathfinder über Tilekoordinaten. Er sperrt Gebäude und
-`TilePropertyMasks.ImpassableMask` und verhindert diagonales Schneiden durch
-Ecken, bildet aber nicht nachweislich alle unit-, order- und zustandsabhängigen
-Regeln des nativen Jägerpfads ab. Die dafür verwendete Methode
-`IsTileWalkableAndUnoccupied` prüft ihrem Namen zum Trotz keine Unitbelegung.
-
-Der echte `MoveToTile`-Befehl führt in der Referenz-DLL zu
-`c_game_unit_issueorder_movehere` bei RVA `0x196230`. Die statische Disassembly
-zeigt zahlreiche Unit-, Koordinaten-, Tile- und Pfadzustandsprüfungen. Sie gibt
-auf allen erkannten Ablehnungspfaden `0` zurück. Bei bereits erreichtem Ziel
-oder nachdem die interne Pfaderzeugung mindestens einen Schritt geliefert und
-den Path-State auf `2` gesetzt hat, gibt sie `1` zurück. Der Standardpfad
-(`unknown == 0`) läuft dabei unter anderem über RVA `0xF4930`; die Routine
-arbeitet mit globalem, zuvor aufgebautem Scratch-/Pfadkontext und ist damit
-nicht als verhaltenneutrale read-only Probe belegt. Die statisch erkennbare
-Bool-Semantik und ihre Zustandsfelder müssen noch einmal im echten Spiel gegen
-den synchronen Post-Return und Positionsfortschritt kalibriert werden. Daraus
-folgen drei Grenzen:
-
-1. Managed `FindPath` ist nur ein günstiger Kandidaten- und Routenvorschlag.
-2. Erreichbarkeit wird erst durch einen nachweislich akzeptierten nativen Move
-   und anschließenden Fortschritt bestätigt; alternativ ist zuvor eine exakt
-   identifizierte verhaltenneutrale native Pfadabfrage zu isolieren.
-3. Ein Managed-Fehlschlag darf ein Tier nicht endgültig als unerreichbar
-   klassifizieren, solange nicht belegt ist, dass der native Jägerpfad dieselbe
-   Sperrsemantik verwendet. Solche Fälle benötigen eine native Gegenprobe oder
-   einen klar diagnostizierten konservativen Abbruch statt „Kein Pfad“ als
-   bewiesene Vanilla-Aussage.
-
-### Vor der Verhaltensänderung noch bytegenau zu bestätigen
-
-1. Sichere Umrechnung einer hypothetischen Kandidaten-Tileposition in dieselben
-   Welt-/Höhenwerte. Der In-Tile-Offset des Jägers darf nicht geraten werden.
-2. Die noch unbekannte fachliche Bedeutung des fest auf `0` gesetzten achten
-   Corearguments benennen; für die originalgetreue Probe bleibt es unabhängig
-   davon zwingend `0`.
-3. Den privaten 16-Byte-Kontext in einem persistenten Game-Thread-Callback
-   verhaltenneutral gegen den Vanilla-Aufruf prüfen; weder parallele Verwendung
-   noch Aufruf aus einem beliebigen Thread zulassen.
-4. Bestätigung an mindestens drei Laufzeitkontrollen:
-   freie Linie mit Schuss, Vanilla-freie Linie über eine Jägerhütte und
-   blockierte Linie an Kornspeicher/Holzfällerhütte beziehungsweise Gelände.
-5. Bestätigung, dass derselbe Koordinatenaufbau für alle sechs aktivierbaren
-   Beutetypen gilt oder Dokumentation jedes typabhängigen Sonderfalls.
-6. Exakte Hunter-Schussdistanz und Grenzsemantik aus Orderpfad und
-   Projektilspawn bestimmen. Die Querygrenzen `5/20/54` sind jetzt belegt, aber
-   keine Schussreichweiten; die bisherigen Kandidatengrenzen `3..20` bleiben
-   bis dahin nur Hypothese und dürfen nicht als produktive Wahrheit
-   festgeschrieben werden.
-
-### Physische Pfeilbahn ist eine eigene Prüffrage
-
-Vanillas Sichthelper ist nicht zugleich ein Beweis für eine kollisionsfreie
-Pfeilbahn; die bestätigte Jägerhütten-Ausnahme zeigt das direkt. Auch ein
-einfacher Tile-Bresenham-Test beweist keine freie Bahn an Gebäudeecken,
-mehrteiligen Footprints, Mauern, Toren, Türmen oder unterschiedlichen Höhen.
-Vor der produktiven Kandidatenwahl ist deshalb der native Projektilbewegungs-
-beziehungsweise Kollisionspfad eines `ArcherArrow` gezielt zu untersuchen.
-
-Bevorzugt wird eine verhaltenneutrale, aufrufbare native Kollisionsprobe mit
-Vanillas echten Weltkoordinaten und Höhen. Falls sie nicht sicher isolierbar
-ist, muss ein konservativer Managed-Supercover-Korridor anhand der nachweislich
-relevanten Tileflags, vollständigen Gebäudefootprints und Höhenregeln gegen
-echte Pfeilflüge validiert werden. Ein Kandidat darf nur verwendet werden,
-wenn sowohl die Hunter-Sichtprobe als auch diese physische Schussbahnprüfung
-frei melden. Jägerhütten werden bei neuen Kandidaten nicht ausgenommen.
-
-### Geplante native Auflösung
-
-Eine neue Datei `HunterNativeVisibilityProbe.cs` kapselt ausschließlich die
-Auflösung und den validierten Aufruf. Sie installiert keinen Hook.
-
-Auf dem Referenzhash:
-
-1. Direktes bekanntes RVA `0xA06F0` und den bekannten Hunter-Call-Site-RVA
-   verwenden.
-2. Nur die lokalen Bytes, Instruktionsgrenzen, zwei Core-Aufrufe, den
-   konditionalen zweiten Aufruf, das konstante achte Coreargument sowie die
-   Sieben-Argument-Caller semantisch validieren. Die RIP-relative globale
-   Kontextadresse dient nur der Signaturprüfung; der Probeaufruf verwendet den
-   privaten Kontext.
-3. Keine vollständige Pattern-Suche starten.
-
-Bei einem abweichenden Hash:
-
-1. Nur ausführbare PE-Sektionen durchsuchen.
-2. Einen ausreichend langen semantischen Wrapper-Pattern verwenden, der beide
-   Aufrufe derselben Corefunktion und den Retry nur nach Ergebnis `0` enthält.
-3. Zusätzlich die Hunter-Call-Site eindeutig auflösen und daraus
-   Kontextadresse, Helperziel, Feldloads, Konstanten und Argumentreihenfolge
-   dekodieren.
-4. Genau einen semantisch gültigen Treffer verlangen. Fehlende oder mehrere
-   gültige Treffer deaktivieren ausschließlich die Sichtlinien-Recovery.
-5. Hash, RVA, Pattern, Dekodierung und Validierungsregeln in
-   `UpdateToNewDLL.md` dokumentieren.
-
-Falls ein direkter Probeaufruf wegen des Scratch-Seiteneffekts nicht sicher
-nachgewiesen werden kann, wird nicht auf eine Näherungsformel zurückgefallen.
-Dann ist vor der Verhaltensimplementierung zwischen einem exakt portierten
-Managed-Helper und einem kleinen geprüften Script-Extender-Wrapper zu
-entscheiden. Die aktuelle Gebäude-/Terrain-Min-Max-Näherung ist kein zulässiger
-produktiver Fallback.
-
-## Zielarchitektur
-
-### Dateien und Verantwortlichkeiten
-
-| Datei | Geplante Verantwortung |
-| --- | --- |
-| `HunterNativeVisibilityProbe.cs` | Hash/RVA/Pattern-Auflösung, semantische Validierung und begrenzte native Sichtprobe ohne Hook. |
-| `HunterLineOfSightRecovery.cs` | Persistente Recovery-State-Machine, Kandidatensuche, Pfadprüfung, Bewegung, Fortschritt und Wiederaufnahme. |
-| `HunterLineOfSightRecoveryDiagnostic.cs` | Begrenzte, selbstvalidierende Phasenlogs; separat entfernbar. |
-| `ImprovedHuntersRuntime.cs` | Eventverdrahtung, Query-Policy, Zielübergänge, Reservierungsfreigabe, Scanreihenfolge und bestehende Projektilkompensation. |
-| `HunterVisibilityDiagnostic.cs` | Nur während Diagnose-/A/B-Phase behalten; nach bestätigter Recovery entfernen statt als parallelen Fallback fortzuführen. |
-| `UpdateToNewDLL.md` | Native Adressen, Muster, Signatur, Strukturfelder, Auflösungs- und Updateaudit. |
-| `info.json` / Pluginversion | Version und Changelog nach erfolgreicher Implementierung und Tests. |
-
-### RecoveryPlan pro Jäger
-
-Jeder aktive Plan wird mindestens mit folgenden stabilen Daten geführt:
-
-- Jäger: Unit-Slot, Global-ID, Besitzer, Starttile.
-- Bevorzugte Beute: Unit-Slot, Global-ID, Typ, zuletzt bekannte Tile-/
-  Weltposition und die zugehörige `Hunt...`-Freigabe.
-- Aktuell nativ zugewiesene Beute, falls sie während des Starts bereits vom
-  bevorzugten Ziel abweicht.
-- Aktuelles natives Bewegungsziel samt Zweck (`ApproachPrey` oder belegtes
-  `FiringTile`), erwartete native Sichtprobe und optionale Managed-Pfadlänge.
-- Phase, Erstellungszeit, Ablaufzeit und Zeitpunkt des letzten Fortschritts.
-- Letzte Jägerposition, letzte Distanz zum Ziel und Anzahl der Move-Ausgaben.
-- Anzahl der Neuplanungen, Stalls, überschriebenen Orders und Query-Sperren.
-- Synchron korrelierter `OnUnitMoveHere(Post)`-Rückgabewert.
-- Letzter passender Projektilzeitpunkt.
-
-Unit-Slot allein ist nie ausreichend. Jede Verwendung validiert zusätzlich die
-Global-ID, den Unittyp und den Alive-State. Slot-Wiederverwendung beendet den
-Plan ohne Schreibzugriff auf die neue Unit.
-
-### Phasenmodell
-
-| Phase | Verhalten | Übergang |
-| --- | --- | --- |
-| `Discovering` | Einen wartenden Jäger mit Ziel `0` nach einem abgeschlossenen Suchversuch beziehungsweise im gedrosselten Idle-Scan mit der gemeinsamen Beute-Eligibility korrelieren. Nur aktivierte, lebende und unreservierte Beute berücksichtigen; Managed-Pfadkosten dürfen ranken, aber Kandidaten nicht endgültig ausschließen. | Sicht oder physische Bahn von der aktuellen Position blockiert: direkt zu `Planning`; beide frei: Vanilla-Requery; kein gültiger Kandidat: keine Recovery. |
-| `Observing` | Wiederholte Zielabbrüche einer bereits stabil zugewiesenen Beute sammeln und die tatsächliche native Linie prüfen. | Nach bestätigtem blockierten pre-shot Abbruch zu `Planning`; die bisherige feste Dreierzahl wird nur beibehalten, wenn Logs zeigen, dass ein einzelner eindeutiger Abbruch nicht genügt. |
-| `Planning` | Primär Vanillas Bewegungsziel auf die aktuelle Beuteposition vorbereiten; Managed-Route nur zum Ranking und für Diagnose verwenden. Einen alternativen Schuss-Anulus erst nach belegter nativer Beute-Erreichbarkeit inkrementell prüfen. | Valides Annäherungsziel zu `MovePending`; endgültige native Ablehnung beziehungsweise vollständig ausgeschöpfter belegter Alternativraum zu Abbruch mit normalem Cooldown. |
-| `MovePending` | In-Flight-Korrelation setzen, `MoveToTile` genau einmal ausgeben und synchronen Move-Pre/Post-Event erfassen. | Akzeptierter beziehungsweise plausibel gestarteter Move zu `Moving`; eindeutige Ablehnung zu Neuplanung/Abbruch. |
-| `Moving` | Neue Tierquerys dieses Jägers blockieren, dem von Vanilla angenommenen Weg in Richtung Beute folgen, Positionsfortschritt prüfen und eine überschriebene/stagnierende Order begrenzt neu ausgeben. | Innerhalb bestätigter Schussreichweite am ersten Punkt mit freier nativer Sicht und physischer Bahn zu `Revalidate`; bei Zielbewegung zu `Planning`; bei nativer Ablehnung oder Timeout zu Abbruch. |
-| `Revalidate` | Jäger/Beute erneut validieren, native Sicht von der tatsächlichen Position und die physische Pfeilbahn prüfen. | Beide Linien frei und natives Ziel vorhanden: `AwaitProjectile`; ohne natives Ziel: `Reacquire`; weiterhin blockiert: `Planning`. |
-| `Reacquire` | Nur die exakte weiche Zielidentität in `OnHunterQueryTarget` zulassen und Vanillas bestehende Idle-Requery auslösen. | Native Zielzuweisung zu `AwaitProjectile`; reserviertes/totes/verschwundenes Ziel zu Abbruch oder neuer normaler Zielwahl. |
-| `AwaitProjectile` | Keine Move-Order mehr ausgeben; Vanilla schießen lassen. | Passendes Projektil beendet die pre-shot Recovery erfolgreich; erneuter pre-shot Abbruch führt begrenzt zurück zu `Planning`. |
-| `Completed/Cancelled` | Alle Query-Sperren und temporären Zustände entfernen. | Kein weiterer Eingriff; normale Vanilla-/Modlogik läuft. |
-
-Wichtige Regel: Die Recovery hält die bevorzugte Beute nur logisch fest. Eine
-native Reservierung `2` wird freigegeben, sobald kein lebender Jäger mehr exakt
-dieses Slot-/Global-ID-Ziel führt. Das verhindert, dass Vanillas vor dem
-öffentlichen Queryevent liegender Reservierungsfilter die Beute dauerhaft
-aussortiert. Übernimmt ein anderer Jäger die Beute, wird der Plan verworfen oder
-mit einem neuen Ziel aufgebaut; es wird kein Reservation-Bypass ergänzt.
-
-## Kandidatensuche
-
-### Native Annäherung und vollständiger Fallback
-
-Der bisherige Radius `8` um den Jäger und der endgültige Abbruch nach acht
-Pathchecks können ein erreichbares Tier hinter einer längeren Mauer dauerhaft
-übersehen und widersprechen damit dem Ziel. Die Suche wird deshalb so
-aufgebaut:
-
-1. Die bisher vermischten Teile von `TryGetTargetSelectionForHunter` in eine
-   gemeinsame Beute-Eligibility und eine getrennte Kosten-/Erreichbarkeitsstufe
-   zerlegen. Kein eigener Hühner-Sonderpfad. Ein Managed-Pathfind-Fehlschlag
-   darf eine sonst gültige Beute für die Discovery nicht endgültig entfernen.
-2. Managed-`FindPath` von der tatsächlichen Jägerposition darf verfügbare Beute
-   günstig ranken und eine erwartete Route für Diagnose liefern. Der alte
-   Fünf-Sekunden-Cache und ein nur von der Jägerhütte gerechneter Pfad reichen
-   dafür nicht; auch ein frischer Managed-Pfad ist kein Vanilla-Beweis.
-3. Primär `MoveToTile` auf die aktuelle Beuteposition beziehungsweise eine erst
-   bytegenau validierte native Approach-Semantik ausgeben. Return `1` plus
-   Fortschritt bestätigt, dass Vanilla selbst einen Weg angenommen hat. Während
-   der Annäherung wird im 100-ms-Scan der erste Standort verwendet, der innerhalb
-   der bestätigten Schussreichweite sowohl native Sicht als auch freie physische
-   Pfeilbahn besitzt. Damit folgt der Jäger Vanillas Weg um den Blocker und hält
-   so früh wie möglich zum Schuss an.
-4. Vor der Implementierung ist im Spiel zu prüfen, ob `MoveToTile` ein durch das
-   Tier belegtes Ziel-Tile als erreichbares Annäherungsziel annimmt. Falls nicht,
-   muss die darunterliegende native Nearest-Approach-/Path-End-Semantik
-   identifiziert werden; ein beliebiges erreichbares Schusstile beweist nicht,
-   dass der spätere Kadaver fußläufig erreichbar ist.
-5. Erst wenn native Beute-Erreichbarkeit unabhängig belegt ist, darf ein
-   alternativer begehbarer Anulus innerhalb der bytegenau bestätigten
-   Hunter-Schussdistanz deterministisch und inkrementell geprüft werden. Jeder
-   Schusskandidat benötigt einen von `MoveHere` angenommenen Weg sowie beide
-   freien Linienprüfungen.
-6. Teure Pfade und Probes pro 100-ms-Scan budgetieren, aber den Suchcursor über
-   Scans fortsetzen. „Kein erreichbares Schusstile“ darf erst gemeldet werden,
-   wenn der relevante endliche Kandidatenraum vollständig geprüft wurde, nicht
-   nur die ersten acht heuristischen Treffer.
-
-Die physische Gebäudelinie und die native Sichtprobe beantworten verschiedene
-Fragen:
-
-- Die native Probe entscheidet, ob Vanilla den Angriff von dort beginnen darf.
-- Die gesondert validierte physische Bahnprüfung vermeidet Positionen, bei
-  denen ein echter Pfeil danach an Gebäude, Mauer, Tor, Turm, Ecke oder Gelände
-  kollidieren würde.
-
-Eine Jägerhütte darf trotz positiver nativer Sichtprobe die pre-shot Recovery
-auslösen, sobald die physische Bahnprüfung sie als Pfeilblocker meldet. Für die
-aktuelle Linie und für neue Kandidaten wird sie wie jedes andere physische
-Hindernis ausgeschlossen. Die post-shot-`DamageUnitRanged`-Kompensation bleibt
-für schon gestartete oder trotz Prüfung kollidierende Pfeile bestehen, ist aber
-nicht mehr der geplante Normalpfad durch die Hütte.
-
-### Zielbewegung
-
-Alle Beutetiere können sich während der Recovery bewegen. Deshalb:
-
-- Zielposition bei jedem Scan erneut über Slot plus Global-ID lesen.
-- Bei geändertem Zieltile den bisherigen Kandidaten nicht blind weiterverwenden.
-- Höchstens alle `500 ms` neu planen, sofern die tatsächliche Linie am
-  aktuellen Jägerstandort nicht inzwischen frei ist.
-- Anzahl der Neuplanungen pro Recovery begrenzen, beispielsweise auf `4`.
-- Nach Überschreitung das Ziel mit normalem Abbruchcooldown verlassen, damit
-  kein permanentes Hin-und-her entsteht.
-
-Die konkreten Intervalle sind interne Konstanten und werden durch Tests und
-Laufzeitlogs kalibriert; sie werden nicht als neue Nutzereinstellung exponiert.
-
-## Bewegungsauftrag und Fortschrittskontrolle
-
-### Move-Rückgabe erfassen
-
-`GameUnitManagerAPI.MoveToTile` verwirft den nativen `Int64`-Rückgabewert. Der
-Script Extender veröffentlicht denselben Aufruf jedoch bereits über
-`UnitR3EventHooks.OnUnitMoveHere` mit `Pre` und `Post` sowie `ReturnValue`.
-
-Geplantes Vorgehen:
-
-1. Unmittelbar vor `MoveToTile` einen In-Flight-Datensatz mit Jägeridentität,
-   Zielkoordinate und Zeitstempel setzen.
-2. Nur synchron passende `OnUnitMoveHere`-Events konsumieren.
-3. Im Post-Event den Rückgabewert der bei RVA `0x196230` aufgelösten
-   `c_game_unit_issueorder_movehere`-Routine dem RecoveryPlan zuordnen.
-4. Die statisch belegte Bool-Semantik (`0` abgelehnt, `1` angenommen oder Ziel
-   bereits erreicht) diagnostisch gegen Positions-/Pfadzustand kalibrieren.
-   `1` allein beweist noch keinen späteren Fortschritt und keine Ankunft.
-5. In-Flight-Datensatz in einem `finally`-Pfad löschen, damit ein Event- oder
-   Nativefehler keine späteren Vanilla-Moves fälschlich zuordnet.
-
-### Fortschritt und Orderüberschreibung
-
-- Der 100-ms-Scan prüft aktuelle Position, Distanz zum Recovery-Tile,
-  `r_PathPlanStateBitFlags`, `r_MovingRelevant`, letzten Befehl und natives Ziel.
-- Jede Positionsänderung oder sinkende Distanz aktualisiert
-  `LastProgressAt`.
-- Bleibt der Jäger trotz akzeptiertem Move beispielsweise `750 ms` ohne
-  Fortschritt oder zeigen die Orderfelder wieder einen Angriff statt Bewegung,
-  gilt die Recovery-Order als überschrieben/stagnierend.
-- `MoveToTile` darf dann frühestens nach einem Mindestabstand erneut ausgegeben
-  werden, insgesamt höchstens drei Mal.
-- Ein Gesamt-Timeout von ungefähr fünf bis acht Sekunden beendet die Recovery.
-- Ankunft wird nicht nur über exakte Tilegleichheit festgestellt. Wenn die
-  tatsächliche native Sicht bereits vorher frei und der physische Korridor
-  gebäudefrei ist, wird sofort zu `Revalidate` gewechselt.
-
-Die Recovery schreibt nicht direkt in unbekannte Target-/Pathfelder. Bereits
-vorhandene, im Mod erprobte AI-State-Schreibzugriffe (`0x2BC`/`0x2C4`) werden
-nur für die eng begrenzte `Reacquire`-Phase verwendet und vorab gegen den
-vollständigen Vanilla-Übergang geprüft.
-
-## Zielwahl während und nach der Bewegung
-
-### Integration in OnHunterQueryTarget
-
-Nach der durch `HunterQueryActorWorkaround` korrigierten Jäger-ID und vor der
-normalen kostenbasierten Auswahl erhält die Recovery eine Queryentscheidung:
-
-- Noch kein aktiver Plan: Meldet die schnelle, verhaltenneutrale physische
-  Bahnvorprüfung für den aktuellen Hunter/Kandidaten einen Blocker, wird dieser
-  Kandidat für den laufenden Query-Burst abgelehnt und als möglicher
-  `Discovering`-Start vorgemerkt. Pfadsuche und vollständige Planung laufen
-  anschließend im 100-ms-Scan, niemals im nativen Candidate-Loop.
-- `Moving`, `MovePending`, `Planning`: bekannte aktivierte Beutetiere für genau
-  diesen Jäger ablehnen, damit Vanilla nicht laufend einen neuen Angriff über
-  den Move legt.
-- `Reacquire`: nur Slot, Global-ID und Typ der geplanten lebenden,
-  unreservierten Beute erlauben; alle anderen Beutetiere dieses Jägers
-  vorübergehend ablehnen.
-- `AwaitProjectile`: nur das aktuell validierte Ziel zulassen, bis ein Projektil
-  erscheint oder das kurze Zeitfenster ausläuft.
-- Kein aktiver Plan oder nicht auflösbarer Actor: bestehende Zielwahl unverändert.
-
-Die Policy muss vor jeder Entscheidung die aktuelle Global-ID und den Typ des
-Kandidaten lesen. Das Queryevent enthält nur die Unit-ID; ein wiederverwendeter
-Slot darf nicht als geplante Beute gelten.
-
-### Bereits im selben Scan neu zugewiesenes Ziel
-
-Der letzte Lauf zeigt, dass beim Erkennen des alten Abbruchs bereits eine andere
-Beute im nativen Zielfeld stehen kann. Ein solcher Zustand wird nicht durch
-ungeprüftes Leeren von `+0x39A/+0x39C` korrigiert.
-
-Empfohlene sichere Regel:
-
-1. Ist das neue native Ziel gültige aktivierte Beute, übernimmt der
-   RecoveryPlan diese Identität und plant die Position dafür neu.
-2. Ab Aktivierung blockiert die Query-Policy weitere Zielwechsel.
-3. Verschwindet das native Ziel während der Bewegung, bleibt die letzte stabile
-   Identität als weiches Ziel erhalten.
-4. Ist das Ziel bei Ankunft noch nativ gesetzt und die Linie frei, werden keine
-   Zielfelder geschrieben; die Move-Wiederholung endet und Vanilla darf den
-   Angriff fortsetzen.
-5. Ist das Zielfeld `0`, wird die Reservierung sicher freigegeben und über
-   `Reacquire` Vanillas Query für genau das weiche Ziel ausgelöst.
-
-Erst wenn Laufzeitdaten zeigen, dass dieser Ablauf wegen eines dauerhaft
-falschen nichtnull Zielfeldes nicht funktioniert, darf ein eigener
-Target-Clear-Übergang erwogen werden. Davor müssen alle Writer und späteren
-Leser von `+0x39A/+0x39C`, AI-State, Reservation und Pathstate vollständig
-untersucht werden. Ein bloßes Nullschreiben ist nicht Teil dieses Plans.
-
-## Multiplayer-Autorität und Determinismus
-
-Multiplayer-Unterstützung bleibt ausdrückliches Ziel dieser Recovery, wird aber
-nicht zusammen mit der ersten Singleplayer-Implementierung gebaut. Sie wird als
-eigener nachgelagerter Chore **„Hunter-Recovery-Multiplayer-Synchronisation“**
-umgesetzt, sobald der kanonische Script Extender mindestens Version `1.50.0`
-erreicht hat. Bis dahin muss die Recovery in echtem Multiplayer fail-closed
-deaktiviert bleiben; die Singleplayer-Implementierung darf keine lokale
-simulationsrelevante Teilfunktion auf Clients ausführen.
-
-Die vorherige Trennung ist keine dauerhafte Einschränkung: Datenmodell,
-State-Machine, Zielidentitäten, Taktquelle und Adaptergrenzen werden von Anfang
-an so angelegt, dass der spätere Synchronisations-Chore ohne parallele zweite
-Recovery-Implementierung ergänzt werden kann.
-
-Ein zusätzlicher `MoveToTile`-Befehl ist simulationsrelevant. Vor der
-Multiplayer-Runtime-Integration muss deshalb anhand der Script-Extender-Quelle und eines
-Host-/Client-Diagnoselaufs geklärt werden, ob dieser Befehl nur auf der
-Simulationsautorität ausgegeben und repliziert wird oder in der Lockstep-
-Simulation auf allen Teilnehmern deterministisch entstehen muss.
-
-- Den Spielmodus bei Kartenstart über `Shared/GameModeHelper.cs` erfassen; weder
-  `IsNetworkedEnvironment()` noch eine lokale `gameMembers`-Liste allein als
-  Multiplayerbeweis verwenden.
-- Bei Einzelautorität darf nur diese Instanz Recovery-Moves und etwaige
-  AI-State-Requerys ausgeben; Clients beobachten nur replizierten Zustand.
-- Bei Lockstep-Ausführung müssen Beuteauswahl, Kandidatenreihenfolge,
-  Tie-Breaks, Probe-Caches und Abbruchgrenzen auf allen Peers identisch sein.
-  Verhaltensübergänge dürfen dann nicht von lokalem `Stopwatch`-Timing abhängen,
-  sondern benötigen einen gemeinsamen Map-Tick beziehungsweise deterministische
-  Scan-Generationen. `Stopwatch` bleibt nur für Diagnose und Drosselung ohne
-  Simulationsentscheidung zulässig.
-- Host und Client dürfen niemals unterschiedliche Recovery-Ziele reservieren
-  oder konkurrierende Move-Orders für denselben Jäger erzeugen.
-- Singleplayer-Skirmish, Singleplayer-Trail, echter Host, echter Client sowie
-  Multiplayer-Save/Load erhalten getrennte Abnahmetests und Diagnoselogs.
-
-Gate: Vor Script Extender `1.50.0` beziehungsweise vor abgeschlossenem
-Synchronisations-Chore wird keine verhaltensändernde Multiplayer-Recovery
-freigegeben. Singleplayer-Skirmish und -Trail werden unabhängig davon
-unterstützt. Nach Erreichen der Mindestversion ist Multiplayer kein optionaler
-Dauerzustand, sondern eine noch abzuschließende unterstützte Zielplattform.
-
-## Änderungen in ImprovedHuntersRuntime
-
-### Initialisierung
-
-1. `HunterNativeVisibilityProbe` vor `HunterLineOfSightRecovery` initialisieren.
-2. Recovery nur verfügbar melden, wenn Probe, Hunter-only-Zielschutz und die
-   für Queryentscheidungen notwendige Actorauflösung verfügbar sind.
-3. `OnUnitMoveHere` Pre/Post abonnieren.
-4. Bei Teilfehlern nur die Recovery deaktivieren; Granary-Limit,
-   Neutralspawn, automatische Hunter-only-Zielwahl, manuelle Angriffe und
-   Projektilkompensation getrennt weiter betreiben.
-
-### Scanreihenfolge
-
-Geplante Reihenfolge innerhalb `RunNativeScan`:
-
-1. bestehende Despawn-/Gesundheits- und Projektilkompensation,
-2. Unitarray und Identitäten erfassen,
-3. Reservierungen und bestehende Zielübergänge beobachten,
-4. aktive RecoveryPlans fortschreiben und gegebenenfalls Move ausgeben,
-5. sichere Diagnose ausführen,
-6. allgemeines `RequeryIdleHuntersNearPrey` nur für Jäger ohne aktiven Plan,
-7. übrige bestehende Verarbeitung.
-
-### Vor-Zielzuweisungs-Trigger
-
-`TrackHunterSearchQuery` erkennt bereits neue Query-Bursts anhand einer
-Zeitlücke, und `OnHunterQueryTarget` kennt nach der Actor-Korrektur Jäger und
-Kandidatenidentität. Diese Daten werden erweitert, ohne den Queryhook selbst
-mit Pfadsuchen zu belasten:
-
-1. Pro Jäger den Beginn, den letzten Callback und die vom gemeinsamen
-   `TargetSelection` bevorzugte Slot-/Global-ID-/Typ-Identität eines
-   Query-Bursts erfassen.
-2. Erst im 100-ms-Scan und nach einer kurzen Ruhephase des Bursts prüfen, ob der
-   Jäger weiterhin im Waiting-State mit Ziel `0` steht. Damit läuft keine
-   Planung innerhalb des nativen Candidate-Loops.
-3. Die Beute erneut vollständig validieren. Einen frischen Managed-Pfad von der
-   tatsächlichen Jägerposition nur als Ranking-/Diagnosewert erfassen, nicht als
-   alleinige Recovery-Grenze.
-4. Ist die aktuelle native Sicht oder die physische Pfeilbahn blockiert,
-   `Discovering -> Planning` starten. Sind beide frei, nur den normalen
-   Vanilla-Requery zulassen. Ob Vanilla wirklich einen Fußweg annimmt,
-   entscheidet anschließend der korrelierte native MoveHere-Rückgabewert samt
-   Fortschrittsprüfung.
-5. Ein dedizierter Cooldown pro Jäger/Beute verhindert, dass unveränderte
-   erfolglose Query-Bursts ohne Pause denselben vollständigen Suchraum neu
-   aufbauen.
-
-Falls Laufzeitlogs zeigen, dass der Query-Burst vor `0x18B052` nicht eindeutig
-genug abgegrenzt werden kann, darf der gedrosselte Idle-Scan dieselbe
-`TargetSelection` direkt verwenden. Auch dann gelten Ziel `0`, Waiting-State,
-frische Identität und aktivierter Beutetyp als Pflichtbedingungen; eine
-Managed-Pfadbewertung ist nur Präferenz, die native Move-Annahme bleibt Gate.
-
-### TrackHunterTargetState refaktorieren
-
-Die Methode soll einen strukturierten Übergang statt nur `bool
-recoveryMoveIssued` liefern, beispielsweise:
-
-- `NoChange`
-- `NormalAbort`
-- `RecoveryObserved`
-- `RecoveryStarted`
-- `RecoveryRetargeted`
-- `RecoveryCancelled`
-
-Darauf basieren:
-
-- 30-s-Abbruchcooldown nur bei normalem oder endgültig gescheitertem Abbruch,
-- kein Cooldown während einer laufenden Recovery,
-- Reservierungslog mit tatsächlichem Cooldownzustand,
-- korrektes Aktualisieren von `activeHunterTargets`, auch wenn im selben Scan
-  bereits ein neues natives Ziel existiert.
-
-### Reset- und Fehlerpfade
-
-Alle Recovery- und Probe-Caches werden gelöscht bei:
-
-- Kartenstart,
-- `EnableMod` aus,
-- die zum Plan gehörende `Hunt...`-Option aus,
-- `ImprovedPathfinding` aus,
-- Dispose beziehungsweise echter Prozessbeendigung.
-
-Ein Plan endet außerdem sofort bei:
-
-- totem/gelöschtem Jäger,
-- Jäger-Slot-Wiederverwendung,
-- toter/gelöschter Beute,
-- Beute-Slot-Wiederverwendung oder Typwechsel,
-- Reservierung durch einen anderen lebenden Jäger,
-- nicht mehr gültigem Pfad oder dauerhaft bewegtem Ziel,
-- nativer Probe- oder Move-Ausnahme.
-
-## Zusammenspiel mit der Projektilkompensation
-
-Die pre-shot Recovery und die post-shot Kompensation bleiben strikt getrennt:
-
-1. Solange kein passendes Projektil existiert, darf nur die Recovery bewegen.
-2. `RecordProjectileSpawn` beendet sofort Query-Sperre und Move-Wiederholungen
-   für diesen Jäger/Ziel-Plan.
-3. Der bestehende `PendingHunterShotIntent` übernimmt ab diesem Zeitpunkt.
-4. Nur ein echtes, identitätsgeprüftes `ArcherArrow`-Projektil kann
-   `DamageUnitRanged` auslösen.
-5. `KillUnit` bleibt ausgeschlossen.
-6. Eine Jägerhütte blockiert neue Schussfreigaben über die physische Bahnprobe.
-   Für einen bereits gestarteten und dort hängenbleibenden Pfeil greift weiterhin
-   ausschließlich der bestehende stalled/near/delete-Mechanismus.
-
-## Diagnose und Invarianten
-
-### Separate Datei
-
-`HunterLineOfSightRecoveryDiagnostic.cs` enthält alle neuen temporären
-Phasenlogs. Dadurch kann die Diagnose nach der Abnahme entfernt werden, ohne
-die State-Machine oder den nativen Resolver umzuschreiben.
-
-### Begrenzte Marker
-
-Jeder Marker erhält den vorhandenen Millisekunden-Zeitstempel und stabile
-Identitäten:
-
-- `probe-resolved`: Hashpfad, Helper-RVA, Core-RVA, Kontext-RVA,
-  Patternstrategie und Validierungsergebnis.
-- `blocked-observed`: Jäger/Beute einschließlich Typ, native Probe,
-  Gebäude-/Terrainkontext,
-  Abbruchzähler.
-- `planned`: Ausgang, Ziel, Kandidat, native Probe, physischer Korridor,
-  Pfadlänge und Kandidatenanzahl.
-- `move-issued`: Generation, Koordinaten und Versuch.
-- `move-result`: korreliertes Pre/Post, nativer Rückgabewert und erste
-  Pathfelder.
-- `progress`: nur bei Positionsänderung oder gedrosselt bei Stillstand.
-- `order-overridden`: erwartete Bewegung gegenüber beobachteten Feldern/Ziel.
-- `replanned`: Grund `target-moved`, `line-still-blocked`, `path-invalid` oder
-  `order-stalled`.
-- `arrived`: tatsächliche Position und Distanz.
-- `revalidated`: native Sicht und physischer Gebäudekorridor.
-- `query-suppressed` beziehungsweise `preferred-query-accepted`.
-- `projectile-confirmed`: terminaler Erfolg der pre-shot Recovery.
-- `cancelled`: eindeutiger terminaler Grund und Cooldownentscheidung.
-
-### Selbstvalidierende Zähler
-
-Pro Karte werden begrenzt und periodisch folgende Summen geprüft:
-
-- `plansStarted == plansActive + plansCompleted + plansCancelled`
-- `movesIssued == movePostsMatched + movePostsMissing`
-- `plansCompleted == projectileConfirmed + vanillaTargetResumedWithoutYetObservedProjectile`
-- `queriesHandled == queriesSuppressed + preferredQueriesAccepted`
-- keine doppelte aktive Planidentität für denselben Jäger-Slot/Global-ID.
-
-Abweichungen werden einmalig als Warnung protokolliert und deaktivieren im
-Zweifel die Recovery, nicht Vanillas Angriffspfad.
-
-## Performancegrenzen
-
-- Ein Plan pro Jäger.
-- 100-ms-Scan als vorhandener Takt; keine neue Coroutine oder kurzlebige
-  `BaseUnityPlugin.Update`-Abhängigkeit.
-- Pfadwegpunkte zuerst, danach vollständige inkrementelle Anulus-Suche; keine
-  endgültige Radius-8- oder Acht-Kandidaten-Grenze.
-- Managed-`FindPath`-, native Sicht- und physische Bahnprobes nur nach günstiger
-  Vorauswahl und mit globalem Budget pro Scan; Suchcursor bleiben erhalten.
-- Kurzer Cache für identische Start-/Zielweltkoordinaten und Höhen, höchstens
-  ungefähr `250 ms`; Änderung von Tile, Höhe, Global-ID oder Gebäudezustand
-  invalidiert ihn.
-- Keine LINQ-/Stringallokationen im normalen hot path; Beschreibungen nur beim
-  tatsächlich ausgegebenen begrenzten Log erzeugen.
-- Move-Events synchron und ohne lang laufende Suche behandeln; Kandidatenplanung
-  bleibt im bestehenden Scan.
-
-## Fehlersicherheit und DLL-Kompatibilität
-
-1. Exakter DLL-Hash: direktes RVA, nur lokale semantische Validierung, keine
-   Vollsuche.
-2. Abweichender Hash: eindeutige Suche in ausführbaren PE-Sektionen plus
-   Dekodierung und semantische Prüfung.
-3. Nicht eindeutig: Recovery deaktivieren und einmal klar loggen.
-4. Kein nativer Bytepatch und kein Inline-Hook für die Recovery.
-5. Probe, Vanilla-Aufruf, Recovery-Entscheidung und Diagnose in getrennten
-   `try`-Pfaden; ein Logformatierungsfehler darf keinen Move oder Vanilla-
-   Querypfad verändern.
-6. Mod aus, verbesserte Wegfindung aus oder die konkrete Beuteart aus: keine
-   Query-Sperre, kein Probeaufruf, kein Move und keine Recovery-
-   Rohfeldänderung für diesen Plan.
-7. Fällt der Hunter-only-Automatikschutz aus, wird die Recovery ebenfalls
-   deaktiviert, damit keine zusätzlichen neutralen Hühnerinteraktionen in einen
-   ungesicherten Zustand geraten.
-8. Der temporäre Issue-123-Workaround bleibt klar als entfernbar markiert. Nach
-   einem Script-Extender-Fix muss geprüft werden, ob `HunterUnitId` zuverlässig
-   ist; erst dann kann der Workaround entfernt werden.
-
-## Umsetzungsreihenfolge mit Prüfgates
-
-### Phase 1: Native Signatur abschließen
-
-Statisch abgeschlossen sind beide Hunter-Call-Sites, die sieben
-Wrapperargumente, das feste achte Coreargument, die Hunter-/Beute-Rohfelder,
-der diskrete Returnwert, die Query-Distanzpässe und die ausschließlichen
-Schreibzugriffe auf `context + 0xC`.
-
-Verbleibende Schritte:
-
-1. Die jetzt bestätigte Reihenfolge Typ-Hook -> Distanz -> Sicht -> bestes Ziel
-   in Resolver-/Regressionstests festhalten.
-2. Referenz-RVAs und semantische Pattern festlegen.
-3. Resolvertests für Referenzhash, eindeutigen Fallback, fehlenden und
-   mehrdeutigen Treffer schreiben.
-4. Den privaten Sichtkontext zunächst verhaltenneutral im Game-Thread gegen
-   beobachtete Vanilla-Ergebnisse validieren.
-5. Den nativen `ArcherArrow`-Kollisionspfad analysieren und eine physische
-   Bahnprobe oder belegte konservative Alternative festlegen.
-6. `c_game_unit_issueorder_movehere` bei Referenz-RVA `0x196230`, seine
-   semantische Signatur, Rückgabewerte und die darunterliegende native
-   Pfadannahme gegen Laufzeitwerte kalibrieren. Falls eine verhaltenneutrale
-   native Pfadabfrage verwendet werden soll, muss sie separat identifiziert und
-   auf Seiteneffekte geprüft werden.
-7. `UpdateToNewDLL.md` zunächst um die belegten Analyseergebnisse ergänzen.
-
-Gate: Kein produktiver Probeaufruf vor erfolgreicher A/B-Validierung des
-privaten Kontexts und der World-/Height-Erzeugung für hypothetische Positionen.
-
-### Phase 2: Verhaltenneutrale Probe
-
-1. `HunterNativeVisibilityProbe.cs` implementieren.
-2. Tatsächlich beobachtete und im Idle-Fall durch die Discovery vorgeschlagene
-   Hunter/Beute-Paare aller aktivierten Typen prüfen; keine Bewegung und keine
-   Queryänderung.
-3. Ergebnisse mit drei bekannten Ingame-Fällen vergleichen.
-4. Prüfen, dass Jägerhütten nativ sichtbar, Kornspeicher/Holzfällerhütten,
-   Mauern/Tore/Türme und die reproduzierten Höhenlinien nativ blockiert
-   gemeldet werden; physische Bahnresultate getrennt protokollieren.
-5. Stabilität mit mehreren Jägern testen; keine Hooks installieren.
-
-Gate: Probeergebnis und beobachteter Vanilla-Schuss/Abbruch müssen für alle
-Kontrollfälle übereinstimmen. Sonst keine Recovery aktivieren.
-
-### Phase 3: State-Machine isoliert implementieren
-
-1. Aktuellen einmaligen Recovery-Code durch das Phasenmodell ersetzen.
-2. Uhr, Probe, Pathfinder, Move-Ausgabe und Log als kleine testbare Adapter
-   injizieren beziehungsweise kapseln.
-3. Reine Zustands- und Kandidatentests ohne Spielprozess ausführen.
-4. Beide Startwege (`Discovering` ohne Ziel und `Observing` nach Zielabbruch)
-   einschließlich inkrementeller Kandidatensuche testen.
-5. Noch keine allgemeine Query-Sperre aktivieren.
-
-Gate: Alle terminalen Zustände, Timeouts, Slot-Reuse- und Reentranzfälle sind
-deterministisch getestet.
-
-### Phase 4: Runtime-Integration
-
-1. MoveHere-Pre/Post-Korrelation abonnieren.
-2. Scanreihenfolge ändern.
-3. `TrackHunterTargetState` auf strukturierte Outcomes umstellen.
-4. Query-Policy und Recovery-spezifisches Requery ergänzen.
-5. Generisches Idle-Requery für aktive Pläne sperren.
-6. Reservierungs- und Cooldownlogs korrigieren.
-7. Projektilspawn als terminalen Recovery-Erfolg verdrahten.
-
-Gate: Ingame bewegt sich ein einzelner Jäger bei Kornspeicher-,
-Holzfällerhütten- und Geländeblockade, bleibt bis zur freien Linie auf dem Move
-und schießt anschließend über Vanilla.
-
-### Phase 5: Mehrfachfälle und Bereinigung
-
-1. Mehrere Jäger und mehrere Beutetiere verschiedener Typen testen.
-2. Zielbewegung, Abriss des Blockers, fehlenden Weg und Reservierungswechsel
-   testen.
-3. Alte breite `HunterVisibilityDiagnostic` nach bestätigter neuer Diagnose
-   entfernen; keinen parallelen alten Fallback behalten.
-4. Version erhöhen, Changelog und `UpdateToNewDLL.md` finalisieren.
-5. Alle statischen Tests, Preset-/XAML-/Locale-Audits nur dann erneut ausführen,
-   wenn Einstellungen oder UI betroffen sind; ansonsten die Runtime-/Native-
-   Tests und CRLF-Prüfung ausführen.
-6. Nach sämtlichen Prüfungen genau einmal `ImprovedHunters\build.bat /nopause`
-   direkt und erhöht starten; der Build übernimmt Installation und Artefakte.
-
-### Phase 6: Späterer Chore für Multiplayer-Synchronisation
-
-Diese Phase beginnt erst, wenn der kanonische Script Extender mindestens
-Version `1.50.0` erreicht hat.
-
-1. Verfügbare Autoritäts-, Tick- und Netzwerk-APIs der Mindestversion erneut
-   prüfen und die oben festgelegte Host-/Lockstep-Strategie verbindlich wählen.
-2. Die vorhandene Recovery-State-Machine synchronisieren; keine zweite
-   Multiplayer-spezifische Zielwahl oder Kandidatensuche parallel anlegen.
-3. Zielidentität, Recovery-Phase, Move-Ausgabe und Abbruchursache so wenig wie
-   möglich und mit explizitem MessagePack-Formatter übertragen, falls die neue
-   Script-Extender-API keine geeignetere deterministische Replikation bietet.
-4. Host-/Client-, Save/Load-, Reconnect- und Desync-Tests ausführen.
-5. Erst nach diesen Prüfungen Multiplayer freischalten und den für diesen Chore
-   abschließenden Build einmal über `build.bat /nopause` ausführen.
-
-Gate: Bis Phase 6 abgeschlossen ist, meldet die Recovery im echten Multiplayer
-einmal begrenzt den Versions-/Chore-Grund und bleibt vollständig inaktiv. Nach
-Abschluss gehört Multiplayer zum unterstützten Funktionsumfang.
-
-## Testmatrix
-
-### Automatisierte State-Machine-Tests
-
-- Limit vor Trigger: 0, 1, 2 und 3 blockierte Abbrüche.
-- Abbruchfenster überschritten.
-- Passendes Projektil innerhalb des Zwei-Sekunden-Fensters verhindert
-  pre-shot Recovery.
-- Native Probe frei trotz Gebäude-Metadaten: keine Recovery.
-- Native Probe blockiert ohne Gebäude: Recovery wegen Gelände.
-- Keine Kandidaten, keine Route sowie inkrementelle Fortsetzung nach
-  ausgeschöpftem Pro-Batch-Budget ohne Falschabbruch.
-- Langer Mauerzug: gültiger Umweg und Schussposition liegen mehr als acht Tiles
-  vom Start entfernt.
-- Managed-Pathfinder meldet keinen Weg, native MoveHere-Annahme plus Fortschritt
-  bestätigt aber einen Weg: Recovery darf nicht vorzeitig verwerfen.
-- Managed-Pathfinder meldet einen Weg, MoveHere liefert `0`: keine Behauptung
-  nativer Erreichbarkeit und kein Schuss aus einem nur heuristischen Kandidaten.
-- Ein erreichbares Schusstile bei nativ unerreichbarer Beute reicht nicht; der
-  Plan endet ohne Angriff. Der alternative Anulus wird erst nach unabhängig
-  bestätigter Beute-Erreichbarkeit freigegeben.
-- Deterministischer Tie-Break bei gleichwertigen Kandidaten.
-- Move-Pre/Post passt, fehlt, ist verschachtelt oder gehört zu Vanilla/einer
-  anderen Unit.
-- Move wird überschrieben, stagniert, macht Fortschritt oder erreicht vorzeitig
-  eine freie Linie.
-- Ziel bewegt sich einmal, mehrfach oder dauerhaft.
-- Ziel stirbt, wird gelöscht, reserviert oder sein Slot wird wiederverwendet.
-- Jäger stirbt, wird gelöscht oder sein Slot wird wiederverwendet.
-- Bereits im Trigger-Scan abweichendes natives Ziel wird übernommen und neu
-  geplant.
-- Idle-Jäger ohne je zugewiesenes Ziel startet über `Discovering`, wenn die
-  pfaderreichbare Beute nur an Vanillas Sichtprüfung scheitert.
-- Querys während `Moving` werden unterdrückt; in `Reacquire` wird nur das exakte
-  Slot-/Global-ID-/Typ-Ziel angenommen.
-- Mod, konkrete Beuteart und verbesserte Wegfindung werden in jeder Phase
-  deaktiviert.
-- Mapreset und Dispose entfernen alle Pläne und In-Flight-Moves.
-- Cooldown nur bei endgültigem Abbruch, nicht während aktiver Recovery.
-- Logzählerinvarianten und Loglimits.
-- Autoritätsmodus: genau eine wirksame Move-Order; Lockstep-Modus:
-  deterministische Ziel-/Tilewahl und tickgleiche Übergänge auf Host und Client.
-
-### Native Resolver-/Probe-Tests
-
-- Referenzhash nutzt direkt `0xA06F0` und startet keine Pattern-Vollsuche.
-- Lokale Bytes oder Call-Site-Semantik falsch: Referenzpfad lehnt sicher ab.
-- Abweichender Hash mit genau einem semantischen Treffer.
-- Fehlender beziehungsweise mehrdeutiger Pattern-Treffer.
-- Falsche Core-Callziele, Kontextadresse außerhalb gültiger Sektionen oder
-  unerwartete Argumentinstruktionen.
-- Positive, null und gegebenenfalls negative Returnwerte mit exakter
-  signed/unsigned Behandlung.
-- Probe-Cache invalidiert bei Position, Höhe, Global-ID und Gebäudeänderung.
-- Wrapper besitzt sieben Argumente; das achte Coreargument ist konstant `0`.
-- Zielsuche akzeptiert exakt Helperwerte `1..432`, der direkte Orderpfad nur
-  Werte `> 0`.
-- Der private mindestens 16 Byte große Kontext wird nur an `+0xC` beschrieben;
-  Canarybytes außerhalb bleiben unverändert und Vanillas globaler Kontext wird
-  vor/nach der Probe nicht verändert.
-- Manhattan-Distanzen `5`, `6`, `20`, `21`, `53` und `54` treffen exakt die
-  beiden Querypässe und die belegte Sichthelper-Aufruf-/Bypass-Grenze.
-- Referenzhash löst MoveHere direkt bei `0x196230` auf; statisch bekannte
-  Rückgaben bleiben exakt `0` oder `1`, der Post-Hook wird mit Path-State und
-  Fortschritt korreliert.
-
-### Ingame-Fälle
-
-1. Kornspeicher als Sichtblocker: Jäger bewegt sich, erreicht freie Linie,
-   schießt, sammelt ein und liefert Fleisch ab.
-2. Holzfällerhütte als Sichtblocker: gleicher vollständiger Ablauf.
-3. Jägerhütte als Sichtlinie: native Probe bleibt positiv, die physische
-   Bahnprüfung sperrt den Kandidaten jedoch vor dem Schuss; der Jäger bewegt
-   sich zu einer freien Bahn und schießt erst dort. Für einen bereits gestarteten
-   und dennoch feststeckenden Pfeil folgt weiterhin `DamageUnitRanged`, ein
-   `0x6E`-Kadaver und anschließend Abholung.
-4. Gelände `80 -> 140/170 -> 80` ohne Gebäude: native Probe erkennt Blockade,
-   Jäger sucht eine tatsächlich freie Position.
-5. Blocker wird während des Wartens abgerissen: Recovery erkennt die freie
-   aktuelle Linie, beendet Bewegung und lässt Vanilla sofort fortfahren.
-6. Kein erreichbares Schusstile: erst nach vollständiger inkrementeller Suche
-   begrenzter Abbruch ohne Endlosschleife.
-7. Zweiter Kornspeicher und mehrere Hühner: keine Zielwechselkaskade.
-8. Drei Jäger: keine gemeinsame Reservierung, kein gegenseitiges Überschreiben
-   von RecoveryPlans.
-9. Huhn wandert während der Bewegung: begrenzte Neuplanung.
-10. Huhn wird von anderem Jäger getötet/reserviert: sauberer Planabbruch und
-    normale neue Zielwahl.
-11. Freie Kontrolllinie ohne Blocker: kein Recovery-Eingriff.
-12. Reh, Ziege, Hase, Kamel, Huhn und Kuh jeweils einzeln: hinter Gebäude und
-    Mauer bei vorhandenem Fußweg Recovery, freies Schussfeld, echtes Projektil,
-    korrekter Kadaver, Abholung und Fleischabgabe. `HuntCow` muss dabei auch im
-    Runtime-Eligibility-Pfad wirksam sein.
-13. Nichtjäger-Fernkampf: keine automatische Hühnerzielwahl; manueller Angriff
-    bleibt nach bestehender Policy möglich.
-14. `EnableMod`, `ImprovedPathfinding` oder die jeweilige `Hunt...`-Option aus:
-    Vanilla ohne Recovery-Eingriff für den betroffenen Typ.
-15. Speichern/Laden und Kartenwechsel während beziehungsweise nach einer
-    Recovery: keine übernommene Planidentität.
-16. Späterer Chore ab Script Extender `1.50.0`: echter Multiplayer Host/Client
-    und Multiplayer-Save erzeugen keine doppelten Moves, abweichenden Ziele oder
-    Desynchronisation; das Diagnoselog benennt die verwendete
-    Autoritätsstrategie. Vor Abschluss dieses Chores bleibt die Recovery dort
-    nachweislich vollständig deaktiviert.
-17. Bewegungsziel auf einem lebenden Tier: MoveHere-Return, Path-State und
-    tatsächlicher Annäherungspfad sind kalibriert; eine abweichende native
-    Occupancy-/Nearest-Approach-Semantik wird vor Aktivierung implementiert.
-
-## Abnahmekriterien
-
-Die Singleplayer-Erstimplementierung gilt nach Phase 5 als fertig, wenn alle
-nicht ausdrücklich dem späteren Multiplayer-Chore zugeordneten Punkte erfüllt
-sind. Das vollständige plattformübergreifende Ziel ist erst nach Phase 6
-abgeschlossen:
-
-- Ein Jäger bleibt nach einem Recovery-Move nicht mehr in der beobachteten
-  Zielwechsel-/Warten-Schleife.
-- Kornspeicher, Holzfällerhütte und der gebäudefreie Höhenfall führen bei
-  vorhandenem Weg zu einer freien Schussposition und anschließend zu einem
-  echten Projektil.
-- Dasselbe gilt für Mauern/Tore/Türme und für jeden aktivierten Beutetyp; ein
-  mehr als acht Tiles langer notwendiger Umweg wird nicht vorzeitig verworfen.
-- Die Fußwegbedingung wird durch Vanillas native Move-Annahme und beobachteten
-  Fortschritt belegt, nicht allein durch den Managed-Pathfinder oder ein
-  erreichbares Schusstile.
-- Ein Jäger kann die Recovery bereits aus „Kein Wild“/Ziel `0` beginnen; ein
-  vorheriger nativer Zielabbruch ist keine notwendige Voraussetzung.
-- Jägerhütten bleiben in der nativen Sichtprobe als Vanilla-Ausnahme erkennbar,
-  werden aber durch die physische Bahnprüfung vor neuen Hunter-Schüssen
-  ausgeschlossen. Die Projektilkompensation erzeugt für unvermeidbare
-  Restfälle weiterhin den einsammelbaren ranged-Kadaverzustand.
-- Kein `KillUnit` wird für neue Schüsse verwendet.
-- Keine rohe Ziel-ID wird ohne vorher vollständig validierten Vanilla-Übergang
-  geleert oder gesetzt.
-- Keine Reservation `2` bleibt ohne exakt zugeordneten lebenden Jäger zurück.
-- Kein nativer Inline-Hook wird an einer früheren Crashstelle installiert.
-- Referenzhash verwendet direkt validierte RVAs; abweichender Hash verwendet
-  nur eine eindeutige semantische Pattern-Auflösung.
-- Bei Auflösungs-/Probe-/Recoveryfehler bleibt Vanilla aktiv und nur dieses
-  Feature wird deaktiviert.
-- Vor Script Extender `1.50.0` und bis zum Abschluss des dedizierten Chores ist
-  die Recovery in echtem Multiplayer fail-closed; danach gehören Host, Client
-  und Multiplayer-Save zum getesteten unterstützten Funktionsumfang.
-- Logs enthalten Millisekunden-Zeitstempel, stabile Identitäten, begrenzte
-  Wiederholungen und erfüllte Zählinvarianten.
-- Runtime-Tests, Native-Resolvertests, CRLF-Prüfung und der abschließende einzelne
-  Build laufen ohne Fehler oder Warnungen durch.
-
-## Empfohlene Entscheidung
-
-Die empfohlene Umsetzung ist eine persistente, querybewusste Recovery-
-State-Machine mit Vor-Zielzuweisungs-Discovery, Vanillas nativem
-Geometriehelper, einer getrennt validierten physischen Pfeilbahn sowie dem
-vorhandenen Managed-Pathfinder als günstiger Routenvorauswahl. Native
-Move-Annahme und beobachteter Fortschritt bleiben die Autorität für tatsächliche
-Erreichbarkeit. Die Lösung gilt einheitlich für alle aktivierten Beutetypen und
-untersucht pfadgeleitet auch Umwege jenseits von acht Tiles. Das behebt das
-eigentliche Vanilla-Problem, ohne Gebäude allgemein durchsichtig zu machen und
-ohne den Angriff oder Kill künstlich vorwegzunehmen.
-
-Der aktuelle einmalige `MoveToTile`-Workaround soll dabei vollständig ersetzt
-und nicht als paralleler Fallback behalten werden. Der bestehende
-`DamageUnitRanged`-Fallback bleibt dagegen absichtlich bestehen, weil er ein
-anderes, erst nach einem echten Schuss auftretendes Vanilla-Problem behandelt.
+| `0x18AF96` | Typprüfung und öffentlicher Query-Detouranker |
+| `0x18B052` | Sichtwrapper-Aufruf in der Zielsuche |
+| `0x18E950` | Allgemeine Unit-Orderroutine / direkter Hunter-Angriffspfad |
+| `0x196230` | `c_game_unit_issueorder_movehere` |
+| `0x12FC20` | `HunterUpdate` |
+| `0x1300EA` | Vergleich der nativen Distanz mit `28` im State-1-Pfad |
+| `0x13013D` | Direkter Angriffsaufruf |
+| `0x130171` | Sichtfehlschlag zu State `6` und Hüttenrückkehr |
+
+Die vollständigen Bytepattern, Callerprüfungen, Strukturfelder,
+Auflösungsstrategie und Updateprozedur stehen in `UpdateToNewDLL.md`. Bei
+abweichendem DLL-Hash dürfen diese RVAs nicht ungeprüft verwendet werden:
+
+1. Auf Referenzhash direktes RVA plus lokale semantische Bytevalidierung.
+2. Auf abweichendem Hash nur eindeutige Suche in geeigneten PE-Sektionen und
+   vollständige semantische Validierung.
+3. Bei fehlendem oder mehrdeutigem Treffer nur das betreffende Feature
+   deaktivieren und Vanilla aktiv lassen.
+
+## Gesamt-Abnahmekriterien
+
+Die Singleplayer-Kernfunktion ist fertig, wenn:
+
+- nahe unerreichbare Beute eine weiter entfernte erreichbare Beute nicht mehr
+  verdrängt,
+- ausschließlich unerreichbare Beute keinen Move, kein Pendeln und keinen
+  Dauersuchzyklus erzeugt,
+- nach Öffnen eines Zugangs dieselbe Beute zeitnah erneut zugelassen wird,
+- ein während des Anmarschs neu unerreichbares aktives Ziel über Vanillas eigene
+  Suche gewechselt oder kontrolliert verworfen wird, ohne den Jäger aufzulösen,
+- ein erreichbarer Jäger Vanillas Weg auch innerhalb Distanz `28` bis zur freien
+  Sicht weiterläuft,
+- bei freier Sicht sofort Vanillas echter Angriff und ein echtes Projektil
+  folgen,
+- Jägerhütten wie normale Gebäude blockieren,
+- Kadaver einsammelbar bleiben und Fleisch korrekt abgegeben wird,
+- mehrere Jäger unabhängig funktionieren,
+- Reh, Ziege, Hase, Kamel, Huhn und nach Aufhebung der Runtime-Sperre Kuh die
+  gleiche Semantik besitzen,
+- kein synchrones Managed-A*, kein eigener Recovery-Move und kein direkter
+  AI-State-Nachbau zurückkehrt,
+- Mod-/Option-Aus, Kartenwechsel und nicht unterstützter Multiplayer keinerlei
+  Restzustände oder wirksame Hooks hinterlassen,
+- Logs Millisekunden-Zeitstempel, stabile Identitäten, begrenzte Wiederholungen
+  und überprüfbare Zählinvarianten besitzen,
+- CRLF-, statische Code- und Native-Resolver-Prüfungen erfolgreich sind und der
+  abschließende Build genau einmal über `ImprovedHunters\build.bat /nopause`
+  ausgeführt wird.
+
+Das vollständige plattformübergreifende Ziel ist erst nach dem Multiplayer-
+Chore ab Script Extender `1.50.0` erreicht.
+
+## Arbeitsregel für den nächsten Chat
+
+Der nächste Chat soll **nicht** erneut mit einer allgemeinen Schusstilesuche
+oder eigenen Bewegungs-State-Machine beginnen. Er soll in dieser Reihenfolge
+arbeiten:
+
+1. Version `1.1.45` mit Paket A4 testen, A1 bis A3 kurz regressieren und die Logs
+   auswerten.
+2. Nur bei bestandenem vollständigem Erreichbarkeits-Gate Paket B isoliert
+   untersuchen.
+3. Danach Produktions-/Diagnosecode trennen und Altpfade entfernen.
+4. Erst anschließend Beutetypmatrix und Bewegungsgeschwindigkeit bearbeiten.
+5. Multiplayer bis Script Extender `1.50.0` als geplanten, aber noch
+   deaktivierten Chore behandeln.
+
+Jede neue Hypothese muss gegen die bestätigte Grundarchitektur geprüft werden:
+**PCL `0` verwirft früh; PCL positiv lässt Vanilla planen; ein angenommener
+Vanilla-Pfad wird im blockierten Nahbereich fortgesetzt; bei freier Sicht
+übernimmt Vanilla den Angriff.**
