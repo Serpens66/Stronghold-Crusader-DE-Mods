@@ -380,7 +380,7 @@ namespace ImprovedHunters
                 }
 
                 int hunterUnitId = checked((int)(hunter - units._array) + 1);
-                if (!hunterPclReachability.TryIsReachable(
+                if (!hunterPclReachability.TryRefreshActiveTargetReachability(
                         hunterUnitId,
                         targetUnitId,
                         targetGlobalId,

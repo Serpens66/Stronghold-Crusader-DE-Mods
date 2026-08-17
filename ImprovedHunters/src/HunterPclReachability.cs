@@ -16,6 +16,8 @@ namespace ImprovedHunters
     {
         private const int MaxFailureLogs = 20;
         private static readonly long CacheLifetime = Stopwatch.Frequency;
+        private static readonly long ActiveTargetProbeInterval = Stopwatch.Frequency;
+        private static readonly long ActiveTargetSnapshotLifetime = Stopwatch.Frequency * 2;
         private static readonly long CacheCleanupInterval = Stopwatch.Frequency * 10;
 
         private readonly ManualLogSource log;
@@ -23,6 +25,8 @@ namespace ImprovedHunters
         private readonly object cacheLock = new object();
         private readonly Dictionary<HunterPreyKey, CachedResult> cache =
             new Dictionary<HunterPreyKey, CachedResult>();
+        private readonly Dictionary<HunterPreyKey, ActiveTargetSnapshot> activeTargetSnapshots =
+            new Dictionary<HunterPreyKey, ActiveTargetSnapshot>();
         private bool available;
         private bool disposed;
         private int failureLogs;
@@ -30,6 +34,9 @@ namespace ImprovedHunters
         private long cacheHits;
         private long reachableResults;
         private long unreachableResults;
+        private long activeTargetNativeQueries;
+        private long activeTargetSnapshotHits;
+        private long activeTargetSnapshotMisses;
         private long nextCacheCleanupAt;
 
         public HunterPclReachability(
@@ -54,7 +61,8 @@ namespace ImprovedHunters
                 log,
                 "Improved Hunters native PCL reachability filter initialized: " +
                 "query=GamePlayerManagerAPI.GetNextReachablePCLToDestinationForPlayer, " +
-                "mode=live-GameUnit+0x35C, cacheSeconds=1, zeroResultFilterOnly=True, " +
+                "mode=live-GameUnit+0x35C, selectionCacheSeconds=1, " +
+                "activeTargetProbeSeconds=1, activeTargetSnapshotSeconds=2, zeroResultFilterOnly=True, " +
                 "positiveResultLeavesVanillaAuthoritative=True.");
         }
 
@@ -140,7 +148,7 @@ namespace ImprovedHunters
             }
         }
 
-        public bool TryGetCachedReachability(
+        public bool TryRefreshActiveTargetReachability(
             int hunterUnitId,
             int preyUnitId,
             uint preyGlobalId,
@@ -149,19 +157,133 @@ namespace ImprovedHunters
             out bool reachable)
         {
             reachable = true;
+            if (!IsAvailable)
+                return false;
+
+            try
+            {
+                if (!canRun())
+                    return false;
+
+                if (!TryCaptureInputs(
+                        hunterUnitId,
+                        preyUnitId,
+                        preyGlobalId,
+                        preyType,
+                        out ReachabilityInputs inputs,
+                        out string failure))
+                {
+                    LogFailure(
+                        $"Improved Hunters active-target PCL input rejected: hunter={hunterUnitId}, " +
+                        $"target={preyUnitId}/{preyGlobalId}/{preyType}, reason={failure}.");
+                    return false;
+                }
+
+                HunterPreyKey key = new HunterPreyKey(
+                    hunterUnitId,
+                    inputs.HunterGlobalId,
+                    preyGlobalId);
+                PruneExpiredEntries(timestamp);
+                lock (cacheLock)
+                {
+                    if (activeTargetSnapshots.TryGetValue(key, out ActiveTargetSnapshot snapshot) &&
+                        snapshot.Inputs.Equals(inputs) &&
+                        timestamp < snapshot.NextProbeAt)
+                    {
+                        reachable = snapshot.Reachable;
+                        return true;
+                    }
+                }
+
+                int result = GamePlayerManagerAPI.Instance
+                    .GetNextReachablePCLToDestinationForPlayer(
+                        inputs.PlayerId,
+                        inputs.TargetPcl,
+                        inputs.SourcePcl,
+                        inputs.Mode);
+                reachable = result != 0;
+                bool logChangedObservation;
+                lock (cacheLock)
+                {
+                    logChangedObservation =
+                        !activeTargetSnapshots.TryGetValue(key, out ActiveTargetSnapshot previous) ||
+                        !previous.Inputs.Equals(inputs) ||
+                        previous.Reachable != reachable;
+
+                    nativeQueries++;
+                    activeTargetNativeQueries++;
+                    if (reachable)
+                        reachableResults++;
+                    else
+                        unreachableResults++;
+
+                    // Target ranking may reuse the result, while the active
+                    // snapshot retains independent refresh/read lifetimes.
+                    cache[key] = new CachedResult(
+                        inputs,
+                        reachable,
+                        timestamp + CacheLifetime);
+                    activeTargetSnapshots[key] = new ActiveTargetSnapshot(
+                        inputs,
+                        reachable,
+                        timestamp,
+                        timestamp + ActiveTargetProbeInterval,
+                        timestamp + ActiveTargetSnapshotLifetime);
+                }
+
+                if (logChangedObservation)
+                {
+                    Shared.DebugLogHelper.LogInfo(
+                        log,
+                        "Improved Hunters active-target PCL snapshot refreshed: " +
+                        $"hunter={hunterUnitId}/{inputs.HunterGlobalId}, " +
+                        $"target={preyUnitId}/{preyGlobalId}/{preyType}, " +
+                        $"player={inputs.PlayerId}, mode={inputs.Mode}, " +
+                        $"sourcePcl={inputs.SourcePcl}, targetPcl={inputs.TargetPcl}, " +
+                        $"resultRaw={result}, reachable={reachable}, " +
+                        "nextProbeMs=1000, readableMs=2000.");
+                }
+
+                return true;
+            }
+            catch (Exception exception)
+            {
+                LogFailure(
+                    $"Improved Hunters active-target native PCL query failed: hunter={hunterUnitId}, " +
+                    $"target={preyUnitId}/{preyGlobalId}/{preyType}, error={exception}.");
+                return false;
+            }
+        }
+
+        public bool TryGetActiveTargetReachability(
+            int hunterUnitId,
+            int preyUnitId,
+            uint preyGlobalId,
+            eChimps preyType,
+            long timestamp,
+            out bool reachable,
+            out long ageMilliseconds,
+            out string status)
+        {
+            reachable = true;
+            ageMilliseconds = -1;
+            status = "unavailable";
             if (!IsAvailable || !canRun())
                 return false;
 
-            // Inline Hunter hooks may consult the scan-populated cache, but must
-            // not start a nested native PCL query from inside HunterUpdate.
+            // The inline Hunter hook only consumes this independently refreshed
+            // snapshot and never enters the native PCL helper recursively.
             if (!TryCaptureInputs(
                     hunterUnitId,
                     preyUnitId,
                     preyGlobalId,
                     preyType,
                     out ReachabilityInputs inputs,
-                    out _))
+                    out string failure))
             {
+                status = $"input-{failure}";
+                lock (cacheLock)
+                    activeTargetSnapshotMisses++;
                 return false;
             }
 
@@ -171,15 +293,32 @@ namespace ImprovedHunters
                 preyGlobalId);
             lock (cacheLock)
             {
-                if (!cache.TryGetValue(key, out CachedResult cached) ||
-                    timestamp >= cached.ExpiresAt ||
-                    !cached.Inputs.Equals(inputs))
+                if (!activeTargetSnapshots.TryGetValue(key, out ActiveTargetSnapshot snapshot))
                 {
+                    status = "missing";
+                    activeTargetSnapshotMisses++;
                     return false;
                 }
 
-                cacheHits++;
-                reachable = cached.Reachable;
+                if (!snapshot.Inputs.Equals(inputs))
+                {
+                    status = "inputs-changed";
+                    activeTargetSnapshotMisses++;
+                    return false;
+                }
+
+                long ageTicks = Math.Max(0, timestamp - snapshot.ObservedAt);
+                ageMilliseconds = ageTicks * 1000 / Stopwatch.Frequency;
+                if (timestamp >= snapshot.UsableUntil)
+                {
+                    status = "expired";
+                    activeTargetSnapshotMisses++;
+                    return false;
+                }
+
+                activeTargetSnapshotHits++;
+                reachable = snapshot.Reachable;
+                status = "hit";
                 return true;
             }
         }
@@ -189,7 +328,9 @@ namespace ImprovedHunters
             lock (cacheLock)
             {
                 return $"available={IsAvailable}, nativeQueries={nativeQueries}, cacheHits={cacheHits}, " +
-                    $"reachable={reachableResults}, unreachable={unreachableResults}, cachedPairs={cache.Count}";
+                    $"reachable={reachableResults}, unreachable={unreachableResults}, cachedPairs={cache.Count}, " +
+                    $"activeNativeQueries={activeTargetNativeQueries}, activeSnapshotHits={activeTargetSnapshotHits}, " +
+                    $"activeSnapshotMisses={activeTargetSnapshotMisses}, activeSnapshots={activeTargetSnapshots.Count}";
             }
         }
 
@@ -198,10 +339,14 @@ namespace ImprovedHunters
             lock (cacheLock)
             {
                 cache.Clear();
+                activeTargetSnapshots.Clear();
                 nativeQueries = 0;
                 cacheHits = 0;
                 reachableResults = 0;
                 unreachableResults = 0;
+                activeTargetNativeQueries = 0;
+                activeTargetSnapshotHits = 0;
+                activeTargetSnapshotMisses = 0;
                 nextCacheCleanupAt = 0;
             }
 
@@ -228,11 +373,29 @@ namespace ImprovedHunters
                     expired.Add(pair.Key);
                 }
 
-                if (expired == null)
-                    return;
+                if (expired != null)
+                {
+                    for (int index = 0; index < expired.Count; index++)
+                        cache.Remove(expired[index]);
+                }
 
-                for (int index = 0; index < expired.Count; index++)
-                    cache.Remove(expired[index]);
+                expired = null;
+                foreach (KeyValuePair<HunterPreyKey, ActiveTargetSnapshot> pair in activeTargetSnapshots)
+                {
+                    if (timestamp < pair.Value.UsableUntil)
+                        continue;
+
+                    if (expired == null)
+                        expired = new List<HunterPreyKey>();
+
+                    expired.Add(pair.Key);
+                }
+
+                if (expired != null)
+                {
+                    for (int index = 0; index < expired.Count; index++)
+                        activeTargetSnapshots.Remove(expired[index]);
+                }
             }
         }
 
@@ -330,7 +493,10 @@ namespace ImprovedHunters
             disposed = true;
             available = false;
             lock (cacheLock)
+            {
                 cache.Clear();
+                activeTargetSnapshots.Clear();
+            }
         }
 
         private readonly struct HunterPreyKey : IEquatable<HunterPreyKey>
@@ -439,6 +605,29 @@ namespace ImprovedHunters
                 Inputs = inputs;
                 Reachable = reachable;
                 ExpiresAt = expiresAt;
+            }
+        }
+
+        private readonly struct ActiveTargetSnapshot
+        {
+            public readonly ReachabilityInputs Inputs;
+            public readonly bool Reachable;
+            public readonly long ObservedAt;
+            public readonly long NextProbeAt;
+            public readonly long UsableUntil;
+
+            public ActiveTargetSnapshot(
+                ReachabilityInputs inputs,
+                bool reachable,
+                long observedAt,
+                long nextProbeAt,
+                long usableUntil)
+            {
+                Inputs = inputs;
+                Reachable = reachable;
+                ObservedAt = observedAt;
+                NextProbeAt = nextProbeAt;
+                UsableUntil = usableUntil;
             }
         }
     }

@@ -2,14 +2,17 @@
 
 Stand: `2026-08-17`
 
-Aktueller Quellstand: `1.1.54` (bidirektionale Nahbereichssicht bestätigt; unsichere test-only Reh-Fixierung vollständig entfernt);
-letzter stabiler ingame geprüfter Stand: `1.1.47`
+Aktueller und zuletzt ingame geprüfter Quellstand: `1.1.55` (aktiver
+PCL-Snapshot funktioniert; Paket E wegen einer getrennten Distanzmetrik-Lücke
+im State-1-Angriffspfad ausdrücklich **nicht abgenommen**)
 
 ## Übergabe in Kurzform
 
-Die Sichtlinien- und Erreichbarkeitskorrektur ist grundsätzlich funktionsfähig.
-Die Pakete A und B sind abgeschlossen. Der nächste Entwicklungsschritt ist
-**Paket E: Bewegungsgeschwindigkeit nach tatsächlicher Reststrecke**.
+Die Pakete A und B sind abgeschlossen. Paket E besitzt funktionierende
+Teilbausteine für Restweg, Vanilla-Geschwindigkeitsstufen, PCL und blockierte
+Nahbereichssicht, ist als Gesamtverhalten aber noch nicht funktional. Der
+aktuelle Fehler und die verbindliche nächste Implementierungsrichtung stehen im
+Paket-E-Abschnitt unter „Aktueller Übergabestand nach dem `1.1.55`-Test“.
 
 Verbindliche Reihenfolge:
 
@@ -67,11 +70,11 @@ ist. Für Kühe besteht noch ein dokumentierter Widerspruch.
 | Verborgene erreichbare Beute | Implementiert und ingame bestätigt | Als stabile Grundlage erhalten |
 | PCL-Vorfilter für unerreichbare Beute | Seit `1.1.44` produktiv und bestätigt | Keine eigene Detailpfadsuche ergänzen |
 | Neu unerreichbares aktives Ziel | Seit `1.1.45` implementiert und in den Logs bestätigt | Vanilla selbst neu suchen lassen |
-| Distanz-28-Pfadfortsetzung | Mit einem und mehreren Jägern bestätigt | Keine eigenen Moves oder AI-States |
-| Freie Sicht und echter Angriff | `1.1.52` bestätigt die diagonale Mauer als gerichteten Vanilla-Fehler; erfolgreicher `visible-attack-handoff` noch nicht beobachtet; der Reh-Freeze aus `1.1.53` verfälschte Tile- und Sichtzustand | `1.1.54` stellt vollständige Vanilla-Rehbewegung wieder her; freien Kontrollfall bei zufällig stillstehendem Reh mehrfach wiederholen |
+| Distanz-28-Pfadfortsetzung | Der vorhandene Hook und die Vanilla-Bewegungsstufe funktionieren, die einmalige Ticketfreigabe deckt aber nicht jeden Eintritt in den Angriffspfad ab | Den bestehenden Hook bei `0x1300EA` anhand eines aktiven Sicht-Snapshots zur maßgeblichen Angriffs-/Fortsetzungsentscheidung machen; keine eigenen Moves oder AI-States |
+| Freie Sicht und echter Angriff | `1.1.52` bestätigt die diagonale Mauer als gerichteten Vanilla-Fehler; `1.1.55` kann dennoch ohne unmittelbar vorherigen Welt-Nahbereichsrefresh einen fehlgeschlagenen Angriff und State `6` erreichen | Sicht höchstens einmal pro Sekunde außerhalb des Inline-Hooks aktualisieren; blockiert lässt Vanilla weiterlaufen, beidseitig sichtbar erlaubt Vanillas echten Angriff |
 | Jägerhütte als Sichtblocker | Seit `1.1.41` aktiv und ingame plausibel | In Paket D kurz regressieren |
 | Schuss, Kadaver, Pickup und Abgabe | Mehrfach vollständig beobachtet | Paket B abgeschlossen; kein Pickup-Fix |
-| Langsames Schleichen auf langem Umweg | Geschwindigkeit in `1.1.47` ingame bestätigt; `1.1.50` belegt wiederholte `Query -> State 0 -> MoveHere`-Resets als Ursache der Sitz-/Warteanimation | `1.1.52` überspringt den `<=20`-Refresh nur nach konservativer Sichtentscheidung und koppelt blockierte Fälle an die vorhandene Vanilla-Pfadfortsetzung; Ingame-Abnahme offen |
+| Langsames Schleichen auf langem Umweg | Restweg und Vanilla-Geschwindigkeitswahl sind bestätigt; `1.1.50` belegt wiederholte `Query -> State 0 -> MoveHere`-Resets als Ursache der Sitz-/Warteanimation | Normale Vanilla-Locomotion erhalten; die noch offene State-1-Angriffslücke beheben und danach Geschwindigkeit plus Animation regressieren |
 | Unreservierte vorhandene Kadaver | Noch nicht unterstützt | Danach separat als Paket F entwickeln |
 | Alle sechs Beutearten | Gemeinsame Architektur, noch keine vollständige Typmatrix | Paket D nach E und F |
 | Produktionsbereinigung | Bewusst zurückgestellt | Paket C zuletzt |
@@ -579,8 +582,24 @@ Noch nicht abgenommen ist die Gegenrichtung: Im Log fehlt
 zwar den direkten Angriff, endeten aber jeweils mit `attackResult=0`. Außerdem
 gab es einzelne `pcl-cache-unavailable`-Ticks; im ersten Lauf ließ einer davon
 bei Weltabstand `14` Vanillas Query zu und wechselte das Ziel von `17/319` auf
-`44/440`. Dieser Cache-Spalt bleibt als eigener Befund offen und darf bei der
-Freisicht-Abnahme nicht mit einem Sichtfehler verwechselt werden.
+`44/440`. Der Lauf mit `1.1.54` reproduzierte den Fehler eindeutig: Ein positiver
+Cachetreffer um `21:41:17.407` wurde bis `21:41:18.355` verwendet, während der
+Inline-Hook um `21:41:18.405` nahezu exakt an der Ein-Sekunden-Grenze
+`pcl-cache-unavailable` meldete. Der 100-ms-Scan hatte den Eintrag bis dahin nur
+gelesen; Cachetreffer verlängerten dessen Ablaufzeit nicht. Die anschließende
+Vanilla-Query erkannte dasselbe Ziel zwar wieder als PCL-erreichbar, lieferte
+wegen Reservation `2` jedoch `best=none` und setzte den Jäger in State `6`.
+
+Version `1.1.55` trennt deshalb den allgemeinen Ein-Sekunden-Auswahlcache vom
+aktiven Zielzustand. Der persistente Scan fragt ein unverändertes aktives Ziel
+höchstens einmal pro Sekunde nativ ab und veröffentlicht einen separaten, zwei
+Sekunden lesbaren Snapshot. Geänderte Identität beziehungsweise Spieler-,
+Modus-, Quell-PCL- oder Ziel-PCL-Eingaben erzwingen sofort eine neue Abfrage.
+Der Inline-Hook liest ausschließlich diesen Snapshot und protokolliert Quelle
+und Alter; ein bestätigtes PCL `0` bleibt ein harter Abbruch. Das längere
+Lesefenster beeinflusst die Reaktionszeit nicht: Die aktive Neuprüfung bleibt
+auf ungefähr eine Sekunde begrenzt und invalidiert ein getrenntes Ziel über den
+bereits bestätigten Vanilla-Pfad.
 
 Der test-only Reh-Freeze aus `1.1.53` ist als ungeeignet widerlegt. Im zweiten
 Test setzte er ab `21:28:37.759` für fünf lebende Rehe am selben Ausgangspunkt
@@ -605,63 +624,183 @@ diesen Handler nicht überspringen.
 
 Das Ticket verlangt State `1`, dieselbe lebende Zielidentität, Reservation `2`,
 keinen fremden Hunter, einen aktiven unvollständigen Pfad, explizit positive
-PCL-Erreichbarkeit aus dem höchstens eine Sekunde alten Cache und entweder ein
-Wrapper-Ergebnis `0` oder einen positiven Wrapper mit nicht beidseitig positivem
-Kernvergleich. Der Inline-Hook startet selbst keine native PCL-Abfrage;
-der bestehende 100-ms-Scan füllt den Cache außerhalb des Hookkontexts. Nach drei
+PCL-Erreichbarkeit aus dem höchstens zwei Sekunden lesbaren aktiven Snapshot und
+entweder ein Wrapper-Ergebnis `0` oder einen positiven Wrapper mit nicht
+beidseitig positivem Kernvergleich. Der Inline-Hook startet selbst keine native
+PCL-Abfrage; der bestehende 100-ms-Scan erneuert den aktiven Snapshot höchstens
+einmal pro Sekunde außerhalb des Hookkontexts. Nach drei
 Sekunden ohne Pfadfortschritt, nach 60 Sekunden Gesamtdauer oder bei abweichender
 Identität, PCL, Sicht beziehungsweise Reservation wird kein Ticket ausgegeben.
 Vanilla führt dann seine normale Query aus. Der frühere State-1-ZF-Fallback und
 seine zweistufige State-0-/`MoveHere`-Übergabe wurden entfernt, damit ein real
 unerreichbares reserviertes Ziel nicht erneut denselben Reset-Loop erzeugt.
 
-Abnahme:
+### Aktueller Übergabestand nach dem `1.1.55`-Test
 
-- Kontrollfall ohne Hindernis bleibt unverändert.
-- Kurze Luftlinie mit langem Restweg wird zügiger zurückgelegt.
-- Der Wechsel zwischen vorhandenen Vanilla-Stufen erzeugt kein Ruckeln, keine
-  fehlende Animation, keinen Pfadreset und keine übernatürliche Geschwindigkeit.
-- Im eigentlichen Schussnahbereich bleibt die langsame Annäherung erhalten.
-- Mehrere Jäger besitzen unabhängigen Zustand.
+Paket E ist **offen und im aktuellen Stand nicht funktional**. Die frühere
+Einschätzung, der bewegte Freisichtfall reiche bereits für die Abnahme aus, ist
+durch den neuesten Lauf widerlegt. Der relevante Kartenstart begann am
+`2026-08-17 22:19:15.699`; der erste Auftrag folgte um `22:19:24.977`.
 
-Formaler letzter Abschlusstest für Paket E: Ein einzelner Jäger verfolgt ein
-lebendes, für ihn reserviertes Reh. Jäger und Reh müssen im nativen
-Welt-Maximalabstand höchstens `20` auseinanderliegen, während eine lange Mauer
-oder ein Labyrinth einen deutlich längeren, weiterhin erreichbaren Vanilla-Pfad
-erzwingt. Zufällige Bewegung des Rehs ist zulässig; entscheidend sind dieselbe
-Slot-/Global-ID, Reservation `2`, ein aktiver Pfad und PCL-Erreichbarkeit.
+Der Log belegt zwei aufeinanderfolgende Fehlerbilder:
 
-Im Log muss für dieselbe Identität zuerst `classified Hunter near-target
-visibility` erscheinen. Bei der diagonalen Mauer wird bevorzugt
-`blocked-directional-disagreement` mit positivem `wrapperResult` und mindestens
-einem Kernresultat `0` erwartet; `blocked-wrapper-both-directions` ist ebenfalls
-ein gültiger Blockiernachweis. Danach müssen `prepared existing Vanilla Hunter
-path continuation`, `bypassed Hunter state-1 near-target refresh` mit
-`nativeWorldDistance=...->21` und bei Erreichen der späten Distanzstufe
-`consumed Vanilla Hunter path continuation ticket` erscheinen. Während dieser
-Folge darf kein neuer `MoveHere` für denselben laufenden Pfad auftreten; Pfadfortschritt
-muss zunehmen und die Animation darf nicht wiederholt auf Startframe `657`
-festhängen. Bei vollständiger Blockierung muss stattdessen `pcl-unreachable`,
-`no-progress`, `active-target-pcl-disconnected` oder ein anderer expliziter
-Ablehnungs-/Invalidierungsgrund erscheinen; ein Bypass darf danach nicht mehr
-stattfinden. Vanilla bleibt für Suche oder Hüttenrückkehr verantwortlich. Keine
-Callbackfehler, Exceptions oder harten Prozessabbrüche sind zulässig.
+1. Jäger `1/395` nahm Reh `16/410` mit einem gültigen Vanilla-Pfad
+   `2/8/0/79` an. Die blockierte Pfadfortsetzung arbeitete zunächst korrekt:
+   Sichtklassifikationen meldeten `blocked-wrapper-both-directions` oder
+   `blocked-directional-disagreement`, der aktive PCL-Snapshot war jeweils ein
+   Treffer und der Pfad schritt bis `60/79` fort.
+2. Der letzte protokollierte Nahbereichsbypass lag um `22:19:30.071` bei
+   `56/79`. Um `22:19:31.062` erreichte Vanilla ohne neue
+   Sichtklassifikation, ohne neues Fortsetzungsticket und ohne PCL-Fehler den
+   direkten Angriff: `attackResult=0`, `nativeDistance=9`, `path=2/0/60/79`.
+   Der anschließende Vanilla-Fehlerpfad setzte State `6` und ließ den Jäger zur
+   Hütte zurückkehren.
+3. Erst nach diesem Abbruch wurde Ziel `16/410` beim späteren Zielwechsel mit
+   dem 30-Sekunden-Target-Cooldown belegt. `cooldown=True` ist damit eine Folge,
+   nicht die Ursache des ersten Abbruchs. Der Cooldown verschärft die Situation,
+   weil das weiterhin erreichbare erste Ziel vorübergehend nicht neu gewählt
+   werden kann.
+4. Ab `22:19:40.429` wählte der Jäger wiederholt Reh `17/319`. `MoveHere`
+   akzeptierte jedes Mal einen gültigen kurzen Pfad, doch ungefähr 22 bis 26 ms
+   später versuchte Vanilla bereits bei Pfadfortschritt `1` direkt anzugreifen.
+   Alle beobachteten Aufrufe endeten mit `attackResult=0`. Die folgende
+   State-6-Rückkehr und Neusuche ungefähr alle 0,85 Sekunden erzeugten das
+   sichtbare Hin-und-her vor der Hütte.
 
-Für den freien Kontrollfall sind wegen der zufälligen Vanilla-Rehbewegung bei
-Bedarf mehrere Anläufe nötig. Gewertet wird nur ein Lauf, in dem Slot/Global-ID
-gleich bleiben und das Reh zwischen anfänglicher Zielannahme und Nahbereich
-nicht erkennbar den Standort wechselt. Die Sichtklassifikation muss dann
-`visible-attack-handoff` lauten. Bei Distanz `<=20` muss der Refresh mit
-`action=HandoffToVanillaAttack` und `continuationTicket=False` übersprungen
-werden; anschließend muss der vorhandene Beobachtungshook Vanillas
-`state-1 direct-attack observation` mit positivem `attackResult` protokollieren.
-Ein Pfadticket darf für diese Identität in diesem Update nicht vorbereitet oder
-konsumiert werden. Anschließend müssen Projektiltreffer, Rehtod und Kadaverpfad
-normal weiterlaufen. Im gesamten Log dürfen keine `TEST-ONLY deer freeze`-
-Marker mehr erscheinen.
+Der PCL-Cache ist in diesem Lauf nicht die Ursache. Die blockierte erste
+Fortsetzung verwendete gültige `active-target-snapshot`-Treffer; die aggregierte
+Diagnose meldete `activeSnapshotMisses=0`. Am entscheidenden Angriffstick wurde
+die PCL-Entscheidung nicht wegen Ablauf oder Miss verworfen. Die Lücke liegt vor
+der Sicht-/Fortsetzungsentscheidung.
 
-Gate: Erst wenn Ursache, sichere Eingriffsstelle und Reststreckenmetrik durch
-Logs belegt sind und alle Abnahmepunkte bestehen, wird Paket F begonnen.
+### Korrigierte Vanilla-Ursache
+
+`HunterUpdate` verwendet zwei verschiedene Distanzmetriken:
+
+- Der bisher maßgebliche Refresh-Hook bei RVA `0x130019` prüft den von der
+  zweiten `0x79C0`-Abfrage gelieferten Maximalabstand der Weltkoordinaten
+  `+0x70E/+0x710` gegen `20`.
+- Der spätere State-1-Bewegungs- und Angriffspfad behält in `EDI` das Ergebnis
+  der ersten `0x79C0`-Abfrage über die Tile-Koordinaten `+0x71C/+0x71E`. Bei RVA
+  `0x1300EA` wird dieser Wert gegen `28` geprüft; Werte `<=28` erreichen den
+  direkten Angriff bei `0x13013D`.
+
+Die Logs bestätigen die zweite Metrik unmittelbar. Bei Jäger-Tile `387,354`
+und Beute-Tile `378,354` betrug `nativeDistance=9`; bei `389,346` zu `393,344`
+betrug sie `6`. Beides entspricht der Manhattan-Distanz der Tile-Koordinaten.
+Die Weltkoordinaten können währenddessen außerhalb des bisherigen
+`0..28`-Vorbereitungsfensters liegen. Der direkte Angriff ist deshalb auch in
+einem `HunterUpdate` erreichbar, in dem der Hook bei `0x130019` keine
+Sichtentscheidung und kein einmaliges Ticket vorbereitet hat.
+
+Die bisherige Annahme „Refresh-Unterdrückung und Angriffsvermeidung gehören
+durch das Einzelticket garantiert zum selben Update“ ist nur für Updates wahr,
+die den Welt-Nahbereichsrefresh tatsächlich durchlaufen. Sie deckt nicht den
+gesamten Tile-Distanz-28-Angriffszweig ab und muss ersetzt werden.
+
+### Verbindliche Implementierungsempfehlung für den nächsten Chat
+
+1. Keinen eigenen Move, keine Animation, keine Speedfelder, keinen AI-State und
+   keinen neuen Recovery-Pfad setzen. Der bestehende validierte Hook bei
+   `0x1300EA` bleibt die kleinste geeignete Eingriffsstelle.
+2. Den Tile-Distanz-28-Zweig zur maßgeblichen Angriffs-/Fortsetzungsentscheidung
+   machen. Bei derselben lebenden Hunter-/Beuteidentität, State `1`, Reservation
+   `2`, aktivem unvollständigem Vanilla-Pfad, positivem aktivem PCL-Snapshot und
+   blockierter Sicht darf ausschließlich `EDI` auf Vanillas Wert `29` gesetzt
+   werden. Dadurch wählt Vanilla selbst seine vorhandene Bewegungs- und
+   Locomotionstufe und erreicht den direkten Angriff in diesem Update nicht.
+3. Die Freigabe bei `0x1300EA` darf nicht länger ausschließlich von dem
+   kurzlebigen Einzelticket des Welt-Nahbereichsrefreshs abhängen. Der Hook bei
+   `0x130019` bleibt nötig, um bei blockierter Sicht Vanillas zerstörerische
+   Zielquery zu überspringen, ist aber nicht mehr die alleinige Autorisierung
+   für die spätere Pfadfortsetzung.
+4. Einen getrennten, identitätsgebundenen aktiven Sicht-Snapshot einführen.
+   Der vorhandene persistente Native-Scan soll ein unverändertes aktives Ziel
+   außerhalb des Inline-Hooks höchstens einmal pro Sekunde mit Wrapper plus
+   bidirektionalem Kern prüfen. Ein Ziel-, Global-ID-, Spieler-, Karten- oder
+   relevanter Zustandswechsel erzwingt sofort eine neue Probe. Ein Snapshot darf
+   höchstens ungefähr zwei Sekunden lesbar bleiben. Die vom Benutzer akzeptierte
+   Reaktionsverzögerung bis ungefähr eine Sekunde ist dem häufigen nativen
+   Sichtaufruf im Inline-Hook vorzuziehen.
+5. Für ein neu angenommenes Ziel darf ein noch ausstehender erster Snapshot den
+   bekannten zerstörerischen Angriff nicht sofort freigeben. Empfohlen ist ein
+   klar begrenzter `visibility-pending`-Zeitraum bis zur ersten, sofort
+   angeforderten Scanprobe, in dem ein gültiger aktiver Pfad über Vanilla
+   fortgesetzt wird. Ist die Sichtprobe dauerhaft nicht verfügbar oder fehlerhaft,
+   muss der Fall gedrosselt und explizit geloggt werden; keine unbegrenzte
+   unsichtbare Sondersteuerung einführen.
+6. `blocked-wrapper-both-directions` und
+   `blocked-directional-disagreement` wählen Pfadfortsetzung. Nur zwei positive
+   Kernrichtungen wählen `visible-attack-handoff` und lassen den
+   Distanz-28-Angriffspfad unverändert. Die Live-Projektil-Kollisionsroutine
+   `0x9C730` bleibt als Vorabprüfung verboten.
+7. Snapshotaktualisierung, Entscheidung bei `0x130019`, Entscheidung bei
+   `0x1300EA` und späteres Vanilla-Angriffsergebnis getrennt kapseln und loggen.
+   Ein Diagnosefehler darf die Verhaltenskorrektur nicht verhindern; Vanilla
+   darf pro Update nur einmal laufen.
+8. Der 30-Sekunden-Abbruchcooldown ist erst nach Behebung der eigentlichen
+   Angriffslücke neu zu bewerten. Er war im aktuellen Test nicht die Ursache.
+   Ihn jetzt als Symptomkorrektur zu ändern würde den fehlerhaften Übergang nur
+   verdecken.
+
+Das neue begrenzte Log soll für stabile Hunter-/Beuteidentitäten mindestens
+folgende Werte nennen: `tileAttackDistance`, aktuellen oder zuletzt erfassten
+`worldRefreshDistance`, Sicht-Snapshotstatus und -alter, Wrapper- und beide
+Kernresultate, PCL-Snapshotstatus und -alter, Reservation, Pfadzustand,
+Pfadfortschritt/-länge sowie eine eindeutige Aktion
+`continue-vanilla-path`, `allow-vanilla-attack`, `visibility-pending` oder einen
+expliziten Ablehnungsgrund. Wiederholungen gleicher Entscheidungen drosseln,
+Zustandswechsel und den ersten echten Callback immer loggen.
+
+### Noch ausstehende Paket-E-Tests
+
+Nach der Implementierung sind alle folgenden Tests Pflicht; ein einzelner
+bewegter Freisichtlauf genügt nicht:
+
+1. **Reproduktion der aktuellen Distanzmetrik-Lücke:** Ein Jäger erhält bei
+   kurzer Tile-Luftlinie einen langen, aber erreichbaren Weg um eine diagonale
+   Mauer. Das Reh darf sich zufällig bewegen. Solange die Sicht blockiert ist,
+   muss der Pfad auch dann fortschreiten, wenn `tileAttackDistance<=28`, aber
+   kein Welt-Nahbereichsrefresh unmittelbar vorausging. Es darf kein
+   `attackResult=0`, State-6-Abbruch, neuer `MoveHere` oder Target-Cooldown für
+   dieselbe laufende Identität entstehen.
+2. **Blockiert zu sichtbar:** Läuft dasselbe Reh dem Jäger entgegen oder kommt
+   der Jäger um die Ecke, muss der aktive Sicht-Snapshot spätestens nach ungefähr
+   einem Probeintervall auf `visible-attack-handoff` wechseln. Danach bleibt
+   `EDI` unverändert, Vanillas direkter Angriff liefert ein positives Ergebnis,
+   ein echtes Projektil entsteht und Tod, Kadaverweg, Pickup sowie Abgabe laufen
+   normal. Gerade dieser zufällige Bewegungsfall ist gültig und muss nicht durch
+   einen Reh-Freeze künstlich stabilisiert werden.
+3. **Freier Kontrollfall:** Ein ohne Hindernis erreichbares Reh wird ohne
+   Rückkehrloop und ohne merklich mehr als ungefähr eine Sekunde zusätzliche
+   Verzögerung angegriffen. Keine blockierte Klassifikation darf einen dauerhaft
+   sichtbaren Fall festhalten.
+4. **Dauerhaft blockiert, aber erreichbar:** Über mindestens zwei Sichtproben
+   müssen Identität und Pfad stabil bleiben und der Fortschritt zunehmen. Keine
+   wiederholte Animationsrücksetzung auf MoveHere-Startframe `657`, keine
+   Sitzanimation und kein Pendeln vor der Hütte.
+5. **Nachträglich vollständig unerreichbar:** PCL `0` muss weiterhin über den
+   bestätigten aktiven-Ziel-Pfad invalidieren. Nach
+   `active-target-pcl-disconnected` darf keine Distanz-29-Fortsetzung für die
+   alte Identität mehr erfolgen; Vanilla sucht oder kehrt regulär zurück.
+6. **Restweg und Animation:** Kurze Luftlinie mit langem Restweg verwendet
+   weiterhin die bereits bestätigten schnelleren Vanilla-Stufen. Der Wechsel
+   der Stufen erzeugt weder Ruckeln noch falsche Animation oder übernatürliche
+   Geschwindigkeit; die letzte sichtbare Schussannäherung bleibt langsam.
+7. **Mehrere Jäger und Lebenszyklus:** Mindestens zwei Jäger besitzen getrennte
+   Sicht-, PCL- und Pfadzustände. Mod-Aus, Kartenneustart und Ziel-/Slotwechsel
+   hinterlassen keine Snapshots oder Tickets der alten Identität.
+
+Maschinelle Logabnahme: erwartete Initialisierungs- und Callbackmarker müssen
+vorhanden sein; kein `Improved Hunters ... failed`, keine Callbackexception,
+kein harter Prozessabbruch und kein `TEST-ONLY deer freeze`-Marker. Für jeden
+unterdrückten Angriff muss eine vorherige oder gültig gecachte blockierte
+Sichtentscheidung derselben Identität existieren. Für jeden freigegebenen
+Angriff muss ein frischer beidseitig positiver Snapshot und anschließend ein
+positives Vanilla-Angriffsergebnis vorliegen.
+
+Gate: Paket E bleibt offen. Erst wenn die Distanzmetrik-Lücke implementiert ist
+und alle obigen Abnahmepunkte bestehen, darf Paket F begonnen werden.
 
 ### Paket F: Unreservierte Kadaver als Abholkandidaten
 
@@ -849,12 +988,12 @@ erzeugen.
 
 | Datei | Verantwortung und geplanter Umgang |
 | --- | --- |
-| `src/HunterPclReachability.cs` | Produktiver PCL-Vorfilter und aktive State-1-Zielprüfung mit Ein-Sekunden-Cache, Statistiken und Fail-open-Verhalten |
+| `src/HunterPclReachability.cs` | Produktiver PCL-Vorfilter mit Ein-Sekunden-Auswahlcache sowie aktive State-1-Zielprüfung mit getrenntem Ein-Sekunden-Probe-/Zwei-Sekunden-Snapshot, Statistiken und Fail-open-Verhalten |
 | `src/HunterPclReachabilityDiagnostic.cs` | Temporäres Kalibrierungslogging; in Paket C entfernen |
-| `src/HunterNativeVisibilityProbe.cs` | Validierte native Sichtprobe für die Pfadfortsetzung |
+| `src/HunterNativeVisibilityProbe.cs` | Validierte native Wrapper-/Kernsichtprobe; der nächste Paket-E-Schritt benötigt darauf aufbauend einen höchstens einmal pro Sekunde erneuerten aktiven Sicht-Snapshot außerhalb des Inline-Hooks |
 | `src/HunterHutVisibilityPatch.cs` | Produktive, validierte Ein-Byte-Korrektur der Jägerhüttenausnahme |
 | `src/HunterTargetSearchFallbackDiagnostic.cs` | Verhalten und Diagnose derzeit gemischt; in Paket C trennen und umbenennen |
-| `src/HunterVanillaPathContinuationDiagnostic.cs` | Funktionierende Distanz-29-Fortsetzung mit Diagnosezustand; in Paket C trennen und umbenennen |
+| `src/HunterVanillaPathContinuationDiagnostic.cs` | Teilweise funktionierende Distanz-29-Fortsetzung; die Einzelticket-Abhängigkeit lässt derzeit den Tile-Distanz-28-Angriff ohne Welt-Nahbereichsrefresh ungeschützt und muss in Paket E durch die dokumentierte Snapshotentscheidung ersetzt werden |
 | `src/HunterVisibilityDiagnostic.cs` | Breite ältere Diagnose; in Paket C entfernen, falls nicht mehr benötigt |
 | `src/HunterLineOfSightRecovery.cs` | Stillgelegter Managed-A*-Adapter; in Paket C ohne parallelen Fallback entfernen |
 | `src/ImprovedHuntersRuntime.cs` | Events, Eligibility, Rangfolge, PCL-Gates, Handoff, Reservierungsbereinigung, Pfadfortsetzung und Projektilkompensation |
@@ -990,15 +1129,20 @@ Script Extender `1.50.0` erreicht.
    lesen; nicht mit der verworfenen eigenen State-Machine beginnen.
 2. Paket A und B als abgeschlossen behandeln. Nur konkrete Regressionen öffnen
    sie erneut.
-3. Mit Paket E beginnen und zunächst Ursache, Reststreckenmetrik und Vanillas
-   vorhandene Bewegungsstufen rein beobachtend kalibrieren.
-4. Neue Diagnose in einer eigenen Datei halten. Erst nach belegter Semantik die
-   kleinstmögliche Verhaltensänderung ergänzen.
-5. Paket E vollständig prüfen und dokumentieren, bevor Paket F begonnen wird.
-6. Danach exakt der Reihenfolge `F → D → C` folgen.
-7. Den sichtbaren Jagdsprint nur optional nach Abschluss aller Pflichtpakete
+3. Mit dem Abschnitt „Aktueller Übergabestand nach dem `1.1.55`-Test“ beginnen.
+   Ursache und kleinste Eingriffsstelle sind bestimmt: Die Welt-Distanz-20-
+   Refreshentscheidung deckt den getrennten Tile-Distanz-28-Angriff nicht ab.
+4. Den aktiven Sicht-Snapshot und die Entscheidung am bereits vorhandenen Hook
+   `0x1300EA` wie dort beschrieben implementieren. Keine neue eigene Bewegung,
+   keine Speed-/Animationsfelder und keinen AI-State schreiben.
+5. Neue Diagnose in einer eigenen Datei halten und die angegebenen Marker sowie
+   Identitäts-/Altersangaben ergänzen. Danach alle sieben Paket-E-Tests
+   durchführen und die Logs maschinell prüfen.
+6. Paket E vollständig prüfen und dokumentieren, bevor Paket F begonnen wird.
+7. Danach exakt der Reihenfolge `F → D → C` folgen.
+8. Den sichtbaren Jagdsprint nur optional nach Abschluss aller Pflichtpakete
    untersuchen; er blockiert weder Paket C noch das fachliche Kernziel.
-8. Vor jedem Build alle Code-, Resolver- und CRLF-Prüfungen abschließen; danach
+9. Vor jedem Build alle Code-, Resolver- und CRLF-Prüfungen abschließen; danach
    die lokale `build.bat` einmal direkt mit `/nopause` ausführen.
 
 Bei jeder neuen Hypothese zuerst prüfen, ob der kleinste stabile Vanilla-

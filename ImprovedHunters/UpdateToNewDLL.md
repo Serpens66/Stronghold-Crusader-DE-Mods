@@ -793,12 +793,18 @@ or AI-state field is written.
 
 The compare callback prepares a one-use, generation- and identity-bound ticket
 for world distances `0..28`. It requires state `1`, the same live reservation-2
-prey, an active incomplete path, an exact nonexpired positive PCL cache entry and
-native visibility result exactly `0`. PCL is cache-only in the inline callback;
-the existing persistent 100-ms scan performs native PCL queries outside
-`HunterUpdate`. The `0x1300EA` hook consumes the ticket before it may select
-Vanilla distance `29`. A three-second no-progress bound, 60-second total bound
-and five-second retry cooldown remain per Hunter/target identity. Missing cache,
+prey, an active incomplete path, an exact positive active-target PCL snapshot and
+native blocked-visibility classification. PCL is snapshot-only in the inline
+callback; since version `1.1.55`, the existing persistent scan refreshes each
+unchanged active target natively at most once per second outside `HunterUpdate`
+and retains the observation for two seconds of read-only handoff. Identity,
+player, mode or source/target-PCL changes bypass the interval immediately. This
+separates the inline handoff from the general one-second target-selection cache
+and removes its deterministic expiry race without increasing active native PCL
+queries beyond approximately one per second and Hunter. The `0x1300EA` hook
+consumes the ticket before it may select Vanilla distance `29`. A three-second
+no-progress bound, 60-second total bound and five-second retry cooldown remain
+per Hunter/target identity. Missing or stale active snapshot,
 changed identity, visible target, unreachable PCL, invalid path and every error
 leave both original branches unchanged.
 

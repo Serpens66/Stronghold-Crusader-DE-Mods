@@ -267,19 +267,23 @@ namespace ImprovedHunters
                 return HunterStateOneNearRefreshAction.None;
             }
 
-            if (!pclReachability.TryGetCachedReachability(
+            if (!pclReachability.TryGetActiveTargetReachability(
                     hunterUnitId,
                     preyUnitId,
                     preyGlobalId,
                     prey->r_UnitChimp,
                     timestamp,
-                    out bool pclReachable))
+                    out bool pclReachable,
+                    out long pclSnapshotAgeMilliseconds,
+                    out string pclSnapshotStatus))
             {
-                StopAttempt(identity, "pcl-cache-unavailable", nativeWorldDistance, pathFieldF4);
+                string reason = $"pcl-active-snapshot-{pclSnapshotStatus}";
+                StopAttempt(identity, reason, nativeWorldDistance, pathFieldF4);
                 LogPreparationRejection(
                     hunterUnitId,
-                    "pcl-cache-unavailable",
-                    $"target={preyUnitId}/{preyGlobalId}, path={pathState}/{pathProgress}/{pathLength}",
+                    reason,
+                    $"target={preyUnitId}/{preyGlobalId}, path={pathState}/{pathProgress}/{pathLength}, " +
+                    $"snapshotAgeMs={pclSnapshotAgeMilliseconds}",
                     warning: false);
                 return HunterStateOneNearRefreshAction.None;
             }
@@ -458,7 +462,10 @@ namespace ImprovedHunters
                     $"coreHunterToPreyResult={hunterToPreyResult}, " +
                     $"corePreyToHunterResult={preyToHunterResult}, " +
                     $"visibilityClassification={visibilityClassification}, " +
-                    $"pclReachable={pclReachable}, path={pathState}/{pathFieldF4}/{pathProgress}/{pathLength}, " +
+                    $"pclReachable={pclReachable}, pclSource=active-target-snapshot, " +
+                    $"pclSnapshotStatus={pclSnapshotStatus}, " +
+                    $"pclSnapshotAgeMs={pclSnapshotAgeMilliseconds}, " +
+                    $"path={pathState}/{pathFieldF4}/{pathProgress}/{pathLength}, " +
                     "ticket=prepared, ownMovement=False, ownAiState=False, ownOrderWrite=False, " +
                     "speedWrite=False, animationWrite=False.");
             }
