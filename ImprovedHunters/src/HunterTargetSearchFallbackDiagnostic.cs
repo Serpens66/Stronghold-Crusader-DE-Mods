@@ -14,11 +14,26 @@ using Zhuqiaomon.Memory;
 
 namespace ImprovedHunters
 {
+    internal enum HunterStateOneNearRefreshAction
+    {
+        None = 0,
+        ContinueExistingPath = 1,
+        HandoffToVanillaAttack = 2
+    }
+
+    internal delegate HunterStateOneNearRefreshAction TryPrepareHunterStateOneNearRefresh(
+        int hunterUnitId,
+        int preyUnitId,
+        uint preyGlobalId,
+        int nativeWorldDistance,
+        out bool shouldLog);
+
     /// <summary>
     /// Temporary, separately removable validation of the native target-search
     /// handoff, the state-1 near-target refresh and its direct-attack
-    /// continuation. Fallbacks only supply a validated target ID; Vanilla
-    /// remains responsible for state changes and MoveHere.
+    /// continuation. State 0 may receive a validated fallback target. State 1
+    /// only selects Vanilla's existing continuation branch for an already
+    /// validated path; Vanilla remains responsible for locomotion and orders.
     /// </summary>
     internal sealed unsafe class HunterTargetSearchFallbackDiagnostic : IDisposable
     {
@@ -29,15 +44,15 @@ namespace ImprovedHunters
         private const int StateZeroMoveResultSequenceRva = 0x12FE13;
         private const int StateZeroMoveResultHookOffset = 0x17;
         private const int StateOneRefreshQuerySequenceRva = 0x12FF07;
-        private const int StateOneRefreshQueryResultHookOffset = 0x27;
-        private const int StateOneRefreshQueryResultHookLength = 0x0E;
-        private const int StateOneRefreshFailureBranchTargetOffset = 0x25;
         private const int StateOneNearRefreshBranchSequenceRva = 0x130019;
         private const int StateOneNearRefreshHookLength = 0x0F;
         private const int StateOneNearRefreshFarBranchTargetOffset = 0x14;
         private const int StateOneNearRefreshQueryJumpOffset = 0x0F;
         private const int StateOneWorldDistanceScratchRva = 0x34A8F5C;
         private const int StateOneCurrentHunterUnitIdRva = 0x92F2C4;
+        private const int StateOneRefreshDistance = 20;
+        private const int StateOneContinuationDistance = 28;
+        private const int StateOneBypassDistance = StateOneRefreshDistance + 1;
         private const int StateOneDirectAttackSequenceRva = 0x13013D;
         private const int StateOneDirectAttackResultHookOffset = 0x0C;
         private const int HunterUpdateStartRva = 0x12FC20;
@@ -57,7 +72,6 @@ namespace ImprovedHunters
         private const int PreyReservationOffset = 0x448;
         private const int MaxDiagnosticLogs = 160;
         private const int MaxStateOneDiagnosticLogs = 160;
-        private const ulong ZeroFlagMask = 1UL << 6;
 
         private const string StateZeroQuerySequencePattern =
             "8B D3 49 8B CD E8 ? ? ? ? " +
@@ -88,18 +102,17 @@ namespace ImprovedHunters
 
         private static readonly long RejectedCandidateCooldown = Stopwatch.Frequency * 30;
         private static readonly long AcceptedMoveObservationLifetime = Stopwatch.Frequency * 60;
-        private static readonly long RefreshContinuationLifetime = Stopwatch.Frequency * 2;
         private static long nextGeneration;
 
         [ThreadStatic] private static long activeGeneration;
         [ThreadStatic] private static int activeHunterUnitId;
         [ThreadStatic] private static Candidate stagedCandidate;
         [ThreadStatic] private static Candidate pendingMoveCandidate;
-        [ThreadStatic] private static Candidate stateOneRefreshCandidate;
 
         private readonly ManualLogSource log;
         private readonly ImprovedHuntersViewModel settings;
         private readonly Func<bool> canRun;
+        private readonly TryPrepareHunterStateOneNearRefresh tryPrepareStateOneNearRefresh;
         private readonly Action<int, uint, long> registerRejectedMove;
         private readonly Action<int, int, uint, eChimps, int, long> recordPclMoveHereResult;
         private readonly long generation;
@@ -108,18 +121,16 @@ namespace ImprovedHunters
         private readonly object observationLock = new object();
         private readonly Dictionary<int, AcceptedMoveObservation> acceptedMoveObservations =
             new Dictionary<int, AcceptedMoveObservation>();
-        private readonly Dictionary<int, PendingRefreshContinuation> pendingRefreshContinuations =
-            new Dictionary<int, PendingRefreshContinuation>();
+        private readonly HashSet<ulong> loggedNearRefreshBypasses = new HashSet<ulong>();
         private HookTransaction transaction;
         private HookRef<X64InlineHook> queryStartHook = new HookRef<X64InlineHook>();
         private HookRef<X64InlineHook> queryReturnHook = new HookRef<X64InlineHook>();
         private HookRef<X64InlineHook> moveResultHook = new HookRef<X64InlineHook>();
         private HookRef<X64InlineHook> stateOneRefreshBranchContextHook = new HookRef<X64InlineHook>();
-        private HookRef<X64InlineHook> stateOneRefreshQueryResultHook = new HookRef<X64InlineHook>();
         private HookRef<X64InlineHook> stateOneDirectAttackResultHook = new HookRef<X64InlineHook>();
         private bool featureAvailable;
         private bool hookConfirmed;
-        private bool stateOneRefreshHookConfirmed;
+        private bool stateOneNearRefreshHookConfirmed;
         private bool stateOneHookConfirmed;
         private bool stateOneInvalidContextLogged;
         private int diagnosticLogs;
@@ -133,12 +144,15 @@ namespace ImprovedHunters
             ulong libraryBase,
             bool referenceHashMatches,
             Func<bool> canRun,
+            TryPrepareHunterStateOneNearRefresh tryPrepareStateOneNearRefresh,
             Action<int, uint, long> registerRejectedMove,
             Action<int, int, uint, eChimps, int, long> recordPclMoveHereResult)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
             this.canRun = canRun ?? throw new ArgumentNullException(nameof(canRun));
+            this.tryPrepareStateOneNearRefresh = tryPrepareStateOneNearRefresh ??
+                throw new ArgumentNullException(nameof(tryPrepareStateOneNearRefresh));
             this.registerRejectedMove = registerRejectedMove ??
                 throw new ArgumentNullException(nameof(registerRejectedMove));
             this.recordPclMoveHereResult = recordPclMoveHereResult ??
@@ -232,13 +246,6 @@ namespace ImprovedHunters
                 stateOneRefreshQuerySequenceRva + 0x24,
                 out ulong stateOneWorldDistanceScratchAddress,
                 out ulong stateOneCurrentHunterUnitIdAddress);
-            int stateOneRefreshQueryResultRva = checked(
-                stateOneRefreshQuerySequenceRva + StateOneRefreshQueryResultHookOffset);
-            ValidateStateOneRefreshResultHookSpan(
-                memory,
-                libraryBase,
-                stateOneRefreshQueryResultRva,
-                stateOneCurrentHunterUnitIdAddress);
             stateOneWorldDistanceScratch = (int*)stateOneWorldDistanceScratchAddress;
             stateOneCurrentHunterUnitId = (int*)stateOneCurrentHunterUnitIdAddress;
 
@@ -284,16 +291,6 @@ namespace ImprovedHunters
                     errorMode: CallbackErrorMode.LogAndContinue,
                     placement: OverwrittenInstructionPlacement.AfterCallback);
                 transaction.AddContextHook(
-                    ref stateOneRefreshQueryResultHook,
-                    libraryBase + unchecked((ulong)stateOneRefreshQueryResultRva),
-                    CompleteStateOneRefreshQuery,
-                    regs: X64SmartCPUContextRegs.Volatile | X64SmartCPUContextRegs.Flags,
-                    hookSize: StateOneRefreshQueryResultHookLength,
-                    errorMode: CallbackErrorMode.LogAndContinue,
-                    // The callback sees the query's ZF plus Vanilla's reloaded
-                    // current-Hunter ID, then the untouched JE executes.
-                    placement: OverwrittenInstructionPlacement.BeforeCallback);
-                transaction.AddContextHook(
                     ref stateOneDirectAttackResultHook,
                     libraryBase + unchecked((ulong)stateOneDirectAttackResultRva),
                     ObserveStateOneDirectAttackResult,
@@ -307,7 +304,6 @@ namespace ImprovedHunters
                     !queryReturnHook.Success ||
                     !moveResultHook.Success ||
                     !stateOneRefreshBranchContextHook.Success ||
-                    !stateOneRefreshQueryResultHook.Success ||
                     !stateOneDirectAttackResultHook.Success)
                 {
                     throw new InvalidOperationException("One or more Hunter target-search fallback hooks were not installed.");
@@ -322,17 +318,17 @@ namespace ImprovedHunters
                     $"stateOneRefreshContextRva=0x{stateOneRefreshBranchContextRva:X}, " +
                     $"stateOneRefreshHookSpan=[0x{stateOneRefreshBranchContextRva:X}," +
                     $"0x{stateOneRefreshBranchContextRva + StateOneNearRefreshHookLength:X}), " +
-                    $"stateOneRefreshResultRva=0x{stateOneRefreshQueryResultRva:X}, " +
-                    $"stateOneRefreshResultSpan=[0x{stateOneRefreshQueryResultRva:X}," +
-                    $"0x{stateOneRefreshQueryResultRva + StateOneRefreshQueryResultHookLength:X}), " +
                     $"MoveHereRva=0x{moveHereFunctionRva:X}, " +
                     $"stateOneAttackResultRva=0x{stateOneDirectAttackResultRva:X}, " +
                     $"directAttackRva=0x{directAttackFunctionRva:X}, cooldownSeconds=" +
                     $"{RejectedCandidateCooldown / Stopwatch.Frequency}, ownMovement=False, ownAiState=False, " +
                     $"worldDistanceScratchRva=0x{StateOneWorldDistanceScratchRva:X}, " +
                     $"currentHunterUnitIdRva=0x{StateOneCurrentHunterUnitIdRva:X}, " +
-                    "stateOneRefreshRegisterOverride=ZF-clear-only, ownReservationRequired=2, " +
-                    "foreignReservationAllowed=False, stateOneDirectAttackObservationOnly=True.");
+                    "stateOneRefreshOverride=world-distance-scratch-20-to-21-only, " +
+                    "nearRefreshDecision=bidirectional-native-visibility, " +
+                    "continuationTicketRequiredWhenBlocked=True, ownReservationRequired=2, " +
+                    "foreignReservationAllowed=False, stateOneQueryResultMutation=False, " +
+                    "stateOneDirectAttackObservationOnly=True.");
             }
             catch
             {
@@ -348,7 +344,6 @@ namespace ImprovedHunters
             queryReturnHook.Success &&
             moveResultHook.Success &&
             stateOneRefreshBranchContextHook.Success &&
-            stateOneRefreshQueryResultHook.Success &&
             stateOneDirectAttackResultHook.Success;
 
         public void RecordCandidate(
@@ -377,10 +372,7 @@ namespace ImprovedHunters
                 preyGlobalId,
                 preyType,
                 preferred,
-                suppliedByFallback: false,
-                ownReservationRefresh: false);
-            if (stagedCandidate.OwnReservationRefresh)
-                return;
+                suppliedByFallback: false);
 
             if (!stagedCandidate.IsValid ||
                 (candidate.Preferred && !stagedCandidate.Preferred) ||
@@ -391,42 +383,18 @@ namespace ImprovedHunters
             }
         }
 
-        public void RecordStateOneRefreshCandidate(
-            int hunterUnitId,
-            int preyUnitId,
-            uint preyGlobalId,
-            eChimps preyType)
-        {
-            Candidate expected = stateOneRefreshCandidate;
-            if (!IsAvailable ||
-                activeGeneration != generation ||
-                activeHunterUnitId != hunterUnitId ||
-                !expected.IsValid ||
-                expected.HunterUnitId != hunterUnitId ||
-                expected.PreyUnitId != preyUnitId ||
-                expected.PreyGlobalId != preyGlobalId ||
-                expected.PreyType != preyType ||
-                !TryValidateOwnReservationCandidate(expected, requiredAiState: 1))
-            {
-                return;
-            }
-
-            // The event policy has already accepted owner, PCL and cooldown.
-            stagedCandidate = expected;
-        }
-
         public void ResetForMap()
         {
             lock (observationLock)
             {
                 acceptedMoveObservations.Clear();
-                pendingRefreshContinuations.Clear();
+                loggedNearRefreshBypasses.Clear();
             }
 
             diagnosticLogs = 0;
             stateOneDiagnosticLogs = 0;
             hookConfirmed = false;
-            stateOneRefreshHookConfirmed = false;
+            stateOneNearRefreshHookConfirmed = false;
             stateOneHookConfirmed = false;
             stateOneInvalidContextLogged = false;
             ClearThreadState();
@@ -450,25 +418,6 @@ namespace ImprovedHunters
 
             activeGeneration = generation;
             activeHunterUnitId = hunterUnitId;
-            if (TryTakeRefreshContinuation(hunterUnitId, out Candidate refreshCandidate))
-            {
-                if (TryValidateOwnReservationCandidate(refreshCandidate, requiredAiState: 0))
-                {
-                    stagedCandidate = refreshCandidate;
-                    LogDiagnostic(
-                        "Improved Hunters carried own reserved target into Vanilla state-0 refresh: " +
-                        $"hunter={hunterUnitId}, target={refreshCandidate.PreyUnitId}/{refreshCandidate.PreyType}, " +
-                        $"globalId={refreshCandidate.PreyGlobalId}, reservation=2.");
-                }
-                else
-                {
-                    LogDiagnostic(
-                        "Improved Hunters discarded invalid own-reservation refresh continuation: " +
-                        $"hunter={hunterUnitId}, target={refreshCandidate.PreyUnitId}/" +
-                        $"{refreshCandidate.PreyGlobalId}, currentCallbackMutation=False.",
-                        warning: true);
-                }
-            }
         }
 
         private void CompleteStateZeroQuery(NativePointer<X64SmartCPUContext> context)
@@ -495,21 +444,10 @@ namespace ImprovedHunters
 
             if (vanillaTargetUnitId != 0)
             {
-                Candidate vanillaCandidate;
-                bool ownRefreshReturnedByVanilla =
-                    stagedCandidate.OwnReservationRefresh &&
-                    stagedCandidate.PreyUnitId == vanillaTargetUnitId &&
-                    TryValidateOwnReservationCandidate(stagedCandidate, requiredAiState: 0);
-                if (ownRefreshReturnedByVanilla)
-                {
-                    vanillaCandidate = stagedCandidate;
-                    pendingMoveCandidate = vanillaCandidate;
-                    ClearQueryState(keepPendingMove: true);
-                }
-                else if (TryCreateVanillaCandidate(
-                             hunterUnitId,
-                             vanillaTargetUnitId,
-                             out vanillaCandidate))
+                if (TryCreateVanillaCandidate(
+                        hunterUnitId,
+                        vanillaTargetUnitId,
+                        out Candidate vanillaCandidate))
                 {
                     pendingMoveCandidate = vanillaCandidate;
                     ClearQueryState(keepPendingMove: true);
@@ -523,9 +461,7 @@ namespace ImprovedHunters
             }
 
             bool stagedCandidateValid = stagedCandidate.IsValid &&
-                (stagedCandidate.OwnReservationRefresh
-                    ? TryValidateOwnReservationCandidate(stagedCandidate, requiredAiState: 0)
-                    : TryValidateCandidate(stagedCandidate));
+                TryValidateCandidate(stagedCandidate);
             if (!stagedCandidateValid)
             {
                 ClearQueryState();
@@ -631,7 +567,7 @@ namespace ImprovedHunters
             }
 
             int nativeWorldDistance = *stateOneWorldDistanceScratch;
-            if ((uint)nativeWorldDistance > 20u)
+            if ((uint)nativeWorldDistance > StateOneContinuationDistance)
                 return;
 
             // Vanilla itself loads this actor ID for the immediately following
@@ -645,85 +581,47 @@ namespace ImprovedHunters
                 return;
             }
 
-            activeGeneration = generation;
-            activeHunterUnitId = hunterUnitId;
-            stateOneRefreshCandidate = refreshCandidate;
-            LogStateOneDiagnostic(
-                "Improved Hunters Hunter movement transition: " +
-                $"phase=near-refresh-entry, hunter={hunterUnitId}, " +
-                $"nativeWorldDistance={nativeWorldDistance}, " +
-                $"reservedTarget={refreshCandidate.PreyUnitId}/{refreshCandidate.PreyGlobalId}, " +
-                $"{TryFormatMovementSnapshot(hunterUnitId)}, behaviorMutation=False.");
-        }
-
-        private void CompleteStateOneRefreshQuery(NativePointer<X64SmartCPUContext> context)
-        {
-            int hunterUnitId = stateOneCurrentHunterUnitId == null
-                ? 0
-                : *stateOneCurrentHunterUnitId;
-            int vanillaCurrentHunterUnitId = unchecked((int)(uint)context.Pointer->RAX);
-            bool vanillaQueryReturnedZero =
-                (context.Pointer->Rflags & ZeroFlagMask) != 0;
-            Candidate refreshCandidate = stagedCandidate;
-            LogStateOneDiagnostic(
-                "Improved Hunters Hunter movement transition: " +
-                $"phase=near-refresh-query-result, hunter={hunterUnitId}, " +
-                $"reloadedHunter={vanillaCurrentHunterUnitId}, " +
-                $"vanillaQueryReturnedZero={vanillaQueryReturnedZero}, " +
-                $"stagedTarget={refreshCandidate.PreyUnitId}/{refreshCandidate.PreyGlobalId}, " +
-                $"{TryFormatMovementSnapshot(hunterUnitId)}, behaviorMutation=False.");
-            if (!stateOneRefreshHookConfirmed && hunterUnitId > 0)
+            if (!stateOneNearRefreshHookConfirmed)
             {
-                stateOneRefreshHookConfirmed = true;
+                stateOneNearRefreshHookConfirmed = true;
                 LogDiagnostic(
-                    "Improved Hunters state-1 near-target refresh hook confirmed: " +
-                    $"hunter={hunterUnitId}, reloadedHunter={vanillaCurrentHunterUnitId}, " +
-                    $"vanillaQueryReturnedZero={vanillaQueryReturnedZero}, " +
-                    $"stagedOwnTarget={refreshCandidate.PreyUnitId}.");
+                    "Improved Hunters state-1 near-distance hook confirmed: " +
+                    $"hunter={hunterUnitId}, target={refreshCandidate.PreyUnitId}/" +
+                    $"{refreshCandidate.PreyGlobalId}, nativeWorldDistance={nativeWorldDistance}.");
             }
 
-            if (!IsAvailable ||
-                !canRun() ||
-                activeGeneration != generation ||
-                activeHunterUnitId != hunterUnitId ||
-                vanillaCurrentHunterUnitId != hunterUnitId)
-            {
-                ClearQueryState();
+            HunterStateOneNearRefreshAction action = tryPrepareStateOneNearRefresh(
+                    hunterUnitId,
+                    refreshCandidate.PreyUnitId,
+                    refreshCandidate.PreyGlobalId,
+                    nativeWorldDistance,
+                    out bool shouldLog);
+            if (action == HunterStateOneNearRefreshAction.None)
                 return;
-            }
 
-            if (!vanillaQueryReturnedZero)
-            {
-                ClearQueryState();
+            if (nativeWorldDistance > StateOneRefreshDistance)
                 return;
-            }
 
-            if (!refreshCandidate.IsValid ||
-                !refreshCandidate.OwnReservationRefresh ||
-                !TryValidateOwnReservationCandidate(refreshCandidate, requiredAiState: 1))
+            // This scratch value is the operand of the immediately relocated
+            // Vanilla CMP. The next distance helper invocation overwrites it.
+            *stateOneWorldDistanceScratch = StateOneBypassDistance;
+            ulong bypassIdentity =
+                (unchecked((ulong)(uint)hunterUnitId) << 32) | refreshCandidate.PreyGlobalId;
+            lock (observationLock)
+                shouldLog |= loggedNearRefreshBypasses.Add(bypassIdentity);
+            if (shouldLog)
             {
-                LogDiagnostic(
-                    "Improved Hunters left failed state-1 near-target refresh unchanged: " +
-                    $"hunter={hunterUnitId}, reason=own-reserved-target-not-accepted-or-invalid, " +
-                    "currentCallbackMutation=False.");
-                ClearQueryState();
-                return;
+                LogStateOneDiagnostic(
+                    "Improved Hunters bypassed Hunter state-1 near-target refresh: " +
+                    $"hunter={hunterUnitId}, target={refreshCandidate.PreyUnitId}/" +
+                    $"{refreshCandidate.PreyGlobalId}/{refreshCandidate.PreyType}, " +
+                    $"nativeWorldDistance={nativeWorldDistance}->{StateOneBypassDistance}, " +
+                    $"branch=Vanilla-greater-than-20, querySkipped=True, action={action}, " +
+                    $"continuationTicket={action == HunterStateOneNearRefreshAction.ContinueExistingPath}, " +
+                    "ownMovement=False, ownAiState=False, ownOrderWrite=False, " +
+                    "speedWrite=False, animationWrite=False, compareScratchOnly=True, " +
+                    $"{TryFormatMovementSnapshot(hunterUnitId)}.");
             }
-
-            Candidate suppliedCandidate = refreshCandidate.AsSuppliedFallback();
-            QueueRefreshContinuation(suppliedCandidate);
-
-            // The following untouched JE normally enters the hut-return path for
-            // a zero query. Clearing only ZF selects Vanilla's state-0 writer;
-            // the queued continuation then uses the established state-0 handoff.
-            context.Pointer->Rflags &= ~ZeroFlagMask;
-            LogDiagnostic(
-                "Improved Hunters supplied own reserved target to state-1 near-target refresh: " +
-                $"hunter={hunterUnitId}, target={suppliedCandidate.PreyUnitId}/{suppliedCandidate.PreyType}, " +
-                $"globalId={suppliedCandidate.PreyGlobalId}, vanillaQueryResult=0, reservation=2, " +
-                "handoff=Vanilla-state0-then-MoveHere, ownMovement=False, ownAiState=False, " +
-                "registerOverride=ZF-clear-only, currentHunterRaxPreserved=True.");
-            ClearQueryState();
         }
 
         private void ObserveStateOneDirectAttackResult(NativePointer<X64SmartCPUContext> context)
@@ -901,70 +799,6 @@ namespace ImprovedHunters
             currentHunterUnitIdAddress = nearPathLoad.IPRelativeMemoryAddress;
         }
 
-        private static void ValidateStateOneRefreshResultHookSpan(
-            ReadOnlySpan<byte> memory,
-            ulong libraryBase,
-            int hookRva,
-            ulong expectedCurrentHunterUnitIdAddress)
-        {
-            const int decodeLookahead = 32;
-            if (hookRva < 0 || hookRva > memory.Length - decodeLookahead)
-                throw new InvalidOperationException("State-1 refresh return hook lies outside the module image.");
-
-            ulong hookAddress = libraryBase + unchecked((ulong)hookRva);
-            Decoder decoder = Decoder.Create(
-                64,
-                new ByteArrayCodeReader(memory.Slice(hookRva, decodeLookahead).ToArray()),
-                hookAddress);
-            Instruction queryCall = decoder.Decode();
-            Instruction resultTest = decoder.Decode();
-            Instruction hunterIdLoad = decoder.Decode();
-            int decodedHookLength = checked((int)(decoder.IP - hookAddress));
-            if (queryCall.IsInvalid ||
-                resultTest.IsInvalid ||
-                hunterIdLoad.IsInvalid ||
-                queryCall.Mnemonic != Mnemonic.Call ||
-                queryCall.FlowControl != FlowControl.Call ||
-                queryCall.Length != 5 ||
-                queryCall.NearBranchTarget !=
-                    libraryBase + unchecked((ulong)HunterQueryFunctionRva) ||
-                resultTest.Mnemonic != Mnemonic.Test ||
-                resultTest.Length != 2 ||
-                hunterIdLoad.Mnemonic != Mnemonic.Movsxd ||
-                hunterIdLoad.Length != 7 ||
-                decodedHookLength != StateOneRefreshQueryResultHookLength)
-            {
-                throw new InvalidOperationException(
-                    "State-1 refresh result hook does not decode as the audited 5+2+7-byte span.");
-            }
-
-            ulong hookEndAddress = hookAddress + StateOneRefreshQueryResultHookLength;
-            Instruction failureBranch = decoder.Decode();
-            ulong expectedFailureTarget =
-                hookAddress + StateOneRefreshFailureBranchTargetOffset;
-            if (!hunterIdLoad.IsIPRelativeMemoryOperand ||
-                hunterIdLoad.IPRelativeMemoryAddress != expectedCurrentHunterUnitIdAddress ||
-                failureBranch.IsInvalid ||
-                failureBranch.IP != hookEndAddress ||
-                failureBranch.Mnemonic != Mnemonic.Je ||
-                failureBranch.Length != 2 ||
-                failureBranch.FlowControl != FlowControl.ConditionalBranch ||
-                failureBranch.NearBranchTarget != expectedFailureTarget ||
-                failureBranch.NearBranchTarget <= hookEndAddress)
-            {
-                throw new InvalidOperationException(
-                    $"State-1 refresh result span changed or is unsafe: " +
-                    $"failureTarget=0x{failureBranch.NearBranchTarget:X}, " +
-                    $"hookSpan=[0x{hookAddress:X},0x{hookEndAddress:X}).");
-            }
-
-            ValidateNoExternalDirectBranchTargetsInsideHook(
-                memory,
-                libraryBase,
-                hookAddress,
-                hookEndAddress);
-        }
-
         private static void ValidateNoExternalDirectBranchTargetsInsideHook(
             ReadOnlySpan<byte> memory,
             ulong libraryBase,
@@ -1055,8 +889,7 @@ namespace ImprovedHunters
                 preyGlobalId,
                 prey->r_UnitChimp,
                 preferred: true,
-                suppliedByFallback: false,
-                ownReservationRefresh: true);
+                suppliedByFallback: false);
             return TryValidateOwnReservationCandidate(candidate, requiredAiState);
         }
 
@@ -1064,8 +897,7 @@ namespace ImprovedHunters
             Candidate candidate,
             ushort requiredAiState)
         {
-            if (!candidate.OwnReservationRefresh ||
-                !TryValidateHunter(candidate.HunterUnitId, requiredAiState, out GameUnit* hunter))
+            if (!TryValidateHunter(candidate.HunterUnitId, requiredAiState, out GameUnit* hunter))
             {
                 return false;
             }
@@ -1091,38 +923,6 @@ namespace ImprovedHunters
                 !IsTargetedByOtherLiveHunter(candidate);
         }
 
-        private bool TryTakeRefreshContinuation(
-            int hunterUnitId,
-            out Candidate candidate)
-        {
-            candidate = default;
-            PendingRefreshContinuation pending;
-            lock (observationLock)
-            {
-                if (!pendingRefreshContinuations.TryGetValue(hunterUnitId, out pending))
-                    return false;
-
-                pendingRefreshContinuations.Remove(hunterUnitId);
-            }
-
-            if (Stopwatch.GetTimestamp() > pending.ExpiresAt)
-                return false;
-
-            candidate = pending.Candidate;
-            return candidate.IsValid;
-        }
-
-        private void QueueRefreshContinuation(Candidate candidate)
-        {
-            lock (observationLock)
-            {
-                pendingRefreshContinuations[candidate.HunterUnitId] =
-                    new PendingRefreshContinuation(
-                        candidate,
-                        Stopwatch.GetTimestamp() + RefreshContinuationLifetime);
-            }
-        }
-
         private bool TryCreateVanillaCandidate(
             int hunterUnitId,
             int preyUnitId,
@@ -1146,8 +946,7 @@ namespace ImprovedHunters
                 prey->r_GlobalId,
                 prey->r_UnitChimp,
                 preferred: false,
-                suppliedByFallback: false,
-                ownReservationRefresh: false);
+                suppliedByFallback: false);
             return TryValidateCandidate(candidate);
         }
 
@@ -1337,7 +1136,6 @@ namespace ImprovedHunters
             activeGeneration = 0;
             activeHunterUnitId = 0;
             stagedCandidate = default;
-            stateOneRefreshCandidate = default;
             if (!keepPendingMove)
                 pendingMoveCandidate = default;
         }
@@ -1360,7 +1158,7 @@ namespace ImprovedHunters
             lock (observationLock)
             {
                 acceptedMoveObservations.Clear();
-                pendingRefreshContinuations.Clear();
+                loggedNearRefreshBypasses.Clear();
             }
             ClearThreadState();
         }
@@ -1373,7 +1171,6 @@ namespace ImprovedHunters
             public readonly eChimps PreyType;
             public readonly bool Preferred;
             public readonly bool SuppliedByFallback;
-            public readonly bool OwnReservationRefresh;
 
             public Candidate(
                 int hunterUnitId,
@@ -1381,8 +1178,7 @@ namespace ImprovedHunters
                 uint preyGlobalId,
                 eChimps preyType,
                 bool preferred,
-                bool suppliedByFallback,
-                bool ownReservationRefresh)
+                bool suppliedByFallback)
             {
                 HunterUnitId = hunterUnitId;
                 PreyUnitId = preyUnitId;
@@ -1390,7 +1186,6 @@ namespace ImprovedHunters
                 PreyType = preyType;
                 Preferred = preferred;
                 SuppliedByFallback = suppliedByFallback;
-                OwnReservationRefresh = ownReservationRefresh;
             }
 
             public bool IsValid => HunterUnitId > 0 && PreyUnitId > 0 && PreyGlobalId != 0;
@@ -1399,9 +1194,6 @@ namespace ImprovedHunters
             {
                 get
                 {
-                    if (OwnReservationRefresh)
-                        return SuppliedByFallback ? "InjectedOwnReservationRefresh" : "OwnReservationRefresh";
-
                     return SuppliedByFallback ? "InjectedFallback" : "VanillaQuery";
                 }
             }
@@ -1412,20 +1204,7 @@ namespace ImprovedHunters
                 PreyGlobalId,
                 PreyType,
                 Preferred,
-                suppliedByFallback: true,
-                ownReservationRefresh: OwnReservationRefresh);
-        }
-
-        private readonly struct PendingRefreshContinuation
-        {
-            public readonly Candidate Candidate;
-            public readonly long ExpiresAt;
-
-            public PendingRefreshContinuation(Candidate candidate, long expiresAt)
-            {
-                Candidate = candidate;
-                ExpiresAt = expiresAt;
-            }
+                suppliedByFallback: true);
         }
 
         private readonly struct AcceptedMoveObservation

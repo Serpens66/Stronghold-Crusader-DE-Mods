@@ -31,10 +31,13 @@ namespace ImprovedHunters
         private const int HunterPathFieldF4Offset = 0xF4;
         private const int HunterPathProgressOffset = 0xF6;
         private const int HunterPathLengthOffset = 0xF8;
+        private const int PreyReservationOffset = 0x448;
         private const ushort HunterStateFollowingTarget = 1;
         private const ushort ActivePathState = 2;
+        private const ushort OwnHunterReservation = 2;
         private const uint MaximumPathSteps = 2000;
         private const int VanillaContinuationDistance = 29;
+        private const int MaximumPreparedWorldDistance = 28;
         private const int MaxDiagnosticLogs = 600;
 
         private const string DistanceStageSequencePattern =
@@ -48,21 +51,30 @@ namespace ImprovedHunters
         private static readonly long MaxNoProgressDuration = Stopwatch.Frequency * 3;
         private static readonly long RetryCooldownDuration = Stopwatch.Frequency * 5;
         private static readonly long AttemptContinuityGap = Stopwatch.Frequency;
+        private static readonly long PreparedContinuationLifetime = Stopwatch.Frequency;
+        private static long nextGeneration;
+
+        [ThreadStatic] private static PreparedContinuation preparedContinuation;
 
         private readonly ManualLogSource log;
         private readonly ImprovedHuntersViewModel settings;
         private readonly HunterNativeVisibilityProbe visibilityProbe;
+        private readonly HunterPclReachability pclReachability;
         private readonly Func<bool> canRun;
+        private readonly long generation;
         private readonly object stateLock = new object();
         private readonly Dictionary<int, ContinuationAttempt> activeAttempts =
             new Dictionary<int, ContinuationAttempt>();
         private readonly Dictionary<int, SuspendedAttempt> suspendedAttempts =
             new Dictionary<int, SuspendedAttempt>();
+        private readonly Dictionary<int, string> lastPreparationRejections =
+            new Dictionary<int, string>();
+        private readonly Dictionary<int, string> lastVisibilityDecisions =
+            new Dictionary<int, string>();
         private HookTransaction transaction;
         private HookRef<X64InlineHook> distanceCompareHook = new HookRef<X64InlineHook>();
         private bool featureAvailable;
         private bool hookConfirmed;
-        private bool invalidContextLogged;
         private int diagnosticLogs;
         private bool disposed;
 
@@ -70,6 +82,7 @@ namespace ImprovedHunters
             ManualLogSource log,
             ImprovedHuntersViewModel settings,
             HunterNativeVisibilityProbe visibilityProbe,
+            HunterPclReachability pclReachability,
             ReadOnlySpan<byte> memory,
             ulong libraryBase,
             bool referenceHashMatches,
@@ -78,7 +91,9 @@ namespace ImprovedHunters
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
             this.visibilityProbe = visibilityProbe ?? throw new ArgumentNullException(nameof(visibilityProbe));
+            this.pclReachability = pclReachability ?? throw new ArgumentNullException(nameof(pclReachability));
             this.canRun = canRun ?? throw new ArgumentNullException(nameof(canRun));
+            generation = System.Threading.Interlocked.Increment(ref nextGeneration);
 
             if (!referenceHashMatches)
             {
@@ -90,6 +105,8 @@ namespace ImprovedHunters
             }
             if (!visibilityProbe.IsAvailable)
                 throw new InvalidOperationException("The validated native Hunter visibility probe is unavailable.");
+            if (!pclReachability.IsAvailable)
+                throw new InvalidOperationException("The validated native Hunter PCL reachability query is unavailable.");
             if (memory.Length == 0 || libraryBase == 0)
                 throw new ArgumentException("The Crusader library is unavailable.");
 
@@ -135,7 +152,11 @@ namespace ImprovedHunters
                     $"maxNoProgressSeconds={MaxNoProgressDuration / Stopwatch.Frequency}, " +
                     $"boundedRetryCooldownSeconds={RetryCooldownDuration / Stopwatch.Frequency}, " +
                     "ownMovement=False, ownAiState=False, ownOrderWrite=False, " +
-                    "registerOverride=RDI-distance-only, nativeVisibilityRequired=True.");
+                    "speedWrite=False, animationWrite=False, " +
+                    "registerOverride=RDI-distance-only, preparedTicketRequired=True, " +
+                    "nearVisibility=wrapper-plus-bidirectional-core, visibleAttackHandoff=True, " +
+                    "directionalDisagreementContinuesPath=True, explicitCachedPclReachableRequired=True, " +
+                    "nativePclQueryInsideHook=False.");
             }
             catch
             {
@@ -148,7 +169,8 @@ namespace ImprovedHunters
             featureAvailable &&
             !disposed &&
             distanceCompareHook.Success &&
-            visibilityProbe.IsAvailable;
+            visibilityProbe.IsAvailable &&
+            pclReachability.IsAvailable;
 
         public void ResetForMap()
         {
@@ -156,25 +178,319 @@ namespace ImprovedHunters
             {
                 activeAttempts.Clear();
                 suspendedAttempts.Clear();
+                lastPreparationRejections.Clear();
+                lastVisibilityDecisions.Clear();
             }
 
+            ClearPreparedContinuation();
+
             hookConfirmed = false;
-            invalidContextLogged = false;
             diagnosticLogs = 0;
+        }
+
+        public HunterStateOneNearRefreshAction TryPrepareStateOneNearRefresh(
+            int hunterUnitId,
+            int expectedPreyUnitId,
+            uint expectedPreyGlobalId,
+            int nativeWorldDistance,
+            out bool shouldLog)
+        {
+            shouldLog = false;
+            ClearPreparedContinuation();
+            if (!IsAvailable ||
+                !canRun() ||
+                nativeWorldDistance < 0 ||
+                nativeWorldDistance > MaximumPreparedWorldDistance)
+            {
+                return HunterStateOneNearRefreshAction.None;
+            }
+
+            if (!TryGetContext(
+                    hunterUnitId,
+                    out GameUnit* hunter,
+                    out GameUnit* prey,
+                    out int preyUnitId,
+                    out uint preyGlobalId,
+                    out ushort pathState,
+                    out ushort pathFieldF4,
+                    out ushort pathProgress,
+                    out uint pathLength))
+            {
+                ClearHunterAttemptState(hunterUnitId);
+                LogPreparationRejection(
+                    hunterUnitId,
+                    "invalid-state1-context",
+                    $"nativeWorldDistance={nativeWorldDistance}",
+                    warning: true);
+                return HunterStateOneNearRefreshAction.None;
+            }
+
+            AttemptIdentity identity = new AttemptIdentity(
+                hunterUnitId,
+                hunter->r_GlobalId,
+                preyUnitId,
+                preyGlobalId);
+            if (preyUnitId != expectedPreyUnitId || preyGlobalId != expectedPreyGlobalId)
+            {
+                ClearHunterAttemptState(hunterUnitId);
+                LogPreparationRejection(
+                    hunterUnitId,
+                    "target-identity-mismatch",
+                    $"expected={expectedPreyUnitId}/{expectedPreyGlobalId}, " +
+                    $"actual={preyUnitId}/{preyGlobalId}",
+                    warning: true);
+                return HunterStateOneNearRefreshAction.None;
+            }
+
+            long timestamp = Stopwatch.GetTimestamp();
+            if (IsRetryCoolingDown(identity, timestamp))
+            {
+                LogPreparationRejection(
+                    hunterUnitId,
+                    "retry-cooldown",
+                    $"target={preyUnitId}/{preyGlobalId}, nativeWorldDistance={nativeWorldDistance}");
+                return HunterStateOneNearRefreshAction.None;
+            }
+
+            if (pathState != ActivePathState ||
+                pathLength <= 1 ||
+                pathLength > MaximumPathSteps ||
+                pathProgress >= pathLength)
+            {
+                string reason = $"path-unavailable-or-complete-{pathState}-{pathProgress}-{pathLength}";
+                StopAttempt(identity, reason, nativeWorldDistance, pathFieldF4);
+                LogPreparationRejection(
+                    hunterUnitId,
+                    reason,
+                    $"target={preyUnitId}/{preyGlobalId}, path={pathState}/{pathFieldF4}/" +
+                    $"{pathProgress}/{pathLength}");
+                return HunterStateOneNearRefreshAction.None;
+            }
+
+            if (!pclReachability.TryGetCachedReachability(
+                    hunterUnitId,
+                    preyUnitId,
+                    preyGlobalId,
+                    prey->r_UnitChimp,
+                    timestamp,
+                    out bool pclReachable))
+            {
+                StopAttempt(identity, "pcl-cache-unavailable", nativeWorldDistance, pathFieldF4);
+                LogPreparationRejection(
+                    hunterUnitId,
+                    "pcl-cache-unavailable",
+                    $"target={preyUnitId}/{preyGlobalId}, path={pathState}/{pathProgress}/{pathLength}",
+                    warning: false);
+                return HunterStateOneNearRefreshAction.None;
+            }
+            if (!pclReachable)
+            {
+                StopAttempt(identity, "pcl-unreachable", nativeWorldDistance, pathFieldF4);
+                LogPreparationRejection(
+                    hunterUnitId,
+                    "pcl-unreachable",
+                    $"target={preyUnitId}/{preyGlobalId}, path={pathState}/{pathProgress}/{pathLength}");
+                return HunterStateOneNearRefreshAction.None;
+            }
+
+            if (!visibilityProbe.TryEvaluateNearVisibility(
+                    hunterUnitId,
+                    hunter->r_GlobalId,
+                    preyUnitId,
+                    preyGlobalId,
+                    prey->r_UnitChimp,
+                    out int visibilityResult,
+                    out int hunterToPreyResult,
+                    out int preyToHunterResult))
+            {
+                StopAttempt(identity, "visibility-probe-unavailable", nativeWorldDistance, pathFieldF4);
+                LogPreparationRejection(
+                    hunterUnitId,
+                    "visibility-probe-unavailable",
+                    $"target={preyUnitId}/{preyGlobalId}",
+                    warning: true);
+                return HunterStateOneNearRefreshAction.None;
+            }
+
+            if (visibilityResult < 0 || visibilityResult > 432)
+            {
+                string reason = $"visibility-wrapper-result-invalid-{visibilityResult}";
+                StopAttempt(identity, reason, nativeWorldDistance, pathFieldF4);
+                LogPreparationRejection(
+                    hunterUnitId,
+                    reason,
+                    $"target={preyUnitId}/{preyGlobalId}, nativeWorldDistance={nativeWorldDistance}");
+                return HunterStateOneNearRefreshAction.None;
+            }
+
+            bool wrapperPass = visibilityResult > 0;
+            bool hunterToPreyPass = false;
+            bool preyToHunterPass = false;
+            string visibilityClassification;
+            if (wrapperPass)
+            {
+                // Vanilla's wrapper returns after its first positive internal
+                // direction. Explicit endpoint labels expose which directional
+                // sample passed without simulating a live projectile.
+                if (hunterToPreyResult < 0 || hunterToPreyResult > 432 ||
+                    preyToHunterResult < 0 || preyToHunterResult > 432)
+                {
+                    string reason =
+                        $"directional-visibility-result-invalid-{hunterToPreyResult}-{preyToHunterResult}";
+                    StopAttempt(identity, reason, nativeWorldDistance, pathFieldF4);
+                    LogPreparationRejection(
+                        hunterUnitId,
+                        reason,
+                        $"target={preyUnitId}/{preyGlobalId}, wrapperResult={visibilityResult}",
+                        warning: true);
+                    return HunterStateOneNearRefreshAction.None;
+                }
+
+                hunterToPreyPass = hunterToPreyResult > 0;
+                preyToHunterPass = preyToHunterResult > 0;
+                visibilityClassification = hunterToPreyPass && preyToHunterPass
+                    ? "visible-attack-handoff"
+                    : "blocked-directional-disagreement";
+            }
+            else
+            {
+                // A zero wrapper result already means that both internal core
+                // calls failed, because Vanilla only tries reverse after forward.
+                visibilityClassification = "blocked-wrapper-both-directions";
+            }
+
+            bool visibilityDecisionChanged = LogVisibilityDecision(
+                identity,
+                nativeWorldDistance,
+                visibilityResult,
+                hunterToPreyResult,
+                preyToHunterResult,
+                wrapperPass,
+                hunterToPreyPass,
+                preyToHunterPass,
+                visibilityClassification);
+            if (wrapperPass && hunterToPreyPass && preyToHunterPass)
+            {
+                StopAttempt(
+                    identity,
+                    $"bidirectional-visibility-clear-{visibilityResult}-" +
+                    $"{hunterToPreyResult}-{preyToHunterResult}",
+                    nativeWorldDistance,
+                    pathFieldF4);
+                lock (stateLock)
+                    lastPreparationRejections.Remove(hunterUnitId);
+                shouldLog = visibilityDecisionChanged;
+                return HunterStateOneNearRefreshAction.HandoffToVanillaAttack;
+            }
+
+            ContinuationAttempt attempt;
+            bool newAttempt = false;
+            bool pathChanged;
+            bool maxDurationReached;
+            bool noProgressReached;
+            lock (stateLock)
+            {
+                if (activeAttempts.TryGetValue(hunterUnitId, out ContinuationAttempt current) &&
+                    !current.Identity.Equals(identity))
+                {
+                    activeAttempts.Remove(hunterUnitId);
+                }
+
+                if (!activeAttempts.TryGetValue(hunterUnitId, out attempt) ||
+                    timestamp - attempt.LastObservedAt > AttemptContinuityGap)
+                {
+                    attempt = new ContinuationAttempt(identity, timestamp, pathProgress, pathLength);
+                    newAttempt = true;
+                }
+
+                pathChanged =
+                    pathProgress != attempt.LastProgress ||
+                    pathLength != attempt.LastPathLength;
+                attempt = pathChanged
+                    ? attempt.WithPathProgress(pathProgress, pathLength, timestamp)
+                    : attempt.WithObservation(timestamp);
+
+                maxDurationReached = timestamp - attempt.StartedAt > MaxAttemptDuration;
+                noProgressReached = timestamp - attempt.LastProgressAt > MaxNoProgressDuration;
+                if (maxDurationReached || noProgressReached)
+                {
+                    activeAttempts.Remove(hunterUnitId);
+                    suspendedAttempts[hunterUnitId] = new SuspendedAttempt(
+                        identity,
+                        timestamp + RetryCooldownDuration);
+                }
+                else
+                {
+                    shouldLog = newAttempt || pathChanged || visibilityDecisionChanged;
+                    activeAttempts[hunterUnitId] = attempt;
+                    lastPreparationRejections.Remove(hunterUnitId);
+                }
+            }
+
+            if (maxDurationReached || noProgressReached)
+            {
+                LogDiagnostic(
+                    "Improved Hunters Vanilla-path continuation stopped before near refresh: " +
+                    $"hunter={hunterUnitId}/{hunter->r_GlobalId}, target={preyUnitId}/{preyGlobalId}, " +
+                    $"reason={(maxDurationReached ? "max-duration" : "no-progress")}, " +
+                    $"nativeWorldDistance={nativeWorldDistance}, " +
+                    $"path={pathState}/{pathFieldF4}/{pathProgress}/{pathLength}, " +
+                    $"continuations={attempt.Continuations}, " +
+                    $"retryCooldownSeconds={RetryCooldownDuration / Stopwatch.Frequency}, " +
+                    "nearRefreshBypass=False, currentCallbackMutation=False.",
+                    warning: true);
+                return HunterStateOneNearRefreshAction.None;
+            }
+
+            preparedContinuation = new PreparedContinuation(
+                generation,
+                identity,
+                timestamp + PreparedContinuationLifetime,
+                nativeWorldDistance,
+                shouldLog);
+            if (shouldLog)
+            {
+                LogDiagnostic(
+                    "Improved Hunters prepared existing Vanilla Hunter path continuation: " +
+                    $"hunter={hunterUnitId}/{hunter->r_GlobalId}, " +
+                    $"target={preyUnitId}/{preyGlobalId}/{prey->r_UnitChimp}, " +
+                    $"nativeWorldDistance={nativeWorldDistance}, wrapperResult={visibilityResult}, " +
+                    $"coreHunterToPreyResult={hunterToPreyResult}, " +
+                    $"corePreyToHunterResult={preyToHunterResult}, " +
+                    $"visibilityClassification={visibilityClassification}, " +
+                    $"pclReachable={pclReachable}, path={pathState}/{pathFieldF4}/{pathProgress}/{pathLength}, " +
+                    "ticket=prepared, ownMovement=False, ownAiState=False, ownOrderWrite=False, " +
+                    "speedWrite=False, animationWrite=False.");
+            }
+
+            return HunterStateOneNearRefreshAction.ContinueExistingPath;
         }
 
         private void TryContinueExistingVanillaPath(NativePointer<X64SmartCPUContext> context)
         {
             int nativeDistance = unchecked((int)(uint)context.Pointer->RDI);
-            if (!IsAvailable || !canRun() || nativeDistance < 0)
-                return;
-
             int hunterUnitId = unchecked((int)(uint)context.Pointer->RBX);
-            if (nativeDistance > 28)
+            PreparedContinuation ticket = preparedContinuation;
+            ClearPreparedContinuation();
+            if (!IsAvailable ||
+                !canRun() ||
+                nativeDistance < 0 ||
+                !ticket.IsValid ||
+                ticket.Generation != generation)
             {
-                // Distances 29 and 30 reach this compare through Vanilla's
-                // normal stage ladder and need no recovery state.
-                ClearHunterAttemptState(hunterUnitId);
+                return;
+            }
+
+            long timestamp = Stopwatch.GetTimestamp();
+            if (ticket.Identity.HunterUnitId != hunterUnitId || timestamp > ticket.ExpiresAt)
+            {
+                LogPreparationRejection(
+                    hunterUnitId,
+                    ticket.Identity.HunterUnitId != hunterUnitId
+                        ? "continuation-ticket-hunter-mismatch"
+                        : "continuation-ticket-expired",
+                    $"ticketHunter={ticket.Identity.HunterUnitId}, nativeDistance={nativeDistance}",
+                    warning: true);
                 return;
             }
 
@@ -190,8 +506,55 @@ namespace ImprovedHunters
                     out uint pathLength))
             {
                 ClearHunterAttemptState(hunterUnitId);
-                LogInvalidContextOnce(hunterUnitId, nativeDistance);
+                LogPreparationRejection(
+                    hunterUnitId,
+                    "continuation-ticket-context-invalid",
+                    $"nativeDistance={nativeDistance}",
+                    warning: true);
                 return;
+            }
+
+            AttemptIdentity identity = new AttemptIdentity(
+                hunterUnitId,
+                hunter->r_GlobalId,
+                preyUnitId,
+                preyGlobalId);
+            if (!identity.Equals(ticket.Identity) ||
+                pathState != ActivePathState ||
+                pathLength <= 1 ||
+                pathLength > MaximumPathSteps ||
+                pathProgress >= pathLength)
+            {
+                ClearHunterAttemptState(hunterUnitId);
+                LogPreparationRejection(
+                    hunterUnitId,
+                    "continuation-ticket-revalidation-failed",
+                    $"ticketTarget={ticket.Identity.PreyUnitId}/{ticket.Identity.PreyGlobalId}, " +
+                    $"actualTarget={preyUnitId}/{preyGlobalId}, path={pathState}/{pathFieldF4}/" +
+                    $"{pathProgress}/{pathLength}",
+                    warning: true);
+                return;
+            }
+
+            ContinuationAttempt attempt;
+            lock (stateLock)
+            {
+                if (!activeAttempts.TryGetValue(hunterUnitId, out attempt) ||
+                    !attempt.Identity.Equals(identity))
+                {
+                    return;
+                }
+
+                attempt = attempt.WithContinuation(timestamp);
+                activeAttempts[hunterUnitId] = attempt;
+            }
+
+            bool distanceOverrideApplied = nativeDistance <= 28;
+            if (distanceOverrideApplied)
+            {
+                // RDI is restored by HunterUpdate's epilogue. The value selects
+                // Vanilla's existing distance-29 movement branch for this update.
+                context.Pointer->RDI = VanillaContinuationDistance;
             }
 
             if (!hookConfirmed)
@@ -203,114 +566,21 @@ namespace ImprovedHunters
                     $"nativeDistance={nativeDistance}, path={pathState}/{pathProgress}/{pathLength}.");
             }
 
-            AttemptIdentity identity = new AttemptIdentity(
-                hunterUnitId,
-                hunter->r_GlobalId,
-                preyUnitId,
-                preyGlobalId);
-            long timestamp = Stopwatch.GetTimestamp();
-            if (IsRetryCoolingDown(identity, timestamp))
-                return;
-
-            if (pathState != ActivePathState ||
-                pathLength <= 1 ||
-                pathLength > MaximumPathSteps ||
-                pathProgress >= pathLength)
-            {
-                StopAttempt(
-                    identity,
-                    $"path-unavailable-or-complete-{pathState}-{pathProgress}-{pathLength}",
-                    nativeDistance,
-                    pathFieldF4);
-                return;
-            }
-
-            if (!visibilityProbe.TryEvaluateDirectVisibility(
-                    hunterUnitId,
-                    hunter->r_GlobalId,
-                    preyUnitId,
-                    preyGlobalId,
-                    prey->r_UnitChimp,
-                    out int visibilityResult))
-            {
-                StopAttempt(identity, "visibility-probe-unavailable", nativeDistance, pathFieldF4);
-                return;
-            }
-            if (visibilityResult > 0)
-            {
-                StopAttempt(
-                    identity,
-                    $"visibility-clear-{visibilityResult}",
-                    nativeDistance,
-                    pathFieldF4);
-                return;
-            }
-
-            ContinuationAttempt attempt;
-            bool shouldLogContinuation;
-            lock (stateLock)
-            {
-                if (activeAttempts.TryGetValue(hunterUnitId, out ContinuationAttempt current) &&
-                    !current.Identity.Equals(identity))
-                {
-                    activeAttempts.Remove(hunterUnitId);
-                }
-
-                if (!activeAttempts.TryGetValue(hunterUnitId, out attempt))
-                {
-                    attempt = new ContinuationAttempt(identity, timestamp, pathProgress, pathLength);
-                }
-                else if (timestamp - attempt.LastObservedAt > AttemptContinuityGap)
-                {
-                    // A gap means Vanilla spent time outside this near blocked
-                    // branch. Start a fresh bounded interval for the same pair.
-                    attempt = new ContinuationAttempt(identity, timestamp, pathProgress, pathLength);
-                }
-
-                bool pathChanged =
-                    pathProgress != attempt.LastProgress ||
-                    pathLength != attempt.LastPathLength;
-                if (pathChanged)
-                    attempt = attempt.WithPathProgress(pathProgress, pathLength, timestamp);
-
-                bool maxDurationReached = timestamp - attempt.StartedAt > MaxAttemptDuration;
-                bool noProgressReached = timestamp - attempt.LastProgressAt > MaxNoProgressDuration;
-                if (maxDurationReached || noProgressReached)
-                {
-                    activeAttempts.Remove(hunterUnitId);
-                    suspendedAttempts[hunterUnitId] = new SuspendedAttempt(
-                        identity,
-                        timestamp + RetryCooldownDuration);
-                    LogDiagnostic(
-                        "Improved Hunters Vanilla-path continuation stopped: " +
-                        $"hunter={hunterUnitId}/{hunter->r_GlobalId}, target={preyUnitId}/{preyGlobalId}, " +
-                        $"reason={(maxDurationReached ? "max-duration" : "no-progress")}, " +
-                        $"nativeDistance={nativeDistance}, " +
-                        $"path={pathState}/{pathFieldF4}/{pathProgress}/{pathLength}, " +
-                        $"continuations={attempt.Continuations}, " +
-                        $"retryCooldownSeconds={RetryCooldownDuration / Stopwatch.Frequency}, " +
-                        "currentCallbackMutation=False.",
-                        warning: true);
-                    return;
-                }
-
-                shouldLogContinuation = attempt.Continuations == 0 || pathChanged;
-                attempt = attempt.WithContinuation(timestamp);
-                activeAttempts[hunterUnitId] = attempt;
-            }
-
-            // This register is restored by HunterUpdate's epilogue. Changing it
-            // only selects Vanilla's existing distance-29 stage for this update.
-            context.Pointer->RDI = VanillaContinuationDistance;
-            if (shouldLogContinuation)
+            if (ticket.ShouldLog)
             {
                 LogDiagnostic(
-                    "Improved Hunters continued existing Vanilla Hunter path: " +
-                    $"hunter={hunterUnitId}/{hunter->r_GlobalId}, target={preyUnitId}/{preyGlobalId}/{prey->r_UnitChimp}, " +
-                    $"nativeVisibility={visibilityResult}, nativeDistance={nativeDistance}->{VanillaContinuationDistance}, " +
+                    "Improved Hunters consumed Vanilla Hunter path continuation ticket: " +
+                    $"hunter={hunterUnitId}/{hunter->r_GlobalId}, " +
+                    $"target={preyUnitId}/{preyGlobalId}/{prey->r_UnitChimp}, " +
+                    $"nativeWorldDistance={ticket.NativeWorldDistance}, " +
+                    $"nativeDistance={nativeDistance}->" +
+                    $"{(distanceOverrideApplied ? VanillaContinuationDistance : nativeDistance)}, " +
                     $"path={pathState}/{pathFieldF4}/{pathProgress}/{pathLength}, " +
-                    $"continuations={attempt.Continuations}, ownMovement=False, ownAiState=False, ownOrderWrite=False, " +
-                    $"registerOverride=RDI-distance-only, transitionPhase=distance-29-continuation, " +
+                    $"continuations={attempt.Continuations}, ticket=consumed, " +
+                    "ownMovement=False, ownAiState=False, ownOrderWrite=False, " +
+                    "speedWrite=False, animationWrite=False, " +
+                    $"registerOverride={(distanceOverrideApplied ? "RDI-distance-only" : "none")}, " +
+                    "transitionPhase=vanilla-path-continuation, " +
                     $"{HunterMovementSnapshot.TryFormat(hunter)}.");
             }
         }
@@ -365,6 +635,10 @@ namespace ImprovedHunters
             {
                 return false;
             }
+
+            byte* preyBytes = (byte*)prey;
+            if (*(ushort*)(preyBytes + PreyReservationOffset) != OwnHunterReservation)
+                return false;
 
             pathState = *(ushort*)(hunterBytes + HunterPathStateOffset);
             pathFieldF4 = *(ushort*)(hunterBytes + HunterPathFieldF4Offset);
@@ -443,16 +717,102 @@ namespace ImprovedHunters
             }
         }
 
-        private void LogInvalidContextOnce(int hunterUnitId, int nativeDistance)
+        private bool LogVisibilityDecision(
+            AttemptIdentity identity,
+            int nativeWorldDistance,
+            int wrapperResult,
+            int hunterToPreyResult,
+            int preyToHunterResult,
+            bool wrapperPass,
+            bool hunterToPreyPass,
+            bool preyToHunterPass,
+            string classification)
         {
-            if (invalidContextLogged)
+            string signature =
+                $"{identity.PreyUnitId}/{identity.PreyGlobalId}/{classification}";
+            bool shouldLog;
+            lock (stateLock)
+            {
+                shouldLog = !lastVisibilityDecisions.TryGetValue(
+                        identity.HunterUnitId,
+                        out string previous) ||
+                    !string.Equals(previous, signature, StringComparison.Ordinal);
+                if (shouldLog)
+                    lastVisibilityDecisions[identity.HunterUnitId] = signature;
+            }
+
+            if (!shouldLog)
+                return false;
+
+            bool directionalCoreRan = hunterToPreyResult >= 0 && preyToHunterResult >= 0;
+            string wrapperMatchingDirection;
+            if (!directionalCoreRan)
+            {
+                wrapperMatchingDirection = "not-tested";
+            }
+            else if (wrapperResult == hunterToPreyResult && wrapperResult == preyToHunterResult)
+            {
+                wrapperMatchingDirection = "both";
+            }
+            else if (wrapperResult == hunterToPreyResult)
+            {
+                wrapperMatchingDirection = "hunter-to-prey";
+            }
+            else if (wrapperResult == preyToHunterResult)
+            {
+                wrapperMatchingDirection = "prey-to-hunter";
+            }
+            else
+            {
+                wrapperMatchingDirection = "neither";
+            }
+
+            LogDiagnostic(
+                "Improved Hunters classified Hunter near-target visibility: " +
+                $"hunter={identity.HunterUnitId}/{identity.HunterGlobalId}, " +
+                $"target={identity.PreyUnitId}/{identity.PreyGlobalId}, " +
+                $"nativeWorldDistance={nativeWorldDistance}, wrapperResult={wrapperResult}, " +
+                $"coreHunterToPreyResult=" +
+                $"{(directionalCoreRan ? hunterToPreyResult.ToString() : "not-run")}, " +
+                $"corePreyToHunterResult=" +
+                $"{(directionalCoreRan ? preyToHunterResult.ToString() : "not-run")}, " +
+                $"wrapperPass={wrapperPass}, coreHunterToPreyPass={hunterToPreyPass}, " +
+                $"corePreyToHunterPass={preyToHunterPass}, " +
+                $"wrapperMatchingDirection={wrapperMatchingDirection}, " +
+                $"classification={classification}, " +
+                "physicalArrowCollisionPreflight=False, behaviorMutation=False.",
+                warning: wrapperPass && !(hunterToPreyPass && preyToHunterPass));
+            return true;
+        }
+
+        private void LogPreparationRejection(
+            int hunterUnitId,
+            string reason,
+            string details,
+            bool warning = false)
+        {
+            bool shouldLog;
+            lock (stateLock)
+            {
+                shouldLog = !lastPreparationRejections.TryGetValue(hunterUnitId, out string previous) ||
+                    !string.Equals(previous, reason, StringComparison.Ordinal);
+                if (shouldLog)
+                    lastPreparationRejections[hunterUnitId] = reason;
+            }
+
+            if (!shouldLog)
                 return;
 
-            invalidContextLogged = true;
             LogDiagnostic(
-                "Improved Hunters Vanilla-path continuation skipped invalid context: " +
-                $"hunter={hunterUnitId}, nativeDistance={nativeDistance}, currentCallbackMutation=False.",
-                warning: true);
+                "Improved Hunters did not prepare Vanilla Hunter path continuation: " +
+                $"hunter={hunterUnitId}, reason={reason}, {details}, " +
+                "nearRefreshBypass=False, currentCallbackMutation=False.",
+                warning);
+        }
+
+        private static void ClearPreparedContinuation()
+        {
+            preparedContinuation = default;
         }
 
         private void LogDiagnostic(string message, bool warning = false)
@@ -505,7 +865,10 @@ namespace ImprovedHunters
             {
                 activeAttempts.Clear();
                 suspendedAttempts.Clear();
+                lastPreparationRejections.Clear();
+                lastVisibilityDecisions.Clear();
             }
+            ClearPreparedContinuation();
         }
 
         private readonly struct AttemptIdentity : IEquatable<AttemptIdentity>
@@ -589,6 +952,16 @@ namespace ImprovedHunters
                     timestamp,
                     Continuations);
 
+            public ContinuationAttempt WithObservation(long timestamp) =>
+                new ContinuationAttempt(
+                    Identity,
+                    StartedAt,
+                    LastProgress,
+                    LastPathLength,
+                    LastProgressAt,
+                    timestamp,
+                    Continuations);
+
             public ContinuationAttempt WithContinuation(long timestamp) =>
                 new ContinuationAttempt(
                     Identity,
@@ -598,6 +971,36 @@ namespace ImprovedHunters
                     LastProgressAt,
                     timestamp,
                     Continuations + 1);
+        }
+
+        private readonly struct PreparedContinuation
+        {
+            public readonly long Generation;
+            public readonly AttemptIdentity Identity;
+            public readonly long ExpiresAt;
+            public readonly int NativeWorldDistance;
+            public readonly bool ShouldLog;
+
+            public PreparedContinuation(
+                long generation,
+                AttemptIdentity identity,
+                long expiresAt,
+                int nativeWorldDistance,
+                bool shouldLog)
+            {
+                Generation = generation;
+                Identity = identity;
+                ExpiresAt = expiresAt;
+                NativeWorldDistance = nativeWorldDistance;
+                ShouldLog = shouldLog;
+            }
+
+            public bool IsValid =>
+                Generation > 0 &&
+                Identity.HunterUnitId > 0 &&
+                Identity.HunterGlobalId != 0 &&
+                Identity.PreyUnitId > 0 &&
+                Identity.PreyGlobalId != 0;
         }
 
         private readonly struct SuspendedAttempt

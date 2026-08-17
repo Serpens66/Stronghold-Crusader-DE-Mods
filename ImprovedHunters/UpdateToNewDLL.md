@@ -32,7 +32,7 @@ fallback. A changed DLL therefore disables only these diagnostic paths.
 | `ComparisonSequencePattern` | `0xD2AB4` | granary chicken target comparison hook at `+11` (`0xD2ABF`) |
 | `HunterQueryCandidateLoopPattern` | `0x18AF70` | temporary Script Extender issue-123 actor capture |
 | Native Hunter visibility wrapper | `0xA06F0` | behavior-neutral direct probe; seven arguments including context |
-| Native Hunter visibility core | `0x9E350` | called twice by the wrapper, forward and reversed |
+| Native Hunter visibility core | `0x9E350` | wrapper calls forward first and returns immediately when positive; reverse is called only after forward returns zero; `1.1.52` validates the entry and may call both directions explicitly |
 | Shared obstacle-height helper | `0x6B990` | reads tile flags, building identity/type and effective obstacle height |
 | Building-height type switch | `0x6B9F8` | dispatches building types `7..78` |
 | Building-height dispatch targets | `0x6BAB4` | entries `0..3`; entry `3` is the normal fixed-height case |
@@ -45,9 +45,15 @@ fallback. A changed DLL therefore disables only these diagnostic paths.
 | Hunter distance helper | `0x79C0` | exact state-1 range result retained in `EDI` |
 | State-0 query handoff | `0x12FD67` | query return hook at `0x12FD89`; query callee `0x18AF00` |
 | State-0 `MoveHere` result | `0x12FE2A` | immediately after call to `0x196230` |
-| State-1 near-target refresh | `0x130019` / `0x130022` / `0x12FF2E` / `0x12FF33` | safe compare hook plus safe query/result hook, Vanilla actor load and result test |
+| State-1 near-target refresh | `0x130019` / `0x130022` / `0x12FF2E` | safe compare hook, Vanilla actor load, single-use continuation ticket; query-result hook removed in `1.1.51` |
 | State-1 distance-28 compare | `0x1300EA` | bounded Vanilla-path continuation test; sequence begins at `0x1300D2` |
 | State-1 direct-attack result | `0x130149` | observation-only `test eax,eax` after call to `0x18E950` |
+| Projectile spawn entry | `0x9B2B0` | Script Extender signature target; creates a live projectile and is not used for LOS preflight |
+| Projectile manager tick | `0x9F960` | iterates live projectiles before their type-specific update |
+| Common projectile flight step | `0x9EF20` | mutates live projectile motion and calls collision, height and orientation helpers |
+| Projectile collision/update routine | `0x9C730` | large stateful collision and outcome path; unsafe as a synthetic Hunter LOS predicate |
+| Archer-arrow type handler | `0x98EE0` | type-table handler after common flight processing; not the physical blocker predicate |
+| Projectile type-function table | `0x2D99C0` | arrow type `1` resolves to RVA `0x98EE0` |
 
 The source constants contain the complete wildcard patterns.
 
@@ -675,10 +681,10 @@ span. Any mismatch fails closed before a native patch is installed.
 Future DLL audits must revalidate the exact sequences at `0x12FF07`, `0x130019`
 and `0x1300D2`; the near-refresh path at `0x130022` still targeting the query
 call at `0x12FF2E`; the safe hook span `[0x130019,0x130028)` leaving branch
-target `0x13002D` untouched; result span `[0x12FF2E,0x12FF3C)`, result test
-`0x12FF33`, inbound target `0x12FF3E` and failure target `0x12FF53`; compare and short-branch bytes at
-`0x1300EA`; the distance helper scratch maximum; the result remaining in `EDI`;
-the semantics of the `>28` stage-8 writer; and the `MoveHere` path-field writes.
+target `0x13002D` untouched; compare and short-branch bytes at `0x1300EA`; the
+distance helper scratch maximum; the result remaining in `EDI`; the semantics
+of the `>28` stage-8 writer; and the `MoveHere` path-field writes. The former
+result span `[0x12FF2E,0x12FF3C)` is no longer hooked as of `1.1.51`.
 A matching instruction pattern alone does not validate reservation ownership or
 the raw `GameUnit` offsets.
 
@@ -763,6 +769,125 @@ AI, target and path fields. Raw `GameUnit +0x4` is logged as
 canonical SHA-256 above and must be revalidated for a changed DLL. The
 diagnostic writes none of these fields and does not alter hook spans, registers,
 movement, orders or AI state.
+
+### Coupled near-refresh continuation in 1.1.51
+
+The `1.1.50` log identifies the sitting/waiting animation as repeated normal
+order initialization, not as a mismatched Vanilla locomotion stage. At world
+maximum distance `20`, the unchanged query returned a nonzero target, wrote
+Hunter state `0`, and the next `MoveHere` repeatedly reset the path and animation
+frame to `657`. A normal initial `MoveHere` uses the same frame briefly and then
+transitions correctly; only the rapid refresh loop pins it visibly.
+
+Targeted analysis of canonical `HunterUpdate [0x12FC20,0x1313D2)` finds only one
+read of scratch RVA `0x34A8F5C`, the `cmp dword [...],20` at `0x130019`. Helper
+RVA `0x79C0` overwrites that `+0xC` maximum-distance result before every compare.
+The hook API exposes flags but no instruction pointer. Because the relocated
+`cmp` overwrites callback flags, changing ZF or OF cannot safely choose the far
+branch. A new hook at the fall-through is also forbidden by the documented
+inbound target. Version `1.1.51` therefore reuses the validated 15-byte hook and,
+only after all guards pass, changes this immediate comparison operand from its
+current `0..20` value to sentinel `21`. The relocated original `cmp`/`jg` then
+selects untouched target `0x13002D`. No speed, animation, path, order, movement
+or AI-state field is written.
+
+The compare callback prepares a one-use, generation- and identity-bound ticket
+for world distances `0..28`. It requires state `1`, the same live reservation-2
+prey, an active incomplete path, an exact nonexpired positive PCL cache entry and
+native visibility result exactly `0`. PCL is cache-only in the inline callback;
+the existing persistent 100-ms scan performs native PCL queries outside
+`HunterUpdate`. The `0x1300EA` hook consumes the ticket before it may select
+Vanilla distance `29`. A three-second no-progress bound, 60-second total bound
+and five-second retry cooldown remain per Hunter/target identity. Missing cache,
+changed identity, visible target, unreachable PCL, invalid path and every error
+leave both original branches unchanged.
+
+The former exact 14-byte query-result hook at `[0x12FF2E,0x12FF3C)` and its ZF
+override are removed. State 1 no longer queues its own reservation through state
+0 or creates another `MoveHere`; failed preparation deliberately releases the
+decision to Vanilla. Future DLL updates must additionally verify that scratch
+RVA `0x34A8F5C` remains single-use after the second `0x79C0` call, is overwritten
+before the next Hunter comparison, and that callback placement remains before
+the relocated 7+2+6-byte `cmp`/`jg`/`mov` span.
+
+### Bidirectional near-range visibility decision in 1.1.52
+
+An ingame diagonal-wall case showed that a positive wrapper result does not
+guarantee a physically unobstructed arrow. Static analysis of wrapper RVA
+`0xA06F0` confirms asymmetric control flow: it calls core RVA `0x9E350` from
+Hunter to prey and returns that positive result immediately. It reverses all
+end-point arguments and calls the same core a second time only when the forward
+result is zero. The wrapper is shared by Hunter query RVA `0x18B052` and direct
+order RVA `0x18ED1A`; therefore both Vanilla decisions inherit the same corner
+or diagonal false-positive risk.
+
+Version `1.1.52` validates the core entry bytes in addition to the two wrapper
+call targets and constructs a second exact-hash delegate with the already
+validated seven-argument ABI. This is not another hook. At native state-1
+distance `0..28`, the existing wrapper remains the cheap first test. A zero
+result already represents two failed internal directions, so no extra native
+call is made. Only a positive wrapper result triggers two guarded direct core
+calls, forward and reverse. Each receives a separate zeroed 16-byte private
+context surrounded by the existing guard words. Any invalid result, context
+guard change, identity change or invocation error fails closed before the
+near-refresh mutation.
+
+Two positive directional results select `HandoffToVanillaAttack`. At world
+distance `<=20`, only scratch RVA `0x34A8F5C` changes to `21`, so the original
+branch skips the destructive query; no continuation ticket is prepared and the
+later untouched distance path reaches Vanilla's direct attack. Wrapper zero or
+a directional disagreement selects `ContinueExistingPath`, prepares the
+identity-bound ticket and permits the existing RVA `0x1300EA` distance-29
+continuation. No speed, animation, movement, path, order or AI-state field is
+written in either case.
+
+The log records the wrapper plus explicitly named Hunter-to-prey and
+prey-to-Hunter core results, which direction equals the wrapper, the final classification, and
+`physicalArrowCollisionPreflight=False`. This comparison is deliberately a
+cheap conservative experiment, not a claim of exact projectile collision.
+The real common flight step at RVA `0x9EF20` invokes the large stateful collision
+routine RVA `0x9C730` on a live projectile. Calling that path with fabricated
+projectile or manager state from `HunterUpdate` is not a validated preflight and
+must remain forbidden. If the diagonal-wall test still yields two positive core
+directions before an arrow collision, locate a separate state-neutral collision
+query instead of reusing `0x9C730`.
+
+The `1.1.52` runtime log resolved the previously ambiguous call orientation for
+the tested diagonal wall: wrapper results `18` and `16` matched the
+prey-to-Hunter core direction, while the Hunter-to-prey direction returned
+zero. The bidirectional requirement classified both as blocked, prepared and
+consumed the continuation ticket, and prevented the known bad attack handoff.
+There were no Improved Hunters callback failures or managed exceptions. A
+successful `visible-attack-handoff` was not observed; two later Vanilla direct
+attack observations returned zero.
+
+Version `1.1.53` temporarily added `HunterDeerFreezeDiagnostic.cs` as test
+scaffolding. Although it installed no new hook and wrote no unit field, it set
+`SkipOriginalFunction` on the Script Extender's existing
+`OnUnitMovement(Pre)` event for living deer. The runtime test disproved the
+assumption that this was a movement-only suppression. From `21:28:37.759`, five
+deer at the same origin had their original handler skipped. Target `17/319`
+remained a live eligible unit with no subsequent `OnUnitDelete` before process
+exit, but disappeared visually and the later Vanilla direct attack returned
+zero. Four slots from the first affected herd (`55`, `15`, `59`, `4`) were
+actually deleted shortly after their first skipped callbacks.
+
+Targeted analysis of the canonical installed DLL with SHA-256
+`33AA33457F7DFAAA6D316D1D5E4C5AB97094F2C73B68D349990ABF9D0EF3B469`
+locates the Script Extender signature
+`48 63 C2 4C 69 C0 ?? ?? ?? ?? 41 83 BC 08` uniquely at RVA `0x1801E0`.
+The function copies the next-tile coordinates and tile ID into the current-tile
+fields and also removes/inserts the unit in global per-tile linked occupancy
+lists. Skipping the whole trampoline can therefore desynchronize AI/path,
+current tile, tile occupancy and Unity presentation even without a direct field
+write by the mod. `OnUnitMovement.SkipOriginalFunction` must not be used as a
+unit freeze.
+
+Version `1.1.54` removes `HunterDeerFreezeDiagnostic.cs`, its project entry and
+all runtime field, initialization, status, map-reset and disposal wiring. Deer
+movement is fully Vanilla again. LOS calibration must use repeated natural
+attempts and retain only runs where the same deer identity happens not to move
+during the relevant approach window.
 
 Future Script Extender updates must revalidate the public ranged-damage,
 projectile-delete and move-order semantics. A bounded native reachability path

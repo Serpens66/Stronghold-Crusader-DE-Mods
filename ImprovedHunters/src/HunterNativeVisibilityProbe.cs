@@ -36,6 +36,8 @@ namespace ImprovedHunters
 
         private const string WrapperEntryPattern =
             "48 8B C4 48 89 58 08 48 89 68 10 48 89 70 18 48 89 78 20 41 54 41 56 41 57 48 83 EC 40";
+        private const string CoreEntryPattern =
+            "44 89 44 24 18 89 54 24 10 48 89 4C 24 08 53 55 56 57 41 54 41 55 41 56 41 57 48 83 EC 68";
         private const string FirstCoreCallPattern =
             "C7 40 E0 00 00 00 00 48 8B E9 44 89 70 D8 44 89 78 D0 44 89 60 C8 E8 ? ? ? ? 85 C0 75 21";
         private const string ReverseCoreCallPattern =
@@ -67,6 +69,7 @@ namespace ImprovedHunters
         private readonly Dictionary<ProbeIdentity, ProbeObservation> observations =
             new Dictionary<ProbeIdentity, ProbeObservation>();
         private NativeVisibilityDelegate visibility;
+        private NativeVisibilityDelegate visibilityCore;
         private int probeInProgress;
         private int probeLogs;
         private bool invocationConfirmed;
@@ -105,15 +108,19 @@ namespace ImprovedHunters
             ulong wrapperAddress = checked(imageBase + (ulong)VisibilityWrapperRva);
             visibility = Marshal.GetDelegateForFunctionPointer<NativeVisibilityDelegate>(
                 new IntPtr(unchecked((long)wrapperAddress)));
+            ulong coreAddress = checked(imageBase + (ulong)VisibilityCoreRva);
+            visibilityCore = Marshal.GetDelegateForFunctionPointer<NativeVisibilityDelegate>(
+                new IntPtr(unchecked((long)coreAddress)));
 
             Shared.DebugLogHelper.LogInfo(
                 log,
                 "Improved Hunters native visibility probe initialized: " +
                 $"mode=reference-rva, wrapperRva=0x{VisibilityWrapperRva:X}, coreRva=0x{VisibilityCoreRva:X}, " +
-                "privateContextBytes=16, contextGuards=True, nativeHooks=False, behaviorNeutral=True.");
+                "privateContextBytes=16, contextGuards=True, directionalCoreComparison=True, " +
+                "nativeHooks=False, behaviorNeutral=True.");
         }
 
-        public bool IsAvailable => visibility != null && !disabled && !disposed;
+        public bool IsAvailable => visibility != null && visibilityCore != null && !disabled && !disposed;
 
         public bool TryEvaluateDirectVisibility(
             int hunterUnitId,
@@ -152,6 +159,54 @@ namespace ImprovedHunters
             }
 
             return TryInvokeVisibility(hunter, prey, out result, out _);
+        }
+
+        public bool TryEvaluateNearVisibility(
+            int hunterUnitId,
+            uint hunterGlobalId,
+            int preyUnitId,
+            uint preyGlobalId,
+            eChimps preyType,
+            out int wrapperResult,
+            out int hunterToPreyResult,
+            out int preyToHunterResult)
+        {
+            wrapperResult = 0;
+            hunterToPreyResult = -1;
+            preyToHunterResult = -1;
+            if (!IsAvailable ||
+                !settings.EnableMod ||
+                !settings.ImprovedPathfinding ||
+                !settings.IsHuntingEnabled(preyType) ||
+                hunterUnitId <= 0 ||
+                preyUnitId <= 0 ||
+                hunterGlobalId == 0 ||
+                preyGlobalId == 0)
+            {
+                return false;
+            }
+
+            GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
+            if (!unitApi.TryGetUnitById(hunterUnitId, out GameUnit* hunter) ||
+                !unitApi.TryGetUnitById(preyUnitId, out GameUnit* prey) ||
+                hunter == null ||
+                prey == null ||
+                hunter->r_GlobalId != hunterGlobalId ||
+                prey->r_GlobalId != preyGlobalId ||
+                hunter->r_AliveState != AliveState.IsAlive ||
+                prey->r_AliveState != AliveState.IsAlive ||
+                hunter->r_UnitChimp != eChimps.CHIMP_TYPE_HUNTER ||
+                prey->r_UnitChimp != preyType)
+            {
+                return false;
+            }
+
+            return TryInvokeNearVisibility(
+                hunter,
+                prey,
+                out wrapperResult,
+                out hunterToPreyResult,
+                out preyToHunterResult);
         }
 
         public void RecordQueryCandidate(
@@ -297,6 +352,7 @@ namespace ImprovedHunters
 
             disposed = true;
             visibility = null;
+            visibilityCore = null;
             lock (stateLock)
             {
                 queryBatches.Clear();
@@ -307,6 +363,7 @@ namespace ImprovedHunters
         private static void ValidateNativeCallChain(ReadOnlySpan<byte> memory)
         {
             RequirePattern(memory, VisibilityWrapperRva, WrapperEntryPattern, "visibility wrapper entry");
+            RequirePattern(memory, VisibilityCoreRva, CoreEntryPattern, "visibility core entry");
             RequirePattern(
                 memory,
                 VisibilityWrapperRva + 0x3D,
@@ -504,42 +561,21 @@ namespace ImprovedHunters
 
             try
             {
-                int* guardedBuffer = stackalloc int[8];
-                guardedBuffer[0] = unchecked((int)0x13579BDF);
-                guardedBuffer[1] = unchecked((int)0x2468ACE0);
-                guardedBuffer[2] = 0;
-                guardedBuffer[3] = 0;
-                guardedBuffer[4] = 0;
-                guardedBuffer[5] = 0;
-                guardedBuffer[6] = unchecked((int)0x55AA33CC);
-                guardedBuffer[7] = unchecked((int)0xAA55CC33);
-
-                result = visibility(
-                    (IntPtr)(guardedBuffer + 2),
+                if (TryInvokeGuardedVisibility(
+                    visibility,
                     hunter->r_CurrentWorldPositionX,
                     hunter->r_CurrentWorldPositionY,
                     hunter->r_HeightElevation + hunter->N0000006A + 30,
                     prey->r_CurrentWorldPositionX,
                     prey->r_CurrentWorldPositionY,
-                    prey->r_HeightElevation + prey->N0000006A + 26);
-
-                bool contextGuardsIntact =
-                    guardedBuffer[0] == unchecked((int)0x13579BDF) &&
-                    guardedBuffer[1] == unchecked((int)0x2468ACE0) &&
-                    guardedBuffer[2] == 0 &&
-                    guardedBuffer[3] == 0 &&
-                    guardedBuffer[4] == 0 &&
-                    guardedBuffer[6] == unchecked((int)0x55AA33CC) &&
-                    guardedBuffer[7] == unchecked((int)0xAA55CC33);
-                contextScratch = guardedBuffer[5];
-                if (contextGuardsIntact)
+                    prey->r_HeightElevation + prey->N0000006A + 26,
+                    out result,
+                    out contextScratch))
+                {
                     return true;
+                }
 
-                disabled = true;
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    "Improved Hunters native visibility probe disabled: the private context guard changed outside context+0xC; " +
-                    "no Hunter state or order was modified.");
+                DisableForContextGuardChange();
                 return false;
             }
             catch (Exception exception)
@@ -551,6 +587,144 @@ namespace ImprovedHunters
             {
                 Volatile.Write(ref probeInProgress, 0);
             }
+        }
+
+        private bool TryInvokeNearVisibility(
+            GameUnit* hunter,
+            GameUnit* prey,
+            out int wrapperResult,
+            out int hunterToPreyResult,
+            out int preyToHunterResult)
+        {
+            wrapperResult = 0;
+            hunterToPreyResult = -1;
+            preyToHunterResult = -1;
+            if (Interlocked.CompareExchange(ref probeInProgress, 1, 0) != 0)
+            {
+                if (!reentrancyLogged)
+                {
+                    reentrancyLogged = true;
+                    Shared.DebugLogHelper.LogWarning(
+                        log,
+                        "Improved Hunters native visibility probe skipped a reentrant near-visibility invocation; " +
+                        "behavior remains unchanged.");
+                }
+                return false;
+            }
+
+            try
+            {
+                int hunterX = hunter->r_CurrentWorldPositionX;
+                int hunterY = hunter->r_CurrentWorldPositionY;
+                int hunterHeight = hunter->r_HeightElevation + hunter->N0000006A + 30;
+                int preyX = prey->r_CurrentWorldPositionX;
+                int preyY = prey->r_CurrentWorldPositionY;
+                int preyHeight = prey->r_HeightElevation + prey->N0000006A + 26;
+
+                if (!TryInvokeGuardedVisibility(
+                        visibility,
+                        hunterX,
+                        hunterY,
+                        hunterHeight,
+                        preyX,
+                        preyY,
+                        preyHeight,
+                        out wrapperResult,
+                        out _))
+                {
+                    DisableForContextGuardChange();
+                    return false;
+                }
+
+                // A zero wrapper result already includes its reverse core call.
+                // Extra calls are only paid for a potentially visible target.
+                if (wrapperResult <= 0)
+                    return true;
+
+                if (!TryInvokeGuardedVisibility(
+                        visibilityCore,
+                        hunterX,
+                        hunterY,
+                        hunterHeight,
+                        preyX,
+                        preyY,
+                        preyHeight,
+                        out hunterToPreyResult,
+                        out _) ||
+                    !TryInvokeGuardedVisibility(
+                        visibilityCore,
+                        preyX,
+                        preyY,
+                        preyHeight,
+                        hunterX,
+                        hunterY,
+                        hunterHeight,
+                        out preyToHunterResult,
+                        out _))
+                {
+                    DisableForContextGuardChange();
+                    return false;
+                }
+
+                return true;
+            }
+            catch (Exception exception)
+            {
+                LogFailureOnce("near-visibility native invocation", exception, disableProbe: true);
+                return false;
+            }
+            finally
+            {
+                Volatile.Write(ref probeInProgress, 0);
+            }
+        }
+
+        private static bool TryInvokeGuardedVisibility(
+            NativeVisibilityDelegate function,
+            int startX,
+            int startY,
+            int startHeight,
+            int endX,
+            int endY,
+            int endHeight,
+            out int result,
+            out int contextScratch)
+        {
+            int* guardedBuffer = stackalloc int[8];
+            guardedBuffer[0] = unchecked((int)0x13579BDF);
+            guardedBuffer[1] = unchecked((int)0x2468ACE0);
+            guardedBuffer[2] = 0;
+            guardedBuffer[3] = 0;
+            guardedBuffer[4] = 0;
+            guardedBuffer[5] = 0;
+            guardedBuffer[6] = unchecked((int)0x55AA33CC);
+            guardedBuffer[7] = unchecked((int)0xAA55CC33);
+
+            result = function(
+                (IntPtr)(guardedBuffer + 2),
+                startX,
+                startY,
+                startHeight,
+                endX,
+                endY,
+                endHeight);
+            contextScratch = guardedBuffer[5];
+            return guardedBuffer[0] == unchecked((int)0x13579BDF) &&
+                guardedBuffer[1] == unchecked((int)0x2468ACE0) &&
+                guardedBuffer[2] == 0 &&
+                guardedBuffer[3] == 0 &&
+                guardedBuffer[4] == 0 &&
+                guardedBuffer[6] == unchecked((int)0x55AA33CC) &&
+                guardedBuffer[7] == unchecked((int)0xAA55CC33);
+        }
+
+        private void DisableForContextGuardChange()
+        {
+            disabled = true;
+            Shared.DebugLogHelper.LogError(
+                log,
+                "Improved Hunters native visibility probe disabled: the private context guard changed outside context+0xC; " +
+                "no Hunter state or order was modified.");
         }
 
         private void LogFailureOnce(string operation, Exception exception, bool disableProbe)

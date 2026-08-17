@@ -812,19 +812,6 @@ namespace ImprovedHunters
             args.IsValidTarget = isValidTarget;
             if (isValidTarget &&
                 settings.ImprovedPathfinding &&
-                queryGlobalId > 0)
-            {
-                // This is a no-op outside the exact state-1 near-target query.
-                // It lets only this Hunter's still-live reservation-2 target
-                // pass through Vanilla's normal state-0 reacquisition path.
-                hunterTargetSearchFallbackDiagnostic?.RecordStateOneRefreshCandidate(
-                    hunterUnitId,
-                    args.QueryUnitId,
-                    unchecked((uint)queryGlobalId),
-                    queryType);
-            }
-            if (isValidTarget &&
-                settings.ImprovedPathfinding &&
                 targetSelection.HasTarget &&
                 queryGlobalId > 0)
             {
@@ -3255,6 +3242,7 @@ namespace ImprovedHunters
                     imageBase,
                     referenceHashMatches,
                     CanRunHunterTargetSearchFallback,
+                    TryPrepareHunterStateOneNearRefresh,
                     RegisterRejectedHunterStateZeroMove,
                     RecordHunterPclMoveHereResult);
             }
@@ -3333,6 +3321,25 @@ namespace ImprovedHunters
                 targetSearchFallbackSingleplayerAllowed;
         }
 
+        private HunterStateOneNearRefreshAction TryPrepareHunterStateOneNearRefresh(
+            int hunterUnitId,
+            int preyUnitId,
+            uint preyGlobalId,
+            int nativeWorldDistance,
+            out bool shouldLog)
+        {
+            shouldLog = false;
+            if (hunterVanillaPathContinuationDiagnostic == null)
+                return HunterStateOneNearRefreshAction.None;
+
+            return hunterVanillaPathContinuationDiagnostic.TryPrepareStateOneNearRefresh(
+                hunterUnitId,
+                preyUnitId,
+                preyGlobalId,
+                nativeWorldDistance,
+                out shouldLog);
+        }
+
         private void InitializeHunterHutVisibilityPatch(
             ReadOnlySpan<byte> memory,
             ulong imageBase,
@@ -3378,6 +3385,7 @@ namespace ImprovedHunters
                         log,
                         settings,
                         hunterNativeVisibilityProbe,
+                        hunterPclReachability,
                         memory,
                         imageBase,
                         referenceHashMatches,
@@ -3992,14 +4000,14 @@ namespace ImprovedHunters
             hunterVisibilityDiagnostic = null;
             hunterTargetSearchFallbackDiagnostic?.Dispose();
             hunterTargetSearchFallbackDiagnostic = null;
+            hunterVanillaPathContinuationDiagnostic?.Dispose();
+            hunterVanillaPathContinuationDiagnostic = null;
             hunterPclReachabilityDiagnostic?.Dispose();
             hunterPclReachabilityDiagnostic = null;
             hunterPclReachability?.Dispose();
             hunterPclReachability = null;
             hunterRemainingPathSpeedRecovery?.Dispose();
             hunterRemainingPathSpeedRecovery = null;
-            hunterVanillaPathContinuationDiagnostic?.Dispose();
-            hunterVanillaPathContinuationDiagnostic = null;
             hunterNativeVisibilityProbe?.Dispose();
             hunterNativeVisibilityProbe = null;
             hunterHutVisibilityPatch?.Dispose();

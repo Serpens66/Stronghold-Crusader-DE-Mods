@@ -140,6 +140,50 @@ namespace ImprovedHunters
             }
         }
 
+        public bool TryGetCachedReachability(
+            int hunterUnitId,
+            int preyUnitId,
+            uint preyGlobalId,
+            eChimps preyType,
+            long timestamp,
+            out bool reachable)
+        {
+            reachable = true;
+            if (!IsAvailable || !canRun())
+                return false;
+
+            // Inline Hunter hooks may consult the scan-populated cache, but must
+            // not start a nested native PCL query from inside HunterUpdate.
+            if (!TryCaptureInputs(
+                    hunterUnitId,
+                    preyUnitId,
+                    preyGlobalId,
+                    preyType,
+                    out ReachabilityInputs inputs,
+                    out _))
+            {
+                return false;
+            }
+
+            HunterPreyKey key = new HunterPreyKey(
+                hunterUnitId,
+                inputs.HunterGlobalId,
+                preyGlobalId);
+            lock (cacheLock)
+            {
+                if (!cache.TryGetValue(key, out CachedResult cached) ||
+                    timestamp >= cached.ExpiresAt ||
+                    !cached.Inputs.Equals(inputs))
+                {
+                    return false;
+                }
+
+                cacheHits++;
+                reachable = cached.Reachable;
+                return true;
+            }
+        }
+
         public string GetDiagnosticSummary()
         {
             lock (cacheLock)

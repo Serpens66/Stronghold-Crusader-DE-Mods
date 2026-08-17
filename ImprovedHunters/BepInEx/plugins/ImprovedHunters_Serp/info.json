@@ -3,10 +3,38 @@
   "Author": "Serpens66",
   "Name": "Improved Hunters",
   "Description": "Adds configurable hunter prey and meat yield for deer, goats, rabbits, camels, chickens and cows.",
-  "Version": "1.1.50",
+  "Version": "1.1.54",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.1.54",
+      "Changes": [
+        "Remove the test-only deer freeze completely after logs and native analysis showed that skipping OnUnitMovement bypasses Vanilla tile-position and tile-occupancy synchronization, which can leave living deer invisible or lead to later deletion.",
+        "Restore fully Vanilla deer movement for repeatable LOS calibration attempts; no deer movement event is intercepted and no deer state is changed by Improved Hunters."
+      ]
+    },
+    {
+      "Version": "1.1.53",
+      "Changes": [
+        "Add a clearly marked test-only deer freeze in a separate file: living deer skip the Script Extender's existing OnUnitMovement original handler in singleplayer without a new native hook or position, speed and AI-state writes; death and corpse handling remain untouched.",
+        "Rename directional visibility diagnostics to the explicit hunter-to-prey and prey-to-hunter endpoints after the 1.1.52 log proved that Vanilla's positive diagonal-wall wrapper result matched only the prey-to-hunter core result."
+      ]
+    },
+    {
+      "Version": "1.1.52",
+      "Changes": [
+        "Compare a positive Hunter visibility wrapper result with the validated native core in both directions only in the state-1 near range, logging wrapper, forward and reverse results to expose diagonal or corner disagreements without adding a hook or simulating a projectile.",
+        "Keep the existing Vanilla path when either direction remains blocked, but skip the destructive distance-20 refresh and hand off to Vanilla's direct attack without a continuation ticket when both directions report clear visibility."
+      ]
+    },
+    {
+      "Version": "1.1.51",
+      "Changes": [
+        "Keep an already valid blocked-visibility Hunter path across Vanilla's distance-20 refresh by selecting the untouched greater-than-20 branch with the existing safe compare hook, without writing speed, animation, movement, path, order or AI-state fields.",
+        "Couple the near-refresh bypass and distance-29 continuation through a one-use ticket guarded by reservation, path progress, cached PCL reachability and native visibility; remove the repeated state-0/MoveHere fallback and add bounded preparation, consumption and rejection logs."
+      ]
+    },
     {
       "Version": "1.1.50",
       "Changes": [
