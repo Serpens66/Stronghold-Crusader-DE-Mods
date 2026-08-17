@@ -3,10 +3,25 @@
   "Author": "Serpens66",
   "Name": "Improved Hunters",
   "Description": "Adds configurable hunter prey and meat yield for deer, goats, rabbits, camels, chickens and cows.",
-  "Version": "1.1.57",
+  "Version": "1.1.59",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.1.59",
+      "Changes": [
+        "Retain an active visibility tracker across short native scan transitions instead of deleting its snapshot after one uncapturable 100-ms scan, while still expiring genuinely inactive contexts after a bounded two-second interval.",
+        "Refresh tracker liveness from both valid persistent scans and valid inline-hook reads, and log the exact first capture rejection plus any eventual bounded expiry without changing movement, range, cooldown or AI state."
+      ]
+    },
+    {
+      "Version": "1.1.58",
+      "Changes": [
+        "Replace the non-monotonic native path-progress restart heuristic with an explicit managed path generation advanced only by the existing validated successful Vanilla MoveHere result, keeping visible snapshots stable throughout one accepted path.",
+        "Bind queued visibility probes and their commits to the accepted path generation so an in-flight result can never cross into a newer path, and expose the generation in world-refresh and tile-attack decision logs.",
+        "Throttle world-refresh and tile-attack visibility decisions independently so alternating callbacks no longer exhaust the shared diagnostic budget with duplicate entries."
+      ]
+    },
     {
       "Version": "1.1.57",
       "Changes": [

@@ -3321,6 +3321,23 @@ namespace ImprovedHunters
         {
             if (moveHereResult != 0)
             {
+                try
+                {
+                    hunterActiveTargetVisibilitySnapshot?.RecordAcceptedVanillaPath(
+                        hunterUnitId,
+                        preyUnitId,
+                        preyGlobalId,
+                        preyType);
+                }
+                catch (Exception exception)
+                {
+                    Shared.DebugLogHelper.LogError(
+                        log,
+                        "Improved Hunters accepted path-generation recording failed independently; " +
+                        $"hunter={hunterUnitId}, target={preyUnitId}/{preyGlobalId}/{preyType}, " +
+                        $"error={exception.Message}.");
+                }
+
                 hunterPclReachability?.TryPromoteSelectionResultToActiveTarget(
                     hunterUnitId,
                     preyUnitId,

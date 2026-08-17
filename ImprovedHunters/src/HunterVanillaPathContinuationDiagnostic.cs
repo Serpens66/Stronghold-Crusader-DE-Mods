@@ -63,7 +63,9 @@ namespace ImprovedHunters
             new Dictionary<int, SuspendedAttempt>();
         private readonly Dictionary<int, string> lastPreparationRejections =
             new Dictionary<int, string>();
-        private readonly Dictionary<int, string> lastVisibilityDecisions =
+        private readonly Dictionary<int, string> lastWorldVisibilityDecisions =
+            new Dictionary<int, string>();
+        private readonly Dictionary<int, string> lastTileVisibilityDecisions =
             new Dictionary<int, string>();
         private readonly Dictionary<int, WorldRefreshObservation> lastWorldRefreshes =
             new Dictionary<int, WorldRefreshObservation>();
@@ -175,7 +177,8 @@ namespace ImprovedHunters
                 activeAttempts.Clear();
                 suspendedAttempts.Clear();
                 lastPreparationRejections.Clear();
-                lastVisibilityDecisions.Clear();
+                lastWorldVisibilityDecisions.Clear();
+                lastTileVisibilityDecisions.Clear();
                 lastWorldRefreshes.Clear();
             }
 
@@ -350,6 +353,7 @@ namespace ImprovedHunters
                     $"visibilitySnapshotStatus={visibility.Status}, " +
                     $"visibilitySnapshotAgeMs={visibility.SnapshotAgeMilliseconds}, " +
                     $"visibilityPendingAgeMs={visibility.PendingAgeMilliseconds}, " +
+                    $"visibilityPathGeneration={visibility.PathGeneration}, " +
                     $"wrapperResult={visibility.WrapperResult}, " +
                     $"coreHunterToPreyResult={visibility.HunterToPreyResult}, " +
                     $"corePreyToHunterResult={visibility.PreyToHunterResult}, " +
@@ -447,6 +451,7 @@ namespace ImprovedHunters
                         HunterActiveVisibilityState.Pending,
                         "not-read-pcl-rejected",
                         "unavailable",
+                        -1,
                         -1,
                         -1,
                         -1,
@@ -762,16 +767,16 @@ namespace ImprovedHunters
         {
             string signature =
                 $"{identity.PreyUnitId}/{identity.PreyGlobalId}/{decisionPoint}/" +
-                $"{visibility.Status}/{visibility.Classification}";
+                $"{visibility.Status}/{visibility.Classification}/{visibility.PathGeneration}";
             bool shouldLog;
             lock (stateLock)
             {
-                shouldLog = !lastVisibilityDecisions.TryGetValue(
+                shouldLog = !lastWorldVisibilityDecisions.TryGetValue(
                         identity.HunterUnitId,
                         out string previous) ||
                     !string.Equals(previous, signature, StringComparison.Ordinal);
                 if (shouldLog)
-                    lastVisibilityDecisions[identity.HunterUnitId] = signature;
+                    lastWorldVisibilityDecisions[identity.HunterUnitId] = signature;
             }
 
             if (!shouldLog)
@@ -785,6 +790,7 @@ namespace ImprovedHunters
                 $"visibilitySnapshotStatus={visibility.Status}, " +
                 $"visibilitySnapshotAgeMs={visibility.SnapshotAgeMilliseconds}, " +
                 $"visibilityPendingAgeMs={visibility.PendingAgeMilliseconds}, " +
+                $"visibilityPathGeneration={visibility.PathGeneration}, " +
                 $"wrapperResult={visibility.WrapperResult}, " +
                 $"coreHunterToPreyResult={visibility.HunterToPreyResult}, " +
                 $"corePreyToHunterResult={visibility.PreyToHunterResult}, " +
@@ -813,7 +819,8 @@ namespace ImprovedHunters
             long worldRefreshAgeMilliseconds = -1;
             string signature =
                 $"{identity.PreyUnitId}/{identity.PreyGlobalId}/{action}/" +
-                $"{visibility.Status}/{visibility.Classification}/{pathProgress}/{pathLength}";
+                $"{visibility.Status}/{visibility.Classification}/{visibility.PathGeneration}/" +
+                $"{pathProgress}/{pathLength}";
             lock (stateLock)
             {
                 if (lastWorldRefreshes.TryGetValue(
@@ -829,13 +836,13 @@ namespace ImprovedHunters
                 }
 
                 if (!force &&
-                    lastVisibilityDecisions.TryGetValue(identity.HunterUnitId, out string previous) &&
+                    lastTileVisibilityDecisions.TryGetValue(identity.HunterUnitId, out string previous) &&
                     string.Equals(previous, signature, StringComparison.Ordinal))
                 {
                     return;
                 }
 
-                lastVisibilityDecisions[identity.HunterUnitId] = signature;
+                lastTileVisibilityDecisions[identity.HunterUnitId] = signature;
             }
 
             LogDiagnostic(
@@ -848,6 +855,7 @@ namespace ImprovedHunters
                 $"visibilitySnapshotStatus={visibility.Status}, " +
                 $"visibilitySnapshotAgeMs={visibility.SnapshotAgeMilliseconds}, " +
                 $"visibilityPendingAgeMs={visibility.PendingAgeMilliseconds}, " +
+                $"visibilityPathGeneration={visibility.PathGeneration}, " +
                 $"wrapperResult={visibility.WrapperResult}, " +
                 $"coreHunterToPreyResult={visibility.HunterToPreyResult}, " +
                 $"corePreyToHunterResult={visibility.PreyToHunterResult}, " +
@@ -937,7 +945,8 @@ namespace ImprovedHunters
                 activeAttempts.Clear();
                 suspendedAttempts.Clear();
                 lastPreparationRejections.Clear();
-                lastVisibilityDecisions.Clear();
+                lastWorldVisibilityDecisions.Clear();
+                lastTileVisibilityDecisions.Clear();
                 lastWorldRefreshes.Clear();
             }
         }

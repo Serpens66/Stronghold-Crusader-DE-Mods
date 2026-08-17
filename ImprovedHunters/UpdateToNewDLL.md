@@ -963,6 +963,64 @@ guard. No RVA, hook, native call, field offset, overwrite span or behavior write
 changes in this version. Future updates must retain this distinction between
 the live `+0xF4` locomotion value and validated stable path identity.
 
+### Accepted MoveHere path generations in 1.1.58
+
+The `1.1.57` runtime test showed that `GameUnit +0xF6` is not a monotonic path
+generation either. The same Hunter/prey identity and path length repeatedly
+returned to `new-identity-pending`; 72 of 84 measured same-group snapshot
+intervals were shorter than 900 ms. A clear target was handed to Vanilla at
+tile distance `28`, then returned to pending 91 ms later and remained visible
+while the old path advanced to `19/20`. This was a managed tracker-boundary
+error, not evidence of a new native offset or a hard reduced attack range.
+
+Version `1.1.58` removes the raw progress-decrease replacement condition. The
+already validated state-0 MoveHere result hook advances a managed per-Hunter
+path generation only when Vanilla returns success. This callback already
+promotes the matching positive PCL selection result, so it is the earliest
+validated path-acceptance boundary and requires no new native hook or call.
+Stable Hunter/prey/player/map/state/path-length/reservation identity checks
+remain independent replacement conditions.
+
+Queued visibility probes capture that generation. Before the native visibility
+call, on probe failure and before snapshot commit, the code verifies both the
+tracker generation and the latest accepted generation. An in-flight probe from
+an older path therefore cannot populate a tracker for a newer accepted path,
+even when Hunter, prey and path length are otherwise identical. The generation
+is emitted as `visibilityPathGeneration` in world-refresh and tile-decision
+logs. World and tile logging use separate throttle dictionaries so alternating
+callbacks no longer overwrite each other's signatures and exhaust the shared
+diagnostic budget.
+
+No RVA, native signature, field offset, overwrite span, visibility/PCL call
+site or behavior write changes in `1.1.58`. `+0xF4` and `+0xF6` remain captured
+for diagnostics only. A future DLL update must preserve the successful
+state-0 MoveHere result semantics before this managed generation bridge is
+considered valid.
+
+### Bounded tracker retention in 1.1.59
+
+The `1.1.58` runtime test confirmed the explicit MoveHere generation but exposed
+a second managed lifetime error. Five accepted paths produced 172
+`new-tracker-pending` observations and 352 pending tile decisions. The cleanup
+pass removed a tracker whenever one 100-ms scan could not capture the complete
+state-1/path/reservation context, even though the authoritative inline hook
+validated that same context again milliseconds later. A positive handoff could
+therefore disappear before Vanilla reached its direct-attack update.
+
+Version `1.1.59` retains a recently validated tracker for at most two seconds of
+scan absence. Every complete scan capture and every complete inline-hook capture
+refreshes that bound. A transient miss neither replaces the identity nor clears
+the snapshot; a target, global ID, player, map, stable state, path-length,
+reservation or accepted-MoveHere generation change still replaces the tracker
+through the existing validation path. An invalid live context cannot consume a
+retained snapshot because `TryGetObservation(...)` performs the complete native
+input capture before entering the tracker lookup.
+
+The first retained miss records the exact failed capture predicate, and a real
+two-second expiry records absence and last-validation age. This change adds no
+RVA, hook, native call, field offset or behavior write. Movement, attack range,
+cooldown, path, animation, speed and AI state remain Vanilla-owned.
+
 Future Script Extender updates must revalidate the public ranged-damage,
 projectile-delete and move-order semantics. A bounded native reachability path
 must be identified and validated before pre-shot recovery is enabled again. The
