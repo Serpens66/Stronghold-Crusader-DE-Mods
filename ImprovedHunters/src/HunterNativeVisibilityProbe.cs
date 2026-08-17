@@ -478,6 +478,7 @@ namespace ImprovedHunters
                 $"{*(uint*)(hunterBytes + HunterTargetGlobalIdOffset)}, " +
                 $"hunterAiState={*(ushort*)(hunterBytes + HunterAiStateOffset)}, " +
                 $"hunterWorld={hunterX},{hunterY},{hunterHeight}, preyWorld={preyX},{preyY},{preyHeight}, " +
+                $"transitionPhase=visibility-observation, {HunterMovementSnapshot.TryFormat(hunter)}, " +
                 $"physicalArrowPath=not-probed, behaviorMutation=False ({probeLogs}/{MaxProbeLogs}).");
         }
 

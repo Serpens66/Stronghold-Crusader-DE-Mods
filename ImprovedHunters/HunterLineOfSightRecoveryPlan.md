@@ -2,7 +2,8 @@
 
 Stand: `2026-08-17`
 
-Aktueller Quellstand und letzter ingame geprüfter Stand: `1.1.45`
+Aktueller Quellstand: `1.1.50` (Animationsübergangsdiagnose implementiert, ingame offen);
+letzter stabiler ingame geprüfter Stand: `1.1.47`
 
 ## Übergabe in Kurzform
 
@@ -18,7 +19,9 @@ Verbindliche Reihenfolge:
    durchführen.
 4. Erst danach Paket C ausführen und alle abgenommenen Bausteine in die
    endgültige Produktionsstruktur überführen.
-5. Multiplayer bleibt bis Script Extender `1.50.0` ein deaktivierter Chore.
+5. Erst wenn E, F, D und C vollständig funktionieren, kann der sichtbare
+   Jagdsprint als nicht blockierendes Optionalpaket untersucht werden.
+6. Multiplayer bleibt bis Script Extender `1.50.0` ein deaktivierter Chore.
 
 Die getrennte Entwicklung ist absichtlich gewählt: Bewegung und Kadaverwahl
 sollen jeweils beobachtbar, leicht entfernbar und unabhängig testbar sein,
@@ -68,10 +71,11 @@ ist. Für Kühe besteht noch ein dokumentierter Widerspruch.
 | Freie Sicht und echter Angriff | In Hindernistests bestätigt | Vanilla bleibt autoritativ |
 | Jägerhütte als Sichtblocker | Seit `1.1.41` aktiv und ingame plausibel | In Paket D kurz regressieren |
 | Schuss, Kadaver, Pickup und Abgabe | Mehrfach vollständig beobachtet | Paket B abgeschlossen; kein Pickup-Fix |
-| Langsames Schleichen auf langem Umweg | Reproduzierbar beobachtet | Als Nächstes separat in Paket E bearbeiten |
+| Langsames Schleichen auf langem Umweg | Geschwindigkeit in `1.1.47` ingame bestätigt; `1.1.49` verwendet sichere Vergleichs- und Query-Grenzen; im Near-Refresh-/Distanz-29-Spezialfall wurde eine falsche Sitz-/Warteanimation beobachtet | `1.1.50` korreliert den Übergang read-only; erst danach den kleinsten Vanilla-kompatiblen Fix bestimmen |
 | Unreservierte vorhandene Kadaver | Noch nicht unterstützt | Danach separat als Paket F entwickeln |
 | Alle sechs Beutearten | Gemeinsame Architektur, noch keine vollständige Typmatrix | Paket D nach E und F |
 | Produktionsbereinigung | Bewusst zurückgestellt | Paket C zuletzt |
+| Sichtbarer Sprint zum lebenden Jagdziel | Optional; State `1` verwendet bereits die schnellste bestätigte Jagdstufe, Kadaverlauf nutzt einen anderen State-2-Locomotionpfad | Erst nach allen Pflichtpaketen rein beobachtend kalibrieren; blockiert keinen Abschluss |
 | Echter Multiplayer | Fail-closed | Eigener Chore ab Script Extender `1.50.0` |
 
 ### Paket A: abgeschlossen
@@ -294,6 +298,219 @@ Analyse und Entwicklung:
 6. Beobachtungsfehler dürfen die Vanilla-Stufe nicht ändern. Mod-/Option-Aus,
    ungültiger Kontext und Multiplayer bleiben wirkungslos.
 
+#### Bestätigte Vanilla-Analyse und Implementierung 1.1.46/1.1.47
+
+Die Analyse bezieht sich auf die kanonische installierte DLL mit SHA-256
+`33AA33457F7DFAAA6D316D1D5E4C5AB97094F2C73B68D349990ABF9D0EF3B469`.
+Alle folgenden Code- und Manageradressen sind RVAs dieser DLL; `0xB4FE78` ist
+ausdrücklich ein managerrelativer Feldoffset.
+
+- `HunterUpdate` beginnt bei `0x12FC20`. Die Distanzfunktion bei `0x79C0`
+  liefert exakt `abs(dx) + abs(dy)` und hält das Ergebnis im State-1-Pfad in
+  `EDI`. Sie berücksichtigt den gespeicherten Umweg nicht.
+- Die erste Stufenentscheidung liegt bei `0x130063` (`cmp edi,40`). Die
+  vollständige Vanilla-Leiter wählt `r_CurrentSpeed` `1`, `2`, `3`, `4`, `6`,
+  `8` oder `10` für Distanzen `>40`, `37..40`, `35..36`, `33..34`, `31..32`,
+  `29..30` beziehungsweise `<=28`. Sämtliche zugehörigen Vanilla-Schreibpfade
+  liegen hinter diesem Vergleich.
+- `MoveHere` bei `0x196230` schreibt Pfadstatus `2` nach öffentlich `+0xF2`,
+  Fortschritt `0` nach `+0xF6` und die Pfadlänge nach `+0xF8`. Das Interop-Layout
+  definiert `+0xF8` korrekt als `UInt32`; ältere lokale Diagnose- und
+  Runtime-Reads verwendeten dort `UInt16` und werden in `1.1.46` typkorrigiert.
+- Die generische Bewegung lädt bei `0x18576C` die native
+  `GameUnitManager`-Basis an Modul-RVA `0x67E7400`. Ab `0x18580F` wendet sie
+  darauf den managerrelativen Pfadpuffer-Offset `0xB4FE78` an. Der effektive
+  Pfadpuffer liegt in dieser DLL somit bei Modul-RVA `0x7337278`, nicht bei
+  `0xB4FE78`. `MoveHere` ab `0x196554` bestätigt dieselbe Adressform beim
+  Schreiben des Pfades. Pro Unit stehen `0x3E8` Bytes und damit höchstens 2000
+  Vierbit-Richtungen zur Verfügung. Gerade Richtungen sind orthogonal, ungerade
+  diagonal; gerade Pfadindizes verwenden das Low-Nibble, ungerade das
+  High-Nibble.
+- `+0xF8 - +0xF6` ist daher die Zahl verbleibender Richtungseinträge, aber nicht
+  Vanillas Manhattan-Einheit. Die vergleichbare Restmetrik ist
+  `orthogonale Schritte + 2 * diagonale Schritte`.
+- Die Bewegung kann `+0xF6` bereits beim Laden eines Segments erhöhen. `1.1.46`
+  addiert deshalb bewusst keine unbewiesene In-flight-Korrektur. Die dekodierte
+  Restmetrik ist dadurch im Zweifelsfall um höchstens ein Segment zu klein und
+  bleibt eine konservative Untergrenze. Das Feld bei öffentlich `+0x3F0`, das
+  die beobachtete Fortschrittserhöhung mitsteuert, wird zur Kalibrierung
+  mitprotokolliert.
+
+`HunterRemainingPathSpeedRecovery.cs` setzt einen separaten, exakthashgebundenen
+Hook vor `0x130063`. Nur wenn alle Identitäts-, State-, Pfad-, Längen-,
+Richtungs-, Sicht- und Modusguards bestehen, die native Sichtprobe exakt `0`
+liefert und die Restmetrik eine schnellere vorhandene Vanilla-Stufe auswählt,
+wird `RDI` vorübergehend auf höchstens `41` angehoben. Der relocatete Vergleich
+und alle Speed-/Animationsschreibvorgänge bleiben Vanilla-Code. Positive Sicht
+lässt `RDI` unverändert und bewahrt damit Vanillas letzte langsame Annäherung und
+den echten Angriff.
+
+Beobachtung und Verhalten besitzen getrennte Fehlerpfade. Die Logs enthalten
+Hunter-/Zielidentität, `UInt32`-Pfadlänge, Fortschritt, orthogonale und diagonale
+Schritte, Zählinvariante, direkte und dekodierte Distanz, alte und ausgewählte
+Vanilla-Stufe, Sichtresultat, `+0x3F0` und die tatsächliche Registermutation.
+Versuche enden nach 60 Sekunden, drei Sekunden ohne Fortschritt oder bei
+Kontext-/Sichtwechsel; ein No-progress-Stopp sperrt nur dieselbe Identität fünf
+Sekunden. Zustände bleiben pro Hunter getrennt.
+
+Die Restwegmessung und Geschwindigkeitsauswahl sind mit `1.1.47` ingame
+bestätigt. Offen ist die erneute Abnahme desselben Maueraufbaus mit `1.1.49`:
+Dabei muss insbesondere die Nahbereichs-Neusuche das eigene reservierte Ziel
+über Vanillas regulären State-0-/`MoveHere`-Pfad fortsetzen, ohne Kontrollfälle
+oder die langsame Annäherung im echten Schussbereich zu verändern.
+
+Der erste Paket-E-Test mit `1.1.46` platzierte einen Jäger bei direkter Distanz
+`10` nahe am Wild, erzwang durch eine Mauer aber einen Vanilla-Pfad der Länge
+`72`. Die vorhandene Distanz-28-Fortsetzung setzte `RDI` weiterhin auf `29`,
+während der Pfadfortschritt langsam von `0` auf `24` stieg. Package E meldete
+zweimal `invalid-packed-path-direction`, aber keine erfolgreiche Beobachtung,
+keine Registermutation und keinen Callbackfehler. Damit sind Szenario,
+Pfadlänge und Fortschrittsfelder bestätigt; der Fail-open-Pfad funktionierte.
+Die ungültigen Nibbles entstanden ausschließlich dadurch, dass `1.1.46`
+`0xB4FE78` fälschlich als Modul-RVA behandelte und fremden Speicher las.
+
+Version `1.1.47` bezieht die Basis über
+`GameUnitManagerAPI.Instance.GetUnitManager().Pointer`, addiert erst danach den
+managerrelativen Offset `0xB4FE78` und validiert bei passendem DLL-Hash den
+Managerzeiger zusätzlich gegen Modul-RVA `0x67E7400`. Eine Abweichung lässt
+Package E deaktiviert und Vanillas Verhalten unverändert. Der nachfolgende
+Ingame-Test bestätigte gültige Richtungen, Restkosten und tatsächliche
+Stufenauswahlen.
+
+Der Test von `1.1.47` bestätigte gültige Pfaddekodierung und die beabsichtigten
+Vanilla-Geschwindigkeitsstufen. Zwei Läufe brachen jedoch bei Pfadfortschritt
+`55/68` beziehungsweise `51/68` vor dem direkten Angriffsaufruf ab. In beiden
+Fällen begann unmittelbar danach eine neue Zielsuche mit Ziel `17/319`,
+`pclUnreachable=False`, `cooldown=False`, aber `best=none` und ohne akzeptiertes
+`MoveHere`. Der dritte Lauf erhielt nach Bewegung des Rehs einen 26 Schritte
+langen Pfad und erreichte bei `7/26` den erfolgreichen direkten Angriff.
+
+Die erneute Vanilla-Analyse erklärt den Übergang: Der zweite Aufruf der
+Distanzhilfe schreibt den maximalen Weltkoordinatenabstand nach dem Scratchfeld
+bei `0x1834A8F5C`. `HunterUpdate` vergleicht ihn bei RVA `0x130019` mit `20`.
+Bei höchstens `20` springt der exklusive Nahbereichsbranch über `0x130022` zum
+Zielquery-Aufruf bei `0x12FF2E`, also noch vor dem Geschwindigkeitshook. Eine
+Nullrückgabe wird bei `0x12FF33` getestet und führt ab `0x12FF53` zu State `6`,
+Timer `20` und Hüttenrückkehr. Der direkte Angriffsresultat-Hook wurde bei den
+beiden Abbrüchen folgerichtig nicht erreicht.
+
+Während des laufenden Auftrags trägt das eigene Reh Vanillas Reservierung `2`.
+Die allgemeine Zielrangfolge akzeptiert absichtlich nur unreservierte Beute und
+lieferte deshalb `best=none`; das eigene noch gültige Ziel ging bei der
+Nahbereichs-Neusuche verloren. Version `1.1.48` erweitert den vorhandenen
+exakthashgebundenen Zielsuche-Fallback ausschließlich für diesen Branch. Nur
+wenn Hunter-State `1`, Slot und Global-ID, lebende Beute, Konfiguration,
+Event-Policy, PCL, Cooldown, Kadaverstatus und Reservierung `2` übereinstimmen
+und kein anderer lebender Jäger dieselbe Identität führt, darf `RAX` von `0`
+auf die bestehende Ziel-ID gesetzt werden. Der Kandidat bleibt höchstens zwei
+Sekunden für Vanillas unmittelbar folgenden State-0-Aufruf erhalten. Vanilla
+selbst schreibt State, Ziel, Reservierung und Pfad und ruft `MoveHere` auf; der
+Mod erzeugt keinen eigenen Bewegungsauftrag. Identitätsfehler-Neusuchen,
+fremde Reservierungen und alle fehlgeschlagenen Guards bleiben unverändert.
+
+Der erste Ingame-Test von `1.1.48` verwarf diese konkrete Hookplatzierung. Der
+letzte Logabschnitt lädt alle Hooks erfolgreich und registriert den neuen Jäger
+am `2026-08-17 18:23:47.641`; danach endet der Prozess hart, ohne Managed-
+Exception und ohne den Bestätigungsmarker des State-1-Refresh-Hooks. Ursache
+ist nicht die Kandidatenvalidierung, sondern die durch den Inline-Detour
+überschriebene Kontrollflussstruktur. `X64InlineHook` benötigt einen absoluten
+14-Byte-Sprung und dekodiert dafür ab `0x130022` ganze Instruktionen:
+
+- `0x130022..0x130027`: `mov edx,[0x18092F2C4]`, sechs Byte;
+- `0x130028..0x13002C`: `jmp 0x12FF2B`, fünf Byte;
+- `0x13002D..0x130033`: `movsxd rbx,[0x18092F2C4]`, sieben Byte.
+
+Damit wird die 18-Byte-Spanne `[0x130022,0x130034)` ersetzt. Vanillas direkt
+davorliegendes `jg 0x13002D` bei `0x130020` bleibt jedoch erhalten. Bei einem
+Scratch-Abstand größer `20` springt es elf Byte in den Detour hinein, konkret
+in das eingebettete Acht-Byte-Ziel des absoluten Sprungs, und führt Daten als
+Code aus. Der Crash beim Loslaufen ist damit vollständig erklärt. Ein Hook darf
+nicht nur anhand seiner Startinstruktion bewertet werden; alle eingehenden
+Sprungziele innerhalb seiner tatsächlich dekodierten Überschreibspanne müssen
+vor Installation ausgeschlossen werden.
+
+Erster Teil der Alternative: Den Hook an `0x130022` vollständig entfernen und
+den Branch-Kontext stattdessen an der Vergleichsinstruktion `0x130019` erfassen.
+Der dortige 14-Byte-Hook dekodiert exakt 15 Byte bis ausschließlich `0x130028`:
+`cmp [scratch],20` (sieben Byte), `jg 0x13002D` (zwei Byte) und das nur im
+Nahbereich ausgeführte `mov edx,[...]` (sechs Byte). Das Sprungziel `0x13002D`
+bleibt außerhalb der überschriebenen Spanne. Der Callback läuft vor den
+relokierten Originalinstruktionen und markiert den Refresh nur, wenn derselbe
+Scratchwert `<=20` ist; Vanilla führt anschließend Vergleich, `jg` und Query-
+Sprung unverändert aus.
+
+Die vollständige Sprungzielprüfung zeigt jedoch einen zweiten, bislang latent
+unsicheren Detour: Der 14-Byte-Hook ab `0x12FF33` dekodiert 18 Byte bis
+`0x12FF45`. Ein späterer Vanilla-Pfad springt bei `0x13058B` direkt nach
+`0x12FF3E` und damit ebenfalls in das Innere dieser Spanne. Dieser Pfad wurde im
+ersten Crashtest nicht erreicht, darf aber nicht im Code verbleiben. Die sichere
+Alternative kombiniert deshalb Query und Ergebnisbeobachtung in der exakt 14
+Byte langen Spanne `[0x12FF2E,0x12FF3C)`: `call 0x18AF00` (fünf Byte),
+`test eax,eax` (zwei Byte) und Vanillas `movsxd rax,[0x18092F2C4]` (sieben
+Byte). Das anschließende `je 0x12FF53` sowie das fremde Sprungziel `0x12FF3E`
+bleiben unangetastet. Der Callback läuft nach den drei relokierten
+Originalinstruktionen, sieht deshalb Vanillas echtes Zero-Flag und die erneut
+geladene Hunter-ID und ändert bei vollständig validiertem eigenen Ziel nur das
+Zero-Flag von gesetzt auf gelöscht. Dadurch nimmt das unveränderte `je` nicht
+den Hüttenpfad, sondern Vanillas State-0-Writer; der schon bewährte State-0-
+Fallback übergibt das Ziel anschließend an Vanillas vollständige Ziel-,
+Reservierungs- und `MoveHere`-Sequenz. `RAX`, Bewegung, Pfad und AI-State werden
+im State-1-Callback nicht geschrieben.
+
+Version `1.1.49` setzt diese Alternative um. Der Context-Hook beginnt bei
+`0x130019`, fordert explizit die validierte 15-Byte-Spanne an und liest vor den
+relokierten Originalinstruktionen den Weltabstand aus RVA `0x34A8F5C`. Nur bei
+einem Wert von `0..20` wird der eigene Reservierungs-Kandidat vorbereitet. Die
+Hunter-ID stammt nicht mehr aus einer Registerannahme, sondern exakt aus RVA
+`0x92F2C4`, die Vanillas Instruktion bei `0x130022` unmittelbar danach selbst
+als Query-Akteur lädt. Vor dem Commit dekodiert der Mod die drei
+Hookinstruktionen und den anschließenden Query-Sprung. Der kombinierte Query-
+und Ergebnis-Hook muss exakt als 14-Byte-Spanne `[0x12FF2E,0x12FF3C)` mit
+außerhalb liegendem Fehlerbranch und Ziel `0x12FF53` dekodieren. Der Mod
+validiert beide RIP-relativen Adressen, das Query-Ziel `0x18AF00` und durchsucht
+die vollständige HunterUpdate-Spanne
+`[0x12FC20,0x1313D2)` nach direkten Calls oder Sprüngen von außerhalb in das
+Innere beider Hookspannen. Jede Abweichung deaktiviert den gesamten Fallback vor
+der Installation; Vanilla bleibt dann unverändert.
+
+Der Ingame-Lauf mit `1.1.49` bestätigt den sicheren Hookbetrieb, zeigt aber eine
+neue sichtbare Regression im Spezialfall. Die normale Restwegkorrektur läuft mit
+passender Animation und Geschwindigkeit. Eine falsche Sitz-/Warteanimation trat
+erst nach der Nahbereichs-Neusuche beziehungsweise während der anschließenden
+Distanz-29-Pfadfortsetzung auf. Damit ist die frühere Vermutung zu verwerfen,
+Geschwindigkeit und Animation der normalen State-1-Fernstufe voneinander zu
+trennen: Eine schnelle Bewegung mit Schleichanimation wäre fachlich falsch und
+der unauffällige Normalfall belegt, dass diese Vanilla-Stufe als Ganzes korrekt
+ist.
+
+Der Log grenzt den problematischen Übergang auf
+`Near-Refresh -> Query/MoveHere -> Distanz-29-Fortsetzung` ein. Im beobachteten
+Lauf meldete der Refresh `vanillaQueryReturnedZero=False`; der neue
+ZF-clear-Fallback mutierte daher nichts. Nach vollständiger Blockierung meldete
+die aktive Beute `active-target-pcl-disconnected`, Vanilla fand keinen
+erreichbaren Ersatz, der Hunter erschien später in State `7` und wurde auf
+demselben Slot gelöscht und als Bauer neu erzeugt. ImprovedHunters besitzt
+keinen Hunter-Delete- oder Hunter-zu-Bauer-Writer; diese Rückwandlung ist
+Vanillas Folgezustand nach erfolgloser Neusuche.
+
+Version `1.1.50` ergänzt deshalb ausschließlich read-only Diagnose an bereits
+validierten Callbacks und installiert keinen weiteren nativen Hook. Ein
+gemeinsamer Snapshot protokolliert Animationsframe, rohen Locomotion-Steuerwert
+bei `GameUnit +0x4`, Sprite-Animationsframe, Animationstimer, beide Speedfelder,
+AI-State, Transformationsziel, Richtung, Zielidentität, Pfadzustand/-fortschritt,
+`+0x3F0` sowie Tile- und Weltposition. Die Phasen sind
+`near-refresh-entry`, `near-refresh-query-result`, `after-MoveHere`,
+`distance-29-continuation` und `visibility-observation`; die letzte Phase erfasst
+über den vorhandenen Sichtcallback auch den bereits beobachteten State `7`.
+Diagnosefehler bleiben von Query, Vanilla-Call und Verhaltenskorrektur getrennt.
+
+Auswertungsgate: Zuerst vergleichen, welcher Animations-/Locomotionwert beim
+normalen Pfadstart gesetzt wird und an welcher der Spezialphasen er fehlt oder
+wechselt. Nur der kleinste stabile Übergang darf anschließend korrigiert werden.
+Die normale gekoppelte Vanilla-Geschwindigkeits-/Animationsstufe bleibt
+unangetastet; kein direktes Animationsfeld, kein eigener Move und kein AI-State
+werden geschrieben.
+
 Abnahme:
 
 - Kontrollfall ohne Hindernis bleibt unverändert.
@@ -302,6 +519,25 @@ Abnahme:
   fehlende Animation, keinen Pfadreset und keine übernatürliche Geschwindigkeit.
 - Im eigentlichen Schussnahbereich bleibt die langsame Annäherung erhalten.
 - Mehrere Jäger besitzen unabhängigen Zustand.
+
+Formaler letzter Abschlusstest für Paket E: Ein einzelner Jäger verfolgt genau
+ein lebendes, für ihn reserviertes Reh. Andere aktivierte, erreichbare Tiere
+dürfen während des Tests nicht als Ersatzkandidaten verfügbar sein. Jäger und
+Reh liegen in der Luftlinie beziehungsweise im nativen Welt-Maximalabstand
+höchstens `20` auseinander, eine lange Mauer oder ein Labyrinth erzwingt aber
+einen deutlich längeren, weiterhin erreichbaren Vanilla-Pfad. Das Reh bleibt
+unbewegt und der Weg muss lange genug sein, dass der Zielcache nach der
+Reservierung `2` aktualisiert wurde. Der Lauf ist nur dann der noch fehlende
+Korrekturfall, wenn das Log `vanillaQueryReturnedZero=True` für dieselbe
+Hunter-/Zielidentität meldet. Danach müssen in dieser Reihenfolge
+`supplied own reserved target to state-1 near-target refresh` mit
+`registerOverride=ZF-clear-only`, `carried own reserved target into Vanilla
+state-0 refresh`, ein von Vanilla akzeptiertes `MoveHere` mit Quelle
+`InjectedOwnReservationRefresh` und schließlich Pfadfortschritt sowie der echte
+direkte Angriff erscheinen. Der Jäger darf nicht zur Hütte umkehren; es dürfen
+keine Exception, kein Callbackfehler und kein harter Prozessabbruch auftreten.
+Liefert Vanilla stattdessen wieder ein Nicht-Null-Ziel, bestätigt dies den
+Kontrollpfad, deckt den letzten Fallbackzweig aber noch nicht ab.
 
 Gate: Erst wenn Ursache, sichere Eingriffsstelle und Reststreckenmetrik durch
 Logs belegt sind und alle Abnahmepunkte bestehen, wird Paket F begonnen.
@@ -417,6 +653,51 @@ Gate: Mod-Aus, `ImprovedPathfinding`-Aus, deaktivierter Beutetyp, Kartenwechsel
 und echter Multiplayer führen zu keinem verhaltensändernden Hookpfad.
 Singleplayer-Skirmish und -Trail behalten alle in A, B, E, F und D bestätigten
 Funktionen.
+
+### Optionalpaket: sichtbarer Jagdsprint nach Abschluss aller Pflichtpakete
+
+Dieses Paket ist ausdrücklich kein Bestandteil der Paket-E-Abnahme und wird
+erst begonnen, wenn `E → F → D → C` vollständig funktioniert und regressiert
+ist. Ein Verzicht darauf lässt das fachliche Kernziel abgeschlossen.
+
+Bisherige Erkenntnisse aus der kanonischen DLL und dem `1.1.49`-Log:
+
+- Die State-1-Distanzleiter besitzt keine schnellere bestätigte Jagdstufe als
+  den Wert `1` für Distanzwerte über `40`. Die Restwegkorrektur wählte bei
+  dekodierter Restmetrik `109` bereits `selectedDistance=41`, `routeSpeed=1`
+  und beobachtete anschließend `currentSpeedBefore=1`. Ein noch größerer
+  künstlicher Wert in `RDI` ändert die Stufe daher nicht.
+- Die numerisch kleineren Werte der bestätigten Leiter sind die schnelleren
+  Bewegungsstufen. Eine unvalidierte Stufe `0` darf nicht ausprobiert oder
+  direkt in ein Unitfeld geschrieben werden.
+- Der optisch schnelle Lauf zum erlegten Tier liegt im separaten Hunter-State
+  `2`. Der Writer ab RVA `0x1306E8` wählt den bestätigten Speedwert `2` bei
+  `0x130721`, verwendet aber bei `0x13070D` zusätzlich die anderen
+  Locomotion-/Animationssteuerwerte `0x101` beziehungsweise `0x689`. Der ferne
+  State-1-Jagdpfad schreibt dagegen Speedwert `1` und Steuerwert `1` ab
+  `0x130068`. Die sichtbare Laufanimation beweist deshalb noch keine höhere
+  tatsächliche Felder-pro-Sekunde-Geschwindigkeit.
+- Den State `2` für lebende Beute vorzutäuschen wäre fachlich falsch: Dieser
+  Pfad enthält Kadaver-, Pickup- und Folgezustandssemantik. Auch ein direktes
+  Kopieren seiner Steuerwerte in State `1` ist ohne Kalibrierung nicht sicher.
+
+Vorgehen, falls das Optionalpaket später gewünscht bleibt:
+
+1. State `1` mit Speedwert `1` und den echten State-2-Kadaverlauf rein
+   beobachtend anhand Pfadfortschritt und Weltposition pro Zeit vergleichen.
+2. Neben Speedwert, AI-State und Pfadidentität die Locomotion-, Animations- und
+   Advance-Control-Felder vor, während und nach beiden Läufen protokollieren.
+3. Einen echten State-1-kompatiblen Vanilla-Laufmodus suchen. Nur wenn dessen
+   Semantik und Rückkehr zur Schussannäherung belegt sind, darf der kleinste
+   stabile Vanilla-Übergang ausgewählt werden.
+4. Kein eigener Move, kein AI-State-Wechsel, keine direkte Speedstufe `0` und
+   kein bloßes Kopieren von State-2-Feldern. Neue Hooks unterliegen dem
+   vollständigen Überschreibspannen- und Inbound-Branch-Audit.
+
+Gate: Nur eine messbar höhere tatsächliche Reisegeschwindigkeit bei korrekter
+Animation, unveränderter Ziel-/Pfadidentität und sauberer Rückkehr zu Vanillas
+langsamer Schussannäherung rechtfertigt eine Implementierung. Andernfalls bleibt
+die bestehende schnellste State-1-Stufe unverändert.
 
 ## Multiplayer-Chore ab Script Extender 1.50.0
 
@@ -594,7 +875,9 @@ Script Extender `1.50.0` erreicht.
    kleinstmögliche Verhaltensänderung ergänzen.
 5. Paket E vollständig prüfen und dokumentieren, bevor Paket F begonnen wird.
 6. Danach exakt der Reihenfolge `F → D → C` folgen.
-7. Vor jedem Build alle Code-, Resolver- und CRLF-Prüfungen abschließen; danach
+7. Den sichtbaren Jagdsprint nur optional nach Abschluss aller Pflichtpakete
+   untersuchen; er blockiert weder Paket C noch das fachliche Kernziel.
+8. Vor jedem Build alle Code-, Resolver- und CRLF-Prüfungen abschließen; danach
    die lokale `build.bat` einmal direkt mit `/nopause` ausführen.
 
 Bei jeder neuen Hypothese zuerst prüfen, ob der kleinste stabile Vanilla-

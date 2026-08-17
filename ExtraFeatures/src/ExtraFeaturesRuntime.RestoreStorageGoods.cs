@@ -58,7 +58,7 @@ namespace ExtraFeatures
                 NormalizeRefundPercentage(args);
                 AddResourceRefundGuards(args);
 
-                if (args.Phase != EventHookPhase.Pre || !settings.KeepStorageContent ||
+                if (args.Phase != EventHookPhase.Pre || args.BuildingId <= 0 || !settings.KeepStorageContent ||
                     !GameBuildingManagerAPI.Instance.TryGetBuildingById(args.BuildingId, out GameBuilding* building))
                 {
                     return;

@@ -120,10 +120,12 @@
     <Compile Include="src\HunterQueryActorPolicy.cs" />
     <Compile Include="src\HunterQueryActorWorkaround.cs" />
     <Compile Include="src\HunterLineOfSightRecovery.cs" />
+    <Compile Include="src\HunterMovementSnapshot.cs" />
     <Compile Include="src\HunterHutVisibilityPatch.cs" />
     <Compile Include="src\HunterNativeVisibilityProbe.cs" />
     <Compile Include="src\HunterPclReachability.cs" />
     <Compile Include="src\HunterPclReachabilityDiagnostic.cs" />
+    <Compile Include="src\HunterRemainingPathSpeedRecovery.cs" />
     <Compile Include="src\HunterTargetSearchFallbackDiagnostic.cs" />
     <Compile Include="src\HunterVanillaPathContinuationDiagnostic.cs" />
     <Compile Include="src\HunterVisibilityDiagnostic.cs" />

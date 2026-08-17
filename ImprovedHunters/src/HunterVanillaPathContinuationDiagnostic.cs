@@ -33,6 +33,7 @@ namespace ImprovedHunters
         private const int HunterPathLengthOffset = 0xF8;
         private const ushort HunterStateFollowingTarget = 1;
         private const ushort ActivePathState = 2;
+        private const uint MaximumPathSteps = 2000;
         private const int VanillaContinuationDistance = 29;
         private const int MaxDiagnosticLogs = 600;
 
@@ -186,7 +187,7 @@ namespace ImprovedHunters
                     out ushort pathState,
                     out ushort pathFieldF4,
                     out ushort pathProgress,
-                    out ushort pathLength))
+                    out uint pathLength))
             {
                 ClearHunterAttemptState(hunterUnitId);
                 LogInvalidContextOnce(hunterUnitId, nativeDistance);
@@ -211,7 +212,10 @@ namespace ImprovedHunters
             if (IsRetryCoolingDown(identity, timestamp))
                 return;
 
-            if (pathState != ActivePathState || pathLength <= 1 || pathProgress >= pathLength)
+            if (pathState != ActivePathState ||
+                pathLength <= 1 ||
+                pathLength > MaximumPathSteps ||
+                pathProgress >= pathLength)
             {
                 StopAttempt(
                     identity,
@@ -306,7 +310,8 @@ namespace ImprovedHunters
                     $"nativeVisibility={visibilityResult}, nativeDistance={nativeDistance}->{VanillaContinuationDistance}, " +
                     $"path={pathState}/{pathFieldF4}/{pathProgress}/{pathLength}, " +
                     $"continuations={attempt.Continuations}, ownMovement=False, ownAiState=False, ownOrderWrite=False, " +
-                    "registerOverride=RDI-distance-only.");
+                    $"registerOverride=RDI-distance-only, transitionPhase=distance-29-continuation, " +
+                    $"{HunterMovementSnapshot.TryFormat(hunter)}.");
             }
         }
 
@@ -319,7 +324,7 @@ namespace ImprovedHunters
             out ushort pathState,
             out ushort pathFieldF4,
             out ushort pathProgress,
-            out ushort pathLength)
+            out uint pathLength)
         {
             hunter = null;
             prey = null;
@@ -364,7 +369,7 @@ namespace ImprovedHunters
             pathState = *(ushort*)(hunterBytes + HunterPathStateOffset);
             pathFieldF4 = *(ushort*)(hunterBytes + HunterPathFieldF4Offset);
             pathProgress = *(ushort*)(hunterBytes + HunterPathProgressOffset);
-            pathLength = *(ushort*)(hunterBytes + HunterPathLengthOffset);
+            pathLength = *(uint*)(hunterBytes + HunterPathLengthOffset);
             return true;
         }
 
@@ -550,14 +555,14 @@ namespace ImprovedHunters
             public readonly long LastProgressAt;
             public readonly long LastObservedAt;
             public readonly ushort LastProgress;
-            public readonly ushort LastPathLength;
+            public readonly uint LastPathLength;
             public readonly int Continuations;
 
             public ContinuationAttempt(
                 AttemptIdentity identity,
                 long startedAt,
                 ushort lastProgress,
-                ushort lastPathLength,
+                uint lastPathLength,
                 long lastProgressAt = 0,
                 long lastObservedAt = 0,
                 int continuations = 0)
@@ -573,7 +578,7 @@ namespace ImprovedHunters
 
             public ContinuationAttempt WithPathProgress(
                 ushort progress,
-                ushort pathLength,
+                uint pathLength,
                 long timestamp) =>
                 new ContinuationAttempt(
                     Identity,

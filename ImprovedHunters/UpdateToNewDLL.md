@@ -45,6 +45,7 @@ fallback. A changed DLL therefore disables only these diagnostic paths.
 | Hunter distance helper | `0x79C0` | exact state-1 range result retained in `EDI` |
 | State-0 query handoff | `0x12FD67` | query return hook at `0x12FD89`; query callee `0x18AF00` |
 | State-0 `MoveHere` result | `0x12FE2A` | immediately after call to `0x196230` |
+| State-1 near-target refresh | `0x130019` / `0x130022` / `0x12FF2E` / `0x12FF33` | safe compare hook plus safe query/result hook, Vanilla actor load and result test |
 | State-1 distance-28 compare | `0x1300EA` | bounded Vanilla-path continuation test; sequence begins at `0x1300D2` |
 | State-1 direct-attack result | `0x130149` | observation-only `test eax,eax` after call to `0x18E950` |
 
@@ -592,11 +593,176 @@ simultaneously deployed Hunter continued its own blocked-visibility Vanilla
 path successfully. The apparent position-dependent failure from `1.1.39` did
 not recur and is attributed to the removed global diagnostic identity bound.
 
-Future DLL audits must revalidate the exact sequence at `0x1300D2`, compare and
-short-branch bytes at `0x1300EA`, the distance helper result remaining in
-`EDI`, the semantics of the `>28` stage-8 writer, and the `MoveHere` path field
-writes before enabling this diagnostic. A matching instruction pattern alone
-does not validate the raw `GameUnit` offsets.
+The `1.1.47` remaining-path-speed test exposed a separate earlier Vanilla
+refresh. Two accepted 68-step paths ended at progress `55` and `51` without
+reaching the direct-attack result hook. Each transition immediately entered a
+new target search for the same live identity `17/319`; PCL and cooldown passed,
+but the mod's unreserved-prey ranking reported `best=none`, no replacement
+`MoveHere` followed, and the Hunter visibly returned to its hut. A third,
+26-step path succeeded after the moving deer shortened the approach.
+
+Static reinspection shows that the second call to RVA `0x79C0` stores the
+maximum absolute world-coordinate delta at scratch address `0x1834A8F5C`.
+`HunterUpdate` compares it with `20` at RVA `0x130019`. The `<=20` fall-through
+at `0x130022` jumps to the target query call at `0x12FF2E`, before both speed
+hooks. A zero result tested at `0x12FF33` reaches the state-6/timer-20/hut-return
+writer at `0x12FF53`. The other path into the same query follows a target-global
+identity mismatch and must not share this recovery.
+
+The first version `1.1.48` attempt validates a unique near-refresh branch
+sequence at `0x130019`, hooks its apparent exclusive fall-through instruction
+at `0x130022`, and separately hooks the query result at `0x12FF33`. Only the
+same live Hunter/target identity
+with corpse flag zero, Vanilla reservation exactly `2`, accepted owner/PCL/
+cooldown event policy, and no other live Hunter targeting that identity may
+replace query result zero with its existing target slot. A two-second bounded
+handoff pre-stages the same candidate for the immediately following audited
+state-0 query at `0x12FD67`; its existing return and `MoveHere` result hooks then
+leave target, reservation, path, movement and AI-state writes to Vanilla.
+Changed identity, reservation `0` or foreign reservation, missing event
+acceptance, real multiplayer and every validation error remain behavior-neutral.
+
+The first in-game run rejects the `0x130022` hook even though installation
+succeeds. The log ends natively when the new Hunter starts moving, before any
+managed callback confirmation or exception. `X64InlineHook` uses a 14-byte
+absolute indirect jump and extends the overwritten range to whole
+instructions. From `0x130022` it therefore consumes 18 bytes:
+
+- six-byte `mov edx,[0x18092F2C4]` at `0x130022`;
+- five-byte `jmp 0x12FF2B` at `0x130028`;
+- seven-byte `movsxd rbx,[0x18092F2C4]` at `0x13002D`.
+
+The preceding original `jg 0x13002D` at `0x130020` remains live and targets
+offset `+0x0B` inside `[0x130022,0x130034)`. That address lies inside the
+eight-byte destination literal of the installed absolute jump. A world delta
+greater than `20` consequently branches into data and crashes the process.
+This is an inbound-branch/overwrite-span defect, not a managed validation or
+register-context failure.
+
+The replacement design must remove the `0x130022` hook. Hooking the compare at
+`0x130019` is structurally safe for the audited DLL: the minimum 14-byte hook
+decodes 15 bytes ending at `0x130028`, so the relocated `jg` still targets the
+untouched instruction at `0x13002D`. A pre-instruction callback can read the
+same scratch maximum, stage a refresh only for `<=20`, and then let the
+relocated compare, conditional branch and near-path load run unchanged.
+
+The full inbound-branch audit also rejects retaining the former result hook at
+`0x12FF33`: its 14-byte minimum extends to an 18-byte overwrite span ending at
+`0x12FF45`, while an original jump at `0x13058B` targets `0x12FF3E` inside that
+span. The safe result design therefore hooks the exact 14-byte
+`[0x12FF2E,0x12FF3C)` sequence containing `call 0x18AF00`, `test eax,eax` and
+the current-Hunter `movsxd` load. Its callback executes after those relocated
+instructions and before the untouched `je 0x12FF53`. On a fully validated own
+reservation it clears only ZF, selecting Vanilla's state-0 writer; it preserves
+RAX and leaves the queued state-0 continuation to perform the existing guarded
+target handoff. The original target `0x12FF3E` remains outside the hook.
+
+Version `1.1.49` implements that replacement. It requests the exact decoded
+15-byte span `[0x130019,0x130028)`, captures context before the relocated
+instructions, and stages nothing unless the untouched scratch value at RVA
+`0x34A8F5C` is in the native near range `0..20`. The actor ID is read from RVA
+`0x92F2C4`, matching the value Vanilla itself loads into `EDX` at `0x130022`,
+rather than relying on `RBX`. Before the transaction commits, Iced must decode
+the audited `cmp`/`jg`/`mov` lengths, the far target `0x13002D`, both
+RIP-relative globals and the `jmp 0x12FF2B` at the first byte after the hook.
+The combined query/result hook must independently decode as the 14-byte span
+`[0x12FF2E,0x12FF3C)`, validate its query target `0x18AF00`, and leave both the
+following `je 0x12FF53` and the original inbound target `0x12FF3E` outside. A complete
+linear decode of HunterUpdate `[0x12FC20,0x1313D2)` additionally rejects every
+direct call or branch from outside into the strict interior of either hook
+span. Any mismatch fails closed before a native patch is installed.
+
+Future DLL audits must revalidate the exact sequences at `0x12FF07`, `0x130019`
+and `0x1300D2`; the near-refresh path at `0x130022` still targeting the query
+call at `0x12FF2E`; the safe hook span `[0x130019,0x130028)` leaving branch
+target `0x13002D` untouched; result span `[0x12FF2E,0x12FF3C)`, result test
+`0x12FF33`, inbound target `0x12FF3E` and failure target `0x12FF53`; compare and short-branch bytes at
+`0x1300EA`; the distance helper scratch maximum; the result remaining in `EDI`;
+the semantics of the `>28` stage-8 writer; and the `MoveHere` path-field writes.
+A matching instruction pattern alone does not validate reservation ownership or
+the raw `GameUnit` offsets.
+
+### Remaining-path Hunter speed stages in 1.1.46/1.1.47
+
+The canonical Steam build has SHA-256
+`33AA33457F7DFAAA6D316D1D5E4C5AB97094F2C73B68D349990ABF9D0EF3B469`.
+`HunterUpdate` starts at RVA `0x12FC20`; its helper at RVA `0x79C0` returns the
+exact Manhattan tile distance `abs(dx) + abs(dy)` in `EAX`, retained in `EDI`.
+The initial speed-stage sequence starts at RVA `0x13005C`, and its first compare
+at RVA `0x130063` is `83 FF 28 7E 1B` (`cmp edi,40; jle 0x130083`). The complete
+ladder writes `r_CurrentSpeed` `1/2/3/4/6/8/10` for distances
+`>40/37..40/35..36/33..34/31..32/29..30/<=28`. Public field `+0x4` is written
+as `1` on the far branch and `0x81` on the remaining branches. No speed or
+animation write occurs before RVA `0x130063`.
+
+Generic unit movement loads the `GameUnitManager` base at module RVA
+`0x67E7400` at RVA `0x18576C`. At RVAs `0x18580F..0x185865` it applies the
+manager-relative path-buffer offset `0xB4FE78`, yielding effective module RVA
+`0x7337278`, and then indexes `unitId * 0x3E8 + pathIndex / 2`. The `MoveHere`
+writer at RVAs `0x196554..0x19657E` independently uses the same manager-relative
+address form. Even path indices use the low nibble and odd indices the high
+nibble. Direction values `0..7` alternate cardinal and diagonal movement, so
+the direct-Manhattan-compatible remaining cost is one per even direction and
+two per odd direction. Public `GameUnit
++0xF6` is the `UInt16` path index and public `+0xF8` is the `UInt32` path length;
+one unit path owns `0x3E8` bytes and at most 2000 nibbles. The movement code may
+increment `+0xF6` immediately after loading a direction when the word at public
+`+0x3F0` is zero, so the stored remainder can omit the currently traversed
+segment. Version `1.1.46` deliberately applies no unvalidated in-flight
+correction and therefore uses the decoded value as a conservative lower bound.
+
+`HunterRemainingPathSpeedRecovery.cs` is separately removable and exact-hash-
+only. It validates the sequence and short-branch target, hooks before the
+relocated compare at `0x130063`, and captures volatile registers plus `RBX` and
+`RDI`. For a live same-identity state-1 Hunter with path state `2`, stable
+progress/length, at most 2000 valid direction nibbles, a configured prey type,
+the singleplayer mode gate, and native visibility exactly zero, it replaces
+only `RDI` with `max(nativeDistance, min(decodedRemainingCost, 41))` when this
+selects a faster existing Vanilla stage. It writes no unit, speed, animation,
+path, order, reservation, or AI-state field. Positive visibility, invalid
+visibility results, decode errors, changed snapshots, option/mod disable,
+map-editor and real multiplayer remain behavior-neutral. Attempts are bounded
+per Hunter/global-target identity by 60 seconds and three seconds without path
+progress, with a five-second same-identity retry cooldown.
+
+The first `1.1.46` in-game test observed direct distance `10`, path
+progress/length `0/72`, two `invalid-packed-path-direction` skips, zero Package-E
+observations, zero register mutations, and no callback failures. The existing
+Vanilla-path continuation still selected distance `29`, matching the Hunter's
+slow movement from the beginning. Static reinspection showed that `1.1.46` had
+mistaken the manager-relative displacement `0xB4FE78` for a module RVA and read
+unrelated memory. Version `1.1.47` obtains the manager base from
+`GameUnitManagerAPI.Instance.GetUnitManager().Pointer`, adds `0xB4FE78`, and on
+the exact audited hash validates that the manager and effective buffer resolve
+to module RVAs `0x67E7400` and `0x7337278`. Any mismatch disables only this
+feature and preserves Vanilla behavior.
+
+Future DLL audits must revalidate the DLL hash, RVAs `0x79C0`, `0x13005C`,
+`0x130063`, `0x18576C`, `0x18580F..0x185865`, `0x196554..0x19657E`, manager RVA
+`0x67E7400`, manager-relative offset `0xB4FE78`, and effective path-buffer RVA
+`0x7337278`; the full speed ladder; the path-buffer stride and nibble parity;
+the 2000-step bound; public offsets
+`+0xF2/+0xF4/+0xF6/+0xF8/+0x3F0`; and the meaning of the path-index increment
+guard. A matching speed-ladder signature does not validate the manager base,
+manager-relative path-buffer displacement, or raw unit-field layout.
+
+### Hunter movement-transition diagnostics in 1.1.50
+
+The `1.1.49` game run showed a wrong sitting/waiting animation only after the
+state-1 near refresh and during the distance-29 continuation special case. The
+normal remaining-path speed stage retained the expected matching animation, so
+speed and animation of that Vanilla stage must not be separated.
+
+Version `1.1.50` installs no additional native hook. It adds read-only snapshots
+to the already validated near-refresh entry/result, state-0 `MoveHere` result,
+distance-29 continuation and native-visibility callbacks. Each snapshot records
+the public animation frame, sprite-animation frame, animation timer, both speed
+fields, direction, transform target and positions together with the audited raw
+AI, target and path fields. Raw `GameUnit +0x4` is logged as
+`locomotionControl`; its `1`/`0x81` state-1 writer semantics remain bound to the
+canonical SHA-256 above and must be revalidated for a changed DLL. The
+diagnostic writes none of these fields and does not alter hook spans, registers,
+movement, orders or AI state.
 
 Future Script Extender updates must revalidate the public ranged-damage,
 projectile-delete and move-order semantics. A bounded native reachability path

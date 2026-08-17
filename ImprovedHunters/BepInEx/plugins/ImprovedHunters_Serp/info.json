@@ -3,10 +3,45 @@
   "Author": "Serpens66",
   "Name": "Improved Hunters",
   "Description": "Adds configurable hunter prey and meat yield for deer, goats, rabbits, camels, chickens and cows.",
-  "Version": "1.1.45",
+  "Version": "1.1.50",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.1.50",
+      "Changes": [
+        "Add read-only movement snapshots at the validated near-refresh, MoveHere, distance-29 continuation and visibility callbacks to isolate the special-case sitting/waiting animation without adding another native hook.",
+        "Correlate animation, locomotion control, both speed fields, AI state, target, path progress and position while leaving the normal coupled Vanilla speed/animation stages unchanged."
+      ]
+    },
+    {
+      "Version": "1.1.49",
+      "Changes": [
+        "Move the state-1 near-refresh context hook to the safe compare boundary at RVA 0x130019, leaving Vanilla's far-branch target at RVA 0x13002D outside the 15-byte detour span.",
+        "Replace the unsafe result detour with the exact 14-byte query/test/actor-load span at RVA 0x12FF2E; validate all direct HunterUpdate branches fail-closed and clear only Vanilla's Zero Flag for the guarded state-0 handoff."
+      ]
+    },
+    {
+      "Version": "1.1.48",
+      "Changes": [
+        "Keep a Hunter's own live reservation-2 prey eligible across Vanilla's near-target state-1 refresh, while rejecting stale identities and prey reserved by another Hunter.",
+        "Supply only the validated target ID at Vanilla's query return and carry it briefly into the regular state-0 acquisition, leaving target assignment, reservation, path creation, movement and AI-state writes to Vanilla."
+      ]
+    },
+    {
+      "Version": "1.1.47",
+      "Changes": [
+        "Correct the packed Hunter path-buffer address: Vanilla applies offset 0xB4FE78 to GameUnitManager, yielding effective module RVA 0x7337278 in the audited DLL.",
+        "Validate the Script Extender manager pointer against the exact-hash RVA before enabling remaining-path speed recovery, preserving fail-open Vanilla behavior on any mismatch."
+      ]
+    },
+    {
+      "Version": "1.1.46",
+      "Changes": [
+        "Decode each Hunter's remaining packed Vanilla path and use its cardinal-plus-diagonal Manhattan cost to select only an existing faster Vanilla movement stage while direct visibility remains blocked.",
+        "Keep the correction exact-hash-only, singleplayer-only, bounded per Hunter and fail-open; write no speed, animation, path, order or AI-state field and preserve Vanilla's final visible approach."
+      ]
+    },
     {
       "Version": "1.1.45",
       "Changes": [

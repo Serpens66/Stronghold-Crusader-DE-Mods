@@ -45,7 +45,9 @@ namespace ExtraFeatures
 
         private void AddResourceRefundGuards(BuildingRefundEventArgs args)
         {
-            if (args.Phase != EventHookPhase.Pre || args.PlayerId <= 0)
+            // The Script Extender documents -1 as a possible refund-context sentinel.
+            // It cannot be resolved through GameBuildingManagerAPI and needs no resource guard.
+            if (args.Phase != EventHookPhase.Pre || args.PlayerId <= 0 || args.BuildingId <= 0)
                 return;
 
             PruneExpiredResourceGuards();

@@ -259,12 +259,14 @@ namespace RandomEvents
                     }
 
                     double keepDistance = MinimumDistance(x + 0.5, y + 0.5, keeps);
-                    if (keepDistance + 0.0001 >= MinimumKeepDistance)
-                        candidates.Add(new PlacementCandidate(x, y, keepDistance));
+                    candidates.Add(new PlacementCandidate(x, y, keepDistance));
                 }
             }
 
             Shuffle(candidates, random);
+            // This is an emergency path for maps without a usable edge. Prefer the safest
+            // available center tile even when a keep makes the normal 100-tile rule impossible.
+            candidates.Sort((left, right) => right.MinimumKeepDistance.CompareTo(left.MinimumKeepDistance));
             int failedPlacements = 0;
             foreach (PlacementCandidate candidate in candidates)
             {
@@ -329,15 +331,21 @@ namespace RandomEvents
             captureY = y;
             capturedBuildingId = -1;
             long result;
+            bool previousBypassEnabled = GameTileManagerAPI.Instance.TileManager.UsePlacementBlockedOverride;
+            bool previousBypassValue = GameTileManagerAPI.Instance.TileManager.PlacementBlockedOverrideValue;
             try
             {
-                // Keep bypass=false: Vanilla performs the authoritative footprint and terrain validation.
-                // A rejected candidate creates no usable building, and the caller continues with the next position.
+                // Nature (player 0) is not a valid player-placement owner. The caller already
+                // validates bounds, occupancy, flat terrain, and human path connectivity.
                 result = GameBuildingManagerAPI.Instance.CreatePrefab(
-                    NaturePlayerId, x, y, eMappers.MAPPER_SIGNPOST, 2, 0, true, false);
+                    NaturePlayerId, x, y, eMappers.MAPPER_SIGNPOST, 2, 0, true, true);
             }
             finally
             {
+                // CreatePrefab clears the shared override after its call. Restore the prior
+                // state as well as handling an exception before the API can clear it itself.
+                GameTileManagerAPI.Instance.TileManager.PlacementBlockedOverrideValue = previousBypassValue;
+                GameTileManagerAPI.Instance.TileManager.UsePlacementBlockedOverride = previousBypassEnabled;
                 captureSpawn = false;
             }
 
@@ -434,17 +442,27 @@ namespace RandomEvents
         private static bool IsFreeWalkableFootprint(int x, int y)
         {
             GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
+            int footprintHeight = -1;
             for (int offsetY = 0; offsetY < 2; offsetY++)
             {
                 for (int offsetX = 0; offsetX < 2; offsetX++)
                 {
                     int tileX = x + offsetX;
                     int tileY = y + offsetY;
-                    if (!tiles.IsTileInsideMapBounds(tileX, tileY) ||
-                        !tiles.IsTileWalkableAndUnoccupied(tiles.GetTileId(tileX, tileY)))
+                    if (!tiles.IsTileInsideMapBounds(tileX, tileY))
                     {
                         return false;
                     }
+
+                    int tileId = tiles.GetTileId(tileX, tileY);
+                    if (!tiles.IsTileWalkableAndUnoccupied(tileId))
+                        return false;
+
+                    int tileHeight = tiles.GetTileHeight(tileId);
+                    if (footprintHeight < 0)
+                        footprintHeight = tileHeight;
+                    else if (tileHeight != footprintHeight)
+                        return false;
                 }
             }
             return true;

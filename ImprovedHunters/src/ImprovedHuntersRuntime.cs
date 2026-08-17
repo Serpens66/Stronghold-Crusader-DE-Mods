@@ -145,6 +145,7 @@ namespace ImprovedHunters
         private HunterNativeVisibilityProbe hunterNativeVisibilityProbe;
         private HunterPclReachability hunterPclReachability;
         private HunterPclReachabilityDiagnostic hunterPclReachabilityDiagnostic;
+        private HunterRemainingPathSpeedRecovery hunterRemainingPathSpeedRecovery;
         private HunterTargetSearchFallbackDiagnostic hunterTargetSearchFallbackDiagnostic;
         private HunterVanillaPathContinuationDiagnostic hunterVanillaPathContinuationDiagnostic;
         private HunterVisibilityDiagnostic hunterVisibilityDiagnostic;
@@ -180,6 +181,7 @@ namespace ImprovedHunters
                 InitializeHunterPclReachability(referenceHashMatches);
                 InitializeHunterPclReachabilityDiagnostic(referenceHashMatches);
                 InitializeHunterTargetSearchFallbackDiagnostic(memory, imageBase, referenceHashMatches);
+                InitializeHunterRemainingPathSpeedRecovery(memory, imageBase, referenceHashMatches);
                 InitializeHunterVanillaPathContinuationDiagnostic(memory, imageBase, referenceHashMatches);
                 InitializeHunterLineOfSightRecovery();
                 InitializeHunterVisibilityDiagnostic();
@@ -235,6 +237,7 @@ namespace ImprovedHunters
                     $"hunterNativeVisibilityProbeAvailable={hunterNativeVisibilityProbe?.IsAvailable == true}, " +
                     $"hunterPclReachabilityAvailable={hunterPclReachability?.IsAvailable == true}, " +
                     $"hunterPclReachabilityDiagnosticAvailable={hunterPclReachabilityDiagnostic?.IsAvailable == true}, " +
+                    $"hunterRemainingPathSpeedRecoveryAvailable={hunterRemainingPathSpeedRecovery?.IsAvailable == true}, " +
                     $"hunterTargetSearchFallbackAvailable={hunterTargetSearchFallbackDiagnostic?.IsAvailable == true}, " +
                     $"hunterVanillaPathContinuationAvailable={hunterVanillaPathContinuationDiagnostic?.IsAvailable == true}, " +
                     $"hunterVisibilityDiagnosticAvailable={hunterVisibilityDiagnostic?.IsAvailable == true}, " +
@@ -407,7 +410,7 @@ namespace ImprovedHunters
                 ushort pathState = *(ushort*)(hunterBytes + 0xF2);
                 ushort pathFieldF4 = *(ushort*)(hunterBytes + 0xF4);
                 ushort pathProgress = *(ushort*)(hunterBytes + 0xF6);
-                ushort pathLength = *(ushort*)(hunterBytes + 0xF8);
+                uint pathLength = *(uint*)(hunterBytes + 0xF8);
                 ushort reservationBefore = *(ushort*)((byte*)prey + 0x448);
                 uint orderTargetGlobalId = *(uint*)(hunterBytes + 0x3FE);
 
@@ -693,6 +696,7 @@ namespace ImprovedHunters
             hunterPclReachability?.ResetForMap();
             hunterPclReachabilityDiagnostic?.ResetForMap();
             hunterTargetSearchFallbackDiagnostic?.ResetForMap();
+            hunterRemainingPathSpeedRecovery?.ResetForMap();
             hunterVanillaPathContinuationDiagnostic?.ResetForMap();
             hunterVisibilityDiagnostic?.ResetForMap();
             Shared.GameModeSnapshot gameMode = Shared.GameModeHelper.Capture();
@@ -806,6 +810,19 @@ namespace ImprovedHunters
             }
 
             args.IsValidTarget = isValidTarget;
+            if (isValidTarget &&
+                settings.ImprovedPathfinding &&
+                queryGlobalId > 0)
+            {
+                // This is a no-op outside the exact state-1 near-target query.
+                // It lets only this Hunter's still-live reservation-2 target
+                // pass through Vanilla's normal state-0 reacquisition path.
+                hunterTargetSearchFallbackDiagnostic?.RecordStateOneRefreshCandidate(
+                    hunterUnitId,
+                    args.QueryUnitId,
+                    unchecked((uint)queryGlobalId),
+                    queryType);
+            }
             if (isValidTarget &&
                 settings.ImprovedPathfinding &&
                 targetSelection.HasTarget &&
@@ -2586,6 +2603,7 @@ namespace ImprovedHunters
                 hunterPclReachability?.ResetForMap();
                 hunterPclReachabilityDiagnostic?.ResetForMap();
                 hunterTargetSearchFallbackDiagnostic?.ResetForMap();
+                hunterRemainingPathSpeedRecovery?.ResetForMap();
                 hunterVanillaPathContinuationDiagnostic?.ResetForMap();
             }
 
@@ -3376,6 +3394,34 @@ namespace ImprovedHunters
             }
         }
 
+        private void InitializeHunterRemainingPathSpeedRecovery(
+            ReadOnlySpan<byte> memory,
+            ulong imageBase,
+            bool referenceHashMatches)
+        {
+            try
+            {
+                hunterRemainingPathSpeedRecovery =
+                    new HunterRemainingPathSpeedRecovery(
+                        log,
+                        settings,
+                        hunterNativeVisibilityProbe,
+                        memory,
+                        imageBase,
+                        referenceHashMatches,
+                        CanRunHunterTargetSearchFallback);
+            }
+            catch (Exception exception)
+            {
+                hunterRemainingPathSpeedRecovery?.Dispose();
+                hunterRemainingPathSpeedRecovery = null;
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    "Improved Hunters remaining-path speed recovery is unavailable; " +
+                    $"Vanilla's direct-distance stage selection remains unchanged: {exception}");
+            }
+        }
+
         private void RegisterRejectedHunterStateZeroMove(
             int hunterUnitId,
             uint preyGlobalId,
@@ -3950,6 +3996,8 @@ namespace ImprovedHunters
             hunterPclReachabilityDiagnostic = null;
             hunterPclReachability?.Dispose();
             hunterPclReachability = null;
+            hunterRemainingPathSpeedRecovery?.Dispose();
+            hunterRemainingPathSpeedRecovery = null;
             hunterVanillaPathContinuationDiagnostic?.Dispose();
             hunterVanillaPathContinuationDiagnostic = null;
             hunterNativeVisibilityProbe?.Dispose();

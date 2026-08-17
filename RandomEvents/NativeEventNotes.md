@@ -32,8 +32,9 @@
 
 ## Automatische Wegweiser
 
-- Kandidaten werden zunächst auf eine freie, begehbare 2x2-Fläche gefiltert. `CreatePrefab(..., bypassPlacementRules: false)` führt danach Vanillas maßgebliche Gebäude-, Gelände- und Footprint-Prüfung aus.
-- Verwirft Vanilla eine Position, wird der nächste bevorzugte Kandidat, danach jeder weitere vorgefilterte Kandidat und schließlich eine andere Randtiefe versucht. Ein unvollständig erzeugter neutraler Wegweiser wird sicher entfernt.
+- Kandidaten werden auf eine freie, begehbare, ebene 2x2-Fläche innerhalb der Kartengrenzen und auf Erreichbarkeit für jeden Menschen gefiltert. Da Nature (`playerId=0`) kein gültiger Spieler für Vanillas playergebundene Platzierungsprüfung ist, verwendet der anschließende `CreatePrefab`-Aufruf ausschließlich für diese vollständig vorgeprüften neutralen Wegweiser den Placement-Bypass.
+- Schlägt die Erzeugung oder native Registrierung trotzdem fehl, wird der nächste bevorzugte Kandidat, danach jeder weitere vorgefilterte Kandidat und schließlich eine andere Randtiefe versucht. Ein unvollständig erzeugter neutraler Wegweiser wird sicher entfernt.
+- Findet sich kein Randkandidat, wählt der Zentrum-Fallback die freie, ebene und erreichbare Position mit dem größtmöglichen Keep-Abstand. Die normale 100-Tile-Regel wird dort nicht erzwungen, weil sie bei einem 50-Tile-Notfallradius und zentralen Keeps geometrisch unmöglich sein kann.
 
 ## Manuelle Banditen
 
