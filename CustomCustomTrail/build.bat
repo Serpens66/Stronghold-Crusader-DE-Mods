@@ -59,8 +59,6 @@ copy /Y "%PROJECT_DIR%info.json" "%LOCAL_PLUGIN_DIR%\info.json" >nul
 if errorlevel 1 goto package_failed
 copy /Y "%PROJECT_DIR%README.md" "%LOCAL_PLUGIN_DIR%\README.md" >nul
 if errorlevel 1 goto package_failed
-xcopy "%PROJECT_DIR%CoopTrails" "%LOCAL_PLUGIN_DIR%\CoopTrails\" /E /I /Q /Y
-if errorlevel 1 goto package_failed
 xcopy "%PROJECT_DIR%Examples" "%LOCAL_PLUGIN_DIR%\Examples\" /E /I /Q /Y
 if errorlevel 1 goto package_failed
 
@@ -70,13 +68,6 @@ for %%F in (CustomCustomTrail.dll CustomCustomTrail.Core.dll info.json README.md
     goto package_failed
   )
 )
-for %%T in (Trail1 Trail2 Trail3 Trail4) do (
-  if not exist "%LOCAL_PLUGIN_DIR%\CoopTrails\%%T\" (
-    echo Paketordner fehlt: CoopTrails\%%T
-    goto package_failed
-  )
-)
-
 echo Installiere geprueftes Paket...
 if exist "%STAGED_GAME_PLUGIN_DIR%\" rmdir /S /Q "%STAGED_GAME_PLUGIN_DIR%"
 if errorlevel 1 goto copy_failed

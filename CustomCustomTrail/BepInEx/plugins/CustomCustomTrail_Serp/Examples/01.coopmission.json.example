@@ -4,7 +4,7 @@
   "description": "Host und Gast verteidigen gemeinsam die Oase.",
   "map": {
     "source": "bundled",
-    "file": "MeineMission/map.map"
+    "file": "Assets/01/map.map"
   },
   "settings": {
     "fairness": 3,
@@ -37,13 +37,13 @@
       "lord": {
         "source": "bundled",
         "name": "Custom Rat",
-        "file": "MeineMission/lords/custom-rat.lordjson",
+        "file": "Assets/01/lord-3.lordjson",
         "baseLordId": 0
       },
       "aivs": [
         {
           "source": "bundled",
-          "file": "MeineMission/aivs/castle-1.aivjson",
+          "file": "Assets/01/aiv-3-1.aivjson",
           "rotation": 90
         },
         {

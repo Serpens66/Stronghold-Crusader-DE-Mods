@@ -12,7 +12,7 @@ namespace CustomCustomTrail
     {
         public const string PluginGuid = "CustomCustomTrail_Serp";
         public const string PluginName = "Custom Custom Trail";
-        public const string PluginVersion = "1.2.7";
+        public const string PluginVersion = "1.3.1";
 
         private static CustomCustomTrailRuntime runtime;
 
@@ -36,8 +36,8 @@ namespace CustomCustomTrail
                     PluginGuid,
                     Settings,
                     "ScriptExtenderUI/CustomCustomTrailSettings.xaml");
-                string pluginRoot = Path.GetDirectoryName(Info.Location);
-                runtime = new CustomCustomTrailRuntime(Logger, pluginRoot, Settings.EnableMod);
+                string customTrailsRoot = ConfigSettings.GetUserCustomTrailsPath();
+                runtime = new CustomCustomTrailRuntime(Logger, customTrailsRoot, Settings);
                 runtime.Initialize();
                 Settings.EnableModChanged += runtime.SetEnabled;
             }

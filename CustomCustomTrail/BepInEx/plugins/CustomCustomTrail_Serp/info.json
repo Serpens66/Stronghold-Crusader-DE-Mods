@@ -2,11 +2,26 @@
   "GUID": "CustomCustomTrail_Serp",
   "Author": "Serpens66",
   "Name": "Custom Custom Trail",
-  "Description": "Coordinates Custom Trail sidecars, mission presets and customization, and replaces Coop Trail missions from editable JSON bundles.",
-  "Version": "1.2.7",
+  "Description": "Creates portable Coop Trails in the Trail Maker, synchronizes the selected package, and coordinates Custom Trail mod settings.",
+  "Version": "1.3.1",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.3.1",
+      "Changes": [
+        "Shows each exported map name as the selected Coop mission title and uses the active package name for every occupied Coop Trail heading."
+      ]
+    },
+    {
+      "Version": "1.3.0",
+      "Changes": [
+        "Added an in-game Coop Trail export option that converts the first 40 Trail Maker missions into one portable package for all four Coop Trails.",
+        "Added a host-controlled package dropdown with SHA-256 content verification and Ready/Play blocking for missing or differing participant packages.",
+        "Bundled custom maps, lords and AIVs automatically and embedded each mission's host-controlled mod settings.",
+        "Replaced the legacy plugin-local CoopTrails/TrailN layout with selectable cooptrail.json packages stored beside normal Custom Trails."
+      ]
+    },
     {
       "Version": "1.2.7",
       "Changes": [

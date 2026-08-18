@@ -7,13 +7,16 @@ var tests = new (string Name, Action Run)[]
     ("bundled mission loads", TestBundledMission),
     ("path escape rejected", TestPathEscape),
     ("invalid rotation rejected", TestInvalidRotation),
-    ("catalog keeps valid slots and ignores invalid slots", TestCatalogIsolation),
+    ("package catalog rejects invalid packages", TestCatalogIsolation),
     ("schema 1 is rejected", TestSchemaOneRejected),
     ("locally edited mission JSON reloads from the same slot", TestEditedMissionReload),
     ("invalid mod settings disable transaction", TestInvalidModSettings),
     ("first two active players become allied humans", TestHumanProjection),
     ("preferred AIV permits differing rotations", TestPreferredAiv),
     ("fourth trail tenth slot is addressable", TestLastCatalogSlot),
+    ("package fingerprint detects content changes", TestPackageFingerprint),
+    ("duplicate package IDs are rejected", TestDuplicatePackageIds),
+    ("ordinal mapping covers four trails and ignores mission 41", TestOrdinalMapping),
     ("native mod-settings JSON roundtrip", TestNativeModSettingsRoundtrip),
     ("mod-settings registry has seven entries", TestModSettingsRegistry),
     ("missing mod entry becomes disabled", TestMissingModEntry),
@@ -23,6 +26,7 @@ var tests = new (string Name, Action Run)[]
     ("atomic sidecar write replaces existing file", TestAtomicSidecarWrite),
     ("Trail coordinator ownership is centralized", TestCoordinatorOwnership),
     ("local activation setting gates the complete runtime", TestLocalActivationSetting),
+    ("Trail Maker Coop export is integrated", TestCoopExporterIntegration),
 };
 
 int failed = 0;
@@ -198,7 +202,11 @@ static void TestLocalActivationSetting()
     string xaml = File.ReadAllText(Path.Combine(root, "Override", "ScriptExtenderUI", "CustomCustomTrailSettings.xaml"));
 
     Assert(viewModel.Contains("[PersistLocal]"), "activation setting is not local-only persisted");
-    Assert(!viewModel.Contains("SyncHostOnly") && !viewModel.Contains("SyncPerPlayer"), "activation setting is network-synchronised");
+    int enableAttribute = viewModel.IndexOf("[PersistLocal]", StringComparison.Ordinal);
+    int enableProperty = viewModel.IndexOf("public bool EnableMod", StringComparison.Ordinal);
+    Assert(enableAttribute >= 0 && enableAttribute < enableProperty, "activation setting is not local-only persisted");
+    Assert(viewModel.Contains("[SyncHostOnly]") && viewModel.Contains("ActiveCoopPackageId"), "package selection is not host-synchronised");
+    Assert(viewModel.Contains("[SyncPerPlayer, DoNotPersist]") && viewModel.Contains("CoopPackageStatusData"), "package validation is not reported per player");
     Assert(plugin.Contains("Settings.EnableModChanged += runtime.SetEnabled"), "runtime does not observe activation changes");
     Assert(runtime.Contains("RestoreVanillaMissions()"), "disabling cannot restore replaced Vanilla Coop slots");
     Assert(coordinator.Contains("if (!enabled)"), "sidecar/customization hooks are not activation-gated");
@@ -206,6 +214,26 @@ static void TestLocalActivationSetting()
     Assert(xaml.Contains("PracticalEffectsText") && viewModel.Contains("CustomCustomTrail.PracticalEffects"),
         "player-facing practical-effects text is not bound below the activation setting");
     Assert(!xaml.Contains("SelectedPreset") && !xaml.Contains("PresetOptions"), "activation UI unexpectedly exposes presets");
+    Assert(xaml.Contains("CoopPackageOptions") && xaml.Contains("CanEditCoopPackage"), "host package dropdown is missing");
+}
+
+static void TestCoopExporterIntegration()
+{
+    string root = FindProjectRoot();
+    string coordinator = File.ReadAllText(Path.Combine(root, "src", "TrailMissionSettingsCoordinator.cs"));
+    string exporter = File.ReadAllText(Path.Combine(root, "src", "CoopTrailPackageExporter.cs"));
+    string runtime = File.ReadAllText(Path.Combine(root, "src", "CustomCustomTrailRuntime.cs"));
+    Assert(coordinator.Contains("CustomCustomTrailCoopExport") && coordinator.Contains("cooptrail.enabled"), "Trail Maker Coop checkbox/marker is missing");
+    Assert(coordinator.Contains("prepared.Publish(destination)") && coordinator.IndexOf("Prepare(", StringComparison.Ordinal) < coordinator.LastIndexOf("exportOriginal(self, destination)", StringComparison.Ordinal),
+        "Coop package is not validated before Vanilla export");
+    Assert(exporter.Contains("ordinal < 40") && exporter.Contains("activeSlots.Count < 2"), "export limits or two-human validation are missing");
+    Assert(exporter.Contains("ModSettingsJson.Read(sidecar)") && exporter.Contains("ModSettingsDefinition.CreateDisabled()"), "mission mod-settings embedding is missing");
+    Assert(exporter.Contains("restart.selectedHeader.display_filename") && runtime.Contains("CoopMissionTitle = selected.Loaded.Definition.DisplayName"),
+        "exported map names are not shown as Coop mission titles");
+    Assert(coordinator.Contains("SetCoopPackagePresentation") && coordinator.Contains("TEXT_COOP_0"),
+        "package display names do not replace occupied Vanilla Coop Trail headings");
+    Assert(runtime.Contains("ReadyLock") && runtime.Contains("AreAllHumanPlayersPackageReady"), "Ready/Play package validation is missing");
+    Assert(!runtime.Contains("Path.Combine(pluginRoot, \"CoopTrails\")"), "legacy plugin-local package layout is still active");
 }
 
 static string FindProjectRoot()
@@ -258,19 +286,14 @@ static void TestInvalidRotation()
 static void TestCatalogIsolation()
 {
     using Fixture fixture = Fixture.Create();
-    string root = Path.Combine(fixture.Root, "CoopTrails");
-    Directory.CreateDirectory(Path.Combine(root, "Trail1"));
-    File.Copy(fixture.JsonPath, Path.Combine(root, "Trail1", "01.coopmission.json"));
-    File.WriteAllText(Path.Combine(root, "Trail1", "02.coopmission.json"), "{}", new UTF8Encoding(false));
-    File.Copy(Path.Combine(fixture.Root, "map.map"), Path.Combine(root, "Trail1", "map.map"));
-    File.Copy(Path.Combine(fixture.Root, "lord.lordjson"), Path.Combine(root, "Trail1", "lord.lordjson"));
-    File.Copy(Path.Combine(fixture.Root, "castle.aivjson"), Path.Combine(root, "Trail1", "castle.aivjson"));
+    string root = Path.Combine(fixture.Root, "CustomTrails");
+    string package = CreatePackage(fixture, root, "Broken", 2);
+    File.WriteAllText(Path.Combine(package, "CoopMissions", "02.coopmission.json"), "{}", new UTF8Encoding(false));
     var errors = new List<string>();
-    var catalog = new MissionCatalog();
-    catalog.Load(root, null, errors.Add);
-    Assert(catalog.TryGet(0, 1, out _), "valid slot not loaded");
-    Assert(!catalog.TryGet(0, 2, out _), "invalid slot loaded");
-    Assert(errors.Count == 1, "invalid slot error not isolated");
+    var packages = new CoopTrailPackageCatalog();
+    packages.Scan(root, null, errors.Add);
+    Assert(packages.Packages.Count == 0, "partially invalid package was selectable");
+    Assert(errors.Count == 1, "invalid package error was not reported once");
 }
 
 static void TestSchemaOneRejected()
@@ -321,16 +344,83 @@ static void TestPreferredAiv()
 static void TestLastCatalogSlot()
 {
     using Fixture fixture = Fixture.Create();
-    string root = Path.Combine(fixture.Root, "CoopTrails");
-    string trail = Path.Combine(root, "Trail4");
-    Directory.CreateDirectory(trail);
-    File.Copy(fixture.JsonPath, Path.Combine(trail, "10.coopmission.json"));
-    File.Copy(Path.Combine(fixture.Root, "map.map"), Path.Combine(trail, "map.map"));
-    File.Copy(Path.Combine(fixture.Root, "lord.lordjson"), Path.Combine(trail, "lord.lordjson"));
-    File.Copy(Path.Combine(fixture.Root, "castle.aivjson"), Path.Combine(trail, "castle.aivjson"));
+    string root = Path.Combine(fixture.Root, "CustomTrails");
+    CoopTrailPackage package = CoopTrailPackageCatalog.Load(CreatePackage(fixture, root, "Forty", 40));
     var catalog = new MissionCatalog();
-    catalog.Load(root, null, null);
+    catalog.Load(package, null, null);
     Assert(catalog.TryGet(3, 10, out _), "Trail4 mission 10 was not loaded");
+}
+
+static void TestPackageFingerprint()
+{
+    using Fixture fixture = Fixture.Create();
+    string root = Path.Combine(fixture.Root, "CustomTrails");
+    string package = CreatePackage(fixture, root, "Changed", 1);
+    File.AppendAllText(Path.Combine(package, "CoopMissions", "map.map"), "changed");
+    ExpectFailure(() => CoopTrailPackageCatalog.Load(package), "changed package content passed its fingerprint");
+}
+
+static void TestDuplicatePackageIds()
+{
+    using Fixture fixture = Fixture.Create();
+    string root = Path.Combine(fixture.Root, "CustomTrails");
+    string id = Guid.NewGuid().ToString("D");
+    CreatePackage(fixture, root, "One", 1, id);
+    CreatePackage(fixture, root, "Two", 1, id);
+    var errors = new List<string>();
+    var catalog = new CoopTrailPackageCatalog();
+    catalog.Scan(root, null, errors.Add);
+    Assert(catalog.Packages.Count == 0, "duplicate package ID remained selectable");
+    Assert(errors.Any(message => message.Contains("duplicate", StringComparison.OrdinalIgnoreCase)), "duplicate package ID was not diagnosed");
+}
+
+static void TestOrdinalMapping()
+{
+    using Fixture fixture = Fixture.Create();
+    string root = Path.Combine(fixture.Root, "CustomTrails");
+    CoopTrailPackage package = CoopTrailPackageCatalog.Load(CreatePackage(fixture, root, "Mapping", 40));
+    var catalog = new MissionCatalog();
+    catalog.Load(package, null, null);
+    Assert(catalog.TryGet(0, 10, out _), "ordinal 10 mapping failed");
+    Assert(catalog.TryGet(1, 1, out _), "ordinal 11 mapping failed");
+    Assert(catalog.TryGet(1, 10, out _), "ordinal 20 mapping failed");
+    Assert(catalog.TryGet(2, 1, out _), "ordinal 21 mapping failed");
+    Assert(catalog.TryGet(2, 10, out _), "ordinal 30 mapping failed");
+    Assert(catalog.TryGet(3, 1, out _), "ordinal 31 mapping failed");
+    Assert(catalog.TryGet(3, 10, out _), "ordinal 40 mapping failed");
+    Assert(!catalog.TryGet(4, 1, out _), "ordinal 41 was mapped into a fifth Coop Trail");
+}
+
+static string CreatePackage(Fixture fixture, string customTrailsRoot, string name, int missionCount, string packageId = null)
+{
+    string root = Path.Combine(customTrailsRoot, name);
+    string missions = Path.Combine(root, "CoopMissions");
+    Directory.CreateDirectory(missions);
+    File.Copy(Path.Combine(fixture.Root, "map.map"), Path.Combine(missions, "map.map"));
+    File.Copy(Path.Combine(fixture.Root, "lord.lordjson"), Path.Combine(missions, "lord.lordjson"));
+    File.Copy(Path.Combine(fixture.Root, "castle.aivjson"), Path.Combine(missions, "castle.aivjson"));
+    var fingerprintFiles = new List<string>
+    {
+        Path.Combine(missions, "map.map"),
+        Path.Combine(missions, "lord.lordjson"),
+        Path.Combine(missions, "castle.aivjson"),
+    };
+    for (int ordinal = 1; ordinal <= missionCount; ordinal++)
+    {
+        string target = Path.Combine(missions, ordinal.ToString("00") + ".coopmission.json");
+        File.Copy(fixture.JsonPath, target);
+        fingerprintFiles.Add(target);
+    }
+    var manifest = new CoopTrailPackageManifest
+    {
+        SchemaVersion = 1,
+        PackageId = packageId ?? Guid.NewGuid().ToString("D"),
+        DisplayName = name,
+        MissionCount = missionCount,
+        ContentFingerprint = CoopTrailPackageFingerprint.Compute(root, fingerprintFiles),
+    };
+    CoopTrailPackageManifestJson.WriteAtomic(Path.Combine(root, "cooptrail.json"), manifest);
+    return root;
 }
 
 static void ExpectFailure(Action action, string message)

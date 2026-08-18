@@ -57,6 +57,7 @@
     <Compile Include="src\CustomCustomTrailRuntime.cs" />
     <Compile Include="src\TrailMissionSettingsCoordinator.cs" />
     <Compile Include="src\MissionAssetResolver.cs" />
+    <Compile Include="src\CoopTrailPackageExporter.cs" />
     <Compile Include="src\ResolvedMission.cs" />
   </ItemGroup>
   <ItemGroup>

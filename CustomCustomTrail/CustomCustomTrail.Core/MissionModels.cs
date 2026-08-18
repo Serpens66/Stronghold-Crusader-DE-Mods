@@ -5,6 +5,25 @@ using System.Runtime.Serialization;
 namespace CustomCustomTrail.Core
 {
     [DataContract]
+    public sealed class CoopTrailPackageManifest
+    {
+        [DataMember(Name = "schemaVersion", Order = 1, IsRequired = true)] public int SchemaVersion { get; set; } = 1;
+        [DataMember(Name = "packageId", Order = 2, IsRequired = true)] public string PackageId { get; set; }
+        [DataMember(Name = "displayName", Order = 3, IsRequired = true)] public string DisplayName { get; set; }
+        [DataMember(Name = "missionCount", Order = 4, IsRequired = true)] public int MissionCount { get; set; }
+        [DataMember(Name = "contentFingerprint", Order = 5, IsRequired = true)] public string ContentFingerprint { get; set; }
+    }
+
+    public sealed class CoopTrailPackage
+    {
+        public string RootPath { get; set; }
+        public string MissionsPath { get; set; }
+        public string ManifestPath { get; set; }
+        public CoopTrailPackageManifest Manifest { get; set; }
+        public IReadOnlyList<LoadedMission> Missions { get; set; }
+    }
+
+    [DataContract]
     public sealed class CoopMissionDefinition
     {
         [DataMember(Name = "schemaVersion", Order = 1, IsRequired = true)] public int SchemaVersion { get; set; }

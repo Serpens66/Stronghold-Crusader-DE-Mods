@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.Serialization.Json;
+using System.Text;
 
 namespace CustomCustomTrail.Core
 {
@@ -35,6 +36,33 @@ namespace CustomCustomTrail.Core
                 Definition = definition,
                 BundledFiles = bundledFiles,
             };
+        }
+
+        public static string Serialize(CoopMissionDefinition definition)
+        {
+            Validate(definition);
+            using (var stream = new MemoryStream())
+            {
+                CreateSerializer().WriteObject(stream, definition);
+                return Encoding.UTF8.GetString(stream.ToArray()) + "\r\n";
+            }
+        }
+
+        public static void WriteAtomic(string path, CoopMissionDefinition definition)
+        {
+            string fullPath = Path.GetFullPath(path);
+            Directory.CreateDirectory(Path.GetDirectoryName(fullPath));
+            string temporary = fullPath + ".tmp-" + Guid.NewGuid().ToString("N");
+            try
+            {
+                File.WriteAllText(temporary, Serialize(definition), new UTF8Encoding(false));
+                if (File.Exists(fullPath)) File.Replace(temporary, fullPath, null);
+                else File.Move(temporary, fullPath);
+            }
+            finally
+            {
+                if (File.Exists(temporary)) File.Delete(temporary);
+            }
         }
 
         public static string ResolveBundledPath(string missionRoot, string relativePath, string requiredExtension)

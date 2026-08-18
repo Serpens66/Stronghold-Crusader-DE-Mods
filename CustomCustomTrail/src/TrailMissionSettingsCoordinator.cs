@@ -82,6 +82,15 @@ namespace CustomCustomTrail
             private bool activeSidecarEditable;
             private bool enabled;
             private readonly List<Button> injectedCoopButtons = new List<Button>();
+            private readonly Dictionary<UserControl, TextBlock> coopTrailTitleBlocks =
+                new Dictionary<UserControl, TextBlock>();
+            private readonly Dictionary<UserControl, string> vanillaCoopTrailTitles =
+                new Dictionary<UserControl, string>();
+            private CheckBox coopTrailExportCheckbox;
+            private string coopPackageDisplayName = string.Empty;
+            private int coopPackageMissionCount;
+
+            public event Action CoopPackagesChanged;
 
             public TrailMissionSettingsCoordinator(ManualLogSource log, bool enabled)
             {
@@ -94,8 +103,11 @@ namespace CustomCustomTrail
                 enabled = value;
                 foreach (Button button in injectedCoopButtons)
                     button.Visibility = value ? Visibility.Visible : Visibility.Collapsed;
+                if (coopTrailExportCheckbox != null)
+                    coopTrailExportCheckbox.Visibility = value ? Visibility.Visible : Visibility.Collapsed;
                 if (!value)
                 {
+                    SetCoopPackagePresentation(null, 0);
                     if (MainViewModel.Instance != null)
                         MainViewModel.Instance.Show_TrailCustomisationButtons = false;
                     ExitContext(force: true);
@@ -153,11 +165,13 @@ namespace CustomCustomTrail
                     (TrailSelectionDelegate)TrailSelectionHook);
 
                 EnsureCoopCustomizeButtons();
+                EnsureTrailMakerCoopCheckbox(FRONT_ManageTrail.Instance);
                 DebugLogHelper.LogInfo(log, "Trail mission-settings coordinator initialized.");
             }
 
             public void Dispose()
             {
+                SetCoopPackagePresentation(null, 0);
                 foreach (IDisposable hook in hooks)
                     hook.Dispose();
                 hooks.Clear();
@@ -340,6 +354,7 @@ namespace CustomCustomTrail
                 manageTrailInitOriginal(self, preserveSelection);
                 if (!enabled)
                     return;
+                EnsureTrailMakerCoopCheckbox(self);
                 // Vanilla invokes Init again after its confirmation callback deleted a mission.
                 TryFileOperation("clean orphan Trail sidecars", DeleteOrphanMakerSidecars);
             }
@@ -350,6 +365,8 @@ namespace CustomCustomTrail
                 if (!enabled)
                     return;
                 TryFileOperation("back up Trail sidecars", () => CopySidecars(source, destination, overwrite: true));
+                TryFileOperation("back up the Coop Trail Maker marker", () => CopyCoopMarker(source, destination));
+                TryFileOperation("back up the Coop Trail package", () => CopyCoopPackage(source, destination));
             }
 
             private void ImportHook(FRONT_ManageTrail self, string customFolderName)
@@ -359,13 +376,69 @@ namespace CustomCustomTrail
                     return;
                 string source = IOPath.Combine(ConfigSettings.GetUserCustomTrailsPath(), customFolderName);
                 TryFileOperation("import Trail sidecars", () => CopySidecars(source, ConfigSettings.GetUserTrailMakerPath(), overwrite: false));
+                TryFileOperation("import the Coop Trail Maker state", () =>
+                {
+                    SetMakerCoopEnabled(File.Exists(IOPath.Combine(source, "cooptrail.json")));
+                    RefreshTrailMakerCoopCheckbox();
+                });
             }
 
             private void ExportHook(FRONT_ManageTrail self, string destination)
             {
-                exportOriginal(self, destination);
                 if (!enabled)
+                {
+                    exportOriginal(self, destination);
                     return;
+                }
+                CoopTrailPackageExporter.PreparedPackage prepared = null;
+                bool exportCoop = IsMakerCoopEnabled();
+                if (exportCoop)
+                {
+                    try
+                    {
+                        prepared = new CoopTrailPackageExporter().Prepare(ConfigSettings.GetUserTrailMakerPath(), destination);
+                    }
+                    catch (Exception exception)
+                    {
+                        DebugLogHelper.LogError(log, "Could not prepare Coop Trail export: " + exception);
+                        ShowInformation(
+                            SerpLocalization.Get("CustomCustomTrail.ExportFailedTitle"),
+                            SerpLocalization.Get("CustomCustomTrail.ExportFailed") + "\r\n" + exception.Message);
+                        return;
+                    }
+                }
+
+                try
+                {
+                    exportOriginal(self, destination);
+                    ExportSidecars(destination);
+                    if (prepared != null)
+                    {
+                        prepared.Publish(destination);
+                        DebugLogHelper.LogInfo(log, "Published Coop Trail package [" + prepared.Package.Manifest.DisplayName +
+                            "] with " + prepared.Package.Manifest.MissionCount + " mission(s).");
+                    }
+                    else
+                    {
+                        RemoveCoopPackage(destination);
+                    }
+                    CoopPackagesChanged?.Invoke();
+                }
+                catch (Exception exception)
+                {
+                    DebugLogHelper.LogError(log, "Could not finish Trail export: " + exception);
+                    ShowInformation(
+                        SerpLocalization.Get("CustomCustomTrail.ExportFailedTitle"),
+                        SerpLocalization.Get("CustomCustomTrail.ExportFailed") + "\r\n" + exception.Message);
+                }
+                finally
+                {
+                    prepared?.Dispose();
+                }
+            }
+
+            private void ExportSidecars(string destination)
+            {
                 TryFileOperation("export Trail sidecars", () =>
                 {
                     foreach (string stale in Directory.GetFiles(destination, "Trail_Mission_*.modjson"))
@@ -398,7 +471,113 @@ namespace CustomCustomTrail
                 {
                     foreach (string sidecar in Directory.GetFiles(ConfigSettings.GetUserTrailMakerPath(), "Trail_Mission_*.modjson"))
                         File.Delete(sidecar);
+                    SetMakerCoopEnabled(false);
+                    RefreshTrailMakerCoopCheckbox();
                 });
+            }
+
+            private void EnsureTrailMakerCoopCheckbox(FRONT_ManageTrail page)
+            {
+                if (page == null || coopTrailExportCheckbox != null)
+                    return;
+                CheckBox anchor = page.FindName("ExportBackup") as CheckBox;
+                Panel host = anchor == null ? null : VisualTreeHelper.GetParent(anchor) as Panel;
+                if (anchor == null || host == null)
+                    return;
+                Thickness margin = host is StackPanel
+                    ? new Thickness(0, 8, 0, 0)
+                    : new Thickness(anchor.Margin.Left, anchor.Margin.Top, anchor.Margin.Right, anchor.Margin.Bottom + 48);
+                var checkbox = new CheckBox
+                {
+                    Name = "CustomCustomTrailCoopExport",
+                    Content = SerpLocalization.Get("CustomCustomTrail.TrailMakerCoop"),
+                    ToolTip = SerpLocalization.Get("CustomCustomTrail.TrailMakerCoopHelp"),
+                    Foreground = new SolidColorBrush(Color.FromArgb(byte.MaxValue, byte.MaxValue, byte.MaxValue, byte.MaxValue)),
+                    FontSize = 20,
+                    Style = anchor.Style,
+                    Margin = margin,
+                    HorizontalAlignment = anchor.HorizontalAlignment,
+                    VerticalAlignment = anchor.VerticalAlignment,
+                    IsChecked = IsMakerCoopEnabled(),
+                    Visibility = enabled ? Visibility.Visible : Visibility.Collapsed,
+                };
+                ToolTipService.SetShowDuration(checkbox, 60000);
+                checkbox.Click += (_, __) =>
+                {
+                    try
+                    {
+                        SetMakerCoopEnabled(checkbox.IsChecked == true);
+                    }
+                    catch (Exception exception)
+                    {
+                        DebugLogHelper.LogError(log, "Could not save Coop Trail Maker state: " + exception);
+                        checkbox.IsChecked = IsMakerCoopEnabled();
+                    }
+                };
+                host.Children.Add(checkbox);
+                coopTrailExportCheckbox = checkbox;
+            }
+
+            private static string GetCoopMarkerPath(string root) => IOPath.Combine(root, "cooptrail.enabled");
+
+            private static bool IsMakerCoopEnabled() =>
+                File.Exists(GetCoopMarkerPath(ConfigSettings.GetUserTrailMakerPath()));
+
+            private static void SetMakerCoopEnabled(bool value)
+            {
+                string marker = GetCoopMarkerPath(ConfigSettings.GetUserTrailMakerPath());
+                if (value)
+                    File.WriteAllText(marker, "enabled\r\n", new System.Text.UTF8Encoding(false));
+                else if (File.Exists(marker))
+                    File.Delete(marker);
+            }
+
+            private void RefreshTrailMakerCoopCheckbox()
+            {
+                if (coopTrailExportCheckbox != null)
+                    coopTrailExportCheckbox.IsChecked = IsMakerCoopEnabled();
+            }
+
+            private static void CopyCoopMarker(string source, string destination)
+            {
+                string marker = GetCoopMarkerPath(source);
+                if (File.Exists(marker))
+                    File.Copy(marker, GetCoopMarkerPath(destination), true);
+            }
+
+            private static void CopyCoopPackage(string source, string destination)
+            {
+                string manifest = IOPath.Combine(source, "cooptrail.json");
+                string missions = IOPath.Combine(source, "CoopMissions");
+                if (!File.Exists(manifest) || !Directory.Exists(missions))
+                    return;
+                File.Copy(manifest, IOPath.Combine(destination, "cooptrail.json"), true);
+                CopyDirectory(missions, IOPath.Combine(destination, "CoopMissions"));
+            }
+
+            private static void CopyDirectory(string source, string destination)
+            {
+                Directory.CreateDirectory(destination);
+                foreach (string file in Directory.GetFiles(source))
+                    File.Copy(file, IOPath.Combine(destination, IOPath.GetFileName(file)), true);
+                foreach (string directory in Directory.GetDirectories(source))
+                    CopyDirectory(directory, IOPath.Combine(destination, IOPath.GetFileName(directory)));
+            }
+
+            private static void RemoveCoopPackage(string destination)
+            {
+                string root = IOPath.GetFullPath(destination);
+                string manifest = IOPath.Combine(root, "cooptrail.json");
+                string missions = IOPath.Combine(root, "CoopMissions");
+                if (File.Exists(manifest))
+                    File.Delete(manifest);
+                if (Directory.Exists(missions))
+                    Directory.Delete(missions, true);
+            }
+
+            private static void ShowInformation(string title, string message)
+            {
+                HUD_ConfirmationPopup.ShowConfirmationOKMessage(title, delegate { }, message);
             }
 
             private void StartCustomTrailHook(MainViewModel self, string trailName, int missionId, int difficulty)
@@ -637,10 +816,64 @@ namespace CustomCustomTrail
 
             internal void EnsureCoopCustomizeButtons()
             {
-                InjectCoopCustomizeButton(FRONT_CoopTrail1.Instance);
-                InjectCoopCustomizeButton(FRONT_CoopTrail2.Instance);
-                InjectCoopCustomizeButton(FRONT_CoopTrail3.Instance);
-                InjectCoopCustomizeButton(FRONT_CoopTrail4.Instance);
+                UserControl[] pages =
+                {
+                    FRONT_CoopTrail1.Instance,
+                    FRONT_CoopTrail2.Instance,
+                    FRONT_CoopTrail3.Instance,
+                    FRONT_CoopTrail4.Instance,
+                };
+                for (int index = 0; index < pages.Length; index++)
+                {
+                    InjectCoopCustomizeButton(pages[index]);
+                    UpdateCoopTrailTitle(pages[index], index);
+                }
+            }
+
+            internal void SetCoopPackagePresentation(string displayName, int missionCount)
+            {
+                coopPackageDisplayName = displayName ?? string.Empty;
+                coopPackageMissionCount = Math.Max(0, Math.Min(40, missionCount));
+                EnsureCoopCustomizeButtons();
+            }
+
+            private void UpdateCoopTrailTitle(UserControl page, int zeroBasedTrail)
+            {
+                if (page == null)
+                    return;
+
+                if (!coopTrailTitleBlocks.TryGetValue(page, out TextBlock title))
+                {
+                    string key = "TEXT_COOP_0" + (23 + zeroBasedTrail).ToString(CultureInfo.InvariantCulture);
+                    if (!Translate.Instance.GameTexts.TryGetValue(key, out string vanillaTitle))
+                        return;
+                    title = FindDescendantTextBlock(page, vanillaTitle);
+                    if (title == null)
+                        return;
+                    coopTrailTitleBlocks[page] = title;
+                    vanillaCoopTrailTitles[page] = vanillaTitle;
+                }
+
+                bool packageOccupiesTrail = enabled && !string.IsNullOrWhiteSpace(coopPackageDisplayName) &&
+                    coopPackageMissionCount > zeroBasedTrail * 10;
+                title.Text = packageOccupiesTrail
+                    ? coopPackageDisplayName
+                    : vanillaCoopTrailTitles[page];
+            }
+
+            private static TextBlock FindDescendantTextBlock(DependencyObject parent, string expectedText)
+            {
+                int childCount = VisualTreeHelper.GetChildrenCount(parent);
+                for (int index = 0; index < childCount; index++)
+                {
+                    DependencyObject child = VisualTreeHelper.GetChild(parent, index);
+                    if (child is TextBlock textBlock && string.Equals(textBlock.Text, expectedText, StringComparison.Ordinal))
+                        return textBlock;
+                    TextBlock nested = FindDescendantTextBlock(child, expectedText);
+                    if (nested != null)
+                        return nested;
+                }
+                return null;
             }
 
             private readonly HashSet<UserControl> injectedCoopPages = new HashSet<UserControl>();
