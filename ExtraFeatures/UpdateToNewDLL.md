@@ -66,3 +66,12 @@ direct caller is the AI update at call-site RVA `0x53C33`; the routine requests
 `STRUCT_HOVEL` (`1`) before refunding and deleting the selected building. The
 owner-wide game cleanup path remains separate: `0xCD190` calls `0xC3F10`, which
 reaches `0xC4290`; none of these cleanup stages is intercepted.
+
+Fast Recruit Rally Movement obtains its speed/cadence hooks from
+BugfixesAndQoL. For the audited DLL, the speed reset occurs at BugfixesAndQoL
+RVA `0x19B4B6`, after Vanilla's base/group calculation and before its late
+terrain/status modifiers. The reflection callback contract uses `GameUnit*`
+as `IntPtr`; both mods must be rebuilt and installed together when this
+contract changes. Explicit `UnitMoveHere` orders and movement restarted after
+the rally flag with a different target now terminate per-unit rally tracking;
+same-target path restarts remain valid rally movement.

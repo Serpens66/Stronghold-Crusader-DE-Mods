@@ -19,13 +19,13 @@ namespace ExtraFeatures
         private const string BugfixPluginGuid = "BugfixesAndQoL_Serp";
         private const string IntegrationTypeName = "BugfixesAndQoL.MovementCadenceIntegration";
 
-        private delegate bool RegisterDelegate(Action<int> applyMaximumSpeed, Func<IntPtr, bool> tryApplyCadence);
-        private delegate void UnregisterDelegate(Action<int> applyMaximumSpeed);
+        private delegate bool RegisterDelegate(Action<IntPtr> applyMaximumSpeed, Func<IntPtr, bool> tryApplyCadence);
+        private delegate void UnregisterDelegate(Action<IntPtr> applyMaximumSpeed);
         private delegate bool TrySpeedDelegate(int unitType, bool improvedSpearmen, out ushort runningSpeedBonus);
         private delegate bool TryStateDelegate(int unitType, uint currentState, out uint runningState);
 
         private readonly ManualLogSource log;
-        private readonly Action<int> applyMaximumSpeedCallback;
+        private readonly Action<IntPtr> applyMaximumSpeedCallback;
         private readonly Func<IntPtr, bool> tryApplyCadenceCallback;
         private readonly UnregisterDelegate unregister;
         private readonly TrySpeedDelegate trySpeed;

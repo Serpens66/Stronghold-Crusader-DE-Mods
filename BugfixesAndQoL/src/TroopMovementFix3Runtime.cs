@@ -98,20 +98,20 @@ namespace BugfixesAndQoL
                 settings.EnableMod &&
                 settings.EnableTroopMovementFix;
             bool shouldEnableCadencePatch =
-                (settings.EnableMod &&
-                 fixedLayoutHashValidated &&
-                 settings.EnableTroopMovementFix) ||
-                MovementCadenceIntegration.HasFastRecruitCallbacks;
+                fixedLayoutHashValidated &&
+                ((settings.EnableMod && settings.EnableTroopMovementFix) ||
+                 MovementCadenceIntegration.HasFastRecruitCallbacks);
 
-            if (settings.EnableMod &&
-                settings.EnableTroopMovementFix &&
+            if (((settings.EnableMod &&
+                  settings.EnableTroopMovementFix) ||
+                 MovementCadenceIntegration.HasFastRecruitCallbacks) &&
                 !fixedLayoutHashValidated &&
                 !fixedLayoutErrorLogged)
             {
                 fixedLayoutErrorLogged = true;
                 Shared.DebugLogHelper.LogError(
                     log,
-                    "Bugfixes and QoL Troop Movement Fix remains inactive because its fixed native tribe and unit field layouts are not validated for this CrusaderDE.dll.");
+                    "Bugfixes and QoL movement hooks remain inactive because their fixed native tribe and unit field layouts are not validated for this CrusaderDE.dll.");
             }
 
             if (shouldEnableCadencePatch && cadencePatch == null)

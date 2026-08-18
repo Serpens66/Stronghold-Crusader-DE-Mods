@@ -32,7 +32,7 @@ namespace ExtraFeatures
                 new Dictionary<int, RecruitRallyTracking>();
         private readonly List<int> tribeUnitIds = new List<int>();
         private readonly List<IDisposable> subscriptions =
-            new List<IDisposable>(5);
+            new List<IDisposable>(6);
         private readonly GameUnit* unitArray;
         private readonly int unitArrayLength;
         private bool disposed;
@@ -66,6 +66,9 @@ namespace ExtraFeatures
                     UnitR3EventHooks.OnUnitDelete.Observable
                         .Subscribe(OnUnitDelete));
                 subscriptions.Add(
+                    UnitR3EventHooks.OnUnitMoveHere.Observable
+                        .Subscribe(OnUnitMoveHere));
+                subscriptions.Add(
                     UnitR3EventHooks.OnUnitTransition.Observable
                         .Subscribe(OnUnitTransition));
                 subscriptions.Add(
@@ -79,25 +82,21 @@ namespace ExtraFeatures
             }
         }
 
-        public void ApplyMaximumSpeed(int unitId)
+        public void ApplyMaximumSpeed(IntPtr unitAddress)
         {
-            // This runs in a native hot path, so reject untracked units before
-            // resolving their pointer or reading movement state.
-            if (disposed ||
-                !trackingByUnitId.TryGetValue(
-                    unitId,
+            GameUnit* unit = (GameUnit*)unitAddress.ToPointer();
+            if (disposed || unit == null ||
+                !trackingByUnitAddress.TryGetValue(
+                    unchecked((ulong)unit),
                     out RecruitRallyTracking tracking) ||
-                !GameUnitManagerAPI.Instance.TryGetUnitById(
-                    unitId,
-                    out GameUnit* unit) ||
                 !IsMatchingTrackedUnit(unit, tracking) ||
                 (unit->r_PathPlanStateBitFlags & ActivePathPlanState) == 0)
             {
                 return;
             }
 
-            // Speed levels are delays. The unit's own value is the uncapped
-            // maximum used by an individual fast movement order.
+            // This callback runs before Vanilla's late terrain/status stage.
+            // Reset only the preceding rally/group cap; later modifiers remain.
             unit->r_CurrentSpeed2 = unit->r_CurrentSpeed;
         }
 
@@ -179,6 +178,15 @@ namespace ExtraFeatures
             }
             else if (!tracking.IsMovingToRally)
             {
+                if (targetTileX != tracking.TargetTileX ||
+                    targetTileY != tracking.TargetTileY)
+                {
+                    RemoveTracking(
+                        tracking.UnitId,
+                        "movement restarted with a different target");
+                    return false;
+                }
+
                 FastRecruitRallyMovementModLog.Debug(
                     log,
                     $"Fast recruit rally movement restarted: " +
@@ -268,6 +276,16 @@ namespace ExtraFeatures
                 RemoveTracking(
                     unchecked((int)args.UnitId),
                     "unit deleted");
+            }
+        }
+
+        private void OnUnitMoveHere(UnitMoveHereEventArgs args)
+        {
+            if (args.Phase == EventHookPhase.Pre)
+            {
+                RemoveTracking(
+                    args.UnitId,
+                    $"individual movement order to {args.TileX},{args.TileY}");
             }
         }
 

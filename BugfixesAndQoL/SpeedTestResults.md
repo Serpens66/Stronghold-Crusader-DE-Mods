@@ -194,15 +194,18 @@ wirksam werden. Verbesserte Speerkämpfer sind das bestätigte Beispiel.
 
 ### Berechnung der effektiven Geschwindigkeit
 
-Der bewährte Speed-Hook detouriert
-`c_game_unit_calculate_movement_speed`.
+Der aktuelle Speed-Hook sitzt innerhalb von
+`c_game_unit_calculate_movement_speed` nach der Basis-/Gruppenberechnung und
+vor den späten Gelände-/Zustandsmodifikatoren.
 
 Verwendetes AOB-Muster:
 
-    48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 41 56 41 57 48 83 EC 20 4C 8D 35 ?? ?? ?? ?? 48 63 C2 48 69 D8 90 04 00 00
+    0F B6 83 C8 06 00 00 45 85 C9 74 ?? 3C 18 7D ?? 04 04 88 83 C8 06 00 00
 
-Vanilla läuft zuerst vollständig über den Trampoline-Aufruf. Nur für Einheiten
-mit einer Mod-Direktive wird danach eingegriffen.
+Vanillas Basis-/Gruppenberechnung läuft zuerst. Nur für getrackte
+Sammelpunkt-Rekruten wird anschließend `r_CurrentSpeed2` auf den eigenen
+Basiswert zurückgesetzt; danach führt Vanilla seine späten Gelände- und
+Zustandsanpassungen unverändert aus.
 
 ### Gemeinsame Bewegungskadenz
 
@@ -313,9 +316,10 @@ Sein Verhalten:
 Der Ansatz erreicht das durch bewusst stärkere Eingriffe:
 
 1. Er speichert eine `UnitMovementDirective` pro betroffener Unit-ID.
-2. Er lässt Vanillas Geschwindigkeitsberechnung zuerst laufen.
-3. Im nativen Speed-Hook setzt er bei freier Bewegung
-   `r_CurrentSpeed2 = r_CurrentSpeed`.
+2. Er lässt Vanillas Basis-/Gruppenberechnung zuerst laufen.
+3. Im nativen Pre-Terrain-Speed-Hook setzt er bei freier Bewegung
+   `r_CurrentSpeed2 = r_CurrentSpeed`; die nachfolgenden Vanilla-Modifikatoren
+   bleiben aktiv.
 4. Für synchronisierte Bewegung erhöht er die effektive Verzögerung nur bis zum
    Wert der langsamsten Einheit. Langsamere Terrain-/Zustandseffekte werden
    dadurch nicht aufgehoben.

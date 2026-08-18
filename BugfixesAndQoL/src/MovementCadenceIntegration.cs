@@ -7,7 +7,7 @@ namespace BugfixesAndQoL
 {
     public static class MovementCadenceIntegration
     {
-        private static Action<int> applyFastRecruitMaximumSpeed;
+        private static Action<IntPtr> applyFastRecruitMaximumSpeed;
         private static Func<IntPtr, bool> tryApplyFastRecruitCadence;
         private static SynchronizedMovementCadencePatch cadencePatch;
 
@@ -19,7 +19,7 @@ namespace BugfixesAndQoL
         public static bool IsReady => cadencePatch != null;
 
         public static bool RegisterFastRecruitCallbacks(
-            Action<int> applyMaximumSpeed,
+            Action<IntPtr> applyMaximumSpeed,
             Func<IntPtr, bool> tryApplyCadence)
         {
             applyFastRecruitMaximumSpeed = applyMaximumSpeed ?? throw new ArgumentNullException(nameof(applyMaximumSpeed));
@@ -37,7 +37,7 @@ namespace BugfixesAndQoL
             return IsReady;
         }
 
-        public static void UnregisterFastRecruitCallbacks(Action<int> applyMaximumSpeed)
+        public static void UnregisterFastRecruitCallbacks(Action<IntPtr> applyMaximumSpeed)
         {
             // Only the current owner may remove the process-wide callbacks.
             if (applyFastRecruitMaximumSpeed != applyMaximumSpeed)
@@ -83,9 +83,9 @@ namespace BugfixesAndQoL
             cadencePatch = patch;
         }
 
-        internal static void ApplyFastRecruitMaximumSpeed(int unitId)
+        internal static unsafe void ApplyFastRecruitMaximumSpeed(GameUnit* unit)
         {
-            applyFastRecruitMaximumSpeed?.Invoke(unitId);
+            applyFastRecruitMaximumSpeed?.Invoke(new IntPtr(unit));
         }
 
         internal static unsafe bool TryApplyFastRecruitCadence(SHCDESE.Interop.GameUnit* unit)

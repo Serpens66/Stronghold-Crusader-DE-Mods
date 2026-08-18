@@ -31,7 +31,7 @@ inactive until a new DLL has been audited.
 | `PeriodicDiseaseFoundPattern` | `0x14F87C` | state-transition context hook |
 | `WorkingBuildingExitReferencePattern` | `0x14F718` | semantic reference only |
 | `SpearmanMovementDecisionPattern` | `0x143B89` | inline movement-decision hook |
-| `CalculateMovementSpeedPattern` | `0x19B210` | movement-speed detour |
+| `PreTerrainSpeedAdjustmentPattern` | `0x19B4B6` | context hook after base/group speed and before late terrain/status modifiers; containing function `0x19B210-0x19B5D6` |
 | `UnitTypeUpdateDispatchPattern` | `0x1840BC` | dispatch-table reference |
 | `MovementCadencePattern` | `0x1841B3` | cadence context hook |
 
@@ -48,7 +48,11 @@ patterns. Every reference above was checked as one match in the baseline DLL.
    restoration remains safe.
 4. Revalidate plague manager/player/projectile fields and the popularity
    accumulator at `+0x12EC20`.
-5. Revalidate fixed tribe and unit layouts, including tribe `+0x542/+0x54E` and
+5. Revalidate the pre-terrain speed hook's complete 14-byte span
+   (`7,3,2,2`, end `0x19B4C4`), the following instruction, every direct branch
+   in `0x19B210-0x19B5D6`, and confirm that no control flow enters the span's
+   interior. Revalidate fixed tribe and unit layouts, including tribe
+   `+0x542/+0x54E` and
    movement fields `+0x582`, `+0x65C`, `+0x660`, `+0x688`, `+0x914`, `+0x916`,
    `+0x930`, `+0x99E` and `+0xA64`, before approving a new shared hash.
 6. Test each setting enabled and disabled, patch restoration, map reloads,
@@ -60,11 +64,22 @@ Error and leave only the affected feature inactive.
 
 ## Audit for Steam build 24651686
 
-Every table signature matched exactly once. The original assembly-point bytes,
-plague hook boundaries and movement ABIs were checked at the new RVAs. Native
+Every table signature matched exactly once. The pre-terrain speed signature is
+unique at `0x19B4B6`; its 14-byte overwrite span is `7,3,2,2` bytes, ends at
+`0x19B4C4`, has no incoming branch into its interior and precedes Vanilla's
+late terrain/status modifiers. The original assembly-point bytes, plague hook
+boundaries and movement ABIs were checked at the new RVAs. Native
 unit access still uses manager header `0x65C`, unit stride `0x490` and all fixed
 movement fields listed above. The tribe free-speed fields still map from the
 native tribe record to Script-Extender offsets `+0x542/+0x54E`. The enemy
 proximity caller still reads `ChoreManager +0x870` and selects Vanilla ranges
 `30`/`15`. Functional enabled/disabled and reload testing remains a post-build
 game smoke test.
+
+The reference-hash AIState-101 cadence audit covers all 15 recruit types with
+a native positive run bonus. `CHIMP_TYPE_ARAB_HORSEMAN` uses the normal fast
+pair `bonus=2/state=0x1`; state `0x111` belongs to a conditional later branch
+and must not be promoted to the general rally-running state. The Sapper's
+positive running pair is `bonus=1/state=0x81`; its state `0x1` path carries no
+positive run bonus. Healer (`0x5C1`) and Skirmisher (`0x101/0x181`) retain their
+audited type-specific conditional states.

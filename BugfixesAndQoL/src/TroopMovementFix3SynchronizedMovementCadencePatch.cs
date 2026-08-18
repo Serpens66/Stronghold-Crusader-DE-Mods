@@ -6,7 +6,6 @@ using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
-using System.Runtime.InteropServices;
 using Zhuqiaomon.Assembly;
 using Zhuqiaomon.Hooks;
 using Zhuqiaomon.Hooks.Transaction;
@@ -36,11 +35,11 @@ namespace BugfixesAndQoL
         private const int MaximumCadencePairDistance = 20;
         private const int DirectCadencePairDistance = 4;
 
-        // c_game_unit_calculate_movement_speed. Vanilla runs first; the
-        // detour then restores only tracked rally units to their own maximum.
-        private const string CalculateMovementSpeedPattern =
-            "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 41 56 41 57 48 83 EC 20 " +
-            "4C 8D 35 ?? ?? ?? ?? 48 63 C2 48 69 D8 90 04 00 00";
+        // c_game_unit_calculate_movement_speed after its base/group-speed
+        // calculation and immediately before its late terrain/status stage.
+        private const string PreTerrainSpeedAdjustmentPattern =
+            "0F B6 83 C8 06 00 00 45 85 C9 74 ?? 3C 18 7D ?? " +
+            "04 04 88 83 C8 06 00 00";
 
         // updateUnits pass 4:
         // call qword ptr [moduleBase + unitType * 8 + dispatchTableOffset]
@@ -53,13 +52,17 @@ namespace BugfixesAndQoL
         // mov r10d, dword ptr [r8+9A8h]
         private const string MovementCadencePattern =
             "41 0F BF 80 16 09 00 00 41 0F BF 88 A2 09 00 00 45 8B 90 A8 09 00 00";
-        private const int CalculateMovementSpeedRva = 0x19B210;
+        private const int CalculateMovementSpeedFunctionRva = 0x19B210;
+        private const int CalculateMovementSpeedFunctionLength = 0x3C6;
+        private const int PreTerrainSpeedAdjustmentRva = 0x19B4B6;
+        private const int PreTerrainSpeedAdjustmentHookLength = 14;
         private const int UnitTypeUpdateDispatchRva = 0x1840BC;
         private const int MovementCadenceRva = 0x1841B3;
 
         private readonly ManualLogSource log;
         private readonly TryGetCadenceDelegate tryGetCadence;
-        private readonly Action<int> applyFastRecruitRallyMaximumSpeed;
+        private readonly ApplyRallyBaseSpeedDelegate
+            applyFastRecruitRallyMaximumSpeed;
         private readonly TryApplyRallyCadenceDelegate
             tryApplyFastRecruitRallyCadence;
         private readonly HookTransaction transaction;
@@ -68,21 +71,13 @@ namespace BugfixesAndQoL
                 new Dictionary<eChimps, AnimationTransitions>(
                     (int)eChimps.CHIMP_NUM_TYPES);
         private readonly GameUnit* unitArray;
-        private HookRef<X64ManagedFunctionDetourAOB<
-            CalculateMovementSpeedDelegate>> movementSpeedHook =
-                new HookRef<X64ManagedFunctionDetourAOB<
-                    CalculateMovementSpeedDelegate>>();
+        private HookRef<X64InlineHook> movementSpeedAdjustmentHook =
+            new HookRef<X64InlineHook>();
         private HookRef<X64InlineHook> movementCadenceHook =
             new HookRef<X64InlineHook>();
         private bool movementSpeedCallbackFailureLogged;
         private bool cadenceCallbackFailureLogged;
         private bool disposed;
-
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        private delegate void CalculateMovementSpeedDelegate(
-            NativePointer<GameUnitManager> unitManager,
-            int unitId,
-            byte preserveCurrentHeight);
 
         internal delegate bool TryGetCadenceDelegate(
             int tribeId,
@@ -90,13 +85,14 @@ namespace BugfixesAndQoL
             out ushort runningSpeedBonus);
 
         internal delegate bool TryApplyRallyCadenceDelegate(GameUnit* unit);
+        internal delegate void ApplyRallyBaseSpeedDelegate(GameUnit* unit);
 
         public SynchronizedMovementCadencePatch(
             ManualLogSource log,
             ReadOnlySpan<byte> memory,
             ulong libraryBase,
             TryGetCadenceDelegate tryGetCadence,
-            Action<int> applyFastRecruitRallyMaximumSpeed,
+            ApplyRallyBaseSpeedDelegate applyFastRecruitRallyMaximumSpeed,
             TryApplyRallyCadenceDelegate tryApplyFastRecruitRallyCadence,
             bool referenceHashMatches)
         {
@@ -121,12 +117,12 @@ namespace BugfixesAndQoL
                     "The native unit array is unavailable.");
             }
 
-            int movementSpeedRva = Shared.NativePatternResolver.ResolveUnique(
+            int movementSpeedAdjustmentRva = Shared.NativePatternResolver.ResolveUnique(
                 memory,
-                CalculateMovementSpeedPattern,
-                CalculateMovementSpeedRva,
+                PreTerrainSpeedAdjustmentPattern,
+                PreTerrainSpeedAdjustmentRva,
                 referenceHashMatches,
-                "movement-speed calculation",
+                "pre-terrain movement-speed adjustment",
                 log).Rva;
             int dispatchRva = Shared.NativePatternResolver.ResolveUnique(
                 memory,
@@ -143,10 +139,15 @@ namespace BugfixesAndQoL
                 "movement cadence",
                 log).Rva;
 
+            ValidatePreTerrainSpeedAdjustmentHook(
+                memory,
+                libraryBase,
+                movementSpeedAdjustmentRva);
             DiscoverRunningAnimationTransitions(
                 memory,
                 libraryBase,
-                libraryBase + unchecked((ulong)dispatchRva));
+                libraryBase + unchecked((ulong)dispatchRva),
+                referenceHashMatches);
 
             transaction = new HookTransaction(
                 memory,
@@ -154,10 +155,15 @@ namespace BugfixesAndQoL
                 loggerFactory: null,
                 failureMode: TransactionFailureMode.RollbackAndThrow);
 
-            transaction.AddDetour(
-                ref movementSpeedHook,
-                libraryBase + unchecked((ulong)movementSpeedRva),
-                CalculateMovementSpeed);
+            transaction.AddContextHook(
+                ref movementSpeedAdjustmentHook,
+                libraryBase + unchecked((ulong)movementSpeedAdjustmentRva),
+                ApplyFastRecruitBaseSpeedBeforeTerrain,
+                regs: X64SmartCPUContextRegs.Volatile |
+                    X64SmartCPUContextRegs.RBX,
+                hookSize: PreTerrainSpeedAdjustmentHookLength,
+                errorMode: CallbackErrorMode.LogAndContinue,
+                placement: OverwrittenInstructionPlacement.AfterCallback);
 
             transaction.AddContextHook(
                 ref movementCadenceHook,
@@ -169,13 +175,13 @@ namespace BugfixesAndQoL
 
             transaction.Commit();
 
-            if (!movementSpeedHook.Success ||
+            if (!movementSpeedAdjustmentHook.Success ||
                 !movementCadenceHook.Success)
             {
                 transaction.Unload();
                 transaction.Dispose();
                 throw new InvalidOperationException(
-                    "The native movement-speed calculation or movement " +
+                    "The native movement-speed adjustment or movement " +
                     "cadence was not found.");
             }
 
@@ -247,7 +253,7 @@ namespace BugfixesAndQoL
             return animationTransitionsByType.TryGetValue(
                        unitType,
                        out AnimationTransitions animationTransitions) &&
-                   animationTransitions.TryGetRunningState(
+                   animationTransitions.TryGetRallyRunningState(
                        currentState,
                        out runningState);
         }
@@ -263,19 +269,22 @@ namespace BugfixesAndQoL
             transaction.Dispose();
         }
 
-        private void CalculateMovementSpeed(
-            NativePointer<GameUnitManager> unitManager,
-            int unitId,
-            byte preserveCurrentHeight)
+        private void ApplyFastRecruitBaseSpeedBeforeTerrain(
+            NativePointer<X64SmartCPUContext> context)
         {
-            movementSpeedHook.Value.Hook.Trampoline(
-                unitManager,
-                unitId,
-                preserveCurrentHeight);
-
             try
             {
-                applyFastRecruitRallyMaximumSpeed(unitId);
+                X64SmartCPUContext* registers = context.Pointer;
+                GameUnit* unit =
+                    (GameUnit*)(registers->RBX + UnitRecordOffset);
+                if (unit == null ||
+                    unit->r_AliveState != AliveState.IsAlive)
+                {
+                    return;
+                }
+
+                // Vanilla's later terrain/status block remains untouched.
+                applyFastRecruitRallyMaximumSpeed(unit);
             }
             catch (Exception ex)
             {
@@ -363,10 +372,145 @@ namespace BugfixesAndQoL
             }
         }
 
+        private void ValidatePreTerrainSpeedAdjustmentHook(
+            ReadOnlySpan<byte> memory,
+            ulong libraryBase,
+            int hookRva)
+        {
+            if (hookRva < 0 ||
+                hookRva + PreTerrainSpeedAdjustmentHookLength + 16 >
+                    memory.Length ||
+                CalculateMovementSpeedFunctionRva < 0 ||
+                CalculateMovementSpeedFunctionRva +
+                    CalculateMovementSpeedFunctionLength > memory.Length)
+            {
+                throw new InvalidOperationException(
+                    "The pre-terrain speed hook or its containing function " +
+                    "is outside the game module.");
+            }
+
+            ulong hookStart = libraryBase + unchecked((ulong)hookRva);
+            var hookDecoder = Decoder.Create(
+                64,
+                new ByteArrayCodeReader(
+                    memory.Slice(hookRva, 32).ToArray()));
+            hookDecoder.IP = hookStart;
+            var overwritten = new List<Instruction>(4);
+            int overwrittenLength = 0;
+            while (overwrittenLength < PreTerrainSpeedAdjustmentHookLength)
+            {
+                Instruction instruction = hookDecoder.Decode();
+                if (instruction.IsInvalid)
+                {
+                    throw new InvalidOperationException(
+                        "The pre-terrain speed hook span contains an " +
+                        "invalid instruction.");
+                }
+
+                overwritten.Add(instruction);
+                overwrittenLength += instruction.Length;
+            }
+
+            ulong hookEnd =
+                hookStart + unchecked((ulong)overwrittenLength);
+            bool expectedSpan =
+                overwrittenLength == PreTerrainSpeedAdjustmentHookLength &&
+                overwritten.Count == 4 &&
+                overwritten[0].Mnemonic == Mnemonic.Movzx &&
+                NormalizeRegister(overwritten[0].Op0Register) == Register.RAX &&
+                NormalizeRegister(overwritten[0].MemoryBase) == Register.RBX &&
+                overwritten[0].MemoryDisplacement64 == 0x6C8 &&
+                overwritten[1].Mnemonic == Mnemonic.Test &&
+                NormalizeRegister(overwritten[1].Op0Register) == Register.R9 &&
+                NormalizeRegister(overwritten[1].Op1Register) == Register.R9 &&
+                overwritten[2].Mnemonic == Mnemonic.Je &&
+                overwritten[2].NearBranchTarget ==
+                    libraryBase + 0x19B504UL &&
+                overwritten[3].Mnemonic == Mnemonic.Cmp &&
+                overwritten[3].Op0Kind == OpKind.Register &&
+                overwritten[3].Op0Register == Register.AL &&
+                IsImmediate(overwritten[3].Op1Kind) &&
+                overwritten[3].GetImmediate(1) == 0x18;
+            if (!expectedSpan)
+            {
+                throw new InvalidOperationException(
+                    "The pre-terrain speed hook instruction span no longer " +
+                    "matches its audited semantics.");
+            }
+
+            int functionRva = CalculateMovementSpeedFunctionRva;
+            var functionDecoder = Decoder.Create(
+                64,
+                new ByteArrayCodeReader(
+                    memory.Slice(
+                        functionRva,
+                        CalculateMovementSpeedFunctionLength).ToArray()));
+            functionDecoder.IP =
+                libraryBase + unchecked((ulong)functionRva);
+            ulong functionEnd = functionDecoder.IP +
+                unchecked((ulong)CalculateMovementSpeedFunctionLength);
+            while (functionDecoder.IP < functionEnd)
+            {
+                Instruction instruction = functionDecoder.Decode();
+                if (instruction.IsInvalid)
+                {
+                    throw new InvalidOperationException(
+                        "The movement-speed function contains an invalid " +
+                        "instruction before its audited end.");
+                }
+
+                if (instruction.FlowControl == FlowControl.IndirectBranch)
+                {
+                    throw new InvalidOperationException(
+                        "The movement-speed function gained an indirect " +
+                        "branch; the hook span requires a new control-flow audit.");
+                }
+
+                bool isDirectControlTransfer =
+                    instruction.FlowControl == FlowControl.ConditionalBranch ||
+                    instruction.FlowControl == FlowControl.UnconditionalBranch ||
+                    instruction.FlowControl == FlowControl.Call;
+                if (!isDirectControlTransfer ||
+                    !IsNearBranch(instruction.Op0Kind))
+                {
+                    continue;
+                }
+
+                ulong target = instruction.NearBranchTarget;
+                bool sourceOutsideSpan =
+                    instruction.IP < hookStart || instruction.IP >= hookEnd;
+                if (sourceOutsideSpan &&
+                    target > hookStart && target < hookEnd)
+                {
+                    throw new InvalidOperationException(
+                        $"Control flow from RVA 0x" +
+                        $"{instruction.IP - libraryBase:X} enters the middle " +
+                        $"of the speed hook at RVA 0x{target - libraryBase:X}.");
+                }
+            }
+
+            TroopMovementFix3ModLog.Debug(
+                log,
+                $"Pre-terrain speed hook span validated: " +
+                $"startRva=0x{hookStart - libraryBase:X}, " +
+                $"endRva=0x{hookEnd - libraryBase:X}, " +
+                $"instructionLengths=" +
+                $"{string.Join(",", overwritten.ConvertAll(x => x.Length))}, " +
+                $"nextRva=0x{hookEnd - libraryBase:X}.");
+        }
+
+        private static bool IsNearBranch(OpKind kind)
+        {
+            return kind == OpKind.NearBranch16 ||
+                   kind == OpKind.NearBranch32 ||
+                   kind == OpKind.NearBranch64;
+        }
+
         private void DiscoverRunningAnimationTransitions(
             ReadOnlySpan<byte> memory,
             ulong libraryBase,
-            ulong dispatchInstructionAddress)
+            ulong dispatchInstructionAddress,
+            bool referenceHashMatches)
         {
             int dispatchTableOffset = *(int*)(dispatchInstructionAddress + 4);
             ulong dispatchTableAddress =
@@ -471,6 +615,7 @@ namespace BugfixesAndQoL
                 eChimps.CHIMP_TYPE_ARAB_SLAVE,
                 eChimps.CHIMP_TYPE_SPEARMAN,
                 eChimps.CHIMP_TYPE_MACEMAN,
+                eChimps.CHIMP_TYPE_ARAB_HORSEMAN,
                 eChimps.CHIMP_TYPE_BEDOUIN_HEALER,
                 eChimps.CHIMP_TYPE_BEDOUIN_SKIRMISHER,
                 eChimps.CHIMP_TYPE_BEDOUIN_HEAVY_CAMEL,
@@ -485,6 +630,53 @@ namespace BugfixesAndQoL
                         $"extracted for {requiredType}.");
                 }
             }
+
+            if (referenceHashMatches)
+                ApplyAuditedIndividualFastMovementProfiles();
+        }
+
+        private void ApplyAuditedIndividualFastMovementProfiles()
+        {
+            // These are the exact AIState-101 fast-movement pairs audited in
+            // the reference DLL. They avoid merging mutually exclusive native
+            // branches, notably the horse archer's conditional state 0x111.
+            SetAuditedProfile(eChimps.CHIMP_TYPE_ARCHER, 1, 0x81);
+            SetAuditedProfile(eChimps.CHIMP_TYPE_SPEARMAN, 1, 0x81);
+            SetAuditedProfile(eChimps.CHIMP_TYPE_MACEMAN, 1, 0x81);
+            SetAuditedProfile(eChimps.CHIMP_TYPE_KNIGHT, 2, 0x81);
+            SetAuditedProfile(eChimps.CHIMP_TYPE_LADDERMAN, 1, 0x1);
+            SetAuditedProfile(eChimps.CHIMP_TYPE_MONK, 1, 0x81);
+            SetAuditedProfile(eChimps.CHIMP_TYPE_ARAB_BOW, 1, 0x81);
+            SetAuditedProfile(eChimps.CHIMP_TYPE_ARAB_SLAVE, 1, 0x1);
+            SetAuditedProfile(eChimps.CHIMP_TYPE_ARAB_SLINGER, 1, 0x81);
+            SetAuditedProfile(eChimps.CHIMP_TYPE_ARAB_HORSEMAN, 2, 0x1);
+            SetAuditedProfile(
+                eChimps.CHIMP_TYPE_BEDOUIN_CAMEL_LANCER,
+                2,
+                0x81);
+            SetAuditedProfile(eChimps.CHIMP_TYPE_BEDOUIN_HEALER, 1, 0x5C1);
+            SetAuditedProfile(
+                eChimps.CHIMP_TYPE_BEDOUIN_SKIRMISHER,
+                1,
+                0x101,
+                0x181);
+            SetAuditedProfile(
+                eChimps.CHIMP_TYPE_BEDOUIN_HEAVY_CAMEL,
+                2,
+                0x1);
+            SetAuditedProfile(eChimps.CHIMP_TYPE_BEDOUIN_SAPPER, 1, 0x81);
+        }
+
+        private void SetAuditedProfile(
+            eChimps unitType,
+            ushort runningSpeedBonus,
+            params uint[] runningStates)
+        {
+            animationTransitionsByType[unitType] =
+                new AnimationTransitions(
+                    new HashSet<uint>(runningStates),
+                    runningSpeedBonus,
+                    allowSoleStateFallbackForRally: true);
         }
 
         private AnimationTransitions TryExtractIndividualFastMovementCadence(
@@ -638,7 +830,8 @@ namespace BugfixesAndQoL
                 ? null
                 : new AnimationTransitions(
                     runningStates,
-                    unchecked((ushort)fastestBonus));
+                    unchecked((ushort)fastestBonus),
+                    allowSoleStateFallbackForRally: false);
         }
 
         private static bool TryResolveAiStateCaseTarget(
@@ -1572,10 +1765,12 @@ namespace BugfixesAndQoL
             private readonly Dictionary<uint, uint> walkingToRunning;
             private readonly Dictionary<uint, uint> runningToWalking;
             private readonly List<uint> runningStates;
+            private readonly bool allowSoleStateFallbackForRally;
 
             public AnimationTransitions(
                 HashSet<uint> extractedRunningStates,
-                ushort nativeRunningSpeedBonus)
+                ushort nativeRunningSpeedBonus,
+                bool allowSoleStateFallbackForRally)
             {
                 if (extractedRunningStates == null ||
                     extractedRunningStates.Count == 0)
@@ -1589,6 +1784,8 @@ namespace BugfixesAndQoL
                 walkingToRunning =
                     new Dictionary<uint, uint>(runningStates.Count);
                 NativeRunningSpeedBonus = nativeRunningSpeedBonus;
+                this.allowSoleStateFallbackForRally =
+                    allowSoleStateFallbackForRally;
                 runningToWalking =
                     new Dictionary<uint, uint>(runningStates.Count);
 
@@ -1626,24 +1823,21 @@ namespace BugfixesAndQoL
                     return true;
                 }
 
-                uint matchingState = 0;
-                int matchingCount = 0;
-                foreach (uint candidate in runningStates)
-                {
-                    if ((candidate & 0xFF) != (currentState & 0xFF))
-                        continue;
+                // Do not force a merely similar or sole decoded state. Only
+                // exact audited walking/running pairs are safe to translate.
+                runningState = currentState;
+                return false;
+            }
 
-                    matchingState = candidate;
-                    matchingCount++;
-                }
-
-                if (matchingCount == 1)
-                {
-                    runningState = matchingState;
+            public bool TryGetRallyRunningState(
+                uint currentState,
+                out uint runningState)
+            {
+                if (TryGetRunningState(currentState, out runningState))
                     return true;
-                }
 
-                if (runningStates.Count == 1)
+                if (allowSoleStateFallbackForRally &&
+                    runningStates.Count == 1)
                 {
                     runningState = runningStates[0];
                     return true;
