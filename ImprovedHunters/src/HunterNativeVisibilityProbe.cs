@@ -696,9 +696,16 @@ namespace ImprovedHunters
                     return false;
                 }
 
-                // The wrapper remains authoritative. Explicit directions are
-                // diagnostic even for zero so a geometry failure can be
-                // distinguished from wrapper/control-context disagreement.
+                // The validated wrapper calls both core directions before it
+                // can return zero. Preserve those exact results without two
+                // redundant native calls on the new 250-ms near-target path.
+                if (wrapperResult == 0)
+                {
+                    hunterToPreyResult = 0;
+                    preyToHunterResult = 0;
+                    return true;
+                }
+
                 if (!TryInvokeGuardedVisibility(
                         visibilityCore,
                         hunterX,

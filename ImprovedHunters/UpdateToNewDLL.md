@@ -1049,6 +1049,78 @@ visibility semantics and snapshot freshness. Any eventual bypass of the
 relocation audit and must enter the unchanged direct-attack sequence exactly
 once; writing `+0xF4`, path state or AI state remains forbidden.
 
+### Position-bound visibility refresh and attack-gate handoff in 1.1.61
+
+The `1.1.60` runtime log resolves both open questions on the audited DLL. Free
+targets produced a positive wrapper and two positive core directions at tile
+distances `26`, `12` and `13`; subsequent direct attacks were delayed by about
+`301 ms` and `1,213 ms` while the gate at `0x130110` remained deferred. Thus the
+remaining free-target latency is downstream of native visibility. Conversely,
+long blocked paths and both moving-prey attempts stopped receiving probes while
+the persistent scan observed reservation `1`. Their last authoritative wrapper
+zero then expired after exactly two seconds and the next direct attack returned
+zero before state `6`. The shortened blocked path became visible before expiry
+and attacked successfully. Every wrapper-zero sample also had both core results
+zero, so wrapper classification remains unchanged.
+
+Version `1.1.61` permits raw reservation `1` only in the behavior-neutral
+persistent probe capture after validating the complete Hunter, prey, global ID,
+player, map, state, active incomplete path and accepted-MoveHere-generation
+context. Stable snapshot identity remains normalized to reservation `2`, and
+strict inline readers still require raw reservation `2`. Near targets at a
+Manhattan tile distance of at most `30` are sampled every `250 ms`; farther
+targets retain the one-second interval. A visible result records both exact tile
+positions and becomes pending after either position changes. A known blocked
+result remains conservative after its two-second readable lifetime only while
+the complete strict live context and same active path remain valid, preventing
+expiry from authorizing the destructive failed direct-attack path.
+
+The same exact reference hash remains mandatory:
+
+- SHA-256:
+  `33AA33457F7DFAAA6D316D1D5E4C5AB97094F2C73B68D349990ABF9D0EF3B469`
+- HunterUpdate audited function: RVA `[0x12FC20,0x1313D2)`, `6066` bytes
+- existing distance hook: RVA `0x1300EA`, decoded overwrite span
+  `[0x1300EA,0x1300FD)` = `3+2+5+9` bytes
+- distance hook internal `JLE`: RVA `0x1300ED` to `0x130102`
+- new attack-gate hook: RVA `0x130110`, decoded overwrite span
+  `[0x130110,0x130124)` = `9+2+9` bytes
+- relocated gate-ready `JE`: RVA `0x130119` to unchanged attack setup at
+  `0x13012A`
+- following untouched path-state `JE`: RVA `0x130124` to `0x1313B2`, with
+  fallthrough to `0x13012A`
+- unchanged direct attack call: RVA `0x13013D` to `0x18E950`
+
+The hook cannot safely begin at the later `JE 0x130124`: any detour large enough
+for the callback would overwrite `0x13012A`, which is the target of the earlier
+branch at `0x130119`. Starting at the basic-block boundary `0x130110` relocates
+the complete first `CMP/JE` and second `CMP` before the callback. If Vanilla's
+first comparison is ready, its relocated branch goes directly to original RVA
+`0x13012A` without invoking the callback. Otherwise the callback observes the
+second comparison's flags. Only a positive PCL snapshot plus a fresh (at most
+`500 ms`), position-matched positive visibility snapshot may clear `RFLAGS.ZF`;
+the untouched branch at `0x130124` then falls through into Vanilla's attack
+setup exactly once. Every rejected or exceptional callback preserves the
+original flag and branch. No unit or manager field is written.
+
+Before transaction commit, Iced decodes every complete instruction in both
+spans and the following gate branch, validates all expected targets, checks
+non-overlap and scans the entire HunterUpdate range for direct conditional
+branches, unconditional branches and calls whose targets enter either span's
+interior. Any indirect branch anywhere in the audited function disables the
+feature because it could conceal a jump-table entry. The targeted Rizin audit on
+the canonical DLL reconstructed one `6066`-byte function with `207` basic blocks
+and no interior Xref to the gate-span addresses; the disassembly contains the
+expected two-entry fallthrough structure and no indirect jump-table dispatch.
+Both hooks are added to one rollback-on-failure transaction, so partial
+installation is impossible.
+
+On a future DLL hash, do not pattern-scan or enable this handoff. Re-identify the
+complete HunterUpdate function and direct attack sequence, repeat instruction,
+incoming-target, function-entry, Xref and jump-table audits for both spans, then
+update all RVAs and the reference hash together. A matching opcode prefix alone
+is insufficient.
+
 Future Script Extender updates must revalidate the public ranged-damage,
 projectile-delete and move-order semantics. A bounded native reachability path
 must be identified and validated before pre-shot recovery is enabled again. The

@@ -3,10 +3,18 @@
   "Author": "Serpens66",
   "Name": "Improved Hunters",
   "Description": "Adds configurable hunter prey and meat yield for deer, goats, rabbits, camels, chickens and cows.",
-  "Version": "1.1.60",
+  "Version": "1.1.61",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.1.61",
+      "Changes": [
+        "Refresh active-target visibility every 250 ms in the attack approach, keep behavior-neutral probes alive across Vanilla's transient reservation-1 scan phase, and bind every visible result to the exact sampled Hunter and prey tiles.",
+        "Keep a still-valid known blocked path conservative while its next probe is pending, preventing snapshot expiry from falling into Vanilla's failed close-range attack and return-to-hut path.",
+        "Hand a fresh, position-matched visible target through Vanilla's delayed locomotion gate by changing only the gate comparison's captured zero flag after full instruction-span and inbound-control-flow validation; movement, path, target and AI state remain Vanilla-owned."
+      ]
+    },
     {
       "Version": "1.1.60",
       "Changes": [

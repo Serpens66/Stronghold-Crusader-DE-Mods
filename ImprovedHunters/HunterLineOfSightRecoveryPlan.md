@@ -2,21 +2,26 @@
 
 Stand: `2026-08-18`
 
-Aktueller implementierter Quellstand: `1.1.60`. Zuletzt ingame geprüft ist
-`1.1.59`: Die begrenzte Tracker-Retention funktioniert, aber freie Sicht wird
-teilweise erst sehr nah positiv und eine positive Freigabe wird durch Vanillas
-nachgeschaltetes `+0xF4`-Bewegungstor weiter verzögert. `1.1.60` trennt beide
-Ursachen mit verhaltensneutralen Geometrie-, Kernrichtungs- und Gate-Logs;
-Paket E ist bis zur erneuten Ingame-Abnahme ausdrücklich **nicht abgenommen**.
+Aktueller implementierter und ingame geprüfter Quellstand: `1.1.61`. Die
+Korrektur des Sicht-/Angriffshandoffs ist bestätigt: freie Ziele werden nach
+einer frischen positiven Probe ohne den früheren `+0xF4`-Aufschub angegriffen,
+und ein fast neun Sekunden langer blockierter Weg lief ohne Fehlangriff bis zur
+freien Sicht weiter. Paket E bleibt dennoch **offen**, weil der Jäger nach dem
+ersten angenommenen Schuss das weiterhin lebende, erreichbare und erlaubte
+Ziel `17/319` nicht weiterverfolgte, sondern ohne neuen `MoveHere`-Auftrag State
+`6` erreichte und zur Hütte zurückkehrte. Ob der Pfeil nichts oder ein anderes
+Tier traf, ist für diesen Paket-E-Fehler zweitrangig. Die Übernahme eines dabei
+getöteten unreservierten Beutetiers gehört ausdrücklich zu Paket F.
 
 ## Übergabe in Kurzform
 
-Die Pakete A und B sind abgeschlossen. Paket E besitzt im Quellstand `1.1.60`
-die Teilbausteine für Restweg, Vanilla-Geschwindigkeitsstufen, PCL und den
-aktiven Sicht-Snapshot am Tile-Angriffspfad. Der `1.1.57`-Test bestätigte die
-frühe Freigabe bis Tile-Distanz `28`, widerlegte aber die verbliebene
-Fortschritts-Rücksprungheuristik. Ursache, Korrektur und Pflichttests stehen im
-Paket-E-Abschnitt ab „`1.1.60`-Diagnose nach dem `1.1.59`-Test“.
+Die Pakete A und B sind in ihrer bisherigen Kernfunktion abgeschlossen. Paket E
+besitzt im Quellstand `1.1.61` die Teilbausteine für Restweg,
+Vanilla-Geschwindigkeitsstufen, PCL, aktiven Sicht-Snapshot und den
+Zero-Flag-only-Angriffshandoff. Der aktuelle, für einen neuen Chat maßgebliche
+Stand beginnt im Paket-E-Abschnitt bei „Aktueller Übergabestand nach dem
+`1.1.61`-Test“. Ältere Übergabestände bleiben nur als historische Herleitung
+erhalten und sind keine Handlungsanweisung mehr.
 
 Verbindliche Reihenfolge:
 
@@ -74,11 +79,11 @@ ist. Für Kühe besteht noch ein dokumentierter Widerspruch.
 | Verborgene erreichbare Beute | Implementiert und ingame bestätigt | Als stabile Grundlage erhalten |
 | PCL-Vorfilter für unerreichbare Beute | Seit `1.1.44` produktiv und bestätigt | Keine eigene Detailpfadsuche ergänzen |
 | Neu unerreichbares aktives Ziel | Seit `1.1.45` implementiert und in den Logs bestätigt | Vanilla selbst neu suchen lassen |
-| Distanz-28-Pfadfortsetzung | `1.1.56` bestätigte ingame die Fortsetzung des gültigen Vanilla-Pfades ohne vorzeitigen State-6-Abbruch; Paket E insgesamt bleibt offen | Alle sieben Paket-E-Tests und die maschinelle Logabnahme durchführen; keine eigenen Moves oder AI-States |
-| Freie Sicht und echter Angriff | `1.1.59` bestätigt stabile Tracker-Retention; positiv sichtbare Ziele werden jedoch erst nach Vanillas `+0xF4`-Tor direkt angegriffen, während manche optisch freien Annäherungen bis in kurze Distanz Wrapper `0` liefern | Mit `1.1.60` Sichtgeometrie, beide Kernrichtungen und Gate-Aufschub getrennt messen; erst danach positionsgebundene Aktualisierung und gegebenenfalls validierten Gate-Handoff implementieren |
+| Distanz-28-Pfadfortsetzung | `1.1.61` bestätigte einen fast neun Sekunden langen gültigen Pfad bis `61/79`; trotz wiederholter Tile-Distanzen `<=28` gab es vor freier Sicht weder direkten Fehlangriff noch State-6-Abbruch | Als bestandenen Kernpfad erhalten; dauerhaft blockierten Zehn-Sekunden-Fall und Mehrjägerfall noch regressieren |
+| Freie Sicht und echter Angriff | `1.1.61` bestätigte vier freie Angriffe bei Tile-Distanzen `28`, `17`, `12` und `17`; der direkte Angriff folgte jeweils rund `20–26 ms` nach der letzten frischen Probe. Zwei bewegte Blockiert-zu-sichtbar-Fälle griffen nach `1–6 ms` an, obwohl `pathFieldF4=7` beziehungsweise `4` war | Modseitige Sicht-/Gate-Verzögerung gilt als korrigiert; in Paket E jetzt ausschließlich den Abbruch der Weiterverfolgung nach einem nicht tödlichen Schuss klären |
 | Jägerhütte als Sichtblocker | Seit `1.1.41` aktiv und ingame plausibel | In Paket D kurz regressieren |
-| Schuss, Kadaver, Pickup und Abgabe | Mehrfach vollständig beobachtet | Paket B abgeschlossen; kein Pickup-Fix |
-| Langsames Schleichen auf langem Umweg | Restweg und Vanilla-Geschwindigkeitswahl sind bestätigt; `1.1.50` belegt wiederholte `Query -> State 0 -> MoveHere`-Resets als Ursache der Sitz-/Warteanimation | Normale Vanilla-Locomotion erhalten; die noch offene State-1-Angriffslücke beheben und danach Geschwindigkeit plus Animation regressieren |
+| Schuss, Kadaver, Pickup und Abgabe | Für das tatsächlich reservierte und getötete Ziel mehrfach vollständig beobachtet. In zwei Herdensituationen blieb das reservierte Ziel nach einem positiven Angriff am Leben | Paket E: Weiterverfolgung desselben lebenden Ziels statt State `6`. Paket F: Ein vom Jäger versehentlich getötetes, von keinem Jäger reserviertes Beutetier als neues Ziel übernehmen |
+| Langsames Schleichen auf langem Umweg | Restweg und Vanilla-Geschwindigkeitswahl sind bestätigt; `1.1.61` lief einen Pfad `79` Einträge lang stabil bis zur Sichtung. Der Benutzer meldete dabei schnelle Reaktion und keinen Abbruch vor Sichtung | Normale Vanilla-Locomotion erhalten; Geschwindigkeit und Animation noch im Mehrjäger-/Dauerblockiert-Test regressieren |
 | Unreservierte vorhandene Kadaver | Noch nicht unterstützt | Danach separat als Paket F entwickeln |
 | Alle sechs Beutearten | Gemeinsame Architektur, noch keine vollständige Typmatrix | Paket D nach E und F |
 | Produktionsbereinigung | Bewusst zurückgestellt | Paket C zuletzt |
@@ -117,7 +122,8 @@ blockieren Paket E nicht mehr.
 Normale und hindernisgestützte Jagd haben Schuss, echten Kadaver, Einsammeln
 und Fleischabgabe mehrfach vollständig durchlaufen.
 
-Ein einzelner abweichender Herdentest belegt keinen Pickup-Fehler:
+Die normale Pickup-Kette bleibt bestätigt. Der frühere abweichende Herdentest
+war jedoch kein Einzelfall mehr:
 
 - Jäger `1/369` speicherte Reh `10/287` als Ziel und erzeugte Pfeil `25/440`.
 - Beim Projectile-Delete bestand dieses gespeicherte Ziel die Vorprüfung auf
@@ -128,11 +134,28 @@ Ein einzelner abweichender Herdentest belegt keinen Pickup-Fehler:
   ein anderes bewegtes Herdentier. Der tatsächliche Trefferempfänger wurde in
   diesem Lauf nicht protokolliert und ist nachträglich nicht bestimmbar.
 
-Entscheidung: kein Pickup-Fix und kein weiterer Pflicht-Test. Nur bei erneutem
-Auftreten wird eine rein beobachtende Diagnose in einer eigenen Datei ergänzt.
-Sie muss tatsächlichen Trefferempfänger, Vorher-/Nachherzustand und spätere
-Kadaverabholung verfolgen, ohne Vanilla-Schaden, Projektilkompensation oder
-Zielwahl zu beeinflussen.
+- Im `1.1.61`-Lauf schoss Jäger `1/395` auf das reservierte Ziel
+  `17/319`. `attackResult=1` bestätigt nur, dass Vanillas Angriffsbefehl
+  angenommen wurde; es beweist keinen Treffer am gespeicherten Ziel.
+- Ziel `17/319` war beim Suchlauf um `10:52:14.357` weiterhin lebend und wurde
+  um `10:52:21.301` mit derselben Global-ID erneut per `MoveHere` angenommen.
+- Reh-Slot `64`, der um `10:52:07.051` erzeugt worden war, wurde stattdessen um
+  `10:52:18.526` gelöscht und um `10:52:21.945` wieder als Reh erzeugt. Zusammen
+  mit der Ingame-Beobachtung ist ein Treffer auf dieses andere Herdentier die
+  stärkste Erklärung, aber ohne Trefferempfänger-Log noch kein direkter Beweis.
+- Beim zweiten Schuss wurde Zielslot `17` selbst um `10:52:25.646` gelöscht;
+  dieser Durchlauf führte laut Ingame-Beobachtung korrekt zum Einsammeln.
+
+Entscheidung: weiterhin **kein pauschaler Pickup-Fix**. Aus denselben
+Beobachtungen folgen zwei getrennte Arbeiten:
+
+- Paket E untersucht ausschließlich, warum ein angenommener, aber für das
+  reservierte Ziel nicht tödlicher Schuss die Weiterverfolgung beendet und in
+  State `6` führt.
+- Paket F erfasst bei Bedarf den tatsächlichen Trefferempfänger und übernimmt
+  ein dadurch getötetes Beutetier nur dann, wenn dessen Kadaver gültig,
+  erreichbar und weder vom schießenden noch von einem anderen Jäger reserviert
+  ist.
 
 ## Aktuelle produktive Lösungskette
 
@@ -156,8 +179,10 @@ Zielwahl zu beeinflussen.
    Sicht vorzeitig angreifen, lässt die Pfadfortsetzung für diesen Update-Aufruf
    Vanillas vorhandene Distanz-29-Stufe laufen. Der Mod gibt keinen Move aus und
    schreibt keine Ziel-, Pfad-, Order- oder AI-State-Felder.
-9. Sobald die native Sichtprobe positiv wird, endet der Eingriff. Vanilla greift
-   regulär an.
+9. Sobald ein frischer, positionsgleicher positiver Sicht-Snapshot vorliegt,
+   endet der Distanz-Override. Falls Vanillas nachgeschaltetes Pfadzustandstor
+   den Angriff noch unterdrücken würde, löscht der validierte Hook ausschließlich
+   das Zero Flag und lässt Vanillas originale Angriffssequenz laufen.
 10. Nach echtem Projektilspawn bleibt nur die identitätsgesicherte
     Projektilkompensation. Sie darf bei einem feststeckenden Pfeil
     `DamageUnitRanged`, aber niemals `KillUnit` verwenden.
@@ -639,7 +664,11 @@ Vanilla führt dann seine normale Query aus. Der frühere State-1-ZF-Fallback un
 seine zweistufige State-0-/`MoveHere`-Übergabe wurden entfernt, damit ein real
 unerreichbares reserviertes Ziel nicht erneut denselben Reset-Loop erzeugt.
 
-### Aktueller Übergabestand nach dem `1.1.55`-Test
+### Historischer Übergabestand nach dem `1.1.55`-Test
+
+Dieser Abschnitt dokumentiert die damalige Fehlerherleitung. Er wurde durch den
+aktuellen Übergabestand nach dem `1.1.61`-Test ersetzt und ist keine aktuelle
+Arbeitsanweisung mehr.
 
 Paket E ist **offen und im aktuellen Stand nicht funktional**. Die frühere
 Einschätzung, der bewegte Freisichtfall reiche bereits für die Abnahme aus, ist
@@ -702,7 +731,10 @@ durch das Einzelticket garantiert zum selben Update“ ist nur für Updates wahr
 die den Welt-Nahbereichsrefresh tatsächlich durchlaufen. Sie deckt nicht den
 gesamten Tile-Distanz-28-Angriffszweig ab und muss ersetzt werden.
 
-### Verbindliche Implementierungsempfehlung für den nächsten Chat
+### Historische Implementierungsempfehlung für `1.1.56`
+
+Diese Empfehlung führte zur heute implementierten Lösungskette. Für weitere
+Arbeit ist ausschließlich der Übergabestand nach dem `1.1.61`-Test verbindlich.
 
 1. Keinen eigenen Move, keine Animation, keine Speedfelder, keinen AI-State und
    keinen neuen Recovery-Pfad setzen. Der bestehende validierte Hook bei
@@ -756,10 +788,11 @@ Pfadfortschritt/-länge sowie eine eindeutige Aktion
 expliziten Ablehnungsgrund. Wiederholungen gleicher Entscheidungen drosseln,
 Zustandswechsel und den ersten echten Callback immer loggen.
 
-### Noch ausstehende Paket-E-Tests
+### Ursprüngliche Paket-E-Testmatrix
 
-Nach der Implementierung sind alle folgenden Tests Pflicht; ein einzelner
-bewegter Freisichtlauf genügt nicht:
+Diese Matrix bleibt als Herkunft der Abnahmekriterien erhalten. Der aktuelle
+Erfüllungsstand und die noch ausstehenden Tests stehen im Übergabestand nach dem
+`1.1.61`-Test; ein einzelner bewegter Freisichtlauf genügt weiterhin nicht:
 
 1. **Reproduktion der aktuellen Distanzmetrik-Lücke:** Ein Jäger erhält bei
    kurzer Tile-Luftlinie einen langen, aber erreichbaren Weg um eine diagonale
@@ -803,10 +836,11 @@ Sichtentscheidung derselben Identität existieren. Für jeden freigegebenen
 Angriff muss ein frischer beidseitig positiver Snapshot und anschließend ein
 positives Vanilla-Angriffsergebnis vorliegen.
 
-Gate: Paket E bleibt offen. Erst wenn die Distanzmetrik-Lücke implementiert ist
-und alle obigen Abnahmepunkte bestehen, darf Paket F begonnen werden.
+Historisches Gate: Die Distanzmetrik-Lücke ist inzwischen implementiert. Paket E
+bleibt wegen der im aktuellen Übergabestand dokumentierten offenen Punkte
+weiterhin vor Paket F.
 
-### Implementierter Folgestand `1.1.56` – Ingame-Abnahme ausstehend
+### Historischer Implementierungsstand `1.1.56`
 
 `1.1.56` setzt die oben verbindlich festgelegte Richtung um, ist aber noch kein
 bestandener Paket-E-Stand:
@@ -839,7 +873,7 @@ bestandener Paket-E-Stand:
 Nächster Schritt ist ausschließlich die bereits oben definierte siebenstufige
 Ingame- und Logabnahme von Paket E. Paket F bleibt bis dahin gesperrt.
 
-### Aktueller Korrekturstand `1.1.57` nach dem `1.1.56`-Test
+### Historischer Korrekturstand `1.1.57` nach dem `1.1.56`-Test
 
 Der `1.1.56`-Lauf ab eigenem Mod-Zeitstempel `2026-08-17 22:51:11.496`
 bestätigte den ersten Teil der Korrektur: Der Jäger setzte seinen gültigen
@@ -875,14 +909,11 @@ eine sofortige neue Probe als Pfadneustart. Damit bleiben Ein-Sekunden-Takt,
 Zwei-Sekunden-Lesefenster und der sichtbare Snapshot über normale
 Locomotion-Unterstufen hinweg erhalten.
 
-Paket E bleibt **offen**. Nächster Pflichtschritt ist ein erneuter Ingame-Lauf
-des bewegten Übergangsfalls. Erwartet werden höchstens ungefähr eine Sichtprobe
-pro Sekunde bei unverändertem Ziel, mindestens ein `allow-vanilla-attack` mit
-frischem beidseitig positivem Snapshot sowie anschließend ein positives
-Vanilla-Angriffsergebnis. Danach bleiben die übrigen siebenstufigen Paket-E-
-Szenarien und die maschinelle Logabnahme erforderlich.
+Für diesen damaligen Stand blieb Paket E offen; als nächster Schritt war ein
+erneuter Ingame-Lauf des bewegten Übergangsfalls vorgesehen. Diese Anweisung ist
+durch die nachfolgenden Implementierungen und den `1.1.61`-Test ersetzt.
 
-### Explizite Pfadgeneration `1.1.58` nach dem `1.1.57`-Test
+### Historische explizite Pfadgeneration `1.1.58`
 
 Der `1.1.57`-Lauf ab eigenem Mod-Zeitstempel `2026-08-17 23:16:25.697`
 bestätigte, dass die Reichweite nicht hart verkürzt wurde: Der Tile-Hook
@@ -932,7 +963,7 @@ Sekunde. Ein dauerhaft sichtbares Ziel muss wiederholt die Freigabe des
 Distanz-Overrides behalten; seit `1.1.60` wird getrennt ausgewiesen, ob Vanillas
 nachgeschaltetes Angriffstor bereits bereit ist oder den Angriff noch vertagt.
 
-### Begrenzte Tracker-Retention `1.1.59` nach dem `1.1.58`-Test
+### Historische begrenzte Tracker-Retention `1.1.59`
 
 Der `1.1.58`-Lauf ab eigenem Mod-Zeitstempel `2026-08-17 23:37:46.127`
 bestätigte die neue Pfadgrenze: Fünf erfolgreiche Vanilla-`MoveHere` erzeugten
@@ -971,10 +1002,10 @@ Tracker unverändert sofort.
 Der erste zurückgehaltene Scanfehler nennt nun seinen konkreten Capture-Grund;
 eine wirkliche Ablaufbereinigung nennt Abwesenheits- und Validierungsalter. Es
 gibt weiterhin keinen eigenen Move, keine Reichweiten-, Cooldown-, Pfad-,
-Animations-, Speed- oder AI-State-Schreiboperation. Pflichtschritt bleibt die
-erneute Ingame-Abnahme des bewegten Übergangs und des freien Kontrollfalls.
+Animations-, Speed- oder AI-State-Schreiboperation. Der damals noch offene
+bewegte Übergang und der freie Kontrollfall wurden später mit `1.1.61` geprüft.
 
-### `1.1.60`-Diagnose nach dem `1.1.59`-Test
+### Historische `1.1.60`-Diagnose nach dem `1.1.59`-Test
 
 Der `1.1.59`-Lauf ab Mod-Zeitstempel `2026-08-17 23:58:48` bestätigt die
 Retention: `new-tracker-pending` sank von 172 auf 2 und `visibility-pending`
@@ -1017,6 +1048,187 @@ der Wrapper samt beiden Kernen auf freier Geometrie reproduzierbar `0`, ist
 zuerst die native Höhen-/Sichtsemantik zu korrigieren; ein Gate-Bypass würde
 sonst nur Fehlschüsse und den belegten State-6-/Hüttenpfad beschleunigen.
 
+### `1.1.61`-Korrektur nach dem `1.1.60`-Test
+
+Der `1.1.60`-Lauf widerlegt die Vermutung, dass die native Sichtfunktion bei
+wirklich freier Geometrie generell zu spät positiv wird. Im freien Kontrollfall
+wurde Wrapper-Sicht bei Tile-Distanzen `26`, `12` und `13` positiv. Zwei Ziele
+warteten danach trotz unverändert freier Sicht noch rund `301 ms` beziehungsweise
+`1.213 ms`, bis Vanillas Tor bereit war und der direkte Angriff bei Distanz `26`
+beziehungsweise `12` lief. Der verbleibende freie-Sicht-Aufschub liegt damit
+nach der Sichtentscheidung.
+
+Die langen blockierten Fälle zeigen einen zweiten, unabhängigen Fehler. Der
+persistente Scan sah bei laufendem Pfad wiederholt Reservation `1`, während der
+maßgebliche Inline-Pfad denselben Hunter/Ziel-Kontext mit Reservation `2`
+validierte. Dadurch wurde keine neue Sichtprobe angefordert. Genau zwei Sekunden
+nach der letzten Wrapper-Nullprobe lief der Snapshot ab; der Code ließ Vanilla
+fehloffen direkt angreifen. Diese Angriffe lieferten `0`, führten in State `6`
+und anschließend zur Hütte. Das trat bei zwei langen blockierten Wegen sowie
+beiden Versuchen mit dem entgegenkommenden Reh auf. Beim verkürzten Weg wurde
+freie Sicht vor Ablauf positiv und der Angriff funktionierte. Sämtliche
+Wrapper-Nullproben hatten auch in beiden Kernrichtungen Ergebnis `0`; die
+Wrapper-Semantik bleibt deshalb autoritativ und unverändert.
+
+`1.1.61` setzt den kleinsten gemeinsamen Fix an diesen stabilen Übergängen um:
+
+- Der persistente, verhaltensneutrale Sichtscan darf Reservation `1` nur dann
+  für eine Probe akzeptieren, wenn Hunter, Ziel, Global-IDs, Spieler, Karte,
+  State, aktiver unvollständiger Pfad und akzeptierte `MoveHere`-Generation
+  vollständig passen. Die stabile Snapshot-Identität bleibt auf Reservation
+  `2` normalisiert; der Rohwert wird nur diagnostisch protokolliert. Strikte
+  Inline-Entscheidungen verlangen weiterhin Reservation `2`.
+- Bei Manhattan-Tile-Distanz höchstens `30` wird alle `250 ms` statt jede
+  Sekunde geprüft. Weiter entfernte Ziele behalten den Ein-Sekunden-Takt.
+  Wrapper `0` setzt die bereits intern ausgewerteten beiden Richtungen auf `0`,
+  statt dafür zwei redundante native Kernaufrufe auszuführen.
+- Ein positiver Snapshot speichert die exakten Hunter- und Beute-Tiles. Haben
+  sich seit der Probe Hunter oder Beute bewegt, gilt er bis zur nächsten Probe
+  als `visible-position-changed-refresh-pending` und darf keinen Angriff
+  freigeben.
+- Ein bekannter blockierter Snapshot fällt nach zwei Sekunden nicht mehr
+  fehloffen in den direkten Angriff, solange derselbe strikte Live-Kontext und
+  derselbe aktive, unvollständige Pfad noch gelten. Er meldet
+  `stale-blocked-refresh-pending`; die nächste Probe, ein Identitätswechsel,
+  eine neue Pfadgeneration oder Vanilla-Pfadende begrenzen diesen Zustand.
+- Ein neuer exact-hash-only Context-Hook beginnt an RVA `0x130110`. Seine
+  tatsächliche Überschreibspanne `[0x130110,0x130124)` besteht aus vollständigen
+  `9+2+9` Bytes (`CMP`, `JE`, `CMP`). Die erste originale Verzweigung nach
+  `0x13012A` bleibt erhalten und umgeht den Callback, wenn Vanilla bereits
+  bereit ist. Nur beim nachfolgenden Pfadzustandsausstieg darf ein frischer,
+  höchstens `500 ms` alter, positionsgleicher positiver Snapshot mit positiver
+  PCL-Erreichbarkeit das gespeicherte Zero Flag löschen. Danach fällt Vanillas
+  unverändertes `JE` bei `0x130124` in seine originale Angriffssequenz ab
+  `0x13012A`. Es gibt keine Feld-, Bewegungs-, Ziel-, Pfad- oder AI-State-
+  Schreiboperation.
+
+Vor Installation werden beide Hooks gemeinsam fail-closed validiert. Die
+bisherige Distanzspanne `[0x1300EA,0x1300FD)` wird als `3+2+5+9` Bytes dekodiert;
+die neue Gatespanne als `9+2+9` Bytes. Ziele der internen Branches, die folgende
+Verzweigung bei `0x130124`, Span-Überlappung und alle direkten Calls sowie
+bedingten und unbedingten Sprünge der umgebenden HunterUpdate-Funktion werden
+auf Einstiege in das Innere beider Spannen geprüft. Erst wenn die gesamte
+Transaktion besteht, werden beide Hooks committed. Callbackfehler behalten die
+originalen Flags und damit Vanilla-Verhalten.
+
+### Aktueller Übergabestand nach dem `1.1.61`-Test
+
+Maßgeblicher Loglauf: Kartenstart der freien Kontrollkarte um
+`2026-08-18 10:49:33`, Kartenstart der blockierten Bewegungskarte um
+`10:51:51`. Der Quell- und Pluginstand war `1.1.61`; beide nativen Hookspannen
+wurden beim Start gemeinsam validiert und installiert:
+`[0x1300EA,0x1300FD)` für die Distanzentscheidung und
+`[0x130110,0x130124)` für das Angriffstor. Im Lauf gab es keine
+Improved-Hunters-Callbackexception, keinen `snapshot-expired`-Fehlangriff und
+kein `stale-blocked-refresh-pending`.
+
+Bestätigte Ergebnisse:
+
+1. **Freie Sicht bestanden.** Vier angenommene Ziele wurden bei
+   Tile-Distanzen `28`, `17`, `12` und `17` angegriffen. Zwischen der jeweils
+   letzten frischen positiven Sichtprobe und `attackResult=1` lagen rund
+   `26 ms`, `20 ms`, `24 ms` und `24 ms`. Zwei Angriffe liefen mit
+   `pathFieldF4=3` beziehungsweise `8`; das frühere F4-Warten ist damit nicht
+   mehr vorhanden. Wenn ein Schuss ingame noch nah wirkt, belegt dieser Lauf
+   keine zusätzliche modseitige Verzögerung zwischen erkannter freier Sicht und
+   Angriff.
+2. **Langer blockierter Weg bis zur Sichtung bestanden.** Ziel `17/319` erhielt
+   um `10:52:04.377` einen Pfad der Länge `79`. Proben liefen auch bei
+   `rawProbeReservation=1` ungefähr alle `303–311 ms` weiter. Der Pfad erreichte
+   `61/79`, ohne vorherigen direkten Fehlangriff oder State-6-Abbruch. Die erste
+   positive Probe um `10:52:13.317` wurde eine Millisekunde später trotz
+   `pathFieldF4=7` in `attackResult=1` übergeben.
+3. **Zweiter Blockiert-zu-sichtbar-Versuch bestanden.** Die positive Probe um
+   `10:52:23.772` führte nach `6 ms` bei `pathFieldF4=4` zum positiven direkten
+   Angriff. Zielslot `17` wurde um `10:52:25.646` gelöscht; der Benutzer
+   bestätigte den normalen Pickup.
+4. **Die alte gemeinsame Ursache ist behoben.** Weder die frühere
+   Reservationsphase-`1`-Probelücke noch der F4-Gate-Aufschub erklärt den noch
+   beobachteten ersten Rückweg. Sichtreaktion und Angriffshandoff arbeiteten in
+   genau diesem Versuch schnell und erfolgreich.
+
+Analyse des ersten Schusses und des anschließenden Jagdabbruchs:
+
+- Der reservierte und an den Schuss gebundene Kandidat war durchgehend
+  `17/319`. Bei der Freigabe lagen Hunter und Ziel nur fünf Tiles auseinander;
+  der positive, positionsgleiche Snapshot war `0 ms` alt und der Angriff lieferte
+  `1`. Ein zu weit entferntes Ziel ist daher nicht belegt.
+- `attackResult=1` bedeutet nur, dass Vanillas Angriffsbefehl angenommen wurde.
+  Für Paket E ist danach entscheidend, dass das reservierte Ziel weiterlebte;
+  welches Objekt der Pfeil stattdessen traf, ändert die notwendige
+  Weiterverfolgung nicht.
+- Ziel `17/319` lebte nach dem Schuss weiter: Es erschien um `10:52:14.357`
+  erneut als erlaubter Fallback-Kandidat und wurde um `10:52:21.301` mit
+  derselben Global-ID wieder angenommen. Damit kann es nicht das vom Benutzer
+  zuerst beobachtete tote Reh gewesen sein.
+- Nach dem Schuss startete Vanilla um `10:52:14.357` eine neue Zielsuche. Sie
+  meldete Ziel `17` zwar als `allowed=True` und `fallback=True`, erzeugte in
+  diesem Update aber keinen neuen akzeptierten `MoveHere`. Um `10:52:15.372`
+  lief der Sichttracker wegen `hunter-state-6` aus. Der Log belegt damit den
+  Hüttenrückweg, aber noch nicht, welches interne Vanilla-Kriterium nach dem
+  nicht tödlichen Schuss die sofortige Wiederaufnahme verhinderte.
+- Die Paket-E-Fehlerdefinition lautet deshalb: Nach Abschluss eines Schusses
+  bleibt das reservierte Ziel mit gleicher Slot-/Global-ID lebend, erlaubt und
+  PCL-erreichbar, aber Vanillas Nach-Schuss-Pfad erteilt keinen neuen Auftrag
+  und fällt in State `6`. Erwartet wird die Weiterverfolgung genau dieses Ziels.
+- Reh-Slot `64` wurde in diesem Versuch wahrscheinlich vom Pfeil getötet. Diese
+  mögliche Fremdbeute erklärt nicht, warum Ziel `17/319` aufgegeben wurde, und
+  wird ausschließlich in Paket F behandelt.
+
+Verbindlicher nächster Arbeitsschritt:
+
+1. Vor jeder weiteren Verhaltensänderung den **Nach-Schuss-Zustandspfad** rein
+   beobachtend erweitern. Ab `attackResult=1` müssen Projektilerzeugung und
+   -ende, Hunter-State und -Order, Zielslot/Global-ID, Ziel-Alive-State und
+   Gesundheit, Reservation, PCL, Zielquery-Rückgabe, Fallbackkandidat,
+   `MoveHere`-Aufruf/-Ergebnis sowie jeder Writer von State `6` korreliert sein.
+2. Nativ bestimmen, welcher konkrete Branch nach State `10` die neue State-0-
+   Suche auslöst, weshalb `allowed=True, fallback=True` dennoch bei `best=none`
+   und ohne `MoveHere` endet und welcher Writer in diesem Lauf State `6` setzt.
+   Ein bloßer Tracker-Ablauf mit `reason=hunter-state-6` lokalisiert den Writer
+   noch nicht.
+3. Neue Diagnosehooks erst nach vollständiger Überschreibspannen-, Branchziel-
+   und Register-/Flags-Validierung installieren. Sie bleiben beobachtend; kein
+   Schaden, Target-Transfer, eigener Move oder AI-State-Write während der
+   Ursachenanalyse.
+4. Danach den kleinsten stabilen Vanilla-Übergang korrigieren: Ist das
+   ursprüngliche Ziel nach Schussende mit derselben Identität noch lebend,
+   aktiviert, eigenreserviert und PCL-erreichbar, muss Vanilla es unmittelbar
+   erneut verfolgen, statt State `6` und den Hüttenrückweg zu wählen. Bevorzugt
+   wird Vanillas vorhandener Wiederaufnahme-/Requery-Pfad; keine eigene
+   Bewegungs- oder Angriffs-State-Machine ergänzen.
+5. Ist dasselbe Ziel tot, ungültig, fremdreserviert oder PCL-getrennt, darf diese
+   Paket-E-Korrektur nicht greifen. Den 30-Sekunden-Cooldown,
+   Projektilkompensation, Kadaver-Pickup und Paket F nicht als Symptomfix für den
+   Nach-Schuss-Abbruch verändern.
+
+Noch ausstehende Abnahme für Paket E:
+
+1. Den bewegten Herdenfall mindestens dreimal wiederholen. Sobald Ziel
+   `slot/globalId` einen Schuss überlebt und weiterhin gültig sowie erreichbar
+   ist, muss derselbe Jäger es ohne Hüttenrückweg erneut verfolgen. Ein Treffer
+   auf ein anderes Tier darf diese Paket-E-Anforderung nicht ändern.
+2. Einen nicht tödlichen Schuss beziehungsweise Fehlschuss so weit wie möglich
+   kontrolliert reproduzieren: keine State-6-Folge, kein langer Zielcooldown und
+   genau eine Vanilla-konforme Wiederaufnahme derselben Zielidentität pro
+   Nach-Schuss-Übergang.
+3. Ein erreichbar bleibendes, vollständig sichtblockiertes Ziel mindestens zehn
+   Sekunden verfolgen lassen; keine Fehlattacke und kein State `6`.
+4. Ein aktives Ziel nachträglich vollständig unerreichbar machen; PCL `0` muss
+   weiter identitätsgesichert invalidieren und jede Fortsetzung beenden.
+5. Zwei Jäger gleichzeitig sowie Kartenneustart und Slot-Wiederverwendung testen;
+   Sicht-, PCL-, Pfad-, Schuss- und Trefferzustände dürfen sich nicht vermischen.
+6. Mod beziehungsweise `ImprovedPathfinding` deaktivieren und bestätigen, dass
+   Distanz- und Gate-Hook weder Register noch Flags verändern.
+7. Nach der Nach-Schuss-Korrektur je einen freien und einen
+   Blockiert-zu-sichtbar-Fall als Regression wiederholen. Beim tödlichen Treffer
+   des reservierten Ziels bleiben Kadaver, Pickup und Abgabe unverändert.
+
+Gate: Der Sicht-/Pfad-/Angriffskern von Paket E ist ingame bestätigt. Paket E
+insgesamt bleibt offen, bis ein weiterhin gültiges und lebendes Ziel nach einem
+nicht tödlichen Schuss zuverlässig weiterverfolgt wird und die genannten
+Regressionen bestehen. Paket F beginnt weiterhin erst danach.
+
 ### Paket F: Unreservierte Kadaver als Abholkandidaten
 
 Paket F folgt auf E und wird ebenfalls separat entwickelt und abgenommen.
@@ -1024,6 +1236,15 @@ Paket F folgt auf E und wird ebenfalls separat entwickelt und abgenommen.
 Fachliche Regel:
 
 - Tote, noch verwertbare Tiere mit Reservation `0` dürfen Kandidaten sein.
+- Tötet das Projektil eines Jägers ein anderes aktiviertes Beutetier als sein
+  reserviertes Ziel, muss der Jäger unmittelbar auf diesen neuen Kadaver
+  wechseln, sofern der Kadaver gültig, verwertbar, erreichbar und in diesem
+  Moment von keinem Jäger reserviert ist.
+- Dieser kausale Fremdtreffer-Transfer hat Vorrang vor der normalen
+  Kostenrangfolge: Der Jäger hat die Beute selbst erlegt und soll sie direkt
+  einsammeln. Schlägt die identitätsgesicherte Kadaverreservation fehl, darf er
+  den Kadaver nicht stehlen; dann bleibt Paket Es Weiterverfolgung des
+  ursprünglichen lebenden Ziels maßgeblich.
 - Tote und lebende Tiere verwenden dieselbe Fleisch-pro-Zykluskosten-Rangfolge.
 - Ein gültiger Kadaver erhält einen kalibrierten Bonus von ungefähr fünf
   Sekunden. Es gibt keine zweite pauschal vorrangige Kadaverliste.
@@ -1036,23 +1257,33 @@ Analyse und Entwicklung:
 1. Native Corpse-/AI-Zustände, Kadaverflag, Alive-State, Gesundheit,
    Verwertbarkeit und Reservation für abholbare, reservierte und verbrauchte
    Kadaver kalibrieren. Slot und Global-ID bilden gemeinsam die Identität.
-2. Den frühesten Vanilla-Pfad bestimmen, der einen vorhandenen Kadaver
+2. Für den kausalen Fremdtreffer-Transfer den tatsächlichen Damage-/Impact-
+   Empfänger mit Projektil und schießendem Jäger korrelieren. Nur ein durch
+   genau dieses Projektil tödlich gewordener, aktivierter Beutetyp darf den
+   direkten Transfer auslösen; ein zeitlich nur benachbarter Unit-Delete genügt
+   nicht als Beweis.
+3. Den frühesten Vanilla-Pfad bestimmen, der einen vorhandenen Kadaver
    reservieren, anlaufen und aufnehmen lässt. Vor dieser Validierung keinen
    AI-State schreiben, keinen Recovery-Move und keinen künstlichen
    Fleischgewinn erzeugen.
-3. Nur aktivierte Beutetypen im normalen Suchradius und mit positiver
+4. Beim Transfer zuerst Hunter-, Projektil- und Kadaveridentität sowie
+   Reservation `0` live validieren. Die Reservation des ursprünglichen Ziels
+   erst in der belegten Vanilla-Reihenfolge freigeben; der Jäger darf zu keinem
+   Zeitpunkt zwei Beutetiere halten und kein anderer Jäger darf den Kadaver
+   bereits beanspruchen.
+5. Nur aktivierte Beutetypen im normalen Suchradius und mit positiver
    PCL-Erreichbarkeit in den bestehenden Zielcache aufnehmen.
-4. `50` Bonuspunkte erst verwenden, wenn ungefähr zehn Kostenpunkte pro Sekunde
+6. `50` Bonuspunkte erst verwenden, wenn ungefähr zehn Kostenpunkte pro Sekunde
    bestätigt sind; andernfalls den äquivalenten Wert aus nativen Zeitstufen
    ableiten.
-5. Reservation und Identität unmittelbar vor Vanilla-Handoff erneut prüfen.
+7. Reservation und Identität unmittelbar vor Vanilla-Handoff erneut prüfen.
    Mehrere Jäger dürfen denselben Kadaver nicht übernehmen.
-6. Verschwindet der Kadaver, wird fremdreserviert oder PCL-getrennt, über
+8. Verschwindet der Kadaver, wird fremdreserviert oder PCL-getrennt, über
    Vanillas Zielverlustpfad neu suchen. Keinen Jäger löschen und keinen langen
    Identitäts-Cooldown setzen.
-7. Pickup und Abgabe vollständig über Vanilla laufen lassen. Die bestehende
+9. Pickup und Abgabe vollständig über Vanilla laufen lassen. Die bestehende
    Kurzzeitkadaver-Erhaltung nur nach belegter Semantik verändern.
-8. Technische Kadavererkennungsfehler dürfen keinen unbekannten oder
+10. Technische Kadavererkennungsfehler dürfen keinen unbekannten oder
    unverwertbaren Kadaver künstlich auswählbar machen.
 
 Abnahme:
@@ -1065,12 +1296,21 @@ Abnahme:
 - Unerreichbarer Kadaver: Er wird verworfen und nach Öffnen eines Zugangs
   zeitnah wieder zugelassen.
 - Zwei Jäger und ein Kadaver: Genau ein Jäger reserviert und holt ihn.
+- Pfeil tötet ein anderes, unreserviertes Beutetier als das aktuelle Ziel: Der
+  Schütze wechselt genau auf diesen Kadaver, sammelt ihn ein und gibt das
+  Fleisch ab.
+- Pfeil tötet ein anderes, bereits von einem zweiten Jäger reserviertes
+  Beutetier: Kein Zieltransfer und kein Reservationsdiebstahl; der Schütze setzt
+  Paket-E-konform die Jagd auf sein ursprüngliches, weiterhin gültiges Ziel fort.
+- Zwei nahezu gleichzeitige Pfeile treffen dasselbe unreservierte Beutetier:
+  Höchstens ein Jäger gewinnt die Reservation und übernimmt den Kadaver.
 - Kadaver verschwindet oder wird fremdreserviert: Der Jäger sucht kontrolliert
   neu.
 - Fleischabgabe und Kadaverbereinigung bleiben Vanilla-konform.
 
-Gate: Gemeinsame Kostenentscheidung, kalibrierter weicher Bonus, keine
-Doppelreservation und vollständiger Vanilla-Pickup-/Abgabepfad.
+Gate: Kausaler Fremdtreffer-Transfer, gemeinsame Kostenentscheidung,
+kalibrierter weicher Bonus, keine Doppelreservation und vollständiger
+Vanilla-Pickup-/Abgabepfad.
 
 ### Paket D: gemeinsame Beutetyp- und Mehrfachmatrix
 
@@ -1206,10 +1446,12 @@ erzeugen.
 | `src/HunterPclReachability.cs` | Produktiver PCL-Vorfilter mit Ein-Sekunden-Auswahlcache sowie aktive State-1-Zielprüfung mit getrenntem Ein-Sekunden-Probe-/Zwei-Sekunden-Snapshot, Statistiken und Fail-open-Verhalten |
 | `src/HunterPclReachabilityDiagnostic.cs` | Temporäres Kalibrierungslogging; in Paket C entfernen |
 | `src/HunterNativeVisibilityProbe.cs` | Validierte native Wrapper-/Kernsichtprobe; wird vom aktiven Sicht-Snapshot außerhalb des Inline-Hooks aufgerufen |
-| `src/HunterActiveTargetVisibilitySnapshot.cs` | Seit `1.1.59` an explizite erfolgreiche-`MoveHere`-Generationen gebunden und über einzelne transiente Scanlücken hinweg begrenzt erhalten; `1.1.60` ergänzt pro Ein-Sekunden-Probe die exakte Geometrie und beide Kernrichtungen, ohne die Zwei-Sekunden-Klassifikation oder Verhalten zu ändern; erneute Ingame-Abnahme ausstehend |
+| `src/HunterActiveTargetVisibilitySnapshot.cs` | `1.1.61` erlaubt verhaltensneutrale Proben in der Reservationsphase `1`, prüft im Nahbereich alle `250 ms`, bindet positive Ergebnisse an beide Tilepositionen und hält einen streng live-validierten bekannten Blockiert-Zustand bis zur Aktualisierung konservativ; im freien und langen blockierten Lauf ingame bestätigt |
 | `src/HunterHutVisibilityPatch.cs` | Produktive, validierte Ein-Byte-Korrektur der Jägerhüttenausnahme |
 | `src/HunterTargetSearchFallbackDiagnostic.cs` | Verhalten und Diagnose derzeit gemischt; in Paket C trennen und umbenennen |
-| `src/HunterVanillaPathContinuationDiagnostic.cs` | `1.1.56` entscheidet am Tile-Distanz-28-Hook anhand aktiver Sicht und PCL; keine Ticket-Abhängigkeit mehr, Ingame-Abnahme ausstehend |
+| `src/HunterVanillaPathContinuationDiagnostic.cs` | Entscheidet am Tile-Distanz-28-Hook anhand aktiver Sicht und PCL; `1.1.61` ergänzt den exact-hash-only, Zero-Flag-only Gate-Handoff an RVA `0x130110` mit vollständiger Span- und Direktbranchprüfung; freie und bewegte Blockiert-zu-sichtbar-Angriffe mit nicht-null `pathFieldF4` ingame bestätigt |
+| Neue separate Nach-Schuss-Diagnose, Dateiname noch festzulegen | Nächster Paket-E-Pflichtschritt: vom angenommenen Angriff über Projektilende, Zielzustand und Requery bis zum konkreten State-6-Writer nur beobachten; nach Beweis in Paket C wieder entfernbar |
+| Spätere Paket-F-Trefferdiagnose, Dateiname noch festzulegen | Tatsächlichen Damage-/Impact-Empfänger kausal mit Projektil und Schützenidentität verbinden, damit nur ein wirklich vom Jäger getöteter reservationsfreier Fremdkadaver übernommen wird |
 | `src/HunterVisibilityDiagnostic.cs` | Breite ältere Diagnose; in Paket C entfernen, falls nicht mehr benötigt |
 | `src/HunterLineOfSightRecovery.cs` | Stillgelegter Managed-A*-Adapter; in Paket C ohne parallelen Fallback entfernen |
 | `src/ImprovedHuntersRuntime.cs` | Events, Eligibility, Rangfolge, PCL-Gates, Handoff, Reservierungsbereinigung, Pfadfortsetzung und Projektilkompensation |
@@ -1292,7 +1534,9 @@ Kanonische installierte DLL:
 | `0x196230` | `c_game_unit_issueorder_movehere` |
 | `0x12FC20` | `HunterUpdate` |
 | `0x1300EA` | Vergleich der nativen Distanz mit `28` im State-1-Pfad |
+| `0x130110` | Beginn des validierten nachgeschalteten Pfadzustandstors; Hookspanne `[0x130110,0x130124)` |
 | `0x13013D` | Direkter Angriffsaufruf |
+| `0x130149` | Beobachtung des Rückgabewerts des direkten Angriffs |
 | `0x130171` | Sichtfehlschlag zu State `6` und Hüttenrückkehr |
 
 Vollständige Bytepattern, Callerprüfungen, Strukturfelder, Resolver und
@@ -1316,11 +1560,19 @@ Die Singleplayer-Kernfunktion ist fertig, wenn:
   kontrolliert verworfen wird, ohne den Jäger aufzulösen,
 - Vanillas Weg auch innerhalb Distanz `28` bis zur freien Sicht weiterläuft,
 - freie Sicht sofort zu Vanillas echtem Angriff und Projektil führt,
+- ein nach dem Schuss weiterhin lebendes, gültiges und PCL-erreichbares Ziel
+  ohne Hüttenrückweg durch denselben Jäger weiterverfolgt wird,
+- für jeden Schuss beabsichtigtes Ziel und tatsächlicher Damage-Empfänger
+  unterscheidbar sind und ein positiver Angriffsbefehl nicht als bestätigter
+  Zieltreffer missverstanden wird,
 - Jägerhütten wie normale Gebäude blockieren,
 - lange Restwege eine passende Vanilla-Bewegungsstufe verwenden, ohne die
   letzte Schussannäherung zu beschleunigen,
 - unreservierte Kadaver dieselbe Rangfolge mit nur ungefähr fünf Sekunden
   kalibriertem Bonus verwenden,
+- ein durch den eigenen Pfeil getötetes fremdes Beutetier bei Reservation `0`
+  unmittelbar als Kadaverziel übernommen wird, während eine fremde Reservation
+  niemals gestohlen wird,
 - ein weiter Kadaver gegen deutlich günstigere lebende Beute verlieren kann,
 - Kadaver nicht doppelt reserviert werden und Vanilla-Pickup sowie Abgabe
   vollständig funktionieren,
@@ -1343,20 +1595,29 @@ Script Extender `1.50.0` erreicht.
 
 1. Dieses Dokument und die in der Dateitabelle genannten aktuellen Dateien
    lesen; nicht mit der verworfenen eigenen State-Machine beginnen.
-2. Paket A und B als abgeschlossen behandeln. Nur konkrete Regressionen öffnen
-   sie erneut.
-3. Mit dem Abschnitt „`1.1.60`-Diagnose nach dem `1.1.59`-Test“ beginnen. Die
-   Pfadfortsetzung, `MoveHere`-Generation und Tracker-Retention sind bestätigt;
-   offen ist die Trennung von nativer Sichtsemantik, Snapshot-Bewegungsalter
-   und dem nachgeschalteten Vanilla-`+0xF4`-Tor.
-4. Die `1.1.60`-Geometrie-, Kernrichtungs- und Gate-Marker zuerst ingame
-   auswerten. Den Sicht-Snapshot nicht ohne Positionsbindung beschleunigen und
-   das native Gate nicht ohne vollständige Span-/Kontrollflussvalidierung
-   übergehen.
-5. Alle sieben Paket-E-Tests durchführen und die Logs anhand der dokumentierten
-   Marker, Identitäten, Altersgrenzen und Angriffsresultate maschinell prüfen.
-6. Paket E vollständig prüfen und dokumentieren, bevor Paket F begonnen wird.
-7. Danach exakt der Reihenfolge `F → D → C` folgen.
+2. Direkt mit „Aktueller Übergabestand nach dem `1.1.61`-Test“ beginnen. Die
+   Abschnitte zu `1.1.55` bis `1.1.60` sind historische Ursachen- und
+   Implementierungsherleitung, keine noch umzusetzende Empfehlung.
+3. Paket A und die normale Paket-B-Pickupkette als abgeschlossen behandeln. Der
+   offene Paket-E-Fehler ist der Hüttenrückweg nach einem Schuss, obwohl das
+   ursprüngliche Ziel mit derselben Identität weiterlebt, erlaubt und erreichbar
+   ist. Welches andere Objekt der Pfeil getroffen hat, ist dafür zweitrangig.
+4. Als nächsten Code-Schritt ausschließlich die im aktuellen Übergabestand
+   spezifizierte beobachtende Nach-Schuss-Diagnose umsetzen. Den Branch von
+   State `10` über Requery und ausbleibenden `MoveHere` bis zum tatsächlichen
+   State-6-Writer nativ bestimmen und jeden neuen Hook fail-closed validieren.
+5. Danach den Herden-/Fehlschussfall wiederholen. Sobald das ursprüngliche Ziel
+   den Schuss überlebt, muss die Ursache für `best=none`, den ausbleibenden
+   Auftrag und State `6` eindeutig sein. Anschließend den kleinsten vorhandenen
+   Vanilla-Wiederaufnahmepfad nutzen, damit derselbe Jäger dasselbe gültige Ziel
+   weiterverfolgt.
+6. Anschließend die im aktuellen Übergabestand verbliebenen Paket-E-Regressionen
+   maschinell prüfen. Erwartete Marker, Identitäten und Invarianten müssen
+   vorhanden sein; keine Callbackexception und kein harter Prozessabbruch.
+7. Paket E vollständig prüfen und dokumentieren, bevor Paket F begonnen wird.
+   Paket F ergänzt anschließend den kausalen Zielwechsel auf ein vom eigenen
+   Pfeil getötetes, gültiges, erreichbares und von keinem Jäger reserviertes
+   Fremdbeutetier. Danach exakt der Reihenfolge `D → C` folgen.
 8. Den sichtbaren Jagdsprint nur optional nach Abschluss aller Pflichtpakete
    untersuchen; er blockiert weder Paket C noch das fachliche Kernziel.
 9. Vor jedem Build alle Code-, Resolver- und CRLF-Prüfungen abschließen; danach

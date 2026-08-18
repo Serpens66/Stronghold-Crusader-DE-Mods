@@ -27,6 +27,7 @@ namespace ImprovedHunters
         public readonly int WrapperResult;
         public readonly int HunterToPreyResult;
         public readonly int PreyToHunterResult;
+        public readonly bool PositionsMatch;
 
         public HunterActiveVisibilityObservation(
             HunterActiveVisibilityState state,
@@ -37,7 +38,8 @@ namespace ImprovedHunters
             long pathGeneration,
             int wrapperResult,
             int hunterToPreyResult,
-            int preyToHunterResult)
+            int preyToHunterResult,
+            bool positionsMatch)
         {
             State = state;
             Status = status;
@@ -48,6 +50,7 @@ namespace ImprovedHunters
             WrapperResult = wrapperResult;
             HunterToPreyResult = hunterToPreyResult;
             PreyToHunterResult = preyToHunterResult;
+            PositionsMatch = positionsMatch;
         }
     }
 
@@ -73,6 +76,7 @@ namespace ImprovedHunters
         private const int MaxProbeSampleLogs = 240;
 
         private static readonly long ProbeInterval = Stopwatch.Frequency;
+        private static readonly long NearTargetProbeInterval = Stopwatch.Frequency / 4;
         private static readonly long SnapshotLifetime = Stopwatch.Frequency * 2;
         private static readonly long PendingLifetime = Stopwatch.Frequency * 2;
         private static readonly long TrackerRetentionInterval = Stopwatch.Frequency * 2;
@@ -109,9 +113,10 @@ namespace ImprovedHunters
             Shared.DebugLogHelper.LogInfo(
                 log,
                 "Improved Hunters active-target visibility snapshot initialized: " +
-                "probeSeconds=1, snapshotSeconds=2, pendingSeconds=2, trackerRetentionSeconds=2, " +
+                "farProbeMs=1000, nearProbeMs=250, snapshotSeconds=2, pendingSeconds=2, " +
+                "trackerRetentionSeconds=2, probeReservationOneAllowed=True, " +
                 "identityBinding=hunter/prey/global/player/map/accepted-MoveHere-generation/path, " +
-                "explicitDirectionalDiagnosticsForWrapperZero=True, " +
+                "visibleSnapshotPositionBound=True, staleBlockedContinuation=True, " +
                 "nativeCallInsideInlineHook=False, behaviorMutation=False.");
         }
 
@@ -166,6 +171,7 @@ namespace ImprovedHunters
                         units,
                         hunterUnitId,
                         hunter,
+                        allowProbeReservationOne: true,
                         out VisibilityInputs inputs,
                         out string captureFailure))
                 {
@@ -178,12 +184,18 @@ namespace ImprovedHunters
                 lock (stateLock)
                 {
                     Tracker tracker = GetOrReplaceTracker(inputs, timestamp, out _);
-                    if (timestamp < tracker.NextProbeAt)
+                    long interval = inputs.TileManhattanDistance <= 30
+                        ? NearTargetProbeInterval
+                        : ProbeInterval;
+                    if (tracker.LastProbeRequestedAt != 0 &&
+                        timestamp - tracker.LastProbeRequestedAt < interval)
+                    {
                         continue;
+                    }
 
                     // Reserve the interval before leaving the lock. A reentrant
                     // scan cannot issue a second native call for this identity.
-                    tracker.NextProbeAt = timestamp + ProbeInterval;
+                    tracker.LastProbeRequestedAt = timestamp;
                     requests.Add(new ProbeRequest(inputs, tracker.PathGeneration));
                 }
             }
@@ -292,9 +304,30 @@ namespace ImprovedHunters
                     inputs,
                     timestamp,
                     out string replacementStatus);
+                bool positionsMatch = tracker.HasSnapshot &&
+                    tracker.ObservedHunterTileX == inputs.HunterTileX &&
+                    tracker.ObservedHunterTileY == inputs.HunterTileY &&
+                    tracker.ObservedPreyTileX == inputs.PreyTileX &&
+                    tracker.ObservedPreyTileY == inputs.PreyTileY;
                 if (tracker.HasSnapshot && timestamp < tracker.UsableUntil)
                 {
                     long ageMilliseconds = ToMilliseconds(timestamp - tracker.ObservedAt);
+                    if (tracker.State == HunterActiveVisibilityState.Visible && !positionsMatch)
+                    {
+                        observation = new HunterActiveVisibilityObservation(
+                            HunterActiveVisibilityState.Pending,
+                            "visible-position-changed-refresh-pending",
+                            "visibility-refresh-pending",
+                            ageMilliseconds,
+                            ToMilliseconds(timestamp - tracker.FirstObservedAt),
+                            tracker.PathGeneration,
+                            tracker.WrapperResult,
+                            tracker.HunterToPreyResult,
+                            tracker.PreyToHunterResult,
+                            positionsMatch: false);
+                        return true;
+                    }
+
                     observation = new HunterActiveVisibilityObservation(
                         tracker.State,
                         "hit",
@@ -304,11 +337,33 @@ namespace ImprovedHunters
                         tracker.PathGeneration,
                         tracker.WrapperResult,
                         tracker.HunterToPreyResult,
-                        tracker.PreyToHunterResult);
+                        tracker.PreyToHunterResult,
+                        positionsMatch);
                     return true;
                 }
 
                 long pendingAge = Math.Max(0, timestamp - tracker.FirstObservedAt);
+                if (tracker.HasSnapshot && tracker.State == HunterActiveVisibilityState.Blocked)
+                {
+                    // A known blocked line must never fail open into Vanilla's
+                    // destructive direct-attack failure path merely because a
+                    // refresh was missed. Stable live identity/path validation
+                    // bounds this conservative state until the next probe or
+                    // Vanilla path completion.
+                    observation = new HunterActiveVisibilityObservation(
+                        HunterActiveVisibilityState.Blocked,
+                        "stale-blocked-refresh-pending",
+                        tracker.Classification,
+                        ToMilliseconds(timestamp - tracker.ObservedAt),
+                        ToMilliseconds(pendingAge),
+                        tracker.PathGeneration,
+                        tracker.WrapperResult,
+                        tracker.HunterToPreyResult,
+                        tracker.PreyToHunterResult,
+                        positionsMatch);
+                    return true;
+                }
+
                 if (!tracker.HasSnapshot && pendingAge < PendingLifetime)
                 {
                     observation = new HunterActiveVisibilityObservation(
@@ -320,7 +375,8 @@ namespace ImprovedHunters
                         tracker.PathGeneration,
                         -1,
                         -1,
-                        -1);
+                        -1,
+                        positionsMatch: false);
                     return true;
                 }
 
@@ -357,6 +413,7 @@ namespace ImprovedHunters
                         before.PreyUnitId,
                         before.PreyGlobalId,
                         before.PreyType,
+                        allowProbeReservationOne: true,
                         out VisibilityInputs current,
                         out string inputFailure) ||
                     !current.Equals(before))
@@ -423,6 +480,7 @@ namespace ImprovedHunters
                     $"player={before.PlayerId}, mapGeneration={before.MapGeneration}, " +
                     $"path={before.PathState}/{before.PathFieldF4}/" +
                     $"{before.PathProgress}/{before.PathLength}, reservation={before.Reservation}, " +
+                    $"rawProbeReservation={before.RawReservation}, " +
                     $"pathGeneration={request.PathGeneration}, " +
                     $"hunterTile={geometry.HunterTileX},{geometry.HunterTileY}, " +
                     $"preyTile={geometry.PreyTileX},{geometry.PreyTileY}, " +
@@ -442,6 +500,7 @@ namespace ImprovedHunters
                         before.PreyUnitId,
                         before.PreyGlobalId,
                         before.PreyType,
+                        allowProbeReservationOne: true,
                         out VisibilityInputs after,
                         out _) ||
                     !after.Equals(before))
@@ -473,6 +532,10 @@ namespace ImprovedHunters
                     tracker.WrapperResult = wrapperResult;
                     tracker.HunterToPreyResult = hunterToPreyResult;
                     tracker.PreyToHunterResult = preyToHunterResult;
+                    tracker.ObservedHunterTileX = geometry.HunterTileX;
+                    tracker.ObservedHunterTileY = geometry.HunterTileY;
+                    tracker.ObservedPreyTileX = geometry.PreyTileX;
+                    tracker.ObservedPreyTileY = geometry.PreyTileY;
                     tracker.LastFailureStatus = "pending-first-probe";
                 }
 
@@ -495,11 +558,13 @@ namespace ImprovedHunters
                         $"player={before.PlayerId}, mapGeneration={before.MapGeneration}, " +
                         $"path={before.PathState}/{before.PathFieldF4}/" +
                         $"{before.PathProgress}/{before.PathLength}, reservation={before.Reservation}, " +
+                        $"rawProbeReservation={before.RawReservation}, " +
                         $"pathGeneration={request.PathGeneration}, " +
                         $"wrapperResult={wrapperResult}, " +
                         $"coreHunterToPreyResult={hunterToPreyResult}, " +
                         $"corePreyToHunterResult={preyToHunterResult}, " +
-                        $"classification={classification}, nextProbeMs=1000, readableMs=2000.",
+                        $"classification={classification}, nextProbeMs=" +
+                        $"{(before.TileManhattanDistance <= 30 ? 250 : 1000)}, readableMs=2000.",
                         warning: state == HunterActiveVisibilityState.Blocked &&
                             (wrapperResult > 0 ||
                              hunterToPreyResult > 0 ||
@@ -573,6 +638,23 @@ namespace ImprovedHunters
             uint preyGlobalId,
             eChimps preyType,
             out VisibilityInputs inputs,
+            out string failure) =>
+            TryCaptureInputs(
+                hunterUnitId,
+                preyUnitId,
+                preyGlobalId,
+                preyType,
+                allowProbeReservationOne: false,
+                out inputs,
+                out failure);
+
+        private bool TryCaptureInputs(
+            int hunterUnitId,
+            int preyUnitId,
+            uint preyGlobalId,
+            eChimps preyType,
+            bool allowProbeReservationOne,
+            out VisibilityInputs inputs,
             out string failure)
         {
             inputs = default;
@@ -599,6 +681,7 @@ namespace ImprovedHunters
                     units,
                     hunterUnitId,
                     hunter,
+                    allowProbeReservationOne,
                     out inputs,
                     out failure))
             {
@@ -620,6 +703,7 @@ namespace ImprovedHunters
             SimpleNativeArray<GameUnit> units,
             int hunterUnitId,
             GameUnit* hunter,
+            bool allowProbeReservationOne,
             out VisibilityInputs inputs,
             out string failure)
         {
@@ -730,10 +814,11 @@ namespace ImprovedHunters
                 return false;
             }
 
-            ushort reservation = *(ushort*)((byte*)prey + PreyReservationOffset);
-            if (reservation != OwnHunterReservation)
+            ushort rawReservation = *(ushort*)((byte*)prey + PreyReservationOffset);
+            if (rawReservation != OwnHunterReservation &&
+                (!allowProbeReservationOne || rawReservation != 1))
             {
-                failure = $"prey-reservation-{reservation}";
+                failure = $"prey-reservation-{rawReservation}";
                 return false;
             }
 
@@ -750,7 +835,12 @@ namespace ImprovedHunters
                 pathFieldF4,
                 pathProgress,
                 pathLength,
-                reservation);
+                OwnHunterReservation,
+                rawReservation,
+                hunter->r_CurrentTilePositionX,
+                hunter->r_CurrentTilePositionY,
+                prey->r_CurrentTilePositionX,
+                prey->r_CurrentTilePositionY);
             return true;
         }
 
@@ -812,7 +902,8 @@ namespace ImprovedHunters
                 -1,
                 -1,
                 -1,
-                -1);
+                -1,
+                positionsMatch: false);
 
         private static long ToMilliseconds(long ticks) =>
             Math.Max(0, ticks) * 1000 / Stopwatch.Frequency;
@@ -861,7 +952,7 @@ namespace ImprovedHunters
             public readonly VisibilityInputs Inputs;
             public readonly long FirstObservedAt;
             public readonly long PathGeneration;
-            public long NextProbeAt;
+            public long LastProbeRequestedAt;
             public long LastValidatedAt;
             public long MissingSince;
             public string LastCaptureFailure;
@@ -874,6 +965,10 @@ namespace ImprovedHunters
             public int WrapperResult;
             public int HunterToPreyResult;
             public int PreyToHunterResult;
+            public int ObservedHunterTileX;
+            public int ObservedHunterTileY;
+            public int ObservedPreyTileX;
+            public int ObservedPreyTileY;
             public string LastFailureStatus;
 
             public Tracker(VisibilityInputs inputs, long timestamp, long pathGeneration)
@@ -881,7 +976,6 @@ namespace ImprovedHunters
                 Inputs = inputs;
                 FirstObservedAt = timestamp;
                 PathGeneration = pathGeneration;
-                NextProbeAt = timestamp;
                 LastValidatedAt = timestamp;
                 LastCaptureFailure = string.Empty;
                 Classification = "visibility-pending";
@@ -919,6 +1013,11 @@ namespace ImprovedHunters
             public readonly ushort PathProgress;
             public readonly uint PathLength;
             public readonly ushort Reservation;
+            public readonly ushort RawReservation;
+            public readonly int HunterTileX;
+            public readonly int HunterTileY;
+            public readonly int PreyTileX;
+            public readonly int PreyTileY;
 
             public VisibilityInputs(
                 int hunterUnitId,
@@ -933,7 +1032,12 @@ namespace ImprovedHunters
                 ushort pathFieldF4,
                 ushort pathProgress,
                 uint pathLength,
-                ushort reservation)
+                ushort reservation,
+                ushort rawReservation,
+                int hunterTileX,
+                int hunterTileY,
+                int preyTileX,
+                int preyTileY)
             {
                 HunterUnitId = hunterUnitId;
                 HunterGlobalId = hunterGlobalId;
@@ -948,7 +1052,15 @@ namespace ImprovedHunters
                 PathProgress = pathProgress;
                 PathLength = pathLength;
                 Reservation = reservation;
+                RawReservation = rawReservation;
+                HunterTileX = hunterTileX;
+                HunterTileY = hunterTileY;
+                PreyTileX = preyTileX;
+                PreyTileY = preyTileY;
             }
+
+            public int TileManhattanDistance =>
+                Math.Abs(PreyTileX - HunterTileX) + Math.Abs(PreyTileY - HunterTileY);
 
             // +0xF4 is a live locomotion substep, not a path identity. Progress
             // is likewise tracked separately so only a backwards jump resets.
