@@ -29,6 +29,8 @@ SomeSettings.MarketBuyPriceMultiplier=Kaufpreise
 SomeSettings.MarketBuyPriceMultiplierHelp=Multiplikator fuer alle Markt-Kaufpreise. 1.0 = unveraendert, 0.0 = kostenlos, 5.0 = fuenffacher Vanilla-Preis.
 SomeSettings.MarketSellPriceMultiplier=Verkaufspreise
 SomeSettings.MarketSellPriceMultiplierHelp=Multiplikator fuer alle Markt-Verkaufspreise. 1.0 = unveraendert, 0.0 = kein Gold durch Verkauf, 5.0 = fuenffacher Vanilla-Preis.
+SomeSettings.MarketPricesAlsoForAI=Auch fuer KI anwenden
+SomeSettings.MarketPricesAlsoForAIHelp=Wenn aktiviert, verwendet die KI die eingestellten Marktpreise fuer Entscheidungen, Kaeufe und Verkaeufe. Wenn deaktiviert, verwendet die KI Vanilla-Preise. Die eingestellten Marktpreise beeinflussen die Modsetting Wirtschaftsboni unabhaengig von dieser Option.
 SomeSettings.AIEconomyProtectionTitle=KI-Wirtschaftsschutz
 SomeSettings.PreventAIPause=KI-Gebaeudepausen verhindern
 SomeSettings.PreventAIPauseHelp=Verhindert, dass KI-Spieler ihre eigenen Produktionsgebaeude schlafen legen.

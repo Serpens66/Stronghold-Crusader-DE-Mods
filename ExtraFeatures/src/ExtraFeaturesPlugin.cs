@@ -19,7 +19,7 @@ namespace ExtraFeatures
 
         public const string PluginGuid = "ExtraFeatures_Serp";
         public const string PluginName = "Extra Features";
-        public const string PluginVersion = "1.0.16";
+        public const string PluginVersion = "1.0.17";
 
         private ExtraFeaturesRuntime runtime;
         private bool marketGoodPriceVisualRefreshFailureLogged;
@@ -123,6 +123,15 @@ namespace ExtraFeatures
             catch (Exception ex)
             {
                 Shared.DebugLogHelper.LogError(Logger, $"Extra Features AI economy protection initialization failed: {ex}");
+            }
+
+            try
+            {
+                runtime.InstallAIMarketVanillaPriceHook(libraryHandle, memory);
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(Logger, $"Extra Features AI Vanilla market-price initialization failed: {ex}");
             }
 
             Shared.DebugLogHelper.LogDebug(Logger, "Crusader library loaded; Extra Features initialization stages completed.");

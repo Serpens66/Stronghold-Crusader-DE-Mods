@@ -27,6 +27,8 @@ internal static class Program
             TestLocalPerPlayerSetting();
             TestMarketGoodsOrderDefinition();
             TestMarketGoodPriceDefinition();
+            TestAIMarketVanillaPricePolicy();
+            TestAIMarketNativeResolution();
             TestArrayPerPlayerSetting();
             TestMarketOrderPresetRoundTrip();
             TestPresetLocalRoundTrip();
@@ -495,6 +497,146 @@ internal static class Program
             "per-good market multipliers were not clamped and rounded correctly");
         Check(Math.Abs(MarketGoodPriceDefinition.CombineMultipliers(1.5, 2.0) - 3.0) < 0.0001,
             "general and per-good market multipliers were not combined multiplicatively");
+    }
+
+    private static void TestAIMarketVanillaPricePolicy()
+    {
+        int[] basePrices = { 0, 1, 4, 5, 6, 9, 10, 17, int.MaxValue, int.MinValue };
+        int[] amounts = { 0, 1, 5, 25, 37, int.MaxValue, int.MinValue };
+        foreach (int basePrice in basePrices)
+        {
+            foreach (int amount in amounts)
+            {
+                int expected = unchecked((basePrice / 5) * amount);
+                Check(
+                    AIMarketVanillaPricePolicy.CalculateTradeTotal(basePrice, amount) == expected,
+                    $"AI Vanilla market arithmetic diverged for basePrice={basePrice}, amount={amount}");
+            }
+        }
+
+        for (int mask = 0; mask < 32; mask++)
+        {
+            bool modEnabled = (mask & 1) != 0;
+            bool alsoForAI = (mask & 2) != 0;
+            bool validPlayer = (mask & 4) != 0;
+            bool validGood = (mask & 8) != 0;
+            bool isAI = (mask & 16) != 0;
+            bool expected = modEnabled && !alsoForAI && validPlayer && validGood && isAI;
+            Check(
+                AIMarketVanillaPricePolicy.ShouldUseVanillaPrice(
+                    modEnabled, alsoForAI, validPlayer, validGood, isAI) == expected,
+                $"AI Vanilla market routing diverged for mask={mask}");
+        }
+    }
+
+    private static void TestAIMarketNativeResolution()
+    {
+        byte[] buy = ParseHex(AIMarketVanillaPricePolicy.BuyPriceFunctionPattern);
+        byte[] sell = ParseHex(AIMarketVanillaPricePolicy.SellPriceFunctionPattern);
+        byte[] referenceImage = CreateExecutableTestImage(0xD1000);
+        CopyAt(referenceImage, AIMarketVanillaPricePolicy.BuyPriceFunctionRva, buy);
+        CopyAt(referenceImage, AIMarketVanillaPricePolicy.SellPriceFunctionRva, sell);
+        CopyAt(referenceImage, 0x2000, buy);
+
+        NativeResolution reference = NativePatternResolver.ResolveUnique(
+            referenceImage,
+            AIMarketVanillaPricePolicy.BuyPriceFunctionPattern,
+            AIMarketVanillaPricePolicy.BuyPriceFunctionRva,
+            referenceHashMatches: true,
+            "test buy helper");
+        Check(
+            reference.Rva == AIMarketVanillaPricePolicy.BuyPriceFunctionRva &&
+            reference.Method == "reference-rva",
+            "matching hash did not use the validated reference RVA exclusively");
+
+        byte[] fallbackImage = CreateExecutableTestImage(0x10000);
+        CopyAt(fallbackImage, 0x3000, buy);
+        CopyAt(fallbackImage, 0x5000, sell);
+        NativeResolution fallbackBuy = NativePatternResolver.ResolveUnique(
+            fallbackImage,
+            AIMarketVanillaPricePolicy.BuyPriceFunctionPattern,
+            AIMarketVanillaPricePolicy.BuyPriceFunctionRva,
+            referenceHashMatches: false,
+            "test buy helper");
+        NativeResolution fallbackSell = NativePatternResolver.ResolveUnique(
+            fallbackImage,
+            AIMarketVanillaPricePolicy.SellPriceFunctionPattern,
+            AIMarketVanillaPricePolicy.SellPriceFunctionRva,
+            referenceHashMatches: false,
+            "test sell helper");
+        Check(
+            fallbackBuy.Rva == 0x3000 && fallbackSell.Rva == 0x5000 &&
+            fallbackBuy.Method == "signature-fallback" && fallbackSell.Method == "signature-fallback",
+            "unknown hash did not resolve both unique executable signatures");
+
+        byte[] missingImage = CreateExecutableTestImage(0x10000);
+        CopyAt(missingImage, 0x3000, buy);
+        ExpectInvalidOperation(
+            () => NativePatternResolver.ResolveUnique(
+                missingImage,
+                AIMarketVanillaPricePolicy.SellPriceFunctionPattern,
+                AIMarketVanillaPricePolicy.SellPriceFunctionRva,
+                referenceHashMatches: false,
+                "missing sell helper"),
+            "missing AI market signature was accepted");
+
+        byte[] ambiguousImage = CreateExecutableTestImage(0x10000);
+        CopyAt(ambiguousImage, 0x3000, buy);
+        CopyAt(ambiguousImage, 0x5000, buy);
+        ExpectInvalidOperation(
+            () => NativePatternResolver.ResolveUnique(
+                ambiguousImage,
+                AIMarketVanillaPricePolicy.BuyPriceFunctionPattern,
+                AIMarketVanillaPricePolicy.BuyPriceFunctionRva,
+                referenceHashMatches: false,
+                "ambiguous buy helper"),
+            "ambiguous AI market signature was accepted");
+    }
+
+    private static byte[] CreateExecutableTestImage(int length)
+    {
+        byte[] image = new byte[length];
+        image[0] = 0x4D;
+        image[1] = 0x5A;
+        WriteInt32(image, 0x3C, 0x80);
+        image[0x80] = 0x50;
+        image[0x81] = 0x45;
+        image[0x86] = 1;
+        image[0x94] = 0xF0;
+        int section = 0x80 + 24 + 0xF0;
+        WriteInt32(image, section + 8, length - 0x1000);
+        WriteInt32(image, section + 12, 0x1000);
+        WriteInt32(image, section + 16, length - 0x1000);
+        WriteInt32(image, section + 36, unchecked((int)0x20000000));
+        return image;
+    }
+
+    private static byte[] ParseHex(string pattern) =>
+        pattern.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(value => Convert.ToByte(value, 16))
+            .ToArray();
+
+    private static void CopyAt(byte[] destination, int offset, byte[] source) =>
+        Array.Copy(source, 0, destination, offset, source.Length);
+
+    private static void WriteInt32(byte[] destination, int offset, int value)
+    {
+        byte[] bytes = BitConverter.GetBytes(value);
+        Array.Copy(bytes, 0, destination, offset, bytes.Length);
+    }
+
+    private static void ExpectInvalidOperation(Action action, string failureMessage)
+    {
+        try
+        {
+            action();
+        }
+        catch (InvalidOperationException)
+        {
+            return;
+        }
+
+        throw new InvalidOperationException(failureMessage);
     }
 
     private static void TestMarketOrderPresetRoundTrip()

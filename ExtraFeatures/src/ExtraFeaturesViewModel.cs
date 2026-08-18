@@ -29,6 +29,7 @@ namespace ExtraFeatures
         private double multiplyGoodsGainInMoneyHuman;
         private double marketBuyPriceMultiplier = 1.0;
         private double marketSellPriceMultiplier = 1.0;
+        private bool marketPricesAlsoForAI;
         private double[] marketGoodBuyPriceMultipliers = MarketGoodPriceDefinition.CreateDefaultMultipliers();
         private double[] marketGoodSellPriceMultipliers = MarketGoodPriceDefinition.CreateDefaultMultipliers();
         private double plagueDurationMultiplier = 2.0;
@@ -117,6 +118,8 @@ namespace ExtraFeatures
         public string MarketBuyPriceMultiplierHelpText => SerpLocalization.Get(SerpLocalization.MarketBuyPriceMultiplierHelp);
         public string MarketSellPriceMultiplierText => SerpLocalization.Get(SerpLocalization.MarketSellPriceMultiplier);
         public string MarketSellPriceMultiplierHelpText => SerpLocalization.Get(SerpLocalization.MarketSellPriceMultiplierHelp);
+        public string MarketPricesAlsoForAIText => SerpLocalization.Get(SerpLocalization.MarketPricesAlsoForAI);
+        public string MarketPricesAlsoForAIHelpText => SerpLocalization.Get(SerpLocalization.MarketPricesAlsoForAIHelp);
         public string MarketGoodPriceMultipliersHelpText => SerpLocalization.Get(SerpLocalization.MarketGoodPriceMultipliersHelp);
         public string AiEconomyProtectionTitleText => SerpLocalization.Get(SerpLocalization.AiEconomyProtectionTitle);
         public string PreventAIPauseText => SerpLocalization.Get(SerpLocalization.PreventAIPause);
@@ -146,6 +149,7 @@ namespace ExtraFeatures
         [SyncHostOnly] public double MultiplyGoodsGainInMoneyHuman { get => multiplyGoodsGainInMoneyHuman; set => SetDecimalMultiplierSetting(ref multiplyGoodsGainInMoneyHuman, value, nameof(MultiplyGoodsGainInMoneyHuman), nameof(MultiplyGoodsGainInMoneyHumanText)); }
         [SyncHostOnly] public double MarketBuyPriceMultiplier { get => marketBuyPriceMultiplier; set => SetDoubleSetting(ref marketBuyPriceMultiplier, value, 0.0, 5.0, nameof(MarketBuyPriceMultiplier), nameof(MarketBuyPriceMultiplierValueText)); }
         [SyncHostOnly] public double MarketSellPriceMultiplier { get => marketSellPriceMultiplier; set => SetDoubleSetting(ref marketSellPriceMultiplier, value, 0.0, 5.0, nameof(MarketSellPriceMultiplier), nameof(MarketSellPriceMultiplierValueText)); }
+        [SyncHostOnly] public bool MarketPricesAlsoForAI { get => marketPricesAlsoForAI; set => SetSetting(ref marketPricesAlsoForAI, value, nameof(MarketPricesAlsoForAI)); }
         [SyncHostOnly]
         public double[] MarketGoodBuyPriceMultipliers
         {
@@ -219,6 +223,7 @@ namespace ExtraFeatures
             MultiplyGoodsGainInMoneyHuman = 0;
             MarketBuyPriceMultiplier = 1.0;
             MarketSellPriceMultiplier = 1.0;
+            MarketPricesAlsoForAI = false;
             MarketGoodBuyPriceMultipliers = MarketGoodPriceDefinition.CreateDefaultMultipliers();
             MarketGoodSellPriceMultipliers = MarketGoodPriceDefinition.CreateDefaultMultipliers();
             PlagueDurationMultiplier = 2.0;

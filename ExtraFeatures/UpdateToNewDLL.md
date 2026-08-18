@@ -21,6 +21,8 @@ Extender fields and the bidirectional stable-link API, so it has no private RVA.
 | `EmergencyDemolitionComparisonPattern` | `0x2F454` | scan; context hook |
 | `AIHovelDemolitionFunctionPattern` | `0x3B1D0` | scan; detour at the AI decision point |
 | `MarketValidatorPattern` | `0xD7080` | scan; detour |
+| AI buy-price helper (`49 63 C0 8B 8C C1 B8 17 18 00 B8 67 66 66 66 F7 E9 D1 FA 8B C2 C1 E8 1F 03 C2 41 0F AF C1 C3`) | `0xCEB10` | executable-section unique scan; managed function detour |
+| AI sell-price helper (`49 63 C0 8B 8C C1 BC 17 18 00 B8 67 66 66 66 F7 E9 D1 FA 8B C2 C1 E8 1F 03 C2 41 0F AF C1 C3`) | `0xCEB90` | executable-section unique scan; managed function detour |
 | `MarketPacketTailPattern` | `0xD7324` | scan; packet globals/sender |
 | `MarketStorageCallPattern` | `0xD7119` | scan; storage delegate |
 | `AutoMarketSellStatisticPattern` | `0xD0484` | scan; statistic table |
@@ -46,7 +48,17 @@ the loaded image and their surrounding native contract.
    `+0x31B7D0/+0x31B7D4`, helper ABI and all candidate semantics.
 7. Test every setting enabled/disabled, restore paths, map reloads, market
    packets, church workers, plague behavior, AI protection, knights and quarry.
-8. Update every RVA and only then approve the shared hash.
+8. Revalidate both AI market-price helpers as one atomic hook set:
+   - ABI `int (playerManager, playerId, good, amount)` in `RCX/EDX/R8D/R9D`;
+   - signed `unchecked((basePrice / 5) * amount)` arithmetic;
+   - the first two instructions remain 3+7 bytes, cover PolyHook2.NET 1.1.3's
+     six-byte minimum, contain no RIP-relative operand, and are followed by
+     `mov eax, 66666667h`;
+   - no direct call or branch targets the interior of either 10-byte span and
+     the two spans do not overlap;
+   - buy callers still include the AI gold decision and the actual purchase,
+     while the sell helper still supplies the transaction proceeds.
+9. Update every RVA and only then approve the shared hash.
 
 ## Audit for Steam build 24651686
 
@@ -66,6 +78,34 @@ direct caller is the AI update at call-site RVA `0x53C33`; the routine requests
 `STRUCT_HOVEL` (`1`) before refunding and deleting the selected building. The
 owner-wide game cleanup path remains separate: `0xCD190` calls `0xC3F10`, which
 reaches `0xC4290`; none of these cleanup stages is intercepted.
+
+The AI market-price override detours two complete native helpers. The buy
+helper at `0xCEB10` is called at `0x3ED72` for the AI gold/price decision and at
+`0x29684` by the purchase transaction; the latter is invoked by the AI at
+`0x3ED9E`. The sell helper at `0xCEB90` is called at `0x29732` by the sale
+transaction that the AI invokes at `0x3F22F`. The audited AI sale decision
+selects excess goods from stock/minimum thresholds and has no separate price
+comparison. Correct sale proceeds therefore influence later decisions through
+the resulting gold balance.
+
+Both helper delegates return `int` and receive `playerManager`, `playerId`,
+`good`, and `amount` through the Windows x64 `RCX`, `EDX`, `R8D`, and `R9D`
+argument registers. Their Vanilla total is signed
+`unchecked((basePrice / 5) * amount)`, including division toward zero before
+the multiplication. The buy and sell base-price fields are read at manager
+displacements `0x1817B8` and `0x1817BC` respectively.
+
+On the audited hash, the implementation validates the full function bytes at
+the two reference RVAs and does not scan. On any other hash it searches only
+executable PE sections and requires exactly one full-signature match for each
+helper. Both addresses, their 10-byte spans, following instructions, direct
+incoming branch targets, and non-overlap are validated before the first hook is
+added. The two detours then commit through one rollback-on-failure transaction.
+If either resolution or safety check fails, neither detour remains installed:
+only AI-specific Vanilla market prices are disabled for that process, while
+the global/per-good market factors and every other Extra Features feature stay
+active. There is deliberately no fallback that temporarily changes global
+prices or infers trades from resource/gold differences.
 
 Fast Recruit Rally Movement obtains its speed/cadence hooks from
 BugfixesAndQoL. For the audited DLL, the speed reset occurs at BugfixesAndQoL

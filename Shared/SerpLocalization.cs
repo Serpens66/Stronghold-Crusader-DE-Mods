@@ -98,6 +98,8 @@ public static class SerpLocalization
     public const string MarketBuyPriceMultiplierHelp = "SomeSettings.MarketBuyPriceMultiplierHelp";
     public const string MarketSellPriceMultiplier = "SomeSettings.MarketSellPriceMultiplier";
     public const string MarketSellPriceMultiplierHelp = "SomeSettings.MarketSellPriceMultiplierHelp";
+    public const string MarketPricesAlsoForAI = "SomeSettings.MarketPricesAlsoForAI";
+    public const string MarketPricesAlsoForAIHelp = "SomeSettings.MarketPricesAlsoForAIHelp";
     public const string RememberAiAivSettings = "SomeSettings.RememberAiAivSettings";
     public const string RememberAiAivSettingsHelp = "SomeSettings.RememberAiAivSettingsHelp";
     public const string EnableCtrlSingleMarketTrade = "SomeSettings.EnableCtrlSingleMarketTrade";
@@ -379,6 +381,8 @@ public static class SerpLocalization
         { MarketBuyPriceMultiplierHelp, "Multiplier for all market buy prices. 1.0 = unchanged, 0.0 = free, 5.0 = five times the vanilla price." },
         { MarketSellPriceMultiplier, "Sell prices" },
         { MarketSellPriceMultiplierHelp, "Multiplier for all market sell prices. 1.0 = unchanged, 0.0 = no gold from selling, 5.0 = five times the vanilla price." },
+        { MarketPricesAlsoForAI, "Also apply to AI" },
+        { MarketPricesAlsoForAIHelp, "When enabled, AI players use the configured market prices for their decisions, purchases, and sales. When disabled, AI players use Vanilla prices. The configured market prices affect the Economy Bonuses setting independently of this option." },
         { RememberAiAivSettings, "Remember AI castle/settings selection" },
         { RememberAiAivSettingsHelp, "When enabled, the last AIV, rotation, and custom lord settings selected for each AI lord are applied automatically when that AI is added to a skirmish lobby." },
         { EnableCtrlSingleMarketTrade, "Ctrl trades one market unit" },

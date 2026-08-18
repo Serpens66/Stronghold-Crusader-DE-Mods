@@ -38,6 +38,7 @@ namespace ExtraFeatures
         private CtrlMarketTradeHook ctrlMarketTradeHook;
         private SingleBuildingPauseHook singleBuildingPauseHook;
         private AIEconomyProtectionHook aiEconomyProtectionHook;
+        private AIMarketVanillaPriceHook aiMarketVanillaPriceHook;
         private FastRecruitMovementBridge fastRecruitMovementBridge;
         private PlagueDurationPatch plagueDurationPatch;
         private PlagueApothecarySearchRangePatch plagueApothecarySearchRangePatch;
@@ -145,12 +146,42 @@ namespace ExtraFeatures
             }
         }
 
+        public void InstallAIMarketVanillaPriceHook(IntPtr nativeLibraryHandle, ReadOnlySpan<byte> memory)
+        {
+            if (aiMarketVanillaPriceHook != null)
+                return;
+
+            try
+            {
+                aiMarketVanillaPriceHook = new AIMarketVanillaPriceHook(
+                    log, settings, nativeLibraryHandle, memory, fixedLayoutHashValidated);
+                if (!fixedLayoutHashValidated)
+                {
+                    Shared.DebugLogHelper.LogWarning(
+                        log,
+                        "Extra Features AI Vanilla market prices are running on an unknown " +
+                        "CrusaderDE.dll because both native helper signatures and hook spans were validated.");
+                }
+            }
+            catch (Exception ex)
+            {
+                aiMarketVanillaPriceHook?.Dispose();
+                aiMarketVanillaPriceHook = null;
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    "Extra Features AI Vanilla market-price override is disabled for this process; " +
+                    $"the AI uses the active global prices and all other Extra Features remain active: {ex}");
+            }
+        }
+
         public void Dispose()
         {
             RestoreCampfirePeasantsCap();
             UnsubscribeHooks();
             aiEconomyProtectionHook?.Dispose();
             aiEconomyProtectionHook = null;
+            aiMarketVanillaPriceHook?.Dispose();
+            aiMarketVanillaPriceHook = null;
             fastRecruitMovementBridge?.Dispose();
             fastRecruitMovementBridge = null;
             plagueDurationPatch?.Dispose();

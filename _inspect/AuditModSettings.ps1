@@ -90,6 +90,7 @@ foreach ($entry in $settings.GetEnumerator()) {
     if ($entry.Key -eq 'ExtraFeatures') {
         foreach ($requiredValueBinding in @(
             'MarketBuyPriceMultiplierValueText', 'MarketSellPriceMultiplierValueText',
+            'MarketPricesAlsoForAI', 'MarketPricesAlsoForAIHelpText',
             'PlagueDurationMultiplierValueText', 'ApothecaryPlagueSearchDistanceValueText')) {
             if (-not $text.Contains($requiredValueBinding)) {
                 throw "ExtraFeatures: Slider unit binding is missing: $requiredValueBinding"

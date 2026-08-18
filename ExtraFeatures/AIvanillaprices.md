@@ -2,26 +2,19 @@
 
 ## Zweck und aktueller Stand
 
-Diese Datei ist eine Übergabe für einen späteren Chat. Sie hält die bereits
-durchgeführte Analyse und den noch **nicht umgesetzten** Plan fest.
-
-Der Modcode soll vorerst auf dem Stand von ExtraFeatures `1.0.16` bleiben:
+Diese Datei dokumentiert die Analyse und die in ExtraFeatures `1.0.17`
+umgesetzte KI-Vanillapreis-Funktion:
 
 - Die allgemeinen Kauf- und Verkaufspreisfaktoren verändern weiterhin die
   globalen Marktpreise.
 - Die Faktoren pro handelbarem Gut werden zusätzlich mit dem jeweiligen
   allgemeinen Faktor kombiniert.
 - Der Marktpreisbereich befindet sich bereits ganz unten in den Modsettings.
-- Es wurde noch keine Checkbox „Auch für KI“ und keine KI-Sonderbehandlung
-  eingebaut.
+- Die Checkbox „Auch für KI“ und die atomare KI-Preishelper-Sonderbehandlung
+  sind eingebaut.
 - Keine globale Preisumschaltung während eines Handels verwenden.
 - Keine Geld- oder Ressourcenbestände durch Vorher-/Nachher-Vergleiche
   auswerten.
-
-Beim Beginn der Folgearbeit zuerst `git status --short` prüfen und fremde
-Änderungen erhalten. Zum Zeitpunkt dieser Übergabe war nur die sachfremde Datei
-`SerpsModsHost/steam-preview.png` geändert; sie darf für diese Aufgabe nicht
-berührt werden.
 
 ## Gewünschtes Endverhalten
 
@@ -230,8 +223,8 @@ Vorher-/Nachher-Differenzen sind ausdrücklich nicht zu verwenden.
 
 Der fachlich sauberste derzeit bekannte Weg sind zwei eng begrenzte native
 Detours auf die KI-relevanten Gesamtpreishelfer bei `0xCEB10` und `0xCEB90`.
-Dies ist noch nicht implementiert und benötigt vorab die vollständige
-Hook-Sicherheitsprüfung aus `AGENTS.md`.
+Dies ist in 1.0.17 mit der vollständigen Hook-Sicherheitsprüfung aus
+`AGENTS.md` implementiert.
 
 Gewünschte Callback-Logik:
 
@@ -279,7 +272,7 @@ Wenn diese Prüfung zeigt, dass ein Preishelfer-Detour nicht sicher oder nicht
 ausreichend player-spezifisch ist, anhalten und den Benutzer informieren. Nicht
 stillschweigend auf eine globale Umschaltung oder Bestandsheuristik ausweichen.
 
-## UI-, Preset- und Lokalisierungsplan
+## UI-, Preset- und Lokalisierungsimplementierung
 
 1. In `ExtraFeaturesViewModel.cs` eine boolesche Property, beispielsweise
    `MarketPricesAlsoForAI`, mit `[SyncHostOnly]` anlegen.
@@ -344,9 +337,10 @@ Vor dem einzigen abschließenden Build:
    Hooks tatsächlich ausgelöst wurden und die übergebenen Mengen plausibel
    sind.
 
-## Noch offene Entscheidung
+## Implementierungsentscheidung
 
-Die Checkbox ist ohne zusätzliche native Hooks/Detours nicht korrekt
-umsetzbar. Der Benutzer hat bisher nur die genaue Vanilla-Analyse und diese
-Planübergabe beauftragt. Vor der eigentlichen Implementierung sollte bestätigt
-werden, dass die zwei empfohlenen Preishelfer-Detours gewünscht sind.
+Die zwei empfohlenen Preishelper-Detours sind beauftragt und in 1.0.17
+implementiert. Bei einem unbekannten DLL-Hash werden sie nur nach je einem
+eindeutigen ausführbaren Signaturtreffer und vollständiger Spannvalidierung
+gemeinsam installiert; andernfalls bleibt ausschließlich diese KI-Sonderregel
+deaktiviert.

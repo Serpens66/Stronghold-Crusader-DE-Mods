@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.16",
+  "Version": "1.0.17",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.17",
+      "Changes": [
+        "Added a synchronized option that lets AI players keep Vanilla market prices while human players use the configured global and per-good prices; AI buy decisions, payments, and sale proceeds now use the selected price model consistently."
+      ]
+    },
     {
       "Version": "1.0.16",
       "Changes": [
