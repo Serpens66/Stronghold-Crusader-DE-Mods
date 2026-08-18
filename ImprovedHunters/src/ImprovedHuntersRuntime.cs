@@ -147,6 +147,7 @@ namespace ImprovedHunters
         private HunterPclReachability hunterPclReachability;
         private HunterPclReachabilityDiagnostic hunterPclReachabilityDiagnostic;
         private HunterRemainingPathSpeedRecovery hunterRemainingPathSpeedRecovery;
+        private HunterPostShotContinuationDiagnostic hunterPostShotContinuationDiagnostic;
         private HunterTargetSearchFallbackDiagnostic hunterTargetSearchFallbackDiagnostic;
         private HunterVanillaPathContinuationDiagnostic hunterVanillaPathContinuationDiagnostic;
         private HunterVisibilityDiagnostic hunterVisibilityDiagnostic;
@@ -182,6 +183,7 @@ namespace ImprovedHunters
                 InitializeHunterPclReachability(referenceHashMatches);
                 InitializeHunterPclReachabilityDiagnostic(referenceHashMatches);
                 InitializeHunterActiveTargetVisibilitySnapshot();
+                InitializeHunterPostShotContinuationDiagnostic(memory, imageBase, referenceHashMatches);
                 InitializeHunterTargetSearchFallbackDiagnostic(memory, imageBase, referenceHashMatches);
                 InitializeHunterRemainingPathSpeedRecovery(memory, imageBase, referenceHashMatches);
                 InitializeHunterVanillaPathContinuationDiagnostic(memory, imageBase, referenceHashMatches);
@@ -241,6 +243,7 @@ namespace ImprovedHunters
                     $"hunterPclReachabilityAvailable={hunterPclReachability?.IsAvailable == true}, " +
                     $"hunterPclReachabilityDiagnosticAvailable={hunterPclReachabilityDiagnostic?.IsAvailable == true}, " +
                     $"hunterRemainingPathSpeedRecoveryAvailable={hunterRemainingPathSpeedRecovery?.IsAvailable == true}, " +
+                    $"hunterPostShotContinuationAvailable={hunterPostShotContinuationDiagnostic?.IsAvailable == true}, " +
                     $"hunterTargetSearchFallbackAvailable={hunterTargetSearchFallbackDiagnostic?.IsAvailable == true}, " +
                     $"hunterVanillaPathContinuationAvailable={hunterVanillaPathContinuationDiagnostic?.IsAvailable == true}, " +
                     $"hunterVisibilityDiagnosticAvailable={hunterVisibilityDiagnostic?.IsAvailable == true}, " +
@@ -700,6 +703,7 @@ namespace ImprovedHunters
             hunterActiveTargetVisibilitySnapshot?.ResetForMap();
             hunterPclReachability?.ResetForMap();
             hunterPclReachabilityDiagnostic?.ResetForMap();
+            hunterPostShotContinuationDiagnostic?.ResetForMap();
             hunterTargetSearchFallbackDiagnostic?.ResetForMap();
             hunterRemainingPathSpeedRecovery?.ResetForMap();
             hunterVanillaPathContinuationDiagnostic?.ResetForMap();
@@ -2106,12 +2110,20 @@ namespace ImprovedHunters
                 hunterSource,
                 args.ReturnValue,
                 projectileGlobalId);
+            hunterPostShotContinuationDiagnostic?.RecordProjectileSpawn(
+                hunterUnitId,
+                hunterGlobalId,
+                args.AttackedUnitId,
+                eligibility.GlobalId,
+                args.ReturnValue,
+                projectileGlobalId);
         }
 
         private void OnProjectileDelete(ProjectileDeleteEventArgs args)
         {
             try
             {
+                hunterPostShotContinuationDiagnostic?.RecordProjectileDelete(args.ProjectileId);
                 TryApplyHunterProjectileDamageOnDelete(args.ProjectileId);
             }
             catch (Exception exception)
@@ -2603,6 +2615,7 @@ namespace ImprovedHunters
                 hunterActiveTargetVisibilitySnapshot?.ResetForMap();
                 hunterPclReachability?.ResetForMap();
                 hunterPclReachabilityDiagnostic?.ResetForMap();
+                hunterPostShotContinuationDiagnostic?.ResetForMap();
                 hunterTargetSearchFallbackDiagnostic?.ResetForMap();
                 hunterRemainingPathSpeedRecovery?.ResetForMap();
                 hunterVanillaPathContinuationDiagnostic?.ResetForMap();
@@ -3257,6 +3270,10 @@ namespace ImprovedHunters
                     referenceHashMatches,
                     CanRunHunterTargetSearchFallback,
                     TryPrepareHunterStateOneNearRefresh,
+                    TryPrepareHunterPostShotStateZeroContinuation,
+                    RecordAcceptedHunterPostShotAttack,
+                    RecordHunterPostShotStateZeroHandoff,
+                    RecordHunterPostShotMoveHereResult,
                     RegisterRejectedHunterStateZeroMove,
                     RecordHunterPclMoveHereResult);
             }
@@ -3267,6 +3284,33 @@ namespace ImprovedHunters
                 Shared.DebugLogHelper.LogError(
                     log,
                     "Improved Hunters target-search fallback diagnostic is unavailable; " +
+                    $"Hunter behavior remains unchanged: {exception}");
+            }
+        }
+
+        private void InitializeHunterPostShotContinuationDiagnostic(
+            ReadOnlySpan<byte> memory,
+            ulong imageBase,
+            bool referenceHashMatches)
+        {
+            try
+            {
+                hunterPostShotContinuationDiagnostic = new HunterPostShotContinuationDiagnostic(
+                    log,
+                    settings,
+                    memory,
+                    imageBase,
+                    referenceHashMatches,
+                    CanRunHunterTargetSearchFallback,
+                    TryValidateHunterPostShotContinuation);
+            }
+            catch (Exception exception)
+            {
+                hunterPostShotContinuationDiagnostic?.Dispose();
+                hunterPostShotContinuationDiagnostic = null;
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    "Improved Hunters post-shot continuation diagnostic is unavailable; " +
                     $"Hunter behavior remains unchanged: {exception}");
             }
         }
@@ -3382,6 +3426,79 @@ namespace ImprovedHunters
             return settings.EnableMod &&
                 settings.ImprovedPathfinding &&
                 targetSearchFallbackSingleplayerAllowed;
+        }
+
+        private bool TryPrepareHunterPostShotStateZeroContinuation(
+            int hunterUnitId,
+            long timestamp,
+            out HunterPostShotContinuationCandidate candidate)
+        {
+            candidate = default;
+            return hunterPostShotContinuationDiagnostic?.TryPrepareStateZeroContinuation(
+                hunterUnitId,
+                timestamp,
+                out candidate) == true;
+        }
+
+        private void RecordAcceptedHunterPostShotAttack(
+            HunterPostShotContinuationCandidate candidate,
+            long timestamp)
+        {
+            hunterPostShotContinuationDiagnostic?.RecordAcceptedAttack(candidate, timestamp);
+        }
+
+        private void RecordHunterPostShotStateZeroHandoff(
+            HunterPostShotContinuationCandidate candidate,
+            int vanillaTargetUnitId)
+        {
+            hunterPostShotContinuationDiagnostic?.RecordStateZeroHandoff(
+                candidate,
+                vanillaTargetUnitId);
+        }
+
+        private void RecordHunterPostShotMoveHereResult(
+            HunterPostShotContinuationCandidate candidate,
+            int moveHereResult)
+        {
+            hunterPostShotContinuationDiagnostic?.RecordMoveHereResult(candidate, moveHereResult);
+        }
+
+        private bool TryValidateHunterPostShotContinuation(
+            int hunterUnitId,
+            int preyUnitId,
+            uint preyGlobalId,
+            eChimps preyType,
+            long timestamp,
+            out string validation)
+        {
+            if (!IsRuntimeHuntingEnabled(preyType))
+            {
+                validation = "prey-type-disabled";
+                return false;
+            }
+
+            if (IsTargetOnCooldown(hunterUnitId, preyGlobalId, timestamp))
+            {
+                validation = "target-on-MoveHere-cooldown";
+                return false;
+            }
+
+            if (hunterPclReachability != null &&
+                hunterPclReachability.TryIsReachable(
+                    hunterUnitId,
+                    preyUnitId,
+                    preyGlobalId,
+                    preyType,
+                    timestamp,
+                    out bool reachable))
+            {
+                validation = reachable ? "pcl-reachable" : "pcl-zero";
+                return reachable;
+            }
+
+            // A technical PCL lookup failure must not discard live prey.
+            validation = "pcl-unavailable-fail-open";
+            return true;
         }
 
         private HunterStateOneNearRefreshAction TryPrepareHunterStateOneNearRefresh(
@@ -4063,6 +4180,8 @@ namespace ImprovedHunters
             hunterVisibilityDiagnostic = null;
             hunterTargetSearchFallbackDiagnostic?.Dispose();
             hunterTargetSearchFallbackDiagnostic = null;
+            hunterPostShotContinuationDiagnostic?.Dispose();
+            hunterPostShotContinuationDiagnostic = null;
             hunterVanillaPathContinuationDiagnostic?.Dispose();
             hunterVanillaPathContinuationDiagnostic = null;
             hunterActiveTargetVisibilitySnapshot?.Dispose();

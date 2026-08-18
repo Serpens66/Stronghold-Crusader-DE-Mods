@@ -3,10 +3,25 @@
   "Author": "Serpens66",
   "Name": "Improved Hunters",
   "Description": "Adds configurable hunter prey and meat yield for deer, goats, rabbits, camels, chickens and cows.",
-  "Version": "1.1.61",
+  "Version": "1.1.63",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.1.63",
+      "Changes": [
+        "Correct the State-10 query-call resolver to read the relative displacement after the CALL opcode; version 1.1.62 failed closed during initialization and therefore left Hunter behavior unchanged.",
+        "Retain the audited result-hook RVAs and guarded Vanilla State-0/MoveHere continuation while logging the actual CALL instruction addresses separately from their displacement operands."
+      ]
+    },
+    {
+      "Version": "1.1.62",
+      "Changes": [
+        "Correlate each accepted Hunter attack with both audited State-10 target-query exits, including live Hunter/prey identity, health, corpse, own-reservation, PCL, projectile and exact State-6-writer diagnostics.",
+        "When the same own-reserved target survives and remains PCL-reachable, select Vanilla's existing State-0 requery path by changing only the State-10 query-result register, then supply that identity once to Vanilla's normal MoveHere handoff.",
+        "Reject post-shot continuation for dead, invalid, foreign-targeted, disabled, cooled-down or PCL-disconnected prey, preserving Vanilla's normal corpse, pickup and failure paths without direct AI-state, order, path, speed or animation writes."
+      ]
+    },
     {
       "Version": "1.1.61",
       "Changes": [

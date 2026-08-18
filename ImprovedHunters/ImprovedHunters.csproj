@@ -127,6 +127,7 @@
     <Compile Include="src\HunterPclReachability.cs" />
     <Compile Include="src\HunterPclReachabilityDiagnostic.cs" />
     <Compile Include="src\HunterRemainingPathSpeedRecovery.cs" />
+    <Compile Include="src\HunterPostShotContinuationDiagnostic.cs" />
     <Compile Include="src\HunterTargetSearchFallbackDiagnostic.cs" />
     <Compile Include="src\HunterVanillaPathContinuationDiagnostic.cs" />
     <Compile Include="src\HunterVisibilityDiagnostic.cs" />

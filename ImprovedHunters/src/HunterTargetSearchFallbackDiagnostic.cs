@@ -28,6 +28,11 @@ namespace ImprovedHunters
         int nativeWorldDistance,
         out bool shouldLog);
 
+    internal delegate bool TryPrepareHunterPostShotStateZeroContinuation(
+        int hunterUnitId,
+        long timestamp,
+        out HunterPostShotContinuationCandidate candidate);
+
     /// <summary>
     /// Temporary, separately removable validation of the native target-search
     /// handoff, the state-1 near-target refresh and its direct-attack
@@ -113,6 +118,10 @@ namespace ImprovedHunters
         private readonly ImprovedHuntersViewModel settings;
         private readonly Func<bool> canRun;
         private readonly TryPrepareHunterStateOneNearRefresh tryPrepareStateOneNearRefresh;
+        private readonly TryPrepareHunterPostShotStateZeroContinuation tryPreparePostShotStateZeroContinuation;
+        private readonly Action<HunterPostShotContinuationCandidate, long> recordAcceptedPostShotAttack;
+        private readonly Action<HunterPostShotContinuationCandidate, int> recordPostShotStateZeroHandoff;
+        private readonly Action<HunterPostShotContinuationCandidate, int> recordPostShotMoveHereResult;
         private readonly Action<int, uint, long> registerRejectedMove;
         private readonly Action<int, int, uint, eChimps, int, long> recordPclMoveHereResult;
         private readonly long generation;
@@ -145,6 +154,10 @@ namespace ImprovedHunters
             bool referenceHashMatches,
             Func<bool> canRun,
             TryPrepareHunterStateOneNearRefresh tryPrepareStateOneNearRefresh,
+            TryPrepareHunterPostShotStateZeroContinuation tryPreparePostShotStateZeroContinuation,
+            Action<HunterPostShotContinuationCandidate, long> recordAcceptedPostShotAttack,
+            Action<HunterPostShotContinuationCandidate, int> recordPostShotStateZeroHandoff,
+            Action<HunterPostShotContinuationCandidate, int> recordPostShotMoveHereResult,
             Action<int, uint, long> registerRejectedMove,
             Action<int, int, uint, eChimps, int, long> recordPclMoveHereResult)
         {
@@ -153,6 +166,14 @@ namespace ImprovedHunters
             this.canRun = canRun ?? throw new ArgumentNullException(nameof(canRun));
             this.tryPrepareStateOneNearRefresh = tryPrepareStateOneNearRefresh ??
                 throw new ArgumentNullException(nameof(tryPrepareStateOneNearRefresh));
+            this.tryPreparePostShotStateZeroContinuation = tryPreparePostShotStateZeroContinuation ??
+                throw new ArgumentNullException(nameof(tryPreparePostShotStateZeroContinuation));
+            this.recordAcceptedPostShotAttack = recordAcceptedPostShotAttack ??
+                throw new ArgumentNullException(nameof(recordAcceptedPostShotAttack));
+            this.recordPostShotStateZeroHandoff = recordPostShotStateZeroHandoff ??
+                throw new ArgumentNullException(nameof(recordPostShotStateZeroHandoff));
+            this.recordPostShotMoveHereResult = recordPostShotMoveHereResult ??
+                throw new ArgumentNullException(nameof(recordPostShotMoveHereResult));
             this.registerRejectedMove = registerRejectedMove ??
                 throw new ArgumentNullException(nameof(registerRejectedMove));
             this.recordPclMoveHereResult = recordPclMoveHereResult ??
@@ -419,6 +440,23 @@ namespace ImprovedHunters
 
             activeGeneration = generation;
             activeHunterUnitId = hunterUnitId;
+            try
+            {
+                if (tryPreparePostShotStateZeroContinuation(
+                        hunterUnitId,
+                        Stopwatch.GetTimestamp(),
+                        out HunterPostShotContinuationCandidate postShotCandidate))
+                {
+                    stagedCandidate = Candidate.FromPostShot(postShotCandidate);
+                }
+            }
+            catch (Exception exception)
+            {
+                LogDiagnostic(
+                    "Improved Hunters post-shot State-0 preparation failed independently; " +
+                    $"hunter={hunterUnitId}, error={exception.Message}.",
+                    warning: true);
+            }
         }
 
         private void CompleteStateZeroQuery(NativePointer<X64SmartCPUContext> context)
@@ -441,6 +479,42 @@ namespace ImprovedHunters
             {
                 ClearQueryState();
                 return;
+            }
+
+            if (stagedCandidate.IsPostShotContinuation)
+            {
+                Candidate postShotCandidate = stagedCandidate;
+                bool postShotCandidateValid =
+                    TryValidateOwnReservationCandidate(postShotCandidate, requiredAiState: 0);
+                if (postShotCandidateValid)
+                {
+                    pendingMoveCandidate = postShotCandidate;
+                    context.Pointer->RAX = unchecked((ulong)(uint)postShotCandidate.PreyUnitId);
+                    try
+                    {
+                        recordPostShotStateZeroHandoff(
+                            postShotCandidate.PostShotContinuation,
+                            vanillaTargetUnitId);
+                    }
+                    catch (Exception exception)
+                    {
+                        LogDiagnostic(
+                            "Improved Hunters post-shot State-0 handoff recording failed independently: " +
+                            $"hunter={hunterUnitId}, target={postShotCandidate.PreyUnitId}/" +
+                            $"{postShotCandidate.PreyGlobalId}, error={exception.Message}.",
+                            warning: true);
+                    }
+
+                    LogDiagnostic(
+                        "Improved Hunters target-search fallback supplied own-reserved post-shot target: " +
+                        $"hunter={hunterUnitId}, target={postShotCandidate.PreyUnitId}/" +
+                        $"{postShotCandidate.PreyType}, globalId={postShotCandidate.PreyGlobalId}, " +
+                        $"vanillaQueryResult={vanillaTargetUnitId}, handoff=Vanilla-MoveHere.");
+                    ClearQueryState(keepPendingMove: true);
+                    return;
+                }
+
+                stagedCandidate = default;
             }
 
             if (vanillaTargetUnitId != 0)
@@ -490,6 +564,21 @@ namespace ImprovedHunters
             int moveResult = unchecked((int)(uint)context.Pointer->RAX);
             long timestamp = Stopwatch.GetTimestamp();
             string movementSnapshot = TryFormatMovementSnapshot(candidate.HunterUnitId);
+            if (candidate.IsPostShotContinuation)
+            {
+                try
+                {
+                    recordPostShotMoveHereResult(candidate.PostShotContinuation, moveResult);
+                }
+                catch (Exception exception)
+                {
+                    LogDiagnostic(
+                        "Improved Hunters post-shot MoveHere result recording failed independently: " +
+                        $"hunter={candidate.HunterUnitId}, target={candidate.PreyUnitId}/" +
+                        $"{candidate.PreyGlobalId}, moveResult={moveResult}, error={exception.Message}.",
+                        warning: true);
+                }
+            }
             try
             {
                 recordPclMoveHereResult(
@@ -701,6 +790,31 @@ namespace ImprovedHunters
                 $"hunterTile={hunter->r_CurrentTilePositionX},{hunter->r_CurrentTilePositionY}, " +
                 $"preyTile={prey->r_CurrentTilePositionX},{prey->r_CurrentTilePositionY}, " +
                 "behaviorMutation=False.");
+
+            if (attackResult != 0 &&
+                TryValidateOwnReservationCandidate(candidate, requiredAiState: 1))
+            {
+                HunterPostShotContinuationCandidate postShotCandidate =
+                    new HunterPostShotContinuationCandidate(
+                        candidate.HunterUnitId,
+                        hunter->r_GlobalId,
+                        candidate.PreyUnitId,
+                        candidate.PreyGlobalId,
+                        candidate.PreyType,
+                        candidate.Source);
+                try
+                {
+                    recordAcceptedPostShotAttack(postShotCandidate, timestamp);
+                }
+                catch (Exception exception)
+                {
+                    LogStateOneDiagnostic(
+                        "Improved Hunters post-shot attack recording failed independently: " +
+                        $"hunter={candidate.HunterUnitId}, target={candidate.PreyUnitId}/" +
+                        $"{candidate.PreyGlobalId}, error={exception.Message}.",
+                        warning: true);
+                }
+            }
         }
 
         private void LogInvalidStateOneContextOnce(
@@ -1172,6 +1286,7 @@ namespace ImprovedHunters
             public readonly eChimps PreyType;
             public readonly bool Preferred;
             public readonly bool SuppliedByFallback;
+            public readonly HunterPostShotContinuationCandidate PostShotContinuation;
 
             public Candidate(
                 int hunterUnitId,
@@ -1179,7 +1294,8 @@ namespace ImprovedHunters
                 uint preyGlobalId,
                 eChimps preyType,
                 bool preferred,
-                bool suppliedByFallback)
+                bool suppliedByFallback,
+                HunterPostShotContinuationCandidate postShotContinuation = default)
             {
                 HunterUnitId = hunterUnitId;
                 PreyUnitId = preyUnitId;
@@ -1187,14 +1303,19 @@ namespace ImprovedHunters
                 PreyType = preyType;
                 Preferred = preferred;
                 SuppliedByFallback = suppliedByFallback;
+                PostShotContinuation = postShotContinuation;
             }
 
             public bool IsValid => HunterUnitId > 0 && PreyUnitId > 0 && PreyGlobalId != 0;
+
+            public bool IsPostShotContinuation => PostShotContinuation.IsValid;
 
             public string Source
             {
                 get
                 {
+                    if (IsPostShotContinuation)
+                        return "PostShotContinuation";
                     return SuppliedByFallback ? "InjectedFallback" : "VanillaQuery";
                 }
             }
@@ -1205,7 +1326,18 @@ namespace ImprovedHunters
                 PreyGlobalId,
                 PreyType,
                 Preferred,
-                suppliedByFallback: true);
+                suppliedByFallback: true,
+                postShotContinuation: PostShotContinuation);
+
+            public static Candidate FromPostShot(HunterPostShotContinuationCandidate candidate) =>
+                new Candidate(
+                    candidate.HunterUnitId,
+                    candidate.PreyUnitId,
+                    candidate.PreyGlobalId,
+                    candidate.PreyType,
+                    preferred: true,
+                    suppliedByFallback: true,
+                    postShotContinuation: candidate);
         }
 
         private readonly struct AcceptedMoveObservation

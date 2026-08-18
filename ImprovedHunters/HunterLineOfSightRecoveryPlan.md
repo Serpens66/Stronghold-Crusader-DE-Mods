@@ -2,7 +2,8 @@
 
 Stand: `2026-08-18`
 
-Aktueller Quell- und Teststand: `1.1.61` auf Steam Build `24651686`.
+Aktueller Quellstand: `1.1.63`; letzter Ingame-Test: `1.1.62` auf Steam Build
+`24651686`.
 SHA-256 der auditierten `CrusaderDE.dll`:
 `33AA33457F7DFAAA6D316D1D5E4C5AB97094F2C73B68D349990ABF9D0EF3B469`.
 
@@ -17,14 +18,20 @@ Vollständige RVA-, Byte-, Resolver- und Updateprüfungen stehen in
 - Paket B, Vanillas normale Kette aus Schuss, Zielkadaver, Pickup und Abgabe,
   ist abgeschlossen.
 - Paket E ist aktiv. Restweg-Geschwindigkeit, blockierte Pfadfortsetzung und der
-  schnelle Sicht-/Angriffshandoff funktionieren. Offen ist der Abbruch nach
-  einem Schuss, wenn das ursprüngliche Ziel weiterlebt.
-- Danach folgen Paket F für unreservierte Kadaver, Paket D als gemeinsame
-  Beutetyp-/Mehrjägermatrix und zuletzt Paket C für die Produktionsbereinigung.
+  schnelle Sicht-/Angriffshandoff funktionieren. Die Ursache des Abbruchs nach
+  einem nicht tödlichen Schuss ist lokalisiert. Der erste Fix in `1.1.62` blieb
+  wegen eines Resolverfehlers fail-closed und war im Spiel nicht aktiv;
+  `1.1.63` korrigiert diesen Initialisierungsfehler. Offen ist die abschließende
+  Ingame-Abnahmematrix.
+- Unmittelbar nach Abschluss von Paket E folgt eine verpflichtende
+  bidirektionale Geschwindigkeits-Nachprüfung. Danach folgen Paket F für
+  unreservierte Kadaver, Paket D als gemeinsame Beutetyp-/Mehrjägermatrix und
+  zuletzt Paket C für die Produktionsbereinigung.
 - Ein sichtbarer Jagdsprint ist optional. Echter Multiplayer bleibt bis Script
   Extender `1.50.0` deaktiviert.
 
-Verbindliche Reihenfolge: `E → F → D → C`.
+Verbindliche Reihenfolge:
+`E → Geschwindigkeits-Nachprüfung → F → D → C`.
 
 ## Fachliches Ziel
 
@@ -143,6 +150,9 @@ noch ausschließt; Paket D muss diese Entscheidung vereinheitlichen.
 | `0x130110` | Nachgeschaltetes `+0xF4`-/Pfadzustandstor; Hookspanne `[0x130110,0x130124)` |
 | `0x13013D` / `0x130149` | Direkter Angriff und Beobachtung seines Rückgabewerts |
 | `0x130171` | Bekannter State-6-/Timer-20-Writer nach direktem Angriffsfehler |
+| `0x1304D1` / `0x1304D6` | Primäre State-10-Zielquery nach Sicht-/Zielguard und ihr Ergebnis; Hookspanne `[0x1304D6,0x1304E5)` |
+| `0x130577` / `0x13057C` | Sekundäre State-10-Zielquery und ihr Ergebnis; Hookspanne `[0x13057C,0x13058B)` |
+| `0x12FF58` | Gemeinsamer State-6-/Timer-20-Writer nach einer Nullquery aus State 10 |
 | `0x18AF00` | Vanilla-Hunter-Zielsuche |
 | `0x196230` | `c_game_unit_issueorder_movehere` |
 | `0xA06F0` / `0x9E350` | Sichtwrapper und Sichtkern; im Nahbereich werden beide Kernrichtungen bewertet |
@@ -182,19 +192,57 @@ Blockierte Bewegungskarte ab `10:51:51`:
 - Es gab keine Improved-Hunters-Callbackexception, keinen
   `snapshot-expired`-Fehlangriff und keinen harten Prozessabbruch.
 
-### Offener Paket-E-Fehler
+### Ursache des Paket-E-Fehlers und Korrektur in `1.1.63`
 
 Nach einem angenommenen, aber für das reservierte Ziel nicht tödlichen Schuss
 beendet Vanilla die Jagd, obwohl dasselbe Ziel weiterlebt, erlaubt und
 PCL-erreichbar ist. Die sichtbare Reaktion und der Angriffshandoff waren bereits
 korrekt; auch eine zu große Entfernung ist bei fünf Tiles ausgeschlossen.
 
-Der Log zeigt die Folge `attackResult=1 → State 10 → neue Zielsuche → kein
-MoveHere → State 6`, lokalisiert aber noch nicht:
+Die erneute Sichtblockade war der Auslöser der primären State-10-Query, aber
+nicht der eigentliche Defekt. Der validierte Pfad ist:
 
-- welcher Branch State `10` verlässt,
-- weshalb der erlaubte Fallbackkandidat bei `best=none` nicht übernommen wird,
-- welcher konkrete State-6-Writer in diesem Lauf ausgeführt wird.
+`attackResult=1 → State 9 → State 10 → Sicht-/Zielguard → Query 0x1304D1 →`
+`Nullergebnis → State-6-Writer 0x12FF58`.
+
+Vanillas Query `0x18AF00` akzeptiert nur Beute mit Reservation `0`. Das
+ursprüngliche Ziel `17/319` trug weiterhin korrekt die eigene Reservation `2`
+und konnte deshalb nativ nicht zurückgegeben werden. Die Mod-Rangfolge
+verwendete ebenfalls nur freie Beute, meldete deshalb `best=none` und erlaubte
+den Eventkandidaten lediglich fail-open (`fallback=True`). Ohne einen
+`TargetSelection`-Bestwert wurde er nicht für den bestehenden State-0-Fallback
+vorgemerkt. Damit blieb das Queryergebnis null und Vanilla schrieb State `6`.
+
+Der `1.1.62`-Test bestätigte den geplanten Handoff noch nicht. Die Komponente
+brach bereits bei der Initialisierung fail-closed ab:
+
+`Hunter State-10 query targets changed: primary=0x5BD2FBE, secondary=0x5BC8A64`.
+
+Für den relativen `CALL` wurde irrtümlich Patternoffset `0x0B`, also die Adresse
+des Opcodes `E8`, als Anfang des vier Byte großen Displacements übergeben. Das
+Displacement beginnt erst bei Offset `0x0C`; die nächste Instruktion liegt bei
+Offset `0x10`. Deshalb wurde keiner der beiden Ergebnis-Hooks installiert und
+das beobachtete Spielverhalten entsprach weiterhin `1.1.61`.
+
+`1.1.63` verwendet für beide Call-Ziele Offset `0x0C` und validiert sie damit
+korrekt gegen Query-RVA `0x18AF00`. Die Call-Instruktionen selbst bleiben bei
+`0x1304D1` und `0x130577`, die Ergebnis-Hooks unverändert bei `0x1304D6` und
+`0x13057C`.
+
+Der nun aktivierbare Handoff korreliert einen erfolgreichen direkten Angriff
+mit beiden State-10-Queryausgängen. Bleiben Hunter und Ziel in exakt derselben Slot-/
+Global-ID, das Ziel lebend, aktiviert, eigenreserviert, nicht fremdgezielt,
+ohne Cooldown und PCL-erreichbar, wird ausschließlich das temporäre
+Query-Rückgaberegister auf die Ziel-ID gesetzt. Vanillas relocatetes `TEST`
+wählt dadurch seinen bestehenden State-0-Pfad. Die unmittelbar folgende
+State-0-Query erhält genau einmal denselben eigenreservierten Kandidaten; danach
+setzt Vanilla selbst Ziel, Reservation, Pfad und `MoveHere`. Kein AI-State-,
+Order-, Pfad-, Speed- oder Animationsfeld wird vom Mod geschrieben.
+
+Ist das Ziel tot, ungültig, fremdgezielt, deaktiviert, im Cooldown oder durch
+PCL `0` getrennt, bleibt das Queryergebnis unverändert. Projektilmarker,
+Zielgesundheit, Reservation, Querypfad, State-0-Handoff und `MoveHere`-Ergebnis
+werden begrenzt und millisekundengenau protokolliert.
 
 Ob der Pfeil nichts oder ein anderes Tier trifft, ändert die Paket-E-Anforderung
 nicht: Solange das ursprüngliche Ziel gültig weiterlebt, muss derselbe Jäger es
@@ -203,24 +251,15 @@ separat Paket F.
 
 ### Verbindlicher nächster Arbeitsschritt
 
-1. Eine separat entfernbare, rein beobachtende Nach-Schuss-Diagnose ergänzen.
-   Ab `attackResult=1` müssen Projektilerzeugung und -ende, Hunter-State und
-   -Order, Zielslot/Global-ID, Ziel-Alive-State und Gesundheit, Reservation,
-   PCL, Zielquery-Rückgabe, Fallbackkandidat, `MoveHere`-Aufruf/-Ergebnis und
-   jeder State-6-Writer korreliert werden.
-2. Nativ den Pfad von State `10` zur neuen Query analysieren. Insbesondere den
-   Grund für `allowed=True, fallback=True, best=none`, den ausbleibenden
-   `MoveHere` und den tatsächlich ausgeführten State-6-Writer bestimmen.
-3. Neue Diagnosehooks vor Installation vollständig validieren. Während der
-   Ursachenanalyse keine Register-/Flagmutation, keinen Schaden, Target-Transfer,
-   Move oder AI-State-Write ergänzen.
-4. Danach den kleinsten vorhandenen Vanilla-Wiederaufnahmepfad korrigieren. Ist
-   das ursprüngliche Ziel mit derselben Identität noch lebend, aktiviert,
-   eigenreserviert und PCL-erreichbar, muss Vanilla es unmittelbar erneut
-   verfolgen, statt State `6` zu wählen.
-5. Ist das Ziel tot, ungültig, fremdreserviert oder PCL-getrennt, darf die
-   Korrektur nicht greifen. Cooldown, Projektilkompensation und Pickup sind keine
-   Ersatzkorrekturen.
+1. `1.1.63` mit dem bewegten Herden-/Fehlschussfall mindestens dreimal testen.
+   Erwartete Kette: `post-shot observation queued → State-10 recovery → State-0
+   continuation prepared → target supplied → MoveHere result=1`, ohne State `6`
+   oder Hüttenrückweg dazwischen.
+2. Tödlichen Treffer separat regressieren: keine State-10-Wiederaufnahme,
+   unveränderter Kadaver, Pickup und Fleischabgabe.
+3. Die übrige Paket-E-Matrix ausführen. Nach vollständiger Abnahme zuerst die
+   verpflichtende Geschwindigkeits-Nachprüfung durchführen und erst danach
+   Paket F beginnen.
 
 ### Paket-E-Abnahme
 
@@ -244,6 +283,35 @@ separat Paket F.
 
 Gate: Paket E ist fertig, wenn ein weiterhin gültiges Ziel nach einem nicht
 tödlichen Schuss zuverlässig weiterverfolgt wird und alle Regressionen bestehen.
+
+## Verpflichtende Geschwindigkeits-Nachprüfung nach Paket E
+
+Diese Nachprüfung beginnt unmittelbar nach der vollständigen Paket-E-Abnahme
+und muss vor Paket F abgeschlossen werden. Sie öffnet Paket E nicht erneut,
+sondern regressiert gezielt die entfernungsabhängige Auswahl der vorhandenen
+Vanilla-Geschwindigkeitsstufen.
+
+- Die Geschwindigkeitsentscheidung muss in jedem gültigen Bewegungsupdate aus
+  der aktuellen relevanten Entfernung beziehungsweise dem aktuellen dekodierten
+  Restweg abgeleitet werden; eine einmal gewählte langsamere Stufe darf nicht
+  als einseitig sinkender Zustand erhalten bleiben.
+- Verringert sich die Entfernung zum Ziel, darf der Jäger wie vorgesehen in
+  Vanillas langsamere Annäherungsstufen wechseln.
+- Erhöht sich die Entfernung oder der verbleibende Weg wieder, beispielsweise
+  weil ein Reh vom Jäger wegläuft, muss der Jäger erneut in die zur nun längeren
+  Strecke passende schnellere Vanilla-Stufe wechseln können.
+- Abnahmefall: Dasselbe lebende Ziel bewegt sich während einer Jagd erst auf den
+  Jäger zu und danach deutlich von ihm weg. Logs müssen aktuelle direkte
+  Distanz, dekodierte Restkosten, gewählte Vanilla-Stufe und beide
+  Richtungswechsel zeigen; es darf kein Ziel-, Pfad- oder AI-State-Schreibzugriff
+  des Mods hinzukommen.
+- Zusätzlich einen Sichtwechsel sowie einen Hindernisumweg regressieren, damit
+  die Beschleunigung weder von einem veralteten Snapshot noch von einer nur
+  monoton fallenden Restwegannahme verhindert wird.
+
+Gate: Die Nachprüfung ist fertig, wenn Verlangsamung und erneute Beschleunigung
+für dieselbe Zielidentität reproduzierbar der jeweils aktuellen Entfernung oder
+Reststrecke folgen. Erst danach beginnt Paket F.
 
 ## Paket F: unreservierte Kadaver
 
@@ -353,7 +421,7 @@ prüfen.
 | `src/HunterVanillaPathContinuationDiagnostic.cs` | Distanz-28-Fortsetzung und Zero-Flag-only-Angriffshandoff; in C trennen |
 | `src/HunterHutVisibilityPatch.cs` | Jägerhütte als normaler Sichtblocker |
 | `src/ImprovedHuntersRuntime.cs` | Events, Eligibility, Rangfolge, Handoffs, Reservationen und Projektilkorrelation |
-| neue Nach-Schuss-Diagnose | Nächster Paket-E-Schritt: State 10, Requery, ausbleibender `MoveHere` und State-6-Writer |
+| `src/HunterPostShotContinuationDiagnostic.cs` | State-10-Querydiagnose, identitäts-/PCL-gesicherte einmalige Übergabe an Vanillas State-0-/`MoveHere`-Kette |
 | spätere Paket-F-Trefferdiagnose | Tatsächlichen Damage-Empfänger kausal mit Projektil und Schütze verbinden |
 | `UpdateToNewDLL.md` | Vollständige Native- und Updatequelle |
 
@@ -382,13 +450,13 @@ prüfen.
 2. Paket A und B nicht erneut öffnen, sofern keine konkrete Regression belegt
    ist.
 3. In Paket E direkt beim Abschnitt „Verbindlicher nächster Arbeitsschritt“
-   beginnen. Nicht erneut Sichtlatenz, Restweg oder F4 als Hauptursache verfolgen;
-   diese Übergänge sind mit `1.1.61` bestätigt.
-4. Zuerst den Nach-Schuss-Pfad `attackResult=1 → State 10 → Query → kein
-   MoveHere → State 6` beobachtend lokalisieren. Das weiterhin lebende Ziel
-   `17/319` ist der maßgebliche Beleg.
-5. Anschließend den kleinsten Vanilla-Wiederaufnahmepfad für genau dieselbe
-   gültige Zielidentität korrigieren und die Paket-E-Matrix ausführen.
-6. Erst nach vollständiger E-Abnahme Paket F beginnen; danach `D → C`.
-7. Bei jeder neuen Hypothese den kleinsten stabilen Vanilla-Übergang erhalten.
+   beginnen. Nicht erneut Sichtlatenz, Restweg, F4 oder die Ursache der
+   State-10-Nullquery untersuchen; diese Punkte sind mit `1.1.61/1.1.63`
+   geklärt.
+4. Den `1.1.63`-Nach-Schuss-Handoff und anschließend die vollständige
+   Paket-E-Matrix ausführen.
+5. Nach vollständiger E-Abnahme zwingend die bidirektionale
+   Geschwindigkeits-Nachprüfung abschließen; erst danach Paket F beginnen und
+   anschließend `D → C` bearbeiten.
+6. Bei jeder neuen Hypothese den kleinsten stabilen Vanilla-Übergang erhalten.
    Diagnose, Korrektur und Vanilla-Aufruf bleiben getrennt.

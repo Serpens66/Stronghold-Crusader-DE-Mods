@@ -1121,6 +1121,92 @@ incoming-target, function-entry, Xref and jump-table audits for both spans, then
 update all RVAs and the reference hash together. A matching opcode prefix alone
 is insufficient.
 
+### State-10 post-shot continuation in 1.1.62 and resolver correction in 1.1.63
+
+The `1.1.61` blocked-map run accepted the direct attack on target `17/319` at
+`10:52:13.318`. The target remained alive, enabled, own-reserved, without a
+cooldown and PCL-reachable. At `10:52:14.357`, State 10 invoked the target query,
+but the managed ranking reported `allowed=True, fallback=True, best=none`; no
+State-0 `MoveHere` followed and the Hunter reached State 6. The same identity
+was selected normally again at `10:52:21.301`, excluding death, slot reuse,
+target change and persistent unreachability.
+
+Static reinspection of HunterUpdate establishes the exact primary path. State
+10 calls the visibility wrapper at RVA `0x130384`. A nonpositive result at
+`0x13038B`, a target-global mismatch at `0x1303AF`, or a reservation mismatch at
+`0x1303BE` reaches the query call at RVA `0x1304D1`. Its result is tested at
+`0x1304D6`; zero falls through the jump at `0x1304E5` to the shared writer at
+RVA `0x12FF58`, which writes State `6`, timer `20` and the return-to-hut control
+value. A secondary State-10 path calls the same query at RVA `0x130577`; its test
+at `0x13057C` branches directly to `0x12FF58` on zero. Nonzero results from both
+sites reach the existing State-0 writer at RVA `0x12FF3E`.
+
+The query at RVA `0x18AF00` requires candidate reservation zero. The still-live
+original target correctly retained the Hunter's own reservation `2`; therefore
+neither the native query nor the mod's free-prey ranking could return it. The
+event callback's fail-open `allowed=True` did not stage a fallback because
+`TargetSelection.HasTarget` was false. Renewed visibility blocking thus
+triggered the primary State-10 query, while the own-reservation mismatch between
+that query and the continuation requirement caused the abort.
+
+Version `1.1.62` intended to add two exact-hash-only result hooks:
+
+- primary result RVA `0x1304D6`, decoded overwrite span
+  `[0x1304D6,0x1304E5)` = `2+7+6` bytes (`TEST`, RIP-relative current-Hunter
+  load, `JNE 0x12FF3E`);
+- secondary result RVA `0x13057C`, decoded overwrite span
+  `[0x13057C,0x13058B)` = `2+7+6` bytes (`TEST`, RIP-relative current-Hunter
+  load, `JE 0x12FF58`).
+
+The primary semantic resolver pattern is
+`8B 1D ?? ?? ?? ?? 8B D3 49 8B CD E8 ?? ?? ?? ?? 85 C0 48 63 05 ?? ?? ?? ?? 0F 85 ?? ?? ?? ?? E9 ?? ?? ?? ??`.
+The secondary pattern is identical except for `0F 84` at the result branch.
+Both calls must resolve to query RVA `0x18AF00`; both RIP-relative loads must
+resolve to current-Hunter RVA `0x92F2C4`. Iced validates each full span and
+scans the complete HunterUpdate range `[0x12FC20,0x1313D2)` for external direct
+branches or calls into either span interior before the rollback-on-failure
+transaction commits.
+
+The `1.1.62` runtime test showed that this component failed closed before hook
+installation. `ResolveRelativeTarget` expects the first byte of the four-byte
+relative displacement and the RVA of the next instruction. The State-10 call
+instruction starts at sequence offset `0x0B`, but its displacement starts at
+offset `0x0C`; the next instruction starts at offset `0x10`. Version `1.1.62`
+incorrectly supplied `0x0B`, so the `E8` opcode became the low displacement
+byte and produced invalid targets `0x5BD2FBE` and `0x5BC8A64`. The semantic
+target check rejected both, no transaction was created, and Hunter behavior
+remained unchanged.
+
+Version `1.1.63` supplies displacement offset `0x0C` and next-instruction
+offset `0x10` for both calls. This resolves each target to audited query RVA
+`0x18AF00`. The call instruction RVAs (`0x1304D1`, `0x130577`), result-hook
+RVAs, decoded spans and all behavioral guards remain unchanged.
+
+An accepted direct attack records Hunter and target slot/global identities.
+At either State-10 result hook, continuation additionally requires the same
+live Hunter in State 10, the same live enabled target, positive health, corpse
+flag zero, own reservation exactly `2`, no other live Hunter targeting that
+identity, no MoveHere cooldown and a nonzero PCL result. A known PCL zero leaves
+Vanilla unchanged; a technical PCL failure is fail-open, consistent with the
+selection filter.
+
+If all guards pass, the callback changes only `RAX` from the query result to the
+original target slot. The relocated `TEST` selects Vanilla's existing nonzero
+branch, and Vanilla itself writes State 0. On the next State-0 query, the
+existing fallback hook supplies the same own-reserved identity exactly once;
+Vanilla then performs its normal target assignment, reservation write and
+`MoveHere` call. The existing MoveHere-result callback remains authoritative and
+applies its normal rejection cleanup and cooldown if path creation returns zero.
+The mod writes no Hunter AI state, order, target field, path, speed or animation
+field. Dead, invalid, disabled, foreign-targeted, cooled-down or PCL-disconnected
+prey never enter this handoff.
+
+On a future DLL hash, keep this feature disabled. Re-identify both State-10
+query calls and their exact zero/nonzero destinations, decode the actual detour
+spans, audit every inbound direct and indirect entry, and reconfirm the native
+query's reservation-zero filter plus the State-0 and MoveHere semantics before
+updating the reference hash and RVAs.
+
 Future Script Extender updates must revalidate the public ranged-damage,
 projectile-delete and move-order semantics. A bounded native reachability path
 must be identified and validated before pre-shot recovery is enabled again. The
