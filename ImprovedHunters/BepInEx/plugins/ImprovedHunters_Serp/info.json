@@ -3,10 +3,18 @@
   "Author": "Serpens66",
   "Name": "Improved Hunters",
   "Description": "Adds configurable hunter prey and meat yield for deer, goats, rabbits, camels, chickens and cows.",
-  "Version": "1.1.63",
+  "Version": "1.1.64",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.1.64",
+      "Changes": [
+        "Skip the native State-9 to State-10 sit/wait transition after a nonlethal shot and immediately return the same validated target to Vanilla State 0 without waiting for projectile deletion.",
+        "Reroute a failed direct attack at the end of a stale completed path from Vanilla State 6 to a normal State-0 replan while the original live target remains reachable.",
+        "Replace route-length-dependent 60-second hunt limits with progress-based stall detection and a maximum of three recovery-causing attacks per target; exhausted targets enter the existing bounded cooldown."
+      ]
+    },
     {
       "Version": "1.1.63",
       "Changes": [

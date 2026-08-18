@@ -3272,8 +3272,10 @@ namespace ImprovedHunters
                     TryPrepareHunterStateOneNearRefresh,
                     TryPrepareHunterPostShotStateZeroContinuation,
                     RecordAcceptedHunterPostShotAttack,
+                    RecordFailedHunterPostShotAttack,
                     RecordHunterPostShotStateZeroHandoff,
                     RecordHunterPostShotMoveHereResult,
+                    ResetHunterPostShotAttemptBudget,
                     RegisterRejectedHunterStateZeroMove,
                     RecordHunterPclMoveHereResult);
             }
@@ -3302,7 +3304,8 @@ namespace ImprovedHunters
                     imageBase,
                     referenceHashMatches,
                     CanRunHunterTargetSearchFallback,
-                    TryValidateHunterPostShotContinuation);
+                    TryValidateHunterPostShotContinuation,
+                    RegisterRejectedHunterStateZeroMove);
             }
             catch (Exception exception)
             {
@@ -3447,6 +3450,13 @@ namespace ImprovedHunters
             hunterPostShotContinuationDiagnostic?.RecordAcceptedAttack(candidate, timestamp);
         }
 
+        private void RecordFailedHunterPostShotAttack(
+            HunterPostShotContinuationCandidate candidate,
+            long timestamp)
+        {
+            hunterPostShotContinuationDiagnostic?.RecordFailedDirectAttack(candidate, timestamp);
+        }
+
         private void RecordHunterPostShotStateZeroHandoff(
             HunterPostShotContinuationCandidate candidate,
             int vanillaTargetUnitId)
@@ -3461,6 +3471,17 @@ namespace ImprovedHunters
             int moveHereResult)
         {
             hunterPostShotContinuationDiagnostic?.RecordMoveHereResult(candidate, moveHereResult);
+        }
+
+        private void ResetHunterPostShotAttemptBudget(
+            int hunterUnitId,
+            int preyUnitId,
+            uint preyGlobalId)
+        {
+            hunterPostShotContinuationDiagnostic?.ResetAttemptBudgetForIndependentMove(
+                hunterUnitId,
+                preyUnitId,
+                preyGlobalId);
         }
 
         private bool TryValidateHunterPostShotContinuation(

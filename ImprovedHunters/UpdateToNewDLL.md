@@ -583,16 +583,21 @@ The `1.1.39` multi-Hunter run proved that the global identity bound was visible
 behavior rather than a harmless logging restriction. Six Hunters received
 accepted Vanilla paths, but later blocked pairs repeatedly reached failed
 direct attacks with active path state while continuation slots were already
-consumed. Version `1.1.40` removes both the permanent global identity set and
+consumed. Version `1.1.40` removed both the permanent global identity set and
 the redundant callback-count bound. It keeps one active attempt per Hunter,
-allows unlimited sequential target identities over a map, and retains only the
-60-second continuous-near-range and three-second no-progress bounds. A bounded
+allows unlimited sequential target identities over a map, and retained the
+then-current 60-second continuous-near-range and three-second no-progress bounds. A bounded
 stop suspends only the same Hunter/global-prey identity for five seconds; a
 different identity or natural distance 29/30 clears that Hunter's stale state.
-A callback gap of more than one second starts a fresh bounded interval. Logging
+At that version, a callback gap of more than one second started a fresh bounded interval. Logging
 is limited to attempt starts, actual `+0xF6` progress changes, releases, and
 bounded stops so parallel Hunters do not exhaust the diagnostic budget during
 the first few seconds.
+
+Version `1.1.64` removes the 60-second total bound and callback-gap reset. The
+same identity may continue for any total duration while its path progresses;
+only the local three-second no-progress detector and five-second correction
+cooldown remain.
 
 The subsequent `1.1.40` in-game repeat confirmed the state separation: every
 simultaneously deployed Hunter continued its own blocked-visibility Vanilla
@@ -802,9 +807,10 @@ player, mode or source/target-PCL changes bypass the interval immediately. This
 separates the inline handoff from the general one-second target-selection cache
 and removes its deterministic expiry race without increasing active native PCL
 queries beyond approximately one per second and Hunter. The `0x1300EA` hook
-consumes the ticket before it may select Vanilla distance `29`. A three-second
-no-progress bound, 60-second total bound and five-second retry cooldown remain
-per Hunter/target identity. Missing or stale active snapshot,
+consumes the ticket before it may select Vanilla distance `29`. Since version
+`1.1.64`, total duration is unlimited while path progress changes; only the
+three-second no-progress detector and five-second retry cooldown remain per
+Hunter/target identity. Missing or stale active snapshot,
 changed identity, visible target, unreachable PCL, invalid path and every error
 leave both original branches unchanged.
 
@@ -1200,6 +1206,60 @@ applies its normal rejection cleanup and cooldown if path creation returns zero.
 The mod writes no Hunter AI state, order, target field, path, speed or animation
 field. Dead, invalid, disabled, foreign-targeted, cooled-down or PCL-disconnected
 prey never enter this handoff.
+
+#### Earlier State-9 and failed-attack recovery in 1.1.64
+
+The `1.1.63` runtime test proved that the State-10 result hooks initialize and
+execute, but also exposed that this handoff is unnecessarily late. After the
+shot, HunterUpdate has already entered State 9 and subsequently prepares ESI
+`10` before the native AI-state writer at RVA `0x13024A`; State 10 configures
+the visible sit/wait animation before its target queries. A second independent
+abort occurs when the direct-attack call at RVA `0x13013D` returns zero after a
+completed stale path: the branch at `0x13014B` reaches RVA `0x130171`, prepares
+timer/state/control values `20/6/1`, then writes State 6 at RVA `0x130191`.
+
+Version `1.1.64` adds both earlier hooks to the same rollback-on-failure
+transaction as the two State-10 query-result hooks:
+
+- State-9 completion starts at RVA `0x13023C`, span
+  `[0x13023C,0x130253)` = `7+7+9` bytes: RIP-relative current-Hunter load,
+  unit-stride multiply and the native AI-state writer. Its exact-hash pattern is
+  `48 63 05 ?? ?? ?? ?? 48 69 C8 90 04 00 00 66 42 89 B4 29 18 09 00 00 42 C7 84 29 08 09 00 00 00 00 00 00`.
+  The RIP-relative operand must resolve to current-Hunter RVA `0x92F2C4`.
+  With a live identical target, remaining attempt budget and nonzero PCL, the
+  callback changes only RSI from `10` to `0`; the relocated native writer then
+  selects State 0 instead of State 10. The projectile-producing State-9 work
+  has already completed, so no projectile-delete/end wait is part of this
+  decision and the sit/wait animation state is never entered.
+- Failed direct attack starts at RVA `0x130171`, span
+  `[0x130171,0x130188)` = `7+6+5+5` bytes: unit-stride multiply plus preparation
+  of R15/RAX/RSI as `20/6/1`. Its exact-hash pattern is
+  `48 69 CA 90 04 00 00 41 BF 14 00 00 00 B8 06 00 00 00 BE 01 00 00 00 66 46 89 BC 29 20 09 00 00`.
+  The overwritten preparation executes before the callback. For the exactly
+  correlated failed direct attack and the same live reachable target, the
+  callback changes only those registers to `0/0/0`; Vanillas untouched writers
+  at `0x130188`, `0x130191` and `0x13019A` write timer/state/control zero and the
+  next Hunter update follows the regular State-0 query/MoveHere path.
+
+Iced must decode the complete spans with the instruction lengths above. The
+complete HunterUpdate range `[0x12FC20,0x1313D2)` is scanned for every direct
+conditional branch, unconditional branch and call into either span interior.
+Known predecessors target the failed-attack hook start `0x130171`, not its
+interior. All four transaction spans are non-overlapping. The canonical DLL
+hash remains
+`33AA33457F7DFAAA6D316D1D5E4C5AB97094F2C73B68D349990ABF9D0EF3B469`;
+on a different hash these hooks stay disabled rather than pattern-scanning.
+
+The old 60-second total-attempt bounds in blocked-path continuation and
+remaining-path speed selection, plus the 60-second accepted-MoveHere
+correlation lifetime, are removed. Total route duration is unlimited while
+path progress continues. A three-second no-progress detector and five-second
+retry cooldown remain local stall protection, not a hunt-duration limit.
+Post-attack continuation has no wall-clock expiry and is instead bounded by
+exact Hunter/prey identity, native AI state, live/corpse/reservation checks,
+PCL reachability and at most three recovery-causing attacks per Hunter/target
+identity. The third attempt leaves Vanilla's abandonment path unchanged and
+registers the existing bounded target cooldown.
 
 On a future DLL hash, keep this feature disabled. Re-identify both State-10
 query calls and their exact zero/nonzero destinations, decode the actual detour

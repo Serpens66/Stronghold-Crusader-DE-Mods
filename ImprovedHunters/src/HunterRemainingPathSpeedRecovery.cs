@@ -47,10 +47,8 @@ namespace ImprovedHunters
             "BE 01 00 00 00 42 89 B4 29 60 06 00 00 " +
             "66 42 89 B4 29 A4 09 00 00";
 
-        private static readonly long MaxAttemptDuration = Stopwatch.Frequency * 60;
         private static readonly long MaxNoProgressDuration = Stopwatch.Frequency * 3;
         private static readonly long RetryCooldownDuration = Stopwatch.Frequency * 5;
-        private static readonly long AttemptContinuityGap = Stopwatch.Frequency;
 
         private readonly ManualLogSource log;
         private readonly ImprovedHuntersViewModel settings;
@@ -160,6 +158,7 @@ namespace ImprovedHunters
                     $"effectivePathBufferRva=0x{EffectivePathBufferRva:X}, " +
                     $"pathBytesPerUnit={PathBytesPerUnit}, " +
                     $"maximumPathSteps={MaximumPathSteps}, pathLengthType=UInt32, " +
+                    "totalDurationLimit=None, " +
                     "metric=cardinal-plus-two-times-diagonal, inFlightCorrection=none-conservative, " +
                     "nativeVisibilityRequired=True, ownMovement=False, ownAiState=False, ownOrderWrite=False, " +
                     "directSpeedWrite=False, directAnimationWrite=False, registerOverride=RDI-distance-only.");
@@ -496,8 +495,7 @@ namespace ImprovedHunters
                     suspendedAttempts.Remove(identity.HunterUnitId);
                 }
 
-                if (!activeAttempts.TryGetValue(identity.HunterUnitId, out SpeedAttempt attempt) ||
-                    timestamp - attempt.LastObservedAt > AttemptContinuityGap)
+                if (!activeAttempts.TryGetValue(identity.HunterUnitId, out SpeedAttempt attempt))
                 {
                     attempt = new SpeedAttempt(
                         identity,
@@ -514,9 +512,8 @@ namespace ImprovedHunters
                         timestamp);
                 }
 
-                bool maxDurationReached = timestamp - attempt.StartedAt > MaxAttemptDuration;
                 bool noProgressReached = timestamp - attempt.LastProgressAt > MaxNoProgressDuration;
-                if (maxDurationReached || noProgressReached)
+                if (noProgressReached)
                 {
                     activeAttempts.Remove(identity.HunterUnitId);
                     suspendedAttempts[identity.HunterUnitId] = new SuspendedAttempt(
@@ -526,7 +523,7 @@ namespace ImprovedHunters
                         "Improved Hunters remaining-path speed recovery stopped: " +
                         $"hunter={identity.HunterUnitId}/{identity.HunterGlobalId}, " +
                         $"target={identity.PreyUnitId}/{identity.PreyGlobalId}, " +
-                        $"reason={(maxDurationReached ? "max-duration" : "no-progress")}, " +
+                        "reason=no-progress, " +
                         $"nativeDistance={nativeDistance}, path={snapshot.PathState}/" +
                         $"{snapshot.PathProgress}/{snapshot.PathLength}, selections={attempt.Selections}, " +
                         $"retryCooldownSeconds={RetryCooldownDuration / Stopwatch.Frequency}, " +
@@ -535,7 +532,7 @@ namespace ImprovedHunters
                     return false;
                 }
 
-                activeAttempts[identity.HunterUnitId] = attempt.WithSelection(timestamp);
+                activeAttempts[identity.HunterUnitId] = attempt.WithSelection();
                 return true;
             }
         }
@@ -809,9 +806,7 @@ namespace ImprovedHunters
         private readonly struct SpeedAttempt
         {
             public readonly AttemptIdentity Identity;
-            public readonly long StartedAt;
             public readonly long LastProgressAt;
-            public readonly long LastObservedAt;
             public readonly ushort LastProgress;
             public readonly uint LastPathLength;
             public readonly int Selections;
@@ -822,13 +817,10 @@ namespace ImprovedHunters
                 ushort lastProgress,
                 uint lastPathLength,
                 long lastProgressAt = 0,
-                long lastObservedAt = 0,
                 int selections = 0)
             {
                 Identity = identity;
-                StartedAt = startedAt;
                 LastProgressAt = lastProgressAt == 0 ? startedAt : lastProgressAt;
-                LastObservedAt = lastObservedAt == 0 ? startedAt : lastObservedAt;
                 LastProgress = lastProgress;
                 LastPathLength = lastPathLength;
                 Selections = selections;
@@ -840,21 +832,19 @@ namespace ImprovedHunters
                 long timestamp) =>
                 new SpeedAttempt(
                     Identity,
-                    StartedAt,
+                    LastProgressAt,
                     progress,
                     pathLength,
                     timestamp,
-                    timestamp,
                     Selections);
 
-            public SpeedAttempt WithSelection(long timestamp) =>
+            public SpeedAttempt WithSelection() =>
                 new SpeedAttempt(
                     Identity,
-                    StartedAt,
+                    LastProgressAt,
                     LastProgress,
                     LastPathLength,
                     LastProgressAt,
-                    timestamp,
                     Selections + 1);
         }
 

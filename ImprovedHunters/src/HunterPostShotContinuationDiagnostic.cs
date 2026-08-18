@@ -70,6 +70,9 @@ namespace ImprovedHunters
         private const int StateZeroContinuationRva = 0x12FF3E;
         private const int StateTenPrimaryQuerySequenceRva = 0x1304C6;
         private const int StateTenSecondaryQuerySequenceRva = 0x13056C;
+        private const int StateNineCompletionWriterRva = 0x13023C;
+        private const int FailedDirectAttackWriterRva = 0x130171;
+        private const int RecoveryWriterHookLength = 0x17;
         // Relative-target resolution starts after the E8 opcode, while logs name the call itself.
         private const int QueryCallInstructionOffset = 0x0B;
         private const int QueryCallDisplacementOffset = 0x0C;
@@ -83,7 +86,9 @@ namespace ImprovedHunters
         private const int PreyReservationOffset = 0x448;
         private const ushort StateZero = 0;
         private const ushort StateOne = 1;
+        private const ushort StateNine = 9;
         private const ushort StateTen = 10;
+        private const int MaximumRecoveryAttempts = 3;
         private const int MaxDiagnosticLogs = 160;
 
         private const string StateTenPrimaryQuerySequencePattern =
@@ -92,26 +97,38 @@ namespace ImprovedHunters
         private const string StateTenSecondaryQuerySequencePattern =
             "8B 1D ? ? ? ? 8B D3 49 8B CD E8 ? ? ? ? " +
             "85 C0 48 63 05 ? ? ? ? 0F 84 ? ? ? ? E9 ? ? ? ?";
-
-        private static readonly long AttackObservationLifetime = Stopwatch.Frequency * 4;
-        private static readonly long StateZeroHandoffLifetime = Stopwatch.Frequency * 2;
+        private const string StateNineCompletionWriterPattern =
+            "48 63 05 ? ? ? ? 48 69 C8 90 04 00 00 " +
+            "66 42 89 B4 29 18 09 00 00 42 C7 84 29 08 09 00 00 00 00 00 00";
+        private const string FailedDirectAttackWriterPattern =
+            "48 69 CA 90 04 00 00 41 BF 14 00 00 00 " +
+            "B8 06 00 00 00 BE 01 00 00 00 66 46 89 BC 29 20 09 00 00";
 
         private readonly ManualLogSource log;
         private readonly ImprovedHuntersViewModel settings;
         private readonly Func<bool> canRun;
         private readonly TryValidateHunterPostShotContinuation tryValidateContinuation;
+        private readonly Action<int, uint, long> registerRejectedMove;
         private readonly object stateLock = new object();
         private readonly Dictionary<int, ShotObservation> activeShots =
             new Dictionary<int, ShotObservation>();
         private readonly Dictionary<int, PendingStateZeroHandoff> pendingStateZeroHandoffs =
             new Dictionary<int, PendingStateZeroHandoff>();
+        private readonly Dictionary<int, FailedAttackObservation> failedAttacks =
+            new Dictionary<int, FailedAttackObservation>();
+        private readonly Dictionary<int, RecoveryAttemptBudget> recoveryAttempts =
+            new Dictionary<int, RecoveryAttemptBudget>();
         private HookTransaction transaction;
         private HookRef<X64InlineHook> primaryQueryResultHook = new HookRef<X64InlineHook>();
         private HookRef<X64InlineHook> secondaryQueryResultHook = new HookRef<X64InlineHook>();
+        private HookRef<X64InlineHook> stateNineCompletionHook = new HookRef<X64InlineHook>();
+        private HookRef<X64InlineHook> failedDirectAttackWriterHook = new HookRef<X64InlineHook>();
         private int* currentHunterUnitId;
         private bool featureAvailable;
         private bool primaryHookConfirmed;
         private bool secondaryHookConfirmed;
+        private bool stateNineHookConfirmed;
+        private bool failedAttackHookConfirmed;
         private int diagnosticLogs;
         private bool disposed;
 
@@ -122,13 +139,16 @@ namespace ImprovedHunters
             ulong libraryBase,
             bool referenceHashMatches,
             Func<bool> canRun,
-            TryValidateHunterPostShotContinuation tryValidateContinuation)
+            TryValidateHunterPostShotContinuation tryValidateContinuation,
+            Action<int, uint, long> registerRejectedMove)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
             this.canRun = canRun ?? throw new ArgumentNullException(nameof(canRun));
             this.tryValidateContinuation = tryValidateContinuation ??
                 throw new ArgumentNullException(nameof(tryValidateContinuation));
+            this.registerRejectedMove = registerRejectedMove ??
+                throw new ArgumentNullException(nameof(registerRejectedMove));
 
             if (!referenceHashMatches)
             {
@@ -154,6 +174,20 @@ namespace ImprovedHunters
                 StateTenSecondaryQuerySequenceRva,
                 referenceHashMatches,
                 "Hunter State-10 secondary post-shot target query",
+                log).Rva;
+            int stateNineCompletionWriterRva = Shared.NativePatternResolver.ResolveUnique(
+                memory,
+                StateNineCompletionWriterPattern,
+                StateNineCompletionWriterRva,
+                referenceHashMatches,
+                "Hunter State-9 completion State-10 writer",
+                log).Rva;
+            int failedDirectAttackWriterRva = Shared.NativePatternResolver.ResolveUnique(
+                memory,
+                FailedDirectAttackWriterPattern,
+                FailedDirectAttackWriterRva,
+                referenceHashMatches,
+                "Hunter failed direct-attack State-6 writer",
                 log).Rva;
 
             int primaryQueryFunctionRva = Shared.NativePatternResolver.ResolveRelativeTarget(
@@ -195,6 +229,18 @@ namespace ImprovedHunters
                     "Hunter State-10 query hooks no longer share the audited current-Hunter global.");
             }
             currentHunterUnitId = (int*)primaryHunterIdAddress;
+            ulong stateNineHunterIdAddress = ValidateStateNineCompletionHookSpan(
+                memory,
+                libraryBase,
+                stateNineCompletionWriterRva);
+            ValidateFailedDirectAttackHookSpan(memory, libraryBase, failedDirectAttackWriterRva);
+            if (stateNineHunterIdAddress != primaryHunterIdAddress)
+                throw new InvalidOperationException("State-9 completion no longer uses the audited current-Hunter global.");
+            ValidateHookSpansDoNotOverlap(
+                primaryResultRva,
+                secondaryResultRva,
+                stateNineCompletionWriterRva,
+                failedDirectAttackWriterRva);
 
             try
             {
@@ -219,9 +265,30 @@ namespace ImprovedHunters
                     hookSize: QueryResultHookLength,
                     errorMode: CallbackErrorMode.LogAndContinue,
                     placement: OverwrittenInstructionPlacement.AfterCallback);
+                transaction.AddContextHook(
+                    ref stateNineCompletionHook,
+                    libraryBase + unchecked((ulong)stateNineCompletionWriterRva),
+                    TrySkipStateTenSitTransition,
+                    regs: X64SmartCPUContextRegs.Volatile | X64SmartCPUContextRegs.RSI,
+                    hookSize: RecoveryWriterHookLength,
+                    errorMode: CallbackErrorMode.LogAndContinue,
+                    placement: OverwrittenInstructionPlacement.AfterCallback);
+                transaction.AddContextHook(
+                    ref failedDirectAttackWriterHook,
+                    libraryBase + unchecked((ulong)failedDirectAttackWriterRva),
+                    TryRerouteFailedDirectAttack,
+                    regs: X64SmartCPUContextRegs.Volatile |
+                        X64SmartCPUContextRegs.RSI |
+                        X64SmartCPUContextRegs.R15,
+                    hookSize: RecoveryWriterHookLength,
+                    errorMode: CallbackErrorMode.LogAndContinue,
+                    placement: OverwrittenInstructionPlacement.BeforeCallback);
                 transaction.Commit();
 
-                if (!primaryQueryResultHook.Success || !secondaryQueryResultHook.Success)
+                if (!primaryQueryResultHook.Success ||
+                    !secondaryQueryResultHook.Success ||
+                    !stateNineCompletionHook.Success ||
+                    !failedDirectAttackWriterHook.Success)
                     throw new InvalidOperationException("One or more Hunter post-shot query hooks were not installed.");
 
                 featureAvailable = true;
@@ -232,10 +299,16 @@ namespace ImprovedHunters
                     $"primaryResultHookSpan=[0x{primaryResultRva:X},0x{primaryResultRva + QueryResultHookLength:X}), " +
                     $"secondaryQueryRva=0x{secondarySequenceRva + QueryCallInstructionOffset:X}, " +
                     $"secondaryResultHookSpan=[0x{secondaryResultRva:X},0x{secondaryResultRva + QueryResultHookLength:X}), " +
+                    $"stateNineCompletionHookSpan=[0x{stateNineCompletionWriterRva:X}," +
+                    $"0x{stateNineCompletionWriterRva + RecoveryWriterHookLength:X}), " +
+                    $"failedAttackHookSpan=[0x{failedDirectAttackWriterRva:X}," +
+                    $"0x{failedDirectAttackWriterRva + RecoveryWriterHookLength:X}), " +
                     $"queryFunctionRva=0x{HunterQueryFunctionRva:X}, stateSixWriterRva=0x{StateSixWriterRva:X}, " +
-                    "ownReservationRequired=2, liveIdentityRequired=True, PclZeroRejects=True, " +
+                    $"maximumRecoveryAttempts={MaximumRecoveryAttempts}, totalDurationLimit=None, " +
+                    "ownReservationRequired=2-or-released-during-State0, liveIdentityRequired=True, PclZeroRejects=True, " +
                     "handoff=State10-query-result-to-Vanilla-state0-query-and-MoveHere, " +
-                    "registerOverride=RAX-query-result-only, ownMovement=False, ownAiState=False, " +
+                    "earlyHandoff=State9-completion-skips-State10-sit, failedAttackHandoff=State6-writer-to-State0, " +
+                    "registerOverride=RAX/RSI/R15-only, ownMovement=False, ownAiState=False, " +
                     "ownOrderWrite=False, speedWrite=False, animationWrite=False.");
             }
             catch
@@ -249,7 +322,9 @@ namespace ImprovedHunters
             featureAvailable &&
             !disposed &&
             primaryQueryResultHook.Success &&
-            secondaryQueryResultHook.Success;
+            secondaryQueryResultHook.Success &&
+            stateNineCompletionHook.Success &&
+            failedDirectAttackWriterHook.Success;
 
         public void RecordAcceptedAttack(
             HunterPostShotContinuationCandidate candidate,
@@ -258,21 +333,29 @@ namespace ImprovedHunters
             if (!IsAvailable || !canRun() || !candidate.IsValid)
                 return;
 
-            if (!TryValidateCandidate(candidate, StateOne, out GameUnit* hunter, out GameUnit* prey))
+            if (!TryValidateCandidate(
+                    candidate,
+                    StateOne,
+                    allowReleasedStateZeroTransition: false,
+                    out GameUnit* hunter,
+                    out GameUnit* prey,
+                    out string rejection))
             {
                 LogDiagnostic(
                     "Improved Hunters post-shot observation rejected accepted attack: " +
                     $"hunter={candidate.HunterUnitId}/{candidate.HunterGlobalId}, " +
                     $"target={candidate.PreyUnitId}/{candidate.PreyGlobalId}/{candidate.PreyType}, " +
-                    "reason=identity-state-or-own-reservation-validation-failed, behaviorMutation=False.",
+                    $"reason={rejection}, behaviorMutation=False.",
                     warning: true);
                 return;
             }
 
-            ShotObservation observation = new ShotObservation(candidate, timestamp);
+            int recoveryAttempt = IncrementRecoveryAttempt(candidate);
+            ShotObservation observation = new ShotObservation(candidate, recoveryAttempt);
             lock (stateLock)
             {
                 activeShots[candidate.HunterUnitId] = observation;
+                failedAttacks.Remove(candidate.HunterUnitId);
                 pendingStateZeroHandoffs.Remove(candidate.HunterUnitId);
             }
 
@@ -281,9 +364,79 @@ namespace ImprovedHunters
                 $"hunter={candidate.HunterUnitId}/{candidate.HunterGlobalId}, " +
                 $"target={candidate.PreyUnitId}/{candidate.PreyGlobalId}/{candidate.PreyType}, " +
                 $"attackSource={candidate.AttackSource}, targetHealth={prey->r_CurrentHealth}, " +
+                $"recoveryAttempt={recoveryAttempt}/{MaximumRecoveryAttempts}, " +
                 $"reservation={*(ushort*)((byte*)prey + PreyReservationOffset)}, corpseFlag=" +
                 $"{*(ushort*)((byte*)prey + PreyCorpseFlagOffset)}, {TryFormatMovementSnapshot(hunter)}, " +
                 "behaviorMutation=False.");
+        }
+
+        public void RecordFailedDirectAttack(
+            HunterPostShotContinuationCandidate candidate,
+            long timestamp)
+        {
+            if (!IsAvailable || !canRun() || !candidate.IsValid)
+                return;
+
+            if (!TryValidateCandidate(
+                    candidate,
+                    StateOne,
+                    allowReleasedStateZeroTransition: false,
+                    out _,
+                    out _,
+                    out string rejection))
+            {
+                LogDiagnostic(
+                    "Improved Hunters failed direct-attack recovery was not staged: " +
+                    $"hunter={candidate.HunterUnitId}/{candidate.HunterGlobalId}, " +
+                    $"target={candidate.PreyUnitId}/{candidate.PreyGlobalId}/{candidate.PreyType}, " +
+                    $"reason={rejection}, behaviorMutation=False.",
+                    warning: true);
+                return;
+            }
+
+            int recoveryAttempt = IncrementRecoveryAttempt(candidate);
+            lock (stateLock)
+            {
+                failedAttacks[candidate.HunterUnitId] =
+                    new FailedAttackObservation(candidate, recoveryAttempt, timestamp);
+                activeShots.Remove(candidate.HunterUnitId);
+                pendingStateZeroHandoffs.Remove(candidate.HunterUnitId);
+            }
+
+            LogDiagnostic(
+                "Improved Hunters failed direct-attack recovery staged: " +
+                $"hunter={candidate.HunterUnitId}/{candidate.HunterGlobalId}, " +
+                $"target={candidate.PreyUnitId}/{candidate.PreyGlobalId}/{candidate.PreyType}, " +
+                $"recoveryAttempt={recoveryAttempt}/{MaximumRecoveryAttempts}, " +
+                "expectedVanillaWriter=state6, behaviorMutation=False.");
+        }
+
+        public void ResetAttemptBudgetForIndependentMove(
+            int hunterUnitId,
+            int preyUnitId,
+            uint preyGlobalId)
+        {
+            if (hunterUnitId <= 0)
+                return;
+
+            RecoveryAttemptBudget previous = default;
+            lock (stateLock)
+            {
+                recoveryAttempts.TryGetValue(hunterUnitId, out previous);
+                recoveryAttempts.Remove(hunterUnitId);
+                activeShots.Remove(hunterUnitId);
+                failedAttacks.Remove(hunterUnitId);
+                pendingStateZeroHandoffs.Remove(hunterUnitId);
+            }
+
+            if (previous.Attempts > 0)
+            {
+                LogDiagnostic(
+                    "Improved Hunters recovery-attempt budget reset by independent Vanilla MoveHere: " +
+                    $"hunter={hunterUnitId}, previousTarget={previous.PreyUnitId}/" +
+                    $"{previous.PreyGlobalId}, newTarget={preyUnitId}/{preyGlobalId}, " +
+                    $"previousAttempts={previous.Attempts}/{MaximumRecoveryAttempts}.");
+            }
         }
 
         public void RecordProjectileSpawn(
@@ -365,8 +518,13 @@ namespace ImprovedHunters
             GameUnit* hunter = null;
             GameUnit* prey = null;
             string validation = null;
-            if (timestamp > handoff.ExpiresAt ||
-                !TryValidateCandidate(handoff.Candidate, StateZero, out hunter, out prey) ||
+            if (!TryValidateCandidate(
+                    handoff.Candidate,
+                    StateZero,
+                    allowReleasedStateZeroTransition: true,
+                    out hunter,
+                    out prey,
+                    out string identityValidation) ||
                 !tryValidateContinuation(
                     handoff.Candidate.HunterUnitId,
                     handoff.Candidate.PreyUnitId,
@@ -378,9 +536,10 @@ namespace ImprovedHunters
                 lock (stateLock)
                     pendingStateZeroHandoffs.Remove(hunterUnitId);
                 LogDiagnostic(
-                    "Improved Hunters post-shot State-0 handoff expired or failed revalidation: " +
+                    "Improved Hunters post-attack State-0 handoff failed revalidation: " +
                     $"hunter={hunterUnitId}, target={handoff.Candidate.PreyUnitId}/" +
-                    $"{handoff.Candidate.PreyGlobalId}, validation={validation ?? "identity-or-expiry"}, " +
+                    $"{handoff.Candidate.PreyGlobalId}, identityValidation={identityValidation}, " +
+                    $"runtimeValidation={validation ?? "not-run"}, " +
                     "behaviorMutation=False.",
                     warning: true);
                 return false;
@@ -418,6 +577,7 @@ namespace ImprovedHunters
             lock (stateLock)
             {
                 activeShots.Remove(candidate.HunterUnitId);
+                failedAttacks.Remove(candidate.HunterUnitId);
                 pendingStateZeroHandoffs.Remove(candidate.HunterUnitId);
             }
 
@@ -436,12 +596,16 @@ namespace ImprovedHunters
             lock (stateLock)
             {
                 activeShots.Clear();
+                failedAttacks.Clear();
+                recoveryAttempts.Clear();
                 pendingStateZeroHandoffs.Clear();
             }
 
             diagnosticLogs = 0;
             primaryHookConfirmed = false;
             secondaryHookConfirmed = false;
+            stateNineHookConfirmed = false;
+            failedAttackHookConfirmed = false;
         }
 
         private void ObservePrimaryStateTenQueryResult(NativePointer<X64SmartCPUContext> context)
@@ -452,6 +616,159 @@ namespace ImprovedHunters
         private void ObserveSecondaryStateTenQueryResult(NativePointer<X64SmartCPUContext> context)
         {
             ObserveStateTenQueryResult(context, "secondary-target-refresh", ref secondaryHookConfirmed);
+        }
+
+        private void TrySkipStateTenSitTransition(NativePointer<X64SmartCPUContext> context)
+        {
+            if (!IsAvailable || !canRun() || currentHunterUnitId == null)
+                return;
+
+            int hunterUnitId = *currentHunterUnitId;
+            if (!stateNineHookConfirmed)
+            {
+                stateNineHookConfirmed = true;
+                LogDiagnostic(
+                    "Improved Hunters State-9 completion hook confirmed: " +
+                    $"hunter={hunterUnitId}, requestedState={(ushort)context.Pointer->RSI}, " +
+                    "transition=shot-to-State10-sit, behaviorMutation=False.");
+            }
+
+            ShotObservation observation;
+            lock (stateLock)
+            {
+                if (!activeShots.TryGetValue(hunterUnitId, out observation))
+                    return;
+            }
+
+            long timestamp = Stopwatch.GetTimestamp();
+            HunterPostShotContinuationCandidate candidate = observation.Candidate;
+            if (observation.RecoveryAttempt >= MaximumRecoveryAttempts)
+            {
+                ExhaustRecoveryBudget(candidate, timestamp);
+                LogDiagnostic(
+                    "Improved Hunters allowed Vanilla State-10 sit transition after shot: " +
+                    $"hunter={hunterUnitId}, target={candidate.PreyUnitId}/{candidate.PreyGlobalId}, " +
+                    $"recoveryAttempt={observation.RecoveryAttempt}/{MaximumRecoveryAttempts}, " +
+                    "reason=recovery-attempt-budget-exhausted, behaviorMutation=False.",
+                    warning: true);
+                return;
+            }
+
+            if (!TryValidateRecovery(
+                    candidate,
+                    StateNine,
+                    allowReleasedStateZeroTransition: false,
+                    timestamp,
+                    out GameUnit* hunter,
+                    out GameUnit* prey,
+                    out string validation))
+            {
+                lock (stateLock)
+                    activeShots.Remove(hunterUnitId);
+                LogDiagnostic(
+                    "Improved Hunters allowed Vanilla State-10 sit transition after shot: " +
+                    $"hunter={hunterUnitId}, target={candidate.PreyUnitId}/{candidate.PreyGlobalId}, " +
+                    $"reason={validation}, recoveryAttempt={observation.RecoveryAttempt}/" +
+                    $"{MaximumRecoveryAttempts}, behaviorMutation=False.",
+                    warning: true);
+                return;
+            }
+
+            lock (stateLock)
+            {
+                activeShots.Remove(hunterUnitId);
+                pendingStateZeroHandoffs[hunterUnitId] =
+                    new PendingStateZeroHandoff(candidate);
+            }
+
+            // ESI is Vanilla's pending AI-state value. The relocated writer
+            // remains native and writes State 0 instead of State 10.
+            context.Pointer->RSI = StateZero;
+            LogDiagnostic(
+                "Improved Hunters skipped post-shot State-10 sit transition: " +
+                $"hunter={candidate.HunterUnitId}/{candidate.HunterGlobalId}, " +
+                $"target={candidate.PreyUnitId}/{candidate.PreyGlobalId}/{candidate.PreyType}, " +
+                $"recoveryAttempt={observation.RecoveryAttempt}/{MaximumRecoveryAttempts}, " +
+                $"targetHealth={prey->r_CurrentHealth}, validation={validation}, " +
+                $"{TryFormatMovementSnapshot(hunter)}, transition=State9-to-State0, " +
+                "State10SitPrevented=True, projectileEndWait=False, registerOverride=RSI-state-only, " +
+                "behaviorMutation=True.");
+        }
+
+        private void TryRerouteFailedDirectAttack(NativePointer<X64SmartCPUContext> context)
+        {
+            if (!IsAvailable || !canRun() || currentHunterUnitId == null)
+                return;
+
+            int hunterUnitId = *currentHunterUnitId;
+            if (!failedAttackHookConfirmed)
+            {
+                failedAttackHookConfirmed = true;
+                LogDiagnostic(
+                    "Improved Hunters failed direct-attack writer hook confirmed: " +
+                    $"hunter={hunterUnitId}, writerInputs=state{(ushort)context.Pointer->RAX}/" +
+                    $"timer{(ushort)context.Pointer->R15}/control{(ushort)context.Pointer->RSI}, " +
+                    "behaviorMutation=False.");
+            }
+
+            FailedAttackObservation observation;
+            lock (stateLock)
+            {
+                if (!failedAttacks.TryGetValue(hunterUnitId, out observation))
+                    return;
+                failedAttacks.Remove(hunterUnitId);
+            }
+
+            HunterPostShotContinuationCandidate candidate = observation.Candidate;
+            if (observation.RecoveryAttempt >= MaximumRecoveryAttempts)
+            {
+                ExhaustRecoveryBudget(candidate, observation.ObservedAt);
+                LogDiagnostic(
+                    "Improved Hunters allowed Vanilla State-6 abandonment after failed direct attack: " +
+                    $"hunter={hunterUnitId}, target={candidate.PreyUnitId}/{candidate.PreyGlobalId}, " +
+                    $"recoveryAttempt={observation.RecoveryAttempt}/{MaximumRecoveryAttempts}, " +
+                    "reason=recovery-attempt-budget-exhausted, behaviorMutation=False.",
+                    warning: true);
+                return;
+            }
+
+            if (!TryValidateRecovery(
+                    candidate,
+                    StateOne,
+                    allowReleasedStateZeroTransition: false,
+                    observation.ObservedAt,
+                    out GameUnit* hunter,
+                    out GameUnit* prey,
+                    out string validation))
+            {
+                LogDiagnostic(
+                    "Improved Hunters allowed Vanilla State-6 abandonment after failed direct attack: " +
+                    $"hunter={hunterUnitId}, target={candidate.PreyUnitId}/{candidate.PreyGlobalId}, " +
+                    $"reason={validation}, recoveryAttempt={observation.RecoveryAttempt}/" +
+                    $"{MaximumRecoveryAttempts}, behaviorMutation=False.",
+                    warning: true);
+                return;
+            }
+
+            lock (stateLock)
+            {
+                pendingStateZeroHandoffs[hunterUnitId] =
+                    new PendingStateZeroHandoff(candidate);
+            }
+
+            // These are exactly the three values prepared by Vanilla before
+            // its timer/state/control writers; the relocated writers stay native.
+            context.Pointer->RAX = StateZero;
+            context.Pointer->R15 = 0;
+            context.Pointer->RSI = 0;
+            LogDiagnostic(
+                "Improved Hunters rerouted failed direct attack from State 6 to State 0: " +
+                $"hunter={candidate.HunterUnitId}/{candidate.HunterGlobalId}, " +
+                $"target={candidate.PreyUnitId}/{candidate.PreyGlobalId}/{candidate.PreyType}, " +
+                $"recoveryAttempt={observation.RecoveryAttempt}/{MaximumRecoveryAttempts}, " +
+                $"targetHealth={prey->r_CurrentHealth}, validation={validation}, " +
+                $"{TryFormatMovementSnapshot(hunter)}, writerInputs=6/20/1->0/0/0, " +
+                "next=Vanilla-State0-requery, behaviorMutation=True.");
         }
 
         private void ObserveStateTenQueryResult(
@@ -486,10 +803,16 @@ namespace ImprovedHunters
             GameUnit* hunter = null;
             GameUnit* prey = null;
             string validation = null;
-            if (timestamp - observation.AttackAcceptedAt > AttackObservationLifetime)
-                rejection = "attack-observation-expired";
-            else if (!TryValidateCandidate(candidate, StateTen, out hunter, out prey))
-                rejection = "identity-state-or-own-reservation-validation-failed";
+            if (observation.RecoveryAttempt >= MaximumRecoveryAttempts)
+                rejection = "recovery-attempt-budget-exhausted";
+            else if (!TryValidateCandidate(
+                    candidate,
+                    StateTen,
+                    allowReleasedStateZeroTransition: false,
+                    out hunter,
+                    out prey,
+                    out string identityValidation))
+                rejection = identityValidation;
             else if (!tryValidateContinuation(
                 candidate.HunterUnitId,
                 candidate.PreyUnitId,
@@ -519,9 +842,7 @@ namespace ImprovedHunters
                 return;
             }
 
-            PendingStateZeroHandoff handoff = new PendingStateZeroHandoff(
-                candidate,
-                timestamp + StateZeroHandoffLifetime);
+            PendingStateZeroHandoff handoff = new PendingStateZeroHandoff(candidate);
             lock (stateLock)
                 pendingStateZeroHandoffs[hunterUnitId] = handoff;
 
@@ -544,37 +865,136 @@ namespace ImprovedHunters
         private bool TryValidateCandidate(
             HunterPostShotContinuationCandidate candidate,
             ushort requiredHunterState,
+            bool allowReleasedStateZeroTransition,
             out GameUnit* hunter,
-            out GameUnit* prey)
+            out GameUnit* prey,
+            out string validation)
         {
             hunter = null;
             prey = null;
-            if (!candidate.IsValid ||
-                !settings.IsHuntingEnabled(candidate.PreyType) ||
-                !GameUnitManagerAPI.Instance.TryGetUnitById(candidate.HunterUnitId, out hunter) ||
-                hunter == null ||
-                hunter->r_AliveState != AliveState.IsAlive ||
-                hunter->r_CurrentHealth == 0 ||
-                hunter->r_GlobalId != candidate.HunterGlobalId ||
-                hunter->r_UnitChimp != eChimps.CHIMP_TYPE_HUNTER ||
-                *(ushort*)((byte*)hunter + HunterAiStateOffset) != requiredHunterState ||
-                !GameUnitManagerAPI.Instance.TryGetUnitById(candidate.PreyUnitId, out prey) ||
-                prey == null ||
-                prey->r_AliveState != AliveState.IsAlive ||
-                prey->r_CurrentHealth == 0 ||
-                prey->r_GlobalId != candidate.PreyGlobalId ||
-                prey->r_UnitChimp != candidate.PreyType)
-            {
-                return false;
-            }
+            validation = "unknown";
+            if (!candidate.IsValid)
+                return Reject("invalid-candidate", out validation);
+            if (!settings.IsHuntingEnabled(candidate.PreyType))
+                return Reject("prey-type-disabled", out validation);
+            if (!GameUnitManagerAPI.Instance.TryGetUnitById(candidate.HunterUnitId, out hunter) ||
+                hunter == null)
+                return Reject("hunter-not-found", out validation);
+            if (hunter->r_AliveState != AliveState.IsAlive || hunter->r_CurrentHealth == 0)
+                return Reject("hunter-not-live", out validation);
+            if (hunter->r_GlobalId != candidate.HunterGlobalId ||
+                hunter->r_UnitChimp != eChimps.CHIMP_TYPE_HUNTER)
+                return Reject("hunter-identity-changed", out validation);
+
+            ushort actualState = *(ushort*)((byte*)hunter + HunterAiStateOffset);
+            if (actualState != requiredHunterState)
+                return Reject($"hunter-state-{actualState}-expected-{requiredHunterState}", out validation);
+            if (!GameUnitManagerAPI.Instance.TryGetUnitById(candidate.PreyUnitId, out prey) || prey == null)
+                return Reject("prey-not-found", out validation);
+            if (prey->r_AliveState != AliveState.IsAlive || prey->r_CurrentHealth == 0)
+                return Reject("prey-not-live", out validation);
+            if (prey->r_GlobalId != candidate.PreyGlobalId || prey->r_UnitChimp != candidate.PreyType)
+                return Reject("prey-identity-changed", out validation);
 
             byte* hunterBytes = (byte*)hunter;
             byte* preyBytes = (byte*)prey;
-            return *(ushort*)(hunterBytes + HunterTargetUnitIdOffset) == candidate.PreyUnitId &&
-                *(uint*)(hunterBytes + HunterTargetGlobalIdOffset) == candidate.PreyGlobalId &&
-                *(ushort*)(preyBytes + PreyCorpseFlagOffset) == 0 &&
-                *(ushort*)(preyBytes + PreyReservationOffset) == 2 &&
-                !IsTargetedByOtherLiveHunter(candidate);
+            ushort targetUnitId = *(ushort*)(hunterBytes + HunterTargetUnitIdOffset);
+            uint targetGlobalId = *(uint*)(hunterBytes + HunterTargetGlobalIdOffset);
+            bool targetMatches =
+                targetUnitId == candidate.PreyUnitId && targetGlobalId == candidate.PreyGlobalId;
+            bool targetWasCleared = targetUnitId == 0 && targetGlobalId == 0;
+            if (!targetMatches && !(allowReleasedStateZeroTransition && targetWasCleared))
+                return Reject($"hunter-target-{targetUnitId}-{targetGlobalId}", out validation);
+            if (*(ushort*)(preyBytes + PreyCorpseFlagOffset) != 0)
+                return Reject("prey-corpse-flag-set", out validation);
+
+            ushort reservation = *(ushort*)(preyBytes + PreyReservationOffset);
+            if (reservation != 2 && !(allowReleasedStateZeroTransition && reservation == 0))
+                return Reject($"prey-reservation-{reservation}", out validation);
+            if (IsTargetedByOtherLiveHunter(candidate))
+                return Reject("prey-targeted-by-other-hunter", out validation);
+
+            validation = targetMatches && reservation == 2
+                ? "identity-live-own-reservation"
+                : $"identity-live-State0-transition-target-{targetUnitId}-{targetGlobalId}-reservation-{reservation}";
+            return true;
+        }
+
+        private bool TryValidateRecovery(
+            HunterPostShotContinuationCandidate candidate,
+            ushort requiredHunterState,
+            bool allowReleasedStateZeroTransition,
+            long timestamp,
+            out GameUnit* hunter,
+            out GameUnit* prey,
+            out string validation)
+        {
+            if (!TryValidateCandidate(
+                    candidate,
+                    requiredHunterState,
+                    allowReleasedStateZeroTransition,
+                    out hunter,
+                    out prey,
+                    out string identityValidation))
+            {
+                validation = identityValidation;
+                return false;
+            }
+
+            if (!tryValidateContinuation(
+                    candidate.HunterUnitId,
+                    candidate.PreyUnitId,
+                    candidate.PreyGlobalId,
+                    candidate.PreyType,
+                    timestamp,
+                    out string runtimeValidation))
+            {
+                validation = runtimeValidation ?? "runtime-policy-rejected";
+                return false;
+            }
+
+            validation = $"{identityValidation}+{runtimeValidation}";
+            return true;
+        }
+
+        private int IncrementRecoveryAttempt(HunterPostShotContinuationCandidate candidate)
+        {
+            lock (stateLock)
+            {
+                int attempts = 1;
+                if (recoveryAttempts.TryGetValue(candidate.HunterUnitId, out RecoveryAttemptBudget current) &&
+                    current.PreyUnitId == candidate.PreyUnitId &&
+                    current.PreyGlobalId == candidate.PreyGlobalId)
+                {
+                    attempts = current.Attempts + 1;
+                }
+
+                recoveryAttempts[candidate.HunterUnitId] = new RecoveryAttemptBudget(
+                    candidate.PreyUnitId,
+                    candidate.PreyGlobalId,
+                    attempts);
+                return attempts;
+            }
+        }
+
+        private void ExhaustRecoveryBudget(
+            HunterPostShotContinuationCandidate candidate,
+            long timestamp)
+        {
+            lock (stateLock)
+            {
+                activeShots.Remove(candidate.HunterUnitId);
+                failedAttacks.Remove(candidate.HunterUnitId);
+                pendingStateZeroHandoffs.Remove(candidate.HunterUnitId);
+            }
+
+            registerRejectedMove(candidate.HunterUnitId, candidate.PreyGlobalId, timestamp);
+        }
+
+        private static bool Reject(string reason, out string validation)
+        {
+            validation = reason;
+            return false;
         }
 
         private static bool IsTargetedByOtherLiveHunter(
@@ -606,6 +1026,121 @@ namespace ImprovedHunters
             }
 
             return false;
+        }
+
+        private static ulong ValidateStateNineCompletionHookSpan(
+            ReadOnlySpan<byte> memory,
+            ulong libraryBase,
+            int hookRva)
+        {
+            const int decodeLookahead = 40;
+            if (hookRva < 0 || hookRva > memory.Length - decodeLookahead)
+                throw new InvalidOperationException("State-9 completion hook lies outside the module image.");
+
+            ulong hookAddress = libraryBase + unchecked((ulong)hookRva);
+            Decoder decoder = Decoder.Create(
+                64,
+                new ByteArrayCodeReader(memory.Slice(hookRva, decodeLookahead).ToArray()),
+                hookAddress);
+            Instruction hunterLoad = decoder.Decode();
+            Instruction unitOffset = decoder.Decode();
+            Instruction stateWriter = decoder.Decode();
+            int decodedLength = checked((int)(decoder.IP - hookAddress));
+            if (hunterLoad.IsInvalid ||
+                unitOffset.IsInvalid ||
+                stateWriter.IsInvalid ||
+                hunterLoad.Mnemonic != Mnemonic.Movsxd || hunterLoad.Length != 7 ||
+                unitOffset.Mnemonic != Mnemonic.Imul || unitOffset.Length != 7 ||
+                stateWriter.Mnemonic != Mnemonic.Mov || stateWriter.Length != 9 ||
+                decodedLength != RecoveryWriterHookLength ||
+                !hunterLoad.IsIPRelativeMemoryOperand ||
+                hunterLoad.IPRelativeMemoryAddress !=
+                    libraryBase + unchecked((ulong)HunterCurrentUnitIdRva))
+            {
+                throw new InvalidOperationException(
+                    "State-9 completion hook does not decode as the audited 7+7+9-byte span.");
+            }
+
+            ValidateNoExternalDirectBranchTargetsInsideHook(
+                memory,
+                libraryBase,
+                hookAddress,
+                hookAddress + RecoveryWriterHookLength,
+                "State-9-completion");
+            return hunterLoad.IPRelativeMemoryAddress;
+        }
+
+        private static void ValidateHookSpansDoNotOverlap(
+            int primaryResultRva,
+            int secondaryResultRva,
+            int stateNineCompletionWriterRva,
+            int failedDirectAttackWriterRva)
+        {
+            (int Start, int End, string Name)[] spans =
+            {
+                (primaryResultRva, primaryResultRva + QueryResultHookLength, "primary-State10"),
+                (secondaryResultRva, secondaryResultRva + QueryResultHookLength, "secondary-State10"),
+                (stateNineCompletionWriterRva,
+                    stateNineCompletionWriterRva + RecoveryWriterHookLength,
+                    "State9-completion"),
+                (failedDirectAttackWriterRva,
+                    failedDirectAttackWriterRva + RecoveryWriterHookLength,
+                    "failed-direct-attack")
+            };
+
+            for (int left = 0; left < spans.Length; left++)
+            {
+                for (int right = left + 1; right < spans.Length; right++)
+                {
+                    if (spans[left].Start < spans[right].End &&
+                        spans[right].Start < spans[left].End)
+                    {
+                        throw new InvalidOperationException(
+                            $"Hunter recovery hook spans overlap: {spans[left].Name} and {spans[right].Name}.");
+                    }
+                }
+            }
+        }
+
+        private static void ValidateFailedDirectAttackHookSpan(
+            ReadOnlySpan<byte> memory,
+            ulong libraryBase,
+            int hookRva)
+        {
+            const int decodeLookahead = 40;
+            if (hookRva < 0 || hookRva > memory.Length - decodeLookahead)
+                throw new InvalidOperationException("Failed direct-attack writer hook lies outside the module image.");
+
+            ulong hookAddress = libraryBase + unchecked((ulong)hookRva);
+            Decoder decoder = Decoder.Create(
+                64,
+                new ByteArrayCodeReader(memory.Slice(hookRva, decodeLookahead).ToArray()),
+                hookAddress);
+            Instruction unitOffset = decoder.Decode();
+            Instruction timerValue = decoder.Decode();
+            Instruction stateValue = decoder.Decode();
+            Instruction controlValue = decoder.Decode();
+            int decodedLength = checked((int)(decoder.IP - hookAddress));
+            if (unitOffset.IsInvalid ||
+                timerValue.IsInvalid ||
+                stateValue.IsInvalid ||
+                controlValue.IsInvalid ||
+                unitOffset.Mnemonic != Mnemonic.Imul || unitOffset.Length != 7 ||
+                timerValue.Mnemonic != Mnemonic.Mov || timerValue.Length != 6 ||
+                stateValue.Mnemonic != Mnemonic.Mov || stateValue.Length != 5 ||
+                controlValue.Mnemonic != Mnemonic.Mov || controlValue.Length != 5 ||
+                decodedLength != RecoveryWriterHookLength)
+            {
+                throw new InvalidOperationException(
+                    "Failed direct-attack hook does not decode as the audited 7+6+5+5-byte span.");
+            }
+
+            ValidateNoExternalDirectBranchTargetsInsideHook(
+                memory,
+                libraryBase,
+                hookAddress,
+                hookAddress + RecoveryWriterHookLength,
+                "failed-direct-attack");
         }
 
         private static ulong ValidateQueryResultHookSpan(
@@ -765,6 +1300,8 @@ namespace ImprovedHunters
             lock (stateLock)
             {
                 activeShots.Clear();
+                failedAttacks.Clear();
+                recoveryAttempts.Clear();
                 pendingStateZeroHandoffs.Clear();
             }
         }
@@ -772,37 +1309,64 @@ namespace ImprovedHunters
         private readonly struct ShotObservation
         {
             public readonly HunterPostShotContinuationCandidate Candidate;
-            public readonly long AttackAcceptedAt;
+            public readonly int RecoveryAttempt;
             public readonly long ProjectileId;
             public readonly uint ProjectileGlobalId;
 
             public ShotObservation(
                 HunterPostShotContinuationCandidate candidate,
-                long attackAcceptedAt,
+                int recoveryAttempt,
                 long projectileId = 0,
                 uint projectileGlobalId = 0)
             {
                 Candidate = candidate;
-                AttackAcceptedAt = attackAcceptedAt;
+                RecoveryAttempt = recoveryAttempt;
                 ProjectileId = projectileId;
                 ProjectileGlobalId = projectileGlobalId;
             }
 
             public ShotObservation WithProjectile(long projectileId, uint projectileGlobalId) =>
-                new ShotObservation(Candidate, AttackAcceptedAt, projectileId, projectileGlobalId);
+                new ShotObservation(Candidate, RecoveryAttempt, projectileId, projectileGlobalId);
         }
 
         private readonly struct PendingStateZeroHandoff
         {
             public readonly HunterPostShotContinuationCandidate Candidate;
-            public readonly long ExpiresAt;
 
-            public PendingStateZeroHandoff(
-                HunterPostShotContinuationCandidate candidate,
-                long expiresAt)
+            public PendingStateZeroHandoff(HunterPostShotContinuationCandidate candidate)
             {
                 Candidate = candidate;
-                ExpiresAt = expiresAt;
+            }
+        }
+
+        private readonly struct FailedAttackObservation
+        {
+            public readonly HunterPostShotContinuationCandidate Candidate;
+            public readonly int RecoveryAttempt;
+            public readonly long ObservedAt;
+
+            public FailedAttackObservation(
+                HunterPostShotContinuationCandidate candidate,
+                int recoveryAttempt,
+                long observedAt)
+            {
+                Candidate = candidate;
+                RecoveryAttempt = recoveryAttempt;
+                ObservedAt = observedAt;
+            }
+        }
+
+        private readonly struct RecoveryAttemptBudget
+        {
+            public readonly int PreyUnitId;
+            public readonly uint PreyGlobalId;
+            public readonly int Attempts;
+
+            public RecoveryAttemptBudget(int preyUnitId, uint preyGlobalId, int attempts)
+            {
+                PreyUnitId = preyUnitId;
+                PreyGlobalId = preyGlobalId;
+                Attempts = attempts;
             }
         }
     }

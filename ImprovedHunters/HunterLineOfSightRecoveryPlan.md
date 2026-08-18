@@ -2,7 +2,7 @@
 
 Stand: `2026-08-18`
 
-Aktueller Quellstand: `1.1.63`; letzter Ingame-Test: `1.1.62` auf Steam Build
+Aktueller Quellstand: `1.1.64`; letzter Ingame-Test: `1.1.63` auf Steam Build
 `24651686`.
 SHA-256 der auditierten `CrusaderDE.dll`:
 `33AA33457F7DFAAA6D316D1D5E4C5AB97094F2C73B68D349990ABF9D0EF3B469`.
@@ -21,8 +21,11 @@ Vollständige RVA-, Byte-, Resolver- und Updateprüfungen stehen in
   schnelle Sicht-/Angriffshandoff funktionieren. Die Ursache des Abbruchs nach
   einem nicht tödlichen Schuss ist lokalisiert. Der erste Fix in `1.1.62` blieb
   wegen eines Resolverfehlers fail-closed und war im Spiel nicht aktiv;
-  `1.1.63` korrigiert diesen Initialisierungsfehler. Offen ist die abschließende
-  Ingame-Abnahmematrix.
+  `1.1.63` aktivierte die Hooks, zeigte aber zwei nachgelagerte Vanilla-Abbrüche:
+  den State-10-Sitz-/Warteübergang nach einem Fehlschuss und State `6` nach
+  einem fehlgeschlagenen Direktangriff am Ende eines veralteten Pfads. `1.1.64`
+  korrigiert beide Übergänge und ersetzt feste Jagddauern durch Fortschritt und
+  ein Versuchsbudget. Offen ist die abschließende Ingame-Abnahmematrix.
 - Unmittelbar nach Abschluss von Paket E folgt eine verpflichtende
   bidirektionale Geschwindigkeits-Nachprüfung. Danach folgen Paket F für
   unreservierte Kadaver, Paket D als gemeinsame Beutetyp-/Mehrjägermatrix und
@@ -192,7 +195,7 @@ Blockierte Bewegungskarte ab `10:51:51`:
 - Es gab keine Improved-Hunters-Callbackexception, keinen
   `snapshot-expired`-Fehlangriff und keinen harten Prozessabbruch.
 
-### Ursache des Paket-E-Fehlers und Korrektur in `1.1.63`
+### Ursache des Paket-E-Fehlers und Korrekturen in `1.1.63/1.1.64`
 
 Nach einem angenommenen, aber für das reservierte Ziel nicht tödlichen Schuss
 beendet Vanilla die Jagd, obwohl dasselbe Ziel weiterlebt, erlaubt und
@@ -249,15 +252,73 @@ nicht: Solange das ursprüngliche Ziel gültig weiterlebt, muss derselbe Jäger 
 weiterverfolgen. Die Übernahme eines versehentlich getöteten anderen Tiers ist
 separat Paket F.
 
+### Ergebnis des `1.1.63`-Tests und Korrektur in `1.1.64`
+
+Der `1.1.63`-Test bestätigte die erfolgreiche Initialisierung und Ausführung
+beider State-10-Hooks. Der spät ansetzende Handoff war dennoch nicht stabil:
+
+- Nach dem Schuss auf Ziel `17` um `12:08:06.602` wählte der State-10-Hook um
+  `12:08:07.610` zunächst State `0`. Bereits um `12:08:07.619` scheiterte die
+  erneute Übergabe an der zu strikten Annahme, Zielpaar und Reservation müssten
+  während des nativen Zustandswechsels unverändert `17/Global-ID` und `2`
+  bleiben. Vanilla nahm unmittelbar Ziel `58` an. Das erklärt den sichtbaren
+  Sitz-/Wartemoment und die nicht fortgesetzte ursprüngliche Jagd.
+- Bei der späteren ersten Jagd erreichte der Jäger um `12:08:17.765` das Ende
+  des alten Pfads (`path=2/0/22/22`), während das Reh inzwischen weitergelaufen
+  war. Der direkte Angriff lieferte `attackResult=0`; Vanilla schrieb daraufhin
+  State `6`. Dasselbe Ziel wurde um `12:08:21.526` erneut angenommen. Ursache
+  war damit kein sinnvolles Versuchslimit, sondern ein fehlender Replan nach
+  einem inzwischen veralteten, vollständig abgearbeiteten Pfad.
+
+`1.1.64` setzt früher und an den kleinsten stabilen nativen Übergängen an:
+
+- Nach der vollständigen Schusssequenz in State `9` wird der unmittelbar
+  folgende Writer bei RVA `0x13023C` für ein weiterhin gültiges Ziel von State
+  `10` auf State `0` umgelenkt. Dadurch entfällt die Sitz-/Warteanimation; eine
+  Projektilende-Kontrolle ist nicht erforderlich. Das Log nennt ausdrücklich
+  `State10SitPrevented=True` und `projectileEndWait=False`.
+- Nach `attackResult=0` werden Vanillas vorbereitete State-6-Werte am Writer
+  RVA `0x130171` nur bei identischer, lebender und PCL-erreichbarer Beute auf
+  State `0` neutralisiert. Vanilla führt anschließend seine normale Query- und
+  `MoveHere`-Neuberechnung aus.
+- Die State-0-Übergabe akzeptiert die nachweislich transienten Kombinationen
+  aus unverändertem oder bereits auf `0/0` freigegebenem Hunter-Ziel sowie
+  Reservation `2` oder `0`. Eine andere Zielidentität oder Fremdreservation
+  bleibt strikt ausgeschlossen und wird mit dem konkreten Feldwert geloggt.
+
+Es gibt kein fixes Zeitlimit pro Jagd und keine 60-Sekunden-Grenze mehr für
+Pfadfortsetzung, Restweg-Geschwindigkeit oder die Korrelation eines angenommenen
+`MoveHere`. Stattdessen gelten folgende Grenzen:
+
+- Solange sich Pfadfortschritt oder Pfadlänge ändern, darf eine beliebig lange
+  Route weiterlaufen.
+- Nur drei Sekunden ohne jeden Pfadfortschritt gelten als lokaler Stillstand;
+  danach pausiert ausschließlich die betreffende Korrektur fünf Sekunden. Dies
+  ist kein Jagd- oder Streckenzeitlimit.
+- Pro Jäger und Zielidentität sind höchstens drei recovery-auslösende direkte
+  Angriffe zulässig. Erfolgreiche `MoveHere`-Neuberechnungen zählen nicht als
+  eigener Versuch. Beim dritten Fehl-/Nichttödlich-Schuss bleibt Vanillas
+  Abbruchpfad bestehen und das Ziel erhält den vorhandenen begrenzten Cooldown,
+  damit keine Endlosschleife entsteht.
+- Ein unabhängig angenommener normaler Vanilla-`MoveHere` startet ein neues
+  Versuchsbudget. Kartenwechsel und Identitätswechsel löschen alten Zustand.
+
 ### Verbindlicher nächster Arbeitsschritt
 
-1. `1.1.63` mit dem bewegten Herden-/Fehlschussfall mindestens dreimal testen.
-   Erwartete Kette: `post-shot observation queued → State-10 recovery → State-0
+1. `1.1.64` mit dem bewegten Herden-/Fehlschussfall mindestens dreimal testen.
+   Erwartete Kette: `post-shot observation queued → State10SitPrevented=True → State-0
    continuation prepared → target supplied → MoveHere result=1`, ohne State `6`
    oder Hüttenrückweg dazwischen.
-2. Tödlichen Treffer separat regressieren: keine State-10-Wiederaufnahme,
+2. Den veralteten-Pfad-Fall separat prüfen: `attackResult=0 → writerInputs=6/20/1->0/0/0
+   → State-0 requery → MoveHere result=1` für dieselbe Slot-/Global-ID.
+3. Das Versuchslimit mit drei nicht tödlichen beziehungsweise fehlgeschlagenen
+   Angriffen prüfen: die ersten beiden setzen fort, der dritte lässt Vanilla
+   abbrechen und registriert den Ziel-Cooldown; keine Endlosschleife.
+4. Tödlichen Treffer separat regressieren: keine State-10-Wiederaufnahme,
    unveränderter Kadaver, Pickup und Fleischabgabe.
-3. Die übrige Paket-E-Matrix ausführen. Nach vollständiger Abnahme zuerst die
+5. Eine lange, aber fortschreitende Route über 60 Sekunden regressieren: kein
+   zeitbasierter Abbruch. Danach die übrige Paket-E-Matrix ausführen. Nach
+   vollständiger Abnahme zuerst die
    verpflichtende Geschwindigkeits-Nachprüfung durchführen und erst danach
    Paket F beginnen.
 
@@ -267,7 +328,8 @@ separat Paket F.
    ursprüngliche Ziel gültig und erreichbar, verfolgt derselbe Jäger dieselbe
    Slot-/Global-ID ohne Hüttenrückweg weiter.
 2. Pro Nach-Schuss-Übergang genau eine Vanilla-konforme Wiederaufnahme; kein
-   Requery-/`MoveHere`-Resetloop und kein künstlicher langer Cooldown.
+   Requery-/`MoveHere`-Resetloop und kein künstlicher langer Cooldown. Eine
+   fortschreitende Route darf unabhängig von ihrer Gesamtdauer weiterlaufen.
 3. Tödlicher Treffer des reservierten Ziels: unveränderter Kadaver, Pickup und
    Fleischabgabe.
 4. Vollständig blockiert, aber erreichbar, mindestens zehn Sekunden: stabiler
@@ -451,9 +513,10 @@ prüfen.
    ist.
 3. In Paket E direkt beim Abschnitt „Verbindlicher nächster Arbeitsschritt“
    beginnen. Nicht erneut Sichtlatenz, Restweg, F4 oder die Ursache der
-   State-10-Nullquery untersuchen; diese Punkte sind mit `1.1.61/1.1.63`
+   State-10-Nullquery untersuchen; diese Punkte sind mit `1.1.61/1.1.64`
    geklärt.
-4. Den `1.1.63`-Nach-Schuss-Handoff und anschließend die vollständige
+4. Den `1.1.64`-Nach-Schuss-/Fehlangriff-Handoff, das Drei-Versuche-Limit und
+   eine fortschreitende Route über 60 Sekunden testen; anschließend die vollständige
    Paket-E-Matrix ausführen.
 5. Nach vollständiger E-Abnahme zwingend die bidirektionale
    Geschwindigkeits-Nachprüfung abschließen; erst danach Paket F beginnen und

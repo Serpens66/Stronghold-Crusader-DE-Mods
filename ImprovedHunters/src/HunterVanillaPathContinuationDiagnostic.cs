@@ -56,10 +56,8 @@ namespace ImprovedHunters
             "66 42 89 84 29 A4 09 00 00 E9 ? ? ? ? " +
             "BE 0A 00 00 00";
 
-        private static readonly long MaxAttemptDuration = Stopwatch.Frequency * 60;
         private static readonly long MaxNoProgressDuration = Stopwatch.Frequency * 3;
         private static readonly long RetryCooldownDuration = Stopwatch.Frequency * 5;
-        private static readonly long AttemptContinuityGap = Stopwatch.Frequency;
         private static readonly long FreshAttackGateSnapshotLifetime = Stopwatch.Frequency / 2;
         private readonly ManualLogSource log;
         private readonly ImprovedHuntersViewModel settings;
@@ -188,7 +186,7 @@ namespace ImprovedHunters
                     $"nearBranchTargetRva=0x{sequenceRva + DistanceTwentyEightNearBranchTargetOffset:X}, " +
                     $"forcedDistance={VanillaContinuationDistance}, globalIdentityLimit=None, " +
                     "maxActiveAttempts=one-per-hunter, " +
-                    $"maxSeconds={MaxAttemptDuration / Stopwatch.Frequency}, " +
+                    "totalDurationLimit=None, " +
                     $"maxNoProgressSeconds={MaxNoProgressDuration / Stopwatch.Frequency}, " +
                     $"boundedRetryCooldownSeconds={RetryCooldownDuration / Stopwatch.Frequency}, " +
                     "ownMovement=False, ownAiState=False, ownOrderWrite=False, " +
@@ -589,7 +587,6 @@ namespace ImprovedHunters
             ContinuationAttempt attempt;
             bool newAttempt = false;
             bool pathChanged;
-            bool maxDurationReached;
             bool noProgressReached;
             lock (stateLock)
             {
@@ -599,8 +596,7 @@ namespace ImprovedHunters
                     activeAttempts.Remove(hunterUnitId);
                 }
 
-                if (!activeAttempts.TryGetValue(hunterUnitId, out attempt) ||
-                    timestamp - attempt.LastObservedAt > AttemptContinuityGap)
+                if (!activeAttempts.TryGetValue(hunterUnitId, out attempt))
                 {
                     attempt = new ContinuationAttempt(identity, timestamp, pathProgress, pathLength);
                     newAttempt = true;
@@ -608,12 +604,10 @@ namespace ImprovedHunters
 
                 pathChanged = pathProgress != attempt.LastProgress ||
                     pathLength != attempt.LastPathLength;
-                attempt = pathChanged
-                    ? attempt.WithPathProgress(pathProgress, pathLength, timestamp)
-                    : attempt.WithObservation(timestamp);
-                maxDurationReached = timestamp - attempt.StartedAt > MaxAttemptDuration;
+                if (pathChanged)
+                    attempt = attempt.WithPathProgress(pathProgress, pathLength, timestamp);
                 noProgressReached = timestamp - attempt.LastProgressAt > MaxNoProgressDuration;
-                if (maxDurationReached || noProgressReached)
+                if (noProgressReached)
                 {
                     activeAttempts.Remove(hunterUnitId);
                     suspendedAttempts[hunterUnitId] = new SuspendedAttempt(
@@ -622,13 +616,13 @@ namespace ImprovedHunters
                 }
                 else
                 {
-                    attempt = attempt.WithContinuation(timestamp);
+                    attempt = attempt.WithContinuation();
                     activeAttempts[hunterUnitId] = attempt;
                     lastPreparationRejections.Remove(hunterUnitId);
                 }
             }
 
-            if (maxDurationReached || noProgressReached)
+            if (noProgressReached)
             {
                 LogTileDecision(
                     identity,
@@ -642,7 +636,7 @@ namespace ImprovedHunters
                     pclReachable,
                     pclSnapshotStatus,
                     pclSnapshotAgeMilliseconds,
-                    maxDurationReached ? "reject-max-duration" : "reject-no-progress",
+                    "reject-no-progress",
                     force: true);
                 return;
             }
@@ -1328,9 +1322,7 @@ namespace ImprovedHunters
         private readonly struct ContinuationAttempt
         {
             public readonly AttemptIdentity Identity;
-            public readonly long StartedAt;
             public readonly long LastProgressAt;
-            public readonly long LastObservedAt;
             public readonly ushort LastProgress;
             public readonly uint LastPathLength;
             public readonly int Continuations;
@@ -1341,13 +1333,10 @@ namespace ImprovedHunters
                 ushort lastProgress,
                 uint lastPathLength,
                 long lastProgressAt = 0,
-                long lastObservedAt = 0,
                 int continuations = 0)
             {
                 Identity = identity;
-                StartedAt = startedAt;
                 LastProgressAt = lastProgressAt == 0 ? startedAt : lastProgressAt;
-                LastObservedAt = lastObservedAt == 0 ? startedAt : lastObservedAt;
                 LastProgress = lastProgress;
                 LastPathLength = lastPathLength;
                 Continuations = continuations;
@@ -1359,31 +1348,19 @@ namespace ImprovedHunters
                 long timestamp) =>
                 new ContinuationAttempt(
                     Identity,
-                    StartedAt,
+                    LastProgressAt,
                     progress,
                     pathLength,
                     timestamp,
-                    timestamp,
                     Continuations);
 
-            public ContinuationAttempt WithObservation(long timestamp) =>
+            public ContinuationAttempt WithContinuation() =>
                 new ContinuationAttempt(
                     Identity,
-                    StartedAt,
+                    LastProgressAt,
                     LastProgress,
                     LastPathLength,
                     LastProgressAt,
-                    timestamp,
-                    Continuations);
-
-            public ContinuationAttempt WithContinuation(long timestamp) =>
-                new ContinuationAttempt(
-                    Identity,
-                    StartedAt,
-                    LastProgress,
-                    LastPathLength,
-                    LastProgressAt,
-                    timestamp,
                     Continuations + 1);
         }
 

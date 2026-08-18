@@ -106,7 +106,6 @@ namespace ImprovedHunters
             "B8 09 00 00 00";
 
         private static readonly long RejectedCandidateCooldown = Stopwatch.Frequency * 30;
-        private static readonly long AcceptedMoveObservationLifetime = Stopwatch.Frequency * 60;
         private static long nextGeneration;
 
         [ThreadStatic] private static long activeGeneration;
@@ -120,8 +119,10 @@ namespace ImprovedHunters
         private readonly TryPrepareHunterStateOneNearRefresh tryPrepareStateOneNearRefresh;
         private readonly TryPrepareHunterPostShotStateZeroContinuation tryPreparePostShotStateZeroContinuation;
         private readonly Action<HunterPostShotContinuationCandidate, long> recordAcceptedPostShotAttack;
+        private readonly Action<HunterPostShotContinuationCandidate, long> recordFailedPostShotAttack;
         private readonly Action<HunterPostShotContinuationCandidate, int> recordPostShotStateZeroHandoff;
         private readonly Action<HunterPostShotContinuationCandidate, int> recordPostShotMoveHereResult;
+        private readonly Action<int, int, uint> resetPostShotAttemptBudget;
         private readonly Action<int, uint, long> registerRejectedMove;
         private readonly Action<int, int, uint, eChimps, int, long> recordPclMoveHereResult;
         private readonly long generation;
@@ -156,8 +157,10 @@ namespace ImprovedHunters
             TryPrepareHunterStateOneNearRefresh tryPrepareStateOneNearRefresh,
             TryPrepareHunterPostShotStateZeroContinuation tryPreparePostShotStateZeroContinuation,
             Action<HunterPostShotContinuationCandidate, long> recordAcceptedPostShotAttack,
+            Action<HunterPostShotContinuationCandidate, long> recordFailedPostShotAttack,
             Action<HunterPostShotContinuationCandidate, int> recordPostShotStateZeroHandoff,
             Action<HunterPostShotContinuationCandidate, int> recordPostShotMoveHereResult,
+            Action<int, int, uint> resetPostShotAttemptBudget,
             Action<int, uint, long> registerRejectedMove,
             Action<int, int, uint, eChimps, int, long> recordPclMoveHereResult)
         {
@@ -170,10 +173,14 @@ namespace ImprovedHunters
                 throw new ArgumentNullException(nameof(tryPreparePostShotStateZeroContinuation));
             this.recordAcceptedPostShotAttack = recordAcceptedPostShotAttack ??
                 throw new ArgumentNullException(nameof(recordAcceptedPostShotAttack));
+            this.recordFailedPostShotAttack = recordFailedPostShotAttack ??
+                throw new ArgumentNullException(nameof(recordFailedPostShotAttack));
             this.recordPostShotStateZeroHandoff = recordPostShotStateZeroHandoff ??
                 throw new ArgumentNullException(nameof(recordPostShotStateZeroHandoff));
             this.recordPostShotMoveHereResult = recordPostShotMoveHereResult ??
                 throw new ArgumentNullException(nameof(recordPostShotMoveHereResult));
+            this.resetPostShotAttemptBudget = resetPostShotAttemptBudget ??
+                throw new ArgumentNullException(nameof(resetPostShotAttemptBudget));
             this.registerRejectedMove = registerRejectedMove ??
                 throw new ArgumentNullException(nameof(registerRejectedMove));
             this.recordPclMoveHereResult = recordPclMoveHereResult ??
@@ -485,7 +492,10 @@ namespace ImprovedHunters
             {
                 Candidate postShotCandidate = stagedCandidate;
                 bool postShotCandidateValid =
-                    TryValidateOwnReservationCandidate(postShotCandidate, requiredAiState: 0);
+                    TryValidateOwnReservationCandidate(
+                        postShotCandidate,
+                        requiredAiState: 0,
+                        allowReleasedStateZeroTransition: true);
                 if (postShotCandidateValid)
                 {
                     pendingMoveCandidate = postShotCandidate;
@@ -600,6 +610,25 @@ namespace ImprovedHunters
 
             if (moveResult != 0)
             {
+                if (!candidate.IsPostShotContinuation)
+                {
+                    try
+                    {
+                        resetPostShotAttemptBudget(
+                            candidate.HunterUnitId,
+                            candidate.PreyUnitId,
+                            candidate.PreyGlobalId);
+                    }
+                    catch (Exception exception)
+                    {
+                        LogDiagnostic(
+                            "Improved Hunters recovery-attempt reset failed independently: " +
+                            $"hunter={candidate.HunterUnitId}, target={candidate.PreyUnitId}/" +
+                            $"{candidate.PreyGlobalId}, error={exception.Message}.",
+                            warning: true);
+                    }
+                }
+
                 lock (observationLock)
                 {
                     acceptedMoveObservations[candidate.HunterUnitId] =
@@ -725,8 +754,7 @@ namespace ImprovedHunters
             AcceptedMoveObservation observation;
             lock (observationLock)
             {
-                if (!acceptedMoveObservations.TryGetValue(hunterUnitId, out observation) ||
-                    timestamp - observation.AcceptedAt > AcceptedMoveObservationLifetime)
+                if (!acceptedMoveObservations.TryGetValue(hunterUnitId, out observation))
                 {
                     acceptedMoveObservations.Remove(hunterUnitId);
                     LogInvalidStateOneContextOnce(
@@ -791,8 +819,7 @@ namespace ImprovedHunters
                 $"preyTile={prey->r_CurrentTilePositionX},{prey->r_CurrentTilePositionY}, " +
                 "behaviorMutation=False.");
 
-            if (attackResult != 0 &&
-                TryValidateOwnReservationCandidate(candidate, requiredAiState: 1))
+            if (TryValidateOwnReservationCandidate(candidate, requiredAiState: 1))
             {
                 HunterPostShotContinuationCandidate postShotCandidate =
                     new HunterPostShotContinuationCandidate(
@@ -804,12 +831,15 @@ namespace ImprovedHunters
                         candidate.Source);
                 try
                 {
-                    recordAcceptedPostShotAttack(postShotCandidate, timestamp);
+                    if (attackResult != 0)
+                        recordAcceptedPostShotAttack(postShotCandidate, timestamp);
+                    else
+                        recordFailedPostShotAttack(postShotCandidate, timestamp);
                 }
                 catch (Exception exception)
                 {
                     LogStateOneDiagnostic(
-                        "Improved Hunters post-shot attack recording failed independently: " +
+                        "Improved Hunters post-attack recovery recording failed independently: " +
                         $"hunter={candidate.HunterUnitId}, target={candidate.PreyUnitId}/" +
                         $"{candidate.PreyGlobalId}, error={exception.Message}.",
                         warning: true);
@@ -1010,7 +1040,8 @@ namespace ImprovedHunters
 
         private bool TryValidateOwnReservationCandidate(
             Candidate candidate,
-            ushort requiredAiState)
+            ushort requiredAiState,
+            bool allowReleasedStateZeroTransition = false)
         {
             if (!TryValidateHunter(candidate.HunterUnitId, requiredAiState, out GameUnit* hunter))
             {
@@ -1031,10 +1062,16 @@ namespace ImprovedHunters
 
             byte* hunterBytes = (byte*)hunter;
             byte* preyBytes = (byte*)prey;
-            return *(ushort*)(hunterBytes + HunterTargetUnitIdOffset) == candidate.PreyUnitId &&
-                *(uint*)(hunterBytes + HunterTargetGlobalIdOffset) == candidate.PreyGlobalId &&
+            ushort targetUnitId = *(ushort*)(hunterBytes + HunterTargetUnitIdOffset);
+            uint targetGlobalId = *(uint*)(hunterBytes + HunterTargetGlobalIdOffset);
+            ushort reservation = *(ushort*)(preyBytes + PreyReservationOffset);
+            bool targetMatches =
+                targetUnitId == candidate.PreyUnitId &&
+                targetGlobalId == candidate.PreyGlobalId;
+            bool targetWasCleared = targetUnitId == 0 && targetGlobalId == 0;
+            return (targetMatches || (allowReleasedStateZeroTransition && targetWasCleared)) &&
                 *(ushort*)(preyBytes + PreyCorpseFlagOffset) == 0 &&
-                *(ushort*)(preyBytes + PreyReservationOffset) == 2 &&
+                (reservation == 2 || (allowReleasedStateZeroTransition && reservation == 0)) &&
                 !IsTargetedByOtherLiveHunter(candidate);
         }
 
