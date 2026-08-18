@@ -94,6 +94,13 @@
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding AllowCameraMovementWithModifiersText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox>
+      <TextBlock Text="{Binding CustomTrailsTitleText}" Style="{StaticResource SectionHeader}" Margin="0,4,0,4"/>
+      <CheckBox IsChecked="{Binding EnableCustomTrailExtremeGoldFix, Mode=TwoWay}"
+                Foreground="White"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableCustomTrailExtremeGoldFixHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding EnableCustomTrailExtremeGoldFixText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox>
       <TextBlock Text="{Binding MarketGoodsOrderTitleText}" Style="{StaticResource SectionHeader}" Margin="0,4,0,4"/>
       <CheckBox IsChecked="{Binding HdMarketView, Mode=TwoWay}"
                 Foreground="White"

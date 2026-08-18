@@ -23,6 +23,7 @@ namespace BugfixesAndQoL
         private bool enableStuckApothecaryFix = true;
         private bool enablePlagueTargetReservationFix = true;
         private bool enableAssemblyPointPlacementFix = true;
+        private bool enableCustomTrailExtremeGoldFix = true;
         private readonly LocalPerPlayerSetting<bool> enableClientFeatures = new LocalPerPlayerSetting<bool>(true);
         private readonly LocalPerPlayerSetting<bool> enableMinimapCursorFollowFix = new LocalPerPlayerSetting<bool>(true);
         private readonly LocalPerPlayerSetting<bool> enableMarketKeyMainMenuFix = new LocalPerPlayerSetting<bool>(true);
@@ -69,6 +70,7 @@ namespace BugfixesAndQoL
         public string TroopMovementTitleText => SerpLocalization.Get("BugfixesAndQoL.TroopMovementTitle");
         public string PlagueTitleText => SerpLocalization.Get("BugfixesAndQoL.PlagueTitle");
         public string GameplayTitleText => SerpLocalization.Get("BugfixesAndQoL.GameplayTitle");
+        public string CustomTrailsTitleText => SerpLocalization.Get("BugfixesAndQoL.CustomTrailsTitle");
         public string EnableMinimapCursorFollowFixText => SerpLocalization.Get("BugfixesAndQoL.EnableMinimapCursorFollowFix");
         public string EnableMinimapCursorFollowFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableMinimapCursorFollowFixHelp");
         public string EnableMarketKeyMainMenuFixText => SerpLocalization.Get("BugfixesAndQoL.EnableMarketKeyMainMenuFix");
@@ -79,6 +81,8 @@ namespace BugfixesAndQoL
         public string EnableEnemyProximityBulldozeCursorFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableEnemyProximityBulldozeCursorFixHelp");
         public string EnableAssemblyPointPlacementFixText => SerpLocalization.Get("BugfixesAndQoL.EnableAssemblyPointPlacementFix");
         public string EnableAssemblyPointPlacementFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableAssemblyPointPlacementFixHelp");
+        public string EnableCustomTrailExtremeGoldFixText => SerpLocalization.Get("BugfixesAndQoL.EnableCustomTrailExtremeGoldFix");
+        public string EnableCustomTrailExtremeGoldFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableCustomTrailExtremeGoldFixHelp");
         public string AllowMinimapWhilePlacingBuildingText => SerpLocalization.Get(SerpLocalization.AllowMinimapWhilePlacingBuilding);
         public string AllowMinimapWhilePlacingBuildingHelpText => SerpLocalization.Get(SerpLocalization.AllowMinimapWhilePlacingBuildingHelp);
         public string RememberAiAivSettingsText => SerpLocalization.Get(SerpLocalization.RememberAiAivSettings);
@@ -145,6 +149,13 @@ namespace BugfixesAndQoL
         {
             get => enableClientFeatures.Value;
             set => SetPlayerSetting(enableClientFeatures, value, nameof(EnableClientFeatures));
+        }
+
+        [Shared.PresetLocal]
+        public bool EnableCustomTrailExtremeGoldFix
+        {
+            get => enableCustomTrailExtremeGoldFix;
+            set => SetSetting(ref enableCustomTrailExtremeGoldFix, value, nameof(EnableCustomTrailExtremeGoldFix));
         }
 
         [SyncHostOnly]
@@ -279,6 +290,7 @@ namespace BugfixesAndQoL
             EnableMarketKeyMainMenuFix = true;
             EnableAutoTradeSellZeroFix = true;
             EnableEnemyProximityBulldozeCursorFix = true;
+            EnableCustomTrailExtremeGoldFix = true;
         }
 
         private void SetSetting<T>(ref T field, T value, string propertyName)

@@ -16,6 +16,7 @@ namespace BugfixesAndQoL
         private MarketKeyMainTradeMenuHook marketKeyMainTradeMenuHook;
         private HdMarketViewHook hdMarketViewHook;
         private CameraMovementModifierHook cameraMovementModifierHook;
+        private CustomTrailExtremeGoldFixHook customTrailExtremeGoldFixHook;
         private AssemblyPointPlacementPatch assemblyPointPlacementPatch;
         private PlaguePopularityFix plaguePopularityFix;
         private PlagueTreatmentFadeFix plagueTreatmentFadeFix;
@@ -117,6 +118,8 @@ namespace BugfixesAndQoL
                 hdMarketViewHook = new HdMarketViewHook(log, settings));
             TryInitializeFeature("camera movement modifier", () =>
                 cameraMovementModifierHook = new CameraMovementModifierHook(log, settings));
+            TryInitializeFeature("Custom Trail starting-gold fix", () =>
+                customTrailExtremeGoldFixHook = new CustomTrailExtremeGoldFixHook(log, settings));
 
             if (fixedLayoutHashValidated)
             {
@@ -149,6 +152,8 @@ namespace BugfixesAndQoL
             hdMarketViewHook = null;
             cameraMovementModifierHook?.Dispose();
             cameraMovementModifierHook = null;
+            customTrailExtremeGoldFixHook?.Dispose();
+            customTrailExtremeGoldFixHook = null;
             hooksSubscribed = false;
         }
 

@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.18",
+  "Version": "1.0.19",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.19",
+      "Changes": [
+        "Added an optional, default-enabled Custom Trail starting-gold fix that ignores the unusable customisedExtremeTrail flag when reading .trail files and writes it as false when saving."
+      ]
+    },
     {
       "Version": "1.0.18",
       "Changes": [
