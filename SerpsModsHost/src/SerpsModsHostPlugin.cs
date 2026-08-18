@@ -29,6 +29,7 @@ namespace SerpsModsHost
         private readonly HashSet<string> expectedLogSources = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private SerpsModsDiagnosticsViewModel diagnostics;
         private PackManifest manifest;
+        private string packRoot;
         private int validatedCount;
         private int registeredCount;
 
@@ -58,6 +59,7 @@ namespace SerpsModsHost
         private void LoadValidateAndRegisterPack()
         {
             string root = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+            packRoot = root;
             string manifestPath = Path.Combine(root, ManifestFileName);
             if (!File.Exists(manifestPath))
                 throw new InvalidDataException($"H001: Missing pack manifest: {manifestPath}");
@@ -87,6 +89,7 @@ namespace SerpsModsHost
                 validatedCount++;
             }
 
+            AuditDuplicateInstallations();
             diagnostics.SetStatus(manifest.PackVersion, activeMods.Count, validatedCount, 0);
             foreach (PackModRecord mod in activeMods)
             {
@@ -180,6 +183,9 @@ namespace SerpsModsHost
 
         private void AuditLoadedPlugins(bool reportMissing)
         {
+            if (reportMissing)
+                AuditDuplicateInstallations();
+
             foreach (PackModRecord mod in activeMods)
             {
                 if (!Chainloader.PluginInfos.TryGetValue(mod.Guid, out PluginInfo pluginInfo))
@@ -192,6 +198,42 @@ namespace SerpsModsHost
                 string actualVersion = pluginInfo.Metadata.Version?.ToString() ?? string.Empty;
                 if (!string.Equals(actualVersion, mod.Version, StringComparison.Ordinal))
                     ReportError("H005", $"Loaded child version mismatch: {mod.Guid}, expected {mod.Version}, actual {actualVersion}.");
+
+                string expectedDirectory = ResolveContainedPath(packRoot, mod.RelativePath);
+                string loadedDirectory = Path.GetDirectoryName(pluginInfo.Location);
+                if (!DuplicateInstallationDetector.PathsEqual(loadedDirectory, expectedDirectory))
+                {
+                    ReportError(
+                        "H006",
+                        $"Child plugin {mod.Guid} was loaded from a separate installation at '{loadedDirectory}' instead of the pack path '{expectedDirectory}'. Remove the separate Workshop/local installation.");
+                }
+            }
+        }
+
+        private void AuditDuplicateInstallations()
+        {
+            if (string.IsNullOrWhiteSpace(packRoot))
+                return;
+
+            foreach (PackModRecord mod in activeMods)
+            {
+                string expectedDirectory = ResolveContainedPath(packRoot, mod.RelativePath);
+                try
+                {
+                    foreach (string duplicateDirectory in DuplicateInstallationDetector.FindSeparateManifestDirectories(
+                        Paths.PluginPath,
+                        expectedDirectory,
+                        mod.Guid))
+                    {
+                        ReportError(
+                            "H006",
+                            $"Duplicate installation detected for {mod.Guid}: packed at '{expectedDirectory}' and separately installed at '{duplicateDirectory}'. Remove the separate Workshop/local installation.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    ReportError("H006", $"Duplicate-installation scan failed for {mod.Guid}: {ex.Message}");
+                }
             }
         }
 

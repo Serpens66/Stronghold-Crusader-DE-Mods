@@ -1,8 +1,8 @@
 {
   "GUID": "SerpsMods_Serp",
   "Author": "Serpens66",
-  "Name": "Serps Mods",
-  "Description": "Host and diagnostics for the unified Serps Mods Steam Workshop package.",
+  "Name": "Serps Mods - Fully Customizable Collection",
+  "Description": "All included mods can be freely configured in the in-game Mod Settings.\n\nIncluded mods:\n- Bugfixes and QoL\n- Building Costs\n- Building Limit\n- Extra Features\n- Random Events\n- Spawn Castle\n- Start Conditions\n- Unit Costs\n- Unit Limit",
   "Version": "1.0.0",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods",
   "Manifest": 1,

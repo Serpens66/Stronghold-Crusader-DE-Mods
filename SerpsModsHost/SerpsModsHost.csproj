@@ -47,6 +47,7 @@
     <Compile Include="..\Shared\SerpLocalization.cs"><Link>Shared\SerpLocalization.cs</Link></Compile>
     <Compile Include="..\Shared\ToolTipPresentation.cs"><Link>Shared\ToolTipPresentation.cs</Link></Compile>
     <Compile Include="src\PackManifest.cs" />
+    <Compile Include="src\DuplicateInstallationDetector.cs" />
     <Compile Include="src\SerpsModsDiagnosticsViewModel.cs" />
     <Compile Include="src\SerpsModsHostPlugin.cs" />
   </ItemGroup>
