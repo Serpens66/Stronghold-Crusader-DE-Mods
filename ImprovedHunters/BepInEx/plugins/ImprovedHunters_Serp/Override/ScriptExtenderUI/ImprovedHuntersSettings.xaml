@@ -37,11 +37,26 @@
       <TextBlock Text="{Binding TitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,4"/>
       <TextBlock Text="{Binding HelpText}" Foreground="#CCCCCC" TextWrapping="Wrap" Margin="0,0,0,10"/>
       <TextBlock Text="{Binding BehaviorTitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,4"/>
+      <CheckBox IsChecked="{Binding ImprovedTargetSelection, Mode=TwoWay}"
+                Content="{Binding ImprovedTargetSelectionText}"
+                Foreground="White"
+                Margin="0,0,14,8"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding ImprovedTargetSelectionHelpText}"/>
       <CheckBox IsChecked="{Binding ImprovedPathfinding, Mode=TwoWay}"
                 Content="{Binding ImprovedPathfindingText}"
                 Foreground="White"
                 Margin="0,0,14,8"
                 ToolTipService.ShowDuration="60000" ToolTip="{Binding ImprovedPathfindingHelpText}"/>
+      <CheckBox IsChecked="{Binding AllowDeadTargets, Mode=TwoWay}"
+                Content="{Binding AllowDeadTargetsText}"
+                Foreground="White"
+                Margin="0,0,14,8"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding AllowDeadTargetsHelpText}"/>
+      <CheckBox IsChecked="{Binding ReliableHunterProjectiles, Mode=TwoWay}"
+                Content="{Binding ReliableHunterProjectilesText}"
+                Foreground="White"
+                Margin="0,0,14,8"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding ReliableHunterProjectilesHelpText}"/>
       <TextBlock Text="{Binding ChickenPopulationTitleText}" Style="{StaticResource SectionHeader}" Margin="0,4,0,4"/>
       <Grid Margin="0,0,0,8">
         <Grid.ColumnDefinitions>
@@ -61,7 +76,6 @@
           <ColumnDefinition Width="90"/>
         </Grid.ColumnDefinitions>
         <Grid.RowDefinitions>
-          <RowDefinition Height="Auto"/>
           <RowDefinition Height="Auto"/>
           <RowDefinition Height="Auto"/>
           <RowDefinition Height="Auto"/>
@@ -93,9 +107,6 @@
         <CheckBox Grid.Row="5" Grid.Column="1" IsChecked="{Binding HuntChicken, Mode=TwoWay}" HorizontalAlignment="Center" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding ChickenHelpText}"/>
         <TextBox Grid.Row="5" Grid.Column="2" Text="{Binding ChickenMeatText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" HorizontalContentAlignment="Right" MaxLength="3" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding ChickenHelpText}" ui:KeyboardCaptureBinding.Enabled="True"/>
 
-        <TextBlock Grid.Row="6" Grid.Column="0" Text="{Binding CowText}" Foreground="White" VerticalAlignment="Center" Margin="0,4" ToolTipService.ShowDuration="60000" ToolTip="{Binding CowHelpText}"/>
-        <CheckBox Grid.Row="6" Grid.Column="1" IsChecked="{Binding HuntCow, Mode=TwoWay}" HorizontalAlignment="Center" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding CowHelpText}"/>
-        <TextBox Grid.Row="6" Grid.Column="2" Text="{Binding CowMeatText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" HorizontalContentAlignment="Right" MaxLength="3" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding CowHelpText}" ui:KeyboardCaptureBinding.Enabled="True"/>
       </Grid>
       </StackPanel>
     </StackPanel>

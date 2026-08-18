@@ -13,6 +13,15 @@ validates its derived branches, tables and operands. An absent, ambiguous or
 semantically inconsistent match disables only the affected feature. Raw unit
 fields still require an in-game smoke test after a game update.
 
+Version `1.1.67` changes no RVA, pattern, or native hook span. Production wiring
+is now separated by feature: initial target selection and PCL filtering, active
+pathfinding/visibility recovery, and correlated projectile damage recovery have
+independent host gates. Chicken patches and granary management jointly follow
+only `HuntChicken`; corpse timers and camel compatibility follow their respective
+animal opt-ins. An update audit must therefore also confirm that every switch
+mutates only its own callback path and that disabled features leave native
+registers, flags, and patch bytes unchanged.
+
 The temporary `HunterNativeVisibilityProbe`,
 `HunterTargetSearchFallbackDiagnostic`, and
 `HunterVanillaPathContinuationDiagnostic` are deliberately stricter: they are

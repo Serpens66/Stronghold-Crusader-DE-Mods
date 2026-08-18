@@ -2,7 +2,7 @@
 
 Stand: `2026-08-18`
 
-Aktueller Quellstand: `1.1.66`; letzter Ingame-Test: `1.1.66` auf Steam Build
+Aktueller Quellstand: `1.1.67`; letzter Ingame-Test: `1.1.66` auf Steam Build
 `24651686`.
 SHA-256 der auditierten `CrusaderDE.dll`:
 `33AA33457F7DFAAA6D316D1D5E4C5AB97094F2C73B68D349990ABF9D0EF3B469`.
@@ -56,9 +56,7 @@ Paket F ergänzt zwei Kadaverfälle:
 - tötet der Pfeil des Jägers versehentlich ein anderes reservationsfreies
   Beutetier, übernimmt der Jäger unmittelbar genau diesen Kadaver.
 
-Unterstützte Zieltypen sind Reh, Ziege, Hase, Kamel, Huhn und perspektivisch
-Kuh. `HuntCow` existiert in den Einstellungen, während die Runtime Kühe derzeit
-noch ausschließt; Paket D muss diese Entscheidung vereinheitlichen.
+Unterstützte Zieltypen sind Reh, Ziege, Hase, Kamel und Huhn.
 
 ## Verbindliche Architektur
 
@@ -83,21 +81,62 @@ noch ausschließt; Paket D muss diese Entscheidung vereinheitlichen.
 7. Verhaltensänderungen bleiben in echtem Multiplayer und im Karteneditor
    fail-closed.
 
+## Getrennte Feature-Schalter
+
+Die Produktionsstruktur und Lobby-Modsettings trennen die Verhaltensbereiche
+seit `1.1.67` ausdrücklich:
+
+- `ImprovedTargetSelection` steuert ausschließlich Kostenrangfolge,
+  Distanz-/Fleischertragsbewertung, initiale PCL-Erreichbarkeit und den
+  State-0-Handoff eines ausgewählten lebenden Kandidaten. Die grundlegende
+  Freigabe einer Tierart durch ihren jeweiligen `Hunt...`-Schalter bleibt davon
+  unabhängig.
+- `ImprovedPathfinding` steuert aktive PCL-Neuprüfung, Sichtbehandlung,
+  Pfadfortsetzung, Moving-Target-Replan, Nach-Schuss-Fortsetzung und die
+  Geschwindigkeitswahl aus dem tatsächlichen Restweg.
+- `AllowDeadTargets` ist die Sicherheitsgrenze für Paket F. Eigene regulär
+  erlegte und bereits reservierte Kadaver bleiben unabhängig davon Teil von
+  Vanillas normaler Pickupkette.
+- `ReliableHunterProjectiles` steuert ausschließlich die validierte erneute
+  Anwendung von Vanillas Fernkampfschaden für einen eindeutig korrelierten
+  Jägerpfeil.
+- Tierartspezifische Kompatibilitätskorrekturen folgen ausschließlich dem
+  jeweiligen `Hunt...`-Schalter. Insbesondere hängen automatisches und
+  manuelles Hühner-Targeting, Neutralisierung und Kornspeicherlimit gemeinsam
+  an `HuntChicken`; bei deaktivierter Hühnerjagd ist das eingestellte Limit
+  wirkungslos.
+- Der Fleischertrag `-1` ist nur für Reh und Ziege zulässig und lässt den
+  tatsächlichen Ertrag Vanilla. Für die Zielbewertung werden dabei die
+  bisherigen Vanilla-Schätzwerte `6` beziehungsweise `4` verwendet. Hase,
+  Kamel und Huhn bleiben auf den Bereich `0..100` begrenzt.
+
+Die vier Feature-Schalter sind Verhaltensgrenzen und dürfen einander nicht
+implizit aktivieren. Die State-0-Hooks der Zielauswahl und die State-1-Hooks der
+Pfadfindung werden derzeit aus Sicherheitsgründen weiterhin in einer atomaren
+nativen Hook-Transaktion installiert: Alle Instruktionsspannen werden geprüft,
+bevor irgendein Teil geschrieben wird. Ihre Callbacks und Zustände sind dennoch
+getrennt gegated. Falls sich bei einem künftigen Spielupdate nur eine der beiden
+Hookgruppen nicht mehr validieren lässt, muss die Transaktion vor einer
+Teilaktivierung sauber getrennt werden; es darf keinen ungeprüften Teilverbund
+geben.
+
 ## Paket E: Restweg, Sichtübergabe und Nach-Schuss-Weiterverfolgung
 
 ### Bereits funktionierender Stand
 
-#### Erreichbarkeit und Zielannahme
+#### Zielauswahl-Vorstufe und aktive Erreichbarkeit
 
-- `HunterPclReachability` prüft Kandidaten vor der Kostenrangfolge und nochmals
-  am konkreten Handoff. Der Cache gilt höchstens eine Sekunde und nur bei
-  identischen Eingaben.
+- Unter `ImprovedTargetSelection` prüft `HunterPclReachability` lebende
+  Kandidaten vor der Kostenrangfolge und nochmals am konkreten Handoff. Der
+  Cache gilt höchstens eine Sekunde und nur bei identischen Eingaben.
 - Ein positives PCL lässt Vanilla planen. Liefert Vanillas vollständige Suche
   trotz eines gültigen verborgenen Kandidaten kein Ziel, stellt der begrenzte
-  Fallback genau diesen Kandidaten bereit. Vanilla ruft anschließend selbst
-  `MoveHere` auf.
-- Ein aktives Ziel mit neuem PCL `0` wird identitätsgesichert invalidiert;
-  Vanilla sucht neu. Technische PCL-Fehler sind fail-open.
+  Zielauswahl-Fallback genau diesen Kandidaten bereit. Vanilla ruft anschließend
+  selbst `MoveHere` auf.
+- Unter `ImprovedPathfinding` wird ein aktives Ziel mit neuem PCL `0`
+  identitätsgesichert invalidiert; Vanilla sucht neu. Technische PCL-Fehler sind
+  fail-open. Damit ist die aktive Neuprüfung Paket E zugeordnet, während die
+  initiale Kandidatenprüfung zur Zielauswahl gehört.
 
 #### Geschwindigkeit nach tatsächlicher Reststrecke
 
@@ -554,11 +593,20 @@ Reststrecke folgen. Erst danach beginnt Paket F.
 Paket F beginnt erst nach Paket E und erweitert die bestehende Zielauswahl; es
 darf keine parallele Pickup-State-Machine einführen.
 
+Der gesamte Paket-F-Pfad wird ausschließlich durch `AllowDeadTargets`
+freigeschaltet. Er darf weder `ImprovedTargetSelection` noch
+`ReliableHunterProjectiles` stillschweigend mitaktivieren oder voraussetzen.
+Bei ausgeschalteter verbesserter Lebendziel-Auswahl darf Paket F gemeinsame
+reine Bewertungshelfer wiederverwenden, aber keine lebenden Vanilla-Ziele neu
+priorisieren. `ReliableHunterProjectiles` bleibt ausschließlich die davon
+unabhängige Korrektur eines nachweislich ausgebliebenen Vanilla-Treffers.
+
 ### Normale Kadaverwahl
 
 - Tote, verwertbare Beutetiere mit Reservation `0` dürfen Kandidaten sein.
 - Lebende Beute und Kadaver verwenden dieselbe Fleisch-pro-Zykluskosten-
-  Rangfolge aus `ImprovedHuntersRuntime`.
+  Berechnung aus `HunterTargetSelectionFeature`; die Paket-F-Steuerung selbst
+  bleibt in einer eigenen Feature-Datei.
 - Aktuelle Basis: `HunterHutWorkCost=600`, `BestTargetToleranceCost=80`,
   Behandlungskosten `100`, Hase/Huhn `80`, Kamel `120` und
   `CycleCost = 600 + handling + granaryRoundTrip + approach * 2` mit
@@ -606,8 +654,8 @@ Doppelreservation und vollständiger Vanilla-Pickup-/Abgabepfad.
 
 ## Paket D: gemeinsame Abnahmematrix
 
-Nach E und F werden Reh, Ziege, Hase, Kamel, Huhn und die bewusst geklärte Kuh
-mit derselben Matrix geprüft:
+Nach E und F werden Reh, Ziege, Hase, Kamel und Huhn mit derselben Matrix
+geprüft:
 
 - frei sichtbar;
 - sichtbar blockiert, aber erreichbar;
@@ -626,7 +674,10 @@ mit derselben Matrix geprüft:
 Erst nach E, F und D:
 
 1. Verhalten aus den `*Diagnostic.cs`-Dateien in passend benannte
-   Produktionsklassen verschieben; temporäre Logs getrennt halten.
+   Produktionsklassen verschieben, soweit es tatsächlich produktives Verhalten
+   und keine untrennbare Hookdiagnose ist. Bestehende Diagnose- und
+   Validierungslogik bleibt in eigenen Diagnosedateien; sie wird nicht allein
+   wegen des Dateinamens in Featureklassen verschoben.
 2. Stillgelegten Managed-A*-Adapter `HunterLineOfSightRecovery.cs` entfernen,
    ohne einen alten Fallback parallel zu behalten.
 3. Breite alte Diagnose, ungenutzte DTOs, Hooks und Logs entfernen.
@@ -649,16 +700,24 @@ prüfen.
 
 | Datei | Verantwortung |
 | --- | --- |
-| `src/HunterPclReachability.cs` | Kandidaten- und aktives-Ziel-PCL mit begrenzten Caches |
+| `src/ImprovedHuntersViewModel.cs` und `ImprovedHuntersSettings.xaml` | Gespeicherte Host-Schalter, Ertragswerte, Resetwerte und Modsettings-Bindings |
+| `src/HunterPclReachability.cs` | Gemeinsamer nativer PCL-Aufruf und initialer Kandidaten-PCL-Filter der Zielauswahl |
+| `src/HunterActiveTargetReachability.cs` | Pfadfindungsseitige aktive PCL-Neuprüfung und pfadgebundene Erreichbarkeitssnapshots |
+| `src/HunterTargetSelectionFeature.cs` | Beutecache, Kostenrangfolge, Ertragsbewertung, initiale PCL-Filterung und Zielquery-Ereignisse unter `ImprovedTargetSelection` |
+| `src/HunterProjectileRecoveryFeature.cs` | Optionale korrelierte Vanilla-Fernkampfschadenswiederholung unter `ReliableHunterProjectiles`; kein Paket-F-Kadavertransfer |
+| `src/HunterAnimalCompatibilityFeature.cs` | An den jeweiligen Tierartschalter gebundene Kadaver- und Kamelkompatibilität |
+| `src/HunterChickenCompatibilityFeature.cs` | An `HuntChicken` gebundene Hühnerneutralisierung, Kornspeicherlimit und geladene Hühneridentitäten |
 | `src/HunterNativeVisibilityProbe.cs` | Validierte Wrapper-/Kernsichtprobe |
 | `src/HunterActiveTargetVisibilitySnapshot.cs` | Reservations-1-Proben, 250-ms-Nahbereich, positions- und pfadgebundene Snapshots |
 | `src/HunterRemainingPathSpeedRecovery.cs` | Restwegdekodierung und Auswahl vorhandener Vanilla-Stufen |
-| `src/HunterTargetSearchFallbackDiagnostic.cs` | Verborgener Kandidatenfallback und aktuelle Zielquerydiagnose; in C trennen |
-| `src/HunterVanillaPathContinuationDiagnostic.cs` | Distanz-28-Fortsetzung und Zero-Flag-only-Angriffshandoff; in C trennen |
+| `src/HunterTargetSearchFallbackDiagnostic.cs` | Verborgener Kandidatenfallback, State-0-Zielquerydiagnose und atomare gemeinsame Hook-Installation |
+| `src/HunterMovingTargetPathfindingDiagnostic.cs` | Unter `ImprovedPathfinding` gegateter State-1-Handoff und Moving-Target-Replan-Diagnose |
+| `src/HunterVanillaPathContinuationDiagnostic.cs` | Distanz-28-Fortsetzung und Zero-Flag-only-Angriffshandoff |
 | `src/HunterHutVisibilityPatch.cs` | Jägerhütte als normaler Sichtblocker |
-| `src/ImprovedHuntersRuntime.cs` | Events, Eligibility, Rangfolge, Handoffs, Reservationen und Projektilkorrelation |
+| `src/ImprovedHuntersRuntime.cs` | Gemeinsame Initialisierung, Events, Feature-Gates und lebenszyklusübergreifende Koordination; kein erneut zusammengeführtes Featureverhalten |
 | `src/HunterPostShotContinuationDiagnostic.cs` | State-9-/State-10-/Fehlangriffshandoffs, identitäts-/PCL-gesicherte einmalige Übergabe an Vanillas State-0-/`MoveHere`-Kette und Versuchslimit |
-| spätere Paket-F-Trefferdiagnose | Tatsächlichen Damage-Empfänger kausal mit Projektil und Schütze verbinden |
+| spätere `src/HunterDeadTargetFeature.cs` | Sämtliche durch `AllowDeadTargets` aktivierten Paket-F-Pfade einschließlich normaler Kadaverwahl und kausalem Fremdkadavertransfer |
+| spätere Paket-F-Trefferdiagnose | Tatsächlichen Damage-Empfänger kausal mit Projektil und Schütze verbinden; Diagnose getrennt vom Paket-F-Verhalten halten |
 | `UpdateToNewDLL.md` | Vollständige Native- und Updatequelle |
 
 ## Sicherheits- und Prüfregeln

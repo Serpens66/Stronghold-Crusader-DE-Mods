@@ -10,27 +10,29 @@ namespace ImprovedHunters
 {
     public sealed class ImprovedHuntersViewModel : Shared.PresetLobbyModSettingsViewModel
     {
-        private const int DefaultDeerMeat = 6;
-        private const int DefaultGoatMeat = 4;
+        private const int DefaultDeerMeat = -1;
+        private const int DefaultGoatMeat = -1;
+        private const int VanillaDeerMeat = 6;
+        private const int VanillaGoatMeat = 4;
         private const int DefaultRabbitMeat = 2;
         private const int DefaultCamelMeat = 8;
         private const int DefaultChickenMeat = 1;
-        private const int DefaultCowMeat = 6;
 
         private bool enableMod = true;
+        private bool improvedTargetSelection = true;
         private bool improvedPathfinding = true;
+        private bool allowDeadTargets;
+        private bool reliableHunterProjectiles = true;
         private bool huntDeer = true;
         private bool huntGoat = true;
         private bool huntRabbit = true;
         private bool huntCamel = true;
         private bool huntChicken = true;
-        private bool huntCow = false;
         private int deerMeat = DefaultDeerMeat;
         private int goatMeat = DefaultGoatMeat;
         private int rabbitMeat = DefaultRabbitMeat;
         private int camelMeat = DefaultCamelMeat;
         private int chickenMeat = DefaultChickenMeat;
-        private int cowMeat = DefaultCowMeat;
         private int maxNeutralChickensPerPlayer = GranaryChickenSpawnPolicy.DefaultMaximumPerPlayer;
 
         public event Action<string> SettingChanged;
@@ -54,8 +56,14 @@ namespace ImprovedHunters
         public string HuntText => SerpLocalization.Get("ImprovedHunters.Hunt");
         public string MeatText => SerpLocalization.Get("ImprovedHunters.Meat");
         public string MeatHelpText => SerpLocalization.Get("ImprovedHunters.MeatHelp");
+        public string ImprovedTargetSelectionText => SerpLocalization.Get("ImprovedHunters.ImprovedTargetSelection");
+        public string ImprovedTargetSelectionHelpText => SerpLocalization.Get("ImprovedHunters.ImprovedTargetSelectionHelp");
         public string ImprovedPathfindingText => SerpLocalization.Get("ImprovedHunters.ImprovedPathfinding");
         public string ImprovedPathfindingHelpText => SerpLocalization.Get("ImprovedHunters.ImprovedPathfindingHelp");
+        public string AllowDeadTargetsText => SerpLocalization.Get("ImprovedHunters.AllowDeadTargets");
+        public string AllowDeadTargetsHelpText => SerpLocalization.Get("ImprovedHunters.AllowDeadTargetsHelp");
+        public string ReliableHunterProjectilesText => SerpLocalization.Get("ImprovedHunters.ReliableHunterProjectiles");
+        public string ReliableHunterProjectilesHelpText => SerpLocalization.Get("ImprovedHunters.ReliableHunterProjectilesHelp");
         public string DeerText => SerpLocalization.Get("ImprovedHunters.Deer");
         public string GoatText => SerpLocalization.Get("ImprovedHunters.Goat");
         public string RabbitText => SerpLocalization.Get("ImprovedHunters.Rabbit");
@@ -69,17 +77,16 @@ namespace ImprovedHunters
             CultureInfo.CurrentCulture,
             SerpLocalization.Get("ImprovedHunters.MaxNeutralChickensPerPlayerValueFormat"),
             MaxNeutralChickensPerPlayer);
-        public string CowText => SerpLocalization.Get("ImprovedHunters.Cow");
-        public string CowHelpText => SerpLocalization.Get("ImprovedHunters.CowHelp");
-
         [SyncHostOnly] public bool EnableMod { get => enableMod; set => SetSetting(ref enableMod, value, nameof(EnableMod)); }
+        [SyncHostOnly] public bool ImprovedTargetSelection { get => improvedTargetSelection; set => SetSetting(ref improvedTargetSelection, value, nameof(ImprovedTargetSelection)); }
         [SyncHostOnly] public bool ImprovedPathfinding { get => improvedPathfinding; set => SetSetting(ref improvedPathfinding, value, nameof(ImprovedPathfinding)); }
+        [SyncHostOnly] public bool AllowDeadTargets { get => allowDeadTargets; set => SetSetting(ref allowDeadTargets, value, nameof(AllowDeadTargets)); }
+        [SyncHostOnly] public bool ReliableHunterProjectiles { get => reliableHunterProjectiles; set => SetSetting(ref reliableHunterProjectiles, value, nameof(ReliableHunterProjectiles)); }
         [SyncHostOnly] public bool HuntDeer { get => huntDeer; set => SetSetting(ref huntDeer, value, nameof(HuntDeer)); }
         [SyncHostOnly] public bool HuntGoat { get => huntGoat; set => SetSetting(ref huntGoat, value, nameof(HuntGoat)); }
         [SyncHostOnly] public bool HuntRabbit { get => huntRabbit; set => SetSetting(ref huntRabbit, value, nameof(HuntRabbit)); }
         [SyncHostOnly] public bool HuntCamel { get => huntCamel; set => SetSetting(ref huntCamel, value, nameof(HuntCamel)); }
         [SyncHostOnly] public bool HuntChicken { get => huntChicken; set => SetSetting(ref huntChicken, value, nameof(HuntChicken)); }
-        [SyncHostOnly] public bool HuntCow { get => huntCow; set => SetSetting(ref huntCow, value, nameof(HuntCow)); }
         [SyncHostOnly] public int MaxNeutralChickensPerPlayer
         {
             get => maxNeutralChickensPerPlayer;
@@ -92,19 +99,17 @@ namespace ImprovedHunters
                 nameof(MaxNeutralChickensPerPlayerValueText));
         }
 
-        [SyncHostOnly] public int DeerMeat { get => deerMeat; set => SetMeatSetting(ref deerMeat, value, nameof(DeerMeat), nameof(DeerMeatText)); }
-        [SyncHostOnly] public int GoatMeat { get => goatMeat; set => SetMeatSetting(ref goatMeat, value, nameof(GoatMeat), nameof(GoatMeatText)); }
-        [SyncHostOnly] public int RabbitMeat { get => rabbitMeat; set => SetMeatSetting(ref rabbitMeat, value, nameof(RabbitMeat), nameof(RabbitMeatText)); }
-        [SyncHostOnly] public int CamelMeat { get => camelMeat; set => SetMeatSetting(ref camelMeat, value, nameof(CamelMeat), nameof(CamelMeatText)); }
-        [SyncHostOnly] public int ChickenMeat { get => chickenMeat; set => SetMeatSetting(ref chickenMeat, value, nameof(ChickenMeat), nameof(ChickenMeatText)); }
-        [SyncHostOnly] public int CowMeat { get => cowMeat; set => SetMeatSetting(ref cowMeat, value, nameof(CowMeat), nameof(CowMeatText)); }
+        [SyncHostOnly] public int DeerMeat { get => deerMeat; set => SetMeatSetting(ref deerMeat, value, true, nameof(DeerMeat), nameof(DeerMeatText)); }
+        [SyncHostOnly] public int GoatMeat { get => goatMeat; set => SetMeatSetting(ref goatMeat, value, true, nameof(GoatMeat), nameof(GoatMeatText)); }
+        [SyncHostOnly] public int RabbitMeat { get => rabbitMeat; set => SetMeatSetting(ref rabbitMeat, value, false, nameof(RabbitMeat), nameof(RabbitMeatText)); }
+        [SyncHostOnly] public int CamelMeat { get => camelMeat; set => SetMeatSetting(ref camelMeat, value, false, nameof(CamelMeat), nameof(CamelMeatText)); }
+        [SyncHostOnly] public int ChickenMeat { get => chickenMeat; set => SetMeatSetting(ref chickenMeat, value, false, nameof(ChickenMeat), nameof(ChickenMeatText)); }
 
         public string DeerMeatText { get => DeerMeat.ToString(); set => SetMeatText(value, parsed => DeerMeat = parsed, nameof(DeerMeatText)); }
         public string GoatMeatText { get => GoatMeat.ToString(); set => SetMeatText(value, parsed => GoatMeat = parsed, nameof(GoatMeatText)); }
         public string RabbitMeatText { get => RabbitMeat.ToString(); set => SetMeatText(value, parsed => RabbitMeat = parsed, nameof(RabbitMeatText)); }
         public string CamelMeatText { get => CamelMeat.ToString(); set => SetMeatText(value, parsed => CamelMeat = parsed, nameof(CamelMeatText)); }
         public string ChickenMeatText { get => ChickenMeat.ToString(); set => SetMeatText(value, parsed => ChickenMeat = parsed, nameof(ChickenMeatText)); }
-        public string CowMeatText { get => CowMeat.ToString(); set => SetMeatText(value, parsed => CowMeat = parsed, nameof(CowMeatText)); }
 
         public bool IsKnownAnimal(eChimps type)
         {
@@ -112,8 +117,7 @@ namespace ImprovedHunters
                 type == eChimps.CHIMP_TYPE_GOAT ||
                 type == eChimps.CHIMP_TYPE_RABBIT ||
                 type == eChimps.CHIMP_TYPE_CAMEL ||
-                type == eChimps.CHIMP_TYPE_CHICKEN ||
-                type == eChimps.CHIMP_TYPE_COW;
+                type == eChimps.CHIMP_TYPE_CHICKEN;
         }
 
         public bool IsHuntingEnabled(eChimps type)
@@ -133,8 +137,6 @@ namespace ImprovedHunters
                     return HuntCamel;
                 case eChimps.CHIMP_TYPE_CHICKEN:
                     return HuntChicken;
-                case eChimps.CHIMP_TYPE_COW:
-                    return HuntCow;
                 default:
                     return false;
             }
@@ -154,10 +156,27 @@ namespace ImprovedHunters
                     return CamelMeat;
                 case eChimps.CHIMP_TYPE_CHICKEN:
                     return ChickenMeat;
-                case eChimps.CHIMP_TYPE_COW:
-                    return CowMeat;
                 default:
                     return DefaultDeerMeat;
+            }
+        }
+
+        public int GetExpectedMeatAmount(eChimps type)
+        {
+            int configured = GetMeatAmount(type);
+            if (configured >= 0)
+                return configured;
+
+            // Only Vanilla Hunter prey may use -1. Keep target scoring stable
+            // while the actual yield event remains entirely Vanilla-owned.
+            switch (type)
+            {
+                case eChimps.CHIMP_TYPE_DEER:
+                    return VanillaDeerMeat;
+                case eChimps.CHIMP_TYPE_GOAT:
+                    return VanillaGoatMeat;
+                default:
+                    return 0;
             }
         }
 
@@ -167,20 +186,21 @@ namespace ImprovedHunters
                 return;
 
             EnableMod = true;
+            ImprovedTargetSelection = true;
             ImprovedPathfinding = true;
+            AllowDeadTargets = false;
+            ReliableHunterProjectiles = true;
             HuntDeer = true;
             HuntGoat = true;
             HuntRabbit = true;
             HuntCamel = true;
             HuntChicken = true;
-            HuntCow = false;
             MaxNeutralChickensPerPlayer = GranaryChickenSpawnPolicy.DefaultMaximumPerPlayer;
             DeerMeat = DefaultDeerMeat;
             GoatMeat = DefaultGoatMeat;
             RabbitMeat = DefaultRabbitMeat;
             CamelMeat = DefaultCamelMeat;
             ChickenMeat = DefaultChickenMeat;
-            CowMeat = DefaultCowMeat;
         }
 
         private void SetSetting<T>(ref T field, T value, string propertyName)
@@ -196,12 +216,17 @@ namespace ImprovedHunters
             OnPropertyChanged(propertyName);
         }
 
-        private void SetMeatSetting(ref int field, int value, string propertyName, string textPropertyName)
+        private void SetMeatSetting(
+            ref int field,
+            int value,
+            bool allowVanilla,
+            string propertyName,
+            string textPropertyName)
         {
             if (!CanMutateSettingWithDependents(propertyName, textPropertyName))
                 return;
 
-            int clamped = ClampMeat(value);
+            int clamped = ClampMeat(value, allowVanilla);
             if (field == clamped)
                 return;
 
@@ -243,10 +268,11 @@ namespace ImprovedHunters
             setValue(parsed);
         }
 
-        private static int ClampMeat(int value)
+        private static int ClampMeat(int value, bool allowVanilla)
         {
-            if (value < 0)
-                return 0;
+            int minimum = allowVanilla ? -1 : 0;
+            if (value < minimum)
+                return minimum;
 
             if (value > 100)
                 return 100;

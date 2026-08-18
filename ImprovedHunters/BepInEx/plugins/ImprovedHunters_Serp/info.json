@@ -2,11 +2,20 @@
   "GUID": "ImprovedHunters_Serp",
   "Author": "Serpens66",
   "Name": "Improved Hunters",
-  "Description": "Adds configurable hunter prey and meat yield for deer, goats, rabbits, camels, chickens and cows.",
-  "Version": "1.1.66",
+  "Description": "Adds configurable hunter prey and meat yield for deer, goats, rabbits, camels and chickens.",
+  "Version": "1.1.67",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.1.67",
+      "Changes": [
+        "Separate improved target selection, pathfinding, dead-target eligibility and reliable Hunter projectiles into independent synchronized host settings and feature gates.",
+        "Split target selection, projectile recovery, active-target reachability, moving-target diagnostics and animal/chicken compatibility out of the central runtime into dedicated source files.",
+        "Allow -1 to retain Vanilla meat yield for deer and goats while keeping explicit 0 to 100 yields for non-Vanilla prey.",
+        "Keep all chicken target, manual ranged-attack, neutral ownership and granary population behavior bound to HuntChicken, and all other animal compatibility patches bound to their corresponding Hunt setting."
+      ]
+    },
     {
       "Version": "1.1.66",
       "Changes": [
@@ -371,9 +380,7 @@
     {
       "Version": "1.1.14",
       "Changes": [
-        "Remove the temporary non-hunter chicken projectile and target-state workaround because it could leave ranged units stuck in shooting animations.",
-        "Disable cow hunting in runtime logic while keeping the cow settings visible for later experiments.",
-        "Restore cow arrow damage to the original value if a previous runtime patch had changed it."
+        "Remove the temporary non-hunter chicken projectile and target-state workaround because it could leave ranged units stuck in shooting animations."
       ]
     },
     {
@@ -425,14 +432,6 @@
         "Accept hunter target queries for valid prey even when the Script Extender reports an invalid hunter id.",
         "Add more detailed invalid hunter target query diagnostics.",
         "Repeat the delayed hunter building availability refresh several times after map start."
-      ]
-    },
-    {
-      "Version": "1.1.6",
-      "Changes": [
-        "Add cows as an optional hunter prey type, disabled by default with a default meat yield of 6.",
-        "Add cow detection, scan and hunter target query diagnostics.",
-        "Increase arrow damage against cows while cow hunting is enabled for reliable hunter kills."
       ]
     },
     {
