@@ -19,9 +19,10 @@ namespace ExtraFeatures
 
         public const string PluginGuid = "ExtraFeatures_Serp";
         public const string PluginName = "Extra Features";
-        public const string PluginVersion = "1.0.14";
+        public const string PluginVersion = "1.0.16";
 
         private ExtraFeaturesRuntime runtime;
+        private bool marketGoodPriceVisualRefreshFailureLogged;
 
         public ExtraFeaturesViewModel Settings { get; private set; }
 
@@ -47,6 +48,17 @@ namespace ExtraFeatures
 
         private void OnCrusaderLibraryLoaded(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
         {
+            try
+            {
+                Settings.InitializeMarketGoodPriceEditor(Logger);
+                SHCDESE.BepInEx.Bootstrap.Plugin.ModSettingsHubViewModel.PropertyChanged +=
+                    (_, __) => RefreshMarketGoodPriceVisuals();
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(Logger, $"Extra Features market-price editor initialization failed: {ex}");
+            }
+
             try
             {
                 Shared.LobbyModSettingsPresetRegistration.Register(
@@ -114,6 +126,24 @@ namespace ExtraFeatures
             }
 
             Shared.DebugLogHelper.LogDebug(Logger, "Crusader library loaded; Extra Features initialization stages completed.");
+        }
+
+        private void RefreshMarketGoodPriceVisuals()
+        {
+            try
+            {
+                Settings.RefreshMarketGoodPriceVisuals();
+            }
+            catch (Exception ex)
+            {
+                if (marketGoodPriceVisualRefreshFailureLogged)
+                    return;
+
+                marketGoodPriceVisualRefreshFailureLogged = true;
+                Shared.DebugLogHelper.LogError(
+                    Logger,
+                    $"Extra Features market-price icon refresh failed; multiplier controls remain usable: {ex}");
+            }
         }
     }
 }

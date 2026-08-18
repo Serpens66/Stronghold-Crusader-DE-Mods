@@ -18,11 +18,17 @@ namespace ExtraFeatures
             {
                 eGoods good = (eGoods)i;
                 PackedGoodPrice vanillaPrice = playerApi.GetDefaultTradeBasePrice(good);
+                double buyMultiplier = MarketGoodPriceDefinition.CombineMultipliers(
+                    settings.MarketBuyPriceMultiplier,
+                    settings.GetMarketGoodPriceMultiplier(good, true));
+                double sellMultiplier = MarketGoodPriceDefinition.CombineMultipliers(
+                    settings.MarketSellPriceMultiplier,
+                    settings.GetMarketGoodPriceMultiplier(good, false));
                 playerApi.SetTradeBasePrice(
                     good,
                     new PackedGoodPrice(
-                        MultiplyPrice(vanillaPrice.BuyPrice, settings.MarketBuyPriceMultiplier),
-                        MultiplyPrice(vanillaPrice.SellPrice, settings.MarketSellPriceMultiplier)));
+                        MultiplyPrice(vanillaPrice.BuyPrice, buyMultiplier),
+                        MultiplyPrice(vanillaPrice.SellPrice, sellMultiplier)));
             }
         }
 

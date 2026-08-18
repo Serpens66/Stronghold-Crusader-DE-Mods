@@ -1,4 +1,6 @@
 // Feature: Lobby settings model for all Extra Features options.
+using BepInEx.Logging;
+using CrusaderDE;
 using Noesis;
 using SHCDESE.API;
 using SHCDESE.API.Components.Network;
@@ -6,6 +8,7 @@ using SHCDESE.Interop;
 using SHCDESE.NoesisUtil;
 using SHCDESE.ViewModels;
 using System;
+using System.Collections.ObjectModel;
 using System.Globalization;
 
 namespace ExtraFeatures
@@ -26,6 +29,8 @@ namespace ExtraFeatures
         private double multiplyGoodsGainInMoneyHuman;
         private double marketBuyPriceMultiplier = 1.0;
         private double marketSellPriceMultiplier = 1.0;
+        private double[] marketGoodBuyPriceMultipliers = MarketGoodPriceDefinition.CreateDefaultMultipliers();
+        private double[] marketGoodSellPriceMultipliers = MarketGoodPriceDefinition.CreateDefaultMultipliers();
         private double plagueDurationMultiplier = 2.0;
         private int apothecaryPlagueSearchDistance = 50;
         private int campfirePeasantsLimit = -1;
@@ -40,6 +45,7 @@ namespace ExtraFeatures
         private bool preventAIPause = true;
         private bool preventEmergencyDemolition = true;
         private bool preventHovelDeletion = true;
+        private bool marketGoodPriceVisualsResolved;
 
         protected override string ResolveSettingsUiText(string key, string fallback) =>
             SerpLocalization.Get(key);
@@ -51,6 +57,8 @@ namespace ExtraFeatures
         }
 
         public RelayCommand ResetToDefaultCommand { get; }
+        public ObservableCollection<MarketGoodPriceItemViewModel> MarketGoodPriceItems { get; } =
+            new ObservableCollection<MarketGoodPriceItemViewModel>();
         public Visibility LegacyModWarningVisibility { get; }
         public string LegacyModWarningText => SerpLocalization.Get(SerpLocalization.LegacySomeSettingsWarning);
         public string EnableModText => SerpLocalization.Get(SerpLocalization.EnableMod);
@@ -109,6 +117,7 @@ namespace ExtraFeatures
         public string MarketBuyPriceMultiplierHelpText => SerpLocalization.Get(SerpLocalization.MarketBuyPriceMultiplierHelp);
         public string MarketSellPriceMultiplierText => SerpLocalization.Get(SerpLocalization.MarketSellPriceMultiplier);
         public string MarketSellPriceMultiplierHelpText => SerpLocalization.Get(SerpLocalization.MarketSellPriceMultiplierHelp);
+        public string MarketGoodPriceMultipliersHelpText => SerpLocalization.Get(SerpLocalization.MarketGoodPriceMultipliersHelp);
         public string AiEconomyProtectionTitleText => SerpLocalization.Get(SerpLocalization.AiEconomyProtectionTitle);
         public string PreventAIPauseText => SerpLocalization.Get(SerpLocalization.PreventAIPause);
         public string PreventAIPauseHelpText => SerpLocalization.Get(SerpLocalization.PreventAIPauseHelp);
@@ -137,6 +146,24 @@ namespace ExtraFeatures
         [SyncHostOnly] public double MultiplyGoodsGainInMoneyHuman { get => multiplyGoodsGainInMoneyHuman; set => SetDecimalMultiplierSetting(ref multiplyGoodsGainInMoneyHuman, value, nameof(MultiplyGoodsGainInMoneyHuman), nameof(MultiplyGoodsGainInMoneyHumanText)); }
         [SyncHostOnly] public double MarketBuyPriceMultiplier { get => marketBuyPriceMultiplier; set => SetDoubleSetting(ref marketBuyPriceMultiplier, value, 0.0, 5.0, nameof(MarketBuyPriceMultiplier), nameof(MarketBuyPriceMultiplierValueText)); }
         [SyncHostOnly] public double MarketSellPriceMultiplier { get => marketSellPriceMultiplier; set => SetDoubleSetting(ref marketSellPriceMultiplier, value, 0.0, 5.0, nameof(MarketSellPriceMultiplier), nameof(MarketSellPriceMultiplierValueText)); }
+        [SyncHostOnly]
+        public double[] MarketGoodBuyPriceMultipliers
+        {
+            get => (double[])marketGoodBuyPriceMultipliers.Clone();
+            set => SetMarketGoodMultiplierArray(
+                ref marketGoodBuyPriceMultipliers,
+                value,
+                nameof(MarketGoodBuyPriceMultipliers));
+        }
+        [SyncHostOnly]
+        public double[] MarketGoodSellPriceMultipliers
+        {
+            get => (double[])marketGoodSellPriceMultipliers.Clone();
+            set => SetMarketGoodMultiplierArray(
+                ref marketGoodSellPriceMultipliers,
+                value,
+                nameof(MarketGoodSellPriceMultipliers));
+        }
         [SyncHostOnly] public double PlagueDurationMultiplier { get => plagueDurationMultiplier; set => SetDoubleSetting(ref plagueDurationMultiplier, value, PlagueDurationPatch.MinimumMultiplier, PlagueDurationPatch.MaximumMultiplier, nameof(PlagueDurationMultiplier), nameof(PlagueDurationMultiplierValueText)); }
         [SyncHostOnly] public int ApothecaryPlagueSearchDistance { get => apothecaryPlagueSearchDistance; set => SetIntSetting(ref apothecaryPlagueSearchDistance, value, PlagueApothecarySearchRangePatch.MinimumDistance, PlagueApothecarySearchRangePatch.MaximumDistance, nameof(ApothecaryPlagueSearchDistance), nameof(ApothecaryPlagueSearchDistanceValueText)); }
         [SyncHostOnly] public int CampfirePeasantsLimit { get => campfirePeasantsLimit; set => SetIntSetting(ref campfirePeasantsLimit, value, -1, 500, nameof(CampfirePeasantsLimit), nameof(CampfirePeasantsLimitText)); }
@@ -192,6 +219,8 @@ namespace ExtraFeatures
             MultiplyGoodsGainInMoneyHuman = 0;
             MarketBuyPriceMultiplier = 1.0;
             MarketSellPriceMultiplier = 1.0;
+            MarketGoodBuyPriceMultipliers = MarketGoodPriceDefinition.CreateDefaultMultipliers();
+            MarketGoodSellPriceMultipliers = MarketGoodPriceDefinition.CreateDefaultMultipliers();
             PlagueDurationMultiplier = 2.0;
             ApothecaryPlagueSearchDistance = 50;
             CampfirePeasantsLimit = -1;
@@ -250,6 +279,158 @@ namespace ExtraFeatures
             SettingChanged?.Invoke(propertyName);
             OnPropertyChanged(propertyName);
             OnPropertyChanged(textPropertyName);
+        }
+
+        private void SetMarketGoodMultiplierArray(
+            ref double[] field,
+            double[] value,
+            string propertyName)
+        {
+            if (!CanMutateSetting(propertyName))
+                return;
+
+            double[] normalized = MarketGoodPriceDefinition.NormalizeMultipliers(value);
+            if (AreMultiplierArraysEqual(field, normalized))
+            {
+                RefreshMarketGoodPriceItems();
+                return;
+            }
+
+            field = normalized;
+            RefreshMarketGoodPriceItems();
+            SettingChanged?.Invoke(propertyName);
+            OnPropertyChanged(propertyName);
+        }
+
+        private void ChangeMarketGoodMultiplier(int goodId, bool buyPrice, double value)
+        {
+            int index = MarketGoodPriceDefinition.FindGoodIndex(goodId);
+            if (index < 0)
+                return;
+
+            double[] updated = buyPrice
+                ? (double[])marketGoodBuyPriceMultipliers.Clone()
+                : (double[])marketGoodSellPriceMultipliers.Clone();
+            updated[index] = MarketGoodPriceDefinition.NormalizeMultiplier(value);
+            if (buyPrice)
+                MarketGoodBuyPriceMultipliers = updated;
+            else
+                MarketGoodSellPriceMultipliers = updated;
+        }
+
+        internal double GetMarketGoodPriceMultiplier(eGoods good, bool buyPrice)
+        {
+            int index = MarketGoodPriceDefinition.FindGoodIndex((int)good);
+            if (index < 0)
+                return 1.0;
+            return buyPrice
+                ? marketGoodBuyPriceMultipliers[index]
+                : marketGoodSellPriceMultipliers[index];
+        }
+
+        internal void InitializeMarketGoodPriceEditor(ManualLogSource log)
+        {
+            if (MarketGoodPriceItems.Count == 0)
+            {
+                for (int index = 0; index < MarketGoodPriceDefinition.Count; index++)
+                {
+                    int good = MarketGoodPriceDefinition.GetGood(index);
+                    MarketGoodPriceItems.Add(new MarketGoodPriceItemViewModel(
+                        good,
+                        ((Enums.Goods)good).ToString(),
+                        ChangeMarketGoodMultiplier));
+                }
+            }
+
+            RefreshMarketGoodPriceItems();
+            RefreshMarketGoodPriceVisuals();
+        }
+
+        internal void RefreshMarketGoodPriceVisuals()
+        {
+            if (marketGoodPriceVisualsResolved || !MainViewModel.viewModelLoaded)
+                return;
+
+            MainViewModel viewModel = MainViewModel.Instance;
+            if (viewModel?.GameSprites == null)
+                return;
+
+            int resolvedIconCount = 0;
+            int resolvedNameCount = 0;
+            foreach (MarketGoodPriceItemViewModel item in MarketGoodPriceItems)
+            {
+                if (TryResolveMarketGoodName(item.GoodId, out string name))
+                    resolvedNameCount++;
+                if (TryResolveMarketGoodIcon(viewModel, item.GoodId, out ImageSource icon))
+                    resolvedIconCount++;
+                item.UpdateVisuals(name, icon);
+            }
+
+            marketGoodPriceVisualsResolved =
+                resolvedIconCount == MarketGoodPriceDefinition.Count &&
+                resolvedNameCount == MarketGoodPriceDefinition.Count;
+        }
+
+        private void RefreshMarketGoodPriceItems()
+        {
+            for (int index = 0;
+                index < MarketGoodPriceItems.Count && index < MarketGoodPriceDefinition.Count;
+                index++)
+            {
+                MarketGoodPriceItems[index].UpdateMultipliers(
+                    marketGoodBuyPriceMultipliers[index],
+                    marketGoodSellPriceMultipliers[index]);
+            }
+        }
+
+        private static bool TryResolveMarketGoodName(int good, out string name)
+        {
+            try
+            {
+                name = Translate.Instance?.lookUpText(Enums.eTextSections.TEXT_GOODS, good);
+                if (!string.IsNullOrWhiteSpace(name))
+                    return true;
+            }
+            catch
+            {
+            }
+
+            name = ((Enums.Goods)good).ToString();
+            return false;
+        }
+
+        private static bool TryResolveMarketGoodIcon(
+            MainViewModel viewModel,
+            int good,
+            out ImageSource icon)
+        {
+            icon = null;
+            try
+            {
+                int spriteId = (int)viewModel.goodsSpriteEnumFromGoodsEnum((Enums.Goods)good);
+                if (spriteId < 0 || spriteId >= viewModel.GameSprites.Count)
+                    return false;
+
+                icon = viewModel.GameSprites[spriteId];
+                return (BaseComponent)(object)icon != (BaseComponent)null;
+            }
+            catch
+            {
+                icon = null;
+                return false;
+            }
+        }
+
+        private static bool AreMultiplierArraysEqual(double[] left, double[] right)
+        {
+            if (left == null || right == null || left.Length != right.Length)
+                return false;
+            for (int index = 0; index < left.Length; index++)
+            {
+                if (Math.Abs(left[index] - right[index]) >= 0.0001)
+                    return false;
+            }
+            return true;
         }
 
         private void SetIntSetting(ref int field, int value, int minimum, int maximum, string propertyName, string textPropertyName = null)

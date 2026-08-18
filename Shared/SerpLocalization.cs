@@ -92,6 +92,8 @@ public static class SerpLocalization
     public const string MultiplyGoodsAsMoney = "SomeSettings.MultiplyGoodsAsMoney";
     public const string MultiplyGoodsAsMoneyHelp = "SomeSettings.MultiplyGoodsAsMoneyHelp";
     public const string MarketPriceMultipliersTitle = "SomeSettings.MarketPriceMultipliersTitle";
+    public const string MarketGoodPriceMultipliersHelp = "SomeSettings.MarketGoodPriceMultipliersHelp";
+    public const string MarketGoodPriceMultiplierHelp = "SomeSettings.MarketGoodPriceMultiplierHelp";
     public const string MarketBuyPriceMultiplier = "SomeSettings.MarketBuyPriceMultiplier";
     public const string MarketBuyPriceMultiplierHelp = "SomeSettings.MarketBuyPriceMultiplierHelp";
     public const string MarketSellPriceMultiplier = "SomeSettings.MarketSellPriceMultiplier";
@@ -351,6 +353,8 @@ public static class SerpLocalization
         { MultiplyGoodsAsMoney, "Multiply goods as money" },
         { MultiplyGoodsAsMoneyHelp, "Extra gold payouts based on sell value of gained goods. 0 = unchanged, 1 = one sell-value payout, 2 = two payouts." },
         { MarketPriceMultipliersTitle, "Market Prices" },
+        { MarketGoodPriceMultipliersHelp, "For each good, the upper slider controls buying and the lower slider controls selling. Each individual factor is multiplied by the corresponding general factor; 1.0x leaves that good unchanged." },
+        { MarketGoodPriceMultiplierHelp, "{Good} - {Direction}: {Value}. This individual factor is multiplied by the corresponding general market factor." },
         { MarketBuyPriceMultiplier, "Buy prices" },
         { MarketBuyPriceMultiplierHelp, "Multiplier for all market buy prices. 1.0 = unchanged, 0.0 = free, 5.0 = five times the vanilla price." },
         { MarketSellPriceMultiplier, "Sell prices" },

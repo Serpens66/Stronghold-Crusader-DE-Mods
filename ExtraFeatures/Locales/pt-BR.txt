@@ -23,6 +23,8 @@ SomeSettings.MultiplyGoodsGainHelp=Multiplier for gained goods. 1 = unchanged, 2
 SomeSettings.MultiplyGoodsAsMoney=Multiply goods as money
 SomeSettings.MultiplyGoodsAsMoneyHelp=Extra gold payouts based on sell value of gained goods. 0 = unchanged, 1 = one sell-value payout, 2 = two payouts.
 SomeSettings.MarketPriceMultipliersTitle=Market Prices
+SomeSettings.MarketGoodPriceMultipliersHelp=For each good, the upper slider controls buying and the lower slider controls selling. Each individual factor is multiplied by the corresponding general factor; 1.0x leaves that good unchanged.
+SomeSettings.MarketGoodPriceMultiplierHelp={Good} - {Direction}: {Value}. This individual factor is multiplied by the corresponding general market factor.
 SomeSettings.MarketBuyPriceMultiplier=Buy prices
 SomeSettings.MarketBuyPriceMultiplierHelp=Multiplier for all market buy prices. 1.0 = unchanged, 0.0 = free, 5.0 = five times the vanilla price.
 SomeSettings.MarketSellPriceMultiplier=Sell prices

@@ -96,15 +96,6 @@
       </Grid>
 
       <Separator Background="#444466" Margin="0,10"/>
-      <TextBlock Text="{Binding MarketPriceMultipliersTitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,8"/>
-      <Grid>
-        <Grid.ColumnDefinitions><ColumnDefinition Width="170"/><ColumnDefinition Width="220"/><ColumnDefinition Width="55"/></Grid.ColumnDefinitions>
-        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-        <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding MarketBuyPriceMultiplierText}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding MarketBuyPriceMultiplierHelpText}"/><Slider Grid.Row="0" Grid.Column="1" Minimum="0" Maximum="5" Value="{Binding MarketBuyPriceMultiplier, Mode=TwoWay}" TickFrequency="0.1" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding MarketBuyPriceMultiplierHelpText}"/><TextBlock Grid.Row="0" Grid.Column="2" Text="{Binding MarketBuyPriceMultiplierValueText}" Foreground="White" HorizontalAlignment="Right" ToolTipService.ShowDuration="60000" ToolTip="{Binding MarketBuyPriceMultiplierHelpText}"/>
-        <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding MarketSellPriceMultiplierText}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding MarketSellPriceMultiplierHelpText}"/><Slider Grid.Row="1" Grid.Column="1" Minimum="0" Maximum="5" Value="{Binding MarketSellPriceMultiplier, Mode=TwoWay}" TickFrequency="0.1" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding MarketSellPriceMultiplierHelpText}"/><TextBlock Grid.Row="1" Grid.Column="2" Text="{Binding MarketSellPriceMultiplierValueText}" Foreground="White" HorizontalAlignment="Right" ToolTipService.ShowDuration="60000" ToolTip="{Binding MarketSellPriceMultiplierHelpText}"/>
-      </Grid>
-
-      <Separator Background="#444466" Margin="0,10"/>
       <TextBlock Text="{Binding PlagueTitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,8"/>
       <Grid ToolTipService.ShowDuration="60000" ToolTip="{Binding PlagueDurationMultiplierHelpText}" Margin="0,0,0,8">
         <Grid.ColumnDefinitions><ColumnDefinition Width="170"/><ColumnDefinition Width="220"/><ColumnDefinition Width="55"/></Grid.ColumnDefinitions>
@@ -130,6 +121,37 @@
       <CheckBox IsChecked="{Binding PreventHovelDeletion, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding PreventHovelDeletionHelpText}" Margin="0,0,14,8">
         <TextBlock Text="{Binding PreventHovelDeletionText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox>
+
+      <Separator Background="#444466" Margin="0,10"/>
+      <TextBlock Text="{Binding MarketPriceMultipliersTitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,8"/>
+      <Grid>
+        <Grid.ColumnDefinitions><ColumnDefinition Width="170"/><ColumnDefinition Width="220"/><ColumnDefinition Width="55"/></Grid.ColumnDefinitions>
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding MarketBuyPriceMultiplierText}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding MarketBuyPriceMultiplierHelpText}"/><Slider Grid.Row="0" Grid.Column="1" Minimum="0" Maximum="5" Value="{Binding MarketBuyPriceMultiplier, Mode=TwoWay}" TickFrequency="0.1" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding MarketBuyPriceMultiplierHelpText}"/><TextBlock Grid.Row="0" Grid.Column="2" Text="{Binding MarketBuyPriceMultiplierValueText}" Foreground="White" HorizontalAlignment="Right" ToolTipService.ShowDuration="60000" ToolTip="{Binding MarketBuyPriceMultiplierHelpText}"/>
+        <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding MarketSellPriceMultiplierText}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding MarketSellPriceMultiplierHelpText}"/><Slider Grid.Row="1" Grid.Column="1" Minimum="0" Maximum="5" Value="{Binding MarketSellPriceMultiplier, Mode=TwoWay}" TickFrequency="0.1" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding MarketSellPriceMultiplierHelpText}"/><TextBlock Grid.Row="1" Grid.Column="2" Text="{Binding MarketSellPriceMultiplierValueText}" Foreground="White" HorizontalAlignment="Right" ToolTipService.ShowDuration="60000" ToolTip="{Binding MarketSellPriceMultiplierHelpText}"/>
+      </Grid>
+      <TextBlock Text="{Binding MarketGoodPriceMultipliersHelpText}" Foreground="#CCCCCC" TextWrapping="Wrap" Margin="0,8,14,6"/>
+      <ItemsControl ItemsSource="{Binding MarketGoodPriceItems}" Width="760" HorizontalAlignment="Left">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <WrapPanel Width="760" ItemWidth="76" ItemHeight="120"/>
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate>
+            <Border Width="72" Height="116" Margin="2" Background="#33251D13" BorderBrush="#887B674B" BorderThickness="1" CornerRadius="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding GoodToolTip}">
+              <Grid Margin="3">
+                <Grid.RowDefinitions><RowDefinition Height="27"/><RowDefinition Height="17"/><RowDefinition Height="23"/><RowDefinition Height="17"/><RowDefinition Height="23"/></Grid.RowDefinitions>
+                <Image Grid.Row="0" Source="{Binding Icon}" Width="23" Height="23" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                <TextBlock Grid.Row="1" Text="{Binding BuyMultiplierValueText}" Foreground="#FF77AAFF" FontSize="10" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                <Slider Grid.Row="2" Minimum="0" Maximum="5" Value="{Binding BuyMultiplier, Mode=TwoWay}" TickFrequency="0.1" IsSnapToTickEnabled="True" Width="62" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding BuyToolTip}"/>
+                <TextBlock Grid.Row="3" Text="{Binding SellMultiplierValueText}" Foreground="#FF66CC99" FontSize="10" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                <Slider Grid.Row="4" Minimum="0" Maximum="5" Value="{Binding SellMultiplier, Mode=TwoWay}" TickFrequency="0.1" IsSnapToTickEnabled="True" Width="62" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding SellToolTip}"/>
+              </Grid>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
       </StackPanel>
     </StackPanel>
   </ScrollViewer>

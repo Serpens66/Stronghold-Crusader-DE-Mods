@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.15",
+  "Version": "1.0.16",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.16",
+      "Changes": [
+        "Added synchronized per-good buy and sell price multipliers that combine with the general market factors, and moved the market-price settings to the bottom of the settings view."
+      ]
+    },
     {
       "Version": "1.0.15",
       "Changes": [
