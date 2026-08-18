@@ -2,7 +2,7 @@
 
 Stand: `2026-08-18`
 
-Aktueller Quellstand: `1.1.64`; letzter Ingame-Test: `1.1.63` auf Steam Build
+Aktueller Quellstand: `1.1.66`; letzter Ingame-Test: `1.1.66` auf Steam Build
 `24651686`.
 SHA-256 der auditierten `CrusaderDE.dll`:
 `33AA33457F7DFAAA6D316D1D5E4C5AB97094F2C73B68D349990ABF9D0EF3B469`.
@@ -17,15 +17,16 @@ Vollständige RVA-, Byte-, Resolver- und Updateprüfungen stehen in
 - Paket A, die PCL-basierte Erreichbarkeitsprüfung, ist abgeschlossen.
 - Paket B, Vanillas normale Kette aus Schuss, Zielkadaver, Pickup und Abgabe,
   ist abgeschlossen.
-- Paket E ist aktiv. Restweg-Geschwindigkeit, blockierte Pfadfortsetzung und der
-  schnelle Sicht-/Angriffshandoff funktionieren. Die Ursache des Abbruchs nach
-  einem nicht tödlichen Schuss ist lokalisiert. Der erste Fix in `1.1.62` blieb
-  wegen eines Resolverfehlers fail-closed und war im Spiel nicht aktiv;
-  `1.1.63` aktivierte die Hooks, zeigte aber zwei nachgelagerte Vanilla-Abbrüche:
-  den State-10-Sitz-/Warteübergang nach einem Fehlschuss und State `6` nach
-  einem fehlgeschlagenen Direktangriff am Ende eines veralteten Pfads. `1.1.64`
-  korrigiert beide Übergänge und ersetzt feste Jagddauern durch Fortschritt und
-  ein Versuchsbudget. Offen ist die abschließende Ingame-Abnahmematrix.
+- Paket E ist aktiv, aber `1.1.66` ist nicht abnahmefähig. Die atomare
+  Nach-Schuss-Komponente wurde erstmals vollständig initialisiert und der
+  Path-complete-Fallback berechnete einen nachweislich veralteten Zielpfad
+  einmal erfolgreich neu. Die frühe State-9-zu-State-0-Umleitung trifft jedoch
+  unmittelbar danach auf den transienten Beute-Reservierungswert `1`; ihre
+  eigene Revalidierung verwirft deshalb jede Fortsetzung. Vanilla wählt dann
+  wiederholt andere Rehe. Zusätzlich setzt ein normales `MoveHere` das
+  Drei-Versuche-Budget selbst bei unveränderter Zielidentität zurück. Diese
+  beiden Regressionen müssen vor der restlichen Paket-E-Matrix stabilisiert
+  werden.
 - Unmittelbar nach Abschluss von Paket E folgt eine verpflichtende
   bidirektionale Geschwindigkeits-Nachprüfung. Danach folgen Paket F für
   unreservierte Kadaver, Paket D als gemeinsame Beutetyp-/Mehrjägermatrix und
@@ -303,24 +304,194 @@ Pfadfortsetzung, Restweg-Geschwindigkeit oder die Korrelation eines angenommenen
 - Ein unabhängig angenommener normaler Vanilla-`MoveHere` startet ein neues
   Versuchsbudget. Kartenwechsel und Identitätswechsel löschen alten Zustand.
 
+### Ergebnis des `1.1.64`-Tests und Resolverkorrektur in `1.1.65`
+
+`1.1.64` testete die neue Laufzeitlogik noch nicht. Beim Start um
+`12:44:50.581` brach die gesamte atomare Nach-Schuss-Komponente fail-closed ab:
+
+`Hunter State-9 completion State-10 writer reference RVA 0x13023C failed local byte validation`.
+
+Die eigentliche State-9-Hookspanne `[0x13023C,0x130253)` war korrekt. Ihr
+23-Byte-Code endet mit dem State-Writer
+`66 42 89 B4 29 18 09 00 00`. Das Pattern enthielt zusätzlich die nachfolgende
+Instruktion und erwartete dort fälschlich `42 C7 84 ...`; die kanonische DLL
+enthält `42 89 AC 29 08 09 00 00`. Weil die Auflösung vor der Transaktion
+fail-closed endete, wurden weder der State-9- noch der Fehlangriff-Hook und auch
+keiner der beiden State-10-Fallbackhooks installiert.
+
+Der Logverlauf entsprach deshalb weiterhin Vanilla:
+
+- Ziel `17/319`: `attackResult=1` um `12:45:59.614`, danach keine
+  `recoveryAttempt`-/`State10SitPrevented`-Marker; um `12:46:00.564` wählte
+  Vanilla Ziel `58/457`.
+- Ziel `58/457`: alter Pfad bei `29/29` abgeschlossen, Ziel wieder 13 Tiles
+  entfernt, `attackResult=0` um `12:46:07.315`; ohne Fehlangriff-Hook folgte
+  State `6` um `12:46:09.373`.
+- Die erneute Jagd auf `58/457` endete nach `attackResult=1` normal in State `2`
+  und Unit-Löschung/Pickup um `12:46:12.868`; dies war kein weiterer Abbruch.
+
+`1.1.65` begrenzt beide neuen Resolverpatterns exakt auf 23 Bytes. Iced prüft
+zusätzlich alle beteiligten Register, Immediate-Werte, Speicherdisplacements,
+die exakte Hooklänge und jeweils die erste Instruktion unmittelbar hinter der
+Span. Die bekannte vollständige HunterUpdate-Branchprüfung und die atomare
+Vier-Hook-Transaktion bleiben verpflichtend.
+
+### Ergebnis des `1.1.65`-Tests und Korrektur in `1.1.66`
+
+Der Start um `12:57:15.670` zeigte, dass auch `1.1.65` die atomare
+Nach-Schuss-Komponente noch fail-closed deaktivierte. Die Bytes und
+Instruktionslängen waren korrekt; Iced klassifiziert bei `imul r64,r64,imm32`
+den dritten Operanden jedoch als `Immediate32to64`, nicht als `Immediate32`.
+`1.1.66` korrigiert ausschließlich diese beiden semantischen Prüfungen. Die
+MOV-Immediates `20/6/1` bleiben unverändert `Immediate32`.
+
+Der anschließende Lauf belegte zusätzlich einen von Schuss und Zeitlimit
+unabhängigen Bewegungsfehler:
+
+- Ziel `17/319` wurde um `12:58:26.925` mit Anker `381,351` und Pfadlänge `78`
+  durch Vanilla-`MoveHere` angenommen.
+- Um `12:58:36.253` stand der Jäger bei `385,357`, das Reh bereits hinter ihm
+  bei `393,356`. Der alte Anker lag zehn Manhattan-Schritte, das lebende Ziel
+  nur neun Schritte entfernt; die Richtungsvektoren zeigten mit Skalarprodukt
+  `-26` gegeneinander und das Ziel hatte sich zwölf Tiles vom Anker entfernt.
+- Trotzdem blieb `inFlightCorrection=none-conservative`. Der Jäger lief bis
+  `path=78/78`, State `0` wählte um `12:58:38.945` Ziel `59/459`, und Ziel
+  `17/319` wurde anschließend als `target-changed` freigegeben. Es griff weder
+  ein Versuchslimit noch ein fixes Jagdzeitlimit.
+
+`1.1.66` speichert nach jedem erfolgreichen Vanilla-`MoveHere` Zielanker,
+Pfadlänge und eine lokale akzeptierte Pfadgeneration. Eine Neuberechnung wird
+nur für dieselbe lebende Slot-/Global-ID mit eigener Reservation und positiver
+PCL-Prüfung vorbereitet, wenn alle folgenden Bedingungen gleichzeitig gelten:
+
+- aktive blockierte State-1-Route, keine nur ausstehende Sichtprobe;
+- mindestens sechs Tiles Chebyshev-Verschiebung vom akzeptierten Zielanker;
+- lebendes Ziel und alter Anker liegen aus Sicht des Jägers in
+  entgegengesetzten Richtungen (`dot < 0`);
+- das lebende Ziel ist nicht weiter entfernt als der alte Anker;
+- noch kein Replan für diese akzeptierte Pfadgeneration und höchstens drei
+  Moving-Target-Replans in derselben Kette.
+
+Am bereits vollständig auditierten Query-Ergebnis-Span
+`[0x12FF2E,0x12FF3C)` laufen Vanillas `CALL/TEST/current-hunter-load` zuerst.
+Nur wenn die Query null lieferte, wird anschließend ausschließlich ZF gelöscht,
+damit Vanilla seinen State-0-Zweig nimmt. Die bestehende State-0-Query gibt
+dieselbe Identität einmalig zurück und Vanilla berechnet mit `MoveHere` selbst
+den neuen Pfad. Falls die Nahbereichsquery nicht mehr erreicht wird, greift beim
+vollständig abgearbeiteten alten Pfad derselbe State-0-Handoff als Fallback.
+Erfolgreiches `MoveHere` eröffnet eine neue Pfadgeneration; der Moving-Replan
+setzt das unabhängige Nach-Schuss-Versuchsbudget nicht zurück. Es gibt weiterhin
+kein fixes Zeitlimit pro Jagd und keinen direkten Ziel-, Reservations-, Pfad-,
+Order-, AI-State-, Speed- oder Animationsfeldschreibzugriff.
+
+### Ergebnis des `1.1.66`-Tests und neue Ursachenlage
+
+Der Lauf ab `13:39:56.900` bestätigt, dass alle für `1.1.66` vorgesehenen
+Hooks und Resolver einschließlich der beiden korrigierten Iced-Prüfungen
+vollständig initialisiert wurden. Es gab keine ImprovedHunters-
+Callbackexception und keinen harten Fehler. Die 21 allgemeinen
+`not a valid .NET assembly`-Zeilen sind normales BepInEx-Debugrauschen beim
+Überspringen nativer Script-Extender-DLLs und keine Modfehlermeldungen.
+
+Die beobachtete starke Verschlechterung ist reproduzierbar und hat eine klare
+Kette:
+
+1. Sieben direkte Angriffe wurden von Vanilla angenommen (`attackResult=1`).
+   Das bedeutet nur, dass der Angriffsbefehl akzeptiert wurde, nicht dass das
+   Projektil traf. Bei allen sieben Beobachtungen war das Ziel noch lebend und
+   hatte `targetHealth=2500`.
+2. Siebenmal wurde die Nach-Schuss-Beobachtung mit eigener Reservation `2`
+   vorbereitet. Der State-9-Hook validierte dieselbe lebende Identität mit PCL
+   und übersprang siebenmal erfolgreich den Sitz-/State-10-Übergang
+   (`State10SitPrevented=True`). Die unerwünschte Sitzpause selbst ist damit
+   technisch entfernt.
+3. Jeweils ungefähr 9 bis 12 ms später befand sich der Jäger in State `0`, die
+   Beute aber im Reservationszustand `1`. Alle sieben einmaligen Handoffs
+   scheiterten deshalb mit `identityValidation=prey-reservation-1`; es gab
+   keine erfolgreiche `State-0 continuation prepared`- oder
+   `target supplied`-Kette.
+4. Direkt danach lehnte Vanillas normale Zielquery die bisherige Beute ab und
+   nahm ein anderes Reh an. Dadurch schoss derselbe Jäger in kurzer Folge auf
+   Ziel `17/319`, `61/460` und `63/462`, statt sein ursprüngliches Ziel stabil
+   weiterzuverfolgen. Die frühe Sitzunterdrückung hat somit einen
+   Vanilla-Zwischenzustand offengelegt, den die bisherige Revalidierung nicht
+   sicher zuordnen kann.
+
+Konkrete erste Sequenz: Ziel `17/319` wurde um `13:41:29.371` mit Reservation
+`2` vorgemerkt; um `13:41:29.670` übersprang der Hook State `10`; um
+`13:41:29.680` scheiterte der State-0-Handoff an Reservation `1`; um
+`13:41:29.681` nahm Vanilla bereits Ziel `61/460` an. Dasselbe Muster wiederholt
+sich für alle weiteren Schüsse bis `13:42:16.109`.
+
+Der Reservationswert `1` darf nicht allein aufgrund dieses Logs pauschal als
+„eigene Reservation“ akzeptiert werden. Der Fehlergrund beweist zwar, dass
+Jägerzustand, lebende Slot-/Global-Identitäten, Kadaverflag und die bis dahin
+geprüften Zielfelder gültig waren. Der aktuelle Marker zeigt aber noch nicht,
+ob die Target-Felder zu diesem Zeitpunkt weiterhin exakt auf dieselbe Beute
+zeigen oder bereits gemeinsam auf `0/0` geleert waren, und er beweist nicht,
+welcher Jäger Reservation `1` besitzt. Eine allgemeine Freigabe könnte daher
+Mehrjäger- oder Slot-Wiederverwendungsfehler erzeugen.
+
+Unabhängig davon ist das Versuchslimit fehlerhaft zurückgesetzt worden:
+
+- Beim Wechsel `17/319 → 61/460`, `61/460 → 63/462` und späteren Zielwechseln
+  setzte ein erfolgreiches normales Vanilla-`MoveHere` den Zähler jeweils von
+  `1/3` zurück.
+- Noch eindeutiger wurde das Budget um `13:41:36.435` für
+  `63/462 → 63/462` und um `13:42:15.997` für `61/460 → 61/460` zurückgesetzt.
+  Damit kann dieselbe exakte Beuteidentität das Drei-Versuche-Limit derzeit
+  unbegrenzt umgehen.
+
+Die neue Pfadkorrektur war dagegen nicht die Ursache dieser schnellen
+Zielwechsel. Für `63/462` war der alte Pfad um `13:42:01.700` vollständig
+abgelaufen, während sich das Reh 27 Tiles vom gespeicherten Anker entfernt
+hatte. Der Path-complete-Fallback erzwang dieselbe Slot-/Global-ID genau einmal;
+Vanillas State-0-Query und `MoveHere` akzeptierten einen neuen Pfad zum aktuellen
+Zielanker. Der anschließende Angriff trug korrekt
+`attackSource=MovingTargetReplan`. Der frühere Nahbereichs-Replan wurde in
+diesem Lauf nicht ausgelöst, sodass nur der Path-complete-Fallback praktisch
+belegt ist. Der Fehlangriffspfad blieb ebenfalls ungetestet, weil kein
+`attackResult=0` vorkam. Die State-10-Query-Hooks konnten wegen der absichtlichen
+frühen State-9-Umleitung erwartungsgemäß nicht laufen.
+
 ### Verbindlicher nächster Arbeitsschritt
 
-1. `1.1.64` mit dem bewegten Herden-/Fehlschussfall mindestens dreimal testen.
-   Erwartete Kette: `post-shot observation queued → State10SitPrevented=True → State-0
-   continuation prepared → target supplied → MoveHere result=1`, ohne State `6`
-   oder Hüttenrückweg dazwischen.
-2. Den veralteten-Pfad-Fall separat prüfen: `attackResult=0 → writerInputs=6/20/1->0/0/0
-   → State-0 requery → MoveHere result=1` für dieselbe Slot-/Global-ID.
-3. Das Versuchslimit mit drei nicht tödlichen beziehungsweise fehlgeschlagenen
-   Angriffen prüfen: die ersten beiden setzen fort, der dritte lässt Vanilla
-   abbrechen und registriert den Ziel-Cooldown; keine Endlosschleife.
-4. Tödlichen Treffer separat regressieren: keine State-10-Wiederaufnahme,
-   unveränderter Kadaver, Pickup und Fleischabgabe.
-5. Eine lange, aber fortschreitende Route über 60 Sekunden regressieren: kein
-   zeitbasierter Abbruch. Danach die übrige Paket-E-Matrix ausführen. Nach
-   vollständiger Abnahme zuerst die
-   verpflichtende Geschwindigkeits-Nachprüfung durchführen und erst danach
-   Paket F beginnen.
+1. Zuerst einen stabilen Zwischenstand herstellen: Die frühe
+   State-9-zu-State-0-Verhaltensmutation im nächsten Build fail-closed
+   deaktivieren, solange Reservation `1` nicht sicher der ausstehenden
+   Nach-Schuss-Identität zugeordnet werden kann. Das stellt vorübergehend
+   Vanillas State-10-/Sitzpfad wieder her, verhindert aber die neue schnelle
+   Zielwechselkette. Decoderfix, reine Diagnose und der separat funktionierende
+   Path-complete-Moving-Target-Fallback können aktiv bleiben.
+2. Am frühesten gemeinsamen State-0-Einstieg für genau einen ausstehenden
+   Nach-Schuss-Handoff vor und nach dem Vanilla-Übergang protokollieren:
+   vollständige Hunter-Target-Slot-/Global-Felder, Beute-Reservation,
+   Jägerzustand, ausstehende Identität sowie alle lebenden Jäger, die dieselbe
+   Beute referenzieren. Zusätzlich den Writer beziehungsweise Vanilla-Übergang
+   bestimmen, der zwischen State `9` mit Reservation `2` und State `0` mit
+   Reservation `1` liegt.
+3. Reservation `1` nur dann eng begrenzt zulassen, wenn Laufzeitbelege zeigen,
+   dass `Reservation 1 + exakte unveränderte Hunter-Target-Identität + kein
+   anderer lebender Jäger auf dieser Beute` der reguläre eigene
+   State-9-zu-State-0-Zwischenzustand ist. Die Ausnahme darf nur den einmaligen
+   ausstehenden Nach-Schuss-Handoff betreffen, niemals die allgemeine Zielwahl,
+   einen Moving-Target-Replan oder bereits geleerte Target-Felder.
+4. Das Versuchslimit unabhängig korrigieren: Ein erfolgreiches normales
+   `MoveHere` darf das Nach-Schuss-Budget nur bei einer tatsächlich anderen
+   Slot-/Global-Zielidentität zurücksetzen. Eine erneute Annahme derselben
+   Identität und ein Moving-Target-Replan eröffnen kein neues Budget. Nach dem
+   dritten zulässigen Versuch bleibt Vanilla zuständig; es gibt weiterhin kein
+   fixes Zeitlimit.
+5. Danach zuerst einen engen Stabilitätstest ausführen: ein nicht tödlicher
+   Schuss, dieselbe Identität wird genau einmal wieder über State `0` und
+   Vanilla-`MoveHere` angenommen, kein Zwischenziel und kein Hüttenrückweg. Im
+   selben Test darf eine erneute Annahme derselben Identität den Zähler nicht
+   zurücksetzen; der dritte Versuch muss die Fortsetzung beenden.
+6. Erst nach diesem Gate den Path-complete- und Nahbereichs-Moving-Replan, den
+   echten `attackResult=0`-Pfad, tödlichen Treffer, Mehrjägerfall,
+   Slot-Wiederverwendung und eine lange fortschreitende Route erneut testen.
+   Nach vollständiger Paket-E-Abnahme folgt zwingend die bidirektionale
+   Geschwindigkeits-Nachprüfung und erst danach Paket F.
 
 ### Paket-E-Abnahme
 
@@ -330,17 +501,20 @@ Pfadfortsetzung, Restweg-Geschwindigkeit oder die Korrelation eines angenommenen
 2. Pro Nach-Schuss-Übergang genau eine Vanilla-konforme Wiederaufnahme; kein
    Requery-/`MoveHere`-Resetloop und kein künstlicher langer Cooldown. Eine
    fortschreitende Route darf unabhängig von ihrer Gesamtdauer weiterlaufen.
-3. Tödlicher Treffer des reservierten Ziels: unveränderter Kadaver, Pickup und
+3. Eine erneute Vanilla-Annahme derselben Slot-/Global-Zielidentität setzt das
+   Versuchslimit nicht zurück; nach dem dritten zulässigen Versuch bleibt
+   Vanilla ohne modseitige Endlosschleife zuständig.
+4. Tödlicher Treffer des reservierten Ziels: unveränderter Kadaver, Pickup und
    Fleischabgabe.
-4. Vollständig blockiert, aber erreichbar, mindestens zehn Sekunden: stabiler
+5. Vollständig blockiert, aber erreichbar, mindestens zehn Sekunden: stabiler
    Pfad ohne Fehlangriff oder State `6`.
-5. Aktives Ziel nachträglich unerreichbar: PCL `0` beendet die alte
+6. Aktives Ziel nachträglich unerreichbar: PCL `0` beendet die alte
    Zielidentität und jede Fortsetzung.
-6. Zwei Jäger, Kartenneustart und Slot-Wiederverwendung: keine vermischten
+7. Zwei Jäger, Kartenneustart und Slot-Wiederverwendung: keine vermischten
    Sicht-, PCL-, Pfad- oder Nach-Schuss-Zustände.
-7. Mod beziehungsweise `ImprovedPathfinding` aus: Distanz- und Gate-Hook ändern
+8. Mod beziehungsweise `ImprovedPathfinding` aus: Distanz- und Gate-Hook ändern
    weder Register noch Flags.
-8. Abschließend je einen freien und einen Blockiert-zu-sichtbar-Fall
+9. Abschließend je einen freien und einen Blockiert-zu-sichtbar-Fall
    regressieren; keine Callbackexception oder harter Prozessabbruch.
 
 Gate: Paket E ist fertig, wenn ein weiterhin gültiges Ziel nach einem nicht
@@ -483,7 +657,7 @@ prüfen.
 | `src/HunterVanillaPathContinuationDiagnostic.cs` | Distanz-28-Fortsetzung und Zero-Flag-only-Angriffshandoff; in C trennen |
 | `src/HunterHutVisibilityPatch.cs` | Jägerhütte als normaler Sichtblocker |
 | `src/ImprovedHuntersRuntime.cs` | Events, Eligibility, Rangfolge, Handoffs, Reservationen und Projektilkorrelation |
-| `src/HunterPostShotContinuationDiagnostic.cs` | State-10-Querydiagnose, identitäts-/PCL-gesicherte einmalige Übergabe an Vanillas State-0-/`MoveHere`-Kette |
+| `src/HunterPostShotContinuationDiagnostic.cs` | State-9-/State-10-/Fehlangriffshandoffs, identitäts-/PCL-gesicherte einmalige Übergabe an Vanillas State-0-/`MoveHere`-Kette und Versuchslimit |
 | spätere Paket-F-Trefferdiagnose | Tatsächlichen Damage-Empfänger kausal mit Projektil und Schütze verbinden |
 | `UpdateToNewDLL.md` | Vollständige Native- und Updatequelle |
 
@@ -507,19 +681,36 @@ prüfen.
 
 ## Arbeitsanweisung für einen neuen Chat
 
+Unmittelbarer Übernahmeauftrag ist die Stabilisierung von Paket E. `1.1.66`
+gilt als fehlgeschlagener Ingame-Test und darf nicht einfach erneut durch die
+breite Abnahmematrix geschickt werden. Der nächste Chat soll die folgenden
+Punkte implementieren, statisch prüfen, anschließend genau einmal bauen und
+zuerst nur mit dem beschriebenen engen Einzelzielfall testen.
+
 1. Diesen Plan vollständig lesen. Historie nur bei Bedarf im Archiv und tiefe
    Native-Details in `UpdateToNewDLL.md` nachschlagen.
 2. Paket A und B nicht erneut öffnen, sofern keine konkrete Regression belegt
    ist.
-3. In Paket E direkt beim Abschnitt „Verbindlicher nächster Arbeitsschritt“
-   beginnen. Nicht erneut Sichtlatenz, Restweg, F4 oder die Ursache der
-   State-10-Nullquery untersuchen; diese Punkte sind mit `1.1.61/1.1.64`
-   geklärt.
-4. Den `1.1.64`-Nach-Schuss-/Fehlangriff-Handoff, das Drei-Versuche-Limit und
-   eine fortschreitende Route über 60 Sekunden testen; anschließend die vollständige
-   Paket-E-Matrix ausführen.
-5. Nach vollständiger E-Abnahme zwingend die bidirektionale
+3. In Paket E direkt beim Abschnitt „Ergebnis des `1.1.66`-Tests und neue
+   Ursachenlage“ beginnen. Nicht erneut Sichtlatenz, Restweg, F4 oder die
+   frühere Ursache der State-10-Nullquery untersuchen.
+4. Vor weiteren breiten Tests die frühe State-9-Umleitung stabilisieren:
+   zunächst fail-closed deaktivieren, Reservation `1` am State-0-Einstieg
+   eigentumssicher diagnostizieren und nur bei vollständigem Identitätsbeleg
+   als einmaligen Nach-Schuss-Zwischenzustand zulassen. Parallel darf das
+   Versuchslimit nur bei einer tatsächlich anderen Zielidentität zurückgesetzt
+   werden. Die direkten Codeeinstiege liegen in
+   `src/HunterPostShotContinuationDiagnostic.cs` bei
+   `TrySkipStateTenSitTransition`, `TryPrepareStateZeroContinuation`,
+   `TryValidateCandidate` und `ResetAttemptBudgetForIndependentMove`.
+5. Danach den engen Einzelzieltest und erst anschließend Nach-Schuss-/
+   Fehlangriffshandoff, beide Moving-Target-Replans, Drei-Versuche-Limit, langen
+   fortschreitenden Weg und die vollständige Paket-E-Matrix ausführen.
+6. Nach vollständiger E-Abnahme zwingend die bidirektionale
    Geschwindigkeits-Nachprüfung abschließen; erst danach Paket F beginnen und
    anschließend `D → C` bearbeiten.
-6. Bei jeder neuen Hypothese den kleinsten stabilen Vanilla-Übergang erhalten.
-   Diagnose, Korrektur und Vanilla-Aufruf bleiben getrennt.
+7. Bei jeder neuen Hypothese den kleinsten stabilen Vanilla-Übergang erhalten.
+   Diagnose, Korrektur und Vanilla-Aufruf bleiben getrennt. Insbesondere
+   Reservation `1` nicht allein aufgrund des bisherigen Logs allgemein
+   akzeptieren und den belegten Path-complete-Fallback nicht zusammen mit der
+   State-9-Stabilisierung unnötig neu entwerfen.

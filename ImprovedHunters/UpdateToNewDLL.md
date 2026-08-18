@@ -45,7 +45,7 @@ fallback. A changed DLL therefore disables only these diagnostic paths.
 | Hunter distance helper | `0x79C0` | exact state-1 range result retained in `EDI` |
 | State-0 query handoff | `0x12FD67` | query return hook at `0x12FD89`; query callee `0x18AF00` |
 | State-0 `MoveHere` result | `0x12FE2A` | immediately after call to `0x196230` |
-| State-1 near-target refresh | `0x130019` / `0x130022` / `0x12FF2E` | safe compare hook and Vanilla actor load; since `1.1.56` the world refresh consumes the active visibility snapshot but creates no continuation ticket; query-result hook removed in `1.1.51` |
+| State-1 near-target refresh | `0x130019` / `0x130022` / `0x12FF2E` | safe compare hook and Vanilla actor load; `1.1.66` reuses the exact 14-byte query-result span only for a guarded stale-moving-target State-0 replan |
 | State-1 distance-28 compare | `0x1300EA` | since `1.1.56` the authoritative snapshot-based attack/continuation decision; sequence begins at `0x1300D2` |
 | State-1 direct-attack result | `0x130149` | observation-only `test eax,eax` after call to `0x18E950` |
 | Projectile spawn entry | `0x9B2B0` | Script Extender signature target; creates a live projectile and is not used for LOS preflight |
@@ -688,8 +688,9 @@ and `0x1300D2`; the near-refresh path at `0x130022` still targeting the query
 call at `0x12FF2E`; the safe hook span `[0x130019,0x130028)` leaving branch
 target `0x13002D` untouched; compare and short-branch bytes at `0x1300EA`; the
 distance helper scratch maximum; the result remaining in `EDI`; the semantics
-of the `>28` stage-8 writer; and the `MoveHere` path-field writes. The former
-result span `[0x12FF2E,0x12FF3C)` is no longer hooked as of `1.1.51`.
+of the `>28` stage-8 writer; and the `MoveHere` path-field writes. The result
+span `[0x12FF2E,0x12FF3C)` was not hooked from `1.1.51` through `1.1.65`;
+`1.1.66` reuses it only under the stricter moving-target guard documented below.
 A matching instruction pattern alone does not validate reservation ownership or
 the raw `GameUnit` offsets.
 
@@ -814,10 +815,13 @@ Hunter/target identity. Missing or stale active snapshot,
 changed identity, visible target, unreachable PCL, invalid path and every error
 leave both original branches unchanged.
 
-The former exact 14-byte query-result hook at `[0x12FF2E,0x12FF3C)` and its ZF
-override are removed. State 1 no longer queues its own reservation through state
-0 or creates another `MoveHere`; failed preparation deliberately releases the
-decision to Vanilla. Future DLL updates must additionally verify that scratch
+From `1.1.51` through `1.1.65`, the exact 14-byte query-result hook at
+`[0x12FF2E,0x12FF3C)` and its ZF override were removed. State 1 no longer queued
+every own reservation through state 0 or created another `MoveHere`; failed
+preparation deliberately released the decision to Vanilla. `1.1.66` does not
+restore that repeated behavior: it reuses the span once per accepted path only
+after the separate crossed-anchor geometry guard succeeds. Future DLL updates
+must additionally verify that scratch
 RVA `0x34A8F5C` remains single-use after the second `0x79C0` call, is overwritten
 before the next Hunter comparison, and that callback placement remains before
 the relocated 7+2+6-byte `cmp`/`jg`/`mov` span.
@@ -1207,7 +1211,7 @@ The mod writes no Hunter AI state, order, target field, path, speed or animation
 field. Dead, invalid, disabled, foreign-targeted, cooled-down or PCL-disconnected
 prey never enter this handoff.
 
-#### Earlier State-9 and failed-attack recovery in 1.1.64
+#### Earlier State-9 and failed-attack recovery in 1.1.64/1.1.65
 
 The `1.1.63` runtime test proved that the State-10 result hooks initialize and
 execute, but also exposed that this handoff is unnecessarily late. After the
@@ -1224,7 +1228,7 @@ transaction as the two State-10 query-result hooks:
 - State-9 completion starts at RVA `0x13023C`, span
   `[0x13023C,0x130253)` = `7+7+9` bytes: RIP-relative current-Hunter load,
   unit-stride multiply and the native AI-state writer. Its exact-hash pattern is
-  `48 63 05 ?? ?? ?? ?? 48 69 C8 90 04 00 00 66 42 89 B4 29 18 09 00 00 42 C7 84 29 08 09 00 00 00 00 00 00`.
+  `48 63 05 ?? ?? ?? ?? 48 69 C8 90 04 00 00 66 42 89 B4 29 18 09 00 00`.
   The RIP-relative operand must resolve to current-Hunter RVA `0x92F2C4`.
   With a live identical target, remaining attempt budget and nonzero PCL, the
   callback changes only RSI from `10` to `0`; the relocated native writer then
@@ -1234,7 +1238,7 @@ transaction as the two State-10 query-result hooks:
 - Failed direct attack starts at RVA `0x130171`, span
   `[0x130171,0x130188)` = `7+6+5+5` bytes: unit-stride multiply plus preparation
   of R15/RAX/RSI as `20/6/1`. Its exact-hash pattern is
-  `48 69 CA 90 04 00 00 41 BF 14 00 00 00 B8 06 00 00 00 BE 01 00 00 00 66 46 89 BC 29 20 09 00 00`.
+  `48 69 CA 90 04 00 00 41 BF 14 00 00 00 B8 06 00 00 00 BE 01 00 00 00`.
   The overwritten preparation executes before the callback. For the exactly
   correlated failed direct attack and the same live reachable target, the
   callback changes only those registers to `0/0/0`; Vanillas untouched writers
@@ -1260,6 +1264,62 @@ exact Hunter/prey identity, native AI state, live/corpse/reservation checks,
 PCL reachability and at most three recovery-causing attacks per Hunter/target
 identity. The third attempt leaves Vanilla's abandonment path unchanged and
 registers the existing bounded target cooldown.
+
+Version `1.1.64` failed closed before transaction creation because the original
+State-9 semantic pattern extended beyond its audited 23-byte hook span and
+misencoded the first following instruction. It expected `42 C7 84 ...`, while
+the canonical DLL contains `42 89 AC 29 08 09 00 00` at RVA `0x130253`.
+Consequently `hunterPostShotContinuationAvailable=False`, and neither new hook
+nor either State-10 fallback hook ran during that test.
+
+Version `1.1.65` uses exactly the two 23-byte patterns documented above. Pattern
+validation no longer depends on a following instruction, but the Iced semantic
+validators independently decode and require it: State-9 span end `0x130253`
+must be the eight-byte `MOV [RCX+R13+0x908], EBP`; failed-attack span end
+`0x130188` must be the nine-byte `MOV word [RCX+R13+0x920], R15W`. The validators
+also require the audited `RAX/RCX/RDX/RSI/R15` operands, immediates
+`0x490/20/6/1`, writer displacements `0x918/0x908/0x920`, exact span lengths,
+shared current-Hunter global and no direct external branch target in either
+span interior. This separates exact hook bytes from the explicit first-after-
+span safety check and prevents the overlong-pattern failure from recurring.
+
+Version `1.1.65` nevertheless failed closed because Iced decodes the immediate
+operand of both audited `imul r64,r64,imm32` instructions as
+`OpKind.Immediate32to64`. Version `1.1.66` requires that actual operand kind for
+the State-9 and failed-attack stride multiplies. The three MOV immediates remain
+`OpKind.Immediate32`; no accepted byte, instruction length, register,
+displacement or branch target changed.
+
+### Guarded stale-moving-target replan in 1.1.66
+
+The exact-hash State-1 result hook is restored at RVA `0x12FF2E` with span
+`[0x12FF2E,0x12FF3C)` = `5+2+7` bytes: call to Hunter query `0x18AF00`,
+`test eax,eax`, and RIP-relative load of current Hunter ID from `0x92F2C4`.
+The first untouched instruction must be the two-byte `je` at `0x12FF3C` with
+target `0x12FF53`. Iced validates all instructions and the complete
+HunterUpdate direct-branch audit rejects any external target inside the hook
+span. Relocated instructions execute before the callback; therefore the loaded
+Hunter ID is in RAX while ZF still represents the query result.
+
+The hook normally leaves all registers and flags unchanged. A request exists
+only when a successful prior Vanilla `MoveHere` recorded the same live
+Hunter/prey slot and global identity, path state `2`, unchanged path length,
+own reservation `2`, positive/fail-open PCL validation, a blocked (not pending)
+visibility decision, target-anchor Chebyshev displacement of at least six,
+opposing Hunter-to-live-target and Hunter-to-anchor vectors (`dot < 0`), and a
+live-target Manhattan distance no larger than the obsolete-anchor distance.
+The request is atomically limited to once per accepted path generation and at
+most three successful moving-target replans in one chain.
+
+For that request only, a zero query result clears ZF so Vanilla takes its
+existing State-0 branch; a nonzero result already takes that branch unchanged.
+The subsequent audited State-0 query-result hook supplies the same identity
+once, and Vanilla owns target assignment and `MoveHere`. A successful
+`MoveHere` captures a fresh anchor and generation. If the old path completes
+before the near-query handoff, State 0 uses the same identity/PCL/reservation
+guards as a path-complete fallback. This replan writes no target, reservation,
+path, order, AI-state, speed or animation field, has no hunt-duration limit and
+does not reset the independent post-shot attempt budget.
 
 On a future DLL hash, keep this feature disabled. Re-identify both State-10
 query calls and their exact zero/nonzero destinations, decode the actual detour

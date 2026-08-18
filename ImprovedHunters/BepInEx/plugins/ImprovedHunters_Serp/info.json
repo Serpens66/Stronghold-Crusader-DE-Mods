@@ -3,10 +3,25 @@
   "Author": "Serpens66",
   "Name": "Improved Hunters",
   "Description": "Adds configurable hunter prey and meat yield for deer, goats, rabbits, camels, chickens and cows.",
-  "Version": "1.1.64",
+  "Version": "1.1.66",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.1.66",
+      "Changes": [
+        "Correct both post-shot recovery validators for Iced's actual Immediate32to64 decoding of the audited 64-bit IMUL instructions, allowing the four-hook recovery transaction to initialize.",
+        "Replan an accepted blocked path through Vanilla State 0 and MoveHere when the same live prey has clearly crossed past its stored path anchor, with exact identity, reservation, PCL and geometry guards and one request per accepted path generation.",
+        "Add a path-complete fallback and a separate maximum of three moving-target replans while keeping pending visibility conservative, hunt duration unlimited and target, path, order, AI-state, speed and animation fields Vanilla-owned."
+      ]
+    },
+    {
+      "Version": "1.1.65",
+      "Changes": [
+        "Correct the State-9 recovery signature that made version 1.1.64 fail closed by limiting both new semantic byte checks to their exact audited 23-byte hook spans.",
+        "Strengthen both recovery-span validators with exact register, immediate, memory-offset and first-instruction-after-the-hook checks before the four-hook transaction can commit."
+      ]
+    },
     {
       "Version": "1.1.64",
       "Changes": [

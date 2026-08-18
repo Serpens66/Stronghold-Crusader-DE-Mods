@@ -3271,6 +3271,7 @@ namespace ImprovedHunters
                     CanRunHunterTargetSearchFallback,
                     TryPrepareHunterStateOneNearRefresh,
                     TryPrepareHunterPostShotStateZeroContinuation,
+                    TryValidateHunterPostShotContinuation,
                     RecordAcceptedHunterPostShotAttack,
                     RecordFailedHunterPostShotAttack,
                     RecordHunterPostShotStateZeroHandoff,

@@ -99,10 +99,10 @@ namespace ImprovedHunters
             "85 C0 48 63 05 ? ? ? ? 0F 84 ? ? ? ? E9 ? ? ? ?";
         private const string StateNineCompletionWriterPattern =
             "48 63 05 ? ? ? ? 48 69 C8 90 04 00 00 " +
-            "66 42 89 B4 29 18 09 00 00 42 C7 84 29 08 09 00 00 00 00 00 00";
+            "66 42 89 B4 29 18 09 00 00";
         private const string FailedDirectAttackWriterPattern =
             "48 69 CA 90 04 00 00 41 BF 14 00 00 00 " +
-            "B8 06 00 00 00 BE 01 00 00 00 66 46 89 BC 29 20 09 00 00";
+            "B8 06 00 00 00 BE 01 00 00 00";
 
         private readonly ManualLogSource log;
         private readonly ImprovedHuntersViewModel settings;
@@ -160,6 +160,15 @@ namespace ImprovedHunters
             }
             if (memory.Length == 0 || libraryBase == 0)
                 throw new ArgumentException("The Crusader library is unavailable.");
+
+            ValidatePatternByteCount(
+                StateNineCompletionWriterPattern,
+                RecoveryWriterHookLength,
+                "State-9 completion");
+            ValidatePatternByteCount(
+                FailedDirectAttackWriterPattern,
+                RecoveryWriterHookLength,
+                "failed direct attack");
 
             int primarySequenceRva = Shared.NativePatternResolver.ResolveUnique(
                 memory,
@@ -303,6 +312,8 @@ namespace ImprovedHunters
                     $"0x{stateNineCompletionWriterRva + RecoveryWriterHookLength:X}), " +
                     $"failedAttackHookSpan=[0x{failedDirectAttackWriterRva:X}," +
                     $"0x{failedDirectAttackWriterRva + RecoveryWriterHookLength:X}), " +
+                    $"semanticPatternBytes={RecoveryWriterHookLength}/{RecoveryWriterHookLength}, " +
+                    "firstAfterHookValidated=True, " +
                     $"queryFunctionRva=0x{HunterQueryFunctionRva:X}, stateSixWriterRva=0x{StateSixWriterRva:X}, " +
                     $"maximumRecoveryAttempts={MaximumRecoveryAttempts}, totalDurationLimit=None, " +
                     "ownReservationRequired=2-or-released-during-State0, liveIdentityRequired=True, PclZeroRejects=True, " +
@@ -1046,13 +1057,31 @@ namespace ImprovedHunters
             Instruction unitOffset = decoder.Decode();
             Instruction stateWriter = decoder.Decode();
             int decodedLength = checked((int)(decoder.IP - hookAddress));
+            Instruction firstAfterHook = decoder.Decode();
             if (hunterLoad.IsInvalid ||
                 unitOffset.IsInvalid ||
                 stateWriter.IsInvalid ||
+                firstAfterHook.IsInvalid ||
                 hunterLoad.Mnemonic != Mnemonic.Movsxd || hunterLoad.Length != 7 ||
+                hunterLoad.Op0Register != Register.RAX ||
                 unitOffset.Mnemonic != Mnemonic.Imul || unitOffset.Length != 7 ||
+                unitOffset.Op0Register != Register.RCX ||
+                unitOffset.Op1Register != Register.RAX ||
+                unitOffset.Op2Kind != OpKind.Immediate32to64 || unitOffset.Immediate32 != 0x490 ||
                 stateWriter.Mnemonic != Mnemonic.Mov || stateWriter.Length != 9 ||
+                stateWriter.Op0Kind != OpKind.Memory ||
+                stateWriter.Op1Register != Register.SI ||
+                stateWriter.MemoryBase != Register.RCX ||
+                stateWriter.MemoryIndex != Register.R13 ||
+                stateWriter.MemoryDisplacement64 != 0x918 ||
                 decodedLength != RecoveryWriterHookLength ||
+                firstAfterHook.IP != hookAddress + RecoveryWriterHookLength ||
+                firstAfterHook.Mnemonic != Mnemonic.Mov || firstAfterHook.Length != 8 ||
+                firstAfterHook.Op0Kind != OpKind.Memory ||
+                firstAfterHook.Op1Register != Register.EBP ||
+                firstAfterHook.MemoryBase != Register.RCX ||
+                firstAfterHook.MemoryIndex != Register.R13 ||
+                firstAfterHook.MemoryDisplacement64 != 0x908 ||
                 !hunterLoad.IsIPRelativeMemoryOperand ||
                 hunterLoad.IPRelativeMemoryAddress !=
                     libraryBase + unchecked((ulong)HunterCurrentUnitIdRva))
@@ -1068,6 +1097,21 @@ namespace ImprovedHunters
                 hookAddress + RecoveryWriterHookLength,
                 "State-9-completion");
             return hunterLoad.IPRelativeMemoryAddress;
+        }
+
+        private static void ValidatePatternByteCount(
+            string pattern,
+            int expectedBytes,
+            string name)
+        {
+            int actualBytes = pattern.Split(
+                new[] { ' ', '\t', '\r', '\n' },
+                StringSplitOptions.RemoveEmptyEntries).Length;
+            if (actualBytes != expectedBytes)
+            {
+                throw new InvalidOperationException(
+                    $"Hunter {name} pattern length changed: expected={expectedBytes}, actual={actualBytes}.");
+            }
         }
 
         private static void ValidateHookSpansDoNotOverlap(
@@ -1121,15 +1165,33 @@ namespace ImprovedHunters
             Instruction stateValue = decoder.Decode();
             Instruction controlValue = decoder.Decode();
             int decodedLength = checked((int)(decoder.IP - hookAddress));
+            Instruction firstAfterHook = decoder.Decode();
             if (unitOffset.IsInvalid ||
                 timerValue.IsInvalid ||
                 stateValue.IsInvalid ||
                 controlValue.IsInvalid ||
+                firstAfterHook.IsInvalid ||
                 unitOffset.Mnemonic != Mnemonic.Imul || unitOffset.Length != 7 ||
+                unitOffset.Op0Register != Register.RCX ||
+                unitOffset.Op1Register != Register.RDX ||
+                unitOffset.Op2Kind != OpKind.Immediate32to64 || unitOffset.Immediate32 != 0x490 ||
                 timerValue.Mnemonic != Mnemonic.Mov || timerValue.Length != 6 ||
+                timerValue.Op0Register != Register.R15D ||
+                timerValue.Op1Kind != OpKind.Immediate32 || timerValue.Immediate32 != 20 ||
                 stateValue.Mnemonic != Mnemonic.Mov || stateValue.Length != 5 ||
+                stateValue.Op0Register != Register.EAX ||
+                stateValue.Op1Kind != OpKind.Immediate32 || stateValue.Immediate32 != 6 ||
                 controlValue.Mnemonic != Mnemonic.Mov || controlValue.Length != 5 ||
-                decodedLength != RecoveryWriterHookLength)
+                controlValue.Op0Register != Register.ESI ||
+                controlValue.Op1Kind != OpKind.Immediate32 || controlValue.Immediate32 != 1 ||
+                decodedLength != RecoveryWriterHookLength ||
+                firstAfterHook.IP != hookAddress + RecoveryWriterHookLength ||
+                firstAfterHook.Mnemonic != Mnemonic.Mov || firstAfterHook.Length != 9 ||
+                firstAfterHook.Op0Kind != OpKind.Memory ||
+                firstAfterHook.Op1Register != Register.R15W ||
+                firstAfterHook.MemoryBase != Register.RCX ||
+                firstAfterHook.MemoryIndex != Register.R13 ||
+                firstAfterHook.MemoryDisplacement64 != 0x920)
             {
                 throw new InvalidOperationException(
                     "Failed direct-attack hook does not decode as the audited 7+6+5+5-byte span.");

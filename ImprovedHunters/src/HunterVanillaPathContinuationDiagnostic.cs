@@ -414,7 +414,9 @@ namespace ImprovedHunters
                     "speedWrite=False, animationWrite=False.");
             }
 
-            return HunterStateOneNearRefreshAction.ContinueExistingPath;
+            return visibility.State == HunterActiveVisibilityState.Pending
+                ? HunterStateOneNearRefreshAction.ContinueExistingPathPendingVisibility
+                : HunterStateOneNearRefreshAction.ContinueExistingPath;
         }
 
         private void TryContinueExistingVanillaPath(NativePointer<X64SmartCPUContext> context)
