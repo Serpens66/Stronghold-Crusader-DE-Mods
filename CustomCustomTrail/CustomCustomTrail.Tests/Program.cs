@@ -170,6 +170,8 @@ static void TestCoordinatorOwnership()
     string sharedPresetSystem = File.ReadAllText(Path.Combine(workspaceRoot, "Shared", "PresetLobbyModSettingsViewModel.cs"));
     for (int trail = 1; trail <= 4; trail++)
         Assert(CountOccurrences(coordinator, "FRONT_CoopTrail" + trail + ".Instance") == 1, "Coop Trail " + trail + " button registration is not singular");
+    Assert(coordinator.Contains("Margin = new Thickness(0, 0, 0, -58)"),
+        "Coop Customize is not positioned below the Vanilla kick button");
     string runtime = File.ReadAllText(Path.Combine(projectRoot, "src", "CustomCustomTrailRuntime.cs"));
     string obsoleteBridgeName = "TrailModSettings" + "Bridge";
     Assert(!runtime.Contains("SerializeModSettings") && !runtime.Contains(obsoleteBridgeName), "Coop settings still use the old bridge roundtrip");

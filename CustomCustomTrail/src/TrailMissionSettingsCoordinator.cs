@@ -891,7 +891,8 @@ namespace CustomCustomTrail
                 {
                     Name = "SharedTrailCustomize",
                     Width = 200,
-                    Margin = new Thickness(0, 0, 0, 78),
+                    // Mirror the Vanilla spacing below CoopKick so the player list cannot cover this button.
+                    Margin = new Thickness(0, 0, 0, -58),
                     HorizontalAlignment = HorizontalAlignment.Center,
                     VerticalAlignment = VerticalAlignment.Bottom,
                     Style = anchor.Style,
