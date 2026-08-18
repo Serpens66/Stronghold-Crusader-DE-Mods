@@ -130,7 +130,7 @@ namespace Shared
         /// <summary>
         /// Authorizes a settings mutation before any backing state is changed.
         /// Preset and Trail snapshots are trusted internal applications; all other
-        /// writes use the Script Extender's 1.41 ownership gate.
+        /// writes use the Script Extender's ownership gate.
         /// </summary>
         protected bool CanMutateSetting([CallerMemberName] string propertyName = null)
         {
@@ -345,9 +345,6 @@ namespace Shared
             base.OnPropertyChanged(nameof(ActionsScopeNoticeText));
             base.OnPropertyChanged(nameof(AreSettingsEditable));
             base.OnPropertyChanged(nameof(IsMissionPresetActive));
-            // The Extender persists on every PropertyChanged event, including UI-only
-            // access properties. Re-sanitize so remote/Trail host values never remain.
-            presetController?.SanitizeStorage();
         }
 
         private static string GetVanillaText(
@@ -442,12 +439,6 @@ namespace Shared
                 !string.IsNullOrEmpty(propertyName) &&
                 persistedPropertiesByName.TryGetValue(propertyName, out PropertyInfo property) &&
                 IsHostProperty(property);
-
-            public void SanitizeStorage()
-            {
-                if (active && !applying)
-                    WriteCombinedPayload();
-            }
 
             public void CaptureDefaults()
             {
@@ -588,12 +579,7 @@ namespace Shared
                 }
 
                 if (property == null)
-                {
-                    // The Extender also saves for UI-only PropertyChanged notifications.
-                    // Restore preset metadata and the safe host/client composition.
-                    WriteCombinedPayload();
                     return;
-                }
 
                 if (owner.IsMissionPresetSelected)
                 {

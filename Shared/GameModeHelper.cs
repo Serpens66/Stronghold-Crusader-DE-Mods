@@ -34,7 +34,7 @@ namespace Shared
             }
 
             bool directorMultiplayer = director != null && director.MultiplayerGame;
-            bool platformMultiplayer = Platform_Multiplayer.MPGameActive;
+            bool platformMultiplayer = GameNetworkAPI.IsMultiplayerGame();
             bool realMultiplayer =
                 multiplayerSave ||
                 directorMultiplayer ||

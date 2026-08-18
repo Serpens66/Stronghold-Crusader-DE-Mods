@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.17",
+  "Version": "1.0.18",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.18",
+      "Changes": [
+        "Updated shared lobby settings for Script Extender 1.42.0 by avoiding redundant UI-only persistence and using the official multiplayer-game signal."
+      ]
+    },
     {
       "Version": "1.0.17",
       "Changes": [
