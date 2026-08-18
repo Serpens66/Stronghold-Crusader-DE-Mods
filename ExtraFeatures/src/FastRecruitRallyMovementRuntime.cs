@@ -32,7 +32,7 @@ namespace ExtraFeatures
                 new Dictionary<int, RecruitRallyTracking>();
         private readonly List<int> tribeUnitIds = new List<int>();
         private readonly List<IDisposable> subscriptions =
-            new List<IDisposable>(6);
+            new List<IDisposable>(5);
         private readonly GameUnit* unitArray;
         private readonly int unitArrayLength;
         private bool disposed;
@@ -56,6 +56,8 @@ namespace ExtraFeatures
 
             try
             {
+                // Do not use OnUnitMoveHere here: Vanilla also emits it for
+                // the automatic barracks/outpost rally route itself.
                 subscriptions.Add(
                     TribeR3EventHooks.OnTribeIssueOrderMoveHere.Observable
                         .Subscribe(OnTribeIssueOrderMoveHere));
@@ -65,9 +67,6 @@ namespace ExtraFeatures
                 subscriptions.Add(
                     UnitR3EventHooks.OnUnitDelete.Observable
                         .Subscribe(OnUnitDelete));
-                subscriptions.Add(
-                    UnitR3EventHooks.OnUnitMoveHere.Observable
-                        .Subscribe(OnUnitMoveHere));
                 subscriptions.Add(
                     UnitR3EventHooks.OnUnitTransition.Observable
                         .Subscribe(OnUnitTransition));
@@ -276,16 +275,6 @@ namespace ExtraFeatures
                 RemoveTracking(
                     unchecked((int)args.UnitId),
                     "unit deleted");
-            }
-        }
-
-        private void OnUnitMoveHere(UnitMoveHereEventArgs args)
-        {
-            if (args.Phase == EventHookPhase.Pre)
-            {
-                RemoveTracking(
-                    args.UnitId,
-                    $"individual movement order to {args.TileX},{args.TileY}");
             }
         }
 

@@ -72,6 +72,9 @@ BugfixesAndQoL. For the audited DLL, the speed reset occurs at BugfixesAndQoL
 RVA `0x19B4B6`, after Vanilla's base/group calculation and before its late
 terrain/status modifiers. The reflection callback contract uses `GameUnit*`
 as `IntPtr`; both mods must be rebuilt and installed together when this
-contract changes. Explicit `UnitMoveHere` orders and movement restarted after
-the rally flag with a different target now terminate per-unit rally tracking;
-same-target path restarts remain valid rally movement.
+contract changes. Do not use `UnitMoveHere` as a cancellation signal: the game
+emits that event for the automatic barracks/outpost rally route as well, so it
+would disable running cadence before it is applied. Explicit tribe orders still
+cancel tracking. Movement restarted after the rally flag is rejected when its
+target differs from the captured rally target; same-target restarts remain
+valid rally movement.
