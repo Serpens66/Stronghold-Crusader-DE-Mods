@@ -1,5 +1,6 @@
 using BepInEx;
 using SHCDESE.API.LowLevel;
+using SHCDESE.API;
 using System;
 using System.IO;
 
@@ -11,9 +12,11 @@ namespace CustomCustomTrail
     {
         public const string PluginGuid = "CustomCustomTrail_Serp";
         public const string PluginName = "Custom Custom Trail";
-        public const string PluginVersion = "1.2.5";
+        public const string PluginVersion = "1.2.7";
 
         private static CustomCustomTrailRuntime runtime;
+
+        public CustomCustomTrailSettingsViewModel Settings { get; private set; }
 
         private void Awake()
         {
@@ -27,9 +30,16 @@ namespace CustomCustomTrail
             {
                 CrusaderLibrary.Instance.LibraryLoaded -= OnLibraryLoaded;
                 Shared.DebugLogHelper.ReportNativeLibraryVersion(Logger, PluginName);
+                Settings = new CustomCustomTrailSettingsViewModel();
+                GameXAMLManagerAPI.Instance.RegisterLobbyModSettings(
+                    this,
+                    PluginGuid,
+                    Settings,
+                    "ScriptExtenderUI/CustomCustomTrailSettings.xaml");
                 string pluginRoot = Path.GetDirectoryName(Info.Location);
-                runtime = new CustomCustomTrailRuntime(Logger, pluginRoot);
+                runtime = new CustomCustomTrailRuntime(Logger, pluginRoot, Settings.EnableMod);
                 runtime.Initialize();
+                Settings.EnableModChanged += runtime.SetEnabled;
             }
             catch (Exception ex)
             {

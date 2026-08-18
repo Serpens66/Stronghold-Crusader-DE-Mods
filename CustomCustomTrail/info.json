@@ -3,10 +3,23 @@
   "Author": "Serpens66",
   "Name": "Custom Custom Trail",
   "Description": "Coordinates Custom Trail sidecars, mission presets and customization, and replaces Coop Trail missions from editable JSON bundles.",
-  "Version": "1.2.5",
+  "Version": "1.2.7",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.2.7",
+      "Changes": [
+        "Added a player-facing explanation below the activation setting describing Custom Trail settings, customization, local Coop replacements and disabled behavior."
+      ]
+    },
+    {
+      "Version": "1.2.6",
+      "Changes": [
+        "Added a locally persisted activation setting that disables Custom Trail sidecars, customization integration and Coop mission replacements without removing the mod files.",
+        "Restored replaced Vanilla Coop mission slots immediately when the mod is disabled and hid the injected Coop Customize buttons."
+      ]
+    },
     {
       "Version": "1.2.5",
       "Changes": [

@@ -4,6 +4,8 @@
 
 Der Mod ist für SHCDE V2.8 gebaut und benötigt BepInEx sowie den SHCDE Script Extender. In echtem Coop laden Host und Gast ihre jeweilige lokale Mission desselben Trail-/Missionsplatzes. Der Mod vergleicht diese Dateien nicht; kompatible Inhalte liegen daher in der Verantwortung der Spieler.
 
+Über die Modsettings kann der Koordinator lokal vollständig deaktiviert werden. Der Schalter wird unabhängig von Presets gespeichert und nicht über das Netzwerk synchronisiert. Im deaktivierten Zustand verhalten sich die installierten Hooks wie Vanilla: Sidecars werden weder geladen noch geschrieben oder mit Dateiverwaltungsaktionen gespiegelt, Coop-Missionen werden nicht ersetzt und die zusätzlichen `Anpassen`-Übergänge bleiben verborgen beziehungsweise inaktiv. Bereits ersetzte Coop-Katalogplätze werden beim Abschalten sofort auf ihre zuvor erfassten Vanilla-Einträge zurückgesetzt.
+
 Die unterstützten Settings-Mods besitzen keine Abhängigkeit auf `CustomCustomTrail`. Ohne diesen Koordinator funktionieren ihre lokalen Voreinstellungen 1/2 normal weiter; `Trail` bleibt unsichtbar, vorhandene `.modjson` werden ignoriert und neue Custom-Trail-Speicherungen erzeugen keine Sidecars.
 
 ## Normale Custom Trails

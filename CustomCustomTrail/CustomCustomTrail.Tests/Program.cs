@@ -22,6 +22,7 @@ var tests = new (string Name, Action Run)[]
     ("invalid mod-settings documents are rejected", TestInvalidModSettingsDocuments),
     ("atomic sidecar write replaces existing file", TestAtomicSidecarWrite),
     ("Trail coordinator ownership is centralized", TestCoordinatorOwnership),
+    ("local activation setting gates the complete runtime", TestLocalActivationSetting),
 };
 
 int failed = 0;
@@ -185,6 +186,26 @@ static void TestCoordinatorOwnership()
         "Custom Trail setup does not suppress transient selection-sidecar loads");
     Assert(!coordinator.Contains("all Trail mods will be disabled"),
         "capture failures can still overwrite a sidecar with an all-disabled fallback");
+}
+
+static void TestLocalActivationSetting()
+{
+    string root = FindProjectRoot();
+    string viewModel = File.ReadAllText(Path.Combine(root, "src", "CustomCustomTrailSettingsViewModel.cs"));
+    string plugin = File.ReadAllText(Path.Combine(root, "src", "CustomCustomTrailPlugin.cs"));
+    string runtime = File.ReadAllText(Path.Combine(root, "src", "CustomCustomTrailRuntime.cs"));
+    string coordinator = File.ReadAllText(Path.Combine(root, "src", "TrailMissionSettingsCoordinator.cs"));
+    string xaml = File.ReadAllText(Path.Combine(root, "Override", "ScriptExtenderUI", "CustomCustomTrailSettings.xaml"));
+
+    Assert(viewModel.Contains("[PersistLocal]"), "activation setting is not local-only persisted");
+    Assert(!viewModel.Contains("SyncHostOnly") && !viewModel.Contains("SyncPerPlayer"), "activation setting is network-synchronised");
+    Assert(plugin.Contains("Settings.EnableModChanged += runtime.SetEnabled"), "runtime does not observe activation changes");
+    Assert(runtime.Contains("RestoreVanillaMissions()"), "disabling cannot restore replaced Vanilla Coop slots");
+    Assert(coordinator.Contains("if (!enabled)"), "sidecar/customization hooks are not activation-gated");
+    Assert(xaml.Contains("ToolTipService.ShowDuration=\"60000\""), "activation control tooltip duration is missing");
+    Assert(xaml.Contains("PracticalEffectsText") && viewModel.Contains("CustomCustomTrail.PracticalEffects"),
+        "player-facing practical-effects text is not bound below the activation setting");
+    Assert(!xaml.Contains("SelectedPreset") && !xaml.Contains("PresetOptions"), "activation UI unexpectedly exposes presets");
 }
 
 static string FindProjectRoot()

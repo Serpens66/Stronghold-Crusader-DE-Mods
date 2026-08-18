@@ -80,10 +80,26 @@ namespace CustomCustomTrail
             private long activeSidecarLength = -1;
             private long activeSidecarWriteTicks;
             private bool activeSidecarEditable;
+            private bool enabled;
+            private readonly List<Button> injectedCoopButtons = new List<Button>();
 
-            public TrailMissionSettingsCoordinator(ManualLogSource log)
+            public TrailMissionSettingsCoordinator(ManualLogSource log, bool enabled)
             {
                 this.log = log;
+                this.enabled = enabled;
+            }
+
+            public void SetEnabled(bool value)
+            {
+                enabled = value;
+                foreach (Button button in injectedCoopButtons)
+                    button.Visibility = value ? Visibility.Visible : Visibility.Collapsed;
+                if (!value)
+                {
+                    if (MainViewModel.Instance != null)
+                        MainViewModel.Instance.Show_TrailCustomisationButtons = false;
+                    ExitContext(force: true);
+                }
             }
 
             public void Initialize()
@@ -213,6 +229,11 @@ namespace CustomCustomTrail
                 string trailPath,
                 HUD_IngameMenu.RestartSkirmishMapInfo restartInfo)
             {
+                if (!enabled)
+                {
+                    saveCustomTrailMapOriginal(self, mapPath, mapName, trailPath, restartInfo);
+                    return;
+                }
                 ModSettingsDefinition document = null;
                 try
                 {
@@ -271,6 +292,11 @@ namespace CustomCustomTrail
 
             private void ManageTrailButtonHook(FRONT_ManageTrail self, string command)
             {
+                if (!enabled)
+                {
+                    manageTrailButtonOriginal(self, command);
+                    return;
+                }
                 FileHeader loadedHeader = null;
                 if (string.Equals(command, "Load", StringComparison.Ordinal))
                 {
@@ -312,6 +338,8 @@ namespace CustomCustomTrail
             private void ManageTrailInitHook(FRONT_ManageTrail self, bool preserveSelection)
             {
                 manageTrailInitOriginal(self, preserveSelection);
+                if (!enabled)
+                    return;
                 // Vanilla invokes Init again after its confirmation callback deleted a mission.
                 TryFileOperation("clean orphan Trail sidecars", DeleteOrphanMakerSidecars);
             }
@@ -319,12 +347,16 @@ namespace CustomCustomTrail
             private void BackupHook(FRONT_ManageTrail self, string source, string destination)
             {
                 backupOriginal(self, source, destination);
+                if (!enabled)
+                    return;
                 TryFileOperation("back up Trail sidecars", () => CopySidecars(source, destination, overwrite: true));
             }
 
             private void ImportHook(FRONT_ManageTrail self, string customFolderName)
             {
                 importOriginal(self, customFolderName);
+                if (!enabled)
+                    return;
                 string source = IOPath.Combine(ConfigSettings.GetUserCustomTrailsPath(), customFolderName);
                 TryFileOperation("import Trail sidecars", () => CopySidecars(source, ConfigSettings.GetUserTrailMakerPath(), overwrite: false));
             }
@@ -332,6 +364,8 @@ namespace CustomCustomTrail
             private void ExportHook(FRONT_ManageTrail self, string destination)
             {
                 exportOriginal(self, destination);
+                if (!enabled)
+                    return;
                 TryFileOperation("export Trail sidecars", () =>
                 {
                     foreach (string stale in Directory.GetFiles(destination, "Trail_Mission_*.modjson"))
@@ -358,6 +392,8 @@ namespace CustomCustomTrail
             private void ClearMakerHook(FRONT_ManageTrail self)
             {
                 clearMakerOriginal(self);
+                if (!enabled)
+                    return;
                 TryFileOperation("clear Trail sidecars", () =>
                 {
                     foreach (string sidecar in Directory.GetFiles(ConfigSettings.GetUserTrailMakerPath(), "Trail_Mission_*.modjson"))
@@ -367,6 +403,11 @@ namespace CustomCustomTrail
 
             private void StartCustomTrailHook(MainViewModel self, string trailName, int missionId, int difficulty)
             {
+                if (!enabled)
+                {
+                    startCustomTrailOriginal(self, trailName, missionId, difficulty);
+                    return;
+                }
                 if (!preserveContextForLaunch)
                 {
                     try
@@ -398,6 +439,11 @@ namespace CustomCustomTrail
                 int customiseTrailType,
                 int customiseTrailId)
             {
+                if (!enabled)
+                {
+                    multiplayerOpenOriginal(self, skirmishSetup, fromNew, restartInfo, coopSetup, trailMaker, customiseTrailType, customiseTrailId);
+                    return;
+                }
                 bool preserve = preserveContextForLaunch;
                 if (!trailMaker && !preserve)
                     ExitContext(force: true);
@@ -418,6 +464,11 @@ namespace CustomCustomTrail
                 FRONT_Multiplayer self,
                 HUD_IngameMenu.RestartSkirmishMapInfo customTrailRestartInfo)
             {
+                if (!enabled)
+                {
+                    startSkirmishGameOriginal(self, customTrailRestartInfo);
+                    return;
+                }
                 if (customTrailRestartInfo == null && customTrailSetupRestartInfo != null)
                 {
                     // Rebuild the embedded restart data from the edited lobby while retaining
@@ -447,19 +498,24 @@ namespace CustomCustomTrail
             private void FrontendOpenCustomTrailHook(FrontendMenus self, string trailName, int level)
             {
                 frontendOpenCustomTrailOriginal(self, trailName, level);
-                MainViewModel.Instance.Show_TrailCustomisationButtons = true;
+                MainViewModel.Instance.Show_TrailCustomisationButtons = enabled;
             }
 
             private void TrailSelectionHook(FrontendMenus self, int missionId, bool fromRealClick)
             {
                 trailSelectionOriginal(self, missionId, fromRealClick);
-                if (!openingCustomTrailSetup &&
+                if (enabled && !openingCustomTrailSetup &&
                     FrontendMenus.CurrentSelectedTrail >= 90 && FrontendMenus.CurrentSelectedTrail <= 92)
                     EnterSelectedCustomTrail(self);
             }
 
             private void FrontendButtonHook(FrontendMenus self, string command)
             {
+                if (!enabled)
+                {
+                    frontendButtonOriginal(self, command);
+                    return;
+                }
                 if (string.Equals(command, "Customize", StringComparison.Ordinal) &&
                     FrontendMenus.CurrentSelectedTrail >= 90 && FrontendMenus.CurrentSelectedTrail <= 92)
                 {
@@ -606,6 +662,7 @@ namespace CustomCustomTrail
                     HorizontalAlignment = HorizontalAlignment.Center,
                     VerticalAlignment = VerticalAlignment.Bottom,
                     Style = anchor.Style,
+                    Visibility = enabled ? Visibility.Visible : Visibility.Collapsed,
                 };
                 PropEx.SetTextCentre(button, Translate.Instance.GameTexts.TryGetValue("TEXT_CUSTOMISATION_071", out string text) ? text : "Customize");
                 PropEx.SetTextLeft(button, string.Empty);
@@ -623,6 +680,7 @@ namespace CustomCustomTrail
                     }
                 };
                 host.Children.Add(button);
+                injectedCoopButtons.Add(button);
                 injectedCoopPages.Add(page);
             }
 

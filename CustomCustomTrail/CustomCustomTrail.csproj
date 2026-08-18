@@ -50,11 +50,23 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\Shared\DebugLogHelper.cs"><Link>Shared\DebugLogHelper.cs</Link></Compile>
+    <Compile Include="..\Shared\SerpLocalization.cs"><Link>Shared\SerpLocalization.cs</Link></Compile>
+    <Compile Include="..\Shared\ToolTipPresentation.cs"><Link>Shared\ToolTipPresentation.cs</Link></Compile>
     <Compile Include="src\CustomCustomTrailPlugin.cs" />
+    <Compile Include="src\CustomCustomTrailSettingsViewModel.cs" />
     <Compile Include="src\CustomCustomTrailRuntime.cs" />
     <Compile Include="src\TrailMissionSettingsCoordinator.cs" />
     <Compile Include="src\MissionAssetResolver.cs" />
     <Compile Include="src\ResolvedMission.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Locales\*.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Override\ScriptExtenderUI\CustomCustomTrailSettings.xaml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>Override\ScriptExtenderUI\CustomCustomTrailSettings.xaml</Link>
+    </Content>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Target Name="ValidateDependencies" BeforeTargets="BeforeBuild">

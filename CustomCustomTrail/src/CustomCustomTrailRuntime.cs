@@ -30,6 +30,8 @@ namespace CustomCustomTrail
         private readonly string coopTrailsRoot;
         private readonly MissionCatalog catalog = new MissionCatalog();
         private readonly Dictionary<int, ResolvedMission> resolved = new Dictionary<int, ResolvedMission>();
+        private readonly Dictionary<int, FRONT_Multiplayer.CoopMissionSetupData> vanillaMissions =
+            new Dictionary<int, FRONT_Multiplayer.CoopMissionSetupData>();
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
         private Hook initHook;
         private Hook missionHook;
@@ -40,16 +42,18 @@ namespace CustomCustomTrail
         private TrailMissionSettingsCoordinator missionSettingsCoordinator;
         private string[] missingMods = Array.Empty<string>();
         private ResolvedMission selected;
+        private bool enabled;
 
-        public CustomCustomTrailRuntime(ManualLogSource log, string pluginRoot)
+        public CustomCustomTrailRuntime(ManualLogSource log, string pluginRoot, bool enabled)
         {
             this.log = log;
             coopTrailsRoot = Path.Combine(pluginRoot, "CoopTrails");
+            this.enabled = enabled;
         }
 
         public void Initialize()
         {
-            missionSettingsCoordinator = new TrailMissionSettingsCoordinator(log);
+            missionSettingsCoordinator = new TrailMissionSettingsCoordinator(log, enabled);
             missionSettingsCoordinator.Initialize();
             subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
@@ -68,6 +72,23 @@ namespace CustomCustomTrail
             LogInfo("Runtime initialized; mission identity uses TrailN/NN.coopmission.json and centralized Trail settings.");
         }
 
+        public void SetEnabled(bool value)
+        {
+            if (enabled == value)
+                return;
+
+            enabled = value;
+            missionSettingsCoordinator?.SetEnabled(value);
+            selected = null;
+            missingMods = Array.Empty<string>();
+            if (value)
+                ReloadAndReplace();
+            else
+                RestoreVanillaMissions();
+            LogInfo("Mod " + (value ? "enabled" : "disabled") + "; runtime hooks now " +
+                (value ? "apply Custom Trail and Coop replacements." : "pass through to Vanilla."));
+        }
+
         public void Dispose()
         {
             foreach (IDisposable subscription in subscriptions)
@@ -76,6 +97,7 @@ namespace CustomCustomTrail
             initHook?.Dispose();
             missionHook?.Dispose();
             buttonHook?.Dispose();
+            RestoreVanillaMissions();
             missionSettingsCoordinator?.ExitContext(force: true);
             missionSettingsCoordinator?.Dispose();
         }
@@ -84,6 +106,12 @@ namespace CustomCustomTrail
         {
             initTrampoline(self);
             missionSettingsCoordinator.EnsureCoopCustomizeButtons();
+            if (!enabled)
+            {
+                resolved.Clear();
+                vanillaMissions.Clear();
+                return;
+            }
             try
             {
                 ReloadAndReplace();
@@ -98,6 +126,8 @@ namespace CustomCustomTrail
         {
             missionTrampoline(self, trailId, missionId, resetOrderSwapped);
             missionSettingsCoordinator.EnsureCoopCustomizeButtons();
+            if (!enabled)
+                return;
             resolved.TryGetValue(MissionCatalog.ToKey(trailId + 1, missionId), out selected);
             if (selected == null)
             {
@@ -125,7 +155,7 @@ namespace CustomCustomTrail
 
         private void ButtonClickedHook(FRONT_Multiplayer self, string command)
         {
-            if (selected != null && string.Equals(command, "Play", StringComparison.Ordinal))
+            if (enabled && selected != null && string.Equals(command, "Play", StringComparison.Ordinal))
                 ApplySelectedMission(self, false);
             buttonTrampoline(self, command);
         }
@@ -133,7 +163,9 @@ namespace CustomCustomTrail
         private void ReloadAndReplace()
         {
             catalog.Load(coopTrailsRoot, LogInfo, LogError);
+            RestoreVanillaMissions();
             resolved.Clear();
+            vanillaMissions.Clear();
             var resolver = new MissionAssetResolver();
             foreach (KeyValuePair<int, LoadedMission> entry in catalog.Missions)
             {
@@ -149,6 +181,7 @@ namespace CustomCustomTrail
                         LogError("Trail" + entry.Value.TrailNumber + "/" + entry.Value.MissionNumber.ToString("00") + " disabled all modSettings: " + entry.Value.Definition.ModSettingsError);
                     resolved[entry.Key] = mission;
                     FRONT_Multiplayer.CoopMissionSetupData[] trail = GetTrail(entry.Value.TrailNumber);
+                    vanillaMissions[entry.Key] = trail[entry.Value.MissionNumber - 1];
                     trail[entry.Value.MissionNumber - 1] = mission.CoopData;
                     LogInfo("Replaced Trail" + entry.Value.TrailNumber + "/" + entry.Value.MissionNumber.ToString("00") + " from [" + Path.GetFileName(entry.Value.JsonPath) + "].");
                 }
@@ -157,6 +190,22 @@ namespace CustomCustomTrail
                     LogError("Kept Vanilla Trail" + entry.Value.TrailNumber + "/" + entry.Value.MissionNumber.ToString("00") + ": " + ex.Message);
                 }
             }
+        }
+
+        private void RestoreVanillaMissions()
+        {
+            foreach (KeyValuePair<int, FRONT_Multiplayer.CoopMissionSetupData> entry in vanillaMissions)
+            {
+                int trailNumber = entry.Key / 100;
+                int missionNumber = entry.Key % 100;
+                if (trailNumber < 1 || trailNumber > CoopTrailFields.Length || CoopTrailFields[trailNumber - 1] == null)
+                    continue;
+                FRONT_Multiplayer.CoopMissionSetupData[] trail = GetTrail(trailNumber);
+                if (missionNumber >= 1 && missionNumber <= trail.Length)
+                    trail[missionNumber - 1] = entry.Value;
+            }
+            vanillaMissions.Clear();
+            resolved.Clear();
         }
 
         private void ApplySelectedMission(FRONT_Multiplayer self, bool updateHost)
