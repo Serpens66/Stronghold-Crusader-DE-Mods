@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../ImprovedHunters/src/GranaryChickenSpawnPolicy.cs" Link="GranaryChickenSpawnPolicy.cs" />
+    <Compile Include="../../ImprovedHunters/src/HunterQueryActorPolicy.cs" Link="HunterQueryActorPolicy.cs" />
+    <Compile Include="../../ImprovedHunters/src/ManualChickenAttackPolicy.cs" Link="ManualChickenAttackPolicy.cs" />
+  </ItemGroup>
+</Project>

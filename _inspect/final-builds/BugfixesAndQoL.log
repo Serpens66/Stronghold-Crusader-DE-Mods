@@ -1,0 +1,50 @@
+MSBuild-Version 17.11.9+a69bbaaf5 für .NET Framework
+Der Buildvorgang wurde am 10.08.2026 14:12:27 gestartet.
+
+Projekt "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj" auf Knoten "1" (Standardziele).
+PrepareForBuild:
+  Das Verzeichnis "BepInEx\plugins\BugfixesAndQoL_Serp\" wird erstellt.
+GenerateTargetFrameworkMonikerAttribute:
+Das Ziel "GenerateTargetFrameworkMonikerAttribute" wird übersprungen, da alle Ausgabedateien hinsichtlich der Eingabedateien aktuell sind.
+CoreCompile:
+Das Ziel "CoreCompile" wird übersprungen, da alle Ausgabedateien hinsichtlich der Eingabedateien aktuell sind.
+_CopyOutOfDateSourceItemsToOutputDirectory:
+  Das Verzeichnis "BepInEx\plugins\BugfixesAndQoL_Serp\Locales" wird erstellt.
+  Das Verzeichnis "BepInEx\plugins\BugfixesAndQoL_Serp\Locales" wird erstellt.
+  Das Verzeichnis "BepInEx\plugins\BugfixesAndQoL_Serp\Locales" wird erstellt.
+  Das Verzeichnis "BepInEx\plugins\BugfixesAndQoL_Serp\Locales" wird erstellt.
+  Das Verzeichnis "BepInEx\plugins\BugfixesAndQoL_Serp\Locales" wird erstellt.
+  Das Verzeichnis "BepInEx\plugins\BugfixesAndQoL_Serp\Locales" wird erstellt.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\Locales\ar.txt" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BepInEx\plugins\BugfixesAndQoL_Serp\Locales\ar.txt" kopiert.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\Locales\es-ES.txt" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BepInEx\plugins\BugfixesAndQoL_Serp\Locales\es-ES.txt" kopiert.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\Locales\cs-CZ.txt" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BepInEx\plugins\BugfixesAndQoL_Serp\Locales\cs-CZ.txt" kopiert.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\Locales\el-GR.txt" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BepInEx\plugins\BugfixesAndQoL_Serp\Locales\el-GR.txt" kopiert.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\Locales\en-US.txt" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BepInEx\plugins\BugfixesAndQoL_Serp\Locales\en-US.txt" kopiert.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\Locales\de-DE.txt" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BepInEx\plugins\BugfixesAndQoL_Serp\Locales\de-DE.txt" kopiert.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\Locales\fr-FR.txt" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BepInEx\plugins\BugfixesAndQoL_Serp\Locales\fr-FR.txt" kopiert.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\Locales\it-IT.txt" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BepInEx\plugins\BugfixesAndQoL_Serp\Locales\it-IT.txt" kopiert.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\Locales\ja-JP.txt" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BepInEx\plugins\BugfixesAndQoL_Serp\Locales\ja-JP.txt" kopiert.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\Locales\ko-KR.txt" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BepInEx\plugins\BugfixesAndQoL_Serp\Locales\ko-KR.txt" kopiert.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\Locales\hu-HU.txt" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BepInEx\plugins\BugfixesAndQoL_Serp\Locales\hu-HU.txt" kopiert.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\Locales\nl-NL.txt" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BepInEx\plugins\BugfixesAndQoL_Serp\Locales\nl-NL.txt" kopiert.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\Locales\pl-PL.txt" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BepInEx\plugins\BugfixesAndQoL_Serp\Locales\pl-PL.txt" kopiert.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\Locales\pt-BR.txt" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BepInEx\plugins\BugfixesAndQoL_Serp\Locales\pt-BR.txt" kopiert.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\Locales\ru-RU.txt" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BepInEx\plugins\BugfixesAndQoL_Serp\Locales\ru-RU.txt" kopiert.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\Locales\sv-SE.txt" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BepInEx\plugins\BugfixesAndQoL_Serp\Locales\sv-SE.txt" kopiert.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\Locales\th-TH.txt" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BepInEx\plugins\BugfixesAndQoL_Serp\Locales\th-TH.txt" kopiert.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\Locales\tr-TR.txt" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BepInEx\plugins\BugfixesAndQoL_Serp\Locales\tr-TR.txt" kopiert.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\Locales\uk-UA.txt" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BepInEx\plugins\BugfixesAndQoL_Serp\Locales\uk-UA.txt" kopiert.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\Locales\zh-CN.txt" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BepInEx\plugins\BugfixesAndQoL_Serp\Locales\zh-CN.txt" kopiert.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\Locales\zh-HK.txt" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BepInEx\plugins\BugfixesAndQoL_Serp\Locales\zh-HK.txt" kopiert.
+CopyFilesToOutputDirectory:
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\obj\Debug\BugfixesAndQoL.dll" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BepInEx\plugins\BugfixesAndQoL_Serp\BugfixesAndQoL.dll" kopiert.
+  BugfixesAndQoL -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BepInEx\plugins\BugfixesAndQoL_Serp\BugfixesAndQoL.dll
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\obj\Debug\BugfixesAndQoL.pdb" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BepInEx\plugins\BugfixesAndQoL_Serp\BugfixesAndQoL.pdb" kopiert.
+Die Erstellung von Projekt "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj" ist abgeschlossen (Standardziele).
+
+Der Buildvorgang wurde erfolgreich ausgeführt.
+    0 Warnung(en)
+    0 Fehler
+
+Verstrichene Zeit 00:00:00.17
+Build und Installation von Bugfixes and QoL erfolgreich.

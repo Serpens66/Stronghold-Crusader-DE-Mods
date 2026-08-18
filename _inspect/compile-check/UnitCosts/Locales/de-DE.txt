@@ -1,0 +1,26 @@
+# Serp mod localization
+# Format: key=value
+Common.ResetToDefault=Zurücksetzen
+Common.EnableMod=Mod aktivieren
+UnitCosts.Title=Grundkosten (Mensch und KI)
+UnitCosts.Help=Hier können nur native Goldkosten geändert werden. Materialkosten werden über die Zusatzkosten für menschliche Spieler hinzugefügt.
+UnitCosts.ExtraTitle=Zusatzkosten (nur Mensch)
+UnitCosts.ExtraHelp=0 = keine Zusatzkosten. Positive Werte werden zusätzlich abgezogen; negatives Gold wird bis maximal zu den aktuellen Goldkosten erstattet. KI-Spieler ignorieren diese Tabelle.
+UnitCosts.UnitHeader=Einheit
+UnitCosts.Slot1Header=Platz 1
+UnitCosts.Slot2Header=Platz 2
+UnitCosts.Slot3Header=Platz 3
+UnitCosts.Slot4HorseHeader=Platz 4 / Pferd
+UnitCosts.None=keine
+UnitCosts.Horse=Pferd
+UnitCosts.ResourcesMissing=Material fehlt
+
+Common.HostOptions=HOST-OPTIONEN
+Common.ClientOptions=LOKALE CLIENT-OPTIONEN
+Common.HostReadOnly=Werte vom Host – schreibgeschützt
+Common.ResetToDefaultHelp=Setzt die Einstellungen zurück, die du im aktuellen Kontext ändern kannst.
+Common.EnableModHelp=Aktiviert oder deaktiviert diese Mod für die Partie.
+Common.PresetHelp=Wählt ein gespeichertes Preset. Clients ändern damit nur ihre persönlichen Einstellungen.
+Common.Preset=Preset
+Common.ActionsScopeHost=Preset und Zurücksetzen betreffen Host-Einstellungen und deine lokalen Client-Optionen.
+Common.ActionsScopeClient=Preset und Zurücksetzen betreffen nur deine lokalen Client-Optionen.

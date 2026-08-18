@@ -1,0 +1,50 @@
+MSBuild-Version 17.11.9+a69bbaaf5 für .NET Framework
+Der Buildvorgang wurde am 10.08.2026 14:12:29 gestartet.
+
+Projekt "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\RandomEvents\RandomEvents.csproj" auf Knoten "1" (Standardziele).
+PrepareForBuild:
+  Das Verzeichnis "BepInEx\plugins\RandomEvents_Serp\" wird erstellt.
+GenerateTargetFrameworkMonikerAttribute:
+Das Ziel "GenerateTargetFrameworkMonikerAttribute" wird übersprungen, da alle Ausgabedateien hinsichtlich der Eingabedateien aktuell sind.
+CoreCompile:
+Das Ziel "CoreCompile" wird übersprungen, da alle Ausgabedateien hinsichtlich der Eingabedateien aktuell sind.
+_CopyOutOfDateSourceItemsToOutputDirectory:
+  Das Verzeichnis "BepInEx\plugins\RandomEvents_Serp\Locales" wird erstellt.
+  Das Verzeichnis "BepInEx\plugins\RandomEvents_Serp\Locales" wird erstellt.
+  Das Verzeichnis "BepInEx\plugins\RandomEvents_Serp\Locales" wird erstellt.
+  Das Verzeichnis "BepInEx\plugins\RandomEvents_Serp\Locales" wird erstellt.
+  Das Verzeichnis "BepInEx\plugins\RandomEvents_Serp\Locales" wird erstellt.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\RandomEvents\Locales\el-GR.txt" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\RandomEvents\BepInEx\plugins\RandomEvents_Serp\Locales\el-GR.txt" kopiert.
+  Das Verzeichnis "BepInEx\plugins\RandomEvents_Serp\Locales" wird erstellt.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\RandomEvents\Locales\en-US.txt" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\RandomEvents\BepInEx\plugins\RandomEvents_Serp\Locales\en-US.txt" kopiert.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\RandomEvents\Locales\ar.txt" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\RandomEvents\BepInEx\plugins\RandomEvents_Serp\Locales\ar.txt" kopiert.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\RandomEvents\Locales\de-DE.txt" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\RandomEvents\BepInEx\plugins\RandomEvents_Serp\Locales\de-DE.txt" kopiert.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\RandomEvents\Locales\es-ES.txt" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\RandomEvents\BepInEx\plugins\RandomEvents_Serp\Locales\es-ES.txt" kopiert.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\RandomEvents\Locales\cs-CZ.txt" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\RandomEvents\BepInEx\plugins\RandomEvents_Serp\Locales\cs-CZ.txt" kopiert.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\RandomEvents\Locales\fr-FR.txt" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\RandomEvents\BepInEx\plugins\RandomEvents_Serp\Locales\fr-FR.txt" kopiert.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\RandomEvents\Locales\hu-HU.txt" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\RandomEvents\BepInEx\plugins\RandomEvents_Serp\Locales\hu-HU.txt" kopiert.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\RandomEvents\Locales\ja-JP.txt" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\RandomEvents\BepInEx\plugins\RandomEvents_Serp\Locales\ja-JP.txt" kopiert.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\RandomEvents\Locales\ko-KR.txt" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\RandomEvents\BepInEx\plugins\RandomEvents_Serp\Locales\ko-KR.txt" kopiert.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\RandomEvents\Locales\it-IT.txt" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\RandomEvents\BepInEx\plugins\RandomEvents_Serp\Locales\it-IT.txt" kopiert.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\RandomEvents\Locales\nl-NL.txt" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\RandomEvents\BepInEx\plugins\RandomEvents_Serp\Locales\nl-NL.txt" kopiert.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\RandomEvents\Locales\pl-PL.txt" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\RandomEvents\BepInEx\plugins\RandomEvents_Serp\Locales\pl-PL.txt" kopiert.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\RandomEvents\Locales\pt-BR.txt" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\RandomEvents\BepInEx\plugins\RandomEvents_Serp\Locales\pt-BR.txt" kopiert.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\RandomEvents\Locales\ru-RU.txt" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\RandomEvents\BepInEx\plugins\RandomEvents_Serp\Locales\ru-RU.txt" kopiert.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\RandomEvents\Locales\sv-SE.txt" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\RandomEvents\BepInEx\plugins\RandomEvents_Serp\Locales\sv-SE.txt" kopiert.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\RandomEvents\Locales\th-TH.txt" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\RandomEvents\BepInEx\plugins\RandomEvents_Serp\Locales\th-TH.txt" kopiert.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\RandomEvents\Locales\tr-TR.txt" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\RandomEvents\BepInEx\plugins\RandomEvents_Serp\Locales\tr-TR.txt" kopiert.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\RandomEvents\Locales\uk-UA.txt" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\RandomEvents\BepInEx\plugins\RandomEvents_Serp\Locales\uk-UA.txt" kopiert.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\RandomEvents\Locales\zh-CN.txt" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\RandomEvents\BepInEx\plugins\RandomEvents_Serp\Locales\zh-CN.txt" kopiert.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\RandomEvents\Locales\zh-HK.txt" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\RandomEvents\BepInEx\plugins\RandomEvents_Serp\Locales\zh-HK.txt" kopiert.
+CopyFilesToOutputDirectory:
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\RandomEvents\obj\Debug\RandomEvents.dll" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\RandomEvents\BepInEx\plugins\RandomEvents_Serp\RandomEvents.dll" kopiert.
+  RandomEvents -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\RandomEvents\BepInEx\plugins\RandomEvents_Serp\RandomEvents.dll
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\RandomEvents\obj\Debug\RandomEvents.pdb" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\RandomEvents\BepInEx\plugins\RandomEvents_Serp\RandomEvents.pdb" kopiert.
+Die Erstellung von Projekt "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\RandomEvents\RandomEvents.csproj" ist abgeschlossen (Standardziele).
+
+Der Buildvorgang wurde erfolgreich ausgeführt.
+    0 Warnung(en)
+    0 Fehler
+
+Verstrichene Zeit 00:00:00.17
+Build und Installation von Random Events erfolgreich.

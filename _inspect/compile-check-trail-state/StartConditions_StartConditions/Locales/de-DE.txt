@@ -1,0 +1,32 @@
+# Serp mod localization
+# Format: key=valü
+Common.ResetToDefault=Zurücksetzen
+Common.EnableMod=Mod aktivieren
+Common.Ai=KI
+Common.Human=Mensch
+StartConditions.StartGoldTitle=Startgold
+StartConditions.StartGoodsTitle=Startwaren
+StartConditions.StartTroopsTitle=Starttruppen
+StartConditions.UnchangedRangeHelp=-1 = unverändert. Erlaubter Bereich: -1 bis 100000.
+StartConditions.NormalCrusade=Normal/Kreuzzug
+StartConditions.Deathmatch=Deathmatch
+StartConditions.SetStartGold=Startgold setzen (-1 = unverändert)
+StartConditions.SetStartGoldHelp=Setzt die anfängliche Goldmenge für jeden Spieler. -1 bedeutet unverändert.
+StartConditions.AddStartGold=Startgold hinzufügen
+StartConditions.AddStartGoldHelp=Fügt jedem Spieler die angegebene Goldmenge zu seiner anfänglichen Goldmenge hinzu.
+StartConditions.MultiplyStartTroops=Starttruppen-Armeen multiplizieren
+StartConditions.StartTroopsMultiplierHelp=Multiplikator: 0 = offizielle Starttruppen nach 20 Sekunden entfernen, 1 = unverändert, 2 = doppelt. Erlaubter Bereich: 0 bis 100.
+StartConditions.StartTroopsMultiplierToolTip=Multiplikator fuer Starttruppen-Armeen. Wird nach {DelayedStartTroopCountMilliseconds} ms angewendet, aktuell {DelayedStartTroopCountSeconds} Sekunden nach Kartenstart. 0 = entfernen, 1 = unveraendert, 2 = doppelt. Erlaubter Bereich: 0 bis 100.
+StartConditions.ExtraStartUnitsHelp=Extra-Start-Einheiten: -1 oder 0 = keine Extra-Einheiten. Erlaubter Bereich: -1 bis 100000.
+
+Common.HostOptions=HOST-OPTIONEN
+Common.ClientOptions=LOKALE CLIENT-OPTIONEN
+Common.HostReadOnly=Werte vom Host – schreibgeschützt
+Common.ResetToDefaultHelp=Setzt die Einstellungen zurück, die du im aktuellen Kontext ändern kannst.
+Common.EnableModHelp=Aktiviert oder deaktiviert diese Mod für die Partie.
+Common.PresetHelp=Wählt ein gespeichertes Preset. Clients ändern damit nur ihre persönlichen Einstellungen.
+Common.Preset=Preset
+Common.ActionsScopeHost=Preset und Zurücksetzen betreffen Host-Einstellungen und deine lokalen Client-Optionen.
+Common.ActionsScopeClient=Preset und Zurücksetzen betreffen nur deine lokalen Client-Optionen.
+StartConditions.StartTroopArmiesTitle=Armee-Multiplikator
+StartConditions.ExtraStartUnitsTitle=Zusätzliche Einheiten

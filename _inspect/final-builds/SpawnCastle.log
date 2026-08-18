@@ -1,0 +1,26 @@
+Verwende Script Extender Referenzen:
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\SpawnCastle\..\shcde-script-extender\src\SHCDESE.BepInEx\bin\net481
+
+MSBuild-Version 17.11.9+a69bbaaf5 für .NET Framework
+Der Buildvorgang wurde am 10.08.2026 14:12:29 gestartet.
+
+Projekt "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\SpawnCastle\SpawnCastle.csproj" auf Knoten "1" (Standardziele).
+GenerateTargetFrameworkMonikerAttribute:
+Das Ziel "GenerateTargetFrameworkMonikerAttribute" wird übersprungen, da alle Ausgabedateien hinsichtlich der Eingabedateien aktuell sind.
+CoreCompile:
+Das Ziel "CoreCompile" wird übersprungen, da alle Ausgabedateien hinsichtlich der Eingabedateien aktuell sind.
+CopyFilesToOutputDirectory:
+  SpawnCastle -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\SpawnCastle\BepInEx\plugins\SpawnCastle_Serp\SpawnCastle.dll
+Die Erstellung von Projekt "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\SpawnCastle\SpawnCastle.csproj" ist abgeschlossen (Standardziele).
+
+Der Buildvorgang wurde erfolgreich ausgeführt.
+    0 Warnung(en)
+    0 Fehler
+
+Verstrichene Zeit 00:00:00.17
+
+Build erfolgreich.
+Kopiere Plugin in den Spielordner...
+189 Datei(en) kopiert
+Plugin kopiert; vorhandene Laufzeitdaten wurden beibehalten.
+

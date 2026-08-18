@@ -1,0 +1,19 @@
+# Serp mod localization
+# Format: key=value
+Common.EnableMod=Enable Mod
+Common.ResetToDefault=Reset to Default
+BuildingCosts.Title=Building Costs
+BuildingCosts.Help=-1 = unchanged. Values 0 to 1000 set the native construction cost for that material (Human and AI).
+BuildingCosts.BuildingHeader=Building
+BuildingCosts.Vanilla=Vanilla
+BuildingCosts.VanillaNoCosts=no costs
+
+Common.HostOptions=HOST OPTIONS
+Common.ClientOptions=LOCAL CLIENT OPTIONS
+Common.HostReadOnly=Values from host - read-only
+Common.ResetToDefaultHelp=Resets the settings you can control in the current context.
+Common.EnableModHelp=Enables or disables this mod for the match.
+Common.PresetHelp=Selects a saved preset. Clients change only their personal settings.
+Common.Preset=Preset
+Common.ActionsScopeHost=Preset and reset affect host settings and your local client settings.
+Common.ActionsScopeClient=Preset and reset affect only your local client settings.

@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>Assembly-CSharp</AssemblyName>
+    <GenerateAssemblyInfo>False</GenerateAssemblyInfo>
+    <TargetFramework>net40</TargetFramework>
+  </PropertyGroup>
+  <PropertyGroup>
+    <LangVersion>15.0</LangVersion>
+    <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
+    <CheckForOverflowUnderflow>False</CheckForOverflowUnderflow>
+  </PropertyGroup>
+  <PropertyGroup />
+  <ItemGroup />
+  <ItemGroup>
+    <Reference Include="UnityEngine.CoreModule" />
+    <Reference Include="Noesis.NoesisGUI" />
+    <Reference Include="UnityEngine.TilemapModule" />
+    <Reference Include="com.rlabrecque.steamworks.net" />
+    <Reference Include="UnityEngine.AudioModule" />
+    <Reference Include="UnityEngine.Physics2DModule" />
+    <Reference Include="UnityEngine.UIModule" />
+    <Reference Include="UnityEngine.UI" />
+    <Reference Include="UnityEngine.GridModule" />
+    <Reference Include="Vuplex.WebView" />
+    <Reference Include="UnityEngine.UnityWebRequestModule" />
+    <Reference Include="UnityEngine.InputLegacyModule" />
+    <Reference Include="mcpiroman.UnityNativeTool" />
+    <Reference Include="UnityEngine.JSONSerializeModule" />
+    <Reference Include="UnityEngine.ImageConversionModule" />
+    <Reference Include="System.Core" />
+    <Reference Include="CodeStage.AFPSCounter.Runtime" />
+    <Reference Include="UnityEngine.IMGUIModule" />
+    <Reference Include="UnityEngine.UnityWebRequestAudioModule" />
+  </ItemGroup>
+</Project>

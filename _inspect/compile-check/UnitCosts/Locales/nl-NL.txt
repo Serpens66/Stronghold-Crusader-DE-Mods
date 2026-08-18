@@ -1,0 +1,26 @@
+# Serp mod localization
+# Format: key=value
+Common.EnableMod=Enable Mod
+Common.ResetToDefault=Reset to Default
+UnitCosts.Title=Base Costs (Human and AI)
+UnitCosts.Help=Only native gold costs can be changed here. Add material costs through extra costs for human players.
+UnitCosts.ExtraTitle=Additional Costs (Human only)
+UnitCosts.ExtraHelp=0 = no extra cost. Positive values are charged in addition; negative gold refunds up to the current gold cost. AI players ignore this table.
+UnitCosts.UnitHeader=Unit
+UnitCosts.Slot1Header=Slot 1
+UnitCosts.Slot2Header=Slot 2
+UnitCosts.Slot3Header=Slot 3
+UnitCosts.Slot4HorseHeader=Slot 4 / Horse
+UnitCosts.None=none
+UnitCosts.Horse=Horse
+UnitCosts.ResourcesMissing=Resources missing
+
+Common.HostOptions=HOST OPTIONS
+Common.ClientOptions=LOCAL CLIENT OPTIONS
+Common.HostReadOnly=Values from host - read-only
+Common.ResetToDefaultHelp=Resets the settings you can control in the current context.
+Common.EnableModHelp=Enables or disables this mod for the match.
+Common.PresetHelp=Selects a saved preset. Clients change only their personal settings.
+Common.Preset=Preset
+Common.ActionsScopeHost=Preset and reset affect host settings and your local client settings.
+Common.ActionsScopeClient=Preset and reset affect only your local client settings.

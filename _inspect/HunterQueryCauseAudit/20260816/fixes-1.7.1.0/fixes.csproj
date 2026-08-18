@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>fixes</AssemblyName>
+    <GenerateAssemblyInfo>False</GenerateAssemblyInfo>
+    <TargetFramework>net481</TargetFramework>
+  </PropertyGroup>
+  <PropertyGroup>
+    <LangVersion>15.0</LangVersion>
+    <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
+    <CheckForOverflowUnderflow>False</CheckForOverflowUnderflow>
+  </PropertyGroup>
+  <PropertyGroup />
+  <ItemGroup />
+  <ItemGroup>
+    <Reference Include="SHCDESE" />
+    <Reference Include="Assembly-CSharp" />
+    <Reference Include="Zhuqiaomon" />
+    <Reference Include="Iced" />
+    <Reference Include="System.Memory" />
+    <Reference Include="System.Core" />
+    <Reference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <Reference Include="BepInEx" />
+    <Reference Include="System.Text.Json" />
+    <Reference Include="PolyHook2.NET" />
+    <Reference Include="Serilog" />
+    <Reference Include="Serilog.Extensions.Logging" />
+    <Reference Include="R3" />
+  </ItemGroup>
+</Project>

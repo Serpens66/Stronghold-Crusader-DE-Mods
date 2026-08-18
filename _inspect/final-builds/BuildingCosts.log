@@ -1,0 +1,55 @@
+Verwende Script Extender Referenzen:
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BuildingCosts\..\shcde-script-extender\src\SHCDESE.BepInEx\bin\net481
+
+MSBuild-Version 17.11.9+a69bbaaf5 für .NET Framework
+Der Buildvorgang wurde am 10.08.2026 14:12:28 gestartet.
+
+Projekt "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BuildingCosts\BuildingCosts.csproj" auf Knoten "1" (Standardziele).
+GenerateTargetFrameworkMonikerAttribute:
+Das Ziel "GenerateTargetFrameworkMonikerAttribute" wird übersprungen, da alle Ausgabedateien hinsichtlich der Eingabedateien aktuell sind.
+CoreCompile:
+Das Ziel "CoreCompile" wird übersprungen, da alle Ausgabedateien hinsichtlich der Eingabedateien aktuell sind.
+_CopyOutOfDateSourceItemsToOutputDirectory:
+Das Ziel "_CopyOutOfDateSourceItemsToOutputDirectory" wird übersprungen, da alle Ausgabedateien hinsichtlich der Eingabedateien aktuell sind.
+CopyFilesToOutputDirectory:
+  BuildingCosts -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BuildingCosts\BepInEx\plugins\BuildingCosts_Serp\BuildingCosts.dll
+Die Erstellung von Projekt "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BuildingCosts\BuildingCosts.csproj" ist abgeschlossen (Standardziele).
+
+Der Buildvorgang wurde erfolgreich ausgeführt.
+    0 Warnung(en)
+    0 Fehler
+
+Verstrichene Zeit 00:00:00.17
+
+Build erfolgreich.
+Kopiere Plugin in den Spielordner...
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BuildingCosts\BepInEx\plugins\BuildingCosts_Serp\BuildingCosts.dll
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BuildingCosts\BepInEx\plugins\BuildingCosts_Serp\BuildingCosts.pdb
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BuildingCosts\BepInEx\plugins\BuildingCosts_Serp\info.json
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BuildingCosts\BepInEx\plugins\BuildingCosts_Serp\Locales\ar.txt
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BuildingCosts\BepInEx\plugins\BuildingCosts_Serp\Locales\cs-CZ.txt
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BuildingCosts\BepInEx\plugins\BuildingCosts_Serp\Locales\de-DE.txt
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BuildingCosts\BepInEx\plugins\BuildingCosts_Serp\Locales\el-GR.txt
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BuildingCosts\BepInEx\plugins\BuildingCosts_Serp\Locales\en-US.txt
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BuildingCosts\BepInEx\plugins\BuildingCosts_Serp\Locales\es-ES.txt
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BuildingCosts\BepInEx\plugins\BuildingCosts_Serp\Locales\fr-FR.txt
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BuildingCosts\BepInEx\plugins\BuildingCosts_Serp\Locales\hu-HU.txt
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BuildingCosts\BepInEx\plugins\BuildingCosts_Serp\Locales\it-IT.txt
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BuildingCosts\BepInEx\plugins\BuildingCosts_Serp\Locales\ja-JP.txt
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BuildingCosts\BepInEx\plugins\BuildingCosts_Serp\Locales\ko-KR.txt
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BuildingCosts\BepInEx\plugins\BuildingCosts_Serp\Locales\nl-NL.txt
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BuildingCosts\BepInEx\plugins\BuildingCosts_Serp\Locales\pl-PL.txt
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BuildingCosts\BepInEx\plugins\BuildingCosts_Serp\Locales\pt-BR.txt
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BuildingCosts\BepInEx\plugins\BuildingCosts_Serp\Locales\ru-RU.txt
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BuildingCosts\BepInEx\plugins\BuildingCosts_Serp\Locales\sv-SE.txt
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BuildingCosts\BepInEx\plugins\BuildingCosts_Serp\Locales\th-TH.txt
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BuildingCosts\BepInEx\plugins\BuildingCosts_Serp\Locales\tr-TR.txt
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BuildingCosts\BepInEx\plugins\BuildingCosts_Serp\Locales\uk-UA.txt
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BuildingCosts\BepInEx\plugins\BuildingCosts_Serp\Locales\zh-CN.txt
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BuildingCosts\BepInEx\plugins\BuildingCosts_Serp\Locales\zh-HK.txt
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BuildingCosts\BepInEx\plugins\BuildingCosts_Serp\Override\ScriptExtenderUI\BuildingCostsSettings.xaml
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BuildingCosts\BepInEx\plugins\BuildingCosts_Serp\Patches\Assets\GUI\XAML\MainHUD.xaml
+26 Datei(en) kopiert
+Plugin kopiert.
+
+Drücken Sie eine beliebige Taste . . . 

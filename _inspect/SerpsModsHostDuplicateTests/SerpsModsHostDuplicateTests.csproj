@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition="'$(Configuration)' == ''">Debug</Configuration>
+    <Platform Condition="'$(Platform)' == ''">AnyCPU</Platform>
+    <ProjectGuid>{384F5F55-F572-4FD7-A9A7-39C483EB0B35}</ProjectGuid>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>SerpsModsHostDuplicateTests</RootNamespace>
+    <AssemblyName>SerpsModsHostDuplicateTests</AssemblyName>
+    <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
+    <OutputPath>bin\</OutputPath>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="Microsoft.Bcl.AsyncInterfaces"><HintPath>..\..\shcde-script-extender\src\SHCDESE.BepInEx\bin\net481\Microsoft.Bcl.AsyncInterfaces.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="System.Buffers"><HintPath>..\..\shcde-script-extender\src\SHCDESE.BepInEx\bin\net481\System.Buffers.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="System.Memory"><HintPath>..\..\shcde-script-extender\src\SHCDESE.BepInEx\bin\net481\System.Memory.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="System.Runtime.CompilerServices.Unsafe"><HintPath>..\..\shcde-script-extender\src\SHCDESE.BepInEx\bin\net481\System.Runtime.CompilerServices.Unsafe.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="System.Text.Encodings.Web"><HintPath>..\..\shcde-script-extender\src\SHCDESE.BepInEx\bin\net481\System.Text.Encodings.Web.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="System.Text.Json"><HintPath>..\..\shcde-script-extender\src\SHCDESE.BepInEx\bin\net481\System.Text.Json.dll</HintPath><Private>true</Private></Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="..\..\SerpsModsHost\src\DuplicateInstallationDetector.cs"><Link>DuplicateInstallationDetector.cs</Link></Compile>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>

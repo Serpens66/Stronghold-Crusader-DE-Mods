@@ -1,0 +1,54 @@
+Verwende Script Extender Referenzen:
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\ImprovedHunters\..\shcde-script-extender\src\SHCDESE.BepInEx\bin\net481
+
+MSBuild-Version 17.11.9+a69bbaaf5 für .NET Framework
+Der Buildvorgang wurde am 10.08.2026 14:12:29 gestartet.
+
+Projekt "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\ImprovedHunters\ImprovedHunters.csproj" auf Knoten "1" (Standardziele).
+GenerateTargetFrameworkMonikerAttribute:
+Das Ziel "GenerateTargetFrameworkMonikerAttribute" wird übersprungen, da alle Ausgabedateien hinsichtlich der Eingabedateien aktuell sind.
+CoreCompile:
+Das Ziel "CoreCompile" wird übersprungen, da alle Ausgabedateien hinsichtlich der Eingabedateien aktuell sind.
+_CopyOutOfDateSourceItemsToOutputDirectory:
+Das Ziel "_CopyOutOfDateSourceItemsToOutputDirectory" wird übersprungen, da alle Ausgabedateien hinsichtlich der Eingabedateien aktuell sind.
+CopyFilesToOutputDirectory:
+  ImprovedHunters -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\ImprovedHunters\BepInEx\plugins\ImprovedHunters_Serp\ImprovedHunters.dll
+Die Erstellung von Projekt "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\ImprovedHunters\ImprovedHunters.csproj" ist abgeschlossen (Standardziele).
+
+Der Buildvorgang wurde erfolgreich ausgeführt.
+    0 Warnung(en)
+    0 Fehler
+
+Verstrichene Zeit 00:00:00.16
+
+Build erfolgreich.
+Kopiere Plugin in den Spielordner...
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\ImprovedHunters\BepInEx\plugins\ImprovedHunters_Serp\ImprovedHunters.dll
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\ImprovedHunters\BepInEx\plugins\ImprovedHunters_Serp\ImprovedHunters.pdb
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\ImprovedHunters\BepInEx\plugins\ImprovedHunters_Serp\info.json
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\ImprovedHunters\BepInEx\plugins\ImprovedHunters_Serp\Locales\ar.txt
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\ImprovedHunters\BepInEx\plugins\ImprovedHunters_Serp\Locales\cs-CZ.txt
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\ImprovedHunters\BepInEx\plugins\ImprovedHunters_Serp\Locales\de-DE.txt
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\ImprovedHunters\BepInEx\plugins\ImprovedHunters_Serp\Locales\el-GR.txt
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\ImprovedHunters\BepInEx\plugins\ImprovedHunters_Serp\Locales\en-US.txt
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\ImprovedHunters\BepInEx\plugins\ImprovedHunters_Serp\Locales\es-ES.txt
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\ImprovedHunters\BepInEx\plugins\ImprovedHunters_Serp\Locales\fr-FR.txt
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\ImprovedHunters\BepInEx\plugins\ImprovedHunters_Serp\Locales\hu-HU.txt
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\ImprovedHunters\BepInEx\plugins\ImprovedHunters_Serp\Locales\it-IT.txt
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\ImprovedHunters\BepInEx\plugins\ImprovedHunters_Serp\Locales\ja-JP.txt
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\ImprovedHunters\BepInEx\plugins\ImprovedHunters_Serp\Locales\ko-KR.txt
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\ImprovedHunters\BepInEx\plugins\ImprovedHunters_Serp\Locales\nl-NL.txt
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\ImprovedHunters\BepInEx\plugins\ImprovedHunters_Serp\Locales\pl-PL.txt
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\ImprovedHunters\BepInEx\plugins\ImprovedHunters_Serp\Locales\pt-BR.txt
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\ImprovedHunters\BepInEx\plugins\ImprovedHunters_Serp\Locales\ru-RU.txt
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\ImprovedHunters\BepInEx\plugins\ImprovedHunters_Serp\Locales\sv-SE.txt
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\ImprovedHunters\BepInEx\plugins\ImprovedHunters_Serp\Locales\th-TH.txt
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\ImprovedHunters\BepInEx\plugins\ImprovedHunters_Serp\Locales\tr-TR.txt
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\ImprovedHunters\BepInEx\plugins\ImprovedHunters_Serp\Locales\uk-UA.txt
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\ImprovedHunters\BepInEx\plugins\ImprovedHunters_Serp\Locales\zh-CN.txt
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\ImprovedHunters\BepInEx\plugins\ImprovedHunters_Serp\Locales\zh-HK.txt
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\ImprovedHunters\BepInEx\plugins\ImprovedHunters_Serp\Override\ScriptExtenderUI\ImprovedHuntersSettings.xaml
+25 Datei(en) kopiert
+Plugin kopiert.
+
+Drücken Sie eine beliebige Taste . . . 

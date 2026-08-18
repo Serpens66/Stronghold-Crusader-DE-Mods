@@ -1,0 +1,72 @@
+# Serp mod localization
+# Format: key=value
+Common.LegacySomeSettingsWarning=FEHLER: Der veraltete Mod SomeSettings_Serp ist ebenfalls geladen. Bitte deinstalliere SomeSettings_Serp, um doppelte oder widerspruechliche Funktionen zu vermeiden.
+Common.ResetToDefault=Zurücksetzen
+Common.EnableMod=Mod aktivieren
+SomeSettings.EnableFastRecruitRallyMovement=Rekruten laufen zu Sammelpunkten
+SomeSettings.EnableFastRecruitRallyMovementHelp=Neu rekrutierte Spieler- und KI-Einheiten laufen mit ihrem eigenen maximalen Vanilla-Tempo und passender Animation zu ihrem Sammelpunkt; Gelände- und Zustandsmodifikatoren bleiben erhalten.
+Common.Ai=KI
+Common.Human=Mensch
+SomeSettings.BulldozeTitle=Gebäudeabriss
+SomeSettings.BulldozeHelp=-1 = unverändert. Erstattungswerte sind Prozentwerte von 0 bis 100.
+SomeSettings.WoodRefund=Holz-Erstattung %
+SomeSettings.StoneRefund=Stein-Erstattung %
+SomeSettings.IronRefund=Eisen-Erstattung %
+SomeSettings.PitchRefund=Pech-Erstattung %
+SomeSettings.GoldRefund=Gold-Erstattung %
+SomeSettings.VanillaValue50=Vanilla-Wert: 50%.
+SomeSettings.KeepStorageContent=Lagerinhalt behalten
+SomeSettings.KeepStorageContentHelp=Wenn aktiviert, bleiben beim Abreissen von Kornspeicher, Waffenkammer oder Vorratslager die enthaltenen Gueter erhalten und werden als eingehende Gueter wieder hinzugefuegt. Wurde der Kornspeicher kostenlos gebaut, koennen die Gueter nicht gutgeschrieben werden; dies kann geschehen, wenn beim Bau kein Holz im Lager liegt.
+SomeSettings.EconomyBuffsTitle=Wirtschaftsboni
+SomeSettings.MultiplyGoodsGain=Guetergewinn multiplizieren
+SomeSettings.MultiplyGoodsGainHelp=Multiplikator für erhaltene Gueter. 1 = unverändert, 2 = doppelt, 3 = dreifach. Werte 1 oder kleiner fuegen nichts hinzu.
+SomeSettings.MultiplyGoodsAsMoney=Gueter als Geld multiplizieren
+SomeSettings.MultiplyGoodsAsMoneyHelp=Extra-Goldzahlungen basierend auf dem Verkaufswert erhaltener Gueter. 0 = unverändert, 1 = eine Verkaufswert-Zahlung, 2 = zwei Zahlungen.
+SomeSettings.MarketPriceMultipliersTitle=Marktpreise
+SomeSettings.MarketBuyPriceMultiplier=Kaufpreise
+SomeSettings.MarketBuyPriceMultiplierHelp=Multiplikator fuer alle Markt-Kaufpreise. 1.0 = unveraendert, 0.0 = kostenlos, 5.0 = fuenffacher Vanilla-Preis.
+SomeSettings.MarketSellPriceMultiplier=Verkaufspreise
+SomeSettings.MarketSellPriceMultiplierHelp=Multiplikator fuer alle Markt-Verkaufspreise. 1.0 = unveraendert, 0.0 = kein Gold durch Verkauf, 5.0 = fuenffacher Vanilla-Preis.
+SomeSettings.AIEconomyProtectionTitle=KI-Wirtschaftsschutz
+SomeSettings.PreventAIPause=KI-Gebaeudepausen verhindern
+SomeSettings.PreventAIPauseHelp=Verhindert, dass KI-Spieler ihre eigenen Produktionsgebaeude schlafen legen.
+SomeSettings.PreventEmergencyDemolition=KI-Panikabriss verhindern
+SomeSettings.PreventEmergencyDemolitionHelp=Ueberspringt den KI-Notfallabriss zur Rohstoffrueckgewinnung, der sonst nuetzliche Gebaeude entfernen kann.
+SomeSettings.PreventHovelDeletion=KI-Huettenabriss verhindern
+SomeSettings.PreventHovelDeletionHelp=Blockiert direktes Loeschen lebender KI-eigener Huetten, erlaubt aber weiterhin normale Zerstoerung durch Schaden.
+SomeSettings.EnableKnightDismount=Ritter auf- und absitzen aktivieren
+SomeSettings.EnableKnightDismountHelp=Fuegt Befehlsbuttons zum Aufsatteln von Schwertkaempfern und Absteigen berittener Ritter hinzu.
+SomeSettings.KnightDismountTooltip=Absteigen
+SomeSettings.KnightDismountTooltipBody=Wandelt ausgewaehlte berittene Ritter an derselben Position in Schwertkaempfer um.
+SomeSettings.KnightMountTooltip=Aufsatteln
+SomeSettings.KnightMountTooltipBody=Wandelt ausgewaehlte Schwertkaempfer in berittene Ritter um. Benoetigt verfuegbare Pferde in einem Stall.
+SomeSettings.EnableQuarryPileRelocation=Steinhaufen-Rotation aktivieren
+SomeSettings.EnableQuarryPileRelocationHelp=Fuegt ausgewaehlten Steinbruechen einen Button hinzu, der ihren verknuepften Steinhaufen im Uhrzeigersinn zur naechsten gueltigen Position verschiebt. Wenn kein gueltiger Ersatz erzeugt werden kann, bleibt der vorhandene Haufen unveraendert.
+SomeSettings.EnableExtraChurchPriests=Mehr Priester fuer Kirchen aktivieren
+SomeSettings.EnableExtraChurchPriestsHelp=Wenn aktiviert, erhalten Kirchen zwei Priester und Kathedralen drei Priester.
+SomeSettings.QuarryPileRelocationTooltip=Steinhaufen verschieben
+SomeSettings.QuarryPileRelocationTooltipBody=Verschiebt den verknuepften Steinhaufen zur naechsten gueltigen Position im Uhrzeigersinn um diesen Steinbruch.
+SomeSettings.EnableCtrlSingleMarketTrade=Mit Strg eine Markteinheit handeln
+SomeSettings.EnableCtrlSingleMarketTradeHelp=Halte beim Kaufen oder Verkaufen Strg gedrueckt, um genau eine Einheit zu handeln. Strg+Umschalt verwendet die normale Menge von fuenf Einheiten.
+SomeSettings.PlagueDurationMultiplier=Pestwolken-Dauer
+SomeSettings.PlagueDurationMultiplierHelp=Multiplikator fuer die aktive Lebensdauer aller Pestwolken. 1,0x behaelt die Vanilla-Dauer bei; hoehere Werte verlaengern auch, wie lange Wolken Schaden verursachen koennen.
+SomeSettings.ApothecaryPlagueSearchDistance=Apotheker-Suchreichweite
+SomeSettings.ApothecaryPlagueSearchDistanceHelp=Maximale Manhattan-Distanz vom zugeordneten Apothekergebaeude zu einer Pestwolke. 30 behaelt die Vanilla-Reichweite bei.
+
+Common.HostOptions=HOST-OPTIONEN
+Common.ClientOptions=LOKALE CLIENT-OPTIONEN
+Common.HostReadOnly=Werte vom Host – schreibgeschützt
+Common.ResetToDefaultHelp=Setzt die Einstellungen zurück, die du im aktuellen Kontext ändern kannst.
+Common.EnableModHelp=Aktiviert oder deaktiviert diese Mod für die Partie.
+Common.PresetHelp=Wählt ein gespeichertes Preset. Clients ändern damit nur ihre persönlichen Einstellungen.
+
+SomeSettings.ComfortTitle=Komfortfunktionen
+SomeSettings.PlagueTitle=Pest
+Common.Preset=Preset
+Common.ActionsScopeHost=Preset und Zurücksetzen betreffen Host-Einstellungen und deine lokalen Client-Optionen.
+Common.ActionsScopeClient=Preset und Zurücksetzen betreffen nur deine lokalen Client-Optionen.
+SomeSettings.BuildingsProductionTitle=Gebäude und Produktion
+SomeSettings.CampfirePeasants=Wartende Bauern am Burgfeuer
+SomeSettings.CampfirePeasantsHelp=-1 = unverändert. Erlaubter Bereich: -1 bis 500. Legt die maximale Anzahl Bauern fest, die am Burgfeuer warten.
+SomeSettings.NewFeaturesTitle=Neue Spielfunktionen
+SomeSettings.TilesValueFormat={0} Felder

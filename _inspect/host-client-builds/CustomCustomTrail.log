@@ -1,0 +1,51 @@
+Verwende Script Extender Referenzen:
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\CustomCustomTrail\..\shcde-script-extender\src\SHCDESE.BepInEx\bin\net481
+
+PASS bundled mission loads
+PASS path escape rejected
+PASS invalid rotation rejected
+PASS catalog keeps valid slots and ignores invalid slots
+PASS schema 1 is rejected
+PASS locally edited mission JSON reloads from the same slot
+PASS invalid mod settings disable transaction
+PASS first two active players become allied humans
+PASS preferred AIV permits differing rotations
+PASS fourth trail tenth slot is addressable
+PASS native mod-settings JSON roundtrip
+PASS mod-settings registry has seven entries
+PASS missing mod entry becomes disabled
+PASS invalid mod-settings documents are rejected
+PASS atomic sidecar write replaces existing file
+PASS Trail coordinator ownership is centralized
+16/16 tests passed.
+MSBuild-Version 17.11.9+a69bbaaf5 für .NET Framework
+Der Buildvorgang wurde am 10.08.2026 14:51:05 gestartet.
+
+Projekt "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\CustomCustomTrail\CustomCustomTrail.csproj" auf Knoten "1" (Standardziele).
+PrepareForBuild:
+  Das Verzeichnis "BepInEx\plugins\CustomCustomTrail_Serp\" wird erstellt.
+GenerateTargetFrameworkMonikerAttribute:
+Das Ziel "GenerateTargetFrameworkMonikerAttribute" wird übersprungen, da alle Ausgabedateien hinsichtlich der Eingabedateien aktuell sind.
+CoreCompile:
+Das Ziel "CoreCompile" wird übersprungen, da alle Ausgabedateien hinsichtlich der Eingabedateien aktuell sind.
+_CopyFilesMarkedCopyLocal:
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\CustomCustomTrail\CustomCustomTrail.Core\bin\Release\netstandard2.0\CustomCustomTrail.Core.dll" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\CustomCustomTrail\BepInEx\plugins\CustomCustomTrail_Serp\CustomCustomTrail.Core.dll" kopiert.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\CustomCustomTrail\CustomCustomTrail.Core\bin\Release\netstandard2.0\CustomCustomTrail.Core.pdb" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\CustomCustomTrail\BepInEx\plugins\CustomCustomTrail_Serp\CustomCustomTrail.Core.pdb" kopiert.
+  Aktualisieren des Timestamps von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\CustomCustomTrail\obj\Release\CustomCu.4AF956F7.Up2Date".
+CopyFilesToOutputDirectory:
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\CustomCustomTrail\obj\Release\CustomCustomTrail.dll" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\CustomCustomTrail\BepInEx\plugins\CustomCustomTrail_Serp\CustomCustomTrail.dll" kopiert.
+  CustomCustomTrail -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\CustomCustomTrail\BepInEx\plugins\CustomCustomTrail_Serp\CustomCustomTrail.dll
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\CustomCustomTrail\obj\Release\CustomCustomTrail.pdb" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\CustomCustomTrail\BepInEx\plugins\CustomCustomTrail_Serp\CustomCustomTrail.pdb" kopiert.
+Die Erstellung von Projekt "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\CustomCustomTrail\CustomCustomTrail.csproj" ist abgeschlossen (Standardziele).
+
+Der Buildvorgang wurde erfolgreich ausgeführt.
+    0 Warnung(en)
+    0 Fehler
+
+Verstrichene Zeit 00:00:00.17
+4 Datei(en) kopiert
+1 Datei(en) kopiert
+Installiere geprueftes Paket...
+11 Datei(en) kopiert
+
+Build, Tests und Installation erfolgreich.
