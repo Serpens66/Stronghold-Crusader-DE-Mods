@@ -18,11 +18,11 @@ namespace ExtraFeatures
         public event Action<string> SettingChanged;
 
         private bool enableMod = true;
-        private string woodRefundPercentText = "-1";
-        private string stoneRefundPercentText = "-1";
-        private string ironRefundPercentText = "-1";
-        private string pitchRefundPercentText = "-1";
-        private string goldRefundPercentText = "-1";
+        private int woodRefundPercent = -1;
+        private int stoneRefundPercent = -1;
+        private int ironRefundPercent = -1;
+        private int pitchRefundPercent = -1;
+        private int goldRefundPercent = -1;
         private double multiplyGoodsGainAI = 1.0;
         private double multiplyGoodsGainHuman = 1.0;
         private double multiplyGoodsGainInMoneyAI;
@@ -127,18 +127,18 @@ namespace ExtraFeatures
         public string PreventHovelDeletionHelpText => SerpLocalization.Get(SerpLocalization.PreventHovelDeletionHelp);
 
         [SyncHostOnly] public bool EnableMod { get => enableMod; set => SetSetting(ref enableMod, value, nameof(EnableMod)); }
-        [SyncHostOnly] public string WoodRefundPercentText { get => woodRefundPercentText; set => SetTextSetting(ref woodRefundPercentText, value, nameof(WoodRefundPercentText)); }
-        [SyncHostOnly] public string StoneRefundPercentText { get => stoneRefundPercentText; set => SetTextSetting(ref stoneRefundPercentText, value, nameof(StoneRefundPercentText)); }
-        [SyncHostOnly] public string IronRefundPercentText { get => ironRefundPercentText; set => SetTextSetting(ref ironRefundPercentText, value, nameof(IronRefundPercentText)); }
-        [SyncHostOnly] public string PitchRefundPercentText { get => pitchRefundPercentText; set => SetTextSetting(ref pitchRefundPercentText, value, nameof(PitchRefundPercentText)); }
-        [SyncHostOnly] public string GoldRefundPercentText { get => goldRefundPercentText; set => SetTextSetting(ref goldRefundPercentText, value, nameof(GoldRefundPercentText)); }
+        [SyncHostOnly] public int WoodRefundPercent { get => woodRefundPercent; set => SetIntSetting(ref woodRefundPercent, value, -1, 100, nameof(WoodRefundPercent), nameof(WoodRefundPercentValueText)); }
+        [SyncHostOnly] public int StoneRefundPercent { get => stoneRefundPercent; set => SetIntSetting(ref stoneRefundPercent, value, -1, 100, nameof(StoneRefundPercent), nameof(StoneRefundPercentValueText)); }
+        [SyncHostOnly] public int IronRefundPercent { get => ironRefundPercent; set => SetIntSetting(ref ironRefundPercent, value, -1, 100, nameof(IronRefundPercent), nameof(IronRefundPercentValueText)); }
+        [SyncHostOnly] public int PitchRefundPercent { get => pitchRefundPercent; set => SetIntSetting(ref pitchRefundPercent, value, -1, 100, nameof(PitchRefundPercent), nameof(PitchRefundPercentValueText)); }
+        [SyncHostOnly] public int GoldRefundPercent { get => goldRefundPercent; set => SetIntSetting(ref goldRefundPercent, value, -1, 100, nameof(GoldRefundPercent), nameof(GoldRefundPercentValueText)); }
         [SyncHostOnly] public bool KeepStorageContent { get => keepStorageContent; set => SetSetting(ref keepStorageContent, value, nameof(KeepStorageContent)); }
 
-        public int WoodRefundPercent => ParsePercentOrUnchanged(WoodRefundPercentText);
-        public int StoneRefundPercent => ParsePercentOrUnchanged(StoneRefundPercentText);
-        public int IronRefundPercent => ParsePercentOrUnchanged(IronRefundPercentText);
-        public int PitchRefundPercent => ParsePercentOrUnchanged(PitchRefundPercentText);
-        public int GoldRefundPercent => ParsePercentOrUnchanged(GoldRefundPercentText);
+        public string WoodRefundPercentValueText => FormatRefundPercent(WoodRefundPercent);
+        public string StoneRefundPercentValueText => FormatRefundPercent(StoneRefundPercent);
+        public string IronRefundPercentValueText => FormatRefundPercent(IronRefundPercent);
+        public string PitchRefundPercentValueText => FormatRefundPercent(PitchRefundPercent);
+        public string GoldRefundPercentValueText => FormatRefundPercent(GoldRefundPercent);
 
         [SyncHostOnly] public double MultiplyGoodsGainAI { get => multiplyGoodsGainAI; set => SetDecimalMultiplierSetting(ref multiplyGoodsGainAI, value, nameof(MultiplyGoodsGainAI), nameof(MultiplyGoodsGainAIText)); }
         [SyncHostOnly] public double MultiplyGoodsGainHuman { get => multiplyGoodsGainHuman; set => SetDecimalMultiplierSetting(ref multiplyGoodsGainHuman, value, nameof(MultiplyGoodsGainHuman), nameof(MultiplyGoodsGainHumanText)); }
@@ -207,11 +207,11 @@ namespace ExtraFeatures
                 return;
 
             EnableMod = true;
-            WoodRefundPercentText = "-1";
-            StoneRefundPercentText = "-1";
-            IronRefundPercentText = "-1";
-            PitchRefundPercentText = "-1";
-            GoldRefundPercentText = "-1";
+            WoodRefundPercent = -1;
+            StoneRefundPercent = -1;
+            IronRefundPercent = -1;
+            PitchRefundPercent = -1;
+            GoldRefundPercent = -1;
             KeepStorageContent = false;
             MultiplyGoodsGainAI = 1;
             MultiplyGoodsGainHuman = 1;
@@ -234,19 +234,6 @@ namespace ExtraFeatures
             PreventAIPause = true;
             PreventEmergencyDemolition = true;
             PreventHovelDeletion = true;
-        }
-
-        private void SetTextSetting(ref string field, string value, string propertyName)
-        {
-            if (!CanMutateSetting(propertyName))
-                return;
-
-            string normalized = NormalizePercentText(value);
-            if (field == normalized)
-                return;
-            field = normalized;
-            SettingChanged?.Invoke(propertyName);
-            OnPropertyChanged(propertyName);
         }
 
         private void SetSetting<T>(ref T field, T value, string propertyName)
@@ -472,14 +459,8 @@ namespace ExtraFeatures
             setValue(parsed);
         }
 
-        private static string NormalizePercentText(string value) => ParsePercentOrUnchanged(value).ToString();
-
-        private static int ParsePercentOrUnchanged(string value)
-        {
-            if (!int.TryParse(value, out int parsed) || parsed < -1)
-                return -1;
-            return Math.Min(100, parsed);
-        }
+        private static string FormatRefundPercent(int percent) =>
+            percent < 0 ? "-1" : percent.ToString(CultureInfo.InvariantCulture) + "%";
 
         private static double ClampMultiplier(double value, double minimum, double maximum)
         {

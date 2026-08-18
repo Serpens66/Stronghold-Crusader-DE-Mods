@@ -105,11 +105,14 @@ provide process-persistent fallbacks, especially for controller buttons. These
 callbacks and Noesis event registrations must not be removed from the early
 `BaseUnityPlugin.OnDestroy()`.
 
-The Blueprint runtime intentionally does not use the Script Extender's current
-`UnityMainThreadDispatcher`: its early host is destroyed during SHCDE startup.
 The verified `Application.onBeforeRender` callback is the sole Blueprint frame
-source until [SHCDE-SE issue 128](https://gitlab.com/rawra-stronghold-crusader/shcde-script-extender/-/work_items/128)
-is fixed; a repaired dispatcher may provide a better process-lifetime frame host.
+source. Blueprint input, camera, view-mode, loading, and overlay work must follow
+rendered frames even while simulation ticks are paused; `Time.frameCount` prevents
+duplicate work if the callback fires more than once in a frame. The Script
+Extender dispatcher is intended to marshal individual operations from background
+threads to Unity's main thread. Its inherited `StartCoroutine(...)` method is not
+a supported persistent frame-host API and provides no benefit for this already
+main-thread-bound Blueprint runtime.
 
 The separate mouse-preview size and alignment measurement remains enabled as a
 fallback for missing or invalid bundled images. It can be disabled through

@@ -92,9 +92,9 @@ namespace SpawnCastle
 
             initialized = true;
             RefreshHud();
-            // This verified callback survives destruction of SHCDE's early plugin objects.
-            // A fixed Script Extender dispatcher may offer a better frame host later:
-            // https://gitlab.com/rawra-stronghold-crusader/shcde-script-extender/-/work_items/128
+            // Blueprint input, camera, and overlay work must follow rendered frames even while
+            // simulation ticks are paused. This verified static callback survives startup, and
+            // TickOncePerFrame deduplicates multiple callbacks within the same rendered frame.
             Application.onBeforeRender += OnBeforeRender;
             Shared.DebugLogHelper.LogInfo(
                 log,

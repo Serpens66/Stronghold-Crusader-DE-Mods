@@ -17,7 +17,7 @@
       "Version": "0.4.4",
       "Changes": [
         "Removed the nonfunctional early MonoBehaviour and Script Extender dispatcher frame-loop fallbacks from Blueprint mode.",
-        "Kept the verified Application.onBeforeRender callback as the sole process-lifetime Blueprint frame source until SHCDE-SE issue 128 is fixed."
+        "Kept the verified Application.onBeforeRender callback as the sole process-lifetime Blueprint frame source because the Script Extender dispatcher is not intended as a frame host."
       ]
     },
     {
