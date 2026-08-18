@@ -1,0 +1,9 @@
+SerpsModsHost.StatusTitle=Serps Mods diagnostics
+SerpsModsHost.SummaryTitle=PACK STATUS
+SerpsModsHost.ErrorsTitle=ERRORS
+SerpsModsHost.Refresh=Refresh
+SerpsModsHost.RefreshHelp=Checks whether all expected child plugins are loaded with the packaged versions.
+SerpsModsHost.ClearErrors=Clear displayed errors
+SerpsModsHost.ClearErrorsHelp=Clears only this diagnostic display. The BepInEx log remains unchanged.
+SerpsModsHost.NoErrors=No errors recorded.
+SerpsModsHost.SummaryFormat=Pack {Version}: expected {Expected}, validated {Validated}, registered {Registered}.

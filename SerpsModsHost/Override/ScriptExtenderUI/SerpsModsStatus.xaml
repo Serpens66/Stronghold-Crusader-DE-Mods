@@ -1,0 +1,25 @@
+<Grid xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:shared="clr-namespace:Shared;assembly=SerpsModsHost">
+  <Grid.Resources>
+    <Style TargetType="{x:Type ToolTip}">
+      <Setter Property="Background" Value="#FF1D1710"/><Setter Property="Foreground" Value="White"/><Setter Property="FontSize" Value="20"/><Setter Property="BorderBrush" Value="#FFF2D48A"/><Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="{x:Type ToolTip}"><Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="2" Padding="10,7" MaxWidth="{x:Static shared:ToolTipPresentation.MaximumWidth}"><TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}" FontSize="{TemplateBinding FontSize}" TextWrapping="Wrap"/></Border></ControlTemplate></Setter.Value></Setter>
+    </Style>
+    <Style x:Key="SectionHeader" TargetType="{x:Type TextBlock}"><Setter Property="Foreground" Value="#FFF2D48A"/><Setter Property="FontWeight" Value="Bold"/><Setter Property="FontSize" Value="18"/></Style>
+  </Grid.Resources>
+  <ScrollViewer HorizontalScrollBarVisibility="{x:Static shared:ToolTipPresentation.AutomaticScrollBarVisibility}"
+                VerticalScrollBarVisibility="{x:Static shared:ToolTipPresentation.AutomaticScrollBarVisibility}">
+    <StackPanel Margin="10">
+      <TextBlock Text="{Binding TitleText}" Foreground="White" FontSize="22" FontWeight="Bold" Margin="0,0,0,10"/>
+      <TextBlock Text="{Binding SummaryTitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,4"/>
+      <TextBlock Text="{Binding SummaryText}" Foreground="White" TextWrapping="Wrap" Margin="0,0,0,12"/>
+      <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+        <Button Content="{Binding RefreshText}" Command="{Binding RefreshCommand}" Padding="10,3" Margin="0,0,8,0" ToolTipService.ShowDuration="60000" ToolTip="{Binding RefreshHelpText}"/>
+        <Button Content="{Binding ClearErrorsText}" Command="{Binding ClearErrorsCommand}" Padding="10,3" ToolTipService.ShowDuration="60000" ToolTip="{Binding ClearErrorsHelpText}"/>
+      </StackPanel>
+      <TextBlock Text="{Binding ErrorsTitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,4"/>
+      <TextBlock Text="{Binding ErrorsText}" Foreground="#FFFF7777" TextWrapping="Wrap"/>
+    </StackPanel>
+  </ScrollViewer>
+</Grid>

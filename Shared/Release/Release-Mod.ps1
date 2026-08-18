@@ -64,9 +64,15 @@ try {
     $dependencyRecords = @(Get-DependencyRecords -Metadata $metadata -ExtenderDir $extenderDir)
     $buildStart = [DateTime]::UtcNow
     Write-Host 'Running the mod build once...' -ForegroundColor Cyan
-    $argumentString = '/d /s /c ""{0}" /nopause"' -f $metadata.BuildBat
-    $process = Start-Process -FilePath $env:ComSpec -ArgumentList $argumentString -WorkingDirectory $metadata.ModDir -Wait -PassThru -NoNewWindow
-    if ($process.ExitCode -ne 0) { throw "build.bat failed with exit code $($process.ExitCode)." }
+    Push-Location $metadata.ModDir
+    try {
+        $buildOutput = @(& $metadata.BuildBat /nopause 2>&1)
+        $buildExitCode = $LASTEXITCODE
+    } finally {
+        Pop-Location
+    }
+    foreach ($buildLine in $buildOutput) { Write-Host ([string]$buildLine) }
+    if ($buildExitCode -ne 0) { throw "build.bat failed with exit code $buildExitCode." }
     if (-not (Test-Path -LiteralPath $metadata.PackageDir -PathType Container)) { throw "Plugin package was not produced: $($metadata.PackageDir)" }
 
     $trackedStatus = Invoke-CheckedCommand -FilePath 'git' -Arguments @('-C', $config.Root, 'status', '--porcelain=v1', '--untracked-files=no')

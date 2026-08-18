@@ -1,9 +1,9 @@
 @echo off
-call "%~dp0..\Shared\Release\Invoke-Release.bat" BuildingLimit /called
+call "%~dp0..\Shared\Release\Invoke-Release.bat" BuildingLimit /called %*
 set "EXIT_CODE=%ERRORLEVEL%"
 if not "%EXIT_CODE%"=="0" (
   echo.
   echo Release fehlgeschlagen. Exit Code: %EXIT_CODE%
-  pause
+  echo %* | findstr /I /C:"/nopause" >nul || pause
 )
 exit /b %EXIT_CODE%

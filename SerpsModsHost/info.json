@@ -1,0 +1,18 @@
+{
+  "GUID": "SerpsMods_Serp",
+  "Author": "Serpens66",
+  "Name": "Serps Mods",
+  "Description": "Host and diagnostics for the unified Serps Mods Steam Workshop package.",
+  "Version": "1.0.0",
+  "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods",
+  "Manifest": 1,
+  "NetworkMode": 1,
+  "SerpChangelog": [
+    {
+      "Version": "1.0.0",
+      "Changes": [
+        "Initial unified Steam Workshop mod-pack host."
+      ]
+    }
+  ]
+}

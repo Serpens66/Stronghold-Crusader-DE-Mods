@@ -138,6 +138,15 @@ public static class SerpLocalization
     public const string PreventEmergencyDemolition = "SomeSettings.PreventEmergencyDemolition";
     public const string PreventEmergencyDemolitionHelp = "SomeSettings.PreventEmergencyDemolitionHelp";
     public const string PreventHovelDeletion = "SomeSettings.PreventHovelDeletion";
+    public const string SerpsModsStatusTitle = "SerpsModsHost.StatusTitle";
+    public const string SerpsModsSummaryTitle = "SerpsModsHost.SummaryTitle";
+    public const string SerpsModsErrorsTitle = "SerpsModsHost.ErrorsTitle";
+    public const string SerpsModsRefresh = "SerpsModsHost.Refresh";
+    public const string SerpsModsRefreshHelp = "SerpsModsHost.RefreshHelp";
+    public const string SerpsModsClearErrors = "SerpsModsHost.ClearErrors";
+    public const string SerpsModsClearErrorsHelp = "SerpsModsHost.ClearErrorsHelp";
+    public const string SerpsModsNoErrors = "SerpsModsHost.NoErrors";
+    public const string SerpsModsSummaryFormat = "SerpsModsHost.SummaryFormat";
     public const string PreventHovelDeletionHelp = "SomeSettings.PreventHovelDeletionHelp";
     public const string AivPlacementComplete = "AIVPlacementLobby.Complete";
     public const string AivPlacementPartial = "AIVPlacementLobby.Partial";
@@ -153,6 +162,15 @@ public static class SerpLocalization
 
     private static readonly Dictionary<string, string> EnglishFallbacks = new Dictionary<string, string>
     {
+        { SerpsModsStatusTitle, "Serps Mods diagnostics" },
+        { SerpsModsSummaryTitle, "PACK STATUS" },
+        { SerpsModsErrorsTitle, "ERRORS" },
+        { SerpsModsRefresh, "Refresh" },
+        { SerpsModsRefreshHelp, "Checks whether all expected child plugins are loaded with the packaged versions." },
+        { SerpsModsClearErrors, "Clear displayed errors" },
+        { SerpsModsClearErrorsHelp, "Clears only this diagnostic display. The BepInEx log remains unchanged." },
+        { SerpsModsNoErrors, "No errors recorded." },
+        { SerpsModsSummaryFormat, "Pack {Version}: expected {Expected}, validated {Validated}, registered {Registered}." },
         { ResetToDefault, "Reset to Default" },
         { EnableMod, "Enable Mod" },
         { HostOptions, "HOST OPTIONS" },
