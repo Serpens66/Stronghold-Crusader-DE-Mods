@@ -24,8 +24,9 @@ $script:JournalPath = Join-Path $script:OutputRoot 'journal.json'
 $script:Repository = 'Serpens66/Stronghold-Crusader-DE-Mods'
 $script:Branch = 'main'
 $script:CompatibilityChange = 'Added optional Serps Mods Host dependency for Workshop mod-pack load ordering.'
-$script:CecilPath = 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\core\Mono.Cecil.dll'
-$script:BepInExCorePath = Split-Path -Parent $script:CecilPath
+$script:CecilSourcePath = 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\core\Mono.Cecil.dll'
+$script:CecilLoadPath = $null
+$script:BepInExCorePath = Split-Path -Parent $script:CecilSourcePath
 $script:ScriptExtenderOutputPath = Join-Path $script:Root 'shcde-script-extender\src\SHCDESE.BepInEx\bin\net481'
 $script:ReleaseList = @()
 
@@ -59,9 +60,131 @@ function Write-JsonCrLf {
     Write-Utf8CrLf -Path $Path -Text ($Value | ConvertTo-Json -Depth 20)
 }
 
+function Find-JsonArrayEnd {
+    param([Parameter(Mandatory)][string]$Text, [Parameter(Mandatory)][int]$OpenIndex)
+    $depth = 0
+    $inString = $false
+    $escaped = $false
+    for ($index = $OpenIndex; $index -lt $Text.Length; $index++) {
+        $character = $Text[$index]
+        if ($inString) {
+            if ($escaped) { $escaped = $false; continue }
+            if ($character -eq '\') { $escaped = $true; continue }
+            if ($character -eq '"') { $inString = $false }
+            continue
+        }
+        if ($character -eq '"') { $inString = $true; continue }
+        if ($character -eq '[') { $depth++ }
+        elseif ($character -eq ']') {
+            $depth--
+            if ($depth -eq 0) { return $index }
+        }
+    }
+    Fail-Pack 3 "Unterminated JSON array starting at character $OpenIndex."
+}
+
+function Update-ModManifestText {
+    param(
+        [Parameter(Mandatory)][string]$Text,
+        [Parameter(Mandatory)][string]$Version,
+        [Parameter(Mandatory)][bool]$AddChangelogEntry,
+        [Parameter(Mandatory)][bool]$AddCompatibilityChange
+    )
+    $newline = if ($Text.Contains("`r`n")) { "`r`n" } else { "`n" }
+    $versionMatch = [regex]::Match($Text, '(?m)^(\s*"Version"\s*:\s*")[^"]+("\s*,?\s*)$')
+    if (-not $versionMatch.Success) { Fail-Pack 3 'Could not locate the top-level manifest Version property.' }
+    $Text = $Text.Substring(0, $versionMatch.Index) +
+        $versionMatch.Groups[1].Value + $Version + $versionMatch.Groups[2].Value +
+        $Text.Substring($versionMatch.Index + $versionMatch.Length)
+
+    if (-not $AddChangelogEntry -and -not $AddCompatibilityChange) { return $Text }
+    $changelogMatch = [regex]::Match($Text, '"SerpChangelog"\s*:\s*\[')
+    if (-not $changelogMatch.Success) { Fail-Pack 3 'Could not locate the SerpChangelog array.' }
+    $changelogOpen = $Text.IndexOf('[', $changelogMatch.Index)
+
+    if ($AddChangelogEntry) {
+        $lineStart = $Text.LastIndexOf("`n", $changelogMatch.Index)
+        $propertyIndent = $Text.Substring($lineStart + 1, $changelogMatch.Index - $lineStart - 1)
+        $entryIndent = $propertyIndent + '  '
+        $memberIndent = $entryIndent + '  '
+        $valueIndent = $memberIndent + '  '
+        $escapedChange = $script:CompatibilityChange | ConvertTo-Json -Compress
+        $entry = $newline + $entryIndent + '{' +
+            $newline + $memberIndent + '"Version": "' + $Version + '",' +
+            $newline + $memberIndent + '"Changes": [' +
+            $newline + $valueIndent + $escapedChange +
+            $newline + $memberIndent + ']' +
+            $newline + $entryIndent + '}'
+        $close = Find-JsonArrayEnd -Text $Text -OpenIndex $changelogOpen
+        $existing = $Text.Substring($changelogOpen + 1, $close - $changelogOpen - 1)
+        if (-not [string]::IsNullOrWhiteSpace($existing)) { $entry += ',' }
+        return $Text.Insert($changelogOpen + 1, $entry)
+    }
+
+    $tail = $Text.Substring($changelogOpen + 1)
+    $entryMatch = [regex]::Match($tail, '"Version"\s*:\s*"' + [regex]::Escape($Version) + '"')
+    if (-not $entryMatch.Success) { Fail-Pack 3 "Could not locate changelog entry for version $Version." }
+    $entryIndex = $changelogOpen + 1 + $entryMatch.Index
+    $changesMatch = [regex]::Match($Text.Substring($entryIndex), '"Changes"\s*:\s*\[')
+    if (-not $changesMatch.Success) { Fail-Pack 3 "Could not locate Changes for version $Version." }
+    $changesOpen = $entryIndex + $Text.Substring($entryIndex).IndexOf('[', $changesMatch.Index)
+    $changesClose = Find-JsonArrayEnd -Text $Text -OpenIndex $changesOpen
+    $changesContent = $Text.Substring($changesOpen + 1, $changesClose - $changesOpen - 1)
+    $lastValueIndex = $changesContent.Length - 1
+    while ($lastValueIndex -ge 0 -and [char]::IsWhiteSpace($changesContent[$lastValueIndex])) { $lastValueIndex-- }
+    if ($lastValueIndex -lt 0) { Fail-Pack 3 "Empty Changes array for version $Version is not supported." }
+    $changesPropertyIndex = $entryIndex + $changesMatch.Index
+    $lineStart = $Text.LastIndexOf("`n", $changesPropertyIndex)
+    $propertyIndent = $Text.Substring($lineStart + 1, $changesPropertyIndex - $lineStart - 1)
+    $valueIndent = $propertyIndent + '  '
+    $escapedChange = $script:CompatibilityChange | ConvertTo-Json -Compress
+    return $Text.Insert($changesOpen + 1 + $lastValueIndex + 1, ',' + $newline + $valueIndent + $escapedChange)
+}
+
 function Get-Sha256 {
     param([Parameter(Mandatory)][string]$Path)
-    return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+    $stream = [IO.File]::Open(
+        $Path,
+        [IO.FileMode]::Open,
+        [IO.FileAccess]::Read,
+        [IO.FileShare]::Read)
+    $algorithm = [Security.Cryptography.SHA256]::Create()
+    try {
+        return ([BitConverter]::ToString(
+            $algorithm.ComputeHash($stream))).Replace('-', '').ToLowerInvariant()
+    } finally {
+        $algorithm.Dispose()
+        $stream.Dispose()
+    }
+}
+
+function Resolve-CecilLoadPath {
+    if ($null -ne $script:CecilLoadPath) { return $script:CecilLoadPath }
+    if (-not (Test-Path -LiteralPath $script:CecilSourcePath -PathType Leaf)) {
+        Fail-Pack 2 "Mono.Cecil not found: $($script:CecilSourcePath)"
+    }
+
+    $sourceHash = Get-Sha256 $script:CecilSourcePath
+    $cacheDirectory = Join-Path $script:OutputRoot "tools\Mono.Cecil\$sourceHash"
+    $cachePath = Join-Path $cacheDirectory 'Mono.Cecil.dll'
+    [void](New-Item -ItemType Directory -Path $cacheDirectory -Force)
+
+    if (-not (Test-Path -LiteralPath $cachePath -PathType Leaf) -or
+        (Get-Sha256 $cachePath) -ne $sourceHash) {
+        # Writing the bytes to a new local file intentionally omits an inherited
+        # Zone.Identifier that can make Add-Type reject the game-directory DLL.
+        [IO.File]::WriteAllBytes(
+            $cachePath,
+            [IO.File]::ReadAllBytes($script:CecilSourcePath))
+    }
+    $cacheHash = Get-Sha256 $cachePath
+    if ($cacheHash -ne $sourceHash) {
+        Fail-Pack 2 "Mono.Cecil cache hash mismatch: source=$sourceHash, cache=$cacheHash."
+    }
+
+    $script:CecilLoadPath = $cachePath
+    Write-RunLog "Prepared trusted Mono.Cecil cache copy: $cachePath (sha256=$cacheHash)." 'OK'
+    return $script:CecilLoadPath
 }
 
 function Invoke-Checked {
@@ -296,7 +419,9 @@ function Get-ReleasePackage {
 
 function Get-CecilPluginMetadata {
     param([string]$Directory)
-    if (-not ('Mono.Cecil.AssemblyDefinition' -as [type])) { Add-Type -Path $script:CecilPath }
+    if (-not ('Mono.Cecil.AssemblyDefinition' -as [type])) {
+        Add-Type -Path (Resolve-CecilLoadPath)
+    }
     $found = @()
     foreach ($dll in @(Get-ChildItem -LiteralPath $Directory -File -Filter '*.dll')) {
         $assembly = $null
@@ -350,16 +475,19 @@ function Set-ModCompatibility {
     Write-Utf8CrLf -Path $Mod.PluginSource -Text $text
 
     foreach ($manifestPath in $Mod.ManifestPaths) {
-        $json = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
-        $json.Version = $Mod.TargetVersion
+        $manifestText = [IO.File]::ReadAllText($manifestPath)
+        $json = $manifestText | ConvertFrom-Json
         $entry = @($json.SerpChangelog | Where-Object { [string]$_.Version -eq $Mod.TargetVersion })
+        $addEntry = $entry.Count -eq 0
+        $addChange = $entry.Count -gt 0 -and @($entry[0].Changes) -notcontains $script:CompatibilityChange
         if ($entry.Count -eq 0) {
-            $newEntry = [pscustomobject][ordered]@{ Version = $Mod.TargetVersion; Changes = @($script:CompatibilityChange) }
-            $json.SerpChangelog = @($newEntry) + @($json.SerpChangelog)
-        } elseif (@($entry[0].Changes) -notcontains $script:CompatibilityChange) {
-            $entry[0].Changes = @($entry[0].Changes) + $script:CompatibilityChange
+            Write-RunLog "Adding changelog entry for $($Mod.Name) v$($Mod.TargetVersion)."
+        } elseif ($addChange) {
+            Write-RunLog "Appending Workshop compatibility note to $($Mod.Name) v$($Mod.TargetVersion)."
         }
-        Write-JsonCrLf -Path $manifestPath -Value $json
+        $updatedManifest = Update-ModManifestText -Text $manifestText -Version $Mod.TargetVersion `
+            -AddChangelogEntry $addEntry -AddCompatibilityChange $addChange
+        Write-Utf8CrLf -Path $manifestPath -Text $updatedManifest
     }
 }
 
@@ -577,7 +705,7 @@ try {
     if ($duplicateGuids.Count -gt 0) { Fail-Pack 2 "Duplicate plugin GUIDs: $(@($duplicateGuids.Name) -join ', ')" }
     foreach ($mod in $mods) { if ($mod.DependencyCount -gt 1) { Fail-Pack 3 "Duplicate host dependencies in $($mod.Name)." } }
     if (-not (Test-Path -LiteralPath $PreviewPath -PathType Leaf)) { Fail-Pack 2 "Steam preview image not found: $PreviewPath" }
-    if (-not (Test-Path -LiteralPath $script:CecilPath -PathType Leaf)) { Fail-Pack 2 "Mono.Cecil not found: $script:CecilPath" }
+    [void](Resolve-CecilLoadPath)
     $resolvedPackager = Resolve-WorkshopPackager
 
     $branch = ((Invoke-Git @('branch','--show-current') 2).Output -join '').Trim()

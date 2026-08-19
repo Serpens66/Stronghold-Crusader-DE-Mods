@@ -10,7 +10,8 @@
     {
       "Version": "1.0.92",
       "Changes": [
-        "Updated shared lobby settings for Script Extender 1.42.0 by avoiding redundant UI-only persistence and using the official multiplayer-game signal."
+        "Updated shared lobby settings for Script Extender 1.42.0 by avoiding redundant UI-only persistence and using the official multiplayer-game signal.",
+        "Added optional Serps Mods Host dependency for Workshop mod-pack load ordering."
       ]
     },
     {

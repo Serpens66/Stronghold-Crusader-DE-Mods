@@ -10,7 +10,8 @@
     {
       "Version": "1.0.20",
       "Changes": [
-        "Added a default-enabled local startup display-resolution fix that reapplies the values loaded from settings.cfg during initialization and then fully stops monitoring."
+        "Added a default-enabled local startup display-resolution fix that reapplies the values loaded from settings.cfg during initialization and then fully stops monitoring.",
+        "Added optional Serps Mods Host dependency for Workshop mod-pack load ordering."
       ]
     },
     {

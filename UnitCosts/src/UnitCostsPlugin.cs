@@ -8,6 +8,7 @@ namespace UnitCosts
 {
     [BepInDependency(ScriptExtenderGuid, BepInDependency.DependencyFlags.HardDependency)]
     [BepInDependency(UnitLimitGuid, BepInDependency.DependencyFlags.SoftDependency)]
+    [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class UnitCostsPlugin : BaseUnityPlugin
     {
@@ -16,7 +17,7 @@ namespace UnitCosts
 
         public const string PluginGuid = "UnitCosts_Serp";
         public const string PluginName = "Unit Costs";
-        public const string PluginVersion = "1.0.12";
+        public const string PluginVersion = "1.0.13";
 
         private UnitCostsRuntime runtime;
         private int libraryInitializationStarted;

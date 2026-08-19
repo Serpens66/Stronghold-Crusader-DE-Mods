@@ -10,7 +10,8 @@
     {
       "Version": "1.0.17",
       "Changes": [
-        "Added a synchronized option that lets AI players keep Vanilla market prices while human players use the configured global and per-good prices; AI buy decisions, payments, and sale proceeds now use the selected price model consistently."
+        "Added a synchronized option that lets AI players keep Vanilla market prices while human players use the configured global and per-good prices; AI buy decisions, payments, and sale proceeds now use the selected price model consistently.",
+        "Added optional Serps Mods Host dependency for Workshop mod-pack load ordering."
       ]
     },
     {

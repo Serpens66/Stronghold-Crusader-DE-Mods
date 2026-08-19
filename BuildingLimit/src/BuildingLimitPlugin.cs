@@ -7,6 +7,7 @@ using System.Threading;
 namespace BuildingLimit
 {
     [BepInDependency(ScriptExtenderGuid, BepInDependency.DependencyFlags.HardDependency)]
+    [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class BuildingLimitPlugin : BaseUnityPlugin
     {

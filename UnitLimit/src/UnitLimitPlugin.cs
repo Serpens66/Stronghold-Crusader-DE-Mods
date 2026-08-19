@@ -7,6 +7,7 @@ using System.Threading;
 namespace UnitLimit
 {
     [BepInDependency(ScriptExtenderGuid, BepInDependency.DependencyFlags.HardDependency)]
+    [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class UnitLimitPlugin : BaseUnityPlugin
     {
@@ -14,7 +15,7 @@ namespace UnitLimit
 
         public const string PluginGuid = "UnitLimit_Serp";
         public const string PluginName = "Unit Limit";
-        public const string PluginVersion = "1.0.9";
+        public const string PluginVersion = "1.0.82";
 
         private UnitLimitRuntime runtime;
         private int libraryInitializationStarted;

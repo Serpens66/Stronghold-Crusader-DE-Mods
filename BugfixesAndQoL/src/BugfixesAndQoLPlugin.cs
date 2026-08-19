@@ -14,6 +14,7 @@ namespace BugfixesAndQoL
     [BepInIncompatibility(LegacyTroopMovementFixGuid)]
     [BepInIncompatibility(TroopMovementFix2Guid)]
     [BepInIncompatibility(TroopMovementFix3Guid)]
+    [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class BugfixesAndQoLPlugin : BaseUnityPlugin
     {
