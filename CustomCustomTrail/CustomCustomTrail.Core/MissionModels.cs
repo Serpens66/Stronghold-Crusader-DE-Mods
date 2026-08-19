@@ -29,7 +29,7 @@ namespace CustomCustomTrail.Core
         public MapReference Map { get; set; }
         public CoopSettings Settings { get; set; } = new CoopSettings();
         public List<PlayerDefinition> Players { get; set; } = new List<PlayerDefinition>();
-        public ModSettingsDefinition ModSettings { get; set; } = ModSettingsDefinition.CreateDisabled();
+        public ModSettingsDefinition ModSettings { get; set; } = ModSettingsDefinition.CreateUnmanaged();
         public string ModSettingsError { get; set; }
     }
 
@@ -85,7 +85,7 @@ namespace CustomCustomTrail.Core
         public int SchemaVersion { get; set; } = 1;
         public Dictionary<string, ModSettingsEntry> Mods { get; set; } = new Dictionary<string, ModSettingsEntry>(StringComparer.Ordinal);
 
-        public static ModSettingsDefinition CreateDisabled() => new ModSettingsDefinition();
+        public static ModSettingsDefinition CreateUnmanaged() => new ModSettingsDefinition();
     }
 
     public sealed class ModSettingsEntry

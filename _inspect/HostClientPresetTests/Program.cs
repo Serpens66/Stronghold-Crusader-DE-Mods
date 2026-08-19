@@ -32,6 +32,7 @@ internal static class Program
             TestArrayPerPlayerSetting();
             TestMarketOrderPresetRoundTrip();
             TestPresetLocalRoundTrip();
+            TestDoNotPersistPresetExclusion();
 
             string pluginPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "TestPlugin.dll");
             string settingsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "LobbyModSettings", "HostClientTest.msgpack");
@@ -707,6 +708,42 @@ internal static class Program
             "PresetLocal value from preset 2 did not survive restart");
     }
 
+    private static void TestDoNotPersistPresetExclusion()
+    {
+        string pluginPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "DoNotPersistPreset.dll");
+        string settingsPath = Path.Combine(
+            AppDomain.CurrentDomain.BaseDirectory,
+            "LobbyModSettings",
+            "DoNotPersistPreset.msgpack");
+        if (File.Exists(settingsPath))
+            File.Delete(settingsPath);
+
+        GameNetworkAPI.LocalHost = true;
+        var viewModel = new MixedViewModel();
+        viewModel.PreparePresets(null, pluginPath, "DoNotPersistPreset");
+        viewModel.ActivatePresets();
+        viewModel.SelectedPreset = 1;
+        viewModel.TransientHostValue = 733;
+        viewModel.SelectedPreset = 0;
+
+        Dictionary<string, byte[]> disabledSnapshot = viewModel.System_CreateDisabledMissionPresetSnapshot();
+        Check(!disabledSnapshot.ContainsKey(nameof(viewModel.TransientHostValue)),
+            "DoNotPersist host value entered the mission snapshot");
+
+        Dictionary<string, byte[]> payload = MessagePackSerializer.Deserialize<Dictionary<string, byte[]>>(
+            File.ReadAllBytes(settingsPath));
+        Check(!payload.ContainsKey(nameof(viewModel.TransientHostValue)),
+            "DoNotPersist host value entered the top-level preset payload");
+        foreach (string key in new[] { "__SerpPreset1", "__SerpPreset2" })
+        {
+            if (!payload.TryGetValue(key, out byte[] bytes))
+                continue;
+            Dictionary<string, byte[]> preset = MessagePackSerializer.Deserialize<Dictionary<string, byte[]>>(bytes);
+            Check(!preset.ContainsKey(nameof(viewModel.TransientHostValue)),
+                "DoNotPersist host value entered " + key);
+        }
+    }
+
     private static void AssertState(MixedViewModel vm, bool host, bool mission, bool editable, bool canEditHost, bool canReset, bool canChangePreset, string context)
     {
         Check(vm.IsLocalSettingsHost == host, context + ": host role");
@@ -795,6 +832,7 @@ internal sealed class MixedViewModel : PresetLobbyModSettingsViewModel
     private int hostValue = 101;
     private int clientValue = 201;
     private int localValue = 301;
+    private int transientHostValue = 401;
 
     [SyncHostOnly]
     public int HostValue
@@ -819,6 +857,19 @@ internal sealed class MixedViewModel : PresetLobbyModSettingsViewModel
 
     [PresetLocal]
     public int LocalValue { get => localValue; set { if (localValue == value) return; localValue = value; OnPropertyChanged(nameof(LocalValue)); } }
+
+    [SyncHostOnly, DoNotPersist]
+    public int TransientHostValue
+    {
+        get => transientHostValue;
+        set
+        {
+            if (!CanMutateSetting(nameof(TransientHostValue)) || transientHostValue == value)
+                return;
+            transientHostValue = value;
+            OnPropertyChanged(nameof(TransientHostValue));
+        }
+    }
 }
 
 internal sealed class MarketOrderPresetViewModel : PresetLobbyModSettingsViewModel

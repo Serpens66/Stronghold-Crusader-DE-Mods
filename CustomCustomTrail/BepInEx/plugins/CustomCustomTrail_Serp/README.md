@@ -20,9 +20,9 @@ Nur vorhandene Missionen zählen; Lücken werden wie beim Vanilla-Export entfern
 
 Die ersten beiden belegten Spielerslots werden Host und Gast. Positionen und Farben bleiben erhalten, der Gast wird automatisch dem Team des Hosts zugeordnet. Ab dem dritten belegten Slot folgen die KIs. Fairness, Startgüter und Gebäudefreigaben stammen aus dem gespeicherten Lobbysetup; die gemeinsamen Gebäudefreigaben gelten identisch für Host und Gast.
 
-Vor der Veröffentlichung wird das gesamte Koop-Paket geprüft. Eine Mission ohne zwei belegte Slots oder mit nicht auffindbaren Map-, Lord- oder AIV-Dateien bricht den Export mit einer Ingame-Meldung ab. Ein fehlendes `.modjson` ist zulässig und deaktiviert für diese Mission alle sieben unterstützten Trail-Mods.
+Vor der Veröffentlichung wird das gesamte Koop-Paket geprüft. Eine Mission ohne zwei belegte Slots oder mit nicht auffindbaren Map-, Lord- oder AIV-Dateien bricht den Export mit einer Ingame-Meldung ab. Ein fehlendes `.modjson` ist zulässig; für diese Mission bleiben die aktuell lokalen Einstellungen anderer Mods unverändert.
 
-Normale und Koop-Exporte verwenden dieselbe Modsettings-Quelle pro Mission. Ein unmittelbar vor Vanillas Speichervorgang erfasster Snapshot hat Vorrang vor dem vorhandenen `.modjson`; danach folgt der gespeicherte Sidecar. Nur wenn beides fehlt, werden die unterstützten Mods für diese Mission deaktiviert. Dadurch bleiben auch Exporte korrekt, die Vanilla noch innerhalb des laufenden Missionsspeicherns auslöst.
+Normale und Koop-Exporte verwenden dieselbe Modsettings-Quelle pro Mission. Ein unmittelbar vor Vanillas Speichervorgang erfasster Snapshot hat Vorrang vor dem vorhandenen `.modjson`; danach folgt der gespeicherte Sidecar. Fehlen beide Quellen, enthält die Mission keine fremden Modsettings und verwaltet diese Mods beim Laden nicht. Dadurch bleiben auch Exporte korrekt, die Vanilla noch innerhalb des laufenden Missionsspeicherns auslöst.
 
 Einfache Werte bleiben direkt lesbar im JSON. Komplexe oder künftig neu hinzukommende `[SyncHostOnly]`-Propertytypen werden typisiert mit derselben MessagePack-Serialisierung abgelegt, die das gemeinsame Presetsystem verwendet. Damit benötigt `CustomCustomTrail` für neue unterstützte Preset-Propertytypen keine eigene JSON-Typerweiterung.
 
@@ -82,15 +82,11 @@ Ein vollständiges manuelles Missionsbeispiel und ein Manifestbeispiel liegen un
 
 ## Modsettings der Trails
 
-Normale Custom-Trail-Missionen speichern ausschließlich `[SyncHostOnly]`-Properties der folgenden Mods als gleichnamige `.modjson`:
+Die Modsettings zeigen automatisch alle derzeit installierten kompatiblen Mods als Checkboxen. Sie sind standardmäßig aktiviert; `CustomCustomTrail` selbst wird nicht angeboten. Eine deaktivierte Checkbox lässt die betreffende Mod beim Erstellen neuer Trail-Snapshots vollständig unverwaltet. Inkompatible installierte Mods erscheinen darunter ausschließlich als kommagetrennte Namensliste.
 
-- `BuildingCosts_Serp`
-- `BuildingLimit_Serp`
-- `ExtraFeatures_Serp`
-- `RandomEvents_Serp`
-- `StartConditions_Serp`
-- `UnitCosts_Serp`
-- `UnitLimit_Serp`
+Normale Custom-Trail-Missionen speichern für die ausgewählten Mods ausschließlich persistente `[SyncHostOnly]`-Properties als gleichnamige `.modjson`. Die stabile Identität ist jeweils die BepInEx-Plugin-GUID. Welche Mods unterstützt werden, ist nicht fest im Code hinterlegt: Jede registrierte Modsettings-ViewModel, die den sicheren Mission-Preset-Vertrag erfüllt, wird automatisch erkannt.
+
+Der verlinkte Guide [`Mod Compatibilty CustomCustomTrail.md`](../Mod%20Compatibilty%20CustomCustomTrail.md) beschreibt für fremde Modautoren die empfohlene Shared-Integration, die exakten Vertragsmethoden, Property-Regeln und Diagnose über das BepInEx-Log.
 
 Speichern, Laden, Import, Export, Backup, Renummerierung und Löschen spiegeln diese Sidecars. Beim Koop-Export wird der jeweilige normalisierte Stand in die Mission eingebettet. Empfangene Hostwerte und persönliche Client-Einstellungen werden nicht in Trail-Dateien oder lokale Presets geschrieben.
 

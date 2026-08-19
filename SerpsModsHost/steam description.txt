@@ -130,10 +130,11 @@ In multiplayer, gameplay-related settings are controlled by the host and synchro
 
 [h1]Important Information[/h1]
 [list]
-[*][b]The SHCDE Script Extender and BepinEx is required![/b]
+[*][b]The SHCDE Script Extender (at least v1.42.0) and BepinEx is required![/b]:
 [*]Download the latest [url=https://gitlab.com/rawra-stronghold-crusader/shcde-bepinex/-/releases]BepInEx "Download Loader"[/url] and [url=https://gitlab.com/rawra-stronghold-crusader/shcde-script-extender/-/releases]SHCDESE_1.xx.0.zip[/url].
-[*]Copy their content (first BepInEx) into your games install folder, usually: "Steam\steamapps\common\Stronghold Crusader Definitive Edition", replace files if asked.
+[*]Copy their content (first BepInEx) into your games install folder, usually: "Steam\steamapps\common\Stronghold Crusader Definitive Edition", replace files if asked. In the end the folder structure should be eg. "Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese".
 [*]Remove separately installed copies of the included mods (eg. downloaded from my nexusmods or github) before using this collection. Duplicate installations can cause conflicts.
+[*]To quickly switch between modded and vanilla game, you can use my prepared bat (windows) or sh (linux) files from here to start the game: https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/releases/tag/1.0.1 (there you can also find a ".trail" Un-Packer to manually edit custom trail files.
 [*]All participants in a multiplayer game should use the same current version of the collection.
 [*]Some explicitly marked features are currently available only in singleplayer.
 [*]Script Extender itself and also Mods using it may in theory contain malicious code, so only download from the official source and from modders you trust! See below for my source code.

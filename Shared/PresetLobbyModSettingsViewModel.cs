@@ -877,9 +877,10 @@ namespace Shared
 
             private static bool IsPersistedProperty(PropertyInfo property)
             {
-                return property.GetCustomAttribute<SyncPerPlayerAttribute>() != null ||
+                return property.GetCustomAttribute<DoNotPersistAttribute>() == null &&
+                    (property.GetCustomAttribute<SyncPerPlayerAttribute>() != null ||
                     property.GetCustomAttribute<SyncHostOnlyAttribute>() != null ||
-                    property.GetCustomAttribute<PresetLocalAttribute>() != null;
+                    property.GetCustomAttribute<PresetLocalAttribute>() != null);
             }
 
             private static bool IsHostProperty(PropertyInfo property) =>

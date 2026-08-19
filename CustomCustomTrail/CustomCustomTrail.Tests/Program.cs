@@ -9,7 +9,7 @@ var tests = new (string Name, Action Run)[]
     ("package catalog rejects invalid packages", TestCatalogIsolation),
     ("schema 1 is rejected", TestSchemaOneRejected),
     ("locally edited mission JSON reloads from the same slot", TestEditedMissionReload),
-    ("invalid mod settings disable transaction", TestInvalidModSettings),
+    ("invalid mod settings are isolated", TestInvalidModSettings),
     ("first two active players become allied humans", TestHumanProjection),
     ("preferred AIV permits differing rotations", TestPreferredAiv),
     ("fourth trail tenth slot is addressable", TestLastCatalogSlot),
@@ -20,6 +20,8 @@ var tests = new (string Name, Action Run)[]
     ("native mod-settings JSON roundtrip", TestNativeModSettingsRoundtrip),
     ("dynamic third-party mod ids are preserved", TestModSettingsRegistry),
     ("missing mod entry remains unmanaged", TestMissingModEntry),
+    ("Trail mod compatibility contract is validated", TestTrailModCompatibilityContract),
+    ("disabled Trail mod ids are normalized", TestDisabledTrailModIdNormalization),
     ("sidecar schema evolution keeps only current settings", TestSidecarSettingsSchemaEvolution),
     ("coop mission schema evolution keeps only current settings", TestCoopSettingsSchemaEvolution),
     ("invalid mod-settings documents are rejected", TestInvalidModSettingsDocuments),
@@ -59,7 +61,7 @@ static void TestBundledMission()
 
 static void TestNativeModSettingsRoundtrip()
 {
-    ModSettingsDefinition document = ModSettingsDefinition.CreateDisabled();
+    ModSettingsDefinition document = ModSettingsDefinition.CreateUnmanaged();
     document.Mods["StartConditions_Serp"] = new ModSettingsEntry
     {
         Enabled = true,
@@ -98,6 +100,90 @@ static void TestMissingModEntry()
 {
     ModSettingsDefinition parsed = ModSettingsJson.ParseObject("{\"schemaVersion\":1,\"mods\":{}}");
     Assert(parsed.Mods.Count == 0, "an absent mod entry is not treated as unmanaged");
+}
+
+static void TestTrailModCompatibilityContract()
+{
+    var compatible = new CompatibleTrailSettingsViewModel();
+    TrailModCompatibilityResult result = EvaluateCompatibility(compatible);
+    Assert(result.IsCompatible, "valid mission-preset contract was rejected: " + result.IncompatibilityReason);
+    Assert(result.Properties.Select(property => property.Name).SequenceEqual(new[] { "EnableMod", "Label", "Strength" }),
+        "persistent host properties were not selected deterministically or DoNotPersist was included");
+
+    TrailModCompatibilityResult missingApi = EvaluateCompatibility(new MissingMissionApiViewModel());
+    Assert(!missingApi.IsCompatible && missingApi.IncompatibilityReason.Contains("mission snapshot", StringComparison.Ordinal),
+        "missing mission API was accepted");
+
+    TrailModCompatibilityResult nonBooleanEnable = EvaluateCompatibility(new NonBooleanEnableModViewModel());
+    Assert(!nonBooleanEnable.IsCompatible && nonBooleanEnable.IncompatibilityReason.Contains("Boolean", StringComparison.Ordinal),
+        "non-Boolean EnableMod was accepted");
+
+    compatible.Label = null;
+    TrailModCompatibilityResult nullValue = EvaluateCompatibility(compatible);
+    Assert(!nullValue.IsCompatible && nullValue.IncompatibilityReason.Contains("Label is null", StringComparison.Ordinal),
+        "null persistent value was accepted");
+    compatible.Label = "ready";
+
+    TrailModCompatibilityResult serializationFailure = TrailModCompatibilityContract.Evaluate(
+        compatible,
+        (property, value) =>
+        {
+            if (property.Name == nameof(compatible.Strength))
+                throw new InvalidOperationException("probe failed");
+        },
+        DecodeCompatibilityValue);
+    Assert(!serializationFailure.IsCompatible && serializationFailure.IncompatibilityReason.Contains("not serializable", StringComparison.Ordinal),
+        "serialization failure was accepted");
+
+    compatible.OmitStrengthFromSnapshot = true;
+    TrailModCompatibilityResult missingSnapshotValue = EvaluateCompatibility(compatible);
+    Assert(!missingSnapshotValue.IsCompatible && missingSnapshotValue.IncompatibilityReason.Contains("missing Strength", StringComparison.Ordinal),
+        "incomplete mission snapshot was accepted");
+    compatible.OmitStrengthFromSnapshot = false;
+
+    compatible.EnabledInDisabledSnapshot = true;
+    TrailModCompatibilityResult enabledSnapshot = EvaluateCompatibility(compatible);
+    Assert(!enabledSnapshot.IsCompatible && enabledSnapshot.IncompatibilityReason.Contains("does not disable EnableMod", StringComparison.Ordinal),
+        "enabled disabled-snapshot was accepted");
+}
+
+static void TestDisabledTrailModIdNormalization()
+{
+    string[] normalized = TrailModCompatibilityContract.NormalizeDisabledModIds(
+        new[] { "Z.Mod", "", "CustomCustomTrail_Serp", "A.Mod", "Z.Mod", " " },
+        "CustomCustomTrail_Serp");
+    Assert(normalized.SequenceEqual(new[] { "A.Mod", "Z.Mod" }),
+        "disabled mod ids were not filtered, de-duplicated and sorted");
+    Assert(TrailModCompatibilityContract.NormalizeDisabledModIds(null, "CustomCustomTrail_Serp").Length == 0,
+        "an empty selection did not keep every compatible mod enabled by default");
+}
+
+static TrailModCompatibilityResult EvaluateCompatibility(object viewModel) =>
+    TrailModCompatibilityContract.Evaluate(
+        viewModel,
+        (property, value) => EncodeCompatibilityValue(property.PropertyType, value),
+        DecodeCompatibilityValue);
+
+static byte[] EncodeCompatibilityValue(Type type, object value)
+{
+    if (type == typeof(bool))
+        return BitConverter.GetBytes((bool)value);
+    if (type == typeof(int))
+        return BitConverter.GetBytes((int)value);
+    if (type == typeof(string))
+        return Encoding.UTF8.GetBytes((string)value);
+    throw new InvalidOperationException("unsupported fake type " + type.FullName);
+}
+
+static object DecodeCompatibilityValue(Type type, byte[] bytes)
+{
+    if (type == typeof(bool))
+        return BitConverter.ToBoolean(bytes, 0);
+    if (type == typeof(int))
+        return BitConverter.ToInt32(bytes, 0);
+    if (type == typeof(string))
+        return Encoding.UTF8.GetString(bytes);
+    throw new InvalidOperationException("unsupported fake type " + type.FullName);
 }
 
 static void TestSidecarSettingsSchemaEvolution()
@@ -148,7 +234,7 @@ static void TestAtomicSidecarWrite()
     {
         string path = Path.Combine(root, "Trail_Mission_1.modjson");
         File.WriteAllText(path, "old");
-        ModSettingsDefinition document = ModSettingsDefinition.CreateDisabled();
+        ModSettingsDefinition document = ModSettingsDefinition.CreateUnmanaged();
         document.Mods["UnitLimit_Serp"] = new ModSettingsEntry { Enabled = true };
         ModSettingsJson.WriteAtomic(path, document);
         Assert(ModSettingsJson.Read(path).Mods["UnitLimit_Serp"].Enabled, "replacement was not readable");
@@ -181,8 +267,10 @@ static void TestCoordinatorOwnership()
     string obsoleteBridgeName = "TrailModSettings" + "Bridge";
     Assert(!runtime.Contains("SerializeModSettings") && !runtime.Contains(obsoleteBridgeName), "Coop settings still use the old bridge roundtrip");
     Assert(runtime.Contains("missionSettingsCoordinator?.ExitContext(force: true)"), "map unload does not leave the mission preset context");
-    Assert(coordinator.Contains("CaptureDocument(requireLoadedEndpoints: true)"),
-        "Trail saves do not validate their synchronous pre-save settings capture");
+    Assert(coordinator.Contains("document = CaptureDocument();") &&
+        !coordinator.Contains("requireLoadedEndpoints") &&
+        coordinator.Contains("TrailModCompatibilityContract.Evaluate"),
+        "Trail saves do not use validated synchronous settings capture");
     Assert(coordinator.Contains("System_CreateDisabledMissionPresetSnapshot") &&
         coordinator.Contains("RemoveUnknownSettings"),
         "Trail loading does not combine current defaults with schema cleanup");
@@ -206,6 +294,7 @@ static void TestLocalActivationSetting()
     string plugin = File.ReadAllText(Path.Combine(root, "src", "CustomCustomTrailPlugin.cs"));
     string runtime = File.ReadAllText(Path.Combine(root, "src", "CustomCustomTrailRuntime.cs"));
     string coordinator = File.ReadAllText(Path.Combine(root, "src", "TrailMissionSettingsCoordinator.cs"));
+    string compatibilityContract = File.ReadAllText(Path.Combine(root, "CustomCustomTrail.Core", "TrailModCompatibilityContract.cs"));
     string xaml = File.ReadAllText(Path.Combine(root, "Override", "ScriptExtenderUI", "CustomCustomTrailSettings.xaml"));
 
     Assert(viewModel.Contains("[PersistLocal]"), "activation setting is not local-only persisted");
@@ -225,8 +314,14 @@ static void TestLocalActivationSetting()
         "the dynamic compatible/incompatible Trail-mod catalog is not shown or persisted");
     Assert(coordinator.Contains("FindCompatibleViewModels(selectedOnly: true)") &&
         coordinator.Contains("System_CreateDisabledMissionPresetSnapshot") &&
-        coordinator.Contains("DoNotPersistAttribute"),
+        compatibilityContract.Contains("DoNotPersistAttribute") &&
+        compatibilityContract.Contains("deserializationProbe"),
         "dynamic Trail compatibility does not enforce the safe mission-preset contract");
+    Assert(coordinator.Contains("GetRegistrationGroups()") && coordinator.Contains("group.Skip(1).Any()"),
+        "duplicate mod-settings registrations are not rejected per plugin GUID");
+    Assert(coordinator.Contains("ExitActiveParticipants") &&
+        coordinator.Contains("activeParticipantIds.Add(item.Item1)"),
+        "Trail lifecycle is not limited to participants whose preset entry completed");
     Assert(!xaml.Contains("SelectedPreset") && !xaml.Contains("PresetOptions"), "activation UI unexpectedly exposes presets");
     Assert(xaml.Contains("CoopPackageOptions") && xaml.Contains("CanEditCoopPackage"), "host package dropdown is missing");
     Assert(xaml.Contains("SelectedItem=\"{Binding SelectedCoopPackage, Mode=TwoWay}\"") &&
@@ -284,7 +379,7 @@ static void TestCoopExporterIntegration()
         coordinator.Contains("CoopTrailPackageCatalog.Load(source)"),
         "Coop packages are not validated, listed, and copied completely through Vanilla's Workshop uploader");
     Assert(exporter.Contains("ordinal < 40") && exporter.Contains("activeSlots.Count < 2"), "export limits or two-human validation are missing");
-    Assert(exporter.Contains("ModSettingsJson.Read(sidecar)") && exporter.Contains("ModSettingsDefinition.CreateDisabled()"), "mission mod-settings embedding is missing");
+    Assert(exporter.Contains("ModSettingsJson.Read(sidecar)") && exporter.Contains("ModSettingsDefinition.CreateUnmanaged()"), "mission mod-settings embedding is missing");
     Assert(exporter.Contains("restart.selectedHeader.display_filename") && runtime.Contains("CoopMissionTitle = selected.Loaded.Definition.DisplayName"),
         "exported map names are not shown as Coop mission titles");
     Assert(coordinator.Contains("SetCoopPackagePresentation") && coordinator.Contains("TEXT_COOP_0"),
@@ -449,7 +544,7 @@ static void TestInvalidModSettings()
     File.WriteAllText(fixture.JsonPath, json, new UTF8Encoding(false));
     LoadedMission loaded = new MissionLoader().Load(fixture.JsonPath, 1, 1);
     Assert(!string.IsNullOrWhiteSpace(loaded.Definition.ModSettingsError), "invalid block was not reported");
-    Assert(loaded.Definition.ModSettings.Mods.Values.All(entry => !entry.Enabled), "invalid block was partially retained");
+    Assert(loaded.Definition.ModSettings.Mods.Count == 0, "invalid block was partially retained instead of remaining unmanaged");
 }
 
 static void TestHumanProjection()
@@ -630,7 +725,7 @@ sealed class Fixture : IDisposable
                     PreferredAiv = preferredAiv,
                 },
             },
-            ModSettings = ModSettingsDefinition.CreateDisabled(),
+            ModSettings = ModSettingsDefinition.CreateUnmanaged(),
         };
         definition.ModSettings.Mods["StartConditions_Serp"] = new ModSettingsEntry
         {
@@ -664,5 +759,76 @@ sealed class Fixture : IDisposable
     {
         if (Directory.Exists(Root))
             Directory.Delete(Root, true);
+    }
+}
+
+[AttributeUsage(AttributeTargets.Property)]
+sealed class SyncHostOnlyAttribute : Attribute
+{
+}
+
+[AttributeUsage(AttributeTargets.Property)]
+sealed class DoNotPersistAttribute : Attribute
+{
+}
+
+sealed class CompatibleTrailSettingsViewModel
+{
+    [SyncHostOnly]
+    public bool EnableMod { get; set; } = true;
+
+    [SyncHostOnly]
+    public int Strength { get; set; } = 42;
+
+    [SyncHostOnly]
+    public string Label { get; set; } = "ready";
+
+    [SyncHostOnly, DoNotPersist]
+    public int TransientStatus { get; set; } = 7;
+
+    public bool OmitStrengthFromSnapshot { get; set; }
+    public bool EnabledInDisabledSnapshot { get; set; }
+    public bool IsMissionPresetActive { get; private set; }
+
+    public Dictionary<string, byte[]> System_CreateDisabledMissionPresetSnapshot()
+    {
+        var snapshot = new Dictionary<string, byte[]>(StringComparer.Ordinal)
+        {
+            [nameof(EnableMod)] = BitConverter.GetBytes(EnabledInDisabledSnapshot),
+            [nameof(Label)] = Encoding.UTF8.GetBytes("default"),
+        };
+        if (!OmitStrengthFromSnapshot)
+            snapshot[nameof(Strength)] = BitConverter.GetBytes(42);
+        return snapshot;
+    }
+
+    public void System_EnterMissionPreset(Dictionary<string, byte[]> snapshot, string label, bool editable) =>
+        IsMissionPresetActive = true;
+
+    public void System_ExitMissionPreset() => IsMissionPresetActive = false;
+}
+
+sealed class MissingMissionApiViewModel
+{
+    [SyncHostOnly]
+    public int Strength { get; set; } = 1;
+}
+
+sealed class NonBooleanEnableModViewModel
+{
+    [SyncHostOnly]
+    public int EnableMod { get; set; } = 1;
+
+    public bool IsMissionPresetActive => false;
+
+    public Dictionary<string, byte[]> System_CreateDisabledMissionPresetSnapshot() =>
+        new Dictionary<string, byte[]> { [nameof(EnableMod)] = BitConverter.GetBytes(0) };
+
+    public void System_EnterMissionPreset(Dictionary<string, byte[]> snapshot, string label, bool editable)
+    {
+    }
+
+    public void System_ExitMissionPreset()
+    {
     }
 }

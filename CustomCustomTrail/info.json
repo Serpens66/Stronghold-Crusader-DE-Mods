@@ -3,10 +3,19 @@
   "Author": "Serpens66",
   "Name": "Custom Custom Trail",
   "Description": "Creates portable Coop Trails in the Trail Maker, synchronizes the selected package, and coordinates Custom Trail mod settings.",
-  "Version": "1.3.25",
+  "Version": "1.3.26",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.3.26",
+      "Changes": [
+        "Validates each dynamic mod integration including its complete disabled MessagePack snapshot before offering it for Trail capture.",
+        "Rejects duplicate settings panels sharing one plugin GUID and logs concrete compatibility failures without cluttering the in-game name list.",
+        "Excludes DoNotPersist properties from the shared preset system and limits mission-preset exit calls to mods actually entered by CustomCustomTrail.",
+        "Updates the compatibility guide and README to document the dynamic unmanaged-by-default fallback accurately."
+      ]
+    },
     {
       "Version": "1.3.25",
       "Changes": [

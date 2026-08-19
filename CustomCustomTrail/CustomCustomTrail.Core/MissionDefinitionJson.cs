@@ -31,7 +31,7 @@ namespace CustomCustomTrail.Core
                 catch (Exception exception)
                 {
                     // A broken embedded preset must not make the mission assets unusable.
-                    mission.ModSettings = ModSettingsDefinition.CreateDisabled();
+                    mission.ModSettings = ModSettingsDefinition.CreateUnmanaged();
                     mission.ModSettingsError = exception.Message;
                 }
             }

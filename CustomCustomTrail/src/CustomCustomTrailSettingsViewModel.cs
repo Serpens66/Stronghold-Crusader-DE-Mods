@@ -98,12 +98,9 @@ namespace CustomCustomTrail
             get => disabledTrailModIds;
             set
             {
-                string[] normalized = (value ?? Array.Empty<string>())
-                    .Where(id => !string.IsNullOrWhiteSpace(id) &&
-                        !string.Equals(id, CustomCustomTrailPlugin.PluginGuid, StringComparison.Ordinal))
-                    .Distinct(StringComparer.Ordinal)
-                    .OrderBy(id => id, StringComparer.Ordinal)
-                    .ToArray();
+                string[] normalized = TrailModCompatibilityContract.NormalizeDisabledModIds(
+                    value,
+                    CustomCustomTrailPlugin.PluginGuid);
                 if (disabledTrailModIds.SequenceEqual(normalized, StringComparer.Ordinal))
                     return;
                 disabledTrailModIds = normalized;

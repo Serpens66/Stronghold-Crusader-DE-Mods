@@ -359,7 +359,7 @@ namespace CustomCustomTrail
                         continue;
                     ResolvedMission mission = resolver.Resolve(entry.Value);
                     if (!string.IsNullOrWhiteSpace(entry.Value.Definition.ModSettingsError))
-                        LogError("Trail" + entry.Value.TrailNumber + "/" + entry.Value.MissionNumber.ToString("00") + " disabled all modSettings: " + entry.Value.Definition.ModSettingsError);
+                        LogError("Trail" + entry.Value.TrailNumber + "/" + entry.Value.MissionNumber.ToString("00") + " ignored invalid embedded mod settings; local mod settings remain unchanged: " + entry.Value.Definition.ModSettingsError);
                     prepared.Add(new KeyValuePair<int, ResolvedMission>(entry.Key, mission));
                 }
                 foreach (KeyValuePair<int, ResolvedMission> entry in prepared)

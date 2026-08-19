@@ -27,7 +27,7 @@ namespace CustomCustomTrail.Core
             if (!root.TryGetValue("mods", out object modsObject) || !(modsObject is Dictionary<string, object> mods))
                 throw new InvalidDataException("Trail mod-settings JSON requires a mods object.");
 
-            ModSettingsDefinition document = ModSettingsDefinition.CreateDisabled();
+            ModSettingsDefinition document = ModSettingsDefinition.CreateUnmanaged();
             foreach (KeyValuePair<string, object> mod in mods)
             {
                 if (!(mod.Value is Dictionary<string, object> rawEntry))
@@ -59,7 +59,7 @@ namespace CustomCustomTrail.Core
 
         public static ModSettingsDefinition NormalizeAndValidate(ModSettingsDefinition settings, string path)
         {
-            settings = settings ?? ModSettingsDefinition.CreateDisabled();
+            settings = settings ?? ModSettingsDefinition.CreateUnmanaged();
             if (settings.SchemaVersion != 1)
                 throw new InvalidDataException((path ?? "modSettings") + ".schemaVersion must be 1.");
             settings.Mods = settings.Mods ?? new Dictionary<string, ModSettingsEntry>(StringComparer.Ordinal);

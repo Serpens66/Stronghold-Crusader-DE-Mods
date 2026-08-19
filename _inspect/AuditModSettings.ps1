@@ -9,6 +9,7 @@ $settings = [ordered]@{
     ImprovedHunters = 'ImprovedHunters/BepInEx/plugins/ImprovedHunters_Serp/Override/ScriptExtenderUI/ImprovedHuntersSettings.xaml'
     RandomEvents = 'RandomEvents/Override/ScriptExtenderUI/RandomEventsSettings.xaml'
     CastlePlanner = 'CastlePlanner/BepInEx/plugins/CastlePlanner_Serp/Override/ScriptExtenderUI/CastlePlannerSettings.xaml'
+    CustomCustomTrail = 'CustomCustomTrail/Override/ScriptExtenderUI/CustomCustomTrailSettings.xaml'
     StartConditions = 'StartConditions/BepInEx/plugins/StartConditions_Serp/Override/ScriptExtenderUI/StartConditionsSettings.xaml'
     UnitCosts = 'UnitCosts/BepInEx/plugins/UnitCosts_Serp/Override/ScriptExtenderUI/UnitCostsSettings.xaml'
     UnitLimit = 'UnitLimit/BepInEx/plugins/UnitLimit_Serp/Override/ScriptExtenderUI/UnitLimitSettings.xaml'
@@ -22,6 +23,7 @@ $localeDirectories = [ordered]@{
     ImprovedHunters = 'ImprovedHunters/Locales'
     RandomEvents = 'RandomEvents/Locales'
     CastlePlanner = 'CastlePlanner/BepInEx/plugins/CastlePlanner_Serp/Locales'
+    CustomCustomTrail = 'CustomCustomTrail/Locales'
     StartConditions = 'StartConditions/Locales'
     UnitCosts = 'UnitCosts/Locales'
     UnitLimit = 'UnitLimit/Locales'
@@ -57,7 +59,7 @@ foreach ($entry in $settings.GetEnumerator()) {
     }
 
     $text = [IO.File]::ReadAllText($path)
-    foreach ($required in @(
+    $requiredMarkers = @(
         'TargetType="{x:Type ToolTip}"',
         'VerticalScrollBarVisibility="{x:Static shared:ToolTipPresentation.AutomaticScrollBarVisibility}"',
         'HorizontalScrollBarVisibility="{x:Static shared:ToolTipPresentation.AutomaticScrollBarVisibility}"',
@@ -65,13 +67,19 @@ foreach ($entry in $settings.GetEnumerator()) {
         'MaxWidth="{x:Static shared:ToolTipPresentation.MaximumWidth}"',
         'Value="20"',
         'FontSize="{TemplateBinding FontSize}"',
-        'TextWrapping="Wrap"',
-        'x:Key="HostRoleHeader"',
-        'x:Key="ClientRoleHeader"',
-        'x:Key="SectionHeader"',
-        'x:Key="HostActivationBorder"',
-        'x:Key="ClientActivationBorder"',
-        'Text="{Binding PresetText}"')) {
+        'TextWrapping="Wrap"')
+    # CustomCustomTrail owns the Trail preset coordinator and intentionally has no
+    # selectable local preset UI of its own. It still receives every base UI audit.
+    if ($entry.Key -ne 'CustomCustomTrail') {
+        $requiredMarkers += @(
+            'x:Key="HostRoleHeader"',
+            'x:Key="ClientRoleHeader"',
+            'x:Key="SectionHeader"',
+            'x:Key="HostActivationBorder"',
+            'x:Key="ClientActivationBorder"',
+            'Text="{Binding PresetText}"')
+    }
+    foreach ($required in $requiredMarkers) {
         if (-not $text.Contains($required)) {
             throw "$($entry.Key): required shared UI marker is missing: $required"
         }

@@ -11,7 +11,9 @@ A mod is detected as compatible when all of the following are true:
 1. It registers a lobby-modsettings ViewModel through `GameXAMLManagerAPI`.
 2. The ViewModel exposes at least one public readable and writable property marked `[SyncHostOnly]` and not marked `[DoNotPersist]`.
 3. The ViewModel exposes the mission-preset API listed below.
-4. Every captured `[SyncHostOnly]` value can be serialized by MessagePack.
+4. Every captured `[SyncHostOnly]` value is non-null and can be serialized by MessagePack.
+5. Its disabled/default mission snapshot contains a valid MessagePack value for every captured property.
+6. The owning BepInEx plugin GUID has exactly one registered lobby-modsettings panel.
 
 `CustomCustomTrail` uses the owning BepInEx plugin GUID as the stable identity. The display name and the name passed to `RegisterLobbyModSettings` may be different.
 
@@ -19,25 +21,32 @@ Only host-controlled settings belong in a Trail. `[SyncPerPlayer]`, `[PresetLoca
 
 ## Recommended integration
 
-The easiest and safest integration is to use the workspace's shared preset system. It already implements mission snapshots, Trail locking, restoration of the player's previous preset, host/client authority, and persistence isolation.
+The easiest and safest integration is to use this repository's shared preset system. It already implements mission snapshots, Trail locking, restoration of the player's previous preset, host/client authority, and persistence isolation.
 
-Link these canonical source files into the runtime project instead of copying their contents:
+Use the current versions of these three source files together:
 
 - [`Shared/PresetLobbyModSettingsViewModel.cs`](Shared/PresetLobbyModSettingsViewModel.cs)
 - [`Shared/GameModeHelper.cs`](Shared/GameModeHelper.cs)
 - [`Shared/DebugLogHelper.cs`](Shared/DebugLogHelper.cs)
 
-Example project entries:
+For a separate repository, download or vendor the files into a directory such as `Compatibility/SerpShared` and update all three together when the shared contract changes. A Git submodule is also suitable. Do not manually reimplement fragments of the files.
 
-    <Compile Include="..\Shared\PresetLobbyModSettingsViewModel.cs">
+Example project entries for vendored files:
+
+    <Compile Include="Compatibility\SerpShared\PresetLobbyModSettingsViewModel.cs">
       <Link>Shared\PresetLobbyModSettingsViewModel.cs</Link>
     </Compile>
-    <Compile Include="..\Shared\GameModeHelper.cs">
+    <Compile Include="Compatibility\SerpShared\GameModeHelper.cs">
       <Link>Shared\GameModeHelper.cs</Link>
     </Compile>
-    <Compile Include="..\Shared\DebugLogHelper.cs">
+    <Compile Include="Compatibility\SerpShared\DebugLogHelper.cs">
       <Link>Shared\DebugLogHelper.cs</Link>
     </Compile>
+
+The runtime project must already reference BepInEx, `SHCDESE.dll`, `MessagePack.dll`, and `Noesis.NoesisGUI.dll`. Add these namespaces to the settings source:
+
+    using Shared;
+    using SHCDESE.API.Components.Network;
 
 Derive the settings ViewModel from `PresetLobbyModSettingsViewModel`:
 
@@ -84,6 +93,8 @@ Register it with the shared registration helper after the Script Extender librar
 
 Use the stable BepInEx `PluginGuid` as `modName`. This also keeps multiplayer synchronization and local preset storage stable.
 
+Register exactly one lobby-modsettings ViewModel for each BepInEx plugin GUID. If a mod currently uses several panels, combine their settings behind one registered ViewModel before enabling Trail compatibility. This prevents two panels from competing for the same stable Trail identity.
+
 `EnableMod` is optional for compatibility, but strongly recommended. If present as a Boolean `[SyncHostOnly]` property, a Trail can explicitly restore the mod's enabled or disabled state. Without it, the compatible host settings are still captured and restored.
 
 ## Required mission-preset API
@@ -102,11 +113,16 @@ The contract is discovered by member shape, so no shared interface assembly and 
 
 A custom implementation must provide the same safety guarantees as the shared base class:
 
+- `System_CreateDisabledMissionPresetSnapshot()` is side-effect free, returns a non-null dictionary, and includes a MessagePack value for every persistent `[SyncHostOnly]` property;
+- when `[SyncHostOnly] bool EnableMod` exists, that snapshot contains `false` for it; all other values are the mod's current defaults;
+- `System_EnterMissionPreset(...)` applies only the supplied host snapshot, records the exact prior local preset state, and sets `IsMissionPresetActive` to `true` after success;
 - applying a Trail snapshot must not overwrite the player's normal local settings file;
 - leaving the Trail must restore the exact previous local preset;
+- `System_ExitMissionPreset()` is a safe no-op while inactive and sets `IsMissionPresetActive` to `false` after restoration;
 - read-only Trail host settings must reject local client edits;
 - personal settings must remain unchanged;
-- snapshot application and restoration must be atomic from the ViewModel's perspective.
+- snapshot application and restoration must be atomic from the ViewModel's perspective;
+- all four contract members must be public instance members with the exact signatures shown above and must not throw during normal operation.
 
 Unless there is a strong reason to maintain a separate implementation, use the shared base class.
 
@@ -118,7 +134,7 @@ Unless there is a strong reason to maintain a separate implementation, use the s
 - Use `[PersistLocal]` for local settings outside the preset system. They are not stored in a Trail.
 - Add `[DoNotPersist]` to transient network/status properties. Such properties are deliberately excluded from Trail capture even when they are `[SyncHostOnly]`.
 - Public `[SyncHostOnly]` properties must have both a getter and setter.
-- Property values must be MessagePack-serializable. Primitive values and arrays are the simplest choices; explicitly attributed MessagePack models are suitable for complex values.
+- Property values must be non-null and MessagePack-serializable while compatibility is checked and while a Trail is saved. Primitive values and arrays are the simplest choices; explicitly attributed MessagePack models are suitable for complex values.
 
 Do not write a second JSON serializer for Trail integration. `CustomCustomTrail` owns the `.modjson` format and serializes complex compatible values through MessagePack.
 
@@ -141,4 +157,4 @@ Before publishing a compatible mod, verify that:
 - a multiplayer client cannot alter read-only Trail host settings;
 - disabling the mod itself is captured correctly when it exposes `[SyncHostOnly] bool EnableMod`.
 
-If the mod is listed as incompatible, first confirm that it uses `LobbyModSettingsPresetRegistration.Register(...)`, has at least one persistent `[SyncHostOnly]` property, and was built against the currently supported Script Extender API.
+If the mod is listed as incompatible, open `BepInEx/LogOutput.log` and search for `Trail mod-settings compatibility rejected`. `CustomCustomTrail` writes the plugin GUID and the concrete reason there, while the in-game settings intentionally show only the comma-separated mod names. Then confirm that the mod uses `LobbyModSettingsPresetRegistration.Register(...)`, has one registered panel and at least one persistent `[SyncHostOnly]` property, returns a complete disabled snapshot, and was built against the currently supported Script Extender API.

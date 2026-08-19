@@ -137,7 +137,7 @@ namespace CustomCustomTrail.Core
             {
                 // Mission assets remain usable; only the transactionally invalid Trail preset is discarded.
                 mission.ModSettingsError = exception.Message;
-                mission.ModSettings = ModSettingsDefinition.CreateDisabled();
+                mission.ModSettings = ModSettingsDefinition.CreateUnmanaged();
             }
         }
 
