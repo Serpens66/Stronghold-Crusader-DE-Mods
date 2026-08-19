@@ -484,9 +484,7 @@ namespace CustomCustomTrail
                 Panel host = anchor == null ? null : VisualTreeHelper.GetParent(anchor) as Panel;
                 if (anchor == null || host == null)
                     return;
-                Thickness margin = host is StackPanel
-                    ? new Thickness(0, 8, 0, 0)
-                    : new Thickness(anchor.Margin.Left, anchor.Margin.Top, anchor.Margin.Right, anchor.Margin.Bottom + 48);
+                Thickness rowMargin = anchor.Margin;
                 var checkbox = new CheckBox
                 {
                     Name = "CustomCustomTrailCoopExport",
@@ -495,9 +493,10 @@ namespace CustomCustomTrail
                     Foreground = new SolidColorBrush(Color.FromArgb(byte.MaxValue, byte.MaxValue, byte.MaxValue, byte.MaxValue)),
                     FontSize = 20,
                     Style = anchor.Style,
-                    Margin = margin,
-                    HorizontalAlignment = anchor.HorizontalAlignment,
-                    VerticalAlignment = anchor.VerticalAlignment,
+                    Height = anchor.Height,
+                    Margin = new Thickness(28, 0, 0, 0),
+                    HorizontalAlignment = HorizontalAlignment.Left,
+                    VerticalAlignment = VerticalAlignment.Center,
                     IsChecked = IsMakerCoopEnabled(),
                     Visibility = enabled ? Visibility.Visible : Visibility.Collapsed,
                 };
@@ -514,7 +513,23 @@ namespace CustomCustomTrail
                         checkbox.IsChecked = IsMakerCoopEnabled();
                     }
                 };
-                host.Children.Add(checkbox);
+
+                // Keep both export options in one centered row. This remains readable with
+                // localized labels and avoids consuming the vertical space above Backup.
+                var optionRow = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Margin = rowMargin,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Bottom,
+                };
+                host.Children.Remove(anchor);
+                anchor.Margin = new Thickness(0);
+                anchor.HorizontalAlignment = HorizontalAlignment.Left;
+                anchor.VerticalAlignment = VerticalAlignment.Center;
+                optionRow.Children.Add(anchor);
+                optionRow.Children.Add(checkbox);
+                host.Children.Add(optionRow);
                 coopTrailExportCheckbox = checkbox;
             }
 
@@ -891,8 +906,8 @@ namespace CustomCustomTrail
                 {
                     Name = "SharedTrailCustomize",
                     Width = 200,
-                    // Mirror the Vanilla spacing below CoopKick so the player list cannot cover this button.
-                    Margin = new Thickness(0, 0, 0, -58),
+                    // Keep this just below CoopKick so the player list cannot cover it.
+                    Margin = new Thickness(0, 0, 0, -51),
                     HorizontalAlignment = HorizontalAlignment.Center,
                     VerticalAlignment = VerticalAlignment.Bottom,
                     Style = anchor.Style,

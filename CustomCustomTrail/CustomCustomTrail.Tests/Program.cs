@@ -170,7 +170,7 @@ static void TestCoordinatorOwnership()
     string sharedPresetSystem = File.ReadAllText(Path.Combine(workspaceRoot, "Shared", "PresetLobbyModSettingsViewModel.cs"));
     for (int trail = 1; trail <= 4; trail++)
         Assert(CountOccurrences(coordinator, "FRONT_CoopTrail" + trail + ".Instance") == 1, "Coop Trail " + trail + " button registration is not singular");
-    Assert(coordinator.Contains("Margin = new Thickness(0, 0, 0, -58)"),
+    Assert(coordinator.Contains("Margin = new Thickness(0, 0, 0, -51)"),
         "Coop Customize is not positioned below the Vanilla kick button");
     string runtime = File.ReadAllText(Path.Combine(projectRoot, "src", "CustomCustomTrailRuntime.cs"));
     string obsoleteBridgeName = "TrailModSettings" + "Bridge";
@@ -226,6 +226,8 @@ static void TestCoopExporterIntegration()
     string exporter = File.ReadAllText(Path.Combine(root, "src", "CoopTrailPackageExporter.cs"));
     string runtime = File.ReadAllText(Path.Combine(root, "src", "CustomCustomTrailRuntime.cs"));
     Assert(coordinator.Contains("CustomCustomTrailCoopExport") && coordinator.Contains("cooptrail.enabled"), "Trail Maker Coop checkbox/marker is missing");
+    Assert(coordinator.Contains("Orientation = Orientation.Horizontal") && coordinator.Contains("host.Children.Remove(anchor)"),
+        "Trail Maker Coop and Backup options are not arranged side by side");
     Assert(coordinator.Contains("prepared.Publish(destination)") && coordinator.IndexOf("Prepare(", StringComparison.Ordinal) < coordinator.LastIndexOf("exportOriginal(self, destination)", StringComparison.Ordinal),
         "Coop package is not validated before Vanilla export");
     Assert(exporter.Contains("ordinal < 40") && exporter.Contains("activeSlots.Count < 2"), "export limits or two-human validation are missing");
