@@ -13,9 +13,14 @@ namespace CustomCustomTrail.Core
 
         public static ModSettingsDefinition ParseObject(string json)
         {
-            object rootObject = new JsonParser(json ?? string.Empty).Parse();
+            object rootObject = PortableJson.Parse(json);
             if (!(rootObject is Dictionary<string, object> root))
                 throw new InvalidDataException("Trail mod-settings JSON root must be an object.");
+            return ParseObject(root);
+        }
+
+        internal static ModSettingsDefinition ParseObject(Dictionary<string, object> root)
+        {
             if (!root.TryGetValue("schemaVersion", out object schema) || !(schema is int schemaVersion) || schemaVersion != 1)
                 throw new InvalidDataException("Unsupported Trail mod-settings schemaVersion.");
             if (!root.TryGetValue("mods", out object modsObject) || !(modsObject is Dictionary<string, object> mods))

@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Runtime.Serialization.Json;
 using System.Text;
 
 namespace CustomCustomTrail.Core
@@ -21,9 +20,7 @@ namespace CustomCustomTrail.Core
 
             string fullJsonPath = Path.GetFullPath(jsonPath ?? throw new ArgumentNullException(nameof(jsonPath)));
             string missionRoot = Path.GetDirectoryName(fullJsonPath);
-            CoopMissionDefinition definition;
-            using (FileStream stream = File.OpenRead(fullJsonPath))
-                definition = (CoopMissionDefinition)CreateSerializer().ReadObject(stream);
+            CoopMissionDefinition definition = MissionDefinitionJson.Parse(File.ReadAllText(fullJsonPath, Encoding.UTF8));
 
             Validate(definition);
             List<string> bundledFiles = ResolveBundledFiles(definition, missionRoot);
@@ -41,11 +38,7 @@ namespace CustomCustomTrail.Core
         public static string Serialize(CoopMissionDefinition definition)
         {
             Validate(definition);
-            using (var stream = new MemoryStream())
-            {
-                CreateSerializer().WriteObject(stream, definition);
-                return Encoding.UTF8.GetString(stream.ToArray()) + "\r\n";
-            }
+            return MissionDefinitionJson.Serialize(definition);
         }
 
         public static void WriteAtomic(string path, CoopMissionDefinition definition)
@@ -188,12 +181,6 @@ namespace CustomCustomTrail.Core
             if (asset != null && string.Equals(asset.Source, "bundled", StringComparison.Ordinal))
                 files.Add(ResolveBundledPath(root, asset.File, extension));
         }
-
-        private static DataContractJsonSerializer CreateSerializer() =>
-            new DataContractJsonSerializer(typeof(CoopMissionDefinition), new DataContractJsonSerializerSettings
-            {
-                UseSimpleDictionaryFormat = true,
-            });
 
     }
 

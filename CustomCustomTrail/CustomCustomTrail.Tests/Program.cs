@@ -1,5 +1,4 @@
 using CustomCustomTrail.Core;
-using System.Runtime.Serialization.Json;
 using System.Text;
 
 var tests = new (string Name, Action Run)[]
@@ -27,6 +26,8 @@ var tests = new (string Name, Action Run)[]
     ("Trail coordinator ownership is centralized", TestCoordinatorOwnership),
     ("local activation setting gates the complete runtime", TestLocalActivationSetting),
     ("Trail Maker Coop export is integrated", TestCoopExporterIntegration),
+    ("Coop package JSON is Unity dependency-free", TestDependencyFreeCoopJson),
+    ("mission and manifest JSON use CRLF", TestCoopJsonLineEndings),
 };
 
 int failed = 0;
@@ -240,6 +241,35 @@ static void TestCoopExporterIntegration()
     Assert(!runtime.Contains("Path.Combine(pluginRoot, \"CoopTrails\")"), "legacy plugin-local package layout is still active");
 }
 
+static void TestDependencyFreeCoopJson()
+{
+    string root = FindProjectRoot();
+    string core = Path.Combine(root, "CustomCustomTrail.Core");
+    string[] offenders = Directory.GetFiles(core, "*.cs", SearchOption.TopDirectoryOnly)
+        .Where(path => File.ReadAllText(path).Contains("System.Runtime.Serialization", StringComparison.Ordinal) ||
+            File.ReadAllText(path).Contains("DataContractJsonSerializer", StringComparison.Ordinal))
+        .ToArray();
+    Assert(offenders.Length == 0, "runtime JSON serializer dependency remains: " + string.Join(", ", offenders.Select(Path.GetFileName)));
+}
+
+static void TestCoopJsonLineEndings()
+{
+    using Fixture fixture = Fixture.Create();
+    string mission = File.ReadAllText(fixture.JsonPath);
+    Assert(mission.Contains("\r\n") && !mission.Replace("\r\n", string.Empty).Contains('\n'), "mission JSON line endings changed");
+
+    var manifest = new CoopTrailPackageManifest
+    {
+        SchemaVersion = 1,
+        PackageId = Guid.NewGuid().ToString("D"),
+        DisplayName = "Test",
+        MissionCount = 1,
+        ContentFingerprint = new string('a', 64),
+    };
+    string json = CoopTrailPackageManifestJson.Serialize(manifest);
+    Assert(json.Contains("\r\n") && !json.Replace("\r\n", string.Empty).Contains('\n'), "manifest JSON line endings changed");
+}
+
 static string FindProjectRoot()
 {
     foreach (string seed in new[] { Directory.GetCurrentDirectory(), AppContext.BaseDirectory })
@@ -310,7 +340,7 @@ static void TestEditedMissionReload()
 {
     using Fixture fixture = Fixture.Create();
     string json = File.ReadAllText(fixture.JsonPath);
-    string edited = json.Replace("\"displayName\":\"Test\"", "\"displayName\":\"Edited locally\"");
+    string edited = json.Replace("\"displayName\": \"Test\"", "\"displayName\": \"Edited locally\"");
     Assert(!string.Equals(json, edited, StringComparison.Ordinal), "test fixture displayName was not found");
     File.WriteAllText(fixture.JsonPath, edited, new UTF8Encoding(false));
     LoadedMission loaded = new MissionLoader().Load(fixture.JsonPath, 1, 1);
@@ -321,7 +351,7 @@ static void TestEditedMissionReload()
 static void TestInvalidModSettings()
 {
     using Fixture fixture = Fixture.Create();
-    string json = File.ReadAllText(fixture.JsonPath).Replace("\"schemaVersion\":1,\"mods\"", "\"schemaVersion\":99,\"mods\"");
+    string json = File.ReadAllText(fixture.JsonPath).Replace("\"schemaVersion\": 1", "\"schemaVersion\": 99");
     File.WriteAllText(fixture.JsonPath, json, new UTF8Encoding(false));
     LoadedMission loaded = new MissionLoader().Load(fixture.JsonPath, 1, 1);
     Assert(!string.IsNullOrWhiteSpace(loaded.Definition.ModSettingsError), "invalid block was not reported");
@@ -493,9 +523,21 @@ sealed class Fixture : IDisposable
         if (secondAivRotation.HasValue)
             definition.Players[2].Aivs.Add(new AivReference { Source = "bundled", File = "castle.aivjson", Rotation = secondAivRotation.Value });
         string jsonPath = Path.Combine(root, "01.coopmission.json");
-        var serializer = new DataContractJsonSerializer(typeof(CoopMissionDefinition), new DataContractJsonSerializerSettings { UseSimpleDictionaryFormat = true });
-        using (FileStream stream = File.Create(jsonPath))
-            serializer.WriteObject(stream, definition);
+        int requestedSchemaVersion = definition.SchemaVersion;
+        int requestedAivRotation = definition.Players[2].Aivs[0].Rotation;
+        definition.SchemaVersion = MissionLoader.CurrentSchemaVersion;
+        if (requestedAivRotation != 0 && requestedAivRotation != 90 && requestedAivRotation != 180 && requestedAivRotation != 270)
+            definition.Players[2].Aivs[0].Rotation = 90;
+        MissionLoader.WriteAtomic(jsonPath, definition);
+        if (requestedSchemaVersion != MissionLoader.CurrentSchemaVersion || requestedAivRotation != definition.Players[2].Aivs[0].Rotation)
+        {
+            string json = File.ReadAllText(jsonPath, Encoding.UTF8);
+            if (requestedSchemaVersion != MissionLoader.CurrentSchemaVersion)
+                json = json.Replace("\"schemaVersion\": 2", "\"schemaVersion\": " + requestedSchemaVersion, StringComparison.Ordinal);
+            if (requestedAivRotation != definition.Players[2].Aivs[0].Rotation)
+                json = json.Replace("\"rotation\": 90", "\"rotation\": " + requestedAivRotation, StringComparison.Ordinal);
+            File.WriteAllText(jsonPath, json, new UTF8Encoding(false));
+        }
         return new Fixture { Root = root, JsonPath = jsonPath };
     }
 

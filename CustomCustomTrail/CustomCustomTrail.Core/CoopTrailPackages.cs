@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Runtime.Serialization.Json;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -14,8 +13,17 @@ namespace CustomCustomTrail.Core
 
         public static CoopTrailPackageManifest Read(string path)
         {
-            using (FileStream stream = File.OpenRead(path))
-                return (CoopTrailPackageManifest)CreateSerializer().ReadObject(stream);
+            object parsed = PortableJson.Parse(File.ReadAllText(path, Encoding.UTF8));
+            if (!(parsed is Dictionary<string, object> root))
+                throw new InvalidDataException("Coop Trail manifest root must be an object.");
+            return new CoopTrailPackageManifest
+            {
+                SchemaVersion = RequiredInt(root, "schemaVersion"),
+                PackageId = RequiredString(root, "packageId"),
+                DisplayName = RequiredString(root, "displayName"),
+                MissionCount = RequiredInt(root, "missionCount"),
+                ContentFingerprint = RequiredString(root, "contentFingerprint"),
+            };
         }
 
         public static void Validate(CoopTrailPackageManifest manifest)
@@ -36,11 +44,15 @@ namespace CustomCustomTrail.Core
 
         public static string Serialize(CoopTrailPackageManifest manifest)
         {
-            using (var stream = new MemoryStream())
+            Validate(manifest);
+            return PortableJson.Serialize(new Dictionary<string, object>(StringComparer.Ordinal)
             {
-                CreateSerializer().WriteObject(stream, manifest);
-                return Encoding.UTF8.GetString(stream.ToArray()) + "\r\n";
-            }
+                ["schemaVersion"] = manifest.SchemaVersion,
+                ["packageId"] = manifest.PackageId,
+                ["displayName"] = manifest.DisplayName,
+                ["missionCount"] = manifest.MissionCount,
+                ["contentFingerprint"] = manifest.ContentFingerprint,
+            });
         }
 
         public static void WriteAtomic(string path, CoopTrailPackageManifest manifest)
@@ -66,8 +78,19 @@ namespace CustomCustomTrail.Core
                 (character >= 'a' && character <= 'f') ||
                 (character >= 'A' && character <= 'F'));
 
-        private static DataContractJsonSerializer CreateSerializer() =>
-            new DataContractJsonSerializer(typeof(CoopTrailPackageManifest));
+        private static int RequiredInt(Dictionary<string, object> source, string name)
+        {
+            if (!source.TryGetValue(name, out object value) || !(value is int result))
+                throw new InvalidDataException(name + " must be an integer.");
+            return result;
+        }
+
+        private static string RequiredString(Dictionary<string, object> source, string name)
+        {
+            if (!source.TryGetValue(name, out object value) || !(value is string result))
+                throw new InvalidDataException(name + " must be a string.");
+            return result;
+        }
     }
 
     public static class CoopTrailPackageFingerprint
