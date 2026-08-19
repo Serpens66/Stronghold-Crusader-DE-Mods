@@ -9,16 +9,9 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Windows.Input;
 using UnityEngine;
-using ComboBoxItem = Noesis.ComboBoxItem;
 
 namespace CastlePlanner
 {
-    public enum CastlePlannerMode
-    {
-        Blueprint,
-        Spawn
-    }
-
     public sealed class CastlePlannerSettingsViewModel : Shared.PresetLobbyModSettingsViewModel
     {
         private readonly ManualLogSource log;
@@ -27,8 +20,8 @@ namespace CastlePlanner
         private readonly RuntimePersistedState runtimeState =
             new RuntimePersistedState();
         private string defaultCastle;
-        private bool enableMod;
-        private CastlePlannerMode mode = CastlePlannerMode.Blueprint;
+        private bool blueprints;
+        private bool spawnCastle;
         private string selectedCastle;
         private KeyCode blueprintHotkey;
         private double blueprintIconScale;
@@ -50,11 +43,6 @@ namespace CastlePlanner
                     nameof(pluginAssemblyLocation));
             }
 
-            ModeOptions = new[]
-            {
-                new ComboBoxItem { Content = SerpLocalization.Get("CastlePlanner.Mode.Blueprint") },
-                new ComboBoxItem { Content = SerpLocalization.Get("CastlePlanner.Mode.Spawn") }
-            };
             RefreshCastleOptions(notifySelectionChange: false);
             blueprintHotkey = KeyCode.None;
             blueprintIconScale = 1.0;
@@ -77,8 +65,6 @@ namespace CastlePlanner
         internal event Action SettingsChanged;
         internal event Action BlueprintVisualSettingsChanged;
         internal event Action HotkeyCaptureRequested;
-
-        public ComboBoxItem[] ModeOptions { get; }
 
         public ObservableCollection<string> CastleOptions { get; } =
             new ObservableCollection<string>();
@@ -128,13 +114,14 @@ namespace CastlePlanner
         }
 
         public string ResetToDefaultText => SerpLocalization.Get("Common.ResetToDefault");
-        public string EnableModText => SerpLocalization.Get("Common.EnableMod");
         public string TitleText => SerpLocalization.Get("CastlePlanner.Title");
         public string HelpText => SerpLocalization.Get("CastlePlanner.Help");
         public string CastleText => SerpLocalization.Get("CastlePlanner.Castle");
         public string CastleHelpText => SerpLocalization.Get("CastlePlanner.CastleHelp");
-        public string ModeText => SerpLocalization.Get("CastlePlanner.Mode");
-        public string ModeHelpText => SerpLocalization.Get("CastlePlanner.ModeHelp");
+        public string BlueprintsText => SerpLocalization.Get("CastlePlanner.Blueprints");
+        public string BlueprintsHelpText => SerpLocalization.Get("CastlePlanner.BlueprintsHelp");
+        public string SpawnCastleText => SerpLocalization.Get("CastlePlanner.SpawnCastle");
+        public string SpawnCastleHelpText => SerpLocalization.Get("CastlePlanner.SpawnCastleHelp");
         public string HotkeyText => SerpLocalization.Get("CastlePlanner.Hotkey");
         public string HotkeyHelpText => SerpLocalization.Get("CastlePlanner.HotkeyHelp");
         public string ClearText => SerpLocalization.Get("Common.Clear");
@@ -147,46 +134,44 @@ namespace CastlePlanner
             AvailableFileCount);
 
         [Shared.PresetLocal]
-        public bool EnableMod
+        public bool Blueprints
         {
-            get => enableMod;
+            get => blueprints;
             set
             {
-                if (enableMod == value)
+                if (blueprints == value)
                     return;
 
-                enableMod = value;
-                OnPropertyChanged(nameof(EnableMod));
+                blueprints = value;
+                OnPropertyChanged(nameof(Blueprints));
                 OnPropertyChanged(nameof(IsBlueprintMode));
-                OnPropertyChanged(nameof(IsSpawnMode));
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    $"CastlePlanner local Blueprints changed to {blueprints}.");
                 SettingsChanged?.Invoke();
             }
         }
 
-        [Shared.PresetLocal]
-        public CastlePlannerMode Mode
+        [SyncHostOnly]
+        public bool SpawnCastle
         {
-            get => mode;
+            get => spawnCastle;
             set
             {
-                CastlePlannerMode normalized = NormalizeMode(value);
-                if (mode == normalized)
+                if (!CanMutateSetting(nameof(SpawnCastle)))
                     return;
 
-                mode = normalized;
-                OnPropertyChanged(nameof(Mode));
-                OnPropertyChanged(nameof(ModeIndex));
-                OnPropertyChanged(nameof(IsBlueprintMode));
+                if (spawnCastle == value)
+                    return;
+
+                spawnCastle = value;
+                OnPropertyChanged(nameof(SpawnCastle));
                 OnPropertyChanged(nameof(IsSpawnMode));
-                Shared.DebugLogHelper.LogInfo(log, $"CastlePlanner mode changed to '{mode}'.");
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    $"CastlePlanner host Spawn Castle changed to {spawnCastle}.");
                 SettingsChanged?.Invoke();
             }
-        }
-
-        public int ModeIndex
-        {
-            get => mode == CastlePlannerMode.Spawn ? 1 : 0;
-            set => Mode = value == 1 ? CastlePlannerMode.Spawn : CastlePlannerMode.Blueprint;
         }
 
         [Shared.PresetLocal]
@@ -266,8 +251,8 @@ namespace CastlePlanner
                 : SerpLocalization.Get("CastlePlanner.AssignKey");
 
         public bool IsCapturingHotkey => isCapturingHotkey;
-        public bool IsBlueprintMode => enableMod && mode == CastlePlannerMode.Blueprint;
-        public bool IsSpawnMode => enableMod && mode == CastlePlannerMode.Spawn;
+        public bool IsBlueprintMode => blueprints;
+        public bool IsSpawnMode => spawnCastle;
         internal KeyCode BlueprintHotkeyCode => blueprintHotkey;
         internal float BlueprintIconScaleValue => (float)blueprintIconScale;
         internal float BlueprintIconAlphaValue => (float)blueprintIconAlpha;
@@ -548,13 +533,6 @@ namespace CastlePlanner
             return fallback;
         }
 
-        private static CastlePlannerMode NormalizeMode(CastlePlannerMode value)
-        {
-            return value == CastlePlannerMode.Spawn
-                ? CastlePlannerMode.Spawn
-                : CastlePlannerMode.Blueprint;
-        }
-
         private static KeyCode NormalizeKeyCode(int value)
         {
             return Enum.IsDefined(typeof(KeyCode), value)
@@ -595,8 +573,11 @@ namespace CastlePlanner
 
         private void ResetToDefault()
         {
-            EnableMod = false;
-            Mode = CastlePlannerMode.Blueprint;
+            Blueprints = false;
+            if (CanEditHostSettings)
+                SpawnCastle = false;
+
+            // Every participant resets only their local Blueprint preferences.
             SelectedCastle = defaultCastle;
             BlueprintHotkey = (int)KeyCode.None;
             BlueprintIconScale = 1.0;
@@ -629,10 +610,8 @@ namespace CastlePlanner
                 pluginAssemblyLocation,
                 CastlePlannerPlugin.PluginGuid).Load(legacy);
 
-            enableMod = legacy.Mode != LegacyCastlePlannerMode.Disabled;
-            mode = legacy.Mode == LegacyCastlePlannerMode.Spawn
-                ? CastlePlannerMode.Spawn
-                : CastlePlannerMode.Blueprint;
+            blueprints = legacy.Mode == LegacyCastlePlannerMode.Blueprint;
+            spawnCastle = legacy.Mode == LegacyCastlePlannerMode.Spawn;
             selectedCastle = NormalizeCastle(legacy.SelectedCastle, defaultCastle);
             blueprintHotkey = NormalizeKeyCode(legacy.BlueprintHotkey);
             blueprintIconScale = NormalizeIconScale(legacy.BlueprintIconScale);
@@ -652,7 +631,8 @@ namespace CastlePlanner
             Shared.DebugLogHelper.LogInfo(
                 log,
                 $"Legacy CastlePlanner settings prepared for preset migration: " +
-                $"enabled={enableMod}, mode={mode}, selection='{selectedCastle}'.");
+                $"blueprints={blueprints}, spawnCastle={spawnCastle}, " +
+                $"selection='{selectedCastle}'.");
         }
 
         private static bool IsSharedPresetPayload(string path)

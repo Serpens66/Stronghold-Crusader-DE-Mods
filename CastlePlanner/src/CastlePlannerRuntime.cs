@@ -226,7 +226,7 @@ namespace CastlePlanner
             {
                 Shared.DebugLogHelper.LogInfo(
                     log,
-                    $"Native castle spawning skipped because mode is '{settings.Mode}'.");
+                    "Native castle spawning skipped because the host Spawn Castle setting is disabled.");
                 return;
             }
 

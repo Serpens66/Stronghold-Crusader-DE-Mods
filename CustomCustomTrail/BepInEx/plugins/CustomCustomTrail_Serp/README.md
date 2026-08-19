@@ -84,7 +84,7 @@ Ein vollständiges manuelles Missionsbeispiel und ein Manifestbeispiel liegen un
 
 Die Modsettings zeigen automatisch alle derzeit installierten kompatiblen Mods als Checkboxen. Sie sind standardmäßig aktiviert; `CustomCustomTrail` selbst wird nicht angeboten. Eine deaktivierte Checkbox lässt die betreffende Mod beim Erstellen neuer Trail-Snapshots vollständig unverwaltet. Inkompatible installierte Mods erscheinen darunter ausschließlich als kommagetrennte Namensliste.
 
-Normale Custom-Trail-Missionen speichern für die ausgewählten Mods ausschließlich persistente `[SyncHostOnly]`-Properties als gleichnamige `.modjson`. Die stabile Identität ist jeweils die BepInEx-Plugin-GUID. Welche Mods unterstützt werden, ist nicht fest im Code hinterlegt: Jede registrierte Modsettings-ViewModel, die den sicheren Mission-Preset-Vertrag erfüllt, wird automatisch erkannt.
+Normale Custom-Trail-Missionen speichern für die ausgewählten Mods ausschließlich persistente `[SyncHostOnly]`-Properties als gleichnamige `.modjson`. Die stabile Identität ist jeweils die BepInEx-Plugin-GUID. Welche Mods unterstützt werden, ist nicht fest im Code hinterlegt: Jede registrierte Modsettings-ViewModel, die den sicheren Mission-Preset-Vertrag erfüllt und keinen expliziten Opt-out setzt, wird automatisch erkannt.
 
 Der verlinkte Guide [`Mod Compatibilty CustomCustomTrail.md`](../Mod%20Compatibilty%20CustomCustomTrail.md) beschreibt für fremde Modautoren die empfohlene Shared-Integration, die exakten Vertragsmethoden, Property-Regeln und Diagnose über das BepInEx-Log.
 

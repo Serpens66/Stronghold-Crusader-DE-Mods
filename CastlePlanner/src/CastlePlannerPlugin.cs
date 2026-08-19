@@ -58,8 +58,9 @@ namespace CastlePlanner
                 Shared.DebugLogHelper.LogInfo(
                     Logger,
                     $"Registering local CastlePlanner presets: " +
-                    $"storage=LobbyModSettings/{PluginGuid}.msgpack, enabled={Settings.EnableMod}, " +
-                    $"mode={Settings.Mode}, selection='{Settings.SelectedCastle}'.");
+                    $"storage=LobbyModSettings/{PluginGuid}.msgpack, " +
+                    $"blueprints={Settings.Blueprints}, spawnCastle={Settings.SpawnCastle}, " +
+                    $"selection='{Settings.SelectedCastle}'.");
 
                 Shared.LobbyModSettingsPresetRegistration.Register(
                     this,
@@ -77,7 +78,7 @@ namespace CastlePlanner
                 Shared.DebugLogHelper.LogInfo(
                     Logger,
                     $"CastlePlanner settings registration completed: " +
-                    $"enabled={Settings.EnableMod}, mode={Settings.Mode}, " +
+                    $"blueprints={Settings.Blueprints}, spawnCastle={Settings.SpawnCastle}, " +
                     $"selection='{Settings.SelectedCastle}', " +
                     $"hotkey={Settings.HotkeyDisplayText}.");
 

@@ -47,7 +47,7 @@ foreach ($entry in $settings.GetEnumerator()) {
     }
 
     $activationNodes = @($xml.SelectNodes(
-        "//*[local-name()='CheckBox' and (contains(@IsChecked, 'EnableMod') or contains(@IsChecked, 'EnableClientFeatures'))]"))
+        "//*[local-name()='CheckBox' and (contains(@IsChecked, 'EnableMod') or contains(@IsChecked, 'EnableClientFeatures') or contains(@IsChecked, 'Blueprints') or contains(@IsChecked, 'SpawnCastle'))]"))
     if ($activationNodes.Count -eq 0) {
         throw "$($entry.Key): no activation checkbox found."
     }

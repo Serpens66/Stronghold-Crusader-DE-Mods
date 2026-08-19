@@ -10,7 +10,9 @@
     {
       "Version": "0.4.6",
       "Changes": [
-        "Discovers AIVJSON castles inside subscribed Steam Workshop items and refreshes the preserved selection whenever the castle dropdown opens."
+        "Discovers AIVJSON castles inside subscribed Steam Workshop items and refreshes the preserved selection whenever the castle dropdown opens.",
+        "Replaced the exclusive Blueprint or Spawn mode dropdown with independent Blueprint and Spawn Castle checkboxes.",
+        "Made Spawn Castle a synchronized host setting while keeping Blueprints and the AIVJSON selection local."
       ]
     },
     {

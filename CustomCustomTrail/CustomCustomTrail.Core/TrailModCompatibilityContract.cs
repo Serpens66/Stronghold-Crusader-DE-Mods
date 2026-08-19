@@ -20,6 +20,24 @@ namespace CustomCustomTrail.Core
 
     public static class TrailModCompatibilityContract
     {
+        public const string ExplicitOptOutMemberName = "CustomCustomTrailModSettingsOptOut";
+
+        public static bool IsExplicitlyOptedOut(object plugin)
+        {
+            if (plugin == null)
+                return false;
+
+            FieldInfo marker = plugin.GetType().GetField(
+                ExplicitOptOutMemberName,
+                BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy);
+            return marker != null &&
+                marker.FieldType == typeof(bool) &&
+                marker.IsLiteral &&
+                !marker.IsInitOnly &&
+                marker.GetRawConstantValue() is bool optedOut &&
+                optedOut;
+        }
+
         public static TrailModCompatibilityResult Evaluate(
             object viewModel,
             Action<PropertyInfo, object> serializationProbe,

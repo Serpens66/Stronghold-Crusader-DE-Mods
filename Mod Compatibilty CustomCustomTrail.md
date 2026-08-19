@@ -97,6 +97,14 @@ Register exactly one lobby-modsettings ViewModel for each BepInEx plugin GUID. I
 
 `EnableMod` is optional for compatibility, but strongly recommended. If present as a Boolean `[SyncHostOnly]` property, a Trail can explicitly restore the mod's enabled or disabled state. Without it, the compatible host settings are still captured and restored.
 
+## Explicit opt-out
+
+A mod whose settings must never be owned by a Trail can opt out without referencing `CustomCustomTrail`. Add this exact public constant to the BepInEx plugin class that owns the registered modsettings panel:
+
+    public const bool CustomCustomTrailModSettingsOptOut = true;
+
+The marker is intentionally a compile-time constant rather than a configurable setting. `CustomCustomTrail` checks it before inspecting the ViewModel. An opted-out plugin is omitted completely: it receives no checkbox, does not appear in the incompatible-mod list, is not mentioned by compatibility warnings, and its settings are never captured or applied. The member name is case-sensitive; a property, mutable field, or value of `false` does not opt out.
+
 ## Required mission-preset API
 
 Mods using `PresetLobbyModSettingsViewModel` receive this API automatically. A custom implementation must expose these exact public members:

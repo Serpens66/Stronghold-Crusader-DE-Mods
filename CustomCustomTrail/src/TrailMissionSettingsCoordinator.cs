@@ -140,6 +140,8 @@ namespace CustomCustomTrail
                 var result = new List<TrailModCompatibilityInfo>();
                 foreach (IGrouping<string, LobbyModSettingsEntry> group in GetRegistrationGroups())
                 {
+                    if (IsRegistrationGroupOptedOut(group))
+                        continue;
                     string modId = group.Key;
                     if (string.Equals(modId, CustomCustomTrailPlugin.PluginGuid, StringComparison.Ordinal))
                         continue;
@@ -208,6 +210,9 @@ namespace CustomCustomTrail
             private static IEnumerable<IGrouping<string, LobbyModSettingsEntry>> GetRegistrationGroups() =>
                 GameXAMLManagerAPI.Instance.RegisteredModSettings
                     .GroupBy(GetModId, StringComparer.Ordinal);
+
+            private static bool IsRegistrationGroupOptedOut(IEnumerable<LobbyModSettingsEntry> group) =>
+                group.Any(entry => TrailModCompatibilityContract.IsExplicitlyOptedOut(entry?.Plugin));
 
             public TrailMissionSettingsCoordinator(ManualLogSource log, bool enabled, Func<string, bool> isModSelected)
             {
@@ -1758,6 +1763,8 @@ namespace CustomCustomTrail
                 var result = new Dictionary<string, object>(StringComparer.Ordinal);
                 foreach (IGrouping<string, LobbyModSettingsEntry> group in GetRegistrationGroups())
                 {
+                    if (IsRegistrationGroupOptedOut(group))
+                        continue;
                     string modId = group.Key;
                     if (group.Skip(1).Any())
                         continue;

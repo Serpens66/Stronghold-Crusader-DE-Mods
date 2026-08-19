@@ -22,6 +22,7 @@ var tests = new (string Name, Action Run)[]
     ("missing mod entry remains unmanaged", TestMissingModEntry),
     ("Trail mod compatibility contract is validated", TestTrailModCompatibilityContract),
     ("disabled Trail mod ids are normalized", TestDisabledTrailModIdNormalization),
+    ("explicit plugin opt-out marker is honored", TestExplicitPluginOptOut),
     ("sidecar schema evolution keeps only current settings", TestSidecarSettingsSchemaEvolution),
     ("coop mission schema evolution keeps only current settings", TestCoopSettingsSchemaEvolution),
     ("invalid mod-settings documents are rejected", TestInvalidModSettingsDocuments),
@@ -156,6 +157,18 @@ static void TestDisabledTrailModIdNormalization()
         "disabled mod ids were not filtered, de-duplicated and sorted");
     Assert(TrailModCompatibilityContract.NormalizeDisabledModIds(null, "CustomCustomTrail_Serp").Length == 0,
         "an empty selection did not keep every compatible mod enabled by default");
+}
+
+static void TestExplicitPluginOptOut()
+{
+    Assert(TrailModCompatibilityContract.IsExplicitlyOptedOut(new OptedOutPlugin()),
+        "public true opt-out constant was not honored");
+    Assert(!TrailModCompatibilityContract.IsExplicitlyOptedOut(new NotOptedOutPlugin()),
+        "false opt-out constant excluded a plugin");
+    Assert(!TrailModCompatibilityContract.IsExplicitlyOptedOut(new RuntimeOptOutFieldPlugin()),
+        "mutable runtime field was accepted as an explicit compile-time opt-out");
+    Assert(!TrailModCompatibilityContract.IsExplicitlyOptedOut(null),
+        "missing plugin was treated as opted out");
 }
 
 static TrailModCompatibilityResult EvaluateCompatibility(object viewModel) =>
@@ -295,6 +308,8 @@ static void TestLocalActivationSetting()
     string runtime = File.ReadAllText(Path.Combine(root, "src", "CustomCustomTrailRuntime.cs"));
     string coordinator = File.ReadAllText(Path.Combine(root, "src", "TrailMissionSettingsCoordinator.cs"));
     string compatibilityContract = File.ReadAllText(Path.Combine(root, "CustomCustomTrail.Core", "TrailModCompatibilityContract.cs"));
+    string workspaceRoot = Directory.GetParent(root)?.FullName ?? throw new InvalidOperationException("workspace root missing");
+    string hostPlugin = File.ReadAllText(Path.Combine(workspaceRoot, "SerpsModsHost", "src", "SerpsModsHostPlugin.cs"));
     string xaml = File.ReadAllText(Path.Combine(root, "Override", "ScriptExtenderUI", "CustomCustomTrailSettings.xaml"));
 
     Assert(viewModel.Contains("[PersistLocal]"), "activation setting is not local-only persisted");
@@ -309,6 +324,12 @@ static void TestLocalActivationSetting()
     Assert(xaml.Contains("ToolTipService.ShowDuration=\"60000\""), "activation control tooltip duration is missing");
     Assert(xaml.Contains("PracticalEffectsText") && viewModel.Contains("CustomCustomTrail.PracticalEffects"),
         "player-facing practical-effects text is not bound below the activation setting");
+    int descriptionPosition = xaml.IndexOf("PracticalEffectsText", StringComparison.Ordinal);
+    int hostOptionsPosition = xaml.IndexOf("HostOptionsText", StringComparison.Ordinal);
+    int modSelectionPosition = xaml.IndexOf("SupportedTrailSettingsTitle", StringComparison.Ordinal);
+    Assert(descriptionPosition >= 0 && descriptionPosition < hostOptionsPosition &&
+        hostOptionsPosition < modSelectionPosition,
+        "host Coop Trail options are not between the general description and mod-selection checkboxes");
     Assert(xaml.Contains("CompatibleTrailMods") && xaml.Contains("IncompatibleTrailModsText") &&
         viewModel.Contains("DisabledTrailModIds") && runtime.Contains("DiscoverModCompatibility()"),
         "the dynamic compatible/incompatible Trail-mod catalog is not shown or persisted");
@@ -319,6 +340,10 @@ static void TestLocalActivationSetting()
         "dynamic Trail compatibility does not enforce the safe mission-preset contract");
     Assert(coordinator.Contains("GetRegistrationGroups()") && coordinator.Contains("group.Skip(1).Any()"),
         "duplicate mod-settings registrations are not rejected per plugin GUID");
+    Assert(coordinator.Contains("IsRegistrationGroupOptedOut(group)") &&
+        plugin.Contains("public const bool CustomCustomTrailModSettingsOptOut = true;") &&
+        hostPlugin.Contains("public const bool CustomCustomTrailModSettingsOptOut = true;"),
+        "explicit opt-out is not applied to discovery, CustomCustomTrail, and SerpsModsHost");
     Assert(coordinator.Contains("ExitActiveParticipants") &&
         coordinator.Contains("activeParticipantIds.Add(item.Item1)"),
         "Trail lifecycle is not limited to participants whose preset entry completed");
@@ -831,4 +856,19 @@ sealed class NonBooleanEnableModViewModel
     public void System_ExitMissionPreset()
     {
     }
+}
+
+sealed class OptedOutPlugin
+{
+    public const bool CustomCustomTrailModSettingsOptOut = true;
+}
+
+sealed class NotOptedOutPlugin
+{
+    public const bool CustomCustomTrailModSettingsOptOut = false;
+}
+
+sealed class RuntimeOptOutFieldPlugin
+{
+    public static bool CustomCustomTrailModSettingsOptOut = true;
 }

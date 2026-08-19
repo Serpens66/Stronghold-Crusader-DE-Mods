@@ -1,10 +1,11 @@
 # CastlePlanner
 
-`CastlePlanner` adds three operating modes for a selected `.aivjson` castle:
+`CastlePlanner` provides two independently controlled features for a selected
+`.aivjson` castle:
 
-- `Disabled` leaves the game unchanged.
-- `Blueprint` displays a local, non-simulating construction guide.
-- `Spawn` builds the castle on a newly started singleplayer map through the
+- `Blueprints` displays a local, non-simulating construction guide.
+- `Spawn Castle` is controlled by the host and builds the host's selected
+  castle on a newly started singleplayer map through the
   game's native AIV castle-building pipeline.
 
 The dropdown scans:
@@ -14,10 +15,9 @@ The dropdown scans:
 - subscribed Steam Workshop item directories
 - the official Castle & CPU Lord Editor's `StreamingAssets/Villages` directory
 
-All five in-game options (mode, selection, Blueprint key, icon scale, and icon
-alpha) are stored locally in
-`BepInEx/plugins/CastlePlanner_Serp/LobbyModSettings/CastlePlanner_Serp.msgpack`.
-They are never synchronized to other players.
+The Blueprint activation, castle selection, Blueprint key, icon scale, and icon
+alpha are local settings. `Spawn Castle` is a synchronized host setting. Both
+features can be enabled at the same time.
 
 ## Visual Blueprint mode
 
