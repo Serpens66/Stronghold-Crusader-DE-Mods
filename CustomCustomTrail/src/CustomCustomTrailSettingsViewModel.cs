@@ -19,9 +19,17 @@ namespace CustomCustomTrail
         private ComboBoxItem[] coopPackageOptions = Array.Empty<ComboBoxItem>();
         private string[] coopPackageIds = Array.Empty<string>();
 
+        public CustomCustomTrailSettingsViewModel()
+        {
+            coopPackageOptions = new[]
+            {
+                new ComboBoxItem { Content = SerpLocalization.Get("CustomCustomTrail.VanillaPackage") },
+            };
+            coopPackageIds = new[] { string.Empty };
+        }
+
         public event Action<bool> EnableModChanged;
         public event Action ActiveCoopPackageChanged;
-        public event Action PackagesRefreshRequested;
 
         public string EnableModText => SerpLocalization.Get(SerpLocalization.EnableMod);
         public string EnableModHelpText => SerpLocalization.Get(SerpLocalization.EnableModHelp);
@@ -33,14 +41,7 @@ namespace CustomCustomTrail
         public string HostReadOnlyNoticeText => SerpLocalization.Get("CustomCustomTrail.HostReadOnlyNotice");
         public Visibility HostReadOnlyNoticeVisibility => IsHost ? Visibility.Collapsed : Visibility.Visible;
         public bool CanEditCoopPackage => IsHost && EnableMod;
-        public ComboBoxItem[] CoopPackageOptions
-        {
-            get
-            {
-                PackagesRefreshRequested?.Invoke();
-                return coopPackageOptions;
-            }
-        }
+        public ComboBoxItem[] CoopPackageOptions => coopPackageOptions;
 
         public string CoopPackageStatusText
         {
@@ -84,7 +85,7 @@ namespace CustomCustomTrail
                     return;
                 activeCoopPackageId = value;
                 OnPropertyChanged(nameof(ActiveCoopPackageId));
-                OnPropertyChanged(nameof(SelectedCoopPackageIndex));
+                OnPropertyChanged(nameof(SelectedCoopPackage));
                 ActiveCoopPackageChanged?.Invoke();
             }
         }
@@ -138,17 +139,20 @@ namespace CustomCustomTrail
         [DoNotPersist]
         public string[] CoopPackageStatusData { get; } = new string[9];
 
-        public int SelectedCoopPackageIndex
+        public ComboBoxItem SelectedCoopPackage
         {
             get
             {
                 int index = Array.FindIndex(coopPackageIds, id => string.Equals(id, activeCoopPackageId, StringComparison.OrdinalIgnoreCase));
-                return index >= 0 ? index : 0;
+                return coopPackageOptions[index >= 0 ? index : 0];
             }
             set
             {
-                if (value >= 0 && value < coopPackageIds.Length)
-                    ActiveCoopPackageId = coopPackageIds[value];
+                if (value == null)
+                    return;
+                int index = Array.IndexOf(coopPackageOptions, value);
+                if (index >= 0 && index < coopPackageIds.Length)
+                    ActiveCoopPackageId = coopPackageIds[index];
             }
         }
 
@@ -165,10 +169,21 @@ namespace CustomCustomTrail
                 options.Add(new ComboBoxItem { Content = package.Manifest.DisplayName + " (" + package.Manifest.MissionCount + ")" });
                 ids.Add(package.Manifest.PackageId);
             }
-            coopPackageOptions = options.ToArray();
-            coopPackageIds = ids.ToArray();
+            ComboBoxItem[] refreshedOptions = options.ToArray();
+            string[] refreshedIds = ids.ToArray();
+            bool unchanged = coopPackageIds.SequenceEqual(refreshedIds, StringComparer.OrdinalIgnoreCase) &&
+                coopPackageOptions.Select(option => option.Content?.ToString() ?? string.Empty)
+                    .SequenceEqual(refreshedOptions.Select(option => option.Content?.ToString() ?? string.Empty), StringComparer.Ordinal);
+            if (unchanged)
+            {
+                OnPropertyChanged(nameof(SelectedCoopPackage));
+                return;
+            }
+
+            coopPackageOptions = refreshedOptions;
+            coopPackageIds = refreshedIds;
             OnPropertyChanged(nameof(CoopPackageOptions));
-            OnPropertyChanged(nameof(SelectedCoopPackageIndex));
+            OnPropertyChanged(nameof(SelectedCoopPackage));
         }
 
         public void SetLocalPackageStatus(string value) => CoopPackageStatus = value;

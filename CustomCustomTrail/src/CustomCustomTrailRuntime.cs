@@ -67,7 +67,6 @@ namespace CustomCustomTrail
             missionSettingsCoordinator.CoopPackagesChanged += OnActiveCoopPackageChanged;
             missionSettingsCoordinator.Initialize();
             settings.ActiveCoopPackageChanged += OnActiveCoopPackageChanged;
-            settings.PackagesRefreshRequested += RefreshPackageCatalog;
             subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
                 .Subscribe(_ => ClearLaunchState()));
@@ -119,7 +118,6 @@ namespace CustomCustomTrail
             buttonHook?.Dispose();
             RestoreVanillaMissions();
             settings.ActiveCoopPackageChanged -= OnActiveCoopPackageChanged;
-            settings.PackagesRefreshRequested -= RefreshPackageCatalog;
             if (missionSettingsCoordinator != null)
                 missionSettingsCoordinator.CoopPackagesChanged -= OnActiveCoopPackageChanged;
             missionSettingsCoordinator?.ExitContext(force: true);

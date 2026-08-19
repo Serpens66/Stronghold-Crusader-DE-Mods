@@ -906,8 +906,8 @@ namespace CustomCustomTrail
                 {
                     Name = "SharedTrailCustomize",
                     Width = 200,
-                    // Keep this just below CoopKick so the player list cannot cover it.
-                    Margin = new Thickness(0, 0, 0, -51),
+                    // BTN_SH_GlowL has transparent vertical padding; overlap the layout boxes for a 3 px visible gap.
+                    Margin = new Thickness(0, 0, 0, -30),
                     HorizontalAlignment = HorizontalAlignment.Center,
                     VerticalAlignment = VerticalAlignment.Bottom,
                     Style = anchor.Style,

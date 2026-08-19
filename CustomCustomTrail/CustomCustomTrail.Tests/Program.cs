@@ -171,7 +171,7 @@ static void TestCoordinatorOwnership()
     string sharedPresetSystem = File.ReadAllText(Path.Combine(workspaceRoot, "Shared", "PresetLobbyModSettingsViewModel.cs"));
     for (int trail = 1; trail <= 4; trail++)
         Assert(CountOccurrences(coordinator, "FRONT_CoopTrail" + trail + ".Instance") == 1, "Coop Trail " + trail + " button registration is not singular");
-    Assert(coordinator.Contains("Margin = new Thickness(0, 0, 0, -51)"),
+    Assert(coordinator.Contains("Margin = new Thickness(0, 0, 0, -30)"),
         "Coop Customize is not positioned below the Vanilla kick button");
     string runtime = File.ReadAllText(Path.Combine(projectRoot, "src", "CustomCustomTrailRuntime.cs"));
     string obsoleteBridgeName = "TrailModSettings" + "Bridge";
@@ -218,6 +218,15 @@ static void TestLocalActivationSetting()
         "player-facing practical-effects text is not bound below the activation setting");
     Assert(!xaml.Contains("SelectedPreset") && !xaml.Contains("PresetOptions"), "activation UI unexpectedly exposes presets");
     Assert(xaml.Contains("CoopPackageOptions") && xaml.Contains("CanEditCoopPackage"), "host package dropdown is missing");
+    Assert(xaml.Contains("SelectedItem=\"{Binding SelectedCoopPackage, Mode=TwoWay}\"") &&
+        !xaml.Contains("SelectedCoopPackageIndex"),
+        "Coop package dropdown does not use the stable SpawnCastle-style SelectedItem binding");
+    Assert(viewModel.Contains("coopPackageIds = new[] { string.Empty }") &&
+        viewModel.Contains("CustomCustomTrail.VanillaPackage"),
+        "Coop package dropdown does not initialize with Vanilla");
+    Assert(!viewModel.Contains("PackagesRefreshRequested?.Invoke()") &&
+        viewModel.Contains("if (unchanged)"),
+        "Coop package dropdown still replaces its ItemsSource reentrantly");
 }
 
 static void TestCoopExporterIntegration()
