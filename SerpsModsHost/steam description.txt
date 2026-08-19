@@ -15,6 +15,7 @@ In multiplayer, gameplay-related settings are controlled by the host and synchro
 [*][*]Allows the minimap to be used while placing a building (like in HD version).
 [*][*]Makes the camera follow the cursor directly while dragging on the minimap (like in HD version).
 [*][*]Pressing the market hotkey while the market is already open returns to the main trading menu (like in HD version).
+[*][*]Prevent the game from constantly resetting your game resolution back to standard (race condition, so only happens sometimes in vanilla).
 [*][*]Provides a freely customizable market goods order, defaulting to the classic HD order.
 [*][*]Fixes synchronized movement for mixed troop groups, making every unit move at the speed of the slowest unit (in vanilla eg. archers and slaves walk slow together, although both can run).
 [*][*]Fixes plague popularity penalties and reliably removes them after the plague has been eliminated.

@@ -120,7 +120,7 @@
     <Compile Include="src\HunterQueryActorPolicy.cs" />
     <Compile Include="src\HunterQueryActorWorkaround.cs" />
     <Compile Include="src\HunterTargetSelectionFeature.cs" />
-    <Compile Include="src\HunterProjectileRecoveryFeature.cs" />
+    <Compile Include="src\HunterProjectileObservationFeature.cs" />
     <Compile Include="src\HunterAnimalCompatibilityFeature.cs" />
     <Compile Include="src\HunterChickenCompatibilityFeature.cs" />
     <Compile Include="src\HunterLineOfSightRecovery.cs" />

@@ -57,6 +57,13 @@
                  Foreground="#FFCC66" FontWeight="Bold" Margin="0,0,0,8"/>
       <TextBlock Text="{Binding ClientOptionsText}" Style="{StaticResource ClientRoleHeader}" Margin="0,4,0,4"/>
       <StackPanel IsEnabled="{Binding CanEditClientSettings}">
+      <TextBlock Text="{Binding DisplayTitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,4"/>
+      <CheckBox IsChecked="{Binding PreserveDisplayResolution, Mode=TwoWay}"
+                Foreground="White"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding PreserveDisplayResolutionHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding PreserveDisplayResolutionText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox>
       <TextBlock Text="{Binding ClientInterfaceTitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,4"/>
       <CheckBox IsChecked="{Binding EnableMinimapCursorFollowFix, Mode=TwoWay}"
                 Foreground="White"

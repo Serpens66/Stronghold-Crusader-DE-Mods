@@ -22,7 +22,6 @@ namespace ImprovedHunters
         private bool improvedTargetSelection = true;
         private bool improvedPathfinding = true;
         private bool allowDeadTargets;
-        private bool reliableHunterProjectiles = true;
         private bool huntDeer = true;
         private bool huntGoat = true;
         private bool huntRabbit = true;
@@ -62,8 +61,6 @@ namespace ImprovedHunters
         public string ImprovedPathfindingHelpText => SerpLocalization.Get("ImprovedHunters.ImprovedPathfindingHelp");
         public string AllowDeadTargetsText => SerpLocalization.Get("ImprovedHunters.AllowDeadTargets");
         public string AllowDeadTargetsHelpText => SerpLocalization.Get("ImprovedHunters.AllowDeadTargetsHelp");
-        public string ReliableHunterProjectilesText => SerpLocalization.Get("ImprovedHunters.ReliableHunterProjectiles");
-        public string ReliableHunterProjectilesHelpText => SerpLocalization.Get("ImprovedHunters.ReliableHunterProjectilesHelp");
         public string DeerText => SerpLocalization.Get("ImprovedHunters.Deer");
         public string GoatText => SerpLocalization.Get("ImprovedHunters.Goat");
         public string RabbitText => SerpLocalization.Get("ImprovedHunters.Rabbit");
@@ -81,7 +78,6 @@ namespace ImprovedHunters
         [SyncHostOnly] public bool ImprovedTargetSelection { get => improvedTargetSelection; set => SetSetting(ref improvedTargetSelection, value, nameof(ImprovedTargetSelection)); }
         [SyncHostOnly] public bool ImprovedPathfinding { get => improvedPathfinding; set => SetSetting(ref improvedPathfinding, value, nameof(ImprovedPathfinding)); }
         [SyncHostOnly] public bool AllowDeadTargets { get => allowDeadTargets; set => SetSetting(ref allowDeadTargets, value, nameof(AllowDeadTargets)); }
-        [SyncHostOnly] public bool ReliableHunterProjectiles { get => reliableHunterProjectiles; set => SetSetting(ref reliableHunterProjectiles, value, nameof(ReliableHunterProjectiles)); }
         [SyncHostOnly] public bool HuntDeer { get => huntDeer; set => SetSetting(ref huntDeer, value, nameof(HuntDeer)); }
         [SyncHostOnly] public bool HuntGoat { get => huntGoat; set => SetSetting(ref huntGoat, value, nameof(HuntGoat)); }
         [SyncHostOnly] public bool HuntRabbit { get => huntRabbit; set => SetSetting(ref huntRabbit, value, nameof(HuntRabbit)); }
@@ -189,7 +185,6 @@ namespace ImprovedHunters
             ImprovedTargetSelection = true;
             ImprovedPathfinding = true;
             AllowDeadTargets = false;
-            ReliableHunterProjectiles = true;
             HuntDeer = true;
             HuntGoat = true;
             HuntRabbit = true;

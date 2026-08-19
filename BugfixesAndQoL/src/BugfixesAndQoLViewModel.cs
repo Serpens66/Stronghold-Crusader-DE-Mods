@@ -24,6 +24,7 @@ namespace BugfixesAndQoL
         private bool enablePlagueTargetReservationFix = true;
         private bool enableAssemblyPointPlacementFix = true;
         private bool enableCustomTrailExtremeGoldFix = true;
+        private bool preserveDisplayResolution = true;
         private readonly LocalPerPlayerSetting<bool> enableClientFeatures = new LocalPerPlayerSetting<bool>(true);
         private readonly LocalPerPlayerSetting<bool> enableMinimapCursorFollowFix = new LocalPerPlayerSetting<bool>(true);
         private readonly LocalPerPlayerSetting<bool> enableMarketKeyMainMenuFix = new LocalPerPlayerSetting<bool>(true);
@@ -66,6 +67,7 @@ namespace BugfixesAndQoL
         public string EnableHostFeaturesHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableHostFeaturesHelp");
         public string ResetToDefaultText => SerpLocalization.Get(SerpLocalization.ResetToDefault);
         public string ClientInterfaceTitleText => SerpLocalization.Get("BugfixesAndQoL.ClientInterfaceTitle");
+        public string DisplayTitleText => SerpLocalization.Get("BugfixesAndQoL.DisplayTitle");
         public string AiAivTitleText => SerpLocalization.Get("BugfixesAndQoL.AiAivTitle");
         public string TroopMovementTitleText => SerpLocalization.Get("BugfixesAndQoL.TroopMovementTitle");
         public string PlagueTitleText => SerpLocalization.Get("BugfixesAndQoL.PlagueTitle");
@@ -83,6 +85,8 @@ namespace BugfixesAndQoL
         public string EnableAssemblyPointPlacementFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableAssemblyPointPlacementFixHelp");
         public string EnableCustomTrailExtremeGoldFixText => SerpLocalization.Get("BugfixesAndQoL.EnableCustomTrailExtremeGoldFix");
         public string EnableCustomTrailExtremeGoldFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableCustomTrailExtremeGoldFixHelp");
+        public string PreserveDisplayResolutionText => SerpLocalization.Get("BugfixesAndQoL.PreserveDisplayResolution");
+        public string PreserveDisplayResolutionHelpText => SerpLocalization.Get("BugfixesAndQoL.PreserveDisplayResolutionHelp");
         public string AllowMinimapWhilePlacingBuildingText => SerpLocalization.Get(SerpLocalization.AllowMinimapWhilePlacingBuilding);
         public string AllowMinimapWhilePlacingBuildingHelpText => SerpLocalization.Get(SerpLocalization.AllowMinimapWhilePlacingBuildingHelp);
         public string RememberAiAivSettingsText => SerpLocalization.Get(SerpLocalization.RememberAiAivSettings);
@@ -156,6 +160,13 @@ namespace BugfixesAndQoL
         {
             get => enableCustomTrailExtremeGoldFix;
             set => SetSetting(ref enableCustomTrailExtremeGoldFix, value, nameof(EnableCustomTrailExtremeGoldFix));
+        }
+
+        [Shared.PresetLocal]
+        public bool PreserveDisplayResolution
+        {
+            get => preserveDisplayResolution;
+            set => SetSetting(ref preserveDisplayResolution, value, nameof(PreserveDisplayResolution));
         }
 
         [SyncHostOnly]
@@ -291,6 +302,7 @@ namespace BugfixesAndQoL
             EnableAutoTradeSellZeroFix = true;
             EnableEnemyProximityBulldozeCursorFix = true;
             EnableCustomTrailExtremeGoldFix = true;
+            PreserveDisplayResolution = true;
         }
 
         private void SetSetting<T>(ref T field, T value, string propertyName)

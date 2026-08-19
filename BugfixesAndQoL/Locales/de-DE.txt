@@ -62,3 +62,6 @@ BugfixesAndQoL.EnableClientFeatures=Lokale Client-Funktionen aktivieren
 BugfixesAndQoL.EnableClientFeaturesHelp=Aktiviert oder deaktiviert die lokalen Oberflächen- und Steuerungsfunktionen dieses Mods nur für dich.
 BugfixesAndQoL.EnableHostFeatures=Host-Funktionen aktivieren
 BugfixesAndQoL.EnableHostFeaturesHelp=Aktiviert oder deaktiviert die vom Host gesteuerten Fehlerbehebungen für das Match.
+BugfixesAndQoL.DisplayTitle=Anzeige
+BugfixesAndQoL.PreserveDisplayResolution=Ausgewählte Bildschirmauflösung beibehalten
+BugfixesAndQoL.PreserveDisplayResolutionHelp=Wendet beim Spielstart die aus settings.cfg geladenen Werte für Breite, Höhe, Vollbildtyp und Bildwiederholrate erneut an, bis die Anzeigeinitialisierung stabil ist. Danach endet die Überwachung, sodass spätere Anzeigeänderungen Vanillas Verhalten verwenden. Diese Einstellung ist lokal und wird nicht synchronisiert.

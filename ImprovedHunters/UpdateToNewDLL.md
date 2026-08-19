@@ -292,9 +292,9 @@ normal no-target progression.
 5. Confirm hunter/prey states, corpse flag, death timer, reservations, target
    IDs, coordinates, camel health and visual health refresh behavior.
 6. Test automatic ranged rejection, explicit ranged `AttackUnit`, Hunter
-   retargeting, stalled/blocked projectile compensation, resulting `0x6E` corpse
-   pickup, line-of-sight recovery movement, corpse cleanup, camel health and
-   chicken neutralization on fresh and loaded maps.
+   retargeting, normal Vanilla `0x6E` corpse pickup, line-of-sight recovery
+   movement, corpse cleanup, camel health and chicken neutralization on fresh
+   and loaded maps.
 7. Revalidate the granary chicken function at `0xD29E0`, the comparison
    sequence at `0xD2AB4`, hook instruction at `0xD2ABF`, signed `jle` target
    `0xD2BA7`, spawn event path `0xD2B4C`, `rbx` player identity and native
@@ -348,18 +348,13 @@ address, a future DLL update requires only the normal structure-layout audit.
 
 ## Hunter blocked-shot and line-of-sight recovery
 
-Version 1.1.27 removes the one-second `KillUnit` compensation. That API enters
-the melee-death path and produced animal state `0x6F`, which the Hunter did not
-subsequently collect. A pending shot now stores Hunter, prey and projectile slot
-plus global IDs. While that exact `ArcherArrow` is still alive, the runtime calls
-the Script Extender's `GameUnitManagerAPI.DamageUnitRanged(victim, projectile)`
-only after the arrow has stopped moving for 300 ms, is within 32 world units of
-the target, or reaches its public projectile-delete pre-event. This re-enters
-Vanilla's ranged damage/death path and is limited to three attempts. An unresolved
-intent expires after five seconds without a synthetic kill. The validation also
-requires the live Hunter source, live configured prey, matching projectile source
-and target, owner/color-independent prey eligibility, and projectile source-player
-consistency.
+Version 1.1.27 replaced the old one-second `KillUnit` workaround with a guarded
+`DamageUnitRanged` compensation for stalled, near-target or deleted Hunter
+arrows. Version 1.1.69 removed that compensation completely because improved
+pathfinding and visibility handling are responsible for reaching a valid firing
+position. Projectile spawn and deletion events now remain observation-only for
+the unfinished post-shot path continuation. The removed design, guards and
+parameters are archived in `Plan/ReliableHunterProjectilesArchived.md`.
 
 Pre-shot visibility recovery is isolated in `HunterLineOfSightRecovery.cs` and
 currently remains fail-closed: it reports unavailable, performs no path search,

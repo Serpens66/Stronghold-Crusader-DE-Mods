@@ -3,10 +3,17 @@
   "Author": "Serpens66",
   "Name": "Improved Hunters",
   "Description": "Adds configurable hunter prey and meat yield for deer, goats, rabbits, camels and chickens.",
-  "Version": "1.1.68",
+  "Version": "1.1.69",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.1.69",
+      "Changes": [
+        "Remove the obsolete Reliable Hunter Projectiles setting and its stalled, near-target and projectile-deletion damage compensation; improved pathfinding and visibility handling remain responsible for reaching a valid firing position.",
+        "Retain projectile spawn and deletion events only as behavior-neutral observations for the unfinished post-shot path-continuation work, without pending damage intents or calls to DamageUnitRanged."
+      ]
+    },
     {
       "Version": "1.1.68",
       "Changes": [

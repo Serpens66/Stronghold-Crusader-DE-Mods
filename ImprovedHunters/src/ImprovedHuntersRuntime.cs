@@ -29,7 +29,6 @@ namespace ImprovedHunters
         private const int DefaultPreyHandlingCost = 100;
         private const int MaxPreyCacheDiagnosticLogs = 120;
         private const int MaxHunterTargetDiagnosticLogs = 160;
-        private const int MaxHunterProjectileDiagnosticLogs = 160;
         private const int MaxChickenOwnershipDiagnosticLogs = 160;
         private const int MaximumPlayerId = 8;
         private const int MaxReservationDiagnosticLogs = 80;
@@ -40,11 +39,9 @@ namespace ImprovedHunters
         // ranged damage.
         private const ushort HunterCorpsePickupAiState = 0x6E;
         // Retained only so corpses created by older KillUnit-based versions can
-        // expire cleanly after loading; new compensation never creates 0x6F.
+        // expire cleanly after loading; current code never creates 0x6F.
         private const ushort HunterFreshCorpseAiState = 0x6F;
         private const long ExpiredShortLivedCorpsePreserve = long.MinValue;
-        private const int MaxHunterProjectileDamageAttempts = 3;
-        private const int HunterProjectileNearTargetDistance = 32;
 
         // Rabbit despawn is exposed by the Script Extender. Camel and chicken use
         // the same native logic, but their constants are not exposed, so we patch
@@ -65,10 +62,6 @@ namespace ImprovedHunters
         private static readonly long AbortedTargetCooldownInterval = Stopwatch.Frequency * 30;
         private static readonly long HunterTargetSummaryInterval = Stopwatch.Frequency * 5;
         private static readonly long HunterSearchDetectionGap = Stopwatch.Frequency / 4;
-        private static readonly long HunterProjectileMinimumFlightTime = Stopwatch.Frequency / 4;
-        private static readonly long HunterProjectileStallInterval = Stopwatch.Frequency * 3 / 10;
-        private static readonly long HunterProjectileRetryInterval = Stopwatch.Frequency / 10;
-        private static readonly long HunterProjectileIntentLifetime = Stopwatch.Frequency * 5;
         private static readonly long PendingGranaryChickenSpawnTimeout = Stopwatch.Frequency * 2;
         private static readonly long GranaryChickenCleanupInterval = Stopwatch.Frequency / 10;
         private const int ShortLivedCorpseVisiblePreserveMapTicksAtSpeed40 = 1800;
@@ -86,7 +79,6 @@ namespace ImprovedHunters
         private readonly Dictionary<HunterPreyCooldownKey, long> abortedTargetCooldowns = new Dictionary<HunterPreyCooldownKey, long>();
         private readonly Dictionary<int, long> lastHunterQueryTimestamps = new Dictionary<int, long>();
         private readonly Dictionary<int, long> hunterMeatPickupTimestamps = new Dictionary<int, long>();
-        private readonly Dictionary<HunterShotIntentKey, PendingHunterShotIntent> pendingHunterShotIntents = new Dictionary<HunterShotIntentKey, PendingHunterShotIntent>();
         private readonly Dictionary<int, TrackedGranaryChicken> trackedGranaryChickens = new Dictionary<int, TrackedGranaryChicken>();
         private readonly int[] trackedGranaryChickenCounts = new int[MaximumPlayerId + 1];
         private readonly Stack<PendingGranaryChickenSpawn> pendingGranaryChickenSpawns = new Stack<PendingGranaryChickenSpawn>();
@@ -115,8 +107,6 @@ namespace ImprovedHunters
         private uint desiredCamelHealth;
         private uint lastLoggedDesiredCamelHealth;
         private bool nativeScanFailureLogged;
-        private bool hunterProjectileCompensationFailureLogged;
-        private bool hunterProjectileCleanupFailureLogged;
         private long nextNativeScanTimestamp;
         private long nextPreyCacheRefreshTimestamp;
         private long nextStaleReservationCleanupTimestamp;
@@ -130,7 +120,6 @@ namespace ImprovedHunters
         private int hunterTargetFallbackEvents;
         private int hunterTargetNoBestEvents;
         private int hunterTargetSearchStarts;
-        private int hunterProjectileDiagnosticLogs;
         private int shortLivedCorpsePreserveLogs;
         private int chickenOwnershipDiagnosticLogs;
         private int reservationDiagnosticLogs;
@@ -271,7 +260,6 @@ namespace ImprovedHunters
                 // some game globals can be recreated around map transitions.
                 ApplyDespawnPatches();
                 ApplyCamelHealthPatch();
-                RunHunterProjectileCompensation(timestamp);
 
                 SimpleNativeArray<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitArray();
                 if (units._array == null || units.Length == 0)
@@ -720,8 +708,6 @@ namespace ImprovedHunters
                 "Improved Hunters target-search fallback mode gate: " +
                 $"allowed={targetSearchFallbackSingleplayerAllowed}, {gameMode.ToDiagnosticString()}.");
             nativeScanFailureLogged = false;
-            hunterProjectileCompensationFailureLogged = false;
-            hunterProjectileCleanupFailureLogged = false;
             RunNativeScan(force: true);
         }
 
@@ -1111,13 +1097,6 @@ namespace ImprovedHunters
                 propertyName == nameof(ImprovedHuntersViewModel.HuntRabbit) ||
                 propertyName == nameof(ImprovedHuntersViewModel.HuntCamel) ||
                 propertyName == nameof(ImprovedHuntersViewModel.HuntChicken);
-
-            if ((propertyName == nameof(ImprovedHuntersViewModel.EnableMod) && !settings.EnableMod) ||
-                (propertyName == nameof(ImprovedHuntersViewModel.ReliableHunterProjectiles) &&
-                    !settings.ReliableHunterProjectiles))
-            {
-                pendingHunterShotIntents.Clear();
-            }
 
             if (propertyName == nameof(ImprovedHuntersViewModel.EnableMod) ||
                 propertyName == nameof(ImprovedHuntersViewModel.HuntChicken))
@@ -1772,18 +1751,6 @@ namespace ImprovedHunters
             return settings.IsHuntingEnabled(type);
         }
 
-        private unsafe bool IsCompensableHunterPrey(int unitId, GameUnit* prey, out PreyEligibility eligibility)
-        {
-            return TryGetPreyEligibility(unitId, prey, out eligibility) &&
-                eligibility.KnownAnimal &&
-                eligibility.RuntimeHuntingEnabled &&
-                eligibility.OwnerAllowed &&
-                eligibility.AliveState == (short)AliveState.IsAlive &&
-                eligibility.FlagsAllowed &&
-                (eligibility.Reservation == 0 || eligibility.Reservation == 2) &&
-                eligibility.CorpseFlag == 0;
-        }
-
         private static unsafe void UpdateUnitHealthDisplay(GameUnit* unit)
         {
             if (unit == null)
@@ -1845,7 +1812,6 @@ namespace ImprovedHunters
             abortedTargetCooldowns.Clear();
             lastHunterQueryTimestamps.Clear();
             hunterMeatPickupTimestamps.Clear();
-            pendingHunterShotIntents.Clear();
             nextPreyCacheRefreshTimestamp = 0;
             nextStaleReservationCleanupTimestamp = 0;
             nextHunterTargetSummaryTimestamp = 0;
@@ -1854,7 +1820,6 @@ namespace ImprovedHunters
             despawnPatchStateLogged = false;
             hunterTargetDiagnosticLogs = 0;
             preyCacheDiagnosticLogs = 0;
-            hunterProjectileDiagnosticLogs = 0;
             reservationDiagnosticLogs = 0;
             invalidHunterEventLogs = 0;
             hunterTargetQueryEvents = 0;
@@ -2036,145 +2001,6 @@ namespace ImprovedHunters
             }
         }
 
-        private struct HunterShotIntentKey : IEquatable<HunterShotIntentKey>
-        {
-            private readonly int targetUnitId;
-            private readonly uint targetGlobalId;
-            private readonly uint projectileGlobalId;
-            private readonly long projectileId;
-
-            public HunterShotIntentKey(
-                int targetUnitId,
-                uint targetGlobalId,
-                uint projectileGlobalId,
-                long projectileId)
-            {
-                this.targetUnitId = targetUnitId;
-                this.targetGlobalId = targetGlobalId;
-                this.projectileGlobalId = projectileGlobalId;
-                this.projectileId = projectileId;
-            }
-
-            public bool Equals(HunterShotIntentKey other)
-            {
-                return targetUnitId == other.targetUnitId &&
-                    targetGlobalId == other.targetGlobalId &&
-                    projectileGlobalId == other.projectileGlobalId &&
-                    projectileId == other.projectileId;
-            }
-
-            public override bool Equals(object obj)
-            {
-                return obj is HunterShotIntentKey other && Equals(other);
-            }
-
-            public override int GetHashCode()
-            {
-                unchecked
-                {
-                    int hash = 17;
-                    hash = hash * 31 + targetUnitId;
-                    hash = hash * 31 + targetGlobalId.GetHashCode();
-                    hash = hash * 31 + projectileGlobalId.GetHashCode();
-                    hash = hash * 31 + projectileId.GetHashCode();
-                    return hash;
-                }
-            }
-        }
-
-        private struct PendingHunterShotIntent
-        {
-            public readonly int HunterUnitId;
-            public readonly uint HunterGlobalId;
-            public readonly int TargetUnitId;
-            public readonly uint TargetGlobalId;
-            public readonly eChimps TargetType;
-            public readonly long CreatedAt;
-            public readonly long ExpiresAt;
-            public readonly string HunterSource;
-            public readonly long SpawnReturnValue;
-            public readonly uint ProjectileGlobalId;
-            public readonly ushort LastProjectileX;
-            public readonly ushort LastProjectileY;
-            public readonly long LastProjectileMovementAt;
-            public readonly long NextDamageAttemptAt;
-            public readonly int ActiveDamageAttempts;
-
-            public PendingHunterShotIntent(
-                int hunterUnitId,
-                uint hunterGlobalId,
-                int targetUnitId,
-                uint targetGlobalId,
-                eChimps targetType,
-                long createdAt,
-                long expiresAt,
-                string hunterSource,
-                long spawnReturnValue,
-                uint projectileGlobalId,
-                ushort lastProjectileX,
-                ushort lastProjectileY,
-                long lastProjectileMovementAt,
-                long nextDamageAttemptAt = 0,
-                int activeDamageAttempts = 0)
-            {
-                HunterUnitId = hunterUnitId;
-                HunterGlobalId = hunterGlobalId;
-                TargetUnitId = targetUnitId;
-                TargetGlobalId = targetGlobalId;
-                TargetType = targetType;
-                CreatedAt = createdAt;
-                ExpiresAt = expiresAt;
-                HunterSource = hunterSource;
-                SpawnReturnValue = spawnReturnValue;
-                ProjectileGlobalId = projectileGlobalId;
-                LastProjectileX = lastProjectileX;
-                LastProjectileY = lastProjectileY;
-                LastProjectileMovementAt = lastProjectileMovementAt;
-                NextDamageAttemptAt = nextDamageAttemptAt;
-                ActiveDamageAttempts = activeDamageAttempts;
-            }
-
-            public PendingHunterShotIntent WithProjectileObservation(ushort x, ushort y, long timestamp)
-            {
-                return new PendingHunterShotIntent(
-                    HunterUnitId,
-                    HunterGlobalId,
-                    TargetUnitId,
-                    TargetGlobalId,
-                    TargetType,
-                    CreatedAt,
-                    ExpiresAt,
-                    HunterSource,
-                    SpawnReturnValue,
-                    ProjectileGlobalId,
-                    x,
-                    y,
-                    timestamp,
-                    NextDamageAttemptAt,
-                    ActiveDamageAttempts);
-            }
-
-            public PendingHunterShotIntent WithDamageAttempt(int attempts, long nextAttemptAt)
-            {
-                return new PendingHunterShotIntent(
-                    HunterUnitId,
-                    HunterGlobalId,
-                    TargetUnitId,
-                    TargetGlobalId,
-                    TargetType,
-                    CreatedAt,
-                    ExpiresAt,
-                    HunterSource,
-                    SpawnReturnValue,
-                    ProjectileGlobalId,
-                    LastProjectileX,
-                    LastProjectileY,
-                    LastProjectileMovementAt,
-                    nextAttemptAt,
-                    attempts);
-            }
-        }
-
         private void InitializeHunterLineOfSightRecovery()
         {
             try
@@ -2264,15 +2090,12 @@ namespace ImprovedHunters
             hunterPreyTypes.Clear();
             nextIdleHunterRequeryTimestamps.Clear();
             loggedCollectedCorpseGlobalIds.Clear();
-            pendingHunterShotIntents.Clear();
             ClearTrackedGranaryChickens();
             pendingGranaryChickenSpawns.Clear();
             staleGranaryChickenUnitIds.Clear();
             loadedChickenReconstructionPending = false;
             ClearTargetSelectionCaches();
             nativeScanFailureLogged = false;
-            hunterProjectileCompensationFailureLogged = false;
-            hunterProjectileCleanupFailureLogged = false;
             nextNativeScanTimestamp = 0;
 
             hunterVisibilityDiagnostic?.Dispose();

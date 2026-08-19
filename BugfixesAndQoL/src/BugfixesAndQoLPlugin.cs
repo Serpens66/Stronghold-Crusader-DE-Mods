@@ -25,8 +25,9 @@ namespace BugfixesAndQoL
 
         public const string PluginGuid = "BugfixesAndQoL_Serp";
         public const string PluginName = "Bugfixes and QoL";
-        public const string PluginVersion = "1.0.19";
+        public const string PluginVersion = "1.0.20";
 
+        private static DisplayResolutionPersistenceHook displayResolutionPersistenceHook;
         private BugfixesAndQoLRuntime runtime;
         private object observedLobby;
         private int observedLobbyMemberCount = -1;
@@ -49,6 +50,19 @@ namespace BugfixesAndQoL
 
             // Pass the startup result into the view model so the warning occupies no UI space otherwise.
             Settings = new BugfixesAndQoLViewModel(legacySomeSettingsLoaded);
+            try
+            {
+                // Install before FatControler.Start loads settings.cfg and begins screen monitoring.
+                displayResolutionPersistenceHook =
+                    new DisplayResolutionPersistenceHook(Logger, Settings);
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(
+                    Logger,
+                    $"Bugfixes and QoL display-resolution persistence could not be initialized; Vanilla behavior remains active: {ex}");
+            }
+
             runtime = new BugfixesAndQoLRuntime(Logger, Settings);
             CrusaderLibrary.Instance.LibraryLoaded += OnCrusaderLibraryLoaded;
         }
