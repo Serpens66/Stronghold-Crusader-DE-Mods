@@ -28,12 +28,6 @@ namespace ExtraFeatures
             new HookRef<X64ManagedFunctionDetourAOB<MarketPriceDelegate>>();
         private HookRef<X64ManagedFunctionDetourAOB<MarketPriceDelegate>> sellPriceHook =
             new HookRef<X64ManagedFunctionDetourAOB<MarketPriceDelegate>>();
-        // BEGIN TEMPORARY AI_MARKET_TEST_LOGGING - remove after the in-game price test succeeds.
-        private int buyCallbackConfirmed;
-        private int sellCallbackConfirmed;
-        private int buyConfiguredPriceCallbackConfirmed;
-        private int sellConfiguredPriceCallbackConfirmed;
-        // END TEMPORARY AI_MARKET_TEST_LOGGING
         private int buyCallbackFailureLogged;
         private int sellCallbackFailureLogged;
         private bool disposed;
@@ -142,16 +136,12 @@ namespace ExtraFeatures
 
         private int GetBuyPrice(IntPtr playerManager, int playerId, int good, int amount)
         {
-            bool confirmConfiguredAIPrice = false;
             try
             {
-                if (ShouldUseVanillaPrice(playerManager, playerId, good, out confirmConfiguredAIPrice))
+                if (ShouldUseVanillaPrice(playerManager, playerId, good))
                 {
                     PackedGoodPrice price = GamePlayerManagerAPI.Instance.GetDefaultTradeBasePrice((eGoods)good);
-                    int total = AIMarketVanillaPricePolicy.CalculateTradeTotal(price.BuyPrice, amount);
-                    // TEMPORARY AI_MARKET_TEST_LOGGING
-                    TryConfirmFirstCallback(ref buyCallbackConfirmed, "buy", playerManager, playerId, good, amount, price.BuyPrice, total);
-                    return total;
+                    return AIMarketVanillaPricePolicy.CalculateTradeTotal(price.BuyPrice, amount);
                 }
             }
             catch (Exception ex)
@@ -159,31 +149,17 @@ namespace ExtraFeatures
                 TryLogCallbackFailureOnce(ref buyCallbackFailureLogged, "buy", ex);
             }
 
-            int trampolineResult = buyPriceHook.Value.Hook.Trampoline(playerManager, playerId, good, amount);
-            TryConfirmConfiguredPriceCallback(
-                ref buyConfiguredPriceCallbackConfirmed,
-                confirmConfiguredAIPrice,
-                true,
-                playerManager,
-                playerId,
-                good,
-                amount,
-                trampolineResult);
-            return trampolineResult;
+            return buyPriceHook.Value.Hook.Trampoline(playerManager, playerId, good, amount);
         }
 
         private int GetSellPrice(IntPtr playerManager, int playerId, int good, int amount)
         {
-            bool confirmConfiguredAIPrice = false;
             try
             {
-                if (ShouldUseVanillaPrice(playerManager, playerId, good, out confirmConfiguredAIPrice))
+                if (ShouldUseVanillaPrice(playerManager, playerId, good))
                 {
                     PackedGoodPrice price = GamePlayerManagerAPI.Instance.GetDefaultTradeBasePrice((eGoods)good);
-                    int total = AIMarketVanillaPricePolicy.CalculateTradeTotal(price.SellPrice, amount);
-                    // TEMPORARY AI_MARKET_TEST_LOGGING
-                    TryConfirmFirstCallback(ref sellCallbackConfirmed, "sell", playerManager, playerId, good, amount, price.SellPrice, total);
-                    return total;
+                    return AIMarketVanillaPricePolicy.CalculateTradeTotal(price.SellPrice, amount);
                 }
             }
             catch (Exception ex)
@@ -191,26 +167,11 @@ namespace ExtraFeatures
                 TryLogCallbackFailureOnce(ref sellCallbackFailureLogged, "sell", ex);
             }
 
-            int trampolineResult = sellPriceHook.Value.Hook.Trampoline(playerManager, playerId, good, amount);
-            TryConfirmConfiguredPriceCallback(
-                ref sellConfiguredPriceCallbackConfirmed,
-                confirmConfiguredAIPrice,
-                false,
-                playerManager,
-                playerId,
-                good,
-                amount,
-                trampolineResult);
-            return trampolineResult;
+            return sellPriceHook.Value.Hook.Trampoline(playerManager, playerId, good, amount);
         }
 
-        private bool ShouldUseVanillaPrice(
-            IntPtr playerManager,
-            int playerId,
-            int good,
-            out bool confirmConfiguredAIPrice)
+        private bool ShouldUseVanillaPrice(IntPtr playerManager, int playerId, int good)
         {
-            confirmConfiguredAIPrice = false;
             bool validPlayer = playerManager != IntPtr.Zero && playerId >= 1 && playerId <= 8;
             bool validGood = good >= 0 && good < (int)eGoods.Count;
             bool modEnabled = settings.EnableMod;
@@ -219,7 +180,6 @@ namespace ExtraFeatures
                 return false;
 
             bool isAIPlayer = GamePlayerManagerAPI.Instance.IsAIPlayer(playerId);
-            confirmConfiguredAIPrice = modEnabled && marketPricesAlsoForAI && isAIPlayer;
             return AIMarketVanillaPricePolicy.ShouldUseVanillaPrice(
                 modEnabled,
                 marketPricesAlsoForAI,
@@ -227,79 +187,6 @@ namespace ExtraFeatures
                 validGood,
                 isAIPlayer);
         }
-
-        // BEGIN TEMPORARY AI_MARKET_TEST_LOGGING - remove this method and its call sites after the in-game test succeeds.
-        private void TryConfirmFirstCallback(
-            ref int alreadyLogged,
-            string direction,
-            IntPtr playerManager,
-            int playerId,
-            int good,
-            int amount,
-            int basePrice,
-            int total)
-        {
-            if (Interlocked.Exchange(ref alreadyLogged, 1) != 0)
-                return;
-
-            try
-            {
-                Shared.DebugLogHelper.LogInfo(
-                    log,
-                    $"[AI_MARKET_TEST_LOG] AI Vanilla-price route confirmed: direction={direction}, " +
-                    $"playerManager=0x{unchecked((ulong)playerManager.ToInt64()):X}, player={playerId}, " +
-                    $"good={good}, amount={amount}, vanillaBasePrice={basePrice}, total={total}.");
-            }
-            catch
-            {
-                // Diagnostics must never change the selected trade price.
-            }
-        }
-        // END TEMPORARY AI_MARKET_TEST_LOGGING
-
-        // BEGIN TEMPORARY AI_MARKET_TEST_LOGGING - remove this method and its call sites after the in-game test succeeds.
-        private void TryConfirmConfiguredPriceCallback(
-            ref int alreadyLogged,
-            bool shouldLog,
-            bool buying,
-            IntPtr playerManager,
-            int playerId,
-            int good,
-            int amount,
-            int trampolineResult)
-        {
-            if (!shouldLog || Interlocked.Exchange(ref alreadyLogged, 1) != 0)
-                return;
-
-            try
-            {
-                eGoods typedGood = (eGoods)good;
-                PackedGoodPrice activePrice = GamePlayerManagerAPI.Instance.GetTradeBasePrice(typedGood);
-                PackedGoodPrice defaultPrice = GamePlayerManagerAPI.Instance.GetDefaultTradeBasePrice(typedGood);
-                int activeBasePrice = buying ? activePrice.BuyPrice : activePrice.SellPrice;
-                int defaultBasePrice = buying ? defaultPrice.BuyPrice : defaultPrice.SellPrice;
-                string direction = buying ? "buy" : "sell";
-                Shared.DebugLogHelper.LogInfo(
-                    log,
-                    $"[AI_MARKET_TEST_LOG] AI configured-price trampoline route confirmed: direction={direction}, " +
-                    $"playerManager=0x{unchecked((ulong)playerManager.ToInt64()):X}, player={playerId}, " +
-                    $"good={good}, amount={amount}, activeBasePrice={activeBasePrice}, " +
-                    $"vanillaBasePrice={defaultBasePrice}, trampolineTotal={trampolineResult}.");
-            }
-            catch (Exception ex)
-            {
-                try
-                {
-                    Shared.DebugLogHelper.LogError(
-                        log,
-                        $"[AI_MARKET_TEST_LOG] Configured-price confirmation logging failed without affecting the trade result: {ex}");
-                }
-                catch
-                {
-                }
-            }
-        }
-        // END TEMPORARY AI_MARKET_TEST_LOGGING
 
         private void TryLogCallbackFailureOnce(ref int alreadyLogged, string direction, Exception failure)
         {
