@@ -64,10 +64,13 @@ namespace CustomCustomTrail.Core
                 throw new InvalidDataException((path ?? "modSettings") + ".schemaVersion must be 1.");
             settings.Mods = settings.Mods ?? new Dictionary<string, ModSettingsEntry>(StringComparer.Ordinal);
             var normalized = new Dictionary<string, ModSettingsEntry>(StringComparer.Ordinal);
-            foreach (string id in ModSettingsDefinition.TargetModIds)
+            foreach (KeyValuePair<string, ModSettingsEntry> mod in settings.Mods
+                .OrderBy(item => item.Key, StringComparer.Ordinal))
             {
-                if (!settings.Mods.TryGetValue(id, out ModSettingsEntry entry) || entry == null)
-                    entry = new ModSettingsEntry();
+                string id = mod.Key;
+                if (string.IsNullOrWhiteSpace(id))
+                    throw new InvalidDataException((path ?? "modSettings") + ".mods contains an empty mod id.");
+                ModSettingsEntry entry = mod.Value ?? new ModSettingsEntry();
                 entry.Settings = entry.Settings ?? new Dictionary<string, object>(StringComparer.Ordinal);
                 if (!entry.Enabled)
                     entry.Settings.Clear();
@@ -109,7 +112,8 @@ namespace CustomCustomTrail.Core
         public static string Serialize(ModSettingsDefinition document)
         {
             var mods = new OrderedDictionary(StringComparer.Ordinal);
-            foreach (string id in ModSettingsDefinition.TargetModIds)
+            foreach (string id in (document?.Mods?.Keys ?? Enumerable.Empty<string>())
+                .OrderBy(value => value, StringComparer.Ordinal))
             {
                 ModSettingsEntry entry = document?.Mods != null &&
                     document.Mods.TryGetValue(id, out ModSettingsEntry found)

@@ -20,14 +20,27 @@ using IOPath = System.IO.Path;
 
 namespace CustomCustomTrail
 {
+    internal sealed class TrailModCompatibilityInfo
+    {
+        public TrailModCompatibilityInfo(string modId, string displayName, string incompatibilityReason)
+        {
+            ModId = modId;
+            DisplayName = displayName;
+            IncompatibilityReason = incompatibilityReason;
+        }
+
+        public string ModId { get; }
+        public string DisplayName { get; }
+        public string IncompatibilityReason { get; }
+        public bool IsCompatible => string.IsNullOrEmpty(IncompatibilityReason);
+    }
+
     /// <summary>Owns the process-wide Custom Trail settings and customization integration.</summary>
         internal sealed class TrailMissionSettingsCoordinator : IDisposable
         {
             private const string CoopTrailMakerSourceDirectory = "TrailMakerSource";
             private const string EncodedSettingPrefix = "messagepack-base64:";
 
-        private static readonly HashSet<string> TargetModIdSet =
-            new HashSet<string>(ModSettingsDefinition.TargetModIds, StringComparer.Ordinal);
             private static readonly FieldInfo MpLocalReadyField = typeof(FRONT_Multiplayer).GetField(
                 "MPLocalReady", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
             private static readonly FieldInfo MpLocalReadyLockedField = typeof(FRONT_Multiplayer).GetField(
@@ -67,11 +80,13 @@ namespace CustomCustomTrail
             private delegate void CoopTrail4ConstructorDelegate(FRONT_CoopTrail4 self);
 
             private readonly ManualLogSource log;
+            private readonly Func<string, bool> isModSelected;
             private readonly List<IDisposable> hooks = new List<IDisposable>();
             private readonly Dictionary<Type, Dictionary<string, PropertyInfo>> persistedPropertiesByType =
                 new Dictionary<Type, Dictionary<string, PropertyInfo>>();
             private readonly Dictionary<string, ModSettingsDefinition> capturedDocumentsByTrailPath =
                 new Dictionary<string, ModSettingsDefinition>(StringComparer.OrdinalIgnoreCase);
+            private readonly HashSet<string> activeParticipantIds = new HashSet<string>(StringComparer.Ordinal);
             private SaveCustomTrailMapDelegate saveCustomTrailMapOriginal;
             private ManageTrailButtonDelegate manageTrailButtonOriginal;
             private EditorSetupButtonDelegate editorSetupButtonOriginal;
@@ -117,28 +132,48 @@ namespace CustomCustomTrail
             public event Action CoopPackagesChanged;
             public event Action CoopSetupOpened;
 
-            public string BuildSupportedSettingsSummary()
+            public IReadOnlyList<TrailModCompatibilityInfo> DiscoverModCompatibility()
             {
-                return string.Join(
-                    "\r\n",
-                    FindTargetViewModels()
-                        .Where(participant => GetPersistedProperties(participant.Value).Count != 0)
-                        .Select(participant => GetModDisplayName(participant.Key))
-                        .OrderBy(name => name, StringComparer.CurrentCultureIgnoreCase));
+                var result = new List<TrailModCompatibilityInfo>();
+                foreach (var entry in GameXAMLManagerAPI.Instance.RegisteredModSettings)
+                {
+                    string modId = entry.Plugin?.Info?.Metadata?.GUID ?? entry.Name;
+                    if (string.Equals(modId, CustomCustomTrailPlugin.PluginGuid, StringComparison.Ordinal))
+                        continue;
+                    string displayName = entry.Plugin?.Info?.Metadata?.Name;
+                    if (string.IsNullOrWhiteSpace(displayName))
+                        displayName = entry.Name;
+                    string incompatibility = GetIncompatibilityReason(entry.ViewModel);
+                    result.Add(new TrailModCompatibilityInfo(modId, displayName, incompatibility));
+                }
+                return result.OrderBy(item => item.DisplayName, StringComparer.CurrentCultureIgnoreCase).ToArray();
             }
 
-            private static string GetModDisplayName(string modId)
+            private string GetIncompatibilityReason(object viewModel)
             {
-                return Chainloader.PluginInfos.TryGetValue(modId, out var pluginInfo) &&
-                    !string.IsNullOrWhiteSpace(pluginInfo.Metadata?.Name)
-                        ? pluginInfo.Metadata.Name
-                        : modId;
+                if (viewModel == null)
+                    return "missing ViewModel";
+                Type type = viewModel.GetType();
+                if (GetPersistedProperties(viewModel).Count == 0)
+                    return "no persistent SyncHostOnly settings";
+                if (type.GetMethod("System_CreateDisabledMissionPresetSnapshot", Type.EmptyTypes)?.ReturnType !=
+                    typeof(Dictionary<string, byte[]>))
+                    return "missing mission snapshot creation";
+                if (type.GetMethod("System_EnterMissionPreset", new[] { typeof(Dictionary<string, byte[]>), typeof(string), typeof(bool) }) == null)
+                    return "missing mission preset entry";
+                if (type.GetMethod("System_ExitMissionPreset", Type.EmptyTypes) == null)
+                    return "missing mission preset exit";
+                PropertyInfo active = type.GetProperty("IsMissionPresetActive", BindingFlags.Instance | BindingFlags.Public);
+                return active == null || active.PropertyType != typeof(bool)
+                    ? "missing mission preset state"
+                    : null;
             }
 
-            public TrailMissionSettingsCoordinator(ManualLogSource log, bool enabled)
+            public TrailMissionSettingsCoordinator(ManualLogSource log, bool enabled, Func<string, bool> isModSelected)
             {
                 this.log = log;
                 this.enabled = enabled;
+                this.isModSelected = isModSelected ?? (_ => true);
             }
 
             public void SetEnabled(bool value)
@@ -283,8 +318,9 @@ namespace CustomCustomTrail
                     return;
                 }
 
-                foreach (object viewModel in FindTargetViewModels().Values)
+                foreach (object viewModel in FindCompatibleViewModels(selectedOnly: false).Values)
                     Invoke(viewModel, "System_ExitMissionPreset");
+                activeParticipantIds.Clear();
                 trailContext = false;
                 preserveContextForLaunch = false;
                 customTrailLaunchActive = false;
@@ -1566,27 +1602,17 @@ namespace CustomCustomTrail
             private ModSettingsDefinition CaptureDocument(bool requireLoadedEndpoints = false)
             {
                 ModSettingsDefinition document = ModSettingsDefinition.CreateDisabled();
-                Dictionary<string, object> participants = FindTargetViewModels();
-                if (requireLoadedEndpoints)
-                {
-                    string[] missingEndpoints = ModSettingsDefinition.TargetModIds
-                        .Where(id => Chainloader.PluginInfos.ContainsKey(id) && !participants.ContainsKey(id))
-                        .ToArray();
-                    if (missingEndpoints.Length != 0)
-                    {
-                        throw new InvalidOperationException(
-                            "Loaded settings mods have no registered ViewModel endpoint: " + string.Join(", ", missingEndpoints));
-                    }
-                }
+                Dictionary<string, object> participants = FindCompatibleViewModels(selectedOnly: true);
 
                 foreach (KeyValuePair<string, object> participant in participants)
                 {
                     object viewModel = participant.Value;
                     Dictionary<string, PropertyInfo> properties = GetPersistedProperties(viewModel);
-                    bool enabled = properties.TryGetValue("EnableMod", out PropertyInfo enableProperty) &&
-                        enableProperty.PropertyType == typeof(bool) &&
+                    bool enabled = !properties.TryGetValue("EnableMod", out PropertyInfo enableProperty) ||
+                        enableProperty.PropertyType != typeof(bool) ||
                         (bool)enableProperty.GetValue(viewModel);
-                    ModSettingsEntry target = document.Mods[participant.Key];
+                    var target = new ModSettingsEntry();
+                    document.Mods[participant.Key] = target;
                     target.Enabled = enabled;
                     if (!enabled)
                         continue;
@@ -1605,7 +1631,13 @@ namespace CustomCustomTrail
             private void ApplyDocument(ModSettingsDefinition document, bool editable)
             {
                 ClearActiveSidecar();
-                Dictionary<string, object> participants = FindTargetViewModels();
+                Dictionary<string, object> allParticipants = FindCompatibleViewModels(selectedOnly: false);
+                foreach (object viewModel in allParticipants.Values)
+                    Invoke(viewModel, "System_ExitMissionPreset");
+                activeParticipantIds.Clear();
+                Dictionary<string, object> participants = allParticipants
+                    .Where(item => document.Mods.ContainsKey(item.Key))
+                    .ToDictionary(item => item.Key, item => item.Value, StringComparer.Ordinal);
                 var prepared = new List<KeyValuePair<object, Dictionary<string, byte[]>>>(participants.Count);
                 foreach (KeyValuePair<string, object> participant in participants)
                 {
@@ -1622,16 +1654,18 @@ namespace CustomCustomTrail
                             string.Join(", ", removedSettings) + ". They will be omitted on the next save.");
                     }
 
-                    ModSettingsEntry entry = document.Mods.TryGetValue(participant.Key, out ModSettingsEntry stored)
-                        ? stored
-                        : new ModSettingsEntry();
+                    ModSettingsEntry entry = document.Mods[participant.Key];
                     // Begin with every current host default. Sparse old Trail files therefore
                     // gain newly introduced settings without affecting personal client options.
                     Dictionary<string, byte[]> snapshot =
                         (Dictionary<string, byte[]>)Invoke(participant.Value, "System_CreateDisabledMissionPresetSnapshot");
                     if (entry.Enabled)
                     {
-                        snapshot["EnableMod"] = MessagePackSerializer.Serialize(true);
+                        if (properties.TryGetValue("EnableMod", out PropertyInfo enableProperty) &&
+                            enableProperty.PropertyType == typeof(bool))
+                        {
+                            snapshot[enableProperty.Name] = MessagePackSerializer.Serialize(true);
+                        }
                         foreach (KeyValuePair<string, object> setting in entry.Settings)
                         {
                             if (!properties.TryGetValue(setting.Key, out PropertyInfo property) || property.Name == "EnableMod")
@@ -1641,6 +1675,7 @@ namespace CustomCustomTrail
                         }
                     }
                     prepared.Add(new KeyValuePair<object, Dictionary<string, byte[]>>(participant.Value, snapshot));
+                    activeParticipantIds.Add(participant.Key);
                 }
 
                 foreach (KeyValuePair<object, Dictionary<string, byte[]>> item in prepared)
@@ -1648,13 +1683,19 @@ namespace CustomCustomTrail
                 trailContext = true;
             }
 
-            private Dictionary<string, object> FindTargetViewModels()
+            private Dictionary<string, object> FindCompatibleViewModels(bool selectedOnly)
             {
                 var result = new Dictionary<string, object>(StringComparer.Ordinal);
                 foreach (var entry in GameXAMLManagerAPI.Instance.RegisteredModSettings)
                 {
-                    if (TargetModIdSet.Contains(entry.Name))
-                        result[entry.Name] = entry.ViewModel;
+                    string modId = entry.Plugin?.Info?.Metadata?.GUID ?? entry.Name;
+                    if (string.Equals(modId, CustomCustomTrailPlugin.PluginGuid, StringComparison.Ordinal) ||
+                        GetIncompatibilityReason(entry.ViewModel) != null ||
+                        (selectedOnly && !isModSelected(modId)))
+                    {
+                        continue;
+                    }
+                    result[modId] = entry.ViewModel;
                 }
                 return result;
             }
@@ -1668,7 +1709,9 @@ namespace CustomCustomTrail
                     .Where(property => property.CanRead && property.CanWrite && property.GetCustomAttributes(false)
                         // Trail sidecars define the shared match rules. Personal settings
                         // remain owned by each participant and must never enter .modjson.
-                        .Any(attribute => attribute.GetType().Name == "SyncHostOnlyAttribute"))
+                        .Any(attribute => attribute.GetType().Name == "SyncHostOnlyAttribute") &&
+                        !property.GetCustomAttributes(false)
+                            .Any(attribute => attribute.GetType().Name == "DoNotPersistAttribute"))
                     .ToDictionary(property => property.Name, StringComparer.Ordinal);
                 persistedPropertiesByType[type] = cached;
                 return cached;
@@ -1676,9 +1719,11 @@ namespace CustomCustomTrail
 
             private bool AreAllTrailPresetsActive()
             {
-                Dictionary<string, object> participants = FindTargetViewModels();
-                return participants.Count > 0 && participants.Values.All(viewModel =>
+                Dictionary<string, object> participants = FindCompatibleViewModels(selectedOnly: false);
+                return activeParticipantIds.All(id =>
                 {
+                    if (!participants.TryGetValue(id, out object viewModel))
+                        return false;
                     PropertyInfo property = viewModel.GetType().GetProperty("IsMissionPresetActive", BindingFlags.Instance | BindingFlags.Public);
                     return property != null && property.PropertyType == typeof(bool) && (bool)property.GetValue(viewModel);
                 });

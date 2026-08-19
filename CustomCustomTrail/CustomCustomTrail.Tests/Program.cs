@@ -18,8 +18,8 @@ var tests = new (string Name, Action Run)[]
     ("identical local and Workshop replicas are merged", TestIdenticalPackageReplicas),
     ("ordinal mapping covers four trails and ignores mission 41", TestOrdinalMapping),
     ("native mod-settings JSON roundtrip", TestNativeModSettingsRoundtrip),
-    ("mod-settings registry has seven entries", TestModSettingsRegistry),
-    ("missing mod entry becomes disabled", TestMissingModEntry),
+    ("dynamic third-party mod ids are preserved", TestModSettingsRegistry),
+    ("missing mod entry remains unmanaged", TestMissingModEntry),
     ("sidecar schema evolution keeps only current settings", TestSidecarSettingsSchemaEvolution),
     ("coop mission schema evolution keeps only current settings", TestCoopSettingsSchemaEvolution),
     ("invalid mod-settings documents are rejected", TestInvalidModSettingsDocuments),
@@ -87,18 +87,17 @@ static void TestNativeModSettingsRoundtrip()
 
 static void TestModSettingsRegistry()
 {
-    string[] expected =
-    {
-        "BuildingCosts_Serp", "BuildingLimit_Serp", "ExtraFeatures_Serp",
-        "RandomEvents_Serp", "StartConditions_Serp", "UnitCosts_Serp", "UnitLimit_Serp",
-    };
-    Assert(ModSettingsDefinition.TargetModIds.SequenceEqual(expected), "central target-mod registry changed");
+    ModSettingsDefinition parsed = ModSettingsJson.ParseObject(
+        "{\"schemaVersion\":1,\"mods\":{\"ThirdParty.DynamicMod\":{\"enabled\":true,\"settings\":{\"Value\":7}}}}");
+    Assert(parsed.Mods.ContainsKey("ThirdParty.DynamicMod") &&
+        Convert.ToInt32(parsed.Mods["ThirdParty.DynamicMod"].Settings["Value"]) == 7,
+        "dynamic third-party mod id was not preserved");
 }
 
 static void TestMissingModEntry()
 {
     ModSettingsDefinition parsed = ModSettingsJson.ParseObject("{\"schemaVersion\":1,\"mods\":{}}");
-    Assert(parsed.Mods.Count == 7 && parsed.Mods.Values.All(entry => !entry.Enabled), "missing entries were not disabled");
+    Assert(parsed.Mods.Count == 0, "an absent mod entry is not treated as unmanaged");
 }
 
 static void TestSidecarSettingsSchemaEvolution()
@@ -150,7 +149,7 @@ static void TestAtomicSidecarWrite()
         string path = Path.Combine(root, "Trail_Mission_1.modjson");
         File.WriteAllText(path, "old");
         ModSettingsDefinition document = ModSettingsDefinition.CreateDisabled();
-        document.Mods["UnitLimit_Serp"].Enabled = true;
+        document.Mods["UnitLimit_Serp"] = new ModSettingsEntry { Enabled = true };
         ModSettingsJson.WriteAtomic(path, document);
         Assert(ModSettingsJson.Read(path).Mods["UnitLimit_Serp"].Enabled, "replacement was not readable");
         Assert(!Directory.GetFiles(root, "*.tmp-*").Any(), "temporary file remained");
@@ -221,14 +220,13 @@ static void TestLocalActivationSetting()
     Assert(xaml.Contains("ToolTipService.ShowDuration=\"60000\""), "activation control tooltip duration is missing");
     Assert(xaml.Contains("PracticalEffectsText") && viewModel.Contains("CustomCustomTrail.PracticalEffects"),
         "player-facing practical-effects text is not bound below the activation setting");
-    Assert(xaml.Contains("SupportedTrailSettingsText") &&
-        viewModel.Contains("SetSupportedTrailSettingsText") &&
-        runtime.Contains("BuildSupportedSettingsSummary()"),
-        "the automatically generated list of saved Trail mod settings is not shown");
-    Assert(coordinator.Contains("GetPersistedProperties(participant.Value).Count != 0") &&
-        coordinator.Contains("FindTargetViewModels()") &&
-        coordinator.Contains("GetModDisplayName(participant.Key)"),
-        "the displayed Trail mod list does not use the runtime's actual supported endpoints");
+    Assert(xaml.Contains("CompatibleTrailMods") && xaml.Contains("IncompatibleTrailModsText") &&
+        viewModel.Contains("DisabledTrailModIds") && runtime.Contains("DiscoverModCompatibility()"),
+        "the dynamic compatible/incompatible Trail-mod catalog is not shown or persisted");
+    Assert(coordinator.Contains("FindCompatibleViewModels(selectedOnly: true)") &&
+        coordinator.Contains("System_CreateDisabledMissionPresetSnapshot") &&
+        coordinator.Contains("DoNotPersistAttribute"),
+        "dynamic Trail compatibility does not enforce the safe mission-preset contract");
     Assert(!xaml.Contains("SelectedPreset") && !xaml.Contains("PresetOptions"), "activation UI unexpectedly exposes presets");
     Assert(xaml.Contains("CoopPackageOptions") && xaml.Contains("CanEditCoopPackage"), "host package dropdown is missing");
     Assert(xaml.Contains("SelectedItem=\"{Binding SelectedCoopPackage, Mode=TwoWay}\"") &&

@@ -6,7 +6,10 @@ using SHCDESE.API.Components.Network;
 using SHCDESE.ViewModels;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
+using System.Diagnostics;
 using System.Linq;
+using System.Windows.Input;
 
 namespace CustomCustomTrail
 {
@@ -18,7 +21,9 @@ namespace CustomCustomTrail
         private int activeCoopPackageMissionCount;
         private ComboBoxItem[] coopPackageOptions = Array.Empty<ComboBoxItem>();
         private string[] coopPackageIds = Array.Empty<string>();
-        private string supportedTrailSettingsText = string.Empty;
+        private string[] disabledTrailModIds = Array.Empty<string>();
+        private TrailModSelectionItem[] compatibleTrailMods = Array.Empty<TrailModSelectionItem>();
+        private string incompatibleTrailModsText = string.Empty;
 
         public CustomCustomTrailSettingsViewModel()
         {
@@ -27,6 +32,7 @@ namespace CustomCustomTrail
                 new ComboBoxItem { Content = SerpLocalization.Get("CustomCustomTrail.VanillaPackage") },
             };
             coopPackageIds = new[] { string.Empty };
+            OpenCompatibilityGuideCommand = new ActionCommand(OpenCompatibilityGuide);
         }
 
         public event Action<bool> EnableModChanged;
@@ -42,7 +48,15 @@ namespace CustomCustomTrail
         public string HostReadOnlyNoticeText => SerpLocalization.Get("CustomCustomTrail.HostReadOnlyNotice");
         public string SupportedTrailSettingsTitle => SerpLocalization.Get("CustomCustomTrail.SupportedTrailSettings");
         public string SupportedTrailSettingsHelpText => SerpLocalization.Get("CustomCustomTrail.SupportedTrailSettingsHelp");
-        public string SupportedTrailSettingsText => supportedTrailSettingsText;
+        public string IncompatibleTrailModsLabel => SerpLocalization.Get("CustomCustomTrail.IncompatibleTrailMods");
+        public string CompatibilityGuideText => SerpLocalization.Get("CustomCustomTrail.CompatibilityGuide");
+        public string CompatibilityGuideHelpText => SerpLocalization.Get("CustomCustomTrail.CompatibilityGuideHelp");
+        public TrailModSelectionItem[] CompatibleTrailMods => compatibleTrailMods;
+        public string IncompatibleTrailModsText => incompatibleTrailModsText;
+        public Visibility IncompatibleTrailModsVisibility => string.IsNullOrEmpty(incompatibleTrailModsText)
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+        public ICommand OpenCompatibilityGuideCommand { get; }
         public Visibility HostReadOnlyNoticeVisibility => IsHost ? Visibility.Collapsed : Visibility.Visible;
         public bool CanEditCoopPackage => IsHost && EnableMod;
         public ComboBoxItem[] CoopPackageOptions => coopPackageOptions;
@@ -75,6 +89,25 @@ namespace CustomCustomTrail
                 OnPropertyChanged(nameof(EnableMod));
                 OnPropertyChanged(nameof(CanEditCoopPackage));
                 EnableModChanged?.Invoke(value);
+            }
+        }
+
+        [PersistLocal]
+        public string[] DisabledTrailModIds
+        {
+            get => disabledTrailModIds;
+            set
+            {
+                string[] normalized = (value ?? Array.Empty<string>())
+                    .Where(id => !string.IsNullOrWhiteSpace(id) &&
+                        !string.Equals(id, CustomCustomTrailPlugin.PluginGuid, StringComparison.Ordinal))
+                    .Distinct(StringComparer.Ordinal)
+                    .OrderBy(id => id, StringComparer.Ordinal)
+                    .ToArray();
+                if (disabledTrailModIds.SequenceEqual(normalized, StringComparer.Ordinal))
+                    return;
+                disabledTrailModIds = normalized;
+                OnPropertyChanged(nameof(DisabledTrailModIds));
             }
         }
 
@@ -192,13 +225,53 @@ namespace CustomCustomTrail
 
         public void SetLocalPackageStatus(string value) => CoopPackageStatus = value;
 
-        public void SetSupportedTrailSettingsText(string value)
+        internal bool IsTrailModEnabled(string modId) =>
+            !disabledTrailModIds.Contains(modId, StringComparer.Ordinal);
+
+        internal void RefreshModCompatibility(IEnumerable<TrailModCompatibilityInfo> entries)
         {
-            value = value ?? string.Empty;
-            if (string.Equals(supportedTrailSettingsText, value, StringComparison.Ordinal))
-                return;
-            supportedTrailSettingsText = value;
-            OnPropertyChanged(nameof(SupportedTrailSettingsText));
+            TrailModCompatibilityInfo[] catalog = (entries ?? Enumerable.Empty<TrailModCompatibilityInfo>()).ToArray();
+            compatibleTrailMods = catalog
+                .Where(entry => entry.IsCompatible)
+                .Select(entry => new TrailModSelectionItem(
+                    entry.ModId,
+                    entry.DisplayName,
+                    IsTrailModEnabled(entry.ModId),
+                    SupportedTrailSettingsHelpText,
+                    SetTrailModEnabled))
+                .ToArray();
+            incompatibleTrailModsText = string.Join(", ", catalog
+                .Where(entry => !entry.IsCompatible)
+                .Select(entry => entry.DisplayName));
+            OnPropertyChanged(nameof(CompatibleTrailMods));
+            OnPropertyChanged(nameof(IncompatibleTrailModsText));
+            OnPropertyChanged(nameof(IncompatibleTrailModsVisibility));
+        }
+
+        private void SetTrailModEnabled(string modId, bool value)
+        {
+            var disabled = new HashSet<string>(disabledTrailModIds, StringComparer.Ordinal);
+            if (value)
+                disabled.Remove(modId);
+            else
+                disabled.Add(modId);
+            DisabledTrailModIds = disabled.ToArray();
+        }
+
+        private static void OpenCompatibilityGuide()
+        {
+            try
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/blob/main/Mod%20Compatibilty%20CustomCustomTrail.md",
+                    UseShellExecute = true,
+                });
+            }
+            catch (Exception exception)
+            {
+                Debug.WriteLine("Could not open Custom Custom Trail compatibility guide: " + exception.Message);
+            }
         }
 
         public void RefreshRoleState()
@@ -213,5 +286,47 @@ namespace CustomCustomTrail
             int playerId = Math.Max(1, GameNetworkAPI.GetLocalPlayerId());
             return CoopPackageStatusData[playerId] ?? string.Empty;
         }
+    }
+
+    public sealed class TrailModSelectionItem : INotifyPropertyChanged
+    {
+        private readonly Action<string, bool> changed;
+        private bool isEnabled;
+
+        public TrailModSelectionItem(string modId, string displayName, bool isEnabled, string helpText, Action<string, bool> changed)
+        {
+            ModId = modId;
+            DisplayName = displayName;
+            this.isEnabled = isEnabled;
+            HelpText = helpText;
+            this.changed = changed;
+        }
+
+        public event PropertyChangedEventHandler PropertyChanged;
+        public string ModId { get; }
+        public string DisplayName { get; }
+        public string HelpText { get; }
+
+        public bool IsEnabled
+        {
+            get => isEnabled;
+            set
+            {
+                if (isEnabled == value)
+                    return;
+                isEnabled = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsEnabled)));
+                changed?.Invoke(ModId, value);
+            }
+        }
+    }
+
+    internal sealed class ActionCommand : ICommand
+    {
+        private readonly Action execute;
+        public ActionCommand(Action execute) => this.execute = execute;
+        public event System.EventHandler CanExecuteChanged { add { } remove { } }
+        public bool CanExecute(object parameter) => true;
+        public void Execute(object parameter) => execute();
     }
 }

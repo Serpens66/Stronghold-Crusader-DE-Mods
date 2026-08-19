@@ -70,11 +70,11 @@ namespace CustomCustomTrail
 
         public void Initialize()
         {
-            missionSettingsCoordinator = new TrailMissionSettingsCoordinator(log, enabled);
+            missionSettingsCoordinator = new TrailMissionSettingsCoordinator(log, enabled, settings.IsTrailModEnabled);
             missionSettingsCoordinator.CoopPackagesChanged += OnActiveCoopPackageChanged;
             missionSettingsCoordinator.CoopSetupOpened += OnCoopSetupOpened;
             missionSettingsCoordinator.Initialize();
-            settings.SetSupportedTrailSettingsText(missionSettingsCoordinator.BuildSupportedSettingsSummary());
+            RefreshModCompatibility();
             settings.ActiveCoopPackageChanged += OnActiveCoopPackageChanged;
             subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
@@ -118,6 +118,12 @@ namespace CustomCustomTrail
             }
             LogInfo("Mod " + (value ? "enabled" : "disabled") + "; runtime hooks now " +
                 (value ? "apply Custom Trail and Coop replacements." : "pass through to Vanilla."));
+        }
+
+        public void RefreshModCompatibility()
+        {
+            if (missionSettingsCoordinator != null)
+                settings.RefreshModCompatibility(missionSettingsCoordinator.DiscoverModCompatibility());
         }
 
         public void Dispose()

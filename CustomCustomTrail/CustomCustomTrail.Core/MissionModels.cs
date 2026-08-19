@@ -82,27 +82,10 @@ namespace CustomCustomTrail.Core
 
     public sealed class ModSettingsDefinition
     {
-        public static readonly string[] TargetModIds =
-        {
-            "BuildingCosts_Serp",
-            "BuildingLimit_Serp",
-            "ExtraFeatures_Serp",
-            "RandomEvents_Serp",
-            "StartConditions_Serp",
-            "UnitCosts_Serp",
-            "UnitLimit_Serp",
-        };
-
         public int SchemaVersion { get; set; } = 1;
         public Dictionary<string, ModSettingsEntry> Mods { get; set; } = new Dictionary<string, ModSettingsEntry>(StringComparer.Ordinal);
 
-        public static ModSettingsDefinition CreateDisabled()
-        {
-            var result = new ModSettingsDefinition();
-            foreach (string id in TargetModIds)
-                result.Mods[id] = new ModSettingsEntry();
-            return result;
-        }
+        public static ModSettingsDefinition CreateDisabled() => new ModSettingsDefinition();
     }
 
     public sealed class ModSettingsEntry
