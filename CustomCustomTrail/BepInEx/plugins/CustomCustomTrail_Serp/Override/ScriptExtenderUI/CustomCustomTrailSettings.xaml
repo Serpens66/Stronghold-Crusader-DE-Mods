@@ -2,10 +2,10 @@
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
       xmlns:shared="clr-namespace:Shared;assembly=CustomCustomTrail">
   <Grid.Resources>
-    <Style TargetType="{x:Type ToolTip}">
+    <Style x:Key="ModSettingsToolTipStyle" TargetType="{x:Type ToolTip}">
       <Setter Property="Background" Value="#FF1D1710"/>
       <Setter Property="Foreground" Value="White"/>
-      <Setter Property="FontSize" Value="20"/>
+      <Setter Property="FontSize" Value="{x:Static shared:ToolTipPresentation.FontSize}"/>
       <Setter Property="BorderBrush" Value="#FFF2D48A"/>
       <Setter Property="BorderThickness" Value="1"/>
       <Setter Property="Template">
@@ -18,6 +18,7 @@
         </Setter.Value>
       </Setter>
     </Style>
+    <Style TargetType="{x:Type ToolTip}" BasedOn="{StaticResource ModSettingsToolTipStyle}"/>
     <Style x:Key="ClientActivationBorder" TargetType="{x:Type Border}"><Setter Property="Background" Value="#44306950"/><Setter Property="BorderBrush" Value="#FF66CC99"/><Setter Property="BorderThickness" Value="1"/><Setter Property="CornerRadius" Value="3"/><Setter Property="Padding" Value="8,4"/></Style>
     <Style x:Key="HostOptionsBorder" TargetType="{x:Type Border}"><Setter Property="Background" Value="#443E315F"/><Setter Property="BorderBrush" Value="#FFB99BE8"/><Setter Property="BorderThickness" Value="1"/><Setter Property="CornerRadius" Value="3"/><Setter Property="Padding" Value="10,8"/></Style>
   </Grid.Resources>
@@ -74,8 +75,12 @@
                       Content="{Binding DisplayName}"
                       Foreground="White"
                       ToolTipService.ShowDuration="60000"
-                      ToolTip="{Binding HelpText}"
-                      Margin="0,2"/>
+                      Margin="0,2">
+              <CheckBox.ToolTip>
+                <ToolTip Style="{StaticResource ModSettingsToolTipStyle}"
+                         Content="{Binding HelpText}"/>
+              </CheckBox.ToolTip>
+            </CheckBox>
           </DataTemplate>
         </ItemsControl.ItemTemplate>
       </ItemsControl>

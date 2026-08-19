@@ -322,6 +322,11 @@ static void TestLocalActivationSetting()
     Assert(runtime.Contains("RestoreVanillaMissions()"), "disabling cannot restore replaced Vanilla Coop slots");
     Assert(coordinator.Contains("if (!enabled)"), "sidecar/customization hooks are not activation-gated");
     Assert(xaml.Contains("ToolTipService.ShowDuration=\"60000\""), "activation control tooltip duration is missing");
+    Assert(xaml.Contains("x:Key=\"ModSettingsToolTipStyle\"") &&
+        xaml.Contains("<CheckBox.ToolTip>") &&
+        xaml.Contains("Style=\"{StaticResource ModSettingsToolTipStyle}\"") &&
+        xaml.Contains("Content=\"{Binding HelpText}\""),
+        "dynamic mod checkbox tooltips do not explicitly use the shared modsettings tooltip design");
     Assert(xaml.Contains("PracticalEffectsText") && viewModel.Contains("CustomCustomTrail.PracticalEffects"),
         "player-facing practical-effects text is not bound below the activation setting");
     int descriptionPosition = xaml.IndexOf("PracticalEffectsText", StringComparison.Ordinal);

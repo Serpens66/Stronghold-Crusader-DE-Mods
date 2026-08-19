@@ -5,7 +5,7 @@
     <Style TargetType="{x:Type ToolTip}">
       <Setter Property="Background" Value="#FF1D1710"/>
       <Setter Property="Foreground" Value="White"/>
-      <Setter Property="FontSize" Value="20"/>
+      <Setter Property="FontSize" Value="{x:Static shared:ToolTipPresentation.FontSize}"/>
       <Setter Property="BorderBrush" Value="#FFF2D48A"/>
       <Setter Property="BorderThickness" Value="1"/>
       <Setter Property="Template">

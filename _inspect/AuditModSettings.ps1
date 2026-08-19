@@ -39,9 +39,16 @@ foreach ($entry in $settings.GetEnumerator()) {
     foreach ($elementName in $interactiveNames) {
         foreach ($element in $xml.SelectNodes("//p:$elementName", $manager)) {
             $tooltip = $element.GetAttribute('ToolTip')
+            $explicitTooltip = $element.SelectSingleNode("./p:$elementName.ToolTip/p:ToolTip", $manager)
+            $hasExplicitTooltip = $null -ne $explicitTooltip -and
+                -not [string]::IsNullOrWhiteSpace($explicitTooltip.GetAttribute('Content'))
             $duration = $element.GetAttribute('ToolTipService.ShowDuration')
-            if ([string]::IsNullOrWhiteSpace($tooltip) -or $duration -ne '60000') {
+            if (([string]::IsNullOrWhiteSpace($tooltip) -and -not $hasExplicitTooltip) -or $duration -ne '60000') {
                 throw "$($entry.Key): $elementName without a nonempty tooltip and exact 60000 ms duration."
+            }
+            if ($hasExplicitTooltip -and
+                -not $explicitTooltip.GetAttribute('Style').Contains('ModSettingsToolTipStyle')) {
+                throw "$($entry.Key): explicit $elementName tooltip does not use the shared modsettings tooltip style."
             }
         }
     }
@@ -65,7 +72,7 @@ foreach ($entry in $settings.GetEnumerator()) {
         'HorizontalScrollBarVisibility="{x:Static shared:ToolTipPresentation.AutomaticScrollBarVisibility}"',
         'Value="#FF1D1710"',
         'MaxWidth="{x:Static shared:ToolTipPresentation.MaximumWidth}"',
-        'Value="20"',
+        'Value="{x:Static shared:ToolTipPresentation.FontSize}"',
         'FontSize="{TemplateBinding FontSize}"',
         'TextWrapping="Wrap"')
     # CustomCustomTrail owns the Trail preset coordinator and intentionally has no
@@ -95,6 +102,17 @@ foreach ($entry in $settings.GetEnumerator()) {
             }
         }
     }
+    if ($entry.Key -eq 'CustomCustomTrail') {
+        foreach ($required in @(
+            'x:Key="ModSettingsToolTipStyle"',
+            '<CheckBox.ToolTip>',
+            'Style="{StaticResource ModSettingsToolTipStyle}"',
+            'Content="{Binding HelpText}"')) {
+            if (-not $text.Contains($required)) {
+                throw "CustomCustomTrail: dynamic mod checkbox tooltip marker is missing: $required"
+            }
+        }
+    }
     if ($entry.Key -eq 'ExtraFeatures') {
         foreach ($requiredValueBinding in @(
             'MarketBuyPriceMultiplierValueText', 'MarketSellPriceMultiplierValueText',
@@ -104,6 +122,19 @@ foreach ($entry in $settings.GetEnumerator()) {
                 throw "ExtraFeatures: Slider unit binding is missing: $requiredValueBinding"
             }
         }
+    }
+}
+
+$toolTipPresentationPath = Join-Path $workspace 'Shared/ToolTipPresentation.cs'
+$toolTipPresentation = [IO.File]::ReadAllText($toolTipPresentationPath)
+foreach ($required in @(
+    'private const double ReferenceHeight = 1440.0;',
+    'private const double BaseFontSize = 20.0;',
+    'Math.Max(1.0, Screen.height / ReferenceHeight)',
+    'public static double FontSize',
+    '1000.0 * ResolutionScale')) {
+    if (-not $toolTipPresentation.Contains($required)) {
+        throw "Shared tooltip resolution scaling marker is missing: $required"
     }
 }
 
