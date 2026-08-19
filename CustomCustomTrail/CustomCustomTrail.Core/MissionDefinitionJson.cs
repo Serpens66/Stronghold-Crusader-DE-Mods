@@ -9,7 +9,7 @@ namespace CustomCustomTrail.Core
     {
         public static CoopMissionDefinition Parse(string json)
         {
-            Dictionary<string, object> root = RequireObject(PortableJson.Parse(json), "Mission JSON root");
+            Dictionary<string, object> root = RequireObject(Shared.DependencyFreeJson.Parse(json), "Mission JSON root");
             var mission = new CoopMissionDefinition
             {
                 SchemaVersion = RequiredInt(root, "schemaVersion"),
@@ -48,9 +48,9 @@ namespace CustomCustomTrail.Core
                 ["map"] = WriteAsset(mission.Map),
                 ["settings"] = WriteSettings(mission.Settings),
                 ["players"] = mission.Players.Select(WritePlayer).Cast<object>().ToList(),
-                ["modSettings"] = PortableJson.Parse(ModSettingsJson.Serialize(mission.ModSettings)),
+                ["modSettings"] = Shared.DependencyFreeJson.Parse(ModSettingsJson.Serialize(mission.ModSettings)),
             };
-            return PortableJson.Serialize(root);
+            return Shared.DependencyFreeJson.Serialize(root);
         }
 
         private static CoopSettings ParseSettings(Dictionary<string, object> value)

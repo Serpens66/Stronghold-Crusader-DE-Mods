@@ -114,6 +114,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="..\Shared\DependencyFreeJson.cs">
+      <Link>Shared\DependencyFreeJson.cs</Link>
+    </Compile>
     <Compile Include="..\Shared\ActivePlayerHelper.cs">
       <Link>Shared\ActivePlayerHelper.cs</Link>
     </Compile>

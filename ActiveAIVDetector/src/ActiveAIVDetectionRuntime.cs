@@ -1064,14 +1064,15 @@ namespace ActiveAIVDetector
                 if (!File.Exists(manifestPath) || !File.Exists(nativeLibraryPath))
                     return false;
 
-                Match match = Regex.Match(
-                    File.ReadAllText(manifestPath),
-                    "\"nativeLibrarySha256\"\\s*:\\s*\"(?<hash>[0-9a-fA-F]{64})\"");
-                if (!match.Success)
+                object parsed = Shared.DependencyFreeJson.Parse(File.ReadAllText(manifestPath));
+                if (!(parsed is Dictionary<string, object> manifest) ||
+                    !manifest.TryGetValue("nativeLibrarySha256", out object hashValue) ||
+                    !(hashValue is string expectedHash) ||
+                    !Regex.IsMatch(expectedHash, "^[0-9a-fA-F]{64}$"))
                     return false;
 
                 return string.Equals(
-                    match.Groups["hash"].Value,
+                    expectedHash,
                     ComputeFileSha256(nativeLibraryPath),
                     StringComparison.OrdinalIgnoreCase);
             }

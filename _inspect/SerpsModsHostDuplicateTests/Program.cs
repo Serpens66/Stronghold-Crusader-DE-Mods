@@ -32,7 +32,89 @@ namespace SerpsModsHostDuplicateTests
             if (!DuplicateInstallationDetector.PathsEqual(expected, Path.Combine(expected, ".")))
                 throw new InvalidOperationException("Equivalent paths were not recognized.");
 
-            Console.WriteLine("PASS: packed copy ignored; separate duplicate detected; unrelated and malformed manifests ignored.");
+            PackManifest parsedManifest = PackManifestJson.Read(
+                "{\"schemaversion\":1,\"packguid\":\"SerpsMods_Serp\",\"mods\":[{" +
+                "\"guid\":\"Test_GUID\",\"files\":[{\"path\":\"Test.dll\",\"size\":12}]}]}");
+            if (parsedManifest.SchemaVersion != 1 || parsedManifest.Mods.Count != 1 ||
+                parsedManifest.Mods[0].Files.Count != 1 || parsedManifest.Mods[0].Files[0].Size != 12)
+            {
+                throw new InvalidOperationException("Dependency-free pack manifest mapping failed.");
+            }
+
+            string serialized = Shared.DependencyFreeJson.Serialize(new PackFileRecord
+            {
+                Path = "quoted\\\"path",
+                Sha256 = "abc",
+                Size = 42
+            });
+            if (!(Shared.DependencyFreeJson.Parse(serialized) is Dictionary<string, object> serializedObject) ||
+                !string.Equals(serializedObject["Path"] as string, "quoted\\\"path", StringComparison.Ordinal) ||
+                !serializedObject.ContainsKey("Size"))
+            {
+                throw new InvalidOperationException("Dependency-free property serialization failed.");
+            }
+
+            if (!(Shared.DependencyFreeJson.Parse("{\"items\":[1,2,],}", allowTrailingCommas: true)
+                is Dictionary<string, object>))
+            {
+                throw new InvalidOperationException("Dependency-free trailing-comma mode failed.");
+            }
+
+            var stringDictionary = new Dictionary<string, string> { ["key"] = "value" };
+            string dictionaryJson = Shared.DependencyFreeJson.Serialize(stringDictionary);
+            if (!(Shared.DependencyFreeJson.Parse(dictionaryJson) is Dictionary<string, object> dictionaryObject) ||
+                !string.Equals(dictionaryObject["key"] as string, "value", StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException("Generic string dictionary was not serialized as a JSON object.");
+            }
+
+            DateTime timestamp = new DateTime(2026, 8, 19, 12, 34, 56, DateTimeKind.Utc);
+            if (!(Shared.DependencyFreeJson.Parse(Shared.DependencyFreeJson.Serialize(timestamp)) is string timestampText) ||
+                !string.Equals(timestampText, timestamp.ToString("O"), StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException("DateTime serialization is not stable.");
+            }
+
+            var cyclic = new CycleNode();
+            cyclic.Next = cyclic;
+            ExpectInvalidData(
+                () => Shared.DependencyFreeJson.Serialize(cyclic),
+                "cyclic object graph was accepted");
+
+            int nesting = Shared.DependencyFreeJson.MaximumDepth + 2;
+            string tooDeepJson = new string('[', nesting) + "0" + new string(']', nesting);
+            ExpectInvalidData(
+                () => Shared.DependencyFreeJson.Parse(tooDeepJson),
+                "overly deep JSON was accepted");
+            ExpectInvalidData(
+                () => PackManifestJson.Read("{\"SchemaVersion\":1,\"schemaversion\":1}"),
+                "ambiguous case-insensitive manifest properties were accepted");
+
+            object unsigned = Shared.DependencyFreeJson.Parse(ulong.MaxValue.ToString());
+            if (!(unsigned is ulong unsignedInteger) || unsignedInteger != ulong.MaxValue)
+                throw new InvalidOperationException("UInt64 JSON roundtrip failed.");
+
+            string repeated = Shared.DependencyFreeJson.Serialize(new PackFileRecord
+            {
+                Path = "ordered",
+                Sha256 = "hash",
+                Size = 1
+            });
+            int pathIndex = repeated.IndexOf("\"Path\"", StringComparison.Ordinal);
+            int shaIndex = repeated.IndexOf("\"Sha256\"", StringComparison.Ordinal);
+            int sizeIndex = repeated.IndexOf("\"Size\"", StringComparison.Ordinal);
+            if (pathIndex < 0 || pathIndex >= shaIndex || shaIndex >= sizeIndex ||
+                !string.Equals(repeated, Shared.DependencyFreeJson.Serialize(new PackFileRecord
+                {
+                    Path = "ordered",
+                    Sha256 = "hash",
+                    Size = 1
+                }), StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException("Property serialization order is not deterministic.");
+            }
+
+            Console.WriteLine("PASS: duplicate scan, mapping, dictionaries, safety limits, and deterministic serialization.");
             Console.WriteLine("Duplicate: " + duplicates[0]);
             return 0;
         }
@@ -43,6 +125,24 @@ namespace SerpsModsHostDuplicateTests
             File.WriteAllText(
                 Path.Combine(directory, "info.json"),
                 "{\"GUID\":\"" + guid + "\",\"Version\":\"1.0.0\"}");
+        }
+
+        private static void ExpectInvalidData(Action action, string message)
+        {
+            try
+            {
+                action();
+            }
+            catch (InvalidDataException)
+            {
+                return;
+            }
+            throw new InvalidOperationException(message);
+        }
+
+        private sealed class CycleNode
+        {
+            public CycleNode Next { get; set; }
         }
     }
 }

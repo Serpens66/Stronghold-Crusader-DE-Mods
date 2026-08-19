@@ -9,7 +9,6 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Security.Cryptography;
-using System.Text.Json;
 
 namespace SerpsModsHost
 {
@@ -64,10 +63,7 @@ namespace SerpsModsHost
             if (!File.Exists(manifestPath))
                 throw new InvalidDataException($"H001: Missing pack manifest: {manifestPath}");
 
-            manifest = JsonSerializer.Deserialize<PackManifest>(File.ReadAllText(manifestPath), new JsonSerializerOptions
-            {
-                PropertyNameCaseInsensitive = true
-            });
+            manifest = PackManifestJson.Read(File.ReadAllText(manifestPath));
             if (manifest == null || manifest.SchemaVersion != 1)
                 throw new InvalidDataException("H002: Unsupported or empty pack manifest.");
             if (!string.Equals(manifest.PackGuid, PluginGuid, StringComparison.Ordinal))
@@ -150,16 +146,16 @@ namespace SerpsModsHost
             }
 
             string infoPath = Path.Combine(directory, "info.json");
-            using (JsonDocument document = JsonDocument.Parse(File.ReadAllText(infoPath)))
+            PackManifestJson.ReadStringProperties(
+                File.ReadAllText(infoPath),
+                "GUID",
+                "Version",
+                out string actualGuid,
+                out string actualVersion);
+            if (!string.Equals(actualGuid, mod.Guid, StringComparison.Ordinal) ||
+                !string.Equals(actualVersion, mod.Version, StringComparison.Ordinal))
             {
-                JsonElement rootElement = document.RootElement;
-                string actualGuid = rootElement.GetProperty("GUID").GetString();
-                string actualVersion = rootElement.GetProperty("Version").GetString();
-                if (!string.Equals(actualGuid, mod.Guid, StringComparison.Ordinal) ||
-                    !string.Equals(actualVersion, mod.Version, StringComparison.Ordinal))
-                {
-                    throw new InvalidDataException($"H003: info.json identity mismatch for {mod.Guid}.");
-                }
+                throw new InvalidDataException($"H003: info.json identity mismatch for {mod.Guid}.");
             }
         }
 

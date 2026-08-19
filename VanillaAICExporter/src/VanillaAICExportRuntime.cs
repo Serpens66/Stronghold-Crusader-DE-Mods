@@ -11,7 +11,6 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.Json;
 using System.Text.RegularExpressions;
 using AILordSlot = SHCDESE.Interop.AILords;
 
@@ -85,12 +84,6 @@ namespace VanillaAICExporter
             int structSize = Marshal.SizeOf<InternalAIC>();
             var exportedLords = new List<string>();
             var skippedSlots = new List<string>();
-            var jsonOptions = new JsonSerializerOptions
-            {
-                WriteIndented = true,
-                PropertyNamingPolicy = null
-            };
-
             foreach (LordDefinition definition in OfficialLordSlots)
             {
                 IntPtr source = IntPtr.Add(arrayAddress, checked((int)definition.Slot * structSize));
@@ -104,7 +97,7 @@ namespace VanillaAICExporter
                 }
 
                 PublicAIC publicAic = PublicAIC.FromInternal(internalAic);
-                string json = JsonSerializer.Serialize(new LordJsonRoot { lord = publicAic }, jsonOptions);
+                string json = Shared.DependencyFreeJson.Serialize(new LordJsonRoot { lord = publicAic });
                 string outputPath = Path.Combine(outputDirectory, definition.Name + ".lordjson");
                 WriteUtf8CrLf(outputPath, json);
                 exportedLords.Add(definition.Name);
@@ -127,7 +120,7 @@ namespace VanillaAICExporter
 
             WriteUtf8CrLf(
                 Path.Combine(outputDirectory, "manifest.json"),
-                JsonSerializer.Serialize(manifest, jsonOptions));
+                Shared.DependencyFreeJson.Serialize(manifest));
 
             // The launcher waits for this marker and then copies the completed directory into the workspace.
             WriteUtf8CrLf(Path.Combine(pluginDirectory, "last_export.txt"), outputDirectory);

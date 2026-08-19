@@ -6,4 +6,7 @@
     <LangVersion>latest</LangVersion>
     <Nullable>disable</Nullable>
   </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\..\Shared\DependencyFreeJson.cs" Link="Shared\DependencyFreeJson.cs" />
+  </ItemGroup>
 </Project>

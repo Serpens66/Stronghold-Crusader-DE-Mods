@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Text.Json;
 
 namespace SerpsModsHost
 {
@@ -25,15 +24,11 @@ namespace SerpsModsHost
 
                 try
                 {
-                    using (JsonDocument document = JsonDocument.Parse(File.ReadAllText(infoPath)))
-                    {
-                        if (!document.RootElement.TryGetProperty("GUID", out JsonElement guidElement))
-                            continue;
-                        if (string.Equals(guidElement.GetString(), expectedGuid, StringComparison.OrdinalIgnoreCase))
-                            duplicates.Add(CanonicalizeDirectory(directory));
-                    }
+                    string guid = PackManifestJson.ReadStringProperty(File.ReadAllText(infoPath), "GUID");
+                    if (string.Equals(guid, expectedGuid, StringComparison.OrdinalIgnoreCase))
+                        duplicates.Add(CanonicalizeDirectory(directory));
                 }
-                catch (JsonException)
+                catch (InvalidDataException)
                 {
                     // Unrelated malformed manifests are handled by their owning mod.
                 }

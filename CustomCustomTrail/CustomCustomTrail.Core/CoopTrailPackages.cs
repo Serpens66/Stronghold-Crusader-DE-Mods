@@ -13,7 +13,7 @@ namespace CustomCustomTrail.Core
 
         public static CoopTrailPackageManifest Read(string path)
         {
-            object parsed = PortableJson.Parse(File.ReadAllText(path, Encoding.UTF8));
+            object parsed = Shared.DependencyFreeJson.Parse(File.ReadAllText(path, Encoding.UTF8));
             if (!(parsed is Dictionary<string, object> root))
                 throw new InvalidDataException("Coop Trail manifest root must be an object.");
             return new CoopTrailPackageManifest
@@ -45,7 +45,7 @@ namespace CustomCustomTrail.Core
         public static string Serialize(CoopTrailPackageManifest manifest)
         {
             Validate(manifest);
-            return PortableJson.Serialize(new Dictionary<string, object>(StringComparer.Ordinal)
+            return Shared.DependencyFreeJson.Serialize(new Dictionary<string, object>(StringComparer.Ordinal)
             {
                 ["schemaVersion"] = manifest.SchemaVersion,
                 ["packageId"] = manifest.PackageId,

@@ -55,10 +55,6 @@
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
-    <Reference Include="System.Text.Json">
-      <HintPath>$(ExtenderDir)\System.Text.Json.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
     <Reference Include="BepInEx">
       <HintPath>$(GameDir)\BepInEx\core\BepInEx.dll</HintPath>
       <Private>false</Private>
@@ -90,6 +86,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="..\Shared\DependencyFreeJson.cs">
+      <Link>Shared\DependencyFreeJson.cs</Link>
+    </Compile>
     <Compile Include="..\Shared\DebugLogHelper.cs">
       <Link>Shared\DebugLogHelper.cs</Link>
     </Compile>
@@ -111,7 +110,5 @@
            Text="Der lokale Script Extender Nebenordner existiert, aber es wurde keine lokale SHCDESE.dll gefunden." />
     <Error Condition="'$(ExtenderDir)' != '' and !Exists('$(ExtenderDir)\SHCDESE.dll')"
            Text="SHCDESE.dll wurde im ExtenderDir nicht gefunden: $(ExtenderDir)" />
-    <Error Condition="'$(ExtenderDir)' != '' and !Exists('$(ExtenderDir)\System.Text.Json.dll')"
-           Text="System.Text.Json.dll wurde im ExtenderDir nicht gefunden: $(ExtenderDir)" />
   </Target>
 </Project>

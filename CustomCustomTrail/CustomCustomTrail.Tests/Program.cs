@@ -250,6 +250,12 @@ static void TestDependencyFreeCoopJson()
             File.ReadAllText(path).Contains("DataContractJsonSerializer", StringComparison.Ordinal))
         .ToArray();
     Assert(offenders.Length == 0, "runtime JSON serializer dependency remains: " + string.Join(", ", offenders.Select(Path.GetFileName)));
+    string modSettingsJson = File.ReadAllText(Path.Combine(core, "ModSettingsJson.cs"));
+    Assert(modSettingsJson.Contains("Shared.DependencyFreeJson.Serialize", StringComparison.Ordinal),
+        "ModSettingsJson does not use the shared serializer");
+    Assert(!modSettingsJson.Contains("class JsonParser", StringComparison.Ordinal) &&
+        !modSettingsJson.Contains("AppendString", StringComparison.Ordinal),
+        "ModSettingsJson still contains a private JSON implementation");
 }
 
 static void TestCoopJsonLineEndings()

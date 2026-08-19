@@ -18,7 +18,8 @@ namespace BugfixesAndQoL
         private delegate void AiSettingsButtonClickedDelegate(FRONT_Multiplayer_AISettings self, string param);
         private delegate void AiSettingsAddSelectedDelegate(FRONT_Multiplayer_AISettings self);
 
-        private const long MaxStoreFileBytes = 256L * 1024L * 1024L;
+        // The store normally stays tiny; reject implausibly large files before building a JSON DOM.
+        private const long MaxStoreFileBytes = 16L * 1024L * 1024L;
         private const string BuiltInPrefix = "builtin:";
         private const string CustomPrefix = "custom:";
         private const string StoreFileName = "AiAivSelectionMemory.json";
@@ -550,142 +551,25 @@ namespace BugfixesAndQoL
 
         private static string SerializeJsonObject(Dictionary<string, string> values)
         {
-            StringBuilder builder = new StringBuilder();
-            builder.AppendLine("{");
-            bool first = true;
+            var jsonValues = new Dictionary<string, object>(StringComparer.Ordinal);
             foreach (KeyValuePair<string, string> entry in values)
-            {
-                if (!first)
-                    builder.AppendLine(",");
-
-                first = false;
-                builder.Append("  \"");
-                AppendEscapedJsonString(builder, entry.Key);
-                builder.Append("\": \"");
-                AppendEscapedJsonString(builder, entry.Value);
-                builder.Append('"');
-            }
-
-            if (!first)
-                builder.AppendLine();
-
-            builder.AppendLine("}");
-            return builder.ToString();
+                jsonValues.Add(entry.Key, entry.Value);
+            return Shared.DependencyFreeJson.Serialize(jsonValues);
         }
 
         private static Dictionary<string, string> ParseJsonObject(string json)
         {
-            Dictionary<string, string> result =
-                new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            int index = 0;
-            SkipWhitespace(json, ref index);
-            Expect(json, ref index, '{');
-            SkipWhitespace(json, ref index);
-            if (TryConsume(json, ref index, '}'))
-                return result;
+            if (!(Shared.DependencyFreeJson.Parse(json) is Dictionary<string, object> values))
+                throw new InvalidDataException("AI selection store root must be a JSON object.");
 
-            while (index < json.Length)
+            var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (KeyValuePair<string, object> entry in values)
             {
-                string key = ReadJsonString(json, ref index);
-                SkipWhitespace(json, ref index);
-                Expect(json, ref index, ':');
-                SkipWhitespace(json, ref index);
-                result[key] = ReadJsonString(json, ref index);
-                SkipWhitespace(json, ref index);
-                if (TryConsume(json, ref index, '}'))
-                    return result;
-
-                Expect(json, ref index, ',');
-                SkipWhitespace(json, ref index);
+                if (!(entry.Value is string text))
+                    throw new InvalidDataException("AI selection store value for '" + entry.Key + "' must be a string.");
+                result[entry.Key] = text;
             }
-
-            throw new FormatException("Unterminated JSON object.");
-        }
-
-        private static void AppendEscapedJsonString(StringBuilder builder, string value)
-        {
-            foreach (char c in value ?? string.Empty)
-            {
-                switch (c)
-                {
-                    case '\\': builder.Append("\\\\"); break;
-                    case '"': builder.Append("\\\""); break;
-                    case '\r': builder.Append("\\r"); break;
-                    case '\n': builder.Append("\\n"); break;
-                    case '\t': builder.Append("\\t"); break;
-                    default:
-                        if (c < 32)
-                            builder.Append("\\u" + ((int)c).ToString("x4"));
-                        else
-                            builder.Append(c);
-                        break;
-                }
-            }
-        }
-
-        private static string ReadJsonString(string text, ref int index)
-        {
-            Expect(text, ref index, '"');
-            StringBuilder builder = new StringBuilder();
-            while (index < text.Length)
-            {
-                char c = text[index++];
-                if (c == '"')
-                    return builder.ToString();
-                if (c != '\\')
-                {
-                    builder.Append(c);
-                    continue;
-                }
-                if (index >= text.Length)
-                    throw new FormatException("Unterminated JSON escape.");
-
-                char escaped = text[index++];
-                switch (escaped)
-                {
-                    case '"': builder.Append('"'); break;
-                    case '\\': builder.Append('\\'); break;
-                    case '/': builder.Append('/'); break;
-                    case 'b': builder.Append('\b'); break;
-                    case 'f': builder.Append('\f'); break;
-                    case 'n': builder.Append('\n'); break;
-                    case 'r': builder.Append('\r'); break;
-                    case 't': builder.Append('\t'); break;
-                    case 'u':
-                        if (index + 4 > text.Length)
-                            throw new FormatException("Invalid JSON unicode escape.");
-                        builder.Append((char)Convert.ToInt32(text.Substring(index, 4), 16));
-                        index += 4;
-                        break;
-                    default:
-                        throw new FormatException($"Invalid JSON escape '\\{escaped}'.");
-                }
-            }
-
-            throw new FormatException("Unterminated JSON string.");
-        }
-
-        private static void SkipWhitespace(string text, ref int index)
-        {
-            while (index < text.Length && char.IsWhiteSpace(text[index]))
-                index++;
-        }
-
-        private static bool TryConsume(string text, ref int index, char expected)
-        {
-            if (index >= text.Length || text[index] != expected)
-                return false;
-
-            index++;
-            return true;
-        }
-
-        private static void Expect(string text, ref int index, char expected)
-        {
-            if (index >= text.Length || text[index] != expected)
-                throw new FormatException($"Expected '{expected}' at position {index}.");
-
-            index++;
+            return result;
         }
 
     }
