@@ -51,6 +51,7 @@
     <Compile Include="..\Shared\DebugLogHelper.cs"><Link>Shared\DebugLogHelper.cs</Link></Compile>
     <Compile Include="..\Shared\SerpLocalization.cs"><Link>Shared\SerpLocalization.cs</Link></Compile>
     <Compile Include="..\Shared\ToolTipPresentation.cs"><Link>Shared\ToolTipPresentation.cs</Link></Compile>
+    <Compile Include="..\Shared\WorkshopContentPaths.cs"><Link>Shared\WorkshopContentPaths.cs</Link></Compile>
     <Compile Include="src\CustomCustomTrailPlugin.cs" />
     <Compile Include="src\CustomCustomTrailSettingsViewModel.cs" />
     <Compile Include="src\CustomCustomTrailRuntime.cs" />

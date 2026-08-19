@@ -15,6 +15,7 @@ var tests = new (string Name, Action Run)[]
     ("fourth trail tenth slot is addressable", TestLastCatalogSlot),
     ("package fingerprint detects content changes", TestPackageFingerprint),
     ("duplicate package IDs are rejected", TestDuplicatePackageIds),
+    ("identical local and Workshop replicas are merged", TestIdenticalPackageReplicas),
     ("ordinal mapping covers four trails and ignores mission 41", TestOrdinalMapping),
     ("native mod-settings JSON roundtrip", TestNativeModSettingsRoundtrip),
     ("mod-settings registry has seven entries", TestModSettingsRegistry),
@@ -263,12 +264,14 @@ static void TestCoopExporterIntegration()
         coordinator.Contains("MessagePackSerializer.Deserialize(targetType, bytes)"),
         "normal and Coop exports do not share the synchronously captured mod-settings source");
     Assert(coordinator.Contains("AddCoopImportRows(self)") &&
-        coordinator.Contains("GetImportableCoopSources().Any()") &&
+        coordinator.Contains("GetImportableCoopSources(includeWorkshop: true).Any()") &&
+        coordinator.Contains("Shared.WorkshopContentPaths.GetSubscribedItemRoots") &&
+        coordinator.Contains("mappedImport") && coordinator.Contains("? trailSource") &&
         coordinator.Contains("ObservableCollection<FileRow>"),
-        "Coop packages are not added to Vanilla's in-game Trail import list");
+        "local and Workshop Coop packages are not routed through Vanilla's safe in-game Trail import path");
     Assert(coordinator.Contains("AddCoopExportRows(self)") &&
-        coordinator.Contains("AddCoopRows(rows)"),
-        "Coop packages are not added to Vanilla's in-game Trail export list");
+        coordinator.Contains("GetImportableCoopSources(includeWorkshop: false)"),
+        "local Coop packages are not added to Vanilla's in-game Trail export list or Workshop folders became writable destinations");
     Assert(coordinator.Contains("AddCoopWorkshopRows(self)") &&
         coordinator.Contains("UploadCoopTrailPackage(self, selectedRow.trail)") &&
         coordinator.Contains("CopyWorkshopPackage(source, destination") &&
@@ -478,6 +481,31 @@ static void TestDuplicatePackageIds()
     catalog.Scan(root, null, errors.Add);
     Assert(catalog.Packages.Count == 0, "duplicate package ID remained selectable");
     Assert(errors.Any(message => message.Contains("duplicate", StringComparison.OrdinalIgnoreCase)), "duplicate package ID was not diagnosed");
+}
+
+static void TestIdenticalPackageReplicas()
+{
+    using Fixture fixture = Fixture.Create();
+    string localRoot = Path.Combine(fixture.Root, "CustomTrails");
+    string workshopRoot = Path.Combine(fixture.Root, "WorkshopItem");
+    string localPackage = CreatePackage(fixture, localRoot, "Replica", 1);
+    string workshopPackage = Path.Combine(workshopRoot, "Replica");
+    CopyTree(localPackage, workshopPackage);
+
+    var catalog = new CoopTrailPackageCatalog();
+    catalog.Scan(new[] { localRoot, workshopRoot }, null, null);
+    Assert(catalog.Packages.Count == 1, "identical local and Workshop replicas were rejected");
+    Assert(string.Equals(catalog.Packages.Values.Single().RootPath, Path.GetFullPath(localPackage), StringComparison.OrdinalIgnoreCase),
+        "the first local package was not preferred over its identical Workshop replica");
+}
+
+static void CopyTree(string source, string destination)
+{
+    Directory.CreateDirectory(destination);
+    foreach (string directory in Directory.GetDirectories(source, "*", SearchOption.AllDirectories))
+        Directory.CreateDirectory(Path.Combine(destination, Path.GetRelativePath(source, directory)));
+    foreach (string file in Directory.GetFiles(source, "*", SearchOption.AllDirectories))
+        File.Copy(file, Path.Combine(destination, Path.GetRelativePath(source, file)));
 }
 
 static void TestOrdinalMapping()

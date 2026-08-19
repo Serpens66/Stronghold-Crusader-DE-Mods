@@ -26,7 +26,7 @@ namespace SpawnCastle
         private readonly LobbyModSettingsStorage runtimeStorage;
         private readonly RuntimePersistedState runtimeState =
             new RuntimePersistedState();
-        private readonly string defaultCastle;
+        private string defaultCastle;
         private bool enableMod;
         private SpawnCastleMode mode = SpawnCastleMode.Blueprint;
         private string selectedCastle;
@@ -55,13 +55,7 @@ namespace SpawnCastle
                 new ComboBoxItem { Content = SerpLocalization.Get("SpawnCastle.Mode.Blueprint") },
                 new ComboBoxItem { Content = SerpLocalization.Get("SpawnCastle.Mode.Spawn") }
             };
-            foreach (string option in catalog.Discover())
-                CastleOptions.Add(option);
-
-            defaultCastle = CastleOptions.Count > 0
-                ? CastleOptions[0]
-                : string.Empty;
-            selectedCastle = defaultCastle;
+            RefreshCastleOptions(notifySelectionChange: false);
             blueprintHotkey = KeyCode.None;
             blueprintIconScale = 1.0;
             blueprintIconAlpha = 0.3;
@@ -95,6 +89,43 @@ namespace SpawnCastle
         public RelayCommand ResetToDefaultCommand { get; }
 
         public int AvailableFileCount => CastleOptions.Count;
+
+        internal void RefreshCastleOptions() =>
+            RefreshCastleOptions(notifySelectionChange: true);
+
+        private void RefreshCastleOptions(bool notifySelectionChange)
+        {
+            IReadOnlyList<string> discovered = catalog.Discover(message =>
+                Shared.DebugLogHelper.LogWarning(log, message));
+            if (CastleOptions.Count == discovered.Count)
+            {
+                bool unchanged = true;
+                for (int index = 0; index < discovered.Count; index++)
+                    unchanged &= string.Equals(CastleOptions[index], discovered[index], StringComparison.Ordinal);
+                if (unchanged)
+                    return;
+            }
+
+            string previous = selectedCastle ?? string.Empty;
+            CastleOptions.Clear();
+            foreach (string option in discovered)
+                CastleOptions.Add(option);
+            defaultCastle = CastleOptions.Count > 0 ? CastleOptions[0] : string.Empty;
+            string normalized = NormalizeCastle(previous, defaultCastle);
+            bool selectionChanged = !string.Equals(selectedCastle, normalized, StringComparison.Ordinal);
+            selectedCastle = normalized;
+            OnPropertyChanged(nameof(AvailableFileCount));
+            OnPropertyChanged(nameof(InventoryText));
+            if (selectionChanged)
+            {
+                OnPropertyChanged(nameof(SelectedCastle));
+                if (notifySelectionChange)
+                    SettingsChanged?.Invoke();
+            }
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"SpawnCastle refreshed AIVJSON choices including Steam Workshop content; count={CastleOptions.Count}.");
+        }
 
         public string ResetToDefaultText => SerpLocalization.Get("Common.ResetToDefault");
         public string EnableModText => SerpLocalization.Get("Common.EnableMod");

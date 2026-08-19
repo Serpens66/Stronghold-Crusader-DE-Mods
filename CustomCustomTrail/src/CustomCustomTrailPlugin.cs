@@ -1,6 +1,7 @@
 using BepInEx;
 using SHCDESE.API.LowLevel;
 using SHCDESE.API;
+using SHCDESE.BepInEx.Bootstrap;
 using System;
 using System.IO;
 
@@ -12,7 +13,7 @@ namespace CustomCustomTrail
     {
         public const string PluginGuid = "CustomCustomTrail_Serp";
         public const string PluginName = "Custom Custom Trail";
-        public const string PluginVersion = "1.3.16";
+        public const string PluginVersion = "1.3.17";
 
         private static CustomCustomTrailRuntime runtime;
 
@@ -40,6 +41,8 @@ namespace CustomCustomTrail
                 runtime = new CustomCustomTrailRuntime(Logger, customTrailsRoot, Settings);
                 runtime.Initialize();
                 Settings.EnableModChanged += runtime.SetEnabled;
+                Plugin.ModSettingsHubViewModel.PropertyChanged += (_, __) =>
+                    runtime?.RefreshPackageCatalog();
             }
             catch (Exception ex)
             {

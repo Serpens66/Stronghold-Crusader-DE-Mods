@@ -14,6 +14,7 @@ namespace SpawnCastle
         private const float PopupSafetyMargin = 12.0f;
 
         private readonly ManualLogSource log;
+        private readonly SpawnCastleSettingsViewModel settings;
         private readonly FrameworkElement view;
         private readonly ComboBox comboBox;
         private float lastAppliedHeight = -1.0f;
@@ -21,10 +22,12 @@ namespace SpawnCastle
 
         private CastleDropDownHeightController(
             ManualLogSource log,
+            SpawnCastleSettingsViewModel settings,
             FrameworkElement view,
             ComboBox comboBox)
         {
             this.log = log;
+            this.settings = settings;
             this.view = view;
             this.comboBox = comboBox;
             comboBox.PreviewMouseDown += OnPreviewMouseDown;
@@ -52,11 +55,12 @@ namespace SpawnCastle
                 "SpawnCastle castle dropdown height controller attached; " +
                 $"desiredMaximum={DesiredMaximumHeight:0}, " +
                 $"fallback={SafeFallbackHeight:0}.");
-            return new CastleDropDownHeightController(log, view, comboBox);
+            return new CastleDropDownHeightController(log, settings, view, comboBox);
         }
 
         private void OnPreviewMouseDown(object sender, MouseButtonEventArgs args)
         {
+            settings.RefreshCastleOptions();
             // Keep the popup below the control so Noesis cannot move it beneath
             // the opening click and treat that click's release as an item click.
             float viewHeight = view.ActualHeight;

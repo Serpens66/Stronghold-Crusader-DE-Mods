@@ -12,7 +12,7 @@ namespace SpawnCastle
         private readonly Dictionary<string, string> pathByOption =
             new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-        public IReadOnlyList<string> Discover()
+        public IReadOnlyList<string> Discover(Action<string> warning = null)
         {
             pathByOption.Clear();
 
@@ -22,6 +22,7 @@ namespace SpawnCastle
 
             AddRoot("Mod", Path.Combine(pluginDirectory, "AIV"));
             AddLocalLordRoots();
+            AddWorkshopRoots(warning);
             AddRoot(
                 "Editor",
                 Path.Combine(
@@ -33,6 +34,16 @@ namespace SpawnCastle
             return pathByOption.Keys
                 .OrderBy(option => option, StringComparer.OrdinalIgnoreCase)
                 .ToArray();
+        }
+
+        private void AddWorkshopRoots(Action<string> warning)
+        {
+            foreach (string itemRoot in Shared.WorkshopContentPaths.GetSubscribedItemRoots(warning))
+            {
+                string itemId = Path.GetFileName(
+                    itemRoot.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+                AddRoot("Steam Workshop " + itemId, itemRoot);
+            }
         }
 
         public bool TryResolve(string option, out string fullPath)

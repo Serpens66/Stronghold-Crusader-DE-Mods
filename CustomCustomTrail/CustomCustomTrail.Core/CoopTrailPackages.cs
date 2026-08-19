@@ -135,12 +135,23 @@ namespace CustomCustomTrail.Core
 
         public void Scan(string customTrailsRoot, Action<string> info, Action<string> error)
         {
-            packages.Clear();
-            if (!Directory.Exists(customTrailsRoot))
-                return;
+            Scan(new[] { customTrailsRoot }, info, error);
+        }
 
+        public void Scan(IEnumerable<string> contentRoots, Action<string> info, Action<string> error)
+        {
+            packages.Clear();
             var candidates = new List<CoopTrailPackage>();
-            foreach (string directory in Directory.GetDirectories(customTrailsRoot).OrderBy(path => path, StringComparer.OrdinalIgnoreCase))
+            string[] roots = (contentRoots ?? Enumerable.Empty<string>())
+                .Where(path => !string.IsNullOrWhiteSpace(path) && Directory.Exists(path))
+                .Select(Path.GetFullPath)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+            var scannedDirectories = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (string directory in roots
+                .SelectMany(root => Directory.GetDirectories(root).OrderBy(path => path, StringComparer.OrdinalIgnoreCase))
+                .Select(Path.GetFullPath)
+                .Where(scannedDirectories.Add))
             {
                 string manifestPath = Path.Combine(directory, "cooptrail.json");
                 if (!File.Exists(manifestPath))
@@ -158,15 +169,21 @@ namespace CustomCustomTrail.Core
             foreach (IGrouping<string, CoopTrailPackage> group in candidates.GroupBy(item => item.Manifest.PackageId, StringComparer.OrdinalIgnoreCase))
             {
                 CoopTrailPackage[] matches = group.ToArray();
-                if (matches.Length != 1)
+                bool exactReplicas = matches.Length > 1 && matches.All(item =>
+                    string.Equals(item.Manifest.DisplayName, matches[0].Manifest.DisplayName, StringComparison.Ordinal) &&
+                    item.Manifest.MissionCount == matches[0].Manifest.MissionCount &&
+                    string.Equals(item.Manifest.ContentFingerprint, matches[0].Manifest.ContentFingerprint, StringComparison.OrdinalIgnoreCase));
+                if (matches.Length != 1 && !exactReplicas)
                 {
                     error?.Invoke("Ignored duplicate Coop Trail packageId [" + group.Key + "] in: " +
-                        string.Join(", ", matches.Select(item => Path.GetFileName(item.RootPath))));
+                        string.Join(", ", matches.Select(item => item.RootPath)));
                     continue;
                 }
                 CoopTrailPackage package = matches[0];
                 packages[package.Manifest.PackageId] = package;
                 info?.Invoke("Found Coop Trail package [" + package.Manifest.DisplayName + "] with " + package.Manifest.MissionCount + " mission(s).");
+                if (exactReplicas)
+                    info?.Invoke("Merged identical local/Workshop replicas of Coop Trail packageId [" + group.Key + "].");
             }
         }
 

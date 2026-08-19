@@ -243,7 +243,9 @@ namespace CustomCustomTrail
             refreshingCatalog = true;
             try
             {
-                packageCatalog.Scan(customTrailsRoot, LogInfo, LogError);
+                var roots = new List<string> { customTrailsRoot };
+                roots.AddRange(Shared.WorkshopContentPaths.GetSubscribedItemRoots(LogWarning));
+                packageCatalog.Scan(roots, LogInfo, LogError);
                 settings.RefreshPackages(packageCatalog.Packages.Values);
             }
             finally
@@ -251,6 +253,9 @@ namespace CustomCustomTrail
                 refreshingCatalog = false;
             }
         }
+
+        private void LogWarning(string message) =>
+            Shared.DebugLogHelper.LogWarning(log, message);
 
         private void OnActiveCoopPackageChanged()
         {

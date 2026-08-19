@@ -138,6 +138,9 @@
     <Compile Include="..\Shared\ToolTipPresentation.cs">
       <Link>Shared\ToolTipPresentation.cs</Link>
     </Compile>
+    <Compile Include="..\Shared\WorkshopContentPaths.cs">
+      <Link>Shared\WorkshopContentPaths.cs</Link>
+    </Compile>
     <Compile Include="..\AIVParser\AIVParser.Core\AivModels.cs">
       <Link>AIVParser.Core\AivModels.cs</Link>
     </Compile>

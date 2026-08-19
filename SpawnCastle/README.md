@@ -11,6 +11,7 @@ The dropdown scans:
 
 - `BepInEx/plugins/SpawnCastle_Serp/AIV`
 - the game's `CustomLords` and `ExtendedLords` directories
+- subscribed Steam Workshop item directories
 - the official Castle & CPU Lord Editor's `StreamingAssets/Villages` directory
 
 All five in-game options (mode, selection, Blueprint key, icon scale, and icon

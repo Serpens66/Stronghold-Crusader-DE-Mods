@@ -106,20 +106,16 @@ In multiplayer, gameplay-related settings are controlled by the host and synchro
 
 [h2]UnitCosts[/h2]
 [list]
-[*]Modify the native gold cost of every recruitable unit.
-[*]Modified base costs apply to both human and AI players.
+[*]Modify the native gold cost of every recruitable unit (modified base costs apply to both human and AI players)
 [*]Add extra gold and material costs for human players.
-[*]Supports up to four additional cost slots per unit.
-[*]Horses can also be required as an additional recruitment cost.
 [*]Missing materials are shown directly when recruitment is attempted.
 [/list]
 
 [h2]UnitLimit[/h2]
 [list]
-[*]Individual unit limits for human players.
+[*]Individual unit limits for human players to finally balance the game.
+[*]Eg. only up to 5 catapults/ballistas or healers to not make the game too easy.
 [*]Set a separate maximum for every unit type.
-[*]Any unit type can remain completely unlimited.
-[*]Existing living units count toward the corresponding limit.
 [/list]
 
 [h1]Configuration and Presets[/h1]
@@ -134,161 +130,16 @@ In multiplayer, gameplay-related settings are controlled by the host and synchro
 
 [h1]Important Information[/h1]
 [list]
-[*][b]The SHCDE Script Extender is required.[/b]
-[*]Remove separately installed copies of the included mods before using this collection. Duplicate installations can cause conflicts.
+[*][b]The SHCDE Script Extender and BepinEx is required![/b]
+[*]Download the latest [url=https://gitlab.com/rawra-stronghold-crusader/shcde-bepinex/-/releases]BepInEx "Download Loader"[/url] and [url=https://gitlab.com/rawra-stronghold-crusader/shcde-script-extender/-/releases]SHCDESE_1.xx.0.zip[/url].
+[*]Copy their content (first BepInEx) into your games install folder, usually: "Steam\steamapps\common\Stronghold Crusader Definitive Edition", replace files if asked.
+[*]Remove separately installed copies of the included mods (eg. downloaded from my nexusmods or github) before using this collection. Duplicate installations can cause conflicts.
 [*]All participants in a multiplayer game should use the same current version of the collection.
 [*]Some explicitly marked features are currently available only in singleplayer.
+[*]Script Extender itself and also Mods using it may in theory contain malicious code, so only download from the official source and from modders you trust! See below for my source code.
 [/list]
 
 [h1]Source Code and Further Information[/h1]
-
 [url=https://github.com/Serpens66/Stronghold-Crusader-DE-Mods]GitHub – Stronghold Crusader DE Mods by Serpens66[/url]
 
 ############################
-
-
-[h1]Serps Mods – Fully Customizable Collection[/h1]
-
-Eine vollständig konfigurierbare Sammlung meiner Mods für [b]Stronghold Crusader: Definitive Edition[/b].
-
-Alle enthaltenen Mods und nahezu jede einzelne Funktion können über die [b]Mod Settings[/b] im Spiel aktiviert, deaktiviert und angepasst werden. Gespeicherte Presets ermöglichen einen schnellen Wechsel zwischen unterschiedlichen Konfigurationen.
-
-Im Mehrspieler werden spielrelevante Einstellungen vom Host festgelegt und automatisch mit den Clients synchronisiert. Persönliche Anzeige- und Steuerungsoptionen bleiben lokal.
-
-[h1]Enthaltene Mods und Funktionen[/h1]
-
-[h2]BugfixesAndQoL[/h2]
-[list]
-[*]Korrigiert die Bewegung gemischter Truppengruppen, sodass alle Einheiten mit der Geschwindigkeit der langsamsten Einheit laufen.
-[*]Korrigiert die Pest-Beliebtheitsstrafe und entfernt sie zuverlässig, sobald die Pest beseitigt wurde.
-[*]Verhindert, dass behandelte Pestwolken erneut aktiv werden.
-[*]Behebt Apotheker, die beim Verlassen ihres Gebäudes stecken bleiben.
-[*]Verbessert die Zielreservierung von Apothekern, damit mehrere Apotheker nicht dieselbe Pestfläche behandeln.
-[*]Erlaubt das Platzieren von Sammelpunkten an jeder beliebigen Stelle.
-[*]Merkt sich AIV-Liste, AIV-Drehung und benutzerdefinierte AIC-Einstellungen eines KI-Lords gemeinsam für Einzelspieler- und Mehrspieler-Lobbys.
-[*]Behebt das verdreifachte Startgold bei eigenen Kreuzzugmärschen.
-[*]Frei konfigurierbare Reihenfolge der Waren im Markt, inklusive Wiederherstellung der klassischen HD-Reihenfolge.
-[*]Optional wird die konfigurierte Warenreihenfolge auch in der detaillierten Marktansicht verwendet.
-[*]Die Kamera folgt beim Ziehen auf der Minimap direkt dem Mauszeiger.
-[*]Erneutes Drücken der Markt-Taste öffnet wieder das Haupthandelsmenü.
-[*]Korrigiert automatische Verkäufe mit einem Verkaufsschwellenwert größer als null.
-[*]Korrigiert das Abrisssymbol in der Nähe feindlicher Einheiten.
-[*]Erlaubt die Verwendung der Minimap, während ein Gebäude zum Platzieren ausgewählt ist.
-[*]Erlaubt die Kamerabewegung auch bei gedrückter Strg- oder Alt-Taste.
-[/list]
-
-[h2]BuildingCosts[/h2]
-[list]
-[*]Die Baukosten jedes Gebäudetyps können individuell verändert werden.
-[*]Holz-, Stein-, Eisen-, Pech- und Goldkosten lassen sich separat einstellen.
-[*]Kosten können unverändert bleiben, reduziert, erhöht oder vollständig entfernt werden.
-[*]Die geänderten Baukosten gelten für menschliche Spieler und KI-Spieler.
-[/list]
-
-[h2]BuildingLimit[/h2]
-[list]
-[*]Individuelle Gebäudelimits für menschliche Spieler.
-[*]Für jeden Gebäudetyp kann ein eigenes Maximum festgelegt werden.
-[*]Gebäude können vollständig unbegrenzt bleiben.
-[*]Zusammengehörige Varianten wie Gärten, Statuen, Schreine und Teiche werden gemeinsam gezählt.
-[/list]
-
-[h2]ExtraFeatures[/h2]
-[list]
-[*]Mit gedrückter Strg-Taste kann am Markt genau eine Wareneinheit gekauft oder verkauft werden.
-[*]Neu rekrutierte Einheiten laufen mit ihrer eigenen maximalen Geschwindigkeit zu ihrem Sammelpunkt.
-[*]Schwertkämpfer können auf Pferde aufsatteln und berittene Ritter wieder absteigen.
-[*]Pferde können nach dem Absteigen optional sofort wieder verfügbar sein.
-[*]Der Steinhaufen eines ausgewählten Steinbruchs kann zur nächsten gültigen Position gedreht werden.
-[*]Kirchen können zwei und Kathedralen drei Priester erhalten.
-[*]Die maximale Anzahl wartender Bauern am Burgfeuer kann eingestellt werden.
-[*]Einzelne Produktionsgebäude können unabhängig von allen anderen Gebäuden desselben Typs pausiert werden.
-[*]Frei einstellbare Rückerstattung von Holz, Stein, Eisen, Pech und Gold beim Gebäudeabriss.
-[*]Der Inhalt von Kornspeicher, Vorratslager und Waffenkammer kann beim Abriss erhalten bleiben.
-[*]Der Warengewinn kann für Menschen und KI separat multipliziert werden.
-[*]Zusätzliche Waren können auf Basis ihres Verkaufswertes als Gold gutgeschrieben werden.
-[*]Globale Multiplikatoren für Markt-Kaufpreise und Markt-Verkaufspreise.
-[*]Zusätzliche individuelle Kauf- und Verkaufspreise für jede einzelne Marktwarenart.
-[*]Die veränderten Marktpreise können optional auch für Entscheidungen, Käufe und Verkäufe der KI gelten.
-[*]Verhindert, dass die KI ihre Produktionsgebäude pausiert.
-[*]Verhindert den KI-Panikabriss zur kurzfristigen Rückgewinnung von Rohstoffen.
-[*]Verhindert das direkte Löschen lebender KI-Hütten.
-[*]Konfigurierbare Lebensdauer von Pestwolken.
-[*]Konfigurierbare Suchreichweite der Apotheker nach Pestwolken.
-[/list]
-
-[i]Hinweis: Ritter-Auf-/Absitzen, das Verschieben von Steinhaufen und das Pausieren einzelner Gebäude sind derzeit noch nicht im Mehrspieler verfügbar.[/i]
-
-[h2]RandomEvents[/h2]
-[list]
-[*]Fügt frei konfigurierbare positive und negative Zufallsereignisse hinzu.
-[*]Einstellbares Ereignisintervall und individuelle Abklingzeit.
-[*]Separate Eintrittswahrscheinlichkeit für jedes Ereignis.
-[*]Konfigurierbare Mindest- und Maximalstärke der jeweiligen Ereignisse.
-[*]Positive Ereignisse: Jahrmarkt, Vermählung und Barde.
-[*]Negative Ereignisse: Pest, Getreidebefall, Hopfenkäfer, Obstfäule, Baumschimmel, Hasenplage, Löwenangriff, Banditen, wahnsinnige Rinder, Bogenschützen, Kornspeicherdiebstahl und Feuer.
-[*]Banditen und Bogenschützen skalieren auf Wunsch mit der vergangenen Spielzeit.
-[*]Stärke beziehungsweise Umfang von Pest, Löwenangriffen, Diebstahl und Feuer sind separat einstellbar.
-[/list]
-
-[i]Hinweis: Random Events ist derzeit in Netzwerkspielen vollständig deaktiviert.[/i]
-
-[h2]SpawnCastle[/h2]
-[list]
-[*]Lädt eigene AIVJSON-Burgen als sichtbare Blaupause.
-[*]Die Blaupause kann während des Bauens ein- und ausgeblendet werden.
-[*]Frei belegbare Tastatur- oder Maustaste zum Umschalten der Blaupause.
-[*]Einstellbare Symbolgröße und Deckkraft der Blaupause.
-[*]Eine ausgewählte AIVJSON-Burg kann in einem neuen Einzelspiel direkt erzeugt werden.
-[*]Auswahl und Blaupause bleiben im Mehrspieler vollständig lokal und beeinflussen keine anderen Spieler.
-[/list]
-
-[h2]StartConditions[/h2]
-[list]
-[*]Startgold kann für Menschen und KI getrennt festgelegt oder zum vorhandenen Startgold addiert werden.
-[*]Unterschiedliche Goldwerte für normale Kreuzzugpartien und Deathmatch werden unterstützt.
-[*]Alle Startwaren können für Menschen und KI individuell konfiguriert werden.
-[*]Separate Startwaren für normale Kreuzzugpartien und Deathmatch.
-[*]Die offiziellen Startarmeen können für Menschen und KI getrennt entfernt, unverändert gelassen oder multipliziert werden.
-[*]Zusätzliche Starttruppen jeder verfügbaren Einheitenart können individuell hinzugefügt werden.
-[/list]
-
-[h2]UnitCosts[/h2]
-[list]
-[*]Die nativen Goldkosten jeder rekrutierbaren Einheit können verändert werden.
-[*]Die geänderten Grundkosten gelten für menschliche Spieler und KI-Spieler.
-[*]Für menschliche Spieler können zusätzliche Gold- und Materialkosten festgelegt werden.
-[*]Bis zu vier zusätzliche Kostenplätze pro Einheit werden unterstützt.
-[*]Auch Pferde können als zusätzliche Rekrutierungskosten verlangt werden.
-[*]Fehlende Materialien werden direkt bei der Rekrutierung angezeigt.
-[/list]
-
-[h2]UnitLimit[/h2]
-[list]
-[*]Individuelle Einheitenlimits für menschliche Spieler.
-[*]Für jede Einheitenart kann ein eigenes Maximum festgelegt werden.
-[*]Einheitenarten können vollständig unbegrenzt bleiben.
-[*]Bereits vorhandene lebende Einheiten werden auf das jeweilige Limit angerechnet.
-[/list]
-
-[h1]Konfiguration und Presets[/h1]
-[list]
-[*]Jeder enthaltene Mod besitzt eigene Mod Settings.
-[*]Mods und Funktionen können unabhängig voneinander aktiviert oder deaktiviert werden.
-[*]Mehrere lokale Presets erlauben unterschiedliche Regelsets, beispielsweise Vanilla+, große Armeen oder stark veränderte Wirtschaft.
-[*]Im Mehrspieler kontrolliert der Host alle spielrelevanten Werte.
-[*]Lokale Client-Optionen wie Oberfläche, Steuerung und Blaupausen können von jedem Spieler selbst gewählt werden.
-[*]Eine integrierte Diagnose zeigt, ob alle Bestandteile des Modpacks korrekt geladen und registriert wurden.
-[/list]
-
-[h1]Wichtige Hinweise[/h1]
-[list]
-[*][b]Der SHCDE Script Extender wird benötigt.[/b]
-[*]Entferne separat installierte Versionen der enthaltenen Mods, bevor du dieses Modpack verwendest. Doppelte Installationen können zu Konflikten führen.
-[*]Für Mehrspielerpartien sollten alle Teilnehmer dieselbe aktuelle Version des Modpacks verwenden.
-[*]Einige ausdrücklich gekennzeichnete Funktionen sind momentan nur im Einzelspieler verfügbar.
-[/list]
-
-[h1]Quellcode und weitere Informationen[/h1]
-
-[url=https://github.com/Serpens66/Stronghold-Crusader-DE-Mods]GitHub – Stronghold Crusader DE Mods by Serpens66[/url]

@@ -101,6 +101,8 @@ namespace CustomCustomTrail
                 new Dictionary<UserControl, string>();
             private readonly Dictionary<int, Button> coopSelectionButtons =
                 new Dictionary<int, Button>();
+            private readonly Dictionary<string, string> coopImportSourceBySelection =
+                new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             private CheckBox coopTrailExportCheckbox;
             private string coopPackageDisplayName = string.Empty;
             private int coopPackageMissionCount;
@@ -421,7 +423,7 @@ namespace CustomCustomTrail
 
             private void EnableImportForCoopPackages(FRONT_ManageTrail page)
             {
-                if (!GetImportableCoopSources().Any())
+                if (!GetImportableCoopSources(includeWorkshop: true).Any())
                     return;
                 if (page.FindName("Import") is Button importButton)
                 {
@@ -437,7 +439,8 @@ namespace CustomCustomTrail
                 if (rows == null)
                     throw new InvalidOperationException("Vanilla's Trail import list is unavailable.");
 
-                AddCoopRows(rows);
+                coopImportSourceBySelection.Clear();
+                AddCoopRows(rows, GetImportableCoopSources(includeWorkshop: true), registerImportSources: true);
             }
 
             private void AddCoopExportRows(FRONT_ManageTrail page)
@@ -447,7 +450,7 @@ namespace CustomCustomTrail
                 if (rows == null)
                     throw new InvalidOperationException("Vanilla's Trail export list is unavailable.");
 
-                AddCoopRows(rows);
+                AddCoopRows(rows, GetImportableCoopSources(includeWorkshop: false), registerImportSources: false);
             }
 
             private void AddCoopWorkshopRows(FRONT_EditorSetup page)
@@ -460,19 +463,18 @@ namespace CustomCustomTrail
                 var existing = new HashSet<string>(
                     rows.Where(row => row?.trail != null).Select(row => row.trail.Name),
                     StringComparer.OrdinalIgnoreCase);
-                string root = ConfigSettings.GetUserCustomTrailsPath();
-                foreach (KeyValuePair<string, int> source in GetImportableCoopSources())
+                foreach (CoopTrailSource source in GetImportableCoopSources(includeWorkshop: false))
                 {
-                    if (!existing.Add(source.Key))
+                    if (!existing.Add(source.SelectionName))
                         continue;
-                    string packageRoot = IOPath.Combine(root, source.Key);
+                    string packageRoot = source.PackageRoot;
                     CoopTrailPackage package = CoopTrailPackageCatalog.Load(packageRoot);
                     var trail = new MapFileManager.CustomTrailInfo
                     {
-                        Name = source.Key,
+                        Name = source.SelectionName,
                         DisplayName = package.Manifest.DisplayName,
                         FullPath = packageRoot,
-                        workshopUploadInfoAvailable = File.Exists(IOPath.Combine(packageRoot, source.Key + ".data")),
+                        workshopUploadInfoAvailable = File.Exists(IOPath.Combine(packageRoot, source.SelectionName + ".data")),
                     };
                     // Vanilla derives Count from the headers dictionary. Placeholder keys retain
                     // its existing length display and Short/Medium/Long Workshop categorisation.
@@ -589,39 +591,59 @@ namespace CustomCustomTrail
                     CopyDirectory(directory, IOPath.Combine(destination, IOPath.GetFileName(directory)));
             }
 
-            private void AddCoopRows(ObservableCollection<FileRow> rows)
+            private void AddCoopRows(
+                ObservableCollection<FileRow> rows,
+                IEnumerable<CoopTrailSource> sources,
+                bool registerImportSources)
             {
                 var existing = new HashSet<string>(
                     rows.Where(row => row != null).Select(row => row.Text1),
                     StringComparer.OrdinalIgnoreCase);
-                foreach (KeyValuePair<string, int> source in GetImportableCoopSources())
+                foreach (CoopTrailSource source in sources)
                 {
-                    if (!existing.Add(source.Key))
+                    if (!existing.Add(source.SelectionName))
                         continue;
+                    if (registerImportSources)
+                        coopImportSourceBySelection[source.SelectionName] = source.PackageRoot;
                     rows.Add(new FileRow
                     {
-                        Text1 = source.Key,
-                        Text2 = source.Value.ToString(CultureInfo.InvariantCulture),
+                        Text1 = source.SelectionName,
+                        Text2 = source.MissionCount.ToString(CultureInfo.InvariantCulture),
                     });
                 }
             }
 
-            private IEnumerable<KeyValuePair<string, int>> GetImportableCoopSources()
+            private IEnumerable<CoopTrailSource> GetImportableCoopSources(bool includeWorkshop)
             {
-                string root = ConfigSettings.GetUserCustomTrailsPath();
-                if (!Directory.Exists(root))
-                    yield break;
-                foreach (string directory in Directory.GetDirectories(root).OrderBy(path => path, StringComparer.OrdinalIgnoreCase))
+                string localRoot = IOPath.GetFullPath(ConfigSettings.GetUserCustomTrailsPath());
+                var roots = new List<string> { localRoot };
+                if (includeWorkshop)
+                    roots.AddRange(Shared.WorkshopContentPaths.GetSubscribedItemRoots(message =>
+                        DebugLogHelper.LogWarning(log, message)));
+                var catalog = new CoopTrailPackageCatalog();
+                catalog.Scan(roots, null, message => DebugLogHelper.LogWarning(log, message));
+                foreach (CoopTrailPackage package in catalog.Packages.Values
+                    .OrderBy(item => item.Manifest.DisplayName, StringComparer.OrdinalIgnoreCase))
                 {
-                    if (!File.Exists(IOPath.Combine(directory, "cooptrail.json")))
-                        continue;
-                    string source = IOPath.Combine(directory, CoopTrailMakerSourceDirectory);
+                    string source = IOPath.Combine(package.RootPath, CoopTrailMakerSourceDirectory);
                     if (!Directory.Exists(source))
                         continue;
                     int count = Directory.GetFiles(source, "*.trail").Length;
                     if (count > 0)
-                        yield return new KeyValuePair<string, int>(IOPath.GetFileName(directory), count);
+                    {
+                        bool workshop = !IsDirectChildOf(package.RootPath, localRoot);
+                        string selectionName = workshop
+                            ? package.Manifest.DisplayName + " [Steam Workshop]"
+                            : IOPath.GetFileName(package.RootPath);
+                        yield return new CoopTrailSource(selectionName, package.RootPath, count);
+                    }
                 }
+            }
+
+            private static bool IsDirectChildOf(string directory, string parent)
+            {
+                string actualParent = IOPath.GetDirectoryName(IOPath.GetFullPath(directory));
+                return string.Equals(actualParent, IOPath.GetFullPath(parent), StringComparison.OrdinalIgnoreCase);
             }
 
             private void BackupHook(FRONT_ManageTrail self, string source, string destination)
@@ -641,12 +663,17 @@ namespace CustomCustomTrail
                     importOriginal(self, customFolderName);
                     return;
                 }
-                string source = IOPath.Combine(ConfigSettings.GetUserCustomTrailsPath(), customFolderName);
+                string source = coopImportSourceBySelection.TryGetValue(customFolderName, out string mappedSource)
+                    ? mappedSource
+                    : IOPath.Combine(ConfigSettings.GetUserCustomTrailsPath(), customFolderName);
                 bool coopPackage = File.Exists(IOPath.Combine(source, "cooptrail.json"));
                 string trailSource = GetCoopTrailMakerSource(source, coopPackage);
-                string vanillaImportFolder = string.Equals(trailSource, source, StringComparison.OrdinalIgnoreCase)
-                    ? customFolderName
-                    : IOPath.Combine(customFolderName, CoopTrailMakerSourceDirectory);
+                bool mappedImport = coopImportSourceBySelection.ContainsKey(customFolderName);
+                string vanillaImportFolder = mappedImport
+                    ? trailSource
+                    : string.Equals(trailSource, source, StringComparison.OrdinalIgnoreCase)
+                        ? customFolderName
+                        : IOPath.Combine(customFolderName, CoopTrailMakerSourceDirectory);
                 // Use Vanilla itself for .trail files. Its File.Copy call does not overwrite,
                 // and any name collision aborts before sidecars or the Coop marker are changed.
                 importOriginal(self, vanillaImportFolder);
@@ -657,6 +684,20 @@ namespace CustomCustomTrail
                     SetMakerCoopEnabled(coopPackage);
                     RefreshTrailMakerCoopCheckbox();
                 });
+            }
+
+            private sealed class CoopTrailSource
+            {
+                public CoopTrailSource(string selectionName, string packageRoot, int missionCount)
+                {
+                    SelectionName = selectionName;
+                    PackageRoot = packageRoot;
+                    MissionCount = missionCount;
+                }
+
+                public string SelectionName { get; }
+                public string PackageRoot { get; }
+                public int MissionCount { get; }
             }
 
             private void ExportHook(FRONT_ManageTrail self, string destination)
@@ -1060,7 +1101,10 @@ namespace CustomCustomTrail
                     MainViewModel.Instance.FRONTMultiplayer.trailMakerMode;
                 frontendButtonOriginal(self, command);
                 if (string.Equals(command, "Coops", StringComparison.Ordinal))
+                {
+                    CoopPackagesChanged?.Invoke();
                     UpdateCoopSelectionTitles(self);
+                }
                 if (IsCoopTrailOpenCommand(command))
                 {
                     // Vanilla creates and binds the selected Coop Trail page inside ButtonClicked.
