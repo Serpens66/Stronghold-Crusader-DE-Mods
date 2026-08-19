@@ -4,7 +4,7 @@ setlocal EnableExtensions EnableDelayedExpansion
 rem ==========================================================================
 rem Serps Mods Steam pack configuration. Add a mod by adding the next number.
 rem ==========================================================================
-set "PACK_NAME=Serps Mods"
+set "PACK_NAME=SerpsMods"
 set "PACK_GUID=SerpsMods_Serp"
 set "WORKSHOP_PACKAGER_PATH=AUTO"
 set "PREVIEW_PATH=%~dp0SerpsModsHost\steam-preview.png"
@@ -18,6 +18,7 @@ set "STEAM_MOD_06=CastlePlanner"
 set "STEAM_MOD_07=StartConditions"
 set "STEAM_MOD_08=UnitCosts"
 set "STEAM_MOD_09=UnitLimit"
+set "STEAM_MOD_10=CustomCustomTrail"
 
 set "SERPS_STEAM_MODS="
 for /L %%N in (1,1,99) do (
