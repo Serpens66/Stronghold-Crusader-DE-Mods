@@ -12,7 +12,11 @@
       "Changes": [
         "Discovers AIVJSON castles inside subscribed Steam Workshop items and refreshes the preserved selection whenever the castle dropdown opens.",
         "Replaced the exclusive Blueprint or Spawn mode dropdown with independent Blueprint and Spawn Castle checkboxes.",
-        "Made Spawn Castle a synchronized host setting while keeping Blueprints and the AIVJSON selection local."
+        "Made Spawn Castle a synchronized host setting while keeping Blueprints and the AIVJSON selection local.",
+        "Added separate preset-aware activation gates for local Blueprint features and host-controlled CastlePlanner features.",
+        "Presented Blueprints and Spawn Castle as regular feature options instead of using them as the mod activation controls.",
+        "Separated the synchronized host Spawn Castle AIV selection from each player's local in-game Blueprint AIV selection.",
+        "Listed local Blueprint settings before host-controlled Spawn Castle settings and enabled Blueprints by default."
       ]
     },
     {

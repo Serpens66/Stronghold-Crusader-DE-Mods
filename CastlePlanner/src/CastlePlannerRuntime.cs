@@ -205,7 +205,7 @@ namespace CastlePlanner
             Shared.DebugLogHelper.LogInfo(
                 log,
                 $"OnStartMap(Post) received: handledCurrentMap={handledCurrentMap}, " +
-                $"selection='{settings.SelectedCastle}', " +
+                $"hostSelection='{settings.HostSelectedCastle}', " +
                 $"preImportReady={pendingAivImport != null}, " +
                 $"keepPreSpawnPrepared={preparedAivCastle != null}, " +
                 $"keepPostSpawnExecuted={executedAivCastle != null}.");
@@ -281,7 +281,7 @@ namespace CastlePlanner
             Shared.DebugLogHelper.LogInfo(
                 log,
                 $"OnStartMap(Pre) received: handledCurrentMap={handledCurrentMap}, " +
-                $"selection='{settings.SelectedCastle}'.");
+                $"hostSelection='{settings.HostSelectedCastle}'.");
 
             if (handledCurrentMap || !settings.IsSpawnMode)
                 return;
@@ -291,10 +291,10 @@ namespace CastlePlanner
                 GameModeSnapshot gameMode = CaptureGameMode(args);
                 EnsureSupportedGameMode(gameMode);
 
-                if (!settings.TryResolveSelectedFile(out string filePath))
+                if (!settings.TryResolveHostSelectedFile(out string filePath))
                 {
                     throw new FileNotFoundException(
-                        $"Selected AIVJSON file is unavailable: '{settings.SelectedCastle}'.");
+                        $"Host-selected AIVJSON file is unavailable: '{settings.HostSelectedCastle}'.");
                 }
 
                 int nativePlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();

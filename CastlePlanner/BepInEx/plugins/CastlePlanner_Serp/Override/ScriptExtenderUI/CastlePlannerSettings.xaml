@@ -29,10 +29,10 @@
   <StackPanel Margin="10">
     <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
       <Border Style="{StaticResource ClientActivationBorder}"><CheckBox IsEnabled="{Binding CanEditClientSettings}"
-                IsChecked="{Binding Blueprints, Mode=TwoWay}"
-                Content="{Binding BlueprintsText}"
+                IsChecked="{Binding EnableClientFeatures, Mode=TwoWay}"
+                Content="{Binding EnableClientFeaturesText}"
                 ToolTipService.ShowDuration="60000"
-                ToolTip="{Binding BlueprintsHelpText}"
+                ToolTip="{Binding EnableClientFeaturesHelpText}"
                 Foreground="White"
                 FontWeight="Bold"
                 VerticalAlignment="Center"/></Border>
@@ -53,34 +53,14 @@
                Foreground="#FFCC66" FontWeight="Bold" Margin="0,0,0,8"/>
     <TextBlock Text="{Binding TitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,4"/>
     <TextBlock Text="{Binding HelpText}" Foreground="#CCCCCC" TextWrapping="Wrap" Margin="0,0,0,10"/>
-    <TextBlock Text="{Binding HostOptionsText}" Style="{StaticResource HostRoleHeader}" Margin="0,4,0,6"/>
-    <StackPanel IsEnabled="{Binding CanEditHostSettings}">
-      <Border Style="{StaticResource HostActivationBorder}" HorizontalAlignment="Left" Margin="0,0,0,10">
-        <CheckBox IsChecked="{Binding SpawnCastle, Mode=TwoWay}"
-                  Content="{Binding SpawnCastleText}"
-                  ToolTipService.ShowDuration="60000"
-                  ToolTip="{Binding SpawnCastleHelpText}"
-                  Foreground="White"
-                  FontWeight="Bold"/>
-      </Border>
-    </StackPanel>
     <TextBlock Text="{Binding ClientOptionsText}" Style="{StaticResource ClientRoleHeader}" Margin="0,4,0,6"/>
     <StackPanel IsEnabled="{Binding CanEditClientSettings}">
-      <TextBlock Text="{Binding CastleSectionTitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,4"/>
-      <TextBlock Text="{Binding CastleText}"
-                 Foreground="#DDDDDD"
-                 Margin="0,0,0,3"/>
-      <ComboBox x:Name="CastlePlannerSelectionComboBox"
-                ItemsSource="{Binding CastleOptions}"
-                SelectedItem="{Binding SelectedCastle, Mode=TwoWay}"
-                MaxDropDownHeight="120"
+      <CheckBox IsChecked="{Binding Blueprints, Mode=TwoWay}"
+                Content="{Binding BlueprintsText}"
                 ToolTipService.ShowDuration="60000"
-                ToolTip="{Binding CastleHelpText}"
-                Margin="0,0,0,8"/>
-      <TextBlock Text="{Binding InventoryText}"
-                 Foreground="#999999"
-                 TextWrapping="Wrap"
-                 Margin="0,0,0,10"/>
+                ToolTip="{Binding BlueprintsHelpText}"
+                Foreground="White"
+                Margin="0,0,0,10"/>
       <TextBlock Text="{Binding PlacementControlsTitleText}" Style="{StaticResource SectionHeader}" Margin="0,4,0,4"/>
       <TextBlock Text="{Binding HotkeyText}"
                  Foreground="#DDDDDD"
@@ -108,6 +88,43 @@
                 ToolTip="{Binding ClearHelpText}"
                 MinWidth="60"/>
       </StackPanel>
+    </StackPanel>
+    <Separator Background="#444466" Margin="0,8"/>
+    <Grid Margin="0,0,0,6">
+      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <TextBlock Grid.Column="0" Text="{Binding HostOptionsText}" Style="{StaticResource HostRoleHeader}" VerticalAlignment="Center"/>
+      <Border Grid.Column="1" Style="{StaticResource HostActivationBorder}" Margin="8,0,0,0">
+        <CheckBox IsEnabled="{Binding CanEditHostSettings}"
+                  IsChecked="{Binding EnableMod, Mode=TwoWay}"
+                  Content="{Binding EnableHostFeaturesText}"
+                  ToolTipService.ShowDuration="60000"
+                  ToolTip="{Binding EnableHostFeaturesHelpText}"
+                  Foreground="White"
+                  FontWeight="Bold"/>
+      </Border>
+    </Grid>
+    <StackPanel IsEnabled="{Binding CanEditHostSettings}">
+      <CheckBox IsChecked="{Binding SpawnCastle, Mode=TwoWay}"
+                Content="{Binding SpawnCastleText}"
+                ToolTipService.ShowDuration="60000"
+                ToolTip="{Binding SpawnCastleHelpText}"
+                Foreground="White"
+                Margin="0,0,0,10"/>
+      <TextBlock Text="{Binding CastleSectionTitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,4"/>
+      <TextBlock Text="{Binding CastleText}"
+                 Foreground="#DDDDDD"
+                 Margin="0,0,0,3"/>
+      <ComboBox x:Name="CastlePlannerSelectionComboBox"
+                ItemsSource="{Binding CastleOptions}"
+                SelectedItem="{Binding HostSelectedCastle, Mode=TwoWay}"
+                MaxDropDownHeight="120"
+                ToolTipService.ShowDuration="60000"
+                ToolTip="{Binding CastleHelpText}"
+                Margin="0,0,0,8"/>
+      <TextBlock Text="{Binding InventoryText}"
+                 Foreground="#999999"
+                 TextWrapping="Wrap"
+                 Margin="0,0,0,10"/>
     </StackPanel>
   </StackPanel>
   </ScrollViewer>

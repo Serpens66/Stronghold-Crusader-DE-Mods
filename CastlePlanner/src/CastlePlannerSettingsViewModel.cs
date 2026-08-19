@@ -20,9 +20,12 @@ namespace CastlePlanner
         private readonly RuntimePersistedState runtimeState =
             new RuntimePersistedState();
         private string defaultCastle;
-        private bool blueprints;
+        private bool enableClientFeatures = true;
+        private bool enableMod = true;
+        private bool blueprints = true;
         private bool spawnCastle;
         private string selectedCastle;
+        private string hostSelectedCastle;
         private KeyCode blueprintHotkey;
         private double blueprintIconScale;
         private double blueprintIconAlpha;
@@ -93,27 +96,38 @@ namespace CastlePlanner
             }
 
             string previous = selectedCastle ?? string.Empty;
+            string previousHost = hostSelectedCastle ?? string.Empty;
             CastleOptions.Clear();
             foreach (string option in discovered)
                 CastleOptions.Add(option);
             defaultCastle = CastleOptions.Count > 0 ? CastleOptions[0] : string.Empty;
             string normalized = NormalizeCastle(previous, defaultCastle);
+            // Clients must preserve the received host value even when that AIV is not installed locally.
+            string normalizedHost = CanEditHostSettings
+                ? NormalizeCastle(previousHost, defaultCastle)
+                : previousHost;
             bool selectionChanged = !string.Equals(selectedCastle, normalized, StringComparison.Ordinal);
+            bool hostSelectionChanged = !string.Equals(hostSelectedCastle, normalizedHost, StringComparison.Ordinal);
             selectedCastle = normalized;
+            hostSelectedCastle = normalizedHost;
             OnPropertyChanged(nameof(AvailableFileCount));
             OnPropertyChanged(nameof(InventoryText));
             if (selectionChanged)
-            {
                 OnPropertyChanged(nameof(SelectedCastle));
-                if (notifySelectionChange)
-                    SettingsChanged?.Invoke();
-            }
+            if (hostSelectionChanged)
+                OnPropertyChanged(nameof(HostSelectedCastle));
+            if (notifySelectionChange && (selectionChanged || hostSelectionChanged))
+                SettingsChanged?.Invoke();
             Shared.DebugLogHelper.LogInfo(
                 log,
                 $"CastlePlanner refreshed AIVJSON choices including Steam Workshop content; count={CastleOptions.Count}.");
         }
 
         public string ResetToDefaultText => SerpLocalization.Get("Common.ResetToDefault");
+        public string EnableClientFeaturesText => SerpLocalization.Get("CastlePlanner.EnableClientFeatures");
+        public string EnableClientFeaturesHelpText => SerpLocalization.Get("CastlePlanner.EnableClientFeaturesHelp");
+        public string EnableHostFeaturesText => SerpLocalization.Get("CastlePlanner.EnableHostFeatures");
+        public string EnableHostFeaturesHelpText => SerpLocalization.Get("CastlePlanner.EnableHostFeaturesHelp");
         public string TitleText => SerpLocalization.Get("CastlePlanner.Title");
         public string HelpText => SerpLocalization.Get("CastlePlanner.Help");
         public string CastleText => SerpLocalization.Get("CastlePlanner.Castle");
@@ -132,6 +146,44 @@ namespace CastlePlanner
         public string InventoryText => string.Format(
             SerpLocalization.Get("CastlePlanner.Inventory"),
             AvailableFileCount);
+
+        [Shared.PresetLocal]
+        public bool EnableClientFeatures
+        {
+            get => enableClientFeatures;
+            set
+            {
+                if (enableClientFeatures == value)
+                    return;
+
+                enableClientFeatures = value;
+                OnPropertyChanged(nameof(EnableClientFeatures));
+                OnPropertyChanged(nameof(IsBlueprintMode));
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    $"CastlePlanner local activation changed to {enableClientFeatures}.");
+                SettingsChanged?.Invoke();
+            }
+        }
+
+        [SyncHostOnly]
+        public bool EnableMod
+        {
+            get => enableMod;
+            set
+            {
+                if (!CanMutateSetting(nameof(EnableMod)) || enableMod == value)
+                    return;
+
+                enableMod = value;
+                OnPropertyChanged(nameof(EnableMod));
+                OnPropertyChanged(nameof(IsSpawnMode));
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    $"CastlePlanner host activation changed to {enableMod}.");
+                SettingsChanged?.Invoke();
+            }
+        }
 
         [Shared.PresetLocal]
         public bool Blueprints
@@ -189,6 +241,28 @@ namespace CastlePlanner
                 Shared.DebugLogHelper.LogInfo(
                     log,
                     $"CastlePlanner local AIVJSON selection changed to '{selectedCastle}'.");
+                SettingsChanged?.Invoke();
+            }
+        }
+
+        [SyncHostOnly]
+        public string HostSelectedCastle
+        {
+            get => hostSelectedCastle;
+            set
+            {
+                if (!CanMutateSetting(nameof(HostSelectedCastle)))
+                    return;
+
+                string normalized = NormalizeCastle(value, string.Empty);
+                if (string.Equals(hostSelectedCastle, normalized, StringComparison.Ordinal))
+                    return;
+
+                hostSelectedCastle = normalized;
+                OnPropertyChanged(nameof(HostSelectedCastle));
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    $"CastlePlanner host AIVJSON selection changed to '{hostSelectedCastle}'.");
                 SettingsChanged?.Invoke();
             }
         }
@@ -251,8 +325,8 @@ namespace CastlePlanner
                 : SerpLocalization.Get("CastlePlanner.AssignKey");
 
         public bool IsCapturingHotkey => isCapturingHotkey;
-        public bool IsBlueprintMode => blueprints;
-        public bool IsSpawnMode => spawnCastle;
+        public bool IsBlueprintMode => enableClientFeatures && blueprints;
+        public bool IsSpawnMode => enableMod && spawnCastle;
         internal KeyCode BlueprintHotkeyCode => blueprintHotkey;
         internal float BlueprintIconScaleValue => (float)blueprintIconScale;
         internal float BlueprintIconAlphaValue => (float)blueprintIconAlpha;
@@ -293,6 +367,11 @@ namespace CastlePlanner
         internal bool TryResolveSelectedFile(out string fullPath)
         {
             return catalog.TryResolve(selectedCastle, out fullPath);
+        }
+
+        internal bool TryResolveHostSelectedFile(out string fullPath)
+        {
+            return catalog.TryResolve(hostSelectedCastle, out fullPath);
         }
 
         internal void CompleteHotkeyCapture(KeyCode key)
@@ -573,9 +652,14 @@ namespace CastlePlanner
 
         private void ResetToDefault()
         {
-            Blueprints = false;
+            EnableClientFeatures = true;
+            Blueprints = true;
             if (CanEditHostSettings)
+            {
+                EnableMod = true;
                 SpawnCastle = false;
+                HostSelectedCastle = defaultCastle;
+            }
 
             // Every participant resets only their local Blueprint preferences.
             SelectedCastle = defaultCastle;
@@ -613,6 +697,7 @@ namespace CastlePlanner
             blueprints = legacy.Mode == LegacyCastlePlannerMode.Blueprint;
             spawnCastle = legacy.Mode == LegacyCastlePlannerMode.Spawn;
             selectedCastle = NormalizeCastle(legacy.SelectedCastle, defaultCastle);
+            hostSelectedCastle = selectedCastle;
             blueprintHotkey = NormalizeKeyCode(legacy.BlueprintHotkey);
             blueprintIconScale = NormalizeIconScale(legacy.BlueprintIconScale);
             blueprintIconAlpha = NormalizeIconAlpha(legacy.BlueprintIconAlpha);

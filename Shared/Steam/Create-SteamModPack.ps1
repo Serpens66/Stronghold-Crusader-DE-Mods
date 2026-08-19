@@ -102,6 +102,81 @@ function Get-ModNames {
     return $mods
 }
 
+function Test-ActivationSettingContract {
+    param(
+        [Parameter(Mandatory)][string]$ModName,
+        [Parameter(Mandatory)][string]$ModDirectory,
+        [Parameter(Mandatory)][array]$SourceFiles
+    )
+
+    $xamlFiles = @(Get-ChildItem -LiteralPath $ModDirectory -Recurse -File -Filter '*.xaml' | Where-Object {
+        $_.FullName -notmatch '\\(bin|obj)\\'
+    })
+    $contracts = @()
+    foreach ($xamlFile in $xamlFiles) {
+        try {
+            [xml]$document = [IO.File]::ReadAllText($xamlFile.FullName)
+        } catch {
+            Fail-Pack 3 "Invalid Modsettings XAML for ${ModName}: $($xamlFile.FullName): $($_.Exception.Message)"
+        }
+
+        $checkBoxes = @($document.SelectNodes("//*[local-name()='CheckBox']"))
+        foreach ($checkBox in $checkBoxes) {
+            $role = $null
+            $ancestor = $checkBox.ParentNode
+            while ($null -ne $ancestor -and $null -eq $role) {
+                if ($ancestor.LocalName -eq 'Border') {
+                    $style = $ancestor.GetAttribute('Style')
+                    if ($style -match 'HostActivationBorder') { $role = 'Host' }
+                    elseif ($style -match 'ClientActivationBorder') { $role = 'Client' }
+                }
+                $ancestor = $ancestor.ParentNode
+            }
+            if ($null -eq $role) { continue }
+
+            $binding = $checkBox.GetAttribute('IsChecked')
+            $bindingMatch = [regex]::Match($binding, '^\{Binding\s+([A-Za-z_][A-Za-z0-9_]*)\b')
+            if (-not $bindingMatch.Success) {
+                Fail-Pack 3 "${ModName} has an activation CheckBox without a direct boolean IsChecked binding in $($xamlFile.FullName)."
+            }
+            $contracts += [pscustomobject]@{
+                Role = $role
+                Property = $bindingMatch.Groups[1].Value
+                Xaml = $xamlFile.FullName
+            }
+        }
+    }
+
+    $contracts = @($contracts | Sort-Object Role, Property -Unique)
+    if ($contracts.Count -eq 0) {
+        Fail-Pack 3 "$ModName does not expose a recognizable activation setting contract in its Modsettings XAML."
+    }
+
+    foreach ($contract in $contracts) {
+        $classificationPattern = if ($contract.Role -eq 'Host') {
+            '\[(?:Shared\.)?SyncHostOnly(?:Attribute)?\]'
+        } else {
+            '\[(?:(?:Shared\.)?PresetLocal(?:Attribute)?|(?:Shared\.)?SyncPerPlayer(?:Attribute)?)\]'
+        }
+        $propertyPattern = '(?s)' + $classificationPattern + '.{0,500}?public\s+bool\s+' +
+            [regex]::Escape($contract.Property) + '\s*(?:\{|=>)'
+        $propertyFound = $false
+        foreach ($sourceFile in $SourceFiles) {
+            if ([IO.File]::ReadAllText($sourceFile.FullName) -match $propertyPattern) {
+                $propertyFound = $true
+                break
+            }
+        }
+        if (-not $propertyFound) {
+            $expectedClassification = if ($contract.Role -eq 'Host') { 'SyncHostOnly' } else { 'PresetLocal or SyncPerPlayer' }
+            Fail-Pack 3 "${ModName} activation property '$($contract.Property)' must be a public bool classified as $expectedClassification."
+        }
+    }
+
+    $summary = @($contracts | ForEach-Object { "$($_.Role):$($_.Property)" }) -join ', '
+    Write-RunLog "Activation setting contract for ${ModName}: $summary"
+}
+
 function Get-PluginSourceMetadata {
     param([string]$ModName)
     $modDir = Join-Path $script:Root $ModName
@@ -136,8 +211,7 @@ function Get-PluginSourceMetadata {
     if ([string]$manifest.Version -notmatch '^\d+\.\d+\.\d+$') { Fail-Pack 3 "Invalid semantic version for ${ModName}: $($manifest.Version)" }
     $changes = @($manifest.SerpChangelog | Where-Object { [string]$_.Version -eq [string]$manifest.Version })
     if ($changes.Count -ne 1 -or @($changes[0].Changes).Count -eq 0) { Fail-Pack 3 "Missing current changelog entry for $ModName v$($manifest.Version)." }
-    $allSourceText = @($sourceFiles | ForEach-Object { [IO.File]::ReadAllText($_.FullName) }) -join "`n"
-    if ($allSourceText -notmatch '(EnableMod|EnableHostFeatures|EnableClientFeatures)') { Fail-Pack 3 "$ModName does not expose a recognizable activation setting contract." }
+    Test-ActivationSettingContract -ModName $ModName -ModDirectory $modDir -SourceFiles $sourceFiles
 
     $dependencyPattern = '\[BepInDependency\s*\(\s*"' + [regex]::Escape($PackGuid) + '"\s*,\s*BepInDependency\.DependencyFlags\.SoftDependency\s*\)\s*\]'
     return [pscustomobject]@{
