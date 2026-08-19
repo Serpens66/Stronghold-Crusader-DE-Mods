@@ -28,6 +28,10 @@ namespace CustomCustomTrail
 
         private static readonly HashSet<string> TargetModIdSet =
             new HashSet<string>(ModSettingsDefinition.TargetModIds, StringComparer.Ordinal);
+            private static readonly FieldInfo MpLocalReadyField = typeof(FRONT_Multiplayer).GetField(
+                "MPLocalReady", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            private static readonly FieldInfo MpLocalReadyLockedField = typeof(FRONT_Multiplayer).GetField(
+                "MPLocalReadyLocked", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
             private delegate void SaveCustomTrailMapDelegate(
                 EditorDirector self,
                 string mapPath,
@@ -1107,6 +1111,13 @@ namespace CustomCustomTrail
                     FRONT_Multiplayer.coopGame = true;
                     FRONT_Multiplayer.coopGame_IsHost = true;
                     FRONT_Multiplayer.customCoopGame = false;
+                    // The Coop Trail page starts with the local player ready. Vanilla's normal
+                    // skirmish setup starts unready; restore that state so its Play button is not
+                    // covered by the obsolete ReadyLock control after choosing Customize.
+                    (MpLocalReadyField ?? throw new MissingFieldException(typeof(FRONT_Multiplayer).FullName, "MPLocalReady"))
+                        .SetValue(self, false);
+                    (MpLocalReadyLockedField ?? throw new MissingFieldException(typeof(FRONT_Multiplayer).FullName, "MPLocalReadyLocked"))
+                        .SetValue(self, false);
                     MainViewModel.Instance.SkirmishSetupMode = true;
                     MainViewModel.Instance.MultiplayerSetupMode = false;
                     MainViewModel.Instance.Show_SkirmishRandomAI = true;

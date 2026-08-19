@@ -40,6 +40,8 @@ Paket-ID und SHA-256-Inhaltsfingerprint werden synchronisiert. Jeder Teilnehmer 
 
 Das Paket wird nicht über das Spielnetz übertragen. Zum Verteilen muss der vollständige Custom-Trail-Ordner kopiert werden.
 
+Beim Auswählen und direkten Start einer ersetzten Koop-Mission wird derselbe zentrale Trail-Preset-Kontext wie bei normalen Custom Trails aktiviert und über den Kartenwechsel beibehalten. „Anpassen“ öffnet denselben Missionssnapshot als sichtbares, editierbares Preset „Trail“ und wendet ihn vor einem anschließenden Start erneut an.
+
 ## Paketstruktur
 
 Der Koop-Paketordner enthält:

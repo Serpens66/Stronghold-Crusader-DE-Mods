@@ -23,7 +23,12 @@ namespace CustomCustomTrail
         private static readonly FieldInfo[] CoopTrailFields = Enumerable.Range(1, 4)
             .Select(index => typeof(FRONT_Multiplayer).GetField("CoopTrail" + index, BindingFlags.Static | BindingFlags.NonPublic))
             .ToArray();
-        private static readonly MethodInfo UpdateHostInfoMethod = typeof(FRONT_Multiplayer).GetMethod("UpdateHostInfo", BindingFlags.Instance | BindingFlags.NonPublic);
+        private static readonly MethodInfo UpdateHostInfoMethod = typeof(FRONT_Multiplayer).GetMethod(
+            "UpdateHostInfo",
+            BindingFlags.Instance | BindingFlags.NonPublic,
+            null,
+            Type.EmptyTypes,
+            null);
         private static readonly FieldInfo MpSetupDataField = typeof(FRONT_Multiplayer).GetField("MPsetupData", BindingFlags.Instance | BindingFlags.NonPublic);
 
         private readonly ManualLogSource log;
@@ -48,6 +53,8 @@ namespace CustomCustomTrail
         private string localPackageError = string.Empty;
         private bool updatingPackage;
         private bool refreshingCatalog;
+        private bool coopLaunchPending;
+        private bool coopMapActive;
         private bool enabled;
 
         public CustomCustomTrailRuntime(
@@ -70,7 +77,10 @@ namespace CustomCustomTrail
             settings.ActiveCoopPackageChanged += OnActiveCoopPackageChanged;
             subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
-                .Subscribe(_ => ClearLaunchState()));
+                .Subscribe(_ => OnMapUnloaded()));
+            subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable
+                .Where(args => args.Phase == EventHookPhase.Post)
+                .Subscribe(_ => OnMapStarted()));
 
             MethodInfo initMethod = RequireMethod("InitCoopMissions");
             initHook = new Hook(initMethod, (InitCoopMissionsDelegate)InitCoopMissionsHook);
@@ -152,6 +162,10 @@ namespace CustomCustomTrail
         {
             missionTrampoline(self, trailId, missionId, resetOrderSwapped);
             missionSettingsCoordinator.EnsureCoopCustomizeButtons();
+            // Vanilla can refresh the selected mission while a launch is already changing maps.
+            // Do not mistake that nested refresh for leaving the mission and discard its Trail preset.
+            if (!coopLaunchPending)
+                coopMapActive = false;
             if (!enabled)
                 return;
             resolved.TryGetValue(MissionCatalog.ToKey(trailId + 1, missionId), out selected);
@@ -166,10 +180,7 @@ namespace CustomCustomTrail
             try
             {
                 ApplySelectedMission(self, true);
-                missingMods = missionSettingsCoordinator.Enter(
-                    selected.Loaded.Definition.ModSettings,
-                    editable: false,
-                    source: "custom Coop mission");
+                ActivateSelectedMissionSettings(editable: false, source: "custom Coop mission selection");
             }
             catch (Exception ex)
             {
@@ -186,18 +197,42 @@ namespace CustomCustomTrail
             {
                 if (!IsLocalPackageReady())
                 {
-                    ShowBlockedMessage(GetLocalBlockReason());
+                    BlockLaunch(command, GetLocalBlockReason());
                     return;
                 }
-                if (string.Equals(command, "Play", StringComparison.Ordinal) && self.currentLobby != null && self.currentLobby.isHost &&
+                if (selected == null)
+                {
+                    BlockLaunch(command, SerpLocalization.Get("CustomCustomTrail.ErrorPackageNotReady"));
+                    return;
+                }
+                if (IsStartCommand(command) && !self.singlePlayerCoop && self.currentLobby != null && self.currentLobby.isHost &&
                     !AreAllHumanPlayersPackageReady(self))
                 {
-                    ShowBlockedMessage(SerpLocalization.Get("CustomCustomTrail.ErrorParticipantNotReady"));
+                    BlockLaunch(command, SerpLocalization.Get("CustomCustomTrail.ErrorParticipantNotReady"));
                     return;
                 }
             }
-            if (enabled && selected != null && string.Equals(command, "Play", StringComparison.Ordinal))
-                ApplySelectedMission(self, false);
+            if (enabled && selected != null && IsLaunchCommand(command))
+            {
+                try
+                {
+                    if (IsStartCommand(command))
+                        ApplySelectedMission(self, false);
+                    ActivateSelectedMissionSettings(editable: false, source: "custom Coop mission " + command);
+                    if (IsStartCommand(command))
+                    {
+                        coopLaunchPending = true;
+                        coopMapActive = false;
+                    }
+                }
+                catch (Exception exception)
+                {
+                    string reason = SerpLocalization.Get("CustomCustomTrail.ErrorPackageInvalid") + " " + exception.Message;
+                    LogError("Blocked custom Coop mission " + command + " because launch preparation failed: " + exception);
+                    ShowBlockedMessage(reason);
+                    return;
+                }
+            }
             buttonTrampoline(self, command);
         }
 
@@ -252,10 +287,7 @@ namespace CustomCustomTrail
                 return;
             try
             {
-                missingMods = missionSettingsCoordinator.Enter(
-                    selected.Loaded.Definition.ModSettings,
-                    editable: false,
-                    source: "custom Coop mission setup");
+                ActivateSelectedMissionSettings(editable: true, source: "custom Coop mission setup");
                 LogInfo("Reapplied custom Coop mission Trail preset after opening the setup screen.");
             }
             catch (Exception exception)
@@ -398,7 +430,11 @@ namespace CustomCustomTrail
         private static bool IsLaunchCommand(string command) =>
             string.Equals(command, "Ready", StringComparison.Ordinal) ||
             string.Equals(command, "ReadyLock", StringComparison.Ordinal) ||
-            string.Equals(command, "Play", StringComparison.Ordinal);
+            IsStartCommand(command);
+
+        private static bool IsStartCommand(string command) =>
+            string.Equals(command, "Play", StringComparison.Ordinal) ||
+            string.Equals(command, "COOP_START", StringComparison.Ordinal);
 
         private bool CurrentSlotRequiresPackage(FRONT_Multiplayer self)
         {
@@ -465,11 +501,48 @@ namespace CustomCustomTrail
                 message);
         }
 
+        private void BlockLaunch(string command, string reason)
+        {
+            LogError("Blocked custom Coop mission " + command + ": " + reason);
+            ShowBlockedMessage(reason);
+        }
+
         private void ClearLaunchState()
         {
             missionSettingsCoordinator?.ExitContext(force: true);
             selected = null;
             missingMods = Array.Empty<string>();
+            coopLaunchPending = false;
+            coopMapActive = false;
+        }
+
+        private void ActivateSelectedMissionSettings(bool editable, string source)
+        {
+            if (selected == null)
+                return;
+            missingMods = missionSettingsCoordinator.Enter(
+                selected.Loaded.Definition.ModSettings,
+                editable,
+                source);
+        }
+
+        private void OnMapStarted()
+        {
+            if (!coopLaunchPending || selected == null)
+                return;
+            coopLaunchPending = false;
+            coopMapActive = true;
+            LogInfo("Custom Coop mission map started; retaining its Trail mod-settings preset.");
+        }
+
+        private void OnMapUnloaded()
+        {
+            if (coopLaunchPending && !coopMapActive)
+            {
+                LogInfo("Deferred custom Coop Trail preset cleanup during the launch map transition.");
+                return;
+            }
+            ClearLaunchState();
         }
 
         private static FRONT_Multiplayer.CoopMissionSetupData[] GetTrail(int trailNumber)

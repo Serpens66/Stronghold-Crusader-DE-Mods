@@ -3,10 +3,22 @@
   "Author": "Serpens66",
   "Name": "Custom Custom Trail",
   "Description": "Creates portable Coop Trails in the Trail Maker, synchronizes the selected package, and coordinates Custom Trail mod settings.",
-  "Version": "1.3.10",
+  "Version": "1.3.12",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.3.12",
+      "Changes": [
+        "Retains Coop mission mod settings through Vanilla's direct COOP_START transition, restores the normal Play control after Customize, and displays a localized reason whenever package validation blocks a start."
+      ]
+    },
+    {
+      "Version": "1.3.11",
+      "Changes": [
+        "Applies the shared Trail mission preset for direct Coop launches and editable Coop setup, resolves the exact parameterless host-update method, and retains settings across the launch map transition."
+      ]
+    },
     {
       "Version": "1.3.10",
       "Changes": [

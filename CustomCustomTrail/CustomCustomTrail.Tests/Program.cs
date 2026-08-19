@@ -275,11 +275,21 @@ static void TestCoopExporterIntegration()
         "exported map names are not shown as Coop mission titles");
     Assert(coordinator.Contains("SetCoopPackagePresentation") && coordinator.Contains("TEXT_COOP_0"),
         "package display names do not replace occupied Vanilla Coop Trail headings");
-    Assert(runtime.Contains("ReadyLock") && runtime.Contains("AreAllHumanPlayersPackageReady"), "Ready/Play package validation is missing");
+    Assert(runtime.Contains("ReadyLock") && runtime.Contains("COOP_START") && runtime.Contains("AreAllHumanPlayersPackageReady"),
+        "Ready/Play/COOP_START package validation is missing");
     Assert(coordinator.Contains("CoopSetupOpened?.Invoke()") &&
         runtime.Contains("CoopSetupOpened += OnCoopSetupOpened") &&
-        runtime.Contains("source: \"custom Coop mission setup\""),
+        runtime.Contains("ActivateSelectedMissionSettings(editable: true, source: \"custom Coop mission setup\")"),
         "Coop Customize does not reapply the mission Trail preset after rebuilding the setup UI");
+    Assert(runtime.Contains("Type.EmptyTypes") &&
+        runtime.Contains("selected != null && IsLaunchCommand(command)") &&
+        runtime.Contains("ActivateSelectedMissionSettings(editable: false, source: \"custom Coop mission \" + command)") &&
+        runtime.Contains("coopLaunchPending") && runtime.Contains("OnMapStarted()") && runtime.Contains("OnMapUnloaded()"),
+        "direct Coop launch does not retain the shared Trail preset across the map transition");
+    Assert(runtime.Contains("if (!coopLaunchPending)") && runtime.Contains("BlockLaunch(command") &&
+        coordinator.Contains("MpLocalReadyField") && coordinator.Contains("MpLocalReadyLockedField") &&
+        coordinator.Contains(".SetValue(self, false)"),
+        "Coop launch refresh retention, visible blocking, or Customize ready-state reset is missing");
     Assert(!runtime.Contains("Path.Combine(pluginRoot, \"CoopTrails\")"), "legacy plugin-local package layout is still active");
 }
 
