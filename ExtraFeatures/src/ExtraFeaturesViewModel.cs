@@ -143,10 +143,10 @@ namespace ExtraFeatures
         public string PitchRefundPercentValueText => FormatRefundPercent(PitchRefundPercent);
         public string GoldRefundPercentValueText => FormatRefundPercent(GoldRefundPercent);
 
-        [SyncHostOnly] public double MultiplyGoodsGainAI { get => multiplyGoodsGainAI; set => SetDecimalMultiplierSetting(ref multiplyGoodsGainAI, value, nameof(MultiplyGoodsGainAI), nameof(MultiplyGoodsGainAIText)); }
-        [SyncHostOnly] public double MultiplyGoodsGainHuman { get => multiplyGoodsGainHuman; set => SetDecimalMultiplierSetting(ref multiplyGoodsGainHuman, value, nameof(MultiplyGoodsGainHuman), nameof(MultiplyGoodsGainHumanText)); }
-        [SyncHostOnly] public double MultiplyGoodsGainInMoneyAI { get => multiplyGoodsGainInMoneyAI; set => SetDecimalMultiplierSetting(ref multiplyGoodsGainInMoneyAI, value, nameof(MultiplyGoodsGainInMoneyAI), nameof(MultiplyGoodsGainInMoneyAIText)); }
-        [SyncHostOnly] public double MultiplyGoodsGainInMoneyHuman { get => multiplyGoodsGainInMoneyHuman; set => SetDecimalMultiplierSetting(ref multiplyGoodsGainInMoneyHuman, value, nameof(MultiplyGoodsGainInMoneyHuman), nameof(MultiplyGoodsGainInMoneyHumanText)); }
+        [SyncHostOnly] public double MultiplyGoodsGainAI { get => multiplyGoodsGainAI; set => SetDoubleSetting(ref multiplyGoodsGainAI, value, 0.0, 5.0, nameof(MultiplyGoodsGainAI), nameof(MultiplyGoodsGainAIText)); }
+        [SyncHostOnly] public double MultiplyGoodsGainHuman { get => multiplyGoodsGainHuman; set => SetDoubleSetting(ref multiplyGoodsGainHuman, value, 0.0, 5.0, nameof(MultiplyGoodsGainHuman), nameof(MultiplyGoodsGainHumanText)); }
+        [SyncHostOnly] public double MultiplyGoodsGainInMoneyAI { get => multiplyGoodsGainInMoneyAI; set => SetDoubleSetting(ref multiplyGoodsGainInMoneyAI, value, 0.0, 5.0, nameof(MultiplyGoodsGainInMoneyAI), nameof(MultiplyGoodsGainInMoneyAIText)); }
+        [SyncHostOnly] public double MultiplyGoodsGainInMoneyHuman { get => multiplyGoodsGainInMoneyHuman; set => SetDoubleSetting(ref multiplyGoodsGainInMoneyHuman, value, 0.0, 5.0, nameof(MultiplyGoodsGainInMoneyHuman), nameof(MultiplyGoodsGainInMoneyHumanText)); }
         [SyncHostOnly] public double MarketBuyPriceMultiplier { get => marketBuyPriceMultiplier; set => SetDoubleSetting(ref marketBuyPriceMultiplier, value, 0.0, 5.0, nameof(MarketBuyPriceMultiplier), nameof(MarketBuyPriceMultiplierValueText)); }
         [SyncHostOnly] public double MarketSellPriceMultiplier { get => marketSellPriceMultiplier; set => SetDoubleSetting(ref marketSellPriceMultiplier, value, 0.0, 5.0, nameof(MarketSellPriceMultiplier), nameof(MarketSellPriceMultiplierValueText)); }
         [SyncHostOnly] public bool MarketPricesAlsoForAI { get => marketPricesAlsoForAI; set => SetSetting(ref marketPricesAlsoForAI, value, nameof(MarketPricesAlsoForAI)); }
@@ -170,7 +170,7 @@ namespace ExtraFeatures
         }
         [SyncHostOnly] public double PlagueDurationMultiplier { get => plagueDurationMultiplier; set => SetDoubleSetting(ref plagueDurationMultiplier, value, PlagueDurationPatch.MinimumMultiplier, PlagueDurationPatch.MaximumMultiplier, nameof(PlagueDurationMultiplier), nameof(PlagueDurationMultiplierValueText)); }
         [SyncHostOnly] public int ApothecaryPlagueSearchDistance { get => apothecaryPlagueSearchDistance; set => SetIntSetting(ref apothecaryPlagueSearchDistance, value, PlagueApothecarySearchRangePatch.MinimumDistance, PlagueApothecarySearchRangePatch.MaximumDistance, nameof(ApothecaryPlagueSearchDistance), nameof(ApothecaryPlagueSearchDistanceValueText)); }
-        [SyncHostOnly] public int CampfirePeasantsLimit { get => campfirePeasantsLimit; set => SetIntSetting(ref campfirePeasantsLimit, value, -1, 500, nameof(CampfirePeasantsLimit), nameof(CampfirePeasantsLimitText)); }
+        [SyncHostOnly] public int CampfirePeasantsLimit { get => campfirePeasantsLimit; set => SetIntSetting(ref campfirePeasantsLimit, value, -1, 200, nameof(CampfirePeasantsLimit), nameof(CampfirePeasantsLimitText)); }
         [SyncHostOnly] public bool EnableCtrlSingleMarketTrade { get => enableCtrlSingleMarketTrade; set => SetSetting(ref enableCtrlSingleMarketTrade, value, nameof(EnableCtrlSingleMarketTrade)); }
         [SyncHostOnly] public bool EnableSingleBuildingPause { get => enableSingleBuildingPause; set => SetSetting(ref enableSingleBuildingPause, value, nameof(EnableSingleBuildingPause)); }
         [SyncHostOnly] public bool EnableFastRecruitRallyMovement { get => enableFastRecruitRallyMovement; set => SetSetting(ref enableFastRecruitRallyMovement, value, nameof(EnableFastRecruitRallyMovement)); }
@@ -182,10 +182,10 @@ namespace ExtraFeatures
         [SyncHostOnly] public bool PreventEmergencyDemolition { get => preventEmergencyDemolition; set => SetSetting(ref preventEmergencyDemolition, value, nameof(PreventEmergencyDemolition)); }
         [SyncHostOnly] public bool PreventHovelDeletion { get => preventHovelDeletion; set => SetSetting(ref preventHovelDeletion, value, nameof(PreventHovelDeletion)); }
 
-        public string MultiplyGoodsGainAIText { get => FormatDecimalMultiplier(MultiplyGoodsGainAI); set => SetDecimalMultiplierText(value, parsed => MultiplyGoodsGainAI = parsed, nameof(MultiplyGoodsGainAIText)); }
-        public string MultiplyGoodsGainHumanText { get => FormatDecimalMultiplier(MultiplyGoodsGainHuman); set => SetDecimalMultiplierText(value, parsed => MultiplyGoodsGainHuman = parsed, nameof(MultiplyGoodsGainHumanText)); }
-        public string MultiplyGoodsGainInMoneyAIText { get => FormatDecimalMultiplier(MultiplyGoodsGainInMoneyAI); set => SetDecimalMultiplierText(value, parsed => MultiplyGoodsGainInMoneyAI = parsed, nameof(MultiplyGoodsGainInMoneyAIText)); }
-        public string MultiplyGoodsGainInMoneyHumanText { get => FormatDecimalMultiplier(MultiplyGoodsGainInMoneyHuman); set => SetDecimalMultiplierText(value, parsed => MultiplyGoodsGainInMoneyHuman = parsed, nameof(MultiplyGoodsGainInMoneyHumanText)); }
+        public string MultiplyGoodsGainAIText => FormatDecimalMultiplier(MultiplyGoodsGainAI);
+        public string MultiplyGoodsGainHumanText => FormatDecimalMultiplier(MultiplyGoodsGainHuman);
+        public string MultiplyGoodsGainInMoneyAIText => FormatDecimalMultiplier(MultiplyGoodsGainInMoneyAI);
+        public string MultiplyGoodsGainInMoneyHumanText => FormatDecimalMultiplier(MultiplyGoodsGainInMoneyHuman);
         public string MarketBuyPriceMultiplierValueText => MarketBuyPriceMultiplier.ToString("0.0", CultureInfo.InvariantCulture) + "x";
         public string MarketSellPriceMultiplierValueText => MarketSellPriceMultiplier.ToString("0.0", CultureInfo.InvariantCulture) + "x";
         public string PlagueDurationMultiplierValueText => PlagueDurationMultiplier.ToString("0.0", CultureInfo.InvariantCulture) + "x";
@@ -193,17 +193,7 @@ namespace ExtraFeatures
             CultureInfo.CurrentCulture,
             SerpLocalization.Get("SomeSettings.TilesValueFormat"),
             ApothecaryPlagueSearchDistance);
-        public string CampfirePeasantsLimitText
-        {
-            get => CampfirePeasantsLimit.ToString(CultureInfo.InvariantCulture);
-            set
-            {
-                if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int parsed))
-                    CampfirePeasantsLimit = parsed;
-                else
-                    OnPropertyChanged(nameof(CampfirePeasantsLimitText));
-            }
-        }
+        public string CampfirePeasantsLimitText => CampfirePeasantsLimit.ToString(CultureInfo.InvariantCulture);
 
         private void ResetToDefault()
         {
@@ -440,30 +430,6 @@ namespace ExtraFeatures
                 OnPropertyChanged(textPropertyName);
         }
 
-        private void SetDecimalMultiplierSetting(ref double field, double value, string propertyName, string textPropertyName)
-        {
-            if (!CanMutateSettingWithDependents(propertyName, textPropertyName))
-                return;
-
-            double normalized = NormalizeDecimalMultiplier(value);
-            if (Math.Abs(field - normalized) < 0.0001)
-                return;
-            field = normalized;
-            SettingChanged?.Invoke(propertyName);
-            OnPropertyChanged(propertyName);
-            OnPropertyChanged(textPropertyName);
-        }
-
-        private void SetDecimalMultiplierText(string text, Action<double> setValue, string textPropertyName)
-        {
-            if (!TryParseDecimalMultiplier(text, out double parsed))
-            {
-                OnPropertyChanged(textPropertyName);
-                return;
-            }
-            setValue(parsed);
-        }
-
         private static string FormatRefundPercent(int percent) =>
             percent < 0 ? "-1" : percent.ToString(CultureInfo.InvariantCulture) + "%";
 
@@ -474,28 +440,8 @@ namespace ExtraFeatures
             return Math.Max(minimum, Math.Min(maximum, Math.Round(value, 1, MidpointRounding.AwayFromZero)));
         }
 
-        private static double NormalizeDecimalMultiplier(double value)
-        {
-            if (double.IsNaN(value) || double.IsInfinity(value))
-                return 0.0;
-            return Math.Max(0.0, Math.Round(value, 2, MidpointRounding.AwayFromZero));
-        }
-
-        private static bool TryParseDecimalMultiplier(string text, out double value)
-        {
-            string normalized = (text ?? string.Empty).Trim().Replace(',', '.');
-            bool parsed = double.TryParse(
-                normalized,
-                NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint,
-                CultureInfo.InvariantCulture,
-                out value);
-            if (parsed)
-                value = NormalizeDecimalMultiplier(value);
-            return parsed;
-        }
-
         private static string FormatDecimalMultiplier(double value) =>
-            NormalizeDecimalMultiplier(value).ToString("0.00", CultureInfo.InvariantCulture);
+            ClampMultiplier(value, 0.0, 5.0).ToString("0.0", CultureInfo.InvariantCulture) + "x";
 
         private static ImageSource GetGoodIconImage(eGoods good)
         {

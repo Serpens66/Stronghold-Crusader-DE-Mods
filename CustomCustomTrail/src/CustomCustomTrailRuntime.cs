@@ -65,6 +65,7 @@ namespace CustomCustomTrail
         {
             missionSettingsCoordinator = new TrailMissionSettingsCoordinator(log, enabled);
             missionSettingsCoordinator.CoopPackagesChanged += OnActiveCoopPackageChanged;
+            missionSettingsCoordinator.CoopSetupOpened += OnCoopSetupOpened;
             missionSettingsCoordinator.Initialize();
             settings.ActiveCoopPackageChanged += OnActiveCoopPackageChanged;
             subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
@@ -119,7 +120,10 @@ namespace CustomCustomTrail
             RestoreVanillaMissions();
             settings.ActiveCoopPackageChanged -= OnActiveCoopPackageChanged;
             if (missionSettingsCoordinator != null)
+            {
                 missionSettingsCoordinator.CoopPackagesChanged -= OnActiveCoopPackageChanged;
+                missionSettingsCoordinator.CoopSetupOpened -= OnCoopSetupOpened;
+            }
             missionSettingsCoordinator?.ExitContext(force: true);
             missionSettingsCoordinator?.Dispose();
         }
@@ -239,6 +243,24 @@ namespace CustomCustomTrail
             finally
             {
                 updatingPackage = false;
+            }
+        }
+
+        private void OnCoopSetupOpened()
+        {
+            if (!enabled || selected == null)
+                return;
+            try
+            {
+                missingMods = missionSettingsCoordinator.Enter(
+                    selected.Loaded.Definition.ModSettings,
+                    editable: false,
+                    source: "custom Coop mission setup");
+                LogInfo("Reapplied custom Coop mission Trail preset after opening the setup screen.");
+            }
+            catch (Exception exception)
+            {
+                LogError("Could not reactivate custom Coop mission mod settings after opening setup: " + exception);
             }
         }
 

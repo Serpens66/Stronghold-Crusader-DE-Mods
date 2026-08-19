@@ -75,6 +75,6 @@ Common.ActionsScopeHost=Preset und Zurücksetzen betreffen Host-Einstellungen un
 Common.ActionsScopeClient=Preset und Zurücksetzen betreffen nur deine lokalen Client-Optionen.
 SomeSettings.BuildingsProductionTitle=Gebäude und Produktion
 SomeSettings.CampfirePeasants=Wartende Bauern am Burgfeuer
-SomeSettings.CampfirePeasantsHelp=-1 = unverändert. Erlaubter Bereich: -1 bis 500. Legt die maximale Anzahl Bauern fest, die am Burgfeuer warten.
+SomeSettings.CampfirePeasantsHelp=-1 = unverändert. Erlaubter Bereich: -1 bis 200. Legt die maximale Anzahl Bauern fest, die am Burgfeuer warten.
 SomeSettings.NewFeaturesTitle=Neue Spielfunktionen
 SomeSettings.TilesValueFormat={0} Felder

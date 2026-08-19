@@ -16,11 +16,19 @@ Nur vorhandene Missionen zählen; Lücken werden wie beim Vanilla-Export entfern
 - Mission 11–20 ersetzt Koop-Trail 2.
 - Mission 21–30 ersetzt Koop-Trail 3.
 - Mission 31–40 ersetzt Koop-Trail 4.
-- Weitere Missionen bleiben ausschließlich normale Custom-Trail-Missionen.
+- Weitere Missionen werden nicht als Koop-Missionen verwendet, bleiben aber in den editierbaren Trail-Maker-Quelldateien erhalten.
 
 Die ersten beiden belegten Spielerslots werden Host und Gast. Positionen und Farben bleiben erhalten, der Gast wird automatisch dem Team des Hosts zugeordnet. Ab dem dritten belegten Slot folgen die KIs. Fairness, Startgüter und Gebäudefreigaben stammen aus dem gespeicherten Lobbysetup; die gemeinsamen Gebäudefreigaben gelten identisch für Host und Gast.
 
-Vor dem Vanilla-Export wird das gesamte Koop-Paket geprüft. Eine Mission ohne zwei belegte Slots oder mit nicht auffindbaren Map-, Lord- oder AIV-Dateien bricht den Export mit einer Ingame-Meldung ab. Ein fehlendes `.modjson` ist zulässig und deaktiviert für diese Mission alle sieben unterstützten Trail-Mods.
+Vor der Veröffentlichung wird das gesamte Koop-Paket geprüft. Eine Mission ohne zwei belegte Slots oder mit nicht auffindbaren Map-, Lord- oder AIV-Dateien bricht den Export mit einer Ingame-Meldung ab. Ein fehlendes `.modjson` ist zulässig und deaktiviert für diese Mission alle sieben unterstützten Trail-Mods.
+
+Normale und Koop-Exporte verwenden dieselbe Modsettings-Quelle pro Mission. Ein unmittelbar vor Vanillas Speichervorgang erfasster Snapshot hat Vorrang vor dem vorhandenen `.modjson`; danach folgt der gespeicherte Sidecar. Nur wenn beides fehlt, werden die unterstützten Mods für diese Mission deaktiviert. Dadurch bleiben auch Exporte korrekt, die Vanilla noch innerhalb des laufenden Missionsspeicherns auslöst.
+
+Einfache Werte bleiben direkt lesbar im JSON. Komplexe oder künftig neu hinzukommende `[SyncHostOnly]`-Propertytypen werden typisiert mit derselben MessagePack-Serialisierung abgelegt, die das gemeinsame Presetsystem verwendet. Damit benötigt `CustomCustomTrail` für neue unterstützte Preset-Propertytypen keine eigene JSON-Typerweiterung.
+
+Ein aktivierter Koop-Export erscheint ausschließlich im Koop-Pfadmenü und nicht zusätzlich als normaler Custom Trail. Damit das Paket später trotzdem wieder in den Trail Maker importiert und bearbeitet werden kann, liegen die normalen `.trail`-Quelldateien nur im Unterordner `TrailMakerSource`. Der Mod ergänzt solche Pakete in Vanillas Ingame-Liste „Pfad importieren“ und leitet Vanillas originale Trail-Importmethode auf diesen Unterordner um. Der anschließende Import verwendet vollständig Vanillas Ablauf: Abhängig von der sichtbaren Backup-Checkbox wird zuerst ein Backup erstellt, danach leert Vanilla den aktuellen Trail-Maker-Arbeitsordner und importiert den gewählten Pfad. Zugehörige `.modjson`-Dateien werden erst danach und niemals über bereits vorhandene Sidecars kopiert.
+
+Vorhandene Koop-Pakete erscheinen außerdem in Vanillas Liste „Pfad exportieren“. Ihre Auswahl übernimmt wie bei einem normalen Custom Trail den vorhandenen Paketnamen in das Export-Namensfeld; Bestätigung, optionales Backup und Überschreiben folgen weiterhin Vanillas Exportablauf.
 
 ## Installiertes Paket auswählen
 
@@ -34,7 +42,7 @@ Das Paket wird nicht über das Spielnetz übertragen. Zum Verteilen muss der vol
 
 ## Paketstruktur
 
-Der normale Custom-Trail-Ordner enthält zusätzlich:
+Der Koop-Paketordner enthält:
 
     Mein Trail\
       cooptrail.json
@@ -47,6 +55,9 @@ Der normale Custom-Trail-Ordner enthält zusätzlich:
             map.map
             lord-3.lordjson
             aiv-3-1.aivjson
+      TrailMakerSource\
+        Trail_Mission_1.trail
+        Trail_Mission_1.modjson
 
 `cooptrail.json` enthält `schemaVersion`, eine beim Überschreiben stabil bleibende `packageId`, `displayName`, `missionCount` und den Fingerprint aller Missions-JSONs und gebündelten Dateien. Ordner mit ungültigem Manifest, ungültigen Missionen, falschem Fingerprint oder doppelter Paket-ID erscheinen nicht im Dropdown.
 

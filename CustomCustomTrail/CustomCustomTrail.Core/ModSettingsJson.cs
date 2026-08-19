@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.IO;
@@ -44,7 +45,7 @@ namespace CustomCustomTrail.Core
                         throw new InvalidDataException($"Mod entry [{mod.Key}].settings must be an object.");
                     foreach (KeyValuePair<string, object> setting in settings)
                     {
-                        if (string.IsNullOrWhiteSpace(setting.Key) || !IsNativeValue(setting.Value))
+                    if (string.IsNullOrWhiteSpace(setting.Key) || !IsSupportedValue(setting.Value))
                             throw new InvalidDataException($"Mod entry [{mod.Key}] contains an unsupported value for [{setting.Key}].");
                     }
                     entry.Settings = settings;
@@ -72,7 +73,7 @@ namespace CustomCustomTrail.Core
                     entry.Settings.Clear();
                 foreach (KeyValuePair<string, object> value in entry.Settings)
                 {
-                    if (string.IsNullOrWhiteSpace(value.Key) || !IsNativeValue(value.Value))
+                    if (string.IsNullOrWhiteSpace(value.Key) || !IsSupportedValue(value.Value))
                         throw new InvalidDataException((path ?? "modSettings") + "." + id + ".settings contains an unsupported value for " + value.Key + ".");
                 }
                 entry.Settings = entry.Settings
@@ -120,7 +121,7 @@ namespace CustomCustomTrail.Core
                     foreach (KeyValuePair<string, object> setting in
                         entry.Settings.OrderBy(item => item.Key, StringComparer.Ordinal))
                     {
-                        if (string.IsNullOrWhiteSpace(setting.Key) || !IsNativeValue(setting.Value))
+                        if (string.IsNullOrWhiteSpace(setting.Key) || !IsSupportedValue(setting.Value))
                             throw new InvalidDataException($"Mod entry [{id}] contains an unsupported value for [{setting.Key}].");
                         settings.Add(setting.Key, setting.Value);
                     }
@@ -157,10 +158,24 @@ namespace CustomCustomTrail.Core
             }
         }
 
-        private static bool IsNativeValue(object value) =>
+        private static bool IsNativeScalar(object value) =>
             value is bool || value is string ||
             value is byte || value is sbyte || value is short || value is ushort ||
             value is int || value is uint || value is long || value is ulong ||
             value is decimal || value is double;
+
+        public static bool IsSupportedValue(object value)
+        {
+            if (IsNativeScalar(value))
+                return true;
+            if (!(value is IEnumerable sequence) || value is IDictionary)
+                return false;
+            foreach (object item in sequence)
+            {
+                if (!IsNativeScalar(item))
+                    return false;
+            }
+            return true;
+        }
     }
 }

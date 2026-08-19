@@ -9,7 +9,9 @@ using Shared;
 using SHCDESE.API;
 using SHCDESE.API.Components.Network;
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -19,8 +21,11 @@ using IOPath = System.IO.Path;
 namespace CustomCustomTrail
 {
     /// <summary>Owns the process-wide Custom Trail settings and customization integration.</summary>
-    internal sealed class TrailMissionSettingsCoordinator : IDisposable
-    {
+        internal sealed class TrailMissionSettingsCoordinator : IDisposable
+        {
+            private const string CoopTrailMakerSourceDirectory = "TrailMakerSource";
+            private const string EncodedSettingPrefix = "messagepack-base64:";
+
         private static readonly HashSet<string> TargetModIdSet =
             new HashSet<string>(ModSettingsDefinition.TargetModIds, StringComparer.Ordinal);
             private delegate void SaveCustomTrailMapDelegate(
@@ -56,6 +61,8 @@ namespace CustomCustomTrail
             private readonly List<IDisposable> hooks = new List<IDisposable>();
             private readonly Dictionary<Type, Dictionary<string, PropertyInfo>> persistedPropertiesByType =
                 new Dictionary<Type, Dictionary<string, PropertyInfo>>();
+            private readonly Dictionary<string, ModSettingsDefinition> capturedDocumentsByTrailPath =
+                new Dictionary<string, ModSettingsDefinition>(StringComparer.OrdinalIgnoreCase);
             private SaveCustomTrailMapDelegate saveCustomTrailMapOriginal;
             private ManageTrailButtonDelegate manageTrailButtonOriginal;
             private ManageTrailInitDelegate manageTrailInitOriginal;
@@ -91,6 +98,7 @@ namespace CustomCustomTrail
             private int coopPackageMissionCount;
 
             public event Action CoopPackagesChanged;
+            public event Action CoopSetupOpened;
 
             public TrailMissionSettingsCoordinator(ManualLogSource log, bool enabled)
             {
@@ -261,6 +269,9 @@ namespace CustomCustomTrail
                     DebugLogHelper.LogInfo(
                         log,
                         "Captured Trail mod settings before save; enabled=[" + string.Join(", ", enabledMods) + "].");
+                    // Vanilla can enter Trail export before this save call returns. Keep the
+                    // synchronous capture available to both exporters until it reaches disk.
+                    capturedDocumentsByTrailPath[IOPath.GetFullPath(trailPath)] = document;
                 }
                 catch (Exception exception)
                 {
@@ -278,6 +289,7 @@ namespace CustomCustomTrail
                     if (!File.Exists(trailPath))
                         throw new FileNotFoundException("The game did not create the expected Trail mission.", trailPath);
                     ModSettingsJson.WriteAtomic(sidecar, document);
+                    capturedDocumentsByTrailPath.Remove(IOPath.GetFullPath(trailPath));
                     DebugLogHelper.LogInfo(log, $"Saved Trail mod settings beside [{trailPath}].");
                 }
                 catch (Exception exception)
@@ -347,6 +359,14 @@ namespace CustomCustomTrail
                         ApplyDocument(ModSettingsDefinition.CreateDisabled(), editable: true);
                     }
                 }
+                else if (string.Equals(command, "Import", StringComparison.Ordinal))
+                {
+                    TryFileOperation("add Coop Trails to Vanilla's import list", () => AddCoopImportRows(self));
+                }
+                else if (string.Equals(command, "Export", StringComparison.Ordinal))
+                {
+                    TryFileOperation("add Coop Trails to Vanilla's export list", () => AddCoopExportRows(self));
+                }
             }
 
             private void ManageTrailInitHook(FRONT_ManageTrail self, bool preserveSelection)
@@ -355,8 +375,75 @@ namespace CustomCustomTrail
                 if (!enabled)
                     return;
                 EnsureTrailMakerCoopCheckbox(self);
+                EnableImportForCoopPackages(self);
                 // Vanilla invokes Init again after its confirmation callback deleted a mission.
                 TryFileOperation("clean orphan Trail sidecars", DeleteOrphanMakerSidecars);
+            }
+
+            private void EnableImportForCoopPackages(FRONT_ManageTrail page)
+            {
+                if (!GetImportableCoopSources().Any())
+                    return;
+                if (page.FindName("Import") is Button importButton)
+                {
+                    importButton.IsEnabled = true;
+                    importButton.Opacity = 1f;
+                }
+            }
+
+            private void AddCoopImportRows(FRONT_ManageTrail page)
+            {
+                ListView importList = page.FindName("ImportList") as ListView;
+                ObservableCollection<FileRow> rows = importList?.ItemsSource as ObservableCollection<FileRow>;
+                if (rows == null)
+                    throw new InvalidOperationException("Vanilla's Trail import list is unavailable.");
+
+                AddCoopRows(rows);
+            }
+
+            private void AddCoopExportRows(FRONT_ManageTrail page)
+            {
+                ListView exportList = page.FindName("ExportList") as ListView;
+                ObservableCollection<FileRow> rows = exportList?.ItemsSource as ObservableCollection<FileRow>;
+                if (rows == null)
+                    throw new InvalidOperationException("Vanilla's Trail export list is unavailable.");
+
+                AddCoopRows(rows);
+            }
+
+            private void AddCoopRows(ObservableCollection<FileRow> rows)
+            {
+                var existing = new HashSet<string>(
+                    rows.Where(row => row != null).Select(row => row.Text1),
+                    StringComparer.OrdinalIgnoreCase);
+                foreach (KeyValuePair<string, int> source in GetImportableCoopSources())
+                {
+                    if (!existing.Add(source.Key))
+                        continue;
+                    rows.Add(new FileRow
+                    {
+                        Text1 = source.Key,
+                        Text2 = source.Value.ToString(CultureInfo.InvariantCulture),
+                    });
+                }
+            }
+
+            private IEnumerable<KeyValuePair<string, int>> GetImportableCoopSources()
+            {
+                string root = ConfigSettings.GetUserCustomTrailsPath();
+                if (!Directory.Exists(root))
+                    yield break;
+                foreach (string directory in Directory.GetDirectories(root).OrderBy(path => path, StringComparer.OrdinalIgnoreCase))
+                {
+                    if (!File.Exists(IOPath.Combine(directory, "cooptrail.json")))
+                        continue;
+                    string source = IOPath.Combine(directory, CoopTrailMakerSourceDirectory);
+                    if (!Directory.Exists(source))
+                        continue;
+                    int count = Directory.GetFiles(source, "*.trail").Length;
+                    if (count > 0)
+                        yield return new KeyValuePair<string, int>(IOPath.GetFileName(directory), count);
+                }
             }
 
             private void BackupHook(FRONT_ManageTrail self, string source, string destination)
@@ -371,14 +458,25 @@ namespace CustomCustomTrail
 
             private void ImportHook(FRONT_ManageTrail self, string customFolderName)
             {
-                importOriginal(self, customFolderName);
                 if (!enabled)
+                {
+                    importOriginal(self, customFolderName);
                     return;
+                }
                 string source = IOPath.Combine(ConfigSettings.GetUserCustomTrailsPath(), customFolderName);
-                TryFileOperation("import Trail sidecars", () => CopySidecars(source, ConfigSettings.GetUserTrailMakerPath(), overwrite: false));
+                bool coopPackage = File.Exists(IOPath.Combine(source, "cooptrail.json"));
+                string trailSource = GetCoopTrailMakerSource(source, coopPackage);
+                string vanillaImportFolder = string.Equals(trailSource, source, StringComparison.OrdinalIgnoreCase)
+                    ? customFolderName
+                    : IOPath.Combine(customFolderName, CoopTrailMakerSourceDirectory);
+                // Use Vanilla itself for .trail files. Its File.Copy call does not overwrite,
+                // and any name collision aborts before sidecars or the Coop marker are changed.
+                importOriginal(self, vanillaImportFolder);
+                TryFileOperation("import Trail sidecars", () =>
+                    CopySidecars(trailSource, ConfigSettings.GetUserTrailMakerPath(), overwrite: false));
                 TryFileOperation("import the Coop Trail Maker state", () =>
                 {
-                    SetMakerCoopEnabled(File.Exists(IOPath.Combine(source, "cooptrail.json")));
+                    SetMakerCoopEnabled(coopPackage);
                     RefreshTrailMakerCoopCheckbox();
                 });
             }
@@ -396,7 +494,10 @@ namespace CustomCustomTrail
                 {
                     try
                     {
-                        prepared = new CoopTrailPackageExporter().Prepare(ConfigSettings.GetUserTrailMakerPath(), destination);
+                        prepared = new CoopTrailPackageExporter().Prepare(
+                            ConfigSettings.GetUserTrailMakerPath(),
+                            destination,
+                            ReadModSettingsForExport);
                     }
                     catch (Exception exception)
                     {
@@ -410,16 +511,22 @@ namespace CustomCustomTrail
 
                 try
                 {
-                    exportOriginal(self, destination);
-                    ExportSidecars(destination);
                     if (prepared != null)
                     {
+                        string trailMakerSource = IOPath.Combine(destination, CoopTrailMakerSourceDirectory);
+                        Directory.CreateDirectory(trailMakerSource);
+                        exportOriginal(self, trailMakerSource);
+                        ExportSidecars(trailMakerSource);
                         prepared.Publish(destination);
+                        RemoveNormalTrailFiles(destination);
                         DebugLogHelper.LogInfo(log, "Published Coop Trail package [" + prepared.Package.Manifest.DisplayName +
-                            "] with " + prepared.Package.Manifest.MissionCount + " mission(s).");
+                            "] with " + prepared.Package.Manifest.MissionCount +
+                            " mission(s); editable Trail Maker sources were stored below [" + CoopTrailMakerSourceDirectory + "].");
                     }
                     else
                     {
+                        exportOriginal(self, destination);
+                        ExportSidecars(destination);
                         RemoveCoopPackage(destination);
                     }
                     CoopPackagesChanged?.Invoke();
@@ -451,15 +558,39 @@ namespace CustomCustomTrail
                         string sourceTrail = IOPath.Combine(makerRoot, FRONT_ManageTrail.GetMakerFileName(sourceIndex) + ".trail");
                         if (!File.Exists(sourceTrail))
                             continue;
-                        string sidecar = IOPath.ChangeExtension(sourceTrail, ".modjson");
-                        if (File.Exists(sidecar))
+                        if (TryReadModSettingsForExport(sourceTrail, out ModSettingsDefinition document))
                         {
                             string target = IOPath.Combine(destination, FRONT_ManageTrail.GetMakerFileName(outputIndex) + ".modjson");
-                            File.Copy(sidecar, target, overwrite: true);
+                            ModSettingsJson.WriteAtomic(target, document);
                         }
                         outputIndex++;
                     }
                 });
+            }
+
+            private ModSettingsDefinition ReadModSettingsForExport(string trailPath)
+            {
+                return TryReadModSettingsForExport(trailPath, out ModSettingsDefinition document)
+                    ? document
+                    : ModSettingsDefinition.CreateDisabled();
+            }
+
+            private bool TryReadModSettingsForExport(string trailPath, out ModSettingsDefinition document)
+            {
+                string fullTrailPath = IOPath.GetFullPath(trailPath);
+                if (capturedDocumentsByTrailPath.TryGetValue(fullTrailPath, out document))
+                {
+                    DebugLogHelper.LogInfo(log, $"Using synchronously captured Trail mod settings for export [{fullTrailPath}].");
+                    return true;
+                }
+                string sidecar = IOPath.ChangeExtension(fullTrailPath, ".modjson");
+                if (File.Exists(sidecar))
+                {
+                    document = ModSettingsJson.Read(sidecar);
+                    return true;
+                }
+                document = null;
+                return false;
             }
 
             private void ClearMakerHook(FRONT_ManageTrail self)
@@ -568,6 +699,26 @@ namespace CustomCustomTrail
                     return;
                 File.Copy(manifest, IOPath.Combine(destination, "cooptrail.json"), true);
                 CopyDirectory(missions, IOPath.Combine(destination, "CoopMissions"));
+                string trailMakerSource = IOPath.Combine(source, CoopTrailMakerSourceDirectory);
+                if (Directory.Exists(trailMakerSource))
+                    CopyDirectory(trailMakerSource, IOPath.Combine(destination, CoopTrailMakerSourceDirectory));
+            }
+
+            private static string GetCoopTrailMakerSource(string packageRoot, bool coopPackage)
+            {
+                if (!coopPackage)
+                    return packageRoot;
+                string nested = IOPath.Combine(packageRoot, CoopTrailMakerSourceDirectory);
+                // Packages produced before 1.3.5 kept their editable sources in the root.
+                return Directory.Exists(nested) ? nested : packageRoot;
+            }
+
+            private static void RemoveNormalTrailFiles(string destination)
+            {
+                foreach (string trail in Directory.GetFiles(destination, "*.trail"))
+                    File.Delete(trail);
+                foreach (string sidecar in Directory.GetFiles(destination, "Trail_Mission_*.modjson"))
+                    File.Delete(sidecar);
             }
 
             private static void CopyDirectory(string source, string destination)
@@ -584,10 +735,13 @@ namespace CustomCustomTrail
                 string root = IOPath.GetFullPath(destination);
                 string manifest = IOPath.Combine(root, "cooptrail.json");
                 string missions = IOPath.Combine(root, "CoopMissions");
+                string trailMakerSource = IOPath.Combine(root, CoopTrailMakerSourceDirectory);
                 if (File.Exists(manifest))
                     File.Delete(manifest);
                 if (Directory.Exists(missions))
                     Directory.Delete(missions, true);
+                if (Directory.Exists(trailMakerSource))
+                    Directory.Delete(trailMakerSource, true);
             }
 
             private static void ShowInformation(string title, string message)
@@ -982,6 +1136,9 @@ namespace CustomCustomTrail
                 if (currentTrail == 22) MainViewModel.Instance.Show_CoopTrail2 = false;
                 if (currentTrail == 23) MainViewModel.Instance.Show_CoopTrail3 = false;
                 if (currentTrail == 24) MainViewModel.Instance.Show_CoopTrail4 = false;
+                // ShowSetupScreen rebuilds lobby settings. Reapply the selected mission only
+                // after that transition, matching the working Custom Trail Customize path.
+                CoopSetupOpened?.Invoke();
                 DebugLogHelper.LogInfo(log, $"Opened Coop Trail setup trail={trailId + 1}, mission={mission}.");
             }
 
@@ -1053,7 +1210,12 @@ namespace CustomCustomTrail
                         continue;
 
                     foreach (PropertyInfo property in properties.Values.Where(property => property.Name != "EnableMod"))
-                        target.Settings[property.Name] = property.GetValue(viewModel);
+                    {
+                        object value = property.GetValue(viewModel);
+                        target.Settings[property.Name] = ModSettingsJson.IsSupportedValue(value)
+                            ? value
+                            : EncodeSettingValue(property.PropertyType, value);
+                    }
                 }
                 return document;
             }
@@ -1152,10 +1314,33 @@ namespace CustomCustomTrail
             {
                 if (value == null)
                     throw new InvalidDataException($"Null cannot be assigned to [{targetType.FullName}].");
+                if (targetType != typeof(string) && value is string encoded &&
+                    encoded.StartsWith(EncodedSettingPrefix, StringComparison.Ordinal))
+                {
+                    byte[] bytes = Convert.FromBase64String(encoded.Substring(EncodedSettingPrefix.Length));
+                    return MessagePackSerializer.Deserialize(targetType, bytes);
+                }
                 Type effectiveType = Nullable.GetUnderlyingType(targetType) ?? targetType;
                 if (effectiveType.IsInstanceOfType(value))
                     return value;
+                if (effectiveType.IsArray && value is IEnumerable sequence && !(value is string))
+                {
+                    Type elementType = effectiveType.GetElementType();
+                    var converted = new List<object>();
+                    foreach (object item in sequence)
+                        converted.Add(ConvertJsonValue(item, elementType));
+                    Array array = Array.CreateInstance(elementType, converted.Count);
+                    for (int index = 0; index < converted.Count; index++)
+                        array.SetValue(converted[index], index);
+                    return array;
+                }
                 return Convert.ChangeType(value, effectiveType, CultureInfo.InvariantCulture);
+            }
+
+            private static string EncodeSettingValue(Type propertyType, object value)
+            {
+                byte[] bytes = MessagePackSerializer.Serialize(propertyType, value);
+                return EncodedSettingPrefix + Convert.ToBase64String(bytes);
             }
 
             private void CopySidecars(string source, string destination, bool overwrite)

@@ -68,6 +68,7 @@ static void TestNativeModSettingsRoundtrip()
             ["Int"] = 42,
             ["Double"] = 1.25,
             ["String"] = "Wood=10\r\nStone=-1",
+            ["DoubleArray"] = new[] { 0.75, 1.0, 1.25 },
         },
     };
     string json = ModSettingsJson.Serialize(document);
@@ -78,6 +79,9 @@ static void TestNativeModSettingsRoundtrip()
     Assert(Convert.ToInt32(entry.Settings["Int"]) == 42, "int changed");
     Assert(Math.Abs(Convert.ToDouble(entry.Settings["Double"]) - 1.25) < 0.0001, "double changed");
     Assert((string)entry.Settings["String"] == "Wood=10\r\nStone=-1", "complex string changed");
+    Assert(entry.Settings["DoubleArray"] is List<object> values &&
+        values.Count == 3 && Math.Abs(Convert.ToDouble(values[2]) - 1.25) < 0.0001,
+        "double array changed");
 }
 
 static void TestModSettingsRegistry()
@@ -238,8 +242,33 @@ static void TestCoopExporterIntegration()
     Assert(coordinator.Contains("CustomCustomTrailCoopExport") && coordinator.Contains("cooptrail.enabled"), "Trail Maker Coop checkbox/marker is missing");
     Assert(coordinator.Contains("Orientation = Orientation.Horizontal") && coordinator.Contains("host.Children.Remove(anchor)"),
         "Trail Maker Coop and Backup options are not arranged side by side");
-    Assert(coordinator.Contains("prepared.Publish(destination)") && coordinator.IndexOf("Prepare(", StringComparison.Ordinal) < coordinator.LastIndexOf("exportOriginal(self, destination)", StringComparison.Ordinal),
-        "Coop package is not validated before Vanilla export");
+    Assert(coordinator.Contains("prepared.Publish(destination)") && coordinator.IndexOf("Prepare(", StringComparison.Ordinal) < coordinator.IndexOf("prepared.Publish(destination)", StringComparison.Ordinal),
+        "Coop package is not validated before publication");
+    Assert(coordinator.Contains("exportOriginal(self, trailMakerSource)") &&
+        coordinator.Contains("RemoveNormalTrailFiles(destination)") &&
+        coordinator.Contains("importOriginal(self, vanillaImportFolder)") &&
+        !coordinator.Contains("CopyTrailFiles("),
+        "Coop export is still visible as a normal Custom Trail or cannot be reimported into the Trail Maker");
+    Assert(coordinator.Contains("CopySidecars(trailSource, ConfigSettings.GetUserTrailMakerPath(), overwrite: false)"),
+        "Coop import can overwrite existing Trail mod-settings sidecars");
+    Assert(coordinator.Contains("capturedDocumentsByTrailPath") &&
+        coordinator.Contains("ReadModSettingsForExport") &&
+        coordinator.Contains("TryReadModSettingsForExport(sourceTrail") &&
+        coordinator.Contains("new CoopTrailPackageExporter().Prepare(") &&
+        coordinator.Contains("ReadModSettingsForExport);") &&
+        coordinator.Contains("effectiveType.IsArray") &&
+        coordinator.Contains("Array.CreateInstance") &&
+        coordinator.Contains("ModSettingsJson.IsSupportedValue(value)") &&
+        coordinator.Contains("MessagePackSerializer.Serialize(propertyType, value)") &&
+        coordinator.Contains("MessagePackSerializer.Deserialize(targetType, bytes)"),
+        "normal and Coop exports do not share the synchronously captured mod-settings source");
+    Assert(coordinator.Contains("AddCoopImportRows(self)") &&
+        coordinator.Contains("GetImportableCoopSources().Any()") &&
+        coordinator.Contains("ObservableCollection<FileRow>"),
+        "Coop packages are not added to Vanilla's in-game Trail import list");
+    Assert(coordinator.Contains("AddCoopExportRows(self)") &&
+        coordinator.Contains("AddCoopRows(rows)"),
+        "Coop packages are not added to Vanilla's in-game Trail export list");
     Assert(exporter.Contains("ordinal < 40") && exporter.Contains("activeSlots.Count < 2"), "export limits or two-human validation are missing");
     Assert(exporter.Contains("ModSettingsJson.Read(sidecar)") && exporter.Contains("ModSettingsDefinition.CreateDisabled()"), "mission mod-settings embedding is missing");
     Assert(exporter.Contains("restart.selectedHeader.display_filename") && runtime.Contains("CoopMissionTitle = selected.Loaded.Definition.DisplayName"),
@@ -247,6 +276,10 @@ static void TestCoopExporterIntegration()
     Assert(coordinator.Contains("SetCoopPackagePresentation") && coordinator.Contains("TEXT_COOP_0"),
         "package display names do not replace occupied Vanilla Coop Trail headings");
     Assert(runtime.Contains("ReadyLock") && runtime.Contains("AreAllHumanPlayersPackageReady"), "Ready/Play package validation is missing");
+    Assert(coordinator.Contains("CoopSetupOpened?.Invoke()") &&
+        runtime.Contains("CoopSetupOpened += OnCoopSetupOpened") &&
+        runtime.Contains("source: \"custom Coop mission setup\""),
+        "Coop Customize does not reapply the mission Trail preset after rebuilding the setup UI");
     Assert(!runtime.Contains("Path.Combine(pluginRoot, \"CoopTrails\")"), "legacy plugin-local package layout is still active");
 }
 
