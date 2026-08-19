@@ -74,10 +74,15 @@ function Invoke-Checked {
     )
     Write-RunLog "RUN: $FilePath $($Arguments -join ' ')"
     Push-Location $WorkingDirectory
+    $previousErrorActionPreference = $ErrorActionPreference
     try {
+        # Git and other native tools legitimately use stderr for progress output.
+        # Capture that output for the log and decide success from the exit code.
+        $ErrorActionPreference = 'Continue'
         $output = @(& $FilePath @Arguments 2>&1)
         $exitCode = $LASTEXITCODE
     } finally {
+        $ErrorActionPreference = $previousErrorActionPreference
         Pop-Location
     }
     foreach ($line in $output) { Write-RunLog ([string]$line) }
