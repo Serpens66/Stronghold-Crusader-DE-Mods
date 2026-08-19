@@ -84,7 +84,7 @@ In multiplayer, gameplay-related settings are controlled by the host and synchro
 
 [i]Note: Random Events is currently disabled completely in network games.[/i]
 
-[h2]SpawnCastle[/h2]
+[h2]CastlePlanner[/h2]
 [list]
 [*]Load custom AIVJSON castles as visible local blueprints.
 [*]Toggle the blueprint while constructing your castle.

@@ -61,6 +61,10 @@ namespace CustomCustomTrail
             private delegate void FrontendOpenCustomTrailDelegate(FrontendMenus self, string trailName, int level);
             private delegate void FrontendButtonDelegate(FrontendMenus self, string command);
             private delegate void TrailSelectionDelegate(FrontendMenus self, int missionId, bool fromRealClick);
+            private delegate void CoopTrail1ConstructorDelegate(FRONT_CoopTrail1 self);
+            private delegate void CoopTrail2ConstructorDelegate(FRONT_CoopTrail2 self);
+            private delegate void CoopTrail3ConstructorDelegate(FRONT_CoopTrail3 self);
+            private delegate void CoopTrail4ConstructorDelegate(FRONT_CoopTrail4 self);
 
             private readonly ManualLogSource log;
             private readonly List<IDisposable> hooks = new List<IDisposable>();
@@ -82,6 +86,10 @@ namespace CustomCustomTrail
             private FrontendOpenCustomTrailDelegate frontendOpenCustomTrailOriginal;
             private FrontendButtonDelegate frontendButtonOriginal;
             private TrailSelectionDelegate trailSelectionOriginal;
+            private CoopTrail1ConstructorDelegate coopTrail1ConstructorOriginal;
+            private CoopTrail2ConstructorDelegate coopTrail2ConstructorOriginal;
+            private CoopTrail3ConstructorDelegate coopTrail3ConstructorOriginal;
+            private CoopTrail4ConstructorDelegate coopTrail4ConstructorOriginal;
             private bool trailContext;
             private bool preserveContextForLaunch;
             private bool customTrailLaunchActive;
@@ -97,8 +105,7 @@ namespace CustomCustomTrail
             private readonly List<Button> injectedCoopButtons = new List<Button>();
             private readonly Dictionary<UserControl, TextBlock> coopTrailTitleBlocks =
                 new Dictionary<UserControl, TextBlock>();
-            private readonly Dictionary<UserControl, string> vanillaCoopTrailTitles =
-                new Dictionary<UserControl, string>();
+            private readonly string[] vanillaCoopTrailTitles = new string[4];
             private readonly Dictionary<int, Button> coopSelectionButtons =
                 new Dictionary<int, Button>();
             private readonly Dictionary<string, string> coopImportSourceBySelection =
@@ -109,6 +116,24 @@ namespace CustomCustomTrail
 
             public event Action CoopPackagesChanged;
             public event Action CoopSetupOpened;
+
+            public string BuildSupportedSettingsSummary()
+            {
+                return string.Join(
+                    "\r\n",
+                    FindTargetViewModels()
+                        .Where(participant => GetPersistedProperties(participant.Value).Count != 0)
+                        .Select(participant => GetModDisplayName(participant.Key))
+                        .OrderBy(name => name, StringComparer.CurrentCultureIgnoreCase));
+            }
+
+            private static string GetModDisplayName(string modId)
+            {
+                return Chainloader.PluginInfos.TryGetValue(modId, out var pluginInfo) &&
+                    !string.IsNullOrWhiteSpace(pluginInfo.Metadata?.Name)
+                        ? pluginInfo.Metadata.Name
+                        : modId;
+            }
 
             public TrailMissionSettingsCoordinator(ManualLogSource log, bool enabled)
             {
@@ -134,6 +159,7 @@ namespace CustomCustomTrail
 
             public void Initialize()
             {
+                CaptureVanillaCoopTrailTitles();
                 saveCustomTrailMapOriginal = InstallHook(
                     typeof(EditorDirector).GetMethod(nameof(EditorDirector.SaveCustomTrailMap)),
                     (SaveCustomTrailMapDelegate)SaveCustomTrailMapHook);
@@ -184,6 +210,18 @@ namespace CustomCustomTrail
                         nameof(FrontendMenus.ButtonTrailCampaignClicked),
                         new[] { typeof(int), typeof(bool) }),
                     (TrailSelectionDelegate)TrailSelectionHook);
+                coopTrail1ConstructorOriginal = InstallHook(
+                    typeof(FRONT_CoopTrail1).GetConstructor(Type.EmptyTypes),
+                    (CoopTrail1ConstructorDelegate)CoopTrail1ConstructorHook);
+                coopTrail2ConstructorOriginal = InstallHook(
+                    typeof(FRONT_CoopTrail2).GetConstructor(Type.EmptyTypes),
+                    (CoopTrail2ConstructorDelegate)CoopTrail2ConstructorHook);
+                coopTrail3ConstructorOriginal = InstallHook(
+                    typeof(FRONT_CoopTrail3).GetConstructor(Type.EmptyTypes),
+                    (CoopTrail3ConstructorDelegate)CoopTrail3ConstructorHook);
+                coopTrail4ConstructorOriginal = InstallHook(
+                    typeof(FRONT_CoopTrail4).GetConstructor(Type.EmptyTypes),
+                    (CoopTrail4ConstructorDelegate)CoopTrail4ConstructorHook);
 
                 EnsureCoopCustomizeButtons();
                 EnsureTrailMakerCoopCheckbox(FRONT_ManageTrail.Instance);
@@ -1106,11 +1144,7 @@ namespace CustomCustomTrail
                     UpdateCoopSelectionTitles(self);
                 }
                 if (IsCoopTrailOpenCommand(command))
-                {
-                    // Vanilla creates and binds the selected Coop Trail page inside ButtonClicked.
-                    // Refresh after that call so the title is correct on the very first visit.
                     EnsureCoopCustomizeButtons();
-                }
                 bool leavesTrailMaker = string.Equals(command, "MapEditor", StringComparison.Ordinal) &&
                     !preserveTrailMakerMapEditor;
                 if (string.Equals(command, "Skirmish", StringComparison.Ordinal) ||
@@ -1127,6 +1161,51 @@ namespace CustomCustomTrail
                 string.Equals(command, "Coop2", StringComparison.Ordinal) ||
                 string.Equals(command, "Coop3", StringComparison.Ordinal) ||
                 string.Equals(command, "Coop4", StringComparison.Ordinal);
+
+            private void CoopTrail1ConstructorHook(FRONT_CoopTrail1 self)
+            {
+                coopTrail1ConstructorOriginal(self);
+                InitializeCoopPage(self, 0);
+            }
+
+            private void CoopTrail2ConstructorHook(FRONT_CoopTrail2 self)
+            {
+                coopTrail2ConstructorOriginal(self);
+                InitializeCoopPage(self, 1);
+            }
+
+            private void CoopTrail3ConstructorHook(FRONT_CoopTrail3 self)
+            {
+                coopTrail3ConstructorOriginal(self);
+                InitializeCoopPage(self, 2);
+            }
+
+            private void CoopTrail4ConstructorHook(FRONT_CoopTrail4 self)
+            {
+                coopTrail4ConstructorOriginal(self);
+                InitializeCoopPage(self, 3);
+            }
+
+            private void InitializeCoopPage(UserControl page, int zeroBasedTrail)
+            {
+                // The Vanilla constructor has now loaded the XAML and assigned all named controls.
+                // This is the first deterministic point at which the first-visit title exists.
+                InjectCoopCustomizeButton(page);
+                if (UpdateCoopTrailTitle(page, zeroBasedTrail))
+                {
+                    DebugLogHelper.LogDebug(
+                        log,
+                        "Initialized custom presentation for Coop Trail " +
+                        (zeroBasedTrail + 1).ToString(CultureInfo.InvariantCulture) + ".");
+                }
+                else
+                {
+                    DebugLogHelper.LogWarning(
+                        log,
+                        "Could not find the logical title element for Coop Trail " +
+                        (zeroBasedTrail + 1).ToString(CultureInfo.InvariantCulture) + ".");
+                }
+            }
 
             private void EnterSelectedCustomTrail(FrontendMenus menus)
             {
@@ -1246,39 +1325,55 @@ namespace CustomCustomTrail
                 EnsureCoopCustomizeButtons();
             }
 
-            private void UpdateCoopTrailTitle(UserControl page, int zeroBasedTrail)
+            private void CaptureVanillaCoopTrailTitles()
+            {
+                for (int index = 0; index < vanillaCoopTrailTitles.Length; index++)
+                {
+                    string key = GetCoopTrailTranslationKey(index);
+                    if (Translate.Instance.GameTexts.TryGetValue(key, out string title))
+                        vanillaCoopTrailTitles[index] = title;
+                }
+            }
+
+            private static string GetCoopTrailTranslationKey(int zeroBasedTrail) =>
+                "TEXT_COOP_0" + (23 + zeroBasedTrail).ToString(CultureInfo.InvariantCulture);
+
+            private bool UpdateCoopTrailTitle(UserControl page, int zeroBasedTrail)
             {
                 if (page == null)
-                    return;
+                    return false;
 
                 if (!coopTrailTitleBlocks.TryGetValue(page, out TextBlock title))
                 {
-                    string key = "TEXT_COOP_0" + (23 + zeroBasedTrail).ToString(CultureInfo.InvariantCulture);
-                    if (!Translate.Instance.GameTexts.TryGetValue(key, out string vanillaTitle))
-                        return;
-                    title = FindDescendantTextBlock(page, vanillaTitle);
+                    string vanillaTitle = vanillaCoopTrailTitles[zeroBasedTrail];
+                    if (string.IsNullOrEmpty(vanillaTitle))
+                        return false;
+                    title = FindLogicalDescendantTextBlock(page, vanillaTitle);
                     if (title == null)
-                        return;
+                        return false;
+                    // The original dictionary-index binding does not observe replacement values and
+                    // can reapply Vanilla when the pane first becomes visible. We own this one title.
+                    BindingOperations.ClearBinding(title, TextBlock.TextProperty);
                     coopTrailTitleBlocks[page] = title;
-                    vanillaCoopTrailTitles[page] = vanillaTitle;
                 }
 
                 bool packageOccupiesTrail = enabled && !string.IsNullOrWhiteSpace(coopPackageDisplayName) &&
                     coopPackageMissionCount > zeroBasedTrail * 10;
                 title.Text = packageOccupiesTrail
                     ? coopPackageDisplayName
-                    : vanillaCoopTrailTitles[page];
+                    : vanillaCoopTrailTitles[zeroBasedTrail];
+                return true;
             }
 
-            private static TextBlock FindDescendantTextBlock(DependencyObject parent, string expectedText)
+            private static TextBlock FindLogicalDescendantTextBlock(DependencyObject parent, string expectedText)
             {
-                int childCount = VisualTreeHelper.GetChildrenCount(parent);
-                for (int index = 0; index < childCount; index++)
+                foreach (object value in LogicalTreeHelper.GetChildren(parent))
                 {
-                    DependencyObject child = VisualTreeHelper.GetChild(parent, index);
+                    if (!(value is DependencyObject child))
+                        continue;
                     if (child is TextBlock textBlock && string.Equals(textBlock.Text, expectedText, StringComparison.Ordinal))
                         return textBlock;
-                    TextBlock nested = FindDescendantTextBlock(child, expectedText);
+                    TextBlock nested = FindLogicalDescendantTextBlock(child, expectedText);
                     if (nested != null)
                         return nested;
                 }
@@ -1300,8 +1395,8 @@ namespace CustomCustomTrail
                         coopSelectionButtons[zeroBasedTrail] = button;
                     }
 
-                    string key = "TEXT_COOP_0" + (23 + zeroBasedTrail).ToString(CultureInfo.InvariantCulture);
-                    if (!Translate.Instance.GameTexts.TryGetValue(key, out string vanillaTitle))
+                    string vanillaTitle = vanillaCoopTrailTitles[zeroBasedTrail];
+                    if (string.IsNullOrEmpty(vanillaTitle))
                         continue;
                     bool packageOccupiesTrail = enabled && !string.IsNullOrWhiteSpace(coopPackageDisplayName) &&
                         coopPackageMissionCount > zeroBasedTrail * 10;
@@ -1673,7 +1768,7 @@ namespace CustomCustomTrail
                     parameters,
                     null) ?? throw new MissingMethodException(typeof(FRONT_ManageTrail).FullName, name);
 
-            private T InstallHook<T>(MethodInfo method, T replacement) where T : Delegate
+            private T InstallHook<T>(MethodBase method, T replacement) where T : Delegate
             {
                 if (method == null)
                     throw new MissingMethodException("Trail mod-settings hook target was not found.");

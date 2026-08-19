@@ -204,7 +204,7 @@ unbekannten Wert blind an das Spiel zu übergeben.
 Als Weltanker bietet sich der tatsächliche Begin-Tile des bereits vorhandenen
 Keep-Gebäudes an. `GamePlayerManagerAPI.GetPlayerKeepPosition(...)` sollte dafür
 nicht allein als Wahrheit verwendet werden. In der funktionierenden
-SpawnCastle-Integration wird das Keep in
+CastlePlanner-Integration wird das Keep in
 `GameBuildingManagerAPI.Instance.GetBuildingsAsSpan()` über Besitzer und
 `STRUCT_KEEP_ONE` bis `STRUCT_KEEP_FIVE` gesucht. Dabei werden sowohl
 `AliveState.NeedsInit` als auch `AliveState.IsAlive` zugelassen, weil das Keep beim

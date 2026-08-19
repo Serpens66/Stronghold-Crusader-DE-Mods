@@ -31,7 +31,7 @@ Diese beiden Shared-Dateien werden von zehn Produktionsmods kompiliert. Deshalb 
 - `ExtraFeatures`
 - `ImprovedHunters`
 - `RandomEvents`
-- `SpawnCastle`
+- `CastlePlanner`
 - `StartConditions`
 - `UnitCosts`
 - `UnitLimit`
@@ -49,8 +49,8 @@ Weitere wichtige Folgen:
 | Bereich/Mod | Prioritaet | Befund | Geplante Folge |
 | --- | --- | --- | --- |
 | `Shared/PresetLobbyModSettingsViewModel.cs` | hoch | Der 1.41-Workaround schreibt bei UI-only-Access-Notifications erneut die komplette `.msgpack`. 1.42 ignoriert solche Notifications bereits. Das erzeugt nun unnoetige doppelte Schreibvorgaenge, waehrend die gemeinsame Presetmetadaten- und Trail-Sanitisierung weiterhin gebraucht wird. | UI-only-Sanitisierungswrites gezielt entfernen; echte Settings-, Preset- und Trailpfade beibehalten; Kommentare auf den 1.42-Vertrag aktualisieren. |
-| Zehn Mods mit gemeinsamer Presetbasis | hoch | 101 `[SyncHostOnly]`-, 20 `[SyncPerPlayer]`- und sechs `SpawnCastle`-Properties mit `[Shared.PresetLocal]` laufen durch denselben gemeinsamen Controller. | Einmal zentral korrigieren, danach alle zehn Mods testen, Versionen atomar anheben und genau einmal bauen/installieren. |
-| `SpawnCastle` | hoch | Reiner Clientmod mit elf `[SyncPerPlayer]`- und sechs `[Shared.PresetLocal]`-Properties. Der neue Extender kennt das eigene `[PresetLocal]` absichtlich nicht und behandelt es als UI-only. | Nachweisen, dass `[PresetLocal]` weiterhin ausschliesslich durch das gemeinsame Presetsystem gespeichert, nie gesendet und nach Neustart korrekt geladen wird. Keine pauschale Ersetzung durch `[PersistLocal]`. |
+| Zehn Mods mit gemeinsamer Presetbasis | hoch | 101 `[SyncHostOnly]`-, 20 `[SyncPerPlayer]`- und sechs `CastlePlanner`-Properties mit `[Shared.PresetLocal]` laufen durch denselben gemeinsamen Controller. | Einmal zentral korrigieren, danach alle zehn Mods testen, Versionen atomar anheben und genau einmal bauen/installieren. |
+| `CastlePlanner` | hoch | Reiner Clientmod mit elf `[SyncPerPlayer]`- und sechs `[Shared.PresetLocal]`-Properties. Der neue Extender kennt das eigene `[PresetLocal]` absichtlich nicht und behandelt es als UI-only. | Nachweisen, dass `[PresetLocal]` weiterhin ausschliesslich durch das gemeinsame Presetsystem gespeichert, nie gesendet und nach Neustart korrekt geladen wird. Keine pauschale Ersetzung durch `[PersistLocal]`. |
 | `CustomCustomTrail` | hoch | Kompiliert die Shared-Datei nicht selbst, wendet aber Host-only-Missionssnapshots auf die zehn registrierten ViewModels an. | `TrailMissionSettingsCoordinator` sowie 18/18 vorhandene Tests gegen die geaenderte Persistenzreihenfolge erneut pruefen; weiterhin nur `[SyncHostOnly]` erfassen. |
 | `Shared/GameModeHelper.cs` | mittel | Nutzt den nun offiziell gekapselten Wert noch direkt als `Platform_Multiplayer.MPGameActive`. | Auf `GameNetworkAPI.IsMultiplayerGame()` umstellen, ohne Lobby-/Member-/Director-/Save-Fallbacks zu entfernen. |
 | Gesamtes Multiplayer-Testprofil | mittel | Der volle 64-Bit-Hash aendert die Lobby-Kompatibilitaet. 1.41- und 1.42-Installationen sowie unterschiedliche Modversionen sollen sich nicht sehen. | Host und Client koordiniert auf 1.42 und identische Modversionen bringen; kompletten 16-stelligen Hash und Eintragszahl logseitig vergleichen. |
@@ -146,7 +146,7 @@ Abnahme: Die Modusergebnisse und `ToDiagnosticString()` bleiben fuer Singleplaye
 ### Schritt 4: Settingsklassifikation und Versionswerte auditieren
 
 - Alle 101 `[SyncHostOnly]`-, 20 `[SyncPerPlayer]`- und sechs `[Shared.PresetLocal]`-Deklarationen erneut gegen ihre fachliche Eigentuemerschaft pruefen. Erwartung: keine Attributaenderung.
-- Besonders `SpawnCastle` pruefen: seine lokalen AIV-/Blueprintwerte duerfen nie synchronisiert werden und muessen in beiden lokalen Presets erhalten bleiben.
+- Besonders `CastlePlanner` pruefen: seine lokalen AIV-/Blueprintwerte duerfen nie synchronisiert werden und muessen in beiden lokalen Presets erhalten bleiben.
 - Vor dem Build jedes der zehn geaenderten Plugins mit einer neuen Version versehen. Sowohl der `BepInPlugin`-`PluginVersion`-Wert als auch alle kanonischen und paketierten `info.json`-Versionen muessen gemaess der jeweiligen Modkonvention atomar aktualisiert werden.
 - Vorhandene Abweichungen zwischen Assembly- und Assetversion nicht stillschweigend angleichen, ohne die jeweilige Historie zu pruefen. Der 1.42-Hash kann beide Eintraege aufnehmen; entscheidend ist ein konsistentes, reproduzierbares Paket auf Host und Client.
 - `NetworkMode` nicht allein wegen 1.42 in alle `info.json` eintragen. Der getaggte Hashcode wertet es weiterhin nicht aus.
@@ -166,7 +166,7 @@ Alle Pruefungen abschliessen, bevor die erste Mod-`build.bat` ausgefuehrt wird:
 
 Danach jeden der zehn durch Shared-Code geaenderten Produktionsmods genau einmal ueber seine eigene `build.bat` direkt und erhoeht bauen/installieren. Empfohlene Reihenfolge:
 
-1. `SpawnCastle` als reiner Client-/`PresetLocal`-Fall
+1. `CastlePlanner` als reiner Client-/`PresetLocal`-Fall
 2. `BugfixesAndQoL` als gemischter Host-/Per-Player-Fall
 3. `ExtraFeatures`
 4. `ImprovedHunters`

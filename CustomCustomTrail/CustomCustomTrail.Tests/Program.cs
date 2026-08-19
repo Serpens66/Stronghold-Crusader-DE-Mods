@@ -174,8 +174,8 @@ static void TestCoordinatorOwnership()
 
     string coordinator = File.ReadAllText(Path.Combine(projectRoot, "src", "TrailMissionSettingsCoordinator.cs"));
     string sharedPresetSystem = File.ReadAllText(Path.Combine(workspaceRoot, "Shared", "PresetLobbyModSettingsViewModel.cs"));
-    for (int trail = 1; trail <= 4; trail++)
-        Assert(CountOccurrences(coordinator, "FRONT_CoopTrail" + trail + ".Instance") == 1, "Coop Trail " + trail + " button registration is not singular");
+    Assert(CountOccurrences(coordinator, "InjectCoopCustomizeButton(pages[index]);") == 1,
+        "Coop Trail button registration is not centralized and singular");
     Assert(coordinator.Contains("Margin = new Thickness(0, 0, 0, -30)"),
         "Coop Customize is not positioned below the Vanilla kick button");
     string runtime = File.ReadAllText(Path.Combine(projectRoot, "src", "CustomCustomTrailRuntime.cs"));
@@ -221,11 +221,19 @@ static void TestLocalActivationSetting()
     Assert(xaml.Contains("ToolTipService.ShowDuration=\"60000\""), "activation control tooltip duration is missing");
     Assert(xaml.Contains("PracticalEffectsText") && viewModel.Contains("CustomCustomTrail.PracticalEffects"),
         "player-facing practical-effects text is not bound below the activation setting");
+    Assert(xaml.Contains("SupportedTrailSettingsText") &&
+        viewModel.Contains("SetSupportedTrailSettingsText") &&
+        runtime.Contains("BuildSupportedSettingsSummary()"),
+        "the automatically generated list of saved Trail mod settings is not shown");
+    Assert(coordinator.Contains("GetPersistedProperties(participant.Value).Count != 0") &&
+        coordinator.Contains("FindTargetViewModels()") &&
+        coordinator.Contains("GetModDisplayName(participant.Key)"),
+        "the displayed Trail mod list does not use the runtime's actual supported endpoints");
     Assert(!xaml.Contains("SelectedPreset") && !xaml.Contains("PresetOptions"), "activation UI unexpectedly exposes presets");
     Assert(xaml.Contains("CoopPackageOptions") && xaml.Contains("CanEditCoopPackage"), "host package dropdown is missing");
     Assert(xaml.Contains("SelectedItem=\"{Binding SelectedCoopPackage, Mode=TwoWay}\"") &&
         !xaml.Contains("SelectedCoopPackageIndex"),
-        "Coop package dropdown does not use the stable SpawnCastle-style SelectedItem binding");
+        "Coop package dropdown does not use the stable CastlePlanner-style SelectedItem binding");
     Assert(viewModel.Contains("coopPackageIds = new[] { string.Empty }") &&
         viewModel.Contains("CustomCustomTrail.VanillaPackage"),
         "Coop package dropdown does not initialize with Vanilla");
@@ -289,9 +297,22 @@ static void TestCoopExporterIntegration()
         coordinator.Contains("UpdateCoopSelectionTitles(null)") &&
         !coordinator.Contains("UpdateCoopSelectionTitles(MainViewModel.Instance"),
         "package display names do not replace occupied entries in the Coop Trail selection menu");
-    Assert(coordinator.Contains("IsCoopTrailOpenCommand(command)") &&
-        coordinator.Contains("Refresh after that call so the title is correct on the very first visit."),
-        "the selected Coop Trail page title is not refreshed after Vanilla creates its UI");
+    Assert(coordinator.Contains("typeof(FRONT_CoopTrail1).GetConstructor(Type.EmptyTypes)") &&
+        coordinator.Contains("typeof(FRONT_CoopTrail4).GetConstructor(Type.EmptyTypes)"),
+        "Coop page presentation is not tied to Vanilla's completed page construction");
+    Assert(coordinator.Contains("InitializeCoopPage(self, 0)") &&
+        coordinator.Contains("InitializeCoopPage(self, 3)"),
+        "Coop page initialization does not cover all four Trails");
+    Assert(coordinator.Contains("LogicalTreeHelper.GetChildren(parent)") &&
+        coordinator.Contains("BindingOperations.ClearBinding(title, TextBlock.TextProperty)"),
+        "the unnameable Noesis title is not resolved through the logical tree and detached from its stale binding");
+    Assert(!coordinator.Contains("UpdateCoopTrailTranslationTitles") &&
+        !coordinator.Contains("LogCoopTitleState") &&
+        !coordinator.Contains("FindDescendantTextBlock"),
+        "obsolete title-source mutation, temporary diagnostics, or failed Visual Tree search remain");
+    Assert(!coordinator.Contains("QueueDeferredCoopPageRefresh") &&
+        !coordinator.Contains("Deferred first-visit Coop Trail title refresh"),
+        "the ineffective timing-based first-visit refresh still exists");
     Assert(runtime.Contains("ReadyLock") && runtime.Contains("COOP_START") && runtime.Contains("AreAllHumanPlayersPackageReady"),
         "Ready/Play/COOP_START package validation is missing");
     Assert(coordinator.Contains("CoopSetupOpened?.Invoke()") &&

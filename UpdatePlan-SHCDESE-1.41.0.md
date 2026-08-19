@@ -24,7 +24,7 @@ Direkte funktionale Anpassungen sind erforderlich in:
 3. `AIDefense`, weil die eigene Umrechnung von Query-Indizes zu IDs unter 1.41.0 alle IDs nochmals um eins erhöhen würde.
 4. `RandomEvents`, weil der bisherige Spawn-Workaround jetzt offizielles API-Verhalten ist und Kommentare/Dokumentation veraltet sind.
 
-Zusätzliche Regressionstests sind für `StartConditions`, `CustomCustomTrail`, `SpawnCastle`, `ImprovedHunters` und alle übrigen Mods mit Lobby-Hostsettings nötig. Die übrigen Änderungen sind additiv, betreffen nur den Extender-Build oder haben derzeit keine wirksame Mod-API-Auswirkung.
+Zusätzliche Regressionstests sind für `StartConditions`, `CustomCustomTrail`, `CastlePlanner`, `ImprovedHunters` und alle übrigen Mods mit Lobby-Hostsettings nötig. Die übrigen Änderungen sind additiv, betreffen nur den Extender-Build oder haben derzeit keine wirksame Mod-API-Auswirkung.
 
 ## 3. Betroffenheitsmatrix
 
@@ -37,7 +37,7 @@ Zusätzliche Regressionstests sind für `StartConditions`, `CustomCustomTrail`, 
 | `BuildingCosts`, `BuildingLimit`, `BugfixesAndQoL`, `ImprovedHunters`, `ImprovedHunters_TEST`, `StartConditions`, `UnitCosts`, `UnitLimit` | hoch | `[SyncHostOnly]` ist klassifiziert, aber die jeweiligen Setterhelfer mutieren vor einer 1.41-Autorisierungsprüfung. Editierbare Tabellen-/Zeilenmodelle sind gesondert zu prüfen. | Setterhelfer und direkte/nestete Mutationen vorab über den gemeinsamen Autorisierungshelfer absichern. |
 | `StartConditions` Runtime | mittel | Query-Ergebnisse werden bereits direkt als IDs verwendet. Das entspricht jetzt dem 1.41-Vertrag, kann aber gegenüber 1.40 ein tatsächliches Off-by-one-Verhalten korrigieren. | Keine geplante Codeänderung; gezielte Starttruppen-Regression mit erster/letzter Unit-ID. |
 | `CustomCustomTrail` | mittel | Der Coordinator erfasst weiterhin nur `[SyncHostOnly]`. Neue Setter-Gates können aber Mission-Snapshot-Anwendung sichtbar machen, falls sie in einem nicht autorisierten Kontext erfolgt. | Mission-Snapshot-, Trail-, Host- und Clienttests nach der gemeinsamen Setteränderung; keine persönlichen Werte auf Defaults setzen oder persistieren. |
-| `SpawnCastle` | niedrig | Nur persönliche/lokale Settings; keine betroffene Query- oder Spawn-API gefunden. Die gemeinsame Presetbasis wird jedoch mitkompiliert und ComboBoxes erhalten automatisch den neuen Dropdown-Fix. | Kompilier-, Preset- und UI-Regression; keine Hostsetteränderung. |
+| `CastlePlanner` | niedrig | Nur persönliche/lokale Settings; keine betroffene Query- oder Spawn-API gefunden. Die gemeinsame Presetbasis wird jedoch mitkompiliert und ComboBoxes erhalten automatisch den neuen Dropdown-Fix. | Kompilier-, Preset- und UI-Regression; keine Hostsetteränderung. |
 | `ImprovedHunters` Runtime und Testkopie | niedrig | `CreateUnitLocal` verwendet benannte Argumente; die neue Parameterreihenfolge ändert das Ergebnis nicht. | Nur Compile-/Spawnregression; Produktions- und Testkopie konsistent halten, ohne vorhandene Benutzerarbeit zu überschreiben. |
 | `ActiveAIVDetector`, `AIVPlacementLobby`, `MultiplayerLeaveFix`, `VanillaAICExporter`, `TestMod LUA` | keine direkte API-Anpassung | Keine Nutzung der brechenden APIs gefunden. Lobby-Hash und künftiges `NetworkMode` können Installation/Testumgebung beeinflussen. | Nur Metadatenklassifikation und Smoke-Test, falls diese Mods im gemeinsamen Testprofil geladen werden. |
 | `MPTest` | Entscheidung für 1.50.0 | Enthält einen eigenen nativen Chore-Probeaufbau; der 1.41-Quelltag enthält zwar die spätere Vorabimplementierung, aber noch keinen für 1.41 dokumentierten Chore-Vertrag. | Erst beim 1.50.0-Update entscheiden, ob der native Probe entfernt oder ausdrücklich als Vergleichsdiagnose behalten wird; unter 1.41 nichts parallel umstellen. |
@@ -240,7 +240,7 @@ Danach jede tatsächlich geänderte Mod genau einmal über ihre eigene `build.ba
 8. `StartConditions`
 9. `UnitCosts`
 10. `UnitLimit`
-11. `SpawnCastle`, falls die gemeinsame Datei eine neue Binärdatei erzeugt
+11. `CastlePlanner`, falls die gemeinsame Datei eine neue Binärdatei erzeugt
 12. `CustomCustomTrail`, falls Code/Metadaten geändert wurden
 13. `ImprovedHunters_TEST` nur als bewusstes Testartefakt und ohne Produktionsinstallation zu überschreiben
 

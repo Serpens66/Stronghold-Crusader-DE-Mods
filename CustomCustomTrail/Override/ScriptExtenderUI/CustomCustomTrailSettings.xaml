@@ -36,6 +36,17 @@
                  Foreground="#FFDDDDDD"
                  TextWrapping="Wrap"
                  Margin="0,10,0,0"/>
+      <TextBlock Text="{Binding SupportedTrailSettingsTitle}"
+                 Foreground="#FFF2D48A"
+                 FontWeight="Bold"
+                 Margin="0,16,0,4"/>
+      <TextBlock Text="{Binding SupportedTrailSettingsHelpText}"
+                 Foreground="#FFCCCCCC"
+                 TextWrapping="Wrap"/>
+      <TextBlock Text="{Binding SupportedTrailSettingsText}"
+                 Foreground="White"
+                 TextWrapping="Wrap"
+                 Margin="12,6,0,0"/>
       <TextBlock Text="{Binding HostOptionsText}"
                  Foreground="#FFD1B8FF"
                  FontWeight="Bold"

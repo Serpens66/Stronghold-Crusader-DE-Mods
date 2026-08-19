@@ -60,7 +60,7 @@ $localeDirectories = @(
     'ExtraFeatures\Locales',
     'ImprovedHunters\Locales',
     'RandomEvents\Locales',
-    'SpawnCastle\BepInEx\plugins\SpawnCastle_Serp\Locales',
+    'CastlePlanner\BepInEx\plugins\CastlePlanner_Serp\Locales',
     'StartConditions\Locales',
     'UnitCosts\Locales',
     'UnitLimit\Locales'
@@ -122,10 +122,10 @@ foreach ($file in Get-ChildItem -LiteralPath (Join-Path $workspace 'RandomEvents
     Set-LocaleKey $file.FullName 'RandomEvents.MultiplayerTitle' $(if ($german) { 'Mehrspieler' } else { 'Multiplayer' })
 }
 
-foreach ($file in Get-ChildItem -LiteralPath (Join-Path $workspace 'SpawnCastle\BepInEx\plugins\SpawnCastle_Serp\Locales') -Filter '*.txt') {
+foreach ($file in Get-ChildItem -LiteralPath (Join-Path $workspace 'CastlePlanner\BepInEx\plugins\CastlePlanner_Serp\Locales') -Filter '*.txt') {
     $german = $file.Name -eq 'de-DE.txt'
-    Set-LocaleKey $file.FullName 'SpawnCastle.CastleSectionTitle' $(if ($german) { 'Burgvorlage' } else { 'Castle Blueprint' })
-    Set-LocaleKey $file.FullName 'SpawnCastle.PlacementControlsTitle' $(if ($german) { 'Platzierung und Steuerung' } else { 'Placement and Controls' })
+    Set-LocaleKey $file.FullName 'CastlePlanner.CastleSectionTitle' $(if ($german) { 'Burgvorlage' } else { 'Castle Blueprint' })
+    Set-LocaleKey $file.FullName 'CastlePlanner.PlacementControlsTitle' $(if ($german) { 'Platzierung und Steuerung' } else { 'Placement and Controls' })
 }
 
 foreach ($file in Get-ChildItem -LiteralPath (Join-Path $workspace 'StartConditions\Locales') -Filter '*.txt') {

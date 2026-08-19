@@ -13,7 +13,7 @@ namespace CustomCustomTrail
     {
         public const string PluginGuid = "CustomCustomTrail_Serp";
         public const string PluginName = "Custom Custom Trail";
-        public const string PluginVersion = "1.3.17";
+        public const string PluginVersion = "1.3.24";
 
         private static CustomCustomTrailRuntime runtime;
 

@@ -18,6 +18,7 @@ namespace CustomCustomTrail
         private int activeCoopPackageMissionCount;
         private ComboBoxItem[] coopPackageOptions = Array.Empty<ComboBoxItem>();
         private string[] coopPackageIds = Array.Empty<string>();
+        private string supportedTrailSettingsText = string.Empty;
 
         public CustomCustomTrailSettingsViewModel()
         {
@@ -39,6 +40,9 @@ namespace CustomCustomTrail
         public string CoopPackageHelpText => SerpLocalization.Get("CustomCustomTrail.CoopPackageHelp");
         public string CoopPackageStatusLabel => SerpLocalization.Get("CustomCustomTrail.CoopPackageStatusLabel");
         public string HostReadOnlyNoticeText => SerpLocalization.Get("CustomCustomTrail.HostReadOnlyNotice");
+        public string SupportedTrailSettingsTitle => SerpLocalization.Get("CustomCustomTrail.SupportedTrailSettings");
+        public string SupportedTrailSettingsHelpText => SerpLocalization.Get("CustomCustomTrail.SupportedTrailSettingsHelp");
+        public string SupportedTrailSettingsText => supportedTrailSettingsText;
         public Visibility HostReadOnlyNoticeVisibility => IsHost ? Visibility.Collapsed : Visibility.Visible;
         public bool CanEditCoopPackage => IsHost && EnableMod;
         public ComboBoxItem[] CoopPackageOptions => coopPackageOptions;
@@ -187,6 +191,15 @@ namespace CustomCustomTrail
         }
 
         public void SetLocalPackageStatus(string value) => CoopPackageStatus = value;
+
+        public void SetSupportedTrailSettingsText(string value)
+        {
+            value = value ?? string.Empty;
+            if (string.Equals(supportedTrailSettingsText, value, StringComparison.Ordinal))
+                return;
+            supportedTrailSettingsText = value;
+            OnPropertyChanged(nameof(SupportedTrailSettingsText));
+        }
 
         public void RefreshRoleState()
         {

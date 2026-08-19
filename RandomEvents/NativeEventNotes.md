@@ -56,7 +56,7 @@
 ## Direkte Vanilla-Handler
 
 - `GameTimeManagerAPI.OnTick` wird aus einem nativen Pre-Tick-Kontext vor der Zeit-/Datumsverarbeitung aufgerufen. Timeline-Vektoren dort zu verändern führte reproduzierbar zu einem nativen Zugriffsfehler beim Kartenstart.
-- Ein eigenes, früh erzeugtes `DontDestroyOnLoad`-Objekt erhielt keine `LateUpdate()`-Callbacks. Auch der Script-Extender-`UnityMainThreadDispatcher` akzeptierte die Coroutine, führte aber in RandomEvents und SpawnCastle nie deren ersten Callback aus. Der gemeinsame Dispatcher und der davon abhängige Timeline-Pfad wurden deshalb entfernt.
+- Ein eigenes, früh erzeugtes `DontDestroyOnLoad`-Objekt erhielt keine `LateUpdate()`-Callbacks. Auch der Script-Extender-`UnityMainThreadDispatcher` akzeptierte die Coroutine, führte aber in RandomEvents und CastlePlanner nie deren ersten Callback aus. Der gemeinsame Dispatcher und der davon abhängige Timeline-Pfad wurden deshalb entfernt.
 - Die fünf Aktionen werden ohne Timeline-Eintrag über die Handler aus dem Vanilla-Switch ausgelöst. Vor jedem Effekt läuft dieselbe Vanilla-Voraussetzung: Farmtyp `30`, `31`, `32` oder `33` muss für den Zielspieler existieren; Kornspeicherdiebstahl verlangt eine gesetzte erste Kornspeicher-ID.
 - Getreidebefall: Voraussetzung RVA `0xB8D50`, Effekt RVA `0xC3130`. Hopfenkäfer: Voraussetzung RVA `0xB8D50`, Effekt RVA `0xC2E30`. Obstfäule: Voraussetzung RVA `0xB8D50`, Effekt RVA `0xC2C30`.
 - Wahnsinnige Rinder führt nach RVA `0xB8D50` zuerst den Einheitenhandler RVA `0x194BF0` und danach den Gebäudehandler RVA `0xC6090` aus. Kornspeicherdiebstahl nutzt RVA `0xC5F70` mit Spieler-ID und Prozentstärke.

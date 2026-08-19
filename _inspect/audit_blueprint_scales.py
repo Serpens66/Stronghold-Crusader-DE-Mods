@@ -6,10 +6,10 @@ import re
 
 ROOT = Path(__file__).resolve().parents[1]
 AIV_CATALOG = ROOT / "AIVParser/AIVParser.Core/AivCatalogs.cs"
-ICON_CATALOG = ROOT / "SpawnCastle/src/BlueprintBuildingIconCatalog.cs"
+ICON_CATALOG = ROOT / "CastlePlanner/src/BlueprintBuildingIconCatalog.cs"
 CALIBRATIONS = Path(
     r"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition"
-    r"\BepInEx\config\SpawnCastle_Serp.BlueprintBuildingSizes.tsv"
+    r"\BepInEx\config\CastlePlanner_Serp.BlueprintBuildingSizes.tsv"
 )
 AIV_ROOTS = (
     Path(

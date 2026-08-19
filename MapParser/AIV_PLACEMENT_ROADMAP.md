@@ -50,7 +50,7 @@ Der derzeitige Workspace enthält:
   Footprints und bekannte zugehörige Blockierflächen.
 - `ActiveAIVDetector`: besitzt bereits Erkenntnisse zum aktiven AIV-Kandidaten
   und zum nativen `placementState`.
-- `SpawnCastle`: enthält praktische Erfahrung mit AIV-Projektion und
+- `CastlePlanner`: enthält praktische Erfahrung mit AIV-Projektion und
   Gebäudeplatzierung im laufenden Spiel.
 
 Noch nicht vorhanden sind der exakte Offline-Keep-Tile-Anker, die
@@ -441,7 +441,7 @@ bewerten.
 
 ### Vorgehen
 
-1. Vorhandene Erkenntnisse aus `ActiveAIVDetector` und `SpawnCastle` sammeln.
+1. Vorhandene Erkenntnisse aus `ActiveAIVDetector` und `CastlePlanner` sammeln.
 2. Native Funktion gezielt analysieren und Aufrufparameter dokumentieren.
 3. Einen kleinen, klar getrennten Oracle-/Diagnoseweg erstellen.
 4. Nach echtem Mapstart kontrollierte Kombinationen prüfen:

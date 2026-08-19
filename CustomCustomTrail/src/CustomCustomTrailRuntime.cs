@@ -74,6 +74,7 @@ namespace CustomCustomTrail
             missionSettingsCoordinator.CoopPackagesChanged += OnActiveCoopPackageChanged;
             missionSettingsCoordinator.CoopSetupOpened += OnCoopSetupOpened;
             missionSettingsCoordinator.Initialize();
+            settings.SetSupportedTrailSettingsText(missionSettingsCoordinator.BuildSupportedSettingsSummary());
             settings.ActiveCoopPackageChanged += OnActiveCoopPackageChanged;
             subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)

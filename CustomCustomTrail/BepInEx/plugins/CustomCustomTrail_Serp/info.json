@@ -3,10 +3,52 @@
   "Author": "Serpens66",
   "Name": "Custom Custom Trail",
   "Description": "Creates portable Coop Trails in the Trail Maker, synchronizes the selected package, and coordinates Custom Trail mod settings.",
-  "Version": "1.3.17",
+  "Version": "1.3.24",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.3.24",
+      "Changes": [
+        "Shows an automatically generated list of the installed supported mods whose host settings Custom Trails save and restore."
+      ]
+    },
+    {
+      "Version": "1.3.23",
+      "Changes": [
+        "Removes superseded title timing, translation-source, Visual Tree, and diagnostic paths while retaining the verified Noesis Logical Tree solution."
+      ]
+    },
+    {
+      "Version": "1.3.22",
+      "Changes": [
+        "Finds the unnameable inner Coop Trail heading through Noesis' logical tree and detaches its stale Vanilla translation binding."
+      ]
+    },
+    {
+      "Version": "1.3.21",
+      "Changes": [
+        "Prevents Coop title diagnostics from constructing MainViewModel during early startup, so package activation and cleanup cannot be interrupted."
+      ]
+    },
+    {
+      "Version": "1.3.20",
+      "Changes": [
+        "Keeps inner Coop Trail names correct on first visibility by updating their bound translation sources and adds targeted Trail-versus-mission title diagnostics."
+      ]
+    },
+    {
+      "Version": "1.3.19",
+      "Changes": [
+        "Updates each inner Coop Trail title deterministically as soon as Vanilla finishes constructing that page, including the first visit."
+      ]
+    },
+    {
+      "Version": "1.3.18",
+      "Changes": [
+        "Defers the inner Coop Trail page-title refresh until Noesis has actually created the page on its first visit."
+      ]
+    },
     {
       "Version": "1.3.17",
       "Changes": [

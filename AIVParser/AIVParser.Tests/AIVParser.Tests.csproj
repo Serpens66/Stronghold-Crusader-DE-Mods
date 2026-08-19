@@ -11,17 +11,17 @@
   <ItemGroup>
     <ProjectReference Include="..\AIVParser.Core\AIVParser.Core.csproj" />
     <ProjectReference Include="..\AIVParser.Cli\AIVParser.Cli.csproj" />
-    <Compile Include="..\..\SpawnCastle\src\BlueprintBuildingIconCatalog.cs"
-             Link="SpawnCastle\BlueprintBuildingIconCatalog.cs" />
-    <Compile Include="..\..\SpawnCastle\src\BlueprintBuildingCaptureCatalog.cs"
-             Link="SpawnCastle\BlueprintBuildingCaptureCatalog.cs" />
-    <Compile Include="..\..\SpawnCastle\src\BlueprintMarkerVisibilityPolicy.cs"
-             Link="SpawnCastle\BlueprintMarkerVisibilityPolicy.cs" />
-    <Compile Include="..\..\SpawnCastle\src\BlueprintSortingPolicy.cs"
-             Link="SpawnCastle\BlueprintSortingPolicy.cs" />
-    <Compile Include="..\..\SpawnCastle\src\AivJsonModels.cs"
-             Link="SpawnCastle\AivJsonModels.cs" />
-    <Compile Include="..\..\SpawnCastle\src\BlueprintLayout.cs"
-             Link="SpawnCastle\BlueprintLayout.cs" />
+    <Compile Include="..\..\CastlePlanner\src\BlueprintBuildingIconCatalog.cs"
+             Link="CastlePlanner\BlueprintBuildingIconCatalog.cs" />
+    <Compile Include="..\..\CastlePlanner\src\BlueprintBuildingCaptureCatalog.cs"
+             Link="CastlePlanner\BlueprintBuildingCaptureCatalog.cs" />
+    <Compile Include="..\..\CastlePlanner\src\BlueprintMarkerVisibilityPolicy.cs"
+             Link="CastlePlanner\BlueprintMarkerVisibilityPolicy.cs" />
+    <Compile Include="..\..\CastlePlanner\src\BlueprintSortingPolicy.cs"
+             Link="CastlePlanner\BlueprintSortingPolicy.cs" />
+    <Compile Include="..\..\CastlePlanner\src\AivJsonModels.cs"
+             Link="CastlePlanner\AivJsonModels.cs" />
+    <Compile Include="..\..\CastlePlanner\src\BlueprintLayout.cs"
+             Link="CastlePlanner\BlueprintLayout.cs" />
   </ItemGroup>
 </Project>
