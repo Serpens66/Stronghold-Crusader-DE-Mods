@@ -39,6 +39,7 @@ namespace CustomCustomTrail
                 string trailPath,
                 HUD_IngameMenu.RestartSkirmishMapInfo restartInfo);
             private delegate void ManageTrailButtonDelegate(FRONT_ManageTrail self, string command);
+            private delegate void EditorSetupButtonDelegate(FRONT_EditorSetup self, string command);
             private delegate void ManageTrailInitDelegate(FRONT_ManageTrail self, bool preserveSelection);
             private delegate void ImportDelegate(FRONT_ManageTrail self, string customFolderName);
             private delegate void ExportDelegate(FRONT_ManageTrail self, string destination);
@@ -69,6 +70,7 @@ namespace CustomCustomTrail
                 new Dictionary<string, ModSettingsDefinition>(StringComparer.OrdinalIgnoreCase);
             private SaveCustomTrailMapDelegate saveCustomTrailMapOriginal;
             private ManageTrailButtonDelegate manageTrailButtonOriginal;
+            private EditorSetupButtonDelegate editorSetupButtonOriginal;
             private ManageTrailInitDelegate manageTrailInitOriginal;
             private TwoStringDelegate backupOriginal;
             private ImportDelegate importOriginal;
@@ -97,6 +99,8 @@ namespace CustomCustomTrail
                 new Dictionary<UserControl, TextBlock>();
             private readonly Dictionary<UserControl, string> vanillaCoopTrailTitles =
                 new Dictionary<UserControl, string>();
+            private readonly Dictionary<int, Button> coopSelectionButtons =
+                new Dictionary<int, Button>();
             private CheckBox coopTrailExportCheckbox;
             private string coopPackageDisplayName = string.Empty;
             private int coopPackageMissionCount;
@@ -134,6 +138,9 @@ namespace CustomCustomTrail
                 manageTrailButtonOriginal = InstallHook(
                     typeof(FRONT_ManageTrail).GetMethod("ButtonClicked", BindingFlags.Instance | BindingFlags.Public),
                     (ManageTrailButtonDelegate)ManageTrailButtonHook);
+                editorSetupButtonOriginal = InstallHook(
+                    typeof(FRONT_EditorSetup).GetMethod("ButtonClicked", BindingFlags.Instance | BindingFlags.Public),
+                    (EditorSetupButtonDelegate)EditorSetupButtonHook);
                 manageTrailInitOriginal = InstallHook(
                     RequireManageTrailMethod("Init", typeof(bool)),
                     (ManageTrailInitDelegate)ManageTrailInitHook);
@@ -373,6 +380,34 @@ namespace CustomCustomTrail
                 }
             }
 
+            private void EditorSetupButtonHook(FRONT_EditorSetup self, string command)
+            {
+                if (enabled && string.Equals(command, "DoUpload", StringComparison.Ordinal))
+                {
+                    FileRow selectedRow = (self.FindName("UploadList") as ListView)?.SelectedItem as FileRow;
+                    if (selectedRow?.trail != null && IsCoopPackageFolder(selectedRow.trail.Name))
+                    {
+                        try
+                        {
+                            UploadCoopTrailPackage(self, selectedRow.trail);
+                        }
+                        catch (Exception exception)
+                        {
+                            DebugLogHelper.LogError(log, $"Could not upload the Coop Trail package to Steam Workshop: {exception}");
+                            HUD_ConfirmationPopup.ShowOK(
+                                Translate.Instance.lookUpText(Enums.eTextSections.TEXT_NEW_TEXT, 125),
+                                delegate { });
+                        }
+                        return;
+                    }
+                }
+
+                editorSetupButtonOriginal(self, command);
+
+                if (enabled && string.Equals(command, "UploadTrail", StringComparison.Ordinal))
+                    TryFileOperation("add Coop Trails to Vanilla's Workshop upload list", () => AddCoopWorkshopRows(self));
+            }
+
             private void ManageTrailInitHook(FRONT_ManageTrail self, bool preserveSelection)
             {
                 manageTrailInitOriginal(self, preserveSelection);
@@ -413,6 +448,145 @@ namespace CustomCustomTrail
                     throw new InvalidOperationException("Vanilla's Trail export list is unavailable.");
 
                 AddCoopRows(rows);
+            }
+
+            private void AddCoopWorkshopRows(FRONT_EditorSetup page)
+            {
+                ListView uploadList = page.FindName("UploadList") as ListView;
+                ObservableCollection<FileRow> rows = uploadList?.ItemsSource as ObservableCollection<FileRow>;
+                if (rows == null)
+                    throw new InvalidOperationException("Vanilla's Trail Workshop upload list is unavailable.");
+
+                var existing = new HashSet<string>(
+                    rows.Where(row => row?.trail != null).Select(row => row.trail.Name),
+                    StringComparer.OrdinalIgnoreCase);
+                string root = ConfigSettings.GetUserCustomTrailsPath();
+                foreach (KeyValuePair<string, int> source in GetImportableCoopSources())
+                {
+                    if (!existing.Add(source.Key))
+                        continue;
+                    string packageRoot = IOPath.Combine(root, source.Key);
+                    CoopTrailPackage package = CoopTrailPackageCatalog.Load(packageRoot);
+                    var trail = new MapFileManager.CustomTrailInfo
+                    {
+                        Name = source.Key,
+                        DisplayName = package.Manifest.DisplayName,
+                        FullPath = packageRoot,
+                        workshopUploadInfoAvailable = File.Exists(IOPath.Combine(packageRoot, source.Key + ".data")),
+                    };
+                    // Vanilla derives Count from the headers dictionary. Placeholder keys retain
+                    // its existing length display and Short/Medium/Long Workshop categorisation.
+                    for (int mission = 1; mission <= package.Manifest.MissionCount; mission++)
+                        trail.headers[mission.ToString("00", CultureInfo.InvariantCulture)] = null;
+                    var row = new FileRow
+                    {
+                        Text1 = package.Manifest.DisplayName,
+                        Text2 = package.Manifest.MissionCount.ToString(CultureInfo.InvariantCulture),
+                        trail = trail,
+                    };
+                    if (trail.workshopUploadInfoAvailable)
+                        row.TypeImage = MainViewModel.Instance.GameSprites[746];
+                    rows.Add(row);
+                }
+            }
+
+            private static bool IsCoopPackageFolder(string folderName)
+            {
+                if (string.IsNullOrWhiteSpace(folderName) ||
+                    !string.Equals(folderName, IOPath.GetFileName(folderName), StringComparison.Ordinal))
+                    return false;
+                string root = IOPath.GetFullPath(ConfigSettings.GetUserCustomTrailsPath());
+                string packageRoot = IOPath.GetFullPath(IOPath.Combine(root, folderName));
+                string rootPrefix = root.TrimEnd(IOPath.DirectorySeparatorChar, IOPath.AltDirectorySeparatorChar) + IOPath.DirectorySeparatorChar;
+                return packageRoot.StartsWith(rootPrefix, StringComparison.OrdinalIgnoreCase) &&
+                    File.Exists(IOPath.Combine(packageRoot, "cooptrail.json"));
+            }
+
+            private void UploadCoopTrailPackage(FRONT_EditorSetup page, MapFileManager.CustomTrailInfo trail)
+            {
+                string source = IOPath.GetFullPath(IOPath.Combine(ConfigSettings.GetUserCustomTrailsPath(), trail.Name));
+                CoopTrailPackage package = CoopTrailPackageCatalog.Load(source);
+                string uploadContent = ConfigSettings.GetWorkshopUploadContentPath();
+                string destination = IOPath.Combine(uploadContent, trail.Name);
+                Directory.CreateDirectory(destination);
+                CopyWorkshopPackage(source, destination, trail.Name + ".data");
+
+                var tags = new List<string> { "Custom Trail" };
+                string previewName;
+                if (package.Manifest.MissionCount <= 20)
+                {
+                    previewName = "Short.png";
+                    tags.Add("Short (1-20)");
+                }
+                else if (package.Manifest.MissionCount <= 30)
+                {
+                    previewName = "Medium.png";
+                    tags.Add("Medium (21-30)");
+                }
+                else
+                {
+                    previewName = "Long.png";
+                    tags.Add("Long (31-50)");
+                }
+
+                string previewSource = IOPath.Combine(UnityEngine.Application.streamingAssetsPath, "WorkshopImages", previewName);
+                string uploadImage = IOPath.Combine(ConfigSettings.GetWorkshopUploadRootPath(), "Upload.png");
+                File.Copy(previewSource, uploadImage, true);
+                TextBox descriptionBox = page.FindName("WorkshopMapDescription") as TextBox;
+                Grid uploadPanel = page.FindName("UploadPanel") as Grid;
+                if (descriptionBox == null || uploadPanel == null)
+                    throw new InvalidOperationException("Vanilla's Workshop uploader controls are unavailable.");
+
+                string description = descriptionBox.Text;
+                MainViewModel.Instance.Show_EditorWorkshop_Uploader = false;
+                FRONT_EditorSetup.canCloseWorkshop = false;
+                uploadPanel.Visibility = Visibility.Visible;
+                Platform_Workshop.Instance.UploadWorkshopMap(
+                    uploadContent,
+                    trail.Name,
+                    description,
+                    tags.ToArray(),
+                    true,
+                    uploadImage,
+                    delegate
+                    {
+                        ulong publishId = Platform_Workshop.Instance.GetPublishID();
+                        File.WriteAllText(
+                            IOPath.Combine(source, trail.Name + ".data"),
+                            publishId + "\n0\n" + description);
+                        trail.workshopUploadInfoAvailable = true;
+                        HUD_ConfirmationPopup.ShowOK(
+                            Translate.Instance.lookUpText(Enums.eTextSections.TEXT_NEW_TEXT, 124),
+                            delegate
+                            {
+                                FRONT_EditorSetup.canCloseWorkshop = true;
+                                uploadPanel.Visibility = Visibility.Hidden;
+                                page.ButtonClicked("UploadTrail");
+                            });
+                    },
+                    delegate
+                    {
+                        HUD_ConfirmationPopup.ShowOK(
+                            Translate.Instance.lookUpText(Enums.eTextSections.TEXT_NEW_TEXT, 125),
+                            delegate
+                            {
+                                FRONT_EditorSetup.canCloseWorkshop = true;
+                                uploadPanel.Visibility = Visibility.Hidden;
+                            });
+                    });
+            }
+
+            private static void CopyWorkshopPackage(string source, string destination, string metadataFileName)
+            {
+                Directory.CreateDirectory(destination);
+                foreach (string file in Directory.GetFiles(source))
+                {
+                    if (string.Equals(IOPath.GetFileName(file), metadataFileName, StringComparison.OrdinalIgnoreCase))
+                        continue;
+                    File.Copy(file, IOPath.Combine(destination, IOPath.GetFileName(file)), true);
+                }
+                foreach (string directory in Directory.GetDirectories(source))
+                    CopyDirectory(directory, IOPath.Combine(destination, IOPath.GetFileName(directory)));
             }
 
             private void AddCoopRows(ObservableCollection<FileRow> rows)
@@ -885,6 +1059,14 @@ namespace CustomCustomTrail
                 bool preserveTrailMakerMapEditor = string.Equals(command, "MapEditor", StringComparison.Ordinal) &&
                     MainViewModel.Instance.FRONTMultiplayer.trailMakerMode;
                 frontendButtonOriginal(self, command);
+                if (string.Equals(command, "Coops", StringComparison.Ordinal))
+                    UpdateCoopSelectionTitles(self);
+                if (IsCoopTrailOpenCommand(command))
+                {
+                    // Vanilla creates and binds the selected Coop Trail page inside ButtonClicked.
+                    // Refresh after that call so the title is correct on the very first visit.
+                    EnsureCoopCustomizeButtons();
+                }
                 bool leavesTrailMaker = string.Equals(command, "MapEditor", StringComparison.Ordinal) &&
                     !preserveTrailMakerMapEditor;
                 if (string.Equals(command, "Skirmish", StringComparison.Ordinal) ||
@@ -895,6 +1077,12 @@ namespace CustomCustomTrail
                     ExitContext(force: true);
                 }
             }
+
+            private static bool IsCoopTrailOpenCommand(string command) =>
+                string.Equals(command, "Coop", StringComparison.Ordinal) ||
+                string.Equals(command, "Coop2", StringComparison.Ordinal) ||
+                string.Equals(command, "Coop3", StringComparison.Ordinal) ||
+                string.Equals(command, "Coop4", StringComparison.Ordinal);
 
             private void EnterSelectedCustomTrail(FrontendMenus menus)
             {
@@ -1001,6 +1189,10 @@ namespace CustomCustomTrail
                     InjectCoopCustomizeButton(pages[index]);
                     UpdateCoopTrailTitle(pages[index], index);
                 }
+                // MainViewModel.Instance constructs Vanilla's view model when read. During early
+                // plugin initialization that constructor is not ready yet, so only refresh buttons
+                // already discovered after the real FrontendMenus screen has opened.
+                UpdateCoopSelectionTitles(null);
             }
 
             internal void SetCoopPackagePresentation(string displayName, int missionCount)
@@ -1043,6 +1235,46 @@ namespace CustomCustomTrail
                     if (child is TextBlock textBlock && string.Equals(textBlock.Text, expectedText, StringComparison.Ordinal))
                         return textBlock;
                     TextBlock nested = FindDescendantTextBlock(child, expectedText);
+                    if (nested != null)
+                        return nested;
+                }
+                return null;
+            }
+
+            private void UpdateCoopSelectionTitles(FrontendMenus menus)
+            {
+                string[] commands = { "Coop", "Coop2", "Coop3", "Coop4" };
+                for (int zeroBasedTrail = 0; zeroBasedTrail < commands.Length; zeroBasedTrail++)
+                {
+                    if (!coopSelectionButtons.TryGetValue(zeroBasedTrail, out Button button))
+                    {
+                        if (menus == null)
+                            continue;
+                        button = FindDescendantButton(menus, commands[zeroBasedTrail]);
+                        if (button == null)
+                            continue;
+                        coopSelectionButtons[zeroBasedTrail] = button;
+                    }
+
+                    string key = "TEXT_COOP_0" + (23 + zeroBasedTrail).ToString(CultureInfo.InvariantCulture);
+                    if (!Translate.Instance.GameTexts.TryGetValue(key, out string vanillaTitle))
+                        continue;
+                    bool packageOccupiesTrail = enabled && !string.IsNullOrWhiteSpace(coopPackageDisplayName) &&
+                        coopPackageMissionCount > zeroBasedTrail * 10;
+                    PropEx.SetTextCentre(button, packageOccupiesTrail ? coopPackageDisplayName : vanillaTitle);
+                }
+            }
+
+            private static Button FindDescendantButton(DependencyObject parent, string commandParameter)
+            {
+                int childCount = VisualTreeHelper.GetChildrenCount(parent);
+                for (int index = 0; index < childCount; index++)
+                {
+                    DependencyObject child = VisualTreeHelper.GetChild(parent, index);
+                    if (child is Button button &&
+                        string.Equals(button.CommandParameter as string, commandParameter, StringComparison.Ordinal))
+                        return button;
+                    Button nested = FindDescendantButton(child, commandParameter);
                     if (nested != null)
                         return nested;
                 }

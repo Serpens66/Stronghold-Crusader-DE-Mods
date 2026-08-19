@@ -269,12 +269,26 @@ static void TestCoopExporterIntegration()
     Assert(coordinator.Contains("AddCoopExportRows(self)") &&
         coordinator.Contains("AddCoopRows(rows)"),
         "Coop packages are not added to Vanilla's in-game Trail export list");
+    Assert(coordinator.Contains("AddCoopWorkshopRows(self)") &&
+        coordinator.Contains("UploadCoopTrailPackage(self, selectedRow.trail)") &&
+        coordinator.Contains("CopyWorkshopPackage(source, destination") &&
+        coordinator.Contains("CoopTrailPackageCatalog.Load(source)"),
+        "Coop packages are not validated, listed, and copied completely through Vanilla's Workshop uploader");
     Assert(exporter.Contains("ordinal < 40") && exporter.Contains("activeSlots.Count < 2"), "export limits or two-human validation are missing");
     Assert(exporter.Contains("ModSettingsJson.Read(sidecar)") && exporter.Contains("ModSettingsDefinition.CreateDisabled()"), "mission mod-settings embedding is missing");
     Assert(exporter.Contains("restart.selectedHeader.display_filename") && runtime.Contains("CoopMissionTitle = selected.Loaded.Definition.DisplayName"),
         "exported map names are not shown as Coop mission titles");
     Assert(coordinator.Contains("SetCoopPackagePresentation") && coordinator.Contains("TEXT_COOP_0"),
         "package display names do not replace occupied Vanilla Coop Trail headings");
+    Assert(coordinator.Contains("UpdateCoopSelectionTitles") && coordinator.Contains("FindDescendantButton") &&
+        coordinator.Contains("\"Coop\", \"Coop2\", \"Coop3\", \"Coop4\"") &&
+        coordinator.Contains("PropEx.SetTextCentre(button, packageOccupiesTrail ? coopPackageDisplayName : vanillaTitle)") &&
+        coordinator.Contains("UpdateCoopSelectionTitles(null)") &&
+        !coordinator.Contains("UpdateCoopSelectionTitles(MainViewModel.Instance"),
+        "package display names do not replace occupied entries in the Coop Trail selection menu");
+    Assert(coordinator.Contains("IsCoopTrailOpenCommand(command)") &&
+        coordinator.Contains("Refresh after that call so the title is correct on the very first visit."),
+        "the selected Coop Trail page title is not refreshed after Vanilla creates its UI");
     Assert(runtime.Contains("ReadyLock") && runtime.Contains("COOP_START") && runtime.Contains("AreAllHumanPlayersPackageReady"),
         "Ready/Play/COOP_START package validation is missing");
     Assert(coordinator.Contains("CoopSetupOpened?.Invoke()") &&

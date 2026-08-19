@@ -3,10 +3,29 @@
   "Author": "Serpens66",
   "Name": "Custom Custom Trail",
   "Description": "Creates portable Coop Trails in the Trail Maker, synchronizes the selected package, and coordinates Custom Trail mod settings.",
-  "Version": "1.3.12",
+  "Version": "1.3.16",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.3.16",
+      "Changes": [
+        "Refreshes the selected Coop Trail page after Vanilla creates it so the custom package name appears on the first visit without opening mod settings.",
+        "Lists portable Coop Trails in the map editor's Steam Workshop Trail uploader and uploads their complete package while preserving Vanilla's normal Custom Trail path."
+      ]
+    },
+    {
+      "Version": "1.3.14",
+      "Changes": [
+        "Defers discovery of Coop selection-menu buttons until Vanilla has created FrontendMenus, preventing early MainViewModel construction from disabling the package catalog."
+      ]
+    },
+    {
+      "Version": "1.3.13",
+      "Changes": [
+        "Shows the selected custom Coop package name on every occupied entry in the four-Trail Coop selection menu and restores Vanilla names for unoccupied entries."
+      ]
+    },
     {
       "Version": "1.3.12",
       "Changes": [
