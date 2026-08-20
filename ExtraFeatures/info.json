@@ -3,10 +3,17 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.17",
+  "Version": "1.0.18",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.18",
+      "Changes": [
+        "Made numeric setting values and per-good market multipliers directly editable while retaining sliders for quick adjustments.",
+        "Added temporary Script Extender compatibility fixes for multiplayer settings synchronization during lobby joins, reliable lobby delivery, and authenticated in-game host updates."
+      ]
+    },
     {
       "Version": "1.0.17",
       "Changes": [

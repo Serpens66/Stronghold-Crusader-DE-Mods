@@ -3,10 +3,18 @@
   "Author": "Serpens66",
   "Name": "Start Conditions",
   "Description": "Configures start resources and start troops in Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.12",
+  "Version": "1.0.13",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.13",
+      "Changes": [
+        "Made start gold, goods, troop multipliers, and extra troop amounts directly editable beyond compact slider ranges, with validated bounds for each setting type.",
+        "Normalized start-gold slider steps to exact hundreds and limited goods to -1 through 10000 and extra troops to 0 through 1000.",
+        "Added temporary Script Extender compatibility fixes for multiplayer settings synchronization during lobby joins, reliable lobby delivery, and authenticated in-game host updates."
+      ]
+    },
     {
       "Version": "1.0.12",
       "Changes": [

@@ -3,10 +3,17 @@
   "Author": "Serpens66",
   "Name": "Random Events",
   "Description": "Runs configurable Vanilla scenario events in singleplayer skirmishes and Trail missions.",
-  "Version": "1.0.10",
+  "Version": "1.0.11",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.11",
+      "Changes": [
+        "Made all numeric event settings directly editable, including chances, intervals, group factors, and plague and fire ranges.",
+        "Added temporary Script Extender compatibility fixes for multiplayer settings synchronization during lobby joins, reliable lobby delivery, and authenticated in-game host updates."
+      ]
+    },
     {
       "Version": "1.0.10",
       "Changes": [

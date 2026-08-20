@@ -15,7 +15,7 @@ namespace BuildingCosts
 
         public const string PluginGuid = "BuildingCosts_Serp";
         public const string PluginName = "Building Costs";
-        public const string PluginVersion = "1.0.92";
+        public const string PluginVersion = "1.0.93";
 
         internal static readonly BuildingCostTooltipViewModel BuildingCostTooltipViewModel = new BuildingCostTooltipViewModel();
 

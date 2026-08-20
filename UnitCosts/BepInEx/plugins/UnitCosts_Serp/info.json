@@ -3,10 +3,18 @@
   "Author": "Serpens66",
   "Name": "Unit Costs",
   "Description": "Configure recruit costs in Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.13",
+  "Version": "1.0.14",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.14",
+      "Changes": [
+        "Made unit gold costs and extra resource costs directly editable beyond compact slider ranges; gold now supports -10000 through 10000 and other resources 0 through 100.",
+        "Prevented clients from persisting or retransmitting host-only extra-cost normalization after synchronized native gold-cost changes.",
+        "Added temporary Script Extender compatibility fixes for multiplayer settings synchronization during lobby joins, reliable lobby delivery, and authenticated in-game host updates."
+      ]
+    },
     {
       "Version": "1.0.13",
       "Changes": [
