@@ -9,4 +9,25 @@
   <Operation Type="SetAttribute" XPath="//n:Button[@CommandParameter='X100']/following-sibling::n:TextBlock[1]" AttributeName="Text" Value="{Binding Amount100Text}" />
   <Operation Type="SetAttribute" XPath="//n:Button[@CommandParameter='X500']/following-sibling::n:TextBlock[1]" AttributeName="Name" Value="ExtraFeaturesAllyAmount500" />
   <Operation Type="SetAttribute" XPath="//n:Button[@CommandParameter='X500']/following-sibling::n:TextBlock[1]" AttributeName="Text" Value="{Binding Amount500Text}" />
+  <Operation Type="InsertAfter" XPath="//n:Button[@CommandParameter='X500']/following-sibling::n:TextBlock[1]">
+    <Content>
+      <TextBlock Width="130"
+                 FontSize="19"
+                 Margin="570,177,0,0"
+                 TextAlignment="Left"
+                 HorizontalAlignment="Left"
+                 VerticalAlignment="Top"
+                 Foreground="White"
+                 IsHitTestVisible="False"
+                 Tag="RightIgnore"
+                 Text="Ctrl=/5,Shift=*5">
+        <TextBlock.Effect>
+          <DropShadowEffect ShadowDepth="2"
+                            Direction="315"
+                            Color="#CC000000"
+                            BlurRadius="0" />
+        </TextBlock.Effect>
+      </TextBlock>
+    </Content>
+  </Operation>
 </Patch>

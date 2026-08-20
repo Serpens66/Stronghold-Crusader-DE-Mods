@@ -10,7 +10,7 @@
     {
       "Version": "1.0.20",
       "Changes": [
-        "Added default-on local Shift (5x) and Ctrl (0.2x) amount modifiers for ally goods transfers, including live button labels while a modifier is held."
+        "Added default-on local Shift (5x) and Ctrl (0.2x) amount modifiers for ally goods transfers, including live button labels and an in-panel modifier hint."
       ]
     },
     {

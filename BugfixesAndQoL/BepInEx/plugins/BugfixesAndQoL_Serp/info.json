@@ -3,10 +3,28 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.21",
+  "Version": "1.0.24",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.24",
+      "Changes": [
+        "Reused Vanilla's map-search placeholder for the custom-lord search box and removed its tooltip."
+      ]
+    },
+    {
+      "Version": "1.0.23",
+      "Changes": [
+        "Prevented custom-lord column-header double-clicks from adding a lord and added Steam Workshop origin sorting."
+      ]
+    },
+    {
+      "Version": "1.0.22",
+      "Changes": [
+        "Added a default-enabled host option with search and sortable Name and Lord Power columns for the custom-lord picker in singleplayer and multiplayer skirmish lobbies."
+      ]
+    },
     {
       "Version": "1.0.21",
       "Changes": [

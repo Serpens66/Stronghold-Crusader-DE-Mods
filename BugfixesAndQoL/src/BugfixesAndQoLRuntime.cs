@@ -11,6 +11,7 @@ namespace BugfixesAndQoL
         private readonly TroopMovementFix3Runtime troopMovementFixRuntime;
         private MinimapPlacementClickHook minimapPlacementClickHook;
         private SkirmishAiSelectionMemoryHook skirmishAiSelectionMemoryHook;
+        private CustomLordListEnhancementHook customLordListEnhancementHook;
         private AutoTradeSellZeroHook autoTradeSellZeroHook;
         private EnemyProximityBulldozeCursorHook enemyProximityBulldozeCursorHook;
         private MarketKeyMainTradeMenuHook marketKeyMainTradeMenuHook;
@@ -67,6 +68,8 @@ namespace BugfixesAndQoL
         public void ApplySettings()
         {
             TryInitializeFeature("AI castle/settings selection memory", EnsureAiSelectionHook);
+            TryInitializeFeature("custom-lord list enhancements", EnsureCustomLordListEnhancementHook);
+            customLordListEnhancementHook?.ApplySetting();
             troopMovementFixRuntime.ApplySetting();
             ApplyAssemblyPointPlacementPatchSetting();
 
@@ -81,6 +84,8 @@ namespace BugfixesAndQoL
             UnsubscribeHooks();
             skirmishAiSelectionMemoryHook?.Dispose();
             skirmishAiSelectionMemoryHook = null;
+            customLordListEnhancementHook?.Dispose();
+            customLordListEnhancementHook = null;
             DisableAssemblyPointPlacementPatch();
             plaguePopularityFix?.Dispose();
             plaguePopularityFix = null;
@@ -161,6 +166,12 @@ namespace BugfixesAndQoL
         {
             if (skirmishAiSelectionMemoryHook == null)
                 skirmishAiSelectionMemoryHook = new SkirmishAiSelectionMemoryHook(log, settings);
+        }
+
+        private void EnsureCustomLordListEnhancementHook()
+        {
+            if (customLordListEnhancementHook == null)
+                customLordListEnhancementHook = new CustomLordListEnhancementHook(log, settings);
         }
 
         private void TryInitializeFeature(string featureName, Action initialize)

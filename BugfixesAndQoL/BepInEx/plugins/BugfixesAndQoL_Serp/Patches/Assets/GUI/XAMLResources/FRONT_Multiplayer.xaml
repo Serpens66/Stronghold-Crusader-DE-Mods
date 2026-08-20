@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Patch xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+       xmlns:local="clr-namespace:CrusaderDE">
+  <Operation Type="Replace" XPath="//n:ListView[@Name='CustomLordList']/n:ListView.View/n:GridView">
+    <Content>
+      <GridView AllowsColumnReorder="False">
+        <GridViewColumn Width="40">
+          <GridViewColumn.Header>
+            <GridViewColumnHeader x:Name="CustomLordTypeHeader" Visibility="Collapsed"
+                                  Template="{StaticResource MyGridViewColumnHeader}"
+                                  ToolTip="{Binding WorkshopSortHelpText}"
+                                  ToolTipService.ShowDuration="60000" Tag="Workshop">
+              <Image Width="20" Height="20" Source="{StaticResource steam}" />
+            </GridViewColumnHeader>
+          </GridViewColumn.Header>
+          <GridViewColumn.CellTemplate>
+            <DataTemplate>
+              <Image Width="30" Margin="-2,0,0,0" Source="{Binding TypeImage}" />
+            </DataTemplate>
+          </GridViewColumn.CellTemplate>
+        </GridViewColumn>
+        <GridViewColumn Width="370">
+          <GridViewColumn.Header>
+            <GridViewColumnHeader x:Name="CustomLordNameHeader" Visibility="{Binding EnhancementVisibility}"
+                                  Content="{Binding NameHeaderText}"
+                                  Template="{StaticResource MyGridViewColumnHeader}"
+                                  ToolTip="{Binding NameSortHelpText}"
+                                  ToolTipService.ShowDuration="60000" Tag="Name" />
+          </GridViewColumn.Header>
+          <GridViewColumn.CellTemplate>
+            <DataTemplate>
+              <Grid Height="30">
+                <TextBlock HorizontalAlignment="Left" VerticalAlignment="Center"
+                           Foreground="Black" FlowDirection="{Binding GlobalTextFlowAL2R}"
+                           TextTrimming="CharacterEllipsis" FontSize="16" Text="{Binding Text1}" />
+              </Grid>
+            </DataTemplate>
+          </GridViewColumn.CellTemplate>
+        </GridViewColumn>
+        <GridViewColumn Width="0">
+          <GridViewColumn.Header>
+            <GridViewColumnHeader x:Name="CustomLordPowerHeader" Visibility="{Binding EnhancementVisibility}"
+                                  Content="{Binding PowerHeaderText}"
+                                  Template="{StaticResource MyGridViewColumnHeader}"
+                                  ToolTip="{Binding PowerSortHelpText}"
+                                  ToolTipService.ShowDuration="60000" Tag="Power" />
+          </GridViewColumn.Header>
+          <GridViewColumn.CellTemplate>
+            <DataTemplate>
+              <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center"
+                         Foreground="Black" FontSize="16" Text="{Binding Text2}" />
+            </DataTemplate>
+          </GridViewColumn.CellTemplate>
+        </GridViewColumn>
+      </GridView>
+    </Content>
+  </Operation>
+  <Operation Type="InsertBefore" XPath="//n:Button[@CommandParameter='AddCustomLord']">
+    <Content>
+      <Grid x:Name="CustomLordSearchPanel" Width="200" Height="34" Margin="0,0,20,110"
+            HorizontalAlignment="Right" VerticalAlignment="Bottom"
+            Visibility="{Binding EnhancementVisibility}">
+        <TextBox x:Name="CustomLordSearchBox" Width="162" MaxLength="64"
+                 HorizontalAlignment="Left" VerticalAlignment="Stretch"
+                 Text="{Binding SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                 TextAlignment="Left" Focusable="True" />
+        <TextBlock Width="142" Margin="10,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Center"
+                   IsHitTestVisible="False" Foreground="#FFEFF3C6" FontSize="16"
+                   TextTrimming="CharacterEllipsis"
+                   Text="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_NEW_TEXT2_126]}"
+                   Visibility="{Binding SearchPlaceholderVisibility}" />
+        <Button x:Name="CustomLordSearchClearButton" Width="34" Height="34"
+                HorizontalAlignment="Right" VerticalAlignment="Center"
+                local:PropEx.Sprite1="{StaticResource UI-Buttons L009}"
+                local:PropEx.Sprite2="{StaticResource UI-Buttons L010}"
+                Command="{Binding ClearSearchCommand}" Style="{StaticResource BTN_Building}"
+                ToolTip="{Binding ClearSearchHelpText}" ToolTipService.ShowDuration="60000" />
+      </Grid>
+    </Content>
+  </Operation>
+</Patch>

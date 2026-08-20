@@ -17,6 +17,7 @@ namespace BugfixesAndQoL
 
         private bool enableMod = true;
         private bool rememberAiAivSettings = true;
+        private bool enableCustomLordListEnhancements = true;
         private bool enableTroopMovementFix = true;
         private bool enablePlaguePopularityFix = true;
         private bool enablePlagueCloudRemovalFix = true;
@@ -91,6 +92,8 @@ namespace BugfixesAndQoL
         public string AllowMinimapWhilePlacingBuildingHelpText => SerpLocalization.Get(SerpLocalization.AllowMinimapWhilePlacingBuildingHelp);
         public string RememberAiAivSettingsText => SerpLocalization.Get(SerpLocalization.RememberAiAivSettings);
         public string RememberAiAivSettingsHelpText => SerpLocalization.Get(SerpLocalization.RememberAiAivSettingsHelp);
+        public string EnableCustomLordListEnhancementsText => SerpLocalization.Get("BugfixesAndQoL.EnableCustomLordListEnhancements");
+        public string EnableCustomLordListEnhancementsHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableCustomLordListEnhancementsHelp");
         public string EnableTroopMovementFixText => SerpLocalization.Get(SerpLocalization.EnableTroopMovementFix);
         public string EnableTroopMovementFixHelpText => SerpLocalization.Get(SerpLocalization.EnableTroopMovementFixHelp);
         public string EnablePlaguePopularityFixText => SerpLocalization.Get(SerpLocalization.EnablePlaguePopularityFix);
@@ -236,6 +239,13 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
+        public bool EnableCustomLordListEnhancements
+        {
+            get => enableCustomLordListEnhancements;
+            set => SetSetting(ref enableCustomLordListEnhancements, value, nameof(EnableCustomLordListEnhancements));
+        }
+
+        [SyncHostOnly]
         public bool EnableTroopMovementFix
         {
             get => enableTroopMovementFix;
@@ -283,6 +293,7 @@ namespace BugfixesAndQoL
             {
                 EnableMod = true;
                 RememberAiAivSettings = true;
+                EnableCustomLordListEnhancements = true;
                 EnableTroopMovementFix = true;
                 EnablePlaguePopularityFix = true;
                 EnablePlagueCloudRemovalFix = true;
