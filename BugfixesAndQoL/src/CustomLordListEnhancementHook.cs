@@ -51,6 +51,7 @@ namespace BugfixesAndQoL
 
             // These elements keep the game view model everywhere else in FRONT_Multiplayer.
             GameXAMLManagerAPI.Instance.RegisterBinding("CustomLordSearchPanel", this);
+            GameXAMLManagerAPI.Instance.RegisterBinding("CustomLordHeaderPanel", this);
             GameXAMLManagerAPI.Instance.RegisterBinding("CustomLordTypeHeader", this);
             GameXAMLManagerAPI.Instance.RegisterBinding("CustomLordNameHeader", this);
             GameXAMLManagerAPI.Instance.RegisterBinding("CustomLordPowerHeader", this);
@@ -163,9 +164,9 @@ namespace BugfixesAndQoL
             if (gridView == null || gridView.Columns.Count != 3)
                 throw new InvalidOperationException("The patched custom-lord GridView does not contain three columns.");
 
-            GridViewColumnHeader newTypeHeader = gridView.Columns[0].Header as GridViewColumnHeader;
-            GridViewColumnHeader newNameHeader = gridView.Columns[1].Header as GridViewColumnHeader;
-            GridViewColumnHeader newPowerHeader = gridView.Columns[2].Header as GridViewColumnHeader;
+            GridViewColumnHeader newTypeHeader = self.FindName("CustomLordTypeHeader") as GridViewColumnHeader;
+            GridViewColumnHeader newNameHeader = self.FindName("CustomLordNameHeader") as GridViewColumnHeader;
+            GridViewColumnHeader newPowerHeader = self.FindName("CustomLordPowerHeader") as GridViewColumnHeader;
             if (newTypeHeader == null || newNameHeader == null || newPowerHeader == null)
                 throw new InvalidOperationException("The patched custom-lord column headers were not found.");
 
@@ -179,9 +180,6 @@ namespace BugfixesAndQoL
             ((ButtonBase)typeHeader).Click += HeaderClicked;
             ((ButtonBase)nameHeader).Click += HeaderClicked;
             ((ButtonBase)powerHeader).Click += HeaderClicked;
-            ((Control)typeHeader).MouseDoubleClick += HeaderDoubleClicked;
-            ((Control)nameHeader).MouseDoubleClick += HeaderDoubleClicked;
-            ((Control)powerHeader).MouseDoubleClick += HeaderDoubleClicked;
             activeSearchBox.IsKeyboardFocusedChanged += SearchFocusChanged;
 
             // Reapply a retained query when the frontend recreates its lobby view.
@@ -216,12 +214,6 @@ namespace BugfixesAndQoL
             RefreshRows();
         }
 
-        private static void HeaderDoubleClicked(object sender, MouseButtonEventArgs e)
-        {
-            // Vanilla listens on the whole ListView; stop header double-clicks before they bubble there.
-            e.Handled = true;
-        }
-
         private void SearchFocusChanged(object sender, DependencyPropertyChangedEventArgs e)
         {
             searchHasFocus = e.NewValue is bool focused && focused;
@@ -248,6 +240,7 @@ namespace BugfixesAndQoL
             bool active = IsActive;
             gridView.Columns[1].Width = active ? 280f : 370f;
             gridView.Columns[2].Width = active ? 90f : 0f;
+            activeList.Margin = active ? new Thickness(0f, 24f, 0f, 0f) : new Thickness(0f);
             typeHeader.Visibility = active ? Visibility.Visible : Visibility.Collapsed;
             nameHeader.Visibility = active ? Visibility.Visible : Visibility.Collapsed;
             powerHeader.Visibility = active ? Visibility.Visible : Visibility.Collapsed;

@@ -3,10 +3,28 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.24",
+  "Version": "1.0.27",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.27",
+      "Changes": [
+        "Added Vanilla, local, and Steam Workshop lord-source filters to both random-opponent dialogs in singleplayer and multiplayer skirmish lobbies."
+      ]
+    },
+    {
+      "Version": "1.0.26",
+      "Changes": [
+        "Applied the mod's opaque, bordered, wrapping tooltip presentation to every custom-lord lobby tooltip."
+      ]
+    },
+    {
+      "Version": "1.0.25",
+      "Changes": [
+        "Moved custom-lord sort headers outside Vanilla's ListView event route so header double-clicks can no longer add a lord."
+      ]
+    },
     {
       "Version": "1.0.24",
       "Changes": [

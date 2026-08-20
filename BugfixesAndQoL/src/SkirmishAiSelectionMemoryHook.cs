@@ -1,16 +1,18 @@
-// Feature: Remember the last AIV/AIC selection for each AI lord.
+// Feature: Remember AI selections and filter random opponents by lord source.
 using BepInEx.Logging;
 using CrusaderDE;
 using MonoMod.RuntimeDetour;
+using SHCDESE.API;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO;
 using System.Reflection;
 using System.Text;
 
 namespace BugfixesAndQoL
 {
-    internal sealed class SkirmishAiSelectionMemoryHook : IDisposable
+    internal sealed class SkirmishAiSelectionMemoryHook : INotifyPropertyChanged, IDisposable
     {
         internal const int MaxStoredAivEntriesPerLord = 999;
 
@@ -26,8 +28,22 @@ namespace BugfixesAndQoL
 
         private static readonly FieldInfo AiSettingsAivInfoField =
             FindField(typeof(FRONT_Multiplayer_AISettings), "AIVInfo");
+        private static readonly FieldInfo MultiplayerPlayerCapField =
+            FindField(typeof(FRONT_Multiplayer), "PlayerCap");
+        private static readonly FieldInfo MultiplayerPlayKickSpeechField =
+            FindField(typeof(FRONT_Multiplayer), "playKickSpeech");
         private static readonly MethodInfo MultiplayerUpdateHostInfoMethod =
             FindMethod(typeof(FRONT_Multiplayer), "UpdateHostInfo", typeof(bool));
+        private static readonly MethodInfo MultiplayerUpdateSteamMappingsMethod =
+            FindMethod(typeof(FRONT_Multiplayer), "updateSteamIDMappings");
+        private static readonly MethodInfo MultiplayerReSortTeamInfoMethod =
+            FindMethod(typeof(FRONT_Multiplayer), "ReSortTeamInfo");
+        private static readonly MethodInfo MultiplayerCreateTeamShieldsMethod =
+            FindMethod(typeof(FRONT_Multiplayer), "CreateTeamShields");
+        private static readonly MethodInfo MultiplayerUpdateRadarShieldPositionsMethod =
+            FindMethod(typeof(FRONT_Multiplayer), "UpdateRadarShieldPositions");
+        private static readonly MethodInfo MultiplayerUpdateRandomAiButtonsMethod =
+            FindMethod(typeof(FRONT_Multiplayer), "UpdateRandomAIButtons");
 
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
@@ -43,6 +59,10 @@ namespace BugfixesAndQoL
         private readonly MultiplayerButtonClickedDelegate skirmishAiAddClickTrampoline;
         private readonly AiSettingsButtonClickedDelegate aiSettingsButtonClickedTrampoline;
         private readonly AiSettingsAddSelectedDelegate aiSettingsAddSelectedTrampoline;
+        private bool includeBuiltInLords = true;
+        private bool includeLocalCustomLords = true;
+        private bool includeWorkshopCustomLords = true;
+        private bool emptyRandomLordSelectionLogged;
         private bool disposed;
 
         public SkirmishAiSelectionMemoryHook(
@@ -53,6 +73,10 @@ namespace BugfixesAndQoL
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
             storePath = Path.Combine(GetPluginDirectory(), "LobbyModSettings", StoreFileName);
             LoadStore();
+
+            // Both random-lord panels share these properties and therefore stay synchronized.
+            GameXAMLManagerAPI.Instance.RegisterBinding("RandomLordFiltersSimple", this);
+            GameXAMLManagerAPI.Instance.RegisterBinding("RandomLordFiltersAdvanced", this);
 
             MethodInfo multiplayerButtonClickedMethod =
                 FindMethod(typeof(FRONT_Multiplayer), "ButtonClicked", typeof(string));
@@ -114,6 +138,43 @@ namespace BugfixesAndQoL
                     $"storePath={storePath}");
         }
 
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        public Noesis.Visibility RandomLordFiltersVisibility =>
+            settings.EnableMod ? Noesis.Visibility.Visible : Noesis.Visibility.Collapsed;
+
+        public string BuiltInLordFilterHelp =>
+            SerpLocalization.Get("BugfixesAndQoL.RandomLordBuiltInHelp");
+
+        public string LocalCustomLordFilterHelp =>
+            SerpLocalization.Get("BugfixesAndQoL.RandomLordLocalHelp");
+
+        public string WorkshopCustomLordFilterHelp =>
+            SerpLocalization.Get("BugfixesAndQoL.RandomLordWorkshopHelp");
+
+        public bool IncludeBuiltInLords
+        {
+            get => includeBuiltInLords;
+            set => SetFilter(ref includeBuiltInLords, value, nameof(IncludeBuiltInLords));
+        }
+
+        public bool IncludeLocalCustomLords
+        {
+            get => includeLocalCustomLords;
+            set => SetFilter(ref includeLocalCustomLords, value, nameof(IncludeLocalCustomLords));
+        }
+
+        public bool IncludeWorkshopCustomLords
+        {
+            get => includeWorkshopCustomLords;
+            set => SetFilter(ref includeWorkshopCustomLords, value, nameof(IncludeWorkshopCustomLords));
+        }
+
+        public void ApplySetting()
+        {
+            OnPropertyChanged(nameof(RandomLordFiltersVisibility));
+        }
+
         public void Dispose()
         {
             if (disposed)
@@ -168,7 +229,21 @@ namespace BugfixesAndQoL
             bool memoryActiveBefore = IsMemoryActive();
             Dictionary<int, string> before = memoryActiveBefore ? CaptureAiSlotKeys(self) : null;
 
-            skirmishAiAddClickTrampoline(self, param);
+            bool handled = false;
+            try
+            {
+                handled = TryCreateFilteredRandomAi(self, param);
+            }
+            catch (Exception ex)
+            {
+                // Vanilla can safely rebuild the opponent list if the optional filtered path fails.
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Bugfixes and QoL filtered random-lord selection failed; falling back to Vanilla: {ex}");
+            }
+
+            if (!handled)
+                skirmishAiAddClickTrampoline(self, param);
 
             bool memoryActiveAfter = IsMemoryActive();
             if (!memoryActiveAfter)
@@ -184,6 +259,253 @@ namespace BugfixesAndQoL
                 Shared.DebugLogHelper.LogError(
                     log,
                     $"Bugfixes and QoL AI selection apply after SkirmishAIAddClick({param}) failed: {ex}");
+            }
+        }
+
+        private bool TryCreateFilteredRandomAi(FRONT_Multiplayer self, string param)
+        {
+            if (!settings.EnableMod ||
+                !int.TryParse(param, out int requestedValue) ||
+                requestedValue >= 0 ||
+                requestedValue < -8 ||
+                self?.currentLobby == null ||
+                (!FRONT_Multiplayer.skirmishGame && !self.currentLobby.isHost))
+            {
+                return false;
+            }
+
+            // Preserve the original implementation for the common Vanilla-only choice.
+            if (includeBuiltInLords && !includeLocalCustomLords && !includeWorkshopCustomLords)
+                return false;
+
+            List<RandomLordCandidate> candidates = BuildRandomLordCandidates();
+            if (candidates.Count == 0)
+            {
+                if (!emptyRandomLordSelectionLogged)
+                {
+                    emptyRandomLordSelectionLogged = true;
+                    Shared.DebugLogHelper.LogWarning(
+                        log,
+                        "Bugfixes and QoL did not create random opponents because no enabled lord source contains an available lord.");
+                }
+                return true;
+            }
+
+            emptyRandomLordSelectionLogged = false;
+            RemoveExistingRandomOpponents(self);
+
+            var random = new Random();
+            int requestedCount = -requestedValue;
+            int addedCount = 0;
+            for (int i = 0; i < requestedCount; i++)
+            {
+                int playerCap = (int)MultiplayerPlayerCapField.GetValue(self);
+                if (self.currentLobby.members.Count >= playerCap ||
+                    self.currentLobby.members.Count >= self.currentLobby.iMaxPlayers)
+                {
+                    break;
+                }
+
+                RandomLordCandidate candidate = candidates[random.Next(candidates.Count)];
+                Platform_Multiplayer.MPLobbyMember member = candidate.CustomLord == null
+                    ? Platform_Multiplayer.Instance.AddSkirmishPlayerLocal(candidate.BuiltInLordType)
+                    : Platform_Multiplayer.Instance.AddCustomSkirmishPlayerLocal(candidate.CustomLord);
+                UpdateSteamMappings(self);
+                if (member == null)
+                    continue;
+
+                if (candidate.CustomLord != null)
+                    FinalizeCustomLordIdentity(self, member);
+
+                int playerId = self.currentLobby.getThisPlayerFromSteamID(member.GetSteamID());
+                if (playerId < 1 || playerId > self.AIVs.Length)
+                    throw new InvalidOperationException("The newly added random lord has no valid lobby player slot.");
+
+                if (candidate.CustomLord == null)
+                {
+                    self.AIVs[playerId - 1].Init(candidate.BuiltInLordType, string.Empty);
+                }
+                else
+                {
+                    InitializeCustomLord(self, member, playerId, candidate.CustomLord);
+                }
+                addedCount++;
+            }
+
+            UpdateSteamMappings(self);
+            RefreshRandomOpponentUi(self);
+            Shared.DebugLogHelper.LogDebug(
+                log,
+                () =>
+                    $"Bugfixes and QoL created filtered random opponents. requested={requestedCount}, added={addedCount}, " +
+                    $"candidates={candidates.Count}, builtIn={includeBuiltInLords}, local={includeLocalCustomLords}, " +
+                    $"workshop={includeWorkshopCustomLords}");
+            return true;
+        }
+
+        private List<RandomLordCandidate> BuildRandomLordCandidates()
+        {
+            var candidates = new List<RandomLordCandidate>();
+            if (includeBuiltInLords)
+            {
+                for (int lordType = 0; lordType < 29; lordType++)
+                {
+                    if (IsBuiltInLordAvailable(lordType))
+                        candidates.Add(RandomLordCandidate.ForBuiltIn(lordType));
+                }
+            }
+
+            if (includeLocalCustomLords || includeWorkshopCustomLords)
+            {
+                foreach (CustomisationFileManager.CustomLord lord in
+                    CustomisationFileManager.Instance.GetCustomLords())
+                {
+                    if (lord == null ||
+                        string.IsNullOrEmpty(lord.lordName) ||
+                        lord.configs == null || lord.configs.Count == 0 ||
+                        lord.aivs == null || lord.aivs.Count == 0)
+                    {
+                        continue;
+                    }
+
+                    bool sourceEnabled = lord.workshop
+                        ? includeWorkshopCustomLords
+                        : includeLocalCustomLords;
+                    if (sourceEnabled)
+                        candidates.Add(RandomLordCandidate.ForCustom(lord));
+                }
+            }
+
+            return candidates;
+        }
+
+        private static bool IsBuiltInLordAvailable(int lordType)
+        {
+            switch (lordType)
+            {
+                case 20:
+                case 21:
+                    return FrontendMenus.DLC1Owned;
+                case 22:
+                case 23:
+                    return FrontendMenus.DLC2Owned;
+                case 25:
+                case 26:
+                    return FrontendMenus.DLC3Owned;
+                case 27:
+                case 28:
+                    return FrontendMenus.DLC4Owned;
+                default:
+                    return true;
+            }
+        }
+
+        private static void RemoveExistingRandomOpponents(FRONT_Multiplayer self)
+        {
+            MultiplayerPlayKickSpeechField.SetValue(self, false);
+            try
+            {
+                for (int playerId = 2; playerId <= 8; playerId++)
+                {
+                    Platform_Multiplayer.MPLobbyMember member =
+                        self.currentLobby.GetLobbyMemberFromThis_PlayerID(playerId);
+                    if (member == null)
+                        continue;
+
+                    Platform_Multiplayer.Instance.kickSkirmishPlayer(member.GetSteamID());
+                    self.currentLobby.validateTeams();
+                    UpdateSteamMappings(self);
+                    MultiplayerReSortTeamInfoMethod.Invoke(self, null);
+                    UpdateHostInfo(self);
+                    MultiplayerUpdateRadarShieldPositionsMethod.Invoke(self, null);
+                    MultiplayerUpdateRandomAiButtonsMethod.Invoke(self, null);
+                }
+            }
+            finally
+            {
+                MultiplayerPlayKickSpeechField.SetValue(self, true);
+            }
+            self.currentLobby.validateTeams();
+        }
+
+        private static void FinalizeCustomLordIdentity(
+            FRONT_Multiplayer self,
+            Platform_Multiplayer.MPLobbyMember member)
+        {
+            for (int slot = 0; slot < 8; slot++)
+            {
+                if (self.currentLobby.this_player_to_SteamID_mapping[slot] != member.GetSteamID())
+                    continue;
+
+                ulong previousSteamId = member.GetSteamID();
+                member.SetValidCustomLordType(slot, member.GetLordSubType());
+                self.currentLobby.this_player_to_SteamID_mapping[slot] = member.GetSteamID();
+                self.currentLobby.switchTeamID(previousSteamId, member.GetSteamID());
+                break;
+            }
+        }
+
+        private static void InitializeCustomLord(
+            FRONT_Multiplayer self,
+            Platform_Multiplayer.MPLobbyMember member,
+            int playerId,
+            CustomisationFileManager.CustomLord lord)
+        {
+            FRONT_Multiplayer.MPAIVInfo info = self.AIVs[playerId - 1];
+            info.Init(member.GetLordType(), lord.lordName);
+            info.lordConfig = lord.configs[0];
+            info.aivs.Add(lord.aivs[0]);
+            info.imageData = lord.imageData;
+            info.image = lord.image;
+        }
+
+        private static void RefreshRandomOpponentUi(FRONT_Multiplayer self)
+        {
+            MultiplayerReSortTeamInfoMethod.Invoke(self, null);
+            UpdateHostInfo(self);
+            MultiplayerCreateTeamShieldsMethod.Invoke(self, null);
+            MultiplayerUpdateRadarShieldPositionsMethod.Invoke(self, null);
+            MultiplayerUpdateRandomAiButtonsMethod.Invoke(self, null);
+        }
+
+        private static void UpdateSteamMappings(FRONT_Multiplayer self)
+        {
+            MultiplayerUpdateSteamMappingsMethod.Invoke(self, null);
+        }
+
+        private void SetFilter(ref bool field, bool value, string propertyName)
+        {
+            if (field == value)
+                return;
+
+            field = value;
+            OnPropertyChanged(propertyName);
+        }
+
+        private void OnPropertyChanged(string propertyName)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+
+        private sealed class RandomLordCandidate
+        {
+            private RandomLordCandidate(int builtInLordType, CustomisationFileManager.CustomLord customLord)
+            {
+                BuiltInLordType = builtInLordType;
+                CustomLord = customLord;
+            }
+
+            public int BuiltInLordType { get; }
+            public CustomisationFileManager.CustomLord CustomLord { get; }
+
+            public static RandomLordCandidate ForBuiltIn(int lordType)
+            {
+                return new RandomLordCandidate(lordType, null);
+            }
+
+            public static RandomLordCandidate ForCustom(CustomisationFileManager.CustomLord lord)
+            {
+                return new RandomLordCandidate(-1, lord);
             }
         }
 

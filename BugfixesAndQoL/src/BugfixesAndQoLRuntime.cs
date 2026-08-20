@@ -68,6 +68,7 @@ namespace BugfixesAndQoL
         public void ApplySettings()
         {
             TryInitializeFeature("AI castle/settings selection memory", EnsureAiSelectionHook);
+            skirmishAiSelectionMemoryHook?.ApplySetting();
             TryInitializeFeature("custom-lord list enhancements", EnsureCustomLordListEnhancementHook);
             customLordListEnhancementHook?.ApplySetting();
             troopMovementFixRuntime.ApplySetting();

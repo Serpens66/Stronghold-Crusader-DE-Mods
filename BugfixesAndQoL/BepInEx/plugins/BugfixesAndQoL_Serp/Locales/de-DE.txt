@@ -73,3 +73,6 @@ BugfixesAndQoL.CustomLordNameSortHelp=Sortiert eigene Burgherren nach Namen. Ern
 BugfixesAndQoL.CustomLordPowerHeader=Lord Power
 BugfixesAndQoL.CustomLordPowerSortHelp=Sortiert eigene Burgherren nach dem Power-Wert ihrer anfänglichen AIC-Konfiguration. Erneutes Anklicken kehrt die Reihenfolge um.
 BugfixesAndQoL.CustomLordWorkshopSortHelp=Sortiert eigene Burgherren nach ihrer Steam-Workshop-Herkunft. Erneutes Anklicken zeigt lokal installierte Burgherren zuerst.
+BugfixesAndQoL.RandomLordBuiltInHelp=Bezieht Vanilla-Burgherren beim Erstellen zufälliger Gegner ein.
+BugfixesAndQoL.RandomLordLocalHelp=Bezieht lokal installierte eigene Burgherren beim Erstellen zufälliger Gegner ein.
+BugfixesAndQoL.RandomLordWorkshopHelp=Bezieht eigene Burgherren aus dem Steam Workshop beim Erstellen zufälliger Gegner ein.

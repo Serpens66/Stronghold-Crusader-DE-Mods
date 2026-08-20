@@ -73,3 +73,6 @@ BugfixesAndQoL.CustomLordNameSortHelp=Sorts custom lords by name. Click again to
 BugfixesAndQoL.CustomLordPowerHeader=Lord Power
 BugfixesAndQoL.CustomLordPowerSortHelp=Sorts custom lords by the power value of the initial AIC configuration. Click again to reverse the order.
 BugfixesAndQoL.CustomLordWorkshopSortHelp=Sorts custom lords by Steam Workshop origin. Click again to put locally installed lords first.
+BugfixesAndQoL.RandomLordBuiltInHelp=Include Vanilla lords when creating random opponents.
+BugfixesAndQoL.RandomLordLocalHelp=Include locally installed custom lords when creating random opponents.
+BugfixesAndQoL.RandomLordWorkshopHelp=Include Steam Workshop custom lords when creating random opponents.
