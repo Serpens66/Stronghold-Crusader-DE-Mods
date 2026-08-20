@@ -104,6 +104,10 @@ public static class SerpLocalization
     public const string RememberAiAivSettingsHelp = "SomeSettings.RememberAiAivSettingsHelp";
     public const string EnableCtrlSingleMarketTrade = "SomeSettings.EnableCtrlSingleMarketTrade";
     public const string EnableCtrlSingleMarketTradeHelp = "SomeSettings.EnableCtrlSingleMarketTradeHelp";
+    public const string EnableClientFeatures = "SomeSettings.EnableClientFeatures";
+    public const string EnableClientFeaturesHelp = "SomeSettings.EnableClientFeaturesHelp";
+    public const string EnableAllyGoodsAmountModifiers = "SomeSettings.EnableAllyGoodsAmountModifiers";
+    public const string EnableAllyGoodsAmountModifiersHelp = "SomeSettings.EnableAllyGoodsAmountModifiersHelp";
     public const string EnableSingleBuildingPause = "SomeSettings.EnableSingleBuildingPause";
     public const string EnableSingleBuildingPauseHelp = "SomeSettings.EnableSingleBuildingPauseHelp";
     public const string EnableTroopMovementFix = "SomeSettings.EnableTroopMovementFix";
@@ -401,6 +405,10 @@ public static class SerpLocalization
         { RememberAiAivSettingsHelp, "When enabled, the last AIV, rotation, and custom lord settings selected for each AI lord are applied automatically when that AI is added to a skirmish lobby." },
         { EnableCtrlSingleMarketTrade, "Ctrl trades one market unit" },
         { EnableCtrlSingleMarketTradeHelp, "Hold Ctrl while buying or selling to trade exactly one unit. Ctrl+Shift uses the normal five-unit amount." },
+        { EnableClientFeatures, "Enable local client features" },
+        { EnableClientFeaturesHelp, "Enables or disables this mod's local interface and control features only for you." },
+        { EnableAllyGoodsAmountModifiers, "Modify ally goods-transfer amounts" },
+        { EnableAllyGoodsAmountModifiersHelp, "In the ally goods-transfer panel, hold Shift for 5x or Ctrl for 0.2x the clicked amount. Holding both uses the normal amount." },
         { EnableSingleBuildingPause, "Enable single-building pause" },
         { EnableSingleBuildingPauseHelp, "Hold Ctrl while toggling a production building's pause state to affect only the selected building. This feature is temporarily unavailable in multiplayer until Script Extender 1.50.0 Chore support is adopted." },
         { EnableTroopMovementFix, "Troop Speed Fix" },

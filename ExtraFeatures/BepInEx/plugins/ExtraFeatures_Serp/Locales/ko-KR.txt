@@ -1,5 +1,9 @@
 # Serp mod localization
 # Format: key=value
+SomeSettings.EnableClientFeatures=Enable local client features
+SomeSettings.EnableClientFeaturesHelp=Enables or disables this mod's local interface and control features only for you.
+SomeSettings.EnableAllyGoodsAmountModifiers=Modify ally goods-transfer amounts
+SomeSettings.EnableAllyGoodsAmountModifiersHelp=In the ally goods-transfer panel, hold Shift for 5x or Ctrl for 0.2x the clicked amount. Holding both uses the normal amount.
 Common.EnableMod=Enable Mod
 Common.LegacySomeSettingsWarning=ERROR: The obsolete mod SomeSettings_Serp is also loaded. Please uninstall SomeSettings_Serp to avoid duplicate or conflicting features.
 Common.ResetToDefault=Reset to Default

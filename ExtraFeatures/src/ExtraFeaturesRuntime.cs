@@ -35,6 +35,7 @@ namespace ExtraFeatures
         private readonly ChurchPriestCountRuntime churchPriestCountRuntime;
 
         private PendingStockpileRefund pendingStockpileRefund;
+        private AllyGoodsAmountModifierHook allyGoodsAmountModifierHook;
         private CtrlMarketTradeHook ctrlMarketTradeHook;
         private SingleBuildingPauseHook singleBuildingPauseHook;
         private AIEconomyProtectionHook aiEconomyProtectionHook;
@@ -72,6 +73,7 @@ namespace ExtraFeatures
 
         public object KnightDismountButton => knightDismountRuntime.ButtonViewModel;
         public object QuarryPileRelocationButton => quarryPileRelocationRuntime.ButtonViewModel;
+        public object AllyGoodsAmountDisplay => allyGoodsAmountModifierHook;
 
         public void InitializeNative(IntPtr newLibraryHandle, ReadOnlySpan<byte> memory, bool isFixedLayoutHashValidated)
         {
@@ -110,6 +112,7 @@ namespace ExtraFeatures
             InitializePlagueApothecarySearchRangePatch(newLibraryHandle, memory);
             InitializeMonkAlwaysRunPatch(newLibraryHandle, memory);
 
+            InstallAllyGoodsAmountModifierHook();
             InstallCtrlMarketTradeHook();
             TryRunFeature("fast recruit rally movement", ApplyFastRecruitRallyMovementSetting);
 
@@ -194,6 +197,8 @@ namespace ExtraFeatures
             plagueDurationPatch = null;
             plagueApothecarySearchRangePatch?.Dispose();
             plagueApothecarySearchRangePatch = null;
+            allyGoodsAmountModifierHook?.Dispose();
+            allyGoodsAmountModifierHook = null;
             nativeLibraryAvailable = false;
             libraryHandle = IntPtr.Zero;
             libraryLength = 0;
@@ -280,6 +285,23 @@ namespace ExtraFeatures
                 // Native signatures stay unchanged for the process lifetime, so do not retry noisily.
                 ctrlMarketTradeHookUnavailable = true;
                 Shared.DebugLogHelper.LogError(log, $"Extra Features Ctrl single-unit market hooks could not be installed: {ex}");
+            }
+        }
+
+        private void InstallAllyGoodsAmountModifierHook()
+        {
+            if (allyGoodsAmountModifierHook != null)
+                return;
+
+            try
+            {
+                allyGoodsAmountModifierHook = new AllyGoodsAmountModifierHook(log, settings);
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Extra Features ally goods amount modifier hook could not be installed: {ex}");
             }
         }
 

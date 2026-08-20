@@ -36,6 +36,8 @@ namespace ExtraFeatures
         private int apothecaryPlagueSearchDistance = 50;
         private int campfirePeasantsLimit = -1;
         private bool keepStorageContent;
+        private bool enableClientFeatures = true;
+        private bool enableAllyGoodsAmountModifiers = true;
         private bool enableCtrlSingleMarketTrade = true;
         private bool enableSingleBuildingPause = true;
         private bool enableFastRecruitRallyMovement = true;
@@ -65,6 +67,8 @@ namespace ExtraFeatures
         public string LegacyModWarningText => SerpLocalization.Get(SerpLocalization.LegacySomeSettingsWarning);
         public string EnableModText => SerpLocalization.Get(SerpLocalization.EnableMod);
         public string ResetToDefaultText => SerpLocalization.Get(SerpLocalization.ResetToDefault);
+        public string EnableClientFeaturesText => SerpLocalization.Get(SerpLocalization.EnableClientFeatures);
+        public string EnableClientFeaturesHelpText => SerpLocalization.Get(SerpLocalization.EnableClientFeaturesHelp);
         public ImageSource WoodRefundIcon => GetGoodIconImage(eGoods.STORED_WOOD_PLANKS);
         public ImageSource StoneRefundIcon => GetGoodIconImage(eGoods.STORED_STONE_BLOCKS);
         public ImageSource IronRefundIcon => GetGoodIconImage(eGoods.STORED_IRON_INGOTS);
@@ -75,6 +79,8 @@ namespace ExtraFeatures
         public ImageSource KeepStorageBowsIcon => GetGoodIconImage(eGoods.STORED_BOWS);
         public string EnableCtrlSingleMarketTradeText => SerpLocalization.Get(SerpLocalization.EnableCtrlSingleMarketTrade);
         public string EnableCtrlSingleMarketTradeHelpText => SerpLocalization.Get(SerpLocalization.EnableCtrlSingleMarketTradeHelp);
+        public string EnableAllyGoodsAmountModifiersText => SerpLocalization.Get(SerpLocalization.EnableAllyGoodsAmountModifiers);
+        public string EnableAllyGoodsAmountModifiersHelpText => SerpLocalization.Get(SerpLocalization.EnableAllyGoodsAmountModifiersHelp);
         public string EnableSingleBuildingPauseText => SerpLocalization.Get(SerpLocalization.EnableSingleBuildingPause);
         public string EnableSingleBuildingPauseHelpText => SerpLocalization.Get(SerpLocalization.EnableSingleBuildingPauseHelp);
         public string EnableFastRecruitRallyMovementText => SerpLocalization.Get(SerpLocalization.EnableFastRecruitRallyMovement);
@@ -139,6 +145,8 @@ namespace ExtraFeatures
         [SyncHostOnly] public int PitchRefundPercent { get => pitchRefundPercent; set => SetIntSetting(ref pitchRefundPercent, value, -1, 100, nameof(PitchRefundPercent), nameof(PitchRefundPercentValueText)); }
         [SyncHostOnly] public int GoldRefundPercent { get => goldRefundPercent; set => SetIntSetting(ref goldRefundPercent, value, -1, 100, nameof(GoldRefundPercent), nameof(GoldRefundPercentValueText)); }
         [SyncHostOnly] public bool KeepStorageContent { get => keepStorageContent; set => SetSetting(ref keepStorageContent, value, nameof(KeepStorageContent)); }
+        [Shared.PresetLocal] public bool EnableClientFeatures { get => enableClientFeatures; set => SetSetting(ref enableClientFeatures, value, nameof(EnableClientFeatures)); }
+        [Shared.PresetLocal] public bool EnableAllyGoodsAmountModifiers { get => enableAllyGoodsAmountModifiers; set => SetSetting(ref enableAllyGoodsAmountModifiers, value, nameof(EnableAllyGoodsAmountModifiers)); }
 
         public string WoodRefundPercentValueText { get => FormatRefundPercent(WoodRefundPercent); set => SetIntValueText(value, parsed => WoodRefundPercent = parsed, nameof(WoodRefundPercentValueText)); }
         public string StoneRefundPercentValueText { get => FormatRefundPercent(StoneRefundPercent); set => SetIntValueText(value, parsed => StoneRefundPercent = parsed, nameof(StoneRefundPercentValueText)); }
@@ -205,39 +213,42 @@ namespace ExtraFeatures
 
         private void ResetToDefault()
         {
-            if (!CanEditHostSettings)
-                return;
+            if (CanEditHostSettings)
+            {
+                EnableMod = true;
+                WoodRefundPercent = -1;
+                StoneRefundPercent = -1;
+                IronRefundPercent = -1;
+                PitchRefundPercent = -1;
+                GoldRefundPercent = -1;
+                KeepStorageContent = false;
+                MultiplyGoodsGainAI = 1;
+                MultiplyGoodsGainHuman = 1;
+                MultiplyGoodsGainInMoneyAI = 0;
+                MultiplyGoodsGainInMoneyHuman = 0;
+                MarketBuyPriceMultiplier = 1.0;
+                MarketSellPriceMultiplier = 1.0;
+                MarketPricesAlsoForAI = false;
+                MarketGoodBuyPriceMultipliers = MarketGoodPriceDefinition.CreateDefaultMultipliers();
+                MarketGoodSellPriceMultipliers = MarketGoodPriceDefinition.CreateDefaultMultipliers();
+                PlagueDurationMultiplier = 2.0;
+                ApothecaryPlagueSearchDistance = 50;
+                CampfirePeasantsLimit = -1;
+                EnableCtrlSingleMarketTrade = true;
+                EnableSingleBuildingPause = true;
+                EnableFastRecruitRallyMovement = true;
+                EnableMonksAlwaysRun = false;
+                EnableKnightDismount = true;
+                InstantHorse = false;
+                EnableQuarryPileRelocation = true;
+                EnableExtraChurchPriests = true;
+                PreventAIPause = true;
+                PreventEmergencyDemolition = true;
+                PreventHovelDeletion = true;
+            }
 
-            EnableMod = true;
-            WoodRefundPercent = -1;
-            StoneRefundPercent = -1;
-            IronRefundPercent = -1;
-            PitchRefundPercent = -1;
-            GoldRefundPercent = -1;
-            KeepStorageContent = false;
-            MultiplyGoodsGainAI = 1;
-            MultiplyGoodsGainHuman = 1;
-            MultiplyGoodsGainInMoneyAI = 0;
-            MultiplyGoodsGainInMoneyHuman = 0;
-            MarketBuyPriceMultiplier = 1.0;
-            MarketSellPriceMultiplier = 1.0;
-            MarketPricesAlsoForAI = false;
-            MarketGoodBuyPriceMultipliers = MarketGoodPriceDefinition.CreateDefaultMultipliers();
-            MarketGoodSellPriceMultipliers = MarketGoodPriceDefinition.CreateDefaultMultipliers();
-            PlagueDurationMultiplier = 2.0;
-            ApothecaryPlagueSearchDistance = 50;
-            CampfirePeasantsLimit = -1;
-            EnableCtrlSingleMarketTrade = true;
-            EnableSingleBuildingPause = true;
-            EnableFastRecruitRallyMovement = true;
-            EnableMonksAlwaysRun = false;
-            EnableKnightDismount = true;
-            InstantHorse = false;
-            EnableQuarryPileRelocation = true;
-            EnableExtraChurchPriests = true;
-            PreventAIPause = true;
-            PreventEmergencyDemolition = true;
-            PreventHovelDeletion = true;
+            EnableClientFeatures = true;
+            EnableAllyGoodsAmountModifiers = true;
         }
 
         private void SetSetting<T>(ref T field, T value, string propertyName)

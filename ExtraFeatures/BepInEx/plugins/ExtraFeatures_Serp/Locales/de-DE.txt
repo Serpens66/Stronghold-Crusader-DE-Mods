@@ -1,5 +1,9 @@
 # Serp mod localization
 # Format: key=value
+SomeSettings.EnableClientFeatures=Lokale Client-Funktionen aktivieren
+SomeSettings.EnableClientFeaturesHelp=Aktiviert oder deaktiviert die lokalen Oberflaechen- und Steuerungsfunktionen dieses Mods nur fuer dich.
+SomeSettings.EnableAllyGoodsAmountModifiers=Mengen beim Guetertransfer mit Verbuendeten anpassen
+SomeSettings.EnableAllyGoodsAmountModifiersHelp=Halte im Guetertransfer mit Verbuendeten Umschalt fuer die 5-fache oder Strg fuer die 0,2-fache angeklickte Menge. Beide zusammen verwenden die normale Menge.
 Common.LegacySomeSettingsWarning=FEHLER: Der veraltete Mod SomeSettings_Serp ist ebenfalls geladen. Bitte deinstalliere SomeSettings_Serp, um doppelte oder widerspruechliche Funktionen zu vermeiden.
 Common.ResetToDefault=Zurücksetzen
 Common.EnableMod=Mod aktivieren

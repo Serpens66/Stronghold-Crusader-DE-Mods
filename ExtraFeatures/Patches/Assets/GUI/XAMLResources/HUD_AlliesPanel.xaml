@@ -1,0 +1,12 @@
+<Patch xmlns:n="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+  <Operation Type="SetAttribute" XPath="//n:Button[@CommandParameter='X5']/following-sibling::n:TextBlock[1]" AttributeName="Name" Value="ExtraFeaturesAllyAmount5" />
+  <Operation Type="SetAttribute" XPath="//n:Button[@CommandParameter='X5']/following-sibling::n:TextBlock[1]" AttributeName="Text" Value="{Binding Amount5Text}" />
+  <Operation Type="SetAttribute" XPath="//n:Button[@CommandParameter='X10']/following-sibling::n:TextBlock[1]" AttributeName="Name" Value="ExtraFeaturesAllyAmount10" />
+  <Operation Type="SetAttribute" XPath="//n:Button[@CommandParameter='X10']/following-sibling::n:TextBlock[1]" AttributeName="Text" Value="{Binding Amount10Text}" />
+  <Operation Type="SetAttribute" XPath="//n:Button[@CommandParameter='X25']/following-sibling::n:TextBlock[1]" AttributeName="Name" Value="ExtraFeaturesAllyAmount25" />
+  <Operation Type="SetAttribute" XPath="//n:Button[@CommandParameter='X25']/following-sibling::n:TextBlock[1]" AttributeName="Text" Value="{Binding Amount25Text}" />
+  <Operation Type="SetAttribute" XPath="//n:Button[@CommandParameter='X100']/following-sibling::n:TextBlock[1]" AttributeName="Name" Value="ExtraFeaturesAllyAmount100" />
+  <Operation Type="SetAttribute" XPath="//n:Button[@CommandParameter='X100']/following-sibling::n:TextBlock[1]" AttributeName="Text" Value="{Binding Amount100Text}" />
+  <Operation Type="SetAttribute" XPath="//n:Button[@CommandParameter='X500']/following-sibling::n:TextBlock[1]" AttributeName="Name" Value="ExtraFeaturesAllyAmount500" />
+  <Operation Type="SetAttribute" XPath="//n:Button[@CommandParameter='X500']/following-sibling::n:TextBlock[1]" AttributeName="Text" Value="{Binding Amount500Text}" />
+</Patch>
