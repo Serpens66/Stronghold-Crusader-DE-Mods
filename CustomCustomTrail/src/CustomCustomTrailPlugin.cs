@@ -8,6 +8,7 @@ using System.IO;
 namespace CustomCustomTrail
 {
     [BepInDependency("000shcdese", BepInDependency.DependencyFlags.HardDependency)]
+    [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class CustomCustomTrailPlugin : BaseUnityPlugin
     {

@@ -10,7 +10,8 @@
     {
       "Version": "1.3.31",
       "Changes": [
-        "Defers subscribed Steam Workshop package discovery until Steamworks is initialized and refreshes it from the existing Coop UI entry points."
+        "Defers subscribed Steam Workshop package discovery until Steamworks is initialized and refreshes it from the existing Coop UI entry points.",
+        "Added optional Serps Mods Host dependency for Workshop mod-pack load ordering."
       ]
     },
     {
