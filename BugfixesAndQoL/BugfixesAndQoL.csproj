@@ -79,6 +79,9 @@
     <Compile Include="src\ResyncHostKickPolicy.cs" />
     <Compile Include="src\SkirmishAiSelectionMemoryHook.cs" />
     <Compile Include="src\SteamLobbyInvitePrompt.cs" />
+    <Compile Include="src\SurrenderFeature.cs" />
+    <Compile Include="src\SurrenderPackets.cs" />
+    <Compile Include="src\SurrenderPolicy.cs" />
     <Compile Include="src\TroopMovementFix3ModLog.cs" />
     <Compile Include="src\TroopMovementFix3Runtime.cs" />
     <Compile Include="src\TroopMovementFix3SpearmanMovementPatch.cs" />

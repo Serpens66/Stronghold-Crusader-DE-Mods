@@ -54,6 +54,12 @@
     <Compile Include="..\..\BugfixesAndQoL\src\ResyncHostKickPolicy.cs">
       <Link>ResyncHostKickPolicy.cs</Link>
     </Compile>
+    <Compile Include="..\..\BugfixesAndQoL\src\SurrenderPackets.cs">
+      <Link>SurrenderPackets.cs</Link>
+    </Compile>
+    <Compile Include="..\..\BugfixesAndQoL\src\SurrenderPolicy.cs">
+      <Link>SurrenderPolicy.cs</Link>
+    </Compile>
     <Compile Include="..\..\ExtraFeatures\src\MarketGoodPriceDefinition.cs">
       <Link>MarketGoodPriceDefinition.cs</Link>
     </Compile>

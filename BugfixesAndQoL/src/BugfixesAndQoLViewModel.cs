@@ -24,6 +24,7 @@ namespace BugfixesAndQoL
         private bool enableStuckApothecaryFix = true;
         private bool enablePlagueTargetReservationFix = true;
         private bool enableAssemblyPointPlacementFix = true;
+        private bool enableSurrender = true;
         private bool enableResyncHostKick = true;
         private bool enableCustomTrailExtremeGoldFix = true;
         private bool preserveDisplayResolution = true;
@@ -91,6 +92,8 @@ namespace BugfixesAndQoL
         public string EnableIngameSteamInvitePromptHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableIngameSteamInvitePromptHelp");
         public string EnableAssemblyPointPlacementFixText => SerpLocalization.Get("BugfixesAndQoL.EnableAssemblyPointPlacementFix");
         public string EnableAssemblyPointPlacementFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableAssemblyPointPlacementFixHelp");
+        public string EnableSurrenderText => SerpLocalization.Get("BugfixesAndQoL.EnableSurrender");
+        public string EnableSurrenderHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableSurrenderHelp");
         public string EnableCustomTrailExtremeGoldFixText => SerpLocalization.Get("BugfixesAndQoL.EnableCustomTrailExtremeGoldFix");
         public string EnableCustomTrailExtremeGoldFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableCustomTrailExtremeGoldFixHelp");
         public string PreserveDisplayResolutionText => SerpLocalization.Get("BugfixesAndQoL.PreserveDisplayResolution");
@@ -303,6 +306,13 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
+        public bool EnableSurrender
+        {
+            get => enableSurrender;
+            set => SetSetting(ref enableSurrender, value, nameof(EnableSurrender));
+        }
+
+        [SyncHostOnly]
         public bool EnableResyncHostKick
         {
             get => enableResyncHostKick;
@@ -322,6 +332,7 @@ namespace BugfixesAndQoL
                 EnableStuckApothecaryFix = true;
                 EnablePlagueTargetReservationFix = true;
                 EnableAssemblyPointPlacementFix = true;
+                EnableSurrender = true;
                 EnableResyncHostKick = true;
             }
 

@@ -26,7 +26,7 @@ namespace BugfixesAndQoL
 
         public const string PluginGuid = "BugfixesAndQoL_Serp";
         public const string PluginName = "Bugfixes and QoL";
-        public const string PluginVersion = "1.0.33";
+        public const string PluginVersion = "1.0.34";
 
         private static DisplayResolutionPersistenceHook displayResolutionPersistenceHook;
         private static DisplayResolutionDiagnostic displayResolutionDiagnostic;
@@ -157,6 +157,18 @@ namespace BugfixesAndQoL
             }
 
             InitializeLocalPlayerTracking();
+
+            try
+            {
+                runtime.InitializeSurrenderFeature();
+                GameXAMLManagerAPI.Instance.RegisterBinding(
+                    "BugfixesAndQoLSurrenderButtonHost",
+                    runtime.SurrenderButton);
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(Logger, $"Bugfixes and QoL surrender UI/network initialization failed; the button remains inactive: {ex}");
+            }
 
             // Keep UI registration independent so one native feature cannot hide the whole mod.
             try

@@ -27,6 +27,7 @@ internal static class Program
             TestLocalPerPlayerSetting();
             TestMarketGoodsOrderDefinition();
             TestResyncHostKickPolicy();
+            TestSurrenderSettingAndPolicy();
             TestMarketGoodPriceDefinition();
             TestAIMarketVanillaPricePolicy();
             TestAIMarketNativeResolution();
@@ -412,6 +413,114 @@ internal static class Program
         GameData.Instance = null;
         Director.instance = null;
         GameNetworkAPI.Networked = true;
+    }
+
+    private static void TestSurrenderSettingAndPolicy()
+    {
+        var validLord = new SurrenderLordSnapshot(2, 120, 8120, 2, true);
+        var missingLord = new SurrenderLordSnapshot(2, -1, -1, -1, false);
+        var deadLord = new SurrenderLordSnapshot(2, 120, 8120, 2, false);
+        var foreignLord = new SurrenderLordSnapshot(2, 120, 8120, 3, true);
+
+        Check(SurrenderPolicy.CanShowButton(true, true, false, false, validLord),
+            "surrender button rejected an active player with a living lord");
+        Check(!SurrenderPolicy.CanShowButton(false, true, false, false, validLord),
+            "disabled surrender setting exposed the button");
+        Check(!SurrenderPolicy.CanShowButton(true, true, false, false, missingLord),
+            "surrender button accepted a missing lord");
+        Check(!SurrenderPolicy.CanShowButton(true, true, false, false, deadLord),
+            "surrender button accepted a dead lord");
+        Check(!SurrenderPolicy.CanShowButton(true, true, false, false, foreignLord),
+            "surrender button accepted a foreign lord");
+        Check(!SurrenderPolicy.CanShowButton(true, true, true, false, validLord),
+            "surrender button appeared in the map editor");
+        Check(!SurrenderPolicy.CanShowButton(true, true, false, true, validLord),
+            "surrender button appeared for a spectator");
+        Check(!SurrenderPolicy.CanEnableButton(true, true, false),
+            "multiplayer surrender remained enabled without Chore transport");
+        Check(SurrenderPolicy.CanEnableButton(true, false, false),
+            "singleplayer surrender incorrectly required Chore transport");
+
+        Check(SurrenderPolicy.CanAcceptRequest(true, true, true, true, true, validLord),
+            "host rejected an authenticated human surrender request");
+        Check(!SurrenderPolicy.CanAcceptRequest(true, true, true, false, true, validLord),
+            "host accepted an unknown surrender sender");
+        Check(!SurrenderPolicy.CanAcceptRequest(true, true, true, true, false, validLord),
+            "host accepted a non-human surrender sender");
+        Check(!SurrenderPolicy.CanAcceptRequest(true, true, false, true, true, validLord),
+            "non-host accepted a surrender request");
+
+        Check(SurrenderPolicy.CanExecute(1, 1, 2, 11, 8120, false, validLord),
+            "valid surrender execution was rejected");
+        Check(!SurrenderPolicy.CanExecute(1, 1, 3, 11, 8120, false, validLord),
+            "forged player ID was accepted");
+        Check(!SurrenderPolicy.CanExecute(1, 1, 2, 11, 9999, false, validLord),
+            "foreign global lord ID was accepted");
+        Check(!SurrenderPolicy.CanExecute(1, 1, 2, 11, 8120, true, validLord),
+            "duplicate surrender operation was accepted");
+
+        var request = new SurrenderRequestPacket { ProtocolVersion = 1, RequestId = 17 };
+        SurrenderRequestPacket requestRoundTrip = MessagePackSerializer.Deserialize<SurrenderRequestPacket>(
+            MessagePackSerializer.Serialize(request));
+        Check(requestRoundTrip.ProtocolVersion == 1 && requestRoundTrip.RequestId == 17,
+            "surrender request packet did not round-trip");
+        Check(typeof(SurrenderRequestPacket).GetFields().All(field => field.Name != "PlayerId"),
+            "client surrender request contains a target player ID");
+
+        var execution = new SurrenderExecutionPacket
+        {
+            ProtocolVersion = 1,
+            PlayerId = 2,
+            OperationId = 11,
+            LordGlobalId = 8120
+        };
+        SurrenderExecutionPacket executionRoundTrip = MessagePackSerializer.Deserialize<SurrenderExecutionPacket>(
+            MessagePackSerializer.Serialize(execution));
+        Check(executionRoundTrip.ProtocolVersion == 1 &&
+              executionRoundTrip.PlayerId == 2 &&
+              executionRoundTrip.OperationId == 11 &&
+              executionRoundTrip.LordGlobalId == 8120,
+            "surrender execution packet did not round-trip");
+
+        string pluginPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "SurrenderSetting.dll");
+        string settingsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "LobbyModSettings", "SurrenderSettingTest.msgpack");
+        if (File.Exists(settingsPath))
+            File.Delete(settingsPath);
+
+        GameNetworkAPI.Networked = true;
+        GameNetworkAPI.MultiplayerGame = true;
+        GameNetworkAPI.LocalHost = true;
+        var setting = new SurrenderSettingViewModel();
+        setting.PreparePresets(null, pluginPath, "SurrenderSettingTest");
+        setting.ActivatePresets();
+        Check(setting.EnableSurrender, "EnableSurrender did not default to true");
+        setting.EnableSurrender = false;
+        setting.SelectedPreset = 1;
+        Check(setting.EnableSurrender, "new surrender preset did not retain the default true value");
+        setting.SelectedPreset = 0;
+        Check(!setting.EnableSurrender, "surrender host value did not round-trip through presets");
+
+        GameNetworkAPI.LocalHost = false;
+        setting.System_RefreshSettingsAccess();
+        setting.EnableSurrender = true;
+        Check(!setting.EnableSurrender, "client mutated the host-only EnableSurrender setting");
+        GameXAMLManagerAPI.Instance.ApplyNetworkSync(setting, () => setting.EnableSurrender = true);
+        Check(setting.EnableSurrender, "authoritative host sync did not update EnableSurrender");
+
+        setting.System_EnterMissionPreset(
+            new Dictionary<string, byte[]> { [nameof(setting.EnableSurrender)] = MessagePackSerializer.Serialize(false) },
+            "Trail",
+            editable: false);
+        Check(!setting.EnableSurrender && !setting.CanEditHostSettings,
+            "read-only Trail did not apply and lock EnableSurrender");
+        setting.EnableSurrender = true;
+        Check(!setting.EnableSurrender, "client changed EnableSurrender inside a read-only Trail");
+        setting.System_ExitMissionPreset();
+
+        GameNetworkAPI.LocalHost = true;
+        setting.System_RefreshSettingsAccess();
+        setting.ResetSurrender();
+        Check(setting.EnableSurrender, "EnableSurrender reset value was not true");
     }
 
     private static void TestLocalPerPlayerSetting()
@@ -1001,6 +1110,29 @@ internal sealed class MixedViewModel : PresetLobbyModSettingsViewModel
             transientHostValue = value;
             OnPropertyChanged(nameof(TransientHostValue));
         }
+    }
+}
+
+internal sealed class SurrenderSettingViewModel : PresetLobbyModSettingsViewModel
+{
+    private bool enableSurrender = true;
+
+    [SyncHostOnly]
+    public bool EnableSurrender
+    {
+        get => enableSurrender;
+        set
+        {
+            if (!CanMutateSetting(nameof(EnableSurrender)) || enableSurrender == value)
+                return;
+            enableSurrender = value;
+            OnPropertyChanged(nameof(EnableSurrender));
+        }
+    }
+
+    internal void ResetSurrender()
+    {
+        EnableSurrender = true;
     }
 }
 

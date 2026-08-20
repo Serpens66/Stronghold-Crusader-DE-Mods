@@ -19,6 +19,7 @@ namespace BugfixesAndQoL
         private CameraMovementModifierHook cameraMovementModifierHook;
         private CustomTrailExtremeGoldFixHook customTrailExtremeGoldFixHook;
         private ResyncHostKickFeature resyncHostKickFeature;
+        private SurrenderFeature surrenderFeature;
         private AssemblyPointPlacementPatch assemblyPointPlacementPatch;
         private PlaguePopularityFix plaguePopularityFix;
         private PlagueTreatmentFadeFix plagueTreatmentFadeFix;
@@ -46,6 +47,17 @@ namespace BugfixesAndQoL
             settingsSubscribed = true;
         }
 
+        public object SurrenderButton => surrenderFeature?.ButtonViewModel;
+
+        public void InitializeSurrenderFeature()
+        {
+            if (surrenderFeature != null)
+                return;
+
+            surrenderFeature = new SurrenderFeature(log, settings);
+            surrenderFeature.Initialize();
+        }
+
         public void InitializeNative(IntPtr newLibraryHandle, ReadOnlySpan<byte> memory, bool isFixedLayoutHashValidated)
         {
             if (nativeLibraryAvailable)
@@ -68,6 +80,8 @@ namespace BugfixesAndQoL
 
         public void ApplySettings()
         {
+            TryInitializeFeature("surrender", InitializeSurrenderFeature);
+            surrenderFeature?.RefreshButtonState();
             TryInitializeFeature("resync host kick", EnsureResyncHostKickFeature);
             TryInitializeFeature("AI castle/settings selection memory", EnsureAiSelectionHook);
             skirmishAiSelectionMemoryHook?.ApplySetting();
@@ -91,6 +105,8 @@ namespace BugfixesAndQoL
             customLordListEnhancementHook = null;
             resyncHostKickFeature?.Dispose();
             resyncHostKickFeature = null;
+            surrenderFeature?.Dispose();
+            surrenderFeature = null;
             DisableAssemblyPointPlacementPatch();
             plaguePopularityFix?.Dispose();
             plaguePopularityFix = null;
