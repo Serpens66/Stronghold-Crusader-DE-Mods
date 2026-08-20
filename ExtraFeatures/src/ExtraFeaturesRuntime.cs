@@ -40,6 +40,7 @@ namespace ExtraFeatures
         private AIEconomyProtectionHook aiEconomyProtectionHook;
         private AIMarketVanillaPriceHook aiMarketVanillaPriceHook;
         private FastRecruitMovementBridge fastRecruitMovementBridge;
+        private MonkAlwaysRunPatch monkAlwaysRunPatch;
         private PlagueDurationPatch plagueDurationPatch;
         private PlagueApothecarySearchRangePatch plagueApothecarySearchRangePatch;
         private IntPtr libraryHandle;
@@ -48,6 +49,7 @@ namespace ExtraFeatures
         private bool fixedLayoutHashValidated;
         private bool quarryFixedLayoutErrorLogged;
         private bool fastRecruitInitializationAttempted;
+        private bool monkAlwaysRunPatchUnavailable;
         private bool hooksSubscribed;
         private bool settingsSubscribed;
         private bool ctrlMarketTradeHookUnavailable;
@@ -106,6 +108,7 @@ namespace ExtraFeatures
 
             InitializePlagueDurationPatch(newLibraryHandle, memory);
             InitializePlagueApothecarySearchRangePatch(newLibraryHandle, memory);
+            InitializeMonkAlwaysRunPatch(newLibraryHandle, memory);
 
             InstallCtrlMarketTradeHook();
             TryRunFeature("fast recruit rally movement", ApplyFastRecruitRallyMovementSetting);
@@ -127,6 +130,7 @@ namespace ExtraFeatures
             TryRunFeature("campfire peasants", ApplyCampfirePeasantsLimit);
             ApplyPlagueDurationSetting();
             TryRunFeature("fast recruit rally movement", ApplyFastRecruitRallyMovementSetting);
+            ApplyMonkAlwaysRunSetting();
         }
 
         public void InstallAIEconomyProtectionHook(IntPtr nativeLibraryHandle, ReadOnlySpan<byte> memory)
@@ -184,6 +188,8 @@ namespace ExtraFeatures
             aiMarketVanillaPriceHook = null;
             fastRecruitMovementBridge?.Dispose();
             fastRecruitMovementBridge = null;
+            monkAlwaysRunPatch?.Dispose();
+            monkAlwaysRunPatch = null;
             plagueDurationPatch?.Dispose();
             plagueDurationPatch = null;
             plagueApothecarySearchRangePatch?.Dispose();
@@ -361,6 +367,7 @@ namespace ExtraFeatures
                     fastRecruitMovementBridge?.Dispose();
                     fastRecruitMovementBridge = null;
                     fastRecruitInitializationAttempted = false;
+                    ApplyMonkAlwaysRunSetting();
                     UnsubscribeHooks();
                 }
                 return;
@@ -402,6 +409,11 @@ namespace ExtraFeatures
                 TryRunFeature("fast recruit rally movement", ApplyFastRecruitRallyMovementSetting);
                 return;
             }
+            if (propertyName == nameof(ExtraFeaturesViewModel.EnableMonksAlwaysRun))
+            {
+                ApplyMonkAlwaysRunSetting();
+                return;
+            }
             if (propertyName == nameof(ExtraFeaturesViewModel.PlagueDurationMultiplier))
             {
                 ApplyPlagueDurationSetting();
@@ -426,6 +438,48 @@ namespace ExtraFeatures
             TryRunFeature("church priest counts", churchPriestCountRuntime.ApplySetting);
             TryRunFeature("campfire peasants", ApplyCampfirePeasantsLimit);
             ApplyPlagueDurationSetting();
+            ApplyMonkAlwaysRunSetting();
+        }
+
+        private void InitializeMonkAlwaysRunPatch(
+            IntPtr nativeLibraryHandle,
+            ReadOnlySpan<byte> memory)
+        {
+            if (monkAlwaysRunPatch != null || monkAlwaysRunPatchUnavailable)
+                return;
+
+            try
+            {
+                monkAlwaysRunPatch = new MonkAlwaysRunPatch(
+                    log,
+                    nativeLibraryHandle,
+                    memory,
+                    fixedLayoutHashValidated);
+                ApplyMonkAlwaysRunSetting();
+                if (!fixedLayoutHashValidated)
+                {
+                    Shared.DebugLogHelper.LogWarning(
+                        log,
+                        "Extra Features Monks Always Run is operating on an unknown " +
+                        "CrusaderDE.dll after its signature, hook span, branch targets, and movement semantics were validated.");
+                }
+            }
+            catch (Exception ex)
+            {
+                try { monkAlwaysRunPatch?.Dispose(); } catch { }
+                monkAlwaysRunPatch = null;
+                monkAlwaysRunPatchUnavailable = true;
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    "Extra Features Monks Always Run is disabled for this process; " +
+                    $"all other features remain available: {ex}");
+            }
+        }
+
+        private void ApplyMonkAlwaysRunSetting()
+        {
+            monkAlwaysRunPatch?.SetEnabled(
+                settings.EnableMod && settings.EnableMonksAlwaysRun);
         }
 
         private void OnStartMap(MapStartEventArgs args)

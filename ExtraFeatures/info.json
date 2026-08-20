@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.18",
+  "Version": "1.0.19",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.19",
+      "Changes": [
+        "Added a synchronized, default-off option that lets both Monk skins use the normal troop running decision and running animation."
+      ]
+    },
     {
       "Version": "1.0.18",
       "Changes": [

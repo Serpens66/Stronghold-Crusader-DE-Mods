@@ -118,6 +118,8 @@ public static class SerpLocalization
     public const string EnablePlagueTargetReservationFixHelp = "SomeSettings.EnablePlagueTargetReservationFixHelp";
     public const string EnableFastRecruitRallyMovement = "SomeSettings.EnableFastRecruitRallyMovement";
     public const string EnableFastRecruitRallyMovementHelp = "SomeSettings.EnableFastRecruitRallyMovementHelp";
+    public const string EnableMonksAlwaysRun = "SomeSettings.EnableMonksAlwaysRun";
+    public const string EnableMonksAlwaysRunHelp = "SomeSettings.EnableMonksAlwaysRunHelp";
     public const string EnableKnightDismount = "SomeSettings.EnableKnightDismount";
     public const string EnableKnightDismountHelp = "SomeSettings.EnableKnightDismountHelp";
     public const string InstantHorse = "SomeSettings.InstantHorse";
@@ -413,6 +415,8 @@ public static class SerpLocalization
         { EnablePlagueTargetReservationFixHelp, "Prevents different apothecaries from selecting plague clouds covered by the same expected area treatment." },
         { EnableFastRecruitRallyMovement, "Recruits Run to Rally Points" },
         { EnableFastRecruitRallyMovementHelp, "Newly recruited player and AI units move to their rally points using their own Vanilla Fast pace and animation while keeping terrain and state modifiers." },
+        { EnableMonksAlwaysRun, "Monks Always Run" },
+        { EnableMonksAlwaysRunHelp, "Lets Monks use the normal troop running decision and running animation instead of their special walking restriction. Applies to both the Fighting Monk and Temple Guard skins." },
         { EnableKnightDismount, "Enable knight mount/dismount buttons" },
         { EnableKnightDismountHelp, "Adds command buttons to mount swordsmen and dismount mounted knights. This feature is temporarily unavailable in multiplayer until Script Extender 1.50.0 Chore support is adopted." },
         { InstantHorse, "Instant Horse" },

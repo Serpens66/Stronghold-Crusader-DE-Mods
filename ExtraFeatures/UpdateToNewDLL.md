@@ -28,6 +28,7 @@ Extender fields and the bidirectional stable-link API, so it has no private RVA.
 | `AutoMarketSellStatisticPattern` | `0xD0484` | scan; statistic table |
 | `LifetimePattern` | `0x9A164` | scan; lifetime immediate at `+9` |
 | `BuildingDistanceComparisonPattern` | `0x9F86B` | scan; distance context hook |
+| `MovementDecisionPattern` (Monk handler) | `0x1513E6` | executable-section unique scan; 20-byte inline decision hook |
 | worker-table byte pattern | `0x2E4E58` | full-image data scan; table begins `0x2E4DE0` |
 | `SetupBuildingEntrancesOffsetPattern` | `0xC0270` | fixed manager/candidate layout |
 
@@ -59,6 +60,20 @@ the loaded image and their surrounding native contract.
    - buy callers still include the AI gold decision and the actual purchase,
      while the sell helper still supplies the transaction proceeds.
 9. Update every RVA and only then approve the shared hash.
+10. Revalidate the Monk handler at `0x151040` and its movement decision:
+    - the hook at `0x1513E6` remains three complete instructions of `9+2+9`
+      bytes and the following `je` remains at `0x1513FA`;
+    - no direct control transfer enters the open interval
+      `0x1513E6..0x1513FA`;
+    - walking remains `state=1, speedBonus=0` at `0x151413`, while running
+      remains `state=0x81, speedBonus=1` at `0x1513FC`;
+    - the enabled branch still matches the official Improved-Spearmen
+      translation of the ordinary Archer decision (`+0x914`, tribe `+0x582`,
+      and `+0xA64`), while the disabled branch reproduces Monk Vanilla
+      (`+0x914` and `+0x99E`);
+    - Monk type 37 still dispatches to this handler and both
+      `GM_BODY_FIGHTING_MONK` and `GM_BODY_TEMPLE_GUARD` remain material/skin
+      selections inside that same handler.
 
 ## Audit for Steam build 24651686
 
@@ -72,6 +87,31 @@ no stable-release RVA or pattern to update. `setupBuildingEntrancesOffset`
 still writes the candidate pair at manager
 `+0x31B7D0/+0x31B7D4` with the same ABI and rotation cases. Functional setting,
 reload and multiplayer tests remain post-build game smoke tests.
+
+The Monk update handler starts at RVA `0x151040`; unit-dispatch entry 37 points
+to it. Its audited movement block chooses walking at RVA `0x151413`
+(`state=1`, speed bonus `0`) or running at RVA `0x1513FC` (`state=0x81`, speed
+bonus `1`). The new inline hook starts at RVA `0x1513E6`, replaces exactly
+`9+2+9=20` bytes, and ends before the original conditional jump at
+`0x1513FA`. Direct branches across all executable sections were checked and no
+external branch targets the interior of this span; the existing predecessor
+targets the hook start, which remains a basic-block boundary. The concrete
+`X64InlineHook` writes a 14-byte absolute indirect jump, so the validated
+20-byte span fully contains its detour without splitting an instruction.
+
+When the setting is disabled, the generated branch reproduces the two original
+Monk comparisons at unit fields `+0x914` and `+0x99E`. When enabled, it uses the
+ordinary Archer walk/run decision already translated for the official Improved
+Spearmen option: unit `+0x914`, tribe state `+0x582`, and unit `+0xA64`. This is
+the necessary distinction from Fast Recruit Rally Movement: forcing Monk's
+maximum Vanilla cadence values alone still selects the slow walking state and
+animation. The hook's unmanaged enable flag is initialized to zero, so merely
+loading the mod does not alter Monk behavior.
+
+Both Monk appearances are covered without a separate animation patch. The
+same type-37 handler selects either `GM_BODY_FIGHTING_MONK` or
+`GM_BODY_TEMPLE_GUARD` as its material before reaching this shared movement
+state machine; both skins therefore consume the same running state `0x81`.
 
 The hovel protection now detours the AI-only function at `0x3B1D0`. Its single
 direct caller is the AI update at call-site RVA `0x53C33`; the routine requests
