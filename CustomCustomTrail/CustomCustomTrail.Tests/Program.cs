@@ -28,6 +28,7 @@ var tests = new (string Name, Action Run)[]
     ("invalid mod-settings documents are rejected", TestInvalidModSettingsDocuments),
     ("atomic sidecar write replaces existing file", TestAtomicSidecarWrite),
     ("Trail coordinator ownership is centralized", TestCoordinatorOwnership),
+    ("Steam Workshop discovery waits for Steamworks", TestSteamWorkshopReadinessGate),
     ("local activation setting gates the complete runtime", TestLocalActivationSetting),
     ("Trail Maker Coop export is integrated", TestCoopExporterIntegration),
     ("Coop package JSON is Unity dependency-free", TestDependencyFreeCoopJson),
@@ -298,6 +299,32 @@ static void TestCoordinatorOwnership()
         "Custom Trail setup does not suppress transient selection-sidecar loads");
     Assert(!coordinator.Contains("all Trail mods will be disabled"),
         "capture failures can still overwrite a sidecar with an all-disabled fallback");
+}
+
+static void TestSteamWorkshopReadinessGate()
+{
+    string projectRoot = FindProjectRoot();
+    string workspaceRoot = Directory.GetParent(projectRoot)?.FullName ??
+        throw new InvalidOperationException("workspace root missing");
+    string workshopPaths = File.ReadAllText(Path.Combine(workspaceRoot, "Shared", "WorkshopContentPaths.cs"));
+    string castleSettings = File.ReadAllText(Path.Combine(
+        workspaceRoot,
+        "CastlePlanner",
+        "src",
+        "CastlePlannerSettingsViewModel.cs"));
+
+    int readinessGate = workshopPaths.IndexOf("if (!IsSteamworksReady())", StringComparison.Ordinal);
+    int workshopCall = workshopPaths.IndexOf(
+        "Platform_Workshop.Instance.GetListOfSubscribedItemsPaths()",
+        StringComparison.Ordinal);
+    Assert(readinessGate >= 0 && workshopCall > readinessGate,
+        "Workshop enumeration can still call Steam before the readiness gate");
+    Assert(workshopPaths.Contains("SteamManagerInstanceField?.GetValue(null)") &&
+        workshopPaths.Contains("SteamManagerInitializedField?.GetValue(instance)"),
+        "Steam readiness no longer inspects Vanilla's existing manager without creating one");
+    Assert(castleSettings.Contains("Shared.WorkshopContentPaths.IsSteamworksReady()") &&
+        castleSettings.Contains("return candidate;"),
+        "CastlePlanner can discard a saved Workshop AIV before the deferred refresh");
 }
 
 static void TestLocalActivationSetting()

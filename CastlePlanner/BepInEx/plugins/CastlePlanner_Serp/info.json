@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "CastlePlanner",
   "Description": "Displays a local visual AIVJSON castle blueprint or spawns it through the game's native AIV pipeline.",
-  "Version": "0.4.6",
+  "Version": "0.4.7",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "0.4.7",
+      "Changes": [
+        "Defers Steam Workshop discovery until Steamworks is initialized and preserves saved Workshop AIV selections until the complete dropdown refresh."
+      ]
+    },
     {
       "Version": "0.4.6",
       "Changes": [

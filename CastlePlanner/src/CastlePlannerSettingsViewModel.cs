@@ -604,6 +604,11 @@ namespace CastlePlanner
 
             if (!string.IsNullOrEmpty(candidate))
             {
+                // The first catalog scan intentionally runs before Steam is ready. Preserve a
+                // persisted Workshop selection until the dropdown's later complete refresh.
+                if (!Shared.WorkshopContentPaths.IsSteamworksReady())
+                    return candidate;
+
                 Shared.DebugLogHelper.LogWarning(
                     log,
                     $"Stored AIVJSON is no longer available: '{candidate}'.");
