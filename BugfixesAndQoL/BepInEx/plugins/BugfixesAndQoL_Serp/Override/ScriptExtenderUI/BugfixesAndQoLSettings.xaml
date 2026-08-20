@@ -89,6 +89,12 @@
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding EnableEnemyProximityBulldozeCursorFixText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox>
+      <CheckBox IsChecked="{Binding EnableIngameSteamInvitePrompt, Mode=TwoWay}"
+                Foreground="White"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableIngameSteamInvitePromptHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding EnableIngameSteamInvitePromptText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox>
       <CheckBox IsChecked="{Binding AllowMinimapWhilePlacingBuilding, Mode=TwoWay}"
                 Foreground="White"
                 ToolTipService.ShowDuration="60000" ToolTip="{Binding AllowMinimapWhilePlacingBuildingHelpText}"

@@ -26,10 +26,11 @@ namespace BugfixesAndQoL
 
         public const string PluginGuid = "BugfixesAndQoL_Serp";
         public const string PluginName = "Bugfixes and QoL";
-        public const string PluginVersion = "1.0.30";
+        public const string PluginVersion = "1.0.31";
 
         private static DisplayResolutionPersistenceHook displayResolutionPersistenceHook;
         private static DisplayResolutionDiagnostic displayResolutionDiagnostic;
+        private static SteamLobbyInvitePrompt steamLobbyInvitePrompt;
         private BugfixesAndQoLRuntime runtime;
         private object observedLobby;
         private int observedLobbyMemberCount = -1;
@@ -109,7 +110,10 @@ namespace BugfixesAndQoL
             MapLoaderR3EventHooks.OnStartMap.Observable.Subscribe(args =>
             {
                 if (args.Phase == EventHookPhase.Post)
+                {
                     Settings.TrySetLocalPlayerId(GamePlayerManagerAPI.Instance.GetLocalPlayerId());
+                    steamLobbyInvitePrompt?.TryInitialize();
+                }
             });
             RefreshLobbyLocalPlayerId();
         }
@@ -179,6 +183,16 @@ namespace BugfixesAndQoL
             catch (Exception ex)
             {
                 Shared.DebugLogHelper.LogError(Logger, $"Bugfixes and QoL settings UI registration failed: {ex}");
+            }
+
+            try
+            {
+                steamLobbyInvitePrompt = new SteamLobbyInvitePrompt(Logger, Settings);
+                steamLobbyInvitePrompt.TryInitialize();
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(Logger, $"Bugfixes and QoL Steam lobby-invite prompt could not be initialized; Vanilla invite handling remains active: {ex}");
             }
 
             try

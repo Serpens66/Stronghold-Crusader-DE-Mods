@@ -31,6 +31,7 @@ namespace BugfixesAndQoL
         private readonly LocalPerPlayerSetting<bool> enableMarketKeyMainMenuFix = new LocalPerPlayerSetting<bool>(true);
         private readonly LocalPerPlayerSetting<bool> enableAutoTradeSellZeroFix = new LocalPerPlayerSetting<bool>(true);
         private readonly LocalPerPlayerSetting<bool> enableEnemyProximityBulldozeCursorFix = new LocalPerPlayerSetting<bool>(true);
+        private readonly LocalPerPlayerSetting<bool> enableIngameSteamInvitePrompt = new LocalPerPlayerSetting<bool>(true);
         private readonly LocalPerPlayerSetting<bool> allowMinimapWhilePlacingBuilding = new LocalPerPlayerSetting<bool>(true);
         private readonly LocalPerPlayerSetting<bool> allowCameraMovementWithModifiers = new LocalPerPlayerSetting<bool>(true);
         private readonly LocalPerPlayerSetting<bool> hdMarketView = new LocalPerPlayerSetting<bool>(true);
@@ -82,6 +83,8 @@ namespace BugfixesAndQoL
         public string EnableAutoTradeSellZeroFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableAutoTradeSellZeroFixHelp");
         public string EnableEnemyProximityBulldozeCursorFixText => SerpLocalization.Get("BugfixesAndQoL.EnableEnemyProximityBulldozeCursorFix");
         public string EnableEnemyProximityBulldozeCursorFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableEnemyProximityBulldozeCursorFixHelp");
+        public string EnableIngameSteamInvitePromptText => SerpLocalization.Get("BugfixesAndQoL.EnableIngameSteamInvitePrompt");
+        public string EnableIngameSteamInvitePromptHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableIngameSteamInvitePromptHelp");
         public string EnableAssemblyPointPlacementFixText => SerpLocalization.Get("BugfixesAndQoL.EnableAssemblyPointPlacementFix");
         public string EnableAssemblyPointPlacementFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableAssemblyPointPlacementFixHelp");
         public string EnableCustomTrailExtremeGoldFixText => SerpLocalization.Get("BugfixesAndQoL.EnableCustomTrailExtremeGoldFix");
@@ -117,6 +120,7 @@ namespace BugfixesAndQoL
         public bool[] EnableMarketKeyMainMenuFixData => enableMarketKeyMainMenuFix.Data;
         public bool[] EnableAutoTradeSellZeroFixData => enableAutoTradeSellZeroFix.Data;
         public bool[] EnableEnemyProximityBulldozeCursorFixData => enableEnemyProximityBulldozeCursorFix.Data;
+        public bool[] EnableIngameSteamInvitePromptData => enableIngameSteamInvitePrompt.Data;
         public bool[] EnableClientFeaturesData => enableClientFeatures.Data;
         public bool[] AllowMinimapWhilePlacingBuildingData => allowMinimapWhilePlacingBuilding.Data;
         public bool[] AllowCameraMovementWithModifiersData => allowCameraMovementWithModifiers.Data;
@@ -149,6 +153,13 @@ namespace BugfixesAndQoL
         {
             get => enableEnemyProximityBulldozeCursorFix.Value;
             set => SetPlayerSetting(enableEnemyProximityBulldozeCursorFix, value, nameof(EnableEnemyProximityBulldozeCursorFix));
+        }
+
+        [SyncPerPlayer]
+        public bool EnableIngameSteamInvitePrompt
+        {
+            get => enableIngameSteamInvitePrompt.Value;
+            set => SetPlayerSetting(enableIngameSteamInvitePrompt, value, nameof(EnableIngameSteamInvitePrompt));
         }
 
         [SyncPerPlayer]
@@ -312,6 +323,7 @@ namespace BugfixesAndQoL
             EnableMarketKeyMainMenuFix = true;
             EnableAutoTradeSellZeroFix = true;
             EnableEnemyProximityBulldozeCursorFix = true;
+            EnableIngameSteamInvitePrompt = true;
             EnableCustomTrailExtremeGoldFix = true;
             PreserveDisplayResolution = true;
         }
@@ -338,6 +350,7 @@ namespace BugfixesAndQoL
             enableMarketKeyMainMenuFix.TrySetLocalPlayerId(playerId);
             enableAutoTradeSellZeroFix.TrySetLocalPlayerId(playerId);
             enableEnemyProximityBulldozeCursorFix.TrySetLocalPlayerId(playerId);
+            enableIngameSteamInvitePrompt.TrySetLocalPlayerId(playerId);
             allowMinimapWhilePlacingBuilding.TrySetLocalPlayerId(playerId);
             allowCameraMovementWithModifiers.TrySetLocalPlayerId(playerId);
             hdMarketView.TrySetLocalPlayerId(playerId);

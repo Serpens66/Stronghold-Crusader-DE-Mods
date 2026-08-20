@@ -24,6 +24,7 @@ In multiplayer, gameplay-related settings are controlled by the host and synchro
 [*] - Allows rally points to be placed anywhere.
 [*] - Fixes incorrectly tripled starting gold in custom Crusader Trails.
 [*][b]QoL[/b]:
+[*] - Ingame Popup for multiplayer invites, to join without tabbing out.
 [*] - Allows camera movement while Ctrl or Alt is held.
 [*] - Improves apothecary target reservation so multiple apothecaries do not treat the same plague area.
 [*] - Remembers each AI lord’s selected AIV list, AIV rotation, and custom AIC settings across singleplayer and multiplayer lobbies.

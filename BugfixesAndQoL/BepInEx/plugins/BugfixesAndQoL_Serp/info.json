@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.30",
+  "Version": "1.0.31",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.31",
+      "Changes": [
+        "Added a default-enabled local in-game prompt for incoming Steam lobby invitations, with direct acceptance through Vanilla's leave-and-join flow."
+      ]
+    },
     {
       "Version": "1.0.30",
       "Changes": [
