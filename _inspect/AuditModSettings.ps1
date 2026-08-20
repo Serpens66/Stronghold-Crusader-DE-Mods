@@ -46,6 +46,10 @@ foreach ($entry in $settings.GetEnumerator()) {
             if (([string]::IsNullOrWhiteSpace($tooltip) -and -not $hasExplicitTooltip) -or $duration -ne '60000') {
                 throw "$($entry.Key): $elementName without a nonempty tooltip and exact 60000 ms duration."
             }
+            if ($elementName -eq 'TextBox' -and
+                $element.GetAttribute('KeyboardCaptureBinding.Enabled', 'clr-namespace:SHCDESE.UI;assembly=SHCDESE') -ne 'True') {
+                throw "$($entry.Key): TextBox without ui:KeyboardCaptureBinding.Enabled=True."
+            }
             if ($hasExplicitTooltip -and
                 -not $explicitTooltip.GetAttribute('Style').Contains('ModSettingsToolTipStyle')) {
                 throw "$($entry.Key): explicit $elementName tooltip does not use the shared modsettings tooltip style."
@@ -124,15 +128,62 @@ foreach ($entry in $settings.GetEnumerator()) {
 $toolTipPresentationPath = Join-Path $workspace 'Shared/ToolTipPresentation.cs'
 $toolTipPresentation = [IO.File]::ReadAllText($toolTipPresentationPath)
 foreach ($required in @(
-    'private const float ReferenceHeight = 1440.0f;',
-    'private const float BaseFontSize = 30.0f;',
-    'private static float ResolutionScale',
-    'Math.Max(1.0f, Screen.height / ReferenceHeight)',
-    'public static float FontSize',
-    'public static float MaximumWidth',
-    '1000.0f * ResolutionScale')) {
+    'public static class ToolTipPresentation',
+    'SE_ToolTip',
+    'public static float FontSize => 25.0f;',
+    'public static float MaximumWidth => 1000.0f;')) {
     if (-not $toolTipPresentation.Contains($required)) {
-        throw "Shared tooltip resolution scaling marker is missing: $required"
+        throw "Shared fixed tooltip presentation marker is missing: $required"
+    }
+}
+
+foreach ($forbidden in @(
+    'DependencyProperty FontSizeProperty',
+    'DependencyProperty MaximumWidthProperty',
+    'UnityEngine',
+    'Screen.',
+    'ResolutionScale',
+    'DiagnosticLog',
+    'SERP_TOOLTIP_DIAGNOSTIC',
+    'ToolTipFontSizeExtension',
+    'ToolTipMaximumWidthExtension')) {
+    if ($toolTipPresentation.Contains($forbidden)) {
+        throw "Obsolete tooltip implementation marker is still present: $forbidden"
+    }
+}
+
+$currentTooltipXaml = @(
+    'BugfixesAndQoL/Override/ScriptExtenderUI/BugfixesAndQoLSettings.xaml',
+    'BugfixesAndQoL/BepInEx/plugins/BugfixesAndQoL_Serp/Override/ScriptExtenderUI/BugfixesAndQoLSettings.xaml',
+    'BuildingCosts/BepInEx/plugins/BuildingCosts_Serp/Override/ScriptExtenderUI/BuildingCostsSettings.xaml',
+    'BuildingLimit/BepInEx/plugins/BuildingLimit_Serp/Override/ScriptExtenderUI/BuildingLimitSettings.xaml',
+    'CastlePlanner/BepInEx/plugins/CastlePlanner_Serp/Override/ScriptExtenderUI/CastlePlannerSettings.xaml',
+    'CustomCustomTrail/Override/ScriptExtenderUI/CustomCustomTrailSettings.xaml',
+    'CustomCustomTrail/BepInEx/plugins/CustomCustomTrail_Serp/Override/ScriptExtenderUI/CustomCustomTrailSettings.xaml',
+    'ExtraFeatures/Override/ScriptExtenderUI/ExtraFeaturesSettings.xaml',
+    'ExtraFeatures/BepInEx/plugins/ExtraFeatures_Serp/Override/ScriptExtenderUI/ExtraFeaturesSettings.xaml',
+    'ImprovedHunters/BepInEx/plugins/ImprovedHunters_Serp/Override/ScriptExtenderUI/ImprovedHuntersSettings.xaml',
+    'RandomEvents/Override/ScriptExtenderUI/RandomEventsSettings.xaml',
+    'RandomEvents/BepInEx/plugins/RandomEvents_Serp/Override/ScriptExtenderUI/RandomEventsSettings.xaml',
+    'SerpsModsHost/Override/ScriptExtenderUI/SerpsModsStatus.xaml',
+    'SerpsModsHost/BepInEx/plugins/SerpsMods_Serp/Override/ScriptExtenderUI/SerpsModsStatus.xaml',
+    'StartConditions/BepInEx/plugins/StartConditions_Serp/Override/ScriptExtenderUI/StartConditionsSettings.xaml',
+    'UnitCosts/BepInEx/plugins/UnitCosts_Serp/Override/ScriptExtenderUI/UnitCostsSettings.xaml',
+    'UnitLimit/BepInEx/plugins/UnitLimit_Serp/Override/ScriptExtenderUI/UnitLimitSettings.xaml')
+foreach ($relativeXamlPath in $currentTooltipXaml) {
+    $xamlPath = Join-Path $workspace $relativeXamlPath
+    $xamlText = [IO.File]::ReadAllText($xamlPath)
+    foreach ($required in @(
+        'x:Static shared:ToolTipPresentation.FontSize',
+        'x:Static shared:ToolTipPresentation.MaximumWidth')) {
+        if (-not $xamlText.Contains($required)) {
+            throw "${relativeXamlPath}: fixed shared tooltip marker is missing: $required"
+        }
+    }
+    foreach ($forbidden in @('shared:ToolTipFontSize', 'shared:ToolTipMaximumWidth')) {
+        if ($xamlText.Contains($forbidden)) {
+            throw "${relativeXamlPath}: obsolete tooltip markup extension is still present: $forbidden"
+        }
     }
 }
 

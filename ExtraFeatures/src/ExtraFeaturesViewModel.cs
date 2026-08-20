@@ -137,11 +137,11 @@ namespace ExtraFeatures
         [SyncHostOnly] public int GoldRefundPercent { get => goldRefundPercent; set => SetIntSetting(ref goldRefundPercent, value, -1, 100, nameof(GoldRefundPercent), nameof(GoldRefundPercentValueText)); }
         [SyncHostOnly] public bool KeepStorageContent { get => keepStorageContent; set => SetSetting(ref keepStorageContent, value, nameof(KeepStorageContent)); }
 
-        public string WoodRefundPercentValueText => FormatRefundPercent(WoodRefundPercent);
-        public string StoneRefundPercentValueText => FormatRefundPercent(StoneRefundPercent);
-        public string IronRefundPercentValueText => FormatRefundPercent(IronRefundPercent);
-        public string PitchRefundPercentValueText => FormatRefundPercent(PitchRefundPercent);
-        public string GoldRefundPercentValueText => FormatRefundPercent(GoldRefundPercent);
+        public string WoodRefundPercentValueText { get => FormatRefundPercent(WoodRefundPercent); set => SetIntValueText(value, parsed => WoodRefundPercent = parsed, nameof(WoodRefundPercentValueText)); }
+        public string StoneRefundPercentValueText { get => FormatRefundPercent(StoneRefundPercent); set => SetIntValueText(value, parsed => StoneRefundPercent = parsed, nameof(StoneRefundPercentValueText)); }
+        public string IronRefundPercentValueText { get => FormatRefundPercent(IronRefundPercent); set => SetIntValueText(value, parsed => IronRefundPercent = parsed, nameof(IronRefundPercentValueText)); }
+        public string PitchRefundPercentValueText { get => FormatRefundPercent(PitchRefundPercent); set => SetIntValueText(value, parsed => PitchRefundPercent = parsed, nameof(PitchRefundPercentValueText)); }
+        public string GoldRefundPercentValueText { get => FormatRefundPercent(GoldRefundPercent); set => SetIntValueText(value, parsed => GoldRefundPercent = parsed, nameof(GoldRefundPercentValueText)); }
 
         [SyncHostOnly] public double MultiplyGoodsGainAI { get => multiplyGoodsGainAI; set => SetDoubleSetting(ref multiplyGoodsGainAI, value, 0.0, 5.0, nameof(MultiplyGoodsGainAI), nameof(MultiplyGoodsGainAIText)); }
         [SyncHostOnly] public double MultiplyGoodsGainHuman { get => multiplyGoodsGainHuman; set => SetDoubleSetting(ref multiplyGoodsGainHuman, value, 0.0, 5.0, nameof(MultiplyGoodsGainHuman), nameof(MultiplyGoodsGainHumanText)); }
@@ -182,18 +182,22 @@ namespace ExtraFeatures
         [SyncHostOnly] public bool PreventEmergencyDemolition { get => preventEmergencyDemolition; set => SetSetting(ref preventEmergencyDemolition, value, nameof(PreventEmergencyDemolition)); }
         [SyncHostOnly] public bool PreventHovelDeletion { get => preventHovelDeletion; set => SetSetting(ref preventHovelDeletion, value, nameof(PreventHovelDeletion)); }
 
-        public string MultiplyGoodsGainAIText => FormatDecimalMultiplier(MultiplyGoodsGainAI);
-        public string MultiplyGoodsGainHumanText => FormatDecimalMultiplier(MultiplyGoodsGainHuman);
-        public string MultiplyGoodsGainInMoneyAIText => FormatDecimalMultiplier(MultiplyGoodsGainInMoneyAI);
-        public string MultiplyGoodsGainInMoneyHumanText => FormatDecimalMultiplier(MultiplyGoodsGainInMoneyHuman);
-        public string MarketBuyPriceMultiplierValueText => MarketBuyPriceMultiplier.ToString("0.0", CultureInfo.InvariantCulture) + "x";
-        public string MarketSellPriceMultiplierValueText => MarketSellPriceMultiplier.ToString("0.0", CultureInfo.InvariantCulture) + "x";
-        public string PlagueDurationMultiplierValueText => PlagueDurationMultiplier.ToString("0.0", CultureInfo.InvariantCulture) + "x";
-        public string ApothecaryPlagueSearchDistanceValueText => string.Format(
-            CultureInfo.CurrentCulture,
-            SerpLocalization.Get("SomeSettings.TilesValueFormat"),
-            ApothecaryPlagueSearchDistance);
-        public string CampfirePeasantsLimitText => CampfirePeasantsLimit.ToString(CultureInfo.InvariantCulture);
+        public string MultiplyGoodsGainAIText { get => FormatDecimalMultiplier(MultiplyGoodsGainAI); set => SetDoubleValueText(value, parsed => MultiplyGoodsGainAI = parsed, nameof(MultiplyGoodsGainAIText)); }
+        public string MultiplyGoodsGainHumanText { get => FormatDecimalMultiplier(MultiplyGoodsGainHuman); set => SetDoubleValueText(value, parsed => MultiplyGoodsGainHuman = parsed, nameof(MultiplyGoodsGainHumanText)); }
+        public string MultiplyGoodsGainInMoneyAIText { get => FormatDecimalMultiplier(MultiplyGoodsGainInMoneyAI); set => SetDoubleValueText(value, parsed => MultiplyGoodsGainInMoneyAI = parsed, nameof(MultiplyGoodsGainInMoneyAIText)); }
+        public string MultiplyGoodsGainInMoneyHumanText { get => FormatDecimalMultiplier(MultiplyGoodsGainInMoneyHuman); set => SetDoubleValueText(value, parsed => MultiplyGoodsGainInMoneyHuman = parsed, nameof(MultiplyGoodsGainInMoneyHumanText)); }
+        public string MarketBuyPriceMultiplierValueText { get => MarketBuyPriceMultiplier.ToString("0.0", CultureInfo.InvariantCulture) + "x"; set => SetDoubleValueText(value, parsed => MarketBuyPriceMultiplier = parsed, nameof(MarketBuyPriceMultiplierValueText)); }
+        public string MarketSellPriceMultiplierValueText { get => MarketSellPriceMultiplier.ToString("0.0", CultureInfo.InvariantCulture) + "x"; set => SetDoubleValueText(value, parsed => MarketSellPriceMultiplier = parsed, nameof(MarketSellPriceMultiplierValueText)); }
+        public string PlagueDurationMultiplierValueText { get => PlagueDurationMultiplier.ToString("0.0", CultureInfo.InvariantCulture) + "x"; set => SetDoubleValueText(value, parsed => PlagueDurationMultiplier = parsed, nameof(PlagueDurationMultiplierValueText)); }
+        public string ApothecaryPlagueSearchDistanceValueText
+        {
+            get => string.Format(
+                CultureInfo.CurrentCulture,
+                SerpLocalization.Get("SomeSettings.TilesValueFormat"),
+                ApothecaryPlagueSearchDistance);
+            set => SetIntValueText(value, parsed => ApothecaryPlagueSearchDistance = parsed, nameof(ApothecaryPlagueSearchDistanceValueText));
+        }
+        public string CampfirePeasantsLimitText { get => CampfirePeasantsLimit.ToString(CultureInfo.InvariantCulture); set => SetIntValueText(value, parsed => CampfirePeasantsLimit = parsed, nameof(CampfirePeasantsLimitText)); }
 
         private void ResetToDefault()
         {
@@ -428,6 +432,23 @@ namespace ExtraFeatures
             OnPropertyChanged(propertyName);
             if (!string.IsNullOrEmpty(textPropertyName))
                 OnPropertyChanged(textPropertyName);
+        }
+
+        private void SetIntValueText(string text, Action<int> setValue, string textPropertyName)
+        {
+            if (Shared.NumericTextInput.TryParseInt(text, out int parsed))
+                setValue(parsed);
+
+            // Invalid and clamped input returns to the authoritative formatted value.
+            OnPropertyChanged(textPropertyName);
+        }
+
+        private void SetDoubleValueText(string text, Action<double> setValue, string textPropertyName)
+        {
+            if (Shared.NumericTextInput.TryParseDouble(text, out double parsed))
+                setValue(parsed);
+
+            OnPropertyChanged(textPropertyName);
         }
 
         private static string FormatRefundPercent(int percent) =>

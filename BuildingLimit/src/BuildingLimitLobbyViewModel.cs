@@ -248,8 +248,8 @@ MAPPER_POND1=-1";
         {
             if (value < -1)
                 return -1;
-            if (value > 10000)
-                return 10000;
+            if (value > 5000)
+                return 5000;
             return value;
         }
 
@@ -402,13 +402,24 @@ MAPPER_POND1=-1";
 
                     int clamped = ClampLimit(value);
                     if (limit == clamped)
+                    {
+                        if (value != clamped)
+                            OnPropertyChanged(nameof(LimitText));
                         return;
+                    }
 
                     limit = clamped;
                     OnPropertyChanged();
                     OnPropertyChanged(nameof(LimitText));
+                    OnPropertyChanged(nameof(SliderLimit));
                     changed?.Invoke();
                 }
+            }
+
+            public int SliderLimit
+            {
+                get => limit > 100 ? 100 : limit;
+                set => Limit = value;
             }
 
             public string LimitText

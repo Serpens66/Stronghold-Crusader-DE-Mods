@@ -13,8 +13,8 @@ namespace UnitCosts
         {
             if (value < -1)
                 return -1;
-            if (value > 1000)
-                return 1000;
+            if (value > 10000)
+                return 10000;
             return value;
         }
     }

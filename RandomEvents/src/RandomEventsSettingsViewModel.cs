@@ -76,31 +76,35 @@ namespace RandomEvents
         public string GranaryTheftText => EventText("GranaryTheft");
         public string FireText => EventText("Fire");
 
-        public string IntervalMonthsValueText => FormatLocalizedValue("RandomEvents.MonthsValueFormat", IntervalMonths);
-        public string CooldownMonthsValueText => FormatLocalizedValue("RandomEvents.MonthsValueFormat", CooldownMonths);
-        public string FairChanceValueText => FormatPercent(FairChance);
-        public string PlagueChanceValueText => FormatPercent(PlagueChance);
-        public string WheatInfestationChanceValueText => FormatPercent(WheatInfestationChance);
-        public string HopsBeetlesChanceValueText => FormatPercent(HopsBeetlesChance);
-        public string AppleBlightChanceValueText => FormatPercent(AppleBlightChance);
-        public string TreeBlightChanceValueText => FormatPercent(TreeBlightChance);
-        public string RabbitsChanceValueText => FormatPercent(RabbitsChance);
-        public string LionAttackChanceValueText => FormatPercent(LionAttackChance);
-        public string BanditsChanceValueText => FormatPercent(BanditsChance);
-        public string MadCowsChanceValueText => FormatPercent(MadCowsChance);
-        public string ArchersChanceValueText => FormatPercent(ArchersChance);
-        public string MarriageChanceValueText => FormatPercent(MarriageChance);
-        public string BardChanceValueText => FormatPercent(BardChance);
-        public string GranaryTheftChanceValueText => FormatPercent(GranaryTheftChance);
-        public string FireChanceValueText => FormatPercent(FireChance);
-        public string LionMinValueText => FormatLocalizedValue("RandomEvents.GroupsValueFormat", LionMin);
-        public string LionMaxValueText => FormatLocalizedValue("RandomEvents.GroupsValueFormat", LionMax);
-        public string BanditMinValueText => FormatFactor(BanditMin);
-        public string BanditMaxValueText => FormatFactor(BanditMax);
-        public string ArcherMinValueText => FormatFactor(ArcherMin);
-        public string ArcherMaxValueText => FormatFactor(ArcherMax);
-        public string TheftMinValueText => FormatPercent(TheftMin);
-        public string TheftMaxValueText => FormatPercent(TheftMax);
+        public string IntervalMonthsValueText { get => FormatLocalizedValue("RandomEvents.MonthsValueFormat", IntervalMonths); set => SetIntValueText(value, parsed => IntervalMonths = parsed, nameof(IntervalMonthsValueText)); }
+        public string CooldownMonthsValueText { get => FormatLocalizedValue("RandomEvents.MonthsValueFormat", CooldownMonths); set => SetIntValueText(value, parsed => CooldownMonths = parsed, nameof(CooldownMonthsValueText)); }
+        public string FairChanceValueText { get => FormatPercent(FairChance); set => SetIntValueText(value, parsed => FairChance = parsed, nameof(FairChanceValueText)); }
+        public string PlagueChanceValueText { get => FormatPercent(PlagueChance); set => SetIntValueText(value, parsed => PlagueChance = parsed, nameof(PlagueChanceValueText)); }
+        public string WheatInfestationChanceValueText { get => FormatPercent(WheatInfestationChance); set => SetIntValueText(value, parsed => WheatInfestationChance = parsed, nameof(WheatInfestationChanceValueText)); }
+        public string HopsBeetlesChanceValueText { get => FormatPercent(HopsBeetlesChance); set => SetIntValueText(value, parsed => HopsBeetlesChance = parsed, nameof(HopsBeetlesChanceValueText)); }
+        public string AppleBlightChanceValueText { get => FormatPercent(AppleBlightChance); set => SetIntValueText(value, parsed => AppleBlightChance = parsed, nameof(AppleBlightChanceValueText)); }
+        public string TreeBlightChanceValueText { get => FormatPercent(TreeBlightChance); set => SetIntValueText(value, parsed => TreeBlightChance = parsed, nameof(TreeBlightChanceValueText)); }
+        public string RabbitsChanceValueText { get => FormatPercent(RabbitsChance); set => SetIntValueText(value, parsed => RabbitsChance = parsed, nameof(RabbitsChanceValueText)); }
+        public string LionAttackChanceValueText { get => FormatPercent(LionAttackChance); set => SetIntValueText(value, parsed => LionAttackChance = parsed, nameof(LionAttackChanceValueText)); }
+        public string BanditsChanceValueText { get => FormatPercent(BanditsChance); set => SetIntValueText(value, parsed => BanditsChance = parsed, nameof(BanditsChanceValueText)); }
+        public string MadCowsChanceValueText { get => FormatPercent(MadCowsChance); set => SetIntValueText(value, parsed => MadCowsChance = parsed, nameof(MadCowsChanceValueText)); }
+        public string ArchersChanceValueText { get => FormatPercent(ArchersChance); set => SetIntValueText(value, parsed => ArchersChance = parsed, nameof(ArchersChanceValueText)); }
+        public string MarriageChanceValueText { get => FormatPercent(MarriageChance); set => SetIntValueText(value, parsed => MarriageChance = parsed, nameof(MarriageChanceValueText)); }
+        public string BardChanceValueText { get => FormatPercent(BardChance); set => SetIntValueText(value, parsed => BardChance = parsed, nameof(BardChanceValueText)); }
+        public string GranaryTheftChanceValueText { get => FormatPercent(GranaryTheftChance); set => SetIntValueText(value, parsed => GranaryTheftChance = parsed, nameof(GranaryTheftChanceValueText)); }
+        public string FireChanceValueText { get => FormatPercent(FireChance); set => SetIntValueText(value, parsed => FireChance = parsed, nameof(FireChanceValueText)); }
+        public string PlagueMinValueText { get => PlagueMin.ToString(CultureInfo.InvariantCulture); set => SetIntValueText(value, parsed => PlagueMin = parsed, nameof(PlagueMinValueText)); }
+        public string PlagueMaxValueText { get => PlagueMax.ToString(CultureInfo.InvariantCulture); set => SetIntValueText(value, parsed => PlagueMax = parsed, nameof(PlagueMaxValueText)); }
+        public string LionMinValueText { get => FormatLocalizedValue("RandomEvents.GroupsValueFormat", LionMin); set => SetIntValueText(value, parsed => LionMin = parsed, nameof(LionMinValueText)); }
+        public string LionMaxValueText { get => FormatLocalizedValue("RandomEvents.GroupsValueFormat", LionMax); set => SetIntValueText(value, parsed => LionMax = parsed, nameof(LionMaxValueText)); }
+        public string BanditMinValueText { get => FormatFactor(BanditMin); set => SetDoubleValueText(value, parsed => BanditMin = parsed, nameof(BanditMinValueText)); }
+        public string BanditMaxValueText { get => FormatFactor(BanditMax); set => SetDoubleValueText(value, parsed => BanditMax = parsed, nameof(BanditMaxValueText)); }
+        public string ArcherMinValueText { get => FormatFactor(ArcherMin); set => SetDoubleValueText(value, parsed => ArcherMin = parsed, nameof(ArcherMinValueText)); }
+        public string ArcherMaxValueText { get => FormatFactor(ArcherMax); set => SetDoubleValueText(value, parsed => ArcherMax = parsed, nameof(ArcherMaxValueText)); }
+        public string TheftMinValueText { get => FormatPercent(TheftMin); set => SetIntValueText(value, parsed => TheftMin = parsed, nameof(TheftMinValueText)); }
+        public string TheftMaxValueText { get => FormatPercent(TheftMax); set => SetIntValueText(value, parsed => TheftMax = parsed, nameof(TheftMaxValueText)); }
+        public string FireMinValueText { get => FireMin.ToString(CultureInfo.InvariantCulture); set => SetIntValueText(value, parsed => FireMin = parsed, nameof(FireMinValueText)); }
+        public string FireMaxValueText { get => FireMax.ToString(CultureInfo.InvariantCulture); set => SetIntValueText(value, parsed => FireMax = parsed, nameof(FireMaxValueText)); }
 
         [SyncHostOnly] public bool EnableMod { get => enableMod; set => Set(ref enableMod, value, nameof(EnableMod)); }
         [SyncHostOnly] public int IntervalMonths { get => intervalMonths; set => SetClamped(ref intervalMonths, value, 1, 90, nameof(IntervalMonths)); }
@@ -276,6 +280,8 @@ namespace RandomEvents
             {
                 case nameof(IntervalMonths): return nameof(IntervalMonthsValueText);
                 case nameof(CooldownMonths): return nameof(CooldownMonthsValueText);
+                case nameof(PlagueMin): return nameof(PlagueMinValueText);
+                case nameof(PlagueMax): return nameof(PlagueMaxValueText);
                 case nameof(LionMin): return nameof(LionMinValueText);
                 case nameof(LionMax): return nameof(LionMaxValueText);
                 case nameof(BanditMin): return nameof(BanditMinValueText);
@@ -284,8 +290,27 @@ namespace RandomEvents
                 case nameof(ArcherMax): return nameof(ArcherMaxValueText);
                 case nameof(TheftMin): return nameof(TheftMinValueText);
                 case nameof(TheftMax): return nameof(TheftMaxValueText);
+                case nameof(FireMin): return nameof(FireMinValueText);
+                case nameof(FireMax): return nameof(FireMaxValueText);
                 default: return null;
             }
+        }
+
+        private void SetIntValueText(string text, Action<int> setValue, string textPropertyName)
+        {
+            if (Shared.NumericTextInput.TryParseInt(text, out int parsed))
+                setValue(parsed);
+
+            // Invalid and clamped input returns to the authoritative formatted value.
+            OnPropertyChanged(textPropertyName);
+        }
+
+        private void SetDoubleValueText(string text, Action<double> setValue, string textPropertyName)
+        {
+            if (Shared.NumericTextInput.TryParseDouble(text, out double parsed))
+                setValue(parsed);
+
+            OnPropertyChanged(textPropertyName);
         }
 
         private static string FormatLocalizedValue(string key, int value) =>

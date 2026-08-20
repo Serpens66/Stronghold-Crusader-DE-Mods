@@ -32,21 +32,21 @@ namespace UnitCosts
 
         internal Dictionary<eGoods, int> CostEntries => costs;
 
-        public static int ClampCost(eGoods good, int value, int currentGoldCost = 0)
+        public static int ClampCost(eGoods good, int value)
         {
             if (good == eGoods.STORED_GOLD)
             {
-                int minGold = -System.Math.Max(0, currentGoldCost);
-                if (value < minGold)
-                    return minGold;
+                if (value < -10000)
+                    return -10000;
             }
             else if (value < 0)
             {
                 return 0;
             }
 
-            if (value > 1000)
-                return 1000;
+            int maximum = good == eGoods.STORED_GOLD ? 10000 : 100;
+            if (value > maximum)
+                return maximum;
             return value;
         }
     }

@@ -70,10 +70,17 @@ namespace ImprovedHunters
         public string ChickenPopulationTitleText => SerpLocalization.Get("ImprovedHunters.ChickenPopulationTitle");
         public string MaxNeutralChickensPerPlayerText => SerpLocalization.Get("ImprovedHunters.MaxNeutralChickensPerPlayer");
         public string MaxNeutralChickensPerPlayerHelpText => SerpLocalization.Get("ImprovedHunters.MaxNeutralChickensPerPlayerHelp");
-        public string MaxNeutralChickensPerPlayerValueText => string.Format(
-            CultureInfo.CurrentCulture,
-            SerpLocalization.Get("ImprovedHunters.MaxNeutralChickensPerPlayerValueFormat"),
-            MaxNeutralChickensPerPlayer);
+        public string MaxNeutralChickensPerPlayerValueText
+        {
+            get => string.Format(
+                CultureInfo.CurrentCulture,
+                SerpLocalization.Get("ImprovedHunters.MaxNeutralChickensPerPlayerValueFormat"),
+                MaxNeutralChickensPerPlayer);
+            set => SetBoundedIntText(
+                value,
+                parsed => MaxNeutralChickensPerPlayer = parsed,
+                nameof(MaxNeutralChickensPerPlayerValueText));
+        }
         [SyncHostOnly] public bool EnableMod { get => enableMod; set => SetSetting(ref enableMod, value, nameof(EnableMod)); }
         [SyncHostOnly] public bool ImprovedTargetSelection { get => improvedTargetSelection; set => SetSetting(ref improvedTargetSelection, value, nameof(ImprovedTargetSelection)); }
         [SyncHostOnly] public bool ImprovedPathfinding { get => improvedPathfinding; set => SetSetting(ref improvedPathfinding, value, nameof(ImprovedPathfinding)); }
@@ -261,6 +268,19 @@ namespace ImprovedHunters
             }
 
             setValue(parsed);
+        }
+
+        private void SetBoundedIntText(string text, Action<int> setValue, string textPropertyName)
+        {
+            if (!Shared.NumericTextInput.TryParseInt(text, out int parsed))
+            {
+                OnPropertyChanged(textPropertyName);
+                return;
+            }
+
+            setValue(parsed);
+            // Also restore the normalized/clamped display when the numeric value did not change.
+            OnPropertyChanged(textPropertyName);
         }
 
         private static int ClampMeat(int value, bool allowVanilla)

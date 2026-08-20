@@ -58,19 +58,19 @@
                            VerticalAlignment="Center"/>
               </StackPanel>
               <Slider Grid.Column="1"
-                      Minimum="-1" Maximum="10000"
-                      Value="{Binding Limit, Mode=TwoWay}"
+                      Minimum="-1" Maximum="100"
+                      Value="{Binding SliderLimit, Mode=TwoWay}"
                       TickFrequency="1" SmallChange="1" LargeChange="100"
                       IsSnapToTickEnabled="True"
                       ToolTipService.ShowDuration="60000" ToolTip="{Binding LimitToolTip}"
                       Margin="3"/>
-              <TextBlock Grid.Column="2"
-                         Text="{Binding LimitText}"
+              <TextBox ui:KeyboardCaptureBinding.Enabled="True" Grid.Column="2"
+                         Text="{Binding LimitText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
                          Foreground="White"
                          HorizontalAlignment="Right"
                          VerticalAlignment="Center"
                          Margin="3"
-                         ToolTipService.ShowDuration="60000" ToolTip="{Binding LimitToolTip}"/>
+                         ToolTipService.ShowDuration="60000" ToolTip="{Binding LimitToolTip}" MinWidth="56" MaxWidth="120" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"/>
             </Grid>
           </DataTemplate>
         </ItemsControl.ItemTemplate>

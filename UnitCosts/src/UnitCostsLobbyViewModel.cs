@@ -419,14 +419,7 @@ namespace UnitCosts
                     }
 
                     eGoods good = HumanExtraCostGoods[i];
-                    int currentGoldCost = 0;
-                    if (good == eGoods.STORED_GOLD &&
-                        Enum.TryParse(keyValue[0].Trim(), true, out eChimps unitType))
-                    {
-                        currentGoldCost = UnitCostsRuntime.GetCurrentUnitGoldCost(unitType);
-                    }
-
-                    costs[good] = UnitExtraCostValues.ClampCost(good, amount, currentGoldCost);
+                    costs[good] = UnitExtraCostValues.ClampCost(good, amount);
                 }
 
                 if (valid)
@@ -739,6 +732,7 @@ namespace UnitCosts
             }
 
             public int Gold { get => gold; set => SetCost(ref gold, value, nameof(Gold), nameof(GoldText)); }
+            public int GoldSlider { get => gold > 100 ? 100 : gold; set => Gold = value; }
             public string GoldText { get => gold.ToString(); set => SetTextCost(value, v => Gold = v); }
 
             public void SetCostsFromOwner(UnitCostValues values)
@@ -767,12 +761,16 @@ namespace UnitCosts
 
                 int clamped = UnitCostValues.ClampCost(value);
                 if (field == clamped)
+                {
+                    if (value != clamped)
+                        OnPropertyChanged(textPropertyName);
                     return;
+                }
 
                 field = clamped;
-                // Sliders bind the numeric property while the adjacent label binds its text form.
                 OnPropertyChanged(propertyName);
                 OnPropertyChanged(textPropertyName);
+                OnPropertyChanged(nameof(GoldSlider));
                 changed?.Invoke();
             }
 
@@ -850,7 +848,6 @@ namespace UnitCosts
                     CostCells.Add(new ExtraCostCellViewModel(
                         good,
                         values.GetCost(good),
-                        () => GetMinCost(good),
                         canEdit,
                         OnCellChanged));
             }
@@ -896,14 +893,6 @@ namespace UnitCosts
                 changed?.Invoke();
             }
 
-            private int GetMinCost(eGoods good)
-            {
-                if (good != eGoods.STORED_GOLD)
-                    return 0;
-
-                return -UnitCostsRuntime.GetCurrentUnitGoldCost(unitType);
-            }
-
             private void OnPropertyChanged([CallerMemberName] string propertyName = null)
             {
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
@@ -914,7 +903,6 @@ namespace UnitCosts
         {
             private readonly Func<bool> canEdit;
             private readonly Action changed;
-            private readonly Func<int> getMinAmount;
             private string toolTip;
             private int amount;
 
@@ -923,12 +911,10 @@ namespace UnitCosts
             public ExtraCostCellViewModel(
                 eGoods good,
                 int amount,
-                Func<int> getMinAmount,
                 Func<bool> canEdit = null,
                 Action changed = null)
             {
                 Good = good;
-                this.getMinAmount = getMinAmount;
                 this.canEdit = canEdit;
                 this.amount = ClampAmount(amount);
                 toolTip = GetGoodOptionDisplayName(good);
@@ -949,8 +935,17 @@ namespace UnitCosts
                 }
             }
 
-            public int MinimumAmount => Good == eGoods.STORED_GOLD && getMinAmount != null ? getMinAmount() : 0;
             public int Amount { get => amount; set => SetAmount(value, true); }
+            public int SliderAmount
+            {
+                get
+                {
+                    if (amount < 0)
+                        return 0;
+                    return amount > 100 ? 100 : amount;
+                }
+                set => Amount = value;
+            }
             public string AmountText { get => amount.ToString(); set => SetTextAmount(value); }
 
             public void SetAmountFromOwner(int value)
@@ -979,10 +974,15 @@ namespace UnitCosts
 
                 int clamped = ClampAmount(value);
                 if (amount == clamped)
+                {
+                    if (value != clamped)
+                        OnPropertyChanged(nameof(AmountText));
                     return;
+                }
 
                 amount = clamped;
                 OnPropertyChanged(nameof(Amount));
+                OnPropertyChanged(nameof(SliderAmount));
                 OnPropertyChanged(nameof(AmountText));
                 if (notifyOwner)
                     changed?.Invoke();
@@ -992,17 +992,17 @@ namespace UnitCosts
             {
                 if (Good == eGoods.STORED_GOLD)
                 {
-                    int minAmount = getMinAmount != null ? getMinAmount() : 0;
-                    if (value < minAmount)
-                        return minAmount;
+                    if (value < -10000)
+                        return -10000;
                 }
                 else if (value < 0)
                 {
                     return 0;
                 }
 
-                if (value > 1000)
-                    return 1000;
+                int maximum = Good == eGoods.STORED_GOLD ? 10000 : 100;
+                if (value > maximum)
+                    return maximum;
 
                 return value;
             }

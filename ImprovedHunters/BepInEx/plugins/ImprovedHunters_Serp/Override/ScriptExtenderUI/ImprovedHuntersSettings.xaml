@@ -61,7 +61,7 @@
         </Grid.ColumnDefinitions>
         <TextBlock Grid.Column="0" Text="{Binding MaxNeutralChickensPerPlayerText}" Foreground="White" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding MaxNeutralChickensPerPlayerHelpText}"/>
         <Slider Grid.Column="1" Minimum="0" Maximum="100" Value="{Binding MaxNeutralChickensPerPlayer, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding MaxNeutralChickensPerPlayerHelpText}"/>
-        <TextBlock Grid.Column="2" Text="{Binding MaxNeutralChickensPerPlayerValueText}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding MaxNeutralChickensPerPlayerHelpText}"/>
+        <TextBox ui:KeyboardCaptureBinding.Enabled="True" Grid.Column="2" Text="{Binding MaxNeutralChickensPerPlayerValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding MaxNeutralChickensPerPlayerHelpText}" MinWidth="56" MaxWidth="120" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"/>
       </Grid>
       <TextBlock Text="{Binding TargetsYieldTitleText}" Style="{StaticResource SectionHeader}" Margin="0,4,0,4"/>
       <Grid>
@@ -86,27 +86,27 @@
         <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding DeerText}" Foreground="White" VerticalAlignment="Center" Margin="0,4"/>
         <CheckBox Grid.Row="1" Grid.Column="1" IsChecked="{Binding HuntDeer, Mode=TwoWay}" HorizontalAlignment="Center" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding HelpText}"/>
         <Slider Grid.Row="1" Grid.Column="2" Minimum="-1" Maximum="100" Value="{Binding DeerMeat, Mode=TwoWay}" TickFrequency="1" SmallChange="1" LargeChange="10" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding MeatHelpText}"/>
-        <TextBlock Grid.Row="1" Grid.Column="3" Text="{Binding DeerMeatText}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding MeatHelpText}"/>
+        <TextBox ui:KeyboardCaptureBinding.Enabled="True" Grid.Row="1" Grid.Column="3" Text="{Binding DeerMeatText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding MeatHelpText}" MinWidth="56" MaxWidth="120" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"/>
 
         <TextBlock Grid.Row="2" Grid.Column="0" Text="{Binding GoatText}" Foreground="White" VerticalAlignment="Center" Margin="0,4"/>
         <CheckBox Grid.Row="2" Grid.Column="1" IsChecked="{Binding HuntGoat, Mode=TwoWay}" HorizontalAlignment="Center" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding HelpText}"/>
         <Slider Grid.Row="2" Grid.Column="2" Minimum="-1" Maximum="100" Value="{Binding GoatMeat, Mode=TwoWay}" TickFrequency="1" SmallChange="1" LargeChange="10" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding MeatHelpText}"/>
-        <TextBlock Grid.Row="2" Grid.Column="3" Text="{Binding GoatMeatText}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding MeatHelpText}"/>
+        <TextBox ui:KeyboardCaptureBinding.Enabled="True" Grid.Row="2" Grid.Column="3" Text="{Binding GoatMeatText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding MeatHelpText}" MinWidth="56" MaxWidth="120" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"/>
 
         <TextBlock Grid.Row="3" Grid.Column="0" Text="{Binding RabbitText}" Foreground="White" VerticalAlignment="Center" Margin="0,4"/>
         <CheckBox Grid.Row="3" Grid.Column="1" IsChecked="{Binding HuntRabbit, Mode=TwoWay}" HorizontalAlignment="Center" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding HelpText}"/>
         <Slider Grid.Row="3" Grid.Column="2" Minimum="0" Maximum="100" Value="{Binding RabbitMeat, Mode=TwoWay}" TickFrequency="1" SmallChange="1" LargeChange="10" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding MeatHelpText}"/>
-        <TextBlock Grid.Row="3" Grid.Column="3" Text="{Binding RabbitMeatText}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding MeatHelpText}"/>
+        <TextBox ui:KeyboardCaptureBinding.Enabled="True" Grid.Row="3" Grid.Column="3" Text="{Binding RabbitMeatText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding MeatHelpText}" MinWidth="56" MaxWidth="120" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"/>
 
         <TextBlock Grid.Row="4" Grid.Column="0" Text="{Binding CamelText}" Foreground="White" VerticalAlignment="Center" Margin="0,4"/>
         <CheckBox Grid.Row="4" Grid.Column="1" IsChecked="{Binding HuntCamel, Mode=TwoWay}" HorizontalAlignment="Center" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding HelpText}"/>
         <Slider Grid.Row="4" Grid.Column="2" Minimum="0" Maximum="100" Value="{Binding CamelMeat, Mode=TwoWay}" TickFrequency="1" SmallChange="1" LargeChange="10" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding MeatHelpText}"/>
-        <TextBlock Grid.Row="4" Grid.Column="3" Text="{Binding CamelMeatText}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding MeatHelpText}"/>
+        <TextBox ui:KeyboardCaptureBinding.Enabled="True" Grid.Row="4" Grid.Column="3" Text="{Binding CamelMeatText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding MeatHelpText}" MinWidth="56" MaxWidth="120" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"/>
 
         <TextBlock Grid.Row="5" Grid.Column="0" Text="{Binding ChickenText}" Foreground="White" VerticalAlignment="Center" Margin="0,4" ToolTipService.ShowDuration="60000" ToolTip="{Binding ChickenHelpText}"/>
         <CheckBox Grid.Row="5" Grid.Column="1" IsChecked="{Binding HuntChicken, Mode=TwoWay}" HorizontalAlignment="Center" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding ChickenHelpText}"/>
         <Slider Grid.Row="5" Grid.Column="2" Minimum="0" Maximum="100" Value="{Binding ChickenMeat, Mode=TwoWay}" TickFrequency="1" SmallChange="1" LargeChange="10" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding ChickenHelpText}"/>
-        <TextBlock Grid.Row="5" Grid.Column="3" Text="{Binding ChickenMeatText}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding ChickenHelpText}"/>
+        <TextBox ui:KeyboardCaptureBinding.Enabled="True" Grid.Row="5" Grid.Column="3" Text="{Binding ChickenMeatText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding ChickenHelpText}" MinWidth="56" MaxWidth="120" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"/>
 
       </Grid>
       </StackPanel>

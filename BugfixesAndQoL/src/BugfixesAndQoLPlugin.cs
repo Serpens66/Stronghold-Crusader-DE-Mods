@@ -29,6 +29,7 @@ namespace BugfixesAndQoL
         public const string PluginVersion = "1.0.20";
 
         private static DisplayResolutionPersistenceHook displayResolutionPersistenceHook;
+        private static DisplayResolutionDiagnostic displayResolutionDiagnostic;
         private BugfixesAndQoLRuntime runtime;
         private object observedLobby;
         private int observedLobbyMemberCount = -1;
@@ -62,6 +63,18 @@ namespace BugfixesAndQoL
                 Shared.DebugLogHelper.LogError(
                     Logger,
                     $"Bugfixes and QoL display-resolution persistence could not be initialized; Vanilla behavior remains active: {ex}");
+            }
+
+            try
+            {
+                // Temporary and behavior-neutral; kept separate for clean removal after diagnosis.
+                displayResolutionDiagnostic = new DisplayResolutionDiagnostic(Logger);
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(
+                    Logger,
+                    $"Bugfixes and QoL display-resolution diagnostic could not be initialized: {ex}");
             }
 
             runtime = new BugfixesAndQoLRuntime(Logger, Settings);

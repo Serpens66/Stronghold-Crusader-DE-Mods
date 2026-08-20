@@ -40,11 +40,17 @@ namespace ExtraFeatures
             set => multiplierChanged(GoodId, false, value);
         }
 
-        public string BuyMultiplierValueText =>
-            CreateCompactValueText(SerpLocalization.Get(SerpLocalization.MarketBuyPriceMultiplier), buyMultiplier);
+        public string BuyMultiplierValueText
+        {
+            get => CreateCompactValueText(SerpLocalization.Get(SerpLocalization.MarketBuyPriceMultiplier), buyMultiplier);
+            set => SetMultiplierText(value, parsed => BuyMultiplier = parsed, nameof(BuyMultiplierValueText));
+        }
 
-        public string SellMultiplierValueText =>
-            CreateCompactValueText(SerpLocalization.Get(SerpLocalization.MarketSellPriceMultiplier), sellMultiplier);
+        public string SellMultiplierValueText
+        {
+            get => CreateCompactValueText(SerpLocalization.Get(SerpLocalization.MarketSellPriceMultiplier), sellMultiplier);
+            set => SetMultiplierText(value, parsed => SellMultiplier = parsed, nameof(SellMultiplierValueText));
+        }
 
         public string BuyToolTip => CreateMultiplierToolTip(
             SerpLocalization.Get(SerpLocalization.MarketBuyPriceMultiplier),
@@ -82,6 +88,15 @@ namespace ExtraFeatures
                 "Good", goodName,
                 "Direction", direction,
                 "Value", valueText);
+
+        private void SetMultiplierText(string text, Action<double> setValue, string propertyName)
+        {
+            if (Shared.NumericTextInput.TryParseDouble(text, out double parsed))
+                setValue(parsed);
+
+            // Invalid and clamped input must immediately return to the authoritative value.
+            OnPropertyChanged(propertyName);
+        }
 
         private static string CreateCompactValueText(string label, double value)
         {

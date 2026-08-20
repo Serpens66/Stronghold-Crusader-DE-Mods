@@ -734,32 +734,42 @@ namespace BuildingCosts
             public int Wood
             {
                 get => wood;
-                set => SetCost(ref wood, value, nameof(Wood), nameof(WoodText));
+                set => SetCost(ref wood, value, BuildingCostValues.ClampStandardCost, nameof(Wood), nameof(WoodText), nameof(WoodSlider));
             }
+
+            public int WoodSlider { get => ClampSliderValue(wood); set => Wood = value; }
 
             public int Stone
             {
                 get => stone;
-                set => SetCost(ref stone, value, nameof(Stone), nameof(StoneText));
+                set => SetCost(ref stone, value, BuildingCostValues.ClampStandardCost, nameof(Stone), nameof(StoneText), nameof(StoneSlider));
             }
+
+            public int StoneSlider { get => ClampSliderValue(stone); set => Stone = value; }
 
             public int Iron
             {
                 get => iron;
-                set => SetCost(ref iron, value, nameof(Iron), nameof(IronText));
+                set => SetCost(ref iron, value, BuildingCostValues.ClampStandardCost, nameof(Iron), nameof(IronText), nameof(IronSlider));
             }
+
+            public int IronSlider { get => ClampSliderValue(iron); set => Iron = value; }
 
             public int Pitch
             {
                 get => pitch;
-                set => SetCost(ref pitch, value, nameof(Pitch), nameof(PitchText));
+                set => SetCost(ref pitch, value, BuildingCostValues.ClampStandardCost, nameof(Pitch), nameof(PitchText), nameof(PitchSlider));
             }
+
+            public int PitchSlider { get => ClampSliderValue(pitch); set => Pitch = value; }
 
             public int Gold
             {
                 get => gold;
-                set => SetCost(ref gold, value, nameof(Gold), nameof(GoldText));
+                set => SetCost(ref gold, value, BuildingCostValues.ClampGoldCost, nameof(Gold), nameof(GoldText), nameof(GoldSlider));
             }
+
+            public int GoldSlider { get => ClampSliderValue(gold); set => Gold = value; }
 
             public string WoodText
             {
@@ -811,7 +821,13 @@ namespace BuildingCosts
                 setCost(parsed);
             }
 
-            private void SetCost(ref int field, int value, string propertyName, string textPropertyName)
+            private void SetCost(
+                ref int field,
+                int value,
+                Func<int, int> clamp,
+                string propertyName,
+                string textPropertyName,
+                string sliderPropertyName)
             {
                 if (canEdit != null && !canEdit())
                 {
@@ -819,15 +835,27 @@ namespace BuildingCosts
                     return;
                 }
 
-                int clamped = BuildingCostValues.ClampCost(value);
+                int clamped = clamp(value);
                 if (field == clamped)
+                {
+                    if (value != clamped)
+                        OnPropertyChanged(textPropertyName);
                     return;
+                }
 
                 field = clamped;
-                // Sliders bind the numeric property while the adjacent label binds its text form.
                 OnPropertyChanged(propertyName);
                 OnPropertyChanged(textPropertyName);
+                // Values outside the normal range remain editable while the slider stays saturated.
+                OnPropertyChanged(sliderPropertyName);
                 changed?.Invoke();
+            }
+
+            private static int ClampSliderValue(int value)
+            {
+                if (value < -1)
+                    return -1;
+                return value > 100 ? 100 : value;
             }
 
             private void SetToolTip(ref string field, string value, [CallerMemberName] string propertyName = null)

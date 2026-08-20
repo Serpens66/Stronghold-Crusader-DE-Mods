@@ -72,8 +72,8 @@
                            VerticalAlignment="Center"/>
               </StackPanel>
               <StackPanel Grid.Column="1" Margin="3">
-                <Slider Minimum="-1" Maximum="1000" Value="{Binding Gold, Mode=TwoWay}" TickFrequency="1" SmallChange="1" LargeChange="10" IsSnapToTickEnabled="True" ToolTipService.ShowDuration="60000" ToolTip="{Binding GoldToolTip}"/>
-                <TextBlock Text="{Binding GoldText}" Foreground="White" HorizontalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding GoldToolTip}"/>
+                <Slider Minimum="-1" Maximum="100" Value="{Binding GoldSlider, Mode=TwoWay}" TickFrequency="1" SmallChange="1" LargeChange="10" IsSnapToTickEnabled="True" ToolTipService.ShowDuration="60000" ToolTip="{Binding GoldToolTip}"/>
+                <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding GoldText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding GoldToolTip}" MinWidth="56" MaxWidth="120" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"/>
               </StackPanel>
             </Grid>
           </DataTemplate>
@@ -142,8 +142,8 @@
                 <ItemsControl.ItemTemplate>
                   <DataTemplate>
                     <StackPanel Width="74" Margin="3">
-                      <Slider Minimum="{Binding MinimumAmount}" Maximum="1000" Value="{Binding Amount, Mode=TwoWay}" TickFrequency="1" SmallChange="1" LargeChange="10" IsSnapToTickEnabled="True" ToolTipService.ShowDuration="60000" ToolTip="{Binding ToolTip}"/>
-                      <TextBlock Text="{Binding AmountText}" Foreground="White" HorizontalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding ToolTip}"/>
+                      <Slider Minimum="0" Maximum="100" Value="{Binding SliderAmount, Mode=TwoWay}" TickFrequency="1" SmallChange="1" LargeChange="10" IsSnapToTickEnabled="True" ToolTipService.ShowDuration="60000" ToolTip="{Binding ToolTip}"/>
+                      <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding AmountText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding ToolTip}" MinWidth="56" MaxWidth="120" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"/>
                     </StackPanel>
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
