@@ -5,10 +5,14 @@ using CrusaderDE;
 using MessagePack;
 using MonoMod.RuntimeDetour;
 using Noesis;
+using R3;
 using Shared;
 using SHCDESE.API;
 using SHCDESE.API.Components.ModManager;
 using SHCDESE.API.Components.Network;
+using SHCDESE.EventAPI;
+using SHCDESE.EventAPI.Network;
+using Steamworks;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -41,6 +45,7 @@ namespace CustomCustomTrail
         {
             private const string CoopTrailMakerSourceDirectory = "TrailMakerSource";
             private const string EncodedSettingPrefix = "messagepack-base64:";
+            private const int CoopCustomizeProtocolVersion = 2;
 
             private static readonly FieldInfo MpLocalReadyField = typeof(FRONT_Multiplayer).GetField(
                 "MPLocalReady", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
@@ -131,9 +136,11 @@ namespace CustomCustomTrail
             private CheckBox coopTrailExportCheckbox;
             private string coopPackageDisplayName = string.Empty;
             private int coopPackageMissionCount;
+            private short coopCustomizePacketId;
 
             public event Action CoopPackagesChanged;
             public event Action CoopSetupOpened;
+            public event Action<int, int> CoopLaunchReceived;
 
             public IReadOnlyList<TrailModCompatibilityInfo> DiscoverModCompatibility()
             {
@@ -240,6 +247,10 @@ namespace CustomCustomTrail
             public void Initialize()
             {
                 CaptureVanillaCoopTrailTitles();
+                R3PacketEventHook<CoopCustomizePacket> packetHook =
+                    GameNetworkAPI.Instance.GetPacketEventFor<CoopCustomizePacket>();
+                coopCustomizePacketId = packetHook.GetPacketId();
+                hooks.Add(packetHook.GetBaseHook().Observable.Subscribe(OnCoopCustomizePacket));
                 saveCustomTrailMapOriginal = InstallHook(
                     typeof(EditorDirector).GetMethod(nameof(EditorDirector.SaveCustomTrailMap)),
                     (SaveCustomTrailMapDelegate)SaveCustomTrailMapHook);
@@ -1553,7 +1564,30 @@ namespace CustomCustomTrail
                 if (mission <= 0 || trailId < 0 || trailId > 3 || self.currentLobby == null)
                     return;
 
+                if (!self.singlePlayerCoop && !self.currentLobby.isHost)
+                {
+                    DebugLogHelper.LogWarning(log, "Ignored Coop Trail Customize click from a non-host client.");
+                    return;
+                }
+
+                OpenCoopTrailSetup(self, trailId, mission, notifyClients: !self.singlePlayerCoop, source: "local host");
+            }
+
+            private void OpenCoopTrailSetup(
+                FRONT_Multiplayer self,
+                int trailId,
+                int mission,
+                bool notifyClients,
+                string source)
+            {
+                if (self?.currentLobby == null || trailId < 0 || trailId > 3 || mission < 1 || mission > 10)
+                    throw new InvalidDataException("The Coop Trail setup transition is invalid.");
+
+                SetSelectedCoopMission(trailId, mission);
+
                 self.CoopMissionChanged(trailId, mission);
+                if (notifyClients)
+                    BroadcastCoopCustomize(trailId, mission);
                 MethodInfo showSetup = typeof(FRONT_Multiplayer).GetMethod("ShowSetupScreen", BindingFlags.Instance | BindingFlags.NonPublic);
                 if (self.singlePlayerCoop)
                 {
@@ -1593,14 +1627,104 @@ namespace CustomCustomTrail
                 MainViewModel.Instance.Show_CoopWaiting = false;
                 MainViewModel.Instance.Show_MPSharing = false;
                 MainViewModel.Instance.Show_MultiplayerSetup = true;
-                if (currentTrail == 21) MainViewModel.Instance.Show_CoopTrail1 = false;
-                if (currentTrail == 22) MainViewModel.Instance.Show_CoopTrail2 = false;
-                if (currentTrail == 23) MainViewModel.Instance.Show_CoopTrail3 = false;
-                if (currentTrail == 24) MainViewModel.Instance.Show_CoopTrail4 = false;
+                if (trailId == 0) MainViewModel.Instance.Show_CoopTrail1 = false;
+                if (trailId == 1) MainViewModel.Instance.Show_CoopTrail2 = false;
+                if (trailId == 2) MainViewModel.Instance.Show_CoopTrail3 = false;
+                if (trailId == 3) MainViewModel.Instance.Show_CoopTrail4 = false;
                 // ShowSetupScreen rebuilds lobby settings. Reapply the selected mission only
                 // after that transition, matching the working Custom Trail Customize path.
                 CoopSetupOpened?.Invoke();
-                DebugLogHelper.LogInfo(log, $"Opened Coop Trail setup trail={trailId + 1}, mission={mission}.");
+                DebugLogHelper.LogInfo(log, $"Opened Coop Trail setup trail={trailId + 1}, mission={mission}, source={source}.");
+            }
+
+            private void BroadcastCoopCustomize(int trailId, int missionId)
+            {
+                BroadcastCoopTransition(trailId, missionId, launch: false);
+            }
+
+            internal void BroadcastCoopLaunch(int trailId, int missionId)
+            {
+                BroadcastCoopTransition(trailId, missionId, launch: true);
+            }
+
+            private void BroadcastCoopTransition(int trailId, int missionId, bool launch)
+            {
+                var packet = new CoopCustomizePacket
+                {
+                    ProtocolVersion = CoopCustomizeProtocolVersion,
+                    TrailId = trailId,
+                    MissionId = missionId,
+                    Launch = launch,
+                };
+                byte[] bytes = MessagePackSerializer.Serialize(packet);
+                GameNetworkAPI.SendPacketToAllLobby(new Platform_Multiplayer.MPData
+                {
+                    packetType = coopCustomizePacketId,
+                    data = bytes,
+                    dataLength = bytes.Length,
+                    dataOffset = 0,
+                });
+                DebugLogHelper.LogInfo(
+                    log,
+                    $"Broadcast Coop Trail {(launch ? "launch" : "setup")} transition " +
+                    $"trail={trailId + 1}, mission={missionId}, packetId={coopCustomizePacketId}.");
+            }
+
+            private void OnCoopCustomizePacket(ReceiveCustomPacketEventArgs<CoopCustomizePacket> args)
+            {
+                try
+                {
+                    CSteamID? host = GameNetworkAPI.GetHostSteamId();
+                    if (!args.SenderSteamId.HasValue || !host.HasValue || args.SenderSteamId.Value != host.Value)
+                    {
+                        DebugLogHelper.LogError(
+                            log,
+                            "Rejected Coop Trail transition from a sender that is not the lobby host.");
+                        return;
+                    }
+
+                    CoopCustomizePacket packet = args.Packet;
+                    if (packet == null || packet.ProtocolVersion != CoopCustomizeProtocolVersion ||
+                        packet.TrailId < 0 || packet.TrailId > 3 || packet.MissionId < 1 || packet.MissionId > 10)
+                    {
+                        DebugLogHelper.LogError(log, "Rejected invalid Coop Trail transition packet.");
+                        return;
+                    }
+
+                    FRONT_Multiplayer self = MainViewModel.Instance.FRONTMultiplayer;
+                    if (!enabled || self?.currentLobby == null || self.currentLobby.isHost ||
+                        self.singlePlayerCoop || !self.currentLobby.coopTrailGame)
+                    {
+                        DebugLogHelper.LogWarning(log, "Ignored Coop Trail transition outside an active client Coop lobby.");
+                        return;
+                    }
+
+                    if (packet.Launch)
+                    {
+                        CoopLaunchReceived?.Invoke(packet.TrailId, packet.MissionId);
+                        return;
+                    }
+
+                    OpenCoopTrailSetup(
+                        self,
+                        packet.TrailId,
+                        packet.MissionId,
+                        notifyClients: false,
+                        source: "authenticated host packet");
+                }
+                catch (Exception exception)
+                {
+                    DebugLogHelper.LogError(log, "Could not apply Coop Trail transition from host: " + exception);
+                }
+            }
+
+            private static void SetSelectedCoopMission(int trailId, int missionId)
+            {
+                FrontendMenus.CurrentSelectedTrail = trailId + 21;
+                if (trailId == 0) FrontendMenus.CurrentSelectedTrailCoop1Mission = missionId;
+                if (trailId == 1) FrontendMenus.CurrentSelectedTrailCoop2Mission = missionId;
+                if (trailId == 2) FrontendMenus.CurrentSelectedTrailCoop3Mission = missionId;
+                if (trailId == 3) FrontendMenus.CurrentSelectedTrailCoop4Mission = missionId;
             }
 
             private void EnterSidecar(string trailPath, bool editable)

@@ -450,14 +450,31 @@ namespace CastlePlanner
             int keepY,
             string reason)
         {
-            try
+            if (!settings.TryResolveSelectedFile(out string fullPath))
             {
-                if (!settings.TryResolveSelectedFile(out string fullPath))
+                layout = null;
+                layoutKeepX = int.MinValue;
+                layoutKeepY = int.MinValue;
+                renderer.Clear();
+                if (!settings.IsSpawnMode)
                 {
-                    throw new FileNotFoundException(
-                        $"Selected AIVJSON is unavailable: '{settings.SelectedCastle}'.");
+                    // The host AIV dropdown is irrelevant while Spawn Castle is disabled.
+                    // A stale local Blueprint choice therefore disables only the optional overlay.
+                    Shared.DebugLogHelper.LogInfo(
+                        log,
+                        $"Blueprint preparation skipped because the local AIVJSON is unavailable and Spawn Castle is disabled: '{settings.SelectedCastle}'.");
+                    return false;
                 }
 
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Blueprint preparation failed; overlay remains unavailable: " +
+                    $"Selected AIVJSON is unavailable while Spawn Castle is enabled: '{settings.SelectedCastle}'.");
+                return false;
+            }
+
+            try
+            {
                 string json = File.ReadAllText(fullPath);
                 AivJsonDocument document = AivJsonReader.Parse(json);
                 layout = BlueprintLayoutBuilder.Build(

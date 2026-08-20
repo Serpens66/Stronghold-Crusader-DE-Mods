@@ -415,6 +415,8 @@ static void TestCoopExporterIntegration()
     string coordinator = File.ReadAllText(Path.Combine(root, "src", "TrailMissionSettingsCoordinator.cs"));
     string exporter = File.ReadAllText(Path.Combine(root, "src", "CoopTrailPackageExporter.cs"));
     string runtime = File.ReadAllText(Path.Combine(root, "src", "CustomCustomTrailRuntime.cs"));
+    string packet = File.ReadAllText(Path.Combine(root, "src", "CoopCustomizePacket.cs"));
+    string project = File.ReadAllText(Path.Combine(root, "CustomCustomTrail.csproj"));
     Assert(coordinator.Contains("CustomCustomTrailCoopExport") && coordinator.Contains("cooptrail.enabled"), "Trail Maker Coop checkbox/marker is missing");
     Assert(coordinator.Contains("Orientation = Orientation.Horizontal") && coordinator.Contains("host.Children.Remove(anchor)"),
         "Trail Maker Coop and Backup options are not arranged side by side");
@@ -482,13 +484,42 @@ static void TestCoopExporterIntegration()
         "the ineffective timing-based first-visit refresh still exists");
     Assert(runtime.Contains("ReadyLock") && runtime.Contains("COOP_START") && runtime.Contains("AreAllHumanPlayersPackageReady"),
         "Ready/Play/COOP_START package validation is missing");
+    Assert(runtime.Contains("GameNetworkAPI.GetPlayerIdForSteamId(member.id)") &&
+        runtime.Contains("!member.SkirmishHumanMember && member.SkirmishMember") &&
+        runtime.Contains("GetHumanPackageStates") &&
+        runtime.Contains("ErrorParticipantsMissing") &&
+        runtime.Contains("ErrorParticipantsMismatch") &&
+        runtime.Contains("ErrorParticipantsNotReady") &&
+        !runtime.Contains("SerpLocalization.Get(\"CustomCustomTrail.ErrorParticipantNotReady\")"),
+        "participant package validation does not use SyncPerPlayer identities or distinguish failure reasons");
+    Assert(runtime.Contains("ScheduleLocalPackageStatusPublish") &&
+        runtime.Contains("EnqueueDeferred") &&
+        runtime.Contains("System_TriggerUpdate(nameof(CustomCustomTrailSettingsViewModel.CoopPackageStatus))"),
+        "client package readiness is not republished after the host-settings receive window");
+    Assert(runtime.Contains("MainViewModelInstanceField") &&
+        runtime.Contains("GetExistingMainViewModel()?.FRONTMultiplayer") &&
+        !runtime.Contains("MainViewModel.Instance?.FRONTMultiplayer"),
+        "early package refresh can still construct Vanilla's MainViewModel before the UI is ready");
     Assert(coordinator.Contains("CoopSetupOpened?.Invoke()") &&
         runtime.Contains("CoopSetupOpened += OnCoopSetupOpened") &&
         runtime.Contains("ActivateSelectedMissionSettings(editable: true, source: \"custom Coop mission setup\")"),
         "Coop Customize does not reapply the mission Trail preset after rebuilding the setup UI");
+    Assert(coordinator.Contains("GetPacketEventFor<CoopCustomizePacket>") &&
+        coordinator.Contains("GameNetworkAPI.GetHostSteamId()") &&
+        coordinator.Contains("args.SenderSteamId.Value != host.Value") &&
+        coordinator.Contains("BroadcastCoopCustomize(trailId, mission)") &&
+        coordinator.Contains("BroadcastCoopLaunch") &&
+        coordinator.Contains("CoopLaunchReceived?.Invoke") &&
+        coordinator.Contains("source: \"authenticated host packet\"") &&
+        packet.Contains("IMessagePackFormatter<CoopCustomizePacket>") &&
+        packet.Contains("[Key(0)]") && packet.Contains("[Key(3)]") &&
+        project.Contains("src\\CoopCustomizePacket.cs"),
+        "Coop setup/launch transitions are not synchronized from the authenticated lobby host to clients");
     Assert(runtime.Contains("Type.EmptyTypes") &&
         runtime.Contains("selected != null && IsLaunchCommand(command)") &&
         runtime.Contains("ActivateSelectedMissionSettings(editable: false, source: \"custom Coop mission \" + command)") &&
+        runtime.Contains("CoopLaunchReceived += OnCoopLaunchReceived") &&
+        runtime.Contains("source: \"authenticated host Coop launch\"") &&
         runtime.Contains("coopLaunchPending") && runtime.Contains("OnMapStarted()") && runtime.Contains("OnMapUnloaded()"),
         "direct Coop launch does not retain the shared Trail preset across the map transition");
     Assert(runtime.Contains("if (!coopLaunchPending)") && runtime.Contains("BlockLaunch(command") &&

@@ -20,9 +20,34 @@ namespace CustomCustomTrail
         private delegate void CoopMissionChangedDelegate(FRONT_Multiplayer self, int trailId, int missionId, bool resetOrderSwapped);
         private delegate void ButtonClickedDelegate(FRONT_Multiplayer self, string command);
 
+        private sealed class HumanPackageState
+        {
+            public HumanPackageState(
+                string name,
+                int playerId,
+                string status,
+                bool skirmishMember,
+                bool skirmishHumanMember)
+            {
+                Name = name;
+                PlayerId = playerId;
+                Status = status ?? string.Empty;
+                SkirmishMember = skirmishMember;
+                SkirmishHumanMember = skirmishHumanMember;
+            }
+
+            public string Name { get; }
+            public int PlayerId { get; }
+            public string Status { get; }
+            public bool SkirmishMember { get; }
+            public bool SkirmishHumanMember { get; }
+        }
+
         private static readonly FieldInfo[] CoopTrailFields = Enumerable.Range(1, 4)
             .Select(index => typeof(FRONT_Multiplayer).GetField("CoopTrail" + index, BindingFlags.Static | BindingFlags.NonPublic))
             .ToArray();
+        private static readonly FieldInfo MainViewModelInstanceField = typeof(MainViewModel)
+            .GetField("instance", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
         private static readonly MethodInfo UpdateHostInfoMethod = typeof(FRONT_Multiplayer).GetMethod(
             "UpdateHostInfo",
             BindingFlags.Instance | BindingFlags.NonPublic,
@@ -56,6 +81,7 @@ namespace CustomCustomTrail
         private bool coopLaunchPending;
         private bool coopMapActive;
         private string lastShownLocalBlockSignature = string.Empty;
+        private int localPackageStatusPublishGeneration;
         private bool enabled;
 
         public CustomCustomTrailRuntime(
@@ -74,6 +100,7 @@ namespace CustomCustomTrail
             missionSettingsCoordinator = new TrailMissionSettingsCoordinator(log, enabled, settings.IsTrailModEnabled);
             missionSettingsCoordinator.CoopPackagesChanged += OnActiveCoopPackageChanged;
             missionSettingsCoordinator.CoopSetupOpened += OnCoopSetupOpened;
+            missionSettingsCoordinator.CoopLaunchReceived += OnCoopLaunchReceived;
             missionSettingsCoordinator.Initialize();
             RefreshModCompatibility();
             settings.ActiveCoopPackageChanged += OnActiveCoopPackageChanged;
@@ -143,6 +170,7 @@ namespace CustomCustomTrail
             {
                 missionSettingsCoordinator.CoopPackagesChanged -= OnActiveCoopPackageChanged;
                 missionSettingsCoordinator.CoopSetupOpened -= OnCoopSetupOpened;
+                missionSettingsCoordinator.CoopLaunchReceived -= OnCoopLaunchReceived;
             }
             missionSettingsCoordinator?.ExitContext(force: true);
             missionSettingsCoordinator?.Dispose();
@@ -215,11 +243,16 @@ namespace CustomCustomTrail
                     BlockLaunch(command, SerpLocalization.Get("CustomCustomTrail.ErrorPackageNotReady"));
                     return;
                 }
-                if (IsStartCommand(command) && !self.singlePlayerCoop && self.currentLobby != null && self.currentLobby.isHost &&
-                    !AreAllHumanPlayersPackageReady(self))
+                if (IsStartCommand(command) && !self.singlePlayerCoop && self.currentLobby != null && self.currentLobby.isHost)
                 {
-                    BlockLaunch(command, GetParticipantPackageBlockReason(self));
-                    return;
+                    List<HumanPackageState> participantStates = GetHumanPackageStates(self);
+                    LogInfo("Custom Coop package participant audit: " +
+                        DescribeHumanPackageStates(self, participantStates));
+                    if (!AreAllHumanPlayersPackageReady(participantStates))
+                    {
+                        BlockLaunch(command, GetParticipantPackageBlockReason(participantStates));
+                        return;
+                    }
                 }
             }
             if (enabled && selected != null && IsLaunchCommand(command))
@@ -233,6 +266,12 @@ namespace CustomCustomTrail
                     {
                         coopLaunchPending = true;
                         coopMapActive = false;
+                        if (!self.singlePlayerCoop && self.currentLobby != null && self.currentLobby.isHost)
+                        {
+                            missionSettingsCoordinator.BroadcastCoopLaunch(
+                                selected.Loaded.TrailNumber - 1,
+                                selected.Loaded.MissionNumber);
+                        }
                     }
                 }
                 catch (Exception exception)
@@ -331,7 +370,7 @@ namespace CustomCustomTrail
             if (string.IsNullOrEmpty(settings.ActiveCoopPackageId))
             {
                 localPackageError = string.Empty;
-                settings.SetLocalPackageStatus("OK|VANILLA");
+                SetLocalPackageStatus("OK|VANILLA");
                 return;
             }
             if (!GameNetworkAPI.IsLocalHost() &&
@@ -406,7 +445,7 @@ namespace CustomCustomTrail
                 return;
             }
             localPackageError = string.Empty;
-            settings.SetLocalPackageStatus(ExpectedReadyStatus());
+            SetLocalPackageStatus(ExpectedReadyStatus());
             RefreshVisibleCoopMissionAfterPackageChange();
             ShowLocalPackageBlockAfterSync();
         }
@@ -490,50 +529,60 @@ namespace CustomCustomTrail
         private string ExpectedPackageDescriptor() =>
             settings.ActiveCoopPackageId + "|" + settings.ActiveCoopPackageFingerprint + "|" + settings.ActiveCoopPackageMissionCount;
 
-        private bool AreAllHumanPlayersPackageReady(FRONT_Multiplayer self)
+        private List<HumanPackageState> GetHumanPackageStates(FRONT_Multiplayer self)
         {
-            string expected = ExpectedReadyStatus();
-            int expectedHumanPlayers = 0;
+            var result = new List<HumanPackageState>();
+            if (self?.currentLobby?.members == null)
+                return result;
+
             foreach (Platform_Multiplayer.MPLobbyMember member in self.currentLobby.members)
             {
-                if (member != null && member.SkirmishHumanMember)
-                    expectedHumanPlayers++;
-            }
-
-            int checkedHumanPlayers = 0;
-            for (int playerId = 1; playerId < settings.CoopPackageStatusData.Length; playerId++)
-            {
-                Platform_Multiplayer.MPLobbyMember member = self.currentLobby.GetLobbyMemberFromThis_PlayerID(playerId);
-                if (member == null || !member.SkirmishHumanMember)
+                // Vanilla treats every non-Skirmish lobby member as human. The separate
+                // SkirmishHumanMember flag only distinguishes humans from Skirmish AIs.
+                if (member == null || (!member.SkirmishHumanMember && member.SkirmishMember))
                     continue;
-                checkedHumanPlayers++;
-                if (!string.Equals(settings.CoopPackageStatusData[playerId], expected, StringComparison.Ordinal))
-                    return false;
+
+                // The Vanilla this_player_to_SteamID_mapping is not populated reliably in the
+                // Coop lobby. Use the same Steam-ID mapping as SyncPerPlayer packet handling.
+                int playerId = GameNetworkAPI.GetPlayerIdForSteamId(member.id);
+                string status = playerId > 0 && playerId < settings.CoopPackageStatusData.Length
+                    ? settings.CoopPackageStatusData[playerId] ?? string.Empty
+                    : string.Empty;
+                string name = string.IsNullOrWhiteSpace(member.name)
+                    ? "Player " + (playerId > 0 ? playerId.ToString() : "?")
+                    : member.name;
+                result.Add(new HumanPackageState(
+                    name,
+                    playerId,
+                    status,
+                    member.SkirmishMember,
+                    member.SkirmishHumanMember));
             }
-            return expectedHumanPlayers > 0 && checkedHumanPlayers == expectedHumanPlayers;
+            return result;
         }
 
-        private string GetParticipantPackageBlockReason(FRONT_Multiplayer self)
+        private bool AreAllHumanPlayersPackageReady(IReadOnlyCollection<HumanPackageState> states) =>
+            states.Count > 0 && states.All(state =>
+                state.PlayerId > 0 &&
+                string.Equals(state.Status, ExpectedReadyStatus(), StringComparison.Ordinal));
+
+        private string GetParticipantPackageBlockReason(IReadOnlyCollection<HumanPackageState> states)
         {
             string expected = ExpectedReadyStatus();
             var missing = new List<string>();
             var mismatched = new List<string>();
             var notReady = new List<string>();
-            for (int playerId = 1; playerId < settings.CoopPackageStatusData.Length; playerId++)
+            foreach (HumanPackageState state in states)
             {
-                Platform_Multiplayer.MPLobbyMember member = self.currentLobby.GetLobbyMemberFromThis_PlayerID(playerId);
-                if (member == null || !member.SkirmishHumanMember)
+                if (state.PlayerId > 0 && string.Equals(state.Status, expected, StringComparison.Ordinal))
                     continue;
-                string status = settings.CoopPackageStatusData[playerId] ?? string.Empty;
-                if (string.Equals(status, expected, StringComparison.Ordinal))
-                    continue;
-                string name = string.IsNullOrWhiteSpace(member.name) ? "Player " + playerId : member.name;
-                if (string.Equals(status, CustomCustomTrailSettingsViewModel.MissingStatus, StringComparison.Ordinal))
-                    missing.Add(name);
-                else if (string.Equals(status, CustomCustomTrailSettingsViewModel.MismatchStatus, StringComparison.Ordinal))
-                    mismatched.Add(name);
+                if (string.Equals(state.Status, CustomCustomTrailSettingsViewModel.MissingStatus, StringComparison.Ordinal))
+                    missing.Add(state.Name);
+                else if (string.Equals(state.Status, CustomCustomTrailSettingsViewModel.MismatchStatus, StringComparison.Ordinal) ||
+                    state.Status.StartsWith("OK|", StringComparison.Ordinal))
+                    mismatched.Add(state.Name);
                 else
-                    notReady.Add(name);
+                    notReady.Add(state.Name);
             }
 
             var reasons = new List<string>();
@@ -544,8 +593,41 @@ namespace CustomCustomTrail
             if (notReady.Count != 0)
                 reasons.Add(SerpLocalization.Get("CustomCustomTrail.ErrorParticipantsNotReady") + " " + string.Join(", ", notReady));
             return reasons.Count == 0
-                ? SerpLocalization.Get("CustomCustomTrail.ErrorParticipantNotReady")
+                ? SerpLocalization.Get("CustomCustomTrail.ErrorPackageNotReady")
                 : string.Join("\r\n", reasons);
+        }
+
+        private string DescribeHumanPackageStates(
+            FRONT_Multiplayer self,
+            IReadOnlyCollection<HumanPackageState> states)
+        {
+            int lobbyMemberCount = self?.currentLobby?.members?.Count ?? -1;
+            if (states.Count == 0)
+                return "lobbyMembers=" + lobbyMemberCount + ", humans=none";
+            string expected = ExpectedReadyStatus();
+            return "lobbyMembers=" + lobbyMemberCount + ", humans=" + string.Join("; ", states.Select(state =>
+                state.Name + "[playerId=" + state.PlayerId +
+                ", kind=" + (state.SkirmishMember ? "skirmish-human" : "coop-human") +
+                ", skirmishHuman=" + state.SkirmishHumanMember +
+                ", status=" + DescribePackageStatus(state.Status, expected) + "]"));
+        }
+
+        private static string DescribePackageStatus(string status, string expected)
+        {
+            if (string.Equals(status, expected, StringComparison.Ordinal))
+                return "ready";
+            if (string.Equals(status, CustomCustomTrailSettingsViewModel.MissingStatus, StringComparison.Ordinal))
+                return "missing";
+            if (string.Equals(status, CustomCustomTrailSettingsViewModel.MismatchStatus, StringComparison.Ordinal) ||
+                (status ?? string.Empty).StartsWith("OK|", StringComparison.Ordinal))
+            {
+                return "mismatch";
+            }
+            if ((status ?? string.Empty).StartsWith(CustomCustomTrailSettingsViewModel.InvalidStatusPrefix, StringComparison.Ordinal))
+                return "invalid";
+            if (string.Equals(status, CustomCustomTrailSettingsViewModel.DisabledStatus, StringComparison.Ordinal))
+                return "disabled";
+            return string.IsNullOrEmpty(status) ? "unreported" : "waiting";
         }
 
         private void AppendPackageErrorToDescription(int zeroBasedTrailId, int oneBasedMissionId)
@@ -565,12 +647,57 @@ namespace CustomCustomTrail
         private void SetLocalPackageError(string status, string error)
         {
             localPackageError = error ?? string.Empty;
+            SetLocalPackageStatus(status);
+        }
+
+        private void SetLocalPackageStatus(string status)
+        {
             settings.SetLocalPackageStatus(status);
+            ScheduleLocalPackageStatusPublish(status);
+        }
+
+        private void ScheduleLocalPackageStatusPublish(string status)
+        {
+            if (GameNetworkAPI.IsLocalHost() || GetExistingMainViewModel()?.FRONTMultiplayer?.currentLobby == null)
+                return;
+
+            int generation = ++localPackageStatusPublishGeneration;
+            UnityMainThreadDispatcher dispatcher = UnityMainThreadDispatcher.Instance;
+            if (dispatcher == null)
+            {
+                LogError("Could not schedule local Coop package status publication: main-thread dispatcher unavailable.");
+                return;
+            }
+
+            LogInfo("Scheduled local Coop package status publication after host settings sync: " +
+                DescribePackageStatus(status, ExpectedReadyStatus()) + ".");
+            dispatcher.EnqueueDeferred(() => PublishLocalPackageStatus(generation, status));
+        }
+
+        private void PublishLocalPackageStatus(int generation, string status)
+        {
+            if (generation != localPackageStatusPublishGeneration)
+                return;
+
+            int playerId = GameNetworkAPI.GetLocalPlayerId();
+            if (playerId <= 0 || playerId >= settings.CoopPackageStatusData.Length)
+            {
+                LogError("Could not publish local Coop package status: invalid local playerId=" + playerId + ".");
+                return;
+            }
+
+            string previous = settings.CoopPackageStatus;
+            settings.SetLocalPackageStatus(status);
+            if (string.Equals(previous, status, StringComparison.Ordinal))
+                settings.System_TriggerUpdate(nameof(CustomCustomTrailSettingsViewModel.CoopPackageStatus));
+            LogInfo("Published local Coop package status: playerId=" + playerId + ", status=" +
+                DescribePackageStatus(status, ExpectedReadyStatus()) + ".");
         }
 
         private void RefreshVisibleCoopMissionAfterPackageChange()
         {
-            FRONT_Multiplayer self = MainViewModel.Instance?.FRONTMultiplayer;
+            // Do not use Instance here: its getter constructs Vanilla's view model before the UI is ready.
+            FRONT_Multiplayer self = GetExistingMainViewModel()?.FRONTMultiplayer;
             if (self?.currentLobby == null || !self.currentLobby.coopTrailGame)
                 return;
             int trailId = self.currentLobby.coopTrailID;
@@ -586,7 +713,7 @@ namespace CustomCustomTrail
 
         private void ShowLocalPackageBlockAfterSync()
         {
-            FRONT_Multiplayer self = MainViewModel.Instance?.FRONTMultiplayer;
+            FRONT_Multiplayer self = GetExistingMainViewModel()?.FRONTMultiplayer;
             if (GameNetworkAPI.IsLocalHost() || !CurrentSlotRequiresPackage(self) || IsLocalPackageReady() ||
                 string.IsNullOrEmpty(settings.ActiveCoopPackageFingerprint))
             {
@@ -612,6 +739,9 @@ namespace CustomCustomTrail
                 delegate { },
                 message);
         }
+
+        private static MainViewModel GetExistingMainViewModel() =>
+            MainViewModelInstanceField?.GetValue(null) as MainViewModel;
 
         private void BlockLaunch(string command, string reason)
         {
@@ -645,6 +775,28 @@ namespace CustomCustomTrail
             coopLaunchPending = false;
             coopMapActive = true;
             LogInfo("Custom Coop mission map started; retaining its Trail mod-settings preset.");
+        }
+
+        private void OnCoopLaunchReceived(int trailId, int missionId)
+        {
+            if (!enabled || !resolved.TryGetValue(MissionCatalog.ToKey(trailId + 1, missionId), out ResolvedMission mission))
+            {
+                LogError($"Ignored authenticated Coop Trail launch for unavailable Trail{trailId + 1}/{missionId:00}.");
+                return;
+            }
+            if (!IsLocalPackageReady())
+            {
+                LogError($"Ignored authenticated Coop Trail launch for Trail{trailId + 1}/{missionId:00} because the local package is not ready.");
+                return;
+            }
+
+            // Clients do not execute the host's COOP_START button handler. The authenticated
+            // transition supplies the missing launch boundary before OnUnloadMap clears presets.
+            selected = mission;
+            ActivateSelectedMissionSettings(editable: false, source: "authenticated host Coop launch");
+            coopLaunchPending = true;
+            coopMapActive = false;
+            LogInfo($"Prepared authenticated Coop Trail launch trail={trailId + 1}, mission={missionId}; retaining its Trail preset across map unload.");
         }
 
         private void OnMapUnloaded()

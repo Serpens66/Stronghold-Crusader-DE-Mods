@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "CastlePlanner",
   "Description": "Displays a local visual AIVJSON castle blueprint or spawns it through the game's native AIV pipeline.",
-  "Version": "0.4.7",
+  "Version": "0.4.8",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "0.4.8",
+      "Changes": [
+        "Treats an unavailable local AIVJSON as an optional Blueprint limitation instead of an error while the host Spawn Castle setting is disabled."
+      ]
+    },
     {
       "Version": "0.4.7",
       "Changes": [

@@ -3,15 +3,35 @@
   "Author": "Serpens66",
   "Name": "Custom Custom Trail",
   "Description": "Creates portable Coop Trails in the Trail Maker, synchronizes the selected package, and coordinates Custom Trail mod settings.",
-  "Version": "1.3.32",
+  "Version": "1.3.35",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
     {
+      "Version": "1.3.35",
+      "Changes": [
+        "Keeps the selected Trail mod-settings preset active on clients across a host-triggered Coop map launch by synchronizing an authenticated launch transition."
+      ]
+    },
+    {
+      "Version": "1.3.34",
+      "Changes": [
+        "Recognizes normal Coop lobby members as human participants so matching ready package states no longer produce an empty participant audit.",
+        "Synchronizes the Coop Trail Customize transition from the host to clients through an authenticated, explicitly formatted lobby packet."
+      ]
+    },
+    {
+      "Version": "1.3.33",
+      "Changes": [
+        "Avoids constructing Vanilla's MainViewModel during early package initialization, preventing a selected Coop package from aborting Custom Custom Trail startup before its mission hooks are installed."
+      ]
+    },
+    {
       "Version": "1.3.32",
       "Changes": [
         "Refreshes the visible Coop mission as soon as synchronized host package settings arrive, so clients no longer retain the previously selected Vanilla map.",
-        "Shows missing or mismatching package errors immediately after joining and reports missing versus differing participant packages separately to the host."
+        "Publishes the client's validated package status after synchronized host settings have finished applying, preventing a matching installed package from remaining falsely unreported.",
+        "Resolves participant status through the same Steam-ID-to-player-slot mapping as SyncPerPlayer and reports missing, differing, and still-unreported packages separately to the host."
       ]
     },
     {
