@@ -36,7 +36,7 @@ Unter den Modsettings wählt der Host „Vanilla – kein eigenes Paket“ oder 
 
 Im Koop-Pfadmenü wird der beim Export gespeicherte Kartenname als Missionsname angezeigt. Für jeden durch das Paket belegten Koop-Trail ersetzt der Paketname außerdem die jeweilige Vanilla-Trailüberschrift; unbelegte Trails behalten ihren Vanilla-Namen.
 
-Paket-ID und SHA-256-Inhaltsfingerprint werden synchronisiert. Jeder Teilnehmer prüft sein lokales Paket. Bei einem ersetzten Missionsplatz blockiert der Mod `Ready`, `ReadyLock` und beim Host `Play`, solange einem Teilnehmer das Paket fehlt, es beschädigt ist oder vom Hostinhalt abweicht. Nicht belegte Paketplätze bleiben Vanilla und benötigen das Paket für ihren Start nicht.
+Paket-ID und SHA-256-Inhaltsfingerprint werden synchronisiert. Jeder Teilnehmer prüft sein lokales Paket. Nach dem Beitritt aktualisiert der Client die bereits sichtbare Koop-Mission nochmals mit den empfangenen Hostdaten und meldet ein fehlendes oder abweichendes Paket sofort. Bei einem ersetzten Missionsplatz blockiert der Mod `Ready`, `ReadyLock` und beim Host `Play`, solange einem Teilnehmer das Paket fehlt, es beschädigt ist oder vom Hostinhalt abweicht. Die Hostmeldung unterscheidet fehlende und inhaltlich abweichende Pakete samt Spielernamen. Nicht belegte Paketplätze bleiben Vanilla und benötigen das Paket für ihren Start nicht.
 
 Das Paket wird nicht über das Spielnetz übertragen. Zum Verteilen muss der vollständige Custom-Trail-Ordner kopiert werden.
 

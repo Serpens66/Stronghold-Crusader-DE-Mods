@@ -16,11 +16,19 @@ namespace CustomCustomTrail
 {
     public sealed class CustomCustomTrailSettingsViewModel : Shared.PresetLobbyModSettingsViewModel
     {
+        internal const string ErrorStatusPrefix = "ERROR|";
+        internal const string MissingStatus = "ERROR|MISSING";
+        internal const string MismatchStatus = "ERROR|MISMATCH";
+        internal const string InvalidStatusPrefix = "ERROR|INVALID|";
+        internal const string DisabledStatus = "ERROR|DISABLED";
+        internal const string WaitingStatus = "WAITING";
+
         private bool enableClientFeatures = true;
         private bool enableMod = true;
         private string activeCoopPackageId = string.Empty;
         private string activeCoopPackageFingerprint = string.Empty;
         private int activeCoopPackageMissionCount;
+        private string activeCoopPackageDescriptor = string.Empty;
         private ComboBoxItem[] coopPackageOptions = Array.Empty<ComboBoxItem>();
         private string[] coopPackageIds = Array.Empty<string>();
         private string[] disabledTrailModIds = Array.Empty<string>();
@@ -78,8 +86,14 @@ namespace CustomCustomTrail
                     return SerpLocalization.Get("CustomCustomTrail.StatusVanilla");
                 if (status.StartsWith("OK|", StringComparison.Ordinal))
                     return SerpLocalization.Get("CustomCustomTrail.StatusReady");
-                if (status.StartsWith("ERROR|", StringComparison.Ordinal))
-                    return status.Substring("ERROR|".Length);
+                if (string.Equals(status, MissingStatus, StringComparison.Ordinal))
+                    return SerpLocalization.Get("CustomCustomTrail.ErrorPackageMissing") + " " + ActiveCoopPackageId;
+                if (string.Equals(status, MismatchStatus, StringComparison.Ordinal))
+                    return SerpLocalization.Get("CustomCustomTrail.ErrorFingerprintMismatch");
+                if (status.StartsWith(InvalidStatusPrefix, StringComparison.Ordinal))
+                    return SerpLocalization.Get("CustomCustomTrail.ErrorPackageInvalid") + " " + status.Substring(InvalidStatusPrefix.Length);
+                if (string.Equals(status, DisabledStatus, StringComparison.Ordinal))
+                    return SerpLocalization.Get("CustomCustomTrail.ErrorModDisabled");
                 return SerpLocalization.Get("CustomCustomTrail.StatusChecking");
             }
         }
@@ -173,6 +187,21 @@ namespace CustomCustomTrail
                     return;
                 activeCoopPackageMissionCount = value;
                 OnPropertyChanged(nameof(ActiveCoopPackageMissionCount));
+                ActiveCoopPackageChanged?.Invoke();
+            }
+        }
+
+        [SyncHostOnly, DoNotPersist]
+        public string ActiveCoopPackageDescriptor
+        {
+            get => activeCoopPackageDescriptor;
+            set
+            {
+                value = value ?? string.Empty;
+                if (!CanMutateSetting(nameof(ActiveCoopPackageDescriptor)) || string.Equals(activeCoopPackageDescriptor, value, StringComparison.Ordinal))
+                    return;
+                activeCoopPackageDescriptor = value;
+                OnPropertyChanged(nameof(ActiveCoopPackageDescriptor));
                 ActiveCoopPackageChanged?.Invoke();
             }
         }

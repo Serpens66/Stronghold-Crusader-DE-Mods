@@ -348,6 +348,20 @@ static void TestLocalActivationSetting()
     Assert(plugin.Contains("Settings.RuntimeActivationChanged += runtime.SetEnabled"), "runtime does not observe effective activation changes");
     Assert(runtime.Contains("settings.IsRuntimeEnabled"), "runtime does not combine local and host activation");
     Assert(runtime.Contains("RestoreVanillaMissions()"), "disabling cannot restore replaced Vanilla Coop slots");
+    Assert(runtime.Contains("RefreshVisibleCoopMissionAfterPackageChange") &&
+        runtime.Contains("self.CoopMissionChanged(trailId, missionId, false)"),
+        "late host package settings do not refresh the already selected Vanilla Coop mission");
+    Assert(runtime.Contains("ShowLocalPackageBlockAfterSync") &&
+        runtime.Contains("lastShownLocalBlockSignature"),
+        "clients do not receive a deduplicated package failure popup immediately after settings sync");
+    Assert(viewModel.Contains("MissingStatus = \"ERROR|MISSING\"") &&
+        viewModel.Contains("MismatchStatus = \"ERROR|MISMATCH\"") &&
+        runtime.Contains("ErrorParticipantsMissing") && runtime.Contains("ErrorParticipantsMismatch"),
+        "host package validation cannot distinguish missing and mismatching participant packages");
+    Assert(viewModel.Contains("ActiveCoopPackageDescriptor") &&
+        runtime.Contains("ExpectedPackageDescriptor()") &&
+        runtime.Contains("!string.Equals(settings.ActiveCoopPackageDescriptor, ExpectedPackageDescriptor()"),
+        "independently synchronized package fields can be validated before one coherent host descriptor arrives");
     Assert(coordinator.Contains("if (!enabled)"), "sidecar/customization hooks are not activation-gated");
     Assert(xaml.Contains("ToolTipService.ShowDuration=\"60000\""), "activation control tooltip duration is missing");
     Assert(xaml.Contains("x:Key=\"ModSettingsToolTipStyle\"") &&
