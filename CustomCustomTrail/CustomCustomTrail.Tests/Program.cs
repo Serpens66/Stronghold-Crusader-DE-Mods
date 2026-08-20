@@ -312,13 +312,14 @@ static void TestLocalActivationSetting()
     string hostPlugin = File.ReadAllText(Path.Combine(workspaceRoot, "SerpsModsHost", "src", "SerpsModsHostPlugin.cs"));
     string xaml = File.ReadAllText(Path.Combine(root, "Override", "ScriptExtenderUI", "CustomCustomTrailSettings.xaml"));
 
-    Assert(viewModel.Contains("[PersistLocal]"), "activation setting is not local-only persisted");
-    int enableAttribute = viewModel.IndexOf("[PersistLocal]", StringComparison.Ordinal);
-    int enableProperty = viewModel.IndexOf("public bool EnableMod", StringComparison.Ordinal);
-    Assert(enableAttribute >= 0 && enableAttribute < enableProperty, "activation setting is not local-only persisted");
+    Assert(viewModel.Contains("[Shared.PresetLocal]") && viewModel.Contains("public bool EnableClientFeatures"),
+        "local activation setting is not preset-local");
+    Assert(viewModel.Contains("[SyncHostOnly]") && viewModel.Contains("public bool EnableMod"),
+        "host activation setting is not host-synchronised");
     Assert(viewModel.Contains("[SyncHostOnly]") && viewModel.Contains("ActiveCoopPackageId"), "package selection is not host-synchronised");
     Assert(viewModel.Contains("[SyncPerPlayer, DoNotPersist]") && viewModel.Contains("CoopPackageStatusData"), "package validation is not reported per player");
-    Assert(plugin.Contains("Settings.EnableModChanged += runtime.SetEnabled"), "runtime does not observe activation changes");
+    Assert(plugin.Contains("Settings.RuntimeActivationChanged += runtime.SetEnabled"), "runtime does not observe effective activation changes");
+    Assert(runtime.Contains("settings.IsRuntimeEnabled"), "runtime does not combine local and host activation");
     Assert(runtime.Contains("RestoreVanillaMissions()"), "disabling cannot restore replaced Vanilla Coop slots");
     Assert(coordinator.Contains("if (!enabled)"), "sidecar/customization hooks are not activation-gated");
     Assert(xaml.Contains("ToolTipService.ShowDuration=\"60000\""), "activation control tooltip duration is missing");
@@ -332,9 +333,9 @@ static void TestLocalActivationSetting()
     int descriptionPosition = xaml.IndexOf("PracticalEffectsText", StringComparison.Ordinal);
     int hostOptionsPosition = xaml.IndexOf("HostOptionsText", StringComparison.Ordinal);
     int modSelectionPosition = xaml.IndexOf("SupportedTrailSettingsTitle", StringComparison.Ordinal);
-    Assert(descriptionPosition >= 0 && descriptionPosition < hostOptionsPosition &&
-        hostOptionsPosition < modSelectionPosition,
-        "host Coop Trail options are not between the general description and mod-selection checkboxes");
+    Assert(descriptionPosition >= 0 && descriptionPosition < modSelectionPosition &&
+        modSelectionPosition < hostOptionsPosition,
+        "local Trail settings are not shown before host Coop Trail options");
     Assert(xaml.Contains("CompatibleTrailMods") && xaml.Contains("IncompatibleTrailModsText") &&
         viewModel.Contains("DisabledTrailModIds") && runtime.Contains("DiscoverModCompatibility()"),
         "the dynamic compatible/incompatible Trail-mod catalog is not shown or persisted");
@@ -352,7 +353,9 @@ static void TestLocalActivationSetting()
     Assert(coordinator.Contains("ExitActiveParticipants") &&
         coordinator.Contains("activeParticipantIds.Add(item.Item1)"),
         "Trail lifecycle is not limited to participants whose preset entry completed");
-    Assert(!xaml.Contains("SelectedPreset") && !xaml.Contains("PresetOptions"), "activation UI unexpectedly exposes presets");
+    Assert(xaml.Contains("SelectedPreset") && xaml.Contains("PresetOptions") &&
+        plugin.Contains("LobbyModSettingsPresetRegistration.Register"),
+        "shared preset UI or registration is missing");
     Assert(xaml.Contains("CoopPackageOptions") && xaml.Contains("CanEditCoopPackage"), "host package dropdown is missing");
     Assert(xaml.Contains("SelectedItem=\"{Binding SelectedCoopPackage, Mode=TwoWay}\"") &&
         !xaml.Contains("SelectedCoopPackageIndex"),

@@ -54,7 +54,7 @@ foreach ($entry in $settings.GetEnumerator()) {
     }
 
     $activationNodes = @($xml.SelectNodes(
-        "//*[local-name()='CheckBox' and (contains(@IsChecked, 'EnableMod') or contains(@IsChecked, 'EnableClientFeatures') or contains(@IsChecked, 'Blueprints') or contains(@IsChecked, 'SpawnCastle'))]"))
+        "//*[local-name()='CheckBox' and (contains(@IsChecked, 'EnableMod') or contains(@IsChecked, 'EnableClientFeatures'))]"))
     if ($activationNodes.Count -eq 0) {
         throw "$($entry.Key): no activation checkbox found."
     }
@@ -75,17 +75,13 @@ foreach ($entry in $settings.GetEnumerator()) {
         'Value="{x:Static shared:ToolTipPresentation.FontSize}"',
         'FontSize="{TemplateBinding FontSize}"',
         'TextWrapping="Wrap"')
-    # CustomCustomTrail owns the Trail preset coordinator and intentionally has no
-    # selectable local preset UI of its own. It still receives every base UI audit.
-    if ($entry.Key -ne 'CustomCustomTrail') {
-        $requiredMarkers += @(
-            'x:Key="HostRoleHeader"',
-            'x:Key="ClientRoleHeader"',
-            'x:Key="SectionHeader"',
-            'x:Key="HostActivationBorder"',
-            'x:Key="ClientActivationBorder"',
-            'Text="{Binding PresetText}"')
-    }
+    $requiredMarkers += @(
+        'x:Key="HostRoleHeader"',
+        'x:Key="ClientRoleHeader"',
+        'x:Key="SectionHeader"',
+        'x:Key="HostActivationBorder"',
+        'x:Key="ClientActivationBorder"',
+        'Text="{Binding PresetText}"')
     foreach ($required in $requiredMarkers) {
         if (-not $text.Contains($required)) {
             throw "$($entry.Key): required shared UI marker is missing: $required"

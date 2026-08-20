@@ -65,7 +65,7 @@ namespace CustomCustomTrail
             this.log = log;
             this.customTrailsRoot = customTrailsRoot;
             this.settings = settings;
-            enabled = settings.EnableMod;
+            enabled = settings.IsRuntimeEnabled;
         }
 
         public void Initialize()

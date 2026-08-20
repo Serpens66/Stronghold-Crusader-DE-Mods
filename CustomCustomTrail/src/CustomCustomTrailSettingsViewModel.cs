@@ -3,6 +3,7 @@ using Noesis;
 using SHCDESE.API;
 using SHCDESE.API.Components.ModManager;
 using SHCDESE.API.Components.Network;
+using SHCDESE.NoesisUtil;
 using SHCDESE.ViewModels;
 using System;
 using System.Collections.Generic;
@@ -13,8 +14,9 @@ using System.Windows.Input;
 
 namespace CustomCustomTrail
 {
-    public sealed class CustomCustomTrailSettingsViewModel : LobbyModSettingsBaseViewModel
+    public sealed class CustomCustomTrailSettingsViewModel : Shared.PresetLobbyModSettingsViewModel
     {
+        private bool enableClientFeatures = true;
         private bool enableMod = true;
         private string activeCoopPackageId = string.Empty;
         private string activeCoopPackageFingerprint = string.Empty;
@@ -33,19 +35,25 @@ namespace CustomCustomTrail
             };
             coopPackageIds = new[] { string.Empty };
             OpenCompatibilityGuideCommand = new ActionCommand(OpenCompatibilityGuide);
+            ResetToDefaultCommand = new RelayCommand(ResetToDefault);
         }
 
-        public event Action<bool> EnableModChanged;
+        protected override string ResolveSettingsUiText(string key, string fallback) =>
+            SerpLocalization.Get(key);
+
+        public event Action<bool> RuntimeActivationChanged;
         public event Action ActiveCoopPackageChanged;
 
-        public string EnableModText => SerpLocalization.Get(SerpLocalization.EnableMod);
-        public string EnableModHelpText => SerpLocalization.Get(SerpLocalization.EnableModHelp);
+        public RelayCommand ResetToDefaultCommand { get; }
+        public string ResetToDefaultText => SerpLocalization.Get("Common.ResetToDefault");
+        public string EnableClientFeaturesText => SerpLocalization.Get("CustomCustomTrail.EnableClientFeatures");
+        public string EnableClientFeaturesHelpText => SerpLocalization.Get("CustomCustomTrail.EnableClientFeaturesHelp");
+        public string EnableHostFeaturesText => SerpLocalization.Get("CustomCustomTrail.EnableHostFeatures");
+        public string EnableHostFeaturesHelpText => SerpLocalization.Get("CustomCustomTrail.EnableHostFeaturesHelp");
         public string PracticalEffectsText => SerpLocalization.Get("CustomCustomTrail.PracticalEffects");
-        public string HostOptionsText => SerpLocalization.Get("CustomCustomTrail.HostOptions");
         public string CoopPackageText => SerpLocalization.Get("CustomCustomTrail.CoopPackage");
         public string CoopPackageHelpText => SerpLocalization.Get("CustomCustomTrail.CoopPackageHelp");
         public string CoopPackageStatusLabel => SerpLocalization.Get("CustomCustomTrail.CoopPackageStatusLabel");
-        public string HostReadOnlyNoticeText => SerpLocalization.Get("CustomCustomTrail.HostReadOnlyNotice");
         public string SupportedTrailSettingsTitle => SerpLocalization.Get("CustomCustomTrail.SupportedTrailSettings");
         public string SupportedTrailSettingsHelpText => SerpLocalization.Get("CustomCustomTrail.SupportedTrailSettingsHelp");
         public string IncompatibleTrailModsLabel => SerpLocalization.Get("CustomCustomTrail.IncompatibleTrailMods");
@@ -57,8 +65,8 @@ namespace CustomCustomTrail
             ? Visibility.Collapsed
             : Visibility.Visible;
         public ICommand OpenCompatibilityGuideCommand { get; }
-        public Visibility HostReadOnlyNoticeVisibility => IsHost ? Visibility.Collapsed : Visibility.Visible;
-        public bool CanEditCoopPackage => IsHost && EnableMod;
+        public bool CanEditCoopPackage => CanEditHostSettings && EnableMod;
+        public bool IsRuntimeEnabled => EnableClientFeatures && EnableMod;
         public ComboBoxItem[] CoopPackageOptions => coopPackageOptions;
 
         public string CoopPackageStatusText
@@ -76,23 +84,38 @@ namespace CustomCustomTrail
             }
         }
 
-        // This local safety switch deliberately remains outside host synchronisation.
-        [PersistLocal]
+        [Shared.PresetLocal]
+        public bool EnableClientFeatures
+        {
+            get => enableClientFeatures;
+            set
+            {
+                if (!CanMutateSetting(nameof(EnableClientFeatures)) || enableClientFeatures == value)
+                    return;
+                enableClientFeatures = value;
+                OnPropertyChanged(nameof(EnableClientFeatures));
+                OnPropertyChanged(nameof(IsRuntimeEnabled));
+                RuntimeActivationChanged?.Invoke(IsRuntimeEnabled);
+            }
+        }
+
+        [SyncHostOnly]
         public bool EnableMod
         {
             get => enableMod;
             set
             {
-                if (enableMod == value)
+                if (!CanMutateSetting(nameof(EnableMod)) || enableMod == value)
                     return;
                 enableMod = value;
                 OnPropertyChanged(nameof(EnableMod));
                 OnPropertyChanged(nameof(CanEditCoopPackage));
-                EnableModChanged?.Invoke(value);
+                OnPropertyChanged(nameof(IsRuntimeEnabled));
+                RuntimeActivationChanged?.Invoke(IsRuntimeEnabled);
             }
         }
 
-        [PersistLocal]
+        [Shared.PresetLocal]
         public string[] DisabledTrailModIds
         {
             get => disabledTrailModIds;
@@ -115,7 +138,7 @@ namespace CustomCustomTrail
             set
             {
                 value = value ?? string.Empty;
-                if (!CanEdit() || string.Equals(activeCoopPackageId, value, StringComparison.OrdinalIgnoreCase))
+                if (!CanMutateSetting(nameof(ActiveCoopPackageId)) || string.Equals(activeCoopPackageId, value, StringComparison.OrdinalIgnoreCase))
                     return;
                 activeCoopPackageId = value;
                 OnPropertyChanged(nameof(ActiveCoopPackageId));
@@ -131,7 +154,7 @@ namespace CustomCustomTrail
             set
             {
                 value = value ?? string.Empty;
-                if (!CanEdit() || string.Equals(activeCoopPackageFingerprint, value, StringComparison.OrdinalIgnoreCase))
+                if (!CanMutateSetting(nameof(ActiveCoopPackageFingerprint)) || string.Equals(activeCoopPackageFingerprint, value, StringComparison.OrdinalIgnoreCase))
                     return;
                 activeCoopPackageFingerprint = value;
                 OnPropertyChanged(nameof(ActiveCoopPackageFingerprint));
@@ -146,7 +169,7 @@ namespace CustomCustomTrail
             set
             {
                 value = Math.Max(0, Math.Min(40, value));
-                if (!CanEdit() || activeCoopPackageMissionCount == value)
+                if (!CanMutateSetting(nameof(ActiveCoopPackageMissionCount)) || activeCoopPackageMissionCount == value)
                     return;
                 activeCoopPackageMissionCount = value;
                 OnPropertyChanged(nameof(ActiveCoopPackageMissionCount));
@@ -273,9 +296,19 @@ namespace CustomCustomTrail
 
         public void RefreshRoleState()
         {
-            System_RefreshHostState();
+            System_RefreshSettingsAccess();
             OnPropertyChanged(nameof(CanEditCoopPackage));
-            OnPropertyChanged(nameof(HostReadOnlyNoticeVisibility));
+        }
+
+        private void ResetToDefault()
+        {
+            EnableClientFeatures = true;
+            DisabledTrailModIds = Array.Empty<string>();
+            if (CanEditHostSettings)
+            {
+                EnableMod = true;
+                ActiveCoopPackageId = string.Empty;
+            }
         }
 
         private string GetLocalStatus()

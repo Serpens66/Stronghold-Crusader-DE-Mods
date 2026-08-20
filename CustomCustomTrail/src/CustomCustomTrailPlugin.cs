@@ -13,7 +13,7 @@ namespace CustomCustomTrail
     {
         public const string PluginGuid = "CustomCustomTrail_Serp";
         public const string PluginName = "Custom Custom Trail";
-        public const string PluginVersion = "1.3.29";
+        public const string PluginVersion = "1.3.30";
         public const bool CustomCustomTrailModSettingsOptOut = true;
 
         private static CustomCustomTrailRuntime runtime;
@@ -33,15 +33,16 @@ namespace CustomCustomTrail
                 CrusaderLibrary.Instance.LibraryLoaded -= OnLibraryLoaded;
                 Shared.DebugLogHelper.ReportNativeLibraryVersion(Logger, PluginName);
                 Settings = new CustomCustomTrailSettingsViewModel();
-                GameXAMLManagerAPI.Instance.RegisterLobbyModSettings(
+                Shared.LobbyModSettingsPresetRegistration.Register(
                     this,
+                    Logger,
                     PluginGuid,
                     Settings,
                     "ScriptExtenderUI/CustomCustomTrailSettings.xaml");
                 string customTrailsRoot = ConfigSettings.GetUserCustomTrailsPath();
                 runtime = new CustomCustomTrailRuntime(Logger, customTrailsRoot, Settings);
                 runtime.Initialize();
-                Settings.EnableModChanged += runtime.SetEnabled;
+                Settings.RuntimeActivationChanged += runtime.SetEnabled;
                 Plugin.ModSettingsHubViewModel.PropertyChanged += (_, __) =>
                 {
                     runtime?.RefreshPackageCatalog();
