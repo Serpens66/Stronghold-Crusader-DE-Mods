@@ -734,31 +734,31 @@ namespace BuildingCosts
             public int Wood
             {
                 get => wood;
-                private set => SetCost(ref wood, value, nameof(WoodText));
+                set => SetCost(ref wood, value, nameof(Wood), nameof(WoodText));
             }
 
             public int Stone
             {
                 get => stone;
-                private set => SetCost(ref stone, value, nameof(StoneText));
+                set => SetCost(ref stone, value, nameof(Stone), nameof(StoneText));
             }
 
             public int Iron
             {
                 get => iron;
-                private set => SetCost(ref iron, value, nameof(IronText));
+                set => SetCost(ref iron, value, nameof(Iron), nameof(IronText));
             }
 
             public int Pitch
             {
                 get => pitch;
-                private set => SetCost(ref pitch, value, nameof(PitchText));
+                set => SetCost(ref pitch, value, nameof(Pitch), nameof(PitchText));
             }
 
             public int Gold
             {
                 get => gold;
-                private set => SetCost(ref gold, value, nameof(GoldText));
+                set => SetCost(ref gold, value, nameof(Gold), nameof(GoldText));
             }
 
             public string WoodText
@@ -811,7 +811,7 @@ namespace BuildingCosts
                 setCost(parsed);
             }
 
-            private void SetCost(ref int field, int value, string textPropertyName)
+            private void SetCost(ref int field, int value, string propertyName, string textPropertyName)
             {
                 if (canEdit != null && !canEdit())
                 {
@@ -824,7 +824,8 @@ namespace BuildingCosts
                     return;
 
                 field = clamped;
-                OnPropertyChanged();
+                // Sliders bind the numeric property while the adjacent label binds its text form.
+                OnPropertyChanged(propertyName);
                 OnPropertyChanged(textPropertyName);
                 changed?.Invoke();
             }

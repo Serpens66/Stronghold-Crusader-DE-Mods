@@ -392,7 +392,7 @@ MAPPER_POND1=-1";
             public int Limit
             {
                 get => limit;
-                private set
+                set
                 {
                     if (canEdit != null && !canEdit())
                     {

@@ -26,13 +26,13 @@
       <TextBlock Text="{Binding ScheduleTitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,6"/>
       <TextBlock Text="{Binding IntervalHelpText}" Foreground="#CCCCCC" TextWrapping="Wrap" Margin="0,0,0,6"/>
       <Grid Margin="0,0,0,8" ToolTipService.ShowDuration="60000" ToolTip="{Binding IntervalHelpText}">
-        <Grid.ColumnDefinitions><ColumnDefinition Width="210"/><ColumnDefinition Width="250"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions>
+        <Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="180"/><ColumnDefinition Width="75"/></Grid.ColumnDefinitions>
         <TextBlock Grid.Column="0" Text="{Binding IntervalText}" Foreground="White" VerticalAlignment="Center"/>
         <Slider Grid.Column="1" Minimum="1" Maximum="90" Value="{Binding IntervalMonths, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding IntervalHelpText}"/>
         <TextBlock Grid.Column="2" Text="{Binding IntervalMonthsValueText}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center"/>
       </Grid>
       <Grid Margin="0,0,0,8" ToolTipService.ShowDuration="60000" ToolTip="{Binding CooldownHelpText}">
-        <Grid.ColumnDefinitions><ColumnDefinition Width="210"/><ColumnDefinition Width="250"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions>
+        <Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="180"/><ColumnDefinition Width="75"/></Grid.ColumnDefinitions>
         <TextBlock Grid.Column="0" Text="{Binding CooldownText}" Foreground="White" VerticalAlignment="Center"/>
         <Slider Grid.Column="1" Minimum="0" Maximum="90" Value="{Binding CooldownMonths, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding CooldownHelpText}"/>
         <TextBlock Grid.Column="2" Text="{Binding CooldownMonthsValueText}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center"/>
@@ -42,7 +42,7 @@
       <TextBlock Text="{Binding ChancesTitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,6"/>
       <TextBlock Text="{Binding PositiveEventsTitleText}" Foreground="#AAAAAA" FontWeight="Bold" Margin="0,0,0,4"/>
       <Grid ToolTipService.ShowDuration="60000" ToolTip="{Binding ChanceHelpText}">
-        <Grid.ColumnDefinitions><ColumnDefinition Width="210"/><ColumnDefinition Width="250"/><ColumnDefinition Width="55"/></Grid.ColumnDefinitions>
+        <Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="180"/><ColumnDefinition Width="55"/></Grid.ColumnDefinitions>
         <Grid.RowDefinitions>
           <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
@@ -54,7 +54,7 @@
 
       <TextBlock Text="{Binding NegativeEventsTitleText}" Foreground="#AAAAAA" FontWeight="Bold" Margin="0,8,0,4"/>
       <Grid ToolTipService.ShowDuration="60000" ToolTip="{Binding ChanceHelpText}">
-        <Grid.ColumnDefinitions><ColumnDefinition Width="210"/><ColumnDefinition Width="250"/><ColumnDefinition Width="55"/></Grid.ColumnDefinitions>
+        <Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="180"/><ColumnDefinition Width="55"/></Grid.ColumnDefinitions>
         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
         <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding PlagueText}" Foreground="White" VerticalAlignment="Center"/><Slider Grid.Row="0" Grid.Column="1" Minimum="0" Maximum="100" Value="{Binding PlagueChance, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" ToolTipService.ShowDuration="60000" ToolTip="{Binding ChanceHelpText}"/><TextBlock Grid.Row="0" Grid.Column="2" Text="{Binding PlagueChanceValueText}" Foreground="White" HorizontalAlignment="Right"/>
         <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding WheatInfestationText}" Foreground="White" VerticalAlignment="Center"/><Slider Grid.Row="1" Grid.Column="1" Minimum="0" Maximum="100" Value="{Binding WheatInfestationChance, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" ToolTipService.ShowDuration="60000" ToolTip="{Binding ChanceHelpText}"/><TextBlock Grid.Row="1" Grid.Column="2" Text="{Binding WheatInfestationChanceValueText}" Foreground="White" HorizontalAlignment="Right"/>
@@ -73,7 +73,7 @@
       <TextBlock Text="{Binding StrengthTitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,6"/>
       <TextBlock Text="{Binding ScaledStrengthHelpText}" Foreground="#CCCCCC" TextWrapping="Wrap" Margin="0,0,0,6"/>
       <Grid>
-        <Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="10"/><ColumnDefinition Width="175"/><ColumnDefinition Width="85"/><ColumnDefinition Width="175"/><ColumnDefinition Width="85"/></Grid.ColumnDefinitions>
+        <Grid.ColumnDefinitions><ColumnDefinition Width="160"/><ColumnDefinition Width="6"/><ColumnDefinition Width="125"/><ColumnDefinition Width="60"/><ColumnDefinition Width="125"/><ColumnDefinition Width="60"/></Grid.ColumnDefinitions>
         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
         <TextBlock Grid.Row="0" Grid.Column="2" Text="{Binding MinimumText}" Foreground="#CCCCCC" HorizontalAlignment="Center"/><TextBlock Grid.Row="0" Grid.Column="4" Text="{Binding MaximumText}" Foreground="#CCCCCC" HorizontalAlignment="Center"/>
         <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding PlagueText}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding PlagueStrengthHelpText}"/><Slider Grid.Row="1" Grid.Column="2" Minimum="1" Maximum="10" Value="{Binding PlagueMin, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" ToolTipService.ShowDuration="60000" ToolTip="{Binding PlagueStrengthHelpText}"/><TextBlock Grid.Row="1" Grid.Column="3" Text="{Binding PlagueMin}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding PlagueStrengthHelpText}"/><Slider Grid.Row="1" Grid.Column="4" Minimum="1" Maximum="10" Value="{Binding PlagueMax, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" ToolTipService.ShowDuration="60000" ToolTip="{Binding PlagueStrengthHelpText}"/><TextBlock Grid.Row="1" Grid.Column="5" Text="{Binding PlagueMax}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding PlagueStrengthHelpText}"/>

@@ -91,41 +91,11 @@
                            Foreground="White"
                            VerticalAlignment="Center"/>
               </StackPanel>
-              <TextBox Grid.Column="1"
-                       Text="{Binding WoodText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}"
-                       ToolTipService.ShowDuration="60000" ToolTip="{Binding WoodToolTip}"
-                       MaxLength="4"
-                       HorizontalContentAlignment="Right"
-                       Margin="3"
-                       ui:KeyboardCaptureBinding.Enabled="True"/>
-              <TextBox Grid.Column="2"
-                       Text="{Binding StoneText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}"
-                       ToolTipService.ShowDuration="60000" ToolTip="{Binding StoneToolTip}"
-                       MaxLength="4"
-                       HorizontalContentAlignment="Right"
-                       Margin="3"
-                       ui:KeyboardCaptureBinding.Enabled="True"/>
-              <TextBox Grid.Column="3"
-                       Text="{Binding IronText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}"
-                       ToolTipService.ShowDuration="60000" ToolTip="{Binding IronToolTip}"
-                       MaxLength="4"
-                       HorizontalContentAlignment="Right"
-                       Margin="3"
-                       ui:KeyboardCaptureBinding.Enabled="True"/>
-              <TextBox Grid.Column="4"
-                       Text="{Binding PitchText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}"
-                       ToolTipService.ShowDuration="60000" ToolTip="{Binding PitchToolTip}"
-                       MaxLength="4"
-                       HorizontalContentAlignment="Right"
-                       Margin="3"
-                       ui:KeyboardCaptureBinding.Enabled="True"/>
-              <TextBox Grid.Column="5"
-                       Text="{Binding GoldText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}"
-                       ToolTipService.ShowDuration="60000" ToolTip="{Binding GoldToolTip}"
-                       MaxLength="4"
-                       HorizontalContentAlignment="Right"
-                       Margin="3"
-                       ui:KeyboardCaptureBinding.Enabled="True"/>
+              <StackPanel Grid.Column="1" Margin="3"><Slider Minimum="-1" Maximum="1000" Value="{Binding Wood, Mode=TwoWay}" TickFrequency="1" SmallChange="1" LargeChange="10" IsSnapToTickEnabled="True" ToolTipService.ShowDuration="60000" ToolTip="{Binding WoodToolTip}"/><TextBlock Text="{Binding WoodText}" Foreground="White" HorizontalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding WoodToolTip}"/></StackPanel>
+              <StackPanel Grid.Column="2" Margin="3"><Slider Minimum="-1" Maximum="1000" Value="{Binding Stone, Mode=TwoWay}" TickFrequency="1" SmallChange="1" LargeChange="10" IsSnapToTickEnabled="True" ToolTipService.ShowDuration="60000" ToolTip="{Binding StoneToolTip}"/><TextBlock Text="{Binding StoneText}" Foreground="White" HorizontalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding StoneToolTip}"/></StackPanel>
+              <StackPanel Grid.Column="3" Margin="3"><Slider Minimum="-1" Maximum="1000" Value="{Binding Iron, Mode=TwoWay}" TickFrequency="1" SmallChange="1" LargeChange="10" IsSnapToTickEnabled="True" ToolTipService.ShowDuration="60000" ToolTip="{Binding IronToolTip}"/><TextBlock Text="{Binding IronText}" Foreground="White" HorizontalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding IronToolTip}"/></StackPanel>
+              <StackPanel Grid.Column="4" Margin="3"><Slider Minimum="-1" Maximum="1000" Value="{Binding Pitch, Mode=TwoWay}" TickFrequency="1" SmallChange="1" LargeChange="10" IsSnapToTickEnabled="True" ToolTipService.ShowDuration="60000" ToolTip="{Binding PitchToolTip}"/><TextBlock Text="{Binding PitchText}" Foreground="White" HorizontalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding PitchToolTip}"/></StackPanel>
+              <StackPanel Grid.Column="5" Margin="3"><Slider Minimum="-1" Maximum="1000" Value="{Binding Gold, Mode=TwoWay}" TickFrequency="1" SmallChange="1" LargeChange="10" IsSnapToTickEnabled="True" ToolTipService.ShowDuration="60000" ToolTip="{Binding GoldToolTip}"/><TextBlock Text="{Binding GoldText}" Foreground="White" HorizontalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding GoldToolTip}"/></StackPanel>
             </Grid>
           </DataTemplate>
         </ItemsControl.ItemTemplate>

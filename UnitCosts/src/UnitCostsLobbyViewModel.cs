@@ -738,7 +738,7 @@ namespace UnitCosts
                 set => SetToolTip(ref goldToolTip, value);
             }
 
-            public int Gold { get => gold; private set => SetCost(ref gold, value, nameof(GoldText)); }
+            public int Gold { get => gold; set => SetCost(ref gold, value, nameof(Gold), nameof(GoldText)); }
             public string GoldText { get => gold.ToString(); set => SetTextCost(value, v => Gold = v); }
 
             public void SetCostsFromOwner(UnitCostValues values)
@@ -757,7 +757,7 @@ namespace UnitCosts
                 setCost(parsed);
             }
 
-            private void SetCost(ref int field, int value, string textPropertyName)
+            private void SetCost(ref int field, int value, string propertyName, string textPropertyName)
             {
                 if (canEdit != null && !canEdit())
                 {
@@ -770,7 +770,8 @@ namespace UnitCosts
                     return;
 
                 field = clamped;
-                OnPropertyChanged();
+                // Sliders bind the numeric property while the adjacent label binds its text form.
+                OnPropertyChanged(propertyName);
                 OnPropertyChanged(textPropertyName);
                 changed?.Invoke();
             }
@@ -948,7 +949,8 @@ namespace UnitCosts
                 }
             }
 
-            public int Amount { get => amount; private set => SetAmount(value, true); }
+            public int MinimumAmount => Good == eGoods.STORED_GOLD && getMinAmount != null ? getMinAmount() : 0;
+            public int Amount { get => amount; set => SetAmount(value, true); }
             public string AmountText { get => amount.ToString(); set => SetTextAmount(value); }
 
             public void SetAmountFromOwner(int value)

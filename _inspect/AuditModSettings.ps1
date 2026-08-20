@@ -124,11 +124,13 @@ foreach ($entry in $settings.GetEnumerator()) {
 $toolTipPresentationPath = Join-Path $workspace 'Shared/ToolTipPresentation.cs'
 $toolTipPresentation = [IO.File]::ReadAllText($toolTipPresentationPath)
 foreach ($required in @(
-    'private const double ReferenceHeight = 1440.0;',
-    'private const double BaseFontSize = 30.0;',
-    'Math.Max(1.0, Screen.height / ReferenceHeight)',
-    'public static double FontSize',
-    '1000.0 * ResolutionScale')) {
+    'private const float ReferenceHeight = 1440.0f;',
+    'private const float BaseFontSize = 30.0f;',
+    'private static float ResolutionScale',
+    'Math.Max(1.0f, Screen.height / ReferenceHeight)',
+    'public static float FontSize',
+    'public static float MaximumWidth',
+    '1000.0f * ResolutionScale')) {
     if (-not $toolTipPresentation.Contains($required)) {
         throw "Shared tooltip resolution scaling marker is missing: $required"
     }
