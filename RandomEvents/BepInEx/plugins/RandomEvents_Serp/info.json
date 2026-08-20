@@ -2,11 +2,19 @@
   "GUID": "RandomEvents_Serp",
   "Author": "Serpens66",
   "Name": "Random Events",
-  "Description": "Runs configurable Vanilla scenario events in singleplayer skirmishes and Trail missions.",
-  "Version": "1.0.11",
+  "Description": "Runs configurable Vanilla scenario events in skirmishes, Trail missions, and multiplayer games.",
+  "Version": "1.0.12",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.12",
+      "Changes": [
+        "Enabled Random Events in multiplayer through Script Extender's tick-aligned Chore transport.",
+        "Implemented shared rolls that affect every living human equally and independent per-player rolls that can produce different events.",
+        "Made the host authoritative for the private event PRNG while preserving identical Vanilla RNG call order on every peer, and replaced the bandit real-time delay with a deterministic simulation-tick delay."
+      ]
+    },
     {
       "Version": "1.0.11",
       "Changes": [

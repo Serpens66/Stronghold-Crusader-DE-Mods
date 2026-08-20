@@ -13,7 +13,7 @@ namespace RandomEvents
         private const string ScriptExtenderGuid = "000shcdese";
         public const string PluginGuid = "RandomEvents_Serp";
         public const string PluginName = "Random Events";
-        public const string PluginVersion = "1.0.11";
+        public const string PluginVersion = "1.0.12";
 
         private RandomEventsRuntime runtime;
 
@@ -30,6 +30,9 @@ namespace RandomEvents
         {
             try
             {
+                // Register unconditionally and before settings so every peer receives the same packet ID.
+                runtime.InitializeNetwork();
+
                 Shared.LobbyModSettingsPresetRegistration.Register(
                     this,
                     Logger,

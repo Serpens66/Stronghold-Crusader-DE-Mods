@@ -12,11 +12,13 @@ namespace ExtraFeatures
         [Key(2)] public int OperationId;
         [Key(3)] public int BuildingGlobalId;
         [Key(4)] public bool TargetSleeping;
+        [Key(5)] public int Action;
+        [Key(6)] public bool SynchronizeAfterReset;
     }
 
     public sealed class SingleBuildingPausePacketFormatter : IMessagePackFormatter<SingleBuildingPausePacket>
     {
-        private const int FieldCount = 5;
+        private const int FieldCount = 7;
 
         public void Serialize(ref MessagePackWriter writer, SingleBuildingPausePacket value, MessagePackSerializerOptions options)
         {
@@ -32,6 +34,8 @@ namespace ExtraFeatures
             writer.Write(value.OperationId);
             writer.Write(value.BuildingGlobalId);
             writer.Write(value.TargetSleeping);
+            writer.Write(value.Action);
+            writer.Write(value.SynchronizeAfterReset);
         }
 
         public SingleBuildingPausePacket Deserialize(ref MessagePackReader reader, MessagePackSerializerOptions options)
@@ -50,6 +54,8 @@ namespace ExtraFeatures
                     case 2: packet.OperationId = reader.ReadInt32(); break;
                     case 3: packet.BuildingGlobalId = reader.ReadInt32(); break;
                     case 4: packet.TargetSleeping = reader.ReadBoolean(); break;
+                    case 5: packet.Action = reader.ReadInt32(); break;
+                    case 6: packet.SynchronizeAfterReset = reader.ReadBoolean(); break;
                     default: reader.Skip(); break;
                 }
             }

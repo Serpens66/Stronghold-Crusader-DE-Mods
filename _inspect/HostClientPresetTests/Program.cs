@@ -29,6 +29,7 @@ internal static class Program
             TestMarketGoodPriceDefinition();
             TestAIMarketVanillaPricePolicy();
             TestAIMarketNativeResolution();
+            TestMultiplayerGameSpeedPolicyAndPacket();
             TestArrayPerPlayerSetting();
             TestMarketOrderPresetRoundTrip();
             TestPresetLocalRoundTrip();
@@ -530,6 +531,94 @@ internal static class Program
         }
     }
 
+    private static void TestMultiplayerGameSpeedPolicyAndPacket()
+    {
+        Check(MultiplayerGameSpeedPolicy.TryResolvePacket(
+                40,
+                MultiplayerGameSpeedPolicy.ProtocolVersion,
+                MultiplayerGameSpeedPolicy.IncreaseAction,
+                0,
+                out int increased) && increased == 45,
+            "multiplayer game-speed increase did not advance one step");
+        Check(MultiplayerGameSpeedPolicy.TryResolve(
+                40,
+                MultiplayerGameSpeedPolicy.DecreaseAction,
+                0,
+                out int decreased) && decreased == 35,
+            "multiplayer game-speed decrease did not retreat one step");
+        Check(MultiplayerGameSpeedPolicy.TryResolve(
+                MultiplayerGameSpeedPolicy.MaximumSpeed,
+                MultiplayerGameSpeedPolicy.IncreaseAction,
+                0,
+                out int maximum) && maximum == MultiplayerGameSpeedPolicy.MaximumSpeed,
+            "multiplayer game-speed increase exceeded the upper bound");
+        Check(MultiplayerGameSpeedPolicy.TryResolve(
+                MultiplayerGameSpeedPolicy.MinimumSpeed,
+                MultiplayerGameSpeedPolicy.DecreaseAction,
+                0,
+                out int minimum) && minimum == MultiplayerGameSpeedPolicy.MinimumSpeed,
+            "multiplayer game-speed decrease exceeded the lower bound");
+        Check(MultiplayerGameSpeedPolicy.TryResolve(
+                40,
+                MultiplayerGameSpeedPolicy.SetAction,
+                65,
+                out int absolute) && absolute == 65,
+            "multiplayer game-speed absolute target was not retained");
+        Check(!MultiplayerGameSpeedPolicy.TryResolve(40, 999, 0, out _),
+            "unknown multiplayer game-speed action was accepted");
+        Check(!MultiplayerGameSpeedPolicy.TryResolve(
+                40,
+                MultiplayerGameSpeedPolicy.IncreaseAction,
+                MultiplayerGameSpeedPolicy.MinimumSpeed,
+                out _),
+            "multiplayer game-speed increase accepted a target reserved for Set");
+        Check(!MultiplayerGameSpeedPolicy.TryResolve(
+                40,
+                MultiplayerGameSpeedPolicy.DecreaseAction,
+                MultiplayerGameSpeedPolicy.MaximumSpeed,
+                out _),
+            "multiplayer game-speed decrease accepted a target reserved for Set");
+        Check(!MultiplayerGameSpeedPolicy.TryResolve(40, MultiplayerGameSpeedPolicy.SetAction, 64, out _),
+            "non-step multiplayer game-speed target was accepted");
+        Check(!MultiplayerGameSpeedPolicy.TryResolve(40, MultiplayerGameSpeedPolicy.SetAction, 95, out _),
+            "out-of-range multiplayer game-speed target was accepted");
+        Check(!MultiplayerGameSpeedPolicy.TryResolvePacket(
+                40,
+                MultiplayerGameSpeedPolicy.ProtocolVersion + 1,
+                MultiplayerGameSpeedPolicy.IncreaseAction,
+                0,
+                out _),
+            "unknown multiplayer game-speed protocol was accepted");
+
+        var packet = new MultiplayerGameSpeedChangePacket
+        {
+            ProtocolVersion = MultiplayerGameSpeedPolicy.ProtocolVersion,
+            Action = MultiplayerGameSpeedPolicy.SetAction,
+            TargetSpeed = 70
+        };
+        byte[] serialized = MessagePackSerializer.Serialize(packet);
+        MultiplayerGameSpeedChangePacket roundTrip =
+            MessagePackSerializer.Deserialize<MultiplayerGameSpeedChangePacket>(serialized);
+        Check(roundTrip.ProtocolVersion == packet.ProtocolVersion &&
+            roundTrip.Action == packet.Action &&
+            roundTrip.TargetSpeed == packet.TargetSpeed,
+            "multiplayer game-speed packet did not round-trip");
+
+        byte[] forwardBuffer = MessagePackSerializer.Serialize(new FutureMultiplayerGameSpeedPacket
+        {
+            ProtocolVersion = MultiplayerGameSpeedPolicy.ProtocolVersion,
+            Action = MultiplayerGameSpeedPolicy.SetAction,
+            TargetSpeed = 75,
+            FutureField = "future-field"
+        });
+        MultiplayerGameSpeedChangePacket forwardPacket =
+            MessagePackSerializer.Deserialize<MultiplayerGameSpeedChangePacket>(forwardBuffer);
+        Check(forwardPacket.ProtocolVersion == MultiplayerGameSpeedPolicy.ProtocolVersion &&
+            forwardPacket.Action == MultiplayerGameSpeedPolicy.SetAction &&
+            forwardPacket.TargetSpeed == 75,
+            "multiplayer game-speed formatter rejected an unknown trailing field");
+    }
+
     private static void TestAIMarketNativeResolution()
     {
         byte[] buy = ParseHex(AIMarketVanillaPricePolicy.BuyPriceFunctionPattern);
@@ -790,6 +879,15 @@ internal static class Program
         if (!condition)
             throw new InvalidOperationException(message);
     }
+}
+
+[MessagePackObject]
+public sealed class FutureMultiplayerGameSpeedPacket
+{
+    [Key(0)] public int ProtocolVersion;
+    [Key(1)] public int Action;
+    [Key(2)] public int TargetSpeed;
+    [Key(3)] public string FutureField;
 }
 
 internal sealed class RoutingProbeViewModel : SHCDESE.ViewModels.LobbyModSettingsBaseViewModel

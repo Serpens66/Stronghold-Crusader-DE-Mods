@@ -3,10 +3,22 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.22",
+  "Version": "1.0.24",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.24",
+      "Changes": [
+        "Added a default-on host setting that lets every human player change multiplayer game speed with the normal keybinds or the in-game options slider through Script Extender's tick-aligned Chore transport."
+      ]
+    },
+    {
+      "Version": "1.0.23",
+      "Changes": [
+        "Fixed normal-click building sleeping in multiplayer: synchronized per-building overrides are now cleared for the selected building type before Vanilla's optional type-wide sleep action, matching the singleplayer behavior without changing already-awake buildings when waking a type."
+      ]
+    },
     {
       "Version": "1.0.22",
       "Changes": [

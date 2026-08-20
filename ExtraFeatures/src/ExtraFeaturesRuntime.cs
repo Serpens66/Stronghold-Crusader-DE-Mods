@@ -30,6 +30,7 @@ namespace ExtraFeatures
         private readonly Dictionary<string, ResourceEventCountGuard> marketBuyResourceGuards = new Dictionary<string, ResourceEventCountGuard>();
         private readonly Dictionary<string, ResourceEventCountGuard> refundResourceGuards = new Dictionary<string, ResourceEventCountGuard>();
         private readonly MultiplayerFeatureGate multiplayerFeatureGate;
+        private readonly MultiplayerGameSpeedRuntime multiplayerGameSpeedRuntime;
         private readonly KnightDismountRuntime knightDismountRuntime;
         private readonly QuarryPileRelocationRuntime quarryPileRelocationRuntime;
         private readonly ChurchPriestCountRuntime churchPriestCountRuntime;
@@ -64,6 +65,7 @@ namespace ExtraFeatures
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
             multiplayerFeatureGate = new MultiplayerFeatureGate(log);
+            multiplayerGameSpeedRuntime = new MultiplayerGameSpeedRuntime(log, settings, multiplayerFeatureGate);
             knightDismountRuntime = new KnightDismountRuntime(log, settings, multiplayerFeatureGate);
             quarryPileRelocationRuntime = new QuarryPileRelocationRuntime(log, settings, multiplayerFeatureGate);
             churchPriestCountRuntime = new ChurchPriestCountRuntime(log, settings);
@@ -77,10 +79,12 @@ namespace ExtraFeatures
 
         public void InitializeNetwork()
         {
+            multiplayerGameSpeedRuntime.InitializeNetwork();
             knightDismountRuntime.InitializeNetwork();
             quarryPileRelocationRuntime.InitializeNetwork();
             InstallSingleBuildingPauseHook();
             singleBuildingPauseHook.InitializeNetwork();
+            multiplayerGameSpeedRuntime.InstallHooks();
         }
 
         public void InitializeNative(IntPtr newLibraryHandle, ReadOnlySpan<byte> memory, bool isFixedLayoutHashValidated)
@@ -135,6 +139,7 @@ namespace ExtraFeatures
                 return;
 
             TryRunFeature("shared event hooks", SubscribeHooks);
+            TryRunFeature("multiplayer game-speed controls", multiplayerGameSpeedRuntime.ApplySetting);
             TryRunFeature("bulldoze refunds", ApplyRefundSettings);
             TryRunFeature("market price multipliers", ApplyMarketPriceMultipliers);
             TryRunFeature("church priest counts", churchPriestCountRuntime.ApplySetting);
@@ -207,6 +212,7 @@ namespace ExtraFeatures
             plagueApothecarySearchRangePatch = null;
             allyGoodsAmountModifierHook?.Dispose();
             allyGoodsAmountModifierHook = null;
+            multiplayerGameSpeedRuntime.Dispose();
             nativeLibraryAvailable = false;
             libraryHandle = IntPtr.Zero;
             libraryLength = 0;
@@ -397,6 +403,7 @@ namespace ExtraFeatures
                 }
                 else
                 {
+                    multiplayerGameSpeedRuntime.ApplySetting();
                     RestoreDefaultSettings();
                     fastRecruitMovementBridge?.Dispose();
                     fastRecruitMovementBridge = null;
@@ -409,6 +416,12 @@ namespace ExtraFeatures
 
             if (!settings.EnableMod)
                 return;
+
+            if (propertyName == nameof(ExtraFeaturesViewModel.EnableMultiplayerGameSpeedChanges))
+            {
+                multiplayerGameSpeedRuntime.ApplySetting();
+                return;
+            }
 
             if (propertyName == nameof(ExtraFeaturesViewModel.EnableKnightDismount))
             {
@@ -520,6 +533,7 @@ namespace ExtraFeatures
         {
             multiplayerFeatureGate.CaptureMapMode(args.bMultiplayerSave != 0);
 
+            TryRunFeature("multiplayer game-speed controls", multiplayerGameSpeedRuntime.ApplySetting);
             TryRunFeature("knight mount/dismount visibility", knightDismountRuntime.RefreshButtonVisibility);
             TryRunFeature("quarry-pile relocation visibility", quarryPileRelocationRuntime.RefreshButtonVisibility);
         }
@@ -680,6 +694,7 @@ namespace ExtraFeatures
             mapActive = false;
             ClearResourceEventGuards();
             singleBuildingPauseHook?.ClearOverrides("map unload");
+            multiplayerGameSpeedRuntime.ResetMapState();
             multiplayerFeatureGate.Reset();
         }
 

@@ -48,7 +48,7 @@ The named source constants contain the complete byte patterns.
 3. Revalidate bandit resource stride/state offset, event prerequisites,
    presentation targets, wildlife masks, rabbit limit and lion tribe fields.
 4. Test each event independently, failed-component isolation, scenario
-   signposts, timeline events, map reloads and multiplayer restrictions.
+   signposts, timeline events, map reloads and both multiplayer distribution modes.
 5. Update the RVA table. The signature fallbacks can continue on an unknown
    hash, but update the shared hash only after every fixed semantic check passes.
 
@@ -61,4 +61,5 @@ their previous semantics. The unit-spawn function is now `0x17FEA0`. Script
 Extender 1.41 names its first two managed arguments `playerOwnerId` and
 `playerColorId`; the native function writes them to `GameUnit +0x92/+0x0C`.
 Independent event, reload and multiplayer tests remain post-build game smoke
-tests.
+tests. Multiplayer tests must verify matching initialization/batch Chore operation
+IDs, payload sizes below 1200 bytes and identical action order on host and client.

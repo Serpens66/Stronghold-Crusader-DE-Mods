@@ -73,6 +73,17 @@ namespace BugfixesAndQoL
 
         private void RadarScrollMapHook(FatControler self)
         {
+            try
+            {
+                NormalizeIdleRadarOverlay();
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Bugfixes and QoL idle minimap-overlay normalization failed; Vanilla handling continues: {ex}");
+            }
+
             trampoline(self);
 
             try

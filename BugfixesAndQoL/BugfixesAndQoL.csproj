@@ -74,6 +74,7 @@
     <Compile Include="src\PlagueApothecaryStateTransitionFix.cs" />
     <Compile Include="src\PlagueNativePatternValidator.cs" />
     <Compile Include="src\PlaguePopularitySaveState.cs" />
+    <Compile Include="src\RandomOpponentLobbyPolicy.cs" />
     <Compile Include="src\SkirmishAiSelectionMemoryHook.cs" />
     <Compile Include="src\SteamLobbyInvitePrompt.cs" />
     <Compile Include="src\TroopMovementFix3ModLog.cs" />

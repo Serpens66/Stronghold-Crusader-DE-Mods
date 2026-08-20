@@ -26,7 +26,9 @@ namespace ExtraFeatures
 
         private static readonly bool EnablePeriodicManualSleepOverrideRestore = false;
         private const long DuplicateToggleSuppressMilliseconds = 750;
-        private const int ChoreProtocolVersion = 1;
+        private const int ChoreProtocolVersion = 2;
+        private const int SetSingleBuildingAction = 1;
+        private const int ResetBuildingTypeAction = 2;
         private static readonly object ManualSleepOverridesLock = new object();
         private static readonly Dictionary<int, ManualSleepOverride> ManualSleepOverrides = new Dictionary<int, ManualSleepOverride>();
         private static readonly Dictionary<IntPtr, int> ManualSleepOverrideIdsBySleepingAddress = new Dictionary<IntPtr, int>();
@@ -204,11 +206,16 @@ namespace ExtraFeatures
                 if (IsRecentManualToggle(selectedBuildingId))
                     return;
 
-                // Vanilla already synchronizes its type-wide sleep action. Keep the synchronized
-                // individual overrides intact on every peer instead of clearing only the sender's copy.
                 if (RequiresChoreTransport())
                 {
-                    buttonTrampoline(self, parameter);
+                    try
+                    {
+                        ToggleSelectedBuildingTypeMultiplayer(self, parameter);
+                    }
+                    catch (Exception ex)
+                    {
+                        LogError($"building-type sleep toggle failed: {ex}");
+                    }
                     return;
                 }
 
@@ -280,7 +287,7 @@ namespace ExtraFeatures
                     return;
                 }
 
-                if (TrySendPauseChore(playerId, globalId, targetSleeping))
+                if (TrySendPauseChore(playerId, globalId, targetSleeping, SetSingleBuildingAction, false))
                     MarkManualToggle(buildingId);
                 return;
             }
@@ -306,7 +313,51 @@ namespace ExtraFeatures
             return networkInitialized && pausePacketHook != null && ChoreNetworkTransport.IsAvailable;
         }
 
-        private bool TrySendPauseChore(int playerId, int buildingGlobalId, bool targetSleeping)
+        private unsafe void ToggleSelectedBuildingTypeMultiplayer(MainViewModel self, object parameter)
+        {
+            int selectedBuildingId = TryGetSelectedBuildingId();
+            if (selectedBuildingId <= 0)
+                return;
+
+            GameBuildingManagerAPI buildingApi = GameBuildingManagerAPI.Instance;
+            if (!buildingApi.TryGetBuildingById(selectedBuildingId, out GameBuilding* selectedBuilding))
+                return;
+
+            bool selectedHasOverride = TryGetManualSleepOverride(selectedBuildingId, out bool overrideSleeping);
+            bool selectedWasSleeping = selectedHasOverride ? overrideSleeping : selectedBuilding->r_IsSleeping == 1;
+            bool targetSleeping = !selectedWasSleeping;
+            bool buildingTypeWasSleeping = GameData.Instance.lastGameState.building_type_sleeping != 0;
+            int playerId = GetLocalPlayerIdOrOne();
+            int globalId = (int)selectedBuilding->r_GlobalId;
+            if (globalId <= 0 || selectedBuilding->r_PlayerIdOwner != playerId)
+            {
+                LogError($"building-type sleep toggle refused because the selected building has no valid synchronized identity: buildingId={selectedBuildingId}, globalId={globalId}, owner={selectedBuilding->r_PlayerIdOwner}, localPlayer={playerId}.");
+                return;
+            }
+
+            // Queue the override reset first. If Vanilla's type state must also change, its native
+            // GameAction is queued second so every peer observes the same two-step order.
+            bool needsVanillaTypeToggle = buildingTypeWasSleeping != targetSleeping;
+            if (!TrySendPauseChore(
+                    playerId,
+                    globalId,
+                    targetSleeping,
+                    ResetBuildingTypeAction,
+                    synchronizeAfterReset: !needsVanillaTypeToggle))
+                return;
+
+            if (needsVanillaTypeToggle)
+                buttonTrampoline(self, parameter);
+
+            UpdateSleepButtonVisibility(self, targetSleeping);
+        }
+
+        private bool TrySendPauseChore(
+            int playerId,
+            int buildingGlobalId,
+            bool targetSleeping,
+            int action,
+            bool synchronizeAfterReset)
         {
             if (!IsChoreTransportReady())
             {
@@ -321,7 +372,9 @@ namespace ExtraFeatures
                 PlayerId = playerId,
                 OperationId = operationId,
                 BuildingGlobalId = buildingGlobalId,
-                TargetSleeping = targetSleeping
+                TargetSleeping = targetSleeping,
+                Action = action,
+                SynchronizeAfterReset = synchronizeAfterReset
             };
             byte[] body = GameNetworkAPI.Serialize(packet);
             byte[] blob = new byte[sizeof(short) + body.Length];
@@ -335,7 +388,7 @@ namespace ExtraFeatures
                 return false;
             }
 
-            LogInfo($"single-building pause Chore queued: operationId={operationId}, buildingGlobalId={buildingGlobalId}, targetSleeping={targetSleeping}, payloadBytes={blob.Length}.");
+            LogInfo($"single-building pause Chore queued: operationId={operationId}, action={action}, buildingGlobalId={buildingGlobalId}, targetSleeping={targetSleeping}, synchronizeAfterReset={synchronizeAfterReset}, payloadBytes={blob.Length}.");
             return true;
         }
 
@@ -343,6 +396,7 @@ namespace ExtraFeatures
         {
             SingleBuildingPausePacket packet = args?.Packet;
             if (packet == null || packet.ProtocolVersion != ChoreProtocolVersion ||
+                (packet.Action != SetSingleBuildingAction && packet.Action != ResetBuildingTypeAction) ||
                 packet.PlayerId <= 0 || packet.BuildingGlobalId <= 0)
             {
                 LogError("rejected a single-building pause Chore with an invalid payload.");
@@ -365,6 +419,30 @@ namespace ExtraFeatures
                     return;
                 }
 
+                if (packet.Action == ResetBuildingTypeAction)
+                {
+                    int removedOverrides = ClearManualOverridesForBuildingType(
+                        packet.PlayerId,
+                        building->r_BuildingType);
+                    if (packet.SynchronizeAfterReset)
+                        synchronizeSleepStates.Invoke();
+
+                    int selectedBuildingId = TryGetSelectedBuildingId();
+                    if (selectedBuildingId > 0 &&
+                        GameBuildingManagerAPI.Instance.TryGetBuildingById(selectedBuildingId, out GameBuilding* selectedBuilding) &&
+                        selectedBuilding->r_PlayerIdOwner == packet.PlayerId &&
+                        selectedBuilding->r_BuildingType == building->r_BuildingType)
+                    {
+                        UpdateSleepButtonVisibility(MainViewModel.Instance, packet.TargetSleeping);
+                    }
+                    LogInfo(
+                        $"building-type sleep Chore executed: operationId={packet.OperationId}, " +
+                        $"buildingType={building->r_BuildingType}, playerId={packet.PlayerId}, " +
+                        $"targetSleeping={packet.TargetSleeping}, synchronizeAfterReset={packet.SynchronizeAfterReset}, " +
+                        $"removedOverrides={removedOverrides}.");
+                    return;
+                }
+
                 if (!SetManualSleepOverride(buildingId, packet.TargetSleeping))
                 {
                     LogError($"single-building pause Chore could not store the override: operationId={packet.OperationId}, buildingId={buildingId}.");
@@ -374,7 +452,7 @@ namespace ExtraFeatures
                 synchronizeSleepStates?.Invoke();
                 if (TryGetSelectedBuildingId() == buildingId)
                     UpdateSleepButtonVisibility(MainViewModel.Instance, packet.TargetSleeping);
-                LogInfo($"single-building pause Chore executed: operationId={packet.OperationId}, buildingId={buildingId}, buildingGlobalId={packet.BuildingGlobalId}, targetSleeping={packet.TargetSleeping}.");
+                LogInfo($"single-building pause Chore executed: operationId={packet.OperationId}, action={packet.Action}, buildingId={buildingId}, buildingGlobalId={packet.BuildingGlobalId}, targetSleeping={packet.TargetSleeping}.");
             }
             catch (Exception ex)
             {
@@ -468,8 +546,13 @@ namespace ExtraFeatures
             if (!buildingApi.TryGetBuildingById(selectedBuildingId, out GameBuilding* selectedBuilding))
                 return;
 
-            int owner = selectedBuilding->r_PlayerIdOwner;
-            eStructs buildingType = selectedBuilding->r_BuildingType;
+            ClearManualOverridesForBuildingType(
+                selectedBuilding->r_PlayerIdOwner,
+                selectedBuilding->r_BuildingType);
+        }
+
+        private static int ClearManualOverridesForBuildingType(int owner, eStructs buildingType)
+        {
             List<int> idsToRemove = new List<int>();
 
             lock (ManualSleepOverridesLock)
@@ -484,6 +567,7 @@ namespace ExtraFeatures
                     RemoveManualSleepOverrideUnsafe(buildingId);
             }
 
+            return idsToRemove.Count;
         }
 
         private unsafe void ApplyManualSleepOverrides()

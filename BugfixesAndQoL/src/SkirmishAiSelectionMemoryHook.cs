@@ -17,6 +17,8 @@ namespace BugfixesAndQoL
         internal const int MaxStoredAivEntriesPerLord = 999;
 
         private delegate void MultiplayerButtonClickedDelegate(FRONT_Multiplayer self, string param);
+        private delegate void MultiplayerUpdateRandomAiButtonsDelegate(FRONT_Multiplayer self);
+        private delegate void ShowSkirmishRandomAiSetterDelegate(MainViewModel self, bool value);
         private delegate void AiSettingsButtonClickedDelegate(FRONT_Multiplayer_AISettings self, string param);
         private delegate void AiSettingsAddSelectedDelegate(FRONT_Multiplayer_AISettings self);
 
@@ -30,8 +32,22 @@ namespace BugfixesAndQoL
             FindField(typeof(FRONT_Multiplayer_AISettings), "AIVInfo");
         private static readonly FieldInfo MultiplayerPlayerCapField =
             FindField(typeof(FRONT_Multiplayer), "PlayerCap");
+        private static readonly FieldInfo MultiplayerSelectedMpHeaderField =
+            FindField(typeof(FRONT_Multiplayer), "selectedMPHeader");
         private static readonly FieldInfo MultiplayerPlayKickSpeechField =
             FindField(typeof(FRONT_Multiplayer), "playKickSpeech");
+        private static readonly FieldInfo FileHeaderMaxPlayersField =
+            FindField(typeof(FileHeader), "maxPlayers");
+        private static readonly FieldInfo[] MultiplayerRandomAiButtonFields =
+        {
+            FindField(typeof(FRONT_Multiplayer), "RefRandomAI1"),
+            FindField(typeof(FRONT_Multiplayer), "RefRandomAI2"),
+            FindField(typeof(FRONT_Multiplayer), "RefRandomAI3"),
+            FindField(typeof(FRONT_Multiplayer), "RefRandomAI4"),
+            FindField(typeof(FRONT_Multiplayer), "RefRandomAI5"),
+            FindField(typeof(FRONT_Multiplayer), "RefRandomAI6"),
+            FindField(typeof(FRONT_Multiplayer), "RefRandomAI7"),
+        };
         private static readonly MethodInfo MultiplayerUpdateHostInfoMethod =
             FindMethod(typeof(FRONT_Multiplayer), "UpdateHostInfo", typeof(bool));
         private static readonly MethodInfo MultiplayerUpdateSteamMappingsMethod =
@@ -53,10 +69,14 @@ namespace BugfixesAndQoL
 
         private readonly Hook multiplayerButtonClickedHook;
         private readonly Hook skirmishAiAddClickHook;
+        private readonly Hook multiplayerUpdateRandomAiButtonsHook;
+        private readonly Hook showSkirmishRandomAiSetterHook;
         private readonly Hook aiSettingsButtonClickedHook;
         private readonly Hook aiSettingsAddSelectedHook;
         private readonly MultiplayerButtonClickedDelegate multiplayerButtonClickedTrampoline;
         private readonly MultiplayerButtonClickedDelegate skirmishAiAddClickTrampoline;
+        private readonly MultiplayerUpdateRandomAiButtonsDelegate multiplayerUpdateRandomAiButtonsTrampoline;
+        private readonly ShowSkirmishRandomAiSetterDelegate showSkirmishRandomAiSetterTrampoline;
         private readonly AiSettingsButtonClickedDelegate aiSettingsButtonClickedTrampoline;
         private readonly AiSettingsAddSelectedDelegate aiSettingsAddSelectedTrampoline;
         private bool includeBuiltInLords = true;
@@ -82,6 +102,12 @@ namespace BugfixesAndQoL
                 FindMethod(typeof(FRONT_Multiplayer), "ButtonClicked", typeof(string));
             MethodInfo skirmishAiAddClickMethod =
                 FindMethod(typeof(FRONT_Multiplayer), "SkirmishAIAddClick", typeof(string));
+            MethodInfo updateRandomAiButtonsMethod =
+                FindMethod(typeof(FRONT_Multiplayer), "UpdateRandomAIButtons");
+            MethodInfo showSkirmishRandomAiSetterMethod =
+                typeof(MainViewModel).GetProperty(nameof(MainViewModel.Show_SkirmishRandomAI))?.GetSetMethod();
+            if (showSkirmishRandomAiSetterMethod == null)
+                throw new MissingMethodException(typeof(MainViewModel).FullName, "set_Show_SkirmishRandomAI");
             MethodInfo aiSettingsButtonClickedMethod =
                 FindMethod(typeof(FRONT_Multiplayer_AISettings), "ButtonClicked", typeof(string));
             MethodInfo aiSettingsAddSelectedMethod =
@@ -89,6 +115,8 @@ namespace BugfixesAndQoL
 
             Hook multiplayerButtonClicked = null;
             Hook skirmishAiAddClick = null;
+            Hook updateRandomAiButtons = null;
+            Hook showSkirmishRandomAiSetter = null;
             Hook aiSettingsButtonClicked = null;
             Hook aiSettingsAddSelected = null;
             try
@@ -102,6 +130,18 @@ namespace BugfixesAndQoL
                     new Hook(skirmishAiAddClickMethod, (MultiplayerButtonClickedDelegate)SkirmishAiAddClickHook);
                 MultiplayerButtonClickedDelegate skirmishAiAddClickOriginal =
                     skirmishAiAddClick.GenerateTrampoline<MultiplayerButtonClickedDelegate>();
+
+                updateRandomAiButtons =
+                    new Hook(updateRandomAiButtonsMethod,
+                        (MultiplayerUpdateRandomAiButtonsDelegate)UpdateRandomAiButtonsHook);
+                MultiplayerUpdateRandomAiButtonsDelegate updateRandomAiButtonsOriginal =
+                    updateRandomAiButtons.GenerateTrampoline<MultiplayerUpdateRandomAiButtonsDelegate>();
+
+                showSkirmishRandomAiSetter =
+                    new Hook(showSkirmishRandomAiSetterMethod,
+                        (ShowSkirmishRandomAiSetterDelegate)ShowSkirmishRandomAiSetterHook);
+                ShowSkirmishRandomAiSetterDelegate showSkirmishRandomAiSetterOriginal =
+                    showSkirmishRandomAiSetter.GenerateTrampoline<ShowSkirmishRandomAiSetterDelegate>();
 
                 aiSettingsButtonClicked =
                     new Hook(aiSettingsButtonClickedMethod, (AiSettingsButtonClickedDelegate)AiSettingsButtonClickedHook);
@@ -117,6 +157,10 @@ namespace BugfixesAndQoL
                 multiplayerButtonClickedTrampoline = multiplayerButtonClickedOriginal;
                 skirmishAiAddClickHook = skirmishAiAddClick;
                 skirmishAiAddClickTrampoline = skirmishAiAddClickOriginal;
+                multiplayerUpdateRandomAiButtonsHook = updateRandomAiButtons;
+                multiplayerUpdateRandomAiButtonsTrampoline = updateRandomAiButtonsOriginal;
+                showSkirmishRandomAiSetterHook = showSkirmishRandomAiSetter;
+                showSkirmishRandomAiSetterTrampoline = showSkirmishRandomAiSetterOriginal;
                 aiSettingsButtonClickedHook = aiSettingsButtonClicked;
                 aiSettingsButtonClickedTrampoline = aiSettingsButtonClickedOriginal;
                 aiSettingsAddSelectedHook = aiSettingsAddSelected;
@@ -126,6 +170,8 @@ namespace BugfixesAndQoL
             {
                 aiSettingsAddSelected?.Dispose();
                 aiSettingsButtonClicked?.Dispose();
+                showSkirmishRandomAiSetter?.Dispose();
+                updateRandomAiButtons?.Dispose();
                 skirmishAiAddClick?.Dispose();
                 multiplayerButtonClicked?.Dispose();
                 throw;
@@ -173,6 +219,8 @@ namespace BugfixesAndQoL
         public void ApplySetting()
         {
             OnPropertyChanged(nameof(RandomLordFiltersVisibility));
+            if (settings.EnableMod)
+                EnsureRandomAiButtonVisibleInEditableLobby();
         }
 
         public void Dispose()
@@ -183,10 +231,14 @@ namespace BugfixesAndQoL
             disposed = true;
             multiplayerButtonClickedHook?.Undo();
             skirmishAiAddClickHook?.Undo();
+            multiplayerUpdateRandomAiButtonsHook?.Undo();
+            showSkirmishRandomAiSetterHook?.Undo();
             aiSettingsButtonClickedHook?.Undo();
             aiSettingsAddSelectedHook?.Undo();
             multiplayerButtonClickedHook?.Dispose();
             skirmishAiAddClickHook?.Dispose();
+            multiplayerUpdateRandomAiButtonsHook?.Dispose();
+            showSkirmishRandomAiSetterHook?.Dispose();
             aiSettingsButtonClickedHook?.Dispose();
             aiSettingsAddSelectedHook?.Dispose();
             Shared.DebugLogHelper.LogDebug(log, "Bugfixes and QoL AI selection memory hooks disposed.");
@@ -224,10 +276,74 @@ namespace BugfixesAndQoL
             }
         }
 
+        private void ShowSkirmishRandomAiSetterHook(MainViewModel self, bool value)
+        {
+            if (!value && settings.EnableMod && IsEditableHostLobby(self))
+                value = true;
+
+            showSkirmishRandomAiSetterTrampoline(self, value);
+        }
+
+        private void UpdateRandomAiButtonsHook(FRONT_Multiplayer self)
+        {
+            multiplayerUpdateRandomAiButtonsTrampoline(self);
+            if (!settings.EnableMod || self?.currentLobby == null)
+                return;
+
+            int maximumAiCount = GetMaximumAiCount(self);
+            for (int index = 0; index < MultiplayerRandomAiButtonFields.Length; index++)
+            {
+                if (MultiplayerRandomAiButtonFields[index].GetValue(self) is Noesis.Button button)
+                    button.IsEnabled = maximumAiCount >= index + 1;
+            }
+        }
+
+        private void EnsureRandomAiButtonVisibleInEditableLobby()
+        {
+            // MainViewModel.Instance constructs the view model on first access and is not
+            // safe during early plugin initialization before Vanilla finishes loading it.
+            if (!MainViewModel.viewModelLoaded)
+                return;
+
+            MainViewModel viewModel = MainViewModel.Instance;
+            if (IsEditableHostLobby(viewModel))
+                viewModel.Show_SkirmishRandomAI = true;
+        }
+
+        private static bool IsEditableHostLobby(MainViewModel viewModel)
+        {
+            FRONT_Multiplayer frontend = viewModel?.FRONTMultiplayer;
+            return viewModel != null &&
+                viewModel.Show_SkirmishAIADD &&
+                frontend?.currentLobby != null &&
+                frontend.currentLobby.isHost;
+        }
+
+        private static int GetMaximumAiCount(FRONT_Multiplayer self)
+        {
+            int playerCap = self == null ? 0 : (int)MultiplayerPlayerCapField.GetValue(self);
+            int lobbyMaxPlayers = self?.currentLobby?.iMaxPlayers ?? 0;
+            FileHeader selectedHeader = self == null
+                ? null
+                : MultiplayerSelectedMpHeaderField.GetValue(self) as FileHeader;
+            int selectedMapMaxPlayers = selectedHeader == null
+                ? 0
+                : (int)FileHeaderMaxPlayersField.GetValue(selectedHeader);
+            int humanCount = self?.currentLobby?.CountHumanPlayers() ?? 0;
+            return RandomOpponentLobbyPolicy.GetMaximumAiCount(
+                playerCap,
+                lobbyMaxPlayers,
+                selectedMapMaxPlayers,
+                FRONT_Multiplayer.customCoopGame,
+                FRONT_Multiplayer.skirmishGame,
+                humanCount);
+        }
+
         private void SkirmishAiAddClickHook(FRONT_Multiplayer self, string param)
         {
             bool memoryActiveBefore = IsMemoryActive();
             Dictionary<int, string> before = memoryActiveBefore ? CaptureAiSlotKeys(self) : null;
+            bool protectedRandomCommand = settings.EnableMod && IsRandomOpponentCount(param, out _);
 
             bool handled = false;
             try
@@ -236,10 +352,13 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                // Vanilla can safely rebuild the opponent list if the optional filtered path fails.
+                // Never hand a protected random command to Vanilla after a partial mutation.
                 Shared.DebugLogHelper.LogError(
                     log,
-                    $"Bugfixes and QoL filtered random-lord selection failed; falling back to Vanilla: {ex}");
+                    protectedRandomCommand
+                        ? $"Bugfixes and QoL protected random-lord selection failed; the command was stopped without calling Vanilla: {ex}"
+                        : $"Bugfixes and QoL filtered random-lord selection failed; falling back to Vanilla: {ex}");
+                handled = protectedRandomCommand;
             }
 
             if (!handled)
@@ -264,19 +383,19 @@ namespace BugfixesAndQoL
 
         private bool TryCreateFilteredRandomAi(FRONT_Multiplayer self, string param)
         {
-            if (!settings.EnableMod ||
-                !int.TryParse(param, out int requestedValue) ||
-                requestedValue >= 0 ||
-                requestedValue < -8 ||
-                self?.currentLobby == null ||
-                (!FRONT_Multiplayer.skirmishGame && !self.currentLobby.isHost))
-            {
+            if (!IsRandomOpponentCount(param, out int requestedValue) || !settings.EnableMod)
                 return false;
-            }
 
-            // Preserve the original implementation for the common Vanilla-only choice.
-            if (includeBuiltInLords && !includeLocalCustomLords && !includeWorkshopCustomLords)
-                return false;
+            if (self?.currentLobby == null)
+                return true;
+
+            if (!FRONT_Multiplayer.skirmishGame && !self.currentLobby.isHost)
+            {
+                Shared.DebugLogHelper.LogWarning(
+                    log,
+                    "Bugfixes and QoL rejected a random-opponent command from a multiplayer client.");
+                return true;
+            }
 
             List<RandomLordCandidate> candidates = BuildRandomLordCandidates();
             if (candidates.Count == 0)
@@ -292,20 +411,21 @@ namespace BugfixesAndQoL
             }
 
             emptyRandomLordSelectionLogged = false;
-            RemoveExistingRandomOpponents(self);
+            List<HumanLobbyMemberSnapshot> humans = CaptureHumanMembers(self);
+            int removedCount = RemoveExistingRandomOpponents(self);
+            if (!VerifyHumanMembers(self, humans, "after removing old random opponents"))
+            {
+                RefreshRandomOpponentUi(self);
+                return true;
+            }
 
             var random = new Random();
             int requestedCount = -requestedValue;
+            int maximumAiCount = GetMaximumAiCount(self);
+            int targetCount = Math.Min(requestedCount, maximumAiCount);
             int addedCount = 0;
-            for (int i = 0; i < requestedCount; i++)
+            for (int i = 0; i < targetCount; i++)
             {
-                int playerCap = (int)MultiplayerPlayerCapField.GetValue(self);
-                if (self.currentLobby.members.Count >= playerCap ||
-                    self.currentLobby.members.Count >= self.currentLobby.iMaxPlayers)
-                {
-                    break;
-                }
-
                 RandomLordCandidate candidate = candidates[random.Next(candidates.Count)];
                 Platform_Multiplayer.MPLobbyMember member = candidate.CustomLord == null
                     ? Platform_Multiplayer.Instance.AddSkirmishPlayerLocal(candidate.BuiltInLordType)
@@ -334,14 +454,20 @@ namespace BugfixesAndQoL
 
             UpdateSteamMappings(self);
             RefreshRandomOpponentUi(self);
+            bool humansUnchanged = VerifyHumanMembers(self, humans, "after adding new random opponents");
             Shared.DebugLogHelper.LogDebug(
                 log,
                 () =>
-                    $"Bugfixes and QoL created filtered random opponents. requested={requestedCount}, added={addedCount}, " +
+                    $"Bugfixes and QoL created protected random opponents. lobby={GetLobbyKind(self)}, " +
+                    $"requested={requestedCount}, maximum={maximumAiCount}, removed={removedCount}, added={addedCount}, " +
+                    $"humans={humans.Count}, humansUnchanged={humansUnchanged}, " +
                     $"candidates={candidates.Count}, builtIn={includeBuiltInLords}, local={includeLocalCustomLords}, " +
                     $"workshop={includeWorkshopCustomLords}");
             return true;
         }
+
+        private static bool IsRandomOpponentCount(string param, out int requestedValue) =>
+            int.TryParse(param, out requestedValue) && requestedValue < 0 && requestedValue >= -8;
 
         private List<RandomLordCandidate> BuildRandomLordCandidates()
         {
@@ -400,19 +526,26 @@ namespace BugfixesAndQoL
             }
         }
 
-        private static void RemoveExistingRandomOpponents(FRONT_Multiplayer self)
+        private static int RemoveExistingRandomOpponents(FRONT_Multiplayer self)
         {
+            var aiMembers = new List<Platform_Multiplayer.MPLobbyMember>();
+            foreach (Platform_Multiplayer.MPLobbyMember member in self.currentLobby.members)
+            {
+                if (member != null &&
+                    RandomOpponentLobbyPolicy.IsRemovableAi(member.SkirmishMember, member.SkirmishHumanMember))
+                {
+                    aiMembers.Add(member);
+                }
+            }
+
+            int removedCount = 0;
             MultiplayerPlayKickSpeechField.SetValue(self, false);
             try
             {
-                for (int playerId = 2; playerId <= 8; playerId++)
+                foreach (Platform_Multiplayer.MPLobbyMember member in aiMembers)
                 {
-                    Platform_Multiplayer.MPLobbyMember member =
-                        self.currentLobby.GetLobbyMemberFromThis_PlayerID(playerId);
-                    if (member == null)
-                        continue;
-
                     Platform_Multiplayer.Instance.kickSkirmishPlayer(member.GetSteamID());
+                    removedCount++;
                     self.currentLobby.validateTeams();
                     UpdateSteamMappings(self);
                     MultiplayerReSortTeamInfoMethod.Invoke(self, null);
@@ -426,6 +559,83 @@ namespace BugfixesAndQoL
                 MultiplayerPlayKickSpeechField.SetValue(self, true);
             }
             self.currentLobby.validateTeams();
+            return removedCount;
+        }
+
+        private static List<HumanLobbyMemberSnapshot> CaptureHumanMembers(FRONT_Multiplayer self)
+        {
+            var snapshots = new List<HumanLobbyMemberSnapshot>();
+            if (self?.currentLobby?.members == null)
+                return snapshots;
+
+            foreach (Platform_Multiplayer.MPLobbyMember member in self.currentLobby.members)
+            {
+                if (member == null || !member.SkirmishHumanMember)
+                    continue;
+
+                snapshots.Add(new HumanLobbyMemberSnapshot(
+                    member.GetSteamID(),
+                    self.currentLobby.getThisPlayerFromSteamID(member.GetSteamID()),
+                    member.colourID,
+                    self.currentLobby.getTeam(member)));
+            }
+
+            return snapshots;
+        }
+
+        private bool VerifyHumanMembers(
+            FRONT_Multiplayer self,
+            List<HumanLobbyMemberSnapshot> snapshots,
+            string phase)
+        {
+            if (self?.currentLobby?.members == null || snapshots == null)
+                return false;
+
+            foreach (HumanLobbyMemberSnapshot snapshot in snapshots)
+            {
+                Platform_Multiplayer.MPLobbyMember current = null;
+                foreach (Platform_Multiplayer.MPLobbyMember member in self.currentLobby.members)
+                {
+                    if (member != null && member.GetSteamID() == snapshot.SteamId)
+                    {
+                        current = member;
+                        break;
+                    }
+                }
+
+                int currentPlayerId = current == null
+                    ? 0
+                    : self.currentLobby.getThisPlayerFromSteamID(current.GetSteamID());
+                int currentTeam = current == null ? -1 : self.currentLobby.getTeam(current);
+                int currentColour = current == null ? -1 : current.colourID;
+                if (current == null ||
+                    !current.SkirmishHumanMember ||
+                    currentPlayerId != snapshot.PlayerId ||
+                    currentColour != snapshot.ColourId ||
+                    currentTeam != snapshot.Team)
+                {
+                    Shared.DebugLogHelper.LogError(
+                        log,
+                        $"Bugfixes and QoL detected a changed human lobby member {phase}; " +
+                        $"steamId={snapshot.SteamId}, player={snapshot.PlayerId}->{currentPlayerId}, " +
+                        $"colour={snapshot.ColourId}->{currentColour}, team={snapshot.Team}->{currentTeam}. " +
+                        "Random-opponent processing was stopped.");
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static string GetLobbyKind(FRONT_Multiplayer self)
+        {
+            if (FRONT_Multiplayer.skirmishGame)
+                return FRONT_Multiplayer.coopGame ? "singleplayer-customized-coop-trail" : "singleplayer-skirmish";
+            if (self?.currentLobby?.coopTrailGame == true)
+                return "multiplayer-customized-coop-trail";
+            if (FRONT_Multiplayer.customCoopGame)
+                return "multiplayer-custom-coop";
+            return "multiplayer-skirmish";
         }
 
         private static void FinalizeCustomLordIdentity(
@@ -507,6 +717,22 @@ namespace BugfixesAndQoL
             {
                 return new RandomLordCandidate(-1, lord);
             }
+        }
+
+        private sealed class HumanLobbyMemberSnapshot
+        {
+            public HumanLobbyMemberSnapshot(ulong steamId, int playerId, int colourId, int team)
+            {
+                SteamId = steamId;
+                PlayerId = playerId;
+                ColourId = colourId;
+                Team = team;
+            }
+
+            public ulong SteamId { get; }
+            public int PlayerId { get; }
+            public int ColourId { get; }
+            public int Team { get; }
         }
 
         private void AiSettingsButtonClickedHook(FRONT_Multiplayer_AISettings self, string param)

@@ -110,6 +110,8 @@ public static class SerpLocalization
     public const string EnableAllyGoodsAmountModifiersHelp = "SomeSettings.EnableAllyGoodsAmountModifiersHelp";
     public const string EnableSingleBuildingPause = "SomeSettings.EnableSingleBuildingPause";
     public const string EnableSingleBuildingPauseHelp = "SomeSettings.EnableSingleBuildingPauseHelp";
+    public const string EnableMultiplayerGameSpeedChanges = "SomeSettings.EnableMultiplayerGameSpeedChanges";
+    public const string EnableMultiplayerGameSpeedChangesHelp = "SomeSettings.EnableMultiplayerGameSpeedChangesHelp";
     public const string EnableTroopMovementFix = "SomeSettings.EnableTroopMovementFix";
     public const string EnableTroopMovementFixHelp = "SomeSettings.EnableTroopMovementFixHelp";
     public const string EnablePlaguePopularityFix = "SomeSettings.EnablePlaguePopularityFix";
@@ -270,8 +272,8 @@ public static class SerpLocalization
         { "RandomEvents.FireStrengthHelp", "Sets the minimum and maximum fire-event strength. A value in this range is rolled when the event triggers." },
         { "RandomEvents.Minimum", "Min" },
         { "RandomEvents.Maximum", "Max" },
-        { "RandomEvents.MultiplayerMode", "Reserved multiplayer mode" },
-        { "RandomEvents.MultiplayerModeHelp", "Reserved for a future version. Random Events is fully disabled in network games." },
+        { "RandomEvents.MultiplayerMode", "Multiplayer event distribution" },
+        { "RandomEvents.MultiplayerModeHelp", "Shared events use one roll and strength for every living human player. Individual rolls give each human separate chance and strength rolls. Both modes execute the resolved actions through the same tick-aligned Chore sequence to keep the simulation synchronized." },
         { "RandomEvents.MultiplayerShared", "Shared events" },
         { "RandomEvents.MultiplayerIndividual", "Individual rolls" },
         { "RandomEvents.Event.Fair", "Fair" },
@@ -411,6 +413,8 @@ public static class SerpLocalization
         { EnableAllyGoodsAmountModifiersHelp, "In the ally goods-transfer panel, hold Shift for 5x or Ctrl for 0.2x the clicked amount. Holding both uses the normal amount." },
         { EnableSingleBuildingPause, "Enable single-building pause" },
         { EnableSingleBuildingPauseHelp, "Hold Ctrl while toggling a production building's pause state to affect only the selected building. Multiplayer actions use Script Extender's tick-aligned Chore transport." },
+        { EnableMultiplayerGameSpeedChanges, "Change Gamespeed in Multiplayer" },
+        { EnableMultiplayerGameSpeedChangesHelp, "Lets every human player change the running multiplayer game's speed with the normal increase/decrease keybinds or the in-game options slider. Changes are executed for all players through Script Extender's tick-aligned Chore transport. Multiplayer speed is limited to 10-90 and is not saved as the local singleplayer default." },
         { EnableTroopMovementFix, "Troop Speed Fix" },
         { EnableTroopMovementFixHelp, "Fixes synchronized movement for mixed troop groups: with a normal movement command, all units move at the speed of the slowest unit in the group." },
         { EnablePlaguePopularityFix, "Plague Popularity Fix" },

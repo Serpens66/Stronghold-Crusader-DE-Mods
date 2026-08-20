@@ -3,15 +3,16 @@ using CrusaderDE;
 using MessagePack;
 using R3;
 using SHCDESE.API;
+using SHCDESE.API.Components.Network;
 using SHCDESE.API.Components.SaveData;
 using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.MapLoader;
+using SHCDESE.EventAPI.Network;
 using SHCDESE.GameGlobals;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 
@@ -28,7 +29,13 @@ namespace RandomEvents
         private const int ScaledStrengthTenthsPerUnit = 10;
         private const int ScaledStrengthMonthsPerPeriod = 3;
         private const int EventKindCount = 15;
-        private const double BanditGroupActivationDelaySeconds = 0.5;
+        private const int BanditGroupActivationDelayTicks = 20;
+        private const int ChoreProtocolVersion = 1;
+        private const int InitializeCommand = 1;
+        private const int ExecuteBatchCommand = 2;
+        private const int InitializeSignpostsCommand = 3;
+        private const int MaximumChorePayloadBytes = 1200;
+        private const int MaximumChoreActions = EventKindCount * (GamePlayerManagerAPI.MAX_PLAYERS + 1);
 
         private readonly ManualLogSource log;
         private readonly RandomEventsSettingsViewModel settings;
@@ -47,6 +54,16 @@ namespace RandomEvents
         private bool mapStartedFromMultiplayerSave;
         private int lastSignpostAttemptTick = int.MinValue;
         private bool banditEventsEnabled = true;
+        private bool networkInitialized;
+        private bool isRealMultiplayer;
+        private bool isLocalHost;
+        private bool initializationChoreQueued;
+        private bool multiplayerInitializationReceived;
+        private bool batchChoreQueued;
+        private bool signpostChoreQueued;
+        private int nextOperationId;
+        private R3PacketEventHook<RandomEventsChorePacket> chorePacketHook;
+        private IDisposable chorePacketSubscription;
         private RandomEventsSaveStateV2 state;
 
         public RandomEventsRuntime(ManualLogSource log, RandomEventsSettingsViewModel settings)
@@ -66,6 +83,17 @@ namespace RandomEvents
             nativeEventDispatcher.InitializeNative(libraryHandle, memory, referenceHashMatches);
             nativeWildlifeDispatcher.InitializeNative(libraryHandle, memory, referenceHashMatches);
             nativeBanditSupport.InitializeNative(memory, referenceHashMatches);
+        }
+
+        public void InitializeNetwork()
+        {
+            if (networkInitialized)
+                return;
+
+            chorePacketHook = GameNetworkAPI.Instance.GetPacketEventFor<RandomEventsChorePacket>();
+            chorePacketSubscription = chorePacketHook.GetBaseHook().Observable.Subscribe(OnChorePacketReceived);
+            networkInitialized = true;
+            LogDebug($"Random Events Chore packet registered eagerly: packetId={chorePacketHook.GetPacketId()}, protocolVersion={ChoreProtocolVersion}.");
         }
 
         public void Initialize()
@@ -125,6 +153,12 @@ namespace RandomEvents
             loadedStateAvailable = false;
             mapStartedFromMultiplayerSave = false;
             banditEventsEnabled = true;
+            isRealMultiplayer = false;
+            isLocalHost = false;
+            initializationChoreQueued = false;
+            multiplayerInitializationReceived = false;
+            batchChoreQueued = false;
+            signpostChoreQueued = false;
             pendingBanditGroups.Clear();
             signpostPlacement.ResetMapState();
             state = null;
@@ -149,6 +183,21 @@ namespace RandomEvents
                 ProcessPendingBanditGroups();
 
                 int currentAbsoluteMonth = GetCurrentAbsoluteMonth();
+                if (isRealMultiplayer)
+                {
+                    RetrySignpostInitialization(tick);
+                    if (!isLocalHost || initializationChoreQueued || batchChoreQueued)
+                        return;
+
+                    if (currentAbsoluteMonth >= state.NextDueAbsoluteMonth)
+                    {
+                        if (!state.BatchPrepared && !PrepareBatch())
+                            return;
+                        TryQueueBatchChore();
+                    }
+                    return;
+                }
+
                 if (state.BatchPrepared && currentAbsoluteMonth >= state.NextDueAbsoluteMonth)
                 {
                     ExecuteDueBatch();
@@ -158,12 +207,7 @@ namespace RandomEvents
                 if (!state.BatchPrepared)
                     PrepareBatch();
 
-                if (!state.SignpostsInitialized && RandomEventDefinitions.RequiresSignposts(state.Chances) &&
-                    (lastSignpostAttemptTick == int.MinValue || tick - lastSignpostAttemptTick >= 30))
-                {
-                    lastSignpostAttemptTick = tick;
-                    signpostPlacement.TryInitialize(state);
-                }
+                RetrySignpostInitialization(tick);
             }
             catch (Exception ex)
             {
@@ -179,7 +223,7 @@ namespace RandomEvents
             string gameModeDetails = gameMode.ToDiagnosticString();
             if (gameMode.IsRealMultiplayer)
             {
-                DisableForNetwork("map started as a real network game", gameModeDetails);
+                InitializeMultiplayerMap(gameModeDetails);
                 return;
             }
 
@@ -216,6 +260,72 @@ namespace RandomEvents
             state = CreateFreshState();
             mapActive = true;
             PrepareBatch();
+        }
+
+        private void InitializeMultiplayerMap(string gameModeDetails)
+        {
+            isRealMultiplayer = true;
+            isLocalHost = GameNetworkAPI.IsLocalHost();
+            if (!networkInitialized || chorePacketHook == null || !ChoreNetworkTransport.IsAvailable)
+            {
+                DisableForNetwork("tick-aligned Chore transport is unavailable", gameModeDetails);
+                return;
+            }
+
+            if (!settings.EnableMod)
+            {
+                DisableForNetwork("disabled by the effective host setting", gameModeDetails);
+                return;
+            }
+
+            if (!isLocalHost)
+            {
+                if (multiplayerInitializationReceived && state != null)
+                {
+                    mapActive = state.EffectiveEnabled;
+                    return;
+                }
+
+                state = null;
+                loadedStateAvailable = false;
+                mapActive = false;
+                LogDebug($"Random Events multiplayer client waiting for host initialization Chore. Network details: {gameModeDetails}.");
+                return;
+            }
+
+            if (!(loadedStateAvailable && ValidateLoadedState(state)))
+            {
+                loadedStateAvailable = false;
+                state = CreateFreshState();
+            }
+            else
+            {
+                // Revalidate restored native signposts on every peer after the host snapshot arrives.
+                state.SignpostsInitialized = !RandomEventDefinitions.RequiresSignposts(state.Chances);
+            }
+
+            mapActive = state.EffectiveEnabled;
+            if (!TryQueueInitializationChore())
+                DisableForNetwork("host initialization Chore could not be queued", gameModeDetails);
+        }
+
+        private void RetrySignpostInitialization(int tick)
+        {
+            if (state == null || state.SignpostsInitialized || !RandomEventDefinitions.RequiresSignposts(state.Chances) ||
+                (lastSignpostAttemptTick != int.MinValue && tick - lastSignpostAttemptTick < 30))
+            {
+                return;
+            }
+
+            lastSignpostAttemptTick = tick;
+            if (isRealMultiplayer)
+            {
+                if (isLocalHost && !signpostChoreQueued)
+                    TryQueueSignpostInitializationChore();
+                return;
+            }
+
+            signpostPlacement.TryInitialize(state);
         }
 
         private RandomEventsSaveStateV2 CreateFreshState()
@@ -260,37 +370,54 @@ namespace RandomEvents
             int[] humanTargetPlayerIds = GetLivingHumanPlayerIds();
             if (humanTargetPlayerIds.Length == 0)
                 return false;
+            Array.Sort(humanTargetPlayerIds);
 
             SavedPrng prng = new SavedPrng(state.PrngState0, state.PrngState1);
             List<int> directKinds = new List<int>();
             List<int> directStrengths = new List<int>();
             List<int> directTargetPlayerIds = new List<int>();
 
-            foreach (RandomEventDefinition definition in RandomEventDefinitions.All)
+            if (state.MultiplayerMode == (int)MultiplayerEventMode.SharedEvents)
             {
-                int targetPlayerId = -1;
-                if (state.MultiplayerMode == (int)MultiplayerEventMode.IndividualRolls)
+                // One roll and one strength are shared by every living human player.
+                foreach (RandomEventDefinition definition in RandomEventDefinitions.All)
                 {
-                    // The future independent-roll path can reuse the same player-scoped cooldown lookup.
-                    targetPlayerId = humanTargetPlayerIds[prng.Next(humanTargetPlayerIds.Length)];
+                    if (!IsEventOffCooldown(definition.Kind, -1, state.NextDueAbsoluteMonth))
+                        continue;
+
+                    int roll = prng.Next(100);
+                    if (roll >= state.Chances[(int)definition.Kind])
+                        continue;
+
+                    int strength = RollStrength(definition.StrengthKind, ref prng);
+                    foreach (int targetPlayerId in humanTargetPlayerIds)
+                    {
+                        directKinds.Add((int)definition.Kind);
+                        directStrengths.Add(strength);
+                        directTargetPlayerIds.Add(targetPlayerId);
+                    }
                 }
+            }
+            else
+            {
+                // Every player consumes a separate chance and strength roll, but the host records
+                // the resulting global action order so no peer may advance either PRNG differently.
+                foreach (int targetPlayerId in humanTargetPlayerIds)
+                {
+                    foreach (RandomEventDefinition definition in RandomEventDefinitions.All)
+                    {
+                        if (!IsEventOffCooldown(definition.Kind, targetPlayerId, state.NextDueAbsoluteMonth))
+                            continue;
 
-                if (!IsEventOffCooldown(definition.Kind, targetPlayerId, state.NextDueAbsoluteMonth))
-                    continue;
+                        int roll = prng.Next(100);
+                        if (roll >= state.Chances[(int)definition.Kind])
+                            continue;
 
-                int chance = state.Chances[(int)definition.Kind];
-                int roll = prng.Next(100);
-                bool success = roll < chance;
-                int strength = success ? RollStrength(definition.StrengthKind, ref prng) : 0;
-                if (!success)
-                    continue;
-                directKinds.Add((int)definition.Kind);
-                directStrengths.Add(strength);
-                // Store an explicit non-AI target so the saved schedule remains deterministic
-                // when synchronized multiplayer support is enabled later.
-                if (targetPlayerId < 0)
-                    targetPlayerId = humanTargetPlayerIds[prng.Next(humanTargetPlayerIds.Length)];
-                directTargetPlayerIds.Add(targetPlayerId);
+                        directKinds.Add((int)definition.Kind);
+                        directStrengths.Add(RollStrength(definition.StrengthKind, ref prng));
+                        directTargetPlayerIds.Add(targetPlayerId);
+                    }
+                }
             }
 
             state.PrngState0 = prng.State0;
@@ -299,6 +426,9 @@ namespace RandomEvents
             state.PreparedDirectStrengths = directStrengths.ToArray();
             state.PreparedDirectTargetPlayerIds = directTargetPlayerIds.ToArray();
             state.BatchPrepared = true;
+            LogDebug(
+                $"Random Events batch prepared: mode={(MultiplayerEventMode)state.MultiplayerMode}, " +
+                $"dueAbsoluteMonth={state.NextDueAbsoluteMonth}, actions={directKinds.Count}, humanPlayers=[{string.Join(",", humanTargetPlayerIds)}].");
             return true;
         }
 
@@ -308,6 +438,274 @@ namespace RandomEvents
                 return 0;
             int index = (int)kind - 1;
             return prng.NextInclusive(state.StrengthMinimums[index], state.StrengthMaximums[index]);
+        }
+
+        private bool TryQueueInitializationChore()
+        {
+            if (state == null)
+                return false;
+
+            var packet = new RandomEventsChorePacket
+            {
+                ProtocolVersion = ChoreProtocolVersion,
+                CommandType = InitializeCommand,
+                OperationId = NextOperationId(),
+                EffectiveEnabled = state.EffectiveEnabled,
+                IntervalMonths = state.IntervalMonths,
+                CooldownMonths = state.CooldownMonths,
+                MultiplayerMode = state.MultiplayerMode,
+                Chances = (int[])state.Chances.Clone(),
+                StrengthMinimums = (int[])state.StrengthMinimums.Clone(),
+                StrengthMaximums = (int[])state.StrengthMaximums.Clone(),
+                PrngState0 = state.PrngState0,
+                PrngState1 = state.PrngState1,
+                NextDueAbsoluteMonth = state.NextDueAbsoluteMonth,
+                StartAbsoluteMonth = state.StartAbsoluteMonth,
+                SharedCooldownUntilAbsoluteMonths = (int[])state.SharedCooldownUntilAbsoluteMonths.Clone(),
+                IndividualCooldownUntilAbsoluteMonths = (int[])state.IndividualCooldownUntilAbsoluteMonths.Clone(),
+                BatchPrepared = state.BatchPrepared,
+                EventKinds = (int[])(state.PreparedDirectKinds ?? Array.Empty<int>()).Clone(),
+                EventStrengths = (int[])(state.PreparedDirectStrengths ?? Array.Empty<int>()).Clone(),
+                TargetPlayerIds = (int[])(state.PreparedDirectTargetPlayerIds ?? Array.Empty<int>()).Clone(),
+                SignpostsInitialized = state.SignpostsInitialized,
+                SignpostBuildingIds = (int[])(state.SignpostBuildingIds ?? Array.Empty<int>()).Clone()
+            };
+
+            if (!TrySendChore(packet, "initialization"))
+                return false;
+
+            initializationChoreQueued = true;
+            return true;
+        }
+
+        private bool TryQueueBatchChore()
+        {
+            if (state == null || !state.BatchPrepared)
+                return false;
+
+            var packet = new RandomEventsChorePacket
+            {
+                ProtocolVersion = ChoreProtocolVersion,
+                CommandType = ExecuteBatchCommand,
+                OperationId = NextOperationId(),
+                PrngState0 = state.PrngState0,
+                PrngState1 = state.PrngState1,
+                NextDueAbsoluteMonth = state.NextDueAbsoluteMonth,
+                EventKinds = (int[])(state.PreparedDirectKinds ?? Array.Empty<int>()).Clone(),
+                EventStrengths = (int[])(state.PreparedDirectStrengths ?? Array.Empty<int>()).Clone(),
+                TargetPlayerIds = (int[])(state.PreparedDirectTargetPlayerIds ?? Array.Empty<int>()).Clone()
+            };
+
+            if (!TrySendChore(packet, "event batch"))
+                return false;
+
+            batchChoreQueued = true;
+            return true;
+        }
+
+        private bool TryQueueSignpostInitializationChore()
+        {
+            var packet = new RandomEventsChorePacket
+            {
+                ProtocolVersion = ChoreProtocolVersion,
+                CommandType = InitializeSignpostsCommand,
+                OperationId = NextOperationId()
+            };
+            if (!TrySendChore(packet, "signpost initialization"))
+                return false;
+
+            signpostChoreQueued = true;
+            return true;
+        }
+
+        private bool TrySendChore(RandomEventsChorePacket packet, string label)
+        {
+            if (!networkInitialized || chorePacketHook == null || !ChoreNetworkTransport.IsAvailable)
+            {
+                LogError($"Random Events {label} refused because the Chore transport is unavailable.");
+                return false;
+            }
+
+            byte[] body = GameNetworkAPI.Serialize(packet);
+            byte[] blob = new byte[sizeof(short) + body.Length];
+            if (blob.Length > MaximumChorePayloadBytes)
+            {
+                LogError(
+                    $"Random Events {label} refused because its serialized Chore exceeds the Script Extender limit: " +
+                    $"operationId={packet.OperationId}, payloadBytes={blob.Length}, limit={MaximumChorePayloadBytes}.");
+                return false;
+            }
+            BitConverter.GetBytes(chorePacketHook.GetPacketId()).CopyTo(blob, 0);
+            Buffer.BlockCopy(body, 0, blob, sizeof(short), body.Length);
+            Func<byte[], bool> sendRawBlob = ChoreNetworkTransport.SendRawBlob;
+            bool queued = sendRawBlob != null && sendRawBlob(blob);
+            if (!queued)
+            {
+                LogError($"Random Events {label} Chore was not queued; no local simulation action was applied: operationId={packet.OperationId}, payloadBytes={blob.Length}.");
+                return false;
+            }
+
+            LogDebug($"Random Events {label} Chore queued: operationId={packet.OperationId}, payloadBytes={blob.Length}, actions={packet.EventKinds?.Length ?? 0}.");
+            return true;
+        }
+
+        private void OnChorePacketReceived(ReceiveCustomPacketEventArgs<RandomEventsChorePacket> args)
+        {
+            RandomEventsChorePacket packet = args?.Packet;
+            if (packet == null || packet.ProtocolVersion != ChoreProtocolVersion)
+            {
+                LogError("Random Events rejected a Chore with an unsupported payload.");
+                return;
+            }
+
+            try
+            {
+                if (packet.CommandType == InitializeCommand)
+                {
+                    ApplyInitializationChore(packet);
+                    return;
+                }
+
+                if (packet.CommandType == ExecuteBatchCommand)
+                {
+                    ApplyBatchChore(packet);
+                    return;
+                }
+
+                if (packet.CommandType == InitializeSignpostsCommand)
+                {
+                    ApplySignpostInitializationChore(packet);
+                    return;
+                }
+
+                LogError($"Random Events rejected a Chore with unknown command type {packet.CommandType}.");
+            }
+            catch (Exception ex)
+            {
+                mapActive = false;
+                LogError($"Random Events Chore execution failed: commandType={packet.CommandType}, operationId={packet.OperationId}, exception={ex}");
+            }
+        }
+
+        private void ApplyInitializationChore(RandomEventsChorePacket packet)
+        {
+            if (!ValidateInitializationPacket(packet))
+            {
+                mapActive = false;
+                LogError($"Random Events rejected an invalid initialization Chore: operationId={packet.OperationId}.");
+                return;
+            }
+
+            state = new RandomEventsSaveStateV2
+            {
+                EffectiveEnabled = packet.EffectiveEnabled,
+                IntervalMonths = packet.IntervalMonths,
+                CooldownMonths = packet.CooldownMonths,
+                MultiplayerMode = packet.MultiplayerMode,
+                Chances = (int[])packet.Chances.Clone(),
+                StrengthMinimums = (int[])packet.StrengthMinimums.Clone(),
+                StrengthMaximums = (int[])packet.StrengthMaximums.Clone(),
+                PrngState0 = packet.PrngState0,
+                PrngState1 = packet.PrngState1,
+                NextDueAbsoluteMonth = packet.NextDueAbsoluteMonth,
+                StartAbsoluteMonth = packet.StartAbsoluteMonth,
+                SharedCooldownUntilAbsoluteMonths = (int[])packet.SharedCooldownUntilAbsoluteMonths.Clone(),
+                IndividualCooldownUntilAbsoluteMonths = (int[])packet.IndividualCooldownUntilAbsoluteMonths.Clone(),
+                BatchPrepared = packet.BatchPrepared,
+                PreparedDirectKinds = (int[])packet.EventKinds.Clone(),
+                PreparedDirectStrengths = (int[])packet.EventStrengths.Clone(),
+                PreparedDirectTargetPlayerIds = (int[])packet.TargetPlayerIds.Clone(),
+                SignpostsInitialized = packet.SignpostsInitialized,
+                SignpostBuildingIds = packet.SignpostBuildingIds.Length == 4
+                    ? (int[])packet.SignpostBuildingIds.Clone()
+                    : new[] { -1, -1, -1, -1 }
+            };
+            mapActive = state.EffectiveEnabled;
+            isRealMultiplayer = true;
+            multiplayerInitializationReceived = true;
+            loadedStateAvailable = false;
+            initializationChoreQueued = false;
+            batchChoreQueued = false;
+            signpostChoreQueued = false;
+            lastSignpostAttemptTick = int.MinValue;
+
+            // Every peer starts from the host's private PRNG state. Signpost placement derives a
+            // separate deterministic stream and therefore never perturbs Vanilla's synchronized RNG.
+            LogDebug($"Random Events initialization Chore executed: operationId={packet.OperationId}, mode={(MultiplayerEventMode)state.MultiplayerMode}, nextDueAbsoluteMonth={state.NextDueAbsoluteMonth}.");
+        }
+
+        private void ApplySignpostInitializationChore(RandomEventsChorePacket packet)
+        {
+            signpostChoreQueued = false;
+            if (state == null || state.SignpostsInitialized || !RandomEventDefinitions.RequiresSignposts(state.Chances))
+                return;
+
+            bool completed = signpostPlacement.TryInitialize(state);
+            LogDebug($"Random Events signpost initialization Chore executed: operationId={packet.OperationId}, completed={completed}, initialized={state.SignpostsInitialized}.");
+        }
+
+        private void ApplyBatchChore(RandomEventsChorePacket packet)
+        {
+            if (state == null || !ValidateActionArrays(packet) ||
+                packet.NextDueAbsoluteMonth != state.NextDueAbsoluteMonth ||
+                (packet.PrngState0 | packet.PrngState1) == 0)
+            {
+                mapActive = false;
+                LogError($"Random Events rejected an invalid or out-of-sequence batch Chore: operationId={packet.OperationId}, packetDue={packet.NextDueAbsoluteMonth}, localDue={state?.NextDueAbsoluteMonth.ToString() ?? "null"}.");
+                return;
+            }
+
+            state.PrngState0 = packet.PrngState0;
+            state.PrngState1 = packet.PrngState1;
+            state.PreparedDirectKinds = (int[])packet.EventKinds.Clone();
+            state.PreparedDirectStrengths = (int[])packet.EventStrengths.Clone();
+            state.PreparedDirectTargetPlayerIds = (int[])packet.TargetPlayerIds.Clone();
+            state.BatchPrepared = true;
+            batchChoreQueued = false;
+
+            // All direct native mutations now run in one Chore callback and in the host-recorded
+            // order. Vanilla GameAction events are queued only by the host below, because they are
+            // already native Chores and would otherwise be duplicated once per peer.
+            ExecuteDueBatch();
+            LogDebug($"Random Events batch Chore executed: operationId={packet.OperationId}, actions={packet.EventKinds.Length}, nextDueAbsoluteMonth={state.NextDueAbsoluteMonth}.");
+        }
+
+        private static bool ValidateInitializationPacket(RandomEventsChorePacket packet)
+        {
+            return packet.IntervalMonths >= 1 && packet.IntervalMonths <= 90 &&
+                packet.CooldownMonths >= 0 && packet.CooldownMonths <= 90 &&
+                packet.MultiplayerMode >= (int)MultiplayerEventMode.SharedEvents &&
+                packet.MultiplayerMode <= (int)MultiplayerEventMode.IndividualRolls &&
+                packet.Chances?.Length == EventKindCount &&
+                packet.StrengthMinimums?.Length == 6 && packet.StrengthMaximums?.Length == 6 &&
+                packet.SharedCooldownUntilAbsoluteMonths?.Length == EventKindCount &&
+                packet.IndividualCooldownUntilAbsoluteMonths?.Length == (GamePlayerManagerAPI.MAX_PLAYERS + 1) * EventKindCount &&
+                packet.NextDueAbsoluteMonth >= packet.StartAbsoluteMonth &&
+                (packet.PrngState0 | packet.PrngState1) != 0 &&
+                ValidateActionArrays(packet);
+        }
+
+        private static bool ValidateActionArrays(RandomEventsChorePacket packet)
+        {
+            int count = packet.EventKinds?.Length ?? -1;
+            if (count < 0 || count > MaximumChoreActions ||
+                packet.EventStrengths?.Length != count || packet.TargetPlayerIds?.Length != count)
+                return false;
+
+            for (int index = 0; index < count; index++)
+            {
+                if (packet.EventKinds[index] < 0 || packet.EventKinds[index] >= EventKindCount ||
+                    packet.TargetPlayerIds[index] < 1 || packet.TargetPlayerIds[index] > GamePlayerManagerAPI.MAX_PLAYERS)
+                    return false;
+            }
+            return true;
+        }
+
+        private int NextOperationId()
+        {
+            if (nextOperationId == int.MaxValue)
+                nextOperationId = 0;
+            return ++nextOperationId;
         }
 
         private void ExecuteDueBatch()
@@ -399,8 +797,7 @@ namespace RandomEvents
 
         private byte[] SaveState(SaveContext context)
         {
-            if (!context.IsSaveFile || !mapActive || state == null ||
-                Shared.GameModeHelper.IsRealMultiplayer(mapStartedFromMultiplayerSave))
+            if (!context.IsSaveFile || !mapActive || state == null)
                 return null;
             return MessagePackSerializer.Serialize(state);
         }
@@ -561,6 +958,14 @@ namespace RandomEvents
 
             if (definition.DispatchKind == RandomEventDispatchKind.ManualBandits)
                 return SpawnBanditAttack(targetPlayerId, strength);
+
+            if (isRealMultiplayer && !isLocalHost)
+            {
+                // GameAction queues a native Vanilla Chore. Only the host may enqueue it; every
+                // peer will execute that native Chore later through the game's normal lockstep path.
+                LogDebug($"Vanilla GameAction delegated to multiplayer host: event={definition.Name}, targetPlayerId={targetPlayerId}.");
+                return true;
+            }
 
             IDisposable signpostScope = null;
             int signpostBuildingId = -1;
@@ -735,9 +1140,8 @@ namespace RandomEvents
                 }
 
                 SavedPrng movePrng = new SavedPrng(state.PrngState0, state.PrngState1);
-                long executeAfterTimestamp = checked(
-                    Stopwatch.GetTimestamp() +
-                    (long)(Stopwatch.Frequency * BanditGroupActivationDelaySeconds));
+                int executeAtMapTick = checked(
+                    GameTimeManagerAPI.Instance.GetElapsedMapTicks() + BanditGroupActivationDelayTicks);
                 int scheduledGroups = Math.Min(MaximumBanditGroups, spawnedUnits.Count);
                 // Spread the total as evenly as possible while never creating more than five independent orders.
                 int baseGroupSize = spawnedUnits.Count / scheduledGroups;
@@ -757,7 +1161,7 @@ namespace RandomEvents
                         targetPlayerId,
                         groupUnits,
                         target,
-                        executeAfterTimestamp));
+                        executeAtMapTick));
                 }
                 state.PrngState0 = movePrng.State0;
                 state.PrngState1 = movePrng.State1;
@@ -898,11 +1302,11 @@ namespace RandomEvents
             if (pendingBanditGroups.Count == 0)
                 return;
 
-            long now = Stopwatch.GetTimestamp();
+            int currentMapTick = GameTimeManagerAPI.Instance.GetElapsedMapTicks();
             for (int index = pendingBanditGroups.Count - 1; index >= 0; index--)
             {
                 PendingBanditGroup pending = pendingBanditGroups[index];
-                if (now < pending.ExecuteAfterTimestamp)
+                if (currentMapTick < pending.ExecuteAtMapTick)
                     continue;
 
                 // Remove first so a rejected native order cannot be repeated on every persistent tick.
@@ -1560,7 +1964,7 @@ namespace RandomEvents
                 int targetPlayerId,
                 BanditUnitReference[] units,
                 BanditMoveTarget target,
-                long executeAfterTimestamp)
+                int executeAtMapTick)
             {
                 OwnerPlayerId = ownerPlayerId;
                 Team = team;
@@ -1568,7 +1972,7 @@ namespace RandomEvents
                 TargetPlayerId = targetPlayerId;
                 Units = units;
                 Target = target;
-                ExecuteAfterTimestamp = executeAfterTimestamp;
+                ExecuteAtMapTick = executeAtMapTick;
             }
 
             public int OwnerPlayerId { get; }
@@ -1577,7 +1981,7 @@ namespace RandomEvents
             public int TargetPlayerId { get; }
             public BanditUnitReference[] Units { get; }
             public BanditMoveTarget Target { get; }
-            public long ExecuteAfterTimestamp { get; }
+            public int ExecuteAtMapTick { get; }
         }
 
         private readonly struct BanditMoveTarget
