@@ -166,6 +166,13 @@
         </Border>
       </Grid>
       <StackPanel IsEnabled="{Binding CanEditHostSettings}">
+      <TextBlock Text="{Binding MultiplayerTitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,4"/>
+      <CheckBox IsChecked="{Binding EnableResyncHostKick, Mode=TwoWay}"
+                Foreground="White"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableResyncHostKickHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding EnableResyncHostKickText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox>
       <TextBlock Text="{Binding GameplayTitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,4"/>
       <CheckBox IsChecked="{Binding EnableAssemblyPointPlacementFix, Mode=TwoWay}"
                 Foreground="White"

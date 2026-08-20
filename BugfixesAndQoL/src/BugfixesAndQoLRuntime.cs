@@ -18,6 +18,7 @@ namespace BugfixesAndQoL
         private HdMarketViewHook hdMarketViewHook;
         private CameraMovementModifierHook cameraMovementModifierHook;
         private CustomTrailExtremeGoldFixHook customTrailExtremeGoldFixHook;
+        private ResyncHostKickFeature resyncHostKickFeature;
         private AssemblyPointPlacementPatch assemblyPointPlacementPatch;
         private PlaguePopularityFix plaguePopularityFix;
         private PlagueTreatmentFadeFix plagueTreatmentFadeFix;
@@ -67,6 +68,7 @@ namespace BugfixesAndQoL
 
         public void ApplySettings()
         {
+            TryInitializeFeature("resync host kick", EnsureResyncHostKickFeature);
             TryInitializeFeature("AI castle/settings selection memory", EnsureAiSelectionHook);
             skirmishAiSelectionMemoryHook?.ApplySetting();
             TryInitializeFeature("custom-lord list enhancements", EnsureCustomLordListEnhancementHook);
@@ -87,6 +89,8 @@ namespace BugfixesAndQoL
             skirmishAiSelectionMemoryHook = null;
             customLordListEnhancementHook?.Dispose();
             customLordListEnhancementHook = null;
+            resyncHostKickFeature?.Dispose();
+            resyncHostKickFeature = null;
             DisableAssemblyPointPlacementPatch();
             plaguePopularityFix?.Dispose();
             plaguePopularityFix = null;
@@ -173,6 +177,12 @@ namespace BugfixesAndQoL
         {
             if (customLordListEnhancementHook == null)
                 customLordListEnhancementHook = new CustomLordListEnhancementHook(log, settings);
+        }
+
+        private void EnsureResyncHostKickFeature()
+        {
+            if (resyncHostKickFeature == null)
+                resyncHostKickFeature = new ResyncHostKickFeature(log, settings);
         }
 
         private void TryInitializeFeature(string featureName, Action initialize)

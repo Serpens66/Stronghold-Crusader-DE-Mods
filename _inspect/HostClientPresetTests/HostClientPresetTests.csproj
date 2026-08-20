@@ -51,6 +51,9 @@
     <Compile Include="..\..\BugfixesAndQoL\src\MarketGoodsOrderDefinition.cs">
       <Link>MarketGoodsOrderDefinition.cs</Link>
     </Compile>
+    <Compile Include="..\..\BugfixesAndQoL\src\ResyncHostKickPolicy.cs">
+      <Link>ResyncHostKickPolicy.cs</Link>
+    </Compile>
     <Compile Include="..\..\ExtraFeatures\src\MarketGoodPriceDefinition.cs">
       <Link>MarketGoodPriceDefinition.cs</Link>
     </Compile>

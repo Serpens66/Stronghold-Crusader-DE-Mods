@@ -74,35 +74,51 @@ namespace RandomEvents
             if (reader.TryReadNil())
                 return null;
 
-            int count = reader.ReadArrayHeader();
+            int count;
+            try
+            {
+                count = reader.ReadArrayHeader();
+            }
+            catch (Exception ex)
+            {
+                throw CreateFieldException(ref reader, -1, "packet array header", ex);
+            }
+
             var value = new RandomEventsChorePacket();
             for (int index = 0; index < count; index++)
             {
-                switch (index)
+                try
                 {
-                    case 0: value.ProtocolVersion = reader.ReadInt32(); break;
-                    case 1: value.CommandType = reader.ReadInt32(); break;
-                    case 2: value.OperationId = reader.ReadInt32(); break;
-                    case 3: value.EffectiveEnabled = reader.ReadBoolean(); break;
-                    case 4: value.IntervalMonths = reader.ReadInt32(); break;
-                    case 5: value.CooldownMonths = reader.ReadInt32(); break;
-                    case 6: value.MultiplayerMode = reader.ReadInt32(); break;
-                    case 7: value.Chances = ReadIntArray(ref reader); break;
-                    case 8: value.StrengthMinimums = ReadIntArray(ref reader); break;
-                    case 9: value.StrengthMaximums = ReadIntArray(ref reader); break;
-                    case 10: value.PrngState0 = reader.ReadUInt64(); break;
-                    case 11: value.PrngState1 = reader.ReadUInt64(); break;
-                    case 12: value.NextDueAbsoluteMonth = reader.ReadInt32(); break;
-                    case 13: value.StartAbsoluteMonth = reader.ReadInt32(); break;
-                    case 14: value.SharedCooldownUntilAbsoluteMonths = ReadIntArray(ref reader); break;
-                    case 15: value.IndividualCooldownUntilAbsoluteMonths = ReadIntArray(ref reader); break;
-                    case 16: value.BatchPrepared = reader.ReadBoolean(); break;
-                    case 17: value.EventKinds = ReadIntArray(ref reader); break;
-                    case 18: value.EventStrengths = ReadIntArray(ref reader); break;
-                    case 19: value.TargetPlayerIds = ReadIntArray(ref reader); break;
-                    case 20: value.SignpostsInitialized = reader.ReadBoolean(); break;
-                    case 21: value.SignpostBuildingIds = ReadIntArray(ref reader); break;
-                    default: reader.Skip(); break;
+                    switch (index)
+                    {
+                        case 0: value.ProtocolVersion = reader.ReadInt32(); break;
+                        case 1: value.CommandType = reader.ReadInt32(); break;
+                        case 2: value.OperationId = reader.ReadInt32(); break;
+                        case 3: value.EffectiveEnabled = reader.ReadBoolean(); break;
+                        case 4: value.IntervalMonths = reader.ReadInt32(); break;
+                        case 5: value.CooldownMonths = reader.ReadInt32(); break;
+                        case 6: value.MultiplayerMode = reader.ReadInt32(); break;
+                        case 7: value.Chances = ReadIntArray(ref reader, FieldCount); break;
+                        case 8: value.StrengthMinimums = ReadIntArray(ref reader, FieldCount); break;
+                        case 9: value.StrengthMaximums = ReadIntArray(ref reader, FieldCount); break;
+                        case 10: value.PrngState0 = reader.ReadUInt64(); break;
+                        case 11: value.PrngState1 = reader.ReadUInt64(); break;
+                        case 12: value.NextDueAbsoluteMonth = reader.ReadInt32(); break;
+                        case 13: value.StartAbsoluteMonth = reader.ReadInt32(); break;
+                        case 14: value.SharedCooldownUntilAbsoluteMonths = ReadIntArray(ref reader, 256); break;
+                        case 15: value.IndividualCooldownUntilAbsoluteMonths = ReadIntArray(ref reader, 256); break;
+                        case 16: value.BatchPrepared = reader.ReadBoolean(); break;
+                        case 17: value.EventKinds = ReadIntArray(ref reader, 256); break;
+                        case 18: value.EventStrengths = ReadIntArray(ref reader, 256); break;
+                        case 19: value.TargetPlayerIds = ReadIntArray(ref reader, 256); break;
+                        case 20: value.SignpostsInitialized = reader.ReadBoolean(); break;
+                        case 21: value.SignpostBuildingIds = ReadIntArray(ref reader, FieldCount); break;
+                        default: reader.Skip(); break;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    throw CreateFieldException(ref reader, index, GetExpectedType(index), ex);
                 }
             }
             return value;
@@ -120,15 +136,58 @@ namespace RandomEvents
                 writer.Write(values[index]);
         }
 
-        private static int[] ReadIntArray(ref MessagePackReader reader)
+        private static int[] ReadIntArray(ref MessagePackReader reader, int maximumLength)
         {
             if (reader.TryReadNil())
                 return Array.Empty<int>();
             int length = reader.ReadArrayHeader();
+            if (length < 0 || length > maximumLength)
+                throw new MessagePackSerializationException($"Integer-array length {length} exceeds the diagnostic safety limit {maximumLength}.");
             int[] values = new int[length];
             for (int index = 0; index < length; index++)
                 values[index] = reader.ReadInt32();
             return values;
+        }
+
+        private static MessagePackSerializationException CreateFieldException(
+            ref MessagePackReader reader,
+            int fieldIndex,
+            string expectedType,
+            Exception innerException)
+        {
+            string next = reader.End
+                ? "end-of-payload"
+                : $"code=0x{reader.NextCode:X2}, type={reader.NextMessagePackType}";
+            string field = fieldIndex < 0 ? "header" : $"field={fieldIndex}";
+            return new MessagePackSerializationException(
+                $"RandomEvents Chore decode failed at {field}, offset={reader.Consumed}, expected={expectedType}, next={next}.",
+                innerException);
+        }
+
+        private static string GetExpectedType(int index)
+        {
+            switch (index)
+            {
+                case 3:
+                case 16:
+                case 20:
+                    return "Boolean";
+                case 7:
+                case 8:
+                case 9:
+                case 14:
+                case 15:
+                case 17:
+                case 18:
+                case 19:
+                case 21:
+                    return "Integer array";
+                case 10:
+                case 11:
+                    return "UInt64";
+                default:
+                    return "Int32";
+            }
         }
     }
 }

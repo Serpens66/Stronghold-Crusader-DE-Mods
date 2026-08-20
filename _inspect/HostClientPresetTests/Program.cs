@@ -26,6 +26,7 @@ internal static class Program
             TestGameModeHelper();
             TestLocalPerPlayerSetting();
             TestMarketGoodsOrderDefinition();
+            TestResyncHostKickPolicy();
             TestMarketGoodPriceDefinition();
             TestAIMarketVanillaPricePolicy();
             TestAIMarketNativeResolution();
@@ -326,6 +327,39 @@ internal static class Program
             "client storage snapshot replaced the cached local host value");
         Check(manager.ReadStoredInt(nameof(viewModel.PlayerValue)) == 7,
             "client storage snapshot lost its per-player value");
+    }
+
+    private static void TestResyncHostKickPolicy()
+    {
+        DateTime now = new DateTime(2026, 8, 21, 12, 0, 0, DateTimeKind.Utc);
+        var candidates = new[]
+        {
+            new ResyncHostKickCandidate(1, "Self", now.AddMinutes(-1), true, true, false),
+            new ResyncHostKickCandidate(2, "Fresh", now.AddSeconds(-4), false, true, false),
+            new ResyncHostKickCandidate(3, "AI", now.AddMinutes(-2), false, false, false),
+            new ResyncHostKickCandidate(4, "Kicked", now.AddMinutes(-3), false, true, true)
+        };
+        Check(!ResyncHostKickPolicy.TrySelect(candidates, now, out _),
+            "resync host kick selected an ineligible or fresh player");
+
+        var stale = new[]
+        {
+            new ResyncHostKickCandidate(5, "Later", now.AddSeconds(-8), false, true, false),
+            new ResyncHostKickCandidate(4, "OldestTieHigh", now.AddSeconds(-12), false, true, false),
+            new ResyncHostKickCandidate(2, "OldestTieLow", now.AddSeconds(-12), false, true, false),
+            new ResyncHostKickCandidate(6, "Uninitialized", DateTime.MaxValue, false, true, false)
+        };
+        Check(ResyncHostKickPolicy.TrySelect(stale, now, out ResyncHostKickCandidate selected),
+            "resync host kick did not select an overdue human player");
+        Check(selected.PlayerId == 2 && selected.PlayerName == "OldestTieLow",
+            "resync host kick did not select the oldest heartbeat with deterministic player-ID tie-breaking");
+
+        var boundary = new[]
+        {
+            new ResyncHostKickCandidate(7, "Boundary", now - ResyncHostKickPolicy.HeartbeatTimeout, false, true, false)
+        };
+        Check(!ResyncHostKickPolicy.TrySelect(boundary, now, out _),
+            "resync host kick treated the exact timeout boundary as overdue");
     }
 
     private static void TestGameModeHelper()

@@ -3,10 +3,24 @@
   "Author": "Serpens66",
   "Name": "Random Events",
   "Description": "Runs configurable Vanilla scenario events in skirmishes, Trail missions, and multiplayer games.",
-  "Version": "1.0.12",
+  "Version": "1.0.14",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.14",
+      "Changes": [
+        "Delayed multiplayer initialization until the map startup is stable and prevented multiple Random Events Chores in one simulation tick.",
+        "Added a fail-closed peer acknowledgement handshake before signposts or event batches can change the synchronized simulation."
+      ]
+    },
+    {
+      "Version": "1.0.13",
+      "Changes": [
+        "Added fail-closed Chore serializer self-tests and packet hashes to diagnose multiplayer transport corruption.",
+        "Added matching PRNG, action-order, and state digests for precise host/client desync comparison."
+      ]
+    },
     {
       "Version": "1.0.12",
       "Changes": [
