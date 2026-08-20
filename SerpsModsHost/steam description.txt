@@ -28,6 +28,8 @@ In multiplayer, gameplay-related settings are controlled by the host and synchro
 [*] - Improves apothecary target reservation so multiple apothecaries do not treat the same plague area.
 [*] - Remembers each AI lord’s selected AIV list, AIV rotation, and custom AIC settings across singleplayer and multiplayer lobbies.
 [*] - Allows automatic selling with a sell threshold of zero.
+[*] - Allow random custom lords in the randomized skirmish setup
+[*] - Add sorting and filtering for the skirmish custom lord selection list
 [/list]
 
 [h2]BuildingCosts[/h2]
@@ -44,7 +46,9 @@ In multiplayer, gameplay-related settings are controlled by the host and synchro
 [h2]ExtraFeatures[/h2]
 [list]
 [*]Hold Ctrl while trading to buy or sell exactly 1 unit of a good.
-[*]Recruited units run to rally points.
+[*]Hold Ctrl/Shift while sending goods to send even less/more goods.
+[*]Recruited units "run" to rally points at their max speed.
+[*]Monks always run.
 [*]Swordsmen can mount horses, while mounted knights can dismount.
 [*]Move a quarry’s linked stone pile to another valid position.
 [*]Churches and cathedrals receive more priests.

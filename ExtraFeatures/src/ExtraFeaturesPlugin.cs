@@ -20,7 +20,7 @@ namespace ExtraFeatures
 
         public const string PluginGuid = "ExtraFeatures_Serp";
         public const string PluginName = "Extra Features";
-        public const string PluginVersion = "1.0.20";
+        public const string PluginVersion = "1.0.21";
 
         private ExtraFeaturesRuntime runtime;
         private bool marketGoodPriceVisualRefreshFailureLogged;
@@ -49,6 +49,19 @@ namespace ExtraFeatures
 
         private void OnCrusaderLibraryLoaded(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
         {
+            // The Script Extender registers its built-in packet types in its earlier LibraryLoaded
+            // handler. Register ours immediately afterwards, unconditionally and before any settings.
+            try
+            {
+                runtime.InitializeNetwork();
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(
+                    Logger,
+                    $"Extra Features quarry-pile Chore registration failed; multiplayer relocation remains unavailable: {ex}");
+            }
+
             try
             {
                 Settings.InitializeMarketGoodPriceEditor(Logger);

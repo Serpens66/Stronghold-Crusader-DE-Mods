@@ -75,6 +75,11 @@ namespace ExtraFeatures
         public object QuarryPileRelocationButton => quarryPileRelocationRuntime.ButtonViewModel;
         public object AllyGoodsAmountDisplay => allyGoodsAmountModifierHook;
 
+        public void InitializeNetwork()
+        {
+            quarryPileRelocationRuntime.InitializeNetwork();
+        }
+
         public void InitializeNative(IntPtr newLibraryHandle, ReadOnlySpan<byte> memory, bool isFixedLayoutHashValidated)
         {
             if (nativeLibraryAvailable)

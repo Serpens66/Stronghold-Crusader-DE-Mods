@@ -434,7 +434,7 @@ public static class SerpLocalization
         { KnightMountTooltip, "Mount" },
         { KnightMountTooltipBody, "Turns selected swordsmen into mounted knights. Requires available horses in a stable." },
         { EnableQuarryPileRelocation, "Enable quarry pile rotation button" },
-        { EnableQuarryPileRelocationHelp, "Adds a button to selected quarries that rotates their linked stone pile clockwise to the next valid position. The existing pile is kept if no valid replacement can be created. This feature is temporarily unavailable in multiplayer until Script Extender 1.50.0 Chore support is adopted." },
+        { EnableQuarryPileRelocationHelp, "Adds a button to selected quarries that rotates their linked stone pile clockwise to the next valid position. The existing pile is kept if no valid replacement can be created. Multiplayer actions use Script Extender's tick-aligned Chore transport." },
         { EnableExtraChurchPriests, "Enable extra priests for churches" },
         { EnableExtraChurchPriestsHelp, "When enabled, churches receive two priests and cathedrals receive three priests." },
         { PlagueDurationMultiplier, "Plague cloud duration" },

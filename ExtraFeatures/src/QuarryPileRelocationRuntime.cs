@@ -5,10 +5,12 @@ using MonoMod.RuntimeDetour;
 using Noesis;
 using R3;
 using SHCDESE.API;
+using SHCDESE.API.Components.Network;
 using SHCDESE.Detours;
 using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.Buildings;
 using SHCDESE.EventAPI.MapLoader;
+using SHCDESE.EventAPI.Network;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using SHCDESE.NoesisUtil;
@@ -77,6 +79,7 @@ namespace ExtraFeatures
         private const int VanillaMaximumPlacementTry = 9;
         private const int VanillaCandidateOffsetX = 0x31B7D0;
         private const int VanillaCandidateOffsetY = 0x31B7D4;
+        private const int ChoreProtocolVersion = 1;
 
         // CrusaderDE setupBuildingEntrancesOffset. This is the native helper used by
         // findQuarryPileLocation to turn (buildingSize, pileSize, perimeterIndex, try)
@@ -113,7 +116,10 @@ namespace ExtraFeatures
         private int nextOperationId;
         private int linkedRemovalSuppressionDepth;
         private bool initialized;
+        private bool networkInitialized;
         private string lastVisibilityLogState;
+        private R3PacketEventHook<QuarryPileRelocationPacket> relocationPacketHook;
+        private IDisposable relocationPacketSubscription;
 
         public QuarryPileRelocationRuntime(
             ManualLogSource log,
@@ -127,6 +133,17 @@ namespace ExtraFeatures
         }
 
         public QuarryPileRelocationButtonViewModel ButtonViewModel => buttonViewModel;
+
+        public void InitializeNetwork()
+        {
+            if (networkInitialized)
+                return;
+
+            relocationPacketHook = GameNetworkAPI.Instance.GetPacketEventFor<QuarryPileRelocationPacket>();
+            relocationPacketSubscription = relocationPacketHook.GetBaseHook().Observable.Subscribe(OnRelocationPacketReceived);
+            networkInitialized = true;
+            LogInfo($"Chore packet registered eagerly: packetId={relocationPacketHook.GetPacketId()}, protocolVersion={ChoreProtocolVersion}.");
+        }
 
         public void InstallNativeFunctions(
             IntPtr libraryHandle,
@@ -238,6 +255,14 @@ namespace ExtraFeatures
                     buttonViewModel.Hide();
                     HideRelocationTooltip();
                     LogVisibilityState("hidden: Vanilla candidate helper unavailable");
+                    return;
+                }
+
+                if (RequiresChoreTransport() && !IsChoreTransportReady())
+                {
+                    buttonViewModel.Hide();
+                    HideRelocationTooltip();
+                    LogVisibilityState("hidden: real multiplayer requires an available Chore transport");
                     return;
                 }
 
@@ -403,7 +428,17 @@ namespace ExtraFeatures
                     TargetTileY = target.Y
                 };
 
-                if (!TryApplyRotation(attemptedOperation, "local-click", targetAlreadyValidated: true))
+                if (RequiresChoreTransport())
+                {
+                    if (!TrySendRotationChore(attemptedOperation))
+                    {
+                        LogInfo($"rotation command stopped: Chore send failed, operationId={operationId}, target={target.X},{target.Y}.");
+                        RefreshButtonVisibility();
+                    }
+                    return;
+                }
+
+                if (!TryApplyRotation(attemptedOperation, "singleplayer-local-click", targetAlreadyValidated: true))
                 {
                     RememberFailedRotationTarget(attemptedOperation, "replacement-transaction-failed");
                     LogInfo($"rotation command stopped: replacement transaction failed, operationId={operationId}, target={target.X},{target.Y}.");
@@ -411,9 +446,6 @@ namespace ExtraFeatures
                     return;
                 }
 
-                // TODO: With Script Extender 1.50.0, execute this complete transaction through
-                // the ordered Chore transport instead of restoring the former custom-packet path.
-                // Do not restore request-ID deduplication unless the final Chore contract requires it.
                 RefreshButtonVisibility();
             }
             catch (Exception ex)
@@ -468,7 +500,7 @@ namespace ExtraFeatures
         {
             try
             {
-                if (!IsFeatureActive())
+                if (!IsLinkedRemovalActive())
                     return;
 
                 if (linkedRemovalSuppressionDepth > 0)
@@ -533,11 +565,126 @@ namespace ExtraFeatures
 
         private bool IsFeatureActive()
         {
-            // TODO: Remove the multiplayer gate after Script Extender 1.50.0 Chores can
-            // synchronize pile relocation and linked demolition deterministically.
             return settings.EnableMod &&
-                settings.EnableQuarryPileRelocation &&
-                !multiplayerFeatureGate.BlocksLocalStateChanges;
+                settings.EnableQuarryPileRelocation;
+        }
+
+        private bool IsLinkedRemovalActive()
+        {
+            // Linked quarry/pile demolition is a separate state-changing path and remains
+            // multiplayer-gated until it is independently carried or proven deterministic.
+            return IsFeatureActive() && !multiplayerFeatureGate.BlocksLocalStateChanges;
+        }
+
+        private bool RequiresChoreTransport()
+        {
+            // Detection failures deliberately take the multiplayer path and therefore fail closed.
+            return multiplayerFeatureGate.BlocksLocalStateChanges;
+        }
+
+        private bool IsChoreTransportReady()
+        {
+            return networkInitialized &&
+                relocationPacketHook != null &&
+                ChoreNetworkTransport.IsAvailable;
+        }
+
+        private bool TrySendRotationChore(QuarryPileRelocationOperation operation)
+        {
+            if (!IsChoreTransportReady())
+            {
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Extra Features quarry-pile rotation refused in multiplayer because the Chore transport is unavailable: operationId={operation.OperationId}.");
+                return false;
+            }
+
+            var packet = new QuarryPileRelocationPacket
+            {
+                ProtocolVersion = ChoreProtocolVersion,
+                PlayerId = operation.PlayerId,
+                OperationId = operation.OperationId,
+                QuarryGlobalId = operation.QuarryGlobalId,
+                OldPileGlobalId = operation.OldPileGlobalId,
+                TargetTileX = operation.TargetTileX,
+                TargetTileY = operation.TargetTileY
+            };
+
+            byte[] body = GameNetworkAPI.Serialize(packet);
+            byte[] blob = new byte[sizeof(short) + body.Length];
+            BitConverter.GetBytes(relocationPacketHook.GetPacketId()).CopyTo(blob, 0);
+            Buffer.BlockCopy(body, 0, blob, sizeof(short), body.Length);
+
+            // Call the Chore transport directly so failure cannot silently fall back to the
+            // non-tick-aligned Steam transport used by SendPacketToAllEx2.
+            Func<byte[], bool> sendRawBlob = ChoreNetworkTransport.SendRawBlob;
+            bool queued = sendRawBlob != null && sendRawBlob(blob);
+            if (!queued)
+            {
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Extra Features quarry-pile Chore was not queued; no local action was applied: operationId={operation.OperationId}, payloadBytes={blob.Length}.");
+                return false;
+            }
+
+            LogInfo($"rotation Chore queued: operationId={operation.OperationId}, packetId={relocationPacketHook.GetPacketId()}, payloadBytes={blob.Length}, quarryGlobalId={operation.QuarryGlobalId}, oldPileGlobalId={operation.OldPileGlobalId}, target={operation.TargetTileX},{operation.TargetTileY}.");
+            return true;
+        }
+
+        private void OnRelocationPacketReceived(ReceiveCustomPacketEventArgs<QuarryPileRelocationPacket> args)
+        {
+            QuarryPileRelocationPacket packet = args?.Packet;
+            if (packet == null || packet.ProtocolVersion != ChoreProtocolVersion)
+            {
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Extra Features rejected a quarry-pile Chore with an unsupported payload: protocolVersion={packet?.ProtocolVersion.ToString() ?? "null"}.");
+                return;
+            }
+
+            var operation = new QuarryPileRelocationOperation
+            {
+                PlayerId = packet.PlayerId,
+                OperationId = packet.OperationId,
+                QuarryGlobalId = packet.QuarryGlobalId,
+                OldPileGlobalId = packet.OldPileGlobalId,
+                TargetTileX = packet.TargetTileX,
+                TargetTileY = packet.TargetTileY
+            };
+
+            try
+            {
+                LogInfo($"rotation Chore received: operationId={operation.OperationId}, playerId={operation.PlayerId}, quarryGlobalId={operation.QuarryGlobalId}, oldPileGlobalId={operation.OldPileGlobalId}, target={operation.TargetTileX},{operation.TargetTileY}.");
+                if (!initialized || setupBuildingEntrancesOffset == null)
+                {
+                    Shared.DebugLogHelper.LogError(
+                        log,
+                        $"Extra Features cannot execute quarry-pile Chore because the relocation runtime is unavailable: operationId={operation.OperationId}, initialized={initialized}, nativeCandidateHelperAvailable={setupBuildingEntrancesOffset != null}.");
+                    return;
+                }
+
+                if (!TryApplyRotation(operation, "multiplayer-chore", targetAlreadyValidated: false))
+                {
+                    RememberFailedRotationTarget(operation, "multiplayer-chore-transaction-failed");
+                    Shared.DebugLogHelper.LogWarning(
+                        log,
+                        $"Extra Features quarry-pile Chore completed without relocation: operationId={operation.OperationId}, target={operation.TargetTileX},{operation.TargetTileY}.");
+                    return;
+                }
+
+                LogInfo($"rotation Chore executed successfully: operationId={operation.OperationId}.");
+            }
+            catch (Exception ex)
+            {
+                RememberFailedRotationTarget(operation, "multiplayer-chore-exception");
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Extra Features quarry-pile Chore execution failed: operationId={operation.OperationId}, exception={ex}");
+            }
+            finally
+            {
+                RefreshButtonVisibility();
+            }
         }
 
         private bool TryApplyRotation(
