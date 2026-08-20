@@ -5,7 +5,7 @@ Common.EnableMod=Mod aktivieren
 Common.Limit=Begrenzung
 Common.Max=Maximum
 UnitLimit.Title=Einheitenlimits (Mensch)
-UnitLimit.Help=Nur für Menschen! -1 = unbegrenzt. Erlaubter Bereich: -1 bis 10000. Vorhandene lebende Einheiten zaehlen gegen das Limit.
+UnitLimit.Help=Nur für Menschen! -1 = unbegrenzt. Erlaubter Bereich: -1 bis 5000. Vorhandene lebende Einheiten zaehlen gegen das Limit.
 
 Common.HostOptions=HOST-OPTIONEN
 Common.ClientOptions=LOKALE CLIENT-OPTIONEN

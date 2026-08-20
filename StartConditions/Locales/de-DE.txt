@@ -7,7 +7,7 @@ Common.Human=Mensch
 StartConditions.StartGoldTitle=Startgold
 StartConditions.StartGoodsTitle=Startwaren
 StartConditions.StartTroopsTitle=Starttruppen
-StartConditions.UnchangedRangeHelp=-1 = unverändert. Erlaubter Bereich: -1 bis 100000.
+StartConditions.UnchangedRangeHelp=-1 = unverändert. Erlaubter Bereich: -1 bis 10000.
 StartConditions.NormalCrusade=Normal/Kreuzzug
 StartConditions.Deathmatch=Deathmatch
 StartConditions.SetStartGold=Startgold setzen (-1 = unverändert)
@@ -17,7 +17,7 @@ StartConditions.AddStartGoldHelp=Fügt jedem Spieler die angegebene Goldmenge zu
 StartConditions.MultiplyStartTroops=Starttruppen-Armeen multiplizieren
 StartConditions.StartTroopsMultiplierHelp=Multiplikator: 0 = offizielle Starttruppen nach 20 Sekunden entfernen, 1 = unverändert, 2 = doppelt. Erlaubter Bereich: 0 bis 100.
 StartConditions.StartTroopsMultiplierToolTip=Multiplikator fuer Starttruppen-Armeen. Wird nach {DelayedStartTroopCountMilliseconds} ms angewendet, aktuell {DelayedStartTroopCountSeconds} Sekunden nach Kartenstart. 0 = entfernen, 1 = unveraendert, 2 = doppelt. Erlaubter Bereich: 0 bis 100.
-StartConditions.ExtraStartUnitsHelp=Extra-Start-Einheiten: -1 oder 0 = keine Extra-Einheiten. Erlaubter Bereich: -1 bis 100000.
+StartConditions.ExtraStartUnitsHelp=Extra-Start-Einheiten: 0 = keine Extra-Einheiten. Erlaubter Bereich: 0 bis 1000.
 
 Common.HostOptions=HOST-OPTIONEN
 Common.ClientOptions=LOKALE CLIENT-OPTIONEN

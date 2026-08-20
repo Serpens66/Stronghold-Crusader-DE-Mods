@@ -28,8 +28,15 @@ namespace StartConditions
         private string addStartTroopsHuman = DefaultTroops;
         private bool updatingEntries;
         private bool loggedGoodsLocalizationDiagnostics;
-        private const int MaximumStartAmount = 100000;
-        private const int MinimumAddedGold = -MaximumStartAmount;
+        private const int MaximumSetStartGold = 1000000;
+        private const int MinimumAddedGold = -100000;
+        private const int MaximumAddedGold = 1000000;
+        private const int MinimumStartGood = -1;
+        private const int MaximumStartGood = 10000;
+        private const int MaximumStartGoodSlider = 500;
+        private const int MinimumExtraTroop = 0;
+        private const int MaximumExtraTroop = 1000;
+        private const int MaximumExtraTroopSlider = 100;
 
         public const string DefaultStartGoodsAI = @"STORED_WOOD_PLANKS=-1
 STORED_RAW_HOPS=-1
@@ -235,12 +242,19 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
         }
 
         [SyncHostOnly] public bool EnableMod { get => enableMod; set => Set(ref enableMod, value, nameof(EnableMod)); }
-        [SyncHostOnly] public int SetStartGoldAI { get => setStartGoldAI; set => SetStartGold(ref setStartGoldAI, value, nameof(SetStartGoldAI), nameof(SetStartGoldAIText)); }
-        [SyncHostOnly] public int SetStartGoldHuman { get => setStartGoldHuman; set => SetStartGold(ref setStartGoldHuman, value, nameof(SetStartGoldHuman), nameof(SetStartGoldHumanText)); }
-        [SyncHostOnly] public int AddStartGoldAI { get => addStartGoldAI; set => SetAddedGold(ref addStartGoldAI, value, nameof(AddStartGoldAI), nameof(AddStartGoldAIText)); }
-        [SyncHostOnly] public int AddStartGoldHuman { get => addStartGoldHuman; set => SetAddedGold(ref addStartGoldHuman, value, nameof(AddStartGoldHuman), nameof(AddStartGoldHumanText)); }
-        [SyncHostOnly] public int MultiplyStartTroopsAI { get => multiplyStartTroopsAI; set => SetMultiplierInt(ref multiplyStartTroopsAI, value, nameof(MultiplyStartTroopsAI), nameof(MultiplyStartTroopsAIText)); }
-        [SyncHostOnly] public int MultiplyStartTroopsHuman { get => multiplyStartTroopsHuman; set => SetMultiplierInt(ref multiplyStartTroopsHuman, value, nameof(MultiplyStartTroopsHuman), nameof(MultiplyStartTroopsHumanText)); }
+        [SyncHostOnly] public int SetStartGoldAI { get => setStartGoldAI; set => SetStartGold(ref setStartGoldAI, value, nameof(SetStartGoldAI), nameof(SetStartGoldAIText), nameof(SetStartGoldAISlider)); }
+        [SyncHostOnly] public int SetStartGoldHuman { get => setStartGoldHuman; set => SetStartGold(ref setStartGoldHuman, value, nameof(SetStartGoldHuman), nameof(SetStartGoldHumanText), nameof(SetStartGoldHumanSlider)); }
+        [SyncHostOnly] public int AddStartGoldAI { get => addStartGoldAI; set => SetAddedGold(ref addStartGoldAI, value, nameof(AddStartGoldAI), nameof(AddStartGoldAIText), nameof(AddStartGoldAISlider)); }
+        [SyncHostOnly] public int AddStartGoldHuman { get => addStartGoldHuman; set => SetAddedGold(ref addStartGoldHuman, value, nameof(AddStartGoldHuman), nameof(AddStartGoldHumanText), nameof(AddStartGoldHumanSlider)); }
+        [SyncHostOnly] public int MultiplyStartTroopsAI { get => multiplyStartTroopsAI; set => SetMultiplierInt(ref multiplyStartTroopsAI, value, nameof(MultiplyStartTroopsAI), nameof(MultiplyStartTroopsAIText), nameof(MultiplyStartTroopsAISlider)); }
+        [SyncHostOnly] public int MultiplyStartTroopsHuman { get => multiplyStartTroopsHuman; set => SetMultiplierInt(ref multiplyStartTroopsHuman, value, nameof(MultiplyStartTroopsHuman), nameof(MultiplyStartTroopsHumanText), nameof(MultiplyStartTroopsHumanSlider)); }
+
+        public int SetStartGoldAISlider { get => ClampSlider(setStartGoldAI, -1, 40000); set => SetStartGoldSlider(value, parsed => SetStartGoldAI = parsed, nameof(SetStartGoldAISlider)); }
+        public int SetStartGoldHumanSlider { get => ClampSlider(setStartGoldHuman, -1, 40000); set => SetStartGoldSlider(value, parsed => SetStartGoldHuman = parsed, nameof(SetStartGoldHumanSlider)); }
+        public int AddStartGoldAISlider { get => ClampSlider(addStartGoldAI, -10000, 10000); set => AddStartGoldAI = value; }
+        public int AddStartGoldHumanSlider { get => ClampSlider(addStartGoldHuman, -10000, 10000); set => AddStartGoldHuman = value; }
+        public int MultiplyStartTroopsAISlider { get => multiplyStartTroopsAI; set => MultiplyStartTroopsAI = value; }
+        public int MultiplyStartTroopsHumanSlider { get => multiplyStartTroopsHuman; set => MultiplyStartTroopsHuman = value; }
 
         public string SetStartGoldAIText { get => SetStartGoldAI.ToString(); set => SetIntText(value, parsed => SetStartGoldAI = parsed, nameof(SetStartGoldAIText)); }
         public string SetStartGoldHumanText { get => SetStartGoldHuman.ToString(); set => SetIntText(value, parsed => SetStartGoldHuman = parsed, nameof(SetStartGoldHumanText)); }
@@ -363,6 +377,10 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
                     null,
                     GetValueOrDefault(aiValues, key, -1),
                     GetValueOrDefault(humanValues, key, -1),
+                    MinimumStartGood,
+                    MaximumStartGood,
+                    MinimumStartGood,
+                    MaximumStartGoodSlider,
                     FormatVanillaAmount(normalCrusaderValues, key),
                     FormatVanillaAmount(deathmatchValues, key)));
             }
@@ -414,6 +432,10 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
                     null,
                     GetValueOrDefault(aiValues, key, 0),
                     GetValueOrDefault(humanValues, key, 0),
+                    MinimumExtraTroop,
+                    MaximumExtraTroop,
+                    MinimumExtraTroop,
+                    MaximumExtraTroopSlider,
                     string.Empty,
                     string.Empty));
             }
@@ -438,7 +460,7 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
                 if (parts.Length != 2 || !int.TryParse(parts[1].Trim(), out int value))
                     continue;
 
-                result[parts[0].Trim()] = ClampAmount(value);
+                result[parts[0].Trim()] = value;
             }
 
             return result;
@@ -523,15 +545,6 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
             return name.Replace('_', ' ').ToLowerInvariant();
         }
 
-        private static int ClampAmount(int value)
-        {
-            if (value < -1)
-                return -1;
-            if (value > 100000)
-                return 100000;
-            return value;
-        }
-
         private IReadOnlyList<AmountEntryViewModel> CreateGoodEntriesWithCallback(string aiSerialized, string humanSerialized)
         {
             List<AmountEntryViewModel> entries = new List<AmountEntryViewModel>();
@@ -542,6 +555,10 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
                     entry.IconImage,
                     entry.AIAmount,
                     entry.HumanAmount,
+                    MinimumStartGood,
+                    MaximumStartGood,
+                    MinimumStartGood,
+                    MaximumStartGoodSlider,
                     entry.NormalCrusaderAmountText,
                     entry.DeathmatchAmountText,
                     () => CanMutateSetting(nameof(StartGoodsAI)),
@@ -560,6 +577,10 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
                     entry.IconImage,
                     entry.AIAmount,
                     entry.HumanAmount,
+                    MinimumExtraTroop,
+                    MaximumExtraTroop,
+                    MinimumExtraTroop,
+                    MaximumExtraTroopSlider,
                     entry.NormalCrusaderAmountText,
                     entry.DeathmatchAmountText,
                     () => CanMutateSetting(nameof(AddStartTroopsAI)),
@@ -581,36 +602,29 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
             OnPropertyChanged(propertyName);
         }
 
-        private void SetStartGold(ref int field, int value, string propertyName, string textPropertyName)
+        private void SetStartGold(ref int field, int value, string propertyName, string textPropertyName, string sliderPropertyName)
         {
-            SetClampedInt(ref field, Math.Max(-1, Math.Min(MaximumStartAmount, value)), propertyName, textPropertyName);
+            SetClampedInt(ref field, value, -1, MaximumSetStartGold, propertyName, textPropertyName, sliderPropertyName);
         }
 
-        private void SetAddedGold(ref int field, int value, string propertyName, string textPropertyName)
+        private void SetAddedGold(ref int field, int value, string propertyName, string textPropertyName, string sliderPropertyName)
         {
-            SetClampedInt(ref field, Math.Max(MinimumAddedGold, Math.Min(MaximumStartAmount, value)), propertyName, textPropertyName);
+            SetClampedInt(ref field, value, MinimumAddedGold, MaximumAddedGold, propertyName, textPropertyName, sliderPropertyName);
         }
 
-        private void SetClampedInt(ref int field, int value, string propertyName, string textPropertyName)
+        private void SetClampedInt(
+            ref int field,
+            int value,
+            int minimum,
+            int maximum,
+            string propertyName,
+            string textPropertyName,
+            string sliderPropertyName)
         {
             if (!CanMutateSettingWithDependents(propertyName, textPropertyName))
                 return;
 
-            if (field == value)
-                return;
-
-            field = value;
-            SettingChanged?.Invoke(propertyName);
-            OnPropertyChanged(propertyName);
-            OnPropertyChanged(textPropertyName);
-        }
-
-        private void SetMultiplierInt(ref int field, int value, string propertyName, string textPropertyName)
-        {
-            if (!CanMutateSettingWithDependents(propertyName, textPropertyName))
-                return;
-
-            int clamped = ClampMultiplier(value);
+            int clamped = Math.Max(minimum, Math.Min(maximum, value));
             if (field == clamped)
             {
                 if (value != clamped)
@@ -622,6 +636,12 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
             SettingChanged?.Invoke(propertyName);
             OnPropertyChanged(propertyName);
             OnPropertyChanged(textPropertyName);
+            OnPropertyChanged(sliderPropertyName);
+        }
+
+        private void SetMultiplierInt(ref int field, int value, string propertyName, string textPropertyName, string sliderPropertyName)
+        {
+            SetClampedInt(ref field, value, 0, 100, propertyName, textPropertyName, sliderPropertyName);
         }
 
         private void SetIntText(string text, Action<int> setValue, string textPropertyName)
@@ -635,12 +655,21 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
             setValue(parsed);
         }
 
-        private static int ClampMultiplier(int value)
+        private void SetStartGoldSlider(int value, Action<int> setValue, string sliderPropertyName)
         {
-            if (value < 0)
-                return 0;
-            if (value > 100)
-                return 100;
+            // Keep -1 as a sentinel while aligning all normal slider positions to exact hundreds.
+            int normalized = value <= -1 ? -1 : Math.Min(40000, ((value + 50) / 100) * 100);
+            setValue(normalized);
+            if (value != normalized)
+                OnPropertyChanged(sliderPropertyName);
+        }
+
+        private static int ClampSlider(int value, int minimum, int maximum)
+        {
+            if (value < minimum)
+                return minimum;
+            if (value > maximum)
+                return maximum;
             return value;
         }
 
@@ -707,6 +736,10 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
             private readonly Func<bool> canEditAI;
             private readonly Func<bool> canEditHuman;
             private readonly Action changed;
+            private readonly int minimumAmount;
+            private readonly int maximumAmount;
+            private readonly int sliderMinimum;
+            private readonly int sliderMaximum;
             private string displayName;
             private int aiAmount;
             private int humanAmount;
@@ -719,6 +752,10 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
                 ImageSource iconImage,
                 int aiAmount,
                 int humanAmount,
+                int minimumAmount,
+                int maximumAmount,
+                int sliderMinimum,
+                int sliderMaximum,
                 string normalCrusaderAmountText = "",
                 string deathmatchAmountText = "",
                 Func<bool> canEditAI = null,
@@ -729,6 +766,10 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
                 DisplayName = displayName;
                 NormalCrusaderAmountText = normalCrusaderAmountText;
                 DeathmatchAmountText = deathmatchAmountText;
+                this.minimumAmount = minimumAmount;
+                this.maximumAmount = maximumAmount;
+                this.sliderMinimum = sliderMinimum;
+                this.sliderMaximum = sliderMaximum;
                 this.canEditAI = canEditAI;
                 this.canEditHuman = canEditHuman;
                 this.changed = changed;
@@ -791,13 +832,24 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
 
                     int clamped = ClampAmount(value);
                     if (aiAmount == clamped)
+                    {
+                        if (value != clamped)
+                            OnPropertyChanged(nameof(AIAmountText));
                         return;
+                    }
 
                     aiAmount = clamped;
                     OnPropertyChanged();
                     OnPropertyChanged(nameof(AIAmountText));
+                    OnPropertyChanged(nameof(AIAmountSlider));
                     changed?.Invoke();
                 }
+            }
+
+            public int AIAmountSlider
+            {
+                get => ClampSlider(aiAmount, sliderMinimum, sliderMaximum);
+                set => AIAmount = value;
             }
 
             public string AIAmountText
@@ -828,13 +880,24 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
 
                     int clamped = ClampAmount(value);
                     if (humanAmount == clamped)
+                    {
+                        if (value != clamped)
+                            OnPropertyChanged(nameof(HumanAmountText));
                         return;
+                    }
 
                     humanAmount = clamped;
                     OnPropertyChanged();
                     OnPropertyChanged(nameof(HumanAmountText));
+                    OnPropertyChanged(nameof(HumanAmountSlider));
                     changed?.Invoke();
                 }
+            }
+
+            public int HumanAmountSlider
+            {
+                get => ClampSlider(humanAmount, sliderMinimum, sliderMaximum);
+                set => HumanAmount = value;
             }
 
             public string HumanAmountText
@@ -856,6 +919,15 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
             {
                 AIAmount = aiAmount;
                 HumanAmount = humanAmount;
+            }
+
+            private int ClampAmount(int value)
+            {
+                if (value < minimumAmount)
+                    return minimumAmount;
+                if (value > maximumAmount)
+                    return maximumAmount;
+                return value;
             }
 
             private void OnPropertyChanged([CallerMemberName] string propertyName = null)

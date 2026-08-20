@@ -47,8 +47,8 @@ namespace StartConditions
         private void ReplaceStartGoods(int playerId)
         {
             IStartConditionsSettings current = EffectiveSettings;
-            Dictionary<eGoods, int> aiGoods = ParseEnumAmounts<eGoods>(current.StartGoodsAI);
-            Dictionary<eGoods, int> humanGoods = ParseEnumAmounts<eGoods>(current.StartGoodsHuman);
+            Dictionary<eGoods, int> aiGoods = ParseEnumAmounts<eGoods>(current.StartGoodsAI, -1, 10000);
+            Dictionary<eGoods, int> humanGoods = ParseEnumAmounts<eGoods>(current.StartGoodsHuman, -1, 10000);
 
             bool isAI = GamePlayerManagerAPI.Instance.IsAIPlayer(playerId);
             Dictionary<eGoods, int> goods = isAI ? aiGoods : humanGoods;

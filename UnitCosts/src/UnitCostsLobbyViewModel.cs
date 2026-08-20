@@ -732,7 +732,7 @@ namespace UnitCosts
             }
 
             public int Gold { get => gold; set => SetCost(ref gold, value, nameof(Gold), nameof(GoldText)); }
-            public int GoldSlider { get => gold > 100 ? 100 : gold; set => Gold = value; }
+            public int GoldSlider { get => gold > 1000 ? 1000 : gold; set => Gold = value; }
             public string GoldText { get => gold.ToString(); set => SetTextCost(value, v => Gold = v); }
 
             public void SetCostsFromOwner(UnitCostValues values)

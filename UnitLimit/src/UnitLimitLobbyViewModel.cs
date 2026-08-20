@@ -216,8 +216,8 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=-1";
         {
             if (value < -1)
                 return -1;
-            if (value > 10000)
-                return 10000;
+            if (value > 5000)
+                return 5000;
             return value;
         }
 
@@ -340,7 +340,7 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=-1";
             public int Limit
             {
                 get => limit;
-                private set
+                set
                 {
                     if (canEdit != null && !canEdit())
                     {
@@ -350,13 +350,24 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=-1";
 
                     int clamped = ClampLimit(value);
                     if (limit == clamped)
+                    {
+                        if (value != clamped)
+                            OnPropertyChanged(nameof(LimitText));
                         return;
+                    }
 
                     limit = clamped;
                     OnPropertyChanged();
                     OnPropertyChanged(nameof(LimitText));
+                    OnPropertyChanged(nameof(SliderLimit));
                     changed?.Invoke();
                 }
+            }
+
+            public int SliderLimit
+            {
+                get => limit > 100 ? 100 : limit;
+                set => Limit = value;
             }
 
             public string LimitText

@@ -26,8 +26,8 @@ namespace StartConditions
                 CancelPendingStartTroopProcessing();
                 LogDebug("Raw AI AddStartTroops:", current.AddStartTroopsAI);
                 LogDebug("Raw Human AddStartTroops:", current.AddStartTroopsHuman);
-                Dictionary<eChimps, int> aiTroops = ParseEnumAmounts<eChimps>(current.AddStartTroopsAI);
-                Dictionary<eChimps, int> humanTroops = ParseEnumAmounts<eChimps>(current.AddStartTroopsHuman);
+                Dictionary<eChimps, int> aiTroops = ParseEnumAmounts<eChimps>(current.AddStartTroopsAI, 0, 1000);
+                Dictionary<eChimps, int> humanTroops = ParseEnumAmounts<eChimps>(current.AddStartTroopsHuman, 0, 1000);
                 LogConfiguredTroops("AI AddStartTroops", aiTroops);
                 LogConfiguredTroops("Human AddStartTroops", humanTroops);
 

@@ -769,7 +769,7 @@ namespace BuildingCosts
                 set => SetCost(ref gold, value, BuildingCostValues.ClampGoldCost, nameof(Gold), nameof(GoldText), nameof(GoldSlider));
             }
 
-            public int GoldSlider { get => ClampSliderValue(gold); set => Gold = value; }
+            public int GoldSlider { get => ClampSliderValue(gold, 1000); set => Gold = value; }
 
             public string WoodText
             {
@@ -851,11 +851,11 @@ namespace BuildingCosts
                 changed?.Invoke();
             }
 
-            private static int ClampSliderValue(int value)
+            private static int ClampSliderValue(int value, int maximum = 100)
             {
                 if (value < -1)
                     return -1;
-                return value > 100 ? 100 : value;
+                return value > maximum ? maximum : value;
             }
 
             private void SetToolTip(ref string field, string value, [CallerMemberName] string propertyName = null)

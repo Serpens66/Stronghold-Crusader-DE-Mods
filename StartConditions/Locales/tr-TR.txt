@@ -7,7 +7,7 @@ Common.Human=Human
 StartConditions.StartGoldTitle=Start Gold
 StartConditions.StartGoodsTitle=Start Goods
 StartConditions.StartTroopsTitle=Start Troops
-StartConditions.UnchangedRangeHelp=-1 = unchanged. Allowed range: -1 to 100000.
+StartConditions.UnchangedRangeHelp=-1 = unchanged. Allowed range: -1 to 10000.
 StartConditions.NormalCrusade=Normal/Crusade
 StartConditions.Deathmatch=Deathmatch
 StartConditions.SetStartGold=Set start gold (-1 = unchanged)
@@ -17,7 +17,7 @@ StartConditions.AddStartGoldHelp=Adds the specified amount of gold to the initia
 StartConditions.MultiplyStartTroops=Multiply Start Troop armies
 StartConditions.StartTroopsMultiplierHelp=Multiplier: 0 = remove official start troops after 20 seconds, 1 = unchanged, 2 = double. Allowed range: 0 to 100.
 StartConditions.StartTroopsMultiplierToolTip=Multiplier for Start Troop armies. Applied after {DelayedStartTroopCountMilliseconds} ms, currently {DelayedStartTroopCountSeconds} seconds after map start. 0 = remove, 1 = unchanged, 2 = double. Allowed range: 0 to 100.
-StartConditions.ExtraStartUnitsHelp=Extra Start Units: -1 or 0 = no extra units. Allowed range: -1 to 100000.
+StartConditions.ExtraStartUnitsHelp=Extra Start Units: 0 = no extra units. Allowed range: 0 to 1000.
 
 Common.HostOptions=HOST OPTIONS
 Common.ClientOptions=LOCAL CLIENT OPTIONS

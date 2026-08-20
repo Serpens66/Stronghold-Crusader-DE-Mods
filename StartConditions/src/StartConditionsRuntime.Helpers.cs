@@ -32,7 +32,7 @@ namespace StartConditions
             }
         }
 
-        private Dictionary<TEnum, int> ParseEnumAmounts<TEnum>(string text) where TEnum : struct
+        private Dictionary<TEnum, int> ParseEnumAmounts<TEnum>(string text, int minimum, int maximum) where TEnum : struct
         {
             Dictionary<TEnum, int> result = new Dictionary<TEnum, int>();
             if (string.IsNullOrWhiteSpace(text))
@@ -66,7 +66,7 @@ namespace StartConditions
                     continue;
                 }
 
-                result[enumValue] = amount;
+                result[enumValue] = Math.Max(minimum, Math.Min(maximum, amount));
             }
 
             return result;
