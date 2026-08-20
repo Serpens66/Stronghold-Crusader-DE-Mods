@@ -28,6 +28,7 @@ namespace BugfixesAndQoL
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
         private readonly ObservableCollection<FileRow> rows = new ObservableCollection<FileRow>();
+        private readonly Random random = new Random();
         private readonly Hook hook;
         private readonly SkirmishAiAddClickDelegate trampoline;
         private FRONT_Multiplayer activeView;
@@ -48,6 +49,7 @@ namespace BugfixesAndQoL
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
             ClearSearchCommand = new RelayCommand(ClearSearch);
+            RandomCustomLordCommand = new RelayCommand(AddRandomCustomLord, CanAddRandomCustomLord);
 
             // These elements keep the game view model everywhere else in FRONT_Multiplayer.
             GameXAMLManagerAPI.Instance.RegisterBinding("CustomLordSearchPanel", this);
@@ -83,12 +85,14 @@ namespace BugfixesAndQoL
         public event PropertyChangedEventHandler PropertyChanged;
 
         public RelayCommand ClearSearchCommand { get; }
+        public RelayCommand RandomCustomLordCommand { get; }
         public Visibility EnhancementVisibility => IsActive ? Visibility.Visible : Visibility.Collapsed;
         public Visibility SearchPlaceholderVisibility =>
             IsActive && !searchHasFocus && string.IsNullOrEmpty(searchText)
                 ? Visibility.Visible
                 : Visibility.Collapsed;
         public string ClearSearchHelpText => SerpLocalization.Get("BugfixesAndQoL.CustomLordClearSearchHelp");
+        public string RandomCustomLordHelpText => SerpLocalization.Get("BugfixesAndQoL.CustomLordRandomHelp");
         public string WorkshopSortHelpText => SerpLocalization.Get("BugfixesAndQoL.CustomLordWorkshopSortHelp");
         public string NameHeaderText => SerpLocalization.Get("BugfixesAndQoL.CustomLordNameHeader");
         public string NameSortHelpText => SerpLocalization.Get("BugfixesAndQoL.CustomLordNameSortHelp");
@@ -117,6 +121,7 @@ namespace BugfixesAndQoL
         {
             OnPropertyChanged(nameof(EnhancementVisibility));
             OnPropertyChanged(nameof(SearchPlaceholderVisibility));
+            RandomCustomLordCommand.RaiseCanExecuteChanged();
             RefreshActiveView();
         }
 
@@ -228,6 +233,22 @@ namespace BugfixesAndQoL
                 activeSearchBox.Text = string.Empty;
         }
 
+        private bool CanAddRandomCustomLord()
+        {
+            return IsActive && activeView != null && activeList != null && rows.Count > 0;
+        }
+
+        private void AddRandomCustomLord()
+        {
+            if (!CanAddRandomCustomLord())
+                return;
+
+            // Selecting a visible row makes an active search constrain the random pool.
+            activeList.SelectedItem = rows[random.Next(rows.Count)];
+            // Reuse Vanilla's host, capacity, team, AIC/AIV, audio, and network path.
+            activeView.ButtonClicked("AddCustomLord");
+        }
+
         private void RefreshActiveView()
         {
             if (activeView == null || activeList == null)
@@ -293,6 +314,8 @@ namespace BugfixesAndQoL
                 activeList.SelectedItem = selectedRow;
             else if (rows.Count > 0)
                 activeList.SelectedIndex = 0;
+
+            RandomCustomLordCommand.RaiseCanExecuteChanged();
         }
 
         private bool MatchesSearch(CustomisationFileManager.CustomLord lord)

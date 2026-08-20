@@ -87,7 +87,7 @@
   </Operation>
   <Operation Type="InsertBefore" XPath="//n:Button[@CommandParameter='AddCustomLord']">
     <Content>
-      <Grid x:Name="CustomLordSearchPanel" Width="200" Height="34" Margin="0,0,20,110"
+      <Grid x:Name="CustomLordSearchPanel" Width="200" Height="112" Margin="0,0,20,110"
             HorizontalAlignment="Right" VerticalAlignment="Bottom"
             Visibility="{Binding EnhancementVisibility}">
         <Grid.Resources>
@@ -111,17 +111,28 @@
             </Setter>
           </Style>
         </Grid.Resources>
-        <TextBox x:Name="CustomLordSearchBox" Width="162" MaxLength="64"
-                 HorizontalAlignment="Left" VerticalAlignment="Stretch"
+        <Image x:Name="RandomCustomLordBackground" Width="72" Height="72"
+               HorizontalAlignment="Center" VerticalAlignment="Top"
+               IsHitTestVisible="False" Source="{StaticResource Face Background Generic}" />
+        <Button x:Name="RandomCustomLordButton" Width="72" Height="72"
+                HorizontalAlignment="Center" VerticalAlignment="Top"
+                local:PropEx.Sprite1="{StaticResource shield_options}"
+                local:PropEx.Sprite2="{StaticResource shield_options}"
+                local:PropEx.Sprite3="{StaticResource shield_options}"
+                local:PropEx.Sprite4="{StaticResource shield_options}"
+                Command="{Binding RandomCustomLordCommand}" Style="{StaticResource BTN_Image}"
+                ToolTip="{Binding RandomCustomLordHelpText}" ToolTipService.ShowDuration="60000" />
+        <TextBox x:Name="CustomLordSearchBox" Width="162" Height="34" MaxLength="64"
+                 HorizontalAlignment="Left" VerticalAlignment="Bottom"
                  Text="{Binding SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                  TextAlignment="Left" Focusable="True" />
-        <TextBlock Width="142" Margin="10,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Center"
+        <TextBlock Width="142" Height="34" Margin="10,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Bottom"
                    IsHitTestVisible="False" Foreground="#FFEFF3C6" FontSize="16"
                    TextTrimming="CharacterEllipsis"
                    Text="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_NEW_TEXT2_126]}"
                    Visibility="{Binding SearchPlaceholderVisibility}" />
         <Button x:Name="CustomLordSearchClearButton" Width="34" Height="34"
-                HorizontalAlignment="Right" VerticalAlignment="Center"
+                HorizontalAlignment="Right" VerticalAlignment="Bottom"
                 local:PropEx.Sprite1="{StaticResource UI-Buttons L009}"
                 local:PropEx.Sprite2="{StaticResource UI-Buttons L010}"
                 Command="{Binding ClearSearchCommand}" Style="{StaticResource BTN_Building}"
@@ -188,7 +199,7 @@
   <Operation Type="InsertAfter" XPath="//n:Slider[@Name='AIMax_Slider']">
     <Content>
       <Grid x:Name="RandomLordFiltersAdvanced" Width="50" Height="80"
-            Margin="350,110,0,0" HorizontalAlignment="Left" VerticalAlignment="Top"
+            Margin="350,115,0,0" HorizontalAlignment="Left" VerticalAlignment="Top"
             Visibility="{Binding RandomLordFiltersVisibility}">
         <Grid.Resources>
           <Style TargetType="{x:Type ToolTip}">

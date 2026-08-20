@@ -3,10 +3,28 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.27",
+  "Version": "1.0.30",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.30",
+      "Changes": [
+        "Added Vanilla's square portrait background behind the random custom-lord icon and separated it from the search box."
+      ]
+    },
+    {
+      "Version": "1.0.29",
+      "Changes": [
+        "Added a Vanilla-styled question-mark button that adds a random custom lord from the currently visible list."
+      ]
+    },
+    {
+      "Version": "1.0.28",
+      "Changes": [
+        "Moved the advanced random-skirmish lord-source filters slightly downward to match Vanilla's row spacing."
+      ]
+    },
     {
       "Version": "1.0.27",
       "Changes": [

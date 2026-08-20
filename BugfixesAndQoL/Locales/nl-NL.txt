@@ -68,6 +68,7 @@ BugfixesAndQoL.PreserveDisplayResolutionHelp=During game startup, reapplies the 
 BugfixesAndQoL.EnableCustomLordListEnhancements=Improve custom-lord selection list
 BugfixesAndQoL.EnableCustomLordListEnhancementsHelp=Adds a search box and sortable Name and Lord Power columns to the custom-lord picker in singleplayer and multiplayer skirmish lobbies. This is a host setting.
 BugfixesAndQoL.CustomLordClearSearchHelp=Clears the custom-lord search.
+BugfixesAndQoL.CustomLordRandomHelp=Adds a random custom lord from the currently visible list.
 BugfixesAndQoL.CustomLordNameHeader=Name
 BugfixesAndQoL.CustomLordNameSortHelp=Sorts custom lords by name. Click again to reverse the order.
 BugfixesAndQoL.CustomLordPowerHeader=Lord Power

@@ -68,6 +68,7 @@ BugfixesAndQoL.PreserveDisplayResolutionHelp=Wendet beim Spielstart die aus sett
 BugfixesAndQoL.EnableCustomLordListEnhancements=Auswahlliste für eigene Burgherren verbessern
 BugfixesAndQoL.EnableCustomLordListEnhancementsHelp=Fügt der Auswahl eigener Burgherren in Singleplayer- und Multiplayer-Gefechtslobbys ein Suchfeld sowie sortierbare Spalten für Name und Lord Power hinzu. Dies ist eine Host-Einstellung.
 BugfixesAndQoL.CustomLordClearSearchHelp=Löscht die Suche nach eigenen Burgherren.
+BugfixesAndQoL.CustomLordRandomHelp=Fügt einen zufälligen eigenen Burgherren aus der aktuell angezeigten Liste hinzu.
 BugfixesAndQoL.CustomLordNameHeader=Name
 BugfixesAndQoL.CustomLordNameSortHelp=Sortiert eigene Burgherren nach Namen. Erneutes Anklicken kehrt die Reihenfolge um.
 BugfixesAndQoL.CustomLordPowerHeader=Lord Power
