@@ -515,12 +515,13 @@ namespace UnitCosts
 
         internal void NormalizeExtraCostsAfterNativeGoldChange()
         {
-            if (!CanMutateSetting(nameof(HumanExtraUnitCosts)))
-                return;
-
             ApplySerializedExtraCostsToEntries(humanExtraUnitCosts);
             string normalized = BuildSerializedExtraCosts();
             if (humanExtraUnitCosts == normalized)
+                return;
+
+            System_RefreshSettingsAccess();
+            if (!CanEditHostSettings || !CanMutateSetting(nameof(HumanExtraUnitCosts)))
                 return;
 
             humanExtraUnitCosts = normalized;

@@ -946,6 +946,377 @@ namespace Shared
         }
     }
 
+#if !SHARED_PRESET_TESTS
+    /// <summary>
+    /// TEMPORARY SCRIPT EXTENDER WORKAROUND.
+    /// Remove this class and its registration call once the upstream extender has
+    /// fixed all three multiplayer settings paths documented below.
+    /// </summary>
+    internal static class ScriptExtenderMultiplayerSyncWorkaround
+    {
+        private const string AnchorKey =
+            "SerpsMods.Shared.ScriptExtenderMultiplayerSyncWorkaround.v1";
+        private const string GateKey = AnchorKey + ".Gate";
+
+        internal static void EnsureInstalled(ManualLogSource log)
+        {
+            object gate = string.Intern(GateKey);
+            lock (gate)
+            {
+                if (AppDomain.CurrentDomain.GetData(AnchorKey) != null)
+                    return;
+
+                HookAnchor anchor = new HookAnchor(log);
+                try
+                {
+                    anchor.Install();
+                    // Shared source is compiled into every mod. AppDomain data makes
+                    // the three process-wide hooks a single installation transaction.
+                    AppDomain.CurrentDomain.SetData(AnchorKey, anchor);
+                    DebugLogHelper.LogInfo(
+                        log,
+                        "Temporary Script Extender multiplayer settings workaround installed " +
+                        "(join snapshot, reliable lobby delivery, in-game sender propagation). " +
+                        "Remove centrally after the upstream fixes are available.");
+                }
+                catch (Exception ex)
+                {
+                    anchor.RollBack();
+                    DebugLogHelper.LogError(
+                        log,
+                        "Temporary Script Extender multiplayer settings workaround could not be " +
+                        $"installed as one transaction: {Unwrap(ex)}");
+                }
+            }
+        }
+
+        private static Exception Unwrap(Exception ex)
+        {
+            return ex is TargetInvocationException invocation && invocation.InnerException != null
+                ? invocation.InnerException
+                : ex;
+        }
+
+        private sealed class HookAnchor
+        {
+            private delegate void SendCustomInfoToMemberDelegate(
+                Platform_Multiplayer instance,
+                Platform_Multiplayer.MPLobbyMember member);
+
+            private delegate void SendPacketToAllLobbyDelegate(
+                Platform_Multiplayer.MPData packet);
+
+            private delegate bool ProcessMessageDelegate(
+                Platform_Multiplayer instance,
+                Platform_Multiplayer.MPData data,
+                Platform_Multiplayer.MPGameMember fromMember,
+                bool fromThread);
+
+            private readonly ManualLogSource log;
+            private object sendCustomInfoDetour;
+            private object sendPacketToAllLobbyDetour;
+            private object processMessageDetour;
+            private MethodInfo handleRawPacketMethod;
+            private MethodInfo sendPacketToSteamIdMethod;
+            private FieldInfo lobbyMemberIdField;
+            private FieldInfo multiplayerInstanceField;
+            private Type steamIdType;
+            private bool loggedReliableReroute;
+            private bool loggedSenderRepair;
+
+            internal HookAnchor(ManualLogSource log)
+            {
+                this.log = log;
+            }
+
+            internal void Install()
+            {
+                MethodInfo sendCustomInfoMethod = RequireMethod(
+                    typeof(Platform_Multiplayer),
+                    nameof(Platform_Multiplayer.SendCustomInfoToMember),
+                    BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+                    typeof(Platform_Multiplayer.MPLobbyMember));
+                MethodInfo sendPacketToAllLobbyMethod = typeof(GameNetworkAPI)
+                    .GetMethods(BindingFlags.Static | BindingFlags.Public)
+                    .Single(method =>
+                        method.Name == nameof(GameNetworkAPI.SendPacketToAllLobby) &&
+                        !method.IsGenericMethod &&
+                        method.GetParameters().Length == 1 &&
+                        method.GetParameters()[0].ParameterType == typeof(Platform_Multiplayer.MPData));
+                MethodInfo processMessageMethod = RequireMethod(
+                    typeof(Platform_Multiplayer),
+                    "processMessage",
+                    BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+                    typeof(Platform_Multiplayer.MPData),
+                    typeof(Platform_Multiplayer.MPGameMember),
+                    typeof(bool));
+
+                handleRawPacketMethod = typeof(GameNetworkAPI).GetMethod(
+                    "HandleRawPacket",
+                    BindingFlags.Instance | BindingFlags.NonPublic,
+                    null,
+                    new[] { typeof(short), typeof(byte[]), FindNullableSteamIdType() },
+                    null) ?? throw new MissingMethodException(
+                        typeof(GameNetworkAPI).FullName,
+                        "HandleRawPacket(short, byte[], CSteamID?)");
+                sendPacketToSteamIdMethod = typeof(GameNetworkAPI)
+                    .GetMethods(BindingFlags.Static | BindingFlags.Public)
+                    .Single(method =>
+                        method.Name == "SendPacketToSteamId" &&
+                        !method.IsGenericMethod &&
+                        method.GetParameters().Length == 2 &&
+                        method.GetParameters()[1].ParameterType == typeof(Platform_Multiplayer.MPData));
+                steamIdType = Nullable.GetUnderlyingType(
+                    handleRawPacketMethod.GetParameters()[2].ParameterType) ??
+                    throw new InvalidOperationException("HandleRawPacket sender is not nullable.");
+                lobbyMemberIdField = typeof(Platform_Multiplayer.MPLobbyMember).GetField(
+                    "id",
+                    BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic) ??
+                    throw new MissingFieldException(
+                        typeof(Platform_Multiplayer.MPLobbyMember).FullName,
+                        "id");
+                multiplayerInstanceField = typeof(Platform_Multiplayer).GetField(
+                    "instance",
+                    BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic) ??
+                    throw new MissingFieldException(
+                        typeof(Platform_Multiplayer).FullName,
+                        "instance");
+
+                DebugLogHelper.LogInfo(
+                    log,
+                    "[MP-SYNC-EVIDENCE BASELINE] " +
+                    $"extenderJoinDetourInstalled={ReadExtenderJoinDetourState()}. " +
+                    "False confirms that the extender declared but did not install its join-sync detour.");
+
+                // TEMPORARY: upstream declares this hook but does not install it.
+                sendCustomInfoDetour = CreateManagedDetour(
+                    typeof(SendCustomInfoToMemberDelegate),
+                    sendCustomInfoMethod,
+                    new SendCustomInfoToMemberDelegate(SendCustomInfoToMemberHook));
+
+                // TEMPORARY: upstream lobby broadcast uses Steam send flag 64, which
+                // is not reliable. Route through its targeted reliable (flag 40) path.
+                sendPacketToAllLobbyDetour = CreateManagedDetour(
+                    typeof(SendPacketToAllLobbyDelegate),
+                    sendPacketToAllLobbyMethod,
+                    new SendPacketToAllLobbyDelegate(SendPacketToAllLobbyHook));
+
+                // TEMPORARY: upstream's processMessage IL hook omits fromMember, so
+                // host-only packets received after map start fail sender validation.
+                processMessageDetour = CreateManagedDetour(
+                    typeof(ProcessMessageDelegate),
+                    processMessageMethod,
+                    new ProcessMessageDelegate(ProcessMessageHook));
+            }
+
+            internal void RollBack()
+            {
+                DisposeDetour(processMessageDetour);
+                DisposeDetour(sendPacketToAllLobbyDetour);
+                DisposeDetour(sendCustomInfoDetour);
+                processMessageDetour = null;
+                sendPacketToAllLobbyDetour = null;
+                sendCustomInfoDetour = null;
+            }
+
+            private void SendCustomInfoToMemberHook(
+                Platform_Multiplayer instance,
+                Platform_Multiplayer.MPLobbyMember member)
+            {
+                try
+                {
+                    GameNetworkAPI.Instance.HandleSendCustomInfoToMember(member);
+                    object target = lobbyMemberIdField.GetValue(member);
+                    int registeredSettings = GameXAMLManagerAPI.Instance.RegisteredModSettings.Count();
+                    DebugLogHelper.LogInfo(
+                        log,
+                        "[MP-SYNC-EVIDENCE JOIN] " +
+                        $"forwarded member=[{member?.name}], steamId={target}, " +
+                        $"registeredSettings={registeredSettings}. " +
+                        "The following extender sync/apply messages must confirm client receipt.");
+                }
+                catch (Exception ex)
+                {
+                    DebugLogHelper.LogError(
+                        log,
+                        $"Temporary join-settings snapshot workaround failed: {Unwrap(ex)}");
+                }
+
+                GetTrampoline<SendCustomInfoToMemberDelegate>(sendCustomInfoDetour)(instance, member);
+            }
+
+            private void SendPacketToAllLobbyHook(Platform_Multiplayer.MPData packet)
+            {
+                Platform_Multiplayer multiplayer =
+                    multiplayerInstanceField.GetValue(null) as Platform_Multiplayer;
+                if (multiplayer?.activeLobby?.members == null)
+                {
+                    GetTrampoline<SendPacketToAllLobbyDelegate>(sendPacketToAllLobbyDetour)(packet);
+                    return;
+                }
+
+                Platform_Multiplayer.MPLobbyMember[] members =
+                    multiplayer.activeLobby.members.ToArray();
+                int eligibleRecipients = 0;
+                int successfulRecipients = 0;
+                foreach (Platform_Multiplayer.MPLobbyMember member in members)
+                {
+                    if (member == null || member.IsSelf() || member.SkirmishMember)
+                        continue;
+
+                    eligibleRecipients++;
+                    try
+                    {
+                        object target = lobbyMemberIdField.GetValue(member);
+                        sendPacketToSteamIdMethod.Invoke(null, new[] { target, (object)packet });
+                        successfulRecipients++;
+                    }
+                    catch (Exception ex)
+                    {
+                        DebugLogHelper.LogError(
+                            log,
+                            $"Reliable lobby settings delivery failed for [{member.name}]: {Unwrap(ex)}");
+                    }
+                }
+
+                if (!loggedReliableReroute)
+                {
+                    loggedReliableReroute = true;
+                    DebugLogHelper.LogInfo(
+                        log,
+                        "[MP-SYNC-EVIDENCE RELIABLE-SEND] " +
+                        $"packetType={packet?.packetType}, payloadBytes={packet?.data?.Length ?? 0}, " +
+                        $"eligibleRecipients={eligibleRecipients}, successfulRecipients={successfulRecipients}. " +
+                        "The matching client apply message must confirm delivery.");
+                }
+            }
+
+            private bool ProcessMessageHook(
+                Platform_Multiplayer instance,
+                Platform_Multiplayer.MPData data,
+                Platform_Multiplayer.MPGameMember fromMember,
+                bool fromThread)
+            {
+                if (data != null &&
+                    fromMember != null &&
+                    data.packetType >= (short)CustomNetworkPacketType.CustomPacketStart)
+                {
+                    try
+                    {
+                        object sender = Activator.CreateInstance(steamIdType, fromMember.steamID);
+                        bool handled = (bool)handleRawPacketMethod.Invoke(
+                            GameNetworkAPI.Instance,
+                            new object[] { data.packetType, data.data, sender });
+                        if (handled)
+                        {
+                            if (!loggedSenderRepair)
+                            {
+                                loggedSenderRepair = true;
+                                DebugLogHelper.LogInfo(
+                                    log,
+                                    "[MP-SYNC-EVIDENCE INGAME-SENDER] " +
+                                    $"packetType={data.packetType}, payloadBytes={data.data?.Length ?? 0}, " +
+                                    $"senderSteamId={fromMember.steamID}, handled={handled}. " +
+                                    "The matching host-only apply message must confirm acceptance.");
+                            }
+
+                            return true;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        DebugLogHelper.LogError(
+                            log,
+                            $"In-game settings sender workaround failed; falling back to the extender path: {Unwrap(ex)}");
+                    }
+                }
+
+                return GetTrampoline<ProcessMessageDelegate>(processMessageDetour)(
+                    instance,
+                    data,
+                    fromMember,
+                    fromThread);
+            }
+
+            private static MethodInfo RequireMethod(
+                Type type,
+                string name,
+                BindingFlags flags,
+                params Type[] parameterTypes)
+            {
+                return type.GetMethod(name, flags, null, parameterTypes, null) ??
+                    throw new MissingMethodException(type.FullName, name);
+            }
+
+            private static Type FindNullableSteamIdType()
+            {
+                MethodInfo candidate = typeof(GameNetworkAPI)
+                    .GetMethods(BindingFlags.Instance | BindingFlags.NonPublic)
+                    .Single(method =>
+                        method.Name == "HandleRawPacket" &&
+                        method.GetParameters().Length == 3);
+                return candidate.GetParameters()[2].ParameterType;
+            }
+
+            private static string ReadExtenderJoinDetourState()
+            {
+                try
+                {
+                    Type managerType = typeof(GameNetworkAPI).Assembly.GetType(
+                        "SHCDESE.ManagedHooks.ManagedHookManager",
+                        true);
+                    object manager = managerType.GetProperty(
+                        "Instance",
+                        BindingFlags.Static | BindingFlags.Public)?.GetValue(null);
+                    FieldInfo field = managerType.GetField(
+                        "platform_Multiplayer_SendCustomInfoToMember_hook",
+                        BindingFlags.Instance | BindingFlags.NonPublic);
+                    if (manager == null || field == null)
+                        return "unknown";
+
+                    return (field.GetValue(manager) != null).ToString();
+                }
+                catch
+                {
+                    return "unknown";
+                }
+            }
+
+            private static object CreateManagedDetour(
+                Type delegateType,
+                MethodInfo source,
+                Delegate target)
+            {
+                Type openType = typeof(GameNetworkAPI).Assembly.GetType(
+                    "SHCDESE.ManagedHooks.ManagedDetour`1",
+                    true);
+                Type closedType = openType.MakeGenericType(delegateType);
+                return Activator.CreateInstance(closedType, source, target);
+            }
+
+            private static T GetTrampoline<T>(object detour) where T : class
+            {
+                object trampoline = detour.GetType()
+                    .GetProperty("Trampoline", BindingFlags.Instance | BindingFlags.Public)
+                    ?.GetValue(detour);
+                return trampoline as T ??
+                    throw new InvalidOperationException("Managed detour trampoline is unavailable.");
+            }
+
+            private static void DisposeDetour(object detour)
+            {
+                if (detour == null)
+                    return;
+
+                object hook = detour.GetType()
+                    .GetProperty("Hook", BindingFlags.Instance | BindingFlags.Public)
+                    ?.GetValue(detour);
+                (hook as IDisposable)?.Dispose();
+            }
+        }
+    }
+#endif
+
     public static class LobbyModSettingsPresetRegistration
     {
         public static void Register(
@@ -960,6 +1331,9 @@ namespace Shared
             if (viewModel == null)
                 throw new ArgumentNullException(nameof(viewModel));
 
+#if !SHARED_PRESET_TESTS
+            ScriptExtenderMultiplayerSyncWorkaround.EnsureInstalled(log);
+#endif
             viewModel.PreparePresets(log, plugin.Info.Location, modName);
             GameXAMLManagerAPI.Instance.RegisterLobbyModSettings(
                 plugin,

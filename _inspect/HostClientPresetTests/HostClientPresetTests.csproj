@@ -11,6 +11,7 @@
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <OutputPath>bin\</OutputPath>
     <LangVersion>latest</LangVersion>
+    <DefineConstants>$(DefineConstants);SHARED_PRESET_TESTS</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />

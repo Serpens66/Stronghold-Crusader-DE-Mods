@@ -26,8 +26,8 @@
     <Style x:Key="HostActivationBorder" TargetType="{x:Type Border}"><Setter Property="Background" Value="#443B6EA5"/><Setter Property="BorderBrush" Value="#FF77AAFF"/><Setter Property="BorderThickness" Value="1"/><Setter Property="CornerRadius" Value="3"/><Setter Property="Padding" Value="8,4"/></Style>
     <Style x:Key="HostOptionsBorder" TargetType="{x:Type Border}"><Setter Property="Background" Value="#443E315F"/><Setter Property="BorderBrush" Value="#FFB99BE8"/><Setter Property="BorderThickness" Value="1"/><Setter Property="CornerRadius" Value="3"/><Setter Property="Padding" Value="10,8"/></Style>
   </Grid.Resources>
-  <ScrollViewer HorizontalScrollBarVisibility="{x:Static shared:ToolTipPresentation.AutomaticScrollBarVisibility}"
-                VerticalScrollBarVisibility="{x:Static shared:ToolTipPresentation.AutomaticScrollBarVisibility}">
+  <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                VerticalScrollBarVisibility="Auto">
     <StackPanel Margin="10">
       <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
         <Border Style="{StaticResource ClientActivationBorder}">
@@ -109,6 +109,8 @@
           </StackPanel>
         </StackPanel>
       </Border>
+      <!-- Lets the co-op package selector scroll high enough to open a tall dropdown. -->
+      <Border Height="300"/>
     </StackPanel>
   </ScrollViewer>
 </Grid>

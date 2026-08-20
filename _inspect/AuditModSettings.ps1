@@ -68,8 +68,8 @@ foreach ($entry in $settings.GetEnumerator()) {
     $text = [IO.File]::ReadAllText($path)
     $requiredMarkers = @(
         'TargetType="{x:Type ToolTip}"',
-        'VerticalScrollBarVisibility="{x:Static shared:ToolTipPresentation.AutomaticScrollBarVisibility}"',
-        'HorizontalScrollBarVisibility="{x:Static shared:ToolTipPresentation.AutomaticScrollBarVisibility}"',
+        'VerticalScrollBarVisibility="Auto"',
+        'HorizontalScrollBarVisibility="Auto"',
         'Value="#FF1D1710"',
         'MaxWidth="{x:Static shared:ToolTipPresentation.MaximumWidth}"',
         'Value="{x:Static shared:ToolTipPresentation.FontSize}"',
@@ -125,7 +125,7 @@ $toolTipPresentationPath = Join-Path $workspace 'Shared/ToolTipPresentation.cs'
 $toolTipPresentation = [IO.File]::ReadAllText($toolTipPresentationPath)
 foreach ($required in @(
     'private const double ReferenceHeight = 1440.0;',
-    'private const double BaseFontSize = 20.0;',
+    'private const double BaseFontSize = 30.0;',
     'Math.Max(1.0, Screen.height / ReferenceHeight)',
     'public static double FontSize',
     '1000.0 * ResolutionScale')) {

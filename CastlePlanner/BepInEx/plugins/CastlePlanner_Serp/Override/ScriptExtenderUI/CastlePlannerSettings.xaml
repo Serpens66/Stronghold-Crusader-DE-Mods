@@ -24,8 +24,8 @@
                              PassEventArgsToCommand="True"/>
     </b:EventTrigger>
   </b:Interaction.Triggers>
-  <ScrollViewer VerticalScrollBarVisibility="{x:Static shared:ToolTipPresentation.AutomaticScrollBarVisibility}"
-                HorizontalScrollBarVisibility="{x:Static shared:ToolTipPresentation.AutomaticScrollBarVisibility}">
+  <ScrollViewer VerticalScrollBarVisibility="Auto"
+                HorizontalScrollBarVisibility="Auto">
   <StackPanel Margin="10">
     <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
       <Border Style="{StaticResource ClientActivationBorder}"><CheckBox IsEnabled="{Binding CanEditClientSettings}"
@@ -125,6 +125,8 @@
                  Foreground="#999999"
                  TextWrapping="Wrap"
                  Margin="0,0,0,10"/>
+      <!-- Lets the castle selector scroll high enough to open a tall dropdown. -->
+      <Border Height="300"/>
     </StackPanel>
   </StackPanel>
   </ScrollViewer>

@@ -6,7 +6,7 @@ namespace Shared
     public static class ToolTipPresentation
     {
         private const double ReferenceHeight = 1440.0;
-        private const double BaseFontSize = 20.0;
+        private const double BaseFontSize = 30.0;
 
         // Preserve the physical tooltip size when the game silently switches to a
         // higher render resolution. Lower resolutions retain the readable baseline.
@@ -15,11 +15,6 @@ namespace Shared
 
         public static double FontSize =>
             BaseFontSize * ResolutionScale;
-
-        // Modsettings must keep overflowing localized text and wide controls reachable
-        // instead of clipping them at the settings viewport boundary.
-        public static Noesis.ScrollBarVisibility AutomaticScrollBarVisibility =>
-            Noesis.ScrollBarVisibility.Auto;
 
         // Scale width and edge margin together with the font so line lengths remain
         // comparable between 1440p and higher render resolutions.
