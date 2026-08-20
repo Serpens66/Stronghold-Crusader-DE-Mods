@@ -3,7 +3,11 @@ using BepInEx.Logging;
 using CrusaderDE;
 using MonoMod.RuntimeDetour;
 using Noesis;
+using R3;
 using SHCDESE.API;
+using SHCDESE.API.Components.Network;
+using SHCDESE.EventAPI;
+using SHCDESE.EventAPI.Network;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using SHCDESE.NoesisUtil;
@@ -144,6 +148,9 @@ namespace ExtraFeatures
 
         private static readonly Thickness BottomRightSlotMargin = new Thickness(80, 40, 0, 3);
         private const int StableHorseSlotCount = 4;
+        private const int ChoreProtocolVersion = 1;
+        private const int MountAction = 1;
+        private const int DismountAction = 2;
         private const string MissingWeaponsSpeechFileName = "Other_Warning6.wav";
         private static readonly string[] MountSpeechFileNames = { "Knight_m1.wav", "Knight_m2.wav", "Knight_m3.wav" };
         private static readonly string[] DismountSpeechFileNames = { "Sword_s4.wav", "Sword_s5.wav", "Sword_s6.wav" };
@@ -159,6 +166,10 @@ namespace ExtraFeatures
         private Button hookedMountButton;
         private bool initialized;
         private bool disposed;
+        private bool networkInitialized;
+        private int nextOperationId;
+        private R3PacketEventHook<KnightTransformationPacket> transformationPacketHook;
+        private IDisposable transformationPacketSubscription;
 
         public KnightDismountRuntime(
             ManualLogSource log,
@@ -177,6 +188,17 @@ namespace ExtraFeatures
         }
 
         public KnightDismountButtonViewModel ButtonViewModel => buttonViewModel;
+
+        public void InitializeNetwork()
+        {
+            if (networkInitialized)
+                return;
+
+            transformationPacketHook = GameNetworkAPI.Instance.GetPacketEventFor<KnightTransformationPacket>();
+            transformationPacketSubscription = transformationPacketHook.GetBaseHook().Observable.Subscribe(OnTransformationPacketReceived);
+            networkInitialized = true;
+            LogInfo($"Chore packet registered eagerly: packetId={transformationPacketHook.GetPacketId()}, protocolVersion={ChoreProtocolVersion}.");
+        }
 
         public void Initialize()
         {
@@ -501,15 +523,17 @@ namespace ExtraFeatures
                     return;
                 }
 
-                List<UnitTransformSnapshot> appliedSnapshots = new List<UnitTransformSnapshot>(snapshots.Count);
-                ApplyDismountBatch(snapshots, "local-click", appliedSnapshots);
-
-                if (appliedSnapshots.Count > 0)
-                    PlayRandomLocalSpeech(DismountSpeechFileNames, "dismount");
-
-                // TODO: With Script Extender 1.50.0, execute this transformation through the
-                // ordered Chore transport instead of restoring the former custom-packet path.
-                // Do not restore request-ID deduplication unless the final Chore contract requires it.
+                if (RequiresChoreTransport())
+                {
+                    TrySendTransformationChore(localPlayerId, DismountAction, snapshots);
+                }
+                else
+                {
+                    List<UnitTransformSnapshot> appliedSnapshots = new List<UnitTransformSnapshot>(snapshots.Count);
+                    ApplyDismountBatch(snapshots, "local-click", appliedSnapshots);
+                    if (appliedSnapshots.Count > 0)
+                        PlayRandomLocalSpeech(DismountSpeechFileNames, "dismount");
+                }
 
                 RefreshButtonVisibility();
             }
@@ -537,24 +561,26 @@ namespace ExtraFeatures
                     return;
                 }
 
-                List<HorseAllocation> allocations = FindHorseAllocations(localPlayerId, snapshots.Count);
-                if (allocations.Count == 0)
+                if (FindHorseAllocations(localPlayerId, snapshots.Count).Count == 0)
                 {
                     PlayMissingWeaponsSpeech();
                     RefreshButtonVisibility();
                     return;
                 }
 
-                int applyCount = Math.Min(snapshots.Count, allocations.Count);
-                List<AppliedMountSnapshot> appliedSnapshots = new List<AppliedMountSnapshot>(applyCount);
-                ApplyMountBatch(snapshots, allocations, applyCount, "local-click", appliedSnapshots);
-
-                if (appliedSnapshots.Count > 0)
-                    PlayRandomLocalSpeech(MountSpeechFileNames, "mount");
-
-                // TODO: With Script Extender 1.50.0, execute this transformation through the
-                // ordered Chore transport instead of restoring the former custom-packet path.
-                // Do not restore request-ID deduplication unless the final Chore contract requires it.
+                if (RequiresChoreTransport())
+                {
+                    TrySendTransformationChore(localPlayerId, MountAction, snapshots);
+                }
+                else
+                {
+                    List<HorseAllocation> allocations = FindHorseAllocations(localPlayerId, snapshots.Count);
+                    int applyCount = Math.Min(snapshots.Count, allocations.Count);
+                    List<AppliedMountSnapshot> appliedSnapshots = new List<AppliedMountSnapshot>(applyCount);
+                    ApplyMountBatch(snapshots, allocations, applyCount, "local-click", appliedSnapshots);
+                    if (appliedSnapshots.Count > 0)
+                        PlayRandomLocalSpeech(MountSpeechFileNames, "mount");
+                }
 
                 RefreshButtonVisibility();
             }
@@ -566,11 +592,143 @@ namespace ExtraFeatures
 
         private bool IsFeatureActive()
         {
-            // TODO: Remove the multiplayer gate after Script Extender 1.50.0 Chores can
-            // synchronize the complete mount/dismount transition deterministically.
             return settings.EnableMod &&
                 settings.EnableKnightDismount &&
-                !multiplayerFeatureGate.BlocksLocalStateChanges;
+                (!RequiresChoreTransport() || IsChoreTransportReady());
+        }
+
+        private bool RequiresChoreTransport()
+        {
+            return multiplayerFeatureGate.BlocksLocalStateChanges;
+        }
+
+        private bool IsChoreTransportReady()
+        {
+            return networkInitialized && transformationPacketHook != null && ChoreNetworkTransport.IsAvailable;
+        }
+
+        private bool TrySendTransformationChore(int playerId, int action, List<UnitTransformSnapshot> snapshots)
+        {
+            if (!IsChoreTransportReady())
+            {
+                LogError("Knight transformation refused in multiplayer because the Chore transport is unavailable.");
+                return false;
+            }
+
+            var globalIds = new List<int>(snapshots.Count);
+            for (int index = 0; index < snapshots.Count; index++)
+            {
+                if (snapshots[index].GlobalId <= 0)
+                {
+                    LogError($"Knight transformation refused because selected unit {snapshots[index].UnitId} has no stable global ID.");
+                    return false;
+                }
+
+                globalIds.Add(snapshots[index].GlobalId);
+            }
+
+            int operationId = unchecked(++nextOperationId);
+            var packet = new KnightTransformationPacket
+            {
+                ProtocolVersion = ChoreProtocolVersion,
+                PlayerId = playerId,
+                OperationId = operationId,
+                Action = action,
+                UnitGlobalIds = globalIds.ToArray()
+            };
+
+            byte[] body = GameNetworkAPI.Serialize(packet);
+            byte[] blob = new byte[sizeof(short) + body.Length];
+            BitConverter.GetBytes(transformationPacketHook.GetPacketId()).CopyTo(blob, 0);
+            Buffer.BlockCopy(body, 0, blob, sizeof(short), body.Length);
+            Func<byte[], bool> sendRawBlob = ChoreNetworkTransport.SendRawBlob;
+            bool queued = sendRawBlob != null && sendRawBlob(blob);
+            if (!queued)
+            {
+                LogError($"Knight transformation Chore was not queued; no local action was applied: operationId={operationId}, payloadBytes={blob.Length}.");
+                return false;
+            }
+
+            LogInfo($"Knight transformation Chore queued: operationId={operationId}, action={action}, unitCount={globalIds.Count}, payloadBytes={blob.Length}.");
+            return true;
+        }
+
+        private void OnTransformationPacketReceived(ReceiveCustomPacketEventArgs<KnightTransformationPacket> args)
+        {
+            KnightTransformationPacket packet = args?.Packet;
+            if (packet == null || packet.ProtocolVersion != ChoreProtocolVersion ||
+                (packet.Action != MountAction && packet.Action != DismountAction) ||
+                packet.PlayerId <= 0 || packet.UnitGlobalIds == null || packet.UnitGlobalIds.Length == 0)
+            {
+                LogError("Rejected a Knight transformation Chore with an invalid payload.");
+                return;
+            }
+
+            try
+            {
+                eChimps expectedType = packet.Action == MountAction
+                    ? eChimps.CHIMP_TYPE_SWORDSMAN
+                    : eChimps.CHIMP_TYPE_KNIGHT;
+                List<UnitTransformSnapshot> snapshots = CaptureSnapshotsByGlobalIds(packet.PlayerId, expectedType, packet.UnitGlobalIds);
+                if (snapshots.Count != packet.UnitGlobalIds.Length)
+                {
+                    LogError($"Knight transformation Chore refused because not every unit resolved identically: operationId={packet.OperationId}, requested={packet.UnitGlobalIds.Length}, resolved={snapshots.Count}.");
+                    return;
+                }
+
+                bool localAction = packet.PlayerId == GetLocalPlayerIdOrOne();
+                if (packet.Action == DismountAction)
+                {
+                    var applied = new List<UnitTransformSnapshot>(snapshots.Count);
+                    ApplyDismountBatch(snapshots, "multiplayer-chore", applied);
+                    if (localAction && applied.Count > 0)
+                        PlayRandomLocalSpeech(DismountSpeechFileNames, "dismount");
+                }
+                else
+                {
+                    List<HorseAllocation> allocations = FindHorseAllocations(packet.PlayerId, snapshots.Count);
+                    int applyCount = Math.Min(snapshots.Count, allocations.Count);
+                    var applied = new List<AppliedMountSnapshot>(applyCount);
+                    ApplyMountBatch(snapshots, allocations, applyCount, "multiplayer-chore", applied);
+                    if (localAction && applied.Count > 0)
+                        PlayRandomLocalSpeech(MountSpeechFileNames, "mount");
+                    else if (localAction && allocations.Count == 0)
+                        PlayMissingWeaponsSpeech();
+                }
+
+                LogInfo($"Knight transformation Chore executed: operationId={packet.OperationId}, action={packet.Action}, unitCount={snapshots.Count}.");
+            }
+            catch (Exception ex)
+            {
+                LogError($"Knight transformation Chore execution failed: operationId={packet.OperationId}, exception={ex}");
+            }
+            finally
+            {
+                RefreshButtonVisibility();
+            }
+        }
+
+        private static List<UnitTransformSnapshot> CaptureSnapshotsByGlobalIds(int playerId, eChimps expectedType, int[] globalIds)
+        {
+            var snapshots = new List<UnitTransformSnapshot>(globalIds.Length);
+            var seen = new HashSet<int>();
+            for (int index = 0; index < globalIds.Length; index++)
+            {
+                int globalId = globalIds[index];
+                if (globalId <= 0 || !seen.Add(globalId))
+                    continue;
+
+                int unitId = FindAliveUnitIdByGlobalId(globalId);
+                if (unitId <= 0 || !GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
+                    !IsOwnAliveUnit(unit, playerId, expectedType))
+                {
+                    continue;
+                }
+
+                snapshots.Add(CreateSnapshotFromUnit(unitId, unit));
+            }
+
+            return snapshots;
         }
 
         private void PlayMissingWeaponsSpeech()

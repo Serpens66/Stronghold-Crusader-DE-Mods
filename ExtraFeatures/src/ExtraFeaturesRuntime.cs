@@ -77,7 +77,10 @@ namespace ExtraFeatures
 
         public void InitializeNetwork()
         {
+            knightDismountRuntime.InitializeNetwork();
             quarryPileRelocationRuntime.InitializeNetwork();
+            InstallSingleBuildingPauseHook();
+            singleBuildingPauseHook.InitializeNetwork();
         }
 
         public void InitializeNative(IntPtr newLibraryHandle, ReadOnlySpan<byte> memory, bool isFixedLayoutHashValidated)
@@ -262,8 +265,9 @@ namespace ExtraFeatures
             quarryPileRelocationRuntime.Dispose();
             ctrlMarketTradeHook?.Dispose();
             ctrlMarketTradeHook = null;
-            singleBuildingPauseHook?.Dispose();
-            singleBuildingPauseHook = null;
+            // Keep this process-lifetime hook and its Chore receiver alive. When disabled it
+            // passes local clicks through, while in-flight synchronized actions remain executable.
+            singleBuildingPauseHook?.ClearOverrides("mod disabled");
             ClearResourceEventGuards();
             pendingStockpileRefund = null;
             hooksSubscribed = false;
@@ -312,6 +316,9 @@ namespace ExtraFeatures
 
         private void InstallSingleBuildingPauseHook()
         {
+            if (singleBuildingPauseHook != null)
+                return;
+
             try
             {
                 singleBuildingPauseHook = new SingleBuildingPauseHook(log, settings, multiplayerFeatureGate);
@@ -512,11 +519,6 @@ namespace ExtraFeatures
         private void OnStartMap(MapStartEventArgs args)
         {
             multiplayerFeatureGate.CaptureMapMode(args.bMultiplayerSave != 0);
-
-            // TODO: Remove this temporary multiplayer restriction after Script Extender 1.50.0
-            // provides the ordered Chore transport for these state-changing actions.
-            if (multiplayerFeatureGate.BlocksLocalStateChanges)
-                singleBuildingPauseHook?.ClearOverrides("real multiplayer map start");
 
             TryRunFeature("knight mount/dismount visibility", knightDismountRuntime.RefreshButtonVisibility);
             TryRunFeature("quarry-pile relocation visibility", quarryPileRelocationRuntime.RefreshButtonVisibility);

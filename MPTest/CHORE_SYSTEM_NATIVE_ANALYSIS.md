@@ -504,8 +504,10 @@ Verglichener Commit: `02a7a6bc8ab956a91fc752e8c8ed215c149855e7`
 
 ### Lokaler Script Extender
 
-Der Script Extender findet bereits den ChoreManager und stellt erprobte Pattern-Scanner-, Hook- und
-API-Strukturen bereit. Es fehlt aktuell die eigentliche Custom-Chore-Registrierung und das Enqueue.
+Der hier verglichene alte Commit fand bereits den ChoreManager, hatte aber noch keine
+Custom-Chore-Registrierung. Der produktive Script Extender stellt Registrierung, Enqueue und den
+tick-synchronen Chore-106-Transport seit Version 1.41.0 bereit; diese historische Aussage ist daher
+nicht mehr der aktuelle Integrationsstand.
 
 Verglichener Commit: `9ddb419ca6a5f05d7c8f85a10ba0795c1193c318`
 

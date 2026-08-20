@@ -183,8 +183,8 @@ from `0` to `3`. A changed hash requires a unique executable-section match for
 the type-switch pattern and then re-derives and validates every table address
 and target. Conflicting runtime values are never overwritten. Disabling the
 mod or Improved Pathfinding restores the owned byte. The correction remains
-disabled in real multiplayer and the map editor pending the Script Extender
-`1.50.0` synchronization Chore.
+disabled in real multiplayer and the map editor pending a feature-specific
+migration to the Script Extender Chore transport available since `1.41.0`.
 
 ### Native PCL reachability precheck calibration
 
@@ -508,8 +508,8 @@ The three hook windows are hash-bound to Steam build `24651686`, SHA-256
 Their reference RVAs are `0x12FD67`, `0x12FD89`, and `0x12FE2A`; callees must
 still resolve to query RVA `0x18AF00` and `MoveHere` RVA `0x196230`. Any hash or
 byte/call-chain mismatch disables only this diagnostic. It is additionally
-fail-closed in real multiplayer and the map editor pending the Script Extender
-`1.50.0` multiplayer Chore.
+fail-closed in real multiplayer and the map editor pending a feature-specific
+migration to the Script Extender Chore transport available since `1.41.0`.
 
 The first `1.1.36` ingame run confirmed all three hooks and the singleplayer
 gate, but did not inject a candidate: the first confirmed state-0 query already

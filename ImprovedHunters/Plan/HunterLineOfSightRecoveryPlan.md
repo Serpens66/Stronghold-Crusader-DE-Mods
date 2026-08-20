@@ -31,8 +31,8 @@ Vollständige RVA-, Byte-, Resolver- und Updateprüfungen stehen in
   bidirektionale Geschwindigkeits-Nachprüfung. Danach folgen Paket F für
   unreservierte Kadaver, Paket D als gemeinsame Beutetyp-/Mehrjägermatrix und
   zuletzt Paket C für die Produktionsbereinigung.
-- Ein sichtbarer Jagdsprint ist optional. Echter Multiplayer bleibt bis Script
-  Extender `1.50.0` deaktiviert.
+- Ein sichtbarer Jagdsprint ist optional. Echter Multiplayer bleibt bis zur
+  eigenen Chore-Migration deaktiviert; der Transport ist seit Script Extender `1.41.0` verfügbar.
 
 Verbindliche Reihenfolge:
 `E → Geschwindigkeits-Nachprüfung → F → D → C`.
@@ -691,8 +691,8 @@ Ein optisch deutlicherer Jagdsprint darf erst nach E, F, D und C rein
 beobachtend kalibriert werden. Er blockiert keinen Pflichtabschluss und darf
 keine eigene Speed-/Animationssteuerung einführen.
 
-Echter Multiplayer bleibt fail-closed, bis Script Extender `1.50.0` die nötige
-Synchronisationsgrundlage bietet. Danach Hostautorität, Snapshot-/
+Echter Multiplayer bleibt fail-closed, bis die seit Script Extender `1.41.0`
+verfügbare Chore-Synchronisation für dieses Feature implementiert ist. Danach Hostautorität, Snapshot-/
 Reservationseigentum, Join-in-progress, Reconnect und Disconnect-Cleanup separat
 prüfen.
 

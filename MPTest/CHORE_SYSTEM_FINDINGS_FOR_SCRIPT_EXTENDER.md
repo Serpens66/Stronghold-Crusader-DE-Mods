@@ -4,6 +4,10 @@
 
 Date: 2026-07-28
 
+> **Current integration status:** The proposed integration was implemented in Script Extender
+> 1.41.0 as the managed Chore-106 transport. Claims below that the extender currently lacks custom
+> Chore registration describe only the compared historical commit.
+
 Status:
 
 - Native Chore format and scheduling path: sufficiently understood for a guarded prototype.
@@ -119,7 +123,7 @@ packet-type-1 data is passed to:
 
 The managed wrapper holds the same `EngineInterface.threadLock`.
 
-### Why Script Extender custom packets are not Chores
+### Why historical Steam-only Script Extender custom packets are not Chores
 
 Script Extender custom packets:
 
@@ -764,9 +768,9 @@ Compared commit: `02a7a6bc8ab956a91fc752e8c8ed215c149855e7`.
 
 ### Local Script Extender
 
-The Script Extender already locates the ChoreManager and provides established pattern-scanner, hook,
-API, packet, and lobby lifecycle infrastructure. It currently lacks custom Chore registration and
-enqueue functionality.
+The compared Script Extender already located the ChoreManager and provided established pattern-scanner,
+hook, API, packet, and lobby lifecycle infrastructure. That historical commit lacked custom Chore
+registration and enqueue functionality; version 1.41.0 and newer include both.
 
 Compared commit: `9ddb419ca6a5f05d7c8f85a10ba0795c1193c318`.
 

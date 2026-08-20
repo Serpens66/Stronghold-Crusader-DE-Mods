@@ -1,5 +1,9 @@
 # Investigation Handoff: SHCDE Multiplayer Chore System
 
+> **Current integration status:** This handoff predates the public implementation. Script Extender
+> 1.41.0 and newer provide the managed Chore-106 transport through `ChoreNetworkTransport` and
+> `GameNetworkAPI`; statements below that the current extender lacks custom Chores are historical.
+
 > **Historical DLL scope:** Native addresses and layouts in this handoff belong
 > to `CrusaderDE.dll` SHA-256
 > `17F8DD4A92FF6125BD6A3A70ABC80C727682E489696C218D146A7EA6D2F88BF4`.
@@ -157,7 +161,7 @@ This confirms that the base game tracks network latency and simulation-frame dis
 
 This also corrects an earlier assumption: the Script Extender has no dedicated public ping API, but the managed base-game state exposes native ping values through `GameData.Instance.lastGameState.pingtimes`.
 
-## Script Extender custom packets are not native Chores
+## Historical Steam-only Script Extender custom packets are not native Chores
 
 The Script Extender's `GameNetworkAPI` dynamically assigns custom packet IDs starting at:
 
@@ -181,7 +185,7 @@ Consequently, a custom packet:
 
 This explains why "send a custom packet and run the same managed function on every peer" can still execute on different simulation ticks.
 
-## ChoreManager exposure in the current Script Extender
+## ChoreManager exposure in the Script Extender version examined here
 
 The current local Script Extender finds the native ChoreManager address:
 

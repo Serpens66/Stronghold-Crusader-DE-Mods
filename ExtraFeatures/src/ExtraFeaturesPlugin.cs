@@ -20,7 +20,7 @@ namespace ExtraFeatures
 
         public const string PluginGuid = "ExtraFeatures_Serp";
         public const string PluginName = "Extra Features";
-        public const string PluginVersion = "1.0.21";
+        public const string PluginVersion = "1.0.22";
 
         private ExtraFeaturesRuntime runtime;
         private bool marketGoodPriceVisualRefreshFailureLogged;
@@ -59,7 +59,7 @@ namespace ExtraFeatures
             {
                 Shared.DebugLogHelper.LogError(
                     Logger,
-                    $"Extra Features quarry-pile Chore registration failed; multiplayer relocation remains unavailable: {ex}");
+                    $"Extra Features Chore registration failed; synchronized multiplayer actions remain unavailable: {ex}");
             }
 
             try

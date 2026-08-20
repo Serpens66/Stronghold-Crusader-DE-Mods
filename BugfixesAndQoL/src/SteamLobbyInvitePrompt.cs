@@ -45,6 +45,14 @@ namespace BugfixesAndQoL
                     return;
                 }
 
+                if (!IsSafeToShowPrompt(out string promptState))
+                {
+                    Shared.DebugLogHelper.LogDebug(
+                        log,
+                        $"Suppressed in-game Steam lobby invitation for lobby {lobbyId} because the UI is not in a stable prompt state; {promptState}. Steam's normal invitation remains available.");
+                    return;
+                }
+
                 string inviterName = ResolveInviterName(inviterId);
                 string format = SerpLocalization.Get("BugfixesAndQoL.SteamInvitePrompt");
                 string message = string.Format(CultureInfo.CurrentCulture, format, inviterName);
@@ -65,6 +73,49 @@ namespace BugfixesAndQoL
                     log,
                     $"Could not display an incoming Steam lobby invitation; Steam's normal notification remains available: {ex}");
             }
+        }
+
+        private static bool IsSafeToShowPrompt(out string state)
+        {
+            if (!MainViewModel.viewModelLoaded)
+            {
+                state = "viewModelLoaded=False";
+                return false;
+            }
+
+            MainViewModel viewModel = MainViewModel.Instance;
+            Enums.SceneIDS scene = FatControler.currentScene;
+            bool confirmationOpen =
+                viewModel.Show_HUD_Confirmation ||
+                viewModel.Show_HUD_ConfirmationMP ||
+                viewModel.Show_HUD_ConfirmationSM ||
+                viewModel.Show_HUD_ConfirmationSands;
+            bool simulationRunning = Director.instance != null && Director.instance.SimRunning;
+            bool gameStateReady = GameData.Instance != null && GameData.Instance.lastGameState != null;
+
+            state =
+                $"scene={scene}, showFrontend={viewModel.Show_Frontend}, showInGame={viewModel.Show_InGame}, " +
+                $"loadingBlack={viewModel.Show_MP_LoadingBlack}, briefing={viewModel.Show_HUD_Briefing}, " +
+                $"confirmationOpen={confirmationOpen}, simRunning={simulationRunning}, gameStateReady={gameStateReady}, " +
+                $"mainUiLoaded={viewModel.MainUILoaded}, radarLoaded={viewModel.RadarLoaded}";
+
+            if (confirmationOpen || viewModel.Show_MP_LoadingBlack)
+                return false;
+
+            if (scene == Enums.SceneIDS.FrontEnd)
+                return viewModel.Show_Frontend && !viewModel.Show_InGame;
+
+            if (scene != Enums.SceneIDS.ActualMainGame)
+                return false;
+
+            // SceneIDS changes before every map resource and first game state are necessarily ready.
+            return viewModel.Show_InGame &&
+                   !viewModel.Show_Frontend &&
+                   !viewModel.Show_HUD_Briefing &&
+                   simulationRunning &&
+                   gameStateReady &&
+                   viewModel.MainUILoaded &&
+                   viewModel.RadarLoaded;
         }
 
         private string ResolveInviterName(ulong inviterId)

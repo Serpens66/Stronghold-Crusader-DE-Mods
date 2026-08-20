@@ -1,7 +1,7 @@
 # Serp mod localization
 # Format: key=value
 BugfixesAndQoL.EnableIngameSteamInvitePrompt=Show incoming Steam invitations in game
-BugfixesAndQoL.EnableIngameSteamInvitePromptHelp=Shows a Yes/No prompt when a Steam friend invites you to a multiplayer lobby. Yes leaves the current game through Vanilla's normal flow and joins the invited lobby. This is a per-player setting.
+BugfixesAndQoL.EnableIngameSteamInvitePromptHelp=Shows a Yes/No prompt when a Steam friend invites you to a multiplayer lobby. The prompt appears only in a fully loaded frontend or active game; during loading screens or unsafe transitions Steam's normal invitation remains available. Yes leaves the current game through Vanilla's normal flow and joins the invited lobby. This is a per-player setting.
 BugfixesAndQoL.SteamInvitePrompt=Join game from {0}?
 BugfixesAndQoL.UnknownSteamUser=Steam user
 Common.EnableMod=Enable Mod

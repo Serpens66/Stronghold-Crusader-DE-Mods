@@ -1,7 +1,7 @@
 # Serp mod localization
 # Format: key=value
 BugfixesAndQoL.EnableIngameSteamInvitePrompt=Eingehende Steam-Einladungen im Spiel anzeigen
-BugfixesAndQoL.EnableIngameSteamInvitePromptHelp=Zeigt eine Ja/Nein-Abfrage, wenn dich ein Steam-Freund in eine Multiplayer-Lobby einlaedt. Ja verlaesst die aktuelle Partie ueber Vanillas normalen Ablauf und tritt der eingeladenen Lobby bei. Diese Einstellung gilt pro Spieler.
+BugfixesAndQoL.EnableIngameSteamInvitePromptHelp=Zeigt eine Ja/Nein-Abfrage, wenn dich ein Steam-Freund in eine Multiplayer-Lobby einlaedt. Die Abfrage erscheint nur im vollstaendig geladenen Frontend oder in einer aktiven Partie; waehrend Ladebildschirmen oder unsicheren Uebergaengen bleibt stattdessen Steams normale Einladung verfuegbar. Ja verlaesst die aktuelle Partie ueber Vanillas normalen Ablauf und tritt der eingeladenen Lobby bei. Diese Einstellung gilt pro Spieler.
 BugfixesAndQoL.SteamInvitePrompt=Spiel von {0} beitreten?
 BugfixesAndQoL.UnknownSteamUser=Steam-Nutzer
 Common.LegacySomeSettingsWarning=FEHLER: Der veraltete Mod SomeSettings_Serp ist ebenfalls geladen. Bitte deinstalliere SomeSettings_Serp, um doppelte oder widerspruechliche Funktionen zu vermeiden.

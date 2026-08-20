@@ -54,7 +54,7 @@ Weitere wichtige Folgen:
 | `CustomCustomTrail` | hoch | Kompiliert die Shared-Datei nicht selbst, wendet aber Host-only-Missionssnapshots auf die zehn registrierten ViewModels an. | `TrailMissionSettingsCoordinator` sowie 18/18 vorhandene Tests gegen die geaenderte Persistenzreihenfolge erneut pruefen; weiterhin nur `[SyncHostOnly]` erfassen. |
 | `Shared/GameModeHelper.cs` | mittel | Nutzt den nun offiziell gekapselten Wert noch direkt als `Platform_Multiplayer.MPGameActive`. | Auf `GameNetworkAPI.IsMultiplayerGame()` umstellen, ohne Lobby-/Member-/Director-/Save-Fallbacks zu entfernen. |
 | Gesamtes Multiplayer-Testprofil | mittel | Der volle 64-Bit-Hash aendert die Lobby-Kompatibilitaet. 1.41- und 1.42-Installationen sowie unterschiedliche Modversionen sollen sich nicht sehen. | Host und Client koordiniert auf 1.42 und identische Modversionen bringen; kompletten 16-stelligen Hash und Eintragszahl logseitig vergleichen. |
-| `MPTest` | niedrig | Fuenf Vorkommen von `IsNetworkedEnvironment()` pruefen Transportverfuegbarkeit, lokalen Player-Fallback und den nativen Chore-Probeaufbau, nicht die fachliche Spielmodusklassifikation. | Nicht mechanisch migrieren; nur Compile- und Transport-Smoke gegen 1.42. Chore-Migration bleibt fuer 1.50.0 reserviert. |
+| `MPTest` | niedrig | Fuenf Vorkommen von `IsNetworkedEnvironment()` pruefen Transportverfuegbarkeit, lokalen Player-Fallback und den nativen Chore-Probeaufbau, nicht die fachliche Spielmodusklassifikation. | Nicht mechanisch migrieren; nur Compile- und Transport-Smoke gegen 1.42. Der produktive Chore-Transport ist bereits seit 1.41.0 verfügbar. |
 | `DispatcherLifecycleProbe` | niedrig | Verwendet Dispatcherinstanz, `Dispatch` und Queuepfade, aber nicht das neu als obsolet markierte `EnqueueAndWait<T>`. | Keine Codeaenderung; optionaler Compile-Smoke. Die bekannte fehlende Persistenz des Dispatcher-Framehosts bleibt unveraendert. |
 | `ActiveAIVDetector`, `AIDefense`, `AIVPlacementLobby`, `HunterQueryTargetDiagnostic`, `MultiplayerLeaveFix`, `VanillaAICExporter` | keine direkte Anpassung | Referenzieren den Extender, nutzen aber keine in 1.42 geaenderte oeffentliche Semantik. `AIVPlacementLobby`-ViewModels sind keine registrierten Lobby-Modsettings. | Kein Rebuild nur fuer 1.42 erforderlich; Smoke-Test, falls sie im gemeinsamen Profil geladen werden. |
 | `CustomCustomTrail`-fremde Tools und Datenprojekte | keine | Keine relevante SHCDESE-API-Nutzung gefunden. | Keine Aenderung. |
@@ -214,7 +214,7 @@ Das Update ist abgeschlossen, wenn:
 ## 8. Bewusst nicht geplante Aenderungen
 
 - Keine neue native RVA-/Layoutanalyse; die kanonische Spiel-DLL ist gegenueber der 1.41-Basis unveraendert.
-- Keine Chore-Migration vor dem fuer 1.50.0 dokumentierten Vertrag.
+- Chore-Migrationen dürfen den bereits seit 1.41.0 verfügbaren Vertrag verwenden; Simulationsmutationen müssen dabei direkt und fail-closed über `ChoreNetworkTransport.SendRawBlob` laufen.
 - Kein Ersatz fachlicher Multiplayererkennung durch `IsNetworkedEnvironment()` oder allein durch `IsMultiplayerGame()`.
 - Keine Entfernung der eigenen Preset-, Trail- und sicheren Hostwertkomposition zugunsten des einfachen Extender-Storage.
 - Keine pauschale Dekoration aller Syncproperties mit `[DoNotPersist]`.
