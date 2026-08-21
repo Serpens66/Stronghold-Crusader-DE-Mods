@@ -39,10 +39,12 @@
     <Compile Include="src\NativeWildlifeEventDispatcher.cs" />
     <Compile Include="src\RandomEventsPlugin.cs" />
     <Compile Include="src\RandomEventsChorePacket.cs" />
+    <Compile Include="src\RandomEventsCooldownCodec.cs" />
     <Compile Include="src\RandomEventsDiagnostics.cs" />
     <Compile Include="src\RandomEventsInitializationAckPacket.cs" />
     <Compile Include="src\RandomEventsRuntime.cs" />
-    <Compile Include="src\RandomEventsSaveStateV2.cs" />
+    <Compile Include="src\RandomEventsSaveState.cs" />
+    <Compile Include="src\RandomEventsState.cs" />
     <Compile Include="src\RandomEventsSettingsViewModel.cs" />
     <Compile Include="src\ScenarioSignpostRegistry.cs" />
     <Compile Include="src\SignpostPlacementService.cs" />

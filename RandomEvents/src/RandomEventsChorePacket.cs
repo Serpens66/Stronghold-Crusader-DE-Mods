@@ -1,193 +1,155 @@
 using MessagePack;
 using MessagePack.Formatters;
 using System;
+using System.Buffers;
 
 namespace RandomEvents
 {
-    [MessagePackObject]
-    [MessagePackFormatter(typeof(RandomEventsChorePacketFormatter))]
-    public sealed class RandomEventsChorePacket
+    internal enum RandomEventsCooldownEncoding { None, SharedDense, IndividualSparse, IndividualDense }
+
+    [MessagePackObject, MessagePackFormatter(typeof(RandomEventsInitializationChorePacketFormatter))]
+    public sealed class RandomEventsInitializationChorePacket
     {
         [Key(0)] public int ProtocolVersion;
-        [Key(1)] public int CommandType;
-        [Key(2)] public int OperationId;
-        [Key(3)] public bool EffectiveEnabled;
-        [Key(4)] public int IntervalMonths;
-        [Key(5)] public int CooldownMonths;
-        [Key(6)] public int MultiplayerMode;
-        [Key(7)] public int[] Chances = Array.Empty<int>();
-        [Key(8)] public int[] StrengthMinimums = Array.Empty<int>();
-        [Key(9)] public int[] StrengthMaximums = Array.Empty<int>();
-        [Key(10)] public ulong PrngState0;
-        [Key(11)] public ulong PrngState1;
-        [Key(12)] public int NextDueAbsoluteMonth;
-        [Key(13)] public int StartAbsoluteMonth;
-        [Key(14)] public int[] SharedCooldownUntilAbsoluteMonths = Array.Empty<int>();
-        [Key(15)] public int[] IndividualCooldownUntilAbsoluteMonths = Array.Empty<int>();
-        [Key(16)] public bool BatchPrepared;
-        [Key(17)] public int[] EventKinds = Array.Empty<int>();
-        [Key(18)] public int[] EventStrengths = Array.Empty<int>();
-        [Key(19)] public int[] TargetPlayerIds = Array.Empty<int>();
-        [Key(20)] public bool SignpostsInitialized;
-        [Key(21)] public int[] SignpostBuildingIds = Array.Empty<int>();
+        [Key(1)] public int OperationId;
+        [Key(2)] public byte[] ConfigurationDigest = Array.Empty<byte>();
+        [Key(3)] public ulong PrngState0;
+        [Key(4)] public ulong PrngState1;
+        [Key(5)] public int NextDueAbsoluteMonth;
+        [Key(6)] public int StartAbsoluteMonth;
+        [Key(7)] public int CooldownEncoding;
+        [Key(8)] public int[] CooldownData = Array.Empty<int>();
     }
 
-    public sealed class RandomEventsChorePacketFormatter : IMessagePackFormatter<RandomEventsChorePacket>
+    [MessagePackObject, MessagePackFormatter(typeof(RandomEventsBatchChorePacketFormatter))]
+    public sealed class RandomEventsBatchChorePacket
     {
-        private const int FieldCount = 22;
+        [Key(0)] public int ProtocolVersion;
+        [Key(1)] public int OperationId;
+        [Key(2)] public ulong PrngState0;
+        [Key(3)] public ulong PrngState1;
+        [Key(4)] public int DueAbsoluteMonth;
+        [Key(5)] public int[] EventKinds = Array.Empty<int>();
+        [Key(6)] public int[] EventStrengths = Array.Empty<int>();
+        [Key(7)] public int[] TargetPlayerIds = Array.Empty<int>();
+    }
 
-        public void Serialize(ref MessagePackWriter writer, RandomEventsChorePacket value, MessagePackSerializerOptions options)
+    [MessagePackObject, MessagePackFormatter(typeof(RandomEventsSignpostChorePacketFormatter))]
+    public sealed class RandomEventsSignpostChorePacket
+    {
+        [Key(0)] public int ProtocolVersion;
+        [Key(1)] public int OperationId;
+    }
+
+    public sealed class RandomEventsInitializationChorePacketFormatter : IMessagePackFormatter<RandomEventsInitializationChorePacket>
+    {
+        private const int FieldCount = 9;
+        public void Serialize(ref MessagePackWriter writer, RandomEventsInitializationChorePacket value, MessagePackSerializerOptions options)
         {
-            if (value == null)
-            {
-                writer.WriteNil();
-                return;
-            }
-
+            if (value == null) { writer.WriteNil(); return; }
             writer.WriteArrayHeader(FieldCount);
-            writer.Write(value.ProtocolVersion);
-            writer.Write(value.CommandType);
-            writer.Write(value.OperationId);
-            writer.Write(value.EffectiveEnabled);
-            writer.Write(value.IntervalMonths);
-            writer.Write(value.CooldownMonths);
-            writer.Write(value.MultiplayerMode);
-            WriteIntArray(ref writer, value.Chances);
-            WriteIntArray(ref writer, value.StrengthMinimums);
-            WriteIntArray(ref writer, value.StrengthMaximums);
-            writer.Write(value.PrngState0);
-            writer.Write(value.PrngState1);
-            writer.Write(value.NextDueAbsoluteMonth);
-            writer.Write(value.StartAbsoluteMonth);
-            WriteIntArray(ref writer, value.SharedCooldownUntilAbsoluteMonths);
-            WriteIntArray(ref writer, value.IndividualCooldownUntilAbsoluteMonths);
-            writer.Write(value.BatchPrepared);
-            WriteIntArray(ref writer, value.EventKinds);
-            WriteIntArray(ref writer, value.EventStrengths);
-            WriteIntArray(ref writer, value.TargetPlayerIds);
-            writer.Write(value.SignpostsInitialized);
-            WriteIntArray(ref writer, value.SignpostBuildingIds);
+            writer.Write(value.ProtocolVersion); writer.Write(value.OperationId);
+            RandomEventsMessagePack.WriteByteArray(ref writer, value.ConfigurationDigest);
+            writer.Write(value.PrngState0); writer.Write(value.PrngState1);
+            writer.Write(value.NextDueAbsoluteMonth); writer.Write(value.StartAbsoluteMonth);
+            writer.Write(value.CooldownEncoding);
+            RandomEventsMessagePack.WriteIntArray(ref writer, value.CooldownData);
         }
 
-        public RandomEventsChorePacket Deserialize(ref MessagePackReader reader, MessagePackSerializerOptions options)
+        public RandomEventsInitializationChorePacket Deserialize(ref MessagePackReader reader, MessagePackSerializerOptions options)
         {
-            if (reader.TryReadNil())
-                return null;
+            if (reader.TryReadNil()) return null;
+            RandomEventsMessagePack.RequireFieldCount(ref reader, FieldCount, "initialization Chore");
+            return new RandomEventsInitializationChorePacket
+            {
+                ProtocolVersion = reader.ReadInt32(), OperationId = reader.ReadInt32(),
+                ConfigurationDigest = RandomEventsMessagePack.ReadByteArray(ref reader, 32),
+                PrngState0 = reader.ReadUInt64(), PrngState1 = reader.ReadUInt64(),
+                NextDueAbsoluteMonth = reader.ReadInt32(), StartAbsoluteMonth = reader.ReadInt32(),
+                CooldownEncoding = reader.ReadInt32(), CooldownData = RandomEventsMessagePack.ReadIntArray(ref reader, 240)
+            };
+        }
+    }
 
-            int count;
-            try
-            {
-                count = reader.ReadArrayHeader();
-            }
-            catch (Exception ex)
-            {
-                throw CreateFieldException(ref reader, -1, "packet array header", ex);
-            }
-
-            var value = new RandomEventsChorePacket();
-            for (int index = 0; index < count; index++)
-            {
-                try
-                {
-                    switch (index)
-                    {
-                        case 0: value.ProtocolVersion = reader.ReadInt32(); break;
-                        case 1: value.CommandType = reader.ReadInt32(); break;
-                        case 2: value.OperationId = reader.ReadInt32(); break;
-                        case 3: value.EffectiveEnabled = reader.ReadBoolean(); break;
-                        case 4: value.IntervalMonths = reader.ReadInt32(); break;
-                        case 5: value.CooldownMonths = reader.ReadInt32(); break;
-                        case 6: value.MultiplayerMode = reader.ReadInt32(); break;
-                        case 7: value.Chances = ReadIntArray(ref reader, FieldCount); break;
-                        case 8: value.StrengthMinimums = ReadIntArray(ref reader, FieldCount); break;
-                        case 9: value.StrengthMaximums = ReadIntArray(ref reader, FieldCount); break;
-                        case 10: value.PrngState0 = reader.ReadUInt64(); break;
-                        case 11: value.PrngState1 = reader.ReadUInt64(); break;
-                        case 12: value.NextDueAbsoluteMonth = reader.ReadInt32(); break;
-                        case 13: value.StartAbsoluteMonth = reader.ReadInt32(); break;
-                        case 14: value.SharedCooldownUntilAbsoluteMonths = ReadIntArray(ref reader, 256); break;
-                        case 15: value.IndividualCooldownUntilAbsoluteMonths = ReadIntArray(ref reader, 256); break;
-                        case 16: value.BatchPrepared = reader.ReadBoolean(); break;
-                        case 17: value.EventKinds = ReadIntArray(ref reader, 256); break;
-                        case 18: value.EventStrengths = ReadIntArray(ref reader, 256); break;
-                        case 19: value.TargetPlayerIds = ReadIntArray(ref reader, 256); break;
-                        case 20: value.SignpostsInitialized = reader.ReadBoolean(); break;
-                        case 21: value.SignpostBuildingIds = ReadIntArray(ref reader, FieldCount); break;
-                        default: reader.Skip(); break;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    throw CreateFieldException(ref reader, index, GetExpectedType(index), ex);
-                }
-            }
-            return value;
+    public sealed class RandomEventsBatchChorePacketFormatter : IMessagePackFormatter<RandomEventsBatchChorePacket>
+    {
+        private const int FieldCount = 8;
+        public void Serialize(ref MessagePackWriter writer, RandomEventsBatchChorePacket value, MessagePackSerializerOptions options)
+        {
+            if (value == null) { writer.WriteNil(); return; }
+            writer.WriteArrayHeader(FieldCount);
+            writer.Write(value.ProtocolVersion); writer.Write(value.OperationId);
+            writer.Write(value.PrngState0); writer.Write(value.PrngState1); writer.Write(value.DueAbsoluteMonth);
+            RandomEventsMessagePack.WriteIntArray(ref writer, value.EventKinds);
+            RandomEventsMessagePack.WriteIntArray(ref writer, value.EventStrengths);
+            RandomEventsMessagePack.WriteIntArray(ref writer, value.TargetPlayerIds);
         }
 
-        private static void WriteIntArray(ref MessagePackWriter writer, int[] values)
+        public RandomEventsBatchChorePacket Deserialize(ref MessagePackReader reader, MessagePackSerializerOptions options)
         {
-            if (values == null)
+            if (reader.TryReadNil()) return null;
+            RandomEventsMessagePack.RequireFieldCount(ref reader, FieldCount, "batch Chore");
+            return new RandomEventsBatchChorePacket
             {
-                writer.WriteNil();
-                return;
-            }
+                ProtocolVersion = reader.ReadInt32(), OperationId = reader.ReadInt32(),
+                PrngState0 = reader.ReadUInt64(), PrngState1 = reader.ReadUInt64(), DueAbsoluteMonth = reader.ReadInt32(),
+                EventKinds = RandomEventsMessagePack.ReadIntArray(ref reader, 135),
+                EventStrengths = RandomEventsMessagePack.ReadIntArray(ref reader, 135),
+                TargetPlayerIds = RandomEventsMessagePack.ReadIntArray(ref reader, 135)
+            };
+        }
+    }
+
+    public sealed class RandomEventsSignpostChorePacketFormatter : IMessagePackFormatter<RandomEventsSignpostChorePacket>
+    {
+        public void Serialize(ref MessagePackWriter writer, RandomEventsSignpostChorePacket value, MessagePackSerializerOptions options)
+        {
+            if (value == null) { writer.WriteNil(); return; }
+            writer.WriteArrayHeader(2); writer.Write(value.ProtocolVersion); writer.Write(value.OperationId);
+        }
+
+        public RandomEventsSignpostChorePacket Deserialize(ref MessagePackReader reader, MessagePackSerializerOptions options)
+        {
+            if (reader.TryReadNil()) return null;
+            RandomEventsMessagePack.RequireFieldCount(ref reader, 2, "signpost Chore");
+            return new RandomEventsSignpostChorePacket { ProtocolVersion = reader.ReadInt32(), OperationId = reader.ReadInt32() };
+        }
+    }
+
+    internal static class RandomEventsMessagePack
+    {
+        public static void RequireFieldCount(ref MessagePackReader reader, int expected, string label)
+        {
+            int count = reader.ReadArrayHeader();
+            if (count != expected)
+                throw new MessagePackSerializationException($"RandomEvents {label} has {count} fields; expected exactly {expected}.");
+        }
+
+        public static void WriteIntArray(ref MessagePackWriter writer, int[] values)
+        {
+            if (values == null) { writer.WriteNil(); return; }
             writer.WriteArrayHeader(values.Length);
-            for (int index = 0; index < values.Length; index++)
-                writer.Write(values[index]);
+            for (int index = 0; index < values.Length; index++) writer.Write(values[index]);
         }
 
-        private static int[] ReadIntArray(ref MessagePackReader reader, int maximumLength)
+        public static int[] ReadIntArray(ref MessagePackReader reader, int maximumLength)
         {
-            if (reader.TryReadNil())
-                return Array.Empty<int>();
+            if (reader.TryReadNil()) return Array.Empty<int>();
             int length = reader.ReadArrayHeader();
             if (length < 0 || length > maximumLength)
-                throw new MessagePackSerializationException($"Integer-array length {length} exceeds the diagnostic safety limit {maximumLength}.");
+                throw new MessagePackSerializationException($"RandomEvents integer-array length {length} exceeds {maximumLength}.");
             int[] values = new int[length];
-            for (int index = 0; index < length; index++)
-                values[index] = reader.ReadInt32();
+            for (int index = 0; index < length; index++) values[index] = reader.ReadInt32();
             return values;
         }
 
-        private static MessagePackSerializationException CreateFieldException(
-            ref MessagePackReader reader,
-            int fieldIndex,
-            string expectedType,
-            Exception innerException)
+        public static void WriteByteArray(ref MessagePackWriter writer, byte[] values) => writer.Write(values ?? Array.Empty<byte>());
+        public static byte[] ReadByteArray(ref MessagePackReader reader, int expectedLength)
         {
-            string next = reader.End
-                ? "end-of-payload"
-                : $"code=0x{reader.NextCode:X2}, type={reader.NextMessagePackType}";
-            string field = fieldIndex < 0 ? "header" : $"field={fieldIndex}";
-            return new MessagePackSerializationException(
-                $"RandomEvents Chore decode failed at {field}, offset={reader.Consumed}, expected={expectedType}, next={next}.",
-                innerException);
-        }
-
-        private static string GetExpectedType(int index)
-        {
-            switch (index)
-            {
-                case 3:
-                case 16:
-                case 20:
-                    return "Boolean";
-                case 7:
-                case 8:
-                case 9:
-                case 14:
-                case 15:
-                case 17:
-                case 18:
-                case 19:
-                case 21:
-                    return "Integer array";
-                case 10:
-                case 11:
-                    return "UInt64";
-                default:
-                    return "Int32";
-            }
+            byte[] values = reader.ReadBytes()?.ToArray() ?? Array.Empty<byte>();
+            if (values.Length != expectedLength)
+                throw new MessagePackSerializationException($"RandomEvents byte-array length {values.Length}; expected {expectedLength}.");
+            return values;
         }
     }
 }

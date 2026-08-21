@@ -21,7 +21,7 @@ namespace RandomEvents
 {
     internal sealed class RandomEventsRuntime : IDisposable
     {
-        private const string SaveDataIdentifier = "serp-randomevents-state-v2";
+        private const string SaveDataIdentifier = "serp-randomevents-state";
         private const int VanillaMonthsPerYear = 12;
         private const int RabbitSpawnRadius = 12;
         private const int LionSpawnRadius = 12;
@@ -31,13 +31,9 @@ namespace RandomEvents
         private const int ScaledStrengthMonthsPerPeriod = 3;
         private const int EventKindCount = 15;
         private const int BanditGroupActivationDelayTicks = 20;
-        private const int ChoreProtocolVersion = 1;
-        private const int InitializeCommand = 1;
-        private const int ExecuteBatchCommand = 2;
-        private const int InitializeSignpostsCommand = 3;
+        private const int ChoreProtocolVersion = 2;
         private const int MultiplayerStartupDelayMilliseconds = 5000;
         private const int MultiplayerStartupMinimumTicks = 30;
-        private const int InitializationRetryMilliseconds = 3000;
         private const int MaximumChorePayloadBytes = 1200;
         private const int MaximumChoreActions = EventKindCount * (GamePlayerManagerAPI.MAX_PLAYERS + 1);
 
@@ -68,17 +64,29 @@ namespace RandomEvents
         private bool signpostChoreQueued;
         private bool multiplayerInitializationConfirmed;
         private bool startupDelayLogged;
+        private int initializationAttemptCount;
         private int nextOperationId;
         private int initializationOperationId;
         private int lastRandomEventsChoreQueuedTick = int.MinValue;
         private long mapStartTimestamp;
         private long lastInitializationSendTimestamp;
-        private string initializationStateDigest = string.Empty;
-        private R3PacketEventHook<RandomEventsChorePacket> chorePacketHook;
-        private IDisposable chorePacketSubscription;
+        private byte[] initializationStateDigest = Array.Empty<byte>();
+        private byte[] cachedInitializationBody = Array.Empty<byte>();
+        private string cachedInitializationBodyHash = string.Empty;
+        private RandomEventsCooldownEncoding cachedInitializationCooldownEncoding;
+        private int acceptedInitializationOperationId;
+        private string acceptedInitializationBodyHash = string.Empty;
+        private R3PacketEventHook<RandomEventsInitializationChorePacket> initializationChorePacketHook;
+        private IDisposable initializationChorePacketSubscription;
+        private R3PacketEventHook<RandomEventsBatchChorePacket> batchChorePacketHook;
+        private IDisposable batchChorePacketSubscription;
+        private R3PacketEventHook<RandomEventsSignpostChorePacket> signpostChorePacketHook;
+        private IDisposable signpostChorePacketSubscription;
         private R3PacketEventHook<RandomEventsInitializationAckPacket> initializationAckPacketHook;
         private IDisposable initializationAckPacketSubscription;
-        private RandomEventsSaveStateV2 state;
+        private RandomEventsRuntimeState state;
+        private RandomEventsSaveState loadedSaveState;
+        private RandomEventsRuntimeState deferredPreparedState;
 
         public RandomEventsRuntime(ManualLogSource log, RandomEventsSettingsViewModel settings)
         {
@@ -104,13 +112,17 @@ namespace RandomEvents
             if (networkInitialized)
                 return;
 
-            chorePacketHook = GameNetworkAPI.Instance.GetPacketEventFor<RandomEventsChorePacket>();
-            chorePacketSubscription = chorePacketHook.GetBaseHook().Observable.Subscribe(OnChorePacketReceived);
+            initializationChorePacketHook = GameNetworkAPI.Instance.GetPacketEventFor<RandomEventsInitializationChorePacket>();
+            initializationChorePacketSubscription = initializationChorePacketHook.GetBaseHook().Observable.Subscribe(OnInitializationChorePacketReceived);
+            batchChorePacketHook = GameNetworkAPI.Instance.GetPacketEventFor<RandomEventsBatchChorePacket>();
+            batchChorePacketSubscription = batchChorePacketHook.GetBaseHook().Observable.Subscribe(OnBatchChorePacketReceived);
+            signpostChorePacketHook = GameNetworkAPI.Instance.GetPacketEventFor<RandomEventsSignpostChorePacket>();
+            signpostChorePacketSubscription = signpostChorePacketHook.GetBaseHook().Observable.Subscribe(OnSignpostChorePacketReceived);
             initializationAckPacketHook = GameNetworkAPI.Instance.GetPacketEventFor<RandomEventsInitializationAckPacket>();
             initializationAckPacketSubscription = initializationAckPacketHook.GetBaseHook().Observable
                 .Subscribe(OnInitializationAckPacketReceived);
             networkInitialized = true;
-            LogDebug($"Random Events Chore packet registered eagerly: packetId={chorePacketHook.GetPacketId()}, protocolVersion={ChoreProtocolVersion}.");
+            LogDebug($"Random Events Chore packets registered eagerly: initialization={initializationChorePacketHook.GetPacketId()}, batch={batchChorePacketHook.GetPacketId()}, signpost={signpostChorePacketHook.GetPacketId()}, protocolVersion={ChoreProtocolVersion}.");
             LogDebug($"Random Events initialization-ACK packet registered eagerly: packetId={initializationAckPacketHook.GetPacketId()}, protocolVersion={ChoreProtocolVersion}.");
             LogDebug($"Random Events Script Extender binary: {RandomEventsDiagnostics.DescribeScriptExtenderBinary()}.");
             string serializerTests = RandomEventsDiagnostics.RunSerializerSelfTests(ChoreProtocolVersion);
@@ -185,14 +197,22 @@ namespace RandomEvents
             signpostChoreQueued = false;
             startupDelayLogged = false;
             initializationOperationId = 0;
+            initializationAttemptCount = 0;
+            acceptedInitializationOperationId = 0;
             lastRandomEventsChoreQueuedTick = int.MinValue;
             mapStartTimestamp = 0;
             lastInitializationSendTimestamp = 0;
-            initializationStateDigest = string.Empty;
+            initializationStateDigest = Array.Empty<byte>();
+            cachedInitializationBody = Array.Empty<byte>();
+            cachedInitializationBodyHash = string.Empty;
+            cachedInitializationCooldownEncoding = RandomEventsCooldownEncoding.None;
+            acceptedInitializationBodyHash = string.Empty;
             initializationAcknowledgedPlayerIds.Clear();
             pendingBanditGroups.Clear();
             signpostPlacement.ResetMapState();
             state = null;
+            loadedSaveState = null;
+            deferredPreparedState = null;
         }
 
         private void OnGameTick(int tick)
@@ -220,6 +240,12 @@ namespace RandomEvents
                     {
                         if (isLocalHost)
                             ProcessInitializationHandshake(tick);
+                        return;
+                    }
+
+                    if (isLocalHost && state.BatchPrepared && !batchChoreQueued)
+                    {
+                        TryQueueBatchChore();
                         return;
                     }
 
@@ -280,11 +306,13 @@ namespace RandomEvents
                 return;
             }
 
-            if (loadedStateAvailable && ValidateLoadedState(state))
+            RandomEventsConfigurationSnapshot configuration = CaptureConfiguration();
+            if (loadedStateAvailable && TryCreateLoadedRuntimeState(configuration, out state))
             {
-                mapActive = state.EffectiveEnabled;
                 // Native path components can change with the restored map, so signposts must be revalidated.
                 state.SignpostsInitialized = !RandomEventDefinitions.RequiresSignposts(state.Chances);
+                state.SignpostBuildingIds = new[] { -1, -1, -1, -1 };
+                mapActive = configuration.Enabled;
                 return;
             }
 
@@ -296,7 +324,7 @@ namespace RandomEvents
                 return;
             }
 
-            state = CreateFreshState();
+            state = CreateFreshState(configuration);
             mapActive = true;
             PrepareBatch();
         }
@@ -305,7 +333,8 @@ namespace RandomEvents
         {
             isRealMultiplayer = true;
             isLocalHost = GameNetworkAPI.IsLocalHost();
-            if (!networkInitialized || chorePacketHook == null || initializationAckPacketHook == null ||
+            if (!networkInitialized || initializationChorePacketHook == null || batchChorePacketHook == null ||
+                signpostChorePacketHook == null || initializationAckPacketHook == null ||
                 !ChoreNetworkTransport.IsAvailable)
             {
                 DisableForNetwork("tick-aligned Chore transport is unavailable", gameModeDetails);
@@ -333,15 +362,18 @@ namespace RandomEvents
                 return;
             }
 
-            if (!(loadedStateAvailable && ValidateLoadedState(state)))
+            RandomEventsConfigurationSnapshot configuration = CaptureConfiguration();
+            if (!(loadedStateAvailable && TryCreateLoadedRuntimeState(configuration, out state)))
             {
                 loadedStateAvailable = false;
-                state = CreateFreshState();
+                state = CreateFreshState(configuration);
             }
             else
             {
+                CaptureDeferredPreparedBatch();
                 // Revalidate restored native signposts on every peer after the host snapshot arrives.
                 state.SignpostsInitialized = !RandomEventDefinitions.RequiresSignposts(state.Chances);
+                state.SignpostBuildingIds = new[] { -1, -1, -1, -1 };
             }
 
             mapActive = state.EffectiveEnabled;
@@ -370,40 +402,46 @@ namespace RandomEvents
             signpostPlacement.TryInitialize(state);
         }
 
-        private RandomEventsSaveStateV2 CreateFreshState()
+        private RandomEventsRuntimeState CreateFreshState(RandomEventsConfigurationSnapshot configuration)
         {
             byte[] seed = new byte[16];
             using (RandomNumberGenerator generator = RandomNumberGenerator.Create())
                 generator.GetBytes(seed);
 
-            int[] minimums = new int[6];
-            int[] maximums = new int[6];
-            for (int index = 0; index < 6; index++)
-            {
-                settings.GetStrengthRange((RandomEventStrengthKind)(index + 1), out minimums[index], out maximums[index]);
-            }
-
-            int interval = Math.Max(1, Math.Min(90, settings.IntervalMonths));
-            int cooldown = Math.Max(0, Math.Min(90, settings.CooldownMonths));
-            int[] chances = settings.SnapshotChances();
             // The native calendar has no elapsed-month counter, so persist this absolute baseline with the map.
             int startAbsoluteMonth = GetCurrentAbsoluteMonth();
-            return new RandomEventsSaveStateV2
+            var result = new RandomEventsRuntimeState
             {
-                EffectiveEnabled = true,
-                IntervalMonths = interval,
-                CooldownMonths = cooldown,
-                MultiplayerMode = Math.Max(0, Math.Min(1, settings.MultiplayerEventModeIndex)),
-                Chances = chances,
-                StrengthMinimums = minimums,
-                StrengthMaximums = maximums,
                 PrngState0 = BitConverter.ToUInt64(seed, 0),
                 PrngState1 = BitConverter.ToUInt64(seed, 8),
-                NextDueAbsoluteMonth = checked(startAbsoluteMonth + interval),
+                NextDueAbsoluteMonth = checked(startAbsoluteMonth + configuration.IntervalMonths),
                 StartAbsoluteMonth = startAbsoluteMonth,
                 SharedCooldownUntilAbsoluteMonths = new int[EventKindCount],
                 IndividualCooldownUntilAbsoluteMonths = new int[(GamePlayerManagerAPI.MAX_PLAYERS + 1) * EventKindCount],
-                SignpostsInitialized = !RandomEventDefinitions.RequiresSignposts(chances)
+                SignpostsInitialized = !RandomEventDefinitions.RequiresSignposts(configuration.Chances)
+            };
+            configuration.ApplyTo(result);
+            return result;
+        }
+
+        private RandomEventsConfigurationSnapshot CaptureConfiguration()
+        {
+            int[] minimums = new int[6];
+            int[] maximums = new int[6];
+            for (int index = 0; index < 6; index++)
+                settings.GetStrengthRange((RandomEventStrengthKind)(index + 1), out minimums[index], out maximums[index]);
+            int[] chances = settings.SnapshotChances();
+            for (int index = 0; index < chances.Length; index++)
+                chances[index] = Math.Max(0, Math.Min(100, chances[index]));
+            return new RandomEventsConfigurationSnapshot
+            {
+                Enabled = settings.EnableMod,
+                IntervalMonths = Math.Max(1, Math.Min(90, settings.IntervalMonths)),
+                CooldownMonths = Math.Max(0, Math.Min(90, settings.CooldownMonths)),
+                MultiplayerMode = Math.Max(0, Math.Min(1, settings.MultiplayerEventModeIndex)),
+                Chances = chances,
+                StrengthMinimums = minimums,
+                StrengthMaximums = maximums
             };
         }
 
@@ -495,17 +533,6 @@ namespace RandomEvents
             if (multiplayerInitializationConfirmed || state == null)
                 return;
 
-            if (initializationChoreQueued)
-            {
-                if (!HasElapsedMilliseconds(lastInitializationSendTimestamp, InitializationRetryMilliseconds))
-                    return;
-
-                initializationChoreQueued = false;
-                LogWarning(
-                    $"Random Events host did not observe its queued initialization Chore before the retry timeout: " +
-                    $"operationId={initializationOperationId}, tick={tick}. The handshake will be retried fail-closed.");
-            }
-
             int elapsedTicks = GameTimeManagerAPI.Instance.GetElapsedMapTicks();
             if (elapsedTicks < MultiplayerStartupMinimumTicks ||
                 !HasElapsedMilliseconds(mapStartTimestamp, MultiplayerStartupDelayMilliseconds))
@@ -521,18 +548,16 @@ namespace RandomEvents
                 return;
             }
 
-            if (lastInitializationSendTimestamp != 0 &&
-                !HasElapsedMilliseconds(lastInitializationSendTimestamp, InitializationRetryMilliseconds))
-            {
+            int retryMilliseconds = GetInitializationRetryMilliseconds(initializationAttemptCount);
+            if (lastInitializationSendTimestamp != 0 && !HasElapsedMilliseconds(lastInitializationSendTimestamp, retryMilliseconds))
                 return;
-            }
 
             if (!TryQueueInitializationChore())
             {
                 lastInitializationSendTimestamp = Stopwatch.GetTimestamp();
                 LogWarning(
                     $"Random Events initialization handshake could not queue its Chore and will retry: tick={tick}, " +
-                    $"retryMilliseconds={InitializationRetryMilliseconds}.");
+                    $"retryMilliseconds={retryMilliseconds}.");
             }
         }
 
@@ -540,49 +565,63 @@ namespace RandomEvents
         {
             if (state == null)
                 return false;
-
-            var packet = new RandomEventsChorePacket
-            {
-                ProtocolVersion = ChoreProtocolVersion,
-                CommandType = InitializeCommand,
-                OperationId = NextOperationId(),
-                EffectiveEnabled = state.EffectiveEnabled,
-                IntervalMonths = state.IntervalMonths,
-                CooldownMonths = state.CooldownMonths,
-                MultiplayerMode = state.MultiplayerMode,
-                Chances = (int[])state.Chances.Clone(),
-                StrengthMinimums = (int[])state.StrengthMinimums.Clone(),
-                StrengthMaximums = (int[])state.StrengthMaximums.Clone(),
-                PrngState0 = state.PrngState0,
-                PrngState1 = state.PrngState1,
-                NextDueAbsoluteMonth = state.NextDueAbsoluteMonth,
-                StartAbsoluteMonth = state.StartAbsoluteMonth,
-                SharedCooldownUntilAbsoluteMonths = (int[])state.SharedCooldownUntilAbsoluteMonths.Clone(),
-                IndividualCooldownUntilAbsoluteMonths = (int[])state.IndividualCooldownUntilAbsoluteMonths.Clone(),
-                BatchPrepared = state.BatchPrepared,
-                EventKinds = (int[])(state.PreparedDirectKinds ?? Array.Empty<int>()).Clone(),
-                EventStrengths = (int[])(state.PreparedDirectStrengths ?? Array.Empty<int>()).Clone(),
-                TargetPlayerIds = (int[])(state.PreparedDirectTargetPlayerIds ?? Array.Empty<int>()).Clone(),
-                SignpostsInitialized = state.SignpostsInitialized,
-                SignpostBuildingIds = (int[])(state.SignpostBuildingIds ?? Array.Empty<int>()).Clone()
-            };
-
-            initializationOperationId = packet.OperationId;
-            initializationStateDigest = RandomEventsDiagnostics.GetStateDigest(state);
-            initializationAcknowledgedPlayerIds.Clear();
-            initializationChoreQueued = true;
-            lastInitializationSendTimestamp = Stopwatch.GetTimestamp();
-
-            if (!TrySendChore(packet, "initialization"))
+            if (cachedInitializationBody.Length == 0 && !CreateInitializationAttempt())
+                return false;
+            if (!TrySendRawChore(initializationChorePacketHook.GetPacketId(), cachedInitializationBody, initializationOperationId, "initialization"))
             {
                 initializationChoreQueued = false;
                 return false;
             }
-
+            initializationAttemptCount++;
+            initializationChoreQueued = true;
+            lastInitializationSendTimestamp = Stopwatch.GetTimestamp();
+            int[] expected = GetLivingHumanPlayerIds();
+            var missing = new List<int>();
+            foreach (int playerId in expected) if (!initializationAcknowledgedPlayerIds.Contains(playerId)) missing.Add(playerId);
             LogDebug(
-                $"Random Events initialization handshake started: operationId={initializationOperationId}, " +
-                $"stateDigest={initializationStateDigest}, expectedPlayers=[{string.Join(",", GetLivingHumanPlayerIds())}].");
+                $"Random Events initialization Chore queued: attempt={initializationAttemptCount}, operationId={initializationOperationId}, " +
+                $"bodyBytes={cachedInitializationBody.Length}, bodySha256={cachedInitializationBodyHash}, cooldownEncoding={cachedInitializationCooldownEncoding}, " +
+                $"configurationDigest={RandomEventsDiagnostics.ToHex(state.ConfigurationDigest)}, stateDigest={RandomEventsDiagnostics.ToHex(initializationStateDigest)}, " +
+                $"expectedPlayers=[{string.Join(",", expected)}], missingPlayers=[{string.Join(",", missing)}].");
             return true;
+        }
+
+        private bool CreateInitializationAttempt()
+        {
+            initializationOperationId = NextOperationId();
+            initializationStateDigest = RandomEventsDiagnostics.GetStateDigestBytes(state);
+            RandomEventsCooldownPayload[] candidates = RandomEventsCooldownCodec.CreateCandidates(state);
+            byte[] smallestBody = null;
+            foreach (RandomEventsCooldownPayload cooldown in candidates)
+            {
+                var packet = new RandomEventsInitializationChorePacket
+                {
+                    ProtocolVersion = ChoreProtocolVersion, OperationId = initializationOperationId,
+                    ConfigurationDigest = (byte[])state.ConfigurationDigest.Clone(),
+                    PrngState0 = state.PrngState0, PrngState1 = state.PrngState1,
+                    NextDueAbsoluteMonth = state.NextDueAbsoluteMonth, StartAbsoluteMonth = state.StartAbsoluteMonth,
+                    CooldownEncoding = (int)cooldown.Encoding, CooldownData = (int[])cooldown.Data.Clone()
+                };
+                byte[] body = RandomEventsDiagnostics.SerializeAndVerify(packet);
+                if (smallestBody == null || body.Length < smallestBody.Length)
+                {
+                    smallestBody = body;
+                    cachedInitializationCooldownEncoding = cooldown.Encoding;
+                }
+            }
+            cachedInitializationBody = smallestBody ?? Array.Empty<byte>();
+            cachedInitializationBodyHash = RandomEventsDiagnostics.HashBytes(cachedInitializationBody);
+            initializationAcknowledgedPlayerIds.Clear();
+            return cachedInitializationBody.Length > 0;
+        }
+
+        private static int GetInitializationRetryMilliseconds(int attempts)
+        {
+            if (attempts <= 0) return 0;
+            if (attempts == 1) return 5000;
+            if (attempts == 2) return 10000;
+            if (attempts == 3) return 20000;
+            return 30000;
         }
 
         private bool TryQueueBatchChore()
@@ -590,20 +629,26 @@ namespace RandomEvents
             if (state == null || !state.BatchPrepared)
                 return false;
 
-            var packet = new RandomEventsChorePacket
+            var packet = new RandomEventsBatchChorePacket
             {
                 ProtocolVersion = ChoreProtocolVersion,
-                CommandType = ExecuteBatchCommand,
                 OperationId = NextOperationId(),
                 PrngState0 = state.PrngState0,
                 PrngState1 = state.PrngState1,
-                NextDueAbsoluteMonth = state.NextDueAbsoluteMonth,
+                DueAbsoluteMonth = state.NextDueAbsoluteMonth,
                 EventKinds = (int[])(state.PreparedDirectKinds ?? Array.Empty<int>()).Clone(),
                 EventStrengths = (int[])(state.PreparedDirectStrengths ?? Array.Empty<int>()).Clone(),
                 TargetPlayerIds = (int[])(state.PreparedDirectTargetPlayerIds ?? Array.Empty<int>()).Clone()
             };
 
-            if (!TrySendChore(packet, "event batch"))
+            if (!ValidateActionArrays(packet))
+            {
+                LogError($"Random Events event batch failed local validation and was not queued: operationId={packet.OperationId}.");
+                return false;
+            }
+
+            byte[] body = RandomEventsDiagnostics.SerializeAndVerify(packet);
+            if (!TrySendRawChore(batchChorePacketHook.GetPacketId(), body, packet.OperationId, "event batch"))
                 return false;
 
             batchChoreQueued = true;
@@ -612,22 +657,22 @@ namespace RandomEvents
 
         private bool TryQueueSignpostInitializationChore()
         {
-            var packet = new RandomEventsChorePacket
+            var packet = new RandomEventsSignpostChorePacket
             {
                 ProtocolVersion = ChoreProtocolVersion,
-                CommandType = InitializeSignpostsCommand,
                 OperationId = NextOperationId()
             };
-            if (!TrySendChore(packet, "signpost initialization"))
+            byte[] body = RandomEventsDiagnostics.SerializeAndVerify(packet);
+            if (!TrySendRawChore(signpostChorePacketHook.GetPacketId(), body, packet.OperationId, "signpost initialization"))
                 return false;
 
             signpostChoreQueued = true;
             return true;
         }
 
-        private bool TrySendChore(RandomEventsChorePacket packet, string label)
+        private bool TrySendRawChore(short packetId, byte[] body, int operationId, string label)
         {
-            if (!networkInitialized || chorePacketHook == null || !ChoreNetworkTransport.IsAvailable)
+            if (!networkInitialized || !ChoreNetworkTransport.IsAvailable)
             {
                 LogError($"Random Events {label} refused because the Chore transport is unavailable.");
                 return false;
@@ -638,22 +683,7 @@ namespace RandomEvents
             {
                 LogWarning(
                     $"Random Events {label} Chore deferred because another Random Events Chore was already queued this tick: " +
-                    $"tick={queueTick}, operationId={packet?.OperationId}.");
-                return false;
-            }
-
-            byte[] body;
-            try
-            {
-                if (!ValidatePacketForSend(packet))
-                    throw new InvalidOperationException("packet failed command-specific validation before serialization");
-                body = RandomEventsDiagnostics.SerializeAndVerify(packet);
-            }
-            catch (Exception ex)
-            {
-                LogError(
-                    $"Random Events {label} refused because its local serializer roundtrip failed; no Chore was queued: " +
-                    $"commandType={packet?.CommandType}, operationId={packet?.OperationId}, error={ex}");
+                    $"tick={queueTick}, operationId={operationId}.");
                 return false;
             }
 
@@ -662,76 +692,54 @@ namespace RandomEvents
             {
                 LogError(
                     $"Random Events {label} refused because its serialized Chore exceeds the Script Extender limit: " +
-                    $"operationId={packet.OperationId}, payloadBytes={blob.Length}, limit={MaximumChorePayloadBytes}.");
+                    $"operationId={operationId}, payloadBytes={blob.Length}, limit={MaximumChorePayloadBytes}.");
                 return false;
             }
-            BitConverter.GetBytes(chorePacketHook.GetPacketId()).CopyTo(blob, 0);
+            BitConverter.GetBytes(packetId).CopyTo(blob, 0);
             Buffer.BlockCopy(body, 0, blob, sizeof(short), body.Length);
             Func<byte[], bool> sendRawBlob = ChoreNetworkTransport.SendRawBlob;
             bool queued = sendRawBlob != null && sendRawBlob(blob);
             if (!queued)
             {
-                LogError($"Random Events {label} Chore was not queued; no local simulation action was applied: operationId={packet.OperationId}, payloadBytes={blob.Length}.");
+                LogError($"Random Events {label} Chore was not queued; no local simulation action was applied: operationId={operationId}, payloadBytes={blob.Length}.");
                 return false;
             }
 
             lastRandomEventsChoreQueuedTick = queueTick;
-            LogDebug(
-                $"Random Events {label} Chore queued: packetId={chorePacketHook.GetPacketId()}, commandType={packet.CommandType}, " +
-                $"operationId={packet.OperationId}, bodyBytes={body.Length}, payloadBytes={blob.Length}, bodySha256={RandomEventsDiagnostics.HashBytes(body)}, " +
-                $"dueAbsoluteMonth={packet.NextDueAbsoluteMonth}, prng={RandomEventsDiagnostics.FormatPrng(packet.PrngState0, packet.PrngState1)}, " +
-                $"arrayLengths=chances:{packet.Chances?.Length ?? -1}/strengthMins:{packet.StrengthMinimums?.Length ?? -1}/strengthMaxes:{packet.StrengthMaximums?.Length ?? -1}/" +
-                $"sharedCooldowns:{packet.SharedCooldownUntilAbsoluteMonths?.Length ?? -1}/individualCooldowns:{packet.IndividualCooldownUntilAbsoluteMonths?.Length ?? -1}/" +
-                $"kinds:{packet.EventKinds?.Length ?? -1}/strengths:{packet.EventStrengths?.Length ?? -1}/targets:{packet.TargetPlayerIds?.Length ?? -1}/signposts:{packet.SignpostBuildingIds?.Length ?? -1}, " +
-                $"actionDigest={RandomEventsDiagnostics.GetActionDigest(packet.EventKinds, packet.EventStrengths, packet.TargetPlayerIds)}, " +
-                $"actionOrder={RandomEventsDiagnostics.DescribeActions(packet.EventKinds, packet.EventStrengths, packet.TargetPlayerIds)}.");
+            LogDebug($"Random Events {label} Chore queued: packetId={packetId}, operationId={operationId}, bodyBytes={body.Length}, payloadBytes={blob.Length}, bodySha256={RandomEventsDiagnostics.HashBytes(body)}.");
             return true;
         }
 
-        private void OnChorePacketReceived(ReceiveCustomPacketEventArgs<RandomEventsChorePacket> args)
+        private void OnInitializationChorePacketReceived(ReceiveCustomPacketEventArgs<RandomEventsInitializationChorePacket> args)
         {
-            RandomEventsChorePacket packet = args?.Packet;
+            RandomEventsInitializationChorePacket packet = args?.Packet;
             if (packet == null || packet.ProtocolVersion != ChoreProtocolVersion)
             {
-                LogError("Random Events rejected a Chore with an unsupported payload.");
+                LogError("Random Events rejected an initialization Chore with an unsupported payload.");
                 return;
             }
-
             try
             {
                 byte[] receivedBody = RandomEventsDiagnostics.SerializeAndVerify(packet);
-                LogDebug(
-                    $"Random Events Chore decoded: packetId={chorePacketHook?.GetPacketId()}, commandType={packet.CommandType}, " +
-                    $"operationId={packet.OperationId}, bodyBytes={receivedBody.Length}, bodySha256={RandomEventsDiagnostics.HashBytes(receivedBody)}, " +
-                    $"dueAbsoluteMonth={packet.NextDueAbsoluteMonth}, prng={RandomEventsDiagnostics.FormatPrng(packet.PrngState0, packet.PrngState1)}, " +
-                    $"actionDigest={RandomEventsDiagnostics.GetActionDigest(packet.EventKinds, packet.EventStrengths, packet.TargetPlayerIds)}, " +
-                    $"actionOrder={RandomEventsDiagnostics.DescribeActions(packet.EventKinds, packet.EventStrengths, packet.TargetPlayerIds)}.");
-
-                if (packet.CommandType == InitializeCommand)
-                {
-                    ApplyInitializationChore(packet);
-                    return;
-                }
-
-                if (packet.CommandType == ExecuteBatchCommand)
-                {
-                    ApplyBatchChore(packet);
-                    return;
-                }
-
-                if (packet.CommandType == InitializeSignpostsCommand)
-                {
-                    ApplySignpostInitializationChore(packet);
-                    return;
-                }
-
-                LogError($"Random Events rejected a Chore with unknown command type {packet.CommandType}.");
+                ApplyInitializationChore(packet, RandomEventsDiagnostics.HashBytes(receivedBody));
             }
             catch (Exception ex)
             {
                 mapActive = false;
-                LogError($"Random Events Chore execution failed: commandType={packet.CommandType}, operationId={packet.OperationId}, exception={ex}");
+                LogError($"Random Events initialization Chore execution failed: operationId={packet.OperationId}, exception={ex}");
             }
+        }
+
+        private void OnBatchChorePacketReceived(ReceiveCustomPacketEventArgs<RandomEventsBatchChorePacket> args)
+        {
+            try { ApplyBatchChore(args?.Packet); }
+            catch (Exception ex) { mapActive = false; LogError($"Random Events batch Chore execution failed: {ex}"); }
+        }
+
+        private void OnSignpostChorePacketReceived(ReceiveCustomPacketEventArgs<RandomEventsSignpostChorePacket> args)
+        {
+            try { ApplySignpostInitializationChore(args?.Packet); }
+            catch (Exception ex) { mapActive = false; LogError($"Random Events signpost Chore execution failed: {ex}"); }
         }
 
         private void OnInitializationAckPacketReceived(
@@ -746,13 +754,13 @@ namespace RandomEvents
                 if (packet == null || packet.ProtocolVersion != ChoreProtocolVersion ||
                     packet.OperationId != initializationOperationId ||
                     packet.PlayerId < 1 || packet.PlayerId > GamePlayerManagerAPI.MAX_PLAYERS ||
-                    !string.Equals(packet.StateDigest, initializationStateDigest, StringComparison.Ordinal))
+                    !RandomEventsDiagnostics.BytesEqual(packet.StateDigest, initializationStateDigest))
                 {
                     LogWarning(
                         $"Random Events rejected an invalid initialization ACK: " +
                         $"protocolVersion={packet?.ProtocolVersion}, operationId={packet?.OperationId}, " +
                         $"expectedOperationId={initializationOperationId}, playerId={packet?.PlayerId}, " +
-                        $"stateDigest={packet?.StateDigest ?? "null"}, expectedStateDigest={initializationStateDigest}.");
+                        $"stateDigest={RandomEventsDiagnostics.ToHex(packet?.StateDigest)}, expectedStateDigest={RandomEventsDiagnostics.ToHex(initializationStateDigest)}.");
                     return;
                 }
 
@@ -770,7 +778,7 @@ namespace RandomEvents
                 initializationAcknowledgedPlayerIds.Add(packet.PlayerId);
                 LogDebug(
                     $"Random Events initialization ACK accepted: operationId={packet.OperationId}, " +
-                    $"playerId={packet.PlayerId}, stateDigest={packet.StateDigest}.");
+                    $"playerId={packet.PlayerId}, stateDigest={RandomEventsDiagnostics.ToHex(packet.StateDigest)}.");
                 TryCompleteInitializationHandshake();
             }
             catch (Exception ex)
@@ -780,39 +788,51 @@ namespace RandomEvents
             }
         }
 
-        private void ApplyInitializationChore(RandomEventsChorePacket packet)
+        private void ApplyInitializationChore(RandomEventsInitializationChorePacket packet, string bodyHash)
         {
-            if (!ValidateInitializationPacket(packet))
+            RandomEventsConfigurationSnapshot configuration = CaptureConfiguration();
+            byte[] localConfigurationDigest = configuration.GetDigest();
+            if (packet == null || packet.OperationId <= 0 || (packet.PrngState0 | packet.PrngState1) == 0 ||
+                packet.NextDueAbsoluteMonth < packet.StartAbsoluteMonth ||
+                !RandomEventsDiagnostics.BytesEqual(packet.ConfigurationDigest, localConfigurationDigest))
             {
                 mapActive = false;
-                LogError($"Random Events rejected an invalid initialization Chore: operationId={packet.OperationId}.");
+                LogError($"Random Events rejected initialization: operationId={packet?.OperationId}, hostConfigurationDigest={RandomEventsDiagnostics.ToHex(packet?.ConfigurationDigest)}, localConfigurationDigest={RandomEventsDiagnostics.ToHex(localConfigurationDigest)}.");
                 return;
             }
 
-            state = new RandomEventsSaveStateV2
+            if (acceptedInitializationOperationId != 0)
             {
-                EffectiveEnabled = packet.EffectiveEnabled,
-                IntervalMonths = packet.IntervalMonths,
-                CooldownMonths = packet.CooldownMonths,
-                MultiplayerMode = packet.MultiplayerMode,
-                Chances = (int[])packet.Chances.Clone(),
-                StrengthMinimums = (int[])packet.StrengthMinimums.Clone(),
-                StrengthMaximums = (int[])packet.StrengthMaximums.Clone(),
-                PrngState0 = packet.PrngState0,
-                PrngState1 = packet.PrngState1,
-                NextDueAbsoluteMonth = packet.NextDueAbsoluteMonth,
-                StartAbsoluteMonth = packet.StartAbsoluteMonth,
-                SharedCooldownUntilAbsoluteMonths = (int[])packet.SharedCooldownUntilAbsoluteMonths.Clone(),
-                IndividualCooldownUntilAbsoluteMonths = (int[])packet.IndividualCooldownUntilAbsoluteMonths.Clone(),
-                BatchPrepared = packet.BatchPrepared,
-                PreparedDirectKinds = (int[])packet.EventKinds.Clone(),
-                PreparedDirectStrengths = (int[])packet.EventStrengths.Clone(),
-                PreparedDirectTargetPlayerIds = (int[])packet.TargetPlayerIds.Clone(),
-                SignpostsInitialized = packet.SignpostsInitialized,
-                SignpostBuildingIds = packet.SignpostBuildingIds.Length == 4
-                    ? (int[])packet.SignpostBuildingIds.Clone()
-                    : new[] { -1, -1, -1, -1 }
-            };
+                if (packet.OperationId == acceptedInitializationOperationId && string.Equals(bodyHash, acceptedInitializationBodyHash, StringComparison.Ordinal))
+                {
+                    initializationChoreQueued = false;
+                    SendInitializationAck();
+                    LogDebug($"Random Events duplicate initialization acknowledged without state replay: operationId={packet.OperationId}, bodySha256={bodyHash}.");
+                    return;
+                }
+                if (packet.OperationId < acceptedInitializationOperationId)
+                {
+                    LogWarning($"Random Events ignored stale initialization: operationId={packet.OperationId}, acceptedOperationId={acceptedInitializationOperationId}.");
+                    return;
+                }
+                mapActive = false;
+                LogError($"Random Events initialization protocol conflict: operationId={packet.OperationId}, acceptedOperationId={acceptedInitializationOperationId}, bodySha256={bodyHash}, acceptedBodySha256={acceptedInitializationBodyHash}.");
+                return;
+            }
+
+            RandomEventsCooldownCodec.Decode(configuration.MultiplayerMode, packet.CooldownEncoding, packet.CooldownData, out int[] shared, out int[] individual);
+            if (!isLocalHost)
+            {
+                state = new RandomEventsRuntimeState
+                {
+                    PrngState0 = packet.PrngState0, PrngState1 = packet.PrngState1,
+                    NextDueAbsoluteMonth = packet.NextDueAbsoluteMonth, StartAbsoluteMonth = packet.StartAbsoluteMonth,
+                    SharedCooldownUntilAbsoluteMonths = shared, IndividualCooldownUntilAbsoluteMonths = individual,
+                    SignpostsInitialized = !RandomEventDefinitions.RequiresSignposts(configuration.Chances),
+                    SignpostBuildingIds = new[] { -1, -1, -1, -1 }
+                };
+                configuration.ApplyTo(state);
+            }
             mapActive = state.EffectiveEnabled;
             isRealMultiplayer = true;
             multiplayerInitializationReceived = true;
@@ -821,18 +841,21 @@ namespace RandomEvents
             batchChoreQueued = false;
             signpostChoreQueued = false;
             lastSignpostAttemptTick = int.MinValue;
+            acceptedInitializationOperationId = packet.OperationId;
+            acceptedInitializationBodyHash = bodyHash;
 
-            string stateDigest = RandomEventsDiagnostics.GetStateDigest(state);
+            byte[] stateDigest = RandomEventsDiagnostics.GetStateDigestBytes(state);
             if (isLocalHost)
             {
                 if (packet.OperationId != initializationOperationId ||
-                    !string.Equals(stateDigest, initializationStateDigest, StringComparison.Ordinal))
+                    !string.Equals(bodyHash, cachedInitializationBodyHash, StringComparison.Ordinal) ||
+                    !RandomEventsDiagnostics.BytesEqual(stateDigest, initializationStateDigest))
                 {
                     mapActive = false;
                     LogError(
                         $"Random Events host initialization state did not match its queued handshake and was disabled: " +
                         $"packetOperationId={packet.OperationId}, expectedOperationId={initializationOperationId}, " +
-                        $"stateDigest={stateDigest}, expectedStateDigest={initializationStateDigest}.");
+                        $"stateDigest={RandomEventsDiagnostics.ToHex(stateDigest)}, expectedStateDigest={RandomEventsDiagnostics.ToHex(initializationStateDigest)}.");
                     return;
                 }
 
@@ -853,7 +876,7 @@ namespace RandomEvents
                 $"Random Events initialization Chore executed: operationId={packet.OperationId}, mode={(MultiplayerEventMode)state.MultiplayerMode}, " +
                 $"nextDueAbsoluteMonth={state.NextDueAbsoluteMonth}, prng={RandomEventsDiagnostics.FormatPrng(state.PrngState0, state.PrngState1)}, " +
                 $"actionDigest={RandomEventsDiagnostics.GetActionDigest(state.PreparedDirectKinds, state.PreparedDirectStrengths, state.PreparedDirectTargetPlayerIds)}, " +
-                $"stateDigest={stateDigest}, localHandshakeReady={multiplayerInitializationConfirmed}.");
+                $"stateDigest={RandomEventsDiagnostics.ToHex(stateDigest)}, bodySha256={bodyHash}, localHandshakeReady={multiplayerInitializationConfirmed}.");
         }
 
         private void SendInitializationAck()
@@ -885,7 +908,7 @@ namespace RandomEvents
                 LogDebug(
                     $"Random Events initialization ACK sent: packetId={initializationAckPacketHook.GetPacketId()}, " +
                     $"operationId={packet.OperationId}, playerId={packet.PlayerId}, bodyBytes={body.Length}, " +
-                    $"bodySha256={RandomEventsDiagnostics.HashBytes(body)}, stateDigest={packet.StateDigest}.");
+                    $"bodySha256={RandomEventsDiagnostics.HashBytes(body)}, stateDigest={RandomEventsDiagnostics.ToHex(packet.StateDigest)}.");
             }
             catch (Exception ex)
             {
@@ -916,21 +939,54 @@ namespace RandomEvents
                 LogDebug(
                     $"Random Events initialization handshake waiting: operationId={initializationOperationId}, " +
                     $"acknowledgedPlayers=[{string.Join(",", initializationAcknowledgedPlayerIds)}], " +
-                    $"missingPlayers=[{string.Join(",", missingPlayers)}], stateDigest={initializationStateDigest}.");
+                    $"missingPlayers=[{string.Join(",", missingPlayers)}], stateDigest={RandomEventsDiagnostics.ToHex(initializationStateDigest)}.");
                 return;
             }
 
             multiplayerInitializationConfirmed = true;
             initializationChoreQueued = false;
             lastSignpostAttemptTick = int.MinValue;
+            RestoreDeferredPreparedBatch();
             LogDebug(
                 $"Random Events initialization handshake completed: operationId={initializationOperationId}, " +
-                $"players=[{string.Join(",", expectedPlayers)}], stateDigest={initializationStateDigest}. " +
+                $"players=[{string.Join(",", expectedPlayers)}], stateDigest={RandomEventsDiagnostics.ToHex(initializationStateDigest)}. " +
                 "Signpost and event Chores are now enabled.");
         }
 
-        private void ApplySignpostInitializationChore(RandomEventsChorePacket packet)
+        private void CaptureDeferredPreparedBatch()
         {
+            if (state == null || !state.BatchPrepared) return;
+            deferredPreparedState = new RandomEventsRuntimeState
+            {
+                PreparedDirectKinds = (int[])state.PreparedDirectKinds.Clone(),
+                PreparedDirectStrengths = (int[])state.PreparedDirectStrengths.Clone(),
+                PreparedDirectTargetPlayerIds = (int[])state.PreparedDirectTargetPlayerIds.Clone()
+            };
+            state.BatchPrepared = false;
+            state.PreparedDirectKinds = Array.Empty<int>();
+            state.PreparedDirectStrengths = Array.Empty<int>();
+            state.PreparedDirectTargetPlayerIds = Array.Empty<int>();
+        }
+
+        private void RestoreDeferredPreparedBatch()
+        {
+            if (state == null || deferredPreparedState == null) return;
+            state.BatchPrepared = true;
+            state.PreparedDirectKinds = (int[])deferredPreparedState.PreparedDirectKinds.Clone();
+            state.PreparedDirectStrengths = (int[])deferredPreparedState.PreparedDirectStrengths.Clone();
+            state.PreparedDirectTargetPlayerIds = (int[])deferredPreparedState.PreparedDirectTargetPlayerIds.Clone();
+            deferredPreparedState = null;
+            LogDebug("Random Events restored one prepared save-game batch after initialization handshake completion.");
+        }
+
+        private void ApplySignpostInitializationChore(RandomEventsSignpostChorePacket packet)
+        {
+            if (packet == null || packet.ProtocolVersion != ChoreProtocolVersion || packet.OperationId <= 0)
+            {
+                mapActive = false;
+                LogError("Random Events rejected an invalid signpost Chore.");
+                return;
+            }
             signpostChoreQueued = false;
             if (isRealMultiplayer && (!multiplayerInitializationReceived || !multiplayerInitializationConfirmed))
             {
@@ -948,8 +1004,14 @@ namespace RandomEvents
             LogDebug($"Random Events signpost initialization Chore executed: operationId={packet.OperationId}, completed={completed}, initialized={state.SignpostsInitialized}.");
         }
 
-        private void ApplyBatchChore(RandomEventsChorePacket packet)
+        private void ApplyBatchChore(RandomEventsBatchChorePacket packet)
         {
+            if (!ValidateActionArrays(packet))
+            {
+                mapActive = false;
+                LogError("Random Events rejected an invalid batch Chore.");
+                return;
+            }
             if (isRealMultiplayer && (!multiplayerInitializationReceived || !multiplayerInitializationConfirmed))
             {
                 mapActive = false;
@@ -959,12 +1021,12 @@ namespace RandomEvents
                 return;
             }
 
-            if (state == null || !ValidateActionArrays(packet) ||
-                packet.NextDueAbsoluteMonth != state.NextDueAbsoluteMonth ||
+            if (state == null ||
+                packet.DueAbsoluteMonth != state.NextDueAbsoluteMonth ||
                 (packet.PrngState0 | packet.PrngState1) == 0)
             {
                 mapActive = false;
-                LogError($"Random Events rejected an invalid or out-of-sequence batch Chore: operationId={packet.OperationId}, packetDue={packet.NextDueAbsoluteMonth}, localDue={state?.NextDueAbsoluteMonth.ToString() ?? "null"}.");
+                LogError($"Random Events rejected an invalid or out-of-sequence batch Chore: operationId={packet?.OperationId}, packetDue={packet?.DueAbsoluteMonth}, localDue={state?.NextDueAbsoluteMonth.ToString() ?? "null"}.");
                 return;
             }
 
@@ -984,42 +1046,17 @@ namespace RandomEvents
             ExecuteDueBatch();
             LogDebug(
                 $"Random Events batch Chore executed: operationId={packet.OperationId}, actions={packet.EventKinds.Length}, " +
-                $"executedDueAbsoluteMonth={packet.NextDueAbsoluteMonth}, nextDueAbsoluteMonth={state.NextDueAbsoluteMonth}, " +
+                $"executedDueAbsoluteMonth={packet.DueAbsoluteMonth}, nextDueAbsoluteMonth={state.NextDueAbsoluteMonth}, " +
                 $"prngBeforePacket={prngBefore}, prngFromPacket={RandomEventsDiagnostics.FormatPrng(packet.PrngState0, packet.PrngState1)}, " +
                 $"prngAfter={RandomEventsDiagnostics.FormatPrng(state.PrngState0, state.PrngState1)}, actionDigest={RandomEventsDiagnostics.GetActionDigest(packet.EventKinds, packet.EventStrengths, packet.TargetPlayerIds)}, " +
                 $"stateDigestBefore={stateDigestBefore}, stateDigestAfter={RandomEventsDiagnostics.GetStateDigest(state)}.");
         }
 
-        private static bool ValidatePacketForSend(RandomEventsChorePacket packet)
+        private static bool ValidateActionArrays(RandomEventsBatchChorePacket packet)
         {
-            if (packet == null || packet.ProtocolVersion != ChoreProtocolVersion || packet.OperationId <= 0)
+            if (packet == null || packet.ProtocolVersion != ChoreProtocolVersion || packet.OperationId <= 0 ||
+                packet.DueAbsoluteMonth < 0 || (packet.PrngState0 | packet.PrngState1) == 0)
                 return false;
-            if (packet.CommandType == InitializeCommand)
-                return ValidateInitializationPacket(packet);
-            if (packet.CommandType == ExecuteBatchCommand)
-                return ValidateActionArrays(packet) &&
-                    packet.NextDueAbsoluteMonth >= 0 &&
-                    (packet.PrngState0 | packet.PrngState1) != 0;
-            return packet.CommandType == InitializeSignpostsCommand;
-        }
-
-        private static bool ValidateInitializationPacket(RandomEventsChorePacket packet)
-        {
-            return packet.IntervalMonths >= 1 && packet.IntervalMonths <= 90 &&
-                packet.CooldownMonths >= 0 && packet.CooldownMonths <= 90 &&
-                packet.MultiplayerMode >= (int)MultiplayerEventMode.SharedEvents &&
-                packet.MultiplayerMode <= (int)MultiplayerEventMode.IndividualRolls &&
-                packet.Chances?.Length == EventKindCount &&
-                packet.StrengthMinimums?.Length == 6 && packet.StrengthMaximums?.Length == 6 &&
-                packet.SharedCooldownUntilAbsoluteMonths?.Length == EventKindCount &&
-                packet.IndividualCooldownUntilAbsoluteMonths?.Length == (GamePlayerManagerAPI.MAX_PLAYERS + 1) * EventKindCount &&
-                packet.NextDueAbsoluteMonth >= packet.StartAbsoluteMonth &&
-                (packet.PrngState0 | packet.PrngState1) != 0 &&
-                ValidateActionArrays(packet);
-        }
-
-        private static bool ValidateActionArrays(RandomEventsChorePacket packet)
-        {
             int count = packet.EventKinds?.Length ?? -1;
             if (count < 0 || count > MaximumChoreActions ||
                 packet.EventStrengths?.Length != count || packet.TargetPlayerIds?.Length != count)
@@ -1144,7 +1181,15 @@ namespace RandomEvents
         {
             if (!context.IsSaveFile || !mapActive || state == null)
                 return null;
-            return MessagePackSerializer.Serialize(state);
+            RandomEventsSaveState saved = CreateSaveState(state);
+            if (deferredPreparedState != null)
+            {
+                saved.BatchPrepared = true;
+                saved.PreparedDirectKinds = (int[])deferredPreparedState.PreparedDirectKinds.Clone();
+                saved.PreparedDirectStrengths = (int[])deferredPreparedState.PreparedDirectStrengths.Clone();
+                saved.PreparedDirectTargetPlayerIds = (int[])deferredPreparedState.PreparedDirectTargetPlayerIds.Clone();
+            }
+            return MessagePackSerializer.Serialize(saved);
         }
 
         private void LoadState(byte[] bytes, LoadContext context)
@@ -1153,27 +1198,23 @@ namespace RandomEvents
                 return;
             try
             {
-                state = MessagePackSerializer.Deserialize<RandomEventsSaveStateV2>(bytes);
-                loadedStateAvailable = state != null;
+                loadedSaveState = MessagePackSerializer.Deserialize<RandomEventsSaveState>(bytes);
+                loadedStateAvailable = loadedSaveState != null;
                 mapStartPending = true;
             }
             catch (Exception ex)
             {
-                state = null;
+                loadedSaveState = null;
                 loadedStateAvailable = false;
                 LogError($"Random Events state could not be deserialized and will be initialized fresh: {ex}");
             }
         }
 
-        private bool ValidateLoadedState(RandomEventsSaveStateV2 loaded)
+        private bool TryCreateLoadedRuntimeState(RandomEventsConfigurationSnapshot configuration, out RandomEventsRuntimeState restored)
         {
-            bool valid = loaded != null && loaded.Version == RandomEventsSaveStateV2.CurrentVersion &&
-                loaded.IntervalMonths >= 1 && loaded.IntervalMonths <= 90 &&
-                loaded.CooldownMonths >= 0 && loaded.CooldownMonths <= 90 &&
-                loaded.MultiplayerMode >= (int)MultiplayerEventMode.SharedEvents &&
-                loaded.MultiplayerMode <= (int)MultiplayerEventMode.IndividualRolls &&
-                loaded.Chances?.Length == RandomEventDefinitions.All.Length &&
-                loaded.StrengthMinimums?.Length == 6 && loaded.StrengthMaximums?.Length == 6 &&
+            restored = null;
+            RandomEventsSaveState loaded = loadedSaveState;
+            bool valid = loaded != null && loaded.SchemaVersion == RandomEventsSaveState.CurrentSchemaVersion &&
                 loaded.PreparedDirectKinds != null && loaded.PreparedDirectStrengths != null &&
                 loaded.PreparedDirectKinds.Length == loaded.PreparedDirectStrengths.Length &&
                 loaded.PreparedDirectTargetPlayerIds != null &&
@@ -1191,20 +1232,54 @@ namespace RandomEvents
                 valid = loaded.StartAbsoluteMonth >= 0 &&
                     loaded.StartAbsoluteMonth <= currentAbsoluteMonth &&
                     loaded.NextDueAbsoluteMonth >= currentAbsoluteMonth &&
-                    loaded.NextDueAbsoluteMonth <= checked(currentAbsoluteMonth + loaded.IntervalMonths);
+                    loaded.NextDueAbsoluteMonth <= checked(currentAbsoluteMonth + 90);
                 if (!valid)
                 {
                     LogWarning(
                         $"Loaded Random Events state uses an implausible event date and will be initialized fresh: " +
                         $"currentAbsoluteMonth={currentAbsoluteMonth}, startAbsoluteMonth={loaded.StartAbsoluteMonth}, " +
-                        $"loadedNextDueAbsoluteMonth={loaded.NextDueAbsoluteMonth}, " +
-                        $"interval={loaded.IntervalMonths}, effectiveMonthsPerYear={VanillaMonthsPerYear}.");
+                        $"loadedNextDueAbsoluteMonth={loaded.NextDueAbsoluteMonth}, effectiveMonthsPerYear={VanillaMonthsPerYear}.");
                 }
             }
             if (!valid)
                 LogWarning("Loaded Random Events state failed validation and will not be used.");
-            return valid;
+            if (!valid) return false;
+
+            restored = new RandomEventsRuntimeState
+            {
+                PrngState0 = loaded.PrngState0, PrngState1 = loaded.PrngState1,
+                NextDueAbsoluteMonth = loaded.NextDueAbsoluteMonth, StartAbsoluteMonth = loaded.StartAbsoluteMonth,
+                SharedCooldownUntilAbsoluteMonths = (int[])loaded.SharedCooldownUntilAbsoluteMonths.Clone(),
+                IndividualCooldownUntilAbsoluteMonths = (int[])loaded.IndividualCooldownUntilAbsoluteMonths.Clone(),
+                BatchPrepared = loaded.BatchPrepared,
+                PreparedDirectKinds = (int[])loaded.PreparedDirectKinds.Clone(),
+                PreparedDirectStrengths = (int[])loaded.PreparedDirectStrengths.Clone(),
+                PreparedDirectTargetPlayerIds = (int[])loaded.PreparedDirectTargetPlayerIds.Clone(),
+                SignpostsInitialized = loaded.SignpostsInitialized,
+                SignpostBuildingIds = (int[])loaded.SignpostBuildingIds.Clone()
+            };
+            configuration.ApplyTo(restored);
+            if (configuration.MultiplayerMode == (int)MultiplayerEventMode.SharedEvents)
+                restored.IndividualCooldownUntilAbsoluteMonths = new int[(GamePlayerManagerAPI.MAX_PLAYERS + 1) * EventKindCount];
+            else
+                restored.SharedCooldownUntilAbsoluteMonths = new int[EventKindCount];
+            loadedSaveState = null;
+            return true;
         }
+
+        private static RandomEventsSaveState CreateSaveState(RandomEventsRuntimeState source) => new RandomEventsSaveState
+        {
+            PrngState0 = source.PrngState0, PrngState1 = source.PrngState1,
+            NextDueAbsoluteMonth = source.NextDueAbsoluteMonth, StartAbsoluteMonth = source.StartAbsoluteMonth,
+            SharedCooldownUntilAbsoluteMonths = (int[])source.SharedCooldownUntilAbsoluteMonths.Clone(),
+            IndividualCooldownUntilAbsoluteMonths = (int[])source.IndividualCooldownUntilAbsoluteMonths.Clone(),
+            BatchPrepared = source.BatchPrepared,
+            PreparedDirectKinds = (int[])source.PreparedDirectKinds.Clone(),
+            PreparedDirectStrengths = (int[])source.PreparedDirectStrengths.Clone(),
+            PreparedDirectTargetPlayerIds = (int[])source.PreparedDirectTargetPlayerIds.Clone(),
+            SignpostsInitialized = source.SignpostsInitialized,
+            SignpostBuildingIds = (int[])source.SignpostBuildingIds.Clone()
+        };
 
         private bool DispatchDirectEvent(
             RandomEventDefinition definition,

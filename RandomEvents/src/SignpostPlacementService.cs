@@ -44,7 +44,7 @@ namespace RandomEvents
                 .Subscribe(OnBuildingTileTakeDamage);
         }
 
-        public bool TryInitialize(RandomEventsSaveStateV2 state)
+        public bool TryInitialize(RandomEventsRuntimeState state)
         {
             if (state.SignpostsInitialized)
             {
@@ -293,7 +293,7 @@ namespace RandomEvents
             return false;
         }
 
-        private static int GetPlacementSeed(RandomEventsSaveStateV2 state)
+        private static int GetPlacementSeed(RandomEventsRuntimeState state)
         {
             // Derive a stable side-placement stream without consuming the saved event-roll PRNG.
             ulong value = state.PrngState0 ^ (state.PrngState1 + 0x9E3779B97F4A7C15UL);

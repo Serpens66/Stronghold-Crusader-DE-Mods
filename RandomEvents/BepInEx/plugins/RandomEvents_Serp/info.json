@@ -3,10 +3,17 @@
   "Author": "Serpens66",
   "Name": "Random Events",
   "Description": "Runs configurable Vanilla scenario events in skirmishes, Trail missions, and multiplayer games.",
-  "Version": "1.0.14",
+  "Version": "1.0.15",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.15",
+      "Changes": [
+        "Reduced multiplayer initialization traffic with command-specific Chore packets, compact cooldown encoding, stable retries, and idempotent duplicate handling.",
+        "Replaced the legacy save payload with a dynamic-only schema; current synchronized lobby settings are authoritative when a save is loaded."
+      ]
+    },
     {
       "Version": "1.0.14",
       "Changes": [
