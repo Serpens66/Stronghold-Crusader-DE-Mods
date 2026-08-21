@@ -194,12 +194,23 @@ namespace ExtraFeatures
         {
             int selectedBuildingId = TryGetSelectedBuildingId();
             bool controlPressed = IsControlPressed();
+            bool mapEditor = IsMapEditor();
+            bool ownedByControlledPlayer = !mapEditor || IsSelectedBuildingOwnedByControlledPlayer(selectedBuildingId);
 
             if (!IsFeatureActive() ||
-                (IsMapEditor() && !IsSelectedBuildingOwnedByControlledPlayer(selectedBuildingId)))
+                !ownedByControlledPlayer)
             {
+                if (mapEditor && !ownedByControlledPlayer)
+                {
+                    LogInfo($"single-building pause editor action delegated to Vanilla: selectedBuildingId={selectedBuildingId}, activePlayerId={GetControlledPlayerId()}, reason=selected-building-not-owned.");
+                }
                 buttonTrampoline(self, parameter);
                 return;
+            }
+
+            if (mapEditor)
+            {
+                LogInfo($"single-building pause editor action accepted: selectedBuildingId={selectedBuildingId}, activePlayerId={GetControlledPlayerId()}, controlPressed={controlPressed}.");
             }
 
             if (!controlPressed)

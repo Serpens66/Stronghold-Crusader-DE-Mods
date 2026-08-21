@@ -83,6 +83,7 @@ namespace ExtraFeatures
         private readonly MultiplayerFeatureGate multiplayerFeatureGate;
         private readonly GatehouseAutomationButtonViewModel buttonViewModel;
         private readonly HashSet<int> manualOnlyGateGlobalIds = new HashSet<int>();
+        private readonly List<GatehouseMapLocator> pendingMapLocators = new List<GatehouseMapLocator>();
         private readonly Dictionary<ReachabilityKey, bool> reachabilityCache = new Dictionary<ReachabilityKey, bool>();
         private IDisposable gatehouseQuerySubscription;
         private R3PacketEventHook<GatehouseAutomationPacket> packetHook;
@@ -93,6 +94,7 @@ namespace ExtraFeatures
         private bool saveHandlerRegistered;
         private bool reachabilityAvailable;
         private bool mapActive;
+        private bool editorSessionActive;
         private bool disposed;
         private bool firstQueryLogged;
         private bool iconLoadAttempted;
@@ -100,6 +102,8 @@ namespace ExtraFeatures
         private int failureLogs;
         private int nextOperationId;
         private int lastUiFrame = -1;
+        private int lastLocatorResolveFrame = -1;
+        private string lastVisibilityState;
         private long nativeQueries;
         private long cacheHits;
         private long reachableResults;
@@ -202,11 +206,14 @@ namespace ExtraFeatures
 
         public void BeginMap()
         {
+            bool wasActive = mapActive;
             mapActive = true;
+            editorSessionActive = false;
             ClearReachabilityCache();
+            ResolvePendingMapLocators(removeUnresolved: true);
             ReconcileManualGateTimers(removeMissing: true);
             RefreshButtonVisibility();
-            LogInfo($"gatehouse map state started: manualOnly={manualOnlyGateGlobalIds.Count}, reachabilityAvailable={reachabilityAvailable}.");
+            LogInfo($"gatehouse map state {(wasActive ? "resumed" : "started")}: manualOnly={manualOnlyGateGlobalIds.Count}, reachabilityAvailable={reachabilityAvailable}.");
         }
 
         public void EndMap()
@@ -216,22 +223,38 @@ namespace ExtraFeatures
 
         public void RefreshButtonVisibility()
         {
-            if (!settings.EnableMod || !mapActive ||
-                (multiplayerFeatureGate.BlocksLocalStateChanges && !IsChoreTransportReady()))
+            EnsureEditorMapState();
+            if (!settings.EnableMod)
             {
                 buttonViewModel.Hide();
+                LogVisibilityState("hidden: mod-disabled");
+                return;
+            }
+            if (!mapActive)
+            {
+                buttonViewModel.Hide();
+                LogVisibilityState($"hidden: map-inactive, editor={IsMapEditor()}");
+                return;
+            }
+            if (multiplayerFeatureGate.BlocksLocalStateChanges && !IsChoreTransportReady())
+            {
+                buttonViewModel.Hide();
+                LogVisibilityState("hidden: multiplayer-chore-unavailable");
                 return;
             }
 
             int localPlayerId = GetControlledPlayerId();
             int selectedBuildingId = GamePlayerManagerAPI.Instance.GetSelectedBuildingId();
-            if (!TryGetOwnedGatehouse(selectedBuildingId, localPlayerId, out GameBuilding* building, out _))
+            if (!TryGetOwnedGatehouse(selectedBuildingId, localPlayerId, out GameBuilding* building, out string failure))
             {
                 buttonViewModel.Hide();
+                LogVisibilityState($"hidden: editor={IsMapEditor()}, playerId={localPlayerId}, selectedBuildingId={selectedBuildingId}, reason={failure}, selection={DescribeBuilding(selectedBuildingId)}");
                 return;
             }
 
-            buttonViewModel.Show(!manualOnlyGateGlobalIds.Contains((int)building->r_GlobalId));
+            bool automaticEnabled = !manualOnlyGateGlobalIds.Contains((int)building->r_GlobalId);
+            buttonViewModel.Show(automaticEnabled);
+            LogVisibilityState($"visible: editor={IsMapEditor()}, playerId={localPlayerId}, selectedBuildingId={selectedBuildingId}, globalId={building->r_GlobalId}, automaticEnabled={automaticEnabled}");
         }
 
         public void Dispose()
@@ -312,6 +335,7 @@ namespace ExtraFeatures
         {
             try
             {
+                EnsureEditorMapState();
                 if (!settings.EnableMod || !mapActive)
                     return;
 
@@ -517,47 +541,236 @@ namespace ExtraFeatures
 
         private byte[] SaveState(SaveContext context)
         {
-            if (!context.IsSaveFile || !mapActive || manualOnlyGateGlobalIds.Count == 0)
+            bool editorMapSave = context.IsMapEditorSave;
+            if ((!context.IsSaveFile && !editorMapSave) || (!mapActive && !editorMapSave))
                 return null;
 
             int[] ids = new int[manualOnlyGateGlobalIds.Count];
             manualOnlyGateGlobalIds.CopyTo(ids);
             Array.Sort(ids);
+            GatehouseMapLocator[] locators = editorMapSave
+                ? BuildMapLocators()
+                : Array.Empty<GatehouseMapLocator>();
             byte[] bytes = MessagePackSerializer.Serialize(new GatehouseAutomationSaveState
             {
                 Version = GatehouseAutomationSaveState.CurrentVersion,
-                ManualOnlyGateGlobalIds = ids
+                ManualOnlyGateGlobalIds = editorMapSave ? Array.Empty<int>() : ids,
+                ManualOnlyGateLocators = locators
             });
-            LogInfo($"gatehouse state saved: manualOnly={ids.Length}, payloadBytes={bytes.Length}.");
+            LogInfo($"gatehouse state saved: context={(editorMapSave ? "editor-map" : "save-file")}, globalIds={(editorMapSave ? 0 : ids.Length)}, locators={locators.Length}, payloadBytes={bytes.Length}.");
             return bytes;
         }
 
         private void LoadState(byte[] bytes, LoadContext context)
         {
-            if (!context.IsSaveFile)
-                return;
-
             GatehouseAutomationSaveState state = MessagePackSerializer.Deserialize<GatehouseAutomationSaveState>(bytes);
-            if (state == null || state.Version != GatehouseAutomationSaveState.CurrentVersion ||
-                state.ManualOnlyGateGlobalIds == null || state.ManualOnlyGateGlobalIds.Length > MaximumSavedGatehouses)
+            bool supportedVersion = state != null && (state.Version == 1 || state.Version == GatehouseAutomationSaveState.CurrentVersion);
+            int[] savedIds = state?.ManualOnlyGateGlobalIds ?? Array.Empty<int>();
+            GatehouseMapLocator[] savedLocators = state?.ManualOnlyGateLocators ?? Array.Empty<GatehouseMapLocator>();
+            if (!supportedVersion || savedIds.Length > MaximumSavedGatehouses || savedLocators.Length > MaximumSavedGatehouses)
             {
                 throw new InvalidOperationException("The gatehouse save state has an unsupported version or invalid entry count.");
             }
 
             var loadedIds = new HashSet<int>();
-            for (int index = 0; index < state.ManualOnlyGateGlobalIds.Length; index++)
+            for (int index = 0; index < savedIds.Length; index++)
             {
-                int globalId = state.ManualOnlyGateGlobalIds[index];
+                int globalId = savedIds[index];
                 if (globalId <= 0 || !loadedIds.Add(globalId))
                     throw new InvalidOperationException($"The gatehouse save state contains an invalid or duplicate global ID: {globalId}.");
             }
 
+            ValidateLocators(savedLocators);
+
             manualOnlyGateGlobalIds.Clear();
-            manualOnlyGateGlobalIds.UnionWith(loadedIds);
-            mapActive = true;
-            ReconcileManualGateTimers(removeMissing: false);
-            LogInfo($"gatehouse state loaded: manualOnly={manualOnlyGateGlobalIds.Count}, payloadBytes={bytes.Length}.");
+            pendingMapLocators.Clear();
+            if (context.IsSaveFile)
+            {
+                manualOnlyGateGlobalIds.UnionWith(loadedIds);
+                mapActive = true;
+                ReconcileManualGateTimers(removeMissing: false);
+            }
+            else
+            {
+                pendingMapLocators.AddRange(savedLocators);
+                ResolvePendingMapLocators(removeUnresolved: false);
+            }
+            LogInfo($"gatehouse state loaded: context={(context.IsSaveFile ? "save-file" : "map")}, version={state.Version}, manualOnly={manualOnlyGateGlobalIds.Count}, pendingLocators={pendingMapLocators.Count}, payloadBytes={bytes.Length}.");
         }
+
+        private GatehouseMapLocator[] BuildMapLocators()
+        {
+            var locators = new List<GatehouseMapLocator>(manualOnlyGateGlobalIds.Count + pendingMapLocators.Count);
+            var identities = new HashSet<string>(StringComparer.Ordinal);
+            foreach (int globalId in manualOnlyGateGlobalIds)
+            {
+                if (TryFindGatehouseByGlobalId(globalId, out GameBuilding* building, out _))
+                    AddUniqueLocator(locators, identities, CreateLocator(building));
+                else
+                    LogFailure($"gatehouse editor-map save could not resolve manual-only globalId={globalId}");
+            }
+            for (int index = 0; index < pendingMapLocators.Count; index++)
+                AddUniqueLocator(locators, identities, pendingMapLocators[index]);
+
+            locators.Sort(CompareLocators);
+            return locators.ToArray();
+        }
+
+        private void ResolvePendingMapLocators(bool removeUnresolved)
+        {
+            if (pendingMapLocators.Count == 0)
+                return;
+            if (!removeUnresolved && lastLocatorResolveFrame >= 0 && Time.frameCount - lastLocatorResolveFrame < 30)
+                return;
+            lastLocatorResolveFrame = Time.frameCount;
+
+            int resolved = 0;
+            int ambiguous = 0;
+            var remaining = new List<GatehouseMapLocator>();
+            for (int index = 0; index < pendingMapLocators.Count; index++)
+            {
+                GatehouseMapLocator locator = pendingMapLocators[index];
+                int matches = FindGatehouseByLocator(locator, out GameBuilding* building);
+                if (matches == 1)
+                {
+                    manualOnlyGateGlobalIds.Add((int)building->r_GlobalId);
+                    building->r_GateDoNotCloseForTicks = -1;
+                    resolved++;
+                }
+                else
+                {
+                    if (matches > 1)
+                        ambiguous++;
+                    if (!removeUnresolved)
+                        remaining.Add(locator);
+                    else
+                        LogFailure($"gatehouse map locator could not be resolved uniquely: {FormatLocator(locator)}, matches={matches}");
+                }
+            }
+
+            pendingMapLocators.Clear();
+            pendingMapLocators.AddRange(remaining);
+            LogInfo($"gatehouse map locators resolved: resolved={resolved}, pending={pendingMapLocators.Count}, ambiguous={ambiguous}, finalPass={removeUnresolved}.");
+        }
+
+        private void EnsureEditorMapState()
+        {
+            bool editor = IsMapEditor();
+            if (!editor)
+            {
+                if (editorSessionActive)
+                {
+                    editorSessionActive = false;
+                    ResetMapState();
+                    LogInfo("gatehouse editor map state ended after leaving the editor.");
+                }
+                return;
+            }
+
+            int activePlayerId = EditorDirector.instance?.ActivePlayerID ?? -1;
+            if (activePlayerId < 1 || activePlayerId > 8 ||
+                GameData.Instance?.lastGameState == null || MainViewModel.Instance?.HUDBuildingPanel == null)
+            {
+                return;
+            }
+
+            if (!mapActive)
+            {
+                mapActive = true;
+                editorSessionActive = true;
+                ClearReachabilityCache();
+                LogInfo($"gatehouse editor map state started: activePlayerId={activePlayerId}, pendingLocators={pendingMapLocators.Count}.");
+            }
+            else
+            {
+                editorSessionActive = true;
+            }
+
+            ResolvePendingMapLocators(removeUnresolved: false);
+            ReconcileManualGateTimers(removeMissing: false);
+        }
+
+        private static GatehouseMapLocator CreateLocator(GameBuilding* building)
+        {
+            return new GatehouseMapLocator
+            {
+                OwnerPlayerId = building->r_PlayerIdOwner,
+                BuildingType = (int)building->r_BuildingType,
+                TileXBegin = building->r_TilePositionXBegin,
+                TileYBegin = building->r_TilePositionYBegin,
+                TileXEnd = building->r_TilePositionXEnd,
+                TileYEnd = building->r_TilePositionYEnd
+            };
+        }
+
+        private static int FindGatehouseByLocator(GatehouseMapLocator locator, out GameBuilding* building)
+        {
+            building = null;
+            int matches = 0;
+            Span<GameBuilding> buildings = GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
+            for (int index = 0; index < buildings.Length; index++)
+            {
+                ref GameBuilding candidate = ref buildings[index];
+                if (candidate.r_AliveState != AliveState.IsAlive ||
+                    candidate.r_PlayerIdOwner != locator.OwnerPlayerId ||
+                    (int)candidate.r_BuildingType != locator.BuildingType ||
+                    candidate.r_TilePositionXBegin != locator.TileXBegin ||
+                    candidate.r_TilePositionYBegin != locator.TileYBegin ||
+                    candidate.r_TilePositionXEnd != locator.TileXEnd ||
+                    candidate.r_TilePositionYEnd != locator.TileYEnd)
+                {
+                    continue;
+                }
+
+                int candidateId = index + 1;
+                if (!TryGetLiveGatehouse(candidateId, out GameBuilding* candidateBuilding, out _))
+                    continue;
+                matches++;
+                building = candidateBuilding;
+            }
+            return matches;
+        }
+
+        private static void ValidateLocators(GatehouseMapLocator[] locators)
+        {
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            for (int index = 0; index < locators.Length; index++)
+            {
+                GatehouseMapLocator locator = locators[index];
+                if (locator == null || !locator.HasValidShape ||
+                    !seen.Add(FormatLocator(locator)))
+                {
+                    throw new InvalidOperationException($"The gatehouse save state contains an invalid or duplicate map locator at index {index}.");
+                }
+            }
+        }
+
+        private static void AddUniqueLocator(
+            List<GatehouseMapLocator> locators,
+            HashSet<string> identities,
+            GatehouseMapLocator candidate)
+        {
+            if (candidate == null || !identities.Add(FormatLocator(candidate)))
+                return;
+            locators.Add(candidate);
+        }
+
+        private static int CompareLocators(GatehouseMapLocator left, GatehouseMapLocator right)
+        {
+            int result = left.OwnerPlayerId.CompareTo(right.OwnerPlayerId);
+            if (result != 0) return result;
+            result = left.BuildingType.CompareTo(right.BuildingType);
+            if (result != 0) return result;
+            result = left.TileXBegin.CompareTo(right.TileXBegin);
+            if (result != 0) return result;
+            result = left.TileYBegin.CompareTo(right.TileYBegin);
+            if (result != 0) return result;
+            result = left.TileXEnd.CompareTo(right.TileXEnd);
+            return result != 0 ? result : left.TileYEnd.CompareTo(right.TileYEnd);
+        }
+
+        private static string FormatLocator(GatehouseMapLocator locator) =>
+            locator.IdentityKey;
 
         private void ReconcileManualGateTimers(bool removeMissing)
         {
@@ -598,9 +811,13 @@ namespace ExtraFeatures
                 LogInfo($"gatehouse map state cleared: manualOnly={manualOnlyGateGlobalIds.Count}, nativeQueries={nativeQueries}, cacheHits={cacheHits}, reachable={reachableResults}, unreachable={unreachableResults}.");
             }
             mapActive = false;
+            editorSessionActive = false;
             manualOnlyGateGlobalIds.Clear();
+            pendingMapLocators.Clear();
             ClearReachabilityCache();
             buttonViewModel.Hide();
+            lastVisibilityState = null;
+            lastLocatorResolveFrame = -1;
             firstQueryLogged = false;
             failureLogs = 0;
             nativeQueries = 0;
@@ -698,6 +915,27 @@ namespace ExtraFeatures
 
             int localPlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
             return localPlayerId > 0 ? localPlayerId : 1;
+        }
+
+        private static bool IsMapEditor() =>
+            (GamePlayerManagerAPI.Instance?.IsInMapEditor() ?? false) ||
+            (MainViewModel.Instance?.IsMapEditorMode ?? false);
+
+        private static string DescribeBuilding(int buildingId)
+        {
+            if (buildingId <= 0)
+                return "none";
+            if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building) || building == null)
+                return "unresolvable";
+            return $"type={building->r_BuildingType},alive={building->r_AliveState},owner={building->r_PlayerIdOwner},globalId={building->r_GlobalId}";
+        }
+
+        private void LogVisibilityState(string state)
+        {
+            if (string.Equals(lastVisibilityState, state, StringComparison.Ordinal))
+                return;
+            lastVisibilityState = state;
+            log.LogDebug($"[{TimestampNow()}] Extra Features gatehouse diagnostic: button visibility state: {state}.");
         }
 
         private void LogFailure(string message)

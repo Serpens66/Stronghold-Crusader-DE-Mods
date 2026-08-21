@@ -174,7 +174,7 @@ namespace BugfixesAndQoL
 
             int activePlayerId = EditorDirector.instance?.ActivePlayerID ?? -1;
             int buildingId = SHCDESE.API.GamePlayerManagerAPI.Instance.GetSelectedBuildingId();
-            return activePlayerId > 0 &&
+            return activePlayerId > 0 && buildingId > 0 &&
                 SHCDESE.API.GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out SHCDESE.Interop.GameBuilding* building) &&
                 building != null &&
                 building->r_AliveState == SHCDESE.Interop.Enums.AliveState.IsAlive &&

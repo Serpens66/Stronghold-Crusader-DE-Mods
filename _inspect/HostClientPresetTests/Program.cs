@@ -32,6 +32,7 @@ internal static class Program
             TestMarketGoodPriceDefinition();
             TestAIMarketVanillaPricePolicy();
             TestLordHealthMultiplierPolicy();
+            TestGatehouseAutomationSaveState();
             TestAIMarketNativeResolution();
             TestMultiplayerGameSpeedPolicyAndPacket();
             TestMarketTradeIntegration();
@@ -332,6 +333,85 @@ internal static class Program
             "client storage snapshot replaced the cached local host value");
         Check(manager.ReadStoredInt(nameof(viewModel.PlayerValue)) == 7,
             "client storage snapshot lost its per-player value");
+    }
+
+    private static void TestGatehouseAutomationSaveState()
+    {
+        var locator = new GatehouseMapLocator
+        {
+            OwnerPlayerId = 3,
+            BuildingType = 77,
+            TileXBegin = 120,
+            TileYBegin = 240,
+            TileXEnd = 124,
+            TileYEnd = 248
+        };
+        var state = new GatehouseAutomationSaveState
+        {
+            Version = GatehouseAutomationSaveState.CurrentVersion,
+            ManualOnlyGateGlobalIds = Array.Empty<int>(),
+            ManualOnlyGateLocators = new[] { locator }
+        };
+
+        byte[] bytes = MessagePackSerializer.Serialize(state);
+        GatehouseAutomationSaveState roundTrip = MessagePackSerializer.Deserialize<GatehouseAutomationSaveState>(bytes);
+        Check(roundTrip.Version == 2, "gatehouse v2 version did not round-trip");
+        Check(roundTrip.ManualOnlyGateGlobalIds != null && roundTrip.ManualOnlyGateGlobalIds.Length == 0,
+            "gatehouse empty global-ID state was not serialized explicitly");
+        Check(roundTrip.ManualOnlyGateLocators != null && roundTrip.ManualOnlyGateLocators.Length == 1,
+            "gatehouse map locator did not round-trip");
+        GatehouseMapLocator restored = roundTrip.ManualOnlyGateLocators[0];
+        Check(restored.OwnerPlayerId == locator.OwnerPlayerId && restored.BuildingType == locator.BuildingType &&
+            restored.TileXBegin == locator.TileXBegin && restored.TileYBegin == locator.TileYBegin &&
+            restored.TileXEnd == locator.TileXEnd && restored.TileYEnd == locator.TileYEnd,
+            "gatehouse map locator identity changed during serialization");
+        Check(locator.HasValidShape, "valid gatehouse map locator was rejected");
+        Check(!new GatehouseMapLocator { OwnerPlayerId = 0, BuildingType = 77 }.HasValidShape,
+            "gatehouse locator accepted an invalid owner");
+        Check(!new GatehouseMapLocator { OwnerPlayerId = 1, BuildingType = 0 }.HasValidShape,
+            "gatehouse locator accepted an invalid building type");
+        Check(locator.IdentityKey == restored.IdentityKey,
+            "gatehouse locator uniqueness key changed during serialization");
+        var differentTileLocator = new GatehouseMapLocator
+        {
+            OwnerPlayerId = locator.OwnerPlayerId,
+            BuildingType = locator.BuildingType,
+            TileXBegin = locator.TileXBegin + 1,
+            TileYBegin = locator.TileYBegin,
+            TileXEnd = locator.TileXEnd + 1,
+            TileYEnd = locator.TileYEnd
+        };
+        Check(locator.IdentityKey != differentTileLocator.IdentityKey,
+            "different gatehouse positions produced the same uniqueness key");
+
+        var emptyState = new GatehouseAutomationSaveState
+        {
+            Version = GatehouseAutomationSaveState.CurrentVersion,
+            ManualOnlyGateGlobalIds = Array.Empty<int>(),
+            ManualOnlyGateLocators = Array.Empty<GatehouseMapLocator>()
+        };
+        GatehouseAutomationSaveState emptyRoundTrip = MessagePackSerializer.Deserialize<GatehouseAutomationSaveState>(
+            MessagePackSerializer.Serialize(emptyState));
+        Check(emptyRoundTrip.ManualOnlyGateGlobalIds.Length == 0 && emptyRoundTrip.ManualOnlyGateLocators.Length == 0,
+            "gatehouse empty state was lost instead of overwriting stale archive data");
+
+        byte[] legacyBytes = { 0x92, 0x01, 0x92, 0x0C, 0x22 };
+        GatehouseAutomationSaveState legacy = MessagePackSerializer.Deserialize<GatehouseAutomationSaveState>(legacyBytes);
+        Check(legacy.Version == 1 && legacy.ManualOnlyGateGlobalIds.SequenceEqual(new[] { 12, 34 }) &&
+            legacy.ManualOnlyGateLocators == null,
+            "gatehouse v1 save payload is no longer readable");
+
+        var changedRuntimeIds = new GatehouseAutomationSaveState
+        {
+            Version = 2,
+            ManualOnlyGateGlobalIds = new[] { 900001 },
+            ManualOnlyGateLocators = new[] { locator }
+        };
+        GatehouseAutomationSaveState changedIdsRoundTrip = MessagePackSerializer.Deserialize<GatehouseAutomationSaveState>(
+            MessagePackSerializer.Serialize(changedRuntimeIds));
+        Check(changedIdsRoundTrip.ManualOnlyGateGlobalIds[0] == 900001 &&
+            changedIdsRoundTrip.ManualOnlyGateLocators[0].TileXBegin == 120,
+            "gatehouse map identity became dependent on the runtime global ID");
     }
 
     private static void TestResyncHostKickPolicy()

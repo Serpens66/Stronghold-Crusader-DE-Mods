@@ -240,6 +240,7 @@ namespace BugfixesAndQoL
         private int lastFrame = -1;
         private bool callbackErrorLogged;
         private bool disposed;
+        private string lastEditorVisibilityDiagnostic;
 
         public SelectedUnitHealthFeature(
             ManualLogSource log,
@@ -302,6 +303,8 @@ namespace BugfixesAndQoL
         {
             MainViewModel mainViewModel = MainViewModel.Instance;
             HUD_Troops troopPanel = mainViewModel?.HUDTroopPanel;
+            bool mapEditor = (GamePlayerManagerAPI.Instance?.IsInMapEditor() ?? false) ||
+                (mainViewModel?.IsMapEditorMode ?? false);
             if (!settings.EnableClientFeatures ||
                 !settings.ShowSelectedUnitHealth ||
                 mainViewModel == null ||
@@ -310,6 +313,7 @@ namespace BugfixesAndQoL
                 GameData.Instance == null)
             {
                 ViewModel.Hide();
+                LogEditorVisibilityState(mapEditor, "hidden: feature-or-troop-panel-unavailable");
                 return;
             }
 
@@ -318,17 +322,17 @@ namespace BugfixesAndQoL
             if (selectedCount <= 0 || state.selectedChimps == null)
             {
                 ViewModel.Hide();
+                LogEditorVisibilityState(mapEditor, "hidden: no-selected-units");
                 return;
             }
 
-            bool mapEditor = (GamePlayerManagerAPI.Instance?.IsInMapEditor() ?? false) ||
-                (mainViewModel?.IsMapEditorMode ?? false);
             int controlledPlayerId = mapEditor
                 ? (EditorDirector.instance?.ActivePlayerID ?? -1)
                 : -1;
             if (mapEditor && (controlledPlayerId < 1 || controlledPlayerId > 8))
             {
                 ViewModel.Hide();
+                LogEditorVisibilityState(true, $"hidden: invalid-active-player-{controlledPlayerId}");
                 return;
             }
 
@@ -343,11 +347,13 @@ namespace BugfixesAndQoL
                 var lordSummary = new SelectedUnitHealthSummary();
                 lordSummary.Add(selectedLord->r_CurrentHealth, selectedLord->r_MaxHealth);
                 ViewModel.ShowLord(lordSummary);
+                LogEditorVisibilityState(mapEditor, $"visible: lord, playerId={controlledPlayerId}, unitId={state.selectedChimps[0]}");
                 return;
             }
 
             var summaries = new SelectedUnitHealthSummary[(int)eChimps.CHIMP_NUM_TYPES];
             int count = Math.Min(selectedCount, state.selectedChimps.Length);
+            int eligibleCount = 0;
             GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
             for (int i = 0; i < count; i++)
             {
@@ -366,6 +372,7 @@ namespace BugfixesAndQoL
                     continue;
 
                 summaries[type].Add(unit->r_CurrentHealth, unit->r_MaxHealth);
+                eligibleCount++;
             }
 
             if (SelectedChimpArrayField == null || CurrentPageField == null)
@@ -377,6 +384,15 @@ namespace BugfixesAndQoL
                 selectedTypeCounts,
                 currentPage);
             ViewModel.Show(summaries, visibleTypes);
+            LogEditorVisibilityState(mapEditor, $"visible: selectedUnits={selectedCount}, eligibleOwnedUnits={eligibleCount}, playerId={controlledPlayerId}, page={currentPage}");
+        }
+
+        private void LogEditorVisibilityState(bool mapEditor, string state)
+        {
+            if (!mapEditor || string.Equals(lastEditorVisibilityDiagnostic, state, StringComparison.Ordinal))
+                return;
+            lastEditorVisibilityDiagnostic = state;
+            Shared.DebugLogHelper.LogDebug(log, $"Bugfixes and QoL selected-unit health editor state: {state}.");
         }
 
         private static bool TryGetSelectedControlledLord(

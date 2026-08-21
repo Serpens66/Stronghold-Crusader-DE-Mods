@@ -3,10 +3,17 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.32",
+  "Version": "1.0.33",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.33",
+      "Changes": [
+        "Fixed and diagnosed the per-gate automation button in the map editor, restricted it to the active editor player's gates, and persisted manual-only choices in map files through stable gate locators.",
+        "Added map-editor diagnostics for knight controls and single-building pause actions."
+      ]
+    },
     {
       "Version": "1.0.32",
       "Changes": [

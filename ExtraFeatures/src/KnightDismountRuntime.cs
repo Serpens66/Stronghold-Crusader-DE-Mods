@@ -168,6 +168,7 @@ namespace ExtraFeatures
         private bool disposed;
         private bool networkInitialized;
         private int nextOperationId;
+        private string lastVisibilityDiagnostic;
         private R3PacketEventHook<KnightTransformationPacket> transformationPacketHook;
         private IDisposable transformationPacketSubscription;
 
@@ -240,18 +241,21 @@ namespace ExtraFeatures
                 if (!IsFeatureActive())
                 {
                     buttonViewModel.Hide();
+                    LogVisibilityState("hidden: feature-disabled");
                     return;
                 }
 
                 if (troopPanel == null && !TryGetHudTroopPanel(out troopPanel))
                 {
                     buttonViewModel.Hide();
+                    LogVisibilityState("hidden: troop-panel-unavailable");
                     return;
                 }
 
                 if (!IsBottomRightSlotFree(troopPanel))
                 {
                     buttonViewModel.Hide();
+                    LogVisibilityState("hidden: bottom-right-slot-occupied");
                     return;
                 }
 
@@ -259,16 +263,20 @@ namespace ExtraFeatures
                 if (HasSelectedOwnKnight(localPlayerId))
                 {
                     buttonViewModel.ShowDismount(BottomRightSlotMargin);
+                    LogVisibilityState($"visible: action=dismount, editor={IsMapEditor()}, playerId={localPlayerId}");
                     return;
                 }
 
                 if (HasSelectedOwnSwordsman(localPlayerId))
                 {
-                    buttonViewModel.ShowMount(BottomRightSlotMargin, CountAvailableHorseSlots(localPlayerId) > 0);
+                    bool hasHorse = CountAvailableHorseSlots(localPlayerId) > 0;
+                    buttonViewModel.ShowMount(BottomRightSlotMargin, hasHorse);
+                    LogVisibilityState($"visible: action=mount, editor={IsMapEditor()}, playerId={localPlayerId}, enabled={hasHorse}");
                     return;
                 }
 
                 buttonViewModel.Hide();
+                LogVisibilityState($"hidden: no-owned-knight-or-swordsman, editor={IsMapEditor()}, playerId={localPlayerId}");
             }
             catch (Exception ex)
             {
@@ -1522,6 +1530,18 @@ namespace ExtraFeatures
 
             int localPlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
             return localPlayerId > 0 ? localPlayerId : 1;
+        }
+
+        private static bool IsMapEditor() =>
+            (GamePlayerManagerAPI.Instance?.IsInMapEditor() ?? false) ||
+            (MainViewModel.Instance?.IsMapEditorMode ?? false);
+
+        private void LogVisibilityState(string state)
+        {
+            if (string.Equals(lastVisibilityDiagnostic, state, StringComparison.Ordinal))
+                return;
+            lastVisibilityDiagnostic = state;
+            log.LogDebug($"[{TimestampNow()}] Extra Features knight diagnostic: button visibility state: {state}.");
         }
 
         private void LogInfo(string message)
