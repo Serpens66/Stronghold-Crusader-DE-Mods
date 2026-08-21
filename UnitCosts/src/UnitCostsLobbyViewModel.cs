@@ -594,6 +594,9 @@ namespace UnitCosts
         {
             try
             {
+                if (!CrusaderDE.MainViewModel.viewModelLoaded)
+                    return null;
+
                 return CrusaderDE.MainViewModel.Instance?.getSmallGoodsIcon((int)good);
             }
             catch

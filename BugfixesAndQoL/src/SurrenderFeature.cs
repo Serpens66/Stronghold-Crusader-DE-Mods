@@ -1182,12 +1182,7 @@ namespace BugfixesAndQoL
                 GameData.Instance.lastGameState != null;
         }
 
-        private static bool IsMapEditor()
-        {
-            GamePlayerManagerAPI playerManager = GamePlayerManagerAPI.Instance;
-            return (playerManager != null && playerManager.IsInMapEditor()) ||
-                (MainViewModel.Instance != null && MainViewModel.Instance.IsMapEditorMode);
-        }
+        private static bool IsMapEditor() => Shared.GameModeHelper.IsMapEditor();
 
         private bool IsStatisticsViewer()
         {

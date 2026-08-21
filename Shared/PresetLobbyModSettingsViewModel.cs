@@ -53,8 +53,10 @@ namespace Shared
         private bool rosterHasUnresolvedPlayers;
         private int resolvedLocalPlayerId;
         private bool isResettingSlots;
+        private bool isMirroringLocalSetting;
         private bool isReady = true;
         private string readinessError = string.Empty;
+        private bool active;
 #if !SHARED_PRESET_TESTS
         private int lastObservedFrame = -1;
         private float nextErrorLogTime;
@@ -82,29 +84,55 @@ namespace Shared
         {
             if (contract.Settings.Count == 0)
                 return;
+            if (active)
+                return;
 
-            owner.PropertyChanged += OnOwnerPropertyChanged;
+            try
+            {
+                owner.PropertyChanged += OnOwnerPropertyChanged;
 #if !SHARED_PRESET_TESTS
-            Application.onBeforeRender += OnBeforeRender;
-            mapStartSubscription = MapLoaderR3EventHooks.OnStartMap.Observable.Subscribe(args =>
-            {
-                if (args.Phase == EventHookPhase.Pre)
-                    mapStarted = true;
-            });
-            mapUnloadSubscription = MapLoaderR3EventHooks.OnUnloadMap.Observable.Subscribe(args =>
-            {
-                if (args.Phase == EventHookPhase.Post)
-                    mapStarted = false;
-            });
-            if (mapStartSubscription == null || mapUnloadSubscription == null)
-                throw new InvalidOperationException("The persistent map lifecycle subscriptions could not be created.");
+                Application.onBeforeRender += OnBeforeRender;
+                mapStartSubscription = MapLoaderR3EventHooks.OnStartMap.Observable.Subscribe(args =>
+                {
+                    if (args.Phase == EventHookPhase.Pre)
+                        mapStarted = true;
+                });
+                mapUnloadSubscription = MapLoaderR3EventHooks.OnUnloadMap.Observable.Subscribe(args =>
+                {
+                    if (args.Phase == EventHookPhase.Post)
+                        mapStarted = false;
+                });
+                if (mapStartSubscription == null || mapUnloadSubscription == null)
+                    throw new InvalidOperationException("The persistent map lifecycle subscriptions could not be created.");
 #endif
-            RequestPublish();
+                active = true;
+                RequestPublish();
+            }
+            catch
+            {
+                Deactivate();
+                throw;
+            }
             DebugLogHelper.LogInfo(
                 log,
                 $"[{modName}] Shared per-player lobby convergence activated: " +
                 $"settings=[{string.Join(",", contract.Settings.Select(item => item.Property.Name))}], " +
                 $"required=[{string.Join(",", contract.Settings.Where(item => item.IsReportRequired).Select(item => item.Property.Name))}].");
+        }
+
+        internal void Deactivate()
+        {
+            owner.PropertyChanged -= OnOwnerPropertyChanged;
+#if !SHARED_PRESET_TESTS
+            Application.onBeforeRender -= OnBeforeRender;
+            mapStartSubscription?.Dispose();
+            mapUnloadSubscription?.Dispose();
+            mapStartSubscription = null;
+            mapUnloadSubscription = null;
+            mapStarted = false;
+#endif
+            active = false;
+            publishPending = false;
         }
 
         internal void RequestPublish()
@@ -318,9 +346,34 @@ namespace Shared
                 return;
             if (contract.Settings.Any(item => item.DataProperty.Name == args.PropertyName))
             {
-                if (isResettingSlots)
+                if (isResettingSlots || isMirroringLocalSetting)
                     return;
                 contract.RemoteDataChanged?.Invoke(args.PropertyName);
+                RequestReadinessRefresh();
+                return;
+            }
+
+            PerPlayerLobbySettingContract localSetting = contract.Settings.FirstOrDefault(
+                item => item.Property.Name == args.PropertyName);
+            if (localSetting != null && hasLobby &&
+                IsValidPlayerId(resolvedLocalPlayerId) &&
+                playersById.ContainsKey(resolvedLocalPlayerId))
+            {
+                // The transport does not echo a sender's packet back to itself. Keep
+                // the local companion slot authoritative in Shared so individual mods
+                // never need to resolve or guess their own player ID in a setter.
+                localSetting.GetData().SetValue(
+                    CloneValue(localSetting.Property.GetValue(owner)),
+                    resolvedLocalPlayerId);
+                isMirroringLocalSetting = true;
+                try
+                {
+                    owner.System_TriggerUpdate(localSetting.DataProperty.Name);
+                }
+                finally
+                {
+                    isMirroringLocalSetting = false;
+                }
                 RequestReadinessRefresh();
             }
         }
@@ -355,6 +408,9 @@ namespace Shared
             }
             catch (Exception exception)
             {
+                SetReadiness(
+                    false,
+                    "The lobby roster could not be observed; waiting for a successful retry.");
                 if (Time.unscaledTime < nextErrorLogTime)
                     return;
                 nextErrorLogTime = Time.unscaledTime + 5f;
@@ -373,7 +429,9 @@ namespace Shared
                 bool mapTransition = platform?.gameMembers != null &&
                     platform.gameMembers.Any(member =>
                         member != null && !member.skirmishAI && !member.kicked);
-                Observe(null, null, false, GetLocalPlayerId(), mapTransition);
+                // There is no stable local player slot outside a lobby. Querying the
+                // Extender here only emits warnings and the value is discarded anyway.
+                Observe(null, null, false, 0, mapTransition);
                 return;
             }
 
@@ -841,6 +899,12 @@ namespace Shared
                 modName,
                 builder.Build());
             perPlayerSettingsCoordinator.Activate();
+        }
+
+        internal void DeactivatePerPlayerLobbySettings()
+        {
+            perPlayerSettingsCoordinator?.Deactivate();
+            perPlayerSettingsCoordinator = null;
         }
 
         // Neutral reflection boundary used by optional mission coordinators.
@@ -2005,16 +2069,25 @@ namespace Shared
             // Structural validation must happen before the ViewModel can enter the
             // Extender registry. An invalid personal setting therefore fails closed.
             viewModel.ActivatePerPlayerLobbySettings(log, modName);
-            GameXAMLManagerAPI.Instance.RegisterLobbyModSettings(
-                plugin,
-                modName,
-                viewModel,
-                xamlSourceFile);
-
-            bool registered = GameXAMLManagerAPI.Instance.RegisteredModSettings
-                .Any(entry => ReferenceEquals(entry.ViewModel, viewModel));
+            bool registered;
+            try
+            {
+                GameXAMLManagerAPI.Instance.RegisterLobbyModSettings(
+                    plugin,
+                    modName,
+                    viewModel,
+                    xamlSourceFile);
+                registered = GameXAMLManagerAPI.Instance.RegisteredModSettings
+                    .Any(entry => ReferenceEquals(entry.ViewModel, viewModel));
+            }
+            catch
+            {
+                viewModel.DeactivatePerPlayerLobbySettings();
+                throw;
+            }
             if (!registered)
             {
+                viewModel.DeactivatePerPlayerLobbySettings();
                 DebugLogHelper.LogError(
                     log,
                     $"[{modName}] Presets were not activated because lobby-settings registration failed.");

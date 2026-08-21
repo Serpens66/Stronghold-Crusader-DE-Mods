@@ -906,8 +906,7 @@ namespace ExtraFeatures
 
         private static int GetControlledPlayerId()
         {
-            if ((GamePlayerManagerAPI.Instance?.IsInMapEditor() ?? false) ||
-                (MainViewModel.Instance?.IsMapEditorMode ?? false))
+            if (Shared.GameModeHelper.IsMapEditor())
             {
                 // The gate button is available only for the active editor player's buildings.
                 return EditorDirector.instance?.ActivePlayerID ?? -1;
@@ -917,9 +916,7 @@ namespace ExtraFeatures
             return localPlayerId > 0 ? localPlayerId : 1;
         }
 
-        private static bool IsMapEditor() =>
-            (GamePlayerManagerAPI.Instance?.IsInMapEditor() ?? false) ||
-            (MainViewModel.Instance?.IsMapEditorMode ?? false);
+        private static bool IsMapEditor() => Shared.GameModeHelper.IsMapEditor();
 
         private static string DescribeBuilding(int buildingId)
         {

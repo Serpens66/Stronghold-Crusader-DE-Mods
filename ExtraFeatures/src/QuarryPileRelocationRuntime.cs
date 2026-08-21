@@ -1606,8 +1606,7 @@ namespace ExtraFeatures
 
         private static int GetControlledPlayerId()
         {
-            if ((GamePlayerManagerAPI.Instance?.IsInMapEditor() ?? false) ||
-                (MainViewModel.Instance?.IsMapEditorMode ?? false))
+            if (Shared.GameModeHelper.IsMapEditor())
             {
                 // Never expose an editor mutation for an object owned by another editor player.
                 return EditorDirector.instance?.ActivePlayerID ?? -1;

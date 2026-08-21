@@ -1278,23 +1278,46 @@ namespace CustomCustomTrail
 
             private void InitializeCoopPage(UserControl page, int zeroBasedTrail)
             {
-                // The Vanilla constructor has now loaded the XAML and assigned all named controls.
-                // This is the first deterministic point at which the first-visit title exists.
                 InjectCoopCustomizeButton(page);
                 if (UpdateCoopTrailTitle(page, zeroBasedTrail))
                 {
-                    DebugLogHelper.LogDebug(
-                        log,
-                        "Initialized custom presentation for Coop Trail " +
-                        (zeroBasedTrail + 1).ToString(CultureInfo.InvariantCulture) + ".");
+                    LogCoopPresentationInitialized(zeroBasedTrail, "constructor");
+                    return;
                 }
-                else
+
+                // Noesis can finish the managed constructor before the logical and visual
+                // trees are materialized. Retry once at the framework's deterministic Loaded
+                // event instead of treating this normal first phase as a feature failure.
+                RoutedEventHandler loaded = null;
+                loaded = (_, __) =>
                 {
+                    page.Loaded -= loaded;
+                    InjectCoopCustomizeButton(page);
+                    if (UpdateCoopTrailTitle(page, zeroBasedTrail))
+                    {
+                        LogCoopPresentationInitialized(zeroBasedTrail, "loaded");
+                        return;
+                    }
+
                     DebugLogHelper.LogWarning(
                         log,
-                        "Could not find the logical title element for Coop Trail " +
+                        "Could not find the logical title element after Loaded for Coop Trail " +
                         (zeroBasedTrail + 1).ToString(CultureInfo.InvariantCulture) + ".");
-                }
+                };
+                page.Loaded += loaded;
+                DebugLogHelper.LogDebug(
+                    log,
+                    "Deferred custom presentation until Loaded for Coop Trail " +
+                    (zeroBasedTrail + 1).ToString(CultureInfo.InvariantCulture) + ".");
+            }
+
+            private void LogCoopPresentationInitialized(int zeroBasedTrail, string phase)
+            {
+                DebugLogHelper.LogDebug(
+                    log,
+                    "Initialized custom presentation for Coop Trail " +
+                    (zeroBasedTrail + 1).ToString(CultureInfo.InvariantCulture) +
+                    "; phase=" + phase + ".");
             }
 
             private void EnterSelectedCustomTrail(FrontendMenus menus)

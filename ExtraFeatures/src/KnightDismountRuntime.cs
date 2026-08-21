@@ -1521,8 +1521,7 @@ namespace ExtraFeatures
 
         private static int GetControlledPlayerId()
         {
-            if ((GamePlayerManagerAPI.Instance?.IsInMapEditor() ?? false) ||
-                (MainViewModel.Instance?.IsMapEditorMode ?? false))
+            if (Shared.GameModeHelper.IsMapEditor())
             {
                 // Editor actions belong to the player currently selected in the editor toolbar.
                 return EditorDirector.instance?.ActivePlayerID ?? -1;
@@ -1532,9 +1531,7 @@ namespace ExtraFeatures
             return localPlayerId > 0 ? localPlayerId : 1;
         }
 
-        private static bool IsMapEditor() =>
-            (GamePlayerManagerAPI.Instance?.IsInMapEditor() ?? false) ||
-            (MainViewModel.Instance?.IsMapEditorMode ?? false);
+        private static bool IsMapEditor() => Shared.GameModeHelper.IsMapEditor();
 
         private void LogVisibilityState(string state)
         {

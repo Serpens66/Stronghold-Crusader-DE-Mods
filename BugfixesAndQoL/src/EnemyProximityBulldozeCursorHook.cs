@@ -168,7 +168,9 @@ namespace BugfixesAndQoL
             if (MainControls.instance == null || !IsDeleteAction(MainControls.instance))
                 return false;
 
-            if (MainViewModel.Instance == null || MainViewModel.Instance.IsMapEditorMode)
+            if (!MainViewModel.viewModelLoaded ||
+                MainViewModel.Instance == null ||
+                Shared.GameModeHelper.IsMapEditor())
                 return false;
 
             if (GameData.Instance == null || GameData.Instance.lastGameState == null)

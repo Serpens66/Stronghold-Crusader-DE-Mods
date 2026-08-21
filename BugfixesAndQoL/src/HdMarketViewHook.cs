@@ -220,11 +220,7 @@ namespace BugfixesAndQoL
             }
         }
 
-        private static bool IsMapEditor()
-        {
-            return (SHCDESE.API.GamePlayerManagerAPI.Instance?.IsInMapEditor() ?? false) ||
-                (MainViewModel.Instance?.IsMapEditorMode ?? false);
-        }
+        private static bool IsMapEditor() => Shared.GameModeHelper.IsMapEditor();
 
         private static unsafe bool IsSelectedTradepostControlled()
         {

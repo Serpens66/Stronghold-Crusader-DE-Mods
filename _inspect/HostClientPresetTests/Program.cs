@@ -24,6 +24,8 @@ internal static class Program
         {
             TestLobbySettingsRouting();
             TestSharedPerPlayerLobbyConvergence();
+            TestFailedRegistrationStopsPerPlayerCoordinator();
+            TestThrowingRegistrationStopsPerPlayerCoordinator();
             TestGameModeHelper();
             TestLocalPerPlayerSetting();
             TestMarketGoodsOrderDefinition();
@@ -369,6 +371,22 @@ internal static class Program
         Check(!viewModel.IsPerPlayerLobbySettingsReady,
             "Shared reported readiness before the remote required value arrived");
 
+        viewModel.PreferenceData[1] = new[] { 1, 2, 3 };
+        viewModel.PreferenceData[2] = null;
+        viewModel.System_TriggerUpdate(nameof(viewModel.PreferenceData));
+        Check(!viewModel.IsPerPlayerLobbySettingsReady,
+            "Shared reported readiness while the local required slot was empty");
+
+        viewModel.Preference = new[] { 9, 8, 7 };
+        Check(viewModel.PreferenceData[2].SequenceEqual(new[] { 9, 8, 7 }),
+            "Shared did not mirror a local personal edit into the resolved companion slot");
+        Check(!ReferenceEquals(viewModel.Preference, viewModel.PreferenceData[2]),
+            "Shared aliased a mutable personal edit into the companion slot");
+        Check(viewModel.RemoteDataChangeCount == 1,
+            "Shared misreported its own local companion mirror as a remote update");
+        Check(viewModel.IsPerPlayerLobbySettingsReady,
+            "Shared did not refresh readiness after mirroring the final required local report");
+
         viewModel.System_RequestPerPlayerSettingsPublish();
         int lobbyChangesBeforeResolution = viewModel.LobbyChangeCount;
         viewModel.System_TestObservePerPlayerLobby(
@@ -401,7 +419,7 @@ internal static class Program
 
         viewModel.PreferenceData[1] = new[] { 1, 2, 3 };
         viewModel.System_TriggerUpdate(nameof(viewModel.PreferenceData));
-        Check(viewModel.RemoteDataChangeCount == 1,
+        Check(viewModel.RemoteDataChangeCount == 2,
             "Shared did not forward a real remote companion-array update");
         viewModel.System_TestObservePerPlayerLobby(
             100,
@@ -441,6 +459,57 @@ internal static class Program
             "unstable companion array instance");
 
         GameNetworkAPI.LocalHost = true;
+    }
+
+    private static void TestFailedRegistrationStopsPerPlayerCoordinator()
+    {
+        GameXAMLManagerAPI.Instance.ResetRoutingProbe();
+        GameXAMLManagerAPI.Instance.FailNextRegistration = true;
+        var viewModel = new SharedPerPlayerProbeViewModel();
+        LobbyModSettingsPresetRegistration.Register(
+            new BepInEx.BaseUnityPlugin(),
+            null,
+            "FailedSharedPerPlayerProbe",
+            viewModel,
+            "missing.xaml");
+
+        viewModel.System_TestObservePerPlayerLobby(
+            200,
+            new Dictionary<int, ulong> { [1] = 11 },
+            false,
+            1);
+        Check(viewModel.LocalPlayerId == 0 && viewModel.LastLobbySnapshot == null,
+            "Shared left the per-player coordinator active after lobby-settings registration failed");
+    }
+
+    private static void TestThrowingRegistrationStopsPerPlayerCoordinator()
+    {
+        GameXAMLManagerAPI.Instance.ResetRoutingProbe();
+        GameXAMLManagerAPI.Instance.ThrowNextRegistration = true;
+        var viewModel = new SharedPerPlayerProbeViewModel();
+        bool threw = false;
+        try
+        {
+            LobbyModSettingsPresetRegistration.Register(
+                new BepInEx.BaseUnityPlugin(),
+                null,
+                "ThrowingSharedPerPlayerProbe",
+                viewModel,
+                "missing.xaml");
+        }
+        catch (InvalidOperationException)
+        {
+            threw = true;
+        }
+
+        Check(threw, "Shared swallowed a lobby-settings registration exception");
+        viewModel.System_TestObservePerPlayerLobby(
+            201,
+            new Dictionary<int, ulong> { [1] = 11 },
+            false,
+            1);
+        Check(viewModel.LocalPlayerId == 0 && viewModel.LastLobbySnapshot == null,
+            "Shared left the per-player coordinator active after lobby-settings registration threw");
     }
 
     private static void ExpectInvalidPerPlayerRegistration(
@@ -578,6 +647,20 @@ internal static class Program
 
     private static void TestGameModeHelper()
     {
+        CrusaderDE.MainViewModel.Reset();
+        GamePlayerManagerAPI.Instance.MapEditor = false;
+        Check(!GameModeHelper.IsMapEditor() && CrusaderDE.MainViewModel.InstanceReadCount == 0,
+            "early map-editor detection constructed MainViewModel before viewModelLoaded");
+        GamePlayerManagerAPI.Instance.MapEditor = true;
+        Check(GameModeHelper.IsMapEditor(),
+            "Script Extender map-editor state was not recognized");
+        GamePlayerManagerAPI.Instance.MapEditor = false;
+        CrusaderDE.MainViewModel.viewModelLoaded = true;
+        CrusaderDE.MainViewModel.Instance.IsMapEditorMode = true;
+        Check(GameModeHelper.IsMapEditor(),
+            "loaded MainViewModel map-editor state was not recognized");
+        CrusaderDE.MainViewModel.Reset();
+
         Platform_Multiplayer platform = Platform_Multiplayer.Instance;
         platform.activeLobby = null;
         platform.gameMembers = null;
@@ -601,12 +684,19 @@ internal static class Program
         {
             members = new List<Platform_Multiplayer.MPLobbyMember>
             {
+                null,
                 new Platform_Multiplayer.MPLobbyMember { SkirmishMember = false }
             }
         };
+        platform.gameMembers = new List<Platform_Multiplayer.MPGameMember>
+        {
+            null,
+            new Platform_Multiplayer.MPGameMember { skirmishAI = false, steamID = 12345 }
+        };
         GameModeSnapshot lobby = GameModeHelper.Capture();
-        Check(lobby.IsRealMultiplayer && !lobby.PlatformMultiplayer,
-            "pre-start lobby required the active-game signal");
+        Check(lobby.IsRealMultiplayer && !lobby.PlatformMultiplayer &&
+              lobby.RealLobbyMembers == 1 && lobby.RealNetworkGameMembers == 1,
+            "pre-start lobby required the active-game signal or failed on null transition members");
 
         platform.activeLobby = null;
         GameNetworkAPI.MultiplayerGame = true;
@@ -1741,6 +1831,28 @@ internal static class Program
                 "v1\n" + Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes("Castle")) +
                 "|" + new string('Z', 64)).Count == 0,
             "CastlePlanner accepted a non-hexadecimal SHA-256 value");
+        Check(CastlePlanner.CastleSpawnCompatibility.TryDecodeManifest(
+                "v1", out Dictionary<string, string> emptyInventory) &&
+              emptyInventory.Count == 0,
+            "CastlePlanner rejected a valid empty inventory manifest");
+        Check(!CastlePlanner.CastleSpawnCompatibility.TryDecodeManifest(
+                "v2\n" + Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes("Castle")) +
+                "|" + sharedHash, out _),
+            "CastlePlanner strictly decoded an unsupported inventory-manifest version");
+        string encodedDuplicateName =
+            Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes("Castle"));
+        string encodedCaseDuplicateName =
+            Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes("CASTLE"));
+        Check(!CastlePlanner.CastleSpawnCompatibility.TryDecodeManifest(
+                "v1\n" + encodedDuplicateName + "|" + sharedHash + "\n" +
+                encodedCaseDuplicateName + "|" + sharedHash, out _),
+            "CastlePlanner accepted case-insensitively duplicate manifest names");
+        Check(!CastlePlanner.CastleSpawnCompatibility.TryDecodeManifest(
+                "v1\nmalformed-entry", out _),
+            "CastlePlanner silently skipped a malformed manifest entry");
+        Check(!CastlePlanner.CastleSpawnCompatibility.TryDecodeManifest(
+                "v1\n" + encodedDuplicateName + "| " + sharedHash, out _),
+            "CastlePlanner normalized whitespace around a malformed manifest hash");
 
         var largeInventory = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         for (int index = 0; index < 2500; index++)
@@ -2281,9 +2393,21 @@ namespace SHCDESE.API
         public List<Registration> RegisteredModSettings { get; } = new List<Registration>();
         public int BroadcastCount { get; private set; }
         public int SaveCount { get; private set; }
+        public bool FailNextRegistration { get; set; }
+        public bool ThrowNextRegistration { get; set; }
 
         public void RegisterLobbyModSettings(global::BepInEx.BaseUnityPlugin plugin, string name, object vm, string xaml)
         {
+            if (ThrowNextRegistration)
+            {
+                ThrowNextRegistration = false;
+                throw new InvalidOperationException("Synthetic registration failure.");
+            }
+            if (FailNextRegistration)
+            {
+                FailNextRegistration = false;
+                return;
+            }
             RegisteredModSettings.Add(new Registration { ViewModel = vm });
             if (!(vm is INotifyPropertyChanged notify))
                 return;
@@ -2323,6 +2447,8 @@ namespace SHCDESE.API
         public void ResetRoutingProbe()
         {
             RegisteredModSettings.Clear();
+            FailNextRegistration = false;
+            ThrowNextRegistration = false;
             routingCache = new Dictionary<string, byte[]>(StringComparer.Ordinal);
             ResetRoutingCounts();
         }
@@ -2439,7 +2565,8 @@ namespace SHCDESE.API
     public sealed class GamePlayerManagerAPI
     {
         public static GamePlayerManagerAPI Instance { get; } = new GamePlayerManagerAPI();
-        public bool IsInMapEditor() => false;
+        public bool MapEditor { get; set; }
+        public bool IsInMapEditor() => MapEditor;
     }
 }
 
@@ -2450,6 +2577,32 @@ namespace SHCDESE.BepInEx.Bootstrap
 
 namespace CrusaderDE
 {
+    public sealed class MainViewModel
+    {
+        private static readonly MainViewModel Value = new MainViewModel();
+        public static bool viewModelLoaded;
+        public static int InstanceReadCount { get; private set; }
+        public bool IsMapEditorMode { get; set; }
+
+        public static MainViewModel Instance
+        {
+            get
+            {
+                InstanceReadCount++;
+                if (!viewModelLoaded)
+                    throw new InvalidOperationException("MainViewModel is not loaded.");
+                return Value;
+            }
+        }
+
+        public static void Reset()
+        {
+            viewModelLoaded = false;
+            InstanceReadCount = 0;
+            Value.IsMapEditorMode = false;
+        }
+    }
+
     public sealed class Translate
     {
         public static Translate Instance { get; } = new Translate();

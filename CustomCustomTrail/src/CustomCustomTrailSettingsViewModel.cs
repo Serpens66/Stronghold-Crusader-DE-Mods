@@ -227,9 +227,6 @@ namespace CustomCustomTrail
                 if (string.Equals(coopPackageStatus, value, StringComparison.Ordinal))
                     return;
                 coopPackageStatus = value;
-                int playerId = GameNetworkAPI.GetLocalPlayerId();
-                if (playerId >= 1 && playerId <= 8)
-                    CoopPackageStatusData[playerId] = value;
                 OnPropertyChanged(nameof(CoopPackageStatus));
                 OnPropertyChanged(nameof(CoopPackageStatusText));
             }

@@ -54,37 +54,56 @@ namespace CastlePlanner
 
         public static Dictionary<string, string> DecodeManifest(string manifest)
         {
-            var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            return TryDecodeManifest(manifest, out Dictionary<string, string> result)
+                ? result
+                : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        public static bool TryDecodeManifest(
+            string manifest,
+            out Dictionary<string, string> result)
+        {
+            result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             if (string.IsNullOrWhiteSpace(manifest))
-                return result;
+                return false;
 
             string[] lines = manifest.Split(
                 new[] { '\n' },
-                StringSplitOptions.RemoveEmptyEntries);
-            if (lines.Length == 0 || !string.Equals(lines[0].Trim(), "v1", StringComparison.Ordinal))
-                return result;
+                StringSplitOptions.None);
+            if (lines.Length == 0 ||
+                !string.Equals(lines[0].TrimEnd('\r'), "v1", StringComparison.Ordinal))
+                return false;
+
+            var strictUtf8 = new UTF8Encoding(false, true);
 
             foreach (string line in lines.Skip(1))
             {
-                int separator = line.LastIndexOf('|');
-                if (separator <= 0 || separator == line.Length - 1)
-                    continue;
+                string normalizedLine = line.TrimEnd('\r');
+                int separator = normalizedLine.LastIndexOf('|');
+                if (separator <= 0 || separator == normalizedLine.Length - 1)
+                    return false;
 
                 try
                 {
-                    string name = Encoding.UTF8.GetString(
-                        Convert.FromBase64String(line.Substring(0, separator)));
-                    string hash = line.Substring(separator + 1).Trim();
-                    if (!string.IsNullOrWhiteSpace(name) && IsSha256(hash))
-                        result[name] = hash;
+                    string name = strictUtf8.GetString(
+                        Convert.FromBase64String(normalizedLine.Substring(0, separator)));
+                    string hash = normalizedLine.Substring(separator + 1);
+                    if (string.IsNullOrWhiteSpace(name) || !IsSha256(hash) ||
+                        result.ContainsKey(name))
+                    {
+                        return false;
+                    }
+                    result.Add(name, hash);
                 }
-                catch (FormatException)
+                catch (Exception exception) when (
+                    exception is FormatException ||
+                    exception is DecoderFallbackException)
                 {
-                    // Malformed remote entries are omitted and therefore fail compatibility.
+                    return false;
                 }
             }
 
-            return result;
+            return true;
         }
 
         private static bool IsSha256(string value)

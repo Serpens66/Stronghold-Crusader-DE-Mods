@@ -130,6 +130,6 @@ In multiplayer, gameplay-related settings are controlled by the host and synchro
 
 [h1]Incompatibility[/h1]
 [*]Incompatible with mods which replace game dlls.
-
+[*]Auto install via subscribe may fail on linux, see source below to download release there.
 
 [h1][url=https://github.com/Serpens66/Stronghold-Crusader-DE-Mods]GitHub – Source Code[/url][/h1]

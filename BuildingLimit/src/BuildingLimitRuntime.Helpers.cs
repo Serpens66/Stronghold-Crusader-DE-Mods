@@ -13,11 +13,7 @@ namespace BuildingLimit
 {
     public sealed partial class BuildingLimitRuntime
     {
-        private static bool IsMapEditor()
-        {
-            return (GamePlayerManagerAPI.Instance?.IsInMapEditor() ?? false) ||
-                (MainViewModel.Instance?.IsMapEditorMode ?? false);
-        }
+        private static bool IsMapEditor() => Shared.GameModeHelper.IsMapEditor();
 
         private static bool IsLocalPlayer(int playerId)
         {

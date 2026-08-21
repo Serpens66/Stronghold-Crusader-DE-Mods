@@ -8,6 +8,7 @@ $settings = [ordered]@{
     ExtraFeatures = 'ExtraFeatures/Override/ScriptExtenderUI/ExtraFeaturesSettings.xaml'
     ImprovedHunters = 'ImprovedHunters/BepInEx/plugins/ImprovedHunters_Serp/Override/ScriptExtenderUI/ImprovedHuntersSettings.xaml'
     RandomEvents = 'RandomEvents/Override/ScriptExtenderUI/RandomEventsSettings.xaml'
+    SerpsModsHost = 'SerpsModsHost/Override/ScriptExtenderUI/SerpsModsStatus.xaml'
     CastlePlanner = 'CastlePlanner/BepInEx/plugins/CastlePlanner_Serp/Override/ScriptExtenderUI/CastlePlannerSettings.xaml'
     CustomCustomTrail = 'CustomCustomTrail/Override/ScriptExtenderUI/CustomCustomTrailSettings.xaml'
     StartConditions = 'StartConditions/BepInEx/plugins/StartConditions_Serp/Override/ScriptExtenderUI/StartConditionsSettings.xaml'
@@ -22,11 +23,42 @@ $localeDirectories = [ordered]@{
     ExtraFeatures = 'ExtraFeatures/Locales'
     ImprovedHunters = 'ImprovedHunters/Locales'
     RandomEvents = 'RandomEvents/Locales'
+    SerpsModsHost = 'SerpsModsHost/Locales'
     CastlePlanner = 'CastlePlanner/BepInEx/plugins/CastlePlanner_Serp/Locales'
     CustomCustomTrail = 'CustomCustomTrail/Locales'
     StartConditions = 'StartConditions/Locales'
     UnitCosts = 'UnitCosts/Locales'
     UnitLimit = 'UnitLimit/Locales'
+}
+
+$viewModelSources = @{
+    BugfixesAndQoL = 'BugfixesAndQoL/src/BugfixesAndQoLViewModel.cs'
+    BuildingCosts = 'BuildingCosts/src/BuildingCostsLobbyViewModel.cs'
+    BuildingLimit = 'BuildingLimit/src/BuildingLimitLobbyViewModel.cs'
+    CastlePlanner = 'CastlePlanner/src/CastlePlannerSettingsViewModel.cs'
+    CustomCustomTrail = 'CustomCustomTrail/src/CustomCustomTrailSettingsViewModel.cs'
+    ExtraFeatures = 'ExtraFeatures/src/ExtraFeaturesViewModel.cs'
+    ImprovedHunters = 'ImprovedHunters/src/ImprovedHuntersViewModel.cs'
+    RandomEvents = 'RandomEvents/src/RandomEventsSettingsViewModel.cs'
+    SerpsModsHost = 'SerpsModsHost/src/SerpsModsDiagnosticsViewModel.cs'
+    StartConditions = 'StartConditions/src/StartConditionsLobbyViewModel.cs'
+    UnitCosts = 'UnitCosts/src/UnitCostsLobbyViewModel.cs'
+    UnitLimit = 'UnitLimit/src/UnitLimitLobbyViewModel.cs'
+}
+
+# These bindings are deliberate editable proxies. Their setters update a classified
+# parent setting or a classified serialized table through the row callback.
+$editableProxyBindings = @{
+    BuildingCosts = @('GoldSlider','GoldText','IronSlider','IronText','PitchSlider','PitchText','StoneSlider','StoneText','WoodSlider','WoodText')
+    BuildingLimit = @('LimitText','SliderLimit')
+    CastlePlanner = @('SelectedSpawnCastleOption')
+    CustomCustomTrail = @('IsEnabled','SelectedCoopPackage')
+    ExtraFeatures = @('AIGateClosingDistanceValueText','AIGateReopenDelayValueText','AILordHealthPercentText','ApothecaryPlagueSearchDistanceValueText','BuyMultiplier','BuyMultiplierValueText','CampfirePeasantsLimitText','GoldRefundPercentValueText','HumanGateClosingDistanceValueText','HumanGateReopenDelayValueText','HumanLordHealthPercentText','IronRefundPercentValueText','MarketBuyPriceMultiplierValueText','MarketSellPriceMultiplierValueText','MultiplyGoodsGainAIText','MultiplyGoodsGainHumanText','MultiplyGoodsGainInMoneyAIText','MultiplyGoodsGainInMoneyHumanText','PitchRefundPercentValueText','PlagueDurationMultiplierValueText','SellMultiplier','SellMultiplierValueText','StoneRefundPercentValueText','WoodRefundPercentValueText')
+    ImprovedHunters = @('CamelMeatText','ChickenMeatText','DeerMeatText','GoatMeatText','MaxNeutralChickensPerPlayerValueText','RabbitMeatText')
+    RandomEvents = @('AppleBlightChanceValueText','ArcherMaxValueText','ArcherMinValueText','ArchersChanceValueText','BanditMaxValueText','BanditMinValueText','BanditsChanceValueText','BardChanceValueText','CooldownMonthsValueText','FairChanceValueText','FireChanceValueText','FireMaxValueText','FireMinValueText','GranaryTheftChanceValueText','HopsBeetlesChanceValueText','IntervalMonthsValueText','LionAttackChanceValueText','LionMaxValueText','LionMinValueText','MadCowsChanceValueText','MarriageChanceValueText','PlagueChanceValueText','PlagueMaxValueText','PlagueMinValueText','RabbitsChanceValueText','TheftMaxValueText','TheftMinValueText','TreeBlightChanceValueText','WheatInfestationChanceValueText')
+    StartConditions = @('AddStartGoldAISlider','AddStartGoldAIText','AddStartGoldHumanSlider','AddStartGoldHumanText','AIAmountSlider','AIAmountText','HumanAmountSlider','HumanAmountText','MultiplyStartTroopsAISlider','MultiplyStartTroopsAIText','MultiplyStartTroopsHumanSlider','MultiplyStartTroopsHumanText','SetStartGoldAISlider','SetStartGoldAIText','SetStartGoldHumanSlider','SetStartGoldHumanText')
+    UnitCosts = @('AmountText','GoldSlider','GoldText','SliderAmount')
+    UnitLimit = @('LimitText','SliderLimit')
 }
 
 $interactiveNames = @('Button', 'CheckBox', 'ComboBox', 'Slider', 'TextBox')
@@ -35,6 +67,7 @@ foreach ($entry in $settings.GetEnumerator()) {
     [xml]$xml = [IO.File]::ReadAllText($path)
     $manager = [Xml.XmlNamespaceManager]::new($xml.NameTable)
     $manager.AddNamespace('p', 'http://schemas.microsoft.com/winfx/2006/xaml/presentation')
+    $editableBindings = @()
 
     foreach ($elementName in $interactiveNames) {
         foreach ($element in $xml.SelectNodes("//p:$elementName", $manager)) {
@@ -54,12 +87,36 @@ foreach ($entry in $settings.GetEnumerator()) {
                 -not $explicitTooltip.GetAttribute('Style').Contains('ModSettingsToolTipStyle')) {
                 throw "$($entry.Key): explicit $elementName tooltip does not use the shared modsettings tooltip style."
             }
+            foreach ($attributeName in @('IsChecked','SelectedValue','SelectedIndex','SelectedItem','Value','Text')) {
+                $binding = $element.GetAttribute($attributeName)
+                if ($binding -match '^\{Binding\s+([^,}\s]+)') {
+                    $editableBindings += $matches[1]
+                }
+            }
         }
+    }
+
+    $viewModelSource = [IO.File]::ReadAllText((Join-Path $workspace $viewModelSources[$entry.Key]))
+    $classifiedProperties = @([Text.RegularExpressions.Regex]::Matches(
+        $viewModelSource,
+        '(?s)\[(?:[^\]]*?)(?:SyncHostOnly|SyncPerPlayer|PresetLocal)(?:[^\]]*?)\]\s*public\s+[\w<>,\.\[\]\s]+?\s+(?<name>\w+)\s*(?:\{|=>)') |
+        ForEach-Object { $_.Groups['name'].Value } |
+        Sort-Object -Unique)
+    $allowedProxies = @($editableProxyBindings[$entry.Key])
+    $unclassifiedBindings = @($editableBindings |
+        Sort-Object -Unique |
+        Where-Object {
+            $_ -ne 'SelectedPreset' -and
+            $_ -notin $classifiedProperties -and
+            $_ -notin $allowedProxies
+        })
+    if ($unclassifiedBindings.Count -ne 0) {
+        throw "$($entry.Key): editable bindings lack a sync/preset classification or reviewed proxy route: $($unclassifiedBindings -join ', ')"
     }
 
     $activationNodes = @($xml.SelectNodes(
         "//*[local-name()='CheckBox' and (contains(@IsChecked, 'EnableMod') or contains(@IsChecked, 'EnableClientFeatures'))]"))
-    if ($activationNodes.Count -eq 0) {
+    if ($entry.Key -ne 'SerpsModsHost' -and $activationNodes.Count -eq 0) {
         throw "$($entry.Key): no activation checkbox found."
     }
     foreach ($activationNode in $activationNodes) {
@@ -79,13 +136,15 @@ foreach ($entry in $settings.GetEnumerator()) {
         'Value="{x:Static shared:ToolTipPresentation.FontSize}"',
         'FontSize="{TemplateBinding FontSize}"',
         'TextWrapping="Wrap"')
-    $requiredMarkers += @(
-        'x:Key="HostRoleHeader"',
-        'x:Key="ClientRoleHeader"',
-        'x:Key="SectionHeader"',
-        'x:Key="HostActivationBorder"',
-        'x:Key="ClientActivationBorder"',
-        'Text="{Binding PresetText}"')
+    if ($entry.Key -ne 'SerpsModsHost') {
+        $requiredMarkers += @(
+            'x:Key="HostRoleHeader"',
+            'x:Key="ClientRoleHeader"',
+            'x:Key="SectionHeader"',
+            'x:Key="HostActivationBorder"',
+            'x:Key="ClientActivationBorder"',
+            'Text="{Binding PresetText}"')
+    }
     foreach ($required in $requiredMarkers) {
         if (-not $text.Contains($required)) {
             throw "$($entry.Key): required shared UI marker is missing: $required"
@@ -146,6 +205,14 @@ foreach ($required in @(
     'finally')) {
     if (-not $castleRuntimeSource.Contains($required)) {
         throw "CastlePlanner exact-once spawn verification marker is missing: $required"
+    }
+}
+$castleSettingsSource = [IO.File]::ReadAllText((Join-Path $workspace 'CastlePlanner/src/CastlePlannerSettingsViewModel.cs'))
+foreach ($required in @(
+    'TryDecodeManifest(',
+    'reported an invalid AIVJSON inventory manifest')) {
+    if (-not $castleSettingsSource.Contains($required)) {
+        throw "CastlePlanner fail-closed manifest marker is missing: $required"
     }
 }
 foreach ($forbidden in @(
@@ -241,9 +308,9 @@ foreach ($entry in $localeDirectories.GetEnumerator()) {
 # Every productive lobby-settings registration must pass through the one Shared
 # transport/preset/convergence boundary. This also prevents mod-local copies of
 # temporary network workarounds from silently diverging.
-$productiveRoots = @($settings.Keys) + @('SerpsModsHost')
+$productiveRoots = @($settings.Keys)
 $productiveCsFiles = @($productiveRoots | ForEach-Object {
-    Get-ChildItem -LiteralPath (Join-Path $workspace $_) -Recurse -File -Filter '*.cs'
+    Get-ChildItem -LiteralPath (Join-Path $workspace "$_/src") -File -Filter '*.cs'
 })
 $directRegistrations = @($productiveCsFiles | Where-Object {
     $_.FullName -notlike '*\Shared\PresetLobbyModSettingsViewModel.cs' -and
@@ -256,6 +323,15 @@ if ($directRegistrations.Count -ne 0) {
 $registrationFiles = @($productiveCsFiles | Where-Object {
     [IO.File]::ReadAllText($_.FullName).Contains('LobbyModSettingsPresetRegistration.Register(')
 })
+foreach ($root in $productiveRoots) {
+    $sourceDirectory = [IO.Path]::GetFullPath((Join-Path $workspace "$root/src"))
+    $rootRegistrations = @($registrationFiles | Where-Object {
+        $_.Directory.FullName.Equals($sourceDirectory, [StringComparison]::OrdinalIgnoreCase)
+    })
+    if ($rootRegistrations.Count -ne 1) {
+        throw "${root}: expected exactly one Shared lobby-settings registration, found $($rootRegistrations.Count)."
+    }
+}
 foreach ($registrationFile in $registrationFiles) {
     $projectDirectory = $registrationFile.Directory
     while ($null -ne $projectDirectory -and
@@ -272,12 +348,12 @@ foreach ($registrationFile in $registrationFiles) {
     }
 }
 
-$perPlayerViewModels = @(
-    'BugfixesAndQoL/src/BugfixesAndQoLViewModel.cs',
-    'CastlePlanner/src/CastlePlannerSettingsViewModel.cs',
-    'CustomCustomTrail/src/CustomCustomTrailSettingsViewModel.cs')
-foreach ($relativePath in $perPlayerViewModels) {
-    $source = [IO.File]::ReadAllText((Join-Path $workspace $relativePath))
+$settingsViewModels = @($productiveCsFiles | Where-Object {
+    [IO.File]::ReadAllText($_.FullName).Contains('PresetLobbyModSettingsViewModel')
+})
+foreach ($viewModelFile in $settingsViewModels) {
+    $relativePath = [IO.Path]::GetRelativePath($workspace, $viewModelFile.FullName)
+    $source = [IO.File]::ReadAllText($viewModelFile.FullName)
     $nestedTypeStart = $source.IndexOf('private sealed class', [StringComparison]::Ordinal)
     if ($nestedTypeStart -ge 0) {
         $source = $source.Substring(0, $nestedTypeStart)
@@ -294,6 +370,10 @@ foreach ($relativePath in $perPlayerViewModels) {
     if ($matches.Count -gt 0 -and
         -not $source.Contains('ConfigurePerPlayerLobbySettings(')) {
         throw "${relativePath}: personal settings do not declare their Shared lobby policy."
+    }
+    if ($source.Contains('MainViewModel.Instance') -and
+        -not $source.Contains('MainViewModel.viewModelLoaded')) {
+        throw "${relativePath}: MainViewModel.Instance is used without an early-lifecycle viewModelLoaded guard."
     }
 }
 
@@ -321,6 +401,10 @@ foreach ($required in @(
     'member.dummyToBeKicked',
     'member.SkirmishMember && !member.SkirmishHumanMember',
     'platform.gameMembers.Any(member =>',
+    'never need to resolve or guess their own player ID',
+    'Observe(null, null, false, 0, mapTransition)',
+    'The lobby roster could not be observed; waiting for a successful retry.',
+    'viewModel.DeactivatePerPlayerLobbySettings();',
     'SendReliableLobbyPacket',
     'SendMessageToUser returned',
     'fromThread && data != null',
@@ -332,10 +416,50 @@ foreach ($required in @(
 if ($sharedSettingsSource.Contains('sendPacketToSteamIdMethod')) {
     throw 'Shared reliable lobby delivery must not route back through gameMembers-aware SendPacketToSteamId.'
 }
+$sharedGameModeSource = [IO.File]::ReadAllText((Join-Path $workspace 'Shared/GameModeHelper.cs'))
+foreach ($required in @(
+    'public static bool IsMapEditor()',
+    'if (!MainViewModel.viewModelLoaded)',
+    'member != null && !member.SkirmishMember',
+    'member != null && !member.skirmishAI',
+    'bool mapEditor = IsMapEditor();')) {
+    if (-not $sharedGameModeSource.Contains($required)) {
+        throw "Shared lifecycle-safe game-mode marker is missing: $required"
+    }
+}
+$unsafeEditorChecks = Get-ChildItem -LiteralPath $workspace -Directory |
+    Where-Object { $settings.Contains($_.Name) } |
+    ForEach-Object { Get-ChildItem -LiteralPath (Join-Path $_.FullName 'src') -File -Filter '*.cs' -ErrorAction SilentlyContinue }
+foreach ($sourceFile in $unsafeEditorChecks) {
+    $sourceText = [IO.File]::ReadAllText($sourceFile.FullName)
+    if ($sourceText.Contains('.IsMapEditorMode')) {
+        throw "$($sourceFile.FullName): use Shared.GameModeHelper.IsMapEditor() so early startup cannot construct MainViewModel."
+    }
+}
 $castleSettingsSource = [IO.File]::ReadAllText((Join-Path $workspace 'CastlePlanner/src/CastlePlannerSettingsViewModel.cs'))
 if ($castleSettingsSource.Contains('SpawnSelectedCastleData[GetLocalPlayerId()]') -or
     $castleSettingsSource.Contains('SpawnInventoryManifestData[GetLocalPlayerId()]')) {
     throw 'CastlePlanner writes personal companion data through an unresolved slot-1 fallback.'
+}
+if ($castleSettingsSource.Contains('HasActiveMultiplayerGameMembers')) {
+    throw 'CastlePlanner must use Shared game-mode and roster helpers instead of a private gameMembers-count heuristic.'
+}
+if ($castleSettingsSource.Contains('SpawnSelectedCastleData[localPlayerId]') -or
+    $castleSettingsSource.Contains('SpawnInventoryManifestData[localPlayerId] =')) {
+    throw 'CastlePlanner must let Shared mirror local personal values into companion slots.'
+}
+$customTrailSettingsSource = [IO.File]::ReadAllText((Join-Path $workspace 'CustomCustomTrail/src/CustomCustomTrailSettingsViewModel.cs'))
+if ($customTrailSettingsSource.Contains('GameNetworkAPI.GetLocalPlayerId()')) {
+    throw 'CustomCustomTrail must let Shared mirror its local status into the companion slot.'
+}
+$customTrailCoordinatorSource = [IO.File]::ReadAllText((Join-Path $workspace 'CustomCustomTrail/src/TrailMissionSettingsCoordinator.cs'))
+foreach ($required in @(
+    'page.Loaded += loaded;',
+    'page.Loaded -= loaded;',
+    'Could not find the logical title element after Loaded')) {
+    if (-not $customTrailCoordinatorSource.Contains($required)) {
+        throw "CustomCustomTrail lifecycle-safe Coop presentation marker is missing: $required"
+    }
 }
 
 $crlfTargets = @($settings.Values) + @(
@@ -345,6 +469,7 @@ $crlfTargets = @($settings.Values) + @(
     }
 ) + @(
     'Shared/PresetLobbyModSettingsViewModel.cs',
+    'Shared/GameModeHelper.cs',
     'BugfixesAndQoL/src/BugfixesAndQoLViewModel.cs',
     'BugfixesAndQoL/src/BugfixesAndQoLPlugin.cs',
     'CastlePlanner/src/CastlePlannerSettingsViewModel.cs',

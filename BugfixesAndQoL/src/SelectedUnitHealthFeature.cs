@@ -303,8 +303,7 @@ namespace BugfixesAndQoL
         {
             MainViewModel mainViewModel = MainViewModel.Instance;
             HUD_Troops troopPanel = mainViewModel?.HUDTroopPanel;
-            bool mapEditor = (GamePlayerManagerAPI.Instance?.IsInMapEditor() ?? false) ||
-                (mainViewModel?.IsMapEditorMode ?? false);
+            bool mapEditor = Shared.GameModeHelper.IsMapEditor();
             if (!settings.EnableClientFeatures ||
                 !settings.ShowSelectedUnitHealth ||
                 mainViewModel == null ||

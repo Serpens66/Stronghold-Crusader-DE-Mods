@@ -1025,11 +1025,7 @@ namespace UnitCosts
             return IsHumanPlayer(playerId) ? playerId : -1;
         }
 
-        private static bool IsMapEditor()
-        {
-            return (GamePlayerManagerAPI.Instance?.IsInMapEditor() ?? false) ||
-                (MainViewModel.Instance?.IsMapEditorMode ?? false);
-        }
+        private static bool IsMapEditor() => Shared.GameModeHelper.IsMapEditor();
 
         private static bool IsHumanPlayer(int playerId)
         {

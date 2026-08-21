@@ -114,7 +114,7 @@ namespace BugfixesAndQoL
         {
             MainViewModel main = MainViewModel.Instance;
             EngineInterface.PlayState state = GameData.Instance?.lastGameState;
-            bool mapEditor = IsMapEditor(main);
+            bool mapEditor = Shared.GameModeHelper.IsMapEditor();
             int selectedCount = state?.numSelectedChimps ?? 0;
             int selectedUnitId = selectedCount == 1 &&
                 state.selectedChimps != null &&
@@ -289,7 +289,7 @@ namespace BugfixesAndQoL
         {
             MainViewModel main = MainViewModel.Instance;
             EngineInterface.PlayState state = GameData.Instance?.lastGameState;
-            bool mapEditor = IsMapEditor(main);
+            bool mapEditor = Shared.GameModeHelper.IsMapEditor();
             int selectedCount = state?.numSelectedChimps ?? 0;
             int selectedUnitId = selectedCount == 1 &&
                 state.selectedChimps != null &&
@@ -340,10 +340,6 @@ namespace BugfixesAndQoL
             Director.instance != null &&
             Director.instance.SimRunning &&
             GameData.Instance?.lastGameState != null;
-
-        private static bool IsMapEditor(MainViewModel main) =>
-            (GamePlayerManagerAPI.Instance != null && GamePlayerManagerAPI.Instance.IsInMapEditor()) ||
-            (main != null && main.IsMapEditorMode);
 
         private static int GetControlledPlayerId(bool mapEditor)
         {

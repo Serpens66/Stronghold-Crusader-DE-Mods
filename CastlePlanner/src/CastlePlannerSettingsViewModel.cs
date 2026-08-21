@@ -295,16 +295,13 @@ namespace CastlePlanner
                     return;
 
                 spawnSelectedCastle = normalized;
-                int localPlayerId = GetValidatedLocalPlayerId();
-                if (localPlayerId != 0)
-                    SpawnSelectedCastleData[localPlayerId] = normalized;
                 MarkCompatibilityChanged();
                 OnPropertyChanged(nameof(SpawnSelectedCastle));
                 OnPropertyChanged(nameof(SelectedSpawnCastleOption));
                 Shared.DebugLogHelper.LogInfo(
                     log,
                     $"CastlePlanner personal spawn AIVJSON selection changed: " +
-                    $"playerId={localPlayerId}, selection='{spawnSelectedCastle}'.");
+                    $"playerId={sharedLobbySnapshot?.LocalPlayerId ?? 0}, selection='{spawnSelectedCastle}'.");
                 SettingsChanged?.Invoke();
             }
         }
@@ -320,12 +317,6 @@ namespace CastlePlanner
                     return;
 
                 spawnInventoryManifest = value;
-                int localPlayerId = GetValidatedLocalPlayerId();
-                if (localPlayerId != 0)
-                {
-                    SpawnInventoryManifestData[localPlayerId] = value;
-                    InvalidateDecodedInventory(localPlayerId);
-                }
                 MarkCompatibilityChanged();
                 OnPropertyChanged(nameof(SpawnInventoryManifest));
             }
@@ -492,6 +483,13 @@ namespace CastlePlanner
                     error = $"Player {playerId} has not reported a personal spawn selection.";
                     return false;
                 }
+                if (!CastleSpawnCompatibility.TryDecodeManifest(
+                        SpawnInventoryManifestData[playerId],
+                        out _))
+                {
+                    error = $"Player {playerId} reported an invalid AIVJSON inventory manifest.";
+                    return false;
+                }
             }
 
             IReadOnlyDictionary<int, IReadOnlyDictionary<string, string>> inventories =
@@ -586,15 +584,10 @@ namespace CastlePlanner
         {
             string manifest = CastleSpawnCompatibility.EncodeManifest(
                 catalog.CaptureHashes(message => Shared.DebugLogHelper.LogWarning(log, message)));
-            int localPlayerId = GetValidatedLocalPlayerId();
             bool changed = !string.Equals(spawnInventoryManifest, manifest, StringComparison.Ordinal);
             spawnInventoryManifest = manifest;
-            if (localPlayerId != 0)
-                SpawnInventoryManifestData[localPlayerId] = manifest;
             if (!changed)
                 return false;
-            if (localPlayerId != 0)
-                InvalidateDecodedInventory(localPlayerId);
             MarkCompatibilityChanged();
             if (notify)
                 OnPropertyChanged(nameof(SpawnInventoryManifest));
@@ -774,15 +767,6 @@ namespace CastlePlanner
                 players.Keys.OrderBy(id => id).ToArray(),
                 humanMemberCount,
                 hasUnresolvedPlayers);
-        }
-
-        private static bool HasActiveMultiplayerGameMembers()
-        {
-            Platform_Multiplayer platform = Platform_Multiplayer.Instance;
-            if (platform?.gameMembers == null)
-                return false;
-            return platform.gameMembers.Count(member =>
-                member != null && !member.skirmishAI && !member.kicked) > 1;
         }
 
         private bool TryValidateCompatibilityReadiness(

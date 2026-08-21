@@ -803,12 +803,7 @@ namespace CastlePlanner
             return GamePlayerManagerAPI.Instance?.GetLocalPlayerId() ?? -1;
         }
 
-        private static bool IsMapEditor()
-        {
-            return (GamePlayerManagerAPI.Instance?.IsInMapEditor() ?? false) ||
-                (CrusaderDE.MainViewModel.viewModelLoaded &&
-                 (CrusaderDE.MainViewModel.Instance?.IsMapEditorMode ?? false));
-        }
+        private static bool IsMapEditor() => Shared.GameModeHelper.IsMapEditor();
 
         private static bool IsSimulationActive()
         {

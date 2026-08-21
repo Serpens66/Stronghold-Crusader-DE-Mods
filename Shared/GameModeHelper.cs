@@ -1,4 +1,5 @@
 using SHCDESE.API;
+using CrusaderDE;
 
 namespace Shared
 {
@@ -17,7 +18,7 @@ namespace Shared
             {
                 foreach (Platform_Multiplayer.MPLobbyMember member in lobby.members)
                 {
-                    if (!member.SkirmishMember)
+                    if (member != null && !member.SkirmishMember)
                         realLobbyMembers++;
                 }
             }
@@ -28,7 +29,7 @@ namespace Shared
             {
                 foreach (Platform_Multiplayer.MPGameMember member in platform.gameMembers)
                 {
-                    if (!member.skirmishAI && member.steamID > 1000)
+                    if (member != null && !member.skirmishAI && member.steamID > 1000)
                         realNetworkGameMembers++;
                 }
             }
@@ -44,7 +45,7 @@ namespace Shared
 
             int gameType = gameData != null ? gameData.game_type : -1;
             int skirmishGameType = gameData != null ? gameData.SkirmishGameType : -1;
-            bool mapEditor = GamePlayerManagerAPI.Instance.IsInMapEditor();
+            bool mapEditor = IsMapEditor();
             // game_type 3 is Vanilla's skirmish family; non-negative subtypes are initialized via StartSkirmishModeGame.
             bool singleplayerSkirmishMode =
                 !realMultiplayer &&
@@ -86,6 +87,33 @@ namespace Shared
         // This broader check also covers future/utility subtypes initialized by Vanilla as skirmish mode.
         public static bool IsSingleplayerSkirmishMode(bool multiplayerSave = false) =>
             Capture(multiplayerSave).IsSingleplayerSkirmishMode;
+
+        public static bool IsMapEditor()
+        {
+            try
+            {
+                if (GamePlayerManagerAPI.Instance?.IsInMapEditor() == true)
+                    return true;
+            }
+            catch
+            {
+                // The Script Extender singleton can be unavailable during early plugin startup.
+            }
+
+            // MainViewModel.Instance constructs the ViewModel. Reading it before the
+            // game's own loaded marker is set can therefore fail inside Vanilla code.
+            if (!MainViewModel.viewModelLoaded)
+                return false;
+
+            try
+            {
+                return MainViewModel.Instance?.IsMapEditorMode ?? false;
+            }
+            catch
+            {
+                return false;
+            }
+        }
     }
 
     internal readonly struct GameModeSnapshot
