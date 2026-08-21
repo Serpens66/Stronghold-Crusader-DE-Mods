@@ -3,10 +3,22 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.51",
+  "Version": "1.0.53",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.53",
+      "Changes": [
+        "Restored the standalone Leave Mission button to Vanilla's centered position whenever neither Surrender nor Statistics is visible, while preserving the widened two-button layout when either companion action is available."
+      ]
+    },
+    {
+      "Version": "1.0.52",
+      "Changes": [
+        "Placed per-troop health text consistently above overlapping troop HUD icons without intercepting button input."
+      ]
+    },
     {
       "Version": "1.0.51",
       "Changes": [

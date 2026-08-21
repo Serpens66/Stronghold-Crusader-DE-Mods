@@ -8,7 +8,7 @@
             Margin="138,0,0,0"
             HorizontalAlignment="Left"
             VerticalAlignment="Top"
-            Panel.ZIndex="2"
+            Panel.ZIndex="30"
             IsHitTestVisible="False"
             Visibility="{Binding HealthVisibility}"
             Tag="Ignore">

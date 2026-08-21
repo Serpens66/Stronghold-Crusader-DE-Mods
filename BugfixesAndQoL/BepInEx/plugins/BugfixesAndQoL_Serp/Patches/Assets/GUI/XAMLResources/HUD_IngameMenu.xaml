@@ -36,7 +36,7 @@
                 Grid.Column="0"
                 Grid.ColumnSpan="3"
                 Width="{Binding QuitButtonWidth}"
-                HorizontalAlignment="Right"
+                HorizontalAlignment="{Binding QuitButtonHorizontalAlignment}"
                 VerticalAlignment="Top"
                 local:PropEx.TextCentre="{Binding QuitButtonText}"
                 local:PropEx.TextLeft=""

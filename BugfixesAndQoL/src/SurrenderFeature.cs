@@ -60,6 +60,7 @@ namespace BugfixesAndQoL
                 surrenderButtonVisibility = value;
                 OnPropertyChanged(nameof(SurrenderButtonVisibility));
                 OnPropertyChanged(nameof(QuitButtonWidth));
+                OnPropertyChanged(nameof(QuitButtonHorizontalAlignment));
             }
         }
 
@@ -74,6 +75,7 @@ namespace BugfixesAndQoL
                 statisticsButtonVisibility = value;
                 OnPropertyChanged(nameof(StatisticsButtonVisibility));
                 OnPropertyChanged(nameof(QuitButtonWidth));
+                OnPropertyChanged(nameof(QuitButtonHorizontalAlignment));
             }
         }
 
@@ -120,6 +122,11 @@ namespace BugfixesAndQoL
             SurrenderButtonVisibility == Visibility.Visible || StatisticsButtonVisibility == Visibility.Visible
                 ? 181.25
                 : 300.0;
+
+        public HorizontalAlignment QuitButtonHorizontalAlignment =>
+            SurrenderButtonVisibility == Visibility.Visible || StatisticsButtonVisibility == Visibility.Visible
+                ? HorizontalAlignment.Right
+                : HorizontalAlignment.Center;
 
         internal void SetMenuState(
             bool surrenderVisible,
