@@ -14,13 +14,15 @@ namespace MPTest
 
         public const string PluginGuid = "MPTest_Serp";
         public const string PluginName = "MPTest";
-        public const string PluginVersion = "1.2.0";
+        public const string PluginVersion = "1.3.0";
 
         private static MPTestRuntime runtime;
         private static bool libraryLoadedHandled;
         private ConfigEntry<bool> comprehensiveBarrierTestEnabled;
         private ConfigEntry<int> barrierTestIncomingDelayMilliseconds;
         private ConfigEntry<int> commandsPerClick;
+        private ConfigEntry<bool> fullTrafficCaptureOnClick;
+        private ConfigEntry<int> fullTrafficCaptureDurationMilliseconds;
 
         private void Awake()
         {
@@ -42,19 +44,33 @@ namespace MPTest
                 "CommandsPerClick",
                 5,
                 "Number of consecutive no-op Chores queued by one multiplayer button click. Values are clamped to 1 through 10.");
+            fullTrafficCaptureOnClick = Config.Bind(
+                "ChoreProbe",
+                "FullTrafficCaptureOnClick",
+                false,
+                "Captures exact native Chore metadata, hashes, bounded payload bytes, and managed GameAction calls after an MPTest button click.");
+            fullTrafficCaptureDurationMilliseconds = Config.Bind(
+                "ChoreProbe",
+                "FullTrafficCaptureDurationMs",
+                20000,
+                "Duration of optional full Chore traffic capture after a button click. Values are clamped to 1000 through 60000 ms.");
 
             Shared.DebugLogHelper.LogInfo(Logger, $"{PluginName} {PluginVersion} loaded.");
             Shared.DebugLogHelper.LogInfo(
                 Logger,
                 $"{PluginName} comprehensive test profile: enabled={comprehensiveBarrierTestEnabled.Value}, " +
                 $"nonHostIncomingDelayMs={barrierTestIncomingDelayMilliseconds.Value}, " +
-                $"commandsPerClick={commandsPerClick.Value}.");
+                $"commandsPerClick={commandsPerClick.Value}, " +
+                $"fullTrafficCaptureOnClick={fullTrafficCaptureOnClick.Value}, " +
+                $"fullTrafficCaptureDurationMs={fullTrafficCaptureDurationMilliseconds.Value}.");
             runtime = new MPTestRuntime(
                 Logger,
                 () => comprehensiveBarrierTestEnabled.Value
                     ? barrierTestIncomingDelayMilliseconds.Value
                     : 0,
-                () => commandsPerClick.Value);
+                () => commandsPerClick.Value,
+                () => fullTrafficCaptureOnClick.Value,
+                () => fullTrafficCaptureDurationMilliseconds.Value);
             CrusaderLibrary.Instance.LibraryLoaded += OnCrusaderLibraryLoaded;
         }
 

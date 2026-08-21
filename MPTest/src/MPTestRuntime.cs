@@ -36,12 +36,18 @@ namespace MPTest
         public MPTestRuntime(
             ManualLogSource log,
             Func<int> getIncomingProbeDelayMilliseconds,
-            Func<int> getCommandsPerClick)
+            Func<int> getCommandsPerClick,
+            Func<bool> isTrafficCaptureEnabled,
+            Func<int> getTrafficCaptureDurationMilliseconds)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.getCommandsPerClick =
                 getCommandsPerClick ?? throw new ArgumentNullException(nameof(getCommandsPerClick));
-            nativeChoreProbe = new NativeChoreProbe(log, getIncomingProbeDelayMilliseconds);
+            nativeChoreProbe = new NativeChoreProbe(
+                log,
+                getIncomingProbeDelayMilliseconds,
+                isTrafficCaptureEnabled,
+                getTrafficCaptureDurationMilliseconds);
             ButtonViewModel = new WoodcutterSpawnButtonViewModel(OnSpawnCommand);
         }
 
@@ -191,6 +197,10 @@ namespace MPTest
                     int[] requestIds = new int[commandCount];
                     for (int index = 0; index < requestIds.Length; index++)
                         requestIds[index] = NextRequestId();
+
+                    nativeChoreProbe.ArmTrafficCapture(
+                        $"button/player={sourcePlayerId}/building={selectedBuildingId}/" +
+                        $"firstRequest={requestIds[0]}/count={commandCount}");
 
                     if (!nativeChoreProbe.TryEnqueueBatch(
                         sourcePlayerId,

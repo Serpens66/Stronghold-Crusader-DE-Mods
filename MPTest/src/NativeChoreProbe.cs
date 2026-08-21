@@ -140,6 +140,7 @@ namespace MPTest
 
         private readonly ManualLogSource log;
         private readonly Func<int> getIncomingDelayMilliseconds;
+        private readonly ChoreTrafficCapture trafficCapture;
         private readonly object observationLock = new object();
         private readonly object delayedChoreLock = new object();
         private readonly Dictionary<int, ChoreObservation> observationsByCommandId =
@@ -169,11 +170,17 @@ namespace MPTest
 
         public NativeChoreProbe(
             ManualLogSource log,
-            Func<int> getIncomingDelayMilliseconds)
+            Func<int> getIncomingDelayMilliseconds,
+            Func<bool> isTrafficCaptureEnabled,
+            Func<int> getTrafficCaptureDurationMilliseconds)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.getIncomingDelayMilliseconds =
                 getIncomingDelayMilliseconds ?? throw new ArgumentNullException(nameof(getIncomingDelayMilliseconds));
+            trafficCapture = new ChoreTrafficCapture(
+                log,
+                isTrafficCaptureEnabled,
+                getTrafficCaptureDurationMilliseconds);
         }
 
         public bool IsSupported => supported && operational;
@@ -260,6 +267,7 @@ namespace MPTest
                     rootedRunHook = engineRunHook;
                     supported = true;
                     operational = true;
+                    trafficCapture.Initialize();
 
                     LogInfo(
                         $"event=initialized role={GetPeerRole()} moduleBase=0x{moduleBase.ToInt64():X} " +
@@ -348,6 +356,11 @@ namespace MPTest
             }
         }
 
+        public bool ArmTrafficCapture(string context)
+        {
+            return trafficCapture.Arm(context);
+        }
+
         public bool TryEnqueueBatch(
             int sourcePlayerId,
             IReadOnlyList<int> requestIds,
@@ -389,6 +402,7 @@ namespace MPTest
 
         public void ClearMapState()
         {
+            trafficCapture.Clear();
             int delayedCount;
             lock (observationLock)
             {
@@ -518,6 +532,11 @@ namespace MPTest
             }
 
             int actualTick = GetCurrentMapTick();
+            if (payloadValid)
+            {
+                trafficCapture.Arm(
+                    $"probe-execute/source={parsedPayload.SourcePlayerId}/request={parsedPayload.RequestId}");
+            }
             int sequence = 0;
             if (payloadValid && slotValid)
             {
@@ -680,6 +699,14 @@ namespace MPTest
         {
             if (data == null || offset < 0 || length < 1 || offset > data.Length - length)
                 return;
+
+            trafficCapture.Observe(
+                data,
+                offset,
+                length,
+                direction,
+                senderPlayerId,
+                targetPlayerId);
 
             byte opcode = data[offset];
             if (opcode == ResyncStartOpcode || opcode == ResyncEndOpcode)

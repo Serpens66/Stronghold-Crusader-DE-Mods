@@ -35,6 +35,20 @@ compatibility documentation for the current probe.
 their buffers. Logs contain source/request IDs, native command ID, scheduled tick, SyncEvent
 membership, and actual execution tick with millisecond wall-clock timestamps.
 
+## Optional full traffic capture
+
+MPTest 1.3.0 also contains the general Chore diagnostics moved out of RandomEvents. Set
+`FullTrafficCaptureOnClick = true` in the `ChoreProbe` config section and optionally adjust
+`FullTrafficCaptureDurationMs` between 1000 and 60000. The next MPTest multiplayer button click
+then records up to 256 outgoing and incoming Vanilla Chores plus managed `GameAction` calls.
+Execution of the probe also arms the same configured capture on the receiving peer, so one click
+produces correlated host/client observations when the option is enabled on both installations.
+
+Each record includes direction, sender, outer target player, local player, opcode, scheduled tick,
+command ID, payload length, SHA-256, and payload bytes. Byte output is capped at 4096 bytes while
+the SHA-256 always covers the complete payload, preventing large resync packets from flooding logs.
+The capture reuses MPTest's existing send and receive hooks and is disabled by default.
+
 ## Comprehensive two-peer test
 
 MPTest 1.2.0 creates these settings on both peers:

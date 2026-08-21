@@ -44,7 +44,6 @@ namespace RandomEvents
         private readonly NativeVanillaEventDispatcher nativeEventDispatcher;
         private readonly NativeWildlifeEventDispatcher nativeWildlifeDispatcher;
         private readonly NativeBanditEventSupport nativeBanditSupport;
-        private readonly RandomEventsVanillaChoreDiagnostics vanillaChoreDiagnostics;
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
         private readonly List<PendingBanditGroup> pendingBanditGroups = new List<PendingBanditGroup>();
         private readonly HashSet<int> initializationAcknowledgedPlayerIds = new HashSet<int>();
@@ -98,7 +97,6 @@ namespace RandomEvents
             nativeEventDispatcher = new NativeVanillaEventDispatcher(log);
             nativeWildlifeDispatcher = new NativeWildlifeEventDispatcher(log, nativeEventDispatcher);
             nativeBanditSupport = new NativeBanditEventSupport(log);
-            vanillaChoreDiagnostics = new RandomEventsVanillaChoreDiagnostics(log);
         }
 
         public void InitializeNative(IntPtr libraryHandle, ReadOnlySpan<byte> memory, bool referenceHashMatches)
@@ -129,7 +127,6 @@ namespace RandomEvents
             LogDebug($"Random Events Script Extender binary: {RandomEventsDiagnostics.DescribeScriptExtenderBinary()}.");
             string serializerTests = RandomEventsDiagnostics.RunSerializerSelfTests(ChoreProtocolVersion);
             LogDebug($"Random Events Chore serializer self-tests passed: {serializerTests}.");
-            vanillaChoreDiagnostics.Initialize();
         }
 
         public void Initialize()
@@ -181,7 +178,6 @@ namespace RandomEvents
 
         private void OnUnloadMap(MapUnloadEventArgs args)
         {
-            vanillaChoreDiagnostics.Clear();
             ResetMapState();
         }
 
@@ -1044,9 +1040,8 @@ namespace RandomEvents
             state.BatchPrepared = true;
             batchChoreQueued = false;
 
-            // All direct native mutations now run in one Chore callback and in the host-recorded
-            // order. Vanilla GameAction events are queued only by the host below, because they are
-            // already native Chores and would otherwise be duplicated once per peer.
+            // All direct native mutations run in one Chore callback and in the host-recorded order.
+            // FreeBuild_Event executes immediately in this callback, so every peer must invoke it.
             ExecuteDueBatch();
             LogDebug(
                 $"Random Events batch Chore executed: operationId={packet.OperationId}, actions={packet.EventKinds.Length}, " +
@@ -1111,20 +1106,7 @@ namespace RandomEvents
                 // GameAction has no result signal, so its successful roll is the inexpensive success boundary.
                 bool cooldownStartedFromRoll = definition.DispatchKind == RandomEventDispatchKind.GameAction;
                 if (cooldownStartedFromRoll)
-                {
-                    if (isRealMultiplayer)
-                    {
-                        vanillaChoreDiagnostics.Arm(
-                            due,
-                            index,
-                            definition.Name,
-                            definition.TextId,
-                            strength,
-                            targetPlayerId,
-                            isLocalHost);
-                    }
                     StartEventCooldown(definition.Kind, targetPlayerId, due);
-                }
 
                 bool effectApplied = DispatchDirectEvent(definition, strength, targetPlayerId);
                 if (!cooldownStartedFromRoll && effectApplied)
@@ -1395,14 +1377,6 @@ namespace RandomEvents
 
             if (definition.DispatchKind == RandomEventDispatchKind.ManualBandits)
                 return SpawnBanditAttack(targetPlayerId, strength);
-
-            if (isRealMultiplayer && !isLocalHost)
-            {
-                // GameAction queues a native Vanilla Chore. Only the host may enqueue it; every
-                // peer will execute that native Chore later through the game's normal lockstep path.
-                LogDebug($"Vanilla GameAction delegated to multiplayer host: event={definition.Name}, targetPlayerId={targetPlayerId}.");
-                return true;
-            }
 
             IDisposable signpostScope = null;
             int signpostBuildingId = -1;

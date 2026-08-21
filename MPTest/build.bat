@@ -1,6 +1,9 @@
 @echo off
 setlocal EnableExtensions EnableDelayedExpansion
 
+set "NO_PAUSE=0"
+if /I "%~1"=="/nopause" set "NO_PAUSE=1"
+
 set "PROJECT_DIR=%~dp0"
 set "MSBUILD=C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\MSBuild.exe"
 set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition"
@@ -14,7 +17,7 @@ if not exist "%MSBUILD%" (
   echo MSBuild wurde nicht gefunden:
   echo !MSBUILD!
   echo.
-  pause
+  if "%NO_PAUSE%"=="0" pause
   exit /b 1
 )
 
@@ -22,7 +25,7 @@ if not exist "%GAME_DIR%\BepInEx\core\BepInEx.dll" (
   echo BepInEx.dll wurde im Spielordner nicht gefunden:
   echo !GAME_DIR!\BepInEx\core\BepInEx.dll
   echo.
-  pause
+  if "%NO_PAUSE%"=="0" pause
   exit /b 1
 )
 
@@ -39,7 +42,7 @@ if exist "%LOCAL_SCRIPT_EXTENDER_ROOT%\" (
     echo Baue zuerst ..\shcde-script-extender\build.bat oder entferne den Nebenordner,
     echo wenn gegen die installierte Spiel-DLL kompiliert werden soll.
     echo.
-    pause
+    if "%NO_PAUSE%"=="0" pause
     exit /b 1
   )
 ) else (
@@ -50,7 +53,7 @@ if not exist "%EXTENDER_DIR%\SHCDESE.dll" (
   echo SHCDESE.dll wurde nicht gefunden:
   echo !EXTENDER_DIR!\SHCDESE.dll
   echo.
-  pause
+  if "%NO_PAUSE%"=="0" pause
   exit /b 1
 )
 
@@ -99,7 +102,7 @@ if "%BUILD_EXIT_CODE%"=="0" (
   echo Build fehlgeschlagen. Exit Code: %BUILD_EXIT_CODE%
 )
 echo.
-pause
+if "%NO_PAUSE%"=="0" pause
 exit /b %BUILD_EXIT_CODE%
 
 :copy_failed
@@ -107,5 +110,5 @@ echo.
 echo Kopieren fehlgeschlagen. Ist das Spiel noch gestartet?
 echo Beende Stronghold Crusader Definitive Edition und starte build.bat erneut.
 echo.
-pause
+if "%NO_PAUSE%"=="0" pause
 exit /b 1

@@ -3,10 +3,17 @@
   "Author": "Serpens66",
   "Name": "MPTest",
   "Description": "Tests opcode 111 as a native multiplayer Chore without changing game state; singleplayer keeps the woodcutter swordsman action.",
-  "Version": "1.2.0",
+  "Version": "1.3.0",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.3.0",
+      "Changes": [
+        "Add an optional button-triggered full Chore traffic capture with exact metadata, SHA-256 payload hashes, bounded byte dumps, and managed GameAction observations.",
+        "Reuse the existing MPTest send and receive hooks so full capture does not install parallel Chore detours."
+      ]
+    },
     {
       "Version": "1.2.0",
       "Changes": [
