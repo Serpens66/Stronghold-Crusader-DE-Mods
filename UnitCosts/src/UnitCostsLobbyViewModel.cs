@@ -969,7 +969,7 @@ namespace UnitCosts
 
             private void SetAmount(int value, bool notifyOwner)
             {
-                if (canEdit != null && !canEdit())
+                if (notifyOwner && canEdit != null && !canEdit())
                 {
                     OnPropertyChanged(nameof(AmountText));
                     return;
