@@ -3,10 +3,17 @@
   "Author": "Serpens66",
   "Name": "Random Events",
   "Description": "Runs configurable Vanilla scenario events in skirmishes, Trail missions, and multiplayer games.",
-  "Version": "1.0.18",
+  "Version": "1.0.19",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.19",
+      "Changes": [
+        "Made signpost-based Vanilla events expose only the signpost nearest to the affected player while their synchronized Chore executes, preventing peer-local source selection for archer spawns.",
+        "Added exact archer unit ID, owner, type, state, spawn tile, and target-tile diagnostics for multiplayer comparison."
+      ]
+    },
     {
       "Version": "1.0.18",
       "Changes": [

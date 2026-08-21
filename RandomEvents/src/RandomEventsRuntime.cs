@@ -1418,13 +1418,18 @@ namespace RandomEvents
 
             IDisposable signpostScope = null;
             int signpostBuildingId = -1;
+            int signpostTileX = 0;
+            int signpostTileY = 0;
+            double signpostDistance = double.MaxValue;
 
             if (definition.RequiresSignpost &&
                 !signpostRegistry.TryBeginTargetedEvent(
                     targetPlayerId,
                     out signpostScope,
                     out signpostBuildingId,
-                    out _,
+                    out signpostTileX,
+                    out signpostTileY,
+                    out signpostDistance,
                     out string signpostFailure))
             {
                 LogError(
@@ -1436,8 +1441,12 @@ namespace RandomEvents
             int originalLocalPlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
             IntPtr localPlayerAddress = new IntPtr(unchecked((long)GameGlobalsManager.Instance.LocalPlayerIdVA));
             bool playerChanged = targetPlayerId != originalLocalPlayerId;
+            HashSet<uint> unitGlobalIdsBefore = null;
             try
             {
+                if (definition.Kind == RandomEventKind.Archers)
+                    unitGlobalIdsBefore = CaptureExistingUnitGlobalIds();
+
                 if (playerChanged)
                 {
                     if (localPlayerAddress == IntPtr.Zero)
@@ -1459,9 +1468,16 @@ namespace RandomEvents
                 }
 
                 EngineInterface.GameAction(Enums.GameActionCommand.FreeBuild_Event, definition.TextId, strength);
+                string sourceDetail = definition.RequiresSignpost
+                    ? $"signpostBuildingId={signpostBuildingId}, signpostTile=({signpostTileX},{signpostTileY}), " +
+                      $"distanceToKeep={signpostDistance:0.00}"
+                    : "signpost=not-required";
+                string unitDetail = definition.Kind == RandomEventKind.Archers
+                    ? $"newUnits={DescribeNewUnits(unitGlobalIdsBefore)}"
+                    : "unitCapture=not-requested";
                 LogDebug(
                     $"Vanilla direct event dispatched: event={definition.Name}, textId={definition.TextId}, " +
-                    $"strength={strength}, targetPlayerId={targetPlayerId}, signpostBuildingId={signpostBuildingId}.");
+                    $"strength={strength}, targetPlayerId={targetPlayerId}, {sourceDetail}, {unitDetail}.");
             }
             finally
             {
@@ -1470,6 +1486,41 @@ namespace RandomEvents
                 signpostScope?.Dispose();
             }
             return true;
+        }
+
+        private static unsafe HashSet<uint> CaptureExistingUnitGlobalIds()
+        {
+            HashSet<uint> globalIds = new HashSet<uint>();
+            Span<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitsAsSpan();
+            for (int index = 0; index < units.Length; index++)
+            {
+                uint globalId = units[index].r_GlobalId;
+                if (globalId != 0)
+                    globalIds.Add(globalId);
+            }
+            return globalIds;
+        }
+
+        private static unsafe string DescribeNewUnits(HashSet<uint> existingGlobalIds)
+        {
+            if (existingGlobalIds == null)
+                return "not-captured";
+
+            List<string> descriptions = new List<string>();
+            Span<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitsAsSpan();
+            for (int index = 0; index < units.Length; index++)
+            {
+                ref GameUnit unit = ref units[index];
+                if (unit.r_GlobalId == 0 || existingGlobalIds.Contains(unit.r_GlobalId))
+                    continue;
+
+                descriptions.Add(
+                    $"id={index + 1}/global={unit.r_GlobalId}/owner={unit.r_ControllableForPlayerId}/" +
+                    $"spawnedFor={unit.r_SpawnedForPlayerIndex}/chimp={(int)unit.r_UnitChimp}/" +
+                    $"alive={(int)unit.r_AliveState}/tile=({unit.r_CurrentTilePositionX},{unit.r_CurrentTilePositionY})/" +
+                    $"target=({unit.r_TargetTilePositionX},{unit.r_TargetTilePositionY})");
+            }
+            return descriptions.Count == 0 ? "[]" : "[" + string.Join(";", descriptions) + "]";
         }
 
         private unsafe bool SpawnBanditAttack(int targetPlayerId, int strength)

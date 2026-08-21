@@ -18,6 +18,8 @@ Implemented: 2026-08-21
 - Version 1.0.17 executes every simulation mutation on every peer and removes the observed event-start desyncs.
 - Version 1.0.18 target-filters the native presentation and minimap action-point queues. Each peer still simulates every batch action, while only the affected local player sees its notification and location marker. The target-based filter applies equally to `SharedEvents` and `IndividualRolls`.
 - Debug logs record filter installation and the exact number of suppressed presentation and action-point calls for every foreign-target action.
+- Version 1.0.19 isolates signpost-based Vanilla events to exactly one temporary native source: the registered signpost nearest to the affected player's keep. Equal-distance candidates use the building ID as a deterministic tie-breaker. This removes Vanilla's opportunity to select different signposts locally while executing the same synchronized archer action.
+- Archer diagnostics snapshot the unit array immediately around `GameAction` and record every new unit's array ID, global ID, owner, type, alive state, spawn tile, and target tile. This distinguishes any remaining native placement divergence from RandomEvents action/state divergence.
 
 ## Verification
 
@@ -36,6 +38,7 @@ Implemented: 2026-08-21
 7. Force a missing first ACK or duplicate initialization.
 8. Trigger events for both humans in `SharedEvents`; each player must see exactly one notification and only their own minimap action point.
 9. Trigger different events at different due months in `IndividualRolls`; only each event's target may see its notification and minimap action point.
+10. Trigger `Archers` for both humans in `SharedEvents` and for separate targets in `IndividualRolls`. Host and client must report the same isolated signpost and identical new-unit diagnostics for each action; no resync may occur.
 
 Success requires normally one initialization operation ID, byte-identical retries, matching configuration/state digests, all living human players acknowledged, no RandomEvents decode failures, and exactly one execution of each batch per peer. The known Script Extender length-zero warning is benign only when the corresponding valid Chore subsequently decodes and executes exactly once.
 

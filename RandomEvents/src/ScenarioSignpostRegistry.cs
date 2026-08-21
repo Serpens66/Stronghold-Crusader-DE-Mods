@@ -105,11 +105,15 @@ namespace RandomEvents
             int targetPlayerId,
             out IDisposable scope,
             out int signpostBuildingId,
+            out int signpostTileX,
+            out int signpostTileY,
             out double signpostDistance,
             out string failure)
         {
             scope = null;
             signpostBuildingId = -1;
+            signpostTileX = 0;
+            signpostTileY = 0;
             signpostDistance = double.MaxValue;
             failure = string.Empty;
 
@@ -156,15 +160,35 @@ namespace RandomEvents
                 return false;
             }
 
-            usable.Sort((left, right) => left.Distance.CompareTo(right.Distance));
+            usable.Sort((left, right) =>
+            {
+                int distanceComparison = left.Distance.CompareTo(right.Distance);
+                return distanceComparison != 0
+                    ? distanceComparison
+                    : left.BuildingId.CompareTo(right.BuildingId);
+            });
+            SignpostDistance selected = usable[0];
             short[] originalAttackPoints = ReadScenarioPoints(attackPointsAddress);
             try
             {
                 WriteScenarioPoints(attackPointsAddress, CreateDisabledScenarioPoints());
                 for (int slot = 0; slot < SlotCount; slot++)
                 {
-                    int buildingId = slot < usable.Count ? usable[slot].BuildingId : 0;
+                    // Vanilla chooses a source internally. Exposing only the nearest source prevents
+                    // peers from making different local choices while processing the same Chore.
+                    int buildingId = slot == 0 ? selected.BuildingId : 0;
                     Marshal.WriteInt32(slotsAddress, slot * sizeof(int), buildingId);
+                }
+
+                for (int slot = 0; slot < SlotCount; slot++)
+                {
+                    int expectedBuildingId = slot == 0 ? selected.BuildingId : 0;
+                    int actualBuildingId = Marshal.ReadInt32(slotsAddress, slot * sizeof(int));
+                    if (actualBuildingId != expectedBuildingId)
+                    {
+                        throw new InvalidOperationException(
+                            $"signpost slot {slot} contains {actualBuildingId} instead of {expectedBuildingId}.");
+                    }
                 }
             }
             catch (Exception ex)
@@ -176,13 +200,19 @@ namespace RandomEvents
                 return false;
             }
 
-            signpostBuildingId = usable[0].BuildingId;
-            signpostDistance = usable[0].Distance;
+            signpostBuildingId = selected.BuildingId;
+            signpostTileX = selected.TileX;
+            signpostTileY = selected.TileY;
+            signpostDistance = selected.Distance;
             scope = new TargetingScope(
                 slotsAddress,
                 attackPointsAddress,
                 originalSlots,
                 originalAttackPoints);
+            LogDebug(
+                $"Native event source isolated: targetPlayerId={targetPlayerId}, " +
+                $"signpostBuildingId={selected.BuildingId}, tile=({selected.TileX},{selected.TileY}), " +
+                $"distanceToKeep={selected.Distance:0.00}, usableRegisteredSignposts={usable.Count}, exposedSources=1.");
             return true;
         }
 
@@ -602,6 +632,7 @@ namespace RandomEvents
             return false;
         }
 
+        private void LogDebug(string message) => Shared.DebugLogHelper.LogDebug(log, message);
         private void LogWarning(string message) => Shared.DebugLogHelper.LogWarning(log, message);
         private void LogError(string message) => Shared.DebugLogHelper.LogError(log, message);
 
