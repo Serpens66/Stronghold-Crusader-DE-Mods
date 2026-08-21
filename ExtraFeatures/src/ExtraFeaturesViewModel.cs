@@ -35,7 +35,7 @@ namespace ExtraFeatures
         private double plagueDurationMultiplier = 2.0;
         private int apothecaryPlagueSearchDistance = 50;
         private int campfirePeasantsLimit = -1;
-        private bool keepStorageContent;
+        private bool keepStorageContent = true;
         private bool enableClientFeatures = true;
         private bool enableAllyGoodsAmountModifiers = true;
         private bool enableCtrlSingleMarketTrade = true;
@@ -225,7 +225,7 @@ namespace ExtraFeatures
                 IronRefundPercent = -1;
                 PitchRefundPercent = -1;
                 GoldRefundPercent = -1;
-                KeepStorageContent = false;
+                KeepStorageContent = true;
                 MultiplyGoodsGainAI = 1;
                 MultiplyGoodsGainHuman = 1;
                 MultiplyGoodsGainInMoneyAI = 0;

@@ -3,10 +3,28 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.34",
+  "Version": "1.0.37",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.37",
+      "Changes": [
+        "Replaced continuous startup resolution monitoring with an event-driven borderless focus guard that preserves settings.cfg while allowing explicit display-option changes."
+      ]
+    },
+    {
+      "Version": "1.0.36",
+      "Changes": [
+        "Removed the non-Vanilla tooltips from the Surrender and Leave Mission buttons and restored Leave Mission to Vanilla's 300-pixel width whenever Surrender is unavailable."
+      ]
+    },
+    {
+      "Version": "1.0.35",
+      "Changes": [
+        "Widened the shared Surrender and Leave Mission row, reduced the gap between both buttons, and restored the Vanilla leave-mission label and command through the registered binding host."
+      ]
+    },
     {
       "Version": "1.0.34",
       "Changes": [

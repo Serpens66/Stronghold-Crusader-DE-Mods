@@ -24,14 +24,16 @@ namespace BugfixesAndQoL
         private Visibility buttonVisibility = Visibility.Collapsed;
         private bool buttonEnabled;
 
-        internal SurrenderButtonViewModel(Action surrender)
+        internal SurrenderButtonViewModel(Action surrender, Action quitMission)
         {
             SurrenderCommand = new RelayCommand(surrender ?? throw new ArgumentNullException(nameof(surrender)));
+            QuitMissionCommand = new RelayCommand(quitMission ?? throw new ArgumentNullException(nameof(quitMission)));
         }
 
         public RelayCommand SurrenderCommand { get; }
+        public RelayCommand QuitMissionCommand { get; }
         public string ButtonText => SerpLocalization.Get("BugfixesAndQoL.SurrenderButton");
-        public string HelpText => SerpLocalization.Get("BugfixesAndQoL.SurrenderButtonHelp");
+        public string QuitButtonText => MainViewModel.Instance?.IngameMessageQuitButtonText ?? string.Empty;
 
         public Visibility ButtonVisibility
         {
@@ -60,12 +62,18 @@ namespace BugfixesAndQoL
             }
         }
 
-        public double QuitButtonWidth => ButtonVisibility == Visibility.Visible ? 145.0 : 300.0;
+        public double QuitButtonWidth => ButtonVisibility == Visibility.Visible ? 181.25 : 300.0;
 
         internal void SetState(bool visible, bool enabled)
         {
             ButtonVisibility = visible ? Visibility.Visible : Visibility.Collapsed;
             ButtonEnabled = visible && enabled;
+        }
+
+        internal void RefreshText()
+        {
+            OnPropertyChanged(nameof(ButtonText));
+            OnPropertyChanged(nameof(QuitButtonText));
         }
     }
 
@@ -97,7 +105,7 @@ namespace BugfixesAndQoL
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
-            buttonViewModel = new SurrenderButtonViewModel(OnSurrenderCommand);
+            buttonViewModel = new SurrenderButtonViewModel(OnSurrenderCommand, OnQuitMissionCommand);
         }
 
         internal SurrenderButtonViewModel ButtonViewModel => buttonViewModel;
@@ -162,10 +170,12 @@ namespace BugfixesAndQoL
                     realMultiplayer,
                     IsChoreTransportReady());
                 buttonViewModel.SetState(visible, enabled);
+                buttonViewModel.RefreshText();
             }
             catch (Exception ex)
             {
                 buttonViewModel.SetState(false, false);
+                buttonViewModel.RefreshText();
                 Shared.DebugLogHelper.LogError(log, $"Bugfixes and QoL surrender button refresh failed closed: {ex}");
             }
         }
@@ -219,6 +229,12 @@ namespace BugfixesAndQoL
                 ReopenIngameMenu();
                 Shared.DebugLogHelper.LogError(log, $"Bugfixes and QoL could not display the surrender confirmation: {ex}");
             }
+        }
+
+        private static void OnQuitMissionCommand()
+        {
+            // Keep Vanilla's existing mission-leave path and confirmation unchanged.
+            MainViewModel.Instance?.HUDIngameMenu?.ButtonIngameMenuFunction(6);
         }
 
         private void ConfirmSurrender(long sequence)

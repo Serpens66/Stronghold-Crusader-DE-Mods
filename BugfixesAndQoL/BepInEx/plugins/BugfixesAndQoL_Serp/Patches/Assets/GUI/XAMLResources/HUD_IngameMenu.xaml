@@ -4,11 +4,11 @@
   <Operation Type="Replace" XPath="//n:Button[@Name='ButtonQuitMission']">
     <Content>
       <Grid x:Name="BugfixesAndQoLSurrenderButtonHost"
-            Width="300" Margin="0,10,0,0" HorizontalAlignment="Center" VerticalAlignment="Top">
+            Width="367.5" Margin="0,10,0,0" HorizontalAlignment="Center" VerticalAlignment="Top">
         <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="145" />
-          <ColumnDefinition Width="10" />
-          <ColumnDefinition Width="145" />
+          <ColumnDefinition Width="181.25" />
+          <ColumnDefinition Width="5" />
+          <ColumnDefinition Width="181.25" />
         </Grid.ColumnDefinitions>
         <Button Grid.Column="0"
                 HorizontalAlignment="Stretch"
@@ -19,8 +19,6 @@
                 Command="{Binding SurrenderCommand}"
                 IsEnabled="{Binding ButtonEnabled}"
                 Visibility="{Binding ButtonVisibility}"
-                ToolTip="{Binding HelpText}"
-                ToolTipService.ShowDuration="60000"
                 MouseEnter="CommonRedButtonEnter"
                 Style="{StaticResource BTN_SH_GlowSDisable}" />
         <Button Name="ButtonQuitMission"
@@ -29,13 +27,10 @@
                 Width="{Binding QuitButtonWidth}"
                 HorizontalAlignment="Right"
                 VerticalAlignment="Top"
-                local:PropEx.TextCentre="{Binding Source={x:Static local:MainViewModel.Instance}, Path=IngameMessageQuitButtonText}"
+                local:PropEx.TextCentre="{Binding QuitButtonText}"
                 local:PropEx.TextLeft=""
                 local:PropEx.TextRight=""
-                Command="{Binding Source={x:Static local:MainViewModel.Instance}, Path=ButtonIngameMenuCommand}"
-                CommandParameter="6"
-                ToolTip="{Binding Source={x:Static local:MainViewModel.Instance}, Path=IngameMessageQuitButtonText}"
-                ToolTipService.ShowDuration="60000"
+                Command="{Binding QuitMissionCommand}"
                 MouseEnter="CommonRedButtonEnter"
                 Style="{StaticResource BTN_SH_GlowSDisable}" />
       </Grid>

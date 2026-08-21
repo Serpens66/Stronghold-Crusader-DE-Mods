@@ -1,4 +1,4 @@
-// Feature: Protect the display resolution loaded from settings.cfg during startup only.
+// Feature: Protect borderless display settings across focus loss without permanent frame polling.
 using BepInEx.Logging;
 using CrusaderDE;
 using MonoMod.RuntimeDetour;
@@ -11,39 +11,51 @@ namespace BugfixesAndQoL
 {
     internal sealed class DisplayResolutionPersistenceHook : IDisposable
     {
-        private const long RetryMilliseconds = 500;
-        private const long MinimumGuardMilliseconds = 5000;
-        private const long StableTargetMilliseconds = 2000;
-        private const long MaximumGuardMilliseconds = 30000;
+        private const long RecoveryTimeoutMilliseconds = 5000;
 
         private delegate void LoadSettingsDelegate();
-        private delegate void MonitorDelegate(FatControler self);
+        private delegate void SaveSettingsDelegate(bool onlyWhenAlreadyExists);
+        private delegate void OptionsButtonDelegate(HUD_Options self, int parameter);
 
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
-        private Hook loadHook;
-        private Hook monitorHook;
-        private LoadSettingsDelegate loadOriginal;
-        private MonitorDelegate monitorOriginal;
-        private ResolutionConfiguration configured;
-        private long guardStarted;
-        private long targetStableSince;
-        private long lastRequest;
-        private string lastRequestedTarget;
+        private readonly DisplayResolutionFocusState state = new DisplayResolutionFocusState();
+        private Hook loadSettingsHook;
+        private Hook saveSettingsHook;
+        private Hook optionsButtonHook;
+        private LoadSettingsDelegate loadSettingsOriginal;
+        private SaveSettingsDelegate saveSettingsOriginal;
+        private OptionsButtonDelegate optionsButtonOriginal;
+        private long recoveryStartedTimestamp;
+        private int lastRecoveryFrame = -1;
+        private int manualApplyDepth;
+        private bool settingsLoaded;
+        private bool interceptedSaveLogged;
         private bool failureLogged;
-        private bool detachScheduled;
         private bool disposed;
 
-        public DisplayResolutionPersistenceHook(ManualLogSource log, BugfixesAndQoLViewModel settings)
+        public DisplayResolutionPersistenceHook(
+            ManualLogSource log,
+            BugfixesAndQoLViewModel settings)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
+
             try
             {
-                loadHook = new Hook(FindMethod(typeof(ConfigSettings), nameof(ConfigSettings.LoadSettings), true, Type.EmptyTypes), (LoadSettingsDelegate)LoadSettingsHook);
-                loadOriginal = loadHook.GenerateTrampoline<LoadSettingsDelegate>();
-                monitorHook = new Hook(FindMethod(typeof(FatControler), nameof(FatControler.MonitorScreenResolutions), false, Type.EmptyTypes), (MonitorDelegate)MonitorHook);
-                monitorOriginal = monitorHook.GenerateTrampoline<MonitorDelegate>();
+                loadSettingsHook = new Hook(
+                    FindMethod(typeof(ConfigSettings), nameof(ConfigSettings.LoadSettings), true, Type.EmptyTypes),
+                    (LoadSettingsDelegate)LoadSettingsHook);
+                loadSettingsOriginal = loadSettingsHook.GenerateTrampoline<LoadSettingsDelegate>();
+                saveSettingsHook = new Hook(
+                    FindMethod(typeof(ConfigSettings), nameof(ConfigSettings.SaveSettings), true, new[] { typeof(bool) }),
+                    (SaveSettingsDelegate)SaveSettingsHook);
+                saveSettingsOriginal = saveSettingsHook.GenerateTrampoline<SaveSettingsDelegate>();
+                optionsButtonHook = new Hook(
+                    FindMethod(typeof(HUD_Options), nameof(HUD_Options.ButtonClicked), false, new[] { typeof(int) }),
+                    (OptionsButtonDelegate)OptionsButtonHook);
+                optionsButtonOriginal = optionsButtonHook.GenerateTrampoline<OptionsButtonDelegate>();
+                Application.focusChanged += OnFocusChanged;
             }
             catch
             {
@@ -51,7 +63,9 @@ namespace BugfixesAndQoL
                 throw;
             }
 
-            Shared.DebugLogHelper.LogDebug(log, "Bugfixes and QoL startup display-resolution guard installed.");
+            Shared.DebugLogHelper.LogDebug(
+                log,
+                "Bugfixes and QoL event-driven display-resolution focus guard installed.");
         }
 
         public void Dispose()
@@ -60,17 +74,336 @@ namespace BugfixesAndQoL
                 return;
 
             disposed = true;
-            Application.onBeforeRender -= DetachAfterCallback;
-            UndoAndDispose(ref monitorHook);
-            UndoAndDispose(ref loadHook);
-            Shared.DebugLogHelper.LogDebug(log, "Bugfixes and QoL startup display-resolution guard disposed.");
+            StopRecoveryObservation();
+            Application.focusChanged -= OnFocusChanged;
+            UndoAndDispose(ref optionsButtonHook);
+            UndoAndDispose(ref saveSettingsHook);
+            UndoAndDispose(ref loadSettingsHook);
+            state.Cancel();
+            Shared.DebugLogHelper.LogDebug(
+                log,
+                "Bugfixes and QoL display-resolution focus guard disposed.");
         }
 
-        private static MethodInfo FindMethod(Type type, string name, bool isStatic, Type[] parameters)
+        private void LoadSettingsHook()
+        {
+            // Vanilla owns loading and must run exactly once.
+            loadSettingsOriginal();
+
+            try
+            {
+                settingsLoaded = true;
+                if (!Application.isFocused)
+                    TryArmProtection("settings loaded while application was unfocused");
+            }
+            catch (Exception ex)
+            {
+                LogFailureOnce("after settings load", ex);
+            }
+        }
+
+        private void SaveSettingsHook(bool onlyWhenAlreadyExists)
+        {
+            try
+            {
+                DisplaySettingsSnapshot current = CaptureSettings();
+                if (state.TryProtectSave(
+                        current,
+                        IsEnabled,
+                        manualApplyDepth > 0,
+                        out DisplaySettingsSnapshot protectedSettings))
+                {
+                    bool changed = !SettingsEqual(current, protectedSettings);
+                    RestoreSettings(protectedSettings);
+                    if (changed && !interceptedSaveLogged)
+                    {
+                        interceptedSaveLogged = true;
+                        Shared.DebugLogHelper.LogWarning(
+                            log,
+                            "Bugfixes and QoL prevented an unfocused borderless resolution change " +
+                            $"from reaching settings.cfg: observed={current}, protected={protectedSettings}.");
+                    }
+                }
+                else if (!IsEnabled && state.IsArmed)
+                {
+                    CancelProtection("feature disabled");
+                }
+            }
+            catch (Exception ex)
+            {
+                LogFailureOnce("before settings save", ex);
+            }
+
+            // Diagnostics and protection must never suppress Vanilla persistence.
+            saveSettingsOriginal(onlyWhenAlreadyExists);
+        }
+
+        private void OptionsButtonHook(HUD_Options self, int parameter)
+        {
+            if (parameter != -2)
+            {
+                optionsButtonOriginal(self, parameter);
+                return;
+            }
+
+            manualApplyDepth++;
+            try
+            {
+                if (state.IsArmed)
+                {
+                    CancelProtection("manual display Apply selected");
+                    Shared.DebugLogHelper.LogInfo(
+                        log,
+                        "Bugfixes and QoL accepted the manually applied display settings as the new target.");
+                }
+
+                // The user's Apply action remains entirely authoritative.
+                optionsButtonOriginal(self, parameter);
+            }
+            finally
+            {
+                manualApplyDepth--;
+            }
+        }
+
+        private void OnFocusChanged(bool focused)
+        {
+            try
+            {
+                if (!focused)
+                {
+                    StopRecoveryObservation();
+                    state.OnFocusLost();
+                    TryArmProtection("application lost focus");
+                    return;
+                }
+
+                RecoverAfterFocusGain();
+            }
+            catch (Exception ex)
+            {
+                LogFailureOnce($"on focus changed to {focused}", ex);
+                CancelProtection("focus handling failed");
+            }
+        }
+
+        private void TryArmProtection(string reason)
+        {
+            if (!settingsLoaded || !IsEnabled)
+                return;
+
+            DisplaySettingsSnapshot snapshot = CaptureSettings();
+            if (!state.TryArm(snapshot, enabled: true))
+                return;
+
+            interceptedSaveLogged = false;
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"Bugfixes and QoL armed borderless focus protection ({reason}): target={snapshot}, actual={DescribeActual()}.");
+        }
+
+        private void RecoverAfterFocusGain()
+        {
+            if (!state.IsArmed)
+                return;
+
+            if (!IsEnabled)
+            {
+                CancelProtection("feature disabled before focus recovery");
+                return;
+            }
+
+            DisplaySettingsSnapshot target = state.Snapshot;
+            RestoreSettings(target);
+            bool matches = ResolutionMatches(target);
+            DisplayRecoveryAction action = state.OnFocusGained(enabled: true, matches);
+            if (action == DisplayRecoveryAction.Completed)
+            {
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    $"Bugfixes and QoL completed borderless focus protection without a correction: actual={DescribeActual()}.");
+                return;
+            }
+
+            if (action != DisplayRecoveryAction.ApplyTarget)
+                return;
+
+            if (!IsSupportedFullscreenResolution(target.FullscreenWidth, target.FullscreenHeight))
+            {
+                Shared.DebugLogHelper.LogWarning(
+                    log,
+                    $"Bugfixes and QoL cannot restore the borderless focus target because this PC does not report it: target={target}.");
+                CancelProtection("target resolution unsupported");
+                return;
+            }
+
+            Screen.SetResolution(
+                target.FullscreenWidth,
+                target.FullscreenHeight,
+                FullScreenMode.FullScreenWindow,
+                target.FullscreenRefresh > 0 ? target.FullscreenRefresh : 0);
+            recoveryStartedTimestamp = Stopwatch.GetTimestamp();
+            lastRecoveryFrame = -1;
+            Application.onBeforeRender -= ObserveRecoveryBeforeRender;
+            Application.onBeforeRender += ObserveRecoveryBeforeRender;
+            Shared.DebugLogHelper.LogWarning(
+                log,
+                $"Bugfixes and QoL requested borderless resolution recovery after focus gain: target={target}, observedBeforeRequest={DescribeActual()}.");
+        }
+
+        private void ObserveRecoveryBeforeRender()
+        {
+            if (lastRecoveryFrame == Time.frameCount)
+                return;
+
+            lastRecoveryFrame = Time.frameCount;
+            try
+            {
+                long elapsed = ElapsedMilliseconds(
+                    recoveryStartedTimestamp,
+                    Stopwatch.GetTimestamp());
+                DisplayRecoveryAction action = state.ObserveRecovery(
+                    IsEnabled,
+                    Application.isFocused,
+                    state.IsArmed && ResolutionMatches(state.Snapshot),
+                    elapsed >= RecoveryTimeoutMilliseconds);
+
+                if (!state.IsRecoveryActive)
+                    StopRecoveryObservation();
+
+                if (action == DisplayRecoveryAction.Completed)
+                {
+                    Shared.DebugLogHelper.LogInfo(
+                        log,
+                        $"Bugfixes and QoL confirmed borderless resolution recovery after two rendered frames: actual={DescribeActual()}.");
+                }
+                else if (action == DisplayRecoveryAction.TimedOut)
+                {
+                    Shared.DebugLogHelper.LogWarning(
+                        log,
+                        $"Bugfixes and QoL stopped temporary resolution verification after {RecoveryTimeoutMilliseconds} ms; " +
+                        $"save protection remains armed for the next focus gain. actual={DescribeActual()}.");
+                }
+            }
+            catch (Exception ex)
+            {
+                StopRecoveryObservation();
+                LogFailureOnce("during temporary recovery verification", ex);
+            }
+        }
+
+        private void CancelProtection(string reason)
+        {
+            bool wasActive = state.IsArmed || state.IsRecoveryActive;
+            StopRecoveryObservation();
+            state.Cancel();
+            if (wasActive)
+            {
+                Shared.DebugLogHelper.LogDebug(
+                    log,
+                    $"Bugfixes and QoL ended borderless focus protection ({reason}).");
+            }
+        }
+
+        private void StopRecoveryObservation()
+        {
+            Application.onBeforeRender -= ObserveRecoveryBeforeRender;
+            recoveryStartedTimestamp = 0;
+            lastRecoveryFrame = -1;
+        }
+
+        private static DisplaySettingsSnapshot CaptureSettings()
+        {
+            return new DisplaySettingsSnapshot(
+                ConfigSettings.Settings_LastWindowWidth,
+                ConfigSettings.Settings_LastWindowHeight,
+                ConfigSettings.Settings_LastFullscreenWidth,
+                ConfigSettings.Settings_LastFullscreenHeight,
+                ConfigSettings.Settings_LastFullscreenRefresh,
+                ConfigSettings.Settings_LastFullscreenType);
+        }
+
+        private static void RestoreSettings(DisplaySettingsSnapshot snapshot)
+        {
+            ConfigSettings.Settings_LastWindowWidth = snapshot.WindowWidth;
+            ConfigSettings.Settings_LastWindowHeight = snapshot.WindowHeight;
+            ConfigSettings.Settings_LastFullscreenWidth = snapshot.FullscreenWidth;
+            ConfigSettings.Settings_LastFullscreenHeight = snapshot.FullscreenHeight;
+            ConfigSettings.Settings_LastFullscreenRefresh = snapshot.FullscreenRefresh;
+            ConfigSettings.Settings_LastFullscreenType = snapshot.FullscreenType;
+        }
+
+        private static bool SettingsEqual(
+            DisplaySettingsSnapshot left,
+            DisplaySettingsSnapshot right)
+        {
+            return
+                left.WindowWidth == right.WindowWidth &&
+                left.WindowHeight == right.WindowHeight &&
+                left.FullscreenWidth == right.FullscreenWidth &&
+                left.FullscreenHeight == right.FullscreenHeight &&
+                left.FullscreenRefresh == right.FullscreenRefresh &&
+                left.FullscreenType == right.FullscreenType;
+        }
+
+        private static bool ResolutionMatches(DisplaySettingsSnapshot target)
+        {
+            return
+                Screen.fullScreenMode == FullScreenMode.FullScreenWindow &&
+                Screen.width == target.FullscreenWidth &&
+                Screen.height == target.FullscreenHeight;
+        }
+
+        private static bool IsSupportedFullscreenResolution(int width, int height)
+        {
+            Resolution[] resolutions = Screen.resolutions;
+            if (resolutions == null || resolutions.Length == 0)
+                return true;
+
+            foreach (Resolution resolution in resolutions)
+            {
+                if (resolution.width == width && resolution.height == height)
+                    return true;
+            }
+
+            return false;
+        }
+
+        private bool IsEnabled =>
+            settings.EnableClientFeatures && settings.PreserveDisplayResolution;
+
+        private static long ElapsedMilliseconds(long start, long end)
+        {
+            return (end - start) * 1000L / Stopwatch.Frequency;
+        }
+
+        private static string DescribeActual()
+        {
+            return
+                $"{Screen.width}x{Screen.height}@{Screen.currentResolution.refreshRate}Hz/" +
+                Screen.fullScreenMode;
+        }
+
+        private void LogFailureOnce(string phase, Exception ex)
+        {
+            if (failureLogged)
+                return;
+
+            failureLogged = true;
+            Shared.DebugLogHelper.LogError(
+                log,
+                $"Bugfixes and QoL display-resolution focus protection failed {phase}; Vanilla remains active: {ex}");
+        }
+
+        private static MethodInfo FindMethod(
+            Type type,
+            string name,
+            bool isStatic,
+            Type[] parameterTypes)
         {
             BindingFlags flags = BindingFlags.Public | BindingFlags.NonPublic |
                 (isStatic ? BindingFlags.Static : BindingFlags.Instance);
-            MethodInfo method = type.GetMethod(name, flags, null, parameters, null);
+            MethodInfo method = type.GetMethod(name, flags, null, parameterTypes, null);
             if (method == null || method.ReturnType != typeof(void))
                 throw new MissingMethodException(type.FullName, name);
             return method;
@@ -81,243 +414,6 @@ namespace BugfixesAndQoL
             hook?.Undo();
             hook?.Dispose();
             hook = null;
-        }
-
-        private void LoadSettingsHook()
-        {
-            loadOriginal();
-            try
-            {
-                configured = new ResolutionConfiguration(
-                    ConfigSettings.Settings_LastWindowWidth,
-                    ConfigSettings.Settings_LastWindowHeight,
-                    ConfigSettings.Settings_LastFullscreenWidth,
-                    ConfigSettings.Settings_LastFullscreenHeight,
-                    ConfigSettings.Settings_LastFullscreenRefresh,
-                    ConfigSettings.Settings_LastFullscreenType);
-                Shared.DebugLogHelper.LogInfo(log,
-                    "Bugfixes and QoL captured startup display settings from settings.cfg: " +
-                    $"window={configured.WindowWidth}x{configured.WindowHeight}, " +
-                    $"fullscreen={configured.FullscreenWidth}x{configured.FullscreenHeight}@{configured.FullscreenRefreshRate}Hz, " +
-                    $"fullscreenType={configured.FullscreenType}, actual={DescribeActual()}.");
-            }
-            catch (Exception ex)
-            {
-                Shared.DebugLogHelper.LogError(log, $"Bugfixes and QoL could not capture startup display settings: {ex}");
-                ScheduleDetach("settings capture failed");
-            }
-        }
-
-        private void MonitorHook(FatControler self)
-        {
-            if (!detachScheduled)
-            {
-                try
-                {
-                    if (guardStarted == 0)
-                    {
-                        guardStarted = Stopwatch.GetTimestamp();
-                        Shared.DebugLogHelper.LogDebug(log, () =>
-                            $"Bugfixes and QoL startup display guard confirmed: enabled={IsEnabled}, captured={configured.IsCaptured}, actual={DescribeActual()}.");
-                    }
-                    if (IsEnabled && configured.IsCaptured)
-                        RestoreConfiguredValues();
-                }
-                catch (Exception ex)
-                {
-                    LogFailureOnce("before Vanilla monitoring", ex);
-                }
-            }
-
-            // Vanilla must run exactly once even if our startup correction fails.
-            monitorOriginal(self);
-            if (detachScheduled)
-                return;
-
-            try
-            {
-                if (!IsEnabled)
-                {
-                    ScheduleDetach("feature disabled");
-                    return;
-                }
-                if (!configured.IsCaptured)
-                {
-                    ScheduleDetach("settings.cfg contained no usable display target");
-                    return;
-                }
-
-                // Preserve the loaded fields only across Vanilla's asynchronous startup race.
-                RestoreConfiguredValues();
-                EvaluateStartupTarget();
-            }
-            catch (Exception ex)
-            {
-                LogFailureOnce("after Vanilla monitoring", ex);
-                ScheduleDetach("startup reconciliation failed");
-            }
-        }
-
-        private void EvaluateStartupTarget()
-        {
-            long now = Stopwatch.GetTimestamp();
-            long elapsed = ElapsedMilliseconds(guardStarted, now);
-            if (elapsed >= MaximumGuardMilliseconds)
-            {
-                Shared.DebugLogHelper.LogWarning(log,
-                    $"Bugfixes and QoL ended the startup display guard at its {MaximumGuardMilliseconds} ms safety limit: actual={DescribeActual()}.");
-                ScheduleDetach("safety limit reached");
-                return;
-            }
-
-            if (!TryGetTarget(out int width, out int height, out int refresh, out FullScreenMode mode))
-            {
-                ScheduleDetach("current display mode has no applicable settings.cfg target");
-                return;
-            }
-
-            string target = $"{width}x{height}@{refresh}Hz/{mode}";
-            if (mode != FullScreenMode.Windowed && !IsSupported(width, height))
-            {
-                Shared.DebugLogHelper.LogWarning(log,
-                    $"Bugfixes and QoL ended the startup display guard because this PC does not report the settings.cfg target: target={target}.");
-                ScheduleDetach("fullscreen target unsupported");
-                return;
-            }
-
-            if (Matches(width, height, refresh, mode))
-            {
-                if (targetStableSince == 0)
-                    targetStableSince = now;
-                if (MainViewModel.viewModelLoaded && elapsed >= MinimumGuardMilliseconds &&
-                    ElapsedMilliseconds(targetStableSince, now) >= StableTargetMilliseconds)
-                    ScheduleDetach("frontend loaded and settings.cfg target stable");
-                return;
-            }
-
-            targetStableSince = 0;
-            if (lastRequest != 0 && ElapsedMilliseconds(lastRequest, now) < RetryMilliseconds)
-                return;
-
-            string actual = DescribeActual();
-            lastRequest = now;
-            Screen.SetResolution(width, height, mode, refresh);
-            if (!string.Equals(lastRequestedTarget, target, StringComparison.Ordinal))
-            {
-                lastRequestedTarget = target;
-                Shared.DebugLogHelper.LogWarning(log,
-                    $"Bugfixes and QoL reapplied the startup display target loaded from settings.cfg: target={target}, observedBeforeRequest={actual}.");
-            }
-        }
-
-        private bool TryGetTarget(out int width, out int height, out int refresh, out FullScreenMode mode)
-        {
-            if (Screen.fullScreenMode == FullScreenMode.Windowed && configured.HasWindowResolution)
-            {
-                width = configured.WindowWidth;
-                height = configured.WindowHeight;
-                refresh = 0;
-                mode = FullScreenMode.Windowed;
-                return true;
-            }
-            if ((Screen.fullScreenMode == FullScreenMode.ExclusiveFullScreen || Screen.fullScreenMode == FullScreenMode.FullScreenWindow) && configured.HasFullscreenResolution)
-            {
-                width = configured.FullscreenWidth;
-                height = configured.FullscreenHeight;
-                refresh = configured.FullscreenRefreshRate > 0 ? configured.FullscreenRefreshRate : 0;
-                mode = configured.FullscreenType == 0 ? FullScreenMode.ExclusiveFullScreen : FullScreenMode.FullScreenWindow;
-                return true;
-            }
-            width = height = refresh = 0;
-            mode = Screen.fullScreenMode;
-            return false;
-        }
-
-        private static bool Matches(int width, int height, int refresh, FullScreenMode mode)
-        {
-            bool refreshMatches = mode != FullScreenMode.ExclusiveFullScreen || refresh <= 0 ||
-                Math.Abs(Screen.currentResolution.refreshRate - refresh) < 2;
-            return Screen.width == width && Screen.height == height && Screen.fullScreenMode == mode && refreshMatches;
-        }
-
-        private void RestoreConfiguredValues()
-        {
-            if (configured.HasWindowResolution)
-            {
-                ConfigSettings.Settings_LastWindowWidth = configured.WindowWidth;
-                ConfigSettings.Settings_LastWindowHeight = configured.WindowHeight;
-            }
-            if (configured.HasFullscreenResolution)
-            {
-                ConfigSettings.Settings_LastFullscreenWidth = configured.FullscreenWidth;
-                ConfigSettings.Settings_LastFullscreenHeight = configured.FullscreenHeight;
-                ConfigSettings.Settings_LastFullscreenRefresh = configured.FullscreenRefreshRate;
-                ConfigSettings.Settings_LastFullscreenType = configured.FullscreenType;
-            }
-        }
-
-        private void ScheduleDetach(string reason)
-        {
-            if (detachScheduled)
-                return;
-            detachScheduled = true;
-            Shared.DebugLogHelper.LogInfo(log,
-                $"Bugfixes and QoL startup display guard completed ({reason}); later display changes are left to Vanilla. actual={DescribeActual()}.");
-            // Removing a detour inside its own callback is unsafe. This executes after it returns.
-            Application.onBeforeRender += DetachAfterCallback;
-        }
-
-        private void DetachAfterCallback()
-        {
-            Application.onBeforeRender -= DetachAfterCallback;
-            UndoAndDispose(ref monitorHook);
-            UndoAndDispose(ref loadHook);
-            Shared.DebugLogHelper.LogDebug(log, "Bugfixes and QoL startup display-resolution hooks fully detached.");
-        }
-
-        private void LogFailureOnce(string phase, Exception ex)
-        {
-            if (failureLogged)
-                return;
-            failureLogged = true;
-            Shared.DebugLogHelper.LogError(log, $"Bugfixes and QoL startup display reconciliation failed {phase}: {ex}");
-        }
-
-        private static bool IsSupported(int width, int height)
-        {
-            Resolution[] resolutions = Screen.resolutions;
-            if (resolutions == null || resolutions.Length == 0)
-                return true;
-            foreach (Resolution resolution in resolutions)
-                if (resolution.width == width && resolution.height == height)
-                    return true;
-            return false;
-        }
-
-        private bool IsEnabled => settings.EnableClientFeatures && settings.PreserveDisplayResolution;
-        private static long ElapsedMilliseconds(long start, long end) => (end - start) * 1000L / Stopwatch.Frequency;
-        private static string DescribeActual() => $"{Screen.width}x{Screen.height}@{Screen.currentResolution.refreshRate}Hz/{Screen.fullScreenMode}";
-
-        private readonly struct ResolutionConfiguration
-        {
-            public ResolutionConfiguration(int windowWidth, int windowHeight, int fullscreenWidth, int fullscreenHeight, int fullscreenRefreshRate, int fullscreenType)
-            {
-                WindowWidth = windowWidth;
-                WindowHeight = windowHeight;
-                FullscreenWidth = fullscreenWidth;
-                FullscreenHeight = fullscreenHeight;
-                FullscreenRefreshRate = fullscreenRefreshRate;
-                FullscreenType = fullscreenType;
-            }
-            public int WindowWidth { get; }
-            public int WindowHeight { get; }
-            public int FullscreenWidth { get; }
-            public int FullscreenHeight { get; }
-            public int FullscreenRefreshRate { get; }
-            public int FullscreenType { get; }
-            public bool HasWindowResolution => WindowWidth > 0 && WindowHeight > 0;
-            public bool HasFullscreenResolution => FullscreenWidth > 0 && FullscreenHeight > 0 && (FullscreenType == 0 || FullscreenType == 1);
-            public bool IsCaptured => HasWindowResolution || HasFullscreenResolution;
         }
     }
 }
