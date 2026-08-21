@@ -4,8 +4,8 @@
 `.aivjson` castle:
 
 - `Blueprints` displays a local, non-simulating construction guide.
-- `Spawn Castle` is controlled by the host and builds the host's selected
-  castle on a newly started singleplayer map through the
+- `Spawn Castle` is controlled by the host and builds every human player's
+  compatible personal castle on a newly started skirmish map through the
   game's native AIV castle-building pipeline.
 
 The dropdown scans:
@@ -15,9 +15,16 @@ The dropdown scans:
 - subscribed Steam Workshop item directories
 - the official Castle & CPU Lord Editor's `StreamingAssets/Villages` directory
 
-The Blueprint activation, castle selection, Blueprint key, icon scale, and icon
-alpha are local settings. `Spawn Castle` is a synchronized host setting. Both
-features can be enabled at the same time.
+The Blueprint activation, Blueprint castle selection, key, icon scale, and icon
+alpha are local settings. `Spawn Castle` is a synchronized host setting; its
+castle selection is synchronized per player. Multiplayer selection requires the
+same catalog name and SHA-256 on every participant. Both features can be enabled
+at the same time.
+
+Inventory manifests are transient. A host-authenticated lobby resync request
+makes every existing participant re-advertise its own manifest and selection
+when somebody joins. Lobby-ID and Steam-ID/player-ID changes invalidate stale
+slots, while unchanged file fingerprints and decoded manifests are cached.
 
 ## Visual Blueprint mode
 
@@ -211,9 +218,13 @@ signature alone cannot validate. A changed hash or a missing, ambiguous, or
 structurally invalid signature disables native Spawn instead of calling unknown
 code; managed Blueprint mode remains available.
 
-Native Spawn mode permits local singleplayer skirmishes and blocks real
-multiplayer sessions because invoking the pipeline on only one client would
-desynchronize the native game state. It does not use
+Native Spawn mode permits local singleplayer and real multiplayer skirmishes.
+Every peer validates the complete human-player selection and identical AIVJSON
+hashes, then imports and executes all selected castles in stable player-ID order.
+The snapshot must already be converged and stable before map start; map-start
+validation never sends a last-second update. It also re-hashes the local files,
+and an incomplete, changed, or incompatible snapshot aborts the whole
+custom-spawn transaction. It does not use
 `GameNetworkAPI.IsNetworkedEnvironment()` as
 the deciding signal: Vanilla also creates a local `gameMembers` list for regular
 singleplayer skirmishes. Instead, the guard combines `Director` state with lobby

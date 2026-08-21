@@ -1,12 +1,16 @@
 using BepInEx.Logging;
 using MessagePack;
+using SHCDESE.API;
 using SHCDESE.API.Components.ModManager;
 using SHCDESE.API.Components.Network;
 using SHCDESE.NoesisUtil;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Windows.Input;
 using UnityEngine;
 
@@ -19,13 +23,26 @@ namespace CastlePlanner
         private readonly LobbyModSettingsStorage runtimeStorage;
         private readonly RuntimePersistedState runtimeState =
             new RuntimePersistedState();
-        private string defaultCastle;
         private bool enableClientFeatures = true;
         private bool enableMod = true;
         private bool blueprints = true;
         private bool spawnCastle;
         private string selectedCastle;
-        private string hostSelectedCastle;
+        private string spawnSelectedCastle = string.Empty;
+        private string spawnInventoryManifest = string.Empty;
+        private Noesis.ComboBoxItem[] spawnCastleOptions = Array.Empty<Noesis.ComboBoxItem>();
+        private string[] spawnCastleOptionNames = Array.Empty<string>();
+        private readonly CastleSpawnLobbyState spawnLobbyState =
+            new CastleSpawnLobbyState();
+        private readonly string[] decodedManifestSources = new string[9];
+        private readonly IReadOnlyDictionary<string, string>[] decodedInventories =
+            new IReadOnlyDictionary<string, string>[9];
+        private long compatibilityChangedTimestamp = Stopwatch.GetTimestamp();
+        private bool compatibilityBroadcastPending;
+        private bool spawnSelectionResetPending;
+        private bool spawnOptionsRebuildPending;
+        private bool workshopCatalogReadyObserved;
+        private bool lobbyCompatibilitySyncAvailable;
         private KeyCode blueprintHotkey;
         private double blueprintIconScale;
         private double blueprintIconAlpha;
@@ -57,12 +74,16 @@ namespace CastlePlanner
             runtimeStorage.Load(runtimeState);
             NormalizeRuntimeState();
             TryMigrateLegacySettings(pluginAssemblyLocation);
+            SpawnSelectedCastleData[GetLocalPlayerId()] = spawnSelectedCastle;
+            PublishLocalInventory(forceBroadcast: false);
+            RebuildSpawnCastleOptions();
 
             ResetToDefaultCommand = new RelayCommand(ResetToDefault);
             AssignHotkeyCommand = new RelayCommand(BeginHotkeyCapture);
             ClearHotkeyCommand = new RelayCommand(ClearHotkey);
             HotkeyInputCommand =
                 new ParameterRelayCommand(CaptureNoesisHotkeyInput);
+            PropertyChanged += OnNetworkCompatibilityPropertyChanged;
         }
 
         internal event Action SettingsChanged;
@@ -71,6 +92,10 @@ namespace CastlePlanner
 
         public ObservableCollection<string> CastleOptions { get; } =
             new ObservableCollection<string>();
+
+        public Noesis.ComboBoxItem[] SpawnCastleOptions => spawnCastleOptions;
+        public string[] SpawnSelectedCastleData { get; } = new string[9];
+        public string[] SpawnInventoryManifestData { get; } = new string[9];
 
         public ICommand AssignHotkeyCommand { get; }
         public ICommand ClearHotkeyCommand { get; }
@@ -92,31 +117,30 @@ namespace CastlePlanner
                 for (int index = 0; index < discovered.Count; index++)
                     unchanged &= string.Equals(CastleOptions[index], discovered[index], StringComparison.Ordinal);
                 if (unchanged)
+                {
+                    NormalizeSpawnSelectionAfterCompleteCatalogRefresh();
+                    PublishLocalInventory(forceBroadcast: false);
+                    RebuildSpawnCastleOptions();
                     return;
+                }
             }
 
             string previous = selectedCastle ?? string.Empty;
-            string previousHost = hostSelectedCastle ?? string.Empty;
             CastleOptions.Clear();
             foreach (string option in discovered)
                 CastleOptions.Add(option);
-            defaultCastle = CastleOptions.Count > 0 ? CastleOptions[0] : string.Empty;
+            NormalizeSpawnSelectionAfterCompleteCatalogRefresh();
+            string defaultCastle = CastleOptions.Count > 0 ? CastleOptions[0] : string.Empty;
             string normalized = NormalizeCastle(previous, defaultCastle);
-            // Clients must preserve the received host value even when that AIV is not installed locally.
-            string normalizedHost = CanEditHostSettings
-                ? NormalizeCastle(previousHost, defaultCastle)
-                : previousHost;
             bool selectionChanged = !string.Equals(selectedCastle, normalized, StringComparison.Ordinal);
-            bool hostSelectionChanged = !string.Equals(hostSelectedCastle, normalizedHost, StringComparison.Ordinal);
             selectedCastle = normalized;
-            hostSelectedCastle = normalizedHost;
+            PublishLocalInventory(forceBroadcast: false);
+            RebuildSpawnCastleOptions();
             OnPropertyChanged(nameof(AvailableFileCount));
             OnPropertyChanged(nameof(InventoryText));
             if (selectionChanged)
                 OnPropertyChanged(nameof(SelectedCastle));
-            if (hostSelectionChanged)
-                OnPropertyChanged(nameof(HostSelectedCastle));
-            if (notifySelectionChange && (selectionChanged || hostSelectionChanged))
+            if (notifySelectionChange && selectionChanged)
                 SettingsChanged?.Invoke();
             Shared.DebugLogHelper.LogInfo(
                 log,
@@ -142,6 +166,8 @@ namespace CastlePlanner
         public string ClearHelpText => SerpLocalization.Get("CastlePlanner.ClearHelp");
         public string LocalOptionsText => SerpLocalization.Get("CastlePlanner.LocalOptions");
         public string CastleSectionTitleText => SerpLocalization.Get("CastlePlanner.CastleSectionTitle");
+        public string SpawnSelectionTitleText => SerpLocalization.Get("CastlePlanner.SpawnSelectionTitle");
+        public string SpawnSelectionNoticeText => SerpLocalization.Get("CastlePlanner.SpawnSelectionNotice");
         public string PlacementControlsTitleText => SerpLocalization.Get("CastlePlanner.PlacementControlsTitle");
         public string InventoryText => string.Format(
             SerpLocalization.Get("CastlePlanner.Inventory"),
@@ -245,25 +271,67 @@ namespace CastlePlanner
             }
         }
 
-        [SyncHostOnly]
-        public string HostSelectedCastle
+        [SyncPerPlayer]
+        public string SpawnSelectedCastle
         {
-            get => hostSelectedCastle;
+            get => spawnSelectedCastle;
             set
             {
-                if (!CanMutateSetting(nameof(HostSelectedCastle)))
+                string normalized = NormalizeSpawnCastle(value);
+                if (string.Equals(spawnSelectedCastle, normalized, StringComparison.Ordinal))
                     return;
 
-                string normalized = NormalizeCastle(value, string.Empty);
-                if (string.Equals(hostSelectedCastle, normalized, StringComparison.Ordinal))
-                    return;
-
-                hostSelectedCastle = normalized;
-                OnPropertyChanged(nameof(HostSelectedCastle));
+                spawnSelectedCastle = normalized;
+                int localPlayerId = GetLocalPlayerId();
+                SpawnSelectedCastleData[localPlayerId] = normalized;
+                MarkCompatibilityChanged();
+                OnPropertyChanged(nameof(SpawnSelectedCastle));
+                OnPropertyChanged(nameof(SelectedSpawnCastleOption));
                 Shared.DebugLogHelper.LogInfo(
                     log,
-                    $"CastlePlanner host AIVJSON selection changed to '{hostSelectedCastle}'.");
+                    $"CastlePlanner personal spawn AIVJSON selection changed: " +
+                    $"playerId={localPlayerId}, selection='{spawnSelectedCastle}'.");
                 SettingsChanged?.Invoke();
+            }
+        }
+
+        [SyncPerPlayer, DoNotPersist]
+        public string SpawnInventoryManifest
+        {
+            get => spawnInventoryManifest;
+            set
+            {
+                value = value ?? string.Empty;
+                if (string.Equals(spawnInventoryManifest, value, StringComparison.Ordinal))
+                    return;
+
+                spawnInventoryManifest = value;
+                int localPlayerId = GetLocalPlayerId();
+                SpawnInventoryManifestData[localPlayerId] = value;
+                InvalidateDecodedInventory(localPlayerId);
+                MarkCompatibilityChanged();
+                OnPropertyChanged(nameof(SpawnInventoryManifest));
+            }
+        }
+
+        public Noesis.ComboBoxItem SelectedSpawnCastleOption
+        {
+            get
+            {
+                if (spawnCastleOptions.Length == 0)
+                    return null;
+                int index = Array.FindIndex(
+                    spawnCastleOptionNames,
+                    name => string.Equals(name, spawnSelectedCastle, StringComparison.OrdinalIgnoreCase));
+                return spawnCastleOptions[index >= 0 ? index : 0];
+            }
+            set
+            {
+                if (value == null || !value.IsEnabled)
+                    return;
+                int index = Array.IndexOf(spawnCastleOptions, value);
+                if (index >= 0 && index < spawnCastleOptionNames.Length)
+                    SpawnSelectedCastle = spawnCastleOptionNames[index];
             }
         }
 
@@ -369,9 +437,547 @@ namespace CastlePlanner
             return catalog.TryResolve(selectedCastle, out fullPath);
         }
 
-        internal bool TryResolveHostSelectedFile(out string fullPath)
+        internal bool TryCreateSpawnPlan(
+            IEnumerable<int> humanPlayerIds,
+            out List<CastleSpawnRequest> requests,
+            out string error)
         {
-            return catalog.TryResolve(hostSelectedCastle, out fullPath);
+            requests = new List<CastleSpawnRequest>();
+            error = string.Empty;
+            int[] playerIds = (humanPlayerIds ?? Enumerable.Empty<int>())
+                .Where(id => id > 0 && id < SpawnSelectedCastleData.Length)
+                .Distinct()
+                .OrderBy(id => id)
+                .ToArray();
+            if (playerIds.Length == 0)
+            {
+                error = "No human player IDs were available for castle spawning.";
+                return false;
+            }
+
+            if (!TryValidateCompatibilityReadiness(playerIds, out error))
+                return false;
+
+            foreach (int playerId in playerIds)
+            {
+                if (string.IsNullOrEmpty(SpawnInventoryManifestData[playerId]))
+                {
+                    error = $"Player {playerId} has not reported an AIVJSON inventory.";
+                    return false;
+                }
+                if (SpawnSelectedCastleData[playerId] == null)
+                {
+                    error = $"Player {playerId} has not reported a personal spawn selection.";
+                    return false;
+                }
+            }
+
+            IReadOnlyDictionary<int, IReadOnlyDictionary<string, string>> inventories =
+                DecodeInventories(playerIds);
+
+            foreach (int playerId in playerIds)
+            {
+                string castle = SpawnSelectedCastleData[playerId] ?? string.Empty;
+                if (string.IsNullOrEmpty(castle))
+                    continue;
+
+                if (!CastleSpawnCompatibility.IsAvailableToAll(
+                        castle,
+                        playerIds,
+                        inventories,
+                        out string hash))
+                {
+                    error = $"Player {playerId} selected AIVJSON '{castle}', but its name and SHA-256 are not identical for every human player.";
+                    return false;
+                }
+                if (!catalog.TryResolve(castle, out string filePath))
+                {
+                    error = $"Locally unavailable AIVJSON for player {playerId}: '{castle}'.";
+                    return false;
+                }
+                if (!catalog.TryCaptureHash(castle, out string actualHash, out string hashError))
+                {
+                    error = hashError;
+                    return false;
+                }
+                if (!string.Equals(hash, actualHash, StringComparison.OrdinalIgnoreCase))
+                {
+                    error = $"Locally changed AIVJSON for player {playerId}: '{castle}'. " +
+                        $"Announced SHA-256={hash}, current SHA-256={actualHash}.";
+                    return false;
+                }
+
+                requests.Add(new CastleSpawnRequest(playerId, castle, hash, filePath));
+            }
+
+            return true;
+        }
+
+        internal void PublishSpawnCompatibilityState()
+        {
+            compatibilityBroadcastPending = true;
+            ObserveLobbyCompatibilityState(forceObservation: true);
+            RebuildSpawnCastleOptions();
+        }
+
+        internal void ObserveLobbyCompatibilityState() =>
+            ObserveLobbyCompatibilityState(forceObservation: false);
+
+        internal void RequestLobbyCompatibilityBroadcast()
+        {
+            compatibilityBroadcastPending = true;
+            ObserveLobbyCompatibilityState(forceObservation: true);
+        }
+
+        internal void SetLobbyCompatibilitySyncAvailable()
+        {
+            lobbyCompatibilitySyncAvailable = true;
+        }
+
+        private void ObserveLobbyCompatibilityState(bool forceObservation)
+        {
+            bool steamworksReady = Shared.WorkshopContentPaths.IsSteamworksReady();
+            if (steamworksReady && !workshopCatalogReadyObserved)
+            {
+                workshopCatalogReadyObserved = true;
+                RefreshCastleOptions(notifySelectionChange: false);
+                compatibilityBroadcastPending = true;
+            }
+
+            Platform_Multiplayer.MPLobby lobby = Platform_Multiplayer.Instance?.activeLobby;
+            if (lobby == null)
+            {
+                // activeLobby may disappear during the map transition while gameMembers
+                // already contains the authoritative multiplayer roster. Do not mistake
+                // that transition for leaving the session and erase the converged snapshot.
+                if (HasActiveMultiplayerGameMembers())
+                    return;
+
+                CastleSpawnLobbyChange leaveChange = spawnLobbyState.Observe(null, null);
+                if (leaveChange.MembershipChanged)
+                {
+                    ClearCompatibilitySlots(leaveChange.SlotsToClear);
+                    int localPlayerId = GetLocalPlayerId();
+                    SpawnInventoryManifestData[localPlayerId] = spawnInventoryManifest;
+                    SpawnSelectedCastleData[localPlayerId] = spawnSelectedCastle;
+                    MarkCompatibilityChanged();
+                    RebuildSpawnCastleOptions();
+                }
+                compatibilityBroadcastPending = false;
+                return;
+            }
+
+            CaptureLobbyHumanPlayers(
+                lobby,
+                out Dictionary<int, ulong> players,
+                out bool hasUnresolvedPlayers);
+            CastleSpawnLobbyChange change = spawnLobbyState.Observe(
+                lobby.id.m_SteamID,
+                players);
+            if (change.MembershipChanged)
+            {
+                ClearCompatibilitySlots(change.SlotsToClear);
+                compatibilityBroadcastPending = true;
+                MarkCompatibilityChanged();
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    $"CastlePlanner lobby roster changed: lobby={lobby.id.m_SteamID}, " +
+                    $"sessionChanged={change.SessionChanged}, " +
+                    $"humanPlayers=[{string.Join(",", players.Keys.OrderBy(id => id))}], " +
+                    $"unresolved={hasUnresolvedPlayers}, clearedSlots=[{string.Join(",", change.SlotsToClear)}].");
+            }
+
+            if (change.MembershipChanged)
+                RebuildSpawnCastleOptions();
+            else
+                ApplyPendingSpawnOptionsRebuild();
+
+            int networkLocalPlayerId = GameNetworkAPI.GetLocalPlayerId();
+            bool localPlayerResolved =
+                networkLocalPlayerId > 0 && networkLocalPlayerId < SpawnInventoryManifestData.Length &&
+                players.ContainsKey(networkLocalPlayerId);
+            ApplyPendingSpawnSelectionReset();
+            if ((compatibilityBroadcastPending || forceObservation) &&
+                localPlayerResolved && !hasUnresolvedPlayers)
+            {
+                PublishLocalInventory(forceBroadcast: true);
+                SpawnSelectedCastleData[networkLocalPlayerId] = spawnSelectedCastle;
+                OnPropertyChanged(nameof(SpawnSelectedCastle));
+                compatibilityBroadcastPending = false;
+                MarkCompatibilityChanged();
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    $"CastlePlanner advertised personal spawn compatibility after lobby convergence: " +
+                    $"playerId={networkLocalPlayerId}, roster=[{string.Join(",", players.Keys.OrderBy(id => id))}].");
+            }
+
+        }
+
+        private void PublishLocalInventory(bool forceBroadcast)
+        {
+            string manifest = CastleSpawnCompatibility.EncodeManifest(
+                catalog.CaptureHashes(message => Shared.DebugLogHelper.LogWarning(log, message)));
+            int localPlayerId = GetLocalPlayerId();
+            bool changed = !string.Equals(spawnInventoryManifest, manifest, StringComparison.Ordinal);
+            spawnInventoryManifest = manifest;
+            SpawnInventoryManifestData[localPlayerId] = manifest;
+            if (changed || forceBroadcast)
+            {
+                InvalidateDecodedInventory(localPlayerId);
+                MarkCompatibilityChanged();
+                OnPropertyChanged(nameof(SpawnInventoryManifest));
+            }
+        }
+
+        private void OnNetworkCompatibilityPropertyChanged(
+            object sender,
+            PropertyChangedEventArgs args)
+        {
+            if (args.PropertyName != nameof(SpawnInventoryManifestData) &&
+                args.PropertyName != nameof(SpawnSelectedCastleData))
+            {
+                return;
+            }
+
+            if (args.PropertyName == nameof(SpawnInventoryManifestData))
+            {
+                for (int playerId = 1; playerId < SpawnInventoryManifestData.Length; playerId++)
+                    InvalidateDecodedInventory(playerId);
+            }
+            MarkCompatibilityChanged();
+            spawnOptionsRebuildPending = true;
+        }
+
+        private void RebuildSpawnCastleOptions()
+        {
+            spawnOptionsRebuildPending = false;
+            LobbyHumanPlayerSnapshot lobbyPlayers = GetLobbyHumanPlayerSnapshot();
+            int[] humanPlayerIds = lobbyPlayers.PlayerIds;
+            bool multiplayer = lobbyPlayers.HumanMemberCount > 1;
+            bool allReported = humanPlayerIds.All(id =>
+                id > 0 && id < SpawnInventoryManifestData.Length &&
+                !string.IsNullOrEmpty(SpawnInventoryManifestData[id]) &&
+                SpawnSelectedCastleData[id] != null) &&
+                !lobbyPlayers.HasUnresolvedPlayers;
+            IReadOnlyDictionary<int, IReadOnlyDictionary<string, string>> inventories =
+                DecodeInventories(humanPlayerIds);
+
+            var options = new List<Noesis.ComboBoxItem>();
+            var names = new List<string>();
+            Noesis.ComboBoxItem none = CreateSpawnOption(
+                SerpLocalization.Get("CastlePlanner.NoCastle"),
+                true,
+                SerpLocalization.Get("CastlePlanner.NoCastleHelp"));
+            options.Add(none);
+            names.Add(string.Empty);
+
+            foreach (string castle in CastleOptions)
+            {
+                bool compatible = !multiplayer ||
+                    (allReported && CastleSpawnCompatibility.IsAvailableToAll(
+                         castle,
+                         humanPlayerIds,
+                         inventories,
+                         out _));
+                options.Add(CreateSpawnOption(
+                    castle,
+                    compatible,
+                    compatible
+                        ? CastleHelpText
+                        : SerpLocalization.Get("CastlePlanner.CastleUnavailableForAllHelp")));
+                names.Add(castle);
+            }
+
+            spawnCastleOptions = options.ToArray();
+            spawnCastleOptionNames = names.ToArray();
+            OnPropertyChanged(nameof(SpawnCastleOptions));
+            OnPropertyChanged(nameof(SelectedSpawnCastleOption));
+
+            if (multiplayer && allReported && !string.IsNullOrEmpty(spawnSelectedCastle) &&
+                !CastleSpawnCompatibility.IsAvailableToAll(
+                     spawnSelectedCastle,
+                     humanPlayerIds,
+                     inventories,
+                     out _))
+            {
+                // Incoming settings are applied under the Extender's echo-suppression flag.
+                // Defer the local synchronized reset to the persistent lobby observer.
+                spawnSelectionResetPending = true;
+            }
+        }
+
+        private void ApplyPendingSpawnOptionsRebuild()
+        {
+            if (spawnOptionsRebuildPending)
+                RebuildSpawnCastleOptions();
+        }
+
+        private void ApplyPendingSpawnSelectionReset()
+        {
+            if (!spawnSelectionResetPending)
+                return;
+            spawnSelectionResetPending = false;
+
+            LobbyHumanPlayerSnapshot lobbyPlayers = GetLobbyHumanPlayerSnapshot();
+            if (lobbyPlayers.HumanMemberCount <= 1 ||
+                lobbyPlayers.HasUnresolvedPlayers ||
+                string.IsNullOrEmpty(spawnSelectedCastle))
+            {
+                return;
+            }
+
+            int[] playerIds = lobbyPlayers.PlayerIds;
+            bool allReported = playerIds.All(id =>
+                id > 0 && id < SpawnInventoryManifestData.Length &&
+                !string.IsNullOrEmpty(SpawnInventoryManifestData[id]) &&
+                SpawnSelectedCastleData[id] != null);
+            if (!allReported || CastleSpawnCompatibility.IsAvailableToAll(
+                    spawnSelectedCastle,
+                    playerIds,
+                    DecodeInventories(playerIds),
+                    out _))
+            {
+                return;
+            }
+
+            string invalidSelection = spawnSelectedCastle;
+            Shared.DebugLogHelper.LogWarning(
+                log,
+                $"Personal spawn selection reset because it is not identical for every lobby participant: '{invalidSelection}'.");
+            SpawnSelectedCastle = string.Empty;
+        }
+
+        private static Noesis.ComboBoxItem CreateSpawnOption(
+            string content,
+            bool enabled,
+            string tooltip)
+        {
+            var item = new Noesis.ComboBoxItem
+            {
+                Content = content,
+                IsEnabled = enabled,
+                ToolTip = tooltip
+            };
+            Noesis.ToolTipService.SetShowDuration(item, 60000);
+            if (!enabled)
+                item.Background = new Noesis.SolidColorBrush(
+                    Noesis.Color.FromArgb(96, 128, 24, 24));
+            return item;
+        }
+
+        private static LobbyHumanPlayerSnapshot GetLobbyHumanPlayerSnapshot()
+        {
+            Platform_Multiplayer platform = Platform_Multiplayer.Instance;
+            Platform_Multiplayer.MPLobby lobby = platform?.activeLobby;
+            if (lobby?.members == null)
+            {
+                int[] gamePlayerIds = platform?.gameMembers?
+                    .Where(member => member != null && !member.skirmishAI && !member.kicked)
+                    .Select(member => member.playerID)
+                    .Where(id => id > 0 && id <= 8)
+                    .Distinct()
+                    .OrderBy(id => id)
+                    .ToArray() ?? Array.Empty<int>();
+                if (gamePlayerIds.Length > 1)
+                {
+                    return new LobbyHumanPlayerSnapshot(
+                        gamePlayerIds,
+                        gamePlayerIds.Length,
+                        false);
+                }
+                return new LobbyHumanPlayerSnapshot(
+                    new[] { GetLocalPlayerId() },
+                    1,
+                    false);
+            }
+
+            CaptureLobbyHumanPlayers(
+                lobby,
+                out Dictionary<int, ulong> players,
+                out bool hasUnresolvedPlayers);
+            int humanMemberCount = lobby.members.Count(member =>
+                member != null && (!member.SkirmishMember || member.SkirmishHumanMember));
+            return new LobbyHumanPlayerSnapshot(
+                players.Keys.OrderBy(id => id).ToArray(),
+                humanMemberCount,
+                hasUnresolvedPlayers);
+        }
+
+        private static bool HasActiveMultiplayerGameMembers()
+        {
+            Platform_Multiplayer platform = Platform_Multiplayer.Instance;
+            if (platform?.gameMembers == null)
+                return false;
+            return platform.gameMembers.Count(member =>
+                member != null && !member.skirmishAI && !member.kicked) > 1;
+        }
+
+        private bool TryValidateCompatibilityReadiness(
+            int[] expectedPlayerIds,
+            out string error)
+        {
+            error = string.Empty;
+            catalog.Discover(message =>
+                Shared.DebugLogHelper.LogWarning(log, message));
+            string currentManifest = CastleSpawnCompatibility.EncodeManifest(
+                catalog.CaptureHashes(
+                    message => Shared.DebugLogHelper.LogWarning(log, message),
+                    forceRefresh: true));
+            if (!string.Equals(currentManifest, spawnInventoryManifest, StringComparison.Ordinal))
+            {
+                error = "The local AIVJSON inventory changed after its last lobby announcement. " +
+                    "Reopen the CastlePlanner settings and wait for synchronization before starting.";
+                return false;
+            }
+
+            if (expectedPlayerIds.Length <= 1)
+                return true;
+
+            if (!lobbyCompatibilitySyncAvailable)
+            {
+                error = "The CastlePlanner lobby synchronization controller is unavailable.";
+                return false;
+            }
+
+            LobbyHumanPlayerSnapshot lobbyPlayers = GetLobbyHumanPlayerSnapshot();
+            if (lobbyPlayers.HasUnresolvedPlayers ||
+                lobbyPlayers.HumanMemberCount != expectedPlayerIds.Length ||
+                !lobbyPlayers.PlayerIds.SequenceEqual(expectedPlayerIds))
+            {
+                error = $"The human lobby roster is not fully resolved or differs from the map roster: " +
+                    $"lobby=[{string.Join(",", lobbyPlayers.PlayerIds)}], " +
+                    $"map=[{string.Join(",", expectedPlayerIds)}], " +
+                    $"unresolved={lobbyPlayers.HasUnresolvedPlayers}.";
+                return false;
+            }
+
+            if (compatibilityBroadcastPending)
+            {
+                error = "The local compatibility advertisement is still pending.";
+                return false;
+            }
+
+            double stableSeconds =
+                (Stopwatch.GetTimestamp() - compatibilityChangedTimestamp) /
+                (double)Stopwatch.Frequency;
+            const double requiredStableSeconds = 2.0;
+            if (stableSeconds < requiredStableSeconds)
+            {
+                error = $"The synchronized castle state has only been stable for " +
+                    $"{stableSeconds:0.00}s; at least {requiredStableSeconds:0.00}s are required.";
+                return false;
+            }
+
+            return true;
+        }
+
+        private IReadOnlyDictionary<int, IReadOnlyDictionary<string, string>> DecodeInventories(
+            IEnumerable<int> playerIds)
+        {
+            var result = new Dictionary<int, IReadOnlyDictionary<string, string>>();
+            foreach (int playerId in playerIds ?? Enumerable.Empty<int>())
+            {
+                if (playerId <= 0 || playerId >= SpawnInventoryManifestData.Length)
+                    continue;
+
+                string manifest = SpawnInventoryManifestData[playerId] ?? string.Empty;
+                if (decodedInventories[playerId] == null ||
+                    !string.Equals(decodedManifestSources[playerId], manifest, StringComparison.Ordinal))
+                {
+                    decodedManifestSources[playerId] = manifest;
+                    decodedInventories[playerId] = CastleSpawnCompatibility.DecodeManifest(manifest);
+                }
+                result[playerId] = decodedInventories[playerId];
+            }
+            return result;
+        }
+
+        private void InvalidateDecodedInventory(int playerId)
+        {
+            if (playerId <= 0 || playerId >= decodedInventories.Length)
+                return;
+            decodedManifestSources[playerId] = null;
+            decodedInventories[playerId] = null;
+        }
+
+        private void ClearCompatibilitySlots(IEnumerable<int> playerIds)
+        {
+            foreach (int playerId in playerIds ?? Enumerable.Empty<int>())
+            {
+                if (playerId <= 0 || playerId >= SpawnInventoryManifestData.Length)
+                    continue;
+                SpawnInventoryManifestData[playerId] = null;
+                SpawnSelectedCastleData[playerId] = null;
+                InvalidateDecodedInventory(playerId);
+            }
+            OnPropertyChanged(nameof(SpawnInventoryManifestData));
+            OnPropertyChanged(nameof(SpawnSelectedCastleData));
+        }
+
+        private void MarkCompatibilityChanged()
+        {
+            compatibilityChangedTimestamp = Stopwatch.GetTimestamp();
+        }
+
+        private static void CaptureLobbyHumanPlayers(
+            Platform_Multiplayer.MPLobby lobby,
+            out Dictionary<int, ulong> players,
+            out bool hasUnresolvedPlayers)
+        {
+            players = new Dictionary<int, ulong>();
+            hasUnresolvedPlayers = false;
+            if (lobby?.members == null)
+                return;
+
+            foreach (Platform_Multiplayer.MPLobbyMember member in lobby.members)
+            {
+                if (member == null || (member.SkirmishMember && !member.SkirmishHumanMember))
+                    continue;
+
+                int playerId = GameNetworkAPI.GetPlayerIdForSteamId(member.id);
+                if (playerId <= 0 || playerId > 8 || member.id.m_SteamID == 0)
+                {
+                    hasUnresolvedPlayers = true;
+                    continue;
+                }
+                if (players.TryGetValue(playerId, out ulong existingSteamId) &&
+                    existingSteamId != member.id.m_SteamID)
+                {
+                    hasUnresolvedPlayers = true;
+                    players.Remove(playerId);
+                    continue;
+                }
+                players[playerId] = member.id.m_SteamID;
+            }
+        }
+
+        private static int GetLocalPlayerId()
+        {
+            int playerId = GameNetworkAPI.GetLocalPlayerId();
+            return playerId > 0 && playerId <= 8 ? playerId : 1;
+        }
+
+        private string NormalizeSpawnCastle(string value)
+        {
+            // LibraryLoaded precedes SteamManager.Awake. Keep a persisted Workshop
+            // selection until the first complete catalog refresh can validate it.
+            return CastleSpawnCompatibility.NormalizeSelection(
+                value,
+                CastleOptions,
+                Shared.WorkshopContentPaths.IsSteamworksReady());
+        }
+
+        private void NormalizeSpawnSelectionAfterCompleteCatalogRefresh()
+        {
+            if (!Shared.WorkshopContentPaths.IsSteamworksReady() ||
+                string.IsNullOrEmpty(spawnSelectedCastle))
+            {
+                return;
+            }
+
+            // Run through the public setting so a removed persisted file is reset,
+            // persisted and synchronized exactly like a user choosing "No castle".
+            SpawnSelectedCastle = spawnSelectedCastle;
         }
 
         internal void CompleteHotkeyCapture(KeyCode key)
@@ -663,11 +1269,11 @@ namespace CastlePlanner
             {
                 EnableMod = true;
                 SpawnCastle = false;
-                HostSelectedCastle = defaultCastle;
             }
 
-            // Every participant resets only their local Blueprint preferences.
-            SelectedCastle = defaultCastle;
+            // Every participant resets their own Blueprint and spawn preferences.
+            SelectedCastle = CastleOptions.Count > 0 ? CastleOptions[0] : string.Empty;
+            SpawnSelectedCastle = string.Empty;
             BlueprintHotkey = (int)KeyCode.None;
             BlueprintIconScale = 1.0;
             BlueprintIconAlpha = 0.3;
@@ -701,8 +1307,11 @@ namespace CastlePlanner
 
             blueprints = legacy.Mode == LegacyCastlePlannerMode.Blueprint;
             spawnCastle = legacy.Mode == LegacyCastlePlannerMode.Spawn;
+            string defaultCastle = CastleOptions.Count > 0 ? CastleOptions[0] : string.Empty;
             selectedCastle = NormalizeCastle(legacy.SelectedCastle, defaultCastle);
-            hostSelectedCastle = selectedCastle;
+            spawnSelectedCastle = legacy.Mode == LegacyCastlePlannerMode.Spawn
+                ? selectedCastle
+                : string.Empty;
             blueprintHotkey = NormalizeKeyCode(legacy.BlueprintHotkey);
             blueprintIconScale = NormalizeIconScale(legacy.BlueprintIconScale);
             blueprintIconAlpha = NormalizeIconAlpha(legacy.BlueprintIconAlpha);
@@ -773,11 +1382,28 @@ namespace CastlePlanner
                 execute(parameter);
             }
 
-            public event EventHandler CanExecuteChanged
+            public event System.EventHandler CanExecuteChanged
             {
                 add { }
                 remove { }
             }
+        }
+
+        private sealed class LobbyHumanPlayerSnapshot
+        {
+            public LobbyHumanPlayerSnapshot(
+                int[] playerIds,
+                int humanMemberCount,
+                bool hasUnresolvedPlayers)
+            {
+                PlayerIds = playerIds ?? Array.Empty<int>();
+                HumanMemberCount = humanMemberCount;
+                HasUnresolvedPlayers = hasUnresolvedPlayers;
+            }
+
+            public int[] PlayerIds { get; }
+            public int HumanMemberCount { get; }
+            public bool HasUnresolvedPlayers { get; }
         }
 
         private enum LegacyCastlePlannerMode

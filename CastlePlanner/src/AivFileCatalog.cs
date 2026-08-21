@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Security.Cryptography;
 
 namespace CastlePlanner
 {
@@ -11,6 +12,8 @@ namespace CastlePlanner
     {
         private readonly Dictionary<string, string> pathByOption =
             new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, CachedFingerprint> fingerprintByPath =
+            new Dictionary<string, CachedFingerprint>(StringComparer.OrdinalIgnoreCase);
 
         public IReadOnlyList<string> Discover(Action<string> warning = null)
         {
@@ -50,6 +53,101 @@ namespace CastlePlanner
         {
             return pathByOption.TryGetValue(option ?? string.Empty, out fullPath) &&
                    File.Exists(fullPath);
+        }
+
+        public IReadOnlyDictionary<string, string> CaptureHashes(
+            Action<string> warning = null,
+            bool forceRefresh = false)
+        {
+            var hashes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            var currentPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (KeyValuePair<string, string> entry in pathByOption)
+            {
+                try
+                {
+                    string path = entry.Value;
+                    currentPaths.Add(path);
+                    var info = new FileInfo(path);
+                    if (!forceRefresh &&
+                        fingerprintByPath.TryGetValue(path, out CachedFingerprint cached) &&
+                        cached.Length == info.Length &&
+                        cached.LastWriteTimeUtcTicks == info.LastWriteTimeUtc.Ticks)
+                    {
+                        hashes[entry.Key] = cached.Hash;
+                        continue;
+                    }
+
+                    string hash = ComputeHash(path);
+                    fingerprintByPath[path] = new CachedFingerprint(
+                        info.Length,
+                        info.LastWriteTimeUtc.Ticks,
+                        hash);
+                    hashes[entry.Key] = hash;
+                }
+                catch (Exception exception)
+                {
+                    warning?.Invoke(
+                        $"Could not fingerprint AIVJSON '{entry.Value}': {exception.Message}");
+                }
+            }
+
+            foreach (string stalePath in fingerprintByPath.Keys
+                .Where(path => !currentPaths.Contains(path))
+                .ToArray())
+            {
+                fingerprintByPath.Remove(stalePath);
+            }
+
+            return hashes;
+        }
+
+        public bool TryCaptureHash(
+            string option,
+            out string hash,
+            out string error)
+        {
+            hash = string.Empty;
+            error = string.Empty;
+            if (!TryResolve(option, out string path))
+            {
+                error = $"AIVJSON is unavailable: '{option}'.";
+                return false;
+            }
+
+            try
+            {
+                hash = ComputeHash(path);
+                return true;
+            }
+            catch (Exception exception)
+            {
+                error = $"Could not fingerprint AIVJSON '{path}': {exception.Message}";
+                return false;
+            }
+        }
+
+        private static string ComputeHash(string path)
+        {
+            using (FileStream stream = File.OpenRead(path))
+            using (SHA256 sha256 = SHA256.Create())
+            {
+                return BitConverter.ToString(sha256.ComputeHash(stream))
+                    .Replace("-", string.Empty);
+            }
+        }
+
+        private sealed class CachedFingerprint
+        {
+            public CachedFingerprint(long length, long lastWriteTimeUtcTicks, string hash)
+            {
+                Length = length;
+                LastWriteTimeUtcTicks = lastWriteTimeUtcTicks;
+                Hash = hash;
+            }
+
+            public long Length { get; }
+            public long LastWriteTimeUtcTicks { get; }
+            public string Hash { get; }
         }
 
         private void AddLocalLordRoots()

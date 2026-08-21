@@ -10,6 +10,7 @@ using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 
 namespace CastlePlanner
@@ -116,10 +117,12 @@ namespace CastlePlanner
         private IntPtr preparedKeepY;
         private bool installed;
         private bool handledCurrentMap;
-        private bool aivImportedForCurrentMap;
-        private PendingAivImport pendingAivImport;
-        private PreparedAivCastle preparedAivCastle;
-        private PreparedAivCastle executedAivCastle;
+        private readonly Dictionary<int, PendingAivImport> pendingAivImports =
+            new Dictionary<int, PendingAivImport>();
+        private readonly Dictionary<int, PreparedAivCastle> preparedAivCastles =
+            new Dictionary<int, PreparedAivCastle>();
+        private readonly Dictionary<int, PreparedAivCastle> executedAivCastles =
+            new Dictionary<int, PreparedAivCastle>();
         private bool nativeCastleExecutionInProgress;
         private int nativeCastleExecutionPlayerId;
         private int nextHovelVisualStyle;
@@ -166,10 +169,7 @@ namespace CastlePlanner
         private void OnLoadSave(LoadSaveGameEventArgs args)
         {
             handledCurrentMap = true;
-            aivImportedForCurrentMap = false;
-            pendingAivImport = null;
-            preparedAivCastle = null;
-            executedAivCastle = null;
+            ClearMapSpawnState();
             Shared.DebugLogHelper.LogInfo(
                 log,
                 "Savegame load detected; native castle spawning is disabled for this map.");
@@ -178,10 +178,7 @@ namespace CastlePlanner
         private void OnUnloadMap(MapUnloadEventArgs args)
         {
             handledCurrentMap = false;
-            aivImportedForCurrentMap = false;
-            pendingAivImport = null;
-            preparedAivCastle = null;
-            executedAivCastle = null;
+            ClearMapSpawnState();
             nativeCastleExecutionInProgress = false;
             nativeCastleExecutionPlayerId = 0;
             nextHovelVisualStyle = 0;
@@ -189,6 +186,13 @@ namespace CastlePlanner
             Shared.DebugLogHelper.LogInfo(
                 log,
                 "OnUnloadMap(Post) received; the next new map may spawn a native AIV castle.");
+        }
+
+        private void ClearMapSpawnState()
+        {
+            pendingAivImports.Clear();
+            preparedAivCastles.Clear();
+            executedAivCastles.Clear();
         }
 
         private void OnStartMap(MapStartEventArgs args)
@@ -205,10 +209,9 @@ namespace CastlePlanner
             Shared.DebugLogHelper.LogInfo(
                 log,
                 $"OnStartMap(Post) received: handledCurrentMap={handledCurrentMap}, " +
-                $"hostSelection='{settings.HostSelectedCastle}', " +
-                $"preImportReady={pendingAivImport != null}, " +
-                $"keepPreSpawnPrepared={preparedAivCastle != null}, " +
-                $"keepPostSpawnExecuted={executedAivCastle != null}.");
+                $"preImports={pendingAivImports.Count}, " +
+                $"keepPreSpawns={preparedAivCastles.Count}, " +
+                $"keepPostSpawns={executedAivCastles.Count}.");
 
             GameModeSnapshot gameMode = CaptureGameMode(args);
             LogGameModeDiagnostics(gameMode);
@@ -235,7 +238,7 @@ namespace CastlePlanner
                 EnsureSupportedGameMode(gameMode);
                 Shared.DebugLogHelper.LogInfo(
                     log,
-                    $"Game-mode guard accepted local singleplayer skirmish: " +
+                    $"Game-mode guard accepted supported skirmish: " +
                     $"sharedSingleplayerSkirmish={gameMode.SharedSingleplayerSkirmish}, " +
                     $"gameDataSkirmishGameType={gameMode.GameDataSkirmishGameType}, " +
                     $"lobbySkirmishMembers={gameMode.LobbySkirmishMemberCount}, " +
@@ -243,25 +246,21 @@ namespace CastlePlanner
                     $"lobbyNetworkHumans={gameMode.LobbyNetworkHumanCount}, " +
                     $"realNetworkGameMembers={gameMode.RealNetworkGameMemberCount}.");
 
-                bool imported = aivImportedForCurrentMap;
-                aivImportedForCurrentMap = false;
-                pendingAivImport = null;
-                PreparedAivCastle castle = executedAivCastle;
-                preparedAivCastle = null;
-                executedAivCastle = null;
-                if (castle == null)
+                int pendingCount = pendingAivImports.Count;
+                int preparedCount = preparedAivCastles.Count;
+                int executedCount = executedAivCastles.Count;
+                if (pendingCount != 0 || preparedCount != 0)
                 {
                     throw new InvalidOperationException(
-                        !imported
-                            ? "No AIV was imported during OnStartMap(Pre); native execution could not run."
-                            : "The selected AIV was imported, but the local Keep BuildStructure(Post) event did not execute it.");
+                        $"Not every selected human castle completed inside native map start: " +
+                        $"pending={pendingCount}, prepared={preparedCount}, executed={executedCount}.");
                 }
 
                 Shared.DebugLogHelper.LogInfo(
                     log,
-                    $"Native castle execution already completed inside the native map start: " +
-                    $"playerId={castle.PlayerId}, specIndex={castle.SpecIndex}, " +
-                    $"highestFrame={castle.HighestFrame}.");
+                    $"Native multiplayer castle execution completed inside map start: " +
+                    $"executedPlayers=[{string.Join(",", executedAivCastles.Keys)}].");
+                ClearMapSpawnState();
             }
             catch (Exception ex)
             {
@@ -274,14 +273,10 @@ namespace CastlePlanner
 
         private void OnStartMapPre(MapStartEventArgs args)
         {
-            aivImportedForCurrentMap = false;
-            pendingAivImport = null;
-            preparedAivCastle = null;
-            executedAivCastle = null;
+            ClearMapSpawnState();
             Shared.DebugLogHelper.LogInfo(
                 log,
-                $"OnStartMap(Pre) received: handledCurrentMap={handledCurrentMap}, " +
-                $"hostSelection='{settings.HostSelectedCastle}'.");
+                $"OnStartMap(Pre) received: handledCurrentMap={handledCurrentMap}.");
 
             if (handledCurrentMap || !settings.IsSpawnMode)
                 return;
@@ -290,58 +285,73 @@ namespace CastlePlanner
             {
                 GameModeSnapshot gameMode = CaptureGameMode(args);
                 EnsureSupportedGameMode(gameMode);
-
-                if (!settings.TryResolveHostSelectedFile(out string filePath))
-                {
-                    throw new FileNotFoundException(
-                        $"Host-selected AIVJSON file is unavailable: '{settings.HostSelectedCastle}'.");
-                }
-
-                int nativePlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
-                if (!GamePlayerManagerAPI.Instance.IsPlayerIdValid(nativePlayerId) ||
-                    GamePlayerManagerAPI.Instance.IsAIPlayer(nativePlayerId))
+                int[] humanPlayerIds = CaptureHumanPlayerIds();
+                if (!settings.TryCreateSpawnPlan(
+                        humanPlayerIds,
+                        out List<CastleSpawnRequest> requests,
+                        out string validationError))
                 {
                     throw new InvalidOperationException(
-                        $"No valid native local human player was found during pre-import; " +
-                        $"nativePlayerId={nativePlayerId}.");
+                        "Multiplayer castle compatibility validation failed: " + validationError);
                 }
 
-                string json = File.ReadAllText(filePath);
-                AivJsonDocument document = AivJsonReader.Parse(json);
-                short[] rawAiv = AivRawDataEncoder.Encode(document);
-
-                // Pre runs after Vanilla's InitAIVLoading/import loop but before the native
-                // start consumes the candidate table. Importing in Post is too late.
-                EngineInterface.ImportAIV(nativePlayerId - 1, 0, rawAiv, 1);
-                ImportedCandidateSnapshot importedCandidates =
-                    CaptureImportedCandidates(nativePlayerId - 1);
-                pendingAivImport = new PendingAivImport(
-                    nativePlayerId,
-                    filePath,
-                    new FileInfo(filePath).Length,
-                    document,
-                    rawAiv.Length);
-                aivImportedForCurrentMap = true;
+                // Parse and encode every file before the first native mutation. A single
+                // malformed AIV therefore aborts the whole transaction without partial imports.
+                List<PendingAivImport> preparedImports = requests
+                    .Select(PreparePlayerImport)
+                    .ToList();
+                for (int index = 0; index < requests.Count; index++)
+                    ImportPlayerCastle(requests[index], preparedImports[index]);
 
                 Shared.DebugLogHelper.LogInfo(
                     log,
-                    $"Native AIV pre-import completed: phase=OnStartMap(Pre), " +
-                    $"playerId={nativePlayerId}, playerSlot={nativePlayerId - 1}, " +
-                    $"candidateId=0, custom=1, file={filePath}, " +
-                    $"frames={document.frames.Count}, miscItems={document.miscItems.Count}, " +
-                    $"rawShorts={rawAiv.Length}, " +
-                    $"nativeCandidateCountAfterImport={importedCandidates.Count}, " +
-                    $"nativeCandidate0Pointer=0x{importedCandidates.FirstPointer.ToInt64():X}, " +
-                    $"nativeCandidateTable=0x{importedCandidates.TableAddress.ToInt64():X}.");
+                    $"Native AIV pre-import transaction completed: " +
+                    $"humanPlayers=[{string.Join(",", humanPlayerIds)}], " +
+                    $"selectedPlayers=[{string.Join(",", requests.Select(request => request.PlayerId))}].");
             }
             catch (Exception ex)
             {
-                aivImportedForCurrentMap = false;
-                pendingAivImport = null;
+                ClearMapSpawnState();
                 Shared.DebugLogHelper.LogError(
                     log,
                     $"Native AIV pre-import failed; Keep-preparation and Post execution will be skipped: {ex}");
             }
+        }
+
+        private static PendingAivImport PreparePlayerImport(CastleSpawnRequest request)
+        {
+            string json = File.ReadAllText(request.FilePath);
+            AivJsonDocument document = AivJsonReader.Parse(json);
+            short[] rawAiv = AivRawDataEncoder.Encode(document);
+            return new PendingAivImport(
+                request.PlayerId,
+                request.FilePath,
+                new FileInfo(request.FilePath).Length,
+                document,
+                rawAiv);
+        }
+
+        private void ImportPlayerCastle(
+            CastleSpawnRequest request,
+            PendingAivImport prepared)
+        {
+            // Pre runs after Vanilla's import loop but before map start consumes the table.
+            EngineInterface.ImportAIV(request.PlayerId - 1, 0, prepared.RawAiv, 1);
+            ImportedCandidateSnapshot importedCandidates =
+                CaptureImportedCandidates(request.PlayerId - 1);
+            pendingAivImports.Add(request.PlayerId, prepared);
+
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"Native AIV pre-import completed: phase=OnStartMap(Pre), " +
+                $"playerId={request.PlayerId}, playerSlot={request.PlayerId - 1}, " +
+                $"castle='{request.Castle}', sha256={request.Hash}, " +
+                $"candidateId=0, custom=1, file={request.FilePath}, " +
+                $"frames={prepared.Document.frames.Count}, miscItems={prepared.Document.miscItems.Count}, " +
+                $"rawShorts={prepared.RawShortCount}, " +
+                $"nativeCandidateCountAfterImport={importedCandidates.Count}, " +
+                $"nativeCandidate0Pointer=0x{importedCandidates.FirstPointer.ToInt64():X}, " +
+                $"nativeCandidateTable=0x{importedCandidates.TableAddress.ToInt64():X}.");
         }
 
         private void OnBuildStructurePre(BuildStructureEventArgs args)
@@ -349,10 +359,8 @@ namespace CastlePlanner
             if (TryCorrectNativeHovelVisualStyle(args))
                 return;
 
-            PendingAivImport imported = pendingAivImport;
-            if (imported == null ||
-                preparedAivCastle != null ||
-                args.PlayerId != imported.PlayerId ||
+            if (!pendingAivImports.TryGetValue(args.PlayerId, out PendingAivImport imported) ||
+                preparedAivCastles.ContainsKey(args.PlayerId) ||
                 !IsKeepMapper(args.Mappers))
             {
                 return;
@@ -360,7 +368,7 @@ namespace CastlePlanner
 
             // Vanilla reaches this event immediately before placing the human Keep.
             // Preparing here lets the native fit test see an empty Keep footprint.
-            pendingAivImport = null;
+            pendingAivImports.Remove(args.PlayerId);
             try
             {
                 PreparedAivCastle castle = PrepareSelectedCastle(
@@ -374,11 +382,11 @@ namespace CastlePlanner
                 args.BuildingScaleUnknown = 7;
                 args.Unknown1 = castle.Orientation;
                 args.IsFree = false;
-                preparedAivCastle = castle;
+                preparedAivCastles[args.PlayerId] = castle;
 
                 Shared.DebugLogHelper.LogInfo(
                     log,
-                    $"Vanilla local Keep intercepted after AIV preparation: " +
+                    $"Vanilla human Keep intercepted after AIV preparation: " +
                     $"playerId={args.PlayerId}, " +
                     $"originalKeep=({castle.RequestedKeepX},{castle.RequestedKeepY}), " +
                     $"preparedKeep=({castle.PreparedKeepX},{castle.PreparedKeepY}), " +
@@ -387,10 +395,10 @@ namespace CastlePlanner
             }
             catch (Exception ex)
             {
-                preparedAivCastle = null;
+                preparedAivCastles.Remove(args.PlayerId);
                 Shared.DebugLogHelper.LogError(
                     log,
-                    $"Native AIV preparation at local Keep BuildStructure(Pre) failed; " +
+                    $"Native AIV preparation at human Keep BuildStructure(Pre) failed; " +
                     $"the Vanilla Keep will remain unchanged and no castle fallback will run: {ex}");
             }
         }
@@ -422,9 +430,7 @@ namespace CastlePlanner
 
         private void OnBuildStructurePost(BuildStructureEventArgs args)
         {
-            PreparedAivCastle castle = preparedAivCastle;
-            if (castle == null ||
-                args.PlayerId != castle.PlayerId ||
+            if (!preparedAivCastles.TryGetValue(args.PlayerId, out PreparedAivCastle castle) ||
                 !IsKeepMapper(args.Mappers))
             {
                 return;
@@ -433,18 +439,18 @@ namespace CastlePlanner
             // Execute while the native skirmish-start function is still running.
             // Vanilla performs its completed-AI-castle execution at this stage too,
             // before the outer map-start finalizes building tiles and visuals.
-            preparedAivCastle = null;
+            preparedAivCastles.Remove(args.PlayerId);
             try
             {
                 ExecutePreparedCastle(castle);
-                executedAivCastle = castle;
+                executedAivCastles[args.PlayerId] = castle;
             }
             catch (Exception ex)
             {
-                executedAivCastle = null;
+                executedAivCastles.Remove(args.PlayerId);
                 Shared.DebugLogHelper.LogError(
                     log,
-                    $"Native AIV execution at local Keep BuildStructure(Post) failed; " +
+                    $"Native AIV execution at human Keep BuildStructure(Post) failed; " +
                     $"no castle fallback will run: {ex}");
             }
         }
@@ -454,18 +460,12 @@ namespace CastlePlanner
             int keepX,
             int keepY)
         {
-            int playerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
+            int playerId = prepared.PlayerId;
             if (!GamePlayerManagerAPI.Instance.IsPlayerIdValid(playerId) ||
                 GamePlayerManagerAPI.Instance.IsAIPlayer(playerId))
             {
                 throw new InvalidOperationException(
-                    $"No valid local human player was found; playerId={playerId}.");
-            }
-            if (playerId != prepared.PlayerId)
-            {
-                throw new InvalidOperationException(
-                    $"Local player changed between AIV import and placement: " +
-                    $"prePlayerId={prepared.PlayerId}, postPlayerId={playerId}.");
+                    $"The imported player is not a valid human player; playerId={playerId}.");
             }
 
             if (!GameTileManagerAPI.Instance.IsTileInsideMapBounds(
@@ -845,6 +845,36 @@ namespace CastlePlanner
                 count);
         }
 
+        private static int[] CaptureHumanPlayerIds()
+        {
+            var playerIds = new HashSet<int>(
+                Shared.ActivePlayerHelper.GetActivePlayerIds().Where(playerId =>
+                    GamePlayerManagerAPI.Instance.IsPlayerIdValid(playerId) &&
+                    !GamePlayerManagerAPI.Instance.IsAIPlayer(playerId)));
+
+            Platform_Multiplayer platform = Platform_Multiplayer.Instance;
+            if (platform?.gameMembers != null)
+            {
+                foreach (Platform_Multiplayer.MPGameMember member in platform.gameMembers)
+                {
+                    if (member != null && !member.skirmishAI && !member.kicked &&
+                        GamePlayerManagerAPI.Instance.IsPlayerIdValid(member.playerID))
+                    {
+                        playerIds.Add(member.playerID);
+                    }
+                }
+            }
+
+            int localPlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
+            if (GamePlayerManagerAPI.Instance.IsPlayerIdValid(localPlayerId) &&
+                !GamePlayerManagerAPI.Instance.IsAIPlayer(localPlayerId))
+            {
+                playerIds.Add(localPlayerId);
+            }
+
+            return playerIds.OrderBy(playerId => playerId).ToArray();
+        }
+
         private static string DescribePlacementFailure(int nativeCandidateCount)
         {
             // Native TestSpecificCandidate returns -2 both for an absent candidate
@@ -989,17 +1019,10 @@ namespace CastlePlanner
                     "Director is unavailable during the map-start callback; game mode cannot be verified.");
             }
 
-            if (mode.SharedRealMultiplayer)
+            if (!mode.SharedSingleplayerSkirmish && !mode.SharedRealMultiplayer)
             {
                 throw new NotSupportedException(
-                    $"Native CastlePlanner is disabled for real multiplayer: " +
-                    $"{mode.SharedModeDetails}.");
-            }
-
-            if (!mode.SharedSingleplayerSkirmish)
-            {
-                throw new NotSupportedException(
-                    $"Native CastlePlanner requires a singleplayer skirmish: " +
+                    $"Native CastlePlanner requires a singleplayer or multiplayer skirmish: " +
                     $"{mode.SharedModeDetails}.");
             }
         }
@@ -1163,20 +1186,21 @@ namespace CastlePlanner
                 string filePath,
                 long jsonBytes,
                 AivJsonDocument document,
-                int rawShortCount)
+                short[] rawAiv)
             {
                 PlayerId = playerId;
                 FilePath = filePath;
                 JsonBytes = jsonBytes;
                 Document = document;
-                RawShortCount = rawShortCount;
+                RawAiv = rawAiv ?? throw new ArgumentNullException(nameof(rawAiv));
             }
 
             public int PlayerId { get; }
             public string FilePath { get; }
             public long JsonBytes { get; }
             public AivJsonDocument Document { get; }
-            public int RawShortCount { get; }
+            public short[] RawAiv { get; }
+            public int RawShortCount => RawAiv.Length;
         }
 
         private sealed class PreparedAivCastle

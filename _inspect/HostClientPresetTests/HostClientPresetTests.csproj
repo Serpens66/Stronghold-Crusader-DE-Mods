@@ -93,6 +93,15 @@
     <Compile Include="..\..\Shared\NativePatternResolver.cs">
       <Link>NativePatternResolver.cs</Link>
     </Compile>
+    <Compile Include="..\..\CastlePlanner\src\CastleSpawnCompatibility.cs">
+      <Link>CastleSpawnCompatibility.cs</Link>
+    </Compile>
+    <Compile Include="..\..\CastlePlanner\src\CastleSpawnLobbyState.cs">
+      <Link>CastleSpawnLobbyState.cs</Link>
+    </Compile>
+    <Compile Include="..\..\CastlePlanner\src\CastleSpawnSyncRequestPacket.cs">
+      <Link>CastleSpawnSyncRequestPacket.cs</Link>
+    </Compile>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

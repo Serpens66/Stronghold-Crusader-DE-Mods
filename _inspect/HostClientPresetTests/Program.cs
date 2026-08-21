@@ -41,6 +41,9 @@ internal static class Program
             TestMarketOrderPresetRoundTrip();
             TestPresetLocalRoundTrip();
             TestDoNotPersistPresetExclusion();
+            TestCastleSpawnCompatibility();
+            TestCastleSpawnLobbyState();
+            TestCastleSpawnSyncPacket();
 
             string pluginPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "TestPlugin.dll");
             string settingsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "LobbyModSettings", "HostClientTest.msgpack");
@@ -1551,6 +1554,141 @@ internal static class Program
     {
         try { value = MessagePackSerializer.Deserialize<int>(bytes); return true; }
         catch { value = 0; return false; }
+    }
+
+    private static void TestCastleSpawnCompatibility()
+    {
+        const string sharedHash = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+        const string otherHash = "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB";
+        Check(CastlePlanner.CastleSpawnCompatibility.NormalizeSelection(
+                "[Workshop] Later.aivjson",
+                Array.Empty<string>(),
+                catalogComplete: false) == "[Workshop] Later.aivjson",
+            "CastlePlanner discarded a persisted Workshop selection before Steam was ready");
+        Check(CastlePlanner.CastleSpawnCompatibility.NormalizeSelection(
+                "[Workshop] Later.aivjson",
+                new[] { "[Workshop] Later.aivjson" },
+                catalogComplete: true) == "[Workshop] Later.aivjson",
+            "CastlePlanner rejected a persisted Workshop selection after catalog discovery");
+        Check(CastlePlanner.CastleSpawnCompatibility.NormalizeSelection(
+                "[Workshop] Removed.aivjson",
+                Array.Empty<string>(),
+                catalogComplete: true) == string.Empty,
+            "CastlePlanner retained a removed selection after the complete catalog refresh");
+        var first = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["[Mod] Castle One.aivjson"] = sharedHash,
+            ["[Mod] Local Only.aivjson"] = otherHash
+        };
+        var second = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["[Mod] Castle One.aivjson"] = sharedHash
+        };
+        string[] manifests = new string[9];
+        manifests[1] = CastlePlanner.CastleSpawnCompatibility.EncodeManifest(first);
+        manifests[2] = CastlePlanner.CastleSpawnCompatibility.EncodeManifest(second);
+
+        Dictionary<string, string> decoded =
+            CastlePlanner.CastleSpawnCompatibility.DecodeManifest(manifests[1]);
+        Check(decoded.Count == 2 && decoded["[Mod] Castle One.aivjson"] == sharedHash,
+            "CastlePlanner inventory manifest did not round-trip names and hashes");
+        Check(CastlePlanner.CastleSpawnCompatibility.IsAvailableToAll(
+                "[Mod] Castle One.aivjson", new[] { 1, 2 }, manifests, out string resolvedHash) &&
+              resolvedHash == sharedHash,
+            "CastlePlanner rejected an identical multiplayer AIVJSON");
+        Check(!CastlePlanner.CastleSpawnCompatibility.IsAvailableToAll(
+                "[Mod] Local Only.aivjson", new[] { 1, 2 }, manifests, out _),
+            "CastlePlanner accepted an AIVJSON missing on one peer");
+        second["[Mod] Castle One.aivjson"] = otherHash;
+        manifests[2] = CastlePlanner.CastleSpawnCompatibility.EncodeManifest(second);
+        Check(!CastlePlanner.CastleSpawnCompatibility.IsAvailableToAll(
+                "[Mod] Castle One.aivjson", new[] { 1, 2 }, manifests, out _),
+            "CastlePlanner accepted equal names with different SHA-256 values");
+        Check(CastlePlanner.CastleSpawnCompatibility.IsAvailableToAll(
+                string.Empty, new[] { 1, 2 }, manifests, out _),
+            "CastlePlanner rejected the explicit No castle selection");
+        Check(CastlePlanner.CastleSpawnCompatibility.DecodeManifest(
+                "v2\n" + Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes("Castle")) +
+                "|" + sharedHash).Count == 0,
+            "CastlePlanner accepted an unsupported inventory-manifest version");
+        Check(CastlePlanner.CastleSpawnCompatibility.DecodeManifest(
+                "v1\n" + Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes("Castle")) +
+                "|" + new string('Z', 64)).Count == 0,
+            "CastlePlanner accepted a non-hexadecimal SHA-256 value");
+
+        var largeInventory = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        for (int index = 0; index < 2500; index++)
+            largeInventory[$"[Workshop] Castle {index:0000}.aivjson"] = sharedHash;
+        string largeManifest = CastlePlanner.CastleSpawnCompatibility.EncodeManifest(largeInventory);
+        var decodedInventories = new Dictionary<int, IReadOnlyDictionary<string, string>>
+        {
+            [1] = CastlePlanner.CastleSpawnCompatibility.DecodeManifest(largeManifest),
+            [2] = CastlePlanner.CastleSpawnCompatibility.DecodeManifest(largeManifest)
+        };
+        Check(CastlePlanner.CastleSpawnCompatibility.IsAvailableToAll(
+                "[Workshop] Castle 2499.aivjson",
+                new[] { 1, 2 },
+                decodedInventories,
+                out resolvedHash) && resolvedHash == sharedHash,
+            "CastlePlanner rejected a matching entry in a large predecoded inventory");
+    }
+
+    private static void TestCastleSpawnLobbyState()
+    {
+        var state = new CastlePlanner.CastleSpawnLobbyState();
+        CastlePlanner.CastleSpawnLobbyChange first = state.Observe(
+            100UL,
+            new Dictionary<int, ulong> { [1] = 11UL, [2] = 22UL });
+        Check(first.MembershipChanged && first.SessionChanged && first.SlotsToClear.Length == 8,
+            "CastlePlanner did not clear all compatibility slots on a new lobby session");
+
+        CastlePlanner.CastleSpawnLobbyChange unchanged = state.Observe(
+            100UL,
+            new Dictionary<int, ulong> { [1] = 11UL, [2] = 22UL });
+        Check(!unchanged.MembershipChanged,
+            "CastlePlanner treated an unchanged lobby roster as a new synchronization generation");
+
+        CastlePlanner.CastleSpawnLobbyChange joined = state.Observe(
+            100UL,
+            new Dictionary<int, ulong> { [1] = 11UL, [2] = 22UL, [3] = 33UL });
+        Check(joined.MembershipChanged && joined.SlotsToClear.Length == 0,
+            "CastlePlanner cleared valid existing slots when a new player joined");
+
+        CastlePlanner.CastleSpawnLobbyChange reused = state.Observe(
+            100UL,
+            new Dictionary<int, ulong> { [1] = 11UL, [2] = 222UL, [3] = 33UL });
+        Check(reused.MembershipChanged && reused.SlotsToClear.SequenceEqual(new[] { 2 }),
+            "CastlePlanner did not clear a player slot whose Steam identity changed");
+
+        CastlePlanner.CastleSpawnLobbyChange left = state.Observe(
+            100UL,
+            new Dictionary<int, ulong> { [1] = 11UL });
+        Check(left.MembershipChanged && left.SlotsToClear.OrderBy(id => id).SequenceEqual(new[] { 2, 3 }),
+            "CastlePlanner did not clear departed player slots");
+
+        CastlePlanner.CastleSpawnLobbyChange nextLobby = state.Observe(
+            200UL,
+            new Dictionary<int, ulong> { [1] = 11UL });
+        Check(nextLobby.SessionChanged && nextLobby.SlotsToClear.Length == 8,
+            "CastlePlanner retained compatibility data across lobby IDs");
+
+        CastlePlanner.CastleSpawnLobbyChange lobbyExit = state.Observe(null, null);
+        Check(lobbyExit.SessionChanged && lobbyExit.SlotsToClear.Length == 8,
+            "CastlePlanner retained compatibility data after leaving the lobby");
+    }
+
+    private static void TestCastleSpawnSyncPacket()
+    {
+        var packet = new CastlePlanner.CastleSpawnSyncRequestPacket
+        {
+            ProtocolVersion = 1,
+            LobbyId = 76561198000000000UL
+        };
+        byte[] bytes = MessagePackSerializer.Serialize(packet);
+        CastlePlanner.CastleSpawnSyncRequestPacket decoded =
+            MessagePackSerializer.Deserialize<CastlePlanner.CastleSpawnSyncRequestPacket>(bytes);
+        Check(decoded.ProtocolVersion == packet.ProtocolVersion && decoded.LobbyId == packet.LobbyId,
+            "CastlePlanner lobby resync packet did not round-trip through its explicit formatter");
     }
 
     private static void Check(bool condition, string message)

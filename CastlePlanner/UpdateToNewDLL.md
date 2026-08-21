@@ -36,7 +36,7 @@ The named source constants contain the complete authoritative byte patterns.
    prebuilt-player bits, active-spec index and prepared Keep coordinates.
 4. Recheck the `AllocateSpec +0x5F` player-state reference and expected bytes.
 5. Test default/custom candidates, rotations, partial/no-fit failures, repeated
-   map starts and the multiplayer block without any manual-spawn fallback.
+   map starts and deterministic per-player multiplayer spawning without any manual-spawn fallback.
 6. Update all RVAs before approving the new shared hash.
 
 Historical RVAs in `AICastlePlanner.md` belong to an older DLL and are not a
@@ -47,5 +47,5 @@ source for the current table without a new audit.
 All nine patterns match exactly once. Targeted disassembly reconfirmed every
 delegate ABI, AIV stride `0x6D98`, player stride `0x583C`, the spec fields,
 prebuilt bit field, prepared Keep references and the unchanged
-`AllocateSpec +0x5F` LEA contract. Native spawning and multiplayer blocking
-remain post-build game smoke tests.
+`AllocateSpec +0x5F` LEA contract. Native singleplayer and synchronized
+per-player multiplayer spawning remain post-build game smoke tests.

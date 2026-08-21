@@ -14,12 +14,13 @@ namespace CastlePlanner
 
         public const string PluginGuid = "CastlePlanner_Serp";
         public const string PluginName = "CastlePlanner";
-        public const string PluginVersion = "0.4.9";
+        public const string PluginVersion = "0.5.1";
 
         // The BepInEx component is destroyed during startup, so runtime state remains static.
         private static CastlePlannerRuntime runtime;
         private static BlueprintRuntimeController blueprintRuntime;
         private static CastleDropDownHeightController castleDropDownHeightController;
+        private static CastleSpawnLobbySyncController castleSpawnLobbySyncController;
         private static bool libraryLoadedHandled;
 
         public CastlePlannerSettingsViewModel Settings { get; private set; }
@@ -62,7 +63,7 @@ namespace CastlePlanner
                     $"storage=LobbyModSettings/{PluginGuid}.msgpack, " +
                     $"clientEnabled={Settings.EnableClientFeatures}, hostEnabled={Settings.EnableMod}, " +
                     $"blueprints={Settings.Blueprints}, spawnCastle={Settings.SpawnCastle}, " +
-                    $"blueprintSelection='{Settings.SelectedCastle}', hostSelection='{Settings.HostSelectedCastle}'.");
+                    $"blueprintSelection='{Settings.SelectedCastle}', personalSpawnSelection='{Settings.SpawnSelectedCastle}'.");
 
                 Shared.LobbyModSettingsPresetRegistration.Register(
                     this,
@@ -70,6 +71,20 @@ namespace CastlePlanner
                     PluginGuid,
                     Settings,
                     "ScriptExtenderUI/CastlePlannerSettings.xaml");
+                Settings.PublishSpawnCompatibilityState();
+                try
+                {
+                    castleSpawnLobbySyncController =
+                        CastleSpawnLobbySyncController.Create(Logger, Settings);
+                    Settings.SetLobbyCompatibilitySyncAvailable();
+                }
+                catch (Exception exception)
+                {
+                    Shared.DebugLogHelper.LogError(
+                        Logger,
+                        $"CastlePlanner lobby synchronization could not initialize; " +
+                        $"multiplayer castle spawning will fail closed: {exception}");
+                }
                 castleDropDownHeightController =
                     CastleDropDownHeightController.Attach(Logger, Settings);
                 blueprintRuntime =
@@ -82,7 +97,7 @@ namespace CastlePlanner
                     $"CastlePlanner settings registration completed: " +
                     $"clientEnabled={Settings.EnableClientFeatures}, hostEnabled={Settings.EnableMod}, " +
                     $"blueprints={Settings.Blueprints}, spawnCastle={Settings.SpawnCastle}, " +
-                    $"blueprintSelection='{Settings.SelectedCastle}', hostSelection='{Settings.HostSelectedCastle}', " +
+                    $"blueprintSelection='{Settings.SelectedCastle}', personalSpawnSelection='{Settings.SpawnSelectedCastle}', " +
                     $"hotkey={Settings.HotkeyDisplayText}.");
 
                 try

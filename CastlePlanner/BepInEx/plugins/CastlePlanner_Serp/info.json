@@ -2,11 +2,27 @@
   "GUID": "CastlePlanner_Serp",
   "Author": "Serpens66",
   "Name": "CastlePlanner",
-  "Description": "Displays a local visual AIVJSON castle blueprint or spawns it through the game's native AIV pipeline.",
-  "Version": "0.4.9",
+  "Description": "Displays a local visual AIVJSON castle blueprint or spawns personal human castles through the game's native AIV pipeline.",
+  "Version": "0.5.1",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "0.5.1",
+      "Changes": [
+        "Hardened personal castle synchronization for joins, leaves, reused player IDs, and selections made before joining.",
+        "Added a host-authenticated lobby resync request and stable fail-closed map-start validation without last-second broadcasts.",
+        "Preserved Workshop selections until Steam discovery and cached file fingerprints plus decoded inventories for large catalogs."
+      ]
+    },
+    {
+      "Version": "0.5.0",
+      "Changes": [
+        "Added deterministic personal AIVJSON castle spawning for every human player in multiplayer skirmishes.",
+        "Kept Spawn Castle host-controlled while synchronizing each player's own castle selection.",
+        "Compared lobby AIVJSON inventories by catalog name and SHA-256, disabled incompatible entries, and reset invalid selections to No castle."
+      ]
+    },
     {
       "Version": "0.4.9",
       "Changes": [
