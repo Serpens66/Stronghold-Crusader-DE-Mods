@@ -1,4 +1,5 @@
 using BepInEx.Logging;
+using MonoMod.RuntimeDetour;
 using SHCDESE.GameGlobals;
 using Shared;
 using System;
@@ -67,6 +68,10 @@ namespace RandomEvents
         private int tribeStride;
         private int lionActivationOffset;
         private ActionPointHandlerDelegate actionPointHandler;
+        private ActionPointHandlerDelegate actionPointOriginal;
+        private ActionPointHandlerDelegate rootedActionPointDetour;
+        private NativeDetour actionPointDetour;
+        private IntPtr actionPointHandlerAddress;
         private IntPtr actionPointManager;
         private string rabbitUnavailableReason = "native wildlife resolution has not run.";
         private string lionUnavailableReason = "native wildlife resolution has not run.";
@@ -423,8 +428,7 @@ namespace RandomEvents
                     throw new InvalidOperationException("lion wrapper does not call the validated action-point handler.");
                 actionPointManager = ResolveRipRelativeAddress(
                     libraryHandle, memory, wrapper.Rva + 8, 3, 7);
-                actionPointHandler = Marshal.GetDelegateForFunctionPointer<ActionPointHandlerDelegate>(
-                    AtRva(libraryHandle, handler.Rva));
+                InstallActionPointFilter(AtRva(libraryHandle, handler.Rva));
             }
             catch (Exception ex)
             {
@@ -434,6 +438,60 @@ namespace RandomEvents
                     "Rabbit and lion minimap action points are disabled while wildlife spawning remains active: " +
                     $"native compatibility validation failed: {ex.Message}");
             }
+        }
+
+        private void InstallActionPointFilter(IntPtr resolvedHandlerAddress)
+        {
+            if (actionPointDetour != null)
+            {
+                if (resolvedHandlerAddress != actionPointHandlerAddress)
+                {
+                    throw new InvalidOperationException(
+                        $"action-point handler changed after detour installation: " +
+                        $"installed=0x{actionPointHandlerAddress.ToInt64():X}, resolved=0x{resolvedHandlerAddress.ToInt64():X}.");
+                }
+
+                actionPointHandler = FilterActionPoint;
+                return;
+            }
+
+            rootedActionPointDetour = FilterActionPoint;
+            IntPtr detourAddress = Marshal.GetFunctionPointerForDelegate(rootedActionPointDetour);
+            NativeDetour installedDetour = null;
+            try
+            {
+                var config = new NativeDetourConfig { ManualApply = true };
+                installedDetour = new NativeDetour(resolvedHandlerAddress, detourAddress, config);
+                ActionPointHandlerDelegate installedOriginal = installedDetour.GenerateTrampoline<ActionPointHandlerDelegate>();
+                actionPointHandlerAddress = resolvedHandlerAddress;
+                actionPointOriginal = installedOriginal;
+                actionPointHandler = FilterActionPoint;
+                installedDetour.Apply();
+                actionPointDetour = installedDetour;
+                LogDebug($"Native minimap action-point target filter installed: address=0x{resolvedHandlerAddress.ToInt64():X}.");
+            }
+            catch
+            {
+                installedDetour?.Dispose();
+                actionPointHandlerAddress = IntPtr.Zero;
+                actionPointOriginal = null;
+                actionPointHandler = null;
+                rootedActionPointDetour = null;
+                throw;
+            }
+        }
+
+        private void FilterActionPoint(IntPtr manager, int tileX, int tileY)
+        {
+            // Action points are minimap UI and must not leak events targeted at another human.
+            ActionPointHandlerDelegate original = actionPointOriginal;
+            if (RandomEventsPresentationScope.IsSuppressed)
+            {
+                RandomEventsPresentationScope.RecordSuppressedActionPoint();
+                return;
+            }
+            if (original != null)
+                original(manager, tileX, tileY);
         }
 
         private static IntPtr ResolveRipRelativeAddress(
@@ -495,6 +553,7 @@ namespace RandomEvents
             new IntPtr(checked(libraryHandle.ToInt64() + rva));
 
         private void LogError(string message) => Shared.DebugLogHelper.LogError(log, message);
+        private void LogDebug(string message) => Shared.DebugLogHelper.LogDebug(log, message);
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate int WildlifeHandlerDelegate(

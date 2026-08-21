@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Random Events",
   "Description": "Runs configurable Vanilla scenario events in skirmishes, Trail missions, and multiplayer games.",
-  "Version": "1.0.17",
+  "Version": "1.0.18",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.18",
+      "Changes": [
+        "Limited event notifications and minimap action points to the affected local player while preserving synchronized simulation on every peer in both multiplayer event modes."
+      ]
+    },
     {
       "Version": "1.0.17",
       "Changes": [

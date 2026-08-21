@@ -42,6 +42,7 @@
     <Compile Include="src\RandomEventsCooldownCodec.cs" />
     <Compile Include="src\RandomEventsDiagnostics.cs" />
     <Compile Include="src\RandomEventsInitializationAckPacket.cs" />
+    <Compile Include="src\RandomEventsPresentationScope.cs" />
     <Compile Include="src\RandomEventsRuntime.cs" />
     <Compile Include="src\RandomEventsSaveState.cs" />
     <Compile Include="src\RandomEventsState.cs" />

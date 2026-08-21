@@ -23,6 +23,7 @@
     <Compile Include="..\..\RandomEvents\src\RandomEventsChorePacket.cs"><Link>RandomEventsChorePacket.cs</Link></Compile>
     <Compile Include="..\..\RandomEvents\src\RandomEventsInitializationAckPacket.cs"><Link>RandomEventsInitializationAckPacket.cs</Link></Compile>
     <Compile Include="..\..\RandomEvents\src\RandomEventsCooldownCodec.cs"><Link>RandomEventsCooldownCodec.cs</Link></Compile>
+    <Compile Include="..\..\RandomEvents\src\RandomEventsPresentationScope.cs"><Link>RandomEventsPresentationScope.cs</Link></Compile>
     <Compile Include="..\..\RandomEvents\src\RandomEventsSaveState.cs"><Link>RandomEventsSaveState.cs</Link></Compile>
     <Compile Include="..\..\RandomEvents\src\RandomEventsState.cs"><Link>RandomEventsState.cs</Link></Compile>
   </ItemGroup>

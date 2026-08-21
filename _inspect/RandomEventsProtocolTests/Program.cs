@@ -14,6 +14,7 @@ namespace RandomEvents
             TestCooldowns();
             TestPackets();
             TestSaveState();
+            TestPresentationTargeting();
             Console.WriteLine($"PASS: RandomEvents protocol tests ({assertions} assertions).");
         }
 
@@ -82,6 +83,25 @@ namespace RandomEvents
             Assert(restored.SchemaVersion == RandomEventsSaveState.CurrentSchemaVersion, "save schema version");
             Assert(restored.BatchPrepared && restored.PreparedDirectTargetPlayerIds.SequenceEqual(new[] { 2 }), "prepared batch save roundtrip");
             Assert(typeof(RandomEventsSaveState).GetField("Chances") == null, "save schema must not persist configuration");
+        }
+
+        private static void TestPresentationTargeting()
+        {
+            Assert(!RandomEventsPresentationScope.ShouldSuppress(1, 1), "the affected local player must see the event");
+            Assert(RandomEventsPresentationScope.ShouldSuppress(2, 1), "a foreign target must be hidden locally");
+            Assert(!RandomEventsPresentationScope.IsSuppressed, "presentation starts enabled");
+            using (RandomEventsPresentationScope.Begin(2, 1))
+            {
+                Assert(RandomEventsPresentationScope.IsSuppressed, "foreign-target presentation is suppressed");
+                RandomEventsPresentationScope.RecordSuppressedPresentation();
+                RandomEventsPresentationScope.RecordSuppressedActionPoint();
+                using (RandomEventsPresentationScope.Begin(1, 1))
+                    Assert(RandomEventsPresentationScope.IsSuppressed, "nested local scope cannot cancel foreign suppression");
+                Assert(RandomEventsPresentationScope.IsSuppressed, "outer suppression survives nested scope disposal");
+            }
+            Assert(!RandomEventsPresentationScope.IsSuppressed, "presentation suppression is restored after dispatch");
+            RandomEventsPresentationScope.GetSuppressedCallCounts(out int presentations, out int actionPoints);
+            Assert(presentations == 1 && actionPoints == 1, "suppressed native UI calls are counted for diagnostics");
         }
 
         private static RandomEventsConfigurationSnapshot CreateConfiguration() => new RandomEventsConfigurationSnapshot

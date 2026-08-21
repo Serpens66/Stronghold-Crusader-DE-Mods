@@ -1,4 +1,5 @@
 using BepInEx.Logging;
+using MonoMod.RuntimeDetour;
 using SHCDESE.API;
 using SHCDESE.GameGlobals;
 using SHCDESE.Interop;
@@ -62,6 +63,10 @@ namespace RandomEvents
         private BuildingEventDelegate madCowBuildingHandler;
         private GranaryTheftDelegate granaryTheftHandler;
         private PresentationDelegate presentationHandler;
+        private PresentationDelegate presentationOriginal;
+        private PresentationDelegate rootedPresentationDetour;
+        private NativeDetour presentationDetour;
+        private IntPtr presentationHandlerAddress;
 
         public NativeVanillaEventDispatcher(ManualLogSource log)
         {
@@ -320,7 +325,8 @@ namespace RandomEvents
                         $"reference presentation targets differ: manager=0x{managerRva:X}, handler=0x{handlerRva:X}.");
                 }
 
-                presentationHandler = Marshal.GetDelegateForFunctionPointer<PresentationDelegate>(AtRva(libraryHandle, handlerRva));
+                IntPtr resolvedHandlerAddress = AtRva(libraryHandle, handlerRva);
+                InstallPresentationFilter(resolvedHandlerAddress);
                 presentationManager = AtRva(libraryHandle, managerRva);
             }
             catch (Exception ex)
@@ -329,6 +335,65 @@ namespace RandomEvents
                 presentationManager = IntPtr.Zero;
                 LogWarning($"Native handler unavailable: component=event presentation, reason={ex.Message}");
             }
+        }
+
+        private void InstallPresentationFilter(IntPtr resolvedHandlerAddress)
+        {
+            if (presentationDetour != null)
+            {
+                if (resolvedHandlerAddress != presentationHandlerAddress)
+                {
+                    throw new InvalidOperationException(
+                        $"presentation handler changed after detour installation: " +
+                        $"installed=0x{presentationHandlerAddress.ToInt64():X}, resolved=0x{resolvedHandlerAddress.ToInt64():X}.");
+                }
+
+                presentationHandler = FilterPresentation;
+                return;
+            }
+
+            rootedPresentationDetour = FilterPresentation;
+            IntPtr detourAddress = Marshal.GetFunctionPointerForDelegate(rootedPresentationDetour);
+            NativeDetour installedDetour = null;
+            try
+            {
+                var config = new NativeDetourConfig { ManualApply = true };
+                installedDetour = new NativeDetour(resolvedHandlerAddress, detourAddress, config);
+                PresentationDelegate installedOriginal = installedDetour.GenerateTrampoline<PresentationDelegate>();
+                presentationHandlerAddress = resolvedHandlerAddress;
+                presentationOriginal = installedOriginal;
+                presentationHandler = FilterPresentation;
+                installedDetour.Apply();
+                presentationDetour = installedDetour;
+                LogDebug($"Native event-presentation target filter installed: address=0x{resolvedHandlerAddress.ToInt64():X}.");
+            }
+            catch
+            {
+                installedDetour?.Dispose();
+                presentationHandlerAddress = IntPtr.Zero;
+                presentationOriginal = null;
+                presentationHandler = null;
+                rootedPresentationDetour = null;
+                throw;
+            }
+        }
+
+        private void FilterPresentation(
+            IntPtr messageManager,
+            int messageId,
+            int presentationId,
+            IntPtr video,
+            IntPtr audio)
+        {
+            // Simulation remains replicated; only this peer's transient event UI is target-filtered.
+            PresentationDelegate original = presentationOriginal;
+            if (RandomEventsPresentationScope.IsSuppressed)
+            {
+                RandomEventsPresentationScope.RecordSuppressedPresentation();
+                return;
+            }
+            if (original != null)
+                original(messageManager, messageId, presentationId, video, audio);
         }
 
         private bool TryGetEventAvailability(RandomEventKind kind, out string reason)
@@ -385,6 +450,7 @@ namespace RandomEvents
             new IntPtr(checked(libraryHandle.ToInt64() + rva));
 
         private void LogWarning(string message) => Shared.DebugLogHelper.LogWarning(log, message);
+        private void LogDebug(string message) => Shared.DebugLogHelper.LogDebug(log, message);
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate int HasBuildingDelegate(IntPtr buildingManager, int playerId, int buildingType);

@@ -15,10 +15,13 @@ Implemented: 2026-08-21
 - Preserved prepared save-game batches outside the base handshake and restored them exactly once after all participants acknowledge initialization.
 - Replaced `RandomEventsSaveStateV2` and `serp-randomevents-state-v2` with a dynamic-only `RandomEventsSaveState` registered as `serp-randomevents-state`.
 - Old RandomEvents save payloads are intentionally not migrated. Current synchronized lobby settings are authoritative for new-schema saves.
+- Version 1.0.17 executes every simulation mutation on every peer and removes the observed event-start desyncs.
+- Version 1.0.18 target-filters the native presentation and minimap action-point queues. Each peer still simulates every batch action, while only the affected local player sees its notification and location marker. The target-based filter applies equally to `SharedEvents` and `IndividualRolls`.
+- Debug logs record filter installation and the exact number of suppressed presentation and action-point calls for every foreign-target action.
 
 ## Verification
 
-- `_inspect/RandomEventsProtocolTests` covers configuration digests, cooldown round trips and invalid encodings, packet round trips, stable retry bytes, Chore size limits, and the new configuration-free save schema.
+- `_inspect/RandomEventsProtocolTests` covers configuration digests, cooldown round trips and invalid encodings, packet round trips, stable retry bytes, Chore size limits, the new configuration-free save schema, and local presentation targeting with nested-scope restoration.
 - Runtime serializer self-tests record initialization, batch, signpost, and ACK sizes and SHA-256 hashes at startup.
 - Repository checks include HostClientPresetTests, CRLF/literal-escape auditing, `git diff --check`, and the normal `RandomEvents/build.bat` build/install path.
 
@@ -31,6 +34,8 @@ Implemented: 2026-08-21
 5. Load an old save and confirm RandomEvents starts fresh.
 6. Fresh and loaded signpost-requiring maps.
 7. Force a missing first ACK or duplicate initialization.
+8. Trigger events for both humans in `SharedEvents`; each player must see exactly one notification and only their own minimap action point.
+9. Trigger different events at different due months in `IndividualRolls`; only each event's target may see its notification and minimap action point.
 
 Success requires normally one initialization operation ID, byte-identical retries, matching configuration/state digests, all living human players acknowledged, no RandomEvents decode failures, and exactly one execution of each batch per peer. The known Script Extender length-zero warning is benign only when the corresponding valid Chore subsequently decodes and executes exactly once.
 

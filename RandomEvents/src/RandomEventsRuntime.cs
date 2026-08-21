@@ -1285,6 +1285,44 @@ namespace RandomEvents
             int strength,
             int targetPlayerId)
         {
+            int presentationPlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
+            bool suppressLocalPresentation = RandomEventsPresentationScope.ShouldSuppress(
+                targetPlayerId,
+                presentationPlayerId);
+            if (suppressLocalPresentation)
+            {
+                LogDebug(
+                    $"Local event presentation suppressed: event={definition.Name}, " +
+                    $"targetPlayerId={targetPlayerId}, localPlayerId={presentationPlayerId}, " +
+                    $"multiplayerMode={(MultiplayerEventMode)state.MultiplayerMode}.");
+            }
+
+            RandomEventsPresentationScope.GetSuppressedCallCounts(
+                out int presentationCallsBefore,
+                out int actionPointCallsBefore);
+            bool applied;
+            using (RandomEventsPresentationScope.Begin(targetPlayerId, presentationPlayerId))
+                applied = DispatchDirectEventCore(definition, strength, targetPlayerId);
+
+            if (suppressLocalPresentation)
+            {
+                RandomEventsPresentationScope.GetSuppressedCallCounts(
+                    out int presentationCallsAfter,
+                    out int actionPointCallsAfter);
+                LogDebug(
+                    $"Local event presentation filter completed: event={definition.Name}, " +
+                    $"targetPlayerId={targetPlayerId}, localPlayerId={presentationPlayerId}, applied={applied}, " +
+                    $"presentationCallsSuppressed={presentationCallsAfter - presentationCallsBefore}, " +
+                    $"actionPointCallsSuppressed={actionPointCallsAfter - actionPointCallsBefore}.");
+            }
+            return applied;
+        }
+
+        private bool DispatchDirectEventCore(
+            RandomEventDefinition definition,
+            int strength,
+            int targetPlayerId)
+        {
             if (!GamePlayerManagerAPI.Instance.IsPlayerIdValid(targetPlayerId))
             {
                 LogError(
