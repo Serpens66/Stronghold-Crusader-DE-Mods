@@ -1,4 +1,5 @@
 using BepInEx.Logging;
+using CrusaderDE;
 using R3;
 using SHCDESE.API;
 using SHCDESE.EventAPI;
@@ -31,6 +32,8 @@ namespace CastlePlanner
         private int layoutKeepY = int.MinValue;
         private bool initialized;
         private bool mapActive;
+        private bool editorSessionActive;
+        private int editorControlledPlayerId = -1;
         private bool preparePending;
         private bool showAfterPrepare;
         private bool blueprintVisible;
@@ -160,6 +163,7 @@ namespace CastlePlanner
                 (mainViewModel.Show_HUD_Extras_Button_Objectves ||
                  mainViewModel.Show_HUD_Extras_Button_Freebuild));
             UpdateHotkeyCapture();
+            EnsureEditorMapState();
             if (!mapActive && IsSimulationActive())
             {
                 // Fallback for unusual map flows that do not emit the normal hook.
@@ -236,6 +240,8 @@ namespace CastlePlanner
         private void OnStartMap(MapStartEventArgs args)
         {
             ResetMapState();
+            editorSessionActive = false;
+            editorControlledPlayerId = -1;
             // SimRunning can still be false in OnStartMap(Post), while MainHUD is
             // already entering its map lifecycle and should expose the local toggle.
             mapActive = true;
@@ -253,6 +259,8 @@ namespace CastlePlanner
         private void OnLoadSave(LoadSaveGameEventArgs args)
         {
             ResetMapState();
+            editorSessionActive = false;
+            editorControlledPlayerId = -1;
             mapActive = true;
             if (settings.IsBlueprintMode)
             {
@@ -269,6 +277,8 @@ namespace CastlePlanner
         {
             ResetMapState();
             mapActive = false;
+            editorSessionActive = false;
+            editorControlledPlayerId = -1;
             RefreshHud();
             Shared.DebugLogHelper.LogInfo(
                 log,
@@ -422,7 +432,7 @@ namespace CastlePlanner
         private void TryPrepareBlueprint()
         {
             nextPrepareAttemptTime = Time.unscaledTime + 0.25f;
-            if (!TryFindLocalKeep(out int keepX, out int keepY))
+            if (!TryFindControlledKeep(out int keepX, out int keepY))
                 return;
 
             if (!TryBuildBlueprintLayout(
@@ -506,7 +516,7 @@ namespace CastlePlanner
             }
         }
 
-        private bool TryFindLocalKeep(out int keepX, out int keepY)
+        private bool TryFindControlledKeep(out int keepX, out int keepY)
         {
             keepX = 0;
             keepY = 0;
@@ -516,16 +526,15 @@ namespace CastlePlanner
                 return false;
             }
 
-            int localPlayerId =
-                GamePlayerManagerAPI.Instance.GetLocalPlayerId();
-            if (!GamePlayerManagerAPI.Instance.IsPlayerIdValid(localPlayerId))
+            int controlledPlayerId = GetControlledPlayerId();
+            if (!GamePlayerManagerAPI.Instance.IsPlayerIdValid(controlledPlayerId))
                 return false;
 
             Span<GameBuilding> buildings =
                 GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
             foreach (GameBuilding building in buildings)
             {
-                if (building.r_PlayerIdOwner != localPlayerId ||
+                if (building.r_PlayerIdOwner != controlledPlayerId ||
                     !IsKeep(building.r_BuildingType) ||
                     (building.r_AliveState != AliveState.NeedsInit &&
                      building.r_AliveState != AliveState.IsAlive))
@@ -560,7 +569,7 @@ namespace CastlePlanner
 
             // The editor can move or replace the local Keep without a map
             // reload, so every activation must project from its live position.
-            if (!TryFindLocalKeep(out int keepX, out int keepY))
+            if (!TryFindControlledKeep(out int keepX, out int keepY))
             {
                 renderer.Clear();
                 layout = null;
@@ -735,6 +744,72 @@ namespace CastlePlanner
                 renderer?.RequestedDepthCaptureCount ?? 0);
         }
 
+        private void EnsureEditorMapState()
+        {
+            bool editor = IsMapEditor();
+            if (!editor)
+            {
+                if (editorSessionActive)
+                {
+                    ResetMapState();
+                    mapActive = false;
+                    editorSessionActive = false;
+                    editorControlledPlayerId = -1;
+                    RefreshHud();
+                    Shared.DebugLogHelper.LogInfo(
+                        log,
+                        "Blueprint editor lifecycle ended after leaving the map editor.");
+                }
+                return;
+            }
+
+            int activePlayerId = EditorDirector.instance?.ActivePlayerID ?? -1;
+            if (activePlayerId < 1 ||
+                activePlayerId > GamePlayerManagerAPI.MAX_PLAYERS ||
+                GameData.Instance?.lastGameState == null ||
+                GameMap.instance == null ||
+                TilemapManager.instance == null)
+            {
+                return;
+            }
+
+            if (editorSessionActive && editorControlledPlayerId == activePlayerId)
+                return;
+
+            bool restoreVisibility = editorSessionActive && blueprintVisible;
+            int previousPlayerId = editorControlledPlayerId;
+            ResetMapState();
+            mapActive = true;
+            editorSessionActive = true;
+            editorControlledPlayerId = activePlayerId;
+            if (settings.IsBlueprintMode)
+            {
+                SchedulePrepare(restoreVisibility);
+                TryPrepareBlueprint();
+            }
+            RefreshHud();
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                previousPlayerId > 0
+                    ? $"Blueprint editor player changed: previousActivePlayerId={previousPlayerId}, activePlayerId={activePlayerId}, restoreVisibility={restoreVisibility}."
+                    : $"Blueprint editor lifecycle started: activePlayerId={activePlayerId}.");
+        }
+
+        private static int GetControlledPlayerId()
+        {
+            if (IsMapEditor())
+                return EditorDirector.instance?.ActivePlayerID ?? -1;
+
+            return GamePlayerManagerAPI.Instance?.GetLocalPlayerId() ?? -1;
+        }
+
+        private static bool IsMapEditor()
+        {
+            return (GamePlayerManagerAPI.Instance?.IsInMapEditor() ?? false) ||
+                (CrusaderDE.MainViewModel.viewModelLoaded &&
+                 (CrusaderDE.MainViewModel.Instance?.IsMapEditorMode ?? false));
+        }
+
         private static bool IsSimulationActive()
         {
             return Director.instance != null &&
@@ -747,8 +822,8 @@ namespace CastlePlanner
         {
             return FatControler.instance != null &&
                    !FatControler.instance.NoesisHasKeyboard &&
-                   Director.instance != null &&
-                   Director.instance.SimRunning;
+                   ((Director.instance != null && Director.instance.SimRunning) ||
+                    IsMapEditor());
         }
 
         private static bool IsKeep(eStructs structure)

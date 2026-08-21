@@ -142,7 +142,7 @@ namespace ExtraFeatures
             saveHandlerRegistered = true;
             UnityEngine.Application.onBeforeRender += OnBeforeRender;
             initialized = true;
-            LogInfo("gatehouse automation initialized; per-gate state uses global building IDs and save schema v1.");
+            LogInfo("gatehouse automation initialized; savegames use global building IDs and editor maps use stable locators in save schema v2.");
         }
 
         public void InitializeNetwork()

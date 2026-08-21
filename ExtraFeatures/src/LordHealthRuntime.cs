@@ -1,5 +1,6 @@
 // Feature: Applies the lobby-selected Lord health multipliers after Vanilla initialization.
 using BepInEx.Logging;
+using CrusaderDE;
 using SHCDESE.API;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
@@ -41,6 +42,15 @@ namespace ExtraFeatures
 
         public void BeginMap()
         {
+            if (IsMapEditor())
+            {
+                ResetMapState();
+                Shared.DebugLogHelper.LogDebug(
+                    log,
+                    "Extra Features Lord health remains inactive in the map editor.");
+                return;
+            }
+
             humanPercent = LordHealthMultiplierPolicy.NormalizePercent(settings.HumanLordHealthPercent);
             aiPercent = LordHealthMultiplierPolicy.NormalizePercent(settings.AILordHealthPercent);
             appliedLordGlobalIds.Clear();
@@ -72,6 +82,18 @@ namespace ExtraFeatures
 
         private void OnGameTick(int tick)
         {
+            if (IsMapEditor())
+            {
+                if (mapActive)
+                {
+                    ResetMapState();
+                    Shared.DebugLogHelper.LogDebug(
+                        log,
+                        "Extra Features Lord health stopped after entering the map editor.");
+                }
+                return;
+            }
+
             if (!mapActive || tick % ScanTickInterval != 0)
                 return;
 
@@ -83,6 +105,13 @@ namespace ExtraFeatures
             {
                 Shared.DebugLogHelper.LogError(log, $"Extra Features Lord health scan failed: {ex}");
             }
+        }
+
+        private static bool IsMapEditor()
+        {
+            return (GamePlayerManagerAPI.Instance?.IsInMapEditor() ?? false) ||
+                (MainViewModel.viewModelLoaded &&
+                 (MainViewModel.Instance?.IsMapEditorMode ?? false));
         }
 
         private void ApplyAvailableLords()

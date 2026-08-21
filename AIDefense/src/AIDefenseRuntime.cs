@@ -60,6 +60,7 @@ namespace AIDefense
 
         private bool applied;
         private bool mapActive;
+        private bool editorBypassActive;
         private bool firstScanPending;
         private int nextScanTick;
         private int nextSummaryLogTick;
@@ -142,17 +143,31 @@ namespace AIDefense
             subscriptions.Clear();
             ClearTracking();
             mapActive = false;
+            editorBypassActive = false;
             applied = false;
         }
 
         private void OnStartMap(MapStartEventArgs args)
         {
+            if (IsMapEditor())
+            {
+                DisableForMapEditor("OnStartMap reported a map-editor session");
+                return;
+            }
+
             BeginMap(
                 $"start-map campaignMapId={args.CampaignMapId}, multiplayerSave={args.bMultiplayerSave}");
         }
 
         private void OnLoadSave(LoadSaveGameEventArgs args)
         {
+            if (args.LoadingEditorMap || IsMapEditor())
+            {
+                DisableForMapEditor(
+                    $"editor-map load file={args.FileName ?? "<null>"}, loadingEditorMap={args.LoadingEditorMap}");
+                return;
+            }
+
             BeginMap(
                 $"load-save file={args.FileName ?? "<null>"}, loadingEditorMap={args.LoadingEditorMap}");
         }
@@ -161,6 +176,7 @@ namespace AIDefense
         {
             ClearTracking();
             mapActive = true;
+            editorBypassActive = false;
             firstScanPending = true;
 
             int currentTick = GameTimeManagerAPI.Instance.GetFrameProvider().CurrentGameTick;
@@ -173,19 +189,27 @@ namespace AIDefense
 
         private void OnUnloadMap(MapUnloadEventArgs args)
         {
-            LogInfo(
-                $"Map tracking stopped: protectedDefenders={protectedByUnitId.Count}, " +
-                $"privateTribes={protectedByPrivateTribeId.Count}, blockedTribeAssignments={totalBlockedTribeAssignments}, " +
-                $"blockedPrivateTribeOrders={totalBlockedPrivateTribeOrders}, blockedMoveOrders={totalBlockedMoveOrders}, " +
-                $"allowedTowerMoveOrders={totalAllowedTowerMoveOrders}.");
+            if (editorBypassActive)
+            {
+                LogInfo("Map-editor bypass cleared on map unload.");
+            }
+            else
+            {
+                LogInfo(
+                    $"Map tracking stopped: protectedDefenders={protectedByUnitId.Count}, " +
+                    $"privateTribes={protectedByPrivateTribeId.Count}, blockedTribeAssignments={totalBlockedTribeAssignments}, " +
+                    $"blockedPrivateTribeOrders={totalBlockedPrivateTribeOrders}, blockedMoveOrders={totalBlockedMoveOrders}, " +
+                    $"allowedTowerMoveOrders={totalAllowedTowerMoveOrders}.");
+            }
 
             mapActive = false;
+            editorBypassActive = false;
             ClearTracking();
         }
 
         private void OnGameTick(int tick)
         {
-            if (!mapActive || tick < nextScanTick)
+            if (!IsRuntimeActiveForCurrentContext("game-tick editor detection") || tick < nextScanTick)
                 return;
 
             nextScanTick = tick + ScanIntervalTicks;
@@ -339,6 +363,9 @@ namespace AIDefense
 
         private void OnUnitDelete(UnitDeleteEventArgs args)
         {
+            if (!IsRuntimeActiveForCurrentContext("unit-delete editor detection"))
+                return;
+
             int unitId = unchecked((int)args.UnitId);
             if (!protectedByUnitId.TryGetValue(unitId, out ProtectedDefender defender))
                 return;
@@ -907,6 +934,9 @@ namespace AIDefense
         private bool TryGetProtectedDefender(int unitId, out ProtectedDefender defender)
         {
             defender = null;
+            if (!IsRuntimeActiveForCurrentContext("protected-defender event editor detection"))
+                return false;
+
             if (!protectedByUnitId.TryGetValue(unitId, out ProtectedDefender candidate))
                 return false;
 
@@ -926,6 +956,9 @@ namespace AIDefense
         private bool TryGetProtectedDefenderByPrivateTribe(int tribeId, out ProtectedDefender defender)
         {
             defender = null;
+            if (!IsRuntimeActiveForCurrentContext("private-tribe event editor detection"))
+                return false;
+
             if (tribeId <= 0 ||
                 !protectedByPrivateTribeId.TryGetValue(tribeId, out ProtectedDefender candidate) ||
                 candidate.PrivateTribeId != tribeId)
@@ -947,6 +980,33 @@ namespace AIDefense
 
             defender = candidate;
             return true;
+        }
+
+        private bool IsRuntimeActiveForCurrentContext(string reason)
+        {
+            if (!mapActive)
+                return false;
+            if (!IsMapEditor())
+                return true;
+
+            DisableForMapEditor(reason);
+            return false;
+        }
+
+        private void DisableForMapEditor(string reason)
+        {
+            mapActive = false;
+            ClearTracking();
+            if (editorBypassActive)
+                return;
+
+            editorBypassActive = true;
+            LogInfo($"Map-editor bypass active: reason={reason}; scans, defender creation, tribe interception, and movement-order interception remain disabled.");
+        }
+
+        private static bool IsMapEditor()
+        {
+            return GamePlayerManagerAPI.Instance?.IsInMapEditor() ?? false;
         }
 
         private bool TryEnsurePrivateTribe(
