@@ -19,6 +19,9 @@ namespace BuildingLimit
     {
         private void OnBuildingPlacementValidation(BuildingPlacementValidationEventArgs args)
         {
+            if (IsMapEditor())
+                return;
+
             if (GamePlayerManagerAPI.Instance.IsAIPlayer(args.PlayerId))
                 return;
 
@@ -109,6 +112,12 @@ namespace BuildingLimit
         {
             try
             {
+                if (IsMapEditor())
+                {
+                    ClearBuildingLimitTooltip();
+                    return;
+                }
+
                 int localPlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
                 if (localPlayerId <= 0 ||
                     !GamePlayerManagerAPI.Instance.IsPlayerIdValid(localPlayerId) ||

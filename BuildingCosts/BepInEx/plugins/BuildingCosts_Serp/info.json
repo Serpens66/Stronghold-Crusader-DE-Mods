@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Building Costs",
   "Description": "Lets you change construction costs for buildings in Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.93",
+  "Version": "1.0.94",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.94",
+      "Changes": [
+        "Disabled custom building-cost tooltip additions in the map editor."
+      ]
+    },
     {
       "Version": "1.0.93",
       "Changes": [

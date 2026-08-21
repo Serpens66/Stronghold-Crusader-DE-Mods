@@ -82,7 +82,7 @@ namespace BugfixesAndQoL
 
         private void CycleTradeGoodsHook(MainViewModel self, object parameter)
         {
-            if (!settings.EnableClientFeatures || !settings.HdMarketView)
+            if (!settings.EnableClientFeatures || !settings.HdMarketView || !IsSelectedTradepostControlled())
             {
                 cycleTradeGoodsTrampoline(self, parameter);
                 return;
@@ -120,7 +120,7 @@ namespace BugfixesAndQoL
         {
             noesisGuiUpdateTrampoline(self);
 
-            if (!settings.EnableClientFeatures || !settings.HdMarketView)
+            if (!settings.EnableClientFeatures || !settings.HdMarketView || !IsSelectedTradepostControlled())
                 return;
 
             try
@@ -218,6 +218,27 @@ namespace BugfixesAndQoL
                 viewModel.TradeNextGoodsImage = icon;
                 viewModel.SetSpriteWidth4(spriteId, 50);
             }
+        }
+
+        private static bool IsMapEditor()
+        {
+            return (SHCDESE.API.GamePlayerManagerAPI.Instance?.IsInMapEditor() ?? false) ||
+                (MainViewModel.Instance?.IsMapEditorMode ?? false);
+        }
+
+        private static unsafe bool IsSelectedTradepostControlled()
+        {
+            if (!IsMapEditor())
+                return true;
+
+            int activePlayerId = EditorDirector.instance?.ActivePlayerID ?? -1;
+            int buildingId = SHCDESE.API.GamePlayerManagerAPI.Instance.GetSelectedBuildingId();
+            return activePlayerId > 0 &&
+                SHCDESE.API.GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out SHCDESE.Interop.GameBuilding* building) &&
+                building != null &&
+                building->r_AliveState == SHCDESE.Interop.Enums.AliveState.IsAlive &&
+                building->r_BuildingType == SHCDESE.Interop.eStructs.STRUCT_TRADEPOST &&
+                building->r_PlayerIdOwner == activePlayerId;
         }
     }
 }

@@ -89,6 +89,9 @@ namespace UnitLimit
 
         private MakeTroopGameActionDecision DecideLocalUnitRecruitmentRequest(int amount, eChimps unitType, int rawUnitType)
         {
+            if (IsMapEditor())
+                return MakeTroopGameActionDecision.AllowOriginal();
+
             if (amount <= 0)
                 return MakeTroopGameActionDecision.AllowOriginal();
 
@@ -257,6 +260,9 @@ namespace UnitLimit
 
         private void ValidateSiegeTentPlacement(BuildingPlacementValidationEventArgs args)
         {
+            if (IsMapEditor())
+                return;
+
             if (GamePlayerManagerAPI.Instance.IsAIPlayer(args.PlayerId))
                 return;
 

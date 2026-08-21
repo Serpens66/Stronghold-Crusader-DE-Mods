@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Patch xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-       xmlns:local="clr-namespace:CrusaderDE">
+       xmlns:local="clr-namespace:CrusaderDE"
+       xmlns:shared="clr-namespace:Shared;assembly=ExtraFeatures">
   <Operation Type="SetAttribute" XPath="//n:Slider[@Name='Autotrade_Sell_Slider']" AttributeName="Minimum" Value="0" />
   <Operation Type="Add" XPath="//n:Grid[@Name='WorkerPanel']">
     <Content>
@@ -68,32 +69,54 @@
                 Margin="0"
                 Padding="0"
                 Command="{Binding ToggleCommand}"
-                ToolTip="{Binding TooltipText}"
                 ToolTipService.ShowDuration="60000"
                 Background="#DD1B1B1B"
                 BorderBrush="#FFB08A4A"
                 BorderThickness="2">
+          <Button.ToolTip>
+            <ToolTip Content="{Binding ToolTipText}"
+                     Background="#FF1D1710"
+                     Foreground="White"
+                     FontSize="{x:Static shared:ToolTipPresentation.FontSize}"
+                     BorderBrush="#FFF2D48A"
+                     BorderThickness="1">
+              <ToolTip.Template>
+                <ControlTemplate TargetType="{x:Type ToolTip}">
+                  <Border Background="{TemplateBinding Background}"
+                          BorderBrush="{TemplateBinding BorderBrush}"
+                          BorderThickness="{TemplateBinding BorderThickness}"
+                          CornerRadius="2"
+                          Padding="10,7"
+                          MaxWidth="{x:Static shared:ToolTipPresentation.MaximumWidth}">
+                    <TextBlock Text="{TemplateBinding Content}"
+                               Foreground="{TemplateBinding Foreground}"
+                               FontSize="{TemplateBinding FontSize}"
+                               TextWrapping="Wrap"/>
+                  </Border>
+                </ControlTemplate>
+              </ToolTip.Template>
+            </ToolTip>
+          </Button.ToolTip>
           <Grid Width="53" Height="53">
-            <TextBlock Text="A"
-                       HorizontalAlignment="Center"
-                       VerticalAlignment="Center"
-                       FontSize="30"
-                       FontWeight="Bold"
-                       Foreground="#FF62D26F"
-                       Visibility="{Binding AutomaticIndicatorVisibility}"/>
-            <Grid Visibility="{Binding ManualIndicatorVisibility}">
-              <TextBlock Text="A"
-                         HorizontalAlignment="Center"
-                         VerticalAlignment="Center"
-                         FontSize="30"
-                         FontWeight="Bold"
-                         Foreground="#FFFFB347"/>
-              <Border Width="34"
-                      Height="3"
-                      HorizontalAlignment="Center"
-                      VerticalAlignment="Center"
-                      Background="#FFFFB347"/>
-            </Grid>
+            <Image Width="49"
+                   Height="49"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center"
+                   Stretch="Uniform"
+                   Source="{Binding IconImageSource}"
+                   Opacity="{Binding IconOpacity}"/>
+            <Border Width="48"
+                    Height="5"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Background="#FFFF9C38"
+                    BorderBrush="#FF2A1608"
+                    BorderThickness="1"
+                    Visibility="{Binding ManualIndicatorVisibility}">
+              <Border.RenderTransform>
+                <RotateTransform Angle="-42"/>
+              </Border.RenderTransform>
+            </Border>
           </Grid>
         </Button>
       </Grid>

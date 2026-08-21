@@ -255,7 +255,7 @@ namespace ExtraFeatures
                     return;
                 }
 
-                int localPlayerId = GetLocalPlayerIdOrOne();
+                int localPlayerId = GetControlledPlayerId();
                 if (HasSelectedOwnKnight(localPlayerId))
                 {
                     buttonViewModel.ShowDismount(BottomRightSlotMargin);
@@ -515,7 +515,7 @@ namespace ExtraFeatures
                 if (!IsFeatureActive())
                     return;
 
-                int localPlayerId = GetLocalPlayerIdOrOne();
+                int localPlayerId = GetControlledPlayerId();
                 List<UnitTransformSnapshot> snapshots = CaptureSelectedUnitSnapshots(localPlayerId, eChimps.CHIMP_TYPE_KNIGHT);
                 if (snapshots.Count == 0)
                 {
@@ -552,7 +552,7 @@ namespace ExtraFeatures
                     return;
                 }
 
-                int localPlayerId = GetLocalPlayerIdOrOne();
+                int localPlayerId = GetControlledPlayerId();
 
                 List<UnitTransformSnapshot> snapshots = CaptureSelectedUnitSnapshots(localPlayerId, eChimps.CHIMP_TYPE_SWORDSMAN);
                 if (snapshots.Count == 0)
@@ -676,7 +676,7 @@ namespace ExtraFeatures
                     return;
                 }
 
-                bool localAction = packet.PlayerId == GetLocalPlayerIdOrOne();
+                bool localAction = packet.PlayerId == GetControlledPlayerId();
                 if (packet.Action == DismountAction)
                 {
                     var applied = new List<UnitTransformSnapshot>(snapshots.Count);
@@ -1511,8 +1511,15 @@ namespace ExtraFeatures
             }
         }
 
-        private static int GetLocalPlayerIdOrOne()
+        private static int GetControlledPlayerId()
         {
+            if ((GamePlayerManagerAPI.Instance?.IsInMapEditor() ?? false) ||
+                (MainViewModel.Instance?.IsMapEditorMode ?? false))
+            {
+                // Editor actions belong to the player currently selected in the editor toolbar.
+                return EditorDirector.instance?.ActivePlayerID ?? -1;
+            }
+
             int localPlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
             return localPlayerId > 0 ? localPlayerId : 1;
         }

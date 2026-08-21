@@ -285,6 +285,9 @@ namespace UnitCosts
 
         private MakeTroopGameActionDecision DecideLocalHumanRecruitment(int amount, eChimps unitType, int rawUnitType)
         {
+            if (IsMapEditor())
+                return MakeTroopGameActionDecision.AllowOriginal();
+
             if (amount <= 0)
                 return MakeTroopGameActionDecision.AllowOriginal();
 
@@ -414,6 +417,12 @@ namespace UnitCosts
             if (!hasCurrentTooltipUnitType)
                 return;
 
+            if (IsMapEditor())
+            {
+                ClearRecruitmentCostEntries();
+                return;
+            }
+
             if (currentTooltipUsesRecruitAmount && MainViewModel.Instance != null)
                 currentTooltipMultiplier = Math.Max(1, GetLastTroopsAmountToMake(MainViewModel.Instance));
 
@@ -512,7 +521,7 @@ namespace UnitCosts
 
         internal void RefreshRecruitmentButtonAvailability()
         {
-            if (!settings.EnableMod || humanExtraCosts.Count == 0)
+            if (IsMapEditor() || !settings.EnableMod || humanExtraCosts.Count == 0)
                 return;
 
             int playerId = GetLocalHumanPlayerId();
@@ -665,6 +674,9 @@ namespace UnitCosts
         {
             try
             {
+                if (IsMapEditor())
+                    return;
+
                 if (args.Phase != EventHookPhase.Pre)
                     return;
 
@@ -704,6 +716,9 @@ namespace UnitCosts
         {
             try
             {
+                if (IsMapEditor())
+                    return;
+
                 if (!IsHumanPlayer(args.PlayerId) || !IsLocalPlayer(args.PlayerId))
                     return;
 
@@ -738,6 +753,9 @@ namespace UnitCosts
         {
             try
             {
+                if (IsMapEditor())
+                    return;
+
                 if (!IsHumanPlayer(args.PlayerId))
                     return;
 
@@ -1005,6 +1023,12 @@ namespace UnitCosts
         {
             int playerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
             return IsHumanPlayer(playerId) ? playerId : -1;
+        }
+
+        private static bool IsMapEditor()
+        {
+            return (GamePlayerManagerAPI.Instance?.IsInMapEditor() ?? false) ||
+                (MainViewModel.Instance?.IsMapEditorMode ?? false);
         }
 
         private static bool IsHumanPlayer(int playerId)

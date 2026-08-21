@@ -6,6 +6,7 @@ using SHCDESE.API;
 using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.Player;
 using SHCDESE.Interop;
+using SHCDESE.Interop.Enums;
 using System;
 using System.Reflection;
 using System.Runtime.InteropServices;
@@ -129,7 +130,9 @@ namespace ExtraFeatures
             if (args == null ||
                 args.Phase != EventHookPhase.Pre ||
                 args.ShiftModifier != SingleTradeMode ||
-                !IsFeatureUsable())
+                !IsFeatureUsable() ||
+                !IsSelectedTradepostControlled() ||
+                (IsMapEditor() && args.PlayerId != GetControlledPlayerId()))
             {
                 return;
             }
@@ -324,7 +327,7 @@ namespace ExtraFeatures
 
         private int GameActionHook(Enums.GameActionCommand command, int structureId, int state, int value2)
         {
-            if (!IsFeatureUsable() || !IsMarketCommand(command))
+            if (!IsFeatureUsable() || !IsMarketCommand(command) || !IsSelectedTradepostControlled())
                 return gameActionTrampoline(command, structureId, state, value2);
 
             KeyManager keys = KeyManager.instance;
@@ -352,11 +355,14 @@ namespace ExtraFeatures
                 return;
             }
 
-            if (!IsFeatureUsable())
+            if (!IsFeatureUsable() || !IsSelectedTradepostControlled())
+            {
+                marketValidatorHook.Value.Hook.Trampoline(selling, NormalTradeMode, goodValue);
                 return;
+            }
 
             GamePlayerManagerAPI playerApi = GamePlayerManagerAPI.Instance;
-            int playerId = playerApi.GetLocalPlayerId();
+            int playerId = GetControlledPlayerId();
             eGoods good = (eGoods)goodValue;
             bool validPlayer = playerApi.IsPlayerIdValid(playerId);
             bool validGood = goodValue >= 0 && goodValue < (int)eGoods.Count;
@@ -408,6 +414,7 @@ namespace ExtraFeatures
         {
             KeyManager keys = KeyManager.instance;
             if (!IsFeatureUsable()
+                || !IsSelectedTradepostControlled()
                 || keys == null
                 || !keys.isCtrlDown()
                 || GameData.Instance?.lastGameState == null
@@ -422,7 +429,7 @@ namespace ExtraFeatures
 
             eGoods good = (eGoods)goodId;
             GamePlayerManagerAPI playerApi = GamePlayerManagerAPI.Instance;
-            int playerId = playerApi.GetLocalPlayerId();
+            int playerId = GetControlledPlayerId();
             PackedGoodPrice price = playerApi.GetTradeBasePrice(good);
             int amount = keys.isShiftDown() ? 5 : 1;
             int buyCost = amount == 1 ? Math.Max(1, price.BuyPrice / 5) : price.BuyPrice;
@@ -489,6 +496,36 @@ namespace ExtraFeatures
             return nativeReady
                 && settings.EnableMod
                 && settings.EnableCtrlSingleMarketTrade;
+        }
+
+        private static bool IsMapEditor()
+        {
+            return (GamePlayerManagerAPI.Instance?.IsInMapEditor() ?? false) ||
+                (MainViewModel.Instance?.IsMapEditorMode ?? false);
+        }
+
+        private static int GetControlledPlayerId()
+        {
+            if (IsMapEditor())
+                return EditorDirector.instance?.ActivePlayerID ?? -1;
+
+            return GamePlayerManagerAPI.Instance?.GetLocalPlayerId() ?? -1;
+        }
+
+        private static bool IsSelectedTradepostControlled()
+        {
+            if (!IsMapEditor())
+                return true;
+
+            int buildingId = GamePlayerManagerAPI.Instance.GetSelectedBuildingId();
+            if (buildingId <= 0 || GetControlledPlayerId() <= 0)
+                return false;
+
+            return GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building) &&
+                building != null &&
+                building->r_AliveState == AliveState.IsAlive &&
+                building->r_BuildingType == eStructs.STRUCT_TRADEPOST &&
+                building->r_PlayerIdOwner == GetControlledPlayerId();
         }
 
         private static bool IsMarketCommand(Enums.GameActionCommand command)

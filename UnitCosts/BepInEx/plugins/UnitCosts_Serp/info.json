@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Unit Costs",
   "Description": "Configure recruit costs in Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.14",
+  "Version": "1.0.15",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.15",
+      "Changes": [
+        "Disabled custom recruitment-cost UI, validation, and extra-resource deductions in the map editor."
+      ]
+    },
     {
       "Version": "1.0.14",
       "Changes": [

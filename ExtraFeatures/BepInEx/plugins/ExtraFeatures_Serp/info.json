@@ -3,10 +3,23 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.29",
+  "Version": "1.0.31",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.31",
+      "Changes": [
+        "Matched the gatehouse automation button tooltip to the shared opaque, bordered, wrapping, resolution-scaled modsettings tooltip presentation."
+      ]
+    },
+    {
+      "Version": "1.0.30",
+      "Changes": [
+        "Added a game-styled gatehouse-and-cog icon for the per-gate automation button.",
+        "Enabled owned gatehouse automation, quarry relocation, knight mount/dismount, Ctrl market trading, and single-building pause controls for the active player in the map editor."
+      ]
+    },
     {
       "Version": "1.0.29",
       "Changes": [

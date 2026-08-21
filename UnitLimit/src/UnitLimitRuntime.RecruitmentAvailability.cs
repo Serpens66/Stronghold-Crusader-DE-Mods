@@ -7,7 +7,7 @@ namespace UnitLimit
     {
         internal void RefreshRecruitmentButtonAvailability()
         {
-            if (!settings.EnableMod || activeUnitLimits.Count == 0)
+            if (IsMapEditor() || !settings.EnableMod || activeUnitLimits.Count == 0)
                 return;
 
             int playerId = GetLocalHumanPlayerId();

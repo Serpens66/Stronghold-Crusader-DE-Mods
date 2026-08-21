@@ -47,6 +47,12 @@ namespace UnitLimit
             if (!hasCurrentTooltipUnitType)
                 return;
 
+            if (IsMapEditor())
+            {
+                UnitLimitTooltip.Clear();
+                return;
+            }
+
             int playerId = GetLocalHumanPlayerId();
             if (playerId <= 0 ||
                 !SoldierChimps.Contains(currentTooltipUnitType) ||

@@ -195,7 +195,8 @@ namespace ExtraFeatures
             int selectedBuildingId = TryGetSelectedBuildingId();
             bool controlPressed = IsControlPressed();
 
-            if (!IsFeatureActive())
+            if (!IsFeatureActive() ||
+                (IsMapEditor() && !IsSelectedBuildingOwnedByControlledPlayer(selectedBuildingId)))
             {
                 buttonTrampoline(self, parameter);
                 return;
@@ -280,7 +281,7 @@ namespace ExtraFeatures
             if (RequiresChoreTransport())
             {
                 int globalId = (int)building->r_GlobalId;
-                int playerId = GetLocalPlayerIdOrOne();
+                int playerId = GetControlledPlayerId();
                 if (globalId <= 0 || building->r_PlayerIdOwner != playerId)
                 {
                     LogError($"single-building pause refused because the selected building has no valid synchronized identity: buildingId={buildingId}, globalId={globalId}, owner={building->r_PlayerIdOwner}, localPlayer={playerId}.");
@@ -327,7 +328,7 @@ namespace ExtraFeatures
             bool selectedWasSleeping = selectedHasOverride ? overrideSleeping : selectedBuilding->r_IsSleeping == 1;
             bool targetSleeping = !selectedWasSleeping;
             bool buildingTypeWasSleeping = GameData.Instance.lastGameState.building_type_sleeping != 0;
-            int playerId = GetLocalPlayerIdOrOne();
+            int playerId = GetControlledPlayerId();
             int globalId = (int)selectedBuilding->r_GlobalId;
             if (globalId <= 0 || selectedBuilding->r_PlayerIdOwner != playerId)
             {
@@ -473,10 +474,28 @@ namespace ExtraFeatures
             return 0;
         }
 
-        private static int GetLocalPlayerIdOrOne()
+        private static bool IsMapEditor()
         {
+            return (GamePlayerManagerAPI.Instance?.IsInMapEditor() ?? false) ||
+                (MainViewModel.Instance?.IsMapEditorMode ?? false);
+        }
+
+        private static int GetControlledPlayerId()
+        {
+            if (IsMapEditor())
+                return EditorDirector.instance?.ActivePlayerID ?? -1;
+
             int localPlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
             return localPlayerId > 0 ? localPlayerId : 1;
+        }
+
+        private static unsafe bool IsSelectedBuildingOwnedByControlledPlayer(int buildingId)
+        {
+            return buildingId > 0 &&
+                GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building) &&
+                building != null &&
+                building->r_AliveState == AliveState.IsAlive &&
+                building->r_PlayerIdOwner == GetControlledPlayerId();
         }
 
         private unsafe void ToggleSelectedBuildingTypeFromSelectedState(MainViewModel self, object parameter)

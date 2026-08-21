@@ -23,9 +23,10 @@ namespace ExtraFeatures
 {
     internal sealed class GatehouseAutomationButtonViewModel : LobbyModSettingsBaseViewModel
     {
+        private ImageSource iconImageSource;
         private Visibility buttonVisibility = Visibility.Hidden;
-        private Visibility automaticIndicatorVisibility = Visibility.Visible;
         private Visibility manualIndicatorVisibility = Visibility.Hidden;
+        private double iconOpacity = 1.0;
         private string toolTipText = string.Empty;
 
         public GatehouseAutomationButtonViewModel(Action toggle)
@@ -34,16 +35,22 @@ namespace ExtraFeatures
         }
 
         public RelayCommand ToggleCommand { get; }
+        public ImageSource IconImageSource { get => iconImageSource; private set => Set(ref iconImageSource, value, nameof(IconImageSource)); }
         public Visibility ButtonVisibility { get => buttonVisibility; private set => Set(ref buttonVisibility, value, nameof(ButtonVisibility)); }
-        public Visibility AutomaticIndicatorVisibility { get => automaticIndicatorVisibility; private set => Set(ref automaticIndicatorVisibility, value, nameof(AutomaticIndicatorVisibility)); }
         public Visibility ManualIndicatorVisibility { get => manualIndicatorVisibility; private set => Set(ref manualIndicatorVisibility, value, nameof(ManualIndicatorVisibility)); }
+        public double IconOpacity { get => iconOpacity; private set => Set(ref iconOpacity, value, nameof(IconOpacity)); }
         public string ToolTipText { get => toolTipText; private set => Set(ref toolTipText, value, nameof(ToolTipText)); }
+
+        public void SetIcon(ImageSource icon)
+        {
+            IconImageSource = icon;
+        }
 
         public void Show(bool automaticEnabled)
         {
             ButtonVisibility = Visibility.Visible;
-            AutomaticIndicatorVisibility = automaticEnabled ? Visibility.Visible : Visibility.Hidden;
             ManualIndicatorVisibility = automaticEnabled ? Visibility.Hidden : Visibility.Visible;
+            IconOpacity = automaticEnabled ? 1.0 : 0.48;
             ToolTipText = SerpLocalization.Get(automaticEnabled
                 ? "SomeSettings.GatehouseAutomaticEnabledTooltip"
                 : "SomeSettings.GatehouseManualOnlyTooltip");
@@ -66,6 +73,7 @@ namespace ExtraFeatures
     internal sealed unsafe class GatehouseAutomationRuntime : IDisposable
     {
         private const string SaveDataIdentifier = "serp-extrafeatures-gatehouse-automation-v1";
+        private const string AutomationIconAssetPath = "Assets/GUI/Sprites/ExtraFeatures_GatehouseAutomation.png";
         private const int ChoreProtocolVersion = 1;
         private const int MaximumSavedGatehouses = 10000;
         private const int MaximumFailureLogs = 20;
@@ -87,6 +95,7 @@ namespace ExtraFeatures
         private bool mapActive;
         private bool disposed;
         private bool firstQueryLogged;
+        private bool iconLoadAttempted;
         private int lastCacheTick = int.MinValue;
         private int failureLogs;
         private int nextOperationId;
@@ -214,7 +223,7 @@ namespace ExtraFeatures
                 return;
             }
 
-            int localPlayerId = GetLocalPlayerIdOrOne();
+            int localPlayerId = GetControlledPlayerId();
             int selectedBuildingId = GamePlayerManagerAPI.Instance.GetSelectedBuildingId();
             if (!TryGetOwnedGatehouse(selectedBuildingId, localPlayerId, out GameBuilding* building, out _))
             {
@@ -265,12 +274,38 @@ namespace ExtraFeatures
 
             try
             {
+                TryLoadButtonIcon();
                 RefreshButtonVisibility();
             }
             catch (Exception ex)
             {
                 LogFailure($"gatehouse button refresh failed: {ex}");
             }
+        }
+
+        private void TryLoadButtonIcon()
+        {
+            if (iconLoadAttempted || MainViewModel.Instance == null)
+                return;
+
+            // The plugin initializes before the game HUD; defer the one-time decode until rendering begins.
+            iconLoadAttempted = true;
+            if (!GameAssetManagerAPI.Instance.GetFileBinaryContent(AutomationIconAssetPath, out byte[] imageBytes) ||
+                imageBytes == null || imageBytes.Length == 0)
+            {
+                LogError($"gatehouse automation icon could not be loaded from '{AutomationIconAssetPath}'.");
+                return;
+            }
+
+            TextureSource icon = MainViewModel.Instance.LoadImageFile(imageBytes);
+            if (icon == null)
+            {
+                LogError($"gatehouse automation icon decoding failed for '{AutomationIconAssetPath}'.");
+                return;
+            }
+
+            buttonViewModel.SetIcon(icon);
+            LogInfo($"gatehouse automation icon loaded: asset='{AutomationIconAssetPath}', bytes={imageBytes.Length}.");
         }
 
         private void ToggleSelectedGatehouse()
@@ -280,7 +315,7 @@ namespace ExtraFeatures
                 if (!settings.EnableMod || !mapActive)
                     return;
 
-                int playerId = GetLocalPlayerIdOrOne();
+                int playerId = GetControlledPlayerId();
                 int buildingId = GamePlayerManagerAPI.Instance.GetSelectedBuildingId();
                 if (!TryGetOwnedGatehouse(buildingId, playerId, out GameBuilding* building, out string failure))
                 {
@@ -652,8 +687,15 @@ namespace ExtraFeatures
             return ++nextOperationId;
         }
 
-        private static int GetLocalPlayerIdOrOne()
+        private static int GetControlledPlayerId()
         {
+            if ((GamePlayerManagerAPI.Instance?.IsInMapEditor() ?? false) ||
+                (MainViewModel.Instance?.IsMapEditorMode ?? false))
+            {
+                // The gate button is available only for the active editor player's buildings.
+                return EditorDirector.instance?.ActivePlayerID ?? -1;
+            }
+
             int localPlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
             return localPlayerId > 0 ? localPlayerId : 1;
         }

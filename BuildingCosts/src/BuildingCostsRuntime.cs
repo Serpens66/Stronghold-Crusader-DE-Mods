@@ -413,6 +413,13 @@ namespace BuildingCosts
         {
             try
             {
+                if (IsMapEditor())
+                {
+                    BuildingCostsPlugin.BuildingCostTooltipViewModel.SetPlacement(false, false);
+                    ClearBuildingCostTooltip();
+                    return;
+                }
+
                 bool detailedTooltipVisible = MainViewModel.Instance.RolloverBuilding_TooltipVis;
                 bool compactTooltipVisible = MainViewModel.Instance.RolloverBuilding_TooltipVisNot;
                 int hoverStruct = (int)hoverStructField.GetValue(hud);
@@ -481,6 +488,12 @@ namespace BuildingCosts
 
             BuildingCostsPlugin.BuildingCostTooltipViewModel.Clear();
             tooltipIsClear = true;
+        }
+
+        private static bool IsMapEditor()
+        {
+            return (GamePlayerManagerAPI.Instance?.IsInMapEditor() ?? false) ||
+                (MainViewModel.Instance?.IsMapEditorMode ?? false);
         }
 
         private void ResetTooltipCache()

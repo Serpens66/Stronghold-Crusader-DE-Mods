@@ -55,7 +55,8 @@ namespace BugfixesAndQoL
 
                 int selectedBuildingId = GamePlayerManagerAPI.Instance.GetSelectedBuildingId();
                 if (selectedBuildingId <= 0 ||
-                    GameBuildingManagerAPI.Instance.GetType(selectedBuildingId) != eStructs.STRUCT_TRADEPOST)
+                    GameBuildingManagerAPI.Instance.GetType(selectedBuildingId) != eStructs.STRUCT_TRADEPOST ||
+                    !IsSelectedTradepostControlled(selectedBuildingId))
                 {
                     return;
                 }
@@ -84,6 +85,25 @@ namespace BugfixesAndQoL
                 subMode == TradepostResourcesPanel ||
                 subMode == TradepostWeaponsPanel ||
                 subMode == TradepostTradePanel;
+        }
+
+        private static bool IsMapEditor()
+        {
+            return (GamePlayerManagerAPI.Instance?.IsInMapEditor() ?? false) ||
+                (MainViewModel.Instance?.IsMapEditorMode ?? false);
+        }
+
+        private static unsafe bool IsSelectedTradepostControlled(int buildingId)
+        {
+            if (!IsMapEditor())
+                return true;
+
+            int activePlayerId = EditorDirector.instance?.ActivePlayerID ?? -1;
+            return activePlayerId > 0 &&
+                GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building) &&
+                building != null &&
+                building->r_AliveState == AliveState.IsAlive &&
+                building->r_PlayerIdOwner == activePlayerId;
         }
     }
 }

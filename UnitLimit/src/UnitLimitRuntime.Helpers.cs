@@ -1,4 +1,5 @@
 using BepInEx.Logging;
+using CrusaderDE;
 using R3;
 using SHCDESE.API;
 using SHCDESE.EventAPI;
@@ -12,6 +13,12 @@ namespace UnitLimit
 {
     public sealed partial class UnitLimitRuntime
     {
+        private static bool IsMapEditor()
+        {
+            return (GamePlayerManagerAPI.Instance?.IsInMapEditor() ?? false) ||
+                (MainViewModel.Instance?.IsMapEditorMode ?? false);
+        }
+
         private static bool IsLocalPlayer(int playerId)
         {
             int rawLocalPlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();

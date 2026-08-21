@@ -266,7 +266,7 @@ namespace ExtraFeatures
                     return;
                 }
 
-                int localPlayerId = GetLocalPlayerIdOrOne();
+                int localPlayerId = GetControlledPlayerId();
                 int selectedBuildingId = GamePlayerManagerAPI.Instance.GetSelectedBuildingId();
                 if (!TryGetOwnedQuarry(selectedBuildingId, localPlayerId, out _, out string failureReason))
                 {
@@ -396,7 +396,7 @@ namespace ExtraFeatures
                     return;
                 }
 
-                localPlayerId = GetLocalPlayerIdOrOne();
+                localPlayerId = GetControlledPlayerId();
                 selectedBuildingId = GamePlayerManagerAPI.Instance.GetSelectedBuildingId();
                 LogInfo($"command context read: localPlayerId={localPlayerId}, selectedBuildingId={selectedBuildingId}, appMode={GameData.Instance?.app_mode.ToString() ?? "unavailable"}, appSubMode={GameData.Instance?.app_sub_mode.ToString() ?? "unavailable"}.");
 
@@ -1604,8 +1604,15 @@ namespace ExtraFeatures
             return ++nextOperationId;
         }
 
-        private static int GetLocalPlayerIdOrOne()
+        private static int GetControlledPlayerId()
         {
+            if ((GamePlayerManagerAPI.Instance?.IsInMapEditor() ?? false) ||
+                (MainViewModel.Instance?.IsMapEditorMode ?? false))
+            {
+                // Never expose an editor mutation for an object owned by another editor player.
+                return EditorDirector.instance?.ActivePlayerID ?? -1;
+            }
+
             int localPlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
             return localPlayerId > 0 ? localPlayerId : 1;
         }

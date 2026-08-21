@@ -321,6 +321,17 @@ namespace BugfixesAndQoL
                 return;
             }
 
+            bool mapEditor = (GamePlayerManagerAPI.Instance?.IsInMapEditor() ?? false) ||
+                (mainViewModel?.IsMapEditorMode ?? false);
+            int controlledPlayerId = mapEditor
+                ? (EditorDirector.instance?.ActivePlayerID ?? -1)
+                : -1;
+            if (mapEditor && (controlledPlayerId < 1 || controlledPlayerId > 8))
+            {
+                ViewModel.Hide();
+                return;
+            }
+
             if (isLordModeActive() &&
                 selectedCount == 1 &&
                 state.selectedChimps.Length > 0 &&
@@ -344,7 +355,8 @@ namespace BugfixesAndQoL
                 if (unitId <= 0 ||
                     !unitApi.TryGetUnitById(unitId, out GameUnit* unit) ||
                     unit == null ||
-                    unit->r_AliveState != AliveState.IsAlive)
+                    unit->r_AliveState != AliveState.IsAlive ||
+                    (mapEditor && unit->r_ControllableForPlayerId != controlledPlayerId))
                 {
                     continue;
                 }
