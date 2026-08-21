@@ -177,9 +177,6 @@
     <Compile Include="src\CastlePlannerRuntime.cs" />
     <Compile Include="src\CastlePlannerSettingsViewModel.cs" />
     <Compile Include="src\CastleSpawnCompatibility.cs" />
-    <Compile Include="src\CastleSpawnLobbyState.cs" />
-    <Compile Include="src\CastleSpawnLobbySyncController.cs" />
-    <Compile Include="src\CastleSpawnSyncRequestPacket.cs" />
   </ItemGroup>
 
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

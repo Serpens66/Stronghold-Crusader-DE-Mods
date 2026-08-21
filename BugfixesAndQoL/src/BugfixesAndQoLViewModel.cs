@@ -58,6 +58,32 @@ namespace BugfixesAndQoL
         protected override string ResolveSettingsUiText(string key, string fallback) =>
             SerpLocalization.Get(key);
 
+        protected override void ConfigurePerPlayerLobbySettings(
+            Shared.PerPlayerLobbySettingsBuilder settings)
+        {
+            string[] enabledByDefault =
+            {
+                nameof(EnableMinimapCursorFollowFix),
+                nameof(EnableMarketKeyMainMenuFix),
+                nameof(EnableAutoTradeSellZeroFix),
+                nameof(EnableEnemyProximityBulldozeCursorFix),
+                nameof(EnableIngameSteamInvitePrompt),
+                nameof(ShowSelectedUnitHealth),
+                nameof(EnableClientFeatures),
+                nameof(AllowMinimapWhilePlacingBuilding),
+                nameof(AllowCameraMovementWithModifiers),
+                nameof(HdMarketView),
+            };
+            foreach (string propertyName in enabledByDefault)
+                settings.ResetSlotsWith(propertyName, () => true);
+
+            settings
+                .ResetSlotsWith(
+                    nameof(MarketGoodsOrder),
+                    () => MarketGoodsOrderDefinition.CreateHdOrder())
+                .WhenLocalPlayerResolved(playerId => TrySetLocalPlayerId(playerId));
+        }
+
         public BugfixesAndQoLViewModel(bool legacySomeSettingsLoaded)
         {
             LegacyModWarningVisibility = legacySomeSettingsLoaded ? Visibility.Visible : Visibility.Collapsed;

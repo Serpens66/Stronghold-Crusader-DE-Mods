@@ -34,6 +34,7 @@ namespace CustomCustomTrail
         private string[] disabledTrailModIds = Array.Empty<string>();
         private TrailModSelectionItem[] compatibleTrailMods = Array.Empty<TrailModSelectionItem>();
         private string incompatibleTrailModsText = string.Empty;
+        private string coopPackageStatus = string.Empty;
 
         public CustomCustomTrailSettingsViewModel()
         {
@@ -48,6 +49,16 @@ namespace CustomCustomTrail
 
         protected override string ResolveSettingsUiText(string key, string fallback) =>
             SerpLocalization.Get(key);
+
+        protected override void ConfigurePerPlayerLobbySettings(
+            Shared.PerPlayerLobbySettingsBuilder settings)
+        {
+            settings
+                .ResetSlotsWith(nameof(CoopPackageStatus), () => null)
+                .RequireReport(
+                    nameof(CoopPackageStatus),
+                    value => !string.IsNullOrEmpty(value as string));
+        }
 
         public event Action<bool> RuntimeActivationChanged;
         public event Action ActiveCoopPackageChanged;
@@ -209,14 +220,16 @@ namespace CustomCustomTrail
         [SyncPerPlayer, DoNotPersist]
         public string CoopPackageStatus
         {
-            get => GetLocalStatus();
+            get => coopPackageStatus;
             set
             {
-                int playerId = Math.Max(1, GameNetworkAPI.GetLocalPlayerId());
                 value = value ?? string.Empty;
-                if (string.Equals(CoopPackageStatusData[playerId], value, StringComparison.Ordinal))
+                if (string.Equals(coopPackageStatus, value, StringComparison.Ordinal))
                     return;
-                CoopPackageStatusData[playerId] = value;
+                coopPackageStatus = value;
+                int playerId = GameNetworkAPI.GetLocalPlayerId();
+                if (playerId >= 1 && playerId <= 8)
+                    CoopPackageStatusData[playerId] = value;
                 OnPropertyChanged(nameof(CoopPackageStatus));
                 OnPropertyChanged(nameof(CoopPackageStatusText));
             }
@@ -340,11 +353,7 @@ namespace CustomCustomTrail
             }
         }
 
-        private string GetLocalStatus()
-        {
-            int playerId = Math.Max(1, GameNetworkAPI.GetLocalPlayerId());
-            return CoopPackageStatusData[playerId] ?? string.Empty;
-        }
+        private string GetLocalStatus() => coopPackageStatus;
     }
 
     public sealed class TrailModSelectionItem : INotifyPropertyChanged

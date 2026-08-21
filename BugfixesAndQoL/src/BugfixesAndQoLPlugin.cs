@@ -31,9 +31,6 @@ namespace BugfixesAndQoL
         private static DisplayResolutionPersistenceHook displayResolutionPersistenceHook;
         private static SteamLobbyInvitePrompt steamLobbyInvitePrompt;
         private BugfixesAndQoLRuntime runtime;
-        private object observedLobby;
-        private int observedLobbyMemberCount = -1;
-        private bool lobbyPlayerResolutionAttempted;
         private bool marketGoodsVisualRefreshFailureLogged;
 
         public BugfixesAndQoLViewModel Settings { get; private set; }
@@ -69,13 +66,12 @@ namespace BugfixesAndQoL
             CrusaderLibrary.Instance.LibraryLoaded += OnCrusaderLibraryLoaded;
         }
 
-        private void InitializeLocalPlayerTracking()
+        private void InitializePersistentUiAndMapCallbacks()
         {
             // These publishers outlive the BepInEx component and retain the callbacks for the process lifetime.
             SHCDESE.BepInEx.Bootstrap.Plugin.ModSettingsHubViewModel.PropertyChanged +=
                 (_, __) =>
                 {
-                    RefreshLobbyLocalPlayerId();
                     // The game fills MainViewModel.GameSprites after the script extender loads.
                     // A hub change, including opening the settings, is the safe point to retry visuals.
                     try
@@ -98,36 +94,9 @@ namespace BugfixesAndQoL
             {
                 if (args.Phase == EventHookPhase.Post)
                 {
-                    Settings.TrySetLocalPlayerId(GamePlayerManagerAPI.Instance.GetLocalPlayerId());
                     steamLobbyInvitePrompt?.TryInitialize();
                 }
             });
-            RefreshLobbyLocalPlayerId();
-        }
-
-        private void RefreshLobbyLocalPlayerId()
-        {
-            Platform_Multiplayer.MPLobby lobby = Platform_Multiplayer.Instance?.activeLobby;
-            if (lobby == null)
-            {
-                observedLobby = null;
-                observedLobbyMemberCount = -1;
-                lobbyPlayerResolutionAttempted = false;
-                return;
-            }
-
-            int memberCount = lobby.members?.Count ?? -1;
-            if (ReferenceEquals(observedLobby, lobby) &&
-                observedLobbyMemberCount == memberCount &&
-                lobbyPlayerResolutionAttempted)
-            {
-                return;
-            }
-
-            observedLobby = lobby;
-            observedLobbyMemberCount = memberCount;
-            lobbyPlayerResolutionAttempted = true;
-            Settings.TrySetLocalPlayerId(GameNetworkAPI.GetLocalPlayerId());
         }
 
         private void OnCrusaderLibraryLoaded(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
@@ -155,7 +124,7 @@ namespace BugfixesAndQoL
                 Shared.DebugLogHelper.LogError(Logger, $"Bugfixes and QoL market-order editor initialization failed: {ex}");
             }
 
-            InitializeLocalPlayerTracking();
+            InitializePersistentUiAndMapCallbacks();
 
             try
             {

@@ -23,6 +23,7 @@ internal static class Program
         try
         {
             TestLobbySettingsRouting();
+            TestSharedPerPlayerLobbyConvergence();
             TestGameModeHelper();
             TestLocalPerPlayerSetting();
             TestMarketGoodsOrderDefinition();
@@ -42,8 +43,6 @@ internal static class Program
             TestPresetLocalRoundTrip();
             TestDoNotPersistPresetExclusion();
             TestCastleSpawnCompatibility();
-            TestCastleSpawnLobbyState();
-            TestCastleSpawnSyncPacket();
 
             string pluginPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "TestPlugin.dll");
             string settingsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "LobbyModSettings", "HostClientTest.msgpack");
@@ -336,6 +335,127 @@ internal static class Program
             "client storage snapshot replaced the cached local host value");
         Check(manager.ReadStoredInt(nameof(viewModel.PlayerValue)) == 7,
             "client storage snapshot lost its per-player value");
+    }
+
+    private static void TestSharedPerPlayerLobbyConvergence()
+    {
+        GameNetworkAPI.LocalHost = false;
+        GameNetworkAPI.Networked = true;
+        GameNetworkAPI.MultiplayerGame = true;
+        GameXAMLManagerAPI.Instance.ResetRoutingProbe();
+
+        var viewModel = new SharedPerPlayerProbeViewModel();
+        LobbyModSettingsPresetRegistration.Register(
+            new BepInEx.BaseUnityPlugin(),
+            null,
+            "SharedPerPlayerProbe",
+            viewModel,
+            "unused.xaml");
+        viewModel.Preference = new[] { 7, 8, 9 };
+        viewModel.System_TestObservePerPlayerLobby(
+            100,
+            new Dictionary<int, ulong> { [1] = 11, [2] = 22 },
+            false,
+            2);
+
+        Check(viewModel.LocalPlayerId == 2, "Shared did not bind the resolved local player ID");
+        Check(viewModel.PreferenceData[1] == null, "Shared did not reset an unreported remote slot");
+        Check(viewModel.PreferenceData[2].SequenceEqual(new[] { 7, 8, 9 }),
+            "Shared did not publish the local personal value into its player slot");
+        Check(!ReferenceEquals(viewModel.Preference, viewModel.PreferenceData[2]),
+            "Shared aliased a mutable local value into the network companion array");
+        Check(viewModel.RemoteDataChangeCount == 0,
+            "Shared misreported its own stale-slot reset as a remote update");
+        Check(!viewModel.IsPerPlayerLobbySettingsReady,
+            "Shared reported readiness before the remote required value arrived");
+
+        viewModel.System_RequestPerPlayerSettingsPublish();
+        int lobbyChangesBeforeResolution = viewModel.LobbyChangeCount;
+        viewModel.System_TestObservePerPlayerLobby(
+            100,
+            new Dictionary<int, ulong> { [1] = 11, [2] = 22 },
+            true,
+            2);
+        Check(!viewModel.IsPerPlayerLobbySettingsReady,
+            "Shared accepted a lobby with unresolved human identities");
+        viewModel.System_TestObservePerPlayerLobby(
+            100,
+            new Dictionary<int, ulong> { [1] = 11, [2] = 22 },
+            false,
+            2);
+        Check(viewModel.LobbyChangeCount == lobbyChangesBeforeResolution + 2 &&
+              viewModel.LastLobbySnapshot != null &&
+              !viewModel.LastLobbySnapshot.HasUnresolvedPlayers,
+            "Shared did not publish resolution-only lobby state changes");
+
+        int observationsBeforeMap = viewModel.ObservationCount;
+        viewModel.System_RequestPerPlayerSettingsPublish();
+        viewModel.System_TestObservePerPlayerLobby(
+            null,
+            null,
+            false,
+            2,
+            preserveForMapTransition: true);
+        Check(viewModel.ObservationCount == observationsBeforeMap,
+            "Shared ran a domain settings observer during the map transition or active match");
+
+        viewModel.PreferenceData[1] = new[] { 1, 2, 3 };
+        viewModel.System_TriggerUpdate(nameof(viewModel.PreferenceData));
+        Check(viewModel.RemoteDataChangeCount == 1,
+            "Shared did not forward a real remote companion-array update");
+        viewModel.System_TestObservePerPlayerLobby(
+            100,
+            new Dictionary<int, ulong> { [1] = 11, [2] = 22 },
+            false,
+            2);
+        Check(viewModel.IsPerPlayerLobbySettingsReady,
+            "Shared did not recognize a complete required per-player snapshot");
+
+        viewModel.System_TestObservePerPlayerLobby(
+            100,
+            new Dictionary<int, ulong> { [1] = 33, [2] = 22 },
+            false,
+            2);
+        Check(viewModel.PreferenceData[1] == null,
+            "Shared retained a value after the same player slot was assigned to a different Steam user");
+        Check(!viewModel.System_ArePerPlayerSettingsReady(new[] { 2 }, out _),
+            "Shared accepted a requested player list that did not match the lobby roster");
+
+        viewModel.System_TestObservePerPlayerLobby(null, null, false, 2);
+        Check(viewModel.PreferenceData.Skip(1).All(value => value == null),
+            "Shared retained per-player values after leaving the lobby");
+        Check(viewModel.LastLobbySnapshot != null && !viewModel.LastLobbySnapshot.LobbyId.HasValue,
+            "Shared did not publish an empty snapshot after leaving the lobby");
+
+        ExpectInvalidPerPlayerRegistration(
+            new MissingCompanionViewModel(),
+            "missing companion array");
+        ExpectInvalidPerPlayerRegistration(
+            new ConflictingPerPlayerViewModel(),
+            "conflicting classifications");
+
+        GameNetworkAPI.LocalHost = true;
+    }
+
+    private static void ExpectInvalidPerPlayerRegistration(
+        PresetLobbyModSettingsViewModel viewModel,
+        string scenario)
+    {
+        bool rejected = false;
+        try
+        {
+            LobbyModSettingsPresetRegistration.Register(
+                new BepInEx.BaseUnityPlugin(),
+                null,
+                "Invalid" + viewModel.GetType().Name,
+                viewModel,
+                "unused.xaml");
+        }
+        catch (InvalidOperationException)
+        {
+            rejected = true;
+        }
+        Check(rejected, "Shared did not reject " + scenario);
     }
 
     private static void TestGatehouseAutomationSaveState()
@@ -1633,64 +1753,6 @@ internal static class Program
             "CastlePlanner rejected a matching entry in a large predecoded inventory");
     }
 
-    private static void TestCastleSpawnLobbyState()
-    {
-        var state = new CastlePlanner.CastleSpawnLobbyState();
-        CastlePlanner.CastleSpawnLobbyChange first = state.Observe(
-            100UL,
-            new Dictionary<int, ulong> { [1] = 11UL, [2] = 22UL });
-        Check(first.MembershipChanged && first.SessionChanged && first.SlotsToClear.Length == 8,
-            "CastlePlanner did not clear all compatibility slots on a new lobby session");
-
-        CastlePlanner.CastleSpawnLobbyChange unchanged = state.Observe(
-            100UL,
-            new Dictionary<int, ulong> { [1] = 11UL, [2] = 22UL });
-        Check(!unchanged.MembershipChanged,
-            "CastlePlanner treated an unchanged lobby roster as a new synchronization generation");
-
-        CastlePlanner.CastleSpawnLobbyChange joined = state.Observe(
-            100UL,
-            new Dictionary<int, ulong> { [1] = 11UL, [2] = 22UL, [3] = 33UL });
-        Check(joined.MembershipChanged && joined.SlotsToClear.Length == 0,
-            "CastlePlanner cleared valid existing slots when a new player joined");
-
-        CastlePlanner.CastleSpawnLobbyChange reused = state.Observe(
-            100UL,
-            new Dictionary<int, ulong> { [1] = 11UL, [2] = 222UL, [3] = 33UL });
-        Check(reused.MembershipChanged && reused.SlotsToClear.SequenceEqual(new[] { 2 }),
-            "CastlePlanner did not clear a player slot whose Steam identity changed");
-
-        CastlePlanner.CastleSpawnLobbyChange left = state.Observe(
-            100UL,
-            new Dictionary<int, ulong> { [1] = 11UL });
-        Check(left.MembershipChanged && left.SlotsToClear.OrderBy(id => id).SequenceEqual(new[] { 2, 3 }),
-            "CastlePlanner did not clear departed player slots");
-
-        CastlePlanner.CastleSpawnLobbyChange nextLobby = state.Observe(
-            200UL,
-            new Dictionary<int, ulong> { [1] = 11UL });
-        Check(nextLobby.SessionChanged && nextLobby.SlotsToClear.Length == 8,
-            "CastlePlanner retained compatibility data across lobby IDs");
-
-        CastlePlanner.CastleSpawnLobbyChange lobbyExit = state.Observe(null, null);
-        Check(lobbyExit.SessionChanged && lobbyExit.SlotsToClear.Length == 8,
-            "CastlePlanner retained compatibility data after leaving the lobby");
-    }
-
-    private static void TestCastleSpawnSyncPacket()
-    {
-        var packet = new CastlePlanner.CastleSpawnSyncRequestPacket
-        {
-            ProtocolVersion = 1,
-            LobbyId = 76561198000000000UL
-        };
-        byte[] bytes = MessagePackSerializer.Serialize(packet);
-        CastlePlanner.CastleSpawnSyncRequestPacket decoded =
-            MessagePackSerializer.Deserialize<CastlePlanner.CastleSpawnSyncRequestPacket>(bytes);
-        Check(decoded.ProtocolVersion == packet.ProtocolVersion && decoded.LobbyId == packet.LobbyId,
-            "CastlePlanner lobby resync packet did not round-trip through its explicit formatter");
-    }
-
     private static void Check(bool condition, string message)
     {
         if (!condition)
@@ -1867,6 +1929,58 @@ internal sealed class MarketOrderPresetViewModel : PresetLobbyModSettingsViewMod
             OnPropertyChanged(nameof(Order));
         }
     }
+}
+
+internal sealed class SharedPerPlayerProbeViewModel : PresetLobbyModSettingsViewModel
+{
+    private int[] preference = { 4, 5, 6 };
+
+    public int LocalPlayerId { get; private set; }
+    public int ObservationCount { get; private set; }
+    public int LobbyChangeCount { get; private set; }
+    public int RemoteDataChangeCount { get; private set; }
+    public PerPlayerLobbySnapshot LastLobbySnapshot { get; private set; }
+    public int[][] PreferenceData { get; } = new int[9][];
+
+    [SyncPerPlayer]
+    public int[] Preference
+    {
+        get => (int[])preference.Clone();
+        set
+        {
+            preference = value == null ? null : (int[])value.Clone();
+            OnPropertyChanged(nameof(Preference));
+        }
+    }
+
+    protected override void ConfigurePerPlayerLobbySettings(PerPlayerLobbySettingsBuilder settings)
+    {
+        settings
+            .ResetSlotsWith(nameof(Preference), () => null)
+            .RequireReport(nameof(Preference))
+            .WhenLocalPlayerResolved(id => LocalPlayerId = id)
+            .WhenLobbyChanged(snapshot =>
+            {
+                LobbyChangeCount++;
+                LastLobbySnapshot = snapshot;
+            })
+            .WhenRemoteDataChanged(_ => RemoteDataChangeCount++)
+            .OnObservation(() => ObservationCount++);
+    }
+}
+
+internal sealed class MissingCompanionViewModel : PresetLobbyModSettingsViewModel
+{
+    [SyncPerPlayer]
+    public int Value { get; set; }
+}
+
+internal sealed class ConflictingPerPlayerViewModel : PresetLobbyModSettingsViewModel
+{
+    public int[] ValueData { get; } = new int[9];
+
+    [SyncHostOnly, SyncPerPlayer]
+    public int Value { get; set; }
 }
 
 internal sealed class HostOnlyViewModel : PresetLobbyModSettingsViewModel

@@ -20,7 +20,6 @@ namespace CastlePlanner
         private static CastlePlannerRuntime runtime;
         private static BlueprintRuntimeController blueprintRuntime;
         private static CastleDropDownHeightController castleDropDownHeightController;
-        private static CastleSpawnLobbySyncController castleSpawnLobbySyncController;
         private static bool libraryLoadedHandled;
 
         public CastlePlannerSettingsViewModel Settings { get; private set; }
@@ -71,20 +70,6 @@ namespace CastlePlanner
                     PluginGuid,
                     Settings,
                     "ScriptExtenderUI/CastlePlannerSettings.xaml");
-                Settings.PublishSpawnCompatibilityState();
-                try
-                {
-                    castleSpawnLobbySyncController =
-                        CastleSpawnLobbySyncController.Create(Logger, Settings);
-                    Settings.SetLobbyCompatibilitySyncAvailable();
-                }
-                catch (Exception exception)
-                {
-                    Shared.DebugLogHelper.LogError(
-                        Logger,
-                        $"CastlePlanner lobby synchronization could not initialize; " +
-                        $"multiplayer castle spawning will fail closed: {exception}");
-                }
                 castleDropDownHeightController =
                     CastleDropDownHeightController.Attach(Logger, Settings);
                 blueprintRuntime =

@@ -136,7 +136,16 @@ foreach ($required in @(
         throw "Shared fixed tooltip presentation marker is missing: $required"
     }
 }
-
+$castleRuntimeSource = [IO.File]::ReadAllText((Join-Path $workspace 'CastlePlanner/src/CastlePlannerRuntime.cs'))
+foreach ($required in @(
+    'expectedAivCastlePlayers',
+    'failedAivCastlePlayers',
+    'expectedPlayers.SequenceEqual(executedPlayers)',
+    'finally')) {
+    if (-not $castleRuntimeSource.Contains($required)) {
+        throw "CastlePlanner exact-once spawn verification marker is missing: $required"
+    }
+}
 foreach ($forbidden in @(
     'DependencyProperty FontSizeProperty',
     'DependencyProperty MaximumWidthProperty',
@@ -227,12 +236,107 @@ foreach ($entry in $localeDirectories.GetEnumerator()) {
     }
 }
 
+# Every productive lobby-settings registration must pass through the one Shared
+# transport/preset/convergence boundary. This also prevents mod-local copies of
+# temporary network workarounds from silently diverging.
+$productiveRoots = @($settings.Keys) + @('SerpsModsHost')
+$productiveCsFiles = @($productiveRoots | ForEach-Object {
+    Get-ChildItem -LiteralPath (Join-Path $workspace $_) -Recurse -File -Filter '*.cs'
+})
+$directRegistrations = @($productiveCsFiles | Where-Object {
+    $_.FullName -notlike '*\Shared\PresetLobbyModSettingsViewModel.cs' -and
+    [IO.File]::ReadAllText($_.FullName).Contains('RegisterLobbyModSettings(')
+})
+if ($directRegistrations.Count -ne 0) {
+    throw "Direct lobby-settings registration bypasses Shared: $($directRegistrations.FullName -join ', ')"
+}
+
+$registrationFiles = @($productiveCsFiles | Where-Object {
+    [IO.File]::ReadAllText($_.FullName).Contains('LobbyModSettingsPresetRegistration.Register(')
+})
+foreach ($registrationFile in $registrationFiles) {
+    $projectDirectory = $registrationFile.Directory
+    while ($null -ne $projectDirectory -and
+        @(Get-ChildItem -LiteralPath $projectDirectory.FullName -File -Filter '*.csproj').Count -eq 0) {
+        $projectDirectory = $projectDirectory.Parent
+    }
+    if ($null -eq $projectDirectory) {
+        throw "No project found for lobby-settings registration: $($registrationFile.FullName)"
+    }
+    $project = @(Get-ChildItem -LiteralPath $projectDirectory.FullName -File -Filter '*.csproj')[0]
+    $projectText = [IO.File]::ReadAllText($project.FullName)
+    if (-not $projectText.Contains('Shared\PresetLobbyModSettingsViewModel.cs')) {
+        throw "$($project.Name): lobby settings do not compile the Shared preset/sync implementation."
+    }
+}
+
+$perPlayerViewModels = @(
+    'BugfixesAndQoL/src/BugfixesAndQoLViewModel.cs',
+    'CastlePlanner/src/CastlePlannerSettingsViewModel.cs',
+    'CustomCustomTrail/src/CustomCustomTrailSettingsViewModel.cs')
+foreach ($relativePath in $perPlayerViewModels) {
+    $source = [IO.File]::ReadAllText((Join-Path $workspace $relativePath))
+    $nestedTypeStart = $source.IndexOf('private sealed class', [StringComparison]::Ordinal)
+    if ($nestedTypeStart -ge 0) {
+        $source = $source.Substring(0, $nestedTypeStart)
+    }
+    $matches = [Text.RegularExpressions.Regex]::Matches(
+        $source,
+        '(?s)\[SyncPerPlayer[^\]]*\]\s*public\s+[\w<>,\.\[\]\s]+?\s+(?<name>\w+)\s*\{')
+    foreach ($match in $matches) {
+        $propertyName = $match.Groups['name'].Value
+        if (-not $source.Contains("$($propertyName)Data")) {
+            throw "${relativePath}: [SyncPerPlayer] property $propertyName has no companion ${propertyName}Data."
+        }
+    }
+    if ($matches.Count -gt 0 -and
+        -not $source.Contains('ConfigurePerPlayerLobbySettings(')) {
+        throw "${relativePath}: personal settings do not declare their Shared lobby policy."
+    }
+}
+
+$sharedSettingsSource = [IO.File]::ReadAllText((Join-Path $workspace 'Shared/PresetLobbyModSettingsViewModel.cs'))
+foreach ($required in @(
+    'ActivatePerPlayerLobbySettings',
+    'PerPlayerLobbySettingsBuilder',
+    'ResetSlotsWith',
+    'RequireReport',
+    'System_ArePerPlayerSettingsReady',
+    'ScriptExtenderMultiplayerSyncWorkaround.EnsureInstalled')) {
+    if (-not $sharedSettingsSource.Contains($required)) {
+        throw "Shared multiplayer-settings contract marker is missing: $required"
+    }
+}
+if ([Text.RegularExpressions.Regex]::Matches(
+        $sharedSettingsSource,
+        'internal sealed class PerPlayerLobbySettingsCoordinator').Count -ne 1) {
+    throw 'Shared must compile one common per-player coordinator in production and tests.'
+}
+foreach ($required in @(
+    'OnUnloadMap.Observable.Subscribe',
+    'args.Phase == EventHookPhase.Post',
+    'member.dummyToBeKicked',
+    'member.SkirmishMember && !member.SkirmishHumanMember',
+    'Lobby mod settings registration aborted')) {
+    if (-not $sharedSettingsSource.Contains($required)) {
+        throw "Shared per-player lifecycle/roster marker is missing: $required"
+    }
+}
+
 $crlfTargets = @($settings.Values) + @(
     $localeDirectories.Values | ForEach-Object {
         Get-ChildItem -LiteralPath (Join-Path $workspace $_) -File -Filter '*.txt' |
             ForEach-Object { [IO.Path]::GetRelativePath($workspace, $_.FullName) }
     }
-)
+) + @(
+    'Shared/PresetLobbyModSettingsViewModel.cs',
+    'BugfixesAndQoL/src/BugfixesAndQoLViewModel.cs',
+    'BugfixesAndQoL/src/BugfixesAndQoLPlugin.cs',
+    'CastlePlanner/src/CastlePlannerSettingsViewModel.cs',
+    'CastlePlanner/src/CastlePlannerPlugin.cs',
+    'CustomCustomTrail/src/CustomCustomTrailSettingsViewModel.cs',
+    'CustomCustomTrail/src/CustomCustomTrailRuntime.cs',
+    '_inspect/HostClientPresetTests/Program.cs')
 foreach ($relativePath in $crlfTargets) {
     $text = [IO.File]::ReadAllText((Join-Path $workspace $relativePath))
     if ([Text.RegularExpressions.Regex]::IsMatch($text, '(?<!\r)\n')) {
@@ -240,4 +344,4 @@ foreach ($relativePath in $crlfTargets) {
     }
 }
 
-Write-Output "PASS: $($settings.Count) XAML files, automatic two-axis overflow scrolling, all interactive tooltips, shared styles, locale parity, nonempty translations, and CRLF."
+Write-Output "PASS: $($settings.Count) XAML files, shared-only registration, personal-setting declarations, automatic two-axis overflow scrolling, all interactive tooltips, shared styles, locale parity, nonempty translations, and CRLF."

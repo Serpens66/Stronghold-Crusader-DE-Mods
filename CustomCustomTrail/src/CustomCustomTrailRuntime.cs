@@ -81,7 +81,6 @@ namespace CustomCustomTrail
         private bool coopLaunchPending;
         private bool coopMapActive;
         private string lastShownLocalBlockSignature = string.Empty;
-        private int localPackageStatusPublishGeneration;
         private bool enabled;
 
         public CustomCustomTrailRuntime(
@@ -248,6 +247,14 @@ namespace CustomCustomTrail
                     List<HumanPackageState> participantStates = GetHumanPackageStates(self);
                     LogInfo("Custom Coop package participant audit: " +
                         DescribeHumanPackageStates(self, participantStates));
+                    if (!settings.System_ArePerPlayerSettingsReady(
+                            participantStates.Select(state => state.PlayerId),
+                            out string syncError))
+                    {
+                        LogError("Blocked custom Coop package launch because Shared personal settings are incomplete: " + syncError);
+                        BlockLaunch(command, SerpLocalization.Get("CustomCustomTrail.ErrorPackageNotReady"));
+                        return;
+                    }
                     if (!AreAllHumanPlayersPackageReady(participantStates))
                     {
                         BlockLaunch(command, GetParticipantPackageBlockReason(participantStates));
@@ -539,7 +546,8 @@ namespace CustomCustomTrail
             {
                 // Vanilla treats every non-Skirmish lobby member as human. The separate
                 // SkirmishHumanMember flag only distinguishes humans from Skirmish AIs.
-                if (member == null || (!member.SkirmishHumanMember && member.SkirmishMember))
+                if (member == null || member.dummyToBeKicked ||
+                    (!member.SkirmishHumanMember && member.SkirmishMember))
                     continue;
 
                 // The Vanilla this_player_to_SteamID_mapping is not populated reliably in the
@@ -653,45 +661,10 @@ namespace CustomCustomTrail
         private void SetLocalPackageStatus(string status)
         {
             settings.SetLocalPackageStatus(status);
-            ScheduleLocalPackageStatusPublish(status);
-        }
-
-        private void ScheduleLocalPackageStatusPublish(string status)
-        {
-            if (GameNetworkAPI.IsLocalHost() || GetExistingMainViewModel()?.FRONTMultiplayer?.currentLobby == null)
-                return;
-
-            int generation = ++localPackageStatusPublishGeneration;
-            UnityMainThreadDispatcher dispatcher = UnityMainThreadDispatcher.Instance;
-            if (dispatcher == null)
-            {
-                LogError("Could not schedule local Coop package status publication: main-thread dispatcher unavailable.");
-                return;
-            }
-
-            LogInfo("Scheduled local Coop package status publication after host settings sync: " +
-                DescribePackageStatus(status, ExpectedReadyStatus()) + ".");
-            dispatcher.EnqueueDeferred(() => PublishLocalPackageStatus(generation, status));
-        }
-
-        private void PublishLocalPackageStatus(int generation, string status)
-        {
-            if (generation != localPackageStatusPublishGeneration)
-                return;
-
-            int playerId = GameNetworkAPI.GetLocalPlayerId();
-            if (playerId <= 0 || playerId >= settings.CoopPackageStatusData.Length)
-            {
-                LogError("Could not publish local Coop package status: invalid local playerId=" + playerId + ".");
-                return;
-            }
-
-            string previous = settings.CoopPackageStatus;
-            settings.SetLocalPackageStatus(status);
-            if (string.Equals(previous, status, StringComparison.Ordinal))
-                settings.System_TriggerUpdate(nameof(CustomCustomTrailSettingsViewModel.CoopPackageStatus));
-            LogInfo("Published local Coop package status: playerId=" + playerId + ", status=" +
-                DescribePackageStatus(status, ExpectedReadyStatus()) + ".");
+            // A derived status can remain textually identical after host settings
+            // arrive. Requesting Shared publication still advertises it for the
+            // current player slot after lobby convergence.
+            settings.System_RequestPerPlayerSettingsPublish();
         }
 
         private void RefreshVisibleCoopMissionAfterPackageChange()

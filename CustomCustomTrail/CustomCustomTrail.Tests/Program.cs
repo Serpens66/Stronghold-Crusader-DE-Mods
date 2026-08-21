@@ -415,6 +415,7 @@ static void TestCoopExporterIntegration()
     string coordinator = File.ReadAllText(Path.Combine(root, "src", "TrailMissionSettingsCoordinator.cs"));
     string exporter = File.ReadAllText(Path.Combine(root, "src", "CoopTrailPackageExporter.cs"));
     string runtime = File.ReadAllText(Path.Combine(root, "src", "CustomCustomTrailRuntime.cs"));
+    string viewModel = File.ReadAllText(Path.Combine(root, "src", "CustomCustomTrailSettingsViewModel.cs"));
     string packet = File.ReadAllText(Path.Combine(root, "src", "CoopCustomizePacket.cs"));
     string project = File.ReadAllText(Path.Combine(root, "CustomCustomTrail.csproj"));
     Assert(coordinator.Contains("CustomCustomTrailCoopExport") && coordinator.Contains("cooptrail.enabled"), "Trail Maker Coop checkbox/marker is missing");
@@ -485,6 +486,7 @@ static void TestCoopExporterIntegration()
     Assert(runtime.Contains("ReadyLock") && runtime.Contains("COOP_START") && runtime.Contains("AreAllHumanPlayersPackageReady"),
         "Ready/Play/COOP_START package validation is missing");
     Assert(runtime.Contains("GameNetworkAPI.GetPlayerIdForSteamId(member.id)") &&
+        runtime.Contains("member.dummyToBeKicked") &&
         runtime.Contains("!member.SkirmishHumanMember && member.SkirmishMember") &&
         runtime.Contains("GetHumanPackageStates") &&
         runtime.Contains("ErrorParticipantsMissing") &&
@@ -492,10 +494,14 @@ static void TestCoopExporterIntegration()
         runtime.Contains("ErrorParticipantsNotReady") &&
         !runtime.Contains("SerpLocalization.Get(\"CustomCustomTrail.ErrorParticipantNotReady\")"),
         "participant package validation does not use SyncPerPlayer identities or distinguish failure reasons");
-    Assert(runtime.Contains("ScheduleLocalPackageStatusPublish") &&
-        runtime.Contains("EnqueueDeferred") &&
-        runtime.Contains("System_TriggerUpdate(nameof(CustomCustomTrailSettingsViewModel.CoopPackageStatus))"),
-        "client package readiness is not republished after the host-settings receive window");
+    Assert(viewModel.Contains("ConfigurePerPlayerLobbySettings") &&
+        viewModel.Contains("RequireReport(") &&
+        viewModel.Contains("private string coopPackageStatus = string.Empty") &&
+        viewModel.Contains("get => coopPackageStatus") &&
+        !viewModel.Contains("Math.Max(1, GameNetworkAPI.GetLocalPlayerId())") &&
+        runtime.Contains("System_RequestPerPlayerSettingsPublish()") &&
+        runtime.Contains("System_ArePerPlayerSettingsReady("),
+        "client package readiness does not use Shared publication and fail-closed completeness validation");
     Assert(runtime.Contains("MainViewModelInstanceField") &&
         runtime.Contains("GetExistingMainViewModel()?.FRONTMultiplayer") &&
         !runtime.Contains("MainViewModel.Instance?.FRONTMultiplayer"),

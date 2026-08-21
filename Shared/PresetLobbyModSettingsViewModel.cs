@@ -8,13 +8,542 @@ using SHCDESE.BepInEx.Bootstrap;
 using SHCDESE.ViewModels;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+#if !SHARED_PRESET_TESTS
+using R3;
+using SHCDESE.EventAPI;
+using UnityEngine;
+#endif
 using ComboBoxItem = Noesis.ComboBoxItem;
 using Visibility = Noesis.Visibility;
+
+namespace Shared
+{
+    internal sealed class PerPlayerLobbySettingsCoordinator
+    {
+        private const int FirstPlayerId = 1;
+        private const int LastPlayerId = 8;
+#if !SHARED_PRESET_TESTS
+        private static readonly FieldInfo LobbyIdField = typeof(Platform_Multiplayer.MPLobby)
+            .GetField("id", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        private static readonly FieldInfo LobbyMemberIdField = typeof(Platform_Multiplayer.MPLobbyMember)
+            .GetField("id", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        private static readonly FieldInfo SteamIdValueField = LobbyMemberIdField?.FieldType
+            .GetField("m_SteamID", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        private static readonly MethodInfo GetPlayerIdForSteamIdMethod = typeof(GameNetworkAPI)
+            .GetMethods(BindingFlags.Static | BindingFlags.Public)
+            .Single(method =>
+                method.Name == "GetPlayerIdForSteamId" &&
+                method.GetParameters().Length == 1);
+#endif
+        private readonly PresetLobbyModSettingsViewModel owner;
+        private readonly ManualLogSource log;
+        private readonly string modName;
+        private readonly PerPlayerLobbySettingsContract contract;
+        private readonly Dictionary<int, ulong> playersById = new Dictionary<int, ulong>();
+        private ulong lobbyId;
+        private bool hasLobby;
+        private bool publishPending;
+        private bool rosterHasUnresolvedPlayers;
+        private int resolvedLocalPlayerId;
+        private bool isResettingSlots;
+        private bool isReady = true;
+        private string readinessError = string.Empty;
+#if !SHARED_PRESET_TESTS
+        private int lastObservedFrame = -1;
+        private float nextErrorLogTime;
+        private IDisposable mapStartSubscription;
+        private IDisposable mapUnloadSubscription;
+        private bool mapStarted;
+#endif
+
+        internal PerPlayerLobbySettingsCoordinator(
+            PresetLobbyModSettingsViewModel owner,
+            ManualLogSource log,
+            string modName,
+            PerPlayerLobbySettingsContract contract)
+        {
+            this.owner = owner;
+            this.log = log;
+            this.modName = modName;
+            this.contract = contract;
+        }
+
+        internal bool IsReady => isReady;
+        internal string ReadinessError => readinessError;
+
+        internal void Activate()
+        {
+            if (contract.Settings.Count == 0)
+                return;
+
+            owner.PropertyChanged += OnOwnerPropertyChanged;
+#if !SHARED_PRESET_TESTS
+            Application.onBeforeRender += OnBeforeRender;
+            mapStartSubscription = MapLoaderR3EventHooks.OnStartMap.Observable.Subscribe(args =>
+            {
+                if (args.Phase == EventHookPhase.Pre)
+                    mapStarted = true;
+            });
+            mapUnloadSubscription = MapLoaderR3EventHooks.OnUnloadMap.Observable.Subscribe(args =>
+            {
+                if (args.Phase == EventHookPhase.Post)
+                    mapStarted = false;
+            });
+            if (mapStartSubscription == null || mapUnloadSubscription == null)
+                throw new InvalidOperationException("The persistent map lifecycle subscriptions could not be created.");
+#endif
+            RequestPublish();
+            DebugLogHelper.LogInfo(
+                log,
+                $"[{modName}] Shared per-player lobby convergence activated: " +
+                $"settings=[{string.Join(",", contract.Settings.Select(item => item.Property.Name))}], " +
+                $"required=[{string.Join(",", contract.Settings.Where(item => item.IsReportRequired).Select(item => item.Property.Name))}].");
+        }
+
+        internal void RequestPublish()
+        {
+            publishPending = true;
+        }
+
+        internal bool ArePlayersReady(IEnumerable<int> playerIds, out string error)
+        {
+            int[] supplied = (playerIds ?? Enumerable.Empty<int>()).ToArray();
+            if (supplied.Any(id => !IsValidPlayerId(id)))
+            {
+                error = "At least one supplied human player ID is invalid.";
+                return false;
+            }
+            int[] expected = supplied
+                .Distinct()
+                .OrderBy(id => id)
+                .ToArray();
+            if (expected.Length == 0)
+            {
+                error = "No valid human player IDs were supplied.";
+                return false;
+            }
+            if (rosterHasUnresolvedPlayers)
+            {
+                error = "At least one human lobby member has no stable player ID yet.";
+                return false;
+            }
+            if (hasLobby && !expected.SequenceEqual(playersById.Keys.OrderBy(id => id)))
+            {
+                error = $"The requested human players [{string.Join(",", expected)}] do not match the converged lobby roster [{string.Join(",", playersById.Keys.OrderBy(id => id))}].";
+                return false;
+            }
+            if (hasLobby && (!IsValidPlayerId(resolvedLocalPlayerId) || !playersById.ContainsKey(resolvedLocalPlayerId)))
+            {
+                error = "The local human player ID is not part of the converged lobby roster.";
+                return false;
+            }
+
+            foreach (PerPlayerLobbySettingContract setting in contract.Settings.Where(item => item.IsReportRequired))
+            {
+                Array data = setting.GetData();
+                foreach (int playerId in expected)
+                {
+                    object value = data.GetValue(playerId);
+                    if (!setting.HasReport(value))
+                    {
+                        error = $"Player {playerId} has not reported [{setting.Property.Name}].";
+                        return false;
+                    }
+                }
+            }
+
+            error = string.Empty;
+            return true;
+        }
+
+        internal void Observe(
+            ulong? currentLobbyId,
+            IReadOnlyDictionary<int, ulong> currentPlayers,
+            bool hasUnresolvedPlayers,
+            int localPlayerId,
+            bool preserveForMapTransition)
+        {
+            if (!currentLobbyId.HasValue)
+            {
+                if (preserveForMapTransition)
+                    return;
+
+                if (hasLobby || playersById.Count != 0)
+                {
+                    ResetSlots(Enumerable.Range(FirstPlayerId, LastPlayerId));
+                    hasLobby = false;
+                    lobbyId = 0;
+                    playersById.Clear();
+                    rosterHasUnresolvedPlayers = false;
+                    resolvedLocalPlayerId = 0;
+                    publishPending = false;
+                    contract.LobbyChanged?.Invoke(PerPlayerLobbySnapshot.Empty);
+                }
+                SetReadiness(true, string.Empty);
+                return;
+            }
+
+            // Domain observers run in the lobby only. Settings are immutable once
+            // the map starts, so no file/status refresh may publish into a match.
+            contract.Observe?.Invoke();
+
+            var normalized = new Dictionary<int, ulong>();
+            foreach (KeyValuePair<int, ulong> player in currentPlayers ?? new Dictionary<int, ulong>())
+            {
+                if (IsValidPlayerId(player.Key) && player.Value != 0)
+                    normalized[player.Key] = player.Value;
+            }
+
+            bool sessionChanged = !hasLobby || lobbyId != currentLobbyId.Value;
+            bool membershipChanged = sessionChanged ||
+                normalized.Count != playersById.Count ||
+                normalized.Any(player =>
+                    !playersById.TryGetValue(player.Key, out ulong previousSteamId) ||
+                    previousSteamId != player.Value);
+            bool resolutionChanged = rosterHasUnresolvedPlayers != hasUnresolvedPlayers ||
+                resolvedLocalPlayerId != localPlayerId;
+            if (membershipChanged)
+            {
+                int[] slotsToReset = sessionChanged
+                    ? Enumerable.Range(FirstPlayerId, LastPlayerId).ToArray()
+                    : Enumerable.Range(FirstPlayerId, LastPlayerId)
+                        .Where(id =>
+                            playersById.TryGetValue(id, out ulong previousSteamId) &&
+                            (!normalized.TryGetValue(id, out ulong currentSteamId) ||
+                             currentSteamId != previousSteamId))
+                        .ToArray();
+                ResetSlots(slotsToReset);
+                hasLobby = true;
+                lobbyId = currentLobbyId.Value;
+                playersById.Clear();
+                foreach (KeyValuePair<int, ulong> player in normalized)
+                    playersById[player.Key] = player.Value;
+                publishPending = true;
+                DebugLogHelper.LogInfo(
+                    log,
+                    $"[{modName}] Shared per-player lobby roster changed: lobby={currentLobbyId.Value}, " +
+                    $"sessionChanged={sessionChanged}, players=[{string.Join(",", normalized.Keys.OrderBy(id => id))}], " +
+                    $"unresolved={hasUnresolvedPlayers}, resetSlots=[{string.Join(",", slotsToReset)}].");
+            }
+
+            bool localResolved = IsValidPlayerId(localPlayerId) && normalized.ContainsKey(localPlayerId);
+            rosterHasUnresolvedPlayers = hasUnresolvedPlayers;
+            resolvedLocalPlayerId = localPlayerId;
+            if (membershipChanged || resolutionChanged)
+            {
+                contract.LobbyChanged?.Invoke(new PerPlayerLobbySnapshot(
+                    currentLobbyId,
+                    new Dictionary<int, ulong>(normalized),
+                    hasUnresolvedPlayers,
+                    localPlayerId));
+            }
+            if (publishPending && localResolved && !hasUnresolvedPlayers)
+                PublishLocalSettings(localPlayerId);
+
+            if (hasUnresolvedPlayers)
+                SetReadiness(false, "At least one human lobby member has no stable player ID yet.");
+            else if (!localResolved)
+                SetReadiness(false, "The local human player ID is not part of the resolved lobby roster yet.");
+            else if (!ArePlayersReady(normalized.Keys, out string error))
+                SetReadiness(false, error);
+            else
+                SetReadiness(true, string.Empty);
+        }
+
+        private void PublishLocalSettings(int localPlayerId)
+        {
+            contract.BeforePublish?.Invoke();
+            contract.LocalPlayerResolved?.Invoke(localPlayerId);
+            foreach (PerPlayerLobbySettingContract setting in contract.Settings)
+            {
+                Array data = setting.GetData();
+                data.SetValue(CloneValue(setting.Property.GetValue(owner)), localPlayerId);
+                owner.System_TriggerUpdate(setting.Property.Name);
+            }
+            publishPending = false;
+            contract.Published?.Invoke();
+            DebugLogHelper.LogInfo(
+                log,
+                $"[{modName}] Shared personal settings advertised for playerId={localPlayerId}, " +
+                $"properties={contract.Settings.Count}.");
+        }
+
+        private void ResetSlots(IEnumerable<int> playerIds)
+        {
+            int[] slots = (playerIds ?? Enumerable.Empty<int>())
+                .Where(IsValidPlayerId)
+                .Distinct()
+                .ToArray();
+            if (slots.Length == 0)
+                return;
+
+            foreach (PerPlayerLobbySettingContract setting in contract.Settings)
+            {
+                Array data = setting.GetData();
+                foreach (int playerId in slots)
+                    data.SetValue(CloneValue(setting.CreateResetValue()), playerId);
+                isResettingSlots = true;
+                try
+                {
+                    owner.System_TriggerUpdate(setting.DataProperty.Name);
+                }
+                finally
+                {
+                    isResettingSlots = false;
+                }
+            }
+        }
+
+        private void SetReadiness(bool value, string error)
+        {
+            error = error ?? string.Empty;
+            if (isReady == value && string.Equals(readinessError, error, StringComparison.Ordinal))
+                return;
+            isReady = value;
+            readinessError = error;
+            owner.System_TriggerUpdate(nameof(PresetLobbyModSettingsViewModel.IsPerPlayerLobbySettingsReady));
+            owner.System_TriggerUpdate(nameof(PresetLobbyModSettingsViewModel.PerPlayerLobbySettingsReadinessError));
+        }
+
+        private void OnOwnerPropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs args)
+        {
+            if (string.IsNullOrEmpty(args?.PropertyName))
+                return;
+            if (contract.Settings.Any(item => item.DataProperty.Name == args.PropertyName))
+            {
+                if (isResettingSlots)
+                    return;
+                contract.RemoteDataChanged?.Invoke(args.PropertyName);
+                RequestReadinessRefresh();
+            }
+        }
+
+        private void RequestReadinessRefresh()
+        {
+            if (!hasLobby)
+                return;
+            if (!ArePlayersReady(playersById.Keys, out string error))
+                SetReadiness(false, error);
+            else
+                SetReadiness(true, string.Empty);
+        }
+
+#if !SHARED_PRESET_TESTS
+        private void OnBeforeRender()
+        {
+            int frame = Time.frameCount;
+            if (lastObservedFrame >= 0 && frame - lastObservedFrame < 15)
+                return;
+            lastObservedFrame = frame;
+
+            try
+            {
+                if (mapStarted)
+                {
+                    // Lobby settings are immutable during a match. OnUnloadMap is
+                    // the authoritative point at which observation may resume.
+                    return;
+                }
+                ObserveCurrentGameLobby();
+            }
+            catch (Exception exception)
+            {
+                if (Time.unscaledTime < nextErrorLogTime)
+                    return;
+                nextErrorLogTime = Time.unscaledTime + 5f;
+                DebugLogHelper.LogError(
+                    log,
+                    $"[{modName}] Shared per-player lobby observer recovered from an error: {exception}");
+            }
+        }
+
+        private void ObserveCurrentGameLobby()
+        {
+            Platform_Multiplayer platform = Platform_Multiplayer.Instance;
+            Platform_Multiplayer.MPLobby lobby = platform?.activeLobby;
+            if (lobby == null)
+            {
+                bool mapTransition = platform?.gameMembers != null &&
+                    platform.gameMembers.Count(member => member != null && !member.skirmishAI && !member.kicked) > 1;
+                Observe(null, null, false, GetLocalPlayerId(), mapTransition);
+                return;
+            }
+
+            var players = new Dictionary<int, ulong>();
+            bool unresolved = false;
+            foreach (Platform_Multiplayer.MPLobbyMember member in lobby.members ?? Enumerable.Empty<Platform_Multiplayer.MPLobbyMember>())
+            {
+                if (member == null || member.dummyToBeKicked ||
+                    (member.SkirmishMember && !member.SkirmishHumanMember))
+                    continue;
+                object memberSteamId = LobbyMemberIdField?.GetValue(member);
+                int playerId = memberSteamId == null
+                    ? 0
+                    : (int)GetPlayerIdForSteamIdMethod.Invoke(null, new[] { memberSteamId });
+                ulong steamId = ReadSteamId(memberSteamId);
+                if (!IsValidPlayerId(playerId) || steamId == 0 ||
+                    (players.TryGetValue(playerId, out ulong previous) && previous != steamId))
+                {
+                    unresolved = true;
+                    players.Remove(playerId);
+                    continue;
+                }
+                players[playerId] = steamId;
+            }
+
+            ulong currentLobbyId = ReadSteamId(LobbyIdField?.GetValue(lobby));
+            if (currentLobbyId == 0)
+                unresolved = true;
+            Observe(currentLobbyId, players, unresolved, GetLocalPlayerId(), false);
+        }
+
+        private static ulong ReadSteamId(object steamId)
+        {
+            object value = steamId == null ? null : SteamIdValueField?.GetValue(steamId);
+            return value == null ? 0UL : Convert.ToUInt64(value);
+        }
+
+        private static int GetLocalPlayerId()
+        {
+            int playerId = GameNetworkAPI.GetLocalPlayerId();
+            return IsValidPlayerId(playerId) ? playerId : 0;
+        }
+#endif
+
+        private static bool IsValidPlayerId(int playerId) =>
+            playerId >= FirstPlayerId && playerId <= LastPlayerId;
+
+        internal static object CloneValue(object value)
+        {
+            if (!(value is Array source))
+                return value;
+            Array clone = (Array)source.Clone();
+            for (int index = 0; index < clone.Length; index++)
+            {
+                if (clone.GetValue(index) is Array nested)
+                    clone.SetValue(CloneValue(nested), index);
+            }
+            return clone;
+        }
+    }
+
+    public sealed class PerPlayerLobbySettingsBuilder
+    {
+        private readonly PresetLobbyModSettingsViewModel owner;
+        private readonly Dictionary<string, PerPlayerLobbySettingOptions> options = new Dictionary<string, PerPlayerLobbySettingOptions>(StringComparer.Ordinal);
+        private Action beforePublish;
+        private Action<int> localPlayerResolved;
+        private Action<PerPlayerLobbySnapshot> lobbyChanged;
+        private Action<string> remoteDataChanged;
+        private Action published;
+        private Action observe;
+
+        internal PerPlayerLobbySettingsBuilder(PresetLobbyModSettingsViewModel owner) { this.owner = owner; }
+
+        public PerPlayerLobbySettingsBuilder ResetSlotsWith(string propertyName, Func<object> resetValueFactory) { Get(propertyName).ResetValueFactory = resetValueFactory ?? throw new ArgumentNullException(nameof(resetValueFactory)); return this; }
+        public PerPlayerLobbySettingsBuilder RequireReport(string propertyName, Func<object, bool> hasReport = null) { PerPlayerLobbySettingOptions item = Get(propertyName); item.IsReportRequired = true; item.HasReport = hasReport ?? (value => value != null); return this; }
+        public PerPlayerLobbySettingsBuilder BeforePublish(Action callback) { beforePublish += callback; return this; }
+        public PerPlayerLobbySettingsBuilder WhenLocalPlayerResolved(Action<int> callback) { localPlayerResolved += callback; return this; }
+        public PerPlayerLobbySettingsBuilder WhenLobbyChanged(Action<PerPlayerLobbySnapshot> callback) { lobbyChanged += callback; return this; }
+        public PerPlayerLobbySettingsBuilder WhenRemoteDataChanged(Action<string> callback) { remoteDataChanged += callback; return this; }
+        public PerPlayerLobbySettingsBuilder AfterPublish(Action callback) { published += callback; return this; }
+        public PerPlayerLobbySettingsBuilder OnObservation(Action callback) { observe += callback; return this; }
+
+        internal PerPlayerLobbySettingsContract Build()
+        {
+            PropertyInfo[] properties = owner.GetType().GetProperties(BindingFlags.Instance | BindingFlags.Public);
+            foreach (PropertyInfo property in properties)
+            {
+                bool host = property.GetCustomAttribute<SyncHostOnlyAttribute>() != null;
+                bool player = property.GetCustomAttribute<SyncPerPlayerAttribute>() != null;
+                bool local = property.GetCustomAttribute<PresetLocalAttribute>() != null;
+                int classifications = (host ? 1 : 0) + (player ? 1 : 0) + (local ? 1 : 0);
+                if (classifications > 1)
+                    throw new InvalidOperationException($"Setting [{owner.GetType().Name}.{property.Name}] has conflicting sync/preset classifications.");
+            }
+
+            var settings = new List<PerPlayerLobbySettingContract>();
+            foreach (PropertyInfo property in properties.Where(item => item.GetCustomAttribute<SyncPerPlayerAttribute>() != null))
+            {
+                if (!property.CanRead)
+                    throw new InvalidOperationException($"Per-player setting [{owner.GetType().Name}.{property.Name}] is not readable.");
+                PropertyInfo dataProperty = owner.GetType().GetProperty(property.Name + "Data", BindingFlags.Instance | BindingFlags.Public);
+                if (dataProperty == null || !dataProperty.CanRead || !dataProperty.PropertyType.IsArray)
+                    throw new InvalidOperationException($"Per-player setting [{owner.GetType().Name}.{property.Name}] requires a readable [{property.Name}Data] array.");
+                Type elementType = dataProperty.PropertyType.GetElementType();
+                if (!elementType.IsAssignableFrom(property.PropertyType))
+                    throw new InvalidOperationException($"Companion [{owner.GetType().Name}.{dataProperty.Name}] has element type [{elementType}], expected [{property.PropertyType}].");
+                Array data = dataProperty.GetValue(owner) as Array;
+                if (data == null || data.Length < 9)
+                    throw new InvalidOperationException($"Companion [{owner.GetType().Name}.{dataProperty.Name}] must contain slots 0 through 8.");
+
+                options.TryGetValue(property.Name, out PerPlayerLobbySettingOptions configured);
+                configured = configured ?? new PerPlayerLobbySettingOptions();
+                settings.Add(new PerPlayerLobbySettingContract(owner, property, dataProperty, configured));
+            }
+            foreach (string configuredName in options.Keys)
+                if (!settings.Any(item => item.Property.Name == configuredName))
+                    throw new InvalidOperationException($"Per-player policy references non-[SyncPerPlayer] property [{owner.GetType().Name}.{configuredName}].");
+            return new PerPlayerLobbySettingsContract(settings, beforePublish, localPlayerResolved, lobbyChanged, remoteDataChanged, published, observe);
+        }
+
+        private PerPlayerLobbySettingOptions Get(string propertyName)
+        {
+            if (string.IsNullOrWhiteSpace(propertyName)) throw new ArgumentException("A property name is required.", nameof(propertyName));
+            if (!options.TryGetValue(propertyName, out PerPlayerLobbySettingOptions value)) options[propertyName] = value = new PerPlayerLobbySettingOptions();
+            return value;
+        }
+    }
+
+    public sealed class PerPlayerLobbySnapshot
+    {
+        internal static readonly PerPlayerLobbySnapshot Empty = new PerPlayerLobbySnapshot(null, new Dictionary<int, ulong>(), false, 0);
+        internal PerPlayerLobbySnapshot(ulong? lobbyId, IReadOnlyDictionary<int, ulong> players, bool unresolved, int localPlayerId)
+        {
+            LobbyId = lobbyId;
+            Players = new ReadOnlyDictionary<int, ulong>(
+                (players ?? new Dictionary<int, ulong>())
+                    .ToDictionary(item => item.Key, item => item.Value));
+            HasUnresolvedPlayers = unresolved;
+            LocalPlayerId = localPlayerId;
+        }
+        public ulong? LobbyId { get; }
+        public IReadOnlyDictionary<int, ulong> Players { get; }
+        public bool HasUnresolvedPlayers { get; }
+        public int LocalPlayerId { get; }
+    }
+
+    internal sealed class PerPlayerLobbySettingOptions { internal Func<object> ResetValueFactory; internal bool IsReportRequired; internal Func<object, bool> HasReport; }
+    internal sealed class PerPlayerLobbySettingContract
+    {
+        private readonly PresetLobbyModSettingsViewModel owner;
+        private readonly PerPlayerLobbySettingOptions options;
+        internal PerPlayerLobbySettingContract(PresetLobbyModSettingsViewModel owner, PropertyInfo property, PropertyInfo dataProperty, PerPlayerLobbySettingOptions options) { this.owner = owner; Property = property; DataProperty = dataProperty; this.options = options; }
+        internal PropertyInfo Property { get; }
+        internal PropertyInfo DataProperty { get; }
+        internal bool IsReportRequired => options.IsReportRequired;
+        internal Array GetData() => (Array)DataProperty.GetValue(owner);
+        internal object CreateResetValue() => options.ResetValueFactory != null ? options.ResetValueFactory() : (Property.PropertyType.IsValueType ? Activator.CreateInstance(Property.PropertyType) : null);
+        internal bool HasReport(object value) => !IsReportRequired || (options.HasReport ?? (item => item != null))(value);
+    }
+    internal sealed class PerPlayerLobbySettingsContract
+    {
+        internal PerPlayerLobbySettingsContract(IReadOnlyList<PerPlayerLobbySettingContract> settings, Action beforePublish, Action<int> localPlayerResolved, Action<PerPlayerLobbySnapshot> lobbyChanged, Action<string> remoteDataChanged, Action published, Action observe) { Settings = settings; BeforePublish = beforePublish; LocalPlayerResolved = localPlayerResolved; LobbyChanged = lobbyChanged; RemoteDataChanged = remoteDataChanged; Published = published; Observe = observe; }
+        internal IReadOnlyList<PerPlayerLobbySettingContract> Settings { get; }
+        internal Action BeforePublish { get; }
+        internal Action<int> LocalPlayerResolved { get; }
+        internal Action<PerPlayerLobbySnapshot> LobbyChanged { get; }
+        internal Action<string> RemoteDataChanged { get; }
+        internal Action Published { get; }
+        internal Action Observe { get; }
+    }
+}
 
 namespace Shared
 {
@@ -50,6 +579,7 @@ namespace Shared
         private bool missionPresetEditable;
         private bool isRealMultiplayer;
         private bool isLocalHost = true;
+        private PerPlayerLobbySettingsCoordinator perPlayerSettingsCoordinator;
 
         public ComboBoxItem[] PresetOptions => presetOptions;
 
@@ -126,6 +656,56 @@ namespace Shared
         public bool IsMissionPresetActive => missionPresetContext;
 
         protected virtual string ResolveSettingsUiText(string key, string fallback) => fallback;
+
+        /// <summary>
+        /// Declares the few domain-specific parts of personal settings. Transport,
+        /// player-slot ownership, lobby convergence and readiness stay in Shared.
+        /// </summary>
+        protected virtual void ConfigurePerPlayerLobbySettings(
+            PerPlayerLobbySettingsBuilder settings)
+        {
+        }
+
+        public bool IsPerPlayerLobbySettingsReady =>
+            perPlayerSettingsCoordinator?.IsReady ?? true;
+
+        public string PerPlayerLobbySettingsReadinessError =>
+            perPlayerSettingsCoordinator?.ReadinessError ?? string.Empty;
+
+        public void System_RequestPerPlayerSettingsPublish()
+        {
+            perPlayerSettingsCoordinator?.RequestPublish();
+        }
+
+        public bool System_ArePerPlayerSettingsReady(
+            IEnumerable<int> playerIds,
+            out string error)
+        {
+            if (perPlayerSettingsCoordinator == null)
+            {
+                error = string.Empty;
+                return true;
+            }
+
+            return perPlayerSettingsCoordinator.ArePlayersReady(playerIds, out error);
+        }
+
+#if SHARED_PRESET_TESTS
+        internal void System_TestObservePerPlayerLobby(
+            ulong? lobbyId,
+            IReadOnlyDictionary<int, ulong> players,
+            bool hasUnresolvedPlayers,
+            int localPlayerId,
+            bool preserveForMapTransition = false)
+        {
+            perPlayerSettingsCoordinator?.Observe(
+                lobbyId,
+                players,
+                hasUnresolvedPlayers,
+                localPlayerId,
+                preserveForMapTransition);
+        }
+#endif
 
         /// <summary>
         /// Authorizes a settings mutation before any backing state is changed.
@@ -242,6 +822,21 @@ namespace Shared
                 throw new InvalidOperationException("Preset storage must be prepared before it is activated.");
 
             presetController.Activate();
+        }
+
+        internal void ActivatePerPlayerLobbySettings(ManualLogSource log, string modName)
+        {
+            if (perPlayerSettingsCoordinator != null)
+                throw new InvalidOperationException($"Per-player lobby settings for [{modName}] were already activated.");
+
+            var builder = new PerPlayerLobbySettingsBuilder(this);
+            ConfigurePerPlayerLobbySettings(builder);
+            perPlayerSettingsCoordinator = new PerPlayerLobbySettingsCoordinator(
+                this,
+                log,
+                modName,
+                builder.Build());
+            perPlayerSettingsCoordinator.Activate();
         }
 
         // Neutral reflection boundary used by optional mission coordinators.
@@ -982,10 +1577,15 @@ namespace Shared
                 catch (Exception ex)
                 {
                     anchor.RollBack();
+                    Exception cause = Unwrap(ex);
                     DebugLogHelper.LogError(
                         log,
                         "Temporary Script Extender multiplayer settings workaround could not be " +
-                        $"installed as one transaction: {Unwrap(ex)}");
+                        $"installed as one transaction: {cause}");
+                    throw new InvalidOperationException(
+                        "Lobby mod settings registration aborted because the required " +
+                        "multiplayer synchronization workaround is unavailable.",
+                        cause);
                 }
             }
         }
@@ -1161,7 +1761,8 @@ namespace Shared
                 int successfulRecipients = 0;
                 foreach (Platform_Multiplayer.MPLobbyMember member in members)
                 {
-                    if (member == null || member.IsSelf() || member.SkirmishMember)
+                    if (member == null || member.IsSelf() || member.dummyToBeKicked ||
+                        (member.SkirmishMember && !member.SkirmishHumanMember))
                         continue;
 
                     eligibleRecipients++;
@@ -1335,6 +1936,9 @@ namespace Shared
             ScriptExtenderMultiplayerSyncWorkaround.EnsureInstalled(log);
 #endif
             viewModel.PreparePresets(log, plugin.Info.Location, modName);
+            // Structural validation must happen before the ViewModel can enter the
+            // Extender registry. An invalid personal setting therefore fails closed.
+            viewModel.ActivatePerPlayerLobbySettings(log, modName);
             GameXAMLManagerAPI.Instance.RegisterLobbyModSettings(
                 plugin,
                 modName,
@@ -1352,7 +1956,6 @@ namespace Shared
             }
 
             viewModel.ActivatePresets();
-
             // Views are created before a lobby exists. Refresh the cached role whenever
             // the persistent settings hub opens or changes its selected tab.
             Plugin.ModSettingsHubViewModel.PropertyChanged += (_, __) =>

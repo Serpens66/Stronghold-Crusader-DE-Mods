@@ -123,6 +123,9 @@ namespace CastlePlanner
             new Dictionary<int, PreparedAivCastle>();
         private readonly Dictionary<int, PreparedAivCastle> executedAivCastles =
             new Dictionary<int, PreparedAivCastle>();
+        private readonly HashSet<int> expectedAivCastlePlayers = new HashSet<int>();
+        private readonly HashSet<int> failedAivCastlePlayers = new HashSet<int>();
+        private string spawnPlanFailure = string.Empty;
         private bool nativeCastleExecutionInProgress;
         private int nativeCastleExecutionPlayerId;
         private int nextHovelVisualStyle;
@@ -193,6 +196,9 @@ namespace CastlePlanner
             pendingAivImports.Clear();
             preparedAivCastles.Clear();
             executedAivCastles.Clear();
+            expectedAivCastlePlayers.Clear();
+            failedAivCastlePlayers.Clear();
+            spawnPlanFailure = string.Empty;
         }
 
         private void OnStartMap(MapStartEventArgs args)
@@ -249,18 +255,27 @@ namespace CastlePlanner
                 int pendingCount = pendingAivImports.Count;
                 int preparedCount = preparedAivCastles.Count;
                 int executedCount = executedAivCastles.Count;
-                if (pendingCount != 0 || preparedCount != 0)
+                int[] expectedPlayers = expectedAivCastlePlayers.OrderBy(id => id).ToArray();
+                int[] executedPlayers = executedAivCastles.Keys.OrderBy(id => id).ToArray();
+                int[] failedPlayers = failedAivCastlePlayers.OrderBy(id => id).ToArray();
+                if (!string.IsNullOrEmpty(spawnPlanFailure) ||
+                    pendingCount != 0 || preparedCount != 0 ||
+                    failedPlayers.Length != 0 ||
+                    !expectedPlayers.SequenceEqual(executedPlayers))
                 {
                     throw new InvalidOperationException(
-                        $"Not every selected human castle completed inside native map start: " +
-                        $"pending={pendingCount}, prepared={preparedCount}, executed={executedCount}.");
+                        $"Not every selected human castle completed exactly once inside native map start: " +
+                        $"expected=[{string.Join(",", expectedPlayers)}], " +
+                        $"executed=[{string.Join(",", executedPlayers)}], " +
+                        $"failed=[{string.Join(",", failedPlayers)}], pending={pendingCount}, " +
+                        $"prepared={preparedCount}, executedCount={executedCount}, " +
+                        $"preImportFailure='{spawnPlanFailure}'.");
                 }
 
                 Shared.DebugLogHelper.LogInfo(
                     log,
                     $"Native multiplayer castle execution completed inside map start: " +
-                    $"executedPlayers=[{string.Join(",", executedAivCastles.Keys)}].");
-                ClearMapSpawnState();
+                    $"executedPlayers=[{string.Join(",", executedPlayers)}].");
             }
             catch (Exception ex)
             {
@@ -268,6 +283,10 @@ namespace CastlePlanner
                 Shared.DebugLogHelper.LogError(
                     log,
                     $"Native AIV castle spawn failed; no fallback was attempted: {ex}");
+            }
+            finally
+            {
+                ClearMapSpawnState();
             }
         }
 
@@ -300,6 +319,8 @@ namespace CastlePlanner
                 List<PendingAivImport> preparedImports = requests
                     .Select(PreparePlayerImport)
                     .ToList();
+                foreach (CastleSpawnRequest request in requests)
+                    expectedAivCastlePlayers.Add(request.PlayerId);
                 for (int index = 0; index < requests.Count; index++)
                     ImportPlayerCastle(requests[index], preparedImports[index]);
 
@@ -311,7 +332,12 @@ namespace CastlePlanner
             }
             catch (Exception ex)
             {
-                ClearMapSpawnState();
+                pendingAivImports.Clear();
+                preparedAivCastles.Clear();
+                executedAivCastles.Clear();
+                foreach (int playerId in expectedAivCastlePlayers)
+                    failedAivCastlePlayers.Add(playerId);
+                spawnPlanFailure = ex.Message;
                 Shared.DebugLogHelper.LogError(
                     log,
                     $"Native AIV pre-import failed; Keep-preparation and Post execution will be skipped: {ex}");
@@ -396,6 +422,7 @@ namespace CastlePlanner
             catch (Exception ex)
             {
                 preparedAivCastles.Remove(args.PlayerId);
+                failedAivCastlePlayers.Add(args.PlayerId);
                 Shared.DebugLogHelper.LogError(
                     log,
                     $"Native AIV preparation at human Keep BuildStructure(Pre) failed; " +
@@ -448,6 +475,7 @@ namespace CastlePlanner
             catch (Exception ex)
             {
                 executedAivCastles.Remove(args.PlayerId);
+                failedAivCastlePlayers.Add(args.PlayerId);
                 Shared.DebugLogHelper.LogError(
                     log,
                     $"Native AIV execution at human Keep BuildStructure(Post) failed; " +
