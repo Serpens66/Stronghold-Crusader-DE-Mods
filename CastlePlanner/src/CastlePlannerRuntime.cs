@@ -12,6 +12,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace CastlePlanner
 {
@@ -321,6 +323,10 @@ namespace CastlePlanner
                     .ToList();
                 foreach (CastleSpawnRequest request in requests)
                     expectedAivCastlePlayers.Add(request.PlayerId);
+                // Validate every native candidate slot before the first import so
+                // an unavailable table cannot leave a partially imported set.
+                foreach (CastleSpawnRequest request in requests)
+                    CaptureImportedCandidates(request.PlayerId - 1);
                 for (int index = 0; index < requests.Count; index++)
                     ImportPlayerCastle(requests[index], preparedImports[index]);
 
@@ -346,13 +352,36 @@ namespace CastlePlanner
 
         private static PendingAivImport PreparePlayerImport(CastleSpawnRequest request)
         {
-            string json = File.ReadAllText(request.FilePath);
+            byte[] jsonBytes = File.ReadAllBytes(request.FilePath);
+            string actualHash;
+            using (SHA256 sha256 = SHA256.Create())
+            {
+                actualHash = BitConverter.ToString(sha256.ComputeHash(jsonBytes))
+                    .Replace("-", string.Empty);
+            }
+            if (!string.Equals(request.Hash, actualHash, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidDataException(
+                    $"AIVJSON changed between spawn-plan validation and import: " +
+                    $"file='{request.FilePath}', expectedSHA256={request.Hash}, " +
+                    $"actualSHA256={actualHash}.");
+            }
+
+            string json;
+            using (var stream = new MemoryStream(jsonBytes, writable: false))
+            using (var reader = new StreamReader(
+                stream,
+                Encoding.UTF8,
+                detectEncodingFromByteOrderMarks: true))
+            {
+                json = reader.ReadToEnd();
+            }
             AivJsonDocument document = AivJsonReader.Parse(json);
             short[] rawAiv = AivRawDataEncoder.Encode(document);
             return new PendingAivImport(
                 request.PlayerId,
                 request.FilePath,
-                new FileInfo(request.FilePath).Length,
+                jsonBytes.LongLength,
                 document,
                 rawAiv);
         }

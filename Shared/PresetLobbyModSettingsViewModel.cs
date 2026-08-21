@@ -13,6 +13,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Runtime.CompilerServices;
 #if !SHARED_PRESET_TESTS
 using R3;
@@ -370,7 +371,8 @@ namespace Shared
             if (lobby == null)
             {
                 bool mapTransition = platform?.gameMembers != null &&
-                    platform.gameMembers.Count(member => member != null && !member.skirmishAI && !member.kicked) > 1;
+                    platform.gameMembers.Any(member =>
+                        member != null && !member.skirmishAI && !member.kicked);
                 Observe(null, null, false, GetLocalPlayerId(), mapTransition);
                 return;
             }
@@ -480,12 +482,14 @@ namespace Shared
                 if (!elementType.IsAssignableFrom(property.PropertyType))
                     throw new InvalidOperationException($"Companion [{owner.GetType().Name}.{dataProperty.Name}] has element type [{elementType}], expected [{property.PropertyType}].");
                 Array data = dataProperty.GetValue(owner) as Array;
-                if (data == null || data.Length < 9)
-                    throw new InvalidOperationException($"Companion [{owner.GetType().Name}.{dataProperty.Name}] must contain slots 0 through 8.");
+                if (data == null || data.Rank != 1 || data.Length < 9)
+                    throw new InvalidOperationException($"Companion [{owner.GetType().Name}.{dataProperty.Name}] must be a one-dimensional array containing slots 0 through 8.");
+                if (!ReferenceEquals(data, dataProperty.GetValue(owner)))
+                    throw new InvalidOperationException($"Companion [{owner.GetType().Name}.{dataProperty.Name}] must return one stable array instance.");
 
                 options.TryGetValue(property.Name, out PerPlayerLobbySettingOptions configured);
                 configured = configured ?? new PerPlayerLobbySettingOptions();
-                settings.Add(new PerPlayerLobbySettingContract(owner, property, dataProperty, configured));
+                settings.Add(new PerPlayerLobbySettingContract(property, dataProperty, data, configured));
             }
             foreach (string configuredName in options.Keys)
                 if (!settings.Any(item => item.Property.Name == configuredName))
@@ -522,13 +526,13 @@ namespace Shared
     internal sealed class PerPlayerLobbySettingOptions { internal Func<object> ResetValueFactory; internal bool IsReportRequired; internal Func<object, bool> HasReport; }
     internal sealed class PerPlayerLobbySettingContract
     {
-        private readonly PresetLobbyModSettingsViewModel owner;
+        private readonly Array data;
         private readonly PerPlayerLobbySettingOptions options;
-        internal PerPlayerLobbySettingContract(PresetLobbyModSettingsViewModel owner, PropertyInfo property, PropertyInfo dataProperty, PerPlayerLobbySettingOptions options) { this.owner = owner; Property = property; DataProperty = dataProperty; this.options = options; }
+        internal PerPlayerLobbySettingContract(PropertyInfo property, PropertyInfo dataProperty, Array data, PerPlayerLobbySettingOptions options) { Property = property; DataProperty = dataProperty; this.data = data; this.options = options; }
         internal PropertyInfo Property { get; }
         internal PropertyInfo DataProperty { get; }
         internal bool IsReportRequired => options.IsReportRequired;
-        internal Array GetData() => (Array)DataProperty.GetValue(owner);
+        internal Array GetData() => data;
         internal object CreateResetValue() => options.ResetValueFactory != null ? options.ResetValueFactory() : (Property.PropertyType.IsValueType ? Activator.CreateInstance(Property.PropertyType) : null);
         internal bool HasReport(object value) => !IsReportRequired || (options.HasReport ?? (item => item != null))(value);
     }
@@ -1617,7 +1621,9 @@ namespace Shared
             private object sendPacketToAllLobbyDetour;
             private object processMessageDetour;
             private MethodInfo handleRawPacketMethod;
-            private MethodInfo sendPacketToSteamIdMethod;
+            private Type steamNetworkingIdentityType;
+            private MethodInfo setSteamIdMethod;
+            private MethodInfo sendMessageToUserMethod;
             private FieldInfo lobbyMemberIdField;
             private FieldInfo multiplayerInstanceField;
             private Type steamIdType;
@@ -1659,16 +1665,31 @@ namespace Shared
                     null) ?? throw new MissingMethodException(
                         typeof(GameNetworkAPI).FullName,
                         "HandleRawPacket(short, byte[], CSteamID?)");
-                sendPacketToSteamIdMethod = typeof(GameNetworkAPI)
-                    .GetMethods(BindingFlags.Static | BindingFlags.Public)
-                    .Single(method =>
-                        method.Name == "SendPacketToSteamId" &&
-                        !method.IsGenericMethod &&
-                        method.GetParameters().Length == 2 &&
-                        method.GetParameters()[1].ParameterType == typeof(Platform_Multiplayer.MPData));
                 steamIdType = Nullable.GetUnderlyingType(
                     handleRawPacketMethod.GetParameters()[2].ParameterType) ??
                     throw new InvalidOperationException("HandleRawPacket sender is not nullable.");
+                Assembly steamworksAssembly = steamIdType.Assembly;
+                steamNetworkingIdentityType = steamworksAssembly.GetType(
+                    "Steamworks.SteamNetworkingIdentity",
+                    true);
+                Type steamNetworkingMessagesType = steamworksAssembly.GetType(
+                    "Steamworks.SteamNetworkingMessages",
+                    true);
+                setSteamIdMethod = steamNetworkingIdentityType.GetMethod(
+                    "SetSteamID",
+                    BindingFlags.Instance | BindingFlags.Public,
+                    null,
+                    new[] { steamIdType },
+                    null) ?? throw new MissingMethodException(
+                        steamNetworkingIdentityType.FullName,
+                        "SetSteamID");
+                sendMessageToUserMethod = steamNetworkingMessagesType
+                    .GetMethods(BindingFlags.Static | BindingFlags.Public)
+                    .Single(method =>
+                        method.Name == "SendMessageToUser" &&
+                        method.GetParameters().Length == 5 &&
+                        method.GetParameters()[0].ParameterType.IsByRef &&
+                        method.GetParameters()[1].ParameterType == typeof(IntPtr));
                 lobbyMemberIdField = typeof(Platform_Multiplayer.MPLobbyMember).GetField(
                     "id",
                     BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic) ??
@@ -1769,7 +1790,7 @@ namespace Shared
                     try
                     {
                         object target = lobbyMemberIdField.GetValue(member);
-                        sendPacketToSteamIdMethod.Invoke(null, new[] { target, (object)packet });
+                        SendReliableLobbyPacket(target, packet);
                         successfulRecipients++;
                     }
                     catch (Exception ex)
@@ -1792,12 +1813,57 @@ namespace Shared
                 }
             }
 
+            private void SendReliableLobbyPacket(
+                object targetSteamId,
+                Platform_Multiplayer.MPData packet)
+            {
+                if (targetSteamId == null)
+                    throw new InvalidOperationException("The lobby recipient has no Steam ID.");
+                if (packet == null)
+                    throw new ArgumentNullException(nameof(packet));
+
+                byte[] bytes = packet.ToBytes();
+                object identity = Activator.CreateInstance(steamNetworkingIdentityType);
+                setSteamIdMethod.Invoke(identity, new[] { targetSteamId });
+                GCHandle pinned = GCHandle.Alloc(bytes, GCHandleType.Pinned);
+                try
+                {
+                    object result = sendMessageToUserMethod.Invoke(
+                        null,
+                        new object[]
+                        {
+                            identity,
+                            pinned.AddrOfPinnedObject(),
+                            (uint)bytes.Length,
+                            40,
+                            2,
+                        });
+                    if (Convert.ToInt32(result) != 1)
+                    {
+                        throw new InvalidOperationException(
+                            $"SteamNetworkingMessages.SendMessageToUser returned [{result}].");
+                    }
+                }
+                finally
+                {
+                    pinned.Free();
+                }
+            }
+
             private bool ProcessMessageHook(
                 Platform_Multiplayer instance,
                 Platform_Multiplayer.MPData data,
                 Platform_Multiplayer.MPGameMember fromMember,
                 bool fromThread)
             {
+                if (fromThread && data != null &&
+                    data.packetType >= (short)CustomNetworkPacketType.CustomPacketStart)
+                {
+                    // Returning false makes Vanilla enqueue the packet. Its later
+                    // main-thread pass preserves fromMember and safely updates UI/settings.
+                    return false;
+                }
+
                 if (data != null &&
                     fromMember != null &&
                     data.packetType >= (short)CustomNetworkPacketType.CustomPacketStart)

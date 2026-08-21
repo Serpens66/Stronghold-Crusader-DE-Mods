@@ -433,6 +433,12 @@ internal static class Program
         ExpectInvalidPerPlayerRegistration(
             new ConflictingPerPlayerViewModel(),
             "conflicting classifications");
+        ExpectInvalidPerPlayerRegistration(
+            new MultidimensionalCompanionViewModel(),
+            "multidimensional companion array");
+        ExpectInvalidPerPlayerRegistration(
+            new UnstableCompanionViewModel(),
+            "unstable companion array instance");
 
         GameNetworkAPI.LocalHost = true;
     }
@@ -1980,6 +1986,22 @@ internal sealed class ConflictingPerPlayerViewModel : PresetLobbyModSettingsView
     public int[] ValueData { get; } = new int[9];
 
     [SyncHostOnly, SyncPerPlayer]
+    public int Value { get; set; }
+}
+
+internal sealed class MultidimensionalCompanionViewModel : PresetLobbyModSettingsViewModel
+{
+    public int[,] ValueData { get; } = new int[9, 1];
+
+    [SyncPerPlayer]
+    public int Value { get; set; }
+}
+
+internal sealed class UnstableCompanionViewModel : PresetLobbyModSettingsViewModel
+{
+    public int[] ValueData => new int[9];
+
+    [SyncPerPlayer]
     public int Value { get; set; }
 }
 

@@ -36,6 +36,7 @@ namespace CastlePlanner
         private readonly IReadOnlyDictionary<string, string>[] decodedInventories =
             new IReadOnlyDictionary<string, string>[9];
         private long compatibilityChangedTimestamp = Stopwatch.GetTimestamp();
+        private long nextInventoryObservationTimestamp;
         private bool spawnSelectionResetPending;
         private bool spawnOptionsRebuildPending;
         private bool workshopCatalogReadyObserved;
@@ -87,7 +88,6 @@ namespace CastlePlanner
             runtimeStorage.Load(runtimeState);
             NormalizeRuntimeState();
             TryMigrateLegacySettings(pluginAssemblyLocation);
-            SpawnSelectedCastleData[GetLocalPlayerId()] = spawnSelectedCastle;
             PublishLocalInventory(forceBroadcast: false);
             RebuildSpawnCastleOptions();
 
@@ -295,8 +295,9 @@ namespace CastlePlanner
                     return;
 
                 spawnSelectedCastle = normalized;
-                int localPlayerId = GetLocalPlayerId();
-                SpawnSelectedCastleData[localPlayerId] = normalized;
+                int localPlayerId = GetValidatedLocalPlayerId();
+                if (localPlayerId != 0)
+                    SpawnSelectedCastleData[localPlayerId] = normalized;
                 MarkCompatibilityChanged();
                 OnPropertyChanged(nameof(SpawnSelectedCastle));
                 OnPropertyChanged(nameof(SelectedSpawnCastleOption));
@@ -319,9 +320,12 @@ namespace CastlePlanner
                     return;
 
                 spawnInventoryManifest = value;
-                int localPlayerId = GetLocalPlayerId();
-                SpawnInventoryManifestData[localPlayerId] = value;
-                InvalidateDecodedInventory(localPlayerId);
+                int localPlayerId = GetValidatedLocalPlayerId();
+                if (localPlayerId != 0)
+                {
+                    SpawnInventoryManifestData[localPlayerId] = value;
+                    InvalidateDecodedInventory(localPlayerId);
+                }
                 MarkCompatibilityChanged();
                 OnPropertyChanged(nameof(SpawnInventoryManifest));
             }
@@ -457,8 +461,13 @@ namespace CastlePlanner
         {
             requests = new List<CastleSpawnRequest>();
             error = string.Empty;
-            int[] playerIds = (humanPlayerIds ?? Enumerable.Empty<int>())
-                .Where(id => id > 0 && id < SpawnSelectedCastleData.Length)
+            int[] suppliedPlayerIds = (humanPlayerIds ?? Enumerable.Empty<int>()).ToArray();
+            if (suppliedPlayerIds.Any(id => id <= 0 || id >= SpawnSelectedCastleData.Length))
+            {
+                error = "At least one supplied human player ID is outside slots 1 through 8.";
+                return false;
+            }
+            int[] playerIds = suppliedPlayerIds
                 .Distinct()
                 .OrderBy(id => id)
                 .ToArray();
@@ -528,6 +537,14 @@ namespace CastlePlanner
 
         private void ObserveLocalSpawnCompatibility()
         {
+            ApplyPendingSpawnSelectionReset();
+            ApplyPendingSpawnOptionsRebuild();
+
+            long now = Stopwatch.GetTimestamp();
+            if (now < nextInventoryObservationTimestamp)
+                return;
+            nextInventoryObservationTimestamp = now + Math.Max(1L, Stopwatch.Frequency / 2L);
+
             bool steamworksReady = Shared.WorkshopContentPaths.IsSteamworksReady();
             if (steamworksReady && !workshopCatalogReadyObserved)
             {
@@ -535,8 +552,6 @@ namespace CastlePlanner
                 RefreshCastleOptions(notifySelectionChange: false);
                 System_RequestPerPlayerSettingsPublish();
             }
-            ApplyPendingSpawnSelectionReset();
-            ApplyPendingSpawnOptionsRebuild();
             if (RefreshLocalInventory(notify: false))
                 System_RequestPerPlayerSettingsPublish();
         }
@@ -571,13 +586,15 @@ namespace CastlePlanner
         {
             string manifest = CastleSpawnCompatibility.EncodeManifest(
                 catalog.CaptureHashes(message => Shared.DebugLogHelper.LogWarning(log, message)));
-            int localPlayerId = GetLocalPlayerId();
+            int localPlayerId = GetValidatedLocalPlayerId();
             bool changed = !string.Equals(spawnInventoryManifest, manifest, StringComparison.Ordinal);
             spawnInventoryManifest = manifest;
-            SpawnInventoryManifestData[localPlayerId] = manifest;
+            if (localPlayerId != 0)
+                SpawnInventoryManifestData[localPlayerId] = manifest;
             if (!changed)
                 return false;
-            InvalidateDecodedInventory(localPlayerId);
+            if (localPlayerId != 0)
+                InvalidateDecodedInventory(localPlayerId);
             MarkCompatibilityChanged();
             if (notify)
                 OnPropertyChanged(nameof(SpawnInventoryManifest));
@@ -887,8 +904,14 @@ namespace CastlePlanner
 
         private static int GetLocalPlayerId()
         {
+            int playerId = GetValidatedLocalPlayerId();
+            return playerId != 0 ? playerId : 1;
+        }
+
+        private static int GetValidatedLocalPlayerId()
+        {
             int playerId = GameNetworkAPI.GetLocalPlayerId();
-            return playerId > 0 && playerId <= 8 ? playerId : 1;
+            return playerId > 0 && playerId <= 8 ? playerId : 0;
         }
 
         private string NormalizeSpawnCastle(string value)

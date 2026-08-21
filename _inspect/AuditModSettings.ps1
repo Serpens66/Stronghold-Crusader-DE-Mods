@@ -141,6 +141,8 @@ foreach ($required in @(
     'expectedAivCastlePlayers',
     'failedAivCastlePlayers',
     'expectedPlayers.SequenceEqual(executedPlayers)',
+    'AIVJSON changed between spawn-plan validation and import',
+    'CaptureImportedCandidates(request.PlayerId - 1)',
     'finally')) {
     if (-not $castleRuntimeSource.Contains($required)) {
         throw "CastlePlanner exact-once spawn verification marker is missing: $required"
@@ -301,6 +303,7 @@ foreach ($required in @(
     'PerPlayerLobbySettingsBuilder',
     'ResetSlotsWith',
     'RequireReport',
+    'must return one stable array instance',
     'System_ArePerPlayerSettingsReady',
     'ScriptExtenderMultiplayerSyncWorkaround.EnsureInstalled')) {
     if (-not $sharedSettingsSource.Contains($required)) {
@@ -317,10 +320,22 @@ foreach ($required in @(
     'args.Phase == EventHookPhase.Post',
     'member.dummyToBeKicked',
     'member.SkirmishMember && !member.SkirmishHumanMember',
+    'platform.gameMembers.Any(member =>',
+    'SendReliableLobbyPacket',
+    'SendMessageToUser returned',
+    'fromThread && data != null',
     'Lobby mod settings registration aborted')) {
     if (-not $sharedSettingsSource.Contains($required)) {
         throw "Shared per-player lifecycle/roster marker is missing: $required"
     }
+}
+if ($sharedSettingsSource.Contains('sendPacketToSteamIdMethod')) {
+    throw 'Shared reliable lobby delivery must not route back through gameMembers-aware SendPacketToSteamId.'
+}
+$castleSettingsSource = [IO.File]::ReadAllText((Join-Path $workspace 'CastlePlanner/src/CastlePlannerSettingsViewModel.cs'))
+if ($castleSettingsSource.Contains('SpawnSelectedCastleData[GetLocalPlayerId()]') -or
+    $castleSettingsSource.Contains('SpawnInventoryManifestData[GetLocalPlayerId()]')) {
+    throw 'CastlePlanner writes personal companion data through an unresolved slot-1 fallback.'
 }
 
 $crlfTargets = @($settings.Values) + @(
