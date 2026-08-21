@@ -1085,6 +1085,8 @@ namespace BugfixesAndQoL
                 long operationKey = ((long)packet.PlayerId << 32) | (uint)packet.OperationId;
                 bool duplicate = executedOperations.Contains(operationKey);
                 SurrenderLordSnapshot lord = CaptureLord(packet.PlayerId);
+                byte[] decodedBody = GameNetworkAPI.Serialize(packet);
+                string decodedBodyHex = ToCompactHex(decodedBody);
                 if (!IsActiveMatch() ||
                     !Shared.GameModeHelper.IsRealMultiplayer() ||
                     !SurrenderPolicy.CanExecute(
@@ -1098,7 +1100,12 @@ namespace BugfixesAndQoL
                 {
                     Shared.DebugLogHelper.LogWarning(
                         log,
-                        $"Rejected stale, duplicate, or mismatched surrender Chore: playerId={packet.PlayerId}, operationId={packet.OperationId}, lordGlobalId={packet.LordGlobalId}.");
+                        $"Rejected stale, duplicate, or mismatched surrender Chore: " +
+                        $"protocolVersion={packet.ProtocolVersion}, playerId={packet.PlayerId}, " +
+                        $"operationId={packet.OperationId}, lordGlobalId={packet.LordGlobalId}, " +
+                        $"decodedBodyHex={decodedBodyHex}, duplicate={duplicate}, " +
+                        $"currentLordUnitId={lord.UnitId}, currentLordGlobalId={lord.GlobalId}, " +
+                        $"currentLordOwner={lord.OwnerPlayerId}, currentLordAlive={lord.IsAlive}.");
                     return;
                 }
 
@@ -1111,7 +1118,10 @@ namespace BugfixesAndQoL
 
                 executedOperations.Add(operationKey);
                 GameUnitManagerAPI.Instance.KillUnit(resolvedUnitId);
-                Shared.DebugLogHelper.LogInfo(log, $"Surrender Chore executed: playerId={packet.PlayerId}, operationId={packet.OperationId}, unitId={resolvedUnitId}, globalId={packet.LordGlobalId}.");
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    $"Surrender Chore executed: playerId={packet.PlayerId}, operationId={packet.OperationId}, " +
+                    $"unitId={resolvedUnitId}, globalId={packet.LordGlobalId}, decodedBodyHex={decodedBodyHex}.");
             }
             catch (Exception ex)
             {
@@ -1152,9 +1162,16 @@ namespace BugfixesAndQoL
                 return false;
             }
 
-            Shared.DebugLogHelper.LogInfo(log, $"Surrender Chore queued: playerId={lord.PlayerId}, operationId={operationId}, lordGlobalId={lord.GlobalId}, payloadBytes={blob.Length}.");
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"Surrender Chore queued: playerId={lord.PlayerId}, operationId={operationId}, " +
+                $"lordGlobalId={lord.GlobalId}, bodyBytes={body.Length}, payloadBytes={blob.Length}, " +
+                $"bodyHex={ToCompactHex(body)}, blobHex={ToCompactHex(blob)}.");
             return true;
         }
+
+        private static string ToCompactHex(byte[] bytes) =>
+            bytes == null ? "<null>" : BitConverter.ToString(bytes).Replace("-", string.Empty);
 
         private SurrenderLordSnapshot CaptureLord(int playerId)
         {

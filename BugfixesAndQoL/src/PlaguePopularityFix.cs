@@ -11,6 +11,7 @@ using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Zhuqiaomon.Assembly;
 using Zhuqiaomon.Hooks;
@@ -26,6 +27,7 @@ namespace BugfixesAndQoL
         private const int MinimumProjectilesPerHerd = 6;
         private const int MaximumProjectilesPerHerd = 10;
         private const int PopularityPointsPerHerd = 25;
+        private const int MissingPopularityCallbackWarningMilliseconds = 3000;
         private const ulong PopularityAccumulatorOffset = 0x12EC20UL;
 
         // c_game_disease_create_one_herd, reference RVA 0xD17D0.
@@ -48,6 +50,12 @@ namespace BugfixesAndQoL
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
         private readonly List<TrackedPlagueHerd> herds = new List<TrackedPlagueHerd>();
         private readonly HashSet<int> managedPlayerIds = new HashSet<int>();
+        private readonly Dictionary<int, int> popularityCallbackCounts = new Dictionary<int, int>();
+        private readonly Dictionary<int, int> correctedCallbackCounts = new Dictionary<int, int>();
+        private readonly Dictionary<int, int> diagnosticRevisions = new Dictionary<int, int>();
+        private readonly Dictionary<int, int> loggedDiagnosticRevisions = new Dictionary<int, int>();
+        private readonly Dictionary<int, int> warnedDiagnosticRevisions = new Dictionary<int, int>();
+        private readonly Dictionary<int, long> diagnosticStartedTimestamps = new Dictionary<int, long>();
         private HookTransaction transaction;
         private HookRef<X64ManagedFunctionDetourAOB<CreateHerdDelegate>> createHerdHook =
             new HookRef<X64ManagedFunctionDetourAOB<CreateHerdDelegate>>();
@@ -57,6 +65,8 @@ namespace BugfixesAndQoL
         private bool mapActive;
         private bool correctionAvailable = true;
         private bool callbackFailureLogged;
+        private int invalidPopularityCallbackCount;
+        private int lastInvalidPopularityCallbackPlayerId;
         private bool disposed;
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
@@ -166,7 +176,12 @@ namespace BugfixesAndQoL
                     building != null &&
                     IsValidPlayerId(building->r_PlayerIdOwner))
                 {
-                    capture = new HerdCapture(building->r_PlayerIdOwner);
+                    capture = new HerdCapture(
+                        buildingId,
+                        building->r_GlobalId,
+                        building->r_PlayerIdOwner,
+                        building->r_TilePositionXBegin,
+                        building->r_TilePositionYBegin);
                 }
                 else
                 {
@@ -206,6 +221,16 @@ namespace BugfixesAndQoL
 
                 herds.Add(new TrackedPlagueHerd(capture.PlayerId, capture.Members));
                 managedPlayerIds.Add(capture.PlayerId);
+                ArmPopularityDiagnostic(capture.PlayerId);
+                Shared.DebugLogHelper.LogDebug(
+                    log,
+                    $"Plague herd captured: sourceBuildingId={capture.BuildingId}, " +
+                    $"sourceBuildingGlobalId={capture.BuildingGlobalId}, playerId={capture.PlayerId}, " +
+                    $"sourceTile=({capture.TileX},{capture.TileY}), projectileCount={capture.Members.Count}, " +
+                    $"projectiles={DescribeProjectiles(capture.Members)}, " +
+                    $"activeHerdsForPlayer={CountHerds(capture.PlayerId)}, " +
+                    $"popularityCallbacksObserved={DescribeCallbackCounts()}, " +
+                    $"mode={Shared.GameModeHelper.Capture().ToDiagnosticString()}.");
             }
             catch (Exception ex)
             {
@@ -257,19 +282,26 @@ namespace BugfixesAndQoL
             }
         }
 
-        private void OnStartMap(MapStartEventArgs _)
+        private void OnStartMap(MapStartEventArgs args)
         {
             mapActive = true;
+            Shared.DebugLogHelper.LogDebug(
+                log,
+                $"Plague popularity diagnostics armed: modEnabled={settings.EnableMod}, " +
+                $"fixEnabled={settings.EnablePlaguePopularityFix}, " +
+                $"mode={Shared.GameModeHelper.Capture(args.bMultiplayerSave != 0).ToDiagnosticString()}.");
         }
 
         private void OnGameTick(int _)
         {
-            if (!mapActive || !correctionAvailable || herds.Count == 0)
+            if (!mapActive || !correctionAvailable)
                 return;
 
             try
             {
-                PruneInvalidProjectiles();
+                if (herds.Count != 0)
+                    PruneInvalidProjectiles();
+                ReportMissingPopularityCallbacks();
             }
             catch (Exception ex)
             {
@@ -279,15 +311,38 @@ namespace BugfixesAndQoL
 
         private void CorrectPlaguePopularity(NativePointer<X64SmartCPUContext> context)
         {
-            if (!correctionAvailable || !mapActive || !settings.EnableMod || !settings.EnablePlaguePopularityFix)
+            if (!correctionAvailable || !mapActive)
                 return;
 
             try
             {
                 X64SmartCPUContext* registers = context.Pointer;
                 int playerId = unchecked((int)(uint)registers->R14);
+                if (playerId >= 0 && playerId <= MaximumPlayerId)
+                    IncrementCount(popularityCallbackCounts, playerId);
+                else
+                {
+                    invalidPopularityCallbackCount++;
+                    lastInvalidPopularityCallbackPlayerId = playerId;
+                }
                 if (!managedPlayerIds.Contains(playerId))
                     return;
+
+                int diagnosticRevision = GetCount(diagnosticRevisions, playerId);
+                if (!settings.EnableMod || !settings.EnablePlaguePopularityFix)
+                {
+                    if (GetCount(loggedDiagnosticRevisions, playerId) != diagnosticRevision)
+                    {
+                        loggedDiagnosticRevisions[playerId] = diagnosticRevision;
+                        Shared.DebugLogHelper.LogWarning(
+                            log,
+                            $"Plague popularity callback skipped by settings: playerId={playerId}, " +
+                            $"modEnabled={settings.EnableMod}, fixEnabled={settings.EnablePlaguePopularityFix}, " +
+                            $"callbackCount={GetCount(popularityCallbackCounts, playerId)}, " +
+                            $"activeHerds={CountHerds(playerId)}.");
+                    }
+                    return;
+                }
 
                 // Read-only native validation makes natural expiry effective in the
                 // same popularity pass even if no delete event was emitted.
@@ -304,6 +359,7 @@ namespace BugfixesAndQoL
                     throw new InvalidOperationException("The native player-resource base register is null.");
                 int* popularityAccumulator =
                     (int*)(registers->R12 + registers->RBP + PopularityAccumulatorOffset);
+                int accumulatorBefore = *popularityAccumulator;
 
                 registers->RDX = unchecked((uint)correctedPopularity);
                 registers->RAX =
@@ -312,6 +368,21 @@ namespace BugfixesAndQoL
                 // Vanilla stores each plague branch before the shared report write.
                 // Keep the authoritative accumulator aligned with the corrected register.
                 *popularityAccumulator = correctedPopularity;
+                IncrementCount(correctedCallbackCounts, playerId);
+
+                if (GetCount(loggedDiagnosticRevisions, playerId) != diagnosticRevision)
+                {
+                    loggedDiagnosticRevisions[playerId] = diagnosticRevision;
+                    Shared.DebugLogHelper.LogDebug(
+                        log,
+                        $"Plague popularity correction applied: playerId={playerId}, " +
+                        $"diagnosticRevision={diagnosticRevision}, herdCount={herdCount}, " +
+                        $"livingProjectiles={CountProjectiles(playerId)}, vanillaModifier={vanillaModifier}, " +
+                        $"desiredModifier={desiredModifier}, currentPopularity={currentPopularity}, " +
+                        $"accumulatorBefore={accumulatorBefore}, correctedPopularity={correctedPopularity}, " +
+                        $"callbackCount={GetCount(popularityCallbackCounts, playerId)}, " +
+                        $"correctedCallbackCount={GetCount(correctedCallbackCounts, playerId)}.");
+                }
             }
             catch (Exception ex)
             {
@@ -369,6 +440,8 @@ namespace BugfixesAndQoL
                     herds.Add(herd);
                     managedPlayerIds.Add(herd.PlayerId);
                 }
+                foreach (int playerId in managedPlayerIds)
+                    ArmPopularityDiagnostic(playerId);
             }
             catch (Exception ex)
             {
@@ -386,7 +459,92 @@ namespace BugfixesAndQoL
             currentCapture = null;
             herds.Clear();
             managedPlayerIds.Clear();
+            popularityCallbackCounts.Clear();
+            correctedCallbackCounts.Clear();
+            diagnosticRevisions.Clear();
+            loggedDiagnosticRevisions.Clear();
+            warnedDiagnosticRevisions.Clear();
+            diagnosticStartedTimestamps.Clear();
+            invalidPopularityCallbackCount = 0;
+            lastInvalidPopularityCallbackPlayerId = 0;
         }
+
+        private void ArmPopularityDiagnostic(int playerId)
+        {
+            diagnosticRevisions[playerId] = GetCount(diagnosticRevisions, playerId) + 1;
+            diagnosticStartedTimestamps[playerId] = Stopwatch.GetTimestamp();
+        }
+
+        private void ReportMissingPopularityCallbacks()
+        {
+            long now = Stopwatch.GetTimestamp();
+            foreach (int playerId in managedPlayerIds)
+            {
+                int revision = GetCount(diagnosticRevisions, playerId);
+                if (revision == 0 || GetCount(loggedDiagnosticRevisions, playerId) == revision ||
+                    GetCount(warnedDiagnosticRevisions, playerId) == revision ||
+                    !diagnosticStartedTimestamps.TryGetValue(playerId, out long started) ||
+                    (now - started) * 1000L <
+                        MissingPopularityCallbackWarningMilliseconds * Stopwatch.Frequency)
+                {
+                    continue;
+                }
+
+                warnedDiagnosticRevisions[playerId] = revision;
+                Shared.DebugLogHelper.LogWarning(
+                    log,
+                    $"No plague popularity correction callback was observed within " +
+                    $"{MissingPopularityCallbackWarningMilliseconds} ms after herd capture: " +
+                    $"playerId={playerId}, diagnosticRevision={revision}, " +
+                    $"activeHerds={CountHerds(playerId)}, livingProjectiles={CountProjectiles(playerId)}, " +
+                    $"popularityCallbacksObserved={DescribeCallbackCounts()}, " +
+                    $"modEnabled={settings.EnableMod}, fixEnabled={settings.EnablePlaguePopularityFix}, " +
+                    $"mode={Shared.GameModeHelper.Capture().ToDiagnosticString()}.");
+            }
+        }
+
+        private int CountProjectiles(int playerId)
+        {
+            int count = 0;
+            for (int herdIndex = 0; herdIndex < herds.Count; herdIndex++)
+            {
+                if (herds[herdIndex].PlayerId == playerId)
+                    count += herds[herdIndex].Members.Count;
+            }
+            return count;
+        }
+
+        private string DescribeCallbackCounts()
+        {
+            if (popularityCallbackCounts.Count == 0 && invalidPopularityCallbackCount == 0)
+                return "[]";
+
+            List<int> playerIds = new List<int>(popularityCallbackCounts.Keys);
+            playerIds.Sort();
+            List<string> descriptions = new List<string>(playerIds.Count);
+            foreach (int playerId in playerIds)
+                descriptions.Add($"P{playerId}={popularityCallbackCounts[playerId]}");
+            if (invalidPopularityCallbackCount != 0)
+            {
+                descriptions.Add(
+                    $"invalid={invalidPopularityCallbackCount}/lastRaw={lastInvalidPopularityCallbackPlayerId}");
+            }
+            return "[" + string.Join(",", descriptions) + "]";
+        }
+
+        private static string DescribeProjectiles(List<ProjectileIdentity> members)
+        {
+            List<string> descriptions = new List<string>(members.Count);
+            foreach (ProjectileIdentity member in members)
+                descriptions.Add($"{member.SlotId}/{member.GlobalId}");
+            return "[" + string.Join(",", descriptions) + "]";
+        }
+
+        private static int GetCount(Dictionary<int, int> counts, int playerId) =>
+            counts.TryGetValue(playerId, out int count) ? count : 0;
+
+        private static void IncrementCount(Dictionary<int, int> counts, int playerId) =>
+            counts[playerId] = GetCount(counts, playerId) + 1;
 
         private void PruneInvalidProjectiles()
         {
@@ -401,7 +559,12 @@ namespace BugfixesAndQoL
                 }
 
                 if (herd.Members.Count == 0)
+                {
+                    bool lastHerdForPlayer = CountHerds(herd.PlayerId) == 1;
                     herds.RemoveAt(herdIndex);
+                    if (lastHerdForPlayer)
+                        LogHerdEnded(herd.PlayerId, "projectile reconciliation");
+                }
             }
         }
 
@@ -409,7 +572,9 @@ namespace BugfixesAndQoL
         {
             return GameProjectileManagerAPI.Instance.TryGetProjectileById(member.SlotId, out GameProjectile* projectile) &&
                 projectile != null &&
-                projectile->r_AliveState == AliveState.IsAlive &&
+                // Chore-created clouds remain NeedsInit until the surrounding native tick completes.
+                (projectile->r_AliveState == AliveState.NeedsInit ||
+                    projectile->r_AliveState == AliveState.IsAlive) &&
                 projectile->r_ProjectileType == ProjectileType.Disease &&
                 projectile->r_GlobalId == member.GlobalId;
         }
@@ -426,11 +591,32 @@ namespace BugfixesAndQoL
                     {
                         members.RemoveAt(memberIndex);
                         if (members.Count == 0)
+                        {
+                            bool lastHerdForPlayer = CountHerds(herd.PlayerId) == 1;
                             herds.RemoveAt(herdIndex);
+                            if (lastHerdForPlayer)
+                                LogHerdEnded(herd.PlayerId, $"projectile delete event for slot {projectileId}");
+                        }
                         return;
                     }
                 }
             }
+        }
+
+        private void LogHerdEnded(int playerId, string reason)
+        {
+            int revision = GetCount(diagnosticRevisions, playerId);
+            bool correctionObserved = GetCount(loggedDiagnosticRevisions, playerId) == revision;
+            string message =
+                $"Plague herd ended: playerId={playerId}, reason={reason}, " +
+                $"diagnosticRevision={revision}, correctionObserved={correctionObserved}, " +
+                $"callbackCount={GetCount(popularityCallbackCounts, playerId)}, " +
+                $"correctedCallbackCount={GetCount(correctedCallbackCounts, playerId)}, " +
+                $"popularityCallbacksObserved={DescribeCallbackCounts()}.";
+            if (correctionObserved)
+                Shared.DebugLogHelper.LogDebug(log, message);
+            else
+                Shared.DebugLogHelper.LogWarning(log, message);
         }
 
         private int CountHerds(int playerId)
@@ -498,12 +684,25 @@ namespace BugfixesAndQoL
 
         private sealed class HerdCapture
         {
-            public HerdCapture(int playerId)
+            public HerdCapture(
+                int buildingId,
+                uint buildingGlobalId,
+                int playerId,
+                ushort tileX,
+                ushort tileY)
             {
+                BuildingId = buildingId;
+                BuildingGlobalId = buildingGlobalId;
                 PlayerId = playerId;
+                TileX = tileX;
+                TileY = tileY;
             }
 
+            public int BuildingId { get; }
+            public uint BuildingGlobalId { get; }
             public int PlayerId { get; }
+            public ushort TileX { get; }
+            public ushort TileY { get; }
             public List<ProjectileIdentity> Members { get; } = new List<ProjectileIdentity>(MaximumProjectilesPerHerd);
 
             public void Add(int slotId, uint globalId)

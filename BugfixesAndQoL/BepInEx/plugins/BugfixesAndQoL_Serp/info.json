@@ -3,10 +3,23 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.53",
+  "Version": "1.0.55",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.55",
+      "Changes": [
+        "Fixed plague popularity in synchronized Chores by retaining newly created Disease projectiles while they are still in NeedsInit until the surrounding native tick completes.",
+        "Added exact serialized and decoded Surrender Chore bytes plus current-Lord snapshots to diagnose the observed remote lordGlobalId corruption."
+      ]
+    },
+    {
+      "Version": "1.0.54",
+      "Changes": [
+        "Added focused plague-popularity diagnostics for multiplayer, including herd ownership and projectile identities, native callback player IDs, applied modifiers and accumulator values, plus a warning when no callback follows a captured herd."
+      ]
+    },
     {
       "Version": "1.0.53",
       "Changes": [

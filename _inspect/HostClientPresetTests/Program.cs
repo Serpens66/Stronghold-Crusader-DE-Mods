@@ -872,6 +872,15 @@ internal static class Program
               executionRoundTrip.OperationId == 11 &&
               executionRoundTrip.LordGlobalId == 8120,
             "surrender execution packet did not round-trip");
+        byte[] observedSurrenderBody = MessagePackSerializer.Serialize(new SurrenderExecutionPacket
+        {
+            ProtocolVersion = 1,
+            PlayerId = 1,
+            OperationId = 1,
+            LordGlobalId = 3935
+        });
+        Check(observedSurrenderBody.SequenceEqual(new byte[] { 0x94, 0x01, 0x01, 0x01, 0xCD, 0x0F, 0x5F }),
+            "surrender execution body no longer matches the observed seven-byte canonical payload");
 
         string pluginPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "SurrenderAndStatisticsSetting.dll");
         string settingsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "LobbyModSettings", "SurrenderAndStatisticsSettingTest.msgpack");
