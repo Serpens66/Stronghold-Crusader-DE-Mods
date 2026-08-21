@@ -20,12 +20,8 @@ Extender fields and the bidirectional stable-link API, so it has no private RVA.
 | `SleepStateSynchronizationFunctionPattern` | `0xC7D50` | scan; delegate |
 | `EmergencyDemolitionComparisonPattern` | `0x2F454` | scan; context hook |
 | `AIHovelDemolitionFunctionPattern` | `0x3B1D0` | scan; detour at the AI decision point |
-| `MarketValidatorPattern` | `0xD7080` | scan; detour |
 | AI buy-price helper (`49 63 C0 8B 8C C1 B8 17 18 00 B8 67 66 66 66 F7 E9 D1 FA 8B C2 C1 E8 1F 03 C2 41 0F AF C1 C3`) | `0xCEB10` | executable-section unique scan; managed function detour |
 | AI sell-price helper (`49 63 C0 8B 8C C1 BC 17 18 00 B8 67 66 66 66 F7 E9 D1 FA 8B C2 C1 E8 1F 03 C2 41 0F AF C1 C3`) | `0xCEB90` | executable-section unique scan; managed function detour |
-| `MarketPacketTailPattern` | `0xD7324` | scan; packet globals/sender |
-| `MarketStorageCallPattern` | `0xD7119` | scan; storage delegate |
-| `AutoMarketSellStatisticPattern` | `0xD0484` | scan; statistic table |
 | `LifetimePattern` | `0x9A164` | scan; lifetime immediate at `+9` |
 | `BuildingDistanceComparisonPattern` | `0x9F86B` | scan; distance context hook |
 | `MovementDecisionPattern` (Monk handler) | `0x1513E6` | executable-section unique scan; 20-byte inline decision hook |
@@ -55,15 +51,14 @@ depends on the audited gatehouse query context and native gate entry layout.
 1. Require one match for every relevant entry and verify hook boundaries,
    delegates, register/stack assumptions and RIP-relative target bounds.
 2. Verify the complete Vanilla worker table and its table-start calculation.
-3. Revalidate market packet globals, sender/storage calls and statistic table.
-4. Revalidate plague lifetime value `800` and Vanilla distance comparison `30`.
-5. Revalidate that the AI hovel-demolition function still selects structure
+3. Revalidate plague lifetime value `800` and Vanilla distance comparison `30`.
+4. Revalidate that the AI hovel-demolition function still selects structure
    type `1`, applies the demolition refund, and is called only by the AI update.
-6. Before enabling quarry relocation, revalidate the quarry manager fields
+5. Before enabling quarry relocation, revalidate the quarry manager fields
    `+0x31B7D0/+0x31B7D4`, helper ABI and all candidate semantics.
-7. Test every setting enabled/disabled, restore paths, map reloads, market
-   packets, church workers, plague behavior, AI protection, knights and quarry.
-8. Revalidate both AI market-price helpers as one atomic hook set:
+6. Test every setting enabled/disabled, restore paths, map reloads, church
+   workers, plague behavior, AI protection, knights and quarry.
+7. Revalidate both AI market-price helpers as one atomic hook set:
    - ABI `int (playerManager, playerId, good, amount)` in `RCX/EDX/R8D/R9D`;
    - signed `unchecked((basePrice / 5) * amount)` arithmetic;
    - the first two instructions remain 3+7 bytes, cover PolyHook2.NET 1.1.3's

@@ -34,6 +34,10 @@ inactive until a new DLL has been audited.
 | `PreTerrainSpeedAdjustmentPattern` | `0x19B4B6` | context hook after base/group speed and before late terrain/status modifiers; containing function `0x19B210-0x19B5D6` |
 | `UnitTypeUpdateDispatchPattern` | `0x1840BC` | dispatch-table reference |
 | `MovementCadencePattern` | `0x1841B3` | cadence context hook |
+| `MarketValidatorPattern` | `0xD7080` | Ctrl single-unit market validator detour |
+| `MarketPacketTailPattern` | `0xD7324` | market packet globals and sender |
+| `MarketStorageCallPattern` | `0xD7119` | available-storage delegate |
+| `AutoMarketSellStatisticPattern` | `0xD0484` | market-sell statistic table |
 
 The named constants in `src` contain the complete authoritative wildcard byte
 patterns. Every reference above was checked as one match in the baseline DLL.
@@ -94,9 +98,12 @@ the HUD-supported type list before retaining that scale for a new DLL.
    `+0x542/+0x54E` and
    movement fields `+0x582`, `+0x65C`, `+0x660`, `+0x688`, `+0x914`, `+0x916`,
    `+0x930`, `+0x99E` and `+0xA64`, before approving a new shared hash.
-6. Test each setting enabled and disabled, patch restoration, map reloads,
-   plague treatment/popularity, assembly points and synchronized movement.
-7. Update the RVAs first and the shared SHA-256 only after all fixed layouts pass.
+6. Revalidate the Ctrl-market validator, packet globals, sender/storage calls
+   and statistic table together before enabling the single-unit trade feature.
+7. Test each setting enabled and disabled, patch restoration, map reloads,
+   market buys/sales, plague treatment/popularity, assembly points and
+   synchronized movement.
+8. Update the RVAs first and the shared SHA-256 only after all fixed layouts pass.
 
 Missing, ambiguous or locally mismatching signatures must log a timestamped
 Error and leave only the affected feature inactive.

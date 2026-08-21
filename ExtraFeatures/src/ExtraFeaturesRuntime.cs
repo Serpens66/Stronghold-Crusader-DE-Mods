@@ -30,16 +30,14 @@ namespace ExtraFeatures
         private readonly Dictionary<string, ResourceEventCountGuard> marketBuyResourceGuards = new Dictionary<string, ResourceEventCountGuard>();
         private readonly Dictionary<string, ResourceEventCountGuard> refundResourceGuards = new Dictionary<string, ResourceEventCountGuard>();
         private readonly MultiplayerFeatureGate multiplayerFeatureGate;
-        private readonly MultiplayerGameSpeedRuntime multiplayerGameSpeedRuntime;
         private readonly KnightDismountRuntime knightDismountRuntime;
         private readonly QuarryPileRelocationRuntime quarryPileRelocationRuntime;
         private readonly ChurchPriestCountRuntime churchPriestCountRuntime;
         private readonly GatehouseAutomationRuntime gatehouseAutomationRuntime;
         private readonly LordHealthRuntime lordHealthRuntime;
+        private readonly MarketTradeGuardBridge marketTradeGuardBridge;
 
         private PendingStockpileRefund pendingStockpileRefund;
-        private AllyGoodsAmountModifierHook allyGoodsAmountModifierHook;
-        private CtrlMarketTradeHook ctrlMarketTradeHook;
         private SingleBuildingPauseHook singleBuildingPauseHook;
         private AIEconomyProtectionHook aiEconomyProtectionHook;
         private AIMarketVanillaPriceHook aiMarketVanillaPriceHook;
@@ -56,7 +54,6 @@ namespace ExtraFeatures
         private bool monkAlwaysRunPatchUnavailable;
         private bool hooksSubscribed;
         private bool settingsSubscribed;
-        private bool ctrlMarketTradeHookUnavailable;
         private bool plagueDurationPatchUnavailable;
         private bool plagueApothecarySearchRangePatchUnavailable;
         private bool mapActive;
@@ -67,12 +64,12 @@ namespace ExtraFeatures
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
             multiplayerFeatureGate = new MultiplayerFeatureGate(log);
-            multiplayerGameSpeedRuntime = new MultiplayerGameSpeedRuntime(log, settings, multiplayerFeatureGate);
             knightDismountRuntime = new KnightDismountRuntime(log, settings, multiplayerFeatureGate);
             quarryPileRelocationRuntime = new QuarryPileRelocationRuntime(log, settings, multiplayerFeatureGate);
             churchPriestCountRuntime = new ChurchPriestCountRuntime(log, settings);
             gatehouseAutomationRuntime = new GatehouseAutomationRuntime(log, settings, multiplayerFeatureGate);
             lordHealthRuntime = new LordHealthRuntime(log, settings);
+            marketTradeGuardBridge = new MarketTradeGuardBridge(log, this);
             settings.SettingChanged += OnSettingChanged;
             settingsSubscribed = true;
         }
@@ -80,17 +77,13 @@ namespace ExtraFeatures
         public object KnightDismountButton => knightDismountRuntime.ButtonViewModel;
         public object QuarryPileRelocationButton => quarryPileRelocationRuntime.ButtonViewModel;
         public object GatehouseAutomationButton => gatehouseAutomationRuntime.ButtonViewModel;
-        public object AllyGoodsAmountDisplay => allyGoodsAmountModifierHook;
-
         public void InitializeNetwork()
         {
-            multiplayerGameSpeedRuntime.InitializeNetwork();
             knightDismountRuntime.InitializeNetwork();
             quarryPileRelocationRuntime.InitializeNetwork();
             gatehouseAutomationRuntime.InitializeNetwork();
             InstallSingleBuildingPauseHook();
             singleBuildingPauseHook.InitializeNetwork();
-            multiplayerGameSpeedRuntime.InstallHooks();
             gatehouseAutomationRuntime.Initialize();
         }
 
@@ -132,8 +125,6 @@ namespace ExtraFeatures
             InitializeMonkAlwaysRunPatch(newLibraryHandle, memory);
             gatehouseAutomationRuntime.InitializeNative(newLibraryHandle, memory, fixedLayoutHashValidated);
 
-            InstallAllyGoodsAmountModifierHook();
-            InstallCtrlMarketTradeHook();
             TryRunFeature("fast recruit rally movement", ApplyFastRecruitRallyMovementSetting);
 
             // Settings may be restored before LibraryLoaded. Retry activation now that the native
@@ -147,7 +138,6 @@ namespace ExtraFeatures
                 return;
 
             TryRunFeature("shared event hooks", SubscribeHooks);
-            TryRunFeature("multiplayer game-speed controls", multiplayerGameSpeedRuntime.ApplySetting);
             TryRunFeature("bulldoze refunds", ApplyRefundSettings);
             TryRunFeature("market price multipliers", ApplyMarketPriceMultipliers);
             TryRunFeature("church priest counts", churchPriestCountRuntime.ApplySetting);
@@ -221,9 +211,7 @@ namespace ExtraFeatures
             plagueApothecarySearchRangePatch?.Dispose();
             plagueApothecarySearchRangePatch = null;
             gatehouseAutomationRuntime.Dispose();
-            allyGoodsAmountModifierHook?.Dispose();
-            allyGoodsAmountModifierHook = null;
-            multiplayerGameSpeedRuntime.Dispose();
+            marketTradeGuardBridge.Dispose();
             lordHealthRuntime.Dispose();
             nativeLibraryAvailable = false;
             libraryHandle = IntPtr.Zero;
@@ -267,7 +255,6 @@ namespace ExtraFeatures
                 MapLoaderR3EventHooks.OnUnloadMap.Observable
                     .Where(args => args.Phase == EventHookPhase.Post)
                     .Subscribe(OnUnloadMap));
-            InstallCtrlMarketTradeHook();
             InstallSingleBuildingPauseHook();
             TryRunFeature("Lord health tick", lordHealthRuntime.Initialize);
             hooksSubscribed = true;
@@ -282,8 +269,6 @@ namespace ExtraFeatures
             subscriptions.Clear();
             knightDismountRuntime.Dispose();
             quarryPileRelocationRuntime.Dispose();
-            ctrlMarketTradeHook?.Dispose();
-            ctrlMarketTradeHook = null;
             // Keep this process-lifetime hook and its Chore receiver alive. When disabled it
             // passes local clicks through, while in-flight synchronized actions remain executable.
             singleBuildingPauseHook?.ClearOverrides("mod disabled");
@@ -291,47 +276,6 @@ namespace ExtraFeatures
             ClearResourceEventGuards();
             pendingStockpileRefund = null;
             hooksSubscribed = false;
-        }
-
-        private void InstallCtrlMarketTradeHook()
-        {
-            if (ctrlMarketTradeHook != null || ctrlMarketTradeHookUnavailable || !nativeLibraryAvailable)
-                return;
-
-            try
-            {
-                ctrlMarketTradeHook = new CtrlMarketTradeHook(
-                    log, settings, libraryHandle, GetNativeLibraryMemory(), fixedLayoutHashValidated);
-                if (!fixedLayoutHashValidated)
-                {
-                    Shared.DebugLogHelper.LogWarning(
-                        log,
-                        "Extra Features Ctrl single-unit market hooks are running on an unknown CrusaderDE.dll because all required native instruction patterns were validated.");
-                }
-            }
-            catch (Exception ex)
-            {
-                // Native signatures stay unchanged for the process lifetime, so do not retry noisily.
-                ctrlMarketTradeHookUnavailable = true;
-                Shared.DebugLogHelper.LogError(log, $"Extra Features Ctrl single-unit market hooks could not be installed: {ex}");
-            }
-        }
-
-        private void InstallAllyGoodsAmountModifierHook()
-        {
-            if (allyGoodsAmountModifierHook != null)
-                return;
-
-            try
-            {
-                allyGoodsAmountModifierHook = new AllyGoodsAmountModifierHook(log, settings);
-            }
-            catch (Exception ex)
-            {
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Extra Features ally goods amount modifier hook could not be installed: {ex}");
-            }
         }
 
         private void InstallSingleBuildingPauseHook()
@@ -417,7 +361,6 @@ namespace ExtraFeatures
                 }
                 else
                 {
-                    multiplayerGameSpeedRuntime.ApplySetting();
                     TryRunFeature("gatehouse automation", gatehouseAutomationRuntime.ApplySettings);
                     RestoreDefaultSettings();
                     fastRecruitMovementBridge?.Dispose();
@@ -431,13 +374,6 @@ namespace ExtraFeatures
 
             if (!settings.EnableMod)
                 return;
-
-            if (propertyName == nameof(ExtraFeaturesViewModel.EnableMultiplayerGameSpeedChanges) ||
-                propertyName == nameof(ExtraFeaturesViewModel.EnableShiftGameSpeedSteps))
-            {
-                multiplayerGameSpeedRuntime.ApplySetting();
-                return;
-            }
 
             if (propertyName == nameof(ExtraFeaturesViewModel.EnableKnightDismount))
             {
@@ -561,7 +497,6 @@ namespace ExtraFeatures
 
             TryRunFeature("Lord health map initialization", lordHealthRuntime.BeginMap);
 
-            TryRunFeature("multiplayer game-speed controls", multiplayerGameSpeedRuntime.ApplySetting);
             TryRunFeature("knight mount/dismount visibility", knightDismountRuntime.RefreshButtonVisibility);
             TryRunFeature("quarry-pile relocation visibility", quarryPileRelocationRuntime.RefreshButtonVisibility);
             TryRunFeature("gatehouse map initialization", gatehouseAutomationRuntime.BeginMap);
@@ -724,7 +659,6 @@ namespace ExtraFeatures
             mapActive = false;
             ClearResourceEventGuards();
             singleBuildingPauseHook?.ClearOverrides("map unload");
-            multiplayerGameSpeedRuntime.ResetMapState();
             multiplayerFeatureGate.Reset();
             gatehouseAutomationRuntime.EndMap();
         }

@@ -28,6 +28,10 @@ namespace BugfixesAndQoL
         private bool enableLordUnitControls = true;
         private bool enableEliminatedPlayersBecomeSpectators = true;
         private bool enableResyncHostKick = true;
+        private bool enableCtrlSingleMarketTrade = true;
+        private bool enableMultiplayerGameSpeedChanges = true;
+        private bool enableShiftGameSpeedSteps = true;
+        private bool enableAllyGoodsAmountModifiers = true;
         private bool enableCustomTrailExtremeGoldFix = true;
         private bool preserveDisplayResolution = true;
         private readonly LocalPerPlayerSetting<bool> enableClientFeatures = new LocalPerPlayerSetting<bool>(true);
@@ -80,6 +84,14 @@ namespace BugfixesAndQoL
         public string PlagueTitleText => SerpLocalization.Get("BugfixesAndQoL.PlagueTitle");
         public string GameplayTitleText => SerpLocalization.Get("BugfixesAndQoL.GameplayTitle");
         public string MultiplayerTitleText => SerpLocalization.Get("BugfixesAndQoL.MultiplayerTitle");
+        public string EnableCtrlSingleMarketTradeText => SerpLocalization.Get(SerpLocalization.EnableCtrlSingleMarketTrade);
+        public string EnableCtrlSingleMarketTradeHelpText => SerpLocalization.Get(SerpLocalization.EnableCtrlSingleMarketTradeHelp);
+        public string EnableAllyGoodsAmountModifiersText => SerpLocalization.Get(SerpLocalization.EnableAllyGoodsAmountModifiers);
+        public string EnableAllyGoodsAmountModifiersHelpText => SerpLocalization.Get(SerpLocalization.EnableAllyGoodsAmountModifiersHelp);
+        public string EnableMultiplayerGameSpeedChangesText => SerpLocalization.Get(SerpLocalization.EnableMultiplayerGameSpeedChanges);
+        public string EnableMultiplayerGameSpeedChangesHelpText => SerpLocalization.Get(SerpLocalization.EnableMultiplayerGameSpeedChangesHelp);
+        public string EnableShiftGameSpeedStepsText => SerpLocalization.Get(SerpLocalization.EnableShiftGameSpeedSteps);
+        public string EnableShiftGameSpeedStepsHelpText => SerpLocalization.Get(SerpLocalization.EnableShiftGameSpeedStepsHelp);
         public string EnableResyncHostKickText => SerpLocalization.Get("BugfixesAndQoL.EnableResyncHostKick");
         public string EnableResyncHostKickHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableResyncHostKickHelp");
         public string CustomTrailsTitleText => SerpLocalization.Get("BugfixesAndQoL.CustomTrailsTitle");
@@ -205,6 +217,13 @@ namespace BugfixesAndQoL
         {
             get => preserveDisplayResolution;
             set => SetSetting(ref preserveDisplayResolution, value, nameof(PreserveDisplayResolution));
+        }
+
+        [Shared.PresetLocal]
+        public bool EnableAllyGoodsAmountModifiers
+        {
+            get => enableAllyGoodsAmountModifiers;
+            set => SetSetting(ref enableAllyGoodsAmountModifiers, value, nameof(EnableAllyGoodsAmountModifiers));
         }
 
         [SyncHostOnly]
@@ -350,6 +369,27 @@ namespace BugfixesAndQoL
             set => SetSetting(ref enableResyncHostKick, value, nameof(EnableResyncHostKick));
         }
 
+        [SyncHostOnly]
+        public bool EnableCtrlSingleMarketTrade
+        {
+            get => enableCtrlSingleMarketTrade;
+            set => SetSetting(ref enableCtrlSingleMarketTrade, value, nameof(EnableCtrlSingleMarketTrade));
+        }
+
+        [SyncHostOnly]
+        public bool EnableMultiplayerGameSpeedChanges
+        {
+            get => enableMultiplayerGameSpeedChanges;
+            set => SetSetting(ref enableMultiplayerGameSpeedChanges, value, nameof(EnableMultiplayerGameSpeedChanges));
+        }
+
+        [SyncHostOnly]
+        public bool EnableShiftGameSpeedSteps
+        {
+            get => enableShiftGameSpeedSteps;
+            set => SetSetting(ref enableShiftGameSpeedSteps, value, nameof(EnableShiftGameSpeedSteps));
+        }
+
         private void ResetToDefault()
         {
             if (CanEditHostSettings)
@@ -367,6 +407,9 @@ namespace BugfixesAndQoL
                 EnableLordUnitControls = true;
                 EnableEliminatedPlayersBecomeSpectators = true;
                 EnableResyncHostKick = true;
+                EnableCtrlSingleMarketTrade = true;
+                EnableMultiplayerGameSpeedChanges = true;
+                EnableShiftGameSpeedSteps = true;
             }
 
             // Every participant resets only their own per-player preferences.
@@ -383,6 +426,7 @@ namespace BugfixesAndQoL
             ShowSelectedUnitHealth = true;
             EnableCustomTrailExtremeGoldFix = true;
             PreserveDisplayResolution = true;
+            EnableAllyGoodsAmountModifiers = true;
         }
 
         private void SetSetting<T>(ref T field, T value, string propertyName)

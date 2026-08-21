@@ -26,7 +26,7 @@ namespace BugfixesAndQoL
 
         public const string PluginGuid = "BugfixesAndQoL_Serp";
         public const string PluginName = "Bugfixes and QoL";
-        public const string PluginVersion = "1.0.49";
+        public const string PluginVersion = "1.0.50";
 
         private static DisplayResolutionPersistenceHook displayResolutionPersistenceHook;
         private static SteamLobbyInvitePrompt steamLobbyInvitePrompt;
@@ -132,6 +132,18 @@ namespace BugfixesAndQoL
 
         private void OnCrusaderLibraryLoaded(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
         {
+            // Register packet types immediately after Script Extender and before settings can vary.
+            try
+            {
+                runtime.InitializeNetwork();
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(
+                    Logger,
+                    $"Bugfixes and QoL Chore registration failed; synchronized game-speed changes remain unavailable: {ex}");
+            }
+
             // Construct the editor rows before subscribing to hub changes, so even an early
             // settings event can only refresh an already complete 20-item collection.
             try
@@ -188,6 +200,23 @@ namespace BugfixesAndQoL
             catch (Exception ex)
             {
                 Shared.DebugLogHelper.LogError(Logger, $"Bugfixes and QoL native runtime initialization failed; unaffected features may continue: {ex}");
+            }
+
+            try
+            {
+                object allyGoodsAmountDisplay = runtime.AllyGoodsAmountDisplay;
+                if (allyGoodsAmountDisplay != null)
+                {
+                    GameXAMLManagerAPI.Instance.RegisterBinding("BugfixesAndQoLAllyAmount5", allyGoodsAmountDisplay);
+                    GameXAMLManagerAPI.Instance.RegisterBinding("BugfixesAndQoLAllyAmount10", allyGoodsAmountDisplay);
+                    GameXAMLManagerAPI.Instance.RegisterBinding("BugfixesAndQoLAllyAmount25", allyGoodsAmountDisplay);
+                    GameXAMLManagerAPI.Instance.RegisterBinding("BugfixesAndQoLAllyAmount100", allyGoodsAmountDisplay);
+                    GameXAMLManagerAPI.Instance.RegisterBinding("BugfixesAndQoLAllyAmount500", allyGoodsAmountDisplay);
+                }
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(Logger, $"Bugfixes and QoL ally amount display binding failed: {ex}");
             }
 
             try

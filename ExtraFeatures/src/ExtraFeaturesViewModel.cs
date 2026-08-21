@@ -39,11 +39,7 @@ namespace ExtraFeatures
         private int aiLordHealthPercent = LordHealthMultiplierPolicy.DefaultPercent;
         private bool keepStorageContent = true;
         private bool enableClientFeatures = true;
-        private bool enableAllyGoodsAmountModifiers = true;
-        private bool enableCtrlSingleMarketTrade = true;
         private bool enableSingleBuildingPause = true;
-        private bool enableMultiplayerGameSpeedChanges = true;
-        private bool enableShiftGameSpeedSteps = true;
         private bool enableFastRecruitRallyMovement = true;
         private bool enableMonksAlwaysRun;
         private bool enableKnightDismount = true;
@@ -86,16 +82,8 @@ namespace ExtraFeatures
         public ImageSource KeepStorageFruitIcon => GetGoodIconImage(eGoods.STORED_FOOD_FRUIT);
         public ImageSource KeepStorageWoodIcon => GetGoodIconImage(eGoods.STORED_WOOD_PLANKS);
         public ImageSource KeepStorageBowsIcon => GetGoodIconImage(eGoods.STORED_BOWS);
-        public string EnableCtrlSingleMarketTradeText => SerpLocalization.Get(SerpLocalization.EnableCtrlSingleMarketTrade);
-        public string EnableCtrlSingleMarketTradeHelpText => SerpLocalization.Get(SerpLocalization.EnableCtrlSingleMarketTradeHelp);
-        public string EnableAllyGoodsAmountModifiersText => SerpLocalization.Get(SerpLocalization.EnableAllyGoodsAmountModifiers);
-        public string EnableAllyGoodsAmountModifiersHelpText => SerpLocalization.Get(SerpLocalization.EnableAllyGoodsAmountModifiersHelp);
         public string EnableSingleBuildingPauseText => SerpLocalization.Get(SerpLocalization.EnableSingleBuildingPause);
         public string EnableSingleBuildingPauseHelpText => SerpLocalization.Get(SerpLocalization.EnableSingleBuildingPauseHelp);
-        public string EnableMultiplayerGameSpeedChangesText => SerpLocalization.Get(SerpLocalization.EnableMultiplayerGameSpeedChanges);
-        public string EnableMultiplayerGameSpeedChangesHelpText => SerpLocalization.Get(SerpLocalization.EnableMultiplayerGameSpeedChangesHelp);
-        public string EnableShiftGameSpeedStepsText => SerpLocalization.Get(SerpLocalization.EnableShiftGameSpeedSteps);
-        public string EnableShiftGameSpeedStepsHelpText => SerpLocalization.Get(SerpLocalization.EnableShiftGameSpeedStepsHelp);
         public string EnableFastRecruitRallyMovementText => SerpLocalization.Get(SerpLocalization.EnableFastRecruitRallyMovement);
         public string EnableFastRecruitRallyMovementHelpText => SerpLocalization.Get(SerpLocalization.EnableFastRecruitRallyMovementHelp);
         public string EnableMonksAlwaysRunText => SerpLocalization.Get(SerpLocalization.EnableMonksAlwaysRun);
@@ -170,7 +158,6 @@ namespace ExtraFeatures
         [SyncHostOnly] public int GoldRefundPercent { get => goldRefundPercent; set => SetIntSetting(ref goldRefundPercent, value, -1, 100, nameof(GoldRefundPercent), nameof(GoldRefundPercentValueText)); }
         [SyncHostOnly] public bool KeepStorageContent { get => keepStorageContent; set => SetSetting(ref keepStorageContent, value, nameof(KeepStorageContent)); }
         [Shared.PresetLocal] public bool EnableClientFeatures { get => enableClientFeatures; set => SetSetting(ref enableClientFeatures, value, nameof(EnableClientFeatures)); }
-        [Shared.PresetLocal] public bool EnableAllyGoodsAmountModifiers { get => enableAllyGoodsAmountModifiers; set => SetSetting(ref enableAllyGoodsAmountModifiers, value, nameof(EnableAllyGoodsAmountModifiers)); }
 
         public string WoodRefundPercentValueText { get => FormatRefundPercent(WoodRefundPercent); set => SetIntValueText(value, parsed => WoodRefundPercent = parsed, nameof(WoodRefundPercentValueText)); }
         public string StoneRefundPercentValueText { get => FormatRefundPercent(StoneRefundPercent); set => SetIntValueText(value, parsed => StoneRefundPercent = parsed, nameof(StoneRefundPercentValueText)); }
@@ -208,10 +195,7 @@ namespace ExtraFeatures
         [SyncHostOnly] public int CampfirePeasantsLimit { get => campfirePeasantsLimit; set => SetIntSetting(ref campfirePeasantsLimit, value, -1, 200, nameof(CampfirePeasantsLimit), nameof(CampfirePeasantsLimitText)); }
         [SyncHostOnly] public int HumanLordHealthPercent { get => humanLordHealthPercent; set => SetIntSetting(ref humanLordHealthPercent, value, LordHealthMultiplierPolicy.MinimumPercent, LordHealthMultiplierPolicy.MaximumPercent, nameof(HumanLordHealthPercent), nameof(HumanLordHealthPercentText)); }
         [SyncHostOnly] public int AILordHealthPercent { get => aiLordHealthPercent; set => SetIntSetting(ref aiLordHealthPercent, value, LordHealthMultiplierPolicy.MinimumPercent, LordHealthMultiplierPolicy.MaximumPercent, nameof(AILordHealthPercent), nameof(AILordHealthPercentText)); }
-        [SyncHostOnly] public bool EnableCtrlSingleMarketTrade { get => enableCtrlSingleMarketTrade; set => SetSetting(ref enableCtrlSingleMarketTrade, value, nameof(EnableCtrlSingleMarketTrade)); }
         [SyncHostOnly] public bool EnableSingleBuildingPause { get => enableSingleBuildingPause; set => SetSetting(ref enableSingleBuildingPause, value, nameof(EnableSingleBuildingPause)); }
-        [SyncHostOnly] public bool EnableMultiplayerGameSpeedChanges { get => enableMultiplayerGameSpeedChanges; set => SetSetting(ref enableMultiplayerGameSpeedChanges, value, nameof(EnableMultiplayerGameSpeedChanges)); }
-        [SyncHostOnly] public bool EnableShiftGameSpeedSteps { get => enableShiftGameSpeedSteps; set => SetSetting(ref enableShiftGameSpeedSteps, value, nameof(EnableShiftGameSpeedSteps)); }
         [SyncHostOnly] public bool EnableFastRecruitRallyMovement { get => enableFastRecruitRallyMovement; set => SetSetting(ref enableFastRecruitRallyMovement, value, nameof(EnableFastRecruitRallyMovement)); }
         [SyncHostOnly] public bool EnableMonksAlwaysRun { get => enableMonksAlwaysRun; set => SetSetting(ref enableMonksAlwaysRun, value, nameof(EnableMonksAlwaysRun)); }
         [SyncHostOnly] public bool EnableKnightDismount { get => enableKnightDismount; set => SetSetting(ref enableKnightDismount, value, nameof(EnableKnightDismount)); }
@@ -275,10 +259,7 @@ namespace ExtraFeatures
                 CampfirePeasantsLimit = -1;
                 HumanLordHealthPercent = LordHealthMultiplierPolicy.DefaultPercent;
                 AILordHealthPercent = LordHealthMultiplierPolicy.DefaultPercent;
-                EnableCtrlSingleMarketTrade = true;
                 EnableSingleBuildingPause = true;
-                EnableMultiplayerGameSpeedChanges = true;
-                EnableShiftGameSpeedSteps = true;
                 EnableFastRecruitRallyMovement = true;
                 EnableMonksAlwaysRun = false;
                 EnableKnightDismount = true;
@@ -296,7 +277,6 @@ namespace ExtraFeatures
             }
 
             EnableClientFeatures = true;
-            EnableAllyGoodsAmountModifiers = true;
         }
 
         private void SetSetting<T>(ref T field, T value, string propertyName)

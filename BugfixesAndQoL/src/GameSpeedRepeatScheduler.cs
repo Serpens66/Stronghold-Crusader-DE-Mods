@@ -1,4 +1,4 @@
-namespace ExtraFeatures
+namespace BugfixesAndQoL
 {
     public sealed class GameSpeedRepeatScheduler
     {

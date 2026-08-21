@@ -31,17 +31,8 @@
       <StackPanel IsEnabled="{Binding CanEditHostSettings}">
 
       <TextBlock Text="{Binding ComfortTitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,8"/>
-      <CheckBox IsChecked="{Binding EnableCtrlSingleMarketTrade, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableCtrlSingleMarketTradeHelpText}" Margin="0,0,14,8">
-        <TextBlock Text="{Binding EnableCtrlSingleMarketTradeText}" Foreground="White" TextWrapping="Wrap"/>
-      </CheckBox>
       <CheckBox IsChecked="{Binding EnableSingleBuildingPause, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableSingleBuildingPauseHelpText}" Margin="0,0,14,8">
         <TextBlock Text="{Binding EnableSingleBuildingPauseText}" Foreground="White" TextWrapping="Wrap"/>
-      </CheckBox>
-      <CheckBox IsChecked="{Binding EnableMultiplayerGameSpeedChanges, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableMultiplayerGameSpeedChangesHelpText}" Margin="0,0,14,8">
-        <TextBlock Text="{Binding EnableMultiplayerGameSpeedChangesText}" Foreground="White" TextWrapping="Wrap"/>
-      </CheckBox>
-      <CheckBox IsChecked="{Binding EnableShiftGameSpeedSteps, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableShiftGameSpeedStepsHelpText}" Margin="0,0,14,8">
-        <TextBlock Text="{Binding EnableShiftGameSpeedStepsText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox>
       <CheckBox IsChecked="{Binding EnableFastRecruitRallyMovement, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableFastRecruitRallyMovementHelpText}" Margin="0,0,14,8">
         <TextBlock Text="{Binding EnableFastRecruitRallyMovementText}" Foreground="White" TextWrapping="Wrap"/>
@@ -215,9 +206,6 @@
             <TextBlock Text="{Binding EnableClientFeaturesText}" Foreground="White" TextWrapping="Wrap"/>
           </CheckBox>
         </Border>
-        <CheckBox IsChecked="{Binding EnableAllyGoodsAmountModifiers, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableAllyGoodsAmountModifiersHelpText}" Margin="0,0,14,8">
-          <TextBlock Text="{Binding EnableAllyGoodsAmountModifiersText}" Foreground="White" TextWrapping="Wrap"/>
-        </CheckBox>
       </StackPanel>
     </StackPanel>
   </ScrollViewer>

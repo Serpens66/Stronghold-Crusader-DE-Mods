@@ -113,6 +113,12 @@
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding AllowCameraMovementWithModifiersText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox>
+      <CheckBox IsChecked="{Binding EnableAllyGoodsAmountModifiers, Mode=TwoWay}"
+                Foreground="White"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableAllyGoodsAmountModifiersHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding EnableAllyGoodsAmountModifiersText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox>
       <TextBlock Text="{Binding CustomTrailsTitleText}" Style="{StaticResource SectionHeader}" Margin="0,4,0,4"/>
       <CheckBox IsChecked="{Binding EnableCustomTrailExtremeGoldFix, Mode=TwoWay}"
                 Foreground="White"
@@ -179,6 +185,18 @@
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding EnableResyncHostKickText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox>
+      <CheckBox IsChecked="{Binding EnableMultiplayerGameSpeedChanges, Mode=TwoWay}"
+                Foreground="White"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableMultiplayerGameSpeedChangesHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding EnableMultiplayerGameSpeedChangesText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox>
+      <CheckBox IsChecked="{Binding EnableShiftGameSpeedSteps, Mode=TwoWay}"
+                Foreground="White"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableShiftGameSpeedStepsHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding EnableShiftGameSpeedStepsText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox>
       <TextBlock Text="{Binding GameplayTitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,4"/>
       <CheckBox IsChecked="{Binding EnableSurrenderAndStatistics, Mode=TwoWay}"
                 Foreground="White"
@@ -191,6 +209,12 @@
                 ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableLordUnitControlsHelpText}"
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding EnableLordUnitControlsText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox>
+      <CheckBox IsChecked="{Binding EnableCtrlSingleMarketTrade, Mode=TwoWay}"
+                Foreground="White"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableCtrlSingleMarketTradeHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding EnableCtrlSingleMarketTradeText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox>
       <CheckBox IsChecked="{Binding EnableEliminatedPlayersBecomeSpectators, Mode=TwoWay}"
                 Foreground="White"

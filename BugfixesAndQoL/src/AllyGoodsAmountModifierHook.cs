@@ -8,14 +8,14 @@ using System.Globalization;
 using System.Reflection;
 using UnityEngine;
 
-namespace ExtraFeatures
+namespace BugfixesAndQoL
 {
     internal sealed class AllyGoodsAmountModifierHook : IDisposable, INotifyPropertyChanged
     {
         private delegate void ButtonClickedDelegate(HUD_AlliesPanel self, string parameter);
 
         private readonly ManualLogSource log;
-        private readonly ExtraFeaturesViewModel settings;
+        private readonly BugfixesAndQoLViewModel settings;
         private readonly FieldInfo selectedGoodsAmountField;
         private readonly MethodInfo updateGoodsMethod;
         private readonly Hook buttonClickedHook;
@@ -33,7 +33,7 @@ namespace ExtraFeatures
         public string Amount100Text => FormatDisplayedAmount(100);
         public string Amount500Text => FormatDisplayedAmount(500);
 
-        public AllyGoodsAmountModifierHook(ManualLogSource log, ExtraFeaturesViewModel settings)
+        public AllyGoodsAmountModifierHook(ManualLogSource log, BugfixesAndQoLViewModel settings)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
@@ -62,7 +62,7 @@ namespace ExtraFeatures
             }
 
             Application.onBeforeRender += RefreshDisplayedAmounts;
-            Shared.DebugLogHelper.LogDebug(log, "Extra Features ally goods amount modifier hook installed.");
+            Shared.DebugLogHelper.LogDebug(log, "Bugfixes and QoL ally goods amount modifier hook installed.");
         }
 
         public void Dispose()
@@ -124,7 +124,7 @@ namespace ExtraFeatures
                     failureLogged = true;
                     Shared.DebugLogHelper.LogError(
                         log,
-                        $"Extra Features ally goods amount modifier failed; this click uses Vanilla behavior: {ex}");
+                        $"Bugfixes and QoL ally goods amount modifier failed; this click uses Vanilla behavior: {ex}");
                 }
                 buttonClickedTrampoline(self, parameter);
             }

@@ -34,6 +34,7 @@ internal static class Program
             TestLordHealthMultiplierPolicy();
             TestAIMarketNativeResolution();
             TestMultiplayerGameSpeedPolicyAndPacket();
+            TestMarketTradeIntegration();
             TestGameSpeedRepeatScheduler();
             TestArrayPerPlayerSetting();
             TestMarketOrderPresetRoundTrip();
@@ -1182,6 +1183,39 @@ internal static class Program
             forwardPacket.Action == MultiplayerGameSpeedPolicy.SetAction &&
             forwardPacket.TargetSpeed == 75,
             "multiplayer game-speed formatter rejected an unknown trailing field");
+    }
+
+    private static void TestMarketTradeIntegration()
+    {
+        int beginPlayer = -1;
+        int beginGood = -1;
+        int endPlayer = -1;
+        int endGood = -1;
+        Action<int, int> begin = (playerId, good) =>
+        {
+            beginPlayer = playerId;
+            beginGood = good;
+        };
+        Action<int, int> end = (playerId, good) =>
+        {
+            endPlayer = playerId;
+            endGood = good;
+        };
+
+        MarketTradeIntegration.RegisterSingleBuyGuards(begin, end);
+        Check(MarketTradeIntegration.HasSingleBuyGuards,
+            "market-trade integration did not retain registered guards");
+        MarketTradeIntegration.BeginSingleBuy(3, 7);
+        MarketTradeIntegration.EndSingleBuy(3, 7);
+        Check(beginPlayer == 3 && beginGood == 7 && endPlayer == 3 && endGood == 7,
+            "market-trade integration did not forward the guarded purchase identity");
+
+        MarketTradeIntegration.UnregisterSingleBuyGuards((_, __) => { });
+        Check(MarketTradeIntegration.HasSingleBuyGuards,
+            "a non-owner removed the market-trade integration callbacks");
+        MarketTradeIntegration.UnregisterSingleBuyGuards(begin);
+        Check(!MarketTradeIntegration.HasSingleBuyGuards,
+            "the market-trade integration owner could not unregister its callbacks");
     }
 
     private static void TestAIMarketNativeResolution()

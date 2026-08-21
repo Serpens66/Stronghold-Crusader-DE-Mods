@@ -15,7 +15,7 @@ using Zhuqiaomon.Hooks;
 using Zhuqiaomon.Hooks.Transaction;
 using Zhuqiaomon.Memory;
 
-namespace ExtraFeatures
+namespace BugfixesAndQoL
 {
     internal sealed unsafe class CtrlMarketTradeHook : IDisposable
     {
@@ -55,7 +55,7 @@ namespace ExtraFeatures
         private static readonly Regex TrailingAmountRegex = new Regex(@"\d+\s*$", RegexOptions.Compiled);
 
         private readonly ManualLogSource log;
-        private readonly ExtraFeaturesViewModel settings;
+        private readonly BugfixesAndQoLViewModel settings;
         private readonly ulong imageBase;
         private readonly bool referenceHashMatches;
         private HookTransaction nativeTransaction;
@@ -77,7 +77,7 @@ namespace ExtraFeatures
 
         public CtrlMarketTradeHook(
             ManualLogSource log,
-            ExtraFeaturesViewModel settings,
+            BugfixesAndQoLViewModel settings,
             IntPtr libraryHandle,
             ReadOnlySpan<byte> memory,
             bool referenceHashMatches)
@@ -100,7 +100,7 @@ namespace ExtraFeatures
                 uiUpdateTrampoline = uiUpdateHook.GenerateTrampoline<NoesisGuiUpdateDelegate>();
 
                 nativeReady = true;
-                Shared.DebugLogHelper.LogInfo(log, "Extra Features Ctrl single-unit market hooks installed.");
+                Shared.DebugLogHelper.LogInfo(log, "Bugfixes and QoL Ctrl single-unit market hooks installed.");
             }
             catch
             {
@@ -122,7 +122,7 @@ namespace ExtraFeatures
             gameActionHook?.Dispose();
             nativeTransaction?.Unload();
             nativeTransaction?.Dispose();
-            Shared.DebugLogHelper.LogInfo(log, "Extra Features Ctrl single-unit market hooks disposed.");
+            Shared.DebugLogHelper.LogInfo(log, "Bugfixes and QoL Ctrl single-unit market hooks disposed.");
         }
 
         internal void ExecuteSingleMarketTrade(PlayerMarketInteractionEventArgs args)
@@ -406,7 +406,7 @@ namespace ExtraFeatures
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogError(log, $"Extra Features Ctrl market UI update failed: {ex}");
+                Shared.DebugLogHelper.LogError(log, $"Bugfixes and QoL Ctrl market UI update failed: {ex}");
             }
         }
 

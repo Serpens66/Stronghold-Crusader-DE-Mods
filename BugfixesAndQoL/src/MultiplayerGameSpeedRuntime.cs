@@ -13,7 +13,7 @@ using System;
 using System.Diagnostics;
 using System.Reflection;
 
-namespace ExtraFeatures
+namespace BugfixesAndQoL
 {
     internal sealed class MultiplayerGameSpeedRuntime : IDisposable
     {
@@ -28,7 +28,7 @@ namespace ExtraFeatures
         private const long TransportErrorLogIntervalMilliseconds = 5000;
 
         private readonly ManualLogSource log;
-        private readonly ExtraFeaturesViewModel settings;
+        private readonly BugfixesAndQoLViewModel settings;
         private readonly MultiplayerFeatureGate multiplayerFeatureGate;
         private readonly FieldInfo functionMapField;
         private readonly GameSpeedRepeatScheduler increaseRepeat = new GameSpeedRepeatScheduler();
@@ -54,7 +54,7 @@ namespace ExtraFeatures
 
         public MultiplayerGameSpeedRuntime(
             ManualLogSource log,
-            ExtraFeaturesViewModel settings,
+            BugfixesAndQoLViewModel settings,
             MultiplayerFeatureGate multiplayerFeatureGate)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
@@ -626,9 +626,9 @@ namespace ExtraFeatures
         }
 
         private void LogInfo(string message) =>
-            Shared.DebugLogHelper.LogInfo(log, $"Extra Features multiplayer game speed: {message}");
+            Shared.DebugLogHelper.LogInfo(log, $"Bugfixes and QoL multiplayer game speed: {message}");
 
         private void LogError(string message) =>
-            Shared.DebugLogHelper.LogError(log, $"Extra Features multiplayer game speed: {message}");
+            Shared.DebugLogHelper.LogError(log, $"Bugfixes and QoL multiplayer game speed: {message}");
     }
 }

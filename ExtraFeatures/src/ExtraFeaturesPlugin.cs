@@ -20,7 +20,7 @@ namespace ExtraFeatures
 
         public const string PluginGuid = "ExtraFeatures_Serp";
         public const string PluginName = "Extra Features";
-        public const string PluginVersion = "1.0.31";
+        public const string PluginVersion = "1.0.32";
 
         private ExtraFeaturesRuntime runtime;
         private bool marketGoodPriceVisualRefreshFailureLogged;
@@ -130,23 +130,6 @@ namespace ExtraFeatures
             catch (Exception ex)
             {
                 Shared.DebugLogHelper.LogError(Logger, $"Extra Features native runtime initialization failed; unaffected features may continue: {ex}");
-            }
-
-            try
-            {
-                object allyGoodsAmountDisplay = runtime.AllyGoodsAmountDisplay;
-                if (allyGoodsAmountDisplay != null)
-                {
-                    GameXAMLManagerAPI.Instance.RegisterBinding("ExtraFeaturesAllyAmount5", allyGoodsAmountDisplay);
-                    GameXAMLManagerAPI.Instance.RegisterBinding("ExtraFeaturesAllyAmount10", allyGoodsAmountDisplay);
-                    GameXAMLManagerAPI.Instance.RegisterBinding("ExtraFeaturesAllyAmount25", allyGoodsAmountDisplay);
-                    GameXAMLManagerAPI.Instance.RegisterBinding("ExtraFeaturesAllyAmount100", allyGoodsAmountDisplay);
-                    GameXAMLManagerAPI.Instance.RegisterBinding("ExtraFeaturesAllyAmount500", allyGoodsAmountDisplay);
-                }
-            }
-            catch (Exception ex)
-            {
-                Shared.DebugLogHelper.LogError(Logger, $"Extra Features ally amount display binding failed: {ex}");
             }
 
             try

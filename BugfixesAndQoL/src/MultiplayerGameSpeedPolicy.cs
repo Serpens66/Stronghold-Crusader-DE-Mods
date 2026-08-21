@@ -1,6 +1,6 @@
 using System;
 
-namespace ExtraFeatures
+namespace BugfixesAndQoL
 {
     public static class MultiplayerGameSpeedPolicy
     {

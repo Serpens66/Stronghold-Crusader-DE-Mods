@@ -1,14 +1,23 @@
 // Feature: Lifecycle orchestration for the Bugfixes and QoL features.
 using BepInEx.Logging;
+using R3;
+using SHCDESE.EventAPI;
+using SHCDESE.EventAPI.MapLoader;
+using SHCDESE.EventAPI.Player;
 using System;
 
 namespace BugfixesAndQoL
 {
-    public sealed class BugfixesAndQoLRuntime : IDisposable
+    public sealed partial class BugfixesAndQoLRuntime : IDisposable
     {
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
         private readonly TroopMovementFix3Runtime troopMovementFixRuntime;
+        private readonly MultiplayerFeatureGate multiplayerFeatureGate;
+        private readonly MultiplayerGameSpeedRuntime multiplayerGameSpeedRuntime;
+        private IDisposable playerMarketSubscription;
+        private IDisposable mapStartSubscription;
+        private IDisposable mapUnloadSubscription;
         private MinimapPlacementClickHook minimapPlacementClickHook;
         private SkirmishAiSelectionMemoryHook skirmishAiSelectionMemoryHook;
         private CustomLordListEnhancementHook customLordListEnhancementHook;
@@ -27,6 +36,8 @@ namespace BugfixesAndQoL
         private PlagueTreatmentFadeFix plagueTreatmentFadeFix;
         private PlagueTargetReservationFix plagueTargetReservationFix;
         private PlagueApothecaryStateTransitionFix plagueApothecaryStateTransitionFix;
+        private AllyGoodsAmountModifierHook allyGoodsAmountModifierHook;
+        private CtrlMarketTradeHook ctrlMarketTradeHook;
         private IntPtr libraryHandle;
         private int libraryLength;
         private bool nativeLibraryAvailable;
@@ -39,18 +50,68 @@ namespace BugfixesAndQoL
         private bool plagueTreatmentFadeFixUnavailable;
         private bool plagueTargetReservationFixUnavailable;
         private bool plagueApothecaryStateTransitionFixUnavailable;
+        private bool ctrlMarketTradeHookUnavailable;
 
         public BugfixesAndQoLRuntime(ManualLogSource log, BugfixesAndQoLViewModel settings)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
             troopMovementFixRuntime = new TroopMovementFix3Runtime(log, settings);
+            multiplayerFeatureGate = new MultiplayerFeatureGate(log);
+            multiplayerGameSpeedRuntime = new MultiplayerGameSpeedRuntime(log, settings, multiplayerFeatureGate);
             settings.SettingChanged += OnSettingChanged;
             settingsSubscribed = true;
         }
 
         public object SurrenderAndStatisticsUi => surrenderFeature?.ButtonViewModel;
         public object SelectedUnitHealthUi => selectedUnitHealthFeature?.ViewModel;
+        public object AllyGoodsAmountDisplay => allyGoodsAmountModifierHook;
+
+        public void InitializeNetwork()
+        {
+            // These registrations serve independent features. Keep each failure isolated so a
+            // managed speed-UI hook can never disable Ctrl trading or map-state maintenance.
+            TryInitializePersistentFeature(
+                "multiplayer game-speed packet",
+                multiplayerGameSpeedRuntime.InitializeNetwork);
+            TryInitializePersistentFeature(
+                "multiplayer game-speed managed hooks",
+                multiplayerGameSpeedRuntime.InstallHooks);
+
+            if (playerMarketSubscription == null)
+            {
+                TryInitializePersistentFeature(
+                    "Ctrl market interaction subscription",
+                    () => playerMarketSubscription =
+                        PlayerR3EventHooks.OnPlayerMarketInteraction.Observable.Subscribe(OnPlayerMarketInteraction));
+            }
+
+            if (mapStartSubscription == null)
+            {
+                TryInitializePersistentFeature(
+                    "multiplayer map-start subscription",
+                    () => mapStartSubscription = MapLoaderR3EventHooks.OnStartMap.Observable
+                        .Where(args => args.Phase == EventHookPhase.Post)
+                        .Subscribe(args =>
+                        {
+                            multiplayerFeatureGate.CaptureMapMode(args.bMultiplayerSave != 0);
+                            multiplayerGameSpeedRuntime.ApplySetting();
+                        }));
+            }
+
+            if (mapUnloadSubscription == null)
+            {
+                TryInitializePersistentFeature(
+                    "multiplayer map-unload subscription",
+                    () => mapUnloadSubscription = MapLoaderR3EventHooks.OnUnloadMap.Observable
+                        .Where(args => args.Phase == EventHookPhase.Post)
+                        .Subscribe(_ =>
+                        {
+                            multiplayerGameSpeedRuntime.ResetMapState();
+                            multiplayerFeatureGate.Reset();
+                        }));
+            }
+        }
 
         public void InitializeSelectedUnitHealthFeature()
         {
@@ -95,6 +156,8 @@ namespace BugfixesAndQoL
             EnsurePlagueTargetReservationFix();
             EnsurePlagueApothecaryStateTransitionFix();
             ApplyAssemblyPointPlacementPatchSetting();
+            InstallAllyGoodsAmountModifierHook();
+            InstallCtrlMarketTradeHook();
         }
 
         public void ApplySettings()
@@ -109,6 +172,7 @@ namespace BugfixesAndQoL
             TryInitializeFeature("custom-lord list enhancements", EnsureCustomLordListEnhancementHook);
             customLordListEnhancementHook?.ApplySetting();
             troopMovementFixRuntime.ApplySetting();
+            multiplayerGameSpeedRuntime.ApplySetting();
             ApplyAssemblyPointPlacementPatchSetting();
 
             if (settings.EnableClientFeatures)
@@ -143,6 +207,17 @@ namespace BugfixesAndQoL
             plagueApothecaryStateTransitionFix?.Dispose();
             plagueApothecaryStateTransitionFix = null;
             troopMovementFixRuntime.Dispose();
+            ctrlMarketTradeHook?.Dispose();
+            ctrlMarketTradeHook = null;
+            allyGoodsAmountModifierHook?.Dispose();
+            allyGoodsAmountModifierHook = null;
+            multiplayerGameSpeedRuntime.Dispose();
+            playerMarketSubscription?.Dispose();
+            playerMarketSubscription = null;
+            mapStartSubscription?.Dispose();
+            mapStartSubscription = null;
+            mapUnloadSubscription?.Dispose();
+            mapUnloadSubscription = null;
             nativeLibraryAvailable = false;
             libraryHandle = IntPtr.Zero;
             libraryLength = 0;
@@ -226,6 +301,52 @@ namespace BugfixesAndQoL
                 resyncHostKickFeature = new ResyncHostKickFeature(log, settings);
         }
 
+        private void InstallAllyGoodsAmountModifierHook()
+        {
+            if (allyGoodsAmountModifierHook != null)
+                return;
+
+            try
+            {
+                allyGoodsAmountModifierHook = new AllyGoodsAmountModifierHook(log, settings);
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Bugfixes and QoL ally goods amount modifier hook could not be installed: {ex}");
+            }
+        }
+
+        private void InstallCtrlMarketTradeHook()
+        {
+            if (ctrlMarketTradeHook != null || ctrlMarketTradeHookUnavailable || !nativeLibraryAvailable)
+                return;
+
+            try
+            {
+                ctrlMarketTradeHook = new CtrlMarketTradeHook(
+                    log,
+                    settings,
+                    libraryHandle,
+                    GetNativeLibraryMemory(),
+                    fixedLayoutHashValidated);
+                if (!fixedLayoutHashValidated)
+                {
+                    Shared.DebugLogHelper.LogWarning(
+                        log,
+                        "Bugfixes and QoL Ctrl single-unit market hooks are running on an unknown CrusaderDE.dll because all required native instruction patterns were validated.");
+                }
+            }
+            catch (Exception ex)
+            {
+                ctrlMarketTradeHookUnavailable = true;
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Bugfixes and QoL Ctrl single-unit market hooks could not be installed: {ex}");
+            }
+        }
+
         private void TryInitializeFeature(string featureName, Action initialize)
         {
             try
@@ -237,6 +358,20 @@ namespace BugfixesAndQoL
                 Shared.DebugLogHelper.LogError(
                     log,
                     $"Bugfixes and QoL feature '{featureName}' could not be initialized and remains inactive: {ex}");
+            }
+        }
+
+        private void TryInitializePersistentFeature(string featureName, Action initialize)
+        {
+            try
+            {
+                initialize();
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Bugfixes and QoL persistent feature '{featureName}' could not be initialized; independent features continue: {ex}");
             }
         }
 
