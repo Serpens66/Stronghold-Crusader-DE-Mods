@@ -23,11 +23,17 @@ namespace StartConditions
 
         private void ForEachActivePlayer(Action<int> callback)
         {
-            int[] activePlayerIds = Shared.ActivePlayerHelper.GetActivePlayerIds();
+            int[] activePlayerIds = GamePlayerManagerAPI.Instance.GetAlivePlayerIds() ?? Array.Empty<int>();
+            int[] legacyActivePlayerIds = Shared.ActivePlayerHelper.GetActivePlayerIds();
+            LogDebug(
+                "Active player resolution",
+                "scriptExtenderAliveIds", $"[{string.Join(",", activePlayerIds)}]",
+                "legacyHelperIds", $"[{string.Join(",", legacyActivePlayerIds)}]");
+
             for (int i = 0; i < activePlayerIds.Length; i++)
             {
                 int playerId = activePlayerIds[i];
-                LogDebug("ForEachAlivePlayer active player", "playerId", playerId);
+                LogDebug("ForEachActivePlayer Script Extender alive player", "playerId", playerId);
                 callback(playerId);
             }
         }

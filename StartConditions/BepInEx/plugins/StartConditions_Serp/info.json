@@ -3,10 +3,17 @@
   "Author": "Serpens66",
   "Name": "Start Conditions",
   "Description": "Configures start resources and start troops in Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.13",
+  "Version": "1.0.14",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.14",
+      "Changes": [
+        "Use Script Extender 1.41.0+'s corrected GetAlivePlayerIds result for deterministic start resources and troops, including early multiplayer Coop Trail map initialization.",
+        "Temporarily log Script Extender and legacy helper player lists side by side for multiplayer verification."
+      ]
+    },
     {
       "Version": "1.0.13",
       "Changes": [

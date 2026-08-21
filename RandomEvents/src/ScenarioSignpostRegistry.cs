@@ -169,9 +169,12 @@ namespace RandomEvents
             });
             SignpostDistance selected = usable[0];
             short[] originalAttackPoints = ReadScenarioPoints(attackPointsAddress);
+            short[] targetedAttackPoints = CreateTargetedScenarioPoints(selected.TileX, selected.TileY);
             try
             {
-                WriteScenarioPoints(attackPointsAddress, CreateDisabledScenarioPoints());
+                // The archer action spawns at an attack scenario point. If every point is disabled,
+                // Vanilla falls back to one shared map location even when the signpost slot is isolated.
+                WriteScenarioPoints(attackPointsAddress, targetedAttackPoints);
                 for (int slot = 0; slot < SlotCount; slot++)
                 {
                     // Vanilla chooses a source internally. Exposing only the nearest source prevents
@@ -188,6 +191,17 @@ namespace RandomEvents
                     {
                         throw new InvalidOperationException(
                             $"signpost slot {slot} contains {actualBuildingId} instead of {expectedBuildingId}.");
+                    }
+                }
+
+                short[] actualAttackPoints = ReadScenarioPoints(attackPointsAddress);
+                for (int index = 0; index < targetedAttackPoints.Length; index++)
+                {
+                    if (actualAttackPoints[index] != targetedAttackPoints[index])
+                    {
+                        throw new InvalidOperationException(
+                            $"attack-point value {index} contains {actualAttackPoints[index]} " +
+                            $"instead of {targetedAttackPoints[index]}.");
                     }
                 }
             }
@@ -212,7 +226,9 @@ namespace RandomEvents
             LogDebug(
                 $"Native event source isolated: targetPlayerId={targetPlayerId}, " +
                 $"signpostBuildingId={selected.BuildingId}, tile=({selected.TileX},{selected.TileY}), " +
-                $"distanceToKeep={selected.Distance:0.00}, usableRegisteredSignposts={usable.Count}, exposedSources=1.");
+                $"distanceToKeep={selected.Distance:0.00}, usableRegisteredSignposts={usable.Count}, exposedSources=1, " +
+                $"originalAttackPoints={FormatScenarioPoints(originalAttackPoints)}, " +
+                $"injectedAttackPoints={FormatScenarioPoints(targetedAttackPoints)}.");
             return true;
         }
 
@@ -458,12 +474,22 @@ namespace RandomEvents
             return result;
         }
 
-        private static short[] CreateDisabledScenarioPoints()
+        private static short[] CreateTargetedScenarioPoints(short tileX, short tileY)
         {
             short[] result = new short[ScenarioPointCount * 2];
             for (int index = 0; index < result.Length; index++)
                 result[index] = -1;
+            result[0] = tileX;
+            result[1] = tileY;
             return result;
+        }
+
+        private static string FormatScenarioPoints(short[] values)
+        {
+            string[] points = new string[ScenarioPointCount];
+            for (int index = 0; index < ScenarioPointCount; index++)
+                points[index] = $"({values[index * 2]},{values[index * 2 + 1]})";
+            return "[" + string.Join(",", points) + "]";
         }
 
         private static void WriteScenarioPoints(IntPtr address, short[] values)
