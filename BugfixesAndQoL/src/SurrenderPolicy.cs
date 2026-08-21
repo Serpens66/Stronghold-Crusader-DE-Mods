@@ -47,6 +47,43 @@ namespace BugfixesAndQoL
         internal static bool CanEnableButton(bool visible, bool realMultiplayer, bool choreReady) =>
             visible && (!realMultiplayer || choreReady);
 
+        internal static bool IsStatisticsViewer(
+            bool startSpectator,
+            int localPlayerId,
+            SurrenderLordSnapshot lord) =>
+            startSpectator ||
+            (localPlayerId >= 1 && localPlayerId <= 8 && !IsValidLord(lord));
+
+        internal static bool CanShowStatisticsButton(
+            bool featureEnabled,
+            bool activeMatch,
+            bool mapEditor,
+            bool spectator,
+            bool supportedGameMode,
+            bool statisticsReady) =>
+            featureEnabled &&
+            activeMatch &&
+            !mapEditor &&
+            spectator &&
+            supportedGameMode &&
+            statisticsReady;
+
+        internal static bool CanPromoteEliminatedPlayerToSpectator(
+            bool featureEnabled,
+            bool activeMatch,
+            bool mapEditor,
+            bool alreadySpectator,
+            bool previouslyHadLivingLord,
+            int localPlayerId,
+            SurrenderLordSnapshot currentLord) =>
+            featureEnabled &&
+            activeMatch &&
+            !mapEditor &&
+            !alreadySpectator &&
+            previouslyHadLivingLord &&
+            localPlayerId >= 1 && localPlayerId <= 8 &&
+            !IsValidLord(currentLord);
+
         internal static bool CanAcceptRequest(
             bool featureEnabled,
             bool activeMatch,

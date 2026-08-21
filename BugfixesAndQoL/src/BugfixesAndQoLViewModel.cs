@@ -24,7 +24,8 @@ namespace BugfixesAndQoL
         private bool enableStuckApothecaryFix = true;
         private bool enablePlagueTargetReservationFix = true;
         private bool enableAssemblyPointPlacementFix = true;
-        private bool enableSurrender = true;
+        private bool enableSurrenderAndStatistics = true;
+        private bool enableEliminatedPlayersBecomeSpectators = true;
         private bool enableResyncHostKick = true;
         private bool enableCustomTrailExtremeGoldFix = true;
         private bool preserveDisplayResolution = true;
@@ -92,8 +93,10 @@ namespace BugfixesAndQoL
         public string EnableIngameSteamInvitePromptHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableIngameSteamInvitePromptHelp");
         public string EnableAssemblyPointPlacementFixText => SerpLocalization.Get("BugfixesAndQoL.EnableAssemblyPointPlacementFix");
         public string EnableAssemblyPointPlacementFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableAssemblyPointPlacementFixHelp");
-        public string EnableSurrenderText => SerpLocalization.Get("BugfixesAndQoL.EnableSurrender");
-        public string EnableSurrenderHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableSurrenderHelp");
+        public string EnableSurrenderAndStatisticsText => SerpLocalization.Get("BugfixesAndQoL.EnableSurrenderAndStatistics");
+        public string EnableSurrenderAndStatisticsHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableSurrenderAndStatisticsHelp");
+        public string EnableEliminatedPlayersBecomeSpectatorsText => SerpLocalization.Get("BugfixesAndQoL.EnableEliminatedPlayersBecomeSpectators");
+        public string EnableEliminatedPlayersBecomeSpectatorsHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableEliminatedPlayersBecomeSpectatorsHelp");
         public string EnableCustomTrailExtremeGoldFixText => SerpLocalization.Get("BugfixesAndQoL.EnableCustomTrailExtremeGoldFix");
         public string EnableCustomTrailExtremeGoldFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableCustomTrailExtremeGoldFixHelp");
         public string PreserveDisplayResolutionText => SerpLocalization.Get("BugfixesAndQoL.PreserveDisplayResolution");
@@ -306,10 +309,17 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
-        public bool EnableSurrender
+        public bool EnableSurrenderAndStatistics
         {
-            get => enableSurrender;
-            set => SetSetting(ref enableSurrender, value, nameof(EnableSurrender));
+            get => enableSurrenderAndStatistics;
+            set => SetSetting(ref enableSurrenderAndStatistics, value, nameof(EnableSurrenderAndStatistics));
+        }
+
+        [SyncHostOnly]
+        public bool EnableEliminatedPlayersBecomeSpectators
+        {
+            get => enableEliminatedPlayersBecomeSpectators;
+            set => SetSetting(ref enableEliminatedPlayersBecomeSpectators, value, nameof(EnableEliminatedPlayersBecomeSpectators));
         }
 
         [SyncHostOnly]
@@ -332,7 +342,8 @@ namespace BugfixesAndQoL
                 EnableStuckApothecaryFix = true;
                 EnablePlagueTargetReservationFix = true;
                 EnableAssemblyPointPlacementFix = true;
-                EnableSurrender = true;
+                EnableSurrenderAndStatistics = true;
+                EnableEliminatedPlayersBecomeSpectators = true;
                 EnableResyncHostKick = true;
             }
 

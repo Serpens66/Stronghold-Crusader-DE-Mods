@@ -15,7 +15,7 @@ In multiplayer, gameplay-related settings are controlled by the host and synchro
 [*] - Allows the minimap to be used while placing a building (like in HD version).
 [*] - Makes the camera follow the cursor directly while dragging on the minimap (like in HD version).
 [*] - Pressing the market hotkey while the market is already open returns to the main trading menu (like in HD version).
-[*] - Prevent the game from sometimes resetting your game resolution back to standard.
+[*] - Prevent the game from sometimes resetting game resolution back to standard.
 [*] - Adds a freely customizable market goods order, defaulting to the classic HD order.
 [*] - Fixes synchronized movement for mixed troop groups, so every unit move at the speed of the slowest unit (in vanilla eg. archers and slaves walk slow together, although both can run).
 [*] - Fixes plague popularity penalties and reliably removes them after the plague has been eliminated.
@@ -32,6 +32,8 @@ In multiplayer, gameplay-related settings are controlled by the host and synchro
 [*] - Allow random custom lords in the randomized skirmish setup
 [*] - Add sorting and filtering for the skirmish custom lord selection list
 [*] - Random AIs button in multiplayer
+[*] - Allow Surrender and to view statistics for spectators
+[*] - Button to Kick players who lost connection
 [/list]
 
 [h2]BuildingCosts[/h2]
@@ -63,6 +65,8 @@ In multiplayer, gameplay-related settings are controlled by the host and synchro
 [*]Set global multipliers for market buying and selling prices or configure individual multipliers for every good (only human or everyone).
 [*]Prevent AI from pausing its production buildings, emergency demolition buildings and deleting their hovels.
 [*]Customize the active duration of plague clouds and how far apothecaries search for them.
+[*]Multiply Lords HP
+[*]Gates time settings and mark gates as "never auto close/open"
 [/list]
 
 [i]Note: Knight mounting and dismounting, quarry pile relocation, and pausing individual buildings are not currently available in multiplayer.[/i]

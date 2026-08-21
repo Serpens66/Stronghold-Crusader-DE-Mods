@@ -174,11 +174,17 @@
         <TextBlock Text="{Binding EnableResyncHostKickText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox>
       <TextBlock Text="{Binding GameplayTitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,4"/>
-      <CheckBox IsChecked="{Binding EnableSurrender, Mode=TwoWay}"
+      <CheckBox IsChecked="{Binding EnableSurrenderAndStatistics, Mode=TwoWay}"
                 Foreground="White"
-                ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableSurrenderHelpText}"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableSurrenderAndStatisticsHelpText}"
                 Margin="0,0,14,8">
-        <TextBlock Text="{Binding EnableSurrenderText}" Foreground="White" TextWrapping="Wrap"/>
+        <TextBlock Text="{Binding EnableSurrenderAndStatisticsText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox>
+      <CheckBox IsChecked="{Binding EnableEliminatedPlayersBecomeSpectators, Mode=TwoWay}"
+                Foreground="White"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableEliminatedPlayersBecomeSpectatorsHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding EnableEliminatedPlayersBecomeSpectatorsText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox>
       <CheckBox IsChecked="{Binding EnableAssemblyPointPlacementFix, Mode=TwoWay}"
                 Foreground="White"

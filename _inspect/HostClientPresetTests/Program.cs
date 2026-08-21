@@ -27,7 +27,7 @@ internal static class Program
             TestLocalPerPlayerSetting();
             TestMarketGoodsOrderDefinition();
             TestResyncHostKickPolicy();
-            TestSurrenderSettingAndPolicy();
+            TestSurrenderAndStatisticsSettingAndPolicy();
             TestMarketGoodPriceDefinition();
             TestAIMarketVanillaPricePolicy();
             TestLordHealthMultiplierPolicy();
@@ -416,7 +416,7 @@ internal static class Program
         GameNetworkAPI.Networked = true;
     }
 
-    private static void TestSurrenderSettingAndPolicy()
+    private static void TestSurrenderAndStatisticsSettingAndPolicy()
     {
         var validLord = new SurrenderLordSnapshot(2, 120, 8120, 2, true);
         var missingLord = new SurrenderLordSnapshot(2, -1, -1, -1, false);
@@ -441,6 +441,54 @@ internal static class Program
             "multiplayer surrender remained enabled without Chore transport");
         Check(SurrenderPolicy.CanEnableButton(true, false, false),
             "singleplayer surrender incorrectly required Chore transport");
+
+        Check(SurrenderPolicy.IsStatisticsViewer(true, 0, missingLord),
+            "start spectator was not accepted as a statistics viewer");
+        Check(SurrenderPolicy.IsStatisticsViewer(false, 2, deadLord),
+            "eliminated player with a dead lord was not accepted as a statistics viewer");
+        Check(SurrenderPolicy.IsStatisticsViewer(false, 2, missingLord),
+            "eliminated player without a lord was not accepted as a statistics viewer");
+        Check(!SurrenderPolicy.IsStatisticsViewer(false, 2, validLord),
+            "active player with a living lord was accepted as a statistics viewer");
+        Check(!SurrenderPolicy.IsStatisticsViewer(false, 0, missingLord),
+            "non-spectator without a player slot was accepted as a statistics viewer");
+
+        Check(SurrenderPolicy.CanShowStatisticsButton(true, true, false, true, true, true),
+            "spectator statistics rejected a valid spectator");
+        Check(!SurrenderPolicy.CanShowStatisticsButton(false, true, false, true, true, true),
+            "disabled shared setting exposed spectator statistics");
+        Check(!SurrenderPolicy.CanShowStatisticsButton(true, false, false, true, true, true),
+            "spectator statistics appeared outside an active match");
+        Check(!SurrenderPolicy.CanShowStatisticsButton(true, true, true, true, true, true),
+            "spectator statistics appeared in the map editor");
+        Check(!SurrenderPolicy.CanShowStatisticsButton(true, true, false, false, true, true),
+            "spectator statistics appeared for an active player");
+        Check(!SurrenderPolicy.CanShowStatisticsButton(true, true, false, true, false, true),
+            "spectator statistics accepted an unsupported game mode");
+        Check(!SurrenderPolicy.CanShowStatisticsButton(true, true, false, true, true, false),
+            "spectator statistics appeared without a validated runtime");
+
+        Check(SurrenderPolicy.CanPromoteEliminatedPlayerToSpectator(
+                true, true, false, false, true, 2, missingLord),
+            "eligible eliminated player was not promoted to spectator");
+        Check(!SurrenderPolicy.CanPromoteEliminatedPlayerToSpectator(
+                false, true, false, false, true, 2, missingLord),
+            "disabled eliminated-player spectator setting still promoted a player");
+        Check(!SurrenderPolicy.CanPromoteEliminatedPlayerToSpectator(
+                true, true, true, false, true, 2, missingLord),
+            "map-editor player was promoted to spectator");
+        Check(!SurrenderPolicy.CanPromoteEliminatedPlayerToSpectator(
+                true, true, false, true, true, 2, missingLord),
+            "existing spectator was promoted again");
+        Check(!SurrenderPolicy.CanPromoteEliminatedPlayerToSpectator(
+                true, true, false, false, false, 2, missingLord),
+            "player without a previously validated living lord was promoted during initialization");
+        Check(!SurrenderPolicy.CanPromoteEliminatedPlayerToSpectator(
+                true, true, false, false, true, 2, validLord),
+            "active player with a living lord was promoted to spectator");
+        Check(!SurrenderPolicy.CanPromoteEliminatedPlayerToSpectator(
+                true, true, false, false, true, 0, missingLord),
+            "invalid local player slot was promoted to spectator");
 
         Check(SurrenderPolicy.CanAcceptRequest(true, true, true, true, true, validLord),
             "host rejected an authenticated human surrender request");
@@ -483,45 +531,74 @@ internal static class Program
               executionRoundTrip.LordGlobalId == 8120,
             "surrender execution packet did not round-trip");
 
-        string pluginPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "SurrenderSetting.dll");
-        string settingsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "LobbyModSettings", "SurrenderSettingTest.msgpack");
+        string pluginPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "SurrenderAndStatisticsSetting.dll");
+        string settingsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "LobbyModSettings", "SurrenderAndStatisticsSettingTest.msgpack");
         if (File.Exists(settingsPath))
             File.Delete(settingsPath);
 
         GameNetworkAPI.Networked = true;
         GameNetworkAPI.MultiplayerGame = true;
         GameNetworkAPI.LocalHost = true;
-        var setting = new SurrenderSettingViewModel();
-        setting.PreparePresets(null, pluginPath, "SurrenderSettingTest");
+        var setting = new SurrenderAndStatisticsSettingViewModel();
+        setting.PreparePresets(null, pluginPath, "SurrenderAndStatisticsSettingTest");
         setting.ActivatePresets();
-        Check(setting.EnableSurrender, "EnableSurrender did not default to true");
-        setting.EnableSurrender = false;
+        Check(setting.EnableSurrenderAndStatistics, "EnableSurrenderAndStatistics did not default to true");
+        Check(setting.EnableEliminatedPlayersBecomeSpectators,
+            "EnableEliminatedPlayersBecomeSpectators did not default to true");
+        Check(typeof(SurrenderAndStatisticsSettingViewModel).GetProperty("EnableSurrender") == null,
+            "obsolete EnableSurrender property remains present");
+        setting.EnableSurrenderAndStatistics = false;
+        setting.EnableEliminatedPlayersBecomeSpectators = false;
         setting.SelectedPreset = 1;
-        Check(setting.EnableSurrender, "new surrender preset did not retain the default true value");
+        Check(setting.EnableSurrenderAndStatistics, "new shared preset did not retain the default true value");
+        Check(setting.EnableEliminatedPlayersBecomeSpectators,
+            "new shared preset did not retain the spectator-promotion default true value");
         setting.SelectedPreset = 0;
-        Check(!setting.EnableSurrender, "surrender host value did not round-trip through presets");
+        Check(!setting.EnableSurrenderAndStatistics, "shared host value did not round-trip through presets");
+        Check(!setting.EnableEliminatedPlayersBecomeSpectators,
+            "spectator-promotion host value did not round-trip through presets");
 
         GameNetworkAPI.LocalHost = false;
         setting.System_RefreshSettingsAccess();
-        setting.EnableSurrender = true;
-        Check(!setting.EnableSurrender, "client mutated the host-only EnableSurrender setting");
-        GameXAMLManagerAPI.Instance.ApplyNetworkSync(setting, () => setting.EnableSurrender = true);
-        Check(setting.EnableSurrender, "authoritative host sync did not update EnableSurrender");
+        setting.EnableSurrenderAndStatistics = true;
+        setting.EnableEliminatedPlayersBecomeSpectators = true;
+        Check(!setting.EnableSurrenderAndStatistics, "client mutated the host-only EnableSurrenderAndStatistics setting");
+        Check(!setting.EnableEliminatedPlayersBecomeSpectators,
+            "client mutated the host-only EnableEliminatedPlayersBecomeSpectators setting");
+        GameXAMLManagerAPI.Instance.ApplyNetworkSync(setting, () =>
+        {
+            setting.EnableSurrenderAndStatistics = true;
+            setting.EnableEliminatedPlayersBecomeSpectators = true;
+        });
+        Check(setting.EnableSurrenderAndStatistics, "authoritative host sync did not update EnableSurrenderAndStatistics");
+        Check(setting.EnableEliminatedPlayersBecomeSpectators,
+            "authoritative host sync did not update EnableEliminatedPlayersBecomeSpectators");
 
         setting.System_EnterMissionPreset(
-            new Dictionary<string, byte[]> { [nameof(setting.EnableSurrender)] = MessagePackSerializer.Serialize(false) },
+            new Dictionary<string, byte[]>
+            {
+                [nameof(setting.EnableSurrenderAndStatistics)] = MessagePackSerializer.Serialize(false),
+                [nameof(setting.EnableEliminatedPlayersBecomeSpectators)] = MessagePackSerializer.Serialize(false)
+            },
             "Trail",
             editable: false);
-        Check(!setting.EnableSurrender && !setting.CanEditHostSettings,
-            "read-only Trail did not apply and lock EnableSurrender");
-        setting.EnableSurrender = true;
-        Check(!setting.EnableSurrender, "client changed EnableSurrender inside a read-only Trail");
+        Check(!setting.EnableSurrenderAndStatistics && !setting.CanEditHostSettings,
+            "read-only Trail did not apply and lock EnableSurrenderAndStatistics");
+        Check(!setting.EnableEliminatedPlayersBecomeSpectators,
+            "read-only Trail did not apply EnableEliminatedPlayersBecomeSpectators");
+        setting.EnableSurrenderAndStatistics = true;
+        setting.EnableEliminatedPlayersBecomeSpectators = true;
+        Check(!setting.EnableSurrenderAndStatistics, "client changed EnableSurrenderAndStatistics inside a read-only Trail");
+        Check(!setting.EnableEliminatedPlayersBecomeSpectators,
+            "client changed EnableEliminatedPlayersBecomeSpectators inside a read-only Trail");
         setting.System_ExitMissionPreset();
 
         GameNetworkAPI.LocalHost = true;
         setting.System_RefreshSettingsAccess();
-        setting.ResetSurrender();
-        Check(setting.EnableSurrender, "EnableSurrender reset value was not true");
+        setting.ResetSurrenderAndStatistics();
+        Check(setting.EnableSurrenderAndStatistics, "EnableSurrenderAndStatistics reset value was not true");
+        Check(setting.EnableEliminatedPlayersBecomeSpectators,
+            "EnableEliminatedPlayersBecomeSpectators reset value was not true");
     }
 
     private static void TestLocalPerPlayerSetting()
@@ -1149,26 +1226,44 @@ internal sealed class MixedViewModel : PresetLobbyModSettingsViewModel
     }
 }
 
-internal sealed class SurrenderSettingViewModel : PresetLobbyModSettingsViewModel
+internal sealed class SurrenderAndStatisticsSettingViewModel : PresetLobbyModSettingsViewModel
 {
-    private bool enableSurrender = true;
+    private bool enableSurrenderAndStatistics = true;
+    private bool enableEliminatedPlayersBecomeSpectators = true;
 
     [SyncHostOnly]
-    public bool EnableSurrender
+    public bool EnableSurrenderAndStatistics
     {
-        get => enableSurrender;
+        get => enableSurrenderAndStatistics;
         set
         {
-            if (!CanMutateSetting(nameof(EnableSurrender)) || enableSurrender == value)
+            if (!CanMutateSetting(nameof(EnableSurrenderAndStatistics)) || enableSurrenderAndStatistics == value)
                 return;
-            enableSurrender = value;
-            OnPropertyChanged(nameof(EnableSurrender));
+            enableSurrenderAndStatistics = value;
+            OnPropertyChanged(nameof(EnableSurrenderAndStatistics));
         }
     }
 
-    internal void ResetSurrender()
+    [SyncHostOnly]
+    public bool EnableEliminatedPlayersBecomeSpectators
     {
-        EnableSurrender = true;
+        get => enableEliminatedPlayersBecomeSpectators;
+        set
+        {
+            if (!CanMutateSetting(nameof(EnableEliminatedPlayersBecomeSpectators)) ||
+                enableEliminatedPlayersBecomeSpectators == value)
+            {
+                return;
+            }
+            enableEliminatedPlayersBecomeSpectators = value;
+            OnPropertyChanged(nameof(EnableEliminatedPlayersBecomeSpectators));
+        }
+    }
+
+    internal void ResetSurrenderAndStatistics()
+    {
+        EnableSurrenderAndStatistics = true;
+        EnableEliminatedPlayersBecomeSpectators = true;
     }
 }
 

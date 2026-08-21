@@ -26,7 +26,7 @@ namespace BugfixesAndQoL
 
         public const string PluginGuid = "BugfixesAndQoL_Serp";
         public const string PluginName = "Bugfixes and QoL";
-        public const string PluginVersion = "1.0.37";
+        public const string PluginVersion = "1.0.40";
 
         private static DisplayResolutionPersistenceHook displayResolutionPersistenceHook;
         private static SteamLobbyInvitePrompt steamLobbyInvitePrompt;
@@ -150,11 +150,14 @@ namespace BugfixesAndQoL
                 runtime.InitializeSurrenderFeature();
                 GameXAMLManagerAPI.Instance.RegisterBinding(
                     "BugfixesAndQoLSurrenderButtonHost",
-                    runtime.SurrenderButton);
+                    runtime.SurrenderAndStatisticsUi);
+                GameXAMLManagerAPI.Instance.RegisterBinding(
+                    "BugfixesAndQoLSpectatorStatisticsRefreshHost",
+                    runtime.SurrenderAndStatisticsUi);
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogError(Logger, $"Bugfixes and QoL surrender UI/network initialization failed; the button remains inactive: {ex}");
+                Shared.DebugLogHelper.LogError(Logger, $"Bugfixes and QoL surrender/statistics UI/network initialization failed; both buttons remain inactive: {ex}");
             }
 
             // Keep UI registration independent so one native feature cannot hide the whole mod.

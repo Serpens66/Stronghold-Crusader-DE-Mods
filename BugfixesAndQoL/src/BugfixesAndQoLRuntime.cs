@@ -47,7 +47,7 @@ namespace BugfixesAndQoL
             settingsSubscribed = true;
         }
 
-        public object SurrenderButton => surrenderFeature?.ButtonViewModel;
+        public object SurrenderAndStatisticsUi => surrenderFeature?.ButtonViewModel;
 
         public void InitializeSurrenderFeature()
         {
