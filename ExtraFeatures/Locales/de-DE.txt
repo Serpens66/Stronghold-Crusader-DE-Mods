@@ -85,4 +85,6 @@ SomeSettings.BuildingsProductionTitle=Gebäude und Produktion
 SomeSettings.CampfirePeasants=Wartende Bauern am Burgfeuer
 SomeSettings.CampfirePeasantsHelp=-1 = unverändert. Erlaubter Bereich: -1 bis 200. Legt die maximale Anzahl Bauern fest, die am Burgfeuer warten.
 SomeSettings.NewFeaturesTitle=Neue Spielfunktionen
+SomeSettings.LordHealthTitle=Lebenspunkte der Lords
+SomeSettings.LordHealthHelp=Multipliziert beim Start der Partie die maximalen und aktuellen Lebenspunkte aller Lords. Menschen- und KI-Lords koennen getrennt eingestellt werden; die individuellen Lebenspunktunterschiede der KI-Lords bleiben erhalten. 100% entspricht Vanilla.
 SomeSettings.TilesValueFormat={0} Felder

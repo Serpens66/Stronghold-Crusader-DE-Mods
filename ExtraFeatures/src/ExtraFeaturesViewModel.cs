@@ -35,6 +35,8 @@ namespace ExtraFeatures
         private double plagueDurationMultiplier = 2.0;
         private int apothecaryPlagueSearchDistance = 50;
         private int campfirePeasantsLimit = -1;
+        private int humanLordHealthPercent = LordHealthMultiplierPolicy.DefaultPercent;
+        private int aiLordHealthPercent = LordHealthMultiplierPolicy.DefaultPercent;
         private bool keepStorageContent = true;
         private bool enableClientFeatures = true;
         private bool enableAllyGoodsAmountModifiers = true;
@@ -107,6 +109,8 @@ namespace ExtraFeatures
         public string BulldozeTitleText => SerpLocalization.Get(SerpLocalization.BulldozeTitle);
         public string ComfortTitleText => SerpLocalization.Get("SomeSettings.ComfortTitle");
         public string NewFeaturesTitleText => SerpLocalization.Get("SomeSettings.NewFeaturesTitle");
+        public string LordHealthTitleText => SerpLocalization.Get(SerpLocalization.LordHealthTitle);
+        public string LordHealthHelpText => SerpLocalization.Get(SerpLocalization.LordHealthHelp);
         public string BuildingsProductionTitleText => SerpLocalization.Get(SerpLocalization.BuildingsProductionTitle);
         public string PlagueTitleText => SerpLocalization.Get("SomeSettings.PlagueTitle");
         public string BulldozeHelpText => SerpLocalization.Get(SerpLocalization.BulldozeHelp);
@@ -185,6 +189,8 @@ namespace ExtraFeatures
         [SyncHostOnly] public double PlagueDurationMultiplier { get => plagueDurationMultiplier; set => SetDoubleSetting(ref plagueDurationMultiplier, value, PlagueDurationPatch.MinimumMultiplier, PlagueDurationPatch.MaximumMultiplier, nameof(PlagueDurationMultiplier), nameof(PlagueDurationMultiplierValueText)); }
         [SyncHostOnly] public int ApothecaryPlagueSearchDistance { get => apothecaryPlagueSearchDistance; set => SetIntSetting(ref apothecaryPlagueSearchDistance, value, PlagueApothecarySearchRangePatch.MinimumDistance, PlagueApothecarySearchRangePatch.MaximumDistance, nameof(ApothecaryPlagueSearchDistance), nameof(ApothecaryPlagueSearchDistanceValueText)); }
         [SyncHostOnly] public int CampfirePeasantsLimit { get => campfirePeasantsLimit; set => SetIntSetting(ref campfirePeasantsLimit, value, -1, 200, nameof(CampfirePeasantsLimit), nameof(CampfirePeasantsLimitText)); }
+        [SyncHostOnly] public int HumanLordHealthPercent { get => humanLordHealthPercent; set => SetIntSetting(ref humanLordHealthPercent, value, LordHealthMultiplierPolicy.MinimumPercent, LordHealthMultiplierPolicy.MaximumPercent, nameof(HumanLordHealthPercent), nameof(HumanLordHealthPercentText)); }
+        [SyncHostOnly] public int AILordHealthPercent { get => aiLordHealthPercent; set => SetIntSetting(ref aiLordHealthPercent, value, LordHealthMultiplierPolicy.MinimumPercent, LordHealthMultiplierPolicy.MaximumPercent, nameof(AILordHealthPercent), nameof(AILordHealthPercentText)); }
         [SyncHostOnly] public bool EnableCtrlSingleMarketTrade { get => enableCtrlSingleMarketTrade; set => SetSetting(ref enableCtrlSingleMarketTrade, value, nameof(EnableCtrlSingleMarketTrade)); }
         [SyncHostOnly] public bool EnableSingleBuildingPause { get => enableSingleBuildingPause; set => SetSetting(ref enableSingleBuildingPause, value, nameof(EnableSingleBuildingPause)); }
         [SyncHostOnly] public bool EnableMultiplayerGameSpeedChanges { get => enableMultiplayerGameSpeedChanges; set => SetSetting(ref enableMultiplayerGameSpeedChanges, value, nameof(EnableMultiplayerGameSpeedChanges)); }
@@ -214,6 +220,8 @@ namespace ExtraFeatures
             set => SetIntValueText(value, parsed => ApothecaryPlagueSearchDistance = parsed, nameof(ApothecaryPlagueSearchDistanceValueText));
         }
         public string CampfirePeasantsLimitText { get => CampfirePeasantsLimit.ToString(CultureInfo.InvariantCulture); set => SetIntValueText(value, parsed => CampfirePeasantsLimit = parsed, nameof(CampfirePeasantsLimitText)); }
+        public string HumanLordHealthPercentText { get => FormatPercent(HumanLordHealthPercent); set => SetIntValueText(value, parsed => HumanLordHealthPercent = parsed, nameof(HumanLordHealthPercentText)); }
+        public string AILordHealthPercentText { get => FormatPercent(AILordHealthPercent); set => SetIntValueText(value, parsed => AILordHealthPercent = parsed, nameof(AILordHealthPercentText)); }
 
         private void ResetToDefault()
         {
@@ -238,6 +246,8 @@ namespace ExtraFeatures
                 PlagueDurationMultiplier = 2.0;
                 ApothecaryPlagueSearchDistance = 50;
                 CampfirePeasantsLimit = -1;
+                HumanLordHealthPercent = LordHealthMultiplierPolicy.DefaultPercent;
+                AILordHealthPercent = LordHealthMultiplierPolicy.DefaultPercent;
                 EnableCtrlSingleMarketTrade = true;
                 EnableSingleBuildingPause = true;
                 EnableMultiplayerGameSpeedChanges = true;
@@ -474,6 +484,9 @@ namespace ExtraFeatures
 
         private static string FormatRefundPercent(int percent) =>
             percent < 0 ? "-1" : percent.ToString(CultureInfo.InvariantCulture) + "%";
+
+        private static string FormatPercent(int percent) =>
+            percent.ToString(CultureInfo.InvariantCulture) + "%";
 
         private static double ClampMultiplier(double value, double minimum, double maximum)
         {

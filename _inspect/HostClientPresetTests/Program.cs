@@ -30,6 +30,7 @@ internal static class Program
             TestSurrenderSettingAndPolicy();
             TestMarketGoodPriceDefinition();
             TestAIMarketVanillaPricePolicy();
+            TestLordHealthMultiplierPolicy();
             TestAIMarketNativeResolution();
             TestMultiplayerGameSpeedPolicyAndPacket();
             TestArrayPerPlayerSetting();
@@ -672,6 +673,41 @@ internal static class Program
                     modEnabled, alsoForAI, validPlayer, validGood, isAI) == expected,
                 $"AI Vanilla market routing diverged for mask={mask}");
         }
+    }
+
+    private static void TestLordHealthMultiplierPolicy()
+    {
+        Check(LordHealthMultiplierPolicy.NormalizePercent(-1) == 10,
+            "Lord health percentage did not clamp to 10%");
+        Check(LordHealthMultiplierPolicy.NormalizePercent(100) == 100,
+            "Lord health percentage changed the 100% default");
+        Check(LordHealthMultiplierPolicy.NormalizePercent(900) == 500,
+            "Lord health percentage did not clamp to 500%");
+
+        uint humanVanilla = LordHealthMultiplierPolicy.CalculateVanillaMaximum(2000, 100);
+        uint weakAI = LordHealthMultiplierPolicy.CalculateVanillaMaximum(2000, 50);
+        uint strongAI = LordHealthMultiplierPolicy.CalculateVanillaMaximum(2000, 180);
+        Check(humanVanilla == 2000 && weakAI == 1000 && strongAI == 3600,
+            "Vanilla AI Lord health differences were not preserved");
+        Check(LordHealthMultiplierPolicy.CalculateVanillaMaximum(2000, 180, 125) == 4500,
+            "Vanilla enemy-health option was not retained in the AI Lord baseline");
+        Check(LordHealthMultiplierPolicy.CalculateMaximum(weakAI, 200) == 2000 &&
+              LordHealthMultiplierPolicy.CalculateMaximum(strongAI, 200) == 7200,
+            "AI Lord multiplier flattened individual Vanilla health values");
+        Check(LordHealthMultiplierPolicy.CalculateMaximum(humanVanilla, 10) == 200 &&
+              LordHealthMultiplierPolicy.CalculateMaximum(humanVanilla, 500) == 10000,
+            "Lord health multiplier produced an incorrect boundary value");
+
+        uint wounded = LordHealthMultiplierPolicy.CalculateCurrent(750, 1500, 3000);
+        Check(wounded == 1500 && LordHealthMultiplierPolicy.CalculateHealthPercent(wounded, 3000) == 50,
+            "Lord health scaling did not preserve the wounded health ratio");
+        uint repeated = LordHealthMultiplierPolicy.CalculateMaximum(humanVanilla, 200);
+        Check(repeated == LordHealthMultiplierPolicy.CalculateMaximum(humanVanilla, 200),
+            "Lord health target calculation was not idempotent");
+        Check(LordHealthMultiplierPolicy.CalculateMaximum(uint.MaxValue, 500) == uint.MaxValue,
+            "Lord health overflow was not clamped");
+        Check(LordHealthMultiplierPolicy.CalculateCurrent(0, 1000, 2000) == 1,
+            "an active Lord was allowed to reach zero health during scaling");
     }
 
     private static void TestMultiplayerGameSpeedPolicyAndPacket()

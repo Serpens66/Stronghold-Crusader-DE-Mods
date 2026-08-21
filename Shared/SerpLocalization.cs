@@ -87,6 +87,8 @@ public static class SerpLocalization
     public const string KeepStorageContent = "SomeSettings.KeepStorageContent";
     public const string KeepStorageContentHelp = "SomeSettings.KeepStorageContentHelp";
     public const string EconomyBuffsTitle = "SomeSettings.EconomyBuffsTitle";
+    public const string LordHealthTitle = "SomeSettings.LordHealthTitle";
+    public const string LordHealthHelp = "SomeSettings.LordHealthHelp";
     public const string MultiplyGoodsGain = "SomeSettings.MultiplyGoodsGain";
     public const string MultiplyGoodsGainHelp = "SomeSettings.MultiplyGoodsGainHelp";
     public const string MultiplyGoodsAsMoney = "SomeSettings.MultiplyGoodsAsMoney";
@@ -390,6 +392,8 @@ public static class SerpLocalization
         { KeepStorageContent, "Keep Storage Content" },
         { KeepStorageContentHelp, "When enabled, bulldozing a granary, armory, or stockpile keeps the goods stored inside by adding them back as incoming goods.\nIf Granary was built for free can't credit goods back (happens when building it while no wood is on stock)" },
         { EconomyBuffsTitle, "Economy Bonuses" },
+        { LordHealthTitle, "Lord Health" },
+        { LordHealthHelp, "Multiplies the maximum and current health of all Lords when the match starts. Human and AI Lords can be configured separately; individual AI Lord health differences remain intact. 100% is unchanged." },
         { MultiplyGoodsGain, "Multiply goods gain" },
         { MultiplyGoodsGainHelp, "Multiplier for gained goods. 1 = unchanged, 2 = double, 3 = triple. Values 1 or lower add nothing." },
         { MultiplyGoodsAsMoney, "Multiply goods as money" },

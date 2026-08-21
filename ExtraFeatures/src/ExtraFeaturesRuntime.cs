@@ -34,6 +34,7 @@ namespace ExtraFeatures
         private readonly KnightDismountRuntime knightDismountRuntime;
         private readonly QuarryPileRelocationRuntime quarryPileRelocationRuntime;
         private readonly ChurchPriestCountRuntime churchPriestCountRuntime;
+        private readonly LordHealthRuntime lordHealthRuntime;
 
         private PendingStockpileRefund pendingStockpileRefund;
         private AllyGoodsAmountModifierHook allyGoodsAmountModifierHook;
@@ -69,6 +70,7 @@ namespace ExtraFeatures
             knightDismountRuntime = new KnightDismountRuntime(log, settings, multiplayerFeatureGate);
             quarryPileRelocationRuntime = new QuarryPileRelocationRuntime(log, settings, multiplayerFeatureGate);
             churchPriestCountRuntime = new ChurchPriestCountRuntime(log, settings);
+            lordHealthRuntime = new LordHealthRuntime(log, settings);
             settings.SettingChanged += OnSettingChanged;
             settingsSubscribed = true;
         }
@@ -144,6 +146,7 @@ namespace ExtraFeatures
             TryRunFeature("market price multipliers", ApplyMarketPriceMultipliers);
             TryRunFeature("church priest counts", churchPriestCountRuntime.ApplySetting);
             TryRunFeature("campfire peasants", ApplyCampfirePeasantsLimit);
+            TryRunFeature("Lord health", lordHealthRuntime.Initialize);
             ApplyPlagueDurationSetting();
             TryRunFeature("fast recruit rally movement", ApplyFastRecruitRallyMovementSetting);
             ApplyMonkAlwaysRunSetting();
@@ -213,6 +216,7 @@ namespace ExtraFeatures
             allyGoodsAmountModifierHook?.Dispose();
             allyGoodsAmountModifierHook = null;
             multiplayerGameSpeedRuntime.Dispose();
+            lordHealthRuntime.Dispose();
             nativeLibraryAvailable = false;
             libraryHandle = IntPtr.Zero;
             libraryLength = 0;
@@ -257,6 +261,7 @@ namespace ExtraFeatures
                     .Subscribe(OnUnloadMap));
             InstallCtrlMarketTradeHook();
             InstallSingleBuildingPauseHook();
+            TryRunFeature("Lord health tick", lordHealthRuntime.Initialize);
             hooksSubscribed = true;
             ReconcileFixedLayoutFeatures();
             Shared.DebugLogHelper.LogDebug(log, "Extra Features feature hooks reconciled.");
@@ -274,6 +279,7 @@ namespace ExtraFeatures
             // Keep this process-lifetime hook and its Chore receiver alive. When disabled it
             // passes local clicks through, while in-flight synchronized actions remain executable.
             singleBuildingPauseHook?.ClearOverrides("mod disabled");
+            lordHealthRuntime.Dispose();
             ClearResourceEventGuards();
             pendingStockpileRefund = null;
             hooksSubscribed = false;
@@ -533,6 +539,8 @@ namespace ExtraFeatures
         {
             multiplayerFeatureGate.CaptureMapMode(args.bMultiplayerSave != 0);
 
+            TryRunFeature("Lord health map initialization", lordHealthRuntime.BeginMap);
+
             TryRunFeature("multiplayer game-speed controls", multiplayerGameSpeedRuntime.ApplySetting);
             TryRunFeature("knight mount/dismount visibility", knightDismountRuntime.RefreshButtonVisibility);
             TryRunFeature("quarry-pile relocation visibility", quarryPileRelocationRuntime.RefreshButtonVisibility);
@@ -691,6 +699,7 @@ namespace ExtraFeatures
         private void OnUnloadMap(MapUnloadEventArgs args)
         {
             RestoreCampfirePeasantsCap();
+            lordHealthRuntime.ResetMapState();
             mapActive = false;
             ClearResourceEventGuards();
             singleBuildingPauseHook?.ClearOverrides("map unload");

@@ -46,6 +46,17 @@
 
       <Separator Background="#444466" Margin="0,10"/>
       <TextBlock Text="{Binding NewFeaturesTitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,8"/>
+      <TextBlock Text="{Binding LordHealthTitleText}" Foreground="#DDDDDD" FontWeight="Bold" Margin="0,0,0,4"/>
+      <Grid Margin="0,0,0,10" ToolTipService.ShowDuration="60000" ToolTip="{Binding LordHealthHelpText}">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="120"/><ColumnDefinition Width="60"/><ColumnDefinition Width="24"/><ColumnDefinition Width="120"/><ColumnDefinition Width="60"/></Grid.ColumnDefinitions>
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <TextBlock Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Text="{Binding HumanText}" Foreground="White" FontWeight="Bold"/>
+        <TextBlock Grid.Row="0" Grid.Column="3" Grid.ColumnSpan="2" Text="{Binding AiText}" Foreground="White" FontWeight="Bold"/>
+        <Slider Grid.Row="1" Grid.Column="0" Minimum="10" Maximum="500" Value="{Binding HumanLordHealthPercent, Mode=TwoWay}" TickFrequency="10" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding LordHealthHelpText}"/>
+        <TextBox ui:KeyboardCaptureBinding.Enabled="True" Grid.Row="1" Grid.Column="1" Text="{Binding HumanLordHealthPercentText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding LordHealthHelpText}" MinWidth="56" MaxWidth="120" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"/>
+        <Slider Grid.Row="1" Grid.Column="3" Minimum="10" Maximum="500" Value="{Binding AILordHealthPercent, Mode=TwoWay}" TickFrequency="10" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding LordHealthHelpText}"/>
+        <TextBox ui:KeyboardCaptureBinding.Enabled="True" Grid.Row="1" Grid.Column="4" Text="{Binding AILordHealthPercentText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding LordHealthHelpText}" MinWidth="56" MaxWidth="120" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"/>
+      </Grid>
       <CheckBox IsChecked="{Binding EnableMonksAlwaysRun, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableMonksAlwaysRunHelpText}" Margin="0,0,14,8">
         <TextBlock Text="{Binding EnableMonksAlwaysRunText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox>
