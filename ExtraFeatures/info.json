@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.28",
+  "Version": "1.0.29",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.29",
+      "Changes": [
+        "Added 0.25-second game-speed keybind repeats while increase or decrease is held, using 5-point steps normally, 25-point steps with Shift, and tick-synchronized Chores in multiplayer."
+      ]
+    },
     {
       "Version": "1.0.28",
       "Changes": [

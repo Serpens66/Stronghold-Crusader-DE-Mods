@@ -31,6 +31,8 @@ namespace ExtraFeatures
         private readonly ExtraFeaturesViewModel settings;
         private readonly MultiplayerFeatureGate multiplayerFeatureGate;
         private readonly FieldInfo functionMapField;
+        private readonly GameSpeedRepeatScheduler increaseRepeat = new GameSpeedRepeatScheduler();
+        private readonly GameSpeedRepeatScheduler decreaseRepeat = new GameSpeedRepeatScheduler();
 
         private Hook keyManagerUpdateHook;
         private Hook isActionPressedHook;
@@ -142,6 +144,8 @@ namespace ExtraFeatures
 
         public void ApplySetting()
         {
+            ResetRepeatState();
+
             try
             {
                 RefreshOpenOptionsUi();
@@ -157,6 +161,7 @@ namespace ExtraFeatures
             lastSliderBucket = -1;
             suppressSliderEvent = false;
             suppressVanillaSpeedKeybinds = false;
+            ResetRepeatState();
         }
 
         public void Dispose()
@@ -180,9 +185,8 @@ namespace ExtraFeatures
 
         private void KeyManagerUpdateHook(KeyManager self)
         {
-            bool fastIncrease = IsFastActionPressed(self, Enums.KeyFunctions.IncreaseEngineSpeed);
-            bool fastDecrease = IsFastActionPressed(self, Enums.KeyFunctions.DecreaseEngineSpeed);
-            suppressVanillaSpeedKeybinds = fastIncrease || fastDecrease;
+            bool repeatEnabled = CanUseKeyRepeat(self);
+            suppressVanillaSpeedKeybinds = repeatEnabled;
             try
             {
                 keyManagerUpdateTrampoline(self);
@@ -192,18 +196,68 @@ namespace ExtraFeatures
                 suppressVanillaSpeedKeybinds = false;
             }
 
-            if (fastIncrease)
-                ApplyOrQueueFastChange(MultiplayerGameSpeedPolicy.FastIncreaseAction, "shift-keybind-increase");
-            if (fastDecrease)
-                ApplyOrQueueFastChange(MultiplayerGameSpeedPolicy.FastDecreaseAction, "shift-keybind-decrease");
-
-            if (!CanRequestMultiplayerChange() || self == null)
+            if (!repeatEnabled)
+            {
+                ResetRepeatState();
+                QueueLegacyMultiplayerPresses(self);
                 return;
+            }
 
-            if (self.IsActionPressed(Enums.KeyFunctions.IncreaseEngineSpeed))
-                TryQueueChange(MultiplayerGameSpeedPolicy.IncreaseAction, 0, "keybind-increase");
-            if (self.IsActionPressed(Enums.KeyFunctions.DecreaseEngineSpeed))
-                TryQueueChange(MultiplayerGameSpeedPolicy.DecreaseAction, 0, "keybind-decrease");
+            // Read the states after Vanilla updated KeyManager so release cannot emit a late repeat.
+            bool increasePressed = IsConfiguredActionState(
+                self, Enums.KeyFunctions.IncreaseEngineSpeed, held: false);
+            bool decreasePressed = IsConfiguredActionState(
+                self, Enums.KeyFunctions.DecreaseEngineSpeed, held: false);
+            bool increaseHeld = IsConfiguredActionState(
+                self, Enums.KeyFunctions.IncreaseEngineSpeed, held: true);
+            bool decreaseHeld = IsConfiguredActionState(
+                self, Enums.KeyFunctions.DecreaseEngineSpeed, held: true);
+            bool shiftHeld = self.isShiftDown();
+
+            if (increasePressed)
+                ApplyOrQueueChange(
+                    shiftHeld
+                        ? MultiplayerGameSpeedPolicy.FastIncreaseAction
+                        : MultiplayerGameSpeedPolicy.IncreaseAction,
+                    shiftHeld ? "shift-keybind-increase" : "keybind-increase");
+            if (decreasePressed)
+                ApplyOrQueueChange(
+                    shiftHeld
+                        ? MultiplayerGameSpeedPolicy.FastDecreaseAction
+                        : MultiplayerGameSpeedPolicy.DecreaseAction,
+                    shiftHeld ? "shift-keybind-decrease" : "keybind-decrease");
+
+            int currentSpeed = GetCurrentSpeed();
+            int maximumSpeed = GetMaximumSpeed();
+            long now = Stopwatch.GetTimestamp();
+            bool blocked = increaseHeld && decreaseHeld;
+            bool repeatIncrease = increaseRepeat.Update(
+                increaseHeld,
+                increasePressed,
+                blocked,
+                currentSpeed >= maximumSpeed,
+                now,
+                Stopwatch.Frequency);
+            bool repeatDecrease = decreaseRepeat.Update(
+                decreaseHeld,
+                decreasePressed,
+                blocked,
+                currentSpeed <= MultiplayerGameSpeedPolicy.MinimumSpeed,
+                now,
+                Stopwatch.Frequency);
+
+            if (repeatIncrease)
+                ApplyOrQueueChange(
+                    self.isShiftDown()
+                        ? MultiplayerGameSpeedPolicy.FastIncreaseAction
+                        : MultiplayerGameSpeedPolicy.IncreaseAction,
+                    "held-keybind-increase");
+            if (repeatDecrease)
+                ApplyOrQueueChange(
+                    self.isShiftDown()
+                        ? MultiplayerGameSpeedPolicy.FastDecreaseAction
+                        : MultiplayerGameSpeedPolicy.DecreaseAction,
+                    "held-keybind-decrease");
         }
 
         private bool IsActionPressedHook(KeyManager self, Enums.KeyFunctions function)
@@ -214,14 +268,12 @@ namespace ExtraFeatures
             return isActionPressedTrampoline(self, function);
         }
 
-        private bool IsFastActionPressed(KeyManager self, Enums.KeyFunctions function)
+        private bool IsConfiguredActionState(
+            KeyManager self,
+            Enums.KeyFunctions function,
+            bool held)
         {
-            if (self == null || !settings.EnableMod || !settings.EnableShiftGameSpeedSteps ||
-                !self.isShiftDown() || !IsSpeedFunction(function))
-                return false;
-
-            Director director = Director.instance;
-            if (director == null || !director.SimRunning)
+            if (self == null || !IsSpeedFunction(function))
                 return false;
 
             int[,] functionMap = functionMapField.GetValue(self) as int[,];
@@ -236,18 +288,24 @@ namespace ExtraFeatures
 
                 bool requiresControl = (mappedCode & 0x20000) != 0;
                 bool requiresAlt = (mappedCode & 0x40000) != 0;
+                bool requiresShift = (mappedCode & 0x10000) != 0;
                 if (requiresControl != self.isCtrlDown() || requiresAlt != self.isAltDown())
+                    continue;
+                if (!self.isShiftDown() && requiresShift)
                     continue;
 
                 // Shift is intentionally additive; retain every other configured modifier.
-                if (self.IsKeyPressed((UnityEngine.KeyCode)mappedCode, ignoreModifiers: true))
+                bool active = held
+                    ? self.IsKeyHeldDown((UnityEngine.KeyCode)mappedCode, ignoreModifiers: true)
+                    : self.IsKeyPressed((UnityEngine.KeyCode)mappedCode, ignoreModifiers: true);
+                if (active)
                     return true;
             }
 
             return false;
         }
 
-        private void ApplyOrQueueFastChange(int action, string source)
+        private void ApplyOrQueueChange(int action, string source)
         {
             Director director = Director.instance;
             if (director == null || !director.SimRunning)
@@ -281,6 +339,35 @@ namespace ExtraFeatures
         private static bool IsSpeedFunction(Enums.KeyFunctions function) =>
             function == Enums.KeyFunctions.IncreaseEngineSpeed ||
             function == Enums.KeyFunctions.DecreaseEngineSpeed;
+
+        private bool CanUseKeyRepeat(KeyManager self)
+        {
+            if (self == null || !settings.EnableMod || !settings.EnableShiftGameSpeedSteps)
+                return false;
+
+            Director director = Director.instance;
+            if (director == null || !director.SimRunning)
+                return false;
+
+            return !director.MultiplayerGame || CanRequestMultiplayerChange();
+        }
+
+        private void QueueLegacyMultiplayerPresses(KeyManager self)
+        {
+            if (!CanRequestMultiplayerChange() || self == null)
+                return;
+
+            if (self.IsActionPressed(Enums.KeyFunctions.IncreaseEngineSpeed))
+                TryQueueChange(MultiplayerGameSpeedPolicy.IncreaseAction, 0, "keybind-increase");
+            if (self.IsActionPressed(Enums.KeyFunctions.DecreaseEngineSpeed))
+                TryQueueChange(MultiplayerGameSpeedPolicy.DecreaseAction, 0, "keybind-decrease");
+        }
+
+        private void ResetRepeatState()
+        {
+            increaseRepeat.Reset();
+            decreaseRepeat.Reset();
+        }
 
         private void OptionsInitHook(HUD_Options self)
         {

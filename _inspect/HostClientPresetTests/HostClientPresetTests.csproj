@@ -81,6 +81,9 @@
     <Compile Include="..\..\ExtraFeatures\src\MultiplayerGameSpeedPolicy.cs">
       <Link>MultiplayerGameSpeedPolicy.cs</Link>
     </Compile>
+    <Compile Include="..\..\ExtraFeatures\src\GameSpeedRepeatScheduler.cs">
+      <Link>GameSpeedRepeatScheduler.cs</Link>
+    </Compile>
     <Compile Include="..\..\Shared\NativePatternResolver.cs">
       <Link>NativePatternResolver.cs</Link>
     </Compile>

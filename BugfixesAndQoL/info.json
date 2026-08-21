@@ -10,7 +10,7 @@
     {
       "Version": "1.0.48",
       "Changes": [
-        "Added a default-enabled host setting that opens a compact Vanilla troop-command HUD for the local Lord, shows optional Lord health in its free action slots, and routes disband through the synchronized confirmed-surrender flow."
+        "Added a default-enabled host setting that opens a compact Vanilla troop-command HUD for the controlled Lord in matches and the map editor, shows scaled optional Lord health, returns to the appropriate Vanilla HUD after deselection, and routes in-game disband through the synchronized confirmed-surrender flow."
       ]
     },
     {

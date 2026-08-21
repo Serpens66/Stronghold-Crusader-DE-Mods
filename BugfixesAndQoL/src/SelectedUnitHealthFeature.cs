@@ -236,6 +236,7 @@ namespace BugfixesAndQoL
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
         private readonly Func<bool> isLordModeActive;
+        private readonly Func<int> getActiveLordPlayerId;
         private int lastFrame = -1;
         private bool callbackErrorLogged;
         private bool disposed;
@@ -243,11 +244,14 @@ namespace BugfixesAndQoL
         public SelectedUnitHealthFeature(
             ManualLogSource log,
             BugfixesAndQoLViewModel settings,
-            Func<bool> isLordModeActive)
+            Func<bool> isLordModeActive,
+            Func<int> getActiveLordPlayerId)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
             this.isLordModeActive = isLordModeActive ?? throw new ArgumentNullException(nameof(isLordModeActive));
+            this.getActiveLordPlayerId = getActiveLordPlayerId ??
+                throw new ArgumentNullException(nameof(getActiveLordPlayerId));
             ViewModel = new SelectedUnitHealthViewModel();
 
             // The BepInEx component is short-lived, but this static Unity event remains available in game.
@@ -320,7 +324,10 @@ namespace BugfixesAndQoL
             if (isLordModeActive() &&
                 selectedCount == 1 &&
                 state.selectedChimps.Length > 0 &&
-                TryGetSelectedLocalLord(state.selectedChimps[0], out GameUnit* selectedLord))
+                TryGetSelectedControlledLord(
+                    state.selectedChimps[0],
+                    getActiveLordPlayerId(),
+                    out GameUnit* selectedLord))
             {
                 var lordSummary = new SelectedUnitHealthSummary();
                 lordSummary.Add(selectedLord->r_CurrentHealth, selectedLord->r_MaxHealth);
@@ -360,16 +367,21 @@ namespace BugfixesAndQoL
             ViewModel.Show(summaries, visibleTypes);
         }
 
-        private static bool TryGetSelectedLocalLord(int selectedUnitId, out GameUnit* lord)
+        private static bool TryGetSelectedControlledLord(
+            int selectedUnitId,
+            int controlledPlayerId,
+            out GameUnit* lord)
         {
             lord = null;
             GamePlayerManagerAPI players = GamePlayerManagerAPI.Instance;
-            if (selectedUnitId <= 0 || players == null)
+            if (selectedUnitId <= 0 ||
+                controlledPlayerId < 1 ||
+                controlledPlayerId > 8 ||
+                players == null ||
+                GameUnitManagerAPI.Instance == null)
                 return false;
 
-            int localPlayerId = players.GetLocalPlayerId();
-            if (localPlayerId < 1 || localPlayerId > 8 ||
-                players.GetLordUnitId(localPlayerId) != selectedUnitId ||
+            if (players.GetLordUnitId(controlledPlayerId) != selectedUnitId ||
                 !GameUnitManagerAPI.Instance.TryGetUnitById(selectedUnitId, out lord) ||
                 lord == null)
             {
@@ -379,7 +391,7 @@ namespace BugfixesAndQoL
 
             return lord->r_AliveState == AliveState.IsAlive &&
                 lord->r_UnitChimp == eChimps.CHIMP_TYPE_LORD &&
-                lord->r_ControllableForPlayerId == localPlayerId &&
+                lord->r_ControllableForPlayerId == controlledPlayerId &&
                 lord->r_CurrentHealth > 0;
         }
     }

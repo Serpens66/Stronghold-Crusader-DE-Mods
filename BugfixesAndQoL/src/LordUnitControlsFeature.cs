@@ -1,4 +1,4 @@
-// Feature: Reuse Vanilla's troop commands for the selected local Lord in a compact HUD.
+// Feature: Reuse Vanilla's troop commands for the selected controlled Lord in a compact HUD.
 using BepInEx.Logging;
 using CrusaderDE;
 using MonoMod.RuntimeDetour;
@@ -40,6 +40,7 @@ namespace BugfixesAndQoL
         private bool hasSavedShowControlGroups;
         private int lastFrame = -1;
         private int activeLordUnitId = -1;
+        private int activeLordPlayerId = -1;
         private bool lordModeActive;
         private bool callbackErrorLogged;
         private bool disposed;
@@ -70,6 +71,7 @@ namespace BugfixesAndQoL
         }
 
         internal bool IsLordModeActive => lordModeActive;
+        internal int ActiveLordPlayerId => activeLordPlayerId;
 
         public void Dispose()
         {
@@ -112,28 +114,43 @@ namespace BugfixesAndQoL
         {
             MainViewModel main = MainViewModel.Instance;
             EngineInterface.PlayState state = GameData.Instance?.lastGameState;
+            bool mapEditor = IsMapEditor(main);
             int selectedCount = state?.numSelectedChimps ?? 0;
             int selectedUnitId = selectedCount == 1 &&
                 state.selectedChimps != null &&
                 state.selectedChimps.Length > 0
                 ? state.selectedChimps[0]
                 : -1;
-            int localPlayerId = GamePlayerManagerAPI.Instance?.GetLocalPlayerId() ?? -1;
-            SurrenderLordSnapshot lord = CaptureLord(localPlayerId);
+            int controlledPlayerId = GetControlledPlayerId(mapEditor);
+            SurrenderLordSnapshot lord = CaptureLord(controlledPlayerId);
             bool active = LordUnitControlsPolicy.CanActivate(
                 settings.EnableMod,
                 settings.EnableLordUnitControls,
                 IsActiveMatch(),
-                IsMapEditor(main),
+                mapEditor,
                 state != null && state.spectatorMode != 0,
                 selectedCount,
                 selectedUnitId,
-                localPlayerId,
+                controlledPlayerId,
                 lord);
 
             if (!active || main == null || main.HUDTroopPanel == null)
             {
-                RestoreVanillaHud(refreshPanel: true);
+                bool returnToDefaultHud = LordUnitControlsPolicy.ShouldReturnToDefaultHud(
+                    lordModeActive,
+                    main?.Show_HUD_Troops == true,
+                    selectedCount);
+                RestoreVanillaHud(refreshPanel: !returnToDefaultHud);
+                if (returnToDefaultHud)
+                {
+                    if (mapEditor)
+                        main.DefaultMapEditorUIGameAction();
+                    else
+                        main.DefaultGameUIGameAction();
+                    Shared.DebugLogHelper.LogDebug(
+                        log,
+                        $"Empty Lord selection returned to Vanilla's {(mapEditor ? "map-editor" : "game")} HUD.");
+                }
                 return;
             }
 
@@ -147,11 +164,14 @@ namespace BugfixesAndQoL
             if (!main.Show_HUD_Troops)
                 main.TroopsSelectedGameAction(fromInitialOpening: true);
 
-            ApplyCompactHud(panel);
-            if (!lordModeActive || activeLordUnitId != lord.UnitId)
+            ApplyCompactHud(mapEditor);
+            if (!lordModeActive ||
+                activeLordUnitId != lord.UnitId ||
+                activeLordPlayerId != lord.PlayerId)
             {
                 lordModeActive = true;
                 activeLordUnitId = lord.UnitId;
+                activeLordPlayerId = lord.PlayerId;
                 Shared.DebugLogHelper.LogInfo(
                     log,
                     $"Compact Lord troop HUD activated: playerId={lord.PlayerId}, unitId={lord.UnitId}, globalId={lord.GlobalId}.");
@@ -184,7 +204,7 @@ namespace BugfixesAndQoL
             SaveVisibility(disbandElement);
         }
 
-        private void ApplyCompactHud(HUD_Troops panel)
+        private void ApplyCompactHud(bool mapEditor)
         {
             frame.Clip = compactFrameClip;
             foreach (UIElement element in savedVisibility.Keys)
@@ -193,7 +213,10 @@ namespace BugfixesAndQoL
             bool surrenderEnabled = settings.EnableMod && settings.EnableSurrenderAndStatistics;
             // Reuse Vanilla's normal melee/ranged attack-here command for the Lord.
             attackHereElement.Visibility = Visibility.Visible;
-            disbandElement.Visibility = LordUnitControlsPolicy.CanShowDisband(true, surrenderEnabled)
+            disbandElement.Visibility = LordUnitControlsPolicy.CanShowDisband(
+                true,
+                surrenderEnabled,
+                mapEditor)
                 ? Visibility.Visible
                 : Visibility.Collapsed;
 
@@ -206,6 +229,7 @@ namespace BugfixesAndQoL
             {
                 lordModeActive = false;
                 activeLordUnitId = -1;
+                activeLordPlayerId = -1;
                 return;
             }
 
@@ -228,6 +252,7 @@ namespace BugfixesAndQoL
             savedVisibility.Clear();
             lordModeActive = false;
             activeLordUnitId = -1;
+            activeLordPlayerId = -1;
 
             if (refreshPanel && MainViewModel.Instance?.Show_HUD_Troops == true)
                 panel.SelectedTroops();
@@ -264,28 +289,32 @@ namespace BugfixesAndQoL
         {
             MainViewModel main = MainViewModel.Instance;
             EngineInterface.PlayState state = GameData.Instance?.lastGameState;
+            bool mapEditor = IsMapEditor(main);
             int selectedCount = state?.numSelectedChimps ?? 0;
             int selectedUnitId = selectedCount == 1 &&
                 state.selectedChimps != null &&
                 state.selectedChimps.Length > 0
                 ? state.selectedChimps[0]
                 : -1;
-            int localPlayerId = GamePlayerManagerAPI.Instance?.GetLocalPlayerId() ?? -1;
+            int controlledPlayerId = GetControlledPlayerId(mapEditor);
             return LordUnitControlsPolicy.CanActivate(
                 settings.EnableMod,
                 settings.EnableLordUnitControls,
                 IsActiveMatch(),
-                IsMapEditor(main),
+                mapEditor,
                 state != null && state.spectatorMode != 0,
                 selectedCount,
                 selectedUnitId,
-                localPlayerId,
-                CaptureLord(localPlayerId));
+                controlledPlayerId,
+                CaptureLord(controlledPlayerId));
         }
 
         private static SurrenderLordSnapshot CaptureLord(int playerId)
         {
-            if (playerId < 1 || playerId > 8 || GamePlayerManagerAPI.Instance == null)
+            if (playerId < 1 ||
+                playerId > 8 ||
+                GamePlayerManagerAPI.Instance == null ||
+                GameUnitManagerAPI.Instance == null)
                 return default(SurrenderLordSnapshot);
 
             int unitId = GamePlayerManagerAPI.Instance.GetLordUnitId(playerId);
@@ -315,6 +344,13 @@ namespace BugfixesAndQoL
         private static bool IsMapEditor(MainViewModel main) =>
             (GamePlayerManagerAPI.Instance != null && GamePlayerManagerAPI.Instance.IsInMapEditor()) ||
             (main != null && main.IsMapEditorMode);
+
+        private static int GetControlledPlayerId(bool mapEditor)
+        {
+            if (mapEditor)
+                return EditorDirector.instance?.ActivePlayerID ?? -1;
+            return GamePlayerManagerAPI.Instance?.GetLocalPlayerId() ?? -1;
+        }
 
         private static Geometry CreateCompactFrameClip()
         {

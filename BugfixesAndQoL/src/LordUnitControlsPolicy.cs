@@ -15,9 +15,8 @@ namespace BugfixesAndQoL
             SurrenderLordSnapshot lord) =>
             modEnabled &&
             lordControlsEnabled &&
-            activeMatch &&
-            !mapEditor &&
-            !spectator &&
+            (activeMatch || mapEditor) &&
+            (mapEditor || !spectator) &&
             selectedCount == 1 &&
             selectedUnitId > 0 &&
             localPlayerId >= 1 &&
@@ -26,7 +25,16 @@ namespace BugfixesAndQoL
             lord.PlayerId == localPlayerId &&
             lord.UnitId == selectedUnitId;
 
-        internal static bool CanShowDisband(bool lordControlsActive, bool surrenderEnabled) =>
-            lordControlsActive && surrenderEnabled;
+        internal static bool CanShowDisband(
+            bool lordControlsActive,
+            bool surrenderEnabled,
+            bool mapEditor) =>
+            lordControlsActive && surrenderEnabled && !mapEditor;
+
+        internal static bool ShouldReturnToDefaultHud(
+            bool lordModeWasActive,
+            bool troopHudVisible,
+            int selectedCount) =>
+            lordModeWasActive && troopHudVisible && selectedCount == 0;
     }
 }

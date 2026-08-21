@@ -34,6 +34,7 @@ internal static class Program
             TestLordHealthMultiplierPolicy();
             TestAIMarketNativeResolution();
             TestMultiplayerGameSpeedPolicyAndPacket();
+            TestGameSpeedRepeatScheduler();
             TestArrayPerPlayerSetting();
             TestMarketOrderPresetRoundTrip();
             TestPresetLocalRoundTrip();
@@ -439,15 +440,24 @@ internal static class Program
         Check(!LordUnitControlsPolicy.CanActivate(
                 true, true, true, false, true, 1, 120, 2, validLord),
             "compact Lord HUD appeared for a spectator");
+        Check(LordUnitControlsPolicy.CanActivate(
+                true, true, false, true, false, 1, 120, 2, validLord),
+            "compact Lord HUD rejected the controlled player's Lord in the map editor");
         Check(!LordUnitControlsPolicy.CanActivate(
-                true, true, true, true, false, 1, 120, 2, validLord),
-            "compact Lord HUD appeared in the map editor");
+                true, true, false, true, false, 1, 120, 3, validLord),
+            "compact Lord HUD accepted another player's Lord in the map editor");
         Check(!LordUnitControlsPolicy.CanActivate(
                 true, true, true, false, false, 1, 120, 2, deadLord),
             "compact Lord HUD accepted a dead Lord");
-        Check(LordUnitControlsPolicy.CanShowDisband(true, true) &&
-              !LordUnitControlsPolicy.CanShowDisband(true, false),
+        Check(LordUnitControlsPolicy.CanShowDisband(true, true, false) &&
+              !LordUnitControlsPolicy.CanShowDisband(true, false, false) &&
+              !LordUnitControlsPolicy.CanShowDisband(true, true, true),
             "Lord disband visibility ignored surrender availability");
+        Check(LordUnitControlsPolicy.ShouldReturnToDefaultHud(true, true, 0) &&
+              !LordUnitControlsPolicy.ShouldReturnToDefaultHud(false, true, 0) &&
+              !LordUnitControlsPolicy.ShouldReturnToDefaultHud(true, false, 0) &&
+              !LordUnitControlsPolicy.ShouldReturnToDefaultHud(true, true, 1),
+            "compact Lord HUD default-HUD transition policy was incorrect");
 
         Check(SurrenderPolicy.CanShowButton(true, true, false, false, validLord),
             "surrender button rejected an active player with a living lord");
@@ -681,6 +691,11 @@ internal static class Program
             "single-unit health summary was incorrect");
         Check(single.Band == SelectedUnitHealthBand.Yellow,
             "health at 69 percent was not classified as yellow");
+
+        var lordDisplay = new SelectedUnitHealthSummary();
+        lordDisplay.Add(750000, 750000);
+        Check(lordDisplay.FormatCurrent() == "75000" && lordDisplay.FormatMaximum() == "75000",
+            "Lord-sized health values were not scaled through the shared display path");
 
         var thresholds = new SelectedUnitHealthSummary();
         thresholds.Add(75, 100);
@@ -917,6 +932,64 @@ internal static class Program
             "Lord health overflow was not clamped");
         Check(LordHealthMultiplierPolicy.CalculateCurrent(0, 1000, 2000) == 1,
             "an active Lord was allowed to reach zero health during scaling");
+    }
+
+    private static void TestGameSpeedRepeatScheduler()
+    {
+        const long frequency = 1000;
+        var repeat = new GameSpeedRepeatScheduler();
+        Check(!repeat.Update(true, true, false, false, 1000, frequency),
+            "initial game-speed press incorrectly emitted a repeat");
+        Check(!repeat.Update(true, false, false, false, 1249, frequency),
+            "game-speed repeat fired before 250 ms");
+        Check(repeat.Update(true, false, false, false, 1250, frequency),
+            "game-speed repeat did not fire at 250 ms");
+        Check(repeat.Update(true, false, false, false, 2000, frequency),
+            "delayed game-speed repeat did not fire once");
+        Check(!repeat.Update(true, false, false, false, 2001, frequency) &&
+              !repeat.Update(true, false, false, false, 2249, frequency) &&
+              repeat.Update(true, false, false, false, 2250, frequency),
+            "game-speed repeat caught up in a burst instead of rescheduling from execution");
+
+        repeat.Reset();
+        repeat.Update(true, true, false, false, 3000, frequency);
+        Check(!repeat.Update(true, false, true, false, 3250, frequency) &&
+              !repeat.Update(true, false, false, false, 4000, frequency),
+            "simultaneous opposite keys did not cancel until release");
+        repeat.Update(false, false, false, false, 4001, frequency);
+        Check(!repeat.Update(true, true, false, false, 5000, frequency) &&
+              repeat.Update(true, false, false, false, 5250, frequency),
+            "release did not re-arm game-speed repeat");
+
+        repeat.Reset();
+        Check(!repeat.Update(true, true, false, true, 6000, frequency) &&
+              !repeat.Update(true, false, false, false, 7000, frequency),
+            "boundary saturation resumed before key release");
+        repeat.Reset();
+        Check(!repeat.Update(true, true, false, false, 8000, frequency) &&
+              !repeat.Update(true, false, false, true, 8250, frequency) &&
+              !repeat.Update(true, false, false, false, 9000, frequency),
+            "repeat reaching a boundary resumed before key release");
+        repeat.Reset();
+        Check(!repeat.Update(true, true, false, false, long.MaxValue - 10, frequency),
+            "overflow-safe repeat arming emitted an action");
+
+        Check(MultiplayerGameSpeedPolicy.TryResolve(
+                40,
+                MultiplayerGameSpeedPolicy.IncreaseAction,
+                0,
+                out int normalRepeatSpeed) && normalRepeatSpeed == 45 &&
+              MultiplayerGameSpeedPolicy.TryResolve(
+                normalRepeatSpeed,
+                MultiplayerGameSpeedPolicy.FastIncreaseAction,
+                0,
+                out int shiftedRepeatSpeed) && shiftedRepeatSpeed == 70 &&
+              MultiplayerGameSpeedPolicy.TryResolve(
+                shiftedRepeatSpeed,
+                MultiplayerGameSpeedPolicy.IncreaseAction,
+                0,
+                out int unshiftedRepeatSpeed) && unshiftedRepeatSpeed == 75,
+            "switching Shift during held repeats did not select 5/25/5 steps");
     }
 
     private static void TestMultiplayerGameSpeedPolicyAndPacket()

@@ -60,7 +60,8 @@ namespace BugfixesAndQoL
             selectedUnitHealthFeature = new SelectedUnitHealthFeature(
                 log,
                 settings,
-                () => lordUnitControlsFeature?.IsLordModeActive == true);
+                () => lordUnitControlsFeature?.IsLordModeActive == true,
+                () => lordUnitControlsFeature?.ActiveLordPlayerId ?? -1);
             selectedUnitHealthFeature.RefreshSetting();
         }
 

@@ -422,7 +422,7 @@ public static class SerpLocalization
         { EnableMultiplayerGameSpeedChanges, "Change Gamespeed in Multiplayer" },
         { EnableMultiplayerGameSpeedChangesHelp, "Lets every human player change the running multiplayer game's speed with the normal increase/decrease keybinds or the in-game options slider. Changes are executed for all players through Script Extender's tick-aligned Chore transport. Multiplayer speed uses Script Extender's configured maximum and is not saved as the local singleplayer default." },
         { EnableShiftGameSpeedSteps, "Enable 25-step game-speed keybinds" },
-        { EnableShiftGameSpeedStepsHelp, "Hold Shift while pressing the normal increase/decrease game-speed keybind to change speed by 25 instead of 5, up to Script Extender's configured maximum. The options slider keeps its 5-step increments. Multiplayer changes use Script Extender's tick-aligned Chore transport." },
+        { EnableShiftGameSpeedStepsHelp, "Press or hold the normal increase/decrease game-speed keybind. The first change is immediate and repeats every 0.25 seconds while held; hold Shift for 25 instead of 5 per step, up to Script Extender's configured maximum. The options slider keeps its 5-step increments. Multiplayer changes use Script Extender's tick-aligned Chore transport." },
         { EnableTroopMovementFix, "Troop Speed Fix" },
         { EnableTroopMovementFixHelp, "Fixes synchronized movement for mixed troop groups: with a normal movement command, all units move at the speed of the slowest unit in the group." },
         { EnablePlaguePopularityFix, "Plague Popularity Fix" },
