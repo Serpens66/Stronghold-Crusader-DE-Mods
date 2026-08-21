@@ -638,25 +638,84 @@ internal static class Program
 
         var single = new SelectedUnitHealthSummary();
         single.Add(83, 120);
-        Check(single.HasUnits && single.UnitCount == 1 && single.Format() == "HP: 83 / 120",
+        Check(single.HasUnits && single.UnitCount == 1 &&
+              single.FormatCurrent() == "8" && single.FormatMaximum() == "12",
             "single-unit health summary was incorrect");
+        Check(single.Band == SelectedUnitHealthBand.Yellow,
+            "health at 69 percent was not classified as yellow");
+
+        var thresholds = new SelectedUnitHealthSummary();
+        thresholds.Add(75, 100);
+        Check(thresholds.Band == SelectedUnitHealthBand.Green,
+            "health at the 75-percent threshold was not classified as green");
+
+        thresholds = new SelectedUnitHealthSummary();
+        thresholds.Add(40, 100);
+        Check(thresholds.Band == SelectedUnitHealthBand.Yellow,
+            "health at the 40-percent threshold was not classified as yellow");
+
+        thresholds = new SelectedUnitHealthSummary();
+        thresholds.Add(39, 100);
+        Check(thresholds.Band == SelectedUnitHealthBand.Red,
+            "health below the 40-percent threshold was not classified as red");
 
         var multiple = new SelectedUnitHealthSummary();
         multiple.Add(83, 120);
         multiple.Add(1657, 1980);
-        Check(multiple.UnitCount == 2 && multiple.Format() == "HP: 1740 / 2100",
+        Check(multiple.UnitCount == 2 &&
+              multiple.FormatCurrent() == "174" && multiple.FormatMaximum() == "210",
             "multi-unit health summary did not sum current and maximum health");
 
         multiple.Add(-1, 100);
         multiple.Add(10, 0);
-        Check(multiple.UnitCount == 2 && multiple.Format() == "HP: 1740 / 2100",
+        Check(multiple.UnitCount == 2 &&
+              multiple.FormatCurrent() == "174" && multiple.FormatMaximum() == "210",
             "invalid or dead health entries changed the summary");
+
+        Check(SelectedUnitHealthSummary.ScaleForDisplay(4) == 0 &&
+              SelectedUnitHealthSummary.ScaleForDisplay(5) == 1 &&
+              SelectedUnitHealthSummary.ScaleForDisplay(14) == 1 &&
+              SelectedUnitHealthSummary.ScaleForDisplay(15) == 2,
+            "selected-unit health display scaling did not round halves away from zero");
 
         var large = new SelectedUnitHealthSummary();
         large.Add(int.MaxValue, int.MaxValue);
         large.Add(int.MaxValue, int.MaxValue);
         Check(large.CurrentHealth == 4294967294L && large.MaximumHealth == 4294967294L,
             "selected-unit health totals overflowed 32-bit values");
+        Check(large.FormatCurrent() == "429496729" && large.FormatMaximum() == "429496729",
+            "large selected-unit health display scaling was incorrect");
+        Check(large.Band == SelectedUnitHealthBand.Green,
+            "large selected-unit health totals overflowed during color classification");
+
+        var byType = new SelectedUnitHealthSummary[89];
+        byType[22].Add(500, 1000);
+        byType[22].Add(750, 1000);
+        byType[24].Add(2000, 2000);
+        Check(byType[22].FormatCurrent() == "125" && byType[22].FormatMaximum() == "200" &&
+              byType[22].Band == SelectedUnitHealthBand.Yellow &&
+              byType[24].FormatCurrent() == "200" && byType[24].FormatMaximum() == "200" &&
+              byType[24].Band == SelectedUnitHealthBand.Green,
+            "health totals or colors were not kept separate by troop type");
+
+        var selectedTypes = new int[89];
+        for (int type = 1; type <= 35; type++)
+            selectedTypes[type] = 1;
+        selectedTypes[55] = 1;
+
+        int[] page1 = SelectedUnitHealthPageLayout.GetVisibleTypes(selectedTypes, 0);
+        int[] page2 = SelectedUnitHealthPageLayout.GetVisibleTypes(selectedTypes, 1);
+        int[] page3 = SelectedUnitHealthPageLayout.GetVisibleTypes(selectedTypes, 2);
+        int[] page4 = SelectedUnitHealthPageLayout.GetVisibleTypes(selectedTypes, 3);
+        Check(page1.SequenceEqual(new[] { 1, 2, 3, 4, 5, 6, 7, 8 }) &&
+              page2.SequenceEqual(new[] { 9, 10, 11, 12, 13, 14, 15, 16 }) &&
+              page3.SequenceEqual(new[] { 18, 19, 20, 21, 22, 23, 24, 25 }) &&
+              page4.SequenceEqual(new[] { 27, 28, 29, 30, 31, 32, 33, 34 }),
+            "selected-unit health page slots did not mirror the vanilla HUD ordering");
+
+        int[] emptyPage = SelectedUnitHealthPageLayout.GetVisibleTypes(null, 0);
+        Check(emptyPage.Length == SelectedUnitHealthPageLayout.SlotCount && emptyPage.All(type => type == -1),
+            "an empty selected-unit health page exposed occupied slots");
     }
 
     private static void TestMarketGoodsOrderDefinition()
@@ -866,8 +925,8 @@ internal static class Program
                 MultiplayerGameSpeedPolicy.ProtocolVersion,
                 MultiplayerGameSpeedPolicy.FastIncreaseAction,
                 0,
-                out int fastAboveMaximum) && fastAboveMaximum == MultiplayerGameSpeedPolicy.MaximumSpeed,
-            "fast synchronized game-speed increase did not clamp to the upper bound");
+                out int fastAboveNinety) && fastAboveNinety == 100,
+            "fast synchronized game-speed increase was incorrectly clamped at 90");
         Check(MultiplayerGameSpeedPolicy.TryResolve(
                 75,
                 MultiplayerGameSpeedPolicy.FastDecreaseAction,
@@ -884,8 +943,8 @@ internal static class Program
                 85,
                 MultiplayerGameSpeedPolicy.FastIncreaseAction,
                 0,
-                out int fastFromEightyFive) && fastFromEightyFive == 90,
-            "fast game-speed increase from 85 did not clamp to 90");
+                out int fastFromEightyFive) && fastFromEightyFive == 110,
+            "fast game-speed increase from 85 did not advance beyond 90");
         Check(MultiplayerGameSpeedPolicy.TryResolve(
                 90,
                 MultiplayerGameSpeedPolicy.FastDecreaseAction,
@@ -896,8 +955,29 @@ internal static class Program
                 90,
                 MultiplayerGameSpeedPolicy.FastIncreaseAction,
                 0,
-                out int fastAtMaximum) && fastAtMaximum == MultiplayerGameSpeedPolicy.MaximumSpeed,
-            "fast game-speed increase exceeded the upper bound at 90");
+                out int fastAboveVanillaMaximum) && fastAboveVanillaMaximum == 115,
+            "fast game-speed increase was incorrectly clamped at Vanilla's upper bound");
+        Check(MultiplayerGameSpeedPolicy.TryResolve(
+                4990,
+                MultiplayerGameSpeedPolicy.FastIncreaseAction,
+                0,
+                out int fastAtConfiguredMaximum) &&
+              fastAtConfiguredMaximum == MultiplayerGameSpeedPolicy.MaximumSpeed,
+            "fast game-speed increase did not clamp to Script Extender's default maximum");
+        Check(MultiplayerGameSpeedPolicy.TryResolve(
+                75,
+                MultiplayerGameSpeedPolicy.FastIncreaseAction,
+                0,
+                90,
+                out int fastAtCustomMaximum) && fastAtCustomMaximum == 90,
+            "fast game-speed increase ignored a custom Script Extender maximum");
+        Check(MultiplayerGameSpeedPolicy.TryResolve(
+                85,
+                MultiplayerGameSpeedPolicy.FastIncreaseAction,
+                0,
+                92,
+                out int fastAtNonStepMaximum) && fastAtNonStepMaximum == 92,
+            "fast game-speed increase did not retain a non-step Script Extender maximum");
         Check(MultiplayerGameSpeedPolicy.TryResolve(
                 10,
                 MultiplayerGameSpeedPolicy.FastDecreaseAction,
@@ -950,7 +1030,11 @@ internal static class Program
             "fast multiplayer game-speed decrease accepted a target reserved for Set");
         Check(!MultiplayerGameSpeedPolicy.TryResolve(40, MultiplayerGameSpeedPolicy.SetAction, 64, out _),
             "non-step multiplayer game-speed target was accepted");
-        Check(!MultiplayerGameSpeedPolicy.TryResolve(40, MultiplayerGameSpeedPolicy.SetAction, 95, out _),
+        Check(!MultiplayerGameSpeedPolicy.TryResolve(
+                40,
+                MultiplayerGameSpeedPolicy.SetAction,
+                MultiplayerGameSpeedPolicy.MaximumSpeed + MultiplayerGameSpeedPolicy.SpeedStep,
+                out _),
             "out-of-range multiplayer game-speed target was accepted");
         Check(!MultiplayerGameSpeedPolicy.TryResolvePacket(
                 40,

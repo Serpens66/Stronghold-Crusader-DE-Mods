@@ -3,10 +3,34 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.43",
+  "Version": "1.0.47",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.47",
+      "Changes": [
+        "Increased the per-troop health text to roughly two thirds of Vanilla's troop-count font while retaining automatic resolution, UI-scale, and long-number scaling."
+      ]
+    },
+    {
+      "Version": "1.0.46",
+      "Changes": [
+        "Replaced the combined selected-unit health total with per-troop-type current health above each visible icon and maximum health on the lower HUD strip."
+      ]
+    },
+    {
+      "Version": "1.0.45",
+      "Changes": [
+        "Placed the selected-unit health text on the troop HUD's dark strip using resolution-independent logical coordinates and scaled displayed health by ten with integer rounding after verifying every selectable unit's default health."
+      ]
+    },
+    {
+      "Version": "1.0.44",
+      "Changes": [
+        "Moved the selected-unit health display directly above the selected unit icons and color-coded it green, yellow, or red according to the summed health ratio."
+      ]
+    },
     {
       "Version": "1.0.43",
       "Changes": [

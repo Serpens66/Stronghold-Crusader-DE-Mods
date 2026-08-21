@@ -261,7 +261,12 @@ namespace ExtraFeatures
             }
 
             int previousSpeed = GetCurrentSpeed();
-            if (!MultiplayerGameSpeedPolicy.TryResolve(previousSpeed, action, 0, out int resolvedSpeed) ||
+            if (!MultiplayerGameSpeedPolicy.TryResolve(
+                    previousSpeed,
+                    action,
+                    0,
+                    GetMaximumSpeed(),
+                    out int resolvedSpeed) ||
                 resolvedSpeed == previousSpeed)
                 return;
 
@@ -305,7 +310,8 @@ namespace ExtraFeatures
                 return;
 
             int targetSpeed = MultiplayerGameSpeedPolicy.NormalizeObservedSpeed(
-                (int)Math.Round(slider.Value * MultiplayerGameSpeedPolicy.SpeedStep));
+                (int)Math.Round(slider.Value * MultiplayerGameSpeedPolicy.SpeedStep),
+                GetMaximumSpeed());
             if (targetSpeed == lastSliderBucket)
                 return;
 
@@ -378,6 +384,7 @@ namespace ExtraFeatures
                     packet.ProtocolVersion,
                     packet.Action,
                     packet.TargetSpeed,
+                    GetMaximumSpeed(),
                     out int resolvedSpeed))
             {
                 LogError("rejected a multiplayer game-speed Chore with an invalid payload.");
@@ -436,7 +443,7 @@ namespace ExtraFeatures
             try
             {
                 slider.Minimum = MultiplayerGameSpeedPolicy.MinimumSpeed / MultiplayerGameSpeedPolicy.SpeedStep;
-                slider.Maximum = MultiplayerGameSpeedPolicy.MaximumSpeed / MultiplayerGameSpeedPolicy.SpeedStep;
+                slider.Maximum = (float)GetMaximumSpeed() / MultiplayerGameSpeedPolicy.SpeedStep;
                 slider.TickFrequency = 1;
                 slider.IsSnapToTickEnabled = true;
                 slider.Value = speed / MultiplayerGameSpeedPolicy.SpeedStep;
@@ -473,7 +480,16 @@ namespace ExtraFeatures
                 return 40;
 
             int observed = (int)Math.Round(1.0 / director.EngineFrameTime);
-            return MultiplayerGameSpeedPolicy.NormalizeObservedSpeed(observed);
+            return MultiplayerGameSpeedPolicy.NormalizeObservedSpeed(observed, GetMaximumSpeed());
+        }
+
+        private static int GetMaximumSpeed()
+        {
+            // Match the same live configuration used by Script Extender's Director IL hooks.
+            SHCDESE.BepInEx.Bootstrap.Plugin plugin = SHCDESE.BepInEx.Bootstrap.Plugin.Instance;
+            return plugin?.MaxGameSpeed != null
+                ? Math.Max(MultiplayerGameSpeedPolicy.MinimumSpeed, (int)plugin.MaxGameSpeed.Value)
+                : MultiplayerGameSpeedPolicy.MaximumSpeed;
         }
 
         private static bool TryGetLoadedMainViewModel(out MainViewModel main)

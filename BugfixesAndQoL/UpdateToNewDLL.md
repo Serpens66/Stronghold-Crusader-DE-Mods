@@ -66,6 +66,19 @@ lord transition, and post-transition identity checks remain fail-closed.
 
 ## Required update audit
 
+### Selected-unit HP display audit
+
+The display reads live `GameUnit.r_CurrentHealth` and `r_MaxHealth` through the
+Script Extender and has no production RVA access. For the canonical DLL with
+SHA-256 `33AA33457F7DFAAA6D316D1D5E4C5AB97094F2C73B68D349990ABF9D0EF3B469`,
+the Script Extender resolved `gUnitHealthTable` at RVA `0x321820` (`.data`, raw
+file offset `0x320C20`). All 34 unit types represented by
+`HUD_Troops.SetSelectedTroopVisible` have default HP divisible by 10: the range
+is 5,000 (ladderman/engineer) through 240,000 (siege tower). The HUD therefore
+displays current and maximum sums divided by 10 and rounded to the nearest
+integer, with midpoint values rounded away from zero. Recheck this table and
+the HUD-supported type list before retaining that scale for a new DLL.
+
 1. Hash the canonical installed DLL and record its Steam build ID and size.
 2. Resolve every table entry with `.tools/find_pe_pattern.py`; require exactly
    one match and confirm the function, instruction boundary, ABI, registers and

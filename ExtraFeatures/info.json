@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.26",
+  "Version": "1.0.27",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.27",
+      "Changes": [
+        "Extended synchronized normal and Shift game-speed changes beyond 90 up to Script Extender's configured maximum."
+      ]
+    },
     {
       "Version": "1.0.26",
       "Changes": [
