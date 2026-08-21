@@ -46,6 +46,7 @@
     <Compile Include="src\RandomEventsSaveState.cs" />
     <Compile Include="src\RandomEventsState.cs" />
     <Compile Include="src\RandomEventsSettingsViewModel.cs" />
+    <Compile Include="src\RandomEventsVanillaChoreDiagnostics.cs" />
     <Compile Include="src\ScenarioSignpostRegistry.cs" />
     <Compile Include="src\SignpostPlacementService.cs" />
   </ItemGroup>

@@ -44,6 +44,7 @@ namespace RandomEvents
         private readonly NativeVanillaEventDispatcher nativeEventDispatcher;
         private readonly NativeWildlifeEventDispatcher nativeWildlifeDispatcher;
         private readonly NativeBanditEventSupport nativeBanditSupport;
+        private readonly RandomEventsVanillaChoreDiagnostics vanillaChoreDiagnostics;
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
         private readonly List<PendingBanditGroup> pendingBanditGroups = new List<PendingBanditGroup>();
         private readonly HashSet<int> initializationAcknowledgedPlayerIds = new HashSet<int>();
@@ -97,6 +98,7 @@ namespace RandomEvents
             nativeEventDispatcher = new NativeVanillaEventDispatcher(log);
             nativeWildlifeDispatcher = new NativeWildlifeEventDispatcher(log, nativeEventDispatcher);
             nativeBanditSupport = new NativeBanditEventSupport(log);
+            vanillaChoreDiagnostics = new RandomEventsVanillaChoreDiagnostics(log);
         }
 
         public void InitializeNative(IntPtr libraryHandle, ReadOnlySpan<byte> memory, bool referenceHashMatches)
@@ -127,6 +129,7 @@ namespace RandomEvents
             LogDebug($"Random Events Script Extender binary: {RandomEventsDiagnostics.DescribeScriptExtenderBinary()}.");
             string serializerTests = RandomEventsDiagnostics.RunSerializerSelfTests(ChoreProtocolVersion);
             LogDebug($"Random Events Chore serializer self-tests passed: {serializerTests}.");
+            vanillaChoreDiagnostics.Initialize();
         }
 
         public void Initialize()
@@ -178,6 +181,7 @@ namespace RandomEvents
 
         private void OnUnloadMap(MapUnloadEventArgs args)
         {
+            vanillaChoreDiagnostics.Clear();
             ResetMapState();
         }
 
@@ -1107,7 +1111,20 @@ namespace RandomEvents
                 // GameAction has no result signal, so its successful roll is the inexpensive success boundary.
                 bool cooldownStartedFromRoll = definition.DispatchKind == RandomEventDispatchKind.GameAction;
                 if (cooldownStartedFromRoll)
+                {
+                    if (isRealMultiplayer)
+                    {
+                        vanillaChoreDiagnostics.Arm(
+                            due,
+                            index,
+                            definition.Name,
+                            definition.TextId,
+                            strength,
+                            targetPlayerId,
+                            isLocalHost);
+                    }
                     StartEventCooldown(definition.Kind, targetPlayerId, due);
+                }
 
                 bool effectApplied = DispatchDirectEvent(definition, strength, targetPlayerId);
                 if (!cooldownStartedFromRoll && effectApplied)
