@@ -25,6 +25,7 @@ namespace BugfixesAndQoL
         private bool enablePlagueTargetReservationFix = true;
         private bool enableAssemblyPointPlacementFix = true;
         private bool enableSurrenderAndStatistics = true;
+        private bool enableLordUnitControls = true;
         private bool enableEliminatedPlayersBecomeSpectators = true;
         private bool enableResyncHostKick = true;
         private bool enableCustomTrailExtremeGoldFix = true;
@@ -98,6 +99,8 @@ namespace BugfixesAndQoL
         public string EnableAssemblyPointPlacementFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableAssemblyPointPlacementFixHelp");
         public string EnableSurrenderAndStatisticsText => SerpLocalization.Get("BugfixesAndQoL.EnableSurrenderAndStatistics");
         public string EnableSurrenderAndStatisticsHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableSurrenderAndStatisticsHelp");
+        public string EnableLordUnitControlsText => SerpLocalization.Get("BugfixesAndQoL.EnableLordUnitControls");
+        public string EnableLordUnitControlsHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableLordUnitControlsHelp");
         public string EnableEliminatedPlayersBecomeSpectatorsText => SerpLocalization.Get("BugfixesAndQoL.EnableEliminatedPlayersBecomeSpectators");
         public string EnableEliminatedPlayersBecomeSpectatorsHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableEliminatedPlayersBecomeSpectatorsHelp");
         public string EnableCustomTrailExtremeGoldFixText => SerpLocalization.Get("BugfixesAndQoL.EnableCustomTrailExtremeGoldFix");
@@ -327,6 +330,13 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
+        public bool EnableLordUnitControls
+        {
+            get => enableLordUnitControls;
+            set => SetSetting(ref enableLordUnitControls, value, nameof(EnableLordUnitControls));
+        }
+
+        [SyncHostOnly]
         public bool EnableEliminatedPlayersBecomeSpectators
         {
             get => enableEliminatedPlayersBecomeSpectators;
@@ -354,6 +364,7 @@ namespace BugfixesAndQoL
                 EnablePlagueTargetReservationFix = true;
                 EnableAssemblyPointPlacementFix = true;
                 EnableSurrenderAndStatistics = true;
+                EnableLordUnitControls = true;
                 EnableEliminatedPlayersBecomeSpectators = true;
                 EnableResyncHostKick = true;
             }

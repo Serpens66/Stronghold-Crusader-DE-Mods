@@ -99,3 +99,5 @@ BugfixesAndQoL.SurrenderConfirmationTitle=Partie aufgeben
 BugfixesAndQoL.SurrenderConfirmationMessage=Möchtest du die aktuelle Partie wirklich aufgeben? Diese Entscheidung ist endgültig und zählt als Niederlage.
 BugfixesAndQoL.ShowSelectedUnitHealth=Lebenspunkte ausgewaehlter Einheiten im Truppen-HUD anzeigen
 BugfixesAndQoL.ShowSelectedUnitHealthHelp=Zeigt die aktuellen und maximalen Lebenspunkte der ausgewaehlten Einheiten im Truppen-HUD an. Bei mehreren Einheiten werden die Werte summiert. Diese Einstellung gilt pro Spieler.
+BugfixesAndQoL.EnableLordUnitControls=Lord-Steuerung im Truppen-HUD aktivieren
+BugfixesAndQoL.EnableLordUnitControlsHelp=Zeigt beim Anklicken des eigenen Lords ein kompaktes Truppen-HUD. Vanilla-Haltung und Einheitenbefehle bleiben verfuegbar; Aufloesen verwendet die bestaetigte Aufgeben-Aktion.

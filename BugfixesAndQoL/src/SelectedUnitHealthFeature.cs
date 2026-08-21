@@ -25,6 +25,15 @@ namespace BugfixesAndQoL
         private string maximumText = string.Empty;
         private Brush currentForeground = GreenBrush;
 
+        internal static Brush GreenBrushValue => GreenBrush;
+
+        internal static Brush GetBandBrush(SelectedUnitHealthBand band) =>
+            band == SelectedUnitHealthBand.Green
+                ? GreenBrush
+                : band == SelectedUnitHealthBand.Yellow
+                    ? YellowBrush
+                    : RedBrush;
+
         public string CurrentText
         {
             get => currentText;
@@ -65,11 +74,7 @@ namespace BugfixesAndQoL
         {
             CurrentText = summary.FormatCurrent();
             MaximumText = summary.FormatMaximum();
-            CurrentForeground = summary.Band == SelectedUnitHealthBand.Green
-                ? GreenBrush
-                : summary.Band == SelectedUnitHealthBand.Yellow
-                    ? YellowBrush
-                    : RedBrush;
+            CurrentForeground = GetBandBrush(summary.Band);
         }
 
         public void Clear()
@@ -82,6 +87,10 @@ namespace BugfixesAndQoL
     internal sealed class SelectedUnitHealthViewModel : LobbyModSettingsBaseViewModel
     {
         private Visibility healthVisibility = Visibility.Collapsed;
+        private Visibility lordHealthVisibility = Visibility.Collapsed;
+        private string lordCurrentText = string.Empty;
+        private string lordMaximumText = string.Empty;
+        private Brush lordCurrentForeground = SelectedUnitHealthSlotViewModel.GreenBrushValue;
 
         public SelectedUnitHealthViewModel()
         {
@@ -112,8 +121,57 @@ namespace BugfixesAndQoL
             }
         }
 
+        public Visibility LordHealthVisibility
+        {
+            get => lordHealthVisibility;
+            private set
+            {
+                if (lordHealthVisibility == value)
+                    return;
+                lordHealthVisibility = value;
+                OnPropertyChanged(nameof(LordHealthVisibility));
+            }
+        }
+
+        public string LordCurrentText
+        {
+            get => lordCurrentText;
+            private set
+            {
+                if (lordCurrentText == value)
+                    return;
+                lordCurrentText = value;
+                OnPropertyChanged(nameof(LordCurrentText));
+            }
+        }
+
+        public string LordMaximumText
+        {
+            get => lordMaximumText;
+            private set
+            {
+                if (lordMaximumText == value)
+                    return;
+                lordMaximumText = value;
+                OnPropertyChanged(nameof(LordMaximumText));
+            }
+        }
+
+        public Brush LordCurrentForeground
+        {
+            get => lordCurrentForeground;
+            private set
+            {
+                if (ReferenceEquals(lordCurrentForeground, value))
+                    return;
+                lordCurrentForeground = value;
+                OnPropertyChanged(nameof(LordCurrentForeground));
+            }
+        }
+
         public void Show(SelectedUnitHealthSummary[] summaries, int[] visibleTypes)
         {
+            HideLord();
             bool anyVisible = false;
             for (int slot = 0; slot < Slots.Length; slot++)
             {
@@ -132,11 +190,37 @@ namespace BugfixesAndQoL
             HealthVisibility = anyVisible ? Visibility.Visible : Visibility.Collapsed;
         }
 
+        public void ShowLord(SelectedUnitHealthSummary summary)
+        {
+            HealthVisibility = Visibility.Collapsed;
+            for (int i = 0; i < Slots.Length; i++)
+                Slots[i].Clear();
+
+            if (!summary.HasUnits)
+            {
+                HideLord();
+                return;
+            }
+
+            LordCurrentText = summary.FormatCurrent();
+            LordMaximumText = summary.FormatMaximum();
+            LordCurrentForeground = SelectedUnitHealthSlotViewModel.GetBandBrush(summary.Band);
+            LordHealthVisibility = Visibility.Visible;
+        }
+
         public void Hide()
         {
             HealthVisibility = Visibility.Collapsed;
             for (int i = 0; i < Slots.Length; i++)
                 Slots[i].Clear();
+            HideLord();
+        }
+
+        private void HideLord()
+        {
+            LordHealthVisibility = Visibility.Collapsed;
+            LordCurrentText = string.Empty;
+            LordMaximumText = string.Empty;
         }
     }
 
@@ -151,14 +235,19 @@ namespace BugfixesAndQoL
 
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
+        private readonly Func<bool> isLordModeActive;
         private int lastFrame = -1;
         private bool callbackErrorLogged;
         private bool disposed;
 
-        public SelectedUnitHealthFeature(ManualLogSource log, BugfixesAndQoLViewModel settings)
+        public SelectedUnitHealthFeature(
+            ManualLogSource log,
+            BugfixesAndQoLViewModel settings,
+            Func<bool> isLordModeActive)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
+            this.isLordModeActive = isLordModeActive ?? throw new ArgumentNullException(nameof(isLordModeActive));
             ViewModel = new SelectedUnitHealthViewModel();
 
             // The BepInEx component is short-lived, but this static Unity event remains available in game.
@@ -228,6 +317,17 @@ namespace BugfixesAndQoL
                 return;
             }
 
+            if (isLordModeActive() &&
+                selectedCount == 1 &&
+                state.selectedChimps.Length > 0 &&
+                TryGetSelectedLocalLord(state.selectedChimps[0], out GameUnit* selectedLord))
+            {
+                var lordSummary = new SelectedUnitHealthSummary();
+                lordSummary.Add(selectedLord->r_CurrentHealth, selectedLord->r_MaxHealth);
+                ViewModel.ShowLord(lordSummary);
+                return;
+            }
+
             var summaries = new SelectedUnitHealthSummary[(int)eChimps.CHIMP_NUM_TYPES];
             int count = Math.Min(selectedCount, state.selectedChimps.Length);
             GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
@@ -258,6 +358,29 @@ namespace BugfixesAndQoL
                 selectedTypeCounts,
                 currentPage);
             ViewModel.Show(summaries, visibleTypes);
+        }
+
+        private static bool TryGetSelectedLocalLord(int selectedUnitId, out GameUnit* lord)
+        {
+            lord = null;
+            GamePlayerManagerAPI players = GamePlayerManagerAPI.Instance;
+            if (selectedUnitId <= 0 || players == null)
+                return false;
+
+            int localPlayerId = players.GetLocalPlayerId();
+            if (localPlayerId < 1 || localPlayerId > 8 ||
+                players.GetLordUnitId(localPlayerId) != selectedUnitId ||
+                !GameUnitManagerAPI.Instance.TryGetUnitById(selectedUnitId, out lord) ||
+                lord == null)
+            {
+                lord = null;
+                return false;
+            }
+
+            return lord->r_AliveState == AliveState.IsAlive &&
+                lord->r_UnitChimp == eChimps.CHIMP_TYPE_LORD &&
+                lord->r_ControllableForPlayerId == localPlayerId &&
+                lord->r_CurrentHealth > 0;
         }
     }
 }

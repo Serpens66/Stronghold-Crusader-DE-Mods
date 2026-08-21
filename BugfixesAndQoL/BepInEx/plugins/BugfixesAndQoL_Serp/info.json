@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.47",
+  "Version": "1.0.48",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.48",
+      "Changes": [
+        "Added a default-enabled host setting that opens a compact Vanilla troop-command HUD for the local Lord, shows optional Lord health in its free action slots, and routes disband through the synchronized confirmed-surrender flow."
+      ]
+    },
     {
       "Version": "1.0.47",
       "Changes": [

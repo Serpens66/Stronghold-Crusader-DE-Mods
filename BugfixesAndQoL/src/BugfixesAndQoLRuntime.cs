@@ -20,6 +20,7 @@ namespace BugfixesAndQoL
         private CustomTrailExtremeGoldFixHook customTrailExtremeGoldFixHook;
         private ResyncHostKickFeature resyncHostKickFeature;
         private SurrenderFeature surrenderFeature;
+        private LordUnitControlsFeature lordUnitControlsFeature;
         private SelectedUnitHealthFeature selectedUnitHealthFeature;
         private AssemblyPointPlacementPatch assemblyPointPlacementPatch;
         private PlaguePopularityFix plaguePopularityFix;
@@ -56,17 +57,23 @@ namespace BugfixesAndQoL
             if (selectedUnitHealthFeature != null)
                 return;
 
-            selectedUnitHealthFeature = new SelectedUnitHealthFeature(log, settings);
+            selectedUnitHealthFeature = new SelectedUnitHealthFeature(
+                log,
+                settings,
+                () => lordUnitControlsFeature?.IsLordModeActive == true);
             selectedUnitHealthFeature.RefreshSetting();
         }
 
         public void InitializeSurrenderFeature()
         {
-            if (surrenderFeature != null)
-                return;
+            if (surrenderFeature == null)
+            {
+                surrenderFeature = new SurrenderFeature(log, settings);
+                surrenderFeature.Initialize();
+            }
 
-            surrenderFeature = new SurrenderFeature(log, settings);
-            surrenderFeature.Initialize();
+            if (lordUnitControlsFeature == null)
+                lordUnitControlsFeature = new LordUnitControlsFeature(log, settings, surrenderFeature);
         }
 
         public void InitializeNative(IntPtr newLibraryHandle, ReadOnlySpan<byte> memory, bool isFixedLayoutHashValidated)
@@ -118,6 +125,8 @@ namespace BugfixesAndQoL
             customLordListEnhancementHook = null;
             resyncHostKickFeature?.Dispose();
             resyncHostKickFeature = null;
+            lordUnitControlsFeature?.Dispose();
+            lordUnitControlsFeature = null;
             surrenderFeature?.Dispose();
             surrenderFeature = null;
             selectedUnitHealthFeature?.Dispose();

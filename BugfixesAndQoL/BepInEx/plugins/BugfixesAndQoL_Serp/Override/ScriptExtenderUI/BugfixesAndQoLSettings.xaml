@@ -186,6 +186,12 @@
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding EnableSurrenderAndStatisticsText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox>
+      <CheckBox IsChecked="{Binding EnableLordUnitControls, Mode=TwoWay}"
+                Foreground="White"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableLordUnitControlsHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding EnableLordUnitControlsText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox>
       <CheckBox IsChecked="{Binding EnableEliminatedPlayersBecomeSpectators, Mode=TwoWay}"
                 Foreground="White"
                 ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableEliminatedPlayersBecomeSpectatorsHelpText}"

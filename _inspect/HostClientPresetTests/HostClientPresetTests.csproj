@@ -57,6 +57,9 @@
     <Compile Include="..\..\BugfixesAndQoL\src\SelectedUnitHealthSummary.cs">
       <Link>SelectedUnitHealthSummary.cs</Link>
     </Compile>
+    <Compile Include="..\..\BugfixesAndQoL\src\LordUnitControlsPolicy.cs">
+      <Link>LordUnitControlsPolicy.cs</Link>
+    </Compile>
     <Compile Include="..\..\BugfixesAndQoL\src\SurrenderPackets.cs">
       <Link>SurrenderPackets.cs</Link>
     </Compile>

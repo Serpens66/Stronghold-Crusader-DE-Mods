@@ -26,7 +26,7 @@ namespace BugfixesAndQoL
 
         public const string PluginGuid = "BugfixesAndQoL_Serp";
         public const string PluginName = "Bugfixes and QoL";
-        public const string PluginVersion = "1.0.47";
+        public const string PluginVersion = "1.0.48";
 
         private static DisplayResolutionPersistenceHook displayResolutionPersistenceHook;
         private static SteamLobbyInvitePrompt steamLobbyInvitePrompt;
@@ -165,6 +165,9 @@ namespace BugfixesAndQoL
                 runtime.InitializeSelectedUnitHealthFeature();
                 GameXAMLManagerAPI.Instance.RegisterBinding(
                     "BugfixesAndQoLSelectedUnitHealthHost",
+                    runtime.SelectedUnitHealthUi);
+                GameXAMLManagerAPI.Instance.RegisterBinding(
+                    "BugfixesAndQoLLordHealthHost",
                     runtime.SelectedUnitHealthUi);
             }
             catch (Exception ex)

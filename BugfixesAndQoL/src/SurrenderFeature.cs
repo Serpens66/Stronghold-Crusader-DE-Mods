@@ -183,6 +183,7 @@ namespace BugfixesAndQoL
         private int nextRequestId;
         private int nextOperationId;
         private long confirmationSequence;
+        private long confirmationOpenedFromMenuSequence;
         private HUD_MissionOver statisticsPreviewView;
         private bool statisticsReady;
         private bool statisticsPreviewActive;
@@ -492,20 +493,53 @@ namespace BugfixesAndQoL
                     return;
                 }
 
-                long sequence = ++confirmationSequence;
-                MainViewModel.Instance.HUDIngameMenu.Hide();
-                HUD_ConfirmationPopup.ShowConfirmationMessage(
-                    SerpLocalization.Get("BugfixesAndQoL.SurrenderConfirmationTitle"),
-                    () => ConfirmSurrender(sequence),
-                    () => CancelSurrender(sequence),
-                    SerpLocalization.Get("BugfixesAndQoL.SurrenderConfirmationMessage"));
-                Shared.DebugLogHelper.LogDebug(log, "Displayed surrender confirmation.");
+                ShowSurrenderConfirmation(openedFromIngameMenu: true);
             }
             catch (Exception ex)
             {
                 ReopenIngameMenu();
                 Shared.DebugLogHelper.LogError(log, $"Bugfixes and QoL could not display the surrender confirmation: {ex}");
             }
+        }
+
+        internal bool TryRequestSurrenderFromLordHud()
+        {
+            try
+            {
+                RefreshButtonState();
+                if (buttonViewModel.SurrenderButtonVisibility != Visibility.Visible ||
+                    !buttonViewModel.SurrenderButtonEnabled)
+                {
+                    return false;
+                }
+
+                ShowSurrenderConfirmation(openedFromIngameMenu: false);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Bugfixes and QoL could not display the Lord-disband surrender confirmation: {ex}");
+                return false;
+            }
+        }
+
+        private void ShowSurrenderConfirmation(bool openedFromIngameMenu)
+        {
+            long sequence = ++confirmationSequence;
+            confirmationOpenedFromMenuSequence = openedFromIngameMenu ? sequence : 0;
+            if (openedFromIngameMenu)
+                MainViewModel.Instance.HUDIngameMenu.Hide();
+
+            HUD_ConfirmationPopup.ShowConfirmationMessage(
+                SerpLocalization.Get("BugfixesAndQoL.SurrenderConfirmationTitle"),
+                () => ConfirmSurrender(sequence),
+                () => CancelSurrender(sequence),
+                SerpLocalization.Get("BugfixesAndQoL.SurrenderConfirmationMessage"));
+            Shared.DebugLogHelper.LogDebug(
+                log,
+                $"Displayed surrender confirmation: source={(openedFromIngameMenu ? "ingame-menu" : "lord-disband")}, sequence={sequence}.");
         }
 
         private static void OnQuitMissionCommand()
@@ -910,8 +944,10 @@ namespace BugfixesAndQoL
 
             try
             {
-                // Close restores Vanilla's pre-menu pause state before the lord death is processed.
-                MainViewModel.Instance.HUDIngameMenu.Close();
+                // Only the menu button changes Vanilla's pause state; the Lord HUD stays in live play.
+                if (confirmationOpenedFromMenuSequence == sequence)
+                    MainViewModel.Instance.HUDIngameMenu.Close();
+                confirmationOpenedFromMenuSequence = 0;
                 int localPlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
                 SurrenderLordSnapshot lord = CaptureLord(localPlayerId);
                 bool activeMatch = IsActiveMatch();
@@ -967,8 +1003,15 @@ namespace BugfixesAndQoL
             if (sequence != confirmationSequence)
                 return;
 
-            ReopenIngameMenu();
-            Shared.DebugLogHelper.LogDebug(log, "Cancelled surrender and reopened the in-game menu.");
+            bool reopenMenu = confirmationOpenedFromMenuSequence == sequence;
+            confirmationOpenedFromMenuSequence = 0;
+            if (reopenMenu)
+                ReopenIngameMenu();
+            Shared.DebugLogHelper.LogDebug(
+                log,
+                reopenMenu
+                    ? "Cancelled surrender and reopened the in-game menu."
+                    : "Cancelled surrender from the Lord troop HUD.");
         }
 
         private void OnRequestReceived(ReceiveCustomPacketEventArgs<SurrenderRequestPacket> args)

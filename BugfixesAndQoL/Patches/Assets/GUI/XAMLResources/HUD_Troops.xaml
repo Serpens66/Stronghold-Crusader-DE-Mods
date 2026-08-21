@@ -45,4 +45,39 @@
       </Grid>
     </Content>
   </Operation>
+  <Operation Type="Add" XPath="//n:Grid[@Name='UnitControls']">
+    <Content>
+      <Border x:Name="BugfixesAndQoLLordHealthHost"
+              Width="78"
+              Height="37"
+              Margin="40,40,0,3"
+              Panel.ZIndex="20"
+              Background="#55000000"
+              IsHitTestVisible="False"
+              Visibility="{Binding LordHealthVisibility}"
+              Tag="Ignore">
+        <Viewbox Width="72"
+                 Height="31"
+                 Margin="3"
+                 Stretch="Uniform"
+                 StretchDirection="DownOnly"
+                 Tag="Ignore">
+          <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Tag="Ignore">
+            <TextBlock Text="{Binding LordCurrentText}"
+                       FontSize="16"
+                       Foreground="{Binding LordCurrentForeground}"
+                       Tag="Ignore">
+              <TextBlock.Effect><DropShadowEffect ShadowDepth="1" Direction="315" Color="#CC000000" BlurRadius="0"/></TextBlock.Effect>
+            </TextBlock>
+            <TextBlock Text=" / " FontSize="16" Foreground="#FFDDDDDD" Tag="Ignore">
+              <TextBlock.Effect><DropShadowEffect ShadowDepth="1" Direction="315" Color="#CC000000" BlurRadius="0"/></TextBlock.Effect>
+            </TextBlock>
+            <TextBlock Text="{Binding LordMaximumText}" FontSize="16" Foreground="#FF66CC66" Tag="Ignore">
+              <TextBlock.Effect><DropShadowEffect ShadowDepth="1" Direction="315" Color="#CC000000" BlurRadius="0"/></TextBlock.Effect>
+            </TextBlock>
+          </StackPanel>
+        </Viewbox>
+      </Border>
+    </Content>
+  </Operation>
 </Patch>

@@ -424,6 +424,31 @@ internal static class Program
         var deadLord = new SurrenderLordSnapshot(2, 120, 8120, 2, false);
         var foreignLord = new SurrenderLordSnapshot(2, 120, 8120, 3, true);
 
+        Check(LordUnitControlsPolicy.CanActivate(
+                true, true, true, false, false, 1, 120, 2, validLord),
+            "compact Lord HUD rejected the sole selected local Lord");
+        Check(!LordUnitControlsPolicy.CanActivate(
+                true, true, true, false, false, 2, 120, 2, validLord),
+            "compact Lord HUD accepted a mixed selection");
+        Check(!LordUnitControlsPolicy.CanActivate(
+                true, true, true, false, false, 1, 121, 2, validLord),
+            "compact Lord HUD accepted a non-Lord selected unit");
+        Check(!LordUnitControlsPolicy.CanActivate(
+                true, true, true, false, false, 1, 120, 3, validLord),
+            "compact Lord HUD accepted another player's Lord");
+        Check(!LordUnitControlsPolicy.CanActivate(
+                true, true, true, false, true, 1, 120, 2, validLord),
+            "compact Lord HUD appeared for a spectator");
+        Check(!LordUnitControlsPolicy.CanActivate(
+                true, true, true, true, false, 1, 120, 2, validLord),
+            "compact Lord HUD appeared in the map editor");
+        Check(!LordUnitControlsPolicy.CanActivate(
+                true, true, true, false, false, 1, 120, 2, deadLord),
+            "compact Lord HUD accepted a dead Lord");
+        Check(LordUnitControlsPolicy.CanShowDisband(true, true) &&
+              !LordUnitControlsPolicy.CanShowDisband(true, false),
+            "Lord disband visibility ignored surrender availability");
+
         Check(SurrenderPolicy.CanShowButton(true, true, false, false, validLord),
             "surrender button rejected an active player with a living lord");
         Check(!SurrenderPolicy.CanShowButton(false, true, false, false, validLord),
@@ -550,34 +575,42 @@ internal static class Program
         setting.PreparePresets(null, pluginPath, "SurrenderAndStatisticsSettingTest");
         setting.ActivatePresets();
         Check(setting.EnableSurrenderAndStatistics, "EnableSurrenderAndStatistics did not default to true");
+        Check(setting.EnableLordUnitControls, "EnableLordUnitControls did not default to true");
         Check(setting.EnableEliminatedPlayersBecomeSpectators,
             "EnableEliminatedPlayersBecomeSpectators did not default to true");
         Check(typeof(SurrenderAndStatisticsSettingViewModel).GetProperty("EnableSurrender") == null,
             "obsolete EnableSurrender property remains present");
         setting.EnableSurrenderAndStatistics = false;
+        setting.EnableLordUnitControls = false;
         setting.EnableEliminatedPlayersBecomeSpectators = false;
         setting.SelectedPreset = 1;
         Check(setting.EnableSurrenderAndStatistics, "new shared preset did not retain the default true value");
+        Check(setting.EnableLordUnitControls, "new shared preset did not retain the Lord-controls default true value");
         Check(setting.EnableEliminatedPlayersBecomeSpectators,
             "new shared preset did not retain the spectator-promotion default true value");
         setting.SelectedPreset = 0;
         Check(!setting.EnableSurrenderAndStatistics, "shared host value did not round-trip through presets");
+        Check(!setting.EnableLordUnitControls, "Lord-controls host value did not round-trip through presets");
         Check(!setting.EnableEliminatedPlayersBecomeSpectators,
             "spectator-promotion host value did not round-trip through presets");
 
         GameNetworkAPI.LocalHost = false;
         setting.System_RefreshSettingsAccess();
         setting.EnableSurrenderAndStatistics = true;
+        setting.EnableLordUnitControls = true;
         setting.EnableEliminatedPlayersBecomeSpectators = true;
         Check(!setting.EnableSurrenderAndStatistics, "client mutated the host-only EnableSurrenderAndStatistics setting");
+        Check(!setting.EnableLordUnitControls, "client mutated the host-only EnableLordUnitControls setting");
         Check(!setting.EnableEliminatedPlayersBecomeSpectators,
             "client mutated the host-only EnableEliminatedPlayersBecomeSpectators setting");
         GameXAMLManagerAPI.Instance.ApplyNetworkSync(setting, () =>
         {
             setting.EnableSurrenderAndStatistics = true;
+            setting.EnableLordUnitControls = true;
             setting.EnableEliminatedPlayersBecomeSpectators = true;
         });
         Check(setting.EnableSurrenderAndStatistics, "authoritative host sync did not update EnableSurrenderAndStatistics");
+        Check(setting.EnableLordUnitControls, "authoritative host sync did not update EnableLordUnitControls");
         Check(setting.EnableEliminatedPlayersBecomeSpectators,
             "authoritative host sync did not update EnableEliminatedPlayersBecomeSpectators");
 
@@ -585,17 +618,21 @@ internal static class Program
             new Dictionary<string, byte[]>
             {
                 [nameof(setting.EnableSurrenderAndStatistics)] = MessagePackSerializer.Serialize(false),
+                [nameof(setting.EnableLordUnitControls)] = MessagePackSerializer.Serialize(false),
                 [nameof(setting.EnableEliminatedPlayersBecomeSpectators)] = MessagePackSerializer.Serialize(false)
             },
             "Trail",
             editable: false);
         Check(!setting.EnableSurrenderAndStatistics && !setting.CanEditHostSettings,
             "read-only Trail did not apply and lock EnableSurrenderAndStatistics");
+        Check(!setting.EnableLordUnitControls, "read-only Trail did not apply EnableLordUnitControls");
         Check(!setting.EnableEliminatedPlayersBecomeSpectators,
             "read-only Trail did not apply EnableEliminatedPlayersBecomeSpectators");
         setting.EnableSurrenderAndStatistics = true;
+        setting.EnableLordUnitControls = true;
         setting.EnableEliminatedPlayersBecomeSpectators = true;
         Check(!setting.EnableSurrenderAndStatistics, "client changed EnableSurrenderAndStatistics inside a read-only Trail");
+        Check(!setting.EnableLordUnitControls, "client changed EnableLordUnitControls inside a read-only Trail");
         Check(!setting.EnableEliminatedPlayersBecomeSpectators,
             "client changed EnableEliminatedPlayersBecomeSpectators inside a read-only Trail");
         setting.System_ExitMissionPreset();
@@ -604,6 +641,7 @@ internal static class Program
         setting.System_RefreshSettingsAccess();
         setting.ResetSurrenderAndStatistics();
         Check(setting.EnableSurrenderAndStatistics, "EnableSurrenderAndStatistics reset value was not true");
+        Check(setting.EnableLordUnitControls, "EnableLordUnitControls reset value was not true");
         Check(setting.EnableEliminatedPlayersBecomeSpectators,
             "EnableEliminatedPlayersBecomeSpectators reset value was not true");
     }
@@ -1427,6 +1465,7 @@ internal sealed class MixedViewModel : PresetLobbyModSettingsViewModel
 internal sealed class SurrenderAndStatisticsSettingViewModel : PresetLobbyModSettingsViewModel
 {
     private bool enableSurrenderAndStatistics = true;
+    private bool enableLordUnitControls = true;
     private bool enableEliminatedPlayersBecomeSpectators = true;
 
     [SyncHostOnly]
@@ -1439,6 +1478,19 @@ internal sealed class SurrenderAndStatisticsSettingViewModel : PresetLobbyModSet
                 return;
             enableSurrenderAndStatistics = value;
             OnPropertyChanged(nameof(EnableSurrenderAndStatistics));
+        }
+    }
+
+    [SyncHostOnly]
+    public bool EnableLordUnitControls
+    {
+        get => enableLordUnitControls;
+        set
+        {
+            if (!CanMutateSetting(nameof(EnableLordUnitControls)) || enableLordUnitControls == value)
+                return;
+            enableLordUnitControls = value;
+            OnPropertyChanged(nameof(EnableLordUnitControls));
         }
     }
 
@@ -1461,6 +1513,7 @@ internal sealed class SurrenderAndStatisticsSettingViewModel : PresetLobbyModSet
     internal void ResetSurrenderAndStatistics()
     {
         EnableSurrenderAndStatistics = true;
+        EnableLordUnitControls = true;
         EnableEliminatedPlayersBecomeSpectators = true;
     }
 }
