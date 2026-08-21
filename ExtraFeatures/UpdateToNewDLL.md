@@ -31,10 +31,24 @@ Extender fields and the bidirectional stable-link API, so it has no private RVA.
 | `MovementDecisionPattern` (Monk handler) | `0x1513E6` | executable-section unique scan; 20-byte inline decision hook |
 | worker-table byte pattern | `0x2E4E58` | full-image data scan; table begins `0x2E4DE0` |
 | `SetupBuildingEntrancesOffsetPattern` | `0xC0270` | fixed manager/candidate layout |
+| Gatehouse AI closing-distance immediate | `0xB7BC3` | `DistanceBlockPattern`; Vanilla `200` native units = `25` fields |
+| Gatehouse AI reopening-delay immediate | `0xB7BCA` | `DistanceBlockPattern`; Vanilla `1200` ticks = `30` seconds at gamespeed 40 |
+| Gatehouse human closing-distance immediate | `0xB7BD3` | `DistanceBlockPattern`; Vanilla `140` native units = `17.5` fields |
+| Gatehouse human reopening-delay immediate | `0xB7C35` | `HumanDelayPattern`; Vanilla `100` ticks = `2.5` seconds at gamespeed 40 |
 
 The named source constants and `WorkerTablePattern` contain the complete
 authoritative patterns. RIP-relative targets are additionally checked against
 the loaded image and their surrounding native contract.
+
+Gatehouse timing and distance values are four related `int32` immediates in the
+same audited decision region. On the reference hash their RVAs and Vanilla
+values are validated directly. On another hash both bounded semantic patterns
+must resolve uniquely, remain within `0x100` bytes, and all four Vanilla values
+must match before any write occurs. The four values are written as one guarded
+transaction and restored together when the feature is disabled. Revalidate the
+fixed 50-tick gatehouse scan cadence separately; the mod deliberately leaves it
+unchanged. The reachability filter also remains reference-hash-only because it
+depends on the audited gatehouse query context and native gate entry layout.
 
 ## Required update audit
 

@@ -34,6 +34,7 @@ namespace ExtraFeatures
         private readonly KnightDismountRuntime knightDismountRuntime;
         private readonly QuarryPileRelocationRuntime quarryPileRelocationRuntime;
         private readonly ChurchPriestCountRuntime churchPriestCountRuntime;
+        private readonly GatehouseAutomationRuntime gatehouseAutomationRuntime;
         private readonly LordHealthRuntime lordHealthRuntime;
 
         private PendingStockpileRefund pendingStockpileRefund;
@@ -70,6 +71,7 @@ namespace ExtraFeatures
             knightDismountRuntime = new KnightDismountRuntime(log, settings, multiplayerFeatureGate);
             quarryPileRelocationRuntime = new QuarryPileRelocationRuntime(log, settings, multiplayerFeatureGate);
             churchPriestCountRuntime = new ChurchPriestCountRuntime(log, settings);
+            gatehouseAutomationRuntime = new GatehouseAutomationRuntime(log, settings, multiplayerFeatureGate);
             lordHealthRuntime = new LordHealthRuntime(log, settings);
             settings.SettingChanged += OnSettingChanged;
             settingsSubscribed = true;
@@ -77,6 +79,7 @@ namespace ExtraFeatures
 
         public object KnightDismountButton => knightDismountRuntime.ButtonViewModel;
         public object QuarryPileRelocationButton => quarryPileRelocationRuntime.ButtonViewModel;
+        public object GatehouseAutomationButton => gatehouseAutomationRuntime.ButtonViewModel;
         public object AllyGoodsAmountDisplay => allyGoodsAmountModifierHook;
 
         public void InitializeNetwork()
@@ -84,9 +87,11 @@ namespace ExtraFeatures
             multiplayerGameSpeedRuntime.InitializeNetwork();
             knightDismountRuntime.InitializeNetwork();
             quarryPileRelocationRuntime.InitializeNetwork();
+            gatehouseAutomationRuntime.InitializeNetwork();
             InstallSingleBuildingPauseHook();
             singleBuildingPauseHook.InitializeNetwork();
             multiplayerGameSpeedRuntime.InstallHooks();
+            gatehouseAutomationRuntime.Initialize();
         }
 
         public void InitializeNative(IntPtr newLibraryHandle, ReadOnlySpan<byte> memory, bool isFixedLayoutHashValidated)
@@ -125,6 +130,7 @@ namespace ExtraFeatures
             InitializePlagueDurationPatch(newLibraryHandle, memory);
             InitializePlagueApothecarySearchRangePatch(newLibraryHandle, memory);
             InitializeMonkAlwaysRunPatch(newLibraryHandle, memory);
+            gatehouseAutomationRuntime.InitializeNative(newLibraryHandle, memory, fixedLayoutHashValidated);
 
             InstallAllyGoodsAmountModifierHook();
             InstallCtrlMarketTradeHook();
@@ -150,6 +156,7 @@ namespace ExtraFeatures
             ApplyPlagueDurationSetting();
             TryRunFeature("fast recruit rally movement", ApplyFastRecruitRallyMovementSetting);
             ApplyMonkAlwaysRunSetting();
+            TryRunFeature("gatehouse automation", gatehouseAutomationRuntime.ApplySettings);
         }
 
         public void InstallAIEconomyProtectionHook(IntPtr nativeLibraryHandle, ReadOnlySpan<byte> memory)
@@ -213,6 +220,7 @@ namespace ExtraFeatures
             plagueDurationPatch = null;
             plagueApothecarySearchRangePatch?.Dispose();
             plagueApothecarySearchRangePatch = null;
+            gatehouseAutomationRuntime.Dispose();
             allyGoodsAmountModifierHook?.Dispose();
             allyGoodsAmountModifierHook = null;
             multiplayerGameSpeedRuntime.Dispose();
@@ -410,6 +418,7 @@ namespace ExtraFeatures
                 else
                 {
                     multiplayerGameSpeedRuntime.ApplySetting();
+                    TryRunFeature("gatehouse automation", gatehouseAutomationRuntime.ApplySettings);
                     RestoreDefaultSettings();
                     fastRecruitMovementBridge?.Dispose();
                     fastRecruitMovementBridge = null;
@@ -446,6 +455,15 @@ namespace ExtraFeatures
             {
                 if (!settings.EnableSingleBuildingPause)
                     singleBuildingPauseHook?.ClearOverrides("setting disabled");
+                return;
+            }
+            if (propertyName == nameof(ExtraFeaturesViewModel.HumanGateReopenDelaySeconds) ||
+                propertyName == nameof(ExtraFeaturesViewModel.AIGateReopenDelaySeconds) ||
+                propertyName == nameof(ExtraFeaturesViewModel.HumanGateClosingDistanceTiles) ||
+                propertyName == nameof(ExtraFeaturesViewModel.AIGateClosingDistanceTiles) ||
+                propertyName == nameof(ExtraFeaturesViewModel.RequireReachableEnemyForAutomaticGateClosing))
+            {
+                TryRunFeature("gatehouse automation", gatehouseAutomationRuntime.ApplySettings);
                 return;
             }
             if (propertyName == nameof(ExtraFeaturesViewModel.EnableExtraChurchPriests))
@@ -493,6 +511,7 @@ namespace ExtraFeatures
             TryRunFeature("campfire peasants", ApplyCampfirePeasantsLimit);
             ApplyPlagueDurationSetting();
             ApplyMonkAlwaysRunSetting();
+            TryRunFeature("gatehouse automation", gatehouseAutomationRuntime.ApplySettings);
         }
 
         private void InitializeMonkAlwaysRunPatch(
@@ -545,6 +564,7 @@ namespace ExtraFeatures
             TryRunFeature("multiplayer game-speed controls", multiplayerGameSpeedRuntime.ApplySetting);
             TryRunFeature("knight mount/dismount visibility", knightDismountRuntime.RefreshButtonVisibility);
             TryRunFeature("quarry-pile relocation visibility", quarryPileRelocationRuntime.RefreshButtonVisibility);
+            TryRunFeature("gatehouse map initialization", gatehouseAutomationRuntime.BeginMap);
         }
 
         private void InitializePlagueDurationPatch(IntPtr nativeLibraryHandle, ReadOnlySpan<byte> memory)
@@ -706,6 +726,7 @@ namespace ExtraFeatures
             singleBuildingPauseHook?.ClearOverrides("map unload");
             multiplayerGameSpeedRuntime.ResetMapState();
             multiplayerFeatureGate.Reset();
+            gatehouseAutomationRuntime.EndMap();
         }
 
         private void ApplyCampfirePeasantsLimit()

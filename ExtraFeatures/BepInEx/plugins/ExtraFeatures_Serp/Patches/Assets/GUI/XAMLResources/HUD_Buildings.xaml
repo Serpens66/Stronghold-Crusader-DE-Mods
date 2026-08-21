@@ -53,4 +53,50 @@
       </TextBlock>
     </Content>
   </Operation>
+  <Operation Type="Add" XPath="//n:Grid[@Name='ShowGate']">
+    <Content>
+      <Grid x:Name="ExtraFeaturesGatehouseAutomationButtonHost"
+            Width="57"
+            Height="57"
+            Margin="0,100,600,0"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Top"
+            Visibility="{Binding ButtonVisibility}">
+        <Button x:Name="ExtraFeaturesGatehouseAutomationButton"
+                Width="57"
+                Height="57"
+                Margin="0"
+                Padding="0"
+                Command="{Binding ToggleCommand}"
+                ToolTip="{Binding TooltipText}"
+                ToolTipService.ShowDuration="60000"
+                Background="#DD1B1B1B"
+                BorderBrush="#FFB08A4A"
+                BorderThickness="2">
+          <Grid Width="53" Height="53">
+            <TextBlock Text="A"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       FontSize="30"
+                       FontWeight="Bold"
+                       Foreground="#FF62D26F"
+                       Visibility="{Binding AutomaticIndicatorVisibility}"/>
+            <Grid Visibility="{Binding ManualIndicatorVisibility}">
+              <TextBlock Text="A"
+                         HorizontalAlignment="Center"
+                         VerticalAlignment="Center"
+                         FontSize="30"
+                         FontWeight="Bold"
+                         Foreground="#FFFFB347"/>
+              <Border Width="34"
+                      Height="3"
+                      HorizontalAlignment="Center"
+                      VerticalAlignment="Center"
+                      Background="#FFFFB347"/>
+            </Grid>
+          </Grid>
+        </Button>
+      </Grid>
+    </Content>
+  </Operation>
 </Patch>

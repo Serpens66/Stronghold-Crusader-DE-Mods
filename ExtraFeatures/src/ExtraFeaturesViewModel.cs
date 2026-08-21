@@ -53,6 +53,11 @@ namespace ExtraFeatures
         private bool preventAIPause = true;
         private bool preventEmergencyDemolition = true;
         private bool preventHovelDeletion = true;
+        private double humanGateReopenDelaySeconds = GatehouseTimingPatch.VanillaHumanDelaySeconds;
+        private double aiGateReopenDelaySeconds = GatehouseTimingPatch.VanillaAiDelaySeconds;
+        private double humanGateClosingDistanceTiles = GatehouseTimingPatch.VanillaHumanDistanceTiles;
+        private double aiGateClosingDistanceTiles = GatehouseTimingPatch.VanillaAiDistanceTiles;
+        private bool requireReachableEnemyForAutomaticGateClosing = true;
         private bool marketGoodPriceVisualsResolved;
 
         protected override string ResolveSettingsUiText(string key, string fallback) =>
@@ -147,6 +152,15 @@ namespace ExtraFeatures
         public string PreventEmergencyDemolitionHelpText => SerpLocalization.Get(SerpLocalization.PreventEmergencyDemolitionHelp);
         public string PreventHovelDeletionText => SerpLocalization.Get(SerpLocalization.PreventHovelDeletion);
         public string PreventHovelDeletionHelpText => SerpLocalization.Get(SerpLocalization.PreventHovelDeletionHelp);
+        public string GatehousesTitleText => SerpLocalization.Get("SomeSettings.GatehousesTitle");
+        public string HumanGateReopenDelayText => SerpLocalization.Get("SomeSettings.HumanGateReopenDelay");
+        public string AIGateReopenDelayText => SerpLocalization.Get("SomeSettings.AIGateReopenDelay");
+        public string GateReopenDelayHelpText => SerpLocalization.Get("SomeSettings.GateReopenDelayHelp");
+        public string HumanGateClosingDistanceText => SerpLocalization.Get("SomeSettings.HumanGateClosingDistance");
+        public string AIGateClosingDistanceText => SerpLocalization.Get("SomeSettings.AIGateClosingDistance");
+        public string GateClosingDistanceHelpText => SerpLocalization.Get("SomeSettings.GateClosingDistanceHelp");
+        public string RequireReachableEnemyForAutomaticGateClosingText => SerpLocalization.Get("SomeSettings.RequireReachableEnemyForAutomaticGateClosing");
+        public string RequireReachableEnemyForAutomaticGateClosingHelpText => SerpLocalization.Get("SomeSettings.RequireReachableEnemyForAutomaticGateClosingHelp");
 
         [SyncHostOnly] public bool EnableMod { get => enableMod; set => SetSetting(ref enableMod, value, nameof(EnableMod)); }
         [SyncHostOnly] public int WoodRefundPercent { get => woodRefundPercent; set => SetIntSetting(ref woodRefundPercent, value, -1, 100, nameof(WoodRefundPercent), nameof(WoodRefundPercentValueText)); }
@@ -207,6 +221,11 @@ namespace ExtraFeatures
         [SyncHostOnly] public bool PreventAIPause { get => preventAIPause; set => SetSetting(ref preventAIPause, value, nameof(PreventAIPause)); }
         [SyncHostOnly] public bool PreventEmergencyDemolition { get => preventEmergencyDemolition; set => SetSetting(ref preventEmergencyDemolition, value, nameof(PreventEmergencyDemolition)); }
         [SyncHostOnly] public bool PreventHovelDeletion { get => preventHovelDeletion; set => SetSetting(ref preventHovelDeletion, value, nameof(PreventHovelDeletion)); }
+        [SyncHostOnly] public double HumanGateReopenDelaySeconds { get => humanGateReopenDelaySeconds; set => SetDoubleSetting(ref humanGateReopenDelaySeconds, RoundToStep(value, 0.5), GatehouseTimingPatch.MinimumHumanDelaySeconds, GatehouseTimingPatch.MaximumHumanDelaySeconds, nameof(HumanGateReopenDelaySeconds), nameof(HumanGateReopenDelayValueText)); }
+        [SyncHostOnly] public double AIGateReopenDelaySeconds { get => aiGateReopenDelaySeconds; set => SetDoubleSetting(ref aiGateReopenDelaySeconds, RoundToStep(value, 2.5), GatehouseTimingPatch.MinimumAiDelaySeconds, GatehouseTimingPatch.MaximumAiDelaySeconds, nameof(AIGateReopenDelaySeconds), nameof(AIGateReopenDelayValueText)); }
+        [SyncHostOnly] public double HumanGateClosingDistanceTiles { get => humanGateClosingDistanceTiles; set => SetDoubleSetting(ref humanGateClosingDistanceTiles, RoundToStep(value, 0.5), GatehouseTimingPatch.MinimumDistanceTiles, GatehouseTimingPatch.MaximumDistanceTiles, nameof(HumanGateClosingDistanceTiles), nameof(HumanGateClosingDistanceValueText)); }
+        [SyncHostOnly] public double AIGateClosingDistanceTiles { get => aiGateClosingDistanceTiles; set => SetDoubleSetting(ref aiGateClosingDistanceTiles, RoundToStep(value, 0.5), GatehouseTimingPatch.MinimumDistanceTiles, GatehouseTimingPatch.MaximumDistanceTiles, nameof(AIGateClosingDistanceTiles), nameof(AIGateClosingDistanceValueText)); }
+        [SyncHostOnly] public bool RequireReachableEnemyForAutomaticGateClosing { get => requireReachableEnemyForAutomaticGateClosing; set => SetSetting(ref requireReachableEnemyForAutomaticGateClosing, value, nameof(RequireReachableEnemyForAutomaticGateClosing)); }
 
         public string MultiplyGoodsGainAIText { get => FormatDecimalMultiplier(MultiplyGoodsGainAI); set => SetDoubleValueText(value, parsed => MultiplyGoodsGainAI = parsed, nameof(MultiplyGoodsGainAIText)); }
         public string MultiplyGoodsGainHumanText { get => FormatDecimalMultiplier(MultiplyGoodsGainHuman); set => SetDoubleValueText(value, parsed => MultiplyGoodsGainHuman = parsed, nameof(MultiplyGoodsGainHumanText)); }
@@ -224,6 +243,10 @@ namespace ExtraFeatures
             set => SetIntValueText(value, parsed => ApothecaryPlagueSearchDistance = parsed, nameof(ApothecaryPlagueSearchDistanceValueText));
         }
         public string CampfirePeasantsLimitText { get => CampfirePeasantsLimit.ToString(CultureInfo.InvariantCulture); set => SetIntValueText(value, parsed => CampfirePeasantsLimit = parsed, nameof(CampfirePeasantsLimitText)); }
+        public string HumanGateReopenDelayValueText { get => FormatSeconds(HumanGateReopenDelaySeconds); set => SetDoubleValueText(value, parsed => HumanGateReopenDelaySeconds = parsed, nameof(HumanGateReopenDelayValueText)); }
+        public string AIGateReopenDelayValueText { get => FormatSeconds(AIGateReopenDelaySeconds); set => SetDoubleValueText(value, parsed => AIGateReopenDelaySeconds = parsed, nameof(AIGateReopenDelayValueText)); }
+        public string HumanGateClosingDistanceValueText { get => FormatTiles(HumanGateClosingDistanceTiles); set => SetDoubleValueText(value, parsed => HumanGateClosingDistanceTiles = parsed, nameof(HumanGateClosingDistanceValueText)); }
+        public string AIGateClosingDistanceValueText { get => FormatTiles(AIGateClosingDistanceTiles); set => SetDoubleValueText(value, parsed => AIGateClosingDistanceTiles = parsed, nameof(AIGateClosingDistanceValueText)); }
         public string HumanLordHealthPercentText { get => FormatPercent(HumanLordHealthPercent); set => SetIntValueText(value, parsed => HumanLordHealthPercent = parsed, nameof(HumanLordHealthPercentText)); }
         public string AILordHealthPercentText { get => FormatPercent(AILordHealthPercent); set => SetIntValueText(value, parsed => AILordHealthPercent = parsed, nameof(AILordHealthPercentText)); }
 
@@ -265,6 +288,11 @@ namespace ExtraFeatures
                 PreventAIPause = true;
                 PreventEmergencyDemolition = true;
                 PreventHovelDeletion = true;
+                HumanGateReopenDelaySeconds = GatehouseTimingPatch.VanillaHumanDelaySeconds;
+                AIGateReopenDelaySeconds = GatehouseTimingPatch.VanillaAiDelaySeconds;
+                HumanGateClosingDistanceTiles = GatehouseTimingPatch.VanillaHumanDistanceTiles;
+                AIGateClosingDistanceTiles = GatehouseTimingPatch.VanillaAiDistanceTiles;
+                RequireReachableEnemyForAutomaticGateClosing = true;
             }
 
             EnableClientFeatures = true;
@@ -492,6 +520,25 @@ namespace ExtraFeatures
 
         private static string FormatPercent(int percent) =>
             percent.ToString(CultureInfo.InvariantCulture) + "%";
+
+        private static string FormatSeconds(double seconds) =>
+            string.Format(
+                CultureInfo.CurrentCulture,
+                SerpLocalization.Get("SomeSettings.SecondsAtGamespeed40ValueFormat"),
+                seconds);
+
+        private static string FormatTiles(double tiles) =>
+            string.Format(
+                CultureInfo.CurrentCulture,
+                SerpLocalization.Get("SomeSettings.DecimalTilesValueFormat"),
+                tiles);
+
+        private static double RoundToStep(double value, double step)
+        {
+            if (double.IsNaN(value) || double.IsInfinity(value))
+                return value;
+            return Math.Round(value / step, MidpointRounding.AwayFromZero) * step;
+        }
 
         private static double ClampMultiplier(double value, double minimum, double maximum)
         {

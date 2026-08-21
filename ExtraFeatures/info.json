@@ -3,10 +3,18 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.27",
+  "Version": "1.0.28",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.28",
+      "Changes": [
+        "Added host-configurable human and AI gatehouse closing distances and reopening delays, with displayed seconds defined at gamespeed 40.",
+        "Added default-on pathfinding-aware gatehouse closing so unreachable enemies do not close protected inner gates.",
+        "Added a synchronized per-gate button that switches owned human gatehouses between automatic and manual-only control and persists the choice in savegames."
+      ]
+    },
     {
       "Version": "1.0.27",
       "Changes": [

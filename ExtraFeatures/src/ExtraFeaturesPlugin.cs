@@ -20,7 +20,7 @@ namespace ExtraFeatures
 
         public const string PluginGuid = "ExtraFeatures_Serp";
         public const string PluginName = "Extra Features";
-        public const string PluginVersion = "1.0.25";
+        public const string PluginVersion = "1.0.28";
 
         private ExtraFeaturesRuntime runtime;
         private bool marketGoodPriceVisualRefreshFailureLogged;
@@ -107,6 +107,17 @@ namespace ExtraFeatures
             catch (Exception ex)
             {
                 Shared.DebugLogHelper.LogError(Logger, $"Extra Features quarry button binding failed: {ex}");
+            }
+
+            try
+            {
+                GameXAMLManagerAPI.Instance.RegisterBinding(
+                    "ExtraFeaturesGatehouseAutomationButtonHost",
+                    runtime.GatehouseAutomationButton);
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(Logger, $"Extra Features gatehouse automation button binding failed: {ex}");
             }
 
             try
