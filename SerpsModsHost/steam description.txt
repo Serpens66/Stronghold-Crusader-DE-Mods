@@ -8,6 +8,11 @@ In multiplayer, gameplay-related settings are controlled by the host and synchro
 
 [h1]Included Mods and Features[/h1]
 
+[h2]Script Extender itself[/h2]
+[*]Higher gamespeed
+[*]Start MP game with only 1 human.
+
+
 [h2]BugfixesAndQoL[/h2]
 [list]
 [*][b]Fixes[/b]:

@@ -423,7 +423,8 @@ namespace ExtraFeatures
             if (!settings.EnableMod)
                 return;
 
-            if (propertyName == nameof(ExtraFeaturesViewModel.EnableMultiplayerGameSpeedChanges))
+            if (propertyName == nameof(ExtraFeaturesViewModel.EnableMultiplayerGameSpeedChanges) ||
+                propertyName == nameof(ExtraFeaturesViewModel.EnableShiftGameSpeedSteps))
             {
                 multiplayerGameSpeedRuntime.ApplySetting();
                 return;

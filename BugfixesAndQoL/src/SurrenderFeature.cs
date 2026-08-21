@@ -190,6 +190,9 @@ namespace BugfixesAndQoL
         private bool spectatorPromotionRequested;
         private bool spectatorPromotionConfirmed;
         private bool spectatorPromotionErrorLogged;
+        private bool spectatorPromotionRejectionLogged;
+        private int spectatorPromotionPlayerId = -1;
+        private string spectatorPromotionGameMode = string.Empty;
         private int lastSpectatorPromotionFrame = -1;
         private bool initialized;
         private bool disposed;
@@ -372,10 +375,25 @@ namespace BugfixesAndQoL
             {
                 if (spectatorPromotionRequested && !spectatorPromotionConfirmed)
                 {
+                    int currentLocalPlayerId = GamePlayerManagerAPI.Instance?.GetLocalPlayerId() ?? -1;
+                    int managedLocalPlayerId = EditorDirector.instance?.ActivePlayerID ?? -1;
+                    if (currentLocalPlayerId != spectatorPromotionPlayerId ||
+                        managedLocalPlayerId != spectatorPromotionPlayerId)
+                    {
+                        if (!spectatorPromotionErrorLogged)
+                        {
+                            spectatorPromotionErrorLogged = true;
+                            Shared.DebugLogHelper.LogError(
+                                log,
+                                $"Vanilla spectator mode changed the local player identity unexpectedly: expected={spectatorPromotionPlayerId}, native={currentLocalPlayerId}, managed={managedLocalPlayerId}, mode={spectatorPromotionGameMode}.");
+                        }
+                        return;
+                    }
+
                     spectatorPromotionConfirmed = true;
                     Shared.DebugLogHelper.LogInfo(
                         log,
-                        "Vanilla spectator mode confirmed for the eliminated local player; omniscient visibility and spectator AI information are now active.");
+                        $"Vanilla spectator mode confirmed for eliminated local player {spectatorPromotionPlayerId}; local identity remained unchanged and omniscient visibility/AI information are active: mode={spectatorPromotionGameMode}.");
                 }
                 return;
             }
@@ -385,6 +403,11 @@ namespace BugfixesAndQoL
                 return;
 
             int localPlayerId = playerManager.GetLocalPlayerId();
+            Shared.GameModeSnapshot gameMode = Shared.GameModeHelper.Capture();
+            bool supportedGameMode =
+                gameMode.IsRealMultiplayer || gameMode.IsSingleplayerSkirmishMode;
+            bool validLocalParticipant =
+                IsValidLocalSpectatorPromotionParticipant(localPlayerId, gameMode.IsRealMultiplayer);
             SurrenderLordSnapshot lord = CaptureLord(localPlayerId);
             if (SurrenderPolicy.IsValidLord(lord))
             {
@@ -398,10 +421,24 @@ namespace BugfixesAndQoL
                     activeMatch,
                     false,
                     alreadySpectator,
+                    supportedGameMode,
+                    validLocalParticipant,
                     localPlayerHadLivingLord,
                     localPlayerId,
                     lord))
             {
+                if (EliminatedPlayerSpectatorEnabled &&
+                    localPlayerHadLivingLord &&
+                    !SurrenderPolicy.IsValidLord(lord) &&
+                    (!supportedGameMode ||
+                      !validLocalParticipant) &&
+                    !spectatorPromotionRejectionLogged)
+                {
+                    spectatorPromotionRejectionLogged = true;
+                    Shared.DebugLogHelper.LogWarning(
+                        log,
+                        $"Eliminated-player spectator promotion was rejected fail-closed: playerId={localPlayerId}, supportedGameMode={supportedGameMode}, validLocalParticipant={validLocalParticipant}, mode={gameMode.ToDiagnosticString()}.");
+                }
                 return;
             }
 
@@ -409,9 +446,33 @@ namespace BugfixesAndQoL
             // player's slot intact preserves team membership and final statistics.
             EngineInterface.GameAction(Enums.GameActionCommand.SpectatorMode, 0, 0);
             spectatorPromotionRequested = true;
+            spectatorPromotionPlayerId = localPlayerId;
+            spectatorPromotionGameMode = gameMode.ToDiagnosticString();
             Shared.DebugLogHelper.LogInfo(
                 log,
-                $"Requested Vanilla spectator features for eliminated local player {localPlayerId}; the player slot and synchronized game state were left unchanged.");
+                $"Requested Vanilla spectator features for eliminated local player {localPlayerId}; no packet or Chore was sent and the player slot/synchronized game state remain unchanged: mode={spectatorPromotionGameMode}.");
+        }
+
+        private static bool IsValidLocalSpectatorPromotionParticipant(
+            int localPlayerId,
+            bool realMultiplayer)
+        {
+            if (localPlayerId < 1 || localPlayerId > 8 ||
+                EditorDirector.instance == null ||
+                EditorDirector.instance.ActivePlayerID != localPlayerId)
+            {
+                return false;
+            }
+
+            if (!realMultiplayer)
+                return true;
+
+            Platform_Multiplayer multiplayer = Platform_Multiplayer.Instance;
+            Platform_Multiplayer.MPGameMember localMember = multiplayer?.getPlayer(localPlayerId);
+            CSteamID localSteamId = SteamUser.GetSteamID();
+            return IsHumanMember(localMember) &&
+                localSteamId.m_SteamID > 1000 &&
+                localMember.steamID == localSteamId.m_SteamID;
         }
 
         private void IngameMenuInitHook(HUD_IngameMenu self)
@@ -1142,6 +1203,9 @@ namespace BugfixesAndQoL
             spectatorPromotionRequested = false;
             spectatorPromotionConfirmed = false;
             spectatorPromotionErrorLogged = false;
+            spectatorPromotionRejectionLogged = false;
+            spectatorPromotionPlayerId = -1;
+            spectatorPromotionGameMode = string.Empty;
             lastSpectatorPromotionFrame = -1;
             confirmationSequence++;
             buttonViewModel.SetMenuState(false, false, false, false);

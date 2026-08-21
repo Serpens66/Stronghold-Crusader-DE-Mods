@@ -18,6 +18,7 @@ namespace ExtraFeatures
     internal sealed class MultiplayerGameSpeedRuntime : IDisposable
     {
         private delegate void KeyManagerUpdateDelegate(KeyManager self);
+        private delegate bool IsActionPressedDelegate(KeyManager self, Enums.KeyFunctions function);
         private delegate void OptionsInitDelegate(HUD_Options self);
         private delegate void GameSpeedSliderChangedDelegate(
             HUD_Options self,
@@ -29,11 +30,14 @@ namespace ExtraFeatures
         private readonly ManualLogSource log;
         private readonly ExtraFeaturesViewModel settings;
         private readonly MultiplayerFeatureGate multiplayerFeatureGate;
+        private readonly FieldInfo functionMapField;
 
         private Hook keyManagerUpdateHook;
+        private Hook isActionPressedHook;
         private Hook optionsInitHook;
         private Hook sliderChangedHook;
         private KeyManagerUpdateDelegate keyManagerUpdateTrampoline;
+        private IsActionPressedDelegate isActionPressedTrampoline;
         private OptionsInitDelegate optionsInitTrampoline;
         private GameSpeedSliderChangedDelegate sliderChangedTrampoline;
         private R3PacketEventHook<MultiplayerGameSpeedChangePacket> packetHook;
@@ -41,6 +45,7 @@ namespace ExtraFeatures
         private long lastTransportErrorTimestamp;
         private int lastSliderBucket = -1;
         private bool suppressSliderEvent;
+        private bool suppressVanillaSpeedKeybinds;
         private bool networkInitialized;
         private bool hooksInstalled;
         private bool disposed;
@@ -53,6 +58,10 @@ namespace ExtraFeatures
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
             this.multiplayerFeatureGate = multiplayerFeatureGate ?? throw new ArgumentNullException(nameof(multiplayerFeatureGate));
+            functionMapField = typeof(KeyManager).GetField(
+                "functionMap",
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic) ??
+                throw new MissingFieldException(typeof(KeyManager).FullName, "functionMap");
         }
 
         public void InitializeNetwork()
@@ -72,10 +81,21 @@ namespace ExtraFeatures
                 return;
 
             Hook installedKeyHook = null;
+            Hook installedActionPressedHook = null;
             Hook installedInitHook = null;
             Hook installedSliderHook = null;
             try
             {
+                installedActionPressedHook = new Hook(
+                    FindInstanceMethod(
+                        typeof(KeyManager),
+                        "IsActionPressed",
+                        new[] { typeof(Enums.KeyFunctions) },
+                        typeof(bool)),
+                    (IsActionPressedDelegate)IsActionPressedHook);
+                IsActionPressedDelegate installedActionPressedTrampoline =
+                    installedActionPressedHook.GenerateTrampoline<IsActionPressedDelegate>();
+
                 installedKeyHook = new Hook(
                     FindInstanceMethod(typeof(KeyManager), "Update", Type.EmptyTypes),
                     (KeyManagerUpdateDelegate)KeyManagerUpdateHook);
@@ -101,6 +121,8 @@ namespace ExtraFeatures
 
                 keyManagerUpdateHook = installedKeyHook;
                 keyManagerUpdateTrampoline = installedKeyTrampoline;
+                isActionPressedHook = installedActionPressedHook;
+                isActionPressedTrampoline = installedActionPressedTrampoline;
                 optionsInitHook = installedInitHook;
                 optionsInitTrampoline = installedInitTrampoline;
                 sliderChangedHook = installedSliderHook;
@@ -113,6 +135,7 @@ namespace ExtraFeatures
                 installedSliderHook?.Dispose();
                 installedInitHook?.Dispose();
                 installedKeyHook?.Dispose();
+                installedActionPressedHook?.Dispose();
                 throw;
             }
         }
@@ -133,6 +156,7 @@ namespace ExtraFeatures
         {
             lastSliderBucket = -1;
             suppressSliderEvent = false;
+            suppressVanillaSpeedKeybinds = false;
         }
 
         public void Dispose()
@@ -147,6 +171,8 @@ namespace ExtraFeatures
             optionsInitHook?.Dispose();
             keyManagerUpdateHook?.Undo();
             keyManagerUpdateHook?.Dispose();
+            isActionPressedHook?.Undo();
+            isActionPressedHook?.Dispose();
             packetSubscription?.Dispose();
             hooksInstalled = false;
             networkInitialized = false;
@@ -154,7 +180,23 @@ namespace ExtraFeatures
 
         private void KeyManagerUpdateHook(KeyManager self)
         {
-            keyManagerUpdateTrampoline(self);
+            bool fastIncrease = IsFastActionPressed(self, Enums.KeyFunctions.IncreaseEngineSpeed);
+            bool fastDecrease = IsFastActionPressed(self, Enums.KeyFunctions.DecreaseEngineSpeed);
+            suppressVanillaSpeedKeybinds = fastIncrease || fastDecrease;
+            try
+            {
+                keyManagerUpdateTrampoline(self);
+            }
+            finally
+            {
+                suppressVanillaSpeedKeybinds = false;
+            }
+
+            if (fastIncrease)
+                ApplyOrQueueFastChange(MultiplayerGameSpeedPolicy.FastIncreaseAction, "shift-keybind-increase");
+            if (fastDecrease)
+                ApplyOrQueueFastChange(MultiplayerGameSpeedPolicy.FastDecreaseAction, "shift-keybind-decrease");
+
             if (!CanRequestMultiplayerChange() || self == null)
                 return;
 
@@ -163,6 +205,77 @@ namespace ExtraFeatures
             if (self.IsActionPressed(Enums.KeyFunctions.DecreaseEngineSpeed))
                 TryQueueChange(MultiplayerGameSpeedPolicy.DecreaseAction, 0, "keybind-decrease");
         }
+
+        private bool IsActionPressedHook(KeyManager self, Enums.KeyFunctions function)
+        {
+            if (suppressVanillaSpeedKeybinds && IsSpeedFunction(function))
+                return false;
+
+            return isActionPressedTrampoline(self, function);
+        }
+
+        private bool IsFastActionPressed(KeyManager self, Enums.KeyFunctions function)
+        {
+            if (self == null || !settings.EnableMod || !settings.EnableShiftGameSpeedSteps ||
+                !self.isShiftDown() || !IsSpeedFunction(function))
+                return false;
+
+            Director director = Director.instance;
+            if (director == null || !director.SimRunning)
+                return false;
+
+            int[,] functionMap = functionMapField.GetValue(self) as int[,];
+            if (functionMap == null || (int)function >= functionMap.GetLength(0))
+                return false;
+
+            for (int slot = 0; slot < functionMap.GetLength(1); slot++)
+            {
+                int mappedCode = functionMap[(int)function, slot];
+                if (mappedCode < 0)
+                    continue;
+
+                bool requiresControl = (mappedCode & 0x20000) != 0;
+                bool requiresAlt = (mappedCode & 0x40000) != 0;
+                if (requiresControl != self.isCtrlDown() || requiresAlt != self.isAltDown())
+                    continue;
+
+                // Shift is intentionally additive; retain every other configured modifier.
+                if (self.IsKeyPressed((UnityEngine.KeyCode)mappedCode, ignoreModifiers: true))
+                    return true;
+            }
+
+            return false;
+        }
+
+        private void ApplyOrQueueFastChange(int action, string source)
+        {
+            Director director = Director.instance;
+            if (director == null || !director.SimRunning)
+                return;
+
+            if (director.MultiplayerGame)
+            {
+                if (CanRequestMultiplayerChange())
+                    TryQueueChange(action, 0, source);
+                return;
+            }
+
+            int previousSpeed = GetCurrentSpeed();
+            if (!MultiplayerGameSpeedPolicy.TryResolve(previousSpeed, action, 0, out int resolvedSpeed) ||
+                resolvedSpeed == previousSpeed)
+                return;
+
+            director.SetEngineFrameRate(resolvedSpeed);
+            OnScreenText.Instance?.addOSTEntry(Enums.eOnScreenText.OST_GAME_SPEED, resolvedSpeed);
+            ConfigSettings.Settings_GameSpeed = resolvedSpeed;
+            ConfigSettings.SaveSettings();
+            RefreshOpenOptionsUi(resolvedSpeed);
+            LogInfo($"singleplayer Shift game-speed change executed: action={action}, previousSpeed={previousSpeed}, resolvedSpeed={resolvedSpeed}.");
+        }
+
+        private static bool IsSpeedFunction(Enums.KeyFunctions function) =>
+            function == Enums.KeyFunctions.IncreaseEngineSpeed ||
+            function == Enums.KeyFunctions.DecreaseEngineSpeed;
 
         private void OptionsInitHook(HUD_Options self)
         {
@@ -379,7 +492,11 @@ namespace ExtraFeatures
         private bool IsChoreTransportReady() =>
             networkInitialized && packetHook != null && ChoreNetworkTransport.IsAvailable;
 
-        private static MethodInfo FindInstanceMethod(Type type, string name, Type[] parameterTypes)
+        private static MethodInfo FindInstanceMethod(
+            Type type,
+            string name,
+            Type[] parameterTypes,
+            Type returnType = null)
         {
             MethodInfo method = type.GetMethod(
                 name,
@@ -387,7 +504,7 @@ namespace ExtraFeatures
                 null,
                 parameterTypes,
                 null);
-            if (method == null || method.ReturnType != typeof(void))
+            if (method == null || method.ReturnType != (returnType ?? typeof(void)))
                 throw new MissingMethodException(type.FullName, name);
             return method;
         }

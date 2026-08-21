@@ -20,6 +20,7 @@ namespace BugfixesAndQoL
         private CustomTrailExtremeGoldFixHook customTrailExtremeGoldFixHook;
         private ResyncHostKickFeature resyncHostKickFeature;
         private SurrenderFeature surrenderFeature;
+        private SelectedUnitHealthFeature selectedUnitHealthFeature;
         private AssemblyPointPlacementPatch assemblyPointPlacementPatch;
         private PlaguePopularityFix plaguePopularityFix;
         private PlagueTreatmentFadeFix plagueTreatmentFadeFix;
@@ -48,6 +49,16 @@ namespace BugfixesAndQoL
         }
 
         public object SurrenderAndStatisticsUi => surrenderFeature?.ButtonViewModel;
+        public object SelectedUnitHealthUi => selectedUnitHealthFeature?.ViewModel;
+
+        public void InitializeSelectedUnitHealthFeature()
+        {
+            if (selectedUnitHealthFeature != null)
+                return;
+
+            selectedUnitHealthFeature = new SelectedUnitHealthFeature(log, settings);
+            selectedUnitHealthFeature.RefreshSetting();
+        }
 
         public void InitializeSurrenderFeature()
         {
@@ -81,6 +92,8 @@ namespace BugfixesAndQoL
         public void ApplySettings()
         {
             TryInitializeFeature("surrender", InitializeSurrenderFeature);
+            TryInitializeFeature("selected-unit health display", InitializeSelectedUnitHealthFeature);
+            selectedUnitHealthFeature?.RefreshSetting();
             surrenderFeature?.RefreshButtonState();
             TryInitializeFeature("resync host kick", EnsureResyncHostKickFeature);
             TryInitializeFeature("AI castle/settings selection memory", EnsureAiSelectionHook);
@@ -107,6 +120,8 @@ namespace BugfixesAndQoL
             resyncHostKickFeature = null;
             surrenderFeature?.Dispose();
             surrenderFeature = null;
+            selectedUnitHealthFeature?.Dispose();
+            selectedUnitHealthFeature = null;
             DisableAssemblyPointPlacementPatch();
             plaguePopularityFix?.Dispose();
             plaguePopularityFix = null;

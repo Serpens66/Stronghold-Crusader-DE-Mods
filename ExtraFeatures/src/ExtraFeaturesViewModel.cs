@@ -43,6 +43,7 @@ namespace ExtraFeatures
         private bool enableCtrlSingleMarketTrade = true;
         private bool enableSingleBuildingPause = true;
         private bool enableMultiplayerGameSpeedChanges = true;
+        private bool enableShiftGameSpeedSteps = true;
         private bool enableFastRecruitRallyMovement = true;
         private bool enableMonksAlwaysRun;
         private bool enableKnightDismount = true;
@@ -88,6 +89,8 @@ namespace ExtraFeatures
         public string EnableSingleBuildingPauseHelpText => SerpLocalization.Get(SerpLocalization.EnableSingleBuildingPauseHelp);
         public string EnableMultiplayerGameSpeedChangesText => SerpLocalization.Get(SerpLocalization.EnableMultiplayerGameSpeedChanges);
         public string EnableMultiplayerGameSpeedChangesHelpText => SerpLocalization.Get(SerpLocalization.EnableMultiplayerGameSpeedChangesHelp);
+        public string EnableShiftGameSpeedStepsText => SerpLocalization.Get(SerpLocalization.EnableShiftGameSpeedSteps);
+        public string EnableShiftGameSpeedStepsHelpText => SerpLocalization.Get(SerpLocalization.EnableShiftGameSpeedStepsHelp);
         public string EnableFastRecruitRallyMovementText => SerpLocalization.Get(SerpLocalization.EnableFastRecruitRallyMovement);
         public string EnableFastRecruitRallyMovementHelpText => SerpLocalization.Get(SerpLocalization.EnableFastRecruitRallyMovementHelp);
         public string EnableMonksAlwaysRunText => SerpLocalization.Get(SerpLocalization.EnableMonksAlwaysRun);
@@ -194,6 +197,7 @@ namespace ExtraFeatures
         [SyncHostOnly] public bool EnableCtrlSingleMarketTrade { get => enableCtrlSingleMarketTrade; set => SetSetting(ref enableCtrlSingleMarketTrade, value, nameof(EnableCtrlSingleMarketTrade)); }
         [SyncHostOnly] public bool EnableSingleBuildingPause { get => enableSingleBuildingPause; set => SetSetting(ref enableSingleBuildingPause, value, nameof(EnableSingleBuildingPause)); }
         [SyncHostOnly] public bool EnableMultiplayerGameSpeedChanges { get => enableMultiplayerGameSpeedChanges; set => SetSetting(ref enableMultiplayerGameSpeedChanges, value, nameof(EnableMultiplayerGameSpeedChanges)); }
+        [SyncHostOnly] public bool EnableShiftGameSpeedSteps { get => enableShiftGameSpeedSteps; set => SetSetting(ref enableShiftGameSpeedSteps, value, nameof(EnableShiftGameSpeedSteps)); }
         [SyncHostOnly] public bool EnableFastRecruitRallyMovement { get => enableFastRecruitRallyMovement; set => SetSetting(ref enableFastRecruitRallyMovement, value, nameof(EnableFastRecruitRallyMovement)); }
         [SyncHostOnly] public bool EnableMonksAlwaysRun { get => enableMonksAlwaysRun; set => SetSetting(ref enableMonksAlwaysRun, value, nameof(EnableMonksAlwaysRun)); }
         [SyncHostOnly] public bool EnableKnightDismount { get => enableKnightDismount; set => SetSetting(ref enableKnightDismount, value, nameof(EnableKnightDismount)); }
@@ -251,6 +255,7 @@ namespace ExtraFeatures
                 EnableCtrlSingleMarketTrade = true;
                 EnableSingleBuildingPause = true;
                 EnableMultiplayerGameSpeedChanges = true;
+                EnableShiftGameSpeedSteps = true;
                 EnableFastRecruitRallyMovement = true;
                 EnableMonksAlwaysRun = false;
                 EnableKnightDismount = true;

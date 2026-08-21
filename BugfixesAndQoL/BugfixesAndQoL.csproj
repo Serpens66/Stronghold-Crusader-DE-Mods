@@ -77,6 +77,8 @@
     <Compile Include="src\RandomOpponentLobbyPolicy.cs" />
     <Compile Include="src\ResyncHostKickFeature.cs" />
     <Compile Include="src\ResyncHostKickPolicy.cs" />
+    <Compile Include="src\SelectedUnitHealthFeature.cs" />
+    <Compile Include="src\SelectedUnitHealthSummary.cs" />
     <Compile Include="src\SkirmishAiSelectionMemoryHook.cs" />
     <Compile Include="src\SteamLobbyInvitePrompt.cs" />
     <Compile Include="src\SurrenderFeature.cs" />

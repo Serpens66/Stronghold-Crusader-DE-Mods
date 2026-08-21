@@ -40,6 +40,9 @@
       <CheckBox IsChecked="{Binding EnableMultiplayerGameSpeedChanges, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableMultiplayerGameSpeedChangesHelpText}" Margin="0,0,14,8">
         <TextBlock Text="{Binding EnableMultiplayerGameSpeedChangesText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox>
+      <CheckBox IsChecked="{Binding EnableShiftGameSpeedSteps, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableShiftGameSpeedStepsHelpText}" Margin="0,0,14,8">
+        <TextBlock Text="{Binding EnableShiftGameSpeedStepsText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox>
       <CheckBox IsChecked="{Binding EnableFastRecruitRallyMovement, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableFastRecruitRallyMovementHelpText}" Margin="0,0,14,8">
         <TextBlock Text="{Binding EnableFastRecruitRallyMovementText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox>

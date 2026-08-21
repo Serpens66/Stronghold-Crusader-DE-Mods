@@ -8,9 +8,12 @@ namespace ExtraFeatures
         public const int IncreaseAction = 1;
         public const int DecreaseAction = 2;
         public const int SetAction = 3;
+        public const int FastIncreaseAction = 4;
+        public const int FastDecreaseAction = 5;
         public const int MinimumSpeed = 10;
         public const int MaximumSpeed = 90;
         public const int SpeedStep = 5;
+        public const int FastSpeedStep = 25;
 
         public static bool TryResolve(
             int currentSpeed,
@@ -30,6 +33,16 @@ namespace ExtraFeatures
                     if (requestedTarget != 0)
                         return false;
                     resolvedSpeed = Math.Max(MinimumSpeed, resolvedSpeed - SpeedStep);
+                    return true;
+                case FastIncreaseAction:
+                    if (requestedTarget != 0)
+                        return false;
+                    resolvedSpeed = Math.Min(MaximumSpeed, resolvedSpeed + FastSpeedStep);
+                    return true;
+                case FastDecreaseAction:
+                    if (requestedTarget != 0)
+                        return false;
+                    resolvedSpeed = Math.Max(MinimumSpeed, resolvedSpeed - FastSpeedStep);
                     return true;
                 case SetAction:
                     if (!IsValidTarget(requestedTarget))

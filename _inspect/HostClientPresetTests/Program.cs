@@ -27,6 +27,7 @@ internal static class Program
             TestLocalPerPlayerSetting();
             TestMarketGoodsOrderDefinition();
             TestResyncHostKickPolicy();
+            TestSelectedUnitHealthSummary();
             TestSurrenderAndStatisticsSettingAndPolicy();
             TestMarketGoodPriceDefinition();
             TestAIMarketVanillaPricePolicy();
@@ -469,26 +470,32 @@ internal static class Program
             "spectator statistics appeared without a validated runtime");
 
         Check(SurrenderPolicy.CanPromoteEliminatedPlayerToSpectator(
-                true, true, false, false, true, 2, missingLord),
+                true, true, false, false, true, true, true, 2, missingLord),
             "eligible eliminated player was not promoted to spectator");
         Check(!SurrenderPolicy.CanPromoteEliminatedPlayerToSpectator(
-                false, true, false, false, true, 2, missingLord),
+                false, true, false, false, true, true, true, 2, missingLord),
             "disabled eliminated-player spectator setting still promoted a player");
         Check(!SurrenderPolicy.CanPromoteEliminatedPlayerToSpectator(
-                true, true, true, false, true, 2, missingLord),
+                true, true, true, false, true, true, true, 2, missingLord),
             "map-editor player was promoted to spectator");
         Check(!SurrenderPolicy.CanPromoteEliminatedPlayerToSpectator(
-                true, true, false, true, true, 2, missingLord),
+                true, true, false, true, true, true, true, 2, missingLord),
             "existing spectator was promoted again");
         Check(!SurrenderPolicy.CanPromoteEliminatedPlayerToSpectator(
-                true, true, false, false, false, 2, missingLord),
+                true, true, false, false, true, true, false, 2, missingLord),
             "player without a previously validated living lord was promoted during initialization");
         Check(!SurrenderPolicy.CanPromoteEliminatedPlayerToSpectator(
-                true, true, false, false, true, 2, validLord),
+                true, true, false, false, true, true, true, 2, validLord),
             "active player with a living lord was promoted to spectator");
         Check(!SurrenderPolicy.CanPromoteEliminatedPlayerToSpectator(
-                true, true, false, false, true, 0, missingLord),
+                true, true, false, false, true, true, true, 0, missingLord),
             "invalid local player slot was promoted to spectator");
+        Check(!SurrenderPolicy.CanPromoteEliminatedPlayerToSpectator(
+                true, true, false, false, false, true, true, 2, missingLord),
+            "unsupported campaign/tutorial mode promoted an eliminated player");
+        Check(!SurrenderPolicy.CanPromoteEliminatedPlayerToSpectator(
+                true, true, false, false, true, false, true, 2, missingLord),
+            "unverified local multiplayer participant was promoted to spectator");
 
         Check(SurrenderPolicy.CanAcceptRequest(true, true, true, true, true, validLord),
             "host rejected an authenticated human surrender request");
@@ -622,6 +629,34 @@ internal static class Program
             "the local value was not assigned to validated player slot 7");
         Check(setting.SetValue(false) && !setting.Data[7] && setting.Data[2],
             "a local change updated the wrong validated player slot");
+    }
+
+    private static void TestSelectedUnitHealthSummary()
+    {
+        var empty = new SelectedUnitHealthSummary();
+        Check(!empty.HasUnits, "empty selected-unit health summary reported units");
+
+        var single = new SelectedUnitHealthSummary();
+        single.Add(83, 120);
+        Check(single.HasUnits && single.UnitCount == 1 && single.Format() == "HP: 83 / 120",
+            "single-unit health summary was incorrect");
+
+        var multiple = new SelectedUnitHealthSummary();
+        multiple.Add(83, 120);
+        multiple.Add(1657, 1980);
+        Check(multiple.UnitCount == 2 && multiple.Format() == "HP: 1740 / 2100",
+            "multi-unit health summary did not sum current and maximum health");
+
+        multiple.Add(-1, 100);
+        multiple.Add(10, 0);
+        Check(multiple.UnitCount == 2 && multiple.Format() == "HP: 1740 / 2100",
+            "invalid or dead health entries changed the summary");
+
+        var large = new SelectedUnitHealthSummary();
+        large.Add(int.MaxValue, int.MaxValue);
+        large.Add(int.MaxValue, int.MaxValue);
+        Check(large.CurrentHealth == 4294967294L && large.MaximumHealth == 4294967294L,
+            "selected-unit health totals overflowed 32-bit values");
     }
 
     private static void TestMarketGoodsOrderDefinition()
@@ -803,6 +838,73 @@ internal static class Program
                 out int decreased) && decreased == 35,
             "multiplayer game-speed decrease did not retreat one step");
         Check(MultiplayerGameSpeedPolicy.TryResolve(
+                10,
+                MultiplayerGameSpeedPolicy.FastIncreaseAction,
+                0,
+                out int fastFromMinimum) && fastFromMinimum == 35,
+            "fast game-speed increase from minimum did not advance 25");
+        Check(MultiplayerGameSpeedPolicy.TryResolve(
+                15,
+                MultiplayerGameSpeedPolicy.FastIncreaseAction,
+                0,
+                out int fastFromFifteen) && fastFromFifteen == 40,
+            "fast game-speed increase from 15 did not advance 25");
+        Check(MultiplayerGameSpeedPolicy.TryResolve(
+                20,
+                MultiplayerGameSpeedPolicy.FastDecreaseAction,
+                0,
+                out int fastBelowMinimum) && fastBelowMinimum == MultiplayerGameSpeedPolicy.MinimumSpeed,
+            "fast game-speed decrease did not clamp to the lower bound");
+        Check(MultiplayerGameSpeedPolicy.TryResolve(
+                20,
+                MultiplayerGameSpeedPolicy.FastIncreaseAction,
+                0,
+                out int fastFromTwenty) && fastFromTwenty == 45,
+            "fast game-speed increase from 20 did not advance 25");
+        Check(MultiplayerGameSpeedPolicy.TryResolvePacket(
+                75,
+                MultiplayerGameSpeedPolicy.ProtocolVersion,
+                MultiplayerGameSpeedPolicy.FastIncreaseAction,
+                0,
+                out int fastAboveMaximum) && fastAboveMaximum == MultiplayerGameSpeedPolicy.MaximumSpeed,
+            "fast synchronized game-speed increase did not clamp to the upper bound");
+        Check(MultiplayerGameSpeedPolicy.TryResolve(
+                75,
+                MultiplayerGameSpeedPolicy.FastDecreaseAction,
+                0,
+                out int fastDecreaseFromSeventyFive) && fastDecreaseFromSeventyFive == 50,
+            "fast game-speed decrease from 75 did not retreat 25");
+        Check(MultiplayerGameSpeedPolicy.TryResolve(
+                80,
+                MultiplayerGameSpeedPolicy.FastDecreaseAction,
+                0,
+                out int fastFromEighty) && fastFromEighty == 55,
+            "fast game-speed decrease from 80 did not retreat 25");
+        Check(MultiplayerGameSpeedPolicy.TryResolve(
+                85,
+                MultiplayerGameSpeedPolicy.FastIncreaseAction,
+                0,
+                out int fastFromEightyFive) && fastFromEightyFive == 90,
+            "fast game-speed increase from 85 did not clamp to 90");
+        Check(MultiplayerGameSpeedPolicy.TryResolve(
+                90,
+                MultiplayerGameSpeedPolicy.FastDecreaseAction,
+                0,
+                out int fastFromMaximum) && fastFromMaximum == 65,
+            "fast game-speed decrease from maximum did not retreat 25");
+        Check(MultiplayerGameSpeedPolicy.TryResolve(
+                90,
+                MultiplayerGameSpeedPolicy.FastIncreaseAction,
+                0,
+                out int fastAtMaximum) && fastAtMaximum == MultiplayerGameSpeedPolicy.MaximumSpeed,
+            "fast game-speed increase exceeded the upper bound at 90");
+        Check(MultiplayerGameSpeedPolicy.TryResolve(
+                10,
+                MultiplayerGameSpeedPolicy.FastDecreaseAction,
+                0,
+                out int fastAtMinimum) && fastAtMinimum == MultiplayerGameSpeedPolicy.MinimumSpeed,
+            "fast game-speed decrease exceeded the lower bound at 10");
+        Check(MultiplayerGameSpeedPolicy.TryResolve(
                 MultiplayerGameSpeedPolicy.MaximumSpeed,
                 MultiplayerGameSpeedPolicy.IncreaseAction,
                 0,
@@ -834,6 +936,18 @@ internal static class Program
                 MultiplayerGameSpeedPolicy.MaximumSpeed,
                 out _),
             "multiplayer game-speed decrease accepted a target reserved for Set");
+        Check(!MultiplayerGameSpeedPolicy.TryResolve(
+                40,
+                MultiplayerGameSpeedPolicy.FastIncreaseAction,
+                MultiplayerGameSpeedPolicy.MaximumSpeed,
+                out _),
+            "fast multiplayer game-speed increase accepted a target reserved for Set");
+        Check(!MultiplayerGameSpeedPolicy.TryResolve(
+                40,
+                MultiplayerGameSpeedPolicy.FastDecreaseAction,
+                MultiplayerGameSpeedPolicy.MinimumSpeed,
+                out _),
+            "fast multiplayer game-speed decrease accepted a target reserved for Set");
         Check(!MultiplayerGameSpeedPolicy.TryResolve(40, MultiplayerGameSpeedPolicy.SetAction, 64, out _),
             "non-step multiplayer game-speed target was accepted");
         Check(!MultiplayerGameSpeedPolicy.TryResolve(40, MultiplayerGameSpeedPolicy.SetAction, 95, out _),

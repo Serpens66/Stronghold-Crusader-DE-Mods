@@ -71,6 +71,12 @@
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding EnableMinimapCursorFollowFixText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox>
+      <CheckBox IsChecked="{Binding ShowSelectedUnitHealth, Mode=TwoWay}"
+                Foreground="White"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding ShowSelectedUnitHealthHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding ShowSelectedUnitHealthText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox>
       <CheckBox IsChecked="{Binding EnableMarketKeyMainMenuFix, Mode=TwoWay}"
                 Foreground="White"
                 ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableMarketKeyMainMenuFixHelpText}"

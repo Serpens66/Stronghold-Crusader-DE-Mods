@@ -73,6 +73,8 @@ namespace BugfixesAndQoL
             bool activeMatch,
             bool mapEditor,
             bool alreadySpectator,
+            bool supportedGameMode,
+            bool validLocalParticipant,
             bool previouslyHadLivingLord,
             int localPlayerId,
             SurrenderLordSnapshot currentLord) =>
@@ -80,6 +82,8 @@ namespace BugfixesAndQoL
             activeMatch &&
             !mapEditor &&
             !alreadySpectator &&
+            supportedGameMode &&
+            validLocalParticipant &&
             previouslyHadLivingLord &&
             localPlayerId >= 1 && localPlayerId <= 8 &&
             !IsValidLord(currentLord);

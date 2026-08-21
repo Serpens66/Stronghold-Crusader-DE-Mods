@@ -38,6 +38,32 @@ inactive until a new DLL has been audited.
 The named constants in `src` contain the complete authoritative wildcard byte
 patterns. Every reference above was checked as one match in the baseline DLL.
 
+## Eliminated-player spectator audit
+
+This feature calls Vanilla's managed `EngineInterface.GameAction` and does not
+patch or directly access an RVA. Its multiplayer safety nevertheless depends on
+the following audited native semantics for the baseline hash:
+
+- `DLL_GameAction` is exported at RVA `0x81870`. Command `1073`
+  (`SpectatorMode`) dispatches to RVA `0x823A9` and only stores `1` in the
+  process-local spectator flag (global RVA `0x3665080`). It does not enqueue a
+  network command or accept a target player.
+- `DLL_RunTick` reads that flag at RVA `0x868DC`. When set, it temporarily
+  replaces the process-local player ID with `0` for the tick/output pass and
+  restores the original ID at RVA `0x86927` immediately after the call.
+- Managed Vanilla enables this path only for an all-AI local skirmish. Using it
+  after elimination in real multiplayer is therefore a mod extension, not a
+  Vanilla-supported multiplayer spectator slot. The mod must retain the human
+  player slot, require an authenticated local human member, never send a packet
+  or Chore for this transition, and verify that both native and managed local
+  player IDs remain unchanged after the flag becomes visible in `PlayState`.
+
+These RVAs document why the feature is considered local-only on the audited
+baseline; the runtime does not address them and is therefore not hash-gated.
+For a new DLL, recheck both command dispatch and the complete save/set/call/
+restore sequence as a compatibility audit. Runtime mode, local-human identity,
+lord transition, and post-transition identity checks remain fail-closed.
+
 ## Required update audit
 
 1. Hash the canonical installed DLL and record its Steam build ID and size.

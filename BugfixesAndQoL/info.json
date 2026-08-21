@@ -3,10 +3,28 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.40",
+  "Version": "1.0.43",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.43",
+      "Changes": [
+        "Added a default-enabled per-player HUD display for the current and maximum health of selected units, summing both values for multi-unit selections."
+      ]
+    },
+    {
+      "Version": "1.0.42",
+      "Changes": [
+        "Removed the unnecessarily strict native DLL hash gate from eliminated-player spectator promotion while retaining runtime mode, local-human, lord-transition, and identity validation; re-audited multiplayer surrender as an authenticated client request followed by a host-only tick-synchronized Chore with no local pre-kill or Steam fallback."
+      ]
+    },
+    {
+      "Version": "1.0.41",
+      "Changes": [
+        "Hardened eliminated-player spectator promotion for multiplayer with explicit native-version, game-mode and local-human validation, post-transition identity checks, and diagnostic logging without network traffic."
+      ]
+    },
     {
       "Version": "1.0.40",
       "Changes": [

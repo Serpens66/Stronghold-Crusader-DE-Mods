@@ -26,7 +26,7 @@ namespace BugfixesAndQoL
 
         public const string PluginGuid = "BugfixesAndQoL_Serp";
         public const string PluginName = "Bugfixes and QoL";
-        public const string PluginVersion = "1.0.40";
+        public const string PluginVersion = "1.0.43";
 
         private static DisplayResolutionPersistenceHook displayResolutionPersistenceHook;
         private static SteamLobbyInvitePrompt steamLobbyInvitePrompt;
@@ -158,6 +158,20 @@ namespace BugfixesAndQoL
             catch (Exception ex)
             {
                 Shared.DebugLogHelper.LogError(Logger, $"Bugfixes and QoL surrender/statistics UI/network initialization failed; both buttons remain inactive: {ex}");
+            }
+
+            try
+            {
+                runtime.InitializeSelectedUnitHealthFeature();
+                GameXAMLManagerAPI.Instance.RegisterBinding(
+                    "BugfixesAndQoLSelectedUnitHealthHost",
+                    runtime.SelectedUnitHealthUi);
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(
+                    Logger,
+                    $"Bugfixes and QoL selected-unit health UI initialization failed; the display remains hidden: {ex}");
             }
 
             // Keep UI registration independent so one native feature cannot hide the whole mod.
