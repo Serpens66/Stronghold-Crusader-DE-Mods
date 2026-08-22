@@ -45,8 +45,8 @@
                Foreground="#FFCC66" FontWeight="Bold" Margin="0,0,0,8"/>
     <TextBlock Text="{Binding TitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,4"/>
     <TextBlock Text="{Binding HelpText}" Foreground="#CCCCCC" TextWrapping="Wrap" Margin="0,0,0,10"/>
-    <Grid Margin="0,0,0,6">
-      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+    <Grid Margin="0,0,0,6" HorizontalAlignment="Left">
+      <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
       <TextBlock Grid.Column="0" Text="{Binding HostOptionsText}" Style="{StaticResource HostRoleHeader}" VerticalAlignment="Center"/>
       <Border Grid.Column="1" Style="{StaticResource HostActivationBorder}" Margin="8,0,0,0">
         <CheckBox IsEnabled="{Binding CanEditHostSettings}"
@@ -74,8 +74,8 @@
                 Margin="0,0,0,10"/>
     </StackPanel>
     <Separator Background="#444466" Margin="0,8"/>
-    <Grid Margin="0,0,0,6">
-      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+    <Grid Margin="0,0,0,6" HorizontalAlignment="Left">
+      <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
       <TextBlock Grid.Column="0" Text="{Binding ClientOptionsText}" Style="{StaticResource ClientRoleHeader}" VerticalAlignment="Center"/>
       <Border Grid.Column="1" Style="{StaticResource ClientActivationBorder}" Margin="8,0,0,0">
         <CheckBox IsEnabled="{Binding CanEditClientSettings}"

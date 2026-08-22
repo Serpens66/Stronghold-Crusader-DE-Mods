@@ -94,7 +94,7 @@ namespace BugfixesAndQoL
             bool gameStateReady = GameData.Instance != null && GameData.Instance.lastGameState != null;
 
             state =
-                $"scene={scene}, showFrontend={viewModel.Show_Frontend}, showInGame={viewModel.Show_InGame}, " +
+                $"scene={scene}, screen={viewModel.CurrentScreenNo}, showFrontend={viewModel.Show_Frontend}, showInGame={viewModel.Show_InGame}, " +
                 $"loadingBlack={viewModel.Show_MP_LoadingBlack}, briefing={viewModel.Show_HUD_Briefing}, " +
                 $"confirmationOpen={confirmationOpen}, simRunning={simulationRunning}, gameStateReady={gameStateReady}, " +
                 $"mainUiLoaded={viewModel.MainUILoaded}, radarLoaded={viewModel.RadarLoaded}";
@@ -102,8 +102,10 @@ namespace BugfixesAndQoL
             if (confirmationOpen || viewModel.Show_MP_LoadingBlack)
                 return false;
 
-            if (scene == Enums.SceneIDS.FrontEnd)
-                return viewModel.Show_Frontend && !viewModel.Show_InGame;
+            // Frontend submenus such as the Trail screen can retain a non-FrontEnd scene ID.
+            // The visible root is the reliable indication that the player can use the prompt.
+            if (viewModel.Show_Frontend)
+                return !viewModel.Show_InGame;
 
             if (scene != Enums.SceneIDS.ActualMainGame)
                 return false;

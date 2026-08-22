@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Custom Custom Trail",
   "Description": "Creates portable Coop Trails in the Trail Maker, synchronizes the selected package, and coordinates Custom Trail mod settings.",
-  "Version": "1.3.35",
+  "Version": "1.3.36",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.3.36",
+      "Changes": [
+        "Places the separate host and local-client activation switches visibly beside their corresponding settings headings."
+      ]
+    },
     {
       "Version": "1.3.35",
       "Changes": [
