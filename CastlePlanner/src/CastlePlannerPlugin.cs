@@ -14,7 +14,7 @@ namespace CastlePlanner
 
         public const string PluginGuid = "CastlePlanner_Serp";
         public const string PluginName = "CastlePlanner";
-        public const string PluginVersion = "0.6.9";
+        public const string PluginVersion = "0.6.10";
 
         // The BepInEx component is destroyed during startup, so runtime state remains static.
         private static CastlePlannerRuntime runtime;
@@ -35,7 +35,7 @@ namespace CastlePlanner
             CrusaderLibrary.Instance.LibraryLoaded += OnCrusaderLibraryLoaded;
             Shared.DebugLogHelper.LogInfo(
                 Logger,
-                $"{PluginName} {PluginVersion} loaded; the AIVJSON catalog will be cached when mod settings are opened.");
+                $"{PluginName} {PluginVersion} loaded; the AIVJSON catalog will be cached automatically in the lobby.");
         }
 
         private void OnDestroy()

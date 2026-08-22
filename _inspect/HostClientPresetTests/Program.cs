@@ -1990,6 +1990,12 @@ internal static class Program
                 "[Mod] Castle One.aivjson", new[] { 1, 2 }, manifests, out string resolvedHash) &&
               resolvedHash == sharedHash,
             "CastlePlanner rejected an identical multiplayer AIVJSON");
+        first["[Mod] Unselected Host Only.aivjson"] = otherHash;
+        manifests[1] = CastlePlanner.CastleSpawnCompatibility.EncodeManifest(first);
+        Check(CastlePlanner.CastleSpawnCompatibility.IsAvailableToAll(
+                "[Mod] Castle One.aivjson", new[] { 1, 2 }, manifests, out resolvedHash) &&
+              resolvedHash == sharedHash,
+            "CastlePlanner rejected a selected AIVJSON because an unrelated inventory entry differed");
         Check(!CastlePlanner.CastleSpawnCompatibility.IsAvailableToAll(
                 "[Mod] Local Only.aivjson", new[] { 1, 2 }, manifests, out _),
             "CastlePlanner accepted an AIVJSON missing on one peer");

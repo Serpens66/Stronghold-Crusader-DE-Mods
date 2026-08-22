@@ -229,9 +229,18 @@ foreach ($required in @(
 $castleSettingsSource = [IO.File]::ReadAllText((Join-Path $workspace 'CastlePlanner/src/CastlePlannerSettingsViewModel.cs'))
 foreach ($required in @(
     'TryDecodeManifest(',
-    'reported an invalid AIVJSON inventory manifest')) {
+    'reported an invalid AIVJSON inventory manifest',
+    'TryLoadCastleCatalog()',
+    'Shared.GameModeHelper.IsRealMultiplayer()')) {
     if (-not $castleSettingsSource.Contains($required)) {
         throw "CastlePlanner fail-closed manifest marker is missing: $required"
+    }
+}
+foreach ($forbidden in @(
+    'The local AIVJSON inventory changed after its last lobby announcement.',
+    'bool multiplayer = lobbyPlayers.HumanMemberCount > 1;')) {
+    if ($castleSettingsSource.Contains($forbidden)) {
+        throw "CastlePlanner retained obsolete whole-inventory or player-count logic: $forbidden"
     }
 }
 foreach ($forbidden in @(

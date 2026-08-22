@@ -21,10 +21,12 @@ castle selection is synchronized per player. Multiplayer selection requires the
 same catalog name and SHA-256 on every participant. Both features can be enabled
 at the same time.
 
-Inventory manifests are transient. A host-authenticated lobby resync request
-makes every existing participant re-advertise its own manifest and selection
-when somebody joins. Lobby-ID and Steam-ID/player-ID changes invalidate stale
-slots, while unchanged file fingerprints and decoded manifests are cached.
+Inventory manifests are transient and are built automatically once Steam
+Workshop content is available in the lobby; opening the mod settings is not
+required. A host-authenticated lobby resync request makes every existing
+participant re-advertise its cached manifest and selection when somebody joins.
+Lobby-ID and Steam-ID/player-ID changes invalidate stale slots, while unchanged
+file fingerprints and decoded manifests remain cached.
 
 ## Visual Blueprint mode
 
@@ -222,9 +224,10 @@ Native Spawn mode permits local singleplayer and real multiplayer skirmishes.
 Every peer validates the complete human-player selection and identical AIVJSON
 hashes, then imports and executes all selected castles in stable player-ID order.
 The snapshot must already be converged and stable before map start; map-start
-validation never sends a last-second update. It also re-hashes the local files,
-and an incomplete, changed, or incompatible snapshot aborts the whole
-custom-spawn transaction. It does not use
+validation never sends a last-second update. It re-hashes every selected local
+file immediately before import; unrelated inventory differences do not block a
+compatible selection. An incomplete, changed, or incompatible selected-file
+snapshot aborts the whole custom-spawn transaction. It does not use
 `GameNetworkAPI.IsNetworkedEnvironment()` as
 the deciding signal: Vanilla also creates a local `gameMembers` list for regular
 singleplayer skirmishes. Instead, the guard combines `Director` state with lobby

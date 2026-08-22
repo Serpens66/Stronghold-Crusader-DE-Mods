@@ -81,7 +81,7 @@ namespace CastlePlanner
                     nameof(SpawnInventoryManifest),
                     value => !string.IsNullOrEmpty(value as string))
                 .OnObservation(ObserveLocalSpawnCompatibility)
-                .BeforePublish(() => RefreshLocalInventory(notify: false))
+                .BeforePublish(PrepareLocalCompatibilityReport)
                 .WhenLobbyChanged(OnSharedLobbyChanged)
                 .AfterPublish(OnSharedCompatibilityPublished);
         }
@@ -108,7 +108,6 @@ namespace CastlePlanner
             runtimeStorage.Load(runtimeState);
             NormalizeRuntimeState();
             TryMigrateLegacySettings(pluginAssemblyLocation);
-            PublishLocalInventory(forceBroadcast: false);
             RebuildSpawnCastleOptions();
 
             ResetToDefaultCommand = new RelayCommand(ResetToDefault);
@@ -139,11 +138,21 @@ namespace CastlePlanner
 
         internal bool EnsureCastleCatalogLoaded()
         {
-            if (castleCatalogLoaded)
+            if (!TryLoadCastleCatalog())
                 return false;
 
-            RefreshCastleOptions(notifySelectionChange: true);
             System_RequestPerPlayerSettingsPublish();
+            return true;
+        }
+
+        private bool TryLoadCastleCatalog()
+        {
+            if (castleCatalogLoaded || !Shared.WorkshopContentPaths.IsSteamworksReady())
+                return false;
+
+            // The complete Workshop-aware scan runs once. Lobby republishes reuse the
+            // resulting option map, fingerprints and encoded inventory manifest.
+            RefreshCastleOptions(notifySelectionChange: true);
             return true;
         }
 
@@ -509,6 +518,9 @@ namespace CastlePlanner
         {
             requests = new List<CastleSpawnRequest>();
             error = string.Empty;
+            if (!TryPrepareCatalogForSpawn(isRealMultiplayer, out error))
+                return false;
+
             if (!CastleSpawnCompatibility.TryResolvePlayerReports(
                     isRealMultiplayer,
                     humanPlayerIds,
@@ -584,8 +596,38 @@ namespace CastlePlanner
 
         private void ObserveLocalSpawnCompatibility()
         {
+            if (TryLoadCastleCatalog())
+                System_RequestPerPlayerSettingsPublish();
+
             ApplyPendingSpawnSelectionReset();
             ApplyPendingSpawnOptionsRebuild();
+        }
+
+        private void PrepareLocalCompatibilityReport()
+        {
+            // Normally the lobby observer has already populated the cache. This
+            // fallback covers a first publish in the same frame Steam becomes ready.
+            TryLoadCastleCatalog();
+        }
+
+        private bool TryPrepareCatalogForSpawn(bool isRealMultiplayer, out string error)
+        {
+            error = string.Empty;
+            if (castleCatalogLoaded)
+                return true;
+
+            if (isRealMultiplayer)
+            {
+                error = "The local AIVJSON inventory was not prepared and synchronized in the multiplayer lobby.";
+                return false;
+            }
+
+            TryLoadCastleCatalog();
+            if (castleCatalogLoaded)
+                return true;
+
+            error = "The complete local AIVJSON inventory is not available yet.";
+            return false;
         }
 
         private void OnSharedLobbyChanged(Shared.PerPlayerLobbySnapshot snapshot)
@@ -652,7 +694,7 @@ namespace CastlePlanner
             spawnOptionsRebuildPending = false;
             LobbyHumanPlayerSnapshot lobbyPlayers = GetLobbyHumanPlayerSnapshot();
             int[] humanPlayerIds = lobbyPlayers.PlayerIds;
-            bool multiplayer = lobbyPlayers.HumanMemberCount > 1;
+            bool multiplayer = Shared.GameModeHelper.IsRealMultiplayer();
             bool allReported = humanPlayerIds.All(id =>
                 id > 0 && id < SpawnInventoryManifestData.Length &&
                 !string.IsNullOrEmpty(SpawnInventoryManifestData[id]) &&
@@ -717,7 +759,7 @@ namespace CastlePlanner
             spawnSelectionResetPending = false;
 
             LobbyHumanPlayerSnapshot lobbyPlayers = GetLobbyHumanPlayerSnapshot();
-            if (lobbyPlayers.HumanMemberCount <= 1 ||
+            if (!Shared.GameModeHelper.IsRealMultiplayer() ||
                 lobbyPlayers.HasUnresolvedPlayers ||
                 string.IsNullOrEmpty(spawnSelectedCastle))
             {
@@ -806,19 +848,6 @@ namespace CastlePlanner
             out string error)
         {
             error = string.Empty;
-            catalog.Discover(message =>
-                Shared.DebugLogHelper.LogWarning(log, message));
-            string currentManifest = CastleSpawnCompatibility.EncodeManifest(
-                catalog.CaptureHashes(
-                    message => Shared.DebugLogHelper.LogWarning(log, message),
-                    forceRefresh: true));
-            if (!string.Equals(currentManifest, spawnInventoryManifest, StringComparison.Ordinal))
-            {
-                error = "The local AIVJSON inventory changed after its last lobby announcement. " +
-                    "Reopen the CastlePlanner settings and wait for synchronization before starting.";
-                return false;
-            }
-
             if (!isRealMultiplayer)
                 return true;
 
