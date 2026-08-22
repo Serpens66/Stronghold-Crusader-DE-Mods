@@ -1,6 +1,11 @@
 # CastlePlanner localization
 Common.ResetToDefault=Zurücksetzen
 Common.EnableMod=Mod aktivieren
+Common.ModEnabled=Mod aktiviert
+Common.HostActivationLabel=(Host-)
+Common.ClientActivationLabel=(Client-Settings)
+Common.HostSettingsActivationHelp=Aktiviert oder deaktiviert alle vom Host gesteuerten Einstellungen dieser Mod.
+Common.ClientSettingsActivationHelp=Aktiviert oder deaktiviert alle lokalen und persönlichen Client-Einstellungen dieser Mod.
 Common.PresetHelp=Wählt ein gespeichertes Preset. Clients ändern damit nur ihre persönlichen Einstellungen.
 Common.Clear=Entfernen
 CastlePlanner.Title=MENSCHLICHE BURG

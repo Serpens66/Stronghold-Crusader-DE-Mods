@@ -8,6 +8,11 @@ public static class SerpLocalization
 {
     public const string ResetToDefault = "Common.ResetToDefault";
     public const string EnableMod = "Common.EnableMod";
+    public const string ModEnabled = "Common.ModEnabled";
+    public const string HostActivationLabel = "Common.HostActivationLabel";
+    public const string ClientActivationLabel = "Common.ClientActivationLabel";
+    public const string HostSettingsActivationHelp = "Common.HostSettingsActivationHelp";
+    public const string ClientSettingsActivationHelp = "Common.ClientSettingsActivationHelp";
     public const string HostOptions = "Common.HostOptions";
     public const string ClientOptions = "Common.ClientOptions";
     public const string HostReadOnly = "Common.HostReadOnly";
@@ -189,6 +194,11 @@ public static class SerpLocalization
         { SerpsModsSummaryFormat, "Pack {Version}: expected {Expected}, validated {Validated}, registered {Registered}." },
         { ResetToDefault, "Reset to Default" },
         { EnableMod, "Enable Mod" },
+        { ModEnabled, "Mod enabled" },
+        { HostActivationLabel, "(Host-)" },
+        { ClientActivationLabel, "(Client settings)" },
+        { HostSettingsActivationHelp, "Enables or disables all host-controlled settings of this mod." },
+        { ClientSettingsActivationHelp, "Enables or disables all local and personal client settings of this mod." },
         { HostOptions, "HOST OPTIONS" },
         { ClientOptions, "LOCAL CLIENT OPTIONS" },
         { HostReadOnly, "Values from host - read-only" },

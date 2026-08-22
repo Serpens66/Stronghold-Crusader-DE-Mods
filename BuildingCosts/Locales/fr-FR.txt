@@ -1,6 +1,11 @@
 # Serp mod localization
 # Format: key=value
 Common.EnableMod=Enable Mod
+Common.ModEnabled=Mod enabled
+Common.HostActivationLabel=(Host-)
+Common.ClientActivationLabel=(Client settings)
+Common.HostSettingsActivationHelp=Enables or disables all host-controlled settings of this mod.
+Common.ClientSettingsActivationHelp=Enables or disables all local and personal client settings of this mod.
 Common.ResetToDefault=Reset to Default
 BuildingCosts.Title=Building Costs
 BuildingCosts.Help=-1 = unchanged. Values 0 to 1000 set the native construction cost for that material (Human and AI).

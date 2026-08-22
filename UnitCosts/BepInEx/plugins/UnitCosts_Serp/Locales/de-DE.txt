@@ -2,6 +2,11 @@
 # Format: key=value
 Common.ResetToDefault=Zurücksetzen
 Common.EnableMod=Mod aktivieren
+Common.ModEnabled=Mod aktiviert
+Common.HostActivationLabel=(Host-)
+Common.ClientActivationLabel=(Client-Settings)
+Common.HostSettingsActivationHelp=Aktiviert oder deaktiviert alle vom Host gesteuerten Einstellungen dieser Mod.
+Common.ClientSettingsActivationHelp=Aktiviert oder deaktiviert alle lokalen und persönlichen Client-Einstellungen dieser Mod.
 UnitCosts.Title=Grundkosten (Mensch und KI)
 UnitCosts.Help=Hier können nur native Goldkosten geändert werden. Materialkosten werden über die Zusatzkosten für menschliche Spieler hinzugefügt.
 UnitCosts.ExtraTitle=Zusatzkosten (nur Mensch)

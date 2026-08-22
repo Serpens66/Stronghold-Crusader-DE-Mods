@@ -1,4 +1,9 @@
 Common.EnableMod=Mod aktivieren
+Common.ModEnabled=Mod aktiviert
+Common.HostActivationLabel=(Host-)
+Common.ClientActivationLabel=(Client-Settings)
+Common.HostSettingsActivationHelp=Aktiviert oder deaktiviert alle vom Host gesteuerten Einstellungen dieser Mod.
+Common.ClientSettingsActivationHelp=Aktiviert oder deaktiviert alle lokalen und persönlichen Client-Einstellungen dieser Mod.
 Common.EnableModHelp=Aktiviert oder deaktiviert diese Mod lokal. Wenn sie deaktiviert ist, werden Custom-Trail-Sidecars und Coop-Ersatzmissionen nicht angewendet.
 CustomCustomTrail.PracticalEffects=Diese Mod speichert die Einstellungen unterstützter Mods zusammen mit Custom-Trail-Missionen und stellt sie beim Spielen wieder her. Im Traileditor exportiert die Option „Koop-Trail“ bis zu 40 Missionen als ein portables Paket. Der Host wählt ein installiertes Paket aus; jeder Teilnehmer benötigt identische Inhalte, bevor eine ersetzte Mission gestartet werden kann. Durch lokales Deaktivieren werden die Vanilla-Koop-Missionen wiederhergestellt und Trail-Modsettings ignoriert.
 CustomCustomTrail.HostOptions=HOST-OPTIONEN

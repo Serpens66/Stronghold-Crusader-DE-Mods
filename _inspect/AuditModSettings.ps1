@@ -107,6 +107,7 @@ foreach ($entry in $settings.GetEnumerator()) {
         Sort-Object -Unique |
         Where-Object {
             $_ -ne 'SelectedPreset' -and
+            $_ -notin @('HostSettingsEnabled', 'ClientSettingsEnabled') -and
             $_ -notin $classifiedProperties -and
             $_ -notin $allowedProxies
         })
@@ -115,9 +116,9 @@ foreach ($entry in $settings.GetEnumerator()) {
     }
 
     $activationNodes = @($xml.SelectNodes(
-        "//*[local-name()='CheckBox' and (contains(@IsChecked, 'EnableMod') or contains(@IsChecked, 'EnableClientFeatures'))]"))
-    if ($entry.Key -ne 'SerpsModsHost' -and $activationNodes.Count -eq 0) {
-        throw "$($entry.Key): no activation checkbox found."
+        "//*[local-name()='CheckBox' and (contains(@IsChecked, 'HostSettingsEnabled') or contains(@IsChecked, 'ClientSettingsEnabled'))]"))
+    if ($entry.Key -ne 'SerpsModsHost' -and $activationNodes.Count -ne 2) {
+        throw "$($entry.Key): expected exactly two shared activation checkboxes."
     }
     foreach ($activationNode in $activationNodes) {
         if ($activationNode.ParentNode.LocalName -ne 'Border' -or
@@ -143,11 +144,29 @@ foreach ($entry in $settings.GetEnumerator()) {
             'x:Key="SectionHeader"',
             'x:Key="HostActivationBorder"',
             'x:Key="ClientActivationBorder"',
-            'Text="{Binding PresetText}"')
+            'Text="{Binding ModEnabledText}"',
+            'IsChecked="{Binding HostSettingsEnabled, Mode=TwoWay}"',
+            'IsChecked="{Binding ClientSettingsEnabled, Mode=TwoWay}"')
     }
     foreach ($required in $requiredMarkers) {
         if (-not $text.Contains($required)) {
             throw "$($entry.Key): required shared UI marker is missing: $required"
+        }
+    }
+
+    if ($entry.Key -ne 'SerpsModsHost') {
+        $headerIndex = $text.IndexOf('Text="{Binding ModEnabledText}"', [StringComparison]::Ordinal)
+        $hostIndex = $text.IndexOf('IsChecked="{Binding HostSettingsEnabled, Mode=TwoWay}"', [StringComparison]::Ordinal)
+        $clientIndex = $text.IndexOf('IsChecked="{Binding ClientSettingsEnabled, Mode=TwoWay}"', [StringComparison]::Ordinal)
+        $presetIndex = $text.IndexOf('ItemsSource="{Binding PresetOptions}"', [StringComparison]::Ordinal)
+        $resetIndex = $text.IndexOf('Command="{Binding ResetToDefaultCommand}"', [StringComparison]::Ordinal)
+        if (-not ($headerIndex -lt $hostIndex -and $hostIndex -lt $clientIndex -and $clientIndex -lt $presetIndex -and $presetIndex -lt $resetIndex)) {
+            throw "$($entry.Key): shared header controls are not in the required order."
+        }
+        if ($text.Contains('Text="{Binding PresetText}"') -or
+            $text.Contains('IsChecked="{Binding EnableMod, Mode=TwoWay}"') -or
+            $text.Contains('IsChecked="{Binding EnableClientFeatures, Mode=TwoWay}"')) {
+            throw "$($entry.Key): obsolete preset label or section activation checkbox remains."
         }
     }
 

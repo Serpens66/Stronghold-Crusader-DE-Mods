@@ -28,15 +28,14 @@
                 HorizontalScrollBarVisibility="Auto">
   <StackPanel Margin="10">
     <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-      <TextBlock Text="{Binding PresetText}" Visibility="{Binding PresetVisibility}" Foreground="#CCCCCC" VerticalAlignment="Center" Margin="0,0,6,0"/>
-      <ComboBox IsEnabled="{Binding CanChangePreset}"
-                Visibility="{Binding PresetVisibility}"
-                ItemsSource="{Binding PresetOptions}"
-                SelectedIndex="{Binding SelectedPreset, Mode=TwoWay}"
-                ToolTipService.ShowDuration="60000"
-                ToolTip="{Binding PresetHelpText}"
-                Width="170"
-                VerticalAlignment="Center"/>
+      <TextBlock Text="{Binding ModEnabledText}" Foreground="White" FontWeight="Bold" VerticalAlignment="Center"/>
+      <Border Style="{StaticResource HostActivationBorder}" Margin="8,0,0,0">
+        <CheckBox IsEnabled="{Binding CanToggleHostSettings}" IsChecked="{Binding HostSettingsEnabled, Mode=TwoWay}" Content="{Binding HostActivationLabelText}" ToolTipService.ShowDuration="60000" ToolTip="{Binding HostSettingsActivationHelpText}" Foreground="White" FontWeight="Bold" VerticalAlignment="Center"/>
+      </Border>
+      <Border Style="{StaticResource ClientActivationBorder}" Margin="8,0,0,0">
+        <CheckBox IsEnabled="{Binding CanToggleClientSettings}" IsChecked="{Binding ClientSettingsEnabled, Mode=TwoWay}" Content="{Binding ClientActivationLabelText}" ToolTipService.ShowDuration="60000" ToolTip="{Binding ClientSettingsActivationHelpText}" Foreground="White" FontWeight="Bold" VerticalAlignment="Center"/>
+      </Border>
+      <ComboBox IsEnabled="{Binding CanChangePreset}" Visibility="{Binding PresetVisibility}" ItemsSource="{Binding PresetOptions}" SelectedIndex="{Binding SelectedPreset, Mode=TwoWay}" ToolTipService.ShowDuration="60000" ToolTip="{Binding PresetHelpText}" Width="170" VerticalAlignment="Center" Margin="14,0,0,0"/>
       <Button IsEnabled="{Binding CanResetSettings}" Content="{Binding ResetToDefaultText}" Command="{Binding ResetToDefaultCommand}" ToolTipService.ShowDuration="60000" ToolTip="{Binding ResetToDefaultHelpText}" HorizontalAlignment="Left" Padding="10,3" Margin="14,0,0,0"/>
     </StackPanel>
     <TextBlock Text="{Binding ActionsScopeNoticeText}" Visibility="{Binding ActionsScopeNoticeVisibility}" Foreground="#BBBBBB" TextWrapping="Wrap" Margin="0,0,0,8"/>
@@ -45,19 +44,7 @@
                Foreground="#FFCC66" FontWeight="Bold" Margin="0,0,0,8"/>
     <TextBlock Text="{Binding TitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,4"/>
     <TextBlock Text="{Binding HelpText}" Foreground="#CCCCCC" TextWrapping="Wrap" Margin="0,0,0,10"/>
-    <Grid Margin="0,0,0,6" HorizontalAlignment="Left">
-      <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-      <TextBlock Grid.Column="0" Text="{Binding HostOptionsText}" Style="{StaticResource HostRoleHeader}" VerticalAlignment="Center"/>
-      <Border Grid.Column="1" Style="{StaticResource HostActivationBorder}" Margin="8,0,0,0">
-        <CheckBox IsEnabled="{Binding CanEditHostSettings}"
-                  IsChecked="{Binding EnableMod, Mode=TwoWay}"
-                  Content="{Binding EnableHostFeaturesText}"
-                  ToolTipService.ShowDuration="60000"
-                  ToolTip="{Binding EnableHostFeaturesHelpText}"
-                  Foreground="White"
-                  FontWeight="Bold"/>
-      </Border>
-    </Grid>
+    <TextBlock Text="{Binding HostOptionsText}" Style="{StaticResource HostRoleHeader}" Margin="0,2,0,6"/>
     <StackPanel IsEnabled="{Binding CanEditHostSettings}">
       <!-- Kept hidden until the migrated lobby placement workflow is ready for users. -->
       <CheckBox Visibility="Collapsed"
@@ -74,19 +61,7 @@
                 Margin="0,0,0,10"/>
     </StackPanel>
     <Separator Background="#444466" Margin="0,8"/>
-    <Grid Margin="0,0,0,6" HorizontalAlignment="Left">
-      <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-      <TextBlock Grid.Column="0" Text="{Binding ClientOptionsText}" Style="{StaticResource ClientRoleHeader}" VerticalAlignment="Center"/>
-      <Border Grid.Column="1" Style="{StaticResource ClientActivationBorder}" Margin="8,0,0,0">
-        <CheckBox IsEnabled="{Binding CanEditClientSettings}"
-                  IsChecked="{Binding EnableClientFeatures, Mode=TwoWay}"
-                  Content="{Binding EnableClientFeaturesText}"
-                  ToolTipService.ShowDuration="60000"
-                  ToolTip="{Binding EnableClientFeaturesHelpText}"
-                  Foreground="White"
-                  FontWeight="Bold"/>
-      </Border>
-    </Grid>
+    <TextBlock Text="{Binding ClientOptionsText}" Style="{StaticResource ClientRoleHeader}" Margin="0,4,0,6"/>
     <StackPanel IsEnabled="{Binding CanEditClientSettings}">
       <Border Background="#222F5F9F" BorderBrush="#6677AAFF" BorderThickness="1" CornerRadius="3" Padding="8" Margin="0,0,0,10">
         <StackPanel>

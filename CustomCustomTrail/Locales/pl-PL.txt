@@ -1,4 +1,9 @@
 Common.EnableMod=Enable Mod
+Common.ModEnabled=Mod enabled
+Common.HostActivationLabel=(Host-)
+Common.ClientActivationLabel=(Client settings)
+Common.HostSettingsActivationHelp=Enables or disables all host-controlled settings of this mod.
+Common.ClientSettingsActivationHelp=Enables or disables all local and personal client settings of this mod.
 Common.EnableModHelp=Enables or disables this mod locally. When disabled, Custom Trail sidecars and Coop mission replacements are not applied.
 CustomCustomTrail.PracticalEffects=This mod saves supported mod settings with Custom Trail missions and restores them when played. In the Trail Maker, the Coop Trail option exports up to 40 missions as one portable package. The host selects an installed package; every participant must have identical contents before a replaced mission can start. Disabling the mod locally restores Vanilla Coop missions and ignores Trail mod settings.
 CustomCustomTrail.HostOptions=HOST OPTIONS

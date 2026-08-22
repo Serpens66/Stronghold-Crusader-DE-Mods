@@ -1,5 +1,10 @@
 Common.ResetToDefault=Zurücksetzen
 Common.EnableMod=Mod aktivieren
+Common.ModEnabled=Mod aktiviert
+Common.HostActivationLabel=(Host-)
+Common.ClientActivationLabel=(Client-Settings)
+Common.HostSettingsActivationHelp=Aktiviert oder deaktiviert alle vom Host gesteuerten Einstellungen dieser Mod.
+Common.ClientSettingsActivationHelp=Aktiviert oder deaktiviert alle lokalen und persönlichen Client-Einstellungen dieser Mod.
 ImprovedHunters.Title=Verbesserte Jäger
 ImprovedHunters.Help=Wenn deaktiviert, bleibt das Jaegerverhalten vanilla. Fleischwerte sind die finale Menge pro eingesammeltem Tier.
 ImprovedHunters.Hunt=Jagen

@@ -1,6 +1,11 @@
 # CastlePlanner localization
 Common.ResetToDefault=Reset to Default
 Common.EnableMod=Enable Mod
+Common.ModEnabled=Mod enabled
+Common.HostActivationLabel=(Host-)
+Common.ClientActivationLabel=(Client settings)
+Common.HostSettingsActivationHelp=Enables or disables all host-controlled settings of this mod.
+Common.ClientSettingsActivationHelp=Enables or disables all local and personal client settings of this mod.
 Common.PresetHelp=Selects a saved preset. Clients change only their personal settings.
 Common.Clear=Clear
 CastlePlanner.Title=HUMAN CASTLE

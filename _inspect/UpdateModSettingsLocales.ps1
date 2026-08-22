@@ -61,6 +61,7 @@ $localeDirectories = @(
     'ImprovedHunters\Locales',
     'RandomEvents\Locales',
     'CastlePlanner\BepInEx\plugins\CastlePlanner_Serp\Locales',
+    'CustomCustomTrail\Locales',
     'StartConditions\Locales',
     'UnitCosts\Locales',
     'UnitLimit\Locales'
@@ -70,6 +71,11 @@ foreach ($relativeDirectory in $localeDirectories) {
     $directory = Join-Path $workspace $relativeDirectory
     foreach ($file in Get-ChildItem -LiteralPath $directory -Filter '*.txt') {
         $german = $file.Name -eq 'de-DE.txt'
+        Set-LocaleKey $file.FullName 'Common.ModEnabled' $(if ($german) { 'Mod aktiviert' } else { 'Mod enabled' })
+        Set-LocaleKey $file.FullName 'Common.HostActivationLabel' '(Host-)'
+        Set-LocaleKey $file.FullName 'Common.ClientActivationLabel' $(if ($german) { '(Client-Settings)' } else { '(Client settings)' })
+        Set-LocaleKey $file.FullName 'Common.HostSettingsActivationHelp' $(if ($german) { 'Aktiviert oder deaktiviert alle vom Host gesteuerten Einstellungen dieser Mod.' } else { 'Enables or disables all host-controlled settings of this mod.' })
+        Set-LocaleKey $file.FullName 'Common.ClientSettingsActivationHelp' $(if ($german) { 'Aktiviert oder deaktiviert alle lokalen und persönlichen Client-Einstellungen dieser Mod.' } else { 'Enables or disables all local and personal client settings of this mod.' })
         Set-LocaleKey $file.FullName 'Common.Preset' 'Preset'
         Set-LocaleKey $file.FullName 'Common.ActionsScopeHost' $(if ($german) { 'Preset und Zurücksetzen betreffen Host-Einstellungen und deine lokalen Client-Optionen.' } else { 'Preset and reset affect host settings and your local client settings.' })
         Set-LocaleKey $file.FullName 'Common.ActionsScopeClient' $(if ($german) { 'Preset und Zurücksetzen betreffen nur deine lokalen Client-Optionen.' } else { 'Preset and reset affect only your local client settings.' })

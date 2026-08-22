@@ -266,6 +266,23 @@ internal static class Program
 
             GameNetworkAPI.MultiplayerGame = true;
 
+            var activation = new ActivationViewModel();
+            activation.PreparePresets(null, Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Activation.dll"), "ActivationTest");
+            GameNetworkAPI.LocalHost = true;
+            activation.System_RefreshSettingsAccess();
+            Check(activation.HasHostSettingsActivation && activation.HasClientSettingsActivation,
+                "shared activation bindings did not detect both setting scopes");
+            Check(activation.CanToggleHostSettings && activation.CanToggleClientSettings,
+                "shared activation bindings were unexpectedly locked for the host");
+            activation.HostSettingsEnabled = false;
+            activation.ClientSettingsEnabled = false;
+            Check(!activation.EnableMod && !activation.EnableClientFeatures,
+                "shared activation bindings did not update the scope properties");
+            GameNetworkAPI.LocalHost = false;
+            activation.System_RefreshSettingsAccess();
+            Check(!activation.CanToggleHostSettings && activation.CanToggleClientSettings,
+                "shared activation bindings did not preserve host/client authority");
+
             var hostOnly = new HostOnlyViewModel();
             hostOnly.PreparePresets(null, Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "HostOnly.dll"), "HostOnlyTest");
             GameNetworkAPI.LocalHost = false;
@@ -273,6 +290,8 @@ internal static class Program
             Check(!hostOnly.CanChangePreset, "pure host mod exposed a functional client preset");
             Check(hostOnly.HostReadOnlyNoticeVisibility == Noesis.Visibility.Visible, "pure host mod omitted its read-only notice");
             Check(hostOnly.ActionsScopeNoticeVisibility == Noesis.Visibility.Collapsed, "pure host mod displayed a client action-scope notice");
+            Check(!hostOnly.HasHostSettingsActivation && !hostOnly.HostSettingsEnabled && !hostOnly.CanToggleHostSettings,
+                "a host mod without an activation property exposed an enabled header switch");
 
             var conflicting = new ConflictingAttributesViewModel();
             conflicting.PreparePresets(null, Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Conflicting.dll"), "ConflictingTest");
@@ -2140,6 +2159,38 @@ internal sealed class HostOnlyViewModel : PresetLobbyModSettingsViewModel
                 return;
             hostValue = value;
             OnPropertyChanged(nameof(HostValue));
+        }
+    }
+}
+
+internal sealed class ActivationViewModel : PresetLobbyModSettingsViewModel
+{
+    private bool enableMod = true;
+    private bool enableClientFeatures = true;
+
+    [SyncHostOnly]
+    public bool EnableMod
+    {
+        get => enableMod;
+        set
+        {
+            if (!CanMutateSetting(nameof(EnableMod)) || enableMod == value)
+                return;
+            enableMod = value;
+            OnPropertyChanged(nameof(EnableMod));
+        }
+    }
+
+    [PresetLocal]
+    public bool EnableClientFeatures
+    {
+        get => enableClientFeatures;
+        set
+        {
+            if (!CanMutateSetting(nameof(EnableClientFeatures)) || enableClientFeatures == value)
+                return;
+            enableClientFeatures = value;
+            OnPropertyChanged(nameof(EnableClientFeatures));
         }
     }
 }

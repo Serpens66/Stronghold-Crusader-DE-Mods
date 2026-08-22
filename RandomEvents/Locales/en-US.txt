@@ -1,6 +1,11 @@
 # Random Events localization
 Common.ResetToDefault=Reset to Default
 Common.EnableMod=Enable Mod
+Common.ModEnabled=Mod enabled
+Common.HostActivationLabel=(Host-)
+Common.ClientActivationLabel=(Client settings)
+Common.HostSettingsActivationHelp=Enables or disables all host-controlled settings of this mod.
+Common.ClientSettingsActivationHelp=Enables or disables all local and personal client settings of this mod.
 RandomEvents.Interval=Interval (Vanilla months)
 RandomEvents.IntervalHelp=The first roll happens after one complete interval. Every event rolls independently.
 RandomEvents.Cooldown=Cooldown of an event (months)

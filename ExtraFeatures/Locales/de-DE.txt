@@ -3,6 +3,11 @@
 Common.LegacySomeSettingsWarning=FEHLER: Der veraltete Mod SomeSettings_Serp ist ebenfalls geladen. Bitte deinstalliere SomeSettings_Serp, um doppelte oder widerspruechliche Funktionen zu vermeiden.
 Common.ResetToDefault=Zurücksetzen
 Common.EnableMod=Mod aktivieren
+Common.ModEnabled=Mod aktiviert
+Common.HostActivationLabel=(Host-)
+Common.ClientActivationLabel=(Client-Settings)
+Common.HostSettingsActivationHelp=Aktiviert oder deaktiviert alle vom Host gesteuerten Einstellungen dieser Mod.
+Common.ClientSettingsActivationHelp=Aktiviert oder deaktiviert alle lokalen und persönlichen Client-Einstellungen dieser Mod.
 SomeSettings.EnableFastRecruitRallyMovement=Rekruten laufen zu Sammelpunkten
 SomeSettings.EnableFastRecruitRallyMovementHelp=Neu rekrutierte Spieler- und KI-Einheiten laufen mit ihrem eigenen maximalen Vanilla-Tempo und passender Animation zu ihrem Sammelpunkt; Gelände- und Zustandsmodifikatoren bleiben erhalten.
 SomeSettings.EnableMonksAlwaysRun=Mönche laufen immer

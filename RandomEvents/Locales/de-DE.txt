@@ -1,6 +1,11 @@
 # Random Events localization
 Common.ResetToDefault=Zurücksetzen
 Common.EnableMod=Mod aktivieren
+Common.ModEnabled=Mod aktiviert
+Common.HostActivationLabel=(Host-)
+Common.ClientActivationLabel=(Client-Settings)
+Common.HostSettingsActivationHelp=Aktiviert oder deaktiviert alle vom Host gesteuerten Einstellungen dieser Mod.
+Common.ClientSettingsActivationHelp=Aktiviert oder deaktiviert alle lokalen und persönlichen Client-Einstellungen dieser Mod.
 RandomEvents.Interval=Intervall (Vanilla-Monate)
 RandomEvents.IntervalHelp=Der erste Wurf erfolgt nach einem vollständigen Intervall. Jedes Ereignis würfelt unabhängig.
 RandomEvents.Cooldown=Abklingzeit eines Ereignisses (Monate)

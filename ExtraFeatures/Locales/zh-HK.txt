@@ -1,6 +1,11 @@
 # Serp mod localization
 # Format: key=value
 Common.EnableMod=Enable Mod
+Common.ModEnabled=Mod enabled
+Common.HostActivationLabel=(Host-)
+Common.ClientActivationLabel=(Client settings)
+Common.HostSettingsActivationHelp=Enables or disables all host-controlled settings of this mod.
+Common.ClientSettingsActivationHelp=Enables or disables all local and personal client settings of this mod.
 Common.LegacySomeSettingsWarning=ERROR: The obsolete mod SomeSettings_Serp is also loaded. Please uninstall SomeSettings_Serp to avoid duplicate or conflicting features.
 Common.ResetToDefault=Reset to Default
 SomeSettings.EnableFastRecruitRallyMovement=Recruits Run to Rally Points

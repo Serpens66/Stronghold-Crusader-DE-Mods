@@ -649,6 +649,22 @@ namespace Shared
 
         public bool HasClientSettings => presetController?.HasClientSettings ?? false;
 
+        public bool HasHostSettingsActivation => presetController?.HasHostSettingsActivation ?? false;
+
+        public bool HasClientSettingsActivation => presetController?.HasClientSettingsActivation ?? false;
+
+        public bool HostSettingsEnabled
+        {
+            get => presetController?.HostSettingsEnabled ?? false;
+            set => presetController?.SetHostSettingsEnabled(value);
+        }
+
+        public bool ClientSettingsEnabled
+        {
+            get => presetController?.ClientSettingsEnabled ?? false;
+            set => presetController?.SetClientSettingsEnabled(value);
+        }
+
         public bool IsLocalSettingsHost => isLocalHost;
 
         public bool IsRealMultiplayerContext => isRealMultiplayer;
@@ -661,6 +677,12 @@ namespace Shared
             isLocalHost && (!IsMissionPresetSelected || missionPresetEditable);
 
         public bool CanEditClientSettings => true;
+
+        public bool CanToggleHostSettings =>
+            HasHostSettings && HasHostSettingsActivation && CanEditHostSettings;
+
+        public bool CanToggleClientSettings =>
+            HasClientSettings && HasClientSettingsActivation && CanEditClientSettings;
 
         public bool CanChangePreset => isLocalHost || HasClientSettings;
 
@@ -685,6 +707,15 @@ namespace Shared
         public string PresetText =>
             ResolveSettingsUiText("Common.Preset", "Preset");
 
+        public string ModEnabledText =>
+            ResolveSettingsUiText("Common.ModEnabled", "Mod enabled");
+
+        public string HostActivationLabelText =>
+            ResolveSettingsUiText("Common.HostActivationLabel", "(Host-)");
+
+        public string ClientActivationLabelText =>
+            ResolveSettingsUiText("Common.ClientActivationLabel", "(Client settings)");
+
         public Visibility ActionsScopeNoticeVisibility =>
             isRealMultiplayer && HasClientSettings
                 ? Visibility.Visible
@@ -707,6 +738,12 @@ namespace Shared
 
         public string EnableModHelpText =>
             ResolveSettingsUiText("Common.EnableModHelp", "Enables or disables this mod for the match.");
+
+        public string HostSettingsActivationHelpText =>
+            ResolveSettingsUiText("Common.HostSettingsActivationHelp", "Enables or disables all host-controlled settings of this mod.");
+
+        public string ClientSettingsActivationHelpText =>
+            ResolveSettingsUiText("Common.ClientSettingsActivationHelp", "Enables or disables all local and personal client settings of this mod.");
 
         public string PresetHelpText =>
             ResolveSettingsUiText("Common.PresetHelp", "Selects a saved preset. Clients change only their personal settings.");
@@ -972,6 +1009,11 @@ namespace Shared
             try
             {
                 base.OnPropertyChanged(name);
+
+                if (presetController?.IsHostSettingsActivationProperty(name) == true)
+                    base.OnPropertyChanged(nameof(HostSettingsEnabled));
+                if (presetController?.IsClientSettingsActivationProperty(name) == true)
+                    base.OnPropertyChanged(nameof(ClientSettingsEnabled));
             }
             finally
             {
@@ -996,10 +1038,16 @@ namespace Shared
             base.OnPropertyChanged(nameof(IsRealMultiplayerContext));
             base.OnPropertyChanged(nameof(HasHostSettings));
             base.OnPropertyChanged(nameof(HasClientSettings));
+            base.OnPropertyChanged(nameof(HasHostSettingsActivation));
+            base.OnPropertyChanged(nameof(HasClientSettingsActivation));
+            base.OnPropertyChanged(nameof(HostSettingsEnabled));
+            base.OnPropertyChanged(nameof(ClientSettingsEnabled));
             base.OnPropertyChanged(nameof(MissionPresetEditable));
             base.OnPropertyChanged(nameof(IsMissionPresetSelected));
             base.OnPropertyChanged(nameof(CanEditHostSettings));
             base.OnPropertyChanged(nameof(CanEditClientSettings));
+            base.OnPropertyChanged(nameof(CanToggleHostSettings));
+            base.OnPropertyChanged(nameof(CanToggleClientSettings));
             base.OnPropertyChanged(nameof(CanChangePreset));
             base.OnPropertyChanged(nameof(CanResetSettings));
             base.OnPropertyChanged(nameof(PresetVisibility));
@@ -1052,6 +1100,8 @@ namespace Shared
             private readonly PropertyInfo[] persistedProperties;
             private readonly PropertyInfo[] hostProperties;
             private readonly PropertyInfo[] clientProperties;
+            private readonly PropertyInfo hostSettingsActivationProperty;
+            private readonly PropertyInfo clientSettingsActivationProperty;
             private readonly Dictionary<string, PropertyInfo> persistedPropertiesByName;
 
             private Dictionary<string, byte[]> defaults;
@@ -1090,11 +1140,33 @@ namespace Shared
                     .ToDictionary(property => property.Name, StringComparer.Ordinal);
                 hostProperties = persistedProperties.Where(IsHostProperty).ToArray();
                 clientProperties = persistedProperties.Where(IsClientProperty).ToArray();
+                hostSettingsActivationProperty = FindSettingsActivationProperty(hostProperties, "EnableMod");
+                clientSettingsActivationProperty = FindSettingsActivationProperty(clientProperties, "EnableClientFeatures", "EnableMod");
             }
 
             public bool HasHostSettings => hostProperties.Length != 0;
 
             public bool HasClientSettings => clientProperties.Length != 0;
+
+            public bool HasHostSettingsActivation => hostSettingsActivationProperty != null;
+
+            public bool HasClientSettingsActivation => clientSettingsActivationProperty != null;
+
+            public bool HostSettingsEnabled => ReadSettingsActivation(hostSettingsActivationProperty);
+
+            public bool ClientSettingsEnabled => ReadSettingsActivation(clientSettingsActivationProperty);
+
+            public void SetHostSettingsEnabled(bool value) =>
+                WriteSettingsActivation(hostSettingsActivationProperty, value);
+
+            public void SetClientSettingsEnabled(bool value) =>
+                WriteSettingsActivation(clientSettingsActivationProperty, value);
+
+            public bool IsHostSettingsActivationProperty(string propertyName) =>
+                IsSettingsActivationProperty(hostSettingsActivationProperty, propertyName);
+
+            public bool IsClientSettingsActivationProperty(string propertyName) =>
+                IsSettingsActivationProperty(clientSettingsActivationProperty, propertyName);
 
             public bool IsApplyingSnapshot => applying;
 
@@ -1553,6 +1625,40 @@ namespace Shared
                 property.GetCustomAttribute<SyncHostOnlyAttribute>() == null &&
                 (property.GetCustomAttribute<SyncPerPlayerAttribute>() != null ||
                     property.GetCustomAttribute<PresetLocalAttribute>() != null);
+
+            private static PropertyInfo FindSettingsActivationProperty(
+                IEnumerable<PropertyInfo> properties,
+                params string[] preferredNames)
+            {
+                foreach (string name in preferredNames)
+                {
+                    PropertyInfo property = properties.FirstOrDefault(item =>
+                        item.Name == name &&
+                        item.PropertyType == typeof(bool) &&
+                        item.CanRead &&
+                        item.CanWrite);
+                    if (property != null)
+                        return property;
+                }
+
+                return null;
+            }
+
+            private bool ReadSettingsActivation(PropertyInfo property) =>
+                property != null && (bool)property.GetValue(owner);
+
+            private void WriteSettingsActivation(PropertyInfo property, bool value)
+            {
+                if (property == null || ReadSettingsActivation(property) == value)
+                    return;
+
+                property.SetValue(owner, value);
+            }
+
+            private static bool IsSettingsActivationProperty(
+                PropertyInfo property,
+                string propertyName) =>
+                property != null && string.Equals(property.Name, propertyName, StringComparison.Ordinal);
 
             public static bool IsNetworkSyncInProgress()
             {

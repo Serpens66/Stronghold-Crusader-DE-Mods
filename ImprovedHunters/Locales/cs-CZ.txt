@@ -1,5 +1,10 @@
 Common.ResetToDefault=Reset to Default
 Common.EnableMod=Enable Mod
+Common.ModEnabled=Mod enabled
+Common.HostActivationLabel=(Host-)
+Common.ClientActivationLabel=(Client settings)
+Common.HostSettingsActivationHelp=Enables or disables all host-controlled settings of this mod.
+Common.ClientSettingsActivationHelp=Enables or disables all local and personal client settings of this mod.
 ImprovedHunters.Title=Improved Hunters
 ImprovedHunters.Help=When disabled, hunter behavior stays vanilla. Meat values are the final amount added from one collected animal.
 ImprovedHunters.Hunt=Hunt
