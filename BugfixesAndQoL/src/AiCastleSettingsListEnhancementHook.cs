@@ -181,12 +181,14 @@ namespace BugfixesAndQoL
             if (IsActive)
             {
                 AttachAndRefresh(activeView, "setting enabled");
+                UpdateDialogKeyboardState();
                 return;
             }
 
             RestoreCanonicalLists(activeView, GetAivInfo(activeView));
             activeView.populateList(null, false);
             RestoreVanillaPresentation(activeView);
+            UpdateDialogKeyboardState();
         }
 
         public void Dispose()
@@ -213,6 +215,7 @@ namespace BugfixesAndQoL
             // Wait until Vanilla Init and every other Init hook have completely unwound before
             // replacing native Noesis list sources.
             AttachAndRefresh(FRONT_Multiplayer_AISettings.Instance, "dialog shown");
+            UpdateDialogKeyboardState();
         }
 
         private void ButtonClickedHook(FRONT_Multiplayer_AISettings self, string param)
@@ -230,6 +233,8 @@ namespace BugfixesAndQoL
             buttonClickedTrampoline(self, param);
             if (IsListMutation(param))
                 AttachAndRefresh(self, $"button '{param}'");
+            if (string.Equals(param, "Back", StringComparison.Ordinal))
+                UpdateDialogKeyboardState();
         }
 
         private void AttachAndRefresh(FRONT_Multiplayer_AISettings self, string reason)
@@ -265,6 +270,9 @@ namespace BugfixesAndQoL
                 aicSearchPanel == null)
                 throw new InvalidOperationException("The patched AI-settings controls were not found.");
 
+            // Search focus must not disable Ctrl/Shift input used by Vanilla multi-selection.
+            aivListControl.SelectionMode = SelectionMode.Extended;
+
             if (!attachedViews.Add(self))
                 return;
 
@@ -275,6 +283,7 @@ namespace BugfixesAndQoL
             AttachHeader(self, "BugfixesAndQoLAicPowerHeader", HeaderClicked);
             aivSearchBox.IsKeyboardFocusedChanged += AivSearchFocusChanged;
             aicSearchBox.IsKeyboardFocusedChanged += AicSearchFocusChanged;
+            self.IsVisibleChanged += DialogVisibilityChanged;
             // Vanilla registered its handler in the control constructor, so this runs after a
             // double-click action and can safely restore the enhanced presentation.
             aivListControl.MouseDoubleClick += AivListDoubleClicked;
@@ -523,15 +532,24 @@ namespace BugfixesAndQoL
         private void AivSearchFocusChanged(object sender, DependencyPropertyChangedEventArgs e)
         {
             aivSearchHasFocus = e.NewValue is bool focused && focused;
-            MainViewModel.Instance.SetNoesisKeyboardState(aivSearchHasFocus);
+            UpdateDialogKeyboardState();
             OnPropertyChanged(nameof(AivSearchPlaceholderVisibility));
         }
 
         private void AicSearchFocusChanged(object sender, DependencyPropertyChangedEventArgs e)
         {
             aicSearchHasFocus = e.NewValue is bool focused && focused;
-            MainViewModel.Instance.SetNoesisKeyboardState(aicSearchHasFocus);
+            UpdateDialogKeyboardState();
             OnPropertyChanged(nameof(AicSearchPlaceholderVisibility));
+        }
+
+        private void DialogVisibilityChanged(object sender, DependencyPropertyChangedEventArgs e) =>
+            UpdateDialogKeyboardState();
+
+        private void UpdateDialogKeyboardState()
+        {
+            bool dialogVisible = IsActive && activeView?.IsVisible == true;
+            MainViewModel.Instance.SetNoesisKeyboardState(dialogVisible);
         }
 
         private void RestoreCanonicalLists(

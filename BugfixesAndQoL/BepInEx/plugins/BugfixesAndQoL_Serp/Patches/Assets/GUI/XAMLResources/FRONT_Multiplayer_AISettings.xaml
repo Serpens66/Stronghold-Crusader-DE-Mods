@@ -2,28 +2,6 @@
 <Patch xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
        xmlns:local="clr-namespace:CrusaderDE"
        xmlns:shared="clr-namespace:Shared;assembly=BugfixesAndQoL">
-  <Operation Type="Replace" XPath="//n:ListView[@Name='AIVList']/n:ListView.View/n:GridView">
-    <Content>
-      <GridView AllowsColumnReorder="False" ColumnHeaderContainerStyle="{StaticResource HiddenStyle}">
-        <GridViewColumn Width="70">
-          <GridViewColumn.CellTemplate>
-            <DataTemplate>
-              <Image Width="30" Margin="-2,0,0,0" Source="{Binding TypeImage}" />
-            </DataTemplate>
-          </GridViewColumn.CellTemplate>
-        </GridViewColumn>
-        <GridViewColumn Width="290">
-          <GridViewColumn.CellTemplate>
-            <DataTemplate>
-              <TextBlock Margin="0,-4,0,-4" HorizontalAlignment="Left" Foreground="Black"
-                         FlowDirection="{Binding GlobalTextFlowAL2R}" TextTrimming="CharacterEllipsis"
-                         FontSize="16" Text="{Binding Text1}" />
-            </DataTemplate>
-          </GridViewColumn.CellTemplate>
-        </GridViewColumn>
-      </GridView>
-    </Content>
-  </Operation>
   <Operation Type="InsertBefore" XPath="//n:ListView[@Name='AIVList']">
     <Content>
       <Grid x:Name="BugfixesAndQoLAivHeaderPanel" Width="360" Height="24"
@@ -67,7 +45,7 @@
   </Operation>
   <Operation Type="InsertAfter" XPath="//n:Button[@Name='MP_Replace']">
     <Content>
-      <Grid x:Name="BugfixesAndQoLAivSearchPanel" Width="300" Height="34" Margin="0,0,240,24"
+      <Grid x:Name="BugfixesAndQoLAivSearchPanel" Width="300" Height="34" Margin="0,0,130,20"
             HorizontalAlignment="Right" VerticalAlignment="Bottom"
             Visibility="{Binding EnhancementVisibility}">
         <Grid.Resources>
@@ -109,37 +87,22 @@
       </Grid>
     </Content>
   </Operation>
+  <Operation Type="SetAttribute" XPath="//n:Button[@Name='MP_OKSettings']">
+    <Attribute Name="Width" Value="100" />
+  </Operation>
 
-  <Operation Type="Replace" XPath="//n:ListView[@Name='LordList']/n:ListView.View/n:GridView">
+  <Operation Type="InsertAfter"
+             XPath="//n:ListView[@Name='LordList']/n:ListView.View/n:GridView/n:GridViewColumn[2]">
     <Content>
-      <GridView AllowsColumnReorder="False" ColumnHeaderContainerStyle="{StaticResource HiddenStyle}">
-        <GridViewColumn Width="70">
-          <GridViewColumn.CellTemplate>
-            <DataTemplate>
-              <Image Width="30" Margin="-2,0,0,0" Source="{Binding TypeImage}" />
-            </DataTemplate>
-          </GridViewColumn.CellTemplate>
-        </GridViewColumn>
-        <GridViewColumn Width="200">
-          <GridViewColumn.CellTemplate>
-            <DataTemplate>
-              <Grid Height="30">
-                <TextBlock HorizontalAlignment="Left" VerticalAlignment="Center" Foreground="Black"
-                           FlowDirection="{Binding GlobalTextFlowAL2R}" TextTrimming="CharacterEllipsis"
-                           FontSize="16" Text="{Binding Text1}" />
-              </Grid>
-            </DataTemplate>
-          </GridViewColumn.CellTemplate>
-        </GridViewColumn>
-        <GridViewColumn Width="90">
-          <GridViewColumn.CellTemplate>
-            <DataTemplate>
-              <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="Black"
-                         FontSize="16" Text="{Binding Text2}" />
-            </DataTemplate>
-          </GridViewColumn.CellTemplate>
-        </GridViewColumn>
-      </GridView>
+      <!-- Preserve both Vanilla columns and append only the data needed by this feature. -->
+      <GridViewColumn Width="0">
+        <GridViewColumn.CellTemplate>
+          <DataTemplate>
+            <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="Black"
+                       FontSize="16" Text="{Binding Text2}" />
+          </DataTemplate>
+        </GridViewColumn.CellTemplate>
+      </GridViewColumn>
     </Content>
   </Operation>
   <Operation Type="InsertBefore" XPath="//n:ListView[@Name='LordList']">

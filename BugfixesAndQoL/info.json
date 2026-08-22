@@ -3,10 +3,23 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.59",
+  "Version": "1.0.61",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.61",
+      "Changes": [
+        "Moved the AIV search box beside a half-width OK button so it no longer overlaps the list.",
+        "Restored Ctrl/Shift multi-selection in the AIV list by keeping Noesis keyboard input enabled only while the modal AI-settings dialog is visible."
+      ]
+    },
+    {
+      "Version": "1.0.60",
+      "Changes": [
+        "Fixed the AIV dialog crash by preserving Vanilla GridView columns and their required header objects; the AIC power column is now appended without replacing existing UI structure."
+      ]
+    },
     {
       "Version": "1.0.59",
       "Changes": [
