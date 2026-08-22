@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.62",
+  "Version": "1.0.63",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.63",
+      "Changes": [
+        "Made the AIV footer OK button reliably compact and right-aligned, and shortened the AIV/AIC preset button to avoid the west rotation control."
+      ]
+    },
     {
       "Version": "1.0.62",
       "Changes": [

@@ -63,6 +63,7 @@ namespace BugfixesAndQoL
         private Grid aicSearchPanel;
         private ListView presetListControl;
         private TextBox presetNameBox;
+        private Button okButton;
         private bool aivSearchHasFocus;
         private bool aicSearchHasFocus;
         private bool disposed;
@@ -358,13 +359,16 @@ namespace BugfixesAndQoL
             aicSearchPanel = self.FindName("BugfixesAndQoLAicSearchPanel") as Grid;
             presetListControl = self.FindName("BugfixesAndQoLAivPresetList") as ListView;
             presetNameBox = self.FindName("BugfixesAndQoLAivPresetNameBox") as TextBox;
+            okButton = self.FindName("MP_OKSettings") as Button;
             if (aivListControl == null || aicListControl == null || aivSearchBox == null ||
                 aicSearchBox == null || aivHeaderPanel == null || aicHeaderPanel == null ||
-                aicSearchPanel == null || presetListControl == null || presetNameBox == null)
+                aicSearchPanel == null || presetListControl == null || presetNameBox == null ||
+                okButton == null)
                 throw new InvalidOperationException("The patched AI-settings controls were not found.");
 
             // Search focus must not disable Ctrl/Shift input used by Vanilla multi-selection.
             aivListControl.SelectionMode = SelectionMode.Extended;
+            ApplyAivFooterLayout();
 
             if (!attachedViews.Add(self))
                 return;
@@ -642,6 +646,9 @@ namespace BugfixesAndQoL
                 aivListControl == null || aicListControl == null)
                 return;
 
+            // Vanilla may reapply template dimensions after the XAML patch has run.
+            ApplyAivFooterLayout();
+
             FRONT_Multiplayer.MPAIVInfo info = GetAivInfo(activeView);
             List<CustomisationFileManager.CustomAIV> canonicalAivs = GetCanonicalAivs(info);
             List<CustomisationFileManager.CustomLordConfig> canonicalAics = GetCanonicalAics(info);
@@ -864,6 +871,16 @@ namespace BugfixesAndQoL
                 AivListField.SetValue(self, aivs);
             if (aics != null)
                 LordListField.SetValue(self, aics);
+        }
+
+        private void ApplyAivFooterLayout()
+        {
+            if (okButton == null)
+                return;
+
+            okButton.Width = 100f;
+            okButton.HorizontalAlignment = HorizontalAlignment.Right;
+            okButton.Margin = new Thickness(0f, 0f, 20f, 20f);
         }
 
         private static void RestoreVanillaPresentation(FRONT_Multiplayer_AISettings self)
