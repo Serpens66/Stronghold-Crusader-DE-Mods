@@ -708,7 +708,7 @@ namespace Shared
             ResolveSettingsUiText("Common.Preset", "Preset");
 
         public string ModEnabledText =>
-            ResolveSettingsUiText("Common.ModEnabled", "Mod enabled");
+            ResolveSettingsUiText("Common.EnableMod", "Enable Mod");
 
         public string HostActivationLabelText =>
             ResolveSettingsUiText("Common.HostActivationLabel", "(Host-)");

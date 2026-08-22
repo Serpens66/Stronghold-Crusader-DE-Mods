@@ -5,7 +5,6 @@ BugfixesAndQoL.EnableIngameSteamInvitePromptHelp=Shows a Yes/No prompt when a St
 BugfixesAndQoL.SteamInvitePrompt=Join game from {0}?
 BugfixesAndQoL.UnknownSteamUser=Steam user
 Common.EnableMod=Enable Mod
-Common.ModEnabled=Mod enabled
 Common.HostActivationLabel=(Host-)
 Common.ClientActivationLabel=(Client settings)
 Common.HostSettingsActivationHelp=Enables or disables all host-controlled settings of this mod.

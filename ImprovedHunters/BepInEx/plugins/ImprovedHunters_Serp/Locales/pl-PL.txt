@@ -1,6 +1,5 @@
 Common.ResetToDefault=Reset to Default
 Common.EnableMod=Enable Mod
-Common.ModEnabled=Mod enabled
 Common.HostActivationLabel=(Host-)
 Common.ClientActivationLabel=(Client settings)
 Common.HostSettingsActivationHelp=Enables or disables all host-controlled settings of this mod.

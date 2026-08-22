@@ -18,7 +18,6 @@ SomeSettings.EnableTroopMovementFix=Truppen-Geschwindigkeitskorrektur
 SomeSettings.EnableTroopMovementFixHelp=Korrigiert die synchronisierte Bewegung gemischter Truppengruppen: Bei einem normalen Bewegungsbefehl laufen alle Einheiten in der Geschwindigkeit der langsamsten Einheit der Gruppe.
 Common.ResetToDefault=Zurücksetzen
 Common.EnableMod=Mod aktivieren
-Common.ModEnabled=Mod aktiviert
 Common.HostActivationLabel=(Host-)
 Common.ClientActivationLabel=(Client-Settings)
 Common.HostSettingsActivationHelp=Aktiviert oder deaktiviert alle vom Host gesteuerten Einstellungen dieser Mod.

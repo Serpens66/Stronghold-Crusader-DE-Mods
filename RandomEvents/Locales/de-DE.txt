@@ -1,7 +1,6 @@
 # Random Events localization
 Common.ResetToDefault=Zurücksetzen
 Common.EnableMod=Mod aktivieren
-Common.ModEnabled=Mod aktiviert
 Common.HostActivationLabel=(Host-)
 Common.ClientActivationLabel=(Client-Settings)
 Common.HostSettingsActivationHelp=Aktiviert oder deaktiviert alle vom Host gesteuerten Einstellungen dieser Mod.
