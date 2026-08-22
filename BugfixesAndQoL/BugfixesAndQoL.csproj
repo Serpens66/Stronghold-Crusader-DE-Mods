@@ -48,6 +48,7 @@
     <Compile Include="..\Shared\NativePatternResolver.cs"><Link>Shared\NativePatternResolver.cs</Link></Compile>
     <Compile Include="..\Shared\SerpLocalization.cs"><Link>Shared\SerpLocalization.cs</Link></Compile>
     <Compile Include="src\AiAivSelectionCodec.cs" />
+    <Compile Include="src\AiCastleSettingsListEnhancementHook.cs" />
     <Compile Include="src\AllyGoodsAmountModifierHook.cs" />
     <Compile Include="src\BugfixesAndQoLRuntime.CtrlMarketTrade.cs" />
     <Compile Include="src\CtrlMarketTradeHook.cs" />

@@ -32,7 +32,7 @@ namespace ExtraFeatures
         private bool marketPricesAlsoForAI;
         private double[] marketGoodBuyPriceMultipliers = MarketGoodPriceDefinition.CreateDefaultMultipliers();
         private double[] marketGoodSellPriceMultipliers = MarketGoodPriceDefinition.CreateDefaultMultipliers();
-        private double plagueDurationMultiplier = 2.0;
+        private double plagueDurationMultiplier = 4.0;
         private int apothecaryPlagueSearchDistance = 50;
         private int campfirePeasantsLimit = -1;
         private int humanLordHealthPercent = LordHealthMultiplierPolicy.DefaultPercent;
@@ -250,7 +250,7 @@ namespace ExtraFeatures
                 MarketPricesAlsoForAI = false;
                 MarketGoodBuyPriceMultipliers = MarketGoodPriceDefinition.CreateDefaultMultipliers();
                 MarketGoodSellPriceMultipliers = MarketGoodPriceDefinition.CreateDefaultMultipliers();
-                PlagueDurationMultiplier = 2.0;
+                PlagueDurationMultiplier = 4.0;
                 ApothecaryPlagueSearchDistance = 50;
                 CampfirePeasantsLimit = -1;
                 HumanLordHealthPercent = LordHealthMultiplierPolicy.DefaultPercent;

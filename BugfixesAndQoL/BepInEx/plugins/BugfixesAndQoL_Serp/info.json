@@ -3,10 +3,22 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.57",
+  "Version": "1.0.59",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.59",
+      "Changes": [
+        "Fixed a crash when opening the AIV/AIC dialog by applying search and sorting only after dialog initialization, while keeping visible and internal list indexes aligned for Vanilla and CastlePlanner."
+      ]
+    },
+    {
+      "Version": "1.0.58",
+      "Changes": [
+        "Extended the custom-lord list enhancement setting with name search and sortable origin/name headers for AI castles, plus origin/name/Lord Power sorting for AI configurations."
+      ]
+    },
     {
       "Version": "1.0.57",
       "Changes": [

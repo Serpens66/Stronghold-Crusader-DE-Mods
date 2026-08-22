@@ -10,7 +10,7 @@ namespace ExtraFeatures
     internal sealed class PlagueDurationPatch : IDisposable
     {
         public const double MinimumMultiplier = 0.5;
-        public const double MaximumMultiplier = 20.0;
+        public const double MaximumMultiplier = 1000.0;
 
         private const int VanillaLifetime = 800;
         private const int LifetimeImmediateOffset = 9;

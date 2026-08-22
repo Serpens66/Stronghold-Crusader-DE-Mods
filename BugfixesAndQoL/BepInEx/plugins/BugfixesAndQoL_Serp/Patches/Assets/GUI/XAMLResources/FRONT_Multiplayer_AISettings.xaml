@@ -1,0 +1,235 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Patch xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+       xmlns:local="clr-namespace:CrusaderDE"
+       xmlns:shared="clr-namespace:Shared;assembly=BugfixesAndQoL">
+  <Operation Type="Replace" XPath="//n:ListView[@Name='AIVList']/n:ListView.View/n:GridView">
+    <Content>
+      <GridView AllowsColumnReorder="False" ColumnHeaderContainerStyle="{StaticResource HiddenStyle}">
+        <GridViewColumn Width="70">
+          <GridViewColumn.CellTemplate>
+            <DataTemplate>
+              <Image Width="30" Margin="-2,0,0,0" Source="{Binding TypeImage}" />
+            </DataTemplate>
+          </GridViewColumn.CellTemplate>
+        </GridViewColumn>
+        <GridViewColumn Width="290">
+          <GridViewColumn.CellTemplate>
+            <DataTemplate>
+              <TextBlock Margin="0,-4,0,-4" HorizontalAlignment="Left" Foreground="Black"
+                         FlowDirection="{Binding GlobalTextFlowAL2R}" TextTrimming="CharacterEllipsis"
+                         FontSize="16" Text="{Binding Text1}" />
+            </DataTemplate>
+          </GridViewColumn.CellTemplate>
+        </GridViewColumn>
+      </GridView>
+    </Content>
+  </Operation>
+  <Operation Type="InsertBefore" XPath="//n:ListView[@Name='AIVList']">
+    <Content>
+      <Grid x:Name="BugfixesAndQoLAivHeaderPanel" Width="360" Height="24"
+            HorizontalAlignment="Left" VerticalAlignment="Top"
+            Visibility="{Binding EnhancementVisibility}">
+        <Grid.Resources>
+          <Style TargetType="{x:Type ToolTip}">
+            <Setter Property="Background" Value="#FF1D1710" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="FontSize" Value="{x:Static shared:ToolTipPresentation.FontSize}" />
+            <Setter Property="BorderBrush" Value="#FFF2D48A" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Template">
+              <Setter.Value>
+                <ControlTemplate TargetType="{x:Type ToolTip}">
+                  <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                          BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="2" Padding="10,7"
+                          MaxWidth="{x:Static shared:ToolTipPresentation.MaximumWidth}">
+                    <TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}"
+                               FontSize="{TemplateBinding FontSize}" TextWrapping="Wrap" />
+                  </Border>
+                </ControlTemplate>
+              </Setter.Value>
+            </Setter>
+          </Style>
+        </Grid.Resources>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="70" />
+          <ColumnDefinition Width="290" />
+        </Grid.ColumnDefinitions>
+        <GridViewColumnHeader x:Name="BugfixesAndQoLAivOriginHeader" Grid.Column="0"
+                              Content="{Binding OriginHeaderText}" Template="{StaticResource MyGridViewColumnHeader}"
+                              ToolTip="{Binding AivOriginSortHelpText}" ToolTipService.ShowDuration="60000"
+                              Tag="AIV_Origin" />
+        <GridViewColumnHeader x:Name="BugfixesAndQoLAivNameHeader" Grid.Column="1"
+                              Content="{Binding NameHeaderText}" Template="{StaticResource MyGridViewColumnHeader}"
+                              ToolTip="{Binding AivNameSortHelpText}" ToolTipService.ShowDuration="60000"
+                              Tag="AIV_Name" />
+      </Grid>
+    </Content>
+  </Operation>
+  <Operation Type="InsertAfter" XPath="//n:Button[@Name='MP_Replace']">
+    <Content>
+      <Grid x:Name="BugfixesAndQoLAivSearchPanel" Width="300" Height="34" Margin="0,0,240,24"
+            HorizontalAlignment="Right" VerticalAlignment="Bottom"
+            Visibility="{Binding EnhancementVisibility}">
+        <Grid.Resources>
+          <Style TargetType="{x:Type ToolTip}">
+            <Setter Property="Background" Value="#FF1D1710" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="FontSize" Value="{x:Static shared:ToolTipPresentation.FontSize}" />
+            <Setter Property="BorderBrush" Value="#FFF2D48A" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Template">
+              <Setter.Value>
+                <ControlTemplate TargetType="{x:Type ToolTip}">
+                  <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                          BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="2" Padding="10,7"
+                          MaxWidth="{x:Static shared:ToolTipPresentation.MaximumWidth}">
+                    <TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}"
+                               FontSize="{TemplateBinding FontSize}" TextWrapping="Wrap" />
+                  </Border>
+                </ControlTemplate>
+              </Setter.Value>
+            </Setter>
+          </Style>
+        </Grid.Resources>
+        <TextBox x:Name="BugfixesAndQoLAivSearchBox" Width="262" Height="34" MaxLength="64"
+                 HorizontalAlignment="Left" VerticalAlignment="Bottom"
+                 Text="{Binding AivSearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                 TextAlignment="Left" Focusable="True" ToolTip="{Binding SearchHelpText}"
+                 ToolTipService.ShowDuration="60000" />
+        <TextBlock Width="242" Height="34" Margin="10,0,0,0" HorizontalAlignment="Left"
+                   VerticalAlignment="Bottom" IsHitTestVisible="False" Foreground="#FFEFF3C6"
+                   FontSize="16" TextTrimming="CharacterEllipsis"
+                   Text="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_NEW_TEXT2_126]}"
+                   Visibility="{Binding AivSearchPlaceholderVisibility}" />
+        <Button Width="34" Height="34" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                local:PropEx.Sprite1="{StaticResource UI-Buttons L009}"
+                local:PropEx.Sprite2="{StaticResource UI-Buttons L010}"
+                Command="{Binding ClearAivSearchCommand}" Style="{StaticResource BTN_Building}"
+                ToolTip="{Binding ClearSearchHelpText}" ToolTipService.ShowDuration="60000" />
+      </Grid>
+    </Content>
+  </Operation>
+
+  <Operation Type="Replace" XPath="//n:ListView[@Name='LordList']/n:ListView.View/n:GridView">
+    <Content>
+      <GridView AllowsColumnReorder="False" ColumnHeaderContainerStyle="{StaticResource HiddenStyle}">
+        <GridViewColumn Width="70">
+          <GridViewColumn.CellTemplate>
+            <DataTemplate>
+              <Image Width="30" Margin="-2,0,0,0" Source="{Binding TypeImage}" />
+            </DataTemplate>
+          </GridViewColumn.CellTemplate>
+        </GridViewColumn>
+        <GridViewColumn Width="200">
+          <GridViewColumn.CellTemplate>
+            <DataTemplate>
+              <Grid Height="30">
+                <TextBlock HorizontalAlignment="Left" VerticalAlignment="Center" Foreground="Black"
+                           FlowDirection="{Binding GlobalTextFlowAL2R}" TextTrimming="CharacterEllipsis"
+                           FontSize="16" Text="{Binding Text1}" />
+              </Grid>
+            </DataTemplate>
+          </GridViewColumn.CellTemplate>
+        </GridViewColumn>
+        <GridViewColumn Width="90">
+          <GridViewColumn.CellTemplate>
+            <DataTemplate>
+              <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="Black"
+                         FontSize="16" Text="{Binding Text2}" />
+            </DataTemplate>
+          </GridViewColumn.CellTemplate>
+        </GridViewColumn>
+      </GridView>
+    </Content>
+  </Operation>
+  <Operation Type="InsertBefore" XPath="//n:ListView[@Name='LordList']">
+    <Content>
+      <Grid x:Name="BugfixesAndQoLAicHeaderPanel" Width="360" Height="24"
+            HorizontalAlignment="Left" VerticalAlignment="Top"
+            Visibility="{Binding EnhancementVisibility}">
+        <Grid.Resources>
+          <Style TargetType="{x:Type ToolTip}">
+            <Setter Property="Background" Value="#FF1D1710" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="FontSize" Value="{x:Static shared:ToolTipPresentation.FontSize}" />
+            <Setter Property="BorderBrush" Value="#FFF2D48A" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Template">
+              <Setter.Value>
+                <ControlTemplate TargetType="{x:Type ToolTip}">
+                  <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                          BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="2" Padding="10,7"
+                          MaxWidth="{x:Static shared:ToolTipPresentation.MaximumWidth}">
+                    <TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}"
+                               FontSize="{TemplateBinding FontSize}" TextWrapping="Wrap" />
+                  </Border>
+                </ControlTemplate>
+              </Setter.Value>
+            </Setter>
+          </Style>
+        </Grid.Resources>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="70" />
+          <ColumnDefinition Width="200" />
+          <ColumnDefinition Width="90" />
+        </Grid.ColumnDefinitions>
+        <GridViewColumnHeader x:Name="BugfixesAndQoLAicOriginHeader" Grid.Column="0"
+                              Content="{Binding OriginHeaderText}" Template="{StaticResource MyGridViewColumnHeader}"
+                              ToolTip="{Binding AicOriginSortHelpText}" ToolTipService.ShowDuration="60000"
+                              Tag="AIC_Origin" />
+        <GridViewColumnHeader x:Name="BugfixesAndQoLAicNameHeader" Grid.Column="1"
+                              Content="{Binding NameHeaderText}" Template="{StaticResource MyGridViewColumnHeader}"
+                              ToolTip="{Binding AicNameSortHelpText}" ToolTipService.ShowDuration="60000"
+                              Tag="AIC_Name" />
+        <GridViewColumnHeader x:Name="BugfixesAndQoLAicPowerHeader" Grid.Column="2"
+                              Content="{Binding PowerHeaderText}" Template="{StaticResource MyGridViewColumnHeader}"
+                              ToolTip="{Binding AicPowerSortHelpText}" ToolTipService.ShowDuration="60000"
+                              Tag="AIC_Power" />
+      </Grid>
+    </Content>
+  </Operation>
+  <Operation Type="InsertAfter" XPath="//n:ListView[@Name='LordList']/parent::n:Grid/parent::n:DockPanel">
+    <Content>
+      <Grid x:Name="BugfixesAndQoLAicSearchPanel" Width="200" Height="34" Margin="0,0,20,70"
+            HorizontalAlignment="Right" VerticalAlignment="Bottom"
+            Visibility="{Binding EnhancementVisibility}">
+        <Grid.Resources>
+          <Style TargetType="{x:Type ToolTip}">
+            <Setter Property="Background" Value="#FF1D1710" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="FontSize" Value="{x:Static shared:ToolTipPresentation.FontSize}" />
+            <Setter Property="BorderBrush" Value="#FFF2D48A" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Template">
+              <Setter.Value>
+                <ControlTemplate TargetType="{x:Type ToolTip}">
+                  <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                          BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="2" Padding="10,7"
+                          MaxWidth="{x:Static shared:ToolTipPresentation.MaximumWidth}">
+                    <TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}"
+                               FontSize="{TemplateBinding FontSize}" TextWrapping="Wrap" />
+                  </Border>
+                </ControlTemplate>
+              </Setter.Value>
+            </Setter>
+          </Style>
+        </Grid.Resources>
+        <TextBox x:Name="BugfixesAndQoLAicSearchBox" Width="162" Height="34" MaxLength="64"
+                 HorizontalAlignment="Left" VerticalAlignment="Bottom"
+                 Text="{Binding AicSearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                 TextAlignment="Left" Focusable="True" ToolTip="{Binding SearchHelpText}"
+                 ToolTipService.ShowDuration="60000" />
+        <TextBlock Width="142" Height="34" Margin="10,0,0,0" HorizontalAlignment="Left"
+                   VerticalAlignment="Bottom" IsHitTestVisible="False" Foreground="#FFEFF3C6"
+                   FontSize="16" TextTrimming="CharacterEllipsis"
+                   Text="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_NEW_TEXT2_126]}"
+                   Visibility="{Binding AicSearchPlaceholderVisibility}" />
+        <Button Width="34" Height="34" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                local:PropEx.Sprite1="{StaticResource UI-Buttons L009}"
+                local:PropEx.Sprite2="{StaticResource UI-Buttons L010}"
+                Command="{Binding ClearAicSearchCommand}" Style="{StaticResource BTN_Building}"
+                ToolTip="{Binding ClearSearchHelpText}" ToolTipService.ShowDuration="60000" />
+      </Grid>
+    </Content>
+  </Operation>
+</Patch>

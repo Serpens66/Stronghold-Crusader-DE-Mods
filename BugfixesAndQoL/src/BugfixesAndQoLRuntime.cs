@@ -21,6 +21,7 @@ namespace BugfixesAndQoL
         private MinimapPlacementClickHook minimapPlacementClickHook;
         private SkirmishAiSelectionMemoryHook skirmishAiSelectionMemoryHook;
         private CustomLordListEnhancementHook customLordListEnhancementHook;
+        private AiCastleSettingsListEnhancementHook aiCastleSettingsListEnhancementHook;
         private AutoTradeSellZeroHook autoTradeSellZeroHook;
         private EnemyProximityBulldozeCursorHook enemyProximityBulldozeCursorHook;
         private MarketKeyMainTradeMenuHook marketKeyMainTradeMenuHook;
@@ -181,6 +182,8 @@ namespace BugfixesAndQoL
             TryApplyFeature("AI castle/settings selection memory", () => skirmishAiSelectionMemoryHook?.ApplySetting());
             TryInitializeFeature("custom-lord list enhancements", EnsureCustomLordListEnhancementHook);
             TryApplyFeature("custom-lord list enhancements", () => customLordListEnhancementHook?.ApplySetting());
+            TryInitializeFeature("AI castle/settings list enhancements", EnsureAiCastleSettingsListEnhancementHook);
+            TryApplyFeature("AI castle/settings list enhancements", () => aiCastleSettingsListEnhancementHook?.ApplySetting());
             TryApplyFeature("troop movement fix", troopMovementFixRuntime.ApplySetting);
             TryApplyFeature("multiplayer game speed", multiplayerGameSpeedRuntime.ApplySetting);
             TryApplyFeature("assembly-point placement fix", ApplyAssemblyPointPlacementPatchSetting);
@@ -198,6 +201,8 @@ namespace BugfixesAndQoL
             skirmishAiSelectionMemoryHook = null;
             customLordListEnhancementHook?.Dispose();
             customLordListEnhancementHook = null;
+            aiCastleSettingsListEnhancementHook?.Dispose();
+            aiCastleSettingsListEnhancementHook = null;
             resyncHostKickFeature?.Dispose();
             resyncHostKickFeature = null;
             lordUnitControlsFeature?.Dispose();
@@ -357,6 +362,13 @@ namespace BugfixesAndQoL
         {
             if (customLordListEnhancementHook == null)
                 customLordListEnhancementHook = new CustomLordListEnhancementHook(log, settings);
+        }
+
+        private void EnsureAiCastleSettingsListEnhancementHook()
+        {
+            if (aiCastleSettingsListEnhancementHook == null)
+                aiCastleSettingsListEnhancementHook =
+                    new AiCastleSettingsListEnhancementHook(log, settings);
         }
 
         private void EnsureResyncHostKickFeature()
