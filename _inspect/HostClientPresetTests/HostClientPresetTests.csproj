@@ -92,6 +92,9 @@
     <Compile Include="..\..\BugfixesAndQoL\src\MultiplayerGameSpeedPolicy.cs">
       <Link>MultiplayerGameSpeedPolicy.cs</Link>
     </Compile>
+    <Compile Include="..\..\BugfixesAndQoL\src\MultiplayerLobbyReturnPolicy.cs">
+      <Link>MultiplayerLobbyReturnPolicy.cs</Link>
+    </Compile>
     <Compile Include="..\..\BugfixesAndQoL\src\MarketTradeIntegration.cs">
       <Link>MarketTradeIntegration.cs</Link>
     </Compile>

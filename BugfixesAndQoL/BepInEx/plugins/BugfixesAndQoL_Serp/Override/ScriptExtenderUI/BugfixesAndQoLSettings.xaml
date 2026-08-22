@@ -167,6 +167,12 @@
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding EnableResyncHostKickText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox>
+      <CheckBox IsChecked="{Binding EnableReturnToMultiplayerLobby, Mode=TwoWay}"
+                Foreground="White"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableReturnToMultiplayerLobbyHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding EnableReturnToMultiplayerLobbyText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox>
       <CheckBox IsChecked="{Binding EnableMultiplayerGameSpeedChanges, Mode=TwoWay}"
                 Foreground="White"
                 ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableMultiplayerGameSpeedChangesHelpText}"

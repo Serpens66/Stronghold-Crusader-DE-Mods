@@ -1,5 +1,6 @@
 # Serp mod localization
 # Format: key=value
+BugfixesAndQoL.LordStanceVanillaBehavior=Vanilla behavior
 BugfixesAndQoL.EnableIngameSteamInvitePrompt=Show incoming Steam invitations in game
 BugfixesAndQoL.EnableIngameSteamInvitePromptHelp=Shows a Yes/No prompt when a Steam friend invites you to a multiplayer lobby. The prompt appears only in a fully loaded frontend or active game; during loading screens or unsafe transitions Steam's normal invitation remains available. Yes leaves the current game through Vanilla's normal flow and joins the invited lobby. This is a per-player setting.
 BugfixesAndQoL.SteamInvitePrompt=Join game from {0}?
@@ -79,6 +80,8 @@ BugfixesAndQoL.EnableClientFeaturesHelp=Enables or disables this mod's local int
 BugfixesAndQoL.EnableHostFeatures=Enable host features
 BugfixesAndQoL.EnableHostFeaturesHelp=Enables or disables the host-controlled fixes for the match.
 BugfixesAndQoL.MultiplayerTitle=Multiplayer
+BugfixesAndQoL.EnableReturnToMultiplayerLobby=Return to the lobby together after a multiplayer game
+BugfixesAndQoL.EnableReturnToMultiplayerLobbyHelp=After a normal multiplayer game ends, creates a new lobby for every participant who is still connected. Each player joins it when leaving the final statistics with Exit. This is a host setting.
 BugfixesAndQoL.EnableResyncHostKick=Show disconnected player and host kick during resync
 BugfixesAndQoL.EnableResyncHostKickHelp=During a stalled multiplayer resynchronization, shows the host the human player with the oldest overdue heartbeat and offers a confirmed authoritative kick. No player is shown while all heartbeats remain current. This is a host setting.
 BugfixesAndQoL.ResyncProblemPlayer=Connection issue: {PlayerName}

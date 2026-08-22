@@ -21,6 +21,7 @@ namespace BugfixesAndQoL
         private const float FrameHeight = 155.0f;
 
         private delegate void ButtonUnitDisbandDelegate(MainViewModel self, object parameter);
+        private delegate void ButtonTroopPanelMouseEnterDelegate(MainViewModel self, object parameter);
 
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
@@ -30,6 +31,8 @@ namespace BugfixesAndQoL
 
         private Hook disbandHook;
         private ButtonUnitDisbandDelegate disbandOriginal;
+        private Hook troopPanelMouseEnterHook;
+        private ButtonTroopPanelMouseEnterDelegate troopPanelMouseEnterOriginal;
         private HUD_Troops activePanel;
         private FrameworkElement frame;
         private UIElement disbandElement;
@@ -63,8 +66,23 @@ namespace BugfixesAndQoL
             if (disbandMethod == null || disbandMethod.ReturnType != typeof(void))
                 throw new MissingMethodException(typeof(MainViewModel).FullName, "ButtonUnitDisband");
 
+            MethodInfo troopPanelMouseEnterMethod = typeof(MainViewModel).GetMethod(
+                "ButtonTroopPanelMouseEnter",
+                BindingFlags.Instance | BindingFlags.NonPublic,
+                null,
+                new[] { typeof(object) },
+                null);
+            if (troopPanelMouseEnterMethod == null || troopPanelMouseEnterMethod.ReturnType != typeof(void))
+                throw new MissingMethodException(typeof(MainViewModel).FullName, "ButtonTroopPanelMouseEnter");
+
+            // Resolve every target before installing either hook so construction fails cleanly.
             disbandHook = new Hook(disbandMethod, (ButtonUnitDisbandDelegate)ButtonUnitDisbandHook);
             disbandOriginal = disbandHook.GenerateTrampoline<ButtonUnitDisbandDelegate>();
+            troopPanelMouseEnterHook = new Hook(
+                troopPanelMouseEnterMethod,
+                (ButtonTroopPanelMouseEnterDelegate)ButtonTroopPanelMouseEnterHook);
+            troopPanelMouseEnterOriginal =
+                troopPanelMouseEnterHook.GenerateTrampoline<ButtonTroopPanelMouseEnterDelegate>();
 
             // The plugin component is short-lived; the static render callback persists for the match.
             Application.onBeforeRender += OnBeforeRender;
@@ -85,6 +103,10 @@ namespace BugfixesAndQoL
             disbandHook?.Dispose();
             disbandHook = null;
             disbandOriginal = null;
+            troopPanelMouseEnterHook?.Undo();
+            troopPanelMouseEnterHook?.Dispose();
+            troopPanelMouseEnterHook = null;
+            troopPanelMouseEnterOriginal = null;
         }
 
         private void OnBeforeRender()
@@ -282,6 +304,31 @@ namespace BugfixesAndQoL
                 Shared.DebugLogHelper.LogWarning(
                     log,
                     "Lord disband was rejected because the shared surrender action is unavailable; Vanilla disband was not called.");
+            }
+        }
+
+        private void ButtonTroopPanelMouseEnterHook(MainViewModel self, object parameter)
+        {
+            string buttonName = parameter as string;
+            bool activeLordSelection = lordModeActive && IsCurrentLordSelectionEligible();
+            LordStanceTooltipAction action = LordUnitControlsPolicy.GetStanceTooltipAction(
+                activeLordSelection,
+                buttonName);
+
+            if (action == LordStanceTooltipAction.UseVanillaStandGround)
+            {
+                // Both non-zero stances suppress the Lord's automatic movement, so reuse
+                // Vanilla's already localized stand-ground rollover for either button.
+                troopPanelMouseEnterOriginal(self, "GuardStanceButton");
+                return;
+            }
+
+            troopPanelMouseEnterOriginal(self, parameter);
+            if (action == LordStanceTooltipAction.ShowVanillaBehavior)
+            {
+                self.TroopsPanelRollover = SerpLocalization.Get(
+                    "BugfixesAndQoL.LordStanceVanillaBehavior");
+                self.TroopsPanelRollover_AmountGot1 = string.Empty;
             }
         }
 

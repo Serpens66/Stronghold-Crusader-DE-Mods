@@ -1,5 +1,6 @@
 # Serp mod localization
 # Format: key=value
+BugfixesAndQoL.LordStanceVanillaBehavior=Vanilla-Verhalten
 BugfixesAndQoL.EnableIngameSteamInvitePrompt=Eingehende Steam-Einladungen im Spiel anzeigen
 BugfixesAndQoL.EnableIngameSteamInvitePromptHelp=Zeigt eine Ja/Nein-Abfrage, wenn dich ein Steam-Freund in eine Multiplayer-Lobby einlaedt. Die Abfrage erscheint nur im vollstaendig geladenen Frontend oder in einer aktiven Partie; waehrend Ladebildschirmen oder unsicheren Uebergaengen bleibt stattdessen Steams normale Einladung verfuegbar. Ja verlaesst die aktuelle Partie ueber Vanillas normalen Ablauf und tritt der eingeladenen Lobby bei. Diese Einstellung gilt pro Spieler.
 BugfixesAndQoL.SteamInvitePrompt=Spiel von {0} beitreten?
@@ -79,6 +80,8 @@ BugfixesAndQoL.EnableClientFeaturesHelp=Aktiviert oder deaktiviert die lokalen O
 BugfixesAndQoL.EnableHostFeatures=Host-Funktionen aktivieren
 BugfixesAndQoL.EnableHostFeaturesHelp=Aktiviert oder deaktiviert die vom Host gesteuerten Fehlerbehebungen für das Match.
 BugfixesAndQoL.MultiplayerTitle=Mehrspieler
+BugfixesAndQoL.EnableReturnToMultiplayerLobby=Nach Spielende gemeinsam in die Lobby zurückkehren
+BugfixesAndQoL.EnableReturnToMultiplayerLobbyHelp=Erstellt nach dem Ende einer normalen Mehrspielerpartie eine neue Lobby für alle noch verbundenen Teilnehmer. Jeder tritt dieser Lobby bei, sobald er die Abschlussstatistik mit „Beenden“ verlässt. Dies ist eine Host-Einstellung.
 BugfixesAndQoL.EnableResyncHostKick=Getrennten Spieler und Host-Kick beim Resync anzeigen
 BugfixesAndQoL.EnableResyncHostKickHelp=Zeigt dem Host während einer festgefahrenen Mehrspieler-Neusynchronisierung den menschlichen Spieler mit dem am längsten überfälligen Heartbeat und bietet einen bestätigten, autoritativen Kick an. Solange alle Heartbeats aktuell sind, wird kein Spieler angezeigt. Dies ist eine Host-Einstellung.
 BugfixesAndQoL.ResyncProblemPlayer=Verbindungsproblem: {PlayerName}

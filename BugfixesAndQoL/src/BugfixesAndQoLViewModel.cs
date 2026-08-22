@@ -28,6 +28,7 @@ namespace BugfixesAndQoL
         private bool enableLordUnitControls = true;
         private bool enableEliminatedPlayersBecomeSpectators = true;
         private bool enableResyncHostKick = true;
+        private bool enableReturnToMultiplayerLobby = true;
         private bool enableCtrlSingleMarketTrade = true;
         private bool enableMultiplayerGameSpeedChanges = true;
         private bool enableShiftGameSpeedSteps = true;
@@ -120,6 +121,8 @@ namespace BugfixesAndQoL
         public string EnableShiftGameSpeedStepsHelpText => SerpLocalization.Get(SerpLocalization.EnableShiftGameSpeedStepsHelp);
         public string EnableResyncHostKickText => SerpLocalization.Get("BugfixesAndQoL.EnableResyncHostKick");
         public string EnableResyncHostKickHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableResyncHostKickHelp");
+        public string EnableReturnToMultiplayerLobbyText => SerpLocalization.Get("BugfixesAndQoL.EnableReturnToMultiplayerLobby");
+        public string EnableReturnToMultiplayerLobbyHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableReturnToMultiplayerLobbyHelp");
         public string CustomTrailsTitleText => SerpLocalization.Get("BugfixesAndQoL.CustomTrailsTitle");
         public string EnableMinimapCursorFollowFixText => SerpLocalization.Get("BugfixesAndQoL.EnableMinimapCursorFollowFix");
         public string EnableMinimapCursorFollowFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableMinimapCursorFollowFixHelp");
@@ -396,6 +399,13 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
+        public bool EnableReturnToMultiplayerLobby
+        {
+            get => enableReturnToMultiplayerLobby;
+            set => SetSetting(ref enableReturnToMultiplayerLobby, value, nameof(EnableReturnToMultiplayerLobby));
+        }
+
+        [SyncHostOnly]
         public bool EnableCtrlSingleMarketTrade
         {
             get => enableCtrlSingleMarketTrade;
@@ -433,6 +443,7 @@ namespace BugfixesAndQoL
                 EnableLordUnitControls = true;
                 EnableEliminatedPlayersBecomeSpectators = true;
                 EnableResyncHostKick = true;
+                EnableReturnToMultiplayerLobby = true;
                 EnableCtrlSingleMarketTrade = true;
                 EnableMultiplayerGameSpeedChanges = true;
                 EnableShiftGameSpeedSteps = true;

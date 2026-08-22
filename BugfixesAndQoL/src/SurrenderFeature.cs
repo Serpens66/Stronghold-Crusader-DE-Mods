@@ -164,6 +164,7 @@ namespace BugfixesAndQoL
 
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
+        private readonly MultiplayerLobbyReturnFeature lobbyReturnFeature;
         private readonly SurrenderAndStatisticsViewModel buttonViewModel;
         private readonly HashSet<string> acceptedRequests = new HashSet<string>(StringComparer.Ordinal);
         private readonly HashSet<long> executedOperations = new HashSet<long>();
@@ -209,6 +210,7 @@ namespace BugfixesAndQoL
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
+            lobbyReturnFeature = new MultiplayerLobbyReturnFeature(log, settings);
             buttonViewModel = new SurrenderAndStatisticsViewModel(
                 OnSurrenderCommand,
                 OnStatisticsCommand,
@@ -241,9 +243,15 @@ namespace BugfixesAndQoL
             ingameMenuInitHook = new Hook(initMethod, (IngameMenuInitDelegate)IngameMenuInitHook);
             ingameMenuInitOriginal = ingameMenuInitHook.GenerateTrampoline<IngameMenuInitDelegate>();
 
+            // The post-game lobby feature shares these two Vanilla hooks so hook order cannot
+            // change the surrender/statistics behavior.
+            InitializeMissionOverHooks();
+            lobbyReturnFeature.Initialize();
+
             try
             {
                 InitializeStatisticsPreview();
+                statisticsReady = true;
             }
             catch (Exception ex)
             {
@@ -337,6 +345,7 @@ namespace BugfixesAndQoL
             setGameOverStateHook?.Dispose();
             requestPacketSubscription?.Dispose();
             executionPacketSubscription?.Dispose();
+            lobbyReturnFeature.Dispose();
             UnityEngine.Application.onBeforeRender -= OnBeforeRender;
             foreach (IDisposable subscription in subscriptions)
                 subscription.Dispose();
@@ -358,6 +367,7 @@ namespace BugfixesAndQoL
             lastSpectatorPromotionFrame = UnityEngine.Time.frameCount;
             try
             {
+                lobbyReturnFeature.OnBeforeRender();
                 TryPromoteEliminatedPlayerToSpectator();
             }
             catch (Exception ex)
@@ -635,6 +645,10 @@ namespace BugfixesAndQoL
             missionOverInstance1Field = FindRequiredField(typeof(HUD_MissionOver), "instance1", BindingFlags.Static | BindingFlags.NonPublic);
             missionOverInstance2Field = FindRequiredField(typeof(HUD_MissionOver), "instance2", BindingFlags.Static | BindingFlags.NonPublic);
 
+        }
+
+        private void InitializeMissionOverHooks()
+        {
             MethodInfo buttonClickedMethod = FindRequiredMethod(
                 typeof(HUD_MissionOver),
                 nameof(HUD_MissionOver.ButtonClicked),
@@ -663,7 +677,6 @@ namespace BugfixesAndQoL
                 missionOverButtonOriginal = newButtonOriginal;
                 setGameOverStateHook = newGameOverHook;
                 setGameOverStateOriginal = newGameOverOriginal;
-                statisticsReady = true;
             }
             catch
             {
@@ -683,6 +696,13 @@ namespace BugfixesAndQoL
                 return;
             }
 
+            if (string.Equals(parameter, "Exit", StringComparison.Ordinal) &&
+                lobbyReturnFeature.TryHandleMissionOverExit(
+                    () => missionOverButtonOriginal(self, parameter)))
+            {
+                return;
+            }
+
             missionOverButtonOriginal(self, parameter);
         }
 
@@ -690,12 +710,13 @@ namespace BugfixesAndQoL
         {
             try
             {
+                lobbyReturnFeature.OnGameOverState(state);
                 if (state > 0 && statisticsPreviewActive)
                     CloseStatisticsPreview("vanilla-game-over");
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogError(log, $"Bugfixes and QoL could not close the statistics preview before Vanilla game over: {ex}");
+                Shared.DebugLogHelper.LogError(log, $"Bugfixes and QoL pre-game-over handling failed; Vanilla game over still runs: {ex}");
             }
 
             // Vanilla must run exactly once even if preview cleanup failed.

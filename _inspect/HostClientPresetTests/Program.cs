@@ -32,6 +32,7 @@ internal static class Program
             TestResyncHostKickPolicy();
             TestSelectedUnitHealthSummary();
             TestSurrenderAndStatisticsSettingAndPolicy();
+            TestMultiplayerLobbyReturnPolicy();
             TestMarketGoodPriceDefinition();
             TestAIMarketVanillaPricePolicy();
             TestLordHealthMultiplierPolicy();
@@ -777,6 +778,21 @@ internal static class Program
               !LordUnitControlsPolicy.ShouldReturnToDefaultHud(true, false, 0) &&
               !LordUnitControlsPolicy.ShouldReturnToDefaultHud(true, true, 1),
             "compact Lord HUD default-HUD transition policy was incorrect");
+        Check(LordUnitControlsPolicy.GetStanceTooltipAction(true, "GuardStanceButton") ==
+              LordStanceTooltipAction.ShowVanillaBehavior,
+            "Lord guard stance did not select the custom Vanilla-behavior rollover");
+        Check(LordUnitControlsPolicy.GetStanceTooltipAction(true, "DefensiveStanceButton") ==
+              LordStanceTooltipAction.UseVanillaStandGround &&
+              LordUnitControlsPolicy.GetStanceTooltipAction(true, "AggressiveStanceButton") ==
+              LordStanceTooltipAction.UseVanillaStandGround,
+            "non-zero Lord stances did not select Vanilla's stand-ground rollover");
+        Check(LordUnitControlsPolicy.GetStanceTooltipAction(false, "GuardStanceButton") ==
+              LordStanceTooltipAction.UseVanilla &&
+              LordUnitControlsPolicy.GetStanceTooltipAction(true, "UnitAttackHere") ==
+              LordStanceTooltipAction.UseVanilla &&
+              LordUnitControlsPolicy.GetStanceTooltipAction(true, null) ==
+              LordStanceTooltipAction.UseVanilla,
+            "normal troop, unrelated, or invalid rollovers did not remain Vanilla");
 
         Check(SurrenderPolicy.CanShowButton(true, true, false, false, validLord),
             "surrender button rejected an active player with a living lord");
@@ -916,48 +932,62 @@ internal static class Program
         Check(setting.EnableLordUnitControls, "EnableLordUnitControls did not default to true");
         Check(setting.EnableEliminatedPlayersBecomeSpectators,
             "EnableEliminatedPlayersBecomeSpectators did not default to true");
+        Check(setting.EnableReturnToMultiplayerLobby,
+            "EnableReturnToMultiplayerLobby did not default to true");
         Check(typeof(SurrenderAndStatisticsSettingViewModel).GetProperty("EnableSurrender") == null,
             "obsolete EnableSurrender property remains present");
         setting.EnableSurrenderAndStatistics = false;
         setting.EnableLordUnitControls = false;
         setting.EnableEliminatedPlayersBecomeSpectators = false;
+        setting.EnableReturnToMultiplayerLobby = false;
         setting.SelectedPreset = 1;
         Check(setting.EnableSurrenderAndStatistics, "new shared preset did not retain the default true value");
         Check(setting.EnableLordUnitControls, "new shared preset did not retain the Lord-controls default true value");
         Check(setting.EnableEliminatedPlayersBecomeSpectators,
             "new shared preset did not retain the spectator-promotion default true value");
+        Check(setting.EnableReturnToMultiplayerLobby,
+            "new shared preset did not retain the lobby-return default true value");
         setting.SelectedPreset = 0;
         Check(!setting.EnableSurrenderAndStatistics, "shared host value did not round-trip through presets");
         Check(!setting.EnableLordUnitControls, "Lord-controls host value did not round-trip through presets");
         Check(!setting.EnableEliminatedPlayersBecomeSpectators,
             "spectator-promotion host value did not round-trip through presets");
+        Check(!setting.EnableReturnToMultiplayerLobby,
+            "lobby-return host value did not round-trip through presets");
 
         GameNetworkAPI.LocalHost = false;
         setting.System_RefreshSettingsAccess();
         setting.EnableSurrenderAndStatistics = true;
         setting.EnableLordUnitControls = true;
         setting.EnableEliminatedPlayersBecomeSpectators = true;
+        setting.EnableReturnToMultiplayerLobby = true;
         Check(!setting.EnableSurrenderAndStatistics, "client mutated the host-only EnableSurrenderAndStatistics setting");
         Check(!setting.EnableLordUnitControls, "client mutated the host-only EnableLordUnitControls setting");
         Check(!setting.EnableEliminatedPlayersBecomeSpectators,
             "client mutated the host-only EnableEliminatedPlayersBecomeSpectators setting");
+        Check(!setting.EnableReturnToMultiplayerLobby,
+            "client mutated the host-only EnableReturnToMultiplayerLobby setting");
         GameXAMLManagerAPI.Instance.ApplyNetworkSync(setting, () =>
         {
             setting.EnableSurrenderAndStatistics = true;
             setting.EnableLordUnitControls = true;
             setting.EnableEliminatedPlayersBecomeSpectators = true;
+            setting.EnableReturnToMultiplayerLobby = true;
         });
         Check(setting.EnableSurrenderAndStatistics, "authoritative host sync did not update EnableSurrenderAndStatistics");
         Check(setting.EnableLordUnitControls, "authoritative host sync did not update EnableLordUnitControls");
         Check(setting.EnableEliminatedPlayersBecomeSpectators,
             "authoritative host sync did not update EnableEliminatedPlayersBecomeSpectators");
+        Check(setting.EnableReturnToMultiplayerLobby,
+            "authoritative host sync did not update EnableReturnToMultiplayerLobby");
 
         setting.System_EnterMissionPreset(
             new Dictionary<string, byte[]>
             {
                 [nameof(setting.EnableSurrenderAndStatistics)] = MessagePackSerializer.Serialize(false),
                 [nameof(setting.EnableLordUnitControls)] = MessagePackSerializer.Serialize(false),
-                [nameof(setting.EnableEliminatedPlayersBecomeSpectators)] = MessagePackSerializer.Serialize(false)
+                [nameof(setting.EnableEliminatedPlayersBecomeSpectators)] = MessagePackSerializer.Serialize(false),
+                [nameof(setting.EnableReturnToMultiplayerLobby)] = MessagePackSerializer.Serialize(false)
             },
             "Trail",
             editable: false);
@@ -966,13 +996,18 @@ internal static class Program
         Check(!setting.EnableLordUnitControls, "read-only Trail did not apply EnableLordUnitControls");
         Check(!setting.EnableEliminatedPlayersBecomeSpectators,
             "read-only Trail did not apply EnableEliminatedPlayersBecomeSpectators");
+        Check(!setting.EnableReturnToMultiplayerLobby,
+            "read-only Trail did not apply EnableReturnToMultiplayerLobby");
         setting.EnableSurrenderAndStatistics = true;
         setting.EnableLordUnitControls = true;
         setting.EnableEliminatedPlayersBecomeSpectators = true;
+        setting.EnableReturnToMultiplayerLobby = true;
         Check(!setting.EnableSurrenderAndStatistics, "client changed EnableSurrenderAndStatistics inside a read-only Trail");
         Check(!setting.EnableLordUnitControls, "client changed EnableLordUnitControls inside a read-only Trail");
         Check(!setting.EnableEliminatedPlayersBecomeSpectators,
             "client changed EnableEliminatedPlayersBecomeSpectators inside a read-only Trail");
+        Check(!setting.EnableReturnToMultiplayerLobby,
+            "client changed EnableReturnToMultiplayerLobby inside a read-only Trail");
         setting.System_ExitMissionPreset();
 
         GameNetworkAPI.LocalHost = true;
@@ -982,6 +1017,48 @@ internal static class Program
         Check(setting.EnableLordUnitControls, "EnableLordUnitControls reset value was not true");
         Check(setting.EnableEliminatedPlayersBecomeSpectators,
             "EnableEliminatedPlayersBecomeSpectators reset value was not true");
+        Check(setting.EnableReturnToMultiplayerLobby,
+            "EnableReturnToMultiplayerLobby reset value was not true");
+    }
+
+    private static void TestMultiplayerLobbyReturnPolicy()
+    {
+        Check(MultiplayerLobbyReturnPolicy.IsSupportedSession(true, true, true, 0),
+            "normal multiplayer was rejected for post-game lobby return");
+        Check(!MultiplayerLobbyReturnPolicy.IsSupportedSession(false, true, true, 0) &&
+              !MultiplayerLobbyReturnPolicy.IsSupportedSession(true, false, true, 0) &&
+              !MultiplayerLobbyReturnPolicy.IsSupportedSession(true, true, false, 0),
+            "disabled or non-multiplayer sessions enabled post-game lobby return");
+        Check(!MultiplayerLobbyReturnPolicy.IsSupportedSession(true, true, true, 1),
+            "Coop Trail incorrectly enabled the normal post-game lobby return");
+
+        Check(MultiplayerLobbyReturnPolicy.ShouldCreateLobby(true, 1, true, false),
+            "current host did not create the first replacement lobby");
+        Check(!MultiplayerLobbyReturnPolicy.ShouldCreateLobby(true, 0, true, false) &&
+              !MultiplayerLobbyReturnPolicy.ShouldCreateLobby(true, 1, false, false) &&
+              !MultiplayerLobbyReturnPolicy.ShouldCreateLobby(true, 1, true, true),
+            "invalid, client, or repeated game-over state created a replacement lobby");
+
+        Check(MultiplayerLobbyReturnPolicy.ShouldAnnounceToMember(false, false, false, true, 1234UL),
+            "connected human participant was excluded from the lobby announcement");
+        Check(!MultiplayerLobbyReturnPolicy.ShouldAnnounceToMember(true, false, false, true, 1234UL) &&
+              !MultiplayerLobbyReturnPolicy.ShouldAnnounceToMember(false, true, false, true, 1234UL) &&
+              !MultiplayerLobbyReturnPolicy.ShouldAnnounceToMember(false, false, true, true, 1234UL) &&
+              !MultiplayerLobbyReturnPolicy.ShouldAnnounceToMember(false, false, false, false, 1234UL) &&
+              !MultiplayerLobbyReturnPolicy.ShouldAnnounceToMember(false, false, false, true, 1000UL),
+            "self, kicked, AI, disconnected, or invalid participants received a lobby announcement");
+
+        long frequency = 1000;
+        long start = 5000;
+        Check(!MultiplayerLobbyReturnPolicy.HasTimedOut(
+                  start,
+                  start + (MultiplayerLobbyReturnPolicy.ExitWaitTimeoutSeconds * frequency) - 1,
+                  frequency) &&
+              MultiplayerLobbyReturnPolicy.HasTimedOut(
+                  start,
+                  start + MultiplayerLobbyReturnPolicy.ExitWaitTimeoutSeconds * frequency,
+                  frequency),
+            "post-game lobby wait timeout boundary was incorrect");
     }
 
     private static void TestLocalPerPlayerSetting()
@@ -2000,6 +2077,7 @@ internal sealed class SurrenderAndStatisticsSettingViewModel : PresetLobbyModSet
     private bool enableSurrenderAndStatistics = true;
     private bool enableLordUnitControls = true;
     private bool enableEliminatedPlayersBecomeSpectators = true;
+    private bool enableReturnToMultiplayerLobby = true;
 
     [SyncHostOnly]
     public bool EnableSurrenderAndStatistics
@@ -2043,11 +2121,28 @@ internal sealed class SurrenderAndStatisticsSettingViewModel : PresetLobbyModSet
         }
     }
 
+    [SyncHostOnly]
+    public bool EnableReturnToMultiplayerLobby
+    {
+        get => enableReturnToMultiplayerLobby;
+        set
+        {
+            if (!CanMutateSetting(nameof(EnableReturnToMultiplayerLobby)) ||
+                enableReturnToMultiplayerLobby == value)
+            {
+                return;
+            }
+            enableReturnToMultiplayerLobby = value;
+            OnPropertyChanged(nameof(EnableReturnToMultiplayerLobby));
+        }
+    }
+
     internal void ResetSurrenderAndStatistics()
     {
         EnableSurrenderAndStatistics = true;
         EnableLordUnitControls = true;
         EnableEliminatedPlayersBecomeSpectators = true;
+        EnableReturnToMultiplayerLobby = true;
     }
 }
 

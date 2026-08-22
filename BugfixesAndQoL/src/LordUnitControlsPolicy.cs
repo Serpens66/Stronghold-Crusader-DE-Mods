@@ -1,6 +1,13 @@
 // Feature: Decide when the compact Lord troop HUD may replace Vanilla's default HUD.
 namespace BugfixesAndQoL
 {
+    internal enum LordStanceTooltipAction
+    {
+        UseVanilla,
+        ShowVanillaBehavior,
+        UseVanillaStandGround
+    }
+
     internal static class LordUnitControlsPolicy
     {
         internal static bool CanActivate(
@@ -36,5 +43,24 @@ namespace BugfixesAndQoL
             bool troopHudVisible,
             int selectedCount) =>
             lordModeWasActive && troopHudVisible && selectedCount == 0;
+
+        internal static LordStanceTooltipAction GetStanceTooltipAction(
+            bool lordModeActive,
+            string buttonName)
+        {
+            if (!lordModeActive)
+                return LordStanceTooltipAction.UseVanilla;
+
+            switch (buttonName)
+            {
+                case "GuardStanceButton":
+                    return LordStanceTooltipAction.ShowVanillaBehavior;
+                case "DefensiveStanceButton":
+                case "AggressiveStanceButton":
+                    return LordStanceTooltipAction.UseVanillaStandGround;
+                default:
+                    return LordStanceTooltipAction.UseVanilla;
+            }
+        }
     }
 }

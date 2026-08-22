@@ -16,38 +16,39 @@ In multiplayer, gameplay-related settings are controlled by the host and synchro
 [h2]BugfixesAndQoL[/h2]
 [list]
 [*][b]Fixes[/b]:
-[*]Fixes the missing demolition cursor near enemy units (like in HD version).
-[*]Allows the minimap to be used while placing a building (like in HD version).
-[*]Makes the camera follow the cursor directly while dragging on the minimap (like in HD version).
-[*]Pressing the market hotkey while the market is already open returns to the main trading menu (like in HD version).
-[*]Prevent the game from sometimes resetting game resolution back to standard.
-[*]Adds a freely customizable market goods order, defaulting to the classic HD order.
-[*]Fixes synchronized movement for mixed troop groups, so every unit move at the speed of the slowest unit (in vanilla eg. archers and slaves walk slow together, although both can run).
-[*]Fixes plague popularity penalties and reliably removes them after the plague has been eliminated.
-[*]Prevents treated plague clouds from becoming active again.
-[*]Fixes apothecaries getting stuck when leaving their buildings.
+[*]Fixes the missing demolition cursor near enemy units (like in HD version)
+[*]Allows the minimap to be used while placing a building (like in HD version)
+[*]Makes the camera follow the cursor directly while dragging on the minimap (like in HD version)
+[*]Pressing the market hotkey while the market is already open returns to the main trading menu (like in HD version)
+[*]Prevent the game from sometimes resetting game resolution back to standard
+[*]Adds a freely customizable market goods order, defaulting to the classic HD order
+[*]Fixes synchronized movement for mixed troop groups, so every unit move at the speed of the slowest unit (in vanilla eg. archers and slaves walk slow together, although both can run)
+[*]Fixes plague popularity penalties and reliably removes them after the plague has been eliminated
+[*]Prevents treated plague clouds from becoming active again
+[*]Fixes apothecaries getting stuck when leaving their buildings
 [*]Allows rally points to be placed anywhere.
-[*]Fixes incorrectly tripled starting gold in custom Crusader Trails.
+[*]Fixes incorrectly tripled starting gold in custom Crusader Trails
 [*][b]QoL[/b]:
 [*]Change Multiplayer Speed midgame.
-[*]Hold Ctrl while trading to buy or sell exactly 1 unit of a good.
-[*]Hold Ctrl/Shift while sending goods to send even less/more goods.
-[*]Ingame Popup for multiplayer invites, to join without tabbing out.
-[*]Allows camera movement while Ctrl or Alt is held.
-[*]Improves apothecary target reservation so multiple apothecaries do not treat the same plague area.
-[*]Remembers each AI lord’s selected AIV list, AIV rotation, and custom AIC settings across singleplayer and multiplayer lobbies.
-[*]Allows automatic selling with a sell threshold of zero.
+[*]Hold Ctrl while trading to buy or sell exactly 1 unit of a good
+[*]Hold Ctrl/Shift while sending goods to send even less/more goods
+[*]Ingame Popup for multiplayer invites, to join without tabbing out
+[*]Allows camera movement while Ctrl or Alt is held
+[*]Improves apothecary target reservation so multiple apothecaries do not treat the same plague area
+[*]Remembers each AI lord’s selected AIV list, AIV rotation, and custom AIC settings across singleplayer and multiplayer lobbies
+[*]Allows automatic selling with a sell threshold of zero
 [*]Allow random custom lords in the randomized skirmish setup
 [*]Add sorting and filtering for the skirmish custom lord selection list
 [*]Random AIs button in multiplayer
 [*]Allow Surrender and to view statistics for spectators
 [*]Button to Kick players who lost connection
+[*]Show HP number of units and control for the lord unit
 [/list]
 
 [h2]BuildingCosts[/h2]
 [list]
-[*]Customize the construction costs of every building type: Wood, stone, iron, pitch, and gold.
-[*]Modified construction costs apply to both [b]human and AI[/b] players (beware that this might cause problems for AIs!).
+[*]Customize the construction costs of every building type: Wood, stone, iron, pitch, and gold
+[*]Modified construction costs apply to both [b]human and AI[/b] players (beware that this might cause problems for AIs!)
 [/list]
 
 [h2]BuildingLimit[/h2]
@@ -57,79 +58,77 @@ In multiplayer, gameplay-related settings are controlled by the host and synchro
 
 [h2]ExtraFeatures[/h2]
 [list]
-[*]Recruited units "run" to rally points at their max speed.
-[*]Monks always run.
-[*]Swordsmen can mount horses, while mounted knights can dismount.
-[*]Move a quarry’s linked stone pile to another valid position.
-[*]Churches and cathedrals receive more priests.
-[*]Customize max number of peasants at the campfire.
-[*]Pause single building independently.
-[*]Customize refunds when demolishing buildings.
-[*]Preserve contents of granaries, stockpiles, and armories when demolished.
-[*]Apply separate goods-production multipliers to [b]human or AI[/b] players or convert additional produced goods into extra gold to eg. boost the economy of AI.
-[*]Set global multipliers for market buying and selling prices or configure individual multipliers for every good (only human or everyone).
-[*]Prevent AI from pausing its production buildings, emergency demolition buildings and deleting their hovels.
-[*]Customize the active duration of plague clouds and how far apothecaries search for them.
+[*]Recruited units "run" to rally points at their max speed
+[*]Monks always run
+[*]Swordsmen can mount horses, while mounted knights can dismount
+[*]Move a quarry’s linked stone pile to another valid position
+[*]Churches and cathedrals receive more priests
+[*]Customize max number of peasants at the campfire
+[*]Pause single building independently
+[*]Customize refunds when demolishing buildings
+[*]Preserve contents of granaries, stockpiles, and armories when demolished
+[*]Apply separate goods-production multipliers to [b]human or AI[/b] players or convert additional produced goods into extra gold to eg. boost the economy of AI
+[*]Set global multipliers for market buying and selling prices or configure individual multipliers for every good (only human or everyone)
+[*]Prevent AI from pausing its production buildings, emergency demolition buildings and deleting their hovels
+[*]Customize the active duration of plague clouds and how far apothecaries search for them
 [*]Multiply Lords HP
 [*]Gates time settings and mark gates as "never auto close/open"
 [/list]
 
-[i]Note: Knight mounting and dismounting, quarry pile relocation, and pausing individual buildings are not currently available in multiplayer.[/i]
 
 [h2]RandomEvents[/h2]
 [list]
-[*]Adds freely configurable positive and negative random events from singleplayer missions to skirmishes.
-[*]Customize the event interval, cooldown, individual probability and minimum/maximum strength of each event type.
-[*]Only affects [b]human[/b] players directly, not AI since it may be unable to handle it.
+[*]Adds freely configurable positive and negative random events from singleplayer missions to skirmishes
+[*]Customize the event interval, cooldown, individual probability and minimum/maximum strength of each event type
+[*]Only affects [b]human[/b] players directly, not AI since it may be unable to handle it
 [/list]
 
-[i]Note: Random Events is currently disabled completely in network games.[/i]
 
 [h2]CastlePlanner[/h2]
 [list]
-[*]Spawn a selected aivjson castle in new singleplayer game for the human player at game start.
-[*]Load custom aivjson castles as visible blueprints ingame, so you can copy build your favorite AI castle.
-[*]Select your castle and set blueprint icon size and opacity by the ingame button on the bottom left.
+[*]Spawn a selected aivjson castle in new singleplayer game for the human player at game start
+[*]Load custom aivjson castles as visible blueprints ingame, so you can copy build your favorite AI castle
+[*]Select your castle and set blueprint icon size and opacity by the ingame button on the bottom left
 [/list]
 
 [h2]StartConditions[/h2]
 [list]
-[*]Set or add starting gold for [b]human and AI[/b] players.
-[*]Configure every starting good individually for [b]human and AI[/b] players.
-[*]Remove, preserve, or multiply the official starting armies for human and AI players.
+[*]Set or add starting gold for [b]human and AI[/b] players
+[*]Configure every starting good individually for [b]human and AI[/b] players
+[*]Remove, preserve, or multiply the official starting armies for human and AI players
 [*]Add custom additional starting troops to humans/AIs.
 [/list]
 
 [h2]UnitCosts[/h2]
 [list]
 [*]Modify the native gold cost of every recruitable unit (human and AI players)
-[*]Add extra gold and any material costs for [b]human[/b] players.
+[*]Add extra gold and any material costs for [b]human[/b] players
 [/list]
 
 [h2]UnitLimit[/h2]
 [list]
-[*]Individual unit limits for [b]human[/b] players to finally balance the game: eg. only up to 5 catapults/ballistas or healers to not make the game too easy.
+[*]Individual unit limits for [b]human[/b] players to finally balance the game: eg. only up to 5 catapults/ballistas or healers to not make the game too easy
 [/list]
 
 [h1]Configuration and Presets[/h1]
 [list]
-[*]Mods and individual features can be enabled or disabled independently in the ingame modsettings.
-[*]In multiplayer, the host controls all gameplay-related settings and syncs them to other players.
+[*]Mods and individual features can be enabled or disabled independently in the ingame modsettings
+[*]In multiplayer, the host controls all gameplay-related settings and syncs them to other players
 [/list]
 
 [h1]Important Information[/h1]
 [list]
 [*][b]The SHCDE Script Extender (at least v1.42.0) and BepinEx is required![/b]:
-[*]Download the latest [url=https://gitlab.com/rawra-stronghold-crusader/shcde-bepinex/-/releases]BepInEx "Download Loader"[/url] and [url=https://gitlab.com/rawra-stronghold-crusader/shcde-script-extender/-/releases]SHCDESE_[/url].
-[*]Copy their content (first BepInEx) into game install folder: "Steam\steamapps\common\Stronghold Crusader Definitive Edition", replace files if asked. In the end the folder structure should be "Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese".
-[*]Remove manually installed copies of the included mods (eg. downloaded from my nexusmods/github), since duplicate installations can cause conflicts.
-[*]To quickly switch between modded and vanilla game, you can use my prepared bat (windows) or sh (linux) files to start the game: https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/releases/tag/1.0.1 (there you can also find a ".trail" Un-Packer to manually edit custom trail files.
-[*]All players in a multiplayer game need the same mods installed/subscribed.
-[*]Script Extender itself and any dll mod may in theory contain malicious code. Only download from official source and modders you trust! See below for my source.
+[*]Download the latest [url=https://gitlab.com/rawra-stronghold-crusader/shcde-bepinex/-/releases]BepInEx "Download Loader"[/url] and [url=https://gitlab.com/rawra-stronghold-crusader/shcde-script-extender/-/releases]SHCDESE_[/url]
+[*]Copy their content (first BepInEx) into game install folder: "Steam\steamapps\common\Stronghold Crusader Definitive Edition", replace files if asked. In the end the folder structure should be "Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese"
+[*]Remove manually installed copies of the included mods (eg. downloaded from my nexusmods/github), since duplicate installations can cause conflicts
+[*]To quickly switch between modded and vanilla game, you can use my prepared bat (windows) or sh (linux) files to start the game: https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/releases/tag/1.0.1 (there you can also find a ".trail" Un-Packer to manually edit custom trail files
+[*]All players in a multiplayer game need the same mods installed/subscribed
+[*]Script Extender itself and any dll mod may in theory contain malicious code. Only download from official source and modders you trust! See below for my source
 [/list]
 
 [h1]Incompatibility[/h1]
-[*]Incompatible with mods which replace game dlls.
-[*]Auto install via subscribe may fail on linux, see source below to download release there.
+[*]Incompatible with mods which replace game dlls
+[*]Auto install via subscribe may fail on linux, see source below to download release there
 
 [h1][url=https://github.com/Serpens66/Stronghold-Crusader-DE-Mods]GitHub – Source Code[/url][/h1]
