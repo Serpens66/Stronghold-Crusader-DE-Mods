@@ -9,6 +9,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Globalization;
 using System.Reflection;
 
 namespace BugfixesAndQoL
@@ -30,12 +31,21 @@ namespace BugfixesAndQoL
             Origin
         }
 
+        private enum PresetSortField
+        {
+            Name,
+            SavedUtc
+        }
+
         private static readonly FieldInfo AivInfoField = FindField("AIVInfo");
         private static readonly FieldInfo AivListField = FindField("aivList");
         private static readonly FieldInfo LordListField = FindField("lordList");
+        private static readonly FieldInfo MpModeField = FindField("MPMode");
 
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
+        private readonly Action<FRONT_Multiplayer.MPAIVInfo> selectionLoaded;
+        private readonly AivAicPresetStore presetStore;
         private readonly Hook showHook;
         private readonly Hook buttonClickedHook;
         private readonly ShowDelegate showTrampoline;
@@ -51,6 +61,8 @@ namespace BugfixesAndQoL
         private Grid aivHeaderPanel;
         private Grid aicHeaderPanel;
         private Grid aicSearchPanel;
+        private ListView presetListControl;
+        private TextBox presetNameBox;
         private bool aivSearchHasFocus;
         private bool aicSearchHasFocus;
         private bool disposed;
@@ -60,20 +72,36 @@ namespace BugfixesAndQoL
         private SortField aicSortField;
         private bool aivSortAscending;
         private bool aicSortAscending;
+        private bool presetDialogOpen;
+        private string presetLordKey = string.Empty;
+        private string presetName = string.Empty;
+        private AivAicPresetRow selectedPreset;
+        private PresetSortField presetSortField = PresetSortField.SavedUtc;
+        private bool presetSortAscending;
 
         public AiCastleSettingsListEnhancementHook(
             ManualLogSource log,
-            BugfixesAndQoLViewModel settings)
+            BugfixesAndQoLViewModel settings,
+            Action<FRONT_Multiplayer.MPAIVInfo> selectionLoaded)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
+            this.selectionLoaded = selectionLoaded;
+            presetStore = new AivAicPresetStore(log);
             ClearAivSearchCommand = new RelayCommand(() => AivSearchText = string.Empty);
             ClearAicSearchCommand = new RelayCommand(() => AicSearchText = string.Empty);
+            OpenPresetDialogCommand = new RelayCommand(OpenPresetDialog);
+            ClosePresetDialogCommand = new RelayCommand(ClosePresetDialog);
+            SavePresetCommand = new RelayCommand(SavePreset, CanSavePreset);
+            LoadPresetCommand = new RelayCommand(LoadPreset, CanUseSelectedPreset);
+            DeletePresetCommand = new RelayCommand(DeletePreset, CanUseSelectedPreset);
 
             GameXAMLManagerAPI.Instance.RegisterBinding("BugfixesAndQoLAivHeaderPanel", this);
             GameXAMLManagerAPI.Instance.RegisterBinding("BugfixesAndQoLAivSearchPanel", this);
             GameXAMLManagerAPI.Instance.RegisterBinding("BugfixesAndQoLAicHeaderPanel", this);
             GameXAMLManagerAPI.Instance.RegisterBinding("BugfixesAndQoLAicSearchPanel", this);
+            GameXAMLManagerAPI.Instance.RegisterBinding("BugfixesAndQoLAivPresetButtonHost", this);
+            GameXAMLManagerAPI.Instance.RegisterBinding("BugfixesAndQoLAivPresetDialog", this);
 
             MethodInfo showMethod = typeof(FRONT_Multiplayer_AISettings).GetMethod(
                 "Show",
@@ -118,7 +146,16 @@ namespace BugfixesAndQoL
 
         public RelayCommand ClearAivSearchCommand { get; }
         public RelayCommand ClearAicSearchCommand { get; }
+        public RelayCommand OpenPresetDialogCommand { get; }
+        public RelayCommand ClosePresetDialogCommand { get; }
+        public RelayCommand SavePresetCommand { get; }
+        public RelayCommand LoadPresetCommand { get; }
+        public RelayCommand DeletePresetCommand { get; }
+        public ObservableCollection<AivAicPresetRow> PresetRows { get; } =
+            new ObservableCollection<AivAicPresetRow>();
         public Visibility EnhancementVisibility => IsActive ? Visibility.Visible : Visibility.Collapsed;
+        public Visibility PresetDialogVisibility =>
+            IsActive && presetDialogOpen ? Visibility.Visible : Visibility.Collapsed;
         public Visibility AivSearchPlaceholderVisibility =>
             IsActive && !aivSearchHasFocus && string.IsNullOrEmpty(aivSearchText)
                 ? Visibility.Visible
@@ -137,6 +174,52 @@ namespace BugfixesAndQoL
         public string AicOriginSortHelpText => SerpLocalization.Get("BugfixesAndQoL.AicOriginSortHelp");
         public string AicNameSortHelpText => SerpLocalization.Get("BugfixesAndQoL.AicNameSortHelp");
         public string AicPowerSortHelpText => SerpLocalization.Get("BugfixesAndQoL.AicPowerSortHelp");
+        public string PresetButtonText => SerpLocalization.Get("BugfixesAndQoL.AivAicPresetButton");
+        public string PresetButtonHelpText => SerpLocalization.Get("BugfixesAndQoL.AivAicPresetButtonHelp");
+        public string PresetDialogTitle => SerpLocalization.Get("BugfixesAndQoL.AivAicPresetDialogTitle");
+        public string PresetNameHeaderText => SerpLocalization.Get("BugfixesAndQoL.AivAicPresetNameHeader");
+        public string PresetSavedHeaderText => SerpLocalization.Get("BugfixesAndQoL.AivAicPresetSavedHeader");
+        public string PresetNameHelpText => SerpLocalization.Get("BugfixesAndQoL.AivAicPresetNameHelp");
+        public string PresetNameSortHelpText => SerpLocalization.Get("BugfixesAndQoL.AivAicPresetNameSortHelp");
+        public string PresetSavedSortHelpText => SerpLocalization.Get("BugfixesAndQoL.AivAicPresetSavedSortHelp");
+        public string PresetSaveText => SerpLocalization.Get("BugfixesAndQoL.AivAicPresetSave");
+        public string PresetLoadText => SerpLocalization.Get("BugfixesAndQoL.AivAicPresetLoad");
+        public string PresetDeleteText => SerpLocalization.Get("BugfixesAndQoL.AivAicPresetDelete");
+        public string PresetCancelText => SerpLocalization.Get("BugfixesAndQoL.AivAicPresetCancel");
+        public string PresetSaveHelpText => SerpLocalization.Get("BugfixesAndQoL.AivAicPresetSaveHelp");
+        public string PresetLoadHelpText => SerpLocalization.Get("BugfixesAndQoL.AivAicPresetLoadHelp");
+        public string PresetDeleteHelpText => SerpLocalization.Get("BugfixesAndQoL.AivAicPresetDeleteHelp");
+        public string PresetCancelHelpText => SerpLocalization.Get("BugfixesAndQoL.AivAicPresetCancelHelp");
+
+        public string PresetName
+        {
+            get => presetName;
+            set
+            {
+                string normalized = value ?? string.Empty;
+                if (string.Equals(presetName, normalized, StringComparison.Ordinal))
+                    return;
+                presetName = normalized;
+                OnPropertyChanged(nameof(PresetName));
+                SavePresetCommand.RaiseCanExecuteChanged();
+            }
+        }
+
+        public AivAicPresetRow SelectedPreset
+        {
+            get => selectedPreset;
+            set
+            {
+                if (ReferenceEquals(selectedPreset, value))
+                    return;
+                selectedPreset = value;
+                OnPropertyChanged(nameof(SelectedPreset));
+                if (value != null)
+                    PresetName = value.Name;
+                LoadPresetCommand.RaiseCanExecuteChanged();
+                DeletePresetCommand.RaiseCanExecuteChanged();
+            }
+        }
 
         public string AivSearchText
         {
@@ -173,6 +256,8 @@ namespace BugfixesAndQoL
         public void ApplySetting()
         {
             OnPropertyChanged(nameof(EnhancementVisibility));
+            if (!IsActive)
+                ClosePresetDialog();
             OnPropertyChanged(nameof(AivSearchPlaceholderVisibility));
             OnPropertyChanged(nameof(AicSearchPlaceholderVisibility));
             if (activeView == null || GetAivInfo(activeView) == null)
@@ -207,6 +292,7 @@ namespace BugfixesAndQoL
             FRONT_Multiplayer.MPAIVInfo aivInfo,
             bool mpMode)
         {
+            ClosePresetDialog();
             showTrampoline(thisPlayer, aivInfo, mpMode);
 
             if (!IsActive)
@@ -220,6 +306,11 @@ namespace BugfixesAndQoL
 
         private void ButtonClickedHook(FRONT_Multiplayer_AISettings self, string param)
         {
+            if (presetDialogOpen && string.Equals(param, "Back", StringComparison.Ordinal))
+            {
+                ClosePresetDialog();
+                return;
+            }
             if (!IsActive)
             {
                 buttonClickedTrampoline(self, param);
@@ -265,9 +356,11 @@ namespace BugfixesAndQoL
             aivHeaderPanel = self.FindName("BugfixesAndQoLAivHeaderPanel") as Grid;
             aicHeaderPanel = self.FindName("BugfixesAndQoLAicHeaderPanel") as Grid;
             aicSearchPanel = self.FindName("BugfixesAndQoLAicSearchPanel") as Grid;
+            presetListControl = self.FindName("BugfixesAndQoLAivPresetList") as ListView;
+            presetNameBox = self.FindName("BugfixesAndQoLAivPresetNameBox") as TextBox;
             if (aivListControl == null || aicListControl == null || aivSearchBox == null ||
                 aicSearchBox == null || aivHeaderPanel == null || aicHeaderPanel == null ||
-                aicSearchPanel == null)
+                aicSearchPanel == null || presetListControl == null || presetNameBox == null)
                 throw new InvalidOperationException("The patched AI-settings controls were not found.");
 
             // Search focus must not disable Ctrl/Shift input used by Vanilla multi-selection.
@@ -281,12 +374,16 @@ namespace BugfixesAndQoL
             AttachHeader(self, "BugfixesAndQoLAicOriginHeader", HeaderClicked);
             AttachHeader(self, "BugfixesAndQoLAicNameHeader", HeaderClicked);
             AttachHeader(self, "BugfixesAndQoLAicPowerHeader", HeaderClicked);
+            AttachHeader(self, "BugfixesAndQoLPresetNameHeader", PresetHeaderClicked);
+            AttachHeader(self, "BugfixesAndQoLPresetSavedHeader", PresetHeaderClicked);
             aivSearchBox.IsKeyboardFocusedChanged += AivSearchFocusChanged;
             aicSearchBox.IsKeyboardFocusedChanged += AicSearchFocusChanged;
+            presetNameBox.IsKeyboardFocusedChanged += PresetNameFocusChanged;
             self.IsVisibleChanged += DialogVisibilityChanged;
             // Vanilla registered its handler in the control constructor, so this runs after a
             // double-click action and can safely restore the enhanced presentation.
             aivListControl.MouseDoubleClick += AivListDoubleClicked;
+            presetListControl.MouseDoubleClick += PresetListDoubleClicked;
         }
 
         private static void AttachHeader(
@@ -324,6 +421,208 @@ namespace BugfixesAndQoL
         {
             if (IsActive && activeView != null)
                 AttachAndRefresh(activeView, "AIV double-click");
+        }
+
+        private void PresetHeaderClicked(object sender, RoutedEventArgs e)
+        {
+            if (!presetDialogOpen)
+                return;
+            string tag = (sender as GridViewColumnHeader)?.Tag as string;
+            PresetSortField requested = string.Equals(tag, "Preset_Saved", StringComparison.Ordinal)
+                ? PresetSortField.SavedUtc
+                : PresetSortField.Name;
+            if (presetSortField == requested)
+                presetSortAscending = !presetSortAscending;
+            else
+            {
+                presetSortField = requested;
+                presetSortAscending = requested == PresetSortField.Name;
+            }
+            RefreshPresetRows(selectedPreset?.Definition?.Name);
+        }
+
+        private void PresetListDoubleClicked(object sender, MouseButtonEventArgs e)
+        {
+            DependencyObject current = e?.Source as DependencyObject;
+            while (current != null && !(current is ListViewItem))
+                current = VisualTreeHelper.GetParent(current);
+            if (current is ListViewItem && CanUseSelectedPreset())
+                LoadPreset();
+        }
+
+        private void OpenPresetDialog()
+        {
+            if (!IsActive || activeView == null)
+                return;
+            FRONT_Multiplayer.MPAIVInfo info = GetAivInfo(activeView);
+            presetLordKey = AivAicPresetStore.BuildLordKey(info);
+            if (string.IsNullOrEmpty(presetLordKey))
+                return;
+            presetSortField = PresetSortField.SavedUtc;
+            presetSortAscending = false;
+            PresetName = string.Empty;
+            SelectedPreset = null;
+            RefreshPresetRows(null);
+            presetDialogOpen = true;
+            OnPropertyChanged(nameof(PresetDialogVisibility));
+            UpdateDialogKeyboardState();
+        }
+
+        private void ClosePresetDialog()
+        {
+            if (!presetDialogOpen)
+                return;
+            presetDialogOpen = false;
+            OnPropertyChanged(nameof(PresetDialogVisibility));
+            UpdateDialogKeyboardState();
+        }
+
+        private bool CanSavePreset()
+        {
+            string name = (presetName ?? string.Empty).Trim();
+            return presetDialogOpen && name.Length > 0 &&
+                name.Length <= AivAicPresetStore.MaximumPresetNameLength && GetAivInfo(activeView) != null;
+        }
+
+        private bool CanUseSelectedPreset() =>
+            presetDialogOpen && selectedPreset?.Definition != null;
+
+        private void SavePreset()
+        {
+            if (!CanSavePreset())
+                return;
+            string name = PresetName.Trim();
+            AivAicPresetDefinition existing = presetStore.Find(presetLordKey, name);
+            if (existing != null)
+            {
+                HUD_ConfirmationPopup.ShowConfirmationMessage(
+                    SerpLocalization.Get("BugfixesAndQoL.AivAicPresetOverwriteTitle"),
+                    () => SavePresetConfirmed(name),
+                    () => { },
+                    SerpLocalization.Get("BugfixesAndQoL.AivAicPresetOverwriteMessage", "PresetName", name));
+                return;
+            }
+            SavePresetConfirmed(name);
+        }
+
+        private void SavePresetConfirmed(string name)
+        {
+            try
+            {
+                AivAicPresetDefinition saved = presetStore.Save(
+                    presetLordKey, name, GetAivInfo(activeView));
+                RefreshPresetRows(saved.Name);
+                Shared.DebugLogHelper.LogDebug(log,
+                    $"Bugfixes and QoL saved AIV/AIC preset '{saved.Name}' for {presetLordKey}.");
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(log,
+                    $"Bugfixes and QoL could not save AIV/AIC preset '{name}': {ex}");
+            }
+        }
+
+        private void LoadPreset()
+        {
+            if (!CanUseSelectedPreset())
+                return;
+            try
+            {
+                FRONT_Multiplayer.MPAIVInfo info = GetAivInfo(activeView);
+                RestoreCanonicalLists(activeView, info);
+                List<CustomisationFileManager.CustomAIV> availableAivs = GetCanonicalAivs(info);
+                List<CustomisationFileManager.CustomLordConfig> availableAics = GetCanonicalAics(info);
+                AivAicPresetApplyResult result = presetStore.Apply(
+                    selectedPreset.Definition,
+                    info,
+                    availableAivs,
+                    availableAics,
+                    GetActiveAivLimit(activeView));
+                MainViewModel.Instance.CustomLordName = info.builtInLord
+                    ? string.Empty
+                    : info.lordConfig?.name ?? string.Empty;
+                activeView.populateList(null, false);
+                AttachAndRefresh(activeView, $"preset '{selectedPreset.Name}' loaded");
+                selectionLoaded?.Invoke(info);
+                Shared.DebugLogHelper.LogDebug(log,
+                    $"Bugfixes and QoL loaded AIV/AIC preset '{selectedPreset.Name}' for {presetLordKey}: " +
+                    $"loadedAivs={result.LoadedAivs}, missingAivs={result.MissingAivs}, " +
+                    $"truncatedAivs={result.TruncatedAivs}, missingAic={result.MissingAic}, rotation={info.rotation}.");
+                ClosePresetDialog();
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(log,
+                    $"Bugfixes and QoL could not load AIV/AIC preset '{selectedPreset?.Name}': {ex}");
+            }
+        }
+
+        private void DeletePreset()
+        {
+            if (!CanUseSelectedPreset())
+                return;
+            string name = selectedPreset.Name;
+            HUD_ConfirmationPopup.ShowConfirmationMessage(
+                SerpLocalization.Get("BugfixesAndQoL.AivAicPresetDeleteTitle"),
+                () => DeletePresetConfirmed(name),
+                () => { },
+                SerpLocalization.Get("BugfixesAndQoL.AivAicPresetDeleteMessage", "PresetName", name));
+        }
+
+        private void DeletePresetConfirmed(string name)
+        {
+            try
+            {
+                if (presetStore.Delete(presetLordKey, name))
+                {
+                    PresetName = string.Empty;
+                    SelectedPreset = null;
+                    RefreshPresetRows(null);
+                    Shared.DebugLogHelper.LogDebug(log,
+                        $"Bugfixes and QoL deleted AIV/AIC preset '{name}' for {presetLordKey}.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(log,
+                    $"Bugfixes and QoL could not delete AIV/AIC preset '{name}': {ex}");
+            }
+        }
+
+        private void RefreshPresetRows(string selectName)
+        {
+            var definitions = new List<AivAicPresetDefinition>(presetStore.GetPresets(presetLordKey));
+            definitions.Sort(ComparePresets);
+            PresetRows.Clear();
+            AivAicPresetRow select = null;
+            foreach (AivAicPresetDefinition definition in definitions)
+            {
+                var row = new AivAicPresetRow(definition);
+                PresetRows.Add(row);
+                if (string.Equals(definition.Name, selectName, StringComparison.OrdinalIgnoreCase))
+                    select = row;
+            }
+            SelectedPreset = select;
+        }
+
+        private int ComparePresets(AivAicPresetDefinition left, AivAicPresetDefinition right)
+        {
+            int comparison = presetSortField == PresetSortField.Name
+                ? StringComparer.CurrentCultureIgnoreCase.Compare(left?.Name, right?.Name)
+                : DateTime.Compare(left?.SavedUtc ?? DateTime.MinValue, right?.SavedUtc ?? DateTime.MinValue);
+            if (!presetSortAscending)
+                comparison = -comparison;
+            if (comparison == 0)
+                comparison = StringComparer.CurrentCultureIgnoreCase.Compare(left?.Name, right?.Name);
+            return comparison;
+        }
+
+        private static int GetActiveAivLimit(FRONT_Multiplayer_AISettings view)
+        {
+            UIElement extendedHost = view?.FindName("CastlePlannerAivSelectionListHost") as UIElement;
+            if (extendedHost?.Visibility == Visibility.Visible)
+                return AivAicPresetStore.MaximumAivEntries;
+            return view != null && MpModeField.GetValue(view) is bool mpMode && mpMode ? 1 : 8;
         }
 
         private static void ChangeSort(ref SortField current, ref bool ascending, SortField requested)
@@ -543,6 +842,9 @@ namespace BugfixesAndQoL
             OnPropertyChanged(nameof(AicSearchPlaceholderVisibility));
         }
 
+        private void PresetNameFocusChanged(object sender, DependencyPropertyChangedEventArgs e) =>
+            UpdateDialogKeyboardState();
+
         private void DialogVisibilityChanged(object sender, DependencyPropertyChangedEventArgs e) =>
             UpdateDialogKeyboardState();
 
@@ -660,5 +962,17 @@ namespace BugfixesAndQoL
 
         private void OnPropertyChanged(string propertyName) =>
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    }
+
+    internal sealed class AivAicPresetRow
+    {
+        public AivAicPresetRow(AivAicPresetDefinition definition)
+        {
+            Definition = definition ?? throw new ArgumentNullException(nameof(definition));
+        }
+
+        public AivAicPresetDefinition Definition { get; }
+        public string Name => Definition.Name;
+        public string Saved => Definition.SavedUtc.ToLocalTime().ToString("g", CultureInfo.CurrentCulture);
     }
 }

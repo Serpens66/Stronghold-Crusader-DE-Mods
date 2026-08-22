@@ -368,7 +368,10 @@ namespace BugfixesAndQoL
         {
             if (aiCastleSettingsListEnhancementHook == null)
                 aiCastleSettingsListEnhancementHook =
-                    new AiCastleSettingsListEnhancementHook(log, settings);
+                    new AiCastleSettingsListEnhancementHook(
+                        log,
+                        settings,
+                        info => skirmishAiSelectionMemoryHook?.RecordSelection(info));
         }
 
         private void EnsureResyncHostKickFeature()

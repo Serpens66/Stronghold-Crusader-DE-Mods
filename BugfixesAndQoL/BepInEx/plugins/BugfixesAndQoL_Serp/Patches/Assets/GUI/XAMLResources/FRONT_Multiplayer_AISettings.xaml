@@ -90,6 +90,40 @@
   <Operation Type="SetAttribute" XPath="//n:Button[@Name='MP_OKSettings']">
     <Attribute Name="Width" Value="100" />
   </Operation>
+  <Operation Type="InsertBefore" XPath="//n:Button[@Name='MP_Add']">
+    <Content>
+      <Grid x:Name="BugfixesAndQoLAivPresetButtonHost" Width="360" Height="34"
+            Margin="490,207,0,0" HorizontalAlignment="Left" VerticalAlignment="Top"
+            Visibility="{Binding EnhancementVisibility}">
+        <Grid.Resources>
+          <Style TargetType="{x:Type ToolTip}">
+            <Setter Property="Background" Value="#FF1D1710" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="FontSize" Value="{x:Static shared:ToolTipPresentation.FontSize}" />
+            <Setter Property="BorderBrush" Value="#FFF2D48A" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Template">
+              <Setter.Value>
+                <ControlTemplate TargetType="{x:Type ToolTip}">
+                  <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                          BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="2" Padding="10,7"
+                          MaxWidth="{x:Static shared:ToolTipPresentation.MaximumWidth}">
+                    <TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}"
+                               FontSize="{TemplateBinding FontSize}" TextWrapping="Wrap" />
+                  </Border>
+                </ControlTemplate>
+              </Setter.Value>
+            </Setter>
+          </Style>
+        </Grid.Resources>
+        <Button Width="360" Height="34" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                local:PropEx.TextCentre="{Binding PresetButtonText}"
+                local:PropEx.TextLeft="" local:PropEx.TextRight=""
+                Command="{Binding OpenPresetDialogCommand}" Style="{StaticResource BTN_SH_GlowS}"
+                ToolTip="{Binding PresetButtonHelpText}" ToolTipService.ShowDuration="60000" />
+      </Grid>
+    </Content>
+  </Operation>
 
   <Operation Type="InsertAfter"
              XPath="//n:ListView[@Name='LordList']/n:ListView.View/n:GridView/n:GridViewColumn[2]">
@@ -192,6 +226,120 @@
                 local:PropEx.Sprite2="{StaticResource UI-Buttons L010}"
                 Command="{Binding ClearAicSearchCommand}" Style="{StaticResource BTN_Building}"
                 ToolTip="{Binding ClearSearchHelpText}" ToolTipService.ShowDuration="60000" />
+      </Grid>
+    </Content>
+  </Operation>
+  <Operation Type="InsertAfter" XPath="//n:Button[@Name='MP_OKSettings']">
+    <Content>
+      <Grid x:Name="BugfixesAndQoLAivPresetDialog" Width="880" Height="630"
+            HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="#CC000000"
+            Visibility="{Binding PresetDialogVisibility}">
+        <Grid.Resources>
+          <Style TargetType="{x:Type ToolTip}">
+            <Setter Property="Background" Value="#FF1D1710" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="FontSize" Value="{x:Static shared:ToolTipPresentation.FontSize}" />
+            <Setter Property="BorderBrush" Value="#FFF2D48A" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Template">
+              <Setter.Value>
+                <ControlTemplate TargetType="{x:Type ToolTip}">
+                  <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                          BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="2" Padding="10,7"
+                          MaxWidth="{x:Static shared:ToolTipPresentation.MaximumWidth}">
+                    <TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}"
+                               FontSize="{TemplateBinding FontSize}" TextWrapping="Wrap" />
+                  </Border>
+                </ControlTemplate>
+              </Setter.Value>
+            </Setter>
+          </Style>
+        </Grid.Resources>
+        <Grid Width="700" Height="500" HorizontalAlignment="Center" VerticalAlignment="Center">
+          <Button Margin="-3" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                  IsHitTestVisible="False" Style="{StaticResource BDR_SH1DEa}" />
+          <TextBlock Height="45" Margin="25,18,25,0" HorizontalAlignment="Stretch"
+                     VerticalAlignment="Top" TextAlignment="Center" Foreground="Black"
+                     FontSize="30" Typography.Capitals="SmallCaps" Text="{Binding PresetDialogTitle}" />
+          <TextBox x:Name="BugfixesAndQoLAivPresetNameBox" Width="630" Height="38" Margin="0,72,0,0"
+                   MaxLength="64" HorizontalAlignment="Center" VerticalAlignment="Top"
+                   Text="{Binding PresetName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                   TextAlignment="Left" Focusable="True" ToolTip="{Binding PresetNameHelpText}"
+                   ToolTipService.ShowDuration="60000" />
+          <Grid Width="630" Height="275" Margin="0,122,0,0"
+                HorizontalAlignment="Center" VerticalAlignment="Top">
+            <Button Margin="-3" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                    IsHitTestVisible="False" Style="{StaticResource BDR_SH1DEb}" />
+            <Grid Width="630" Height="24" HorizontalAlignment="Left" VerticalAlignment="Top">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="390" />
+                <ColumnDefinition Width="240" />
+              </Grid.ColumnDefinitions>
+              <GridViewColumnHeader x:Name="BugfixesAndQoLPresetNameHeader" Grid.Column="0"
+                                    Content="{Binding PresetNameHeaderText}"
+                                    Template="{StaticResource MyGridViewColumnHeader}"
+                                    Tag="Preset_Name" ToolTip="{Binding PresetNameSortHelpText}"
+                                    ToolTipService.ShowDuration="60000" />
+              <GridViewColumnHeader x:Name="BugfixesAndQoLPresetSavedHeader" Grid.Column="1"
+                                    Content="{Binding PresetSavedHeaderText}"
+                                    Template="{StaticResource MyGridViewColumnHeader}"
+                                    Tag="Preset_Saved" ToolTip="{Binding PresetSavedSortHelpText}"
+                                    ToolTipService.ShowDuration="60000" />
+            </Grid>
+            <ListView x:Name="BugfixesAndQoLAivPresetList" Margin="0,24,0,0" HorizontalAlignment="Stretch"
+                      VerticalAlignment="Stretch" ItemsSource="{Binding PresetRows}"
+                      SelectedItem="{Binding SelectedPreset, Mode=TwoWay}"
+                      ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                      ItemContainerStyle="{StaticResource Standalone_ListViewItem}"
+                      ToolTip="{Binding PresetLoadHelpText}" ToolTipService.ShowDuration="60000">
+              <ListView.View>
+                <GridView ColumnHeaderContainerStyle="{StaticResource HiddenStyle}">
+                  <GridViewColumn Width="390">
+                    <GridViewColumn.CellTemplate>
+                      <DataTemplate>
+                        <TextBlock Height="30" VerticalAlignment="Center" Foreground="Black"
+                                   FontSize="16" TextTrimming="CharacterEllipsis" Text="{Binding Name}" />
+                      </DataTemplate>
+                    </GridViewColumn.CellTemplate>
+                  </GridViewColumn>
+                  <GridViewColumn Width="240">
+                    <GridViewColumn.CellTemplate>
+                      <DataTemplate>
+                        <TextBlock Height="30" VerticalAlignment="Center" Foreground="Black"
+                                   FontSize="16" Text="{Binding Saved}" />
+                      </DataTemplate>
+                    </GridViewColumn.CellTemplate>
+                  </GridViewColumn>
+                </GridView>
+              </ListView.View>
+            </ListView>
+          </Grid>
+          <Grid Width="650" Height="42" Margin="0,425,0,0"
+                HorizontalAlignment="Center" VerticalAlignment="Top">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Button Grid.Column="0" Margin="4,0" local:PropEx.TextCentre="{Binding PresetSaveText}"
+                    local:PropEx.TextLeft="" local:PropEx.TextRight="" Command="{Binding SavePresetCommand}"
+                    Style="{StaticResource BTN_SH_GlowS}" ToolTip="{Binding PresetSaveHelpText}"
+                    ToolTipService.ShowDuration="60000" />
+            <Button Grid.Column="1" Margin="4,0" local:PropEx.TextCentre="{Binding PresetLoadText}"
+                    local:PropEx.TextLeft="" local:PropEx.TextRight="" Command="{Binding LoadPresetCommand}"
+                    Style="{StaticResource BTN_SH_GlowS}" ToolTip="{Binding PresetLoadHelpText}"
+                    ToolTipService.ShowDuration="60000" />
+            <Button Grid.Column="2" Margin="4,0" local:PropEx.TextCentre="{Binding PresetDeleteText}"
+                    local:PropEx.TextLeft="" local:PropEx.TextRight="" Command="{Binding DeletePresetCommand}"
+                    Style="{StaticResource BTN_SH_GlowS}" ToolTip="{Binding PresetDeleteHelpText}"
+                    ToolTipService.ShowDuration="60000" />
+            <Button Grid.Column="3" Margin="4,0" local:PropEx.TextCentre="{Binding PresetCancelText}"
+                    local:PropEx.TextLeft="" local:PropEx.TextRight="" Command="{Binding ClosePresetDialogCommand}"
+                    Style="{StaticResource BTN_SH_GlowS}" ToolTip="{Binding PresetCancelHelpText}"
+                    ToolTipService.ShowDuration="60000" />
+          </Grid>
+        </Grid>
       </Grid>
     </Content>
   </Operation>

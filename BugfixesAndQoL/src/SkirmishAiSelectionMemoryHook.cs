@@ -765,6 +765,20 @@ namespace BugfixesAndQoL
             return settings.EnableMod && settings.RememberAiAivSettings;
         }
 
+        internal void RecordSelection(FRONT_Multiplayer.MPAIVInfo info)
+        {
+            try
+            {
+                SaveAiSettings(info);
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Bugfixes and QoL AI selection save failed after loading a named preset: {ex}");
+            }
+        }
+
         private void SaveActiveAiSettings()
         {
             try
@@ -961,12 +975,7 @@ namespace BugfixesAndQoL
 
         private static string BuildLordKey(FRONT_Multiplayer.MPAIVInfo info)
         {
-            if (info == null)
-                return string.Empty;
-
-            return !string.IsNullOrEmpty(info.lordName)
-                ? CustomPrefix + info.lordName
-                : BuiltInPrefix + info.lordType;
+            return AivAicPresetStore.BuildLordKey(info);
         }
 
         private static string BuildInfoSummary(FRONT_Multiplayer.MPAIVInfo info)

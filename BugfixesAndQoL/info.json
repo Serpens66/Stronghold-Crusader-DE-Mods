@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.61",
+  "Version": "1.0.62",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.62",
+      "Changes": [
+        "Added per-lord named presets for AIV lists, AIC configuration, and castle rotation, including save-date/name sorting and graceful handling of removed custom files."
+      ]
+    },
     {
       "Version": "1.0.61",
       "Changes": [
