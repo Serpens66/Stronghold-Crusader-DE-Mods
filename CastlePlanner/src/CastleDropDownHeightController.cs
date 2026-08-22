@@ -1,7 +1,9 @@
 using BepInEx.Logging;
 using Noesis;
 using SHCDESE.API;
+using SHCDESE.ViewModels;
 using System;
+using System.ComponentModel;
 using System.Linq;
 
 namespace CastlePlanner
@@ -10,27 +12,32 @@ namespace CastlePlanner
     {
         private const string ComboBoxName = "CastlePlannerSelectionComboBox";
         private const float DesiredMaximumHeight = 420.0f;
-        private const float SafeFallbackHeight = 120.0f;
-        private const float PopupSafetyMargin = 12.0f;
 
         private readonly ManualLogSource log;
         private readonly CastlePlannerSettingsViewModel settings;
-        private readonly FrameworkElement view;
         private readonly ComboBox comboBox;
-        private float lastAppliedHeight = -1.0f;
-        private bool invalidGeometryLogged;
+        private readonly LobbyModSettingsHubViewModel settingsHub;
 
         private CastleDropDownHeightController(
             ManualLogSource log,
             CastlePlannerSettingsViewModel settings,
-            FrameworkElement view,
-            ComboBox comboBox)
+            ComboBox comboBox,
+            LobbyModSettingsHubViewModel settingsHub)
         {
             this.log = log;
             this.settings = settings;
-            this.view = view;
             this.comboBox = comboBox;
+            this.settingsHub = settingsHub;
             comboBox.PreviewMouseDown += OnPreviewMouseDown;
+            comboBox.SelectionChanged += OnSelectionChanged;
+            settingsHub.PropertyChanged += OnSettingsHubPropertyChanged;
+            comboBox.MaxDropDownHeight = DesiredMaximumHeight;
+            if (settingsHub.WindowVisibility == Visibility.Visible &&
+                ReferenceEquals(settingsHub.SelectedTab?.ViewModel, settings))
+            {
+                settings.EnsureCastleCatalogLoaded();
+            }
+            ApplySelectedIndex();
         }
 
         public static CastleDropDownHeightController Attach(
@@ -41,7 +48,9 @@ namespace CastlePlanner
                 .FirstOrDefault(entry => ReferenceEquals(entry.ViewModel, settings))
                 ?.View;
             ComboBox comboBox = view?.FindName(ComboBoxName) as ComboBox;
-            if (view == null || comboBox == null)
+            LobbyModSettingsHubViewModel settingsHub =
+                SHCDESE.BepInEx.Bootstrap.Plugin.ModSettingsHubViewModel;
+            if (view == null || comboBox == null || settingsHub == null)
             {
                 Shared.DebugLogHelper.LogError(
                     log,
@@ -52,91 +61,56 @@ namespace CastlePlanner
 
             Shared.DebugLogHelper.LogInfo(
                 log,
-                "CastlePlanner castle dropdown height controller attached; " +
-                $"desiredMaximum={DesiredMaximumHeight:0}, " +
-                $"fallback={SafeFallbackHeight:0}.");
-            return new CastleDropDownHeightController(log, settings, view, comboBox);
+                "CastlePlanner castle dropdown controller attached; " +
+                $"maximumHeight={DesiredMaximumHeight:0}.");
+            return new CastleDropDownHeightController(
+                log,
+                settings,
+                comboBox,
+                settingsHub);
         }
 
         private void OnPreviewMouseDown(object sender, MouseButtonEventArgs args)
         {
-            // Item clicks bubble through the ComboBox. Rebuilding the item instances
-            // while its popup is open invalidates SelectedItem before Noesis commits it.
-            if (comboBox.IsDropDownOpen)
-                return;
+            // Keep the first opening identical to later openings. No catalog or item
+            // rebuild is allowed from an item click bubbling through this control.
+            comboBox.MaxDropDownHeight = DesiredMaximumHeight;
+        }
 
-            settings.RefreshCastleOptions();
-            // Keep the popup below the control so Noesis cannot move it beneath
-            // the opening click and treat that click's release as an item click.
-            float viewHeight = view.ActualHeight;
-            float comboHeight = comboBox.ActualHeight;
-            if (!IsFinitePositive(viewHeight) || !IsFinitePositive(comboHeight))
+        private void OnSelectionChanged(
+            object sender,
+            SelectionChangedEventArgs args)
+        {
+            settings.SelectedSpawnCastleOptionIndex = comboBox.SelectedIndex;
+        }
+
+        private void OnSettingsHubPropertyChanged(
+            object sender,
+            PropertyChangedEventArgs args)
+        {
+            bool openingOrSelectingTab =
+                args.PropertyName == nameof(LobbyModSettingsHubViewModel.WindowVisibility) ||
+                args.PropertyName == nameof(LobbyModSettingsHubViewModel.SelectedTab);
+            if (!openingOrSelectingTab ||
+                settingsHub.WindowVisibility != Visibility.Visible ||
+                !ReferenceEquals(settingsHub.SelectedTab?.ViewModel, settings))
             {
-                ApplyFallback(viewHeight, comboHeight, float.NaN);
                 return;
             }
 
-            Point comboBottom = comboBox.TranslatePoint(
-                new Point(0.0f, comboHeight),
-                view);
-            float availableHeight =
-                viewHeight - comboBottom.Y - PopupSafetyMargin;
-            if (!IsFinitePositive(comboBottom.Y) ||
-                !IsFinitePositive(availableHeight))
-            {
-                ApplyFallback(viewHeight, comboHeight, availableHeight);
-                return;
-            }
-
-            float height = Math.Min(
-                DesiredMaximumHeight,
-                (float)Math.Floor(availableHeight));
-            ApplyHeight(height, viewHeight, comboBottom.Y, availableHeight);
-        }
-
-        private void ApplyFallback(
-            float viewHeight,
-            float comboHeight,
-            float availableHeight)
-        {
-            comboBox.MaxDropDownHeight = SafeFallbackHeight;
-            lastAppliedHeight = SafeFallbackHeight;
-            if (invalidGeometryLogged)
-                return;
-
-            invalidGeometryLogged = true;
-            Shared.DebugLogHelper.LogWarning(
-                log,
-                "CastlePlanner castle dropdown used its safe height fallback because " +
-                $"Noesis geometry was not ready: viewHeight={viewHeight:0.0}, " +
-                $"comboHeight={comboHeight:0.0}, available={availableHeight:0.0}.");
-        }
-
-        private void ApplyHeight(
-            float height,
-            float viewHeight,
-            float comboBottom,
-            float availableHeight)
-        {
-            comboBox.MaxDropDownHeight = height;
-            invalidGeometryLogged = false;
-            if (Math.Abs(lastAppliedHeight - height) < 0.5f)
-                return;
-
-            lastAppliedHeight = height;
+            bool loaded = settings.EnsureCastleCatalogLoaded();
+            ApplySelectedIndex();
             Shared.DebugLogHelper.LogInfo(
                 log,
-                "CastlePlanner castle dropdown height updated from current Noesis " +
-                $"geometry: viewHeight={viewHeight:0.0}, " +
-                $"comboBottom={comboBottom:0.0}, available={availableHeight:0.0}, " +
-                $"applied={height:0.0}.");
+                $"CastlePlanner {(loaded ? "loaded" : "reused")} the cached AIVJSON catalog when mod settings opened; " +
+                $"count={settings.AvailableFileCount}.");
         }
 
-        private static bool IsFinitePositive(float value)
+        private void ApplySelectedIndex()
         {
-            return !float.IsNaN(value) &&
-                   !float.IsInfinity(value) &&
-                   value > 0.0f;
+            int selectedIndex = settings.SelectedSpawnCastleOptionIndex;
+            if (selectedIndex >= 0 && comboBox.SelectedIndex != selectedIndex)
+                comboBox.SelectedIndex = selectedIndex;
         }
     }
 }

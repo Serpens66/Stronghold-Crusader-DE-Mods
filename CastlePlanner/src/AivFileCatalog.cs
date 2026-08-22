@@ -19,21 +19,26 @@ namespace CastlePlanner
 
         private readonly Dictionary<string, string> pathByOption =
             new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        private readonly List<string> discoveryOrder = new List<string>();
         private readonly Dictionary<string, CachedFingerprint> fingerprintByPath =
             new Dictionary<string, CachedFingerprint>(StringComparer.OrdinalIgnoreCase);
+
+        public int IdenticalFileCount { get; private set; }
 
         public IReadOnlyList<string> Discover(Action<string> warning = null)
         {
             pathByOption.Clear();
+            discoveryOrder.Clear();
+            IdenticalFileCount = 0;
 
             string pluginDirectory =
                 Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) ??
                 string.Empty;
 
-            AddRoot("Mod", Path.Combine(pluginDirectory, "AIV"));
             AddVanillaRoot(
                 Path.Combine(pluginDirectory, "VanillaAIV"),
                 warning);
+            AddRoot("Mod", Path.Combine(pluginDirectory, "AIV"));
             AddLocalLordRoots();
             AddWorkshopRoots(warning);
             AddRoot(
@@ -43,6 +48,8 @@ namespace CastlePlanner
                     "CrusaderCastleEditorUnity_Data",
                     "StreamingAssets",
                     "Villages"));
+
+            RemoveIdenticalFiles(warning);
 
             return pathByOption.Keys
                 .OrderBy(option => option, StringComparer.OrdinalIgnoreCase)
@@ -79,7 +86,7 @@ namespace CastlePlanner
                     continue;
                 }
 
-                pathByOption[$"[Vanilla] {fileName}"] = effectivePath;
+                AddOption($"[Vanilla] {fileName}", effectivePath);
             }
         }
 
@@ -169,7 +176,9 @@ namespace CastlePlanner
 
         private void AddWorkshopRoots(Action<string> warning)
         {
-            foreach (string itemRoot in Shared.WorkshopContentPaths.GetSubscribedItemRoots(warning))
+            foreach (string itemRoot in Shared.WorkshopContentPaths
+                .GetSubscribedItemRoots(warning)
+                .OrderBy(path => path, StringComparer.OrdinalIgnoreCase))
             {
                 string itemId = Path.GetFileName(
                     itemRoot.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
@@ -195,22 +204,7 @@ namespace CastlePlanner
                 {
                     string path = entry.Value;
                     currentPaths.Add(path);
-                    var info = new FileInfo(path);
-                    if (!forceRefresh &&
-                        fingerprintByPath.TryGetValue(path, out CachedFingerprint cached) &&
-                        cached.Length == info.Length &&
-                        cached.LastWriteTimeUtcTicks == info.LastWriteTimeUtc.Ticks)
-                    {
-                        hashes[entry.Key] = cached.Hash;
-                        continue;
-                    }
-
-                    string hash = ComputeHash(path);
-                    fingerprintByPath[path] = new CachedFingerprint(
-                        info.Length,
-                        info.LastWriteTimeUtc.Ticks,
-                        hash);
-                    hashes[entry.Key] = hash;
+                    hashes[entry.Key] = GetFingerprint(path, forceRefresh);
                 }
                 catch (Exception exception)
                 {
@@ -262,6 +256,58 @@ namespace CastlePlanner
                 return BitConverter.ToString(sha256.ComputeHash(stream))
                     .Replace("-", string.Empty);
             }
+        }
+
+        private string GetFingerprint(string path, bool forceRefresh)
+        {
+            var info = new FileInfo(path);
+            if (!forceRefresh &&
+                fingerprintByPath.TryGetValue(path, out CachedFingerprint cached) &&
+                cached.Length == info.Length &&
+                cached.LastWriteTimeUtcTicks == info.LastWriteTimeUtc.Ticks)
+            {
+                return cached.Hash;
+            }
+
+            string hash = ComputeHash(path);
+            fingerprintByPath[path] = new CachedFingerprint(
+                info.Length,
+                info.LastWriteTimeUtc.Ticks,
+                hash);
+            return hash;
+        }
+
+        private void RemoveIdenticalFiles(Action<string> warning)
+        {
+            var firstOptionByHash = new Dictionary<string, string>(
+                StringComparer.OrdinalIgnoreCase);
+            int duplicateCount = 0;
+            foreach (string option in discoveryOrder.ToArray())
+            {
+                if (!pathByOption.TryGetValue(option, out string path))
+                    continue;
+
+                try
+                {
+                    string hash = GetFingerprint(path, forceRefresh: false);
+                    if (firstOptionByHash.ContainsKey(hash))
+                    {
+                        pathByOption.Remove(option);
+                        duplicateCount++;
+                    }
+                    else
+                    {
+                        firstOptionByHash.Add(hash, option);
+                    }
+                }
+                catch (Exception exception)
+                {
+                    warning?.Invoke(
+                        $"Could not fingerprint AIVJSON '{path}' while removing identical files: {exception.Message}");
+                }
+            }
+
+            IdenticalFileCount = duplicateCount;
         }
 
         private sealed class CachedFingerprint
@@ -316,8 +362,15 @@ namespace CastlePlanner
             {
                 string relativePath = MakeRelativePath(root, file);
                 string option = $"[{sourceName}] {relativePath}";
-                pathByOption[option] = file;
+                AddOption(option, file);
             }
+        }
+
+        private void AddOption(string option, string path)
+        {
+            if (!pathByOption.ContainsKey(option))
+                discoveryOrder.Add(option);
+            pathByOption[option] = path;
         }
 
         private static string MakeRelativePath(string root, string file)

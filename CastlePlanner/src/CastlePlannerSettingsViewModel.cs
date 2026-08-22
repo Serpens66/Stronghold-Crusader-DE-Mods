@@ -37,10 +37,9 @@ namespace CastlePlanner
         private readonly IReadOnlyDictionary<string, string>[] decodedInventories =
             new IReadOnlyDictionary<string, string>[9];
         private long compatibilityChangedTimestamp = Stopwatch.GetTimestamp();
-        private long nextInventoryObservationTimestamp;
         private bool spawnSelectionResetPending;
         private bool spawnOptionsRebuildPending;
-        private bool workshopCatalogReadyObserved;
+        private bool castleCatalogLoaded;
         private Shared.PerPlayerLobbySnapshot sharedLobbySnapshot;
         private KeyCode blueprintHotkey;
         private double blueprintIconScale;
@@ -78,7 +77,6 @@ namespace CastlePlanner
                     nameof(pluginAssemblyLocation));
             }
 
-            RefreshCastleOptions(notifySelectionChange: false);
             blueprintHotkey = KeyCode.None;
             blueprintIconScale = 1.0;
             blueprintIconAlpha = 0.3;
@@ -118,13 +116,21 @@ namespace CastlePlanner
 
         public int AvailableFileCount => CastleOptions.Count;
 
-        internal void RefreshCastleOptions() =>
+        internal bool EnsureCastleCatalogLoaded()
+        {
+            if (castleCatalogLoaded)
+                return false;
+
             RefreshCastleOptions(notifySelectionChange: true);
+            System_RequestPerPlayerSettingsPublish();
+            return true;
+        }
 
         private void RefreshCastleOptions(bool notifySelectionChange)
         {
             IReadOnlyList<string> discovered = catalog.Discover(message =>
                 Shared.DebugLogHelper.LogWarning(log, message));
+            castleCatalogLoaded = true;
             if (CastleOptions.Count == discovered.Count)
             {
                 bool unchanged = true;
@@ -158,7 +164,8 @@ namespace CastlePlanner
                 SettingsChanged?.Invoke();
             Shared.DebugLogHelper.LogInfo(
                 log,
-                $"CastlePlanner refreshed AIVJSON choices including Steam Workshop content; count={CastleOptions.Count}.");
+                $"CastlePlanner cached AIVJSON choices including Steam Workshop content; " +
+                $"unique={CastleOptions.Count}, identicalDuplicatesIgnored={catalog.IdenticalFileCount}.");
         }
 
         public string ResetToDefaultText => SerpLocalization.Get("Common.ResetToDefault");
@@ -321,7 +328,7 @@ namespace CastlePlanner
                 spawnSelectedCastle = normalized;
                 MarkCompatibilityChanged();
                 OnPropertyChanged(nameof(SpawnSelectedCastle));
-                OnPropertyChanged(nameof(SelectedSpawnCastleOption));
+                OnPropertyChanged(nameof(SelectedSpawnCastleOptionIndex));
                 Shared.DebugLogHelper.LogInfo(
                     log,
                     $"CastlePlanner personal spawn AIVJSON selection changed: " +
@@ -346,24 +353,27 @@ namespace CastlePlanner
             }
         }
 
-        public Noesis.ComboBoxItem SelectedSpawnCastleOption
+        public int SelectedSpawnCastleOptionIndex
         {
             get
             {
                 if (spawnCastleOptions.Length == 0)
-                    return null;
+                    return -1;
                 int index = Array.FindIndex(
                     spawnCastleOptionNames,
                     name => string.Equals(name, spawnSelectedCastle, StringComparison.OrdinalIgnoreCase));
-                return spawnCastleOptions[index >= 0 ? index : 0];
+                return index >= 0 ? index : 0;
             }
             set
             {
-                if (value == null || !value.IsEnabled)
+                if (value < 0 || value >= spawnCastleOptions.Length ||
+                    value >= spawnCastleOptionNames.Length ||
+                    !spawnCastleOptions[value].IsEnabled)
+                {
                     return;
-                int index = Array.IndexOf(spawnCastleOptions, value);
-                if (index >= 0 && index < spawnCastleOptionNames.Length)
-                    SpawnSelectedCastle = spawnCastleOptionNames[index];
+                }
+
+                SpawnSelectedCastle = spawnCastleOptionNames[value];
             }
         }
 
@@ -561,21 +571,6 @@ namespace CastlePlanner
         {
             ApplyPendingSpawnSelectionReset();
             ApplyPendingSpawnOptionsRebuild();
-
-            long now = Stopwatch.GetTimestamp();
-            if (now < nextInventoryObservationTimestamp)
-                return;
-            nextInventoryObservationTimestamp = now + Math.Max(1L, Stopwatch.Frequency / 2L);
-
-            bool steamworksReady = Shared.WorkshopContentPaths.IsSteamworksReady();
-            if (steamworksReady && !workshopCatalogReadyObserved)
-            {
-                workshopCatalogReadyObserved = true;
-                RefreshCastleOptions(notifySelectionChange: false);
-                System_RequestPerPlayerSettingsPublish();
-            }
-            if (RefreshLocalInventory(notify: false))
-                System_RequestPerPlayerSettingsPublish();
         }
 
         private void OnSharedLobbyChanged(Shared.PerPlayerLobbySnapshot snapshot)
@@ -680,7 +675,7 @@ namespace CastlePlanner
             spawnCastleOptions = options.ToArray();
             spawnCastleOptionNames = names.ToArray();
             OnPropertyChanged(nameof(SpawnCastleOptions));
-            OnPropertyChanged(nameof(SelectedSpawnCastleOption));
+            OnPropertyChanged(nameof(SelectedSpawnCastleOptionIndex));
 
             if (multiplayer && allReported && !string.IsNullOrEmpty(spawnSelectedCastle) &&
                 !CastleSpawnCompatibility.IsAvailableToAll(
@@ -934,12 +929,13 @@ namespace CastlePlanner
             return CastleSpawnCompatibility.NormalizeSelection(
                 value,
                 CastleOptions,
-                Shared.WorkshopContentPaths.IsSteamworksReady());
+                castleCatalogLoaded && Shared.WorkshopContentPaths.IsSteamworksReady());
         }
 
         private void NormalizeSpawnSelectionAfterCompleteCatalogRefresh()
         {
-            if (!Shared.WorkshopContentPaths.IsSteamworksReady() ||
+            if (!castleCatalogLoaded ||
+                !Shared.WorkshopContentPaths.IsSteamworksReady() ||
                 string.IsNullOrEmpty(spawnSelectedCastle))
             {
                 return;
@@ -1180,10 +1176,13 @@ namespace CastlePlanner
 
             if (!string.IsNullOrEmpty(candidate))
             {
-                // The first catalog scan intentionally runs before Steam is ready. Preserve a
-                // persisted Workshop selection until the dropdown's later complete refresh.
-                if (!Shared.WorkshopContentPaths.IsSteamworksReady())
+                // Preserve persisted choices until the one cached catalog scan has
+                // actually run and Steam Workshop paths are available.
+                if (!castleCatalogLoaded ||
+                    !Shared.WorkshopContentPaths.IsSteamworksReady())
+                {
                     return candidate;
+                }
 
                 Shared.DebugLogHelper.LogWarning(
                     log,

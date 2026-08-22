@@ -14,7 +14,7 @@ namespace CastlePlanner
 
         public const string PluginGuid = "CastlePlanner_Serp";
         public const string PluginName = "CastlePlanner";
-        public const string PluginVersion = "0.6.0";
+        public const string PluginVersion = "0.6.1";
 
         // The BepInEx component is destroyed during startup, so runtime state remains static.
         private static CastlePlannerRuntime runtime;
@@ -35,7 +35,7 @@ namespace CastlePlanner
             CrusaderLibrary.Instance.LibraryLoaded += OnCrusaderLibraryLoaded;
             Shared.DebugLogHelper.LogInfo(
                 Logger,
-                $"{PluginName} {PluginVersion} loaded; AIV choices={Settings.AvailableFileCount}.");
+                $"{PluginName} {PluginVersion} loaded; the AIVJSON catalog will be cached when mod settings are opened.");
         }
 
         private void OnDestroy()
@@ -71,9 +71,6 @@ namespace CastlePlanner
                     PluginGuid,
                     Settings,
                     "ScriptExtenderUI/CastlePlannerSettings.xaml");
-                // LibraryLoaded is the first point where effective Script Extender
-                // AIV overrides can replace the bundled Vanilla catalog entries.
-                Settings.RefreshCastleOptions();
                 castleDropDownHeightController =
                     CastleDropDownHeightController.Attach(Logger, Settings);
                 blueprintRuntime =

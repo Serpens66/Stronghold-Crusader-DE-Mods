@@ -95,8 +95,9 @@
           <TextBlock Text="{Binding CastleText}" Foreground="#DDDDDD" Margin="0,0,0,3"/>
           <ComboBox x:Name="CastlePlannerSelectionComboBox"
                     ItemsSource="{Binding SpawnCastleOptions}"
-                    SelectedItem="{Binding SelectedSpawnCastleOption, Mode=TwoWay}"
-                    MaxDropDownHeight="120"
+                    SelectedIndex="{Binding SelectedSpawnCastleOptionIndex, Mode=TwoWay}"
+                    MaxDropDownHeight="420"
+                    MinHeight="38"
                     ToolTipService.ShowDuration="60000"
                     ToolTip="{Binding CastleHelpText}"
                     Width="620"
