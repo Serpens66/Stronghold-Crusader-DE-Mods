@@ -1,0 +1,2793 @@
+diff --git a/Shared/ActivePlayerHelper.cs b/Shared/ActivePlayerHelper.cs
+index 28f72bcc..6dbabbad 100644
+--- a/Shared/ActivePlayerHelper.cs
++++ b/Shared/ActivePlayerHelper.cs
+@@ -3,54 +3,40 @@ using SHCDESE.Interop;
+ using SHCDESE.Interop.Enums;
+ using System;
+ using System.Collections.Generic;
++using System.Linq;
+ 
+ namespace Shared
+ {
+     public static unsafe class ActivePlayerHelper
+     {
+         /// <summary>
+-        /// Returns the 1-based IDs of players that are still relevant to the current game.
+-        /// Skirmish, multiplayer, and trail games use the native participant roster. Other
+-        /// singleplayer missions always retain the local human and infer additional players
+-        /// from currently active owned buildings and units.
++        /// Returns the sorted, one-based IDs from the synchronized in-game member roster,
++        /// excluding kicked and defeated players.
+         /// </summary>
+         /// <remarks>
+-        /// In story, economic, and siege missions, a scripted non-local player with no current
+-        /// buildings or units cannot be detected until one of its entities exists. The ownership
+-        /// scans describe the current simulation only and cannot predict players used by future
+-        /// mission events. This method scans the complete building and unit arrays in those modes
+-        /// and should therefore not be called every tick.
++        /// No simulation-derived fallback is used. During multiplayer startup, entity arrays,
++        /// Lord IDs, and lastGameState can become ready at different times on different peers.
++        /// Returning an empty list is safer than constructing a divergent participant roster.
+         /// </remarks>
+         public static int[] GetActivePlayerIds()
+         {
+-            EngineInterface.PlayState playState = GameData.Instance?.lastGameState;
+-            if (playState == null)
++            Platform_Multiplayer.MPGameMember[] gameMembers =
++                Platform_Multiplayer.Instance?.gameMembers?.ToArray();
++            if (gameMembers == null || gameMembers.Length == 0)
+                 return Array.Empty<int>();
+ 
+             GamePlayerManagerAPI playerApi = GamePlayerManagerAPI.Instance;
+-            if (UsesNativeParticipantRoster())
+-                return GetRosterActivePlayerIds(playState, playerApi);
+-
+             HashSet<int> activePlayerIds = new HashSet<int>();
+-
+-            // A running non-skirmish singleplayer mission keeps its human relevant before keep placement.
+-            int localPlayerId = playerApi.GetLocalPlayerId();
+-            AddPlayerIfActive(activePlayerIds, localPlayerId, playerApi);
+-
+-            Span<GameBuilding> buildings = GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
+-            for (int i = 0; i < buildings.Length; i++)
++            foreach (Platform_Multiplayer.MPGameMember member in gameMembers)
+             {
+-                ref GameBuilding building = ref buildings[i];
+-                if (IsRelevantEntityState(building.r_AliveState))
+-                    AddPlayerIfActive(activePlayerIds, building.r_PlayerIdOwner, playerApi);
+-            }
++                if (member == null || member.kicked ||
++                    !playerApi.IsPlayerIdValid(member.playerID) ||
++                    HasPlayerLost(member.playerID, playerApi))
++                {
++                    continue;
++                }
+ 
+-            Span<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitsAsSpan();
+-            for (int i = 0; i < units.Length; i++)
+-            {
+-                ref GameUnit unit = ref units[i];
+-                if (IsRelevantEntityState(unit.r_AliveState))
+-                    AddPlayerIfActive(activePlayerIds, unit.r_ControllableForPlayerId, playerApi);
++                activePlayerIds.Add(member.playerID);
+             }
+ 
+             int[] results = new int[activePlayerIds.Count];
+@@ -59,114 +45,11 @@ namespace Shared
+             return results;
+         }
+ 
+-        /// <summary>
+-        /// Returns whether the player currently owns a keep building.
+-        /// </summary>
+-        public static bool HasKeep(int playerId)
+-        {
+-            return GetPlayerIdsWithKeeps().Contains(playerId);
+-        }
+-
+-        private static HashSet<int> GetPlayerIdsWithKeeps()
+-        {
+-            HashSet<int> playerIds = new HashSet<int>();
+-            Span<GameBuilding> buildings = GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
+-            for (int i = 0; i < buildings.Length; i++)
+-            {
+-                GameBuilding building = buildings[i];
+-                int owner = building.r_PlayerIdOwner;
+-                if (!GamePlayerManagerAPI.Instance.IsPlayerIdValid(owner) ||
+-                    !IsKeepType(building.r_BuildingType))
+-                {
+-                    continue;
+-                }
+-
+-                // At map start the keep can establish ownership before reaching IsAlive.
+-                playerIds.Add(owner);
+-            }
+-
+-            return playerIds;
+-        }
+-
+-        private static bool IsKeepType(eStructs buildingType)
+-        {
+-            return buildingType == eStructs.STRUCT_KEEP_ONE ||
+-                   buildingType == eStructs.STRUCT_KEEP_TWO ||
+-                   buildingType == eStructs.STRUCT_KEEP_THREE ||
+-                   buildingType == eStructs.STRUCT_KEEP_FOUR ||
+-                   buildingType == eStructs.STRUCT_KEEP_FIVE;
+-        }
+-
+-        private static int[] GetRosterActivePlayerIds(
+-            EngineInterface.PlayState playState,
+-            GamePlayerManagerAPI playerApi)
+-        {
+-            List<int> results = new List<int>(GamePlayerManagerAPI.MAX_PLAYERS);
+-
+-            for (int playerId = 1; playerId <= GamePlayerManagerAPI.MAX_PLAYERS; playerId++)
+-            {
+-                int mpStatsValid = ReadByte(playState.mp_stats_valid, playerId);
+-                int humanRegister = ReadInt16(playState.player_register, playerId);
+-                int aiRegister = ReadInt16(playState.computer_register, playerId);
+-
+-                bool registeredHuman = humanRegister != int.MinValue && humanRegister != -1;
+-                bool registeredAI = aiRegister != int.MinValue && aiRegister != -1;
+-                bool participated = mpStatsValid > 0 || registeredHuman || registeredAI;
+-
+-                if (participated && !HasPlayerLost(playerId, playerApi))
+-                    results.Add(playerId);
+-            }
+-
+-            return results.ToArray();
+-        }
+-
+-        private static bool UsesNativeParticipantRoster()
+-        {
+-            if (Director.instance != null &&
+-                (Director.instance.SkirmishModeGame || Director.instance.MultiplayerGame))
+-            {
+-                return true;
+-            }
+-
+-            // Coop trails use the multiplayer-style roster even if the managed flag is late.
+-            return GameData.Instance != null && GameData.Instance.coopTrailID > 0;
+-        }
+-
+-        private static void AddPlayerIfActive(
+-            HashSet<int> activePlayerIds,
+-            int playerId,
+-            GamePlayerManagerAPI playerApi)
+-        {
+-            if (playerApi.IsPlayerIdValid(playerId) && !HasPlayerLost(playerId, playerApi))
+-                activePlayerIds.Add(playerId);
+-        }
+-
+         private static bool HasPlayerLost(int playerId, GamePlayerManagerAPI playerApi)
+         {
+             return !playerApi.TryGetPlayerResourcesById(playerId, out GamePlayerResources* resources) ||
++                   resources == null ||
+                    resources->r_WinLossState == WinLossState.Loss;
+         }
+-
+-        private static bool IsRelevantEntityState(AliveState state)
+-        {
+-            // NeedsInit already establishes ownership; paused entities remain in the simulation.
+-            return state == AliveState.NeedsInit ||
+-                   state == AliveState.IsAlive ||
+-                   state == AliveState.Paused;
+-        }
+-
+-        private static int ReadByte(byte[] values, int playerId)
+-        {
+-            return values != null && playerId >= 0 && playerId < values.Length
+-                ? values[playerId]
+-                : int.MinValue;
+-        }
+-
+-        private static int ReadInt16(short[] values, int playerId)
+-        {
+-            return values != null && playerId >= 0 && playerId < values.Length
+-                ? values[playerId]
+-                : int.MinValue;
+-        }
+     }
+ }
+
+diff --git a/Shared/ActivePlayerKeepReadiness.cs b/Shared/ActivePlayerKeepReadiness.cs
+new file mode 100644
+index 00000000..98507544
+--- /dev/null
++++ b/Shared/ActivePlayerKeepReadiness.cs
+@@ -0,0 +1,238 @@
++using SHCDESE.API;
++using SHCDESE.Interop;
++using SHCDESE.Interop.Enums;
++using System;
++using System.Collections.Generic;
++using System.Diagnostics;
++
++namespace Shared
++{
++    public enum ActivePlayerKeepWaitStatus
++    {
++        Succeeded,
++        TimedOut,
++        CallbackFailed,
++        Cancelled
++    }
++
++    public sealed class ActivePlayerKeepSnapshot
++    {
++        internal ActivePlayerKeepSnapshot(int[] playerIds, int[] keepBuildingIds)
++        {
++            PlayerIds = playerIds;
++            KeepBuildingIds = keepBuildingIds;
++        }
++
++        public int[] PlayerIds { get; }
++        public int[] KeepBuildingIds { get; }
++    }
++
++    public sealed class ActivePlayerKeepWaitResult
++    {
++        internal ActivePlayerKeepWaitResult(
++            ActivePlayerKeepWaitStatus status,
++            ActivePlayerKeepSnapshot snapshot,
++            string details)
++        {
++            Status = status;
++            Snapshot = snapshot;
++            Details = details ?? string.Empty;
++        }
++
++        public ActivePlayerKeepWaitStatus Status { get; }
++        public ActivePlayerKeepSnapshot Snapshot { get; }
++        public string Details { get; }
++        public bool Succeeded => Status == ActivePlayerKeepWaitStatus.Succeeded;
++    }
++
++    public sealed class ActivePlayerKeepWaitHandle : IDisposable
++    {
++        private readonly Action<ActivePlayerKeepSnapshot> readyCallback;
++        private readonly Action<string> errorLogger;
++        private readonly Action<ActivePlayerKeepWaitResult> completionCallback;
++        private readonly string timeoutErrorText;
++        private readonly long startedTimestamp;
++        private readonly long timeoutStopwatchTicks;
++        private bool listening;
++
++        internal ActivePlayerKeepWaitHandle(
++            Action<ActivePlayerKeepSnapshot> readyCallback,
++            TimeSpan timeout,
++            Action<string> errorLogger,
++            string timeoutErrorText,
++            Action<ActivePlayerKeepWaitResult> completionCallback)
++        {
++            this.readyCallback = readyCallback ?? throw new ArgumentNullException(nameof(readyCallback));
++            this.errorLogger = errorLogger;
++            this.timeoutErrorText = string.IsNullOrWhiteSpace(timeoutErrorText)
++                ? "Active-player Keep readiness timed out."
++                : timeoutErrorText.Trim();
++            this.completionCallback = completionCallback;
++            startedTimestamp = Stopwatch.GetTimestamp();
++            timeoutStopwatchTicks = Math.Max(
++                1L,
++                checked((long)Math.Ceiling(timeout.TotalSeconds * Stopwatch.Frequency)));
++            GameTimeManagerAPI.Instance.OnTick += OnGameTick;
++            listening = true;
++        }
++
++        public bool IsCompleted { get; private set; }
++        public ActivePlayerKeepWaitResult Result { get; private set; }
++
++        public void Dispose()
++        {
++            if (IsCompleted)
++                return;
++
++            StopListening();
++            Complete(new ActivePlayerKeepWaitResult(
++                ActivePlayerKeepWaitStatus.Cancelled,
++                null,
++                "The Keep-readiness wait was cancelled."));
++        }
++
++        private void OnGameTick(int tick)
++        {
++            if (IsCompleted)
++                return;
++
++            if (ActivePlayerKeepReadiness.TryCapture(out ActivePlayerKeepSnapshot snapshot, out string failure))
++            {
++                StopListening();
++                try
++                {
++                    readyCallback(snapshot);
++                    Complete(new ActivePlayerKeepWaitResult(
++                        ActivePlayerKeepWaitStatus.Succeeded,
++                        snapshot,
++                        string.Empty));
++                }
++                catch (Exception ex)
++                {
++                    string details = $"The Keep-readiness callback failed: {ex}";
++                    errorLogger?.Invoke(details);
++                    Complete(new ActivePlayerKeepWaitResult(
++                        ActivePlayerKeepWaitStatus.CallbackFailed,
++                        snapshot,
++                        details));
++                }
++                return;
++            }
++
++            if (Stopwatch.GetTimestamp() - startedTimestamp < timeoutStopwatchTicks)
++                return;
++
++            StopListening();
++            string timeoutDetails = $"{timeoutErrorText} Last readiness failure: {failure}";
++            errorLogger?.Invoke(timeoutDetails);
++            Complete(new ActivePlayerKeepWaitResult(
++                ActivePlayerKeepWaitStatus.TimedOut,
++                null,
++                timeoutDetails));
++        }
++
++        private void StopListening()
++        {
++            if (!listening)
++                return;
++
++            GameTimeManagerAPI.Instance.OnTick -= OnGameTick;
++            listening = false;
++        }
++
++        private void Complete(ActivePlayerKeepWaitResult result)
++        {
++            Result = result;
++            IsCompleted = true;
++            try
++            {
++                completionCallback?.Invoke(result);
++            }
++            catch (Exception ex)
++            {
++                errorLogger?.Invoke($"The Keep-readiness completion callback failed: {ex}");
++            }
++        }
++    }
++
++    public static unsafe class ActivePlayerKeepReadiness
++    {
++        public static ActivePlayerKeepWaitHandle Wait(
++            Action<ActivePlayerKeepSnapshot> readyCallback,
++            TimeSpan timeout,
++            Action<string> errorLogger = null,
++            string timeoutErrorText = null,
++            Action<ActivePlayerKeepWaitResult> completionCallback = null)
++        {
++            if (timeout <= TimeSpan.Zero)
++                throw new ArgumentOutOfRangeException(nameof(timeout), "The timeout must be greater than zero.");
++
++            return new ActivePlayerKeepWaitHandle(
++                readyCallback,
++                timeout,
++                errorLogger,
++                timeoutErrorText,
++                completionCallback);
++        }
++
++        public static bool TryCapture(
++            out ActivePlayerKeepSnapshot snapshot,
++            out string failure)
++        {
++            snapshot = null;
++            int[] playerIds = ActivePlayerHelper.GetActivePlayerIds();
++            if (playerIds.Length == 0)
++            {
++                failure = "the synchronized gameMembers roster is unavailable or contains no active players.";
++                return false;
++            }
++
++            int[] keepBuildingIds = new int[playerIds.Length];
++            List<string> missing = new List<string>();
++            for (int index = 0; index < playerIds.Length; index++)
++            {
++                int playerId = playerIds[index];
++                bool ready = TryGetReadyKeep(playerId, out int keepId);
++                keepBuildingIds[index] = keepId;
++                if (!ready)
++                    missing.Add($"P{playerId}:keepId={keepId}");
++            }
++
++            if (missing.Count > 0)
++            {
++                failure = $"no ready Keep was found for [{string.Join(",", missing)}]; activePlayers=[{string.Join(",", playerIds)}].";
++                return false;
++            }
++
++            snapshot = new ActivePlayerKeepSnapshot(playerIds, keepBuildingIds);
++            failure = string.Empty;
++            return true;
++        }
++
++        public static bool TryGetReadyKeep(int playerId, out int keepBuildingId)
++        {
++            keepBuildingId = -1;
++            GamePlayerManagerAPI players = GamePlayerManagerAPI.Instance;
++            if (!players.IsPlayerIdValid(playerId))
++                return false;
++
++            keepBuildingId = players.GetPlayerKeepId(playerId);
++            return keepBuildingId > 0 &&
++                   GameBuildingManagerAPI.Instance.TryGetBuildingById(keepBuildingId, out GameBuilding* keep) &&
++                   keep != null &&
++                   keep->r_PlayerIdOwner == playerId &&
++                   IsKeepType(keep->r_BuildingType) &&
++                   (keep->r_AliveState == AliveState.NeedsInit ||
++                    keep->r_AliveState == AliveState.IsAlive);
++        }
++
++        private static bool IsKeepType(eStructs buildingType)
++        {
++            return buildingType == eStructs.STRUCT_KEEP_ONE ||
++                   buildingType == eStructs.STRUCT_KEEP_TWO ||
++                   buildingType == eStructs.STRUCT_KEEP_THREE ||
++                   buildingType == eStructs.STRUCT_KEEP_FOUR ||
++                   buildingType == eStructs.STRUCT_KEEP_FIVE;
++        }
++    }
++}
+
+diff --git a/Shared/GameModeHelper.cs b/Shared/GameModeHelper.cs
+index f5be1a9f..be7eee52 100644
+--- a/Shared/GameModeHelper.cs
++++ b/Shared/GameModeHelper.cs
+@@ -1,4 +1,5 @@
+ using SHCDESE.API;
++using CrusaderDE;
+ 
+ namespace Shared
+ {
+@@ -17,7 +18,7 @@ namespace Shared
+             {
+                 foreach (Platform_Multiplayer.MPLobbyMember member in lobby.members)
+                 {
+-                    if (!member.SkirmishMember)
++                    if (member != null && !member.SkirmishMember)
+                         realLobbyMembers++;
+                 }
+             }
+@@ -28,7 +29,7 @@ namespace Shared
+             {
+                 foreach (Platform_Multiplayer.MPGameMember member in platform.gameMembers)
+                 {
+-                    if (!member.skirmishAI && member.steamID > 1000)
++                    if (member != null && !member.skirmishAI && member.steamID > 1000)
+                         realNetworkGameMembers++;
+                 }
+             }
+@@ -44,7 +45,7 @@ namespace Shared
+ 
+             int gameType = gameData != null ? gameData.game_type : -1;
+             int skirmishGameType = gameData != null ? gameData.SkirmishGameType : -1;
+-            bool mapEditor = GamePlayerManagerAPI.Instance.IsInMapEditor();
++            bool mapEditor = IsMapEditor();
+             // game_type 3 is Vanilla's skirmish family; non-negative subtypes are initialized via StartSkirmishModeGame.
+             bool singleplayerSkirmishMode =
+                 !realMultiplayer &&
+@@ -86,6 +87,33 @@ namespace Shared
+         // This broader check also covers future/utility subtypes initialized by Vanilla as skirmish mode.
+         public static bool IsSingleplayerSkirmishMode(bool multiplayerSave = false) =>
+             Capture(multiplayerSave).IsSingleplayerSkirmishMode;
++
++        public static bool IsMapEditor()
++        {
++            try
++            {
++                if (GamePlayerManagerAPI.Instance?.IsInMapEditor() == true)
++                    return true;
++            }
++            catch
++            {
++                // The Script Extender singleton can be unavailable during early plugin startup.
++            }
++
++            // MainViewModel.Instance constructs the ViewModel. Reading it before the
++            // game's own loaded marker is set can therefore fail inside Vanilla code.
++            if (!MainViewModel.viewModelLoaded)
++                return false;
++
++            try
++            {
++                return MainViewModel.Instance?.IsMapEditorMode ?? false;
++            }
++            catch
++            {
++                return false;
++            }
++        }
+     }
+ 
+     internal readonly struct GameModeSnapshot
+
+diff --git a/Shared/PresetLobbyModSettingsViewModel.cs b/Shared/PresetLobbyModSettingsViewModel.cs
+index 5ef91a1c..5924b0b8 100644
+--- a/Shared/PresetLobbyModSettingsViewModel.cs
++++ b/Shared/PresetLobbyModSettingsViewModel.cs
+@@ -8,14 +8,605 @@ using SHCDESE.BepInEx.Bootstrap;
+ using SHCDESE.ViewModels;
+ using System;
+ using System.Collections.Generic;
++using System.Collections.ObjectModel;
+ using System.Diagnostics;
+ using System.IO;
+ using System.Linq;
+ using System.Reflection;
++using System.Runtime.InteropServices;
+ using System.Runtime.CompilerServices;
++#if !SHARED_PRESET_TESTS
++using R3;
++using SHCDESE.EventAPI;
++using UnityEngine;
++#endif
+ using ComboBoxItem = Noesis.ComboBoxItem;
+ using Visibility = Noesis.Visibility;
+ 
++namespace Shared
++{
++    internal sealed class PerPlayerLobbySettingsCoordinator
++    {
++        private const int FirstPlayerId = 1;
++        private const int LastPlayerId = 8;
++#if !SHARED_PRESET_TESTS
++        private static readonly FieldInfo LobbyIdField = typeof(Platform_Multiplayer.MPLobby)
++            .GetField("id", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
++        private static readonly FieldInfo LobbyMemberIdField = typeof(Platform_Multiplayer.MPLobbyMember)
++            .GetField("id", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
++        private static readonly FieldInfo SteamIdValueField = LobbyMemberIdField?.FieldType
++            .GetField("m_SteamID", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
++        private static readonly MethodInfo GetPlayerIdForSteamIdMethod = typeof(GameNetworkAPI)
++            .GetMethods(BindingFlags.Static | BindingFlags.Public)
++            .Single(method =>
++                method.Name == "GetPlayerIdForSteamId" &&
++                method.GetParameters().Length == 1);
++#endif
++        private readonly PresetLobbyModSettingsViewModel owner;
++        private readonly ManualLogSource log;
++        private readonly string modName;
++        private readonly PerPlayerLobbySettingsContract contract;
++        private readonly Dictionary<int, ulong> playersById = new Dictionary<int, ulong>();
++        private ulong lobbyId;
++        private bool hasLobby;
++        private bool publishPending;
++        private bool rosterHasUnresolvedPlayers;
++        private int resolvedLocalPlayerId;
++        private bool isResettingSlots;
++        private bool isMirroringLocalSetting;
++        private bool isReady = true;
++        private string readinessError = string.Empty;
++        private bool active;
++#if !SHARED_PRESET_TESTS
++        private int lastObservedFrame = -1;
++        private float nextErrorLogTime;
++        private IDisposable mapStartSubscription;
++        private IDisposable mapUnloadSubscription;
++        private bool mapStarted;
++#endif
++
++        internal PerPlayerLobbySettingsCoordinator(
++            PresetLobbyModSettingsViewModel owner,
++            ManualLogSource log,
++            string modName,
++            PerPlayerLobbySettingsContract contract)
++        {
++            this.owner = owner;
++            this.log = log;
++            this.modName = modName;
++            this.contract = contract;
++        }
++
++        internal bool IsReady => isReady;
++        internal string ReadinessError => readinessError;
++
++        internal void Activate()
++        {
++            if (contract.Settings.Count == 0)
++                return;
++            if (active)
++                return;
++
++            try
++            {
++                owner.PropertyChanged += OnOwnerPropertyChanged;
++#if !SHARED_PRESET_TESTS
++                Application.onBeforeRender += OnBeforeRender;
++                mapStartSubscription = MapLoaderR3EventHooks.OnStartMap.Observable.Subscribe(args =>
++                {
++                    if (args.Phase == EventHookPhase.Pre)
++                        mapStarted = true;
++                });
++                mapUnloadSubscription = MapLoaderR3EventHooks.OnUnloadMap.Observable.Subscribe(args =>
++                {
++                    if (args.Phase == EventHookPhase.Post)
++                        mapStarted = false;
++                });
++                if (mapStartSubscription == null || mapUnloadSubscription == null)
++                    throw new InvalidOperationException("The persistent map lifecycle subscriptions could not be created.");
++#endif
++                active = true;
++                RequestPublish();
++            }
++            catch
++            {
++                Deactivate();
++                throw;
++            }
++            DebugLogHelper.LogInfo(
++                log,
++                $"[{modName}] Shared per-player lobby convergence activated: " +
++                $"settings=[{string.Join(",", contract.Settings.Select(item => item.Property.Name))}], " +
++                $"required=[{string.Join(",", contract.Settings.Where(item => item.IsReportRequired).Select(item => item.Property.Name))}].");
++        }
++
++        internal void Deactivate()
++        {
++            owner.PropertyChanged -= OnOwnerPropertyChanged;
++#if !SHARED_PRESET_TESTS
++            Application.onBeforeRender -= OnBeforeRender;
++            mapStartSubscription?.Dispose();
++            mapUnloadSubscription?.Dispose();
++            mapStartSubscription = null;
++            mapUnloadSubscription = null;
++            mapStarted = false;
++#endif
++            active = false;
++            publishPending = false;
++        }
++
++        internal void RequestPublish()
++        {
++            publishPending = true;
++        }
++
++        internal bool ArePlayersReady(IEnumerable<int> playerIds, out string error)
++        {
++            int[] supplied = (playerIds ?? Enumerable.Empty<int>()).ToArray();
++            if (supplied.Any(id => !IsValidPlayerId(id)))
++            {
++                error = "At least one supplied human player ID is invalid.";
++                return false;
++            }
++            int[] expected = supplied
++                .Distinct()
++                .OrderBy(id => id)
++                .ToArray();
++            if (expected.Length == 0)
++            {
++                error = "No valid human player IDs were supplied.";
++                return false;
++            }
++            if (rosterHasUnresolvedPlayers)
++            {
++                error = "At least one human lobby member has no stable player ID yet.";
++                return false;
++            }
++            if (hasLobby && !expected.SequenceEqual(playersById.Keys.OrderBy(id => id)))
++            {
++                error = $"The requested human players [{string.Join(",", expected)}] do not match the converged lobby roster [{string.Join(",", playersById.Keys.OrderBy(id => id))}].";
++                return false;
++            }
++            if (hasLobby && (!IsValidPlayerId(resolvedLocalPlayerId) || !playersById.ContainsKey(resolvedLocalPlayerId)))
++            {
++                error = "The local human player ID is not part of the converged lobby roster.";
++                return false;
++            }
++
++            foreach (PerPlayerLobbySettingContract setting in contract.Settings.Where(item => item.IsReportRequired))
++            {
++                Array data = setting.GetData();
++                foreach (int playerId in expected)
++                {
++                    object value = data.GetValue(playerId);
++                    if (!setting.HasReport(value))
++                    {
++                        error = $"Player {playerId} has not reported [{setting.Property.Name}].";
++                        return false;
++                    }
++                }
++            }
++
++            error = string.Empty;
++            return true;
++        }
++
++        internal void Observe(
++            ulong? currentLobbyId,
++            IReadOnlyDictionary<int, ulong> currentPlayers,
++            bool hasUnresolvedPlayers,
++            int localPlayerId,
++            bool preserveForMapTransition)
++        {
++            if (!currentLobbyId.HasValue)
++            {
++                if (preserveForMapTransition)
++                    return;
++
++                if (hasLobby || playersById.Count != 0)
++                {
++                    ResetSlots(Enumerable.Range(FirstPlayerId, LastPlayerId));
++                    hasLobby = false;
++                    lobbyId = 0;
++                    playersById.Clear();
++                    rosterHasUnresolvedPlayers = false;
++                    resolvedLocalPlayerId = 0;
++                    publishPending = false;
++                    contract.LobbyChanged?.Invoke(PerPlayerLobbySnapshot.Empty);
++                }
++                SetReadiness(true, string.Empty);
++                return;
++            }
++
++            // Domain observers run in the lobby only. Settings are immutable once
++            // the map starts, so no file/status refresh may publish into a match.
++            contract.Observe?.Invoke();
++
++            var normalized = new Dictionary<int, ulong>();
++            foreach (KeyValuePair<int, ulong> player in currentPlayers ?? new Dictionary<int, ulong>())
++            {
++                if (IsValidPlayerId(player.Key) && player.Value != 0)
++                    normalized[player.Key] = player.Value;
++            }
++
++            bool sessionChanged = !hasLobby || lobbyId != currentLobbyId.Value;
++            bool membershipChanged = sessionChanged ||
++                normalized.Count != playersById.Count ||
++                normalized.Any(player =>
++                    !playersById.TryGetValue(player.Key, out ulong previousSteamId) ||
++                    previousSteamId != player.Value);
++            bool resolutionChanged = rosterHasUnresolvedPlayers != hasUnresolvedPlayers ||
++                resolvedLocalPlayerId != localPlayerId;
++            if (membershipChanged)
++            {
++                int[] slotsToReset = sessionChanged
++                    ? Enumerable.Range(FirstPlayerId, LastPlayerId).ToArray()
++                    : Enumerable.Range(FirstPlayerId, LastPlayerId)
++                        .Where(id =>
++                            playersById.TryGetValue(id, out ulong previousSteamId) &&
++                            (!normalized.TryGetValue(id, out ulong currentSteamId) ||
++                             currentSteamId != previousSteamId))
++                        .ToArray();
++                ResetSlots(slotsToReset);
++                hasLobby = true;
++                lobbyId = currentLobbyId.Value;
++                playersById.Clear();
++                foreach (KeyValuePair<int, ulong> player in normalized)
++                    playersById[player.Key] = player.Value;
++                publishPending = true;
++                DebugLogHelper.LogInfo(
++                    log,
++                    $"[{modName}] Shared per-player lobby roster changed: lobby={currentLobbyId.Value}, " +
++                    $"sessionChanged={sessionChanged}, players=[{string.Join(",", normalized.Keys.OrderBy(id => id))}], " +
++                    $"unresolved={hasUnresolvedPlayers}, resetSlots=[{string.Join(",", slotsToReset)}].");
++            }
++
++            bool localResolved = IsValidPlayerId(localPlayerId) && normalized.ContainsKey(localPlayerId);
++            rosterHasUnresolvedPlayers = hasUnresolvedPlayers;
++            resolvedLocalPlayerId = localPlayerId;
++            if (membershipChanged || resolutionChanged)
++            {
++                contract.LobbyChanged?.Invoke(new PerPlayerLobbySnapshot(
++                    currentLobbyId,
++                    new Dictionary<int, ulong>(normalized),
++                    hasUnresolvedPlayers,
++                    localPlayerId));
++            }
++            if (publishPending && localResolved && !hasUnresolvedPlayers)
++                PublishLocalSettings(localPlayerId);
++
++            if (hasUnresolvedPlayers)
++                SetReadiness(false, "At least one human lobby member has no stable player ID yet.");
++            else if (!localResolved)
++                SetReadiness(false, "The local human player ID is not part of the resolved lobby roster yet.");
++            else if (!ArePlayersReady(normalized.Keys, out string error))
++                SetReadiness(false, error);
++            else
++                SetReadiness(true, string.Empty);
++        }
++
++        private void PublishLocalSettings(int localPlayerId)
++        {
++            contract.BeforePublish?.Invoke();
++            contract.LocalPlayerResolved?.Invoke(localPlayerId);
++            foreach (PerPlayerLobbySettingContract setting in contract.Settings)
++            {
++                Array data = setting.GetData();
++                data.SetValue(CloneValue(setting.Property.GetValue(owner)), localPlayerId);
++                owner.System_TriggerUpdate(setting.Property.Name);
++            }
++            publishPending = false;
++            contract.Published?.Invoke();
++            DebugLogHelper.LogInfo(
++                log,
++                $"[{modName}] Shared personal settings advertised for playerId={localPlayerId}, " +
++                $"properties={contract.Settings.Count}.");
++        }
++
++        private void ResetSlots(IEnumerable<int> playerIds)
++        {
++            int[] slots = (playerIds ?? Enumerable.Empty<int>())
++                .Where(IsValidPlayerId)
++                .Distinct()
++                .ToArray();
++            if (slots.Length == 0)
++                return;
++
++            foreach (PerPlayerLobbySettingContract setting in contract.Settings)
++            {
++                Array data = setting.GetData();
++                foreach (int playerId in slots)
++                    data.SetValue(CloneValue(setting.CreateResetValue()), playerId);
++                isResettingSlots = true;
++                try
++                {
++                    owner.System_TriggerUpdate(setting.DataProperty.Name);
++                }
++                finally
++                {
++                    isResettingSlots = false;
++                }
++            }
++        }
++
++        private void SetReadiness(bool value, string error)
++        {
++            error = error ?? string.Empty;
++            if (isReady == value && string.Equals(readinessError, error, StringComparison.Ordinal))
++                return;
++            isReady = value;
++            readinessError = error;
++            owner.System_TriggerUpdate(nameof(PresetLobbyModSettingsViewModel.IsPerPlayerLobbySettingsReady));
++            owner.System_TriggerUpdate(nameof(PresetLobbyModSettingsViewModel.PerPlayerLobbySettingsReadinessError));
++        }
++
++        private void OnOwnerPropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs args)
++        {
++            if (string.IsNullOrEmpty(args?.PropertyName))
++                return;
++            if (contract.Settings.Any(item => item.DataProperty.Name == args.PropertyName))
++            {
++                if (isResettingSlots || isMirroringLocalSetting)
++                    return;
++                contract.RemoteDataChanged?.Invoke(args.PropertyName);
++                RequestReadinessRefresh();
++                return;
++            }
++
++            PerPlayerLobbySettingContract localSetting = contract.Settings.FirstOrDefault(
++                item => item.Property.Name == args.PropertyName);
++            if (localSetting != null && hasLobby &&
++                IsValidPlayerId(resolvedLocalPlayerId) &&
++                playersById.ContainsKey(resolvedLocalPlayerId))
++            {
++                // The transport does not echo a sender's packet back to itself. Keep
++                // the local companion slot authoritative in Shared so individual mods
++                // never need to resolve or guess their own player ID in a setter.
++                localSetting.GetData().SetValue(
++                    CloneValue(localSetting.Property.GetValue(owner)),
++                    resolvedLocalPlayerId);
++                isMirroringLocalSetting = true;
++                try
++                {
++                    owner.System_TriggerUpdate(localSetting.DataProperty.Name);
++                }
++                finally
++                {
++                    isMirroringLocalSetting = false;
++                }
++                RequestReadinessRefresh();
++            }
++        }
++
++        private void RequestReadinessRefresh()
++        {
++            if (!hasLobby)
++                return;
++            if (!ArePlayersReady(playersById.Keys, out string error))
++                SetReadiness(false, error);
++            else
++                SetReadiness(true, string.Empty);
++        }
++
++#if !SHARED_PRESET_TESTS
++        private void OnBeforeRender()
++        {
++            int frame = Time.frameCount;
++            if (lastObservedFrame >= 0 && frame - lastObservedFrame < 15)
++                return;
++            lastObservedFrame = frame;
++
++            try
++            {
++                if (mapStarted)
++                {
++                    // Lobby settings are immutable during a match. OnUnloadMap is
++                    // the authoritative point at which observation may resume.
++                    return;
++                }
++                ObserveCurrentGameLobby();
++            }
++            catch (Exception exception)
++            {
++                SetReadiness(
++                    false,
++                    "The lobby roster could not be observed; waiting for a successful retry.");
++                if (Time.unscaledTime < nextErrorLogTime)
++                    return;
++                nextErrorLogTime = Time.unscaledTime + 5f;
++                DebugLogHelper.LogError(
++                    log,
++                    $"[{modName}] Shared per-player lobby observer recovered from an error: {exception}");
++            }
++        }
++
++        private void ObserveCurrentGameLobby()
++        {
++            Platform_Multiplayer platform = Platform_Multiplayer.Instance;
++            Platform_Multiplayer.MPLobby lobby = platform?.activeLobby;
++            if (lobby == null)
++            {
++                bool mapTransition = platform?.gameMembers != null &&
++                    platform.gameMembers.Any(member =>
++                        member != null && !member.skirmishAI && !member.kicked);
++                // There is no stable local player slot outside a lobby. Querying the
++                // Extender here only emits warnings and the value is discarded anyway.
++                Observe(null, null, false, 0, mapTransition);
++                return;
++            }
++
++            var players = new Dictionary<int, ulong>();
++            bool unresolved = false;
++            foreach (Platform_Multiplayer.MPLobbyMember member in lobby.members ?? Enumerable.Empty<Platform_Multiplayer.MPLobbyMember>())
++            {
++                if (member == null || member.dummyToBeKicked ||
++                    (member.SkirmishMember && !member.SkirmishHumanMember))
++                    continue;
++                object memberSteamId = LobbyMemberIdField?.GetValue(member);
++                int playerId = memberSteamId == null
++                    ? 0
++                    : (int)GetPlayerIdForSteamIdMethod.Invoke(null, new[] { memberSteamId });
++                ulong steamId = ReadSteamId(memberSteamId);
++                if (!IsValidPlayerId(playerId) || steamId == 0 ||
++                    (players.TryGetValue(playerId, out ulong previous) && previous != steamId))
++                {
++                    unresolved = true;
++                    players.Remove(playerId);
++                    continue;
++                }
++                players[playerId] = steamId;
++            }
++
++            ulong currentLobbyId = ReadSteamId(LobbyIdField?.GetValue(lobby));
++            if (currentLobbyId == 0)
++                unresolved = true;
++            Observe(currentLobbyId, players, unresolved, GetLocalPlayerId(), false);
++        }
++
++        private static ulong ReadSteamId(object steamId)
++        {
++            object value = steamId == null ? null : SteamIdValueField?.GetValue(steamId);
++            return value == null ? 0UL : Convert.ToUInt64(value);
++        }
++
++        private static int GetLocalPlayerId()
++        {
++            int playerId = GameNetworkAPI.GetLocalPlayerId();
++            return IsValidPlayerId(playerId) ? playerId : 0;
++        }
++#endif
++
++        private static bool IsValidPlayerId(int playerId) =>
++            playerId >= FirstPlayerId && playerId <= LastPlayerId;
++
++        internal static object CloneValue(object value)
++        {
++            if (!(value is Array source))
++                return value;
++            Array clone = (Array)source.Clone();
++            for (int index = 0; index < clone.Length; index++)
++            {
++                if (clone.GetValue(index) is Array nested)
++                    clone.SetValue(CloneValue(nested), index);
++            }
++            return clone;
++        }
++    }
++
++    public sealed class PerPlayerLobbySettingsBuilder
++    {
++        private readonly PresetLobbyModSettingsViewModel owner;
++        private readonly Dictionary<string, PerPlayerLobbySettingOptions> options = new Dictionary<string, PerPlayerLobbySettingOptions>(StringComparer.Ordinal);
++        private Action beforePublish;
++        private Action<int> localPlayerResolved;
++        private Action<PerPlayerLobbySnapshot> lobbyChanged;
++        private Action<string> remoteDataChanged;
++        private Action published;
++        private Action observe;
++
++        internal PerPlayerLobbySettingsBuilder(PresetLobbyModSettingsViewModel owner) { this.owner = owner; }
++
++        public PerPlayerLobbySettingsBuilder ResetSlotsWith(string propertyName, Func<object> resetValueFactory) { Get(propertyName).ResetValueFactory = resetValueFactory ?? throw new ArgumentNullException(nameof(resetValueFactory)); return this; }
++        public PerPlayerLobbySettingsBuilder RequireReport(string propertyName, Func<object, bool> hasReport = null) { PerPlayerLobbySettingOptions item = Get(propertyName); item.IsReportRequired = true; item.HasReport = hasReport ?? (value => value != null); return this; }
++        public PerPlayerLobbySettingsBuilder BeforePublish(Action callback) { beforePublish += callback; return this; }
++        public PerPlayerLobbySettingsBuilder WhenLocalPlayerResolved(Action<int> callback) { localPlayerResolved += callback; return this; }
++        public PerPlayerLobbySettingsBuilder WhenLobbyChanged(Action<PerPlayerLobbySnapshot> callback) { lobbyChanged += callback; return this; }
++        public PerPlayerLobbySettingsBuilder WhenRemoteDataChanged(Action<string> callback) { remoteDataChanged += callback; return this; }
++        public PerPlayerLobbySettingsBuilder AfterPublish(Action callback) { published += callback; return this; }
++        public PerPlayerLobbySettingsBuilder OnObservation(Action callback) { observe += callback; return this; }
++
++        internal PerPlayerLobbySettingsContract Build()
++        {
++            PropertyInfo[] properties = owner.GetType().GetProperties(BindingFlags.Instance | BindingFlags.Public);
++            foreach (PropertyInfo property in properties)
++            {
++                bool host = property.GetCustomAttribute<SyncHostOnlyAttribute>() != null;
++                bool player = property.GetCustomAttribute<SyncPerPlayerAttribute>() != null;
++                bool local = property.GetCustomAttribute<PresetLocalAttribute>() != null;
++                int classifications = (host ? 1 : 0) + (player ? 1 : 0) + (local ? 1 : 0);
++                if (classifications > 1)
++                    throw new InvalidOperationException($"Setting [{owner.GetType().Name}.{property.Name}] has conflicting sync/preset classifications.");
++            }
++
++            var settings = new List<PerPlayerLobbySettingContract>();
++            foreach (PropertyInfo property in properties.Where(item => item.GetCustomAttribute<SyncPerPlayerAttribute>() != null))
++            {
++                if (!property.CanRead)
++                    throw new InvalidOperationException($"Per-player setting [{owner.GetType().Name}.{property.Name}] is not readable.");
++                PropertyInfo dataProperty = owner.GetType().GetProperty(property.Name + "Data", BindingFlags.Instance | BindingFlags.Public);
++                if (dataProperty == null || !dataProperty.CanRead || !dataProperty.PropertyType.IsArray)
++                    throw new InvalidOperationException($"Per-player setting [{owner.GetType().Name}.{property.Name}] requires a readable [{property.Name}Data] array.");
++                Type elementType = dataProperty.PropertyType.GetElementType();
++                if (!elementType.IsAssignableFrom(property.PropertyType))
++                    throw new InvalidOperationException($"Companion [{owner.GetType().Name}.{dataProperty.Name}] has element type [{elementType}], expected [{property.PropertyType}].");
++                Array data = dataProperty.GetValue(owner) as Array;
++                if (data == null || data.Rank != 1 || data.Length < 9)
++                    throw new InvalidOperationException($"Companion [{owner.GetType().Name}.{dataProperty.Name}] must be a one-dimensional array containing slots 0 through 8.");
++                if (!ReferenceEquals(data, dataProperty.GetValue(owner)))
++                    throw new InvalidOperationException($"Companion [{owner.GetType().Name}.{dataProperty.Name}] must return one stable array instance.");
++
++                options.TryGetValue(property.Name, out PerPlayerLobbySettingOptions configured);
++                configured = configured ?? new PerPlayerLobbySettingOptions();
++                settings.Add(new PerPlayerLobbySettingContract(property, dataProperty, data, configured));
++            }
++            foreach (string configuredName in options.Keys)
++                if (!settings.Any(item => item.Property.Name == configuredName))
++                    throw new InvalidOperationException($"Per-player policy references non-[SyncPerPlayer] property [{owner.GetType().Name}.{configuredName}].");
++            return new PerPlayerLobbySettingsContract(settings, beforePublish, localPlayerResolved, lobbyChanged, remoteDataChanged, published, observe);
++        }
++
++        private PerPlayerLobbySettingOptions Get(string propertyName)
++        {
++            if (string.IsNullOrWhiteSpace(propertyName)) throw new ArgumentException("A property name is required.", nameof(propertyName));
++            if (!options.TryGetValue(propertyName, out PerPlayerLobbySettingOptions value)) options[propertyName] = value = new PerPlayerLobbySettingOptions();
++            return value;
++        }
++    }
++
++    public sealed class PerPlayerLobbySnapshot
++    {
++        internal static readonly PerPlayerLobbySnapshot Empty = new PerPlayerLobbySnapshot(null, new Dictionary<int, ulong>(), false, 0);
++        internal PerPlayerLobbySnapshot(ulong? lobbyId, IReadOnlyDictionary<int, ulong> players, bool unresolved, int localPlayerId)
++        {
++            LobbyId = lobbyId;
++            Players = new ReadOnlyDictionary<int, ulong>(
++                (players ?? new Dictionary<int, ulong>())
++                    .ToDictionary(item => item.Key, item => item.Value));
++            HasUnresolvedPlayers = unresolved;
++            LocalPlayerId = localPlayerId;
++        }
++        public ulong? LobbyId { get; }
++        public IReadOnlyDictionary<int, ulong> Players { get; }
++        public bool HasUnresolvedPlayers { get; }
++        public int LocalPlayerId { get; }
++    }
++
++    internal sealed class PerPlayerLobbySettingOptions { internal Func<object> ResetValueFactory; internal bool IsReportRequired; internal Func<object, bool> HasReport; }
++    internal sealed class PerPlayerLobbySettingContract
++    {
++        private readonly Array data;
++        private readonly PerPlayerLobbySettingOptions options;
++        internal PerPlayerLobbySettingContract(PropertyInfo property, PropertyInfo dataProperty, Array data, PerPlayerLobbySettingOptions options) { Property = property; DataProperty = dataProperty; this.data = data; this.options = options; }
++        internal PropertyInfo Property { get; }
++        internal PropertyInfo DataProperty { get; }
++        internal bool IsReportRequired => options.IsReportRequired;
++        internal Array GetData() => data;
++        internal object CreateResetValue() => options.ResetValueFactory != null ? options.ResetValueFactory() : (Property.PropertyType.IsValueType ? Activator.CreateInstance(Property.PropertyType) : null);
++        internal bool HasReport(object value) => !IsReportRequired || (options.HasReport ?? (item => item != null))(value);
++    }
++    internal sealed class PerPlayerLobbySettingsContract
++    {
++        internal PerPlayerLobbySettingsContract(IReadOnlyList<PerPlayerLobbySettingContract> settings, Action beforePublish, Action<int> localPlayerResolved, Action<PerPlayerLobbySnapshot> lobbyChanged, Action<string> remoteDataChanged, Action published, Action observe) { Settings = settings; BeforePublish = beforePublish; LocalPlayerResolved = localPlayerResolved; LobbyChanged = lobbyChanged; RemoteDataChanged = remoteDataChanged; Published = published; Observe = observe; }
++        internal IReadOnlyList<PerPlayerLobbySettingContract> Settings { get; }
++        internal Action BeforePublish { get; }
++        internal Action<int> LocalPlayerResolved { get; }
++        internal Action<PerPlayerLobbySnapshot> LobbyChanged { get; }
++        internal Action<string> RemoteDataChanged { get; }
++        internal Action Published { get; }
++        internal Action Observe { get; }
++    }
++}
++
+ namespace Shared
+ {
+     /// <summary>
+@@ -50,6 +641,7 @@ namespace Shared
+         private bool missionPresetEditable;
+         private bool isRealMultiplayer;
+         private bool isLocalHost = true;
++        private PerPlayerLobbySettingsCoordinator perPlayerSettingsCoordinator;
+ 
+         public ComboBoxItem[] PresetOptions => presetOptions;
+ 
+@@ -57,6 +649,22 @@ namespace Shared
+ 
+         public bool HasClientSettings => presetController?.HasClientSettings ?? false;
+ 
++        public bool HasHostSettingsActivation => presetController?.HasHostSettingsActivation ?? false;
++
++        public bool HasClientSettingsActivation => presetController?.HasClientSettingsActivation ?? false;
++
++        public bool HostSettingsEnabled
++        {
++            get => presetController?.HostSettingsEnabled ?? false;
++            set => presetController?.SetHostSettingsEnabled(value);
++        }
++
++        public bool ClientSettingsEnabled
++        {
++            get => presetController?.ClientSettingsEnabled ?? false;
++            set => presetController?.SetClientSettingsEnabled(value);
++        }
++
+         public bool IsLocalSettingsHost => isLocalHost;
+ 
+         public bool IsRealMultiplayerContext => isRealMultiplayer;
+@@ -70,6 +678,12 @@ namespace Shared
+ 
+         public bool CanEditClientSettings => true;
+ 
++        public bool CanToggleHostSettings =>
++            HasHostSettings && HasHostSettingsActivation && CanEditHostSettings;
++
++        public bool CanToggleClientSettings =>
++            HasClientSettings && HasClientSettingsActivation && CanEditClientSettings;
++
+         public bool CanChangePreset => isLocalHost || HasClientSettings;
+ 
+         public bool CanResetSettings => CanEditHostSettings || HasClientSettings;
+@@ -93,6 +707,15 @@ namespace Shared
+         public string PresetText =>
+             ResolveSettingsUiText("Common.Preset", "Preset");
+ 
++        public string ModEnabledText =>
++            ResolveSettingsUiText("Common.EnableMod", "Enable Mod");
++
++        public string HostActivationLabelText =>
++            ResolveSettingsUiText("Common.HostActivationLabel", "(Host-)");
++
++        public string ClientActivationLabelText =>
++            ResolveSettingsUiText("Common.ClientActivationLabel", "(Client settings)");
++
+         public Visibility ActionsScopeNoticeVisibility =>
+             isRealMultiplayer && HasClientSettings
+                 ? Visibility.Visible
+@@ -116,6 +739,12 @@ namespace Shared
+         public string EnableModHelpText =>
+             ResolveSettingsUiText("Common.EnableModHelp", "Enables or disables this mod for the match.");
+ 
++        public string HostSettingsActivationHelpText =>
++            ResolveSettingsUiText("Common.HostSettingsActivationHelp", "Enables or disables all host-controlled settings of this mod.");
++
++        public string ClientSettingsActivationHelpText =>
++            ResolveSettingsUiText("Common.ClientSettingsActivationHelp", "Enables or disables all local and personal client settings of this mod.");
++
+         public string PresetHelpText =>
+             ResolveSettingsUiText("Common.PresetHelp", "Selects a saved preset. Clients change only their personal settings.");
+ 
+@@ -127,6 +756,56 @@ namespace Shared
+ 
+         protected virtual string ResolveSettingsUiText(string key, string fallback) => fallback;
+ 
++        /// <summary>
++        /// Declares the few domain-specific parts of personal settings. Transport,
++        /// player-slot ownership, lobby convergence and readiness stay in Shared.
++        /// </summary>
++        protected virtual void ConfigurePerPlayerLobbySettings(
++            PerPlayerLobbySettingsBuilder settings)
++        {
++        }
++
++        public bool IsPerPlayerLobbySettingsReady =>
++            perPlayerSettingsCoordinator?.IsReady ?? true;
++
++        public string PerPlayerLobbySettingsReadinessError =>
++            perPlayerSettingsCoordinator?.ReadinessError ?? string.Empty;
++
++        public void System_RequestPerPlayerSettingsPublish()
++        {
++            perPlayerSettingsCoordinator?.RequestPublish();
++        }
++
++        public bool System_ArePerPlayerSettingsReady(
++            IEnumerable<int> playerIds,
++            out string error)
++        {
++            if (perPlayerSettingsCoordinator == null)
++            {
++                error = string.Empty;
++                return true;
++            }
++
++            return perPlayerSettingsCoordinator.ArePlayersReady(playerIds, out error);
++        }
++
++#if SHARED_PRESET_TESTS
++        internal void System_TestObservePerPlayerLobby(
++            ulong? lobbyId,
++            IReadOnlyDictionary<int, ulong> players,
++            bool hasUnresolvedPlayers,
++            int localPlayerId,
++            bool preserveForMapTransition = false)
++        {
++            perPlayerSettingsCoordinator?.Observe(
++                lobbyId,
++                players,
++                hasUnresolvedPlayers,
++                localPlayerId,
++                preserveForMapTransition);
++        }
++#endif
++
+         /// <summary>
+         /// Authorizes a settings mutation before any backing state is changed.
+         /// Preset and Trail snapshots are trusted internal applications; all other
+@@ -244,6 +923,27 @@ namespace Shared
+             presetController.Activate();
+         }
+ 
++        internal void ActivatePerPlayerLobbySettings(ManualLogSource log, string modName)
++        {
++            if (perPlayerSettingsCoordinator != null)
++                throw new InvalidOperationException($"Per-player lobby settings for [{modName}] were already activated.");
++
++            var builder = new PerPlayerLobbySettingsBuilder(this);
++            ConfigurePerPlayerLobbySettings(builder);
++            perPlayerSettingsCoordinator = new PerPlayerLobbySettingsCoordinator(
++                this,
++                log,
++                modName,
++                builder.Build());
++            perPlayerSettingsCoordinator.Activate();
++        }
++
++        internal void DeactivatePerPlayerLobbySettings()
++        {
++            perPlayerSettingsCoordinator?.Deactivate();
++            perPlayerSettingsCoordinator = null;
++        }
++
+         // Neutral reflection boundary used by optional mission coordinators.
+         public Dictionary<string, byte[]> System_CreateDisabledMissionPresetSnapshot() =>
+             presetController?.CreateDisabledSnapshot() ?? new Dictionary<string, byte[]>(StringComparer.Ordinal);
+@@ -309,6 +1009,11 @@ namespace Shared
+             try
+             {
+                 base.OnPropertyChanged(name);
++
++                if (presetController?.IsHostSettingsActivationProperty(name) == true)
++                    base.OnPropertyChanged(nameof(HostSettingsEnabled));
++                if (presetController?.IsClientSettingsActivationProperty(name) == true)
++                    base.OnPropertyChanged(nameof(ClientSettingsEnabled));
+             }
+             finally
+             {
+@@ -333,10 +1038,16 @@ namespace Shared
+             base.OnPropertyChanged(nameof(IsRealMultiplayerContext));
+             base.OnPropertyChanged(nameof(HasHostSettings));
+             base.OnPropertyChanged(nameof(HasClientSettings));
++            base.OnPropertyChanged(nameof(HasHostSettingsActivation));
++            base.OnPropertyChanged(nameof(HasClientSettingsActivation));
++            base.OnPropertyChanged(nameof(HostSettingsEnabled));
++            base.OnPropertyChanged(nameof(ClientSettingsEnabled));
+             base.OnPropertyChanged(nameof(MissionPresetEditable));
+             base.OnPropertyChanged(nameof(IsMissionPresetSelected));
+             base.OnPropertyChanged(nameof(CanEditHostSettings));
+             base.OnPropertyChanged(nameof(CanEditClientSettings));
++            base.OnPropertyChanged(nameof(CanToggleHostSettings));
++            base.OnPropertyChanged(nameof(CanToggleClientSettings));
+             base.OnPropertyChanged(nameof(CanChangePreset));
+             base.OnPropertyChanged(nameof(CanResetSettings));
+             base.OnPropertyChanged(nameof(PresetVisibility));
+@@ -389,6 +1100,8 @@ namespace Shared
+             private readonly PropertyInfo[] persistedProperties;
+             private readonly PropertyInfo[] hostProperties;
+             private readonly PropertyInfo[] clientProperties;
++            private readonly PropertyInfo hostSettingsActivationProperty;
++            private readonly PropertyInfo clientSettingsActivationProperty;
+             private readonly Dictionary<string, PropertyInfo> persistedPropertiesByName;
+ 
+             private Dictionary<string, byte[]> defaults;
+@@ -427,12 +1140,34 @@ namespace Shared
+                     .ToDictionary(property => property.Name, StringComparer.Ordinal);
+                 hostProperties = persistedProperties.Where(IsHostProperty).ToArray();
+                 clientProperties = persistedProperties.Where(IsClientProperty).ToArray();
++                hostSettingsActivationProperty = FindSettingsActivationProperty(hostProperties, "EnableMod");
++                clientSettingsActivationProperty = FindSettingsActivationProperty(clientProperties, "EnableClientFeatures", "EnableMod");
+             }
+ 
+             public bool HasHostSettings => hostProperties.Length != 0;
+ 
+             public bool HasClientSettings => clientProperties.Length != 0;
+ 
++            public bool HasHostSettingsActivation => hostSettingsActivationProperty != null;
++
++            public bool HasClientSettingsActivation => clientSettingsActivationProperty != null;
++
++            public bool HostSettingsEnabled => ReadSettingsActivation(hostSettingsActivationProperty);
++
++            public bool ClientSettingsEnabled => ReadSettingsActivation(clientSettingsActivationProperty);
++
++            public void SetHostSettingsEnabled(bool value) =>
++                WriteSettingsActivation(hostSettingsActivationProperty, value);
++
++            public void SetClientSettingsEnabled(bool value) =>
++                WriteSettingsActivation(clientSettingsActivationProperty, value);
++
++            public bool IsHostSettingsActivationProperty(string propertyName) =>
++                IsSettingsActivationProperty(hostSettingsActivationProperty, propertyName);
++
++            public bool IsClientSettingsActivationProperty(string propertyName) =>
++                IsSettingsActivationProperty(clientSettingsActivationProperty, propertyName);
++
+             public bool IsApplyingSnapshot => applying;
+ 
+             public bool IsHostPropertyName(string propertyName) =>
+@@ -891,6 +1626,40 @@ namespace Shared
+                 (property.GetCustomAttribute<SyncPerPlayerAttribute>() != null ||
+                     property.GetCustomAttribute<PresetLocalAttribute>() != null);
+ 
++            private static PropertyInfo FindSettingsActivationProperty(
++                IEnumerable<PropertyInfo> properties,
++                params string[] preferredNames)
++            {
++                foreach (string name in preferredNames)
++                {
++                    PropertyInfo property = properties.FirstOrDefault(item =>
++                        item.Name == name &&
++                        item.PropertyType == typeof(bool) &&
++                        item.CanRead &&
++                        item.CanWrite);
++                    if (property != null)
++                        return property;
++                }
++
++                return null;
++            }
++
++            private bool ReadSettingsActivation(PropertyInfo property) =>
++                property != null && (bool)property.GetValue(owner);
++
++            private void WriteSettingsActivation(PropertyInfo property, bool value)
++            {
++                if (property == null || ReadSettingsActivation(property) == value)
++                    return;
++
++                property.SetValue(owner, value);
++            }
++
++            private static bool IsSettingsActivationProperty(
++                PropertyInfo property,
++                string propertyName) =>
++                property != null && string.Equals(property.Name, propertyName, StringComparison.Ordinal);
++
+             public static bool IsNetworkSyncInProgress()
+             {
+                 try
+@@ -982,10 +1751,15 @@ namespace Shared
+                 catch (Exception ex)
+                 {
+                     anchor.RollBack();
++                    Exception cause = Unwrap(ex);
+                     DebugLogHelper.LogError(
+                         log,
+                         "Temporary Script Extender multiplayer settings workaround could not be " +
+-                        $"installed as one transaction: {Unwrap(ex)}");
++                        $"installed as one transaction: {cause}");
++                    throw new InvalidOperationException(
++                        "Lobby mod settings registration aborted because the required " +
++                        "multiplayer synchronization workaround is unavailable.",
++                        cause);
+                 }
+             }
+         }
+@@ -1017,7 +1791,9 @@ namespace Shared
+             private object sendPacketToAllLobbyDetour;
+             private object processMessageDetour;
+             private MethodInfo handleRawPacketMethod;
+-            private MethodInfo sendPacketToSteamIdMethod;
++            private Type steamNetworkingIdentityType;
++            private MethodInfo setSteamIdMethod;
++            private MethodInfo sendMessageToUserMethod;
+             private FieldInfo lobbyMemberIdField;
+             private FieldInfo multiplayerInstanceField;
+             private Type steamIdType;
+@@ -1059,16 +1835,31 @@ namespace Shared
+                     null) ?? throw new MissingMethodException(
+                         typeof(GameNetworkAPI).FullName,
+                         "HandleRawPacket(short, byte[], CSteamID?)");
+-                sendPacketToSteamIdMethod = typeof(GameNetworkAPI)
+-                    .GetMethods(BindingFlags.Static | BindingFlags.Public)
+-                    .Single(method =>
+-                        method.Name == "SendPacketToSteamId" &&
+-                        !method.IsGenericMethod &&
+-                        method.GetParameters().Length == 2 &&
+-                        method.GetParameters()[1].ParameterType == typeof(Platform_Multiplayer.MPData));
+                 steamIdType = Nullable.GetUnderlyingType(
+                     handleRawPacketMethod.GetParameters()[2].ParameterType) ??
+                     throw new InvalidOperationException("HandleRawPacket sender is not nullable.");
++                Assembly steamworksAssembly = steamIdType.Assembly;
++                steamNetworkingIdentityType = steamworksAssembly.GetType(
++                    "Steamworks.SteamNetworkingIdentity",
++                    true);
++                Type steamNetworkingMessagesType = steamworksAssembly.GetType(
++                    "Steamworks.SteamNetworkingMessages",
++                    true);
++                setSteamIdMethod = steamNetworkingIdentityType.GetMethod(
++                    "SetSteamID",
++                    BindingFlags.Instance | BindingFlags.Public,
++                    null,
++                    new[] { steamIdType },
++                    null) ?? throw new MissingMethodException(
++                        steamNetworkingIdentityType.FullName,
++                        "SetSteamID");
++                sendMessageToUserMethod = steamNetworkingMessagesType
++                    .GetMethods(BindingFlags.Static | BindingFlags.Public)
++                    .Single(method =>
++                        method.Name == "SendMessageToUser" &&
++                        method.GetParameters().Length == 5 &&
++                        method.GetParameters()[0].ParameterType.IsByRef &&
++                        method.GetParameters()[1].ParameterType == typeof(IntPtr));
+                 lobbyMemberIdField = typeof(Platform_Multiplayer.MPLobbyMember).GetField(
+                     "id",
+                     BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic) ??
+@@ -1161,14 +1952,15 @@ namespace Shared
+                 int successfulRecipients = 0;
+                 foreach (Platform_Multiplayer.MPLobbyMember member in members)
+                 {
+-                    if (member == null || member.IsSelf() || member.SkirmishMember)
++                    if (member == null || member.IsSelf() || member.dummyToBeKicked ||
++                        (member.SkirmishMember && !member.SkirmishHumanMember))
+                         continue;
+ 
+                     eligibleRecipients++;
+                     try
+                     {
+                         object target = lobbyMemberIdField.GetValue(member);
+-                        sendPacketToSteamIdMethod.Invoke(null, new[] { target, (object)packet });
++                        SendReliableLobbyPacket(target, packet);
+                         successfulRecipients++;
+                     }
+                     catch (Exception ex)
+@@ -1191,12 +1983,57 @@ namespace Shared
+                 }
+             }
+ 
++            private void SendReliableLobbyPacket(
++                object targetSteamId,
++                Platform_Multiplayer.MPData packet)
++            {
++                if (targetSteamId == null)
++                    throw new InvalidOperationException("The lobby recipient has no Steam ID.");
++                if (packet == null)
++                    throw new ArgumentNullException(nameof(packet));
++
++                byte[] bytes = packet.ToBytes();
++                object identity = Activator.CreateInstance(steamNetworkingIdentityType);
++                setSteamIdMethod.Invoke(identity, new[] { targetSteamId });
++                GCHandle pinned = GCHandle.Alloc(bytes, GCHandleType.Pinned);
++                try
++                {
++                    object result = sendMessageToUserMethod.Invoke(
++                        null,
++                        new object[]
++                        {
++                            identity,
++                            pinned.AddrOfPinnedObject(),
++                            (uint)bytes.Length,
++                            40,
++                            2,
++                        });
++                    if (Convert.ToInt32(result) != 1)
++                    {
++                        throw new InvalidOperationException(
++                            $"SteamNetworkingMessages.SendMessageToUser returned [{result}].");
++                    }
++                }
++                finally
++                {
++                    pinned.Free();
++                }
++            }
++
+             private bool ProcessMessageHook(
+                 Platform_Multiplayer instance,
+                 Platform_Multiplayer.MPData data,
+                 Platform_Multiplayer.MPGameMember fromMember,
+                 bool fromThread)
+             {
++                if (fromThread && data != null &&
++                    data.packetType >= (short)CustomNetworkPacketType.CustomPacketStart)
++                {
++                    // Returning false makes Vanilla enqueue the packet. Its later
++                    // main-thread pass preserves fromMember and safely updates UI/settings.
++                    return false;
++                }
++
+                 if (data != null &&
+                     fromMember != null &&
+                     data.packetType >= (short)CustomNetworkPacketType.CustomPacketStart)
+@@ -1335,16 +2172,28 @@ namespace Shared
+             ScriptExtenderMultiplayerSyncWorkaround.EnsureInstalled(log);
+ #endif
+             viewModel.PreparePresets(log, plugin.Info.Location, modName);
+-            GameXAMLManagerAPI.Instance.RegisterLobbyModSettings(
+-                plugin,
+-                modName,
+-                viewModel,
+-                xamlSourceFile);
+-
+-            bool registered = GameXAMLManagerAPI.Instance.RegisteredModSettings
+-                .Any(entry => ReferenceEquals(entry.ViewModel, viewModel));
++            // Structural validation must happen before the ViewModel can enter the
++            // Extender registry. An invalid personal setting therefore fails closed.
++            viewModel.ActivatePerPlayerLobbySettings(log, modName);
++            bool registered;
++            try
++            {
++                GameXAMLManagerAPI.Instance.RegisterLobbyModSettings(
++                    plugin,
++                    modName,
++                    viewModel,
++                    xamlSourceFile);
++                registered = GameXAMLManagerAPI.Instance.RegisteredModSettings
++                    .Any(entry => ReferenceEquals(entry.ViewModel, viewModel));
++            }
++            catch
++            {
++                viewModel.DeactivatePerPlayerLobbySettings();
++                throw;
++            }
+             if (!registered)
+             {
++                viewModel.DeactivatePerPlayerLobbySettings();
+                 DebugLogHelper.LogError(
+                     log,
+                     $"[{modName}] Presets were not activated because lobby-settings registration failed.");
+@@ -1352,7 +2201,6 @@ namespace Shared
+             }
+ 
+             viewModel.ActivatePresets();
+-
+             // Views are created before a lobby exists. Refresh the cached role whenever
+             // the persistent settings hub opens or changes its selected tab.
+             Plugin.ModSettingsHubViewModel.PropertyChanged += (_, __) =>
+
+diff --git a/Shared/SerpLocalization.cs b/Shared/SerpLocalization.cs
+index 4b7b8a89..7fc91c58 100644
+--- a/Shared/SerpLocalization.cs
++++ b/Shared/SerpLocalization.cs
+@@ -8,6 +8,10 @@ public static class SerpLocalization
+ {
+     public const string ResetToDefault = "Common.ResetToDefault";
+     public const string EnableMod = "Common.EnableMod";
++    public const string HostActivationLabel = "Common.HostActivationLabel";
++    public const string ClientActivationLabel = "Common.ClientActivationLabel";
++    public const string HostSettingsActivationHelp = "Common.HostSettingsActivationHelp";
++    public const string ClientSettingsActivationHelp = "Common.ClientSettingsActivationHelp";
+     public const string HostOptions = "Common.HostOptions";
+     public const string ClientOptions = "Common.ClientOptions";
+     public const string HostReadOnly = "Common.HostReadOnly";
+@@ -175,8 +192,13 @@ public static class SerpLocalization
+         { SerpsModsClearErrorsHelp, "Clears only this diagnostic display. The BepInEx log remains unchanged." },
+         { SerpsModsNoErrors, "No errors recorded." },
+         { SerpsModsSummaryFormat, "Pack {Version}: expected {Expected}, validated {Validated}, registered {Registered}." },
++        { SerpsModsLobbyHashMismatch, "ERROR: The installed mods of {Player} differ from lobby host {Host} ({Player}: {PlayerHash}, {Host}: {HostHash})." },
+         { ResetToDefault, "Reset to Default" },
+         { EnableMod, "Enable Mod" },
++        { HostActivationLabel, "(Host-)" },
++        { ClientActivationLabel, "(Client settings)" },
++        { HostSettingsActivationHelp, "Enables or disables all host-controlled settings of this mod." },
++        { ClientSettingsActivationHelp, "Enables or disables all local and personal client settings of this mod." },
+         { HostOptions, "HOST OPTIONS" },
+         { ClientOptions, "LOCAL CLIENT OPTIONS" },
+         { HostReadOnly, "Values from host - read-only" },
+@@ -261,8 +286,8 @@ public static class SerpLocalization
+         { "RandomEvents.FireStrengthHelp", "Sets the minimum and maximum fire-event strength. A value in this range is rolled when the event triggers." },
+         { "RandomEvents.Minimum", "Min" },
+         { "RandomEvents.Maximum", "Max" },
+-        { "RandomEvents.MultiplayerMode", "Reserved multiplayer mode" },
+-        { "RandomEvents.MultiplayerModeHelp", "Reserved for a future version. Random Events is fully disabled in network games." },
++        { "RandomEvents.MultiplayerMode", "Multiplayer event distribution" },
++        { "RandomEvents.MultiplayerModeHelp", "Shared events use one roll and strength for every living human player. Individual rolls give each human separate chance and strength rolls. Both modes execute the resolved actions through the same tick-aligned Chore sequence to keep the simulation synchronized." },
+         { "RandomEvents.MultiplayerShared", "Shared events" },
+         { "RandomEvents.MultiplayerIndividual", "Individual rolls" },
+         { "RandomEvents.Event.Fair", "Fair" },
+@@ -379,6 +404,8 @@ public static class SerpLocalization
+         { KeepStorageContent, "Keep Storage Content" },
+         { KeepStorageContentHelp, "When enabled, bulldozing a granary, armory, or stockpile keeps the goods stored inside by adding them back as incoming goods.\nIf Granary was built for free can't credit goods back (happens when building it while no wood is on stock)" },
+         { EconomyBuffsTitle, "Economy Bonuses" },
++        { LordHealthTitle, "Lord Health" },
++        { LordHealthHelp, "Multiplies the maximum and current health of all Lords when the match starts. Human and AI Lords can be configured separately; individual AI Lord health differences remain intact. 100% is unchanged." },
+         { MultiplyGoodsGain, "Multiply goods gain" },
+         { MultiplyGoodsGainHelp, "Multiplier for gained goods. 1 = unchanged, 2 = double, 3 = triple. Values 1 or lower add nothing." },
+         { MultiplyGoodsAsMoney, "Multiply goods as money" },
+@@ -396,8 +423,16 @@ public static class SerpLocalization
+         { RememberAiAivSettingsHelp, "When enabled, the last AIV, rotation, and custom lord settings selected for each AI lord are applied automatically when that AI is added to a skirmish lobby." },
+         { EnableCtrlSingleMarketTrade, "Ctrl trades one market unit" },
+         { EnableCtrlSingleMarketTradeHelp, "Hold Ctrl while buying or selling to trade exactly one unit. Ctrl+Shift uses the normal five-unit amount." },
++        { EnableClientFeatures, "Enable local client features" },
++        { EnableClientFeaturesHelp, "Enables or disables this mod's local interface and control features only for you." },
++        { EnableAllyGoodsAmountModifiers, "Modify ally goods-transfer amounts" },
++        { EnableAllyGoodsAmountModifiersHelp, "In the ally goods-transfer panel, hold Shift for 5x or Ctrl for 0.2x the clicked amount. Holding both uses the normal amount." },
+         { EnableSingleBuildingPause, "Enable single-building pause" },
+-        { EnableSingleBuildingPauseHelp, "Hold Ctrl while toggling a production building's pause state to affect only the selected building. This feature is temporarily unavailable in multiplayer until Script Extender 1.50.0 Chore support is adopted." },
++        { EnableSingleBuildingPauseHelp, "Hold Ctrl while toggling a production building's pause state to affect only the selected building. Multiplayer actions use Script Extender's tick-aligned Chore transport." },
++        { EnableMultiplayerGameSpeedChanges, "Change Gamespeed in Multiplayer" },
++        { EnableMultiplayerGameSpeedChangesHelp, "Lets every human player change the running multiplayer game's speed with the normal increase/decrease keybinds or the in-game options slider. Changes are executed for all players through Script Extender's tick-aligned Chore transport. Multiplayer speed uses Script Extender's configured maximum and is not saved as the local singleplayer default." },
++        { EnableShiftGameSpeedSteps, "Enable 25-step game-speed keybinds" },
++        { EnableShiftGameSpeedStepsHelp, "Press or hold the normal increase/decrease game-speed keybind. The first change is immediate and repeats every 0.25 seconds while held; hold Shift for 25 instead of 5 per step, up to Script Extender's configured maximum. The options slider keeps its 5-step increments. Multiplayer changes use Script Extender's tick-aligned Chore transport." },
+         { EnableTroopMovementFix, "Troop Speed Fix" },
+         { EnableTroopMovementFixHelp, "Fixes synchronized movement for mixed troop groups: with a normal movement command, all units move at the speed of the slowest unit in the group." },
+         { EnablePlaguePopularityFix, "Plague Popularity Fix" },
+
+diff --git a/StartConditions/BepInEx/plugins/StartConditions_Serp/info.json b/StartConditions/BepInEx/plugins/StartConditions_Serp/info.json
+index 57ef365d..1aca521c 100644
+--- a/StartConditions/BepInEx/plugins/StartConditions_Serp/info.json
++++ b/StartConditions/BepInEx/plugins/StartConditions_Serp/info.json
+@@ -3,10 +3,30 @@
+   "Author": "Serpens66",
+   "Name": "Start Conditions",
+   "Description": "Configures start resources and start troops in Stronghold Crusader Definitive Edition.",
+-  "Version": "1.0.13",
++  "Version": "1.0.16",
+   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
+   "Manifest": 1,
+   "SerpChangelog": [
++    {
++      "Version": "1.0.16",
++      "Changes": [
++        "Apply gold, goods, troop types, and players independently so one failed start-condition operation does not block the remaining settings."
++      ]
++    },
++    {
++      "Version": "1.0.15",
++      "Changes": [
++        "Resolve active players exclusively from the synchronized in-game member roster and exclude kicked or defeated slots without simulation-derived fallbacks.",
++        "Wait up to 30 seconds on simulation ticks for every active player's Keep before applying start resources and troops, then fail once with detailed readiness diagnostics."
++      ]
++    },
++    {
++      "Version": "1.0.14",
++      "Changes": [
++        "Use Script Extender 1.41.0+'s corrected GetAlivePlayerIds result for deterministic start resources and troops, including early multiplayer Coop Trail map initialization.",
++        "Temporarily log Script Extender and legacy helper player lists side by side for multiplayer verification."
++      ]
++    },
+     {
+       "Version": "1.0.13",
+       "Changes": [
+
+diff --git a/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/ar.txt b/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/ar.txt
+index 71d4b0ea..ecae24ac 100644
+--- a/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/ar.txt
++++ b/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/ar.txt
+@@ -1,6 +1,10 @@
+ # Serp mod localization
+ # Format: key=value
+ Common.EnableMod=Enable Mod
++Common.HostActivationLabel=(Host-)
++Common.ClientActivationLabel=(Client settings)
++Common.HostSettingsActivationHelp=Enables or disables all host-controlled settings of this mod.
++Common.ClientSettingsActivationHelp=Enables or disables all local and personal client settings of this mod.
+ Common.ResetToDefault=Reset to Default
+ Common.Ai=AI
+ Common.Human=Human
+
+diff --git a/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/cs-CZ.txt b/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/cs-CZ.txt
+index 71d4b0ea..ecae24ac 100644
+--- a/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/cs-CZ.txt
++++ b/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/cs-CZ.txt
+@@ -1,6 +1,10 @@
+ # Serp mod localization
+ # Format: key=value
+ Common.EnableMod=Enable Mod
++Common.HostActivationLabel=(Host-)
++Common.ClientActivationLabel=(Client settings)
++Common.HostSettingsActivationHelp=Enables or disables all host-controlled settings of this mod.
++Common.ClientSettingsActivationHelp=Enables or disables all local and personal client settings of this mod.
+ Common.ResetToDefault=Reset to Default
+ Common.Ai=AI
+ Common.Human=Human
+
+diff --git a/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/de-DE.txt b/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/de-DE.txt
+index a3084165..13cad97d 100644
+--- a/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/de-DE.txt
++++ b/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/de-DE.txt
+@@ -2,6 +2,10 @@
+ # Format: key=valü
+ Common.ResetToDefault=Zurücksetzen
+ Common.EnableMod=Mod aktivieren
++Common.HostActivationLabel=(Host-)
++Common.ClientActivationLabel=(Client-Settings)
++Common.HostSettingsActivationHelp=Aktiviert oder deaktiviert alle vom Host gesteuerten Einstellungen dieser Mod.
++Common.ClientSettingsActivationHelp=Aktiviert oder deaktiviert alle lokalen und persönlichen Client-Einstellungen dieser Mod.
+ Common.Ai=KI
+ Common.Human=Mensch
+ StartConditions.StartGoldTitle=Startgold
+
+diff --git a/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/el-GR.txt b/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/el-GR.txt
+index 71d4b0ea..ecae24ac 100644
+--- a/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/el-GR.txt
++++ b/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/el-GR.txt
+@@ -1,6 +1,10 @@
+ # Serp mod localization
+ # Format: key=value
+ Common.EnableMod=Enable Mod
++Common.HostActivationLabel=(Host-)
++Common.ClientActivationLabel=(Client settings)
++Common.HostSettingsActivationHelp=Enables or disables all host-controlled settings of this mod.
++Common.ClientSettingsActivationHelp=Enables or disables all local and personal client settings of this mod.
+ Common.ResetToDefault=Reset to Default
+ Common.Ai=AI
+ Common.Human=Human
+
+diff --git a/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/en-US.txt b/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/en-US.txt
+index 71d4b0ea..ecae24ac 100644
+--- a/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/en-US.txt
++++ b/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/en-US.txt
+@@ -1,6 +1,10 @@
+ # Serp mod localization
+ # Format: key=value
+ Common.EnableMod=Enable Mod
++Common.HostActivationLabel=(Host-)
++Common.ClientActivationLabel=(Client settings)
++Common.HostSettingsActivationHelp=Enables or disables all host-controlled settings of this mod.
++Common.ClientSettingsActivationHelp=Enables or disables all local and personal client settings of this mod.
+ Common.ResetToDefault=Reset to Default
+ Common.Ai=AI
+ Common.Human=Human
+
+diff --git a/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/es-ES.txt b/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/es-ES.txt
+index 71d4b0ea..ecae24ac 100644
+--- a/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/es-ES.txt
++++ b/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/es-ES.txt
+@@ -1,6 +1,10 @@
+ # Serp mod localization
+ # Format: key=value
+ Common.EnableMod=Enable Mod
++Common.HostActivationLabel=(Host-)
++Common.ClientActivationLabel=(Client settings)
++Common.HostSettingsActivationHelp=Enables or disables all host-controlled settings of this mod.
++Common.ClientSettingsActivationHelp=Enables or disables all local and personal client settings of this mod.
+ Common.ResetToDefault=Reset to Default
+ Common.Ai=AI
+ Common.Human=Human
+
+diff --git a/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/fr-FR.txt b/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/fr-FR.txt
+index 71d4b0ea..ecae24ac 100644
+--- a/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/fr-FR.txt
++++ b/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/fr-FR.txt
+@@ -1,6 +1,10 @@
+ # Serp mod localization
+ # Format: key=value
+ Common.EnableMod=Enable Mod
++Common.HostActivationLabel=(Host-)
++Common.ClientActivationLabel=(Client settings)
++Common.HostSettingsActivationHelp=Enables or disables all host-controlled settings of this mod.
++Common.ClientSettingsActivationHelp=Enables or disables all local and personal client settings of this mod.
+ Common.ResetToDefault=Reset to Default
+ Common.Ai=AI
+ Common.Human=Human
+
+diff --git a/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/hu-HU.txt b/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/hu-HU.txt
+index 71d4b0ea..ecae24ac 100644
+--- a/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/hu-HU.txt
++++ b/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/hu-HU.txt
+@@ -1,6 +1,10 @@
+ # Serp mod localization
+ # Format: key=value
+ Common.EnableMod=Enable Mod
++Common.HostActivationLabel=(Host-)
++Common.ClientActivationLabel=(Client settings)
++Common.HostSettingsActivationHelp=Enables or disables all host-controlled settings of this mod.
++Common.ClientSettingsActivationHelp=Enables or disables all local and personal client settings of this mod.
+ Common.ResetToDefault=Reset to Default
+ Common.Ai=AI
+ Common.Human=Human
+
+diff --git a/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/it-IT.txt b/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/it-IT.txt
+index 71d4b0ea..ecae24ac 100644
+--- a/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/it-IT.txt
++++ b/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/it-IT.txt
+@@ -1,6 +1,10 @@
+ # Serp mod localization
+ # Format: key=value
+ Common.EnableMod=Enable Mod
++Common.HostActivationLabel=(Host-)
++Common.ClientActivationLabel=(Client settings)
++Common.HostSettingsActivationHelp=Enables or disables all host-controlled settings of this mod.
++Common.ClientSettingsActivationHelp=Enables or disables all local and personal client settings of this mod.
+ Common.ResetToDefault=Reset to Default
+ Common.Ai=AI
+ Common.Human=Human
+
+diff --git a/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/ja-JP.txt b/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/ja-JP.txt
+index 71d4b0ea..ecae24ac 100644
+--- a/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/ja-JP.txt
++++ b/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/ja-JP.txt
+@@ -1,6 +1,10 @@
+ # Serp mod localization
+ # Format: key=value
+ Common.EnableMod=Enable Mod
++Common.HostActivationLabel=(Host-)
++Common.ClientActivationLabel=(Client settings)
++Common.HostSettingsActivationHelp=Enables or disables all host-controlled settings of this mod.
++Common.ClientSettingsActivationHelp=Enables or disables all local and personal client settings of this mod.
+ Common.ResetToDefault=Reset to Default
+ Common.Ai=AI
+ Common.Human=Human
+
+diff --git a/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/ko-KR.txt b/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/ko-KR.txt
+index 71d4b0ea..ecae24ac 100644
+--- a/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/ko-KR.txt
++++ b/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/ko-KR.txt
+@@ -1,6 +1,10 @@
+ # Serp mod localization
+ # Format: key=value
+ Common.EnableMod=Enable Mod
++Common.HostActivationLabel=(Host-)
++Common.ClientActivationLabel=(Client settings)
++Common.HostSettingsActivationHelp=Enables or disables all host-controlled settings of this mod.
++Common.ClientSettingsActivationHelp=Enables or disables all local and personal client settings of this mod.
+ Common.ResetToDefault=Reset to Default
+ Common.Ai=AI
+ Common.Human=Human
+
+diff --git a/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/nl-NL.txt b/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/nl-NL.txt
+index 71d4b0ea..ecae24ac 100644
+--- a/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/nl-NL.txt
++++ b/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/nl-NL.txt
+@@ -1,6 +1,10 @@
+ # Serp mod localization
+ # Format: key=value
+ Common.EnableMod=Enable Mod
++Common.HostActivationLabel=(Host-)
++Common.ClientActivationLabel=(Client settings)
++Common.HostSettingsActivationHelp=Enables or disables all host-controlled settings of this mod.
++Common.ClientSettingsActivationHelp=Enables or disables all local and personal client settings of this mod.
+ Common.ResetToDefault=Reset to Default
+ Common.Ai=AI
+ Common.Human=Human
+
+diff --git a/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/pl-PL.txt b/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/pl-PL.txt
+index 71d4b0ea..ecae24ac 100644
+--- a/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/pl-PL.txt
++++ b/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/pl-PL.txt
+@@ -1,6 +1,10 @@
+ # Serp mod localization
+ # Format: key=value
+ Common.EnableMod=Enable Mod
++Common.HostActivationLabel=(Host-)
++Common.ClientActivationLabel=(Client settings)
++Common.HostSettingsActivationHelp=Enables or disables all host-controlled settings of this mod.
++Common.ClientSettingsActivationHelp=Enables or disables all local and personal client settings of this mod.
+ Common.ResetToDefault=Reset to Default
+ Common.Ai=AI
+ Common.Human=Human
+
+diff --git a/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/pt-BR.txt b/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/pt-BR.txt
+index 71d4b0ea..ecae24ac 100644
+--- a/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/pt-BR.txt
++++ b/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/pt-BR.txt
+@@ -1,6 +1,10 @@
+ # Serp mod localization
+ # Format: key=value
+ Common.EnableMod=Enable Mod
++Common.HostActivationLabel=(Host-)
++Common.ClientActivationLabel=(Client settings)
++Common.HostSettingsActivationHelp=Enables or disables all host-controlled settings of this mod.
++Common.ClientSettingsActivationHelp=Enables or disables all local and personal client settings of this mod.
+ Common.ResetToDefault=Reset to Default
+ Common.Ai=AI
+ Common.Human=Human
+
+diff --git a/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/ru-RU.txt b/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/ru-RU.txt
+index 71d4b0ea..ecae24ac 100644
+--- a/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/ru-RU.txt
++++ b/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/ru-RU.txt
+@@ -1,6 +1,10 @@
+ # Serp mod localization
+ # Format: key=value
+ Common.EnableMod=Enable Mod
++Common.HostActivationLabel=(Host-)
++Common.ClientActivationLabel=(Client settings)
++Common.HostSettingsActivationHelp=Enables or disables all host-controlled settings of this mod.
++Common.ClientSettingsActivationHelp=Enables or disables all local and personal client settings of this mod.
+ Common.ResetToDefault=Reset to Default
+ Common.Ai=AI
+ Common.Human=Human
+
+diff --git a/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/sv-SE.txt b/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/sv-SE.txt
+index 71d4b0ea..ecae24ac 100644
+--- a/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/sv-SE.txt
++++ b/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/sv-SE.txt
+@@ -1,6 +1,10 @@
+ # Serp mod localization
+ # Format: key=value
+ Common.EnableMod=Enable Mod
++Common.HostActivationLabel=(Host-)
++Common.ClientActivationLabel=(Client settings)
++Common.HostSettingsActivationHelp=Enables or disables all host-controlled settings of this mod.
++Common.ClientSettingsActivationHelp=Enables or disables all local and personal client settings of this mod.
+ Common.ResetToDefault=Reset to Default
+ Common.Ai=AI
+ Common.Human=Human
+
+diff --git a/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/th-TH.txt b/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/th-TH.txt
+index 71d4b0ea..ecae24ac 100644
+--- a/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/th-TH.txt
++++ b/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/th-TH.txt
+@@ -1,6 +1,10 @@
+ # Serp mod localization
+ # Format: key=value
+ Common.EnableMod=Enable Mod
++Common.HostActivationLabel=(Host-)
++Common.ClientActivationLabel=(Client settings)
++Common.HostSettingsActivationHelp=Enables or disables all host-controlled settings of this mod.
++Common.ClientSettingsActivationHelp=Enables or disables all local and personal client settings of this mod.
+ Common.ResetToDefault=Reset to Default
+ Common.Ai=AI
+ Common.Human=Human
+
+diff --git a/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/tr-TR.txt b/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/tr-TR.txt
+index 71d4b0ea..ecae24ac 100644
+--- a/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/tr-TR.txt
++++ b/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/tr-TR.txt
+@@ -1,6 +1,10 @@
+ # Serp mod localization
+ # Format: key=value
+ Common.EnableMod=Enable Mod
++Common.HostActivationLabel=(Host-)
++Common.ClientActivationLabel=(Client settings)
++Common.HostSettingsActivationHelp=Enables or disables all host-controlled settings of this mod.
++Common.ClientSettingsActivationHelp=Enables or disables all local and personal client settings of this mod.
+ Common.ResetToDefault=Reset to Default
+ Common.Ai=AI
+ Common.Human=Human
+
+diff --git a/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/uk-UA.txt b/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/uk-UA.txt
+index 71d4b0ea..ecae24ac 100644
+--- a/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/uk-UA.txt
++++ b/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/uk-UA.txt
+@@ -1,6 +1,10 @@
+ # Serp mod localization
+ # Format: key=value
+ Common.EnableMod=Enable Mod
++Common.HostActivationLabel=(Host-)
++Common.ClientActivationLabel=(Client settings)
++Common.HostSettingsActivationHelp=Enables or disables all host-controlled settings of this mod.
++Common.ClientSettingsActivationHelp=Enables or disables all local and personal client settings of this mod.
+ Common.ResetToDefault=Reset to Default
+ Common.Ai=AI
+ Common.Human=Human
+
+diff --git a/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/zh-CN.txt b/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/zh-CN.txt
+index 71d4b0ea..ecae24ac 100644
+--- a/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/zh-CN.txt
++++ b/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/zh-CN.txt
+@@ -1,6 +1,10 @@
+ # Serp mod localization
+ # Format: key=value
+ Common.EnableMod=Enable Mod
++Common.HostActivationLabel=(Host-)
++Common.ClientActivationLabel=(Client settings)
++Common.HostSettingsActivationHelp=Enables or disables all host-controlled settings of this mod.
++Common.ClientSettingsActivationHelp=Enables or disables all local and personal client settings of this mod.
+ Common.ResetToDefault=Reset to Default
+ Common.Ai=AI
+ Common.Human=Human
+
+diff --git a/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/zh-HK.txt b/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/zh-HK.txt
+index 71d4b0ea..ecae24ac 100644
+--- a/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/zh-HK.txt
++++ b/StartConditions/BepInEx/plugins/StartConditions_Serp/Locales/zh-HK.txt
+@@ -1,6 +1,10 @@
+ # Serp mod localization
+ # Format: key=value
+ Common.EnableMod=Enable Mod
++Common.HostActivationLabel=(Host-)
++Common.ClientActivationLabel=(Client settings)
++Common.HostSettingsActivationHelp=Enables or disables all host-controlled settings of this mod.
++Common.ClientSettingsActivationHelp=Enables or disables all local and personal client settings of this mod.
+ Common.ResetToDefault=Reset to Default
+ Common.Ai=AI
+ Common.Human=Human
+
+diff --git a/StartConditions/BepInEx/plugins/StartConditions_Serp/Override/ScriptExtenderUI/StartConditionsSettings.xaml b/StartConditions/BepInEx/plugins/StartConditions_Serp/Override/ScriptExtenderUI/StartConditionsSettings.xaml
+index dcbc1180..b874bf87 100644
+--- a/StartConditions/BepInEx/plugins/StartConditions_Serp/Override/ScriptExtenderUI/StartConditionsSettings.xaml
++++ b/StartConditions/BepInEx/plugins/StartConditions_Serp/Override/ScriptExtenderUI/StartConditionsSettings.xaml
+@@ -14,17 +14,14 @@
+                 HorizontalScrollBarVisibility="Auto">
+     <StackPanel Margin="10">
+       <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+-        <Border Style="{StaticResource HostActivationBorder}"><CheckBox IsEnabled="{Binding CanEditHostSettings}"
+-                  IsChecked="{Binding EnableMod, Mode=TwoWay}"
+-                  Content="{Binding EnableModText}" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableModHelpText}"
+-                  Foreground="White"
+-                  FontWeight="Bold"
+-                  VerticalAlignment="Center"/></Border>
+-        <TextBlock Text="{Binding PresetText}" Visibility="{Binding PresetVisibility}" Foreground="#CCCCCC" VerticalAlignment="Center" Margin="14,0,6,0"/>
+-        <ComboBox IsEnabled="{Binding CanChangePreset}" Visibility="{Binding PresetVisibility}" ItemsSource="{Binding PresetOptions}" ToolTipService.ShowDuration="60000" ToolTip="{Binding PresetHelpText}"
+-                  SelectedIndex="{Binding SelectedPreset, Mode=TwoWay}"
+-                  Width="170"
+-                  VerticalAlignment="Center"/>
++        <TextBlock Text="{Binding ModEnabledText}" Foreground="White" FontWeight="Bold" VerticalAlignment="Center"/>
++        <Border Style="{StaticResource HostActivationBorder}" Margin="8,0,0,0">
++          <CheckBox IsEnabled="{Binding CanToggleHostSettings}" IsChecked="{Binding HostSettingsEnabled, Mode=TwoWay}" Content="{Binding HostActivationLabelText}" ToolTipService.ShowDuration="60000" ToolTip="{Binding HostSettingsActivationHelpText}" Foreground="White" FontWeight="Bold" VerticalAlignment="Center"/>
++        </Border>
++        <Border Style="{StaticResource ClientActivationBorder}" Margin="8,0,0,0">
++          <CheckBox IsEnabled="{Binding CanToggleClientSettings}" IsChecked="{Binding ClientSettingsEnabled, Mode=TwoWay}" Content="{Binding ClientActivationLabelText}" ToolTipService.ShowDuration="60000" ToolTip="{Binding ClientSettingsActivationHelpText}" Foreground="White" FontWeight="Bold" VerticalAlignment="Center"/>
++        </Border>
++        <ComboBox IsEnabled="{Binding CanChangePreset}" Visibility="{Binding PresetVisibility}" ItemsSource="{Binding PresetOptions}" SelectedIndex="{Binding SelectedPreset, Mode=TwoWay}" ToolTipService.ShowDuration="60000" ToolTip="{Binding PresetHelpText}" Width="170" VerticalAlignment="Center" Margin="14,0,0,0"/>
+         <Button IsEnabled="{Binding CanResetSettings}" Content="{Binding ResetToDefaultText}" Command="{Binding ResetToDefaultCommand}" ToolTipService.ShowDuration="60000" ToolTip="{Binding ResetToDefaultHelpText}" HorizontalAlignment="Left" Padding="10,3" Margin="14,0,0,0"/>
+       </StackPanel>
+       <TextBlock Text="{Binding ActionsScopeNoticeText}" Visibility="{Binding ActionsScopeNoticeVisibility}" Foreground="#BBBBBB" TextWrapping="Wrap" Margin="0,0,0,8"/>
+
+diff --git a/StartConditions/Locales/ar.txt b/StartConditions/Locales/ar.txt
+index 71d4b0ea..ecae24ac 100644
+--- a/StartConditions/Locales/ar.txt
++++ b/StartConditions/Locales/ar.txt
+@@ -1,6 +1,10 @@
+ # Serp mod localization
+ # Format: key=value
+ Common.EnableMod=Enable Mod
++Common.HostActivationLabel=(Host-)
++Common.ClientActivationLabel=(Client settings)
++Common.HostSettingsActivationHelp=Enables or disables all host-controlled settings of this mod.
++Common.ClientSettingsActivationHelp=Enables or disables all local and personal client settings of this mod.
+ Common.ResetToDefault=Reset to Default
+ Common.Ai=AI
+ Common.Human=Human
+
+diff --git a/StartConditions/Locales/cs-CZ.txt b/StartConditions/Locales/cs-CZ.txt
+index 71d4b0ea..ecae24ac 100644
+--- a/StartConditions/Locales/cs-CZ.txt
++++ b/StartConditions/Locales/cs-CZ.txt
+@@ -1,6 +1,10 @@
+ # Serp mod localization
+ # Format: key=value
+ Common.EnableMod=Enable Mod
++Common.HostActivationLabel=(Host-)
++Common.ClientActivationLabel=(Client settings)
++Common.HostSettingsActivationHelp=Enables or disables all host-controlled settings of this mod.
++Common.ClientSettingsActivationHelp=Enables or disables all local and personal client settings of this mod.
+ Common.ResetToDefault=Reset to Default
+ Common.Ai=AI
+ Common.Human=Human
+
+diff --git a/StartConditions/Locales/de-DE.txt b/StartConditions/Locales/de-DE.txt
+index a3084165..13cad97d 100644
+--- a/StartConditions/Locales/de-DE.txt
++++ b/StartConditions/Locales/de-DE.txt
+@@ -2,6 +2,10 @@
+ # Format: key=valü
+ Common.ResetToDefault=Zurücksetzen
+ Common.EnableMod=Mod aktivieren
++Common.HostActivationLabel=(Host-)
++Common.ClientActivationLabel=(Client-Settings)
++Common.HostSettingsActivationHelp=Aktiviert oder deaktiviert alle vom Host gesteuerten Einstellungen dieser Mod.
++Common.ClientSettingsActivationHelp=Aktiviert oder deaktiviert alle lokalen und persönlichen Client-Einstellungen dieser Mod.
+ Common.Ai=KI
+ Common.Human=Mensch
+ StartConditions.StartGoldTitle=Startgold
+
+diff --git a/StartConditions/Locales/el-GR.txt b/StartConditions/Locales/el-GR.txt
+index 71d4b0ea..ecae24ac 100644
+--- a/StartConditions/Locales/el-GR.txt
++++ b/StartConditions/Locales/el-GR.txt
+@@ -1,6 +1,10 @@
+ # Serp mod localization
+ # Format: key=value
+ Common.EnableMod=Enable Mod
++Common.HostActivationLabel=(Host-)
++Common.ClientActivationLabel=(Client settings)
++Common.HostSettingsActivationHelp=Enables or disables all host-controlled settings of this mod.
++Common.ClientSettingsActivationHelp=Enables or disables all local and personal client settings of this mod.
+ Common.ResetToDefault=Reset to Default
+ Common.Ai=AI
+ Common.Human=Human
+
+diff --git a/StartConditions/Locales/en-US.txt b/StartConditions/Locales/en-US.txt
+index 71d4b0ea..ecae24ac 100644
+--- a/StartConditions/Locales/en-US.txt
++++ b/StartConditions/Locales/en-US.txt
+@@ -1,6 +1,10 @@
+ # Serp mod localization
+ # Format: key=value
+ Common.EnableMod=Enable Mod
++Common.HostActivationLabel=(Host-)
++Common.ClientActivationLabel=(Client settings)
++Common.HostSettingsActivationHelp=Enables or disables all host-controlled settings of this mod.
++Common.ClientSettingsActivationHelp=Enables or disables all local and personal client settings of this mod.
+ Common.ResetToDefault=Reset to Default
+ Common.Ai=AI
+ Common.Human=Human
+
+diff --git a/StartConditions/Locales/es-ES.txt b/StartConditions/Locales/es-ES.txt
+index 71d4b0ea..ecae24ac 100644
+--- a/StartConditions/Locales/es-ES.txt
++++ b/StartConditions/Locales/es-ES.txt
+@@ -1,6 +1,10 @@
+ # Serp mod localization
+ # Format: key=value
+ Common.EnableMod=Enable Mod
++Common.HostActivationLabel=(Host-)
++Common.ClientActivationLabel=(Client settings)
++Common.HostSettingsActivationHelp=Enables or disables all host-controlled settings of this mod.
++Common.ClientSettingsActivationHelp=Enables or disables all local and personal client settings of this mod.
+ Common.ResetToDefault=Reset to Default
+ Common.Ai=AI
+ Common.Human=Human
+
+diff --git a/StartConditions/Locales/fr-FR.txt b/StartConditions/Locales/fr-FR.txt
+index 71d4b0ea..ecae24ac 100644
+--- a/StartConditions/Locales/fr-FR.txt
++++ b/StartConditions/Locales/fr-FR.txt
+@@ -1,6 +1,10 @@
+ # Serp mod localization
+ # Format: key=value
+ Common.EnableMod=Enable Mod
++Common.HostActivationLabel=(Host-)
++Common.ClientActivationLabel=(Client settings)
++Common.HostSettingsActivationHelp=Enables or disables all host-controlled settings of this mod.
++Common.ClientSettingsActivationHelp=Enables or disables all local and personal client settings of this mod.
+ Common.ResetToDefault=Reset to Default
+ Common.Ai=AI
+ Common.Human=Human
+
+diff --git a/StartConditions/Locales/hu-HU.txt b/StartConditions/Locales/hu-HU.txt
+index 71d4b0ea..ecae24ac 100644
+--- a/StartConditions/Locales/hu-HU.txt
++++ b/StartConditions/Locales/hu-HU.txt
+@@ -1,6 +1,10 @@
+ # Serp mod localization
+ # Format: key=value
+ Common.EnableMod=Enable Mod
++Common.HostActivationLabel=(Host-)
++Common.ClientActivationLabel=(Client settings)
++Common.HostSettingsActivationHelp=Enables or disables all host-controlled settings of this mod.
++Common.ClientSettingsActivationHelp=Enables or disables all local and personal client settings of this mod.
+ Common.ResetToDefault=Reset to Default
+ Common.Ai=AI
+ Common.Human=Human
+
+diff --git a/StartConditions/Locales/it-IT.txt b/StartConditions/Locales/it-IT.txt
+index 71d4b0ea..ecae24ac 100644
+--- a/StartConditions/Locales/it-IT.txt
++++ b/StartConditions/Locales/it-IT.txt
+@@ -1,6 +1,10 @@
+ # Serp mod localization
+ # Format: key=value
+ Common.EnableMod=Enable Mod
++Common.HostActivationLabel=(Host-)
++Common.ClientActivationLabel=(Client settings)
++Common.HostSettingsActivationHelp=Enables or disables all host-controlled settings of this mod.
++Common.ClientSettingsActivationHelp=Enables or disables all local and personal client settings of this mod.
+ Common.ResetToDefault=Reset to Default
+ Common.Ai=AI
+ Common.Human=Human
+
+diff --git a/StartConditions/Locales/ja-JP.txt b/StartConditions/Locales/ja-JP.txt
+index 71d4b0ea..ecae24ac 100644
+--- a/StartConditions/Locales/ja-JP.txt
++++ b/StartConditions/Locales/ja-JP.txt
+@@ -1,6 +1,10 @@
+ # Serp mod localization
+ # Format: key=value
+ Common.EnableMod=Enable Mod
++Common.HostActivationLabel=(Host-)
++Common.ClientActivationLabel=(Client settings)
++Common.HostSettingsActivationHelp=Enables or disables all host-controlled settings of this mod.
++Common.ClientSettingsActivationHelp=Enables or disables all local and personal client settings of this mod.
+ Common.ResetToDefault=Reset to Default
+ Common.Ai=AI
+ Common.Human=Human
+
+diff --git a/StartConditions/Locales/ko-KR.txt b/StartConditions/Locales/ko-KR.txt
+index 71d4b0ea..ecae24ac 100644
+--- a/StartConditions/Locales/ko-KR.txt
++++ b/StartConditions/Locales/ko-KR.txt
+@@ -1,6 +1,10 @@
+ # Serp mod localization
+ # Format: key=value
+ Common.EnableMod=Enable Mod
++Common.HostActivationLabel=(Host-)
++Common.ClientActivationLabel=(Client settings)
++Common.HostSettingsActivationHelp=Enables or disables all host-controlled settings of this mod.
++Common.ClientSettingsActivationHelp=Enables or disables all local and personal client settings of this mod.
+ Common.ResetToDefault=Reset to Default
+ Common.Ai=AI
+ Common.Human=Human
+
+diff --git a/StartConditions/Locales/nl-NL.txt b/StartConditions/Locales/nl-NL.txt
+index 71d4b0ea..ecae24ac 100644
+--- a/StartConditions/Locales/nl-NL.txt
++++ b/StartConditions/Locales/nl-NL.txt
+@@ -1,6 +1,10 @@
+ # Serp mod localization
+ # Format: key=value
+ Common.EnableMod=Enable Mod
++Common.HostActivationLabel=(Host-)
++Common.ClientActivationLabel=(Client settings)
++Common.HostSettingsActivationHelp=Enables or disables all host-controlled settings of this mod.
++Common.ClientSettingsActivationHelp=Enables or disables all local and personal client settings of this mod.
+ Common.ResetToDefault=Reset to Default
+ Common.Ai=AI
+ Common.Human=Human
+
+diff --git a/StartConditions/Locales/pl-PL.txt b/StartConditions/Locales/pl-PL.txt
+index 71d4b0ea..ecae24ac 100644
+--- a/StartConditions/Locales/pl-PL.txt
++++ b/StartConditions/Locales/pl-PL.txt
+@@ -1,6 +1,10 @@
+ # Serp mod localization
+ # Format: key=value
+ Common.EnableMod=Enable Mod
++Common.HostActivationLabel=(Host-)
++Common.ClientActivationLabel=(Client settings)
++Common.HostSettingsActivationHelp=Enables or disables all host-controlled settings of this mod.
++Common.ClientSettingsActivationHelp=Enables or disables all local and personal client settings of this mod.
+ Common.ResetToDefault=Reset to Default
+ Common.Ai=AI
+ Common.Human=Human
+
+diff --git a/StartConditions/Locales/pt-BR.txt b/StartConditions/Locales/pt-BR.txt
+index 71d4b0ea..ecae24ac 100644
+--- a/StartConditions/Locales/pt-BR.txt
++++ b/StartConditions/Locales/pt-BR.txt
+@@ -1,6 +1,10 @@
+ # Serp mod localization
+ # Format: key=value
+ Common.EnableMod=Enable Mod
++Common.HostActivationLabel=(Host-)
++Common.ClientActivationLabel=(Client settings)
++Common.HostSettingsActivationHelp=Enables or disables all host-controlled settings of this mod.
++Common.ClientSettingsActivationHelp=Enables or disables all local and personal client settings of this mod.
+ Common.ResetToDefault=Reset to Default
+ Common.Ai=AI
+ Common.Human=Human
+
+diff --git a/StartConditions/Locales/ru-RU.txt b/StartConditions/Locales/ru-RU.txt
+index 71d4b0ea..ecae24ac 100644
+--- a/StartConditions/Locales/ru-RU.txt
++++ b/StartConditions/Locales/ru-RU.txt
+@@ -1,6 +1,10 @@
+ # Serp mod localization
+ # Format: key=value
+ Common.EnableMod=Enable Mod
++Common.HostActivationLabel=(Host-)
++Common.ClientActivationLabel=(Client settings)
++Common.HostSettingsActivationHelp=Enables or disables all host-controlled settings of this mod.
++Common.ClientSettingsActivationHelp=Enables or disables all local and personal client settings of this mod.
+ Common.ResetToDefault=Reset to Default
+ Common.Ai=AI
+ Common.Human=Human
+
+diff --git a/StartConditions/Locales/sv-SE.txt b/StartConditions/Locales/sv-SE.txt
+index 71d4b0ea..ecae24ac 100644
+--- a/StartConditions/Locales/sv-SE.txt
++++ b/StartConditions/Locales/sv-SE.txt
+@@ -1,6 +1,10 @@
+ # Serp mod localization
+ # Format: key=value
+ Common.EnableMod=Enable Mod
++Common.HostActivationLabel=(Host-)
++Common.ClientActivationLabel=(Client settings)
++Common.HostSettingsActivationHelp=Enables or disables all host-controlled settings of this mod.
++Common.ClientSettingsActivationHelp=Enables or disables all local and personal client settings of this mod.
+ Common.ResetToDefault=Reset to Default
+ Common.Ai=AI
+ Common.Human=Human
+
+diff --git a/StartConditions/Locales/th-TH.txt b/StartConditions/Locales/th-TH.txt
+index 71d4b0ea..ecae24ac 100644
+--- a/StartConditions/Locales/th-TH.txt
++++ b/StartConditions/Locales/th-TH.txt
+@@ -1,6 +1,10 @@
+ # Serp mod localization
+ # Format: key=value
+ Common.EnableMod=Enable Mod
++Common.HostActivationLabel=(Host-)
++Common.ClientActivationLabel=(Client settings)
++Common.HostSettingsActivationHelp=Enables or disables all host-controlled settings of this mod.
++Common.ClientSettingsActivationHelp=Enables or disables all local and personal client settings of this mod.
+ Common.ResetToDefault=Reset to Default
+ Common.Ai=AI
+ Common.Human=Human
+
+diff --git a/StartConditions/Locales/tr-TR.txt b/StartConditions/Locales/tr-TR.txt
+index 71d4b0ea..ecae24ac 100644
+--- a/StartConditions/Locales/tr-TR.txt
++++ b/StartConditions/Locales/tr-TR.txt
+@@ -1,6 +1,10 @@
+ # Serp mod localization
+ # Format: key=value
+ Common.EnableMod=Enable Mod
++Common.HostActivationLabel=(Host-)
++Common.ClientActivationLabel=(Client settings)
++Common.HostSettingsActivationHelp=Enables or disables all host-controlled settings of this mod.
++Common.ClientSettingsActivationHelp=Enables or disables all local and personal client settings of this mod.
+ Common.ResetToDefault=Reset to Default
+ Common.Ai=AI
+ Common.Human=Human
+
+diff --git a/StartConditions/Locales/uk-UA.txt b/StartConditions/Locales/uk-UA.txt
+index 71d4b0ea..ecae24ac 100644
+--- a/StartConditions/Locales/uk-UA.txt
++++ b/StartConditions/Locales/uk-UA.txt
+@@ -1,6 +1,10 @@
+ # Serp mod localization
+ # Format: key=value
+ Common.EnableMod=Enable Mod
++Common.HostActivationLabel=(Host-)
++Common.ClientActivationLabel=(Client settings)
++Common.HostSettingsActivationHelp=Enables or disables all host-controlled settings of this mod.
++Common.ClientSettingsActivationHelp=Enables or disables all local and personal client settings of this mod.
+ Common.ResetToDefault=Reset to Default
+ Common.Ai=AI
+ Common.Human=Human
+
+diff --git a/StartConditions/Locales/zh-CN.txt b/StartConditions/Locales/zh-CN.txt
+index 71d4b0ea..ecae24ac 100644
+--- a/StartConditions/Locales/zh-CN.txt
++++ b/StartConditions/Locales/zh-CN.txt
+@@ -1,6 +1,10 @@
+ # Serp mod localization
+ # Format: key=value
+ Common.EnableMod=Enable Mod
++Common.HostActivationLabel=(Host-)
++Common.ClientActivationLabel=(Client settings)
++Common.HostSettingsActivationHelp=Enables or disables all host-controlled settings of this mod.
++Common.ClientSettingsActivationHelp=Enables or disables all local and personal client settings of this mod.
+ Common.ResetToDefault=Reset to Default
+ Common.Ai=AI
+ Common.Human=Human
+
+diff --git a/StartConditions/Locales/zh-HK.txt b/StartConditions/Locales/zh-HK.txt
+index 71d4b0ea..ecae24ac 100644
+--- a/StartConditions/Locales/zh-HK.txt
++++ b/StartConditions/Locales/zh-HK.txt
+@@ -1,6 +1,10 @@
+ # Serp mod localization
+ # Format: key=value
+ Common.EnableMod=Enable Mod
++Common.HostActivationLabel=(Host-)
++Common.ClientActivationLabel=(Client settings)
++Common.HostSettingsActivationHelp=Enables or disables all host-controlled settings of this mod.
++Common.ClientSettingsActivationHelp=Enables or disables all local and personal client settings of this mod.
+ Common.ResetToDefault=Reset to Default
+ Common.Ai=AI
+ Common.Human=Human
+
+diff --git a/StartConditions/src/StartConditionsLobbyViewModel.cs b/StartConditions/src/StartConditionsLobbyViewModel.cs
+index f15a8b41..75d28719 100644
+--- a/StartConditions/src/StartConditionsLobbyViewModel.cs
++++ b/StartConditions/src/StartConditionsLobbyViewModel.cs
+@@ -677,6 +677,9 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
+         {
+             try
+             {
++                if (!CrusaderDE.MainViewModel.viewModelLoaded)
++                    return null;
++
+                 return CrusaderDE.MainViewModel.Instance?.getSmallGoodsIcon((int)good);
+             }
+             catch
+
+diff --git a/StartConditions/src/StartConditionsPlugin.cs b/StartConditions/src/StartConditionsPlugin.cs
+index 770d017c..0a675275 100644
+--- a/StartConditions/src/StartConditionsPlugin.cs
++++ b/StartConditions/src/StartConditionsPlugin.cs
+@@ -15,7 +15,7 @@ namespace StartConditions
+ 
+         public const string PluginGuid = "StartConditions_Serp";
+         public const string PluginName = "Start Conditions";
+-        public const string PluginVersion = "1.0.13";
++        public const string PluginVersion = "1.0.16";
+ 
+         private StartConditionsRuntime runtime;
+         private int libraryInitializationStarted;
+@@ -39,24 +39,41 @@ namespace StartConditions
+ 
+             CrusaderLibrary.Instance.LibraryLoaded -= OnCrusaderLibraryLoaded;
+ 
++            TryInitializeStage("native version diagnostics", () => Shared.DebugLogHelper.ReportNativeLibraryVersion(Logger, PluginName));
++            TryInitializeStage("localized names", () => Settings.RefreshLocalizedNames(message => Shared.DebugLogHelper.LogDebug(Logger, message)));
+             try
+             {
+-                Shared.DebugLogHelper.ReportNativeLibraryVersion(Logger, PluginName);
+-                Settings.RefreshLocalizedNames(message => Shared.DebugLogHelper.LogDebug(Logger, message));
+                 Shared.LobbyModSettingsPresetRegistration.Register(
+                     this,
+                     Logger,
+                     "StartConditions_Serp",
+                     Settings,
+                     "ScriptExtenderUI/StartConditionsSettings.xaml");
++            }
++            catch (Exception ex)
++            {
++                Shared.DebugLogHelper.LogError(Logger, $"StartConditions settings registration failed; gameplay runtime stopped fail-closed: {ex}");
++                return;
++            }
+ 
+-                Shared.DebugLogHelper.LogDebug(Logger, "Crusader library loaded; StartConditions UI registered.");
++            try
++            {
+                 runtime.InitializeAfterLibraryLoaded();
++                Shared.DebugLogHelper.LogDebug(Logger, "Crusader library loaded; StartConditions runtime initialized.");
+             }
+             catch (Exception ex)
+             {
+                 Shared.DebugLogHelper.LogError(Logger, $"Error while initializing StartConditions after library load: {ex}");
+             }
+         }
++
++        private void TryInitializeStage(string stageName, Action initialize)
++        {
++            try { initialize(); }
++            catch (Exception ex)
++            {
++                Shared.DebugLogHelper.LogError(Logger, $"StartConditions {stageName} failed; independent stages continue: {ex}");
++            }
++        }
+     }
+ }
+
+diff --git a/StartConditions/src/StartConditionsRuntime.cs b/StartConditions/src/StartConditionsRuntime.cs
+index f24bd465..fc165ed8 100644
+--- a/StartConditions/src/StartConditionsRuntime.cs
++++ b/StartConditions/src/StartConditionsRuntime.cs
+@@ -24,9 +24,12 @@ namespace StartConditions
+         private bool libraryInitialized;
+         internal const int DelayedStartTroopCountMilliseconds = 20000;
+         internal const int DelayedStartTroopCountSeconds = DelayedStartTroopCountMilliseconds / 1000;
++        private static readonly TimeSpan KeepReadinessTimeout = TimeSpan.FromSeconds(30);
+         private const int IncomingGoodClearAmount = 100000;
+         private string pendingStartTroopTimerHandle;
+         private StartTroopPlan pendingStartTroopPlan;
++        private Shared.ActivePlayerKeepWaitHandle pendingKeepReadiness;
++        private int[] activePlayerIds = Array.Empty<int>();
+ 
+         private static readonly HashSet<eChimps> SoldierChimps = new HashSet<eChimps>
+         {
+@@ -152,6 +155,7 @@ namespace StartConditions
+ 
+             subscriptions.Clear();
+             hooksSubscribed = false;
++            CancelPendingKeepReadiness();
+             CancelPendingStartTroopProcessing();
+         }
+ 
+@@ -164,5 +168,10 @@ namespace StartConditions
+         {
+             Shared.DebugLogHelper.LogInfo(log, string.Join(" ", parts));
+         }
++
++        private void LogError(params object[] parts)
++        {
++            Shared.DebugLogHelper.LogError(log, string.Join(" ", parts));
++        }
+     }
+ }
+
+diff --git a/StartConditions/src/StartConditionsRuntime.Helpers.cs b/StartConditions/src/StartConditionsRuntime.Helpers.cs
+index 4629d3f1..a72289ea 100644
+--- a/StartConditions/src/StartConditionsRuntime.Helpers.cs
++++ b/StartConditions/src/StartConditionsRuntime.Helpers.cs
+@@ -23,12 +23,30 @@ namespace StartConditions
+ 
+         private void ForEachActivePlayer(Action<int> callback)
+         {
+-            int[] activePlayerIds = Shared.ActivePlayerHelper.GetActivePlayerIds();
+             for (int i = 0; i < activePlayerIds.Length; i++)
+             {
+                 int playerId = activePlayerIds[i];
+-                LogDebug("ForEachAlivePlayer active player", "playerId", playerId);
+-                callback(playerId);
++                LogDebug("ForEachActivePlayer synchronized ready player", "playerId", playerId);
++                try
++                {
++                    callback(playerId);
++                }
++                catch (Exception ex)
++                {
++                    LogError("Start Conditions player operation failed; remaining players continue:", playerId, ex);
++                }
++            }
++        }
++
++        private void TryRunFeature(string featureName, Action action)
++        {
++            try
++            {
++                action();
++            }
++            catch (Exception ex)
++            {
++                LogError("Start Conditions feature failed; independent features continue:", featureName, ex);
+             }
+         }
+ 
+
+diff --git a/StartConditions/src/StartConditionsRuntime.MapLifecycle.cs b/StartConditions/src/StartConditionsRuntime.MapLifecycle.cs
+index c3bd18e7..ea4c584f 100644
+--- a/StartConditions/src/StartConditionsRuntime.MapLifecycle.cs
++++ b/StartConditions/src/StartConditionsRuntime.MapLifecycle.cs
+@@ -35,6 +35,7 @@ namespace StartConditions
+         private void OnLoadSave(LoadSaveGameEventArgs args)
+         {
+             LogDebug("OnLoadSave");
++            CancelPendingKeepReadiness();
+             CancelPendingStartTroopProcessing();
+             handledCurrentMap = true;
+             CodeOnLoadGame();
+@@ -43,17 +44,53 @@ namespace StartConditions
+         private void OnUnloadMap(MapUnloadEventArgs args)
+         {
+             LogDebug("OnUnloadMap");
++            CancelPendingKeepReadiness();
+             CancelPendingStartTroopProcessing();
+             handledCurrentMap = false;
+             activeSettings = settings;
++            activePlayerIds = Array.Empty<int>();
+         }
+ 
+         private void CodeOnNewGame()
+         {
+-            // Capture once so delayed troop processing uses the same mission settings.
++            CancelPendingKeepReadiness();
++            CancelPendingStartTroopProcessing();
++            // Capture once so readiness and delayed troop processing use the same mission settings.
+             activeSettings = StartConditionsIntegration.GetEffectiveSettings(settings);
+-            ApplyStartResources();
+-            AddStartTroops();
++            activePlayerIds = Array.Empty<int>();
++            pendingKeepReadiness = Shared.ActivePlayerKeepReadiness.Wait(
++                OnActivePlayerKeepsReady,
++                KeepReadinessTimeout,
++                message => LogError(message),
++                "Start Conditions could not apply start resources or troops within 30 seconds because not every active player had a ready Keep.",
++                OnKeepReadinessCompleted);
++            LogDebug("Waiting up to 30 seconds for the synchronized active-player roster and all Keeps.");
++        }
++
++        private void OnActivePlayerKeepsReady(Shared.ActivePlayerKeepSnapshot snapshot)
++        {
++            activePlayerIds = (int[])snapshot.PlayerIds.Clone();
++            LogInfo(
++                "Start Conditions Keep readiness succeeded; applying start conditions for players",
++                $"[{string.Join(",", activePlayerIds)}]",
++                "keeps",
++                $"[{string.Join(",", snapshot.KeepBuildingIds)}]");
++            TryRunFeature("start resources", ApplyStartResources);
++            TryRunFeature("start troops", AddStartTroops);
++        }
++
++        private void OnKeepReadinessCompleted(Shared.ActivePlayerKeepWaitResult result)
++        {
++            pendingKeepReadiness = null;
++            if (result.Status == Shared.ActivePlayerKeepWaitStatus.CallbackFailed)
++                LogError("Start Conditions stopped after its Keep-readiness callback failed.");
++        }
++
++        private void CancelPendingKeepReadiness()
++        {
++            Shared.ActivePlayerKeepWaitHandle pending = pendingKeepReadiness;
++            pendingKeepReadiness = null;
++            pending?.Dispose();
+         }
+ 
+         private void CodeOnLoadGame()
+
+diff --git a/StartConditions/src/StartConditionsRuntime.StartResources.cs b/StartConditions/src/StartConditionsRuntime.StartResources.cs
+index aac8d8b6..0165e415 100644
+--- a/StartConditions/src/StartConditionsRuntime.StartResources.cs
++++ b/StartConditions/src/StartConditionsRuntime.StartResources.cs
+@@ -13,8 +13,8 @@ namespace StartConditions
+             ForEachActivePlayer(playerId =>
+             {
+                 LogDebug("Applying start resources for player", playerId);
+-                ApplyStartGold(playerId);
+-                ReplaceStartGoods(playerId);
++                TryRunFeature($"start gold for player {playerId}", () => ApplyStartGold(playerId));
++                TryRunFeature($"start goods for player {playerId}", () => ReplaceStartGoods(playerId));
+             });
+         }
+ 
+@@ -63,10 +63,17 @@ namespace StartConditions
+                     continue;
+                 }
+ 
+-                GamePlayerManagerAPI.Instance.SubtractIncomingGood(playerId, entry.Key, IncomingGoodClearAmount);
+-                if (entry.Value > 0)
+-                    GamePlayerManagerAPI.Instance.AddIncomingGood(playerId, entry.Key, entry.Value);
+-                LogDebug("Set incoming good", entry.Key, "to", entry.Value, "for player", playerId);
++                try
++                {
++                    GamePlayerManagerAPI.Instance.SubtractIncomingGood(playerId, entry.Key, IncomingGoodClearAmount);
++                    if (entry.Value > 0)
++                        GamePlayerManagerAPI.Instance.AddIncomingGood(playerId, entry.Key, entry.Value);
++                    LogDebug("Set incoming good", entry.Key, "to", entry.Value, "for player", playerId);
++                }
++                catch (System.Exception ex)
++                {
++                    LogError("Start Conditions start-good operation failed; remaining goods continue:", entry.Key, "player", playerId, ex);
++                }
+             }
+         }
+     }
+
+diff --git a/StartConditions/src/StartConditionsRuntime.StartTroops.cs b/StartConditions/src/StartConditionsRuntime.StartTroops.cs
+index 23fcda9b..01397b2c 100644
+--- a/StartConditions/src/StartConditionsRuntime.StartTroops.cs
++++ b/StartConditions/src/StartConditionsRuntime.StartTroops.cs
+@@ -78,31 +78,13 @@ namespace StartConditions
+             try
+             {
+                 LogDebug("Running delayed start troop processing for", plan.PendingPlayers.Count, "players");
+-                Dictionary<int, Dictionary<eChimps, int>> troopCounts = CountSoldiersForPlayers();
++                var troopCounts = new Dictionary<int, Dictionary<eChimps, int>>();
++                TryRunFeature("delayed start troop counting", () => troopCounts = CountSoldiersForPlayers());
+                 foreach (PendingStartTroopPlayer pending in plan.PendingPlayers)
+                 {
+-                    if (!GamePlayerManagerAPI.Instance.IsPlayerIdValid(pending.PlayerId))
+-                    {
+-                        LogDebug("Delayed start troop processing skipped; player no longer valid:", pending.PlayerId);
+-                        continue;
+-                    }
+-
+-                    if (pending.Multiplier == 0)
+-                    {
+-                        DeleteSoldiersForPlayer(pending.PlayerId);
+-                        continue;
+-                    }
+-
+-                    if (!Shared.ActivePlayerHelper.HasKeep(pending.PlayerId))
+-                    {
+-                        LogDebug("Delayed start troop multiply skipped; player has no keep:", pending.PlayerId);
+-                        continue;
+-                    }
+-
+-                    if (troopCounts.TryGetValue(pending.PlayerId, out Dictionary<eChimps, int> playerCounts))
+-                        SpawnMultipliedStartTroops(pending.PlayerId, playerCounts, pending.Multiplier, "delayed count");
+-                    else
+-                        LogDebug("No start troop counts available for player", pending.PlayerId, "multiplier skipped.");
++                    TryRunFeature(
++                        $"delayed start troops for player {pending.PlayerId}",
++                        () => ProcessDelayedStartTroopsForPlayer(pending, troopCounts));
+                 }
+ 
+                 SpawnConfiguredStartTroops(plan.AiTroops, plan.HumanTroops);
+@@ -113,6 +95,34 @@ namespace StartConditions
+             }
+         }
+ 
++        private void ProcessDelayedStartTroopsForPlayer(
++            PendingStartTroopPlayer pending,
++            Dictionary<int, Dictionary<eChimps, int>> troopCounts)
++        {
++            if (!GamePlayerManagerAPI.Instance.IsPlayerIdValid(pending.PlayerId))
++            {
++                LogDebug("Delayed start troop processing skipped; player no longer valid:", pending.PlayerId);
++                return;
++            }
++
++            if (pending.Multiplier == 0)
++            {
++                DeleteSoldiersForPlayer(pending.PlayerId);
++                return;
++            }
++
++            if (!Shared.ActivePlayerKeepReadiness.TryGetReadyKeep(pending.PlayerId, out _))
++            {
++                LogDebug("Delayed start troop multiply skipped; player has no keep:", pending.PlayerId);
++                return;
++            }
++
++            if (troopCounts.TryGetValue(pending.PlayerId, out Dictionary<eChimps, int> playerCounts))
++                SpawnMultipliedStartTroops(pending.PlayerId, playerCounts, pending.Multiplier, "delayed count");
++            else
++                LogDebug("No start troop counts available for player", pending.PlayerId, "multiplier skipped.");
++        }
++
+         private void CancelPendingStartTroopProcessing()
+         {
+             if (!string.IsNullOrEmpty(pendingStartTroopTimerHandle))
+@@ -140,7 +150,9 @@ namespace StartConditions
+                 if (amount > 0)
+                 {
+                     LogDebug("Spawning multiplied start troops from", source, "for player", playerId, entry.Key, entry.Value, "x", multiplier, "=> add", amount);
+-                    SpawnUnitsNearKeep(playerId, entry.Key, amount);
++                    TryRunFeature(
++                        $"multiplied {entry.Key} start troops for player {playerId}",
++                        () => SpawnUnitsNearKeep(playerId, entry.Key, amount));
+                 }
+             }
+         }
+@@ -164,10 +176,18 @@ namespace StartConditions
+                 if (!SoldierChimps.Contains(unitType))
+                     continue;
+ 
+-                if (GameUnitManagerAPI.Instance.DeleteUnitSafe(unitId))
+-                    deleted++;
+-                else
++                try
++                {
++                    if (GameUnitManagerAPI.Instance.DeleteUnitSafe(unitId))
++                        deleted++;
++                    else
++                        failed++;
++                }
++                catch (Exception ex)
++                {
+                     failed++;
++                    LogError("Start Conditions could not delete one start soldier; remaining units continue:", unitId, ex);
++                }
+             }
+ 
+             LogDebug("Deleted start soldiers for player", playerId, "deleted", deleted, "failed", failed);
+@@ -183,7 +203,11 @@ namespace StartConditions
+                 foreach (KeyValuePair<eChimps, int> entry in configuredTroops)
+                 {
+                     if (entry.Value > 0)
+-                        SpawnUnitsNearKeep(playerId, entry.Key, entry.Value);
++                    {
++                        TryRunFeature(
++                            $"configured {entry.Key} start troops for player {playerId}",
++                            () => SpawnUnitsNearKeep(playerId, entry.Key, entry.Value));
++                    }
+                 }
+             });
+         }
+@@ -244,7 +268,7 @@ namespace StartConditions
+             height = 0;
+ 
+             if (!GamePlayerManagerAPI.Instance.IsPlayerIdValid(playerId) ||
+-                !Shared.ActivePlayerHelper.HasKeep(playerId))
++                !Shared.ActivePlayerKeepReadiness.TryGetReadyKeep(playerId, out _))
+             {
+                 LogDebug("Cannot find keep spawn tile; player is invalid or has no keep:", playerId);
+                 return false;
+
+diff --git a/StartConditions/StartConditions.csproj b/StartConditions/StartConditions.csproj
+index 1116a345..8e02c518 100644
+--- a/StartConditions/StartConditions.csproj
++++ b/StartConditions/StartConditions.csproj
+@@ -98,6 +98,9 @@
+     <Compile Include="..\Shared\ActivePlayerHelper.cs">
+       <Link>Shared\ActivePlayerHelper.cs</Link>
+     </Compile>
++    <Compile Include="..\Shared\ActivePlayerKeepReadiness.cs">
++      <Link>Shared\ActivePlayerKeepReadiness.cs</Link>
++    </Compile>
+     <Compile Include="..\Shared\DebugLogHelper.cs">
+       <Link>Shared\DebugLogHelper.cs</Link>
+     </Compile>
