@@ -3,10 +3,37 @@
   "Author": "Serpens66",
   "Name": "CastlePlanner",
   "Description": "Displays AIVJSON blueprints, spawns personal human castles, and contains the gated AI lobby placement workflow.",
-  "Version": "0.6.1",
+  "Version": "0.6.5",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "0.6.5",
+      "Changes": [
+        "Removed the explicit ComboBoxItem container style entirely so the game renders its untouched dropdown theme instead of Noesis' pink fallback.",
+        "Kept incompatible multiplayer entries gray in the data template and rejected attempts to select them in the bound setting."
+      ]
+    },
+    {
+      "Version": "0.6.4",
+      "Changes": [
+        "Forced the themed Noesis ComboBox popup to Bottom placement before opening and kept its height within the measured space below the selector."
+      ]
+    },
+    {
+      "Version": "0.6.3",
+      "Changes": [
+        "Preserved the game's existing ComboBoxItem theme while adding gray multiplayer availability state, removing the pink Noesis fallback appearance.",
+        "Restored the proven dynamic popup-height workaround so the dropdown stays below the opening click instead of reopening upward and closing immediately."
+      ]
+    },
+    {
+      "Version": "0.6.2",
+      "Changes": [
+        "Restored the proven data-value ComboBox binding used by the working August 20 CastlePlanner selector.",
+        "Removed generated Noesis ComboBoxItem controls and custom selection interception while retaining disabled gray multiplayer entries."
+      ]
+    },
     {
       "Version": "0.6.1",
       "Changes": [

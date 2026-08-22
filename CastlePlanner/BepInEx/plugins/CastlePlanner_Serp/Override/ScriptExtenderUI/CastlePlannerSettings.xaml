@@ -95,14 +95,25 @@
           <TextBlock Text="{Binding CastleText}" Foreground="#DDDDDD" Margin="0,0,0,3"/>
           <ComboBox x:Name="CastlePlannerSelectionComboBox"
                     ItemsSource="{Binding SpawnCastleOptions}"
-                    SelectedIndex="{Binding SelectedSpawnCastleOptionIndex, Mode=TwoWay}"
-                    MaxDropDownHeight="420"
+                    SelectedItem="{Binding SelectedSpawnCastleOption, Mode=TwoWay}"
+                    MaxDropDownHeight="120"
                     MinHeight="38"
                     ToolTipService.ShowDuration="60000"
                     ToolTip="{Binding CastleHelpText}"
                     Width="620"
                     HorizontalAlignment="Left"
-                    Margin="0,0,0,8"/>
+                    Margin="0,0,0,8">
+            <ComboBox.ItemTemplate>
+              <DataTemplate>
+                <TextBlock Text="{Binding DisplayName}"
+                           Width="560"
+                           TextTrimming="CharacterEllipsis"
+                           Opacity="{Binding TextOpacity}"
+                           ToolTip="{Binding Tooltip}"
+                           ToolTipService.ShowDuration="60000"/>
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
           <TextBlock Text="{Binding InventoryText}" Foreground="#999999" TextWrapping="Wrap"/>
         </StackPanel>
       </Border>

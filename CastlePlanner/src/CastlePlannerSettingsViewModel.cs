@@ -16,6 +16,27 @@ using UnityEngine;
 
 namespace CastlePlanner
 {
+    public sealed class CastlePlannerSpawnCastleOption
+    {
+        public CastlePlannerSpawnCastleOption(
+            string value,
+            string displayName,
+            bool isEnabled,
+            string tooltip)
+        {
+            Value = value ?? string.Empty;
+            DisplayName = displayName ?? string.Empty;
+            IsEnabled = isEnabled;
+            Tooltip = tooltip ?? string.Empty;
+        }
+
+        public string Value { get; }
+        public string DisplayName { get; }
+        public bool IsEnabled { get; }
+        public string Tooltip { get; }
+        public double TextOpacity => IsEnabled ? 1.0 : 0.45;
+    }
+
     public sealed class CastlePlannerSettingsViewModel : Shared.PresetLobbyModSettingsViewModel
     {
         private readonly ManualLogSource log;
@@ -31,8 +52,8 @@ namespace CastlePlanner
         private string selectedCastle;
         private string spawnSelectedCastle = string.Empty;
         private string spawnInventoryManifest = string.Empty;
-        private Noesis.ComboBoxItem[] spawnCastleOptions = Array.Empty<Noesis.ComboBoxItem>();
-        private string[] spawnCastleOptionNames = Array.Empty<string>();
+        private CastlePlannerSpawnCastleOption[] spawnCastleOptions =
+            Array.Empty<CastlePlannerSpawnCastleOption>();
         private readonly string[] decodedManifestSources = new string[9];
         private readonly IReadOnlyDictionary<string, string>[] decodedInventories =
             new IReadOnlyDictionary<string, string>[9];
@@ -105,7 +126,7 @@ namespace CastlePlanner
         public ObservableCollection<string> CastleOptions { get; } =
             new ObservableCollection<string>();
 
-        public Noesis.ComboBoxItem[] SpawnCastleOptions => spawnCastleOptions;
+        public CastlePlannerSpawnCastleOption[] SpawnCastleOptions => spawnCastleOptions;
         public string[] SpawnSelectedCastleData { get; } = new string[9];
         public string[] SpawnInventoryManifestData { get; } = new string[9];
 
@@ -328,7 +349,7 @@ namespace CastlePlanner
                 spawnSelectedCastle = normalized;
                 MarkCompatibilityChanged();
                 OnPropertyChanged(nameof(SpawnSelectedCastle));
-                OnPropertyChanged(nameof(SelectedSpawnCastleOptionIndex));
+                OnPropertyChanged(nameof(SelectedSpawnCastleOption));
                 Shared.DebugLogHelper.LogInfo(
                     log,
                     $"CastlePlanner personal spawn AIVJSON selection changed: " +
@@ -353,27 +374,28 @@ namespace CastlePlanner
             }
         }
 
-        public int SelectedSpawnCastleOptionIndex
+        public CastlePlannerSpawnCastleOption SelectedSpawnCastleOption
         {
             get
             {
-                if (spawnCastleOptions.Length == 0)
-                    return -1;
-                int index = Array.FindIndex(
-                    spawnCastleOptionNames,
-                    name => string.Equals(name, spawnSelectedCastle, StringComparison.OrdinalIgnoreCase));
-                return index >= 0 ? index : 0;
+                CastlePlannerSpawnCastleOption selected = spawnCastleOptions
+                    .FirstOrDefault(option => string.Equals(
+                        option.Value,
+                        spawnSelectedCastle,
+                        StringComparison.OrdinalIgnoreCase));
+                return selected ?? spawnCastleOptions.FirstOrDefault();
             }
             set
             {
-                if (value < 0 || value >= spawnCastleOptions.Length ||
-                    value >= spawnCastleOptionNames.Length ||
-                    !spawnCastleOptions[value].IsEnabled)
+                if (value == null || !value.IsEnabled)
                 {
+                    // No ItemContainerStyle is used because overriding the game's
+                    // container theme produces Noesis' pink fallback rendering.
+                    OnPropertyChanged(nameof(SelectedSpawnCastleOption));
                     return;
                 }
 
-                SpawnSelectedCastle = spawnCastleOptionNames[value];
+                SpawnSelectedCastle = value.Value;
             }
         }
 
@@ -646,14 +668,12 @@ namespace CastlePlanner
             IReadOnlyDictionary<int, IReadOnlyDictionary<string, string>> inventories =
                 DecodeInventories(humanPlayerIds);
 
-            var options = new List<Noesis.ComboBoxItem>();
-            var names = new List<string>();
-            Noesis.ComboBoxItem none = CreateSpawnOption(
+            var options = new List<CastlePlannerSpawnCastleOption>();
+            options.Add(CreateSpawnOption(
+                string.Empty,
                 SerpLocalization.Get("CastlePlanner.NoCastle"),
                 true,
-                SerpLocalization.Get("CastlePlanner.NoCastleHelp"));
-            options.Add(none);
-            names.Add(string.Empty);
+                SerpLocalization.Get("CastlePlanner.NoCastleHelp")));
 
             foreach (string castle in CastleOptions)
             {
@@ -665,17 +685,18 @@ namespace CastlePlanner
                          out _));
                 options.Add(CreateSpawnOption(
                     castle,
+                    castle,
                     compatible,
                     compatible
                         ? CastleHelpText
                         : SerpLocalization.Get("CastlePlanner.CastleUnavailableForAllHelp")));
-                names.Add(castle);
             }
 
             spawnCastleOptions = options.ToArray();
-            spawnCastleOptionNames = names.ToArray();
             OnPropertyChanged(nameof(SpawnCastleOptions));
-            OnPropertyChanged(nameof(SelectedSpawnCastleOptionIndex));
+            // The historical working selector bound directly to data values. Re-raise
+            // the selected value after replacing the data items so Noesis can rematch it.
+            OnPropertyChanged(nameof(SelectedSpawnCastleOption));
 
             if (multiplayer && allReported && !string.IsNullOrEmpty(spawnSelectedCastle) &&
                 !CastleSpawnCompatibility.IsAvailableToAll(
@@ -731,27 +752,20 @@ namespace CastlePlanner
             SpawnSelectedCastle = string.Empty;
         }
 
-        private static Noesis.ComboBoxItem CreateSpawnOption(
-            string content,
+        private static CastlePlannerSpawnCastleOption CreateSpawnOption(
+            string value,
+            string displayName,
             bool enabled,
             string tooltip)
         {
-            var item = new Noesis.ComboBoxItem
-            {
-                Content = new Noesis.TextBlock
-                {
-                    Text = content,
-                    Width = 560,
-                    TextTrimming = Noesis.TextTrimming.CharacterEllipsis
-                },
-                IsEnabled = enabled,
-                ToolTip = string.IsNullOrEmpty(content)
-                    ? tooltip
-                    : content + Environment.NewLine + tooltip,
-                Width = 600
-            };
-            Noesis.ToolTipService.SetShowDuration(item, 60000);
-            return item;
+            string fullTooltip = string.IsNullOrEmpty(displayName)
+                ? tooltip
+                : displayName + Environment.NewLine + tooltip;
+            return new CastlePlannerSpawnCastleOption(
+                value,
+                displayName,
+                enabled,
+                fullTooltip);
         }
 
         private static LobbyHumanPlayerSnapshot GetLobbyHumanPlayerSnapshot()
