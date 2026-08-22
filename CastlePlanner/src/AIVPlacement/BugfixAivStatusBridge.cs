@@ -10,15 +10,15 @@ namespace CastlePlanner.AIVPlacement
         private const string AssemblyName = "BugfixesAndQoL";
         private const string ApiTypeName = "BugfixesAndQoL.AivCandidateStatusApi";
         private static bool resolved;
-        private static MethodInfo setStatus;
         private static MethodInfo clearStatuses;
+        private static MethodInfo replaceStatuses;
 
         public static bool IsAvailable
         {
             get
             {
                 Resolve();
-                return setStatus != null && clearStatuses != null;
+                return clearStatuses != null && replaceStatuses != null;
             }
         }
 
@@ -27,23 +27,23 @@ namespace CastlePlanner.AIVPlacement
             view?.FindName("BugfixesAndQoLAivSelectionListHost") is Noesis.FrameworkElement host &&
             host.Visibility == Noesis.Visibility.Visible;
 
-        public static bool TrySet(
-            FRONT_Multiplayer.MPAIVInfo info,
-            ulong checksum,
-            int neutralStatus,
-            string toolTip)
-        {
-            Resolve();
-            if (setStatus == null || info == null)
-                return false;
-            setStatus.Invoke(null, new object[] { info, checksum, neutralStatus, toolTip ?? string.Empty });
-            return true;
-        }
-
         public static void Clear(FRONT_Multiplayer.MPAIVInfo info)
         {
             Resolve();
             clearStatuses?.Invoke(null, new object[] { info });
+        }
+
+        public static bool TryReplace(
+            FRONT_Multiplayer.MPAIVInfo info,
+            ulong[] checksums,
+            int[] statuses,
+            string[] toolTips)
+        {
+            Resolve();
+            if (replaceStatuses == null || info == null)
+                return false;
+            replaceStatuses.Invoke(null, new object[] { info, checksums, statuses, toolTips });
+            return true;
         }
 
         private static void Resolve()
@@ -53,19 +53,19 @@ namespace CastlePlanner.AIVPlacement
             Assembly assembly = AppDomain.CurrentDomain.GetAssemblies().FirstOrDefault(candidate =>
                 string.Equals(candidate.GetName().Name, AssemblyName, StringComparison.Ordinal));
             Type api = assembly?.GetType(ApiTypeName, false);
-            setStatus = api?.GetMethod(
-                "SetStatus",
-                BindingFlags.Static | BindingFlags.Public,
-                null,
-                new[] { typeof(FRONT_Multiplayer.MPAIVInfo), typeof(ulong), typeof(int), typeof(string) },
-                null);
             clearStatuses = api?.GetMethod(
                 "ClearStatuses",
                 BindingFlags.Static | BindingFlags.Public,
                 null,
                 new[] { typeof(FRONT_Multiplayer.MPAIVInfo) },
                 null);
-            resolved = setStatus != null && clearStatuses != null;
+            replaceStatuses = api?.GetMethod(
+                "ReplaceStatuses",
+                BindingFlags.Static | BindingFlags.Public,
+                null,
+                new[] { typeof(FRONT_Multiplayer.MPAIVInfo), typeof(ulong[]), typeof(int[]), typeof(string[]) },
+                null);
+            resolved = clearStatuses != null && replaceStatuses != null;
         }
     }
 }

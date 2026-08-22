@@ -33,6 +33,7 @@ namespace BugfixesAndQoL
         internal const int MaximumCandidatesPerLord = 50;
         internal const int MaximumUncompressedBytes = 16 * 1024 * 1024;
         internal const int MaximumChunkBytes = 192 * 1024;
+        internal const int MaximumCompressedBytes = MaximumUncompressedBytes + MaximumChunkBytes;
         private const int Magic = 0x56494153; // "SAIV" in little endian.
 
         public static byte[] Encode(MultiplayerAivManifest manifest)
@@ -73,12 +74,15 @@ namespace BugfixesAndQoL
                 }
 
                 writer.Write(blobs.Count);
-                foreach (KeyValuePair<string, short[]> blob in blobs)
+                var blobKeys = new List<string>(blobs.Keys);
+                blobKeys.Sort(StringComparer.Ordinal);
+                foreach (string blobKey in blobKeys)
                 {
-                    byte[] hash = FromHex(blob.Key);
+                    short[] blob = blobs[blobKey];
+                    byte[] hash = FromHex(blobKey);
                     writer.Write(hash);
-                    writer.Write(blob.Value.Length);
-                    foreach (short value in blob.Value)
+                    writer.Write(blob.Length);
+                    foreach (short value in blob)
                         writer.Write(value);
                 }
                 writer.Flush();

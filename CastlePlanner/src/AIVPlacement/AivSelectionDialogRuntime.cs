@@ -452,7 +452,9 @@ namespace CastlePlanner.AIVPlacement
         {
             if (info?.aivs == null || !BugfixAivStatusBridge.IsAvailable)
                 return;
-            BugfixAivStatusBridge.Clear(info);
+            var checksums = new List<ulong>();
+            var neutralStatuses = new List<int>();
+            var toolTips = new List<string>();
             for (int candidateId = 0; candidateId < info.aivs.Count; candidateId++)
             {
                 CustomisationFileManager.CustomAIV aiv = info.aivs[candidateId];
@@ -472,8 +474,15 @@ namespace CastlePlanner.AIVPlacement
                         default: neutralStatus = 4; break;
                     }
                 }
-                BugfixAivStatusBridge.TrySet(info, aiv.checksum, neutralStatus, state.ToolTip);
+                checksums.Add(aiv.checksum);
+                neutralStatuses.Add(neutralStatus);
+                toolTips.Add(state.ToolTip ?? string.Empty);
             }
+            BugfixAivStatusBridge.TryReplace(
+                info,
+                checksums.ToArray(),
+                neutralStatuses.ToArray(),
+                toolTips.ToArray());
         }
 
         private bool IsLobbySetupActive()

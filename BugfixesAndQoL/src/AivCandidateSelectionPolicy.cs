@@ -39,5 +39,15 @@ namespace BugfixesAndQoL
             }
             return added;
         }
+
+        public static int TrimToMaximum<T>(List<T> values, int maximum)
+        {
+            if (values == null || values.Count <= maximum)
+                return 0;
+            int safeMaximum = Math.Max(0, maximum);
+            int removed = values.Count - safeMaximum;
+            values.RemoveRange(safeMaximum, removed);
+            return removed;
+        }
     }
 }

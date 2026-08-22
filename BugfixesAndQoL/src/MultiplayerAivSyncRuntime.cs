@@ -10,6 +10,7 @@ using Steamworks;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
@@ -48,12 +49,17 @@ namespace BugfixesAndQoL
         private FrontendUpdateDelegate updateTrampoline;
         private MultiplayerAivManifest confirmedManifest;
         private MultiplayerAivManifest activeStartManifest;
+        private MultiplayerAivManifest pendingClientManifest;
         private MultiplayerAivSyncPacket incomingBegin;
+        private MultiplayerAivSyncPacket pendingClientBegin;
+        private CSteamID pendingClientOwner;
         private int generation;
-        private DateTime transferStartedUtc;
+        private long transferStartedTimestamp;
+        private long clientTransferStartedTimestamp;
         private string sourceFingerprint = string.Empty;
         private string rosterFingerprint = string.Empty;
         private string activeManifestHash = string.Empty;
+        private ulong extendedTransferLobbyId;
         private string syncStatusText = string.Empty;
         private bool transferInProgress;
         private bool bypassHostStartHook;
@@ -91,27 +97,30 @@ namespace BugfixesAndQoL
             packetHook = GameNetworkAPI.Instance.GetPacketEventFor<MultiplayerAivSyncPacket>();
             packetSubscription = packetHook.GetBaseHook().Observable.Subscribe(OnPacketReceived);
 
-            MethodInfo hostStart = FindMethod(typeof(Platform_Multiplayer), "HostStartGame", Type.EmptyTypes);
-            MethodInfo startGame = FindMethod(
-                typeof(Platform_Multiplayer),
-                "StartGame",
-                typeof(EngineInterface.MultiplayerSetupData),
-                typeof(FileHeader),
-                typeof(int),
-                typeof(int));
-            MethodInfo loadMap = FindMethod(
-                typeof(EngineInterface),
-                "loadMultiplayerMap",
-                typeof(string),
-                typeof(bool));
-            MethodInfo update = FindMethod(typeof(FRONT_Multiplayer), "Update", Type.EmptyTypes);
-
             Hook installedHostStart = null;
             Hook installedStartGame = null;
             Hook installedLoadMap = null;
             Hook installedUpdate = null;
             try
             {
+                MethodInfo hostStart = FindMethod(
+                    typeof(Platform_Multiplayer),
+                    "HostStartGame",
+                    Type.EmptyTypes);
+                MethodInfo startGame = FindMethod(
+                    typeof(Platform_Multiplayer),
+                    "StartGame",
+                    typeof(EngineInterface.MultiplayerSetupData),
+                    typeof(FileHeader),
+                    typeof(int),
+                    typeof(int));
+                MethodInfo loadMap = FindMethod(
+                    typeof(EngineInterface),
+                    "loadMultiplayerMap",
+                    typeof(string),
+                    typeof(bool));
+                MethodInfo update = FindMethod(typeof(FRONT_Multiplayer), "Update", Type.EmptyTypes);
+
                 installedHostStart = new Hook(hostStart, (HostStartGameDelegate)HostStartGameHook);
                 hostStartTrampoline = installedHostStart.GenerateTrampoline<HostStartGameDelegate>();
                 installedStartGame = new Hook(startGame, (StartGameDelegate)StartGameHook);
@@ -155,7 +164,26 @@ namespace BugfixesAndQoL
 
             try
             {
-                BeginHostTransfer(self);
+                FRONT_Multiplayer frontend = MainViewModel.viewModelLoaded
+                    ? MainViewModel.Instance?.FRONTMultiplayer
+                    : null;
+                MultiplayerAivManifest manifest = BuildHostManifest(self, frontend);
+                if (!MultiplayerAivSyncPolicy.RequiresTransfer(
+                        manifest.Slots.Count > 0,
+                        manifest.LobbyId,
+                        extendedTransferLobbyId))
+                {
+                    // A fresh Vanilla-sized selection needs no custom traffic or import context.
+                    confirmedManifest = null;
+                    extendedTransferLobbyId = 0UL;
+                    SyncStatusText = string.Empty;
+                    hostStartTrampoline(self);
+                    return;
+                }
+
+                if (manifest.Slots.Count > 0)
+                    extendedTransferLobbyId = manifest.LobbyId;
+                BeginHostTransfer(self, frontend, manifest);
             }
             catch (Exception ex)
             {
@@ -163,19 +191,11 @@ namespace BugfixesAndQoL
             }
         }
 
-        private void BeginHostTransfer(Platform_Multiplayer platform)
+        private void BeginHostTransfer(
+            Platform_Multiplayer platform,
+            FRONT_Multiplayer frontend,
+            MultiplayerAivManifest manifest)
         {
-            FRONT_Multiplayer frontend = MainViewModel.viewModelLoaded
-                ? MainViewModel.Instance?.FRONTMultiplayer
-                : null;
-            MultiplayerAivManifest manifest = BuildHostManifest(platform, frontend);
-            if (manifest.Slots.Count == 0)
-            {
-                ClearTransferState();
-                hostStartTrampoline(platform);
-                return;
-            }
-
             byte[] encoded = MultiplayerAivSyncProtocol.Encode(manifest);
             byte[] compressed = MultiplayerAivSyncProtocol.Compress(encoded);
             List<byte[]> chunks = MultiplayerAivSyncProtocol.Split(compressed);
@@ -188,7 +208,7 @@ namespace BugfixesAndQoL
             receivedAcks.Clear();
             foreach (CSteamID member in GetHumanPeers(platform.activeLobby))
                 expectedAcks.Add(member.m_SteamID);
-            transferStartedUtc = DateTime.UtcNow;
+            transferStartedTimestamp = Stopwatch.GetTimestamp();
             rosterFingerprint = BuildRosterFingerprint(platform.activeLobby);
             sourceFingerprint = BuildSelectionFingerprint(frontend, platform.activeLobby);
             transferInProgress = expectedAcks.Count > 0;
@@ -271,7 +291,6 @@ namespace BugfixesAndQoL
             CSteamID owner = SteamMatchmaking.GetLobbyOwner(lobby.id);
             if (!MultiplayerAivSyncPolicy.CanAcceptHostPacket(
                     lobby.isHost,
-                    IsFeatureActive(),
                     sender,
                     owner.m_SteamID))
                 return;
@@ -288,6 +307,7 @@ namespace BugfixesAndQoL
                 Reject(owner, packet, ex.GetBaseException().Message);
                 incomingBegin = null;
                 incomingChunks.Clear();
+                ClearPendingClientManifest(clearConfirmed: true);
                 SyncStatusText = SerpLocalization.Get(
                     "BugfixesAndQoL.AivSyncFailed",
                     "Reason", ex.GetBaseException().Message);
@@ -299,18 +319,25 @@ namespace BugfixesAndQoL
             if (packet.Generation <= 0 || packet.UncompressedLength <= 0 ||
                 packet.UncompressedLength > MultiplayerAivSyncProtocol.MaximumUncompressedBytes ||
                 packet.CompressedLength <= 0 ||
-                packet.CompressedLength > MultiplayerAivSyncProtocol.MaximumUncompressedBytes ||
+                packet.CompressedLength > MultiplayerAivSyncProtocol.MaximumCompressedBytes ||
                 packet.ChunkCount <= 0 ||
-                packet.ChunkCount > (MultiplayerAivSyncProtocol.MaximumUncompressedBytes +
+                packet.ChunkCount > (MultiplayerAivSyncProtocol.MaximumCompressedBytes +
                     MultiplayerAivSyncProtocol.MaximumChunkBytes - 1) /
                     MultiplayerAivSyncProtocol.MaximumChunkBytes ||
-                string.IsNullOrEmpty(packet.ManifestHash))
+                packet.ChunkCount != (packet.CompressedLength +
+                    MultiplayerAivSyncProtocol.MaximumChunkBytes - 1) /
+                    MultiplayerAivSyncProtocol.MaximumChunkBytes ||
+                string.IsNullOrEmpty(packet.ManifestHash) || packet.ManifestHash.Length != 64 ||
+                MultiplayerAivSyncProtocol.FromHex(packet.ManifestHash).Length != 32 ||
+                string.IsNullOrEmpty(packet.VanillaChecksum) || packet.VanillaChecksum.Length > 256)
             {
                 throw new InvalidOperationException("Invalid AIV transfer header.");
             }
             incomingBegin = packet;
             incomingChunks.Clear();
             confirmedManifest = null;
+            ClearPendingClientManifest(clearConfirmed: false);
+            clientTransferStartedTimestamp = Stopwatch.GetTimestamp();
             SyncStatusText = SerpLocalization.Get("BugfixesAndQoL.AivSyncReceiving");
         }
 
@@ -325,7 +352,10 @@ namespace BugfixesAndQoL
                 packet.ChunkIndex < 0 || packet.ChunkIndex >= packet.ChunkCount)
                 throw new InvalidOperationException("AIV chunk does not match the active transfer.");
 
-            byte[] data = Convert.FromBase64String(packet.DataBase64 ?? string.Empty);
+            int maximumBase64Length = ((MultiplayerAivSyncProtocol.MaximumChunkBytes + 2) / 3) * 4;
+            if (string.IsNullOrEmpty(packet.DataBase64) || packet.DataBase64.Length > maximumBase64Length)
+                throw new InvalidOperationException("AIV chunk encoding exceeds the size limit.");
+            byte[] data = Convert.FromBase64String(packet.DataBase64);
             if (data.Length > MultiplayerAivSyncProtocol.MaximumChunkBytes)
                 throw new InvalidOperationException("AIV chunk exceeds the size limit.");
             ulong key = ((ulong)(uint)packet.Generation << 32) | (uint)packet.ChunkIndex;
@@ -351,14 +381,62 @@ namespace BugfixesAndQoL
             if (!string.Equals(actualHash, incomingBegin.ManifestHash, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException("AIV manifest hash mismatch.");
             MultiplayerAivManifest manifest = MultiplayerAivSyncProtocol.Decode(encoded);
-            ValidateManifestAgainstLobby(platform, manifest);
-            confirmedManifest = manifest;
-            SendReliable(owner, CreateResponse(MultiplayerAivSyncPacketKind.Ack, incomingBegin, string.Empty));
+            if (!string.Equals(
+                    manifest.VanillaChecksum,
+                    incomingBegin.VanillaChecksum,
+                    StringComparison.Ordinal))
+                throw new InvalidOperationException("AIV manifest and transfer checksum differ.");
+            pendingClientManifest = manifest;
+            pendingClientBegin = incomingBegin;
+            pendingClientOwner = owner;
+            incomingBegin = null;
+            incomingChunks.Clear();
+            TryConfirmPendingClientManifest(platform);
+        }
+
+        private void TryConfirmPendingClientManifest(Platform_Multiplayer platform)
+        {
+            if (pendingClientManifest == null || pendingClientBegin == null)
+                return;
+            Platform_Multiplayer.MPLobby lobby = platform?.activeLobby;
+            CSteamID currentOwner = lobby == null ? new CSteamID(0UL) : SteamMatchmaking.GetLobbyOwner(lobby.id);
+            if (lobby == null || lobby.isHost ||
+                pendingClientManifest.LobbyId != lobby.id.m_SteamID || currentOwner != pendingClientOwner)
+            {
+                ClearPendingClientManifest(clearConfirmed: true);
+                return;
+            }
+
+            if (!IsFeatureActive())
+            {
+                if (Stopwatch.GetTimestamp() - clientTransferStartedTimestamp >
+                    TimeoutSeconds * Stopwatch.Frequency)
+                    throw new TimeoutException("Host AIV synchronization settings did not converge before timeout.");
+                return;
+            }
+
+            if (!MultiplayerAivSyncPolicy.IsVanillaChecksumReady(
+                    pendingClientManifest.VanillaChecksum,
+                    lobby.AIVDataChecksum()))
+            {
+                if (Stopwatch.GetTimestamp() - clientTransferStartedTimestamp >
+                    TimeoutSeconds * Stopwatch.Frequency)
+                    throw new TimeoutException("Vanilla AIV lobby data did not converge before timeout.");
+                return;
+            }
+
+            ValidateManifestAgainstLobby(platform, pendingClientManifest);
+            confirmedManifest = pendingClientManifest;
+            SendReliable(
+                pendingClientOwner,
+                CreateResponse(MultiplayerAivSyncPacketKind.Ack, pendingClientBegin, string.Empty));
             SyncStatusText = SerpLocalization.Get("BugfixesAndQoL.AivSyncReady");
             Shared.DebugLogHelper.LogDebug(
                 log,
-                $"Bugfixes and QoL AIV sync accepted: generation={packet.Generation}, lobby={packet.LobbyId}, " +
-                $"slots={manifest.Slots.Count}, hash={actualHash}, candidates={DescribeManifest(manifest)}.");
+                $"Bugfixes and QoL AIV sync accepted: generation={pendingClientBegin.Generation}, " +
+                $"lobby={pendingClientBegin.LobbyId}, slots={confirmedManifest.Slots.Count}, " +
+                $"hash={pendingClientBegin.ManifestHash}, candidates={DescribeManifest(confirmedManifest)}.");
+            ClearPendingClientManifest(clearConfirmed: false);
         }
 
         private void HandleHostResponse(
@@ -380,7 +458,10 @@ namespace BugfixesAndQoL
                 return;
             if (kind == MultiplayerAivSyncPacketKind.Reject)
             {
-                FailTransfer("BugfixesAndQoL.AivSyncFailed", packet.Message ?? "Client rejected AIV data.");
+                string reason = string.IsNullOrEmpty(packet.Message) || packet.Message.Length > 512
+                    ? "Client rejected AIV data."
+                    : packet.Message;
+                FailTransfer("BugfixesAndQoL.AivSyncFailed", reason);
                 return;
             }
             receivedAcks.Add(sender);
@@ -394,9 +475,21 @@ namespace BugfixesAndQoL
 
         private void ContinueVanillaStart(Platform_Multiplayer platform)
         {
+            ValidateManifestAgainstLobby(platform, confirmedManifest);
+            FRONT_Multiplayer frontend = MainViewModel.viewModelLoaded
+                ? MainViewModel.Instance?.FRONTMultiplayer
+                : null;
+            if (!string.Equals(rosterFingerprint, BuildRosterFingerprint(platform.activeLobby), StringComparison.Ordinal) ||
+                !string.Equals(sourceFingerprint, BuildSelectionFingerprint(frontend, platform.activeLobby), StringComparison.Ordinal))
+                throw new InvalidOperationException("AIV selection or lobby roster changed during synchronization.");
+            MultiplayerAivManifest currentManifest = BuildHostManifest(platform, frontend);
+            string currentManifestHash = MultiplayerAivSyncProtocol.ToHex(
+                MultiplayerAivSyncProtocol.HashBytes(MultiplayerAivSyncProtocol.Encode(currentManifest)));
+            if (!string.Equals(activeManifestHash, currentManifestHash, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("AIV binary data changed during synchronization.");
+
             transferInProgress = false;
             SyncStatusText = SerpLocalization.Get("BugfixesAndQoL.AivSyncReady");
-            ValidateManifestAgainstLobby(platform, confirmedManifest);
             bypassHostStartHook = true;
             try
             {
@@ -415,7 +508,7 @@ namespace BugfixesAndQoL
             int coopTrailId,
             int coopMissionId)
         {
-            activeStartManifest = coopTrailId == 0 ? confirmedManifest : null;
+            activeStartManifest = ResolveManifestForStart(coopTrailId);
             try
             {
                 startGameTrampoline(self, setup, map, coopTrailId, coopMissionId);
@@ -426,8 +519,29 @@ namespace BugfixesAndQoL
                 confirmedManifest = null;
                 incomingBegin = null;
                 incomingChunks.Clear();
+                ClearPendingClientManifest(clearConfirmed: false);
+                extendedTransferLobbyId = 0UL;
                 SyncStatusText = string.Empty;
             }
+        }
+
+        private MultiplayerAivManifest ResolveManifestForStart(int coopTrailId)
+        {
+            Platform_Multiplayer.MPLobby lobby = Platform_Multiplayer.Instance?.activeLobby;
+            if (!MultiplayerAivSyncPolicy.CanUseConfirmedManifest(
+                    IsFeatureActive(),
+                    coopTrailId,
+                    confirmedManifest != null,
+                    lobby?.id.m_SteamID ?? 0UL,
+                    confirmedManifest?.LobbyId ?? 0UL))
+            {
+                // Never let a confirmation from an older lobby affect a later Vanilla start.
+                confirmedManifest = null;
+                return null;
+            }
+
+            ValidateManifestAgainstLobby(Platform_Multiplayer.Instance, confirmedManifest);
+            return confirmedManifest;
         }
 
         private EngineInterface.LoadMapReturnData LoadMultiplayerMapHook(string mapName, bool multiplayerSave)
@@ -458,22 +572,39 @@ namespace BugfixesAndQoL
         private void FrontendUpdateHook(FRONT_Multiplayer self)
         {
             updateTrampoline(self);
+            if (pendingClientManifest != null)
+            {
+                try
+                {
+                    TryConfirmPendingClientManifest(Platform_Multiplayer.Instance);
+                }
+                catch (Exception ex)
+                {
+                    Reject(pendingClientOwner, pendingClientBegin, ex.GetBaseException().Message);
+                    ClearPendingClientManifest(clearConfirmed: true);
+                    SyncStatusText = SerpLocalization.Get(
+                        "BugfixesAndQoL.AivSyncFailed",
+                        "Reason", ex.GetBaseException().Message);
+                }
+            }
             if (!transferInProgress)
                 return;
             try
             {
                 Platform_Multiplayer platform = Platform_Multiplayer.Instance;
+                bool timedOut = Stopwatch.GetTimestamp() - transferStartedTimestamp >
+                    TimeoutSeconds * Stopwatch.Frequency;
                 if (platform?.activeLobby == null ||
                     MultiplayerAivSyncPolicy.HasContextChanged(
                         rosterFingerprint,
                         BuildRosterFingerprint(platform.activeLobby),
                         sourceFingerprint,
                         BuildSelectionFingerprint(self, platform.activeLobby)) ||
-                    DateTime.UtcNow - transferStartedUtc > TimeSpan.FromSeconds(TimeoutSeconds))
+                    timedOut)
                 {
                     FailTransfer(
                         "BugfixesAndQoL.AivSyncFailed",
-                        DateTime.UtcNow - transferStartedUtc > TimeSpan.FromSeconds(TimeoutSeconds)
+                        timedOut
                             ? SerpLocalization.Get("BugfixesAndQoL.AivSyncTimeout")
                             : SerpLocalization.Get("BugfixesAndQoL.AivSyncChanged"));
                 }
@@ -582,7 +713,10 @@ namespace BugfixesAndQoL
         {
             try
             {
-                SendReliable(owner, CreateResponse(MultiplayerAivSyncPacketKind.Reject, source, reason));
+                string safeReason = reason ?? string.Empty;
+                if (safeReason.Length > 512)
+                    safeReason = safeReason.Substring(0, 512);
+                SendReliable(owner, CreateResponse(MultiplayerAivSyncPacketKind.Reject, source, safeReason));
             }
             catch (Exception ex)
             {
@@ -683,16 +817,13 @@ namespace BugfixesAndQoL
             Shared.DebugLogHelper.LogError(log, $"Bugfixes and QoL AIV synchronization blocked game start: {reason}");
         }
 
-        private void ClearTransferState()
+        private void ClearPendingClientManifest(bool clearConfirmed)
         {
-            transferInProgress = false;
-            confirmedManifest = null;
-            incomingBegin = null;
-            incomingChunks.Clear();
-            expectedAcks.Clear();
-            receivedAcks.Clear();
-            activeManifestHash = string.Empty;
-            SyncStatusText = string.Empty;
+            pendingClientManifest = null;
+            pendingClientBegin = null;
+            pendingClientOwner = new CSteamID(0UL);
+            if (clearConfirmed)
+                confirmedManifest = null;
         }
 
         public void Dispose()

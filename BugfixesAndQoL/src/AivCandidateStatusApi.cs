@@ -30,6 +30,7 @@ namespace BugfixesAndQoL
     // Optional providers can publish through reflection without becoming a dependency of this mod.
     public static class AivCandidateStatusApi
     {
+        private const int MaximumCandidates = 50;
         private static readonly Dictionary<FRONT_Multiplayer.MPAIVInfo, Dictionary<ulong, AivCandidateStatusInfo>> Statuses =
             new Dictionary<FRONT_Multiplayer.MPAIVInfo, Dictionary<ulong, AivCandidateStatusInfo>>(
                 ReferenceEqualityComparer<FRONT_Multiplayer.MPAIVInfo>.Instance);
@@ -50,6 +51,10 @@ namespace BugfixesAndQoL
                 byChecksum = new Dictionary<ulong, AivCandidateStatusInfo>();
                 Statuses[info] = byChecksum;
             }
+            else if (!byChecksum.ContainsKey(aivChecksum) && byChecksum.Count >= MaximumCandidates)
+            {
+                return;
+            }
 
             var next = new AivCandidateStatusInfo((AivCandidateStatus)status, toolTip);
             if (byChecksum.TryGetValue(aivChecksum, out AivCandidateStatusInfo previous) &&
@@ -67,6 +72,40 @@ namespace BugfixesAndQoL
         {
             if (info != null && Statuses.Remove(info))
                 StatusChanged?.Invoke(info);
+        }
+
+        public static void ReplaceStatuses(
+            FRONT_Multiplayer.MPAIVInfo info,
+            ulong[] aivChecksums,
+            int[] statuses,
+            string[] toolTips)
+        {
+            if (info == null || aivChecksums == null || statuses == null || toolTips == null ||
+                aivChecksums.Length != statuses.Length || statuses.Length != toolTips.Length ||
+                aivChecksums.Length > MaximumCandidates)
+                return;
+
+            var replacement = new Dictionary<ulong, AivCandidateStatusInfo>();
+            for (int index = 0; index < aivChecksums.Length; index++)
+            {
+                if (!Enum.IsDefined(typeof(AivCandidateStatus), statuses[index]))
+                    return;
+                replacement[aivChecksums[index]] = new AivCandidateStatusInfo(
+                    (AivCandidateStatus)statuses[index],
+                    toolTips[index]);
+            }
+
+            if (Statuses.TryGetValue(info, out Dictionary<ulong, AivCandidateStatusInfo> previous) &&
+                AreEqual(previous, replacement))
+                return;
+            if (replacement.Count == 0)
+            {
+                if (!Statuses.Remove(info))
+                    return;
+            }
+            else
+                Statuses[info] = replacement;
+            StatusChanged?.Invoke(info);
         }
 
         public static void ClearAll()
@@ -89,6 +128,22 @@ namespace BugfixesAndQoL
             return info != null &&
                 Statuses.TryGetValue(info, out Dictionary<ulong, AivCandidateStatusInfo> byChecksum) &&
                 byChecksum.TryGetValue(aivChecksum, out status);
+        }
+
+        private static bool AreEqual(
+            Dictionary<ulong, AivCandidateStatusInfo> left,
+            Dictionary<ulong, AivCandidateStatusInfo> right)
+        {
+            if (left.Count != right.Count)
+                return false;
+            foreach (KeyValuePair<ulong, AivCandidateStatusInfo> entry in left)
+            {
+                if (!right.TryGetValue(entry.Key, out AivCandidateStatusInfo value) ||
+                    entry.Value.Status != value.Status ||
+                    !string.Equals(entry.Value.ToolTip, value.ToolTip, StringComparison.Ordinal))
+                    return false;
+            }
+            return true;
         }
 
         private sealed class ReferenceEqualityComparer<T> : IEqualityComparer<T> where T : class

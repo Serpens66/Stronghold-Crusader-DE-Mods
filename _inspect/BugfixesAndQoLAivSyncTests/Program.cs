@@ -12,8 +12,11 @@ internal static class Program
     {
         Run("preserves slot and candidate order", PreservesOrder);
         Run("canonicalizes AI slot order", CanonicalizesSlotOrder);
+        Run("encodes manifests deterministically", EncodesDeterministically);
+        Run("round-trips an empty candidate manifest", RoundTripsEmptyManifest);
         Run("appends visible selections in order without duplicates", AppendsSelectionInOrder);
         Run("limits active selections to 50", LimitsSelection);
+        Run("migrates stored lists to their first 50 entries", MigratesStoredList);
         Run("deduplicates identical AIV data", DeduplicatesData);
         Run("round-trips compression and chunks", RoundTripsCompressionAndChunks);
         Run("rejects a corrupt blob hash", RejectsCorruptHash);
@@ -21,6 +24,10 @@ internal static class Program
         Run("rejects an oversized manifest", RejectsSizeLimit);
         Run("accepts packets only from the lobby host", ValidatesSender);
         Run("invalidates responses after roster changes", InvalidatesRosterChanges);
+        Run("rejects stale manifests from older lobbies", RejectsStaleManifest);
+        Run("waits for Vanilla lobby checksum convergence", WaitsForVanillaChecksum);
+        Run("bypasses sync for a fresh Vanilla-sized selection", BypassesFreshVanillaSelection);
+        Run("cleans up a previous extended transfer", CleansUpPreviousExtendedTransfer);
         Console.WriteLine(failures == 0
             ? "BugfixesAndQoL AIV sync protocol tests passed."
             : $"BugfixesAndQoL AIV sync protocol tests failed: {failures}.");
@@ -59,6 +66,24 @@ internal static class Program
             decoded.Slots[2].Candidates.Select(candidate => candidate.Checksum).ToArray());
     }
 
+    private static void EncodesDeterministically()
+    {
+        MultiplayerAivManifest ordered = BuildManifest(3, 4, distinct: true);
+        MultiplayerAivManifest reversed = BuildManifest(3, 4, distinct: true);
+        reversed.Slots.Reverse();
+        Assert(MultiplayerAivSyncProtocol.FixedEquals(
+                MultiplayerAivSyncProtocol.Encode(ordered),
+                MultiplayerAivSyncProtocol.Encode(reversed)),
+            "equivalent manifests produced different canonical bytes");
+    }
+
+    private static void RoundTripsEmptyManifest()
+    {
+        var manifest = new MultiplayerAivManifest { LobbyId = 123, VanillaChecksum = "vanilla" };
+        MultiplayerAivManifest decoded = RoundTrip(manifest);
+        Assert(decoded.Slots.Count == 0, "empty manifest gained candidate slots");
+    }
+
     private static void AppendsSelectionInOrder()
     {
         var available = Enumerable.Range(0, 8).Select(index => new Candidate((ulong)index)).ToList();
@@ -78,6 +103,14 @@ internal static class Program
         Assert(selected.Count == 50, "selection was not limited to 50");
         Equal(Enumerable.Range(0, 50).Select(value => (ulong)value).ToArray(),
             selected.Select(value => value.Checksum).ToArray());
+    }
+
+    private static void MigratesStoredList()
+    {
+        var stored = Enumerable.Range(0, 75).ToList();
+        int removed = AivCandidateSelectionPolicy.TrimToMaximum(stored, 50);
+        Assert(removed == 25, "migration reported an incorrect removed count");
+        Equal(Enumerable.Range(0, 50).ToArray(), stored.ToArray());
     }
 
     private static void DeduplicatesData()
@@ -135,11 +168,11 @@ internal static class Program
 
     private static void ValidatesSender()
     {
-        Assert(MultiplayerAivSyncPolicy.CanAcceptHostPacket(false, true, 123, 123),
+        Assert(MultiplayerAivSyncPolicy.CanAcceptHostPacket(false, 123, 123),
             "lobby host packet was rejected");
-        Assert(!MultiplayerAivSyncPolicy.CanAcceptHostPacket(false, true, 456, 123),
+        Assert(!MultiplayerAivSyncPolicy.CanAcceptHostPacket(false, 456, 123),
             "non-host sender was accepted");
-        Assert(!MultiplayerAivSyncPolicy.CanAcceptHostPacket(true, true, 123, 123),
+        Assert(!MultiplayerAivSyncPolicy.CanAcceptHostPacket(true, 123, 123),
             "host accepted a client data packet");
     }
 
@@ -153,6 +186,40 @@ internal static class Program
             "response from an obsolete roster was accepted");
         Assert(MultiplayerAivSyncPolicy.HasContextChanged("10,20", "10,30", "a", "a"),
             "roster change did not invalidate the transfer");
+    }
+
+    private static void RejectsStaleManifest()
+    {
+        Assert(MultiplayerAivSyncPolicy.CanUseConfirmedManifest(true, 0, true, 10, 10),
+            "current lobby manifest was rejected");
+        Assert(!MultiplayerAivSyncPolicy.CanUseConfirmedManifest(true, 0, true, 20, 10),
+            "manifest from an older lobby was accepted");
+        Assert(!MultiplayerAivSyncPolicy.CanUseConfirmedManifest(false, 0, true, 10, 10),
+            "disabled feature retained a manifest");
+    }
+
+    private static void WaitsForVanillaChecksum()
+    {
+        Assert(!MultiplayerAivSyncPolicy.IsVanillaChecksumReady("new", "old"),
+            "stale Vanilla lobby data was treated as ready");
+        Assert(MultiplayerAivSyncPolicy.IsVanillaChecksumReady("new", "new"),
+            "matching Vanilla lobby data was not treated as ready");
+    }
+
+    private static void BypassesFreshVanillaSelection()
+    {
+        Assert(!MultiplayerAivSyncPolicy.RequiresTransfer(false, 123UL, 0UL),
+            "fresh Vanilla-sized selection unexpectedly required custom synchronization");
+        Assert(MultiplayerAivSyncPolicy.RequiresTransfer(true, 123UL, 0UL),
+            "additional candidates did not enable synchronization");
+    }
+
+    private static void CleansUpPreviousExtendedTransfer()
+    {
+        Assert(MultiplayerAivSyncPolicy.RequiresTransfer(false, 123UL, 123UL),
+            "same lobby did not clean up its previous extended manifest");
+        Assert(!MultiplayerAivSyncPolicy.RequiresTransfer(false, 456UL, 123UL),
+            "different fresh lobby inherited obsolete cleanup state");
     }
 
     private static MultiplayerAivManifest RoundTrip(MultiplayerAivManifest manifest) =>

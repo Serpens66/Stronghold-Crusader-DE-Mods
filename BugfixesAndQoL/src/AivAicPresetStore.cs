@@ -269,6 +269,7 @@ namespace BugfixesAndQoL
                     !(lordsValue is Dictionary<string, object> lords))
                     throw new InvalidDataException("The AIV/AIC preset root is invalid.");
 
+                bool migrated = false;
                 foreach (KeyValuePair<string, object> lordEntry in lords)
                 {
                     if (string.IsNullOrWhiteSpace(lordEntry.Key) || !(lordEntry.Value is List<object> values))
@@ -281,6 +282,20 @@ namespace BugfixesAndQoL
                         try
                         {
                             AivAicPresetDefinition preset = ParsePreset(value);
+                            int removedAivs = preset == null
+                                ? 0
+                                : AivCandidateSelectionPolicy.TrimToMaximum(
+                                    preset.Aivs,
+                                    MaximumAivEntries);
+                            if (removedAivs > 0)
+                            {
+                                int originalCount = preset.Aivs.Count + removedAivs;
+                                Shared.DebugLogHelper.LogWarning(
+                                    log,
+                                    $"Bugfixes and QoL migrated AIV/AIC preset '{preset.Name}' for " +
+                                    $"{lordEntry.Key}: truncated {originalCount} AIV entries to {MaximumAivEntries}.");
+                                migrated = true;
+                            }
                             if (preset != null && !parsed.Exists(item => string.Equals(
                                     item.Name, preset.Name, StringComparison.OrdinalIgnoreCase)))
                                 parsed.Add(preset);
@@ -294,6 +309,8 @@ namespace BugfixesAndQoL
                     if (parsed.Count > 0)
                         presetsByLord[lordEntry.Key] = parsed;
                 }
+                if (migrated)
+                    Write();
             }
             catch (Exception ex)
             {

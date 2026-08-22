@@ -6,10 +6,9 @@ namespace BugfixesAndQoL
     {
         public static bool CanAcceptHostPacket(
             bool localIsHost,
-            bool featureActive,
             ulong senderSteamId,
             ulong lobbyOwnerSteamId) =>
-            !localIsHost && featureActive && senderSteamId != 0 &&
+            !localIsHost && senderSteamId != 0 &&
             senderSteamId == lobbyOwnerSteamId;
 
         public static bool IsCurrentResponse(
@@ -34,5 +33,25 @@ namespace BugfixesAndQoL
             string currentSelection) =>
             !string.Equals(transferRoster, currentRoster, StringComparison.Ordinal) ||
             !string.Equals(transferSelection, currentSelection, StringComparison.Ordinal);
+
+        public static bool CanUseConfirmedManifest(
+            bool featureActive,
+            int coopTrailId,
+            bool hasManifest,
+            ulong currentLobbyId,
+            ulong manifestLobbyId) =>
+            featureActive && coopTrailId == 0 && hasManifest && currentLobbyId != 0 &&
+            currentLobbyId == manifestLobbyId;
+
+        public static bool IsVanillaChecksumReady(string expected, string current) =>
+            !string.IsNullOrEmpty(expected) &&
+            string.Equals(expected, current, StringComparison.Ordinal);
+
+        public static bool RequiresTransfer(
+            bool hasExtendedCandidates,
+            ulong currentLobbyId,
+            ulong previousExtendedTransferLobbyId) =>
+            hasExtendedCandidates ||
+            (currentLobbyId != 0 && currentLobbyId == previousExtendedTransferLobbyId);
     }
 }

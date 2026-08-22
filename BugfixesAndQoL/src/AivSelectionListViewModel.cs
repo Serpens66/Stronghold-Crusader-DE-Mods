@@ -10,6 +10,7 @@ namespace BugfixesAndQoL
     internal sealed class AivSelectionListViewModel : LobbyModSettingsBaseViewModel
     {
         private string countText = "0 / 50";
+        private bool activeAllowRemoval;
 
         public AivSelectionListViewModel()
         {
@@ -38,6 +39,7 @@ namespace BugfixesAndQoL
         public void Refresh(FRONT_Multiplayer.MPAIVInfo info, bool allowRemoval)
         {
             ActiveInfo = info;
+            activeAllowRemoval = allowRemoval;
             Entries.Clear();
             if (info?.aivs != null)
             {
@@ -60,7 +62,7 @@ namespace BugfixesAndQoL
         private void OnStatusChanged(FRONT_Multiplayer.MPAIVInfo info)
         {
             if (ReferenceEquals(info, ActiveInfo))
-                Refresh(ActiveInfo, true);
+                Refresh(ActiveInfo, activeAllowRemoval);
         }
 
         private static ImageSource GetIcon(CustomisationFileManager.CustomAIV aiv)

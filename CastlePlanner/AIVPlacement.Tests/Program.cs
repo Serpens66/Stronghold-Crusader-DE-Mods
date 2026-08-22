@@ -377,7 +377,7 @@ internal static class Program
         Assert(!project.Contains("Reference Include=\"BugfixesAndQoL\"", StringComparison.Ordinal),
             "CastlePlanner has a hard BugfixesAndQoL assembly reference");
         Assert(bridge.Contains("GetAssemblies()", StringComparison.Ordinal) &&
-            bridge.Contains("SetStatus", StringComparison.Ordinal),
+            bridge.Contains("ReplaceStatuses", StringComparison.Ordinal),
             "optional reflection status bridge is missing");
     }
 

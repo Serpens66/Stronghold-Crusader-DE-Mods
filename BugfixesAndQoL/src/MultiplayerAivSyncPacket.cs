@@ -60,6 +60,8 @@ namespace BugfixesAndQoL
             if (reader.TryReadNil())
                 return null;
             int count = reader.ReadArrayHeader();
+            if (count > FieldCount)
+                throw new MessagePackSerializationException("AIV sync packet has too many fields.");
             var value = new MultiplayerAivSyncPacket();
             for (int index = 0; index < count; index++)
             {
