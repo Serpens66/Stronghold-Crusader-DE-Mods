@@ -1909,6 +1909,78 @@ internal static class Program
         string[] manifests = new string[9];
         manifests[1] = CastlePlanner.CastleSpawnCompatibility.EncodeManifest(first);
         manifests[2] = CastlePlanner.CastleSpawnCompatibility.EncodeManifest(second);
+        string[] selections = new string[9];
+        selections[1] = "[Mod] Castle One.aivjson";
+        selections[2] = "[Mod] Castle One.aivjson";
+
+        Check(CastlePlanner.CastleSpawnCompatibility.TryResolvePlayerReports(
+                false,
+                new[] { 2 },
+                "[Mod] Local Only.aivjson",
+                manifests[1],
+                new string[9],
+                new string[9],
+                out Dictionary<int, CastlePlanner.CastleSpawnPlayerReport> localReports,
+                out _) &&
+              localReports.Count == 1 &&
+              localReports[2].Selection == "[Mod] Local Only.aivjson" &&
+              localReports[2].Manifest == manifests[1],
+            "CastlePlanner singleplayer routing required empty synchronized companion slots");
+        Check(!CastlePlanner.CastleSpawnCompatibility.TryResolvePlayerReports(
+                false,
+                Array.Empty<int>(),
+                string.Empty,
+                manifests[1],
+                selections,
+                manifests,
+                out _,
+                out _),
+            "CastlePlanner accepted singleplayer spawning without an active human");
+        Check(!CastlePlanner.CastleSpawnCompatibility.TryResolvePlayerReports(
+                false,
+                new[] { 1, 2 },
+                string.Empty,
+                manifests[1],
+                selections,
+                manifests,
+                out _,
+                out _),
+            "CastlePlanner inferred singleplayer from local values with multiple humans");
+        Check(CastlePlanner.CastleSpawnCompatibility.TryResolvePlayerReports(
+                false,
+                new[] { 1 },
+                string.Empty,
+                manifests[1],
+                selections,
+                manifests,
+                out Dictionary<int, CastlePlanner.CastleSpawnPlayerReport> noCastleReports,
+                out _) &&
+              noCastleReports[1].Selection == string.Empty,
+            "CastlePlanner rejected the local No castle selection in singleplayer");
+        Check(CastlePlanner.CastleSpawnCompatibility.TryResolvePlayerReports(
+                true,
+                new[] { 1 },
+                "[Mod] Local Only.aivjson",
+                "v1",
+                selections,
+                manifests,
+                out Dictionary<int, CastlePlanner.CastleSpawnPlayerReport> multiplayerReports,
+                out _) &&
+              multiplayerReports[1].Selection == selections[1] &&
+              multiplayerReports[1].Manifest == manifests[1],
+            "CastlePlanner used local values in a one-human multiplayer game");
+        string[] missingMultiplayerManifests = (string[])manifests.Clone();
+        missingMultiplayerManifests[1] = null;
+        Check(!CastlePlanner.CastleSpawnCompatibility.TryResolvePlayerReports(
+                true,
+                new[] { 1 },
+                "[Mod] Local Only.aivjson",
+                manifests[1],
+                selections,
+                missingMultiplayerManifests,
+                out _,
+                out _),
+            "CastlePlanner accepted a missing report in one-human multiplayer");
 
         Dictionary<string, string> decoded =
             CastlePlanner.CastleSpawnCompatibility.DecodeManifest(manifests[1]);

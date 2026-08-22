@@ -309,11 +309,12 @@ namespace CastlePlanner
                 int[] humanPlayerIds = CaptureHumanPlayerIds();
                 if (!settings.TryCreateSpawnPlan(
                         humanPlayerIds,
+                        gameMode.SharedRealMultiplayer,
                         out List<CastleSpawnRequest> requests,
                         out string validationError))
                 {
                     throw new InvalidOperationException(
-                        "Multiplayer castle compatibility validation failed: " + validationError);
+                        "Castle spawn compatibility validation failed: " + validationError);
                 }
 
                 // Parse and encode every file before the first native mutation. A single

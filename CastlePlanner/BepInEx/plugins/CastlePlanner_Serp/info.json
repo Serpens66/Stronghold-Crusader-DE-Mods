@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "CastlePlanner",
   "Description": "Displays AIVJSON blueprints, spawns personal human castles, and contains the gated AI lobby placement workflow.",
-  "Version": "0.6.8",
+  "Version": "0.6.9",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "0.6.9",
+      "Changes": [
+        "Uses the local castle selection and inventory in confirmed singleplayer skirmishes while preserving synchronized per-player validation for real multiplayer games, including sessions with only one human player."
+      ]
+    },
     {
       "Version": "0.6.8",
       "Changes": [

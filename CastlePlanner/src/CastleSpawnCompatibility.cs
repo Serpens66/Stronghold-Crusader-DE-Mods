@@ -21,8 +21,91 @@ namespace CastlePlanner
         public string FilePath { get; }
     }
 
+    internal sealed class CastleSpawnPlayerReport
+    {
+        public CastleSpawnPlayerReport(int playerId, string selection, string manifest)
+        {
+            PlayerId = playerId;
+            Selection = selection;
+            Manifest = manifest;
+        }
+
+        public int PlayerId { get; }
+        public string Selection { get; }
+        public string Manifest { get; }
+    }
+
     internal static class CastleSpawnCompatibility
     {
+        public static bool TryResolvePlayerReports(
+            bool isRealMultiplayer,
+            IEnumerable<int> humanPlayerIds,
+            string localSelection,
+            string localManifest,
+            string[] synchronizedSelections,
+            string[] synchronizedManifests,
+            out Dictionary<int, CastleSpawnPlayerReport> reports,
+            out string error)
+        {
+            reports = new Dictionary<int, CastleSpawnPlayerReport>();
+            error = string.Empty;
+            int[] playerIds = (humanPlayerIds ?? Enumerable.Empty<int>())
+                .Distinct()
+                .OrderBy(id => id)
+                .ToArray();
+            if (playerIds.Length == 0)
+            {
+                error = "No human player IDs were available for castle spawning.";
+                return false;
+            }
+            if (playerIds.Any(id => id <= 0 || id > 8))
+            {
+                error = "At least one supplied human player ID is outside slots 1 through 8.";
+                return false;
+            }
+            if (!isRealMultiplayer && playerIds.Length != 1)
+            {
+                error = "Singleplayer castle spawning requires exactly one active human player.";
+                return false;
+            }
+
+            foreach (int playerId in playerIds)
+            {
+                // Local skirmishes have no stable Steam roster; real multiplayer must
+                // always consume the synchronized per-player companion slots.
+                string selection = isRealMultiplayer
+                    ? synchronizedSelections != null && playerId < synchronizedSelections.Length
+                        ? synchronizedSelections[playerId]
+                        : null
+                    : localSelection;
+                string manifest = isRealMultiplayer
+                    ? synchronizedManifests != null && playerId < synchronizedManifests.Length
+                        ? synchronizedManifests[playerId]
+                        : null
+                    : localManifest;
+                if (string.IsNullOrEmpty(manifest))
+                {
+                    error = isRealMultiplayer
+                        ? $"Player {playerId} has not reported an AIVJSON inventory."
+                        : "The local AIVJSON inventory is unavailable.";
+                    return false;
+                }
+                if (selection == null)
+                {
+                    error = isRealMultiplayer
+                        ? $"Player {playerId} has not reported a personal spawn selection."
+                        : "The local castle selection is unavailable.";
+                    return false;
+                }
+
+                reports.Add(
+                    playerId,
+                    new CastleSpawnPlayerReport(playerId, selection, manifest));
+            }
+
+            return true;
+        }
+
         public static string NormalizeSelection(
             string value,
             IEnumerable<string> availableCastles,

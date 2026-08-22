@@ -503,57 +503,50 @@ namespace CastlePlanner
 
         internal bool TryCreateSpawnPlan(
             IEnumerable<int> humanPlayerIds,
+            bool isRealMultiplayer,
             out List<CastleSpawnRequest> requests,
             out string error)
         {
             requests = new List<CastleSpawnRequest>();
             error = string.Empty;
-            int[] suppliedPlayerIds = (humanPlayerIds ?? Enumerable.Empty<int>()).ToArray();
-            if (suppliedPlayerIds.Any(id => id <= 0 || id >= SpawnSelectedCastleData.Length))
-            {
-                error = "At least one supplied human player ID is outside slots 1 through 8.";
+            if (!CastleSpawnCompatibility.TryResolvePlayerReports(
+                    isRealMultiplayer,
+                    humanPlayerIds,
+                    spawnSelectedCastle,
+                    spawnInventoryManifest,
+                    SpawnSelectedCastleData,
+                    SpawnInventoryManifestData,
+                    out Dictionary<int, CastleSpawnPlayerReport> reports,
+                    out error))
                 return false;
-            }
-            int[] playerIds = suppliedPlayerIds
-                .Distinct()
-                .OrderBy(id => id)
-                .ToArray();
-            if (playerIds.Length == 0)
+
+            int[] playerIds = reports.Keys.OrderBy(id => id).ToArray();
+            if (!TryValidateCompatibilityReadiness(
+                    playerIds,
+                    isRealMultiplayer,
+                    out error))
             {
-                error = "No human player IDs were available for castle spawning.";
                 return false;
             }
 
-            if (!TryValidateCompatibilityReadiness(playerIds, out error))
-                return false;
-
-            foreach (int playerId in playerIds)
+            var inventories = new Dictionary<int, IReadOnlyDictionary<string, string>>();
+            foreach (CastleSpawnPlayerReport report in reports.Values)
             {
-                if (string.IsNullOrEmpty(SpawnInventoryManifestData[playerId]))
-                {
-                    error = $"Player {playerId} has not reported an AIVJSON inventory.";
-                    return false;
-                }
-                if (SpawnSelectedCastleData[playerId] == null)
-                {
-                    error = $"Player {playerId} has not reported a personal spawn selection.";
-                    return false;
-                }
                 if (!CastleSpawnCompatibility.TryDecodeManifest(
-                        SpawnInventoryManifestData[playerId],
-                        out _))
+                        report.Manifest,
+                        out Dictionary<string, string> inventory))
                 {
-                    error = $"Player {playerId} reported an invalid AIVJSON inventory manifest.";
+                    error = isRealMultiplayer
+                        ? $"Player {report.PlayerId} reported an invalid AIVJSON inventory manifest."
+                        : "The local AIVJSON inventory manifest is invalid.";
                     return false;
                 }
+                inventories.Add(report.PlayerId, inventory);
             }
-
-            IReadOnlyDictionary<int, IReadOnlyDictionary<string, string>> inventories =
-                DecodeInventories(playerIds);
 
             foreach (int playerId in playerIds)
             {
-                string castle = SpawnSelectedCastleData[playerId] ?? string.Empty;
+                string castle = reports[playerId].Selection;
                 if (string.IsNullOrEmpty(castle))
                     continue;
 
@@ -809,6 +802,7 @@ namespace CastlePlanner
 
         private bool TryValidateCompatibilityReadiness(
             int[] expectedPlayerIds,
+            bool isRealMultiplayer,
             out string error)
         {
             error = string.Empty;
@@ -825,7 +819,7 @@ namespace CastlePlanner
                 return false;
             }
 
-            if (expectedPlayerIds.Length <= 1)
+            if (!isRealMultiplayer)
                 return true;
 
             if (!System_ArePerPlayerSettingsReady(expectedPlayerIds, out error))
