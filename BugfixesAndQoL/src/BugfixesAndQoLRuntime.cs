@@ -23,6 +23,7 @@ namespace BugfixesAndQoL
         private SkirmishAiSelectionMemoryHook skirmishAiSelectionMemoryHook;
         private CustomLordListEnhancementHook customLordListEnhancementHook;
         private AiCastleSettingsListEnhancementHook aiCastleSettingsListEnhancementHook;
+        private MapOriginSortHook mapOriginSortHook;
         private AutoTradeSellZeroHook autoTradeSellZeroHook;
         private EnemyProximityBulldozeCursorHook enemyProximityBulldozeCursorHook;
         private MarketKeyMainTradeMenuHook marketKeyMainTradeMenuHook;
@@ -190,6 +191,7 @@ namespace BugfixesAndQoL
             TryApplyFeature("custom-lord list enhancements", () => customLordListEnhancementHook?.ApplySetting());
             TryInitializeFeature("AI castle/settings list enhancements", EnsureAiCastleSettingsListEnhancementHook);
             TryApplyFeature("AI castle/settings list enhancements", () => aiCastleSettingsListEnhancementHook?.ApplySetting());
+            TryInitializeFeature("map-origin sorting", EnsureMapOriginSortHook);
             TryApplyFeature("troop movement fix", troopMovementFixRuntime.ApplySetting);
             TryApplyFeature("multiplayer game speed", multiplayerGameSpeedRuntime.ApplySetting);
             TryApplyFeature("assembly-point placement fix", ApplyAssemblyPointPlacementPatchSetting);
@@ -209,6 +211,8 @@ namespace BugfixesAndQoL
             customLordListEnhancementHook = null;
             aiCastleSettingsListEnhancementHook?.Dispose();
             aiCastleSettingsListEnhancementHook = null;
+            mapOriginSortHook?.Dispose();
+            mapOriginSortHook = null;
             resyncHostKickFeature?.Dispose();
             resyncHostKickFeature = null;
             lordUnitControlsFeature?.Dispose();
@@ -379,6 +383,12 @@ namespace BugfixesAndQoL
                         log,
                         settings,
                         info => skirmishAiSelectionMemoryHook?.RecordSelection(info));
+        }
+
+        private void EnsureMapOriginSortHook()
+        {
+            if (mapOriginSortHook == null)
+                mapOriginSortHook = new MapOriginSortHook(log, settings);
         }
 
         private void EnsureResyncHostKickFeature()

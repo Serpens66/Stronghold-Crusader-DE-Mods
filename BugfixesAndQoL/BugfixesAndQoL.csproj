@@ -83,6 +83,8 @@
     <Compile Include="src\MarketKeyMainTradeMenuHook.cs" />
     <Compile Include="src\MarketGoodOrderItemViewModel.cs" />
     <Compile Include="src\MarketGoodsOrderDefinition.cs" />
+    <Compile Include="src\MapOriginSortHook.cs" />
+    <Compile Include="src\MapOriginSortPolicy.cs" />
     <Compile Include="src\MinimapBuildingPlacementFeature.cs" />
     <Compile Include="src\MinimapCursorFollowFeature.cs" />
     <Compile Include="src\MinimapPlacementClickHook.cs" />

@@ -3,10 +3,17 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.65",
+  "Version": "1.0.66",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.66",
+      "Changes": [
+        "Fixed the map-origin column header in singleplayer and multiplayer map selection so it sorts Steam Workshop, local, and Vanilla maps in reversible groups.",
+        "Broadened the existing selection-list enhancement setting to cover map, custom-lord, AIV, and AIC list sorting."
+      ]
+    },
     {
       "Version": "1.0.65",
       "Changes": [
