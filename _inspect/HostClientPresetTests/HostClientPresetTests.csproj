@@ -53,6 +53,9 @@
     <Compile Include="..\..\Shared\GameModeHelper.cs">
       <Link>GameModeHelper.cs</Link>
     </Compile>
+    <Compile Include="..\..\Shared\LobbyLifecycle.cs">
+      <Link>LobbyLifecycle.cs</Link>
+    </Compile>
     <Compile Include="..\..\BugfixesAndQoL\src\LocalPerPlayerSetting.cs">
       <Link>LocalPerPlayerSetting.cs</Link>
     </Compile>

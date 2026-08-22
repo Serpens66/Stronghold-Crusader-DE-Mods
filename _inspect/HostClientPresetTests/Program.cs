@@ -24,6 +24,7 @@ internal static class Program
         {
             TestLobbySettingsRouting();
             TestSharedPerPlayerLobbyConvergence();
+            TestSharedLobbyLifecycle();
             TestFailedRegistrationStopsPerPlayerCoordinator();
             TestThrowingRegistrationStopsPerPlayerCoordinator();
             TestGameModeHelper();
@@ -1981,6 +1982,52 @@ internal static class Program
         if (!condition)
             throw new InvalidOperationException(message);
     }
+
+    private static void TestSharedLobbyLifecycle()
+    {
+        LobbyLifecycle.System_TestReset();
+        var order = new List<string>();
+        var requested = new Platform_Multiplayer.MPLobby
+        {
+            id = new Platform_Multiplayer.TestSteamId { m_SteamID = 1234 }
+        };
+        Platform_Multiplayer.Instance.activeLobby = requested;
+
+        IDisposable first = LobbyLifecycle.SubscribeJoined(null, _ => order.Add("first"));
+        IDisposable throwing = LobbyLifecycle.SubscribeJoined(null, _ => throw new InvalidOperationException("expected"));
+        IDisposable second = LobbyLifecycle.SubscribeJoined(null, _ => order.Add("second"));
+        Check(LobbyLifecycle.System_TestInstallCount == 1,
+            "Shared lobby lifecycle installed more than one process-wide hook");
+
+        LobbyLifecycle.System_TestCompleteJoin(requested, () => order.Add("vanilla"));
+        Check(order.SequenceEqual(new[] { "vanilla", "first", "second" }),
+            "Shared lobby lifecycle changed callback order or stopped after a subscriber exception");
+
+        first.Dispose();
+        order.Clear();
+        LobbyLifecycle.System_TestCompleteJoin(requested, () => order.Add("vanilla"));
+        Check(order.SequenceEqual(new[] { "vanilla", "second" }),
+            "Shared lobby lifecycle removed the wrong subscriber");
+
+        order.Clear();
+        Platform_Multiplayer.Instance.activeLobby = null;
+        LobbyLifecycle.System_TestCompleteJoin(requested, () => order.Add("vanilla"));
+        Check(order.SequenceEqual(new[] { "vanilla" }),
+            "Shared lobby lifecycle notified subscribers after a failed join");
+
+        order.Clear();
+        Platform_Multiplayer.Instance.activeLobby = new Platform_Multiplayer.MPLobby
+        {
+            id = new Platform_Multiplayer.TestSteamId { m_SteamID = 5678 }
+        };
+        LobbyLifecycle.System_TestCompleteJoin(requested, () => order.Add("vanilla"));
+        Check(order.SequenceEqual(new[] { "vanilla" }),
+            "Shared lobby lifecycle accepted a different active lobby");
+
+        throwing.Dispose();
+        second.Dispose();
+        LobbyLifecycle.System_TestReset();
+    }
 }
 
 [MessagePackObject]
@@ -2687,7 +2734,7 @@ internal sealed class GameData
     public int coopTrailID = -1;
 }
 
-internal sealed class Platform_Multiplayer
+public sealed class Platform_Multiplayer
 {
     public static Platform_Multiplayer instance = new Platform_Multiplayer();
     public static Platform_Multiplayer Instance => instance;
@@ -2697,17 +2744,23 @@ internal sealed class Platform_Multiplayer
     public List<MPGameMember> gameMembers;
     public bool IsHost;
 
-    internal sealed class MPLobby
+    public struct TestSteamId
     {
+        public ulong m_SteamID;
+    }
+
+    public sealed class MPLobby
+    {
+        public TestSteamId id;
         public List<MPLobbyMember> members;
     }
 
-    internal sealed class MPLobbyMember
+    public sealed class MPLobbyMember
     {
         public bool SkirmishMember;
     }
 
-    internal sealed class MPGameMember
+    public sealed class MPGameMember
     {
         public bool skirmishAI;
         public ulong steamID;

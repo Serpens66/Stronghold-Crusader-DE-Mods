@@ -7,3 +7,4 @@ SerpsModsHost.ClearErrors=Clear displayed errors
 SerpsModsHost.ClearErrorsHelp=Clears only this diagnostic display. The BepInEx log remains unchanged.
 SerpsModsHost.NoErrors=No errors recorded.
 SerpsModsHost.SummaryFormat=Pack {Version}: expected {Expected}, validated {Validated}, registered {Registered}.
+SerpsModsHost.LobbyHashMismatch=ERROR: The installed mods of {Player} differ from lobby host {Host} ({Player}: {PlayerHash}, {Host}: {HostHash}).

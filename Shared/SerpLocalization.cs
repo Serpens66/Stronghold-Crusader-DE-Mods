@@ -167,6 +167,7 @@ public static class SerpLocalization
     public const string SerpsModsClearErrorsHelp = "SerpsModsHost.ClearErrorsHelp";
     public const string SerpsModsNoErrors = "SerpsModsHost.NoErrors";
     public const string SerpsModsSummaryFormat = "SerpsModsHost.SummaryFormat";
+    public const string SerpsModsLobbyHashMismatch = "SerpsModsHost.LobbyHashMismatch";
     public const string PreventHovelDeletionHelp = "SomeSettings.PreventHovelDeletionHelp";
     public const string AivPlacementComplete = "CastlePlanner.AIVPlacement.Complete";
     public const string AivPlacementPartial = "CastlePlanner.AIVPlacement.Partial";
@@ -191,6 +192,7 @@ public static class SerpLocalization
         { SerpsModsClearErrorsHelp, "Clears only this diagnostic display. The BepInEx log remains unchanged." },
         { SerpsModsNoErrors, "No errors recorded." },
         { SerpsModsSummaryFormat, "Pack {Version}: expected {Expected}, validated {Validated}, registered {Registered}." },
+        { SerpsModsLobbyHashMismatch, "ERROR: The installed mods of {Player} differ from lobby host {Host} ({Player}: {PlayerHash}, {Host}: {HostHash})." },
         { ResetToDefault, "Reset to Default" },
         { EnableMod, "Enable Mod" },
         { HostActivationLabel, "(Host-)" },

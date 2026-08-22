@@ -22,6 +22,7 @@
     <Compile Include="..\..\SerpsModsHost\src\PackManifest.cs"><Link>PackManifest.cs</Link></Compile>
     <Compile Include="..\..\SerpsModsHost\src\PackManifestJson.cs"><Link>PackManifestJson.cs</Link></Compile>
     <Compile Include="..\..\SerpsModsHost\src\DuplicateInstallationDetector.cs"><Link>DuplicateInstallationDetector.cs</Link></Compile>
+    <Compile Include="..\..\SerpsModsHost\src\ModHashCompatibility.cs"><Link>ModHashCompatibility.cs</Link></Compile>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

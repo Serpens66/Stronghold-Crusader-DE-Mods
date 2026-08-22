@@ -114,7 +114,44 @@ namespace SerpsModsHostDuplicateTests
                 throw new InvalidOperationException("Property serialization order is not deterministic.");
             }
 
-            Console.WriteLine("PASS: duplicate scan, mapping, dictionaries, safety limits, and deterministic serialization.");
+            if (ModHashCompatibility.TryCreateMismatchMessage(
+                "AAAAAAAAAAAAAAAA",
+                "AAAAAAAAAAAAAAAA",
+                "Alice",
+                "Bob",
+                "{Player} differs from {Host}: {PlayerHash}/{HostHash}",
+                out _))
+            {
+                throw new InvalidOperationException("Equal Script Extender mod hashes were reported as different.");
+            }
+
+            if (!ModHashCompatibility.TryCreateMismatchMessage(
+                "AAAAAAAAAAAAAAAA",
+                "BBBBBBBBBBBBBBBB",
+                "Alice",
+                "Bob",
+                "{Player} differs from {Host}: {PlayerHash}/{HostHash}",
+                out string mismatchMessage) ||
+                !string.Equals(
+                    mismatchMessage,
+                    "Alice differs from Bob: AAAAAAAAAAAAAAAA/BBBBBBBBBBBBBBBB",
+                    StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException("Different Script Extender mod hashes did not produce the expected message.");
+            }
+
+            if (ModHashCompatibility.TryCreateMismatchMessage(
+                null,
+                "BBBBBBBBBBBBBBBB",
+                "Alice",
+                "Bob",
+                "{Player} differs from {Host}",
+                out _))
+            {
+                throw new InvalidOperationException("A missing Script Extender mod hash produced a mismatch message.");
+            }
+
+            Console.WriteLine("PASS: host diagnostics, mod-hash comparison, and deterministic serialization.");
             Console.WriteLine("Duplicate: " + duplicates[0]);
             return 0;
         }

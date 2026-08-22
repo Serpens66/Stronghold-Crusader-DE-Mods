@@ -19,12 +19,14 @@ namespace SerpsModsHost
         private const string ScriptExtenderGuid = "000shcdese";
         public const string PluginGuid = "SerpsMods_Serp";
         public const string PluginName = "Serps Mods";
-        public const string PluginVersion = "1.0.1";
+        public const string PluginVersion = "1.0.2";
         public const bool CustomCustomTrailModSettingsOptOut = true;
         private const string ManifestFileName = "serps-modpack.json";
 
         private static SerpsModsHostPlugin instance;
         private static PackLogListener packLogListener;
+        private static IDisposable lobbyJoinSubscription;
+        private static LobbyModHashWarning lobbyModHashWarning;
         private readonly List<PackModRecord> activeMods = new List<PackModRecord>();
         private readonly HashSet<string> expectedLogSources = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private SerpsModsDiagnosticsViewModel diagnostics;
@@ -50,6 +52,18 @@ namespace SerpsModsHost
 
             packLogListener = new PackLogListener(expectedLogSources, diagnostics);
             BepInEx.Logging.Logger.Listeners.Add(packLogListener);
+
+            try
+            {
+                lobbyModHashWarning = new LobbyModHashWarning(Logger);
+                lobbyJoinSubscription = Shared.LobbyLifecycle.SubscribeJoined(
+                    Logger,
+                    lobbyModHashWarning.CheckAfterJoin);
+            }
+            catch (Exception ex)
+            {
+                ReportError("H007", $"Lobby mod-hash monitoring could not be installed: {ex}");
+            }
 
             // CrusaderLibrary invokes late subscribers immediately, which makes this safe
             // even though the Script Extender itself loads before this host.
