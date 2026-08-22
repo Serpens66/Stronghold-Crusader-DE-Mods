@@ -78,31 +78,13 @@ namespace StartConditions
             try
             {
                 LogDebug("Running delayed start troop processing for", plan.PendingPlayers.Count, "players");
-                Dictionary<int, Dictionary<eChimps, int>> troopCounts = CountSoldiersForPlayers();
+                var troopCounts = new Dictionary<int, Dictionary<eChimps, int>>();
+                TryRunFeature("delayed start troop counting", () => troopCounts = CountSoldiersForPlayers());
                 foreach (PendingStartTroopPlayer pending in plan.PendingPlayers)
                 {
-                    if (!GamePlayerManagerAPI.Instance.IsPlayerIdValid(pending.PlayerId))
-                    {
-                        LogDebug("Delayed start troop processing skipped; player no longer valid:", pending.PlayerId);
-                        continue;
-                    }
-
-                    if (pending.Multiplier == 0)
-                    {
-                        DeleteSoldiersForPlayer(pending.PlayerId);
-                        continue;
-                    }
-
-                    if (!Shared.ActivePlayerKeepReadiness.TryGetReadyKeep(pending.PlayerId, out _))
-                    {
-                        LogDebug("Delayed start troop multiply skipped; player has no keep:", pending.PlayerId);
-                        continue;
-                    }
-
-                    if (troopCounts.TryGetValue(pending.PlayerId, out Dictionary<eChimps, int> playerCounts))
-                        SpawnMultipliedStartTroops(pending.PlayerId, playerCounts, pending.Multiplier, "delayed count");
-                    else
-                        LogDebug("No start troop counts available for player", pending.PlayerId, "multiplier skipped.");
+                    TryRunFeature(
+                        $"delayed start troops for player {pending.PlayerId}",
+                        () => ProcessDelayedStartTroopsForPlayer(pending, troopCounts));
                 }
 
                 SpawnConfiguredStartTroops(plan.AiTroops, plan.HumanTroops);
@@ -111,6 +93,34 @@ namespace StartConditions
             {
                 LogDebug("RunDelayedStartTroopProcessing failed:", ex);
             }
+        }
+
+        private void ProcessDelayedStartTroopsForPlayer(
+            PendingStartTroopPlayer pending,
+            Dictionary<int, Dictionary<eChimps, int>> troopCounts)
+        {
+            if (!GamePlayerManagerAPI.Instance.IsPlayerIdValid(pending.PlayerId))
+            {
+                LogDebug("Delayed start troop processing skipped; player no longer valid:", pending.PlayerId);
+                return;
+            }
+
+            if (pending.Multiplier == 0)
+            {
+                DeleteSoldiersForPlayer(pending.PlayerId);
+                return;
+            }
+
+            if (!Shared.ActivePlayerKeepReadiness.TryGetReadyKeep(pending.PlayerId, out _))
+            {
+                LogDebug("Delayed start troop multiply skipped; player has no keep:", pending.PlayerId);
+                return;
+            }
+
+            if (troopCounts.TryGetValue(pending.PlayerId, out Dictionary<eChimps, int> playerCounts))
+                SpawnMultipliedStartTroops(pending.PlayerId, playerCounts, pending.Multiplier, "delayed count");
+            else
+                LogDebug("No start troop counts available for player", pending.PlayerId, "multiplier skipped.");
         }
 
         private void CancelPendingStartTroopProcessing()
@@ -140,7 +150,9 @@ namespace StartConditions
                 if (amount > 0)
                 {
                     LogDebug("Spawning multiplied start troops from", source, "for player", playerId, entry.Key, entry.Value, "x", multiplier, "=> add", amount);
-                    SpawnUnitsNearKeep(playerId, entry.Key, amount);
+                    TryRunFeature(
+                        $"multiplied {entry.Key} start troops for player {playerId}",
+                        () => SpawnUnitsNearKeep(playerId, entry.Key, amount));
                 }
             }
         }
@@ -164,10 +176,18 @@ namespace StartConditions
                 if (!SoldierChimps.Contains(unitType))
                     continue;
 
-                if (GameUnitManagerAPI.Instance.DeleteUnitSafe(unitId))
-                    deleted++;
-                else
+                try
+                {
+                    if (GameUnitManagerAPI.Instance.DeleteUnitSafe(unitId))
+                        deleted++;
+                    else
+                        failed++;
+                }
+                catch (Exception ex)
+                {
                     failed++;
+                    LogError("Start Conditions could not delete one start soldier; remaining units continue:", unitId, ex);
+                }
             }
 
             LogDebug("Deleted start soldiers for player", playerId, "deleted", deleted, "failed", failed);
@@ -183,7 +203,11 @@ namespace StartConditions
                 foreach (KeyValuePair<eChimps, int> entry in configuredTroops)
                 {
                     if (entry.Value > 0)
-                        SpawnUnitsNearKeep(playerId, entry.Key, entry.Value);
+                    {
+                        TryRunFeature(
+                            $"configured {entry.Key} start troops for player {playerId}",
+                            () => SpawnUnitsNearKeep(playerId, entry.Key, entry.Value));
+                    }
                 }
             });
         }

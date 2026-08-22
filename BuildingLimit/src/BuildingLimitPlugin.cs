@@ -15,7 +15,7 @@ namespace BuildingLimit
 
         public const string PluginGuid = "BuildingLimit_Serp";
         public const string PluginName = "Building Limit";
-        public const string PluginVersion = "1.0.11";
+        public const string PluginVersion = "1.0.12";
 
         private BuildingLimitRuntime runtime;
         private int libraryInitializationStarted;
@@ -39,32 +39,50 @@ namespace BuildingLimit
 
             CrusaderLibrary.Instance.LibraryLoaded -= OnCrusaderLibraryLoaded;
 
+            TryInitializeStage("native version diagnostics", () => Shared.DebugLogHelper.ReportNativeLibraryVersion(Logger, PluginName));
+            TryInitializeStage("localized names", Settings.RefreshLocalizedNames);
             try
             {
-                Shared.DebugLogHelper.ReportNativeLibraryVersion(Logger, PluginName);
-                Settings.RefreshLocalizedNames();
                 Shared.LobbyModSettingsPresetRegistration.Register(
                     this,
                     Logger,
                     "BuildingLimit_Serp",
                     Settings,
                     "ScriptExtenderUI/BuildingLimitSettings.xaml");
-                GameXAMLManagerAPI.Instance.RegisterBinding(
-                    "BuildingLimitNotificationOverlay",
-                    runtime.BuildingLimitNotification);
-                GameXAMLManagerAPI.Instance.RegisterBinding(
-                    "BuildingLimitTooltipHost",
-                    runtime.BuildingLimitTooltip);
-                GameXAMLManagerAPI.Instance.RegisterBinding(
-                    "BuildingLimitTooltipHostCompact",
-                    runtime.BuildingLimitTooltip);
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(Logger, $"BuildingLimit settings registration failed; gameplay runtime stopped fail-closed: {ex}");
+                return;
+            }
 
-                Shared.DebugLogHelper.LogDebug(Logger, "Crusader library loaded; BuildingLimit UI registered.");
+            TryInitializeStage("notification binding", () => GameXAMLManagerAPI.Instance.RegisterBinding(
+                    "BuildingLimitNotificationOverlay",
+                    runtime.BuildingLimitNotification));
+            TryInitializeStage("detailed tooltip binding", () => GameXAMLManagerAPI.Instance.RegisterBinding(
+                    "BuildingLimitTooltipHost",
+                    runtime.BuildingLimitTooltip));
+            TryInitializeStage("compact tooltip binding", () => GameXAMLManagerAPI.Instance.RegisterBinding(
+                    "BuildingLimitTooltipHostCompact",
+                    runtime.BuildingLimitTooltip));
+
+            try
+            {
                 runtime.InitializeAfterLibraryLoaded();
+                Shared.DebugLogHelper.LogDebug(Logger, "Crusader library loaded; BuildingLimit runtime initialized.");
             }
             catch (Exception ex)
             {
                 Shared.DebugLogHelper.LogError(Logger, $"Error while initializing BuildingLimit after library load: {ex}");
+            }
+        }
+
+        private void TryInitializeStage(string stageName, Action initialize)
+        {
+            try { initialize(); }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(Logger, $"BuildingLimit {stageName} failed; independent stages continue: {ex}");
             }
         }
     }

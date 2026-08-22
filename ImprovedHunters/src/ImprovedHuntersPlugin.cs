@@ -13,7 +13,7 @@ namespace ImprovedHunters
 
         public const string PluginGuid = "ImprovedHunters_Serp";
         public const string PluginName = "Improved Hunters";
-        public const string PluginVersion = "1.1.69";
+        public const string PluginVersion = "1.1.70";
 
         private static ImprovedHuntersRuntime persistentRuntime;
         private static ImprovedHuntersViewModel persistentSettings;
@@ -60,20 +60,36 @@ namespace ImprovedHunters
 
         private void OnCrusaderLibraryLoaded(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
         {
+            bool referenceHashMatches = false;
             try
             {
-                bool referenceHashMatches = Shared.DebugLogHelper.ReportNativeLibraryVersion(
+                referenceHashMatches = Shared.DebugLogHelper.ReportNativeLibraryVersion(
                     Logger,
                     PluginName,
                     requireCurrentVersion: false);
+            }
+            catch (Exception exception)
+            {
+                Logger.LogError($"Improved Hunters native version diagnostics failed; signature-validated features may continue: {exception}");
+            }
 
+            try
+            {
                 Shared.LobbyModSettingsPresetRegistration.Register(
                     this,
                     Logger,
                     PluginGuid,
                     persistentSettings,
                     "ScriptExtenderUI/ImprovedHuntersSettings.xaml");
+            }
+            catch (Exception exception)
+            {
+                Logger.LogError($"Improved Hunters settings registration failed; gameplay runtime stopped fail-closed: {exception}");
+                return;
+            }
 
+            try
+            {
                 persistentRuntime?.Apply(
                     memory,
                     (ulong)libraryHandle.ToInt64(),
@@ -82,7 +98,7 @@ namespace ImprovedHunters
             }
             catch (Exception exception)
             {
-                Logger.LogError($"Error while initializing Improved Hunters after library load: {exception}");
+                Logger.LogError($"Improved Hunters runtime initialization failed; successfully initialized independent features remain available: {exception}");
             }
         }
 

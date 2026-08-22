@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Improved Hunters",
   "Description": "Adds configurable hunter prey and meat yield for deer, goats, rabbits, camels and chickens.",
-  "Version": "1.1.69",
+  "Version": "1.1.70",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.1.70",
+      "Changes": [
+        "Isolated patch and event initialization so one hunter feature cannot disable the rest, and removed scan/event work while the mod is disabled."
+      ]
+    },
     {
       "Version": "1.1.69",
       "Changes": [

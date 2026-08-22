@@ -14,7 +14,7 @@ namespace CastlePlanner
 
         public const string PluginGuid = "CastlePlanner_Serp";
         public const string PluginName = "CastlePlanner";
-        public const string PluginVersion = "0.6.5";
+        public const string PluginVersion = "0.6.6";
 
         // The BepInEx component is destroyed during startup, so runtime state remains static.
         private static CastlePlannerRuntime runtime;
@@ -49,77 +49,112 @@ namespace CastlePlanner
         {
             if (libraryLoadedHandled)
                 return;
+            libraryLoadedHandled = true;
+
+            bool currentNativeLayout = false;
+            try
+            {
+                currentNativeLayout = Shared.DebugLogHelper.ReportNativeLibraryVersion(
+                    Logger,
+                    PluginName,
+                    requireCurrentVersion: true);
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(Logger, $"CastlePlanner native version check failed; native Spawn mode remains inactive: {ex}");
+            }
 
             try
             {
-                bool currentNativeLayout =
-                    Shared.DebugLogHelper.ReportNativeLibraryVersion(
-                        Logger,
-                        PluginName,
-                        requireCurrentVersion: true);
-                Shared.DebugLogHelper.LogInfo(
-                    Logger,
-                    $"Registering local CastlePlanner presets: " +
-                    $"storage=LobbyModSettings/{PluginGuid}.msgpack, " +
-                    $"clientEnabled={Settings.EnableClientFeatures}, hostEnabled={Settings.EnableMod}, " +
-                    $"blueprints={Settings.Blueprints}, spawnCastle={Settings.SpawnCastle}, " +
-                    $"blueprintSelection='{Settings.SelectedCastle}', personalSpawnSelection='{Settings.SpawnSelectedCastle}'.");
-
                 Shared.LobbyModSettingsPresetRegistration.Register(
-                    this,
-                    Logger,
-                    PluginGuid,
-                    Settings,
-                    "ScriptExtenderUI/CastlePlannerSettings.xaml");
+                    this, Logger, PluginGuid, Settings, "ScriptExtenderUI/CastlePlannerSettings.xaml");
+            }
+            catch (Exception ex)
+            {
+                // Host settings cannot safely drive gameplay without the shared authority path.
+                Shared.DebugLogHelper.LogError(Logger, $"CastlePlanner settings registration failed; runtime initialization stopped fail-closed: {ex}");
+                return;
+            }
+
+            TryInitializeStage("dropdown sizing", () =>
+            {
                 castleDropDownHeightController =
                     CastleDropDownHeightController.Attach(Logger, Settings);
+            });
+
+            TryInitializeStage("Blueprint runtime", () =>
+            {
                 blueprintRuntime =
                     BlueprintRuntimeController.Create(Logger, Settings);
+            });
+            TryInitializeStage("Blueprint HUD binding", () =>
+            {
+                if (blueprintRuntime == null)
+                    throw new InvalidOperationException("The Blueprint runtime is unavailable.");
                 GameXAMLManagerAPI.Instance.RegisterBinding(
                     "CastlePlannerBlueprintHud",
                     blueprintRuntime.Hud);
+            });
+
+            TryInitializeStage("AIV placement runtime", () =>
+            {
                 aivPlacementRuntime = new CastlePlanner.AIVPlacement.AivPlacementRuntime(
                     Logger,
                     () => Settings.EnableAivPlacementLobby);
+                Settings.PropertyChanged += (_, args) =>
+                {
+                    if (args.PropertyName == nameof(CastlePlannerSettingsViewModel.EnableAivPlacementLobby) &&
+                        !Settings.EnableAivPlacementLobby)
+                    {
+                        aivPlacementRuntime?.Deactivate();
+                    }
+                };
+            });
+            TryInitializeStage("AIV selection-list binding", () =>
+            {
+                if (aivPlacementRuntime == null)
+                    throw new InvalidOperationException("The AIV placement runtime is unavailable.");
                 GameXAMLManagerAPI.Instance.RegisterBinding(
                     "CastlePlannerAivSelectionListHost",
                     aivPlacementRuntime.SelectionList);
+            });
+            TryInitializeStage("AIV placement hooks", () =>
+            {
+                if (aivPlacementRuntime == null)
+                    throw new InvalidOperationException("The AIV placement runtime is unavailable.");
                 aivPlacementRuntime.Install();
-                Shared.DebugLogHelper.LogInfo(
-                    Logger,
-                    $"CastlePlanner settings registration completed: " +
-                    $"clientEnabled={Settings.EnableClientFeatures}, hostEnabled={Settings.EnableMod}, " +
-                    $"blueprints={Settings.Blueprints}, spawnCastle={Settings.SpawnCastle}, " +
-                    $"blueprintSelection='{Settings.SelectedCastle}', personalSpawnSelection='{Settings.SpawnSelectedCastle}', " +
-                    $"hotkey={Settings.HotkeyDisplayText}.");
+            });
 
+            if (currentNativeLayout)
+            {
                 try
                 {
-                    // Blueprint mode is managed; only the native Spawn path depends on
-                    // the currently audited AIV structure layout.
-                    if (currentNativeLayout)
-                        runtime.Install(libraryHandle, memory);
+                    runtime.Install(libraryHandle, memory);
                 }
                 catch (Exception ex)
                 {
-                    // Blueprint mode is managed and remains useful when a future
-                    // game version invalidates the native Spawn signatures.
                     Shared.DebugLogHelper.LogError(
                         Logger,
-                        $"Native Spawn mode initialization failed; " +
-                        $"local Blueprint mode remains available: {ex}");
+                        $"CastlePlanner native Spawn mode initialization failed; independent features continue: {ex}");
                 }
+            }
 
-                libraryLoadedHandled = true;
-                Shared.DebugLogHelper.LogInfo(
-                    Logger,
-                    "Crusader library initialization completed; local Blueprint mode is registered and native Spawn mode was initialized when supported.");
+            Shared.DebugLogHelper.LogInfo(
+                Logger,
+                "Crusader library initialization completed; failed optional stages did not block independent CastlePlanner features.");
+        }
+
+        private void TryInitializeStage(string stageName, Action initialize)
+        {
+            try
+            {
+                initialize();
             }
             catch (Exception ex)
             {
                 Shared.DebugLogHelper.LogError(
                     Logger,
-                    $"CastlePlanner initialization failed: {ex}");
+                    $"CastlePlanner {stageName} initialization failed; independent features continue: {ex}");
             }
         }
     }

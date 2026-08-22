@@ -72,12 +72,60 @@ namespace ExtraFeatures
 
         public void Dispose()
         {
+            if (mapActive && appliedLordGlobalIds.Count > 0)
+            {
+                try
+                {
+                    RestoreAppliedLordsToVanilla();
+                }
+                catch (Exception ex)
+                {
+                    Shared.DebugLogHelper.LogError(log, $"Extra Features Lord health Vanilla restoration failed: {ex}");
+                }
+            }
+
             ResetMapState();
             if (!initialized)
                 return;
 
             GameTimeManagerAPI.Instance.OnTick -= OnGameTick;
             initialized = false;
+        }
+
+        private void RestoreAppliedLordsToVanilla()
+        {
+            uint baseLordHealth = GameUnitManagerAPI.Instance.GetDefaultHealth(eChimps.CHIMP_TYPE_LORD);
+            if (baseLordHealth == 0)
+                return;
+
+            foreach (KeyValuePair<int, uint> entry in appliedLordGlobalIds)
+            {
+                int playerId = entry.Key;
+                int unitId = GamePlayerManagerAPI.Instance.GetLordUnitId(playerId);
+                if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* lord) ||
+                    lord == null || lord->r_GlobalId != entry.Value || lord->r_AliveState != AliveState.IsAlive)
+                {
+                    continue;
+                }
+
+                bool isAI = GamePlayerManagerAPI.Instance.IsAIPlayer(playerId);
+                int aiHealthPercent = isAI ? ResolveAIHealthPercent(playerId) : 100;
+                if (aiHealthPercent <= 0)
+                    continue;
+                int enemyHealthPercent = isAI
+                    ? ResolveEnemyHealthPercent(GamePlayerManagerAPI.Instance.GetEnemyHealthModifier())
+                    : 100;
+                uint vanillaMaximum = LordHealthMultiplierPolicy.CalculateVanillaMaximum(
+                    baseLordHealth, aiHealthPercent, enemyHealthPercent);
+                uint restoredCurrent = LordHealthMultiplierPolicy.CalculateCurrent(
+                    lord->r_CurrentHealth, lord->r_MaxHealth, vanillaMaximum);
+                ushort restoredPercent = LordHealthMultiplierPolicy.CalculateHealthPercent(
+                    restoredCurrent, vanillaMaximum);
+                lord->r_MaxHealth = vanillaMaximum;
+                lord->r_CurrentHealth = restoredCurrent;
+                lord->r_CurrentHealthPercentage = restoredPercent;
+                lord->r_HealthBarBlocks = (uint)(restoredPercent / 10);
+            }
         }
 
         private void OnGameTick(int tick)

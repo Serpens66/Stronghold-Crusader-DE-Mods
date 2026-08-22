@@ -17,7 +17,7 @@ namespace UnitCosts
 
         public const string PluginGuid = "UnitCosts_Serp";
         public const string PluginName = "Unit Costs";
-        public const string PluginVersion = "1.0.15";
+        public const string PluginVersion = "1.0.16";
 
         private UnitCostsRuntime runtime;
         private int libraryInitializationStarted;
@@ -41,29 +41,48 @@ namespace UnitCosts
 
             CrusaderLibrary.Instance.LibraryLoaded -= OnCrusaderLibraryLoaded;
 
+            TryInitializeStage("native version diagnostics", () => Shared.DebugLogHelper.ReportNativeLibraryVersion(Logger, PluginName));
+            TryInitializeStage("localized names", Settings.RefreshLocalizedNames);
             try
             {
-                Shared.DebugLogHelper.ReportNativeLibraryVersion(Logger, PluginName);
-                runtime.InitializeAfterLibraryLoaded();
-                Settings.RefreshLocalizedNames();
                 Shared.LobbyModSettingsPresetRegistration.Register(
                     this,
                     Logger,
                     "UnitCosts_Serp",
                     Settings,
                     "ScriptExtenderUI/UnitCostsSettings.xaml");
-                GameXAMLManagerAPI.Instance.RegisterBinding(
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(Logger, $"UnitCosts settings registration failed; gameplay runtime stopped fail-closed: {ex}");
+                return;
+            }
+
+            TryInitializeStage("notification overlay binding", () => GameXAMLManagerAPI.Instance.RegisterBinding(
                     "UnitCostsNotificationOverlay",
-                    runtime.Notification);
-                GameXAMLManagerAPI.Instance.RegisterBinding(
+                    runtime.Notification));
+            TryInitializeStage("siege notification binding", () => GameXAMLManagerAPI.Instance.RegisterBinding(
                     "UnitCostsSiegeNotificationInlineHost",
-                    runtime.Notification);
-                RegisterRecruitmentCostTooltipBindings();
-                Shared.DebugLogHelper.LogDebug(Logger, "Crusader library loaded; UnitCosts UI registered.");
+                    runtime.Notification));
+            TryInitializeStage("recruitment tooltip bindings", RegisterRecruitmentCostTooltipBindings);
+
+            try
+            {
+                runtime.InitializeAfterLibraryLoaded();
+                Shared.DebugLogHelper.LogDebug(Logger, "Crusader library loaded; UnitCosts runtime initialized.");
             }
             catch (Exception ex)
             {
                 Shared.DebugLogHelper.LogError(Logger, $"Error while initializing UnitCosts after library load: {ex}");
+            }
+        }
+
+        private void TryInitializeStage(string stageName, Action initialize)
+        {
+            try { initialize(); }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(Logger, $"UnitCosts {stageName} failed; independent stages continue: {ex}");
             }
         }
 
@@ -82,9 +101,16 @@ namespace UnitCosts
 
             foreach (string bindingTarget in bindingTargets)
             {
-                GameXAMLManagerAPI.Instance.RegisterBinding(
-                    bindingTarget,
-                    runtime.RecruitmentCostTooltip);
+                try
+                {
+                    GameXAMLManagerAPI.Instance.RegisterBinding(
+                        bindingTarget,
+                        runtime.RecruitmentCostTooltip);
+                }
+                catch (Exception ex)
+                {
+                    Shared.DebugLogHelper.LogError(Logger, $"UnitCosts tooltip binding '{bindingTarget}' failed; remaining bindings continue: {ex}");
+                }
             }
         }
     }

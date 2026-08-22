@@ -27,7 +27,26 @@ namespace StartConditions
             {
                 int playerId = activePlayerIds[i];
                 LogDebug("ForEachActivePlayer synchronized ready player", "playerId", playerId);
-                callback(playerId);
+                try
+                {
+                    callback(playerId);
+                }
+                catch (Exception ex)
+                {
+                    LogError("Start Conditions player operation failed; remaining players continue:", playerId, ex);
+                }
+            }
+        }
+
+        private void TryRunFeature(string featureName, Action action)
+        {
+            try
+            {
+                action();
+            }
+            catch (Exception ex)
+            {
+                LogError("Start Conditions feature failed; independent features continue:", featureName, ex);
             }
         }
 

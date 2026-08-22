@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Unit Costs",
   "Description": "Configure recruit costs in Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.15",
+  "Version": "1.0.16",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.16",
+      "Changes": [
+        "Isolated native gold costs, extra costs, enforcement, and optional UI hooks, with per-unit apply and restore failure handling."
+      ]
+    },
     {
       "Version": "1.0.15",
       "Changes": [

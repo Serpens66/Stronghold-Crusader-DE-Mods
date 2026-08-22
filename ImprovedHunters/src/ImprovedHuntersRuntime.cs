@@ -145,6 +145,7 @@ namespace ImprovedHunters
         private bool loadedChickenReconstructionPending;
         private long nextGranaryChickenCleanupTimestamp;
         private bool applied;
+        private bool runtimeEventsSubscribed;
 
         public ImprovedHuntersRuntime(ManualLogSource log, ImprovedHuntersViewModel settings)
         {
@@ -160,63 +161,41 @@ namespace ImprovedHunters
             if (applied)
                 return;
 
+            this.referenceHashMatches = referenceHashMatches;
+            InitializeAutomaticChickenTargetPatch(memory, imageBase, referenceHashMatches);
+            InitializeManualChickenAttackPatch(memory, imageBase, referenceHashMatches);
+            InitializeGranaryChickenLimitPatch(memory, imageBase, referenceHashMatches);
+            InitializeHunterQueryActorWorkaround(memory, imageBase, referenceHashMatches);
+            InitializeHunterNativeVisibilityProbe(memory, imageBase, referenceHashMatches);
+            InitializeHunterHutVisibilityPatch(memory, imageBase, referenceHashMatches);
+            TryInitializeFeature("PCL reachability", () => InitializeHunterPclReachability(referenceHashMatches));
+            TryInitializeFeature("PCL reachability diagnostics", () => InitializeHunterPclReachabilityDiagnostic(referenceHashMatches));
+            TryInitializeFeature("active-target visibility snapshot", InitializeHunterActiveTargetVisibilitySnapshot);
+            InitializeHunterPostShotContinuationDiagnostic(memory, imageBase, referenceHashMatches);
+            InitializeHunterTargetSearchFallbackDiagnostic(memory, imageBase, referenceHashMatches);
+            InitializeHunterRemainingPathSpeedRecovery(memory, imageBase, referenceHashMatches);
+            InitializeHunterVanillaPathContinuationDiagnostic(memory, imageBase, referenceHashMatches);
+            TryInitializeFeature("line-of-sight recovery", InitializeHunterLineOfSightRecovery);
+            TryInitializeFeature("visibility diagnostics", InitializeHunterVisibilityDiagnostic);
+
+            if (settings.EnableMod)
+                SubscribeRuntimeEvents();
+
             try
             {
-                this.referenceHashMatches = referenceHashMatches;
-                InitializeAutomaticChickenTargetPatch(memory, imageBase, referenceHashMatches);
-                InitializeManualChickenAttackPatch(memory, imageBase, referenceHashMatches);
-                InitializeGranaryChickenLimitPatch(memory, imageBase, referenceHashMatches);
-                InitializeHunterQueryActorWorkaround(memory, imageBase, referenceHashMatches);
-                InitializeHunterNativeVisibilityProbe(memory, imageBase, referenceHashMatches);
-                InitializeHunterHutVisibilityPatch(memory, imageBase, referenceHashMatches);
-                InitializeHunterPclReachability(referenceHashMatches);
-                InitializeHunterPclReachabilityDiagnostic(referenceHashMatches);
-                InitializeHunterActiveTargetVisibilitySnapshot();
-                InitializeHunterPostShotContinuationDiagnostic(memory, imageBase, referenceHashMatches);
-                InitializeHunterTargetSearchFallbackDiagnostic(memory, imageBase, referenceHashMatches);
-                InitializeHunterRemainingPathSpeedRecovery(memory, imageBase, referenceHashMatches);
-                InitializeHunterVanillaPathContinuationDiagnostic(memory, imageBase, referenceHashMatches);
-                InitializeHunterLineOfSightRecovery();
-                InitializeHunterVisibilityDiagnostic();
-
-                subscriptions.Add(UnitR3EventHooks.OnUnitHunterQueryTarget.Observable
-                    .Where(args => args.Phase == EventHookPhase.Pre)
-                    .Subscribe(OnHunterQueryTarget));
-                subscriptions.Add(UnitR3EventHooks.OnCalculateBonusYield.Observable
-                    .Where(args => args.Phase == EventHookPhase.Pre)
-                    .Subscribe(OnCalculateBonusYield));
-                subscriptions.Add(BuildingR3EventHooks.OnGranarySpawnChicken.Observable
-                    .Where(args => args.Phase == EventHookPhase.Pre)
-                    .Subscribe(OnGranarySpawnChicken));
-                subscriptions.Add(UnitR3EventHooks.OnUnitCreate.Observable.Subscribe(OnUnitCreate));
-                subscriptions.Add(UnitR3EventHooks.OnHunterPickUpMeat.Observable
-                    .Where(args => args.Phase == EventHookPhase.Pre)
-                    .Subscribe(OnHunterPickUpMeat));
-                subscriptions.Add(UnitR3EventHooks.OnHunterDropOffMeat.Observable
-                    .Where(args => args.Phase == EventHookPhase.Pre)
-                    .Subscribe(OnHunterDropOffMeat));
-                subscriptions.Add(ProjectileR3EventHooks.OnProjectileSpawn.Observable
-                    .Where(args => args.Phase == EventHookPhase.Post)
-                    .Subscribe(OnProjectileSpawn));
-                subscriptions.Add(ProjectileR3EventHooks.OnProjectileDelete.Observable
-                    .Where(args => args.Phase == EventHookPhase.Pre)
-                    .Subscribe(OnProjectileDelete));
-                subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable
-                    .Where(args => args.Phase == EventHookPhase.Post)
-                    .Subscribe(_ => OnMapStarted()));
-                subscriptions.Add(UnitR3EventHooks.OnUnitMovement.Observable
-                    .Subscribe(_ => RunNativeScan()));
-                subscriptions.Add(UnitR3EventHooks.OnUnitUnityVisualInterpolate.Observable
-                    .Subscribe(_ => RunNativeScan()));
-
                 settings.SettingChanged += OnSettingChanged;
-                InitializeRabbitDespawnPatch();
-                InitializeExtraDespawnPatches(memory, imageBase);
-                ApplyDespawnPatches();
-                ApplyCamelHealthPatch();
+            }
+            catch (Exception ex)
+            {
+                LogFeatureFailure("settings callback", ex);
+            }
+            TryInitializeFeature("rabbit despawn patch", InitializeRabbitDespawnPatch);
+            InitializeExtraDespawnPatches(memory, imageBase);
+            TryInitializeFeature("despawn settings", ApplyDespawnPatches);
+            TryInitializeFeature("camel health", ApplyCamelHealthPatch);
 
-                applied = true;
-                Shared.DebugLogHelper.LogInfo(
+            applied = true;
+            Shared.DebugLogHelper.LogInfo(
                     log,
                     $"Improved Hunters runtime enabled: automaticChickenTargetAvailable=" +
                     $"{automaticChickenTargetPatch?.IsAvailable == true}, " +
@@ -237,19 +216,12 @@ namespace ImprovedHunters
                     $"hunterVanillaPathContinuationAvailable={hunterVanillaPathContinuationDiagnostic?.IsAvailable == true}, " +
                     $"hunterVisibilityDiagnosticAvailable={hunterVisibilityDiagnostic?.IsAvailable == true}, " +
                     $"referenceHashMatches={referenceHashMatches}.");
-            }
-            catch
-            {
-                // Restore the native dispatch entry and remove partial subscriptions.
-                Dispose();
-                throw;
-            }
         }
 
         public unsafe void RunNativeScan(bool force = false)
         {
             long timestamp = Stopwatch.GetTimestamp();
-            if (!applied || (!force && timestamp < nextNativeScanTimestamp))
+            if (!applied || !settings.EnableMod || (!force && timestamp < nextNativeScanTimestamp))
                 return;
 
             nextNativeScanTimestamp = timestamp + NativeScanInterval;
@@ -1091,6 +1063,14 @@ namespace ImprovedHunters
 
         private void OnSettingChanged(string propertyName)
         {
+            if (propertyName == nameof(ImprovedHuntersViewModel.EnableMod))
+            {
+                if (settings.EnableMod)
+                    SubscribeRuntimeEvents();
+                else
+                    UnsubscribeRuntimeEvents();
+            }
+
             bool huntingTargetSettingChanged =
                 propertyName == nameof(ImprovedHuntersViewModel.HuntDeer) ||
                 propertyName == nameof(ImprovedHuntersViewModel.HuntGoat) ||
@@ -2079,14 +2059,87 @@ namespace ImprovedHunters
             }
         }
 
+        private void TryInitializeFeature(string featureName, Action initialize)
+        {
+            try
+            {
+                initialize();
+            }
+            catch (Exception ex)
+            {
+                LogFeatureFailure(featureName, ex);
+            }
+        }
+
+        private void SubscribeRuntimeEvents()
+        {
+            if (runtimeEventsSubscribed || !settings.EnableMod)
+                return;
+
+            TrySubscribeFeature("hunter target queries", () => UnitR3EventHooks.OnUnitHunterQueryTarget.Observable
+                .Where(args => args.Phase == EventHookPhase.Pre).Subscribe(OnHunterQueryTarget));
+            TrySubscribeFeature("bonus yield", () => UnitR3EventHooks.OnCalculateBonusYield.Observable
+                .Where(args => args.Phase == EventHookPhase.Pre).Subscribe(OnCalculateBonusYield));
+            TrySubscribeFeature("granary chicken spawning", () => BuildingR3EventHooks.OnGranarySpawnChicken.Observable
+                .Where(args => args.Phase == EventHookPhase.Pre).Subscribe(OnGranarySpawnChicken));
+            TrySubscribeFeature("unit creation", () => UnitR3EventHooks.OnUnitCreate.Observable.Subscribe(OnUnitCreate));
+            TrySubscribeFeature("hunter meat pickup", () => UnitR3EventHooks.OnHunterPickUpMeat.Observable
+                .Where(args => args.Phase == EventHookPhase.Pre).Subscribe(OnHunterPickUpMeat));
+            TrySubscribeFeature("hunter meat dropoff", () => UnitR3EventHooks.OnHunterDropOffMeat.Observable
+                .Where(args => args.Phase == EventHookPhase.Pre).Subscribe(OnHunterDropOffMeat));
+            TrySubscribeFeature("projectile spawning", () => ProjectileR3EventHooks.OnProjectileSpawn.Observable
+                .Where(args => args.Phase == EventHookPhase.Post).Subscribe(OnProjectileSpawn));
+            TrySubscribeFeature("projectile deletion", () => ProjectileR3EventHooks.OnProjectileDelete.Observable
+                .Where(args => args.Phase == EventHookPhase.Pre).Subscribe(OnProjectileDelete));
+            TrySubscribeFeature("map start", () => MapLoaderR3EventHooks.OnStartMap.Observable
+                .Where(args => args.Phase == EventHookPhase.Post).Subscribe(_ => OnMapStarted()));
+            TrySubscribeFeature("movement scan trigger", () => UnitR3EventHooks.OnUnitMovement.Observable.Subscribe(_ => RunNativeScan()));
+            TrySubscribeFeature("visual scan trigger", () => UnitR3EventHooks.OnUnitUnityVisualInterpolate.Observable.Subscribe(_ => RunNativeScan()));
+            runtimeEventsSubscribed = true;
+        }
+
+        private void UnsubscribeRuntimeEvents()
+        {
+            foreach (IDisposable subscription in subscriptions)
+            {
+                try { subscription.Dispose(); }
+                catch (Exception ex) { LogFeatureFailure("event subscription cleanup", ex); }
+            }
+            subscriptions.Clear();
+            runtimeEventsSubscribed = false;
+            hunterPreyTypes.Clear();
+            nextIdleHunterRequeryTimestamps.Clear();
+            pendingGranaryChickenSpawns.Clear();
+            ClearTrackedGranaryChickens();
+            ClearTargetSelectionCaches();
+        }
+
+        private void TrySubscribeFeature(string featureName, Func<IDisposable> subscribe)
+        {
+            try
+            {
+                IDisposable subscription = subscribe();
+                if (subscription != null)
+                    subscriptions.Add(subscription);
+            }
+            catch (Exception ex)
+            {
+                LogFeatureFailure(featureName, ex);
+            }
+        }
+
+        private void LogFeatureFailure(string featureName, Exception ex)
+        {
+            Shared.DebugLogHelper.LogError(
+                log,
+                $"Improved Hunters feature '{featureName}' failed and remains inactive; independent features continue: {ex}");
+        }
+
         public void Dispose()
         {
             settings.SettingChanged -= OnSettingChanged;
 
-            foreach (IDisposable subscription in subscriptions)
-                subscription.Dispose();
-
-            subscriptions.Clear();
+            UnsubscribeRuntimeEvents();
             hunterPreyTypes.Clear();
             nextIdleHunterRequeryTimestamps.Clear();
             loggedCollectedCorpseGlobalIds.Clear();

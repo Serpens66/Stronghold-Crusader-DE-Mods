@@ -25,6 +25,8 @@ namespace UnitLimit
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
         private readonly ActiveUnitCache activeUnitCache;
         private readonly ActiveSiegeTentCache activeSiegeTentCache;
+        private bool activeUnitCacheAvailable;
+        private bool activeSiegeTentCacheAvailable;
         private MakeTroopGameActionHook makeTroopGameActionHook;
         private CreateTroopHoverHook createTroopHoverHook;
         private SiegeBuildHoverHook siegeBuildHoverHook;
@@ -95,41 +97,56 @@ namespace UnitLimit
                 return;
 
             LogDebug("Subscribing unit limit runtime hooks");
-            try
+            activeUnitCacheAvailable = TryInitializeFeature("active-unit cache", () =>
             {
                 activeUnitCache.SubscribeHooks();
                 activeUnitCache.OnActiveUnitChanged += OnActiveUnitChanged;
+            });
+            activeSiegeTentCacheAvailable = TryInitializeFeature("active-siege-tent cache", () =>
+            {
                 activeSiegeTentCache.SubscribeHooks();
                 activeSiegeTentCache.OnActiveSiegeTentChanged += OnActiveSiegeTentChanged;
-                makeTroopGameActionHook = new MakeTroopGameActionHook(log, DecideMakeTroopGameAction);
-                createTroopHoverHook = new CreateTroopHoverHook(log, UpdateRecruitmentLimitTooltip, ClearUnitLimitTooltip);
-                siegeBuildHoverHook = new SiegeBuildHoverHook(log, UpdateSiegeBuildLimitTooltip, ClearUnitLimitTooltip);
-                recruitmentAvailabilityUiHook = new RecruitmentAvailabilityUiHook(log, RefreshRecruitmentButtonAvailability);
+            });
+            if (!activeUnitCacheAvailable)
+            {
+                activeUnitCache.OnActiveUnitChanged -= OnActiveUnitChanged;
+                TryDisposeFeature("active-unit cache rollback", activeUnitCache);
+            }
+            if (!activeSiegeTentCacheAvailable)
+            {
+                activeSiegeTentCache.OnActiveSiegeTentChanged -= OnActiveSiegeTentChanged;
+                TryDisposeFeature("active-siege-tent cache rollback", activeSiegeTentCache);
+            }
+            if (activeUnitCacheAvailable)
+            {
+                TryInitializeFeature("recruitment enforcement", () => makeTroopGameActionHook = new MakeTroopGameActionHook(log, DecideMakeTroopGameAction));
+                TryInitializeFeature("recruitment tooltip", () => createTroopHoverHook = new CreateTroopHoverHook(log, UpdateRecruitmentLimitTooltip, ClearUnitLimitTooltip));
+                TryInitializeFeature("recruitment availability UI", () => recruitmentAvailabilityUiHook = new RecruitmentAvailabilityUiHook(log, RefreshRecruitmentButtonAvailability));
+            }
+            if (activeUnitCacheAvailable && activeSiegeTentCacheAvailable)
+                TryInitializeFeature("siege tooltip", () => siegeBuildHoverHook = new SiegeBuildHoverHook(log, UpdateSiegeBuildLimitTooltip, ClearUnitLimitTooltip));
 
-                subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable
+            TrySubscribeFeature("map start", () => MapLoaderR3EventHooks.OnStartMap.Observable
                     .Where(args => args.Phase == EventHookPhase.Post)
                     .Subscribe(OnStartMap));
 
-                subscriptions.Add(MapLoaderR3EventHooks.OnLoadSave.Observable
+            TrySubscribeFeature("save load", () => MapLoaderR3EventHooks.OnLoadSave.Observable
                     .Where(args => args.Phase == EventHookPhase.Post)
                     .Subscribe(OnLoadSave));
 
-                subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
+            TrySubscribeFeature("map unload", () => MapLoaderR3EventHooks.OnUnloadMap.Observable
                     .Where(args => args.Phase == EventHookPhase.Post)
                     .Subscribe(OnUnloadMap));
 
-                subscriptions.Add(BuildingR3EventHooks.OnPlacementValidation.Observable
-                    .Where(args => args.Phase == EventHookPhase.Pre)
-                    .Subscribe(OnBuildingPlacementValidation));
-
-                LogDebug("Unit limit runtime hooks subscribed");
-                hooksSubscribed = true;
-            }
-            catch
+            if (activeUnitCacheAvailable && activeSiegeTentCacheAvailable)
             {
-                UnsubscribeHooks();
-                throw;
+                TrySubscribeFeature("placement validation", () => BuildingR3EventHooks.OnPlacementValidation.Observable
+                        .Where(args => args.Phase == EventHookPhase.Pre)
+                        .Subscribe(OnBuildingPlacementValidation));
             }
+
+            LogDebug("Unit limit runtime hooks subscribed");
+            hooksSubscribed = true;
         }
 
         public void InitializeAfterLibraryLoaded()
@@ -164,25 +181,30 @@ namespace UnitLimit
         private void UnsubscribeHooks()
         {
             foreach (IDisposable subscription in subscriptions)
-                subscription.Dispose();
+            {
+                try { subscription.Dispose(); }
+                catch (Exception ex) { LogDebug("Unit limit subscription cleanup failed:", ex); }
+            }
 
             subscriptions.Clear();
             hooksSubscribed = false;
             HideLimitMessage();
             ClearPendingRecruitments("Dispose");
-            makeTroopGameActionHook?.Dispose();
+            TryDisposeFeature("recruitment enforcement", makeTroopGameActionHook);
             makeTroopGameActionHook = null;
-            createTroopHoverHook?.Dispose();
+            TryDisposeFeature("recruitment tooltip", createTroopHoverHook);
             createTroopHoverHook = null;
-            siegeBuildHoverHook?.Dispose();
+            TryDisposeFeature("siege tooltip", siegeBuildHoverHook);
             siegeBuildHoverHook = null;
-            recruitmentAvailabilityUiHook?.Dispose();
+            TryDisposeFeature("recruitment availability UI", recruitmentAvailabilityUiHook);
             recruitmentAvailabilityUiHook = null;
             ClearUnitLimitTooltip();
             activeUnitCache.OnActiveUnitChanged -= OnActiveUnitChanged;
             activeSiegeTentCache.OnActiveSiegeTentChanged -= OnActiveSiegeTentChanged;
-            activeUnitCache.Dispose();
-            activeSiegeTentCache.Dispose();
+            TryDisposeFeature("active-unit cache", activeUnitCache);
+            TryDisposeFeature("active-siege-tent cache", activeSiegeTentCache);
+            activeUnitCacheAvailable = false;
+            activeSiegeTentCacheAvailable = false;
 
             activeUnitLimits.Clear();
         }
@@ -212,6 +234,39 @@ namespace UnitLimit
         private void LogDebug(params object[] parts)
         {
             Shared.DebugLogHelper.LogDebug(log, parts);
+        }
+
+        private bool TryInitializeFeature(string featureName, Action initialize)
+        {
+            try
+            {
+                initialize();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                LogDebug("Unit limit feature failed; independent features continue:", featureName, ex);
+                return false;
+            }
+        }
+
+        private void TrySubscribeFeature(string featureName, Func<IDisposable> subscribe)
+        {
+            try
+            {
+                IDisposable subscription = subscribe();
+                if (subscription != null)
+                    subscriptions.Add(subscription);
+            }
+            catch (Exception ex) { LogDebug("Unit limit subscription failed; independent features continue:", featureName, ex); }
+        }
+
+        private void TryDisposeFeature(string featureName, IDisposable feature)
+        {
+            if (feature == null)
+                return;
+            try { feature.Dispose(); }
+            catch (Exception ex) { LogDebug("Unit limit feature cleanup failed; independent features continue:", featureName, ex); }
         }
     }
 }

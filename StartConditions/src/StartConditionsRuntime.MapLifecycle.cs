@@ -75,8 +75,8 @@ namespace StartConditions
                 $"[{string.Join(",", activePlayerIds)}]",
                 "keeps",
                 $"[{string.Join(",", snapshot.KeepBuildingIds)}]");
-            ApplyStartResources();
-            AddStartTroops();
+            TryRunFeature("start resources", ApplyStartResources);
+            TryRunFeature("start troops", AddStartTroops);
         }
 
         private void OnKeepReadinessCompleted(Shared.ActivePlayerKeepWaitResult result)

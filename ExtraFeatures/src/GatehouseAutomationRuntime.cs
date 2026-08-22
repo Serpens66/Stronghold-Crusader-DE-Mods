@@ -291,6 +291,9 @@ namespace ExtraFeatures
 
         private void OnBeforeRender()
         {
+            if (!settings.EnableMod)
+                return;
+
             if (lastUiFrame == Time.frameCount)
                 return;
             lastUiFrame = Time.frameCount;

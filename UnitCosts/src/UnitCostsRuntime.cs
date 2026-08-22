@@ -74,10 +74,10 @@ namespace UnitCosts
             }
 
             SubscribeHooks();
-            CaptureVanillaGoldCosts();
-            ApplyUnitCosts();
-            settings.NormalizeExtraCostsAfterNativeGoldChange();
-            ApplyHumanExtraUnitCosts();
+            TryInitializeFeature("Vanilla gold-cost capture", CaptureVanillaGoldCosts);
+            TryInitializeFeature("native gold costs", ApplyUnitCosts);
+            TryInitializeFeature("extra-cost normalization", settings.NormalizeExtraCostsAfterNativeGoldChange);
+            TryInitializeFeature("human extra costs", ApplyHumanExtraUnitCosts);
         }
 
         private void SubscribeHooks()
@@ -85,40 +85,31 @@ namespace UnitCosts
             if (hooksSubscribed)
                 return;
 
-            try
-            {
-                subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable
+            TrySubscribeFeature("map start", () => MapLoaderR3EventHooks.OnStartMap.Observable
                     .Where(args => args.Phase == EventHookPhase.Post)
                     .Subscribe(OnStartMap));
 
-                subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
+            TrySubscribeFeature("map unload", () => MapLoaderR3EventHooks.OnUnloadMap.Observable
                     .Where(args => args.Phase == EventHookPhase.Post)
                     .Subscribe(OnUnloadMap));
 
-                subscriptions.Add(UnitR3EventHooks.OnUnitTransition.Observable
-                    .Subscribe(OnUnitTransition));
+            TrySubscribeFeature("unit transition", () => UnitR3EventHooks.OnUnitTransition.Observable.Subscribe(OnUnitTransition));
 
-                subscriptions.Add(BuildingR3EventHooks.OnPlacementValidation.Observable
+            TrySubscribeFeature("placement validation", () => BuildingR3EventHooks.OnPlacementValidation.Observable
                     .Where(args => args.Phase == EventHookPhase.Pre)
                     .Subscribe(OnBuildingPlacementValidation));
 
-                subscriptions.Add(BuildingR3EventHooks.OnBuildingSpawn.Observable
+            TrySubscribeFeature("building spawn", () => BuildingR3EventHooks.OnBuildingSpawn.Observable
                     .Where(args => args.Phase == EventHookPhase.Post)
                     .Subscribe(OnBuildingSpawn));
 
-                makeTroopGameActionHook = new MakeTroopGameActionHook(log, DecideMakeTroopGameAction);
-                createTroopHoverHook = new CreateTroopHoverHook(log, UpdateRecruitmentCostTooltip, ClearRecruitmentCostTooltip);
-                siegeBuildHoverHook = new SiegeBuildHoverHook(log, UpdateSiegeBuildCostTooltip, ClearRecruitmentCostTooltip);
-                recruitmentAvailabilityUiHook = new RecruitmentAvailabilityUiHook(log, RefreshRecruitmentUi);
+            TryInitializeFeature("recruitment action enforcement", () => makeTroopGameActionHook = new MakeTroopGameActionHook(log, DecideMakeTroopGameAction));
+            TryInitializeFeature("recruitment tooltip", () => createTroopHoverHook = new CreateTroopHoverHook(log, UpdateRecruitmentCostTooltip, ClearRecruitmentCostTooltip));
+            TryInitializeFeature("siege tooltip", () => siegeBuildHoverHook = new SiegeBuildHoverHook(log, UpdateSiegeBuildCostTooltip, ClearRecruitmentCostTooltip));
+            TryInitializeFeature("recruitment availability UI", () => recruitmentAvailabilityUiHook = new RecruitmentAvailabilityUiHook(log, RefreshRecruitmentUi));
 
-                hooksSubscribed = true;
-                Shared.DebugLogHelper.LogDebug(log, "UnitCosts runtime hooks subscribed");
-            }
-            catch
-            {
-                UnsubscribeHooks();
-                throw;
-            }
+            hooksSubscribed = true;
+            Shared.DebugLogHelper.LogDebug(log, "UnitCosts runtime hooks subscribed");
         }
 
         public void Dispose()
@@ -134,17 +125,20 @@ namespace UnitCosts
         private void UnsubscribeHooks()
         {
             foreach (IDisposable subscription in subscriptions)
-                subscription.Dispose();
+            {
+                try { subscription.Dispose(); }
+                catch (Exception ex) { Shared.DebugLogHelper.LogError(log, $"UnitCosts subscription cleanup failed: {ex}"); }
+            }
 
             subscriptions.Clear();
             hooksSubscribed = false;
-            makeTroopGameActionHook?.Dispose();
+            TryDisposeFeature("recruitment action enforcement", makeTroopGameActionHook);
             makeTroopGameActionHook = null;
-            createTroopHoverHook?.Dispose();
+            TryDisposeFeature("recruitment tooltip", createTroopHoverHook);
             createTroopHoverHook = null;
-            siegeBuildHoverHook?.Dispose();
+            TryDisposeFeature("siege tooltip", siegeBuildHoverHook);
             siegeBuildHoverHook = null;
-            recruitmentAvailabilityUiHook?.Dispose();
+            TryDisposeFeature("recruitment availability UI", recruitmentAvailabilityUiHook);
             recruitmentAvailabilityUiHook = null;
             HideMaterialMessage();
         }
@@ -158,6 +152,40 @@ namespace UnitCosts
             settingsChangedSubscribed = true;
         }
 
+        private void TrySubscribeFeature(string featureName, Func<IDisposable> subscribe)
+        {
+            try
+            {
+                IDisposable subscription = subscribe();
+                if (subscription != null)
+                    subscriptions.Add(subscription);
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(log, $"UnitCosts feature '{featureName}' failed; independent features continue: {ex}");
+            }
+        }
+
+        private void TryInitializeFeature(string featureName, Action initialize)
+        {
+            try { initialize(); }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(log, $"UnitCosts feature '{featureName}' failed; independent features continue: {ex}");
+            }
+        }
+
+        private void TryDisposeFeature(string featureName, IDisposable feature)
+        {
+            if (feature == null)
+                return;
+            try { feature.Dispose(); }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(log, $"UnitCosts feature '{featureName}' cleanup failed; independent features continue: {ex}");
+            }
+        }
+
         private void OnSettingChanged(string propertyName)
         {
             Shared.DebugLogHelper.LogDebug(log, "UnitCosts settings changed:", propertyName);
@@ -167,15 +195,15 @@ namespace UnitCosts
                 if (settings.EnableMod)
                 {
                     SubscribeHooks();
-                    CaptureVanillaGoldCosts();
-                    ApplyUnitCosts();
-                    settings.NormalizeExtraCostsAfterNativeGoldChange();
-                    ApplyHumanExtraUnitCosts();
+                    TryInitializeFeature("Vanilla gold-cost capture", CaptureVanillaGoldCosts);
+                    TryInitializeFeature("native gold costs", ApplyUnitCosts);
+                    TryInitializeFeature("extra-cost normalization", settings.NormalizeExtraCostsAfterNativeGoldChange);
+                    TryInitializeFeature("human extra costs", ApplyHumanExtraUnitCosts);
                 }
                 else
                 {
-                    RestoreVanillaUnitCosts();
-                    UnsubscribeHooks();
+                    try { RestoreVanillaUnitCosts(); }
+                    finally { UnsubscribeHooks(); }
                 }
 
                 return;
@@ -186,22 +214,22 @@ namespace UnitCosts
 
             if (propertyName == nameof(UnitCostsLobbyViewModel.UnitCosts))
             {
-                ApplyUnitCosts();
-                settings.NormalizeExtraCostsAfterNativeGoldChange();
-                ApplyHumanExtraUnitCosts();
+                TryInitializeFeature("native gold costs", ApplyUnitCosts);
+                TryInitializeFeature("extra-cost normalization", settings.NormalizeExtraCostsAfterNativeGoldChange);
+                TryInitializeFeature("human extra costs", ApplyHumanExtraUnitCosts);
             }
 
             if (propertyName == nameof(UnitCostsLobbyViewModel.HumanExtraUnitCosts))
-                ApplyHumanExtraUnitCosts();
+                TryInitializeFeature("human extra costs", ApplyHumanExtraUnitCosts);
         }
 
         private void OnStartMap(MapStartEventArgs args)
         {
             try
             {
-                ApplyUnitCosts();
-                settings.NormalizeExtraCostsAfterNativeGoldChange();
-                ApplyHumanExtraUnitCosts();
+                TryInitializeFeature("native gold costs", ApplyUnitCosts);
+                TryInitializeFeature("extra-cost normalization", settings.NormalizeExtraCostsAfterNativeGoldChange);
+                TryInitializeFeature("human extra costs", ApplyHumanExtraUnitCosts);
             }
             catch (Exception ex)
             {
@@ -225,9 +253,16 @@ namespace UnitCosts
                 if (goldCost == -1 && !VanillaGoldCosts.TryGetValue(entry.Key, out goldCost))
                     continue;
 
-                SetUnitGoldCost(entry.Key, goldCost);
-                if (values.Gold != -1)
-                    changedValues++;
+                try
+                {
+                    SetUnitGoldCost(entry.Key, goldCost);
+                    if (values.Gold != -1)
+                        changedValues++;
+                }
+                catch (Exception ex)
+                {
+                    Shared.DebugLogHelper.LogError(log, $"UnitCosts could not apply {entry.Key}; remaining units continue: {ex}");
+                }
             }
 
             Shared.DebugLogHelper.LogDebug(log, "Applied unit cost values:", changedValues);
@@ -238,8 +273,15 @@ namespace UnitCosts
             int restoredValues = 0;
             foreach (KeyValuePair<eChimps, int> entry in VanillaGoldCosts)
             {
-                SetUnitGoldCost(entry.Key, entry.Value);
-                restoredValues++;
+                try
+                {
+                    SetUnitGoldCost(entry.Key, entry.Value);
+                    restoredValues++;
+                }
+                catch (Exception ex)
+                {
+                    Shared.DebugLogHelper.LogError(log, $"UnitCosts could not restore {entry.Key}; remaining units continue: {ex}");
+                }
             }
 
             humanExtraCosts.Clear();

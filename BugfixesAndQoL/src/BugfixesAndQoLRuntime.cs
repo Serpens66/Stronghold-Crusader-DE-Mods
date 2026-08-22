@@ -42,7 +42,6 @@ namespace BugfixesAndQoL
         private int libraryLength;
         private bool nativeLibraryAvailable;
         private bool fixedLayoutHashValidated;
-        private bool hooksSubscribed;
         private bool settingsSubscribed;
         private bool enemyProximityFixedLayoutErrorLogged;
         private bool assemblyPointPlacementPatchUnavailable;
@@ -150,30 +149,41 @@ namespace BugfixesAndQoL
             libraryLength = memory.Length;
             fixedLayoutHashValidated = isFixedLayoutHashValidated;
             nativeLibraryAvailable = true;
-            troopMovementFixRuntime.InitializeNative(newLibraryHandle, memory, isFixedLayoutHashValidated);
-            EnsurePlaguePopularityFix();
-            EnsurePlagueTreatmentFadeFix();
-            EnsurePlagueTargetReservationFix();
-            EnsurePlagueApothecaryStateTransitionFix();
-            ApplyAssemblyPointPlacementPatchSetting();
-            InstallAllyGoodsAmountModifierHook();
-            InstallCtrlMarketTradeHook();
+            // Every native feature has its own compatibility surface. A changed signature in
+            // one feature must not prevent unrelated fixes from installing.
+            try
+            {
+                troopMovementFixRuntime.InitializeNative(newLibraryHandle, memory, isFixedLayoutHashValidated);
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Bugfixes and QoL feature 'troop movement fix' could not be initialized and remains inactive: {ex}");
+            }
+            TryInitializeFeature("plague popularity fix", EnsurePlaguePopularityFix);
+            TryInitializeFeature("plague cloud removal fix", EnsurePlagueTreatmentFadeFix);
+            TryInitializeFeature("plague target-reservation fix", EnsurePlagueTargetReservationFix);
+            TryInitializeFeature("stuck-apothecary fix", EnsurePlagueApothecaryStateTransitionFix);
+            TryInitializeFeature("assembly-point placement fix", ApplyAssemblyPointPlacementPatchSetting);
+            TryInitializeFeature("ally goods amount modifiers", InstallAllyGoodsAmountModifierHook);
+            TryInitializeFeature("Ctrl single-unit market trade", InstallCtrlMarketTradeHook);
         }
 
         public void ApplySettings()
         {
             TryInitializeFeature("surrender", InitializeSurrenderFeature);
             TryInitializeFeature("selected-unit health display", InitializeSelectedUnitHealthFeature);
-            selectedUnitHealthFeature?.RefreshSetting();
-            surrenderFeature?.RefreshButtonState();
+            TryApplyFeature("selected-unit health display", () => selectedUnitHealthFeature?.RefreshSetting());
+            TryApplyFeature("surrender", () => surrenderFeature?.RefreshButtonState());
             TryInitializeFeature("resync host kick", EnsureResyncHostKickFeature);
             TryInitializeFeature("AI castle/settings selection memory", EnsureAiSelectionHook);
-            skirmishAiSelectionMemoryHook?.ApplySetting();
+            TryApplyFeature("AI castle/settings selection memory", () => skirmishAiSelectionMemoryHook?.ApplySetting());
             TryInitializeFeature("custom-lord list enhancements", EnsureCustomLordListEnhancementHook);
-            customLordListEnhancementHook?.ApplySetting();
-            troopMovementFixRuntime.ApplySetting();
-            multiplayerGameSpeedRuntime.ApplySetting();
-            ApplyAssemblyPointPlacementPatchSetting();
+            TryApplyFeature("custom-lord list enhancements", () => customLordListEnhancementHook?.ApplySetting());
+            TryApplyFeature("troop movement fix", troopMovementFixRuntime.ApplySetting);
+            TryApplyFeature("multiplayer game speed", multiplayerGameSpeedRuntime.ApplySetting);
+            TryApplyFeature("assembly-point placement fix", ApplyAssemblyPointPlacementPatchSetting);
 
             if (settings.EnableClientFeatures)
                 SubscribeHooks();
@@ -231,56 +241,110 @@ namespace BugfixesAndQoL
 
         private void SubscribeHooks()
         {
-            if (hooksSubscribed || !settings.EnableClientFeatures)
+            if (!settings.EnableClientFeatures)
                 return;
 
-            TryInitializeFeature("minimap placement", () =>
-                minimapPlacementClickHook = new MinimapPlacementClickHook(log, settings));
-            TryInitializeFeature("market autotrade sell threshold", () =>
-                autoTradeSellZeroHook = new AutoTradeSellZeroHook(log, settings));
-            TryInitializeFeature("market key main-menu return", () =>
-                marketKeyMainTradeMenuHook = new MarketKeyMainTradeMenuHook(log, settings));
-            TryInitializeFeature("HD market view", () =>
-                hdMarketViewHook = new HdMarketViewHook(log, settings));
-            TryInitializeFeature("camera movement modifier", () =>
-                cameraMovementModifierHook = new CameraMovementModifierHook(log, settings));
-            TryInitializeFeature("Custom Trail starting-gold fix", () =>
-                customTrailExtremeGoldFixHook = new CustomTrailExtremeGoldFixHook(log, settings));
+            ReconcileClientHook(
+                "minimap improvements",
+                settings.EnableMinimapCursorFollowFix || settings.AllowMinimapWhilePlacingBuilding,
+                () => minimapPlacementClickHook != null,
+                () => minimapPlacementClickHook = new MinimapPlacementClickHook(log, settings),
+                () => DisposeFeature("minimap improvements", ref minimapPlacementClickHook));
+            ReconcileClientHook(
+                "market autotrade sell threshold",
+                settings.EnableAutoTradeSellZeroFix,
+                () => autoTradeSellZeroHook != null,
+                () => autoTradeSellZeroHook = new AutoTradeSellZeroHook(log, settings),
+                () => DisposeFeature("market autotrade sell threshold", ref autoTradeSellZeroHook));
+            ReconcileClientHook(
+                "market key main-menu return",
+                settings.EnableMarketKeyMainMenuFix,
+                () => marketKeyMainTradeMenuHook != null,
+                () => marketKeyMainTradeMenuHook = new MarketKeyMainTradeMenuHook(log, settings),
+                () => DisposeFeature("market key main-menu return", ref marketKeyMainTradeMenuHook));
+            ReconcileClientHook(
+                "HD market view",
+                settings.HdMarketView,
+                () => hdMarketViewHook != null,
+                () => hdMarketViewHook = new HdMarketViewHook(log, settings),
+                () => DisposeFeature("HD market view", ref hdMarketViewHook));
+            ReconcileClientHook(
+                "camera movement modifier",
+                settings.AllowCameraMovementWithModifiers,
+                () => cameraMovementModifierHook != null,
+                () => cameraMovementModifierHook = new CameraMovementModifierHook(log, settings),
+                () => DisposeFeature("camera movement modifier", ref cameraMovementModifierHook));
+            ReconcileClientHook(
+                "Custom Trail starting-gold fix",
+                settings.EnableCustomTrailExtremeGoldFix,
+                () => customTrailExtremeGoldFixHook != null,
+                () => customTrailExtremeGoldFixHook = new CustomTrailExtremeGoldFixHook(log, settings),
+                () => DisposeFeature("Custom Trail starting-gold fix", ref customTrailExtremeGoldFixHook));
 
-            if (fixedLayoutHashValidated)
+            if (fixedLayoutHashValidated && settings.EnableEnemyProximityBulldozeCursorFix)
             {
-                TryInitializeFeature("enemy-proximity bulldoze cursor", () =>
-                    enemyProximityBulldozeCursorHook = new EnemyProximityBulldozeCursorHook(log, settings));
+                if (enemyProximityBulldozeCursorHook == null)
+                {
+                    TryInitializeFeature("enemy-proximity bulldoze cursor", () =>
+                        enemyProximityBulldozeCursorHook = new EnemyProximityBulldozeCursorHook(log, settings));
+                }
             }
-            else if (!enemyProximityFixedLayoutErrorLogged)
+            else
             {
-                enemyProximityFixedLayoutErrorLogged = true;
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    "Bugfixes and QoL enemy-proximity bulldoze cursor remains inactive because its fixed native layout is not validated for this CrusaderDE.dll.");
+                DisposeFeature("enemy-proximity bulldoze cursor", ref enemyProximityBulldozeCursorHook);
+                if (settings.EnableEnemyProximityBulldozeCursorFix && !enemyProximityFixedLayoutErrorLogged)
+                {
+                    enemyProximityFixedLayoutErrorLogged = true;
+                    Shared.DebugLogHelper.LogError(
+                        log,
+                        "Bugfixes and QoL enemy-proximity bulldoze cursor remains inactive because its fixed native layout is not validated for this CrusaderDE.dll.");
+                }
             }
 
-            hooksSubscribed = true;
             Shared.DebugLogHelper.LogDebug(log, "Bugfixes and QoL feature hooks reconciled.");
         }
 
         private void UnsubscribeHooks()
         {
-            minimapPlacementClickHook?.Dispose();
-            minimapPlacementClickHook = null;
-            autoTradeSellZeroHook?.Dispose();
-            autoTradeSellZeroHook = null;
-            enemyProximityBulldozeCursorHook?.Dispose();
-            enemyProximityBulldozeCursorHook = null;
-            marketKeyMainTradeMenuHook?.Dispose();
-            marketKeyMainTradeMenuHook = null;
-            hdMarketViewHook?.Dispose();
-            hdMarketViewHook = null;
-            cameraMovementModifierHook?.Dispose();
-            cameraMovementModifierHook = null;
-            customTrailExtremeGoldFixHook?.Dispose();
-            customTrailExtremeGoldFixHook = null;
-            hooksSubscribed = false;
+            DisposeFeature("minimap improvements", ref minimapPlacementClickHook);
+            DisposeFeature("market autotrade sell threshold", ref autoTradeSellZeroHook);
+            DisposeFeature("enemy-proximity bulldoze cursor", ref enemyProximityBulldozeCursorHook);
+            DisposeFeature("market key main-menu return", ref marketKeyMainTradeMenuHook);
+            DisposeFeature("HD market view", ref hdMarketViewHook);
+            DisposeFeature("camera movement modifier", ref cameraMovementModifierHook);
+            DisposeFeature("Custom Trail starting-gold fix", ref customTrailExtremeGoldFixHook);
+        }
+
+        private void ReconcileClientHook(
+            string featureName,
+            bool enabled,
+            Func<bool> isInstalled,
+            Action install,
+            Action uninstall)
+        {
+            if (enabled && !isInstalled())
+                TryInitializeFeature(featureName, install);
+            else if (!enabled)
+                uninstall();
+        }
+
+        private void DisposeFeature<T>(string featureName, ref T feature) where T : class, IDisposable
+        {
+            T current = feature;
+            feature = null;
+            if (current == null)
+                return;
+
+            try
+            {
+                current.Dispose();
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Bugfixes and QoL feature '{featureName}' cleanup failed; other features continue: {ex}");
+            }
         }
 
         private void EnsureAiSelectionHook()
@@ -375,16 +439,30 @@ namespace BugfixesAndQoL
             }
         }
 
+        private void TryApplyFeature(string featureName, Action apply)
+        {
+            try
+            {
+                apply();
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Bugfixes and QoL feature '{featureName}' could not apply its setting; independent features continue: {ex}");
+            }
+        }
+
         private void OnSettingChanged(string propertyName)
         {
             // The installed market hook reads this local order directly; no hooks need reconciliation.
             if (propertyName == nameof(BugfixesAndQoLViewModel.MarketGoodsOrder))
                 return;
 
-            plagueTargetReservationFix?.ApplySetting();
+            TryApplyFeature("plague target-reservation fix", () => plagueTargetReservationFix?.ApplySetting());
             if (propertyName == nameof(BugfixesAndQoLViewModel.EnableTroopMovementFix))
             {
-                troopMovementFixRuntime.ApplySetting();
+                TryApplyFeature("troop movement fix", troopMovementFixRuntime.ApplySetting);
                 return;
             }
 

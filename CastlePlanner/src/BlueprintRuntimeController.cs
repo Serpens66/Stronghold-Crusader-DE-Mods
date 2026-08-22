@@ -107,6 +107,11 @@ namespace CastlePlanner
 
         private void OnBeforeRender()
         {
+            // Setting capture still needs rendered input, but a fully disabled Blueprint feature
+            // should perform no map, camera, image, or overlay work.
+            if (!settings.IsBlueprintMode && !hotkeyCapturePending)
+                return;
+
             if (!beforeRenderCallbackObserved)
             {
                 beforeRenderCallbackObserved = true;

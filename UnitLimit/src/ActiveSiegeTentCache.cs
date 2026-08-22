@@ -32,28 +32,39 @@ namespace UnitLimit
             if (subscribed)
                 return;
 
-            subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable
-                .Where(args => args.Phase == EventHookPhase.Post)
-                .Subscribe(_ => ResyncAll(true)));
-            subscriptions.Add(MapLoaderR3EventHooks.OnLoadSave.Observable
-                .Where(args => args.Phase == EventHookPhase.Post)
-                .Subscribe(_ => ResyncAll(true)));
-            subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
-                .Where(args => args.Phase == EventHookPhase.Post)
-                .Subscribe(_ => Clear()));
-            subscriptions.Add(BuildingR3EventHooks.OnBuildingSpawn.Observable
-                .Subscribe(OnBuildingSpawn));
-            subscriptions.Add(BuildingR3EventHooks.OnBuildingDelete.Observable
-                .Subscribe(OnBuildingDelete));
+            try
+            {
+                subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable
+                    .Where(args => args.Phase == EventHookPhase.Post)
+                    .Subscribe(_ => ResyncAll(true)));
+                subscriptions.Add(MapLoaderR3EventHooks.OnLoadSave.Observable
+                    .Where(args => args.Phase == EventHookPhase.Post)
+                    .Subscribe(_ => ResyncAll(true)));
+                subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
+                    .Where(args => args.Phase == EventHookPhase.Post)
+                    .Subscribe(_ => Clear()));
+                subscriptions.Add(BuildingR3EventHooks.OnBuildingSpawn.Observable
+                    .Subscribe(OnBuildingSpawn));
+                subscriptions.Add(BuildingR3EventHooks.OnBuildingDelete.Observable
+                    .Subscribe(OnBuildingDelete));
 
-            subscribed = true;
-            LogDebug("ActiveSiegeTentCache hooks subscribed.");
+                subscribed = true;
+                LogDebug("ActiveSiegeTentCache hooks subscribed.");
+            }
+            catch
+            {
+                Dispose();
+                throw;
+            }
         }
 
         public void Dispose()
         {
             foreach (IDisposable subscription in subscriptions)
-                subscription.Dispose();
+            {
+                try { subscription.Dispose(); }
+                catch (Exception ex) { LogDebug("ActiveSiegeTentCache subscription cleanup failed:", ex); }
+            }
 
             subscriptions.Clear();
             subscribed = false;

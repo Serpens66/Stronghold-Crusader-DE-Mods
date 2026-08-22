@@ -63,9 +63,16 @@ namespace BuildingCosts
             if (hooksSubscribed)
                 return;
 
-            subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable
-                .Where(args => args.Phase == EventHookPhase.Post)
-                .Subscribe(OnStartMap));
+            try
+            {
+                subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable
+                    .Where(args => args.Phase == EventHookPhase.Post)
+                    .Subscribe(OnStartMap));
+            }
+            catch (Exception ex)
+            {
+                LogDebug("Building cost map-start subscription failed; direct settings changes continue:", ex);
+            }
 
             try
             {
@@ -94,8 +101,8 @@ namespace BuildingCosts
             }
 
             SubscribeHooks();
-            InitializeVanillaCostTooltips();
-            ApplyBuildingCosts();
+            TryRunFeature("Vanilla tooltip costs", InitializeVanillaCostTooltips);
+            TryRunFeature("building costs", ApplyBuildingCosts);
             libraryInitialized = true;
             LogDebug("Applied initial building cost settings");
         }
@@ -113,11 +120,15 @@ namespace BuildingCosts
         private void UnsubscribeHooks()
         {
             foreach (IDisposable subscription in subscriptions)
-                subscription.Dispose();
+            {
+                try { subscription.Dispose(); }
+                catch (Exception ex) { LogDebug("Building cost subscription cleanup failed:", ex); }
+            }
 
             subscriptions.Clear();
             hooksSubscribed = false;
-            updateRolloverHook?.Dispose();
+            try { updateRolloverHook?.Dispose(); }
+            catch (Exception ex) { LogDebug("Building cost tooltip hook cleanup failed:", ex); }
             updateRolloverHook = null;
             updateRolloverTrampoline = null;
             ClearBuildingCostTooltip();
@@ -161,13 +172,19 @@ namespace BuildingCosts
                 if (settings.EnableMod)
                 {
                     SubscribeHooks();
-                    InitializeVanillaCostTooltips();
-                    ApplyBuildingCosts();
+                    TryRunFeature("Vanilla tooltip costs", InitializeVanillaCostTooltips);
+                    TryRunFeature("building costs", ApplyBuildingCosts);
                 }
                 else
                 {
-                    RestoreDefaultBuildingCosts();
-                    UnsubscribeHooks();
+                    try
+                    {
+                        RestoreDefaultBuildingCosts();
+                    }
+                    finally
+                    {
+                        UnsubscribeHooks();
+                    }
                 }
 
                 return;
@@ -177,7 +194,7 @@ namespace BuildingCosts
                 return;
 
             if (propertyName == nameof(BuildingCostsLobbyViewModel.BuildingCosts))
-                ApplyBuildingCosts();
+                TryRunFeature("building costs", ApplyBuildingCosts);
         }
 
         private void OnStartMap(MapStartEventArgs args)
@@ -245,7 +262,16 @@ namespace BuildingCosts
                 }
 
                 foreach (eStructs structure in definition.Structures)
-                    changedMaterials += ApplyStructureCosts(structure, entry.Value);
+                {
+                    try
+                    {
+                        changedMaterials += ApplyStructureCosts(structure, entry.Value);
+                    }
+                    catch (Exception ex)
+                    {
+                        LogDebug("Could not apply building costs; remaining structures continue:", structure, ex);
+                    }
+                }
             }
 
             LogDebug("Applied building cost materials:", changedMaterials);
@@ -255,44 +281,55 @@ namespace BuildingCosts
         private void RestoreDefaultBuildingCosts()
         {
             int restoredMaterials = 0;
+            var failedRestores = new Dictionary<eStructs, CostMaterialMask>();
             foreach (KeyValuePair<eStructs, CostMaterialMask> entry in overriddenCostMaterials)
             {
-                eStructs structure = entry.Key;
-                CostMaterialMask materials = entry.Value;
-                BuildingCost cost = GameBuildingManagerAPI.Instance.GetDefaultCost(structure);
-
-                if ((materials & CostMaterialMask.Wood) != 0)
+                try
                 {
-                    GameBuildingManagerAPI.Instance.SetWoodCost(structure, cost.Wood);
-                    restoredMaterials++;
+                    eStructs structure = entry.Key;
+                    CostMaterialMask materials = entry.Value;
+                    BuildingCost cost = GameBuildingManagerAPI.Instance.GetDefaultCost(structure);
+
+                    if ((materials & CostMaterialMask.Wood) != 0)
+                    {
+                        GameBuildingManagerAPI.Instance.SetWoodCost(structure, cost.Wood);
+                        restoredMaterials++;
+                    }
+
+                    if ((materials & CostMaterialMask.Stone) != 0)
+                    {
+                        GameBuildingManagerAPI.Instance.SetStoneCost(structure, cost.Stone);
+                        restoredMaterials++;
+                    }
+
+                    if ((materials & CostMaterialMask.Iron) != 0)
+                    {
+                        GameBuildingManagerAPI.Instance.SetIronIngotCost(structure, cost.Iron);
+                        restoredMaterials++;
+                    }
+
+                    if ((materials & CostMaterialMask.Pitch) != 0)
+                    {
+                        GameBuildingManagerAPI.Instance.SetRawPitchCost(structure, cost.Pitch);
+                        restoredMaterials++;
+                    }
+
+                    if ((materials & CostMaterialMask.Gold) != 0)
+                    {
+                        GameBuildingManagerAPI.Instance.SetGoldCost(structure, cost.Gold);
+                        restoredMaterials++;
+                    }
                 }
-
-                if ((materials & CostMaterialMask.Stone) != 0)
+                catch (Exception ex)
                 {
-                    GameBuildingManagerAPI.Instance.SetStoneCost(structure, cost.Stone);
-                    restoredMaterials++;
-                }
-
-                if ((materials & CostMaterialMask.Iron) != 0)
-                {
-                    GameBuildingManagerAPI.Instance.SetIronIngotCost(structure, cost.Iron);
-                    restoredMaterials++;
-                }
-
-                if ((materials & CostMaterialMask.Pitch) != 0)
-                {
-                    GameBuildingManagerAPI.Instance.SetRawPitchCost(structure, cost.Pitch);
-                    restoredMaterials++;
-                }
-
-                if ((materials & CostMaterialMask.Gold) != 0)
-                {
-                    GameBuildingManagerAPI.Instance.SetGoldCost(structure, cost.Gold);
-                    restoredMaterials++;
+                    failedRestores[entry.Key] = entry.Value;
+                    LogDebug("Could not restore building costs; remaining structures continue:", entry.Key, ex);
                 }
             }
 
             overriddenCostMaterials.Clear();
+            foreach (KeyValuePair<eStructs, CostMaterialMask> failed in failedRestores)
+                overriddenCostMaterials[failed.Key] = failed.Value;
             LogDebug("Restored default building cost materials:", restoredMaterials);
             ResetTooltipCache();
         }
@@ -989,6 +1026,15 @@ namespace BuildingCosts
         private void LogDebug(params object[] parts)
         {
             Shared.DebugLogHelper.LogDebug(log, parts);
+        }
+
+        private void TryRunFeature(string featureName, Action action)
+        {
+            try { action(); }
+            catch (Exception ex)
+            {
+                LogDebug("Building costs feature failed; independent features continue:", featureName, ex);
+            }
         }
     }
 }

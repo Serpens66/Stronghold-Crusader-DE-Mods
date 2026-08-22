@@ -89,6 +89,12 @@ namespace UnitLimit
 
         private MakeTroopGameActionDecision DecideLocalUnitRecruitmentRequest(int amount, eChimps unitType, int rawUnitType)
         {
+            if (!activeUnitCacheAvailable ||
+                (IsEngineerSiegeUnit(unitType) && !activeSiegeTentCacheAvailable))
+            {
+                return MakeTroopGameActionDecision.AllowOriginal();
+            }
+
             if (IsMapEditor())
                 return MakeTroopGameActionDecision.AllowOriginal();
 

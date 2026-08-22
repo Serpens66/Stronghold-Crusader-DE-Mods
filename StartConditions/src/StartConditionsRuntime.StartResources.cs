@@ -13,8 +13,8 @@ namespace StartConditions
             ForEachActivePlayer(playerId =>
             {
                 LogDebug("Applying start resources for player", playerId);
-                ApplyStartGold(playerId);
-                ReplaceStartGoods(playerId);
+                TryRunFeature($"start gold for player {playerId}", () => ApplyStartGold(playerId));
+                TryRunFeature($"start goods for player {playerId}", () => ReplaceStartGoods(playerId));
             });
         }
 
@@ -63,10 +63,17 @@ namespace StartConditions
                     continue;
                 }
 
-                GamePlayerManagerAPI.Instance.SubtractIncomingGood(playerId, entry.Key, IncomingGoodClearAmount);
-                if (entry.Value > 0)
-                    GamePlayerManagerAPI.Instance.AddIncomingGood(playerId, entry.Key, entry.Value);
-                LogDebug("Set incoming good", entry.Key, "to", entry.Value, "for player", playerId);
+                try
+                {
+                    GamePlayerManagerAPI.Instance.SubtractIncomingGood(playerId, entry.Key, IncomingGoodClearAmount);
+                    if (entry.Value > 0)
+                        GamePlayerManagerAPI.Instance.AddIncomingGood(playerId, entry.Key, entry.Value);
+                    LogDebug("Set incoming good", entry.Key, "to", entry.Value, "for player", playerId);
+                }
+                catch (System.Exception ex)
+                {
+                    LogError("Start Conditions start-good operation failed; remaining goods continue:", entry.Key, "player", playerId, ex);
+                }
             }
         }
     }

@@ -32,30 +32,41 @@ namespace UnitLimit
             if (subscribed)
                 return;
 
-            subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable
-                .Where(args => args.Phase == EventHookPhase.Post)
-                .Subscribe(_ => ResyncAll(true)));
-            subscriptions.Add(MapLoaderR3EventHooks.OnLoadSave.Observable
-                .Where(args => args.Phase == EventHookPhase.Post)
-                .Subscribe(_ => ResyncAll(true)));
-            subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
-                .Where(args => args.Phase == EventHookPhase.Post)
-                .Subscribe(_ => Clear()));
-            subscriptions.Add(UnitR3EventHooks.OnUnitCreate.Observable
-                .Subscribe(OnUnitCreate));
-            subscriptions.Add(UnitR3EventHooks.OnUnitDelete.Observable
-                .Subscribe(OnUnitDelete));
-            subscriptions.Add(UnitR3EventHooks.OnUnitTransition.Observable
-                .Subscribe(OnUnitTransition));
+            try
+            {
+                subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable
+                    .Where(args => args.Phase == EventHookPhase.Post)
+                    .Subscribe(_ => ResyncAll(true)));
+                subscriptions.Add(MapLoaderR3EventHooks.OnLoadSave.Observable
+                    .Where(args => args.Phase == EventHookPhase.Post)
+                    .Subscribe(_ => ResyncAll(true)));
+                subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
+                    .Where(args => args.Phase == EventHookPhase.Post)
+                    .Subscribe(_ => Clear()));
+                subscriptions.Add(UnitR3EventHooks.OnUnitCreate.Observable
+                    .Subscribe(OnUnitCreate));
+                subscriptions.Add(UnitR3EventHooks.OnUnitDelete.Observable
+                    .Subscribe(OnUnitDelete));
+                subscriptions.Add(UnitR3EventHooks.OnUnitTransition.Observable
+                    .Subscribe(OnUnitTransition));
 
-            subscribed = true;
-            LogDebug("ActiveUnitCache hooks subscribed.");
+                subscribed = true;
+                LogDebug("ActiveUnitCache hooks subscribed.");
+            }
+            catch
+            {
+                Dispose();
+                throw;
+            }
         }
 
         public void Dispose()
         {
             foreach (IDisposable subscription in subscriptions)
-                subscription.Dispose();
+            {
+                try { subscription.Dispose(); }
+                catch (Exception ex) { LogDebug("ActiveUnitCache subscription cleanup failed:", ex); }
+            }
 
             subscriptions.Clear();
             subscribed = false;

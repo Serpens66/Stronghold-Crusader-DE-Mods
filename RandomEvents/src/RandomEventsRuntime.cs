@@ -49,6 +49,8 @@ namespace RandomEvents
         private readonly HashSet<int> initializationAcknowledgedPlayerIds = new HashSet<int>();
         private bool initialized;
         private bool disposed;
+        private bool tickSubscribed;
+        private bool saveHandlerRegistered;
         private bool mapStartPending;
         private bool mapActive;
         private bool loadedStateAvailable;
@@ -101,10 +103,14 @@ namespace RandomEvents
 
         public void InitializeNative(IntPtr libraryHandle, ReadOnlySpan<byte> memory, bool referenceHashMatches)
         {
-            signpostRegistry.InitializeNative(libraryHandle, memory, referenceHashMatches);
-            nativeEventDispatcher.InitializeNative(libraryHandle, memory, referenceHashMatches);
-            nativeWildlifeDispatcher.InitializeNative(libraryHandle, memory, referenceHashMatches);
-            nativeBanditSupport.InitializeNative(memory, referenceHashMatches);
+            try { signpostRegistry.InitializeNative(libraryHandle, memory, referenceHashMatches); }
+            catch (Exception ex) { LogFeatureFailure("signpost integration", ex); }
+            try { nativeEventDispatcher.InitializeNative(libraryHandle, memory, referenceHashMatches); }
+            catch (Exception ex) { LogFeatureFailure("Vanilla event dispatcher", ex); }
+            try { nativeWildlifeDispatcher.InitializeNative(libraryHandle, memory, referenceHashMatches); }
+            catch (Exception ex) { LogFeatureFailure("wildlife dispatcher", ex); }
+            try { nativeBanditSupport.InitializeNative(memory, referenceHashMatches); }
+            catch (Exception ex) { LogFeatureFailure("bandit support", ex); }
         }
 
         public void InitializeNetwork()
@@ -134,35 +140,69 @@ namespace RandomEvents
             if (initialized)
                 return;
 
-            subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable
+            // Persistent state is shared infrastructure for every scheduled event. Starting
+            // map/tick processing without it could repeat already executed batches after load.
+            saveHandlerRegistered = ModSaveDataAPI.Instance.RegisterModDataHandler(
+                SaveDataIdentifier, SaveState, LoadState, ResetMapState);
+            if (!saveHandlerRegistered)
+                throw new InvalidOperationException("Random Events save-data handler registration failed.");
+
+            TrySubscribeFeature("map start", () => MapLoaderR3EventHooks.OnStartMap.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
                 .Subscribe(OnStartMap));
-            subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
+            TrySubscribeFeature("map unload", () => MapLoaderR3EventHooks.OnUnloadMap.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
                 .Subscribe(OnUnloadMap));
-            GameTimeManagerAPI.Instance.OnTick += OnGameTick;
-
-            if (!ModSaveDataAPI.Instance.RegisterModDataHandler(
-                    SaveDataIdentifier,
-                    SaveState,
-                    LoadState,
-                    ResetMapState))
+            try
             {
-                throw new InvalidOperationException("Random Events save-data handler registration failed.");
+                GameTimeManagerAPI.Instance.OnTick += OnGameTick;
+                tickSubscribed = true;
             }
+            catch (Exception ex) { LogFeatureFailure("simulation tick", ex); }
 
             initialized = true;
+        }
+
+        private void TrySubscribeFeature(string featureName, Func<IDisposable> subscribe)
+        {
+            try
+            {
+                IDisposable subscription = subscribe();
+                if (subscription != null)
+                    subscriptions.Add(subscription);
+            }
+            catch (Exception ex) { LogFeatureFailure(featureName, ex); }
+        }
+
+        private void LogFeatureFailure(string featureName, Exception ex)
+        {
+            Shared.DebugLogHelper.LogError(
+                log,
+                $"Random Events feature '{featureName}' failed and remains inactive; independent event types continue: {ex}");
         }
 
         public void Dispose()
         {
             if (disposed) return;
-            GameTimeManagerAPI.Instance.OnTick -= OnGameTick;
+            if (tickSubscribed)
+            {
+                GameTimeManagerAPI.Instance.OnTick -= OnGameTick;
+                tickSubscribed = false;
+            }
             foreach (IDisposable subscription in subscriptions)
-                subscription.Dispose();
+            {
+                try { subscription.Dispose(); }
+                catch (Exception ex) { LogFeatureFailure("subscription cleanup", ex); }
+            }
             subscriptions.Clear();
-            signpostPlacement.Dispose();
-            ModSaveDataAPI.Instance.UnregisterModDataHandler(SaveDataIdentifier);
+            try { signpostPlacement.Dispose(); }
+            catch (Exception ex) { LogFeatureFailure("signpost cleanup", ex); }
+            if (saveHandlerRegistered)
+            {
+                try { ModSaveDataAPI.Instance.UnregisterModDataHandler(SaveDataIdentifier); }
+                catch (Exception ex) { LogFeatureFailure("save-data cleanup", ex); }
+                saveHandlerRegistered = false;
+            }
             disposed = true;
         }
 
@@ -1089,37 +1129,33 @@ namespace RandomEvents
             state.PreparedDirectKinds = Array.Empty<int>();
             state.PreparedDirectStrengths = Array.Empty<int>();
             state.PreparedDirectTargetPlayerIds = Array.Empty<int>();
+            // Advance before dispatch so a failing action cannot execute the whole batch again.
+            state.NextDueAbsoluteMonth = checked(due + state.IntervalMonths);
 
             for (int index = 0; index < directKinds.Length; index++)
             {
-                RandomEventDefinition definition = RandomEventDefinitions.Get((RandomEventKind)directKinds[index]);
-                int strength = index < strengths.Length ? strengths[index] : 0;
-                int targetPlayerId = index < targetPlayerIds.Length
-                    ? targetPlayerIds[index]
-                    : -1;
-                string prngBefore = RandomEventsDiagnostics.FormatPrng(state.PrngState0, state.PrngState1);
-                string stateDigestBefore = RandomEventsDiagnostics.GetStateDigest(state);
-                LogDebug(
-                    $"Random Events action begin: dueAbsoluteMonth={due}, actionIndex={index}, event={definition.Name}, " +
-                    $"dispatchKind={definition.DispatchKind}, targetPlayerId={targetPlayerId}, strength={strength}, " +
-                    $"prng={prngBefore}, stateDigest={stateDigestBefore}.");
-                // GameAction has no result signal, so its successful roll is the inexpensive success boundary.
-                bool cooldownStartedFromRoll = definition.DispatchKind == RandomEventDispatchKind.GameAction;
-                if (cooldownStartedFromRoll)
-                    StartEventCooldown(definition.Kind, targetPlayerId, due);
+                try
+                {
+                    RandomEventDefinition definition = RandomEventDefinitions.Get((RandomEventKind)directKinds[index]);
+                    int strength = index < strengths.Length ? strengths[index] : 0;
+                    int targetPlayerId = index < targetPlayerIds.Length ? targetPlayerIds[index] : -1;
+                    string prngBefore = RandomEventsDiagnostics.FormatPrng(state.PrngState0, state.PrngState1);
+                    string stateDigestBefore = RandomEventsDiagnostics.GetStateDigest(state);
+                    LogDebug($"Random Events action begin: dueAbsoluteMonth={due}, actionIndex={index}, event={definition.Name}, dispatchKind={definition.DispatchKind}, targetPlayerId={targetPlayerId}, strength={strength}, prng={prngBefore}, stateDigest={stateDigestBefore}.");
+                    bool cooldownStartedFromRoll = definition.DispatchKind == RandomEventDispatchKind.GameAction;
+                    if (cooldownStartedFromRoll)
+                        StartEventCooldown(definition.Kind, targetPlayerId, due);
 
-                bool effectApplied = DispatchDirectEvent(definition, strength, targetPlayerId);
-                if (!cooldownStartedFromRoll && effectApplied)
-                    StartEventCooldown(definition.Kind, targetPlayerId, due);
-                LogDebug(
-                    $"Random Events action end: dueAbsoluteMonth={due}, actionIndex={index}, event={definition.Name}, " +
-                    $"dispatchKind={definition.DispatchKind}, targetPlayerId={targetPlayerId}, strength={strength}, effectApplied={effectApplied}, " +
-                    $"cooldownStartedFromRoll={cooldownStartedFromRoll}, prngBefore={prngBefore}, " +
-                    $"prngAfter={RandomEventsDiagnostics.FormatPrng(state.PrngState0, state.PrngState1)}, " +
-                    $"stateDigestBefore={stateDigestBefore}, stateDigestAfter={RandomEventsDiagnostics.GetStateDigest(state)}.");
+                    bool effectApplied = DispatchDirectEvent(definition, strength, targetPlayerId);
+                    if (!cooldownStartedFromRoll && effectApplied)
+                        StartEventCooldown(definition.Kind, targetPlayerId, due);
+                    LogDebug($"Random Events action end: dueAbsoluteMonth={due}, actionIndex={index}, event={definition.Name}, dispatchKind={definition.DispatchKind}, targetPlayerId={targetPlayerId}, strength={strength}, effectApplied={effectApplied}, cooldownStartedFromRoll={cooldownStartedFromRoll}, prngBefore={prngBefore}, prngAfter={RandomEventsDiagnostics.FormatPrng(state.PrngState0, state.PrngState1)}, stateDigestBefore={stateDigestBefore}, stateDigestAfter={RandomEventsDiagnostics.GetStateDigest(state)}.");
+                }
+                catch (Exception ex)
+                {
+                    LogFeatureFailure($"due batch action {index}", ex);
+                }
             }
-
-            state.NextDueAbsoluteMonth = checked(due + state.IntervalMonths);
         }
 
         private bool IsEventOffCooldown(

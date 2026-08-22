@@ -59,7 +59,12 @@ namespace BuildingLimit
                 return;
 
             LogDebug("Subscribing building limit runtime hooks");
-            activeBuildingCache.SubscribeHooks();
+            if (!TryInitializeFeature("active-building cache", activeBuildingCache.SubscribeHooks))
+            {
+                TryInitializeFeature("active-building cache rollback", activeBuildingCache.Dispose);
+                LogDebug("Building limit enforcement remains inactive because its required cache is unavailable.");
+                return;
+            }
             try
             {
                 InstallUpdateRolloverHook();
@@ -69,19 +74,19 @@ namespace BuildingLimit
                 LogDebug("Could not install building limit tooltip hook:", ex);
             }
 
-            subscriptions.Add(BuildingR3EventHooks.OnPlacementValidation.Observable
+            TrySubscribeFeature("placement validation", () => BuildingR3EventHooks.OnPlacementValidation.Observable
                 .Where(args => args.Phase == EventHookPhase.Pre)
                 .Subscribe(OnBuildingPlacementValidation));
 
-            subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable
+            TrySubscribeFeature("map start", () => MapLoaderR3EventHooks.OnStartMap.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
                 .Subscribe(OnStartMap));
 
-            subscriptions.Add(MapLoaderR3EventHooks.OnLoadSave.Observable
+            TrySubscribeFeature("save load", () => MapLoaderR3EventHooks.OnLoadSave.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
                 .Subscribe(OnLoadSave));
 
-            subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
+            TrySubscribeFeature("map unload", () => MapLoaderR3EventHooks.OnUnloadMap.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
                 .Subscribe(OnUnloadMap));
 
@@ -121,17 +126,22 @@ namespace BuildingLimit
         private void UnsubscribeHooks()
         {
             foreach (IDisposable subscription in subscriptions)
-                subscription.Dispose();
+            {
+                try { subscription.Dispose(); }
+                catch (Exception ex) { LogDebug("Building limit subscription cleanup failed:", ex); }
+            }
 
             subscriptions.Clear();
             hooksSubscribed = false;
             HideBuildingLimitMessage();
             ClearBuildingLimitTooltip();
             ResetBuildingLimitTooltipCache();
-            updateRolloverHook?.Dispose();
+            try { updateRolloverHook?.Dispose(); }
+            catch (Exception ex) { LogDebug("Building limit tooltip cleanup failed:", ex); }
             updateRolloverHook = null;
             updateRolloverTrampoline = null;
-            activeBuildingCache.Dispose();
+            try { activeBuildingCache.Dispose(); }
+            catch (Exception ex) { LogDebug("Building limit cache cleanup failed:", ex); }
             activeBuildingLimitRules.Clear();
             activeBuildingLimitRulesByStructure.Clear();
         }
@@ -193,6 +203,31 @@ namespace BuildingLimit
         private void LogDebug(params object[] parts)
         {
             Shared.DebugLogHelper.LogDebug(log, parts);
+        }
+
+        private bool TryInitializeFeature(string featureName, Action initialize)
+        {
+            try
+            {
+                initialize();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                LogDebug("Building limit feature failed; independent features continue:", featureName, ex);
+                return false;
+            }
+        }
+
+        private void TrySubscribeFeature(string featureName, Func<IDisposable> subscribe)
+        {
+            try
+            {
+                IDisposable subscription = subscribe();
+                if (subscription != null)
+                    subscriptions.Add(subscription);
+            }
+            catch (Exception ex) { LogDebug("Building limit subscription failed; independent features continue:", featureName, ex); }
         }
 
         private void ClearBuildingLimitTooltip()

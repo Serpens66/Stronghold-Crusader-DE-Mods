@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Random Events",
   "Description": "Runs configurable Vanilla scenario events in skirmishes, Trail missions, and multiplayer games.",
-  "Version": "1.0.21",
+  "Version": "1.0.22",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.22",
+      "Changes": [
+        "Isolated native event backends and lifecycle stages, and continue later due actions after one action fails without repeating the batch."
+      ]
+    },
     {
       "Version": "1.0.21",
       "Changes": [

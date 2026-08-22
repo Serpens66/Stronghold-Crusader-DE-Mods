@@ -87,15 +87,50 @@ namespace CastlePlanner.AIVPlacement
                 typeof(string));
             MethodInfo add = FindMethod(typeof(FRONT_Multiplayer_AISettings), "AddSelected");
 
-            initHook = new Hook(init, (AiSettingsInitDelegate)InitHook);
-            initTrampoline = initHook.GenerateTrampoline<AiSettingsInitDelegate>();
-            populateHook = new Hook(AiSettingsPopulateListMethod, (AiSettingsPopulateListDelegate)PopulateHook);
-            populateTrampoline = populateHook.GenerateTrampoline<AiSettingsPopulateListDelegate>();
-            buttonHook = new Hook(button, (AiSettingsButtonClickedDelegate)ButtonClickedHook);
-            buttonTrampoline = buttonHook.GenerateTrampoline<AiSettingsButtonClickedDelegate>();
-            addHook = new Hook(add, (AiSettingsAddSelectedDelegate)AddSelectedHook);
-            addTrampoline = addHook.GenerateTrampoline<AiSettingsAddSelectedDelegate>();
-            selectionList.RemoveRequested += OnRemoveRequested;
+            try
+            {
+                initHook = new Hook(init, (AiSettingsInitDelegate)InitHook);
+                initTrampoline = initHook.GenerateTrampoline<AiSettingsInitDelegate>();
+                populateHook = new Hook(AiSettingsPopulateListMethod, (AiSettingsPopulateListDelegate)PopulateHook);
+                populateTrampoline = populateHook.GenerateTrampoline<AiSettingsPopulateListDelegate>();
+                buttonHook = new Hook(button, (AiSettingsButtonClickedDelegate)ButtonClickedHook);
+                buttonTrampoline = buttonHook.GenerateTrampoline<AiSettingsButtonClickedDelegate>();
+                addHook = new Hook(add, (AiSettingsAddSelectedDelegate)AddSelectedHook);
+                addTrampoline = addHook.GenerateTrampoline<AiSettingsAddSelectedDelegate>();
+                selectionList.RemoveRequested += OnRemoveRequested;
+            }
+            catch
+            {
+                Dispose();
+                throw;
+            }
+        }
+
+        public void Dispose()
+        {
+            selectionList.RemoveRequested -= OnRemoveRequested;
+            Reset();
+            ReleaseHook(ref addHook);
+            addTrampoline = null;
+            ReleaseHook(ref buttonHook);
+            buttonTrampoline = null;
+            ReleaseHook(ref populateHook);
+            populateTrampoline = null;
+            ReleaseHook(ref initHook);
+            initTrampoline = null;
+        }
+
+        private void ReleaseHook(ref Hook hook)
+        {
+            Hook current = hook;
+            hook = null;
+            if (current == null)
+                return;
+
+            try { current.Undo(); }
+            catch (Exception ex) { LogErrorOnce("selection-hook-undo", $"AIV selection hook undo failed: {ex}"); }
+            try { current.Dispose(); }
+            catch (Exception ex) { LogErrorOnce("selection-hook-dispose", $"AIV selection hook disposal failed: {ex}"); }
         }
 
         public void SetPlayerMappings(

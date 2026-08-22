@@ -15,7 +15,7 @@ namespace BuildingCosts
 
         public const string PluginGuid = "BuildingCosts_Serp";
         public const string PluginName = "Building Costs";
-        public const string PluginVersion = "1.0.94";
+        public const string PluginVersion = "1.0.95";
 
         internal static readonly BuildingCostTooltipViewModel BuildingCostTooltipViewModel = new BuildingCostTooltipViewModel();
 
@@ -41,29 +41,47 @@ namespace BuildingCosts
 
             CrusaderLibrary.Instance.LibraryLoaded -= OnCrusaderLibraryLoaded;
 
+            TryInitializeStage("native version diagnostics", () => Shared.DebugLogHelper.ReportNativeLibraryVersion(Logger, PluginName));
+            TryInitializeStage("localized names", Settings.RefreshLocalizedNames);
             try
             {
-                Shared.DebugLogHelper.ReportNativeLibraryVersion(Logger, PluginName);
-                Settings.RefreshLocalizedNames();
                 Shared.LobbyModSettingsPresetRegistration.Register(
                     this,
                     Logger,
                     "BuildingCosts_Serp",
                     Settings,
                     "ScriptExtenderUI/BuildingCostsSettings.xaml");
-                GameXAMLManagerAPI.Instance.RegisterBinding(
-                    "BuildingCostsTooltipHost",
-                    BuildingCostTooltipViewModel);
-                GameXAMLManagerAPI.Instance.RegisterBinding(
-                    "BuildingCostsTooltipHostCompact",
-                    BuildingCostTooltipViewModel);
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(Logger, $"BuildingCosts settings registration failed; gameplay runtime stopped fail-closed: {ex}");
+                return;
+            }
 
-                Shared.DebugLogHelper.LogDebug(Logger, "Crusader library loaded; BuildingCosts UI registered.");
+            TryInitializeStage("detailed tooltip binding", () => GameXAMLManagerAPI.Instance.RegisterBinding(
+                    "BuildingCostsTooltipHost",
+                    BuildingCostTooltipViewModel));
+            TryInitializeStage("compact tooltip binding", () => GameXAMLManagerAPI.Instance.RegisterBinding(
+                    "BuildingCostsTooltipHostCompact",
+                    BuildingCostTooltipViewModel));
+
+            try
+            {
                 runtime.InitializeAfterLibraryLoaded();
+                Shared.DebugLogHelper.LogDebug(Logger, "Crusader library loaded; BuildingCosts runtime initialized.");
             }
             catch (Exception ex)
             {
                 Shared.DebugLogHelper.LogError(Logger, $"Error while initializing BuildingCosts after library load: {ex}");
+            }
+        }
+
+        private void TryInitializeStage(string stageName, Action initialize)
+        {
+            try { initialize(); }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(Logger, $"BuildingCosts {stageName} failed; independent stages continue: {ex}");
             }
         }
     }

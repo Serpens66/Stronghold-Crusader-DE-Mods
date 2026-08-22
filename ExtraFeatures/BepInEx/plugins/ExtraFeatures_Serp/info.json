@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.34",
+  "Version": "1.0.35",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.35",
+      "Changes": [
+        "Separated synchronized packet registration from optional local hooks, removed disabled feature work, and restored modified Lord health when its multipliers are disabled."
+      ]
+    },
     {
       "Version": "1.0.34",
       "Changes": [

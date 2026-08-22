@@ -97,13 +97,53 @@ namespace CastlePlanner.AIVPlacement
                 typeof(FRONT_Multiplayer),
                 "ButtonClicked",
                 new[] { typeof(string) });
-            updateHook = new Hook(update, (UpdateDelegate)UpdateHook);
-            updateTrampoline = updateHook.GenerateTrampoline<UpdateDelegate>();
-            startHook = new Hook(start, (StartSkirmishGameDelegate)StartSkirmishGameHook);
-            startTrampoline = startHook.GenerateTrampoline<StartSkirmishGameDelegate>();
-            buttonClickedHook = new Hook(buttonClicked, (ButtonClickedDelegate)ButtonClickedHook);
-            buttonClickedTrampoline = buttonClickedHook.GenerateTrampoline<ButtonClickedDelegate>();
-            selectionDialog.Install();
+            try
+            {
+                updateHook = new Hook(update, (UpdateDelegate)UpdateHook);
+                updateTrampoline = updateHook.GenerateTrampoline<UpdateDelegate>();
+                startHook = new Hook(start, (StartSkirmishGameDelegate)StartSkirmishGameHook);
+                startTrampoline = startHook.GenerateTrampoline<StartSkirmishGameDelegate>();
+                buttonClickedHook = new Hook(buttonClicked, (ButtonClickedDelegate)ButtonClickedHook);
+                buttonClickedTrampoline = buttonClickedHook.GenerateTrampoline<ButtonClickedDelegate>();
+                selectionDialog.Install();
+            }
+            catch
+            {
+                // Hook installation is transactional: never leave a partial lobby detour set.
+                Deactivate();
+                selectionDialog.Dispose();
+                ReleaseHook(ref buttonClickedHook);
+                buttonClickedTrampoline = null;
+                ReleaseHook(ref startHook);
+                startTrampoline = null;
+                ReleaseHook(ref updateHook);
+                updateTrampoline = null;
+                throw;
+            }
+        }
+
+        public void Deactivate()
+        {
+            // This is also called directly by the setting-change callback, so the ready button
+            // and worker state are restored without waiting for another frontend Update.
+            if (!lobbyContextActive && blockedReadyButton == null && evaluationCancellation == null)
+                return;
+
+            lobbyContextActive = true;
+            LeaveLobbyContext();
+        }
+
+        private void ReleaseHook(ref Hook hook)
+        {
+            Hook current = hook;
+            hook = null;
+            if (current == null)
+                return;
+
+            try { current.Undo(); }
+            catch (Exception ex) { LogErrorOnce("hook-undo", $"AIV placement hook undo failed: {ex}"); }
+            try { current.Dispose(); }
+            catch (Exception ex) { LogErrorOnce("hook-dispose", $"AIV placement hook disposal failed: {ex}"); }
         }
 
         private void UpdateHook(FRONT_Multiplayer self)

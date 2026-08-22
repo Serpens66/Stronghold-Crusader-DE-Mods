@@ -26,7 +26,7 @@ namespace BugfixesAndQoL
 
         public const string PluginGuid = "BugfixesAndQoL_Serp";
         public const string PluginName = "Bugfixes and QoL";
-        public const string PluginVersion = "1.0.55";
+        public const string PluginVersion = "1.0.56";
 
         private static DisplayResolutionPersistenceHook displayResolutionPersistenceHook;
         private static SteamLobbyInvitePrompt steamLobbyInvitePrompt;
@@ -69,34 +69,51 @@ namespace BugfixesAndQoL
         private void InitializePersistentUiAndMapCallbacks()
         {
             // These publishers outlive the BepInEx component and retain the callbacks for the process lifetime.
-            SHCDESE.BepInEx.Bootstrap.Plugin.ModSettingsHubViewModel.PropertyChanged +=
-                (_, __) =>
-                {
-                    // The game fills MainViewModel.GameSprites after the script extender loads.
-                    // A hub change, including opening the settings, is the safe point to retry visuals.
-                    try
-                    {
-                        Settings.RefreshMarketGoodsOrderVisuals();
-                    }
-                    catch (Exception ex)
-                    {
-                        // A visual retry must never escape through PropertyChanged and abort tab registration.
-                        if (!marketGoodsVisualRefreshFailureLogged)
-                        {
-                            marketGoodsVisualRefreshFailureLogged = true;
-                            Shared.DebugLogHelper.LogError(
-                                Logger,
-                                $"Bugfixes and QoL market-goods visual refresh failed; text controls remain usable: {ex}");
-                        }
-                    }
-                };
-            MapLoaderR3EventHooks.OnStartMap.Observable.Subscribe(args =>
+            try
             {
-                if (args.Phase == EventHookPhase.Post)
+                SHCDESE.BepInEx.Bootstrap.Plugin.ModSettingsHubViewModel.PropertyChanged +=
+                    (_, __) =>
+                    {
+                        // The game fills MainViewModel.GameSprites after the script extender loads.
+                        // A hub change, including opening the settings, is the safe point to retry visuals.
+                        try
+                        {
+                            Settings.RefreshMarketGoodsOrderVisuals();
+                        }
+                        catch (Exception ex)
+                        {
+                            // A visual retry must never escape through PropertyChanged and abort tab registration.
+                            if (!marketGoodsVisualRefreshFailureLogged)
+                            {
+                                marketGoodsVisualRefreshFailureLogged = true;
+                                Shared.DebugLogHelper.LogError(
+                                    Logger,
+                                    $"Bugfixes and QoL market-goods visual refresh failed; text controls remain usable: {ex}");
+                            }
+                        }
+                    };
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(
+                    Logger,
+                    $"Bugfixes and QoL market-goods visual callback could not be registered; other callbacks continue: {ex}");
+            }
+
+            try
+            {
+                MapLoaderR3EventHooks.OnStartMap.Observable.Subscribe(args =>
                 {
-                    steamLobbyInvitePrompt?.TryInitialize();
-                }
-            });
+                    if (args.Phase == EventHookPhase.Post)
+                        steamLobbyInvitePrompt?.TryInitialize();
+                });
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(
+                    Logger,
+                    $"Bugfixes and QoL Steam invite map callback could not be registered; other callbacks continue: {ex}");
+            }
         }
 
         private void OnCrusaderLibraryLoaded(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
@@ -122,6 +139,23 @@ namespace BugfixesAndQoL
             catch (Exception ex)
             {
                 Shared.DebugLogHelper.LogError(Logger, $"Bugfixes and QoL market-order editor initialization failed: {ex}");
+            }
+
+            try
+            {
+                Shared.LobbyModSettingsPresetRegistration.Register(
+                    this,
+                    Logger,
+                    PluginGuid,
+                    Settings,
+                    "ScriptExtenderUI/BugfixesAndQoLSettings.xaml");
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(
+                    Logger,
+                    $"Bugfixes and QoL settings registration failed; gameplay runtime stopped fail-closed: {ex}");
+                return;
             }
 
             InitializePersistentUiAndMapCallbacks();
@@ -186,20 +220,6 @@ namespace BugfixesAndQoL
             catch (Exception ex)
             {
                 Shared.DebugLogHelper.LogError(Logger, $"Bugfixes and QoL ally amount display binding failed: {ex}");
-            }
-
-            try
-            {
-                Shared.LobbyModSettingsPresetRegistration.Register(
-                    this,
-                    Logger,
-                    PluginGuid,
-                    Settings,
-                    "ScriptExtenderUI/BugfixesAndQoLSettings.xaml");
-            }
-            catch (Exception ex)
-            {
-                Shared.DebugLogHelper.LogError(Logger, $"Bugfixes and QoL settings UI registration failed: {ex}");
             }
 
             try

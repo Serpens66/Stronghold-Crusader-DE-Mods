@@ -15,7 +15,7 @@ namespace StartConditions
 
         public const string PluginGuid = "StartConditions_Serp";
         public const string PluginName = "Start Conditions";
-        public const string PluginVersion = "1.0.15";
+        public const string PluginVersion = "1.0.16";
 
         private StartConditionsRuntime runtime;
         private int libraryInitializationStarted;
@@ -39,23 +39,40 @@ namespace StartConditions
 
             CrusaderLibrary.Instance.LibraryLoaded -= OnCrusaderLibraryLoaded;
 
+            TryInitializeStage("native version diagnostics", () => Shared.DebugLogHelper.ReportNativeLibraryVersion(Logger, PluginName));
+            TryInitializeStage("localized names", () => Settings.RefreshLocalizedNames(message => Shared.DebugLogHelper.LogDebug(Logger, message)));
             try
             {
-                Shared.DebugLogHelper.ReportNativeLibraryVersion(Logger, PluginName);
-                Settings.RefreshLocalizedNames(message => Shared.DebugLogHelper.LogDebug(Logger, message));
                 Shared.LobbyModSettingsPresetRegistration.Register(
                     this,
                     Logger,
                     "StartConditions_Serp",
                     Settings,
                     "ScriptExtenderUI/StartConditionsSettings.xaml");
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(Logger, $"StartConditions settings registration failed; gameplay runtime stopped fail-closed: {ex}");
+                return;
+            }
 
-                Shared.DebugLogHelper.LogDebug(Logger, "Crusader library loaded; StartConditions UI registered.");
+            try
+            {
                 runtime.InitializeAfterLibraryLoaded();
+                Shared.DebugLogHelper.LogDebug(Logger, "Crusader library loaded; StartConditions runtime initialized.");
             }
             catch (Exception ex)
             {
                 Shared.DebugLogHelper.LogError(Logger, $"Error while initializing StartConditions after library load: {ex}");
+            }
+        }
+
+        private void TryInitializeStage(string stageName, Action initialize)
+        {
+            try { initialize(); }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(Logger, $"StartConditions {stageName} failed; independent stages continue: {ex}");
             }
         }
     }

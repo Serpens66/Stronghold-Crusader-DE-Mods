@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "CastlePlanner",
   "Description": "Displays AIVJSON blueprints, spawns personal human castles, and contains the gated AI lobby placement workflow.",
-  "Version": "0.6.5",
+  "Version": "0.6.6",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "0.6.6",
+      "Changes": [
+        "Isolated settings, Blueprint, AIV placement, and native Spawn initialization; made AIV hook installation transactional and disabled Blueprint frame work when inactive."
+      ]
+    },
     {
       "Version": "0.6.5",
       "Changes": [

@@ -15,7 +15,7 @@ namespace UnitLimit
 
         public const string PluginGuid = "UnitLimit_Serp";
         public const string PluginName = "Unit Limit";
-        public const string PluginVersion = "1.0.84";
+        public const string PluginVersion = "1.0.85";
 
         private UnitLimitRuntime runtime;
         private int libraryInitializationStarted;
@@ -39,51 +39,61 @@ namespace UnitLimit
 
             CrusaderLibrary.Instance.LibraryLoaded -= OnCrusaderLibraryLoaded;
 
+            TryInitializeStage("native version diagnostics", () => Shared.DebugLogHelper.ReportNativeLibraryVersion(Logger, PluginName));
+            TryInitializeStage("localized names", Settings.RefreshLocalizedNames);
             try
             {
-                Shared.DebugLogHelper.ReportNativeLibraryVersion(Logger, PluginName);
-                Settings.RefreshLocalizedNames();
                 Shared.LobbyModSettingsPresetRegistration.Register(
                     this,
                     Logger,
                     "UnitLimit_Serp",
                     Settings,
                     "ScriptExtenderUI/UnitLimitSettings.xaml");
-                GameXAMLManagerAPI.Instance.RegisterBinding(
-                    "UnitLimitNotificationOverlay",
-                    runtime.LimitNotification);
-                GameXAMLManagerAPI.Instance.RegisterBinding(
-                    "UnitLimitSiegeNotificationInlineHost",
-                    runtime.SiegeLimitNotification);
-                GameXAMLManagerAPI.Instance.RegisterBinding(
-                    "UnitLimitTroopLimitInlineHost",
-                    runtime.UnitLimitTooltip);
-                GameXAMLManagerAPI.Instance.RegisterBinding(
-                    "UnitLimitArabTroopLimitInlineHost",
-                    runtime.UnitLimitTooltip);
-                GameXAMLManagerAPI.Instance.RegisterBinding(
-                    "UnitLimitBedouinTroopLimitInlineHost",
-                    runtime.UnitLimitTooltip);
-                GameXAMLManagerAPI.Instance.RegisterBinding(
-                    "UnitLimitEngineersLimitInlineHost",
-                    runtime.UnitLimitTooltip);
-                GameXAMLManagerAPI.Instance.RegisterBinding(
-                    "UnitLimitTunellersLimitInlineHost",
-                    runtime.UnitLimitTooltip);
-                GameXAMLManagerAPI.Instance.RegisterBinding(
-                    "UnitLimitMonkLimitInlineHost",
-                    runtime.UnitLimitTooltip);
-                GameXAMLManagerAPI.Instance.RegisterBinding(
-                    "UnitLimitSiegeLimitInlineHost",
-                    runtime.UnitLimitTooltip);
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(Logger, $"UnitLimit settings registration failed; gameplay runtime stopped fail-closed: {ex}");
+                return;
+            }
 
-                Shared.DebugLogHelper.LogDebug(Logger, "Crusader library loaded; UnitLimit UI registered.");
+            RegisterBinding("UnitLimitNotificationOverlay", runtime.LimitNotification);
+            RegisterBinding("UnitLimitSiegeNotificationInlineHost", runtime.SiegeLimitNotification);
+            string[] tooltipTargets =
+            {
+                "UnitLimitTroopLimitInlineHost",
+                "UnitLimitArabTroopLimitInlineHost",
+                "UnitLimitBedouinTroopLimitInlineHost",
+                "UnitLimitEngineersLimitInlineHost",
+                "UnitLimitTunellersLimitInlineHost",
+                "UnitLimitMonkLimitInlineHost",
+                "UnitLimitSiegeLimitInlineHost",
+            };
+            foreach (string target in tooltipTargets)
+                RegisterBinding(target, runtime.UnitLimitTooltip);
+
+            try
+            {
                 runtime.InitializeAfterLibraryLoaded();
+                Shared.DebugLogHelper.LogDebug(Logger, "Crusader library loaded; UnitLimit runtime initialized.");
             }
             catch (Exception ex)
             {
                 Shared.DebugLogHelper.LogError(Logger, $"Error while initializing UnitLimit after library load: {ex}");
             }
+        }
+
+        private void TryInitializeStage(string stageName, Action initialize)
+        {
+            try { initialize(); }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(Logger, $"UnitLimit {stageName} failed; independent stages continue: {ex}");
+            }
+        }
+
+        private void RegisterBinding(string target, object value)
+        {
+            TryInitializeStage($"binding '{target}'", () => GameXAMLManagerAPI.Instance.RegisterBinding(target, value));
         }
     }
 }

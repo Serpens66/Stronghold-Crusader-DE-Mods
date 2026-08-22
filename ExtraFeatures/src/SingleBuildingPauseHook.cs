@@ -36,14 +36,14 @@ namespace ExtraFeatures
         private readonly ManualLogSource log;
         private readonly ExtraFeaturesViewModel settings;
         private readonly MultiplayerFeatureGate multiplayerFeatureGate;
-        private readonly Hook buttonHook;
-        private readonly Hook guiUpdateHook;
-        private readonly ButtonToggleZzzModeDelegate buttonTrampoline;
-        private readonly NoesisGuiUpdateChecksInGameDelegate guiUpdateTrampoline;
+        private Hook buttonHook;
+        private Hook guiUpdateHook;
+        private ButtonToggleZzzModeDelegate buttonTrampoline;
+        private NoesisGuiUpdateChecksInGameDelegate guiUpdateTrampoline;
         private int lastManualToggleBuildingId;
         private long lastManualToggleTimestamp;
         private Action synchronizeSleepStates;
-        private bool disposed;
+        private bool localHooksInstalled;
         private bool networkInitialized;
         private int nextOperationId;
         private R3PacketEventHook<SingleBuildingPausePacket> pausePacketHook;
@@ -57,6 +57,13 @@ namespace ExtraFeatures
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
             this.multiplayerFeatureGate = multiplayerFeatureGate ?? throw new ArgumentNullException(nameof(multiplayerFeatureGate));
+
+        }
+
+        public void InstallLocalHooks()
+        {
+            if (localHooksInstalled)
+                return;
 
             MethodInfo buttonMethod = FindButtonToggleZzzModeMethod();
             MethodInfo guiUpdateMethod = FindNoesisGuiUpdateChecksInGameMethod();
@@ -74,6 +81,7 @@ namespace ExtraFeatures
                 buttonTrampoline = installedButtonTrampoline;
                 guiUpdateHook = installedGuiUpdateHook;
                 guiUpdateTrampoline = installedGuiUpdateTrampoline;
+                localHooksInstalled = true;
             }
             catch
             {
@@ -85,15 +93,48 @@ namespace ExtraFeatures
 
         public void Dispose()
         {
-            if (disposed)
+            UninstallLocalHooks();
+            ClearManualSleepOverrides();
+        }
+
+        public void UninstallLocalHooks()
+        {
+            if (!localHooksInstalled)
                 return;
 
-            disposed = true;
-            buttonHook?.Undo();
-            buttonHook?.Dispose();
-            guiUpdateHook?.Undo();
-            guiUpdateHook?.Dispose();
+            // Clear the state first so a failed hook cleanup cannot leave gameplay overrides behind.
+            localHooksInstalled = false;
             ClearManualSleepOverrides();
+            ReleaseHook("button", ref buttonHook);
+            buttonTrampoline = null;
+            ReleaseHook("GUI update", ref guiUpdateHook);
+            guiUpdateTrampoline = null;
+        }
+
+        private void ReleaseHook(string hookName, ref Hook hook)
+        {
+            Hook current = hook;
+            hook = null;
+            if (current == null)
+                return;
+
+            try
+            {
+                current.Undo();
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(log, $"Extra Features single-building pause {hookName} hook undo failed: {ex}");
+            }
+
+            try
+            {
+                current.Dispose();
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(log, $"Extra Features single-building pause {hookName} hook disposal failed: {ex}");
+            }
         }
 
         public void InitializeNetwork()
