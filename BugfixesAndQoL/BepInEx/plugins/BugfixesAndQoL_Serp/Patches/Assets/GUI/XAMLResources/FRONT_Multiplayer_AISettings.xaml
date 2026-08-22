@@ -94,8 +94,8 @@
   </Operation>
   <Operation Type="InsertBefore" XPath="//n:Button[@Name='MP_Add']">
     <Content>
-      <Grid x:Name="BugfixesAndQoLAivPresetButtonHost" Width="240" Height="34"
-            Margin="610,207,0,0" HorizontalAlignment="Left" VerticalAlignment="Top"
+      <Grid x:Name="BugfixesAndQoLAivPresetButtonHost" Width="180" Height="34"
+            Margin="490,207,0,0" HorizontalAlignment="Left" VerticalAlignment="Top"
             Visibility="{Binding EnhancementVisibility}">
         <Grid.Resources>
           <Style TargetType="{x:Type ToolTip}">
@@ -118,7 +118,7 @@
             </Setter>
           </Style>
         </Grid.Resources>
-        <Button Width="240" Height="34" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+        <Button Width="180" Height="34" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                 local:PropEx.TextCentre="{Binding PresetButtonText}"
                 local:PropEx.TextLeft="" local:PropEx.TextRight=""
                 Command="{Binding OpenPresetDialogCommand}" Style="{StaticResource BTN_SH_GlowS}"

@@ -3,10 +3,22 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.63",
+  "Version": "1.0.65",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.65",
+      "Changes": [
+        "Further shortened the AIV/AIC preset button so it no longer overlaps the west rotation control."
+      ]
+    },
+    {
+      "Version": "1.0.64",
+      "Changes": [
+        "Shortened the AIV/AIC preset button toward the right so it remains left-aligned with the selected AIV list without covering rotation controls."
+      ]
+    },
     {
       "Version": "1.0.63",
       "Changes": [
