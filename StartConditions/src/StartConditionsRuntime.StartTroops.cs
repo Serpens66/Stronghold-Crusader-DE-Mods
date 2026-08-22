@@ -93,7 +93,7 @@ namespace StartConditions
                         continue;
                     }
 
-                    if (!Shared.ActivePlayerHelper.HasKeep(pending.PlayerId))
+                    if (!Shared.ActivePlayerKeepReadiness.TryGetReadyKeep(pending.PlayerId, out _))
                     {
                         LogDebug("Delayed start troop multiply skipped; player has no keep:", pending.PlayerId);
                         continue;
@@ -244,7 +244,7 @@ namespace StartConditions
             height = 0;
 
             if (!GamePlayerManagerAPI.Instance.IsPlayerIdValid(playerId) ||
-                !Shared.ActivePlayerHelper.HasKeep(playerId))
+                !Shared.ActivePlayerKeepReadiness.TryGetReadyKeep(playerId, out _))
             {
                 LogDebug("Cannot find keep spawn tile; player is invalid or has no keep:", playerId);
                 return false;

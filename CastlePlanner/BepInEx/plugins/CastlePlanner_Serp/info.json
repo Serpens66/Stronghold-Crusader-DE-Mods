@@ -3,10 +3,17 @@
   "Author": "Serpens66",
   "Name": "CastlePlanner",
   "Description": "Displays a local visual AIVJSON castle blueprint or spawns personal human castles through the game's native AIV pipeline.",
-  "Version": "0.5.1",
+  "Version": "0.5.2",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "0.5.2",
+      "Changes": [
+        "Resolve map-start human players exclusively from synchronized in-game members while excluding kicked and defeated slots.",
+        "Removed local and simulation-derived player fallbacks that could produce different castle plans on multiplayer peers."
+      ]
+    },
     {
       "Version": "0.5.1",
       "Changes": [

@@ -3,10 +3,17 @@
   "Author": "Serpens66",
   "Name": "Start Conditions",
   "Description": "Configures start resources and start troops in Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.14",
+  "Version": "1.0.15",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.15",
+      "Changes": [
+        "Resolve active players exclusively from the synchronized in-game member roster and exclude kicked or defeated slots without simulation-derived fallbacks.",
+        "Wait up to 30 seconds on simulation ticks for every active player's Keep before applying start resources and troops, then fail once with detailed readiness diagnostics."
+      ]
+    },
     {
       "Version": "1.0.14",
       "Changes": [

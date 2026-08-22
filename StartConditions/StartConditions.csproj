@@ -98,6 +98,9 @@
     <Compile Include="..\Shared\ActivePlayerHelper.cs">
       <Link>Shared\ActivePlayerHelper.cs</Link>
     </Compile>
+    <Compile Include="..\Shared\ActivePlayerKeepReadiness.cs">
+      <Link>Shared\ActivePlayerKeepReadiness.cs</Link>
+    </Compile>
     <Compile Include="..\Shared\DebugLogHelper.cs">
       <Link>Shared\DebugLogHelper.cs</Link>
     </Compile>

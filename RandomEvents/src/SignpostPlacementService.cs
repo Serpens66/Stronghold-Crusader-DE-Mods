@@ -645,18 +645,17 @@ namespace RandomEvents
         private static bool TryGetParticipatingKeepCenters(out List<MapPoint> keeps)
         {
             keeps = new List<MapPoint>();
-            int[] activePlayers = Shared.ActivePlayerHelper.GetActivePlayerIds();
-            if (activePlayers.Length == 0)
-                return false;
-
-            foreach (int playerId in activePlayers)
+            if (!Shared.ActivePlayerKeepReadiness.TryCapture(
+                    out Shared.ActivePlayerKeepSnapshot snapshot,
+                    out _))
             {
-                int keepId = GamePlayerManagerAPI.Instance.GetPlayerKeepId(playerId);
-                if (keepId <= 0 || !GameBuildingManagerAPI.Instance.TryGetBuildingById(keepId, out GameBuilding* keep) ||
-                    (keep->r_AliveState != AliveState.NeedsInit && keep->r_AliveState != AliveState.IsAlive))
-                {
+                return false;
+            }
+
+            foreach (int keepId in snapshot.KeepBuildingIds)
+            {
+                if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(keepId, out GameBuilding* keep))
                     return false;
-                }
                 keeps.Add(new MapPoint(
                     (keep->r_TilePositionXBegin + keep->r_TilePositionXEnd) / 2.0,
                     (keep->r_TilePositionYBegin + keep->r_TilePositionYEnd) / 2.0));

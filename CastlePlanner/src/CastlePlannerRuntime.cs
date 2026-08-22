@@ -904,32 +904,9 @@ namespace CastlePlanner
 
         private static int[] CaptureHumanPlayerIds()
         {
-            var playerIds = new HashSet<int>(
-                Shared.ActivePlayerHelper.GetActivePlayerIds().Where(playerId =>
-                    GamePlayerManagerAPI.Instance.IsPlayerIdValid(playerId) &&
-                    !GamePlayerManagerAPI.Instance.IsAIPlayer(playerId)));
-
-            Platform_Multiplayer platform = Platform_Multiplayer.Instance;
-            if (platform?.gameMembers != null)
-            {
-                foreach (Platform_Multiplayer.MPGameMember member in platform.gameMembers)
-                {
-                    if (member != null && !member.skirmishAI && !member.kicked &&
-                        GamePlayerManagerAPI.Instance.IsPlayerIdValid(member.playerID))
-                    {
-                        playerIds.Add(member.playerID);
-                    }
-                }
-            }
-
-            int localPlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
-            if (GamePlayerManagerAPI.Instance.IsPlayerIdValid(localPlayerId) &&
-                !GamePlayerManagerAPI.Instance.IsAIPlayer(localPlayerId))
-            {
-                playerIds.Add(localPlayerId);
-            }
-
-            return playerIds.OrderBy(playerId => playerId).ToArray();
+            return Shared.ActivePlayerHelper.GetActivePlayerIds()
+                .Where(playerId => !GamePlayerManagerAPI.Instance.IsAIPlayer(playerId))
+                .ToArray();
         }
 
         private static string DescribePlacementFailure(int nativeCandidateCount)

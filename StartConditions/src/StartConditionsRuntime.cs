@@ -24,9 +24,12 @@ namespace StartConditions
         private bool libraryInitialized;
         internal const int DelayedStartTroopCountMilliseconds = 20000;
         internal const int DelayedStartTroopCountSeconds = DelayedStartTroopCountMilliseconds / 1000;
+        private static readonly TimeSpan KeepReadinessTimeout = TimeSpan.FromSeconds(30);
         private const int IncomingGoodClearAmount = 100000;
         private string pendingStartTroopTimerHandle;
         private StartTroopPlan pendingStartTroopPlan;
+        private Shared.ActivePlayerKeepWaitHandle pendingKeepReadiness;
+        private int[] activePlayerIds = Array.Empty<int>();
 
         private static readonly HashSet<eChimps> SoldierChimps = new HashSet<eChimps>
         {
@@ -152,6 +155,7 @@ namespace StartConditions
 
             subscriptions.Clear();
             hooksSubscribed = false;
+            CancelPendingKeepReadiness();
             CancelPendingStartTroopProcessing();
         }
 
@@ -163,6 +167,11 @@ namespace StartConditions
         private void LogInfo(params object[] parts)
         {
             Shared.DebugLogHelper.LogInfo(log, string.Join(" ", parts));
+        }
+
+        private void LogError(params object[] parts)
+        {
+            Shared.DebugLogHelper.LogError(log, string.Join(" ", parts));
         }
     }
 }

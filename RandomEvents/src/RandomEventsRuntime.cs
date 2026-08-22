@@ -1724,6 +1724,13 @@ namespace RandomEvents
             failure = string.Empty;
             GamePlayerManagerAPI players = GamePlayerManagerAPI.Instance;
             int[] activePlayerIds = Shared.ActivePlayerHelper.GetActivePlayerIds();
+            if (activePlayerIds.Length == 0)
+            {
+                humanPlayerIds = Array.Empty<int>();
+                failure = "the synchronized gameMembers roster is unavailable or contains no active players";
+                return false;
+            }
+
             HashSet<int> activePlayers = new HashSet<int>(activePlayerIds);
             List<int> humans = new List<int>();
             foreach (int playerId in activePlayerIds)
@@ -1732,7 +1739,11 @@ namespace RandomEvents
                     humans.Add(playerId);
             }
             if (!humans.Contains(targetPlayerId))
-                humans.Add(targetPlayerId);
+            {
+                humanPlayerIds = humans.ToArray();
+                failure = $"target player {targetPlayerId} is not an active human in gameMembers=[{string.Join(",", activePlayerIds)}]";
+                return false;
+            }
             humans.Sort();
             humanPlayerIds = humans.ToArray();
 

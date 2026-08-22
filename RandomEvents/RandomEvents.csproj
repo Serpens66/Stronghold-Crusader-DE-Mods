@@ -29,6 +29,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\Shared\ActivePlayerHelper.cs"><Link>Shared\ActivePlayerHelper.cs</Link></Compile>
+    <Compile Include="..\Shared\ActivePlayerKeepReadiness.cs"><Link>Shared\ActivePlayerKeepReadiness.cs</Link></Compile>
     <Compile Include="..\Shared\DebugLogHelper.cs"><Link>Shared\DebugLogHelper.cs</Link></Compile>
     <Compile Include="..\Shared\NativePatternResolver.cs"><Link>Shared\NativePatternResolver.cs</Link></Compile>
     <Compile Include="..\Shared\GameModeHelper.cs"><Link>Shared\GameModeHelper.cs</Link></Compile>
