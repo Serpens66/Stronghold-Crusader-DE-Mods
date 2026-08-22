@@ -2,11 +2,20 @@
   "GUID": "CastlePlanner_Serp",
   "Author": "Serpens66",
   "Name": "CastlePlanner",
-  "Description": "Displays a local visual AIVJSON castle blueprint or spawns personal human castles through the game's native AIV pipeline.",
-  "Version": "0.5.2",
+  "Description": "Displays AIVJSON blueprints, spawns personal human castles, and contains the gated AI lobby placement workflow.",
+  "Version": "0.6.0",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "0.6.0",
+      "Changes": [
+        "Integrated the complete AIV Placement Lobby code, tests, Vanilla AIV catalog, and lobby UI into CastlePlanner behind a hidden host setting that remains disabled by default.",
+        "Preferred effective Script Extender AIV overrides over bundled Vanilla files for both CastlePlanner and lobby placement evaluation.",
+        "Fixed the spawn selector width and selection handling, added bundled Vanilla castles, and described incompatible multiplayer entries as gray.",
+        "Kept host and local-client activation controls distinct across mixed CastlePlanner settings."
+      ]
+    },
     {
       "Version": "0.5.2",
       "Changes": [

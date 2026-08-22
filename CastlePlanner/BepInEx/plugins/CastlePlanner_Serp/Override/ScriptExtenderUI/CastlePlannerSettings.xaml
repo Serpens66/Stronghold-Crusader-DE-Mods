@@ -59,6 +59,13 @@
       </Border>
     </Grid>
     <StackPanel IsEnabled="{Binding CanEditHostSettings}">
+      <!-- Kept hidden until the migrated lobby placement workflow is ready for users. -->
+      <CheckBox Visibility="Collapsed"
+                IsChecked="{Binding EnableAivPlacementLobby, Mode=TwoWay}"
+                Content="{Binding EnableAivPlacementLobbyText}"
+                ToolTipService.ShowDuration="60000"
+                ToolTip="{Binding EnableAivPlacementLobbyHelpText}"
+                Foreground="White"/>
       <CheckBox IsChecked="{Binding SpawnCastle, Mode=TwoWay}"
                 Content="{Binding SpawnCastleText}"
                 ToolTipService.ShowDuration="60000"
@@ -92,6 +99,8 @@
                     MaxDropDownHeight="120"
                     ToolTipService.ShowDuration="60000"
                     ToolTip="{Binding CastleHelpText}"
+                    Width="620"
+                    HorizontalAlignment="Left"
                     Margin="0,0,0,8"/>
           <TextBlock Text="{Binding InventoryText}" Foreground="#999999" TextWrapping="Wrap"/>
         </StackPanel>

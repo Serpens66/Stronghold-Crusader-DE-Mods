@@ -1,7 +1,5 @@
 # Serp mod localization
 # Format: key=value
-SomeSettings.EnableClientFeatures=Lokale Client-Funktionen aktivieren
-SomeSettings.EnableClientFeaturesHelp=Aktiviert oder deaktiviert die lokalen Oberflaechen- und Steuerungsfunktionen dieses Mods nur fuer dich.
 Common.LegacySomeSettingsWarning=FEHLER: Der veraltete Mod SomeSettings_Serp ist ebenfalls geladen. Bitte deinstalliere SomeSettings_Serp, um doppelte oder widerspruechliche Funktionen zu vermeiden.
 Common.ResetToDefault=Zurücksetzen
 Common.EnableMod=Mod aktivieren

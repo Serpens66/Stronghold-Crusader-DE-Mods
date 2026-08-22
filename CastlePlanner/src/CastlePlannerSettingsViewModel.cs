@@ -25,6 +25,7 @@ namespace CastlePlanner
             new RuntimePersistedState();
         private bool enableClientFeatures = true;
         private bool enableMod = true;
+        private bool enableAivPlacementLobby;
         private bool blueprints = true;
         private bool spawnCastle;
         private string selectedCastle;
@@ -165,6 +166,8 @@ namespace CastlePlanner
         public string EnableClientFeaturesHelpText => SerpLocalization.Get("CastlePlanner.EnableClientFeaturesHelp");
         public string EnableHostFeaturesText => SerpLocalization.Get("CastlePlanner.EnableHostFeatures");
         public string EnableHostFeaturesHelpText => SerpLocalization.Get("CastlePlanner.EnableHostFeaturesHelp");
+        public string EnableAivPlacementLobbyText => SerpLocalization.Get("CastlePlanner.EnableAivPlacementLobby");
+        public string EnableAivPlacementLobbyHelpText => SerpLocalization.Get("CastlePlanner.EnableAivPlacementLobbyHelp");
         public string TitleText => SerpLocalization.Get("CastlePlanner.Title");
         public string HelpText => SerpLocalization.Get("CastlePlanner.Help");
         public string CastleText => SerpLocalization.Get("CastlePlanner.Castle");
@@ -220,6 +223,27 @@ namespace CastlePlanner
                 Shared.DebugLogHelper.LogInfo(
                     log,
                     $"CastlePlanner host activation changed to {enableMod}.");
+                SettingsChanged?.Invoke();
+            }
+        }
+
+        [SyncHostOnly]
+        public bool EnableAivPlacementLobby
+        {
+            get => enableAivPlacementLobby;
+            set
+            {
+                if (!CanMutateSetting(nameof(EnableAivPlacementLobby)) ||
+                    enableAivPlacementLobby == value)
+                {
+                    return;
+                }
+
+                enableAivPlacementLobby = value;
+                OnPropertyChanged(nameof(EnableAivPlacementLobby));
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    $"CastlePlanner hidden host AIV placement feature changed to {enableAivPlacementLobby}.");
                 SettingsChanged?.Invoke();
             }
         }
@@ -719,14 +743,19 @@ namespace CastlePlanner
         {
             var item = new Noesis.ComboBoxItem
             {
-                Content = content,
+                Content = new Noesis.TextBlock
+                {
+                    Text = content,
+                    Width = 560,
+                    TextTrimming = Noesis.TextTrimming.CharacterEllipsis
+                },
                 IsEnabled = enabled,
-                ToolTip = tooltip
+                ToolTip = string.IsNullOrEmpty(content)
+                    ? tooltip
+                    : content + Environment.NewLine + tooltip,
+                Width = 600
             };
             Noesis.ToolTipService.SetShowDuration(item, 60000);
-            if (!enabled)
-                item.Background = new Noesis.SolidColorBrush(
-                    Noesis.Color.FromArgb(96, 128, 24, 24));
             return item;
         }
 
@@ -1209,6 +1238,7 @@ namespace CastlePlanner
             if (CanEditHostSettings)
             {
                 EnableMod = true;
+                EnableAivPlacementLobby = false;
                 SpawnCastle = false;
             }
 

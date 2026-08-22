@@ -164,13 +164,13 @@ public static class SerpLocalization
     public const string SerpsModsNoErrors = "SerpsModsHost.NoErrors";
     public const string SerpsModsSummaryFormat = "SerpsModsHost.SummaryFormat";
     public const string PreventHovelDeletionHelp = "SomeSettings.PreventHovelDeletionHelp";
-    public const string AivPlacementComplete = "AIVPlacementLobby.Complete";
-    public const string AivPlacementPartial = "AIVPlacementLobby.Partial";
-    public const string AivPlacementImpossible = "AIVPlacementLobby.Impossible";
-    public const string AivPlacementNotEvaluable = "AIVPlacementLobby.NotEvaluable";
-    public const string AivPlacementPreBuildUnsupported = "AIVPlacementLobby.PreBuildUnsupported";
-    public const string AivPlacementHostOnly = "AIVPlacementLobby.HostOnly";
-    public const string AivPlacementChecking = "AIVPlacementLobby.Checking";
+    public const string AivPlacementComplete = "CastlePlanner.AIVPlacement.Complete";
+    public const string AivPlacementPartial = "CastlePlanner.AIVPlacement.Partial";
+    public const string AivPlacementImpossible = "CastlePlanner.AIVPlacement.Impossible";
+    public const string AivPlacementNotEvaluable = "CastlePlanner.AIVPlacement.NotEvaluable";
+    public const string AivPlacementPreBuildUnsupported = "CastlePlanner.AIVPlacement.PreBuildUnsupported";
+    public const string AivPlacementHostOnly = "CastlePlanner.AIVPlacement.HostOnly";
+    public const string AivPlacementChecking = "CastlePlanner.AIVPlacement.Checking";
 
     private const string DefaultLocale = "en-US";
     private static Dictionary<string, string> loadedTexts;

@@ -199,14 +199,6 @@
       </ItemsControl>
       </StackPanel>
 
-      <TextBlock Text="{Binding ClientOptionsText}" Style="{StaticResource ClientRoleHeader}" Margin="0,12,0,6"/>
-      <StackPanel IsEnabled="{Binding CanEditClientSettings}">
-        <Border Style="{StaticResource ClientActivationBorder}" HorizontalAlignment="Left" Margin="0,0,0,8">
-          <CheckBox IsChecked="{Binding EnableClientFeatures, Mode=TwoWay}" Foreground="White" FontWeight="Bold" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableClientFeaturesHelpText}">
-            <TextBlock Text="{Binding EnableClientFeaturesText}" Foreground="White" TextWrapping="Wrap"/>
-          </CheckBox>
-        </Border>
-      </StackPanel>
     </StackPanel>
   </ScrollViewer>
 </Grid>

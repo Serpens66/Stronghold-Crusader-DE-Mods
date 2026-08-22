@@ -38,7 +38,6 @@ namespace ExtraFeatures
         private int humanLordHealthPercent = LordHealthMultiplierPolicy.DefaultPercent;
         private int aiLordHealthPercent = LordHealthMultiplierPolicy.DefaultPercent;
         private bool keepStorageContent = true;
-        private bool enableClientFeatures = true;
         private bool enableSingleBuildingPause = true;
         private bool enableFastRecruitRallyMovement = true;
         private bool enableMonksAlwaysRun;
@@ -72,8 +71,6 @@ namespace ExtraFeatures
         public string LegacyModWarningText => SerpLocalization.Get(SerpLocalization.LegacySomeSettingsWarning);
         public string EnableModText => SerpLocalization.Get(SerpLocalization.EnableMod);
         public string ResetToDefaultText => SerpLocalization.Get(SerpLocalization.ResetToDefault);
-        public string EnableClientFeaturesText => SerpLocalization.Get(SerpLocalization.EnableClientFeatures);
-        public string EnableClientFeaturesHelpText => SerpLocalization.Get(SerpLocalization.EnableClientFeaturesHelp);
         public ImageSource WoodRefundIcon => GetGoodIconImage(eGoods.STORED_WOOD_PLANKS);
         public ImageSource StoneRefundIcon => GetGoodIconImage(eGoods.STORED_STONE_BLOCKS);
         public ImageSource IronRefundIcon => GetGoodIconImage(eGoods.STORED_IRON_INGOTS);
@@ -157,7 +154,6 @@ namespace ExtraFeatures
         [SyncHostOnly] public int PitchRefundPercent { get => pitchRefundPercent; set => SetIntSetting(ref pitchRefundPercent, value, -1, 100, nameof(PitchRefundPercent), nameof(PitchRefundPercentValueText)); }
         [SyncHostOnly] public int GoldRefundPercent { get => goldRefundPercent; set => SetIntSetting(ref goldRefundPercent, value, -1, 100, nameof(GoldRefundPercent), nameof(GoldRefundPercentValueText)); }
         [SyncHostOnly] public bool KeepStorageContent { get => keepStorageContent; set => SetSetting(ref keepStorageContent, value, nameof(KeepStorageContent)); }
-        [Shared.PresetLocal] public bool EnableClientFeatures { get => enableClientFeatures; set => SetSetting(ref enableClientFeatures, value, nameof(EnableClientFeatures)); }
 
         public string WoodRefundPercentValueText { get => FormatRefundPercent(WoodRefundPercent); set => SetIntValueText(value, parsed => WoodRefundPercent = parsed, nameof(WoodRefundPercentValueText)); }
         public string StoneRefundPercentValueText { get => FormatRefundPercent(StoneRefundPercent); set => SetIntValueText(value, parsed => StoneRefundPercent = parsed, nameof(StoneRefundPercentValueText)); }
@@ -275,8 +271,6 @@ namespace ExtraFeatures
                 AIGateClosingDistanceTiles = GatehouseTimingPatch.VanillaAiDistanceTiles;
                 RequireReachableEnemyForAutomaticGateClosing = true;
             }
-
-            EnableClientFeatures = true;
         }
 
         private void SetSetting<T>(ref T field, T value, string propertyName)

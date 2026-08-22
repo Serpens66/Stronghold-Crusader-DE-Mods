@@ -1,7 +1,0 @@
-AIVPlacementLobby.Complete=Complete fit
-AIVPlacementLobby.Partial=Partial fit: {FitPercentage}%, sequential score {SequentialBuildScore}
-AIVPlacementLobby.Impossible=Does not fit
-AIVPlacementLobby.NotEvaluable=Not evaluable: {Reason}
-AIVPlacementLobby.PreBuildUnsupported=Sequential pre-build placement is not supported yet.
-AIVPlacementLobby.HostOnly=Only the host evaluates AI castle placement.
-AIVPlacementLobby.Checking=The best AI castle is still being checked.

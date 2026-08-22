@@ -14,12 +14,13 @@ namespace CastlePlanner
 
         public const string PluginGuid = "CastlePlanner_Serp";
         public const string PluginName = "CastlePlanner";
-        public const string PluginVersion = "0.5.2";
+        public const string PluginVersion = "0.6.0";
 
         // The BepInEx component is destroyed during startup, so runtime state remains static.
         private static CastlePlannerRuntime runtime;
         private static BlueprintRuntimeController blueprintRuntime;
         private static CastleDropDownHeightController castleDropDownHeightController;
+        private static CastlePlanner.AIVPlacement.AivPlacementRuntime aivPlacementRuntime;
         private static bool libraryLoadedHandled;
 
         public CastlePlannerSettingsViewModel Settings { get; private set; }
@@ -70,6 +71,9 @@ namespace CastlePlanner
                     PluginGuid,
                     Settings,
                     "ScriptExtenderUI/CastlePlannerSettings.xaml");
+                // LibraryLoaded is the first point where effective Script Extender
+                // AIV overrides can replace the bundled Vanilla catalog entries.
+                Settings.RefreshCastleOptions();
                 castleDropDownHeightController =
                     CastleDropDownHeightController.Attach(Logger, Settings);
                 blueprintRuntime =
@@ -77,6 +81,13 @@ namespace CastlePlanner
                 GameXAMLManagerAPI.Instance.RegisterBinding(
                     "CastlePlannerBlueprintHud",
                     blueprintRuntime.Hud);
+                aivPlacementRuntime = new CastlePlanner.AIVPlacement.AivPlacementRuntime(
+                    Logger,
+                    () => Settings.EnableAivPlacementLobby);
+                GameXAMLManagerAPI.Instance.RegisterBinding(
+                    "CastlePlannerAivSelectionListHost",
+                    aivPlacementRuntime.SelectionList);
+                aivPlacementRuntime.Install();
                 Shared.DebugLogHelper.LogInfo(
                     Logger,
                     $"CastlePlanner settings registration completed: " +

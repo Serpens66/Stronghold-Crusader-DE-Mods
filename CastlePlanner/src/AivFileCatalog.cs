@@ -5,11 +5,18 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Security.Cryptography;
+using System.Text;
+using System.Text.RegularExpressions;
+using SHCDESE.API;
 
 namespace CastlePlanner
 {
     internal sealed class AivFileCatalog
     {
+        private static readonly Regex VanillaFileNamePattern = new Regex(
+            @"^(?:Community_(?:Historical_)?)?(?<lord>.+?)(?<number>[1-8])?$",
+            RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+
         private readonly Dictionary<string, string> pathByOption =
             new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, CachedFingerprint> fingerprintByPath =
@@ -24,6 +31,9 @@ namespace CastlePlanner
                 string.Empty;
 
             AddRoot("Mod", Path.Combine(pluginDirectory, "AIV"));
+            AddVanillaRoot(
+                Path.Combine(pluginDirectory, "VanillaAIV"),
+                warning);
             AddLocalLordRoots();
             AddWorkshopRoots(warning);
             AddRoot(
@@ -37,6 +47,124 @@ namespace CastlePlanner
             return pathByOption.Keys
                 .OrderBy(option => option, StringComparer.OrdinalIgnoreCase)
                 .ToArray();
+        }
+
+        private void AddVanillaRoot(string root, Action<string> warning)
+        {
+            if (!Directory.Exists(root))
+                return;
+
+            string[] files = Directory.GetFiles(root, "*.aivjson", SearchOption.TopDirectoryOnly);
+            Array.Sort(files, StringComparer.OrdinalIgnoreCase);
+            var effectivePaths = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (string bundledPath in files)
+            {
+                string fileName = Path.GetFileName(bundledPath);
+                string effectivePath = bundledPath;
+                bool overrideUnavailable = false;
+                if (TryGetVanillaAsset(fileName, out string assetName) &&
+                    TryResolveOverride(
+                        assetName,
+                        effectivePaths,
+                        warning,
+                        out string overridePath,
+                        out overrideUnavailable))
+                {
+                    effectivePath = overridePath;
+                }
+                else if (overrideUnavailable)
+                {
+                    // Never expose an older bundled castle when an effective override
+                    // was found but could not be made readable by the existing pipeline.
+                    continue;
+                }
+
+                pathByOption[$"[Vanilla] {fileName}"] = effectivePath;
+            }
+        }
+
+        private static bool TryResolveOverride(
+            string assetName,
+            IDictionary<string, string> effectivePaths,
+            Action<string> warning,
+            out string effectivePath,
+            out bool overrideUnavailable)
+        {
+            effectivePath = null;
+            overrideUnavailable = false;
+            if (effectivePaths.TryGetValue(assetName, out string cachedPath))
+            {
+                effectivePath = cachedPath;
+                overrideUnavailable = cachedPath == null;
+                return !string.IsNullOrEmpty(effectivePath);
+            }
+
+            try
+            {
+                GameAssetManagerAPI manager = GameAssetManagerAPI.Instance;
+                if (manager == null ||
+                    !manager.GetModifiedFileTextContent(assetName, out string content) ||
+                    content == null)
+                {
+                    effectivePaths[assetName] = string.Empty;
+                    return false;
+                }
+
+                string cacheDirectory = Path.Combine(
+                    Path.GetTempPath(),
+                    CastlePlannerPlugin.PluginGuid,
+                    "EffectiveVanillaAIV");
+                Directory.CreateDirectory(cacheDirectory);
+                string cachePath = Path.Combine(
+                    cacheDirectory,
+                    assetName.Substring("AIV/".Length));
+                if (!File.Exists(cachePath) ||
+                    !string.Equals(File.ReadAllText(cachePath), content, StringComparison.Ordinal))
+                {
+                    File.WriteAllText(cachePath, content, new UTF8Encoding(false));
+                }
+
+                effectivePaths[assetName] = cachePath;
+                effectivePath = cachePath;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                effectivePaths[assetName] = null;
+                overrideUnavailable = true;
+                warning?.Invoke(
+                    $"Could not materialize Script Extender AIV override '{assetName}': {ex.Message}");
+                return false;
+            }
+        }
+
+        private static bool TryGetVanillaAsset(string fileName, out string assetName)
+        {
+            assetName = string.Empty;
+            string stem = Path.GetFileNameWithoutExtension(fileName) ?? string.Empty;
+            bool historical = stem.StartsWith(
+                "Community_Historical_",
+                StringComparison.OrdinalIgnoreCase);
+            Match match = VanillaFileNamePattern.Match(stem);
+            if (!match.Success)
+                return false;
+
+            string lord = match.Groups["lord"].Value;
+            int index = historical || !match.Groups["number"].Success
+                ? 0
+                : int.Parse(match.Groups["number"].Value) - 1;
+            switch (lord.ToLowerInvariant())
+            {
+                case "philip": lord = "PHILLIP"; break;
+                case "kahinah": lord = "KAHIN"; break;
+                case "croc": lord = "CROCODILE"; break;
+                case "surgeon": lord = "DLC4A"; break;
+                case "baibars": lord = "DLC4B"; break;
+                default: lord = lord.ToUpperInvariant(); break;
+            }
+
+            assetName = $"AIV/SK_{lord}_{index}.aivjson";
+            return true;
         }
 
         private void AddWorkshopRoots(Action<string> warning)

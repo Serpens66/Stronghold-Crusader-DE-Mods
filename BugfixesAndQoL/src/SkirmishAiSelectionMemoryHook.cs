@@ -895,7 +895,7 @@ namespace BugfixesAndQoL
         {
             if (string.IsNullOrEmpty(param))
                 return false;
-            if (param.StartsWith("AIVPlacementLobby_", StringComparison.Ordinal))
+            if (param.StartsWith("CastlePlanner_AIVPlacement_", StringComparison.Ordinal))
                 return true;
             if (param.StartsWith("Kick_", StringComparison.Ordinal))
                 return true;

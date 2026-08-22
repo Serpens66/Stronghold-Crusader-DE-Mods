@@ -60,6 +60,11 @@ namespace CastlePlanner
 
         private void OnPreviewMouseDown(object sender, MouseButtonEventArgs args)
         {
+            // Item clicks bubble through the ComboBox. Rebuilding the item instances
+            // while its popup is open invalidates SelectedItem before Noesis commits it.
+            if (comboBox.IsDropDownOpen)
+                return;
+
             settings.RefreshCastleOptions();
             // Keep the popup below the control so Noesis cannot move it beneath
             // the opening click and treat that click's release as an item click.

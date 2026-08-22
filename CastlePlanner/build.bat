@@ -61,6 +61,25 @@ echo !EXTENDER_DIR!
 echo.
 
 pushd "%PROJECT_DIR%"
+dotnet restore AIVPlacement.Tests\CastlePlanner.AIVPlacement.Tests.csproj -m:1 -p:BuildInParallel=false
+if errorlevel 1 (
+  set "BUILD_EXIT_CODE=1"
+  popd
+  goto build_failed
+)
+dotnet build AIVPlacement.Tests\CastlePlanner.AIVPlacement.Tests.csproj -c Release --no-restore -m:1 -p:BuildInParallel=false
+if errorlevel 1 (
+  set "BUILD_EXIT_CODE=1"
+  popd
+  goto build_failed
+)
+"%PROJECT_DIR%AIVPlacement.Tests\bin\Release\net10.0\CastlePlanner.AIVPlacement.Tests.exe"
+if errorlevel 1 (
+  set "BUILD_EXIT_CODE=1"
+  popd
+  goto build_failed
+)
+
 "%MSBUILD%" CastlePlanner.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
 set "BUILD_EXIT_CODE=%ERRORLEVEL%"
 popd
@@ -98,6 +117,13 @@ if "%BUILD_EXIT_CODE%"=="0" (
 echo.
 if "%NO_PAUSE%"=="0" pause
 exit /b %BUILD_EXIT_CODE%
+
+:build_failed
+echo.
+echo Build oder AIV-Placement-Tests fehlgeschlagen.
+echo.
+if "%NO_PAUSE%"=="0" pause
+exit /b 1
 
 :copy_failed
 echo.

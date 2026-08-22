@@ -793,7 +793,8 @@ erst gestartet, wenn die geschätzte Laufzeit zumutbar ist.
 
 ## Chat 11: No-PreBuild-Lobby-Datenfluss ohne UI anbinden
 
-**Status:** Abgeschlossen. Der neue Mod `AIVPlacementLobby` erfasst über
+**Status:** Abgeschlossen. Der ursprünglich eigenständige und inzwischen in
+`CastlePlanner` integrierte AIV-Platzierungsablauf erfasst über
 prozesslang gehaltene Managed-Detours jede geänderte Skirmish-Lobbygeneration
 und erzeugt daraus paketfreie, immutable Prüfaufträge. Mapdatei und Herkunft,
 Spieler-ID, Keep-Index, Lord, AIV-Modus und -Kandidaten, Anfangsrotation,
@@ -951,7 +952,7 @@ AIV-Ergebnis-Cache:
 **Implementierungsstand (2026-08-04):** Die UI-Kennzeichen, skalierenden Tooltips,
 Mehrfachauswahl, hostseitige Auswertung, Ready-Sperre und die zufällige
 Multiplayer-Auswahl unter allen Kandidaten mit dem höchsten Roh-Score sind in
-`AIVPlacementLobby` implementiert. Die zugehörige AIV/AIC-UI- und
+`CastlePlanner` implementiert. Die zugehörige AIV/AIC-UI- und
 Multiplayer-Startlogik wurde aus `SomeSettings` entfernt; dort verbleibt nur
 das Speichern und Wiederherstellen der zuletzt gewählten AIV/AIC je KI. Beide
 Mods bauen und installieren fehlerfrei. Ein Singleplayer-Livetest deckte eine
