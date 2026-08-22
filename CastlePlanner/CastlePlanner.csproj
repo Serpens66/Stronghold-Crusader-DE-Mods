@@ -174,6 +174,7 @@
     <Compile Include="src\AivJsonReader.cs" />
     <Compile Include="src\AivRawDataEncoder.cs" />
     <Compile Include="src\AIVPlacement\AivPlacementRuntime.cs" />
+    <Compile Include="src\AIVPlacement\BugfixAivStatusBridge.cs" />
     <Compile Include="src\AIVPlacement\AivSelectionDialogRuntime.cs" />
     <Compile Include="src\AIVPlacement\AivSelectionListViewModel.cs" />
     <Compile Include="src\BlueprintBuildingCaptureCatalog.cs" />

@@ -55,11 +55,7 @@ namespace CastlePlanner.AIVPlacement
         private readonly string vanillaAivDirectory;
         private readonly Dictionary<int, AivPlacementCheckResult> currentResults =
             new Dictionary<int, AivPlacementCheckResult>();
-        private readonly Dictionary<int, int> selectedNetworkCandidateIds =
-            new Dictionary<int, int>();
         private readonly HashSet<int> pendingPlayerIds = new HashSet<int>();
-        private readonly Random random = new Random();
-        private readonly object randomSync = new object();
         private Hook updateHook;
         private Hook startHook;
         private Hook buttonClickedHook;
@@ -190,11 +186,9 @@ namespace CastlePlanner.AIVPlacement
                 return;
             }
 
-            bool networkHost;
-            List<NetworkAivSnapshot> snapshots = null;
             try
             {
-                networkHost = IsNetworkHost(self);
+                bool networkHost = IsNetworkHost(self);
                 if (networkHost && pendingPlayerIds.Count > 0 &&
                     (string.Equals(param, "Ready", StringComparison.Ordinal) ||
                      string.Equals(param, "Play", StringComparison.Ordinal)))
@@ -202,23 +196,9 @@ namespace CastlePlanner.AIVPlacement
                     UpdateHostReadyButton(self);
                     return;
                 }
-
-                if (networkHost && string.Equals(param, "Play", StringComparison.Ordinal))
-                    snapshots = SelectNetworkStartAivs(self);
             }
             catch (Exception ex)
             {
-                try
-                {
-                    RestoreNetworkStartAivs(snapshots);
-                    snapshots = null;
-                }
-                catch (Exception restoreException)
-                {
-                    LogErrorOnce(
-                        "network-aiv-restore-after-preparation",
-                        $"Restoring the multiplayer AIV list after a preparation failure also failed: {restoreException}");
-                }
                 LogErrorOnce("button-preparation", $"AIV lobby button preparation failed; Vanilla continues: {ex}");
                 buttonClickedTrampoline(self, param);
                 return;
@@ -230,14 +210,6 @@ namespace CastlePlanner.AIVPlacement
             }
             finally
             {
-                try
-                {
-                    RestoreNetworkStartAivs(snapshots);
-                }
-                catch (Exception ex)
-                {
-                    LogErrorOnce("network-aiv-restore", $"Restoring the multiplayer AIV list failed: {ex}");
-                }
                 capturePoll.Invalidate();
             }
         }
@@ -314,7 +286,6 @@ namespace CastlePlanner.AIVPlacement
                 QueueEvaluations(
                     batch,
                     assets,
-                    IsNetworkHost(frontend),
                     evaluationCancellation);
             }
             catch (Exception ex)
@@ -478,17 +449,12 @@ namespace CastlePlanner.AIVPlacement
         private void QueueEvaluations(
             AivPlacementRequestBatch batch,
             IReadOnlyDictionary<string, string> assets,
-            bool networkHost,
             CancellationTokenSource cancellation)
         {
-            var requestsByPlayer = batch.Requests.ToDictionary(request => request.PlayerId);
             Task<AivPlacementBatchResult> task = evaluationService.EvaluateBatchAsync(
                 batch,
                 assets,
-                result => SelectCandidateForSequentialNetworkState(
-                    result,
-                    requestsByPlayer,
-                    networkHost),
+                null,
                 cancellation.Token);
             task.ContinueWith(
                 completed => HandleEvaluationCompletion(batch, completed),
@@ -547,17 +513,11 @@ namespace CastlePlanner.AIVPlacement
                         continue;
                     }
 
-                    batchResult.SelectedCandidateIdsByPlayer.TryGetValue(
-                        result.PlayerId,
-                        out int selectedCandidateId);
                     completedEvaluations.Enqueue(new CompletedEvaluation(
                         result.Generation,
                         result.PlayerId,
                         result,
-                        null,
-                        batchResult.SelectedCandidateIdsByPlayer.ContainsKey(result.PlayerId)
-                            ? (int?)selectedCandidateId
-                            : null));
+                        null));
                 }
 
                 foreach (AivPlacementCheckRequest request in batch.Requests)
@@ -573,18 +533,7 @@ namespace CastlePlanner.AIVPlacement
                         request.Generation,
                         request.PlayerId,
                         null,
-                        error,
-                        null));
-                }
-
-                foreach (int playerId in batchResult.SelectedCandidateIdsByPlayer.Keys)
-                {
-                    if (!expectedPlayerIds.Contains(playerId))
-                    {
-                        LogWarningOnce(
-                            $"unexpected-selection-player-{playerId}",
-                            $"Ignored a selected AIV candidate for unexpected playerId={playerId}, generation={batch.Generation}.");
-                    }
+                        error));
                 }
             }
             catch (Exception ex)
@@ -604,32 +553,8 @@ namespace CastlePlanner.AIVPlacement
                     request.Generation,
                     request.PlayerId,
                     null,
-                    error,
-                    null));
+                    error));
             }
-        }
-
-        private int? SelectCandidateForSequentialNetworkState(
-            AivPlacementCheckResult result,
-            IReadOnlyDictionary<int, AivPlacementCheckRequest> requestsByPlayer,
-            bool networkHost)
-        {
-            if (!networkHost ||
-                !requestsByPlayer.TryGetValue(result.PlayerId, out AivPlacementCheckRequest request) ||
-                request.AivMode != LobbyAivMode.Custom ||
-                result.Candidates.Count <= 1)
-            {
-                return null;
-            }
-
-            IReadOnlyList<int> eligibleIds = BestFitCandidateSelector.GetEligibleCandidateIds(result);
-            if (eligibleIds.Count == 0)
-                eligibleIds = result.Candidates.Select(candidate => candidate.CandidateId).ToArray();
-            if (eligibleIds.Count == 0)
-                return null;
-
-            lock (randomSync)
-                return eligibleIds[random.Next(eligibleIds.Count)];
         }
 
         private void PublishCompletedEvaluations()
@@ -667,8 +592,6 @@ namespace CastlePlanner.AIVPlacement
                         $"Received a current lobby placement result for non-pending playerId={result.PlayerId}, generation={result.Generation}.");
                 }
                 currentResults[result.PlayerId] = result;
-                if (completed.SelectedCandidateId.HasValue)
-                    selectedNetworkCandidateIds[result.PlayerId] = completed.SelectedCandidateId.Value;
                 selectionDialog.Publish(result);
             }
         }
@@ -751,7 +674,6 @@ namespace CastlePlanner.AIVPlacement
             CancelEvaluation();
             evaluationCancellation = new CancellationTokenSource();
             currentResults.Clear();
-            selectedNetworkCandidateIds.Clear();
             pendingPlayerIds.Clear();
             foreach (AivPlacementCheckRequest request in batch.Requests)
                 pendingPlayerIds.Add(request.PlayerId);
@@ -812,7 +734,6 @@ namespace CastlePlanner.AIVPlacement
             {
             }
             currentResults.Clear();
-            selectedNetworkCandidateIds.Clear();
             pendingPlayerIds.Clear();
             lastFingerprint = string.Empty;
             lastSourceFingerprint = string.Empty;
@@ -844,66 +765,6 @@ namespace CastlePlanner.AIVPlacement
             blockedReadyButtonToolTip = null;
         }
 
-        private List<NetworkAivSnapshot> SelectNetworkStartAivs(FRONT_Multiplayer frontend)
-        {
-            var snapshots = new List<NetworkAivSnapshot>();
-            if (frontend?.currentLobby?.members == null || frontend.AIVs == null)
-                return snapshots;
-
-            foreach (Platform_Multiplayer.MPLobbyMember member in frontend.currentLobby.members)
-            {
-                if (member == null || !member.SkirmishMember || member.SkirmishHumanMember)
-                    continue;
-                int playerId = frontend.currentLobby.getThisPlayerFromSteamID(member.GetSteamID());
-                if (playerId < 1 || playerId > frontend.AIVs.Length)
-                {
-                    LogWarningOnce(
-                        $"start-player-id-{playerId}",
-                        $"Skipped multiplayer AIV narrowing for invalid playerId={playerId}; aivSlots={frontend.AIVs.Length}.");
-                    continue;
-                }
-
-                FRONT_Multiplayer.MPAIVInfo info = frontend.AIVs[playerId - 1];
-                if (GetMode(info) != LobbyAivMode.Custom || info?.aivs == null || info.aivs.Count <= 1)
-                    continue;
-
-                var fullList = new List<CustomisationFileManager.CustomAIV>(info.aivs);
-                var eligibleIds = new List<int>();
-                if (currentResults.TryGetValue(playerId, out AivPlacementCheckResult result))
-                    eligibleIds.AddRange(BestFitCandidateSelector.GetEligibleCandidateIds(result));
-                if (eligibleIds.Count == 0)
-                {
-                    // Equally non-evaluable candidates retain the old unbiased multiplayer fallback.
-                    for (int candidateId = 0; candidateId < fullList.Count; candidateId++)
-                        eligibleIds.Add(candidateId);
-                }
-
-                eligibleIds.RemoveAll(candidateId =>
-                    candidateId < 0 ||
-                    candidateId >= fullList.Count ||
-                    fullList[candidateId] == null);
-                if (eligibleIds.Count == 0)
-                {
-                    LogWarningOnce(
-                        $"start-no-candidate-{playerId}",
-                        $"Could not narrow multiplayer AIVs for playerId={playerId} because no valid candidate remained; Vanilla receives the unchanged list.");
-                    continue;
-                }
-
-                int selectedCandidateId;
-                if (!selectedNetworkCandidateIds.TryGetValue(playerId, out selectedCandidateId) ||
-                    !eligibleIds.Contains(selectedCandidateId))
-                {
-                    lock (randomSync)
-                        selectedCandidateId = eligibleIds[random.Next(eligibleIds.Count)];
-                }
-                CustomisationFileManager.CustomAIV selected = fullList[selectedCandidateId];
-                snapshots.Add(new NetworkAivSnapshot(info, fullList));
-                info.aivs.Clear();
-                info.aivs.Add(selected);
-            }
-            return snapshots;
-        }
 
         private void LogUnexpectedEvaluationFailure(AivPlacementCheckResult result)
         {
@@ -933,17 +794,6 @@ namespace CastlePlanner.AIVPlacement
                 Shared.DebugLogHelper.LogError(log, message);
         }
 
-        private static void RestoreNetworkStartAivs(List<NetworkAivSnapshot> snapshots)
-        {
-            if (snapshots == null)
-                return;
-            foreach (NetworkAivSnapshot snapshot in snapshots)
-            {
-                snapshot.Info.aivs.Clear();
-                snapshot.Info.aivs.AddRange(snapshot.FullList);
-            }
-        }
-
         private static bool IsNetworkHost(FRONT_Multiplayer frontend) =>
             !FRONT_Multiplayer.skirmishGame &&
             frontend?.currentLobby != null &&
@@ -968,35 +818,18 @@ namespace CastlePlanner.AIVPlacement
                 long generation,
                 int playerId,
                 AivPlacementCheckResult result,
-                Exception error,
-                int? selectedCandidateId)
+                Exception error)
             {
                 Generation = generation;
                 PlayerId = playerId;
                 Result = result;
                 Error = error;
-                SelectedCandidateId = selectedCandidateId;
             }
 
             public long Generation { get; }
             public int PlayerId { get; }
             public AivPlacementCheckResult Result { get; }
             public Exception Error { get; }
-            public int? SelectedCandidateId { get; }
-        }
-
-        private sealed class NetworkAivSnapshot
-        {
-            public NetworkAivSnapshot(
-                FRONT_Multiplayer.MPAIVInfo info,
-                List<CustomisationFileManager.CustomAIV> fullList)
-            {
-                Info = info;
-                FullList = fullList;
-            }
-
-            public FRONT_Multiplayer.MPAIVInfo Info { get; }
-            public List<CustomisationFileManager.CustomAIV> FullList { get; }
         }
     }
 }

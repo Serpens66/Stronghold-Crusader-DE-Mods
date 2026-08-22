@@ -1,5 +1,4 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using AIVPlacement.Core;
@@ -13,8 +12,6 @@ namespace CastlePlanner.AIVPlacement
 {
     internal sealed class AivSelectionDialogRuntime
     {
-        private const string SelectionChangedCommand = "CastlePlanner_AIVPlacement_SelectionChanged";
-        private const string VanillaSelectionListName = "CastlePlannerVanillaAivSelectionList";
         private const string ExtendedSelectionListName = "CastlePlannerAivSelectionListHost";
 
         private delegate void AiSettingsInitDelegate(
@@ -26,18 +23,9 @@ namespace CastlePlanner.AIVPlacement
             FRONT_Multiplayer.MPAIVInfo aivInfo,
             bool doPopulate);
         private delegate void AiSettingsButtonClickedDelegate(FRONT_Multiplayer_AISettings self, string param);
-        private delegate void AiSettingsAddSelectedDelegate(FRONT_Multiplayer_AISettings self);
-
-        public const int MaxCustomAivsPerLord = 999;
 
         private static readonly FieldInfo AiSettingsAivInfoField =
             FindField(typeof(FRONT_Multiplayer_AISettings), "AIVInfo");
-        private static readonly FieldInfo AiSettingsAivListField =
-            FindField(typeof(FRONT_Multiplayer_AISettings), "aivList");
-        private static readonly FieldInfo AiSettingsFileListField =
-            FindField(typeof(FRONT_Multiplayer_AISettings), "RefFileLists");
-        private static readonly FieldInfo AiSettingsMpModeField =
-            FindField(typeof(FRONT_Multiplayer_AISettings), "MPMode");
         private static readonly MethodInfo AiSettingsPopulateListMethod = FindMethod(
             typeof(FRONT_Multiplayer_AISettings),
             "populateList",
@@ -57,12 +45,11 @@ namespace CastlePlanner.AIVPlacement
         private Hook initHook;
         private Hook populateHook;
         private Hook buttonHook;
-        private Hook addHook;
         private AiSettingsInitDelegate initTrampoline;
         private AiSettingsPopulateListDelegate populateTrampoline;
         private AiSettingsButtonClickedDelegate buttonTrampoline;
-        private AiSettingsAddSelectedDelegate addTrampoline;
         private FRONT_Multiplayer.MPAIVInfo activeInfo;
+        private bool activeMpMode;
 
         public AivSelectionDialogRuntime(
             ManualLogSource log,
@@ -85,8 +72,6 @@ namespace CastlePlanner.AIVPlacement
                 typeof(FRONT_Multiplayer_AISettings),
                 "ButtonClicked",
                 typeof(string));
-            MethodInfo add = FindMethod(typeof(FRONT_Multiplayer_AISettings), "AddSelected");
-
             try
             {
                 initHook = new Hook(init, (AiSettingsInitDelegate)InitHook);
@@ -95,8 +80,6 @@ namespace CastlePlanner.AIVPlacement
                 populateTrampoline = populateHook.GenerateTrampoline<AiSettingsPopulateListDelegate>();
                 buttonHook = new Hook(button, (AiSettingsButtonClickedDelegate)ButtonClickedHook);
                 buttonTrampoline = buttonHook.GenerateTrampoline<AiSettingsButtonClickedDelegate>();
-                addHook = new Hook(add, (AiSettingsAddSelectedDelegate)AddSelectedHook);
-                addTrampoline = addHook.GenerateTrampoline<AiSettingsAddSelectedDelegate>();
                 selectionList.RemoveRequested += OnRemoveRequested;
             }
             catch
@@ -110,8 +93,6 @@ namespace CastlePlanner.AIVPlacement
         {
             selectionList.RemoveRequested -= OnRemoveRequested;
             Reset();
-            ReleaseHook(ref addHook);
-            addTrampoline = null;
             ReleaseHook(ref buttonHook);
             buttonTrampoline = null;
             ReleaseHook(ref populateHook);
@@ -136,6 +117,8 @@ namespace CastlePlanner.AIVPlacement
         public void SetPlayerMappings(
             IReadOnlyDictionary<FRONT_Multiplayer.MPAIVInfo, int> mappings)
         {
+            foreach (FRONT_Multiplayer.MPAIVInfo previous in playerIdsByInfo.Keys)
+                BugfixAivStatusBridge.Clear(previous);
             playerIdsByInfo.Clear();
             if (mappings != null)
             {
@@ -206,10 +189,12 @@ namespace CastlePlanner.AIVPlacement
 
         public void Reset()
         {
+            foreach (FRONT_Multiplayer.MPAIVInfo previous in playerIdsByInfo.Keys)
+                BugfixAivStatusBridge.Clear(previous);
             playerIdsByInfo.Clear();
             statesByPlayer.Clear();
             activeInfo = null;
-            selectionList.Refresh(null, false, null);
+            selectionList.Refresh(null, false, null, activeMpMode ? 1 : 8);
         }
 
         private void InitHook(
@@ -239,7 +224,7 @@ namespace CastlePlanner.AIVPlacement
             try
             {
                 activeInfo = aivInfo;
-                EnforceRuntimeLimit(aivInfo);
+                activeMpMode = mpMode;
             }
             catch (Exception ex)
             {
@@ -248,13 +233,10 @@ namespace CastlePlanner.AIVPlacement
                 return;
             }
 
-            // The vanilla MP mode restricts the list to one AIV; the host reduces it only at start.
-            initTrampoline(self, aivInfo, false);
+            initTrampoline(self, aivInfo, mpMode);
             try
             {
                 ApplySelectionListMode(self, true);
-                SetEffectiveDialogMode(self);
-                UpdateAddButtonVisibility(self);
                 RefreshSelectionList(self);
             }
             catch (Exception ex)
@@ -286,16 +268,6 @@ namespace CastlePlanner.AIVPlacement
                 return;
             }
 
-            try
-            {
-                SetEffectiveDialogMode(self);
-            }
-            catch (Exception ex)
-            {
-                LogErrorOnce("populate-preparation", $"Preparing the extended AIV selection list failed; Vanilla continues unchanged: {ex}");
-                populateTrampoline(self, aivInfo, doPopulate);
-                return;
-            }
             populateTrampoline(self, aivInfo, doPopulate);
             try
             {
@@ -327,16 +299,6 @@ namespace CastlePlanner.AIVPlacement
                 return;
             }
 
-            try
-            {
-                SetEffectiveDialogMode(self);
-            }
-            catch (Exception ex)
-            {
-                LogErrorOnce("dialog-button-preparation", $"Preparing the extended AIV selection button action failed; Vanilla continues unchanged: {ex}");
-                buttonTrampoline(self, param);
-                return;
-            }
             buttonTrampoline(self, param);
             try
             {
@@ -345,107 +307,6 @@ namespace CastlePlanner.AIVPlacement
             catch (Exception ex)
             {
                 LogErrorOnce("dialog-button-refresh", $"Refreshing the extended AIV selection after a button action failed: {ex}");
-            }
-        }
-
-        private void AddSelectedHook(FRONT_Multiplayer_AISettings self)
-        {
-            bool lobbySetupActive;
-            try
-            {
-                lobbySetupActive = IsLobbySetupActive();
-            }
-            catch (Exception ex)
-            {
-                LogErrorOnce("add-context", $"Extended AIV add context check failed; Vanilla continues unchanged: {ex}");
-                addTrampoline(self);
-                return;
-            }
-
-            if (!lobbySetupActive)
-            {
-                addTrampoline(self);
-                return;
-            }
-
-            try
-            {
-                SetEffectiveDialogMode(self);
-            }
-            catch (Exception ex)
-            {
-                LogErrorOnce("add-preparation", $"Preparing the extended AIV add action failed; Vanilla continues unchanged: {ex}");
-                addTrampoline(self);
-                return;
-            }
-            try
-            {
-                AddSelectedAivs(self);
-                RefreshSelectionList(self);
-                // This no-op command lets the separate SomeSettings memory hook persist the mutation.
-                self.ButtonClicked(SelectionChangedCommand);
-            }
-            catch (Exception ex)
-            {
-                LogErrorOnce("add-action", $"Extended AIV add failed: {ex}");
-            }
-        }
-
-        private void AddSelectedAivs(FRONT_Multiplayer_AISettings self)
-        {
-            FRONT_Multiplayer.MPAIVInfo info = GetAivInfo(self);
-            List<CustomisationFileManager.CustomAIV> availableAivs = GetAvailableAivs(self);
-            ListView fileList = GetFileList(self);
-            if (info?.aivs == null || availableAivs == null || fileList?.SelectedItem == null)
-                return;
-
-            var selectedIndexes = new List<int>();
-            if (fileList.SelectedItems != null && fileList.SelectedItems.Count > 1)
-            {
-                foreach (object selectedItem in (IEnumerable)fileList.SelectedItems)
-                {
-                    int selectedIndex = fileList.Items.IndexOf(selectedItem);
-                    if (selectedIndex >= 0)
-                        selectedIndexes.Add(selectedIndex);
-                }
-            }
-            else if (fileList.SelectedIndex >= 0)
-            {
-                selectedIndexes.Add(fileList.SelectedIndex);
-            }
-
-            var checksums = new HashSet<ulong>();
-            foreach (CustomisationFileManager.CustomAIV existing in info.aivs)
-            {
-                if (existing != null)
-                    checksums.Add(existing.checksum);
-            }
-
-            foreach (int selectedIndex in selectedIndexes)
-            {
-                if (selectedIndex < 0 || selectedIndex >= availableAivs.Count)
-                {
-                    LogWarningOnce(
-                        $"invalid-selected-index-{selectedIndex}",
-                        $"Ignored invalid AIV selection index={selectedIndex}; availableCount={availableAivs.Count}.");
-                    break;
-                }
-                if (info.aivs.Count >= MaxCustomAivsPerLord)
-                {
-                    break;
-                }
-
-                CustomisationFileManager.CustomAIV candidate = availableAivs[selectedIndex];
-                if (candidate == null)
-                {
-                    LogWarningOnce(
-                        $"null-selected-candidate-{selectedIndex}",
-                        $"Ignored a null AIV candidate at selection index={selectedIndex}.");
-                    continue;
-                }
-                if (!checksums.Add(candidate.checksum))
-                    continue;
-                info.aivs.Add(candidate);
             }
         }
 
@@ -474,7 +335,6 @@ namespace CastlePlanner.AIVPlacement
 
                 info.aivs.RemoveAt(index);
                 RefreshSelectionList(instance);
-                instance.ButtonClicked(SelectionChangedCommand);
             }
             catch (Exception ex)
             {
@@ -489,7 +349,10 @@ namespace CastlePlanner.AIVPlacement
             IReadOnlyDictionary<int, AivCandidateVisualState> states = null;
             if (info != null && playerIdsByInfo.TryGetValue(info, out int playerId))
                 statesByPlayer.TryGetValue(playerId, out states);
-            selectionList.Refresh(info, allowRemoval, states);
+            PublishToBugfixApi(info, states);
+            bool bugfixListVisible = BugfixAivStatusBridge.IsSelectionListVisible(instance);
+            selectionList.Refresh(info, allowRemoval, states, activeMpMode ? 1 : 8);
+            ApplySelectionListMode(instance, !bugfixListVisible);
         }
 
         private static AivCandidateVisualState BuildVisualState(
@@ -532,36 +395,6 @@ namespace CastlePlanner.AIVPlacement
                 "Reason", friendly);
         }
 
-        private void EnforceRuntimeLimit(FRONT_Multiplayer.MPAIVInfo info)
-        {
-            if (info?.aivs == null || info.aivs.Count <= MaxCustomAivsPerLord)
-                return;
-            int removed = info.aivs.Count - MaxCustomAivsPerLord;
-            info.aivs.RemoveRange(MaxCustomAivsPerLord, info.aivs.Count - MaxCustomAivsPerLord);
-            LogWarningOnce(
-                "runtime-limit-truncated",
-                $"Trimmed {removed} AIV selections that exceeded the runtime limit of {MaxCustomAivsPerLord}.");
-        }
-
-        private static void SetEffectiveDialogMode(FRONT_Multiplayer_AISettings instance)
-        {
-            if (instance != null)
-                AiSettingsMpModeField.SetValue(instance, false);
-        }
-
-        private void UpdateAddButtonVisibility(FRONT_Multiplayer_AISettings instance)
-        {
-            Button addButton = instance?.FindName("MP_Add") as Button;
-            if (addButton == null)
-            {
-                LogWarningOnce(
-                    "missing-add-button",
-                    "AIV selection dialog did not expose the expected MP_Add button; extended add remains unavailable.");
-                return;
-            }
-            addButton.Visibility = Visibility.Visible;
-        }
-
         private void LogWarningOnce(string key, string message)
         {
             if (reportedWarnings.Add(key ?? string.Empty))
@@ -584,18 +417,63 @@ namespace CastlePlanner.AIVPlacement
             if (instance == null)
                 return;
 
-            FrameworkElement vanilla = instance.FindName(VanillaSelectionListName) as FrameworkElement;
             FrameworkElement extended = instance.FindName(ExtendedSelectionListName) as FrameworkElement;
+            FrameworkElement vanilla = null;
+            if (instance.FindName("Player1_Kick") is FrameworkElement kick)
+            {
+                DependencyObject row = VisualTreeHelper.GetParent(kick);
+                vanilla = row == null ? null : VisualTreeHelper.GetParent(row) as FrameworkElement;
+            }
             if (vanilla == null || extended == null)
             {
                 LogWarningOnce(
                     "selection-list-hosts-missing",
-                    "The AIV selection dialog did not expose both CastlePlanner list hosts; Vanilla remains usable.");
+                    "The AIV selection dialog did not expose CastlePlanner's status host; Vanilla remains usable.");
+                return;
+            }
+
+            FrameworkElement bugfixList =
+                instance.FindName("BugfixesAndQoLAivSelectionListHost") as FrameworkElement;
+            if (bugfixList?.Visibility == Visibility.Visible)
+            {
+                // BugfixesAndQoL owns the list while its 50-entry enhancement is active.
+                vanilla.Visibility = Visibility.Collapsed;
+                extended.Visibility = Visibility.Collapsed;
                 return;
             }
 
             vanilla.Visibility = useExtendedList ? Visibility.Collapsed : Visibility.Visible;
             extended.Visibility = useExtendedList ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        private void PublishToBugfixApi(
+            FRONT_Multiplayer.MPAIVInfo info,
+            IReadOnlyDictionary<int, AivCandidateVisualState> states)
+        {
+            if (info?.aivs == null || !BugfixAivStatusBridge.IsAvailable)
+                return;
+            BugfixAivStatusBridge.Clear(info);
+            for (int candidateId = 0; candidateId < info.aivs.Count; candidateId++)
+            {
+                CustomisationFileManager.CustomAIV aiv = info.aivs[candidateId];
+                if (aiv == null || states == null ||
+                    !states.TryGetValue(candidateId, out AivCandidateVisualState state))
+                    continue;
+                int neutralStatus;
+                if (!state.Status.HasValue)
+                    neutralStatus = 0;
+                else
+                {
+                    switch (state.Status.Value)
+                    {
+                        case AivPlacementStatus.Complete: neutralStatus = 1; break;
+                        case AivPlacementStatus.Partial: neutralStatus = 2; break;
+                        case AivPlacementStatus.Impossible: neutralStatus = 3; break;
+                        default: neutralStatus = 4; break;
+                    }
+                }
+                BugfixAivStatusBridge.TrySet(info, aiv.checksum, neutralStatus, state.ToolTip);
+            }
         }
 
         private bool IsLobbySetupActive()
@@ -611,15 +489,6 @@ namespace CastlePlanner.AIVPlacement
 
         private static FRONT_Multiplayer.MPAIVInfo GetAivInfo(FRONT_Multiplayer_AISettings instance) =>
             instance == null ? null : AiSettingsAivInfoField.GetValue(instance) as FRONT_Multiplayer.MPAIVInfo;
-
-        private static List<CustomisationFileManager.CustomAIV> GetAvailableAivs(
-            FRONT_Multiplayer_AISettings instance) =>
-            instance == null
-                ? null
-                : AiSettingsAivListField.GetValue(instance) as List<CustomisationFileManager.CustomAIV>;
-
-        private static ListView GetFileList(FRONT_Multiplayer_AISettings instance) =>
-            instance == null ? null : AiSettingsFileListField.GetValue(instance) as ListView;
 
         private static MethodInfo FindMethod(Type type, string name, params Type[] parameterTypes)
         {

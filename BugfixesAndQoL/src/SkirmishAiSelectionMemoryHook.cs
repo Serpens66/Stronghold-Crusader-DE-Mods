@@ -14,7 +14,7 @@ namespace BugfixesAndQoL
 {
     internal sealed class SkirmishAiSelectionMemoryHook : INotifyPropertyChanged, IDisposable
     {
-        internal const int MaxStoredAivEntriesPerLord = 999;
+        internal const int MaxStoredAivEntriesPerLord = 50;
 
         private delegate void MultiplayerButtonClickedDelegate(FRONT_Multiplayer self, string param);
         private delegate void MultiplayerUpdateRandomAiButtonsDelegate(FRONT_Multiplayer self);
@@ -870,6 +870,12 @@ namespace BugfixesAndQoL
                         $"Bugfixes and QoL ignored invalid stored AI selection for {key}: {decodeError}");
                     continue;
                 }
+                if (!string.IsNullOrEmpty(decodeError))
+                {
+                    Shared.DebugLogHelper.LogWarning(
+                        log,
+                        $"Bugfixes and QoL migrated stored AI selection for {key}: {decodeError}");
+                }
                 if (!string.Equals(BuildLordKey(decoded), key, StringComparison.OrdinalIgnoreCase))
                 {
                     Shared.DebugLogHelper.LogWarning(
@@ -909,8 +915,6 @@ namespace BugfixesAndQoL
         {
             if (string.IsNullOrEmpty(param))
                 return false;
-            if (param.StartsWith("CastlePlanner_AIVPlacement_", StringComparison.Ordinal))
-                return true;
             if (param.StartsWith("Kick_", StringComparison.Ordinal))
                 return true;
 

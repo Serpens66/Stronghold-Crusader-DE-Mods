@@ -121,10 +121,12 @@ namespace BugfixesAndQoL
                     decoded.image = LoadLordImage(decoded.imageData);
 
                     int aivCount = reader.ReadInt32();
-                    if (aivCount < 0 || aivCount > SkirmishAiSelectionMemoryHook.MaxStoredAivEntriesPerLord)
+                    const int legacyMaximumAivEntries = 999;
+                    if (aivCount < 0 || aivCount > legacyMaximumAivEntries)
                         throw new InvalidDataException($"Invalid AIV count {aivCount}.");
 
-                    decoded.aivs = new List<CustomisationFileManager.CustomAIV>(aivCount);
+                    decoded.aivs = new List<CustomisationFileManager.CustomAIV>(
+                        Math.Min(aivCount, SkirmishAiSelectionMemoryHook.MaxStoredAivEntriesPerLord));
                     HashSet<ulong> checksums = new HashSet<ulong>();
                     for (int i = 0; i < aivCount; i++)
                     {
@@ -139,7 +141,8 @@ namespace BugfixesAndQoL
                         aiv.workshopUploadInfoAvailable = reader.ReadBoolean();
                         aiv.path = ReadString(reader, stream);
 
-                        if (checksums.Add(aiv.checksum))
+                        if (checksums.Add(aiv.checksum) &&
+                            decoded.aivs.Count < SkirmishAiSelectionMemoryHook.MaxStoredAivEntriesPerLord)
                             decoded.aivs.Add(aiv);
                     }
 
@@ -147,6 +150,11 @@ namespace BugfixesAndQoL
                         throw new InvalidDataException("Payload has trailing data.");
 
                     info = decoded;
+                    if (aivCount > SkirmishAiSelectionMemoryHook.MaxStoredAivEntriesPerLord)
+                    {
+                        error = $"Stored AIV list was truncated from {aivCount} to " +
+                            $"{SkirmishAiSelectionMemoryHook.MaxStoredAivEntriesPerLord} entries.";
+                    }
                     return true;
                 }
             }

@@ -27,6 +27,8 @@ internal static class Program
             ("rejects ambiguous keep", RejectsAmbiguousKeep),
             ("resolves custom AIV", ResolvesCustomAiv),
             ("preserves multiple custom candidates", PreservesMultipleCustomCandidates),
+            ("leaves multiplayer AIV selection to Vanilla", LeavesMultiplayerSelectionToVanilla),
+            ("publishes optional status without a hard Bugfix dependency", PublishesStatusWithoutDependency),
             ("resolves embedded custom candidate", ResolvesEmbeddedCustomCandidate),
             ("uses Script Extender override", UsesAssetOverride),
             ("loads AIVJSON from the shared core", LoadsAivJsonFromSharedCore),
@@ -346,6 +348,49 @@ internal static class Program
         Equal("rat-two", request.Candidates[1].Name);
         Equal("rat-three", request.Candidates[2].Name);
         Equal(2, request.Candidates[2].CandidateId);
+    }
+
+    private static void LeavesMultiplayerSelectionToVanilla()
+    {
+        string root = FindCastlePlannerRoot();
+        string source = File.ReadAllText(Path.Combine(
+            root, "src", "AIVPlacement", "AivPlacementRuntime.cs"));
+        string[] forbidden =
+        {
+            "SelectNetworkStartAivs",
+            "NetworkAivSnapshot",
+            "selectedNetworkCandidateIds",
+            "info.aivs.Clear()",
+            "info.aivs.Add(selected)"
+        };
+        foreach (string symbol in forbidden)
+            Assert(!source.Contains(symbol, StringComparison.Ordinal),
+                $"runtime still contains multiplayer selection mutation '{symbol}'");
+    }
+
+    private static void PublishesStatusWithoutDependency()
+    {
+        string root = FindCastlePlannerRoot();
+        string project = File.ReadAllText(Path.Combine(root, "CastlePlanner.csproj"));
+        string bridge = File.ReadAllText(Path.Combine(
+            root, "src", "AIVPlacement", "BugfixAivStatusBridge.cs"));
+        Assert(!project.Contains("Reference Include=\"BugfixesAndQoL\"", StringComparison.Ordinal),
+            "CastlePlanner has a hard BugfixesAndQoL assembly reference");
+        Assert(bridge.Contains("GetAssemblies()", StringComparison.Ordinal) &&
+            bridge.Contains("SetStatus", StringComparison.Ordinal),
+            "optional reflection status bridge is missing");
+    }
+
+    private static string FindCastlePlannerRoot()
+    {
+        DirectoryInfo current = new DirectoryInfo(AppContext.BaseDirectory);
+        while (current != null)
+        {
+            if (File.Exists(Path.Combine(current.FullName, "CastlePlanner.csproj")))
+                return current.FullName;
+            current = current.Parent;
+        }
+        throw new DirectoryNotFoundException("CastlePlanner project root was not found.");
     }
 
     private static void ResolvesEmbeddedCustomCandidate()

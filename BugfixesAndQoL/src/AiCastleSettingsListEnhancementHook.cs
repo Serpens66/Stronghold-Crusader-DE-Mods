@@ -22,6 +22,7 @@ namespace BugfixesAndQoL
             bool mpMode);
 
         private delegate void ButtonClickedDelegate(FRONT_Multiplayer_AISettings self, string param);
+        private delegate void AddSelectedDelegate(FRONT_Multiplayer_AISettings self);
 
         private enum SortField
         {
@@ -46,10 +47,13 @@ namespace BugfixesAndQoL
         private readonly BugfixesAndQoLViewModel settings;
         private readonly Action<FRONT_Multiplayer.MPAIVInfo> selectionLoaded;
         private readonly AivAicPresetStore presetStore;
+        private readonly AivSelectionListViewModel selectionList = new AivSelectionListViewModel();
         private readonly Hook showHook;
         private readonly Hook buttonClickedHook;
+        private readonly Hook addSelectedHook;
         private readonly ShowDelegate showTrampoline;
         private readonly ButtonClickedDelegate buttonClickedTrampoline;
+        private readonly AddSelectedDelegate addSelectedTrampoline;
         private readonly HashSet<FRONT_Multiplayer_AISettings> attachedViews =
             new HashSet<FRONT_Multiplayer_AISettings>();
 
@@ -79,6 +83,7 @@ namespace BugfixesAndQoL
         private AivAicPresetRow selectedPreset;
         private PresetSortField presetSortField = PresetSortField.SavedUtc;
         private bool presetSortAscending;
+        private bool activeMpMode;
 
         public AiCastleSettingsListEnhancementHook(
             ManualLogSource log,
@@ -96,6 +101,7 @@ namespace BugfixesAndQoL
             SavePresetCommand = new RelayCommand(SavePreset, CanSavePreset);
             LoadPresetCommand = new RelayCommand(LoadPreset, CanUseSelectedPreset);
             DeletePresetCommand = new RelayCommand(DeletePreset, CanUseSelectedPreset);
+            selectionList.RemoveRequested += RemoveSelectedAiv;
 
             GameXAMLManagerAPI.Instance.RegisterBinding("BugfixesAndQoLAivHeaderPanel", this);
             GameXAMLManagerAPI.Instance.RegisterBinding("BugfixesAndQoLAivSearchPanel", this);
@@ -103,6 +109,7 @@ namespace BugfixesAndQoL
             GameXAMLManagerAPI.Instance.RegisterBinding("BugfixesAndQoLAicSearchPanel", this);
             GameXAMLManagerAPI.Instance.RegisterBinding("BugfixesAndQoLAivPresetButtonHost", this);
             GameXAMLManagerAPI.Instance.RegisterBinding("BugfixesAndQoLAivPresetDialog", this);
+            GameXAMLManagerAPI.Instance.RegisterBinding("BugfixesAndQoLAivSelectionListHost", selectionList);
 
             MethodInfo showMethod = typeof(FRONT_Multiplayer_AISettings).GetMethod(
                 "Show",
@@ -116,11 +123,15 @@ namespace BugfixesAndQoL
                 null,
                 new[] { typeof(string) },
                 null);
-            if (showMethod == null || buttonClickedMethod == null)
+            MethodInfo addSelectedMethod = typeof(FRONT_Multiplayer_AISettings).GetMethod(
+                "AddSelected",
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (showMethod == null || buttonClickedMethod == null || addSelectedMethod == null)
                 throw new MissingMethodException("The Vanilla AI-settings dialog methods were not found.");
 
             Hook installedShow = null;
             Hook installedButtonClicked = null;
+            Hook installedAddSelected = null;
             try
             {
                 installedShow = new Hook(showMethod, (ShowDelegate)ShowHook);
@@ -130,11 +141,15 @@ namespace BugfixesAndQoL
                     (ButtonClickedDelegate)ButtonClickedHook);
                 buttonClickedTrampoline =
                     installedButtonClicked.GenerateTrampoline<ButtonClickedDelegate>();
+                installedAddSelected = new Hook(addSelectedMethod, (AddSelectedDelegate)AddSelectedHook);
+                addSelectedTrampoline = installedAddSelected.GenerateTrampoline<AddSelectedDelegate>();
                 showHook = installedShow;
                 buttonClickedHook = installedButtonClicked;
+                addSelectedHook = installedAddSelected;
             }
             catch
             {
+                installedAddSelected?.Dispose();
                 installedButtonClicked?.Dispose();
                 installedShow?.Dispose();
                 throw;
@@ -271,7 +286,9 @@ namespace BugfixesAndQoL
                 return;
             }
 
-            RestoreCanonicalLists(activeView, GetAivInfo(activeView));
+            FRONT_Multiplayer.MPAIVInfo inactiveInfo = GetAivInfo(activeView);
+            TrimSelection(inactiveInfo, activeMpMode ? 1 : 8, "feature disabled");
+            RestoreCanonicalLists(activeView, inactiveInfo);
             activeView.populateList(null, false);
             RestoreVanillaPresentation(activeView);
             UpdateDialogKeyboardState();
@@ -282,8 +299,11 @@ namespace BugfixesAndQoL
             if (disposed)
                 return;
             disposed = true;
+            selectionList.RemoveRequested -= RemoveSelectedAiv;
+            addSelectedHook?.Undo();
             buttonClickedHook?.Undo();
             showHook?.Undo();
+            addSelectedHook?.Dispose();
             buttonClickedHook?.Dispose();
             showHook?.Dispose();
         }
@@ -294,10 +314,16 @@ namespace BugfixesAndQoL
             bool mpMode)
         {
             ClosePresetDialog();
+            activeMpMode = mpMode;
+            if (!IsActive)
+                TrimSelection(aivInfo, mpMode ? 1 : 8, "Vanilla dialog limit");
             showTrampoline(thisPlayer, aivInfo, mpMode);
 
             if (!IsActive)
                 return;
+
+            // This hook owns the increased capacity; optional status providers only observe it.
+            MpModeField.SetValue(FRONT_Multiplayer_AISettings.Instance, false);
 
             // Wait until Vanilla Init and every other Init hook have completely unwound before
             // replacing native Noesis list sources.
@@ -318,6 +344,8 @@ namespace BugfixesAndQoL
                 return;
             }
 
+            MpModeField.SetValue(self, false);
+
             // Preset changes use fixed indexes, so they must start from Vanilla's complete list.
             if (RequiresCanonicalLists(param))
                 RestoreCanonicalLists(self, GetAivInfo(self));
@@ -327,6 +355,57 @@ namespace BugfixesAndQoL
                 AttachAndRefresh(self, $"button '{param}'");
             if (string.Equals(param, "Back", StringComparison.Ordinal))
                 UpdateDialogKeyboardState();
+        }
+
+        private void AddSelectedHook(FRONT_Multiplayer_AISettings self)
+        {
+            if (!IsActive || !IsCustomAivMode(GetAivInfo(self)))
+            {
+                addSelectedTrampoline(self);
+                return;
+            }
+
+            FRONT_Multiplayer.MPAIVInfo info = GetAivInfo(self);
+            List<CustomisationFileManager.CustomAIV> available =
+                AivListField.GetValue(self) as List<CustomisationFileManager.CustomAIV>;
+            if (info?.aivs == null || available == null || aivListControl?.SelectedItems == null)
+                return;
+
+            var selectedIndexes = new List<int>();
+            foreach (object selected in aivListControl.SelectedItems)
+            {
+                int index = aivListControl.Items.IndexOf(selected);
+                if (index >= 0)
+                    selectedIndexes.Add(index);
+            }
+            int added = AivCandidateSelectionPolicy.AppendDistinct(
+                info.aivs,
+                available,
+                selectedIndexes,
+                aiv => aiv.checksum,
+                AivAicPresetStore.MaximumAivEntries);
+
+            if (added > 0)
+            {
+                self.populateList(null, false);
+                selectionLoaded?.Invoke(info);
+            }
+            AttachAndRefresh(self, $"added {added} AIV candidates");
+        }
+
+        private void RemoveSelectedAiv(CustomisationFileManager.CustomAIV requested)
+        {
+            FRONT_Multiplayer.MPAIVInfo info = GetAivInfo(activeView);
+            if (!IsActive || requested == null || info?.aivs == null || !IsCustomAivMode(info))
+                return;
+            int index = info.aivs.FindIndex(aiv =>
+                ReferenceEquals(aiv, requested) || (aiv != null && aiv.checksum == requested.checksum));
+            if (index < 0)
+                return;
+            info.aivs.RemoveAt(index);
+            activeView.populateList(null, false);
+            selectionLoaded?.Invoke(info);
+            AttachAndRefresh(activeView, "removed an AIV candidate");
         }
 
         private void AttachAndRefresh(FRONT_Multiplayer_AISettings self, string reason)
@@ -369,6 +448,7 @@ namespace BugfixesAndQoL
             // Search focus must not disable Ctrl/Shift input used by Vanilla multi-selection.
             aivListControl.SelectionMode = SelectionMode.Extended;
             ApplyAivFooterLayout();
+            ApplySelectionListMode(self, true);
 
             if (!attachedViews.Add(self))
                 return;
@@ -621,10 +701,9 @@ namespace BugfixesAndQoL
             return comparison;
         }
 
-        private static int GetActiveAivLimit(FRONT_Multiplayer_AISettings view)
+        private int GetActiveAivLimit(FRONT_Multiplayer_AISettings view)
         {
-            UIElement extendedHost = view?.FindName("CastlePlannerAivSelectionListHost") as UIElement;
-            if (extendedHost?.Visibility == Visibility.Visible)
+            if (IsActive)
                 return AivAicPresetStore.MaximumAivEntries;
             return view != null && MpModeField.GetValue(view) is bool mpMode && mpMode ? 1 : 8;
         }
@@ -663,7 +742,7 @@ namespace BugfixesAndQoL
                 visibleAivs.Sort((left, right) => CompareAivs(left, right, canonicalAivs, info));
 
             ObservableCollection<FileRow> aivRows = BuildAivRows(visibleAivs);
-            // Vanilla and CastlePlanner both translate selected row indexes through this field.
+            // Vanilla and optional dialog extensions translate selected row indexes through this field.
             AivListField.SetValue(activeView, visibleAivs);
             aivListControl.ItemsSource = aivRows;
             SelectAivs(aivRows, selectedAivs);
@@ -693,6 +772,7 @@ namespace BugfixesAndQoL
             bool aicEnabled = aicListControl.IsEnabled;
             aicHeaderPanel.IsEnabled = aicEnabled;
             aicSearchPanel.IsEnabled = aicEnabled;
+            selectionList.Refresh(info, IsCustomAivMode(info));
         }
 
         private int CompareAivs(
@@ -897,6 +977,36 @@ namespace BugfixesAndQoL
                 aic.Margin = new Thickness(0f);
                 SetColumnWidths(aic, 40f, 320f, 0f);
             }
+            ApplySelectionListMode(self, false);
+        }
+
+        private static void ApplySelectionListMode(FRONT_Multiplayer_AISettings self, bool extended)
+        {
+            FrameworkElement host = self?.FindName("BugfixesAndQoLAivSelectionListHost") as FrameworkElement;
+            FrameworkElement vanilla = null;
+            if (self?.FindName("Player1_Kick") is FrameworkElement kick)
+            {
+                DependencyObject row = VisualTreeHelper.GetParent(kick);
+                vanilla = row == null ? null : VisualTreeHelper.GetParent(row) as FrameworkElement;
+            }
+            if (host != null)
+                host.Visibility = extended ? Visibility.Visible : Visibility.Collapsed;
+            if (vanilla != null)
+                vanilla.Visibility = extended ? Visibility.Collapsed : Visibility.Visible;
+        }
+
+        private static bool IsCustomAivMode(FRONT_Multiplayer.MPAIVInfo info) =>
+            info != null && !info.builtIn && !info.community && !info.historical;
+
+        private void TrimSelection(FRONT_Multiplayer.MPAIVInfo info, int maximum, string reason)
+        {
+            if (info?.aivs == null || info.aivs.Count <= maximum)
+                return;
+            int removed = info.aivs.Count - maximum;
+            info.aivs.RemoveRange(maximum, removed);
+            Shared.DebugLogHelper.LogWarning(
+                log,
+                $"Bugfixes and QoL trimmed {removed} AIV candidates to Vanilla's {maximum}-entry limit ({reason}).");
         }
 
         private static void SetColumnWidths(ListView list, params float[] widths)

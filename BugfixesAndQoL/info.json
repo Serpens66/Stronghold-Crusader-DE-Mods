@@ -10,7 +10,9 @@
     {
       "Version": "1.0.65",
       "Changes": [
-        "Further shortened the AIV/AIC preset button so it no longer overlaps the west rotation control."
+        "Supports up to 50 ordered custom AIV candidates per lord in skirmish lobbies.",
+        "Automatically transfers additional multiplayer AIV candidates from the host and imports them before Vanilla selects the best-fitting castle.",
+        "Adds a neutral candidate-status interface used optionally by CastlePlanner."
       ]
     },
     {

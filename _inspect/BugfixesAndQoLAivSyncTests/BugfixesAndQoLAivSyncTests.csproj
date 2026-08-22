@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\..\BugfixesAndQoL\src\MultiplayerAivSyncProtocol.cs" Link="MultiplayerAivSyncProtocol.cs" />
+    <Compile Include="..\..\BugfixesAndQoL\src\MultiplayerAivSyncPolicy.cs" Link="MultiplayerAivSyncPolicy.cs" />
+    <Compile Include="..\..\BugfixesAndQoL\src\AivCandidateSelectionPolicy.cs" Link="AivCandidateSelectionPolicy.cs" />
+  </ItemGroup>
+</Project>

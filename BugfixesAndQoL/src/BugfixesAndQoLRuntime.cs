@@ -15,6 +15,7 @@ namespace BugfixesAndQoL
         private readonly TroopMovementFix3Runtime troopMovementFixRuntime;
         private readonly MultiplayerFeatureGate multiplayerFeatureGate;
         private readonly MultiplayerGameSpeedRuntime multiplayerGameSpeedRuntime;
+        private readonly MultiplayerAivSyncRuntime multiplayerAivSyncRuntime;
         private IDisposable playerMarketSubscription;
         private IDisposable mapStartSubscription;
         private IDisposable mapUnloadSubscription;
@@ -59,6 +60,7 @@ namespace BugfixesAndQoL
             troopMovementFixRuntime = new TroopMovementFix3Runtime(log, settings);
             multiplayerFeatureGate = new MultiplayerFeatureGate(log);
             multiplayerGameSpeedRuntime = new MultiplayerGameSpeedRuntime(log, settings, multiplayerFeatureGate);
+            multiplayerAivSyncRuntime = new MultiplayerAivSyncRuntime(log, settings);
             settings.SettingChanged += OnSettingChanged;
             settingsSubscribed = true;
         }
@@ -66,11 +68,15 @@ namespace BugfixesAndQoL
         public object SurrenderAndStatisticsUi => surrenderFeature?.ButtonViewModel;
         public object SelectedUnitHealthUi => selectedUnitHealthFeature?.ViewModel;
         public object AllyGoodsAmountDisplay => allyGoodsAmountModifierHook;
+        public object MultiplayerAivSyncUi => multiplayerAivSyncRuntime;
 
         public void InitializeNetwork()
         {
             // These registrations serve independent features. Keep each failure isolated so a
             // managed speed-UI hook can never disable Ctrl trading or map-state maintenance.
+            TryInitializePersistentFeature(
+                "multiplayer AIV synchronization",
+                multiplayerAivSyncRuntime.Initialize);
             TryInitializePersistentFeature(
                 "multiplayer game-speed packet",
                 multiplayerGameSpeedRuntime.InitializeNetwork);
@@ -227,6 +233,7 @@ namespace BugfixesAndQoL
             allyGoodsAmountModifierHook?.Dispose();
             allyGoodsAmountModifierHook = null;
             multiplayerGameSpeedRuntime.Dispose();
+            multiplayerAivSyncRuntime.Dispose();
             playerMarketSubscription?.Dispose();
             playerMarketSubscription = null;
             mapStartSubscription?.Dispose();

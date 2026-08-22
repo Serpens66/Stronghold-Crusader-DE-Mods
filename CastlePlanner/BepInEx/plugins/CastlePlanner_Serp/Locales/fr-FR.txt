@@ -63,3 +63,4 @@ CastlePlanner.AIVPlacement.NotEvaluable=Not evaluable: {Reason}
 CastlePlanner.AIVPlacement.PreBuildUnsupported=Sequential pre-build placement is not supported yet.
 CastlePlanner.AIVPlacement.HostOnly=Only the host evaluates AI castle placement.
 CastlePlanner.AIVPlacement.Checking=The best AI castle is still being checked.
+CastlePlanner.AivRemoveHelp=Removes this AIV candidate from the selection.

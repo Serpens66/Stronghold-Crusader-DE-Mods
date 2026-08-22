@@ -26,7 +26,7 @@ namespace BugfixesAndQoL
 
         public const string PluginGuid = "BugfixesAndQoL_Serp";
         public const string PluginName = "Bugfixes and QoL";
-        public const string PluginVersion = "1.0.61";
+        public const string PluginVersion = "1.0.65";
 
         private static DisplayResolutionPersistenceHook displayResolutionPersistenceHook;
         private static SteamLobbyInvitePrompt steamLobbyInvitePrompt;
@@ -122,6 +122,9 @@ namespace BugfixesAndQoL
             try
             {
                 runtime.InitializeNetwork();
+                GameXAMLManagerAPI.Instance.RegisterBinding(
+                    "BugfixesAndQoLAivSyncStatusHost",
+                    runtime.MultiplayerAivSyncUi);
             }
             catch (Exception ex)
             {

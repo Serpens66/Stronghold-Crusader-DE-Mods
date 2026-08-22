@@ -12,7 +12,7 @@ namespace BugfixesAndQoL
 {
     internal sealed class AivAicPresetStore
     {
-        internal const int MaximumAivEntries = 999;
+        internal const int MaximumAivEntries = 50;
         internal const int MaximumPresetNameLength = 64;
 
         private const int SchemaVersion = 1;
@@ -384,7 +384,7 @@ namespace BugfixesAndQoL
                     DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out DateTime savedUtc))
                 throw new InvalidDataException("Preset timestamp is invalid.");
             if (!map.TryGetValue("aivs", out object aivsValue) || !(aivsValue is List<object> aivValues) ||
-                aivValues.Count > MaximumAivEntries)
+                aivValues.Count > 999)
                 throw new InvalidDataException("Preset AIV list is invalid.");
 
             var preset = new AivAicPresetDefinition

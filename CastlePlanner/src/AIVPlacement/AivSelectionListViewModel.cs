@@ -30,7 +30,7 @@ namespace CastlePlanner.AIVPlacement
 
         public event Action<CustomisationFileManager.CustomAIV> RemoveRequested;
 
-        private string countText = $"0 / {AivSelectionDialogRuntime.MaxCustomAivsPerLord}";
+        private string countText = "0 / 8";
         private float toolTipScale = 1f;
 
         public string CountText
@@ -48,7 +48,8 @@ namespace CastlePlanner.AIVPlacement
         public void Refresh(
             FRONT_Multiplayer.MPAIVInfo info,
             bool allowRemoval,
-            IReadOnlyDictionary<int, AivCandidateVisualState> states)
+            IReadOnlyDictionary<int, AivCandidateVisualState> states,
+            int maximumEntries)
         {
             int entryIndex = 0;
             bool rebuildingTail = false;
@@ -83,7 +84,7 @@ namespace CastlePlanner.AIVPlacement
 
             while (Entries.Count > entryIndex)
                 Entries.RemoveAt(Entries.Count - 1);
-            CountText = $"{entryIndex} / {AivSelectionDialogRuntime.MaxCustomAivsPerLord}";
+            CountText = $"{entryIndex} / {maximumEntries}";
         }
 
         public void UpdateToolTipScale(float scale)
@@ -163,6 +164,7 @@ namespace CastlePlanner.AIVPlacement
         public Visibility ImpossibleVisibility => impossibleVisibility;
         public Visibility NotEvaluableVisibility => notEvaluableVisibility;
         public string StatusToolTip => statusToolTip;
+        public string RemoveHelpText => SerpLocalization.Get("CastlePlanner.AivRemoveHelp");
         public float ToolTipScale => toolTipScale;
 
         public bool Matches(CustomisationFileManager.CustomAIV aiv) =>

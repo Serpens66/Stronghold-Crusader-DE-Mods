@@ -63,3 +63,4 @@ CastlePlanner.AIVPlacement.NotEvaluable=Nicht prüfbar: {Reason}
 CastlePlanner.AIVPlacement.PreBuildUnsupported=Die sequenzielle Sofortspawn-Platzierung wird noch nicht unterstützt.
 CastlePlanner.AIVPlacement.HostOnly=Nur der Host prüft die Platzierung der KI-Burg.
 CastlePlanner.AIVPlacement.Checking=Die beste KI-Burg wird noch geprüft.
+CastlePlanner.AivRemoveHelp=Entfernt diesen AIV-Kandidaten aus der Auswahl.

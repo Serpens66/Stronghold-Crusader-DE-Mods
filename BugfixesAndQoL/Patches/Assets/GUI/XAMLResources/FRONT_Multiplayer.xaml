@@ -252,4 +252,12 @@
       </Grid>
     </Content>
   </Operation>
+  <Operation Type="InsertBefore" XPath="//n:Button[@Name='MultiplayerPlayButton']">
+    <Content>
+      <TextBlock x:Name="BugfixesAndQoLAivSyncStatusHost" Width="520" Height="44"
+                 Margin="0,0,165,22" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                 Foreground="White" FontSize="17" TextAlignment="Right" TextWrapping="Wrap"
+                 Text="{Binding SyncStatusText}" Visibility="{Binding SyncStatusVisibility}" />
+    </Content>
+  </Operation>
 </Patch>
