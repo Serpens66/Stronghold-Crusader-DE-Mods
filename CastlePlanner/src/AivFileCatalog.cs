@@ -13,6 +13,36 @@ namespace CastlePlanner
 {
     internal sealed class AivFileCatalog
     {
+        internal sealed class DiscoveryPlan
+        {
+            internal readonly List<PreparedOption> Options = new List<PreparedOption>();
+            internal readonly List<RootSpec> Roots = new List<RootSpec>();
+        }
+
+        internal sealed class PreparedOption
+        {
+            internal PreparedOption(string option, string path)
+            {
+                Option = option;
+                Path = path;
+            }
+
+            internal string Option { get; }
+            internal string Path { get; }
+        }
+
+        internal sealed class RootSpec
+        {
+            internal RootSpec(string sourceName, string path)
+            {
+                SourceName = sourceName;
+                Path = path;
+            }
+
+            internal string SourceName { get; }
+            internal string Path { get; }
+        }
+
         private static readonly Regex VanillaFileNamePattern = new Regex(
             @"^(?:Community_(?:Historical_)?)?(?<lord>.+?)(?<number>[1-8])?$",
             RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
@@ -25,29 +55,44 @@ namespace CastlePlanner
 
         public int IdenticalFileCount { get; private set; }
 
-        public IReadOnlyList<string> Discover(Action<string> warning = null)
+        public static DiscoveryPlan PrepareDiscovery(Action<string> warning = null)
         {
-            pathByOption.Clear();
-            discoveryOrder.Clear();
-            IdenticalFileCount = 0;
-
+            var plan = new DiscoveryPlan();
             string pluginDirectory =
                 Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) ??
                 string.Empty;
-
-            AddVanillaRoot(
+            PrepareVanillaRoot(
+                plan,
                 Path.Combine(pluginDirectory, "VanillaAIV"),
                 warning);
-            AddRoot("Mod", Path.Combine(pluginDirectory, "AIV"));
-            AddLocalLordRoots();
-            AddWorkshopRoots(warning);
-            AddRoot(
+            plan.Roots.Add(new RootSpec("Mod", Path.Combine(pluginDirectory, "AIV")));
+            AddLocalLordRoots(plan);
+            AddWorkshopRoots(plan, warning);
+            plan.Roots.Add(new RootSpec(
                 "Editor",
                 Path.Combine(
                     Paths.GameRootPath + " - Castle & CPU Lord Editor",
                     "CrusaderCastleEditorUnity_Data",
                     "StreamingAssets",
-                    "Villages"));
+                    "Villages")));
+            return plan;
+        }
+
+        public IReadOnlyList<string> Discover(
+            DiscoveryPlan plan,
+            Action<string> warning = null)
+        {
+            if (plan == null)
+                throw new ArgumentNullException(nameof(plan));
+
+            pathByOption.Clear();
+            discoveryOrder.Clear();
+            IdenticalFileCount = 0;
+
+            foreach (PreparedOption option in plan.Options)
+                AddOption(option.Option, option.Path);
+            foreach (RootSpec root in plan.Roots)
+                AddRoot(root.SourceName, root.Path);
 
             RemoveIdenticalFiles(warning);
 
@@ -56,7 +101,10 @@ namespace CastlePlanner
                 .ToArray();
         }
 
-        private void AddVanillaRoot(string root, Action<string> warning)
+        private static void PrepareVanillaRoot(
+            DiscoveryPlan plan,
+            string root,
+            Action<string> warning)
         {
             if (!Directory.Exists(root))
                 return;
@@ -86,7 +134,9 @@ namespace CastlePlanner
                     continue;
                 }
 
-                AddOption($"[Vanilla] {fileName}", effectivePath);
+                plan.Options.Add(new PreparedOption(
+                    $"[Vanilla] {fileName}",
+                    effectivePath));
             }
         }
 
@@ -174,7 +224,9 @@ namespace CastlePlanner
             return true;
         }
 
-        private void AddWorkshopRoots(Action<string> warning)
+        private static void AddWorkshopRoots(
+            DiscoveryPlan plan,
+            Action<string> warning)
         {
             foreach (string itemRoot in Shared.WorkshopContentPaths
                 .GetSubscribedItemRoots(warning)
@@ -182,7 +234,7 @@ namespace CastlePlanner
             {
                 string itemId = Path.GetFileName(
                     itemRoot.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-                AddRoot("Steam Workshop " + itemId, itemRoot);
+                plan.Roots.Add(new RootSpec("Steam Workshop " + itemId, itemRoot));
             }
         }
 
@@ -324,7 +376,7 @@ namespace CastlePlanner
             public string Hash { get; }
         }
 
-        private void AddLocalLordRoots()
+        private static void AddLocalLordRoots(DiscoveryPlan plan)
         {
             string localAppData =
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
@@ -338,8 +390,12 @@ namespace CastlePlanner
                 "Firefly Studios",
                 "Stronghold Crusader Definitive Edition");
 
-            AddRoot("CustomLords", Path.Combine(gameDataRoot, "CustomLords"));
-            AddRoot("ExtendedLords", Path.Combine(gameDataRoot, "ExtendedLords"));
+            plan.Roots.Add(new RootSpec(
+                "CustomLords",
+                Path.Combine(gameDataRoot, "CustomLords")));
+            plan.Roots.Add(new RootSpec(
+                "ExtendedLords",
+                Path.Combine(gameDataRoot, "ExtendedLords")));
         }
 
         private void AddRoot(string sourceName, string root)

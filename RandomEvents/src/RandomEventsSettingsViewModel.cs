@@ -10,7 +10,7 @@ namespace RandomEvents
     {
         private bool enableMod = true;
         private int intervalMonths = 3;
-        private int cooldownMonths;
+        private int cooldownMonths = 6;
         private readonly int[] chances = new int[15];
         private int plagueMin = 1, plagueMax = 10;
         private int lionMin = 1, lionMax = 10;
@@ -26,7 +26,7 @@ namespace RandomEvents
         public RandomEventsSettingsViewModel()
         {
             for (int index = 0; index < chances.Length; index++)
-                chances[index] = 1;
+                chances[index] = 2;
             ResetToDefaultCommand = new RelayCommand(ResetToDefault);
         }
 
@@ -178,10 +178,10 @@ namespace RandomEvents
 
             EnableMod = true;
             IntervalMonths = 3;
-            CooldownMonths = 0;
+            CooldownMonths = 6;
             MultiplayerEventModeIndex = (int)MultiplayerEventMode.SharedEvents;
             for (int index = 0; index < chances.Length; index++)
-                SetChance((RandomEventKind)index, 1, GetChancePropertyName((RandomEventKind)index));
+                SetChance((RandomEventKind)index, 2, GetChancePropertyName((RandomEventKind)index));
             PlagueMin = 1; PlagueMax = 10;
             LionMin = 1; LionMax = 10;
             BanditMin = 0.1; BanditMax = 5.0;

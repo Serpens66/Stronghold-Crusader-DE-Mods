@@ -69,6 +69,7 @@ namespace CastlePlanner
             {
                 Shared.LobbyModSettingsPresetRegistration.Register(
                     this, Logger, PluginGuid, Settings, "ScriptExtenderUI/CastlePlannerSettings.xaml");
+                Settings.PumpCastleCatalogLoad();
             }
             catch (Exception ex)
             {

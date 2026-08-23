@@ -165,6 +165,10 @@ namespace CastlePlanner
             if (!initialized)
                 return;
 
+            // Polling applies a completed worker result on the Unity/Noesis thread.
+            // Starting the job here also covers settings enabled after plugin startup.
+            settings.PumpCastleCatalogLoad();
+
             CrusaderDE.MainViewModel mainViewModel = null;
             if (CrusaderDE.MainViewModel.viewModelLoaded)
             {
@@ -180,6 +184,7 @@ namespace CastlePlanner
                 (mainViewModel.Show_HUD_Extras_Button_Objectves ||
                  mainViewModel.Show_HUD_Extras_Button_Freebuild));
             Hud?.EnsureInteractiveElementsAttached();
+            Hud?.ProcessOpenDropDownWheel();
             UpdateHotkeyCapture();
             EnsureEditorMapState();
             if (!mapActive && IsSimulationActive())

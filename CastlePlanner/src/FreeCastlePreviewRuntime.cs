@@ -60,9 +60,10 @@ namespace CastlePlanner
         private readonly Dictionary<int, IncomingTransfer> incoming =
             new Dictionary<int, IncomingTransfer>();
         private readonly HashSet<ulong> manifestAcks = new HashSet<ulong>();
-        private readonly ObservableCollection<string> castleChoices =
-            new ObservableCollection<string>();
-        private readonly List<string> rotations = new List<string>
+        private readonly BulkObservableCollection<string> castleChoices =
+            new BulkObservableCollection<string>();
+        private readonly ObservableCollection<string> rotations =
+            new ObservableCollection<string>
         {
             "0°", "90°", "180°", "270°"
         };
@@ -74,6 +75,7 @@ namespace CastlePlanner
         private Hook gameActionHook;
         private Hook leaveLobbyHook;
         private Hook startGameHook;
+        private MethodInfo initFastMethod;
         private GameActionDelegate gameActionTrampoline;
         private LeaveLobbyDelegate leaveLobbyTrampoline;
         private StartGameDelegate startGameTrampoline;
@@ -92,6 +94,8 @@ namespace CastlePlanner
         private bool bypassLeaveLobbyHook;
         private bool bypassStartCapture;
         private bool briefingObserved;
+        private bool localCatalogReady;
+        private bool catalogWaitLogged;
         private long countdownStarted;
         private long distributionStarted;
         private long lastReadySent;
@@ -113,7 +117,7 @@ namespace CastlePlanner
 
         public ICommand ConfirmCommand { get; }
         public ObservableCollection<string> CastleChoices => castleChoices;
-        public IReadOnlyList<string> RotationChoices => rotations;
+        public ObservableCollection<string> RotationChoices => rotations;
         public bool IsPreviewActive =>
             state == PreviewState.Loading || state == PreviewState.Selecting ||
             state == PreviewState.Distributing;
@@ -175,6 +179,9 @@ namespace CastlePlanner
                 if (selectedRotation == normalized)
                     return;
                 selectedRotation = normalized;
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    $"Free-castle rotation changed: ui={selectedRotation}, native={SelectedNativeRotation}.");
                 Notify(nameof(SelectedRotation));
                 Notify(nameof(SelectedNativeRotation));
                 SelectionVisualChanged?.Invoke();
@@ -215,6 +222,12 @@ namespace CastlePlanner
                     typeof(int), typeof(int)
                 },
                 null) ?? throw new MissingMethodException("Platform_Multiplayer.StartGame");
+            initFastMethod = typeof(Platform_Multiplayer).GetMethod(
+                "initFast",
+                BindingFlags.NonPublic | BindingFlags.Instance,
+                null,
+                Type.EmptyTypes,
+                null) ?? throw new MissingMethodException("Platform_Multiplayer.initFast");
 
             gameActionHook = new Hook(action, (GameActionDelegate)GameActionHook);
             gameActionTrampoline = gameActionHook.GenerateTrampoline<GameActionDelegate>();
@@ -310,7 +323,7 @@ namespace CastlePlanner
                 state == PreviewState.AwaitingGameplay)
             {
                 ApplyPause(true);
-                RebuildChoices();
+                settings.PumpCastleCatalogLoad();
                 Shared.DebugLogHelper.LogInfo(
                     log,
                     "Castle selection is waiting for Vanilla's start-situation screen to close.");
@@ -389,6 +402,11 @@ namespace CastlePlanner
                 return;
             try
             {
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    $"Free-castle confirmation requested: playerId={localPlayerId}, " +
+                    $"choice='{SelectedChoice}', uiRotation={SelectedRotation}, " +
+                    $"nativeRotation={SelectedNativeRotation}.");
                 FreeCastleSelection selection = null;
                 if (!string.Equals(SelectedChoice, NoneText, StringComparison.Ordinal))
                 {
@@ -660,6 +678,12 @@ namespace CastlePlanner
                 TryBeginSelectionAfterVanillaStartScreen();
                 return;
             }
+            if (state == PreviewState.Loading && !localCatalogReady)
+            {
+                TryFinishCatalogLoading();
+                if (!localCatalogReady)
+                    return;
+            }
             Notify(nameof(TimerText));
             if (realMultiplayer && state == PreviewState.Loading &&
                 Platform_Multiplayer.Instance?.activeLobby?.isHost != true &&
@@ -709,6 +733,31 @@ namespace CastlePlanner
                 briefingObserved
                     ? "Vanilla start-situation screen closed; castle selection opened."
                     : "Gameplay HUD became active without a start-situation screen; castle selection opened.");
+            TryFinishCatalogLoading();
+        }
+
+        private void TryFinishCatalogLoading()
+        {
+            if (localCatalogReady)
+                return;
+
+            if (!settings.EnsureCastleCatalogLoaded())
+            {
+                if (!catalogWaitLogged)
+                {
+                    catalogWaitLogged = true;
+                    Shared.DebugLogHelper.LogInfo(
+                        log,
+                        "Castle selection is waiting for asynchronous AIVJSON catalog loading without blocking rendered frames.");
+                }
+                return;
+            }
+
+            RebuildChoices();
+            localCatalogReady = true;
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"Castle selection catalog is ready; choices={castleChoices.Count}.");
             MarkLocalReady();
         }
 
@@ -722,17 +771,49 @@ namespace CastlePlanner
                 {
                     if (capturedSetup == null || capturedMap == null)
                         throw new InvalidOperationException("The multiplayer restart context is unavailable.");
+                    Platform_Multiplayer platform = Platform_Multiplayer.Instance ??
+                        throw new InvalidOperationException("The multiplayer platform is unavailable.");
+
+                    Shared.DebugLogHelper.LogInfo(
+                        log,
+                        $"Free-castle multiplayer restart reset beginning: " +
+                        $"operation={operationId}, mpGameActive={Platform_Multiplayer.MPGameActive}, " +
+                        $"gameMembers={platform.gameMembers?.Count ?? 0}.");
                     Director.instance.stopSimThread();
-                    typeof(Platform_Multiplayer).GetMethod("initFast", BindingFlags.NonPublic | BindingFlags.Instance)
-                        ?.Invoke(Platform_Multiplayer.Instance, null);
-                    bypassStartCapture = true;
-                    startGameTrampoline(
-                        Platform_Multiplayer.Instance,
-                        capturedSetup,
-                        capturedMap,
-                        capturedCoopTrailId,
-                        capturedCoopMissionId);
-                    bypassStartCapture = false;
+                    // This is Vanilla's complete follow-on reset. initFast clears
+                    // seed/queue state; initFastFollowOn closes the old sessions,
+                    // clears the old roster and resets MPGameActive before StartGame
+                    // reconstructs both for the new map.
+                    initFastMethod.Invoke(platform, null);
+                    platform.initFastFollowOn();
+                    Shared.DebugLogHelper.LogInfo(
+                        log,
+                        $"Free-castle multiplayer restart reset completed: " +
+                        $"operation={operationId}, mpGameActive={Platform_Multiplayer.MPGameActive}, " +
+                        $"gameMembers={platform.gameMembers?.Count ?? 0}.");
+                    try
+                    {
+                        bypassStartCapture = true;
+                        startGameTrampoline(
+                            platform,
+                            capturedSetup,
+                            capturedMap,
+                            capturedCoopTrailId,
+                            capturedCoopMissionId);
+                    }
+                    finally
+                    {
+                        bypassStartCapture = false;
+                    }
+                    // Platform.StartGame only loads the map and arms its host/client
+                    // seed handshake. Vanilla always follows it with this Director
+                    // activation so messages and host acknowledgements are processed.
+                    Director.instance.StartMultiplayerGame();
+                    Shared.DebugLogHelper.LogInfo(
+                        log,
+                        $"Free-castle multiplayer restart handshake activated: " +
+                        $"operation={operationId}, mpGameActive={Platform_Multiplayer.MPGameActive}, " +
+                        $"gameMembers={platform.gameMembers?.Count ?? 0}.");
                 }
                 else
                 {
@@ -868,10 +949,8 @@ namespace CastlePlanner
         private void RebuildChoices()
         {
             settings.EnsureCastleCatalogLoaded();
-            castleChoices.Clear();
-            castleChoices.Add(NoneText);
-            foreach (string option in settings.CastleOptions)
-                castleChoices.Add(option);
+            castleChoices.ReplaceWith(
+                new[] { NoneText }.Concat(settings.CastleOptions));
             selectedChoice = settings.CastleOptions.Contains(settings.SelectedCastle)
                 ? settings.SelectedCastle
                 : NoneText;
@@ -955,6 +1034,8 @@ namespace CastlePlanner
             committedSelections.Clear();
             localConfirmed = false;
             briefingObserved = false;
+            localCatalogReady = false;
+            catalogWaitLogged = false;
             countdownStarted = 0;
             statusText = string.Empty;
             selectedRotation = "0°";

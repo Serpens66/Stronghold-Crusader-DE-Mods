@@ -229,7 +229,9 @@ foreach ($required in @(
 }
 $castleSettingsSource = [IO.File]::ReadAllText((Join-Path $workspace 'CastlePlanner/src/CastlePlannerSettingsViewModel.cs'))
 foreach ($required in @(
-    'TryLoadCastleCatalog()',
+    'Task.Run(() =>',
+    'AivFileCatalog.PrepareDiscovery(',
+    'PumpCastleCatalogLoad()',
     '[Shared.PresetLocal]',
     'TryPrepareSelectedCastle(')) {
     if (-not $castleSettingsSource.Contains($required)) {
@@ -273,8 +275,12 @@ foreach ($required in @(
     ': settings.CastleOptions;',
     'SettingsPanelVisible = true;',
     'current.PreviewMouseWheel += OnComboBoxPreviewMouseWheel;',
-    '!comboBox.IsDropDownOpen',
-    'popup?.Child?.IsMouseOver == true',
+    'castleComboBox?.IsDropDownOpen == true',
+    'rotationComboBox?.IsDropDownOpen == true',
+    'ProcessOpenDropDownWheel()',
+    'UnityEngine.Input.mouseScrollDelta.y',
+    'scrollViewer.LineUp();',
+    'scrollViewer.LineDown();',
     'get => PreviewVisible ? preview.SelectedChoice : settings.SelectedCastle;',
     'preview.SelectedChoice = value;',
     'ClampPanelExtent(',
@@ -290,6 +296,7 @@ $castleBlueprintRuntimeSource = [IO.File]::ReadAllText((Join-Path $workspace 'Ca
 foreach ($required in @(
     'InstallCameraWheelGuard();',
     'Hud?.EnsureInteractiveElementsAttached();',
+    'Hud?.ProcessOpenDropDownWheel();',
     'Hud?.ShouldSuppressMapZoom() == true',
     'camera.AllowZoom = false;')) {
     if (-not $castleBlueprintRuntimeSource.Contains($required)) {
@@ -302,6 +309,12 @@ if (-not $castleBlueprintRuntimeSource.Contains('preview.IsPreviewActive && !pre
 $castlePreviewRuntimeSource = [IO.File]::ReadAllText((Join-Path $workspace 'CastlePlanner/src/FreeCastlePreviewRuntime.cs'))
 foreach ($required in @(
     'ObservableCollection<string> CastleChoices => castleChoices;',
+    'ObservableCollection<string> RotationChoices => rotations;',
+    'nativeRotation={SelectedNativeRotation}',
+    'initFastMethod.Invoke(platform, null);',
+    'platform.initFastFollowOn();',
+    'Director.instance.StartMultiplayerGame();',
+    'Free-castle multiplayer restart handshake activated:',
     'state == PreviewState.AwaitingGameplay',
     'viewModel.Show_BlackOut',
     'viewModel.Show_HUD_Briefing',
@@ -310,6 +323,23 @@ foreach ($required in @(
     if (-not $castlePreviewRuntimeSource.Contains($required)) {
         throw "CastlePlanner preview selector or start-screen lifecycle marker is missing: $required"
     }
+}
+$restartOrder = @(
+    'Director.instance.stopSimThread();',
+    'initFastMethod.Invoke(platform, null);',
+    'platform.initFastFollowOn();',
+    'startGameTrampoline(',
+    'Director.instance.StartMultiplayerGame();')
+$previousRestartMarker = -1
+foreach ($marker in $restartOrder) {
+    $markerIndex = $castlePreviewRuntimeSource.IndexOf(
+        $marker,
+        $previousRestartMarker + 1,
+        [StringComparison]::Ordinal)
+    if ($markerIndex -le $previousRestartMarker) {
+        throw "CastlePlanner multiplayer restart sequence is missing or out of order: $marker"
+    }
+    $previousRestartMarker = $markerIndex
 }
 foreach ($forbidden in @(
     'SpawnSelectedCastleData',

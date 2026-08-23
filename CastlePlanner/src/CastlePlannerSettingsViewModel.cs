@@ -6,18 +6,35 @@ using SHCDESE.API.Components.Network;
 using SHCDESE.NoesisUtil;
 using System;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
 using System.Windows.Input;
 using UnityEngine;
 
 namespace CastlePlanner
 {
+    internal sealed class BulkObservableCollection<T> : ObservableCollection<T>
+    {
+        internal void ReplaceWith(IEnumerable<T> values)
+        {
+            Items.Clear();
+            foreach (T value in values)
+                Items.Add(value);
+            OnPropertyChanged(new PropertyChangedEventArgs(nameof(Count)));
+            OnPropertyChanged(new PropertyChangedEventArgs("Item[]"));
+            OnCollectionChanged(new NotifyCollectionChangedEventArgs(
+                NotifyCollectionChangedAction.Reset));
+        }
+    }
+
     public sealed class CastlePlannerSettingsViewModel : Shared.PresetLobbyModSettingsViewModel
     {
         private readonly ManualLogSource log;
-        private readonly AivFileCatalog catalog = new AivFileCatalog();
+        private AivFileCatalog catalog = new AivFileCatalog();
         private readonly LobbyModSettingsStorage runtimeStorage;
         private readonly RuntimePersistedState runtimeState =
             new RuntimePersistedState();
@@ -28,10 +45,14 @@ namespace CastlePlanner
         private bool spawnCastle;
         private string selectedCastle;
         private bool castleCatalogLoaded;
+        private Task<CatalogLoadResult> castleCatalogTask;
+        private DateTime nextCatalogRetryUtc;
         private KeyCode blueprintHotkey;
         private double blueprintIconScale;
         private double blueprintIconAlpha;
         private bool isCapturingHotkey;
+        private readonly BulkObservableCollection<string> castleOptions =
+            new BulkObservableCollection<string>();
 
         protected override string ResolveSettingsUiText(string key, string fallback) =>
             SerpLocalization.Get(key);
@@ -69,8 +90,7 @@ namespace CastlePlanner
         internal event Action BlueprintVisualSettingsChanged;
         internal event Action HotkeyCaptureRequested;
 
-        public ObservableCollection<string> CastleOptions { get; } =
-            new ObservableCollection<string>();
+        public ObservableCollection<string> CastleOptions => castleOptions;
 
         public ICommand AssignHotkeyCommand { get; }
         public ICommand ClearHotkeyCommand { get; }
@@ -81,24 +101,91 @@ namespace CastlePlanner
 
         internal bool EnsureCastleCatalogLoaded()
         {
-            return TryLoadCastleCatalog() || castleCatalogLoaded;
+            PumpCastleCatalogLoad();
+            return castleCatalogLoaded;
         }
 
-        private bool TryLoadCastleCatalog()
+        internal void PumpCastleCatalogLoad()
         {
-            if (castleCatalogLoaded || !Shared.WorkshopContentPaths.IsSteamworksReady())
-                return false;
+            if (castleCatalogLoaded)
+                return;
 
-            // The complete Workshop-aware scan runs once. Lobby republishes reuse the
-            // resulting option map, fingerprints and encoded inventory manifest.
-            RefreshCastleOptions(notifySelectionChange: true);
-            return true;
+            if (castleCatalogTask != null)
+            {
+                if (!castleCatalogTask.IsCompleted)
+                    return;
+
+                Task<CatalogLoadResult> completed = castleCatalogTask;
+                castleCatalogTask = null;
+                if (completed.Status != TaskStatus.RanToCompletion)
+                {
+                    Exception error = completed.Exception?.GetBaseException() ??
+                        new InvalidOperationException(
+                            $"AIVJSON catalog task ended with {completed.Status}.");
+                    nextCatalogRetryUtc = DateTime.UtcNow.AddSeconds(5);
+                    Shared.DebugLogHelper.LogError(
+                        log,
+                        $"Asynchronous AIVJSON catalog loading failed and will be retried: {error}");
+                    return;
+                }
+
+                ApplyCastleCatalog(completed.Result);
+                return;
+            }
+
+            if ((!IsBlueprintMode && !IsSpawnMode) ||
+                DateTime.UtcNow < nextCatalogRetryUtc ||
+                !Shared.WorkshopContentPaths.IsSteamworksReady())
+            {
+                return;
+            }
+
+            try
+            {
+                // Unity/Steam-backed source discovery stays on the main thread. All recursive
+                // filesystem work and hashing then runs incrementally on a worker.
+                AivFileCatalog.DiscoveryPlan plan = AivFileCatalog.PrepareDiscovery(
+                    message => Shared.DebugLogHelper.LogWarning(log, message));
+                castleCatalogTask = Task.Run(() =>
+                {
+                    var workerCatalog = new AivFileCatalog();
+                    var warnings = new System.Collections.Generic.List<string>();
+                    IReadOnlyList<string> options = workerCatalog.Discover(
+                        plan,
+                        warnings.Add);
+                    return new CatalogLoadResult(
+                        workerCatalog,
+                        options.ToArray(),
+                        warnings.ToArray());
+                });
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    "Asynchronous AIVJSON catalog loading started; recursive discovery and hashing will not block the game thread.");
+            }
+            catch (Exception ex)
+            {
+                nextCatalogRetryUtc = DateTime.UtcNow.AddSeconds(5);
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"AIVJSON catalog source preparation failed and will be retried: {ex}");
+            }
         }
 
-        private void RefreshCastleOptions(bool notifySelectionChange)
+        private void ApplyCastleCatalog(CatalogLoadResult result)
         {
-            IReadOnlyList<string> discovered = catalog.Discover(message =>
-                Shared.DebugLogHelper.LogWarning(log, message));
+            if (result == null)
+                throw new InvalidOperationException("The AIVJSON catalog task returned no result.");
+            foreach (string warning in result.Warnings)
+                Shared.DebugLogHelper.LogWarning(log, warning);
+
+            catalog = result.Catalog;
+            RefreshCastleOptions(result.Options, notifySelectionChange: true);
+        }
+
+        private void RefreshCastleOptions(
+            IReadOnlyList<string> discovered,
+            bool notifySelectionChange)
+        {
             castleCatalogLoaded = true;
             if (CastleOptions.Count == discovered.Count)
             {
@@ -112,9 +199,7 @@ namespace CastlePlanner
             }
 
             string previous = selectedCastle ?? string.Empty;
-            CastleOptions.Clear();
-            foreach (string option in discovered)
-                CastleOptions.Add(option);
+            castleOptions.ReplaceWith(discovered);
             string defaultCastle = CastleOptions.Count > 0 ? CastleOptions[0] : string.Empty;
             string normalized = NormalizeCastle(previous, defaultCastle);
             bool selectionChanged = !string.Equals(selectedCastle, normalized, StringComparison.Ordinal);
@@ -128,6 +213,23 @@ namespace CastlePlanner
                 log,
                 $"CastlePlanner cached AIVJSON choices including Steam Workshop content; " +
                 $"unique={CastleOptions.Count}, identicalDuplicatesIgnored={catalog.IdenticalFileCount}.");
+        }
+
+        private sealed class CatalogLoadResult
+        {
+            internal CatalogLoadResult(
+                AivFileCatalog catalog,
+                IReadOnlyList<string> options,
+                IReadOnlyList<string> warnings)
+            {
+                Catalog = catalog;
+                Options = options;
+                Warnings = warnings;
+            }
+
+            internal AivFileCatalog Catalog { get; }
+            internal IReadOnlyList<string> Options { get; }
+            internal IReadOnlyList<string> Warnings { get; }
         }
 
         public string ResetToDefaultText => SerpLocalization.Get("Common.ResetToDefault");
@@ -166,6 +268,7 @@ namespace CastlePlanner
                 Shared.DebugLogHelper.LogInfo(
                     log,
                     $"CastlePlanner local activation changed to {enableClientFeatures}.");
+                PumpCastleCatalogLoad();
                 SettingsChanged?.Invoke();
             }
         }
@@ -185,6 +288,7 @@ namespace CastlePlanner
                 Shared.DebugLogHelper.LogInfo(
                     log,
                     $"CastlePlanner host activation changed to {enableMod}.");
+                PumpCastleCatalogLoad();
                 SettingsChanged?.Invoke();
             }
         }
@@ -225,6 +329,7 @@ namespace CastlePlanner
                 Shared.DebugLogHelper.LogInfo(
                     log,
                     $"CastlePlanner local Blueprints changed to {blueprints}.");
+                PumpCastleCatalogLoad();
                 SettingsChanged?.Invoke();
             }
         }
@@ -247,6 +352,7 @@ namespace CastlePlanner
                 Shared.DebugLogHelper.LogInfo(
                     log,
                     $"CastlePlanner host Spawn Castle changed to {spawnCastle}.");
+                PumpCastleCatalogLoad();
                 SettingsChanged?.Invoke();
             }
         }

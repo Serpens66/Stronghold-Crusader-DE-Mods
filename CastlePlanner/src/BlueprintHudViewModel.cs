@@ -45,6 +45,8 @@ namespace CastlePlanner
         private Noesis.FrameworkElement dragHandle;
         private Noesis.ComboBox castleComboBox;
         private Noesis.ComboBox rotationComboBox;
+        private Noesis.UIElement castlePopupChild;
+        private Noesis.UIElement rotationPopupChild;
         private Noesis.UIElement dragCaptureElement;
 
         public BlueprintHudViewModel(
@@ -78,7 +80,7 @@ namespace CastlePlanner
         public string PreviewStatusText => preview.StatusText;
         public string ConfirmCastleText => preview.ConfirmText;
         public string RotationText => preview.RotationText;
-        public System.Collections.Generic.IReadOnlyList<string> RotationOptions =>
+        public ObservableCollection<string> RotationOptions =>
             preview.RotationChoices;
         public bool CanConfirmCastle => preview.CanConfirm;
         public bool CanSelectCastle => !PreviewVisible || preview.CanConfirm;
@@ -295,8 +297,52 @@ namespace CastlePlanner
 
         public bool ShouldSuppressMapZoom()
         {
-            return IsPointerOverOpenDropDown(castleComboBox) ||
-                IsPointerOverOpenDropDown(rotationComboBox);
+            return castleComboBox?.IsDropDownOpen == true ||
+                rotationComboBox?.IsDropDownOpen == true;
+        }
+
+        public void ProcessOpenDropDownWheel()
+        {
+            Noesis.ComboBox open = null;
+            if (castleComboBox?.IsDropDownOpen == true)
+            {
+                open = castleComboBox;
+                AttachPopupWheelGuard(open, ref castlePopupChild);
+            }
+            else
+            {
+                DetachPopupWheelGuard(ref castlePopupChild);
+            }
+
+            if (rotationComboBox?.IsDropDownOpen == true)
+            {
+                open = rotationComboBox;
+                AttachPopupWheelGuard(open, ref rotationPopupChild);
+            }
+            else
+            {
+                DetachPopupWheelGuard(ref rotationPopupChild);
+            }
+
+            float wheel = UnityEngine.Input.mouseScrollDelta.y;
+            if (open == null || Math.Abs(wheel) < 0.01f)
+                return;
+
+            Noesis.Popup popup = ResolvePopup(open);
+            Noesis.ScrollViewer scrollViewer = popup?.Child == null
+                ? null
+                : FindDescendant<Noesis.ScrollViewer>(popup.Child);
+            if (scrollViewer == null)
+                return;
+
+            int lines = Math.Max(1, (int)Math.Ceiling(Math.Abs(wheel)));
+            for (int index = 0; index < lines; index++)
+            {
+                if (wheel > 0f)
+                    scrollViewer.LineUp();
+                else
+                    scrollViewer.LineDown();
+            }
         }
 
         private void ToggleSettingsPanel(object parameter)
@@ -374,6 +420,8 @@ namespace CastlePlanner
             DetachDragHandle();
             DetachComboBox(ref castleComboBox);
             DetachComboBox(ref rotationComboBox);
+            DetachPopupWheelGuard(ref castlePopupChild);
+            DetachPopupWheelGuard(ref rotationPopupChild);
             if (hudHost != null)
             {
                 hudHost.SizeChanged -= OnHudHostSizeChanged;
@@ -409,28 +457,53 @@ namespace CastlePlanner
                 FindDescendantByName(host, name) as T;
         }
 
-        private static bool IsPointerOverOpenDropDown(Noesis.ComboBox comboBox)
+        private static Noesis.Popup ResolvePopup(Noesis.ComboBox comboBox)
         {
-            if (comboBox == null || !comboBox.IsDropDownOpen)
-                return false;
+            if (comboBox == null)
+                return null;
 
             comboBox.ApplyTemplate();
-            Noesis.Popup popup = comboBox.GetTemplateChild("PART_Popup") as Noesis.Popup ??
+            return comboBox.GetTemplateChild("PART_Popup") as Noesis.Popup ??
                 comboBox.Template?.FindName("PART_Popup", comboBox) as Noesis.Popup;
-            return comboBox.IsMouseOver || popup?.Child?.IsMouseOver == true;
+        }
+
+        private static void AttachPopupWheelGuard(
+            Noesis.ComboBox comboBox,
+            ref Noesis.UIElement currentChild)
+        {
+            Noesis.UIElement child = ResolvePopup(comboBox)?.Child;
+            if (ReferenceEquals(child, currentChild))
+                return;
+            DetachPopupWheelGuard(ref currentChild);
+            currentChild = child;
+            if (currentChild != null)
+                currentChild.PreviewMouseWheel += OnOpenPopupPreviewMouseWheel;
+        }
+
+        private static void DetachPopupWheelGuard(ref Noesis.UIElement child)
+        {
+            if (child == null)
+                return;
+            child.PreviewMouseWheel -= OnOpenPopupPreviewMouseWheel;
+            child = null;
+        }
+
+        private static void OnOpenPopupPreviewMouseWheel(
+            object sender,
+            Noesis.MouseWheelEventArgs args)
+        {
+            // Scrolling is applied exactly once from Unity's frame input so an open
+            // popup responds even when the pointer is elsewhere on the screen.
+            args.Handled = true;
         }
 
         private static void OnComboBoxPreviewMouseWheel(
             object sender,
             Noesis.MouseWheelEventArgs args)
         {
-            // A closed selector must not cycle values from the wheel. Leaving
-            // the event untouched while open lets its popup scroll normally.
-            if (!(sender is Noesis.ComboBox comboBox) ||
-                !comboBox.IsDropDownOpen)
-            {
-                args.Handled = true;
-            }
+            // Closed selectors never cycle values. Open popups are scrolled from
+            // the per-frame input path, independent of pointer position.
+            args.Handled = true;
         }
 
         private void DetachDragHandle()
@@ -686,6 +759,27 @@ namespace CastlePlanner
                     return nested;
             }
 
+            return null;
+        }
+
+        private static T FindDescendant<T>(Noesis.DependencyObject parent)
+            where T : Noesis.DependencyObject
+        {
+            if (parent == null)
+                return null;
+            if (parent is T parentMatch)
+                return parentMatch;
+            int childCount = Noesis.VisualTreeHelper.GetChildrenCount(parent);
+            for (int index = 0; index < childCount; index++)
+            {
+                Noesis.DependencyObject child =
+                    Noesis.VisualTreeHelper.GetChild(parent, index);
+                if (child is T match)
+                    return match;
+                T nested = FindDescendant<T>(child);
+                if (nested != null)
+                    return nested;
+            }
             return null;
         }
 
