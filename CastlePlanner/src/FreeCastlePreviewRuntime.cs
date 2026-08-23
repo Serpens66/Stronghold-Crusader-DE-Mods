@@ -250,6 +250,17 @@ namespace CastlePlanner
             return selections.Count > 0;
         }
 
+        public bool TryGetCommittedRotation(int playerId, out int rotation)
+        {
+            rotation = 0;
+            if (state != PreviewState.SpawnMap)
+                return false;
+            return FreeCastleSelectionLookup.TryGetRotation(
+                committedSelections,
+                playerId,
+                out rotation);
+        }
+
         private void StartGameHook(
             Platform_Multiplayer self,
             EngineInterface.MultiplayerSetupData setup,

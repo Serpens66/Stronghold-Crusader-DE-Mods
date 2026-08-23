@@ -153,3 +153,5 @@ BugfixesAndQoL.AivSyncReady=AIV-Daten synchronisiert. Das Spiel wird gestartet..
 BugfixesAndQoL.AivSyncFailed=Die AIV-Synchronisierung ist fehlgeschlagen; der Spielstart wurde blockiert: {Reason}
 BugfixesAndQoL.AivSyncTimeout=Nicht alle Clients haben die AIV-Daten innerhalb von 60 Sekunden bestätigt.
 BugfixesAndQoL.AivSyncChanged=Lobbyteilnehmer oder AIV-Auswahl wurden während der Synchronisierung geändert. Zum Wiederholen erneut auf Spielen klicken.
+BugfixesAndQoL.FixAITowerRepair=KI-Turmreparatur korrigieren
+BugfixesAndQoL.FixAITowerRepairHelp=Erlaubt einer KI beim Wiederaufbau eines Turms aus ihrem AIV-Burgplan, ihre eigene blockierende Turmruine sicher zu entfernen. Menschliche, feindliche, sachfremde und andere Ruinen werden nicht entfernt.

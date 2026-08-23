@@ -19,6 +19,7 @@ namespace BugfixesAndQoL
         private bool rememberAiAivSettings = true;
         private bool enableCustomLordListEnhancements = true;
         private bool enableAiFixes = true;
+        private bool fixAITowerRepair = true;
         private bool enableTroopMovementFix = true;
         private bool enablePlaguePopularityFix = true;
         private bool enablePlagueCloudRemovalFix = true;
@@ -110,6 +111,8 @@ namespace BugfixesAndQoL
         public string AiAivTitleText => SerpLocalization.Get("BugfixesAndQoL.AiAivTitle");
         public string EnableAiFixesText => SerpLocalization.Get(SerpLocalization.EnableAiFixes);
         public string EnableAiFixesHelpText => SerpLocalization.Get(SerpLocalization.EnableAiFixesHelp);
+        public string FixAITowerRepairText => SerpLocalization.Get("BugfixesAndQoL.FixAITowerRepair");
+        public string FixAITowerRepairHelpText => SerpLocalization.Get("BugfixesAndQoL.FixAITowerRepairHelp");
         public string TroopMovementTitleText => SerpLocalization.Get("BugfixesAndQoL.TroopMovementTitle");
         public string PlagueTitleText => SerpLocalization.Get("BugfixesAndQoL.PlagueTitle");
         public string GameplayTitleText => SerpLocalization.Get("BugfixesAndQoL.GameplayTitle");
@@ -325,6 +328,13 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
+        public bool FixAITowerRepair
+        {
+            get => fixAITowerRepair;
+            set => SetSetting(ref fixAITowerRepair, value, nameof(FixAITowerRepair));
+        }
+
+        [SyncHostOnly]
         public bool RememberAiAivSettings
         {
             get => rememberAiAivSettings;
@@ -442,6 +452,7 @@ namespace BugfixesAndQoL
             {
                 EnableMod = true;
                 EnableAiFixes = true;
+                FixAITowerRepair = true;
                 RememberAiAivSettings = true;
                 EnableCustomLordListEnhancements = true;
                 EnableTroopMovementFix = true;

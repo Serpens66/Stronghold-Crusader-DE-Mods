@@ -565,14 +565,15 @@ namespace CastlePlanner
                 AivJsonDocument filteredDocument = AivSpawnPlan.Filter(
                     document,
                     settings.GetLocalPreviewSpawnOptions());
+                AIVParser.Core.AivRotation castleRotation = GetPreviewRotation();
                 layout = BlueprintLayoutBuilder.Build(
                     filteredDocument,
                     keepX,
                     keepY,
-                    GetPreviewRotation(),
+                    castleRotation,
                     preview.IsPreviewActive
                         ? BlueprintProjectionMode.NativeFixedGrid
-                        : BlueprintProjectionMode.KeepRelative);
+                        : BlueprintProjectionMode.NativeFixedGridAlignedToKeep);
                 layoutKeepX = keepX;
                 layoutKeepY = keepY;
                 renderer.PreloadDepthCaptures(layout);
@@ -636,9 +637,22 @@ namespace CastlePlanner
 
         private AIVParser.Core.AivRotation GetPreviewRotation()
         {
-            if (preview == null || !preview.IsPreviewActive)
-                return AIVParser.Core.AivRotation.Degrees0;
-            switch (preview.SelectedNativeRotation)
+            int nativeRotation = 0;
+            if (preview != null)
+            {
+                if (preview.IsPreviewActive)
+                {
+                    nativeRotation = preview.SelectedNativeRotation;
+                }
+                else if (preview.IsSpawnMapPass)
+                {
+                    preview.TryGetCommittedRotation(
+                        GetControlledPlayerId(),
+                        out nativeRotation);
+                }
+            }
+
+            switch (nativeRotation)
             {
                 case 2: return AIVParser.Core.AivRotation.Degrees90;
                 case 4: return AIVParser.Core.AivRotation.Degrees180;
@@ -683,7 +697,11 @@ namespace CastlePlanner
 
             preparePending = false;
             showAfterPrepare = false;
-            if (layout == null || layoutKeepX != keepX || layoutKeepY != keepY)
+            AIVParser.Core.AivRotation castleRotation = GetPreviewRotation();
+            if (layout == null ||
+                layoutKeepX != keepX ||
+                layoutKeepY != keepY ||
+                layout.CastleRotation != castleRotation)
             {
                 if (!TryBuildBlueprintLayout(
                         keepX,

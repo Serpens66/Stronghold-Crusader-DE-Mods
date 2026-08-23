@@ -3,6 +3,7 @@ using AIVPlacement.Core;
 using CastlePlanner.AIVPlacement.Core;
 using MapParser.Core;
 using SHCDESE.Interop;
+using SHCDESE.Interop.Enums;
 using System.Collections.Concurrent;
 
 internal static class Program
@@ -55,7 +56,10 @@ internal static class Program
             ("rejects malformed native AIV spawn data", RejectsMalformedNativeSpawnData),
             ("filters every AIV spawn frame category", FiltersEverySpawnFrameCategory),
             ("filters troops and maps only siege engines", FiltersTroopsAndMapsOnlySiegeEngines),
-            ("projects supplemental items for every rotation", ProjectsSupplementalItemsForEveryRotation)
+            ("maps braziers and owner-specific flags", MapsBraziersAndOwnerSpecificFlags),
+            ("projects supplemental items for every rotation", ProjectsSupplementalItemsForEveryRotation),
+            ("converts decoration tiles to projectile coordinates", ConvertsDecorationTilesToProjectileCoordinates),
+            ("aligns native rotation to the live Keep footprint", AlignsNativeRotationToLiveKeepFootprint)
         };
 
         int failures = 0;
@@ -960,6 +964,75 @@ internal static class Program
             AivWorldTile projected = AivWorldTransform.ProjectNativeFit(point, 200, 200, rotation);
             Equal(target.X, projected.X);
             Equal(target.Y, projected.Y);
+        }
+    }
+
+    private static void MapsBraziersAndOwnerSpecificFlags()
+    {
+        Assert(CastlePlanner.AivSpawnPlan.TryMapDecoration(20, 1, out eMappers brazier, out ProjectileType brazierType), "brazier was not mapped");
+        Equal(eMappers.MAPPER_BRAZIER, brazier);
+        Equal(ProjectileType.Brazier, brazierType);
+        Assert(CastlePlanner.AivSpawnPlan.TryMapDecoration(9020, 8, out eMappers encodedBrazier, out ProjectileType encodedBrazierType), "encoded brazier was not mapped");
+        Equal(eMappers.MAPPER_BRAZIER, encodedBrazier);
+        Equal(ProjectileType.Brazier, encodedBrazierType);
+
+        for (int playerId = 0; playerId <= 8; playerId++)
+        {
+            Assert(CastlePlanner.AivSpawnPlan.TryMapDecoration(21, playerId, out eMappers flag, out ProjectileType flagType), $"flag for player {playerId} was not mapped");
+            Equal((eMappers)((int)eMappers.MAPPER_FLAG_TYPE0 + playerId), flag);
+            Equal(ProjectileType.CrusaderFlag, flagType);
+        }
+
+        Assert(!CastlePlanner.AivSpawnPlan.TryMapDecoration(21, -1, out _, out _), "negative player id mapped a flag");
+        Assert(!CastlePlanner.AivSpawnPlan.TryMapDecoration(21, 9, out _, out _), "out-of-range player id mapped a flag");
+        Assert(!CastlePlanner.AivSpawnPlan.TryMapDecoration(22, 1, out _, out _), "unknown decoration type was mapped");
+    }
+
+    private static void ConvertsDecorationTilesToProjectileCoordinates()
+    {
+        Equal(0, CastlePlanner.AivProjectileTransform.ToProjectileCoordinate(0));
+        Equal(4040, CastlePlanner.AivProjectileTransform.ToProjectileCoordinate(505));
+        Equal(6392, CastlePlanner.AivProjectileTransform.ToProjectileCoordinate(799));
+    }
+
+    private static void AlignsNativeRotationToLiveKeepFootprint()
+    {
+        var keepAnchor = new AivGridPoint(48, 53);
+        const int footprintSize = 7;
+        const int liveKeepX = 523;
+        const int liveKeepY = 278;
+        foreach (AivRotation rotation in Enum.GetValues<AivRotation>())
+        {
+            AivWorldTile nativeReference = CastlePlanner.AivNativeKeepAlignment.ResolveNativeReference(
+                keepAnchor,
+                footprintSize,
+                liveKeepX,
+                liveKeepY,
+                rotation);
+            AivFootprint footprint = AivGridTransform.GetFootprint(
+                keepAnchor,
+                footprintSize,
+                AivRotation.Degrees0);
+            int minimumX = int.MaxValue;
+            int minimumY = int.MaxValue;
+            for (int row = footprint.Minimum.Row; row <= footprint.Maximum.Row; row++)
+            {
+                for (int column = footprint.Minimum.Column;
+                     column <= footprint.Maximum.Column;
+                     column++)
+                {
+                    AivWorldTile projected = AivWorldTransform.ProjectNativeFit(
+                        new AivGridPoint(row, column),
+                        nativeReference.X,
+                        nativeReference.Y,
+                        rotation);
+                    minimumX = Math.Min(minimumX, projected.X);
+                    minimumY = Math.Min(minimumY, projected.Y);
+                }
+            }
+
+            Equal(liveKeepX, minimumX);
+            Equal(liveKeepY, minimumY);
         }
     }
 

@@ -1,5 +1,6 @@
 using AIVParser.Core;
 using SHCDESE.Interop;
+using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -209,6 +210,29 @@ namespace CastlePlanner
                 case 4: chimp = eChimps.CHIMP_TYPE_TREBUCHET; return true;
                 case 5: chimp = eChimps.CHIMP_TYPE_ARAB_BALLISTA; return true;
                 default: chimp = eChimps.CHIMP_TYPE_NULL; return false;
+            }
+        }
+
+        public static bool TryMapDecoration(
+            int itemType,
+            int playerId,
+            out eMappers mapper,
+            out ProjectileType projectileType)
+        {
+            switch (NormalizeMiscType(itemType))
+            {
+                case 20:
+                    mapper = eMappers.MAPPER_BRAZIER;
+                    projectileType = ProjectileType.Brazier;
+                    return true;
+                case 21 when playerId >= 0 && playerId <= 8:
+                    mapper = (eMappers)((int)eMappers.MAPPER_FLAG_TYPE0 + playerId);
+                    projectileType = ProjectileType.CrusaderFlag;
+                    return true;
+                default:
+                    mapper = default;
+                    projectileType = ProjectileType.Unknown;
+                    return false;
             }
         }
 

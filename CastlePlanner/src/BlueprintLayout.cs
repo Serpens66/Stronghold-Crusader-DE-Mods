@@ -10,7 +10,8 @@ namespace CastlePlanner
     internal enum BlueprintProjectionMode
     {
         KeepRelative,
-        NativeFixedGrid
+        NativeFixedGrid,
+        NativeFixedGridAlignedToKeep
     }
 
     internal readonly struct BlueprintWorldTile : IEquatable<BlueprintWorldTile>
@@ -165,6 +166,18 @@ namespace CastlePlanner
             }
 
             var keepAnchor = CreateGridPoint(keepPositions[0], "Keep");
+            if (projectionMode == BlueprintProjectionMode.NativeFixedGridAlignedToKeep)
+            {
+                AivWorldTile nativeReference = AivNativeKeepAlignment.ResolveNativeReference(
+                    keepAnchor,
+                    keepMapper?.FootprintSize ?? 1,
+                    keepWorldX,
+                    keepWorldY,
+                    castleRotation);
+                keepWorldX = nativeReference.X;
+                keepWorldY = nativeReference.Y;
+                projectionMode = BlueprintProjectionMode.NativeFixedGrid;
+            }
             BlueprintWorldTile projectedKeep = ResolveProjectedKeep(
                 keepAnchor,
                 keepMapper?.FootprintSize ?? 1,

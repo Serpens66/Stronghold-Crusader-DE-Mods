@@ -55,6 +55,7 @@
     <Compile Include="src\AiCastleSettingsListEnhancementHook.cs" />
     <Compile Include="src\AiRecruitmentHorseDemandFix.cs" />
     <Compile Include="src\AiRecruitmentHorseDemandNativeDefinition.cs" />
+    <Compile Include="src\AITowerRuinRepairFix.cs" />
     <Compile Include="src\AllyGoodsAmountModifierHook.cs" />
     <Compile Include="src\BugfixesAndQoLRuntime.CtrlMarketTrade.cs" />
     <Compile Include="src\CtrlMarketTradeHook.cs" />

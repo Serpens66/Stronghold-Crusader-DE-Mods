@@ -34,6 +34,7 @@ namespace ExtraFeatures
         private readonly QuarryPileRelocationRuntime quarryPileRelocationRuntime;
         private readonly ChurchPriestCountRuntime churchPriestCountRuntime;
         private readonly GatehouseAutomationRuntime gatehouseAutomationRuntime;
+        private readonly AIDefenseRepairRuntime aiDefenseRepairRuntime;
         private readonly LordHealthRuntime lordHealthRuntime;
         private readonly MarketTradeGuardBridge marketTradeGuardBridge;
 
@@ -68,6 +69,7 @@ namespace ExtraFeatures
             quarryPileRelocationRuntime = new QuarryPileRelocationRuntime(log, settings, multiplayerFeatureGate);
             churchPriestCountRuntime = new ChurchPriestCountRuntime(log, settings);
             gatehouseAutomationRuntime = new GatehouseAutomationRuntime(log, settings, multiplayerFeatureGate);
+            aiDefenseRepairRuntime = new AIDefenseRepairRuntime(log, settings);
             lordHealthRuntime = new LordHealthRuntime(log, settings);
             marketTradeGuardBridge = new MarketTradeGuardBridge(log, this);
             settings.SettingChanged += OnSettingChanged;
@@ -96,6 +98,7 @@ namespace ExtraFeatures
 
             // Local lifecycle setup does not require a functioning custom packet group.
             TryRunFeature("gatehouse automation lifecycle", gatehouseAutomationRuntime.Initialize);
+            TryRunFeature("AI defense repair lifecycle", aiDefenseRepairRuntime.Initialize);
         }
 
         public void InitializeNative(IntPtr newLibraryHandle, ReadOnlySpan<byte> memory, bool isFixedLayoutHashValidated)
@@ -141,6 +144,15 @@ namespace ExtraFeatures
             catch (Exception ex)
             {
                 LogFeatureFailure("gatehouse automation native timing", ex);
+            }
+
+            try
+            {
+                aiDefenseRepairRuntime.InitializeNative(newLibraryHandle, memory, fixedLayoutHashValidated);
+            }
+            catch (Exception ex)
+            {
+                LogFeatureFailure("AI defense rebuild native hook", ex);
             }
 
             TryRunFeature("fast recruit rally movement", ApplyFastRecruitRallyMovementSetting);
@@ -236,6 +248,7 @@ namespace ExtraFeatures
             plagueApothecarySearchRangePatch?.Dispose();
             plagueApothecarySearchRangePatch = null;
             gatehouseAutomationRuntime.Dispose();
+            aiDefenseRepairRuntime.Dispose();
             marketTradeGuardBridge.Dispose();
             lordHealthRuntime.Dispose();
             nativeLibraryAvailable = false;

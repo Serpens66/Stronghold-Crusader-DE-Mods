@@ -700,6 +700,7 @@ namespace CastlePlanner
         private void SpawnSupplementalContents(PreparedAivCastle castle)
         {
             var digestRows = new List<string>();
+            var queuedDecorations = new HashSet<string>(StringComparer.Ordinal);
             AivRotation rotation = ToAivRotation(castle.Orientation);
 
             foreach (AivJsonFrame frame in castle.FilteredDocument.frames)
@@ -804,21 +805,40 @@ namespace CastlePlanner
 
                 if (category == AivMiscSpawnCategory.Decoration)
                 {
-                    eMappers mapper = AivSpawnPlan.NormalizeMiscType(item.itemType) == 20
-                        ? eMappers.MAPPER_BRAZIER
-                        : (eMappers)((int)eMappers.MAPPER_FLAG_TYPE0 + castle.PlayerId);
-                    int id;
-                    try
+                    if (!AivSpawnPlan.TryMapDecoration(
+                            item.itemType,
+                            castle.PlayerId,
+                            out eMappers mapper,
+                            out ProjectileType projectileType))
                     {
-                        id = CreateSupplementalPrefab(castle.PlayerId, tile.X, tile.Y, mapper);
-                    }
-                    catch (Exception ex)
-                    {
-                        Shared.DebugLogHelper.LogWarning(log, $"Supplemental decoration creation threw and was skipped: playerId={castle.PlayerId}, sourceIndex={index}, mapper={mapper}, position=({tile.X},{tile.Y}), error={ex.GetBaseException().Message}.");
+                        LogUnknownMisc(castle.PlayerId, index, item);
                         continue;
                     }
-                    if (id > 0)
-                        digestRows.Add($"decoration:{(int)mapper}:{castle.PlayerId}:{tile.X}:{tile.Y}:{height}");
+
+                    string decorationKey = $"{(int)mapper}:{tile.X}:{tile.Y}";
+                    if (!queuedDecorations.Add(decorationKey) ||
+                        HasMatchingDecoration(tileId, mapper, castle.PlayerId))
+                    {
+                        Shared.DebugLogHelper.LogInfo(
+                            log,
+                            $"Supplemental decoration skipped because it already exists or was queued: playerId={castle.PlayerId}, sourceIndex={index}, mapper={mapper}, position=({tile.X},{tile.Y}).");
+                        continue;
+                    }
+
+                    if (!TryCreateDecoration(
+                            castle.PlayerId,
+                            tile.X,
+                            tile.Y,
+                            height,
+                            mapper,
+                            projectileType))
+                    {
+                        Shared.DebugLogHelper.LogWarning(
+                            log,
+                            $"Supplemental decoration creation failed: playerId={castle.PlayerId}, sourceIndex={index}, mapper={mapper}, position=({tile.X},{tile.Y}), height={height}.");
+                        continue;
+                    }
+                    digestRows.Add($"decoration:{(int)mapper}:{castle.PlayerId}:{tile.X}:{tile.Y}:{height}");
                     continue;
                 }
 
@@ -832,6 +852,102 @@ namespace CastlePlanner
             Shared.DebugLogHelper.LogInfo(
                 log,
                 $"Supplemental castle spawn digest: playerId={castle.PlayerId}, objects={digestRows.Count}, sha256={digest}, entries=[{digestPayload}].");
+        }
+
+        private static bool HasMatchingDecoration(
+            int tileId,
+            eMappers mapper,
+            int playerId)
+        {
+            short projectileId = GameTileManagerAPI.Instance.TileManager.FlyGrid[tileId];
+            if (projectileId <= 0 ||
+                !GameProjectileManagerAPI.Instance.TryGetProjectileById(projectileId, out GameProjectile* projectile) ||
+                (projectile->r_AliveState != AliveState.NeedsInit && projectile->r_AliveState != AliveState.IsAlive))
+            {
+                return false;
+            }
+
+            if (mapper == eMappers.MAPPER_BRAZIER)
+                return projectile->r_ProjectileType == ProjectileType.Brazier;
+
+            ProjectileType type = projectile->r_ProjectileType;
+            return projectile->r_PlayerSourceId == (uint)playerId &&
+                (type == ProjectileType.Flag1 ||
+                 type == ProjectileType.Flag2 ||
+                 type == ProjectileType.Flag3 ||
+                 type == ProjectileType.CrusaderFlag);
+        }
+
+        private bool TryCreateDecoration(
+            int playerId,
+            int worldX,
+            int worldY,
+            int height,
+            eMappers mapper,
+            ProjectileType projectileType)
+        {
+            int projectileX;
+            int projectileY;
+            try
+            {
+                projectileX = AivProjectileTransform.ToProjectileCoordinate(worldX);
+                projectileY = AivProjectileTransform.ToProjectileCoordinate(worldY);
+            }
+            catch (ArgumentOutOfRangeException)
+            {
+                return false;
+            }
+
+            long result;
+            try
+            {
+                // Vanilla represents both AIV decorations as stationary projectiles. For flags,
+                // r_PlayerSourceId selects the owning player's colour. Projectile positions use
+                // eighth-tile units even though AIV and FlyGrid positions use whole tiles.
+                result = GameProjectileManagerAPI.Instance.CreateProjectile(
+                    0,
+                    playerId,
+                    projectileX,
+                    projectileY,
+                    height,
+                    projectileX,
+                    projectileY,
+                    height,
+                    projectileType,
+                    0);
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogWarning(
+                    log,
+                    $"Supplemental decoration creation threw: playerId={playerId}, mapper={mapper}, projectileType={projectileType}, position=({worldX},{worldY}), error={ex.GetBaseException().Message}.");
+                return false;
+            }
+
+            if (result <= 0 || result > int.MaxValue)
+                return false;
+
+            int projectileId = (int)result;
+            if (!GameProjectileManagerAPI.Instance.TryGetProjectileById(projectileId, out GameProjectile* projectile) ||
+                (projectile->r_AliveState != AliveState.NeedsInit && projectile->r_AliveState != AliveState.IsAlive) ||
+                projectile->r_ProjectileType != projectileType ||
+                projectile->r_PlayerSourceId != (uint)playerId ||
+                projectile->r_SourceWorldTileX != projectileX ||
+                projectile->r_SourceWorldTileY != projectileY)
+            {
+                string observed = projectile == null
+                    ? "unavailable"
+                    : $"state={projectile->r_AliveState}, type={projectile->r_ProjectileType}, owner={projectile->r_PlayerSourceId}, source=({projectile->r_SourceWorldTileX},{projectile->r_SourceWorldTileY}), current=({projectile->r_CurrentTileX},{projectile->r_CurrentTileY})";
+                Shared.DebugLogHelper.LogWarning(
+                    log,
+                    $"Supplemental decoration verification failed: playerId={playerId}, projectileId={projectileId}, mapper={mapper}, projectileType={projectileType}, tile=({worldX},{worldY}), projectilePosition=({projectileX},{projectileY}), observed={observed}.");
+                return false;
+            }
+
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"Supplemental decoration created: playerId={playerId}, projectileId={projectileId}, mapper={mapper}, projectileType={projectileType}, position=({worldX},{worldY}), height={height}.");
+            return true;
         }
 
         private bool CanPlaceSupplementalPrefab(
@@ -887,11 +1003,7 @@ namespace CastlePlanner
             captureSupplementalPlayerId = playerId;
             captureSupplementalX = x;
             captureSupplementalY = y;
-            captureSupplementalStruct = mapper == eMappers.MAPPER_BRAZIER
-                ? eStructs.STRUCT_BRAZIER
-                : mapper >= eMappers.MAPPER_FLAG_TYPE0 && mapper <= eMappers.MAPPER_FLAG_TYPE8
-                    ? eStructs.STRUCT_NULL
-                    : mapper.ConvertToEStructs();
+            captureSupplementalStruct = mapper.ConvertToEStructs();
             capturedSupplementalBuildingId = -1;
             bool previousBypassEnabled = GameTileManagerAPI.Instance.TileManager.UsePlacementBlockedOverride;
             bool previousBypassValue = GameTileManagerAPI.Instance.TileManager.PlacementBlockedOverrideValue;
@@ -903,9 +1015,7 @@ namespace CastlePlanner
                     x,
                     y,
                     mapper,
-                    mapper >= eMappers.MAPPER_FLAG_TYPE0 && mapper <= eMappers.MAPPER_FLAG_TYPE8
-                        ? 0
-                        : BuildingScales.GetScale(mapper),
+                    BuildingScales.GetScale(mapper),
                     0,
                     true,
                     true);
@@ -989,7 +1099,6 @@ namespace CastlePlanner
                 memory,
                 ExecuteToPercentagePattern,
                 ExecuteToPercentageRva);
-
             int stateReferenceOffset = ResolveReferenceRva(
                 memory,
                 nameof(aivState),

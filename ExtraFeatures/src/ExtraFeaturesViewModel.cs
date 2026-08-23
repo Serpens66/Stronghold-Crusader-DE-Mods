@@ -54,6 +54,9 @@ namespace ExtraFeatures
         private double humanGateClosingDistanceTiles = GatehouseTimingPatch.VanillaHumanDistanceTiles;
         private double aiGateClosingDistanceTiles = GatehouseTimingPatch.VanillaAiDistanceTiles;
         private bool requireReachableEnemyForAutomaticGateClosing = true;
+        private int aiRepairEnemyProximity = 30;
+        private int aiDamagedDefenseRepairDelaySeconds = 30;
+        private int aiDestroyedDefenseRebuildDelaySeconds = 60;
         private bool marketGoodPriceVisualsResolved;
 
         protected override string ResolveSettingsUiText(string key, string fallback) =>
@@ -164,6 +167,13 @@ namespace ExtraFeatures
         public string GateClosingDistanceHelpText => SerpLocalization.Get("SomeSettings.GateClosingDistanceHelp");
         public string RequireReachableEnemyForAutomaticGateClosingText => SerpLocalization.Get("SomeSettings.RequireReachableEnemyForAutomaticGateClosing");
         public string RequireReachableEnemyForAutomaticGateClosingHelpText => SerpLocalization.Get("SomeSettings.RequireReachableEnemyForAutomaticGateClosingHelp");
+        public string AiDefenseRepairTitleText => SerpLocalization.Get("SomeSettings.AiDefenseRepairTitle");
+        public string AIRepairEnemyProximityText => SerpLocalization.Get("SomeSettings.AIRepairEnemyProximity");
+        public string AIRepairEnemyProximityHelpText => SerpLocalization.Get("SomeSettings.AIRepairEnemyProximityHelp");
+        public string AIDamagedDefenseRepairDelayText => SerpLocalization.Get("SomeSettings.AIDamagedDefenseRepairDelay");
+        public string AIDamagedDefenseRepairDelayHelpText => SerpLocalization.Get("SomeSettings.AIDamagedDefenseRepairDelayHelp");
+        public string AIDestroyedDefenseRebuildDelayText => SerpLocalization.Get("SomeSettings.AIDestroyedDefenseRebuildDelay");
+        public string AIDestroyedDefenseRebuildDelayHelpText => SerpLocalization.Get("SomeSettings.AIDestroyedDefenseRebuildDelayHelp");
 
         [SyncHostOnly] public bool EnableMod { get => enableMod; set => SetSetting(ref enableMod, value, nameof(EnableMod)); }
         [SyncHostOnly] public int WoodRefundPercent { get => woodRefundPercent; set => SetIntSetting(ref woodRefundPercent, value, -1, 100, nameof(WoodRefundPercent), nameof(WoodRefundPercentValueText)); }
@@ -225,6 +235,9 @@ namespace ExtraFeatures
         [SyncHostOnly] public double HumanGateClosingDistanceTiles { get => humanGateClosingDistanceTiles; set => SetDoubleSetting(ref humanGateClosingDistanceTiles, RoundToStep(value, 0.5), GatehouseTimingPatch.MinimumDistanceTiles, GatehouseTimingPatch.MaximumDistanceTiles, nameof(HumanGateClosingDistanceTiles), nameof(HumanGateClosingDistanceValueText)); }
         [SyncHostOnly] public double AIGateClosingDistanceTiles { get => aiGateClosingDistanceTiles; set => SetDoubleSetting(ref aiGateClosingDistanceTiles, RoundToStep(value, 0.5), GatehouseTimingPatch.MinimumDistanceTiles, GatehouseTimingPatch.MaximumDistanceTiles, nameof(AIGateClosingDistanceTiles), nameof(AIGateClosingDistanceValueText)); }
         [SyncHostOnly] public bool RequireReachableEnemyForAutomaticGateClosing { get => requireReachableEnemyForAutomaticGateClosing; set => SetSetting(ref requireReachableEnemyForAutomaticGateClosing, value, nameof(RequireReachableEnemyForAutomaticGateClosing)); }
+        [SyncHostOnly] public int AIRepairEnemyProximity { get => aiRepairEnemyProximity; set => SetIntSetting(ref aiRepairEnemyProximity, value, -1, 100, nameof(AIRepairEnemyProximity), nameof(AIRepairEnemyProximityValueText)); }
+        [SyncHostOnly] public int AIDamagedDefenseRepairDelaySeconds { get => aiDamagedDefenseRepairDelaySeconds; set => SetIntSetting(ref aiDamagedDefenseRepairDelaySeconds, value, -1, 300, nameof(AIDamagedDefenseRepairDelaySeconds), nameof(AIDamagedDefenseRepairDelayValueText)); }
+        [SyncHostOnly] public int AIDestroyedDefenseRebuildDelaySeconds { get => aiDestroyedDefenseRebuildDelaySeconds; set => SetIntSetting(ref aiDestroyedDefenseRebuildDelaySeconds, value, -1, 300, nameof(AIDestroyedDefenseRebuildDelaySeconds), nameof(AIDestroyedDefenseRebuildDelayValueText)); }
 
         public string MultiplyGoodsGainAIText { get => FormatDecimalMultiplier(MultiplyGoodsGainAI); set => SetDoubleValueText(value, parsed => MultiplyGoodsGainAI = parsed, nameof(MultiplyGoodsGainAIText)); }
         public string MultiplyGoodsGainHumanText { get => FormatDecimalMultiplier(MultiplyGoodsGainHuman); set => SetDoubleValueText(value, parsed => MultiplyGoodsGainHuman = parsed, nameof(MultiplyGoodsGainHumanText)); }
@@ -246,6 +259,9 @@ namespace ExtraFeatures
         public string AIGateReopenDelayValueText { get => FormatSeconds(AIGateReopenDelaySeconds); set => SetDoubleValueText(value, parsed => AIGateReopenDelaySeconds = parsed, nameof(AIGateReopenDelayValueText)); }
         public string HumanGateClosingDistanceValueText { get => FormatTiles(HumanGateClosingDistanceTiles); set => SetDoubleValueText(value, parsed => HumanGateClosingDistanceTiles = parsed, nameof(HumanGateClosingDistanceValueText)); }
         public string AIGateClosingDistanceValueText { get => FormatTiles(AIGateClosingDistanceTiles); set => SetDoubleValueText(value, parsed => AIGateClosingDistanceTiles = parsed, nameof(AIGateClosingDistanceValueText)); }
+        public string AIRepairEnemyProximityValueText { get => FormatWholeTiles(AIRepairEnemyProximity); set => SetIntValueText(value, parsed => AIRepairEnemyProximity = parsed, nameof(AIRepairEnemyProximityValueText)); }
+        public string AIDamagedDefenseRepairDelayValueText { get => FormatWholeSeconds(AIDamagedDefenseRepairDelaySeconds); set => SetIntValueText(value, parsed => AIDamagedDefenseRepairDelaySeconds = parsed, nameof(AIDamagedDefenseRepairDelayValueText)); }
+        public string AIDestroyedDefenseRebuildDelayValueText { get => FormatWholeSeconds(AIDestroyedDefenseRebuildDelaySeconds); set => SetIntValueText(value, parsed => AIDestroyedDefenseRebuildDelaySeconds = parsed, nameof(AIDestroyedDefenseRebuildDelayValueText)); }
         public string HumanLordHealthPercentText { get => FormatPercent(HumanLordHealthPercent); set => SetIntValueText(value, parsed => HumanLordHealthPercent = parsed, nameof(HumanLordHealthPercentText)); }
         public string AILordHealthPercentText { get => FormatPercent(AILordHealthPercent); set => SetIntValueText(value, parsed => AILordHealthPercent = parsed, nameof(AILordHealthPercentText)); }
 
@@ -290,6 +306,9 @@ namespace ExtraFeatures
                 HumanGateClosingDistanceTiles = GatehouseTimingPatch.VanillaHumanDistanceTiles;
                 AIGateClosingDistanceTiles = GatehouseTimingPatch.VanillaAiDistanceTiles;
                 RequireReachableEnemyForAutomaticGateClosing = true;
+                AIRepairEnemyProximity = 30;
+                AIDamagedDefenseRepairDelaySeconds = 30;
+                AIDestroyedDefenseRebuildDelaySeconds = 60;
             }
         }
 
@@ -526,6 +545,18 @@ namespace ExtraFeatures
                 CultureInfo.CurrentCulture,
                 SerpLocalization.Get("SomeSettings.DecimalTilesValueFormat"),
                 tiles);
+
+        private static string FormatWholeTiles(int tiles) =>
+            string.Format(
+                CultureInfo.CurrentCulture,
+                SerpLocalization.Get("SomeSettings.TilesValueFormat"),
+                tiles);
+
+        private static string FormatWholeSeconds(int seconds) =>
+            string.Format(
+                CultureInfo.CurrentCulture,
+                SerpLocalization.Get("SomeSettings.WholeSecondsAtGamespeed40ValueFormat"),
+                seconds);
 
         private static double RoundToStep(double value, double step)
         {

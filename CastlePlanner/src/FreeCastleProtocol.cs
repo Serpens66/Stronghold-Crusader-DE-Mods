@@ -41,6 +41,35 @@ namespace CastlePlanner
         }
     }
 
+    internal static class FreeCastleSelectionLookup
+    {
+        internal static bool TryGetRotation(
+            IEnumerable<FreeCastleSelection> selections,
+            int playerId,
+            out int rotation)
+        {
+            rotation = 0;
+            if (selections == null)
+                return false;
+
+            foreach (FreeCastleSelection selection in selections)
+            {
+                if (selection == null || selection.PlayerId != playerId)
+                    continue;
+                if (selection.Rotation != 0 && selection.Rotation != 2 &&
+                    selection.Rotation != 4 && selection.Rotation != 6)
+                {
+                    return false;
+                }
+
+                rotation = selection.Rotation;
+                return true;
+            }
+
+            return false;
+        }
+    }
+
     [MessagePackObject]
     [MessagePackFormatter(typeof(FreeCastlePacketFormatter))]
     internal sealed class FreeCastlePacket

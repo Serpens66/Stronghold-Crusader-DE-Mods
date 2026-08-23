@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.37",
+  "Version": "1.0.38",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.38",
+      "Changes": [
+        "Added host settings for AI defense repair enemy proximity, damaged-defense repair delay, and destroyed-defense rebuild delay with deterministic savegame persistence and an explicit -1 Vanilla mode."
+      ]
+    },
     {
       "Version": "1.0.37",
       "Changes": [

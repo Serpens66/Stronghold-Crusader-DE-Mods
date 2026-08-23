@@ -36,6 +36,7 @@ namespace BugfixesAndQoL
         private SelectedUnitHealthFeature selectedUnitHealthFeature;
         private AssemblyPointPlacementPatch assemblyPointPlacementPatch;
         private AiRecruitmentHorseDemandFix aiRecruitmentHorseDemandFix;
+        private AITowerRuinRepairFix aiTowerRuinRepairFix;
         private PlaguePopularityFix plaguePopularityFix;
         private PlagueTreatmentFadeFix plagueTreatmentFadeFix;
         private PlagueTargetReservationFix plagueTargetReservationFix;
@@ -50,6 +51,7 @@ namespace BugfixesAndQoL
         private bool enemyProximityFixedLayoutErrorLogged;
         private bool assemblyPointPlacementPatchUnavailable;
         private bool aiRecruitmentHorseDemandFixUnavailable;
+        private bool aiTowerRuinRepairFixUnavailable;
         private bool plaguePopularityFixUnavailable;
         private bool plagueTreatmentFadeFixUnavailable;
         private bool plagueTargetReservationFixUnavailable;
@@ -177,6 +179,7 @@ namespace BugfixesAndQoL
             TryInitializeFeature("stuck-apothecary fix", EnsurePlagueApothecaryStateTransitionFix);
             TryInitializeFeature("assembly-point placement fix", ApplyAssemblyPointPlacementPatchSetting);
             TryInitializeFeature("AI recruitment horse-demand fix", EnsureAiRecruitmentHorseDemandFix);
+            TryInitializeFeature("AI tower-ruin repair fix", EnsureAiTowerRuinRepairFix);
             TryInitializeFeature("ally goods amount modifiers", InstallAllyGoodsAmountModifierHook);
             TryInitializeFeature("Ctrl single-unit market trade", InstallCtrlMarketTradeHook);
         }
@@ -227,6 +230,8 @@ namespace BugfixesAndQoL
             DisableAssemblyPointPlacementPatch();
             aiRecruitmentHorseDemandFix?.Dispose();
             aiRecruitmentHorseDemandFix = null;
+            aiTowerRuinRepairFix?.Dispose();
+            aiTowerRuinRepairFix = null;
             plaguePopularityFix?.Dispose();
             plaguePopularityFix = null;
             plagueTreatmentFadeFix?.SetTreatmentCompletedObserver(null);
@@ -575,6 +580,35 @@ namespace BugfixesAndQoL
                     log,
                     $"Bugfixes and QoL AI recruitment horse-demand fix could not be installed; " +
                     $"only this AI fix remains inactive and Vanilla behavior remains active: {ex}");
+            }
+        }
+
+        private void EnsureAiTowerRuinRepairFix()
+        {
+            if (!nativeLibraryAvailable || aiTowerRuinRepairFix != null || aiTowerRuinRepairFixUnavailable)
+                return;
+
+            try
+            {
+                aiTowerRuinRepairFix = new AITowerRuinRepairFix(
+                    log,
+                    settings,
+                    GetNativeLibraryMemory(),
+                    unchecked((ulong)libraryHandle.ToInt64()),
+                    fixedLayoutHashValidated);
+                if (!fixedLayoutHashValidated)
+                {
+                    Shared.DebugLogHelper.LogWarning(
+                        log,
+                        "Bugfixes and QoL AI tower-ruin repair is running on an unknown CrusaderDE.dll because the placement-validator signature was uniquely validated.");
+                }
+            }
+            catch (Exception ex)
+            {
+                aiTowerRuinRepairFixUnavailable = true;
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Bugfixes and QoL AI tower-ruin repair could not be installed; Vanilla behavior remains active: {ex}");
             }
         }
 

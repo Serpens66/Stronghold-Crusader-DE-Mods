@@ -2134,6 +2134,11 @@ internal static class Program
             CastlePlanner.FreeCastleProtocol.DecodeSelections(restored);
         Check(decoded.Count == 2 && decoded[0].PlayerId == 1 && decoded[1].Rotation == 6,
             "free-castle canonical transfer did not preserve player order and fixed rotation");
+        Check(CastlePlanner.FreeCastleSelectionLookup.TryGetRotation(decoded, 2, out int spawnedRotation) &&
+              spawnedRotation == 6,
+            "spawned-castle blueprint did not recover the controlled player's committed rotation");
+        Check(!CastlePlanner.FreeCastleSelectionLookup.TryGetRotation(decoded, 8, out _),
+            "spawned-castle blueprint recovered a rotation for an absent player");
         Check(CastlePlanner.FreeCastleProtocol.Split(new byte[
                 CastlePlanner.FreeCastleProtocol.MaximumChunkBytes + 1]).Count == 2,
             "free-castle transfer did not fragment at the configured boundary");

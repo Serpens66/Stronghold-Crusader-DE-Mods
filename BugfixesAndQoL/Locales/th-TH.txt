@@ -153,3 +153,5 @@ BugfixesAndQoL.AivSyncReady=AIV data synchronized. Starting the game...
 BugfixesAndQoL.AivSyncFailed=AIV synchronization failed and game start was blocked: {Reason}
 BugfixesAndQoL.AivSyncTimeout=Not all clients acknowledged the AIV data within 60 seconds.
 BugfixesAndQoL.AivSyncChanged=The lobby roster or AIV selection changed during synchronization. Click Play to retry.
+BugfixesAndQoL.FixAITowerRepair=Fix AI Tower Repair
+BugfixesAndQoL.FixAITowerRepairHelp=Allows an AI rebuilding a tower from its AIV castle plan to safely remove its own blocking tower ruin. Human, enemy, unrelated, and non-tower ruins are not removed.

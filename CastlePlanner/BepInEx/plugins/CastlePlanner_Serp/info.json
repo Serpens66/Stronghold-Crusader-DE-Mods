@@ -3,10 +3,25 @@
   "Author": "Serpens66",
   "Name": "CastlePlanner",
   "Description": "Displays AIVJSON blueprints, spawns personal human castles, and contains the gated AI lobby placement workflow.",
-  "Version": "0.7.2",
+  "Version": "0.7.4",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "0.7.4",
+      "Changes": [
+        "Places AIV braziers and flags at their intended tiles by converting tile positions to the projectile system's eighth-tile coordinates.",
+        "Aligns rotated in-game blueprints to the live Keep footprint while preserving Vanilla's fixed-grid castle rotation."
+      ]
+    },
+    {
+      "Version": "0.7.3",
+      "Changes": [
+        "Spawns AIV braziers and owner-specific flags as Vanilla projectile objects instead of sending them through the building-prefab path.",
+        "Skips duplicate decorations already present on the same tile and validates all player-specific flag mapper assignments.",
+        "Keeps the normal in-game blueprint aligned with the live Keep position and the rotation selected for the spawned castle."
+      ]
+    },
     {
       "Version": "0.7.2",
       "Changes": [
