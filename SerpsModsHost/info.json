@@ -11,7 +11,7 @@
                           {
                               "Version":  "1.0.2",
                               "Changes":  [
-                                              "Warns in lobby chat when a joining player's Script Extender mod hash differs from the host."
+                                              "Warns in lobby chat when a joining player\u0027s Script Extender mod hash differs from the host."
                                           ]
                           },
                           {
