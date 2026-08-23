@@ -13,6 +13,7 @@
 - Fixes apothecaries getting stuck when leaving their buildings
 - Allows rally points to be placed anywhere.
 - Fixes incorrectly tripled starting gold in custom Crusader Trails
+- Fixed AI to not waste money on endless buy/sell when no horses are available to recruit knights
 **QoL**:
 - Change Multiplayer Speed midgame.
 - Hold Ctrl while trading to buy or sell exactly 1 unit of a good

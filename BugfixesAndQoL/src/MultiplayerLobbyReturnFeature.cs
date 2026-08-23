@@ -45,7 +45,7 @@ namespace BugfixesAndQoL
         private bool creationFailed;
         private bool transitionStarted;
         private bool disposed;
-        private long gameOverStartedAt;
+        private long exitWaitStartedAt;
         private int lastFrame = -1;
 
         internal MultiplayerLobbyReturnFeature(ManualLogSource log, BugfixesAndQoLViewModel settings)
@@ -64,26 +64,41 @@ namespace BugfixesAndQoL
             }));
         }
 
+        internal void OnGameOverPresentation()
+        {
+            // Vanilla starts its Coop continuation lobby from this same on-screen signal.
+            // It occurs early enough that packet type 10 can arrive before ManageGameOver
+            // releases the clients' gameMembers receive path.
+            TryCreateReplacementLobby("ost-game-over");
+        }
+
         internal void OnGameOverState(int state)
         {
             if (!supportedSession || state <= 0 || gameOverObserved)
                 return;
 
             gameOverObserved = true;
-            gameOverStartedAt = Stopwatch.GetTimestamp();
+            if (!TryCreateReplacementLobby("set-game-over-fallback"))
+            {
+                Platform_Multiplayer multiplayer = Platform_Multiplayer.Instance;
+                bool isHost = multiplayer?.IsGameMemberHost() == true;
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    $"Post-game lobby handoff armed: host={isHost}, creationRequested={creationRequested}, snapshotReady={snapshot != null}, receivedLobbyId={multiplayer?.CoopContinuationLobbyID ?? 0UL}.");
+            }
+        }
 
+        private bool TryCreateReplacementLobby(string trigger)
+        {
             Platform_Multiplayer multiplayer = Platform_Multiplayer.Instance;
             bool isHost = multiplayer?.IsGameMemberHost() == true;
             if (!MultiplayerLobbyReturnPolicy.ShouldCreateLobby(
                     supportedSession,
-                    state,
+                    true,
                     isHost,
                     creationRequested))
             {
-                Shared.DebugLogHelper.LogInfo(
-                    log,
-                    $"Post-game lobby handoff armed for a client: host={isHost}, snapshotReady={snapshot != null}.");
-                return;
+                return false;
             }
 
             creationRequested = true;
@@ -93,14 +108,14 @@ namespace BugfixesAndQoL
                 Shared.DebugLogHelper.LogError(
                     log,
                     "Post-game lobby creation was skipped because the original lobby metadata was not captured.");
-                return;
+                return false;
             }
 
             try
             {
                 Shared.DebugLogHelper.LogInfo(
                     log,
-                    $"Creating post-game lobby: name='{snapshot.GameName}', map='{snapshot.MapFileName}', maxPlayers={snapshot.MaxPlayers}, lobbyMode={snapshot.LobbyMode}.");
+                    $"Creating post-game lobby: trigger={trigger}, name='{snapshot.GameName}', map='{snapshot.MapFileName}', maxPlayers={snapshot.MaxPlayers}, lobbyMode={snapshot.LobbyMode}.");
                 multiplayer.CreateLobby(
                     snapshot.GameName,
                     snapshot.MapName,
@@ -115,6 +130,7 @@ namespace BugfixesAndQoL
                     -1,
                     clearGameMembers: false);
                 ApplySnapshotToPendingLobby(multiplayer.activeLobby, snapshot);
+                return true;
             }
             catch (Exception ex)
             {
@@ -122,6 +138,7 @@ namespace BugfixesAndQoL
                 Shared.DebugLogHelper.LogError(
                     log,
                     $"Post-game lobby creation failed before Steam accepted the request; Vanilla exit remains available: {ex}");
+                return false;
             }
         }
 
@@ -142,8 +159,12 @@ namespace BugfixesAndQoL
                 return true;
             }
 
-            pendingVanillaExit = vanillaExit;
-            Shared.DebugLogHelper.LogInfo(log, "Post-game Exit is waiting for the host's replacement lobby ID.");
+            if (pendingVanillaExit == null)
+            {
+                pendingVanillaExit = vanillaExit;
+                exitWaitStartedAt = Stopwatch.GetTimestamp();
+                Shared.DebugLogHelper.LogInfo(log, "Post-game Exit is waiting for the host's replacement lobby ID.");
+            }
             return true;
         }
 
@@ -284,10 +305,13 @@ namespace BugfixesAndQoL
 
                 hostLobby = created;
                 multiplayer.CoopContinuationLobbyID = created.identifier;
-                SendContinuationLobbyToConnectedPeers(multiplayer, created.identifier);
+                int eligiblePeers = CountEligibleGamePeers(multiplayer);
+                // Use the exact Vanilla Coop transport. SendPacketToAll already excludes self
+                // and AI members, while SendGameData rejects kicked recipients.
+                multiplayer.SendCoopContinuationLobby(created.identifier);
                 Shared.DebugLogHelper.LogInfo(
                     log,
-                    $"Post-game lobby created and announced to connected peers: lobbyId={created.identifier}, members={created.numLobbyMembers}.");
+                    $"Post-game lobby created and announced to connected peers: lobbyId={created.identifier}, steamMembers={created.numLobbyMembers}, eligibleGamePeers={eligiblePeers}.");
             }
             catch (Exception ex)
             {
@@ -338,37 +362,27 @@ namespace BugfixesAndQoL
             multiplayer.ResumeInvite();
         }
 
-        private static void SendContinuationLobbyToConnectedPeers(
-            Platform_Multiplayer multiplayer,
-            ulong lobbyId)
+        private static int CountEligibleGamePeers(Platform_Multiplayer multiplayer)
         {
             if (multiplayer?.gameMembers == null)
-                return;
+                return 0;
 
-            Platform_Multiplayer.MPData packet = new Platform_Multiplayer.MPData
-            {
-                packetType = 10,
-                dataLength = 8,
-                data = BitConverter.GetBytes(lobbyId),
-            };
+            int count = 0;
             foreach (Platform_Multiplayer.MPGameMember member in multiplayer.gameMembers)
             {
-                if (member == null ||
-                    !MultiplayerLobbyReturnPolicy.ShouldAnnounceToMember(
-                        member.isSelf,
-                        member.kicked,
-                        member.skirmishAI,
-                        member.stillWithSteamConnection,
-                        member.steamID))
+                if (member == null || member.isSelf || member.kicked || member.skirmishAI ||
+                    member.steamID <= 1000UL)
                 {
                     continue;
                 }
 
-                multiplayer.SendPacketToPlayerID(member.playerID, packet);
+                count++;
             }
+
+            return count;
         }
 
-        private static void OpenHostLobby(
+        private void OpenHostLobby(
             Platform_Multiplayer multiplayer,
             Platform_Multiplayer.MPLobby lobby)
         {
@@ -392,8 +406,50 @@ namespace BugfixesAndQoL
             FindFrontMethod("UpdateRadarShieldPositions", Type.EmptyTypes).Invoke(front, null);
             FindFrontMethod("UpdateHostInfo", new[] { typeof(bool) }).Invoke(front, new object[] { false });
             FindFrontMethod("ShowSetupScreen", Type.EmptyTypes).Invoke(front, null);
+            RefreshHostLobbyRows(front);
             viewModel.Show_FrontMenus_Background_Main = false;
             viewModel.Show_Frontend_MainMenu = false;
+        }
+
+        private void RefreshHostLobbyRows(FRONT_Multiplayer front)
+        {
+            try
+            {
+                // doOpen(false) preserves the new Steam lobby and therefore skips the normal
+                // frontend reset. Clear only transient match UI, then let Vanilla render the
+                // actual members of the replacement lobby.
+                SetFrontField(front, "MPGameLoading", false);
+                SetFrontField(front, "MPLocalReady", false);
+                SetFrontField(front, "MPLocalReadyLocked", false);
+                SetFrontField(front, "humanPlayerCount", -1);
+
+                FieldInfo rowsField = FindFrontField("playerRows");
+                Array rows = rowsField.GetValue(front) as Array;
+                if (rows == null)
+                    throw new InvalidOperationException("The multiplayer player-row array is unavailable.");
+
+                foreach (object row in rows)
+                {
+                    MethodInfo clearMethod = row?.GetType().GetMethod(
+                        "Clear",
+                        BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+                        null,
+                        Type.EmptyTypes,
+                        null);
+                    if (clearMethod == null)
+                        throw new MissingMethodException(row?.GetType().FullName, "Clear");
+                    clearMethod.Invoke(row, null);
+                }
+
+                front.Update();
+            }
+            catch (Exception ex)
+            {
+                // The Steam lobby is already valid. A cosmetic refresh failure must not leave it.
+                Shared.DebugLogHelper.LogWarning(
+                    log,
+                    $"Post-game host lobby opened, but its preserved player rows could not be refreshed immediately: {ex}");
+            }
         }
 
         private void FallbackToVanilla(Action vanillaExit, string reason)
@@ -407,7 +463,7 @@ namespace BugfixesAndQoL
 
         private bool IsTimedOut() =>
             MultiplayerLobbyReturnPolicy.HasTimedOut(
-                gameOverStartedAt,
+                exitWaitStartedAt,
                 Stopwatch.GetTimestamp(),
                 Stopwatch.Frequency);
 
@@ -420,7 +476,7 @@ namespace BugfixesAndQoL
             creationRequested = false;
             creationFailed = false;
             transitionStarted = false;
-            gameOverStartedAt = 0;
+            exitWaitStartedAt = 0;
             lastFrame = -1;
             ClearPendingExit();
 
@@ -453,6 +509,21 @@ namespace BugfixesAndQoL
             if (method == null)
                 throw new MissingMethodException(typeof(FRONT_Multiplayer).FullName, name);
             return method;
+        }
+
+        private static FieldInfo FindFrontField(string name)
+        {
+            FieldInfo field = typeof(FRONT_Multiplayer).GetField(
+                name,
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (field == null)
+                throw new MissingFieldException(typeof(FRONT_Multiplayer).FullName, name);
+            return field;
+        }
+
+        private static void SetFrontField(FRONT_Multiplayer front, string name, object value)
+        {
+            FindFrontField(name).SetValue(front, value);
         }
     }
 }

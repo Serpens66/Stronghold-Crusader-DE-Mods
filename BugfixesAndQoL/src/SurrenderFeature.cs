@@ -159,6 +159,14 @@ namespace BugfixesAndQoL
     {
         private const int ProtocolVersion = 1;
         private delegate void IngameMenuInitDelegate(HUD_IngameMenu self);
+        private delegate void AddOnScreenTextEntryDelegate(
+            OnScreenText self,
+            Enums.eOnScreenText ostID,
+            int data1,
+            int data2,
+            int data3,
+            int data4,
+            int data5);
         private delegate void MissionOverButtonClickedDelegate(HUD_MissionOver self, string parameter);
         private delegate void SetGameOverStateDelegate(GameData.Scenarios self, int state, int screen, int skirmishDate);
 
@@ -174,6 +182,8 @@ namespace BugfixesAndQoL
         private IngameMenuInitDelegate ingameMenuInitOriginal;
         private Hook missionOverButtonHook;
         private MissionOverButtonClickedDelegate missionOverButtonOriginal;
+        private Hook addOnScreenTextEntryHook;
+        private AddOnScreenTextEntryDelegate addOnScreenTextEntryOriginal;
         private Hook setGameOverStateHook;
         private SetGameOverStateDelegate setGameOverStateOriginal;
         private MethodInfo prepMpScoresMethod;
@@ -243,7 +253,7 @@ namespace BugfixesAndQoL
             ingameMenuInitHook = new Hook(initMethod, (IngameMenuInitDelegate)IngameMenuInitHook);
             ingameMenuInitOriginal = ingameMenuInitHook.GenerateTrampoline<IngameMenuInitDelegate>();
 
-            // The post-game lobby feature shares these two Vanilla hooks so hook order cannot
+            // The post-game lobby feature shares these Vanilla hooks so hook order cannot
             // change the surrender/statistics behavior.
             InitializeMissionOverHooks();
             lobbyReturnFeature.Initialize();
@@ -341,6 +351,8 @@ namespace BugfixesAndQoL
             ingameMenuInitHook?.Dispose();
             missionOverButtonHook?.Undo();
             missionOverButtonHook?.Dispose();
+            addOnScreenTextEntryHook?.Undo();
+            addOnScreenTextEntryHook?.Dispose();
             setGameOverStateHook?.Undo();
             setGameOverStateHook?.Dispose();
             requestPacketSubscription?.Dispose();
@@ -661,9 +673,20 @@ namespace BugfixesAndQoL
                 typeof(int),
                 typeof(int),
                 typeof(int));
+            MethodInfo addOnScreenTextEntryMethod = FindRequiredMethod(
+                typeof(OnScreenText),
+                nameof(OnScreenText.addOSTEntry),
+                BindingFlags.Instance | BindingFlags.Public,
+                typeof(Enums.eOnScreenText),
+                typeof(int),
+                typeof(int),
+                typeof(int),
+                typeof(int),
+                typeof(int));
 
             Hook newButtonHook = null;
             Hook newGameOverHook = null;
+            Hook newOnScreenTextHook = null;
             try
             {
                 newButtonHook = new Hook(buttonClickedMethod, (MissionOverButtonClickedDelegate)MissionOverButtonClickedHook);
@@ -672,19 +695,55 @@ namespace BugfixesAndQoL
                 newGameOverHook = new Hook(gameOverStateMethod, (SetGameOverStateDelegate)SetGameOverStateHook);
                 SetGameOverStateDelegate newGameOverOriginal =
                     newGameOverHook.GenerateTrampoline<SetGameOverStateDelegate>();
+                newOnScreenTextHook = new Hook(
+                    addOnScreenTextEntryMethod,
+                    (AddOnScreenTextEntryDelegate)AddOnScreenTextEntryHook);
+                AddOnScreenTextEntryDelegate newOnScreenTextOriginal =
+                    newOnScreenTextHook.GenerateTrampoline<AddOnScreenTextEntryDelegate>();
 
                 missionOverButtonHook = newButtonHook;
                 missionOverButtonOriginal = newButtonOriginal;
                 setGameOverStateHook = newGameOverHook;
                 setGameOverStateOriginal = newGameOverOriginal;
+                addOnScreenTextEntryHook = newOnScreenTextHook;
+                addOnScreenTextEntryOriginal = newOnScreenTextOriginal;
             }
             catch
             {
+                newOnScreenTextHook?.Undo();
+                newOnScreenTextHook?.Dispose();
                 newGameOverHook?.Undo();
                 newGameOverHook?.Dispose();
                 newButtonHook?.Undo();
                 newButtonHook?.Dispose();
                 throw;
+            }
+        }
+
+        private void AddOnScreenTextEntryHook(
+            OnScreenText self,
+            Enums.eOnScreenText ostID,
+            int data1,
+            int data2,
+            int data3,
+            int data4,
+            int data5)
+        {
+            // Preserve Vanilla first, then react to the exact presentation signal used by
+            // Vanilla's Coop continuation path. The later setGameOver hook remains a fallback.
+            addOnScreenTextEntryOriginal(self, ostID, data1, data2, data3, data4, data5);
+            if (ostID != Enums.eOnScreenText.OST_MP_GAME_OVER)
+                return;
+
+            try
+            {
+                lobbyReturnFeature.OnGameOverPresentation();
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Bugfixes and QoL early post-game lobby preparation failed; the later Game-over fallback remains available: {ex}");
             }
         }
 

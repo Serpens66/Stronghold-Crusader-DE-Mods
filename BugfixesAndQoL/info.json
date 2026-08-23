@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.69",
+  "Version": "1.0.70",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.70",
+      "Changes": [
+        "Fixed post-game multiplayer lobby return by preparing the lobby from Vanilla's early game-over presentation signal, using Vanilla's continuation-ID transport, waiting from the first Exit click, and refreshing stale host lobby rows."
+      ]
+    },
     {
       "Version": "1.0.69",
       "Changes": [

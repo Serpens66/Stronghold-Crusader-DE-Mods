@@ -16,18 +16,10 @@ namespace BugfixesAndQoL
 
         internal static bool ShouldCreateLobby(
             bool supportedSession,
-            int gameOverState,
+            bool terminalSignalObserved,
             bool localPlayerIsHost,
             bool alreadyRequested) =>
-            supportedSession && gameOverState > 0 && localPlayerIsHost && !alreadyRequested;
-
-        internal static bool ShouldAnnounceToMember(
-            bool isSelf,
-            bool kicked,
-            bool skirmishAi,
-            bool stillConnected,
-            ulong steamId) =>
-            !isSelf && !kicked && !skirmishAi && stillConnected && steamId > 1000UL;
+            supportedSession && terminalSignalObserved && localPlayerIsHost && !alreadyRequested;
 
         internal static bool HasTimedOut(long startedAt, long now, long frequency)
         {

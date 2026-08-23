@@ -1050,21 +1050,12 @@ internal static class Program
         Check(!MultiplayerLobbyReturnPolicy.IsSupportedSession(true, true, true, 1),
             "Coop Trail incorrectly enabled the normal post-game lobby return");
 
-        Check(MultiplayerLobbyReturnPolicy.ShouldCreateLobby(true, 1, true, false),
+        Check(MultiplayerLobbyReturnPolicy.ShouldCreateLobby(true, true, true, false),
             "current host did not create the first replacement lobby");
-        Check(!MultiplayerLobbyReturnPolicy.ShouldCreateLobby(true, 0, true, false) &&
-              !MultiplayerLobbyReturnPolicy.ShouldCreateLobby(true, 1, false, false) &&
-              !MultiplayerLobbyReturnPolicy.ShouldCreateLobby(true, 1, true, true),
+        Check(!MultiplayerLobbyReturnPolicy.ShouldCreateLobby(true, false, true, false) &&
+              !MultiplayerLobbyReturnPolicy.ShouldCreateLobby(true, true, false, false) &&
+              !MultiplayerLobbyReturnPolicy.ShouldCreateLobby(true, true, true, true),
             "invalid, client, or repeated game-over state created a replacement lobby");
-
-        Check(MultiplayerLobbyReturnPolicy.ShouldAnnounceToMember(false, false, false, true, 1234UL),
-            "connected human participant was excluded from the lobby announcement");
-        Check(!MultiplayerLobbyReturnPolicy.ShouldAnnounceToMember(true, false, false, true, 1234UL) &&
-              !MultiplayerLobbyReturnPolicy.ShouldAnnounceToMember(false, true, false, true, 1234UL) &&
-              !MultiplayerLobbyReturnPolicy.ShouldAnnounceToMember(false, false, true, true, 1234UL) &&
-              !MultiplayerLobbyReturnPolicy.ShouldAnnounceToMember(false, false, false, false, 1234UL) &&
-              !MultiplayerLobbyReturnPolicy.ShouldAnnounceToMember(false, false, false, true, 1000UL),
-            "self, kicked, AI, disconnected, or invalid participants received a lobby announcement");
 
         long frequency = 1000;
         long start = 5000;
