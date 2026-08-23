@@ -20,6 +20,7 @@ namespace CastlePlanner
 
         private readonly Action toggle;
         private readonly CastlePlannerSettingsViewModel settings;
+        private readonly FreeCastlePreviewRuntime preview;
         private bool hudVisible;
         private bool canToggle;
         private bool blueprintVisible;
@@ -41,11 +42,13 @@ namespace CastlePlanner
 
         public BlueprintHudViewModel(
             Action toggle,
-            CastlePlannerSettingsViewModel settings)
+            CastlePlannerSettingsViewModel settings,
+            FreeCastlePreviewRuntime preview)
         {
             this.toggle = toggle ?? throw new ArgumentNullException(nameof(toggle));
             this.settings = settings ??
                 throw new ArgumentNullException(nameof(settings));
+            this.preview = preview ?? throw new ArgumentNullException(nameof(preview));
             ToggleCommand = new RelayCommand(
                 () => this.toggle(),
                 () => CanToggle);
@@ -54,12 +57,33 @@ namespace CastlePlanner
             // The HUD proxies the shared settings so both UIs always show the
             // same selection and visual values.
             this.settings.PropertyChanged += OnSettingsPropertyChanged;
+            this.preview.PropertyChanged += OnPreviewPropertyChanged;
         }
 
         public event PropertyChangedEventHandler PropertyChanged;
 
         public ICommand ToggleCommand { get; }
         public ICommand ToggleSettingsPanelCommand { get; }
+        public ICommand ConfirmCastleCommand => preview.ConfirmCommand;
+        public bool PreviewVisible => preview.IsPreviewActive;
+        public string PreviewTitleText => preview.TitleText;
+        public string PreviewTimerText => preview.TimerText;
+        public string PreviewStatusText => preview.StatusText;
+        public string ConfirmCastleText => preview.ConfirmText;
+        public string RotationText => preview.RotationText;
+        public System.Collections.Generic.IReadOnlyList<string> PreviewCastleOptions => preview.CastleChoices;
+        public System.Collections.Generic.IReadOnlyList<string> RotationOptions => preview.RotationChoices;
+        public bool CanConfirmCastle => preview.CanConfirm;
+        public string PreviewSelectedCastle
+        {
+            get => preview.SelectedChoice;
+            set => preview.SelectedChoice = value;
+        }
+        public string SelectedRotation
+        {
+            get => preview.SelectedRotation;
+            set => preview.SelectedRotation = value;
+        }
 
         public ObservableCollection<string> CastleOptions =>
             settings.CastleOptions;
@@ -593,6 +617,32 @@ namespace CastlePlanner
                 case nameof(CastlePlannerSettingsViewModel.BlueprintIconAlpha):
                 case nameof(CastlePlannerSettingsViewModel.BlueprintIconAlphaText):
                     OnPropertyChanged(args.PropertyName);
+                    break;
+            }
+        }
+
+        private void OnPreviewPropertyChanged(object sender, PropertyChangedEventArgs args)
+        {
+            switch (args.PropertyName)
+            {
+                case nameof(FreeCastlePreviewRuntime.IsPreviewActive):
+                    OnPropertyChanged(nameof(PreviewVisible));
+                    break;
+                case nameof(FreeCastlePreviewRuntime.TimerText):
+                    OnPropertyChanged(nameof(PreviewTimerText));
+                    break;
+                case nameof(FreeCastlePreviewRuntime.StatusText):
+                case nameof(FreeCastlePreviewRuntime.IsLocalConfirmed):
+                    OnPropertyChanged(nameof(PreviewStatusText));
+                    break;
+                case nameof(FreeCastlePreviewRuntime.CanConfirm):
+                    OnPropertyChanged(nameof(CanConfirmCastle));
+                    break;
+                case nameof(FreeCastlePreviewRuntime.SelectedChoice):
+                    OnPropertyChanged(nameof(PreviewSelectedCastle));
+                    break;
+                case nameof(FreeCastlePreviewRuntime.SelectedRotation):
+                    OnPropertyChanged(nameof(SelectedRotation));
                     break;
             }
         }

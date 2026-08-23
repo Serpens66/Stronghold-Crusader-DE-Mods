@@ -188,11 +188,11 @@
     <Compile Include="src\BlueprintRenderer.cs" />
     <Compile Include="src\BlueprintSortingPolicy.cs" />
     <Compile Include="src\BlueprintRuntimeController.cs" />
-    <Compile Include="src\CastleDropDownHeightController.cs" />
     <Compile Include="src\CastlePlannerPlugin.cs" />
+    <Compile Include="src\FreeCastleProtocol.cs" />
+    <Compile Include="src\FreeCastlePreviewRuntime.cs" />
     <Compile Include="src\CastlePlannerRuntime.cs" />
     <Compile Include="src\CastlePlannerSettingsViewModel.cs" />
-    <Compile Include="src\CastleSpawnCompatibility.cs" />
   </ItemGroup>
 
   <ItemGroup>

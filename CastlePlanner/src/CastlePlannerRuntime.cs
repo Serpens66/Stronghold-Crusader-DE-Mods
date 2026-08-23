@@ -9,11 +9,8 @@ using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
-using System.Security.Cryptography;
-using System.Text;
 
 namespace CastlePlanner
 {
@@ -104,6 +101,7 @@ namespace CastlePlanner
 
         private readonly ManualLogSource log;
         private readonly CastlePlannerSettingsViewModel settings;
+        private readonly FreeCastlePreviewRuntime preview;
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
 
         private AllocateSpecDelegate allocateSpec;
@@ -135,10 +133,12 @@ namespace CastlePlanner
 
         public CastlePlannerRuntime(
             ManualLogSource log,
-            CastlePlannerSettingsViewModel settings)
+            CastlePlannerSettingsViewModel settings,
+            FreeCastlePreviewRuntime preview)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
+            this.preview = preview ?? throw new ArgumentNullException(nameof(preview));
         }
 
         public void Install(
@@ -233,11 +233,11 @@ namespace CastlePlanner
             }
 
             handledCurrentMap = true;
-            if (!settings.IsSpawnMode)
+            if (!preview.IsSpawnMapPass)
             {
                 Shared.DebugLogHelper.LogInfo(
                     log,
-                    "Native castle spawning skipped because the host Spawn Castle setting is disabled.");
+                    "Native castle spawning skipped because this is not the committed restart pass.");
                 return;
             }
 
@@ -248,6 +248,7 @@ namespace CastlePlanner
                     log,
                     $"Game-mode guard accepted supported skirmish: " +
                     $"sharedSingleplayerSkirmish={gameMode.SharedSingleplayerSkirmish}, " +
+                    $"sharedSingleplayerTrail={gameMode.SharedSingleplayerTrail}, " +
                     $"gameDataSkirmishGameType={gameMode.GameDataSkirmishGameType}, " +
                     $"lobbySkirmishMembers={gameMode.LobbySkirmishMemberCount}, " +
                     $"lobbySkirmishHumans={gameMode.LobbySkirmishHumanCount}, " +
@@ -262,11 +263,11 @@ namespace CastlePlanner
                 int[] failedPlayers = failedAivCastlePlayers.OrderBy(id => id).ToArray();
                 if (!string.IsNullOrEmpty(spawnPlanFailure) ||
                     pendingCount != 0 || preparedCount != 0 ||
-                    failedPlayers.Length != 0 ||
-                    !expectedPlayers.SequenceEqual(executedPlayers))
+                    !expectedPlayers.Except(failedPlayers).SequenceEqual(executedPlayers))
                 {
-                    throw new InvalidOperationException(
-                        $"Not every selected human castle completed exactly once inside native map start: " +
+                    Shared.DebugLogHelper.LogWarning(
+                        log,
+                        $"One or more selected castles could not be prepared; their Vanilla Keeps remain unchanged: " +
                         $"expected=[{string.Join(",", expectedPlayers)}], " +
                         $"executed=[{string.Join(",", executedPlayers)}], " +
                         $"failed=[{string.Join(",", failedPlayers)}], pending={pendingCount}, " +
@@ -299,7 +300,7 @@ namespace CastlePlanner
                 log,
                 $"OnStartMap(Pre) received: handledCurrentMap={handledCurrentMap}.");
 
-            if (handledCurrentMap || !settings.IsSpawnMode)
+            if (handledCurrentMap || !preview.TryGetCommittedSelections(out List<FreeCastleSelection> requests))
                 return;
 
             try
@@ -307,26 +308,17 @@ namespace CastlePlanner
                 GameModeSnapshot gameMode = CaptureGameMode(args);
                 EnsureSupportedGameMode(gameMode);
                 int[] humanPlayerIds = CaptureHumanPlayerIds();
-                if (!settings.TryCreateSpawnPlan(
-                        humanPlayerIds,
-                        gameMode.SharedRealMultiplayer,
-                        out List<CastleSpawnRequest> requests,
-                        out string validationError))
-                {
-                    throw new InvalidOperationException(
-                        "Castle spawn compatibility validation failed: " + validationError);
-                }
 
                 // Parse and encode every file before the first native mutation. A single
                 // malformed AIV therefore aborts the whole transaction without partial imports.
                 List<PendingAivImport> preparedImports = requests
                     .Select(PreparePlayerImport)
                     .ToList();
-                foreach (CastleSpawnRequest request in requests)
+                foreach (FreeCastleSelection request in requests)
                     expectedAivCastlePlayers.Add(request.PlayerId);
                 // Validate every native candidate slot before the first import so
                 // an unavailable table cannot leave a partially imported set.
-                foreach (CastleSpawnRequest request in requests)
+                foreach (FreeCastleSelection request in requests)
                     CaptureImportedCandidates(request.PlayerId - 1);
                 for (int index = 0; index < requests.Count; index++)
                     ImportPlayerCastle(requests[index], preparedImports[index]);
@@ -351,44 +343,19 @@ namespace CastlePlanner
             }
         }
 
-        private static PendingAivImport PreparePlayerImport(CastleSpawnRequest request)
+        private static PendingAivImport PreparePlayerImport(FreeCastleSelection request)
         {
-            byte[] jsonBytes = File.ReadAllBytes(request.FilePath);
-            string actualHash;
-            using (SHA256 sha256 = SHA256.Create())
-            {
-                actualHash = BitConverter.ToString(sha256.ComputeHash(jsonBytes))
-                    .Replace("-", string.Empty);
-            }
-            if (!string.Equals(request.Hash, actualHash, StringComparison.OrdinalIgnoreCase))
-            {
-                throw new InvalidDataException(
-                    $"AIVJSON changed between spawn-plan validation and import: " +
-                    $"file='{request.FilePath}', expectedSHA256={request.Hash}, " +
-                    $"actualSHA256={actualHash}.");
-            }
-
-            string json;
-            using (var stream = new MemoryStream(jsonBytes, writable: false))
-            using (var reader = new StreamReader(
-                stream,
-                Encoding.UTF8,
-                detectEncodingFromByteOrderMarks: true))
-            {
-                json = reader.ReadToEnd();
-            }
-            AivJsonDocument document = AivJsonReader.Parse(json);
-            short[] rawAiv = AivRawDataEncoder.Encode(document);
+            FreeCastleProtocol.ValidateSelection(request);
             return new PendingAivImport(
                 request.PlayerId,
-                request.FilePath,
-                jsonBytes.LongLength,
-                document,
-                rawAiv);
+                request.DisplayName,
+                request.ContentHash,
+                request.Rotation,
+                (short[])request.RawData.Clone());
         }
 
         private void ImportPlayerCastle(
-            CastleSpawnRequest request,
+            FreeCastleSelection request,
             PendingAivImport prepared)
         {
             // Pre runs after Vanilla's import loop but before map start consumes the table.
@@ -401,9 +368,8 @@ namespace CastlePlanner
                 log,
                 $"Native AIV pre-import completed: phase=OnStartMap(Pre), " +
                 $"playerId={request.PlayerId}, playerSlot={request.PlayerId - 1}, " +
-                $"castle='{request.Castle}', sha256={request.Hash}, " +
-                $"candidateId=0, custom=1, file={request.FilePath}, " +
-                $"frames={prepared.Document.frames.Count}, miscItems={prepared.Document.miscItems.Count}, " +
+                $"castle='{request.DisplayName}', sha256={request.ContentHash}, " +
+                $"candidateId=0, custom=1, " +
                 $"rawShorts={prepared.RawShortCount}, " +
                 $"nativeCandidateCountAfterImport={importedCandidates.Count}, " +
                 $"nativeCandidate0Pointer=0x{importedCandidates.FirstPointer.ToInt64():X}, " +
@@ -542,9 +508,7 @@ namespace CastlePlanner
                 log,
                 $"Native castle spawn planned: playerId={playerId}, " +
                 $"phase=OnBuildStructure(Pre), keepReference=({keepX},{keepY}), " +
-                $"file={prepared.FilePath}, jsonBytes={prepared.JsonBytes}, " +
-                $"frames={prepared.Document.frames.Count}, " +
-                $"miscItems={prepared.Document.miscItems.Count}, " +
+                $"castle={prepared.DisplayName}, sha256={prepared.ContentHash}, " +
                 $"rawShorts={prepared.RawShortCount}, importedDuringPre=True, " +
                 $"ownedBuildingsBefore={ownedBuildingsBefore}, " +
                 $"nativeCandidateCountBeforePlacement={importedCandidates.Count}, " +
@@ -557,14 +521,14 @@ namespace CastlePlanner
                     $"Native AIV spec allocation failed; returned specIndex={specIndex}.");
             }
 
-            // Start at zero degrees and let Vanilla try the other rotations only when needed.
+            // The player explicitly chose this orientation. Other rotations must never be tried.
             setPlacement(
                 aivState,
                 specIndex,
                 keepX,
                 keepY,
-                0);
-            selectBestFit(aivState, specIndex, 1);
+                prepared.Rotation);
+            selectBestFit(aivState, specIndex, 0);
 
             IntPtr spec = IntPtr.Add(aivState, checked(specIndex * AivSpecStride));
             int copiedPlayerAivValue =
@@ -975,6 +939,7 @@ namespace CastlePlanner
                 Unknown3 = args.Unknown3,
                 SharedRealMultiplayer = sharedMode.IsRealMultiplayer,
                 SharedSingleplayerSkirmish = sharedMode.IsSingleplayerSkirmish,
+                SharedSingleplayerTrail = sharedMode.IsSingleplayerTrail,
                 SharedModeDetails = sharedMode.ToDiagnosticString(),
                 DirectorAvailable = sharedMode.DirectorAvailable,
                 DirectorMultiplayerGame = sharedMode.DirectorMultiplayer,
@@ -1011,6 +976,7 @@ namespace CastlePlanner
                 $"unknown1=0x{mode.Unknown1.ToInt64():X}, unknown3={mode.Unknown3}, " +
                 $"sharedRealMultiplayer={mode.SharedRealMultiplayer}, " +
                 $"sharedSingleplayerSkirmish={mode.SharedSingleplayerSkirmish}, " +
+                $"sharedSingleplayerTrail={mode.SharedSingleplayerTrail}, " +
                 $"directorAvailable={mode.DirectorAvailable}, " +
                 $"directorMultiplayerGame={mode.DirectorMultiplayerGame}, " +
                 $"directorSkirmishModeGame={mode.DirectorSkirmishModeGame}, " +
@@ -1054,7 +1020,9 @@ namespace CastlePlanner
                     "Director is unavailable during the map-start callback; game mode cannot be verified.");
             }
 
-            if (!mode.SharedSingleplayerSkirmish && !mode.SharedRealMultiplayer)
+            if (!mode.SharedSingleplayerSkirmish &&
+                !mode.SharedSingleplayerTrail &&
+                !mode.SharedRealMultiplayer)
             {
                 throw new NotSupportedException(
                     $"Native CastlePlanner requires a singleplayer or multiplayer skirmish: " +
@@ -1188,6 +1156,7 @@ namespace CastlePlanner
             public ulong Unknown3 { get; set; }
             public bool SharedRealMultiplayer { get; set; }
             public bool SharedSingleplayerSkirmish { get; set; }
+            public bool SharedSingleplayerTrail { get; set; }
             public string SharedModeDetails { get; set; }
             public bool DirectorAvailable { get; set; }
             public bool DirectorMultiplayerGame { get; set; }
@@ -1218,22 +1187,22 @@ namespace CastlePlanner
         {
             public PendingAivImport(
                 int playerId,
-                string filePath,
-                long jsonBytes,
-                AivJsonDocument document,
+                string displayName,
+                string contentHash,
+                int rotation,
                 short[] rawAiv)
             {
                 PlayerId = playerId;
-                FilePath = filePath;
-                JsonBytes = jsonBytes;
-                Document = document;
+                DisplayName = displayName ?? string.Empty;
+                ContentHash = contentHash ?? string.Empty;
+                Rotation = rotation;
                 RawAiv = rawAiv ?? throw new ArgumentNullException(nameof(rawAiv));
             }
 
             public int PlayerId { get; }
-            public string FilePath { get; }
-            public long JsonBytes { get; }
-            public AivJsonDocument Document { get; }
+            public string DisplayName { get; }
+            public string ContentHash { get; }
+            public int Rotation { get; }
             public short[] RawAiv { get; }
             public int RawShortCount => RawAiv.Length;
         }

@@ -24,6 +24,7 @@ namespace CastlePlanner
             new HashSet<KeyCode>();
         private ManualLogSource log;
         private CastlePlannerSettingsViewModel settings;
+        private FreeCastlePreviewRuntime preview;
         private BlueprintRenderer renderer;
         private BlueprintBuildingSizeCalibration sizeCalibration;
         private BlueprintBuildingImageLibrary buildingImageLibrary;
@@ -52,20 +53,23 @@ namespace CastlePlanner
 
         public static BlueprintRuntimeController Create(
             ManualLogSource log,
-            CastlePlannerSettingsViewModel settings)
+            CastlePlannerSettingsViewModel settings,
+            FreeCastlePreviewRuntime preview)
         {
             var controller = new BlueprintRuntimeController();
-            controller.Initialize(log, settings);
+            controller.Initialize(log, settings, preview);
             return controller;
         }
 
         private void Initialize(
             ManualLogSource log,
-            CastlePlannerSettingsViewModel settings)
+            CastlePlannerSettingsViewModel settings,
+            FreeCastlePreviewRuntime preview)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings =
                 settings ?? throw new ArgumentNullException(nameof(settings));
+            this.preview = preview ?? throw new ArgumentNullException(nameof(preview));
             sizeCalibration =
                 new BlueprintBuildingSizeCalibration(log);
             buildingImageLibrary =
@@ -74,12 +78,13 @@ namespace CastlePlanner
                 log,
                 sizeCalibration,
                 buildingImageLibrary);
-            Hud = new BlueprintHudViewModel(ToggleBlueprint, settings);
+            Hud = new BlueprintHudViewModel(ToggleBlueprint, settings, preview);
 
             settings.SettingsChanged += OnSettingsChanged;
             settings.BlueprintVisualSettingsChanged +=
                 OnBlueprintVisualSettingsChanged;
             settings.HotkeyCaptureRequested += OnHotkeyCaptureRequested;
+            preview.SelectionVisualChanged += OnPreviewSelectionChanged;
             subscriptions.Add(
                 MapLoaderR3EventHooks.OnStartMap.Observable
                     .Where(args => args.Phase == EventHookPhase.Post)
@@ -109,7 +114,7 @@ namespace CastlePlanner
         {
             // Setting capture still needs rendered input, but a fully disabled Blueprint feature
             // should perform no map, camera, image, or overlay work.
-            if (!settings.IsBlueprintMode && !hotkeyCapturePending)
+            if (!EffectiveBlueprintMode && !hotkeyCapturePending)
                 return;
 
             if (!beforeRenderCallbackObserved)
@@ -173,7 +178,7 @@ namespace CastlePlanner
             {
                 // Fallback for unusual map flows that do not emit the normal hook.
                 mapActive = true;
-                if (settings.IsBlueprintMode && layout == null)
+                if (EffectiveBlueprintMode && layout == null)
                     SchedulePrepare(false);
                 RefreshHud();
             }
@@ -186,7 +191,7 @@ namespace CastlePlanner
             if (buildingImageLibrary.ProcessOnePendingDepthLoad())
                 RefreshHud();
 
-            if (!settings.IsBlueprintMode)
+            if (!EffectiveBlueprintMode)
                 return;
 
             if (sizeCalibration.Tick() &&
@@ -250,9 +255,9 @@ namespace CastlePlanner
             // SimRunning can still be false in OnStartMap(Post), while MainHUD is
             // already entering its map lifecycle and should expose the local toggle.
             mapActive = true;
-            if (settings.IsBlueprintMode)
+            if (EffectiveBlueprintMode)
             {
-                SchedulePrepare(false);
+                SchedulePrepare(preview.IsPreviewActive);
                 TryPrepareBlueprint();
             }
             RefreshHud();
@@ -310,6 +315,25 @@ namespace CastlePlanner
                 TryPrepareBlueprint();
             }
 
+            RefreshHud();
+        }
+
+        private bool EffectiveBlueprintMode =>
+            settings?.IsBlueprintMode == true || preview?.IsPreviewActive == true;
+
+        private void OnPreviewSelectionChanged()
+        {
+            bool restoreVisibility = preview.IsPreviewActive || blueprintVisible;
+            renderer.Clear();
+            layout = null;
+            layoutKeepX = int.MinValue;
+            layoutKeepY = int.MinValue;
+            blueprintVisible = false;
+            if (mapActive && EffectiveBlueprintMode)
+            {
+                SchedulePrepare(restoreVisibility);
+                TryPrepareBlueprint();
+            }
             RefreshHud();
         }
 
@@ -495,7 +519,8 @@ namespace CastlePlanner
                 layout = BlueprintLayoutBuilder.Build(
                     document,
                     keepX,
-                    keepY);
+                    keepY,
+                    GetPreviewRotation());
                 layoutKeepX = keepX;
                 layoutKeepY = keepY;
                 renderer.PreloadDepthCaptures(layout);
@@ -555,9 +580,22 @@ namespace CastlePlanner
             return false;
         }
 
+        private AIVParser.Core.AivRotation GetPreviewRotation()
+        {
+            if (preview == null || !preview.IsPreviewActive)
+                return AIVParser.Core.AivRotation.Degrees0;
+            switch (preview.SelectedNativeRotation)
+            {
+                case 2: return AIVParser.Core.AivRotation.Degrees90;
+                case 4: return AIVParser.Core.AivRotation.Degrees180;
+                case 6: return AIVParser.Core.AivRotation.Degrees270;
+                default: return AIVParser.Core.AivRotation.Degrees0;
+            }
+        }
+
         private void ToggleBlueprint()
         {
-            if (!settings.IsBlueprintMode || !mapActive)
+            if (!EffectiveBlueprintMode || !mapActive)
             {
                 Shared.DebugLogHelper.LogWarning(
                     log,
@@ -741,7 +779,7 @@ namespace CastlePlanner
         private void RefreshHud()
         {
             Hud?.Update(
-                settings?.IsBlueprintMode == true,
+                EffectiveBlueprintMode,
                 mapActive,
                 layout != null,
                 blueprintVisible,

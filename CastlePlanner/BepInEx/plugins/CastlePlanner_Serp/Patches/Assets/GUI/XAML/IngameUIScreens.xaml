@@ -17,7 +17,7 @@
             Tag="IgnoreSelf">
         <Border x:Name="CastlePlannerBlueprintPanel"
                 Width="360"
-                Height="196"
+                MinHeight="196"
                 Padding="8"
                 HorizontalAlignment="Left"
                 VerticalAlignment="Top"
@@ -67,6 +67,31 @@
                       MaxDropDownHeight="420"
                       Height="30"/>
 
+            <StackPanel Visibility="{Binding PreviewVisible, Converter={StaticResource booleanToVisibilityConverter}}">
+              <ComboBox ItemsSource="{Binding PreviewCastleOptions}"
+                        SelectedItem="{Binding PreviewSelectedCastle, Mode=TwoWay}"
+                        MaxDropDownHeight="420"
+                        Height="30"
+                        Margin="0,6,0,0"
+                        ToolTip="AIVJSON / None"
+                        ToolTipService.ShowDuration="60000"/>
+              <TextBlock Text="{Binding RotationText}"
+                         Foreground="#FFE8F2FF"
+                         Margin="0,6,0,2"/>
+              <ComboBox ItemsSource="{Binding RotationOptions}"
+                        SelectedItem="{Binding SelectedRotation, Mode=TwoWay}"
+                        Height="30"
+                        ToolTip="{Binding RotationText}"
+                        ToolTipService.ShowDuration="60000"/>
+              <Button Content="{Binding ConfirmCastleText}"
+                      Command="{Binding ConfirmCastleCommand}"
+                      IsEnabled="{Binding CanConfirmCastle}"
+                      Height="32"
+                      Margin="0,7,0,0"
+                      ToolTip="{Binding ConfirmCastleText}"
+                      ToolTipService.ShowDuration="60000"/>
+            </StackPanel>
+
             <Grid Margin="0,6,0,0">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="105"/>
@@ -114,6 +139,38 @@
                          HorizontalAlignment="Right"
                          VerticalAlignment="Center"/>
             </Grid>
+          </StackPanel>
+        </Border>
+
+        <Border Width="520"
+                Padding="18,12"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                Margin="0,72,0,0"
+                Panel.ZIndex="10002"
+                Background="#E614243A"
+                BorderBrush="#FF77AAFF"
+                BorderThickness="2"
+                Visibility="{Binding PreviewVisible, Converter={StaticResource booleanToVisibilityConverter}}"
+                Tag="Ignore">
+          <StackPanel>
+            <TextBlock Text="{Binding PreviewTitleText}"
+                       FontSize="26"
+                       FontWeight="Bold"
+                       Foreground="White"
+                       HorizontalAlignment="Center"/>
+            <TextBlock Text="{Binding PreviewTimerText}"
+                       FontSize="22"
+                       Foreground="#FFFFD27A"
+                       HorizontalAlignment="Center"
+                       Margin="0,3,0,0"/>
+            <TextBlock Text="{Binding PreviewStatusText}"
+                       FontSize="17"
+                       Foreground="#FFE8F2FF"
+                       TextWrapping="Wrap"
+                       TextAlignment="Center"
+                       HorizontalAlignment="Center"
+                       Margin="0,5,0,0"/>
           </StackPanel>
         </Border>
 

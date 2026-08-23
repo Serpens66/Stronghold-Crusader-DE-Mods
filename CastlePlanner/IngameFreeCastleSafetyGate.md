@@ -1,13 +1,18 @@
-# Ingame Free Castle: Safety-Gate-Ergebnis
+# Pausierte Burgauswahl: Safety-Gate-Status
 
 Stand: 2026-08-23
 
 ## Ergebnis
 
-Der geplante Ingame-Spawn an einem bereits vorhandenen Keep wird nicht in
-CastlePlanner 0.6.11 umgesetzt. Das vorgeschriebene Sicherheits-Gate ist vor
-einem produktiven Lauf fehlgeschlagen. CastlePlanner 0.6.10 und dessen
-funktionierender Kartenstart-Spawn bleiben unverändert.
+Der unsichere Ingame-Spawn an einem bereits vorhandenen Keep bleibt verworfen.
+Die neue Kandidatenimplementierung verwendet stattdessen eine pausierte erste
+Kartenladung als Vorschau und importiert die bestätigten AIV-Daten ausschließlich
+beim zweiten, frischen Kartenstart vor der Keep-Erzeugung.
+
+Die statischen Prüfungen, Protokolltests und der Build sind bestanden. Das
+praktische Gate in Singleplayer und Multiplayer steht noch aus. Bis diese vier
+Punkte im Spiel bestätigt sind, bleiben Plugin- und Manifestversion bewusst auf
+`0.6.10`; README und Changelog beschreiben weiterhin nur die freigegebene Version.
 
 Untersucht wurde ausschließlich die aktuell installierte kanonische DLL:
 
@@ -44,14 +49,19 @@ Ein praktischer Probe-Spawn würde genau den nicht rückrollbaren Zustand
 erzeugen können, den das Gate verhindern soll, und liefert deshalb keinen
 vertretbaren nächsten Nachweis.
 
-## Konsequenz
+## Noch praktisch zu bestätigen
 
-Die Settings-, HUD-, Savegame-, Dateiübertragungs- und Chore-Änderungen werden
-nicht aktiviert, weil sie ohne einen sicheren atomaren Ingame-Spawnpfad keine
-nutzbare Funktion ergeben. Es wird weder ein Managed-Fallback noch ein
-experimenteller Runtime-Hook ausgeliefert.
+- `OnStartMap(Pre)` pausiert vor dem ersten Simulationstick, während Keep,
+  Kamera, Blueprint-HUD und Steam-Lobby bedienbar bleiben.
+- „Keine Burg“ setzt genau dieselbe Partie fort und verlässt die Lobby genau
+  einmal.
+- Eine bestätigte Burg startet die Karte genau einmal frisch und verwendet
+  ausschließlich die feste Rotation `0/2/4/6` ohne alternative Best-Fit-Suche.
+- Host und Client erreichen denselben zweiten Kartenstart mit identischen,
+  zuvor validierten kanonischen AIV-Rohdaten.
 
-Eine spätere Neubewertung ist erst sinnvoll, wenn der Script Extender oder die
-native Engine eine vollständige, nach Kartenstart sichere AIV-Transaktion mit
-festem vorhandenem Keep-Anker und eindeutigem Gesamtergebnis bereitstellt.
+Bei einem Fehler vor dem Commit wird die Vorschaupartie ohne Burgen freigegeben;
+bei einem Fehler nach dem Commit wird fail-closed ins Frontend gewechselt. Erst
+nach erfolgreicher Laufzeitabnahme wird die Kandidatenimplementierung als
+`0.6.11` dokumentiert und freigegeben.
 

@@ -18,8 +18,8 @@ namespace CastlePlanner
 
         // The BepInEx component is destroyed during startup, so runtime state remains static.
         private static CastlePlannerRuntime runtime;
+        private static FreeCastlePreviewRuntime previewRuntime;
         private static BlueprintRuntimeController blueprintRuntime;
-        private static CastleDropDownHeightController castleDropDownHeightController;
         private static CastlePlanner.AIVPlacement.AivPlacementRuntime aivPlacementRuntime;
         private static bool libraryLoadedHandled;
 
@@ -31,7 +31,8 @@ namespace CastlePlanner
                 return;
 
             Settings = new CastlePlannerSettingsViewModel(Logger, Info.Location);
-            runtime = new CastlePlannerRuntime(Logger, Settings);
+            previewRuntime = new FreeCastlePreviewRuntime(Logger, Settings);
+            runtime = new CastlePlannerRuntime(Logger, Settings, previewRuntime);
             CrusaderLibrary.Instance.LibraryLoaded += OnCrusaderLibraryLoaded;
             Shared.DebugLogHelper.LogInfo(
                 Logger,
@@ -76,16 +77,14 @@ namespace CastlePlanner
                 return;
             }
 
-            TryInitializeStage("dropdown sizing", () =>
-            {
-                castleDropDownHeightController =
-                    CastleDropDownHeightController.Attach(Logger, Settings);
-            });
-
             TryInitializeStage("Blueprint runtime", () =>
             {
                 blueprintRuntime =
-                    BlueprintRuntimeController.Create(Logger, Settings);
+                    BlueprintRuntimeController.Create(Logger, Settings, previewRuntime);
+            });
+            TryInitializeStage("free-castle preview runtime", () =>
+            {
+                previewRuntime.Initialize();
             });
             TryInitializeStage("Blueprint HUD binding", () =>
             {

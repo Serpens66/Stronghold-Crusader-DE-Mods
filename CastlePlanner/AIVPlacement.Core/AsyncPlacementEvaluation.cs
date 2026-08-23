@@ -143,6 +143,9 @@ namespace CastlePlanner.AIVPlacement.Core
 
     public sealed class AivPlacementCandidateEvaluation
     {
+        // TODO: Expose an Auto rotation in CastlePlanner only after this managed
+        // best-fit evaluation is proven to select exactly the same rotation as
+        // Vanilla's native SelectBestFit for all supported AIV structures.
         internal AivPlacementCandidateEvaluation(
             AivPlacementCandidateRequest candidate,
             LobbyPlacementWorkerResult workerResult,
