@@ -230,6 +230,39 @@ function Get-ModNames {
     return $mods
 }
 
+function Test-PublicBooleanProperty {
+    param(
+        [Parameter(Mandatory)][array]$SourceFiles,
+        [Parameter(Mandatory)][string]$PropertyName
+    )
+
+    $propertyPattern = '(?s)public\s+bool\s+' +
+        [regex]::Escape($PropertyName) + '\s*(?:\{|=>)'
+    foreach ($sourceFile in $SourceFiles) {
+        if ([IO.File]::ReadAllText($sourceFile.FullName) -match $propertyPattern) {
+            return $true
+        }
+    }
+    return $false
+}
+
+function Test-ClassifiedBooleanProperty {
+    param(
+        [Parameter(Mandatory)][array]$SourceFiles,
+        [Parameter(Mandatory)][string]$PropertyName,
+        [Parameter(Mandatory)][string]$ClassificationPattern
+    )
+
+    $propertyPattern = '(?s)' + $ClassificationPattern + '.{0,500}?public\s+bool\s+' +
+        [regex]::Escape($PropertyName) + '\s*(?:\{|=>)'
+    foreach ($sourceFile in $SourceFiles) {
+        if ([IO.File]::ReadAllText($sourceFile.FullName) -match $propertyPattern) {
+            return $true
+        }
+    }
+    return $false
+}
+
 function Test-ActivationSettingContract {
     param(
         [Parameter(Mandatory)][string]$ModName,
@@ -280,28 +313,63 @@ function Test-ActivationSettingContract {
         Fail-Pack 3 "$ModName does not expose a recognizable activation setting contract in its Modsettings XAML."
     }
 
+    $hostClassificationPattern = '\[(?:Shared\.)?SyncHostOnly(?:Attribute)?\]'
+    $clientClassificationPattern = '\[(?:(?:Shared\.)?PresetLocal(?:Attribute)?|(?:Shared\.)?SyncPerPlayer(?:Attribute)?)\]'
+    $usesSharedActivationProxy = $false
+
     foreach ($contract in $contracts) {
+        $isSharedProxy =
+            ($contract.Role -eq 'Host' -and $contract.Property -eq 'HostSettingsEnabled') -or
+            ($contract.Role -eq 'Client' -and $contract.Property -eq 'ClientSettingsEnabled')
+        if ($isSharedProxy) {
+            # These UI properties are non-persisted facades. PresetController resolves
+            # them to classified EnableMod/EnableClientFeatures properties at runtime.
+            $usesSharedActivationProxy = $true
+            continue
+        }
+
         $classificationPattern = if ($contract.Role -eq 'Host') {
-            '\[(?:Shared\.)?SyncHostOnly(?:Attribute)?\]'
+            $hostClassificationPattern
         } else {
-            '\[(?:(?:Shared\.)?PresetLocal(?:Attribute)?|(?:Shared\.)?SyncPerPlayer(?:Attribute)?)\]'
+            $clientClassificationPattern
         }
-        $propertyPattern = '(?s)' + $classificationPattern + '.{0,500}?public\s+bool\s+' +
-            [regex]::Escape($contract.Property) + '\s*(?:\{|=>)'
-        $propertyFound = $false
-        foreach ($sourceFile in $SourceFiles) {
-            if ([IO.File]::ReadAllText($sourceFile.FullName) -match $propertyPattern) {
-                $propertyFound = $true
-                break
-            }
-        }
-        if (-not $propertyFound) {
+        if (-not (Test-ClassifiedBooleanProperty -SourceFiles $SourceFiles -PropertyName $contract.Property -ClassificationPattern $classificationPattern)) {
             $expectedClassification = if ($contract.Role -eq 'Host') { 'SyncHostOnly' } else { 'PresetLocal or SyncPerPlayer' }
             Fail-Pack 3 "${ModName} activation property '$($contract.Property)' must be a public bool classified as $expectedClassification."
         }
     }
 
-    $summary = @($contracts | ForEach-Object { "$($_.Role):$($_.Property)" }) -join ', '
+    $backingSummary = @()
+    if ($usesSharedActivationProxy) {
+        $enableModExists = Test-PublicBooleanProperty -SourceFiles $SourceFiles -PropertyName 'EnableMod'
+        $enableModIsHost = Test-ClassifiedBooleanProperty -SourceFiles $SourceFiles -PropertyName 'EnableMod' -ClassificationPattern $hostClassificationPattern
+        $enableModIsClient = Test-ClassifiedBooleanProperty -SourceFiles $SourceFiles -PropertyName 'EnableMod' -ClassificationPattern $clientClassificationPattern
+        $enableClientFeaturesExists = Test-PublicBooleanProperty -SourceFiles $SourceFiles -PropertyName 'EnableClientFeatures'
+        $enableClientFeaturesIsClient = Test-ClassifiedBooleanProperty -SourceFiles $SourceFiles -PropertyName 'EnableClientFeatures' -ClassificationPattern $clientClassificationPattern
+
+        if ($enableModExists -and -not ($enableModIsHost -or $enableModIsClient)) {
+            Fail-Pack 3 "${ModName} shared activation backing property 'EnableMod' must be classified as SyncHostOnly, PresetLocal or SyncPerPlayer."
+        }
+        if ($enableClientFeaturesExists -and -not $enableClientFeaturesIsClient) {
+            Fail-Pack 3 "${ModName} shared activation backing property 'EnableClientFeatures' must be classified as PresetLocal or SyncPerPlayer."
+        }
+        if (-not ($enableModIsHost -or $enableModIsClient -or $enableClientFeaturesIsClient)) {
+            Fail-Pack 3 "${ModName} uses shared activation bindings but declares no classified EnableMod or EnableClientFeatures backing property."
+        }
+
+        $hostBacking = if ($enableModIsHost) { 'EnableMod' } else { '(hidden)' }
+        $clientBacking = if ($enableClientFeaturesIsClient) {
+            'EnableClientFeatures'
+        } elseif ($enableModIsClient) {
+            'EnableMod'
+        } else {
+            '(hidden)'
+        }
+        $backingSummary += "shared backings Host:$hostBacking, Client:$clientBacking"
+    }
+
+    $summaryParts = @($contracts | ForEach-Object { "$($_.Role):$($_.Property)" }) + $backingSummary
+    $summary = $summaryParts -join ', '
     Write-RunLog "Activation setting contract for ${ModName}: $summary"
 }
 
