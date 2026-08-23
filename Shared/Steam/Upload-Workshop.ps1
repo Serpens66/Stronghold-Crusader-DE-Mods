@@ -63,6 +63,47 @@ function Save-ItemId {
     Write-UploadLog -Message "Workshop item ID saved: $ItemId ($Path)" -Level 'OK'
 }
 
+function Get-SteamWorkshopItemState {
+    param(
+        [Parameter(Mandatory)][string]$ItemId,
+        [Parameter(Mandatory)][uint32]$ExpectedAppId
+    )
+
+    $endpoint = 'https://api.steampowered.com/ISteamRemoteStorage/GetPublishedFileDetails/v1/'
+    try {
+        $result = Invoke-RestMethod -Method Post -Uri $endpoint -Body @{
+            itemcount = '1'
+            'publishedfileids[0]' = $ItemId
+        } -TimeoutSec 30
+    } catch {
+        Stop-Upload 2 "Steam Workshop item $ItemId could not be verified. No replacement item will be created after an inconclusive network/API failure: $($_.Exception.Message)"
+    }
+
+    if ($null -eq $result -or $null -eq $result.response -or
+        [int]$result.response.result -ne 1 -or
+        [int]$result.response.resultcount -ne 1) {
+        Stop-Upload 2 "Steam returned an unexpected response while verifying Workshop item $ItemId. No replacement item will be created."
+    }
+    $details = @($result.response.publishedfiledetails)
+    if ($details.Count -ne 1 -or [string]$details[0].publishedfileid -cne $ItemId) {
+        Stop-Upload 2 "Steam did not return the requested Workshop item identity $ItemId. No replacement item will be created."
+    }
+
+    $itemResult = [int]$details[0].result
+    if ($itemResult -eq 9) {
+        return 'Missing'
+    }
+    if ($itemResult -ne 1) {
+        Stop-Upload 2 "Steam returned result $itemResult while verifying Workshop item $ItemId. Only result 9 (FileNotFound) permits offering a replacement upload."
+    }
+
+    $consumerAppProperty = $details[0].PSObject.Properties['consumer_app_id']
+    if ($null -ne $consumerAppProperty -and [uint32]$consumerAppProperty.Value -ne $ExpectedAppId) {
+        Stop-Upload 2 "Workshop item $ItemId belongs to app $($consumerAppProperty.Value), not configured app $ExpectedAppId."
+    }
+    return 'Exists'
+}
+
 try {
     if (-not (Test-Path -LiteralPath $ToolPath -PathType Leaf)) {
         Stop-Upload 2 "Upload tool not found: $ToolPath"
@@ -108,7 +149,35 @@ try {
     }
 
     $isUpdate = -not [string]::IsNullOrWhiteSpace($itemId)
-    $mode = if ($isUpdate) { "UPDATE item $itemId ($itemIdSource)" } else { 'CREATE NEW ITEM' }
+    $uploadConfirmed = $false
+    $missingSavedItem = $false
+    if ($isUpdate) {
+        $itemState = Get-SteamWorkshopItemState -ItemId $itemId -ExpectedAppId $AppId
+        if ($itemState -eq 'Missing') {
+            if ($itemIdSource -ne 'saved state') {
+                Stop-Upload 2 "Configured Workshop item $itemId no longer exists. Clear ITEM_ID in UploadWorkshop.bat before creating a replacement."
+            }
+            $missingSavedItem = $true
+            Write-UploadLog "Saved Workshop item $itemId no longer exists (Steam result 9: FileNotFound)." 'WARN'
+            if (-not $Validate) {
+                $replacementConfirmation = Read-Host 'Type NEU_HOCHLADEN to create a new Workshop item and replace the saved ID'
+                if ($replacementConfirmation -cne 'NEU_HOCHLADEN') {
+                    Stop-Upload 3 'Replacement Workshop upload cancelled. The previous saved ID was preserved.'
+                }
+                $itemId = ''
+                $isUpdate = $false
+                $uploadConfirmed = $true
+                Write-UploadLog 'Replacement upload confirmed. Steam will be asked to create a new item.' 'WARN'
+            }
+        }
+    }
+    $mode = if ($missingSavedItem -and $Validate) {
+        'SAVED ITEM MISSING; REPLACEMENT CONFIRMATION REQUIRED'
+    } elseif ($isUpdate) {
+        "UPDATE item $itemId ($itemIdSource)"
+    } else {
+        'CREATE NEW ITEM'
+    }
     Write-UploadLog "Mode: $mode"
     Write-UploadLog "App ID: $AppId"
     Write-UploadLog "Title: $ItemName"
@@ -117,17 +186,26 @@ try {
     Write-UploadLog "Preview: $previewPath"
     Write-UploadLog "Visibility: $Visibility"
     if (-not $isUpdate) {
-        Write-UploadLog 'No saved item ID was found. Continuing will create a new Workshop item.' 'WARN'
+        if ($missingSavedItem) {
+            Write-UploadLog 'The deleted saved item will be replaced with a newly created Workshop item.' 'WARN'
+        } else {
+            Write-UploadLog 'No saved item ID was found. Continuing will create a new Workshop item.' 'WARN'
+        }
     }
     if ($Validate) {
-        Write-UploadLog 'Validation completed without contacting Steam or uploading files.' 'OK'
+        if ($missingSavedItem) {
+            Write-UploadLog 'Validation confirmed that the saved item is missing. A real run will require NEU_HOCHLADEN.' 'WARN'
+        }
+        Write-UploadLog 'Validation completed without invoking the upload tool or uploading files.' 'OK'
         Write-Host "Log: $logPath"
         exit 0
     }
 
-    $confirmation = Read-Host 'Type HOCHLADEN to perform this Steam Workshop upload'
-    if ($confirmation -cne 'HOCHLADEN') {
-        Stop-Upload 3 'Upload cancelled.'
+    if (-not $uploadConfirmed) {
+        $confirmation = Read-Host 'Type HOCHLADEN to perform this Steam Workshop upload'
+        if ($confirmation -cne 'HOCHLADEN') {
+            Stop-Upload 3 'Upload cancelled.'
+        }
     }
 
     $arguments = @('-v', '-a', $AppId.ToString())

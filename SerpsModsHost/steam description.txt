@@ -1,17 +1,30 @@
 [h1]Serps Mods – Fully Customizable Collection[/h1]
 
-A fully customizable collection of my mods for [b]Stronghold Crusader: Definitive Edition[/b].
+A fully customizable collection of my mods.
+Every included mod and feature can be enabled, disabled, and configured through the in-game [b]Mod Settings[/b].
+In multiplayer, gameplay-related settings are controlled by the host and synchronized with all clients.
 
-Every included mod—and almost every individual feature—can be enabled, disabled, and configured through the in-game [b]Mod Settings[/b]. Presets allow you to quickly switch between different configurations.
+[h2]BETA[/h2]
+[list]
+[*]Although I tested a lot, there still might be some bugs. So if you want a bugfree experience, you may want to wait 1-2 weeks before trying this mod.   
+[*]Report me any problems you encounter!
+[/list]
 
-In multiplayer, gameplay-related settings are controlled by the host and synchronized with all clients. Personal interface and control settings remain local.
+[h2]Install[/h2]
+[list]
+[*][b]The SHCDE Script Extender (at least v1.42.0) and BepinEx is required![/b]:
+[*]Download the latest [url=https://gitlab.com/rawra-stronghold-crusader/shcde-bepinex/-/releases]BepInEx "Download Loader"[/url] and [url=https://gitlab.com/rawra-stronghold-crusader/shcde-script-extender/-/releases]SHCDESE_[/url]
+[*]Copy their content (first BepInEx) into game install folder: "Steam\steamapps\common\Stronghold Crusader Definitive Edition", replace files if asked. In the end the folder structure should be "Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese"
+[*]Subscribe [SE] mods like this, script extender will install them correctly (at least on windows)
+[/list]
 
 [h1]Included Mods and Features[/h1]
 
 [h2]Script Extender itself[/h2]
+[list]
 [*]Higher gamespeed
 [*]Start MP game with only 1 human.
-
+[/list]
 
 [h2]BugfixesAndQoL[/h2]
 [list]
@@ -111,19 +124,16 @@ In multiplayer, gameplay-related settings are controlled by the host and synchro
 
 [h1]Important Information[/h1]
 [list]
-[*][b]The SHCDE Script Extender (at least v1.42.0) and BepinEx is required![/b]:
-[*]Download the latest [url=https://gitlab.com/rawra-stronghold-crusader/shcde-bepinex/-/releases]BepInEx "Download Loader"[/url] and [url=https://gitlab.com/rawra-stronghold-crusader/shcde-script-extender/-/releases]SHCDESE_[/url]
-[*]Copy their content (first BepInEx) into game install folder: "Steam\steamapps\common\Stronghold Crusader Definitive Edition", replace files if asked. In the end the folder structure should be "Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese"
-[*]Remove manually installed copies of the included mods (eg. downloaded from my nexusmods/github), since duplicate installations can cause conflicts
-[*]To quickly switch between modded and vanilla game, you can use my prepared bat (windows) or sh (linux) files to start the game: https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/releases/tag/1.0.1 (there you can also find a ".trail" Un-Packer to manually edit custom trail files
-[*]All players in a multiplayer game need the same mods installed/subscribed
+[*]Remove manually installed copies of the included mods!
+[*]To quickly switch between modded and vanilla game, you can use my prepared bat (windows) or sh (linux) files to start the game: https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/releases/tag/1.0.1
 [*]Script Extender itself and any dll mod may in theory contain malicious code. Only download from official source and modders you trust! See below for my source
 [/list]
 
 [h1]Incompatibility[/h1]
+[list]
 [*]Incompatible with mods which replace game dlls
 [*]Auto install via subscribe may fail on linux, see source below to download release there
-
+[/list]
 [h1][url=https://github.com/Serpens66/Stronghold-Crusader-DE-Mods]GitHub – Source Code[/url][/h1]
 
 
@@ -139,6 +149,6 @@ In multiplayer, gameplay-related settings are controlled by the host and synchro
 [b]CustomCustomTrails[/b]
 [list]
 [*]Adds "customize" Button to all trails.
-[*]Allows you to create a shared "custom coop trails".
-[*]Define specific modsetting presets for your trail mission, eg. including the unit/building limit and costs mods to make the game more challenging!
+[*]Allows you to create "custom coop trails".
+[*]Define specific modsetting presets for your trail mission, eg. including the unit/building limit and costs or even RandomEvents mods to make the game more challenging!
 [/list]
