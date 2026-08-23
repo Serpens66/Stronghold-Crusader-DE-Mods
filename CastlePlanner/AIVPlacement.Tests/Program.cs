@@ -60,6 +60,7 @@ internal static class Program
             ("projects supplemental items for every rotation", ProjectsSupplementalItemsForEveryRotation),
             ("keeps supplemental items on the native reference anchor", KeepsSupplementalItemsOnNativeReferenceAnchor),
             ("converts decoration tiles to projectile coordinates", ConvertsDecorationTilesToProjectileCoordinates),
+            ("rotates Vanilla Keep-reserve unit spawns", RotatesVanillaKeepReserveUnitSpawns),
             ("aligns native rotation to the live Keep footprint", AlignsNativeRotationToLiveKeepFootprint)
         };
 
@@ -1005,6 +1006,76 @@ internal static class Program
 
         Equal(correctlyAnchored.X, incorrectlyAnchoredToLiveKeep.X);
         Equal(correctlyAnchored.Y + 7, incorrectlyAnchoredToLiveKeep.Y);
+    }
+
+    private static void RotatesVanillaKeepReserveUnitSpawns()
+    {
+        const int keepX = 525;
+        const int keepY = 274;
+        int sourceWorldX = (keepX + 9) * 8;
+        int sourceWorldY = (keepY + 4) * 8;
+
+        (AivRotation rotation, int expectedX, int expectedY)[] cases =
+        {
+            (AivRotation.Degrees0, keepX + 9, keepY + 4),
+            (AivRotation.Degrees90, keepX + 4, keepY + 4),
+            (AivRotation.Degrees180, keepX + 4, keepY + 9),
+            (AivRotation.Degrees270, keepX + 9, keepY + 9)
+        };
+
+        foreach ((AivRotation rotation, int expectedX, int expectedY) in cases)
+        {
+            Assert(CastlePlanner.AivStarterUnitTransform.TryProjectReservedWorldPosition(
+                sourceWorldX,
+                sourceWorldY,
+                keepX,
+                keepY,
+                rotation,
+                out int targetWorldX,
+                out int targetWorldY),
+                $"the native Keep reserve was not recognized for {rotation}");
+            Equal(expectedX * 8, targetWorldX);
+            Equal(expectedY * 8, targetWorldY);
+        }
+
+        (int offsetX, int offsetY)[] reserveBoundaries =
+        {
+            (7, 2), (11, 6),
+            (0, 8), (6, 14),
+            (2, 7), (4, 7)
+        };
+        foreach ((int offsetX, int offsetY) in reserveBoundaries)
+        {
+            foreach (AivRotation rotation in Enum.GetValues<AivRotation>())
+            {
+                Assert(CastlePlanner.AivStarterUnitTransform.TryProjectReservedWorldPosition(
+                    (keepX + offsetX) * 8,
+                    (keepY + offsetY) * 8,
+                    keepX,
+                    keepY,
+                    rotation,
+                    out int targetWorldX,
+                    out int targetWorldY),
+                    $"native Keep reserve boundary ({offsetX},{offsetY}) was not recognized for {rotation}");
+                AivWorldTile expected = AivWorldTransform.ProjectNativeFit(
+                    new AivGridPoint(56 - offsetY, 43 + offsetX),
+                    keepX,
+                    keepY,
+                    rotation);
+                Equal(expected.X * 8, targetWorldX);
+                Equal(expected.Y * 8, targetWorldY);
+            }
+        }
+
+        Assert(!CastlePlanner.AivStarterUnitTransform.TryProjectReservedWorldPosition(
+            keepX * 8,
+            keepY * 8,
+            keepX,
+            keepY,
+            AivRotation.Degrees90,
+            out _,
+            out _),
+            "a unit outside the native Keep reservations was transformed");
     }
 
     private static void ConvertsDecorationTilesToProjectileCoordinates()

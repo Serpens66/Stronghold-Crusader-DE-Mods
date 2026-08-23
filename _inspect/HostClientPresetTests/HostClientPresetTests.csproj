@@ -68,6 +68,12 @@
     <Compile Include="..\..\BugfixesAndQoL\src\AiRecruitmentHorseDemandNativeDefinition.cs">
       <Link>AiRecruitmentHorseDemandNativeDefinition.cs</Link>
     </Compile>
+    <Compile Include="..\..\BugfixesAndQoL\src\AiStoneReserveNativeDefinition.cs">
+      <Link>AiStoneReserveNativeDefinition.cs</Link>
+    </Compile>
+    <Compile Include="..\..\BugfixesAndQoL\src\AiStoneReservePolicy.cs">
+      <Link>AiStoneReservePolicy.cs</Link>
+    </Compile>
     <Compile Include="..\..\BugfixesAndQoL\src\MarketGoodsOrderDefinition.cs">
       <Link>MarketGoodsOrderDefinition.cs</Link>
     </Compile>

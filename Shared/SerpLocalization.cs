@@ -443,7 +443,7 @@ public static class SerpLocalization
         { EnableTroopMovementFix, "Troop Speed Fix" },
         { EnableTroopMovementFixHelp, "Fixes synchronized movement for mixed troop groups: with a normal movement command, all units move at the speed of the slowest unit in the group." },
         { EnableAiFixes, "AI Fixes" },
-        { EnableAiFixesHelp, "Fixes Vanilla AI behavior. Currently prevents failed knight recruitment without an available horse from reusing an old missing weapon or armour result and repeatedly buying that equipment." },
+        { EnableAiFixesHelp, "Fixes Vanilla AI behavior. Prevents failed knight recruitment without an available horse from reusing an old missing weapon or armour result and repeatedly buying that equipment, and refreshes the stone reserve from open castle buildings before the AI sells stone." },
         { EnablePlaguePopularityFix, "Plague Popularity Fix" },
         { EnablePlaguePopularityFixHelp, "Applies exactly -1 popularity for each active plague outbreak and removes it once all associated plague clouds have expired naturally or been removed by an apothecary." },
         { EnablePlagueCloudRemovalFix, "Plague Cloud Removal Fix" },

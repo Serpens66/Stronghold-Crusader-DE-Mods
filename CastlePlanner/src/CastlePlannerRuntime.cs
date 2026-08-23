@@ -5,6 +5,7 @@ using SHCDESE.API;
 using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.Buildings;
 using SHCDESE.EventAPI.MapLoader;
+using SHCDESE.EventAPI.Units;
 using SHCDESE.Extensions;
 using SHCDESE.GameGlobals;
 using SHCDESE.Interop;
@@ -171,6 +172,9 @@ namespace CastlePlanner
             subscriptions.Add(BuildingR3EventHooks.OnBuildingSpawn.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
                 .Subscribe(OnBuildingSpawnPost));
+            subscriptions.Add(UnitR3EventHooks.OnUnitCreate.Observable
+                .Where(args => args.Phase == EventHookPhase.Pre)
+                .Subscribe(OnUnitCreatePre));
             subscriptions.Add(MapLoaderR3EventHooks.OnLoadSave.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
                 .Subscribe(OnLoadSave));
@@ -695,6 +699,63 @@ namespace CastlePlanner
                 return;
             }
             capturedSupplementalBuildingId = unchecked((int)args.ReturnValue);
+        }
+
+        private void OnUnitCreatePre(UnitCreateEventArgs args)
+        {
+            if (!executedAivCastles.TryGetValue(
+                    args.PlayerOwnerId,
+                    out PreparedAivCastle castle) ||
+                castle.Orientation == 0)
+            {
+                return;
+            }
+
+            AivRotation rotation = ToAivRotation(castle.Orientation);
+            if (!AivStarterUnitTransform.TryProjectReservedWorldPosition(
+                    args.WorldTileX,
+                    args.WorldTileY,
+                    castle.RequestedKeepX,
+                    castle.RequestedKeepY,
+                    rotation,
+                    out int targetWorldX,
+                    out int targetWorldY))
+            {
+                return;
+            }
+
+            int targetTileX = targetWorldX / 8;
+            int targetTileY = targetWorldY / 8;
+            if (!GameTileManagerAPI.Instance.IsTileInsideMapBounds(
+                    targetTileX,
+                    targetTileY))
+            {
+                Shared.DebugLogHelper.LogWarning(
+                    log,
+                    $"Rotated Vanilla starter-unit position skipped because its target is out of bounds: " +
+                    $"playerId={args.PlayerOwnerId}, unit={args.UnitType}, " +
+                    $"sourceWorld=({args.WorldTileX},{args.WorldTileY}), " +
+                    $"targetWorld=({targetWorldX},{targetWorldY}), orientation={castle.Orientation}.");
+                return;
+            }
+
+            int targetTileId = GameTileManagerAPI.Instance.GetTileId(
+                targetTileX,
+                targetTileY);
+            int targetHeight = GameTileManagerAPI.Instance.GetTileHeight(targetTileId);
+            int sourceWorldX = args.WorldTileX;
+            int sourceWorldY = args.WorldTileY;
+            int sourceHeight = args.HeightElevation;
+            args.WorldTileX = targetWorldX;
+            args.WorldTileY = targetWorldY;
+            args.HeightElevation = targetHeight;
+
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"Rotated Vanilla Keep-reserve unit spawn: playerId={args.PlayerOwnerId}, " +
+                $"unit={args.UnitType}, sourceWorld=({sourceWorldX},{sourceWorldY}), " +
+                $"targetWorld=({targetWorldX},{targetWorldY}), " +
+                $"height={sourceHeight}->{targetHeight}, orientation={castle.Orientation}.");
         }
 
         private void SpawnSupplementalContents(PreparedAivCastle castle)

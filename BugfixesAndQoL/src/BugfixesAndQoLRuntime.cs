@@ -36,6 +36,7 @@ namespace BugfixesAndQoL
         private SelectedUnitHealthFeature selectedUnitHealthFeature;
         private AssemblyPointPlacementPatch assemblyPointPlacementPatch;
         private AiRecruitmentHorseDemandFix aiRecruitmentHorseDemandFix;
+        private AiStoneReserveFix aiStoneReserveFix;
         private AITowerRuinRepairFix aiTowerRuinRepairFix;
         private PlaguePopularityFix plaguePopularityFix;
         private PlagueTreatmentFadeFix plagueTreatmentFadeFix;
@@ -51,6 +52,7 @@ namespace BugfixesAndQoL
         private bool enemyProximityFixedLayoutErrorLogged;
         private bool assemblyPointPlacementPatchUnavailable;
         private bool aiRecruitmentHorseDemandFixUnavailable;
+        private bool aiStoneReserveFixUnavailable;
         private bool aiTowerRuinRepairFixUnavailable;
         private bool plaguePopularityFixUnavailable;
         private bool plagueTreatmentFadeFixUnavailable;
@@ -179,6 +181,7 @@ namespace BugfixesAndQoL
             TryInitializeFeature("stuck-apothecary fix", EnsurePlagueApothecaryStateTransitionFix);
             TryInitializeFeature("assembly-point placement fix", ApplyAssemblyPointPlacementPatchSetting);
             TryInitializeFeature("AI recruitment horse-demand fix", EnsureAiRecruitmentHorseDemandFix);
+            TryInitializeFeature("AI stone-reserve fix", EnsureAiStoneReserveFix);
             TryInitializeFeature("AI tower-ruin repair fix", EnsureAiTowerRuinRepairFix);
             TryInitializeFeature("ally goods amount modifiers", InstallAllyGoodsAmountModifierHook);
             TryInitializeFeature("Ctrl single-unit market trade", InstallCtrlMarketTradeHook);
@@ -230,6 +233,8 @@ namespace BugfixesAndQoL
             DisableAssemblyPointPlacementPatch();
             aiRecruitmentHorseDemandFix?.Dispose();
             aiRecruitmentHorseDemandFix = null;
+            aiStoneReserveFix?.Dispose();
+            aiStoneReserveFix = null;
             aiTowerRuinRepairFix?.Dispose();
             aiTowerRuinRepairFix = null;
             plaguePopularityFix?.Dispose();
@@ -579,6 +584,32 @@ namespace BugfixesAndQoL
                 Shared.DebugLogHelper.LogError(
                     log,
                     $"Bugfixes and QoL AI recruitment horse-demand fix could not be installed; " +
+                    $"only this AI fix remains inactive and Vanilla behavior remains active: {ex}");
+            }
+        }
+
+        private void EnsureAiStoneReserveFix()
+        {
+            if (!nativeLibraryAvailable || aiStoneReserveFix != null || aiStoneReserveFixUnavailable)
+                return;
+
+            try
+            {
+                // Keep the hook installed so synchronized host setting changes can select
+                // between the refreshed surcharge and the untouched Vanilla value at runtime.
+                aiStoneReserveFix = new AiStoneReserveFix(
+                    log,
+                    settings,
+                    GetNativeLibraryMemory(),
+                    unchecked((ulong)libraryHandle.ToInt64()),
+                    fixedLayoutHashValidated);
+            }
+            catch (Exception ex)
+            {
+                aiStoneReserveFixUnavailable = true;
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Bugfixes and QoL AI stone-reserve fix could not be installed; " +
                     $"only this AI fix remains inactive and Vanilla behavior remains active: {ex}");
             }
         }

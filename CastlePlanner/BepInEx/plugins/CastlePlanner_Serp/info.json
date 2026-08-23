@@ -3,10 +3,17 @@
   "Author": "Serpens66",
   "Name": "CastlePlanner",
   "Description": "Displays AIVJSON blueprints, spawns personal human castles, and contains the gated AI lobby placement workflow.",
-  "Version": "0.7.5",
+  "Version": "0.7.6",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "0.7.6",
+      "Changes": [
+        "Rotates Vanilla Lord and starting-unit spawn positions from the original Keep reserve into the matching rotated reserve.",
+        "Recalculates starter-unit height at the rotated destination so buildings in the former unrotated campfire area cannot suppress the Lord spawn."
+      ]
+    },
     {
       "Version": "0.7.5",
       "Changes": [

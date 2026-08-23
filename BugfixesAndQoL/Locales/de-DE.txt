@@ -1,7 +1,7 @@
 # Serp mod localization
 # Format: key=value
 BugfixesAndQoL.EnableAiFixes=KI-Korrekturen
-BugfixesAndQoL.EnableAiFixesHelp=Korrigiert das Verhalten der Vanilla-KI. Verhindert derzeit, dass eine wegen eines fehlenden Pferdes gescheiterte Ritterrekrutierung ein altes Ergebnis fuer fehlende Waffen oder Ruestungen wiederverwendet und diese Ausruestung wiederholt kauft.
+BugfixesAndQoL.EnableAiFixesHelp=Korrigiert das Verhalten der Vanilla-KI. Verhindert, dass eine wegen eines fehlenden Pferdes gescheiterte Ritterrekrutierung ein altes Ergebnis fuer fehlende Waffen oder Ruestungen wiederverwendet und diese Ausruestung wiederholt kauft, und aktualisiert vor Steinverkaeufen die Reserve anhand noch offener Burggebaeude.
 BugfixesAndQoL.LordStanceVanillaBehavior=Vanilla-Verhalten
 BugfixesAndQoL.EnableIngameSteamInvitePrompt=Eingehende Steam-Einladungen im Spiel anzeigen
 BugfixesAndQoL.EnableIngameSteamInvitePromptHelp=Zeigt eine Ja/Nein-Abfrage, wenn dich ein Steam-Freund in eine Multiplayer-Lobby einlaedt. Die Abfrage erscheint nur im vollstaendig geladenen Frontend oder in einer aktiven Partie; waehrend Ladebildschirmen oder unsicheren Uebergaengen bleibt stattdessen Steams normale Einladung verfuegbar. Ja verlaesst die aktuelle Partie ueber Vanillas normalen Ablauf und tritt der eingeladenen Lobby bei. Diese Einstellung gilt pro Spieler.

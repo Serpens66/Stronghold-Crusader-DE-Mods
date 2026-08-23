@@ -42,6 +42,8 @@ internal static class Program
             TestGatehouseAutomationSaveState();
             TestAIMarketNativeResolution();
             TestAiRecruitmentHorseDemandNativeResolution();
+            TestAiStoneReserveNativeResolution();
+            TestAiStoneReservePolicy();
             TestMultiplayerGameSpeedPolicyAndPacket();
             TestMarketTradeIntegration();
             TestGameSpeedRepeatScheduler();
@@ -1912,6 +1914,152 @@ internal static class Program
             "ambiguous AI recruitment signature was accepted");
     }
 
+    private static void TestAiStoneReserveNativeResolution()
+    {
+        string pattern = AiStoneReserveNativeDefinition.SellerReservePattern;
+        int referenceRva = AiStoneReserveNativeDefinition.SellerReservePatternRva;
+        byte[] bytes = MaterializePattern(pattern, 0x5A);
+        Check(
+            AiStoneReserveNativeDefinition.SellerReserveHookRva == 0x3F1C1 &&
+            bytes[AiStoneReserveNativeDefinition.SellerReserveHookOffset] == 0x41 &&
+            bytes[AiStoneReserveNativeDefinition.SellerReserveHookOffset + 1] == 0x03 &&
+            bytes[AiStoneReserveNativeDefinition.SellerReserveHookOffset + 2] == 0xD1,
+            "AI stone-reserve hook offset does not point at add edx,r9d");
+
+        byte[] referenceImage = CreateExecutableTestImage(referenceRva + 0x1000);
+        CopyAt(referenceImage, referenceRva, bytes);
+        CopyAt(referenceImage, 0x3000, bytes);
+        NativeResolution reference = NativePatternResolver.ResolveUnique(
+            referenceImage,
+            pattern,
+            referenceRva,
+            referenceHashMatches: true,
+            "test AI seller stone reserve");
+        Check(reference.Rva == referenceRva && reference.Method == "reference-rva",
+            "AI stone-reserve matching hash did not use only the validated reference RVA");
+
+        byte[] fallbackImage = CreateExecutableTestImage(0x10000);
+        CopyAt(fallbackImage, 0x3000, bytes);
+        NativeResolution fallback = NativePatternResolver.ResolveUnique(
+            fallbackImage,
+            pattern,
+            referenceRva,
+            referenceHashMatches: false,
+            "test AI seller stone reserve");
+        Check(fallback.Rva == 0x3000 && fallback.Method == "signature-fallback",
+            "AI stone-reserve unknown hash did not use its unique executable signature");
+
+        ExpectInvalidOperation(
+            () => NativePatternResolver.ResolveUnique(
+                CreateExecutableTestImage(0x10000),
+                pattern,
+                referenceRva,
+                referenceHashMatches: false,
+                "missing AI seller stone reserve"),
+            "missing AI stone-reserve signature was accepted");
+
+        byte[] ambiguousImage = CreateExecutableTestImage(0x10000);
+        CopyAt(ambiguousImage, 0x3000, bytes);
+        CopyAt(ambiguousImage, 0x5000, bytes);
+        ExpectInvalidOperation(
+            () => NativePatternResolver.ResolveUnique(
+                ambiguousImage,
+                pattern,
+                referenceRva,
+                referenceHashMatches: false,
+                "ambiguous AI seller stone reserve"),
+            "ambiguous AI stone-reserve signature was accepted");
+    }
+
+    private static void TestAiStoneReservePolicy()
+    {
+        Check(
+            AiStoneReservePolicy.TryGetPlayerId(
+                3UL * AiStoneReservePolicy.PlayerResourceStrideElements,
+                out int playerId) && playerId == 3,
+            "AI stone-reserve policy did not decode a valid seller player offset");
+        Check(
+            !AiStoneReservePolicy.TryGetPlayerId(
+                3UL * AiStoneReservePolicy.PlayerResourceStrideElements + 1,
+                out _) &&
+            !AiStoneReservePolicy.TryGetPlayerId(0, out _) &&
+            !AiStoneReservePolicy.TryGetPlayerId(
+                9UL * AiStoneReservePolicy.PlayerResourceStrideElements,
+                out _),
+            "AI stone-reserve policy accepted an invalid seller player offset");
+
+        byte[] table = new byte[AiStoneReservePolicy.AivSlotCount * AiStoneReservePolicy.AivSlotSize];
+        int expectedSlotOffset = 4 * AiStoneReservePolicy.AivSlotSize;
+        WriteInt32(table, expectedSlotOffset + AiStoneReservePolicy.PlayerIdOffset, 3);
+        Check(
+            AiStoneReservePolicy.TryFindPlayerSlot(table, 3, out int slotOffset) &&
+            slotOffset == expectedSlotOffset,
+            "AI stone-reserve policy did not find the unique player AIV slot");
+        Check(
+            !AiStoneReservePolicy.TryFindPlayerSlot(table, 9, out _) &&
+            !AiStoneReservePolicy.TryFindPlayerSlot(new byte[32], 3, out _),
+            "AI stone-reserve policy accepted invalid player or table bounds");
+        WriteInt32(
+            table,
+            5 * AiStoneReservePolicy.AivSlotSize + AiStoneReservePolicy.PlayerIdOffset,
+            3);
+        Check(
+            !AiStoneReservePolicy.TryFindPlayerSlot(table, 3, out _),
+            "AI stone-reserve policy accepted duplicate player AIV slots");
+
+        byte[] slot = new byte[AiStoneReservePolicy.AivSlotSize];
+        WriteInt32(slot, AiStoneReservePolicy.TotalStepsOffset, 5);
+        WriteAivStep(slot, 0, 1, 100);
+        WriteAivStep(slot, 1, 5, 101);
+        WriteAivStep(slot, 2, 3, 102);
+        WriteAivStep(slot, 3, 0, 103);
+        WriteAivStep(slot, 4, 4, 104);
+        var costs = new Dictionary<short, int?>
+        {
+            { 100, 20 },
+            { 101, 40 },
+            { 102, 99 },
+            { 103, 99 },
+            { 104, 99 }
+        };
+        Check(
+            AiStoneReservePolicy.TryCalculateReserve(slot, type => costs[type], out int reserve) &&
+            reserve == 40,
+            "AI stone-reserve policy did not select the maximum open building cost");
+
+        costs[101] = 65;
+        Check(
+            AiStoneReservePolicy.TryCalculateReserve(slot, type => costs[type], out reserve) &&
+            reserve == 65,
+            "AI stone-reserve policy cached a stale building cost");
+        costs[100] = null;
+        costs[101] = null;
+        Check(
+            AiStoneReservePolicy.TryCalculateReserve(slot, type => costs[type], out reserve) &&
+            reserve == 0,
+            "AI stone-reserve policy did not ignore non-building AIV commands");
+
+        WriteAivStep(slot, 0, 3, 100);
+        WriteAivStep(slot, 1, 3, 101);
+        Check(
+            AiStoneReservePolicy.TryCalculateReserve(slot, type => costs[type], out reserve) &&
+            reserve == 0,
+            "AI stone-reserve policy retained a reserve after all buildings completed");
+
+        WriteAivStep(slot, 0, 2, 100);
+        Check(
+            !AiStoneReservePolicy.TryCalculateReserve(slot, type => 20, out _),
+            "AI stone-reserve policy accepted an unknown AIV step status");
+        WriteAivStep(slot, 0, 1, 100);
+        Check(
+            !AiStoneReservePolicy.TryCalculateReserve(slot, type => -1, out _),
+            "AI stone-reserve policy accepted a negative building cost");
+        WriteInt32(slot, AiStoneReservePolicy.TotalStepsOffset, AiStoneReservePolicy.MaximumSteps + 1);
+        Check(
+            !AiStoneReservePolicy.TryCalculateReserve(slot, type => 20, out _),
+            "AI stone-reserve policy accepted an invalid step count");
+    }
+
     private static byte[] CreateExecutableTestImage(int length)
     {
         byte[] image = new byte[length];
@@ -1947,6 +2095,19 @@ internal static class Program
     {
         byte[] bytes = BitConverter.GetBytes(value);
         Array.Copy(bytes, 0, destination, offset, bytes.Length);
+    }
+
+    private static void WriteAivStep(
+        byte[] destination,
+        int stepIndex,
+        byte status,
+        short commandBuildingType)
+    {
+        int offset = AiStoneReservePolicy.StepsOffset + stepIndex * AiStoneReservePolicy.StepSize;
+        destination[offset] = status;
+        byte[] typeBytes = BitConverter.GetBytes(commandBuildingType);
+        destination[offset + 2] = typeBytes[0];
+        destination[offset + 3] = typeBytes[1];
     }
 
     private static void ExpectInvalidOperation(Action action, string failureMessage)
