@@ -76,6 +76,7 @@
     <Compile Include="src\CustomTrailExtremeGoldFixHook.cs" />
     <Compile Include="src\CustomLordListEnhancementHook.cs" />
     <Compile Include="src\DisplayResolutionPersistenceHook.cs" />
+    <Compile Include="src\DisplayResolutionDiagnostic.cs" />
     <Compile Include="src\DisplayResolutionFocusState.cs" />
     <Compile Include="src\BugfixesAndQoLPlugin.cs" />
     <Compile Include="src\BugfixesAndQoLRuntime.cs" />

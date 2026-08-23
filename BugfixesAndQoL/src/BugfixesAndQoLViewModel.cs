@@ -35,7 +35,7 @@ namespace BugfixesAndQoL
         private bool enableShiftGameSpeedSteps = true;
         private bool enableAllyGoodsAmountModifiers = true;
         private bool enableCustomTrailExtremeGoldFix = true;
-        private bool preserveDisplayResolution = true;
+        private bool preserveDisplayResolution;
         private readonly LocalPerPlayerSetting<bool> enableClientFeatures = new LocalPerPlayerSetting<bool>(true);
         private readonly LocalPerPlayerSetting<bool> enableMinimapCursorFollowFix = new LocalPerPlayerSetting<bool>(true);
         private readonly LocalPerPlayerSetting<bool> enableMarketKeyMainMenuFix = new LocalPerPlayerSetting<bool>(true);
@@ -473,7 +473,7 @@ namespace BugfixesAndQoL
             EnableIngameSteamInvitePrompt = true;
             ShowSelectedUnitHealth = true;
             EnableCustomTrailExtremeGoldFix = true;
-            PreserveDisplayResolution = true;
+            PreserveDisplayResolution = false;
             EnableAllyGoodsAmountModifiers = true;
         }
 

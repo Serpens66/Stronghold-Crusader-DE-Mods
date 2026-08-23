@@ -26,9 +26,10 @@ namespace BugfixesAndQoL
 
         public const string PluginGuid = "BugfixesAndQoL_Serp";
         public const string PluginName = "Bugfixes and QoL";
-        public const string PluginVersion = "1.0.68";
+        public const string PluginVersion = "1.0.69";
 
         private static DisplayResolutionPersistenceHook displayResolutionPersistenceHook;
+        private static DisplayResolutionDiagnostic displayResolutionDiagnostic;
         private static SteamLobbyInvitePrompt steamLobbyInvitePrompt;
         private BugfixesAndQoLRuntime runtime;
         private bool marketGoodsVisualRefreshFailureLogged;
@@ -60,6 +61,18 @@ namespace BugfixesAndQoL
                 Shared.DebugLogHelper.LogError(
                     Logger,
                     $"Bugfixes and QoL display-resolution persistence could not be initialized; Vanilla behavior remains active: {ex}");
+            }
+            try
+            {
+                // Kept separate so this temporary observer can be removed without touching the fix.
+                displayResolutionDiagnostic =
+                    new DisplayResolutionDiagnostic(Logger, Settings);
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(
+                    Logger,
+                    $"Bugfixes and QoL display-resolution diagnostic could not be initialized: {ex}");
             }
 
             runtime = new BugfixesAndQoLRuntime(Logger, Settings);
