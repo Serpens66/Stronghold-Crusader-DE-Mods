@@ -84,13 +84,6 @@ In multiplayer, gameplay-related settings are controlled by the host and synchro
 [/list]
 
 
-[h2]CastlePlanner[/h2]
-[list]
-[*]Spawn a selected aivjson castle in new singleplayer game for the human player at game start
-[*]Load custom aivjson castles as visible blueprints ingame, so you can copy build your favorite AI castle
-[*]Select your castle and set blueprint icon size and opacity by the ingame button on the bottom left
-[/list]
-
 [h2]StartConditions[/h2]
 [list]
 [*]Set or add starting gold for [b]human and AI[/b] players
@@ -132,3 +125,20 @@ In multiplayer, gameplay-related settings are controlled by the host and synchro
 [*]Auto install via subscribe may fail on linux, see source below to download release there
 
 [h1][url=https://github.com/Serpens66/Stronghold-Crusader-DE-Mods]GitHub – Source Code[/url][/h1]
+
+
+[h2]Soon:[/h2]
+
+[b]CastlePlanner[/b]
+[list]
+[*]Spawn a selected aivjson castle in new game for human players at game start
+[*]Load custom aivjson castles as visible blueprints ingame, so you can copy build your favorite AI castle
+[*]Select your castle and set blueprint icon size and opacity by the ingame button on the bottom left
+[/list]
+
+[b]CustomCustomTrails[/b]
+[list]
+[*]Adds "customize" Button to all trails.
+[*]Allows you to create a shared "custom coop trails".
+[*]Define specific modsetting presets for your trail mission, eg. including the unit/building limit and costs mods to make the game more challenging!
+[/list]

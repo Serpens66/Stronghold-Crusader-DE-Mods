@@ -845,19 +845,32 @@ try {
     $confirmation = Read-Host 'Type VEROEFFENTLICHEN to apply source changes, commit, push and publish required releases'
     if ($confirmation -cne 'VEROEFFENTLICHEN') { Fail-Pack 2 'Publishing cancelled.' }
 
+    $confirmedStatus = (Invoke-Git @('status','--porcelain=v1','--untracked-files=normal')).Output
+    if ($confirmedStatus.Count -gt 0) {
+        Fail-Pack 2 "Git working tree changed while awaiting publishing confirmation. Commit or otherwise resolve these changes, then restart the workflow:`r`n$($confirmedStatus -join "`r`n")"
+    }
+
     $journal = [ordered]@{ SchemaVersion = 1; RunId = $script:RunId; StartedUtc = [DateTime]::UtcNow.ToString('o'); CompletedReleases = @(); Status = 'source-preparation' }
     Write-JsonCrLf -Path $script:JournalPath -Value $journal
     foreach ($mod in @($mods | Where-Object NeedsSourceEdit)) { Set-ModCompatibility $mod }
     Add-ReleaseProjectIfNeeded $mods
     foreach ($mod in @($mods | Where-Object NeedsSourceEdit)) { Invoke-ModBuild $mod }
 
-    $sourceStatus = (Invoke-Git @('status','--porcelain=v1','--untracked-files=normal')).Output
-    if ($sourceStatus.Count -gt 0) {
-        $paths = @($mods | Where-Object NeedsSourceEdit | ForEach-Object { $_.Name })
-        if (@($mods | Where-Object NeedsProjectRegistration).Count -gt 0) { $paths += 'Shared/Release/release-projects.json' }
+    $paths = @($mods | Where-Object NeedsSourceEdit | ForEach-Object { $_.Name })
+    if (@($mods | Where-Object NeedsProjectRegistration).Count -gt 0) { $paths += 'Shared/Release/release-projects.json' }
+    if ($paths.Count -gt 0) {
         Invoke-Git (@('add','--') + $paths) | Out-Null
+        $stagedPaths = (Invoke-Git @('diff','--cached','--name-only')).Output
+    } else {
+        $stagedPaths = @()
+    }
+    if ($stagedPaths.Count -gt 0) {
         Invoke-Git @('commit','-m','Add Serps Mods Workshop pack compatibility') | Out-Null
         Invoke-Git @('push','origin',$script:Branch) | Out-Null
+    }
+    $unexpectedStatus = (Invoke-Git @('status','--porcelain=v1','--untracked-files=normal')).Output
+    if ($unexpectedStatus.Count -gt 0) {
+        Fail-Pack 5 "Unexpected working-tree changes remain after source preparation. They were not committed:`r`n$($unexpectedStatus -join "`r`n")"
     }
 
     foreach ($mod in @($mods | Where-Object NeedsRelease)) {
