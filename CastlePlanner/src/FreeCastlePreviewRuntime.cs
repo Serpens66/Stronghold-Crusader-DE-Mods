@@ -10,6 +10,7 @@ using SHCDESE.Interop.Enums;
 using Steamworks;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
@@ -40,6 +41,7 @@ namespace CastlePlanner
         private enum PreviewState
         {
             Inactive,
+            AwaitingGameplay,
             Loading,
             Selecting,
             Distributing,
@@ -58,7 +60,8 @@ namespace CastlePlanner
         private readonly Dictionary<int, IncomingTransfer> incoming =
             new Dictionary<int, IncomingTransfer>();
         private readonly HashSet<ulong> manifestAcks = new HashSet<ulong>();
-        private readonly List<string> castleChoices = new List<string>();
+        private readonly ObservableCollection<string> castleChoices =
+            new ObservableCollection<string>();
         private readonly List<string> rotations = new List<string>
         {
             "0°", "90°", "180°", "270°"
@@ -88,6 +91,7 @@ namespace CastlePlanner
         private bool bypassPauseHook;
         private bool bypassLeaveLobbyHook;
         private bool bypassStartCapture;
+        private bool briefingObserved;
         private long countdownStarted;
         private long distributionStarted;
         private long lastReadySent;
@@ -108,11 +112,13 @@ namespace CastlePlanner
         public event PropertyChangedEventHandler PropertyChanged;
 
         public ICommand ConfirmCommand { get; }
-        public IReadOnlyList<string> CastleChoices => castleChoices;
+        public ObservableCollection<string> CastleChoices => castleChoices;
         public IReadOnlyList<string> RotationChoices => rotations;
         public bool IsPreviewActive =>
             state == PreviewState.Loading || state == PreviewState.Selecting ||
             state == PreviewState.Distributing;
+        private bool IsPreviewPendingOrActive =>
+            state == PreviewState.AwaitingGameplay || IsPreviewActive;
         public bool IsSpawnMapPass => state == PreviewState.SpawnMap;
         public bool IsLocalConfirmed => localConfirmed;
         public bool CanConfirm => state == PreviewState.Selecting && !localConfirmed;
@@ -254,7 +260,7 @@ namespace CastlePlanner
             int actionState,
             int value2)
         {
-            if (!bypassPauseHook && IsPreviewActive &&
+            if (!bypassPauseHook && IsPreviewPendingOrActive &&
                 command == Enums.GameActionCommand.Game_Paused && actionState == 0)
             {
                 Shared.DebugLogHelper.LogInfo(log, "Unpause command suppressed during castle selection.");
@@ -265,7 +271,7 @@ namespace CastlePlanner
 
         private void LeaveLobbyHook(Platform_Multiplayer self, bool preserveGameMembers)
         {
-            if (!bypassLeaveLobbyHook && IsPreviewActive && realMultiplayer)
+            if (!bypassLeaveLobbyHook && IsPreviewPendingOrActive && realMultiplayer)
             {
                 Shared.DebugLogHelper.LogInfo(log, "Vanilla lobby departure deferred during castle selection.");
                 return;
@@ -287,7 +293,7 @@ namespace CastlePlanner
                     return;
 
                 ResetPreview();
-                state = PreviewState.Loading;
+                state = PreviewState.AwaitingGameplay;
                 operationId = unchecked((int)DateTime.UtcNow.Ticks) & int.MaxValue;
                 realMultiplayer = Shared.GameModeHelper.IsRealMultiplayer(false);
                 localPlayerId = ResolveLocalPlayerId();
@@ -296,15 +302,18 @@ namespace CastlePlanner
                 NotifyAll();
                 Shared.DebugLogHelper.LogInfo(
                     log,
-                    $"Castle preview armed in OnStartMap(Pre): operation={operationId}, localPlayer={localPlayerId}, multiplayer={realMultiplayer}, roster=[{string.Join(",", roster.OrderBy(id => id))}].");
+                    $"Castle preview pause armed in OnStartMap(Pre): operation={operationId}, localPlayer={localPlayerId}, multiplayer={realMultiplayer}, roster=[{string.Join(",", roster.OrderBy(id => id))}].");
                 return;
             }
 
-            if (args.Phase == EventHookPhase.Post && state == PreviewState.Loading)
+            if (args.Phase == EventHookPhase.Post &&
+                state == PreviewState.AwaitingGameplay)
             {
                 ApplyPause(true);
                 RebuildChoices();
-                MarkLocalReady();
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    "Castle selection is waiting for Vanilla's start-situation screen to close.");
             }
         }
 
@@ -328,7 +337,7 @@ namespace CastlePlanner
                 NotifyAll();
                 return;
             }
-            if (IsPreviewActive)
+            if (IsPreviewPendingOrActive)
             {
                 Shared.DebugLogHelper.LogWarning(log, "Castle preview map unloaded before a decision; state discarded.");
                 ResetPreview();
@@ -643,9 +652,14 @@ namespace CastlePlanner
 
         private void OnBeforeRender()
         {
-            if (!IsPreviewActive || Time.frameCount == lastFrame)
+            if (!IsPreviewPendingOrActive || Time.frameCount == lastFrame)
                 return;
             lastFrame = Time.frameCount;
+            if (state == PreviewState.AwaitingGameplay)
+            {
+                TryBeginSelectionAfterVanillaStartScreen();
+                return;
+            }
             Notify(nameof(TimerText));
             if (realMultiplayer && state == PreviewState.Loading &&
                 Platform_Multiplayer.Instance?.activeLobby?.isHost != true &&
@@ -669,6 +683,33 @@ namespace CastlePlanner
                     noneDecisions.Add(playerId);
                 TryFinalizeAsHost();
             }
+        }
+
+        private void TryBeginSelectionAfterVanillaStartScreen()
+        {
+            if (!MainViewModel.viewModelLoaded)
+                return;
+
+            MainViewModel viewModel = MainViewModel.Instance;
+            if (viewModel == null || viewModel.Show_BlackOut)
+                return;
+            if (viewModel.Show_HUD_Briefing)
+            {
+                briefingObserved = true;
+                return;
+            }
+            if (!viewModel.Show_HUD_Main)
+                return;
+
+            ApplyPause(true);
+            state = PreviewState.Loading;
+            NotifyAll();
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                briefingObserved
+                    ? "Vanilla start-situation screen closed; castle selection opened."
+                    : "Gameplay HUD became active without a start-situation screen; castle selection opened.");
+            MarkLocalReady();
         }
 
         private void CommitRestart()
@@ -829,7 +870,8 @@ namespace CastlePlanner
             settings.EnsureCastleCatalogLoaded();
             castleChoices.Clear();
             castleChoices.Add(NoneText);
-            castleChoices.AddRange(settings.CastleOptions);
+            foreach (string option in settings.CastleOptions)
+                castleChoices.Add(option);
             selectedChoice = settings.CastleOptions.Contains(settings.SelectedCastle)
                 ? settings.SelectedCastle
                 : NoneText;
@@ -912,6 +954,7 @@ namespace CastlePlanner
             manifestAcks.Clear();
             committedSelections.Clear();
             localConfirmed = false;
+            briefingObserved = false;
             countdownStarted = 0;
             statusText = string.Empty;
             selectedRotation = "0°";

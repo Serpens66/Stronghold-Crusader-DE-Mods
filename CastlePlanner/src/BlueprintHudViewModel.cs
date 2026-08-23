@@ -1,6 +1,6 @@
 using SHCDESE.NoesisUtil;
 using System;
-using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Windows.Input;
 
@@ -11,6 +11,10 @@ namespace CastlePlanner
         private const string HudHostName = "CastlePlannerBlueprintHud";
         private const string DragHandleName =
             "CastlePlannerBlueprintDragHandle";
+        private const string CastleComboBoxName =
+            "CastlePlannerCastleComboBox";
+        private const string RotationComboBoxName =
+            "CastlePlannerRotationComboBox";
         private const double DesiredPanelWidth = 360.0;
         private const double NormalPanelHeight = 210.0;
         private const double PreviewPanelHeight = 310.0;
@@ -39,6 +43,8 @@ namespace CastlePlanner
         private Noesis.Point dragStartPointer;
         private Noesis.FrameworkElement hudHost;
         private Noesis.FrameworkElement dragHandle;
+        private Noesis.ComboBox castleComboBox;
+        private Noesis.ComboBox rotationComboBox;
         private Noesis.UIElement dragCaptureElement;
 
         public BlueprintHudViewModel(
@@ -72,7 +78,8 @@ namespace CastlePlanner
         public string PreviewStatusText => preview.StatusText;
         public string ConfirmCastleText => preview.ConfirmText;
         public string RotationText => preview.RotationText;
-        public IReadOnlyList<string> RotationOptions => preview.RotationChoices;
+        public System.Collections.Generic.IReadOnlyList<string> RotationOptions =>
+            preview.RotationChoices;
         public bool CanConfirmCastle => preview.CanConfirm;
         public bool CanSelectCastle => !PreviewVisible || preview.CanConfirm;
         public bool CanSelectRotation => preview.CanConfirm && preview.HasSelectedCastle;
@@ -89,7 +96,9 @@ namespace CastlePlanner
             set => preview.SelectedRotation = value;
         }
 
-        public IEnumerable<string> CastleOptions => PreviewVisible
+        // Preserve the original working ObservableCollection binding. The
+        // preview provides the same concrete collection type and adds None.
+        public ObservableCollection<string> CastleOptions => PreviewVisible
             ? preview.CastleChoices
             : settings.CastleOptions;
 
@@ -269,6 +278,25 @@ namespace CastlePlanner
         {
             FinishDrag(savePosition: true);
             CloseSettingsPanel();
+            DetachHudElements();
+        }
+
+        public void EnsureInteractiveElementsAttached()
+        {
+            if (!HudVisible || !SettingsPanelVisible || hudHost != null)
+                return;
+
+            Noesis.FrameworkElement host =
+                SHCDESE.API.GameXAMLManagerAPI.Instance.FindGlobalElement(
+                    HudHostName);
+            if (host != null)
+                AttachHudElements(host);
+        }
+
+        public bool ShouldSuppressMapZoom()
+        {
+            return IsPointerOverOpenDropDown(castleComboBox) ||
+                IsPointerOverOpenDropDown(rotationComboBox);
         }
 
         private void ToggleSettingsPanel(object parameter)
@@ -315,32 +343,93 @@ namespace CastlePlanner
                 host.FindName(DragHandleName) as Noesis.FrameworkElement;
             if (candidate == null)
                 candidate = FindDescendantByName(host, DragHandleName);
-            if (candidate == null || ReferenceEquals(dragHandle, candidate))
-                return;
+            if (candidate != null && !ReferenceEquals(dragHandle, candidate))
+            {
+                DetachDragHandle();
+                dragHandle = candidate;
+                // Direct CLR event subscriptions avoid the Noesis behavior bridge,
+                // which did not dispatch the title-bar drag events in game.
+                dragHandle.PreviewMouseDown += OnDragHandleMouseDown;
+                dragHandle.PreviewMouseMove += OnDragHandleMouseMove;
+                dragHandle.PreviewMouseUp += OnDragHandleMouseUp;
+                dragHandle.LostMouseCapture += OnDragHandleLostMouseCapture;
+                settings.LogBlueprintHudMessage(
+                    $"Blueprint HUD drag handle attached to direct Noesis mouse " +
+                    $"events: host={hudHost.ActualWidth:0.0}x" +
+                    $"{hudHost.ActualHeight:0.0}, viewport={viewportWidth:0.0}x" +
+                    $"{viewportHeight:0.0}.");
+            }
 
-            DetachDragHandle();
-            dragHandle = candidate;
-            // Direct CLR event subscriptions avoid the Noesis behavior bridge,
-            // which did not dispatch the title-bar drag events in game.
-            dragHandle.PreviewMouseDown += OnDragHandleMouseDown;
-            dragHandle.PreviewMouseMove += OnDragHandleMouseMove;
-            dragHandle.PreviewMouseUp += OnDragHandleMouseUp;
-            dragHandle.LostMouseCapture += OnDragHandleLostMouseCapture;
-            settings.LogBlueprintHudMessage(
-                $"Blueprint HUD drag handle attached to direct Noesis mouse " +
-                $"events: host={hudHost.ActualWidth:0.0}x" +
-                $"{hudHost.ActualHeight:0.0}, viewport={viewportWidth:0.0}x" +
-                $"{viewportHeight:0.0}.");
+            AttachComboBox(
+                ref castleComboBox,
+                FindElement<Noesis.ComboBox>(host, CastleComboBoxName));
+            AttachComboBox(
+                ref rotationComboBox,
+                FindElement<Noesis.ComboBox>(host, RotationComboBoxName));
         }
 
         private void DetachHudElements()
         {
             FinishDrag(savePosition: true);
             DetachDragHandle();
+            DetachComboBox(ref castleComboBox);
+            DetachComboBox(ref rotationComboBox);
             if (hudHost != null)
             {
                 hudHost.SizeChanged -= OnHudHostSizeChanged;
                 hudHost = null;
+            }
+        }
+
+        private void AttachComboBox(
+            ref Noesis.ComboBox current,
+            Noesis.ComboBox candidate)
+        {
+            if (candidate == null || ReferenceEquals(current, candidate))
+                return;
+            DetachComboBox(ref current);
+            current = candidate;
+            current.PreviewMouseWheel += OnComboBoxPreviewMouseWheel;
+        }
+
+        private void DetachComboBox(ref Noesis.ComboBox comboBox)
+        {
+            if (comboBox == null)
+                return;
+            comboBox.PreviewMouseWheel -= OnComboBoxPreviewMouseWheel;
+            comboBox = null;
+        }
+
+        private static T FindElement<T>(
+            Noesis.FrameworkElement host,
+            string name)
+            where T : Noesis.FrameworkElement
+        {
+            return host.FindName(name) as T ??
+                FindDescendantByName(host, name) as T;
+        }
+
+        private static bool IsPointerOverOpenDropDown(Noesis.ComboBox comboBox)
+        {
+            if (comboBox == null || !comboBox.IsDropDownOpen)
+                return false;
+
+            comboBox.ApplyTemplate();
+            Noesis.Popup popup = comboBox.GetTemplateChild("PART_Popup") as Noesis.Popup ??
+                comboBox.Template?.FindName("PART_Popup", comboBox) as Noesis.Popup;
+            return comboBox.IsMouseOver || popup?.Child?.IsMouseOver == true;
+        }
+
+        private static void OnComboBoxPreviewMouseWheel(
+            object sender,
+            Noesis.MouseWheelEventArgs args)
+        {
+            // A closed selector must not cycle values from the wheel. Leaving
+            // the event untouched while open lets its popup scroll normally.
+            if (!(sender is Noesis.ComboBox comboBox) ||
+                !comboBox.IsDropDownOpen)
+            {
+                args.Handled = true;
             }
         }
 
@@ -652,6 +741,8 @@ namespace CastlePlanner
                     OnPropertyChanged(nameof(CanSelectCastle));
                     OnPropertyChanged(nameof(CanSelectRotation));
                     OnPropertyChanged(nameof(PanelHeight));
+                    if (preview.IsPreviewActive)
+                        SettingsPanelVisible = true;
                     if (!isDragging)
                         ApplyStoredOrDefaultPosition();
                     break;

@@ -252,6 +252,8 @@ foreach ($required in @(
     'Height="{Binding PanelHeight}"',
     'VerticalScrollBarVisibility="Auto"',
     'HorizontalScrollBarVisibility="Auto"',
+    'x:Name="CastlePlannerCastleComboBox"',
+    'x:Name="CastlePlannerRotationComboBox"',
     'IsEnabled="{Binding CanSelectCastle}"',
     'IsEnabled="{Binding CanSelectRotation}"',
     'Command="{Binding ConfirmCastleCommand}"')) {
@@ -259,8 +261,20 @@ foreach ($required in @(
         throw "CastlePlanner unified preview HUD marker is missing: $required"
     }
 }
+foreach ($forbidden in @('ToolTip=', 'ToolTipService.')) {
+    if ($castleHudXaml.Contains($forbidden)) {
+        throw "CastlePlanner Ingame Blueprint HUD retained a hover tooltip: $forbidden"
+    }
+}
 $castleHudSource = [IO.File]::ReadAllText((Join-Path $workspace 'CastlePlanner/src/BlueprintHudViewModel.cs'))
 foreach ($required in @(
+    'ObservableCollection<string> CastleOptions => PreviewVisible',
+    '? preview.CastleChoices',
+    ': settings.CastleOptions;',
+    'SettingsPanelVisible = true;',
+    'current.PreviewMouseWheel += OnComboBoxPreviewMouseWheel;',
+    '!comboBox.IsDropDownOpen',
+    'popup?.Child?.IsMouseOver == true',
     'get => PreviewVisible ? preview.SelectedChoice : settings.SelectedCastle;',
     'preview.SelectedChoice = value;',
     'ClampPanelExtent(',
@@ -273,8 +287,29 @@ foreach ($required in @(
     }
 }
 $castleBlueprintRuntimeSource = [IO.File]::ReadAllText((Join-Path $workspace 'CastlePlanner/src/BlueprintRuntimeController.cs'))
+foreach ($required in @(
+    'InstallCameraWheelGuard();',
+    'Hud?.EnsureInteractiveElementsAttached();',
+    'Hud?.ShouldSuppressMapZoom() == true',
+    'camera.AllowZoom = false;')) {
+    if (-not $castleBlueprintRuntimeSource.Contains($required)) {
+        throw "CastlePlanner dropdown-exclusive wheel marker is missing: $required"
+    }
+}
 if (-not $castleBlueprintRuntimeSource.Contains('preview.IsPreviewActive && !preview.HasSelectedCastle')) {
     throw 'CastlePlanner does not hide the Blueprint for the No castle preview selection.'
+}
+$castlePreviewRuntimeSource = [IO.File]::ReadAllText((Join-Path $workspace 'CastlePlanner/src/FreeCastlePreviewRuntime.cs'))
+foreach ($required in @(
+    'ObservableCollection<string> CastleChoices => castleChoices;',
+    'state == PreviewState.AwaitingGameplay',
+    'viewModel.Show_BlackOut',
+    'viewModel.Show_HUD_Briefing',
+    'viewModel.Show_HUD_Main',
+    'Vanilla start-situation screen closed; castle selection opened.')) {
+    if (-not $castlePreviewRuntimeSource.Contains($required)) {
+        throw "CastlePlanner preview selector or start-screen lifecycle marker is missing: $required"
+    }
 }
 foreach ($forbidden in @(
     'SpawnSelectedCastleData',

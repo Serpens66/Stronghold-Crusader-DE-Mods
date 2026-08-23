@@ -1,5 +1,6 @@
 using BepInEx.Logging;
 using CrusaderDE;
+using MonoMod.RuntimeDetour;
 using R3;
 using SHCDESE.API;
 using SHCDESE.EventAPI;
@@ -10,12 +11,15 @@ using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Reflection;
 using UnityEngine;
 
 namespace CastlePlanner
 {
     internal sealed class BlueprintRuntimeController
     {
+        private delegate void CameraUpdateDelegate(CameraControls2D self);
+
         private const float ViewSettleDelaySeconds = 0.5f;
         private static readonly KeyCode[] SupportedKeys = CreateSupportedKeys();
         private readonly List<IDisposable> subscriptions =
@@ -48,6 +52,8 @@ namespace CastlePlanner
         private float nextRuntimeErrorLogTime;
         private int lastTickFrame = -1;
         private bool beforeRenderCallbackObserved;
+        private Hook cameraUpdateHook;
+        private CameraUpdateDelegate cameraUpdateTrampoline;
 
         public BlueprintHudViewModel Hud { get; private set; }
 
@@ -79,6 +85,7 @@ namespace CastlePlanner
                 sizeCalibration,
                 buildingImageLibrary);
             Hud = new BlueprintHudViewModel(ToggleBlueprint, settings, preview);
+            InstallCameraWheelGuard();
 
             settings.SettingsChanged += OnSettingsChanged;
             settings.BlueprintVisualSettingsChanged +=
@@ -172,6 +179,7 @@ namespace CastlePlanner
                 mainViewModel != null &&
                 (mainViewModel.Show_HUD_Extras_Button_Objectves ||
                  mainViewModel.Show_HUD_Extras_Button_Freebuild));
+            Hud?.EnsureInteractiveElementsAttached();
             UpdateHotkeyCapture();
             EnsureEditorMapState();
             if (!mapActive && IsSimulationActive())
@@ -245,6 +253,26 @@ namespace CastlePlanner
             {
                 ToggleBlueprint();
             }
+        }
+
+        private void InstallCameraWheelGuard()
+        {
+            MethodInfo update = typeof(CameraControls2D).GetMethod(
+                "Update",
+                BindingFlags.Instance | BindingFlags.NonPublic) ??
+                throw new MissingMethodException("CameraControls2D.Update");
+            cameraUpdateHook = new Hook(
+                update,
+                (CameraUpdateDelegate)CameraUpdateHook);
+            cameraUpdateTrampoline =
+                cameraUpdateHook.GenerateTrampoline<CameraUpdateDelegate>();
+        }
+
+        private void CameraUpdateHook(CameraControls2D camera)
+        {
+            if (Hud?.ShouldSuppressMapZoom() == true)
+                camera.AllowZoom = false;
+            cameraUpdateTrampoline(camera);
         }
 
         private void OnStartMap(MapStartEventArgs args)

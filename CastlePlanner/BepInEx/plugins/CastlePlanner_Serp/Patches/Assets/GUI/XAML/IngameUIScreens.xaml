@@ -71,24 +71,22 @@
             <TextBlock Text="AIVJSON"
                        Foreground="#FFE8F2FF"
                        Margin="0,6,0,2"/>
-            <ComboBox ItemsSource="{Binding CastleOptions}"
+            <ComboBox x:Name="CastlePlannerCastleComboBox"
+                      ItemsSource="{Binding CastleOptions}"
                       SelectedItem="{Binding SelectedCastle, Mode=TwoWay}"
                       MaxDropDownHeight="420"
                       Height="30"
-                      IsEnabled="{Binding CanSelectCastle}"
-                      ToolTip="AIVJSON"
-                      ToolTipService.ShowDuration="60000"/>
+                      IsEnabled="{Binding CanSelectCastle}"/>
 
             <StackPanel Visibility="{Binding PreviewVisible, Converter={StaticResource booleanToVisibilityConverter}}">
               <TextBlock Text="{Binding RotationText}"
                          Foreground="#FFE8F2FF"
                          Margin="0,6,0,2"/>
-              <ComboBox ItemsSource="{Binding RotationOptions}"
+              <ComboBox x:Name="CastlePlannerRotationComboBox"
+                        ItemsSource="{Binding RotationOptions}"
                         SelectedItem="{Binding SelectedRotation, Mode=TwoWay}"
                         IsEnabled="{Binding CanSelectRotation}"
-                        Height="30"
-                        ToolTip="{Binding RotationText}"
-                        ToolTipService.ShowDuration="60000"/>
+                        Height="30"/>
               <Button Content="{Binding ConfirmCastleText}"
                       Command="{Binding ConfirmCastleCommand}"
                       IsEnabled="{Binding CanConfirmCastle}"
@@ -99,9 +97,7 @@
                       Foreground="#FFFFFFFF"
                       Background="#CC2F6F42"
                       BorderBrush="#FF77DD99"
-                      BorderThickness="1"
-                      ToolTip="{Binding ConfirmCastleText}"
-                      ToolTipService.ShowDuration="60000"/>
+                      BorderThickness="1"/>
             </StackPanel>
 
             <Grid Margin="0,6,0,0">
