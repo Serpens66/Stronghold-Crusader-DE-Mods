@@ -47,7 +47,7 @@ internal static class Program
             TestMarketOrderPresetRoundTrip();
             TestPresetLocalRoundTrip();
             TestDoNotPersistPresetExclusion();
-            TestCastleSpawnCompatibility();
+            TestFreeCastleProtocol();
 
             string pluginPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "TestPlugin.dll");
             string settingsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "LobbyModSettings", "HostClientTest.msgpack");
@@ -1963,6 +1963,71 @@ internal static class Program
     {
         try { value = MessagePackSerializer.Deserialize<int>(bytes); return true; }
         catch { value = 0; return false; }
+    }
+
+    private static void TestFreeCastleProtocol()
+    {
+        var selections = new[]
+        {
+            new CastlePlanner.FreeCastleSelection
+            {
+                PlayerId = 2,
+                Rotation = 6,
+                DisplayName = "Second Castle",
+                RawData = new short[] { 4, -2, 9 }
+            },
+            new CastlePlanner.FreeCastleSelection
+            {
+                PlayerId = 1,
+                Rotation = 0,
+                DisplayName = "First Castle",
+                RawData = new short[] { 1, 2, 3 }
+            }
+        };
+        byte[] encoded = CastlePlanner.FreeCastleProtocol.EncodeSelections(selections);
+        byte[] compressed = CastlePlanner.FreeCastleProtocol.Compress(encoded);
+        byte[] restored = CastlePlanner.FreeCastleProtocol.Decompress(compressed, encoded.Length);
+        List<CastlePlanner.FreeCastleSelection> decoded =
+            CastlePlanner.FreeCastleProtocol.DecodeSelections(restored);
+        Check(decoded.Count == 2 && decoded[0].PlayerId == 1 && decoded[1].Rotation == 6,
+            "free-castle canonical transfer did not preserve player order and fixed rotation");
+        Check(CastlePlanner.FreeCastleProtocol.Split(new byte[
+                CastlePlanner.FreeCastleProtocol.MaximumChunkBytes + 1]).Count == 2,
+            "free-castle transfer did not fragment at the configured boundary");
+        var packet = new CastlePlanner.FreeCastlePacket
+        {
+            ProtocolVersion = CastlePlanner.FreeCastleProtocol.ProtocolVersion,
+            Kind = (int)CastlePlanner.FreeCastlePacketKind.SelectionChunk,
+            OperationId = 42,
+            PlayerId = 2,
+            Rotation = 6,
+            ContentHash = new string('A', 64),
+            ChunkIndex = 3,
+            ChunkCount = 7,
+            DataBase64 = "AQID"
+        };
+        CastlePlanner.FreeCastlePacket packetRoundTrip =
+            MessagePackSerializer.Deserialize<CastlePlanner.FreeCastlePacket>(
+                MessagePackSerializer.Serialize(packet));
+        Check(packetRoundTrip.OperationId == 42 && packetRoundTrip.PlayerId == 2 &&
+              packetRoundTrip.Rotation == 6 && packetRoundTrip.ChunkIndex == 3,
+            "free-castle explicit numeric-key packet formatter did not round-trip");
+        bool rejected = false;
+        try
+        {
+            CastlePlanner.FreeCastleProtocol.ValidateSelection(new CastlePlanner.FreeCastleSelection
+            {
+                PlayerId = 1,
+                Rotation = 1,
+                DisplayName = "Invalid",
+                RawData = new short[] { 1 }
+            });
+        }
+        catch (InvalidDataException)
+        {
+            rejected = true;
+        }
+        Check(rejected, "free-castle protocol accepted a non-native fixed rotation");
     }
 
     private static void TestCastleSpawnCompatibility()

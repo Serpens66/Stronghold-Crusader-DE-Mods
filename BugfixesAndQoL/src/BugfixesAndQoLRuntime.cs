@@ -496,12 +496,6 @@ namespace BugfixesAndQoL
             if (propertyName == nameof(BugfixesAndQoLViewModel.MarketGoodsOrder))
                 return;
 
-            if (propertyName == nameof(BugfixesAndQoLViewModel.EnableMod) ||
-                propertyName == nameof(BugfixesAndQoLViewModel.EnableAiFixes))
-            {
-                aiRecruitmentHorseDemandFix?.LogSettingState($"setting-changed:{propertyName}");
-            }
-
             TryApplyFeature("plague target-reservation fix", () => plagueTargetReservationFix?.ApplySetting());
             if (propertyName == nameof(BugfixesAndQoLViewModel.EnableTroopMovementFix))
             {

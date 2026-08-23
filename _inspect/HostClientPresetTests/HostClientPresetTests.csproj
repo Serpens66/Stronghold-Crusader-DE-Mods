@@ -14,6 +14,12 @@
     <DefineConstants>$(DefineConstants);SHARED_PRESET_TESTS</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="..\..\CastlePlanner\src\CastleSpawnCompatibility.cs">
+      <Link>CastleSpawnCompatibility.cs</Link>
+    </Compile>
+    <Compile Include="..\..\CastlePlanner\src\FreeCastleProtocol.cs">
+      <Link>FreeCastleProtocol.cs</Link>
+    </Compile>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="MessagePack">
@@ -109,9 +115,6 @@
     </Compile>
     <Compile Include="..\..\Shared\NativePatternResolver.cs">
       <Link>NativePatternResolver.cs</Link>
-    </Compile>
-    <Compile Include="..\..\CastlePlanner\src\CastleSpawnCompatibility.cs">
-      <Link>CastleSpawnCompatibility.cs</Link>
     </Compile>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

@@ -51,7 +51,7 @@ $viewModelSources = @{
 $editableProxyBindings = @{
     BuildingCosts = @('GoldSlider','GoldText','IronSlider','IronText','PitchSlider','PitchText','StoneSlider','StoneText','WoodSlider','WoodText')
     BuildingLimit = @('LimitText','SliderLimit')
-    CastlePlanner = @('SelectedSpawnCastleOption')
+    CastlePlanner = @()
     CustomCustomTrail = @('IsEnabled','SelectedCoopPackage')
     ExtraFeatures = @('AIGateClosingDistanceValueText','AIGateReopenDelayValueText','AILordHealthPercentText','ApothecaryPlagueSearchDistanceValueText','BuyMultiplier','BuyMultiplierValueText','CampfirePeasantsLimitText','GoldRefundPercentValueText','HumanGateClosingDistanceValueText','HumanGateReopenDelayValueText','HumanLordHealthPercentText','IronRefundPercentValueText','MarketBuyPriceMultiplierValueText','MarketSellPriceMultiplierValueText','MultiplyGoodsGainAIText','MultiplyGoodsGainHumanText','MultiplyGoodsGainInMoneyAIText','MultiplyGoodsGainInMoneyHumanText','PitchRefundPercentValueText','PlagueDurationMultiplierValueText','SellMultiplier','SellMultiplierValueText','StoneRefundPercentValueText','WoodRefundPercentValueText')
     ImprovedHunters = @('CamelMeatText','ChickenMeatText','DeerMeatText','GoatMeatText','MaxNeutralChickensPerPlayerValueText','RabbitMeatText')
@@ -218,9 +218,10 @@ $castleRuntimeSource = [IO.File]::ReadAllText((Join-Path $workspace 'CastlePlann
 foreach ($required in @(
     'expectedAivCastlePlayers',
     'failedAivCastlePlayers',
-    'expectedPlayers.SequenceEqual(executedPlayers)',
-    'AIVJSON changed between spawn-plan validation and import',
+    'expectedPlayers.Except(failedPlayers).SequenceEqual(executedPlayers)',
+    'preview.TryGetCommittedSelections',
     'CaptureImportedCandidates(request.PlayerId - 1)',
+    'selectBestFit(aivState, specIndex, 0)',
     'finally')) {
     if (-not $castleRuntimeSource.Contains($required)) {
         throw "CastlePlanner exact-once spawn verification marker is missing: $required"
@@ -228,15 +229,17 @@ foreach ($required in @(
 }
 $castleSettingsSource = [IO.File]::ReadAllText((Join-Path $workspace 'CastlePlanner/src/CastlePlannerSettingsViewModel.cs'))
 foreach ($required in @(
-    'TryDecodeManifest(',
-    'reported an invalid AIVJSON inventory manifest',
     'TryLoadCastleCatalog()',
-    'Shared.GameModeHelper.IsRealMultiplayer()')) {
+    '[Shared.PresetLocal]',
+    'TryPrepareSelectedCastle(')) {
     if (-not $castleSettingsSource.Contains($required)) {
         throw "CastlePlanner fail-closed manifest marker is missing: $required"
     }
 }
 foreach ($forbidden in @(
+    'SpawnSelectedCastleData',
+    'SpawnInventoryManifestData',
+    'TryCreateSpawnPlan(',
     'The local AIVJSON inventory changed after its last lobby announcement.',
     'bool multiplayer = lobbyPlayers.HumanMemberCount > 1;')) {
     if ($castleSettingsSource.Contains($forbidden)) {
