@@ -336,7 +336,7 @@ namespace CastlePlanner
                 Shared.GameModeHelper.IsMapEditor())
                 return false;
             Shared.GameModeSnapshot mode = Shared.GameModeHelper.Capture(false);
-            return mode.IsRealMultiplayer || mode.IsSingleplayerSkirmish || mode.IsSingleplayerTrail;
+            return mode.IsRealMultiplayer || mode.IsSingleplayerSkirmishMode;
         }
 
         private void OnUnloadMap(MapUnloadEventArgs args)
@@ -499,6 +499,19 @@ namespace CastlePlanner
             manifestAcks.Add(SteamUser.GetSteamID().m_SteamID);
             SendManifestToPeers(encoded);
             NotifyAll();
+            TryCommitRestartWhenManifestReady();
+        }
+
+        private void TryCommitRestartWhenManifestReady()
+        {
+            if (state != PreviewState.Distributing ||
+                !FreeCastleParticipantReadiness.AreAllReady(HumanPeerSteamIds(), manifestAcks))
+                return;
+
+            // A network game may legitimately have no remote human peers. In that
+            // case the host's local readiness completes the same protocol immediately.
+            Broadcast(NewPacket(FreeCastlePacketKind.Commit, 0));
+            CommitRestart();
         }
 
         private void OnPacket(ReceiveCustomPacketEventArgs<FreeCastlePacket> args)
@@ -562,11 +575,7 @@ namespace CastlePlanner
             else if (kind == FreeCastlePacketKind.SelectionReady && state == PreviewState.Distributing)
             {
                 manifestAcks.Add(sender);
-                if (HumanPeerSteamIds().All(manifestAcks.Contains))
-                {
-                    Broadcast(NewPacket(FreeCastlePacketKind.Commit, 0));
-                    CommitRestart();
-                }
+                TryCommitRestartWhenManifestReady();
             }
         }
 
@@ -1038,8 +1047,18 @@ namespace CastlePlanner
             catalogWaitLogged = false;
             countdownStarted = 0;
             statusText = string.Empty;
-            selectedRotation = "0°";
+            ResetRotationToDefault();
             NotifyAll();
+        }
+
+        private void ResetRotationToDefault()
+        {
+            // The ComboBox can retain its previous SelectedItem while the preview
+            // panel is hidden. Force the source notifications on every new map so
+            // its visible value cannot drift from the native zero rotation.
+            selectedRotation = rotations[0];
+            Notify(nameof(SelectedRotation));
+            Notify(nameof(SelectedNativeRotation));
         }
 
         private static int RotationTextToNative(string rotation)

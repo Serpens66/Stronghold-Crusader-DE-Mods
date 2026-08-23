@@ -311,6 +311,7 @@ foreach ($required in @(
     'ObservableCollection<string> CastleChoices => castleChoices;',
     'ObservableCollection<string> RotationChoices => rotations;',
     'nativeRotation={SelectedNativeRotation}',
+    'ResetRotationToDefault();',
     'initFastMethod.Invoke(platform, null);',
     'platform.initFastFollowOn();',
     'Director.instance.StartMultiplayerGame();',
@@ -556,9 +557,11 @@ $sharedGameModeSource = [IO.File]::ReadAllText((Join-Path $workspace 'Shared/Gam
 foreach ($required in @(
     'public static bool IsMapEditor()',
     'if (!MainViewModel.viewModelLoaded)',
-    'member != null && !member.SkirmishMember',
+    'if (member.SkirmishMember)',
     'member != null && !member.skirmishAI',
-    'bool mapEditor = IsMapEditor();')) {
+    'bool mapEditor = IsMapEditor();',
+    'skirmishLobbyMembers == lobbyMembers',
+    '(skirmishGameType >= 0 || localSkirmishTransition)')) {
     if (-not $sharedGameModeSource.Contains($required)) {
         throw "Shared lifecycle-safe game-mode marker is missing: $required"
     }

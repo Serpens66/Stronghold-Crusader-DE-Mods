@@ -14,11 +14,16 @@ namespace Shared
 
             int lobbyMembers = lobby?.members?.Count ?? -1;
             int realLobbyMembers = 0;
+            int skirmishLobbyMembers = 0;
             if (lobby?.members != null)
             {
                 foreach (Platform_Multiplayer.MPLobbyMember member in lobby.members)
                 {
-                    if (member != null && !member.SkirmishMember)
+                    if (member == null)
+                        continue;
+                    if (member.SkirmishMember)
+                        skirmishLobbyMembers++;
+                    else
                         realLobbyMembers++;
                 }
             }
@@ -46,12 +51,20 @@ namespace Shared
             int gameType = gameData != null ? gameData.game_type : -1;
             int skirmishGameType = gameData != null ? gameData.SkirmishGameType : -1;
             bool mapEditor = IsMapEditor();
-            // game_type 3 is Vanilla's skirmish family; non-negative subtypes are initialized via StartSkirmishModeGame.
+            // game_type 3 is Vanilla's skirmish family. Immediately after leaving a
+            // real multiplayer game, a new local skirmish can reach OnStartMap before
+            // Vanilla changes SkirmishGameType from -1. Its all-local skirmish lobby
+            // is the stable transition signal; no map or mission allow-list is needed.
+            bool localSkirmishTransition =
+                lobbyMembers > 0 &&
+                skirmishLobbyMembers == lobbyMembers &&
+                realLobbyMembers == 0 &&
+                realNetworkGameMembers == 0;
             bool singleplayerSkirmishMode =
                 !realMultiplayer &&
                 !mapEditor &&
                 gameType == 3 &&
-                skirmishGameType >= 0;
+                (skirmishGameType >= 0 || localSkirmishTransition);
 
             return new GameModeSnapshot(
                 realMultiplayer,
@@ -67,6 +80,7 @@ namespace Shared
                 platformMultiplayer,
                 lobbyMembers,
                 realLobbyMembers,
+                skirmishLobbyMembers,
                 gameMembers,
                 realNetworkGameMembers,
                 gameType,
@@ -132,6 +146,7 @@ namespace Shared
             bool platformMultiplayer,
             int lobbyMembers,
             int realLobbyMembers,
+            int skirmishLobbyMembers,
             int gameMembers,
             int realNetworkGameMembers,
             int gameType,
@@ -151,6 +166,7 @@ namespace Shared
             PlatformMultiplayer = platformMultiplayer;
             LobbyMembers = lobbyMembers;
             RealLobbyMembers = realLobbyMembers;
+            SkirmishLobbyMembers = skirmishLobbyMembers;
             GameMembers = gameMembers;
             RealNetworkGameMembers = realNetworkGameMembers;
             GameType = gameType;
@@ -171,6 +187,7 @@ namespace Shared
         public bool PlatformMultiplayer { get; }
         public int LobbyMembers { get; }
         public int RealLobbyMembers { get; }
+        public int SkirmishLobbyMembers { get; }
         public int GameMembers { get; }
         public int RealNetworkGameMembers { get; }
         public int GameType { get; }
@@ -186,6 +203,7 @@ namespace Shared
                 $"directorMultiplayer={DirectorMultiplayer}, directorSkirmish={DirectorSkirmish}, " +
                 $"lowLevelNetworked={LowLevelNetworked}, platformMultiplayer={PlatformMultiplayer}, " +
                 $"lobbyMembers={LobbyMembers}, realLobbyMembers={RealLobbyMembers}, " +
+                $"skirmishLobbyMembers={SkirmishLobbyMembers}, " +
                 $"gameMembers={GameMembers}, realNetworkGameMembers={RealNetworkGameMembers}, " +
                 $"gameType={GameType}, skirmishGameType={SkirmishGameType}, coopTrailId={CoopTrailId}";
         }

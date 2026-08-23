@@ -7,6 +7,12 @@ using System.Linq;
 
 namespace CastlePlanner
 {
+    internal enum BlueprintProjectionMode
+    {
+        KeepRelative,
+        NativeFixedGrid
+    }
+
     internal readonly struct BlueprintWorldTile : IEquatable<BlueprintWorldTile>
     {
         public BlueprintWorldTile(int x, int y)
@@ -106,16 +112,22 @@ namespace CastlePlanner
         public BlueprintLayout(
             IReadOnlyList<BlueprintTilePlacement> tiles,
             IReadOnlyList<BlueprintIconPlacement> icons,
-            int unknownMapperCount)
+            int unknownMapperCount,
+            AivRotation castleRotation,
+            BlueprintWorldTile projectedKeep)
         {
             Tiles = tiles;
             Icons = icons;
             UnknownMapperCount = unknownMapperCount;
+            CastleRotation = castleRotation;
+            ProjectedKeep = projectedKeep;
         }
 
         public IReadOnlyList<BlueprintTilePlacement> Tiles { get; }
         public IReadOnlyList<BlueprintIconPlacement> Icons { get; }
         public int UnknownMapperCount { get; }
+        public AivRotation CastleRotation { get; }
+        public BlueprintWorldTile ProjectedKeep { get; }
     }
 
     internal static class BlueprintLayoutBuilder
@@ -126,7 +138,8 @@ namespace CastlePlanner
             AivJsonDocument document,
             int keepWorldX,
             int keepWorldY,
-            AivRotation castleRotation = AivRotation.Degrees0)
+            AivRotation castleRotation = AivRotation.Degrees0,
+            BlueprintProjectionMode projectionMode = BlueprintProjectionMode.KeepRelative)
         {
             if (document == null)
                 throw new ArgumentNullException(nameof(document));
@@ -134,10 +147,12 @@ namespace CastlePlanner
                 throw new FormatException("The AIVJSON does not contain a frames array.");
 
             var keepPositions = new List<int>();
+            AivMapperInfo keepMapper = null;
             foreach (AivJsonFrame frame in document.frames)
             {
                 if (frame != null && AivMapperCatalog.IsKeep(frame.itemType))
                 {
+                    keepMapper = AivMapperCatalog.Resolve(frame.itemType);
                     if (frame.tilePositionOfsets != null)
                         keepPositions.AddRange(frame.tilePositionOfsets);
                 }
@@ -150,8 +165,15 @@ namespace CastlePlanner
             }
 
             var keepAnchor = CreateGridPoint(keepPositions[0], "Keep");
+            BlueprintWorldTile projectedKeep = ResolveProjectedKeep(
+                keepAnchor,
+                keepMapper?.FootprintSize ?? 1,
+                keepWorldX,
+                keepWorldY,
+                castleRotation,
+                projectionMode);
             IReadOnlyList<BlueprintGatePlacement> gatePlacements =
-                CollectGatePlacements(document.frames, castleRotation);
+                CollectGatePlacements(document.frames);
             IReadOnlyDictionary<int, BlueprintStairEndpoints>
                 stairEndpointsByOffset = CollectStairEndpoints(document.frames);
             var tiles = new Dictionary<BlueprintWorldTile, BlueprintTilePlacement>();
@@ -183,7 +205,7 @@ namespace CastlePlanner
                     AivFootprint footprint = AivGridTransform.GetFootprint(
                         anchor,
                         footprintSize,
-                        castleRotation);
+                        AivRotation.Degrees0);
 
                     int markerMinimumRow = footprint.Minimum.Row;
                     int markerMaximumRow = footprint.Maximum.Row;
@@ -223,12 +245,13 @@ namespace CastlePlanner
                              column <= markerMaximumColumn;
                              column++)
                         {
-                            AivWorldTile world = AivWorldTransform.Project(
+                            AivWorldTile world = Project(
                                 new AivGridPoint(row, column),
                                 keepAnchor,
                                 keepWorldX,
                                 keepWorldY,
-                                castleRotation);
+                                castleRotation,
+                                projectionMode);
                             var tile = new BlueprintWorldTile(world.X, world.Y);
                             tiles[tile] = new BlueprintTilePlacement(
                                 tile,
@@ -268,12 +291,13 @@ namespace CastlePlanner
                         {
                             AivGridPoint gateCenter = GetCenter(
                                 adjacentGate.Footprint);
-                            AivWorldTile gateWorld = AivWorldTransform.Project(
+                            AivWorldTile gateWorld = Project(
                                 gateCenter,
                                 keepAnchor,
                                 keepWorldX,
                                 keepWorldY,
-                                castleRotation);
+                                castleRotation,
+                                projectionMode);
                             adjacentGateCenter = new BlueprintWorldTile(
                                 gateWorld.X,
                                 gateWorld.Y);
@@ -283,18 +307,20 @@ namespace CastlePlanner
                                 encodedOffset,
                                 out BlueprintStairEndpoints stairEndpoints))
                         {
-                            AivWorldTile lowWorld = AivWorldTransform.Project(
+                            AivWorldTile lowWorld = Project(
                                 stairEndpoints.Low,
                                 keepAnchor,
                                 keepWorldX,
                                 keepWorldY,
-                                castleRotation);
-                            AivWorldTile highWorld = AivWorldTransform.Project(
+                                castleRotation,
+                                projectionMode);
+                            AivWorldTile highWorld = Project(
                                 stairEndpoints.High,
                                 keepAnchor,
                                 keepWorldX,
                                 keepWorldY,
-                                castleRotation);
+                                castleRotation,
+                                projectionMode);
                             stairLowEnd = new BlueprintWorldTile(
                                 lowWorld.X,
                                 lowWorld.Y);
@@ -323,7 +349,69 @@ namespace CastlePlanner
             return new BlueprintLayout(
                 new List<BlueprintTilePlacement>(tiles.Values),
                 icons,
-                unknownMappers.Count);
+                unknownMappers.Count,
+                castleRotation,
+                projectedKeep);
+        }
+
+        private static BlueprintWorldTile ResolveProjectedKeep(
+            AivGridPoint keepAnchor,
+            int footprintSize,
+            int keepWorldX,
+            int keepWorldY,
+            AivRotation rotation,
+            BlueprintProjectionMode projectionMode)
+        {
+            if (projectionMode != BlueprintProjectionMode.NativeFixedGrid)
+                return new BlueprintWorldTile(keepWorldX, keepWorldY);
+
+            AivFootprint rawFootprint = AivGridTransform.GetFootprint(
+                keepAnchor,
+                footprintSize,
+                AivRotation.Degrees0);
+            int minimumWorldX = int.MaxValue;
+            int minimumWorldY = int.MaxValue;
+            for (int row = rawFootprint.Minimum.Row;
+                 row <= rawFootprint.Maximum.Row;
+                 row++)
+            {
+                for (int column = rawFootprint.Minimum.Column;
+                     column <= rawFootprint.Maximum.Column;
+                     column++)
+                {
+                    AivWorldTile world = AivWorldTransform.ProjectNativeFit(
+                        new AivGridPoint(row, column),
+                        keepWorldX,
+                        keepWorldY,
+                        rotation);
+                    minimumWorldX = Math.Min(minimumWorldX, world.X);
+                    minimumWorldY = Math.Min(minimumWorldY, world.Y);
+                }
+            }
+
+            return new BlueprintWorldTile(minimumWorldX, minimumWorldY);
+        }
+
+        private static AivWorldTile Project(
+            AivGridPoint point,
+            AivGridPoint keepAnchor,
+            int keepWorldX,
+            int keepWorldY,
+            AivRotation rotation,
+            BlueprintProjectionMode projectionMode)
+        {
+            return projectionMode == BlueprintProjectionMode.NativeFixedGrid
+                ? AivWorldTransform.ProjectNativeFit(
+                    point,
+                    keepWorldX,
+                    keepWorldY,
+                    rotation)
+                : AivWorldTransform.Project(
+                    point,
+                    keepAnchor,
+                    keepWorldX,
+                    keepWorldY,
+                    rotation);
         }
 
         private static IReadOnlyDictionary<int, BlueprintStairEndpoints>
@@ -394,8 +482,7 @@ namespace CastlePlanner
 
         private static IReadOnlyList<BlueprintGatePlacement>
             CollectGatePlacements(
-                IReadOnlyList<AivJsonFrame> frames,
-                AivRotation castleRotation)
+                IReadOnlyList<AivJsonFrame> frames)
         {
             var placements = new List<BlueprintGatePlacement>();
             for (int frameIndex = 0;
@@ -423,7 +510,7 @@ namespace CastlePlanner
                             AivGridTransform.GetFootprint(
                                 anchor,
                                 footprintSize,
-                                castleRotation)));
+                                AivRotation.Degrees0)));
                 }
             }
 

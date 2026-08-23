@@ -1,4 +1,16 @@
 # CastlePlanner localization
+CastlePlanner.SpawnBuildings=Auch Gebäude erzeugen
+CastlePlanner.SpawnBuildingsHelp=Erzeugt alle normalen AIV-Gebäude einschließlich Außenposten. Befestigungen werden immer erzeugt.
+CastlePlanner.SpawnDefensiveGroundFeatures=Auch Fallen, Pechgräben und Burggräben erzeugen
+CastlePlanner.SpawnDefensiveGroundFeaturesHelp=Erzeugt Mörderlöcher, Pechgräben und Burggräben aus der gewählten AIV.
+CastlePlanner.SpawnFearFactorBuildings=Auch Fearfactor-Gebäude erzeugen
+CastlePlanner.SpawnFearFactorBuildingsHelp=Erzeugt alle positiven und negativen Fearfactor-Gebäude aus der gewählten AIV.
+CastlePlanner.SpawnSiegeEngines=Auch Belagerungsgeräte erzeugen
+CastlePlanner.SpawnSiegeEnginesHelp=Erzeugt Mangonelle, Ballisten, Triböcke und Feuerballisten aus der gewählten AIV.
+CastlePlanner.SpawnTroops=Auch Truppen erzeugen
+CastlePlanner.SpawnTroopsHelp=Erzeugt alle Truppen und Ingenieure aus der gewählten AIV.
+CastlePlanner.SpawnBraziersAndFlags=Auch Feuerkörbe und Flaggen erzeugen
+CastlePlanner.SpawnBraziersAndFlagsHelp=Persönliche Einstellung: Erzeugt die Feuerkörbe und spielerspezifischen Flaggen aus deiner gewählten AIV.
 Common.ResetToDefault=Zurücksetzen
 Common.EnableMod=Mod aktivieren
 Common.HostActivationLabel=(Host-)

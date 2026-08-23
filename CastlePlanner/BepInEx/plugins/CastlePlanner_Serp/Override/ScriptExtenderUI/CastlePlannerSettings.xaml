@@ -58,7 +58,37 @@
                 ToolTipService.ShowDuration="60000"
                 ToolTip="{Binding SpawnCastleHelpText}"
                 Foreground="White"
-                Margin="0,0,0,10"/>
+                Margin="0,0,0,6"/>
+      <CheckBox IsChecked="{Binding SpawnBuildings, Mode=TwoWay}"
+                Content="{Binding SpawnBuildingsText}"
+                ToolTipService.ShowDuration="60000"
+                ToolTip="{Binding SpawnBuildingsHelpText}"
+                Foreground="White"
+                Margin="18,0,0,6"/>
+      <CheckBox IsChecked="{Binding SpawnDefensiveGroundFeatures, Mode=TwoWay}"
+                Content="{Binding SpawnDefensiveGroundFeaturesText}"
+                ToolTipService.ShowDuration="60000"
+                ToolTip="{Binding SpawnDefensiveGroundFeaturesHelpText}"
+                Foreground="White"
+                Margin="18,0,0,6"/>
+      <CheckBox IsChecked="{Binding SpawnFearFactorBuildings, Mode=TwoWay}"
+                Content="{Binding SpawnFearFactorBuildingsText}"
+                ToolTipService.ShowDuration="60000"
+                ToolTip="{Binding SpawnFearFactorBuildingsHelpText}"
+                Foreground="White"
+                Margin="18,0,0,6"/>
+      <CheckBox IsChecked="{Binding SpawnSiegeEngines, Mode=TwoWay}"
+                Content="{Binding SpawnSiegeEnginesText}"
+                ToolTipService.ShowDuration="60000"
+                ToolTip="{Binding SpawnSiegeEnginesHelpText}"
+                Foreground="White"
+                Margin="18,0,0,6"/>
+      <CheckBox IsChecked="{Binding SpawnTroops, Mode=TwoWay}"
+                Content="{Binding SpawnTroopsText}"
+                ToolTipService.ShowDuration="60000"
+                ToolTip="{Binding SpawnTroopsHelpText}"
+                Foreground="White"
+                Margin="18,0,0,10"/>
     </StackPanel>
     <Separator Background="#444466" Margin="0,8"/>
     <TextBlock Text="{Binding ClientOptionsText}" Style="{StaticResource ClientRoleHeader}" Margin="0,4,0,6"/>
@@ -67,6 +97,12 @@
                 Content="{Binding BlueprintsText}"
                 ToolTipService.ShowDuration="60000"
                 ToolTip="{Binding BlueprintsHelpText}"
+                Foreground="White"
+                Margin="0,0,0,10"/>
+      <CheckBox IsChecked="{Binding SpawnBraziersAndFlags, Mode=TwoWay}"
+                Content="{Binding SpawnBraziersAndFlagsText}"
+                ToolTipService.ShowDuration="60000"
+                ToolTip="{Binding SpawnBraziersAndFlagsHelpText}"
                 Foreground="White"
                 Margin="0,0,0,10"/>
       <TextBlock Text="{Binding PlacementControlsTitleText}" Style="{StaticResource SectionHeader}" Margin="0,4,0,4"/>

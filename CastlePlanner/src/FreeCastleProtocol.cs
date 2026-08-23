@@ -23,6 +23,24 @@ namespace CastlePlanner
         ParticipantStatus = 10
     }
 
+    internal static class FreeCastleParticipantReadiness
+    {
+        internal static bool AreAllReady(
+            IEnumerable<ulong> participantSteamIds,
+            ISet<ulong> readySteamIds)
+        {
+            if (participantSteamIds == null)
+                throw new ArgumentNullException(nameof(participantSteamIds));
+            if (readySteamIds == null)
+                throw new ArgumentNullException(nameof(readySteamIds));
+
+            foreach (ulong steamId in participantSteamIds)
+                if (!readySteamIds.Contains(steamId))
+                    return false;
+            return true;
+        }
+    }
+
     [MessagePackObject]
     [MessagePackFormatter(typeof(FreeCastlePacketFormatter))]
     internal sealed class FreeCastlePacket

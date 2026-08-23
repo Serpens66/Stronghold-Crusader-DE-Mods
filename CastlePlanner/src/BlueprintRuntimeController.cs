@@ -331,7 +331,8 @@ namespace CastlePlanner
         private void OnSettingsChanged()
         {
             bool restoreVisibility =
-                blueprintVisible && EffectiveBlueprintMode;
+                (preview?.IsPreviewActive == true && preview.HasSelectedCastle) ||
+                (blueprintVisible && EffectiveBlueprintMode);
             renderer.Clear();
             layout = null;
             layoutKeepX = int.MinValue;
@@ -561,11 +562,17 @@ namespace CastlePlanner
             {
                 string json = File.ReadAllText(fullPath);
                 AivJsonDocument document = AivJsonReader.Parse(json);
-                layout = BlueprintLayoutBuilder.Build(
+                AivJsonDocument filteredDocument = AivSpawnPlan.Filter(
                     document,
+                    settings.GetLocalPreviewSpawnOptions());
+                layout = BlueprintLayoutBuilder.Build(
+                    filteredDocument,
                     keepX,
                     keepY,
-                    GetPreviewRotation());
+                    GetPreviewRotation(),
+                    preview.IsPreviewActive
+                        ? BlueprintProjectionMode.NativeFixedGrid
+                        : BlueprintProjectionMode.KeepRelative);
                 layoutKeepX = keepX;
                 layoutKeepY = keepY;
                 renderer.PreloadDepthCaptures(layout);
@@ -573,9 +580,11 @@ namespace CastlePlanner
                     log,
                     $"Blueprint prepared locally: reason={reason}, " +
                     $"file={fullPath}, keep=({keepX},{keepY}), " +
+                    $"projectedKeep=({layout.ProjectedKeep.X},{layout.ProjectedKeep.Y}), " +
+                    $"castleRotation={(int)layout.CastleRotation}, " +
                     $"tiles={layout.Tiles.Count}, icons={layout.Icons.Count}, " +
                     $"unknownMappers={layout.UnknownMapperCount}, " +
-                    $"miscItemsIgnored={document.miscItems?.Count ?? 0}.");
+                    $"miscItemsIgnored={filteredDocument.miscItems?.Count ?? 0}.");
                 return true;
             }
             catch (Exception ex)

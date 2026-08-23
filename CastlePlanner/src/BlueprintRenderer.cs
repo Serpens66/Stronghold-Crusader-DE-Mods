@@ -98,8 +98,8 @@ namespace CastlePlanner
             foreach (BlueprintIconPlacement placement in layout.Icons)
             {
                 AivMapperInfo mapper = AivMapperCatalog.Resolve(placement.MapperValue);
-                bool swapsAxes = GameMap.instance.CurrentRotation() == Enums.Dircs.East ||
-                    GameMap.instance.CurrentRotation() == Enums.Dircs.West;
+                int visualQuarter = GetVisualQuarter(layout);
+                bool swapsAxes = QuarterSwapsAxes(visualQuarter);
                 string visualMapperName = BlueprintBuildingIconCatalog.ResolveGateVisualMapper(
                     mapper.Name,
                     swapsAxes);
@@ -107,7 +107,7 @@ namespace CastlePlanner
                     placement.MapperValue,
                     visualMapperName,
                     UsesIslamicChurchSkin(),
-                    GetCameraQuarter(),
+                    visualQuarter,
                     ResolveDrawbridgePosition(placement),
                     ResolveStairDirection(placement),
                     ResolveStairFlipHorizontally(placement),
@@ -324,9 +324,8 @@ namespace CastlePlanner
         {
             rendered = false;
             AivMapperInfo mapper = AivMapperCatalog.Resolve(placement.MapperValue);
-            bool mapRotationSwapsAxes = GameMap.instance != null &&
-                (GameMap.instance.CurrentRotation() == Enums.Dircs.East ||
-                 GameMap.instance.CurrentRotation() == Enums.Dircs.West);
+            int visualQuarter = GetVisualQuarter(renderedLayout);
+            bool mapRotationSwapsAxes = QuarterSwapsAxes(visualQuarter);
             string visualMapperName = BlueprintBuildingIconCatalog.ResolveGateVisualMapper(
                 mapper.Name,
                 mapRotationSwapsAxes);
@@ -334,7 +333,7 @@ namespace CastlePlanner
                 placement.MapperValue,
                 visualMapperName,
                 UsesIslamicChurchSkin(),
-                GetCameraQuarter(),
+                visualQuarter,
                 drawbridgePosition,
                 stairDirection,
                 stairFlipHorizontally,
@@ -669,15 +668,14 @@ namespace CastlePlanner
             bool stairFlipHorizontally)
         {
             int mapperValue = placement.MapperValue;
+            int visualQuarter = GetVisualQuarter(renderedLayout);
             string iconKey = flattenedLandscape + ":" + mapperValue + ":" +
                 drawbridgePosition + ":" + stairDirection + ":" +
-                stairFlipHorizontally;
+                stairFlipHorizontally + ":" + visualQuarter;
             try
             {
                 AivMapperInfo mapper = AivMapperCatalog.Resolve(mapperValue);
-                bool mapRotationSwapsAxes = GameMap.instance != null &&
-                    (GameMap.instance.CurrentRotation() == Enums.Dircs.East ||
-                     GameMap.instance.CurrentRotation() == Enums.Dircs.West);
+                bool mapRotationSwapsAxes = QuarterSwapsAxes(visualQuarter);
                 string visualMapperName = BlueprintBuildingIconCatalog
                     .ResolveGateVisualMapper(
                         mapper.Name,
@@ -701,7 +699,7 @@ namespace CastlePlanner
                         mapperValue,
                         visualMapperName,
                         islamicSkin,
-                        GetCameraQuarter(),
+                        visualQuarter,
                         drawbridgePosition,
                         stairDirection,
                         stairFlipHorizontally,
@@ -1345,6 +1343,15 @@ namespace CastlePlanner
             }
         }
 
+        private static int GetVisualQuarter(BlueprintLayout layout)
+        {
+            return BlueprintBuildingIconCatalog.ResolveVisualQuarter(
+                GetCameraQuarter(),
+                layout == null ? 0 : (int)layout.CastleRotation);
+        }
+
+        private static bool QuarterSwapsAxes(int quarter) => (quarter & 1) != 0;
+
         private Sprite CreateSpriteFromVanillaAtlas(
             Noesis.BitmapSource source,
             string resourceKey)
@@ -1578,7 +1585,7 @@ namespace CastlePlanner
             }
 
             string cacheKey = spriteId + ":" + cellCountX + "x" + cellCountY + ":" +
-                GetCameraQuarter() + ":" + icon.FlipHorizontally;
+                GetVisualQuarter(renderedLayout) + ":" + icon.FlipHorizontally;
             if (!flattenedBuildingMeshes.TryGetValue(cacheKey, out Mesh mesh))
             {
                 Vector2 rootPosition = new Vector2(root.transform.position.x, root.transform.position.y);

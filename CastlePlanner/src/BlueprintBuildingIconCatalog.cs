@@ -420,6 +420,22 @@ namespace CastlePlanner
             };
         }
 
+        public static int ResolveVisualQuarter(
+            int cameraQuarter,
+            int castleRotationDegrees)
+        {
+            if (cameraQuarter < 0 || cameraQuarter > 3)
+                throw new ArgumentOutOfRangeException(nameof(cameraQuarter));
+            if (castleRotationDegrees != 0 && castleRotationDegrees != 90 &&
+                castleRotationDegrees != 180 && castleRotationDegrees != 270)
+            {
+                throw new ArgumentOutOfRangeException(nameof(castleRotationDegrees));
+            }
+
+            int castleQuarter = castleRotationDegrees / 90;
+            return (cameraQuarter - castleQuarter + 4) & 3;
+        }
+
         public static BlueprintDrawbridgeImageDefinition
             ResolveDrawbridgeImage(BlueprintDrawbridgePosition position)
         {

@@ -14,6 +14,9 @@ namespace AIVParser.Core
 
     public static class AivWorldTransform
     {
+        private const int NativeKeepReferenceRow = 56;
+        private const int NativeKeepReferenceColumn = 43;
+
         public static AivWorldTile Project(
             AivGridPoint point,
             AivGridPoint keepAnchor,
@@ -28,6 +31,24 @@ namespace AIVParser.Core
             return new AivWorldTile(
                 keepWorldX + delta.Column,
                 keepWorldY - delta.Row);
+        }
+
+        /// <summary>
+        /// Projects the absolute, unrotated AIV point exactly like Vanilla's
+        /// native fit grid. Unlike <see cref="Project"/>, rotations retain the
+        /// origin of the complete 100x100 grid instead of pivoting around the
+        /// AIV's stored Keep marker.
+        /// </summary>
+        public static AivWorldTile ProjectNativeFit(
+            AivGridPoint point,
+            int keepWorldX,
+            int keepWorldY,
+            AivRotation rotation)
+        {
+            AivGridPoint rotatedPoint = AivGridTransform.Rotate(point, rotation);
+            return new AivWorldTile(
+                keepWorldX + rotatedPoint.Column - NativeKeepReferenceColumn,
+                keepWorldY - rotatedPoint.Row + NativeKeepReferenceRow);
         }
     }
 }

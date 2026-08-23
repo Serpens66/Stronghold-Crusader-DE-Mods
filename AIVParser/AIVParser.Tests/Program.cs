@@ -36,6 +36,8 @@ internal static class Program
             ("Resolve associated blocked areas", TestBlockedAreas),
             ("Compute rotated keep deltas", TestAnchorDelta),
             ("Project AIV coordinates into world tiles", TestWorldProjection),
+            ("Project Blueprint rotations like Vanilla native fit", TestNativeBlueprintProjection),
+            ("Combine castle and camera rotations for Blueprint visuals", TestBlueprintVisualRotation),
             ("Parse build order and multi-tile paths", TestValidParse),
             ("Normalize DE misc types", TestMiscNormalization),
             ("Preserve unknown positive types", TestUnknownTypes),
@@ -1266,6 +1268,86 @@ internal static class Program
             AivRotation.Degrees0);
         AssertEqual(317, projected.X);
         AssertEqual(403, projected.Y);
+    }
+
+    private static void TestNativeBlueprintProjection()
+    {
+        var document = new CastlePlanner.AivJsonDocument
+        {
+            frames =
+            [
+                new CastlePlanner.AivJsonFrame
+                {
+                    itemType = 61,
+                    tilePositionOfsets = [5441]
+                },
+                new CastlePlanner.AivJsonFrame
+                {
+                    itemType = 80,
+                    tilePositionOfsets = [5050]
+                }
+            ],
+            miscItems = []
+        };
+
+        var rotations = new[]
+        {
+            AivRotation.Degrees0,
+            AivRotation.Degrees90,
+            AivRotation.Degrees180,
+            AivRotation.Degrees270
+        };
+        CastlePlanner.BlueprintLayout[] layouts = rotations
+            .Select(rotation => CastlePlanner.BlueprintLayoutBuilder.Build(
+                document,
+                525,
+                274,
+                rotation,
+                CastlePlanner.BlueprintProjectionMode.NativeFixedGrid))
+            .ToArray();
+
+        foreach (CastlePlanner.BlueprintLayout layout in layouts)
+        {
+            AssertEqual(layouts[0].Tiles.Count, layout.Tiles.Count);
+            AssertEqual(layouts[0].Icons.Count, layout.Icons.Count);
+        }
+
+        AssertEqual(
+            new CastlePlanner.BlueprintWorldTile(527, 283),
+            layouts[1].ProjectedKeep);
+
+        CastlePlanner.BlueprintIconPlacement granary = layouts[1].Icons.Single();
+        var rawFootprint = new[]
+        {
+            new AivGridPoint(47, 50),
+            new AivGridPoint(47, 53),
+            new AivGridPoint(50, 50),
+            new AivGridPoint(50, 53)
+        };
+        AivWorldTile[] projected = rawFootprint
+            .Select(point => AivWorldTransform.ProjectNativeFit(
+                point,
+                525,
+                274,
+                AivRotation.Degrees90))
+            .ToArray();
+        AssertEqual(projected.Min(point => point.X), granary.MinimumWorldX);
+        AssertEqual(projected.Max(point => point.X), granary.MaximumWorldX);
+        AssertEqual(projected.Min(point => point.Y), granary.MinimumWorldY);
+        AssertEqual(projected.Max(point => point.Y), granary.MaximumWorldY);
+    }
+
+    private static void TestBlueprintVisualRotation()
+    {
+        AssertEqual(
+            3,
+            CastlePlanner.BlueprintBuildingIconCatalog.ResolveVisualQuarter(0, 90));
+        AssertEqual(
+            0,
+            CastlePlanner.BlueprintBuildingIconCatalog.ResolveVisualQuarter(2, 180));
+        AssertEqual(
+            2,
+            CastlePlanner.BlueprintBuildingIconCatalog.ResolveVisualQuarter(1, 270));
     }
 
     private static void TestBlockedAreas()

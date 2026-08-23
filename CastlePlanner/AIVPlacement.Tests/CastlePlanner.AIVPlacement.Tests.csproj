@@ -8,5 +8,12 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\AIVPlacement.Core\CastlePlanner.AIVPlacement.Core.csproj" />
+    <Compile Include="..\src\AivJsonModels.cs" Link="SpawnPlan\AivJsonModels.cs" />
+    <Compile Include="..\src\AivRawDataEncoder.cs" Link="SpawnPlan\AivRawDataEncoder.cs" />
+    <Compile Include="..\src\AivSpawnPlan.cs" Link="SpawnPlan\AivSpawnPlan.cs" />
+    <Reference Include="SHCDESE">
+      <HintPath>..\..\shcde-script-extender\src\SHCDESE.BepInEx\bin\net481\SHCDESE.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
   </ItemGroup>
 </Project>

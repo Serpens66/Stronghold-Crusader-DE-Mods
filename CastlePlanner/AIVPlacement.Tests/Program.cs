@@ -2,6 +2,7 @@ using AIVParser.Core;
 using AIVPlacement.Core;
 using CastlePlanner.AIVPlacement.Core;
 using MapParser.Core;
+using SHCDESE.Interop;
 using System.Collections.Concurrent;
 
 internal static class Program
@@ -49,7 +50,13 @@ internal static class Program
             ("preserves import order for complete ties", PreservesCompleteTieOrder),
             ("selects the best sequential partial", SelectsBestSequentialPartial),
             ("randomizes every complete tie", FindsEveryCompleteTie),
-            ("randomizes every highest partial score tie", FindsEveryHighestPartialScoreTie)
+            ("randomizes every highest partial score tie", FindsEveryHighestPartialScoreTie),
+            ("roundtrips strict native AIV spawn data", RoundtripsStrictNativeSpawnData),
+            ("rejects malformed native AIV spawn data", RejectsMalformedNativeSpawnData),
+            ("filters every AIV spawn frame category", FiltersEverySpawnFrameCategory),
+            ("maps every known AIV misc unit", MapsEveryKnownMiscUnit),
+            ("maps siege engines to required engineer crews", MapsRequiredSiegeEngineerCrews),
+            ("projects supplemental items for every rotation", ProjectsSupplementalItemsForEveryRotation)
         };
 
         int failures = 0;
@@ -793,6 +800,165 @@ internal static class Program
         Equal(1, eligible[0]);
         Equal(2, eligible[1]);
         Equal(3, eligible[2]);
+    }
+
+    private static void RoundtripsStrictNativeSpawnData()
+    {
+        var document = new CastlePlanner.AivJsonDocument
+        {
+            pauseDelayAmount = 7,
+            frames =
+            [
+                new CastlePlanner.AivJsonFrame { itemType = 61, tilePositionOfsets = [5643], shouldPause = false },
+                new CastlePlanner.AivJsonFrame { itemType = 25, tilePositionOfsets = [5543, 5544], shouldPause = true },
+                new CastlePlanner.AivJsonFrame { itemType = 80, tilePositionOfsets = [5443], shouldPause = false }
+            ],
+            miscItems =
+            [
+                new CastlePlanner.AivJsonMiscItem { itemType = 9006, positionOfset = 5343, number = 7 },
+                new CastlePlanner.AivJsonMiscItem { itemType = 9006, positionOfset = 5343, number = 3 }
+            ]
+        };
+
+        short[] encoded = CastlePlanner.AivRawDataEncoder.Encode(document);
+        CastlePlanner.AivJsonDocument decoded = CastlePlanner.AivSpawnPlan.Decode(encoded);
+        Assert(encoded.SequenceEqual(CastlePlanner.AivRawDataEncoder.Encode(decoded)), "native AIV roundtrip changed data");
+        Assert(decoded.frames[1].shouldPause, "filtered pause frame was not decoded");
+        Equal(2, decoded.miscItems.Count);
+        Equal(6, decoded.miscItems[0].itemType);
+        Equal(7, decoded.miscItems[0].number);
+        Equal(3, decoded.miscItems[1].number);
+    }
+
+    private static void RejectsMalformedNativeSpawnData()
+    {
+        bool rejectedTrailing = false;
+        try
+        {
+            CastlePlanner.AivSpawnPlan.Decode([0, 1, 0, 1, 61, 5643, 0, 99]);
+        }
+        catch (InvalidDataException)
+        {
+            rejectedTrailing = true;
+        }
+        Assert(rejectedTrailing, "trailing native data was accepted");
+
+        bool rejectedPause = false;
+        try
+        {
+            CastlePlanner.AivSpawnPlan.Decode([0, 1, 3, 1, 61, 5643, 0]);
+        }
+        catch (InvalidDataException)
+        {
+            rejectedPause = true;
+        }
+        Assert(rejectedPause, "invalid native pause index was accepted");
+    }
+
+    private static void FiltersEverySpawnFrameCategory()
+    {
+        int[] fortifications = [61, 25, 26, 35, 46, 105, 110, 114, 144, 147, 181, 186];
+        foreach (int mapper in fortifications)
+            Equal(CastlePlanner.AivFrameSpawnCategory.Fortification, CastlePlanner.AivSpawnPlan.ClassifyFrame(mapper));
+        foreach (int mapper in new[] { 98, 99, 106 })
+            Equal(CastlePlanner.AivFrameSpawnCategory.DefensiveGroundFeature, CastlePlanner.AivSpawnPlan.ClassifyFrame(mapper));
+        foreach (int mapper in new[] { 160, 166, 169, 175, 176, 177, 301, 305, 306, 307, 308, 310, 311, 312, 313, 318, 324, 325, 327 })
+            Equal(CastlePlanner.AivFrameSpawnCategory.FearFactor, CastlePlanner.AivSpawnPlan.ClassifyFrame(mapper));
+        foreach (int mapper in new[] { 52, 53, 80, 178, 179 })
+            Equal(CastlePlanner.AivFrameSpawnCategory.Building, CastlePlanner.AivSpawnPlan.ClassifyFrame(mapper));
+
+        var source = new CastlePlanner.AivJsonDocument
+        {
+            frames =
+            [
+                new CastlePlanner.AivJsonFrame { itemType = 61, tilePositionOfsets = [5643] },
+                new CastlePlanner.AivJsonFrame { itemType = 25, tilePositionOfsets = [5543] },
+                new CastlePlanner.AivJsonFrame { itemType = 80, tilePositionOfsets = [5443] },
+                new CastlePlanner.AivJsonFrame { itemType = 98, tilePositionOfsets = [5343] },
+                new CastlePlanner.AivJsonFrame { itemType = 160, tilePositionOfsets = [5243], shouldPause = true }
+            ],
+            miscItems = []
+        };
+        CastlePlanner.AivJsonDocument fortOnly = CastlePlanner.AivSpawnPlan.Filter(source, new CastlePlanner.AivSpawnOptions());
+        Assert(fortOnly.frames.Select(frame => frame.itemType).SequenceEqual([61, 25]), "fortification-only filter retained optional frames");
+        var all = new CastlePlanner.AivSpawnOptions
+        {
+            SpawnBuildings = true,
+            SpawnDefensiveGroundFeatures = true,
+            SpawnFearFactorBuildings = true
+        };
+        CastlePlanner.AivJsonDocument complete = CastlePlanner.AivSpawnPlan.Filter(source, all);
+        Equal(5, complete.frames.Count);
+        Assert(complete.frames[4].shouldPause, "frame pause was not preserved before reindexing");
+    }
+
+    private static void MapsEveryKnownMiscUnit()
+    {
+        var expected = new Dictionary<int, eChimps>
+        {
+            [1] = eChimps.CHIMP_TYPE_ENGINEER,
+            [2] = eChimps.CHIMP_TYPE_MANGONEL,
+            [3] = eChimps.CHIMP_TYPE_BALLISTA,
+            [4] = eChimps.CHIMP_TYPE_TREBUCHET,
+            [5] = eChimps.CHIMP_TYPE_ARAB_BALLISTA,
+            [6] = eChimps.CHIMP_TYPE_ARCHER,
+            [7] = eChimps.CHIMP_TYPE_XBOWMAN,
+            [8] = eChimps.CHIMP_TYPE_SPEARMAN,
+            [9] = eChimps.CHIMP_TYPE_PIKEMAN,
+            [10] = eChimps.CHIMP_TYPE_MACEMAN,
+            [11] = eChimps.CHIMP_TYPE_SWORDSMAN,
+            [12] = eChimps.CHIMP_TYPE_KNIGHT,
+            [13] = eChimps.CHIMP_TYPE_ARAB_SLAVE,
+            [14] = eChimps.CHIMP_TYPE_ARAB_SLINGER,
+            [15] = eChimps.CHIMP_TYPE_ARAB_ASSASIN,
+            [16] = eChimps.CHIMP_TYPE_ARAB_BOW,
+            [17] = eChimps.CHIMP_TYPE_ARAB_HORSEMAN,
+            [18] = eChimps.CHIMP_TYPE_ARAB_SWORDSMAN,
+            [19] = eChimps.CHIMP_TYPE_ARAB_GRENADIER,
+            [23] = eChimps.CHIMP_TYPE_BEDOUIN_CAMEL_LANCER,
+            [24] = eChimps.CHIMP_TYPE_BEDOUIN_HEALER,
+            [25] = eChimps.CHIMP_TYPE_BEDOUIN_EUNUCH,
+            [26] = eChimps.CHIMP_TYPE_BEDOUIN_AMBUSHER,
+            [27] = eChimps.CHIMP_TYPE_BEDOUIN_SKIRMISHER,
+            [28] = eChimps.CHIMP_TYPE_BEDOUIN_HEAVY_CAMEL,
+            [29] = eChimps.CHIMP_TYPE_BEDOUIN_SAPPER,
+            [30] = eChimps.CHIMP_TYPE_BEDOUIN_DEMOLISHER
+        };
+        foreach ((int miscType, eChimps expectedChimp) in expected)
+        {
+            Assert(CastlePlanner.AivSpawnPlan.TryMapUnit(9000 + miscType, out eChimps actual), $"misc type {miscType} was not mapped");
+            Equal(expectedChimp, actual);
+        }
+        Equal(CastlePlanner.AivMiscSpawnCategory.Decoration, CastlePlanner.AivSpawnPlan.ClassifyMisc(20));
+        Equal(CastlePlanner.AivMiscSpawnCategory.Decoration, CastlePlanner.AivSpawnPlan.ClassifyMisc(9021));
+        Equal(CastlePlanner.AivMiscSpawnCategory.Unknown, CastlePlanner.AivSpawnPlan.ClassifyMisc(22));
+    }
+
+    private static void ProjectsSupplementalItemsForEveryRotation()
+    {
+        var point = new AivGridPoint(55, 44);
+        var expected = new Dictionary<AivRotation, (int X, int Y)>
+        {
+            [AivRotation.Degrees0] = (201, 201),
+            [AivRotation.Degrees90] = (201, 212),
+            [AivRotation.Degrees180] = (212, 212),
+            [AivRotation.Degrees270] = (212, 201)
+        };
+        foreach ((AivRotation rotation, (int x, int y)) in expected)
+        {
+            AivWorldTile projected = AivWorldTransform.ProjectNativeFit(point, 200, 200, rotation);
+            Equal(x, projected.X);
+            Equal(y, projected.Y);
+        }
+    }
+
+    private static void MapsRequiredSiegeEngineerCrews()
+    {
+        Equal(2, CastlePlanner.AivSpawnPlan.GetRequiredEngineerCount(2));
+        Equal(2, CastlePlanner.AivSpawnPlan.GetRequiredEngineerCount(9003));
+        Equal(3, CastlePlanner.AivSpawnPlan.GetRequiredEngineerCount(4));
+        Equal(2, CastlePlanner.AivSpawnPlan.GetRequiredEngineerCount(9005));
+        Equal(0, CastlePlanner.AivSpawnPlan.GetRequiredEngineerCount(6));
     }
 
     private static LobbyAiSlotInput Slot(

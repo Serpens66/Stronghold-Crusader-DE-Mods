@@ -43,6 +43,16 @@ namespace CastlePlanner
         private bool enableAivPlacementLobby;
         private bool blueprints = true;
         private bool spawnCastle;
+        private bool spawnBuildings = true;
+        private bool spawnDefensiveGroundFeatures = true;
+        private bool spawnFearFactorBuildings;
+        private bool spawnSiegeEngines;
+        private bool spawnTroops;
+        private bool spawnBraziersAndFlags;
+        private readonly bool[] spawnBraziersAndFlagsData = new bool[9];
+        private readonly int[] spawnBraziersAndFlagsReportData =
+            Enumerable.Repeat(-1, 9).ToArray();
+        private int localPlayerId;
         private string selectedCastle;
         private bool castleCatalogLoaded;
         private Task<CatalogLoadResult> castleCatalogTask;
@@ -84,6 +94,26 @@ namespace CastlePlanner
             ClearHotkeyCommand = new RelayCommand(ClearHotkey);
             HotkeyInputCommand =
                 new ParameterRelayCommand(CaptureNoesisHotkeyInput);
+        }
+
+        protected override void ConfigurePerPlayerLobbySettings(
+            Shared.PerPlayerLobbySettingsBuilder settings)
+        {
+            settings
+                .ResetSlotsWith(nameof(SpawnBraziersAndFlags), () => false)
+                .ResetSlotsWith(nameof(SpawnBraziersAndFlagsReport), () => -1)
+                .RequireReport(
+                    nameof(SpawnBraziersAndFlagsReport),
+                    value => value is int report && report == 1)
+                .WhenLocalPlayerResolved(playerId =>
+                {
+                    localPlayerId = playerId;
+                    if (playerId >= 1 && playerId <= 8)
+                    {
+                        spawnBraziersAndFlagsData[playerId] = spawnBraziersAndFlags;
+                        spawnBraziersAndFlagsReportData[playerId] = 1;
+                    }
+                });
         }
 
         internal event Action SettingsChanged;
@@ -245,6 +275,18 @@ namespace CastlePlanner
         public string BlueprintsHelpText => SerpLocalization.Get("CastlePlanner.BlueprintsHelp");
         public string SpawnCastleText => SerpLocalization.Get("CastlePlanner.SpawnCastle");
         public string SpawnCastleHelpText => SerpLocalization.Get("CastlePlanner.SpawnCastleHelp");
+        public string SpawnBuildingsText => SerpLocalization.Get("CastlePlanner.SpawnBuildings");
+        public string SpawnBuildingsHelpText => SerpLocalization.Get("CastlePlanner.SpawnBuildingsHelp");
+        public string SpawnDefensiveGroundFeaturesText => SerpLocalization.Get("CastlePlanner.SpawnDefensiveGroundFeatures");
+        public string SpawnDefensiveGroundFeaturesHelpText => SerpLocalization.Get("CastlePlanner.SpawnDefensiveGroundFeaturesHelp");
+        public string SpawnFearFactorBuildingsText => SerpLocalization.Get("CastlePlanner.SpawnFearFactorBuildings");
+        public string SpawnFearFactorBuildingsHelpText => SerpLocalization.Get("CastlePlanner.SpawnFearFactorBuildingsHelp");
+        public string SpawnSiegeEnginesText => SerpLocalization.Get("CastlePlanner.SpawnSiegeEngines");
+        public string SpawnSiegeEnginesHelpText => SerpLocalization.Get("CastlePlanner.SpawnSiegeEnginesHelp");
+        public string SpawnTroopsText => SerpLocalization.Get("CastlePlanner.SpawnTroops");
+        public string SpawnTroopsHelpText => SerpLocalization.Get("CastlePlanner.SpawnTroopsHelp");
+        public string SpawnBraziersAndFlagsText => SerpLocalization.Get("CastlePlanner.SpawnBraziersAndFlags");
+        public string SpawnBraziersAndFlagsHelpText => SerpLocalization.Get("CastlePlanner.SpawnBraziersAndFlagsHelp");
         public string HotkeyText => SerpLocalization.Get("CastlePlanner.Hotkey");
         public string HotkeyHelpText => SerpLocalization.Get("CastlePlanner.HotkeyHelp");
         public string ClearText => SerpLocalization.Get("Common.Clear");
@@ -357,6 +399,77 @@ namespace CastlePlanner
             }
         }
 
+        [SyncHostOnly]
+        public bool SpawnBuildings
+        {
+            get => spawnBuildings;
+            set => SetHostSpawnOption(ref spawnBuildings, value, nameof(SpawnBuildings));
+        }
+
+        [SyncHostOnly]
+        public bool SpawnDefensiveGroundFeatures
+        {
+            get => spawnDefensiveGroundFeatures;
+            set => SetHostSpawnOption(ref spawnDefensiveGroundFeatures, value, nameof(SpawnDefensiveGroundFeatures));
+        }
+
+        [SyncHostOnly]
+        public bool SpawnFearFactorBuildings
+        {
+            get => spawnFearFactorBuildings;
+            set => SetHostSpawnOption(ref spawnFearFactorBuildings, value, nameof(SpawnFearFactorBuildings));
+        }
+
+        [SyncHostOnly]
+        public bool SpawnSiegeEngines
+        {
+            get => spawnSiegeEngines;
+            set => SetHostSpawnOption(ref spawnSiegeEngines, value, nameof(SpawnSiegeEngines));
+        }
+
+        [SyncHostOnly]
+        public bool SpawnTroops
+        {
+            get => spawnTroops;
+            set => SetHostSpawnOption(ref spawnTroops, value, nameof(SpawnTroops));
+        }
+
+        public bool[] SpawnBraziersAndFlagsData => spawnBraziersAndFlagsData;
+
+        public int[] SpawnBraziersAndFlagsReportData => spawnBraziersAndFlagsReportData;
+
+        // A separate sentinel is required because every bool value is otherwise
+        // indistinguishable from an unreported slot reset to false.
+        [SyncPerPlayer]
+        public int SpawnBraziersAndFlagsReport
+        {
+            get => 1;
+            set { }
+        }
+
+        [SyncPerPlayer]
+        public bool SpawnBraziersAndFlags
+        {
+            get => spawnBraziersAndFlags;
+            set
+            {
+                if (!CanMutateSetting(nameof(SpawnBraziersAndFlags)) ||
+                    spawnBraziersAndFlags == value)
+                {
+                    return;
+                }
+
+                spawnBraziersAndFlags = value;
+                if (localPlayerId >= 1 && localPlayerId <= 8)
+                    spawnBraziersAndFlagsData[localPlayerId] = value;
+                OnPropertyChanged(nameof(SpawnBraziersAndFlags));
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    $"CastlePlanner personal SpawnBraziersAndFlags changed to {value}.");
+                SettingsChanged?.Invoke();
+            }
+        }
+
         [Shared.PresetLocal]
         public string SelectedCastle
         {
@@ -439,6 +552,39 @@ namespace CastlePlanner
         internal KeyCode BlueprintHotkeyCode => blueprintHotkey;
         internal float BlueprintIconScaleValue => (float)blueprintIconScale;
         internal float BlueprintIconAlphaValue => (float)blueprintIconAlpha;
+
+        internal AivSpawnOptions GetSpawnOptions(int playerId)
+        {
+            bool decorations = playerId >= 1 && playerId <= 8
+                ? spawnBraziersAndFlagsData[playerId]
+                : false;
+            return new AivSpawnOptions
+            {
+                SpawnBuildings = SpawnBuildings,
+                SpawnDefensiveGroundFeatures = SpawnDefensiveGroundFeatures,
+                SpawnFearFactorBuildings = SpawnFearFactorBuildings,
+                SpawnSiegeEngines = SpawnSiegeEngines,
+                SpawnTroops = SpawnTroops,
+                SpawnBraziersAndFlags = decorations
+            };
+        }
+
+        internal AivSpawnOptions GetLocalPreviewSpawnOptions()
+        {
+            AivSpawnOptions options = GetSpawnOptions(localPlayerId);
+            options.SpawnBraziersAndFlags = SpawnBraziersAndFlags;
+            return options;
+        }
+
+        private void SetHostSpawnOption(ref bool field, bool value, string propertyName)
+        {
+            if (!CanMutateSetting(propertyName) || field == value)
+                return;
+            field = value;
+            OnPropertyChanged(propertyName);
+            Shared.DebugLogHelper.LogInfo(log, $"CastlePlanner host {propertyName} changed to {value}.");
+            SettingsChanged?.Invoke();
+        }
 
         internal bool TryGetBlueprintHudPosition(
             out double normalizedX,
@@ -819,6 +965,11 @@ namespace CastlePlanner
                 EnableMod = true;
                 EnableAivPlacementLobby = false;
                 SpawnCastle = false;
+                SpawnBuildings = true;
+                SpawnDefensiveGroundFeatures = true;
+                SpawnFearFactorBuildings = false;
+                SpawnSiegeEngines = false;
+                SpawnTroops = false;
             }
 
             // Every participant resets their own Blueprint preference.
@@ -826,6 +977,7 @@ namespace CastlePlanner
             BlueprintHotkey = (int)KeyCode.None;
             BlueprintIconScale = 1.0;
             BlueprintIconAlpha = 0.3;
+            SpawnBraziersAndFlags = false;
         }
 
         private void NormalizeRuntimeState()

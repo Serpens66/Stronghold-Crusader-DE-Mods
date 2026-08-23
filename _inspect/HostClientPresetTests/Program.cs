@@ -701,6 +701,27 @@ internal static class Program
         Check(!trail.IsRealMultiplayer && trail.IsSingleplayerTrail,
             "singleplayer Trail was not recognized");
 
+        GameData.Instance = new GameData { game_type = 3, SkirmishGameType = -1 };
+        platform.activeLobby = new Platform_Multiplayer.MPLobby
+        {
+            members = new List<Platform_Multiplayer.MPLobbyMember>
+            {
+                new Platform_Multiplayer.MPLobbyMember { SkirmishMember = true },
+                new Platform_Multiplayer.MPLobbyMember { SkirmishMember = true }
+            }
+        };
+        platform.gameMembers = new List<Platform_Multiplayer.MPGameMember>
+        {
+            new Platform_Multiplayer.MPGameMember { skirmishAI = false, steamID = 0 },
+            new Platform_Multiplayer.MPGameMember { skirmishAI = true, steamID = 0 }
+        };
+        GameModeSnapshot transitioningSkirmish = GameModeHelper.Capture();
+        Check(transitioningSkirmish.IsSingleplayerSkirmishMode &&
+              !transitioningSkirmish.IsSingleplayerSkirmish &&
+              !transitioningSkirmish.IsRealMultiplayer &&
+              transitioningSkirmish.SkirmishLobbyMembers == 2,
+            "local skirmish transition required the temporarily unavailable subtype");
+
         GameData.Instance = new GameData();
         platform.activeLobby = new Platform_Multiplayer.MPLobby
         {
@@ -2019,6 +2040,20 @@ internal static class Program
             rejected = true;
         }
         Check(rejected, "free-castle protocol accepted a non-native fixed rotation");
+
+        const ulong host = 76561190000000001UL;
+        const ulong client = 76561190000000002UL;
+        var ready = new HashSet<ulong> { host };
+        Check(CastlePlanner.FreeCastleParticipantReadiness.AreAllReady(
+                new[] { host }, ready),
+            "one-human multiplayer did not complete after host readiness");
+        Check(!CastlePlanner.FreeCastleParticipantReadiness.AreAllReady(
+                new[] { host, client }, ready),
+            "multiplayer completed before a remote human was ready");
+        ready.Add(client);
+        Check(CastlePlanner.FreeCastleParticipantReadiness.AreAllReady(
+                new[] { host, client }, ready),
+            "multiplayer did not complete after every human was ready");
     }
 
     private static void TestCastleSpawnCompatibility()

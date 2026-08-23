@@ -3,10 +3,25 @@
   "Author": "Serpens66",
   "Name": "CastlePlanner",
   "Description": "Displays AIVJSON blueprints, spawns personal human castles, and contains the gated AI lobby placement workflow.",
-  "Version": "0.6.10",
+  "Version": "0.7.1",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "0.7.1",
+      "Changes": [
+        "Spawns the required engineer crew beside every enabled AIV siege engine, independently of the troop setting.",
+        "Creates AIV stockpiles through the complete prefab path when ordinary buildings are enabled, including their connected yard parts.",
+        "Treats every AIV misc slot as exactly one unit and records its slot index in deterministic spawn diagnostics."
+      ]
+    },
+    {
+      "Version": "0.7.0",
+      "Changes": [
+        "Separates personal AIV castle spawning into fortifications, ordinary buildings, defensive ground features, Fearfactor buildings, siege engines, troops, and personal braziers or flags.",
+        "Filters native AIV frames before Vanilla's fit test and deterministically creates supplemental Fearfactor and misc objects after native castle execution."
+      ]
+    },
     {
       "Version": "0.6.10",
       "Changes": [

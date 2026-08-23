@@ -1,9 +1,11 @@
 using BepInEx.Logging;
+using AIVParser.Core;
 using R3;
 using SHCDESE.API;
 using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.Buildings;
 using SHCDESE.EventAPI.MapLoader;
+using SHCDESE.Extensions;
 using SHCDESE.GameGlobals;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
@@ -11,6 +13,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace CastlePlanner
 {
@@ -130,6 +134,12 @@ namespace CastlePlanner
         private int nativeCastleExecutionPlayerId;
         private int nextHovelVisualStyle;
         private int correctedHovelVisualCount;
+        private bool captureSupplementalBuilding;
+        private int captureSupplementalPlayerId;
+        private int captureSupplementalX;
+        private int captureSupplementalY;
+        private eStructs captureSupplementalStruct;
+        private int capturedSupplementalBuildingId;
 
         public CastlePlannerRuntime(
             ManualLogSource log,
@@ -158,6 +168,9 @@ namespace CastlePlanner
             subscriptions.Add(BuildingR3EventHooks.OnBuildStructure.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
                 .Subscribe(OnBuildStructurePost));
+            subscriptions.Add(BuildingR3EventHooks.OnBuildingSpawn.Observable
+                .Where(args => args.Phase == EventHookPhase.Post)
+                .Subscribe(OnBuildingSpawnPost));
             subscriptions.Add(MapLoaderR3EventHooks.OnLoadSave.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
                 .Subscribe(OnLoadSave));
@@ -308,11 +321,23 @@ namespace CastlePlanner
                 GameModeSnapshot gameMode = CaptureGameMode(args);
                 EnsureSupportedGameMode(gameMode);
                 int[] humanPlayerIds = CaptureHumanPlayerIds();
+                if (gameMode.SharedRealMultiplayer &&
+                    !settings.System_ArePerPlayerSettingsReady(humanPlayerIds, out string readinessError))
+                {
+                    throw new InvalidOperationException(
+                        $"Personal castle decoration settings are incomplete: {readinessError}");
+                }
 
                 // Parse and encode every file before the first native mutation. A single
                 // malformed AIV therefore aborts the whole transaction without partial imports.
                 List<PendingAivImport> preparedImports = requests
-                    .Select(PreparePlayerImport)
+                    .Select(request =>
+                    {
+                        AivSpawnOptions options = settings.GetSpawnOptions(request.PlayerId);
+                        if (!gameMode.SharedRealMultiplayer)
+                            options.SpawnBraziersAndFlags = settings.SpawnBraziersAndFlags;
+                        return PreparePlayerImport(request, options);
+                    })
                     .ToList();
                 foreach (FreeCastleSelection request in requests)
                     expectedAivCastlePlayers.Add(request.PlayerId);
@@ -343,15 +368,23 @@ namespace CastlePlanner
             }
         }
 
-        private static PendingAivImport PreparePlayerImport(FreeCastleSelection request)
+        private static PendingAivImport PreparePlayerImport(
+            FreeCastleSelection request,
+            AivSpawnOptions options)
         {
             FreeCastleProtocol.ValidateSelection(request);
+            AivJsonDocument decoded = AivSpawnPlan.Decode(request.RawData);
+            AivJsonDocument filtered = AivSpawnPlan.Filter(decoded, options);
+            short[] filteredRaw = AivRawDataEncoder.Encode(filtered);
             return new PendingAivImport(
                 request.PlayerId,
                 request.DisplayName,
                 request.ContentHash,
                 request.Rotation,
-                (short[])request.RawData.Clone());
+                filteredRaw,
+                decoded,
+                filtered,
+                options);
         }
 
         private void ImportPlayerCastle(
@@ -606,7 +639,10 @@ namespace CastlePlanner
                 keepY,
                 nativePreparedKeepX,
                 nativePreparedKeepY,
-                ownedBuildingsBefore);
+                ownedBuildingsBefore,
+                prepared.SourceDocument,
+                prepared.FilteredDocument,
+                prepared.Options);
         }
 
         private void ExecutePreparedCastle(PreparedAivCastle castle)
@@ -627,6 +663,7 @@ namespace CastlePlanner
             try
             {
                 executeToPercentage(aivState, castle.PlayerId, 100);
+                SpawnSupplementalContents(castle);
             }
             finally
             {
@@ -644,6 +681,347 @@ namespace CastlePlanner
                 $"buildingDelta={ownedBuildingsAfter - ownedBuildingsBeforeExecution}, " +
                 $"correctedHovelVisuals={correctedHovelVisualCount}.");
             LogSpecialBuildingDiagnostics(castle.PlayerId);
+        }
+
+        private void OnBuildingSpawnPost(BuildingSpawnEventArgs args)
+        {
+            if (!captureSupplementalBuilding ||
+                args.PlayerId != captureSupplementalPlayerId ||
+                args.TileX != captureSupplementalX ||
+                args.TileY != captureSupplementalY ||
+                (captureSupplementalStruct != eStructs.STRUCT_NULL &&
+                 args.Building != captureSupplementalStruct))
+            {
+                return;
+            }
+            capturedSupplementalBuildingId = unchecked((int)args.ReturnValue);
+        }
+
+        private void SpawnSupplementalContents(PreparedAivCastle castle)
+        {
+            var digestRows = new List<string>();
+            AivRotation rotation = ToAivRotation(castle.Orientation);
+
+            foreach (AivJsonFrame frame in castle.FilteredDocument.frames)
+            {
+                AivFrameSpawnCategory frameCategory = AivSpawnPlan.ClassifyFrame(frame.itemType);
+                bool isFearFactor = frameCategory == AivFrameSpawnCategory.FearFactor;
+                bool isStockpile = frame.itemType == (int)eMappers.MAPPER_STORES;
+                if (!isFearFactor && !isStockpile)
+                    continue;
+
+                string objectKind = isStockpile ? "stockpile" : "Fearfactor object";
+                string digestKind = isStockpile ? "stockpile" : "fear";
+                foreach (int encodedPosition in frame.tilePositionOfsets)
+                {
+                    AivWorldTile tile = AivWorldTransform.ProjectNativeFit(
+                        new AivGridPoint(encodedPosition),
+                        castle.PreparedKeepX,
+                        castle.PreparedKeepY,
+                        rotation);
+                    eMappers mapper = (eMappers)frame.itemType;
+                    if (!CanPlaceSupplementalPrefab(
+                            mapper,
+                            encodedPosition,
+                            castle.PreparedKeepX,
+                            castle.PreparedKeepY,
+                            rotation,
+                            out string reason))
+                    {
+                        Shared.DebugLogHelper.LogWarning(
+                            log,
+                            $"Supplemental {objectKind} skipped: playerId={castle.PlayerId}, mapper={mapper}, position=({tile.X},{tile.Y}), reason={reason}.");
+                        continue;
+                    }
+                    int height = GameTileManagerAPI.Instance.GetTileHeight(
+                        GameTileManagerAPI.Instance.GetTileId(tile.X, tile.Y));
+                    int id;
+                    try
+                    {
+                        // CreatePrefab also creates the Stockpile's four connected yard parts.
+                        id = CreateSupplementalPrefab(castle.PlayerId, tile.X, tile.Y, mapper);
+                    }
+                    catch (Exception ex)
+                    {
+                        Shared.DebugLogHelper.LogWarning(log, $"Supplemental {objectKind} creation threw and was skipped: playerId={castle.PlayerId}, mapper={mapper}, position=({tile.X},{tile.Y}), error={ex.GetBaseException().Message}.");
+                        continue;
+                    }
+                    if (id > 0)
+                        digestRows.Add($"{digestKind}:{(int)mapper}:{castle.PlayerId}:{tile.X}:{tile.Y}:{height}");
+                }
+            }
+
+            for (int index = 0; index < castle.FilteredDocument.miscItems.Count; index++)
+            {
+                AivJsonMiscItem item = castle.FilteredDocument.miscItems[index];
+                AivMiscSpawnCategory category = AivSpawnPlan.ClassifyMisc(item.itemType);
+                AivWorldTile tile = AivWorldTransform.ProjectNativeFit(
+                    new AivGridPoint(item.positionOfset),
+                    castle.PreparedKeepX,
+                    castle.PreparedKeepY,
+                    rotation);
+                if (!GameTileManagerAPI.Instance.IsTileInsideMapBounds(tile.X, tile.Y))
+                {
+                    Shared.DebugLogHelper.LogWarning(
+                        log,
+                        $"Supplemental misc item skipped: playerId={castle.PlayerId}, sourceIndex={index}, itemType={item.itemType}, position=({tile.X},{tile.Y}), reason=out-of-bounds.");
+                    continue;
+                }
+
+                int tileId = GameTileManagerAPI.Instance.GetTileId(tile.X, tile.Y);
+                int height = GameTileManagerAPI.Instance.GetTileHeight(tileId);
+                if (category == AivMiscSpawnCategory.Troop || category == AivMiscSpawnCategory.SiegeEngine)
+                {
+                    if (!AivSpawnPlan.TryMapUnit(item.itemType, out eChimps chimp))
+                    {
+                        LogUnknownMisc(castle.PlayerId, index, item);
+                        continue;
+                    }
+                    long id;
+                    try
+                    {
+                        id = GameUnitManagerAPI.Instance.CreateUnitLocal(
+                            castle.PlayerId,
+                            castle.PlayerId,
+                            tile.X,
+                            tile.Y,
+                            height,
+                            chimp);
+                    }
+                    catch (Exception ex)
+                    {
+                        Shared.DebugLogHelper.LogWarning(log, $"Supplemental unit creation threw and was skipped: playerId={castle.PlayerId}, sourceIndex={index}, chimp={chimp}, position=({tile.X},{tile.Y}), error={ex.GetBaseException().Message}.");
+                        continue;
+                    }
+                    if (id <= 0)
+                    {
+                        Shared.DebugLogHelper.LogWarning(log, $"Supplemental unit creation failed: playerId={castle.PlayerId}, sourceIndex={index}, chimp={chimp}, position=({tile.X},{tile.Y}), height={height}.");
+                        continue;
+                    }
+                    digestRows.Add($"unit:{(int)chimp}:{castle.PlayerId}:{tile.X}:{tile.Y}:{height}:slot{item.number}");
+                    if (category == AivMiscSpawnCategory.SiegeEngine)
+                        SpawnRequiredSiegeEngineers(castle.PlayerId, index, item.itemType, tile, height, digestRows);
+                    continue;
+                }
+
+                if (category == AivMiscSpawnCategory.Decoration)
+                {
+                    eMappers mapper = AivSpawnPlan.NormalizeMiscType(item.itemType) == 20
+                        ? eMappers.MAPPER_BRAZIER
+                        : (eMappers)((int)eMappers.MAPPER_FLAG_TYPE0 + castle.PlayerId);
+                    int id;
+                    try
+                    {
+                        id = CreateSupplementalPrefab(castle.PlayerId, tile.X, tile.Y, mapper);
+                    }
+                    catch (Exception ex)
+                    {
+                        Shared.DebugLogHelper.LogWarning(log, $"Supplemental decoration creation threw and was skipped: playerId={castle.PlayerId}, sourceIndex={index}, mapper={mapper}, position=({tile.X},{tile.Y}), error={ex.GetBaseException().Message}.");
+                        continue;
+                    }
+                    if (id > 0)
+                        digestRows.Add($"decoration:{(int)mapper}:{castle.PlayerId}:{tile.X}:{tile.Y}:{height}");
+                    continue;
+                }
+
+                LogUnknownMisc(castle.PlayerId, index, item);
+            }
+
+            string digestPayload = string.Join("|", digestRows);
+            string digest;
+            using (SHA256 sha = SHA256.Create())
+                digest = BitConverter.ToString(sha.ComputeHash(Encoding.UTF8.GetBytes(digestPayload))).Replace("-", string.Empty).ToLowerInvariant();
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"Supplemental castle spawn digest: playerId={castle.PlayerId}, objects={digestRows.Count}, sha256={digest}, entries=[{digestPayload}].");
+        }
+
+        private void SpawnRequiredSiegeEngineers(
+            int playerId,
+            int sourceIndex,
+            int siegeItemType,
+            AivWorldTile siegeTile,
+            int siegeHeight,
+            List<string> digestRows)
+        {
+            int required = AivSpawnPlan.GetRequiredEngineerCount(siegeItemType);
+            if (required <= 0)
+                return;
+
+            // Prefer the same platform height so tower-mounted engines receive their crew on the tower.
+            int[,] offsets =
+            {
+                { 1, 0 }, { 0, 1 }, { -1, 0 }, { 0, -1 },
+                { 1, 1 }, { -1, 1 }, { -1, -1 }, { 1, -1 }
+            };
+            var candidates = new List<Tuple<int, int, int, int>>();
+            for (int offsetIndex = 0; offsetIndex < offsets.GetLength(0); offsetIndex++)
+            {
+                int x = siegeTile.X + offsets[offsetIndex, 0];
+                int y = siegeTile.Y + offsets[offsetIndex, 1];
+                if (!GameTileManagerAPI.Instance.IsTileInsideMapBounds(x, y))
+                    continue;
+                int height = GameTileManagerAPI.Instance.GetTileHeight(
+                    GameTileManagerAPI.Instance.GetTileId(x, y));
+                candidates.Add(Tuple.Create(x, y, height, offsetIndex));
+            }
+
+            int spawned = 0;
+            foreach (Tuple<int, int, int, int> candidate in candidates
+                         .OrderBy(value => Math.Abs(value.Item3 - siegeHeight))
+                         .ThenBy(value => value.Item4))
+            {
+                if (spawned >= required)
+                    break;
+                long id;
+                try
+                {
+                    id = GameUnitManagerAPI.Instance.CreateUnitLocal(
+                        playerId,
+                        playerId,
+                        candidate.Item1,
+                        candidate.Item2,
+                        candidate.Item3,
+                        eChimps.CHIMP_TYPE_ENGINEER);
+                }
+                catch (Exception ex)
+                {
+                    Shared.DebugLogHelper.LogWarning(log, $"Required siege engineer creation threw and was skipped: playerId={playerId}, sourceIndex={sourceIndex}, siegeItemType={siegeItemType}, position=({candidate.Item1},{candidate.Item2}), error={ex.GetBaseException().Message}.");
+                    continue;
+                }
+                if (id <= 0)
+                {
+                    Shared.DebugLogHelper.LogWarning(log, $"Required siege engineer creation failed: playerId={playerId}, sourceIndex={sourceIndex}, siegeItemType={siegeItemType}, position=({candidate.Item1},{candidate.Item2}), height={candidate.Item3}.");
+                    continue;
+                }
+                digestRows.Add($"siege-engineer:{(int)eChimps.CHIMP_TYPE_ENGINEER}:{playerId}:{candidate.Item1}:{candidate.Item2}:{candidate.Item3}");
+                spawned++;
+            }
+
+            if (spawned != required)
+            {
+                Shared.DebugLogHelper.LogWarning(
+                    log,
+                    $"Required siege engineer crew incomplete: playerId={playerId}, sourceIndex={sourceIndex}, siegeItemType={siegeItemType}, required={required}, spawned={spawned}.");
+            }
+        }
+
+        private bool CanPlaceSupplementalPrefab(
+            eMappers mapper,
+            int encodedPosition,
+            int keepX,
+            int keepY,
+            AivRotation rotation,
+            out string reason)
+        {
+            AivMapperInfo info = AivMapperCatalog.Resolve((int)mapper);
+            int size = info.FootprintSize.GetValueOrDefault(1);
+            if (size < 1)
+                size = 1;
+            AivGridPoint anchor = new AivGridPoint(encodedPosition);
+            for (int rowOffset = 0; rowOffset < size; rowOffset++)
+            {
+                for (int columnOffset = 0; columnOffset < size; columnOffset++)
+                {
+                    int row = anchor.Row - rowOffset;
+                    int column = anchor.Column + columnOffset;
+                    if (row < 0 || row >= AivGridPoint.GridSize ||
+                        column < 0 || column >= AivGridPoint.GridSize)
+                    {
+                        reason = "source-footprint-out-of-bounds";
+                        return false;
+                    }
+                    AivWorldTile footprintTile = AivWorldTransform.ProjectNativeFit(
+                        new AivGridPoint(row, column),
+                        keepX,
+                        keepY,
+                        rotation);
+                    if (!GameTileManagerAPI.Instance.IsTileInsideMapBounds(footprintTile.X, footprintTile.Y))
+                    {
+                        reason = "footprint-out-of-bounds";
+                        return false;
+                    }
+                    int tileId = GameTileManagerAPI.Instance.GetTileId(footprintTile.X, footprintTile.Y);
+                    if (GameTileManagerAPI.Instance.GetTileBuildingId(tileId) > 0)
+                    {
+                        reason = "occupied-or-already-created";
+                        return false;
+                    }
+                }
+            }
+            reason = string.Empty;
+            return true;
+        }
+
+        private int CreateSupplementalPrefab(int playerId, int x, int y, eMappers mapper)
+        {
+            captureSupplementalBuilding = true;
+            captureSupplementalPlayerId = playerId;
+            captureSupplementalX = x;
+            captureSupplementalY = y;
+            captureSupplementalStruct = mapper == eMappers.MAPPER_BRAZIER
+                ? eStructs.STRUCT_BRAZIER
+                : mapper >= eMappers.MAPPER_FLAG_TYPE0 && mapper <= eMappers.MAPPER_FLAG_TYPE8
+                    ? eStructs.STRUCT_NULL
+                    : mapper.ConvertToEStructs();
+            capturedSupplementalBuildingId = -1;
+            bool previousBypassEnabled = GameTileManagerAPI.Instance.TileManager.UsePlacementBlockedOverride;
+            bool previousBypassValue = GameTileManagerAPI.Instance.TileManager.PlacementBlockedOverrideValue;
+            long result;
+            try
+            {
+                result = GameBuildingManagerAPI.Instance.CreatePrefab(
+                    playerId,
+                    x,
+                    y,
+                    mapper,
+                    mapper >= eMappers.MAPPER_FLAG_TYPE0 && mapper <= eMappers.MAPPER_FLAG_TYPE8
+                        ? 0
+                        : BuildingScales.GetScale(mapper),
+                    0,
+                    true,
+                    true);
+            }
+            finally
+            {
+                GameTileManagerAPI.Instance.TileManager.PlacementBlockedOverrideValue = previousBypassValue;
+                GameTileManagerAPI.Instance.TileManager.UsePlacementBlockedOverride = previousBypassEnabled;
+                captureSupplementalBuilding = false;
+            }
+
+            int id = capturedSupplementalBuildingId > 0
+                ? capturedSupplementalBuildingId
+                : unchecked((int)result);
+            if (id <= 0 ||
+                !GameBuildingManagerAPI.Instance.TryGetBuildingById(id, out GameBuilding* building) ||
+                building->r_PlayerIdOwner != playerId ||
+                (captureSupplementalStruct != eStructs.STRUCT_NULL &&
+                 building->r_BuildingType != captureSupplementalStruct) ||
+                (building->r_AliveState != AliveState.NeedsInit && building->r_AliveState != AliveState.IsAlive))
+            {
+                Shared.DebugLogHelper.LogWarning(log, $"Supplemental prefab creation failed verification: playerId={playerId}, mapper={mapper}, position=({x},{y}), returnedId={id}.");
+                return -1;
+            }
+            return id;
+        }
+
+        private void LogUnknownMisc(int playerId, int index, AivJsonMiscItem item)
+        {
+            Shared.DebugLogHelper.LogWarning(
+                log,
+                $"Unknown supplemental misc item skipped: playerId={playerId}, sourceIndex={index}, itemType={item.itemType}, positionOffset={item.positionOfset}, number={item.number}.");
+        }
+
+        private static AivRotation ToAivRotation(int nativeOrientation)
+        {
+            switch (nativeOrientation)
+            {
+                case 0: return AivRotation.Degrees0;
+                case 2: return AivRotation.Degrees90;
+                case 4: return AivRotation.Degrees180;
+                case 6: return AivRotation.Degrees270;
+                default: throw new InvalidOperationException($"Unsupported native AIV orientation: {nativeOrientation}.");
+            }
         }
 
         private void BindNativeFunctions(
@@ -1190,13 +1568,19 @@ namespace CastlePlanner
                 string displayName,
                 string contentHash,
                 int rotation,
-                short[] rawAiv)
+                short[] rawAiv,
+                AivJsonDocument sourceDocument,
+                AivJsonDocument filteredDocument,
+                AivSpawnOptions options)
             {
                 PlayerId = playerId;
                 DisplayName = displayName ?? string.Empty;
                 ContentHash = contentHash ?? string.Empty;
                 Rotation = rotation;
                 RawAiv = rawAiv ?? throw new ArgumentNullException(nameof(rawAiv));
+                SourceDocument = sourceDocument ?? throw new ArgumentNullException(nameof(sourceDocument));
+                FilteredDocument = filteredDocument ?? throw new ArgumentNullException(nameof(filteredDocument));
+                Options = options ?? throw new ArgumentNullException(nameof(options));
             }
 
             public int PlayerId { get; }
@@ -1204,6 +1588,9 @@ namespace CastlePlanner
             public string ContentHash { get; }
             public int Rotation { get; }
             public short[] RawAiv { get; }
+            public AivJsonDocument SourceDocument { get; }
+            public AivJsonDocument FilteredDocument { get; }
+            public AivSpawnOptions Options { get; }
             public int RawShortCount => RawAiv.Length;
         }
 
@@ -1218,7 +1605,10 @@ namespace CastlePlanner
                 int requestedKeepY,
                 int preparedKeepX,
                 int preparedKeepY,
-                int ownedBuildingsAtPreparation)
+                int ownedBuildingsAtPreparation,
+                AivJsonDocument sourceDocument,
+                AivJsonDocument filteredDocument,
+                AivSpawnOptions options)
             {
                 PlayerId = playerId;
                 SpecIndex = specIndex;
@@ -1229,6 +1619,9 @@ namespace CastlePlanner
                 PreparedKeepX = preparedKeepX;
                 PreparedKeepY = preparedKeepY;
                 OwnedBuildingsAtPreparation = ownedBuildingsAtPreparation;
+                SourceDocument = sourceDocument;
+                FilteredDocument = filteredDocument;
+                Options = options;
             }
 
             public int PlayerId { get; }
@@ -1240,6 +1633,9 @@ namespace CastlePlanner
             public int PreparedKeepX { get; }
             public int PreparedKeepY { get; }
             public int OwnedBuildingsAtPreparation { get; }
+            public AivJsonDocument SourceDocument { get; }
+            public AivJsonDocument FilteredDocument { get; }
+            public AivSpawnOptions Options { get; }
         }
 
     }

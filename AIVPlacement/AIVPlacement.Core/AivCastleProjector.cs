@@ -7,9 +7,6 @@ namespace AIVPlacement.Core
 {
     public sealed class AivCastleProjector
     {
-        private const int NativeKeepReferenceRow = 56;
-        private const int NativeKeepReferenceColumn = 43;
-
         public AivProjectedCastle Project(
             AivBlueprint blueprint,
             MapCoordinate mapKeepAnchor,
@@ -82,7 +79,7 @@ namespace AIVPlacement.Core
                         }
                     }
 
-                    AivWorldTile projectedAnchor = ProjectNativeFitTile(
+                    AivWorldTile projectedAnchor = AivWorldTransform.ProjectNativeFit(
                         sourceAnchor,
                         mapKeepAnchor.X,
                         mapKeepAnchor.Y,
@@ -145,7 +142,7 @@ namespace AIVPlacement.Core
                 for (int column = rawAnchor.Column; column <= lastColumn; column++)
                 {
                     var sourcePoint = new AivGridPoint(row, column);
-                    AivWorldTile projected = ProjectNativeFitTile(
+                    AivWorldTile projected = AivWorldTransform.ProjectNativeFit(
                         sourcePoint,
                         mapKeepAnchor.X,
                         mapKeepAnchor.Y,
@@ -161,21 +158,6 @@ namespace AIVPlacement.Core
                         associatedAreaSource));
                 }
             }
-        }
-
-        private static AivWorldTile ProjectNativeFitTile(
-            AivGridPoint point,
-            int keepWorldX,
-            int keepWorldY,
-            AivRotation rotation)
-        {
-            AivGridPoint rotatedPoint = AivGridTransform.Rotate(point, rotation);
-
-            // Native fit evaluation keeps a fixed grid origin even when a custom AIV stores
-            // its Keep elsewhere; row 56/column 43 is the corresponding world-axis reference.
-            return new AivWorldTile(
-                keepWorldX + rotatedPoint.Column - NativeKeepReferenceColumn,
-                keepWorldY - rotatedPoint.Row + NativeKeepReferenceRow);
         }
 
         private static void ValidateRotation(AivRotation rotation)
