@@ -3,10 +3,17 @@
   "Author": "Serpens66",
   "Name": "CastlePlanner",
   "Description": "Displays AIVJSON blueprints, spawns personal human castles, and contains the gated AI lobby placement workflow.",
-  "Version": "0.7.4",
+  "Version": "0.7.5",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "0.7.5",
+      "Changes": [
+        "Anchors all supplemental AIV objects to Vanilla's original fixed-grid reference instead of the rotated live Keep footprint.",
+        "Prevents the common rotation-dependent offset of siege engines, braziers, flags, stockpiles, and supplemental Fearfactor objects."
+      ]
+    },
     {
       "Version": "0.7.4",
       "Changes": [

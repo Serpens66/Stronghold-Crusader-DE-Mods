@@ -58,6 +58,7 @@ internal static class Program
             ("filters troops and maps only siege engines", FiltersTroopsAndMapsOnlySiegeEngines),
             ("maps braziers and owner-specific flags", MapsBraziersAndOwnerSpecificFlags),
             ("projects supplemental items for every rotation", ProjectsSupplementalItemsForEveryRotation),
+            ("keeps supplemental items on the native reference anchor", KeepsSupplementalItemsOnNativeReferenceAnchor),
             ("converts decoration tiles to projectile coordinates", ConvertsDecorationTilesToProjectileCoordinates),
             ("aligns native rotation to the live Keep footprint", AlignsNativeRotationToLiveKeepFootprint)
         };
@@ -986,6 +987,24 @@ internal static class Program
         Assert(!CastlePlanner.AivSpawnPlan.TryMapDecoration(21, -1, out _, out _), "negative player id mapped a flag");
         Assert(!CastlePlanner.AivSpawnPlan.TryMapDecoration(21, 9, out _, out _), "out-of-range player id mapped a flag");
         Assert(!CastlePlanner.AivSpawnPlan.TryMapDecoration(22, 1, out _, out _), "unknown decoration type was mapped");
+    }
+
+    private static void KeepsSupplementalItemsOnNativeReferenceAnchor()
+    {
+        var point = new AivGridPoint(55, 44);
+        AivWorldTile correctlyAnchored = AivWorldTransform.ProjectNativeFit(
+            point,
+            525,
+            274,
+            AivRotation.Degrees90);
+        AivWorldTile incorrectlyAnchoredToLiveKeep = AivWorldTransform.ProjectNativeFit(
+            point,
+            525,
+            281,
+            AivRotation.Degrees90);
+
+        Equal(correctlyAnchored.X, incorrectlyAnchoredToLiveKeep.X);
+        Equal(correctlyAnchored.Y + 7, incorrectlyAnchoredToLiveKeep.Y);
     }
 
     private static void ConvertsDecorationTilesToProjectileCoordinates()

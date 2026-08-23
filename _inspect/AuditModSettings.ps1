@@ -1,7 +1,25 @@
+[CmdletBinding()]
+param(
+    [ValidateSet(
+        'BugfixesAndQoL',
+        'BuildingCosts',
+        'BuildingLimit',
+        'ExtraFeatures',
+        'ImprovedHunters',
+        'RandomEvents',
+        'SerpsModsHost',
+        'CastlePlanner',
+        'CustomCustomTrail',
+        'StartConditions',
+        'UnitCosts',
+        'UnitLimit')]
+    [string] $Mod
+)
+
 $ErrorActionPreference = 'Stop'
 
 $workspace = Split-Path -Parent $PSScriptRoot
-$settings = [ordered]@{
+$settingsByMod = [ordered]@{
     BugfixesAndQoL = 'BugfixesAndQoL/Override/ScriptExtenderUI/BugfixesAndQoLSettings.xaml'
     BuildingCosts = 'BuildingCosts/BepInEx/plugins/BuildingCosts_Serp/Override/ScriptExtenderUI/BuildingCostsSettings.xaml'
     BuildingLimit = 'BuildingLimit/BepInEx/plugins/BuildingLimit_Serp/Override/ScriptExtenderUI/BuildingLimitSettings.xaml'
@@ -59,6 +77,20 @@ $editableProxyBindings = @{
     StartConditions = @('AddStartGoldAISlider','AddStartGoldAIText','AddStartGoldHumanSlider','AddStartGoldHumanText','AIAmountSlider','AIAmountText','HumanAmountSlider','HumanAmountText','MultiplyStartTroopsAISlider','MultiplyStartTroopsAIText','MultiplyStartTroopsHumanSlider','MultiplyStartTroopsHumanText','SetStartGoldAISlider','SetStartGoldAIText','SetStartGoldHumanSlider','SetStartGoldHumanText')
     UnitCosts = @('AmountText','GoldSlider','GoldText','SliderAmount')
     UnitLimit = @('LimitText','SliderLimit')
+}
+
+$selectedModNames = if ($PSBoundParameters.ContainsKey('Mod')) {
+    @($Mod)
+} else {
+    @($settingsByMod.Keys)
+}
+$settings = [ordered]@{}
+foreach ($modName in $selectedModNames) {
+    $settings[$modName] = $settingsByMod[$modName]
+}
+
+function Test-ModSelected([string] $Name) {
+    return $selectedModNames -contains $Name
 }
 
 $interactiveNames = @('Button', 'CheckBox', 'ComboBox', 'Slider', 'TextBox')
@@ -219,6 +251,7 @@ foreach ($required in @(
         throw "Shared fixed tooltip presentation marker is missing: $required"
     }
 }
+if (Test-ModSelected 'CastlePlanner') {
 $castleRuntimeSource = [IO.File]::ReadAllText((Join-Path $workspace 'CastlePlanner/src/CastlePlannerRuntime.cs'))
 foreach ($required in @(
     'expectedAivCastlePlayers',
@@ -357,6 +390,7 @@ foreach ($forbidden in @(
         throw "CastlePlanner retained obsolete whole-inventory or player-count logic: $forbidden"
     }
 }
+}
 foreach ($forbidden in @(
     'DependencyProperty FontSizeProperty',
     'DependencyProperty MaximumWidthProperty',
@@ -372,24 +406,31 @@ foreach ($forbidden in @(
     }
 }
 
-$currentTooltipXaml = @(
-    'BugfixesAndQoL/Override/ScriptExtenderUI/BugfixesAndQoLSettings.xaml',
-    'BugfixesAndQoL/BepInEx/plugins/BugfixesAndQoL_Serp/Override/ScriptExtenderUI/BugfixesAndQoLSettings.xaml',
-    'BuildingCosts/BepInEx/plugins/BuildingCosts_Serp/Override/ScriptExtenderUI/BuildingCostsSettings.xaml',
-    'BuildingLimit/BepInEx/plugins/BuildingLimit_Serp/Override/ScriptExtenderUI/BuildingLimitSettings.xaml',
-    'CastlePlanner/BepInEx/plugins/CastlePlanner_Serp/Override/ScriptExtenderUI/CastlePlannerSettings.xaml',
-    'CustomCustomTrail/Override/ScriptExtenderUI/CustomCustomTrailSettings.xaml',
-    'CustomCustomTrail/BepInEx/plugins/CustomCustomTrail_Serp/Override/ScriptExtenderUI/CustomCustomTrailSettings.xaml',
-    'ExtraFeatures/Override/ScriptExtenderUI/ExtraFeaturesSettings.xaml',
-    'ExtraFeatures/BepInEx/plugins/ExtraFeatures_Serp/Override/ScriptExtenderUI/ExtraFeaturesSettings.xaml',
-    'ImprovedHunters/BepInEx/plugins/ImprovedHunters_Serp/Override/ScriptExtenderUI/ImprovedHuntersSettings.xaml',
-    'RandomEvents/Override/ScriptExtenderUI/RandomEventsSettings.xaml',
-    'RandomEvents/BepInEx/plugins/RandomEvents_Serp/Override/ScriptExtenderUI/RandomEventsSettings.xaml',
-    'SerpsModsHost/Override/ScriptExtenderUI/SerpsModsStatus.xaml',
-    'SerpsModsHost/BepInEx/plugins/SerpsMods_Serp/Override/ScriptExtenderUI/SerpsModsStatus.xaml',
-    'StartConditions/BepInEx/plugins/StartConditions_Serp/Override/ScriptExtenderUI/StartConditionsSettings.xaml',
-    'UnitCosts/BepInEx/plugins/UnitCosts_Serp/Override/ScriptExtenderUI/UnitCostsSettings.xaml',
-    'UnitLimit/BepInEx/plugins/UnitLimit_Serp/Override/ScriptExtenderUI/UnitLimitSettings.xaml')
+$currentTooltipXamlByMod = @{
+    BugfixesAndQoL = @(
+        'BugfixesAndQoL/Override/ScriptExtenderUI/BugfixesAndQoLSettings.xaml',
+        'BugfixesAndQoL/BepInEx/plugins/BugfixesAndQoL_Serp/Override/ScriptExtenderUI/BugfixesAndQoLSettings.xaml')
+    BuildingCosts = @('BuildingCosts/BepInEx/plugins/BuildingCosts_Serp/Override/ScriptExtenderUI/BuildingCostsSettings.xaml')
+    BuildingLimit = @('BuildingLimit/BepInEx/plugins/BuildingLimit_Serp/Override/ScriptExtenderUI/BuildingLimitSettings.xaml')
+    CastlePlanner = @('CastlePlanner/BepInEx/plugins/CastlePlanner_Serp/Override/ScriptExtenderUI/CastlePlannerSettings.xaml')
+    CustomCustomTrail = @(
+        'CustomCustomTrail/Override/ScriptExtenderUI/CustomCustomTrailSettings.xaml',
+        'CustomCustomTrail/BepInEx/plugins/CustomCustomTrail_Serp/Override/ScriptExtenderUI/CustomCustomTrailSettings.xaml')
+    ExtraFeatures = @(
+        'ExtraFeatures/Override/ScriptExtenderUI/ExtraFeaturesSettings.xaml',
+        'ExtraFeatures/BepInEx/plugins/ExtraFeatures_Serp/Override/ScriptExtenderUI/ExtraFeaturesSettings.xaml')
+    ImprovedHunters = @('ImprovedHunters/BepInEx/plugins/ImprovedHunters_Serp/Override/ScriptExtenderUI/ImprovedHuntersSettings.xaml')
+    RandomEvents = @(
+        'RandomEvents/Override/ScriptExtenderUI/RandomEventsSettings.xaml',
+        'RandomEvents/BepInEx/plugins/RandomEvents_Serp/Override/ScriptExtenderUI/RandomEventsSettings.xaml')
+    SerpsModsHost = @(
+        'SerpsModsHost/Override/ScriptExtenderUI/SerpsModsStatus.xaml',
+        'SerpsModsHost/BepInEx/plugins/SerpsMods_Serp/Override/ScriptExtenderUI/SerpsModsStatus.xaml')
+    StartConditions = @('StartConditions/BepInEx/plugins/StartConditions_Serp/Override/ScriptExtenderUI/StartConditionsSettings.xaml')
+    UnitCosts = @('UnitCosts/BepInEx/plugins/UnitCosts_Serp/Override/ScriptExtenderUI/UnitCostsSettings.xaml')
+    UnitLimit = @('UnitLimit/BepInEx/plugins/UnitLimit_Serp/Override/ScriptExtenderUI/UnitLimitSettings.xaml')
+}
+$currentTooltipXaml = @($selectedModNames | ForEach-Object { $currentTooltipXamlByMod[$_] })
 foreach ($relativeXamlPath in $currentTooltipXaml) {
     $xamlPath = Join-Path $workspace $relativeXamlPath
     $xamlText = [IO.File]::ReadAllText($xamlPath)
@@ -407,7 +448,8 @@ foreach ($relativeXamlPath in $currentTooltipXaml) {
     }
 }
 
-foreach ($entry in $localeDirectories.GetEnumerator()) {
+foreach ($modName in $selectedModNames) {
+    $entry = [Collections.DictionaryEntry]::new($modName, $localeDirectories[$modName])
     $directory = Join-Path $workspace $entry.Value
     $files = @(Get-ChildItem -LiteralPath $directory -File -Filter '*.txt' | Sort-Object Name)
     if ($files.Count -eq 0) {
@@ -580,47 +622,61 @@ foreach ($sourceFile in $unsafeEditorChecks) {
         throw "$($sourceFile.FullName): use Shared.GameModeHelper.IsMapEditor() so early startup cannot construct MainViewModel."
     }
 }
-$castleSettingsSource = [IO.File]::ReadAllText((Join-Path $workspace 'CastlePlanner/src/CastlePlannerSettingsViewModel.cs'))
-if ($castleSettingsSource.Contains('SpawnSelectedCastleData[GetLocalPlayerId()]') -or
-    $castleSettingsSource.Contains('SpawnInventoryManifestData[GetLocalPlayerId()]')) {
-    throw 'CastlePlanner writes personal companion data through an unresolved slot-1 fallback.'
+if (Test-ModSelected 'CastlePlanner') {
+    $castleSettingsSource = [IO.File]::ReadAllText((Join-Path $workspace 'CastlePlanner/src/CastlePlannerSettingsViewModel.cs'))
+    if ($castleSettingsSource.Contains('SpawnSelectedCastleData[GetLocalPlayerId()]') -or
+        $castleSettingsSource.Contains('SpawnInventoryManifestData[GetLocalPlayerId()]')) {
+        throw 'CastlePlanner writes personal companion data through an unresolved slot-1 fallback.'
+    }
+    if ($castleSettingsSource.Contains('HasActiveMultiplayerGameMembers')) {
+        throw 'CastlePlanner must use Shared game-mode and roster helpers instead of a private gameMembers-count heuristic.'
+    }
+    if ($castleSettingsSource.Contains('SpawnSelectedCastleData[localPlayerId]') -or
+        $castleSettingsSource.Contains('SpawnInventoryManifestData[localPlayerId] =')) {
+        throw 'CastlePlanner must let Shared mirror local personal values into companion slots.'
+    }
 }
-if ($castleSettingsSource.Contains('HasActiveMultiplayerGameMembers')) {
-    throw 'CastlePlanner must use Shared game-mode and roster helpers instead of a private gameMembers-count heuristic.'
-}
-if ($castleSettingsSource.Contains('SpawnSelectedCastleData[localPlayerId]') -or
-    $castleSettingsSource.Contains('SpawnInventoryManifestData[localPlayerId] =')) {
-    throw 'CastlePlanner must let Shared mirror local personal values into companion slots.'
-}
-$customTrailSettingsSource = [IO.File]::ReadAllText((Join-Path $workspace 'CustomCustomTrail/src/CustomCustomTrailSettingsViewModel.cs'))
-if ($customTrailSettingsSource.Contains('GameNetworkAPI.GetLocalPlayerId()')) {
-    throw 'CustomCustomTrail must let Shared mirror its local status into the companion slot.'
-}
-$customTrailCoordinatorSource = [IO.File]::ReadAllText((Join-Path $workspace 'CustomCustomTrail/src/TrailMissionSettingsCoordinator.cs'))
-foreach ($required in @(
-    'page.Loaded += loaded;',
-    'page.Loaded -= loaded;',
-    'Could not find the logical title element after Loaded')) {
-    if (-not $customTrailCoordinatorSource.Contains($required)) {
-        throw "CustomCustomTrail lifecycle-safe Coop presentation marker is missing: $required"
+if (Test-ModSelected 'CustomCustomTrail') {
+    $customTrailSettingsSource = [IO.File]::ReadAllText((Join-Path $workspace 'CustomCustomTrail/src/CustomCustomTrailSettingsViewModel.cs'))
+    if ($customTrailSettingsSource.Contains('GameNetworkAPI.GetLocalPlayerId()')) {
+        throw 'CustomCustomTrail must let Shared mirror its local status into the companion slot.'
+    }
+    $customTrailCoordinatorSource = [IO.File]::ReadAllText((Join-Path $workspace 'CustomCustomTrail/src/TrailMissionSettingsCoordinator.cs'))
+    foreach ($required in @(
+        'page.Loaded += loaded;',
+        'page.Loaded -= loaded;',
+        'Could not find the logical title element after Loaded')) {
+        if (-not $customTrailCoordinatorSource.Contains($required)) {
+            throw "CustomCustomTrail lifecycle-safe Coop presentation marker is missing: $required"
+        }
     }
 }
 
+$additionalCrlfTargetsByMod = @{
+    BugfixesAndQoL = @(
+        'BugfixesAndQoL/src/BugfixesAndQoLViewModel.cs',
+        'BugfixesAndQoL/src/BugfixesAndQoLPlugin.cs')
+    CastlePlanner = @(
+        'CastlePlanner/src/CastlePlannerSettingsViewModel.cs',
+        'CastlePlanner/src/CastlePlannerPlugin.cs')
+    CustomCustomTrail = @(
+        'CustomCustomTrail/src/CustomCustomTrailSettingsViewModel.cs',
+        'CustomCustomTrail/src/CustomCustomTrailRuntime.cs')
+}
+$selectedLocaleDirectories = @($selectedModNames | ForEach-Object { $localeDirectories[$_] })
+$selectedAdditionalCrlfTargets = @($selectedModNames |
+    Where-Object { $additionalCrlfTargetsByMod.ContainsKey($_) } |
+    ForEach-Object { $additionalCrlfTargetsByMod[$_] })
 $crlfTargets = @($settings.Values) + @(
-    $localeDirectories.Values | ForEach-Object {
+    $selectedLocaleDirectories | ForEach-Object {
         Get-ChildItem -LiteralPath (Join-Path $workspace $_) -File -Filter '*.txt' |
             ForEach-Object { [IO.Path]::GetRelativePath($workspace, $_.FullName) }
     }
 ) + @(
     'Shared/PresetLobbyModSettingsViewModel.cs',
     'Shared/GameModeHelper.cs',
-    'BugfixesAndQoL/src/BugfixesAndQoLViewModel.cs',
-    'BugfixesAndQoL/src/BugfixesAndQoLPlugin.cs',
-    'CastlePlanner/src/CastlePlannerSettingsViewModel.cs',
-    'CastlePlanner/src/CastlePlannerPlugin.cs',
-    'CustomCustomTrail/src/CustomCustomTrailSettingsViewModel.cs',
-    'CustomCustomTrail/src/CustomCustomTrailRuntime.cs',
     '_inspect/HostClientPresetTests/Program.cs')
+$crlfTargets += $selectedAdditionalCrlfTargets
 foreach ($relativePath in $crlfTargets) {
     $text = [IO.File]::ReadAllText((Join-Path $workspace $relativePath))
     if ([Text.RegularExpressions.Regex]::IsMatch($text, '(?<!\r)\n')) {
@@ -628,4 +684,9 @@ foreach ($relativePath in $crlfTargets) {
     }
 }
 
-Write-Output "PASS: $($settings.Count) XAML files, shared-only registration, personal-setting declarations, automatic two-axis overflow scrolling, all interactive tooltips, shared styles, locale parity, nonempty translations, and CRLF."
+$auditScope = if ($PSBoundParameters.ContainsKey('Mod')) {
+    "mod $Mod plus Shared"
+} else {
+    "all $($settings.Count) mods plus Shared"
+}
+Write-Output "PASS ($auditScope): XAML, shared-only registration, personal-setting declarations, automatic two-axis overflow scrolling, all interactive tooltips, shared styles, locale parity, nonempty translations, and CRLF."

@@ -702,6 +702,15 @@ namespace CastlePlanner
             var digestRows = new List<string>();
             var queuedDecorations = new HashSet<string>(StringComparer.Ordinal);
             AivRotation rotation = ToAivRotation(castle.Orientation);
+            int nativeReferenceX = castle.RequestedKeepX;
+            int nativeReferenceY = castle.RequestedKeepY;
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"Supplemental castle anchor resolved: playerId={castle.PlayerId}, " +
+                $"nativeReference=({nativeReferenceX},{nativeReferenceY}), " +
+                $"liveKeep=({castle.PreparedKeepX},{castle.PreparedKeepY}), " +
+                $"liveKeepOffset=({castle.PreparedKeepX - nativeReferenceX},{castle.PreparedKeepY - nativeReferenceY}), " +
+                $"orientation={castle.Orientation}.");
 
             foreach (AivJsonFrame frame in castle.FilteredDocument.frames)
             {
@@ -717,15 +726,15 @@ namespace CastlePlanner
                 {
                     AivWorldTile tile = AivWorldTransform.ProjectNativeFit(
                         new AivGridPoint(encodedPosition),
-                        castle.PreparedKeepX,
-                        castle.PreparedKeepY,
+                        nativeReferenceX,
+                        nativeReferenceY,
                         rotation);
                     eMappers mapper = (eMappers)frame.itemType;
                     if (!CanPlaceSupplementalPrefab(
                             mapper,
                             encodedPosition,
-                            castle.PreparedKeepX,
-                            castle.PreparedKeepY,
+                            nativeReferenceX,
+                            nativeReferenceY,
                             rotation,
                             out string reason))
                     {
@@ -758,8 +767,8 @@ namespace CastlePlanner
                 AivMiscSpawnCategory category = AivSpawnPlan.ClassifyMisc(item.itemType);
                 AivWorldTile tile = AivWorldTransform.ProjectNativeFit(
                     new AivGridPoint(item.positionOfset),
-                    castle.PreparedKeepX,
-                    castle.PreparedKeepY,
+                    nativeReferenceX,
+                    nativeReferenceY,
                     rotation);
                 if (!GameTileManagerAPI.Instance.IsTileInsideMapBounds(tile.X, tile.Y))
                 {
