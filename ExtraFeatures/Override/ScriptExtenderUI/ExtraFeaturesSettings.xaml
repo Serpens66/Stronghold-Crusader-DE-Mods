@@ -168,6 +168,12 @@
       <CheckBox IsChecked="{Binding PreventHovelDeletion, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding PreventHovelDeletionHelpText}" Margin="0,0,14,8">
         <TextBlock Text="{Binding PreventHovelDeletionText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox>
+      <Grid ToolTipService.ShowDuration="60000" ToolTip="{Binding InaccessibleAIBuildingDemolitionProtectionHelpText}" Margin="0,0,0,8">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="170"/><ColumnDefinition Width="220"/><ColumnDefinition Width="190"/></Grid.ColumnDefinitions>
+        <TextBlock Grid.Column="0" Text="{Binding InaccessibleAIBuildingDemolitionProtectionText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center"/>
+        <Slider Grid.Column="1" Minimum="0" Maximum="2" Value="{Binding InaccessibleAIBuildingDemolitionProtection, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding InaccessibleAIBuildingDemolitionProtectionHelpText}"/>
+        <TextBlock Grid.Column="2" Text="{Binding InaccessibleAIBuildingDemolitionProtectionValueText}" Foreground="White" TextWrapping="Wrap" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="8,0,0,0"/>
+      </Grid>
 
       <Separator Background="#444466" Margin="0,10"/>
       <TextBlock Text="{Binding MarketPriceMultipliersTitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,8"/>

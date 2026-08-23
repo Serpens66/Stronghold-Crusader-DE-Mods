@@ -160,6 +160,11 @@ public static class SerpLocalization
     public const string PreventEmergencyDemolition = "SomeSettings.PreventEmergencyDemolition";
     public const string PreventEmergencyDemolitionHelp = "SomeSettings.PreventEmergencyDemolitionHelp";
     public const string PreventHovelDeletion = "SomeSettings.PreventHovelDeletion";
+    public const string InaccessibleAIBuildingDemolitionProtection = "SomeSettings.InaccessibleAIBuildingDemolitionProtection";
+    public const string InaccessibleAIBuildingDemolitionProtectionHelp = "SomeSettings.InaccessibleAIBuildingDemolitionProtectionHelp";
+    public const string InaccessibleAIBuildingDemolitionModeVanilla = "SomeSettings.InaccessibleAIBuildingDemolitionModeVanilla";
+    public const string InaccessibleAIBuildingDemolitionModeTemporary = "SomeSettings.InaccessibleAIBuildingDemolitionModeTemporary";
+    public const string InaccessibleAIBuildingDemolitionModeAlways = "SomeSettings.InaccessibleAIBuildingDemolitionModeAlways";
     public const string SerpsModsStatusTitle = "SerpsModsHost.StatusTitle";
     public const string SerpsModsSummaryTitle = "SerpsModsHost.SummaryTitle";
     public const string SerpsModsErrorsTitle = "SerpsModsHost.ErrorsTitle";
@@ -476,6 +481,11 @@ public static class SerpLocalization
         { PreventEmergencyDemolitionHelp, "Skips the AI emergency resource-recovery demolition block, which can otherwise remove useful buildings under pressure." },
         { PreventHovelDeletion, "Prevent AI hovel deletion" },
         { PreventHovelDeletionHelp, "Blocks direct deletes of living AI-owned hovels while still allowing normal destruction by damage." },
+        { InaccessibleAIBuildingDemolitionProtection, "Demolition of unreachable AI buildings" },
+        { InaccessibleAIBuildingDemolitionProtectionHelp, "Controls only demolitions caused by Vanilla classifying an AI building as unreachable. Vanilla does not intervene. Gatehouse/drawbridge only protects temporary blockage by a closed friendly gatehouse or raised drawbridge. Always prevent blocks every demolition for unreachability. Other demolition reasons remain unchanged." },
+        { InaccessibleAIBuildingDemolitionModeVanilla, "Vanilla" },
+        { InaccessibleAIBuildingDemolitionModeTemporary, "Gatehouse/drawbridge only" },
+        { InaccessibleAIBuildingDemolitionModeAlways, "Always prevent" },
         { AivPlacementComplete, "Complete fit" },
         { AivPlacementPartial, "Partial fit: {FitPercentage}%, sequential score {SequentialBuildScore}" },
         { AivPlacementImpossible, "Does not fit" },

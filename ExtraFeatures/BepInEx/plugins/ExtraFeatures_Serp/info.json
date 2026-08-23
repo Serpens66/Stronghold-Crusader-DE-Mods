@@ -3,10 +3,22 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.35",
+  "Version": "1.0.37",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.37",
+      "Changes": [
+        "Added a throttled side-by-side log of Vanilla's unreachable-building demolition decision and the mod's gatehouse/drawbridge PCL classification, including the virtual gate path used."
+      ]
+    },
+    {
+      "Version": "1.0.36",
+      "Changes": [
+        "Added configurable protection against AI demolition of buildings that Vanilla considers unreachable, including temporary closed-gate and raised-drawbridge detection."
+      ]
+    },
     {
       "Version": "1.0.35",
       "Changes": [

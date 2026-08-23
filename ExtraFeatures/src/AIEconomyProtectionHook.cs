@@ -2,7 +2,9 @@
 using BepInEx.Logging;
 using SHCDESE.API;
 using SHCDESE.Interop;
+using SHCDESE.Interop.Enums;
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Runtime.InteropServices;
 using Zhuqiaomon.Assembly;
@@ -39,10 +41,18 @@ namespace ExtraFeatures
         // call to c_game_building_delete completely outside this setting.
         private const string AIHovelDemolitionFunctionPattern =
             "48 89 5C 24 08 57 48 83 EC 20 48 63 FA 48 8D 15 ?? ?? ?? ?? 48 69 CF 3C 58 00 00 83 BC 11 C0 0E 13 00 00 74 ?? 8B 84 11 40 0D 13 00 3B 84 11 34 EC 12 00";
+
+        // c_game_ai_check_inaccessible_building:
+        // cmp inaccessibleChecks, 20; jl return; begin this helper's delete block.
+        // Lowering CX before this comparison skips only the unreachable-building deletion.
+        // Reference DLL SHA-256: 33AA33457F7DFAAA6D316D1D5E4C5AB97094F2C73B68D349990ABF9D0EF3B469.
+        private const string InaccessibleBuildingComparisonPattern =
+            "66 83 F9 14 7C ?? 45 0F BF 84 31 4C 01 00 00 48 8D 0D ?? ?? ?? ?? 41 0F BF 94 31 4A 01 00 00";
         private const int SleepStateComparisonRva = 0xC7DCB;
         private const int SleepStateSynchronizationFunctionRva = 0xC7D50;
         private const int EmergencyDemolitionComparisonRva = 0x2F454;
         private const int AIHovelDemolitionFunctionRva = 0x3B1D0;
+        private const int InaccessibleBuildingComparisonRva = 0x3B2FF;
 
         private const byte ActiveState = 0;
         private const byte SleepingState = 1;
@@ -57,16 +67,22 @@ namespace ExtraFeatures
 
         private readonly ManualLogSource log;
         private readonly ExtraFeaturesViewModel settings;
+        private readonly bool inaccessibleBuildingProtectionSupported;
         private readonly HookTransaction transaction;
         private HookRef<X64InlineHook> sleepStateHook = new HookRef<X64InlineHook>();
         private HookRef<X64InlineHook> emergencyDemolitionHook = new HookRef<X64InlineHook>();
+        private HookRef<X64InlineHook> inaccessibleBuildingDemolitionHook = new HookRef<X64InlineHook>();
         private HookRef<X64ManagedFunctionDetourAOB<AIHovelDemolitionDelegate>> aiHovelDemolitionHook =
             new HookRef<X64ManagedFunctionDetourAOB<AIHovelDemolitionDelegate>>();
         private readonly SynchronizeSleepStatesDelegate synchronizeSleepStates;
+        private readonly AIBuildingTemporaryAccessClassifier temporaryAccessClassifier;
         private bool pauseCallbackFailureLogged;
         private bool singleBuildingOverrideCallbackFailureLogged;
         private bool emergencyCallbackFailureLogged;
         private bool hovelDemolitionCallbackFailureLogged;
+        private bool inaccessibleDemolitionCallbackFailureLogged;
+        private readonly HashSet<string> inaccessibleDiagnosticEvents = new HashSet<string>();
+        private int lastInaccessibleDiagnosticTick = int.MinValue;
         private bool disposed;
 
         public AIEconomyProtectionHook(
@@ -78,6 +94,7 @@ namespace ExtraFeatures
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
+            inaccessibleBuildingProtectionSupported = referenceHashMatches;
 
             ulong libraryBase = unchecked((ulong)libraryHandle.ToInt64());
             int synchronizationRva = Resolve(
@@ -92,6 +109,17 @@ namespace ExtraFeatures
             int aiHovelDemolitionRva = Resolve(
                 memory, AIHovelDemolitionFunctionPattern, AIHovelDemolitionFunctionRva,
                 referenceHashMatches, "AI hovel-demolition function");
+            int inaccessibleBuildingComparisonRva = Resolve(
+                memory, InaccessibleBuildingComparisonPattern, InaccessibleBuildingComparisonRva,
+                referenceHashMatches, "AI inaccessible-building demolition comparison");
+
+            temporaryAccessClassifier = new AIBuildingTemporaryAccessClassifier(log, referenceHashMatches);
+            if (!referenceHashMatches)
+            {
+                log.LogWarning(
+                    $"[{TimestampNow()}] Extra Features inaccessible AI building-demolition protection " +
+                    "is disabled for this unknown CrusaderDE.dll; Vanilla behavior is retained.");
+            }
 
             synchronizeSleepStates = Marshal.GetDelegateForFunctionPointer<SynchronizeSleepStatesDelegate>(
                 unchecked((IntPtr)(long)(libraryBase + (ulong)synchronizationRva)));
@@ -118,6 +146,14 @@ namespace ExtraFeatures
                 errorMode: CallbackErrorMode.LogAndContinue,
                 placement: OverwrittenInstructionPlacement.AfterCallback);
 
+            transaction.AddContextHook(
+                ref inaccessibleBuildingDemolitionHook,
+                libraryBase + unchecked((ulong)inaccessibleBuildingComparisonRva),
+                PreventInaccessibleBuildingDemolition,
+                regs: X64SmartCPUContextRegs.Volatile | X64SmartCPUContextRegs.RDI,
+                errorMode: CallbackErrorMode.LogAndContinue,
+                placement: OverwrittenInstructionPlacement.AfterCallback);
+
             transaction.AddDetour(
                 ref aiHovelDemolitionHook,
                 libraryBase + unchecked((ulong)aiHovelDemolitionRva),
@@ -131,6 +167,8 @@ namespace ExtraFeatures
                 throw new InvalidOperationException("The AI emergency-demolition AOB signature was not found.");
             if (!aiHovelDemolitionHook.Success)
                 throw new InvalidOperationException("The AI hovel-demolition AOB signature was not found.");
+            if (!inaccessibleBuildingDemolitionHook.Success)
+                throw new InvalidOperationException("The AI inaccessible-building demolition AOB signature was not found.");
         }
 
         private int Resolve(
@@ -278,6 +316,111 @@ namespace ExtraFeatures
             }
 
             return aiHovelDemolitionHook.Value.Hook.Trampoline(aiManager, playerId);
+        }
+
+        private void PreventInaccessibleBuildingDemolition(NativePointer<X64SmartCPUContext> context)
+        {
+            try
+            {
+                int mode = settings.InaccessibleAIBuildingDemolitionProtection;
+                if (!settings.EnableMod || !inaccessibleBuildingProtectionSupported)
+                    return;
+
+                X64SmartCPUContext* registers = context.Pointer;
+                ushort vanillaCounter = (ushort)registers->RCX;
+                if (vanillaCounter < 20)
+                    return;
+
+                int buildingId = unchecked((int)(uint)registers->RDI);
+                GameBuilding* building = null;
+                bool isLivingAiBuilding =
+                    buildingId > 0 &&
+                    GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out building) &&
+                    building != null &&
+                    building->r_AliveState == AliveState.IsAlive &&
+                    GamePlayerManagerAPI.Instance.IsAIPlayer(building->r_PlayerIdOwner);
+                if (!isLivingAiBuilding)
+                    return;
+
+                bool classificationAvailable = temporaryAccessClassifier.TryClassify(
+                    buildingId,
+                    out AIBuildingAccessDiagnostic diagnostic);
+                bool temporarilyBlocked = classificationAvailable && diagnostic.IsOnlyTemporarilyBlocked;
+
+                bool suppressDemolition = TemporaryGateBlockagePolicy.ShouldSuppressDemolition(
+                    mode,
+                    isLivingAiBuilding,
+                    classificationAvailable,
+                    temporarilyBlocked);
+                LogInaccessibleBuildingComparison(
+                    buildingId,
+                    building,
+                    vanillaCounter,
+                    mode,
+                    classificationAvailable,
+                    diagnostic,
+                    suppressDemolition);
+
+                if (!suppressDemolition)
+                    return;
+
+                // Preserve the upper RCX bits. The overwritten cmp cx,20 now takes
+                // Vanilla's early-return branch without calling its delete block.
+                registers->RCX &= ~0xFFFFUL;
+            }
+            catch (Exception ex)
+            {
+                if (!inaccessibleDemolitionCallbackFailureLogged)
+                {
+                    inaccessibleDemolitionCallbackFailureLogged = true;
+                    LogError($"AI inaccessible-building demolition callback failed; this check uses vanilla behavior: {ex}");
+                }
+            }
+        }
+
+        private void LogInaccessibleBuildingComparison(
+            int buildingId,
+            GameBuilding* building,
+            ushort vanillaCounter,
+            int mode,
+            bool classificationAvailable,
+            AIBuildingAccessDiagnostic diagnostic,
+            bool suppressDemolition)
+        {
+            int tick = classificationAvailable
+                ? diagnostic.Tick
+                : GameTimeManagerAPI.Instance.CaptureTimeStamp().CapturedGameTick;
+            if (tick < lastInaccessibleDiagnosticTick || inaccessibleDiagnosticEvents.Count >= 4096)
+                inaccessibleDiagnosticEvents.Clear();
+            lastInaccessibleDiagnosticTick = tick;
+
+            string classification = classificationAvailable
+                ? diagnostic.Kind.ToString()
+                : "UnavailableFailOpen";
+            string details = classificationAvailable
+                ? diagnostic.Details
+                : "classification data unavailable";
+            string eventKey = string.Format(
+                CultureInfo.InvariantCulture,
+                "{0}:{1}:{2}:{3}:{4}:{5}",
+                building->r_PlayerIdOwner,
+                building->r_GlobalId,
+                mode,
+                classification,
+                classificationAvailable ? diagnostic.TopologyHash : 0,
+                details.GetHashCode());
+            if (!inaccessibleDiagnosticEvents.Add(eventKey))
+                return;
+
+            log.LogInfo(
+                $"[{TimestampNow()}] Extra Features AI inaccessible-building comparison: " +
+                $"tick={tick}, buildingId={buildingId}, buildingGlobalId={building->r_GlobalId}, " +
+                $"buildingType={building->r_BuildingType}, owner={building->r_PlayerIdOwner}, " +
+                $"vanillaCounter={vanillaCounter}, vanillaWouldDemolish={vanillaCounter >= 20}, " +
+                $"mode={mode}, modClassification={classification}, " +
+                $"modDecision={(suppressDemolition ? "SuppressDemolition" : "AllowVanilla")}, " +
+                "gateModel=closed GameGatehouseEntry entry/exit links also represent an associated raised drawbridge, " +
+                details);
         }
 
         private static ulong GetPlayerOwnerDistanceFromSleeping()

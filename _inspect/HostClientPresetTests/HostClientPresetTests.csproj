@@ -95,6 +95,9 @@
     <Compile Include="..\..\ExtraFeatures\src\LordHealthMultiplierPolicy.cs">
       <Link>LordHealthMultiplierPolicy.cs</Link>
     </Compile>
+    <Compile Include="..\..\ExtraFeatures\src\TemporaryGateBlockagePolicy.cs">
+      <Link>TemporaryGateBlockagePolicy.cs</Link>
+    </Compile>
     <Compile Include="..\..\ExtraFeatures\src\GatehouseAutomationSaveState.cs">
       <Link>GatehouseAutomationSaveState.cs</Link>
     </Compile>

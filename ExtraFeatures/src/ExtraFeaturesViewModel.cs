@@ -48,6 +48,7 @@ namespace ExtraFeatures
         private bool preventAIPause = true;
         private bool preventEmergencyDemolition = true;
         private bool preventHovelDeletion = true;
+        private int inaccessibleAIBuildingDemolitionProtection = TemporaryGateBlockagePolicy.TemporaryGateMode;
         private double humanGateReopenDelaySeconds = GatehouseTimingPatch.VanillaHumanDelaySeconds;
         private double aiGateReopenDelaySeconds = GatehouseTimingPatch.VanillaAiDelaySeconds;
         private double humanGateClosingDistanceTiles = GatehouseTimingPatch.VanillaHumanDistanceTiles;
@@ -137,6 +138,23 @@ namespace ExtraFeatures
         public string PreventEmergencyDemolitionHelpText => SerpLocalization.Get(SerpLocalization.PreventEmergencyDemolitionHelp);
         public string PreventHovelDeletionText => SerpLocalization.Get(SerpLocalization.PreventHovelDeletion);
         public string PreventHovelDeletionHelpText => SerpLocalization.Get(SerpLocalization.PreventHovelDeletionHelp);
+        public string InaccessibleAIBuildingDemolitionProtectionText => SerpLocalization.Get(SerpLocalization.InaccessibleAIBuildingDemolitionProtection);
+        public string InaccessibleAIBuildingDemolitionProtectionHelpText => SerpLocalization.Get(SerpLocalization.InaccessibleAIBuildingDemolitionProtectionHelp);
+        public string InaccessibleAIBuildingDemolitionProtectionValueText
+        {
+            get
+            {
+                switch (InaccessibleAIBuildingDemolitionProtection)
+                {
+                    case TemporaryGateBlockagePolicy.VanillaMode:
+                        return SerpLocalization.Get(SerpLocalization.InaccessibleAIBuildingDemolitionModeVanilla);
+                    case TemporaryGateBlockagePolicy.AlwaysPreventMode:
+                        return SerpLocalization.Get(SerpLocalization.InaccessibleAIBuildingDemolitionModeAlways);
+                    default:
+                        return SerpLocalization.Get(SerpLocalization.InaccessibleAIBuildingDemolitionModeTemporary);
+                }
+            }
+        }
         public string GatehousesTitleText => SerpLocalization.Get("SomeSettings.GatehousesTitle");
         public string HumanGateReopenDelayText => SerpLocalization.Get("SomeSettings.HumanGateReopenDelay");
         public string AIGateReopenDelayText => SerpLocalization.Get("SomeSettings.AIGateReopenDelay");
@@ -201,6 +219,7 @@ namespace ExtraFeatures
         [SyncHostOnly] public bool PreventAIPause { get => preventAIPause; set => SetSetting(ref preventAIPause, value, nameof(PreventAIPause)); }
         [SyncHostOnly] public bool PreventEmergencyDemolition { get => preventEmergencyDemolition; set => SetSetting(ref preventEmergencyDemolition, value, nameof(PreventEmergencyDemolition)); }
         [SyncHostOnly] public bool PreventHovelDeletion { get => preventHovelDeletion; set => SetSetting(ref preventHovelDeletion, value, nameof(PreventHovelDeletion)); }
+        [SyncHostOnly] public int InaccessibleAIBuildingDemolitionProtection { get => inaccessibleAIBuildingDemolitionProtection; set => SetIntSetting(ref inaccessibleAIBuildingDemolitionProtection, value, TemporaryGateBlockagePolicy.VanillaMode, TemporaryGateBlockagePolicy.AlwaysPreventMode, nameof(InaccessibleAIBuildingDemolitionProtection), nameof(InaccessibleAIBuildingDemolitionProtectionValueText)); }
         [SyncHostOnly] public double HumanGateReopenDelaySeconds { get => humanGateReopenDelaySeconds; set => SetDoubleSetting(ref humanGateReopenDelaySeconds, RoundToStep(value, 0.5), GatehouseTimingPatch.MinimumHumanDelaySeconds, GatehouseTimingPatch.MaximumHumanDelaySeconds, nameof(HumanGateReopenDelaySeconds), nameof(HumanGateReopenDelayValueText)); }
         [SyncHostOnly] public double AIGateReopenDelaySeconds { get => aiGateReopenDelaySeconds; set => SetDoubleSetting(ref aiGateReopenDelaySeconds, RoundToStep(value, 2.5), GatehouseTimingPatch.MinimumAiDelaySeconds, GatehouseTimingPatch.MaximumAiDelaySeconds, nameof(AIGateReopenDelaySeconds), nameof(AIGateReopenDelayValueText)); }
         [SyncHostOnly] public double HumanGateClosingDistanceTiles { get => humanGateClosingDistanceTiles; set => SetDoubleSetting(ref humanGateClosingDistanceTiles, RoundToStep(value, 0.5), GatehouseTimingPatch.MinimumDistanceTiles, GatehouseTimingPatch.MaximumDistanceTiles, nameof(HumanGateClosingDistanceTiles), nameof(HumanGateClosingDistanceValueText)); }
@@ -265,6 +284,7 @@ namespace ExtraFeatures
                 PreventAIPause = true;
                 PreventEmergencyDemolition = true;
                 PreventHovelDeletion = true;
+                InaccessibleAIBuildingDemolitionProtection = TemporaryGateBlockagePolicy.TemporaryGateMode;
                 HumanGateReopenDelaySeconds = GatehouseTimingPatch.VanillaHumanDelaySeconds;
                 AIGateReopenDelaySeconds = GatehouseTimingPatch.VanillaAiDelaySeconds;
                 HumanGateClosingDistanceTiles = GatehouseTimingPatch.VanillaHumanDistanceTiles;

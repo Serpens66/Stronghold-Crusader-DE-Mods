@@ -38,6 +38,7 @@ internal static class Program
             TestMarketGoodPriceDefinition();
             TestAIMarketVanillaPricePolicy();
             TestLordHealthMultiplierPolicy();
+            TestTemporaryGateBlockagePolicy();
             TestGatehouseAutomationSaveState();
             TestAIMarketNativeResolution();
             TestAiRecruitmentHorseDemandNativeResolution();
@@ -1362,6 +1363,106 @@ internal static class Program
                     modEnabled, alsoForAI, validPlayer, validGood, isAI) == expected,
                 $"AI Vanilla market routing diverged for mask={mask}");
         }
+    }
+
+    private static void TestTemporaryGateBlockagePolicy()
+    {
+        Check(!TemporaryGateBlockagePolicy.ShouldSuppressDemolition(
+                TemporaryGateBlockagePolicy.VanillaMode, true, true, true),
+            "Vanilla mode suppressed inaccessible-building demolition");
+        Check(TemporaryGateBlockagePolicy.ShouldSuppressDemolition(
+                TemporaryGateBlockagePolicy.TemporaryGateMode, true, true, true),
+            "temporary-gate mode did not suppress a confirmed temporary blockage");
+        Check(!TemporaryGateBlockagePolicy.ShouldSuppressDemolition(
+                TemporaryGateBlockagePolicy.TemporaryGateMode, true, false, true),
+            "temporary-gate mode did not fail open without a classification");
+        Check(TemporaryGateBlockagePolicy.ShouldSuppressDemolition(
+                TemporaryGateBlockagePolicy.AlwaysPreventMode, true, false, false),
+            "always-prevent mode did not suppress the dedicated AI demolition path");
+        Check(!TemporaryGateBlockagePolicy.ShouldSuppressDemolition(
+                TemporaryGateBlockagePolicy.AlwaysPreventMode, false, true, true),
+            "always-prevent mode affected a non-AI or non-living building");
+
+        Func<Dictionary<int, int>, Func<int, int, bool>> reachableByComponent = components =>
+            (source, destination) =>
+                components.TryGetValue(source, out int sourceComponent) &&
+                components.TryGetValue(destination, out int destinationComponent) &&
+                sourceComponent == destinationComponent;
+
+        var closedGateComponents = new Dictionary<int, int> { [10] = 1, [20] = 2 };
+        Check(TemporaryGateBlockagePolicy.IsOnlyTemporarilyBlocked(
+                new[] { 10 }, new[] { 20 }, new[] { new PclGateConnection(10, 20) },
+                reachableByComponent(closedGateComponents)),
+            "one closed friendly gate was not classified as temporary");
+        GateBlockageEvaluation closedGateEvaluation = TemporaryGateBlockagePolicy.Evaluate(
+            new[] { 10 }, new[] { 20 }, new[] { new PclGateConnection(10, 20, 45, 4500) },
+            reachableByComponent(closedGateComponents));
+        Check(closedGateEvaluation.Kind == GateBlockageEvaluationKind.TemporaryViaClosedFriendlyGate &&
+              closedGateEvaluation.UsedGateIndices.SequenceEqual(new[] { 0 }),
+            "closed-gate diagnostic did not retain the used virtual gate");
+
+        // A raised drawbridge is represented by the same closed gatehouse entry/exit link.
+        Check(TemporaryGateBlockagePolicy.IsOnlyTemporarilyBlocked(
+                new[] { 20 }, new[] { 10 }, new[] { new PclGateConnection(10, 20) },
+                reachableByComponent(closedGateComponents)),
+            "raised drawbridge topology was not classified as temporary");
+
+        var multipleGateComponents = new Dictionary<int, int>
+        {
+            [10] = 1,
+            [20] = 2,
+            [21] = 2,
+            [30] = 3,
+            [31] = 3
+        };
+        Check(TemporaryGateBlockagePolicy.IsOnlyTemporarilyBlocked(
+                new[] { 10 }, new[] { 31 },
+                new[] { new PclGateConnection(10, 20), new PclGateConnection(21, 30) },
+                reachableByComponent(multipleGateComponents)),
+            "multiple consecutive friendly gates were not traversed");
+        GateBlockageEvaluation multipleGateEvaluation = TemporaryGateBlockagePolicy.Evaluate(
+            new[] { 10 }, new[] { 31 },
+            new[] { new PclGateConnection(10, 20, 45, 4500), new PclGateConnection(21, 30, 46, 4600) },
+            reachableByComponent(multipleGateComponents));
+        Check(multipleGateEvaluation.UsedGateIndices.SequenceEqual(new[] { 0, 1 }),
+            "multiple-gate diagnostic did not retain the ordered virtual gate path");
+
+        var unrelatedGateComponents = new Dictionary<int, int>
+        {
+            [10] = 1,
+            [20] = 2,
+            [30] = 3,
+            [40] = 4
+        };
+        Check(!TemporaryGateBlockagePolicy.IsOnlyTemporarilyBlocked(
+                new[] { 10 }, new[] { 20 }, new[] { new PclGateConnection(30, 40) },
+                reachableByComponent(unrelatedGateComponents)),
+            "an unrelated closed gate was treated as the building blockage");
+
+        Check(!TemporaryGateBlockagePolicy.IsOnlyTemporarilyBlocked(
+                new[] { 10 }, new[] { 20 }, Array.Empty<PclGateConnection>(),
+                reachableByComponent(closedGateComponents)),
+            "a closed wall without a gate was classified as temporary");
+
+        // Enemy and open gates are omitted by the runtime collector and therefore add no link.
+        Check(!TemporaryGateBlockagePolicy.IsOnlyTemporarilyBlocked(
+                new[] { 10 }, new[] { 20 }, Array.Empty<PclGateConnection>(),
+                reachableByComponent(closedGateComponents)),
+            "an omitted enemy gate affected classification");
+        Check(!TemporaryGateBlockagePolicy.IsOnlyTemporarilyBlocked(
+                new[] { 10 }, new[] { 20 }, Array.Empty<PclGateConnection>(),
+                reachableByComponent(closedGateComponents)),
+            "an open gate affected virtual-link classification");
+
+        var normallyConnected = new Dictionary<int, int> { [10] = 1, [20] = 1, [30] = 2 };
+        Check(!TemporaryGateBlockagePolicy.IsOnlyTemporarilyBlocked(
+                new[] { 10 }, new[] { 20 }, new[] { new PclGateConnection(10, 30) },
+                reachableByComponent(normallyConnected)),
+            "a normally reachable building was classified as gate-blocked");
+        Check(TemporaryGateBlockagePolicy.Evaluate(
+                new[] { 10 }, new[] { 20 }, new[] { new PclGateConnection(10, 30) },
+                reachableByComponent(normallyConnected)).Kind == GateBlockageEvaluationKind.NormallyReachable,
+            "normally reachable diagnostic classification was incorrect");
     }
 
     private static void TestLordHealthMultiplierPolicy()

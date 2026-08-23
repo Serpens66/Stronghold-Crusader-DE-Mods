@@ -195,7 +195,9 @@ foreach ($entry in $settings.GetEnumerator()) {
         foreach ($requiredValueBinding in @(
             'MarketBuyPriceMultiplierValueText', 'MarketSellPriceMultiplierValueText',
             'MarketPricesAlsoForAI', 'MarketPricesAlsoForAIHelpText',
-            'PlagueDurationMultiplierValueText', 'ApothecaryPlagueSearchDistanceValueText')) {
+            'PlagueDurationMultiplierValueText', 'ApothecaryPlagueSearchDistanceValueText',
+            'InaccessibleAIBuildingDemolitionProtectionValueText',
+            'InaccessibleAIBuildingDemolitionProtectionHelpText')) {
             if (-not $text.Contains($requiredValueBinding)) {
                 throw "ExtraFeatures: Slider unit binding is missing: $requiredValueBinding"
             }
