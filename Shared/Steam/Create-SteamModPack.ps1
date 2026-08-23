@@ -717,6 +717,51 @@ function Get-PackReleaseState {
     return [pscustomobject]@{ Tag = $tag; Version = $version; Provenance = (Get-Content -LiteralPath $path -Raw | ConvertFrom-Json) }
 }
 
+function Get-RetiredModPlan {
+    param(
+        [AllowNull()]$PreviousPack,
+        [Parameter(Mandatory)][array]$ActiveMods
+    )
+
+    $retiredMods = @()
+    $missingTombstones = @()
+    if ($null -ne $PreviousPack) {
+        $activeGuids = @($ActiveMods.PluginGuid)
+        foreach ($oldMod in @($PreviousPack.Provenance.Mods)) {
+            if ([string]$oldMod.State -ne 'Retired' -and [string]$oldMod.Guid -in $activeGuids) {
+                continue
+            }
+
+            $tombstone = Join-Path $script:Root "SerpsModsHost\Tombstones\$([string]$oldMod.Guid)"
+            if (-not (Test-Path -LiteralPath $tombstone -PathType Container)) {
+                $missingTombstones += [pscustomobject]@{
+                    Name = [string]$oldMod.Name
+                    Guid = [string]$oldMod.Guid
+                    Version = [string]$oldMod.Version
+                    PreviousPack = [string]$PreviousPack.Tag
+                    ExpectedDirectory = $tombstone
+                }
+                continue
+            }
+
+            $dll = Get-CecilPluginMetadata -Directory $tombstone
+            if ($dll.Guid -ne [string]$oldMod.Guid -or $dll.Version -ne [string]$oldMod.Version -or $dll.HostDependencyCount -ne 1) {
+                Fail-Pack 8 "Tombstone DLL identity/dependency mismatch for $([string]$oldMod.Guid)."
+            }
+            $retiredMods += [pscustomobject]@{
+                Name = [string]$oldMod.Name; Guid = [string]$oldMod.Guid; Version = [string]$oldMod.Version
+                ReleaseUrl = [string]$oldMod.ReleaseUrl; ReleaseTag = [string]$oldMod.ReleaseTag; SourceCommit = [string]$oldMod.SourceCommit
+                PackageSha256 = [string]$oldMod.PackageSha256; Directory = $tombstone; TombstoneSha256 = Get-DirectorySignature $tombstone
+            }
+        }
+    }
+
+    return [pscustomobject]@{
+        RetiredMods = @($retiredMods)
+        MissingTombstones = @($missingTombstones)
+    }
+}
+
 function Get-FileRecords {
     param([string]$Directory)
     $files = @(Get-ChildItem -LiteralPath $Directory -Recurse -File | Sort-Object FullName)
@@ -833,10 +878,21 @@ try {
     foreach ($mod in $mods) {
         Write-RunLog ("  {0}: dependency={1}, sourceEdit={2}, release={3}, target=v{4}" -f $mod.Name, $mod.HasDependency, $mod.NeedsSourceEdit, $mod.NeedsRelease, $mod.TargetVersion)
     }
+    $previousPack = Get-PackReleaseState -Releases $script:ReleaseList
+    $retiredPlan = Get-RetiredModPlan -PreviousPack $previousPack -ActiveMods $mods
+    $retiredMods = @($retiredPlan.RetiredMods)
+    $missingTombstones = @($retiredPlan.MissingTombstones)
+    foreach ($missing in $missingTombstones) {
+        Write-RunLog ("  MISSING TOMBSTONE: {0} ({1}) v{2}, previously recorded by {3}; expected at {4}" -f `
+            $missing.Name, $missing.Guid, $missing.Version, $missing.PreviousPack, $missing.ExpectedDirectory) 'WARN'
+    }
     Write-RunLog "  Workshop packager: $resolvedPackager"
     Write-RunLog "  Preview: $PreviewPath"
 
     if ($Validate) {
+        if ($missingTombstones.Count -gt 0) {
+            Write-RunLog 'Validation found missing tombstones. Publishing will require the explicit TROTZDEM_BAUEN confirmation.' 'WARN'
+        }
         Write-RunLog 'Validation completed before all source edits, builds, commits, pushes and releases.' 'OK'
         Write-Host "Log: $($script:LogPath)"
         exit 0
@@ -848,6 +904,15 @@ try {
     $confirmedStatus = (Invoke-Git @('status','--porcelain=v1','--untracked-files=normal')).Output
     if ($confirmedStatus.Count -gt 0) {
         Fail-Pack 2 "Git working tree changed while awaiting publishing confirmation. Commit or otherwise resolve these changes, then restart the workflow:`r`n$($confirmedStatus -join "`r`n")"
+    }
+    if ($missingTombstones.Count -gt 0) {
+        $missingSummary = @($missingTombstones | ForEach-Object { "$($_.Name) ($($_.Guid)) v$($_.Version)" }) -join ', '
+        Write-RunLog "Publishing without tombstones would intentionally omit: $missingSummary" 'WARN'
+        $tombstoneConfirmation = Read-Host 'Type TROTZDEM_BAUEN to intentionally omit these previously recorded mods without tombstones'
+        if ($tombstoneConfirmation -cne 'TROTZDEM_BAUEN') {
+            Fail-Pack 8 'Publishing cancelled because the missing-tombstone override was not confirmed.'
+        }
+        Write-RunLog "Missing-tombstone override confirmed; intentionally omitting: $missingSummary" 'WARN'
     }
 
     $journal = [ordered]@{ SchemaVersion = 1; RunId = $script:RunId; StartedUtc = [DateTime]::UtcNow.ToString('o'); CompletedReleases = @(); Status = 'source-preparation' }
@@ -883,28 +948,6 @@ try {
         if ($null -eq $mod.Package) { $mod.Package = Get-ReleasePackage -Mod $mod }
     }
 
-    $previousPack = Get-PackReleaseState -Releases $script:ReleaseList
-    $retiredMods = @()
-    if ($null -ne $previousPack) {
-        $activeGuids = @($mods.PluginGuid)
-        foreach ($oldMod in @($previousPack.Provenance.Mods)) {
-            if ([string]$oldMod.State -eq 'Retired' -or [string]$oldMod.Guid -notin $activeGuids) {
-                $tombstone = Join-Path $script:Root "SerpsModsHost\Tombstones\$([string]$oldMod.Guid)"
-                if (-not (Test-Path -LiteralPath $tombstone -PathType Container)) {
-                    Fail-Pack 8 "Previously shipped mod $([string]$oldMod.Guid) is no longer active. A valid tombstone is required at: $tombstone"
-                }
-                $dll = Get-CecilPluginMetadata -Directory $tombstone
-                if ($dll.Guid -ne [string]$oldMod.Guid -or $dll.Version -ne [string]$oldMod.Version -or $dll.HostDependencyCount -ne 1) {
-                    Fail-Pack 8 "Tombstone DLL identity/dependency mismatch for $([string]$oldMod.Guid)."
-                }
-                $retiredMods += [pscustomobject]@{
-                    Name = [string]$oldMod.Name; Guid = [string]$oldMod.Guid; Version = [string]$oldMod.Version
-                    ReleaseUrl = [string]$oldMod.ReleaseUrl; ReleaseTag = [string]$oldMod.ReleaseTag; SourceCommit = [string]$oldMod.SourceCommit
-                    PackageSha256 = [string]$oldMod.PackageSha256; Directory = $tombstone; TombstoneSha256 = Get-DirectorySignature $tombstone
-                }
-            }
-        }
-    }
     $contentSignature = Get-HostContentSignature -Mods $mods -RetiredMods $retiredMods
     if ($null -ne $previousPack -and [string]$previousPack.Provenance.ContentSignature -eq $contentSignature) {
         Write-RunLog "Pack content is unchanged from $($previousPack.Tag); reusing the published map." 'OK'
@@ -978,14 +1021,22 @@ try {
     $shaPath = Join-Path $runRoot 'SerpsMods.map.sha256'
     Write-Utf8CrLf -Path $shaPath -Text "$mapHash  SerpsMods.map"
     $provenancePath = Join-Path $runRoot 'SerpsMods.provenance.json'
+    $omittedWithoutTombstone = @($missingTombstones | ForEach-Object { [ordered]@{
+        Name = $_.Name; Guid = $_.Guid; Version = $_.Version; PreviousPack = $_.PreviousPack
+    } })
     $provenance = [ordered]@{
         SchemaVersion = 1; Pack = $PackName; PackGuid = $PackGuid; Version = $packVersion; Commit = $commit; ContentSignature = $contentSignature
         CreatedUtc = [DateTime]::UtcNow.ToString('o'); Map = [ordered]@{ File = 'SerpsMods.map'; Sha256 = $mapHash; Size = (Get-Item $mapPath).Length }
         Packager = [ordered]@{ Path = $resolvedPackager; Sha256 = Get-Sha256 $resolvedPackager }; Mods = $packRecords
+        OmittedWithoutTombstone = $omittedWithoutTombstone
     }
     Write-JsonCrLf -Path $provenancePath -Value $provenance
     $notesPath = Join-Path $runRoot 'release-notes.md'
     $noteLines = @("# $PackName v$packVersion",'', '## Included mods','') + @($mods | Sort-Object Name | ForEach-Object { "- $($_.Name) v$($_.TargetVersion)" }) + @('',"SHA-256: ``$mapHash``")
+    if ($missingTombstones.Count -gt 0) {
+        $noteLines += @('', '## Intentionally omitted without tombstone', '')
+        $noteLines += @($missingTombstones | Sort-Object Guid | ForEach-Object { "- $($_.Name) ($($_.Guid)) v$($_.Version)" })
+    }
     Write-Utf8CrLf -Path $notesPath -Text ($noteLines -join "`r`n")
 
     Publish-PackRelease -Version $packVersion -MapPath $mapPath -ShaPath $shaPath -ProvenancePath $provenancePath -NotesPath $notesPath
