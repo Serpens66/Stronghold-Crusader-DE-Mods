@@ -2154,6 +2154,110 @@ namespace Shared
     }
 #endif
 
+#if !SHARED_PRESET_TESTS
+    internal static class ModSettingsHorizontalFocusScrollGuard
+    {
+        private static readonly HashSet<Noesis.ScrollViewer> AttachedScrollViewers =
+            new HashSet<Noesis.ScrollViewer>();
+
+        public static bool Attach(object view)
+        {
+            Noesis.ScrollViewer scrollViewer = FindFirstScrollViewer(
+                view as Noesis.FrameworkElement);
+            if (scrollViewer == null || !AttachedScrollViewers.Add(scrollViewer))
+                return false;
+
+            scrollViewer.RequestBringIntoView += OnRequestBringIntoView;
+            return true;
+        }
+
+        private static Noesis.ScrollViewer FindFirstScrollViewer(
+            Noesis.DependencyObject parent)
+        {
+            if (parent == null)
+                return null;
+            if (parent is Noesis.ScrollViewer scrollViewer)
+                return scrollViewer;
+
+            int childCount = Noesis.VisualTreeHelper.GetChildrenCount(parent);
+            for (int index = 0; index < childCount; index++)
+            {
+                Noesis.ScrollViewer child = FindFirstScrollViewer(
+                    Noesis.VisualTreeHelper.GetChild(parent, index));
+                if (child != null)
+                    return child;
+            }
+
+            return null;
+        }
+
+        private static void OnRequestBringIntoView(
+            object sender,
+            Noesis.RequestBringIntoViewEventArgs args)
+        {
+            var scrollViewer = sender as Noesis.ScrollViewer;
+            var target = args.TargetObject as Noesis.FrameworkElement;
+            if (scrollViewer == null || target == null ||
+                !target.IsKeyboardFocusWithin)
+            {
+                return;
+            }
+
+            Noesis.Rect targetRect = args.TargetRect;
+            if (targetRect.IsEmpty ||
+                (targetRect.Width == 0.0f && targetRect.Height == 0.0f))
+            {
+                targetRect = new Noesis.Rect(
+                    0.0f,
+                    0.0f,
+                    target.ActualWidth,
+                    target.ActualHeight);
+            }
+
+            Noesis.Rect viewportRect;
+            try
+            {
+                viewportRect = target
+                    .TransformToAncestor(scrollViewer)
+                    .TransformBounds(targetRect);
+            }
+            catch (InvalidOperationException)
+            {
+                return;
+            }
+
+            // Noesis normally scrolls both axes when focus changes. Handle that
+            // request ourselves so vertical reveal remains intact while the user's
+            // deliberately selected horizontal position is preserved.
+            args.Handled = true;
+            if (viewportRect.Top < 0.0f)
+            {
+                scrollViewer.ScrollToVerticalOffset(
+                    scrollViewer.VerticalOffset + viewportRect.Top);
+            }
+            else if (viewportRect.Bottom > scrollViewer.ViewportHeight)
+            {
+                scrollViewer.ScrollToVerticalOffset(
+                    scrollViewer.VerticalOffset +
+                    viewportRect.Bottom -
+                    scrollViewer.ViewportHeight);
+            }
+        }
+    }
+#else
+    internal static class ModSettingsHorizontalFocusScrollGuard
+    {
+        private static readonly HashSet<object> AttachedViews = new HashSet<object>();
+
+        internal static int AttachedViewCount => AttachedViews.Count;
+
+        public static bool Attach(object view) =>
+            view != null && AttachedViews.Add(view);
+
+        internal static void ResetForTests() => AttachedViews.Clear();
+    }
+#endif
+
     public static class LobbyModSettingsPresetRegistration
     {
         public static void Register(
@@ -2175,7 +2279,7 @@ namespace Shared
             // Structural validation must happen before the ViewModel can enter the
             // Extender registry. An invalid personal setting therefore fails closed.
             viewModel.ActivatePerPlayerLobbySettings(log, modName);
-            bool registered;
+            object registeredView = null;
             try
             {
                 GameXAMLManagerAPI.Instance.RegisterLobbyModSettings(
@@ -2183,15 +2287,16 @@ namespace Shared
                     modName,
                     viewModel,
                     xamlSourceFile);
-                registered = GameXAMLManagerAPI.Instance.RegisteredModSettings
-                    .Any(entry => ReferenceEquals(entry.ViewModel, viewModel));
+                var registration = GameXAMLManagerAPI.Instance.RegisteredModSettings
+                    .FirstOrDefault(entry => ReferenceEquals(entry.ViewModel, viewModel));
+                registeredView = registration?.View;
             }
             catch
             {
                 viewModel.DeactivatePerPlayerLobbySettings();
                 throw;
             }
-            if (!registered)
+            if (registeredView == null)
             {
                 viewModel.DeactivatePerPlayerLobbySettings();
                 DebugLogHelper.LogError(
@@ -2200,6 +2305,7 @@ namespace Shared
                 return;
             }
 
+            ModSettingsHorizontalFocusScrollGuard.Attach(registeredView);
             viewModel.ActivatePresets();
             // Views are created before a lobby exists. Refresh the cached role whenever
             // the persistent settings hub opens or changes its selected tab.

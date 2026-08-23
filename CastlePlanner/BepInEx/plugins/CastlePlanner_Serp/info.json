@@ -3,10 +3,18 @@
   "Author": "Serpens66",
   "Name": "CastlePlanner",
   "Description": "Displays AIVJSON blueprints, spawns personal human castles, and contains the gated AI lobby placement workflow.",
-  "Version": "0.7.1",
+  "Version": "0.7.2",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "0.7.2",
+      "Changes": [
+        "Removes troop and engineer spawning, including the former host option, so every soldier must be recruited normally.",
+        "Keeps AIV siege-engine spawning optional but no longer creates automatic engineer crews.",
+        "Keeps supplemental AIV stockpiles governed by the ordinary-building option."
+      ]
+    },
     {
       "Version": "0.7.1",
       "Changes": [

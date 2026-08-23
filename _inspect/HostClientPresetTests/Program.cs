@@ -27,6 +27,7 @@ internal static class Program
             TestSharedLobbyLifecycle();
             TestFailedRegistrationStopsPerPlayerCoordinator();
             TestThrowingRegistrationStopsPerPlayerCoordinator();
+            TestModSettingsHorizontalFocusScrollGuardRegistration();
             TestGameModeHelper();
             TestLocalPerPlayerSetting();
             TestMarketGoodsOrderDefinition();
@@ -532,6 +533,35 @@ internal static class Program
             1);
         Check(viewModel.LocalPlayerId == 0 && viewModel.LastLobbySnapshot == null,
             "Shared left the per-player coordinator active after lobby-settings registration threw");
+    }
+
+    private static void TestModSettingsHorizontalFocusScrollGuardRegistration()
+    {
+        GameXAMLManagerAPI.Instance.ResetRoutingProbe();
+        ModSettingsHorizontalFocusScrollGuard.ResetForTests();
+
+        var firstViewModel = new HostOnlyViewModel();
+        LobbyModSettingsPresetRegistration.Register(
+            new BepInEx.BaseUnityPlugin(),
+            null,
+            "HorizontalFocusGuardOne",
+            firstViewModel,
+            "one.xaml");
+        Check(ModSettingsHorizontalFocusScrollGuard.AttachedViewCount == 1,
+            "Shared did not attach the horizontal focus-scroll guard to a registered view");
+
+        object firstView = GameXAMLManagerAPI.Instance.RegisteredModSettings[0].View;
+        Check(!ModSettingsHorizontalFocusScrollGuard.Attach(firstView),
+            "Shared attached the horizontal focus-scroll guard twice to the same view");
+
+        LobbyModSettingsPresetRegistration.Register(
+            new BepInEx.BaseUnityPlugin(),
+            null,
+            "HorizontalFocusGuardTwo",
+            new HostOnlyViewModel(),
+            "two.xaml");
+        Check(ModSettingsHorizontalFocusScrollGuard.AttachedViewCount == 2,
+            "Shared did not attach the horizontal focus-scroll guard to every registered view");
     }
 
     private static void ExpectInvalidPerPlayerRegistration(
@@ -2881,7 +2911,11 @@ namespace SHCDESE.API
                 FailNextRegistration = false;
                 return;
             }
-            RegisteredModSettings.Add(new Registration { ViewModel = vm });
+            RegisteredModSettings.Add(new Registration
+            {
+                ViewModel = vm,
+                View = new object()
+            });
             if (!(vm is INotifyPropertyChanged notify))
                 return;
 
@@ -2985,7 +3019,11 @@ namespace SHCDESE.API
                 _isProcessingNetworkSync = false;
             }
         }
-        public sealed class Registration { public object ViewModel { get; set; } }
+        public sealed class Registration
+        {
+            public object ViewModel { get; set; }
+            public object View { get; set; }
+        }
     }
 }
 

@@ -47,7 +47,6 @@ namespace CastlePlanner
         private bool spawnDefensiveGroundFeatures = true;
         private bool spawnFearFactorBuildings;
         private bool spawnSiegeEngines;
-        private bool spawnTroops;
         private bool spawnBraziersAndFlags;
         private readonly bool[] spawnBraziersAndFlagsData = new bool[9];
         private readonly int[] spawnBraziersAndFlagsReportData =
@@ -283,8 +282,6 @@ namespace CastlePlanner
         public string SpawnFearFactorBuildingsHelpText => SerpLocalization.Get("CastlePlanner.SpawnFearFactorBuildingsHelp");
         public string SpawnSiegeEnginesText => SerpLocalization.Get("CastlePlanner.SpawnSiegeEngines");
         public string SpawnSiegeEnginesHelpText => SerpLocalization.Get("CastlePlanner.SpawnSiegeEnginesHelp");
-        public string SpawnTroopsText => SerpLocalization.Get("CastlePlanner.SpawnTroops");
-        public string SpawnTroopsHelpText => SerpLocalization.Get("CastlePlanner.SpawnTroopsHelp");
         public string SpawnBraziersAndFlagsText => SerpLocalization.Get("CastlePlanner.SpawnBraziersAndFlags");
         public string SpawnBraziersAndFlagsHelpText => SerpLocalization.Get("CastlePlanner.SpawnBraziersAndFlagsHelp");
         public string HotkeyText => SerpLocalization.Get("CastlePlanner.Hotkey");
@@ -427,13 +424,6 @@ namespace CastlePlanner
             set => SetHostSpawnOption(ref spawnSiegeEngines, value, nameof(SpawnSiegeEngines));
         }
 
-        [SyncHostOnly]
-        public bool SpawnTroops
-        {
-            get => spawnTroops;
-            set => SetHostSpawnOption(ref spawnTroops, value, nameof(SpawnTroops));
-        }
-
         public bool[] SpawnBraziersAndFlagsData => spawnBraziersAndFlagsData;
 
         public int[] SpawnBraziersAndFlagsReportData => spawnBraziersAndFlagsReportData;
@@ -564,7 +554,6 @@ namespace CastlePlanner
                 SpawnDefensiveGroundFeatures = SpawnDefensiveGroundFeatures,
                 SpawnFearFactorBuildings = SpawnFearFactorBuildings,
                 SpawnSiegeEngines = SpawnSiegeEngines,
-                SpawnTroops = SpawnTroops,
                 SpawnBraziersAndFlags = decorations
             };
         }
@@ -969,7 +958,6 @@ namespace CastlePlanner
                 SpawnDefensiveGroundFeatures = true;
                 SpawnFearFactorBuildings = false;
                 SpawnSiegeEngines = false;
-                SpawnTroops = false;
             }
 
             // Every participant resets their own Blueprint preference.

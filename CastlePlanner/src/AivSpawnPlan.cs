@@ -29,7 +29,6 @@ namespace CastlePlanner
         public bool SpawnDefensiveGroundFeatures { get; set; }
         public bool SpawnFearFactorBuildings { get; set; }
         public bool SpawnSiegeEngines { get; set; }
-        public bool SpawnTroops { get; set; }
         public bool SpawnBraziersAndFlags { get; set; }
     }
 
@@ -192,53 +191,24 @@ namespace CastlePlanner
                 return AivMiscSpawnCategory.SiegeEngine;
             if (engineType == 20 || engineType == 21)
                 return AivMiscSpawnCategory.Decoration;
-            return TryMapUnit(engineType, out _) ? AivMiscSpawnCategory.Troop : AivMiscSpawnCategory.Unknown;
+            if (engineType == 1 ||
+                (engineType >= 6 && engineType <= 19) ||
+                (engineType >= 23 && engineType <= 30))
+            {
+                return AivMiscSpawnCategory.Troop;
+            }
+            return AivMiscSpawnCategory.Unknown;
         }
 
-        public static bool TryMapUnit(int itemType, out eChimps chimp)
+        public static bool TryMapSiegeEngine(int itemType, out eChimps chimp)
         {
             switch (NormalizeMiscType(itemType))
             {
-                case 1: chimp = eChimps.CHIMP_TYPE_ENGINEER; return true;
                 case 2: chimp = eChimps.CHIMP_TYPE_MANGONEL; return true;
                 case 3: chimp = eChimps.CHIMP_TYPE_BALLISTA; return true;
                 case 4: chimp = eChimps.CHIMP_TYPE_TREBUCHET; return true;
                 case 5: chimp = eChimps.CHIMP_TYPE_ARAB_BALLISTA; return true;
-                case 6: chimp = eChimps.CHIMP_TYPE_ARCHER; return true;
-                case 7: chimp = eChimps.CHIMP_TYPE_XBOWMAN; return true;
-                case 8: chimp = eChimps.CHIMP_TYPE_SPEARMAN; return true;
-                case 9: chimp = eChimps.CHIMP_TYPE_PIKEMAN; return true;
-                case 10: chimp = eChimps.CHIMP_TYPE_MACEMAN; return true;
-                case 11: chimp = eChimps.CHIMP_TYPE_SWORDSMAN; return true;
-                case 12: chimp = eChimps.CHIMP_TYPE_KNIGHT; return true;
-                case 13: chimp = eChimps.CHIMP_TYPE_ARAB_SLAVE; return true;
-                case 14: chimp = eChimps.CHIMP_TYPE_ARAB_SLINGER; return true;
-                case 15: chimp = eChimps.CHIMP_TYPE_ARAB_ASSASIN; return true;
-                case 16: chimp = eChimps.CHIMP_TYPE_ARAB_BOW; return true;
-                case 17: chimp = eChimps.CHIMP_TYPE_ARAB_HORSEMAN; return true;
-                case 18: chimp = eChimps.CHIMP_TYPE_ARAB_SWORDSMAN; return true;
-                case 19: chimp = eChimps.CHIMP_TYPE_ARAB_GRENADIER; return true;
-                case 23: chimp = eChimps.CHIMP_TYPE_BEDOUIN_CAMEL_LANCER; return true;
-                case 24: chimp = eChimps.CHIMP_TYPE_BEDOUIN_HEALER; return true;
-                case 25: chimp = eChimps.CHIMP_TYPE_BEDOUIN_EUNUCH; return true;
-                case 26: chimp = eChimps.CHIMP_TYPE_BEDOUIN_AMBUSHER; return true;
-                case 27: chimp = eChimps.CHIMP_TYPE_BEDOUIN_SKIRMISHER; return true;
-                case 28: chimp = eChimps.CHIMP_TYPE_BEDOUIN_HEAVY_CAMEL; return true;
-                case 29: chimp = eChimps.CHIMP_TYPE_BEDOUIN_SAPPER; return true;
-                case 30: chimp = eChimps.CHIMP_TYPE_BEDOUIN_DEMOLISHER; return true;
                 default: chimp = eChimps.CHIMP_TYPE_NULL; return false;
-            }
-        }
-
-        public static int GetRequiredEngineerCount(int siegeItemType)
-        {
-            switch (NormalizeMiscType(siegeItemType))
-            {
-                case 2: return 2; // Mangonel
-                case 3: return 2; // Ballista
-                case 4: return 3; // Trebuchet
-                case 5: return 2; // Fire Ballista
-                default: return 0;
             }
         }
 
@@ -260,11 +230,11 @@ namespace CastlePlanner
         {
             switch (category)
             {
-                case AivMiscSpawnCategory.Troop: return options.SpawnTroops;
+                case AivMiscSpawnCategory.Troop: return false;
                 case AivMiscSpawnCategory.SiegeEngine: return options.SpawnSiegeEngines;
                 case AivMiscSpawnCategory.Decoration: return options.SpawnBraziersAndFlags;
                 case AivMiscSpawnCategory.Unknown:
-                    return options.SpawnTroops || options.SpawnSiegeEngines || options.SpawnBraziersAndFlags;
+                    return options.SpawnSiegeEngines || options.SpawnBraziersAndFlags;
                 default: return false;
             }
         }

@@ -770,9 +770,9 @@ namespace CastlePlanner
 
                 int tileId = GameTileManagerAPI.Instance.GetTileId(tile.X, tile.Y);
                 int height = GameTileManagerAPI.Instance.GetTileHeight(tileId);
-                if (category == AivMiscSpawnCategory.Troop || category == AivMiscSpawnCategory.SiegeEngine)
+                if (category == AivMiscSpawnCategory.SiegeEngine)
                 {
-                    if (!AivSpawnPlan.TryMapUnit(item.itemType, out eChimps chimp))
+                    if (!AivSpawnPlan.TryMapSiegeEngine(item.itemType, out eChimps chimp))
                     {
                         LogUnknownMisc(castle.PlayerId, index, item);
                         continue;
@@ -799,8 +799,6 @@ namespace CastlePlanner
                         continue;
                     }
                     digestRows.Add($"unit:{(int)chimp}:{castle.PlayerId}:{tile.X}:{tile.Y}:{height}:slot{item.number}");
-                    if (category == AivMiscSpawnCategory.SiegeEngine)
-                        SpawnRequiredSiegeEngineers(castle.PlayerId, index, item.itemType, tile, height, digestRows);
                     continue;
                 }
 
@@ -834,76 +832,6 @@ namespace CastlePlanner
             Shared.DebugLogHelper.LogInfo(
                 log,
                 $"Supplemental castle spawn digest: playerId={castle.PlayerId}, objects={digestRows.Count}, sha256={digest}, entries=[{digestPayload}].");
-        }
-
-        private void SpawnRequiredSiegeEngineers(
-            int playerId,
-            int sourceIndex,
-            int siegeItemType,
-            AivWorldTile siegeTile,
-            int siegeHeight,
-            List<string> digestRows)
-        {
-            int required = AivSpawnPlan.GetRequiredEngineerCount(siegeItemType);
-            if (required <= 0)
-                return;
-
-            // Prefer the same platform height so tower-mounted engines receive their crew on the tower.
-            int[,] offsets =
-            {
-                { 1, 0 }, { 0, 1 }, { -1, 0 }, { 0, -1 },
-                { 1, 1 }, { -1, 1 }, { -1, -1 }, { 1, -1 }
-            };
-            var candidates = new List<Tuple<int, int, int, int>>();
-            for (int offsetIndex = 0; offsetIndex < offsets.GetLength(0); offsetIndex++)
-            {
-                int x = siegeTile.X + offsets[offsetIndex, 0];
-                int y = siegeTile.Y + offsets[offsetIndex, 1];
-                if (!GameTileManagerAPI.Instance.IsTileInsideMapBounds(x, y))
-                    continue;
-                int height = GameTileManagerAPI.Instance.GetTileHeight(
-                    GameTileManagerAPI.Instance.GetTileId(x, y));
-                candidates.Add(Tuple.Create(x, y, height, offsetIndex));
-            }
-
-            int spawned = 0;
-            foreach (Tuple<int, int, int, int> candidate in candidates
-                         .OrderBy(value => Math.Abs(value.Item3 - siegeHeight))
-                         .ThenBy(value => value.Item4))
-            {
-                if (spawned >= required)
-                    break;
-                long id;
-                try
-                {
-                    id = GameUnitManagerAPI.Instance.CreateUnitLocal(
-                        playerId,
-                        playerId,
-                        candidate.Item1,
-                        candidate.Item2,
-                        candidate.Item3,
-                        eChimps.CHIMP_TYPE_ENGINEER);
-                }
-                catch (Exception ex)
-                {
-                    Shared.DebugLogHelper.LogWarning(log, $"Required siege engineer creation threw and was skipped: playerId={playerId}, sourceIndex={sourceIndex}, siegeItemType={siegeItemType}, position=({candidate.Item1},{candidate.Item2}), error={ex.GetBaseException().Message}.");
-                    continue;
-                }
-                if (id <= 0)
-                {
-                    Shared.DebugLogHelper.LogWarning(log, $"Required siege engineer creation failed: playerId={playerId}, sourceIndex={sourceIndex}, siegeItemType={siegeItemType}, position=({candidate.Item1},{candidate.Item2}), height={candidate.Item3}.");
-                    continue;
-                }
-                digestRows.Add($"siege-engineer:{(int)eChimps.CHIMP_TYPE_ENGINEER}:{playerId}:{candidate.Item1}:{candidate.Item2}:{candidate.Item3}");
-                spawned++;
-            }
-
-            if (spawned != required)
-            {
-                Shared.DebugLogHelper.LogWarning(
-                    log,
-                    $"Required siege engineer crew incomplete: playerId={playerId}, sourceIndex={sourceIndex}, siegeItemType={siegeItemType}, required={required}, spawned={spawned}.");
-            }
         }
 
         private bool CanPlaceSupplementalPrefab(

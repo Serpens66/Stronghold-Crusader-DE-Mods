@@ -54,8 +54,7 @@ internal static class Program
             ("roundtrips strict native AIV spawn data", RoundtripsStrictNativeSpawnData),
             ("rejects malformed native AIV spawn data", RejectsMalformedNativeSpawnData),
             ("filters every AIV spawn frame category", FiltersEverySpawnFrameCategory),
-            ("maps every known AIV misc unit", MapsEveryKnownMiscUnit),
-            ("maps siege engines to required engineer crews", MapsRequiredSiegeEngineerCrews),
+            ("filters troops and maps only siege engines", FiltersTroopsAndMapsOnlySiegeEngines),
             ("projects supplemental items for every rotation", ProjectsSupplementalItemsForEveryRotation)
         };
 
@@ -890,48 +889,60 @@ internal static class Program
         CastlePlanner.AivJsonDocument complete = CastlePlanner.AivSpawnPlan.Filter(source, all);
         Equal(5, complete.frames.Count);
         Assert(complete.frames[4].shouldPause, "frame pause was not preserved before reindexing");
+
+        var stockpileSource = new CastlePlanner.AivJsonDocument
+        {
+            frames =
+            [
+                new CastlePlanner.AivJsonFrame { itemType = 61, tilePositionOfsets = [5643] },
+                new CastlePlanner.AivJsonFrame { itemType = 52, tilePositionOfsets = [5543] }
+            ],
+            miscItems = []
+        };
+        CastlePlanner.AivJsonDocument stockpileDisabled = CastlePlanner.AivSpawnPlan.Filter(stockpileSource, new CastlePlanner.AivSpawnOptions());
+        Equal(1, stockpileDisabled.frames.Count);
+        CastlePlanner.AivJsonDocument stockpileEnabled = CastlePlanner.AivSpawnPlan.Filter(
+            stockpileSource,
+            new CastlePlanner.AivSpawnOptions { SpawnBuildings = true });
+        Equal(2, stockpileEnabled.frames.Count);
     }
 
-    private static void MapsEveryKnownMiscUnit()
+    private static void FiltersTroopsAndMapsOnlySiegeEngines()
     {
         var expected = new Dictionary<int, eChimps>
         {
-            [1] = eChimps.CHIMP_TYPE_ENGINEER,
             [2] = eChimps.CHIMP_TYPE_MANGONEL,
             [3] = eChimps.CHIMP_TYPE_BALLISTA,
             [4] = eChimps.CHIMP_TYPE_TREBUCHET,
-            [5] = eChimps.CHIMP_TYPE_ARAB_BALLISTA,
-            [6] = eChimps.CHIMP_TYPE_ARCHER,
-            [7] = eChimps.CHIMP_TYPE_XBOWMAN,
-            [8] = eChimps.CHIMP_TYPE_SPEARMAN,
-            [9] = eChimps.CHIMP_TYPE_PIKEMAN,
-            [10] = eChimps.CHIMP_TYPE_MACEMAN,
-            [11] = eChimps.CHIMP_TYPE_SWORDSMAN,
-            [12] = eChimps.CHIMP_TYPE_KNIGHT,
-            [13] = eChimps.CHIMP_TYPE_ARAB_SLAVE,
-            [14] = eChimps.CHIMP_TYPE_ARAB_SLINGER,
-            [15] = eChimps.CHIMP_TYPE_ARAB_ASSASIN,
-            [16] = eChimps.CHIMP_TYPE_ARAB_BOW,
-            [17] = eChimps.CHIMP_TYPE_ARAB_HORSEMAN,
-            [18] = eChimps.CHIMP_TYPE_ARAB_SWORDSMAN,
-            [19] = eChimps.CHIMP_TYPE_ARAB_GRENADIER,
-            [23] = eChimps.CHIMP_TYPE_BEDOUIN_CAMEL_LANCER,
-            [24] = eChimps.CHIMP_TYPE_BEDOUIN_HEALER,
-            [25] = eChimps.CHIMP_TYPE_BEDOUIN_EUNUCH,
-            [26] = eChimps.CHIMP_TYPE_BEDOUIN_AMBUSHER,
-            [27] = eChimps.CHIMP_TYPE_BEDOUIN_SKIRMISHER,
-            [28] = eChimps.CHIMP_TYPE_BEDOUIN_HEAVY_CAMEL,
-            [29] = eChimps.CHIMP_TYPE_BEDOUIN_SAPPER,
-            [30] = eChimps.CHIMP_TYPE_BEDOUIN_DEMOLISHER
+            [5] = eChimps.CHIMP_TYPE_ARAB_BALLISTA
         };
         foreach ((int miscType, eChimps expectedChimp) in expected)
         {
-            Assert(CastlePlanner.AivSpawnPlan.TryMapUnit(9000 + miscType, out eChimps actual), $"misc type {miscType} was not mapped");
+            Assert(CastlePlanner.AivSpawnPlan.TryMapSiegeEngine(9000 + miscType, out eChimps actual), $"siege type {miscType} was not mapped");
             Equal(expectedChimp, actual);
         }
+        Assert(!CastlePlanner.AivSpawnPlan.TryMapSiegeEngine(1, out _), "engineer was mapped as a siege engine");
+        Assert(!CastlePlanner.AivSpawnPlan.TryMapSiegeEngine(6, out _), "troop was mapped as a siege engine");
+        Equal(CastlePlanner.AivMiscSpawnCategory.Troop, CastlePlanner.AivSpawnPlan.ClassifyMisc(1));
+        Equal(CastlePlanner.AivMiscSpawnCategory.Troop, CastlePlanner.AivSpawnPlan.ClassifyMisc(9006));
         Equal(CastlePlanner.AivMiscSpawnCategory.Decoration, CastlePlanner.AivSpawnPlan.ClassifyMisc(20));
         Equal(CastlePlanner.AivMiscSpawnCategory.Decoration, CastlePlanner.AivSpawnPlan.ClassifyMisc(9021));
         Equal(CastlePlanner.AivMiscSpawnCategory.Unknown, CastlePlanner.AivSpawnPlan.ClassifyMisc(22));
+        var source = new CastlePlanner.AivJsonDocument
+        {
+            frames = [new CastlePlanner.AivJsonFrame { itemType = 61, tilePositionOfsets = [5643] }],
+            miscItems =
+            [
+                new CastlePlanner.AivJsonMiscItem { itemType = 1, positionOfset = 5543, number = 0 },
+                new CastlePlanner.AivJsonMiscItem { itemType = 6, positionOfset = 5443, number = 0 },
+                new CastlePlanner.AivJsonMiscItem { itemType = 2, positionOfset = 5343, number = 0 }
+            ]
+        };
+        CastlePlanner.AivJsonDocument filtered = CastlePlanner.AivSpawnPlan.Filter(
+            source,
+            new CastlePlanner.AivSpawnOptions { SpawnSiegeEngines = true });
+        Equal(1, filtered.miscItems.Count);
+        Equal(2, filtered.miscItems[0].itemType);
     }
 
     private static void ProjectsSupplementalItemsForEveryRotation()
@@ -944,21 +955,12 @@ internal static class Program
             [AivRotation.Degrees180] = (212, 212),
             [AivRotation.Degrees270] = (212, 201)
         };
-        foreach ((AivRotation rotation, (int x, int y)) in expected)
+        foreach ((AivRotation rotation, (int X, int Y) target) in expected)
         {
             AivWorldTile projected = AivWorldTransform.ProjectNativeFit(point, 200, 200, rotation);
-            Equal(x, projected.X);
-            Equal(y, projected.Y);
+            Equal(target.X, projected.X);
+            Equal(target.Y, projected.Y);
         }
-    }
-
-    private static void MapsRequiredSiegeEngineerCrews()
-    {
-        Equal(2, CastlePlanner.AivSpawnPlan.GetRequiredEngineerCount(2));
-        Equal(2, CastlePlanner.AivSpawnPlan.GetRequiredEngineerCount(9003));
-        Equal(3, CastlePlanner.AivSpawnPlan.GetRequiredEngineerCount(4));
-        Equal(2, CastlePlanner.AivSpawnPlan.GetRequiredEngineerCount(9005));
-        Equal(0, CastlePlanner.AivSpawnPlan.GetRequiredEngineerCount(6));
     }
 
     private static LobbyAiSlotInput Slot(
