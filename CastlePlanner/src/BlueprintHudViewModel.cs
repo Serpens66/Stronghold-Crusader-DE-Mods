@@ -1,6 +1,6 @@
 using SHCDESE.NoesisUtil;
 using System;
-using System.Collections.ObjectModel;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Windows.Input;
 
@@ -11,8 +11,9 @@ namespace CastlePlanner
         private const string HudHostName = "CastlePlannerBlueprintHud";
         private const string DragHandleName =
             "CastlePlannerBlueprintDragHandle";
-        private const double PanelWidth = 360.0;
-        private const double PanelHeight = 196.0;
+        private const double DesiredPanelWidth = 360.0;
+        private const double NormalPanelHeight = 210.0;
+        private const double PreviewPanelHeight = 310.0;
         private const double ScreenInset = 8.0;
         private const double DefaultPanelLeft = 44.0;
         private const double BaseButtonBottom = 34.0;
@@ -71,27 +72,37 @@ namespace CastlePlanner
         public string PreviewStatusText => preview.StatusText;
         public string ConfirmCastleText => preview.ConfirmText;
         public string RotationText => preview.RotationText;
-        public System.Collections.Generic.IReadOnlyList<string> PreviewCastleOptions => preview.CastleChoices;
-        public System.Collections.Generic.IReadOnlyList<string> RotationOptions => preview.RotationChoices;
+        public IReadOnlyList<string> RotationOptions => preview.RotationChoices;
         public bool CanConfirmCastle => preview.CanConfirm;
-        public string PreviewSelectedCastle
-        {
-            get => preview.SelectedChoice;
-            set => preview.SelectedChoice = value;
-        }
+        public bool CanSelectCastle => !PreviewVisible || preview.CanConfirm;
+        public bool CanSelectRotation => preview.CanConfirm && preview.HasSelectedCastle;
+        public double PanelWidth => ClampPanelExtent(
+            DesiredPanelWidth,
+            viewportWidth);
+
+        public double PanelHeight => ClampPanelExtent(
+            PreviewVisible ? PreviewPanelHeight : NormalPanelHeight,
+            viewportHeight);
         public string SelectedRotation
         {
             get => preview.SelectedRotation;
             set => preview.SelectedRotation = value;
         }
 
-        public ObservableCollection<string> CastleOptions =>
-            settings.CastleOptions;
+        public IEnumerable<string> CastleOptions => PreviewVisible
+            ? preview.CastleChoices
+            : settings.CastleOptions;
 
         public string SelectedCastle
         {
-            get => settings.SelectedCastle;
-            set => settings.SelectedCastle = value;
+            get => PreviewVisible ? preview.SelectedChoice : settings.SelectedCastle;
+            set
+            {
+                if (PreviewVisible)
+                    preview.SelectedChoice = value;
+                else
+                    settings.SelectedCastle = value;
+            }
         }
 
         public double BlueprintIconScale
@@ -243,6 +254,8 @@ namespace CastlePlanner
 
             viewportWidth = width;
             viewportHeight = height;
+            OnPropertyChanged(nameof(PanelWidth));
+            OnPropertyChanged(nameof(PanelHeight));
             // Vanilla exposes the UI-scaled viewport dimensions used by the
             // full IngameUIScreens root, independent of physical resolution.
             settings.LogBlueprintHudMessage(
@@ -537,6 +550,13 @@ namespace CastlePlanner
                    !double.IsInfinity(value);
         }
 
+        private static double ClampPanelExtent(double desired, double viewportExtent)
+        {
+            if (!IsFinitePositive(viewportExtent))
+                return desired;
+            return Math.Max(1.0, Math.Min(desired, viewportExtent - 2.0 * ScreenInset));
+        }
+
         private static Noesis.FrameworkElement FindAncestorByName(
             Noesis.DependencyObject source,
             string name)
@@ -627,6 +647,13 @@ namespace CastlePlanner
             {
                 case nameof(FreeCastlePreviewRuntime.IsPreviewActive):
                     OnPropertyChanged(nameof(PreviewVisible));
+                    OnPropertyChanged(nameof(CastleOptions));
+                    OnPropertyChanged(nameof(SelectedCastle));
+                    OnPropertyChanged(nameof(CanSelectCastle));
+                    OnPropertyChanged(nameof(CanSelectRotation));
+                    OnPropertyChanged(nameof(PanelHeight));
+                    if (!isDragging)
+                        ApplyStoredOrDefaultPosition();
                     break;
                 case nameof(FreeCastlePreviewRuntime.TimerText):
                     OnPropertyChanged(nameof(PreviewTimerText));
@@ -637,9 +664,18 @@ namespace CastlePlanner
                     break;
                 case nameof(FreeCastlePreviewRuntime.CanConfirm):
                     OnPropertyChanged(nameof(CanConfirmCastle));
+                    OnPropertyChanged(nameof(CanSelectCastle));
+                    OnPropertyChanged(nameof(CanSelectRotation));
                     break;
                 case nameof(FreeCastlePreviewRuntime.SelectedChoice):
-                    OnPropertyChanged(nameof(PreviewSelectedCastle));
+                    OnPropertyChanged(nameof(SelectedCastle));
+                    OnPropertyChanged(nameof(CanSelectRotation));
+                    break;
+                case nameof(FreeCastlePreviewRuntime.CastleChoices):
+                    OnPropertyChanged(nameof(CastleOptions));
+                    break;
+                case nameof(FreeCastlePreviewRuntime.HasSelectedCastle):
+                    OnPropertyChanged(nameof(CanSelectRotation));
                     break;
                 case nameof(FreeCastlePreviewRuntime.SelectedRotation):
                     OnPropertyChanged(nameof(SelectedRotation));

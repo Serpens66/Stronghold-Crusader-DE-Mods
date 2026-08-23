@@ -16,8 +16,8 @@
             Visibility="{Binding HudVisible, Converter={StaticResource booleanToVisibilityConverter}}"
             Tag="IgnoreSelf">
         <Border x:Name="CastlePlannerBlueprintPanel"
-                Width="360"
-                MinHeight="196"
+                Width="{Binding PanelWidth}"
+                Height="{Binding PanelHeight}"
                 Padding="8"
                 HorizontalAlignment="Left"
                 VerticalAlignment="Top"
@@ -31,7 +31,11 @@
             <TranslateTransform X="{Binding PanelLeft}"
                                 Y="{Binding PanelTop}"/>
           </Border.RenderTransform>
-          <StackPanel>
+          <Grid>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
             <Border x:Name="CastlePlannerBlueprintDragHandle"
                     Height="26"
                     Margin="0,0,0,6"
@@ -47,6 +51,11 @@
                          VerticalAlignment="Center"
                          IsHitTestVisible="False"/>
             </Border>
+
+            <ScrollViewer Grid.Row="1"
+                          VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Auto">
+            <StackPanel>
 
             <Button Content="{Binding StatusText}"
                     Command="{Binding ToggleCommand}"
@@ -65,21 +74,18 @@
             <ComboBox ItemsSource="{Binding CastleOptions}"
                       SelectedItem="{Binding SelectedCastle, Mode=TwoWay}"
                       MaxDropDownHeight="420"
-                      Height="30"/>
+                      Height="30"
+                      IsEnabled="{Binding CanSelectCastle}"
+                      ToolTip="AIVJSON"
+                      ToolTipService.ShowDuration="60000"/>
 
             <StackPanel Visibility="{Binding PreviewVisible, Converter={StaticResource booleanToVisibilityConverter}}">
-              <ComboBox ItemsSource="{Binding PreviewCastleOptions}"
-                        SelectedItem="{Binding PreviewSelectedCastle, Mode=TwoWay}"
-                        MaxDropDownHeight="420"
-                        Height="30"
-                        Margin="0,6,0,0"
-                        ToolTip="AIVJSON / None"
-                        ToolTipService.ShowDuration="60000"/>
               <TextBlock Text="{Binding RotationText}"
                          Foreground="#FFE8F2FF"
                          Margin="0,6,0,2"/>
               <ComboBox ItemsSource="{Binding RotationOptions}"
                         SelectedItem="{Binding SelectedRotation, Mode=TwoWay}"
+                        IsEnabled="{Binding CanSelectRotation}"
                         Height="30"
                         ToolTip="{Binding RotationText}"
                         ToolTipService.ShowDuration="60000"/>
@@ -88,6 +94,12 @@
                       IsEnabled="{Binding CanConfirmCastle}"
                       Height="32"
                       Margin="0,7,0,0"
+                      Padding="10,3"
+                      FontWeight="Bold"
+                      Foreground="#FFFFFFFF"
+                      Background="#CC2F6F42"
+                      BorderBrush="#FF77DD99"
+                      BorderThickness="1"
                       ToolTip="{Binding ConfirmCastleText}"
                       ToolTipService.ShowDuration="60000"/>
             </StackPanel>
@@ -139,7 +151,9 @@
                          HorizontalAlignment="Right"
                          VerticalAlignment="Center"/>
             </Grid>
-          </StackPanel>
+            </StackPanel>
+            </ScrollViewer>
+          </Grid>
         </Border>
 
         <Border Width="520"

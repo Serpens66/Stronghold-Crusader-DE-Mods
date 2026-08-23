@@ -116,6 +116,9 @@ namespace CastlePlanner
         public bool IsSpawnMapPass => state == PreviewState.SpawnMap;
         public bool IsLocalConfirmed => localConfirmed;
         public bool CanConfirm => state == PreviewState.Selecting && !localConfirmed;
+        public bool HasSelectedCastle =>
+            IsPreviewActive &&
+            !string.Equals(selectedChoice, NoneText, StringComparison.Ordinal);
         public int SelectedNativeRotation => RotationTextToNative(selectedRotation);
         public string TitleText => SerpLocalization.Get("CastlePlanner.Preview.Title");
         public string TimerText
@@ -143,10 +146,17 @@ namespace CastlePlanner
                 if (string.Equals(selectedChoice, normalized, StringComparison.Ordinal))
                     return;
                 selectedChoice = normalized;
-                if (!string.Equals(normalized, NoneText, StringComparison.Ordinal))
+                bool updatesPersistedSelection =
+                    !string.Equals(normalized, NoneText, StringComparison.Ordinal) &&
+                    !string.Equals(settings.SelectedCastle, normalized, StringComparison.Ordinal);
+                if (updatesPersistedSelection)
                     settings.SelectedCastle = normalized;
                 Notify(nameof(SelectedChoice));
-                SelectionVisualChanged?.Invoke();
+                Notify(nameof(HasSelectedCastle));
+                // SettingsChanged already rebuilds a newly persisted castle. None
+                // and reselecting the persisted castle need this preview-only path.
+                if (!updatesPersistedSelection)
+                    SelectionVisualChanged?.Invoke();
             }
         }
 
@@ -940,6 +950,7 @@ namespace CastlePlanner
             Notify(nameof(IsSpawnMapPass));
             Notify(nameof(IsLocalConfirmed));
             Notify(nameof(CanConfirm));
+            Notify(nameof(HasSelectedCastle));
             Notify(nameof(StatusText));
             Notify(nameof(TimerText));
             (ConfirmCommand as RelayCommand)?.RaiseCanExecuteChanged();

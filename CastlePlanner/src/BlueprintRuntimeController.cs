@@ -298,7 +298,7 @@ namespace CastlePlanner
         private void OnSettingsChanged()
         {
             bool restoreVisibility =
-                blueprintVisible && settings.IsBlueprintMode;
+                blueprintVisible && EffectiveBlueprintMode;
             renderer.Clear();
             layout = null;
             layoutKeepX = int.MinValue;
@@ -309,7 +309,7 @@ namespace CastlePlanner
             pendingViewSettleTime = -1f;
             suppressOverlayUntilViewSettled = false;
 
-            if (settings.IsBlueprintMode && mapActive)
+            if (EffectiveBlueprintMode && mapActive)
             {
                 SchedulePrepare(restoreVisibility);
                 TryPrepareBlueprint();
@@ -489,6 +489,18 @@ namespace CastlePlanner
             int keepY,
             string reason)
         {
+            if (preview.IsPreviewActive && !preview.HasSelectedCastle)
+            {
+                layout = null;
+                layoutKeepX = int.MinValue;
+                layoutKeepY = int.MinValue;
+                renderer.Clear();
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    "Blueprint hidden because No castle is selected for the start preview.");
+                return false;
+            }
+
             if (!settings.TryResolveSelectedFile(out string fullPath))
             {
                 layout = null;

@@ -236,6 +236,46 @@ foreach ($required in @(
         throw "CastlePlanner fail-closed manifest marker is missing: $required"
     }
 }
+$castleHudXaml = [IO.File]::ReadAllText((Join-Path $workspace 'CastlePlanner/BepInEx/plugins/CastlePlanner_Serp/Patches/Assets/GUI/XAML/IngameUIScreens.xaml'))
+if ([Text.RegularExpressions.Regex]::Matches(
+        $castleHudXaml,
+        'ItemsSource="\{Binding CastleOptions\}"').Count -ne 1) {
+    throw 'CastlePlanner must expose exactly one AIVJSON dropdown in the Blueprint HUD.'
+}
+foreach ($forbidden in @('PreviewCastleOptions', 'PreviewSelectedCastle')) {
+    if ($castleHudXaml.Contains($forbidden)) {
+        throw "CastlePlanner retained the duplicate preview castle binding: $forbidden"
+    }
+}
+foreach ($required in @(
+    'Width="{Binding PanelWidth}"',
+    'Height="{Binding PanelHeight}"',
+    'VerticalScrollBarVisibility="Auto"',
+    'HorizontalScrollBarVisibility="Auto"',
+    'IsEnabled="{Binding CanSelectCastle}"',
+    'IsEnabled="{Binding CanSelectRotation}"',
+    'Command="{Binding ConfirmCastleCommand}"')) {
+    if (-not $castleHudXaml.Contains($required)) {
+        throw "CastlePlanner unified preview HUD marker is missing: $required"
+    }
+}
+$castleHudSource = [IO.File]::ReadAllText((Join-Path $workspace 'CastlePlanner/src/BlueprintHudViewModel.cs'))
+foreach ($required in @(
+    'get => PreviewVisible ? preview.SelectedChoice : settings.SelectedCastle;',
+    'preview.SelectedChoice = value;',
+    'ClampPanelExtent(',
+    'OnPropertyChanged(nameof(PanelWidth));',
+    'OnPropertyChanged(nameof(PanelHeight));',
+    'availableWidth - PanelWidth - ScreenInset',
+    'availableHeight - PanelHeight - ScreenInset')) {
+    if (-not $castleHudSource.Contains($required)) {
+        throw "CastlePlanner unified selector or panel-bound marker is missing: $required"
+    }
+}
+$castleBlueprintRuntimeSource = [IO.File]::ReadAllText((Join-Path $workspace 'CastlePlanner/src/BlueprintRuntimeController.cs'))
+if (-not $castleBlueprintRuntimeSource.Contains('preview.IsPreviewActive && !preview.HasSelectedCastle')) {
+    throw 'CastlePlanner does not hide the Blueprint for the No castle preview selection.'
+}
 foreach ($forbidden in @(
     'SpawnSelectedCastleData',
     'SpawnInventoryManifestData',
