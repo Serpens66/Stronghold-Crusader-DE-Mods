@@ -18,6 +18,7 @@ namespace BugfixesAndQoL
         private bool enableMod = true;
         private bool rememberAiAivSettings = true;
         private bool enableCustomLordListEnhancements = true;
+        private bool enableAiFixes = true;
         private bool enableTroopMovementFix = true;
         private bool enablePlaguePopularityFix = true;
         private bool enablePlagueCloudRemovalFix = true;
@@ -107,6 +108,8 @@ namespace BugfixesAndQoL
         public string ClientInterfaceTitleText => SerpLocalization.Get("BugfixesAndQoL.ClientInterfaceTitle");
         public string DisplayTitleText => SerpLocalization.Get("BugfixesAndQoL.DisplayTitle");
         public string AiAivTitleText => SerpLocalization.Get("BugfixesAndQoL.AiAivTitle");
+        public string EnableAiFixesText => SerpLocalization.Get(SerpLocalization.EnableAiFixes);
+        public string EnableAiFixesHelpText => SerpLocalization.Get(SerpLocalization.EnableAiFixesHelp);
         public string TroopMovementTitleText => SerpLocalization.Get("BugfixesAndQoL.TroopMovementTitle");
         public string PlagueTitleText => SerpLocalization.Get("BugfixesAndQoL.PlagueTitle");
         public string GameplayTitleText => SerpLocalization.Get("BugfixesAndQoL.GameplayTitle");
@@ -315,6 +318,13 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
+        public bool EnableAiFixes
+        {
+            get => enableAiFixes;
+            set => SetSetting(ref enableAiFixes, value, nameof(EnableAiFixes));
+        }
+
+        [SyncHostOnly]
         public bool RememberAiAivSettings
         {
             get => rememberAiAivSettings;
@@ -431,6 +441,7 @@ namespace BugfixesAndQoL
             if (CanEditHostSettings)
             {
                 EnableMod = true;
+                EnableAiFixes = true;
                 RememberAiAivSettings = true;
                 EnableCustomLordListEnhancements = true;
                 EnableTroopMovementFix = true;

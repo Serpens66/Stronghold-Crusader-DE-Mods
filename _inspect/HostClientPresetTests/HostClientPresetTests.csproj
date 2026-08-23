@@ -59,6 +59,9 @@
     <Compile Include="..\..\BugfixesAndQoL\src\LocalPerPlayerSetting.cs">
       <Link>LocalPerPlayerSetting.cs</Link>
     </Compile>
+    <Compile Include="..\..\BugfixesAndQoL\src\AiRecruitmentHorseDemandNativeDefinition.cs">
+      <Link>AiRecruitmentHorseDemandNativeDefinition.cs</Link>
+    </Compile>
     <Compile Include="..\..\BugfixesAndQoL\src\MarketGoodsOrderDefinition.cs">
       <Link>MarketGoodsOrderDefinition.cs</Link>
     </Compile>

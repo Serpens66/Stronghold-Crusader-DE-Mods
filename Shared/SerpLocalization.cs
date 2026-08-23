@@ -122,6 +122,8 @@ public static class SerpLocalization
     public const string EnableShiftGameSpeedStepsHelp = "SomeSettings.EnableShiftGameSpeedStepsHelp";
     public const string EnableTroopMovementFix = "SomeSettings.EnableTroopMovementFix";
     public const string EnableTroopMovementFixHelp = "SomeSettings.EnableTroopMovementFixHelp";
+    public const string EnableAiFixes = "BugfixesAndQoL.EnableAiFixes";
+    public const string EnableAiFixesHelp = "BugfixesAndQoL.EnableAiFixesHelp";
     public const string EnablePlaguePopularityFix = "SomeSettings.EnablePlaguePopularityFix";
     public const string EnablePlaguePopularityFixHelp = "SomeSettings.EnablePlaguePopularityFixHelp";
     public const string EnablePlagueCloudRemovalFix = "SomeSettings.EnablePlagueCloudRemovalFix";
@@ -435,6 +437,8 @@ public static class SerpLocalization
         { EnableShiftGameSpeedStepsHelp, "Press or hold the normal increase/decrease game-speed keybind. The first change is immediate and repeats every 0.25 seconds while held; hold Shift for 25 instead of 5 per step, up to Script Extender's configured maximum. The options slider keeps its 5-step increments. Multiplayer changes use Script Extender's tick-aligned Chore transport." },
         { EnableTroopMovementFix, "Troop Speed Fix" },
         { EnableTroopMovementFixHelp, "Fixes synchronized movement for mixed troop groups: with a normal movement command, all units move at the speed of the slowest unit in the group." },
+        { EnableAiFixes, "AI Fixes" },
+        { EnableAiFixesHelp, "Fixes Vanilla AI behavior. Currently prevents failed knight recruitment without an available horse from reusing an old missing weapon or armour result and repeatedly buying that equipment." },
         { EnablePlaguePopularityFix, "Plague Popularity Fix" },
         { EnablePlaguePopularityFixHelp, "Applies exactly -1 popularity for each active plague outbreak and removes it once all associated plague clouds have expired naturally or been removed by an apothecary." },
         { EnablePlagueCloudRemovalFix, "Plague Cloud Removal Fix" },

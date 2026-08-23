@@ -217,6 +217,12 @@
         <TextBlock Text="{Binding EnableAssemblyPointPlacementFixText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox>
       <TextBlock Text="{Binding AiAivTitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,4"/>
+      <CheckBox IsChecked="{Binding EnableAiFixes, Mode=TwoWay}"
+                Foreground="White"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableAiFixesHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding EnableAiFixesText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox>
       <CheckBox IsChecked="{Binding RememberAiAivSettings, Mode=TwoWay}"
                 Foreground="White"
                 ToolTipService.ShowDuration="60000" ToolTip="{Binding RememberAiAivSettingsHelpText}"

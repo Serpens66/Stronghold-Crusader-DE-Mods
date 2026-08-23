@@ -39,6 +39,7 @@ internal static class Program
             TestLordHealthMultiplierPolicy();
             TestGatehouseAutomationSaveState();
             TestAIMarketNativeResolution();
+            TestAiRecruitmentHorseDemandNativeResolution();
             TestMultiplayerGameSpeedPolicyAndPacket();
             TestMarketTradeIntegration();
             TestGameSpeedRepeatScheduler();
@@ -929,6 +930,7 @@ internal static class Program
         var setting = new SurrenderAndStatisticsSettingViewModel();
         setting.PreparePresets(null, pluginPath, "SurrenderAndStatisticsSettingTest");
         setting.ActivatePresets();
+        Check(setting.EnableAiFixes, "EnableAiFixes did not default to true");
         Check(setting.EnableSurrenderAndStatistics, "EnableSurrenderAndStatistics did not default to true");
         Check(setting.EnableLordUnitControls, "EnableLordUnitControls did not default to true");
         Check(setting.EnableEliminatedPlayersBecomeSpectators,
@@ -937,11 +939,13 @@ internal static class Program
             "EnableReturnToMultiplayerLobby did not default to true");
         Check(typeof(SurrenderAndStatisticsSettingViewModel).GetProperty("EnableSurrender") == null,
             "obsolete EnableSurrender property remains present");
+        setting.EnableAiFixes = false;
         setting.EnableSurrenderAndStatistics = false;
         setting.EnableLordUnitControls = false;
         setting.EnableEliminatedPlayersBecomeSpectators = false;
         setting.EnableReturnToMultiplayerLobby = false;
         setting.SelectedPreset = 1;
+        Check(setting.EnableAiFixes, "new shared preset did not retain the EnableAiFixes default true value");
         Check(setting.EnableSurrenderAndStatistics, "new shared preset did not retain the default true value");
         Check(setting.EnableLordUnitControls, "new shared preset did not retain the Lord-controls default true value");
         Check(setting.EnableEliminatedPlayersBecomeSpectators,
@@ -949,6 +953,7 @@ internal static class Program
         Check(setting.EnableReturnToMultiplayerLobby,
             "new shared preset did not retain the lobby-return default true value");
         setting.SelectedPreset = 0;
+        Check(!setting.EnableAiFixes, "EnableAiFixes did not round-trip through presets");
         Check(!setting.EnableSurrenderAndStatistics, "shared host value did not round-trip through presets");
         Check(!setting.EnableLordUnitControls, "Lord-controls host value did not round-trip through presets");
         Check(!setting.EnableEliminatedPlayersBecomeSpectators,
@@ -958,10 +963,15 @@ internal static class Program
 
         GameNetworkAPI.LocalHost = false;
         setting.System_RefreshSettingsAccess();
+        byte[] beforeClientMutation = File.ReadAllBytes(settingsPath);
+        setting.EnableAiFixes = true;
         setting.EnableSurrenderAndStatistics = true;
         setting.EnableLordUnitControls = true;
         setting.EnableEliminatedPlayersBecomeSpectators = true;
         setting.EnableReturnToMultiplayerLobby = true;
+        Check(!setting.EnableAiFixes, "client mutated the host-only EnableAiFixes setting");
+        Check(beforeClientMutation.SequenceEqual(File.ReadAllBytes(settingsPath)),
+            "client EnableAiFixes mutation changed the local preset file");
         Check(!setting.EnableSurrenderAndStatistics, "client mutated the host-only EnableSurrenderAndStatistics setting");
         Check(!setting.EnableLordUnitControls, "client mutated the host-only EnableLordUnitControls setting");
         Check(!setting.EnableEliminatedPlayersBecomeSpectators,
@@ -970,11 +980,13 @@ internal static class Program
             "client mutated the host-only EnableReturnToMultiplayerLobby setting");
         GameXAMLManagerAPI.Instance.ApplyNetworkSync(setting, () =>
         {
+            setting.EnableAiFixes = true;
             setting.EnableSurrenderAndStatistics = true;
             setting.EnableLordUnitControls = true;
             setting.EnableEliminatedPlayersBecomeSpectators = true;
             setting.EnableReturnToMultiplayerLobby = true;
         });
+        Check(setting.EnableAiFixes, "authoritative host sync did not update EnableAiFixes");
         Check(setting.EnableSurrenderAndStatistics, "authoritative host sync did not update EnableSurrenderAndStatistics");
         Check(setting.EnableLordUnitControls, "authoritative host sync did not update EnableLordUnitControls");
         Check(setting.EnableEliminatedPlayersBecomeSpectators,
@@ -985,6 +997,7 @@ internal static class Program
         setting.System_EnterMissionPreset(
             new Dictionary<string, byte[]>
             {
+                [nameof(setting.EnableAiFixes)] = MessagePackSerializer.Serialize(false),
                 [nameof(setting.EnableSurrenderAndStatistics)] = MessagePackSerializer.Serialize(false),
                 [nameof(setting.EnableLordUnitControls)] = MessagePackSerializer.Serialize(false),
                 [nameof(setting.EnableEliminatedPlayersBecomeSpectators)] = MessagePackSerializer.Serialize(false),
@@ -992,6 +1005,7 @@ internal static class Program
             },
             "Trail",
             editable: false);
+        Check(!setting.EnableAiFixes, "read-only Trail did not apply EnableAiFixes");
         Check(!setting.EnableSurrenderAndStatistics && !setting.CanEditHostSettings,
             "read-only Trail did not apply and lock EnableSurrenderAndStatistics");
         Check(!setting.EnableLordUnitControls, "read-only Trail did not apply EnableLordUnitControls");
@@ -999,10 +1013,12 @@ internal static class Program
             "read-only Trail did not apply EnableEliminatedPlayersBecomeSpectators");
         Check(!setting.EnableReturnToMultiplayerLobby,
             "read-only Trail did not apply EnableReturnToMultiplayerLobby");
+        setting.EnableAiFixes = true;
         setting.EnableSurrenderAndStatistics = true;
         setting.EnableLordUnitControls = true;
         setting.EnableEliminatedPlayersBecomeSpectators = true;
         setting.EnableReturnToMultiplayerLobby = true;
+        Check(!setting.EnableAiFixes, "client changed EnableAiFixes inside a read-only Trail");
         Check(!setting.EnableSurrenderAndStatistics, "client changed EnableSurrenderAndStatistics inside a read-only Trail");
         Check(!setting.EnableLordUnitControls, "client changed EnableLordUnitControls inside a read-only Trail");
         Check(!setting.EnableEliminatedPlayersBecomeSpectators,
@@ -1014,6 +1030,7 @@ internal static class Program
         GameNetworkAPI.LocalHost = true;
         setting.System_RefreshSettingsAccess();
         setting.ResetSurrenderAndStatistics();
+        Check(setting.EnableAiFixes, "EnableAiFixes reset value was not true");
         Check(setting.EnableSurrenderAndStatistics, "EnableSurrenderAndStatistics reset value was not true");
         Check(setting.EnableLordUnitControls, "EnableLordUnitControls reset value was not true");
         Check(setting.EnableEliminatedPlayersBecomeSpectators,
@@ -1687,6 +1704,71 @@ internal static class Program
             "ambiguous AI market signature was accepted");
     }
 
+    private static void TestAiRecruitmentHorseDemandNativeResolution()
+    {
+        Check(
+            AiRecruitmentHorseDemandNativeDefinition.IsKnightHorseOnlyFailure(28, 2, 0),
+            "AI recruitment diagnostics did not recognize the audited horse-only result");
+        Check(
+            !AiRecruitmentHorseDemandNativeDefinition.IsKnightHorseOnlyFailure(28, 2, 23),
+            "AI recruitment diagnostics misclassified a sword shortage as a horse-only result");
+        Check(
+            AiRecruitmentHorseDemandNativeDefinition.IsKnightEquipmentFailure(28, 2, 23) &&
+            AiRecruitmentHorseDemandNativeDefinition.IsKnightEquipmentFailure(28, 2, 25),
+            "AI recruitment diagnostics did not recognize the audited knight equipment results");
+        Check(
+            !AiRecruitmentHorseDemandNativeDefinition.IsKnightEquipmentFailure(27, 2, 23),
+            "AI recruitment diagnostics accepted a non-knight equipment result");
+
+        string pattern = AiRecruitmentHorseDemandNativeDefinition.RecruitEuropeanUnitPattern;
+        int referenceRva = AiRecruitmentHorseDemandNativeDefinition.RecruitEuropeanUnitRva;
+        byte[] bytes = MaterializePattern(pattern, 0x5A);
+        byte[] referenceImage = CreateExecutableTestImage(referenceRva + 0x1000);
+        CopyAt(referenceImage, referenceRva, bytes);
+        CopyAt(referenceImage, 0x3000, bytes);
+
+        NativeResolution reference = NativePatternResolver.ResolveUnique(
+            referenceImage,
+            pattern,
+            referenceRva,
+            referenceHashMatches: true,
+            "test European recruitment");
+        Check(reference.Rva == referenceRva && reference.Method == "reference-rva",
+            "AI recruitment matching hash did not use only the validated reference RVA");
+
+        byte[] fallbackImage = CreateExecutableTestImage(0x10000);
+        CopyAt(fallbackImage, 0x3000, bytes);
+        NativeResolution fallback = NativePatternResolver.ResolveUnique(
+            fallbackImage,
+            pattern,
+            referenceRva,
+            referenceHashMatches: false,
+            "test European recruitment");
+        Check(fallback.Rva == 0x3000 && fallback.Method == "signature-fallback",
+            "AI recruitment unknown hash did not use its unique executable signature");
+
+        ExpectInvalidOperation(
+            () => NativePatternResolver.ResolveUnique(
+                CreateExecutableTestImage(0x10000),
+                pattern,
+                referenceRva,
+                referenceHashMatches: false,
+                "missing European recruitment"),
+            "missing AI recruitment signature was accepted");
+
+        byte[] ambiguousImage = CreateExecutableTestImage(0x10000);
+        CopyAt(ambiguousImage, 0x3000, bytes);
+        CopyAt(ambiguousImage, 0x5000, bytes);
+        ExpectInvalidOperation(
+            () => NativePatternResolver.ResolveUnique(
+                ambiguousImage,
+                pattern,
+                referenceRva,
+                referenceHashMatches: false,
+                "ambiguous European recruitment"),
+            "ambiguous AI recruitment signature was accepted");
+    }
+
     private static byte[] CreateExecutableTestImage(int length)
     {
         byte[] image = new byte[length];
@@ -1708,6 +1790,11 @@ internal static class Program
     private static byte[] ParseHex(string pattern) =>
         pattern.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries)
             .Select(value => Convert.ToByte(value, 16))
+            .ToArray();
+
+    private static byte[] MaterializePattern(string pattern, byte wildcardValue) =>
+        pattern.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(value => value == "?" || value == "??" ? wildcardValue : Convert.ToByte(value, 16))
             .ToArray();
 
     private static void CopyAt(byte[] destination, int offset, byte[] source) =>
@@ -2199,10 +2286,24 @@ internal sealed class MixedViewModel : PresetLobbyModSettingsViewModel
 
 internal sealed class SurrenderAndStatisticsSettingViewModel : PresetLobbyModSettingsViewModel
 {
+    private bool enableAiFixes = true;
     private bool enableSurrenderAndStatistics = true;
     private bool enableLordUnitControls = true;
     private bool enableEliminatedPlayersBecomeSpectators = true;
     private bool enableReturnToMultiplayerLobby = true;
+
+    [SyncHostOnly]
+    public bool EnableAiFixes
+    {
+        get => enableAiFixes;
+        set
+        {
+            if (!CanMutateSetting(nameof(EnableAiFixes)) || enableAiFixes == value)
+                return;
+            enableAiFixes = value;
+            OnPropertyChanged(nameof(EnableAiFixes));
+        }
+    }
 
     [SyncHostOnly]
     public bool EnableSurrenderAndStatistics
@@ -2264,6 +2365,7 @@ internal sealed class SurrenderAndStatisticsSettingViewModel : PresetLobbyModSet
 
     internal void ResetSurrenderAndStatistics()
     {
+        EnableAiFixes = true;
         EnableSurrenderAndStatistics = true;
         EnableLordUnitControls = true;
         EnableEliminatedPlayersBecomeSpectators = true;

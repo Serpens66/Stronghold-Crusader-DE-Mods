@@ -38,9 +38,38 @@ inactive until a new DLL has been audited.
 | `MarketPacketTailPattern` | `0xD7324` | market packet globals and sender |
 | `MarketStorageCallPattern` | `0xD7119` | available-storage delegate |
 | `AutoMarketSellStatisticPattern` | `0xD0484` | market-sell statistic table |
+| `RecruitEuropeanUnitPattern` | `0x190C50` | European troop-recruitment detour; missing-good output at manager `+0x654` |
 
 The named constants in `src` contain the complete authoritative wildcard byte
 patterns. Every reference above was checked as one match in the baseline DLL.
+
+## AI recruitment horse-demand audit
+
+The European recruitment function at RVA `0x190C50` clears its result code at
+manager `+0x650`, then checks gold, three market-good requirements and finally
+the special horse requirement (`-1`). A missing market good writes result code
+`2` and the good id to `+0x654`. The missing-horse branch at RVA `0x190DA6`
+writes the same result code but leaves `+0x654` unchanged. AI bodyguard and
+economy-protection recruitment at RVAs `0x40330` and `0x40430` interprets that
+stale id as a market good and writes `TradeAmountEquipment` into its demand
+array at player offset `+0x131630`. The buyer at RVA `0x3ECA0` consumes that
+demand, while the independent seller at RVA `0x3EE10` applies the common
+`MaxEquipment` threshold to all weapons.
+
+The detour restores the missing-output invariant by setting `+0x654` to
+`STORED_NULL` before Vanilla runs when AI Fixes are enabled. A real resource
+failure overwrites it again; a horse-only failure cannot create a market-good
+demand. For a new DLL, validate the complete ABI, the two result fields, the
+ordered horse check and both AI consumers before accepting the signature.
+
+Runtime diagnostics log the resolution method and active setting state. For
+knights they report the first horse-only result per player, every occurrence
+that actually discarded a stale sword or metal-armour id, and a periodic
+summary after each 100 horse blocks. The first genuine sword and metal-armour
+shortage per player is also logged, as is the first error-free knight check
+after a horse block. These messages allow the fix path and the unchanged
+Vanilla equipment path to be distinguished without logging every recruitment
+attempt.
 
 ## Eliminated-player spectator audit
 
@@ -101,8 +130,8 @@ the HUD-supported type list before retaining that scale for a new DLL.
 6. Revalidate the Ctrl-market validator, packet globals, sender/storage calls
    and statistic table together before enabling the single-unit trade feature.
 7. Test each setting enabled and disabled, patch restoration, map reloads,
-   market buys/sales, plague treatment/popularity, assembly points and
-   synchronized movement.
+   AI knight recruitment with and without horses, genuine equipment shortages,
+   market buys/sales, plague treatment/popularity, assembly points and synchronized movement.
 8. Update the RVAs first and the shared SHA-256 only after all fixed layouts pass.
 
 Missing, ambiguous or locally mismatching signatures must log a timestamped

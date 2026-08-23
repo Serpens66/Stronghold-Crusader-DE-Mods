@@ -3,10 +3,22 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.66",
+  "Version": "1.0.68",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.68",
+      "Changes": [
+        "Added focused runtime diagnostics for the AI knight recruitment fix, including horse blocks, prevented stale equipment demands, genuine equipment shortages, and later error-free checks."
+      ]
+    },
+    {
+      "Version": "1.0.67",
+      "Changes": [
+        "Added a default-enabled host AI Fixes setting that prevents horse-blocked knight recruitment from reusing a stale missing-weapon result and repeatedly buying and selling equipment."
+      ]
+    },
     {
       "Version": "1.0.66",
       "Changes": [

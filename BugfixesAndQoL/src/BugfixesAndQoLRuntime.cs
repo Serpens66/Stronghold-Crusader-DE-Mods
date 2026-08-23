@@ -35,6 +35,7 @@ namespace BugfixesAndQoL
         private LordUnitControlsFeature lordUnitControlsFeature;
         private SelectedUnitHealthFeature selectedUnitHealthFeature;
         private AssemblyPointPlacementPatch assemblyPointPlacementPatch;
+        private AiRecruitmentHorseDemandFix aiRecruitmentHorseDemandFix;
         private PlaguePopularityFix plaguePopularityFix;
         private PlagueTreatmentFadeFix plagueTreatmentFadeFix;
         private PlagueTargetReservationFix plagueTargetReservationFix;
@@ -48,6 +49,7 @@ namespace BugfixesAndQoL
         private bool settingsSubscribed;
         private bool enemyProximityFixedLayoutErrorLogged;
         private bool assemblyPointPlacementPatchUnavailable;
+        private bool aiRecruitmentHorseDemandFixUnavailable;
         private bool plaguePopularityFixUnavailable;
         private bool plagueTreatmentFadeFixUnavailable;
         private bool plagueTargetReservationFixUnavailable;
@@ -174,6 +176,7 @@ namespace BugfixesAndQoL
             TryInitializeFeature("plague target-reservation fix", EnsurePlagueTargetReservationFix);
             TryInitializeFeature("stuck-apothecary fix", EnsurePlagueApothecaryStateTransitionFix);
             TryInitializeFeature("assembly-point placement fix", ApplyAssemblyPointPlacementPatchSetting);
+            TryInitializeFeature("AI recruitment horse-demand fix", EnsureAiRecruitmentHorseDemandFix);
             TryInitializeFeature("ally goods amount modifiers", InstallAllyGoodsAmountModifierHook);
             TryInitializeFeature("Ctrl single-unit market trade", InstallCtrlMarketTradeHook);
         }
@@ -222,6 +225,8 @@ namespace BugfixesAndQoL
             selectedUnitHealthFeature?.Dispose();
             selectedUnitHealthFeature = null;
             DisableAssemblyPointPlacementPatch();
+            aiRecruitmentHorseDemandFix?.Dispose();
+            aiRecruitmentHorseDemandFix = null;
             plaguePopularityFix?.Dispose();
             plaguePopularityFix = null;
             plagueTreatmentFadeFix?.SetTreatmentCompletedObserver(null);
@@ -491,6 +496,12 @@ namespace BugfixesAndQoL
             if (propertyName == nameof(BugfixesAndQoLViewModel.MarketGoodsOrder))
                 return;
 
+            if (propertyName == nameof(BugfixesAndQoLViewModel.EnableMod) ||
+                propertyName == nameof(BugfixesAndQoLViewModel.EnableAiFixes))
+            {
+                aiRecruitmentHorseDemandFix?.LogSettingState($"setting-changed:{propertyName}");
+            }
+
             TryApplyFeature("plague target-reservation fix", () => plagueTargetReservationFix?.ApplySetting());
             if (propertyName == nameof(BugfixesAndQoLViewModel.EnableTroopMovementFix))
             {
@@ -540,6 +551,36 @@ namespace BugfixesAndQoL
                 Shared.DebugLogHelper.LogError(
                     log,
                     $"Bugfixes and QoL plague popularity fix could not be installed; Vanilla behavior remains active: {ex}");
+            }
+        }
+
+        private void EnsureAiRecruitmentHorseDemandFix()
+        {
+            if (!nativeLibraryAvailable ||
+                aiRecruitmentHorseDemandFix != null ||
+                aiRecruitmentHorseDemandFixUnavailable)
+            {
+                return;
+            }
+
+            try
+            {
+                // Keep the hook installed: synchronized setting changes only select whether
+                // its callback corrects the stale Vanilla output before recruitment.
+                aiRecruitmentHorseDemandFix = new AiRecruitmentHorseDemandFix(
+                    log,
+                    settings,
+                    GetNativeLibraryMemory(),
+                    unchecked((ulong)libraryHandle.ToInt64()),
+                    fixedLayoutHashValidated);
+            }
+            catch (Exception ex)
+            {
+                aiRecruitmentHorseDemandFixUnavailable = true;
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Bugfixes and QoL AI recruitment horse-demand fix could not be installed; " +
+                    $"only this AI fix remains inactive and Vanilla behavior remains active: {ex}");
             }
         }
 
