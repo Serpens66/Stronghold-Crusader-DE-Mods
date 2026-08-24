@@ -117,12 +117,6 @@ In multiplayer, gameplay-related settings are controlled by the host and synchro
 [*]Individual unit limits for [b]human[/b] players to finally balance the game: eg. only up to 5 catapults/ballistas or healers to not make the game too easy
 [/list]
 
-[h1]Configuration and Presets[/h1]
-[list]
-[*]Mods and individual features can be enabled or disabled independently in the ingame modsettings
-[*]In multiplayer, the host controls all gameplay-related settings and syncs them to other players
-[/list]
-
 [h1]Important Information[/h1]
 [list]
 [*]Remove manually installed copies of the included mods!

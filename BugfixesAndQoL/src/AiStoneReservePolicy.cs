@@ -8,9 +8,10 @@ namespace BugfixesAndQoL
         public const int MaximumPlayerId = 8;
         public const int AivSlotCount = 9;
         public const int AivSlotSize = 0x6D98;
-        public const int PlayerIdOffset = 0x00;
-        public const int TotalStepsOffset = 0x20;
-        public const int StepsOffset = 0x34;
+        public const int FirstPlayerSlot = 1;
+        public const int PlayerIdOffset = 0x04;
+        public const int HighestFrameOffset = 0x24;
+        public const int StepsOffset = 0x38;
         public const int StepSize = 12;
         public const int MaximumSteps = 1000;
         public const int PlayerResourceStrideElements = 0x160F;
@@ -48,7 +49,8 @@ namespace BugfixesAndQoL
             }
 
             int matchingOffset = -1;
-            for (int slot = 0; slot < AivSlotCount; slot++)
+            // Slot zero is reserved. Vanilla's allocator only searches slots 1 through 8.
+            for (int slot = FirstPlayerSlot; slot < AivSlotCount; slot++)
             {
                 int candidateOffset = slot * AivSlotSize;
                 if (ReadInt32(aivTable, candidateOffset + PlayerIdOffset) != playerId)
@@ -71,18 +73,18 @@ namespace BugfixesAndQoL
             out int reserve)
         {
             reserve = 0;
-            if (stoneCostResolver == null || aivSlot.Length < StepsOffset)
+            if (stoneCostResolver == null || aivSlot.Length < StepsOffset + StepSize)
                 return false;
 
-            int totalSteps = ReadInt32(aivSlot, TotalStepsOffset);
-            if (totalSteps < 0 || totalSteps > MaximumSteps ||
-                aivSlot.Length < StepsOffset + totalSteps * StepSize)
+            int highestFrame = ReadInt32(aivSlot, HighestFrameOffset);
+            if (highestFrame < 0 || highestFrame >= MaximumSteps)
             {
                 return false;
             }
 
             int maximum = 0;
-            for (int index = 0; index < totalSteps; index++)
+            // Vanilla stores the highest valid index, not a step count.
+            for (int index = 0; index <= highestFrame; index++)
             {
                 int stepOffset = StepsOffset + index * StepSize;
                 byte status = aivSlot[stepOffset];
@@ -117,6 +119,15 @@ namespace BugfixesAndQoL
 
             reserve = maximum;
             return true;
+        }
+
+        public static bool TryValidateThreshold(int maximumStone, int variance, int reserve)
+        {
+            if (reserve < 0)
+                return false;
+
+            long threshold = (long)maximumStone + variance + reserve;
+            return threshold >= int.MinValue && threshold <= int.MaxValue;
         }
 
         private static short ReadInt16(ReadOnlySpan<byte> data, int offset) =>

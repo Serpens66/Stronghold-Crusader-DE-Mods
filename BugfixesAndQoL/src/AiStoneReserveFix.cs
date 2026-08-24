@@ -6,10 +6,13 @@ using SHCDESE.GameGlobals;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
 using Zhuqiaomon.Assembly;
 using Zhuqiaomon.Hooks;
 using Zhuqiaomon.Hooks.Transaction;
 using Zhuqiaomon.Memory;
+using Zhuqiaomon.Windows;
 
 namespace BugfixesAndQoL
 {
@@ -20,6 +23,9 @@ namespace BugfixesAndQoL
         private readonly byte* aivTable;
         private readonly Func<short, int?> stoneCostResolver;
         private readonly int[] lastLoggedReserve = new int[AiStoneReservePolicy.MaximumPlayerId + 1];
+        private readonly object stateLock = new object();
+        private readonly ulong hookAddress;
+        private readonly byte[] originalHookBytes;
         private HookTransaction transaction;
         private HookRef<X64InlineHook> reserveHook = new HookRef<X64InlineHook>();
         private bool correctionAvailable = true;
@@ -44,6 +50,7 @@ namespace BugfixesAndQoL
                 referenceHashMatches,
                 "AI seller stone reserve branch",
                 log);
+            ValidateAivNativeLayout(memory, referenceHashMatches);
 
             ulong tableAddress = GameGlobalsManager.Instance.AIVCastleLayoutTableRVA;
             ulong libraryEnd = checked(libraryBase + unchecked((ulong)memory.Length));
@@ -63,6 +70,16 @@ namespace BugfixesAndQoL
             try
             {
                 int hookRva = checked(resolution.Rva + AiStoneReserveNativeDefinition.SellerReserveHookOffset);
+                if (hookRva < 0 ||
+                    hookRva + AiStoneReserveNativeDefinition.SellerReserveOverwriteLength > memory.Length)
+                {
+                    throw new InvalidOperationException("The AI stone-reserve hook span is outside CrusaderDE.dll.");
+                }
+
+                hookAddress = libraryBase + unchecked((ulong)hookRva);
+                originalHookBytes = memory
+                    .Slice(hookRva, AiStoneReserveNativeDefinition.SellerReserveOverwriteLength)
+                    .ToArray();
                 transaction = new HookTransaction(
                     memory,
                     libraryBase,
@@ -70,9 +87,10 @@ namespace BugfixesAndQoL
                     failureMode: TransactionFailureMode.RollbackAndThrow);
                 transaction.AddContextHook(
                     ref reserveHook,
-                    libraryBase + unchecked((ulong)hookRva),
+                    hookAddress,
                     RefreshStoneBuildingReserve,
-                    regs: X64SmartCPUContextRegs.RCX | X64SmartCPUContextRegs.R8 | X64SmartCPUContextRegs.R9,
+                    regs: X64SmartCPUContextRegs.All,
+                    hookSize: AiStoneReserveNativeDefinition.SellerReserveOverwriteLength,
                     errorMode: CallbackErrorMode.LogAndContinue,
                     placement: OverwrittenInstructionPlacement.AfterCallback);
                 transaction.Commit();
@@ -80,15 +98,18 @@ namespace BugfixesAndQoL
                 if (!reserveHook.Success)
                     throw new InvalidOperationException("The AI seller stone-reserve hook was not installed.");
 
+                ApplySetting();
+
                 Shared.DebugLogHelper.LogInfo(
                     log,
                     $"Bugfixes and QoL AI stone-reserve hook installed: method={resolution.Method}, " +
-                    $"patternRva=0x{resolution.Rva:X}, hookRva=0x{hookRva:X}, enabled={IsEnabled}.");
+                    $"patternRva=0x{resolution.Rva:X}, hookRva=0x{hookRva:X}, " +
+                    $"nativeHookActive={reserveHook.Value.IsActive}, enabled={IsEnabled}.");
                 if (!referenceHashMatches)
                 {
                     Shared.DebugLogHelper.LogWarning(
                         log,
-                        "Bugfixes and QoL AI stone-reserve fix is running on an unknown CrusaderDE.dll because the seller signature and AIV table bounds were validated.");
+                        "Bugfixes and QoL AI stone-reserve fix is running on an unknown CrusaderDE.dll because the seller signature, AIV layout signatures, and table bounds were validated.");
                 }
             }
             catch
@@ -100,62 +121,116 @@ namespace BugfixesAndQoL
 
         public void Dispose()
         {
-            if (disposed)
-                return;
+            lock (stateLock)
+            {
+                if (disposed)
+                    return;
 
-            disposed = true;
-            correctionAvailable = false;
-            transaction?.Unload();
-            transaction?.Dispose();
-            transaction = null;
+                correctionAvailable = false;
+                DisableNativeHookAndVerify();
+                disposed = true;
+                transaction?.Unload();
+                transaction?.Dispose();
+                transaction = null;
+            }
+        }
+
+        public void ApplySetting()
+        {
+            lock (stateLock)
+            {
+                if (disposed || !reserveHook.Success)
+                    return;
+
+                if (!correctionAvailable || !IsEnabled)
+                {
+                    DisableNativeHookAndVerify();
+                    return;
+                }
+
+                if (reserveHook.Value.IsActive)
+                    return;
+
+                if (!HookBytesMatchOriginal())
+                {
+                    correctionAvailable = false;
+                    Shared.DebugLogHelper.LogError(
+                        log,
+                        "Bugfixes and QoL AI stone-reserve hook was not re-enabled because its native target no longer contains the verified Vanilla bytes.");
+                    return;
+                }
+
+                reserveHook.Value.Enable();
+                if (!reserveHook.Value.IsActive)
+                    throw new InvalidOperationException("The AI stone-reserve native hook did not become active.");
+
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    "Bugfixes and QoL AI stone-reserve native hook enabled by the synchronized AI-fixes setting.");
+            }
         }
 
         private void RefreshStoneBuildingReserve(NativePointer<X64SmartCPUContext> context)
         {
-            X64SmartCPUContext* registers = context.Pointer;
-            if (!correctionAvailable || !IsEnabled ||
-                unchecked((int)(uint)registers->RCX) != AiStoneReserveNativeDefinition.StoneTradeCategory)
+            lock (stateLock)
             {
-                return;
-            }
-
-            try
-            {
-                if (!AiStoneReservePolicy.TryGetPlayerId(registers->R8, out int playerId))
+                X64SmartCPUContext* registers = context.Pointer;
+                if (!correctionAvailable || !IsEnabled ||
+                    unchecked((int)(uint)registers->RCX) != AiStoneReserveNativeDefinition.StoneTradeCategory)
                 {
-                    throw new InvalidOperationException(
-                        $"The seller player offset is invalid: r8=0x{registers->R8:X}.");
+                    return;
                 }
 
-                int tableLength = AiStoneReservePolicy.AivSlotCount * AiStoneReservePolicy.AivSlotSize;
-                var table = new ReadOnlySpan<byte>(aivTable, tableLength);
-                if (!AiStoneReservePolicy.TryFindPlayerSlot(table, playerId, out int slotOffset))
+                try
                 {
-                    throw new InvalidOperationException(
-                        $"The AIV table did not contain exactly one slot for player {playerId}.");
-                }
+                    if (!AiStoneReservePolicy.TryGetPlayerId(registers->R8, out int playerId))
+                    {
+                        throw new InvalidOperationException(
+                            $"The seller player offset is invalid: r8=0x{registers->R8:X}.");
+                    }
 
-                var slot = table.Slice(slotOffset, AiStoneReservePolicy.AivSlotSize);
-                if (!AiStoneReservePolicy.TryCalculateReserve(slot, stoneCostResolver, out int reserve))
-                {
-                    throw new InvalidOperationException(
-                        $"The AIV slot for player {playerId} failed layout, status, or cost validation.");
-                }
+                    int tableLength = AiStoneReservePolicy.AivSlotCount * AiStoneReservePolicy.AivSlotSize;
+                    var table = new ReadOnlySpan<byte>(aivTable, tableLength);
+                    if (!AiStoneReservePolicy.TryFindPlayerSlot(table, playerId, out int slotOffset))
+                    {
+                        throw new InvalidOperationException(
+                            $"The AIV table did not contain exactly one active slot for player {playerId}.");
+                    }
 
-                // The overwritten Vanilla instruction adds R9D to its already calculated
-                // MaxStone + MaxResourceVariance threshold after this callback returns.
-                registers->R9 = unchecked((uint)reserve);
-                if (lastLoggedReserve[playerId] != reserve)
-                {
-                    lastLoggedReserve[playerId] = reserve;
-                    Shared.DebugLogHelper.LogDebug(
-                        log,
-                        $"AI stone-building reserve refreshed: player={playerId}, reserve={reserve}.");
+                    var slot = table.Slice(slotOffset, AiStoneReservePolicy.AivSlotSize);
+                    if (!AiStoneReservePolicy.TryCalculateReserve(slot, stoneCostResolver, out int reserve))
+                    {
+                        throw new InvalidOperationException(
+                            $"The AIV slot for player {playerId} failed frame, status, or cost validation.");
+                    }
+
+                    int maximumStone = unchecked((int)(uint)registers->RAX);
+                    int variance = unchecked((int)(uint)registers->R11);
+                    if (!AiStoneReservePolicy.TryValidateThreshold(maximumStone, variance, reserve))
+                    {
+                        throw new InvalidOperationException(
+                            $"The stone threshold would overflow: maximum={maximumStone}, " +
+                            $"variance={variance}, reserve={reserve}.");
+                    }
+
+                    // The displaced Vanilla code calculates the base threshold after this
+                    // callback; only its later R9D surcharge is replaced.
+                    registers->R9 = unchecked((uint)reserve);
+                    if (lastLoggedReserve[playerId] != reserve)
+                    {
+                        lastLoggedReserve[playerId] = reserve;
+                        int highestFrame = ReadInt32(slot, AiStoneReservePolicy.HighestFrameOffset);
+                        Shared.DebugLogHelper.LogDebug(
+                            log,
+                            $"AI stone-building reserve refreshed: player={playerId}, " +
+                            $"slot={slotOffset / AiStoneReservePolicy.AivSlotSize}, " +
+                            $"highestFrame={highestFrame}, reserve={reserve}.");
+                    }
                 }
-            }
-            catch (Exception ex)
-            {
-                DisableCorrectionToVanilla(ex);
+                catch (Exception ex)
+                {
+                    DisableCorrectionToVanilla(ex);
+                }
             }
         }
 
@@ -173,6 +248,9 @@ namespace BugfixesAndQoL
             eStructs building = mapper.ConvertToEStructs();
             if (building == eStructs.STRUCT_NULL)
                 return null;
+            if ((int)building <= (int)eStructs.STRUCT_NULL ||
+                (int)building >= (int)eStructs.STRUCT_MAX)
+                throw new InvalidOperationException($"AIV command {mapper} mapped outside the building table: {building}.");
 
             int stoneCost = GameBuildingManagerAPI.Instance.GetStoneCost(building);
             if (stoneCost < 0)
@@ -189,10 +267,11 @@ namespace BugfixesAndQoL
                 return;
 
             correctionAvailable = false;
+            bool vanillaRestored = DisableNativeHookAndVerify();
             Shared.DebugLogHelper.LogError(
                 log,
                 $"Bugfixes and QoL AI stone-reserve fix disabled for this process; " +
-                $"the original Vanilla reserve remains active: {ex}");
+                $"nativeVanillaBytesRestored={vanillaRestored}: {ex}");
         }
 
         private bool IsEnabled => settings.EnableMod && settings.EnableAiFixes;
@@ -213,11 +292,154 @@ namespace BugfixesAndQoL
                 case eMappers.MAPPER_STAIR6:
                 case eMappers.MAPPER_UNDUGMOAT:
                 case eMappers.MAPPER_DUGMOAT:
+                case eMappers.MAPPER_WOODWALL:
+                case eMappers.MAPPER_OIL:
                 case eMappers.MAPPER_PITCH_DITCH:
                     return true;
                 default:
                     return false;
             }
         }
+
+        private void ValidateAivNativeLayout(ReadOnlySpan<byte> memory, bool referenceHashMatches)
+        {
+            Shared.NativePatternResolver.ResolveUnique(
+                memory,
+                AiStoneReserveNativeDefinition.AivSlotLayoutPattern,
+                AiStoneReserveNativeDefinition.AivSlotLayoutPatternRva,
+                referenceHashMatches,
+                "AI AIV slot layout",
+                log);
+            Shared.NativePatternResolver.ResolveUnique(
+                memory,
+                AiStoneReserveNativeDefinition.AivStepLayoutPattern,
+                AiStoneReserveNativeDefinition.AivStepLayoutPatternRva,
+                referenceHashMatches,
+                "AI AIV build-step layout",
+                log);
+            Shared.NativePatternResolver.ResolveUnique(
+                memory,
+                AiStoneReserveNativeDefinition.AivHighestFramePattern,
+                AiStoneReserveNativeDefinition.AivHighestFramePatternRva,
+                referenceHashMatches,
+                "AI AIV highest-frame layout",
+                log);
+        }
+
+        private bool DisableNativeHookAndVerify()
+        {
+            if (!reserveHook.Success)
+                return true;
+
+            bool disableCallSucceeded = true;
+            if (reserveHook.Value.IsActive)
+            {
+                try
+                {
+                    reserveHook.Value.Disable();
+                    Shared.DebugLogHelper.LogInfo(
+                        log,
+                        "Bugfixes and QoL AI stone-reserve native hook disabled; Vanilla code restoration requested.");
+                }
+                catch (Exception ex)
+                {
+                    disableCallSucceeded = false;
+                    Shared.DebugLogHelper.LogError(
+                        log,
+                        $"Bugfixes and QoL AI stone-reserve hook disable call failed; " +
+                        $"an exact Vanilla-byte restoration will be attempted: {ex}");
+                }
+            }
+
+            // X64InlineHook currently falls back to reassembly when its internal original-byte
+            // snapshot is unavailable. Restore our independently captured bytes if that roundtrip
+            // was not byte-exact.
+            bool restorationSucceeded = true;
+            if (!HookBytesMatchOriginal())
+            {
+                try
+                {
+                    restorationSucceeded = RestoreCapturedOriginalBytes();
+                }
+                catch (Exception ex)
+                {
+                    restorationSucceeded = false;
+                    Shared.DebugLogHelper.LogError(
+                        log,
+                        $"Bugfixes and QoL AI stone-reserve exact Vanilla-byte restoration failed: {ex}");
+                }
+            }
+
+            bool bytesRestored = restorationSucceeded && HookBytesMatchOriginal();
+            bool hookStateConsistent = disableCallSucceeded && !reserveHook.Value.IsActive;
+            if (!bytesRestored || !hookStateConsistent)
+            {
+                correctionAvailable = false;
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Bugfixes and QoL AI stone-reserve native hook disable verification failed: " +
+                    $"vanillaBytesRestored={bytesRestored}, hookStateConsistent={hookStateConsistent}.");
+            }
+            return bytesRestored;
+        }
+
+        private bool HookBytesMatchOriginal()
+        {
+            if (originalHookBytes == null || originalHookBytes.Length == 0 || hookAddress == 0)
+                return false;
+
+            byte* current = (byte*)hookAddress;
+            for (int index = 0; index < originalHookBytes.Length; index++)
+            {
+                if (current[index] != originalHookBytes[index])
+                    return false;
+            }
+            return true;
+        }
+
+        private bool RestoreCapturedOriginalBytes()
+        {
+            if (originalHookBytes == null || originalHookBytes.Length == 0 || hookAddress == 0)
+                return false;
+
+            IntPtr address = unchecked((IntPtr)(long)hookAddress);
+            UIntPtr size = unchecked((UIntPtr)(uint)originalHookBytes.Length);
+            if (!Kernel32.VirtualProtect(
+                    address,
+                    size,
+                    Kernel32.MemoryPermissions.PAGE_EXECUTE_READWRITE,
+                    out Kernel32.MemoryPermissions oldProtection))
+            {
+                return false;
+            }
+
+            bool protectionRestored = false;
+            try
+            {
+                Marshal.Copy(originalHookBytes, 0, address, originalHookBytes.Length);
+            }
+            finally
+            {
+                protectionRestored = Kernel32.VirtualProtect(
+                    address,
+                    size,
+                    oldProtection,
+                    out _);
+            }
+
+            if (!protectionRestored)
+                return false;
+
+            return MinWinAPI.FlushInstructionCache(
+                Process.GetCurrentProcess().Handle,
+                address,
+                size);
+        }
+
+        private static int ReadInt32(ReadOnlySpan<byte> data, int offset) =>
+            data[offset] |
+            data[offset + 1] << 8 |
+            data[offset + 2] << 16 |
+            data[offset + 3] << 24;
     }
 }

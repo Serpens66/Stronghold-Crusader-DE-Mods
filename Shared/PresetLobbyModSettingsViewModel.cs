@@ -2157,17 +2157,25 @@ namespace Shared
 #if !SHARED_PRESET_TESTS
     internal static class ModSettingsHorizontalFocusScrollGuard
     {
-        private static readonly HashSet<Noesis.ScrollViewer> AttachedScrollViewers =
-            new HashSet<Noesis.ScrollViewer>();
+        private static readonly Dictionary<Noesis.ScrollViewer, DiagnosticState> AttachedScrollViewers =
+            new Dictionary<Noesis.ScrollViewer, DiagnosticState>();
 
-        public static bool Attach(object view)
+        public static bool Attach(
+            object view,
+            ManualLogSource log,
+            string modName)
         {
             Noesis.ScrollViewer scrollViewer = FindFirstScrollViewer(
                 view as Noesis.FrameworkElement);
-            if (scrollViewer == null || !AttachedScrollViewers.Add(scrollViewer))
+            if (scrollViewer == null || AttachedScrollViewers.ContainsKey(scrollViewer))
                 return false;
 
-            scrollViewer.RequestBringIntoView += OnRequestBringIntoView;
+            var state = new DiagnosticState(
+                scrollViewer,
+                log,
+                string.Equals(modName, "CastlePlanner_Serp", StringComparison.Ordinal));
+            AttachedScrollViewers.Add(scrollViewer, state);
+            state.Attach();
             return true;
         }
 
@@ -2191,57 +2199,139 @@ namespace Shared
             return null;
         }
 
-        private static void OnRequestBringIntoView(
-            object sender,
-            Noesis.RequestBringIntoViewEventArgs args)
+        private sealed class DiagnosticState
         {
-            var scrollViewer = sender as Noesis.ScrollViewer;
-            var target = args.TargetObject as Noesis.FrameworkElement;
-            if (scrollViewer == null || target == null ||
-                !target.IsKeyboardFocusWithin)
+            private readonly Noesis.ScrollViewer scrollViewer;
+            private readonly ManualLogSource log;
+            private readonly bool diagnosticsEnabled;
+            private float acceptedHorizontalOffset;
+            private bool manualHorizontalScrollAuthorized;
+            private bool restoringHorizontalOffset;
+
+            public DiagnosticState(
+                Noesis.ScrollViewer scrollViewer,
+                ManualLogSource log,
+                bool diagnosticsEnabled)
             {
-                return;
+                this.scrollViewer = scrollViewer;
+                this.log = log;
+                this.diagnosticsEnabled = diagnosticsEnabled;
+                acceptedHorizontalOffset = scrollViewer.HorizontalOffset;
             }
 
-            Noesis.Rect targetRect = args.TargetRect;
-            if (targetRect.IsEmpty ||
-                (targetRect.Width == 0.0f && targetRect.Height == 0.0f))
+            public void Attach()
             {
-                targetRect = new Noesis.Rect(
-                    0.0f,
-                    0.0f,
-                    target.ActualWidth,
-                    target.ActualHeight);
+                scrollViewer.PreviewMouseDown += OnPreviewMouseDown;
+                scrollViewer.PreviewKeyDown += OnPreviewKeyDown;
+                scrollViewer.ScrollChanged += OnScrollChanged;
+                Log(
+                    $"attached; horizontal={scrollViewer.HorizontalOffset:0.###}, " +
+                    $"vertical={scrollViewer.VerticalOffset:0.###}, " +
+                    $"extentWidth={scrollViewer.ExtentWidth:0.###}, " +
+                    $"viewportWidth={scrollViewer.ViewportWidth:0.###}.");
             }
 
-            Noesis.Rect viewportRect;
-            try
+            private void OnPreviewMouseDown(
+                object sender,
+                Noesis.MouseButtonEventArgs args)
             {
-                viewportRect = target
-                    .TransformToAncestor(scrollViewer)
-                    .TransformBounds(targetRect);
-            }
-            catch (InvalidOperationException)
-            {
-                return;
+                manualHorizontalScrollAuthorized =
+                    IsHorizontalScrollBarInput(args.Source);
+                Log(
+                    $"PreviewMouseDown; source={Describe(args.Source)}, " +
+                    $"horizontalScrollbar={manualHorizontalScrollAuthorized}, " +
+                    $"acceptedHorizontal={acceptedHorizontalOffset:0.###}, " +
+                    $"currentHorizontal={scrollViewer.HorizontalOffset:0.###}.");
             }
 
-            // Noesis normally scrolls both axes when focus changes. Handle that
-            // request ourselves so vertical reveal remains intact while the user's
-            // deliberately selected horizontal position is preserved.
-            args.Handled = true;
-            if (viewportRect.Top < 0.0f)
+            private void OnPreviewKeyDown(
+                object sender,
+                Noesis.KeyEventArgs args)
             {
-                scrollViewer.ScrollToVerticalOffset(
-                    scrollViewer.VerticalOffset + viewportRect.Top);
+                manualHorizontalScrollAuthorized =
+                    IsHorizontalScrollBarInput(args.Source);
+                Log(
+                    $"PreviewKeyDown; source={Describe(args.Source)}, " +
+                    $"horizontalScrollbar={manualHorizontalScrollAuthorized}.");
             }
-            else if (viewportRect.Bottom > scrollViewer.ViewportHeight)
+
+            private bool IsHorizontalScrollBarInput(object source)
             {
-                scrollViewer.ScrollToVerticalOffset(
-                    scrollViewer.VerticalOffset +
-                    viewportRect.Bottom -
-                    scrollViewer.ViewportHeight);
+                var current = source as Noesis.DependencyObject;
+                while (current != null && !ReferenceEquals(current, scrollViewer))
+                {
+                    if (current is Noesis.ScrollBar scrollBar)
+                        return scrollBar.Orientation == Noesis.Orientation.Horizontal;
+
+                    current = Noesis.VisualTreeHelper.GetParent(current);
+                }
+                return false;
             }
+
+            private void OnScrollChanged(
+                object sender,
+                Noesis.ScrollChangedEventArgs args)
+            {
+                if (Math.Abs(args.HorizontalChange) < 0.001f &&
+                    Math.Abs(args.VerticalChange) < 0.001f)
+                {
+                    return;
+                }
+
+                Log(
+                    $"ScrollChanged; horizontal={args.HorizontalOffset:0.###}, " +
+                    $"horizontalChange={args.HorizontalChange:0.###}, " +
+                    $"vertical={args.VerticalOffset:0.###}, " +
+                    $"verticalChange={args.VerticalChange:0.###}.");
+
+                if (Math.Abs(args.HorizontalChange) < 0.001f)
+                    return;
+
+                if (manualHorizontalScrollAuthorized)
+                {
+                    acceptedHorizontalOffset = args.HorizontalOffset;
+                    Log(
+                        $"accepted explicit horizontal scrollbar input; horizontal=" +
+                        $"{acceptedHorizontalOffset:0.###}.");
+                    return;
+                }
+
+                if (restoringHorizontalOffset ||
+                    Math.Abs(args.HorizontalOffset - acceptedHorizontalOffset) < 0.001f)
+                {
+                    return;
+                }
+
+                // Horizontal movement is permitted only after explicit input inside the
+                // horizontal ScrollBar template. Focus, layout and programmatic reveal
+                // operations therefore cannot move the settings page sideways.
+                restoringHorizontalOffset = true;
+                try
+                {
+                    scrollViewer.ScrollToHorizontalOffset(acceptedHorizontalOffset);
+                }
+                finally
+                {
+                    restoringHorizontalOffset = false;
+                }
+                Log(
+                    $"rejected non-scrollbar horizontal scroll; horizontal=" +
+                    $"{scrollViewer.HorizontalOffset:0.###}, preserved=" +
+                    $"{acceptedHorizontalOffset:0.###}.");
+            }
+
+            private void Log(string message)
+            {
+                if (diagnosticsEnabled)
+                {
+                    DebugLogHelper.LogInfo(
+                        log,
+                        $"[CastlePlanner ModSettingsScrollDiagnostic] {message}");
+                }
+            }
+
+            private static string Describe(object value) =>
+                value == null ? "null" : value.GetType().FullName;
         }
     }
 #else
@@ -2251,7 +2341,10 @@ namespace Shared
 
         internal static int AttachedViewCount => AttachedViews.Count;
 
-        public static bool Attach(object view) =>
+        public static bool Attach(
+            object view,
+            ManualLogSource log,
+            string modName) =>
             view != null && AttachedViews.Add(view);
 
         internal static void ResetForTests() => AttachedViews.Clear();
@@ -2305,7 +2398,10 @@ namespace Shared
                 return;
             }
 
-            ModSettingsHorizontalFocusScrollGuard.Attach(registeredView);
+            ModSettingsHorizontalFocusScrollGuard.Attach(
+                registeredView,
+                log,
+                modName);
             viewModel.ActivatePresets();
             // Views are created before a lobby exists. Refresh the cached role whenever
             // the persistent settings hub opens or changes its selected tab.

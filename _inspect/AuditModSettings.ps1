@@ -256,7 +256,6 @@ $castleRuntimeSource = [IO.File]::ReadAllText((Join-Path $workspace 'CastlePlann
 foreach ($required in @(
     'expectedAivCastlePlayers',
     'failedAivCastlePlayers',
-    'expectedPlayers.Except(failedPlayers).SequenceEqual(executedPlayers)',
     'preview.TryGetCommittedSelections',
     'CaptureImportedCandidates(request.PlayerId - 1)',
     'selectBestFit(aivState, specIndex, 0)',
@@ -264,6 +263,17 @@ foreach ($required in @(
     if (-not $castleRuntimeSource.Contains($required)) {
         throw "CastlePlanner exact-once spawn verification marker is missing: $required"
     }
+}
+$immediateSpawnInvariant =
+    $castleRuntimeSource.Contains(
+        'expectedPlayers.Except(failedPlayers).SequenceEqual(executedPlayers)')
+$deferredSpawnInvariant =
+    $castleRuntimeSource.Contains('int[] acceptedPlayers = deferredPlayers') -and
+    $castleRuntimeSource.Contains('.Concat(executedPlayers)') -and
+    $castleRuntimeSource.Contains(
+        'expectedPlayers.Except(failedPlayers).SequenceEqual(acceptedPlayers)')
+if (-not $immediateSpawnInvariant -and -not $deferredSpawnInvariant) {
+    throw 'CastlePlanner must verify every non-failed expected castle as either executed immediately or accepted for deferred execution.'
 }
 $castleSettingsSource = [IO.File]::ReadAllText((Join-Path $workspace 'CastlePlanner/src/CastlePlannerSettingsViewModel.cs'))
 foreach ($required in @(

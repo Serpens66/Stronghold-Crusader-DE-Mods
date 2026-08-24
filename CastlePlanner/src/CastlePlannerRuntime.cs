@@ -5,7 +5,6 @@ using SHCDESE.API;
 using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.Buildings;
 using SHCDESE.EventAPI.MapLoader;
-using SHCDESE.EventAPI.Units;
 using SHCDESE.Extensions;
 using SHCDESE.GameGlobals;
 using SHCDESE.Interop;
@@ -172,9 +171,6 @@ namespace CastlePlanner
             subscriptions.Add(BuildingR3EventHooks.OnBuildingSpawn.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
                 .Subscribe(OnBuildingSpawnPost));
-            subscriptions.Add(UnitR3EventHooks.OnUnitCreate.Observable
-                .Where(args => args.Phase == EventHookPhase.Pre)
-                .Subscribe(OnUnitCreatePre));
             subscriptions.Add(MapLoaderR3EventHooks.OnLoadSave.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
                 .Subscribe(OnLoadSave));
@@ -496,12 +492,15 @@ namespace CastlePlanner
                 return;
             }
 
-            // Execute while the native skirmish-start function is still running.
-            // Vanilla performs its completed-AI-castle execution at this stage too,
-            // before the outer map-start finalizes building tiles and visuals.
+            // Version 0.7.7 proved that execution can be delayed: retain PreparedAivCastle
+            // after Keep(Post), arm it on the Lord's UnitCreate(Post), execute on the next
+            // GameTime tick, and keep map-spawn state past OnStartMap(Post). That workaround
+            // only hides the first Lord race, however; it leaves Vanilla's persistent KeepDoor
+            // anchor stale for later starter spawns and therefore is intentionally not used.
             preparedAivCastles.Remove(args.PlayerId);
             try
             {
+                SynchronizeVanillaKeepAnchors(castle);
                 ExecutePreparedCastle(castle);
                 executedAivCastles[args.PlayerId] = castle;
             }
@@ -514,6 +513,145 @@ namespace CastlePlanner
                     $"Native AIV execution at human Keep BuildStructure(Post) failed; " +
                     $"no castle fallback will run: {ex}");
             }
+        }
+
+        private void SynchronizeVanillaKeepAnchors(PreparedAivCastle castle)
+        {
+            // Canonical CrusaderDE.dll SHA-256
+            // 33AA33457F7DFAAA6D316D1D5E4C5AB97094F2C73B68D349990ABF9D0EF3B469:
+            // the peasant routine at RVA 0xD2D91 indexes r_KeepDoorId and feeds
+            // r_KeepDoorTilePositionX/Y into UnitCreate at RVA 0xD2E31. Updating the
+            // persistent component anchors fixes Lord/start-unit placement and every
+            // later peasant spawn at the source instead of rewriting individual units.
+            if (!GamePlayerManagerAPI.Instance.TryGetPlayerResourcesById(
+                    castle.PlayerId,
+                    out GamePlayerResources* resources))
+            {
+                throw new InvalidOperationException(
+                    $"Player resources are unavailable for playerId={castle.PlayerId}.");
+            }
+
+            int keepId = checked((int)resources->r_KeepId);
+            int keepDoorId = checked((int)resources->r_KeepDoorId);
+            GameBuilding* keep = GetOwnedAliveBuilding(
+                castle.PlayerId,
+                keepId,
+                IsKeepStructure,
+                "Keep");
+            GameBuilding* keepDoor = GetOwnedAliveBuilding(
+                castle.PlayerId,
+                keepDoorId,
+                IsKeepDoorStructure,
+                "KeepDoor");
+
+            uint previousKeepX = resources->r_KeepTilePositionX;
+            uint previousKeepY = resources->r_KeepTilePositionY;
+            uint previousKeepTileId = resources->r_KeepTileId;
+            uint previousDoorX = resources->r_KeepDoorTilePositionX;
+            uint previousDoorY = resources->r_KeepDoorTilePositionY;
+            uint previousDoorTileId = resources->r_KeepDoorTileId;
+            var keepPosition = new UnmanagedVector2<uint>(
+                keep->r_TilePositionXBegin,
+                keep->r_TilePositionYBegin);
+            var doorPosition = new UnmanagedVector2<uint>(
+                keepDoor->r_TilePositionXBegin,
+                keepDoor->r_TilePositionYBegin);
+            if (!GameTileManagerAPI.Instance.IsTileInsideMapBounds(
+                    checked((int)keepPosition.X),
+                    checked((int)keepPosition.Y)) ||
+                !GameTileManagerAPI.Instance.IsTileInsideMapBounds(
+                    checked((int)doorPosition.X),
+                    checked((int)doorPosition.Y)))
+            {
+                throw new InvalidOperationException(
+                    $"Vanilla Keep components are outside map bounds: playerId={castle.PlayerId}, " +
+                    $"keep=({keepPosition.X},{keepPosition.Y}), " +
+                    $"keepDoor=({doorPosition.X},{doorPosition.Y}).");
+            }
+            if (!GamePlayerManagerAPI.Instance.SetPlayerKeepPosition(
+                    castle.PlayerId,
+                    keepPosition) ||
+                !GamePlayerManagerAPI.Instance.SetPlayerKeepDoorPosition(
+                    castle.PlayerId,
+                    doorPosition))
+            {
+                throw new InvalidOperationException(
+                    $"Vanilla Keep position setters rejected playerId={castle.PlayerId}.");
+            }
+
+            // The public setters intentionally update only X/Y. Native also consumes these
+            // paired tile IDs, so copy them from the actual rotated components in the same
+            // BuildStructure(Post) step.
+            resources->r_KeepTileId = keep->r_TileIdBegin;
+            resources->r_KeepDoorTileId = keepDoor->r_TileIdBegin;
+
+            if (resources->r_KeepTilePositionX != keepPosition.X ||
+                resources->r_KeepTilePositionY != keepPosition.Y ||
+                resources->r_KeepTileId != keep->r_TileIdBegin ||
+                resources->r_KeepDoorTilePositionX != doorPosition.X ||
+                resources->r_KeepDoorTilePositionY != doorPosition.Y ||
+                resources->r_KeepDoorTileId != keepDoor->r_TileIdBegin)
+            {
+                throw new InvalidOperationException(
+                    $"Vanilla Keep anchor verification failed for playerId={castle.PlayerId}.");
+            }
+
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"Vanilla persistent Keep anchors synchronized before native AIV execution: " +
+                $"playerId={castle.PlayerId}, orientation={castle.Orientation}, " +
+                $"requestedKeep=({castle.RequestedKeepX},{castle.RequestedKeepY}), " +
+                $"preparedKeep=({castle.PreparedKeepX},{castle.PreparedKeepY}), " +
+                $"keepId={keepId}, keepType={keep->r_BuildingType}, " +
+                $"keep=({previousKeepX},{previousKeepY},{previousKeepTileId})->" +
+                $"({keepPosition.X},{keepPosition.Y},{keep->r_TileIdBegin}), " +
+                $"keepDoorId={keepDoorId}, keepDoorType={keepDoor->r_BuildingType}, " +
+                $"keepDoor=({previousDoorX},{previousDoorY},{previousDoorTileId})->" +
+                $"({doorPosition.X},{doorPosition.Y},{keepDoor->r_TileIdBegin}).");
+        }
+
+        private static GameBuilding* GetOwnedAliveBuilding(
+            int playerId,
+            int buildingId,
+            Func<eStructs, bool> expectedType,
+            string componentName)
+        {
+            if (buildingId <= 0 ||
+                !GameBuildingManagerAPI.Instance.TryGetBuildingById(
+                    buildingId,
+                    out GameBuilding* building))
+            {
+                throw new InvalidOperationException(
+                    $"Vanilla {componentName} building is unavailable: " +
+                    $"playerId={playerId}, buildingId={buildingId}.");
+            }
+            if (building->r_PlayerIdOwner != playerId ||
+                !expectedType(building->r_BuildingType) ||
+                (building->r_AliveState != AliveState.NeedsInit &&
+                 building->r_AliveState != AliveState.IsAlive))
+            {
+                throw new InvalidOperationException(
+                    $"Vanilla {componentName} building is invalid: playerId={playerId}, " +
+                    $"buildingId={buildingId}, owner={building->r_PlayerIdOwner}, " +
+                    $"type={building->r_BuildingType}, aliveState={building->r_AliveState}.");
+            }
+            return building;
+        }
+
+        private static bool IsKeepStructure(eStructs structure)
+        {
+            return structure == eStructs.STRUCT_KEEP_ONE ||
+                   structure == eStructs.STRUCT_KEEP_TWO ||
+                   structure == eStructs.STRUCT_KEEP_THREE ||
+                   structure == eStructs.STRUCT_KEEP_FOUR ||
+                   structure == eStructs.STRUCT_KEEP_FIVE;
+        }
+
+        private static bool IsKeepDoorStructure(eStructs structure)
+        {
+            return structure == eStructs.STRUCT_KEEPDOOR ||
+                   structure == eStructs.STRUCT_KEEPDOOR_LEFT ||
+                   structure == eStructs.STRUCT_KEEPDOOR_RIGHT;
         }
 
         private PreparedAivCastle PrepareSelectedCastle(
@@ -699,63 +837,6 @@ namespace CastlePlanner
                 return;
             }
             capturedSupplementalBuildingId = unchecked((int)args.ReturnValue);
-        }
-
-        private void OnUnitCreatePre(UnitCreateEventArgs args)
-        {
-            if (!executedAivCastles.TryGetValue(
-                    args.PlayerOwnerId,
-                    out PreparedAivCastle castle) ||
-                castle.Orientation == 0)
-            {
-                return;
-            }
-
-            AivRotation rotation = ToAivRotation(castle.Orientation);
-            if (!AivStarterUnitTransform.TryProjectReservedWorldPosition(
-                    args.WorldTileX,
-                    args.WorldTileY,
-                    castle.RequestedKeepX,
-                    castle.RequestedKeepY,
-                    rotation,
-                    out int targetWorldX,
-                    out int targetWorldY))
-            {
-                return;
-            }
-
-            int targetTileX = targetWorldX / 8;
-            int targetTileY = targetWorldY / 8;
-            if (!GameTileManagerAPI.Instance.IsTileInsideMapBounds(
-                    targetTileX,
-                    targetTileY))
-            {
-                Shared.DebugLogHelper.LogWarning(
-                    log,
-                    $"Rotated Vanilla starter-unit position skipped because its target is out of bounds: " +
-                    $"playerId={args.PlayerOwnerId}, unit={args.UnitType}, " +
-                    $"sourceWorld=({args.WorldTileX},{args.WorldTileY}), " +
-                    $"targetWorld=({targetWorldX},{targetWorldY}), orientation={castle.Orientation}.");
-                return;
-            }
-
-            int targetTileId = GameTileManagerAPI.Instance.GetTileId(
-                targetTileX,
-                targetTileY);
-            int targetHeight = GameTileManagerAPI.Instance.GetTileHeight(targetTileId);
-            int sourceWorldX = args.WorldTileX;
-            int sourceWorldY = args.WorldTileY;
-            int sourceHeight = args.HeightElevation;
-            args.WorldTileX = targetWorldX;
-            args.WorldTileY = targetWorldY;
-            args.HeightElevation = targetHeight;
-
-            Shared.DebugLogHelper.LogInfo(
-                log,
-                $"Rotated Vanilla Keep-reserve unit spawn: playerId={args.PlayerOwnerId}, " +
-                $"unit={args.UnitType}, sourceWorld=({sourceWorldX},{sourceWorldY}), " +
-                $"targetWorld=({targetWorldX},{targetWorldY}), " +
-                $"height={sourceHeight}->{targetHeight}, orientation={castle.Orientation}.");
         }
 
         private void SpawnSupplementalContents(PreparedAivCastle castle)

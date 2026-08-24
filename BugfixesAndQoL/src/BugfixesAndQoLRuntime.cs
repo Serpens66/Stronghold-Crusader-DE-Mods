@@ -204,6 +204,7 @@ namespace BugfixesAndQoL
             TryApplyFeature("troop movement fix", troopMovementFixRuntime.ApplySetting);
             TryApplyFeature("multiplayer game speed", multiplayerGameSpeedRuntime.ApplySetting);
             TryApplyFeature("assembly-point placement fix", ApplyAssemblyPointPlacementPatchSetting);
+            TryApplyFeature("AI stone-reserve fix", () => aiStoneReserveFix?.ApplySetting());
 
             if (settings.EnableClientFeatures)
                 SubscribeHooks();
@@ -595,8 +596,8 @@ namespace BugfixesAndQoL
 
             try
             {
-                // Keep the hook installed so synchronized host setting changes can select
-                // between the refreshed surcharge and the untouched Vanilla value at runtime.
+                // The hook object remains available for synchronized setting changes, but
+                // ApplySetting physically restores Vanilla bytes while either switch is off.
                 aiStoneReserveFix = new AiStoneReserveFix(
                     log,
                     settings,

@@ -554,7 +554,10 @@ internal static class Program
             "Shared did not attach the horizontal focus-scroll guard to a registered view");
 
         object firstView = GameXAMLManagerAPI.Instance.RegisteredModSettings[0].View;
-        Check(!ModSettingsHorizontalFocusScrollGuard.Attach(firstView),
+        Check(!ModSettingsHorizontalFocusScrollGuard.Attach(
+                firstView,
+                null,
+                "HorizontalFocusGuardOne"),
             "Shared attached the horizontal focus-scroll guard twice to the same view");
 
         LobbyModSettingsPresetRegistration.Register(
@@ -1920,11 +1923,13 @@ internal static class Program
         int referenceRva = AiStoneReserveNativeDefinition.SellerReservePatternRva;
         byte[] bytes = MaterializePattern(pattern, 0x5A);
         Check(
-            AiStoneReserveNativeDefinition.SellerReserveHookRva == 0x3F1C1 &&
-            bytes[AiStoneReserveNativeDefinition.SellerReserveHookOffset] == 0x41 &&
-            bytes[AiStoneReserveNativeDefinition.SellerReserveHookOffset + 1] == 0x03 &&
-            bytes[AiStoneReserveNativeDefinition.SellerReserveHookOffset + 2] == 0xD1,
-            "AI stone-reserve hook offset does not point at add edx,r9d");
+            AiStoneReserveNativeDefinition.SellerReserveHookRva == 0x3F156 &&
+            AiStoneReserveNativeDefinition.SellerReserveOverwriteLength == 20 &&
+            bytes[AiStoneReserveNativeDefinition.SellerReserveHookOffset] == 0x42 &&
+            bytes[AiStoneReserveNativeDefinition.SellerReserveHookOffset + 1] == 0x8D &&
+            bytes[AiStoneReserveNativeDefinition.SellerReserveHookOffset + 2] == 0x14 &&
+            bytes[AiStoneReserveNativeDefinition.SellerReserveHookOffset + 3] == 0x18,
+            "AI stone-reserve hook offset does not point at the verified common threshold block");
 
         byte[] referenceImage = CreateExecutableTestImage(referenceRva + 0x1000);
         CopyAt(referenceImage, referenceRva, bytes);
@@ -1969,6 +1974,66 @@ internal static class Program
                 referenceHashMatches: false,
                 "ambiguous AI seller stone reserve"),
             "ambiguous AI stone-reserve signature was accepted");
+
+        TestAiStoneLayoutSignature(
+            AiStoneReserveNativeDefinition.AivSlotLayoutPattern,
+            AiStoneReserveNativeDefinition.AivSlotLayoutPatternRva,
+            "AIV slot layout");
+        TestAiStoneLayoutSignature(
+            AiStoneReserveNativeDefinition.AivStepLayoutPattern,
+            AiStoneReserveNativeDefinition.AivStepLayoutPatternRva,
+            "AIV step layout");
+        TestAiStoneLayoutSignature(
+            AiStoneReserveNativeDefinition.AivHighestFramePattern,
+            AiStoneReserveNativeDefinition.AivHighestFramePatternRva,
+            "AIV highest-frame layout");
+    }
+
+    private static void TestAiStoneLayoutSignature(string pattern, int referenceRva, string name)
+    {
+        byte[] bytes = MaterializePattern(pattern, 0x5A);
+        byte[] referenceImage = CreateExecutableTestImage(referenceRva + bytes.Length + 0x1000);
+        CopyAt(referenceImage, referenceRva, bytes);
+        NativeResolution reference = NativePatternResolver.ResolveUnique(
+            referenceImage,
+            pattern,
+            referenceRva,
+            referenceHashMatches: true,
+            name);
+        Check(reference.Rva == referenceRva && reference.Method == "reference-rva",
+            $"AI stone-reserve {name} did not resolve at its reference RVA");
+
+        byte[] fallbackImage = CreateExecutableTestImage(0x10000);
+        CopyAt(fallbackImage, 0x3000, bytes);
+        NativeResolution fallback = NativePatternResolver.ResolveUnique(
+            fallbackImage,
+            pattern,
+            referenceRva,
+            referenceHashMatches: false,
+            name);
+        Check(fallback.Rva == 0x3000 && fallback.Method == "signature-fallback",
+            $"AI stone-reserve {name} did not resolve by unique fallback signature");
+
+        ExpectInvalidOperation(
+            () => NativePatternResolver.ResolveUnique(
+                CreateExecutableTestImage(0x10000),
+                pattern,
+                referenceRva,
+                referenceHashMatches: false,
+                name),
+            $"missing AI stone-reserve {name} signature was accepted");
+
+        byte[] ambiguousImage = CreateExecutableTestImage(0x10000);
+        CopyAt(ambiguousImage, 0x3000, bytes);
+        CopyAt(ambiguousImage, 0x5000, bytes);
+        ExpectInvalidOperation(
+            () => NativePatternResolver.ResolveUnique(
+                ambiguousImage,
+                pattern,
+                referenceRva,
+                referenceHashMatches: false,
+                name),
+            $"ambiguous AI stone-reserve {name} signature was accepted");
     }
 
     private static void TestAiStoneReservePolicy()
@@ -1989,6 +2054,10 @@ internal static class Program
             "AI stone-reserve policy accepted an invalid seller player offset");
 
         byte[] table = new byte[AiStoneReservePolicy.AivSlotCount * AiStoneReservePolicy.AivSlotSize];
+        WriteInt32(table, AiStoneReservePolicy.PlayerIdOffset, 3);
+        Check(
+            !AiStoneReservePolicy.TryFindPlayerSlot(table, 3, out _),
+            "AI stone-reserve policy treated reserved AIV slot zero as a player slot");
         int expectedSlotOffset = 4 * AiStoneReservePolicy.AivSlotSize;
         WriteInt32(table, expectedSlotOffset + AiStoneReservePolicy.PlayerIdOffset, 3);
         Check(
@@ -2008,7 +2077,7 @@ internal static class Program
             "AI stone-reserve policy accepted duplicate player AIV slots");
 
         byte[] slot = new byte[AiStoneReservePolicy.AivSlotSize];
-        WriteInt32(slot, AiStoneReservePolicy.TotalStepsOffset, 5);
+        WriteInt32(slot, AiStoneReservePolicy.HighestFrameOffset, 4);
         WriteAivStep(slot, 0, 1, 100);
         WriteAivStep(slot, 1, 5, 101);
         WriteAivStep(slot, 2, 3, 102);
@@ -2026,6 +2095,14 @@ internal static class Program
             AiStoneReservePolicy.TryCalculateReserve(slot, type => costs[type], out int reserve) &&
             reserve == 40,
             "AI stone-reserve policy did not select the maximum open building cost");
+
+        WriteAivStep(slot, 4, 1, 104);
+        costs[104] = 70;
+        Check(
+            AiStoneReservePolicy.TryCalculateReserve(slot, type => costs[type], out reserve) &&
+            reserve == 70,
+            "AI stone-reserve policy did not include the highest-frame entry");
+        WriteAivStep(slot, 4, 4, 104);
 
         costs[101] = 65;
         Check(
@@ -2054,10 +2131,32 @@ internal static class Program
         Check(
             !AiStoneReservePolicy.TryCalculateReserve(slot, type => -1, out _),
             "AI stone-reserve policy accepted a negative building cost");
-        WriteInt32(slot, AiStoneReservePolicy.TotalStepsOffset, AiStoneReservePolicy.MaximumSteps + 1);
+
+        Array.Clear(slot, 0, slot.Length);
+        WriteInt32(slot, AiStoneReservePolicy.HighestFrameOffset, AiStoneReservePolicy.MaximumSteps - 1);
+        WriteAivStep(slot, AiStoneReservePolicy.MaximumSteps - 1, 1, 105);
+        Check(
+            AiStoneReservePolicy.TryCalculateReserve(
+                slot,
+                type => type == 105 ? (int?)90 : null,
+                out reserve) &&
+            reserve == 90,
+            "AI stone-reserve policy did not accept and scan the maximum valid frame");
+
+        WriteInt32(slot, AiStoneReservePolicy.HighestFrameOffset, AiStoneReservePolicy.MaximumSteps);
         Check(
             !AiStoneReservePolicy.TryCalculateReserve(slot, type => 20, out _),
-            "AI stone-reserve policy accepted an invalid step count");
+            "AI stone-reserve policy accepted an invalid highest frame");
+        WriteInt32(slot, AiStoneReservePolicy.HighestFrameOffset, -1);
+        Check(
+            !AiStoneReservePolicy.TryCalculateReserve(slot, type => 20, out _),
+            "AI stone-reserve policy accepted a negative highest frame");
+
+        Check(
+            AiStoneReservePolicy.TryValidateThreshold(200, 10, 40) &&
+            !AiStoneReservePolicy.TryValidateThreshold(int.MaxValue, 0, 1) &&
+            !AiStoneReservePolicy.TryValidateThreshold(200, 10, -1),
+            "AI stone-reserve threshold overflow validation is incorrect");
     }
 
     private static byte[] CreateExecutableTestImage(int length)
