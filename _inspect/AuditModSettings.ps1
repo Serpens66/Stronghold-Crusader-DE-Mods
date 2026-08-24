@@ -71,7 +71,7 @@ $editableProxyBindings = @{
     BuildingLimit = @('LimitText','SliderLimit')
     CastlePlanner = @()
     CustomCustomTrail = @('IsEnabled','SelectedCoopPackage')
-    ExtraFeatures = @('AIDamagedDefenseRepairDelayValueText','AIDestroyedDefenseRebuildDelayValueText','AIGateClosingDistanceValueText','AIGateReopenDelayValueText','AILordHealthPercentText','AIRepairEnemyProximityValueText','ApothecaryPlagueSearchDistanceValueText','BuyMultiplier','BuyMultiplierValueText','CampfirePeasantsLimitText','GoldRefundPercentValueText','HumanGateClosingDistanceValueText','HumanGateReopenDelayValueText','HumanLordHealthPercentText','IronRefundPercentValueText','MarketBuyPriceMultiplierValueText','MarketSellPriceMultiplierValueText','MultiplyGoodsGainAIText','MultiplyGoodsGainHumanText','MultiplyGoodsGainInMoneyAIText','MultiplyGoodsGainInMoneyHumanText','PitchRefundPercentValueText','PlagueDurationMultiplierValueText','SellMultiplier','SellMultiplierValueText','StoneRefundPercentValueText','WoodRefundPercentValueText')
+    ExtraFeatures = @('AITowerGateRebuildDelayValueText','AIGateClosingDistanceValueText','AIGateReopenDelayValueText','AILordHealthPercentText','AIRepairEnemyProximityValueText','ApothecaryPlagueSearchDistanceValueText','BuyMultiplier','BuyMultiplierValueText','CampfirePeasantsLimitText','GoldRefundPercentValueText','HumanGateClosingDistanceValueText','HumanGateReopenDelayValueText','HumanLordHealthPercentText','IronRefundPercentValueText','MarketBuyPriceMultiplierValueText','MarketSellPriceMultiplierValueText','MultiplyGoodsGainAIText','MultiplyGoodsGainHumanText','MultiplyGoodsGainInMoneyAIText','MultiplyGoodsGainInMoneyHumanText','PitchRefundPercentValueText','PlagueDurationMultiplierValueText','SellMultiplier','SellMultiplierValueText','StoneRefundPercentValueText','WoodRefundPercentValueText')
     ImprovedHunters = @('CamelMeatText','ChickenMeatText','DeerMeatText','GoatMeatText','MaxNeutralChickensPerPlayerValueText','RabbitMeatText')
     RandomEvents = @('AppleBlightChanceValueText','ArcherMaxValueText','ArcherMinValueText','ArchersChanceValueText','BanditMaxValueText','BanditMinValueText','BanditsChanceValueText','BardChanceValueText','CooldownMonthsValueText','FairChanceValueText','FireChanceValueText','FireMaxValueText','FireMinValueText','GranaryTheftChanceValueText','HopsBeetlesChanceValueText','IntervalMonthsValueText','LionAttackChanceValueText','LionMaxValueText','LionMinValueText','MadCowsChanceValueText','MarriageChanceValueText','PlagueChanceValueText','PlagueMaxValueText','PlagueMinValueText','RabbitsChanceValueText','TheftMaxValueText','TheftMinValueText','TreeBlightChanceValueText','WheatInfestationChanceValueText')
     StartConditions = @('AddStartGoldAISlider','AddStartGoldAIText','AddStartGoldHumanSlider','AddStartGoldHumanText','AIAmountSlider','AIAmountText','HumanAmountSlider','HumanAmountText','MultiplyStartTroopsAISlider','MultiplyStartTroopsAIText','MultiplyStartTroopsHumanSlider','MultiplyStartTroopsHumanText','SetStartGoldAISlider','SetStartGoldAIText','SetStartGoldHumanSlider','SetStartGoldHumanText')
@@ -231,8 +231,7 @@ foreach ($entry in $settings.GetEnumerator()) {
             'InaccessibleAIBuildingDemolitionProtectionValueText',
             'InaccessibleAIBuildingDemolitionProtectionHelpText',
             'AIRepairEnemyProximityValueText',
-            'AIDamagedDefenseRepairDelayValueText',
-            'AIDestroyedDefenseRebuildDelayValueText')) {
+            'AITowerGateRebuildDelayValueText')) {
             if (-not $text.Contains($requiredValueBinding)) {
                 throw "ExtraFeatures: Slider unit binding is missing: $requiredValueBinding"
             }

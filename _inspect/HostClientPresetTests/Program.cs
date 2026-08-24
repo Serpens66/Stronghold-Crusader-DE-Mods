@@ -725,57 +725,65 @@ internal static class Program
 
     private static void TestAIDefenseRepairSaveState()
     {
-        var damaged = new AIDefenseRepairSaveRecord
+        var waiting = new AIDefenseRebuildSaveRecord
         {
             PlayerId = 2,
-            Kind = 2,
-            BuildingType = 74,
-            GlobalId = 9001,
-            TileId = 12000,
-            TileXBegin = 100,
-            TileYBegin = 200,
-            TileXEnd = 104,
-            TileYEnd = 204,
-            ElapsedTicks = 11999
+            ActiveLayout = 3,
+            FrameIndex = 800,
+            Mapper = 111,
+            TargetTileId = 12000,
+            MissingElapsedTicks = 2399
         };
-        var destroyed = new AIDefenseRepairSaveRecord
+        var standing = new AIDefenseRebuildSaveRecord
         {
             PlayerId = 3,
-            Kind = 1,
-            TileId = 13000,
-            TileXBegin = 110,
-            TileYBegin = 210,
-            TileXEnd = 110,
-            TileYEnd = 210,
-            ElapsedTicks = 2400
+            ActiveLayout = 1,
+            FrameIndex = 900,
+            Mapper = 101,
+            TargetTileId = 13000,
+            MissingElapsedTicks = -1
         };
         var state = new AIDefenseRepairSaveState
         {
-            Damaged = new[] { damaged },
-            Destroyed = new[] { destroyed }
+            Targets = new[] { waiting, standing }
         };
 
         AIDefenseRepairSaveState roundTrip = MessagePackSerializer.Deserialize<AIDefenseRepairSaveState>(
             MessagePackSerializer.Serialize(state));
         Check(roundTrip.Version == AIDefenseRepairSaveState.CurrentVersion &&
-              roundTrip.Damaged.Length == 1 && roundTrip.Destroyed.Length == 1,
-            "AI defense repair state arrays did not round-trip");
-        Check(roundTrip.Damaged[0].GlobalId == damaged.GlobalId &&
-              roundTrip.Damaged[0].BuildingType == damaged.BuildingType &&
-              roundTrip.Damaged[0].TileXEnd == damaged.TileXEnd &&
-              roundTrip.Damaged[0].ElapsedTicks == damaged.ElapsedTicks,
-            "AI damaged-defense identity changed during serialization");
-        Check(roundTrip.Destroyed[0].PlayerId == destroyed.PlayerId &&
-              roundTrip.Destroyed[0].Kind == destroyed.Kind &&
-              roundTrip.Destroyed[0].TileId == destroyed.TileId &&
-              roundTrip.Destroyed[0].ElapsedTicks == destroyed.ElapsedTicks,
-            "AI destroyed-defense identity changed during serialization");
+              roundTrip.Targets.Length == 2,
+            "AI tower/gatehouse rebuild targets did not round-trip");
+        Check(roundTrip.Targets[0].PlayerId == waiting.PlayerId &&
+              roundTrip.Targets[0].ActiveLayout == waiting.ActiveLayout &&
+              roundTrip.Targets[0].FrameIndex == waiting.FrameIndex &&
+              roundTrip.Targets[0].Mapper == waiting.Mapper &&
+              roundTrip.Targets[0].TargetTileId == waiting.TargetTileId &&
+              roundTrip.Targets[0].MissingElapsedTicks == waiting.MissingElapsedTicks,
+            "AI rebuild target identity or elapsed delay changed during serialization");
+        Check(roundTrip.Targets[1].MissingElapsedTicks == -1,
+            "AI standing-target sentinel changed during serialization");
 
         AIDefenseRepairSaveState empty = MessagePackSerializer.Deserialize<AIDefenseRepairSaveState>(
             MessagePackSerializer.Serialize(new AIDefenseRepairSaveState()));
-        Check(empty.Damaged != null && empty.Damaged.Length == 0 &&
-              empty.Destroyed != null && empty.Destroyed.Length == 0,
-            "AI defense repair empty arrays were not serialized explicitly");
+        Check(empty.Targets != null && empty.Targets.Length == 0,
+            "AI rebuild empty target array was not serialized explicitly");
+
+        byte[] legacyV1 = { 0x93, 0x01, 0x90, 0x90 };
+        AIDefenseRepairSaveState legacy = MessagePackSerializer.Deserialize<AIDefenseRepairSaveState>(legacyV1);
+        Check(legacy.Version == 1 && legacy.Targets.Length == 0,
+            "AI defense repair v1 payload was not safely discarded");
+
+        int originalStart = AIDefenseRebuildDelayPolicy.BeginMissing(null, 1000);
+        int repeatedStart = AIDefenseRebuildDelayPolicy.BeginMissing(originalStart, 1800);
+        Check(originalStart == 1000 && repeatedStart == originalStart,
+            "AI rebuild delay renewed itself on a repeated missing callback");
+        Check(AIDefenseRebuildDelayPolicy.IsBlocked(originalStart, 3399, 60) &&
+              !AIDefenseRebuildDelayPolicy.IsBlocked(originalStart, 3400, 60) &&
+              !AIDefenseRebuildDelayPolicy.IsBlocked(originalStart, 1001, 0) &&
+              !AIDefenseRebuildDelayPolicy.IsBlocked(originalStart, 1001, -1),
+            "AI rebuild one-shot delay boundaries are incorrect");
+        Check(AIDefenseRebuildDelayPolicy.BeginMissing(null, 5000) == 5000,
+            "AI rebuild delay did not start a new timestamp after restoration");
     }
 
     private static void TestResyncHostKickPolicy()

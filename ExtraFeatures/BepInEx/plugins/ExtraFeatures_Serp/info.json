@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.42",
+  "Version": "1.0.43",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.43",
+      "Changes": [
+        "Simplified AI defense rebuilding to a one-shot, non-renewing delay for previously observed towers and gatehouses while keeping initial AIV placement and wall-segment rebuilding Vanilla."
+      ]
+    },
     {
       "Version": "1.0.42",
       "Changes": [

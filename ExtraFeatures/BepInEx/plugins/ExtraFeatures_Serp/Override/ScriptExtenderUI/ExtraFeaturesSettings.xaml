@@ -100,17 +100,11 @@
         <Slider Grid.Column="1" Minimum="-1" Maximum="100" Value="{Binding AIRepairEnemyProximity, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding AIRepairEnemyProximityHelpText}"/>
         <TextBox ui:KeyboardCaptureBinding.Enabled="True" Grid.Column="2" Text="{Binding AIRepairEnemyProximityValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding AIRepairEnemyProximityHelpText}" MinWidth="86" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"/>
       </Grid>
-      <Grid Margin="0,0,0,8" ToolTipService.ShowDuration="60000" ToolTip="{Binding AIDamagedDefenseRepairDelayHelpText}">
+      <Grid Margin="0,0,0,8" ToolTipService.ShowDuration="60000" ToolTip="{Binding AITowerGateRebuildDelayHelpText}">
         <Grid.ColumnDefinitions><ColumnDefinition Width="260"/><ColumnDefinition Width="220"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions>
-        <TextBlock Grid.Column="0" Text="{Binding AIDamagedDefenseRepairDelayText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center"/>
-        <Slider Grid.Column="1" Minimum="-1" Maximum="300" Value="{Binding AIDamagedDefenseRepairDelaySeconds, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding AIDamagedDefenseRepairDelayHelpText}"/>
-        <TextBox ui:KeyboardCaptureBinding.Enabled="True" Grid.Column="2" Text="{Binding AIDamagedDefenseRepairDelayValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding AIDamagedDefenseRepairDelayHelpText}" MinWidth="86" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"/>
-      </Grid>
-      <Grid Margin="0,0,0,8" ToolTipService.ShowDuration="60000" ToolTip="{Binding AIDestroyedDefenseRebuildDelayHelpText}">
-        <Grid.ColumnDefinitions><ColumnDefinition Width="260"/><ColumnDefinition Width="220"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions>
-        <TextBlock Grid.Column="0" Text="{Binding AIDestroyedDefenseRebuildDelayText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center"/>
-        <Slider Grid.Column="1" Minimum="-1" Maximum="300" Value="{Binding AIDestroyedDefenseRebuildDelaySeconds, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding AIDestroyedDefenseRebuildDelayHelpText}"/>
-        <TextBox ui:KeyboardCaptureBinding.Enabled="True" Grid.Column="2" Text="{Binding AIDestroyedDefenseRebuildDelayValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding AIDestroyedDefenseRebuildDelayHelpText}" MinWidth="86" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"/>
+        <TextBlock Grid.Column="0" Text="{Binding AITowerGateRebuildDelayText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center"/>
+        <Slider Grid.Column="1" Minimum="-1" Maximum="300" Value="{Binding AITowerGateRebuildDelaySeconds, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding AITowerGateRebuildDelayHelpText}"/>
+        <TextBox ui:KeyboardCaptureBinding.Enabled="True" Grid.Column="2" Text="{Binding AITowerGateRebuildDelayValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding AITowerGateRebuildDelayHelpText}" MinWidth="86" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"/>
       </Grid>
       <Separator Background="#444466" Margin="0,10"/>
       <TextBlock Text="{Binding BuildingsProductionTitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,8"/>

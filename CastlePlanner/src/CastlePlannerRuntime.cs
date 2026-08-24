@@ -1350,6 +1350,13 @@ namespace CastlePlanner
                     bypassPlacementRules: false);
                 if (buildingId > 0)
                 {
+                    int height = GameTileManagerAPI.Instance.GetTileHeight(
+                        GameTileManagerAPI.Instance.GetTileId(
+                            placement.BuildOrigin.X,
+                            placement.BuildOrigin.Y));
+                    queue.DigestRows.Add(
+                        $"building:{(int)placement.Mapper}:{queue.PlayerId}:" +
+                        $"{placement.BuildOrigin.X}:{placement.BuildOrigin.Y}:{height}");
                     Shared.DebugLogHelper.LogInfo(
                         log,
                         $"Deferred compound-building placement accepted by Vanilla: " +
@@ -1376,6 +1383,19 @@ namespace CastlePlanner
                 log,
                 $"Deferred compound-building queue completed: playerId={queue.PlayerId}, " +
                 $"placements={queue.Placements.Count}, tick={tick}.");
+            string digestPayload = string.Join("|", queue.DigestRows);
+            string digest;
+            using (SHA256 sha = SHA256.Create())
+            {
+                digest = BitConverter.ToString(
+                        sha.ComputeHash(Encoding.UTF8.GetBytes(digestPayload)))
+                    .Replace("-", string.Empty)
+                    .ToLowerInvariant();
+            }
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"Deferred compound-building spawn digest: playerId={queue.PlayerId}, " +
+                $"objects={queue.DigestRows.Count}, sha256={digest}, entries=[{digestPayload}].");
             LogSpecialBuildingDiagnostics(queue.PlayerId);
             return true;
         }
@@ -2237,6 +2257,7 @@ namespace CastlePlanner
             public int NativeReferenceY { get; }
             public AivRotation Rotation { get; }
             public List<AivCompoundBuildingPlacement> Placements { get; }
+            public List<string> DigestRows { get; } = new List<string>();
             public int Cursor { get; set; }
             public int Attempts { get; set; }
             public int FirstTick { get; set; } = -1;

@@ -22,13 +22,14 @@ namespace BugfixesAndQoL
         private readonly BugfixesAndQoLViewModel settings;
         private readonly byte* aivTable;
         private readonly Func<short, int?> stoneCostResolver;
-        private readonly int[] lastLoggedReserve = new int[AiStoneReservePolicy.MaximumPlayerId + 1];
         private readonly object stateLock = new object();
         private readonly ulong hookAddress;
         private readonly byte[] originalHookBytes;
         private HookTransaction transaction;
         private HookRef<X64InlineHook> reserveHook = new HookRef<X64InlineHook>();
         private bool correctionAvailable = true;
+        private bool firstCalculationLogged;
+        private bool firstPositiveReserveLogged;
         private bool disposed;
 
         public AiStoneReserveFix(
@@ -40,8 +41,6 @@ namespace BugfixesAndQoL
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
-            for (int playerId = 0; playerId < lastLoggedReserve.Length; playerId++)
-                lastLoggedReserve[playerId] = int.MinValue;
 
             Shared.NativeResolution resolution = Shared.NativePatternResolver.ResolveUnique(
                 memory,
@@ -49,7 +48,7 @@ namespace BugfixesAndQoL
                 AiStoneReserveNativeDefinition.SellerReservePatternRva,
                 referenceHashMatches,
                 "AI seller stone reserve branch",
-                log);
+                log: null);
             ValidateAivNativeLayout(memory, referenceHashMatches);
 
             ulong tableAddress = GameGlobalsManager.Instance.AIVCastleLayoutTableRVA;
@@ -100,7 +99,7 @@ namespace BugfixesAndQoL
 
                 ApplySetting();
 
-                Shared.DebugLogHelper.LogInfo(
+                Shared.DebugLogHelper.LogDebug(
                     log,
                     $"Bugfixes and QoL AI stone-reserve hook installed: method={resolution.Method}, " +
                     $"patternRva=0x{resolution.Rva:X}, hookRva=0x{hookRva:X}, " +
@@ -164,7 +163,7 @@ namespace BugfixesAndQoL
                 if (!reserveHook.Value.IsActive)
                     throw new InvalidOperationException("The AI stone-reserve native hook did not become active.");
 
-                Shared.DebugLogHelper.LogInfo(
+                Shared.DebugLogHelper.LogDebug(
                     log,
                     "Bugfixes and QoL AI stone-reserve native hook enabled by the synchronized AI-fixes setting.");
             }
@@ -216,15 +215,23 @@ namespace BugfixesAndQoL
                     // The displaced Vanilla code calculates the base threshold after this
                     // callback; only its later R9D surcharge is replaced.
                     registers->R9 = unchecked((uint)reserve);
-                    if (lastLoggedReserve[playerId] != reserve)
+                    if (!firstCalculationLogged)
                     {
-                        lastLoggedReserve[playerId] = reserve;
+                        firstCalculationLogged = true;
                         int highestFrame = ReadInt32(slot, AiStoneReservePolicy.HighestFrameOffset);
                         Shared.DebugLogHelper.LogDebug(
                             log,
-                            $"AI stone-building reserve refreshed: player={playerId}, " +
+                            $"AI stone-reserve first live calculation succeeded: player={playerId}, " +
                             $"slot={slotOffset / AiStoneReservePolicy.AivSlotSize}, " +
                             $"highestFrame={highestFrame}, reserve={reserve}.");
+                    }
+                    if (reserve > 0 && !firstPositiveReserveLogged)
+                    {
+                        firstPositiveReserveLogged = true;
+                        Shared.DebugLogHelper.LogDebug(
+                            log,
+                            $"AI stone-reserve first positive first-build buffer observed: " +
+                            $"player={playerId}, reserve={reserve}.");
                     }
                 }
                 catch (Exception ex)
@@ -313,49 +320,49 @@ namespace BugfixesAndQoL
                 AiStoneReserveNativeDefinition.AivSlotLayoutPatternRva,
                 referenceHashMatches,
                 "AI AIV slot layout",
-                log);
+                log: null);
             Shared.NativePatternResolver.ResolveUnique(
                 memory,
                 AiStoneReserveNativeDefinition.AivStepLayoutPattern,
                 AiStoneReserveNativeDefinition.AivStepLayoutPatternRva,
                 referenceHashMatches,
                 "AI AIV build-step layout",
-                log);
+                log: null);
             Shared.NativePatternResolver.ResolveUnique(
                 memory,
                 AiStoneReserveNativeDefinition.AivHighestFramePattern,
                 AiStoneReserveNativeDefinition.AivHighestFramePatternRva,
                 referenceHashMatches,
                 "AI AIV highest-frame layout",
-                log);
+                log: null);
             Shared.NativePatternResolver.ResolveUnique(
                 memory,
                 AiStoneReserveNativeDefinition.AivInitialFirstBuildStatePattern,
                 AiStoneReserveNativeDefinition.AivInitialFirstBuildStatePatternRva,
                 referenceHashMatches,
                 "AI AIV initial first-build state",
-                log);
+                log: null);
             Shared.NativePatternResolver.ResolveUnique(
                 memory,
                 AiStoneReserveNativeDefinition.AivResourceShortageReturnPattern,
                 AiStoneReserveNativeDefinition.AivResourceShortageReturnPatternRva,
                 referenceHashMatches,
                 "AI AIV resource-shortage state preservation",
-                log);
+                log: null);
             Shared.NativePatternResolver.ResolveUnique(
                 memory,
                 AiStoneReserveNativeDefinition.AivFirstBuildSuccessPattern,
                 AiStoneReserveNativeDefinition.AivFirstBuildSuccessPatternRva,
                 referenceHashMatches,
                 "AI AIV first-build success state",
-                log);
+                log: null);
             Shared.NativePatternResolver.ResolveUnique(
                 memory,
                 AiStoneReserveNativeDefinition.AivPlacementRetryPattern,
                 AiStoneReserveNativeDefinition.AivPlacementRetryPatternRva,
                 referenceHashMatches,
                 "AI AIV placement-retry state",
-                log);
+                log: null);
         }
 
         private bool DisableNativeHookAndVerify()
@@ -369,7 +376,7 @@ namespace BugfixesAndQoL
                 try
                 {
                     reserveHook.Value.Disable();
-                    Shared.DebugLogHelper.LogInfo(
+                    Shared.DebugLogHelper.LogDebug(
                         log,
                         "Bugfixes and QoL AI stone-reserve native hook disabled; Vanilla code restoration requested.");
                 }

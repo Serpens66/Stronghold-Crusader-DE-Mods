@@ -1,4 +1,4 @@
-// Feature: Persist deterministic AI defense repair and rebuild cooldowns.
+// Feature: Persist minimal deterministic AI tower/gatehouse rebuild state.
 using MessagePack;
 using MessagePack.Formatters;
 using System;
@@ -9,120 +9,113 @@ namespace ExtraFeatures
     [MessagePackFormatter(typeof(AIDefenseRepairSaveStateFormatter))]
     internal sealed class AIDefenseRepairSaveState
     {
-        internal const int CurrentVersion = 1;
+        internal const int CurrentVersion = 2;
 
         [Key(0)] public int Version = CurrentVersion;
-        [Key(1)] public AIDefenseRepairSaveRecord[] Damaged = Array.Empty<AIDefenseRepairSaveRecord>();
-        [Key(2)] public AIDefenseRepairSaveRecord[] Destroyed = Array.Empty<AIDefenseRepairSaveRecord>();
+        [Key(1)] public AIDefenseRebuildSaveRecord[] Targets = Array.Empty<AIDefenseRebuildSaveRecord>();
     }
 
     [MessagePackObject]
-    [MessagePackFormatter(typeof(AIDefenseRepairSaveRecordFormatter))]
-    internal sealed class AIDefenseRepairSaveRecord
+    [MessagePackFormatter(typeof(AIDefenseRebuildSaveRecordFormatter))]
+    internal sealed class AIDefenseRebuildSaveRecord
     {
         [Key(0)] public int PlayerId;
-        [Key(1)] public int Kind;
-        [Key(2)] public int BuildingType;
-        [Key(3)] public int GlobalId;
-        [Key(4)] public int TileId;
-        [Key(5)] public int TileXBegin;
-        [Key(6)] public int TileYBegin;
-        [Key(7)] public int TileXEnd;
-        [Key(8)] public int TileYEnd;
-        [Key(9)] public int ElapsedTicks;
+        [Key(1)] public int ActiveLayout;
+        [Key(2)] public int FrameIndex;
+        [Key(3)] public short Mapper;
+        [Key(4)] public int TargetTileId;
+        [Key(5)] public int MissingElapsedTicks = -1;
     }
 
     internal sealed class AIDefenseRepairSaveStateFormatter : IMessagePackFormatter<AIDefenseRepairSaveState>
     {
         public void Serialize(ref MessagePackWriter writer, AIDefenseRepairSaveState value, MessagePackSerializerOptions options)
         {
-            writer.WriteArrayHeader(3);
+            writer.WriteArrayHeader(2);
             writer.Write(value.Version);
-            WriteRecords(ref writer, value.Damaged, options);
-            WriteRecords(ref writer, value.Destroyed, options);
+            WriteRecords(ref writer, value.Targets, options);
         }
 
         public AIDefenseRepairSaveState Deserialize(ref MessagePackReader reader, MessagePackSerializerOptions options)
         {
             int count = reader.ReadArrayHeader();
             if (count > 3)
-                throw new MessagePackSerializationException("AI defense repair state has too many fields.");
+                throw new MessagePackSerializationException("AI defense rebuild state has too many fields.");
 
             var value = new AIDefenseRepairSaveState();
-            for (int index = 0; index < count; index++)
+            if (count == 0)
+                return value;
+
+            value.Version = reader.ReadInt32();
+            for (int index = 1; index < count; index++)
             {
-                switch (index)
-                {
-                    case 0: value.Version = reader.ReadInt32(); break;
-                    case 1: value.Damaged = ReadRecords(ref reader, options); break;
-                    case 2: value.Destroyed = ReadRecords(ref reader, options); break;
-                    default: reader.Skip(); break;
-                }
+                // Version 1 stored unrelated detailed damage/rebuild records. Skip them safely.
+                if (value.Version != AIDefenseRepairSaveState.CurrentVersion || index != 1)
+                    reader.Skip();
+                else
+                    value.Targets = ReadRecords(ref reader, options);
             }
             return value;
         }
 
-        private static void WriteRecords(ref MessagePackWriter writer, AIDefenseRepairSaveRecord[] records, MessagePackSerializerOptions options)
+        private static void WriteRecords(
+            ref MessagePackWriter writer,
+            AIDefenseRebuildSaveRecord[] records,
+            MessagePackSerializerOptions options)
         {
-            records = records ?? Array.Empty<AIDefenseRepairSaveRecord>();
+            records = records ?? Array.Empty<AIDefenseRebuildSaveRecord>();
             writer.WriteArrayHeader(records.Length);
-            IMessagePackFormatter<AIDefenseRepairSaveRecord> formatter =
-                options.Resolver.GetFormatterWithVerify<AIDefenseRepairSaveRecord>();
+            IMessagePackFormatter<AIDefenseRebuildSaveRecord> formatter =
+                options.Resolver.GetFormatterWithVerify<AIDefenseRebuildSaveRecord>();
             for (int index = 0; index < records.Length; index++)
                 formatter.Serialize(ref writer, records[index], options);
         }
 
-        private static AIDefenseRepairSaveRecord[] ReadRecords(ref MessagePackReader reader, MessagePackSerializerOptions options)
+        private static AIDefenseRebuildSaveRecord[] ReadRecords(
+            ref MessagePackReader reader,
+            MessagePackSerializerOptions options)
         {
             int count = reader.ReadArrayHeader();
             if (count < 0 || count > 20000)
-                throw new MessagePackSerializationException("AI defense repair state has an invalid record count.");
-            var records = new AIDefenseRepairSaveRecord[count];
-            IMessagePackFormatter<AIDefenseRepairSaveRecord> formatter =
-                options.Resolver.GetFormatterWithVerify<AIDefenseRepairSaveRecord>();
+                throw new MessagePackSerializationException("AI defense rebuild state has an invalid target count.");
+            var records = new AIDefenseRebuildSaveRecord[count];
+            IMessagePackFormatter<AIDefenseRebuildSaveRecord> formatter =
+                options.Resolver.GetFormatterWithVerify<AIDefenseRebuildSaveRecord>();
             for (int index = 0; index < count; index++)
                 records[index] = formatter.Deserialize(ref reader, options);
             return records;
         }
     }
 
-    internal sealed class AIDefenseRepairSaveRecordFormatter : IMessagePackFormatter<AIDefenseRepairSaveRecord>
+    internal sealed class AIDefenseRebuildSaveRecordFormatter : IMessagePackFormatter<AIDefenseRebuildSaveRecord>
     {
-        public void Serialize(ref MessagePackWriter writer, AIDefenseRepairSaveRecord value, MessagePackSerializerOptions options)
+        public void Serialize(ref MessagePackWriter writer, AIDefenseRebuildSaveRecord value, MessagePackSerializerOptions options)
         {
-            writer.WriteArrayHeader(10);
+            writer.WriteArrayHeader(6);
             writer.Write(value.PlayerId);
-            writer.Write(value.Kind);
-            writer.Write(value.BuildingType);
-            writer.Write(value.GlobalId);
-            writer.Write(value.TileId);
-            writer.Write(value.TileXBegin);
-            writer.Write(value.TileYBegin);
-            writer.Write(value.TileXEnd);
-            writer.Write(value.TileYEnd);
-            writer.Write(value.ElapsedTicks);
+            writer.Write(value.ActiveLayout);
+            writer.Write(value.FrameIndex);
+            writer.Write(value.Mapper);
+            writer.Write(value.TargetTileId);
+            writer.Write(value.MissingElapsedTicks);
         }
 
-        public AIDefenseRepairSaveRecord Deserialize(ref MessagePackReader reader, MessagePackSerializerOptions options)
+        public AIDefenseRebuildSaveRecord Deserialize(ref MessagePackReader reader, MessagePackSerializerOptions options)
         {
             int count = reader.ReadArrayHeader();
-            if (count > 10)
-                throw new MessagePackSerializationException("AI defense repair record has too many fields.");
-            var value = new AIDefenseRepairSaveRecord();
+            if (count > 6)
+                throw new MessagePackSerializationException("AI defense rebuild target has too many fields.");
+            var value = new AIDefenseRebuildSaveRecord();
             for (int index = 0; index < count; index++)
             {
                 switch (index)
                 {
                     case 0: value.PlayerId = reader.ReadInt32(); break;
-                    case 1: value.Kind = reader.ReadInt32(); break;
-                    case 2: value.BuildingType = reader.ReadInt32(); break;
-                    case 3: value.GlobalId = reader.ReadInt32(); break;
-                    case 4: value.TileId = reader.ReadInt32(); break;
-                    case 5: value.TileXBegin = reader.ReadInt32(); break;
-                    case 6: value.TileYBegin = reader.ReadInt32(); break;
-                    case 7: value.TileXEnd = reader.ReadInt32(); break;
-                    case 8: value.TileYEnd = reader.ReadInt32(); break;
-                    case 9: value.ElapsedTicks = reader.ReadInt32(); break;
+                    case 1: value.ActiveLayout = reader.ReadInt32(); break;
+                    case 2: value.FrameIndex = reader.ReadInt32(); break;
+                    case 3: value.Mapper = reader.ReadInt16(); break;
+                    case 4: value.TargetTileId = reader.ReadInt32(); break;
+                    case 5: value.MissingElapsedTicks = reader.ReadInt32(); break;
                     default: reader.Skip(); break;
                 }
             }
