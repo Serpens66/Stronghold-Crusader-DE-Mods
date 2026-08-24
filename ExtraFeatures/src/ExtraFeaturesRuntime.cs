@@ -641,7 +641,7 @@ namespace ExtraFeatures
                     Shared.DebugLogHelper.LogWarning(
                         log,
                         "Extra Features portable shields on walls is operating on an unknown " +
-                        "CrusaderDE.dll after the setDestinationForUnit signature and DAT_UNIT_CLIMB semantics were validated.");
+                        "CrusaderDE.dll after both wall/tower pathing signatures and table semantics were validated.");
                 }
             }
             catch (Exception ex)
