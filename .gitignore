@@ -15,6 +15,7 @@
 **/obj/
 /.release-output/
 /release.local.json
+/.nexusmods-api-key.dpapi
 
 # IDE and OS files
 .vs/

@@ -396,33 +396,12 @@ namespace ExtraFeatures
             GateTopologySnapshot topology,
             GateBlockageEvaluation evaluation)
         {
-            var builder = new StringBuilder(384);
-            builder.Append("nativePlayerAwareReachable=")
-                .Append(FormatNullableBoolean(evaluation.NativePlayerAwareReachable));
-            builder.Append(", directPclReachable=").Append(evaluation.HasDirectPclPath);
-            builder.Append(", reachableWithAlwaysPassableFriendlyGates=")
-                .Append(evaluation.HasPathWithFriendlyGates);
-            builder.Append(", buildingPcls=");
-            AppendIntList(builder, buildingPcls);
-            builder.Append(", keepPcls=");
-            AppendIntList(builder, keepPcls);
-            builder.Append(", friendlyGateLinks=").Append(topology.Gates.Count);
-            builder.Append(", skippedNoOpFriendlyGates=").Append(topology.SkippedNoOpGates);
-            builder.Append(", friendlyGates=[");
-            int shownGates = Math.Min(topology.Gates.Count, 16);
-            for (int index = 0; index < shownGates; index++)
-            {
-                if (index != 0)
-                    builder.Append(';');
-                PclGateConnection gate = topology.Gates[index];
-                builder.Append("buildingId=").Append(gate.BuildingId)
-                    .Append("/globalId=").Append(gate.GlobalId)
-                    .Append("/owner=").Append(gate.OwnerId)
-                    .Append("/entryExitPcls=").Append(gate.First).Append("<->").Append(gate.Second);
-            }
-            if (topology.Gates.Count > shownGates)
-                builder.Append(";...");
-            builder.Append("], usedGatePath=[");
+            var builder = new StringBuilder(160);
+            builder.Append("buildingPclCount=").Append(buildingPcls.Count)
+                .Append(", keepPclCount=").Append(keepPcls.Count)
+                .Append(", friendlyGateLinks=").Append(topology.Gates.Count)
+                .Append(", skippedNoOpFriendlyGates=").Append(topology.SkippedNoOpGates)
+                .Append(", usedGatePath=[");
             for (int pathIndex = 0; pathIndex < evaluation.UsedGateIndices.Length; pathIndex++)
             {
                 if (pathIndex != 0)
@@ -440,24 +419,6 @@ namespace ExtraFeatures
             }
             builder.Append(']');
             return builder.ToString();
-        }
-
-        private static string FormatNullableBoolean(bool? value) =>
-            value.HasValue ? (value.Value ? "True" : "False") : "NotChecked";
-
-        private static void AppendIntList(StringBuilder builder, IReadOnlyList<int> values)
-        {
-            builder.Append('[');
-            int shownValues = Math.Min(values.Count, 24);
-            for (int index = 0; index < shownValues; index++)
-            {
-                if (index != 0)
-                    builder.Append(',');
-                builder.Append(values[index]);
-            }
-            if (values.Count > shownValues)
-                builder.Append(",...");
-            builder.Append(']');
         }
 
         private bool IsNativePlayerAwareReachable(
