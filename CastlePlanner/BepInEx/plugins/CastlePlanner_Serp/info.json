@@ -3,10 +3,17 @@
   "Author": "Serpens66",
   "Name": "CastlePlanner",
   "Description": "Displays AIVJSON blueprints, spawns personal human castles, and contains the gated AI lobby placement workflow.",
-  "Version": "0.8.0",
+  "Version": "0.8.1",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "0.8.1",
+      "Changes": [
+        "Adds read-only diagnostics for Vanilla's rotated Keep, Keep door, campground, goods-yard components, Lord initialization state, and the first selected-player unit creation attempts.",
+        "Records the start complex immediately before and after native AIV execution so rotation-anchor errors can be distinguished from later building collisions without moving or creating units."
+      ]
+    },
     {
       "Version": "0.8.0",
       "Changes": [

@@ -2,8 +2,8 @@
 using BepInEx.Logging;
 using SHCDESE.API;
 using SHCDESE.Interop;
+using SHCDESE.Interop.Enums;
 using System;
-using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using Zhuqiaomon.Hooks;
 using Zhuqiaomon.Hooks.Transaction;
@@ -26,7 +26,6 @@ namespace BugfixesAndQoL
 
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
-        private readonly HashSet<int> markedBuildingIds = new HashSet<int>();
         private HookTransaction transaction;
         private HookRef<X64ManagedFunctionDetourAOB<BuildingPlacementValidatorDelegate>> validatorHook =
             new HookRef<X64ManagedFunctionDetourAOB<BuildingPlacementValidatorDelegate>>();
@@ -84,7 +83,6 @@ namespace BugfixesAndQoL
             transaction?.Unload();
             transaction?.Dispose();
             transaction = null;
-            markedBuildingIds.Clear();
         }
 
         private int ValidateBuildingPlacement(
@@ -132,13 +130,21 @@ namespace BugfixesAndQoL
             if (!tileApi.IsValidTileId(tileId))
                 return;
             int buildingId = tileApi.GetTileBuildingId(tileId);
-            if (buildingId <= 0 || markedBuildingIds.Contains(buildingId))
+            if (buildingId <= 0)
                 return;
 
             GameBuildingManagerAPI buildingApi = GameBuildingManagerAPI.Instance;
             if (!buildingApi.TryGetBuildingById(buildingId, out GameBuilding* building) ||
                 building->r_PlayerIdOwner != playerId ||
+                building->r_AliveState != AliveState.IsAlive ||
                 !IsTowerRuin(building->r_BuildingType))
+            {
+                return;
+            }
+
+            UnmanagedVector2<ushort> position = tileApi.GetTileVectorFromId(tileId);
+            if (position.X < building->r_TilePositionXBegin || position.X > building->r_TilePositionXEnd ||
+                position.Y < building->r_TilePositionYBegin || position.Y > building->r_TilePositionYEnd)
             {
                 return;
             }
@@ -146,7 +152,6 @@ namespace BugfixesAndQoL
             if (!buildingApi.DeleteBuildingSafe(buildingId))
                 return;
 
-            markedBuildingIds.Add(buildingId);
             Shared.DebugLogHelper.LogInfo(
                 log,
                 $"AI tower-rebuild obstruction marked for safe deletion: player={playerId}, mapper={mapperValue}, ruinType={building->r_BuildingType}, buildingId={buildingId}, globalId={building->r_GlobalId}, tileId={tileId}.");

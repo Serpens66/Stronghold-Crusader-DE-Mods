@@ -41,6 +41,7 @@ internal static class Program
             TestTemporaryGateBlockagePolicy();
             TestGatehouseAutomationSaveState();
             TestPlagueFlagDiseaseRegistry();
+            TestAIDefenseRepairSaveState();
             TestAIMarketNativeResolution();
             TestAiRecruitmentHorseDemandNativeResolution();
             TestAiStoneReserveNativeResolution();
@@ -720,6 +721,61 @@ internal static class Program
         Check(changedIdsRoundTrip.ManualOnlyGateGlobalIds[0] == 900001 &&
             changedIdsRoundTrip.ManualOnlyGateLocators[0].TileXBegin == 120,
             "gatehouse map identity became dependent on the runtime global ID");
+    }
+
+    private static void TestAIDefenseRepairSaveState()
+    {
+        var damaged = new AIDefenseRepairSaveRecord
+        {
+            PlayerId = 2,
+            Kind = 2,
+            BuildingType = 74,
+            GlobalId = 9001,
+            TileId = 12000,
+            TileXBegin = 100,
+            TileYBegin = 200,
+            TileXEnd = 104,
+            TileYEnd = 204,
+            ElapsedTicks = 11999
+        };
+        var destroyed = new AIDefenseRepairSaveRecord
+        {
+            PlayerId = 3,
+            Kind = 1,
+            TileId = 13000,
+            TileXBegin = 110,
+            TileYBegin = 210,
+            TileXEnd = 110,
+            TileYEnd = 210,
+            ElapsedTicks = 2400
+        };
+        var state = new AIDefenseRepairSaveState
+        {
+            Damaged = new[] { damaged },
+            Destroyed = new[] { destroyed }
+        };
+
+        AIDefenseRepairSaveState roundTrip = MessagePackSerializer.Deserialize<AIDefenseRepairSaveState>(
+            MessagePackSerializer.Serialize(state));
+        Check(roundTrip.Version == AIDefenseRepairSaveState.CurrentVersion &&
+              roundTrip.Damaged.Length == 1 && roundTrip.Destroyed.Length == 1,
+            "AI defense repair state arrays did not round-trip");
+        Check(roundTrip.Damaged[0].GlobalId == damaged.GlobalId &&
+              roundTrip.Damaged[0].BuildingType == damaged.BuildingType &&
+              roundTrip.Damaged[0].TileXEnd == damaged.TileXEnd &&
+              roundTrip.Damaged[0].ElapsedTicks == damaged.ElapsedTicks,
+            "AI damaged-defense identity changed during serialization");
+        Check(roundTrip.Destroyed[0].PlayerId == destroyed.PlayerId &&
+              roundTrip.Destroyed[0].Kind == destroyed.Kind &&
+              roundTrip.Destroyed[0].TileId == destroyed.TileId &&
+              roundTrip.Destroyed[0].ElapsedTicks == destroyed.ElapsedTicks,
+            "AI destroyed-defense identity changed during serialization");
+
+        AIDefenseRepairSaveState empty = MessagePackSerializer.Deserialize<AIDefenseRepairSaveState>(
+            MessagePackSerializer.Serialize(new AIDefenseRepairSaveState()));
+        Check(empty.Damaged != null && empty.Damaged.Length == 0 &&
+              empty.Destroyed != null && empty.Destroyed.Length == 0,
+            "AI defense repair empty arrays were not serialized explicitly");
     }
 
     private static void TestResyncHostKickPolicy()

@@ -5,6 +5,7 @@ using SHCDESE.API;
 using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.Buildings;
 using SHCDESE.EventAPI.MapLoader;
+using SHCDESE.EventAPI.Units;
 using SHCDESE.Extensions;
 using SHCDESE.GameGlobals;
 using SHCDESE.Interop;
@@ -64,6 +65,9 @@ namespace CastlePlanner
         private const string HumanKeepCoordinateLoadPattern =
             "48 63 BC CD 54 0D 00 00 44 8B A4 CD 50 0D 00 00 " +
             "44 8B CF 45 8B C4 66 89 44 24 20";
+        private const string VanillaLordInitializationPattern =
+            "48 89 4C 24 08 56 41 54 41 55 41 56 41 57 48 83 EC 50 " +
+            "4C 63 FA 4C 8D 35 ?? ?? ?? ?? 41 8B D7 49 8B CE 45 33 C0";
 
         private const int AllocateSpecRva = 0x50680;
         private const int SetPlacementRva = 0x54EC0;
@@ -75,6 +79,9 @@ namespace CastlePlanner
         private const int PrebuiltPlayersReferenceRva = 0x95FF8;
         private const int PreparedKeepCoordinatesReferenceRva = 0x95EA3;
         private const int HumanKeepCoordinateLoadRva = 0x95B3C;
+        private const int VanillaLordInitializationRva = 0xC23C0;
+        private const int PlayerManagerLordUnitIdOffset = 0x130DB8;
+        private const int PlayerManagerLadyUnitIdOffset = 0x130DC0;
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate int AllocateSpecDelegate(IntPtr aivState, int playerId);
@@ -130,6 +137,8 @@ namespace CastlePlanner
         private HookTransaction nativeHookTransaction;
         private HookRef<X64InlineHook> humanKeepCoordinateLoadHook =
             new HookRef<X64InlineHook>();
+        private HookRef<X64InlineHook> vanillaLordInitializationHook =
+            new HookRef<X64InlineHook>();
         private bool installed;
         private bool handledCurrentMap;
         private readonly Dictionary<int, PendingAivImport> pendingAivImports =
@@ -140,6 +149,8 @@ namespace CastlePlanner
             new Dictionary<int, PreparedAivCastle>();
         private readonly HashSet<int> expectedAivCastlePlayers = new HashSet<int>();
         private readonly HashSet<int> failedAivCastlePlayers = new HashSet<int>();
+        private readonly Dictionary<int, int> earlyUnitDiagnosticCounts =
+            new Dictionary<int, int>();
         private string spawnPlanFailure = string.Empty;
         private bool nativeCastleExecutionInProgress;
         private int nativeCastleExecutionPlayerId;
@@ -183,6 +194,8 @@ namespace CastlePlanner
             subscriptions.Add(BuildingR3EventHooks.OnBuildingSpawn.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
                 .Subscribe(OnBuildingSpawnPost));
+            subscriptions.Add(UnitR3EventHooks.OnUnitCreate.Observable
+                .Subscribe(OnUnitCreateDiagnostic));
             subscriptions.Add(MapLoaderR3EventHooks.OnLoadSave.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
                 .Subscribe(OnLoadSave));
@@ -225,6 +238,7 @@ namespace CastlePlanner
             executedAivCastles.Clear();
             expectedAivCastlePlayers.Clear();
             failedAivCastlePlayers.Clear();
+            earlyUnitDiagnosticCounts.Clear();
             spawnPlanFailure = string.Empty;
         }
 
@@ -512,8 +526,10 @@ namespace CastlePlanner
             preparedAivCastles.Remove(args.PlayerId);
             try
             {
+                LogVanillaStartState(castle, "KeepPostBeforeAiv");
                 ExecutePreparedCastle(castle);
                 executedAivCastles[args.PlayerId] = castle;
+                LogVanillaStartState(castle, "KeepPostAfterAiv");
             }
             catch (Exception ex)
             {
@@ -524,6 +540,87 @@ namespace CastlePlanner
                     $"Native AIV execution at human Keep BuildStructure(Post) failed; " +
                     $"no castle fallback will run: {ex}");
             }
+        }
+
+        private void OnUnitCreateDiagnostic(UnitCreateEventArgs args)
+        {
+            int playerId = args.PlayerOwnerId;
+            if (!expectedAivCastlePlayers.Contains(playerId))
+                return;
+
+            earlyUnitDiagnosticCounts.TryGetValue(playerId, out int count);
+            if (args.Phase == EventHookPhase.Pre)
+            {
+                count++;
+                earlyUnitDiagnosticCounts[playerId] = count;
+            }
+            if (count > 32)
+                return;
+
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"Selected-player early UnitCreate diagnostic: phase={args.Phase}, " +
+                $"ordinal={count}, playerId={playerId}, colorId={args.PlayerColorId}, " +
+                $"type={args.UnitType}, world=({args.WorldTileX},{args.WorldTileY}), " +
+                $"height={args.HeightElevation}, returnValue={args.ReturnValue}.");
+        }
+
+        private void LogVanillaStartState(PreparedAivCastle castle, string phase)
+        {
+            if (!GamePlayerManagerAPI.Instance.TryGetPlayerResourcesById(
+                    castle.PlayerId,
+                    out GamePlayerResources* resources))
+            {
+                Shared.DebugLogHelper.LogWarning(
+                    log,
+                    $"Vanilla start-state diagnostic unavailable: phase={phase}, " +
+                    $"playerId={castle.PlayerId}, reason=player-resources-unavailable.");
+                return;
+            }
+
+            var components = new List<string>();
+            Span<GameBuilding> buildings = GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
+            for (int buildingId = 1; buildingId < buildings.Length; buildingId++)
+            {
+                GameBuilding building = buildings[buildingId];
+                if (building.r_PlayerIdOwner != castle.PlayerId ||
+                    (building.r_AliveState != AliveState.NeedsInit &&
+                     building.r_AliveState != AliveState.IsAlive) ||
+                    !IsVanillaStartDiagnosticStructure(building.r_BuildingType))
+                {
+                    continue;
+                }
+
+                components.Add(
+                    $"{buildingId}:{building.r_BuildingType}:" +
+                    $"({building.r_TilePositionXBegin},{building.r_TilePositionYBegin})-" +
+                    $"({building.r_TilePositionXEnd},{building.r_TilePositionYEnd}):" +
+                    $"tile={building.r_TileIdBegin}:global={building.r_GlobalId}");
+            }
+
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"Vanilla start-state diagnostic: phase={phase}, playerId={castle.PlayerId}, " +
+                $"orientation={castle.Orientation}, requestedKeep=({castle.RequestedKeepX},{castle.RequestedKeepY}), " +
+                $"preparedKeep=({castle.PreparedKeepX},{castle.PreparedKeepY}), " +
+                $"resourceKeep={resources->r_KeepId}:({resources->r_KeepTilePositionX},{resources->r_KeepTilePositionY}):" +
+                $"tile={resources->r_KeepTileId}, " +
+                $"resourceDoor={resources->r_KeepDoorId}:({resources->r_KeepDoorTilePositionX},{resources->r_KeepDoorTilePositionY}):" +
+                $"tile={resources->r_KeepDoorTileId}, components=[{string.Join("|", components)}].");
+        }
+
+        private static bool IsVanillaStartDiagnosticStructure(eStructs structure)
+        {
+            return structure == eStructs.STRUCT_KEEP_ONE ||
+                   structure == eStructs.STRUCT_KEEP_TWO ||
+                   structure == eStructs.STRUCT_KEEP_THREE ||
+                   structure == eStructs.STRUCT_KEEP_FOUR ||
+                   structure == eStructs.STRUCT_KEEP_FIVE ||
+                   structure == eStructs.STRUCT_KEEPDOOR ||
+                   structure == eStructs.STRUCT_KEEPDOOR_LEFT ||
+                   structure == eStructs.STRUCT_KEEPDOOR_RIGHT ||
+                   structure == eStructs.STRUCT_CAMPGROUND ||
+                   structure == eStructs.STRUCT_GOODS_YARD;
         }
 
         private PreparedAivCastle PrepareSelectedCastle(
@@ -1194,11 +1291,16 @@ namespace CastlePlanner
             IntPtr libraryHandle,
             ReadOnlySpan<byte> memory)
         {
-            int hookRva = ResolveReferenceRva(
+            int humanStartHookRva = ResolveReferenceRva(
                 memory,
                 "Vanilla human Keep coordinate load",
                 HumanKeepCoordinateLoadPattern,
                 HumanKeepCoordinateLoadRva);
+            int lordInitializationHookRva = ResolveReferenceRva(
+                memory,
+                "Vanilla Lord initialization",
+                VanillaLordInitializationPattern,
+                VanillaLordInitializationRva);
             nativeHookTransaction = new HookTransaction(
                 memory,
                 unchecked((ulong)libraryHandle.ToInt64()),
@@ -1206,19 +1308,74 @@ namespace CastlePlanner
                 failureMode: TransactionFailureMode.RollbackAndThrow);
             nativeHookTransaction.AddContextHook(
                 ref humanKeepCoordinateLoadHook,
-                unchecked((ulong)libraryHandle.ToInt64()) + unchecked((ulong)hookRva),
+                unchecked((ulong)libraryHandle.ToInt64()) + unchecked((ulong)humanStartHookRva),
                 PrepareVanillaHumanStart,
                 regs: X64SmartCPUContextRegs.All,
                 hookSize: 16,
                 errorMode: CallbackErrorMode.LogAndContinue,
                 placement: OverwrittenInstructionPlacement.AfterCallback);
+            nativeHookTransaction.AddContextHook(
+                ref vanillaLordInitializationHook,
+                unchecked((ulong)libraryHandle.ToInt64()) + unchecked((ulong)lordInitializationHookRva),
+                LogVanillaLordInitialization,
+                regs: X64SmartCPUContextRegs.Volatile,
+                hookSize: 14,
+                errorMode: CallbackErrorMode.LogAndContinue,
+                placement: OverwrittenInstructionPlacement.AfterCallback);
             nativeHookTransaction.Commit();
             if (!humanKeepCoordinateLoadHook.Success)
                 throw new InvalidOperationException("The Vanilla human Keep coordinate-load hook was not installed.");
+            if (!vanillaLordInitializationHook.Success)
+                throw new InvalidOperationException("The Vanilla Lord-initialization diagnostic hook was not installed.");
 
             Shared.DebugLogHelper.LogInfo(
                 log,
-                $"Early Vanilla human-start preparation hook installed: rva=0x{hookRva:X}.");
+                $"Early Vanilla human-start hooks installed: " +
+                $"coordinateRva=0x{humanStartHookRva:X}, " +
+                $"lordDiagnosticRva=0x{lordInitializationHookRva:X}.");
+        }
+
+        private void LogVanillaLordInitialization(
+            NativePointer<X64SmartCPUContext> context)
+        {
+            try
+            {
+                X64SmartCPUContext* registers = context.Pointer;
+                int playerId = unchecked((int)registers->RDX);
+                if (!expectedAivCastlePlayers.Contains(playerId))
+                    return;
+
+                byte* playerManager = (byte*)registers->RCX;
+                byte* playerState = playerManager + playerId * PlayerAivStateStride;
+                int lordUnitId = *(int*)(playerState + PlayerManagerLordUnitIdOffset);
+                int ladyUnitId = *(int*)(playerState + PlayerManagerLadyUnitIdOffset);
+
+                if (!GamePlayerManagerAPI.Instance.TryGetPlayerResourcesById(
+                        playerId,
+                        out GamePlayerResources* resources))
+                {
+                    Shared.DebugLogHelper.LogWarning(
+                        log,
+                        $"Vanilla Lord-initialization diagnostic entered without player resources: " +
+                        $"playerId={playerId}, lordUnitId={lordUnitId}, ladyUnitId={ladyUnitId}.");
+                    return;
+                }
+
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    $"Vanilla Lord-initialization diagnostic entered: playerId={playerId}, " +
+                    $"lordUnitId={lordUnitId}, ladyUnitId={ladyUnitId}, " +
+                    $"keepId={resources->r_KeepId}, " +
+                    $"keep=({resources->r_KeepTilePositionX},{resources->r_KeepTilePositionY}), " +
+                    $"keepDoorId={resources->r_KeepDoorId}, " +
+                    $"keepDoor=({resources->r_KeepDoorTilePositionX},{resources->r_KeepDoorTilePositionY}).");
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Vanilla Lord-initialization diagnostic failed without changing game state: {ex}");
+            }
         }
 
         private void PrepareVanillaHumanStart(

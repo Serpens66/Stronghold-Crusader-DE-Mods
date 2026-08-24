@@ -113,6 +113,9 @@
     <Compile Include="..\..\ExtraFeatures\src\PlagueFlagDiseaseSaveState.cs">
       <Link>PlagueFlagDiseaseSaveState.cs</Link>
     </Compile>
+    <Compile Include="..\..\ExtraFeatures\src\AIDefenseRepairSaveState.cs">
+      <Link>AIDefenseRepairSaveState.cs</Link>
+    </Compile>
     <Compile Include="..\..\BugfixesAndQoL\src\MultiplayerGameSpeedChangePacket.cs">
       <Link>MultiplayerGameSpeedChangePacket.cs</Link>
     </Compile>

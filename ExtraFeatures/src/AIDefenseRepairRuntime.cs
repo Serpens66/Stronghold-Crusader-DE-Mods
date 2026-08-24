@@ -31,7 +31,11 @@ namespace ExtraFeatures
         private const int PreparedLayoutFrameCount = 0x922;
         private const int PreparedEntryBaseOffset = 0x38;
         private const int PreparedEntrySize = 0x0C;
+        private const int PreparedPositionBaseOffset = 0x2F18;
+        private const int PreparedPositionCountPerLayout = 0x1B66;
         private const int TicksPerSecond = 40;
+        private const int MaximumDamageDelayTicks = 300 * TicksPerSecond;
+        private const int DiagnosticRepeatTicks = 10 * TicksPerSecond;
         private const int MaximumTrackedRecords = 20000;
         private const int KindWallTile = 1;
         private const int KindBuilding = 2;
@@ -49,6 +53,7 @@ namespace ExtraFeatures
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
         private readonly Dictionary<string, TrackedDefense> damaged = new Dictionary<string, TrackedDefense>();
         private readonly Dictionary<string, TrackedDefense> destroyed = new Dictionary<string, TrackedDefense>();
+        private readonly Dictionary<string, DiagnosticState> rebuildDiagnostics = new Dictionary<string, DiagnosticState>();
         private HookTransaction transaction;
         private HookRef<X64ManagedFunctionDetourAOB<ExecuteBuildStepDelegate>> executeBuildStepHook =
             new HookRef<X64ManagedFunctionDetourAOB<ExecuteBuildStepDelegate>>();
@@ -58,7 +63,9 @@ namespace ExtraFeatures
         private bool nativeInitialized;
         private bool mapActive;
         private bool callbackFailureLogged;
+        private bool capacityFailureLogged;
         private bool disposed;
+        private int nextDamagedPruneTick;
 
         public AIDefenseRepairRuntime(ManualLogSource log, ExtraFeaturesViewModel settings)
         {
@@ -167,6 +174,7 @@ namespace ExtraFeatures
             transaction = null;
             damaged.Clear();
             destroyed.Clear();
+            rebuildDiagnostics.Clear();
             pendingDamage = null;
         }
 
@@ -174,6 +182,8 @@ namespace ExtraFeatures
         {
             mapActive = true;
             pendingDamage = null;
+            capacityFailureLogged = false;
+            nextDamagedPruneTick = CurrentTick();
         }
 
         private void ResetMapState()
@@ -182,6 +192,8 @@ namespace ExtraFeatures
             pendingDamage = null;
             damaged.Clear();
             destroyed.Clear();
+            rebuildDiagnostics.Clear();
+            capacityFailureLogged = false;
         }
 
         private void OnBuildingTileTakeDamage(BuildingTileTakeDamageEventArgs args)
@@ -252,8 +264,8 @@ namespace ExtraFeatures
                 if (sameStandingBuilding)
                 {
                     TrackedDefense record = pending.ToTracked(now);
-                    damaged[record.Identity] = record;
-                    LogTimer("damaged-defense timer reset", record, now);
+                    if (TrySetTracked(damaged, record.Identity, record))
+                        LogTimer("damaged-defense timer reset", record, now);
                     return;
                 }
 
@@ -274,8 +286,8 @@ namespace ExtraFeatures
             TrackedDefense wallRecord = pending.ToTracked(now);
             if (wallStillStanding && currentDamage != pending.WallDamage)
             {
-                damaged[wallRecord.Identity] = wallRecord;
-                LogTimer("damaged-wall timer reset", wallRecord, now);
+                if (TrySetTracked(damaged, wallRecord.Identity, wallRecord))
+                    LogTimer("damaged-wall timer reset", wallRecord, now);
             }
             else if (!wallStillStanding)
             {
@@ -287,8 +299,8 @@ namespace ExtraFeatures
         {
             damaged.Remove(record.Identity);
             record.StartTick = now;
-            destroyed[record.RebuildIdentity] = record;
-            LogTimer("destroyed-defense timer started", record, now);
+            if (TrySetTracked(destroyed, record.RebuildIdentity, record))
+                LogTimer("destroyed-defense timer started", record, now);
         }
 
         private void OnAllowRepairInProximity(BuildingAllowRepairInProximityEventArgs args)
@@ -301,6 +313,7 @@ namespace ExtraFeatures
 
             try
             {
+                PruneExpiredDamagedRecords();
                 if (!IsStandingDefenseAt(args.PlayerId, args.TileX, args.TileY))
                     return;
 
@@ -337,35 +350,59 @@ namespace ExtraFeatures
                         aivStateAddress, playerId, frameIndex, restrictedMode, freeOrForced);
                 }
 
-                if (mapActive && settings.EnableMod && IsAI(playerId) &&
+                if (mapActive && IsAI(playerId) &&
                     TryReadPreparedFrame(aivStateAddress, playerId, frameIndex, out PreparedFrame frame) &&
-                    IsDefenseMapper(frame.Mapper))
+                    IsDefenseMapper(frame.Mapper) && IsRebuildStatus(frame.Status) &&
+                    TryResolveTargetTiles(aivStateAddress, frame, out int[] targetTileIds))
                 {
-                    TrackedDefense record = FindDestroyedDefense(playerId, frame.Mapper, frame.FirstPositionIndex);
-                    bool rebuildState = frame.Status >= 3;
-                    if (record == null && rebuildState)
+                    List<TrackedDefense> records = FindDestroyedDefenses(playerId, frame.Mapper, targetTileIds);
+                    RemoveRestoredRecords(records);
+                    for (int index = 0; index < targetTileIds.Length; index++)
                     {
-                        record = CreateFallbackDestroyedRecord(playerId, frame.Mapper, frame.FirstPositionIndex);
-                        if (record != null)
+                        int targetTileId = targetTileIds[index];
+                        if (HasMatchingRecord(records, targetTileId) ||
+                            IsExpectedDefenseAt(playerId, frame.Mapper, targetTileId, allowNeedsInit: true))
                         {
-                            destroyed[record.RebuildIdentity] = record;
-                            LogTimer("fallback rebuild timer started", record, record.StartTick);
+                            continue;
                         }
+
+                        TrackedDefense fallback = CreateFallbackDestroyedRecord(playerId, frame.Mapper, targetTileId);
+                        if (fallback == null)
+                            continue;
+                        if (!TrySetTracked(destroyed, fallback.RebuildIdentity, fallback))
+                            continue;
+                        records.Add(fallback);
+                        LogTimer("fallback rebuild timer started", fallback, fallback.StartTick);
                     }
 
-                    if (record != null)
+                    if (records.Count != 0)
                     {
-                        if (IsDelayActive(record.StartTick, settings.AIDestroyedDefenseRebuildDelaySeconds))
+                        TrackedDefense delayingRecord = FindYoungestDelayedRecord(
+                            records,
+                            settings.AIDestroyedDefenseRebuildDelaySeconds);
+                        if (delayingRecord != null)
+                        {
+                            LogRebuildBlock("delay", delayingRecord);
                             return 0;
+                        }
 
-                        if (IsEnemyNear(playerId, record))
+                        for (int index = 0; index < records.Count; index++)
+                        {
+                            if (!IsEnemyNear(playerId, records[index]))
+                                continue;
+                            LogRebuildBlock("enemy", records[index]);
                             return 0;
+                        }
 
                         int result = executeBuildStepHook.Value.Hook.Trampoline(
                             aivStateAddress, playerId, frameIndex, restrictedMode, freeOrForced);
-                        if (IsDefenseRestored(record))
+                        for (int index = records.Count - 1; index >= 0; index--)
                         {
+                            TrackedDefense record = records[index];
+                            if (!IsDefenseRestored(record))
+                                continue;
                             destroyed.Remove(record.RebuildIdentity);
+                            rebuildDiagnostics.Remove(record.RebuildIdentity);
                             Shared.DebugLogHelper.LogInfo(log, $"AI defense rebuild released and observed: {record.Describe()}.");
                         }
                         return result;
@@ -389,7 +426,7 @@ namespace ExtraFeatures
         {
             frame = default;
             if (aivStateAddress == 0 || activeLayoutIndexBaseAddress == 0 ||
-                playerId < 1 || playerId > 8 || frameIndex < 0)
+                playerId < 1 || playerId > 8 || frameIndex < 0 || frameIndex >= PreparedLayoutFrameCount)
             {
                 return false;
             }
@@ -399,7 +436,45 @@ namespace ExtraFeatures
                 return false;
             long entryIndex = checked((long)activeLayout * PreparedLayoutFrameCount + frameIndex);
             byte* entry = (byte*)aivStateAddress + PreparedEntryBaseOffset + checked(entryIndex * PreparedEntrySize);
-            frame = new PreparedFrame(entry[0], *(short*)(entry + 2), *(short*)(entry + 4), *(int*)(entry + 8));
+            frame = new PreparedFrame(activeLayout, entry[0], *(short*)(entry + 2), *(short*)(entry + 4), *(int*)(entry + 8));
+            return frame.PositionCount >= 0 && frame.PositionCount <= PreparedPositionCountPerLayout;
+        }
+
+        private static bool IsRebuildStatus(byte status) => status == 3 || status == 5;
+
+        private static bool TryResolveTargetTiles(ulong aivStateAddress, PreparedFrame frame, out int[] tileIds)
+        {
+            tileIds = null;
+            DefenseFamily family = GetMapperFamily(frame.Mapper);
+            if (family == DefenseFamily.Tower || family == DefenseFamily.Gate)
+            {
+                if (!GameTileManagerAPI.Instance.IsValidTileId(frame.FirstPositionIndex))
+                    return false;
+                tileIds = new[] { frame.FirstPositionIndex };
+                return true;
+            }
+
+            if (family != DefenseFamily.Wall || frame.PositionCount <= 0 ||
+                frame.ActiveLayout < 0 || frame.ActiveLayout >= 8 || frame.FirstPositionIndex < 0 ||
+                frame.FirstPositionIndex > PreparedPositionCountPerLayout - frame.PositionCount)
+            {
+                return false;
+            }
+
+            int firstIndex = checked(frame.ActiveLayout * PreparedPositionCountPerLayout + frame.FirstPositionIndex);
+            int* positions = (int*)((byte*)aivStateAddress + PreparedPositionBaseOffset) + firstIndex;
+            tileIds = new int[frame.PositionCount];
+            var seen = new HashSet<int>();
+            for (int index = 0; index < tileIds.Length; index++)
+            {
+                int tileId = positions[index];
+                if (!GameTileManagerAPI.Instance.IsValidTileId(tileId) || !seen.Add(tileId))
+                {
+                    tileIds = null;
+                    return false;
+                }
+                tileIds[index] = tileId;
+            }
             return true;
         }
 
@@ -470,51 +545,72 @@ namespace ExtraFeatures
                 tileApi.GetTilePlayerOwnerId(tileId) == playerId;
         }
 
-        private TrackedDefense FindDestroyedDefense(int playerId, short mapper, int tileId)
+        private List<TrackedDefense> FindDestroyedDefenses(int playerId, short mapper, int[] targetTileIds)
         {
-            bool tower = IsTowerMapper(mapper);
-            TrackedDefense newestFallback = null;
-            int newestElapsed = int.MaxValue;
+            DefenseFamily family = GetMapperFamily(mapper);
+            var result = new List<TrackedDefense>();
+            var identities = new HashSet<string>();
             foreach (TrackedDefense record in destroyed.Values)
             {
-                if (record.PlayerId != playerId || record.IsTowerRelated != tower)
+                if (record.PlayerId != playerId || GetRecordFamily(record) != family)
                     continue;
-                if (GameTileManagerAPI.Instance.IsValidTileId(tileId))
+                for (int index = 0; index < targetTileIds.Length; index++)
                 {
-                    UnmanagedVector2<ushort> position = GameTileManagerAPI.Instance.GetTileVectorFromId(tileId);
-                    if (record.Contains(position.X, position.Y))
-                        return record;
-                }
-
-                int elapsed = ElapsedTicks(CurrentTick(), record.StartTick);
-                if (!tower && elapsed < newestElapsed)
-                {
-                    newestElapsed = elapsed;
-                    newestFallback = record;
+                    if (!RecordMatchesTile(record, targetTileIds[index]) || !identities.Add(record.RebuildIdentity))
+                        continue;
+                    result.Add(record);
+                    break;
                 }
             }
-            return newestFallback;
+            return result;
+        }
+
+        private void RemoveRestoredRecords(List<TrackedDefense> records)
+        {
+            for (int index = records.Count - 1; index >= 0; index--)
+            {
+                TrackedDefense record = records[index];
+                if (!IsDefenseRestored(record))
+                    continue;
+                destroyed.Remove(record.RebuildIdentity);
+                rebuildDiagnostics.Remove(record.RebuildIdentity);
+                records.RemoveAt(index);
+            }
+        }
+
+        private static bool HasMatchingRecord(List<TrackedDefense> records, int tileId)
+        {
+            for (int index = 0; index < records.Count; index++)
+            {
+                if (RecordMatchesTile(records[index], tileId))
+                    return true;
+            }
+            return false;
+        }
+
+        private static bool RecordMatchesTile(TrackedDefense record, int tileId)
+        {
+            GameTileManagerAPI tileApi = GameTileManagerAPI.Instance;
+            if (!tileApi.IsValidTileId(tileId))
+                return false;
+            if (record.Kind == KindWallTile)
+                return record.TileId == tileId;
+            UnmanagedVector2<ushort> position = tileApi.GetTileVectorFromId(tileId);
+            return record.Contains(position.X, position.Y);
         }
 
         private TrackedDefense CreateFallbackDestroyedRecord(int playerId, short mapper, int tileId)
         {
-            // Multi-position wall frames expose an array offset rather than a stable target
-            // tile. Their exact destruction timestamp must therefore come from the damage hook.
-            if (!IsTowerMapper(mapper) && (eMappers)mapper != eMappers.MAPPER_GATEHOUSE &&
-                (eMappers)mapper != eMappers.MAPPER_GATE_MAIN &&
-                (eMappers)mapper != eMappers.MAPPER_GATE_INNER &&
-                (eMappers)mapper != eMappers.MAPPER_GATE_WOOD &&
-                (eMappers)mapper != eMappers.MAPPER_GATE_POSTERN)
-            {
-                return null;
-            }
             if (!GameTileManagerAPI.Instance.IsValidTileId(tileId))
+                return null;
+            DefenseFamily family = GetMapperFamily(mapper);
+            if (family == DefenseFamily.None)
                 return null;
             UnmanagedVector2<ushort> position = GameTileManagerAPI.Instance.GetTileVectorFromId(tileId);
             return new TrackedDefense
             {
                 PlayerId = playerId,
-                Kind = IsTowerMapper(mapper) ? KindBuilding : KindWallTile,
+                Kind = family == DefenseFamily.Wall ? KindWallTile : KindBuilding,
                 BuildingType = MapperToExpectedStructure(mapper),
                 GlobalId = 0,
                 TileId = tileId,
@@ -524,6 +620,44 @@ namespace ExtraFeatures
                 TileYEnd = position.Y,
                 StartTick = CurrentTick()
             };
+        }
+
+        private static TrackedDefense FindYoungestDelayedRecord(List<TrackedDefense> records, int delaySeconds)
+        {
+            if (delaySeconds <= 0)
+                return null;
+            int now = CurrentTick();
+            int limit = checked(delaySeconds * TicksPerSecond);
+            TrackedDefense youngest = null;
+            int youngestElapsed = int.MaxValue;
+            for (int index = 0; index < records.Count; index++)
+            {
+                int elapsed = ElapsedTicks(now, records[index].StartTick);
+                if (elapsed >= limit || elapsed >= youngestElapsed)
+                    continue;
+                youngest = records[index];
+                youngestElapsed = elapsed;
+            }
+            return youngest;
+        }
+
+        private static bool IsExpectedDefenseAt(int playerId, short mapper, int tileId, bool allowNeedsInit)
+        {
+            GameTileManagerAPI tileApi = GameTileManagerAPI.Instance;
+            if (!tileApi.IsValidTileId(tileId))
+                return false;
+            if (GetMapperFamily(mapper) == DefenseFamily.Wall)
+            {
+                return (tileApi.GetTilePropertyFlag(tileId) & TilePropertyFlag.IsWall) != 0 &&
+                    tileApi.GetTilePlayerOwnerId(tileId) == playerId;
+            }
+
+            int expectedType = MapperToExpectedStructure(mapper);
+            ushort buildingId = tileApi.GetTileBuildingId(tileId);
+            return expectedType != 0 && buildingId != 0 &&
+                GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building) &&
+                building->r_PlayerIdOwner == playerId && building->r_BuildingType == (eStructs)expectedType &&
+                IsStandingState(building->r_AliveState, allowNeedsInit);
         }
 
         private bool IsDefenseRestored(TrackedDefense record)
@@ -547,9 +681,8 @@ namespace ExtraFeatures
                     ushort buildingId = tileApi.GetTileBuildingId(tileId);
                     if (buildingId != 0 && GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building) &&
                         building->r_PlayerIdOwner == record.PlayerId &&
-                        building->r_AliveState == AliveState.IsAlive &&
-                        IsDefenseBuilding(building->r_BuildingType) &&
-                        !IsTowerRuin(building->r_BuildingType))
+                        IsStandingState(building->r_AliveState, allowNeedsInit: true) &&
+                        building->r_BuildingType == (eStructs)record.BuildingType)
                     {
                         return true;
                     }
@@ -557,6 +690,9 @@ namespace ExtraFeatures
             }
             return false;
         }
+
+        private static bool IsStandingState(AliveState state, bool allowNeedsInit) =>
+            state == AliveState.IsAlive || (allowNeedsInit && state == AliveState.NeedsInit);
 
         private byte[] SaveState(SaveContext context)
         {
@@ -578,7 +714,9 @@ namespace ExtraFeatures
             AIDefenseRepairSaveState state = MessagePackSerializer.Deserialize<AIDefenseRepairSaveState>(bytes);
             if (state == null || state.Version != AIDefenseRepairSaveState.CurrentVersion)
                 throw new InvalidOperationException("AI defense repair save state has an unsupported version.");
-            if (state.Damaged.Length + state.Destroyed.Length > MaximumTrackedRecords)
+            state.Damaged = state.Damaged ?? Array.Empty<AIDefenseRepairSaveRecord>();
+            state.Destroyed = state.Destroyed ?? Array.Empty<AIDefenseRepairSaveRecord>();
+            if ((long)state.Damaged.Length + state.Destroyed.Length > MaximumTrackedRecords)
                 throw new InvalidOperationException("AI defense repair save state contains too many records.");
 
             damaged.Clear();
@@ -608,10 +746,114 @@ namespace ExtraFeatures
             for (int index = 0; index < records.Length; index++)
             {
                 TrackedDefense value = TrackedDefense.FromSaveRecord(records[index], now);
-                if (!value.IsValid() || (requireStanding && !IsDefenseRestored(value)))
+                if (!IsValidRestoredRecord(value, requireStanding))
                     continue;
-                target[requireStanding ? value.Identity : value.RebuildIdentity] = value;
+                string key = requireStanding ? value.Identity : value.RebuildIdentity;
+                if (!target.TryGetValue(key, out TrackedDefense existing) ||
+                    ElapsedTicks(now, value.StartTick) < ElapsedTicks(now, existing.StartTick))
+                {
+                    target[key] = value;
+                }
             }
+        }
+
+        private bool IsValidRestoredRecord(TrackedDefense value, bool requireStanding)
+        {
+            if (!value.IsValid() || !IsAI(value.PlayerId) || !HasValidCoordinates(value))
+                return false;
+            if (requireStanding)
+                return ElapsedTicks(CurrentTick(), value.StartTick) <= MaximumDamageDelayTicks &&
+                    IsExactStandingDefense(value);
+            if (value.Kind == KindBuilding &&
+                (!IsDefenseBuilding((eStructs)value.BuildingType) || IsTowerRuin((eStructs)value.BuildingType)))
+            {
+                return false;
+            }
+            return !IsDefenseRestored(value);
+        }
+
+        private static bool HasValidCoordinates(TrackedDefense value)
+        {
+            GameTileManagerAPI tileApi = GameTileManagerAPI.Instance;
+            if (!tileApi.IsTileInsideMapBounds(value.TileXBegin, value.TileYBegin) ||
+                !tileApi.IsTileInsideMapBounds(value.TileXEnd, value.TileYEnd))
+            {
+                return false;
+            }
+            return tileApi.IsValidTileId(value.TileId);
+        }
+
+        private static bool IsExactStandingDefense(TrackedDefense record)
+        {
+            GameTileManagerAPI tileApi = GameTileManagerAPI.Instance;
+            if (record.Kind == KindWallTile)
+            {
+                return tileApi.IsValidTileId(record.TileId) &&
+                    (tileApi.GetTilePropertyFlag(record.TileId) & TilePropertyFlag.IsWall) != 0 &&
+                    tileApi.GetTilePlayerOwnerId(record.TileId) == record.PlayerId;
+            }
+
+            if (record.GlobalId <= 0 || !IsDefenseBuilding((eStructs)record.BuildingType) ||
+                IsTowerRuin((eStructs)record.BuildingType))
+            {
+                return false;
+            }
+
+            Span<GameBuilding> buildings = GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
+            for (int index = 0; index < buildings.Length; index++)
+            {
+                ref GameBuilding building = ref buildings[index];
+                if (building.r_GlobalId == record.GlobalId && building.r_PlayerIdOwner == record.PlayerId &&
+                    building.r_BuildingType == (eStructs)record.BuildingType &&
+                    building.r_AliveState == AliveState.IsAlive &&
+                    building.r_TilePositionXBegin == record.TileXBegin &&
+                    building.r_TilePositionYBegin == record.TileYBegin &&
+                    building.r_TilePositionXEnd == record.TileXEnd &&
+                    building.r_TilePositionYEnd == record.TileYEnd)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private void PruneExpiredDamagedRecords()
+        {
+            int now = CurrentTick();
+            if (ElapsedTicks(now, nextDamagedPruneTick) < TicksPerSecond)
+                return;
+            nextDamagedPruneTick = now;
+            if (damaged.Count == 0)
+                return;
+
+            var expired = new List<string>();
+            foreach (KeyValuePair<string, TrackedDefense> pair in damaged)
+            {
+                if (ElapsedTicks(now, pair.Value.StartTick) >= MaximumDamageDelayTicks)
+                    expired.Add(pair.Key);
+            }
+            for (int index = 0; index < expired.Count; index++)
+                damaged.Remove(expired[index]);
+        }
+
+        private bool TrySetTracked(
+            Dictionary<string, TrackedDefense> target,
+            string key,
+            TrackedDefense record)
+        {
+            if (target.ContainsKey(key) || damaged.Count + destroyed.Count < MaximumTrackedRecords)
+            {
+                target[key] = record;
+                return true;
+            }
+            if (!capacityFailureLogged)
+            {
+                capacityFailureLogged = true;
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"AI defense repair tracking reached its safety limit of {MaximumTrackedRecords} records; additional timers are ignored and Vanilla remains available.");
+            }
+            return false;
         }
 
         private static bool IsDefenseMapper(short mapperValue)
@@ -634,6 +876,38 @@ namespace ExtraFeatures
                 ((int)mapper >= (int)eMappers.MAPPER_TOWER1 && (int)mapper <= (int)eMappers.MAPPER_TOWER5);
         }
 
+        private static bool IsGateMapper(short mapperValue)
+        {
+            eMappers mapper = (eMappers)mapperValue;
+            return mapper == eMappers.MAPPER_GATEHOUSE || mapper == eMappers.MAPPER_GATE_MAIN ||
+                mapper == eMappers.MAPPER_GATE_INNER || mapper == eMappers.MAPPER_GATE_WOOD ||
+                mapper == eMappers.MAPPER_GATE_POSTERN || mapper == eMappers.MAPPER_DRAWBRIDGE ||
+                ((int)mapper >= (int)eMappers.MAPPER_GATE_WOOD1A && (int)mapper <= (int)eMappers.MAPPER_GATE_STONE2B);
+        }
+
+        private static DefenseFamily GetMapperFamily(short mapperValue)
+        {
+            if (IsTowerMapper(mapperValue))
+                return DefenseFamily.Tower;
+            if (IsGateMapper(mapperValue))
+                return DefenseFamily.Gate;
+            return IsDefenseMapper(mapperValue) ? DefenseFamily.Wall : DefenseFamily.None;
+        }
+
+        private static DefenseFamily GetRecordFamily(TrackedDefense record)
+        {
+            if (record.Kind == KindWallTile)
+                return DefenseFamily.Wall;
+            eStructs type = (eStructs)record.BuildingType;
+            if (type == eStructs.STRUCT_TOWER ||
+                ((int)type >= (int)eStructs.STRUCT_TOWER1 && (int)type <= (int)eStructs.STRUCT_TOWER5) ||
+                IsTowerRuin(type))
+            {
+                return DefenseFamily.Tower;
+            }
+            return IsGateBuilding(type) ? DefenseFamily.Gate : DefenseFamily.None;
+        }
+
         private static int MapperToExpectedStructure(short mapperValue)
         {
             switch ((eMappers)mapperValue)
@@ -643,19 +917,37 @@ namespace ExtraFeatures
                 case eMappers.MAPPER_TOWER3: return (int)eStructs.STRUCT_TOWER3;
                 case eMappers.MAPPER_TOWER4: return (int)eStructs.STRUCT_TOWER4;
                 case eMappers.MAPPER_TOWER5: return (int)eStructs.STRUCT_TOWER5;
+                case eMappers.MAPPER_TOWER: return (int)eStructs.STRUCT_TOWER;
+                case eMappers.MAPPER_GATEHOUSE: return (int)eStructs.STRUCT_GATEHOUSE;
+                case eMappers.MAPPER_GATE_MAIN:
+                case eMappers.MAPPER_GATE_STONE2A:
+                case eMappers.MAPPER_GATE_STONE2B: return (int)eStructs.STRUCT_GATE_MAIN;
+                case eMappers.MAPPER_GATE_INNER:
+                case eMappers.MAPPER_GATE_STONE1A:
+                case eMappers.MAPPER_GATE_STONE1B: return (int)eStructs.STRUCT_GATE_INNER;
+                case eMappers.MAPPER_GATE_WOOD:
+                case eMappers.MAPPER_GATE_WOOD1A:
+                case eMappers.MAPPER_GATE_WOOD1B:
+                case eMappers.MAPPER_GATE_WOOD1C:
+                case eMappers.MAPPER_GATE_WOOD1D: return (int)eStructs.STRUCT_GATE_WOOD;
+                case eMappers.MAPPER_GATE_POSTERN: return (int)eStructs.STRUCT_GATE_POSTERN;
+                case eMappers.MAPPER_DRAWBRIDGE: return (int)eStructs.STRUCT_DRAWBRIDGE;
                 default: return 0;
             }
         }
 
         private static bool IsDefenseBuilding(eStructs type)
         {
-            return type == eStructs.STRUCT_GATEHOUSE || type == eStructs.STRUCT_GATE_MAIN ||
-                type == eStructs.STRUCT_GATE_INNER || type == eStructs.STRUCT_GATE_WOOD ||
-                type == eStructs.STRUCT_GATE_POSTERN || type == eStructs.STRUCT_DRAWBRIDGE ||
+            return IsGateBuilding(type) ||
                 type == eStructs.STRUCT_TOWER ||
                 ((int)type >= (int)eStructs.STRUCT_TOWER1 && (int)type <= (int)eStructs.STRUCT_TOWER5) ||
                 IsTowerRuin(type);
         }
+
+        private static bool IsGateBuilding(eStructs type) =>
+            type == eStructs.STRUCT_GATEHOUSE || type == eStructs.STRUCT_GATE_MAIN ||
+            type == eStructs.STRUCT_GATE_INNER || type == eStructs.STRUCT_GATE_WOOD ||
+            type == eStructs.STRUCT_GATE_POSTERN || type == eStructs.STRUCT_DRAWBRIDGE;
 
         private static bool IsTowerRuin(eStructs type) =>
             type == eStructs.STRUCT_TOWER5_DESTROYED ||
@@ -678,6 +970,20 @@ namespace ExtraFeatures
         private void LogTimer(string action, TrackedDefense record, int now) =>
             Shared.DebugLogHelper.LogInfo(log, $"AI {action}: {record.Describe()}, tick={now}.");
 
+        private void LogRebuildBlock(string reason, TrackedDefense record)
+        {
+            int now = CurrentTick();
+            if (rebuildDiagnostics.TryGetValue(record.RebuildIdentity, out DiagnosticState previous) &&
+                previous.Reason == reason && ElapsedTicks(now, previous.Tick) < DiagnosticRepeatTicks)
+            {
+                return;
+            }
+            rebuildDiagnostics[record.RebuildIdentity] = new DiagnosticState(reason, now);
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"AI defense rebuild blocked: reason={reason}, {record.Describe()}, tick={now}.");
+        }
+
         private void LogCallbackFailure(string operation, Exception ex)
         {
             if (callbackFailureLogged)
@@ -690,17 +996,38 @@ namespace ExtraFeatures
 
         private readonly struct PreparedFrame
         {
-            public PreparedFrame(byte status, short mapper, short positionCount, int firstPositionIndex)
+            public PreparedFrame(int activeLayout, byte status, short mapper, short positionCount, int firstPositionIndex)
             {
+                ActiveLayout = activeLayout;
                 Status = status;
                 Mapper = mapper;
                 PositionCount = positionCount;
                 FirstPositionIndex = firstPositionIndex;
             }
+            public int ActiveLayout { get; }
             public byte Status { get; }
             public short Mapper { get; }
             public short PositionCount { get; }
             public int FirstPositionIndex { get; }
+        }
+
+        private readonly struct DiagnosticState
+        {
+            public DiagnosticState(string reason, int tick)
+            {
+                Reason = reason;
+                Tick = tick;
+            }
+            public string Reason { get; }
+            public int Tick { get; }
+        }
+
+        private enum DefenseFamily
+        {
+            None,
+            Wall,
+            Gate,
+            Tower
         }
 
         private sealed class PendingDamage
@@ -791,10 +1118,6 @@ namespace ExtraFeatures
                 ? BuildWallIdentity(PlayerId, TileId)
                 : BuildBuildingIdentity(PlayerId, BuildingType, GlobalId, TileXBegin, TileYBegin);
             public string RebuildIdentity => $"{PlayerId}:{Kind}:{BuildingType}:{TileId}:{TileXBegin},{TileYBegin}-{TileXEnd},{TileYEnd}";
-            public bool IsTowerRelated => IsTowerRuin((eStructs)BuildingType) ||
-                BuildingType == (int)eStructs.STRUCT_TOWER ||
-                (BuildingType >= (int)eStructs.STRUCT_TOWER1 && BuildingType <= (int)eStructs.STRUCT_TOWER5);
-
             public static string BuildWallIdentity(int playerId, int tileId) => $"W:{playerId}:{tileId}";
             public static string BuildBuildingIdentity(int playerId, int type, int globalId, int x, int y) =>
                 $"B:{playerId}:{type}:{globalId}:{x}:{y}";
