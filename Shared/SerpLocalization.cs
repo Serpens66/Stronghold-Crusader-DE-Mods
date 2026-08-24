@@ -136,6 +136,8 @@ public static class SerpLocalization
     public const string EnableFastRecruitRallyMovementHelp = "SomeSettings.EnableFastRecruitRallyMovementHelp";
     public const string EnableMonksAlwaysRun = "SomeSettings.EnableMonksAlwaysRun";
     public const string EnableMonksAlwaysRunHelp = "SomeSettings.EnableMonksAlwaysRunHelp";
+    public const string EnablePortableShieldsOnWalls = "SomeSettings.EnablePortableShieldsOnWalls";
+    public const string EnablePortableShieldsOnWallsHelp = "SomeSettings.EnablePortableShieldsOnWallsHelp";
     public const string EnableKnightDismount = "SomeSettings.EnableKnightDismount";
     public const string EnableKnightDismountHelp = "SomeSettings.EnableKnightDismountHelp";
     public const string InstantHorse = "SomeSettings.InstantHorse";
@@ -458,6 +460,8 @@ public static class SerpLocalization
         { EnableFastRecruitRallyMovementHelp, "Newly recruited player and AI units move to their rally points using their own Vanilla Fast pace and animation while keeping terrain and state modifiers." },
         { EnableMonksAlwaysRun, "Monks Always Run" },
         { EnableMonksAlwaysRunHelp, "Lets Monks use the normal troop running decision and running animation instead of their special walking restriction. Applies to both the Fighting Monk and Temple Guard skins." },
+        { EnablePortableShieldsOnWalls, "Allow Portable Shields on Walls" },
+        { EnablePortableShieldsOnWallsHelp, "Lets portable shields use the normal troop pathing flag so they can enter connected walls, gatehouses, and towers via stairs. It does not let them climb enemy walls or create new routes." },
         { EnableKnightDismount, "Enable knight mount/dismount buttons" },
         { EnableKnightDismountHelp, "Adds command buttons to mount swordsmen and dismount mounted knights. Multiplayer actions use Script Extender's tick-aligned Chore transport." },
         { InstantHorse, "Instant Horse" },

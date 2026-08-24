@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.50",
+  "Version": "1.0.51",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.51",
+      "Changes": [
+        "Added an optional host setting that lets portable shields enter connected walls, gatehouses, and towers via stairs."
+      ]
+    },
     {
       "Version": "1.0.50",
       "Changes": [
