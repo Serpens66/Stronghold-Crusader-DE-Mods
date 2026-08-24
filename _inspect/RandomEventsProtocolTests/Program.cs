@@ -2,6 +2,7 @@ using MessagePack;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
 
 namespace RandomEvents
 {
@@ -15,6 +16,8 @@ namespace RandomEvents
             TestPackets();
             TestSaveState();
             TestPresentationTargeting();
+            TestSignpostSelection();
+            TestArcherSourceTargetingScope();
             Console.WriteLine($"PASS: RandomEvents protocol tests ({assertions} assertions).");
         }
 
@@ -102,6 +105,70 @@ namespace RandomEvents
             Assert(!RandomEventsPresentationScope.IsSuppressed, "presentation suppression is restored after dispatch");
             RandomEventsPresentationScope.GetSuppressedCallCounts(out int presentations, out int actionPoints);
             Assert(presentations == 1 && actionPoints == 1, "suppressed native UI calls are counted for diagnostics");
+        }
+
+        private static void TestSignpostSelection()
+        {
+            var candidates = new[]
+            {
+                new SignpostTarget(9, 100, 100, 50.0, "keep"),
+                new SignpostTarget(7, 200, 200, 25.0, "keep"),
+                new SignpostTarget(3, 300, 300, 25.0, "keep")
+            };
+            Assert(SignpostTargetSelection.TrySelectClosest(candidates, out SignpostTarget selected), "a closest signpost must be selected");
+            Assert(selected.BuildingId == 3, "equal-distance signposts use the lower building ID");
+            Assert(selected.TileX == 300 && selected.TileY == 300 && selected.DistanceReference == "keep", "selected signpost metadata is preserved");
+            Assert(!SignpostTargetSelection.TrySelectClosest(Array.Empty<SignpostTarget>(), out _), "an empty candidate list must fail closed");
+
+            var lordFallback = new[] { new SignpostTarget(11, 50, 60, 10.0, "living-lord") };
+            Assert(SignpostTargetSelection.TrySelectClosest(lordFallback, out SignpostTarget lordSelected) &&
+                lordSelected.DistanceReference == "living-lord", "the living-Lord anchor is preserved for diagnostics");
+        }
+
+        private static void TestArcherSourceTargetingScope()
+        {
+            IntPtr slots = Marshal.AllocHGlobal(ArcherSourceTargetingScope.SlotCount * sizeof(int));
+            IntPtr source = Marshal.AllocHGlobal(2 * sizeof(int));
+            try
+            {
+                int[] originals = Enumerable.Range(20, ArcherSourceTargetingScope.SlotCount).ToArray();
+                for (int index = 0; index < originals.Length; index++)
+                    Marshal.WriteInt32(slots, index * sizeof(int), originals[index]);
+                Marshal.WriteInt32(source, 42);
+                Marshal.WriteInt32(source, sizeof(int), 371);
+
+                var target = new SignpostTarget(944, 581, 185, 112.09, "keep");
+                Assert(ArcherSourceTargetingScope.TryBegin(
+                    slots, source, target, out IDisposable scope, out int originalX, out int originalY, out string failure),
+                    "valid archer targeting scope must begin: " + failure);
+                Assert(originalX == 42 && originalY == 371, "original archer source is captured for diagnostics");
+                Assert(Marshal.ReadInt32(slots) == 944, "selected signpost is exposed in slot zero");
+                for (int index = 1; index < ArcherSourceTargetingScope.SlotCount; index++)
+                    Assert(Marshal.ReadInt32(slots, index * sizeof(int)) == 0, $"signpost slot {index} is hidden");
+                Assert(Marshal.ReadInt32(source) == 581 && Marshal.ReadInt32(source, sizeof(int)) == 185, "target source coordinates are injected");
+
+                try
+                {
+                    using (scope)
+                        throw new InvalidOperationException("simulated event failure");
+                }
+                catch (InvalidOperationException)
+                {
+                }
+                scope.Dispose();
+                for (int index = 0; index < originals.Length; index++)
+                    Assert(Marshal.ReadInt32(slots, index * sizeof(int)) == originals[index], $"signpost slot {index} is restored");
+                Assert(Marshal.ReadInt32(source) == 42 && Marshal.ReadInt32(source, sizeof(int)) == 371, "source coordinates are restored after an exception");
+
+                Assert(!ArcherSourceTargetingScope.TryBegin(
+                    slots, source, new SignpostTarget(0, 581, 185, 0, "keep"),
+                    out _, out _, out _, out _), "invalid building IDs fail closed");
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(source);
+                Marshal.FreeHGlobal(slots);
+            }
         }
 
         private static RandomEventsConfigurationSnapshot CreateConfiguration() => new RandomEventsConfigurationSnapshot

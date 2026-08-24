@@ -11,6 +11,7 @@
   <PropertyGroup><ExtenderDir>$(MSBuildThisFileDirectory)..\..\shcde-script-extender\src\SHCDESE.BepInEx\bin\net481</ExtenderDir></PropertyGroup>
   <ItemGroup>
     <Reference Include="System" /><Reference Include="System.Core" /><Reference Include="System.Security" />
+    <Reference Include="BepInEx"><HintPath>$(MSBuildThisFileDirectory)..\..\RandomEvents\BepInEx\core\BepInEx.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="MessagePack"><HintPath>$(ExtenderDir)\MessagePack.dll</HintPath><Private>true</Private></Reference>
     <Reference Include="MessagePack.Annotations"><HintPath>$(ExtenderDir)\MessagePack.Annotations.dll</HintPath><Private>true</Private></Reference>
     <Reference Include="System.Buffers"><HintPath>$(ExtenderDir)\System.Buffers.dll</HintPath><Private>true</Private></Reference>
@@ -20,12 +21,16 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
+    <Compile Include="..\..\Shared\DebugLogHelper.cs"><Link>DebugLogHelper.cs</Link></Compile>
+    <Compile Include="..\..\Shared\NativePatternResolver.cs"><Link>NativePatternResolver.cs</Link></Compile>
+    <Compile Include="..\..\RandomEvents\src\ArcherSourceNativeLayout.cs"><Link>ArcherSourceNativeLayout.cs</Link></Compile>
     <Compile Include="..\..\RandomEvents\src\RandomEventsChorePacket.cs"><Link>RandomEventsChorePacket.cs</Link></Compile>
     <Compile Include="..\..\RandomEvents\src\RandomEventsInitializationAckPacket.cs"><Link>RandomEventsInitializationAckPacket.cs</Link></Compile>
     <Compile Include="..\..\RandomEvents\src\RandomEventsCooldownCodec.cs"><Link>RandomEventsCooldownCodec.cs</Link></Compile>
     <Compile Include="..\..\RandomEvents\src\RandomEventsPresentationScope.cs"><Link>RandomEventsPresentationScope.cs</Link></Compile>
     <Compile Include="..\..\RandomEvents\src\RandomEventsSaveState.cs"><Link>RandomEventsSaveState.cs</Link></Compile>
     <Compile Include="..\..\RandomEvents\src\RandomEventsState.cs"><Link>RandomEventsState.cs</Link></Compile>
+    <Compile Include="..\..\RandomEvents\src\SignpostTargeting.cs"><Link>SignpostTargeting.cs</Link></Compile>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

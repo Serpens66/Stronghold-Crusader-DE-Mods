@@ -248,3 +248,39 @@ managed repair-radius behavior remains available. For a new DLL, revalidate
 the `ExecuteBuildStep` ABI `(aivState, playerId, frameIndex, restrictedMode,
 freeOrForced)`, the frame bound `0x922`, both origin fields, and the placement
 helper ABI before updating the baseline hash.
+
+### Follow-up live result and minimal rebuild gate
+
+The 2026-08-24 `1.0.47` follow-up ran for about 61,500 simulation ticks with
+both native hooks installed and no callback failure. A player-4 tower at
+`(437,118)`, frame 107, produced ruins at ticks 43702, 47134 and 53484. Its
+successful Vanilla rebuilds occurred synchronously inside the same
+`ExecuteBuildStep` frame at ticks 44906 and 49556. Later calls at ticks 55256,
+57806 and 60356 reached the same placement helper but did not spawn; the repair
+proximity query at the same target was blocked by nearby enemies. This confirms
+that the existing proximity function is also the correct per-target gate for
+this rebuild path. It also confirms that returning its normal blocked result
+does not consume or globally stop the AIV frame: Vanilla revisits the target.
+
+The implemented delay therefore keeps no building IDs, destruction events or
+AIV status interpretation. During `OnStartMap(Pre)..Post` it records only that
+an AI tower/gate target position has existed. A later placement in the same
+`(playerId, frameIndex)` is a rebuild; its first Vanilla placement detection
+stores one immutable tick. Until the configured duration has elapsed, the
+synchronous proximity question returns Vanilla's blocked value. Rejected calls
+never rewrite that tick. Once elapsed, subsequent calls remain released even
+when the configured enemy radius independently blocks them. A successful
+synchronous spawn clears only that frame's missing-period timer. This makes the
+delay per target, keeps multi-part gate calls in one atomic frame state, and
+does not prevent Vanilla from advancing through other frames.
+
+Initial frame placements remain Vanilla: neither the delay nor the shared
+radius is applied until the target was observed as a prior tower/gate spawn.
+`-1` bypasses the respective rule, and `0` creates no delay state. Live setting
+changes continue to compare against the original first-detection tick.
+
+The same log contained 130 summarized proximity windows, including 32 with a
+native blocked result, but no `OnBuildingRepair` event. Consequently this run
+does not prove whether the visually observed wall work was an in-place repair
+or replacement through another native path; no new damaged-building behavior
+is inferred from that absence.

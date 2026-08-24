@@ -1453,19 +1453,13 @@ namespace RandomEvents
                 return SpawnBanditAttack(targetPlayerId, strength);
 
             IDisposable signpostScope = null;
-            int signpostBuildingId = -1;
-            int signpostTileX = 0;
-            int signpostTileY = 0;
-            double signpostDistance = double.MaxValue;
+            SignpostTarget signpostTarget = default;
 
             if (definition.RequiresSignpost &&
                 !signpostRegistry.TryBeginTargetedEvent(
                     targetPlayerId,
                     out signpostScope,
-                    out signpostBuildingId,
-                    out signpostTileX,
-                    out signpostTileY,
-                    out signpostDistance,
+                    out signpostTarget,
                     out string signpostFailure))
             {
                 LogError(
@@ -1505,8 +1499,11 @@ namespace RandomEvents
 
                 EngineInterface.GameAction(Enums.GameActionCommand.FreeBuild_Event, definition.TextId, strength);
                 string sourceDetail = definition.RequiresSignpost
-                    ? $"signpostBuildingId={signpostBuildingId}, signpostTile=({signpostTileX},{signpostTileY}), " +
-                      $"distanceToKeep={signpostDistance:0.00}"
+                    ? $"signpostBuildingId={signpostTarget.BuildingId}, " +
+                      $"signpostTile=({signpostTarget.TileX},{signpostTarget.TileY}), " +
+                      $"distanceReference={signpostTarget.DistanceReference}, " +
+                      $"signpostDistance={signpostTarget.Distance:0.00}, " +
+                      $"spawnTile=Vanilla-source({signpostTarget.TileX},{signpostTarget.TileY})"
                     : "signpost=not-required";
                 string unitDetail = definition.Kind == RandomEventKind.Archers
                     ? $"newUnits={DescribeNewUnits(unitGlobalIdsBefore)}"
@@ -1586,11 +1583,7 @@ namespace RandomEvents
 
                 if (!signpostRegistry.TryGetClosestSignpostToPlayer(
                         targetPlayerId,
-                        out int signpostBuildingId,
-                        out int spawnTileX,
-                        out int spawnTileY,
-                        out _,
-                        out _,
+                        out SignpostTarget signpostTarget,
                         out string signpostFailure))
                 {
                     LogError(
@@ -1600,19 +1593,19 @@ namespace RandomEvents
                 }
 
                 if (!TryResolveBanditSpawnTile(
-                        signpostBuildingId,
+                        signpostTarget.BuildingId,
                         targetPlayerId,
-                        spawnTileX,
-                        spawnTileY,
-                        out spawnTileX,
-                        out spawnTileY,
+                        signpostTarget.TileX,
+                        signpostTarget.TileY,
+                        out int spawnTileX,
+                        out int spawnTileY,
                         out int spawnTileId,
                         out ushort sourcePathComponent,
                         out string spawnFailure))
                 {
                     LogError(
                         $"Bandit event skipped: targetPlayerId={targetPlayerId}, " +
-                        $"reason=no usable tile adjacent to signpost {signpostBuildingId} ({spawnFailure}).");
+                        $"reason=no usable tile adjacent to signpost {signpostTarget.BuildingId} ({spawnFailure}).");
                     return false;
                 }
 
@@ -1734,7 +1727,10 @@ namespace RandomEvents
                 LogDebug(
                     $"Manual bandit event spawned: requestedUnits={requestedUnits}, createdUnits={spawnedUnits.Count}, " +
                     $"ownerPlayerId={banditOwnerPlayerId}, targetPlayerId={targetPlayerId}, " +
-                    $"groups={scheduledGroups}, signpostBuildingId={signpostBuildingId}.");
+                    $"groups={scheduledGroups}, signpostBuildingId={signpostTarget.BuildingId}, " +
+                    $"signpostTile=({signpostTarget.TileX},{signpostTarget.TileY}), " +
+                    $"distanceReference={signpostTarget.DistanceReference}, signpostDistance={signpostTarget.Distance:0.00}, " +
+                    $"spawnTile=({spawnTileX},{spawnTileY}), result=applied.");
                 return true;
             }
             catch (Exception ex)
@@ -2312,11 +2308,7 @@ namespace RandomEvents
 
             if (!signpostRegistry.TryGetClosestSignpostToPlayer(
                     targetPlayerId,
-                    out int signpostBuildingId,
-                    out int signpostX,
-                    out int signpostY,
-                    out double signpostDistance,
-                    out string distanceReference,
+                    out SignpostTarget signpostTarget,
                     out string signpostFailure))
             {
                 LogError(
@@ -2326,15 +2318,17 @@ namespace RandomEvents
             }
 
             List<RabbitSpawnTile> spawnTiles = FindWildlifeSpawnTiles(
-                signpostX,
-                signpostY,
+                signpostTarget.TileX,
+                signpostTarget.TileY,
                 LionSpawnRadius,
                 lionTileMask);
             if (spawnTiles.Count == 0)
             {
                 LogError(
-                    $"Native lion event skipped: targetPlayerId={targetPlayerId}, signpostBuildingId={signpostBuildingId}, " +
-                    $"signpostTile=({signpostX},{signpostY}), reason=no Vanilla-compatible tile exists within radius {LionSpawnRadius}.");
+                    $"Native lion event skipped: targetPlayerId={targetPlayerId}, signpostBuildingId={signpostTarget.BuildingId}, " +
+                    $"signpostTile=({signpostTarget.TileX},{signpostTarget.TileY}), " +
+                    $"distanceReference={signpostTarget.DistanceReference}, signpostDistance={signpostTarget.Distance:0.00}, " +
+                    $"reason=no Vanilla-compatible tile exists within radius {LionSpawnRadius}.");
                 return false;
             }
 
@@ -2346,10 +2340,11 @@ namespace RandomEvents
                 "Lion attack",
                 status,
                 targetPlayerId,
-                $"strength={strength}, signpostBuildingId={signpostBuildingId}, " +
-                $"signpostTile=({signpostX},{signpostY}), distanceReference={distanceReference}, " +
-                $"signpostDistance={signpostDistance:0.00}, " +
-                $"spawnTile=({spawnTile.X},{spawnTile.Y}), spawnRadius={LionSpawnRadius}, detail={detail}");
+                $"strength={strength}, signpostBuildingId={signpostTarget.BuildingId}, " +
+                $"signpostTile=({signpostTarget.TileX},{signpostTarget.TileY}), " +
+                $"distanceReference={signpostTarget.DistanceReference}, signpostDistance={signpostTarget.Distance:0.00}, " +
+                $"spawnTile=({spawnTile.X},{spawnTile.Y}), spawnRadius={LionSpawnRadius}, " +
+                $"result={status}, detail={detail}");
             return status == NativeEventDispatchStatus.Applied;
         }
 

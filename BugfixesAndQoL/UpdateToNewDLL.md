@@ -197,6 +197,15 @@ callback per player/mapper and one representative blocked category per
 five-second diagnostic window. Expected per-tile `MarkedForDeletion` follow-ups are suppressed; the
 successful ruin mark itself remains fully logged.
 
+ExtraFeatures `1.0.48` can register one optional process-lifetime deletion guard
+through `BugfixesAndQoLPlugin.TryRegisterTowerRuinDeletionGuard`. The guard is
+consulted only after the exact same-owner tower ruin and footprint have already
+been validated. It postpones `DeleteBuildingSafe` while that concrete AIV
+frame's non-stacking rebuild delay is active or its configured enemy-proximity
+query is blocked. Without a registered consumer, the standalone fix retains
+its prior behavior. Guard errors fail closed for the optional ruin mutation and
+remain isolated by the existing validator callback boundary.
+
 The first-build AIV signature stayed at `0x53F0B`, but its absolute map-row
 operand moved from `0x402EF2C` to `0x402FF2C`; that relocation is now wildcarded
 while the surrounding player/index/state semantics remain fully validated.

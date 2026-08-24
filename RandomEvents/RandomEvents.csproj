@@ -35,6 +35,7 @@
     <Compile Include="..\Shared\GameModeHelper.cs"><Link>Shared\GameModeHelper.cs</Link></Compile>
     <Compile Include="..\Shared\SerpLocalization.cs"><Link>Shared\SerpLocalization.cs</Link></Compile>
     <Compile Include="src\RandomEventDefinitions.cs" />
+    <Compile Include="src\ArcherSourceNativeLayout.cs" />
     <Compile Include="src\NativeBanditEventSupport.cs" />
     <Compile Include="src\NativeVanillaEventDispatcher.cs" />
     <Compile Include="src\NativeWildlifeEventDispatcher.cs" />
@@ -49,6 +50,7 @@
     <Compile Include="src\RandomEventsState.cs" />
     <Compile Include="src\RandomEventsSettingsViewModel.cs" />
     <Compile Include="src\ScenarioSignpostRegistry.cs" />
+    <Compile Include="src\SignpostTargeting.cs" />
     <Compile Include="src\SignpostPlacementService.cs" />
   </ItemGroup>
   <ItemGroup><Content Include="Locales\*.txt"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content></ItemGroup>

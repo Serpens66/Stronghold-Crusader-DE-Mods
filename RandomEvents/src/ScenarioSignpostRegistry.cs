@@ -12,12 +12,12 @@ namespace RandomEvents
 {
     internal sealed unsafe class ScenarioSignpostRegistry
     {
-        private const int SlotCount = 8;
+        private const int SlotCount = ArcherSourceTargetingScope.SlotCount;
         private const int ReferenceSignpostIdsOffset = 0x18388C;
         private const int ExpectedLookupFunctionRva = 0xCB800;
         private const int CandidateValidationWindow = 0x240;
-        private const int AttackPointDeltaFromSlots = 0x1B2C;
-        private const int ScenarioPointCount = 4;
+        private const int ExpectedArcherSourceLoadRva = 0x104E13;
+        private const int ArcherSourceValidationWindow = 0x80;
 
         // CrusaderDE.dll SHA-256 FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
         // RVA 0xCB800 reads eight building IDs at gPlayerManager+0x18388C and accepts STRUCT_SIGNPOST (52).
@@ -25,9 +25,13 @@ namespace RandomEvents
         private const string LookupPattern =
             "48 63 81 ?? ?? ?? ?? 4C 8D 1D ?? ?? ?? ?? 45 33 D2 4C 8B C9 45 8B C2 85 C0 7E ?? " +
             "48 69 D0 2C 03 00 00 B8 01 00 00 00 66 42 83 BC 1A 2E 01 00 00 34";
+        private const string ArcherSourcePattern =
+            "48 63 C8 48 8D 1D ?? ?? ?? ?? 8B 05 ?? ?? ?? ?? 48 03 C9 48 89 44 24 30 BA 03 00 00 00 " +
+            "8B 05 ?? ?? ?? ?? C7 44 24 28 16 00 00 00 49 8D 34 CE 44 89 44 24 20 " +
+            "44 8B 8E ?? ?? ?? ?? 49 8D 3C CE 44 8B 87 ?? ?? ?? ??";
         private readonly ManualLogSource log;
         private IntPtr slotsAddress;
-        private IntPtr attackPointsAddress;
+        private IntPtr archerSourceCoordinatesAddress;
         private readonly HashSet<int> eligibleBuildingIds = new HashSet<int>();
         private bool eligibilityConfigured;
         private string unavailableReason = "native compatibility resolution has not run.";
@@ -63,7 +67,7 @@ namespace RandomEvents
         public void InitializeNative(IntPtr libraryHandle, ReadOnlySpan<byte> memory, bool referenceHashMatches)
         {
             slotsAddress = IntPtr.Zero;
-            attackPointsAddress = IntPtr.Zero;
+            archerSourceCoordinatesAddress = IntPtr.Zero;
             unavailableReason = "native compatibility resolution failed.";
             targetingUnavailableReason = "native event targeting compatibility resolution failed.";
 
@@ -77,12 +81,12 @@ namespace RandomEvents
 
                 slotsAddress = new IntPtr(checked((long)playerManager + resolution.SignpostIdsOffset));
                 unavailableReason = string.Empty;
-                InitializeTargetingFields(resolution.SignpostIdsOffset, playerManager);
+                InitializeArcherTargeting(memory, referenceHashMatches, resolution.SignpostIdsOffset, playerManager);
             }
             catch (Exception ex)
             {
                 slotsAddress = IntPtr.Zero;
-                attackPointsAddress = IntPtr.Zero;
+                archerSourceCoordinatesAddress = IntPtr.Zero;
                 unavailableReason = ex.Message;
                 LogError(
                     "Native signpost compatibility validation failed. Automatic edge-signpost discovery, placement, and " +
@@ -104,148 +108,51 @@ namespace RandomEvents
         public bool TryBeginTargetedEvent(
             int targetPlayerId,
             out IDisposable scope,
-            out int signpostBuildingId,
-            out int signpostTileX,
-            out int signpostTileY,
-            out double signpostDistance,
+            out SignpostTarget target,
             out string failure)
         {
             scope = null;
-            signpostBuildingId = -1;
-            signpostTileX = 0;
-            signpostTileY = 0;
-            signpostDistance = double.MaxValue;
+            target = default;
             failure = string.Empty;
 
-            if (!IsAvailable || attackPointsAddress == IntPtr.Zero)
+            if (!IsAvailable || archerSourceCoordinatesAddress == IntPtr.Zero)
             {
                 failure = string.IsNullOrEmpty(targetingUnavailableReason) ? unavailableReason : targetingUnavailableReason;
                 return false;
             }
 
-            int keepId = GamePlayerManagerAPI.Instance.GetPlayerKeepId(targetPlayerId);
-            if (keepId <= 0 ||
-                !GameBuildingManagerAPI.Instance.TryGetBuildingById(keepId, out GameBuilding* keep) ||
-                (keep->r_AliveState != AliveState.NeedsInit && keep->r_AliveState != AliveState.IsAlive))
+            if (!TryGetClosestSignpostToPlayer(targetPlayerId, out target, out failure))
             {
-                failure = $"target player {targetPlayerId} has no usable keep.";
                 return false;
             }
-
-            double keepX = (keep->r_TilePositionXBegin + keep->r_TilePositionXEnd) / 2.0;
-            double keepY = (keep->r_TilePositionYBegin + keep->r_TilePositionYEnd) / 2.0;
-            int[] originalSlots = ReadRegisteredBuildingIds();
-            List<SignpostDistance> usable = new List<SignpostDistance>();
-            HashSet<int> seen = new HashSet<int>();
-            foreach (int buildingId in originalSlots)
+            if (!ArcherSourceTargetingScope.TryBegin(
+                    slotsAddress,
+                    archerSourceCoordinatesAddress,
+                    target,
+                    out scope,
+                    out int originalSourceX,
+                    out int originalSourceY,
+                    out failure))
             {
-                if (!IsEligible(buildingId) || !seen.Add(buildingId) ||
-                    !TryGetUsableSignpost(buildingId, out GameBuilding* signpost))
-                    continue;
-
-                double x = (signpost->r_TilePositionXBegin + signpost->r_TilePositionXEnd) / 2.0;
-                double y = (signpost->r_TilePositionYBegin + signpost->r_TilePositionYEnd) / 2.0;
-                double deltaX = x - keepX;
-                double deltaY = y - keepY;
-                usable.Add(new SignpostDistance(
-                    buildingId,
-                    Math.Sqrt(deltaX * deltaX + deltaY * deltaY),
-                    (short)Math.Round(x),
-                    (short)Math.Round(y)));
-            }
-
-            if (usable.Count == 0)
-            {
-                failure = "no alive registered Vanilla signpost exists.";
-                return false;
-            }
-
-            usable.Sort((left, right) =>
-            {
-                int distanceComparison = left.Distance.CompareTo(right.Distance);
-                return distanceComparison != 0
-                    ? distanceComparison
-                    : left.BuildingId.CompareTo(right.BuildingId);
-            });
-            SignpostDistance selected = usable[0];
-            short[] originalAttackPoints = ReadScenarioPoints(attackPointsAddress);
-            short[] targetedAttackPoints = CreateTargetedScenarioPoints(selected.TileX, selected.TileY);
-            try
-            {
-                // The archer action spawns at an attack scenario point. If every point is disabled,
-                // Vanilla falls back to one shared map location even when the signpost slot is isolated.
-                WriteScenarioPoints(attackPointsAddress, targetedAttackPoints);
-                for (int slot = 0; slot < SlotCount; slot++)
-                {
-                    // Vanilla chooses a source internally. Exposing only the nearest source prevents
-                    // peers from making different local choices while processing the same Chore.
-                    int buildingId = slot == 0 ? selected.BuildingId : 0;
-                    Marshal.WriteInt32(slotsAddress, slot * sizeof(int), buildingId);
-                }
-
-                for (int slot = 0; slot < SlotCount; slot++)
-                {
-                    int expectedBuildingId = slot == 0 ? selected.BuildingId : 0;
-                    int actualBuildingId = Marshal.ReadInt32(slotsAddress, slot * sizeof(int));
-                    if (actualBuildingId != expectedBuildingId)
-                    {
-                        throw new InvalidOperationException(
-                            $"signpost slot {slot} contains {actualBuildingId} instead of {expectedBuildingId}.");
-                    }
-                }
-
-                short[] actualAttackPoints = ReadScenarioPoints(attackPointsAddress);
-                for (int index = 0; index < targetedAttackPoints.Length; index++)
-                {
-                    if (actualAttackPoints[index] != targetedAttackPoints[index])
-                    {
-                        throw new InvalidOperationException(
-                            $"attack-point value {index} contains {actualAttackPoints[index]} " +
-                            $"instead of {targetedAttackPoints[index]}.");
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                // Never leave Vanilla's scenario sources partially reordered after a failed native write.
-                RestoreTargetingFields(originalSlots, originalAttackPoints);
-                failure = $"temporary native source prioritization failed: {ex.Message}";
                 LogError($"Native event targeting failed safely: {failure}");
                 return false;
             }
 
-            signpostBuildingId = selected.BuildingId;
-            signpostTileX = selected.TileX;
-            signpostTileY = selected.TileY;
-            signpostDistance = selected.Distance;
-            scope = new TargetingScope(
-                slotsAddress,
-                attackPointsAddress,
-                originalSlots,
-                originalAttackPoints);
             LogDebug(
                 $"Native event source isolated: targetPlayerId={targetPlayerId}, " +
-                $"signpostBuildingId={selected.BuildingId}, tile=({selected.TileX},{selected.TileY}), " +
-                $"distanceToKeep={selected.Distance:0.00}, usableRegisteredSignposts={usable.Count}, exposedSources=1, " +
-                $"originalAttackPoints={FormatScenarioPoints(originalAttackPoints)}, " +
-                $"injectedAttackPoints={FormatScenarioPoints(targetedAttackPoints)}.");
+                $"signpostBuildingId={target.BuildingId}, tile=({target.TileX},{target.TileY}), " +
+                $"distanceReference={target.DistanceReference}, signpostDistance={target.Distance:0.00}, exposedSources=1, " +
+                $"originalArcherSource=({originalSourceX},{originalSourceY}), " +
+                $"injectedArcherSource=({target.TileX},{target.TileY}).");
             return true;
         }
 
         public bool TryGetClosestSignpostToPlayer(
             int targetPlayerId,
-            out int signpostBuildingId,
-            out int tileX,
-            out int tileY,
-            out double distance,
-            out string distanceReference,
+            out SignpostTarget target,
             out string failure)
         {
-            signpostBuildingId = -1;
-            tileX = 0;
-            tileY = 0;
-            distance = double.MaxValue;
-            distanceReference = string.Empty;
+            target = default;
             failure = string.Empty;
 
             if (!IsAvailable)
@@ -254,12 +161,13 @@ namespace RandomEvents
                 return false;
             }
 
-            if (!TryGetPlayerAnchor(targetPlayerId, out double anchorX, out double anchorY, out distanceReference))
+            if (!TryGetPlayerAnchor(targetPlayerId, out double anchorX, out double anchorY, out string distanceReference))
             {
                 failure = $"target player {targetPlayerId} has neither a usable keep nor a living Lord anchor.";
                 return false;
             }
 
+            List<SignpostTarget> candidates = new List<SignpostTarget>();
             HashSet<int> seen = new HashSet<int>();
             foreach (int buildingId in ReadRegisteredBuildingIds())
             {
@@ -271,17 +179,15 @@ namespace RandomEvents
                 double y = (signpost->r_TilePositionYBegin + signpost->r_TilePositionYEnd) / 2.0;
                 double deltaX = x - anchorX;
                 double deltaY = y - anchorY;
-                double candidateDistance = Math.Sqrt(deltaX * deltaX + deltaY * deltaY);
-                if (candidateDistance >= distance)
-                    continue;
-
-                signpostBuildingId = buildingId;
-                tileX = (int)Math.Round(x);
-                tileY = (int)Math.Round(y);
-                distance = candidateDistance;
+                candidates.Add(new SignpostTarget(
+                    buildingId,
+                    (int)Math.Round(x),
+                    (int)Math.Round(y),
+                    Math.Sqrt(deltaX * deltaX + deltaY * deltaY),
+                    distanceReference));
             }
 
-            if (signpostBuildingId <= 0)
+            if (!SignpostTargetSelection.TrySelectClosest(candidates, out target))
             {
                 failure = "no alive registered Vanilla signpost exists.";
                 return false;
@@ -378,26 +284,27 @@ namespace RandomEvents
         private bool IsEligible(int buildingId) =>
             !eligibilityConfigured || eligibleBuildingIds.Contains(buildingId);
 
-        private void InitializeTargetingFields(int signpostIdsOffset, ulong playerManager)
+        private void InitializeArcherTargeting(
+            ReadOnlySpan<byte> memory,
+            bool referenceHashMatches,
+            int signpostIdsOffset,
+            ulong playerManager)
         {
-            int attackPointsOffset = signpostIdsOffset - AttackPointDeltaFromSlots;
-            if (attackPointsOffset < 0x10000)
+            try
             {
-                targetingUnavailableReason = "derived scenario-point offsets are outside the guarded manager range.";
-                LogError($"Native event targeting disabled: {targetingUnavailableReason}");
-                return;
+                ArcherSourceResolution resolution = ResolveArcherSource(memory, referenceHashMatches, signpostIdsOffset);
+                archerSourceCoordinatesAddress = new IntPtr(
+                    checked((long)playerManager + resolution.SourceXOffset));
+                targetingUnavailableReason = string.Empty;
             }
-
-            IntPtr attackCandidate = new IntPtr(checked((long)playerManager + attackPointsOffset));
-            if (!AreScenarioPointsPlausible(attackCandidate))
+            catch (Exception ex)
             {
-                targetingUnavailableReason = "derived attack scenario-point array failed coordinate validation.";
-                LogError($"Native event targeting disabled: {targetingUnavailableReason}");
-                return;
+                archerSourceCoordinatesAddress = IntPtr.Zero;
+                targetingUnavailableReason = ex.Message;
+                LogError(
+                    "Native archer targeting disabled while signpost selection for bandits and lions remains active: " +
+                    targetingUnavailableReason);
             }
-
-            attackPointsAddress = attackCandidate;
-            targetingUnavailableReason = string.Empty;
         }
 
         private static bool TryGetUsableSignpost(int buildingId, out GameBuilding* building)
@@ -445,57 +352,52 @@ namespace RandomEvents
             return true;
         }
 
-        private static bool AreScenarioPointsPlausible(IntPtr address)
+        private ArcherSourceResolution ResolveArcherSource(
+            ReadOnlySpan<byte> memory,
+            bool referenceHashMatches,
+            int signpostIdsOffset)
         {
-            for (int index = 0; index < ScenarioPointCount * 2; index++)
+            if (referenceHashMatches)
             {
-                short value = Marshal.ReadInt16(address, index * sizeof(short));
-                // -1 is Vanilla's unused-coordinate sentinel; non-negative values are map tiles.
-                if (value < -1 || value >= 800)
-                    return false;
+                if (!TryValidateArcherSourceCandidate(
+                        memory,
+                        ExpectedArcherSourceLoadRva,
+                        signpostIdsOffset,
+                        out int sourceXOffset,
+                        out string validationFailure))
+                {
+                    throw new InvalidOperationException(
+                        $"reference archer source RVA 0x{ExpectedArcherSourceLoadRva:X} failed local semantic validation: " +
+                        validationFailure);
+                }
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    $"Native address resolved: name=archer signpost source, method=reference-rva, " +
+                    $"rva=0x{ExpectedArcherSourceLoadRva:X}, sourceXOffset=0x{sourceXOffset:X}, " +
+                    $"sourceYOffset=0x{sourceXOffset + sizeof(int):X}, slotStride=0x10.");
+                return new ArcherSourceResolution(sourceXOffset);
             }
-            return true;
-        }
 
-        private void RestoreTargetingFields(
-            int[] originalSlots,
-            short[] originalAttackPoints)
-        {
-            for (int slot = 0; slot < SlotCount; slot++)
-                Marshal.WriteInt32(slotsAddress, slot * sizeof(int), originalSlots[slot]);
-            WriteScenarioPoints(attackPointsAddress, originalAttackPoints);
-        }
-
-        private static short[] ReadScenarioPoints(IntPtr address)
-        {
-            short[] result = new short[ScenarioPointCount * 2];
-            for (int index = 0; index < result.Length; index++)
-                result[index] = Marshal.ReadInt16(address, index * sizeof(short));
-            return result;
-        }
-
-        private static short[] CreateTargetedScenarioPoints(short tileX, short tileY)
-        {
-            short[] result = new short[ScenarioPointCount * 2];
-            for (int index = 0; index < result.Length; index++)
-                result[index] = -1;
-            result[0] = tileX;
-            result[1] = tileY;
-            return result;
-        }
-
-        private static string FormatScenarioPoints(short[] values)
-        {
-            string[] points = new string[ScenarioPointCount];
-            for (int index = 0; index < ScenarioPointCount; index++)
-                points[index] = $"({values[index * 2]},{values[index * 2 + 1]})";
-            return "[" + string.Join(",", points) + "]";
-        }
-
-        private static void WriteScenarioPoints(IntPtr address, short[] values)
-        {
-            for (int index = 0; index < ScenarioPointCount * 2; index++)
-                Marshal.WriteInt16(address, index * sizeof(short), values[index]);
+            int match = NativePatternResolver.FindUniquePattern(
+                memory,
+                ArcherSourcePattern,
+                "archer signpost source");
+            if (!TryValidateArcherSourceCandidate(
+                    memory,
+                    match,
+                    signpostIdsOffset,
+                    out int fallbackSourceXOffset,
+                    out string fallbackFailure))
+            {
+                throw new InvalidOperationException(
+                    $"archer source signature candidate 0x{match:X} failed validation: {fallbackFailure}");
+            }
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"Native address resolved: name=archer signpost source, method=signature-fallback, " +
+                $"rva=0x{match:X}, sourceXOffset=0x{fallbackSourceXOffset:X}, " +
+                $"sourceYOffset=0x{fallbackSourceXOffset + sizeof(int):X}, slotStride=0x10.");
+            return new ArcherSourceResolution(fallbackSourceXOffset);
         }
 
         private NativeLookupResolution ResolveLookup(ReadOnlySpan<byte> memory, bool referenceHashMatches)
@@ -645,6 +547,64 @@ namespace RandomEvents
             return true;
         }
 
+        private static bool TryValidateArcherSourceCandidate(
+            ReadOnlySpan<byte> memory,
+            int candidateRva,
+            int signpostIdsOffset,
+            out int sourceXOffset,
+            out string failure)
+        {
+            sourceXOffset = -1;
+            failure = string.Empty;
+            if (candidateRva < 0 || candidateRva > memory.Length - 3 ||
+                memory[candidateRva] != 0x48 || memory[candidateRva + 1] != 0x63 || memory[candidateRva + 2] != 0xC8)
+            {
+                failure = "candidate does not begin with the selected-slot sign extension.";
+                return false;
+            }
+
+            int end = Math.Min(memory.Length - 7, candidateRva + ArcherSourceValidationWindow);
+            List<int> xOffsets = new List<int>();
+            List<int> yOffsets = new List<int>();
+            for (int offset = candidateRva; offset <= end; offset++)
+            {
+                if (memory[offset] != 0x44 || memory[offset + 1] != 0x8B)
+                    continue;
+                if (memory[offset + 2] == 0x87)
+                    xOffsets.Add(NativePatternResolver.ReadInt32(memory, offset + 3));
+                else if (memory[offset + 2] == 0x8E)
+                    yOffsets.Add(NativePatternResolver.ReadInt32(memory, offset + 3));
+            }
+
+            if (xOffsets.Count != 2 || yOffsets.Count != 2 ||
+                xOffsets[0] != xOffsets[1] || yOffsets[0] != yOffsets[1])
+            {
+                failure = $"expected two matching X/Y loads but found X=[{string.Join(",", xOffsets)}], " +
+                    $"Y=[{string.Join(",", yOffsets)}].";
+                return false;
+            }
+            if (yOffsets[0] != xOffsets[0] + sizeof(int))
+            {
+                failure = $"source Y offset 0x{yOffsets[0]:X} does not immediately follow X offset 0x{xOffsets[0]:X}.";
+                return false;
+            }
+            if (xOffsets[0] != signpostIdsOffset + 0x40)
+            {
+                failure = $"source X offset 0x{xOffsets[0]:X} is not signpost slots 0x{signpostIdsOffset:X} + 0x40.";
+                return false;
+            }
+            if (!ContainsBytes(memory, candidateRva, end, new byte[] { 0x48, 0x03, 0xC9 }) ||
+                !ContainsBytes(memory, candidateRva, end, new byte[] { 0x49, 0x8D, 0x34, 0xCE }) ||
+                !ContainsBytes(memory, candidateRva, end, new byte[] { 0x49, 0x8D, 0x3C, 0xCE }))
+            {
+                failure = "selected-slot scaling does not prove the expected 0x10-byte coordinate-record stride.";
+                return false;
+            }
+
+            sourceXOffset = xOffsets[0];
+            return true;
+        }
+
         private static bool ContainsBytes(ReadOnlySpan<byte> memory, int start, int end, byte[] needle)
         {
             for (int offset = start; offset <= end - needle.Length; offset++)
@@ -672,51 +632,14 @@ namespace RandomEvents
             public int SignpostIdsOffset { get; }
         }
 
-        private readonly struct SignpostDistance
+        private readonly struct ArcherSourceResolution
         {
-            public SignpostDistance(int buildingId, double distance, short tileX, short tileY)
+            public ArcherSourceResolution(int sourceXOffset)
             {
-                BuildingId = buildingId;
-                Distance = distance;
-                TileX = tileX;
-                TileY = tileY;
+                SourceXOffset = sourceXOffset;
             }
 
-            public int BuildingId { get; }
-            public double Distance { get; }
-            public short TileX { get; }
-            public short TileY { get; }
-        }
-
-        private sealed class TargetingScope : IDisposable
-        {
-            private readonly IntPtr slots;
-            private readonly IntPtr attackPoints;
-            private readonly int[] originalSlots;
-            private readonly short[] originalAttackPoints;
-            private bool disposed;
-
-            public TargetingScope(
-                IntPtr slots,
-                IntPtr attackPoints,
-                int[] originalSlots,
-                short[] originalAttackPoints)
-            {
-                this.slots = slots;
-                this.attackPoints = attackPoints;
-                this.originalSlots = originalSlots;
-                this.originalAttackPoints = originalAttackPoints;
-            }
-
-            public void Dispose()
-            {
-                if (disposed)
-                    return;
-                for (int slot = 0; slot < SlotCount; slot++)
-                    Marshal.WriteInt32(slots, slot * sizeof(int), originalSlots[slot]);
-                WriteScenarioPoints(attackPoints, originalAttackPoints);
-                disposed = true;
-            }
+            public int SourceXOffset { get; }
         }
     }
 }

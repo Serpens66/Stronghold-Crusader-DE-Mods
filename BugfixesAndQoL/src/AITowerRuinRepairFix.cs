@@ -220,6 +220,8 @@ namespace BugfixesAndQoL
 
             eStructs ruinType = building->r_BuildingType;
             uint globalId = building->r_GlobalId;
+            if (!BugfixesAndQoLPlugin.IsTowerRuinDeletionAllowed(playerId, tileId, mapperValue))
+                return $"blocked-ruin-deletion-deferred-by-external-guard:buildingId={buildingId},globalId={globalId},type={ruinType}";
             if (!buildingApi.DeleteBuildingSafe(buildingId))
                 return $"blocked-ruin-delete-rejected:buildingId={buildingId},globalId={globalId},type={ruinType}";
 

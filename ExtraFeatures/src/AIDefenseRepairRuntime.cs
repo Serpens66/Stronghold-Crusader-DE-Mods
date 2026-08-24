@@ -2,6 +2,7 @@
 using BepInEx.Logging;
 using R3;
 using SHCDESE.API;
+using SHCDESE.Detours;
 using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.Buildings;
 using SHCDESE.EventAPI.MapLoader;
@@ -10,6 +11,7 @@ using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using System.Reflection;
 using System.Text;
 using Zhuqiaomon.Hooks;
 using Zhuqiaomon.Hooks.Transaction;
@@ -64,6 +66,10 @@ namespace ExtraFeatures
         // LastTick once and can never postpone or otherwise affect a later Vanilla call.
         private readonly Dictionary<BuildStepKey, BuildStepHistory> buildStepHistory =
             new Dictionary<BuildStepKey, BuildStepHistory>();
+        private readonly Dictionary<BuildStepKey, RebuildDelayState> rebuildDelays =
+            new Dictionary<BuildStepKey, RebuildDelayState>();
+        private readonly HashSet<DefenseTargetKey> observedDefenseTargets =
+            new HashSet<DefenseTargetKey>();
         private readonly HashSet<string> callbackFailuresLogged = new HashSet<string>(StringComparer.Ordinal);
         private readonly RepairPlayerDiagnostics[] repairPlayers = new RepairPlayerDiagnostics[9];
         private readonly int?[] maintenanceLastTicks = new int?[9];
@@ -80,6 +86,7 @@ namespace ExtraFeatures
         private bool mapActive;
         private bool executeBuildStepConfirmed;
         private bool invalidFrameLogged;
+        private bool mapPrepared;
         private bool disposed;
 
         public AIDefenseRepairRuntime(ManualLogSource log, ExtraFeaturesViewModel settings)
@@ -98,12 +105,11 @@ namespace ExtraFeatures
             subscriptions.Add(BuildingR3EventHooks.OnBuildingAllowRepairInProximity.Observable.Subscribe(OnRepairProximity));
             subscriptions.Add(BuildingR3EventHooks.OnBuildingRepair.Observable.Subscribe(OnBuildingRepair));
             subscriptions.Add(BuildingR3EventHooks.OnBuildingSpawn.Observable.Subscribe(OnBuildingSpawn));
-            subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable
-                .Where(args => args.Phase == EventHookPhase.Post).Subscribe(_ => BeginMap()));
+            subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable.Subscribe(OnStartMap));
             subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
                 .Where(args => args.Phase == EventHookPhase.Post).Subscribe(_ => ResetMap()));
             initialized = true;
-            LogInfo("AI defense repair-radius and both native AIV branch diagnostics initialized; rebuild timing remains observational until the new trace is evaluated.");
+            LogInfo("AI defense repair-radius, per-frame rebuild delay and native AIV branch diagnostics initialized.");
         }
 
         public void InitializeNative(IntPtr libraryHandle, ReadOnlySpan<byte> memory, bool referenceHashMatches)
@@ -144,6 +150,16 @@ namespace ExtraFeatures
                 nativeInitialized = true;
                 LogInfo($"AI defense-path diagnostics installed: executeBuildStepRva=0x{executeBuildStep.Rva:X}, " +
                     $"maintenanceRva=0x{maintenance.Rva:X}, placementRva=0x{placement.Rva:X}.");
+                try
+                {
+                    TryRegisterTowerRuinDeletionGuard();
+                }
+                catch (Exception ex)
+                {
+                    Shared.DebugLogHelper.LogError(log,
+                        $"AI defense tower-ruin deletion guard registration failed; rebuild timing remains active, " +
+                        $"but the optional ruin fix may remove a ruin before release: {ex}");
+                }
             }
             catch
             {
@@ -168,16 +184,38 @@ namespace ExtraFeatures
             ResetMap();
         }
 
+        private void OnStartMap(MapStartEventArgs args)
+        {
+            if (args.Phase == EventHookPhase.Pre)
+            {
+                mapActive = false;
+                ResetDiagnostics();
+                mapPrepared = true;
+                return;
+            }
+
+            if (args.Phase == EventHookPhase.Post)
+                BeginMap();
+        }
+
         private void BeginMap()
         {
-            ResetDiagnostics();
+            // Pre/Post surrounds finished-castle spawning. Keeping those spawn positions is the
+            // minimal evidence needed to distinguish an initial placement from a later rebuild.
+            if (!mapPrepared)
+                ResetDiagnostics();
+            mapPrepared = false;
             mapActive = true;
-            LogInfo($"AI defense diagnostic map state started: repairRadius={settings.AIRepairEnemyProximity}, rebuildDelaySeconds={settings.AITowerGateRebuildDelaySeconds}, rebuildDelayMode=observational.");
+            LogInfo($"AI defense map state started: repairRadius={settings.AIRepairEnemyProximity}, " +
+                $"rebuildDelaySeconds={settings.AITowerGateRebuildDelaySeconds}, " +
+                $"knownInitialDefenseTargets={observedDefenseTargets.Count}, " +
+                "rebuildDelayMode=per-frame-first-detection.");
         }
 
         private void ResetMap()
         {
             mapActive = false;
+            mapPrepared = false;
             ResetDiagnostics();
         }
 
@@ -190,6 +228,8 @@ namespace ExtraFeatures
             executeBuildStepConfirmed = false;
             invalidFrameLogged = false;
             buildStepHistory.Clear();
+            rebuildDelays.Clear();
+            observedDefenseTargets.Clear();
             callbackFailuresLogged.Clear();
             Array.Clear(maintenanceLastTicks, 0, maintenanceLastTicks.Length);
             Array.Clear(maintenanceOccurrences, 0, maintenanceOccurrences.Length);
@@ -199,7 +239,7 @@ namespace ExtraFeatures
 
         private void OnRepairProximity(BuildingAllowRepairInProximityEventArgs args)
         {
-            if (!mapActive || !settings.EnableMod || settings.AIRepairEnemyProximity < 0)
+            if (!mapActive || !settings.EnableMod)
                 return;
 
             try
@@ -209,6 +249,31 @@ namespace ExtraFeatures
 
                 if (args.Phase == EventHookPhase.Pre)
                 {
+                    BuildStepContext context = activeContext;
+                    if (context != null && context.PlayerId == args.PlayerId && context.DelayBlocked)
+                    {
+                        // The measured ExecuteBuildStep path asks this native question after the
+                        // placement helper and before spawning. Returning Vanilla's blocked value
+                        // leaves the frame scheduler intact, so other frame targets still run.
+                        pendingRepair = default;
+                        hasPendingRepair = false;
+                        context.MarkDelayBlockApplied(args.TileX, args.TileY);
+                        args.ReturnValue = 1;
+                        args.SkipOriginalFunction = true;
+                        return;
+                    }
+
+                    // A first AIV placement must retain both of Vanilla's freeOrForced variants.
+                    // Only a frame proven to have spawned this defense before receives the shared
+                    // mod radius; calls outside an AIV context are standing-building repairs.
+                    if (context != null &&
+                        (context.Source != "ExecuteBuildStep" || context.History == null ||
+                         !context.History.EverSpawnedDefense))
+                        return;
+
+                    if (settings.AIRepairEnemyProximity < 0)
+                        return;
+
                     pendingRepair = new RepairObservation(
                         args.PlayerId, args.TileX, args.TileY, args.Proximity, settings.AIRepairEnemyProximity);
                     hasPendingRepair = true;
@@ -218,6 +283,9 @@ namespace ExtraFeatures
                     args.Proximity = settings.AIRepairEnemyProximity;
                     return;
                 }
+
+                if (settings.AIRepairEnemyProximity < 0)
+                    return;
 
                 RepairObservation observation = pendingRepair;
                 bool hadPendingRepair = hasPendingRepair;
@@ -413,11 +481,12 @@ namespace ExtraFeatures
             }
 
             BuildStepHistory history;
+            BuildStepKey key;
             int delta;
             string classification;
             try
             {
-                var key = new BuildStepKey(playerId, frameIndex);
+                key = new BuildStepKey(playerId, frameIndex);
                 if (!buildStepHistory.TryGetValue(key, out history))
                 {
                     history = new BuildStepHistory();
@@ -450,7 +519,7 @@ namespace ExtraFeatures
                     reusableContext = null;
                 context.Reset(
                     "ExecuteBuildStep", playerId, frameIndex, restrictedMode, freeOrForced, now,
-                    history.Occurrences, delta, classification);
+                    history.Occurrences, delta, classification, key, history);
                 activeContext = context;
             }
             catch (Exception ex)
@@ -476,8 +545,22 @@ namespace ExtraFeatures
             {
                 if (context.Spawns.Count > 0)
                 {
+                    if (context.DelayBlocked)
+                    {
+                        Shared.DebugLogHelper.LogError(log,
+                            $"AI defense spawned despite an active rebuild-delay block: " +
+                            $"player={playerId}, frameIndex={frameIndex}, tick={SafeCurrentTick()}, " +
+                            $"delay={context.DescribeDelay()}. The timer is cleared because the target now exists.");
+                    }
                     history.EverSpawnedDefense = true;
                     history.ObservedSpawnCount += context.Spawns.Count;
+                    if (rebuildDelays.TryGetValue(key, out RebuildDelayState completedDelay))
+                    {
+                        rebuildDelays.Remove(key);
+                        LogInfo($"AI defense rebuild completed: player={playerId}, frameIndex={frameIndex}, " +
+                            $"firstDetectedTick={completedDelay.FirstDetectedTick}, completedTick={SafeCurrentTick()}, " +
+                            $"delaySeconds={settings.AITowerGateRebuildDelaySeconds}.");
+                    }
                 }
                 if (context.Attempts.Count > 0 || context.Spawns.Count > 0)
                     LogDefenseCall(context, result, history.ObservedSpawnCount);
@@ -516,6 +599,18 @@ namespace ExtraFeatures
                 LogFailure("AIV placement-coordinate diagnostic", ex);
             }
 
+            try
+            {
+                PrepareRebuildDelay(context, mapperValue, tileX, tileY);
+            }
+            catch (Exception ex)
+            {
+                // Delay diagnostics fail open. The placement call below still executes exactly
+                // once and no incomplete timer may replace Vanilla behavior.
+                context.ClearDelayBlock();
+                LogFailure("AIV rebuild-delay preparation", ex);
+            }
+
             int result = CallPlacement(placementStateAddress, playerId, offsetX, offsetY, mapperValue, orientation);
             try
             {
@@ -539,12 +634,16 @@ namespace ExtraFeatures
 
         private void OnBuildingSpawn(BuildingSpawnEventArgs args)
         {
-            if (args.Phase != EventHookPhase.Post || !mapActive || !IsDefenseType(args.Building))
+            if (args.Phase != EventHookPhase.Post || !IsDefenseType(args.Building))
                 return;
 
             try
             {
                 if (!IsAI(args.PlayerId))
+                    return;
+                if (TryCreateTargetKey(args.PlayerId, args.TileX, args.TileY, args.Building, out DefenseTargetKey target))
+                    observedDefenseTargets.Add(target);
+                if (!mapActive)
                     return;
                 int buildingId = unchecked((int)args.ReturnValue);
                 string description = $"type={args.Building},buildingId={buildingId},tile=({args.TileX},{args.TileY}),{DescribeBuilding(buildingId)}";
@@ -572,6 +671,150 @@ namespace ExtraFeatures
             return $"globalId={building->r_GlobalId},aliveState={building->r_AliveState},bounds=({building->r_TilePositionXBegin},{building->r_TilePositionYBegin})-({building->r_TilePositionXEnd},{building->r_TilePositionYEnd})";
         }
 
+        private void PrepareRebuildDelay(BuildStepContext context, short mapperValue, int tileX, int tileY)
+        {
+            if (context.Source != "ExecuteBuildStep" || context.History == null || tileX < 0 || tileY < 0 ||
+                !TryCreateTargetKey(context.PlayerId, tileX, tileY, mapperValue, out DefenseTargetKey target))
+                return;
+
+            context.SetPlacementTarget(tileX, tileY);
+            if (observedDefenseTargets.Contains(target))
+            {
+                context.History.EverSpawnedDefense = true;
+                context.MarkKnownRebuild();
+            }
+            if (!context.History.EverSpawnedDefense)
+                return; // The first placement of this AIV frame remains entirely Vanilla.
+
+            if (!settings.EnableMod || settings.AITowerGateRebuildDelaySeconds < 0)
+                return;
+
+            int delaySeconds = settings.AITowerGateRebuildDelaySeconds;
+            if (delaySeconds == 0)
+                return;
+
+            if (!rebuildDelays.TryGetValue(context.Key, out RebuildDelayState state))
+            {
+                state = new RebuildDelayState(context.Tick, target);
+                rebuildDelays.Add(context.Key, state);
+                LogInfo($"AI defense rebuild delay started: player={context.PlayerId}, " +
+                    $"frameIndex={context.FrameIndex}, target={target}, firstDetectedTick={context.Tick}, " +
+                    $"delaySeconds={settings.AITowerGateRebuildDelaySeconds}.");
+            }
+
+            int elapsed = ElapsedTicks(context.Tick, state.FirstDetectedTick);
+            long requiredTicks = (long)delaySeconds * TicksPerSecond;
+            if (elapsed >= requiredTicks)
+            {
+                context.MarkDelayReleased(target, state.FirstDetectedTick, elapsed, delaySeconds);
+                if (!state.ReleaseLogged)
+                {
+                    state.ReleaseLogged = true;
+                    LogInfo($"AI defense rebuild delay released: player={context.PlayerId}, " +
+                        $"frameIndex={context.FrameIndex}, target={target}, firstDetectedTick={state.FirstDetectedTick}, " +
+                        $"releaseTick={context.Tick}, elapsedTicks={elapsed}, delaySeconds={delaySeconds}.");
+                }
+                return;
+            }
+
+            context.MarkDelayBlocked(target, state.FirstDetectedTick, elapsed, delaySeconds);
+        }
+
+        private static bool TryCreateTargetKey(
+            int playerId, int tileX, int tileY, short mapperValue, out DefenseTargetKey target)
+        {
+            eMappers mapper = (eMappers)mapperValue;
+            if (mapper == eMappers.MAPPER_TOWER ||
+                ((int)mapper >= (int)eMappers.MAPPER_TOWER1 && (int)mapper <= (int)eMappers.MAPPER_TOWER5))
+            {
+                target = new DefenseTargetKey(playerId, tileX, tileY, DefenseFamily.Tower);
+                return true;
+            }
+            if (mapper == eMappers.MAPPER_GATEHOUSE || mapper == eMappers.MAPPER_GATE_MAIN ||
+                mapper == eMappers.MAPPER_GATE_INNER || mapper == eMappers.MAPPER_GATE_WOOD ||
+                mapper == eMappers.MAPPER_GATE_POSTERN || mapper == eMappers.MAPPER_DRAWBRIDGE ||
+                ((int)mapper >= (int)eMappers.MAPPER_GATE_WOOD1A && (int)mapper <= (int)eMappers.MAPPER_GATE_STONE2B))
+            {
+                target = new DefenseTargetKey(playerId, tileX, tileY, DefenseFamily.Gate);
+                return true;
+            }
+            target = default;
+            return false;
+        }
+
+        private static bool TryCreateTargetKey(
+            int playerId, int tileX, int tileY, eStructs type, out DefenseTargetKey target)
+        {
+            if (type == eStructs.STRUCT_TOWER ||
+                ((int)type >= (int)eStructs.STRUCT_TOWER1 && (int)type <= (int)eStructs.STRUCT_TOWER5) ||
+                IsTowerRuin(type))
+            {
+                target = new DefenseTargetKey(playerId, tileX, tileY, DefenseFamily.Tower);
+                return true;
+            }
+            if (type == eStructs.STRUCT_GATEHOUSE || type == eStructs.STRUCT_GATE_MAIN ||
+                type == eStructs.STRUCT_GATE_INNER || type == eStructs.STRUCT_GATE_WOOD ||
+                type == eStructs.STRUCT_GATE_POSTERN || type == eStructs.STRUCT_DRAWBRIDGE)
+            {
+                target = new DefenseTargetKey(playerId, tileX, tileY, DefenseFamily.Gate);
+                return true;
+            }
+            target = default;
+            return false;
+        }
+
+        private void TryRegisterTowerRuinDeletionGuard()
+        {
+            Type pluginType = Type.GetType(
+                "BugfixesAndQoL.BugfixesAndQoLPlugin, BugfixesAndQoL",
+                throwOnError: false);
+            if (pluginType == null)
+                return;
+
+            MethodInfo register = pluginType.GetMethod(
+                "TryRegisterTowerRuinDeletionGuard",
+                BindingFlags.Public | BindingFlags.Static,
+                binder: null,
+                types: new[] { typeof(Func<int, int, int, bool>) },
+                modifiers: null);
+            if (register == null)
+                throw new MissingMethodException(pluginType.FullName, "TryRegisterTowerRuinDeletionGuard");
+
+            var guard = new Func<int, int, int, bool>(AllowTowerRuinDeletion);
+            if (!(register.Invoke(null, new object[] { guard }) is bool registered) || !registered)
+                throw new InvalidOperationException("BugfixesAndQoL rejected the tower-ruin deletion guard registration.");
+
+            LogInfo("AI defense rebuild timing registered its delay/proximity guard with the tower-ruin fix.");
+        }
+
+        private bool AllowTowerRuinDeletion(int playerId, int tileId, int mapperValue)
+        {
+            if (!mapActive || !settings.EnableMod)
+                return true;
+
+            BuildStepContext context = activeContext;
+            bool hasRelevantRule = settings.AITowerGateRebuildDelaySeconds >= 0 ||
+                settings.AIRepairEnemyProximity >= 0;
+            if (context == null || context.Source != "ExecuteBuildStep" || context.PlayerId != playerId ||
+                context.History == null || !context.History.EverSpawnedDefense || !context.HasPlacementTarget)
+                return !hasRelevantRule; // Fail closed only for this optional ruin mutation.
+
+            if (context.DelayBlocked)
+                return false;
+            if (settings.AIRepairEnemyProximity < 0)
+                return true;
+
+            // The first parameter is unused in the audited native function. Calling the Script
+            // Extender wrapper preserves all event observers and the configured shared radius.
+            return BulkBuildingDetours.c_game_allow_repair_for_building_proximity_hook_impl(
+                IntPtr.Zero,
+                playerId,
+                context.PlacementTargetX,
+                context.PlacementTargetY,
+                settings.AIRepairEnemyProximity,
+                0) == 0;
+        }
+
         private void LogDefenseCall(BuildStepContext context, int result, int observedSpawnTotal)
         {
             var text = new StringBuilder();
@@ -594,7 +837,7 @@ namespace ExtraFeatures
                 $"targetDeltaTicks={context.DeltaTicks}, restrictedMode={context.RestrictedMode}, " +
                 $"freeOrForced={context.FreeOrForced}, buildResult={result}, attempts={context.Attempts.Count}, " +
                 $"[{text}], spawns={context.Spawns.Count} [{spawns}], " +
-                $"targetObservedSpawnTotal={observedSpawnTotal}.");
+                $"targetObservedSpawnTotal={observedSpawnTotal}, delay={context.DescribeDelay()}.");
         }
 
         private void LogFailure(string callback, Exception ex)
@@ -652,12 +895,27 @@ namespace ExtraFeatures
             internal int Occurrence { get; private set; }
             internal int DeltaTicks { get; private set; }
             internal string Classification { get; private set; }
+            internal BuildStepKey Key { get; private set; }
+            internal BuildStepHistory History { get; private set; }
+            internal bool DelayBlocked { get; private set; }
+            internal bool HasPlacementTarget { get; private set; }
+            internal int PlacementTargetX { get; private set; }
+            internal int PlacementTargetY { get; private set; }
+            private bool delayReleased;
+            private bool delayBlockApplied;
+            private int delayQueryX;
+            private int delayQueryY;
+            private int delayFirstTick;
+            private int delayElapsedTicks;
+            private int delaySeconds;
+            private DefenseTargetKey delayTarget;
             internal List<PlacementAttempt> Attempts { get; } = new List<PlacementAttempt>(4);
             internal List<string> Spawns { get; } = new List<string>(2);
 
             internal void Reset(
                 string source, int playerId, int frameIndex, int restrictedMode, byte freeOrForced,
-                int tick, int occurrence, int deltaTicks, string classification)
+                int tick, int occurrence, int deltaTicks, string classification,
+                BuildStepKey key = default, BuildStepHistory history = null)
             {
                 Source = source;
                 PlayerId = playerId;
@@ -668,8 +926,86 @@ namespace ExtraFeatures
                 Occurrence = occurrence;
                 DeltaTicks = deltaTicks;
                 Classification = classification;
+                Key = key;
+                History = history;
+                HasPlacementTarget = false;
+                PlacementTargetX = int.MinValue;
+                PlacementTargetY = int.MinValue;
+                ClearDelayBlock();
                 Attempts.Clear();
                 Spawns.Clear();
+            }
+
+            internal void MarkKnownRebuild()
+            {
+                if (Classification == "first-observed-attempt" || Classification == "retry-without-observed-spawn")
+                    Classification = "rebuild-after-map-observed-defense";
+            }
+
+            internal void SetPlacementTarget(int x, int y)
+            {
+                HasPlacementTarget = true;
+                PlacementTargetX = x;
+                PlacementTargetY = y;
+            }
+
+            internal void MarkDelayBlocked(
+                DefenseTargetKey target, int firstTick, int elapsedTicks, int configuredSeconds)
+            {
+                delayTarget = target;
+                delayFirstTick = firstTick;
+                delayElapsedTicks = elapsedTicks;
+                delaySeconds = configuredSeconds;
+                DelayBlocked = true;
+                delayReleased = false;
+                delayBlockApplied = false;
+                delayQueryX = int.MinValue;
+                delayQueryY = int.MinValue;
+            }
+
+            internal void MarkDelayReleased(
+                DefenseTargetKey target, int firstTick, int elapsedTicks, int configuredSeconds)
+            {
+                delayTarget = target;
+                delayFirstTick = firstTick;
+                delayElapsedTicks = elapsedTicks;
+                delaySeconds = configuredSeconds;
+                DelayBlocked = false;
+                delayReleased = true;
+                delayBlockApplied = false;
+            }
+
+            internal void MarkDelayBlockApplied(int queryX, int queryY)
+            {
+                delayBlockApplied = true;
+                delayQueryX = queryX;
+                delayQueryY = queryY;
+            }
+
+            internal void ClearDelayBlock()
+            {
+                DelayBlocked = false;
+                delayReleased = false;
+                delayBlockApplied = false;
+                delayQueryX = int.MinValue;
+                delayQueryY = int.MinValue;
+                delayFirstTick = -1;
+                delayElapsedTicks = -1;
+                delaySeconds = -1;
+                delayTarget = default;
+            }
+
+            internal string DescribeDelay()
+            {
+                if (DelayBlocked)
+                {
+                    string query = delayBlockApplied ? $"({delayQueryX},{delayQueryY})" : "not-observed";
+                    return $"blocked,target={delayTarget},firstTick={delayFirstTick},elapsedTicks={delayElapsedTicks}," +
+                        $"seconds={delaySeconds},nativeBlockApplied={delayBlockApplied},query={query}";
+                }
+                if (delayReleased)
+                    return $"released,target={delayTarget},firstTick={delayFirstTick},elapsedTicks={delayElapsedTicks},seconds={delaySeconds}";
+                return "vanilla";
             }
         }
 
@@ -679,6 +1015,15 @@ namespace ExtraFeatures
             internal int Occurrences;
             internal bool EverSpawnedDefense;
             internal int ObservedSpawnCount;
+        }
+
+        private sealed class RebuildDelayState
+        {
+            internal RebuildDelayState(int firstDetectedTick, DefenseTargetKey target)
+            { FirstDetectedTick = firstDetectedTick; Target = target; }
+            internal int FirstDetectedTick { get; }
+            internal DefenseTargetKey Target { get; }
+            internal bool ReleaseLogged { get; set; }
         }
 
         private sealed class RepairPlayerDiagnostics
@@ -807,6 +1152,36 @@ namespace ExtraFeatures
             {
                 unchecked { return (PlayerId * 397) ^ FrameIndex; }
             }
+        }
+
+        private enum DefenseFamily : byte
+        {
+            Tower = 1,
+            Gate = 2
+        }
+
+        private readonly struct DefenseTargetKey : IEquatable<DefenseTargetKey>
+        {
+            internal DefenseTargetKey(int playerId, int x, int y, DefenseFamily family)
+            { PlayerId = playerId; X = x; Y = y; Family = family; }
+            private int PlayerId { get; }
+            private int X { get; }
+            private int Y { get; }
+            private DefenseFamily Family { get; }
+            public bool Equals(DefenseTargetKey other) =>
+                PlayerId == other.PlayerId && X == other.X && Y == other.Y && Family == other.Family;
+            public override bool Equals(object obj) => obj is DefenseTargetKey other && Equals(other);
+            public override int GetHashCode()
+            {
+                unchecked
+                {
+                    int hash = PlayerId;
+                    hash = (hash * 397) ^ X;
+                    hash = (hash * 397) ^ Y;
+                    return (hash * 397) ^ (int)Family;
+                }
+            }
+            public override string ToString() => $"{Family}@({X},{Y})";
         }
 
         private readonly struct RepairObservation
